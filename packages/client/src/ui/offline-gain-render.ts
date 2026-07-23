@@ -24,7 +24,7 @@ export function renderOfflineGainReport(report: OfflineGainReportView): string {
   ].filter(Boolean).join('');
   const empty = sections
     ? ''
-    : '<div class="ui-empty-hint compact">本次没有收支变化</div>';
+    : '<div class="empty-hint compact">本次没有收支变化</div>';
   return `
     <section class="offline-gain-report">
       <div class="offline-gain-summary">

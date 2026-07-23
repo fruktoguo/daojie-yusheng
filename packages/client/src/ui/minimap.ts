@@ -2001,7 +2001,7 @@ export class Minimap {
   /** createConfirmActions：创建确认动作容器。 */
   private createConfirmActions(): HTMLElement {
     const actions = document.createElement('div');
-    actions.className = 'tech-modal-actions ui-modal-footer-actions';
+    actions.className = 'ui-modal-footer-actions';
     return actions;
   }
 

@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { readPanelsCss } from './read-panels-css.mjs';
 
 const require = createRequire(import.meta.url);
 const ts = require('typescript');
@@ -21,10 +22,7 @@ const i18nSource = fs.readFileSync(
   path.join(clientRoot, 'src/content/i18n/zh-CN.csv'),
   'utf8',
 );
-const panelsStyleSource = fs.readFileSync(
-  path.join(clientRoot, 'src/styles/panels.css'),
-  'utf8',
-);
+const panelsStyleSource = readPanelsCss(clientRoot);
 const actionConstantsSource = fs.readFileSync(
   path.join(clientRoot, 'src/constants/ui/action.ts'),
   'utf8',

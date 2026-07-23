@@ -348,11 +348,11 @@ const QuestLineTabs = memo(function QuestLineTabs({
   onTabClick: (line: QuestState['line']) => void;
 }) {
   return (
-    <div className="quest-subtabs ui-subtabs" role="tablist">
+    <div className="ui-subtabs" role="tablist">
       {LINE_ORDER.map((line) => (
         <button
           key={line}
-          className={`quest-subtab-btn ui-subtab-btn${activeLine === line ? ' active' : ''}`}
+          className={`ui-subtab-btn${activeLine === line ? ' active' : ''}`}
           type="button"
           role="tab"
           data-quest-line={line}

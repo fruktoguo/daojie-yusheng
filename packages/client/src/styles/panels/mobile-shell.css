@@ -1,0 +1,93 @@
+/* panels.css 拆分：移动端 UI 壳与 tab bar。 */
+/* 由 scripts 拆分自原 styles/panels.css，规则顺序与原文件保持一致。 */
+
+    #mobile-ui-shell {
+      display: none;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      background: var(--panel-shell-bg);
+      border: var(--panel-frame-border);
+      box-shadow: var(--panel-shell-shadow);
+    }
+
+    .mobile-ui-tab-bar {
+      display: flex;
+      gap: 8px;
+      padding: 10px;
+      border-bottom: 1px solid var(--wash-ink);
+      background: var(--panel-tab-bar-bg);
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scrollbar-width: none;
+    }
+
+    .mobile-ui-tab-bar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .mobile-ui-tab-btn {
+      flex: 0 0 auto;
+      min-width: 70px;
+      padding: 10px 12px;
+      border: 1px solid var(--wash-ink);
+      border-right: 1px solid var(--wash-ink);
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .mobile-ui-content {
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .mobile-ui-pane {
+      display: none;
+      min-height: 0;
+      flex: 1 1 auto;
+      overflow: hidden;
+      padding: 0;
+    }
+
+    .mobile-ui-pane.active {
+      display: flex;
+    }
+
+    .mobile-ui-pane > .layout-section {
+      flex: 1 1 auto;
+      min-height: 0;
+      border: none;
+      box-shadow: none;
+    }
+
+
+    /* 手机端由行囊面板外层统一承接纵向手势，避免被裁切的内层列表抢占滚动。 */
+    .mobile-ui-pane #pane-social .social-panel {
+      grid-template-rows: auto auto auto;
+      height: auto;
+      min-height: 100%;
+    }
+
+    .mobile-ui-pane #pane-social .social-panel-tab-content {
+      overflow: visible;
+    }
+
+    .mobile-ui-pane #pane-social .social-panel-tab-pane {
+      height: auto;
+      min-height: 280px;
+    }
+
+    .mobile-ui-pane #pane-social .social-conversation-contacts {
+      max-height: none;
+    }
+
+    .mobile-ui-pane #pane-social .social-panel-tab-pane > .ui-list,
+
+    .mobile-ui-pane #pane-social .social-conversation-peer-list,
+
+    .mobile-ui-pane #pane-social .social-message-list {
+      max-height: none;
+      overflow-y: visible;
+    }

@@ -1,0 +1,903 @@
+/* panels.css 拆分：背包面板。 */
+/* 由 scripts 拆分自原 styles/panels.css，规则顺序与原文件保持一致。 */
+
+
+    /* 背包格子 */
+    .inventory-panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 10px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .inventory-panel-head .panel-section-title {
+      margin-bottom: 0;
+    }
+
+    .inventory-panel-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .inventory-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+      gap: 6px;
+    }
+
+    .inventory-load-hint {
+      padding: 10px 0 2px;
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+      text-align: center;
+    }
+
+    .inventory-pagination {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 8px;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .inventory-pagination[hidden] {
+      display: none;
+    }
+
+    .inventory-pagination-status {
+      min-width: 150px;
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .inventory-search-input {
+      width: min(220px, 100%);
+      min-width: 140px;
+      height: 30px;
+      padding: 4px 10px;
+      border: 1px solid rgba(34, 26, 19, 0.16);
+      background: var(--surface-muted-strong);
+      color: var(--ink-black);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-12);
+      outline: none;
+    }
+
+    .detail-modal-card.detail-modal--inventory-bulk-discard {
+      width: min(720px, calc(100vw - 24px));
+      max-height: min(78dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap) * 2)));
+    }
+
+    .detail-modal-card.detail-modal--inventory-bulk-discard #detail-modal-body {
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .inventory-bulk-discard,
+
+    .inventory-bulk-discard-confirm {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 0;
+    }
+
+    .inventory-bulk-discard-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .inventory-bulk-discard-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+    }
+
+    .inventory-bulk-discard-tools {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+
+    .inventory-bulk-discard-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 6px;
+      max-height: min(46dvh, 420px);
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .inventory-bulk-discard-list--confirm {
+      max-height: min(36dvh, 320px);
+    }
+
+    .inventory-bulk-discard-row {
+      display: grid;
+      grid-template-columns: 20px minmax(0, 1fr);
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      min-height: 44px;
+      padding: 5px 8px;
+      border: 1px solid var(--wash-ink);
+      background: var(--surface-muted);
+      color: var(--ink-black);
+      font: inherit;
+      font-size: var(--font-size-12);
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .inventory-bulk-discard-row.selected {
+      border-color: rgba(139, 48, 35, 0.52);
+      background: color-mix(in srgb, var(--surface-hover) 78%, rgba(139, 48, 35, 0.12));
+    }
+
+    .inventory-bulk-discard-check {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border: 1px solid rgba(34, 26, 19, 0.24);
+      background: rgba(255,255,255,0.42);
+      color: var(--stamp-red);
+      font-size: var(--font-size-12);
+      font-weight: var(--font-weight-strong);
+      line-height: 1;
+    }
+
+    .inventory-bulk-discard-info {
+      display: grid;
+      min-width: 0;
+      gap: 3px;
+    }
+
+    .inventory-bulk-discard-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .inventory-bulk-discard-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 8px;
+      color: var(--ink-grey);
+      font-size: var(--font-size-11);
+      line-height: 1.2;
+    }
+
+    .inventory-bulk-discard-meta span {
+      white-space: nowrap;
+    }
+
+    .inventory-bulk-discard-warning {
+      padding: 8px 10px;
+      border: 1px solid rgba(139, 48, 35, 0.22);
+      background: rgba(139, 48, 35, 0.08);
+      color: var(--stamp-red);
+      font-size: var(--font-size-13);
+      line-height: 1.5;
+    }
+
+    .inventory-bulk-discard-actions {
+      justify-content: flex-end;
+      margin-top: 2px;
+    }
+
+    .inventory-search-input:focus {
+      border-color: rgba(139, 48, 35, 0.42);
+      background: var(--surface-hover);
+    }
+
+    .inventory-cell {
+      display: grid;
+      grid-template-rows: 14px minmax(30px, 1fr);
+      gap: 2px;
+      min-height: 74px;
+      width: 100%;
+      padding: 8px 8px 14px;
+      border: 1px solid var(--wash-ink);
+      border-radius: var(--radius-md);
+      background: var(--surface-gradient-entry);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.5);
+      transition: transform var(--motion-base) var(--ease-standard), box-shadow var(--motion-base) var(--ease-standard), border-color var(--motion-base) var(--ease-standard);
+      text-align: left;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
+    }
+
+    .inventory-cell > * {
+      position: relative;
+      z-index: 2;
+    }
+
+    .inventory-cell--grade {
+      border-color: var(--inventory-grade-border);
+      box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,0.5),
+        inset 0 0 0 1px color-mix(in srgb, var(--inventory-grade-border) 82%, rgba(255,255,255,0.18)),
+        0 0 0 1px rgba(var(--inventory-grade-rgb), 0.08);
+    }
+
+    .inventory-cell--grade::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: 10px;
+      background:
+        linear-gradient(180deg, rgba(var(--inventory-grade-rgb), 0.24), rgba(var(--inventory-grade-rgb), 0.06) 64%, rgba(var(--inventory-grade-rgb), 0) 100%) top / 100% 28px no-repeat,
+        linear-gradient(0deg, rgba(var(--inventory-grade-rgb), 0.18), rgba(var(--inventory-grade-rgb), 0.04) 62%, rgba(var(--inventory-grade-rgb), 0) 100%) bottom / 100% 24px no-repeat;
+      opacity: 0.94;
+      z-index: 0;
+    }
+
+    .inventory-cell--grade::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: 9px;
+      box-shadow:
+        inset 0 0 14px rgba(var(--inventory-grade-rgb), 0.12),
+        inset 0 0 24px rgba(var(--inventory-grade-rgb), 0.06);
+      z-index: 1;
+    }
+
+    .inventory-cell--grade-mortal {
+      --inventory-grade-border: rgba(139, 143, 149, 0.7);
+      --inventory-grade-rgb: 139, 143, 149;
+    }
+
+    .inventory-cell--grade-yellow {
+      --inventory-grade-border: rgba(69, 179, 107, 0.72);
+      --inventory-grade-rgb: 69, 179, 107;
+    }
+
+    .inventory-cell--grade-mystic {
+      --inventory-grade-border: rgba(79, 143, 216, 0.74);
+      --inventory-grade-rgb: 79, 143, 216;
+    }
+
+    .inventory-cell--grade-earth {
+      --inventory-grade-border: rgba(123, 97, 209, 0.74);
+      --inventory-grade-rgb: 123, 97, 209;
+    }
+
+    .inventory-cell--grade-heaven {
+      --inventory-grade-border: rgba(226, 138, 46, 0.76);
+      --inventory-grade-rgb: 226, 138, 46;
+    }
+
+    .inventory-cell--grade-spirit {
+      --inventory-grade-border: rgba(37, 184, 216, 0.76);
+      --inventory-grade-rgb: 37, 184, 216;
+    }
+
+    .inventory-cell--grade-saint {
+      --inventory-grade-border: rgba(217, 74, 74, 0.78);
+      --inventory-grade-rgb: 217, 74, 74;
+    }
+
+    .inventory-cell--grade-emperor {
+      --inventory-grade-border: rgba(236, 86, 72, 0.82);
+      --inventory-grade-rgb: 236, 86, 72;
+    }
+
+    .inventory-cell--grade-emperor::before {
+      background:
+        linear-gradient(115deg, rgba(236, 86, 72, 0.3), rgba(229, 151, 43, 0.25) 18%, rgba(227, 204, 63, 0.22) 34%, rgba(69, 179, 107, 0.24) 50%, rgba(37, 184, 216, 0.25) 66%, rgba(123, 97, 209, 0.27) 82%, rgba(210, 79, 183, 0.3)),
+        linear-gradient(180deg, rgba(var(--inventory-grade-rgb), 0.14), rgba(var(--inventory-grade-rgb), 0) 68%) top / 100% 28px no-repeat,
+        linear-gradient(0deg, rgba(var(--inventory-grade-rgb), 0.1), rgba(var(--inventory-grade-rgb), 0) 66%) bottom / 100% 24px no-repeat;
+      opacity: 0.96;
+    }
+
+    @media (hover: hover) {
+      .inventory-cell:hover {
+        transform: translateY(-1px);
+        border-color: color-mix(in srgb, var(--inventory-grade-border, rgba(0,0,0,0.15)) 74%, rgba(0,0,0,0.12));
+        box-shadow:
+          inset 0 0 0 1px rgba(255,255,255,0.65),
+          inset 0 0 0 1px color-mix(in srgb, var(--inventory-grade-border, transparent) 82%, transparent),
+          0 8px 18px rgba(0,0,0,0.08),
+          0 0 20px rgba(var(--inventory-grade-rgb, 94, 94, 94), 0.1);
+      }
+
+      .inventory-cell--actionable:hover {
+        border-color: color-mix(in srgb, var(--inventory-grade-border, rgba(139, 48, 35, 0.42)) 70%, var(--stamp-red));
+        box-shadow:
+          inset 0 0 0 1px rgba(255,255,255,0.68),
+          inset 0 0 0 1px color-mix(in srgb, var(--inventory-grade-border, transparent) 88%, transparent),
+          0 8px 20px rgba(0,0,0,0.1),
+          0 0 0 2px rgba(139, 48, 35, 0.08),
+          0 0 24px rgba(var(--inventory-grade-rgb, 94, 94, 94), 0.16);
+      }
+    }
+
+    .inventory-cell--actionable:focus-within {
+      border-color: color-mix(in srgb, var(--inventory-grade-border, rgba(139, 48, 35, 0.42)) 70%, var(--stamp-red));
+      box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,0.68),
+        inset 0 0 0 1px color-mix(in srgb, var(--inventory-grade-border, transparent) 88%, transparent),
+        0 8px 20px rgba(0,0,0,0.1),
+        0 0 0 2px rgba(139, 48, 35, 0.08),
+        0 0 24px rgba(var(--inventory-grade-rgb, 94, 94, 94), 0.16);
+    }
+
+    .inventory-cell:active {
+      transform: translateY(0) scale(0.98);
+    }
+
+    .inventory-cell-action-hint {
+      position: absolute;
+      left: 50%;
+      top: 5px;
+      z-index: 5;
+      max-width: none;
+      min-width: max-content;
+      padding: 3px 8px 4px;
+      border: 1px solid color-mix(in srgb, var(--inventory-grade-border, rgba(139, 48, 35, 0.46)) 70%, rgba(255,255,255,0.2));
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--paper-light) 84%, rgba(var(--inventory-grade-rgb, 139, 48, 35), 0.16));
+      color: color-mix(in srgb, var(--stamp-red) 76%, var(--ink-black));
+      box-shadow:
+        0 6px 16px rgba(0,0,0,0.12),
+        0 0 18px rgba(var(--inventory-grade-rgb, 139, 48, 35), 0.18);
+      font-size: var(--font-size-11);
+      font-weight: var(--font-weight-strong);
+      line-height: 1.1;
+      white-space: nowrap;
+      overflow: visible;
+      text-overflow: clip;
+      pointer-events: none;
+      opacity: 0;
+      transform: translate(-50%, -2px) scale(0.96);
+      transition: opacity 0.14s ease, transform 0.14s ease;
+    }
+
+    .inventory-cell-action-hint[hidden] {
+      display: none;
+    }
+
+    .inventory-cell--actionable:hover .inventory-cell-action-hint,
+
+    .inventory-cell--actionable:focus-within .inventory-cell-action-hint {
+      opacity: 1;
+      transform: translate(-50%, 0) scale(1);
+    }
+
+    .inventory-cell--cooldown {
+      border-color: color-mix(in srgb, var(--inventory-grade-border, rgba(94, 94, 94, 0.56)) 54%, rgba(139, 48, 35, 0.38));
+    }
+
+    .inventory-cell-cooldown {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      z-index: 4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 42px;
+      height: 42px;
+      transform: translate(-50%, -56%);
+      pointer-events: none;
+    }
+
+    .inventory-cell-cooldown[hidden] {
+      display: none;
+    }
+
+    .inventory-cell-cooldown-pie {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      border: 1px solid rgba(46, 32, 22, 0.18);
+      background:
+        conic-gradient(
+          from -90deg,
+          rgba(56, 38, 27, 0.8) calc(var(--inventory-cooldown-progress, 0) * 1turn),
+          rgba(56, 38, 27, 0.12) 0turn
+        );
+      box-shadow:
+        0 4px 12px rgba(0, 0, 0, 0.14),
+        inset 0 1px 0 rgba(255,255,255,0.25);
+      opacity: 0.92;
+    }
+
+    .inventory-cell-cooldown-label {
+      position: relative;
+      z-index: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 24px;
+      height: 24px;
+      padding: 0 5px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--paper-light) 88%, rgba(56, 38, 27, 0.18));
+      color: var(--stamp-red);
+      font-size: var(--font-size-11);
+      font-weight: var(--font-weight-strong);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
+    }
+
+    .inventory-cell-head {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      position: static;
+      min-height: 14px;
+    }
+
+    .inventory-cell-type {
+      position: absolute;
+      top: 4px;
+      left: -31px;
+      z-index: 3;
+      width: 86px;
+      padding: 2px 0;
+      background: color-mix(in srgb, rgba(var(--inventory-grade-rgb, 94, 94, 94), 0.9) 72%, var(--ink-black));
+      color: var(--ribbon-ink);
+      font-size: 9px;
+      font-weight: var(--font-weight-strong);
+      line-height: 1.1;
+      letter-spacing: 0.08em;
+      text-align: center;
+      text-transform: uppercase;
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      pointer-events: none;
+      transform: rotate(-45deg);
+    }
+
+    .inventory-cell-type[hidden] {
+      display: none;
+    }
+
+    .inventory-cell-learned-ribbon {
+      position: absolute;
+      top: 25px;
+      left: -32px;
+      z-index: 4;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 122px;
+      height: 18px;
+      padding: 0;
+      background: color-mix(in srgb, rgba(72, 72, 72, 0.68) 72%, var(--ink-black));
+      color: rgba(248, 242, 232, 0.96);
+      font-size: 10px;
+      font-weight: 900;
+      line-height: 18px;
+      letter-spacing: 0.04em;
+      text-align: center;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      pointer-events: none;
+      transform: rotate(-45deg) translateY(-0.5px);
+    }
+
+    .inventory-cell-learned-ribbon[hidden] {
+      display: none;
+    }
+
+    .inventory-cell-grade-line {
+      display: none;
+      min-width: 0;
+      min-height: 12px;
+      color: color-mix(in srgb, var(--inventory-grade-border, rgba(94, 94, 94, 0.56)) 72%, var(--ink-grey));
+      font-size: var(--font-size-10);
+      line-height: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .inventory-cell[data-item-grade-line-visible="true"] .inventory-cell-grade-line {
+      display: block;
+    }
+
+    .inventory-cell-grade-line[hidden] {
+      display: none;
+    }
+
+    .inventory-cell-count {
+      position: absolute;
+      right: 4px;
+      bottom: 3px;
+      z-index: 3;
+      max-width: none;
+      min-width: max-content;
+      padding: 1px 5px 2px;
+      border: 1px solid rgba(34, 26, 19, 0.12);
+      background: color-mix(in srgb, var(--paper-light) 84%, rgba(255,255,255,0.2));
+      box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+      font-size: var(--font-size-11);
+      font-weight: var(--font-weight-strong);
+      color: var(--ink-black);
+      min-width: 0;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+      white-space: nowrap;
+      overflow: visible;
+      text-overflow: clip;
+      pointer-events: none;
+    }
+
+    .inventory-cell-name {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-13);
+      line-height: 1.2;
+      color: var(--ink-black);
+      letter-spacing: 0;
+      width: 100%;
+      min-height: 30px;
+      max-height: 30px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .inventory-cell-name--compact {
+      font-size: var(--font-size-13);
+    }
+
+    .inventory-cell-name--tiny {
+      font-size: var(--font-size-12);
+    }
+
+    @media (max-width: 560px) {
+      .sect-founding-actions .inventory-detail-actions-group {
+        justify-content: stretch;
+        margin-left: 0;
+      }
+    }
+
+    .inventory-detail-grid {
+      margin-bottom: 4px;
+    }
+
+    .inventory-technique-book-detail,
+
+    .inventory-technique-book-summary,
+
+    .inventory-technique-skill-detail,
+
+    .inventory-technique-skill-lines,
+
+    .inventory-technique-buff-list,
+
+    .inventory-technique-buff-detail {
+      display: grid;
+      min-width: 0;
+    }
+
+    .inventory-technique-book-detail {
+      gap: 10px;
+    }
+
+    .inventory-technique-book-summary,
+
+    .inventory-technique-skill-lines {
+      gap: 4px;
+    }
+
+    .inventory-technique-book-summary-line,
+
+    .inventory-technique-skill-line,
+
+    .inventory-technique-buff-detail > span {
+      overflow-wrap: anywhere;
+      line-height: 1.55;
+    }
+
+    .inventory-technique-skill-detail {
+      gap: 6px;
+      padding-top: 10px;
+      border-top: 1px solid color-mix(in srgb, var(--panel-border) 68%, transparent);
+    }
+
+    .inventory-technique-skill-title {
+      color: var(--ink-black);
+      font-size: var(--font-size-role-body-14);
+    }
+
+    .inventory-technique-buff-list {
+      gap: 6px;
+    }
+
+    .inventory-technique-buff-detail {
+      gap: 3px;
+      padding-left: 10px;
+      border-left: 3px solid rgba(69, 147, 93, 0.72);
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+    }
+
+    .inventory-technique-buff-detail.debuff {
+      border-left-color: rgba(176, 68, 49, 0.72);
+    }
+
+    .inventory-technique-buff-head {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--ink-black);
+    }
+
+    .inventory-technique-buff-mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: var(--ink-black);
+      color: var(--paper-white);
+      font-size: var(--font-size-11);
+      line-height: 1;
+    }
+
+    .inventory-source-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .inventory-source-list--compact {
+      display: flex;
+      width: 100%;
+      margin-top: 4px;
+      gap: 4px;
+    }
+
+    .inventory-source-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .inventory-source-list--compact .inventory-source-row {
+      gap: 4px;
+    }
+
+    .inventory-source-detail,
+
+    .inventory-source-empty,
+
+    .inventory-source-note {
+      line-height: 1.7;
+      word-break: break-word;
+    }
+
+    .inventory-source-note {
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+    }
+
+    .inventory-source-detail {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .inventory-source-link-wrap {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      flex: 0 0 auto;
+    }
+
+    .inventory-source-link-label {
+      font-size: 10px;
+      line-height: 1;
+      color: var(--ink-grey);
+      white-space: nowrap;
+    }
+
+    .inventory-source-link {
+      display: inline-block;
+      width: 16px;
+      height: 1px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--ink-grey) 72%, transparent);
+      flex: 0 0 auto;
+    }
+
+    .inventory-source-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: var(--font-size-12);
+      line-height: 1.45;
+      border: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
+      background: color-mix(in srgb, var(--paper) 86%, transparent);
+      color: var(--ink-black);
+    }
+
+    .inventory-source-chip--map {
+      background: rgba(98, 145, 224, 0.2);
+      border-color: rgba(98, 145, 224, 0.42);
+    }
+
+    .inventory-source-chip--monster {
+      background: rgba(206, 92, 92, 0.2);
+      border-color: rgba(206, 92, 92, 0.42);
+    }
+
+    .inventory-source-chip--quest {
+      background: rgba(151, 112, 214, 0.2);
+      border-color: rgba(151, 112, 214, 0.42);
+    }
+
+    .inventory-source-chip--shop {
+      background: rgba(214, 156, 82, 0.2);
+      border-color: rgba(214, 156, 82, 0.42);
+    }
+
+    .inventory-source-chip--location {
+      background: rgba(112, 182, 128, 0.2);
+      border-color: rgba(112, 182, 128, 0.42);
+    }
+
+    .inventory-source-chip--mining {
+      background: rgba(82, 168, 168, 0.2);
+      border-color: rgba(82, 168, 168, 0.42);
+    }
+
+    .inventory-source-list--compact .inventory-source-chip {
+      min-height: 24px;
+      padding: 3px 8px;
+      font-size: var(--font-size-11);
+    }
+
+    .inventory-source-list--compact .inventory-source-link {
+      width: 12px;
+    }
+
+    .inventory-source-list--compact .inventory-source-link-label {
+      font-size: 9px;
+    }
+
+    .inventory-source-block {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .inventory-source-section {
+      margin-top: 2px;
+      padding-top: 8px;
+      border-top: 1px solid color-mix(in srgb, var(--panel-border) 60%, transparent);
+    }
+
+    .inventory-source-toggle {
+      margin-top: 8px;
+      align-self: flex-start;
+    }
+
+    .inventory-batch-use-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .inventory-batch-use-row--dialog {
+      margin-top: 4px;
+    }
+
+    .inventory-batch-use-row .gm-inline-input {
+      width: auto;
+      min-width: calc(5ch + 18px);
+    }
+
+    .inventory-batch-use-hint {
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+    }
+
+    .inventory-detail-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    .inventory-detail-actions-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .inventory-detail-actions-group--right {
+      justify-content: flex-end;
+      margin-left: auto;
+    }
+
+    .inventory-detail-actions-group--stretch {
+      width: 100%;
+    }
+
+    .inventory-detail-actions .small-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 84px;
+      min-height: 32px;
+      padding: 4px 10px;
+    }
+
+    .transmission-consign-item .inventory-cell-type {
+      max-width: calc(100% - 36px);
+    }
+
+    .technique-refining-book-grid .inventory-cell-name {
+      min-height: 40px;
+      max-height: none;
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
+    }
+
+    .enhancement-picker-grid.inventory-grid {
+      grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+    }
+
+    .enhancement-picker-cell .inventory-cell-name {
+      color: var(--ink-black);
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-14);
+      line-height: 1.4;
+    }
+
+    :root[data-color-mode="dark"] .enhancement-picker-cell .inventory-cell-name {
+      color: rgba(248, 238, 219, 0.96);
+    }
+
+    :root[data-color-mode="dark"] .enhancement-picker-cell .inventory-cell-type,
+
+    :root[data-color-mode="dark"] .enhancement-picker-cell .inventory-cell-count {
+      color: rgba(235, 221, 201, 0.78);
+    }

@@ -13,7 +13,6 @@
     grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   }
 
-  .quest-subtabs,
   .ui-subtabs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -55,15 +54,13 @@
 }
 }
 
-html[data-effective-layout-breakpoint="wide"] .quest-subtabs,
 html[data-effective-layout-breakpoint="wide"] .ui-subtabs {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 @media (pointer: coarse) {
   /* 只抬高纵向触控面积，避免坊市步进器等密集横排控件被最小宽度挤出容器。 */
-  .small-btn,
-  .ui-btn {
+  .small-btn {
     min-block-size: 44px !important;
   }
 }

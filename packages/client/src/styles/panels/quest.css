@@ -1,0 +1,182 @@
+/* panels.css 拆分：任务面板。 */
+/* 由 scripts 拆分自原 styles/panels.css，规则顺序与原文件保持一致。 */
+
+
+    /* 任务卡片 */
+    .quest-subtab-count {
+      min-width: 16px;
+      padding: 1px 5px;
+      border: 1px solid currentColor;
+      font-size: var(--font-size-11);
+      line-height: 1.1;
+    }
+
+    .quest-card {
+      padding: 10px;
+      margin-bottom: 8px;
+      background: var(--paper-white);
+      border: 1px solid var(--wash-ink);
+    }
+
+    .quest-card-toggle {
+      width: 100%;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .quest-card-toggle:hover {
+      border-color: rgba(125, 27, 27, 0.35);
+      background: var(--surface-hover);
+    }
+
+    .quest-completed-toggle {
+      width: 100%;
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin: 4px 0 8px;
+      padding: 7px 10px;
+      border: 1px solid var(--wash-ink);
+      background: var(--surface-muted);
+      color: var(--ink-grey);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-12);
+      cursor: pointer;
+    }
+
+    .quest-completed-toggle:hover:not(:disabled) {
+      border-color: rgba(125, 27, 27, 0.35);
+      background: var(--surface-hover);
+      color: var(--ink-black);
+    }
+
+    .quest-completed-toggle:disabled {
+      cursor: default;
+      opacity: 0.68;
+    }
+
+    .quest-completed-toggle-icon {
+      width: 14px;
+      text-align: center;
+      color: var(--stamp-red);
+      font-weight: var(--font-weight-heavy);
+    }
+
+    .quest-completed-count {
+      min-width: 18px;
+      padding: 1px 6px;
+      border: 1px solid currentColor;
+      text-align: center;
+      font-size: var(--font-size-11);
+      line-height: 1.1;
+    }
+
+    .quest-completed-list {
+      margin-bottom: 8px;
+    }
+
+    .quest-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .quest-title {
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-15);
+      color: var(--ink-black);
+    }
+
+    .quest-status {
+      font-size: var(--font-size-11);
+      padding: 1px 6px;
+      border: 1px solid var(--ink-black);
+      background: var(--paper-bg);
+    }
+
+    .status-available { color: var(--status-info-ink); border-color: var(--status-info-ink); }
+
+    .status-active { color: var(--status-warn-ink); border-color: var(--status-warn-ink); }
+
+    .status-ready { color: var(--quest-status-ready-ink); border-color: var(--quest-status-ready-ink); }
+
+    .status-completed { color: var(--quest-status-completed-ink); border-color: var(--quest-status-completed-ink); }
+
+    .quest-desc {
+      font-size: var(--font-size-12);
+      color: var(--ink-grey);
+      margin-bottom: 4px;
+    }
+
+    .quest-progress-label {
+      font-size: var(--font-size-12);
+      color: var(--ink-black);
+      margin-bottom: 4px;
+    }
+
+    .quest-progress-bar {
+      height: 6px;
+      background: var(--wash-ink);
+      margin-bottom: 6px;
+    }
+
+    .quest-progress-fill {
+      height: 100%;
+      background: var(--stamp-red);
+      transition: width 0.3s;
+    }
+
+    .quest-meta {
+      font-size: var(--font-size-11);
+      color: var(--ink-grey);
+      margin-top: 2px;
+    }
+
+    .quest-expand-hint {
+      margin-top: 6px;
+      font-size: var(--font-size-11);
+      color: var(--ink-grey);
+    }
+
+    .quest-detail-line {
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-12);
+      color: var(--stamp-red);
+      letter-spacing: 0.08em;
+      margin-bottom: 4px;
+    }
+
+    .quest-detail-location-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .quest-detail-guide-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .quest-detail-guide-row > span {
+      flex: 1 1 180px;
+      min-width: 0;
+    }
+
+    .quest-detail-guide-btn {
+      flex: 0 0 auto;
+    }
+
+    .npc-quest-card.is-active {
+      border-color: rgba(125, 27, 27, 0.42);
+      background: var(--surface-hover);
+      box-shadow: 0 8px 18px rgba(53, 26, 12, 0.08);
+    }

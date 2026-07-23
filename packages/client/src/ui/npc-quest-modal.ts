@@ -298,7 +298,7 @@ export class NpcQuestModal {
   /** createEmptyState：创建空态节点。 */
   private createEmptyState(text: string): HTMLDivElement {
     const empty = document.createElement('div');
-    empty.className = 'empty-hint ui-empty-hint';
+    empty.className = 'empty-hint';
     empty.textContent = text;
     return empty;
   }

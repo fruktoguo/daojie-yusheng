@@ -293,14 +293,12 @@ export class QuestPanel {
     }
 
     const { sectionEl, titleEl } = createPanelSectionWithTitle(t('quest.panel.title', undefined));
-    sectionEl.classList.add('ui-panel-section');
-    titleEl.classList.add('ui-panel-section-title');
 
     const subtabs = document.createElement('div');
-    subtabs.className = 'quest-subtabs ui-subtabs';
+    subtabs.className = 'ui-subtabs';
     for (const line of LINE_ORDER) {
       const button = document.createElement('button');
-      button.className = 'quest-subtab-btn ui-subtab-btn';
+      button.className = 'ui-subtab-btn';
       button.dataset.questLine = line;
       button.type = 'button';
       button.append(document.createTextNode(getQuestLineLabel(line)));
@@ -378,7 +376,7 @@ export class QuestPanel {
     }
 
     const section = this.pane.querySelector<HTMLElement>('.panel-section');
-    const subtabs = section?.querySelector<HTMLElement>('.quest-subtabs');
+    const subtabs = section?.querySelector<HTMLElement>('.ui-subtabs');
     if (!section || !subtabs) {
       return false;
     }

@@ -1422,7 +1422,7 @@ export class TechniquePanel {
           <div class="tech-modal-section-title">${t('technique.modal.section.focus', undefined)}</div>
           <div class="tech-modal-pane-body" data-tech-modal-focus-shell="true">${focusHtml}</div>
         </section>
-        <section class="tech-modal-actions">
+        <section class="ui-modal-footer-actions">
           <button class="small-btn danger" data-tech-forget="${escapeHtml(tech.techId)}" type="button">${escapeHtml(t('technique.forget.action', undefined))}</button>
         </section>
       </div>

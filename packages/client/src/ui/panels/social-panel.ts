@@ -1247,9 +1247,9 @@ export class TreasureVaultModal {
           <button class="small-btn ghost" type="button" data-vault-deposit-action="close" ${this.depositSubmitting ? 'disabled' : ''}>关闭</button>
         </div>
         <div class="treasure-vault-deposit-picker-body">
-          <div class="inventory-filter-tabs treasure-vault-deposit-filter-tabs">
+          <div class="ui-filter-tabs treasure-vault-deposit-filter-tabs">
             ${INVENTORY_FILTER_TABS.map((tab) => `
-              <button class="inventory-filter-tab${this.depositFilter === tab.id ? ' active' : ''}" type="button" data-vault-deposit-action="filter" data-vault-deposit-filter="${escapeHtml(tab.id)}" ${this.depositSubmitting ? 'disabled' : ''}>
+              <button class="ui-filter-tab${this.depositFilter === tab.id ? ' active' : ''}" type="button" data-vault-deposit-action="filter" data-vault-deposit-filter="${escapeHtml(tab.id)}" ${this.depositSubmitting ? 'disabled' : ''}>
                 ${escapeHtml(tab.label)}
               </button>
             `).join('')}

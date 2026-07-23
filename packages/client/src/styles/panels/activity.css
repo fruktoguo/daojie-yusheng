@@ -1,0 +1,226 @@
+/* panels.css 拆分：活动面板。 */
+/* 由 scripts 拆分自原 styles/panels.css，规则顺序与原文件保持一致。 */
+
+    .activity-shell {
+      display: flex;
+      min-height: 100%;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .activity-tabs {
+      display: inline-flex;
+      width: fit-content;
+      padding: 3px;
+      border: 1px solid var(--border-soft);
+      border-radius: 8px;
+      background: var(--surface-muted);
+    }
+
+    .activity-tab {
+      min-width: 96px;
+      min-height: 34px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text-secondary);
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .activity-tab.active {
+      border-color: var(--accent-border);
+      background: var(--accent);
+      color: var(--accent-contrast);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.16);
+    }
+
+    .activity-tab:focus-visible {
+      outline: 2px solid var(--accent-border);
+      outline-offset: 2px;
+    }
+
+    .activity-card {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      flex-direction: column;
+      gap: 16px;
+      padding: 16px;
+      border: 1px solid var(--border-soft);
+      border-radius: 8px;
+      background: var(--surface-panel);
+    }
+
+    .activity-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .activity-card-header h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    .activity-state-badge {
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .activity-metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .activity-metric {
+      display: flex;
+      min-height: 62px;
+      flex-direction: column;
+      justify-content: center;
+      gap: 5px;
+      padding: 10px;
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      background: var(--surface-muted);
+    }
+
+    .activity-metric span {
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    .activity-metric strong {
+      color: var(--text-primary);
+      font-size: 15px;
+      font-weight: 700;
+      word-break: break-word;
+    }
+
+    .activity-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: auto;
+    }
+
+    .activity-action-btn {
+      min-height: 38px;
+      padding: 0 14px;
+      border: 1px solid var(--accent-border);
+      border-radius: 8px;
+      background: var(--accent);
+      color: var(--accent-contrast);
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .activity-action-btn:disabled {
+      border-color: var(--border-soft);
+      background: var(--surface-muted);
+      color: var(--text-muted);
+      cursor: not-allowed;
+    }
+
+    .activity-invite-link-row {
+      display: flex;
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .activity-invite-link-row input {
+      min-width: 0;
+      flex: 1;
+      min-height: 38px;
+      padding: 0 12px;
+      border: 1px solid var(--border-soft);
+      border-radius: 8px;
+      background: var(--surface-muted);
+      color: var(--text-primary);
+      font: inherit;
+    }
+
+    .activity-invite-stage-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .activity-invite-stage {
+      display: flex;
+      min-height: 42px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 9px 12px;
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      background: var(--surface-muted);
+    }
+
+    .activity-invite-stage span {
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .activity-invite-stage strong {
+      color: var(--text-primary);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .activity-empty {
+      padding: 24px;
+      border: 1px dashed var(--border-soft);
+      border-radius: 8px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    #hud-open-activity {
+      position: relative;
+    }
+
+    #hud-open-activity.has-unread::after {
+      content: '';
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--stamp-red);
+      box-shadow: 0 0 0 2px rgba(248, 248, 245, 0.9);
+    }
+
+    @media (max-width: 720px) {
+      .activity-metric-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .activity-tabs {
+        width: 100%;
+      }
+      .activity-tab {
+        flex: 1;
+        min-width: 0;
+      }
+      .activity-invite-link-row {
+        flex-direction: column;
+      }
+      .activity-invite-stage {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .activity-invite-stage strong {
+        white-space: normal;
+      }
+    }

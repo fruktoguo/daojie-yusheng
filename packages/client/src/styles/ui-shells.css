@@ -10,12 +10,13 @@
   min-height: 40px;
   padding: 9px 16px;
   border: 1px solid rgba(133, 68, 45, 0.22);
+  border-radius: var(--radius-sm);
   background: linear-gradient(180deg, var(--surface-elevated), var(--surface-muted));
   color: var(--ink-grey);
   font-family: var(--font-role-body);
   font-size: var(--font-size-role-body-14);
   cursor: pointer;
-  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  transition: border-color var(--motion-base) var(--ease-standard), background var(--motion-base) var(--ease-standard), color var(--motion-base) var(--ease-standard), transform var(--motion-base) var(--ease-standard);
 }
 
 .ui-modal-main-tab:hover {
@@ -57,13 +58,14 @@
   min-height: var(--ui-split-panel-tab-min-height, 46px);
   padding: 10px 12px;
   border: 1px solid var(--wash-ink);
+  border-radius: var(--radius-sm);
   background: linear-gradient(180deg, var(--surface-elevated), var(--surface-muted));
   color: var(--ink-grey);
   font-family: var(--font-role-body);
   font-size: var(--font-size-role-body-14);
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  transition: border-color var(--motion-base) var(--ease-standard), background var(--motion-base) var(--ease-standard), color var(--motion-base) var(--ease-standard), transform var(--motion-base) var(--ease-standard);
 }
 
 .ui-split-panel-tab:hover {
@@ -108,6 +110,7 @@
   gap: 2px;
   padding: 8px 10px;
   border: 1px solid var(--wash-ink);
+  border-radius: var(--radius-md);
   background: var(--surface-muted);
 }
 
@@ -145,38 +148,6 @@
   margin-bottom: 8px;
   padding-bottom: 6px;
   border-bottom: 1px solid var(--wash-ink);
-}
-
-.ui-tab-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.ui-tab-row-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 6px 12px;
-  border: 1px solid var(--ink-light);
-  background: var(--surface-base);
-  color: var(--ink-grey);
-  font-family: var(--font-role-body);
-  font-size: var(--font-size-role-body-13);
-  cursor: pointer;
-  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
-}
-
-.ui-tab-row-btn:hover {
-  border-color: var(--ink-dark);
-  color: var(--ink-black);
-}
-
-.ui-tab-row-btn.active {
-  border-color: var(--stamp-red);
-  background: rgba(197, 60, 60, 0.08);
-  color: var(--ink-black);
 }
 
 .ui-pane-note {
@@ -224,12 +195,13 @@
   min-width: 120px;
   padding: 8px 14px;
   border: 1px solid var(--ink-light);
+  border-radius: var(--radius-sm);
   background: var(--surface-elevated);
   color: var(--ink-grey);
   font-family: var(--font-role-body);
   font-size: var(--font-size-role-body-14);
   cursor: pointer;
-  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+  transition: border-color var(--motion-base) var(--ease-standard), background var(--motion-base) var(--ease-standard), color var(--motion-base) var(--ease-standard);
 }
 
 .ui-tabbed-modal-tab:hover {

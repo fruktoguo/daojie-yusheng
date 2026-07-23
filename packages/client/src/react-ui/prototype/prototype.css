@@ -22,8 +22,7 @@
   overflow: hidden;
 }
 
-.prototype-shell > .panel-section,
-.prototype-shell > .ui-panel-section {
+.prototype-shell > .panel-section {
   margin-bottom: 0;
 }
 

@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
+import { readPanelsCss } from './read-panels-css.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(scriptDir, '..');
@@ -112,7 +113,7 @@ const legacySettingsSource = readFileSync(
   path.join(packageRoot, 'src/ui/panels/settings-panel.ts'),
   'utf8',
 );
-const panelStyles = readFileSync(path.join(packageRoot, 'src/styles/panels.css'), 'utf8');
+const panelStyles = readPanelsCss(packageRoot);
 for (const source of [reactSettingsSource, legacySettingsSource]) {
   assert.match(source, /settings-offline-gain-record-button/);
   assert.match(source, /settings-offline-gain-record-date/);

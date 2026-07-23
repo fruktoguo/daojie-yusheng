@@ -134,7 +134,7 @@ export function createMainBreakthroughStateSource(options: MainBreakthroughState
                   <div class="action-desc">当前境界修为 ${formatDisplayInteger(currentRealm.progress)} / ${formatDisplayInteger(currentRealm.progressToNext)}</div>
                 </div>
               </div>
-              <div class="empty-hint ui-empty-hint">${t('breakthrough.hint.sync.pending')}</div>
+              <div class="empty-hint">${t('breakthrough.hint.sync.pending')}</div>
             </div>
           `,
         });
@@ -161,7 +161,7 @@ export function createMainBreakthroughStateSource(options: MainBreakthroughState
         : (rootFoundationReachedCap ? 'is-capped' : 'is-unmet');
       const rootMaterialRows = rootFoundation?.items.length
         ? rootFoundation.items.map((item) => renderInlineItemChip(item.itemId, { count: item.count, tone: 'material' })).join('')
-        : `<span class="empty-hint ui-empty-hint">${t('breakthrough.root.no.material')}</span>`;
+        : `<span class="empty-hint">${t('breakthrough.root.no.material')}</span>`;
       const requirementRows = preview.requirements.length > 0
         ? preview.requirements.map((requirement) => `
           <div class="action-item breakthrough-requirement-item ui-requirement-entry ui-surface-card ui-surface-card--compact">
@@ -179,7 +179,7 @@ export function createMainBreakthroughStateSource(options: MainBreakthroughState
             </div>
           </div>
         `).join('')
-        : `<div class="empty-hint ui-empty-hint">${t('breakthrough.no.extra.requirements')}</div>`;
+        : `<div class="empty-hint">${t('breakthrough.no.extra.requirements')}</div>`;
 
       detailModalHost.open({
         ownerId: 'realm:breakthrough',

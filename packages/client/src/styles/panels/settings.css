@@ -1,0 +1,703 @@
+/* panels.css 拆分：设置面板与账号设置。 */
+/* 由 scripts 拆分自原 styles/panels.css，规则顺序与原文件保持一致。 */
+
+    .account-settings-section + .account-settings-section {
+      margin-top: 14px;
+    }
+
+    .account-settings-name-grid {
+      display: grid;
+      grid-template-columns: 180px minmax(0, 1fr);
+      gap: 14px;
+      align-items: start;
+    }
+
+    .account-settings-copy {
+      margin-bottom: 12px;
+      font-size: var(--font-size-13);
+      color: var(--ink-grey);
+      line-height: 1.6;
+    }
+
+    .account-settings-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .account-settings-field label {
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-14);
+      color: var(--ink-dark);
+    }
+
+    .account-settings-field input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--input-border);
+      background: var(--surface-base);
+      color: var(--ink-black);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-15);
+      outline: none;
+    }
+
+    .account-settings-field input:focus {
+      border-color: var(--input-border-strong);
+    }
+
+    .account-settings-field--display {
+      max-width: 180px;
+    }
+
+    .account-settings-display-input {
+      width: 96px;
+      padding: 10px 8px;
+      text-align: center;
+      font-family: var(--font-role-player-name);
+      font-size: var(--font-size-role-player-name-38);
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .account-settings-field--display .account-settings-actions {
+      justify-content: flex-start;
+    }
+
+    .account-settings-status {
+      min-height: 18px;
+      margin-bottom: 10px;
+      font-size: var(--font-size-12);
+      color: var(--ink-grey);
+    }
+
+    .account-settings-status.success {
+      color: var(--success-ink);
+    }
+
+    .account-settings-status.error {
+      color: var(--stamp-red);
+    }
+
+    .settings-ui-copy {
+      margin-bottom: 12px;
+      font-size: var(--font-size-13);
+      color: var(--ink-grey);
+      line-height: 1.6;
+    }
+
+    .settings-modal-tabs {
+      flex-wrap: wrap;
+    }
+
+    .settings-ui-mode-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .settings-ui-table-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .settings-ui-table-head .panel-section-title {
+      margin-bottom: 0;
+      flex: 1;
+    }
+
+    .settings-ui-table {
+      display: grid;
+      gap: 10px;
+    }
+
+    .settings-ui-level-slider input,
+
+    .settings-ui-level-input input {
+      width: 100%;
+      accent-color: var(--stamp-red);
+    }
+
+    .settings-ui-level-preview--hero {
+      font-family: var(--font-role-player-name);
+      font-size: var(--font-size-role-player-name-52);
+      line-height: 1;
+    }
+
+    .settings-ui-level-preview--display {
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-38);
+      line-height: 1;
+    }
+
+    .settings-ui-level-preview--title {
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-22);
+    }
+
+    .settings-ui-level-preview--subtitle {
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-16);
+    }
+
+    .settings-ui-level-preview--body {
+      font-size: var(--font-size-role-body-14);
+    }
+
+    .settings-ui-level-preview--caption {
+      font-size: var(--font-size-role-body-12);
+    }
+
+    .settings-ui-level-preview--micro {
+      font-size: var(--font-size-role-body-11);
+    }
+
+    .settings-performance-card {
+      display: grid;
+      gap: 10px;
+    }
+
+    .settings-performance-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .settings-performance-actions--numeric {
+      align-items: center;
+      gap: 8px;
+    }
+
+    .settings-performance-number-input {
+      width: 88px;
+      min-width: 0;
+      text-align: right;
+    }
+
+    .settings-performance-number-unit {
+      font-size: var(--font-size-role-body-12);
+      color: var(--ink-grey);
+      white-space: nowrap;
+    }
+
+    .settings-resource-reload-shell {
+      gap: 12px;
+    }
+
+    .settings-resource-reload-search {
+      margin-bottom: 2px;
+    }
+
+    .settings-resource-reload-results,
+
+    .settings-resource-reload-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .settings-resource-reload-result,
+
+    .settings-resource-reload-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .settings-resource-reload-preview {
+      display: grid;
+      place-items: center;
+      flex: 0 0 54px;
+      width: 54px;
+      height: 54px;
+      border: 1px solid var(--wash-ink);
+      border-radius: 8px;
+      background: var(--surface-muted);
+      color: var(--ink-grey);
+      font-size: var(--font-size-role-body-12);
+      overflow: hidden;
+    }
+
+    .settings-resource-reload-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+
+    .settings-resource-reload-meta {
+      margin-top: 3px;
+      color: var(--ink-grey);
+      font-size: var(--font-size-role-body-12);
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+
+    .settings-resource-reload-actions {
+      flex-wrap: wrap;
+    }
+
+    .settings-resource-reload-file {
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    .settings-resource-reload-file input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .settings-resource-reload-empty {
+      border: 1px dashed var(--wash-ink);
+      background: var(--surface-muted);
+      text-align: center;
+    }
+
+    .settings-offline-gain-shell {
+      gap: 12px;
+    }
+
+    .settings-offline-gain-summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .settings-offline-gain-stat {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .settings-offline-gain-stat-title {
+      color: var(--ink-grey);
+      font-size: var(--font-size-role-body-12);
+    }
+
+    .settings-offline-gain-stat-line {
+      display: grid;
+      grid-template-columns: minmax(40px, auto) minmax(0, 1fr);
+      align-items: baseline;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .settings-offline-gain-stat strong {
+      color: var(--ink-black);
+      font-size: var(--font-size-role-body-14);
+      overflow-wrap: anywhere;
+      text-align: right;
+    }
+
+    .settings-offline-gain-stat small {
+      color: var(--ink-grey);
+      font-size: var(--font-size-role-body-12);
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+
+    .settings-offline-gain-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .settings-offline-gain-history-layout {
+      display: grid;
+      grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .settings-offline-gain-record-list {
+      display: grid;
+      align-content: start;
+      gap: 8px;
+      max-height: min(54dvh, 560px);
+      overflow: auto;
+      padding: 0 2px 2px 0;
+    }
+
+    .settings-offline-gain-record-list > .settings-offline-gain-record-button {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      grid-auto-rows: auto;
+      justify-items: start;
+      gap: 5px;
+      width: 100%;
+      min-height: 58px;
+      box-sizing: border-box;
+      padding: 10px 12px 10px 14px;
+      border: 1px solid var(--wash-ink);
+      border-radius: 10px;
+      appearance: none;
+      background: var(--surface-base);
+      color: var(--ink-black);
+      cursor: pointer;
+      font: inherit;
+      line-height: 1.4;
+      text-align: left;
+      white-space: normal;
+      transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+    }
+
+    .settings-offline-gain-record-list > .settings-offline-gain-record-button::before {
+      content: '';
+      position: absolute;
+      inset: 9px auto 9px 7px;
+      width: 3px;
+      border-radius: 999px;
+      background: transparent;
+    }
+
+    .settings-offline-gain-record-list > .settings-offline-gain-record-button:hover,
+
+    .settings-offline-gain-record-list > .settings-offline-gain-record-button.active {
+      border-color: var(--accent);
+      background: var(--surface-muted);
+      box-shadow: inset 0 0 0 1px var(--accent-soft);
+    }
+
+    .settings-offline-gain-record-list > .settings-offline-gain-record-button:hover::before,
+
+    .settings-offline-gain-record-list > .settings-offline-gain-record-button.active::before {
+      background: var(--accent);
+    }
+
+    .settings-offline-gain-record-list > .settings-offline-gain-record-button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .settings-offline-gain-record-break {
+      display: none;
+    }
+
+    .settings-offline-gain-record-list > .settings-offline-gain-record-button > .settings-offline-gain-record-date,
+
+    .settings-offline-gain-record-list > .settings-offline-gain-record-button > .settings-offline-gain-record-meta {
+      display: block;
+      width: 100%;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-align: left;
+    }
+
+    .settings-offline-gain-record-date {
+      font-size: var(--font-size-role-body-13);
+      font-weight: var(--font-weight-strong);
+    }
+
+    .settings-offline-gain-record-meta {
+      color: var(--ink-grey);
+      font-size: var(--font-size-role-body-12);
+    }
+
+    .settings-offline-gain-detail {
+      min-width: 0;
+      max-height: min(54dvh, 560px);
+      overflow: auto;
+    }
+
+    .settings-offline-gain-empty {
+      border: 1px dashed var(--wash-ink);
+      background: var(--surface-muted);
+      text-align: center;
+    }
+
+    .settings-redeem-textarea {
+      min-height: 140px;
+      resize: vertical;
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--input-border);
+      background: var(--surface-base);
+      color: var(--ink-black);
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: var(--font-size-role-body-13);
+      line-height: 1.55;
+      outline: none;
+    }
+
+    .settings-redeem-textarea:focus {
+      border-color: var(--input-border-strong);
+    }
+
+    .settings-redeem-results {
+      margin-top: 12px;
+    }
+
+    .settings-redeem-result.success {
+      border-color: rgba(54, 120, 52, 0.28);
+      background: linear-gradient(180deg, rgba(54, 120, 52, 0.08), var(--surface-muted));
+    }
+
+    .settings-redeem-result.error {
+      border-color: rgba(197, 60, 60, 0.28);
+      background: linear-gradient(180deg, rgba(197, 60, 60, 0.08), var(--surface-muted));
+    }
+
+    .settings-redeem-result-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-13);
+      color: var(--ink-black);
+    }
+
+    .settings-redeem-result-body {
+      margin-top: 4px;
+      font-size: var(--font-size-12);
+      color: var(--ink-grey);
+      line-height: 1.55;
+      word-break: break-word;
+    }
+
+    @media (max-width: 720px) {
+      .account-settings-name-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .account-settings-field--display {
+        max-width: none;
+      }
+      .account-settings-display-input {
+        width: 100%;
+        max-width: 120px;
+      }
+      .settings-ui-table-row {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .settings-ui-level-preview {
+        text-align: left;
+      }
+      .settings-ui-table-head {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .settings-performance-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .settings-performance-actions {
+        justify-content: stretch;
+      }
+      .settings-resource-reload-result,
+      .settings-resource-reload-row {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .settings-resource-reload-preview {
+        flex-basis: auto;
+      }
+      .settings-resource-reload-actions {
+        justify-content: stretch;
+      }
+      .settings-resource-reload-actions > button,
+      .settings-resource-reload-actions > label {
+        justify-content: center;
+      }
+      .settings-performance-actions > button {
+        flex: 1 1 auto;
+      }
+      .settings-performance-actions--numeric {
+        justify-content: flex-start;
+      }
+      .settings-performance-number-input {
+        width: 100%;
+      }
+      .settings-offline-gain-summary {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .settings-offline-gain-history-layout {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .settings-offline-gain-record-list {
+        max-height: 220px;
+      }
+      .settings-offline-gain-detail,
+      .settings-offline-gain-list {
+        max-height: none;
+        overflow: visible;
+      }
+    }
+
+    .combat-settings-tabs {
+      flex: 0 0 auto;
+    }
+
+    .combat-settings-panel-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .combat-settings-panel-body .auto-pill-slot-grid {
+      flex: 1 1 auto;
+    }
+
+    .combat-settings-targeting-shell {
+      display: grid;
+      gap: 10px;
+      min-height: 0;
+      padding: 12px;
+      border: 1px solid rgba(34, 26, 19, 0.12);
+      background: rgba(255, 251, 244, 0.72);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    .combat-settings-targeting-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .combat-settings-targeting-card {
+      display: grid;
+      gap: 10px;
+      min-height: 0;
+      padding: 12px;
+      border: 1px solid rgba(34, 26, 19, 0.1);
+      background: var(--surface-muted-strong);
+    }
+
+    .combat-settings-toggle-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .combat-settings-toggle-chip {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      width: 100%;
+      min-height: 76px;
+      padding: 10px;
+      border: 1px solid rgba(34, 26, 19, 0.12);
+      background: var(--paper-white);
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+      transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+    }
+
+    .combat-settings-toggle-chip:hover {
+      border-color: rgba(125, 27, 27, 0.18);
+      background: rgba(255, 251, 244, 0.94);
+      box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.04);
+      transform: translate(-1px, -1px);
+    }
+
+    .combat-settings-toggle-chip.active {
+      border-color: rgba(125, 27, 27, 0.26);
+      background: linear-gradient(180deg, rgba(197, 60, 60, 0.08), rgba(255, 251, 244, 0.96));
+      box-shadow: inset 0 -2px 0 rgba(125, 27, 27, 0.5);
+    }
+
+    .combat-settings-toggle-chip:disabled {
+      color: inherit;
+      opacity: 0.72;
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+    }
+
+    .combat-settings-toggle-chip-box {
+      flex: 0 0 16px;
+      width: 16px;
+      height: 16px;
+      margin-top: 1px;
+      border: 1px solid rgba(34, 26, 19, 0.2);
+      background: rgba(243, 236, 226, 0.88);
+      box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.52);
+    }
+
+    .combat-settings-toggle-chip.active .combat-settings-toggle-chip-box {
+      border-color: rgba(125, 27, 27, 0.26);
+      background: rgba(125, 27, 27, 0.12);
+      box-shadow: inset 0 0 0 3px rgba(125, 27, 27, 0.4);
+    }
+
+    .combat-settings-toggle-chip-content {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .combat-settings-toggle-chip-title {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      font-size: var(--font-size-12);
+      color: var(--ink-black);
+    }
+
+    .combat-settings-toggle-chip-copy {
+      font-size: var(--font-size-11);
+      line-height: 1.5;
+      color: var(--ink-grey);
+    }
+
+    :root[data-color-mode="dark"] .combat-settings-targeting-shell {
+      border-color: rgba(212, 176, 137, 0.16);
+      background: rgba(44, 36, 31, 0.66);
+    }
+
+    :root[data-color-mode="dark"] .combat-settings-targeting-card,
+
+    :root[data-color-mode="dark"] .combat-settings-toggle-chip {
+      border-color: rgba(212, 176, 137, 0.14);
+      background: rgba(55, 46, 40, 0.92);
+    }
+
+    :root[data-color-mode="dark"] .combat-settings-toggle-chip:hover {
+      border-color: rgba(196, 92, 92, 0.24);
+      background: rgba(58, 48, 42, 0.96);
+      box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.12);
+    }
+
+    :root[data-color-mode="dark"] .combat-settings-toggle-chip.active {
+      border-color: rgba(196, 92, 92, 0.3);
+      background: linear-gradient(180deg, rgba(125, 40, 40, 0.24), rgba(55, 46, 40, 0.96));
+      box-shadow: inset 0 -2px 0 rgba(196, 92, 92, 0.62);
+    }
+
+    :root[data-color-mode="dark"] .combat-settings-toggle-chip-box {
+      border-color: rgba(212, 176, 137, 0.22);
+      background: rgba(70, 60, 52, 0.96);
+      box-shadow: inset 0 0 0 2px rgba(30, 24, 20, 0.42);
+    }
+
+    :root[data-color-mode="dark"] .combat-settings-toggle-chip.active .combat-settings-toggle-chip-box {
+      border-color: rgba(196, 92, 92, 0.3);
+      background: rgba(125, 40, 40, 0.3);
+      box-shadow: inset 0 0 0 3px rgba(196, 92, 92, 0.44);
+    }
+
+    :root[data-color-mode="dark"] .combat-settings-toggle-chip-title {
+      color: var(--ink-black);
+    }
+
+    @media (max-width: 900px) {
+      .combat-settings-targeting-grid,
+      .combat-settings-toggle-grid {
+        grid-template-columns: 1fr;
+      }
+    }

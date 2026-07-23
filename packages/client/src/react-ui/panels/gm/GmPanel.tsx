@@ -132,7 +132,7 @@ export function GmPanel() {
   );
 
   if (!gmState) {
-    return <div className="empty-hint ui-empty-hint">暂无 GM 数据</div>;
+    return <div className="empty-hint">暂无 GM 数据</div>;
   }
 
   return (
@@ -319,7 +319,7 @@ const GmPlayerListSection = memo(function GmPlayerListSection({
     return (
       <div className="panel-section ui-surface-pane ui-surface-pane--stack">
         <div className="panel-section-title">在线列表</div>
-        <div className="empty-hint ui-empty-hint">当前没有在线玩家</div>
+        <div className="empty-hint">当前没有在线玩家</div>
       </div>
     );
   }
@@ -435,7 +435,7 @@ function GmPlayerDetailSection({
     <div className="panel-section ui-surface-pane ui-surface-pane--stack">
       <div className="panel-section-title">玩家编辑</div>
       {!player ? (
-        <div className="empty-hint ui-empty-hint">请选择一名玩家</div>
+        <div className="empty-hint">请选择一名玩家</div>
       ) : (
         <>
           <div className="gm-form-grid ui-form-grid ui-form-grid--three-column">
@@ -492,7 +492,7 @@ const GmWorkerPoolSection = memo(function GmWorkerPoolSection({ workerPool }: { 
     return (
       <div className="panel-section ui-surface-pane ui-surface-pane--stack">
         <div className="panel-section-title">Worker Pool 多线程</div>
-        <div className="empty-hint ui-empty-hint">Worker Pool 未启用或数据未就绪</div>
+        <div className="empty-hint">Worker Pool 未启用或数据未就绪</div>
       </div>
     );
   }

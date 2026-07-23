@@ -27,9 +27,6 @@
       user-select: none !important;
       -webkit-user-select: none !important;
 }
-    #game-canvas {
-      display: block;
-    }
 
     /* ====== 登录遮罩 ====== */
     #login-overlay {
@@ -304,4 +301,16 @@
 
     .login-activation-qq {
       align-self: flex-start;
+    }
+
+    /* ====== 减弱动效偏好：全局禁用过渡与动画 ====== */
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0ms !important;
+        scroll-behavior: auto !important;
+      }
     }

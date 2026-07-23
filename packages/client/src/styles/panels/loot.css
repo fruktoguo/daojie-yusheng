@@ -1,0 +1,173 @@
+/* panels.css 拆分：战利品、采集结算与编年史。 */
+/* 由 scripts 拆分自原 styles/panels.css，规则顺序与原文件保持一致。 */
+
+    .detail-modal-card.detail-modal--herb-gather {
+      width: min(860px, calc(100vw - 32px));
+      max-height: min(84vh, 860px);
+      background:
+        radial-gradient(circle at top right, rgba(110, 156, 104, 0.14), transparent 28%),
+        radial-gradient(circle at bottom left, rgba(189, 149, 83, 0.12), transparent 32%),
+        var(--surface-gradient-paper);
+    }
+
+    .chronicle-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .chronicle-entry-items {
+      padding-left: 20px;
+      line-height: 1.8;
+    }
+
+    .chronicle-entry-items li {
+      margin-bottom: 4px;
+    }
+
+    .chronicle-entry-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .chronicle-entry {
+      border: 1px solid var(--wash-ink);
+      background: var(--surface-gradient-entry);
+      padding: 14px 16px;
+      box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.06);
+    }
+
+    .chronicle-entry-head {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .chronicle-entry-time {
+      font-family: var(--font-role-body);
+      color: var(--stamp-red);
+      letter-spacing: 1px;
+    }
+
+    .chronicle-entry-summary {
+      font-size: var(--font-size-16);
+      color: var(--ink-black);
+    }
+
+    .loot-source-section + .loot-source-section {
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid var(--wash-ink);
+    }
+
+    .loot-source-head {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .loot-source-title {
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-18);
+      color: var(--ink-black);
+    }
+
+    .loot-source-subtitle,
+
+    .loot-source-desc {
+      font-size: var(--font-size-12);
+      color: var(--ink-grey);
+      line-height: 1.5;
+    }
+
+    .loot-search-state {
+      margin-bottom: 12px;
+      padding: 12px;
+      border: 1px solid rgba(34, 26, 19, 0.08);
+      background: var(--surface-muted);
+    }
+
+    .loot-search-copy {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: var(--font-size-12);
+      color: var(--ink-grey);
+    }
+
+    .loot-search-bar {
+      width: 100%;
+      height: 8px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(34, 26, 19, 0.08);
+    }
+
+    .loot-search-fill {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, rgba(167, 64, 41, 0.88), rgba(214, 138, 74, 0.92));
+    }
+
+    .loot-item-grid {
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    }
+
+    .loot-source-empty {
+      padding: 14px 16px;
+      border: 1px solid rgba(34, 26, 19, 0.08);
+      background: var(--surface-muted);
+      color: var(--ink-grey);
+      font-size: var(--font-size-13);
+    }
+
+    .loot-source-section--herb {
+      padding: 16px;
+      border: 1px solid rgba(68, 96, 52, 0.16);
+      background: linear-gradient(180deg, rgba(242, 246, 234, 0.92), rgba(249, 244, 232, 0.94));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+    }
+
+    .herb-gather-summary {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 12px;
+      padding: 12px 14px;
+      border: 1px dashed rgba(68, 96, 52, 0.22);
+      background: rgba(255, 255, 255, 0.48);
+    }
+
+    .herb-gather-summary-meta,
+
+    .herb-gather-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: var(--font-size-12);
+      color: var(--ink-grey);
+    }
+
+    .herb-gather-summary-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .herb-gather-grid {
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    }
+
+    .herb-gather-card {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border: 1px solid rgba(68, 96, 52, 0.16);
+      background: rgba(255, 255, 255, 0.72);
+    }

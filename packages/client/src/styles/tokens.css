@@ -102,7 +102,22 @@
       --surface-gradient-tooltip: linear-gradient(180deg, rgba(255,255,255,0.86), rgba(243, 246, 251, 0.82));
       --surface-gradient-tooltip-alt: linear-gradient(180deg, rgba(248, 245, 238, 0.98), rgba(237, 232, 223, 0.96));
       --panel-shell-bg: rgba(238, 238, 234, 0.985);
-      --panel-shell-shadow: 10px 10px 0 rgba(0, 0, 0, 0.12);
+      /* ====== 圆角 / 阴影 / 动效尺度 ====== */
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --radius-pill: 999px;
+      /* 硬偏移"剪纸"阴影：现行主风格别名，--panel-shell-shadow 继续可用 */
+      --shadow-hard: 10px 10px 0 rgba(0, 0, 0, 0.12);
+      /* 柔和弥散阴影：仅用于弹层/浮层类组件 */
+      --shadow-soft-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+      --shadow-soft-md: 0 6px 18px rgba(0, 0, 0, 0.1);
+      --shadow-soft-lg: 0 12px 32px rgba(0, 0, 0, 0.14);
+      --motion-fast: 120ms;
+      --motion-base: 180ms;
+      --motion-slow: 280ms;
+      --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+      --panel-shell-shadow: var(--shadow-hard);
       --panel-rail-bg: linear-gradient(90deg, var(--surface-muted), transparent);
       --panel-tab-bar-bg: var(--paper-bg);
   --panel-tab-text: var(--color-role-tab-idle);
@@ -238,6 +253,151 @@
       --title-rail-size: calc(34px * var(--ui-scale));
       --split-rail-size: calc(38px * var(--ui-scale));
       --map-rail-size: calc(42px * var(--ui-scale));
+
+      /* ====== 收编自 panels.css / hud.css 的语义色 token ====== */
+      /* 固定深色底上的文字色（Toast、缎带、徽章等，底色不随主题变化） */
+      --toast-ink: #f6eee0;
+      --ribbon-ink: #f8f2e8;
+      --badge-on-dark-ink: #fff7ed;
+      --on-accent-ink: #ffffff;
+      --alchemy-chip-active-ink: #fff4e8;
+      /* 聊天战斗徽标 */
+      --chat-badge-neutral-ink: #6b7280;
+      --chat-badge-kill-ink: #b91c1c;
+      --chat-badge-crit-ink: #a16207;
+      --chat-badge-broken-ink: #c2410c;
+      /* 法宝槽位辉光与灵气条 */
+      --artifact-glow: #52cfff;
+      --artifact-qi-fill-start: #2fb9f6;
+      --artifact-qi-fill-end: #8ce8ff;
+      --artifact-qi-fill-active-start: #20b8ff;
+      --artifact-qi-fill-active-end: #98efff;
+      /* 进度条渐变 */
+      --body-training-fill-start: #f29f05;
+      --body-training-fill-end: #f6c453;
+      --attr-craft-exp-fill-start: #c24f3d;
+      --attr-craft-exp-fill-end: #e8b84e;
+      /* 弹窗纸面 */
+      --popup-paper-bg: #f4ecde;
+      /* 市场 / 拍卖行 */
+      --market-accent-sell: #9a5a2b;
+      --jade-strong: #2b6b58;
+      --market-error-ink: #a53d2f;
+      --market-accent-contrast: #fbf5e8;
+      --market-buy-ink: #215d4a;
+      --market-sell-ink: #8a4c2d;
+      --status-live-ink: #547737;
+      --auction-quality-ink: #8a5f28;
+      /* 功法星图（固定深空底面板） */
+      --starfield-bg: #020205;
+      --starfield-accent: #38bdf8;
+      --starfield-milestone: #fbbf24;
+      --starfield-current: #7dd3fc;
+      --starfield-progress: #c084fc;
+      --starfield-locked: #64748b;
+      --starfield-attrs-ink: #dbeafe;
+      /* 五行元素色 */
+      --element-metal: #a67c33;
+      --element-wood: #4d7a43;
+      --element-water: #4a7398;
+      --element-fire: #b44b39;
+      --element-earth: #7a5a32;
+      --heaven-gate-severed-ink: #8e8880;
+      /* 技能公式词项色 */
+      --skill-formula-generic: #4f5f6f;
+      --skill-formula-tech: #785820;
+      --skill-formula-phys-atk: #9b4a1a;
+      --skill-formula-spell-atk: #295da8;
+      --skill-formula-phys-def: #46515d;
+      --skill-formula-spell-def: #6043a4;
+      --skill-formula-hit: #1c6b78;
+      --skill-formula-dodge: #3f7f68;
+      --skill-formula-crit: #a0412b;
+      --skill-formula-break: #8a4d19;
+      --skill-formula-hp: #a03f54;
+      --skill-formula-qi: #1d7762;
+      --skill-formula-speed: #9a6b00;
+      --skill-formula-resolve: #6a5747;
+      --skill-formula-buff-stack: #5d4e68;
+      --skill-formula-percent: #7a4d1f;
+      /* 技能伤害合计 */
+      --skill-damage-physical: #8f4317;
+      --skill-damage-spell: #2b5fae;
+      /* 技能成长标签底色 */
+      --skill-scaling-tech-bg: #efe2c2;
+      --skill-scaling-phys-atk-bg: #f7d8c8;
+      --skill-scaling-spell-atk-bg: #d8e7ff;
+      --skill-scaling-phys-def-bg: #dce1e7;
+      --skill-scaling-spell-def-bg: #e4dcff;
+      --skill-scaling-hit-bg: #d7edf1;
+      --skill-scaling-dodge-bg: #dcefe6;
+      --skill-scaling-crit-bg: #f6ddd4;
+      --skill-scaling-break-bg: #efdcc9;
+      --skill-scaling-hp-bg: #f3d5da;
+      --skill-scaling-qi-bg: #d4eee6;
+      --skill-scaling-speed-bg: #f9e8b8;
+      --skill-scaling-resolve-bg: #e6ddd5;
+      /* 状态色（任务状态 / 危险等级 / 预设反馈） */
+      --status-info-ink: #365b7c;
+      --status-warn-ink: #8b5e00;
+      --quest-status-ready-ink: #0d7a38;
+      --quest-status-completed-ink: #666666;
+      --danger-level-5-ink: #9c2c2c;
+      --danger-level-2-ink: #4b6a1d;
+      --status-success-soft-ink: #365b2d;
+      --status-error-soft-ink: #c53c3c;
+      --status-unmet-ink: #c53c3c;
+      --enhancement-rate-ink: #c53c3c;
+      /* GM 面板 */
+      --gm-status-active-ink: #16a34a;
+      /* 浮动任务面板危险操作 */
+      --floating-job-danger-ink: #9f2f2f;
+      /* 攻击强度 / 玄印面板 */
+      --mystic-panel-border: #c7b39b;
+      --mystic-panel-bg-start: #fbfaf7;
+      --mystic-panel-bg-end: #f3efe6;
+      --mystic-panel-surface: #faf9f6;
+      --mystic-title-ink: #3c352e;
+      --mystic-label-ink: #6e6155;
+      --mystic-seal-node-bg: #faf9f6;
+      --mystic-seal-node-border: #c7b39b;
+      --mystic-seal-1: #438f80;
+      --mystic-seal-3: #559143;
+      --mystic-seal-7: #b5832a;
+      --mystic-seal-10: #af4329;
+      --mystic-seal-12: #aa1111;
+      /* 炼丹 / 强化 */
+      --craft-badge-ink: #7e4b27;
+      --alchemy-phase-brewing-ink: #4f6f38;
+      --alchemy-phase-paused-ink: #76512f;
+      --alchemy-ingredient-main-ink: #85471f;
+      --alchemy-ingredient-aux-ink: #587335;
+      --alchemy-insufficient-ink: #b7342d;
+      /* 技艺标签 */
+      --technique-chip-ink: #7c3f19;
+      /* 渲染性能分析浮窗（固定深色开发工具面板） */
+      --profiler-ink: #e5e7eb;
+      --profiler-title-ink: #cbd5e1;
+      --profiler-strong-ink: #f8fafc;
+      --profiler-accent: #67e8f9;
+      --profiler-btn-ink: #e2e8f0;
+      --profiler-highlight-ink: #fef9c3;
+      --profiler-ok-ink: #bbf7d0;
+      --profiler-error-ink: #fecaca;
+      --profiler-muted-ink: #94a3b8;
+      --profiler-value-ink: #bae6fd;
+      /* HUD 计量条渐变 */
+      --hud-meter-exp-start: #c53c3c;
+      --hud-meter-exp-end: #e49b5d;
+      --hud-bar-hp-start: #9f2626;
+      --hud-bar-hp-end: #d56a54;
+      --hud-bar-qi-start: #285b78;
+      --hud-bar-qi-end: #67a7b8;
+      --hud-bar-cultivation-start: #7b5b14;
+      --hud-bar-cultivation-end: #d4a447;
+      /* 品牌色 */
+      --brand-qq: #12b7f5;
+      --brand-github: #181717;
     }
 
     :root[data-color-mode="dark"] {
@@ -296,7 +456,12 @@
       --surface-gradient-tooltip: linear-gradient(180deg, rgba(59, 50, 45, 0.92), rgba(34, 29, 25, 0.9));
       --surface-gradient-tooltip-alt: linear-gradient(180deg, rgba(54, 46, 41, 0.96), rgba(35, 30, 27, 0.94));
       --panel-shell-bg: rgba(16, 13, 12, 0.992);
-      --panel-shell-shadow: 10px 10px 0 rgba(0, 0, 0, 0.34);
+      /* 深色：圆角/动效与浅色同值，仅阴影加深 */
+      --shadow-hard: 10px 10px 0 rgba(0, 0, 0, 0.34);
+      --shadow-soft-sm: 0 2px 10px rgba(0, 0, 0, 0.3);
+      --shadow-soft-md: 0 8px 22px rgba(0, 0, 0, 0.34);
+      --shadow-soft-lg: 0 16px 40px rgba(0, 0, 0, 0.42);
+      --panel-shell-shadow: var(--shadow-hard);
       --panel-rail-bg: linear-gradient(90deg, rgba(38, 32, 28, 0.98), rgba(24, 20, 17, 0.92));
       --panel-tab-bar-bg: rgba(29, 25, 22, 0.98);
   --panel-tab-text: var(--color-role-tab-idle);
@@ -406,4 +571,149 @@
       --attr-radar-hover-shadow: rgba(255, 160, 140, 0.28);
       --attr-radar-icon-shadow: rgba(246, 238, 224, 0.12);
       --attr-radar-dot-stroke: rgba(0, 0, 0, 0.6);
+
+      /* ====== 收编 token 的深色值（暖调深褐纸面） ====== */
+      /* 固定深色底上的文字色：底色不随主题变化，保持原值 */
+      --toast-ink: #f6eee0;
+      --ribbon-ink: #f8f2e8;
+      --badge-on-dark-ink: #fff7ed;
+      --on-accent-ink: #ffffff;
+      --alchemy-chip-active-ink: #fff4e8;
+      /* 聊天战斗徽标 */
+      --chat-badge-neutral-ink: #a8a29e;
+      --chat-badge-kill-ink: #fca5a5;
+      --chat-badge-crit-ink: #fde047;
+      --chat-badge-broken-ink: #fdba74;
+      /* 法宝槽位辉光与灵气条 */
+      --artifact-glow: #74d8ff;
+      --artifact-qi-fill-start: #4ec6f8;
+      --artifact-qi-fill-end: #a5efff;
+      --artifact-qi-fill-active-start: #3fc6ff;
+      --artifact-qi-fill-active-end: #b4f4ff;
+      /* 进度条渐变 */
+      --body-training-fill-start: #f7b32e;
+      --body-training-fill-end: #ffd67a;
+      --attr-craft-exp-fill-start: #d97a5e;
+      --attr-craft-exp-fill-end: #f2cd76;
+      /* 弹窗纸面 */
+      --popup-paper-bg: #27221d;
+      /* 市场 / 拍卖行 */
+      --market-accent-sell: #d99a5b;
+      --jade-strong: #9ee0c7;
+      --market-error-ink: #ff9b8a;
+      --market-accent-contrast: #24170f;
+      --market-buy-ink: #7fd3b4;
+      --market-sell-ink: #e8b78c;
+      --status-live-ink: #b8dda0;
+      --auction-quality-ink: #e5c98f;
+      /* 功法星图（固定深空底面板，保持原值） */
+      --starfield-bg: #020205;
+      --starfield-accent: #38bdf8;
+      --starfield-milestone: #fbbf24;
+      --starfield-current: #7dd3fc;
+      --starfield-progress: #c084fc;
+      --starfield-locked: #64748b;
+      --starfield-attrs-ink: #dbeafe;
+      /* 五行元素色 */
+      --element-metal: #d9b36a;
+      --element-wood: #86c477;
+      --element-water: #8ab8dd;
+      --element-fire: #e8856f;
+      --element-earth: #c09a68;
+      --heaven-gate-severed-ink: #8e8880;
+      /* 技能公式词项色 */
+      --skill-formula-generic: #9fb0bd;
+      --skill-formula-tech: #e0be7d;
+      --skill-formula-phys-atk: #f0955c;
+      --skill-formula-spell-atk: #8ab4f0;
+      --skill-formula-phys-def: #a7b5c4;
+      --skill-formula-spell-def: #b79df0;
+      --skill-formula-hit: #6fc6d4;
+      --skill-formula-dodge: #7ccbaa;
+      --skill-formula-crit: #f08a6c;
+      --skill-formula-break: #e8a25e;
+      --skill-formula-hp: #f08ba0;
+      --skill-formula-qi: #63cdb2;
+      --skill-formula-speed: #e8bb4a;
+      --skill-formula-resolve: #c2a68d;
+      --skill-formula-buff-stack: #b3a1c2;
+      --skill-formula-percent: #e0a86a;
+      /* 技能伤害合计 */
+      --skill-damage-physical: #f08b4d;
+      --skill-damage-spell: #7fa8ec;
+      /* 技能成长标签底色 */
+      --skill-scaling-tech-bg: #4a3d28;
+      --skill-scaling-phys-atk-bg: #4e3226;
+      --skill-scaling-spell-atk-bg: #2c3a52;
+      --skill-scaling-phys-def-bg: #343a44;
+      --skill-scaling-spell-def-bg: #3a3350;
+      --skill-scaling-hit-bg: #27414a;
+      --skill-scaling-dodge-bg: #2b4438;
+      --skill-scaling-crit-bg: #4c322c;
+      --skill-scaling-break-bg: #463527;
+      --skill-scaling-hp-bg: #482f38;
+      --skill-scaling-qi-bg: #26443c;
+      --skill-scaling-speed-bg: #4a3d22;
+      --skill-scaling-resolve-bg: #3d3630;
+      /* 状态色（任务状态 / 危险等级 / 预设反馈） */
+      --status-info-ink: #8ab4d9;
+      --status-warn-ink: #e0b054;
+      --quest-status-ready-ink: #4ed182;
+      --quest-status-completed-ink: #a89c90;
+      --danger-level-5-ink: #ff8a8a;
+      --danger-level-2-ink: #9ccb62;
+      --status-success-soft-ink: #bddba4;
+      --status-error-soft-ink: #ffb2a3;
+      --status-unmet-ink: #ff9d8a;
+      --enhancement-rate-ink: #ffb3a2;
+      /* GM 面板 */
+      --gm-status-active-ink: #4ade80;
+      /* 浮动任务面板危险操作 */
+      --floating-job-danger-ink: #f2aaa4;
+      /* 攻击强度 / 玄印面板 */
+      --mystic-panel-border: #4a4135;
+      --mystic-panel-bg-start: #151816;
+      --mystic-panel-bg-end: #1c1e1c;
+      --mystic-panel-surface: #191c1a;
+      --mystic-title-ink: #d5c8bb;
+      --mystic-label-ink: #a39587;
+      --mystic-seal-node-bg: #232624;
+      --mystic-seal-node-border: #554a3b;
+      --mystic-seal-1: #63b3a5;
+      --mystic-seal-3: #78b860;
+      --mystic-seal-7: #d9a644;
+      --mystic-seal-10: #d46a50;
+      --mystic-seal-12: #e05252;
+      /* 炼丹 / 强化 */
+      --craft-badge-ink: #f1ddc3;
+      --alchemy-phase-brewing-ink: #d6e8c4;
+      --alchemy-phase-paused-ink: #ebd4b6;
+      --alchemy-ingredient-main-ink: #eec27f;
+      --alchemy-ingredient-aux-ink: #a8d488;
+      --alchemy-insufficient-ink: #ff8f84;
+      /* 技艺标签 */
+      --technique-chip-ink: #f0c58b;
+      /* 渲染性能分析浮窗（固定深色开发工具面板，保持原值） */
+      --profiler-ink: #e5e7eb;
+      --profiler-title-ink: #cbd5e1;
+      --profiler-strong-ink: #f8fafc;
+      --profiler-accent: #67e8f9;
+      --profiler-btn-ink: #e2e8f0;
+      --profiler-highlight-ink: #fef9c3;
+      --profiler-ok-ink: #bbf7d0;
+      --profiler-error-ink: #fecaca;
+      --profiler-muted-ink: #94a3b8;
+      --profiler-value-ink: #bae6fd;
+      /* HUD 计量条渐变 */
+      --hud-meter-exp-start: #d96a55;
+      --hud-meter-exp-end: #f0a86c;
+      --hud-bar-hp-start: #c0453a;
+      --hud-bar-hp-end: #e8856f;
+      --hud-bar-qi-start: #3d7ea6;
+      --hud-bar-qi-end: #7fc3d4;
+      --hud-bar-cultivation-start: #a87f22;
+      --hud-bar-cultivation-end: #e8bc5c;
+      /* 品牌色 */
+      --brand-qq: #12b7f5;
+      --brand-github: #e8dccf;
     }

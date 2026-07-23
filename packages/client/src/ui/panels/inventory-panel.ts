@@ -1178,12 +1178,12 @@ export class InventoryPanel {
     controls.className = 'inventory-panel-controls';
 
     const filters = document.createElement('div');
-    filters.className = 'inventory-filter-tabs';
+    filters.className = 'ui-filter-tabs';
     const filterButtons = new Map<InventoryFilter, HTMLButtonElement>();
     for (const tab of INVENTORY_FILTER_TABS) {
       const button = document.createElement('button');
       button.type = 'button';
-      button.className = 'inventory-filter-tab';
+      button.className = 'ui-filter-tab';
       button.dataset.filterButton = tab.id;
       button.dataset.filter = tab.id;
       button.textContent = tab.label;

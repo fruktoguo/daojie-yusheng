@@ -1,0 +1,345 @@
+/* panels.css 拆分：世界面板：世界信息、天机行动、世界迁移。 */
+/* 由 scripts 拆分自原 styles/panels.css，规则顺序与原文件保持一致。 */
+
+    .detail-modal-card.detail-modal--world-migration {
+      width: min(720px, calc(100vw - 24px));
+      background:
+        radial-gradient(circle at top right, rgba(60, 109, 197, 0.08), transparent 28%),
+        radial-gradient(circle at left bottom, rgba(214, 188, 142, 0.18), transparent 34%),
+        var(--surface-gradient-paper);
+      box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.16);
+    }
+
+    .world-migration-shell {
+      position: relative;
+      display: grid;
+      gap: 16px;
+      min-height: 0;
+    }
+
+    .world-migration-intro {
+      display: grid;
+      gap: 8px;
+      color: var(--ink-dark);
+      font-size: var(--font-size-13);
+      line-height: 1.7;
+    }
+
+    .world-migration-intro p {
+      margin: 0;
+    }
+
+    .world-migration-current {
+      padding: 10px 12px;
+      border: 1px solid rgba(17, 17, 17, 0.12);
+      background: rgba(255, 255, 255, 0.74);
+      color: var(--ink-black);
+      font-family: var(--font-heading-sub);
+    }
+
+    .world-migration-choice-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .world-migration-choice {
+      display: grid;
+      gap: 10px;
+      min-height: 180px;
+      padding: 16px;
+      border: 1px solid rgba(17, 17, 17, 0.16);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.86), rgba(248, 241, 229, 0.96));
+      color: var(--ink-black);
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .world-migration-choice:hover {
+      border-color: rgba(197, 60, 60, 0.42);
+      transform: translateY(-1px);
+    }
+
+    .world-migration-choice.active {
+      border-color: var(--stamp-red);
+      box-shadow: inset 0 0 0 1px rgba(197, 60, 60, 0.18);
+    }
+
+    .world-migration-choice-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .world-migration-choice-title {
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-16);
+    }
+
+    .world-migration-choice-badge {
+      padding: 3px 8px;
+      border: 1px solid rgba(17, 17, 17, 0.12);
+      background: rgba(255,255,255,0.72);
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+    }
+
+    .world-migration-choice-desc {
+      color: var(--ink-dark);
+      font-size: var(--font-size-13);
+      line-height: 1.7;
+    }
+
+    .world-migration-choice-meta {
+      margin-top: auto;
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+    }
+
+    .world-migration-popup-overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background: rgba(22, 16, 12, 0.66);
+      z-index: 8;
+    }
+
+    .world-migration-popup {
+      display: grid;
+      gap: 10px;
+      width: min(100%, 420px);
+      padding: 16px 18px;
+      border: 1px solid rgba(17, 17, 17, 0.3);
+      background: var(--popup-paper-bg);
+      box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.2);
+    }
+
+    .world-migration-popup-title {
+      font-family: var(--font-role-title);
+      color: var(--ink-black);
+    }
+
+    .world-migration-popup-desc,
+
+    .world-migration-popup-note {
+      color: var(--ink-dark);
+      font-size: var(--font-size-13);
+      line-height: 1.65;
+    }
+
+    .world-migration-popup-note {
+      color: var(--ink-grey);
+    }
+
+    .world-migration-popup-actions {
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--world-migration {
+      background:
+        radial-gradient(circle at top right, rgba(112, 154, 224, 0.08), transparent 28%),
+        radial-gradient(circle at left bottom, rgba(214, 188, 142, 0.08), transparent 34%),
+        var(--surface-gradient-paper);
+      border-color: rgba(246, 238, 224, 0.82);
+      box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.28);
+    }
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--world-migration .world-migration-current,
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--world-migration .world-migration-choice,
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--world-migration .world-migration-popup {
+      border-color: rgba(246, 238, 224, 0.18);
+      background: linear-gradient(180deg, rgba(51, 43, 38, 0.98), rgba(31, 26, 23, 0.98));
+      box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.24);
+    }
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--world-migration .world-migration-choice-badge {
+      border-color: rgba(246, 238, 224, 0.14);
+      background: rgba(255,255,255,0.06);
+      color: var(--ink-dark);
+    }
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--world-migration .world-migration-intro,
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--world-migration .world-migration-current,
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--world-migration .world-migration-choice-title,
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--world-migration .world-migration-choice-desc,
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--world-migration .world-migration-choice-meta,
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--world-migration .world-migration-popup-title,
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--world-migration .world-migration-popup-desc,
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--world-migration .world-migration-popup-note {
+      color: var(--ink-dark);
+    }
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--world-migration .world-migration-popup-overlay {
+      background: rgba(0, 0, 0, 0.74);
+    }
+
+
+    .world-hero {
+      display: grid;
+      grid-template-columns: 1.35fr 0.9fr;
+      gap: 10px;
+      padding: 12px;
+      margin-bottom: 16px;
+      background: var(--surface-gradient-world);
+      border: 1px solid var(--wash-ink);
+    }
+
+    .world-hero.compact {
+      padding: 10px;
+      margin-bottom: 12px;
+    }
+
+.world-kicker {
+  font-size: var(--font-size-11);
+  color: var(--color-role-subtitle);
+  font-weight: var(--font-weight-role-subtitle);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.world-title {
+  margin: 4px 0 8px;
+  font-family: var(--font-role-title);
+  font-size: var(--font-size-role-title-24);
+  color: var(--color-role-title);
+}
+
+.world-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.world-title-row .world-title {
+  margin-bottom: 0;
+}
+
+.world-map-type-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border: 1px solid rgba(17, 17, 17, 0.12);
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--color-role-subtitle);
+  font-size: var(--font-size-12);
+  font-weight: var(--font-weight-role-subtitle);
+  letter-spacing: 0.08em;
+  cursor: help;
+}
+
+:root[data-color-mode="dark"] .world-map-type-badge {
+  border-color: rgba(246, 238, 224, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink-dark);
+}
+
+.world-desc {
+  font-size: var(--font-size-12);
+  line-height: 1.55;
+  color: var(--color-role-body);
+}
+
+    .world-danger {
+      padding: 10px;
+      border: 1px solid rgba(0,0,0,0.08);
+      background: var(--surface-muted-strong);
+    }
+
+.world-danger-label {
+  font-size: var(--font-size-11);
+  color: var(--color-role-label);
+  font-weight: var(--font-weight-role-label);
+  margin-bottom: 6px;
+}
+
+.world-danger-value {
+  font-family: var(--font-role-body);
+  font-size: var(--font-size-role-body-20);
+  color: var(--color-role-body-strong);
+}
+
+.world-danger-sub {
+  margin-top: 8px;
+  font-size: var(--font-size-12);
+  line-height: 1.45;
+  color: var(--color-role-body-muted);
+}
+
+    .danger-5,
+
+    .danger-4 { color: var(--danger-level-5-ink); }
+
+    .danger-3 { color: var(--status-warn-ink); }
+
+    .danger-2 { color: var(--danger-level-2-ink); }
+
+    .danger-1 { color: var(--status-info-ink); }
+
+    .info-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .tianji-action-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .tianji-action-card {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid var(--wash-ink);
+      background:
+        linear-gradient(135deg, rgba(197, 60, 60, 0.06), rgba(214, 188, 142, 0.08)),
+        var(--surface-muted-strong);
+      text-align: left;
+      cursor: pointer;
+      color: inherit;
+      transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .tianji-action-card:hover {
+      border-color: rgba(197, 60, 60, 0.28);
+      box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.06);
+      transform: translate(-1px, -1px);
+    }
+
+    .tianji-action-title {
+      font-size: var(--font-size-role-body-15);
+      color: var(--color-role-body-strong);
+      font-weight: var(--font-weight-strong);
+    }
+
+    .tianji-action-desc {
+      margin-top: 6px;
+      font-size: var(--font-size-12);
+      line-height: 1.55;
+      color: var(--color-role-body-muted);
+    }
+
+    .tianji-action-arrow {
+      flex: 0 0 auto;
+      font-size: var(--font-size-12);
+      letter-spacing: 0.12em;
+      color: var(--stamp-red);
+    }

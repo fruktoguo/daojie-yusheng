@@ -1,0 +1,558 @@
+/* panels.css 拆分：教程与引导导览。 */
+/* 由 scripts 拆分自原 styles/panels.css，规则顺序与原文件保持一致。 */
+
+    .detail-modal-card.detail-modal--tutorial {
+      width: min(1180px, calc(100vw - 24px));
+      height: min(68dvh, calc(100dvh - (var(--detail-modal-padding, 12px) * 2)));
+      max-height: none;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at top right, rgba(197, 60, 60, 0.08), transparent 28%),
+        radial-gradient(circle at left bottom, rgba(214, 188, 142, 0.14), transparent 32%),
+        var(--surface-gradient-paper);
+      box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.16);
+    }
+
+    .detail-modal-card.detail-modal--tutorial #detail-modal-body {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .detail-modal-card.detail-modal--tutorial .react-panel-host[data-react-panel="tutorial"] {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
+    }
+
+    .detail-modal-card.detail-modal--guided-tour-list {
+      width: min(560px, calc(100vw - 24px));
+      background:
+        radial-gradient(circle at top right, rgba(197, 60, 60, 0.08), transparent 28%),
+        var(--surface-gradient-paper);
+    }
+
+    .guided-tour-list-modal {
+      display: grid;
+      gap: 12px;
+    }
+
+    .guided-tour-list-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .guided-tour-list-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "title action"
+        "meta action";
+      align-items: center;
+      gap: 4px 12px;
+      padding: 12px;
+      border: 1px solid var(--wash-ink);
+      border-radius: 8px;
+      background: var(--surface-card);
+    }
+
+    .guided-tour-list-item-title {
+      grid-area: title;
+      color: var(--ink-black);
+      font-size: var(--font-size-role-body-15);
+      font-weight: var(--font-weight-strong);
+      line-height: 1.35;
+    }
+
+    .guided-tour-list-item-meta {
+      grid-area: meta;
+      color: var(--ink-grey);
+      font-size: var(--font-size-role-body-12);
+    }
+
+    .guided-tour-list-start {
+      grid-area: action;
+      min-width: 92px;
+    }
+
+    .tutorial-modal-body {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      flex: 1;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .tutorial-modal-main-panes {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .tutorial-modal-main-pane {
+      display: none;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .tutorial-modal-main-pane.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .tutorial-modal-main-pane--flow.active {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .tutorial-modal-shell,
+
+    .tutorial-flow-shell {
+      display: grid;
+      grid-template-columns: 188px minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
+      gap: 16px;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .tutorial-flow-shell {
+      --ui-split-panel-rail-size: 178px;
+      gap: 14px;
+      flex: 1;
+    }
+
+    .tutorial-flow-tab {
+      --ui-split-panel-tab-min-height: 44px;
+    }
+
+    .tutorial-modal-content {
+      min-height: 0;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .tutorial-modal-tab-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .tutorial-modal-subtabs {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-width: 0;
+      padding-left: 14px;
+    }
+
+    .tutorial-modal-tab--child {
+      min-height: 34px;
+      padding: 7px 10px;
+      font-size: var(--font-size-role-body-12);
+      border-color: rgba(133, 68, 45, 0.16);
+      background: linear-gradient(180deg, rgba(214, 188, 142, 0.08), var(--surface-muted));
+      box-shadow: inset 2px 0 0 rgba(133, 68, 45, 0.16);
+    }
+
+    .tutorial-modal-tab--child.active {
+      box-shadow: inset 3px 0 0 rgba(197, 60, 60, 0.72);
+    }
+
+    .tutorial-modal-pane {
+      display: none;
+      min-height: 100%;
+    }
+
+    .tutorial-modal-pane.active {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .tutorial-pane-hero {
+      padding: 16px 18px;
+      border: 1px solid rgba(133, 68, 45, 0.22);
+      background:
+        linear-gradient(135deg, rgba(214, 188, 142, 0.16), rgba(214, 188, 142, 0.04)),
+        var(--surface-elevated);
+      box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.05);
+    }
+
+    .tutorial-pane-hero--flow {
+      margin-right: 2px;
+    }
+
+    .tutorial-pane-kicker {
+      margin-bottom: 6px;
+      color: var(--stamp-red);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-12);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .tutorial-pane-summary {
+      color: var(--ink-black);
+      font-size: var(--font-size-role-body-15);
+      line-height: 1.8;
+    }
+
+    .tutorial-pane-sections {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 12px;
+    }
+
+    .tutorial-flow-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .tutorial-flow-shell {
+      display: grid;
+      grid-template-columns: 178px minmax(0, 1fr);
+      gap: 14px;
+      min-height: 0;
+      flex: 1;
+    }
+
+    .tutorial-flow-tabs {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 0;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .tutorial-flow-tab {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 44px;
+      padding: 10px 12px;
+      border: 1px solid var(--wash-ink);
+      background: linear-gradient(180deg, var(--surface-elevated), var(--surface-muted));
+      color: var(--ink-grey);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-14);
+      text-align: left;
+      cursor: pointer;
+      transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+    }
+
+    .tutorial-flow-tab:hover {
+      color: var(--ink-black);
+      border-color: rgba(133, 68, 45, 0.34);
+      transform: translateX(2px);
+    }
+
+    .tutorial-flow-tab.active {
+      color: var(--ink-black);
+      border-color: rgba(133, 68, 45, 0.42);
+      background:
+        linear-gradient(180deg, rgba(214, 188, 142, 0.24), rgba(197, 60, 60, 0.08)),
+        var(--surface-elevated);
+      box-shadow: inset 3px 0 0 rgba(197, 60, 60, 0.72);
+    }
+
+    .tutorial-flow-tab-label {
+      font-weight: var(--font-weight-semibold);
+      line-height: 1.4;
+    }
+
+    .tutorial-flow-pane {
+      display: none;
+      min-height: 100%;
+    }
+
+    .tutorial-flow-pane.active {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .tutorial-flow-pane-head {
+      padding: 14px 16px;
+      border: 1px solid rgba(133, 68, 45, 0.22);
+      background:
+        linear-gradient(135deg, rgba(214, 188, 142, 0.16), rgba(214, 188, 142, 0.04)),
+        var(--surface-elevated);
+      box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.05);
+    }
+
+    .tutorial-flow-pane-head .tutorial-section-title {
+      margin-bottom: 6px;
+    }
+
+    .tutorial-flow-card {
+      padding: 14px 16px;
+      border: 1px solid var(--wash-ink);
+      background: linear-gradient(180deg, var(--surface-elevated), var(--surface-muted));
+      box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.05);
+    }
+
+    .tutorial-flow-step-summary {
+      color: var(--ink-grey);
+      font-size: var(--font-size-role-body-14);
+      line-height: 1.75;
+    }
+
+    .tutorial-section-card,
+
+    .tutorial-tip-card {
+      padding: 14px 16px;
+      border: 1px solid var(--wash-ink);
+      background: linear-gradient(180deg, var(--surface-elevated), var(--surface-muted));
+      box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.05);
+    }
+
+    .tutorial-tip-card {
+      border-color: rgba(133, 68, 45, 0.24);
+      background:
+        linear-gradient(180deg, rgba(214, 188, 142, 0.12), rgba(214, 188, 142, 0.04)),
+        var(--surface-elevated);
+    }
+
+    .tutorial-section-title {
+      margin-bottom: 10px;
+      color: var(--ink-black);
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-16);
+    }
+
+    .tutorial-section-list {
+      margin: 0;
+      padding-left: 20px;
+      color: var(--ink-grey);
+      font-size: var(--font-size-role-body-14);
+      line-height: 1.8;
+    }
+
+    .tutorial-section-list li + li {
+      margin-top: 6px;
+    }
+
+    .tutorial-section-list--tips {
+      color: var(--ink-dark);
+    }
+
+    .tutorial-inline-action {
+      display: inline-flex;
+      align-items: center;
+      padding: 0 6px;
+      margin: 0 1px;
+      border: 1px solid rgba(133, 68, 45, 0.24);
+      border-radius: 999px;
+      background: rgba(214, 188, 142, 0.14);
+      color: var(--stamp-red);
+      font-weight: var(--font-weight-semibold);
+      cursor: help;
+      white-space: nowrap;
+      transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+    }
+
+    .tutorial-inline-action:hover {
+      border-color: rgba(133, 68, 45, 0.42);
+      background: rgba(214, 188, 142, 0.24);
+      color: var(--ink-black);
+    }
+
+    .tutorial-search-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .tutorial-search-input {
+      flex: 1;
+      min-width: 0;
+      height: 34px;
+      padding: 0 10px;
+      border: 1px solid var(--input-border);
+      background: var(--surface-base);
+      color: var(--ink-black);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-14);
+      outline: none;
+    }
+
+    .tutorial-search-input:focus {
+      border-color: var(--stamp-red);
+      box-shadow: 0 0 0 2px rgba(197, 60, 60, 0.1);
+    }
+
+    .tutorial-search-clear {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--input-border);
+      background: transparent;
+      color: var(--ink-muted);
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .tutorial-search-clear:hover {
+      background: rgba(214, 188, 142, 0.14);
+      color: var(--ink-black);
+    }
+
+    .tutorial-search-results {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding-right: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .tutorial-search-empty {
+      padding: 24px 0;
+      text-align: center;
+      color: var(--ink-muted);
+      font-size: var(--font-size-role-body-14);
+    }
+
+    .tutorial-search-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tutorial-search-group-label {
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-body-15);
+      color: var(--stamp-red);
+      font-weight: var(--font-weight-semibold);
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(133, 68, 45, 0.16);
+    }
+
+    .tutorial-search-section {
+      margin: 0;
+    }
+
+    .tutorial-search-highlight {
+      background: rgba(197, 60, 60, 0.15);
+      color: var(--stamp-red);
+      padding: 0 1px;
+    }
+
+    .tutorial-search-match-item {
+      color: var(--ink-dark);
+      font-size: var(--font-size-role-body-14);
+      padding: 4px 0;
+    }
+
+    @media (max-width: 720px) {
+      .detail-modal-card.detail-modal--tutorial {
+        width: calc(100vw - 16px);
+        height: min(80dvh, calc(100dvh - (var(--detail-modal-padding, 8px) * 2)));
+        padding: 16px 14px 14px;
+      }
+      .tutorial-modal-body {
+        gap: 10px;
+      }
+      .tutorial-modal-main-tabs {
+        gap: 6px;
+      }
+      .tutorial-modal-main-tab {
+        flex: 1 1 0;
+        min-height: 38px;
+        padding: 8px 10px;
+        font-size: var(--font-size-role-body-12);
+      }
+      .tutorial-modal-shell {
+        grid-template-columns: 104px minmax(0, 1fr);
+        gap: 10px;
+      }
+      .tutorial-modal-tabs {
+        gap: 6px;
+        padding-right: 0;
+      }
+      .tutorial-modal-subtabs {
+        gap: 5px;
+        padding-left: 8px;
+      }
+      .tutorial-modal-tab {
+        min-height: 42px;
+        padding: 8px 10px;
+        font-size: var(--font-size-role-body-12);
+      }
+      .tutorial-modal-tab--child {
+        min-height: 34px;
+        padding: 7px 8px;
+      }
+      .tutorial-flow-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .tutorial-flow-shell {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 10px;
+      }
+      .tutorial-flow-tabs {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 6px;
+        overflow: visible;
+        padding-right: 0;
+      }
+      .tutorial-flow-tab {
+        flex: 1 1 calc(50% - 3px);
+        min-height: 40px;
+        padding: 8px 10px;
+        font-size: var(--font-size-role-body-12);
+        justify-content: center;
+        text-align: center;
+      }
+      .tutorial-flow-step-summary {
+        font-size: var(--font-size-role-body-13);
+      }
+      .tutorial-pane-sections {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .tutorial-pane-summary,
+      .tutorial-section-list {
+        font-size: var(--font-size-role-body-13);
+      }
+    }
+
+    .detail-modal-card.detail-modal--tutorial {
+      width: min(1180px, calc(100vw - 24px));
+      height: min(68dvh, calc(100dvh - (var(--detail-modal-padding, 12px) * 2)));
+      max-height: none;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at top right, rgba(197, 60, 60, 0.08), transparent 28%),
+        radial-gradient(circle at left bottom, rgba(214, 188, 142, 0.14), transparent 32%),
+        var(--surface-gradient-paper);
+      box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.16);
+    }
+
+    .detail-modal-card.detail-modal--tutorial #detail-modal-body {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }

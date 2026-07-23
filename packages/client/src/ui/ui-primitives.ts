@@ -8,7 +8,7 @@ type UiButtonVariant = 'ghost' | 'danger';
 
 /** applyUiButtonVariants：应用界面按钮Variants。 */
 function applyUiButtonVariants(button: HTMLButtonElement, variants: UiButtonVariant[] = []): void {
-  button.className = ['small-btn', 'ui-btn', ...variants].join(' ');
+  button.className = ['small-btn', ...variants].join(' ');
 }
 
 /** createUiButton：创建界面按钮。 */
@@ -103,7 +103,7 @@ export function createUiEmptyHint(text: string, className?: string): HTMLDivElem
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const node = document.createElement('div');
-  node.className = 'empty-hint ui-empty-hint';
+  node.className = 'empty-hint';
   if (className) {
     node.classList.add(...className.split(' ').filter(Boolean));
   }
@@ -130,10 +130,10 @@ export function createUiPanelSection(title: string): {
   title: HTMLDivElement;
 } {
   const section = document.createElement('div');
-  section.className = 'panel-section ui-panel-section';
+  section.className = 'panel-section';
 
   const titleEl = document.createElement('div');
-  titleEl.className = 'panel-section-title ui-panel-section-title';
+  titleEl.className = 'panel-section-title';
   titleEl.textContent = title;
   section.append(titleEl);
 

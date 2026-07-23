@@ -400,7 +400,7 @@ function renderOfflineGainReportsWithConfirm(reports: readonly OfflineGainReport
     ${renderOfflineGainReports(reports)}
     ${blocking ? '<div class="offline-gain-blocking-note">确认前角色仍保持离线挂机，收益会自动刷新。</div>' : ''}
     <div class="offline-gain-confirm-area">
-      <button class="offline-gain-confirm-btn ui-btn">${t('offline-gain.modal.confirm-btn')}</button>
+      <button class="offline-gain-confirm-btn small-btn">${t('offline-gain.modal.confirm-btn')}</button>
     </div>
   `;
 }

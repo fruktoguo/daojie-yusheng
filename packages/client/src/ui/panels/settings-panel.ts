@@ -1123,7 +1123,7 @@ export class SettingsPanel {
   /** renderOfflineGainHistoryList：渲染收支统计历史列表。 */
   private renderOfflineGainHistoryList(reports: OfflineGainReportView[]): string {
     if (reports.length === 0) {
-      return `<div class="ui-empty-hint compact settings-offline-gain-empty">${escapeHtml(t('settings.offline-gain.empty.history', undefined))}</div>`;
+      return `<div class="empty-hint compact settings-offline-gain-empty">${escapeHtml(t('settings.offline-gain.empty.history', undefined))}</div>`;
     }
     const selected = resolveSelectedOfflineGainReport(reports, this.selectedOfflineGainReportId);
     return `
@@ -1140,7 +1140,7 @@ export class SettingsPanel {
 
   private renderOfflineGainHistoryDetail(report: OfflineGainReportView | null): string {
     if (!report) {
-      return '<div class="ui-empty-hint compact settings-offline-gain-empty">点击左侧记录查看详情</div>';
+      return '<div class="empty-hint compact settings-offline-gain-empty">点击左侧记录查看详情</div>';
     }
     return renderOfflineGainReport(report);
   }

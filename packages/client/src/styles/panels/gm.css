@@ -1,0 +1,137 @@
+/* panels.css 拆分：GM 面板。 */
+/* 由 scripts 拆分自原 styles/panels.css，规则顺序与原文件保持一致。 */
+
+    .gm-inline-input {
+      min-width: 0;
+      padding: 6px 8px;
+      border: 1px solid var(--ink-light);
+      background: var(--surface-base);
+      color: var(--ink-dark);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-13);
+    }
+
+    .gm-inline-input {
+      width: 72px;
+    }
+
+    .gm-player-list {
+      max-height: 280px;
+    }
+
+    .gm-player-row {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px;
+      border: 1px solid var(--wash-ink);
+      background: var(--paper-white);
+      text-align: left;
+      cursor: pointer;
+      color: var(--ink-dark);
+    }
+
+    .gm-player-row.active,
+
+    .gm-player-row.is-active {
+      border-color: var(--stamp-red);
+      background: rgba(197, 60, 60, 0.06);
+    }
+
+    .gm-player-name {
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-14);
+      color: var(--ink-black);
+    }
+
+    .gm-player-meta,
+
+    .gm-player-stat {
+      font-size: var(--font-size-12);
+      color: var(--ink-grey);
+    }
+
+    .gm-field {
+      font-size: var(--font-size-12);
+      color: var(--ink-grey);
+    }
+
+    .gm-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      font-size: var(--font-size-13);
+      color: var(--ink-dark);
+    }
+
+    /* ─── GM Tab Bar ─── */
+    .gm-tab-bar {
+      display: flex;
+      gap: 2px;
+      margin-bottom: 8px;
+      border-bottom: 1px solid var(--border-light, rgba(0,0,0,0.08));
+      padding-bottom: 4px;
+    }
+
+    .gm-tab-btn {
+      padding: 4px 12px;
+      font-size: var(--font-size-12, 12px);
+      border: none;
+      background: transparent;
+      color: var(--ink-grey);
+      cursor: pointer;
+      border-radius: 4px 4px 0 0;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .gm-tab-btn:hover {
+      background: rgba(0,0,0,0.04);
+    }
+
+    .gm-tab-btn.is-active {
+      color: var(--ink-black);
+      background: rgba(0,0,0,0.06);
+      font-weight: 600;
+    }
+
+    /* ─── GM Worker Pool Card ─── */
+    .gm-worker-pool-card {
+      margin-bottom: 6px;
+    }
+
+    .gm-worker-pool-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .gm-worker-pool-name {
+      font-weight: 600;
+      font-size: var(--font-size-role-body-14, 14px);
+    }
+
+    .gm-worker-pool-status {
+      font-size: var(--font-size-12, 12px);
+      padding: 1px 6px;
+      border-radius: 3px;
+    }
+
+    .gm-worker-pool-status.is-active {
+      background: rgba(34, 197, 94, 0.12);
+      color: var(--gm-status-active-ink);
+    }
+
+    .gm-worker-pool-status.is-idle {
+      background: rgba(0,0,0,0.05);
+      color: var(--ink-grey);
+    }
+
+    .gm-worker-pool-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px 12px;
+    }

@@ -137,11 +137,11 @@ export const InventoryPanel = memo(function InventoryPanel() {
           </button>
         </div>
       </div>
-      <div className="inventory-filter-tabs">
+      <div className="ui-filter-tabs">
           {INVENTORY_FILTER_TABS.map((tab) => (
             <button
               key={tab.id}
-              className={`inventory-filter-tab${state.activeFilter === tab.id ? ' active' : ''}`}
+              className={`ui-filter-tab${state.activeFilter === tab.id ? ' active' : ''}`}
               type="button"
               onClick={() => callbacks.onFilterChange?.(tab.id)}
             >

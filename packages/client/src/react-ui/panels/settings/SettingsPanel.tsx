@@ -904,7 +904,7 @@ const ResourceReloadTab = memo(function ResourceReloadTab({ state }: { state: Se
         </div>
       )}
       {addedResources.length === 0 ? (
-        <div className="ui-empty-hint compact settings-resource-reload-empty">列表为空。搜索资源后点击添加。</div>
+        <div className="empty-hint compact settings-resource-reload-empty">列表为空。搜索资源后点击添加。</div>
       ) : (
         <div className="settings-resource-reload-list ui-card-list">
           {addedResources.map((entry) => {
@@ -966,7 +966,7 @@ const OfflineGainTab = memo(function OfflineGainTab({ playerId }: { playerId: st
       <div className="settings-ui-copy ui-form-copy">{t('settings.offline-gain.copy.summary', undefined)}</div>
       <OfflineGainSummary totals={totals} />
       {reports.length === 0 ? (
-        <div className="ui-empty-hint compact settings-offline-gain-empty">{t('settings.offline-gain.empty.history', undefined)}</div>
+        <div className="empty-hint compact settings-offline-gain-empty">{t('settings.offline-gain.empty.history', undefined)}</div>
       ) : (
         <div className="settings-offline-gain-history-layout">
           <div className="settings-offline-gain-record-list" role="listbox" aria-label={t('settings.offline-gain.aria.history', undefined)}>
@@ -993,7 +993,7 @@ const OfflineGainTab = memo(function OfflineGainTab({ playerId }: { playerId: st
             {selected ? (
               <div dangerouslySetInnerHTML={{ __html: renderOfflineGainReport(selected) }} />
             ) : (
-              <div className="ui-empty-hint compact settings-offline-gain-empty">点击左侧记录查看详情</div>
+              <div className="empty-hint compact settings-offline-gain-empty">点击左侧记录查看详情</div>
             )}
           </div>
         </div>

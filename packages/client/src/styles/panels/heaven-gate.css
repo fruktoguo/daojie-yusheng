@@ -1,0 +1,415 @@
+/* panels.css 拆分：通天塔。 */
+/* 由 scripts 拆分自原 styles/panels.css，规则顺序与原文件保持一致。 */
+
+    .detail-modal-card.detail-modal--heaven-gate {
+      width: min(760px, calc(100vw - 24px));
+      max-height: min(90dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap) * 2)));
+      background:
+        radial-gradient(circle at top right, rgba(214, 188, 142, 0.12), transparent 30%),
+        var(--surface-gradient-paper);
+      color: var(--ink-dark);
+      border: 1.5px solid var(--ink-black);
+      box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.16);
+    }
+
+    .detail-modal-card.detail-modal--heaven-gate .detail-modal-head {
+      display: none;
+    }
+
+    .detail-modal-card.detail-modal--heaven-gate #detail-modal-body {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .heaven-gate-shell {
+      position: relative;
+      display: grid;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .heaven-gate-board {
+      --heaven-gate-core-size: clamp(96px, 22vw, 156px);
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1000 / 560;
+      min-height: 0;
+      border: 1px solid var(--wash-ink);
+      overflow: hidden;
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,0.22), transparent 18%),
+        linear-gradient(180deg, rgba(250, 245, 235, 0.94), rgba(241, 233, 218, 0.94));
+      box-shadow: inset 0 0 0 1px rgba(17, 17, 17, 0.04);
+    }
+
+    .heaven-gate-lines {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .heaven-gate-line {
+      stroke-width: 2px;
+      stroke-linecap: round;
+      transition: stroke 160ms ease, opacity 160ms ease;
+    }
+
+    .heaven-gate-line.hidden {
+      display: none;
+    }
+
+    .heaven-gate-line[data-element="metal"] {
+      stroke: var(--element-metal);
+    }
+
+    .heaven-gate-line[data-element="wood"] {
+      stroke: var(--element-wood);
+    }
+
+    .heaven-gate-line[data-element="water"] {
+      stroke: var(--element-water);
+    }
+
+    .heaven-gate-line[data-element="fire"] {
+      stroke: var(--element-fire);
+    }
+
+    .heaven-gate-line[data-element="earth"] {
+      stroke: var(--element-earth);
+    }
+
+    .heaven-gate-path-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+    }
+
+    .heaven-gate-path {
+      position: absolute;
+      height: 44px;
+      border: 0;
+      background: transparent;
+      appearance: none;
+      -webkit-appearance: none;
+      cursor: none;
+      outline: none;
+      box-shadow: none;
+    }
+
+    .heaven-gate-node {
+      position: absolute;
+      z-index: 2;
+      width: auto;
+      min-width: 0;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      pointer-events: none;
+      isolation: isolate;
+    }
+
+    .heaven-gate-node::before,
+
+    .heaven-gate-node::after,
+
+    .heaven-gate-node-name::before,
+
+    .heaven-gate-node-name::after {
+      content: none !important;
+    }
+
+    .heaven-gate-node-name {
+      display: block;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-46);
+      line-height: 1;
+      text-shadow: 2px 2px 0 rgba(255, 248, 236, 0.78);
+    }
+
+    .heaven-gate-node-name[data-element="metal"] {
+      color: var(--element-metal);
+    }
+
+    .heaven-gate-node-name[data-element="wood"] {
+      color: var(--element-wood);
+    }
+
+    .heaven-gate-node-name[data-element="water"] {
+      color: var(--element-water);
+    }
+
+    .heaven-gate-node-name[data-element="fire"] {
+      color: var(--element-fire);
+    }
+
+    .heaven-gate-node-name[data-element="earth"] {
+      color: var(--element-earth);
+    }
+
+    .heaven-gate-node.is-severed {
+      border: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      filter: none !important;
+    }
+
+    .heaven-gate-node.is-severed .heaven-gate-node-name {
+      color: var(--heaven-gate-severed-ink) !important;
+      opacity: 1;
+      filter: none;
+      text-shadow: none;
+    }
+
+    .heaven-gate-core {
+      position: absolute;
+      z-index: 3;
+      left: 50%;
+      top: 50%;
+      width: var(--heaven-gate-core-size);
+      height: var(--heaven-gate-core-size);
+      transform: translate(-50%, -50%);
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      gap: 0;
+      border-radius: 999px;
+      border: 2px solid rgba(17, 17, 17, 0.16);
+      background:
+        radial-gradient(circle at 35% 30%, rgba(255,255,255,0.5), transparent 18%),
+        radial-gradient(circle at 50% 50%, rgba(214, 188, 142, 0.35), rgba(243, 236, 223, 0.98) 68%);
+      box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.08);
+      text-align: center;
+      cursor: pointer;
+      transition: transform 140ms ease, box-shadow 140ms ease;
+    }
+
+    .heaven-gate-core:hover {
+      transform: translate(-50%, -50%) scale(1.02);
+      box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.1);
+    }
+
+    .heaven-gate-core-title {
+      font-family: var(--font-role-title);
+      font-size: clamp(22px, 4vw, var(--font-size-role-title-30));
+      letter-spacing: 0.08em;
+      color: var(--ink-black);
+    }
+
+    .heaven-gate-board-actions {
+      display: flex;
+      justify-content: center;
+      min-height: 0;
+    }
+
+    .heaven-gate-board-actions.hidden {
+      display: none;
+    }
+
+    .heaven-gate-cursor-text {
+      position: absolute;
+      left: 0;
+      top: 0;
+      transform: translate(-50%, -58%) rotate(8deg);
+      color: var(--ink-black);
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-38);
+      line-height: 1;
+      pointer-events: none;
+      transition: opacity 120ms ease, color 120ms ease;
+      z-index: 6;
+      text-shadow: 2px 2px 0 rgba(255, 248, 236, 0.8);
+      opacity: 0.96;
+    }
+
+    .heaven-gate-cursor-text.hidden {
+      opacity: 0;
+    }
+
+    body.heaven-gate-brush-cursor,
+
+    body.heaven-gate-brush-cursor * {
+      cursor: none !important;
+    }
+
+    .heaven-gate-line-value {
+      position: absolute;
+      z-index: 2;
+      transform: translate(-50%, -50%);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-20);
+      text-shadow: 1px 1px 0 rgba(255, 248, 236, 0.88);
+      white-space: nowrap;
+    }
+
+    .heaven-gate-line-value[data-element="metal"] {
+      color: var(--element-metal);
+    }
+
+    .heaven-gate-line-value[data-element="wood"] {
+      color: var(--element-wood);
+    }
+
+    .heaven-gate-line-value[data-element="water"] {
+      color: var(--element-water);
+    }
+
+    .heaven-gate-line-value[data-element="fire"] {
+      color: var(--element-fire);
+    }
+
+    .heaven-gate-line-value[data-element="earth"] {
+      color: var(--element-earth);
+    }
+
+    .heaven-gate-line-value.hidden {
+      display: none;
+    }
+
+    .heaven-gate-line-value.is-severed {
+      color: var(--heaven-gate-severed-ink) !important;
+      opacity: 1;
+      filter: none;
+      text-shadow: none;
+    }
+
+    .heaven-gate-judgement {
+      display: grid;
+      gap: 8px;
+      padding: 12px 14px;
+      border: 1px solid rgba(17, 17, 17, 0.1);
+      background: rgba(255, 251, 245, 0.82);
+    }
+
+    .heaven-gate-judgement.hidden {
+      display: none;
+    }
+
+    .heaven-gate-judgement-name {
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-24);
+      color: var(--ink-black);
+      letter-spacing: 0.04em;
+    }
+
+    .heaven-gate-judgement-meta {
+      font-size: var(--font-size-12);
+      color: var(--ink-grey);
+      letter-spacing: 0.04em;
+    }
+
+    .heaven-gate-judgement-desc {
+      color: var(--ink-dark);
+      line-height: 1.8;
+      font-size: var(--font-size-13);
+    }
+
+    .heaven-gate-popup-overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background: rgba(22, 16, 12, 0.72);
+      z-index: 7;
+    }
+
+    .heaven-gate-popup {
+      display: grid;
+      gap: 10px;
+      width: min(100%, 360px);
+      padding: 16px 18px;
+      border: 1px solid rgba(17, 17, 17, 0.3);
+      background: var(--popup-paper-bg);
+      box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.2);
+    }
+
+    .heaven-gate-popup-title {
+      font-family: var(--font-role-title);
+      color: var(--ink-black);
+    }
+
+    .heaven-gate-popup-desc {
+      color: var(--ink-dark);
+      font-size: var(--font-size-13);
+      line-height: 1.65;
+    }
+
+    .heaven-gate-popup-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--heaven-gate {
+      background:
+        radial-gradient(circle at top right, rgba(214, 188, 142, 0.08), transparent 30%),
+        var(--surface-gradient-paper);
+      color: var(--ink-dark);
+      border-color: rgba(246, 238, 224, 0.82);
+      box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.28);
+    }
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--heaven-gate .heaven-gate-board {
+      border-color: rgba(246, 238, 224, 0.18);
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,0.06), transparent 20%),
+        linear-gradient(180deg, rgba(39, 33, 29, 0.96), rgba(26, 22, 19, 0.96));
+      box-shadow: inset 0 0 0 1px rgba(246, 238, 224, 0.05);
+    }
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--heaven-gate .heaven-gate-core {
+      border-color: rgba(246, 238, 224, 0.2);
+      background:
+        radial-gradient(circle at 35% 30%, rgba(255,255,255,0.1), transparent 18%),
+        radial-gradient(circle at 50% 50%, rgba(196, 138, 98, 0.28), rgba(57, 46, 39, 0.96) 68%);
+      box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.2);
+    }
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--heaven-gate .heaven-gate-core-title,
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--heaven-gate .heaven-gate-cursor-text {
+      color: var(--ink-black);
+      text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.32);
+    }
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--heaven-gate .heaven-gate-line-value {
+      text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.42);
+    }
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--heaven-gate .heaven-gate-judgement {
+      border-color: rgba(246, 238, 224, 0.14);
+      background: rgba(45, 38, 33, 0.84);
+    }
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--heaven-gate .heaven-gate-popup-overlay {
+      background: rgba(0, 0, 0, 0.74);
+    }
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--heaven-gate .heaven-gate-popup {
+      border-color: rgba(246, 238, 224, 0.2);
+      background: linear-gradient(180deg, rgba(51, 43, 38, 0.98), rgba(31, 26, 23, 0.98));
+      box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.34);
+    }
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--heaven-gate .heaven-gate-popup-title,
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--heaven-gate .heaven-gate-popup-desc,
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--heaven-gate .heaven-gate-judgement-name,
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--heaven-gate .heaven-gate-judgement-meta,
+
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--heaven-gate .heaven-gate-judgement-desc {
+      color: var(--ink-dark);
+    }

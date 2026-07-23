@@ -140,7 +140,7 @@ export class InventoryBulkDiscardDialogController {
       <div class="inventory-bulk-discard">
         <div class="inventory-bulk-discard-tabs">
           ${INVENTORY_FILTER_TABS.map((tab) => `
-            <button class="inventory-filter-tab${this.filter === tab.id ? ' active' : ''}" type="button" data-bulk-discard-filter="${escapeHtml(tab.id)}">
+            <button class="ui-filter-tab${this.filter === tab.id ? ' active' : ''}" type="button" data-bulk-discard-filter="${escapeHtml(tab.id)}">
               ${escapeHtml(tab.label)}
             </button>
           `).join('')}

@@ -22,8 +22,9 @@
   overflow-y: auto;
   padding: 20px 20px 18px;
   border: 1.5px solid var(--ink-black);
+  border-radius: var(--radius-lg);
   background: var(--surface-card);
-  box-shadow: 12px 12px 0 rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-soft-lg);
 }
 
 .ui-modal-card--sm { --ui-modal-width: min(520px, calc(100vw - 24px)); }
@@ -133,6 +134,7 @@
 .time-chamber-control {
   min-width: 0;
   border: 1px solid var(--wash-ink);
+  border-radius: var(--radius-md);
   background: var(--surface-muted);
 }
 
@@ -223,6 +225,7 @@
   gap: 12px;
   padding: 14px;
   border: 1px solid var(--wash-ink);
+  border-radius: var(--radius-md);
   background: var(--surface-muted);
 }
 
@@ -432,7 +435,7 @@
   width: min(280px, 46vw);
   min-height: 36px;
   border: 1px solid var(--wash-ink);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--surface-base);
   color: var(--ink-black);
   font: inherit;
@@ -455,6 +458,7 @@
   min-width: 0;
   padding: 12px;
   border: 1px solid var(--wash-ink);
+  border-radius: var(--radius-md);
   background: var(--surface-muted);
 }
 
@@ -712,6 +716,7 @@
 .treasure-vault-permission-editor {
   padding: 12px;
   border: 1px solid var(--wash-ink);
+  border-radius: var(--radius-md);
   background: var(--surface-muted);
 }
 

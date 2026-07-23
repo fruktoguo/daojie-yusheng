@@ -7,6 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readPanelsCss } from './read-panels-css.mjs';
 
 const clientRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -54,7 +55,7 @@ const buildingStateSource = read('src/main-building-fengshui-state-source.ts');
 const timeChamberStateSource = read('src/main-time-chamber-state-source.ts');
 const timeChamberManagement = read('src/ui/time-chamber-console-modal.ts');
 const timeChamberUsage = read('src/ui/time-chamber-usage-modal.ts');
-const panelsCss = read('src/styles/panels.css');
+const panelsCss = readPanelsCss(clientRoot);
 
 const marketUpdate = section(
   marketPanel,

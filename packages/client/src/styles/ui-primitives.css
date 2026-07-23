@@ -1,12 +1,10 @@
 /* 可复用的面板/按钮/空态基础原语。 */
 
-.panel-section,
-.ui-panel-section {
+.panel-section {
   margin-bottom: 16px;
 }
 
-.panel-section-head,
-.ui-panel-section-head {
+.panel-section-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -14,8 +12,7 @@
   margin-bottom: 8px;
 }
 
-.panel-section-title,
-.ui-panel-section-title {
+.panel-section-title {
   margin-bottom: 8px;
   padding-bottom: 4px;
   border-bottom: 1px solid var(--wash-ink);
@@ -24,15 +21,13 @@
   font-size: var(--font-size-role-title-16);
 }
 
-.panel-section-head .panel-section-title,
-.ui-panel-section-head .ui-panel-section-title {
+.panel-section-head .panel-section-title {
   flex: 1;
   min-width: 0;
   margin-bottom: 0;
 }
 
-.panel-row,
-.ui-panel-row {
+.panel-row {
   display: flex;
   justify-content: space-between;
   padding: 4px 0;
@@ -40,98 +35,94 @@
   font-size: var(--font-size-13);
 }
 
-.panel-row:last-child,
-.ui-panel-row:last-child {
+.panel-row:last-child {
   border-bottom: none;
 }
 
-.panel-label,
-.ui-panel-label {
+.panel-label {
   color: var(--color-role-label);
   font-weight: var(--font-weight-role-label);
 }
 
-.panel-value,
-.ui-panel-value {
+.panel-value {
   color: var(--color-role-body-strong);
   font-weight: var(--font-weight-strong);
 }
 
-.panel-subtext,
-.ui-panel-subtext {
+.panel-subtext {
   margin-top: 8px;
   color: var(--color-role-body-muted);
   font-size: var(--font-size-12);
   line-height: 1.5;
 }
 
-.small-btn,
-.ui-btn {
+.small-btn {
   padding: 4px 10px;
   border: 1px solid var(--ink-black);
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--ink-black);
   font-family: var(--font-role-body);
   font-size: var(--font-size-role-body-13);
   cursor: pointer;
   pointer-events: auto;
-  transition: all 0.2s;
+  transition: all var(--motion-base) var(--ease-standard);
 }
 
-.small-btn:hover,
-.ui-btn:hover {
+.small-btn:hover {
   background: var(--ink-black);
   color: var(--paper-light);
 }
 
-.small-btn.ghost,
-.ui-btn.ghost {
+.small-btn.ghost {
   border-color: var(--ghost-btn-border);
   color: var(--ink-grey);
 }
 
-.small-btn.ghost:hover,
-.ui-btn.ghost:hover {
+.small-btn.ghost:hover {
   background: var(--ghost-btn-hover-bg);
   color: var(--ink-black);
 }
 
-.small-btn.ghost.active,
-.ui-btn.ghost.active {
+.small-btn.ghost.active {
   border-color: var(--ghost-btn-active-border);
   background: var(--ghost-btn-active-bg);
   color: var(--ghost-btn-active-ink);
 }
 
-.small-btn.danger,
-.ui-btn.danger,
-.ui-btn--danger {
+.small-btn.danger {
   border-color: var(--stamp-red);
   color: var(--stamp-red);
 }
 
-.small-btn.danger:hover,
-.ui-btn.danger:hover,
-.ui-btn--danger:hover {
+.small-btn.danger:hover {
   background: var(--stamp-red);
   color: var(--paper-light);
 }
 
-.small-btn:disabled,
-.ui-btn:disabled {
+.small-btn:disabled {
   cursor: not-allowed;
   opacity: 0.45;
   background: var(--highlight);
   color: var(--ink-light);
 }
 
-.small-btn:disabled:hover,
-.ui-btn:disabled:hover {
+.small-btn:disabled:hover {
   background: var(--highlight);
   color: var(--ink-light);
 }
 
-.inventory-filter-tabs,
+/* 按钮微交互：hover 轻浮起（仅精确指针设备），active 按压回弹（触屏保留） */
+@media (hover: hover) {
+  .small-btn:not(:disabled):hover {
+    transform: translateY(-1px);
+  }
+}
+
+.small-btn:not(:disabled):active {
+  transform: translateY(0) scale(0.98);
+}
+
 .ui-filter-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -139,33 +130,30 @@
   margin-bottom: 12px;
 }
 
-.inventory-filter-tab,
 .ui-filter-tab {
   padding: 4px 10px;
   border: 1px solid rgba(34, 26, 19, 0.16);
+  border-radius: var(--radius-sm);
   background: var(--surface-muted-strong);
   color: var(--ink-grey);
   font-family: var(--font-role-body);
   font-size: var(--font-size-role-body-12);
   cursor: pointer;
-  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+  transition: border-color var(--motion-base) var(--ease-standard), background var(--motion-base) var(--ease-standard), color var(--motion-base) var(--ease-standard);
 }
 
-.inventory-filter-tab:hover,
 .ui-filter-tab:hover {
   border-color: rgba(34, 26, 19, 0.32);
   background: var(--surface-hover);
   color: var(--ink-black);
 }
 
-.inventory-filter-tab.active,
 .ui-filter-tab.active {
   border-color: rgba(139, 48, 35, 0.38);
   background: rgba(139, 48, 35, 0.08);
   color: var(--stamp-red);
 }
 
-.quest-subtabs,
 .ui-subtabs {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -173,7 +161,6 @@
   margin-bottom: 10px;
 }
 
-.quest-subtab-btn,
 .ui-subtab-btn {
   display: inline-flex;
   align-items: center;
@@ -181,21 +168,20 @@
   gap: 6px;
   padding: 7px 8px;
   border: 1px solid var(--wash-ink);
+  border-radius: var(--radius-sm);
   background: var(--surface-muted);
   color: var(--ink-grey);
   font-family: var(--font-role-body);
   font-size: var(--font-size-role-body-12);
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: all var(--motion-base) var(--ease-standard);
 }
 
-.quest-subtab-btn:hover,
 .ui-subtab-btn:hover {
   background: var(--highlight);
   color: var(--ink-black);
 }
 
-.quest-subtab-btn.active,
 .ui-subtab-btn.active {
   border-color: var(--stamp-red);
   background: rgba(125, 27, 27, 0.08);
@@ -203,16 +189,14 @@
   box-shadow: inset 0 -2px 0 var(--stamp-red);
 }
 
-.market-action-row,
-.ui-inline-meta-row {
+.market-action-row {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
 
-.market-action-row label,
-.ui-inline-meta-row label {
+.market-action-row label {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -222,27 +206,24 @@
   font-size: var(--font-size-12);
 }
 
-.market-action-row label input,
-.ui-inline-meta-row label input {
+.market-action-row label input {
   min-width: 0;
   flex: 1 1 auto;
 }
 
-.empty-hint,
-.ui-empty-hint {
+.empty-hint {
   padding: 20px 0;
   color: var(--ink-light);
   font-size: var(--font-size-13);
   text-align: center;
 }
 
-.empty-hint.compact,
-.ui-empty-hint.compact {
+.empty-hint.compact {
   padding: 10px 0;
   font-size: var(--font-size-12);
 }
 
-.tech-modal-actions,
+/* 弹层底部动作区：统一为 .ui-modal-footer-actions，更强的补充定义在 panels/technique.css。 */
 .ui-modal-footer-actions {
   display: flex;
   justify-content: flex-end;
@@ -280,6 +261,7 @@
   min-width: 0;
   padding: 12px;
   border: 1px solid var(--wash-ink);
+  border-radius: var(--radius-md);
   background: var(--surface-muted);
 }
 
@@ -294,6 +276,7 @@
   min-width: 0;
   padding: 8px;
   border: 1px solid rgba(34, 26, 19, 0.12);
+  border-radius: var(--radius-sm);
   background: var(--surface);
 }
 
@@ -332,6 +315,7 @@
   min-height: 30px;
   padding: 6px 8px;
   border: 1px solid rgba(34, 26, 19, 0.1);
+  border-radius: var(--radius-sm);
   background: var(--surface);
   font-size: var(--font-size-13);
 }

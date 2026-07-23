@@ -6,7 +6,35 @@ const path = require('node:path');
 const assert = require('node:assert/strict');
 
 const repoRoot = path.resolve(__dirname, '..');
-const panelsCss = fs.readFileSync(path.join(repoRoot, 'packages/client/src/styles/panels.css'), 'utf8');
+// 原 panels.css 已拆分为 styles/panels/*.css，这里按 main.ts 的 import 顺序拼接，保持层叠顺序一致。
+const PANELS_CSS_ORDER = [
+  'panel-common.css',
+  'chat.css',
+  'mobile-shell.css',
+  'action-panel.css',
+  'attributes.css',
+  'inventory.css',
+  'equipment.css',
+  'technique.css',
+  'loot.css',
+  'heaven-gate.css',
+  'market.css',
+  'auction.css',
+  'skill.css',
+  'sect.css',
+  'social.css',
+  'world.css',
+  'tutorial.css',
+  'activity.css',
+  'settings.css',
+  'quest.css',
+  'craft.css',
+  'gm.css',
+  'alchemy.css',
+  'enhancement.css',
+];
+const panelsDir = path.join(repoRoot, 'packages/client/src/styles/panels');
+const panelsCss = PANELS_CSS_ORDER.map((name) => fs.readFileSync(path.join(panelsDir, name), 'utf8')).join('\n');
 const tokensCss = fs.readFileSync(path.join(repoRoot, 'packages/client/src/styles/tokens.css'), 'utf8');
 
 function assertMatch(source, pattern, message) {

@@ -15,7 +15,7 @@
       border: 1px solid rgba(15, 23, 42, 0.72);
       border-radius: 6px;
       background: rgba(15, 23, 42, 0.94);
-      color: #e5e7eb;
+      color: var(--profiler-ink);
       box-shadow: 0 16px 42px rgba(0, 0, 0, 0.34);
       overflow: hidden;
       font-family: var(--font-family-monospace);
@@ -42,16 +42,16 @@
       align-items: baseline;
       gap: 10px;
       min-width: 0;
-      color: #cbd5e1;
+      color: var(--profiler-title-ink);
       white-space: nowrap;
       overflow: hidden;
     }
     .pixi-profiler-title span {
       font-weight: 700;
-      color: #f8fafc;
+      color: var(--profiler-strong-ink);
     }
     .pixi-profiler-title strong {
-      color: #67e8f9;
+      color: var(--profiler-accent);
       font-weight: 700;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -70,14 +70,14 @@
       border: 1px solid rgba(148, 163, 184, 0.36);
       border-radius: 4px;
       background: rgba(15, 23, 42, 0.72);
-      color: #e2e8f0;
+      color: var(--profiler-btn-ink);
       font-family: var(--font-family-monospace);
       font-size: 11px;
       cursor: pointer;
     }
     .pixi-profiler-actions button:hover {
       border-color: rgba(103, 232, 249, 0.72);
-      color: #f8fafc;
+      color: var(--profiler-strong-ink);
     }
     .pixi-profiler-actions button:disabled {
       opacity: 0.48;
@@ -85,15 +85,15 @@
     }
     .pixi-profiler-actions button[aria-pressed="true"] {
       border-color: rgba(250, 204, 21, 0.72);
-      color: #fef9c3;
+      color: var(--profiler-highlight-ink);
     }
     .pixi-profiler-actions button.is-copy-ok {
       border-color: rgba(34, 197, 94, 0.72);
-      color: #bbf7d0;
+      color: var(--profiler-ok-ink);
     }
     .pixi-profiler-actions button.is-copy-failed {
       border-color: rgba(248, 113, 113, 0.72);
-      color: #fecaca;
+      color: var(--profiler-error-ink);
     }
     .pixi-profiler-graph-shell {
       padding: 8px 8px 6px;
@@ -130,11 +130,11 @@
       padding: 3px 5px;
       border-radius: 4px;
       background: rgba(51, 65, 85, 0.48);
-      color: #e2e8f0;
+      color: var(--profiler-btn-ink);
       overflow: hidden;
     }
     .pixi-profiler-counters b {
-      color: #94a3b8;
+      color: var(--profiler-muted-ink);
       font-weight: 500;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -163,19 +163,19 @@
     .pixi-profiler-detail td:last-child {
       width: 96px;
       text-align: right;
-      color: #bae6fd;
+      color: var(--profiler-value-ink);
     }
     .pixi-profiler-selected-row td {
       background: rgba(250, 204, 21, 0.12);
-      color: #fef9c3;
+      color: var(--profiler-highlight-ink);
       font-weight: 700;
     }
     .pixi-profiler-counter-row td {
-      color: #cbd5e1;
+      color: var(--profiler-title-ink);
       background: rgba(51, 65, 85, 0.18);
     }
     .pixi-profiler-section-row td {
-      color: #f8fafc;
+      color: var(--profiler-strong-ink);
       background: rgba(14, 165, 233, 0.16);
       font-weight: 700;
       letter-spacing: 0;
@@ -505,7 +505,7 @@
     .hud-meter-fill {
       width: 0;
       height: 100%;
-      background: linear-gradient(90deg, #c53c3c, #e49b5d);
+      background: linear-gradient(90deg, var(--hud-meter-exp-start), var(--hud-meter-exp-end));
       transition: width 0.25s ease;
     }
     .hud-bars {
@@ -540,13 +540,13 @@
       transition: width 0.25s ease;
     }
     .hud-bar-fill.hp {
-      background: linear-gradient(90deg, #9f2626, #d56a54);
+      background: linear-gradient(90deg, var(--hud-bar-hp-start), var(--hud-bar-hp-end));
     }
     .hud-bar-fill.qi {
-      background: linear-gradient(90deg, #285b78, #67a7b8);
+      background: linear-gradient(90deg, var(--hud-bar-qi-start), var(--hud-bar-qi-end));
     }
     .hud-bar-fill.cultivation {
-      background: linear-gradient(90deg, #7b5b14, #d4a447);
+      background: linear-gradient(90deg, var(--hud-bar-cultivation-start), var(--hud-bar-cultivation-end));
     }
     .hud-bar-text {
       position: absolute;
@@ -706,10 +706,10 @@
       flex: 0 0 16px;
     }
     .hud-link-btn--qq .hud-link-icon {
-      color: #12b7f5;
+      color: var(--brand-qq);
     }
     .hud-link-btn--github .hud-link-icon {
-      color: #181717;
+      color: var(--brand-github);
     }
     .hud-corner-btn:hover {
       background: var(--surface-hover);

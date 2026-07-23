@@ -10,6 +10,7 @@ import { registerReactUiToggleApi, isReactUiEnabled } from '../bridge/feature-fl
 import { reactUiBridge } from '../bridge/react-ui-bridge';
 import { shellStore } from '../stores/shell-store';
 import { ReactUiRoot } from './ReactUiRoot';
+import '../styles/foundation.css';
 import '../styles/index.css';
 
 let root: Root | null = null;

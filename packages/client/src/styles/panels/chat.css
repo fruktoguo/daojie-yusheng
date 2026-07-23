@@ -1,0 +1,292 @@
+/* panels.css 拆分：聊天面板与战斗信息 pill。 */
+/* 由 scripts 拆分自原 styles/panels.css，规则顺序与原文件保持一致。 */
+
+    #chat-panel {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
+    }
+
+    #chat-panel.hidden { display: none; }
+
+    .chat-log-stack {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .chat-log-panel {
+      display: none;
+      height: 100%;
+      min-height: 0;
+      min-width: 0;
+    }
+
+    .chat-log-panel.active {
+      display: flex;
+    }
+
+    .chat-log-panel.active > .chat-log {
+      min-height: 0;
+    }
+
+    .react-panel-host--chat {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
+    }
+
+    .react-panel-host--chat .chat-tabs {
+      flex: 0 0 auto;
+    }
+
+    .react-panel-host--chat .chat-log-stack {
+      flex: 1;
+      min-height: 0;
+    }
+
+    .react-panel-host--chat .chat-compose {
+      flex: 0 0 auto;
+      margin-top: auto;
+    }
+
+    .chat-log {
+      flex: 1;
+      height: 100%;
+      min-width: 0;
+      max-width: 100%;
+      box-sizing: border-box;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 10px 12px;
+      background: var(--chat-log-bg);
+      border: 1px solid var(--wash-ink);
+      color: var(--ink-dark);
+      font-size: var(--font-size-14);
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .chat-line {
+      max-width: 100%;
+      min-width: 0;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .chat-line + .chat-line {
+      margin-top: 4px;
+      padding-top: 4px;
+      border-top: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .chat-kind-quest { color: var(--chat-kind-quest); }
+
+    .chat-kind-loot { color: var(--chat-kind-loot); }
+
+    .chat-kind-alchemy { color: var(--chat-kind-alchemy); }
+
+    .chat-kind-forging { color: var(--chat-kind-forging); }
+
+    .chat-kind-gather { color: var(--chat-kind-gather); }
+
+    .chat-kind-mining { color: var(--chat-kind-mining); }
+
+    .chat-kind-building { color: var(--chat-kind-building); }
+
+    .chat-kind-formation { color: var(--chat-kind-formation); }
+
+    .chat-kind-transmission { color: var(--chat-kind-transmission); }
+
+    .chat-kind-combat { color: var(--chat-kind-combat); }
+
+    .chat-kind-grudge { color: var(--chat-kind-grudge); }
+
+    .chat-kind-success { color: var(--chat-kind-success); }
+
+    .chat-kind-warn { color: var(--chat-kind-warn); }
+
+    .chat-kind-travel { color: var(--chat-kind-travel); }
+
+    .chat-damage-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      max-width: 100%;
+      min-width: 0;
+      min-width: 52px;
+      margin: 0 4px;
+      padding: 1px 10px;
+      border: 1px solid var(--chat-damage-pill-border, currentColor);
+      border-radius: 999px;
+      background: var(--chat-damage-pill-bg, rgba(255, 255, 255, 0.12));
+      color: var(--chat-damage-pill-color, currentColor);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 1px 2px var(--chat-damage-pill-shadow, rgba(0, 0, 0, 0.12));
+      font-size: 0.92em;
+      font-weight: 700;
+      line-height: 1.45;
+      letter-spacing: 0.02em;
+      vertical-align: baseline;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      cursor: help;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .chat-damage-pill:hover {
+      transform: translateY(-1px);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 2px 6px var(--chat-damage-pill-shadow, rgba(0, 0, 0, 0.16));
+    }
+
+    .chat-merged-combat-line {
+      line-height: 1.5;
+    }
+
+    .chat-merged-combat-indent {
+      visibility: hidden;
+      display: inline;
+      font-size: inherit;
+      letter-spacing: inherit;
+      pointer-events: none;
+    }
+
+    .chat-target-pill {
+      display: inline-flex;
+      align-items: center;
+      max-width: 100%;
+      min-width: 0;
+      margin: 0 2px;
+      padding: 0 6px;
+      border: 1px solid rgba(140, 100, 60, 0.35);
+      border-radius: 999px;
+      background: rgba(140, 100, 60, 0.1);
+      color: inherit;
+      font-size: 0.92em;
+      font-weight: 600;
+      line-height: 1.45;
+      vertical-align: baseline;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+
+    .chat-skill-pill {
+      display: inline-flex;
+      align-items: center;
+      max-width: 100%;
+      min-width: 0;
+      margin: 0 2px;
+      padding: 0 6px;
+      border: 1px solid rgba(80, 60, 160, 0.3);
+      border-radius: 999px;
+      background: rgba(80, 60, 160, 0.08);
+      color: inherit;
+      font-size: 0.92em;
+      font-weight: 600;
+      line-height: 1.45;
+      vertical-align: baseline;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+
+    .chat-combat-badge {
+      display: inline-flex;
+      align-items: center;
+      margin: 0 1px;
+      padding: 0 5px;
+      border-radius: 4px;
+      background: rgba(120, 120, 120, 0.15);
+      color: var(--chat-badge-neutral-ink);
+      font-size: 0.82em;
+      font-weight: 500;
+      line-height: 1.5;
+      vertical-align: baseline;
+      white-space: nowrap;
+    }
+
+    .chat-combat-badge--kill {
+      background: rgba(220, 38, 38, 0.12);
+      color: var(--chat-badge-kill-ink);
+    }
+
+    .chat-combat-badge--crit {
+      background: rgba(234, 179, 8, 0.14);
+      color: var(--chat-badge-crit-ink);
+    }
+
+    .chat-combat-badge--broken {
+      background: rgba(249, 115, 22, 0.14);
+      color: var(--chat-badge-broken-ink);
+    }
+
+    :root[data-color-mode="dark"] .chat-target-pill {
+      border-color: rgba(200, 170, 120, 0.3);
+      background: rgba(200, 170, 120, 0.1);
+    }
+
+    :root[data-color-mode="dark"] .chat-skill-pill {
+      border-color: rgba(160, 140, 220, 0.3);
+      background: rgba(160, 140, 220, 0.1);
+    }
+
+    :root[data-color-mode="dark"] .chat-combat-badge {
+      background: rgba(200, 200, 200, 0.12);
+      color: var(--chat-badge-neutral-ink);
+    }
+
+    :root[data-color-mode="dark"] .chat-combat-badge--kill {
+      background: rgba(248, 113, 113, 0.16);
+      color: var(--chat-badge-kill-ink);
+    }
+
+    :root[data-color-mode="dark"] .chat-combat-badge--crit {
+      background: rgba(250, 204, 21, 0.16);
+      color: var(--chat-badge-crit-ink);
+    }
+
+    :root[data-color-mode="dark"] .chat-combat-badge--broken {
+      background: rgba(251, 146, 60, 0.16);
+      color: var(--chat-badge-broken-ink);
+    }
+
+    .chat-compose {
+      display: flex;
+      gap: 8px;
+      padding-top: 6px;
+      border-top: 1px solid var(--wash-ink);
+}
+
+    #chat-input {
+      flex: 1;
+      min-width: 0;
+      padding: 10px 12px;
+      border: 1px solid var(--ink-light);
+      background: var(--surface-base);
+      color: var(--ink-dark);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-14);
+      outline: none;
+    }
+
+    #chat-input:focus {
+      border-color: var(--ink-black);
+    }
+
+
+    #chat-input:disabled,
+
+    #chat-send:disabled {
+      cursor: not-allowed;
+      opacity: 0.48;
+      filter: grayscale(0.75);
+    }
+
+
+    #chat-input:disabled {
+      background: var(--surface-muted);
+      color: var(--ink-grey);
+      border-color: var(--wash-ink);
+    }

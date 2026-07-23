@@ -6,6 +6,7 @@
   min-height: 0;
   padding: 10px;
   border: 1px solid var(--wash-ink);
+  border-radius: var(--radius-md);
   background: var(--surface-gradient-pane);
 }
 
@@ -22,6 +23,7 @@
   gap: 8px;
   padding: 12px;
   border: 1px solid var(--wash-ink);
+  border-radius: var(--radius-md);
   background: linear-gradient(180deg, var(--surface-elevated), var(--surface-muted));
   box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.05);
 }
@@ -63,6 +65,7 @@
   min-height: 0;
   padding: 12px;
   border: 1px solid var(--wash-ink);
+  border-radius: var(--radius-md);
   background: linear-gradient(180deg, var(--surface-elevated), var(--surface-muted));
 }
 
@@ -81,13 +84,14 @@
   min-height: 42px;
   padding: 9px 12px;
   border: 1px solid var(--wash-ink);
+  border-radius: var(--radius-sm);
   background: var(--surface-base);
   color: var(--ink-grey);
   font-family: var(--font-role-body);
   font-size: var(--font-size-role-body-13);
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+  transition: border-color var(--motion-base) var(--ease-standard), background var(--motion-base) var(--ease-standard), color var(--motion-base) var(--ease-standard);
 }
 
 .ui-workspace-rail-tab:hover {
@@ -146,6 +150,7 @@
   min-height: 34px;
   padding: 8px 10px;
   border: 1px solid var(--wash-ink);
+  border-radius: var(--radius-sm);
   background: var(--surface-muted);
   color: var(--ink-grey);
   font-size: var(--font-size-role-body-13);
@@ -178,6 +183,7 @@
   min-height: 34px;
   padding: 8px 10px;
   border: 1px solid var(--wash-ink);
+  border-radius: var(--radius-sm);
   background: var(--surface-base);
   color: var(--ink-dark);
   font-size: var(--font-size-role-body-13);
@@ -238,11 +244,13 @@
   min-height: 40px;
   padding: 9px 10px;
   border: 1px solid var(--wash-ink);
+  border-radius: var(--radius-sm);
   background: var(--surface-base);
   color: var(--ink-dark);
   font: inherit;
   text-align: left;
   cursor: pointer;
+  transition: border-color var(--motion-base) var(--ease-standard), background var(--motion-base) var(--ease-standard);
 }
 
 .building-panel-item.active {
@@ -258,6 +266,7 @@
   min-height: 34px;
   padding: 8px 10px;
   border: 1px solid var(--wash-ink);
+  border-radius: var(--radius-sm);
   background: var(--surface-muted);
   font-size: var(--font-size-role-body-13);
 }
@@ -318,11 +327,13 @@
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--input-border);
+  border-radius: var(--radius-sm);
   background: var(--surface-base);
   color: var(--ink-black);
   font-family: var(--font-role-body);
   font-size: var(--font-size-role-body-14);
   outline: none;
+  transition: border-color var(--motion-fast) var(--ease-standard);
 }
 
 .ui-input:focus,
@@ -356,7 +367,9 @@
 .ui-tab-strip {
   display: flex;
   gap: 0;
+  overflow: hidden;
   border: 1px solid var(--wash-ink);
+  border-radius: var(--radius-sm);
   background: var(--surface-muted);
 }
 
@@ -409,12 +422,13 @@
   gap: 6px;
   padding: 7px 8px;
   border: 1px solid var(--wash-ink);
+  border-radius: var(--radius-sm);
   background: var(--surface-muted);
   color: var(--ink-grey);
   font-family: var(--font-role-body);
   font-size: var(--font-size-role-body-12);
   cursor: pointer;
-  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  transition: background var(--motion-base) var(--ease-standard), color var(--motion-base) var(--ease-standard), border-color var(--motion-base) var(--ease-standard), box-shadow var(--motion-base) var(--ease-standard);
 }
 
 .ui-subtab-button:hover {
@@ -433,6 +447,7 @@
   min-width: 16px;
   padding: 1px 5px;
   border: 1px solid currentColor;
+  border-radius: var(--radius-pill);
   font-size: var(--font-size-11);
   line-height: 1.1;
 }
@@ -446,6 +461,7 @@
 .ui-meta-tag {
   padding: 3px 7px;
   border: 1px solid rgba(34, 26, 19, 0.1);
+  border-radius: var(--radius-pill);
   background: var(--surface-muted);
   color: var(--ink-grey);
   font-size: var(--font-size-12);
@@ -521,10 +537,11 @@
 
 .ui-selectable-card {
   width: 100%;
+  border-radius: var(--radius-md);
   color: inherit;
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+  transition: border-color var(--motion-base) var(--ease-standard), background var(--motion-base) var(--ease-standard), transform var(--motion-base) var(--ease-standard), box-shadow var(--motion-base) var(--ease-standard);
 }
 
 .ui-selectable-card:hover {
@@ -591,7 +608,16 @@
   align-items: center;
   padding: 12px;
   border: 1px solid var(--wash-ink);
+  border-radius: var(--radius-md);
   background: linear-gradient(180deg, var(--surface-elevated), var(--surface-muted));
+  transition: background var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard);
+}
+
+@media (hover: hover) {
+  .ui-data-table-row:hover {
+    border-color: var(--border-strong);
+    background: linear-gradient(180deg, var(--surface-hover), var(--surface-muted));
+  }
 }
 
 .ui-data-table-meta {

@@ -275,7 +275,7 @@ export class GmPanel {
       return;
     }
     const empty = document.createElement('div');
-    empty.className = 'empty-hint ui-empty-hint';
+    empty.className = 'empty-hint';
     empty.textContent = '暂无 GM 数据';
     this.pane.replaceChildren(empty);
   }
@@ -336,7 +336,7 @@ export class GmPanel {
       </div>
       <div class="panel-section ui-surface-pane ui-surface-pane--stack">
         <div class="panel-section-title">玩家编辑</div>
-        <div data-gm-detail-empty class="empty-hint ui-empty-hint">请选择一名玩家</div>
+        <div data-gm-detail-empty class="empty-hint">请选择一名玩家</div>
         <div data-gm-detail-form>
           <div class="gm-form-grid ui-form-grid ui-form-grid--three-column">
             <label class="gm-field ui-form-field">
@@ -463,7 +463,7 @@ export class GmPanel {
     const preserved = this.captureContainerState(this.playerListEl);
     if (this.state.players.length === 0) {
       const empty = document.createElement('div');
-      empty.className = 'empty-hint ui-empty-hint';
+      empty.className = 'empty-hint';
       empty.dataset.gmEmptyState = 'players';
       empty.textContent = '当前没有在线玩家';
       replaceWithSingleChild(this.playerListEl, empty);

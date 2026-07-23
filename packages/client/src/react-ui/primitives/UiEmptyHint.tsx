@@ -28,7 +28,7 @@ export interface UiEmptyHintProps {
 export function UiEmptyHint({ text, className }: UiEmptyHintProps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const classes = ['react-ui-empty-hint'];
+  const classes = ['empty-hint'];
   if (className) {
     classes.push(className);
   }
