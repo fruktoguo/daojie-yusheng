@@ -463,6 +463,20 @@ async function verifyAssetConflictQuarantineRepair(
   const workerRepair = await ledger.repairPlayerFlushAssetConflictQuarantines(playerId);
   assert.deepEqual(workerRepair.unresolvedPlayers, [playerId], '普通 worker 不得绕过旧会话 fence');
 
+  const runtimeMismatchRepair = await ledger.repairPlayerFlushAssetConflictQuarantines(playerId, {
+    allowOfflineFenceRebase: true,
+    runtimeInventoryItems: [{
+      itemInstanceId: conflictedItemInstanceId,
+      itemId: 'spirit_stone',
+      enhanceLevel: 1,
+    }],
+  });
+  assert.deepEqual(runtimeMismatchRepair.unresolvedPlayers, [playerId], '运行时实例态不一致时不得解除隔离');
+  assert.equal(
+    (await readPlayerRow(pool, playerId, 'inventory')).failure_category,
+    'startup_asset_conflict',
+  );
+
   const startupRepair = await ledger.repairPlayerFlushAssetConflictQuarantines(playerId, {
     allowOfflineFenceRebase: true,
   });

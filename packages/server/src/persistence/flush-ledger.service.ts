@@ -10,10 +10,12 @@
  */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import { Pool } from 'pg';
 
 import { DatabasePoolProvider } from './database-pool.provider';
 import type { ClaimFlushTaskInput, FlushTask, FlushTaskPriority, FlushTaskScope } from './flush-task.types';
+import { buildPersistedInventoryItemRawPayload } from './inventory-item-persistence';
 import {
   listPlayerInventoryPayloadItemInstanceIds,
   readPlayerInventoryPayloadFence,
@@ -121,6 +123,15 @@ export interface PlayerFlushAssetConflictRepairSummary {
 export interface PlayerFlushAssetConflictRepairOptions {
   allowOfflineFenceRebase?: boolean;
   logUnresolved?: boolean;
+  /**
+   * 登录恢复持有玩家资产锁时提供的运行时物品身份。
+   * 只有待换发旧 ID 仍由该运行时持有，且 itemId 与完整持久化实例态一致，事务才允许解除隔离。
+   */
+  runtimeInventoryItems?: ReadonlyArray<{
+    itemInstanceId?: unknown;
+    itemId?: unknown;
+    [key: string]: unknown;
+  }>;
 }
 
 /** 统一刷盘账本服务：管理玩家和实例的脏版本跟踪与分布式认领 */
@@ -785,6 +796,25 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
         if (!repair.canReleaseQuarantine) {
           summary.unresolvedPlayers.push(quarantinedPlayerId);
           continue;
+        }
+        if (options.runtimeInventoryItems !== undefined) {
+          const runtimeItemsById = new Map<string, Record<string, unknown>>();
+          for (const runtimeItem of options.runtimeInventoryItems) {
+            const runtimeItemInstanceId = normalizeRequiredString(runtimeItem?.itemInstanceId);
+            if (runtimeItemInstanceId) {
+              runtimeItemsById.set(runtimeItemInstanceId, runtimeItem);
+            }
+          }
+          const runtimeIdentityMismatch = repair.remaps.some((remap) => (
+            !isRuntimeInventoryIdentityEquivalent(
+              runtimeItemsById.get(remap.previousItemInstanceId),
+              conflicts.find((conflict) => conflict.itemInstanceId === remap.previousItemInstanceId),
+            )
+          ));
+          if (runtimeIdentityMismatch) {
+            summary.unresolvedPlayers.push(quarantinedPlayerId);
+            continue;
+          }
         }
 
         const payloadFence = readPlayerInventoryPayloadFence(repair.payloadJson);
@@ -2131,6 +2161,36 @@ function normalizeJsonObject(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {};
+}
+
+function isRuntimeInventoryIdentityEquivalent(
+  runtimeItem: Record<string, unknown> | undefined,
+  conflict: PlayerInventoryOwnershipConflict | undefined,
+): boolean {
+  if (!runtimeItem || !conflict) {
+    return false;
+  }
+  const itemId = normalizeRequiredString(runtimeItem.itemId);
+  if (
+    itemId !== conflict.itemId
+    || normalizeOptionalString(runtimeItem.lockedBy) != null
+    || conflict.lockedBy != null
+  ) {
+    return false;
+  }
+  const runtimePayload = buildPersistedInventoryItemRawPayload({
+    itemId,
+    count: runtimeItem.count,
+    name: runtimeItem.name,
+    desc: runtimeItem.desc,
+    enhanceLevel: runtimeItem.enhanceLevel,
+    learnTechniqueId: runtimeItem.learnTechniqueId,
+    learnTechniqueMaxLevel: runtimeItem.learnTechniqueMaxLevel,
+    grade: runtimeItem.grade,
+    level: runtimeItem.level,
+    rawPayload: runtimeItem.rawPayload,
+  });
+  return isDeepStrictEqual(runtimePayload, conflict.rawPayload);
 }
 
 type PlayerPayloadFenceDecision = 'current' | 'superseded' | 'indeterminate';
