@@ -60,6 +60,7 @@ const STAGING_BATCH_SIZE = readInt('SERVER_FLUSH_TASK_STAGING_BATCH_SIZE', 'FLUS
 const PAYLOAD_CLAIM_RENEW_TTL_MS = readInt('SERVER_FLUSH_TASK_PAYLOAD_CLAIM_TTL_MS', 'FLUSH_TASK_PAYLOAD_CLAIM_TTL_MS', 30_000, 5_000, 300_000);
 const STARTUP_PAYLOAD_REPLAY_TIMEOUT_MS = readInt('SERVER_STARTUP_PAYLOAD_REPLAY_TIMEOUT_MS', 'STARTUP_PAYLOAD_REPLAY_TIMEOUT_MS', 60_000, 5_000, 300_000);
 const STARTUP_PAYLOAD_REPLAY_POLL_MS = readInt('SERVER_STARTUP_PAYLOAD_REPLAY_POLL_MS', 'STARTUP_PAYLOAD_REPLAY_POLL_MS', 100, 25, 2_000);
+const ASSET_CONFLICT_REPAIR_INTERVAL_MS = 60_000;
 // 关服总预算为 28 秒；为后台 worker drain 和各领域 final flush 保留足够余量。
 const SHUTDOWN_PAYLOAD_REPLAY_TIMEOUT_MS = 10_000;
 const SHUTDOWN_STAGING_MAX_ROUNDS = 3;
@@ -283,6 +284,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
   private readonly nextPlayerStageAtByKey = new Map<string, number>();
   private readonly nextInstanceStageAtByKey = new Map<string, number>();
   private globalBackoffUntilAt = 0;
+  private nextAssetConflictRepairAt = 0;
   private readonly failureAttempts = new Map<string, number>();
 
   constructor(
@@ -459,15 +461,17 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     if (this.shutdownDrainStarted) {
       return Promise.reject(new Error('flush_task_runtime_shutting_down'));
     }
-    return this.enqueueDurablePayloadReplay(input);
+    return this.enqueueDurablePayloadReplay(input, { allowOfflineAssetConflictFenceRebase: true });
   }
 
   private enqueueDurablePayloadReplay(input?: {
     instanceId?: string | null;
     ownershipEpoch?: number | null;
     timeoutMs?: number;
-  }): Promise<number> {
-    const run = async (): Promise<number> => this.runDurablePayloadReplay(input);
+  }, options: {
+    allowOfflineAssetConflictFenceRebase?: boolean;
+  } = {}): Promise<number> {
+    const run = async (): Promise<number> => this.runDurablePayloadReplay(input, options);
     const replay = this.replayTail.then(run, run);
     this.replayInFlight.add(replay);
     void replay.then(
@@ -482,7 +486,9 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     instanceId?: string | null;
     ownershipEpoch?: number | null;
     timeoutMs?: number;
-  }): Promise<number> {
+  }, options: {
+    allowOfflineAssetConflictFenceRebase?: boolean;
+  } = {}): Promise<number> {
     if (!this.flushLedgerService.isEnabled()) {
       return 0;
     }
@@ -502,7 +508,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       : undefined;
     const workerId = `${this.workerId}:pre-recovery`;
     if (!instanceId) {
-      await this.tryRepairPlayerAssetConflictQuarantines();
+      await this.tryRepairPlayerAssetConflictQuarantines(
+        undefined,
+        options.allowOfflineAssetConflictFenceRebase === true,
+      );
     }
     let processedTotal = instanceId
       ? 0
@@ -552,6 +561,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         processedTotal += await this.processPlayerTasks(playerTasks, {
           failFastDeterministicPayload: true,
           preserveTechniqueComprehensionTruthOnEmptyOverwrite: true,
+          allowOfflineAssetConflictFenceRebase: options.allowOfflineAssetConflictFenceRebase === true,
         });
       }
       if (instanceTasks.length > 0) {
@@ -560,7 +570,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       if (!instanceId) {
         // 本轮可能刚把新的跨玩家实例冲突隔离；立即尝试一次安全换 ID，避免把它
         // 留到下一次进程重启才有机会恢复。
-        await this.tryRepairPlayerAssetConflictQuarantines();
+        await this.tryRepairPlayerAssetConflictQuarantines(
+          undefined,
+          options.allowOfflineAssetConflictFenceRebase === true,
+        );
       }
       const pendingAfter = await this.flushLedgerService.countPendingPayloadTasks(countFilter);
       if (pendingAfter <= 0) {
@@ -718,6 +731,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     }
     if (shouldStartAuthoritativeRuntime()) {
       await this.stageDirtyTasksOnce();
+    }
+    if (Date.now() >= this.nextAssetConflictRepairAt) {
+      this.nextAssetConflictRepairAt = Date.now() + ASSET_CONFLICT_REPAIR_INTERVAL_MS;
+      await this.tryRepairPlayerAssetConflictQuarantines(undefined, false, false);
     }
     if (this.isFlushPoolBackpressureActive()) {
       this.logger.warn(`统一刷盘任务因刷盘池等待排队而暂停认领：waiting>=${FLUSH_WAITING_LIMIT}`);
@@ -1138,6 +1155,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     options: {
       failFastDeterministicPayload?: boolean;
       preserveTechniqueComprehensionTruthOnEmptyOverwrite?: boolean;
+      allowOfflineAssetConflictFenceRebase?: boolean;
     } = {},
   ): Promise<number> {
     const groups = Array.from(groupTasksById(tasks).values());
@@ -1191,7 +1209,11 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
               return;
             }
           }
-          const quarantined = await this.quarantineInventoryOwnershipConflict(group, error);
+          const quarantined = await this.quarantineInventoryOwnershipConflict(
+            group,
+            error,
+            options.allowOfflineAssetConflictFenceRebase === true,
+          );
           if (quarantined !== null) {
             results[index] = quarantined;
             return;
@@ -1622,6 +1644,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
   private async quarantineInventoryOwnershipConflict(
     tasks: FlushTask[],
     error: unknown,
+    allowOfflineFenceRebase = false,
   ): Promise<number | null> {
     const failure = classifyFlushFailure(error);
     if (
@@ -1643,7 +1666,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     const domains = Array.from(new Set(tasks.map((task) => task.domain))).sort();
     this.recordFlushFailure('player', playerId, domains.join(','), failure, 1, 0);
     this.failureAttempts.delete(playerGroupKey(tasks));
-    const repair = await this.tryRepairPlayerAssetConflictQuarantines(playerId);
+    const repair = await this.tryRepairPlayerAssetConflictQuarantines(playerId, allowOfflineFenceRebase);
     if ((repair?.repairedPlayers ?? 0) > 0) {
       this.logger.warn(
         `库存实例跨玩家归属冲突已安全换发新 ID 并重新排队：playerId=${playerId} domains=${domains.join(',')}`,
@@ -1656,12 +1679,19 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     return tasks.length;
   }
 
-  private async tryRepairPlayerAssetConflictQuarantines(playerId?: string): Promise<{
+  private async tryRepairPlayerAssetConflictQuarantines(
+    playerId?: string,
+    allowOfflineFenceRebase = false,
+    logUnresolved = true,
+  ): Promise<{
     repairedPlayers?: number;
     unresolvedPlayers?: string[];
   } | null> {
     const repair = (this.flushLedgerService as FlushLedgerService & {
-      repairPlayerFlushAssetConflictQuarantines?: (playerId?: string | null) => Promise<{
+      repairPlayerFlushAssetConflictQuarantines?: (
+        playerId?: string | null,
+        options?: { allowOfflineFenceRebase?: boolean; logUnresolved?: boolean },
+      ) => Promise<{
         repairedPlayers?: number;
         unresolvedPlayers?: string[];
       }>;
@@ -1670,7 +1700,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       return null;
     }
     try {
-      return await repair.call(this.flushLedgerService, playerId ?? null);
+      return await repair.call(this.flushLedgerService, playerId ?? null, {
+        allowOfflineFenceRebase,
+        logUnresolved,
+      });
     } catch (error) {
       this.logger.error(
         `玩家资产冲突自动修复失败：playerId=${playerId ?? 'all'} error=${formatError(error)}`,

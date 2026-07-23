@@ -16,6 +16,8 @@ import { DatabasePoolProvider } from './database-pool.provider';
 import type { ClaimFlushTaskInput, FlushTask, FlushTaskPriority, FlushTaskScope } from './flush-task.types';
 import {
   listPlayerInventoryPayloadItemInstanceIds,
+  readPlayerInventoryPayloadFence,
+  rebasePlayerInventoryPayloadFenceForOfflineRecovery,
   repairPlayerInventoryOwnershipConflictPayload,
   type PlayerInventoryItemInstanceIdRemap,
   type PlayerInventoryOwnershipConflict,
@@ -110,8 +112,15 @@ export interface PlayerFlushAssetConflictRepairSummary {
   repairedPlayers: number;
   releasedPayloads: number;
   rekeyedItems: number;
+  rebasedFences: number;
+  coveredByWatermarkPlayers: number;
   unresolvedPlayers: string[];
   repairs: PlayerFlushAssetConflictRepairDetail[];
+}
+
+export interface PlayerFlushAssetConflictRepairOptions {
+  allowOfflineFenceRebase?: boolean;
+  logUnresolved?: boolean;
 }
 
 /** 统一刷盘账本服务：管理玩家和实例的脏版本跟踪与分布式认领 */
@@ -694,12 +703,15 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
    */
   async repairPlayerFlushAssetConflictQuarantines(
     playerIdInput?: string | null,
+    options: PlayerFlushAssetConflictRepairOptions = {},
   ): Promise<PlayerFlushAssetConflictRepairSummary> {
     const summary: PlayerFlushAssetConflictRepairSummary = {
       scannedPlayers: 0,
       repairedPlayers: 0,
       releasedPayloads: 0,
       rekeyedItems: 0,
+      rebasedFences: 0,
+      coveredByWatermarkPlayers: 0,
       unresolvedPlayers: [],
       repairs: [],
     };
@@ -738,6 +750,10 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
           }
           continue;
         }
+        await client.query(
+          'SELECT pg_advisory_xact_lock($1::integer, hashtext($2))',
+          [7101, quarantinedPlayerId],
+        );
         const conflictResult = await client.query<{
           item_instance_id: string;
           player_id: string;
@@ -769,6 +785,67 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
         if (!repair.canReleaseQuarantine) {
           summary.unresolvedPlayers.push(quarantinedPlayerId);
           continue;
+        }
+
+        const payloadFence = readPlayerInventoryPayloadFence(repair.payloadJson);
+        if (!payloadFence) {
+          summary.unresolvedPlayers.push(quarantinedPlayerId);
+          continue;
+        }
+        const presenceResult = await client.query<{
+          online: boolean;
+          runtime_owner_id: string | null;
+          session_epoch: string | number | null;
+        }>(
+          `
+            SELECT online, runtime_owner_id, session_epoch
+            FROM player_presence
+            WHERE player_id = $1
+            FOR UPDATE
+          `,
+          [quarantinedPlayerId],
+        );
+        const watermarkResult = await client.query<{ inventory_version: string | number | null }>(
+          `
+            SELECT inventory_version
+            FROM player_recovery_watermark
+            WHERE player_id = $1
+            FOR UPDATE
+          `,
+          [quarantinedPlayerId],
+        );
+        const presence = presenceResult.rows[0];
+        const persistedEpoch = normalizeNonNegativeSafeInteger(presence?.session_epoch);
+        const persistedOwner = normalizeOptionalString(presence?.runtime_owner_id);
+        const inventoryVersion = normalizeNonNegativeSafeInteger(watermarkResult.rows[0]?.inventory_version);
+        const fenceDecision = resolvePlayerPayloadFenceDecision(
+          payloadFence.sessionEpoch,
+          payloadFence.runtimeOwnerId,
+          persistedEpoch,
+          persistedOwner,
+          presence != null,
+        );
+        const coveredByWatermark = payloadFence.projectionVersion > 0
+          && inventoryVersion >= payloadFence.projectionVersion;
+        let repairedPayloadJson = repair.payloadJson;
+        if (fenceDecision !== 'current' && !coveredByWatermark) {
+          const canRebaseOfflineFence = options.allowOfflineFenceRebase === true
+            && fenceDecision === 'superseded'
+            && presence?.online === false
+            && payloadFence.projectionVersion > inventoryVersion;
+          if (!canRebaseOfflineFence) {
+            summary.unresolvedPlayers.push(quarantinedPlayerId);
+            continue;
+          }
+          const rebasedPayload = rebasePlayerInventoryPayloadFenceForOfflineRecovery(repair.payloadJson);
+          if (!rebasedPayload) {
+            summary.unresolvedPlayers.push(quarantinedPlayerId);
+            continue;
+          }
+          repairedPayloadJson = rebasedPayload;
+          summary.rebasedFences += 1;
+        } else if (coveredByWatermark) {
+          summary.coveredByWatermarkPlayers += 1;
         }
 
         await client.query(
@@ -806,7 +883,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
           [
             quarantinedPlayerId,
             PLAYER_FLUSH_ASSET_CONFLICT_QUARANTINE,
-            JSON.stringify(repair.payloadJson),
+            JSON.stringify(repairedPayloadJson),
           ],
         );
         if ((releasedResult.rowCount ?? 0) === 0) {
@@ -833,10 +910,12 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
       this.logger.warn(
         `已修复玩家资产刷盘隔离：players=${summary.repairedPlayers}`
         + ` payloads=${summary.releasedPayloads} rekeyedItems=${summary.rekeyedItems}`
+        + ` rebasedFences=${summary.rebasedFences}`
+        + ` coveredByWatermarkPlayers=${summary.coveredByWatermarkPlayers}`
         + ` repairs=${JSON.stringify(summary.repairs)}`,
       );
     }
-    if (summary.unresolvedPlayers.length > 0) {
+    if (summary.unresolvedPlayers.length > 0 && options.logUnresolved !== false) {
       this.logger.error(
         `玩家资产刷盘隔离无法自动裁定：players=${summary.unresolvedPlayers.join(',')}`,
       );
@@ -2052,6 +2131,35 @@ function normalizeJsonObject(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {};
+}
+
+type PlayerPayloadFenceDecision = 'current' | 'superseded' | 'indeterminate';
+
+function resolvePlayerPayloadFenceDecision(
+  payloadEpoch: number,
+  payloadOwner: string | null,
+  persistedEpoch: number,
+  persistedOwner: string | null,
+  presenceExists: boolean,
+): PlayerPayloadFenceDecision {
+  if (payloadEpoch <= 0 && !payloadOwner) {
+    return 'current';
+  }
+  if (!presenceExists || payloadEpoch <= 0 || persistedEpoch <= 0 || persistedEpoch < payloadEpoch) {
+    return 'indeterminate';
+  }
+  if (persistedEpoch > payloadEpoch) {
+    return 'superseded';
+  }
+  if (payloadOwner) {
+    return payloadOwner === persistedOwner ? 'current' : 'superseded';
+  }
+  return persistedOwner ? 'superseded' : 'current';
+}
+
+function normalizeNonNegativeSafeInteger(value: unknown): number {
+  const numeric = Number(value);
+  return Number.isSafeInteger(numeric) && numeric >= 0 ? numeric : 0;
 }
 
 interface PlayerFlushLedgerJsonRow {

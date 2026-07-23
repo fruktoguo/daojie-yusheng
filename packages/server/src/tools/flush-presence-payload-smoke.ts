@@ -5,7 +5,11 @@ installSmokeTimeout(__filename);
 import assert from 'node:assert/strict';
 
 import { PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS } from '../persistence/player-domain-persistence.service';
-import { repairPlayerInventoryOwnershipConflictPayload } from '../persistence/player-flush-asset-conflict-repair';
+import {
+  readPlayerInventoryPayloadFence,
+  rebasePlayerInventoryPayloadFenceForOfflineRecovery,
+  repairPlayerInventoryOwnershipConflictPayload,
+} from '../persistence/player-flush-asset-conflict-repair';
 import { FlushTaskRuntimeService } from '../persistence/flush-task-runtime.service';
 import type { FlushTask } from '../persistence/flush-task.types';
 
@@ -250,7 +254,7 @@ async function main(): Promise<void> {
   }
   console.log(JSON.stringify({
     ok: true,
-    answers: '玩家 presence 与 snapshot projectable flush task 可在 worker role 下从 staging payload 写入 PlayerDomainPersistenceService，并 mark flushed；同一玩家的多个 projection 只调用一次单事务 batch writer，任一领域写失败时整组进入 retry且不会降级为逐域写入；历史 payload 缺 owner 时不信任可能残留的 ledger owner，只有 payload/DB 精确 fence 或同 epoch 双方均已释放 owner 才写入，旧 session/owner 与不存在玩家的 projection 会 stale-safe 收敛；启动重放遇到历史无授权的功法领悟空删除时保留数据库真源、隔离 technique 删除 payload，并继续提交同玩家其余领域；库存实例跨玩家归属冲突会先隔离，模板与完整实例态一致时只换发 payload 技术 ID，无法证明等价时继续保留整组 durable payload 等待人工核对。',
+    answers: '玩家 presence 与 snapshot projectable flush task 可在 worker role 下从 staging payload 写入 PlayerDomainPersistenceService，并 mark flushed；同一玩家的多个 projection 只调用一次单事务 batch writer，任一领域写失败时整组进入 retry且不会降级为逐域写入；历史 payload 缺 owner 时不信任可能残留的 ledger owner，只有 payload/DB 精确 fence 或同 epoch 双方均已释放 owner 才写入，旧 session/owner 与不存在玩家的 projection 会 stale-safe 收敛；启动重放遇到历史无授权的功法领悟空删除时保留数据库真源、隔离 technique 删除 payload，并继续提交同玩家其余领域；库存实例跨玩家归属冲突会先隔离，模板与完整实例态一致时只换发 payload 技术 ID，启动前离线且领域版本领先时才可重置旧 fence，在线或无法证明等价时继续保留 durable payload 等待人工核对。',
     excludes: '不证明邮件/市场/GM edit 或实例 domain，也不证明真实 DB with-db 竞争。',
     completionMapping: 'flush-player-payload',
   }, null, 2));
@@ -260,6 +264,9 @@ function proveInventoryOwnershipConflictPayloadRepair(): void {
   const payload = {
     kind: 'player_snapshot_projection',
     projectedDomains: ['inventory'],
+    projectionVersion: 301,
+    runtimeOwnerId: 'old-owner',
+    sessionEpoch: 7,
     snapshot: {
       version: 1,
       savedAt: 301,
@@ -328,6 +335,21 @@ function proveInventoryOwnershipConflictPayloadRepair(): void {
   });
   assert.equal(payload.snapshot.inventory.items[0]?.itemInstanceId, 'shared-spirit-stone-id');
 
+  assert.deepEqual(readPlayerInventoryPayloadFence(payload), {
+    projectionVersion: 301,
+    runtimeOwnerId: 'old-owner',
+    sessionEpoch: 7,
+  });
+  const rebased = rebasePlayerInventoryPayloadFenceForOfflineRecovery(payload) as Record<string, unknown>;
+  assert.equal(rebased.runtimeOwnerId, undefined);
+  assert.equal(rebased.sessionEpoch, undefined);
+  assert.deepEqual(rebased.assetConflictRecovery, {
+    mode: 'offline_pre_recovery_domain_version',
+    projectionVersion: 301,
+    originalSessionEpoch: 7,
+    hadRuntimeOwner: true,
+  });
+
   const unsafe = repairPlayerInventoryOwnershipConflictPayload(payload, [{
     itemInstanceId: 'shared-pill-id',
     ownerPlayerId: 'database-owner-2',
@@ -389,7 +411,11 @@ async function proveStartupReplayRepairsSafeInventoryOwnershipConflict(): Promis
         quarantined = true;
         return 1;
       },
-      repairPlayerFlushAssetConflictQuarantines: async () => {
+      repairPlayerFlushAssetConflictQuarantines: async (
+        _targetPlayerId?: string | null,
+        options?: { allowOfflineFenceRebase?: boolean },
+      ) => {
+        assert.equal(options?.allowOfflineFenceRebase, true, '启动重放必须显式开启离线领域版本恢复');
         if (!quarantined) {
           return { repairedPlayers: 0, unresolvedPlayers: [] };
         }
