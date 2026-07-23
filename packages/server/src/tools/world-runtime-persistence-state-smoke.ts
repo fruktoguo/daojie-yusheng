@@ -251,6 +251,52 @@ async function testFlushOverlayAndMonsterDomains() {
     ]);
 }
 
+async function testFlushSelectedBuildingCompositeDomains() {
+    const log = [];
+    const service = new WorldRuntimePersistenceStateService();
+    const instance = {
+        meta: { persistent: true },
+        template: { id: 'yunlai_town' },
+        tick: 2500,
+        getPersistenceRevision() { return 8; },
+        buildBuildingRoomFengShuiPersistenceState() {
+            log.push('buildBuildingRoomFengShuiPersistenceState');
+            return {
+                buildings: [{ id: 'building:unchanged' }],
+                rooms: [{ id: 'room:unchanged' }],
+                roomCells: [{ roomId: 'room:unchanged', tileIndex: 1 }],
+                fengShui: [{ roomId: 'room:changed', score: 100 }],
+            };
+        },
+        markPersistenceDomainsPersisted(domains) {
+            log.push(['markPersistenceDomainsPersisted', domains]);
+        },
+    };
+    await service.flushInstanceDomains('public:yunlai_town', ['fengshui'], {
+        getInstanceRuntime(instanceId) {
+            return instanceId === 'public:yunlai_town' ? instance : null;
+        },
+        instanceDomainPersistenceService: {
+            isEnabled() { return true; },
+            async saveBuildingRoomFengShuiState(instanceId, _state, domains) {
+                log.push(['saveBuildingRoomFengShuiState', instanceId, domains]);
+            },
+            async saveInstanceRecoveryWatermark(instanceId, payload) {
+                log.push(['saveInstanceRecoveryWatermark', instanceId, payload.kind, payload.tick, payload.persistenceRevision, payload.domains]);
+            },
+        },
+        worldRuntimeLootContainerService: {
+            clearPersisted() {},
+        },
+    });
+    assert.deepEqual(log, [
+        'buildBuildingRoomFengShuiPersistenceState',
+        ['saveBuildingRoomFengShuiState', 'public:yunlai_town', ['fengshui']],
+        ['saveInstanceRecoveryWatermark', 'public:yunlai_town', 'domain_flush', 2500, 8, ['fengshui']],
+        ['markPersistenceDomainsPersisted', ['fengshui']],
+    ]);
+}
+
 async function testFlushIncrementalInstanceDomains() {
     const log = [];
     const service = new WorldRuntimePersistenceStateService();
@@ -605,6 +651,7 @@ testBuildAndMarkSnapshot();
 testMapTimeDirtyIsLowFrequency();
 Promise.all([
     testFlushOverlayAndMonsterDomains(),
+    testFlushSelectedBuildingCompositeDomains(),
     testFlushIncrementalInstanceDomains(),
     testFlushFullReplaceTileDamageDomain(),
     testFlushFullReplaceMonsterRuntimeDomain(),

@@ -7,6 +7,7 @@ import { Injectable, Logger, type OnModuleDestroy } from '@nestjs/common';
 import { Pool } from 'pg';
 
 import { readTrimmedEnv, resolveServerDatabasePoolerUrl, resolveServerDatabaseUrl } from '../config/env-alias';
+import { isTransientPostgresError } from './pg-error-utils';
 
 export type DatabasePoolGroup = 'runtimeCritical' | 'flush' | 'outbox' | 'gmDiagnostics';
 
@@ -80,6 +81,18 @@ export class DatabasePoolProvider implements OnModuleDestroy {
       statement_timeout: resolveDatabasePoolStatementTimeoutMillis(group),
       query_timeout: resolveDatabasePoolQueryTimeoutMillis(group),
       lock_timeout: resolveDatabasePoolLockTimeoutMillis(group),
+    });
+    // pg 会通过 Pool 的 error 事件上报空闲连接断开；没有监听器时 EventEmitter 会直接终止进程。
+    pool.on('error', (error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      if (isTransientPostgresError(error)) {
+        this.logger.warn(`数据库连接池 ${group} 捕获瞬态空闲连接错误，已淘汰失效连接并等待自动重连：${message}`);
+        return;
+      }
+      this.logger.error(
+        `数据库连接池 ${group} 捕获非瞬态空闲连接错误：${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
     });
     this.pools.set(group, pool);
     this.logger.log(

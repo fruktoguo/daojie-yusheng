@@ -43,6 +43,12 @@ const INSTANCE_ROOM_CELL_TABLE = 'instance_room_cell';
 const INSTANCE_FENGSHUI_STATE_TABLE = 'instance_fengshui_state';
 const INSTANCE_BUILDING_AUDIT_LOG_TABLE = 'instance_building_audit_log';
 const INSTANCE_BUILDING_OPERATION_IDEMPOTENCY_TABLE = 'instance_building_operation_idempotency';
+export type BuildingRoomFengShuiPersistenceDomain = 'building' | 'room' | 'fengshui';
+const ALL_BUILDING_ROOM_FENGSHUI_DOMAINS: readonly BuildingRoomFengShuiPersistenceDomain[] = [
+  'building',
+  'room',
+  'fengshui',
+];
 const INSTANCE_TILE_RESOURCE_STATE_LOCK_NAMESPACE = 42871;
 const INSTANCE_TILE_RESOURCE_STATE_LOCK_KEY = 3001;
 const INSTANCE_TILE_CELL_LOCK_KEY = 3012;
@@ -170,6 +176,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       roomCells?: unknown[];
       fengShui?: unknown[];
     },
+    domains: readonly BuildingRoomFengShuiPersistenceDomain[] = ALL_BUILDING_ROOM_FENGSHUI_DOMAINS,
   ): Promise<void> {
     if (!this.pool || !this.enabled) {
       return;
@@ -178,13 +185,20 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     if (!normalizedInstanceId) {
       return;
     }
-    const rawBuildings = Array.isArray(state?.buildings) ? state.buildings : [];
+    const selectedDomains = new Set<BuildingRoomFengShuiPersistenceDomain>(
+      domains.filter((domain): domain is BuildingRoomFengShuiPersistenceDomain =>
+        domain === 'building' || domain === 'room' || domain === 'fengshui'),
+    );
+    if (selectedDomains.size === 0) {
+      return;
+    }
+    const rawBuildings = selectedDomains.has('building') && Array.isArray(state?.buildings) ? state.buildings : [];
     const buildings = dedupeRecordRowsByKey(
       rawBuildings.map(normalizeBuildingPersistenceRow),
       (row) => normalizeRequiredString(row.building_id),
     );
     const rooms = dedupeRecordRowsByKey(
-      Array.isArray(state?.rooms) ? state.rooms.map(normalizeRoomPersistenceRow) : [],
+      selectedDomains.has('room') && Array.isArray(state?.rooms) ? state.rooms.map(normalizeRoomPersistenceRow) : [],
       (row) => normalizeRequiredString(row.room_id),
     );
     const buildingCells = dedupeRecordRowsByKey(
@@ -192,11 +206,13 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       (row) => normalizeRecordIntegerKey(row.tile_index),
     );
     const roomCells = dedupeRecordRowsByKey(
-      Array.isArray(state?.roomCells) ? state.roomCells.map(normalizeRoomCellPersistenceRow) : [],
+      selectedDomains.has('room') && Array.isArray(state?.roomCells) ? state.roomCells.map(normalizeRoomCellPersistenceRow) : [],
       (row) => normalizeRecordIntegerKey(row.tile_index),
     ).filter((row) => normalizeRequiredString(row.room_id));
     const fengShui = dedupeRecordRowsByKey(
-      Array.isArray(state?.fengShui) ? state.fengShui.map(normalizeFengShuiPersistenceRow) : [],
+      selectedDomains.has('fengshui') && Array.isArray(state?.fengShui)
+        ? state.fengShui.map(normalizeFengShuiPersistenceRow)
+        : [],
       (row) => normalizeRequiredString(row.room_id),
     );
     const buildingsJson = JSON.stringify(buildings);
@@ -208,6 +224,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     try {
       await client.query('BEGIN');
       await acquireInstanceDomainLock(client, normalizedInstanceId);
+      if (selectedDomains.has('building')) {
       if (buildings.length > 0) {
         await client.query(
           `
@@ -254,6 +271,37 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               revision = EXCLUDED.revision,
               payload = EXCLUDED.payload,
               updated_at = now()
+            WHERE (
+              ${INSTANCE_BUILDING_STATE_TABLE}.def_id,
+              ${INSTANCE_BUILDING_STATE_TABLE}.x,
+              ${INSTANCE_BUILDING_STATE_TABLE}.y,
+              ${INSTANCE_BUILDING_STATE_TABLE}.rotation,
+              ${INSTANCE_BUILDING_STATE_TABLE}.owner_player_id,
+              ${INSTANCE_BUILDING_STATE_TABLE}.owner_sect_id,
+              ${INSTANCE_BUILDING_STATE_TABLE}.room_id,
+              ${INSTANCE_BUILDING_STATE_TABLE}.hp,
+              ${INSTANCE_BUILDING_STATE_TABLE}.max_hp,
+              ${INSTANCE_BUILDING_STATE_TABLE}.state,
+              ${INSTANCE_BUILDING_STATE_TABLE}.created_at_tick,
+              ${INSTANCE_BUILDING_STATE_TABLE}.updated_at_tick,
+              ${INSTANCE_BUILDING_STATE_TABLE}.revision,
+              ${INSTANCE_BUILDING_STATE_TABLE}.payload
+            ) IS DISTINCT FROM (
+              EXCLUDED.def_id,
+              EXCLUDED.x,
+              EXCLUDED.y,
+              EXCLUDED.rotation,
+              EXCLUDED.owner_player_id,
+              EXCLUDED.owner_sect_id,
+              EXCLUDED.room_id,
+              EXCLUDED.hp,
+              EXCLUDED.max_hp,
+              EXCLUDED.state,
+              EXCLUDED.created_at_tick,
+              EXCLUDED.updated_at_tick,
+              EXCLUDED.revision,
+              EXCLUDED.payload
+            )
           `,
           [normalizedInstanceId, buildingsJson],
         );
@@ -316,6 +364,31 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               blocks_move = EXCLUDED.blocks_move,
               blocks_sight = EXCLUDED.blocks_sight,
               updated_at = now()
+            WHERE (
+              ${INSTANCE_BUILDING_CELL_TABLE}.building_id,
+              ${INSTANCE_BUILDING_CELL_TABLE}.x,
+              ${INSTANCE_BUILDING_CELL_TABLE}.y,
+              ${INSTANCE_BUILDING_CELL_TABLE}.tile_type,
+              ${INSTANCE_BUILDING_CELL_TABLE}.previous_tile_type,
+              ${INSTANCE_BUILDING_CELL_TABLE}.previous_terrain_type,
+              ${INSTANCE_BUILDING_CELL_TABLE}.previous_surface_type,
+              ${INSTANCE_BUILDING_CELL_TABLE}.previous_structure_type,
+              ${INSTANCE_BUILDING_CELL_TABLE}.previous_interactable_kinds,
+              ${INSTANCE_BUILDING_CELL_TABLE}.blocks_move,
+              ${INSTANCE_BUILDING_CELL_TABLE}.blocks_sight
+            ) IS DISTINCT FROM (
+              EXCLUDED.building_id,
+              EXCLUDED.x,
+              EXCLUDED.y,
+              EXCLUDED.tile_type,
+              EXCLUDED.previous_tile_type,
+              EXCLUDED.previous_terrain_type,
+              EXCLUDED.previous_surface_type,
+              EXCLUDED.previous_structure_type,
+              EXCLUDED.previous_interactable_kinds,
+              EXCLUDED.blocks_move,
+              EXCLUDED.blocks_sight
+            )
           `,
           [normalizedInstanceId, buildingCellsJson],
         );
@@ -336,6 +409,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
         `,
         [normalizedInstanceId, buildingCellsJson],
       );
+      }
+      if (selectedDomains.has('room')) {
       if (rooms.length > 0) {
         await client.query(
           `
@@ -388,6 +463,41 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               updated_at_tick = EXCLUDED.updated_at_tick,
               payload = EXCLUDED.payload,
               updated_at = now()
+            WHERE (
+              ${INSTANCE_ROOM_STATE_TABLE}.role,
+              ${INSTANCE_ROOM_STATE_TABLE}.enclosed,
+              ${INSTANCE_ROOM_STATE_TABLE}.semi_outdoor,
+              ${INSTANCE_ROOM_STATE_TABLE}.min_x,
+              ${INSTANCE_ROOM_STATE_TABLE}.min_y,
+              ${INSTANCE_ROOM_STATE_TABLE}.max_x,
+              ${INSTANCE_ROOM_STATE_TABLE}.max_y,
+              ${INSTANCE_ROOM_STATE_TABLE}.area,
+              ${INSTANCE_ROOM_STATE_TABLE}.perimeter,
+              ${INSTANCE_ROOM_STATE_TABLE}.door_count,
+              ${INSTANCE_ROOM_STATE_TABLE}.window_count,
+              ${INSTANCE_ROOM_STATE_TABLE}.roof_coverage_ratio,
+              ${INSTANCE_ROOM_STATE_TABLE}.room_hash,
+              ${INSTANCE_ROOM_STATE_TABLE}.revision,
+              ${INSTANCE_ROOM_STATE_TABLE}.updated_at_tick,
+              ${INSTANCE_ROOM_STATE_TABLE}.payload
+            ) IS DISTINCT FROM (
+              EXCLUDED.role,
+              EXCLUDED.enclosed,
+              EXCLUDED.semi_outdoor,
+              EXCLUDED.min_x,
+              EXCLUDED.min_y,
+              EXCLUDED.max_x,
+              EXCLUDED.max_y,
+              EXCLUDED.area,
+              EXCLUDED.perimeter,
+              EXCLUDED.door_count,
+              EXCLUDED.window_count,
+              EXCLUDED.roof_coverage_ratio,
+              EXCLUDED.room_hash,
+              EXCLUDED.revision,
+              EXCLUDED.updated_at_tick,
+              EXCLUDED.payload
+            )
           `,
           [normalizedInstanceId, roomsJson],
         );
@@ -432,6 +542,17 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               y = EXCLUDED.y,
               edge_flags = EXCLUDED.edge_flags,
               updated_at = now()
+            WHERE (
+              ${INSTANCE_ROOM_CELL_TABLE}.room_id,
+              ${INSTANCE_ROOM_CELL_TABLE}.x,
+              ${INSTANCE_ROOM_CELL_TABLE}.y,
+              ${INSTANCE_ROOM_CELL_TABLE}.edge_flags
+            ) IS DISTINCT FROM (
+              EXCLUDED.room_id,
+              EXCLUDED.x,
+              EXCLUDED.y,
+              EXCLUDED.edge_flags
+            )
           `,
           [normalizedInstanceId, roomCellsJson],
         );
@@ -452,6 +573,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
         `,
         [normalizedInstanceId, roomCellsJson],
       );
+      }
+      if (selectedDomains.has('fengshui')) {
       if (fengShui.length > 0) {
         await client.query(
           `
@@ -502,6 +625,39 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               updated_at_tick = EXCLUDED.updated_at_tick,
               detail_json = EXCLUDED.detail_json,
               updated_at = now()
+            WHERE (
+              ${INSTANCE_FENGSHUI_STATE_TABLE}.score,
+              ${INSTANCE_FENGSHUI_STATE_TABLE}.grade,
+              ${INSTANCE_FENGSHUI_STATE_TABLE}.primary_element,
+              ${INSTANCE_FENGSHUI_STATE_TABLE}.function_element,
+              ${INSTANCE_FENGSHUI_STATE_TABLE}.shape_score,
+              ${INSTANCE_FENGSHUI_STATE_TABLE}.enclosure_score,
+              ${INSTANCE_FENGSHUI_STATE_TABLE}.qi_score,
+              ${INSTANCE_FENGSHUI_STATE_TABLE}.sha_score,
+              ${INSTANCE_FENGSHUI_STATE_TABLE}.comfort_score,
+              ${INSTANCE_FENGSHUI_STATE_TABLE}.integrity_score,
+              ${INSTANCE_FENGSHUI_STATE_TABLE}.element_score,
+              ${INSTANCE_FENGSHUI_STATE_TABLE}.formation_score,
+              ${INSTANCE_FENGSHUI_STATE_TABLE}.revision,
+              ${INSTANCE_FENGSHUI_STATE_TABLE}.updated_at_tick,
+              ${INSTANCE_FENGSHUI_STATE_TABLE}.detail_json
+            ) IS DISTINCT FROM (
+              EXCLUDED.score,
+              EXCLUDED.grade,
+              EXCLUDED.primary_element,
+              EXCLUDED.function_element,
+              EXCLUDED.shape_score,
+              EXCLUDED.enclosure_score,
+              EXCLUDED.qi_score,
+              EXCLUDED.sha_score,
+              EXCLUDED.comfort_score,
+              EXCLUDED.integrity_score,
+              EXCLUDED.element_score,
+              EXCLUDED.formation_score,
+              EXCLUDED.revision,
+              EXCLUDED.updated_at_tick,
+              EXCLUDED.detail_json
+            )
           `,
           [normalizedInstanceId, fengShuiJson],
         );
@@ -522,6 +678,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
         `,
         [normalizedInstanceId, fengShuiJson],
       );
+      }
       await client.query('COMMIT');
     } catch (error: unknown) {
       await rollbackQuietly(client);

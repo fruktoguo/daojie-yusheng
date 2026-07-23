@@ -45,6 +45,12 @@ async function main(): Promise<void> {
   assert.notStrictEqual(criticalPool, flushPoolFromPlayer, 'critical pool should differ from flush pool');
   assert.notStrictEqual(outboxPool, flushPoolFromPlayer, 'outbox pool should differ from flush pool');
   assert.notStrictEqual(gmPool, flushPoolFromPlayer, 'gm pool should differ from flush pool');
+  for (const pool of [criticalPool, flushPoolFromPlayer, outboxPool, gmPool]) {
+    assert.ok(pool.listenerCount('error') > 0, '每个共享连接池都必须监听空闲连接错误，避免数据库重启终止进程');
+  }
+  assert.doesNotThrow(() => {
+    criticalPool.emit('error', new Error('terminating connection due to administrator command'));
+  }, '数据库重启导致的空闲连接 error 事件不得升级为未捕获异常');
   assert.deepEqual(
     {
       statementTimeout: (flushPoolFromPlayer as unknown as { options: Record<string, unknown> }).options.statement_timeout,
@@ -92,7 +98,7 @@ async function main(): Promise<void> {
       {
         ok: true,
         case: 'database-pool-isolation',
-        answers: 'DatabasePoolProvider 已按四类负载隔离物理池，并为连接、SQL、客户端查询和锁等待配置有界生产默认值。',
+        answers: 'DatabasePoolProvider 已按四类负载隔离物理池，为连接、SQL、客户端查询和锁等待配置有界生产默认值，并捕获空闲连接断开以等待连接池自动恢复。',
         excludes: '不证明真实 PG 压力下的上限边界，只证明分组、统计和独立实例化。',
         completionMapping: 'persistence-root-fix.phase5.pool-isolation',
       },

@@ -20,6 +20,7 @@ function createPrototypePayload<T extends Record<string, unknown>>(
 
 async function main(): Promise<void> {
   await assertBuildingRoomFengShuiSnapshotUsesStaleKeyPruning();
+  await assertBuildingRoomFengShuiSnapshotHonorsSelectedDomains();
   await assertBuildingRoomFengShuiSnapshotDedupeBySqlKeys();
   await assertContainerAndOverlaySnapshotsUseStaleKeyPruning();
   await assertInstanceStateSnapshotsUseStaleKeyPruning();
@@ -1091,6 +1092,55 @@ async function assertBuildingRoomFengShuiSnapshotUsesStaleKeyPruning(): Promise<
         && query.includes('NOT EXISTS')),
       true,
       `building/room/fengshui snapshot missing stale-key delete guard for ${tableName}`,
+    );
+    assert.equal(
+      normalizedQueries.some((query) => query.includes(`INSERT INTO ${tableName}`)
+        && query.includes('IS DISTINCT FROM')),
+      true,
+      `building/room/fengshui snapshot missing no-op update guard for ${tableName}`,
+    );
+  }
+}
+
+async function assertBuildingRoomFengShuiSnapshotHonorsSelectedDomains(): Promise<void> {
+  const queries: string[] = [];
+  const fakeClient = {
+    async query(sql: string): Promise<{ rows: unknown[] }> {
+      queries.push(sql.replace(/\s+/g, ' ').trim());
+      return { rows: [] };
+    },
+    release() {
+      return undefined;
+    },
+  };
+  const service = new InstanceDomainPersistenceService(null);
+  Object.assign(service as unknown as { pool: unknown; enabled: boolean }, {
+    pool: {
+      async connect() {
+        return fakeClient;
+      },
+    },
+    enabled: true,
+  });
+
+  await service.saveBuildingRoomFengShuiState('instance:selected', {
+    buildings: [{ id: 'building:ignored', cells: [{ tileIndex: 1 }] }],
+    rooms: [{ id: 'room:ignored' }],
+    roomCells: [{ roomId: 'room:ignored', tileIndex: 1 }],
+    fengShui: [{ roomId: 'room:selected', score: 100 }],
+  }, ['fengshui']);
+
+  assert.equal(queries.some((query) => query.includes('instance_fengshui_state')), true);
+  for (const tableName of [
+    'instance_building_state',
+    'instance_building_cell',
+    'instance_room_state',
+    'instance_room_cell',
+  ]) {
+    assert.equal(
+      queries.some((query) => query.includes(tableName)),
+      false,
+      `fengshui-only flush must not touch ${tableName}`,
     );
   }
 }
