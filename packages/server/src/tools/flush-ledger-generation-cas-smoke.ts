@@ -11,6 +11,7 @@ import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { FlushLedgerService } from '../persistence/flush-ledger.service';
 import { PlayerFlushLedgerService } from '../persistence/player-flush-ledger.service';
+import { savePlayerSnapshotProjectionDomainsWithClient } from '../persistence/player-domain-persistence.service';
 import type { FlushTask } from '../persistence/flush-task.types';
 
 interface LedgerRow {
@@ -90,7 +91,7 @@ async function main(): Promise<void> {
 
     console.log(JSON.stringify({
       ok: true,
-      answers: '已验证玩家和实例 latest-wins、equal/older 物理 no-op、同版本缺失 payload 修复、批量去重、统一与旧 player ledger 的唯一 claimOwnerId/CAS、30 秒认领、续租、旧 claim 拒绝 ack/retry、仅 complete 清 payload、启动 replay 的 delayed/payload 过滤与全局计数，以及同实例态资产冲突只换发待重放 payload ID、实例态不一致继续隔离。',
+      answers: '已验证玩家和实例 latest-wins、equal/older 物理 no-op、同版本缺失 payload 修复、批量去重、统一与旧 player ledger 的唯一 claimOwnerId/CAS、30 秒认领、续租、旧 claim 拒绝 ack/retry、仅 complete 清 payload、启动 replay 的 delayed/payload 过滤与全局计数，以及同实例态资产冲突只换发待重放 payload ID、启动前离线领域版本恢复旧 fence、在线或实例态不一致继续隔离。',
       excludes: '不包含生产并发压测，也不在线删除历史重复索引。',
       completionMapping: 'flush-ledger.latest-wins-claim-cas',
     }, null, 2));
@@ -415,6 +416,148 @@ async function verifyAssetConflictQuarantineRepair(
   const unresolved = await ledger.repairPlayerFlushAssetConflictQuarantines(playerId);
   assert.deepEqual(unresolved.unresolvedPlayers, [playerId]);
   assert.equal((await readPlayerRow(pool, playerId, 'inventory')).failure_category, 'startup_asset_conflict');
+
+  await pool.query(
+    `INSERT INTO player_presence(
+       player_id, online, in_world, last_heartbeat_at, offline_since_at,
+       runtime_owner_id, session_epoch, transfer_state, transfer_target_node_id, updated_at
+     ) VALUES($1, false, true, 0, 0, 'new-owner', 6, NULL, NULL, now())
+     ON CONFLICT (player_id) DO UPDATE SET
+       online = EXCLUDED.online,
+       runtime_owner_id = EXCLUDED.runtime_owner_id,
+       session_epoch = EXCLUDED.session_epoch,
+       updated_at = now()`,
+    [playerId],
+  );
+  await pool.query(
+    `INSERT INTO player_recovery_watermark(player_id, inventory_version, updated_at)
+     VALUES($1, 650, now())
+     ON CONFLICT (player_id) DO UPDATE SET
+       inventory_version = EXCLUDED.inventory_version,
+       updated_at = now()`,
+    [playerId],
+  );
+  const staleFencePayload = {
+    ...structuredClone(payload),
+    projectionVersion: 700,
+    runtimeOwnerId: 'old-owner',
+    sessionEpoch: 5,
+  };
+  staleFencePayload.snapshot.savedAt = 700;
+  await ledger.upsertFlushTask({
+    scope: 'player',
+    id: playerId,
+    domain: 'inventory',
+    priority: 'high',
+    latestRevision: 700,
+    fencingToken: 'asset-conflict-repair-stale-fence',
+    nextAttemptAt: new Date().toISOString(),
+    payloadJson: staleFencePayload,
+  });
+  await pool.query(
+    `UPDATE player_flush_ledger
+     SET failure_category = 'startup_asset_conflict'
+     WHERE player_id = $1 AND domain = 'inventory'`,
+    [playerId],
+  );
+  const workerRepair = await ledger.repairPlayerFlushAssetConflictQuarantines(playerId);
+  assert.deepEqual(workerRepair.unresolvedPlayers, [playerId], '普通 worker 不得绕过旧会话 fence');
+
+  const startupRepair = await ledger.repairPlayerFlushAssetConflictQuarantines(playerId, {
+    allowOfflineFenceRebase: true,
+  });
+  assert.equal(startupRepair.repairedPlayers, 1);
+  assert.equal(startupRepair.rebasedFences, 1);
+  const rebasedRow = await readPlayerRow(pool, playerId, 'inventory');
+  assert.equal(rebasedRow.failure_category, null);
+  const rebasedPayload = rebasedRow.payload_jsonb as Record<string, unknown>;
+  assert.equal(rebasedPayload.runtimeOwnerId, undefined);
+  assert.equal(rebasedPayload.sessionEpoch, undefined);
+  assert.deepEqual(rebasedPayload.assetConflictRecovery, {
+    mode: 'offline_pre_recovery_domain_version',
+    projectionVersion: 700,
+    originalSessionEpoch: 5,
+    hadRuntimeOwner: true,
+  });
+  const projectionClient = await pool.connect();
+  try {
+    await projectionClient.query('BEGIN');
+    await savePlayerSnapshotProjectionDomainsWithClient(
+      projectionClient,
+      playerId,
+      rebasedPayload.snapshot as never,
+      ['inventory'],
+      { expectedProjectionVersion: 700 },
+    );
+    await projectionClient.query('COMMIT');
+  } catch (error) {
+    await projectionClient.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    projectionClient.release();
+  }
+  const persistedRebasedItem = await pool.query<{ item_instance_id: string; player_id: string; count: string }>(
+    `SELECT item_instance_id, player_id, count
+     FROM player_inventory_item
+     WHERE player_id = $1 AND item_id = 'spirit_stone'`,
+    [playerId],
+  );
+  assert.equal(persistedRebasedItem.rowCount, 1, '重置旧 fence 后 payload 必须实际落库');
+  assert.equal(persistedRebasedItem.rows[0]?.player_id, playerId);
+  assert.equal(persistedRebasedItem.rows[0]?.count, '150000');
+
+  const onlinePayload = {
+    ...structuredClone(payload),
+    projectionVersion: 701,
+    runtimeOwnerId: 'old-owner',
+    sessionEpoch: 5,
+  };
+  onlinePayload.snapshot.savedAt = 701;
+  await ledger.upsertFlushTask({
+    scope: 'player',
+    id: playerId,
+    domain: 'inventory',
+    priority: 'high',
+    latestRevision: 701,
+    fencingToken: 'asset-conflict-repair-online-fence',
+    nextAttemptAt: new Date().toISOString(),
+    payloadJson: onlinePayload,
+  });
+  await pool.query(
+    `UPDATE player_flush_ledger SET failure_category = 'startup_asset_conflict'
+     WHERE player_id = $1 AND domain = 'inventory'`,
+    [playerId],
+  );
+  await pool.query('UPDATE player_presence SET online = true WHERE player_id = $1', [playerId]);
+  const onlineRepair = await ledger.repairPlayerFlushAssetConflictQuarantines(playerId, {
+    allowOfflineFenceRebase: true,
+  });
+  assert.deepEqual(onlineRepair.unresolvedPlayers, [playerId], '在线玩家不得绕过会话 fence');
+  assert.equal((await readPlayerRow(pool, playerId, 'inventory')).failure_category, 'startup_asset_conflict');
+
+  const conflictFreePayload = structuredClone(payload);
+  conflictFreePayload.projectionVersion = 702;
+  conflictFreePayload.snapshot.savedAt = 702;
+  conflictFreePayload.snapshot.inventory.items[0]!.itemInstanceId = `${conflictedItemInstanceId}-rekeyed`;
+  await ledger.upsertFlushTask({
+    scope: 'player',
+    id: playerId,
+    domain: 'inventory',
+    priority: 'high',
+    latestRevision: 702,
+    fencingToken: 'asset-conflict-repair-conflict-free',
+    nextAttemptAt: new Date().toISOString(),
+    payloadJson: conflictFreePayload,
+  });
+  await pool.query(
+    `UPDATE player_flush_ledger SET failure_category = 'startup_asset_conflict'
+     WHERE player_id = $1 AND domain = 'inventory'`,
+    [playerId],
+  );
+  const conflictFreeRepair = await ledger.repairPlayerFlushAssetConflictQuarantines(playerId);
+  assert.equal(conflictFreeRepair.repairedPlayers, 1, '新 payload 已无外部冲突时必须解除粘滞隔离');
+  assert.equal(conflictFreeRepair.rekeyedItems, 0);
+  assert.equal((await readPlayerRow(pool, playerId, 'inventory')).failure_category, null);
 }
 
 async function verifyInstanceLatestWins(
@@ -630,12 +773,15 @@ async function cleanup(
 ): Promise<void> {
   await pool.query('DELETE FROM player_flush_ledger WHERE player_id = $1', [playerId]);
   await pool.query('DELETE FROM instance_flush_ledger WHERE instance_id = $1', [instanceId]);
+  await pool.query('DELETE FROM player_presence WHERE player_id = $1', [playerId]);
+  await pool.query('DELETE FROM player_recovery_watermark WHERE player_id = $1', [playerId]);
   if (conflictOwnerPlayerId && conflictedItemInstanceId) {
     await pool.query(
       'DELETE FROM player_inventory_item WHERE player_id = $1 AND item_instance_id = $2',
       [conflictOwnerPlayerId, conflictedItemInstanceId],
     );
   }
+  await pool.query('DELETE FROM player_inventory_item WHERE player_id = $1', [playerId]);
 }
 
 main().catch((error) => {

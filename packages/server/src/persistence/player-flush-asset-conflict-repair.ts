@@ -29,6 +29,14 @@ export interface PlayerInventoryOwnershipConflictRepairResult {
   unresolvedItemInstanceIds: string[];
 }
 
+export const PLAYER_INVENTORY_OFFLINE_RECOVERY_MODE = 'offline_pre_recovery_domain_version';
+
+export interface PlayerInventoryPayloadFence {
+  projectionVersion: number;
+  runtimeOwnerId: string | null;
+  sessionEpoch: number;
+}
+
 export function listPlayerInventoryPayloadItemInstanceIds(payloadJson: unknown): string[] {
   const items = resolveInventoryPayloadItems(payloadJson);
   if (!items) {
@@ -42,6 +50,46 @@ export function listPlayerInventoryPayloadItemInstanceIds(payloadJson: unknown):
     }
   }
   return Array.from(ids).sort();
+}
+
+/** 读取 inventory durable payload 的领域版本和原会话围栏。 */
+export function readPlayerInventoryPayloadFence(payloadJson: unknown): PlayerInventoryPayloadFence | null {
+  if (!resolveInventoryPayloadItems(payloadJson)) {
+    return null;
+  }
+  const payload = asRecord(payloadJson)!;
+  const projectionVersion = normalizePositiveSafeInteger(payload.projectionVersion);
+  return {
+    projectionVersion,
+    runtimeOwnerId: normalizeString(payload.runtimeOwnerId) || null,
+    sessionEpoch: normalizePositiveSafeInteger(payload.sessionEpoch),
+  };
+}
+
+/**
+ * 启动前确认玩家离线且领域版本仍领先数据库后，移除已被新 presence 取代的旧会话围栏。
+ * 恢复标记仅用于审计；真正的并发保护仍由玩家 advisory lock 与 inventory watermark 提供。
+ */
+export function rebasePlayerInventoryPayloadFenceForOfflineRecovery(payloadJson: unknown): unknown | null {
+  const fence = readPlayerInventoryPayloadFence(payloadJson);
+  const payload = asRecord(payloadJson);
+  if (!payload || !fence || fence.projectionVersion <= 0) {
+    return null;
+  }
+  const {
+    runtimeOwnerId: _runtimeOwnerId,
+    sessionEpoch: _sessionEpoch,
+    ...payloadWithoutFence
+  } = payload;
+  return {
+    ...payloadWithoutFence,
+    assetConflictRecovery: {
+      mode: PLAYER_INVENTORY_OFFLINE_RECOVERY_MODE,
+      projectionVersion: fence.projectionVersion,
+      originalSessionEpoch: fence.sessionEpoch,
+      hadRuntimeOwner: fence.runtimeOwnerId !== null,
+    },
+  };
 }
 
 /**
@@ -219,4 +267,9 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 
 function normalizeString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizePositiveSafeInteger(value: unknown): number {
+  const numeric = Number(value);
+  return Number.isSafeInteger(numeric) && numeric > 0 ? numeric : 0;
 }
