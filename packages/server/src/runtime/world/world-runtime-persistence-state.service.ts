@@ -318,7 +318,11 @@ export class WorldRuntimePersistenceStateService {
                     rooms: typeof instance.listRoomSummaries === 'function' ? instance.listRoomSummaries() : [],
                     fengShui: [],
                 };
-            await persistence.saveBuildingRoomFengShuiState(instanceId, state);
+            await persistence.saveBuildingRoomFengShuiState(
+                instanceId,
+                state,
+                ['building', 'room', 'fengshui'].filter((domain) => currentDomains.has(domain)),
+            );
             for (const domain of ['building', 'room', 'fengshui']) {
                 if (currentDomains.has(domain)) {
                     persistedDomains.push(domain);

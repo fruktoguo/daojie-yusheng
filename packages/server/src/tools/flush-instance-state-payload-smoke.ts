@@ -36,8 +36,8 @@ async function main(): Promise<void> {
     saveMonsterRuntimeDelta: async (instanceId: string, upserts: unknown[], deletes: unknown[]) => {
       flushed.push(`monster_runtime:${instanceId}:${upserts.length}:${deletes.length}`);
     },
-    saveBuildingRoomFengShuiState: async (instanceId: string) => {
-      flushed.push(`building:${instanceId}`);
+    saveBuildingRoomFengShuiState: async (instanceId: string, _state: unknown, domains: readonly string[]) => {
+      flushed.push(`building:${instanceId}:${domains.join(',')}`);
     },
     saveInstanceCheckpoint: async (instanceId: string) => {
       flushed.push(`time:${instanceId}`);
@@ -51,9 +51,9 @@ async function main(): Promise<void> {
     saveOverlayChunk: async (input: { instanceId: string; patchKind?: unknown; chunkKey?: unknown; patchVersion?: unknown }) => {
       deduped.push(`overlay:${input.instanceId}:${String(input.patchKind ?? '')}:${String(input.chunkKey ?? '')}:${String(input.patchVersion ?? '')}`);
     },
-    saveBuildingRoomFengShuiState: async (instanceId: string, state: unknown) => {
+    saveBuildingRoomFengShuiState: async (instanceId: string, state: unknown, domains: readonly string[]) => {
       const record = state as { buildings?: Array<{ id?: string; cells?: unknown[] }>; rooms?: Array<{ id?: string }>; roomCells?: unknown[]; fengShui?: Array<{ roomId?: string }> };
-      deduped.push(`building:${instanceId}:${record.buildings?.map((entry) => `${entry.id}:${entry.cells?.length ?? 0}`).join(',') ?? ''}:${record.rooms?.map((entry) => entry.id).join(',') ?? ''}:${record.roomCells?.length ?? 0}:${record.fengShui?.map((entry) => entry.roomId).join(',') ?? ''}`);
+      deduped.push(`building:${instanceId}:${record.buildings?.map((entry) => `${entry.id}:${entry.cells?.length ?? 0}`).join(',') ?? ''}:${record.rooms?.map((entry) => entry.id).join(',') ?? ''}:${record.roomCells?.length ?? 0}:${record.fengShui?.map((entry) => entry.roomId).join(',') ?? ''}:${domains.join(',')}`);
     },
   };
 
@@ -70,7 +70,7 @@ async function main(): Promise<void> {
     { id: 'instance-overlay', domain: 'overlay', payloadJson: { kind: 'instance_domain_state', domain: 'overlay', revision: 1, payload: [{ chunkKey: 'overlay-1', patchKind: 'replace', patchVersion: 1, patchPayload: { x: 1 } }] }, expected: 'overlay:instance-overlay:overlay-1' },
     { id: 'instance-monster', domain: 'monster_runtime', payloadJson: { kind: 'instance_domain_state', domain: 'monster_runtime', revision: 1, payload: { fullReplace: false, upserts: [{ monsterId: 'm1' }], deletes: [] } }, expected: 'monster_runtime:instance-monster:1:0' },
     { id: 'instance-container', domain: 'container_state', payloadJson: { kind: 'instance_domain_state', domain: 'container_state', revision: 1, payload: [{ containerId: 'c1', sourceId: 's1', items: [] }] }, expected: 'container_state:instance-container:c1' },
-    { id: 'instance-building', domain: 'building', payloadJson: { kind: 'instance_domain_state', domain: 'building', revision: 1, payload: { buildings: [{ id: 'b1' }], rooms: [], fengShui: [] } }, expected: 'building:instance-building' },
+    { id: 'instance-building', domain: 'building', payloadJson: { kind: 'instance_domain_state', domain: 'building', revision: 1, stagedDomains: ['building'], payload: { buildings: [{ id: 'b1' }] } }, expected: 'building:instance-building:building' },
     { id: 'instance-time', domain: 'time', payloadJson: { kind: 'instance_domain_state', domain: 'time', revision: 1, payload: { version: 2, savedAt: 1, templateId: 't1', tick: 3, tickSpeed: 1, paused: false } }, expected: 'time:instance-time' },
   ];
 
@@ -354,7 +354,7 @@ async function main(): Promise<void> {
     assert.deepEqual(deduped, [
       'overlay:instance-dedupe-overlay:tile:same:2',
       'container_state:instance-dedupe-container:same:new',
-      'building:instance-dedupe-building:b1:1:r1:2:r1',
+      'building:instance-dedupe-building:b1:1:r1:2:r1:building',
     ]);
 
     process.env.SERVER_RUNTIME_ROLE = 'api';
@@ -425,6 +425,44 @@ async function main(): Promise<void> {
     assert.equal(stagedGroundTask.payloadJson?.domain, 'ground_item');
     assert.equal(stagedGroundTask.payloadJson?.revision, stagedGroundTask.latestRevision);
     assert.deepEqual(stagedGroundTask.payloadJson?.payload?.tileIndices, [7]);
+
+    staged.length = 0;
+    const stagingFengShuiRuntime = new FlushTaskRuntimeService(
+      { listDirtyPlayerDomains: () => new Map() } as never,
+      {
+        listDirtyPersistentInstanceDomains: () => [{ instanceId: 'stage-fengshui', domains: ['fengshui'] }],
+        getInstanceRuntime: () => ({
+          meta: { persistent: true, ownershipEpoch: 4 },
+          getPersistenceRevision: () => 13,
+          buildBuildingRoomFengShuiPersistenceState: () => ({
+            buildings: [{ id: 'building:unchanged' }],
+            rooms: [{ id: 'room:unchanged' }],
+            roomCells: [{ roomId: 'room:unchanged', tileIndex: 1 }],
+            fengShui: [{ roomId: 'room:changed', score: 100 }],
+          }),
+        }) as never,
+      } as never,
+      { flushPlayerDomains: async () => true } as never,
+      stagingLedger as never,
+      { signalPlayerFlush() {}, signalInstanceFlush() {} } as never,
+      undefined,
+      undefined,
+      undefined,
+    );
+    await stagingFengShuiRuntime.stageDirtyTasksOnce();
+    assert.equal(staged.length, 1);
+    const stagedFengShuiTask = staged[0] as {
+      domain?: string;
+      payloadJson?: {
+        stagedDomains?: string[];
+        payload?: Record<string, unknown>;
+      } | null;
+    };
+    assert.equal(stagedFengShuiTask.domain, 'building');
+    assert.deepEqual(stagedFengShuiTask.payloadJson?.stagedDomains, ['fengshui']);
+    assert.deepEqual(stagedFengShuiTask.payloadJson?.payload, {
+      fengShui: [{ roomId: 'room:changed', score: 100 }],
+    });
 
     process.env.SERVER_RUNTIME_ROLE = 'worker';
     process.env.SERVER_FLUSH_TASK_RUNTIME_MODE = 'worker';
@@ -541,7 +579,7 @@ async function main(): Promise<void> {
 
   console.log(JSON.stringify({
     ok: true,
-      answers: '实例 tile_cell/temporary_tile/ground_item fullReplace 与增量、overlay/monster_runtime/container_state/building-room-fengshui/time 均可从 durable state payload 写入持久化 API，并 mark flushed；混合分组中缺 payload 的 domain 会单独 retry。',
+      answers: '实例 tile_cell/temporary_tile/ground_item fullReplace 与增量、overlay/monster_runtime/container_state/building-room-fengshui/time 均可从 durable state payload 写入持久化 API，并 mark flushed；building-room-fengshui 只暂存和回放实际脏领域；混合分组中缺 payload 的 domain 会单独 retry。',
     excludes: '不证明真实 DB with-db 竞争。',
     completionMapping: 'flush-instance-state-payload',
   }, null, 2));

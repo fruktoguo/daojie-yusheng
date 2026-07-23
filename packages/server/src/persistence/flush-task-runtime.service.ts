@@ -19,6 +19,7 @@ import type { FlushTask, FlushTaskPriority, FlushTaskScope } from './flush-task.
 import { classifyFlushFailure, resolveFlushRetryDelayMs } from './flush-failure-policy';
 import { FlushDiagnosticsService } from './flush-diagnostics.service';
 import { InstanceCatalogService } from './instance-catalog.service';
+import type { BuildingRoomFengShuiPersistenceDomain } from './instance-domain-persistence.service';
 import type { InstanceFlushLedgerClaim } from './instance-flush-ledger-fence';
 import {
   PlayerDomainPersistenceService,
@@ -237,7 +238,11 @@ interface BatchPersistencePort {
   saveOverlayChunk?(input: { instanceId: string; patchKind?: unknown; chunkKey?: unknown; patchVersion?: unknown; patchPayload?: unknown }): Promise<void>;
   saveMonsterRuntimeDelta?(instanceId: string, upserts: unknown[], deletes: unknown[]): Promise<void>;
   replaceMonsterRuntimeStates?(instanceId: string, states: unknown[]): Promise<void>;
-  saveBuildingRoomFengShuiState?(instanceId: string, state: unknown): Promise<void>;
+  saveBuildingRoomFengShuiState?(
+    instanceId: string,
+    state: unknown,
+    domains?: readonly BuildingRoomFengShuiPersistenceDomain[],
+  ): Promise<void>;
 }
 
 interface WorldRuntimeFlushTaskPort {
@@ -1003,7 +1008,9 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     }
     else if (domain === 'building') {
       const state = runtime.buildBuildingRoomFengShuiPersistenceState?.();
-      payload = state ? { ...basePayload, payload: state } : null;
+      payload = state
+        ? { ...basePayload, payload: selectBuildingRoomFengShuiPayload(state, stagedDomains) }
+        : null;
     }
     return payload
       ? { payload, latestRevision: revision, flushSnapshot, stagedDomains, containerRevision }
@@ -1997,6 +2004,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         await persistence.saveBuildingRoomFengShuiState(
           instanceId,
           normalizeBuildingRoomFengShuiPayload(payload.payload),
+          normalizeBuildingRoomFengShuiDomains(normalizePayloadStagedDomains(payload, payload.domain)),
         );
         break;
       }
@@ -2810,6 +2818,24 @@ function normalizeBuildingRoomFengShuiPayload(payload: unknown): Record<string, 
       const record = entry as { roomId?: unknown; room_id?: unknown };
       return normalizeString(record.roomId) || normalizeString(record.room_id);
     }),
+  };
+}
+
+function normalizeBuildingRoomFengShuiDomains(domains: readonly string[]): BuildingRoomFengShuiPersistenceDomain[] {
+  return domains.filter((domain): domain is BuildingRoomFengShuiPersistenceDomain =>
+    domain === 'building' || domain === 'room' || domain === 'fengshui');
+}
+
+function selectBuildingRoomFengShuiPayload(payload: unknown, domains: readonly string[]): Record<string, unknown> {
+  const source = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {};
+  const selectedDomains = new Set(normalizeBuildingRoomFengShuiDomains(domains));
+  return {
+    ...(selectedDomains.has('building') ? { buildings: Array.isArray(source.buildings) ? source.buildings : [] } : {}),
+    ...(selectedDomains.has('room') ? {
+      rooms: Array.isArray(source.rooms) ? source.rooms : [],
+      roomCells: Array.isArray(source.roomCells) ? source.roomCells : [],
+    } : {}),
+    ...(selectedDomains.has('fengshui') ? { fengShui: Array.isArray(source.fengShui) ? source.fengShui : [] } : {}),
   };
 }
 
