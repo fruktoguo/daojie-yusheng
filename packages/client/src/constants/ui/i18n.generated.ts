@@ -2689,6 +2689,7 @@ export const CLIENT_I18N_MESSAGES = {
   "notice.tower.entered": "进入通天塔第 {layer} 层。",
   "notice.tower.exited": "退出通天塔，返回 {mapName}。",
   "notice.tower.layer-cleared": "通天塔第 {layer} 层已通关，可前往第 {unlockedLayer} 层。",
+  "notice.tower.layer-cleared-cooldown": "通天塔第 {layer} 层已清空，需等待 {cooldownSeconds} 秒后换层。",
   "notice.travel.arrived": "{travelMethod}抵达 {mapName}",
   "breakthrough.aura.level": "灵气等级 {level}",
   "breakthrough.btn.confirm": "确认突破",

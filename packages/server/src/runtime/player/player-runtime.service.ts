@@ -10521,11 +10521,15 @@ function buildActionEntries(player, currentTick) {
     const autoBattleSkillsChanged = !isSameAutoBattleSkillList(player.combat.autoBattleSkills, autoBattleSkills);
     player.combat.autoBattleSkills = autoBattleSkills;
     for (const entry of player.actions.contextActions) {
-        const readyTick = normalizeActionCooldownReadyTick(
+        const runtimeReadyTick = normalizeActionCooldownReadyTick(
             player,
             entry.id,
             currentTick,
             resolveContextActionCooldownTicks(entry),
+        );
+        const readyTick = Math.max(
+            runtimeReadyTick,
+            normalizeContextActionCooldownReadyTick(entry, currentTick),
         );
         const nextAction = reuseActionEntry(previousById.get(entry.id), {
             ...entry,
@@ -10575,6 +10579,12 @@ function resolveContextActionCooldownTicks(entry) {
     return null;
 }
 
+function normalizeContextActionCooldownReadyTick(entry, currentTick) {
+    const readyTick = Math.max(0, Math.trunc(Number(entry?.cooldownReadyTick ?? 0)));
+    const normalizedCurrentTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+    return readyTick > normalizedCurrentTick ? readyTick : 0;
+}
+
 function normalizeActionCooldownReadyTick(player, actionId, currentTick, maxCooldownTicks) {
     const cooldowns = player?.combat?.cooldownReadyTickBySkillId;
     if (!cooldowns || !actionId) {
@@ -10620,6 +10630,7 @@ function isSameActionList(previous, current) {
             || left.type !== right.type
             || left.desc !== right.desc
             || left.cooldownLeft !== right.cooldownLeft
+            || left.cooldownReadyTick !== right.cooldownReadyTick
             || left.range !== right.range
             || left.requiresTarget !== right.requiresTarget
             || left.targetMode !== right.targetMode

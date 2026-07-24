@@ -74,6 +74,10 @@ assert.throws(
   () => assertContentConfigDocument('tongtian-tower.json', { width: 0 }),
   /width 必须是正整数/,
 );
+assert.throws(
+  () => assertContentConfigDocument('tongtian-tower.json', { layerChangeCooldownSeconds: 0 }),
+  /layerChangeCooldownSeconds 必须是正整数/,
+);
 
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mud-config-atomic-'));
 try {

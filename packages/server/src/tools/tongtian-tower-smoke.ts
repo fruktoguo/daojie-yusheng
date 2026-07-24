@@ -16,13 +16,18 @@ class InMemoryTowerProgress {
   getOrCreateProgress(playerId: string): TongtianTowerProgress {
     const existing = this.rows.get(playerId);
     if (existing) return { ...existing };
-    const progress = { playerId, currentLayer: 1, highestLayer: 1 };
+    const progress = { playerId, currentLayer: 1, highestLayer: 1, layerChangeCooldownUntilMs: 0 };
     this.rows.set(playerId, progress);
     return { ...progress };
   }
 
   updateCurrentLayer(playerId: string, layer: number): TongtianTowerProgress {
-    const current = this.rows.get(playerId) ?? { playerId, currentLayer: 1, highestLayer: 1 };
+    const current = this.rows.get(playerId) ?? {
+      playerId,
+      currentLayer: 1,
+      highestLayer: 1,
+      layerChangeCooldownUntilMs: 0,
+    };
     current.currentLayer = Math.max(1, Math.trunc(layer));
     current.highestLayer = Math.max(current.highestLayer, current.currentLayer);
     this.rows.set(playerId, current);
@@ -30,10 +35,38 @@ class InMemoryTowerProgress {
   }
 
   promoteHighestLayer(playerId: string, layer: number): TongtianTowerProgress {
-    const current = this.rows.get(playerId) ?? { playerId, currentLayer: 1, highestLayer: 1 };
+    const current = this.rows.get(playerId) ?? {
+      playerId,
+      currentLayer: 1,
+      highestLayer: 1,
+      layerChangeCooldownUntilMs: 0,
+    };
     current.highestLayer = Math.max(current.highestLayer, Math.max(1, Math.trunc(layer)));
     this.rows.set(playerId, current);
     return { ...current };
+  }
+
+  recordLayerClear(playerId: string, unlockedLayer: number, cooldownUntilMs: number): {
+    progress: TongtianTowerProgress;
+    firstClear: boolean;
+  } {
+    const current = this.rows.get(playerId) ?? {
+      playerId,
+      currentLayer: 1,
+      highestLayer: 1,
+      layerChangeCooldownUntilMs: 0,
+    };
+    const normalizedLayer = Math.max(1, Math.trunc(unlockedLayer));
+    const firstClear = current.highestLayer < normalizedLayer;
+    current.highestLayer = Math.max(current.highestLayer, normalizedLayer);
+    if (!firstClear) {
+      current.layerChangeCooldownUntilMs = Math.max(
+        current.layerChangeCooldownUntilMs,
+        Math.max(0, Math.trunc(cooldownUntilMs)),
+      );
+    }
+    this.rows.set(playerId, current);
+    return { progress: { ...current }, firstClear };
   }
 }
 
@@ -123,17 +156,28 @@ async function main(): Promise<void> {
   clearWaveMonsters(layer1);
   tower.advanceInstance(layer1, deps);
   assert.equal(persistence.rows.get('player:1')?.highestLayer, 2);
-  assert.equal(persistence.rows.get('player:2')?.highestLayer, 1, '中途进入者不推进本波最高层');
+  assert.equal(persistence.rows.get('player:2')?.highestLayer, 2, '中途加入并参与清层的玩家也应推进本波最高层');
+  assert.equal(persistence.rows.get('player:1')?.layerChangeCooldownUntilMs, 0, '首次通过者不进入换层冷却');
+  assert.equal(persistence.rows.get('player:2')?.layerChangeCooldownUntilMs, 0, '中途参与者首次通过也不进入换层冷却');
   assert.deepEqual(
     deps.notices.filter((notice: any) => notice.key === 'notice.tower.layer-cleared'),
-    [{
-      playerId: 'player:1',
-      text: '通天塔第 1 层已通关，可前往第 2 层。',
-      kind: 'success',
-      key: 'notice.tower.layer-cleared',
-      vars: { layer: 1, unlockedLayer: 2 },
-    }],
-    '通关通知只能发给本波参与者，并携带客户端渲染所需层数变量',
+    [
+      {
+        playerId: 'player:1',
+        text: '通天塔第 1 层已通关，可前往第 2 层。',
+        kind: 'success',
+        key: 'notice.tower.layer-cleared',
+        vars: { layer: 1, unlockedLayer: 2 },
+      },
+      {
+        playerId: 'player:2',
+        text: '通天塔第 1 层已通关，可前往第 2 层。',
+        kind: 'success',
+        key: 'notice.tower.layer-cleared',
+        vars: { layer: 1, unlockedLayer: 2 },
+      },
+    ],
+    '首次通关通知应发给所有清层参与者，并携带客户端渲染所需层数变量',
   );
   layer1.tongtianTowerState.nextSpawnTick = layer1.tick;
   tower.advanceInstance(layer1, deps);
@@ -145,9 +189,11 @@ async function main(): Promise<void> {
     '解锁后塔内任意位置都可下一层或退出',
   );
 
-  await assert.rejects(
-    tower.executeAction('player:2', 'tower:tongtian:next', deps),
-    /尚未通关当前层/,
+  assert.equal(
+    tower.buildContextActions(layer1.buildPlayerView('player:2', 20), deps)
+      .find((action) => action.id === 'tower:tongtian:next')?.cooldownLeft,
+    0,
+    '中途参与者首次通过后应能立即换层',
   );
   const layer2View = await tower.executeAction('player:1', 'tower:tongtian:next', deps);
   assert.equal(layer2View.instance.instanceId, 'tower:tongtian:layer:2');
@@ -161,6 +207,84 @@ async function main(): Promise<void> {
     ['tower:tongtian:previous', 'tower:tongtian:exit'],
     '第二层任意位置都可上一层或退出，未通关时不显示下一层',
   );
+
+  clearWaveMonsters(layer1);
+  layer1.tongtianTowerState.activeWave = null;
+  layer1.tongtianTowerState.nextSpawnTick = layer1.tick;
+  tower.advanceInstance(layer1, deps);
+  assert.equal(layer1.listMonsters().length, 5, '重复挑战波次应只按当前留在本层的玩家刷新');
+  connectToPublicMap(deps, 'player:first-participant', 31, 15);
+  await tower.executeAction('player:first-participant', 'tower:tongtian:enter', deps);
+  assert.equal(layer1.listMonsters().length, 5, '首次参与者中途加入不增加当前波次怪物');
+
+  const repeatCooldownUntilMs = deps.resolveCurrentTimeMs() + 60_000;
+  clearWaveMonsters(layer1);
+  tower.advanceInstance(layer1, deps);
+  assert.equal(
+    persistence.rows.get('player:2')?.layerChangeCooldownUntilMs,
+    repeatCooldownUntilMs,
+    '已通过当前层的参与者再次清层后应进入 60 秒换层冷却',
+  );
+  assert.equal(
+    persistence.rows.get('player:first-participant')?.highestLayer,
+    2,
+    '中途加入清层的首次参与者应解锁下一层',
+  );
+  assert.equal(
+    persistence.rows.get('player:first-participant')?.layerChangeCooldownUntilMs,
+    0,
+    '中途加入清层的首次参与者不应进入换层冷却',
+  );
+  assert.deepEqual(
+    deps.notices.slice(-2),
+    [
+      {
+        playerId: 'player:2',
+        text: '通天塔第 1 层已清空，需等待 60 秒后换层。',
+        kind: 'success',
+        key: 'notice.tower.layer-cleared-cooldown',
+        vars: { layer: 1, cooldownSeconds: 60 },
+      },
+      {
+        playerId: 'player:first-participant',
+        text: '通天塔第 1 层已通关，可前往第 2 层。',
+        kind: 'success',
+        key: 'notice.tower.layer-cleared',
+        vars: { layer: 1, unlockedLayer: 2 },
+      },
+    ],
+    '同一波应按玩家分别发送重复清层冷却与首次通关通知',
+  );
+
+  const repeatedNextAction = tower.buildContextActions(layer1.buildPlayerView('player:2', 20), deps)
+    .find((action) => action.id === 'tower:tongtian:next');
+  assert.equal(repeatedNextAction?.cooldownLeft, 60, '重复清层者的下一层动作应显示 60 秒冷却');
+  assert.equal(repeatedNextAction?.cooldownReadyTick, 60, '换层动作应投影稳定的玩家生命 tick 冷却终点');
+  assert.equal(
+    tower.buildContextActions(layer1.buildPlayerView('player:first-participant', 20), deps)
+      .find((action) => action.id === 'tower:tongtian:next')?.cooldownLeft,
+    0,
+    '首次参与者的下一层动作应立即可用',
+  );
+  await assert.rejects(
+    tower.executeAction('player:2', 'tower:tongtian:next', deps),
+    /还需 60 秒/,
+    '服务端必须拒绝处于换层冷却中的动作，不能只依赖客户端禁用按钮',
+  );
+  const firstParticipantLayer2View = await tower.executeAction(
+    'player:first-participant',
+    'tower:tongtian:next',
+    deps,
+  );
+  assert.equal(firstParticipantLayer2View.instance.instanceId, 'tower:tongtian:layer:2');
+  deps.advanceTimeSeconds(59);
+  await assert.rejects(
+    tower.executeAction('player:2', 'tower:tongtian:next', deps),
+    /还需 1 秒/,
+  );
+  deps.advanceTimeSeconds(1);
+  const repeatedLayer2View = await tower.executeAction('player:2', 'tower:tongtian:next', deps);
+  assert.equal(repeatedLayer2View.instance.instanceId, 'tower:tongtian:layer:2', '冷却结束后应允许换层');
 
   persistence.updateCurrentLayer('player:dead', 99);
   persistence.promoteHighestLayer('player:dead', 99);
@@ -411,8 +535,22 @@ function createDeps(
   const restoreOrder: string[] = [];
   const createInstanceCalls: any[] = [];
   let catalogEnabled = false;
+  let currentTimeMs = 1_000_000;
   const deps: any = {
     tick: 0,
+    resolveCurrentTimeMs() {
+      return currentTimeMs;
+    },
+    resolveCurrentTickForPlayerId(playerId: string) {
+      return Math.max(0, Math.trunc(Number(players.get(playerId)?.lifeElapsedTicks ?? 0)));
+    },
+    advanceTimeSeconds(secondsInput: number) {
+      const seconds = Math.max(0, Math.trunc(Number(secondsInput) || 0));
+      currentTimeMs += seconds * 1_000;
+      for (const player of players.values()) {
+        player.lifeElapsedTicks = Math.max(0, Math.trunc(Number(player.lifeElapsedTicks) || 0)) + seconds;
+      }
+    },
     logger: {
       debug() {},
       warn() {},

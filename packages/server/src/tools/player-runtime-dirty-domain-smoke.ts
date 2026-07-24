@@ -2019,6 +2019,39 @@ function testActionCooldownCountdownDoesNotBumpRevision(): void {
   assert.equal(player.actions.actions.find((entry) => entry.id === skillId)?.cooldownReadyTick, undefined);
 }
 
+function testDeclaredContextActionCooldownReadyTick(): void {
+  const playerId = 'player:context-action-cooldown';
+  const actionId = 'tower:tongtian:next';
+  const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+  const buildAction = (cooldownLeft: number, cooldownReadyTick?: number) => ({
+    id: actionId,
+    name: '前往下一层',
+    type: 'travel' as const,
+    desc: '',
+    cooldownLeft,
+    cooldownReadyTick,
+  });
+
+  player.lifeElapsedTicks = 100;
+  service.setContextActions(playerId, [buildAction(30, 130)], 100);
+  const revisionAfterCooldownStart = player.actions.revision;
+  assert.equal(player.actions.actions.find((entry) => entry.id === actionId)?.cooldownLeft, 30);
+  assert.equal(player.actions.actions.find((entry) => entry.id === actionId)?.cooldownReadyTick, 130);
+
+  player.lifeElapsedTicks = 101;
+  service.setContextActions(playerId, [buildAction(29, 130)], 101);
+  assert.equal(player.actions.revision, revisionAfterCooldownStart, '上下文动作倒计时不能每息推进动作 revision');
+  assert.equal(player.actions.actions.find((entry) => entry.id === actionId)?.cooldownLeft, 29);
+  assert.equal(player.actions.actions.find((entry) => entry.id === actionId)?.cooldownReadyTick, 130);
+
+  player.lifeElapsedTicks = 130;
+  service.setContextActions(playerId, [buildAction(0)], 130);
+  assert.equal(player.actions.revision, revisionAfterCooldownStart + 1);
+  assert.equal(player.actions.actions.find((entry) => entry.id === actionId)?.cooldownLeft, 0);
+  assert.equal(player.actions.actions.find((entry) => entry.id === actionId)?.cooldownReadyTick, undefined);
+}
+
 function testApplyProgressionResultDirtyDomains(): void {
   const playerId = 'player:progression-result';
   const service = createHydratedService(playerId);
@@ -2089,6 +2122,7 @@ testLogbookDirtyDomain();
   testRespawnDirtyDomains();
   testRespawnPreservesActiveSkillCooldown();
   testActionCooldownCountdownDoesNotBumpRevision();
+  testDeclaredContextActionCooldownReadyTick();
   testApplyProgressionResultDirtyDomains();
   console.log('REPAIR_PROOF:ISSUE-000011:PASS');
   console.log(

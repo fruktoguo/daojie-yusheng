@@ -19,6 +19,12 @@ export interface TongtianTowerProgress {
   playerId: string;
   currentLayer: number;
   highestLayer: number;
+  layerChangeCooldownUntilMs: number;
+}
+
+export interface TongtianTowerLayerClearResult {
+  progress: TongtianTowerProgress;
+  firstClear: boolean;
 }
 
 const TONGTIAN_TOWER_PROGRESS_TABLE = 'player_tongtian_tower_progress';
@@ -65,7 +71,7 @@ export class TongtianTowerPersistenceService implements OnModuleInit {
     if (existing) {
       return cloneProgress(existing);
     }
-    const progress = { playerId, currentLayer: 1, highestLayer: 1 };
+    const progress = createDefaultProgress(playerId);
     this.progressByPlayerId.set(playerId, progress);
     this.persistProgressSoon(progress);
     return cloneProgress(progress);
@@ -88,6 +94,27 @@ export class TongtianTowerPersistenceService implements OnModuleInit {
     current.highestLayer = Math.max(current.highestLayer, layer);
     this.persistProgressSoon(current);
     return cloneProgress(current);
+  }
+
+  recordLayerClear(
+    playerIdInput: string,
+    unlockedLayerInput: number,
+    cooldownUntilMsInput: number,
+  ): TongtianTowerLayerClearResult {
+    const playerId = normalizePlayerId(playerIdInput);
+    const unlockedLayer = normalizeLayer(unlockedLayerInput);
+    const cooldownUntilMs = normalizeTimestampMs(cooldownUntilMsInput);
+    const current = this.getMutableProgress(playerId);
+    const firstClear = current.highestLayer < unlockedLayer;
+    current.highestLayer = Math.max(current.highestLayer, unlockedLayer);
+    if (!firstClear) {
+      current.layerChangeCooldownUntilMs = Math.max(current.layerChangeCooldownUntilMs, cooldownUntilMs);
+    }
+    this.persistProgressSoon(current);
+    return {
+      progress: cloneProgress(current),
+      firstClear,
+    };
   }
 
   listCachedProgress(): TongtianTowerProgress[] {
@@ -137,7 +164,7 @@ export class TongtianTowerPersistenceService implements OnModuleInit {
     if (existing) {
       return existing;
     }
-    const progress = { playerId, currentLayer: 1, highestLayer: 1 };
+    const progress = createDefaultProgress(playerId);
     this.progressByPlayerId.set(playerId, progress);
     return progress;
   }
@@ -147,7 +174,7 @@ export class TongtianTowerPersistenceService implements OnModuleInit {
       return;
     }
     const result = await this.pool.query(
-      `SELECT player_id, current_layer, highest_layer FROM ${TONGTIAN_TOWER_PROGRESS_TABLE}`,
+      `SELECT player_id, current_layer, highest_layer, layer_change_cooldown_until_ms FROM ${TONGTIAN_TOWER_PROGRESS_TABLE}`,
     );
     this.progressByPlayerId.clear();
     for (const row of result.rows ?? []) {
@@ -158,6 +185,7 @@ export class TongtianTowerPersistenceService implements OnModuleInit {
         playerId,
         currentLayer,
         highestLayer,
+        layerChangeCooldownUntilMs: normalizeTimestampMs(row.layer_change_cooldown_until_ms),
       });
     }
   }
@@ -188,14 +216,29 @@ export class TongtianTowerPersistenceService implements OnModuleInit {
     try {
       await this.pool.query(
         `
-          INSERT INTO ${TONGTIAN_TOWER_PROGRESS_TABLE}(player_id, current_layer, highest_layer, updated_at)
-          VALUES ($1, $2, $3, now())
+          INSERT INTO ${TONGTIAN_TOWER_PROGRESS_TABLE}(
+            player_id,
+            current_layer,
+            highest_layer,
+            layer_change_cooldown_until_ms,
+            updated_at
+          )
+          VALUES ($1, $2, $3, $4, now())
           ON CONFLICT (player_id) DO UPDATE SET
             current_layer = EXCLUDED.current_layer,
             highest_layer = GREATEST(${TONGTIAN_TOWER_PROGRESS_TABLE}.highest_layer, EXCLUDED.highest_layer),
+            layer_change_cooldown_until_ms = GREATEST(
+              ${TONGTIAN_TOWER_PROGRESS_TABLE}.layer_change_cooldown_until_ms,
+              EXCLUDED.layer_change_cooldown_until_ms
+            ),
             updated_at = now()
         `,
-        [progress.playerId, progress.currentLayer, progress.highestLayer],
+        [
+          progress.playerId,
+          progress.currentLayer,
+          progress.highestLayer,
+          progress.layerChangeCooldownUntilMs,
+        ],
       );
     } catch (error: unknown) {
       if (isRelationMissingError(error)) {
@@ -203,14 +246,29 @@ export class TongtianTowerPersistenceService implements OnModuleInit {
         try {
           await this.pool.query(
             `
-              INSERT INTO ${TONGTIAN_TOWER_PROGRESS_TABLE}(player_id, current_layer, highest_layer, updated_at)
-              VALUES ($1, $2, $3, now())
+              INSERT INTO ${TONGTIAN_TOWER_PROGRESS_TABLE}(
+                player_id,
+                current_layer,
+                highest_layer,
+                layer_change_cooldown_until_ms,
+                updated_at
+              )
+              VALUES ($1, $2, $3, $4, now())
               ON CONFLICT (player_id) DO UPDATE SET
                 current_layer = EXCLUDED.current_layer,
                 highest_layer = GREATEST(${TONGTIAN_TOWER_PROGRESS_TABLE}.highest_layer, EXCLUDED.highest_layer),
+                layer_change_cooldown_until_ms = GREATEST(
+                  ${TONGTIAN_TOWER_PROGRESS_TABLE}.layer_change_cooldown_until_ms,
+                  EXCLUDED.layer_change_cooldown_until_ms
+                ),
                 updated_at = now()
             `,
-            [progress.playerId, progress.currentLayer, progress.highestLayer],
+            [
+              progress.playerId,
+              progress.currentLayer,
+              progress.highestLayer,
+              progress.layerChangeCooldownUntilMs,
+            ],
           );
         } catch (retryError) {
           throw normalizeTongtianPersistenceError(retryError);
@@ -270,10 +328,16 @@ async function ensureTongtianTowerProgressTable(pool: Pool): Promise<void> {
       player_id varchar PRIMARY KEY,
       current_layer integer NOT NULL DEFAULT 1,
       highest_layer integer NOT NULL DEFAULT 1,
+      layer_change_cooldown_until_ms bigint NOT NULL DEFAULT 0,
       updated_at timestamptz NOT NULL DEFAULT now(),
       CHECK (current_layer >= 1),
-      CHECK (highest_layer >= 1)
+      CHECK (highest_layer >= 1),
+      CHECK (layer_change_cooldown_until_ms >= 0)
     )
+  `);
+  await pool.query(`
+    ALTER TABLE ${TONGTIAN_TOWER_PROGRESS_TABLE}
+    ADD COLUMN IF NOT EXISTS layer_change_cooldown_until_ms bigint NOT NULL DEFAULT 0
   `);
 }
 
@@ -293,10 +357,25 @@ function normalizeLayer(value: unknown): number {
   return Math.max(1, Math.trunc(layer));
 }
 
+function normalizeTimestampMs(value: unknown): number {
+  const timestamp = Number(value);
+  return Number.isFinite(timestamp) ? Math.max(0, Math.trunc(timestamp)) : 0;
+}
+
+function createDefaultProgress(playerId: string): TongtianTowerProgress {
+  return {
+    playerId,
+    currentLayer: 1,
+    highestLayer: 1,
+    layerChangeCooldownUntilMs: 0,
+  };
+}
+
 function cloneProgress(progress: TongtianTowerProgress): TongtianTowerProgress {
   return {
     playerId: progress.playerId,
     currentLayer: progress.currentLayer,
     highestLayer: progress.highestLayer,
+    layerChangeCooldownUntilMs: progress.layerChangeCooldownUntilMs,
   };
 }

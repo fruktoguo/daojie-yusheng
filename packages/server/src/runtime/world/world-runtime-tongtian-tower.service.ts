@@ -37,6 +37,7 @@ interface TongtianTowerConfig {
   exitPortalX: number;
   exitPortalY: number;
   spawnIntervalTicks: number;
+  layerChangeCooldownSeconds: number;
   normalMonstersPerPlayer: number;
   eliteMonstersPerPlayer: number;
   idleDestroyTicks: number;
@@ -62,6 +63,10 @@ interface TongtianTowerLayerState {
 
 const TOWER_INSTANCE_PREFIX = 'tower:tongtian:layer:';
 const TOWER_TEMPLATE_PREFIX = 'tongtian_tower_layer_';
+const TOWER_ENTER_ACTION_ID = 'tower:tongtian:enter';
+const TOWER_PREVIOUS_ACTION_ID = 'tower:tongtian:previous';
+const TOWER_NEXT_ACTION_ID = 'tower:tongtian:next';
+const TOWER_EXIT_ACTION_ID = 'tower:tongtian:exit';
 
 @Injectable()
 export class WorldRuntimeTongtianTowerService {
@@ -139,7 +144,7 @@ export class WorldRuntimeTongtianTowerService {
     }
     if (mapId === this.config.entryMapId && isNear(self.x, self.y, this.config.entryX, this.config.entryY)) {
       actions.push({
-        id: 'tower:tongtian:enter',
+        id: TOWER_ENTER_ACTION_ID,
         name: '进入通天塔',
         type: 'travel',
         desc: '进入通天塔，继续当前记录层数。',
@@ -153,26 +158,29 @@ export class WorldRuntimeTongtianTowerService {
     }
     const playerId = resolveViewPlayerId(view);
     const progress = playerId ? this.persistence.getOrCreateProgress(playerId) : null;
+    const layerChangeCooldown = playerId && progress
+      ? this.resolveLayerChangeCooldownProjection(playerId, progress.layerChangeCooldownUntilMs, view, deps)
+      : { cooldownLeft: 0 };
     if (layer > 1) {
       actions.push({
-        id: 'tower:tongtian:previous',
+        id: TOWER_PREVIOUS_ACTION_ID,
         name: '退到上一层',
         type: 'travel',
         desc: `退回通天塔第 ${layer - 1} 层。`,
-        cooldownLeft: 0,
+        ...layerChangeCooldown,
       });
     }
     if (progress && progress.highestLayer >= layer + 1) {
       actions.push({
-        id: 'tower:tongtian:next',
+        id: TOWER_NEXT_ACTION_ID,
         name: '前往下一层',
         type: 'travel',
         desc: `前往通天塔第 ${layer + 1} 层。`,
-        cooldownLeft: 0,
+        ...layerChangeCooldown,
       });
     }
     actions.push({
-      id: 'tower:tongtian:exit',
+      id: TOWER_EXIT_ACTION_ID,
       name: '退出通天塔',
       type: 'travel',
       desc: '离开通天塔并返回栖真渡，保留当前层数记录。',
@@ -186,16 +194,16 @@ export class WorldRuntimeTongtianTowerService {
     if (player && Number.isFinite(player.hp) && Number(player.hp) <= 0) {
       throw new BadRequestException('重伤倒地时不能操作通天塔');
     }
-    if (actionId === 'tower:tongtian:enter') {
+    if (actionId === TOWER_ENTER_ACTION_ID) {
       return this.enterTower(playerId, deps);
     }
-    if (actionId === 'tower:tongtian:previous') {
+    if (actionId === TOWER_PREVIOUS_ACTION_ID) {
       return this.moveLayer(playerId, -1, deps);
     }
-    if (actionId === 'tower:tongtian:next') {
+    if (actionId === TOWER_NEXT_ACTION_ID) {
       return this.moveLayer(playerId, 1, deps);
     }
-    if (actionId === 'tower:tongtian:exit') {
+    if (actionId === TOWER_EXIT_ACTION_ID) {
       return this.exitTower(playerId, deps);
     }
     return null;
@@ -413,7 +421,9 @@ export class WorldRuntimeTongtianTowerService {
     }
     const state = this.ensureLayerState(instance, layer, deps.tick);
     this.markLayerActive(state, deps.tick);
-    if (!state.activeWave && state.nextSpawnTick <= instance.tick) {
+    if (state.activeWave) {
+      this.includeWaveParticipants(state.activeWave, listPlayerIds(instance));
+    } else if (state.nextSpawnTick <= instance.tick) {
       this.spawnWave(instance, state);
     }
   }
@@ -438,6 +448,10 @@ export class WorldRuntimeTongtianTowerService {
     }
     if (direction > 0 && progress.highestLayer < nextLayer) {
       throw new BadRequestException('尚未通关当前层，不能前往下一层');
+    }
+    const cooldownLeft = this.resolveLayerChangeCooldownLeft(progress.layerChangeCooldownUntilMs, deps);
+    if (cooldownLeft > 0) {
+      throw new BadRequestException(`通天塔换层冷却尚未结束，还需 ${cooldownLeft} 秒`);
     }
     const view = await this.connectPlayerToLayer(playerId, nextLayer, deps);
     this.persistence.updateCurrentLayer(playerId, nextLayer);
@@ -505,7 +519,9 @@ export class WorldRuntimeTongtianTowerService {
     }, deps);
     const state = this.ensureLayerState(instance, layer, deps.tick);
     this.markLayerActive(state, deps.tick);
-    if (!state.activeWave && state.nextSpawnTick <= instance.tick) {
+    if (state.activeWave) {
+      this.includeWaveParticipants(state.activeWave, listPlayerIds(instance));
+    } else if (state.nextSpawnTick <= instance.tick) {
       this.spawnWave(instance, state);
     }
     const enteredNotice = buildStructuredNotice(
@@ -876,6 +892,20 @@ export class WorldRuntimeTongtianTowerService {
     state.nextSpawnTick = Number.POSITIVE_INFINITY;
   }
 
+  private includeWaveParticipants(wave: TongtianTowerWaveState, playerIds: string[]): void {
+    if (playerIds.length <= 0) {
+      return;
+    }
+    const participantIds = new Set(wave.participantPlayerIds);
+    for (const playerId of playerIds) {
+      if (participantIds.has(playerId)) {
+        continue;
+      }
+      participantIds.add(playerId);
+      wave.participantPlayerIds.push(playerId);
+    }
+  }
+
   private spawnWaveMonster(
     instance: any,
     state: TongtianTowerLayerState,
@@ -917,7 +947,7 @@ export class WorldRuntimeTongtianTowerService {
       instance.removeRuntimeMonster?.(runtimeId);
     }
     const unlockedLayer = state.layer + 1;
-    const clearedNotice = buildStructuredNotice(
+    const firstClearNotice = buildStructuredNotice(
       'success',
       'notice.tower.layer-cleared',
       `通天塔第 ${state.layer} 层已通关，可前往第 ${unlockedLayer} 层。`,
@@ -929,15 +959,32 @@ export class WorldRuntimeTongtianTowerService {
         ],
       },
     );
+    const cooldownNotice = buildStructuredNotice(
+      'success',
+      'notice.tower.layer-cleared-cooldown',
+      `通天塔第 ${state.layer} 层已清空，需等待 ${this.config.layerChangeCooldownSeconds} 秒后换层。`,
+      {
+        vars: {
+          layer: state.layer,
+          cooldownSeconds: this.config.layerChangeCooldownSeconds,
+        },
+        pills: [
+          { key: 'layer', style: 'damage' },
+          { key: 'cooldownSeconds', style: 'damage' },
+        ],
+      },
+    );
+    const cooldownUntilMs = resolveCurrentTimeMs(deps) + this.config.layerChangeCooldownSeconds * 1_000;
     for (const playerId of wave.participantPlayerIds) {
-      this.persistence.promoteHighestLayer(playerId, unlockedLayer);
+      const clearResult = this.persistence.recordLayerClear(playerId, unlockedLayer, cooldownUntilMs);
+      const notice = clearResult.firstClear ? firstClearNotice : cooldownNotice;
       deps.queuePlayerNotice?.(
         playerId,
-        clearedNotice.text,
-        clearedNotice.kind,
+        notice.text,
+        notice.kind,
         undefined,
         undefined,
-        clearedNotice.structured,
+        notice.structured,
       );
     }
     state.activeWave = null;
@@ -954,6 +1001,33 @@ export class WorldRuntimeTongtianTowerService {
     }
     state.activeWave = null;
     state.nextSpawnTick = instance.tick + this.config.spawnIntervalTicks;
+  }
+
+  private resolveLayerChangeCooldownProjection(
+    playerId: string,
+    cooldownUntilMs: number,
+    view: any,
+    deps: any,
+  ): { cooldownLeft: number; cooldownReadyTick?: number } {
+    const cooldownLeft = this.resolveLayerChangeCooldownLeft(cooldownUntilMs, deps);
+    if (cooldownLeft <= 0) {
+      return { cooldownLeft: 0 };
+    }
+    const currentTickInput = typeof deps?.resolveCurrentTickForPlayerId === 'function'
+      ? deps.resolveCurrentTickForPlayerId(playerId)
+      : view?.tick;
+    const currentTick = Number.isFinite(Number(currentTickInput))
+      ? Math.max(0, Math.trunc(Number(currentTickInput)))
+      : 0;
+    return {
+      cooldownLeft,
+      cooldownReadyTick: currentTick + cooldownLeft,
+    };
+  }
+
+  private resolveLayerChangeCooldownLeft(cooldownUntilMs: number, deps: any): number {
+    const remainingMs = Math.max(0, Math.trunc(Number(cooldownUntilMs) || 0) - resolveCurrentTimeMs(deps));
+    return remainingMs > 0 ? Math.ceil(remainingMs / 1_000) : 0;
   }
 
   private requireCurrentTowerLayer(playerId: string, deps: any): number {
@@ -1078,6 +1152,7 @@ function loadTongtianTowerConfig(): TongtianTowerConfig {
     exitPortalX: normalizeCoordinate(raw.exitPortalX, 10),
     exitPortalY: normalizeCoordinate(raw.exitPortalY, 17),
     spawnIntervalTicks: normalizePositiveInteger(raw.spawnIntervalTicks, 60),
+    layerChangeCooldownSeconds: normalizePositiveInteger(raw.layerChangeCooldownSeconds, 60),
     normalMonstersPerPlayer: normalizePositiveInteger(raw.normalMonstersPerPlayer, 4),
     eliteMonstersPerPlayer: normalizeNonNegativeInteger(raw.eliteMonstersPerPlayer, 1),
     idleDestroyTicks: normalizePositiveInteger(raw.idleDestroyTicks, 3600),
@@ -1196,6 +1271,13 @@ function isNear(xInput: unknown, yInput: unknown, targetX: number, targetY: numb
   const x = Number(xInput);
   const y = Number(yInput);
   return Number.isFinite(x) && Number.isFinite(y) && Math.max(Math.abs(Math.trunc(x) - targetX), Math.abs(Math.trunc(y) - targetY)) <= 1;
+}
+
+function resolveCurrentTimeMs(deps: any): number {
+  const resolved = typeof deps?.resolveCurrentTimeMs === 'function'
+    ? Number(deps.resolveCurrentTimeMs())
+    : Date.now();
+  return Number.isFinite(resolved) ? Math.max(0, Math.trunc(resolved)) : Date.now();
 }
 
 function normalizeLayer(value: unknown): number {
