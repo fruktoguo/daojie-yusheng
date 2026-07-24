@@ -9,7 +9,7 @@
  * 性能计数器重置等 GM 面板所需的全部 HTTP 端点。所有路由需 GM 鉴权。
  */
 import { BadRequestException, Body, Controller, Delete, Get, Inject, Optional, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
-import { type GmActivatePlayerEternalBenefitReq, type GmBanManagedPlayerReq, type GmCreateWorldInstanceReq, type GmGeneratedTechniqueListQuery, type GmListPlayersQuery, type GmSetPlayerMonthCardPoolReq, type GmTechniqueGenerationJobListQuery, type GmTransferPlayerToInstanceReq } from '@mud/shared';
+import { type GmActivatePlayerEternalBenefitReq, type GmBanManagedPlayerReq, type GmCreateCustomTechniqueReq, type GmCreateWorldInstanceReq, type GmGeneratedTechniqueListQuery, type GmListPlayersQuery, type GmPreviewCustomTechniqueReq, type GmSetPlayerMonthCardPoolReq, type GmTechniqueGenerationJobListQuery, type GmTransferPlayerToInstanceReq } from '@mud/shared';
 
 import { RedeemCodeRuntimeService } from '../../runtime/redeem/redeem-code-runtime.service';
 import {
@@ -312,6 +312,29 @@ export class NativeGmController {
   @Get('generated-techniques')
   listGeneratedTechniques(@Query() query: GmGeneratedTechniqueListQuery) {
     return this.nextGmGeneratedTechniqueService.listGeneratedTechniques(query);
+  }
+
+  @Post('generated-techniques/preview')
+  previewCustomTechnique(@Body() body: GmPreviewCustomTechniqueReq) {
+    return this.nextGmGeneratedTechniqueService.previewCustomTechnique(body);
+  }
+
+  @Post('generated-techniques')
+  async createCustomTechnique(
+    @Body() body: GmCreateCustomTechniqueReq,
+    @Req() request: unknown,
+  ) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.generated_techniques.create',
+      request,
+      targetType: 'generated_technique',
+      targetId: typeof body?.operationId === 'string' ? body.operationId.trim() : null,
+      after: (result) => ({
+        techniqueId: result.techniqueId,
+        created: result.created,
+        name: result.preview.template.name,
+      }),
+    }, async () => this.nextGmGeneratedTechniqueService.createCustomTechnique(body));
   }
 
   @Get('generated-techniques/:id')

@@ -117,6 +117,19 @@ transmissionSkillFactor:
 
 `self_comprehension_allowed` 表示是否允许通过主修修炼自行领悟。功法书开启的普通功法、自己创建的自创功法为 `true`；被其他玩家传授加入的 pending 功法为 `false`，只能由传法 job 推进，不能设为主修；客户端按钮必须置灰，服务端必须拒绝该主修切换。
 
+## GM 手工自创功法
+
+GM 可通过原生 GM API 或“功法管理 → 手工创建”面板提交自创功法配置。预览接口为 `POST /api/gm/generated-techniques/preview`，只执行服务端校验和展开；创建接口为 `POST /api/gm/generated-techniques`，成功后直接发布到全局生成功法模板缓存，不自动把功法写入任何玩家的已掌握或待领悟状态。
+
+请求的 `technique` 必须使用严格的新格式：
+
+- 公共字段：`name`（2-20 个字符）、`desc`（最多 500 个字符）、`category`（`internal`/`arts`）、`grade`、`realmLv`（1-127）、`maxLayer`（3-49）、`expDifficulty`（0.5-2）、`budgetPercent`（0.8-1.2）。数值必须是 JSON number，未知字段拒绝。
+- `internal` 只接受六维 `attrRatio`，至少两个权重大于 0，不接受技能草稿。
+- `arts` 必须且只能有一个技能；技能可指定伤害类型、五行、目标形状/模式、六项 `structureStrength` 权重、1-5 项 `formulaStrength.attributeBases` 和 `techLevel`/`moveSpeed` 百分比权重。权重只表示预算分配，不是真实伤害或冷却值。
+- `create` 必须携带 1-64 位 `operationId`。相同 operationId 和相同请求指纹会返回已有功法而不重复发布；相同 operationId 对应不同请求会拒绝。同名已发布功法也会拒绝。创建动作写入 GM 审计日志。
+
+服务端把权重展开成正式逐层属性和运行时 `SkillDef` 后再持久化；`validation_report.manual` 保留规范化输入、operationId 和请求指纹，便于 GM 回读和审计。现有已发布功法不提供原地编辑入口，修改应使用新的 operationId 和名称。
+
 ## 功法书残页抄录与分解
 
 炼法台抄录功法书时，残卷消耗按可修层数相对模板满层线性缩放：1 层消耗完整书的 50%，满层消耗 100%，中间按层数线性过渡。

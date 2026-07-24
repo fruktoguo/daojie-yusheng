@@ -21,15 +21,9 @@ import {
   HEAVENLY_DAO_SHOP_ITEMS,
   TECHNIQUE_GRADE_ORDER,
   TECHNIQUE_INTERNAL_DEFAULT_MAX_LAYER,
-  calcInternalTechniqueAttrTotalByBudgetPercent,
   calcTechniqueAttrValues,
-  expandTechniqueArtsStrengthSkill,
   expandTechniqueAttrRatio,
-  normalizeTechniqueArtsStrengthTemplate,
-  normalizeTechniqueAttrRatio,
   shouldExpandTechniqueAttrRatio,
-  type ExpandedTechniqueArtsStrengthSkill,
-  type NormalizedTechniqueArtsStrengthTemplate,
 } from '@mud/shared';
 
 import { executeAiTask, type AiTaskRequest, type AiTaskResult } from '../../ai/ai-task-execution.service';
@@ -55,7 +49,11 @@ import {
 import { GeneratedTechniqueStoreService } from './generated-technique-store.service';
 import { validateTechniqueCandidate } from './technique-candidate-validator';
 import { buildTechniquePrompt, buildRetryPrompt } from './technique-prompt-builder';
-import { calcArtsBudgetMax } from './technique-budget-normalizer';
+import {
+  buildGeneratedTechniqueTemplate,
+  calculateGeneratedTechniqueTotalBudget,
+  normalizeGeneratedTechniqueCandidateForServer as normalizeGeneratedTechniqueCandidateBase,
+} from './generated-technique-template-builder';
 import {
   normalizeTechniqueGenerationItemSpend,
   rollTechniqueBudgetPercent,
@@ -160,7 +158,7 @@ export class TechniqueGenerationService {
     const rolledRealmLv = roll.realmLv;
     const rolledGrade = roll.grade;
     const budgetPercent = rollTechniqueBudgetPercent();
-    const totalBudget = calculateGenerationTotalBudget(params.category, rolledGrade, rolledRealmLv, budgetPercent);
+    const totalBudget = calculateGeneratedTechniqueTotalBudget(params.category, rolledGrade, rolledRealmLv, budgetPercent);
 
     // 4. 模型不可用时不创建 job，也不触碰玩家资产。
     const modelConfig = await this.modelConfigResolver?.();
@@ -264,7 +262,7 @@ export class TechniqueGenerationService {
         : 1;
       const totalBudget = Number.isFinite(params.totalBudget) && Number(params.totalBudget) > 0
         ? Number(params.totalBudget)
-        : calculateGenerationTotalBudget(params.category as TechniqueCategory, params.grade as any, params.realmLv, budgetPercent);
+        : calculateGeneratedTechniqueTotalBudget(params.category as Extract<TechniqueCategory, 'internal' | 'arts'>, params.grade as any, params.realmLv, budgetPercent);
       const basePrompt = buildTechniquePrompt({
         category: params.category as TechniqueCategory,
         grade: params.grade as any,
@@ -341,56 +339,24 @@ export class TechniqueGenerationService {
         return { success: false, error: reason };
       }
 
-      const rawCandidate = cloneJsonRecord(candidate);
-      let artsStrengthNormalizationReport: ArtsStrengthGenerationReport | undefined;
-
-      // 补全字段
       const techniqueId = `gen_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
-
-      // 术法归一化：把 AI 强度草稿展开成正式 SkillDef，避免恢复时被模板注册表过滤。
-      if (params.category === 'arts') {
-        const normalizedArts = normalizeTechniqueArtsStrengthTemplate(candidate);
-        if (!normalizedArts.ok || !normalizedArts.template) {
-          const reason = normalizedArts.errors.join('; ') || '术法强度草稿无法归一化';
-          await this.failGenerationAndRefundItem(jobId, 'VALIDATION_FAILED', reason, params);
-          return { success: false, error: reason };
-        }
-        const targetBudget = totalBudget;
-        const expandedArts = normalizedArts.template.skills.map((skill, index) => (
-          expandTechniqueArtsStrengthSkill({
-            techniqueId,
-            grade: params.grade as any,
-            realmLv: params.realmLv,
-            skillIndex: index,
-            skill,
-            targetBudget,
-          })
-        ));
-        candidate.skills = expandedArts.map((entry) => entry.skill);
-        artsStrengthNormalizationReport = buildArtsStrengthGenerationReport({
-          rawCandidate,
-          normalizedTemplate: normalizedArts.template,
-          expandedSkills: expandedArts,
-        });
-      }
-
-      const template: TechniqueTemplate = {
-        id: techniqueId,
-        name: String(candidate.name ?? '无名功法'),
-        desc: typeof candidate.desc === 'string' ? candidate.desc : undefined,
+      const builtTemplate = buildGeneratedTechniqueTemplate({
+        techniqueId,
+        candidate,
+        category: params.category as Extract<TechniqueCategory, 'internal' | 'arts'>,
         grade: params.grade as any,
-        category: params.category,
         realmLv: params.realmLv,
+        maxLayer,
         budgetPercent,
         totalBudget,
-        attrRatio: params.category === 'internal'
-          ? normalizeTechniqueAttrRatio(candidate.attrRatio as Record<string, unknown>)
-          : undefined,
-        attrFloat: typeof candidate.attrFloat === 'number' ? candidate.attrFloat : undefined,
-        maxLayer,
-        expDifficulty: typeof candidate.expDifficulty === 'number' ? candidate.expDifficulty : 1.0,
-        skills: params.category === 'arts' ? candidate.skills as any : undefined,
-      };
+      });
+      if (builtTemplate.ok === false) {
+        const reason = builtTemplate.errors.map((entry) => `${entry.field}: ${entry.message}`).join('; ')
+          || '生成功法模板无法构建';
+        await this.failGenerationAndRefundItem(jobId, 'VALIDATION_FAILED', reason, params);
+        return { success: false, error: reason };
+      }
+      const { template, validationReport } = builtTemplate;
 
       // 模板与 job 草稿指针必须同事务落库，避免崩溃后留下孤儿模板。
       const persistedDraft = await persistGeneratedTechniqueDraft(pool, {
@@ -401,11 +367,7 @@ export class TechniqueGenerationService {
         createdByPlayerId: params.playerId,
         modelName: successfulAiResult.modelName,
         promptSnapshot: params.playerContext,
-        validationReport: {
-          valid: true,
-          errors: [],
-          ...(artsStrengthNormalizationReport ? { artsStrength: artsStrengthNormalizationReport } : {}),
-        },
+        validationReport,
         grade: params.grade,
         category: params.category,
         realmLv: params.realmLv,
@@ -850,19 +812,6 @@ function normalizePositiveAttrs(attrs: Partial<Attributes>): Partial<Attributes>
   return Object.keys(result).length > 0 ? result : {};
 }
 
-function calculateGenerationTotalBudget(
-  category: TechniqueCategory,
-  grade: TechniqueTemplate['grade'],
-  realmLv: number,
-  budgetPercent: number,
-): number {
-  const normalizedBudgetPercent = Number.isFinite(budgetPercent) ? Math.max(0, budgetPercent) : 1;
-  const totalBudget = category === 'arts'
-    ? calcArtsBudgetMax(grade, realmLv) * normalizedBudgetPercent
-    : calcInternalTechniqueAttrTotalByBudgetPercent(grade, realmLv, normalizedBudgetPercent);
-  return Math.round(totalBudget * 10_000) / 10_000;
-}
-
 function normalizeRefundItemSpend(value: unknown): number {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) {
@@ -919,15 +868,14 @@ export function normalizeGeneratedTechniqueCandidateForServer(
     playerContext?: string;
   },
 ): Record<string, unknown> {
-  const fixedCandidate = {
-    ...candidate,
-    grade: fixed.grade,
-    category: fixed.category,
+  const fixedCandidate = normalizeGeneratedTechniqueCandidateBase(candidate, {
+    category: fixed.category as Extract<TechniqueCategory, 'internal' | 'arts'>,
+    grade: fixed.grade as TechniqueTemplate['grade'],
     realmLv: fixed.realmLv,
     maxLayer: fixed.maxLayer,
     budgetPercent: fixed.budgetPercent,
     totalBudget: fixed.totalBudget,
-  };
+  });
   return normalizeGeneratedTechniqueTargetModes(fixedCandidate, fixed);
 }
 
@@ -1099,46 +1047,4 @@ function truncateAiContentExcerpt(content: string, limit: number): string {
   const normalized = content.replace(/\s+/g, ' ').trim();
   if (normalized.length <= limit) return normalized;
   return `${normalized.slice(0, Math.max(0, limit - 3))}...`;
-}
-
-interface ArtsStrengthGenerationReport {
-  version: 1;
-  note: string;
-  rawCandidate: Record<string, unknown>;
-  normalizedTemplate: NormalizedTechniqueArtsStrengthTemplate;
-  expansion: Array<{
-    skillId: string;
-    inputBudget: number;
-    totalBudget: number;
-    targetBudget: number;
-    effectScale: number;
-    structureBudgetMultiplier: number;
-    budgetBreakdown: ExpandedTechniqueArtsStrengthSkill['budgetBreakdown'];
-  }>;
-}
-
-function buildArtsStrengthGenerationReport(params: {
-  rawCandidate: Record<string, unknown>;
-  normalizedTemplate: NormalizedTechniqueArtsStrengthTemplate;
-  expandedSkills: ExpandedTechniqueArtsStrengthSkill[];
-}): ArtsStrengthGenerationReport {
-  return {
-    version: 1,
-    note: 'template.skills 是服务端展开后的运行时 SkillDef；rawCandidate/normalizedTemplate 保留 AI 原始权重草稿与归一化权重，expansion.totalBudget 为服务端总预算，budgetBreakdown 记录分项权重、实际预算、返还预算和回流结果。',
-    rawCandidate: params.rawCandidate,
-    normalizedTemplate: params.normalizedTemplate,
-    expansion: params.expandedSkills.map((entry) => ({
-      skillId: entry.skill.id,
-      inputBudget: entry.inputBudget,
-      totalBudget: entry.totalBudget,
-      targetBudget: entry.targetBudget,
-      effectScale: entry.effectScale,
-      structureBudgetMultiplier: entry.structureBudgetMultiplier,
-      budgetBreakdown: entry.budgetBreakdown,
-    })),
-  };
-}
-
-function cloneJsonRecord(value: Record<string, unknown>): Record<string, unknown> {
-  return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
 }

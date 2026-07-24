@@ -13,6 +13,7 @@ export * as uiLabels from './constants/ui';
 export * as visualConstants from './constants/visuals';
 export * from './protocol';
 export * from './api-contracts';
+export * from './gm-custom-technique-contracts';
 export * from './editor-item-catalog';
 export * from './numeric';
 export * from './automation-types';

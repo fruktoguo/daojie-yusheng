@@ -56,6 +56,7 @@
     "smoke:worker-backlog-alert": "pnpm compile && node dist/tools/worker-backlog-alert-smoke.js",
     "smoke:gm-world-instance": "pnpm compile && node dist/tools/gm-world-instance-smoke.js",
     "smoke:gm-manual-line-catalog-fence": "pnpm compile && node dist/tools/gm-manual-line-catalog-fence-smoke.js",
+    "smoke:gm-custom-technique": "pnpm compile && node dist/tools/gm-custom-technique-smoke.js",
     "smoke:gm-world-runtime-query": "pnpm compile && node dist/tools/gm-world-runtime-query-smoke.js",
     "smoke:production-boundaries": "pnpm compile && pnpm proof:production-boundaries",
     "smoke:shadow:gm-database": "pnpm compile && node dist/tools/run-compiled-tool.js -- shadow-gm-database-proof",

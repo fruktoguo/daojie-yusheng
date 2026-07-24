@@ -7,11 +7,23 @@
  * GM AI 生成功法查询服务。
  * 列表只返回摘要，详情按需返回原始 JSON，避免管理端一次性拉取大对象。
  */
-import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { createHash } from 'crypto';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import type {
+  GmCreateCustomTechniqueReq,
+  GmCreateCustomTechniqueRes,
+  GmCustomTechniquePreview,
   GmGeneratedTechniqueDetailRes,
   GmGeneratedTechniqueListQuery,
   GmGeneratedTechniqueListRes,
+  GmPreviewCustomTechniqueReq,
+  GmPreviewCustomTechniqueRes,
   GmTechniqueGenerationJobDetailRes,
   GmTechniqueGenerationJobListQuery,
   GmTechniqueGenerationJobListRes,
@@ -26,12 +38,93 @@ import {
   listGeneratedTechniquesForGm,
   listTechniqueGenerationJobsForGm,
 } from '../../persistence/generated-technique-persistence.service';
+import { publishGmCustomTechnique } from '../../persistence/gm-custom-technique-persistence';
+import { GeneratedTechniqueStoreService } from '../../runtime/technique-generation/generated-technique-store.service';
+import { buildGmCustomTechnique, normalizeCustomTechniquePublishedName } from '../../runtime/technique-generation/gm-custom-technique-builder';
+import { TECHNIQUE_GENERATION_SCHEMA_VERSION } from '../../runtime/technique-generation/technique-generation-constants';
+
+const GM_MANUAL_CREATOR_ID = 'gm_manual';
+const GM_CUSTOM_TECHNIQUE_OPERATION_ID_PATTERN = /^[A-Za-z0-9._:-]{1,64}$/;
 
 @Injectable()
 export class NativeGmGeneratedTechniqueService {
   private schemaReady: Promise<void> | null = null;
 
-  constructor(private readonly databasePoolProvider: DatabasePoolProvider) {}
+  constructor(
+    private readonly databasePoolProvider: DatabasePoolProvider,
+    private readonly generatedTechniqueStoreService: GeneratedTechniqueStoreService,
+  ) {}
+
+  previewCustomTechnique(request: GmPreviewCustomTechniqueReq | null | undefined): GmPreviewCustomTechniqueRes {
+    assertCustomTechniqueRequestEnvelope(request, false);
+    const built = buildGmCustomTechnique(request?.technique, 'preview_gm_custom');
+    if (built.ok === false) {
+      throwCustomTechniqueValidationError(built.errors);
+    }
+    return { preview: toCustomTechniquePreview(built) };
+  }
+
+  async createCustomTechnique(request: GmCreateCustomTechniqueReq | null | undefined): Promise<GmCreateCustomTechniqueRes> {
+    assertCustomTechniqueRequestEnvelope(request, true);
+    const operationId = normalizeOperationId(request?.operationId);
+    const creatorPlayerId = normalizeCreatorPlayerId(request?.creatorPlayerId);
+    const operationHash = hashText(`gm-custom-technique:${operationId}`);
+    const techniqueId = `gen_gm_${operationHash.slice(0, 32)}`;
+    const generationId = `gmop_${operationHash.slice(0, 40)}`;
+    const built = buildGmCustomTechnique(request?.technique, techniqueId);
+    if (built.ok === false) {
+      throwCustomTechniqueValidationError(built.errors);
+    }
+
+    const requestFingerprint = hashText(JSON.stringify({
+      creatorPlayerId,
+      technique: built.normalizedInput,
+    }));
+    const validationReport = {
+      ...built.validationReport,
+      manual: {
+        version: 1,
+        source: 'gm_manual',
+        operationId,
+        requestFingerprint,
+        normalizedInput: built.normalizedInput,
+      },
+    };
+    const pool = this.getPool();
+    if (!pool) {
+      throw new ServiceUnavailableException('database_unavailable');
+    }
+    await this.ensureSchema(pool);
+    const published = await publishGmCustomTechnique(pool, {
+      id: techniqueId,
+      generationId,
+      operationId,
+      requestFingerprint,
+      template: built.template,
+      schemaVersion: TECHNIQUE_GENERATION_SCHEMA_VERSION,
+      createdByPlayerId: creatorPlayerId,
+      normalizedName: normalizeCustomTechniquePublishedName(built.template.name),
+      validationReport,
+    });
+    if (published.ok === false) {
+      if (published.errorCode === 'NAME_CONFLICT') {
+        throw new ConflictException({
+          code: 'CUSTOM_TECHNIQUE_NAME_CONFLICT',
+          message: '已存在同名的已发布功法',
+        });
+      }
+      throw new ConflictException({
+        code: 'CUSTOM_TECHNIQUE_OPERATION_CONFLICT',
+        message: 'operationId 已用于其他自定义功法请求',
+      });
+    }
+    await this.generatedTechniqueStoreService.refreshAfterPublish();
+    return {
+      techniqueId: published.techniqueId,
+      created: published.created,
+      preview: toCustomTechniquePreview({ ...built, validationReport }),
+    };
+  }
 
   async listGeneratedTechniques(query: GmGeneratedTechniqueListQuery | null | undefined): Promise<GmGeneratedTechniqueListRes> {
     const pool = this.getPool();
@@ -127,6 +220,82 @@ export class NativeGmGeneratedTechniqueService {
     }
     return this.schemaReady;
   }
+}
+
+function toCustomTechniquePreview(
+  built: {
+    template: GmCustomTechniquePreview['template'];
+    expandedLayers: GmCustomTechniquePreview['expandedLayers'];
+    fullLevelAttrs?: GmCustomTechniquePreview['fullLevelAttrs'];
+    validationReport: unknown;
+  },
+): GmCustomTechniquePreview {
+  return {
+    template: built.template,
+    expandedLayers: built.expandedLayers,
+    ...(built.fullLevelAttrs ? { fullLevelAttrs: built.fullLevelAttrs } : {}),
+    validationReport: built.validationReport,
+  };
+}
+
+function normalizeOperationId(value: unknown): string {
+  const normalized = typeof value === 'string' ? value.trim() : '';
+  if (!GM_CUSTOM_TECHNIQUE_OPERATION_ID_PATTERN.test(normalized)) {
+    throw new BadRequestException({
+      code: 'INVALID_OPERATION_ID',
+      message: 'operationId 必须由 1 到 64 个字母、数字、点、下划线、冒号或连字符组成',
+    });
+  }
+  return normalized;
+}
+
+function assertCustomTechniqueRequestEnvelope(
+  value: unknown,
+  includeCreateFields: boolean,
+): asserts value is Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new BadRequestException({
+      code: 'INVALID_CUSTOM_TECHNIQUE_REQUEST',
+      message: '请求体必须是对象',
+    });
+  }
+  const allowed = includeCreateFields
+    ? new Set(['operationId', 'creatorPlayerId', 'technique'])
+    : new Set(['technique']);
+  const unknownKeys = Object.keys(value).filter((key) => !allowed.has(key));
+  if (unknownKeys.length > 0) {
+    throw new BadRequestException({
+      code: 'INVALID_CUSTOM_TECHNIQUE_REQUEST',
+      message: `请求体包含未允许字段：${unknownKeys.join(', ')}`,
+    });
+  }
+}
+
+function normalizeCreatorPlayerId(value: unknown): string {
+  if (value === undefined || value === null || value === '') {
+    return GM_MANUAL_CREATOR_ID;
+  }
+  const normalized = typeof value === 'string' ? value.trim() : '';
+  if (!normalized || normalized.length > 120) {
+    throw new BadRequestException({
+      code: 'INVALID_CREATOR_PLAYER_ID',
+      message: 'creatorPlayerId 必须是长度不超过 120 的非空字符串',
+    });
+  }
+  return normalized;
+}
+
+function throwCustomTechniqueValidationError(errors: Array<{ field: string; message: string }>): never {
+  const detail = errors.map((entry) => `${entry.field}: ${entry.message}`).join('；');
+  throw new BadRequestException({
+    code: 'INVALID_CUSTOM_TECHNIQUE',
+    message: detail ? `自定义功法配置未通过校验：${detail}` : '自定义功法配置未通过校验',
+    errors: errors.map((entry) => ({ field: entry.field, message: entry.message })),
+  });
+}
+
+function hashText(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
 }
 
 function normalizePositiveInteger(value: unknown, fallback: number): number {

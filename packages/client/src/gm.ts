@@ -174,6 +174,7 @@ import * as gmCatalogHelpers from './gm/helpers/catalog';
 import * as gmMarkupHelpers from './gm/helpers/markup';
 import * as gmPureHelpers from './gm/helpers/pure';
 import { renderGmPlayerListSection } from './gm/helpers/player-list';
+import { createGmCustomTechniqueEditor, type GmCustomTechniqueEditor } from './gm/custom-technique-editor';
 import {
   GM_API_BASE_PATH,
   GM_AUTH_API_BASE_PATH,
@@ -546,6 +547,20 @@ const generatedTechniqueTabBtn = document.getElementById('gm-tab-generated-techn
 const generatedTechniqueSubtabTechniquesBtn = document.getElementById('generated-technique-subtab-techniques') as HTMLButtonElement;
 /** generatedTechniqueSubtabJobsBtn：AI 生成任务子标签。 */
 const generatedTechniqueSubtabJobsBtn = document.getElementById('generated-technique-subtab-jobs') as HTMLButtonElement;
+/** generatedTechniqueSubtabManualBtn：手工功法子标签。 */
+const generatedTechniqueSubtabManualBtn = document.getElementById('generated-technique-subtab-manual') as HTMLButtonElement;
+/** generatedTechniqueBrowseEl：已发布功法浏览区域。 */
+const generatedTechniqueBrowseEl = document.getElementById('generated-technique-browse') as HTMLElement;
+/** generatedTechniquePaginationEl：已发布功法分页区域。 */
+const generatedTechniquePaginationEl = document.getElementById('generated-technique-pagination') as HTMLElement;
+/** customTechniqueFormEl：手工功法表单。 */
+const customTechniqueFormEl = document.getElementById('custom-technique-form') as HTMLFormElement;
+/** customTechniqueInternalFieldsEl：内功字段区域。 */
+const customTechniqueInternalFieldsEl = document.getElementById('custom-technique-internal-fields') as HTMLElement;
+/** customTechniqueArtsFieldsEl：术法字段区域。 */
+const customTechniqueArtsFieldsEl = document.getElementById('custom-technique-arts-fields') as HTMLElement;
+/** customTechniqueBudgetOutputEl：强度倍率输出。 */
+const customTechniqueBudgetOutputEl = document.getElementById('custom-technique-budget-output') as HTMLOutputElement;
 /** tradesTabBtn：交易记录 Tab Btn。 */
 const tradesTabBtn = document.getElementById('gm-tab-trades') as HTMLButtonElement;
 /** generatedTechniqueListEl：AI 生成功法列表容器。 */
@@ -829,7 +844,7 @@ let playerSearchTimer: number | null = null;
 /** statusToastTimer：状态Toast Timer。 */
 let statusToastTimer: number | null = null;
 /** currentGeneratedTechniqueSubtab：AI生成当前子标签。 */
-let currentGeneratedTechniqueSubtab: 'techniques' | 'jobs' = 'techniques';
+let currentGeneratedTechniqueSubtab: 'techniques' | 'jobs' | 'manual' = 'techniques';
 /** generatedTechniquePage：AI 生成功法当前分页。 */
 let generatedTechniquePage = 1;
 /** generatedTechniqueTotalPages：AI 生成功法总页数。 */
@@ -858,6 +873,7 @@ let generatedTechniqueDetailRequestNonce = 0;
 let techniqueGenerationJobListRequestNonce = 0;
 /** techniqueGenerationJobDetailRequestNonce：AI 生成任务详情请求 nonce。 */
 let techniqueGenerationJobDetailRequestNonce = 0;
+let generatedTechniqueEditor: GmCustomTechniqueEditor;
 const networkLargePayloadBucketByKey = new Map<string, GmNetworkBucket>();
 type TrafficBreakdownSortMode = 'bytes' | 'percent' | 'count' | 'avgBytes' | 'bytesPerSecond' | 'countPerSecond';
 type TrafficBreakdownDirection = 'in' | 'out';
@@ -3712,6 +3728,26 @@ function setStatus(message: string, isError = false): void {
 
 /** worldViewer：世界Viewer。 */
 const worldViewer = new GmWorldViewer(request, setStatus);
+
+generatedTechniqueEditor = createGmCustomTechniqueEditor({
+  apiBasePath: GM_API_BASE_PATH,
+  form: customTechniqueFormEl,
+  internalFields: customTechniqueInternalFieldsEl,
+  artsFields: customTechniqueArtsFieldsEl,
+  budgetOutput: customTechniqueBudgetOutputEl,
+  detailEmpty: generatedTechniqueDetailEmptyEl,
+  detail: generatedTechniqueDetailEl,
+  detailMeta: generatedTechniqueDetailMetaEl,
+  detailJson: generatedTechniqueJsonEl,
+  request,
+  setStatus,
+  onCreated: async (techniqueId) => {
+    currentGeneratedTechniqueSubtab = 'techniques';
+    applyGeneratedTechniqueSubtabVisibility('techniques');
+    await loadGeneratedTechniques(false);
+    await loadGeneratedTechniqueDetail(techniqueId);
+  },
+});
 
 function applyServerTabVisibility(tab: GmServerTab): void {
   serverSubtabOverviewBtn.classList.toggle('active', tab === 'overview');
@@ -10332,14 +10368,32 @@ function buildTechniqueGenerationJobListQueryParams(): URLSearchParams {
   });
 }
 
-function switchGeneratedTechniqueSubtab(tab: 'techniques' | 'jobs'): void {
-  currentGeneratedTechniqueSubtab = tab;
+function applyGeneratedTechniqueSubtabVisibility(tab: 'techniques' | 'jobs' | 'manual'): void {
   generatedTechniqueSubtabTechniquesBtn.classList.toggle('active', tab === 'techniques');
   generatedTechniqueSubtabJobsBtn.classList.toggle('active', tab === 'jobs');
+  generatedTechniqueSubtabManualBtn.classList.toggle('active', tab === 'manual');
+  const manual = tab === 'manual';
+  generatedTechniqueBrowseEl.classList.toggle('hidden', manual);
+  generatedTechniquePaginationEl.classList.toggle('hidden', manual);
+  customTechniqueFormEl.classList.toggle('hidden', !manual);
+  if (manual) {
+    generatedTechniqueEditor.activate();
+  }
+}
+
+function switchGeneratedTechniqueSubtab(tab: 'techniques' | 'jobs' | 'manual'): void {
+  currentGeneratedTechniqueSubtab = tab;
+  applyGeneratedTechniqueSubtabVisibility(tab);
+  if (tab === 'manual') {
+    return;
+  }
   loadCurrentGeneratedTechniqueSubtab(false).catch(handleGeneratedTechniquePanelLoadError);
 }
 
 async function loadCurrentGeneratedTechniqueSubtab(silent = true): Promise<void> {
+  if (currentGeneratedTechniqueSubtab === 'manual') {
+    return;
+  }
   if (currentGeneratedTechniqueSubtab === 'jobs') {
     await loadTechniqueGenerationJobs(silent);
     return;
@@ -10350,6 +10404,7 @@ async function loadCurrentGeneratedTechniqueSubtab(silent = true): Promise<void>
 async function loadGeneratedTechniques(silent = true): Promise<void> {
   if (!token) return;
   const nonce = ++generatedTechniqueListRequestNonce;
+  applyGeneratedTechniqueSubtabVisibility('techniques');
   generatedTechniqueSubtabTechniquesBtn.classList.add('active');
   generatedTechniqueSubtabJobsBtn.classList.remove('active');
   generatedTechniqueListEl.innerHTML = '<div class="empty-hint">正在加载功法…</div>';
@@ -10451,6 +10506,7 @@ function getGeneratedTechniqueGradeLabel(grade: string | null | undefined): stri
 async function loadTechniqueGenerationJobs(silent = true): Promise<void> {
   if (!token) return;
   const nonce = ++techniqueGenerationJobListRequestNonce;
+  applyGeneratedTechniqueSubtabVisibility('jobs');
   generatedTechniqueSubtabTechniquesBtn.classList.remove('active');
   generatedTechniqueSubtabJobsBtn.classList.add('active');
   generatedTechniqueListEl.innerHTML = '<div class="empty-hint">正在加载生成任务…</div>';
@@ -13393,6 +13449,7 @@ aiTabBtn.addEventListener('click', () => switchTab('ai'));
 generatedTechniqueTabBtn.addEventListener('click', () => switchTab('generatedTechniques'));
 generatedTechniqueSubtabTechniquesBtn.addEventListener('click', () => switchGeneratedTechniqueSubtab('techniques'));
 generatedTechniqueSubtabJobsBtn.addEventListener('click', () => switchGeneratedTechniqueSubtab('jobs'));
+generatedTechniqueSubtabManualBtn.addEventListener('click', () => switchGeneratedTechniqueSubtab('manual'));
 tradesTabBtn.addEventListener('click', () => switchTab('trades'));
 serverSubtabOverviewBtn.addEventListener('click', () => switchServerTab('overview'));
 serverSubtabTrafficBtn.addEventListener('click', () => switchServerTab('traffic'));
@@ -14009,9 +14066,14 @@ aiProviderAddImageBtn.addEventListener('click', () => {
   addAiProviderConfig('image');
 });
 generatedTechniqueRefreshBtn.addEventListener('click', () => {
+  if (currentGeneratedTechniqueSubtab === 'manual') {
+    generatedTechniqueEditor.preview().catch(() => undefined);
+    return;
+  }
   loadCurrentGeneratedTechniqueSubtab(false).catch(handleGeneratedTechniquePanelLoadError);
 });
 generatedTechniquePagePrevBtn.addEventListener('click', () => {
+  if (currentGeneratedTechniqueSubtab === 'manual') return;
   if (currentGeneratedTechniqueSubtab === 'jobs') {
     if (techniqueGenerationJobPage <= 1) return;
     techniqueGenerationJobPage -= 1;
@@ -14022,6 +14084,7 @@ generatedTechniquePagePrevBtn.addEventListener('click', () => {
   loadCurrentGeneratedTechniqueSubtab(true).catch(handleGeneratedTechniquePanelLoadError);
 });
 generatedTechniquePageNextBtn.addEventListener('click', () => {
+  if (currentGeneratedTechniqueSubtab === 'manual') return;
   if (currentGeneratedTechniqueSubtab === 'jobs') {
     if (techniqueGenerationJobPage >= techniqueGenerationJobTotalPages) return;
     techniqueGenerationJobPage += 1;

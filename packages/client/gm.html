@@ -1365,6 +1365,66 @@
       color: var(--ink-dark);
     }
 
+    .custom-technique-form {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .custom-technique-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-top: 12px;
+      border-top: 1px solid var(--wash-ink);
+    }
+
+    .custom-technique-group:first-child {
+      padding-top: 0;
+      border-top: 0;
+    }
+
+    .custom-technique-group-title {
+      font-family: var(--font-heading-sub);
+      font-size: 14px;
+      color: var(--ink-black);
+    }
+
+    .custom-technique-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .custom-technique-grid.triple {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .custom-technique-range {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 54px;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .custom-technique-range output {
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 12px;
+      text-align: right;
+      color: var(--ink-black);
+    }
+
+    .custom-technique-actions {
+      position: sticky;
+      bottom: -16px;
+      z-index: 2;
+      margin: 0 -16px -16px;
+      padding: 12px 16px 16px;
+      border-top: 1px solid var(--wash-ink);
+      background: var(--paper-light);
+    }
+
     .gm-technique-row.learned {
       background: rgba(197,60,60,0.06);
     }
@@ -1772,6 +1832,13 @@
       .gm-technique-row .pill {
         grid-column: 2;
         justify-self: flex-start;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .custom-technique-grid,
+      .custom-technique-grid.triple {
+        grid-template-columns: 1fr;
       }
     }
 
@@ -2607,7 +2674,7 @@
         <button class="shell-tab" id="gm-tab-secrets" data-gm-tab="secrets" type="button">环境变量管理</button>
         <button class="shell-tab" id="gm-tab-gameconfig" data-gm-tab="gameconfig" type="button">游戏配置</button>
         <button class="shell-tab" id="gm-tab-ai" data-gm-tab="ai" type="button">AI 配置</button>
-        <button class="shell-tab" id="gm-tab-generated-techniques" data-gm-tab="generated-techniques" type="button">AI生成</button>
+        <button class="shell-tab" id="gm-tab-generated-techniques" data-gm-tab="generated-techniques" type="button">功法管理</button>
         <button class="shell-tab" id="gm-tab-trades" data-gm-tab="trades" type="button">交易记录</button>
       </div>
     </div>
@@ -3220,8 +3287,8 @@
       <section class="layout-section">
         <div class="section-head">
           <div>
-            <div class="section-title">AI生成</div>
-            <div class="section-subtitle">查看 AI 生成产物和生成任务，每页 50 条，点击列表项查看完整原始 JSON</div>
+            <div class="section-title">自创功法</div>
+            <div class="section-subtitle">已发布功法、AI 生成任务与 GM 手工创建</div>
           </div>
           <button id="generated-technique-refresh" class="small-btn" type="button">刷新</button>
         </div>
@@ -3229,20 +3296,143 @@
           <div class="workspace-tabs editor-tabs" style="margin-bottom: 12px;">
             <button id="generated-technique-subtab-techniques" class="workspace-tab active" type="button">功法</button>
             <button id="generated-technique-subtab-jobs" class="workspace-tab" type="button">生成任务</button>
+            <button id="generated-technique-subtab-manual" class="workspace-tab" type="button">手工创建</button>
           </div>
-          <div id="generated-technique-list" class="player-list"></div>
-          <div class="button-row" style="justify-content: space-between; margin-top: 12px;">
-            <button id="generated-technique-page-prev" class="small-btn" type="button">上一页</button>
-            <div id="generated-technique-page-meta" class="editor-note" style="margin: 0;">第 1 / 1 页 · 共 0 条</div>
-            <button id="generated-technique-page-next" class="small-btn" type="button">下一页</button>
+          <div id="generated-technique-browse">
+            <div id="generated-technique-list" class="player-list"></div>
+            <div id="generated-technique-pagination" class="button-row" style="justify-content: space-between; margin-top: 12px;">
+              <button id="generated-technique-page-prev" class="small-btn" type="button">上一页</button>
+              <div id="generated-technique-page-meta" class="editor-note" style="margin: 0;">第 1 / 1 页 · 共 0 条</div>
+              <button id="generated-technique-page-next" class="small-btn" type="button">下一页</button>
+            </div>
           </div>
+          <form id="custom-technique-form" class="custom-technique-form hidden">
+            <div class="custom-technique-group">
+              <div class="custom-technique-group-title">基本配置</div>
+              <div class="custom-technique-grid">
+                <label class="editor-field wide">
+                  <span>功法名称</span>
+                  <input name="name" type="text" minlength="2" maxlength="20" required value="无极归元诀" />
+                </label>
+                <label class="editor-field wide">
+                  <span>描述</span>
+                  <textarea name="desc" maxlength="500">气归丹田，周天不息。</textarea>
+                </label>
+                <label class="editor-field">
+                  <span>功法类型</span>
+                  <select name="category">
+                    <option value="internal">内功</option>
+                    <option value="arts">术法</option>
+                  </select>
+                </label>
+                <label class="editor-field">
+                  <span>品阶</span>
+                  <select name="grade">
+                    <option value="mortal">凡阶</option>
+                    <option value="yellow">黄阶</option>
+                    <option value="mystic" selected>玄阶</option>
+                    <option value="earth">地阶</option>
+                    <option value="heaven">天阶</option>
+                    <option value="spirit">灵阶</option>
+                    <option value="saint">圣阶</option>
+                    <option value="emperor">帝阶</option>
+                  </select>
+                </label>
+                <label class="editor-field">
+                  <span>境界等级</span>
+                  <input name="realmLv" type="number" min="1" max="127" step="1" required value="31" />
+                </label>
+                <label class="editor-field">
+                  <span>最高层数</span>
+                  <input name="maxLayer" type="number" min="3" max="49" step="1" required value="10" />
+                </label>
+                <label class="editor-field">
+                  <span>经验难度</span>
+                  <input name="expDifficulty" type="number" min="0.5" max="2" step="0.05" required value="1" />
+                </label>
+                <label class="editor-field">
+                  <span>创作者玩家 ID（可选）</span>
+                  <input name="creatorPlayerId" type="text" maxlength="120" placeholder="默认记为 gm_manual" />
+                </label>
+                <label class="editor-field wide">
+                  <span>强度倍率</span>
+                  <div class="custom-technique-range">
+                    <input name="budgetPercent" type="range" min="0.8" max="1.2" step="0.01" value="1" />
+                    <output id="custom-technique-budget-output">1.00</output>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div id="custom-technique-internal-fields" class="custom-technique-group">
+              <div class="custom-technique-group-title">六维权重</div>
+              <div class="custom-technique-grid triple">
+                <label class="editor-field"><span>体魄</span><input name="attr.constitution" type="number" min="0" max="100" step="0.1" value="1" /></label>
+                <label class="editor-field"><span>神识</span><input name="attr.spirit" type="number" min="0" max="100" step="0.1" value="0" /></label>
+                <label class="editor-field"><span>身法</span><input name="attr.perception" type="number" min="0" max="100" step="0.1" value="0" /></label>
+                <label class="editor-field"><span>根骨</span><input name="attr.talent" type="number" min="0" max="100" step="0.1" value="0" /></label>
+                <label class="editor-field"><span>力道</span><input name="attr.strength" type="number" min="0" max="100" step="0.1" value="1" /></label>
+                <label class="editor-field"><span>经脉</span><input name="attr.meridians" type="number" min="0" max="100" step="0.1" value="0" /></label>
+              </div>
+            </div>
+
+            <div id="custom-technique-arts-fields" class="custom-technique-group hidden">
+              <div class="custom-technique-group-title">术法技能</div>
+              <div class="custom-technique-grid">
+                <label class="editor-field wide"><span>技能名称</span><input name="skill.name" type="text" maxlength="40" value="归元一击" /></label>
+                <label class="editor-field wide"><span>技能描述</span><textarea name="skill.desc" maxlength="500">引动周天灵力攻向目标。</textarea></label>
+                <label class="editor-field"><span>解锁层数</span><input name="skill.unlockLevel" type="number" min="1" max="49" step="1" value="1" /></label>
+                <label class="editor-field"><span>伤害类型</span><select name="skill.damageKind"><option value="physical">物理</option><option value="spell" selected>法术</option></select></label>
+                <label class="editor-field"><span>五行</span><select name="skill.element"><option value="">无</option><option value="metal">金</option><option value="wood">木</option><option value="water">水</option><option value="fire">火</option><option value="earth">土</option></select></label>
+                <label class="editor-field"><span>目标形状</span><select name="skill.target.type"><option value="single">单体</option><option value="line">直线</option><option value="box">矩形</option><option value="area">范围</option></select></label>
+                <label class="editor-field"><span>目标模式</span><select name="skill.target.targetMode"><option value="entity">实体</option><option value="tile">地块</option><option value="any">实体与地块</option></select></label>
+              </div>
+
+              <div class="custom-technique-group-title">结构权重</div>
+              <div class="custom-technique-grid triple">
+                <label class="editor-field"><span>伤害</span><input name="structure.damage" type="number" min="-100" max="100" step="1" value="100" /></label>
+                <label class="editor-field"><span>消耗</span><input name="structure.cost" type="number" min="-100" max="100" step="1" value="50" /></label>
+                <label class="editor-field"><span>冷却</span><input name="structure.cooldown" type="number" min="-100" max="100" step="1" value="50" /></label>
+                <label class="editor-field"><span>吟唱</span><input name="structure.chant" type="number" min="-100" max="100" step="1" value="0" /></label>
+                <label class="editor-field"><span>施法距离</span><input name="structure.castRange" type="number" min="-100" max="100" step="1" value="20" /></label>
+                <label class="editor-field"><span>影响范围</span><input name="structure.area" type="number" min="-100" max="100" step="1" value="0" /></label>
+              </div>
+
+              <div class="custom-technique-group-title">伤害属性构成</div>
+              <div class="custom-technique-grid triple">
+                <label class="editor-field"><span>最大生命</span><input name="base.maxHp" type="number" min="0" max="100" step="0.1" value="0" /></label>
+                <label class="editor-field"><span>最大灵力</span><input name="base.maxQi" type="number" min="0" max="100" step="0.1" value="0" /></label>
+                <label class="editor-field"><span>物理攻击</span><input name="base.physAtk" type="number" min="0" max="100" step="0.1" value="0" /></label>
+                <label class="editor-field"><span>法术攻击</span><input name="base.spellAtk" type="number" min="0" max="100" step="0.1" value="100" /></label>
+                <label class="editor-field"><span>物理防御</span><input name="base.physDef" type="number" min="0" max="100" step="0.1" value="0" /></label>
+                <label class="editor-field"><span>法术防御</span><input name="base.spellDef" type="number" min="0" max="100" step="0.1" value="0" /></label>
+                <label class="editor-field"><span>命中</span><input name="base.hit" type="number" min="0" max="100" step="0.1" value="0" /></label>
+                <label class="editor-field"><span>闪避</span><input name="base.dodge" type="number" min="0" max="100" step="0.1" value="0" /></label>
+                <label class="editor-field"><span>暴击</span><input name="base.crit" type="number" min="0" max="100" step="0.1" value="0" /></label>
+                <label class="editor-field"><span>免爆</span><input name="base.antiCrit" type="number" min="0" max="100" step="0.1" value="0" /></label>
+                <label class="editor-field"><span>破招</span><input name="base.breakPower" type="number" min="0" max="100" step="0.1" value="0" /></label>
+                <label class="editor-field"><span>化解</span><input name="base.resolvePower" type="number" min="0" max="100" step="0.1" value="0" /></label>
+              </div>
+
+              <div class="custom-technique-group-title">百分比权重</div>
+              <div class="custom-technique-grid">
+                <label class="editor-field"><span>功法层数</span><input name="bonus.techLevel" type="number" min="-100" max="100" step="1" value="0" /></label>
+                <label class="editor-field"><span>移动速度</span><input name="bonus.moveSpeed" type="number" min="-100" max="100" step="1" value="0" /></label>
+              </div>
+            </div>
+
+            <div class="custom-technique-actions button-row">
+              <button id="custom-technique-preview" class="small-btn" type="button">预览</button>
+              <button id="custom-technique-create" class="small-btn primary" type="submit">创建并发布</button>
+            </div>
+          </form>
         </div>
       </section>
 
       <section class="layout-section">
         <div class="section-head">
           <div>
-            <div class="section-title">功法详细 JSON</div>
+            <div class="section-title">功法详情 / 预览</div>
             <div id="generated-technique-detail-meta" class="section-subtitle">从左侧选择一条记录。</div>
           </div>
         </div>
