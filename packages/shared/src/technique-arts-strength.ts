@@ -191,7 +191,17 @@ export interface TechniqueArtsStrengthBudgetBreakdown {
   sacrificeBudget?: number;
   refundedBudget: number;
   redistributedBudget: number;
+  percentBonusSynergy: TechniqueArtsStrengthPercentBonusSynergy;
   items: TechniqueArtsStrengthBudgetBreakdownItem[];
+}
+
+export interface TechniqueArtsStrengthPercentBonusSynergy {
+  sourceCount: number;
+  cappedSourceCount: number;
+  coefficientOfVariation: number;
+  balanceFactor: number;
+  maximumMultiplier: number;
+  multiplier: number;
 }
 
 export interface TechniqueArtsStrengthBudgetBreakdownItem {
@@ -602,6 +612,7 @@ interface BudgetConversionResult<T> {
 interface ConvertedFormulaBudget {
   formula: NormalizedTechniqueArtsStrengthFormula;
   items: TechniqueArtsStrengthBudgetBreakdownItem[];
+  percentBonusSynergy: TechniqueArtsStrengthPercentBonusSynergy;
   redistributedBudget: number;
 }
 
@@ -680,8 +691,14 @@ function calculateSacrificeBudget(items: BudgetItem[], totalBudget: number): num
     return 0;
   }
   return items.reduce((sum, item) => (
-    item.weight < 0 ? sum + totalBudget * Math.abs(item.weight) / 100 : sum
+    item.weight < 0 && canGenerateSacrificeBudget(item)
+      ? sum + totalBudget * Math.abs(item.weight) / 100
+      : sum
   ), 0);
+}
+
+function canGenerateSacrificeBudget(item: BudgetItem): boolean {
+  return item.kind !== 'percentBonus' && item.kind !== 'extraPercentBonus';
 }
 
 function readAllocatedBudget(allocations: Map<string, number>, key: string): number {
@@ -1016,10 +1033,20 @@ function redistributePositiveRefunds(
       break;
     }
     previousRefund = summary.refundBudget;
-    const share = summary.refundBudget / summary.growableKeys.length;
     const next = compactAllocationsToUsedBudgets(items, allocations, conversions);
-    for (const key of summary.growableKeys) {
-      next.set(key, readAllocatedBudget(next, key) + share);
+    const growableKeySet = new Set(summary.growableKeys);
+    const growableWeight = items.reduce((sum, item) => (
+      growableKeySet.has(item.key) ? sum + Math.max(0, item.weight) : sum
+    ), 0);
+    if (growableWeight <= 0) {
+      break;
+    }
+    for (const item of items) {
+      if (!growableKeySet.has(item.key) || item.weight <= 0) {
+        continue;
+      }
+      const share = summary.refundBudget * item.weight / growableWeight;
+      next.set(item.key, readAllocatedBudget(next, item.key) + share);
     }
     allocations = next;
   }
@@ -1041,7 +1068,7 @@ function convertFormulaBudget(
   const extraBaseItems = items.filter((item) => item.kind === 'extraBaseVar' && item.varName);
   const convertedPercentBonuses = {} as Record<TechniqueArtsStrengthPercentBonusKey, number>;
   for (const key of TECHNIQUE_ARTS_STRENGTH_PERCENT_BONUS_KEYS) {
-    convertedPercentBonuses[key] = readAllocatedBudget(allocations, `formula.percentBonuses.${key}`);
+    convertedPercentBonuses[key] = Math.max(0, readAllocatedBudget(allocations, `formula.percentBonuses.${key}`));
   }
   const converted: NormalizedTechniqueArtsStrengthFormula = {
     attributeBases: {},
@@ -1077,26 +1104,46 @@ function convertFormulaBudget(
   }
 
   for (const item of items) {
+    if (item.kind === 'extraPercentBonus' && item.varName) {
+      converted.extraPercentBonuses[item.varName] = readAllocatedBudget(allocations, item.key);
+    }
+  }
+  const percentBonusSynergy = calculateTechniqueArtsStrengthPercentBonusSynergy(
+    converted.percentBonuses,
+    converted.extraPercentBonuses,
+  );
+
+  for (const item of items) {
     if (item.kind !== 'percentBonus' && item.kind !== 'extraPercentBonus') {
       continue;
     }
     const allocatedBudget = readAllocatedBudget(allocations, item.key);
     if (item.kind === 'percentBonus' && item.varName === 'techLevel') {
-      converted.percentBonuses.techLevel = allocatedBudget;
-      breakdownItems.push(buildBreakdownItem(item, allocatedBudget, allocatedBudget, 0, calculateTechLevelScale(allocatedBudget)));
+      const finalBudget = converted.percentBonuses.techLevel;
+      breakdownItems.push(buildBreakdownItem(
+        item,
+        allocatedBudget,
+        finalBudget,
+        0,
+        calculateTechLevelScale(finalBudget, percentBonusSynergy.multiplier),
+      ));
     } else if (item.kind === 'percentBonus' && isScalarPercentBonusKey(item.varName)) {
-      const finalBudget = Math.max(0, allocatedBudget);
-      converted.percentBonuses[item.varName] = finalBudget;
+      const finalBudget = converted.percentBonuses[item.varName];
+      breakdownItems.push(buildBreakdownItem(
+        item,
+        allocatedBudget,
+        finalBudget,
+        0,
+        calculateScalarPercentBonusScale(item.varName, finalBudget, percentBonusSynergy.multiplier),
+      ));
+    } else if (item.varName) {
       breakdownItems.push(buildBreakdownItem(
         item,
         allocatedBudget,
         allocatedBudget,
         0,
-        calculateScalarPercentBonusScale(item.varName, finalBudget),
+        roundTo(allocatedBudget * percentBonusSynergy.multiplier, 6),
       ));
-    } else if (item.varName) {
-      converted.extraPercentBonuses[item.varName] = allocatedBudget;
-      breakdownItems.push(buildBreakdownItem(item, allocatedBudget, allocatedBudget, 0, allocatedBudget));
     }
   }
 
@@ -1108,6 +1155,7 @@ function convertFormulaBudget(
   return {
     formula: converted,
     items: breakdownItems,
+    percentBonusSynergy,
     redistributedBudget: 0,
   };
 }
@@ -1207,6 +1255,7 @@ export function expandTechniqueArtsStrengthSkill(params: ExpandTechniqueArtsStre
       sacrificeBudget: roundTo(sacrificeBudget, 6),
       refundedBudget: roundTo(redistribution.finalRefundBudget, 6),
       redistributedBudget: redistribution.redistributedBudget,
+      percentBonusSynergy: formulaConversion.percentBonusSynergy,
       items: [
         buildBreakdownItem({ key: 'structure.damage', kind: 'damage', weight: params.skill.structure.damage }, readAllocatedBudget(allocations, 'structure.damage'), damageConversion.usedBudget, damageConversion.refundBudget, damageConversion.value),
         buildBreakdownItem({ key: 'structure.castRange', kind: 'castRange', weight: params.skill.structure.castRange }, readAllocatedBudget(allocations, 'structure.castRange'), targetConversion.range.usedBudget, targetConversion.range.refundBudget, targetConversion.target.range),
@@ -1267,6 +1316,66 @@ export function calculateTechniqueArtsStrengthEffectBudget(totalBudget: number, 
   return totalBudget / structureBudgetMultiplier;
 }
 
+export function calculateTechniqueArtsStrengthPercentBonusSynergy(
+  percentBonuses: Readonly<Partial<Record<TechniqueArtsStrengthPercentBonusKey, number>>>,
+  extraPercentBonuses: Readonly<Record<string, number>> = {},
+): TechniqueArtsStrengthPercentBonusSynergy {
+  const weights = [
+    ...TECHNIQUE_ARTS_STRENGTH_PERCENT_BONUS_KEYS.map((key) => Number(percentBonuses[key]) || 0),
+    ...Object.values(extraPercentBonuses).map((value) => Number(value) || 0),
+  ].filter((value) => Number.isFinite(value) && value > 0);
+  const sourceCount = weights.length;
+  const cappedSourceCount = Math.min(
+    sourceCount,
+    TECHNIQUE_ARTS_STRENGTH_CONSTANTS.percentBonuses.synergyMaxSources,
+  );
+  const maximumMultiplier = 1 + (
+    TECHNIQUE_ARTS_STRENGTH_CONSTANTS.percentBonuses.synergyPairBonus
+    * cappedSourceCount
+    * Math.max(0, cappedSourceCount - 1)
+    / 2
+  );
+  if (sourceCount === 0) {
+    return {
+      sourceCount: 0,
+      cappedSourceCount: 0,
+      coefficientOfVariation: 0,
+      balanceFactor: 0,
+      maximumMultiplier: 1,
+      multiplier: 1,
+    };
+  }
+  if (sourceCount === 1) {
+    return {
+      sourceCount,
+      cappedSourceCount,
+      coefficientOfVariation: 0,
+      balanceFactor: 1,
+      maximumMultiplier: roundTo(maximumMultiplier, 6),
+      multiplier: 1,
+    };
+  }
+
+  const mean = weights.reduce((sum, value) => sum + value, 0) / sourceCount;
+  const variance = weights.reduce((sum, value) => (
+    sum + ((value - mean) / mean) ** 2
+  ), 0) / sourceCount;
+  const coefficientOfVariation = Math.sqrt(Math.max(0, variance));
+  const balanceFactor = clamp(
+    1 - coefficientOfVariation / TECHNIQUE_ARTS_STRENGTH_CONSTANTS.percentBonuses.synergyMaxCoefficientOfVariation,
+    0,
+    1,
+  );
+  return {
+    sourceCount,
+    cappedSourceCount,
+    coefficientOfVariation: roundTo(coefficientOfVariation, 6),
+    balanceFactor: roundTo(balanceFactor, 6),
+    maximumMultiplier: roundTo(maximumMultiplier, 6),
+    multiplier: roundTo(1 + (maximumMultiplier - 1) * balanceFactor, 6),
+  };
+}
+
 function buildDamageFormula(
   formula: NormalizedTechniqueArtsStrengthFormula,
   effectScale = 1,
@@ -1287,15 +1396,23 @@ function buildDamageFormula(
       scale: value,
     });
   }
+  const percentBonusSynergy = calculateTechniqueArtsStrengthPercentBonusSynergy(
+    formula.percentBonuses,
+    formula.extraPercentBonuses,
+  );
   const percentArgs: SkillFormula[] = [
     1,
     {
       var: 'techLevel',
-      scale: calculateTechLevelScale(formula.percentBonuses.techLevel),
+      scale: calculateTechLevelScale(formula.percentBonuses.techLevel, percentBonusSynergy.multiplier),
     },
   ];
   for (const key of TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_KEYS) {
-    const scale = calculateScalarPercentBonusScale(key, formula.percentBonuses[key]);
+    const scale = calculateScalarPercentBonusScale(
+      key,
+      formula.percentBonuses[key],
+      percentBonusSynergy.multiplier,
+    );
     if (scale !== 0) {
       percentArgs.push({
         var: TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_SOURCE_BY_KEY[key].formulaVar,
@@ -1306,7 +1423,7 @@ function buildDamageFormula(
   for (const [key, value] of Object.entries(formula.extraPercentBonuses)) {
     percentArgs.push({
       var: key as SkillFormulaVar,
-      scale: value,
+      scale: value > 0 ? roundTo(value * percentBonusSynergy.multiplier, 6) : value,
     });
   }
   const baseFormula: SkillFormula = baseArgs.length === 0
@@ -1430,9 +1547,9 @@ function isSkillFormula(value: unknown): value is SkillFormula {
   return false;
 }
 
-function calculateTechLevelScale(strength: number): number {
+function calculateTechLevelScale(strength: number, synergyMultiplier = 1): number {
   const base = TECHNIQUE_ARTS_STRENGTH_CONSTANTS.percentBonuses.techLevelScaleBase;
-  return roundTo(Math.max(0, base * (1 + strength)), 6);
+  return roundTo(base + Math.max(0, strength) * base * Math.max(1, synergyMultiplier), 6);
 }
 
 function isScalarPercentBonusKey(value: string | undefined): value is TechniqueArtsStrengthScalarPercentBonusKey {
@@ -1443,12 +1560,14 @@ function isScalarPercentBonusKey(value: string | undefined): value is TechniqueA
 function calculateScalarPercentBonusScale(
   key: TechniqueArtsStrengthScalarPercentBonusKey,
   strength: number,
+  synergyMultiplier = 1,
 ): number {
   const source = TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_SOURCE_BY_KEY[key];
   return roundTo(
     Math.max(0, strength)
     * TECHNIQUE_ARTS_STRENGTH_CONSTANTS.percentBonuses.moveSpeedScalePerStrength
-    * source.moveSpeedEquivalent,
+    * source.moveSpeedEquivalent
+    * Math.max(1, synergyMultiplier),
     6,
   );
 }

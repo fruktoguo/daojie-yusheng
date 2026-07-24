@@ -195,9 +195,11 @@ stacksPerApply   = 单次命中附加层数，默认 1
 ```
 totalWeight    = Σ abs(itemWeight)
 positiveWeight = Σ max(itemWeight, 0)
+sacrificeBudget = Σ (BUDGET(layer) × abs(negativeWeight) / 100)
+positiveBudgetPool = BUDGET(layer) + sacrificeBudget
 
-正权重 itemBudget = BUDGET(layer) × itemWeight / positiveWeight
-负权重 itemBudget = BUDGET(layer) × itemWeight / totalWeight
+正权重 itemBudget = positiveBudgetPool × itemWeight / positiveWeight
+负权重 itemBudget = -BUDGET(layer) × abs(itemWeight) / 100
 真实值            = convert(itemBudget)
 ```
 
@@ -205,9 +207,9 @@ positiveWeight = Σ max(itemWeight, 0)
 
 **关键保证**：AI 输出的是权重，不是最终数值。玩家写“1 息”“范围 32 格”只表示倾向，服务端仍按预算分配和转换公式反推真实值。
 
-正权重瓜分完整正向预算；负权重只折算为对应项目的负预算，不进入正向分母，也不会额外兑换成其它项的正预算。
+正权重瓜分正向预算池；支持真实负面效果的结构负权重会折算为对应项目的负预算，并按绝对权重产生牺牲预算。百分比来源只允许 `0-100`，不产生牺牲预算。
 
-有上下限或离散档位的项目先算真实值再钳制；暂时用不完的正预算会按固定轮次平均回流给仍可增长的正向项目，已触顶项目不再参与。
+有上下限或离散档位的项目先算真实值再钳制；暂时用不完的正预算会按固定轮次和原始正权重比例回流给仍可增长的正向项目，已触顶项目不再参与。百分比组合奖励按最终正预算配比的变异系数衰减，均衡五项最高 `2.0`，严重失衡时为 `1.0`。
 
 ### 5.5 样例（地阶金丹期单技能，BUDGET_max = 62.00，满层）
 
@@ -215,8 +217,8 @@ AI 输出：
 
 ```json
 {
-  "target": { "type": "area", "range": 6, "radius": 6, "targetMode": "tile" },
-  "structureStrength": { "cost": -20, "cooldown": 80 },
+  "target": { "type": "area", "targetMode": "entity" },
+  "structureStrength": { "damage": 1, "cost": -20, "cooldown": 80, "chant": 0, "castRange": 6, "area": 6 },
   "formulaStrength": { "attributeBases": { "spellAtk": 1 } }
 }
 ```
@@ -226,18 +228,20 @@ AI 输出：
 ```
 totalWeight = abs(6) + abs(6) + abs(-20) + abs(80) + abs(1) = 113
 positiveWeight = 6 + 6 + 80 + 1 = 93
+sacrificeBudget = 62.00 × 20 / 100 = 12.40
+positiveBudgetPool = 62.00 + 12.40 = 74.40
 
-castRangeBudget = 62.00 × 6 / 93        ≈ 4.00
-shapeBudget     = 62.00 × 6 / 93        ≈ 4.00
-costBudget      = 62.00 × -20 / 113     ≈ -10.97
-cooldownBudget  = 62.00 × 80 / 93       ≈ 53.33
-spellAtkBudget  = 62.00 × 1 / 93        ≈ 0.67
+castRangeBudget = 74.40 × 6 / 93        ≈ 4.80
+shapeBudget     = 74.40 × 6 / 93        ≈ 4.80
+costBudget      = -62.00 × 20 / 100     = -12.40
+cooldownBudget  = 74.40 × 80 / 93       ≈ 64.00
+spellAtkBudget  = 74.40 × 1 / 93        ≈ 0.80
 
-rangeBudget 4.00 可购买施法距离 3 格（距离 4 需要 5.18 预算）
-shapeBudget 4.00 可购买 area 半径 1（5 格，已用 2.00 预算）
+rangeBudget 4.80 可购买施法距离 3 格（距离 4 需要 5.18 预算）
+shapeBudget 4.80 可购买 area 半径 1（5 格，已用 2.00 预算）
 ```
 
-实际冷却会先按 `3 * realmLv * 0.98^cooldownBudget` 计算；多出的正预算会平均回流给仍可增长的施法距离、范围和属性基底。样例最终约为施法距离 `3` 格、area 半径 `1`、冷却 `43` 息、`spellAtkBudget = 2.69`，不会继续制造 `1.2^80` 级别的预算倍率。
+实际冷却会先按 `3 * realmLv * 0.98^cooldownBudget` 计算；多出的正预算会按原始正权重比例回流给仍可增长的施法距离、范围和属性基底。当前样例最终约为施法距离 `3` 格、area 半径 `1`、冷却 `32` 息、`spellAtkBudget = 0.87`，不会让低权重伤害项从等额回流中取得与高权重冷却项相同的份额。
 
 ---
 

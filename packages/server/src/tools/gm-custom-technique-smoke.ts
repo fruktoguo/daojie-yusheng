@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_KEYS,
   TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_SOURCE_BY_KEY,
+  calculateTechniqueArtsStrengthPercentBonusSynergy,
   type GmCustomTechniqueInput,
   type SkillFormula,
   type SkillFormulaVar,
@@ -34,6 +35,8 @@ const internalInput: GmCustomTechniqueInput = {
 
 async function main(): Promise<void> {
   testBudgetAndTemplateHydration();
+  testPercentBonusSynergyBalance();
+  testPercentBonusRefundPreservesRatio();
   testArtsExpansion();
   testStrictValidation();
   await testIdempotentPublish();
@@ -42,11 +45,102 @@ async function main(): Promise<void> {
     case: 'gm-custom-technique',
     assertions: [
       '强度倍率改变满层属性并被模板水合保留',
+      '百分比组合倍率按配比平衡度连续衰减并封顶',
+      '触顶回流保持百分比来源原始正权重比例',
       '术法权重展开为正式 SkillDef',
       '未知字段和字符串数值被拒绝',
       '发布支持同请求重放并拒绝同键异请求和同名功法',
     ],
   }, null, 2));
+}
+
+function testPercentBonusRefundPreservesRatio(): void {
+  const built = requireBuilt(buildGmCustomTechnique({
+    name: '比例回流烟测术',
+    category: 'arts',
+    grade: 'earth',
+    realmLv: 43,
+    maxLayer: 9,
+    expDifficulty: 1,
+    budgetPercent: 1,
+    skills: [{
+      name: '比例回流烟测',
+      unlockLevel: 1,
+      damageKind: 'spell',
+      target: { type: 'single', targetMode: 'entity' },
+      structureStrength: { damage: 0, cost: 0, cooldown: 0, chant: 0, castRange: 0, area: 100 },
+      formulaStrength: {
+        attributeBases: { spellAtk: 1 },
+        percentBonuses: { moveSpeed: 100, realmLevel: 1 },
+      },
+    }],
+  }, 'gen_gm_smoke_ratio_refund'));
+  const report = built.validationReport.artsStrength as {
+    expansion?: Array<{
+      budgetBreakdown?: {
+        percentBonusSynergy?: { multiplier?: number };
+        items?: Array<{ key?: string; allocatedBudget?: number }>;
+      };
+    }>;
+  };
+  const breakdown = report.expansion?.[0]?.budgetBreakdown;
+  const moveSpeedBudget = breakdown?.items?.find((item) => item.key === 'formula.percentBonuses.moveSpeed')?.allocatedBudget ?? 0;
+  const realmLevelBudget = breakdown?.items?.find((item) => item.key === 'formula.percentBonuses.realmLevel')?.allocatedBudget ?? 0;
+  assert.ok(moveSpeedBudget > 0 && realmLevelBudget > 0);
+  assertApprox(moveSpeedBudget / realmLevelBudget, 100, 0.001);
+  assert.ok((breakdown?.percentBonusSynergy?.multiplier ?? 2) < 1.01);
+}
+
+function testPercentBonusSynergyBalance(): void {
+  assert.deepEqual(calculateTechniqueArtsStrengthPercentBonusSynergy({}), {
+    sourceCount: 0,
+    cappedSourceCount: 0,
+    coefficientOfVariation: 0,
+    balanceFactor: 0,
+    maximumMultiplier: 1,
+    multiplier: 1,
+  });
+  assert.deepEqual(calculateTechniqueArtsStrengthPercentBonusSynergy({ moveSpeed: 1 }), {
+    sourceCount: 1,
+    cappedSourceCount: 1,
+    coefficientOfVariation: 0,
+    balanceFactor: 1,
+    maximumMultiplier: 1,
+    multiplier: 1,
+  });
+  assert.equal(calculateTechniqueArtsStrengthPercentBonusSynergy({
+    moveSpeed: 1,
+    realmLevel: 1,
+  }).multiplier, 1.1);
+  assert.equal(calculateTechniqueArtsStrengthPercentBonusSynergy({
+    moveSpeed: 1,
+    realmLevel: 1,
+    alchemyLevel: 1,
+  }).multiplier, 1.3);
+  assert.equal(calculateTechniqueArtsStrengthPercentBonusSynergy({
+    moveSpeed: 1,
+    realmLevel: 1,
+    alchemyLevel: 1,
+    forgingLevel: 1,
+    enhancementLevel: 1,
+  }).multiplier, 2);
+
+  const forcedTinySource = calculateTechniqueArtsStrengthPercentBonusSynergy({
+    moveSpeed: 1.99,
+    realmLevel: 0.01,
+  });
+  assert.ok(forcedTinySource.multiplier < 1.01, '极小凑项不得获得有意义的组合增幅');
+
+  const severelyUnbalancedFiveSources = calculateTechniqueArtsStrengthPercentBonusSynergy({
+    moveSpeed: 100,
+    realmLevel: 1,
+    alchemyLevel: 1,
+    forgingLevel: 1,
+    enhancementLevel: 1,
+  });
+  assert.equal(severelyUnbalancedFiveSources.sourceCount, 5);
+  assert.equal(severelyUnbalancedFiveSources.balanceFactor, 0);
+  assert.equal(severelyUnbalancedFiveSources.multiplier, 1);
 }
 
 function testBudgetAndTemplateHydration(): void {
@@ -111,9 +205,25 @@ function testArtsExpansion(): void {
   assert.ok(Array.isArray(skill.effects) && skill.effects.length > 0);
   assert.equal('structureStrength' in (skill as unknown as Record<string, unknown>), false);
   assert.ok('artsStrength' in built.validationReport);
+  const artsStrengthReport = built.validationReport.artsStrength as {
+    expansion?: Array<{
+      budgetBreakdown?: {
+        percentBonusSynergy?: { sourceCount?: number; cappedSourceCount?: number; multiplier?: number };
+        items?: Array<{ key?: string; allocatedBudget?: number }>;
+      };
+    }>;
+  };
+  const budgetBreakdown = artsStrengthReport.expansion?.[0]?.budgetBreakdown;
+  const synergy = budgetBreakdown?.percentBonusSynergy;
+  assert.equal(synergy?.sourceCount, 10);
+  assert.equal(synergy?.cappedSourceCount, 5);
+  assert.equal(synergy?.multiplier, 2);
   const formula = skill.effects?.[0]?.type === 'damage' ? skill.effects[0].formula : undefined;
   const moveSpeedScale = extractFormulaVarScale(formula, 'caster.stat.moveSpeed');
   assert.ok(moveSpeedScale > 0);
+  const moveSpeedBudget = budgetBreakdown?.items?.find((item) => item.key === 'formula.percentBonuses.moveSpeed')?.allocatedBudget ?? 0;
+  assertApprox(moveSpeedScale, moveSpeedBudget * 0.001 * 2, 0.000001);
+  assert.equal(extractFormulaVarScale(formula, 'techLevel'), 0.1, '层数基础10%不得被组合倍率放大');
   for (const key of TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_KEYS) {
     const source = TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_SOURCE_BY_KEY[key];
     const actualScale = extractFormulaVarScale(formula, source.formulaVar);
@@ -133,6 +243,34 @@ function testStrictValidation(): void {
   assert.equal(stringNumber.ok, false);
   if (stringNumber.ok === false) {
     assert.ok(stringNumber.errors.some((entry) => entry.field === 'realmLv'));
+  }
+
+  const negativePercentBonus = buildGmCustomTechnique({
+    name: '负权重烟测术',
+    category: 'arts',
+    grade: 'mystic',
+    realmLv: 31,
+    maxLayer: 9,
+    expDifficulty: 1,
+    budgetPercent: 1,
+    skills: [{
+      name: '负权重烟测',
+      unlockLevel: 1,
+      damageKind: 'spell',
+      target: { type: 'single', targetMode: 'entity' },
+      structureStrength: { damage: 1, cost: 0, cooldown: 0, chant: 0, castRange: 0, area: 0 },
+      formulaStrength: {
+        attributeBases: { spellAtk: 1 },
+        percentBonuses: { moveSpeed: -1 },
+      },
+    }],
+  }, 'gen_gm_smoke_negative_percent');
+  assert.equal(negativePercentBonus.ok, false);
+  if (negativePercentBonus.ok === false) {
+    assert.ok(negativePercentBonus.errors.some((entry) => (
+      entry.field === 'skills[0].formulaStrength.percentBonuses.moveSpeed'
+      && entry.message.includes('0 到 100')
+    )));
   }
 }
 

@@ -331,11 +331,11 @@ function validateArtsStrengthFormula(raw: unknown, skillIndex: number, errors: V
           field: `skills[${skillIndex}].formulaStrength.percentBonuses.${key}`,
           message: 'percentBonuses key 不在允许的百分比来源白名单中',
         });
-      } else if (!isValidArtsWeight(value)) {
+      } else if (!isValidArtsPercentBonusWeight(value)) {
         errors.push({
           layer: 2,
           field: `skills[${skillIndex}].formulaStrength.percentBonuses.${key}`,
-          message: 'percentBonuses 权重必须在 [-100, 100]',
+          message: 'percentBonuses 权重必须在 [0, 100]',
         });
       }
     }
@@ -346,6 +346,12 @@ function isValidArtsWeight(value: number): boolean {
   return Number.isFinite(value)
     && value >= TECHNIQUE_ARTS_STRENGTH_CONSTANTS.weights.min
     && value <= TECHNIQUE_ARTS_STRENGTH_CONSTANTS.weights.max;
+}
+
+function isValidArtsPercentBonusWeight(value: number): boolean {
+  return Number.isFinite(value)
+    && value >= TECHNIQUE_ARTS_STRENGTH_CONSTANTS.percentBonuses.minStrength
+    && value <= TECHNIQUE_ARTS_STRENGTH_CONSTANTS.percentBonuses.maxStrength;
 }
 
 function validateOptionalArtsPositiveWeight(raw: unknown, field: string, errors: ValidationError[]): void {

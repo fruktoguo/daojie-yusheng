@@ -14,6 +14,7 @@ import {
   CUSTOM_TECHNIQUE_NAME_MIN_LENGTH,
   ELEMENT_KEYS,
   TECHNIQUE_ARTS_STRENGTH_ALLOWED_ATTRIBUTE_BASE_STATS,
+  TECHNIQUE_ARTS_STRENGTH_CONSTANTS,
   TECHNIQUE_ARTS_STRENGTH_PERCENT_BONUS_KEYS,
   TECHNIQUE_GRADE_ORDER,
   TECHNIQUE_INTERNAL_BUDGET_PERCENT_RANGE,
@@ -320,8 +321,13 @@ function normalizeFormulaStrength(
   for (const key of TECHNIQUE_ARTS_STRENGTH_PERCENT_BONUS_KEYS) {
     if (!(key in rawPercentBonuses)) continue;
     const value = rawPercentBonuses[key];
-    if (typeof value !== 'number' || !Number.isFinite(value) || value < -100 || value > 100) {
-      errors.push(error(`skills[0].formulaStrength.percentBonuses.${key}`, '权重必须在 -100 到 100 之间'));
+    if (
+      typeof value !== 'number'
+      || !Number.isFinite(value)
+      || value < TECHNIQUE_ARTS_STRENGTH_CONSTANTS.percentBonuses.minStrength
+      || value > TECHNIQUE_ARTS_STRENGTH_CONSTANTS.percentBonuses.maxStrength
+    ) {
+      errors.push(error(`skills[0].formulaStrength.percentBonuses.${key}`, '权重必须在 0 到 100 之间'));
       continue;
     }
     percentBonuses[key] = value;

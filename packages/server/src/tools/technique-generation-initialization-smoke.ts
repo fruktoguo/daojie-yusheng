@@ -1557,6 +1557,32 @@ async function testArtsCandidateAcceptsStrengthShape(): Promise<void> {
   assert.equal(result.valid, true);
 }
 
+async function testArtsCandidateRejectsNegativePercentBonus(): Promise<void> {
+  const result = validateTechniqueCandidate({
+    name: '负权重术法',
+    grade: 'mystic',
+    category: 'arts',
+    realmLv: 31,
+    maxLayer: 9,
+    skills: [{
+      name: '负权重术',
+      unlockLevel: 1,
+      damageKind: 'spell',
+      target: { type: 'single', targetMode: 'entity' },
+      structureStrength: { damage: 1, cost: 0, cooldown: 0, chant: 0, castRange: 0, area: 0 },
+      formulaStrength: {
+        attributeBases: { spellAtk: 1 },
+        percentBonuses: { moveSpeed: -1 },
+      },
+    }],
+  }, 'arts');
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((entry) => (
+    entry.field.endsWith('percentBonuses.moveSpeed')
+    && entry.message.includes('[0, 100]')
+  )));
+}
+
 async function testArtsTileTargetModeNormalizesForEntityDamage(): Promise<void> {
   const fixed = normalizeGeneratedTechniqueCandidateForServer({
     name: '裂风剑诀',
@@ -1792,6 +1818,9 @@ async function testTechniquePromptIncludesRolledBudgetContext(): Promise<void> {
   assert.equal(artsPayload.generationContext?.budgetPercent, 1.1);
   assertApprox(Number(artsPayload.budgetContext?.actualTotalBudget), calcArtsBudgetMax('earth', 43) * 1.1, 0.0001);
   assert.ok(artsPayload.strengthRules?.calculationFormulas?.some((entry) => entry.includes('itemBudget')));
+  assert.ok(artsPrompt.userMessage.includes('禁止负数'));
+  assert.ok(artsPrompt.userMessage.includes('CV = sqrt'));
+  assert.ok(artsPrompt.userMessage.includes('严重失衡时回到1.0'));
   assert.ok(artsPayload.outputChecklist?.some((entry) => entry.includes('普通范围伤害术法的 targetMode 必须优先使用 any')));
   assert.deepEqual(artsPayload.allowedPercentBonusKeys, [
     'techLevel',
@@ -1883,10 +1912,10 @@ async function testArtsStrengthBudgetAllocatesAndRefundsByItem(): Promise<void> 
   assert.equal(expanded.skill.targeting?.range, 3);
   assert.equal(expanded.skill.targeting?.targetMode, 'entity');
   assert.equal(expanded.skill.targeting?.radius, 1);
-  assert.equal(expanded.skill.cooldown, 34);
+  assert.equal(expanded.skill.cooldown, 32);
   assertApprox(expanded.skill.costMultiplier ?? 0, 9.5892, 0.0001);
   const formula = extractSkillEffectFormula(expanded.skill.effects[0]);
-  assertApprox(extractFormulaVarScale(formula, 'caster.stat.spellAtk'), 3.4947, 0.001);
+  assertApprox(extractFormulaVarScale(formula, 'caster.stat.spellAtk'), 0.8653, 0.001);
   assert.equal(extractFormulaVarScale(formula, 'techLevel'), 0.1);
 }
 
@@ -1974,6 +2003,7 @@ async function main(): Promise<void> {
   await testGeneratedArtsTechniqueRecoversDraftSkillShape();
   await testInternalCandidateRejectsUnknownAttrRatioKeys();
   await testArtsCandidateAcceptsStrengthShape();
+  await testArtsCandidateRejectsNegativePercentBonus();
   await testArtsTileTargetModeNormalizesForEntityDamage();
   await testAiArtsStrengthMigrationNormalizesPublishedTileDamageSkill();
   await testTechniquePromptIncludesRolledBudgetContext();

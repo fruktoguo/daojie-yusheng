@@ -172,7 +172,10 @@ export const TECHNIQUE_ARTS_STRENGTH_CONSTANTS = {
     moveSpeedScalePerStrength: 0.001,
     craftSkillLevelMoveSpeedEquivalent: TECHNIQUE_ARTS_STRENGTH_CRAFT_LEVEL_MOVE_SPEED_EQUIVALENT,
     realmLevelMoveSpeedEquivalent: TECHNIQUE_ARTS_STRENGTH_REALM_LEVEL_MOVE_SPEED_EQUIVALENT,
-    minStrength: -100,
+    synergyPairBonus: 0.1,
+    synergyMaxSources: 5,
+    synergyMaxCoefficientOfVariation: 1,
+    minStrength: 0,
     maxStrength: 100,
   },
 } as const;

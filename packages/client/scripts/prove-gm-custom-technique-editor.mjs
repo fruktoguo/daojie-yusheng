@@ -41,8 +41,37 @@ for (const field of [
   'base.resolvePower',
   'bonus.techLevel',
   'bonus.moveSpeed',
+  'bonus.realmLevel',
+  'bonus.alchemyLevel',
+  'bonus.forgingLevel',
+  'bonus.enhancementLevel',
+  'bonus.transmissionLevel',
+  'bonus.gatherLevel',
+  'bonus.miningLevel',
+  'bonus.buildingLevel',
+  'bonus.formationLevel',
 ]) {
   assert.match(html, new RegExp(`name=["']${field.replaceAll('.', '\\.')}["']`, 'u'), `GM 手工功法表单缺少 ${field}`);
+}
+
+for (const field of [
+  'techLevel',
+  'moveSpeed',
+  'realmLevel',
+  'alchemyLevel',
+  'forgingLevel',
+  'enhancementLevel',
+  'transmissionLevel',
+  'gatherLevel',
+  'miningLevel',
+  'buildingLevel',
+  'formationLevel',
+]) {
+  assert.match(
+    html,
+    new RegExp(`<input[^>]+name=["']bonus\\.${field}["'][^>]+min=["']0["'][^>]+max=["']100["']`, 'u'),
+    `GM 百分比权重 ${field} 未限制为 0 到 100`,
+  );
 }
 
 assert.match(editorSource, /\/generated-techniques\/preview/u, '预览请求未接入服务端 API');
@@ -59,6 +88,7 @@ console.log(JSON.stringify({
   assertions: [
     '手工创建子页和完整配置字段存在',
     '预览与创建 API 已接入',
+    '百分比权重仅允许0到100',
     '失败重试复用 operationId',
     '类型切换停用隐藏字段且不重建表单 DOM',
   ],

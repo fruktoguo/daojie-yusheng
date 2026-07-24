@@ -130,7 +130,7 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
   const scalarPercentBonusRules = TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_KEYS.map((key) => {
     const source = TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_SOURCE_BY_KEY[key];
     const scale = constants.percentBonuses.moveSpeedScalePerStrength * source.moveSpeedEquivalent;
-    return `${key}: 预算1时加入 ${source.formulaVar} * ${scale} 的总伤害百分比加成`;
+    return `${key}: 预算1时先加入 ${source.formulaVar} * ${scale} 的总伤害百分比加成，再统一乘百分比组合倍率`;
   });
   return {
     task: '生成一个 AI 术法功法强度草稿',
@@ -176,7 +176,7 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
       ])),
       formulaStrength: {
         attributeBases: `对象，key 必须来自 allowedAttributeBaseStats，数量 ${constants.attributeBases.minCount} 到 ${constants.attributeBases.maxCount} 个，value 只表示伤害属性构成比例，必须为正数，不能写0或负数`,
-        percentBonuses: `对象，可选，key 必须来自 allowedPercentBonusKeys；value 为权重，${constants.weights.min}到${constants.weights.max}；省略等于0`,
+        percentBonuses: `对象，可选，key 必须来自 allowedPercentBonusKeys；value 为权重，${constants.percentBonuses.minStrength}到${constants.percentBonuses.maxStrength}；省略等于0，禁止负数`,
       },
     },
     allowedAttributeBaseStats: [...TECHNIQUE_ARTS_STRENGTH_ALLOWED_ATTRIBUTE_BASE_STATS],
@@ -202,6 +202,8 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
         'attributeBases 的值必须为正数；如果只要最低伤害，也要写一个属性构成，例如 { spellAtk: 1 }，并把 structureStrength.damage 写为0或负数。',
         '如果玩家主题要求高伤害，才把 structureStrength.damage 提高到 60 到 100。',
         `techLevel 默认0，表示每层增加${Math.round(constants.percentBonuses.techLevelScaleBase * 100)}%总伤害；通常不要写正值。`,
+        `百分比来源组合倍率按正权重配比平衡度计算：均衡2项最高1.1、3项最高1.3、4项最高1.6、${constants.percentBonuses.synergyMaxSources}项及以上最高2.0；失衡会连续降低倍率，严重失衡时回到1.0。`,
+        '不要为了凑来源数量加入极小权重；低配比来源会提高变异系数，可能让组合倍率不升反降。',
         ...scalarPercentBonusRules,
       ],
       rangeMeaning: [
@@ -402,7 +404,7 @@ function buildArtsBudgetContext(params: TechniquePromptParams): Record<string, u
       'gradeIndex: mortal=1, yellow=2, mystic=3, earth=4, heaven=5, spirit=6, saint=7, emperor=8',
       '术法基础满层预算 BUDGET_base = 3 + realmLv * 0.5 * 1.4^(gradeIndex - 1) * majorRealmMultiplier',
       '术法本次实际总预算 actualTotalBudget = BUDGET_base * budgetPercent',
-      'positiveWeight = sum(max(itemWeight, 0)); sacrificeBudget = sum(actualTotalBudget * abs(negativeWeight) / 100)',
+      'positiveWeight = sum(max(itemWeight, 0)); sacrificeBudget = sum(actualTotalBudget * abs(支持负向的结构权重) / 100)，百分比来源不参与牺牲预算',
       '正向预算池 positiveBudgetPool = actualTotalBudget + sacrificeBudget',
       '正权重 itemBudget = positiveBudgetPool * itemWeight / positiveWeight；负权重 itemBudget = -actualTotalBudget * abs(itemWeight) / 100',
       `伤害倍率预算 damageBudget <= 0 时按最低 ${constants.attributeBases.minDamageScale} 属性基底倍率展开`,
@@ -411,11 +413,14 @@ function buildArtsBudgetContext(params: TechniquePromptParams): Record<string, u
       `施法距离：1格为0预算；r格消耗 (r - 1) * ${constants.structure.castRangeBudgetGrowth}^(r - 1)，常规最大${constants.structure.maxCastRange}格，line最大${constants.structure.maxLineCastRange}格`,
       `影响范围：每1点范围预算约增加${constants.structure.coverageCellsPerBudget}个覆盖格，按 single/line/box/area 各自形状向下取整`,
       '属性基底倍率 = 属性实际预算 / 每100%基底成本；spellAtk/physAtk等成本见 attributeBaseCostBy100Percent',
-      `层数加成 techLevel 每层比例 = max(0, ${constants.percentBonuses.techLevelScaleBase} * (1 + techLevelBudget))`,
+      `百分比组合平衡度：CV = sqrt(mean(((sourceBudget - meanBudget) / meanBudget)^2))；balance = clamp(1 - CV / ${constants.percentBonuses.synergyMaxCoefficientOfVariation}, 0, 1)`,
+      `百分比组合倍率：count = min(正预算来源数, ${constants.percentBonuses.synergyMaxSources})；maxMultiplier = 1 + ${constants.percentBonuses.synergyPairBonus} * count * (count - 1) / 2；multiplier = 1 + (maxMultiplier - 1) * balance`,
+      `层数加成 techLevel 每层比例 = ${constants.percentBonuses.techLevelScaleBase} + techLevelBudget * ${constants.percentBonuses.techLevelScaleBase} * 百分比组合倍率`,
       `移速加成 = caster.stat.moveSpeed * max(0, moveSpeedBudget) * ${constants.percentBonuses.moveSpeedScalePerStrength}`,
       `境界等级加成 = caster.realmLv * max(0, realmLevelBudget) * ${constants.percentBonuses.moveSpeedScalePerStrength * constants.percentBonuses.realmLevelMoveSpeedEquivalent}`,
       `任一技艺等级加成 = caster.craft.<技艺>.level * max(0, 对应Budget) * ${constants.percentBonuses.moveSpeedScalePerStrength * constants.percentBonuses.craftSkillLevelMoveSpeedEquivalent}`,
-      '触顶或离散档位暂时用不完的正预算会平均回流给仍可增长的正向项目；不要输出预算字段，服务端自动展开',
+      '除功法层数基础10%外，所有预算派生的百分比来源系数统一乘百分比组合倍率。',
+      '触顶或离散档位暂时用不完的正预算会按原始正权重比例回流给仍可增长的正向项目；不要输出预算字段，服务端自动展开',
     ],
   };
 }

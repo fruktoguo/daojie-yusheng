@@ -402,12 +402,15 @@ class TechniqueCandidateValidator {
 公式（详见 `docs/design/balance/术法预算量化设计.md`）：
 - `BUDGET_max = 3 + realmLv × 0.5 × 1.4^(g-1) × majorRealmMultiplier`
 - `BUDGET(layer) = BUDGET_max × layer / maxLayer`
-- `totalWeight = Σ abs(itemWeight)`，`positiveWeight = Σ max(itemWeight, 0)`
-- 正权重：`itemBudget = BUDGET(layer) × itemWeight / positiveWeight`
-- 负权重：`itemBudget = BUDGET(layer) × itemWeight / totalWeight`
+- `positiveWeight = Σ max(itemWeight, 0)`
+- `sacrificeBudget = Σ (BUDGET(layer) × abs(negativeWeight) / 100)`，仅统计支持真实负面效果的结构项。
+- `positiveBudgetPool = BUDGET(layer) + sacrificeBudget`
+- 正权重：`itemBudget = positiveBudgetPool × itemWeight / positiveWeight`
+- 负权重：`itemBudget = -BUDGET(layer) × abs(itemWeight) / 100`
 - 每项真实值由该项转换公式反推，冷却、消耗、施法距离、范围覆盖和公式基底各自处理上下限。
-- 负权重只折算本项负预算，不进入正向分母，也不额外兑换成其它项正预算。
-- 每个转换方法返回真实值、已使用预算和未使用预算；触顶或离散档位暂时用不完的正预算由上层预算分配器按固定轮次平均回流到仍可增长的项目。
+- 百分比来源只允许 `0-100`，不接受负权重，也不产生牺牲预算。
+- 每个转换方法返回真实值、已使用预算和未使用预算；触顶或离散档位暂时用不完的正预算由上层预算分配器按固定轮次和原始正权重比例回流到仍可增长的项目。
+- 百分比组合倍率按最终正预算配比的变异系数连续衰减；均衡五项最高 `2.0`，严重失衡时回到 `1.0`。
 
 ---
 
