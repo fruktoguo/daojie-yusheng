@@ -1691,26 +1691,6 @@ export class CraftPanelRuntimeService {
         return null;
     }
     /**
- * getCultivationBlockReason：读取CultivationBlockReason。
- * @param player 玩家对象。
- * @returns 无返回值，完成CultivationBlockReason的读取/组装。
- */
-
-    getCultivationBlockReason(player) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (this.hasActiveAlchemyJob(player)) {
-            return '炼丹进行中，暂时不能切换修炼。';
-        }
-        if (this.hasActiveForgingJob(player)) {
-            return '炼器进行中，暂时不能切换修炼。';
-        }
-        if (this.hasActiveEnhancementJob(player)) {
-            return '强化进行中，暂时不能切换修炼。';
-        }
-        return null;
-    }
-    /**
  * hasEquippedFurnace：判断EquippedFurnace是否满足条件。
  * @param player 玩家对象。
  * @returns 无返回值，完成EquippedFurnace的条件判断。
