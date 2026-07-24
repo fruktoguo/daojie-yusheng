@@ -20,6 +20,9 @@ import {
   TECHNIQUE_ARTS_STRENGTH_ALLOWED_ATTRIBUTE_BASE_STATS,
   TECHNIQUE_ARTS_STRENGTH_ATTRIBUTE_BASE_COSTS,
   TECHNIQUE_ARTS_STRENGTH_CONSTANTS,
+  TECHNIQUE_ARTS_STRENGTH_PERCENT_BONUS_KEYS,
+  TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_KEYS,
+  TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_SOURCE_BY_KEY,
   TECHNIQUE_INTERNAL_EXP_DIFFICULTY_RANGE,
   TECHNIQUE_INTERNAL_STAGE_WEIGHT,
   calcInternalTechniqueAttrTotalByBudgetPercent,
@@ -78,7 +81,6 @@ const ARTS_DAMAGE_KIND_ENUM = ['physical', 'spell'] as const;
 const ARTS_ELEMENT_ENUM = ['metal', 'wood', 'water', 'fire', 'earth'] as const;
 const ARTS_TARGET_MODE_ENUM = ['any', 'entity', 'tile'] as const;
 const ARTS_STRUCTURE_STRENGTH_KEYS = ['damage', 'cost', 'cooldown', 'chant', 'castRange', 'area'] as const;
-const ARTS_PERCENT_BONUS_KEYS = ['techLevel', 'moveSpeed'] as const;
 
 export function buildTechniquePrompt(params: TechniquePromptParams): TechniquePromptOutput {
   const { category } = params;
@@ -125,6 +127,11 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
   const constants = TECHNIQUE_ARTS_STRENGTH_CONSTANTS;
   const generationContext = buildGenerationContext(params);
   const artsBudgetContext = buildArtsBudgetContext(params);
+  const scalarPercentBonusRules = TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_KEYS.map((key) => {
+    const source = TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_SOURCE_BY_KEY[key];
+    const scale = constants.percentBonuses.moveSpeedScalePerStrength * source.moveSpeedEquivalent;
+    return `${key}: 预算1时加入 ${source.formulaVar} * ${scale} 的总伤害百分比加成`;
+  });
   return {
     task: '生成一个 AI 术法功法强度草稿',
     generationContext,
@@ -169,12 +176,12 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
       ])),
       formulaStrength: {
         attributeBases: `对象，key 必须来自 allowedAttributeBaseStats，数量 ${constants.attributeBases.minCount} 到 ${constants.attributeBases.maxCount} 个，value 只表示伤害属性构成比例，必须为正数，不能写0或负数`,
-        percentBonuses: `对象，可选，只允许 techLevel 和 moveSpeed；value 为权重，${constants.weights.min}到${constants.weights.max}；省略等于0`,
+        percentBonuses: `对象，可选，key 必须来自 allowedPercentBonusKeys；value 为权重，${constants.weights.min}到${constants.weights.max}；省略等于0`,
       },
     },
     allowedAttributeBaseStats: [...TECHNIQUE_ARTS_STRENGTH_ALLOWED_ATTRIBUTE_BASE_STATS],
     attributeBaseCostBy100Percent: TECHNIQUE_ARTS_STRENGTH_ATTRIBUTE_BASE_COSTS,
-    allowedPercentBonusKeys: [...ARTS_PERCENT_BONUS_KEYS],
+    allowedPercentBonusKeys: [...TECHNIQUE_ARTS_STRENGTH_PERCENT_BONUS_KEYS],
     strengthRules: {
       budgetOwnership: '禁止输出 totalBudget/inputBudget/targetBudget；本次实际总预算已在 budgetContext.actualTotalBudget 给出，服务端按各项权重分配并展开真实 SkillDef。',
       structureMeaning: [
@@ -195,7 +202,7 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
         'attributeBases 的值必须为正数；如果只要最低伤害，也要写一个属性构成，例如 { spellAtk: 1 }，并把 structureStrength.damage 写为0或负数。',
         '如果玩家主题要求高伤害，才把 structureStrength.damage 提高到 60 到 100。',
         `techLevel 默认0，表示每层增加${Math.round(constants.percentBonuses.techLevelScaleBase * 100)}%总伤害；通常不要写正值。`,
-        `moveSpeed: 1 表示额外加入 caster.stat.moveSpeed * ${constants.percentBonuses.moveSpeedScalePerStrength} 的总百分比加成。`,
+        ...scalarPercentBonusRules,
       ],
       rangeMeaning: [
         'target 只描述目标形状和目标模式，不承载任何预算权重；不要在 target 里写 castRangeWeight、areaWeight 或真实范围字段。',
@@ -406,6 +413,8 @@ function buildArtsBudgetContext(params: TechniquePromptParams): Record<string, u
       '属性基底倍率 = 属性实际预算 / 每100%基底成本；spellAtk/physAtk等成本见 attributeBaseCostBy100Percent',
       `层数加成 techLevel 每层比例 = max(0, ${constants.percentBonuses.techLevelScaleBase} * (1 + techLevelBudget))`,
       `移速加成 = caster.stat.moveSpeed * max(0, moveSpeedBudget) * ${constants.percentBonuses.moveSpeedScalePerStrength}`,
+      `境界等级加成 = caster.realmLv * max(0, realmLevelBudget) * ${constants.percentBonuses.moveSpeedScalePerStrength * constants.percentBonuses.realmLevelMoveSpeedEquivalent}`,
+      `任一技艺等级加成 = caster.craft.<技艺>.level * max(0, 对应Budget) * ${constants.percentBonuses.moveSpeedScalePerStrength * constants.percentBonuses.craftSkillLevelMoveSpeedEquivalent}`,
       '触顶或离散档位暂时用不完的正预算会平均回流给仍可增长的正向项目；不要输出预算字段，服务端自动展开',
     ],
   };

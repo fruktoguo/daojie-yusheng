@@ -8,6 +8,12 @@ import { applyCombatAttackIntensityQiCost, calcQiCostWithOutputLimit, compileVal
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { resolveMonsterCombatExpEquivalentFallback } from './monster-combat-exp-equivalent.helper';
 import { resolveCombatDamage, resolveTileCombatDamage } from './combat-pipeline-compose';
+import {
+    areCombatCraftSkillLevelsEqual,
+    resolveCombatantCraftSkillLevel,
+    resolveCraftSkillKindFromFormulaVar,
+    snapshotCombatantCraftSkillLevels,
+} from './skill-formula-craft-level.helpers';
 
 /** 战斗运行时技能结算服务。 */
 @Injectable()
@@ -519,6 +525,7 @@ function toCombatPlayerState(player) {
         },
         buffs: player.buffs.buffs,
         buffsRevision: Math.max(0, Math.trunc(Number(player.buffs.revision) || 0)),
+        craftSkillLevels: snapshotCombatantCraftSkillLevels(player),
     };
 }
 
@@ -686,6 +693,7 @@ const SKILL_FORMULA_DEPENDENCY = Object.freeze({
     REALM: 1 << 6,
     TECH_LEVEL: 1 << 7,
     TARGET_COUNT: 1 << 8,
+    CRAFT_SKILLS: 1 << 9,
 });
 const UNREUSABLE_SKILL_FORMULA_DEPENDENCY = -1;
 
@@ -771,6 +779,7 @@ function resolveReusableSkillFormulaVariableDependency(variable) {
     if (variable === 'caster.maxHp') return SKILL_FORMULA_DEPENDENCY.MAX_HP;
     if (variable === 'caster.qi') return SKILL_FORMULA_DEPENDENCY.QI;
     if (variable === 'caster.maxQi') return SKILL_FORMULA_DEPENDENCY.MAX_QI;
+    if (resolveCraftSkillKindFromFormulaVar(variable)) return SKILL_FORMULA_DEPENDENCY.CRAFT_SKILLS;
     if (variable.startsWith('caster.attr.') || variable.startsWith('caster.stat.')) {
         return SKILL_FORMULA_DEPENDENCY.ATTRS;
     }
@@ -803,6 +812,9 @@ function createSkillDamageCacheEntry(context, damageMultiplier, baseDamage, depe
         realmLv: resolveCombatantRealmLv(context.attacker),
         techLevel: Math.max(0, Math.trunc(Number(context.techLevel) || 0)),
         targetCount: Math.max(1, Math.trunc(Number(context.targetCount) || 1)),
+        craftSkillLevels: (dependencyMask & SKILL_FORMULA_DEPENDENCY.CRAFT_SKILLS) !== 0
+            ? snapshotCombatantCraftSkillLevels(context.attacker)
+            : null,
         damageMultiplier,
         baseDamage,
         tileDamageRoll: undefined,
@@ -831,6 +843,8 @@ function matchesSkillDamageCacheEntry(entry, context, damageMultiplier, dependen
         && entry.techLevel !== Math.max(0, Math.trunc(Number(context.techLevel) || 0))) return false;
     if ((dependencyMask & SKILL_FORMULA_DEPENDENCY.TARGET_COUNT) !== 0
         && entry.targetCount !== Math.max(1, Math.trunc(Number(context.targetCount) || 1))) return false;
+    if ((dependencyMask & SKILL_FORMULA_DEPENDENCY.CRAFT_SKILLS) !== 0
+        && !areCombatCraftSkillLevelsEqual(entry.craftSkillLevels, context.attacker)) return false;
     return true;
 }
 
@@ -951,6 +965,10 @@ function compileSkillFormulaVarResolver(variable) {
     if (variable === 'caster.maxQi') {
         return (context) => context.attacker.maxQi;
     }
+    const craftSkillKind = resolveCraftSkillKindFromFormulaVar(variable);
+    if (craftSkillKind) {
+        return (context) => resolveCombatantCraftSkillLevel(context.attacker, craftSkillKind);
+    }
     if (variable === 'target.hp') {
         return (context) => context.target.hp;
     }
@@ -1016,6 +1034,10 @@ function resolveSkillFormulaVar(variable, context) {
     }
     if (variable === 'caster.maxQi') {
         return context.attacker.maxQi;
+    }
+    const craftSkillKind = resolveCraftSkillKindFromFormulaVar(variable);
+    if (craftSkillKind) {
+        return resolveCombatantCraftSkillLevel(context.attacker, craftSkillKind);
     }
     if (variable === 'target.hp') {
         return context.target.hp;

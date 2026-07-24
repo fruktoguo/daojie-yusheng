@@ -1539,7 +1539,18 @@ async function testArtsCandidateAcceptsStrengthShape(): Promise<void> {
       structureStrength: { damage: 4, cost: 0, cooldown: 1, chant: 0, castRange: 3, area: 1 },
       formulaStrength: {
         attributeBases: { spellAtk: 4, resolvePower: 1 },
-        percentBonuses: { moveSpeed: 0 },
+        percentBonuses: {
+          moveSpeed: 1,
+          realmLevel: 1,
+          alchemyLevel: 1,
+          forgingLevel: 1,
+          enhancementLevel: 1,
+          transmissionLevel: 1,
+          gatherLevel: 1,
+          miningLevel: 1,
+          buildingLevel: 1,
+          formationLevel: 1,
+        },
       },
     }],
   }, 'arts');
@@ -1772,6 +1783,7 @@ async function testTechniquePromptIncludesRolledBudgetContext(): Promise<void> {
     strengthRules?: { calculationFormulas?: string[] };
     outputChecklist?: string[];
     outputExample?: { skills?: { target?: { targetMode?: string } }[] };
+    allowedPercentBonusKeys?: string[];
   };
   assert.equal(artsPayload.generationContext?.grade, 'earth');
   assert.equal(artsPayload.generationContext?.realmLv, 43);
@@ -1781,6 +1793,19 @@ async function testTechniquePromptIncludesRolledBudgetContext(): Promise<void> {
   assertApprox(Number(artsPayload.budgetContext?.actualTotalBudget), calcArtsBudgetMax('earth', 43) * 1.1, 0.0001);
   assert.ok(artsPayload.strengthRules?.calculationFormulas?.some((entry) => entry.includes('itemBudget')));
   assert.ok(artsPayload.outputChecklist?.some((entry) => entry.includes('普通范围伤害术法的 targetMode 必须优先使用 any')));
+  assert.deepEqual(artsPayload.allowedPercentBonusKeys, [
+    'techLevel',
+    'moveSpeed',
+    'realmLevel',
+    'alchemyLevel',
+    'forgingLevel',
+    'enhancementLevel',
+    'transmissionLevel',
+    'gatherLevel',
+    'miningLevel',
+    'buildingLevel',
+    'formationLevel',
+  ]);
   assert.equal(artsPayload.outputExample?.skills?.[0]?.target?.targetMode, 'any');
 
   const internalPrompt = buildTechniquePrompt({

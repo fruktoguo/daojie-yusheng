@@ -125,7 +125,7 @@ GM 可通过原生 GM API 或“功法管理 → 手工创建”面板提交自�
 
 - 公共字段：`name`（2-20 个字符）、`desc`（最多 500 个字符）、`category`（`internal`/`arts`）、`grade`、`realmLv`（1-127）、`maxLayer`（3-49）、`expDifficulty`（0.5-2）、`budgetPercent`（0.8-1.2）。数值必须是 JSON number，未知字段拒绝。
 - `internal` 只接受六维 `attrRatio`，至少两个权重大于 0，不接受技能草稿。
-- `arts` 必须且只能有一个技能；技能可指定伤害类型、五行、目标形状/模式、六项 `structureStrength` 权重、1-5 项 `formulaStrength.attributeBases` 和 `techLevel`/`moveSpeed` 百分比权重。权重只表示预算分配，不是真实伤害或冷却值。
+- `arts` 必须且只能有一个技能；技能可指定伤害类型、五行、目标形状/模式、六项 `structureStrength` 权重、1-5 项 `formulaStrength.attributeBases`，以及功法层数、移动速度、境界等级和八项技艺等级百分比权重。八项技艺为炼丹、炼器、强化、传法、采集、挖矿、营造、阵法；权重只表示预算分配，不是真实伤害或冷却值。
 - `create` 必须携带 1-64 位 `operationId`。相同 operationId 和相同请求指纹会返回已有功法而不重复发布；相同 operationId 对应不同请求会拒绝。同名已发布功法也会拒绝。创建动作写入 GM 审计日志。
 
 服务端把权重展开成正式逐层属性和运行时 `SkillDef` 后再持久化；`validation_report.manual` 保留规范化输入、operationId 和请求指纹，便于 GM 回读和审计。现有已发布功法不提供原地编辑入口，修改应使用新的 operationId 和名称。
@@ -207,6 +207,7 @@ realValue = convertByItem(itemBudget)
 - 旧草稿里的 `target.castRangeWeight/areaWeight` 仍可作为兼容输入读取；新 AI 生成入口应写 `structureStrength.castRange/area`。
 - 负权重会让本项变差，并按绝对权重折算牺牲预算加入正向预算池，由正权重项目继续瓜分。
 - 冷却、消耗、施法距离、范围覆盖、属性基底和百分比组各自使用独立转换公式。
+- 百分比组中，移动速度每点按 `0.001` 计入总伤害乘区；每 1 级技艺按 100 点移动速度等价，即系数 `0.1`；每 1 级境界按 120 点移动速度等价，即系数 `0.12`。技艺等级由服务端权威玩家运行态读取，任一技艺升级都会使相关技能伤害缓存失效。
 - 有最小值或最大值的项目先展开真实值，再按真实可生效值反推已使用预算。
 - 每个转换方法返回真实值、已使用预算和未使用预算；触顶或离散档位暂时用不完的正预算按固定轮次平均回流到仍可增长的项目。
 

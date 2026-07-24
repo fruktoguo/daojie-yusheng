@@ -699,6 +699,97 @@ function testTargetDependentFormulaBypassesReuse(): void {
   });
 }
 
+function testCraftSkillFormulaUsesAllLevelsAndInvalidatesReuse(): void {
+  const craftFormulaVars = [
+    'caster.craft.alchemy.level',
+    'caster.craft.forging.level',
+    'caster.craft.enhancement.level',
+    'caster.craft.transmission.level',
+    'caster.craft.gather.level',
+    'caster.craft.mining.level',
+    'caster.craft.building.level',
+    'caster.craft.formation.level',
+  ];
+  const skill = {
+    id: 'skill.craft_level_formula',
+    name: '百艺归元',
+    cost: 0,
+    cooldown: 1,
+    range: 1,
+    effects: [{
+      type: 'damage',
+      damageKind: 'spell',
+      formula: {
+        op: 'mul',
+        args: [
+          100,
+          {
+            op: 'add',
+            args: [
+              1,
+              { var: 'caster.stat.moveSpeed', scale: 0.001 },
+              { var: 'caster.realmLv', scale: 0.12 },
+              ...craftFormulaVars.map((variable) => ({ var: variable, scale: 0.1 })),
+            ],
+          },
+        ],
+      },
+    }],
+  };
+  const attacker = createCaster(skill, 'instance:craft-formula');
+  attacker.realmLv = 42;
+  attacker.realm = { realmLv: 42 };
+  attacker.attrs.numericStats.moveSpeed = 1_000;
+  attacker.alchemySkill = { level: 1 };
+  attacker.forgingSkill = { level: 2 };
+  attacker.enhancementSkill = { level: 3 };
+  attacker.transmissionSkill = { level: 4 };
+  attacker.gatherSkill = { level: 5 };
+  attacker.miningSkill = { level: 6 };
+  attacker.buildingSkill = { level: 7 };
+  attacker.formationSkill = { level: 8 };
+
+  const playerCombatService = new PlayerCombatService({} as any);
+  const resolved = { skill, level: 1, readyTick: 0, skipQiCost: true, skipCooldownCheck: true };
+  const options = {
+    isTileTarget: true,
+    skipResourceAndCooldown: true,
+    skipRangeValidation: true,
+    formulaCacheOwner: attacker,
+    targetCount: 1,
+  };
+  playerCombatService.resetSkillDamageCacheStats();
+  const first = playerCombatService.executeResolvedSkillCast(
+    playerCombatService.createCombatPlayerState(attacker),
+    createTileCombatTarget(100_000),
+    resolved,
+    1,
+    0,
+    {},
+    options,
+  );
+  assert.equal(first.totalDamage, 1_064);
+
+  attacker.alchemySkill.level = 11;
+  const second = playerCombatService.executeResolvedSkillCast(
+    playerCombatService.createCombatPlayerState(attacker),
+    createTileCombatTarget(100_000),
+    resolved,
+    2,
+    0,
+    {},
+    options,
+  );
+  assert.equal(second.totalDamage, 1_164);
+  assert.deepEqual(playerCombatService.getSkillDamageCacheStats(), {
+    formulaHits: 0,
+    formulaMisses: 2,
+    tilePipelineHits: 0,
+    tilePipelineMisses: 2,
+    bypasses: 0,
+  });
+}
+
 async function main(): Promise<void> {
   testDamageAggregationBoundary();
   await testLargeTileCastBatchesAuthorityAndPresentation();
@@ -707,6 +798,7 @@ async function main(): Promise<void> {
   testMiningExpBatchMatchesSequentialSettlement();
   testSpecialTileFallsBackToSingleMutation();
   testTargetDependentFormulaBypassesReuse();
+  testCraftSkillFormulaUsesAllLevelsAndInvalidatesReuse();
   testDamageSummaryProtobufRoundTrip();
   console.log(JSON.stringify({
     ok: true,

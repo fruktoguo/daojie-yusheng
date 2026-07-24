@@ -14,6 +14,7 @@ import {
   CUSTOM_TECHNIQUE_NAME_MIN_LENGTH,
   ELEMENT_KEYS,
   TECHNIQUE_ARTS_STRENGTH_ALLOWED_ATTRIBUTE_BASE_STATS,
+  TECHNIQUE_ARTS_STRENGTH_PERCENT_BONUS_KEYS,
   TECHNIQUE_GRADE_ORDER,
   TECHNIQUE_INTERNAL_BUDGET_PERCENT_RANGE,
   TECHNIQUE_INTERNAL_EXP_DIFFICULTY_RANGE,
@@ -59,8 +60,7 @@ const TARGET_MODES = new Set(['any', 'entity', 'tile']);
 const STRUCTURE_KEYS = ['damage', 'cost', 'cooldown', 'chant', 'castRange', 'area'] as const;
 const STRUCTURE_KEY_SET = new Set<string>(STRUCTURE_KEYS);
 const FORMULA_KEYS = new Set(['attributeBases', 'percentBonuses']);
-const PERCENT_BONUS_KEYS = ['techLevel', 'moveSpeed'] as const;
-const PERCENT_BONUS_KEY_SET = new Set<string>(PERCENT_BONUS_KEYS);
+const PERCENT_BONUS_KEY_SET = new Set<string>(TECHNIQUE_ARTS_STRENGTH_PERCENT_BONUS_KEYS);
 const DAMAGE_KINDS = new Set(['physical', 'spell']);
 const ELEMENT_KEY_SET = new Set<string>(ELEMENT_KEYS);
 const ATTR_KEY_SET = new Set<string>(ATTR_KEYS);
@@ -317,7 +317,7 @@ function normalizeFormulaStrength(
   }
   rejectUnknownKeys(rawPercentBonuses, PERCENT_BONUS_KEY_SET, 'skills[0].formulaStrength.percentBonuses', errors);
   const percentBonuses: NonNullable<GmCustomTechniqueArtsSkillInput['formulaStrength']['percentBonuses']> = {};
-  for (const key of PERCENT_BONUS_KEYS) {
+  for (const key of TECHNIQUE_ARTS_STRENGTH_PERCENT_BONUS_KEYS) {
     if (!(key in rawPercentBonuses)) continue;
     const value = rawPercentBonuses[key];
     if (typeof value !== 'number' || !Number.isFinite(value) || value < -100 || value > 100) {

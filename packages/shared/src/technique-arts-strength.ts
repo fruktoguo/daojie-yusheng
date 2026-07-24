@@ -12,9 +12,18 @@ import {
   TECHNIQUE_ARTS_STRENGTH_ALLOWED_ATTRIBUTE_BASE_STATS,
   TECHNIQUE_ARTS_STRENGTH_ATTRIBUTE_BASE_COSTS,
   TECHNIQUE_ARTS_STRENGTH_CONSTANTS,
+  TECHNIQUE_ARTS_STRENGTH_PERCENT_BONUS_KEYS,
+  TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_KEYS,
+  TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_SOURCE_BY_KEY,
+  type TechniqueArtsStrengthPercentBonusKey,
+  type TechniqueArtsStrengthScalarPercentBonusKey,
 } from './constants/gameplay/technique-arts-strength';
 
 export type TechniqueArtsStrengthAttributeBaseStat = typeof TECHNIQUE_ARTS_STRENGTH_ALLOWED_ATTRIBUTE_BASE_STATS[number];
+export type {
+  TechniqueArtsStrengthPercentBonusKey,
+  TechniqueArtsStrengthScalarPercentBonusKey,
+} from './constants/gameplay/technique-arts-strength';
 
 export type TechniqueArtsStrengthTargetType = 'single' | 'line' | 'box' | 'area' | 'orientedBox' | 'ring' | 'checkerboard';
 
@@ -44,10 +53,7 @@ export interface TechniqueArtsStrengthStructureInput {
 export interface TechniqueArtsStrengthFormulaInput {
   attributeBases?: Partial<Record<TechniqueArtsStrengthAttributeBaseStat, number>>;
   extraBaseVars?: Record<string, number>;
-  percentBonuses?: {
-    techLevel?: number;
-    moveSpeed?: number;
-  };
+  percentBonuses?: Partial<Record<TechniqueArtsStrengthPercentBonusKey, number>>;
   extraPercentBonuses?: Record<string, number>;
   rawFormula?: SkillFormula;
 }
@@ -120,10 +126,7 @@ export interface NormalizedTechniqueArtsStrengthStructure {
 export interface NormalizedTechniqueArtsStrengthFormula {
   attributeBases: Partial<Record<TechniqueArtsStrengthAttributeBaseStat, number>>;
   extraBaseVars: Record<string, number>;
-  percentBonuses: {
-    techLevel: number;
-    moveSpeed: number;
-  };
+  percentBonuses: Record<TechniqueArtsStrengthPercentBonusKey, number>;
   extraPercentBonuses: Record<string, number>;
   rawFormula?: SkillFormula;
   effectStrength: number;
@@ -403,18 +406,14 @@ function normalizeFormula(raw: unknown): NormalizedTechniqueArtsStrengthFormula 
   const bases = normalizeAttributeBases(source.attributeBases);
   const extraBaseVars = normalizeFormulaVarScales(source.extraBaseVars);
   const percentSource = isRecord(source.percentBonuses) ? source.percentBonuses : {};
-  const percentBonuses = {
-    techLevel: clamp(
-      toFiniteNumber(percentSource.techLevel, 0),
+  const percentBonuses = {} as Record<TechniqueArtsStrengthPercentBonusKey, number>;
+  for (const key of TECHNIQUE_ARTS_STRENGTH_PERCENT_BONUS_KEYS) {
+    percentBonuses[key] = clamp(
+      toFiniteNumber(percentSource[key], 0),
       TECHNIQUE_ARTS_STRENGTH_CONSTANTS.percentBonuses.minStrength,
       TECHNIQUE_ARTS_STRENGTH_CONSTANTS.percentBonuses.maxStrength,
-    ),
-    moveSpeed: clamp(
-      toFiniteNumber(percentSource.moveSpeed, 0),
-      TECHNIQUE_ARTS_STRENGTH_CONSTANTS.percentBonuses.minStrength,
-      TECHNIQUE_ARTS_STRENGTH_CONSTANTS.percentBonuses.maxStrength,
-    ),
-  };
+    );
+  }
   const extraPercentBonuses = normalizeFormulaVarScales(source.extraPercentBonuses);
   const effectStrength = rawFormula
     ? calculateRawFormulaStrength(rawFormula)
@@ -488,7 +487,9 @@ function calculateFormulaEffectStrength(
     total += Math.abs(value);
   }
   total += Math.max(0, percentBonuses.techLevel);
-  total += Math.abs(percentBonuses.moveSpeed);
+  for (const key of TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_KEYS) {
+    total += Math.abs(percentBonuses[key]);
+  }
   for (const value of Object.values(extraPercentBonuses)) {
     total += Math.abs(value);
   }
@@ -637,13 +638,16 @@ function buildBudgetItems(skill: NormalizedTechniqueArtsStrengthSkill): BudgetIt
       varName: 'techLevel',
     });
   }
-  if (skill.formula.percentBonuses.moveSpeed !== 0) {
-    items.push({
-      key: 'formula.percentBonuses.moveSpeed',
-      kind: 'percentBonus',
-      weight: skill.formula.percentBonuses.moveSpeed,
-      varName: 'moveSpeed',
-    });
+  for (const key of TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_KEYS) {
+    const weight = skill.formula.percentBonuses[key];
+    if (weight !== 0) {
+      items.push({
+        key: `formula.percentBonuses.${key}`,
+        kind: 'percentBonus',
+        weight,
+        varName: key,
+      });
+    }
   }
   for (const [varName, weight] of Object.entries(skill.formula.extraPercentBonuses)) {
     if (weight !== 0) {
@@ -1035,13 +1039,14 @@ function convertFormulaBudget(
   damageConversion: BudgetConversionResult<number>,
 ): ConvertedFormulaBudget {
   const extraBaseItems = items.filter((item) => item.kind === 'extraBaseVar' && item.varName);
+  const convertedPercentBonuses = {} as Record<TechniqueArtsStrengthPercentBonusKey, number>;
+  for (const key of TECHNIQUE_ARTS_STRENGTH_PERCENT_BONUS_KEYS) {
+    convertedPercentBonuses[key] = readAllocatedBudget(allocations, `formula.percentBonuses.${key}`);
+  }
   const converted: NormalizedTechniqueArtsStrengthFormula = {
     attributeBases: {},
     extraBaseVars: {},
-    percentBonuses: {
-      techLevel: readAllocatedBudget(allocations, 'formula.percentBonuses.techLevel'),
-      moveSpeed: readAllocatedBudget(allocations, 'formula.percentBonuses.moveSpeed'),
-    },
+    percentBonuses: convertedPercentBonuses,
     extraPercentBonuses: {},
     rawFormula: formula.rawFormula,
     effectStrength: 0,
@@ -1079,9 +1084,16 @@ function convertFormulaBudget(
     if (item.kind === 'percentBonus' && item.varName === 'techLevel') {
       converted.percentBonuses.techLevel = allocatedBudget;
       breakdownItems.push(buildBreakdownItem(item, allocatedBudget, allocatedBudget, 0, calculateTechLevelScale(allocatedBudget)));
-    } else if (item.kind === 'percentBonus' && item.varName === 'moveSpeed') {
-      converted.percentBonuses.moveSpeed = Math.max(0, allocatedBudget);
-      breakdownItems.push(buildBreakdownItem(item, allocatedBudget, allocatedBudget, 0, roundTo(Math.max(0, allocatedBudget) * TECHNIQUE_ARTS_STRENGTH_CONSTANTS.percentBonuses.moveSpeedScalePerStrength, 6)));
+    } else if (item.kind === 'percentBonus' && isScalarPercentBonusKey(item.varName)) {
+      const finalBudget = Math.max(0, allocatedBudget);
+      converted.percentBonuses[item.varName] = finalBudget;
+      breakdownItems.push(buildBreakdownItem(
+        item,
+        allocatedBudget,
+        allocatedBudget,
+        0,
+        calculateScalarPercentBonusScale(item.varName, finalBudget),
+      ));
     } else if (item.varName) {
       converted.extraPercentBonuses[item.varName] = allocatedBudget;
       breakdownItems.push(buildBreakdownItem(item, allocatedBudget, allocatedBudget, 0, allocatedBudget));
@@ -1282,16 +1294,14 @@ function buildDamageFormula(
       scale: calculateTechLevelScale(formula.percentBonuses.techLevel),
     },
   ];
-  const moveSpeedScale = roundTo(
-    Math.max(0, formula.percentBonuses.moveSpeed)
-    * TECHNIQUE_ARTS_STRENGTH_CONSTANTS.percentBonuses.moveSpeedScalePerStrength,
-    6,
-  );
-  if (moveSpeedScale !== 0) {
-    percentArgs.push({
-      var: 'caster.stat.moveSpeed',
-      scale: moveSpeedScale,
-    });
+  for (const key of TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_KEYS) {
+    const scale = calculateScalarPercentBonusScale(key, formula.percentBonuses[key]);
+    if (scale !== 0) {
+      percentArgs.push({
+        var: TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_SOURCE_BY_KEY[key].formulaVar,
+        scale,
+      });
+    }
   }
   for (const [key, value] of Object.entries(formula.extraPercentBonuses)) {
     percentArgs.push({
@@ -1423,6 +1433,24 @@ function isSkillFormula(value: unknown): value is SkillFormula {
 function calculateTechLevelScale(strength: number): number {
   const base = TECHNIQUE_ARTS_STRENGTH_CONSTANTS.percentBonuses.techLevelScaleBase;
   return roundTo(Math.max(0, base * (1 + strength)), 6);
+}
+
+function isScalarPercentBonusKey(value: string | undefined): value is TechniqueArtsStrengthScalarPercentBonusKey {
+  return typeof value === 'string'
+    && Object.prototype.hasOwnProperty.call(TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_SOURCE_BY_KEY, value);
+}
+
+function calculateScalarPercentBonusScale(
+  key: TechniqueArtsStrengthScalarPercentBonusKey,
+  strength: number,
+): number {
+  const source = TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_SOURCE_BY_KEY[key];
+  return roundTo(
+    Math.max(0, strength)
+    * TECHNIQUE_ARTS_STRENGTH_CONSTANTS.percentBonuses.moveSpeedScalePerStrength
+    * source.moveSpeedEquivalent,
+    6,
+  );
 }
 
 function buildTargetingDef(target: NormalizedTechniqueArtsStrengthTarget): SkillTargetingDef | undefined {

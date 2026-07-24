@@ -9,6 +9,7 @@ import type {
   GmPreviewCustomTechniqueRes,
   TechniqueArtsStrengthAttributeBaseStat,
 } from '@mud/shared';
+import { TECHNIQUE_ARTS_STRENGTH_PERCENT_BONUS_KEYS } from '@mud/shared';
 
 const ATTR_KEYS = ['constitution', 'spirit', 'perception', 'talent', 'strength', 'meridians'] as const satisfies readonly AttrKey[];
 const ATTRIBUTE_BASE_KEYS = [
@@ -26,7 +27,7 @@ const ATTRIBUTE_BASE_KEYS = [
   'resolvePower',
 ] as const satisfies readonly TechniqueArtsStrengthAttributeBaseStat[];
 const STRUCTURE_KEYS = ['damage', 'cost', 'cooldown', 'chant', 'castRange', 'area'] as const;
-const BONUS_KEYS = ['techLevel', 'moveSpeed'] as const;
+const BONUS_KEYS = TECHNIQUE_ARTS_STRENGTH_PERCENT_BONUS_KEYS;
 
 export interface GmCustomTechniqueEditorOptions {
   apiBasePath: string;

@@ -7,7 +7,10 @@ import type { AttrKey, Attributes } from './attribute-types';
 import type { TechniqueCategory, TechniqueGrade, TechniqueLayerDef, TechniqueTemplate } from './cultivation-types';
 import type { ElementKey } from './numeric';
 import type { SkillDamageKind } from './skill-types';
-import type { TechniqueArtsStrengthAttributeBaseStat } from './technique-arts-strength';
+import type {
+  TechniqueArtsStrengthAttributeBaseStat,
+  TechniqueArtsStrengthPercentBonusKey,
+} from './technique-arts-strength';
 
 export type GmCustomTechniqueCategory = Extract<TechniqueCategory, 'internal' | 'arts'>;
 export type GmCustomTechniqueTargetType = 'single' | 'line' | 'box' | 'area';
@@ -24,10 +27,7 @@ export interface GmCustomTechniqueStructureStrengthInput {
 
 export interface GmCustomTechniqueFormulaStrengthInput {
   attributeBases: Partial<Record<TechniqueArtsStrengthAttributeBaseStat, number>>;
-  percentBonuses?: {
-    techLevel?: number;
-    moveSpeed?: number;
-  };
+  percentBonuses?: Partial<Record<TechniqueArtsStrengthPercentBonusKey, number>>;
 }
 
 export interface GmCustomTechniqueArtsSkillInput {

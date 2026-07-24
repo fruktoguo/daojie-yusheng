@@ -10,6 +10,7 @@ import type { BuffSustainCostDef, EquipmentConditionGroup } from './item-runtime
 import type { QiProjectionModifier } from './qi';
 import type { BuffCategory, BuffModifierMode, BuffVisibility, VisibleBuffState } from './world-core-types';
 import type { TargetingShape } from './targeting';
+import type { CraftEffectSkillKind } from './craft-effect-stats';
 
 /** 技能定义。 */
 export type SkillDamageKind = 'physical' | 'spell';
@@ -34,7 +35,8 @@ export type SkillFormulaVar =
   | `caster.attr.${AttrKey}`
   | `target.attr.${AttrKey}`
   | `caster.stat.${NumericScalarStatKey}`
-  | `target.stat.${NumericScalarStatKey}`;
+  | `target.stat.${NumericScalarStatKey}`
+  | `caster.craft.${CraftEffectSkillKind}.level`;
 
 /** 技能公式（递归结构：常数/变量引用/运算表达式）。 */
 export type SkillFormula =

@@ -20,6 +20,10 @@ import { WorldRuntimeThreatService } from './world-runtime-threat.service';
 import { resolvePlayerDisplayName } from '../../player/player-display-name';
 import { resolveSuppressedMonsterNumericStats } from './formation-combat-effect.helpers';
 import {
+    resolveCombatantCraftSkillLevel,
+    resolveCraftSkillKindFromFormulaVar,
+} from '../../combat/skill-formula-craft-level.helpers';
+import {
     buildPlayerSkillDamageSummaryEffect,
     buildPlayerSkillSummaryNotice,
     createPlayerSkillCastSummary,
@@ -495,6 +499,10 @@ function resolveCasterSkillFormulaVar(variable, attacker, techLevel, targetCount
     }
     if (variable === 'caster.maxQi') {
         return attacker.maxQi ?? 0;
+    }
+    const craftSkillKind = resolveCraftSkillKindFromFormulaVar(variable);
+    if (craftSkillKind) {
+        return resolveCombatantCraftSkillLevel(attacker, craftSkillKind);
     }
     if (typeof variable === 'string' && variable.startsWith('caster.attr.')) {
         return attacker.attrs?.finalAttrs?.[variable.slice('caster.attr.'.length)] ?? 0;

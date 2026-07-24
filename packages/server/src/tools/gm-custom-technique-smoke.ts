@@ -1,6 +1,13 @@
 /** GM 手工功法构建、预算水合和幂等发布烟测。 */
 import assert from 'node:assert/strict';
-import type { GmCustomTechniqueInput, TechniqueTemplate } from '@mud/shared';
+import {
+  TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_KEYS,
+  TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_SOURCE_BY_KEY,
+  type GmCustomTechniqueInput,
+  type SkillFormula,
+  type SkillFormulaVar,
+  type TechniqueTemplate,
+} from '@mud/shared';
 import type { Pool } from 'pg';
 
 import { normalizeTechniqueTemplate } from '../content/content-template-utils';
@@ -81,7 +88,19 @@ function testArtsExpansion(): void {
       },
       formulaStrength: {
         attributeBases: { spellAtk: 100, maxQi: 10 },
-        percentBonuses: { techLevel: 15, moveSpeed: -5 },
+        percentBonuses: {
+          techLevel: 0,
+          moveSpeed: 10,
+          realmLevel: 10,
+          alchemyLevel: 10,
+          forgingLevel: 10,
+          enhancementLevel: 10,
+          transmissionLevel: 10,
+          gatherLevel: 10,
+          miningLevel: 10,
+          buildingLevel: 10,
+          formationLevel: 10,
+        },
       },
     }],
   };
@@ -92,6 +111,15 @@ function testArtsExpansion(): void {
   assert.ok(Array.isArray(skill.effects) && skill.effects.length > 0);
   assert.equal('structureStrength' in (skill as unknown as Record<string, unknown>), false);
   assert.ok('artsStrength' in built.validationReport);
+  const formula = skill.effects?.[0]?.type === 'damage' ? skill.effects[0].formula : undefined;
+  const moveSpeedScale = extractFormulaVarScale(formula, 'caster.stat.moveSpeed');
+  assert.ok(moveSpeedScale > 0);
+  for (const key of TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_KEYS) {
+    const source = TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_SOURCE_BY_KEY[key];
+    const actualScale = extractFormulaVarScale(formula, source.formulaVar);
+    assert.ok(actualScale > 0, `${key} 应展开为正式公式变量`);
+    assertApprox(actualScale / moveSpeedScale, source.moveSpeedEquivalent, 0.05);
+  }
 }
 
 function testStrictValidation(): void {
@@ -157,6 +185,29 @@ function requireBuilt(result: ReturnType<typeof buildGmCustomTechnique>) {
 
 function sumAttributes(attrs: Record<string, number> | undefined): number {
   return Object.values(attrs ?? {}).reduce((sum, value) => sum + value, 0);
+}
+
+function extractFormulaVarScale(formula: SkillFormula | undefined, varName: SkillFormulaVar): number {
+  if (formula === undefined || typeof formula === 'number') {
+    return 0;
+  }
+  if ('var' in formula) {
+    return formula.var === varName ? Number(formula.scale ?? 1) : 0;
+  }
+  if ('args' in formula) {
+    for (const child of formula.args) {
+      const scale = extractFormulaVarScale(child, varName);
+      if (scale !== 0) return scale;
+    }
+  }
+  if ('value' in formula) {
+    return extractFormulaVarScale(formula.value, varName);
+  }
+  return 0;
+}
+
+function assertApprox(actual: number, expected: number, epsilon: number): void {
+  assert.ok(Math.abs(actual - expected) <= epsilon, `${actual} is not within ${epsilon} of ${expected}`);
 }
 
 interface StoredTechniqueRow {
