@@ -12,6 +12,7 @@ import {
 import type { Pool } from 'pg';
 
 import { normalizeTechniqueTemplate } from '../content/content-template-utils';
+import { preferStoredCustomTechniquePreview } from '../http/native/native-gm-generated-technique.service';
 import {
   publishGmCustomTechnique,
   type PublishGmCustomTechniqueInput,
@@ -39,6 +40,7 @@ async function main(): Promise<void> {
   testPercentBonusRefundPreservesRatio();
   testArtsExpansion();
   testStrictValidation();
+  testIdempotentPreviewUsesStoredTruth();
   await testIdempotentPublish();
   console.log(JSON.stringify({
     ok: true,
@@ -49,6 +51,7 @@ async function main(): Promise<void> {
       '触顶回流保持百分比来源原始正权重比例',
       '术法权重展开为正式 SkillDef',
       '未知字段和字符串数值被拒绝',
+      '幂等重放返回数据库已发布模板而非重新计算预览',
       '发布支持同请求重放并拒绝同键异请求和同名功法',
     ],
   }, null, 2));
@@ -272,6 +275,28 @@ function testStrictValidation(): void {
       && entry.message.includes('0 到 100')
     )));
   }
+}
+
+function testIdempotentPreviewUsesStoredTruth(): void {
+  const built = requireBuilt(buildGmCustomTechnique(internalInput, 'gen_gm_smoke_preview_truth'));
+  const recomputedPreview = {
+    template: built.template,
+    expandedLayers: built.expandedLayers,
+    fullLevelAttrs: built.fullLevelAttrs,
+    validationReport: built.validationReport,
+  };
+  const storedTemplate = structuredClone(built.template);
+  storedTemplate.name = '已发布修订版归元诀';
+  const storedValidationReport = { source: 'stored_revision' };
+  const replayPreview = preferStoredCustomTechniquePreview(recomputedPreview, {
+    template: storedTemplate,
+    validationReport: storedValidationReport,
+  });
+
+  assert.equal(replayPreview.template.name, '已发布修订版归元诀');
+  assert.deepEqual(replayPreview.validationReport, storedValidationReport);
+  assert.deepEqual(replayPreview.expandedLayers, built.expandedLayers);
+  assert.strictEqual(preferStoredCustomTechniquePreview(recomputedPreview, null), recomputedPreview);
 }
 
 async function testIdempotentPublish(): Promise<void> {

@@ -118,11 +118,16 @@ export class NativeGmGeneratedTechniqueService {
         message: 'operationId 已用于其他自定义功法请求',
       });
     }
+    let preview = toCustomTechniquePreview({ ...built, validationReport });
+    if (!published.created) {
+      const storedTechnique = await getGeneratedTechniqueForGm(pool, published.techniqueId);
+      preview = preferStoredCustomTechniquePreview(preview, storedTechnique);
+    }
     await this.generatedTechniqueStoreService.refreshAfterPublish();
     return {
       techniqueId: published.techniqueId,
       created: published.created,
-      preview: toCustomTechniquePreview({ ...built, validationReport }),
+      preview,
     };
   }
 
@@ -236,6 +241,28 @@ function toCustomTechniquePreview(
     ...(built.fullLevelAttrs ? { fullLevelAttrs: built.fullLevelAttrs } : {}),
     validationReport: built.validationReport,
   };
+}
+
+export function preferStoredCustomTechniquePreview(
+  preview: GmCustomTechniquePreview,
+  storedTechnique: Pick<GmGeneratedTechniqueDetailRes['technique'], 'template' | 'validationReport'> | null,
+): GmCustomTechniquePreview {
+  if (!storedTechnique || !isTechniqueTemplateRecord(storedTechnique.template)) {
+    return preview;
+  }
+  return {
+    ...preview,
+    template: storedTechnique.template,
+    validationReport: storedTechnique.validationReport ?? preview.validationReport,
+  };
+}
+
+function isTechniqueTemplateRecord(value: unknown): value is GmCustomTechniquePreview['template'] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+  const candidate = value as { id?: unknown; name?: unknown };
+  return typeof candidate.id === 'string' && typeof candidate.name === 'string';
 }
 
 function normalizeOperationId(value: unknown): string {
