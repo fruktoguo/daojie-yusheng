@@ -254,11 +254,6 @@ type MainTargetingStateSourceOptions = {
  */
 
   getAuraLevelBaseValue: () => number;
-  /**
- * formatAuraLevelText：Aura等级Text名称或显示文本。
- */
-
-  formatAuraLevelText: (auraValue: number) => string;
   getWangQiRoomInfoAt?: (x: number, y: number) => BuildingSenseQiRoomInfo | null;
   requestWangQiFengShuiOverlay?: (x?: number, y?: number) => void;
   /**
@@ -269,37 +264,11 @@ type MainTargetingStateSourceOptions = {
   sendAction?: (actionId: string, target?: string) => void;
 };
 
-function buildSenseQiTooltipLines(tile: Tile, x: number, y: number, formatAuraLevelText: (auraValue: number) => string): string[] {
-  const lines = [t('targeting.tooltip.coordinate', { x, y })];
-  const resources = Array.isArray(tile.resources) ? tile.resources : [];
-  // 中性灵气在 resources 里优先取 'aura.refined.neutral'；没有则用 tile.aura（server 投影后的等级值）兜底，
-  // 保证感气视角下始终有一条「灵气等级 N」。
-  const neutralAuraResource = resources.find((resource) => resource.key === 'aura.refined.neutral' || resource.label === '灵气');
-  if (neutralAuraResource) {
-    const hasLevel = typeof neutralAuraResource.level === 'number' && Number.isFinite(neutralAuraResource.level);
-    lines.push(
-      hasLevel
-        ? t('targeting.tooltip.resource-level', { label: neutralAuraResource.label, level: Math.max(0, Math.round(neutralAuraResource.level as number)) })
-        : formatAuraLevelText(neutralAuraResource.effectiveValue ?? neutralAuraResource.value ?? 0),
-    );
-  } else {
-    // tile.aura 在玩家视角下是已投影的灵气等级（非原始灵气值），直接作为 level 展示，
-    // 不再走 formatAuraLevelText —— 后者会再次调用 getAuraLevel 导致永远渲染成「灵气等级 0」。
-    const auraLevel = Math.max(0, Math.round(tile.aura ?? 0));
-    lines.push(t('targeting.tooltip.resource-level', { label: t('observe.resource.aura', undefined), level: auraLevel }));
-  }
-  for (const resource of resources) {
-    if (resource === neutralAuraResource) {
-      continue;
-    }
-    const displayValue = resource.effectiveValue ?? resource.value;
-    lines.push(
-      typeof resource.level === 'number' && Number.isFinite(resource.level)
-        ? t('targeting.tooltip.resource-level', { label: resource.label, level: Math.max(0, Math.round(resource.level)) })
-        : t('targeting.tooltip.resource-value', { label: resource.label, value: formatDisplayNumber(Math.max(0, displayValue)) }),
-    );
-  }
-  return lines;
+function buildSenseQiTooltipLines(tile: Tile, x: number, y: number): string[] {
+  return [
+    t('targeting.tooltip.coordinate', { x, y }),
+    t('observe.resource.total-aura-level', { level: Math.max(0, Math.round(tile.aura ?? 0)) }),
+  ];
 }
 
 function appendSenseQiFormationLines(lines: string[], entities: readonly MainTargetingObservedEntity[], x: number, y: number): void {
@@ -699,7 +668,7 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
         return;
       }
 
-      const lines = buildSenseQiTooltipLines(tile, hoveredMapTile.x, hoveredMapTile.y, options.formatAuraLevelText);
+      const lines = buildSenseQiTooltipLines(tile, hoveredMapTile.x, hoveredMapTile.y);
       appendSenseQiFormationLines(lines, options.getLatestEntities(), hoveredMapTile.x, hoveredMapTile.y);
       showHoverTooltip(t('targeting.senseqi.title', undefined), lines);
     },

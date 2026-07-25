@@ -216,7 +216,6 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     targetingBadgeEl,
     senseQiTooltip,
     getAuraLevelBaseValue: () => panelContext.breakthroughStateSource.getAuraLevelBaseValue(),
-    formatAuraLevelText: (auraValue) => panelContext.breakthroughStateSource.formatAuraLevelText(auraValue),
     getWangQiRoomInfoAt: (x, y) => panelContext.buildingFengShuiStateSource.getSenseQiRoomInfoAt(x, y),
     requestWangQiFengShuiOverlay: (x, y) => panelContext.buildingFengShuiStateSource.requestSenseQiFengShuiOverlay(x, y),
     showToast: helpers.showToast,

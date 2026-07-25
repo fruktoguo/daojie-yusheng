@@ -50,6 +50,10 @@ Buff 可携带 `qiProjection` 字段，影响玩家灵气相关属性：
 
 投影层合成虚拟 buff（不写回运行时真源）。
 
+- 无属性凝练/逸散灵气默认按 `10000`（100%）效率吸收，再叠加功法、Buff 和属性投影。
+- 五行凝练/逸散灵气以对应灵根值作为基础吸收资格和效率：`efficiencyBp = rootValue²`，例如 50 点灵根对应 `2500`（25%），100 点对应 `10000`（100%）。
+- 服务端按最终 `efficiencyBp` 计算地块资源的 `effectiveValue` 和 `level`，客户端只负责展示。
+
 ## 相关源文件
 
 - `packages/shared/src/constants/gameplay/qi.ts` — 灵气常量

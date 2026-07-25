@@ -66,7 +66,7 @@ percentModifierToMultiplier(percent):
 5.  + 修炼态加成（realmExpPerTick, techniqueExpPerTick）
 6.  applyPercentBonuses（六维百分比 + 装备百分比）
 7.  applyRealmNumericScaling（境界等级指数/线性缩放）
-8.  applySpiritualRoots（灵根→五行伤害/减伤）
+8.  applySpiritualRoots（灵根→五行伤害/减伤；同一灵根值还由气机投影换算对应五行灵气吸收效率）
 9.  + vitalBaselineBonus
 10. buff% → pill%
 11. 世界时间视野修正

@@ -496,6 +496,46 @@ async function verifyCultivationAuraMultiplierUsesAllAbsorbableQiResources() {
     assert.ok(Math.abs(multiplier - 4.8) < 0.000001, `expected all absorbable qi multiplier 4.8, got ${multiplier}`);
 }
 
+async function verifyCultivationAuraMultiplierUsesSpiritualRootEfficiency() {
+    const log = [];
+    const deps = createDeps(log);
+    const instance = deps.getInstanceRuntime('instance:1');
+    instance.getPlayerPosition = (playerId) => playerId === 'player:1'
+        ? { x: 12, y: 8 }
+        : null;
+    instance.listTileResources = () => [
+        { resourceKey: 'aura.refined.neutral', value: 1000, sourceValue: 1000 },
+        { resourceKey: 'aura.dispersed.metal', value: 1000, sourceValue: 0 },
+    ];
+    deps.playerRuntimeService.getPlayer = (playerId) => playerId === 'player:1'
+        ? {
+            playerId,
+            spiritualRoots: {
+                metal: 50,
+                wood: 0,
+                water: 0,
+                fire: 0,
+                earth: 0,
+            },
+            techniques: { techniques: [] },
+            buffs: { buffs: [] },
+            attrBonuses: [],
+            runtimeBonuses: [],
+        }
+        : null;
+    let capturedOptions = null;
+    deps.playerRuntimeService.advanceTickForPlayerIds = (_playerIds, _tick, options) => {
+        capturedOptions = options;
+        log.push('advanceTickForPlayerIds');
+    };
+    const service = new WorldRuntimeInstanceTickOrchestrationService();
+
+    await service.advanceFrame(deps, 1000, null);
+
+    const multiplier = capturedOptions?.cultivationAuraMultiplierByPlayerId?.get('player:1');
+    assert.ok(Math.abs(multiplier - 2.25) < 0.000001, `expected spiritual-root aura multiplier 2.25, got ${multiplier}`);
+}
+
 async function verifyTemporaryTileExpiryUsesInstanceTick() {
     const log = [];
     const deps = createDeps(log);
@@ -697,6 +737,7 @@ Promise.resolve()
     .then(() => verifyCultivationAuraMultiplierUsesPlayerTileAura())
     .then(() => verifyCultivationAuraMultiplierUsesQiProjectionEfficiency())
     .then(() => verifyCultivationAuraMultiplierUsesAllAbsorbableQiResources())
+    .then(() => verifyCultivationAuraMultiplierUsesSpiritualRootEfficiency())
     .then(() => verifyTemporaryTileExpiryUsesInstanceTick())
     .then(() => verifyTileQiDrainRelocatesPlayerToSpawnOnEmptyQi())
     .then(() => verifyOperationFailuresAreIsolatedWithinTick())

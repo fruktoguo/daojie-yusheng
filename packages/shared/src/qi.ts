@@ -400,6 +400,17 @@ export function projectQiValue(rawValue: number, efficiencyBp: number): number {
   return Math.max(0, Math.round((Math.round(rawValue) * normalizeQiEfficiencyBp(efficiencyBp)) / QI_PROJECTION_BP_SCALE));
 }
 
+/** 将单系灵根值换算为对应五行灵气的吸收效率基点。 */
+export function getSpiritualRootAuraEfficiencyBp(value: number): number {
+  const normalized = Math.max(0, Math.min(100, Number.isFinite(value) ? Number(value) : 0));
+  return Math.max(0, Math.round(normalized * normalized));
+}
+
+/** 将单系灵根值换算为属性面板使用的吸收效率百分数。 */
+export function getSpiritualRootAbsorptionRate(value: number): number {
+  return getSpiritualRootAuraEfficiencyBp(value) / 100;
+}
+
 /** 将折算后的灵力值映射为灵气等级。 */
 export function getProjectedAuraLevel(auraValue: number, efficiencyBp = DEFAULT_QI_EFFICIENCY_BP, baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
   return getAuraLevel(projectQiValue(auraValue, efficiencyBp), baseValue);
