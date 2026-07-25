@@ -2764,9 +2764,94 @@ export class PlayerRuntimeService {
         if (typeof this.flushLedgerService?.isPlayerFlushAssetConflictQuarantined !== 'function') {
             return;
         }
-        if (await this.flushLedgerService.isPlayerFlushAssetConflictQuarantined(playerId)) {
-            throw new ServiceUnavailableException(`player_asset_flush_quarantined:${playerId}`);
+        if (!await this.flushLedgerService.isPlayerFlushAssetConflictQuarantined(playerId)) {
+            return;
         }
+        try {
+            const attempted = await this.tryRepairDetachedPlayerAssetFlushQuarantine(playerId);
+            if (attempted && !await this.flushLedgerService.isPlayerFlushAssetConflictQuarantined(playerId)) {
+                return;
+            }
+        }
+        catch (error) {
+            this.logger.error(
+                `离线挂机玩家登录资产隔离恢复失败：playerId=${playerId} error=${error instanceof Error ? error.message : String(error)}`,
+            );
+        }
+        throw new ServiceUnavailableException(`player_asset_flush_quarantined:${playerId}`);
+    }
+    /**
+     * 登录恢复只处理仍由本进程托管、且尚未绑定在线 session 的玩家。
+     * 资产锁覆盖数据库核对和运行时 ID 换发，避免等待 IO 时与装备、丢弃等资产操作交错。
+     */
+    async tryRepairDetachedPlayerAssetFlushQuarantine(playerId) {
+        const repair = this.flushLedgerService?.repairPlayerFlushAssetConflictQuarantines;
+        const initialPlayer = this.players.get(playerId);
+        if (typeof repair !== 'function' || !isDetachedPlayerRuntime(initialPlayer)) {
+            return false;
+        }
+        await this.runExclusiveAssetMutation([playerId], async () => {
+            const player = this.players.get(playerId);
+            if (!isDetachedPlayerRuntime(player)) {
+                throw new Error('player_asset_flush_runtime_became_active');
+            }
+            const runtimeInventoryItems = Array.isArray(player.inventory?.items)
+                ? player.inventory.items.map((item) => ({
+                    itemInstanceId: item?.itemInstanceId,
+                    itemId: item?.itemId,
+                    count: item?.count,
+                    name: item?.name,
+                    desc: item?.desc,
+                    enhanceLevel: item?.enhanceLevel,
+                    learnTechniqueId: item?.learnTechniqueId,
+                    learnTechniqueMaxLevel: item?.learnTechniqueMaxLevel,
+                    grade: item?.grade,
+                    level: item?.level,
+                    rawPayload: item?.rawPayload && typeof item.rawPayload === 'object'
+                        ? { ...item.rawPayload }
+                        : item?.rawPayload,
+                    lockedBy: item?.lockedBy,
+                }))
+                : [];
+            const summary = await repair.call(this.flushLedgerService, playerId, {
+                allowOfflineFenceRebase: true,
+                logUnresolved: false,
+                runtimeInventoryItems,
+            });
+            const remaps = Array.isArray(summary?.repairs)
+                ? summary.repairs.filter((entry) => entry?.playerId === playerId)
+                : [];
+            if (remaps.length === 0) {
+                return;
+            }
+            let changed = false;
+            for (const remap of remaps) {
+                const matches = player.inventory.items.filter((item) => (
+                    item?.itemInstanceId === remap.previousItemInstanceId
+                    && item?.itemId === remap.itemId
+                ));
+                if (matches.length === 0) {
+                    throw new Error(`player_asset_flush_runtime_remap_missing:${remap.previousItemInstanceId}`);
+                }
+                for (const item of matches) {
+                    item.itemInstanceId = remap.nextItemInstanceId;
+                    if (item.rawPayload && typeof item.rawPayload === 'object'
+                        && Object.prototype.hasOwnProperty.call(item.rawPayload, 'itemInstanceId')) {
+                        item.rawPayload.itemInstanceId = remap.nextItemInstanceId;
+                    }
+                }
+                changed = true;
+            }
+            if (changed) {
+                player.inventory.revision += 1;
+                markPlayerDirtyDomains(player, ['inventory']);
+                this.bumpPersistentRevision(player);
+            }
+            this.logger.warn(
+                `离线挂机玩家登录前已同步资产冲突换号：playerId=${playerId} remaps=${remaps.length}`,
+            );
+        });
+        return true;
     }
     /** 仅在测试 harness 缺失 RuntimeEventBusService 时打印一次警告，避免每条通知刷屏。 */
     warnNoticeFallbackOnce() {
@@ -10350,6 +10435,13 @@ function repairDuplicateInventoryItemInstanceIds(items: any[]): boolean {
 
 function normalizeInventoryItemInstanceId(value: unknown): string {
     return typeof value === 'string' ? value.trim() : '';
+}
+
+function isDetachedPlayerRuntime(player: any): boolean {
+    if (!player || typeof player !== 'object') {
+        return false;
+    }
+    return typeof player.sessionId !== 'string' || player.sessionId.trim().length === 0;
 }
 
 function findInventoryItemIndexByInstanceId(items: any[] | null | undefined, itemInstanceId: unknown): number {
