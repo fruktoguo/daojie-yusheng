@@ -218,6 +218,27 @@ realValue = convertByItem(itemBudget)
 
 系统自带功法为了迁移旧版手写 `SkillDef`，允许在 `artsStrength` 中使用显式还原参数：`target.rawRange/rawTargeting`、`structureStrength.costMultiplier/cooldownTicks` 和效果里的 `formulaStrength.rawFormula/hpFormulaStrength.rawFormula`。这些字段只用于静态系统内容等价还原旧数值，不进入 AI 生成提示词，也不改变预算公式本身。
 
+### 术法权重反推工具
+
+冷路径工具 `technique-arts-weight-solver` 可根据目标冷却、半径、消耗、目标数或公式强度反推 GM 手工术法权重。工具始终调用正式 `buildGmCustomTechnique` 展开器，只输出设计方案，不连接数据库、不发布或修改功法。
+
+```bash
+pnpm solve:technique-arts-weights -- --request request.json
+# 或从标准输入读取
+pnpm solve:technique-arts-weights -- --request - < request.json
+```
+
+请求结构：
+
+- `technique`：严格的 GM 手工术法输入。
+- `targets`：目标数组，`metric` 支持 `cooldown/radius/maxTargets/range/cost/spellAtkScale/formulaBudget/referenceFormulaValue`，`operator` 支持 `eq/lte/gte`。
+- `variables`：允许调整的权重组。同组 `keys` 绑定为同一个值，例如把移动速度、境界等级和传法等级三个百分比权重同步调整。
+- `objective`：支持 `minWeightDelta/maxSpellAtkScale/maxFormulaBudget/maxReferenceFormulaValue`。
+- `referenceFormulaVars`：仅在按参考公式值比较时提供；该值只代表技能公式结果，不包含减伤和其他战斗乘区。
+- `search`：可设置 `auto/exhaustive/adaptive`、评估上限、采样量、beam 宽度和返回数量。结果会明确标记是否完成全量穷举；自适应搜索不会冒充全局最优。
+
+变量键使用 `structure.damage`、`structure.area` 等六项结构权重，或 `percent.moveSpeed`、`percent.realmLevel`、`percent.transmissionLevel` 等百分比来源。未列入变量组的权重保持原值，可用于锁定 `cost=0`、`chant=0` 等约束。
+
 ## 炼体系统
 
 ```typescript
