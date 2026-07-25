@@ -275,6 +275,10 @@
     }
     .guided-tour-card {
       max-width: calc(100vw - 24px);
+      max-height: calc(100dvh - 24px);
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior-y: contain;
       padding: 14px 14px 12px;
       border: 1.5px solid var(--ink-black);
       border-radius: 8px;

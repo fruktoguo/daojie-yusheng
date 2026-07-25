@@ -21,6 +21,8 @@
     "proof:map-render-lifecycle": "node ./scripts/check-map-render-lifecycle.mjs",
     "proof:artifact-aura-frame-cache": "node ./scripts/prove-artifact-aura-frame-cache.mjs",
     "proof:mail-mobile-scroll": "node ./scripts/prove-mail-mobile-scroll.mjs",
+    "proof:detail-modal-mobile-scroll": "node ./scripts/prove-detail-modal-mobile-scroll.mjs",
+    "proof:guided-tour-mobile-scroll": "node ./scripts/prove-guided-tour-mobile-scroll.mjs",
     "proof:building-material-candidates": "node ./scripts/prove-building-material-candidates.mjs",
     "proof:ui-continuity": "node ./scripts/check-high-frequency-ui-continuity.mjs",
     "proof:treasure-vault-transfer-count": "node ./scripts/prove-treasure-vault-transfer-count.mjs",

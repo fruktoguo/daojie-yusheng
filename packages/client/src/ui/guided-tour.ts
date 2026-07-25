@@ -494,6 +494,7 @@ export class GuidedTour {
           : (stepCurrent >= stepTotal ? t('guided-tour.action.finish', undefined, '完成') : t('guided-tour.action.next', undefined, '下一步')))}</button>
       </div>
     `;
+    this.card.scrollTop = 0;
     this.card.querySelector<HTMLElement>('[data-guided-tour-skip]')?.addEventListener('click', () => this.dismissActiveFlow());
     this.card.querySelector<HTMLElement>('[data-guided-tour-prev]')?.addEventListener('click', () => {
       if (this.activeStepIndex > 0) {
