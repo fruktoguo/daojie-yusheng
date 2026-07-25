@@ -515,7 +515,7 @@ function toCombatPlayerState(player) {
         maxQi: player.maxQi,
         combatAttackIntensity: player.combat?.combatAttackIntensity,
         realm: player.realm,
-        realmLv: player.realm?.realmLv,
+        realmLv: resolveCombatantRealmLv(player),
         combatExp: player.combatExp,
         attrs: {
             finalAttrs: player.attrs.finalAttrs,
@@ -948,7 +948,7 @@ function compileSkillFormulaVarResolver(variable) {
         return (context) => context.techLevel;
     }
     if (variable === 'caster.realmLv') {
-        return (context) => context.attacker.realmLv ?? context.attacker.level ?? context.techLevel ?? 0;
+        return (context) => resolveCombatantRealmLv(context.attacker);
     }
     if (variable === 'targetCount') {
         return (context) => context.targetCount;
@@ -1018,7 +1018,7 @@ function resolveSkillFormulaVar(variable, context) {
         return context.techLevel;
     }
     if (variable === 'caster.realmLv') {
-        return context.attacker.realmLv ?? context.attacker.level ?? context.techLevel ?? 0;
+        return resolveCombatantRealmLv(context.attacker);
     }
     if (variable === 'targetCount') {
         return context.targetCount;

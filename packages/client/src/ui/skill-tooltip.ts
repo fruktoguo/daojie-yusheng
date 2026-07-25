@@ -18,7 +18,38 @@ import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from 
 import { t } from './i18n';
 
 /** SkillTooltipPreviewPlayer：技能提示预览玩家切片。 */
-type SkillTooltipPreviewPlayer = Pick<PlayerState, 'x' | 'y' | 'hp' | 'maxHp' | 'qi' | 'numericStats' | 'finalAttrs' | 'temporaryBuffs'>;
+type SkillTooltipPreviewPlayer = Pick<PlayerState,
+  | 'x'
+  | 'y'
+  | 'hp'
+  | 'maxHp'
+  | 'qi'
+  | 'numericStats'
+  | 'finalAttrs'
+  | 'temporaryBuffs'
+  | 'realmLv'
+  | 'realm'
+  | 'alchemySkill'
+  | 'forgingSkill'
+  | 'enhancementSkill'
+  | 'enhancementSkillLevel'
+  | 'transmissionSkill'
+  | 'gatherSkill'
+  | 'miningSkill'
+  | 'buildingSkill'
+  | 'formationSkill'
+>;
+
+const CRAFT_SKILL_FIELD_BY_FORMULA_VAR = {
+  'caster.craft.alchemy.level': 'alchemySkill',
+  'caster.craft.forging.level': 'forgingSkill',
+  'caster.craft.enhancement.level': 'enhancementSkill',
+  'caster.craft.transmission.level': 'transmissionSkill',
+  'caster.craft.gather.level': 'gatherSkill',
+  'caster.craft.mining.level': 'miningSkill',
+  'caster.craft.building.level': 'buildingSkill',
+  'caster.craft.formation.level': 'formationSkill',
+} as const;
 
 /** SkillTooltipPreviewContext：技能提示预览上下文。 */
 export interface SkillTooltipPreviewContext {
@@ -481,6 +512,8 @@ function resolvePreviewValue(varName: SkillFormulaVar, context: SkillTooltipPrev
   switch (varName) {
     case 'techLevel':
       return { value: context.techLevel ?? 0, known: context.techLevel !== undefined };
+    case 'caster.realmLv':
+      return resolveRealmLevelPreview(player);
     case 'caster.hp':
       return { value: player?.hp ?? 0, known: Boolean(player) };
     case 'caster.maxHp':
@@ -506,6 +539,12 @@ function resolvePreviewValue(varName: SkillFormulaVar, context: SkillTooltipPrev
     case 'target.maxQi':
       return target?.numericStats ? { value: target.numericStats.maxQi ?? 0, known: true } : { value: 0, known: false };
     default:
+      {
+        const craftSkillLevel = resolveCraftSkillLevelPreview(varName, player);
+        if (craftSkillLevel) {
+          return craftSkillLevel;
+        }
+      }
       if (varName.startsWith('caster.attr.')) {
         return resolveAttrValue(player, varName.slice('caster.attr.'.length) as AttrKey);
       }
@@ -520,6 +559,40 @@ function resolvePreviewValue(varName: SkillFormulaVar, context: SkillTooltipPrev
       }
       return { value: 0, known: false };
   }
+}
+
+function resolveRealmLevelPreview(
+  player: SkillTooltipPreviewPlayer | null | undefined,
+): ResolvedPreviewValue {
+  const value = Number(player?.realm?.realmLv ?? player?.realmLv);
+  return Number.isFinite(value)
+    ? { value: Math.max(1, Math.floor(value)), known: true }
+    : { value: 0, known: false };
+}
+
+function resolveCraftSkillLevelPreview(
+  varName: SkillFormulaVar,
+  player: SkillTooltipPreviewPlayer | null | undefined,
+): ResolvedPreviewValue | null {
+  if (!Object.hasOwn(CRAFT_SKILL_FIELD_BY_FORMULA_VAR, varName)) {
+    return null;
+  }
+  if (!player) {
+    return { value: 0, known: false };
+  }
+  const field = CRAFT_SKILL_FIELD_BY_FORMULA_VAR[varName as keyof typeof CRAFT_SKILL_FIELD_BY_FORMULA_VAR];
+  const skill = player[field] as { level?: unknown } | null | undefined;
+  const level = Number(skill?.level);
+  if (Number.isFinite(level)) {
+    return { value: Math.max(0, Math.floor(level)), known: true };
+  }
+  if (varName === 'caster.craft.enhancement.level') {
+    const legacyLevel = Number(player.enhancementSkillLevel);
+    if (Number.isFinite(legacyLevel)) {
+      return { value: Math.max(0, Math.floor(legacyLevel)), known: true };
+    }
+  }
+  return { value: 0, known: false };
 }
 
 /** resolveAttrValue：解析属性值。 */

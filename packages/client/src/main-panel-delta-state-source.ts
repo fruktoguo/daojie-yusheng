@@ -1172,6 +1172,8 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         player.buildingSkill = latestAttrUpdate.buildingSkill ?? player.buildingSkill;
         player.gatherSkill = latestAttrUpdate.gatherSkill ?? player.gatherSkill;
         player.enhancementSkill = latestAttrUpdate.enhancementSkill ?? player.enhancementSkill;
+        player.forgingSkill = latestAttrUpdate.forgingSkill ?? player.forgingSkill;
+        player.miningSkill = latestAttrUpdate.miningSkill ?? player.miningSkill;
         player.formationSkill = latestAttrUpdate.formationSkill ?? player.formationSkill;
         player.transmissionSkill = latestAttrUpdate.transmissionSkill ?? player.transmissionSkill;
         if (player.realm) {

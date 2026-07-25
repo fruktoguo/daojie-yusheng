@@ -737,7 +737,7 @@ function testCraftSkillFormulaUsesAllLevelsAndInvalidatesReuse(): void {
     }],
   };
   const attacker = createCaster(skill, 'instance:craft-formula');
-  attacker.realmLv = 42;
+  attacker.realmLv = 1;
   attacker.realm = { realmLv: 42 };
   attacker.attrs.numericStats.moveSpeed = 1_000;
   attacker.alchemySkill = { level: 1 };
@@ -770,6 +770,8 @@ function testCraftSkillFormulaUsesAllLevelsAndInvalidatesReuse(): void {
   );
   assert.equal(first.totalDamage, 1_064);
 
+  attacker.realm = undefined;
+  attacker.realmLv = 43;
   attacker.alchemySkill.level = 11;
   const second = playerCombatService.executeResolvedSkillCast(
     playerCombatService.createCombatPlayerState(attacker),
@@ -780,7 +782,7 @@ function testCraftSkillFormulaUsesAllLevelsAndInvalidatesReuse(): void {
     {},
     options,
   );
-  assert.equal(second.totalDamage, 1_164);
+  assert.equal(second.totalDamage, 1_176);
   assert.deepEqual(playerCombatService.getSkillDamageCacheStats(), {
     formulaHits: 0,
     formulaMisses: 2,
