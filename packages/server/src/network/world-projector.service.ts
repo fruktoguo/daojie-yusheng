@@ -64,7 +64,9 @@ type ProjectorWorldSource = {
     localContainers: unknown;
     localBuildings: unknown;
     localFormations: unknown;
-    playerIdentityPresentation: Array<[unknown, unknown, unknown]>;
+    identitySelfName: unknown;
+    identitySelfDisplayName: unknown;
+    identityVisiblePlayers: unknown;
 };
 
 const EMPTY_VISIBLE_MONSTER_BUFFS: VisibleBuffState[] = [];
@@ -78,6 +80,10 @@ function capturePlayerStateForFullPanel(player: any): any {
 export class WorldProjectorService {
     private readonly cacheByPlayerId = new Map<string, any>();
     private readonly identityProjectionByPlayerId = new Map<string, any>();
+    private readonly identityEntryProjectionBySource = new WeakMap<object, {
+        identity: object;
+        projected: object;
+    }>();
     /** AOI view 命中时 worldRevision、selfRevision 会继续前进；这里单独记录真正影响世界投影的局部来源。 */
     private readonly worldSourceByPlayerId = new Map<string, ProjectorWorldSource>();
 
@@ -248,16 +254,13 @@ export class WorldProjectorService {
         if (!view) {
             return view;
         }
-        const selfIdentity = this.resolveAccountIdentityProjection(view.playerId, view.self);
-        const self = selfIdentity
-            ? { ...view.self, ...selfIdentity }
-            : view.self;
+        const self = this.projectAccountIdentityEntry(view.playerId, view.self);
         let visiblePlayers = view.visiblePlayers;
         if (Array.isArray(view.visiblePlayers)) {
             for (let index = 0; index < view.visiblePlayers.length; index += 1) {
                 const entry = view.visiblePlayers[index];
-                const identity = this.resolveAccountIdentityProjection(entry?.playerId, entry);
-                if (!identity) {
+                const projectedEntry = this.projectAccountIdentityEntry(entry?.playerId, entry);
+                if (projectedEntry === entry) {
                     if (visiblePlayers !== view.visiblePlayers) {
                         visiblePlayers.push(entry);
                     }
@@ -266,10 +269,27 @@ export class WorldProjectorService {
                 if (visiblePlayers === view.visiblePlayers) {
                     visiblePlayers = view.visiblePlayers.slice(0, index);
                 }
-                visiblePlayers.push({ ...entry, ...identity });
+                visiblePlayers.push(projectedEntry);
             }
         }
         return self !== view.self || visiblePlayers !== view.visiblePlayers ? { ...view, self, visiblePlayers } : view;
+    }
+
+    private projectAccountIdentityEntry(playerId: unknown, source: any): any {
+        const identity = this.resolveAccountIdentityProjection(playerId, source);
+        if (!identity || !source || typeof source !== 'object') {
+            return source;
+        }
+        if (source.name === identity.name && source.displayName === identity.displayName) {
+            return source;
+        }
+        const cached = this.identityEntryProjectionBySource.get(source);
+        if (cached?.identity === identity) {
+            return cached.projected;
+        }
+        const projected = { ...source, ...identity };
+        this.identityEntryProjectionBySource.set(source, { identity, projected });
+        return projected;
     }
 
     private resolveAccountIdentityProjection(playerId: unknown, fallback: any): { name?: string; displayName?: string } | null {
@@ -338,7 +358,9 @@ function captureProjectorWorldSource(view: any, identityView: any): ProjectorWor
         localContainers: view?.localContainers,
         localBuildings: view?.localBuildings,
         localFormations: view?.localFormations,
-        playerIdentityPresentation: capturePlayerIdentityPresentation(identityView),
+        identitySelfName: identityView?.self?.name,
+        identitySelfDisplayName: identityView?.self?.displayName,
+        identityVisiblePlayers: identityView?.visiblePlayers,
     };
 }
 
@@ -360,23 +382,11 @@ function isSameProjectorWorldSource(left: ProjectorWorldSource | undefined, righ
         || !isSameProjectorSourceList(left.localGroundPiles, right.localGroundPiles)
         || !isSameProjectorSourceList(left.localContainers, right.localContainers)
         || !isSameProjectorSourceList(left.localBuildings, right.localBuildings)
-        || !isSameProjectorSourceList(left.localFormations, right.localFormations)) {
+        || !isSameProjectorSourceList(left.localFormations, right.localFormations)
+        || !Object.is(left.identitySelfName, right.identitySelfName)
+        || !Object.is(left.identitySelfDisplayName, right.identitySelfDisplayName)
+        || !isSameProjectorSourceList(left.identityVisiblePlayers, right.identityVisiblePlayers)) {
         return false;
-    }
-    const leftPresentation = left.playerIdentityPresentation;
-    const rightPresentation = right.playerIdentityPresentation;
-    if (leftPresentation.length !== rightPresentation.length) {
-        return false;
-    }
-    for (let index = 0; index < leftPresentation.length; index += 1) {
-        const previous = leftPresentation[index];
-        const current = rightPresentation[index];
-        if (!current
-            || !Object.is(previous?.[0], current[0])
-            || !Object.is(previous?.[1], current[1])
-            || !Object.is(previous?.[2], current[2])) {
-            return false;
-        }
     }
     if (hasStableProjectorAoiRevision(left) || hasStableProjectorAoiRevision(right)) {
         return hasStableProjectorAoiRevision(left)
@@ -405,25 +415,6 @@ function isSameProjectorSourceList(left: unknown, right: unknown): boolean {
         }
     }
     return true;
-}
-
-function capturePlayerIdentityPresentation(view: any): Array<[unknown, unknown, unknown]> {
-    const entries: Array<[unknown, unknown, unknown]> = [[
-        view?.playerId,
-        view?.self?.name,
-        view?.self?.displayName,
-    ]];
-    if (!Array.isArray(view?.visiblePlayers)) {
-        return entries;
-    }
-    for (const entry of view.visiblePlayers) {
-        entries.push([
-            entry?.playerId,
-            entry?.name,
-            entry?.displayName,
-        ]);
-    }
-    return entries;
 }
 
 function hasDynamicContainerCountdown(view: any, previousContainers: Map<string, any>): boolean {
