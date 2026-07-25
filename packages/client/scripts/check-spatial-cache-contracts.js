@@ -85,25 +85,6 @@ assert.doesNotMatch(terrainStaticSignatureBody, /tile\.(?:hp|maxHp|hpVisible|aur
 
 const observe = read('src/main-observe-state-source.ts');
 assert.match(observe, /activeObservedTile\.instanceId === \(player\.instanceId \?\? player\.mapId\)/);
-const observeResourceAsideStart = observe.indexOf('function buildObservedResourceAsideLines');
-const observeResourceAsideEnd = observe.indexOf('\n  function ', observeResourceAsideStart + 1);
-assert.ok(observeResourceAsideStart >= 0 && observeResourceAsideEnd > observeResourceAsideStart);
-const observeResourceAsideBody = observe.slice(observeResourceAsideStart, observeResourceAsideEnd);
-assert.match(observeResourceAsideBody, /resource\.effectiveValue/);
-assert.match(observeResourceAsideBody, /observe\.resource\.effective-yield/);
-assert.match(observeResourceAsideBody, /observe\.resource\.corresponding-level/);
-assert.doesNotMatch(observeResourceAsideBody, /observe\.resource\.(?:current-value|source-value)/);
-assert.match(observe, /label: t\('observe\.resource\.final-aura-level-label'/);
-assert.doesNotMatch(observe, /t\('observe\.resource\.qi-presence'/);
-
-const targeting = read('src/main-targeting-state-source.ts');
-const senseQiTooltipStart = targeting.indexOf('function buildSenseQiTooltipLines');
-const senseQiTooltipEnd = targeting.indexOf('\nfunction ', senseQiTooltipStart + 1);
-assert.ok(senseQiTooltipStart >= 0 && senseQiTooltipEnd > senseQiTooltipStart);
-const senseQiTooltipBody = targeting.slice(senseQiTooltipStart, senseQiTooltipEnd);
-assert.match(senseQiTooltipBody, /tile\.aura/);
-assert.match(senseQiTooltipBody, /observe\.resource\.total-aura-level/);
-assert.doesNotMatch(senseQiTooltipBody, /tile\.resources|resource\.level|effectiveValue/);
 const navigation = read('src/main-navigation-state-source.ts');
 assert.match(navigation, /pendingAutoInteraction\.instanceId !== \(player\.instanceId \?\? player\.mapId\)/);
 

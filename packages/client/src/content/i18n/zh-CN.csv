@@ -713,17 +713,14 @@ observe.portal.trigger.auto,观察,自动触发,范围D固定前端可见文本
 observe.portal.trigger.manual,观察,手动触发,范围D固定前端可见文本
 observe.resource.aura,观察,灵气,范围D固定前端可见文本
 observe.resource.aura-mark,观察,气,范围D固定前端可见文本
-observe.resource.corresponding-level,观察,对应等级：{level},范围D固定前端可见文本
 observe.resource.current-level,观察,当前等级：{level},范围D固定前端可见文本
 observe.resource.current-level-prefix,观察,当前等级：,范围D固定前端可见文本
 observe.resource.current-value,观察,当前数值：{value},范围D固定前端可见文本
-observe.resource.effective-yield,观察,有效收益：{value},范围D固定前端可见文本
-observe.resource.final-aura-level-label,观察,最终灵气等级,范围D固定前端可见文本
 observe.resource.inspect-title,观察,气机细察,范围D固定前端可见文本
 observe.resource.qi-presence,观察,气机,范围D固定前端可见文本
 observe.resource.senseqi.loading,观察,感气决运转中，正在细察此地气机。,范围D固定前端可见文本
 observe.resource.source-value,观察,原始值：{value},范围D固定前端可见文本
-observe.resource.total-aura-level,观察,最终灵气等级：{level},范围D固定前端可见文本
+observe.resource.total-aura-level,观察,总灵气等级：{level},范围D固定前端可见文本
 observe.safe-zone.center,观察,中心,范围D固定前端可见文本
 observe.safe-zone.center-value,观察,安全区中心 · 半径 {radius},范围D固定前端可见文本
 observe.safe-zone.inside-value,观察,"已处于安全区内 · 中心 ({x}, {y}) · 半径 {radius}",范围D固定前端可见文本

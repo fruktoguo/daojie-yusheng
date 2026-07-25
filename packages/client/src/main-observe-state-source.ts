@@ -712,6 +712,25 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     return [];
   }  
   /**
+ * formatObservedResourceOverview：规范化或转换ObservedResourceOverview。
+ * @param resource TileRuntimeResourceDetail 参数说明。
+ * @param fallbackLevel number 参数说明。
+ * @returns 返回ObservedResourceOverview。
+ */
+
+
+  function formatObservedResourceOverview(resource: TileRuntimeResourceDetail, fallbackLevel?: number): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (typeof resource.level === 'number') {
+      return formatDisplayInteger(Math.max(0, Math.round(resource.level)));
+    }
+    if (typeof fallbackLevel === 'number') {
+      return formatDisplayInteger(Math.max(0, Math.round(fallbackLevel)));
+    }
+    return formatDisplayNumber(Math.max(0, resource.value));
+  }  
+  /**
  * buildObservedResourceAsideLines：构建并返回目标对象。
  * @param resource TileRuntimeResourceDetail 参数说明。
  * @returns 返回ObservedResourceAsideLine列表。
@@ -723,14 +742,16 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
 
     const effectiveValue = typeof resource.effectiveValue === 'number' && Number.isFinite(resource.effectiveValue)
       ? resource.effectiveValue
-      : resource.value;
-    const effectiveLevel = typeof resource.level === 'number' && Number.isFinite(resource.level)
-      ? resource.level
-      : 0;
-    return [
-      t('observe.resource.effective-yield', { value: formatDisplayNumber(Math.max(0, effectiveValue)) }),
-      t('observe.resource.corresponding-level', { level: formatDisplayInteger(Math.max(0, Math.round(effectiveLevel))) }),
-    ];
+      : undefined;
+    const hasProjectedValue = effectiveValue !== undefined && Math.abs(effectiveValue - resource.value) > 0.005;
+    const lines = [t('observe.resource.current-value', { value: formatDisplayNumber(Math.max(0, hasProjectedValue ? effectiveValue : resource.value)) })];
+    if (hasProjectedValue) {
+      lines.push(t('observe.resource.source-value', { value: formatDisplayNumber(Math.max(0, resource.value)) }));
+    }
+    if (typeof resource.level === 'number') {
+      lines.unshift(t('observe.resource.current-level', { level: formatDisplayInteger(Math.max(0, Math.round(resource.level))) }));
+    }
+    return lines;
   }  
   /**
  * buildObservedResourceAsideCards：构建并返回目标对象。
@@ -761,7 +782,12 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
         return visibleTileResources.map((resource) => ({
           mark: resource.label.slice(0, 1),
           title: resource.label,
-          lines: buildObservedResourceAsideLines(resource),
+          lines: [
+            typeof resource.level === 'number'
+              ? t('observe.resource.current-level', { level: formatDisplayInteger(Math.max(0, Math.round(resource.level))) })
+              : t('observe.resource.current-value', { value: formatDisplayNumber(Math.max(0, resource.effectiveValue ?? resource.value)) }),
+            t('observe.resource.senseqi.loading', undefined),
+          ],
           tone: 'buff',
         }));
       }
@@ -779,10 +805,14 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       return [];
     }
     return detailResources.map((resource) => {
+      const lines = buildObservedResourceAsideLines(resource);
+      if (resource.key === 'aura' && !lines.some((line) => line.startsWith(t('observe.resource.current-level-prefix', undefined)))) {
+        lines.unshift(t('observe.resource.current-level', { level: formatObservedResourceOverview(resource, tile.aura ?? 0) }));
+      }
       return {
         mark: resource.label.slice(0, 1),
         title: resource.label,
-        lines: buildObservedResourceAsideLines(resource),
+        lines,
         tone: 'buff',
       };
     });
@@ -1243,14 +1273,22 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
           : t('observe.safe-zone.inside-value', { x: safeZone.x, y: safeZone.y, radius: safeZone.radius }),
       });
     }
-    const finalAuraLevel = typeof observedTileDetail?.aura === 'number'
-      ? observedTileDetail.aura
-      : observedTile.aura;
-    if (typeof finalAuraLevel === 'number' && finalAuraLevel > 0) {
+    if (typeof observedTileDetail?.aura === 'number' && observedTileDetail.aura > 0) {
       terrainRows.push({
-        label: t('observe.resource.final-aura-level-label', undefined),
-        value: formatDisplayInteger(Math.max(0, Math.round(finalAuraLevel))),
+        label: t('observe.resource.aura', undefined),
+        value: formatDisplayInteger(Math.max(0, Math.round(observedTileDetail.aura))),
       });
+    }
+    if ((observedTileDetail?.resources?.length ?? 0) > 0) {
+      const visibleResourceSummary = observedTileDetail!.resources!
+        .filter((resource) => resource.key !== 'aura.refined.neutral' && resource.value > 0)
+        .map((resource) => `${resource.label} ${formatDisplayNumber(Math.max(0, resource.effectiveValue ?? resource.value))}`);
+      if (visibleResourceSummary.length > 0) {
+        terrainRows.push({
+          label: t('observe.resource.qi-presence', undefined),
+          value: visibleResourceSummary.join('、'),
+        });
+      }
     }
     if (wangQiActive) {
       if (wangQiRoomInfo) {

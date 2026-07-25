@@ -44,12 +44,6 @@ const status = runVerificationSteps({
       shell: false,
     },
     {
-      label: 'world runtime qi projection',
-      command: process.execPath,
-      args: ['packages/server/dist/tools/world-runtime-qi-projection-smoke.js'],
-      shell: false,
-    },
-    {
       label: 'quick smoke',
       command: process.execPath,
       args: [

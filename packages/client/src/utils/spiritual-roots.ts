@@ -30,6 +30,12 @@ export interface SpiritualRootDescription {
   desc: string;
 }
 
+/** 将灵根数值映射为吸收效率曲线。 */
+export function getSpiritualRootAbsorptionRate(value: number): number {
+  const normalized = Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0));
+  return (normalized * normalized) / 100;
+}
+
 /** 把五行标签拼成一个连续名称。 */
 function joinElements(elements: ElementKey[]): string {
   return elements.map((element) => ELEMENT_KEY_LABELS[element]).join('');

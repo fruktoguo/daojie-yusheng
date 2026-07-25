@@ -11,12 +11,10 @@ import {
   DEFAULT_PLAYER_QI_RESOURCE_KEYS,
   DEFAULT_QI_EFFICIENCY_BP,
   calcTechniqueQiProjectionModifiers,
-  getSpiritualRootAuraEfficiencyBp,
   matchesQiProjectionSelector,
   parseQiResourceKey,
   projectQiValue,
   stackQiEfficiencyBp,
-  type HeavenGateRootValues,
   type QiProjectionModifier,
   type QiResourceDescriptor,
   type QiVisibilityLevel,
@@ -45,7 +43,6 @@ interface QiProjectionBonusState {
 }
 
 interface QiProjectionPlayerView {
-  spiritualRoots?: HeavenGateRootValues | null;
   techniques?: {
     revision?: number;
     techniques?: QiProjectionTechniqueState[] | null;
@@ -69,7 +66,6 @@ export interface PlayerQiResourceProjection {
 }
 
 interface PlayerQiProjectionCacheSignature {
-  spiritualRootsRef: HeavenGateRootValues | null | undefined;
   techniquesRevision: number;
   techniquesRef: QiProjectionTechniqueState[] | null | undefined;
   buffsRevision: number;
@@ -114,9 +110,9 @@ export function resolvePlayerQiResourceProjection(
     cache?.projections.set(resourceKey, null);
     return null;
   }
-  const baseProjection = resolveBasePlayerQiProjection(player, descriptor, resourceKey);
-  let visibility = baseProjection.visibility;
-  let efficiencyBp = baseProjection.efficiencyBp;
+  const defaultVisible = DEFAULT_PLAYER_QI_RESOURCE_KEYS.includes(resourceKey);
+  let visibility: QiVisibilityLevel = defaultVisible ? 'absorbable' : 'hidden';
+  let efficiencyBp = defaultVisible ? DEFAULT_QI_EFFICIENCY_BP : 0;
   for (const modifier of cache?.modifiers ?? collectPlayerQiProjectionModifiers(player)) {
     if (!matchesQiProjectionSelector(descriptor, resourceKey, modifier.selector)) {
       continue;
@@ -125,7 +121,7 @@ export function resolvePlayerQiResourceProjection(
       visibility = modifier.visibility;
     }
     if (modifier.efficiencyBpMultiplier !== undefined) {
-      efficiencyBp = baseProjection.visibility === 'absorbable'
+      efficiencyBp = defaultVisible
         ? stackQiEfficiencyBp(efficiencyBp, modifier.efficiencyBpMultiplier)
         : Math.max(0, efficiencyBp + modifier.efficiencyBpMultiplier - DEFAULT_QI_EFFICIENCY_BP);
     }
@@ -137,23 +133,6 @@ export function resolvePlayerQiResourceProjection(
   };
   cache?.projections.set(resourceKey, projection);
   return projection;
-}
-
-function resolveBasePlayerQiProjection(
-  player: QiProjectionPlayerView | null | undefined,
-  descriptor: QiResourceDescriptor,
-  resourceKey: string,
-): Pick<PlayerQiResourceProjection, 'visibility' | 'efficiencyBp'> {
-  if (DEFAULT_PLAYER_QI_RESOURCE_KEYS.includes(resourceKey)) {
-    return { visibility: 'absorbable', efficiencyBp: DEFAULT_QI_EFFICIENCY_BP };
-  }
-  if (descriptor.family !== 'aura' || descriptor.element === 'neutral') {
-    return { visibility: 'hidden', efficiencyBp: 0 };
-  }
-  const efficiencyBp = getSpiritualRootAuraEfficiencyBp(player?.spiritualRoots?.[descriptor.element] ?? 0);
-  return efficiencyBp > 0
-    ? { visibility: 'absorbable', efficiencyBp }
-    : { visibility: 'hidden', efficiencyBp: 0 };
 }
 
 function collectPlayerQiProjectionModifiers(player: QiProjectionPlayerView | null | undefined): QiProjectionModifier[] {
@@ -202,7 +181,6 @@ function getPlayerQiProjectionCache(
 
 function buildPlayerQiProjectionCacheSignature(player: QiProjectionPlayerView): PlayerQiProjectionCacheSignature {
   return {
-    spiritualRootsRef: player.spiritualRoots,
     techniquesRevision: normalizeRevision(player.techniques?.revision),
     techniquesRef: player.techniques?.techniques,
     buffsRevision: normalizeRevision(player.buffs?.revision),
@@ -218,7 +196,6 @@ function isSamePlayerQiProjectionCacheSignature(
   right: PlayerQiProjectionCacheSignature,
 ): boolean {
   return left.techniquesRevision === right.techniquesRevision
-    && left.spiritualRootsRef === right.spiritualRootsRef
     && left.techniquesRef === right.techniquesRef
     && left.buffsRevision === right.buffsRevision
     && left.buffsRef === right.buffsRef

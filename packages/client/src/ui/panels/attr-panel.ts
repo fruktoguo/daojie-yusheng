@@ -42,7 +42,6 @@ import {
   TileType,
   stackQiEfficiencyBp,
   getMovePointsPerTick,
-  getSpiritualRootAbsorptionRate,
   getTileTraversalCost,
 } from '@mud/shared';
 import { ATTR_KEY_LABELS, ELEMENT_KEY_LABELS } from '../../domain-labels';
@@ -68,6 +67,7 @@ import { ACTION_SHORTCUTS_CHANGED_EVENT } from '../../constants/ui/action';
 import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent, formatDisplaySignedNumber } from '../../utils/number';
 import {
   describeSpiritualRoots,
+  getSpiritualRootAbsorptionRate,
   normalizeSpiritualRoots,
   resolveSpiritualRootsFromBonuses,
 } from '../../utils/spiritual-roots';
