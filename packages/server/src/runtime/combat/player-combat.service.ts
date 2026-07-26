@@ -124,6 +124,10 @@ export class PlayerCombatService {
             ? options.resolvedSkill
             : this.resolvePlayerSkillForCast(attacker, skillId, currentTick);
         const selfState = options?.attackerCombatState ?? toCombatPlayerState(attacker);
+        const selfCastOptions = {
+            ...(options ?? {}),
+            skipTargetEffects: true,
+        };
         const result = this.executeResolvedSkillCast(selfState, selfState, resolved, currentTick, 0, {
             spendQi: (amount) => {
                 if (options?.skipResourceAndCooldown === true) {
@@ -141,13 +145,10 @@ export class PlayerCombatService {
             applySelfBuff: (buff) => {
                 this.playerRuntimeService.applyTemporaryBuff(attacker.playerId, buff);
             },
-            applyTargetBuff: (buff) => {
-                this.playerRuntimeService.applyTemporaryBuff(attacker.playerId, buff);
-            },
             applySelfHeal: (amount) => {
                 this.playerRuntimeService.healPlayer(attacker.playerId, amount);
             },
-        }, options);
+        }, selfCastOptions);
         return {
             ...result,
             targetPlayerId: attacker.playerId,
@@ -292,6 +293,9 @@ export class PlayerCombatService {
             : null;
         for (const effect of resolved.skill.effects) {
             if (effect.type === 'damage') {
+                if (options?.skipTargetEffects === true) {
+                    continue;
+                }
                 // 伤害效果：求值公式 → 结算命中/暴击/防御
                 const reusableDamage = this.resolveReusableSkillDamage(
                     effect,
@@ -335,7 +339,8 @@ export class PlayerCombatService {
             // heal 效果：求值公式 → 治疗施法者（allies 视为施法者自身）
             // skipSelfEffects 用于 AOE 多目标场景，避免 heal 重复执行
             if (effect.type === 'heal') {
-                if (options?.skipSelfEffects === true) {
+                if (options?.skipSelfEffects === true
+                    || (options?.skipTargetEffects === true && effect.target === 'target')) {
                     continue;
                 }
                 const formulaStartedAt = sectionRecorder ? performance.now() : 0;
@@ -370,6 +375,9 @@ export class PlayerCombatService {
                 }
             }
             else {
+                if (options?.skipTargetEffects === true) {
+                    continue;
+                }
                 const applyStartedAt = sectionRecorder ? performance.now() : 0;
                 handlers.applyTargetBuff?.(buff);
                 sectionRecorder?.('buffApplyTargetMs', performance.now() - applyStartedAt);

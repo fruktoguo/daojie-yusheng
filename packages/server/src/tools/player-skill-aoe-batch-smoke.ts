@@ -632,6 +632,57 @@ function testSpecialTileFallsBackToSingleMutation(): void {
   assert.equal(instance.persistentRevision, persistentRevision + 2);
 }
 
+function testSelfCastOnlyAppliesSelfDirectedEffects(): void {
+  const skill = {
+    id: 'skill.xuanjin_huilan',
+    name: '涌',
+    cost: 0,
+    cooldown: 1,
+    range: 0,
+    requiresTarget: false,
+    targeting: { shape: 'box', width: 3, height: 3, maxTargets: 9 },
+    effects: [
+      { type: 'damage', damageKind: 'spell', formula: 100 },
+      {
+        type: 'buff',
+        target: 'target',
+        buffId: 'buff.water_frost_mark',
+        name: '锁流',
+        category: 'debuff',
+        duration: 20,
+      },
+      {
+        type: 'buff',
+        target: 'self',
+        buffId: 'buff.water_glide',
+        name: '潮势',
+        category: 'buff',
+        duration: 20,
+      },
+    ],
+  };
+  const attacker = createCaster(skill, 'instance:self-cast-effects');
+  const appliedBuffIds: string[] = [];
+  const playerCombatService = new PlayerCombatService({
+    spendQi() {},
+    setSkillCooldownReadyTick() {},
+    applyTemporaryBuff(playerId: string, buff: { buffId: string }) {
+      assert.equal(playerId, attacker.playerId);
+      appliedBuffIds.push(buff.buffId);
+    },
+    healPlayer() {},
+  } as any);
+
+  const result = playerCombatService.castSelfSkill(attacker, skill.id, 1);
+
+  assert.equal(result.totalDamage, 0);
+  assert.equal(result.hitCount, 0);
+  assert.deepEqual(result.damageRolls, []);
+  assert.deepEqual(result.targetBuffs, []);
+  assert.deepEqual(result.selfBuffs.map((buff: { buffId: string }) => buff.buffId), ['buff.water_glide']);
+  assert.deepEqual(appliedBuffIds, ['buff.water_glide']);
+}
+
 function createTileCombatTarget(hp: number): any {
   return {
     runtimeId: `tile:target:${hp}`,
@@ -799,6 +850,7 @@ async function main(): Promise<void> {
   await testTargetDependentTileFormulaKeepsPerTargetResolution();
   testMiningExpBatchMatchesSequentialSettlement();
   testSpecialTileFallsBackToSingleMutation();
+  testSelfCastOnlyAppliesSelfDirectedEffects();
   testTargetDependentFormulaBypassesReuse();
   testCraftSkillFormulaUsesAllLevelsAndInvalidatesReuse();
   testDamageSummaryProtobufRoundTrip();
