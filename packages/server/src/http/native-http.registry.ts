@@ -39,6 +39,7 @@ import { NativeGmSecretController } from './native/native-gm-secret.controller';
 import { RuntimeEnvManagementService } from '../runtime/gm/runtime-env-management.service';
 import { GM_HTTP_CONTRACT } from './native/native-gm-contract';
 import { AiArtsStrengthV1ToV2Conversion } from '../gm/compat-conversions/conversions/technique/ai-arts-strength-v1-to-v2';
+import { ZeroPublishedGeneratedTechniqueChantConversion } from '../gm/compat-conversions/conversions/technique/zero-published-generated-technique-chant';
 import { DeleteEmptyCustomTechniqueBooksConversion } from '../gm/compat-conversions/conversions/technique/delete-empty-custom-technique-books';
 import { RecoverEmptyCustomTechniqueBooksConversion } from '../gm/compat-conversions/conversions/technique/recover-empty-custom-technique-books';
 import { OrphanSectBuildingVisualsConversion } from '../gm/compat-conversions/conversions/building/orphan-sect-building-visuals';
@@ -86,6 +87,7 @@ export const NATIVE_HTTP_PROVIDERS = [
   NativeGmWorkerService,
   NativeGmWorldService,
   AiArtsStrengthV1ToV2Conversion,
+  ZeroPublishedGeneratedTechniqueChantConversion,
   RecoverEmptyCustomTechniqueBooksConversion,
   DeleteEmptyCustomTechniqueBooksConversion,
   OrphanSectBuildingVisualsConversion,

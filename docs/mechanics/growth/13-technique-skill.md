@@ -217,6 +217,8 @@ realValue = convertByItem(itemBudget)
 
 已发布 AI 术法的 `generated_technique.template.skills` 不会因公式代码更新而自动重算。公式调整后，运维需要先通过 GM 快捷指令“迁移旧版AI术法草稿”从 `rawCandidate` 重新展开模板，再通过“刷新在线玩家功法模板”让在线玩家已学技能重新水合；离线玩家下次登录时读取最新模板。
 
+批量取消已发布自创术法吟唱时，使用专用 GM 兼容转换 `generated-technique-chant-zero`。它只匹配原始草稿 `structureStrength.chant < 0` 且正式 `playerCast.windupTicks > 0` 的已发布自创术法，将吟唱权重归零后通过同一套正式预算展开器重算完整 `SkillDef`；系统内置功法、草稿和已经瞬发的自创术法不在范围内。`dry-run` 返回精确目标数和目标指纹，`apply` 必须回传二者，目标在两步之间发生变化时整批拒绝。更新在单事务中完成，并保存原吟唱权重和息数作为转换审计信息；提交后刷新生成功法缓存，再通过“刷新在线玩家功法模板”更新运行时玩家，普通离线玩家下次登录时从最新模板水合。
+
 系统自带功法为了迁移旧版手写 `SkillDef`，允许在 `artsStrength` 中使用显式还原参数：`target.rawRange/rawTargeting`、`structureStrength.costMultiplier/cooldownTicks` 和效果里的 `formulaStrength.rawFormula/hpFormulaStrength.rawFormula`。这些字段只用于静态系统内容等价还原旧数值，不进入 AI 生成提示词，也不改变预算公式本身。
 
 ### 术法权重反推工具

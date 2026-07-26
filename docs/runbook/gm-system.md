@@ -66,6 +66,21 @@ curl -X POST http://127.0.0.1:11922/api/gm/mail/send \
 
 ## 安全操作
 
+### 已发布自创术法吟唱归零
+
+该转换只处理当前正式模板带吟唱、且原始生成权重 `chant < 0` 的已发布自创术法。必须先执行 `dry-run`，核对 `matchedRows`、`targetIds` 和 `targetFingerprint`；`apply` 必须使用同一次 `dry-run` 返回的目标数与指纹，任一目标发生漂移都会整批拒绝。
+
+```bash
+bash scripts/gm-api.sh post /api/gm/shortcuts/compat/generated-technique-chant-zero/dry-run '{}'
+
+bash scripts/gm-api.sh post /api/gm/shortcuts/compat/generated-technique-chant-zero/apply \
+  '{"expectedMatchedRows":90,"expectedTargetFingerprint":"<dry-run targetFingerprint>"}'
+
+bash scripts/gm-api.sh post /api/gm/shortcuts/players/refresh-online-technique-templates '{}'
+```
+
+`apply` 会在单个数据库事务中更新原始草稿、规范化模板、展开报告和正式 `SkillDef`，随后刷新生成功法缓存。在线及离线挂机玩家通过刷新接口立即更新；普通离线玩家下次登录时自动从最新模板水合。系统内置功法不属于该转换范围。
+
 ### 更新密码
 
 ```bash

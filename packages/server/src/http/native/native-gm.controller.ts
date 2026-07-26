@@ -31,6 +31,7 @@ import { NativeGmPlayerService } from './native-gm-player.service';
 import { NativeGmWorldService } from './native-gm-world.service';
 import { NativeManagedAccountService } from './native-managed-account.service';
 import { AiArtsStrengthV1ToV2Conversion } from '../../gm/compat-conversions/conversions/technique/ai-arts-strength-v1-to-v2';
+import { ZeroPublishedGeneratedTechniqueChantConversion } from '../../gm/compat-conversions/conversions/technique/zero-published-generated-technique-chant';
 import { DeleteEmptyCustomTechniqueBooksConversion } from '../../gm/compat-conversions/conversions/technique/delete-empty-custom-technique-books';
 import { RecoverEmptyCustomTechniqueBooksConversion } from '../../gm/compat-conversions/conversions/technique/recover-empty-custom-technique-books';
 import { OrphanSectBuildingVisualsConversion } from '../../gm/compat-conversions/conversions/building/orphan-sect-building-visuals';
@@ -221,6 +222,11 @@ interface RuntimeFlagBody {
   value?: boolean;
 }
 
+interface ZeroPublishedGeneratedTechniqueChantApplyBody {
+  expectedTargetFingerprint?: string;
+  expectedMatchedRows?: number;
+}
+
 interface NodeMigrationBody {
   targetNodeId?: string;
 }
@@ -275,6 +281,7 @@ export class NativeGmController {
     @Inject(NativeGmGeneratedTechniqueService) private readonly nextGmGeneratedTechniqueService: NativeGmGeneratedTechniqueService,
     @Inject(NativeGmMarketTradeService) private readonly nextGmMarketTradeService: NativeGmMarketTradeService,
     @Inject(AiArtsStrengthV1ToV2Conversion) private readonly aiArtsStrengthV1ToV2Conversion: AiArtsStrengthV1ToV2Conversion,
+    @Inject(ZeroPublishedGeneratedTechniqueChantConversion) private readonly zeroPublishedGeneratedTechniqueChantConversion: ZeroPublishedGeneratedTechniqueChantConversion,
     @Inject(RecoverEmptyCustomTechniqueBooksConversion) private readonly recoverEmptyCustomTechniqueBooksConversion: RecoverEmptyCustomTechniqueBooksConversion,
     @Inject(DeleteEmptyCustomTechniqueBooksConversion) private readonly deleteEmptyCustomTechniqueBooksConversion: DeleteEmptyCustomTechniqueBooksConversion,
     @Inject(OrphanSectBuildingVisualsConversion) private readonly orphanSectBuildingVisualsConversion: OrphanSectBuildingVisualsConversion,
@@ -1183,6 +1190,32 @@ export class NativeGmController {
     }, (actor) => this.aiArtsStrengthV1ToV2Conversion.run({
       mode: 'apply',
       actor,
+    }));
+  }
+
+  @Post('shortcuts/compat/generated-technique-chant-zero/dry-run')
+  async dryRunZeroPublishedGeneratedTechniqueChant(@Req() request: unknown) {
+    return this.zeroPublishedGeneratedTechniqueChantConversion.run({
+      mode: 'dry-run',
+      actor: extractGmActor(request),
+    });
+  }
+
+  @Post('shortcuts/compat/generated-technique-chant-zero/apply')
+  async applyZeroPublishedGeneratedTechniqueChant(
+    @Body() body: ZeroPublishedGeneratedTechniqueChantApplyBody,
+    @Req() request: unknown,
+  ) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.shortcuts.compat.generated_technique_chant_zero.apply',
+      request,
+      targetType: 'compat_conversion',
+      targetId: 'zero_published_generated_technique_chant',
+    }, (actor) => this.zeroPublishedGeneratedTechniqueChantConversion.run({
+      mode: 'apply',
+      actor,
+      expectedTargetFingerprint: body?.expectedTargetFingerprint,
+      expectedMatchedRows: body?.expectedMatchedRows,
     }));
   }
 
