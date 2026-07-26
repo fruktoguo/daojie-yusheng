@@ -204,6 +204,7 @@ realValue = convertByItem(itemBudget)
 
 - `target.type/targetMode` 只描述目标形状和目标模式，不承载预算权重。
 - `structureStrength.damage/cost/cooldown/chant/castRange/area` 是强度权重，不是真实伤害、消耗、冷却、吟唱、距离或覆盖范围。
+- `line` 目标按“中心线长度 × 固定线宽”的无圆头条带选格，施法者所在格不计入覆盖；例如射程 1、宽度 9 必须且只能覆盖 9 格，预算覆盖数、hover 最大目标数与服务端实际命中使用同一口径。
 - `chant` 的负预算会换算为真实吟唱息数并写入正式 `SkillDef.playerCast.windupTicks`；零或正预算保持瞬发。预览、hover 与服务端权威施法都读取该正式字段。
 - 旧草稿里的 `target.castRangeWeight/areaWeight` 仍可作为兼容输入读取；新 AI 生成入口应写 `structureStrength.castRange/area`。
 - 结构负权重会让本项产生真实负面效果，并按绝对权重折算牺牲预算加入正向预算池；百分比来源不接受负权重，也不产生牺牲预算。

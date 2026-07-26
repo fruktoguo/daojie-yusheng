@@ -39,6 +39,7 @@ async function main(): Promise<void> {
   testPercentBonusSynergyBalance();
   testPercentBonusRefundPreservesRatio();
   testArtsExpansion();
+  testGeneratedLineTargetingCoverage();
   testNegativeChantExpansion();
   testStrictValidation();
   testIdempotentPreviewUsesStoredTruth();
@@ -51,12 +52,47 @@ async function main(): Promise<void> {
       '百分比组合倍率按配比平衡度连续衰减并封顶',
       '触顶回流保持百分比来源原始正权重比例',
       '术法权重展开为正式 SkillDef',
+      '自创直线术法按线长乘宽度生成最大目标数',
       '负吟唱预算展开为正式玩家吟唱并通过模板水合保留',
       '未知字段和字符串数值被拒绝',
       '幂等重放返回数据库已发布模板而非重新计算预览',
       '发布支持同请求重放并拒绝同键异请求和同名功法',
     ],
   }, null, 2));
+}
+
+function testGeneratedLineTargetingCoverage(): void {
+  const built = requireBuilt(buildGmCustomTechnique({
+    name: '直线覆盖烟测术',
+    category: 'arts',
+    grade: 'spirit',
+    realmLv: 36,
+    maxLayer: 9,
+    expDifficulty: 1,
+    budgetPercent: 1.2,
+    skills: [{
+      name: '九曜横断',
+      unlockLevel: 1,
+      damageKind: 'spell',
+      target: { type: 'line', targetMode: 'any' },
+      structureStrength: {
+        damage: 1,
+        cost: 0,
+        cooldown: 0,
+        chant: 0,
+        castRange: -100,
+        area: 100,
+      },
+      formulaStrength: { attributeBases: { spellAtk: 1 } },
+    }],
+  }, 'gen_gm_smoke_line_strip'));
+  assert.deepEqual(built.template.skills?.[0]?.targeting, {
+    shape: 'line',
+    range: 1,
+    width: 9,
+    targetMode: 'any',
+    maxTargets: 9,
+  });
 }
 
 function testPercentBonusRefundPreservesRatio(): void {
