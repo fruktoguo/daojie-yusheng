@@ -10,7 +10,8 @@ import { createPanelStore } from '../../stores/create-panel-store';
 import { ATTR_KEY_LABELS, getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../../../domain-labels';
 import { ATTR_COLORS, ATTR_ICON_ATLAS_CELLS } from '../../../constants/ui/attr-panel';
 import { formatDisplayInteger, formatDisplaySignedNumber } from '../../../utils/number';
-import { FloatingTooltip } from '../../../ui/floating-tooltip';
+import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../../../ui/floating-tooltip';
+import { buildSkillTooltipContent } from '../../../ui/skill-tooltip';
 import { getLocalRealmLevelEntry } from '../../../content/local-templates';
 
 // ─── Store ───────────────────────────────────────────────────────────────────
@@ -124,6 +125,12 @@ const REALM_CHANCE_COLORS = ['#6f8f4f', '#4b9c8d', '#4f8fd8', '#7b61d1', '#b35f9
 
 let techniqueGenerationTooltip: FloatingTooltip | null = null;
 
+type TechniqueGenerationTooltipEvent = {
+  currentTarget: HTMLElement;
+  clientX: number;
+  clientY: number;
+};
+
 function getTechniqueGenerationTooltip(): FloatingTooltip | null {
   if (typeof document === 'undefined') return null;
   if (!techniqueGenerationTooltip) {
@@ -146,6 +153,36 @@ function moveTechniqueGenerationTooltip(event: PointerEvent<HTMLElement>): void 
 
 function hideTechniqueGenerationTooltip(): void {
   getTechniqueGenerationTooltip()?.hide();
+}
+
+function showTechniqueGenerationSkillTooltip(
+  skill: SkillDef,
+  event: TechniqueGenerationTooltipEvent,
+  pinned = false,
+): void {
+  const tooltip = getTechniqueGenerationTooltip();
+  if (!tooltip) {
+    return;
+  }
+  const content = buildSkillTooltipContent(skill);
+  const options = {
+    allowHtml: true,
+    asideCards: content.asideCards,
+  } as const;
+  if (pinned) {
+    tooltip.showPinned(event.currentTarget, skill.name, content.lines, event.clientX, event.clientY, options);
+    return;
+  }
+  tooltip.show(skill.name, content.lines, event.clientX, event.clientY, options);
+}
+
+function showTechniqueGenerationSkillTooltipFromAnchor(skill: SkillDef, anchor: HTMLElement): void {
+  const rect = anchor.getBoundingClientRect();
+  showTechniqueGenerationSkillTooltip(skill, {
+    currentTarget: anchor,
+    clientX: rect.left + rect.width / 2,
+    clientY: rect.top + rect.height / 2,
+  }, true);
 }
 
 function formatTechniqueGenerationRealmLabel(realmLv: number): string {
@@ -671,7 +708,58 @@ function renderPreviewSkills(skills: SkillDef[] | undefined): ReactElement {
       {sortedSkills.map((skill) => {
         const windupTicks = resolveSkillPlayerWindupTicks(skill);
         return (
-          <div key={skill.id} className="technique-generation-panel__skill">
+          <div
+            key={skill.id}
+            className="technique-generation-panel__skill"
+            role="button"
+            tabIndex={0}
+            onClick={(event) => {
+              if (!prefersPinnedTooltipInteraction()) {
+                return;
+              }
+              const tooltip = getTechniqueGenerationTooltip();
+              if (tooltip?.isPinnedTo(event.currentTarget)) {
+                tooltip.hide(true);
+                return;
+              }
+              showTechniqueGenerationSkillTooltip(skill, event, true);
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' && event.key !== ' ') {
+                return;
+              }
+              const tooltip = getTechniqueGenerationTooltip();
+              if (tooltip?.isPinnedTo(event.currentTarget)) {
+                tooltip.hide(true);
+              } else {
+                showTechniqueGenerationSkillTooltipFromAnchor(skill, event.currentTarget);
+              }
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            onPointerEnter={(event) => {
+              const tooltip = getTechniqueGenerationTooltip();
+              if (prefersPinnedTooltipInteraction() && tooltip?.isPinned()) {
+                return;
+              }
+              showTechniqueGenerationSkillTooltip(skill, event);
+            }}
+            onPointerMove={(event) => {
+              const tooltip = getTechniqueGenerationTooltip();
+              if (prefersPinnedTooltipInteraction() && tooltip?.isPinned()) {
+                return;
+              }
+              tooltip?.move(event.clientX, event.clientY);
+            }}
+            onPointerLeave={() => {
+              const tooltip = getTechniqueGenerationTooltip();
+              if (!tooltip?.isPinned()) {
+                hideTechniqueGenerationTooltip();
+              }
+            }}
+          >
             <div className="technique-generation-panel__skill-head">
               <strong>{skill.name}</strong>
               <span>解锁 Lv.{formatDisplayInteger(resolveSkillUnlockLevel(skill))}</span>
