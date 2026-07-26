@@ -74,6 +74,7 @@ AttrKey 枚举：constitution / spirit / perception / talent / strength / meridi
 const ARTS_SYSTEM_PROMPT = `你是修仙游戏的术法强度设计器。请严格输出单个 JSON 对象，不要输出代码块或解释文本。
 你只能填写强度导向的术法草稿，服务端会把 strength 权重归一化并展开成正式 SkillDef。
 所有强度预算权重只能写在 structureStrength；target 只写目标形状和点选模式；formulaStrength 只写伤害属性构成和可选百分比来源。
+除非玩家在需求中主动提及吟唱、蓄力、施法前摇或类似设定，否则通常保持 structureStrength.chant 为 0，不要自行添加吟唱时间。
 不要输出约束里没有列出的字段；不要输出 grade、realmLv、budgetPercent、totalBudget、真实伤害值、真实灵力消耗、真实冷却、真实施法距离、真实影响半径、effects、buff、heal 或技能公式。`;
 
 const ARTS_TARGET_TYPE_ENUM = ['single', 'line', 'box', 'area'] as const;

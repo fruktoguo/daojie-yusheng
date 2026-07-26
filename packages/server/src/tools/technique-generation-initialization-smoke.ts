@@ -1820,6 +1820,7 @@ async function testTechniquePromptIncludesRolledBudgetContext(): Promise<void> {
   assert.equal(artsPayload.generationContext?.budgetPercent, 1.1);
   assertApprox(Number(artsPayload.budgetContext?.actualTotalBudget), calcArtsBudgetMax('earth', 43) * 1.1, 0.0001);
   assert.ok(artsPayload.strengthRules?.calculationFormulas?.some((entry) => entry.includes('itemBudget')));
+  assert.ok(artsPrompt.systemMessage.includes('否则通常保持 structureStrength.chant 为 0'));
   assert.ok(artsPrompt.userMessage.includes('真实吟唱息数'));
   assert.ok(artsPrompt.userMessage.includes('禁止负数'));
   assert.ok(artsPrompt.userMessage.includes('CV = sqrt'));
