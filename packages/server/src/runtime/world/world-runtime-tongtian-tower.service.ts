@@ -1152,7 +1152,7 @@ function loadTongtianTowerConfig(): TongtianTowerConfig {
     exitPortalX: normalizeCoordinate(raw.exitPortalX, 10),
     exitPortalY: normalizeCoordinate(raw.exitPortalY, 17),
     spawnIntervalTicks: normalizePositiveInteger(raw.spawnIntervalTicks, 60),
-    layerChangeCooldownSeconds: normalizePositiveInteger(raw.layerChangeCooldownSeconds, 60),
+    layerChangeCooldownSeconds: normalizePositiveInteger(raw.layerChangeCooldownSeconds, 30),
     normalMonstersPerPlayer: normalizePositiveInteger(raw.normalMonstersPerPlayer, 4),
     eliteMonstersPerPlayer: normalizeNonNegativeInteger(raw.eliteMonstersPerPlayer, 1),
     idleDestroyTicks: normalizePositiveInteger(raw.idleDestroyTicks, 3600),

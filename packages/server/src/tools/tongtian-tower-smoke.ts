@@ -217,13 +217,13 @@ async function main(): Promise<void> {
   await tower.executeAction('player:first-participant', 'tower:tongtian:enter', deps);
   assert.equal(layer1.listMonsters().length, 5, '首次参与者中途加入不增加当前波次怪物');
 
-  const repeatCooldownUntilMs = deps.resolveCurrentTimeMs() + 60_000;
+  const repeatCooldownUntilMs = deps.resolveCurrentTimeMs() + 30_000;
   clearWaveMonsters(layer1);
   tower.advanceInstance(layer1, deps);
   assert.equal(
     persistence.rows.get('player:2')?.layerChangeCooldownUntilMs,
     repeatCooldownUntilMs,
-    '已通过当前层的参与者再次清层后应进入 60 秒换层冷却',
+    '已通过当前层的参与者再次清层后应进入 30 秒换层冷却',
   );
   assert.equal(
     persistence.rows.get('player:first-participant')?.highestLayer,
@@ -240,10 +240,10 @@ async function main(): Promise<void> {
     [
       {
         playerId: 'player:2',
-        text: '通天塔第 1 层已清空，需等待 60 秒后换层。',
+        text: '通天塔第 1 层已清空，需等待 30 秒后换层。',
         kind: 'success',
         key: 'notice.tower.layer-cleared-cooldown',
-        vars: { layer: 1, cooldownSeconds: 60 },
+        vars: { layer: 1, cooldownSeconds: 30 },
       },
       {
         playerId: 'player:first-participant',
@@ -258,8 +258,8 @@ async function main(): Promise<void> {
 
   const repeatedNextAction = tower.buildContextActions(layer1.buildPlayerView('player:2', 20), deps)
     .find((action) => action.id === 'tower:tongtian:next');
-  assert.equal(repeatedNextAction?.cooldownLeft, 60, '重复清层者的下一层动作应显示 60 秒冷却');
-  assert.equal(repeatedNextAction?.cooldownReadyTick, 60, '换层动作应投影稳定的玩家生命 tick 冷却终点');
+  assert.equal(repeatedNextAction?.cooldownLeft, 30, '重复清层者的下一层动作应显示 30 秒冷却');
+  assert.equal(repeatedNextAction?.cooldownReadyTick, 30, '换层动作应投影稳定的玩家生命 tick 冷却终点');
   assert.equal(
     tower.buildContextActions(layer1.buildPlayerView('player:first-participant', 20), deps)
       .find((action) => action.id === 'tower:tongtian:next')?.cooldownLeft,
@@ -268,7 +268,7 @@ async function main(): Promise<void> {
   );
   await assert.rejects(
     tower.executeAction('player:2', 'tower:tongtian:next', deps),
-    /还需 60 秒/,
+    /还需 30 秒/,
     '服务端必须拒绝处于换层冷却中的动作，不能只依赖客户端禁用按钮',
   );
   const firstParticipantLayer2View = await tower.executeAction(
@@ -277,7 +277,7 @@ async function main(): Promise<void> {
     deps,
   );
   assert.equal(firstParticipantLayer2View.instance.instanceId, 'tower:tongtian:layer:2');
-  deps.advanceTimeSeconds(59);
+  deps.advanceTimeSeconds(29);
   await assert.rejects(
     tower.executeAction('player:2', 'tower:tongtian:next', deps),
     /还需 1 秒/,

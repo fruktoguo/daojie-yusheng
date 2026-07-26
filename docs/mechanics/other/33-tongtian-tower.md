@@ -15,7 +15,7 @@
 | nextX / nextY | 17 / 10 | 前往下一层坐标 |
 | exitPortalX / exitPortalY | 10 / 17 | 退出通天塔坐标 |
 | spawnIntervalTicks | 60 | 波次间隔（息） |
-| layerChangeCooldownSeconds | 60 | 重复通关后的换层冷却（秒） |
+| layerChangeCooldownSeconds | 30 | 重复通关后的换层冷却（秒） |
 | normalMonstersPerPlayer | 4 | 每玩家普通怪数量 |
 | eliteMonstersPerPlayer | 1 | 每玩家精英怪数量 |
 | idleDestroyTicks | 3600 | 空闲销毁时间（息） |
@@ -61,7 +61,7 @@ eliteCount = playerCount × eliteMonstersPerPlayer    // = 1 × 玩家数
 - 波次开始时在场或波次中途进入的玩家均计为清层参与者
 - 所有清层参与者的 `highestLayer` 被提升
 - 玩家首次通过当前层时不进入换层冷却，可立即前往上一层或下一层
-- 已通过当前层的玩家再次参与清层后，进入 60 秒换层冷却；冷却期间不能前往上一层或下一层，但可以退出通天塔
+- 已通过当前层的玩家再次参与清层后，进入 30 秒换层冷却；冷却期间不能前往上一层或下一层，但可以退出通天塔
 - 换层冷却按玩家独立判定，并随通天塔进度持久化，重连或重启不能绕过
 - 下一波次在 `instance.tick + spawnIntervalTicks` 后生成
 

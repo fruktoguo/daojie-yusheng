@@ -18,7 +18,7 @@
   "exitPortalX": 10,
   "exitPortalY": 17,
   "spawnIntervalTicks": 60,
-  "layerChangeCooldownSeconds": 60,
+  "layerChangeCooldownSeconds": 30,
   "normalMonstersPerPlayer": 4,
   "eliteMonstersPerPlayer": 1,
   "idleDestroyTicks": 3600,
