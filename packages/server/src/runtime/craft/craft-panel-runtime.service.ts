@@ -532,7 +532,7 @@ export class CraftPanelRuntimeService {
             }
         }
     }
-    /** 强化普通进度 tick 只进入分域刷盘；资产边界仍走强事务，避免每息写 durable/outbox/审计日志。 */
+    /** 强化普通进度 tick 只进入分域刷盘；资产阶段结算走压缩强事务，不按次数追加 outbox 与审计行。 */
     queueEnhancementActiveJobFlush(player, previousSuppress = false) {
         if (!player?.enhancementJob) {
             return;
@@ -540,7 +540,7 @@ export class CraftPanelRuntimeService {
         this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
         void previousSuppress;
     }
-    /** 对强化 tick 后的资产变更做强事务提交；仅在强化任务 start/finish/stop/cancel 这类资产边界调用。 */
+    /** 对强化 tick 后的资产变更做强事务提交；中间阶段按 jobRunId 复用 durable 检查点。 */
     async commitEnhancementActiveJobWithAssets(player, action, expectedJob = null, options: {
         allowSuppressed?: boolean;
         presence?: { runtimeOwnerId: string; sessionEpoch: number } | null;

@@ -26,6 +26,72 @@ interface CommittedCounters {
   auditLogs: number;
 }
 
+class CompactedCommitReconciliationPool {
+  connectCount = 0;
+  mutationCount = 0;
+  committedRow: Record<string, unknown> | null = null;
+
+  async query(sqlInput: string, params: unknown[] = []): Promise<QueryResult<Record<string, unknown>>> {
+    const sql = String(sqlInput);
+    if (sql.includes('SELECT status, request_id FROM durable_operation_log')) {
+      if (!this.committedRow || this.committedRow.operation_id !== params[0]) {
+        return result([]);
+      }
+      return result([{
+        status: this.committedRow.status,
+        request_id: this.committedRow.request_id,
+      }]);
+    }
+    return result([]);
+  }
+
+  async connect(): Promise<PoolClient> {
+    this.connectCount += 1;
+    const attempt = this.connectCount;
+    let pendingRow: Record<string, unknown> | null = null;
+    const query = async (
+      sqlInput: string,
+      params: unknown[] = [],
+    ): Promise<QueryResult<Record<string, unknown>>> => {
+      const sql = String(sqlInput);
+      if (sql.includes('FROM durable_operation_log') && sql.includes('FOR UPDATE')) {
+        return result(this.committedRow ? [this.committedRow] : []);
+      }
+      if (sql.includes('FROM player_presence')) {
+        return result([{ runtime_owner_id: 'runtime:compact-smoke', session_epoch: 11 }]);
+      }
+      if (sql.includes('INSERT INTO durable_operation_log') && sql.includes("'committed'")) {
+        pendingRow = {
+          operation_id: params[0],
+          operation_type: params[1],
+          aggregate_type: params[2],
+          player_id: params[4],
+          runtime_owner_id: params[5],
+          session_epoch: params[6],
+          request_id: params[7],
+          payload_jsonb: JSON.parse(String(params[8] ?? '{}')),
+          status: 'committed',
+        };
+        return result([], 1);
+      }
+      if (sql.trim() === 'COMMIT') {
+        if (pendingRow) {
+          this.committedRow = pendingRow;
+        }
+        if (attempt === 1) {
+          throw new Error('simulated_compacted_commit_ack_loss_after_apply');
+        }
+        return result([]);
+      }
+      return result([], 1);
+    };
+    return {
+      query,
+      release: () => undefined,
+    } as unknown as PoolClient;
+  }
+}
+
 class CommitReconciliationPool {
   readonly counters: CommittedCounters = { commits: 0, outboxEvents: 0, auditLogs: 0 };
   connectCount = 0;
@@ -93,6 +159,9 @@ class CommitReconciliationPool {
           runtime_owner_id: 'runtime:commit-smoke',
           session_epoch: 7,
         }]);
+      }
+      if (sql.includes('AS conflicting_id') && sql.includes('player_id <> $1')) {
+        return result([]);
       }
       if (sql.includes('SELECT mail_id, claimed_at, deleted_at, expire_at')) {
         return result([{ mail_id: 'mail:commit-smoke:1', claimed_at: null, deleted_at: null, expire_at: null }]);
@@ -175,12 +244,53 @@ async function main(): Promise<void> {
   await proveCommittedReplayIgnoresRollbackAckLoss();
   await proveMailCommitAckLossIsConfirmed();
   await proveMarketCommitAckLossReturnsReplaySemantics();
+  await proveCompactedCommitAckLossIsConfirmedWithoutDuplicate();
 
   console.log(JSON.stringify({
     ok: true,
     case: 'durable-operation-commit-reconciliation',
-    answers: '通用资产、邮件与市场事务在 COMMIT 回包丢失后持续持锁收敛；状态可读后遇到锁、查询或连接瞬态错误会继续幂等重放，身份冲突仍立即失败，shutdown 会为受影响玩家和实例登记 fence。',
+    answers: '通用资产、邮件、市场与高频压缩事务在 COMMIT 回包丢失后持续持锁收敛；状态可读后遇到锁、查询或连接瞬态错误会继续幂等重放，压缩检查点不会重复执行 mutation，身份冲突仍立即失败，shutdown 会为受影响玩家和实例登记 fence。',
   }));
+}
+
+async function proveCompactedCommitAckLossIsConfirmedWithoutDuplicate(): Promise<void> {
+  const pool = new CompactedCommitReconciliationPool();
+  const service = buildService(pool as unknown as CommitReconciliationPool);
+  const mutable = service as unknown as {
+    executeAssetMutation<T>(input: Record<string, unknown>): Promise<T>;
+  };
+  const operationId = 'op:compact-smoke:formation:1';
+  const operationKey = 'compact:formation-maintenance:player:compact-smoke:job:1';
+  const mutationResult = await mutable.executeAssetMutation<{
+    ok: boolean;
+    alreadyCommitted: boolean;
+  }>({
+    operationId,
+    playerId: 'player:compact-smoke',
+    expectedRuntimeOwnerId: 'runtime:compact-smoke',
+    expectedSessionEpoch: 11,
+    operationType: 'formation_maintenance_tick',
+    aggregateType: 'instance_formation_state',
+    payload: { qiAmount: 4, formationQiAmount: 8 },
+    compaction: {
+      operationKey,
+      accumulatePayloadFields: ['qiAmount', 'formationQiAmount'],
+    },
+    onAlreadyCommitted: async () => ({ ok: true, alreadyCommitted: true }),
+    onMutate: async () => {
+      pool.mutationCount += 1;
+      return { ok: true, alreadyCommitted: false };
+    },
+  });
+  const compaction = (
+    pool.committedRow?.payload_jsonb as Record<string, unknown> | null
+  )?._compaction as Record<string, unknown> | undefined;
+  assert.deepEqual(mutationResult, { ok: true, alreadyCommitted: false });
+  assert.equal(pool.connectCount, 2);
+  assert.equal(pool.mutationCount, 1);
+  assert.equal(pool.committedRow?.operation_id, operationKey);
+  assert.equal(pool.committedRow?.request_id, operationId);
+  assert.equal(Number(compaction?.operationCount), 1);
 }
 
 function proveTransientPostgresClassificationKeepsDeterministicConflictsDistinct(): void {

@@ -19,7 +19,7 @@ async function main(): Promise<void> {
       ok: true,
       skipped: true,
       reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
-      answers: 'with-db 下阵法资源事务会原子提交玩家 inventory/wallet/vitals、formation、watermark、outbox 与 audit，并校验 presence、实例 lease/epoch 和阵法版本。',
+      answers: 'with-db 下阵法资源事务会原子提交玩家 inventory/wallet/vitals、formation 与 watermark；维护 tick 会按任务压缩 durable/审计且不产生无消费者 outbox，并校验 presence、实例 lease/epoch 和阵法版本。',
     }, null, 2));
     return;
   }
@@ -261,20 +261,116 @@ async function main(): Promise<void> {
     });
     await assertFormationMaintenanceState(pool, playerId, maintenanceJob.jobRunId, 2, 2, 1);
 
+    const secondMaintenanceJob = buildFormationMaintenanceJob(playerId, formationInstanceId, 3);
+    const secondMaintenanceInput = {
+      ...maintenanceInput,
+      operationId: `${operationPrefix}:maintenance:2`,
+      expectedFormationUpdatedAtMs: now + 22,
+      expectedJobVersion: 2,
+      nextActiveJob: secondMaintenanceJob,
+      formationWrite: {
+        formationInstanceId,
+        instanceId,
+        snapshot: buildFormationSnapshot(formationInstanceId, instanceId, now + 23, 40, 3_090),
+      },
+      nextPlayerSnapshot: buildMaintenancePlayerSnapshot(
+        now + 34,
+        instanceId,
+        60,
+        830,
+        playerId,
+        formationInstanceId,
+        3,
+        2,
+      ),
+    };
+    const secondMaintenanceResult = await durable.commitFormationMaintenanceMutation(secondMaintenanceInput);
+    if (
+      !secondMaintenanceResult.ok
+      || secondMaintenanceResult.alreadyCommitted
+      || secondMaintenanceResult.jobVersion !== 3
+    ) {
+      throw new Error(`unexpected second formation maintenance result: ${JSON.stringify(secondMaintenanceResult)}`);
+    }
+    const secondMaintenanceReplay = await durable.commitFormationMaintenanceMutation(secondMaintenanceInput);
+    if (!secondMaintenanceReplay.ok || !secondMaintenanceReplay.alreadyCommitted) {
+      throw new Error(`unexpected second formation maintenance replay: ${JSON.stringify(secondMaintenanceReplay)}`);
+    }
+    await assertFixtureState(pool, {
+      playerId,
+      formationInstanceId,
+      expectedSpiritStones: 60,
+      expectedQi: 830,
+      expectedFormationUpdatedAt: now + 23,
+      expectedFormationSpiritStones: 40,
+    });
+    await assertFormationMaintenanceState(pool, playerId, maintenanceJob.jobRunId, 3, 2, 2);
+
+    let latestMaintenanceInput = secondMaintenanceInput;
+    let latestMaintenanceResult = secondMaintenanceResult;
+    for (let operationNumber = 3; operationNumber <= 60; operationNumber += 1) {
+      const nextJob = buildFormationMaintenanceJob(playerId, formationInstanceId, operationNumber + 1);
+      latestMaintenanceInput = {
+        ...maintenanceInput,
+        operationId: `${operationPrefix}:maintenance:${operationNumber}`,
+        expectedFormationUpdatedAtMs: now + 20 + operationNumber,
+        expectedJobVersion: operationNumber,
+        nextActiveJob: nextJob,
+        formationWrite: {
+          formationInstanceId,
+          instanceId,
+          snapshot: buildFormationSnapshot(
+            formationInstanceId,
+            instanceId,
+            now + 21 + operationNumber,
+            40,
+            3_050 + operationNumber * 20,
+          ),
+        },
+        nextPlayerSnapshot: buildMaintenancePlayerSnapshot(
+          now + 32 + operationNumber,
+          instanceId,
+          60,
+          850 - operationNumber * 10,
+          playerId,
+          formationInstanceId,
+          operationNumber + 1,
+          operationNumber,
+        ),
+      };
+      latestMaintenanceResult = await durable.commitFormationMaintenanceMutation(latestMaintenanceInput);
+      if (
+        !latestMaintenanceResult.ok
+        || latestMaintenanceResult.alreadyCommitted
+        || latestMaintenanceResult.jobVersion !== operationNumber + 1
+      ) {
+        throw new Error(`unexpected compacted maintenance result: ${JSON.stringify(latestMaintenanceResult)}`);
+      }
+    }
+    await assertFixtureState(pool, {
+      playerId,
+      formationInstanceId,
+      expectedSpiritStones: 60,
+      expectedQi: 250,
+      expectedFormationUpdatedAt: now + 81,
+      expectedFormationSpiritStones: 40,
+    });
+    await assertFormationMaintenanceState(pool, playerId, maintenanceJob.jobRunId, 61, 2, 60);
+
     rejected = false;
     try {
       await durable.commitFormationMaintenanceMutation({
         ...maintenanceInput,
         operationId: `${operationPrefix}:maintenance:stale-job`,
-        expectedFormationUpdatedAtMs: now + 22,
+        expectedFormationUpdatedAtMs: now + 81,
         expectedJobVersion: 1,
         nextActiveJob: buildFormationMaintenanceJob(playerId, formationInstanceId, 2),
         formationWrite: {
           formationInstanceId,
           instanceId,
-          snapshot: buildFormationSnapshot(formationInstanceId, instanceId, now + 23, 40, 3_090),
+          snapshot: buildFormationSnapshot(formationInstanceId, instanceId, now + 82, 40, 4_270),
         },
-        nextPlayerSnapshot: buildMaintenancePlayerSnapshot(now + 34, instanceId, 60, 830, playerId, formationInstanceId, 2, 2),
+        nextPlayerSnapshot: buildMaintenancePlayerSnapshot(now + 92, instanceId, 60, 240, playerId, formationInstanceId, 2, 2),
       });
     }
     catch (error) {
@@ -287,14 +383,14 @@ async function main(): Promise<void> {
       playerId,
       formationInstanceId,
       expectedSpiritStones: 60,
-      expectedQi: 840,
-      expectedFormationUpdatedAt: now + 22,
+      expectedQi: 250,
+      expectedFormationUpdatedAt: now + 81,
       expectedFormationSpiritStones: 40,
     });
 
     const operationRows = await fetchRows(
       pool,
-      'SELECT operation_type, status FROM durable_operation_log WHERE player_id = $1 ORDER BY operation_id ASC',
+      'SELECT operation_id, request_id, operation_type, status, payload_jsonb FROM durable_operation_log WHERE player_id = $1 ORDER BY operation_id ASC',
       [playerId],
     );
     const outboxRows = await fetchRows(
@@ -304,8 +400,8 @@ async function main(): Promise<void> {
     );
     const auditRows = await fetchRows(
       pool,
-      'SELECT asset_type, action FROM asset_audit_log WHERE operation_id LIKE $1 ORDER BY operation_id ASC',
-      [`${operationPrefix}:%`],
+      'SELECT operation_id, asset_type, action, delta_jsonb FROM asset_audit_log WHERE player_id = $1 ORDER BY operation_id ASC',
+      [playerId],
     );
     const watermark = await fetchSingleRow(
       pool,
@@ -313,6 +409,12 @@ async function main(): Promise<void> {
       [playerId],
     );
     const operationTypes = operationRows.map((row) => row.operation_type).sort();
+    const maintenanceOperation = operationRows.find((row) => row.operation_type === 'formation_maintenance_tick') ?? null;
+    const maintenanceCompaction = (
+      maintenanceOperation?.payload_jsonb as Record<string, unknown> | null
+    )?._compaction as Record<string, unknown> | undefined;
+    const maintenancePayload = maintenanceOperation?.payload_jsonb as Record<string, unknown> | null;
+    const maintenanceTotals = maintenanceCompaction?.accumulatedTotals as Record<string, unknown> | undefined;
     if (
       operationRows.length !== 3
       || operationRows.some((row) => row.status !== 'committed')
@@ -321,22 +423,31 @@ async function main(): Promise<void> {
         'formation_resource_deploy',
         'formation_resource_refill',
       ])
+      || maintenanceOperation?.request_id !== latestMaintenanceInput.operationId
+      || Number(maintenanceCompaction?.operationCount) !== 60
+      || Number(maintenanceTotals?.qiAmount) !== 600
+      || Number(maintenanceTotals?.formationQiAmount) !== 1_200
+      || typeof maintenanceCompaction?.payloadDigest !== 'string'
+      || String(maintenanceCompaction.payloadDigest).length !== 64
+      || maintenancePayload?.formationSnapshot !== undefined
+      || maintenancePayload?.nextVitals !== undefined
     ) {
       throw new Error(`unexpected formation durable operation rows: ${JSON.stringify(operationRows)}`);
     }
     const outboxTopics = outboxRows.map((row) => row.topic).sort();
     if (
-      outboxRows.length !== 3
+      outboxRows.length !== 2
       || JSON.stringify(outboxTopics) !== JSON.stringify([
-        'formation.maintenance.tick',
         'formation.resource.deploy',
         'formation.resource.refill',
       ])
-      || outboxRows.some((row) => row.status !== 'ready')
+      || outboxRows.some((row) => row.status !== 'ready' && row.status !== 'delivered')
     ) {
       throw new Error(`unexpected formation outbox rows: ${JSON.stringify(outboxRows)}`);
     }
     const auditKinds = auditRows.map((row) => `${row.asset_type}:${row.action}`).sort();
+    const maintenanceAudit = auditRows.find((row) => row.asset_type === 'formation_maintenance') ?? null;
+    const maintenanceAuditDelta = maintenanceAudit?.delta_jsonb as Record<string, unknown> | null;
     if (
       auditRows.length !== 3
       || JSON.stringify(auditKinds) !== JSON.stringify([
@@ -344,6 +455,9 @@ async function main(): Promise<void> {
         'formation_resource:deploy',
         'formation_resource:refill',
       ])
+      || Number(maintenanceAuditDelta?.operationCount) !== 60
+      || Number((maintenanceAuditDelta?.accumulatedTotals as Record<string, unknown> | undefined)?.qiAmount) !== 600
+      || Number((maintenanceAuditDelta?.accumulatedTotals as Record<string, unknown> | undefined)?.formationQiAmount) !== 1_200
     ) {
       throw new Error(`unexpected formation audit rows: ${JSON.stringify(auditRows)}`);
     }
@@ -361,12 +475,15 @@ async function main(): Promise<void> {
     console.log(JSON.stringify({
       ok: true,
       case: 'formation-resource-durable',
-      answers: '真实 PostgreSQL 已证明布阵/补给及阵法维护 tick 的 presence + instance node/token/epoch + formation/job revision fencing；维护会把 vitals/profession/active_job/formation/watermark/outbox/audit 同事务提交，拒绝不污染真源且精确重放不重复。',
+      answers: '真实 PostgreSQL 已证明布阵/补给及阵法维护 tick 的 presence + instance node/token/epoch + formation/job revision fencing；连续维护会原子提交 vitals/profession/active_job/formation/watermark，但同一任务只保留一条 durable 检查点和一条滚动审计，不产生无消费者 outbox，拒绝不污染真源且精确重放不重复。',
       firstResult,
       replayResult,
       refillResult,
       maintenanceResult,
       maintenanceReplay,
+      secondMaintenanceResult,
+      secondMaintenanceReplay,
+      latestMaintenanceResult,
     }, null, 2));
   }
   finally {
