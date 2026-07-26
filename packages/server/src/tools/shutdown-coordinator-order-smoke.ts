@@ -140,6 +140,8 @@ async function main(): Promise<void> {
   assert.ok(order.indexOf('drainBackgroundWorkers') < order.indexOf('drainFlushTaskRuntime'));
   assert.ok(order.indexOf('drainFlushTaskRuntime') < order.indexOf('flushPlayers'));
   assert.ok(order.indexOf('beginSectShutdown') < order.indexOf('disconnectAll:server_shutdown'));
+  assert.ok(order.indexOf('flushSects') < order.indexOf('flushFormations'));
+  assert.ok(order.indexOf('flushFormations') < order.indexOf('flushPlayers'));
   assert.ok(order.indexOf('flushFormations') < order.indexOf('releaseLeases'));
   assert.ok(order.indexOf('releaseLeases') < order.indexOf('deregisterNode'));
   assert.ok(order.indexOf('deregisterNode') < order.indexOf('closeRuntime'));

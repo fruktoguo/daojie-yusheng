@@ -140,25 +140,27 @@ export class WorldShutdownDrainService implements BeforeApplicationShutdown {
       this.shutdownStatusService.recordInstanceFlushFailed('durable_commit_outcome_unknown');
       this.logger.error('存在结果未确认的跨域强事务；继续刷新无关对象，并保留实例租约');
     }
+    if (unresolvedSectCommit) {
+      this.logger.error('宗门事务结果未确认，跳过宗门与关联阵法最终刷盘');
+    } else {
+      const sectFlushSucceeded = await this.runFinalFlush('sect_flush', '宗门数据', async () => {
+        if (typeof this.worldRuntimeService.worldRuntimeSectService?.flushAllNow === 'function') {
+          await this.worldRuntimeService.worldRuntimeSectService.flushAllNow();
+        }
+      });
+      finalFlushFailed ||= !sectFlushSucceeded;
+      const formationFlushSucceeded = await this.runFinalFlush('formation_flush', '阵法数据', async () => {
+        if (typeof this.worldRuntimeService.worldRuntimeFormationService?.flushAllNow === 'function') {
+          await this.worldRuntimeService.worldRuntimeFormationService.flushAllNow();
+        }
+      });
+      finalFlushFailed ||= !formationFlushSucceeded;
+    }
     const finalFlushTasks = [
       this.runFinalFlush('player_flush', '玩家数据', () => this.playerPersistenceFlushService.flushAllNow()),
       this.runFinalFlush('map_flush', '地图数据', () => this.mapPersistenceFlushService.flushAllNow()),
       this.runFinalFlush('tongtian_tower_flush', '通天塔数据', () => this.tongtianTowerPersistenceService.flushAllProgress()),
     ];
-    if (unresolvedSectCommit) {
-      this.logger.error('宗门事务结果未确认，跳过宗门与关联阵法最终刷盘');
-    } else {
-      finalFlushTasks.push(this.runFinalFlush('sect_flush', '宗门数据', async () => {
-        if (typeof this.worldRuntimeService.worldRuntimeSectService?.flushAllNow === 'function') {
-          await this.worldRuntimeService.worldRuntimeSectService.flushAllNow();
-        }
-      }));
-      finalFlushTasks.push(this.runFinalFlush('formation_flush', '阵法数据', async () => {
-        if (typeof this.worldRuntimeService.worldRuntimeFormationService?.flushAllNow === 'function') {
-          await this.worldRuntimeService.worldRuntimeFormationService.flushAllNow();
-        }
-      }));
-    }
     const finalFlushResults = await Promise.all(finalFlushTasks);
     finalFlushFailed ||= finalFlushResults.some((succeeded) => !succeeded);
     this.shutdownStatusService.completePhase('final_flushing');

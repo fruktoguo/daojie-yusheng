@@ -144,6 +144,10 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
   private flushPromise: Promise<void> | null = null;
   private leaseGuard: LeaseGuardPort | null = null;
   private flushThrottleUntilAt = 0;
+  private readonly beforeManualPlayerFlushBarriers = new Map<
+    string,
+    (playerId: string) => Promise<void> | void
+  >();
 
   constructor(
     @Inject(PlayerRuntimeService)
@@ -207,10 +211,31 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       clearInterval(this.offlineExpireTimer);
       this.offlineExpireTimer = null;
     }
+    this.beforeManualPlayerFlushBarriers.clear();
+  }
+
+  /** 注册手动玩家刷盘前置屏障，用于先收敛尚未进入普通分域刷盘的跨域检查点。 */
+  registerBeforeManualPlayerFlushBarrier(
+    name: string,
+    barrier: (playerId: string) => Promise<void> | void,
+  ): () => void {
+    const normalizedName = typeof name === 'string' ? name.trim() : '';
+    if (!normalizedName || typeof barrier !== 'function') {
+      throw new Error('invalid_before_manual_player_flush_barrier');
+    }
+    this.beforeManualPlayerFlushBarriers.set(normalizedName, barrier);
+    return () => {
+      if (this.beforeManualPlayerFlushBarriers.get(normalizedName) === barrier) {
+        this.beforeManualPlayerFlushBarriers.delete(normalizedName);
+      }
+    };
   }
 
   /** 立即刷单个玩家快照与分域投影。 */
   async flushPlayer(playerId: string): Promise<void> {
+    for (const barrier of this.beforeManualPlayerFlushBarriers.values()) {
+      await barrier(playerId);
+    }
     const dirtyDomains = this.resolveDirtyPlayerDomains().get(playerId) ?? new Set<string>();
     await this.flushResolvedPlayerDomains(playerId, dirtyDomains, 'manual');
   }

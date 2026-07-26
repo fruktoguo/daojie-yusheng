@@ -328,6 +328,7 @@ export class WorldRuntimeGameplayWriteFacadeService {
                 );
                 return;
             case 'formation':
+                await deps.worldRuntimeFormationService?.flushPendingFormationMaintenanceForPlayer?.(playerId);
                 deps.worldRuntimeCraftMutationService.flushCraftMutation(
                     playerId,
                     deps.craftPanelRuntimeService.startTechniqueActivity(
@@ -396,6 +397,7 @@ export class WorldRuntimeGameplayWriteFacadeService {
                 );
                 return;
             case 'formation':
+                await deps.worldRuntimeFormationService?.flushPendingFormationMaintenanceForPlayer?.(playerId);
                 deps.worldRuntimeCraftMutationService.flushCraftMutation(
                     playerId,
                     deps.craftPanelRuntimeService.cancelTechniqueActivity(

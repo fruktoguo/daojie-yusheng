@@ -3743,13 +3743,15 @@ async function verifyActiveJobAdvanceProfessionAndNoopWrites(
     expectedSessionEpoch: 19,
     expectedJobRunId: jobRunId,
     expectedJobVersion: 11,
-    nextInventoryItems: inventoryItems,
-    nextWalletBalances: walletBalances,
-    nextEquipmentSlots: equipmentSlots,
+    nextInventoryItems: [inventoryItems[0]],
+    nextWalletBalances: [walletBalances[0]],
     nextEnhancementRecords: enhancementRecords,
     nextProfessionStates: professionStates,
     nextActiveJob: secondJob,
     completionKind: 'advanced',
+    assetWriteMode: 'patch',
+    removedInventoryItemInstanceIds: [],
+    removedWalletTypes: [],
   });
   if (!secondResult.ok || secondResult.alreadyCommitted || secondResult.jobVersion !== 12) {
     throw new Error(`unexpected second active-job advance result: ${JSON.stringify(secondResult)}`);

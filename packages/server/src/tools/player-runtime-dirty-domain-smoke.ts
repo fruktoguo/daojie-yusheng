@@ -2067,6 +2067,39 @@ function testApplyProgressionResultDirtyDomains(): void {
   assertDirtyDomains(service, playerId, ['progression', 'attr', 'technique'], ['snapshot']);
 }
 
+function testPersistenceDomainHoldsHideOnlyOwnedDomains(): void {
+  const playerId = 'player:persistence-domain-hold';
+  const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+  service.markPersistenceDirtyDomains(player, ['vitals', 'profession', 'active_job', 'inventory']);
+  service.bumpPersistentRevision(player);
+
+  service.holdPersistenceDomains(playerId, ['vitals', 'profession', 'active_job']);
+  assert.deepEqual(
+    Array.from(service.listDirtyPlayerDomains().get(playerId) ?? []).sort(),
+    ['inventory'],
+    '跨域检查点只能隐藏自己持有的域，其他玩家资产仍应正常刷盘',
+  );
+  assert.deepEqual(
+    Array.from(service.listUnstagedPlayerDomainRevisions('generation:hold').get(playerId)?.keys() ?? []).sort(),
+    ['inventory'],
+    'flush ledger 不得提前接管仍由跨域检查点持有的域',
+  );
+
+  service.holdPersistenceDomains(playerId, ['active_job']);
+  service.releasePersistenceDomains(playerId, ['vitals', 'profession', 'active_job']);
+  assert.deepEqual(
+    Array.from(service.listDirtyPlayerDomains().get(playerId) ?? []).sort(),
+    ['inventory', 'profession', 'vitals'],
+    '引用计数未归零的 active_job 仍应保持持有',
+  );
+  service.releasePersistenceDomains(playerId, ['active_job']);
+  assert.deepEqual(
+    Array.from(service.listDirtyPlayerDomains().get(playerId) ?? []).sort(),
+    ['active_job', 'inventory', 'profession', 'vitals'],
+  );
+}
+
 function main(): void {
 testAutoUsePillsDirtyDomain();
 testMapUnlockDirtyDomain();
@@ -2124,6 +2157,7 @@ testLogbookDirtyDomain();
   testActionCooldownCountdownDoesNotBumpRevision();
   testDeclaredContextActionCooldownReadyTick();
   testApplyProgressionResultDirtyDomains();
+  testPersistenceDomainHoldsHideOnlyOwnedDomains();
   console.log('REPAIR_PROOF:ISSUE-000011:PASS');
   console.log(
     JSON.stringify(

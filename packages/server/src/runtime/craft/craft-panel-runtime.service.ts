@@ -5,6 +5,7 @@
  */
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { ALCHEMY_FURNACE_OUTPUT_COUNT, ARTIFACT_CRAFT_BASE_SUCCESS_RATE, ELEMENT_KEYS, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TECHNIQUE_GRADE_ORDER, addCraftElementVector, applyCraftOutputRate, canMergeItemStack, cloneCraftEffectStats, compactCraftElementVector, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemyTotalJobTicks, computeEnhancementAdjustedSuccessRate, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeFivePhaseElementMatch, computeLuckSuccessRateBonus, createEmptyCraftElementVector, createItemStackSignature, getAlchemySpiritStoneCost, getItemDisplayName, isLegacyItemInstanceId, normalizeCraftEffectStatsPatch, normalizeCraftElementVector, resolvePlayerFacingContentName } from '@mud/shared';
@@ -515,6 +516,7 @@ export class CraftPanelRuntimeService {
                 await this.commitEnhancementActiveJobWithAssets(player, !player?.enhancementJob ? 'completed' : 'tick', expectedJob, {
                     allowSuppressed: durableEnabled,
                     presence: durablePresence,
+                    beforeState: before,
                 });
             } else if (expectedJob && player?.enhancementJob) {
                 this.queueEnhancementActiveJobFlush(player, previousSuppress);
@@ -545,6 +547,7 @@ export class CraftPanelRuntimeService {
         allowSuppressed?: boolean;
         presence?: { runtimeOwnerId: string; sessionEpoch: number } | null;
         expectedQueueHeadId?: string | null;
+        beforeState?: ReturnType<typeof captureEnhancementAssetRuntimeState> | null;
     } = {}) {
         if (!this.shouldUseDurableEnhancementPersistence(player, options)) {
             return;
@@ -554,18 +557,27 @@ export class CraftPanelRuntimeService {
             throw new Error('强化强事务提交失败：缺少玩家 ID');
         }
         const presence = options.presence ?? await this.resolveDurablePresenceFence(playerId);
-        const snapshot = this.playerRuntimeService.buildPersistenceSnapshot?.(
-            playerId,
-            new Set(['inventory', 'wallet', 'equipment', 'profession', 'active_job', 'enhancement_record']),
-        );
-        if (!snapshot) {
+        const advancedPatch = action === 'tick' && options.beforeState
+            ? buildEnhancementAdvancedAssetPatch(playerId, options.beforeState, player)
+            : null;
+        const snapshot = advancedPatch
+            ? null
+            : this.playerRuntimeService.buildPersistenceSnapshot?.(
+                playerId,
+                new Set(['inventory', 'wallet', 'equipment', 'profession', 'active_job', 'enhancement_record']),
+            );
+        if (!advancedPatch && !snapshot) {
             throw new Error(`强化强事务提交失败：无法构建玩家快照 playerId=${playerId}`);
         }
-        const inventoryItems = buildDurableInventoryItemsFromSnapshot(snapshot);
-        const walletBalances = buildDurableWalletBalancesFromSnapshot(snapshot);
-        const equipmentSlots = buildDurableEquipmentSlotsFromSnapshot(snapshot);
-        const enhancementRecords = buildDurableEnhancementRecordsFromEntries(playerId, player.enhancementRecords ?? []);
-        const professionStates = buildDurableProfessionStatesFromSnapshot(snapshot);
+        const inventoryItems = advancedPatch?.nextInventoryItems
+            ?? buildDurableInventoryItemsFromSnapshot(snapshot);
+        const walletBalances = advancedPatch?.nextWalletBalances
+            ?? buildDurableWalletBalancesFromSnapshot(snapshot);
+        const equipmentSlots = advancedPatch ? null : buildDurableEquipmentSlotsFromSnapshot(snapshot);
+        const enhancementRecords = advancedPatch?.nextEnhancementRecords
+            ?? buildDurableEnhancementRecordsFromEntries(playerId, player.enhancementRecords ?? []);
+        const professionStates = advancedPatch?.nextProfessionStates
+            ?? buildDurableProfessionStatesFromSnapshot(snapshot);
         const activeJob = buildActiveJobSnapshotFromPlayer(player);
         const jobRunId = typeof expectedJob?.jobRunId === 'string'
             ? expectedJob.jobRunId
@@ -634,9 +646,26 @@ export class CraftPanelRuntimeService {
                 nextProfessionStates: professionStates,
                 nextActiveJob: activeJob,
                 completionKind: resolveEnhancementDurableCompletionKind(action, player, jobRunId, expectedJob),
+                ...(advancedPatch ? {
+                    assetWriteMode: 'patch' as const,
+                    removedInventoryItemInstanceIds: advancedPatch.removedInventoryItemInstanceIds,
+                    removedWalletTypes: advancedPatch.removedWalletTypes,
+                } : {}),
             });
         }
-        const persistedDomains = new Set(['inventory', 'wallet', 'equipment', 'active_job', 'enhancement_record']);
+        const persistedDomains = new Set<string>(['active_job']);
+        if (!advancedPatch || advancedPatch.nextInventoryItems.length > 0 || advancedPatch.removedInventoryItemInstanceIds.length > 0) {
+            persistedDomains.add('inventory');
+        }
+        if (!advancedPatch || advancedPatch.nextWalletBalances.length > 0 || advancedPatch.removedWalletTypes.length > 0) {
+            persistedDomains.add('wallet');
+        }
+        if (!advancedPatch) {
+            persistedDomains.add('equipment');
+        }
+        if (!advancedPatch || advancedPatch.nextEnhancementRecords.length > 0) {
+            persistedDomains.add('enhancement_record');
+        }
         if (action !== 'start' && action !== 'cancelled') {
             persistedDomains.add('profession');
         }
@@ -3657,6 +3686,122 @@ function buildDurableWalletBalancesFromSnapshot(snapshot) {
             version: Math.max(0, Math.trunc(Number(entry?.version ?? 0))),
         }))
         .filter((entry) => Boolean(entry.walletType));
+}
+
+/**
+ * 连续强化中间阶只提取真实变化行。任何会改变资产归属/槽位语义的情况都返回 null，
+ * 调用方自动回退完整快照替换。
+ */
+function buildEnhancementAdvancedAssetPatch(playerId, beforeState, player) {
+    const beforeInventoryItems = buildDurableInventoryItemsFromSnapshot({ inventory: beforeState?.inventory });
+    const nextInventoryItems = buildDurableInventoryItemsFromSnapshot({ inventory: player?.inventory });
+    const beforeInventoryById = indexStableDurableInventoryItems(beforeInventoryItems);
+    const nextInventoryById = indexStableDurableInventoryItems(nextInventoryItems);
+    if (!beforeInventoryById || !nextInventoryById) {
+        return null;
+    }
+    const changedInventoryItems = [];
+    for (const [itemInstanceId, nextItem] of nextInventoryById) {
+        const beforeItem = beforeInventoryById.get(itemInstanceId);
+        if (!beforeItem || normalizeText(beforeItem.lockedBy) !== normalizeText(nextItem.lockedBy)) {
+            return null;
+        }
+        if (!isDeepStrictEqual(
+            normalizeEnhancementPatchComparableValue(beforeItem),
+            normalizeEnhancementPatchComparableValue(nextItem),
+        )) {
+            changedInventoryItems.push(nextItem);
+        }
+    }
+    const removedInventoryItemInstanceIds = Array.from(beforeInventoryById.keys())
+        .filter((itemInstanceId) => !nextInventoryById.has(itemInstanceId))
+        .sort();
+
+    const beforeEquipmentSlots = Array.isArray(beforeState?.equipment?.slots)
+        ? beforeState.equipment.slots
+        : [];
+    const nextEquipmentSlots = Array.isArray(player?.equipment?.slots)
+        ? player.equipment.slots
+        : [];
+    if (!isDeepStrictEqual(
+        normalizeEnhancementPatchComparableValue(beforeEquipmentSlots),
+        normalizeEnhancementPatchComparableValue(nextEquipmentSlots),
+    )) {
+        return null;
+    }
+
+    const beforeWalletBalances = buildDurableWalletBalancesFromSnapshot({ wallet: beforeState?.wallet });
+    const nextWalletBalances = buildDurableWalletBalancesFromSnapshot({ wallet: player?.wallet });
+    const beforeWalletByType = new Map(beforeWalletBalances.map((entry) => [entry.walletType, entry]));
+    const nextWalletByType = new Map(nextWalletBalances.map((entry) => [entry.walletType, entry]));
+    const changedWalletBalances = nextWalletBalances.filter((entry) => (
+        !isDeepStrictEqual(beforeWalletByType.get(entry.walletType), entry)
+    ));
+    const removedWalletTypes = Array.from(beforeWalletByType.keys())
+        .filter((walletType) => !nextWalletByType.has(walletType))
+        .sort();
+
+    const beforeEnhancementRecords = buildDurableEnhancementRecordsFromEntries(
+        playerId,
+        beforeState?.enhancementRecords ?? [],
+    );
+    const nextEnhancementRecords = buildDurableEnhancementRecordsFromEntries(
+        playerId,
+        player?.enhancementRecords ?? [],
+    );
+    const beforeEnhancementRecordById = new Map(
+        beforeEnhancementRecords.map((entry) => [entry.recordId, entry]),
+    );
+    const nextEnhancementRecordIds = new Set(nextEnhancementRecords.map((entry) => entry.recordId));
+    if (beforeEnhancementRecords.some((entry) => !nextEnhancementRecordIds.has(entry.recordId))) {
+        return null;
+    }
+    const changedEnhancementRecords = nextEnhancementRecords.filter((entry) => (
+        !isDeepStrictEqual(beforeEnhancementRecordById.get(entry.recordId), entry)
+    ));
+    const nextProfessionStates = buildDurableProfessionStatesFromSnapshot({
+        progression: {
+            enhancementSkill: player?.enhancementSkill,
+            enhancementSkillLevel: player?.enhancementSkillLevel,
+        },
+    }).filter((entry) => entry.professionType === 'enhancement');
+
+    return {
+        nextInventoryItems: changedInventoryItems,
+        removedInventoryItemInstanceIds,
+        nextWalletBalances: changedWalletBalances,
+        removedWalletTypes,
+        nextEnhancementRecords: changedEnhancementRecords,
+        nextProfessionStates,
+    };
+}
+
+function indexStableDurableInventoryItems(items) {
+    const byId = new Map();
+    for (const item of Array.isArray(items) ? items : []) {
+        const itemInstanceId = normalizeInventoryItemInstanceId(item?.itemInstanceId);
+        if (!itemInstanceId || isLegacyItemInstanceId(itemInstanceId) || byId.has(itemInstanceId)) {
+            return null;
+        }
+        byId.set(itemInstanceId, item);
+    }
+    return byId;
+}
+
+function normalizeEnhancementPatchComparableValue(value) {
+    if (Array.isArray(value)) {
+        return value.map((entry) => normalizeEnhancementPatchComparableValue(entry));
+    }
+    if (!value || typeof value !== 'object') {
+        return value;
+    }
+    const normalized = {};
+    for (const [key, entry] of Object.entries(value)) {
+        if (entry !== undefined) {
+            normalized[key] = normalizeEnhancementPatchComparableValue(entry);
+        }
+    }
+    return normalized;
 }
 
 function resolveEnhancementDurableCompletionKind(action, player, jobRunId, expectedJob = null) {

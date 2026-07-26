@@ -5202,6 +5202,40 @@ export class PlayerRuntimeService {
             .filter((player) => isPlayerRuntimeDirty(player))
             .map((player) => player.playerId);
     }
+    /**
+     * 临时持有指定持久化域，使普通 flush/ledger 在跨域检查点提交前不抢先落盘。
+     * 使用引用计数，允许多个独立协调器安全嵌套持有同一域。
+     */
+    holdPersistenceDomains(playerId, domains) {
+        const player = this.players.get(playerId);
+        if (!player) {
+            return;
+        }
+        const holds = ensurePlayerPersistenceDomainHoldCountMap(player);
+        for (const domain of normalizePlayerPersistenceDomainNames(domains)) {
+            holds.set(domain, Math.max(0, Math.trunc(Number(holds.get(domain)) || 0)) + 1);
+        }
+    }
+    /** 释放跨域检查点持有的持久化域；归零后普通 flush 会重新看到仍然脏的域。 */
+    releasePersistenceDomains(playerId, domains) {
+        const player = this.players.get(playerId);
+        const holds = readPlayerPersistenceDomainHoldCountMap(player);
+        if (!holds) {
+            return;
+        }
+        for (const domain of normalizePlayerPersistenceDomainNames(domains)) {
+            const nextCount = Math.max(0, Math.trunc(Number(holds.get(domain)) || 0) - 1);
+            if (nextCount > 0) {
+                holds.set(domain, nextCount);
+            }
+            else {
+                holds.delete(domain);
+            }
+        }
+        if (holds.size === 0) {
+            delete player.persistenceDomainHoldCountByDomain;
+        }
+    }
     /** getPersistenceRevision：读取玩家持久化版本。 */
     getPersistenceRevision(playerId) {
         const player = this.players.get(playerId);
@@ -5232,10 +5266,10 @@ export class PlayerRuntimeService {
             if (isNativeGmBotPlayerId(player.playerId) || isImmediateDomainPersistenceSuppressed(player)) {
                 continue;
             }
-            const currentDomains = readPlayerDirtyDomains(player);
-            const domains = currentDomains && currentDomains.size > 0
+            const currentDomains = readUnheldPlayerDirtyDomains(player);
+            const domains = currentDomains.size > 0
                 ? Array.from(currentDomains)
-                : (player.persistentRevision > Math.max(
+                : (!hasHeldPlayerPersistenceDomains(player) && player.persistentRevision > Math.max(
                     Math.max(0, Math.trunc(Number(player.persistedRevision) || 0)),
                     Math.max(0, Math.trunc(Number(player.stagedRevision) || 0)),
                 )
@@ -5350,12 +5384,12 @@ export class PlayerRuntimeService {
             if (isNativeGmBotPlayerId(player.playerId) || isImmediateDomainPersistenceSuppressed(player)) {
                 continue;
             }
-            const dirtyDomains = readPlayerDirtyDomains(player);
-            if (dirtyDomains && dirtyDomains.size > 0) {
-                dirtyPlayers.set(player.playerId, new Set(dirtyDomains));
+            const dirtyDomains = readUnheldPlayerDirtyDomains(player);
+            if (dirtyDomains.size > 0) {
+                dirtyPlayers.set(player.playerId, dirtyDomains);
                 continue;
             }
-            if (player.persistentRevision > Math.max(
+            if (!hasHeldPlayerPersistenceDomains(player) && player.persistentRevision > Math.max(
                 Math.max(0, Math.trunc(Number(player.persistedRevision) || 0)),
                 Math.max(0, Math.trunc(Number(player.stagedRevision) || 0)),
             )) {
@@ -6759,6 +6793,44 @@ function clearPlayerDirtyDomains(player) {
 function readPlayerDirtyDomains(player) {
     return player?.dirtyDomains instanceof Set ? player.dirtyDomains : null;
 }
+function ensurePlayerPersistenceDomainHoldCountMap(player) {
+    if (!(player?.persistenceDomainHoldCountByDomain instanceof Map)) {
+        player.persistenceDomainHoldCountByDomain = new Map();
+    }
+    return player.persistenceDomainHoldCountByDomain;
+}
+function readPlayerPersistenceDomainHoldCountMap(player) {
+    return player?.persistenceDomainHoldCountByDomain instanceof Map
+        ? player.persistenceDomainHoldCountByDomain
+        : null;
+}
+function normalizePlayerPersistenceDomainNames(domains) {
+    const normalized = new Set();
+    if (!domains || typeof domains[Symbol.iterator] !== 'function') {
+        return normalized;
+    }
+    for (const domain of domains) {
+        const value = typeof domain === 'string' ? domain.trim() : '';
+        if (value) {
+            normalized.add(value);
+        }
+    }
+    return normalized;
+}
+function hasHeldPlayerPersistenceDomains(player) {
+    return (readPlayerPersistenceDomainHoldCountMap(player)?.size ?? 0) > 0;
+}
+function readUnheldPlayerDirtyDomains(player) {
+    const dirtyDomains = readPlayerDirtyDomains(player);
+    if (!dirtyDomains || dirtyDomains.size === 0) {
+        return new Set();
+    }
+    const heldDomains = readPlayerPersistenceDomainHoldCountMap(player);
+    if (!heldDomains || heldDomains.size === 0) {
+        return new Set(dirtyDomains);
+    }
+    return new Set(Array.from(dirtyDomains).filter((domain) => !heldDomains.has(domain)));
+}
 function isImmediateDomainPersistenceSuppressed(player) {
     return Boolean(player?.suppressImmediateDomainPersistence);
 }
@@ -6766,11 +6838,11 @@ function isPlayerRuntimeDirty(player) {
     if (isImmediateDomainPersistenceSuppressed(player)) {
         return false;
     }
-    return (player?.dirtyDomains instanceof Set && player.dirtyDomains.size > 0)
-        || player.persistentRevision > Math.max(
+    return readUnheldPlayerDirtyDomains(player).size > 0
+        || (!hasHeldPlayerPersistenceDomains(player) && player.persistentRevision > Math.max(
             Math.max(0, Math.trunc(Number(player.persistedRevision) || 0)),
             Math.max(0, Math.trunc(Number(player.stagedRevision) || 0)),
-        );
+        ));
 }
 /**
  * buildEquipmentSnapshot：构建并返回目标对象。

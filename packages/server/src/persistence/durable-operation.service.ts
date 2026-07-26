@@ -594,6 +594,12 @@ export interface CompleteActiveJobWithAssetsInput {
   nextProfessionStates?: DurableProfessionStateSnapshot[] | null;
   nextActiveJob?: DurableActiveJobSnapshot | null;
   completionKind?: ActiveJobCompletionKind;
+  /** 连续强化中间阶可只提交实际变化行；其他完成类型仍使用完整替换。 */
+  assetWriteMode?: 'replace' | 'patch';
+  /** patch 模式下本阶明确移除的背包实例。 */
+  removedInventoryItemInstanceIds?: string[] | null;
+  /** patch 模式下本阶余额归零并应删除的钱包类型。 */
+  removedWalletTypes?: string[] | null;
 }
 
 export type ActiveJobCompletionKind = 'completed' | 'advanced' | 'stopped';
@@ -3909,8 +3915,19 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       : null;
     const completionKind = normalizeActiveJobCompletionKind(input.completionKind);
     const completionSemantics = resolveActiveJobCompletionSemantics(completionKind);
+    const assetWriteMode = input.assetWriteMode === 'patch' ? 'patch' : 'replace';
+    const removedInventoryItemInstanceIds = assetWriteMode === 'patch'
+      ? normalizeStringList(input.removedInventoryItemInstanceIds ?? [])
+      : [];
+    const removedWalletTypes = assetWriteMode === 'patch'
+      ? normalizeStringList(input.removedWalletTypes ?? [])
+      : [];
 
-    if (!normalizedExpectedJobRunId) {
+    if (
+      !normalizedExpectedJobRunId
+      || (assetWriteMode === 'patch' && completionKind !== 'advanced')
+      || (assetWriteMode === 'patch' && normalizedNextEquipmentSlots !== null)
+    ) {
       throw new Error('invalid_complete_active_job_with_assets_input');
     }
     const compactionKey = completionKind === 'advanced'
@@ -3930,7 +3947,19 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       professionStates: normalizedNextProfessionStates,
       activeJob: normalizedNextActiveJob,
       techniqueActivityQueue: undefined,
+      ...(assetWriteMode === 'patch' ? {
+        assetWriteMode,
+        removedInventoryItemInstanceIds,
+        removedWalletTypes,
+      } : {}),
     });
+
+    const inventoryMutated = assetWriteMode === 'replace'
+      || normalizedNextInventoryItems.length > 0
+      || removedInventoryItemInstanceIds.length > 0;
+    const walletMutated = assetWriteMode === 'replace'
+      || normalizedNextWalletBalances.length > 0
+      || removedWalletTypes.length > 0;
 
     return this.executeAssetMutation<CompleteActiveJobWithAssetsResult>({
       operationId: normalizedOperationId,
@@ -3951,6 +3980,11 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         walletBalanceCount: normalizedNextWalletBalances.length,
         equipmentSlotCount: Array.isArray(normalizedNextEquipmentSlots) ? normalizedNextEquipmentSlots.length : 0,
         enhancementRecordCount: Array.isArray(normalizedNextEnhancementRecords) ? normalizedNextEnhancementRecords.length : 0,
+        ...(assetWriteMode === 'patch' ? {
+          assetWriteMode,
+          removedInventoryItemCount: removedInventoryItemInstanceIds.length,
+          removedWalletTypeCount: removedWalletTypes.length,
+        } : {}),
         ...(Array.isArray(normalizedNextProfessionStates)
           ? { professionStateCount: normalizedNextProfessionStates.length }
           : {}),
@@ -4006,15 +4040,35 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           }
         }
 
-        await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedNextInventoryItems, {
-          replaceLockedItems: true,
-        });
-        await replacePlayerWalletRows(client, normalizedPlayerId, normalizedNextWalletBalances);
+        if (assetWriteMode === 'patch') {
+          await patchPlayerInventoryItems(
+            client,
+            normalizedPlayerId,
+            normalizedNextInventoryItems,
+            removedInventoryItemInstanceIds,
+          );
+          await patchPlayerWalletRows(
+            client,
+            normalizedPlayerId,
+            normalizedNextWalletBalances,
+            removedWalletTypes,
+          );
+        } else {
+          await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedNextInventoryItems, {
+            replaceLockedItems: true,
+          });
+          await replacePlayerWalletRows(client, normalizedPlayerId, normalizedNextWalletBalances);
+        }
         if (Array.isArray(normalizedNextEquipmentSlots)) {
           await replacePlayerEquipmentSlots(client, normalizedPlayerId, normalizedNextEquipmentSlots);
         }
         if (Array.isArray(normalizedNextEnhancementRecords)) {
-          await replacePlayerEnhancementRecords(client, normalizedPlayerId, normalizedNextEnhancementRecords);
+          await replacePlayerEnhancementRecords(
+            client,
+            normalizedPlayerId,
+            normalizedNextEnhancementRecords,
+            { deleteMissing: assetWriteMode !== 'patch' },
+          );
         }
         if (Array.isArray(normalizedNextProfessionStates)) {
           await replacePlayerProfessionStates(client, normalizedPlayerId, normalizedNextProfessionStates);
@@ -4051,8 +4105,8 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           `,
           [
             normalizedPlayerId,
-            persistenceVersion,
-            persistenceVersion,
+            inventoryMutated ? persistenceVersion : 0,
+            walletMutated ? persistenceVersion : 0,
             Array.isArray(normalizedNextEquipmentSlots) ? persistenceVersion : 0,
             professionVersion,
             activeJobVersion,
@@ -4062,9 +4116,12 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
 
         const auditDelta = {
           completionKind,
+          assetWriteMode,
           inventoryItemCount: normalizedNextInventoryItems.length,
           walletBalanceCount: normalizedNextWalletBalances.length,
           enhancementRecordCount: Array.isArray(normalizedNextEnhancementRecords) ? normalizedNextEnhancementRecords.length : 0,
+          removedInventoryItemCount: removedInventoryItemInstanceIds.length,
+          removedWalletTypeCount: removedWalletTypes.length,
           ...(Array.isArray(normalizedNextProfessionStates)
             ? { professionStateCount: normalizedNextProfessionStates.length }
             : {}),
@@ -5567,6 +5624,132 @@ async function replacePlayerInventoryItems(
   );
 }
 
+/** 连续强化中间阶只更新已存在的稳定实例行，并按明确 ID 删除消耗完的物品。 */
+async function patchPlayerInventoryItems(
+  client: import('pg').PoolClient,
+  playerId: string,
+  items: DurableInventoryItemSnapshot[],
+  removedItemInstanceIds: readonly string[],
+): Promise<void> {
+  const rows: Array<{
+    item_instance_id: string;
+    item_id: string;
+    count: number;
+    raw_payload: Record<string, unknown>;
+    locked_by: string | null;
+  }> = [];
+  const incomingIds = new Set<string>();
+  for (let index = 0; index < (Array.isArray(items) ? items.length : 0); index += 1) {
+    const item = items[index];
+    const itemId = normalizeRequiredString(item?.itemId);
+    const itemInstanceId = normalizeRequiredString(item?.itemInstanceId);
+    if (!itemId || !itemInstanceId || isLegacyItemInstanceId(itemInstanceId) || incomingIds.has(itemInstanceId)) {
+      throw new Error(
+        `patchPlayerInventoryItems: invalid stable inventory entry playerId=${playerId} index=${index} entry=${safeStringifyDurableEntry(item)}`,
+      );
+    }
+    incomingIds.add(itemInstanceId);
+    const count = Math.max(1, Math.trunc(Number(item.count ?? 1)));
+    const lockedBy = normalizeOptionalString(item?.lockedBy);
+    const rawPayload = buildPersistedInventoryItemRawPayload({
+      itemId,
+      count,
+      name: item.name,
+      desc: item.desc,
+      enhanceLevel: item.enhanceLevel,
+      learnTechniqueId: item.learnTechniqueId,
+      learnTechniqueMaxLevel: item.learnTechniqueMaxLevel,
+      grade: item.grade,
+      level: item.level,
+      rawPayload: item.rawPayload,
+    });
+    if (lockedBy != null) {
+      const lockedAt = normalizeOptionalInteger(item?.lockedAt)
+        ?? normalizeOptionalInteger((item?.rawPayload as { lockedAt?: unknown } | null | undefined)?.lockedAt);
+      if (lockedAt != null) {
+        rawPayload.lockedAt = lockedAt;
+      }
+    }
+    rows.push({
+      item_instance_id: itemInstanceId,
+      item_id: itemId,
+      count,
+      raw_payload: rawPayload,
+      locked_by: lockedBy,
+    });
+  }
+  const removedIds = normalizeStringList(removedItemInstanceIds).sort();
+  if (removedIds.some((itemInstanceId) => incomingIds.has(itemInstanceId))) {
+    throw new Error(`patch_inventory_remove_update_conflict:playerId=${playerId}`);
+  }
+  const guardedIds = [...incomingIds, ...removedIds];
+  await assertNoForeignPlayerOwnedIds(
+    client,
+    PLAYER_INVENTORY_ITEM_TABLE,
+    'item_instance_id',
+    playerId,
+    guardedIds,
+    'inventory',
+  );
+  if (removedIds.length > 0) {
+    await client.query(
+      `DELETE FROM ${PLAYER_INVENTORY_ITEM_TABLE}
+       WHERE player_id = $1
+         AND item_instance_id = ANY($2::varchar[])`,
+      [playerId, removedIds],
+    );
+  }
+  if (rows.length > 0) {
+    const result = await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            item_instance_id varchar(180),
+            item_id varchar(120),
+            count bigint,
+            raw_payload jsonb,
+            locked_by varchar(180)
+          )
+        )
+        UPDATE ${PLAYER_INVENTORY_ITEM_TABLE} target
+        SET item_id = incoming.item_id,
+            count = incoming.count,
+            raw_payload = COALESCE(incoming.raw_payload, '{}'::jsonb),
+            locked_by = incoming.locked_by,
+            updated_at = now()
+        FROM incoming
+        WHERE target.player_id = $1
+          AND target.item_instance_id = incoming.item_instance_id
+          AND ROW(target.item_id, target.count, target.raw_payload, target.locked_by)
+            IS DISTINCT FROM ROW(incoming.item_id, incoming.count, COALESCE(incoming.raw_payload, '{}'::jsonb), incoming.locked_by)
+        RETURNING target.item_instance_id
+      `,
+      [playerId, JSON.stringify(rows)],
+    );
+    const unchangedIds = rows.map(({ item_instance_id }) => item_instance_id);
+    const existing = await client.query<{ item_instance_id: string }>(
+      `SELECT item_instance_id
+       FROM ${PLAYER_INVENTORY_ITEM_TABLE}
+       WHERE player_id = $1
+         AND item_instance_id = ANY($2::varchar[])`,
+      [playerId, unchangedIds],
+    );
+    if ((existing.rowCount ?? 0) !== rows.length) {
+      throw new Error(`patch_inventory_missing_item:playerId=${playerId}`);
+    }
+    void result;
+  }
+  await assertNoForeignPlayerOwnedIds(
+    client,
+    PLAYER_INVENTORY_ITEM_TABLE,
+    'item_instance_id',
+    playerId,
+    Array.from(incomingIds),
+    'inventory',
+  );
+}
+
 function createPersistedInventoryRowSignature(itemId: string, rawPayload: Record<string, unknown>): string {
   return createItemStackSignature({
     itemId,
@@ -6059,6 +6242,7 @@ async function replacePlayerEnhancementRecords(
   client: import('pg').PoolClient,
   playerId: string,
   rows: readonly DurableEnhancementRecordSnapshot[],
+  options: { deleteMissing?: boolean } = {},
 ): Promise<void> {
   const normalizedRows: Array<{
     record_id: string;
@@ -6201,22 +6385,24 @@ async function replacePlayerEnhancementRecords(
       'enhancement_record',
     );
   }
-  await client.query(
-    `
-      WITH incoming AS (
-        SELECT record_id
-        FROM jsonb_to_recordset($2::jsonb) AS entry(record_id varchar(180))
-      )
-      DELETE FROM ${PLAYER_ENHANCEMENT_RECORD_TABLE} target
-      WHERE target.player_id = $1
-        AND NOT EXISTS (
-          SELECT 1
-          FROM incoming
-          WHERE incoming.record_id = target.record_id
+  if (options.deleteMissing !== false) {
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT record_id
+          FROM jsonb_to_recordset($2::jsonb) AS entry(record_id varchar(180))
         )
-    `,
-    [playerId, JSON.stringify(normalizedRows.map(({ record_id }) => ({ record_id })))],
-  );
+        DELETE FROM ${PLAYER_ENHANCEMENT_RECORD_TABLE} target
+        WHERE target.player_id = $1
+          AND NOT EXISTS (
+            SELECT 1
+            FROM incoming
+            WHERE incoming.record_id = target.record_id
+          )
+      `,
+      [playerId, JSON.stringify(normalizedRows.map(({ record_id }) => ({ record_id })))],
+    );
+  }
 }
 
 async function replacePlayerProfessionStates(
@@ -6486,6 +6672,9 @@ function buildActiveJobAssetSnapshotDigest(input: {
   professionStates?: readonly DurableProfessionStateSnapshot[] | null;
   activeJob: DurableActiveJobSnapshot | null;
   techniqueActivityQueue?: readonly PlayerTechniqueActivityQueueUpsertInput[];
+  assetWriteMode?: 'patch';
+  removedInventoryItemInstanceIds?: readonly string[];
+  removedWalletTypes?: readonly string[];
 }): string {
   const canonicalSnapshot = {
     inventory: normalizeInventorySnapshotsForReplay(input.playerId, input.inventoryItems),
@@ -6503,6 +6692,13 @@ function buildActiveJobAssetSnapshotDigest(input: {
     techniqueActivityQueue: input.techniqueActivityQueue === undefined
       ? { mutation: 'unchanged' }
       : normalizeTechniqueActivityQueueSnapshots(input.techniqueActivityQueue),
+    ...(input.assetWriteMode === 'patch' ? {
+      assetPatch: {
+        writeMode: 'patch',
+        removedInventoryItemInstanceIds: normalizeStringList(input.removedInventoryItemInstanceIds ?? []).sort(),
+        removedWalletTypes: normalizeStringList(input.removedWalletTypes ?? []).sort(),
+      },
+    } : {}),
   };
   return createHash('sha256').update(stableDurableJson(canonicalSnapshot)).digest('hex');
 }
@@ -7812,6 +8008,7 @@ async function replacePlayerWalletRows(
   client: { query: (sql: string, params?: unknown[]) => Promise<unknown> },
   playerId: string,
   balances: readonly unknown[],
+  options: { deleteMissing?: boolean } = {},
 ): Promise<void> {
   const sourceBalances = Array.isArray(balances) ? balances : [];
   const rows: Array<{
@@ -7878,22 +8075,48 @@ async function replacePlayerWalletRows(
       [playerId, rowsJson],
     );
   }
-  await client.query(
-    `
-      WITH incoming AS (
-        SELECT wallet_type
-        FROM jsonb_to_recordset($2::jsonb) AS entry(wallet_type varchar(64))
-      )
-      DELETE FROM ${PLAYER_WALLET_TABLE} target
-      WHERE target.player_id = $1
-        AND NOT EXISTS (
-          SELECT 1
-          FROM incoming
-          WHERE incoming.wallet_type = target.wallet_type
+  if (options.deleteMissing !== false) {
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT wallet_type
+          FROM jsonb_to_recordset($2::jsonb) AS entry(wallet_type varchar(64))
         )
-    `,
-    [playerId, rowsJson],
-  );
+        DELETE FROM ${PLAYER_WALLET_TABLE} target
+        WHERE target.player_id = $1
+          AND NOT EXISTS (
+            SELECT 1
+            FROM incoming
+            WHERE incoming.wallet_type = target.wallet_type
+          )
+      `,
+      [playerId, rowsJson],
+    );
+  }
+}
+
+async function patchPlayerWalletRows(
+  client: { query: (sql: string, params?: unknown[]) => Promise<unknown> },
+  playerId: string,
+  balances: readonly unknown[],
+  removedWalletTypes: readonly string[],
+): Promise<void> {
+  const removedTypes = normalizeStringList(removedWalletTypes).sort();
+  const incomingTypes = new Set((Array.isArray(balances) ? balances : [])
+    .map((row) => normalizeRequiredString((row as { walletType?: unknown })?.walletType))
+    .filter(Boolean));
+  if (removedTypes.some((walletType) => incomingTypes.has(walletType))) {
+    throw new Error(`patch_wallet_remove_update_conflict:playerId=${playerId}`);
+  }
+  await replacePlayerWalletRows(client, playerId, balances, { deleteMissing: false });
+  if (removedTypes.length > 0) {
+    await client.query(
+      `DELETE FROM ${PLAYER_WALLET_TABLE}
+       WHERE player_id = $1
+         AND wallet_type = ANY($2::varchar[])`,
+      [playerId, removedTypes],
+    );
+  }
 }
 
 async function acquireSchemaInitLock(client: import('pg').PoolClient): Promise<void> {
