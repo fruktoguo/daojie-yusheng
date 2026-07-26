@@ -904,6 +904,17 @@ function convertChantBudget(budget: number): BudgetConversionResult<number> {
   return { value: Math.round(Math.abs(budget)), usedBudget: budget, refundBudget: 0, canGrow: false };
 }
 
+function buildExpandedPlayerCast(playerCast: unknown, windupTicks: number): SkillDef['playerCast'] {
+  const explicitPlayerCast = isRecord(playerCast) ? { ...playerCast } : undefined;
+  if (windupTicks <= 0) {
+    return explicitPlayerCast as SkillDef['playerCast'];
+  }
+  return {
+    ...explicitPlayerCast,
+    windupTicks,
+  } as SkillDef['playerCast'];
+}
+
 function convertDamageBudget(budget: number): BudgetConversionResult<number> {
   if (budget > 0) {
     return {
@@ -1239,7 +1250,7 @@ export function expandTechniqueArtsStrengthSkill(params: ExpandTechniqueArtsStre
       unlockPlayerRealm: params.skill.unlockPlayerRealm as any,
       ...(explicitRequiresTarget ? { requiresTarget: params.skill.requiresTarget } : requiresTarget ? {} : { requiresTarget: false }),
       targetMode: params.skill.targetMode ?? params.skill.target.targetMode,
-      playerCast: params.skill.playerCast as any,
+      playerCast: buildExpandedPlayerCast(params.skill.playerCast, chantConversion.value),
       monsterCast: params.skill.monsterCast as any,
     },
     inputBudget: params.skill.inputBudget,

@@ -191,7 +191,7 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
         `cooldown：冷却；正数缩短冷却，负数拉长冷却，0预算的基础冷却为 ${constants.structure.cooldownBaseRealmLvMultiplier} * realmLv 息。`,
         'castRange：施法距离；正数偏远程，负数一般不要写，0表示近身/基础距离。',
         'area：覆盖范围；正数扩大覆盖，single 会视为0覆盖强度，0表示不追求范围。',
-        'chant：吟唱预留项；当前通常写0，除非玩家明确要求牺牲吟唱或强化吟唱相关设计。',
+        'chant：吟唱权重；负值会生成真实吟唱息数，绝对值越大吟唱越久；0或正值不会把瞬发技能继续缩短。',
         '正权重表示想强化的项目；负权重表示主动牺牲的项目，会让本项变差，并按绝对权重折算牺牲预算加入正向预算池。',
         '正向预算池 = actualTotalBudget + sum(actualTotalBudget * abs(负权重) / 100)；正权重按权重比例瓜分该预算池。',
         '例如 damage=-100、cost=-100、cooldown=100 时，伤害和消耗各牺牲一份预算，cooldown 作为唯一正项可吃到约3份 actualTotalBudget。',

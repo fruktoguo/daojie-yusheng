@@ -5,7 +5,7 @@
  */
 import { memo, useCallback, useEffect, useState, type CSSProperties, type PointerEvent, type ReactElement } from 'react';
 import type { AttrKey, Attributes, SkillDef, TechniqueCategory, TechniqueGrade } from '@mud/shared';
-import { ATTR_KEYS, CUSTOM_TECHNIQUE_NAME_MAX_LENGTH, CUSTOM_TECHNIQUE_NAME_MIN_LENGTH, resolveSkillUnlockLevel } from '@mud/shared';
+import { ATTR_KEYS, CUSTOM_TECHNIQUE_NAME_MAX_LENGTH, CUSTOM_TECHNIQUE_NAME_MIN_LENGTH, resolveSkillPlayerWindupTicks, resolveSkillUnlockLevel } from '@mud/shared';
 import { createPanelStore } from '../../stores/create-panel-store';
 import { ATTR_KEY_LABELS, getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../../../domain-labels';
 import { ATTR_COLORS, ATTR_ICON_ATLAS_CELLS } from '../../../constants/ui/attr-panel';
@@ -668,20 +668,24 @@ function renderPreviewSkills(skills: SkillDef[] | undefined): ReactElement {
   });
   return (
     <div className="technique-generation-panel__skill-list">
-      {sortedSkills.map((skill) => (
-        <div key={skill.id} className="technique-generation-panel__skill">
-          <div className="technique-generation-panel__skill-head">
-            <strong>{skill.name}</strong>
-            <span>解锁 Lv.{formatDisplayInteger(resolveSkillUnlockLevel(skill))}</span>
+      {sortedSkills.map((skill) => {
+        const windupTicks = resolveSkillPlayerWindupTicks(skill);
+        return (
+          <div key={skill.id} className="technique-generation-panel__skill">
+            <div className="technique-generation-panel__skill-head">
+              <strong>{skill.name}</strong>
+              <span>解锁 Lv.{formatDisplayInteger(resolveSkillUnlockLevel(skill))}</span>
+            </div>
+            <div className="technique-generation-panel__skill-meta">
+              <span>灵力 {formatDisplayInteger(skill.cost)}</span>
+              {windupTicks > 0 && <span>吟唱 {formatDisplayInteger(windupTicks)} 息</span>}
+              <span>冷却 {formatDisplayInteger(skill.cooldown)} 息</span>
+              <span>射程 {formatDisplayInteger(skill.range)}</span>
+            </div>
+            {skill.desc && <p>{skill.desc}</p>}
           </div>
-          <div className="technique-generation-panel__skill-meta">
-            <span>灵力 {formatDisplayInteger(skill.cost)}</span>
-            <span>冷却 {formatDisplayInteger(skill.cooldown)} 息</span>
-            <span>射程 {formatDisplayInteger(skill.range)}</span>
-          </div>
-          {skill.desc && <p>{skill.desc}</p>}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

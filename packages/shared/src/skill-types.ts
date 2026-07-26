@@ -726,6 +726,16 @@ export interface SkillDef {
   monsterCast?: SkillMonsterCastDef;
 }
 
+/** 读取玩家技能的权威吟唱息数；未配置或非法值统一视为瞬发。 */
+export function resolveSkillPlayerWindupTicks(
+  skill: Pick<SkillDef, 'playerCast'> | null | undefined,
+): number {
+  const windupTicks = skill?.playerCast?.windupTicks;
+  return Number.isFinite(windupTicks)
+    ? Math.max(0, Math.floor(Number(windupTicks)))
+    : 0;
+}
+
 export function resolveSkillEffectiveRange(skill: {
   range?: number;
   targeting?: SkillTargetingDef;

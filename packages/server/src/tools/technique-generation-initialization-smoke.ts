@@ -1733,6 +1733,7 @@ async function testAiArtsStrengthMigrationNormalizesPublishedTileDamageSkill(): 
   assert.equal(refreshCount, 1);
   assert.equal(storedTemplate?.skills?.[0]?.targetMode, 'any');
   assert.equal(storedTemplate?.skills?.[0]?.targeting?.targetMode, 'any');
+  assert.equal(storedTemplate?.skills?.[0]?.playerCast?.windupTicks, 90);
   assert.equal(storedValidationReport?.artsStrength?.rawCandidate?.skills?.[0]?.target?.targetMode, 'any');
   assert.equal(storedValidationReport?.artsStrength?.normalizedTemplate?.skills?.[0]?.target?.targetMode, 'any');
 }
@@ -1754,7 +1755,7 @@ function createPublishedTileDamageArtsRow(): Record<string, unknown> {
       damageKind: 'spell',
       element: 'water',
       target: { type: 'area', targetMode: 'tile' },
-      structureStrength: { area: 100, cost: -10, chant: 0, damage: -100, cooldown: 30, castRange: -100 },
+      structureStrength: { area: 100, cost: -10, chant: -100, damage: -100, cooldown: 30, castRange: -100 },
       formulaStrength: { attributeBases: { spellAtk: 1 } },
     }],
   };
@@ -1766,6 +1767,7 @@ function createPublishedTileDamageArtsRow(): Record<string, unknown> {
     skill: normalizeTechniqueArtsStrengthSkill(rawCandidate.skills[0]),
     targetBudget: rawCandidate.totalBudget,
   }).skill;
+  delete skill.playerCast;
   return {
     id: 'gen_e24a698b2bc44477',
     status: 'published',
@@ -1818,6 +1820,7 @@ async function testTechniquePromptIncludesRolledBudgetContext(): Promise<void> {
   assert.equal(artsPayload.generationContext?.budgetPercent, 1.1);
   assertApprox(Number(artsPayload.budgetContext?.actualTotalBudget), calcArtsBudgetMax('earth', 43) * 1.1, 0.0001);
   assert.ok(artsPayload.strengthRules?.calculationFormulas?.some((entry) => entry.includes('itemBudget')));
+  assert.ok(artsPrompt.userMessage.includes('真实吟唱息数'));
   assert.ok(artsPrompt.userMessage.includes('禁止负数'));
   assert.ok(artsPrompt.userMessage.includes('CV = sqrt'));
   assert.ok(artsPrompt.userMessage.includes('严重失衡时回到1.0'));

@@ -88,7 +88,8 @@
 
 - 状态: casting → resolving → cancelled
 - 取消条件: 施法者死亡 / 超时过期 / 配置版本不匹配
-- 怪物技能有 windupTicks（前摇），期间显示预警区域
+- 玩家技能通过 `playerCast.windupTicks`、怪物技能通过 `monsterCast.windupTicks` 进入吟唱，期间显示预警区域
+- 自创术法的负吟唱预算在生成冷路径展开为 `playerCast.windupTicks`，运行时不再读取权重草稿
 - 资源策略: committed_no_refund（不退还）
 - 冷却策略: committed_no_rollback（不回滚）
 

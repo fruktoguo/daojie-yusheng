@@ -780,6 +780,7 @@ skill-tooltip.buff.stacks.label,技能提示,层数,范围D固定前端可见文
 skill-tooltip.buff.stacks.unknown,技能提示,状态层数,范围D固定前端可见文本
 skill-tooltip.buff.stacks.value,技能提示,{stacks}层,范围D固定前端可见文本
 skill-tooltip.cast.unstable,技能提示,无法稳定施展,范围D固定前端可见文本
+skill-tooltip.chant.value,技能提示,{windupTicks} 息,范围D固定前端可见文本
 skill-tooltip.cleanse.value,技能提示,{target}，移除 {count} 个{category},范围D固定前端可见文本
 skill-tooltip.cooldown.value,技能提示,{cooldown} 息,范围D固定前端可见文本
 skill-tooltip.cost.actual-html,技能提示,"{baseCost}<span class=""skill-tooltip-cost-actual-separator""> · </span><span class=""{className}"">实际 {actualText}</span>",范围D固定前端可见文本
@@ -792,6 +793,7 @@ skill-tooltip.heal.allies,技能提示,友方治疗,范围D固定前端可见文
 skill-tooltip.heal.self,技能提示,自身治疗,范围D固定前端可见文本
 skill-tooltip.heal.target,技能提示,目标治疗,范围D固定前端可见文本
 skill-tooltip.label-line.effect,技能提示,效果：{value},范围D固定前端可见文本
+skill-tooltip.label.chant,技能提示,吟唱,范围D固定前端可见文本
 skill-tooltip.label.cleanse,技能提示,净化,范围D固定前端可见文本
 skill-tooltip.label.cooldown,技能提示,冷却,范围D固定前端可见文本
 skill-tooltip.label.effect,技能提示,效果,范围D固定前端可见文本

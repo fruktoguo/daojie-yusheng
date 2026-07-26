@@ -197,6 +197,7 @@ try {
     skillTooltip.buildSkillTooltipContent(levelScalingSkill, levelScalingContext).lines.join('\n'),
   );
   assert.match(levelScalingTooltipText, /法术伤害：994/u, '术法 hover 必须显示包含等级增幅的总伤害');
+  assert.doesNotMatch(levelScalingTooltipText, /吟唱/u, '瞬发术法不得显示零息吟唱');
   for (const label of [
     '自身境界等级',
     '自身炼丹等级',
@@ -264,6 +265,7 @@ try {
       }],
       unlockLevel: 2,
       targetMode: 'tile',
+      playerCast: { windupTicks: 7 },
     }],
   };
   const requestedTechniqueIds = [];
@@ -299,6 +301,7 @@ try {
   assert.match(generatedTooltipText, /星火印/u, '自创术法书必须显示动态模板里的技能名称');
   assert.match(generatedTooltipText, /火行法术伤害：777/u, '自创术法书必须显示动态模板里的具体伤害');
   assert.match(generatedTooltipText, /灵力消耗：321/u, '自创术法书必须显示动态模板里的具体消耗');
+  assert.match(generatedTooltipText, /吟唱：7 息/u, '自创术法书必须显示运行时实际吟唱时间');
   assert.match(generatedTooltipText, /冷却：9 息/u, '自创术法书必须显示动态模板里的具体冷却');
 
   let coveredTechniqueCount = 0;

@@ -39,6 +39,7 @@ async function main(): Promise<void> {
   testPercentBonusSynergyBalance();
   testPercentBonusRefundPreservesRatio();
   testArtsExpansion();
+  testNegativeChantExpansion();
   testStrictValidation();
   testIdempotentPreviewUsesStoredTruth();
   await testIdempotentPublish();
@@ -50,6 +51,7 @@ async function main(): Promise<void> {
       '百分比组合倍率按配比平衡度连续衰减并封顶',
       '触顶回流保持百分比来源原始正权重比例',
       '术法权重展开为正式 SkillDef',
+      '负吟唱预算展开为正式玩家吟唱并通过模板水合保留',
       '未知字段和字符串数值被拒绝',
       '幂等重放返回数据库已发布模板而非重新计算预览',
       '发布支持同请求重放并拒绝同键异请求和同名功法',
@@ -206,6 +208,7 @@ function testArtsExpansion(): void {
   assert.ok(skill);
   assert.equal(skill.id, 'gen_gm_smoke_arts_skill_1');
   assert.ok(Array.isArray(skill.effects) && skill.effects.length > 0);
+  assert.equal(skill.playerCast, undefined, '正吟唱预算触底回流后仍应保持瞬发');
   assert.equal('structureStrength' in (skill as unknown as Record<string, unknown>), false);
   assert.ok('artsStrength' in built.validationReport);
   const artsStrengthReport = built.validationReport.artsStrength as {
@@ -233,6 +236,55 @@ function testArtsExpansion(): void {
     assert.ok(actualScale > 0, `${key} 应展开为正式公式变量`);
     assertApprox(actualScale / moveSpeedScale, source.moveSpeedEquivalent, 0.05);
   }
+}
+
+function testNegativeChantExpansion(): void {
+  const built = requireBuilt(buildGmCustomTechnique({
+    name: '烟测蓄雷术',
+    desc: '验证负吟唱预算会形成真实施法前摇。',
+    category: 'arts',
+    grade: 'heaven',
+    realmLv: 40,
+    maxLayer: 9,
+    expDifficulty: 1,
+    budgetPercent: 1,
+    skills: [{
+      name: '蓄雷一击',
+      desc: '长久蓄势后引雷轰击目标。',
+      unlockLevel: 1,
+      damageKind: 'spell',
+      element: 'fire',
+      target: { type: 'single', targetMode: 'entity' },
+      structureStrength: {
+        damage: 100,
+        cost: 0,
+        cooldown: 0,
+        chant: -100,
+        castRange: 0,
+        area: 0,
+      },
+      formulaStrength: {
+        attributeBases: { spellAtk: 100 },
+      },
+    }],
+  }, 'gen_gm_smoke_chant'));
+  const skill = built.template.skills?.[0];
+  assert.ok(skill);
+  const report = built.validationReport.artsStrength as {
+    expansion?: Array<{
+      budgetBreakdown?: {
+        items?: Array<{ key?: string; usedBudget?: number; value?: number }>;
+      };
+    }>;
+  };
+  const chantItem = report.expansion?.[0]?.budgetBreakdown?.items?.find((item) => item.key === 'structure.chant');
+  const expectedWindupTicks = Math.round(Math.abs(chantItem?.usedBudget ?? 0));
+  assert.ok(expectedWindupTicks > 0, '负吟唱权重必须分配到真实负预算');
+  assert.equal(chantItem?.value, expectedWindupTicks);
+  assert.equal(skill.playerCast?.windupTicks, expectedWindupTicks);
+
+  const hydrated = normalizeTechniqueTemplate(built.template) as TechniqueTemplate | null;
+  assert.equal(hydrated?.skills?.[0]?.playerCast?.windupTicks, expectedWindupTicks);
 }
 
 function testStrictValidation(): void {

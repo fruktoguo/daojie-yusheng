@@ -4,7 +4,7 @@
  * 维护时要保证结算仍由服务端权威执行，客户端只接收结构化结果和必要表现字段。
  */
 import { Inject, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { TileType, applyCombatAttackIntensityQiCost, buildEffectiveTargetingGeometry, calcQiCostWithOutputLimit, computeAffectedCellsFromAnchor, formatDisplayNumber, horizontalFacingFromTo, parseTileTargetRef, percentModifierToMultiplier, resolvePlayerFacingContentName, resolveSkillRequiresTarget, resolveTargetingGeometryMaxTargets, signedRatioValue, uiLabels } from '@mud/shared';
+import { TileType, applyCombatAttackIntensityQiCost, buildEffectiveTargetingGeometry, calcQiCostWithOutputLimit, computeAffectedCellsFromAnchor, formatDisplayNumber, horizontalFacingFromTo, parseTileTargetRef, percentModifierToMultiplier, resolvePlayerFacingContentName, resolveSkillPlayerWindupTicks as getPlayerSkillWindupTicks, resolveSkillRequiresTarget, resolveTargetingGeometryMaxTargets, signedRatioValue, uiLabels } from '@mud/shared';
 import { PlayerCombatService } from '../../combat/player-combat.service';
 import { createCombatOutcomeApplyAdapters, projectCombatOutcomeDeps } from '../../combat/combat-outcome-apply-adapters';
 import { resolveMonsterCombatExpEquivalentFallback } from '../../combat/monster-combat-exp-equivalent.helper';
@@ -354,12 +354,6 @@ function resolvePlayerSkillCooldownTicks(attacker, cooldown) {
     const cooldownRate = signedRatioValue(cooldownSpeed, cooldownDivisor);
     const cooldownMultiplier = percentModifierToMultiplier(-cooldownRate * 100);
     return Math.max(1, Math.ceil(baseCooldown * cooldownMultiplier));
-}
-function getPlayerSkillWindupTicks(skill) {
-    const windupTicks = skill?.playerCast?.windupTicks;
-    return Number.isFinite(windupTicks)
-        ? Math.max(0, Math.floor(Number(windupTicks)))
-        : 0;
 }
 function getPlayerSkillWarningColor(skill) {
     return typeof skill?.playerCast?.warningColor === 'string' && skill.playerCast.warningColor.trim().length > 0

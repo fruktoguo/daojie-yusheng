@@ -8,7 +8,7 @@
  * 根据 SkillDef 和玩家上下文生成带公式预览的富文本提示内容
  */
 
-import { AttrKey, NumericScalarStatKey, SkillDef, SkillFormula, SkillFormulaVar, TemporaryBuffState, calcQiCostWithOutputLimit, formatBuffMaxStacks } from '@mud/shared';
+import { AttrKey, NumericScalarStatKey, SkillDef, SkillFormula, SkillFormulaVar, TemporaryBuffState, calcQiCostWithOutputLimit, formatBuffMaxStacks, resolveSkillPlayerWindupTicks } from '@mud/shared';
 import type { PlayerState } from '@mud/shared';
 import { FORMULA_VAR_LABELS, FORMULA_VAR_META, type SkillScalingMeta } from '../constants/ui/skill-tooltip';
 import { getElementKeyLabel } from '../domain-labels';
@@ -1138,6 +1138,10 @@ export function buildSkillTooltipContent(skill: SkillDef, context: SkillTooltipP
     lines.push(renderPlainLine(t('skill-tooltip.label.cleanse', undefined), t('skill-tooltip.cleanse.value', { target: targetLabel, count: formatDisplayInteger(effect.removeCount ?? 1), category: categoryLabel })));
   }
   lines.push(renderLabelLine(t('skill-tooltip.label.qi-cost', undefined), buildQiCostValue(previewSkill.cost, context)));
+  const windupTicks = resolveSkillPlayerWindupTicks(previewSkill);
+  if (windupTicks > 0) {
+    lines.push(renderPlainLine(t('skill-tooltip.label.chant', undefined), t('skill-tooltip.chant.value', { windupTicks: formatDisplayInteger(windupTicks) })));
+  }
   lines.push(renderPlainLine(t('skill-tooltip.label.cooldown', undefined), t('skill-tooltip.cooldown.value', { cooldown: formatDisplayInteger(previewSkill.cooldown) })));
   lines.push(`<span class="skill-tooltip-note">${t('skill-tooltip.note.combat-resolution', undefined)}</span>`);
   return { lines, asideCards };
