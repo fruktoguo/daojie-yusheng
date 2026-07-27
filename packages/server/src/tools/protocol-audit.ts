@@ -253,6 +253,7 @@ var STATIC_S2C_SURFACE_CHECKS = [
       'RedeemCodesResult',
       'ActivityStatus',
       'ActivityOperationResult',
+      'ChatHistory',
     ],
   },
   {
@@ -1657,18 +1658,20 @@ async function heartbeatChatCase(runtime) {
     return payload && payload.clientAt === 2003;
   }, 10000);
 /**
- * 记录noticeafter。
+ * 记录聊天消息游标。
  */
-  var noticeAfter = receiver.getEventCount(S2C.Notice);
+  var chatMessageAfter = receiver.getEventCount(S2C.ChatMessage);
 /**
  * 记录message。
  */
   var message = "协议审计聊天 " + senderId;
   sender.emit(C2S.Chat, { message: message });
-  await receiver.waitForEventAfter(S2C.Notice, noticeAfter, function (payload) {
-    return Array.isArray(payload?.items) && payload.items.some(function (item) {
-      return item?.kind === 'chat' && item.text === message && item.from === senderChatLabel;
-    });
+  await receiver.waitForEventAfter(S2C.ChatMessage, chatMessageAfter, function (payload) {
+    return payload
+      && payload.channel === 'nearby'
+      && payload.text === message
+      && payload.from === senderChatLabel
+      && payload.fromPlayerId === senderId;
   }, 10000);
 }
 /**

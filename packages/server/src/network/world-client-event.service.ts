@@ -207,6 +207,10 @@ export class WorldClientEventService {
                 from: entry.from,
                 occurredAt: entry.at,
                 persistUntilAck: true,
+                ...(entry.structured ? { structured: entry.structured } : {}),
+                ...(Array.isArray(entry.structuredGroup) && entry.structuredGroup.length > 0
+                    ? { structuredGroup: entry.structuredGroup }
+                    : {}),
             }]);
     }
     /** 发送未完成 hello 的提示，拦住非法 gameplay 命令。 */
@@ -271,12 +275,12 @@ export class WorldClientEventService {
         }
     }
     /** 将聊天意图交给频道运行时裁定并按增量下发。 */
-    broadcastChat(playerId, payload) {
+    broadcastChat(playerId, payload, runtime = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (this.chatRuntimeService && typeof this.chatRuntimeService.handlePlayerChat === 'function') {
             try {
-                const operation = this.chatRuntimeService.handlePlayerChat(playerId, payload);
+                const operation = this.chatRuntimeService.handlePlayerChat(playerId, payload, runtime);
                 void Promise.resolve(operation).catch((error) => {
                     this.logger.warn(`聊天意图处理失败 playerId=${playerId} error=${error instanceof Error ? error.message : String(error)}`);
                 });
@@ -330,6 +334,14 @@ export class WorldClientEventService {
             const socket = this.worldSessionService.getSocketByPlayerId(targetPlayerId);
             if (socket) this.emitChatMessage(socket, chatMsg);
         }
+    }
+    /** 按客户端本地游标增量补齐公共聊天历史。 */
+    async emitChatHistory(client, playerId, payload) {
+        if (!this.chatRuntimeService || typeof this.chatRuntimeService.emitHistory !== 'function') {
+            client?.emit?.(S2C.ChatHistory, { channels: [] });
+            return;
+        }
+        await this.chatRuntimeService.emitHistory(client, playerId, payload);
     }
     /** 标记指定日志消息已被玩家确认。 */
     acknowledgeSystemMessages(playerId, payload) {

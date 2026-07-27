@@ -561,6 +561,7 @@ function buildFullSelfDeltaFromState(self: ProjectedSelfState, selfRevision: num
         sr: selfRevision,
         iid: self.instanceId,
         mid: self.templateId,
+        sid: self.sectId,
         x: self.x,
         y: self.y,
         f: self.f,
@@ -851,6 +852,7 @@ function captureSelfState(player: ProjectorPlayerLike): ProjectedSelfState {
     return {
         instanceId: player.instanceId,
         templateId: player.templateId,
+        sectId: typeof player.sectId === 'string' && player.sectId.trim() ? player.sectId.trim() : null,
         x: player.x, y: player.y, f: player.facing,
         hp: player.hp, maxHp: player.maxHp, qi: player.qi, maxQi: player.maxQi,
         wallet: cloneWalletState(player.wallet),
@@ -1666,6 +1668,8 @@ function buildSelfDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike)
     const delta: SelfDeltaView = { sr: player.selfRevision };
     if (previous.self.instanceId !== player.instanceId) { delta.iid = player.instanceId; }
     if (previous.self.templateId !== player.templateId) { delta.mid = player.templateId; }
+    const currentSectId = typeof player.sectId === 'string' && player.sectId.trim() ? player.sectId.trim() : null;
+    if (previous.self.sectId !== currentSectId) { delta.sid = currentSectId; }
     if (previous.self.f !== player.facing) { delta.f = player.facing; }
     if (previous.self.hp !== player.hp) { delta.hp = player.hp; }
     if (previous.self.maxHp !== player.maxHp) { delta.maxHp = player.maxHp; }

@@ -4,7 +4,6 @@
  * 维护时优先保持局部更新和原有交互状态，不在 UI 层裁定资产、战斗或移动合法性。
  */
 import {
-  CHAT_LOG_MAX_PERSISTED_MESSAGES_PER_CHANNEL,
   CHAT_LOG_STORAGE_KEY,
   type ChatChannel,
   type ChatMessageKind,
@@ -56,9 +55,11 @@ let persistFlushTimer: number | null = null;
 let persistFlushRunning = false;
 
 type PendingPersistEntry = {
-  scopeId: string;
-  entry: ChatStoredMessage;
-  channels: ChatChannel[];
+  records: Array<{
+    scopeId: string;
+    entry: ChatStoredMessage;
+    channels: ChatChannel[];
+  }>;
   resolve: (value: boolean) => void;
 };
 
@@ -116,14 +117,6 @@ function bindPersistLifecycle(): void {
     if (document.visibilityState === 'hidden') {
       void flushPendingPersistEntries();
     }
-  });
-}
-
-/** withRequestResult：处理with请求结果。 */
-function withRequestResult<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error('IndexedDB request failed'));
   });
 }
 
@@ -185,6 +178,8 @@ function toStoredMessage(record: ChatMessageRecord): ChatStoredMessage {
     scope: record.scope,
     ...(record.combat ? { combat: record.combat } : undefined),
     ...(record.combatGroup ? { combatGroup: record.combatGroup } : undefined),
+    ...(record.structured ? { structured: record.structured } : undefined),
+    ...(record.structuredGroup ? { structuredGroup: record.structuredGroup } : undefined),
   };
 }
 
@@ -246,65 +241,6 @@ async function readMessagesByRange(
   });
 }
 
-/** pruneChannel：处理prune Channel。 */
-async function pruneChannel(scopeId: string, channel: ChatChannel): Promise<void> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  const database = await openDatabase();
-  if (!database) {
-    return;
-  }
-
-  const range = buildChannelRange(scopeId, channel);
-  try {
-    const countTransaction = database.transaction(CHAT_DB_STORE_NAME, 'readonly');
-    const countIndex = countTransaction.objectStore(CHAT_DB_STORE_NAME).index(CHAT_DB_INDEX_BY_CHANNEL_TIME);
-    const total = await withRequestResult(countIndex.count(range));
-    await withTransactionComplete(countTransaction);
-    const overflow = total - CHAT_LOG_MAX_PERSISTED_MESSAGES_PER_CHANNEL;
-    if (overflow <= 0) {
-      return;
-    }
-
-    const keysToDelete = await new Promise<IDBValidKey[]>((resolve) => {
-      const collected: IDBValidKey[] = [];
-      try {
-        const transaction = database.transaction(CHAT_DB_STORE_NAME, 'readonly');
-        const index = transaction.objectStore(CHAT_DB_STORE_NAME).index(CHAT_DB_INDEX_BY_CHANNEL_TIME);
-        const request = index.openKeyCursor(range, 'next');
-        request.onsuccess = () => {
-          const cursor = request.result;
-          if (!cursor || collected.length >= overflow) {
-            resolve(collected);
-            return;
-          }
-          collected.push(cursor.primaryKey);
-          cursor.continue();
-        };
-        request.onerror = () => {
-          console.warn('[chat] 裁剪聊天记录失败。', request.error);
-          resolve(collected);
-        };
-      } catch (error) {
-        console.warn('[chat] 裁剪聊天记录失败。', error);
-        resolve(collected);
-      }
-    });
-    if (keysToDelete.length === 0) {
-      return;
-    }
-
-    const deleteTransaction = database.transaction(CHAT_DB_STORE_NAME, 'readwrite');
-    const store = deleteTransaction.objectStore(CHAT_DB_STORE_NAME);
-    for (const key of keysToDelete) {
-      store.delete(key);
-    }
-    await withTransactionComplete(deleteTransaction);
-  } catch (error) {
-    console.warn('[chat] 裁剪聊天记录失败。', error);
-  }
-}
-
 async function persistBatch(entries: PendingPersistEntry[]): Promise<boolean> {
   const database = await openDatabase();
   if (!database || entries.length === 0) {
@@ -313,23 +249,25 @@ async function persistBatch(entries: PendingPersistEntry[]): Promise<boolean> {
 
   try {
     const dedupedRecords = new Map<string, ChatMessageRecord>();
-    const touchedChannels = new Map<string, { scopeId: string; channel: ChatChannel }>();
     for (const pending of entries) {
-      for (const channel of pending.channels) {
-        const dedupeKey = `${pending.scopeId}\n${channel}\n${pending.entry.id}`;
-        dedupedRecords.set(dedupeKey, {
-          scopeId: pending.scopeId,
-          channel,
-          id: pending.entry.id,
-          at: pending.entry.at,
-          text: pending.entry.text,
-          from: pending.entry.from,
-          kind: pending.entry.kind as ChatMessageKind,
-          scope: pending.entry.scope as ChatMessageScope | undefined,
-          ...(pending.entry.combat ? { combat: pending.entry.combat } : undefined),
-          ...(pending.entry.combatGroup ? { combatGroup: pending.entry.combatGroup } : undefined),
-        });
-        touchedChannels.set(`${pending.scopeId}\n${channel}`, { scopeId: pending.scopeId, channel });
+      for (const record of pending.records) {
+        for (const channel of record.channels) {
+          const dedupeKey = `${record.scopeId}\n${channel}\n${record.entry.id}`;
+          dedupedRecords.set(dedupeKey, {
+            scopeId: record.scopeId,
+            channel,
+            id: record.entry.id,
+            at: record.entry.at,
+            text: record.entry.text,
+            from: record.entry.from,
+            kind: record.entry.kind as ChatMessageKind,
+            scope: record.entry.scope as ChatMessageScope | undefined,
+            ...(record.entry.combat ? { combat: record.entry.combat } : undefined),
+            ...(record.entry.combatGroup ? { combatGroup: record.entry.combatGroup } : undefined),
+            ...(record.entry.structured ? { structured: record.entry.structured } : undefined),
+            ...(record.entry.structuredGroup ? { structuredGroup: record.entry.structuredGroup } : undefined),
+          });
+        }
       }
     }
 
@@ -339,7 +277,6 @@ async function persistBatch(entries: PendingPersistEntry[]): Promise<boolean> {
       store.put(record);
     }
     await withTransactionComplete(transaction);
-    await Promise.all([...touchedChannels.values()].map(({ scopeId, channel }) => pruneChannel(scopeId, channel)));
     return true;
   } catch (error) {
     console.warn('[chat] 写入聊天记录失败。', error);
@@ -410,14 +347,34 @@ export async function appendChannelMessages(
     return false;
   }
   return new Promise<boolean>((resolve) => {
-    for (const channel of channels) {
-      pendingPersistEntries.push({
+    pendingPersistEntries.push({
+      records: channels.map((channel) => ({
         scopeId: resolveChannelScopeId(channel),
         entry,
         channels: [channel],
-        resolve,
-      });
-    }
+      })),
+      resolve,
+    });
+    schedulePersistFlush();
+  });
+}
+
+/** 批量追加服务端历史，整个历史包共用一次 IndexedDB 事务。 */
+export async function appendChannelMessageBatch(
+  scopeId: string,
+  entries: Array<{ entry: ChatStoredMessage; channels: ChatChannel[] }>,
+  resolveChannelScopeId: (channel: ChatChannel) => string = () => scopeId,
+): Promise<boolean> {
+  const records = entries.flatMap(({ entry, channels }) => channels.map((channel) => ({
+    scopeId: resolveChannelScopeId(channel),
+    entry,
+    channels: [channel],
+  })));
+  if (records.length === 0) {
+    return true;
+  }
+  return new Promise<boolean>((resolve) => {
+    pendingPersistEntries.push({ records, resolve });
     schedulePersistFlush();
   });
 }

@@ -2547,7 +2547,7 @@ export class PlayerRuntimeService {
     getPendingLogbookMessages(playerId) {
 
         const player = this.getPlayerOrThrow(playerId);
-        return player.pendingLogbookMessages.map((entry) => ({ ...entry }));
+        return player.pendingLogbookMessages.map(clonePendingLogbookMessage);
     }
     /**
  * getLegacyPendingLogbookMessages：读取Legacy待处理LogbookMessage。
@@ -10404,12 +10404,50 @@ function normalizePendingLogbookMessage(input) {
     const from = typeof input.from === 'string' && input.from.trim().length > 0
         ? input.from.trim()
         : undefined;
+    const structured = normalizePendingStructuredNotice(input.structured);
+    const structuredGroup = Array.isArray(input.structuredGroup)
+        ? input.structuredGroup.map(normalizePendingStructuredNotice).filter(Boolean)
+        : [];
     return {
         id,
         kind,
         text,
         from,
         at,
+        ...(structured ? { structured } : {}),
+        ...(structuredGroup.length > 0 ? { structuredGroup } : {}),
+    };
+}
+
+function normalizePendingStructuredNotice(input) {
+    if (!input || typeof input !== 'object' || typeof input.key !== 'string' || !input.key.trim()) {
+        return null;
+    }
+    const vars = input.vars && typeof input.vars === 'object' && !Array.isArray(input.vars)
+        ? Object.fromEntries(Object.entries(input.vars).filter(([, value]) => typeof value === 'string' || Number.isFinite(value)))
+        : null;
+    const pills = Array.isArray(input.pills)
+        ? input.pills.filter((entry) => entry && typeof entry === 'object' && typeof entry.key === 'string').map((entry) => ({
+            ...entry,
+            ...(Array.isArray(entry.tooltipLines) ? { tooltipLines: entry.tooltipLines.filter((line) => typeof line === 'string') } : {}),
+        }))
+        : null;
+    const badges = Array.isArray(input.badges) ? input.badges.filter((entry) => typeof entry === 'string') : null;
+    return {
+        key: input.key.trim(),
+        ...(vars && Object.keys(vars).length > 0 ? { vars } : {}),
+        ...(pills && pills.length > 0 ? { pills } : {}),
+        ...(badges && badges.length > 0 ? { badges } : {}),
+    };
+}
+
+function clonePendingLogbookMessage(entry) {
+    return {
+        ...entry,
+        ...(entry?.structured ? { structured: normalizePendingStructuredNotice(entry.structured) } : {}),
+        ...(Array.isArray(entry?.structuredGroup)
+            ? { structuredGroup: entry.structuredGroup.map(normalizePendingStructuredNotice).filter(Boolean) }
+            : {}),
     };
 }
 
@@ -10438,11 +10476,35 @@ function isSamePendingLogbookMessages(left, right) {
             || a.kind !== b.kind
             || a.text !== b.text
             || a.from !== b.from
-            || a.at !== b.at) {
+            || a.at !== b.at
+            || !isSamePendingNoticeValue(a.structured, b.structured)
+            || !isSamePendingNoticeValue(a.structuredGroup, b.structuredGroup)) {
             return false;
         }
     }
     return true;
+}
+
+function isSamePendingNoticeValue(left, right) {
+    if (left === right) {
+        return true;
+    }
+    if (Array.isArray(left) || Array.isArray(right)) {
+        if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
+            return false;
+        }
+        return left.every((entry, index) => isSamePendingNoticeValue(entry, right[index]));
+    }
+    if (!left || !right || typeof left !== 'object' || typeof right !== 'object') {
+        return false;
+    }
+    const leftKeys = Object.keys(left);
+    const rightKeys = Object.keys(right);
+    if (leftKeys.length !== rightKeys.length) {
+        return false;
+    }
+    return leftKeys.every((key) => Object.prototype.hasOwnProperty.call(right, key)
+        && isSamePendingNoticeValue(left[key], right[key]));
 }
 /**
  * clamp：执行clamp相关逻辑。

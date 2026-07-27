@@ -39,6 +39,7 @@ export interface WorldSessionBinding {
   sessionId: string;
   socketId: string | null;
   instanceId: string | null;
+  sectId: string | null;
   sessionEpoch: number | null;
   resumed: boolean;
   connected: boolean;
@@ -98,6 +99,12 @@ export function buildWorldInstanceRoomId(instanceId: string): string {
   return `world:instance:${instanceId}`;
 }
 
+export function buildWorldSectRoomId(sectId: string): string {
+  return `world:sect:${sectId}`;
+}
+
+export const WORLD_CONNECTED_PLAYERS_ROOM_ID = 'world:connected-players';
+
 function sanitizeRequestedSessionId(rawSessionId: unknown): string {
   if (typeof rawSessionId !== 'string') {
     return '';
@@ -121,6 +128,7 @@ export class WorldSessionService {
   private readonly bindingByPlayerId = new Map<string, WorldSessionBinding>();
   private readonly bindingBySessionId = new Map<string, WorldSessionBinding>();
   private readonly playerIdsByInstanceId = new Map<string, Set<string>>();
+  private readonly playerIdsBySectId = new Map<string, Set<string>>();
   private socketServer: SocketServerPort | null = null;
   private readonly expiryTimerByPlayerId = new Map<string, SessionTimer>();
   private readonly expiredBindings = new Map<string, WorldSessionBinding>();
@@ -176,6 +184,8 @@ export class WorldSessionService {
       sessionId,
       socketId: client.id,
       instanceId: previous?.instanceId ?? null,
+      // 宗门成员关系可能在玩家离线期间变化，重连后必须等待权威玩家态重新同步。
+      sectId: null,
       sessionEpoch: previous?.sessionEpoch ?? null,
       resumed: resumeMatched,
       connected: true,
@@ -191,9 +201,15 @@ export class WorldSessionService {
     this.bindingBySocketId.set(client.id, binding);
     this.bindingByPlayerId.set(playerId, binding);
     this.bindingBySessionId.set(sessionId, binding);
+    this.removePlayerFromSectIndex(playerId, previous?.sectId);
+    this.joinSocketWorldPlayersRoom(client.id);
     if (binding.instanceId) {
       this.addPlayerToInstanceIndex(playerId, binding.instanceId);
       this.joinSocketInstanceRoom(client.id, binding.instanceId);
+    }
+    if (binding.sectId) {
+      this.addPlayerToSectIndex(playerId, binding.sectId);
+      this.joinSocketSectRoom(client.id, binding.sectId);
     }
 
     if (previous && previous.connected && previous.socketId && previous.socketId !== client.id) {
@@ -201,6 +217,10 @@ export class WorldSessionService {
       if (previous.instanceId) {
         this.leaveSocketInstanceRoom(previous.socketId, previous.instanceId);
       }
+      if (previous.sectId) {
+        this.leaveSocketSectRoom(previous.socketId, previous.sectId);
+      }
+      this.leaveSocketWorldPlayersRoom(previous.socketId);
       const previousSocket = this.socketsById.get(previous.socketId);
       if (previousSocket) {
         previousSocket.emit(S2C.Kick, { reason: 'replaced' });
@@ -227,13 +247,22 @@ export class WorldSessionService {
       if (binding.instanceId) {
         this.leaveSocketInstanceRoom(socketId, binding.instanceId);
       }
+      if (binding.sectId) {
+        this.leaveSocketSectRoom(socketId, binding.sectId);
+      }
+      this.leaveSocketWorldPlayersRoom(socketId);
       this.socketsById.delete(socketId);
       return null;
     }
     this.removePlayerFromInstanceIndex(binding.playerId, binding.instanceId);
+    this.removePlayerFromSectIndex(binding.playerId, binding.sectId);
     if (binding.instanceId) {
       this.leaveSocketInstanceRoom(socketId, binding.instanceId);
     }
+    if (binding.sectId) {
+      this.leaveSocketSectRoom(socketId, binding.sectId);
+    }
+    this.leaveSocketWorldPlayersRoom(socketId);
     this.socketsById.delete(socketId);
 
     const detachedAt = Date.now();
@@ -242,6 +271,7 @@ export class WorldSessionService {
       sessionId: binding.sessionId,
       socketId: null,
       instanceId: binding.instanceId,
+      sectId: binding.sectId,
       sessionEpoch: binding.sessionEpoch ?? null,
       resumed: false,
       connected: false,
@@ -401,12 +431,97 @@ export class WorldSessionService {
     return Array.from(this.playerIdsByInstanceId.get(normalizedInstanceId) ?? []);
   }
 
+  getConnectedPlayerCount(): number {
+    let count = 0;
+    for (const binding of this.bindingByPlayerId.values()) {
+      if (binding.connected) {
+        count += 1;
+      }
+    }
+    return count;
+  }
+
+  /** 同步玩家的宗门聊天索引；仅在宗门变化时调整集合。 */
+  syncPlayerSectChannel(playerId: string, sectId: unknown): boolean {
+    const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+    const nextSectId = normalizeSectId(sectId);
+    if (!normalizedPlayerId) {
+      return false;
+    }
+    const binding = this.bindingByPlayerId.get(normalizedPlayerId);
+    if (!binding) {
+      return false;
+    }
+    const previousSectId = normalizeSectId(binding.sectId);
+    if (previousSectId === nextSectId) {
+      return false;
+    }
+    if (previousSectId) {
+      this.removePlayerFromSectIndex(normalizedPlayerId, previousSectId);
+      if (binding.connected && binding.socketId) {
+        this.leaveSocketSectRoom(binding.socketId, previousSectId);
+      }
+    }
+    binding.sectId = nextSectId;
+    const sessionBinding = this.bindingBySessionId.get(binding.sessionId);
+    if (sessionBinding) {
+      sessionBinding.sectId = nextSectId;
+    }
+    if (binding.connected && nextSectId) {
+      this.addPlayerToSectIndex(normalizedPlayerId, nextSectId);
+      if (binding.socketId) {
+        this.joinSocketSectRoom(binding.socketId, nextSectId);
+      }
+    }
+    return true;
+  }
+
+  listSectPlayerIds(sectId: unknown): string[] {
+    const normalizedSectId = normalizeSectId(sectId);
+    if (!normalizedSectId) {
+      return [];
+    }
+    return Array.from(this.playerIdsBySectId.get(normalizedSectId) ?? []);
+  }
+
+  getSectPlayerCount(sectId: unknown): number {
+    const normalizedSectId = normalizeSectId(sectId);
+    return normalizedSectId ? this.playerIdsBySectId.get(normalizedSectId)?.size ?? 0 : 0;
+  }
+
   emitToInstance(instanceId: unknown, event: string, payload: unknown): boolean {
     const normalizedInstanceId = normalizeInstanceId(instanceId);
     if (!normalizedInstanceId || !event || !this.socketServer) {
       return false;
     }
     const emitter = this.socketServer.to(buildWorldInstanceRoomId(normalizedInstanceId));
+    if (!emitter || typeof emitter.emit !== 'function') {
+      return false;
+    }
+    emitter.emit(event, payload);
+    return true;
+  }
+
+  /** 直接走 Socket.IO 宗门房间广播，避免在应用层遍历宗门成员。 */
+  emitToSect(sectId: unknown, event: string, payload: unknown): boolean {
+    const normalizedSectId = normalizeSectId(sectId);
+    if (!normalizedSectId || !event || !this.socketServer) {
+      return false;
+    }
+    const emitter = this.socketServer.to(buildWorldSectRoomId(normalizedSectId));
+    if (!emitter || typeof emitter.emit !== 'function') {
+      return false;
+    }
+    emitter.emit(event, payload);
+    return true;
+  }
+
+  /** 直接走 Socket.IO 服务端广播，避免世界频道在应用层逐连接循环。 */
+  emitToAll(event: string, payload: unknown): boolean {
+    if (!event || !this.socketServer) {
+      return false;
+    }
+    const emitter = this.socketServer.to(WORLD_CONNECTED_PLAYERS_ROOM_ID);
     if (!emitter || typeof emitter.emit !== 'function') {
       return false;
     }
@@ -440,6 +555,7 @@ export class WorldSessionService {
       sessionId,
       socketId: null,
       instanceId: normalizeInstanceId(binding?.instanceId),
+      sectId: normalizeSectId(binding?.sectId),
       sessionEpoch: normalizeSessionEpoch(binding?.sessionEpoch),
       resumed: false,
       connected: false,
@@ -571,6 +687,7 @@ export class WorldSessionService {
     }
     this.bindingByPlayerId.delete(normalizedPlayerId);
     this.removePlayerFromInstanceIndex(normalizedPlayerId, binding.instanceId);
+    this.removePlayerFromSectIndex(normalizedPlayerId, binding.sectId);
     this.clearExpiry(normalizedPlayerId);
     this.expiredBindings.delete(normalizedPlayerId);
     this.requeueAttemptsByPlayerId.delete(normalizedPlayerId);
@@ -581,6 +698,10 @@ export class WorldSessionService {
       if (binding.instanceId) {
         this.leaveSocketInstanceRoom(binding.socketId, binding.instanceId);
       }
+      if (binding.sectId) {
+        this.leaveSocketSectRoom(binding.socketId, binding.sectId);
+      }
+      this.leaveSocketWorldPlayersRoom(binding.socketId);
       const socket = this.socketsById.get(binding.socketId) ?? null;
       this.socketsById.delete(binding.socketId);
       if (socket) {
@@ -658,6 +779,34 @@ export class WorldSessionService {
     }
   }
 
+  private addPlayerToSectIndex(playerId: string, sectId: string | null | undefined): void {
+    const normalizedSectId = normalizeSectId(sectId);
+    if (!playerId || !normalizedSectId) {
+      return;
+    }
+    let playerIds = this.playerIdsBySectId.get(normalizedSectId);
+    if (!playerIds) {
+      playerIds = new Set<string>();
+      this.playerIdsBySectId.set(normalizedSectId, playerIds);
+    }
+    playerIds.add(playerId);
+  }
+
+  private removePlayerFromSectIndex(playerId: string, sectId: string | null | undefined): void {
+    const normalizedSectId = normalizeSectId(sectId);
+    if (!playerId || !normalizedSectId) {
+      return;
+    }
+    const playerIds = this.playerIdsBySectId.get(normalizedSectId);
+    if (!playerIds) {
+      return;
+    }
+    playerIds.delete(playerId);
+    if (playerIds.size <= 0) {
+      this.playerIdsBySectId.delete(normalizedSectId);
+    }
+  }
+
   private joinSocketInstanceRoom(socketId: string, instanceId: string | null | undefined): void {
     const socket = this.socketsById.get(socketId);
     const normalizedInstanceId = normalizeInstanceId(instanceId);
@@ -673,6 +822,58 @@ export class WorldSessionService {
       }
     } catch (error) {
       this.logger.warn(`Socket 加入实例房间失败 socketId=${socketId} instanceId=${normalizedInstanceId} error=${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private joinSocketWorldPlayersRoom(socketId: string): void {
+    const socket = this.socketsById.get(socketId);
+    if (!socket || typeof socket.join !== 'function') {
+      return;
+    }
+    try {
+      const operation = socket.join(WORLD_CONNECTED_PLAYERS_ROOM_ID);
+      if (operation) {
+        void operation.catch((error) => {
+          this.logger.warn(`Socket 加入认证玩家房间失败 socketId=${socketId} error=${error instanceof Error ? error.message : String(error)}`);
+        });
+      }
+    } catch (error) {
+      this.logger.warn(`Socket 加入认证玩家房间失败 socketId=${socketId} error=${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private joinSocketSectRoom(socketId: string, sectId: string | null | undefined): void {
+    const socket = this.socketsById.get(socketId);
+    const normalizedSectId = normalizeSectId(sectId);
+    if (!socket || !normalizedSectId || typeof socket.join !== 'function') {
+      return;
+    }
+    try {
+      const operation = socket.join(buildWorldSectRoomId(normalizedSectId));
+      if (operation) {
+        void operation.catch((error) => {
+          this.logger.warn(`Socket 加入宗门房间失败 socketId=${socketId} sectId=${normalizedSectId} error=${error instanceof Error ? error.message : String(error)}`);
+        });
+      }
+    } catch (error) {
+      this.logger.warn(`Socket 加入宗门房间失败 socketId=${socketId} sectId=${normalizedSectId} error=${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private leaveSocketWorldPlayersRoom(socketId: string): void {
+    const socket = this.socketsById.get(socketId);
+    if (!socket || typeof socket.leave !== 'function') {
+      return;
+    }
+    try {
+      const operation = socket.leave(WORLD_CONNECTED_PLAYERS_ROOM_ID);
+      if (operation) {
+        void operation.catch((error) => {
+          this.logger.warn(`Socket 离开认证玩家房间失败 socketId=${socketId} error=${error instanceof Error ? error.message : String(error)}`);
+        });
+      }
+    } catch (error) {
+      this.logger.warn(`Socket 离开认证玩家房间失败 socketId=${socketId} error=${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -693,6 +894,24 @@ export class WorldSessionService {
       this.logger.warn(`Socket 离开实例房间失败 socketId=${socketId} instanceId=${normalizedInstanceId} error=${error instanceof Error ? error.message : String(error)}`);
     }
   }
+
+  private leaveSocketSectRoom(socketId: string, sectId: string | null | undefined): void {
+    const socket = this.socketsById.get(socketId);
+    const normalizedSectId = normalizeSectId(sectId);
+    if (!socket || !normalizedSectId || typeof socket.leave !== 'function') {
+      return;
+    }
+    try {
+      const operation = socket.leave(buildWorldSectRoomId(normalizedSectId));
+      if (operation) {
+        void operation.catch((error) => {
+          this.logger.warn(`Socket 离开宗门房间失败 socketId=${socketId} sectId=${normalizedSectId} error=${error instanceof Error ? error.message : String(error)}`);
+        });
+      }
+    } catch (error) {
+      this.logger.warn(`Socket 离开宗门房间失败 socketId=${socketId} sectId=${normalizedSectId} error=${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
 }
 
 function normalizeInstanceId(instanceId: unknown): string | null {
@@ -700,6 +919,14 @@ function normalizeInstanceId(instanceId: unknown): string | null {
     return null;
   }
   const normalized = instanceId.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeSectId(sectId: unknown): string | null {
+  if (typeof sectId !== 'string') {
+    return null;
+  }
+  const normalized = sectId.trim();
   return normalized.length > 0 ? normalized : null;
 }
 

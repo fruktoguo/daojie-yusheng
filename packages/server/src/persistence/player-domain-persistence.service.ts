@@ -459,6 +459,8 @@ export interface PlayerLogbookMessageUpsertInput {
   from?: string | null;
   at?: number | null;
   ackedAt?: number | null;
+  structured?: Record<string, unknown> | null;
+  structuredGroup?: Array<Record<string, unknown>> | null;
 }
 
 export interface PlayerOfflineGainSessionRecord {
@@ -895,6 +897,8 @@ interface PlayerLogbookMessageLoadRow {
   from_name?: unknown;
   occurred_at?: unknown;
   acked_at?: unknown;
+  structured_payload?: unknown;
+  structured_group_payload?: unknown;
 }
 
 interface PlayerRecoveryWatermarkLoadRow {
@@ -2919,7 +2923,9 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
             text,
             from_name,
             occurred_at,
-            acked_at
+            acked_at,
+            structured_payload,
+            structured_group_payload
           FROM ${PLAYER_LOGBOOK_MESSAGE_TABLE}
           WHERE player_id = $1
           ORDER BY occurred_at ASC, message_id ASC
@@ -4705,9 +4711,19 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
       from_name varchar(120),
       occurred_at bigint NOT NULL,
       acked_at bigint,
+      structured_payload jsonb,
+      structured_group_payload jsonb,
       updated_at timestamptz NOT NULL DEFAULT now(),
       PRIMARY KEY(player_id, message_id)
     )
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_LOGBOOK_MESSAGE_TABLE}
+    ADD COLUMN IF NOT EXISTS structured_payload jsonb
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_LOGBOOK_MESSAGE_TABLE}
+    ADD COLUMN IF NOT EXISTS structured_group_payload jsonb
   `);
   await client.query(`
     ALTER TABLE ${PLAYER_LOGBOOK_MESSAGE_TABLE}
@@ -7026,6 +7042,8 @@ async function replacePlayerLogbookMessages(
     from_name: string | null;
     occurred_at: number;
     acked_at: number | null;
+    structured_payload: Record<string, unknown> | null;
+    structured_group_payload: Array<Record<string, unknown>> | null;
   }> = [];
   for (const row of Array.isArray(rows) ? rows : []) {
     const entry = asRecord(row);
@@ -7042,6 +7060,10 @@ async function replacePlayerLogbookMessages(
       from_name: normalizeOptionalString(entry?.from ?? entry?.fromName),
       occurred_at: normalizeOptionalInteger(entry?.at ?? entry?.occurredAt) ?? Date.now(),
       acked_at: normalizeOptionalInteger(entry?.ackedAt),
+      structured_payload: asRecord(entry?.structured),
+      structured_group_payload: normalizeJsonArray(entry?.structuredGroup)
+        .map((item) => asRecord(item))
+        .filter((item): item is Record<string, unknown> => item !== null),
     });
   }
 
@@ -7056,7 +7078,9 @@ async function replacePlayerLogbookMessages(
             text text,
             from_name varchar(120),
             occurred_at bigint,
-            acked_at bigint
+            acked_at bigint,
+            structured_payload jsonb,
+            structured_group_payload jsonb
           )
         )
         INSERT INTO ${PLAYER_LOGBOOK_MESSAGE_TABLE}(
@@ -7067,9 +7091,12 @@ async function replacePlayerLogbookMessages(
           from_name,
           occurred_at,
           acked_at,
+          structured_payload,
+          structured_group_payload,
           updated_at
         )
-        SELECT message_id, $1, kind, text, from_name, occurred_at, acked_at, now()
+        SELECT message_id, $1, kind, text, from_name, occurred_at, acked_at,
+               structured_payload, structured_group_payload, now()
         FROM incoming
         ON CONFLICT (player_id, message_id)
         DO UPDATE SET
@@ -7078,6 +7105,8 @@ async function replacePlayerLogbookMessages(
           from_name = EXCLUDED.from_name,
           occurred_at = EXCLUDED.occurred_at,
           acked_at = EXCLUDED.acked_at,
+          structured_payload = EXCLUDED.structured_payload,
+          structured_group_payload = EXCLUDED.structured_group_payload,
           updated_at = now()
       `,
       [playerId, JSON.stringify(normalizedRows)],
@@ -8881,6 +8910,10 @@ function applyProjectedLogbook(
     text: normalizeOptionalString(row.text) ?? '',
     from: normalizeOptionalString(row.from_name) ?? undefined,
     at: normalizeOptionalInteger(row.occurred_at) ?? snapshot.savedAt,
+    ...(asRecord(row.structured_payload) ? { structured: asRecord(row.structured_payload) as any } : undefined),
+    ...(normalizeJsonArray(row.structured_group_payload).length > 0
+      ? { structuredGroup: normalizeJsonArray(row.structured_group_payload) as any }
+      : undefined),
   }));
 }
 

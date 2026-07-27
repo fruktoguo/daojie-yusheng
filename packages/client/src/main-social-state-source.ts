@@ -1,5 +1,6 @@
 /** 本文件负责道友面板和宝库弹层的客户端状态装配。 */
 import type {
+  DaoistDirectMessageHistoryView,
   DaoistDirectMessageView,
   PlayerState,
   SocialOperationResultView,
@@ -12,6 +13,7 @@ import type { SocketSocialEconomySender } from './network/socket-send-social-eco
 import type { ToastKind } from './main-app-assembly-types';
 import { SocialPanel, TreasureVaultModal } from './ui/panels/social-panel';
 import type { TreasureVaultModalTab } from './ui/panels/social-panel';
+import { appendDaoistMessages, loadRecentDaoistMessages } from './ui/daoist-message-storage';
 
 type MainSocialStateSourceOptions = {
   socialPanel: SocialPanel;
@@ -25,6 +27,8 @@ type MainSocialStateSourceOptions = {
     | 'updateDaoistRelationLevel'
     | 'removeDaoistRelation'
     | 'sendDaoistDirectMessage'
+    | 'requestDaoistDirectMessageHistory'
+    | 'markDaoistDirectMessagesRead'
     | 'sendRequestTreasureVault'
     | 'sendTreasureVaultDeposit'
     | 'sendTreasureVaultWithdraw'
@@ -46,6 +50,8 @@ const SOCIAL_REASON_LABELS: Record<string, string> = {
   request_already_pending: '已有待处理申请',
   relation_not_found: '未建立道友关系',
   invalid_message: '消息为空或目标无效',
+  message_channel_busy: '私聊消息较多，请稍后再试',
+  message_persistence_failed: '消息保存失败，请稍后重试',
   social_persistence_disabled: '道友系统暂不可用',
 };
 
@@ -73,6 +79,9 @@ export function createMainSocialStateSource(options: MainSocialStateSourceOption
     onUpdateRelationLevel: (targetPlayerId, level) => options.socket.updateDaoistRelationLevel(targetPlayerId, level),
     onRemoveRelation: (targetPlayerId) => options.socket.removeDaoistRelation(targetPlayerId),
     onSendMessage: (targetPlayerId, message) => options.socket.sendDaoistDirectMessage(targetPlayerId, message),
+    onOpenConversation: (targetPlayerId) => {
+      void syncConversation(targetPlayerId);
+    },
   });
   options.treasureVaultModal.setCallbacks({
     onDeposit: (items) => {
@@ -103,12 +112,57 @@ export function createMainSocialStateSource(options: MainSocialStateSourceOption
   });
 
   let currentTreasureVaultDetail: TreasureVaultDetailView | null = null;
+  let currentPlayerId: string | null = null;
+  let lastKnownUnreadCount = 0;
+  let conversationSyncToken = 0;
+  const conversationHistoryRequestIds = new Map<string, string>();
 
   function syncPlayerContext(player: PlayerState | null): void {
+    const nextPlayerId = player?.id ?? null;
+    if (nextPlayerId !== currentPlayerId) {
+      currentPlayerId = nextPlayerId;
+      lastKnownUnreadCount = 0;
+      conversationSyncToken += 1;
+      conversationHistoryRequestIds.clear();
+    }
     const inventoryItems = Array.isArray(player?.inventory?.items)
       ? player.inventory.items.map((item, index) => options.hydrateInventoryItem(item, player.inventory.items[index]))
       : [];
     options.treasureVaultModal.setCurrentPlayer(player?.id ?? null, inventoryItems);
+  }
+
+  async function syncConversation(peerPlayerId: string): Promise<void> {
+    const playerId = currentPlayerId ?? options.getPlayer()?.id ?? null;
+    if (!playerId || !peerPlayerId) {
+      return;
+    }
+    const token = ++conversationSyncToken;
+    const localMessages = await loadRecentDaoistMessages(playerId, peerPlayerId, 100);
+    if (token !== conversationSyncToken || playerId !== (currentPlayerId ?? options.getPlayer()?.id ?? null)) {
+      return;
+    }
+    if (localMessages.length > 0) {
+      options.socialPanel.mergeConversationMessages(peerPlayerId, localMessages);
+    }
+    const latest = localMessages[localMessages.length - 1];
+    const requestId = `daoist-history:${token}:${Date.now()}`;
+    conversationHistoryRequestIds.set(peerPlayerId, requestId);
+    options.socket.requestDaoistDirectMessageHistory(peerPlayerId, latest ? {
+      occurredAt: latest.sentAt,
+      messageId: latest.messageId,
+    } : undefined, requestId);
+  }
+
+  function markVisibleIncomingMessageRead(peerPlayerId: string, message: DaoistDirectMessageView): void {
+    const playerId = currentPlayerId ?? options.getPlayer()?.id ?? null;
+    if (!playerId || message.fromPlayerId !== peerPlayerId || message.toPlayerId !== playerId) {
+      return;
+    }
+    options.socialPanel.markConversationRead(peerPlayerId);
+    options.socket.markDaoistDirectMessagesRead(peerPlayerId, {
+      occurredAt: message.sentAt,
+      messageId: message.messageId,
+    });
   }
 
   return {
@@ -118,6 +172,10 @@ export function createMainSocialStateSource(options: MainSocialStateSourceOption
     },
     clear(): void {
       currentTreasureVaultDetail = null;
+      currentPlayerId = null;
+      lastKnownUnreadCount = 0;
+      conversationSyncToken += 1;
+      conversationHistoryRequestIds.clear();
       options.socialPanel.clear();
       options.treasureVaultModal.clear();
     },
@@ -130,6 +188,14 @@ export function createMainSocialStateSource(options: MainSocialStateSourceOption
     },
     handleSocialPanel(view: SocialPanelView): void {
       options.socialPanel.update(view);
+      const unreadCount = (view.conversations ?? []).reduce(
+        (total, entry) => total + Math.max(0, Math.trunc(Number(entry?.unreadCount) || 0)),
+        0,
+      );
+      if (unreadCount > lastKnownUnreadCount) {
+        options.showToast(`你有 ${unreadCount} 条未读私聊`, 'chat');
+      }
+      lastKnownUnreadCount = unreadCount;
     },
     handleSocialOperationResult(result: SocialOperationResultView): void {
       if (result.panel) {
@@ -141,7 +207,54 @@ export function createMainSocialStateSource(options: MainSocialStateSourceOption
     },
     handleDaoistDirectMessage(message: DaoistDirectMessageView): void {
       const player = options.getPlayer();
-      options.socialPanel.appendMessage(message, player?.id ?? null);
+      const playerId = player?.id ?? currentPlayerId;
+      if (!playerId || (message.fromPlayerId !== playerId && message.toPlayerId !== playerId)) {
+        return;
+      }
+      const peerPlayerId = message.fromPlayerId === playerId ? message.toPlayerId : message.fromPlayerId;
+      const incoming = Boolean(playerId && message.toPlayerId === playerId && message.fromPlayerId !== playerId);
+      const visible = options.socialPanel.isConversationOpenAndVisible(peerPlayerId);
+      options.socialPanel.appendMessage(message, playerId ?? null);
+      const persistence = playerId
+        ? appendDaoistMessages(playerId, peerPlayerId, [message])
+        : Promise.resolve(false);
+      if (incoming && !visible) {
+        lastKnownUnreadCount += 1;
+        options.showToast(`收到来自 ${message.fromName} 的私聊：${message.text}`, 'chat');
+      } else if (incoming) {
+        void persistence.then(() => {
+          if (playerId === (currentPlayerId ?? options.getPlayer()?.id ?? null)) {
+            markVisibleIncomingMessageRead(peerPlayerId, message);
+          }
+        });
+      }
+    },
+    handleDaoistDirectMessageHistory(history: DaoistDirectMessageHistoryView): void {
+      const playerId = currentPlayerId ?? options.getPlayer()?.id ?? null;
+      if (!playerId || !history.peerPlayerId || !Array.isArray(history.messages)) {
+        return;
+      }
+      const expectedRequestId = conversationHistoryRequestIds.get(history.peerPlayerId);
+      if (!history.requestId || history.requestId !== expectedRequestId) {
+        return;
+      }
+      conversationHistoryRequestIds.delete(history.peerPlayerId);
+      const messages = history.messages.filter((message) => (
+        (message.fromPlayerId === playerId && message.toPlayerId === history.peerPlayerId)
+        || (message.fromPlayerId === history.peerPlayerId && message.toPlayerId === playerId)
+      ));
+      options.socialPanel.mergeConversationMessages(history.peerPlayerId, messages);
+      const latestIncoming = options.socialPanel.getLatestIncomingMessage(history.peerPlayerId, playerId);
+      const visible = options.socialPanel.isConversationOpenAndVisible(history.peerPlayerId);
+      const persistence = appendDaoistMessages(playerId, history.peerPlayerId, messages);
+      if (visible && latestIncoming) {
+        void persistence.then(() => {
+          if (playerId === (currentPlayerId ?? options.getPlayer()?.id ?? null)
+            && options.socialPanel.isConversationOpenAndVisible(history.peerPlayerId)) {
+            markVisibleIncomingMessageRead(history.peerPlayerId, latestIncoming);
+          }
+        });
+      }
     },
     handleTreasureVaultDetail(detail: TreasureVaultDetailView): void {
       currentTreasureVaultDetail = detail;

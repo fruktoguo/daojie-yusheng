@@ -2449,6 +2449,7 @@ export const CLIENT_I18N_MESSAGES = {
   "notice.combat.kill-progress": "{action} {target}：{details}",
   "notice.combat.killed": "斩杀 {monsterName}",
   "notice.combat.killed-batch": "连续斩杀 {count} 个目标：{targetList}",
+  "notice.combat.offline-defeat": "你在离线挂机期间于{locationName}被{killerName}击败，离线挂机已结束。",
   "notice.combat.safe-zone-stop": "安全区内无法攻击，自动战斗已停止",
   "notice.combat.sha-backlash-convert": "身死后煞气入体，煞气反噬累计 {total} 层（剩余 {remaining}）",
   "notice.combat.sha-backlash-loss": "煞气反噬，折损修为 {progress}、底蕴 {foundation}",

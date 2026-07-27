@@ -35,6 +35,7 @@ type SocialPanelCallbacks = {
   onUpdateRelationLevel(targetPlayerId: string, level: DaoistRelationLevel): void;
   onRemoveRelation(targetPlayerId: string): void;
   onSendMessage(targetPlayerId: string, message: string): void;
+  onOpenConversation(targetPlayerId: string): void;
 };
 
 type TreasureVaultCallbacks = {
@@ -103,7 +104,7 @@ const PERMISSION_SCOPE_LABEL: Record<TreasureVaultPermissionScope, string> = {
 
 const PERMISSION_KINDS: TreasureVaultPermissionKind[] = ['view', 'deposit', 'withdraw'];
 const PERMISSION_SCOPES: TreasureVaultPermissionScope[] = ['all', 'party', 'sect', 'dao_friend', 'close_friend'];
-const MAX_SOCIAL_MESSAGES_PER_PEER = 50;
+const MAX_SOCIAL_MESSAGES_PER_PEER = 100;
 const SOCIAL_SCROLL_BOTTOM_THRESHOLD_PX = 24;
 const TREASURE_VAULT_DEPOSIT_PAGE_SIZE = 30;
 const MAX_TREASURE_VAULT_DEPOSIT_SELECTION = 100;
@@ -152,6 +153,7 @@ export class SocialPanel {
   update(view: SocialPanelView): void {
     const inputSnapshot = this.captureConversationState(this.selectedPlayerId);
     this.view = normalizeSocialPanelView(view);
+    this.applyConversationSummaries(this.view.conversations ?? []);
     if (this.selectedPlayerId && !this.view.relations.some((entry) => entry.playerId === this.selectedPlayerId)) {
       this.selectedPlayerId = null;
     }
@@ -168,7 +170,12 @@ export class SocialPanel {
   appendMessage(message: DaoistDirectMessageView, currentPlayerId: string | null): void {
     const peerId = message.fromPlayerId === currentPlayerId ? message.toPlayerId : message.fromPlayerId;
     const previousMessages = this.messagesByPlayerId.get(peerId) ?? [];
-    const nextMessages = [...previousMessages, message].slice(-MAX_SOCIAL_MESSAGES_PER_PEER);
+    if (previousMessages.some((entry) => entry.messageId === message.messageId)) {
+      return;
+    }
+    const nextMessages = [...previousMessages, message]
+      .sort((left, right) => left.sentAt - right.sentAt || left.messageId.localeCompare(right.messageId))
+      .slice(-MAX_SOCIAL_MESSAGES_PER_PEER);
     this.messagesByPlayerId.set(peerId, nextMessages);
     const conversationMounted = this.activeTab === 'messages' && peerId === this.selectedPlayerId;
     const incoming = currentPlayerId !== null
@@ -189,6 +196,47 @@ export class SocialPanel {
       return;
     }
     this.replaceCurrentConversation(peerId, inputSnapshot);
+  }
+
+  mergeConversationMessages(peerId: string, messages: readonly DaoistDirectMessageView[]): void {
+    if (!peerId || messages.length === 0) {
+      return;
+    }
+    const current = this.messagesByPlayerId.get(peerId) ?? [];
+    const merged = new Map(current.map((entry) => [entry.messageId, entry] as const));
+    for (const message of messages) {
+      merged.set(message.messageId, message);
+    }
+    const next = Array.from(merged.values())
+      .sort((left, right) => left.sentAt - right.sentAt || left.messageId.localeCompare(right.messageId))
+      .slice(-MAX_SOCIAL_MESSAGES_PER_PEER);
+    this.messagesByPlayerId.set(peerId, next);
+    if (this.activeTab === 'messages' && this.selectedPlayerId === peerId) {
+      this.replaceCurrentConversation(peerId, this.captureConversationState(peerId, new Set(next.map((entry) => entry.messageId))));
+    }
+  }
+
+  isConversationOpenAndVisible(peerId: string): boolean {
+    return this.activeTab === 'messages'
+      && this.selectedPlayerId === peerId
+      && this.isConversationVisible(peerId);
+  }
+
+  getLatestIncomingMessage(peerId: string, currentPlayerId: string): DaoistDirectMessageView | null {
+    const messages = this.messagesByPlayerId.get(peerId) ?? [];
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (message.fromPlayerId === peerId && message.toPlayerId === currentPlayerId) {
+        return message;
+      }
+    }
+    return null;
+  }
+
+  markConversationRead(peerId: string): void {
+    if (this.unreadMessagesByPlayerId.delete(peerId)) {
+      this.patchUnreadIndicators(peerId);
+    }
   }
 
   clear(): void {
@@ -623,8 +671,8 @@ export class SocialPanel {
   private switchActiveTab(tab: SocialPanelTab): void {
     const selected = this.resolveSelectedRelation();
     if (tab === this.activeTab) {
-      if (tab === 'messages' && selected && this.unreadMessagesByPlayerId.delete(selected.playerId)) {
-        this.patchUnreadIndicators(selected.playerId);
+      if (tab === 'messages' && selected) {
+        this.callbacks?.onOpenConversation(selected.playerId);
       }
       return;
     }
@@ -633,7 +681,7 @@ export class SocialPanel {
       : null;
     this.activeTab = tab;
     if (tab === 'messages' && selected) {
-      this.unreadMessagesByPlayerId.delete(selected.playerId);
+      this.callbacks?.onOpenConversation(selected.playerId);
     }
     this.patchTabState();
     this.replaceActiveTabContent(inputSnapshot);
@@ -650,7 +698,7 @@ export class SocialPanel {
       : null;
     this.activeTab = 'messages';
     this.selectedPlayerId = playerId;
-    this.unreadMessagesByPlayerId.delete(playerId);
+    this.callbacks?.onOpenConversation(playerId);
     this.patchTabState();
     if (tabChanged) {
       this.replaceActiveTabContent(null);
@@ -702,6 +750,18 @@ export class SocialPanel {
         }
       }
     }
+  }
+
+  private applyConversationSummaries(summaries: NonNullable<SocialPanelView['conversations']>): void {
+    const nextUnread = new Map<string, number>();
+    for (const summary of summaries) {
+      const peerPlayerId = typeof summary?.peerPlayerId === 'string' ? summary.peerPlayerId.trim() : '';
+      const unreadCount = Math.max(0, Math.trunc(Number(summary?.unreadCount) || 0));
+      if (peerPlayerId && unreadCount > 0) {
+        nextUnread.set(peerPlayerId, unreadCount);
+      }
+    }
+    this.unreadMessagesByPlayerId = nextUnread;
   }
 
   private getTabCount(tab: SocialPanelTab): number | null {
@@ -2064,6 +2124,7 @@ function normalizeSocialPanelView(view: SocialPanelView | null | undefined): Soc
     incomingRequests: Array.isArray(view?.incomingRequests) ? view.incomingRequests : [],
     outgoingRequests: Array.isArray(view?.outgoingRequests) ? view.outgoingRequests : [],
     nearbyCandidates: Array.isArray(view?.nearbyCandidates) ? view.nearbyCandidates : [],
+    conversations: Array.isArray(view?.conversations) ? view.conversations : [],
   };
 }
 

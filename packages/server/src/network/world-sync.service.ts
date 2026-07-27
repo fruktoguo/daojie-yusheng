@@ -40,6 +40,7 @@ export class WorldSyncService {
         this.worldRuntimeService.refreshPlayerContextActions(playerId, view);
         this.contextActionsCache.update(playerId, view, this.worldRuntimeService, this.playerRuntimeService);
         const player = this.playerRuntimeService.syncFromWorldView(binding.playerId, binding.sessionId, view);
+        this.worldSessionService.syncPlayerSectChannel?.(binding.playerId, player?.sectId ?? null);
         const envelope = this.worldSyncEnvelopeService.createInitialEnvelope(playerId, binding, view, player);
         if (envelope.initSession) envelope.initSession.pno = this.nativePlayerAuthStoreService?.getMemoryUserByPlayerId?.(playerId)?.playerNo ?? undefined;
         this.emitEnvelope(socket, envelope);
@@ -132,6 +133,7 @@ export class WorldSyncService {
         runMeasuredSyncFlushStep(breakdown, 'roomSyncMs', 'roomSyncCount', () => this.syncPlayerInstanceRoom(playerId, view));
         this.contextActionsCache.refresh(playerId, view, this.worldRuntimeService, this.playerRuntimeService, breakdown, reuseContextActionsWithinTick);
         const player = runMeasuredSyncFlushStep(breakdown, 'playerStateMs', 'playerStateCount', () => this.playerRuntimeService.syncFromWorldView(playerId, sessionId, view));
+        this.worldSessionService.syncPlayerSectChannel?.(playerId, player?.sectId ?? null);
         const envelope = runMeasuredSyncFlushStep(breakdown, 'envelopeMs', 'envelopeCount', () => this.worldSyncEnvelopeService.createDeltaEnvelope(playerId, view, player));
         const auxSynced = runMeasuredAuxSync(breakdown, () => this.emitAuxDeltaSync(playerId, socket, view, player, { deferMapChanged: true }));
         return { envelope, player, auxDeferred: auxSynced === false };

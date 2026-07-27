@@ -4,6 +4,8 @@
  * 维护时要保证结算仍由服务端权威执行，客户端只接收结构化结果和必要表现字段。
  */
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import { resolvePlayerFacingContentName } from '@mud/shared';
 import { ContentTemplateRepository } from '../../../content/content-template.repository';
 import { BLOOD_ESSENCE_ITEM_ID, PVP_SOUL_INJURY_BUFF_ID } from '../../../constants/gameplay/pvp';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
@@ -415,10 +417,43 @@ export class WorldRuntimePlayerCombatService {
         }
         if (isOfflineRuntimePlayer(victim)
             && typeof deps.worldRuntimePlayerCombatOutcomeService?.removeOfflineDefeatedPlayer === 'function') {
+            this.queueOfflineDefeatLogbookMessage(victim, killerPlayerId, killer, deathSite);
             deps.worldRuntimePlayerCombatOutcomeService.removeOfflineDefeatedPlayer(playerId, deps);
             return;
         }
         deps.clearPendingCommand?.(playerId);
+    }
+    /** 离线挂机战败必须先进入待确认持久化队列，再允许运行态回收。 */
+    queueOfflineDefeatLogbookMessage(victim: any, killerPlayerId: string | null, killer: any, deathSite: any) {
+        const killerName = resolveOfflineDefeatSourceName(killerPlayerId, killer, deathSite?.instance);
+        const instance = deathSite?.instance;
+        const locationName = resolvePlayerFacingContentName(
+            instance?.template?.id ?? victim?.templateId ?? victim?.instanceId,
+            '未知地域',
+            instance?.template?.displayName,
+            instance?.template?.name,
+            instance?.meta?.displayName,
+            instance?.meta?.name,
+        );
+        const notice = buildStructuredNotice(
+            'system',
+            'notice.combat.offline-defeat',
+            `你在离线挂机期间于${locationName}被${killerName}击败，离线挂机已结束。`,
+            {
+                vars: { killerName, locationName },
+                pills: [
+                    { key: 'killerName', style: 'target' },
+                    { key: 'locationName', style: 'target' },
+                ],
+            },
+        );
+        this.playerRuntimeService.queuePendingLogbookMessage(victim.playerId, {
+            id: `offline-defeat:${Date.now()}:${randomUUID()}`,
+            kind: notice.kind,
+            text: notice.text,
+            at: Date.now(),
+            structured: notice.structured,
+        });
     }
     /** 处理玩家互杀奖励与惩罚。 */
     async applyPvPKillRewards(killer: any, victim: any, deathSite: any, deps: any) {
@@ -555,6 +590,22 @@ function resolvePlayerDeathSite(victim: any, deps: any) {
         x: victim.x,
         y: victim.y,
     };
+}
+
+function resolveOfflineDefeatSourceName(killerPlayerId: string | null, killer: any, instance: any): string {
+    if (killer) {
+        return resolvePlayerDisplayName(killer, { playerId: killer.playerId, fallback: '未知敌手' });
+    }
+    const normalizedKillerId = typeof killerPlayerId === 'string' ? killerPlayerId.trim() : '';
+    const monster = normalizedKillerId && typeof instance?.getMonster === 'function'
+        ? instance.getMonster(normalizedKillerId)
+        : null;
+    return resolvePlayerFacingContentName(
+        monster?.monsterId ?? normalizedKillerId,
+        '未知敌手',
+        monster?.displayName,
+        monster?.name,
+    );
 }
 
 function interruptTechniqueActivitiesForDefeat(playerId: string, victim: any, deps: any): void {

@@ -313,6 +313,7 @@ type MainBootstrapAssemblyOptions = {
     | 'handleSocialPanel'
     | 'handleSocialOperationResult'
     | 'handleDaoistDirectMessage'
+    | 'handleDaoistDirectMessageHistory'
     | 'handleTreasureVaultDetail'
     | 'handleTreasureVaultOperationResult'
   >;
@@ -359,7 +360,7 @@ type MainBootstrapAssemblyOptions = {
  * noticeStateSource：notice状态来源相关字段。
  */
 
-  noticeStateSource: Pick<MainNoticeStateSource, 'handleNotice'>;
+  noticeStateSource: Pick<MainNoticeStateSource, 'handleNotice' | 'handleChatMessage' | 'handleChatHistory'>;
   /**
  * connectionStateSource：connection状态来源相关字段。
  */
@@ -391,7 +392,7 @@ type MainBootstrapAssemblyOptions = {
  * chatUI：chatUI相关字段。
  */
 
-  chatUI: Pick<ChatUI, 'setLogbookVisible' | 'setCallback'>;
+  chatUI: Pick<ChatUI, 'setLogbookVisible' | 'setCallback' | 'setHistorySyncCallback'>;
   /**
  * bodyTrainingPanel：bodyTraining面板相关字段。
  */
@@ -555,7 +556,10 @@ type MainBootstrapAssemblyOptions = {
  * socialEconomySender：socialEconomySender相关字段。
  */
 
-  socialEconomySender: Pick<SocketSocialEconomySender, 'sendChat' | 'ackOfflineGainReports' | 'requestOfflineGainReports'>;
+  socialEconomySender: Pick<
+    SocketSocialEconomySender,
+    'sendChat' | 'requestChatHistory' | 'ackOfflineGainReports' | 'requestOfflineGainReports'
+  >;
   /**
  * adminSender：adminSender相关字段。
  */
@@ -807,9 +811,12 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     }),
     onActivityStatus: (data) => options.activityStateSource.handleActivityStatus(data),
     onActivityOperationResult: (data) => options.activityStateSource.handleActivityOperationResult(data),
+    onChatMessage: (data) => options.noticeStateSource.handleChatMessage(data),
+    onChatHistory: (data) => options.noticeStateSource.handleChatHistory(data),
     onSocialPanel: (data) => options.socialStateSource.handleSocialPanel(data),
     onSocialOperationResult: (data) => options.socialStateSource.handleSocialOperationResult(data),
     onDaoistDirectMessage: (data) => options.socialStateSource.handleDaoistDirectMessage(data),
+    onDaoistDirectMessageHistory: (data) => options.socialStateSource.handleDaoistDirectMessageHistory(data),
     onTreasureVaultDetail: (data) => options.socialStateSource.handleTreasureVaultDetail(data),
     onTreasureVaultOperationResult: (data) => options.socialStateSource.handleTreasureVaultOperationResult(data),
     onTimeChamberOperationResult: (data) => options.timeChamberStateSource.handleOperationResult(data),

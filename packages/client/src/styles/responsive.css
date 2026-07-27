@@ -33,6 +33,20 @@
       }
     }
 
+    @media (max-width: 420px) {
+      .chat-tab-unread {
+        top: 4px;
+        right: 4px;
+        min-width: 8px;
+        width: 8px;
+        height: 8px;
+        padding: 0;
+        border-radius: 50%;
+        font-size: 0;
+        line-height: 0;
+      }
+    }
+
     /* 触屏设备开启桌面模式时，视口会变宽但仍缺少桌面三栏所需空间。 */
     @media (max-width: 920px), ((max-width: 1180px) and (pointer: coarse)), ((max-width: 1180px) and (hover: none)) {
       html {

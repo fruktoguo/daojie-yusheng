@@ -1069,6 +1069,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
           facing: player.facing,
         };
         const previousInstanceId = player.instanceId;
+        const previousSectId = typeof player.sectId === 'string' && player.sectId.trim() ? player.sectId.trim() : null;
         applySelfVitalsMetadata(data);
         const previousMapId = player.mapId;
         const nextMapId = typeof data.mid === 'string' && data.mid ? data.mid : previousMapId;
@@ -1077,6 +1078,12 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
           : previousInstanceId;
         const mapChanged = nextMapId !== previousMapId;
         const instanceChanged = nextInstanceId !== previousInstanceId;
+        const nextSectId = data.sid === undefined
+          ? previousSectId
+          : typeof data.sid === 'string' && data.sid.trim()
+            ? data.sid.trim()
+            : null;
+        const sectChanged = nextSectId !== previousSectId;
         const spatialContextChanged = mapChanged || instanceChanged;
         const playerPatch = buildSelfRuntimePlayerPatch(data);
         const playerSpatialChanged = spatialContextChanged
@@ -1113,6 +1120,9 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
         if (instanceChanged) {
           player.instanceId = nextInstanceId;
         }
+        if (sectChanged) {
+          player.sectId = nextSectId;
+        }
         if (data.f !== undefined) {
           player.facing = selfFacing;
         }
@@ -1131,6 +1141,8 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
           options.clearBuildingFengShuiState();
           options.targeting.clearState();
           options.targeting.syncTargetingOverlay();
+        }
+        if (spatialContextChanged || sectChanged) {
           options.setChatPersistenceScope(buildChatPersistenceScope(player));
         }
         if (typeof data.hp === 'number') {
@@ -1154,6 +1166,9 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
           player.movementCapabilities = {
             staticObstacleIgnore: data.mc?.staticObstacleIgnore === true,
           };
+          options.syncPlayerContext(player);
+        }
+        if (sectChanged) {
           options.syncPlayerContext(player);
         }
         if (typeof data.mid === 'string' || typeof data.x === 'number' || typeof data.y === 'number' || data.f !== undefined) {

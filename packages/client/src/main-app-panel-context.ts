@@ -215,6 +215,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     ackSystemMessages: (ids) => socialEconomySender.ackSystemMessages(ids),
     showToast: (message, kind) => uiStateSource.showToast(message, kind),
     clearCurrentPath: callbacks.clearCurrentPath,
+    getCurrentPlayerId: () => rootRuntimeSource.getPlayer()?.id ?? null,
     onOpenPanel: techniqueGenerationPanelSource.openNamedPanel,
   });
   const formationPreviewSource = createMainFormationPreviewSource({
@@ -282,7 +283,6 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     showToastEl: documentRef.getElementById('toast'),
     getPlayer: () => rootRuntimeSource.getPlayer(),
   });
-
   return {
     mailStateSource, activityStateSource, socialStateSource, timeChamberStateSource, buildingFengShuiStateSource,
     actionStateSource,

@@ -86,9 +86,12 @@ type MainLowFrequencySocketBindingsOptions = {
   onOfflineGainReports: (data: ServerToClientEventPayload<typeof S2C.OfflineGainReports>) => void;
   onActivityStatus: (data: ServerToClientEventPayload<typeof S2C.ActivityStatus>) => void;
   onActivityOperationResult: (data: ServerToClientEventPayload<typeof S2C.ActivityOperationResult>) => void;
+  onChatMessage: (data: ServerToClientEventPayload<typeof S2C.ChatMessage>) => void;
+  onChatHistory: (data: ServerToClientEventPayload<typeof S2C.ChatHistory>) => void;
   onSocialPanel: (data: ServerToClientEventPayload<typeof S2C.SocialPanel>) => void;
   onSocialOperationResult: (data: ServerToClientEventPayload<typeof S2C.SocialOperationResult>) => void;
   onDaoistDirectMessage: (data: ServerToClientEventPayload<typeof S2C.DaoistDirectMessage>) => void;
+  onDaoistDirectMessageHistory: (data: ServerToClientEventPayload<typeof S2C.DaoistDirectMessageHistory>) => void;
   onTreasureVaultDetail: (data: ServerToClientEventPayload<typeof S2C.TreasureVaultDetail>) => void;
   onTreasureVaultOperationResult: (data: ServerToClientEventPayload<typeof S2C.TreasureVaultOperationResult>) => void;
   onTimeChamberOperationResult: (data: ServerToClientEventPayload<typeof S2C.TimeChamberOperationResult>) => void;
@@ -232,9 +235,12 @@ export function bindMainLowFrequencySocketEvents(options: MainLowFrequencySocket
   options.socket.on(S2C.OfflineGainReports, options.onOfflineGainReports);
   options.socket.on(S2C.ActivityStatus, options.onActivityStatus);
   options.socket.on(S2C.ActivityOperationResult, options.onActivityOperationResult);
+  options.socket.on(S2C.ChatMessage, options.onChatMessage);
+  options.socket.on(S2C.ChatHistory, options.onChatHistory);
   options.socket.on(S2C.SocialPanel, options.onSocialPanel);
   options.socket.on(S2C.SocialOperationResult, options.onSocialOperationResult);
   options.socket.on(S2C.DaoistDirectMessage, options.onDaoistDirectMessage);
+  options.socket.on(S2C.DaoistDirectMessageHistory, options.onDaoistDirectMessageHistory);
   options.socket.on(S2C.TreasureVaultDetail, options.onTreasureVaultDetail);
   options.socket.on(S2C.TreasureVaultOperationResult, options.onTreasureVaultOperationResult);
   options.socket.on(S2C.TimeChamberOperationResult, options.onTimeChamberOperationResult);

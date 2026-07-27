@@ -32,8 +32,11 @@ import type { S2C_Bootstrap, S2C_MapStatic, S2C_PanelDelta, S2C_Detail, S2C_Attr
 import type { S2C_AlchemyPanel, S2C_EnhancementPanel, S2C_TechniqueActivityTasks } from './protocol-craft';
 import type {
   C2S_OrganizeTreasureVaultView,
+  C2S_MarkDaoistDirectMessagesReadView,
   C2S_RemoveDaoistRelationView,
   C2S_RenameTreasureVaultView,
+  C2S_RequestChatHistoryView,
+  C2S_RequestDaoistDirectMessageHistoryView,
   C2S_RequestNearbyDaoistCandidatesView,
   C2S_RequestSocialPanelView,
   C2S_RequestTreasureVaultView,
@@ -44,7 +47,10 @@ import type {
   C2S_TreasureVaultWithdrawView,
   C2S_UpdateDaoistRelationLevelView,
   C2S_UpdateTreasureVaultPermissionsView,
+  ChatHistorySyncView,
   DaoistDirectMessageView,
+  DaoistDirectMessageHistoryView,
+  ServerChatMessageView,
   SocialOperationResultView,
   SocialPanelView,
   S2C_MailDetail,
@@ -174,6 +180,7 @@ export const C2S = {
   CancelTechniqueTransmission: 'n:c:cancelTechniqueTransmission',
   DebugResetSpawn: 'n:c:debugResetSpawn',
   Chat: 'n:c:chat',
+  RequestChatHistory: 'n:c:requestChatHistory',
   RequestSocialPanel: 'n:c:requestSocialPanel',
   RequestNearbyDaoistCandidates: 'n:c:requestNearbyDaoistCandidates',
   SendDaoistRequest: 'n:c:sendDaoistRequest',
@@ -181,6 +188,8 @@ export const C2S = {
   UpdateDaoistRelationLevel: 'n:c:updateDaoistRelationLevel',
   RemoveDaoistRelation: 'n:c:removeDaoistRelation',
   SendDaoistDirectMessage: 'n:c:sendDaoistDirectMessage',
+  RequestDaoistDirectMessageHistory: 'n:c:requestDaoistDirectMessageHistory',
+  MarkDaoistDirectMessagesRead: 'n:c:markDaoistDirectMessagesRead',
   RequestTreasureVault: 'n:c:requestTreasureVault',
   TreasureVaultDeposit: 'n:c:treasureVaultDeposit',
   TreasureVaultWithdraw: 'n:c:treasureVaultWithdraw',
@@ -217,9 +226,12 @@ export const S2C = {
   LootWindowUpdate: 'n:s:lootWindowUpdate',
   QuestNavigateResult: 'n:s:questNavigateResult',
   Notice: 'n:s:notice',
+  ChatMessage: 'n:s:chatMessage',
+  ChatHistory: 'n:s:chatHistory',
   SocialPanel: 'n:s:socialPanel',
   SocialOperationResult: 'n:s:socialOperationResult',
   DaoistDirectMessage: 'n:s:daoistDirectMessage',
+  DaoistDirectMessageHistory: 'n:s:daoistDirectMessageHistory',
   TreasureVaultDetail: 'n:s:treasureVaultDetail',
   TreasureVaultOperationResult: 'n:s:treasureVaultOperationResult',
   TimeChamberOperationResult: 'n:s:timeChamberOperationResult',
@@ -381,6 +393,7 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.CancelTechniqueTransmission]: RequestPayloads.C2S_CancelTechniqueTransmission;
   [C2S.DebugResetSpawn]: RequestPayloads.C2S_DebugResetSpawn;
   [C2S.Chat]: RequestPayloads.C2S_Chat;
+  [C2S.RequestChatHistory]: C2S_RequestChatHistoryView;
   [C2S.RequestSocialPanel]: C2S_RequestSocialPanelView;
   [C2S.RequestNearbyDaoistCandidates]: C2S_RequestNearbyDaoistCandidatesView;
   [C2S.SendDaoistRequest]: C2S_SendDaoistRequestView;
@@ -388,6 +401,8 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.UpdateDaoistRelationLevel]: C2S_UpdateDaoistRelationLevelView;
   [C2S.RemoveDaoistRelation]: C2S_RemoveDaoistRelationView;
   [C2S.SendDaoistDirectMessage]: C2S_SendDaoistDirectMessageView;
+  [C2S.RequestDaoistDirectMessageHistory]: C2S_RequestDaoistDirectMessageHistoryView;
+  [C2S.MarkDaoistDirectMessagesRead]: C2S_MarkDaoistDirectMessagesReadView;
   [C2S.RequestTreasureVault]: C2S_RequestTreasureVaultView;
   [C2S.TreasureVaultDeposit]: C2S_TreasureVaultDepositView;
   [C2S.TreasureVaultWithdraw]: C2S_TreasureVaultWithdrawView;
@@ -424,9 +439,12 @@ export interface S2C_PayloadMap extends Record<S2C_EventName, unknown> {
   [S2C.LootWindowUpdate]: ResponsePayloads.S2C_LootWindowUpdate;
   [S2C.QuestNavigateResult]: ResponsePayloads.S2C_QuestNavigateResult;
   [S2C.Notice]: ResponsePayloads.S2C_Notice;
+  [S2C.ChatMessage]: ServerChatMessageView;
+  [S2C.ChatHistory]: ChatHistorySyncView;
   [S2C.SocialPanel]: SocialPanelView;
   [S2C.SocialOperationResult]: SocialOperationResultView;
   [S2C.DaoistDirectMessage]: DaoistDirectMessageView;
+  [S2C.DaoistDirectMessageHistory]: DaoistDirectMessageHistoryView;
   [S2C.TreasureVaultDetail]: TreasureVaultDetailView;
   [S2C.TreasureVaultOperationResult]: TreasureVaultOperationResultView;
   [S2C.TimeChamberOperationResult]: TimeChamberOperationResultView;

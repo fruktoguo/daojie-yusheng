@@ -63,6 +63,23 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
     sendDaoistDirectMessage(targetPlayerId: string, message: string): void {
       deps.emitEvent(C2S.SendDaoistDirectMessage, { targetPlayerId, message });
     },
+    requestDaoistDirectMessageHistory(
+      peerPlayerId: string,
+      cursor?: ClientToServerEventPayload<typeof C2S.RequestDaoistDirectMessageHistory>['cursor'],
+      requestId?: string,
+    ): void {
+      deps.emitEvent(C2S.RequestDaoistDirectMessageHistory, {
+        peerPlayerId,
+        ...(cursor ? { cursor } : undefined),
+        ...(requestId ? { requestId } : undefined),
+      });
+    },
+    markDaoistDirectMessagesRead(
+      peerPlayerId: string,
+      cursor: ClientToServerEventPayload<typeof C2S.MarkDaoistDirectMessagesRead>['cursor'],
+    ): void {
+      deps.emitEvent(C2S.MarkDaoistDirectMessagesRead, { peerPlayerId, cursor });
+    },
     sendRequestTreasureVault(payload: ClientToServerEventPayload<typeof C2S.RequestTreasureVault>): void {
       deps.emitEvent(C2S.RequestTreasureVault, payload);
     },
@@ -338,6 +355,11 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
 
     sendChat(message: string, channel?: 'nearby' | 'world' | 'sect'): void {
       deps.emitEvent(C2S.Chat, { message, ...(channel ? { channel } : undefined) });
+    },
+    requestChatHistory(
+      payload: ClientToServerEventPayload<typeof C2S.RequestChatHistory>,
+    ): void {
+      deps.emitEvent(C2S.RequestChatHistory, payload);
     },
     /**
  * ackSystemMessages：执行ackSystemMessage相关逻辑。

@@ -7,6 +7,7 @@ import type { SocketAdminSender } from './network/socket-send-admin';
 import type { SocketPanelSender } from './network/socket-send-panel';
 import type { SocketRuntimeSender } from './network/socket-send-runtime';
 import type { SocketSocialEconomySender } from './network/socket-send-social-economy';
+import type { ChatUI } from './ui/chat';
 import { bindZoomControls } from './main-ui-helpers';
 import { t } from './ui/i18n';
 /**
@@ -230,13 +231,7 @@ type MainStartupBindingsOptions = {
  * chatUI：chatUI相关字段。
  */
 
-  chatUI: {
-  /**
- * setCallback：Callback相关字段。
- */
-
-    setCallback: (handler: (message: string, channel: 'nearby' | 'world' | 'sect') => void) => void;
-  };
+  chatUI: Pick<ChatUI, 'setCallback' | 'setHistorySyncCallback'>;
   /**
  * zoom：zoom相关字段。
  */
@@ -336,7 +331,7 @@ type MainStartupBindingsOptions = {
  * socialEconomySender：socialEconomySender相关字段。
  */
 
-  socialEconomySender: Pick<SocketSocialEconomySender, 'sendChat'>;
+  socialEconomySender: Pick<SocketSocialEconomySender, 'sendChat' | 'requestChatHistory'>;
   /**
  * adminSender：adminSender相关字段。
  */
@@ -487,6 +482,9 @@ export function bindMainStartup(options: MainStartupBindingsOptions): void {
 
   options.chatUI.setCallback((message, channel) => {
     options.socialEconomySender.sendChat(message, channel);
+  });
+  options.chatUI.setHistorySyncCallback((payload) => {
+    options.socialEconomySender.requestChatHistory(payload);
   });
 
   bindZoomControls({

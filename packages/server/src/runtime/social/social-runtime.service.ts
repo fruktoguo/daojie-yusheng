@@ -3,10 +3,13 @@
  *
  * 关系真源写入数据库；运行时只在玩家操作时按需查询，不进入 tick 热路径。
  */
-import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional, type OnModuleDestroy } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type {
   DaoistDirectMessageView,
+  DaoistDirectMessageHistoryView,
+  DaoistConversationSummaryView,
+  ChatHistoryCursorView,
   DaoistRelationLevel,
   DaoistRelationView,
   DaoistRequestView,
@@ -22,12 +25,24 @@ import { resolvePlayerDisplayName } from '../player/player-display-name';
 
 const DAOIST_RELATION_TABLE = 'player_daoist_relation';
 const DAOIST_REQUEST_TABLE = 'player_daoist_request';
+const DAOIST_MESSAGE_TABLE = 'player_daoist_message';
+const DAOIST_MESSAGE_READ_TABLE = 'player_daoist_message_read';
 const DAOIST_REQUEST_EXPIRE_MS = 7 * 24 * 60 * 60 * 1000;
 const DAOIST_NEARBY_RADIUS = 8;
+const DAOIST_MESSAGE_HISTORY_LIMIT = 100;
+const DAOIST_MESSAGE_PRUNE_DELAY_MS = 1_000;
+const DAOIST_MESSAGE_PRUNE_BATCH_SIZE = 100;
+const DAOIST_MESSAGE_PRUNE_WRITE_INTERVAL = 25;
+/** 活跃私聊会话状态使用固定上限，覆盖单服高峰而不让 Map 无界增长。 */
+const DAOIST_MESSAGE_ACTIVE_PAIR_LIMIT = 16_384;
+const DAOIST_MESSAGE_GLOBAL_ADMISSION_CAPACITY = 200;
+const DAOIST_MESSAGE_GLOBAL_ADMISSION_REFILL_PER_SECOND = 50;
+const DAOIST_MESSAGE_PAIR_ADMISSION_CAPACITY = 10;
+const DAOIST_MESSAGE_PAIR_ADMISSION_REFILL_PER_SECOND = 2;
 
 type PoolLike = {
   connect(): Promise<{ query(sql: string, params?: unknown[]): Promise<{ rows: any[] }>; release(): void }>;
-  query(sql: string, params?: unknown[]): Promise<{ rows: any[] }>;
+  query(sql: string, params?: unknown[]): Promise<{ rows: any[]; rowCount?: number }>;
 };
 
 type PlayerIdentityLookup = {
@@ -38,11 +53,26 @@ type PlayerIdentityLookup = {
   } | null;
 };
 
+type DirectMessageAdmissionBucket = {
+  tokens: number;
+  lastRefillAt: number;
+};
+
 @Injectable()
-export class SocialRuntimeService {
+export class SocialRuntimeService implements OnModuleDestroy {
   private readonly logger = new Logger(SocialRuntimeService.name);
   private pool: PoolLike | null = null;
   private enabled = false;
+  private readonly pendingMessagePrunePairs = new Map<string, [string, string]>();
+  private readonly messagePruneWriteCounts = new Map<string, number>();
+  private readonly pairAdmissionBuckets = new Map<string, DirectMessageAdmissionBucket>();
+  private readonly globalAdmissionBucket: DirectMessageAdmissionBucket = {
+    tokens: DAOIST_MESSAGE_GLOBAL_ADMISSION_CAPACITY,
+    lastRefillAt: Date.now(),
+  };
+  private messagePruneTimer: ReturnType<typeof setTimeout> | null = null;
+  private messagePruneFlushRunning = false;
+  private lastDirectMessageSentAt = 0;
 
   constructor(
     @Inject(DatabasePoolProvider) private readonly databasePoolProvider: DatabasePoolProvider,
@@ -67,11 +97,18 @@ export class SocialRuntimeService {
       await ensureDaoistTables(pool);
       this.pool = pool;
       this.enabled = true;
-      this.logger.log('道友关系持久化已启用（player_daoist_relation + player_daoist_request）');
+      this.logger.log('道友关系与私聊持久化已启用');
     } catch (error) {
       this.logger.error('道友关系持久化初始化失败，已回退为禁用模式', error instanceof Error ? error.stack : String(error));
       this.pool = null;
       this.enabled = false;
+    }
+  }
+
+  onModuleDestroy(): void {
+    if (this.messagePruneTimer) {
+      clearTimeout(this.messagePruneTimer);
+      this.messagePruneTimer = null;
     }
   }
 
@@ -82,15 +119,16 @@ export class SocialRuntimeService {
   async buildPanel(playerId: string, runtime?: any): Promise<SocialPanelView> {
     const normalizedPlayerId = normalizePlayerId(playerId);
     if (!normalizedPlayerId || !this.pool || !this.enabled) {
-      return { relations: [], incomingRequests: [], outgoingRequests: [], nearbyCandidates: [] };
+      return { relations: [], incomingRequests: [], outgoingRequests: [], nearbyCandidates: [], conversations: [] };
     }
-    const [relations, incomingRequests, outgoingRequests, nearbyCandidates] = await Promise.all([
+    const [relations, incomingRequests, outgoingRequests, nearbyCandidates, conversations] = await Promise.all([
       this.loadRelations(normalizedPlayerId, runtime),
       this.loadRequests(normalizedPlayerId, 'incoming'),
       this.loadRequests(normalizedPlayerId, 'outgoing'),
       this.buildNearbyCandidates(normalizedPlayerId, runtime),
+      this.loadConversationSummaries(normalizedPlayerId),
     ]);
-    return { relations, incomingRequests, outgoingRequests, nearbyCandidates };
+    return { relations, incomingRequests, outgoingRequests, nearbyCandidates, conversations };
   }
 
   async buildNearbyCandidates(playerId: string, runtime?: any): Promise<NearbyDaoistCandidateView[]> {
@@ -269,23 +307,204 @@ export class SocialRuntimeService {
     if (!fromId || !toId || fromId === toId || !text) {
       return { ok: false, reason: 'invalid_message' };
     }
+    if (!this.pool || !this.enabled) {
+      return { ok: false, reason: 'social_persistence_disabled' };
+    }
+    const pair = canonicalPair(fromId, toId);
+    if (!this.consumeDirectMessageAdmission(pair)) {
+      return { ok: false, reason: 'message_channel_busy' };
+    }
     if (!await this.areRelated(fromId, toId)) {
       return { ok: false, reason: 'relation_not_found' };
     }
     const fromPlayer = this.playerRuntimeService.getPlayer(fromId);
     const toPlayer = this.playerRuntimeService.getPlayer(toId);
+    const directMessage: DaoistDirectMessageView = {
+      messageId: randomUUID(),
+      fromPlayerId: fromId,
+      fromName: this.resolvePlayerName(fromId, fromPlayer),
+      toPlayerId: toId,
+      toName: this.resolvePlayerName(toId, toPlayer),
+      text,
+      sentAt: this.nextDirectMessageSentAt(),
+    };
+    try {
+      await this.pool.query(
+        `INSERT INTO ${DAOIST_MESSAGE_TABLE} (
+           message_id, player_a_id, player_b_id, from_player_id, from_name,
+           to_player_id, to_name, text, sent_at_ms
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          directMessage.messageId,
+          pair[0],
+          pair[1],
+          directMessage.fromPlayerId,
+          directMessage.fromName,
+          directMessage.toPlayerId,
+          directMessage.toName,
+          directMessage.text,
+          directMessage.sentAt,
+        ],
+      );
+    } catch (error) {
+      this.logger.warn(`私聊消息写入失败，已拒绝推送：${error instanceof Error ? error.message : String(error)}`);
+      return { ok: false, reason: 'message_persistence_failed' };
+    }
+    this.recordPersistedMessageWrite(pair);
     return {
       ok: true,
-      message: {
-        messageId: randomUUID(),
-        fromPlayerId: fromId,
-        fromName: this.resolvePlayerName(fromId, fromPlayer),
-        toPlayerId: toId,
-        toName: this.resolvePlayerName(toId, toPlayer),
-        text,
-        sentAt: Date.now(),
+      message: directMessage,
+    };
+  }
+
+  private consumeDirectMessageAdmission(pair: [string, string]): boolean {
+    const now = Date.now();
+    refillDirectMessageAdmissionBucket(
+      this.globalAdmissionBucket,
+      DAOIST_MESSAGE_GLOBAL_ADMISSION_CAPACITY,
+      DAOIST_MESSAGE_GLOBAL_ADMISSION_REFILL_PER_SECOND,
+      now,
+    );
+    const key = `${pair[0]}\n${pair[1]}`;
+    const pairBucket = this.getPairAdmissionBucket(key, now);
+    refillDirectMessageAdmissionBucket(
+      pairBucket,
+      DAOIST_MESSAGE_PAIR_ADMISSION_CAPACITY,
+      DAOIST_MESSAGE_PAIR_ADMISSION_REFILL_PER_SECOND,
+      now,
+    );
+    if (this.globalAdmissionBucket.tokens < 1 || pairBucket.tokens < 1) {
+      return false;
+    }
+    this.globalAdmissionBucket.tokens -= 1;
+    pairBucket.tokens -= 1;
+    return true;
+  }
+
+  private getPairAdmissionBucket(key: string, now: number): DirectMessageAdmissionBucket {
+    const existing = this.pairAdmissionBuckets.get(key);
+    if (existing) {
+      this.pairAdmissionBuckets.delete(key);
+      this.pairAdmissionBuckets.set(key, existing);
+      return existing;
+    }
+    while (this.pairAdmissionBuckets.size >= DAOIST_MESSAGE_ACTIVE_PAIR_LIMIT) {
+      const oldestKey = this.pairAdmissionBuckets.keys().next().value;
+      if (typeof oldestKey !== 'string') {
+        break;
+      }
+      this.pairAdmissionBuckets.delete(oldestKey);
+    }
+    const bucket = { tokens: DAOIST_MESSAGE_PAIR_ADMISSION_CAPACITY, lastRefillAt: now };
+    this.pairAdmissionBuckets.set(key, bucket);
+    return bucket;
+  }
+
+  private nextDirectMessageSentAt(): number {
+    const now = Date.now();
+    this.lastDirectMessageSentAt = Math.max(now, this.lastDirectMessageSentAt + 1);
+    return this.lastDirectMessageSentAt;
+  }
+
+  async loadDirectMessageHistory(
+    playerId: string,
+    peerPlayerId: string,
+    cursor?: ChatHistoryCursorView,
+    requestId?: string,
+  ): Promise<{ ok: boolean; reason?: string; history?: DaoistDirectMessageHistoryView }> {
+    const normalizedPlayerId = normalizePlayerId(playerId);
+    const normalizedPeerPlayerId = normalizePlayerId(peerPlayerId);
+    if (!normalizedPlayerId || !normalizedPeerPlayerId || normalizedPlayerId === normalizedPeerPlayerId) {
+      return { ok: false, reason: 'invalid_target' };
+    }
+    if (!this.pool || !this.enabled) {
+      return { ok: false, reason: 'social_persistence_disabled' };
+    }
+    if (!await this.areRelated(normalizedPlayerId, normalizedPeerPlayerId)) {
+      return { ok: false, reason: 'relation_not_found' };
+    }
+    const pair = canonicalPair(normalizedPlayerId, normalizedPeerPlayerId);
+    const normalizedCursor = normalizeMessageCursor(cursor);
+    const result = await this.pool.query(
+      `SELECT message_id, from_player_id, from_name, to_player_id, to_name, text, sent_at_ms
+         FROM ${DAOIST_MESSAGE_TABLE}
+        WHERE player_a_id = $1
+          AND player_b_id = $2
+          AND (sent_at_ms > $3 OR (sent_at_ms = $3 AND message_id > $4))
+        ORDER BY sent_at_ms DESC, message_id DESC
+        LIMIT ${DAOIST_MESSAGE_HISTORY_LIMIT + 1}`,
+      [pair[0], pair[1], normalizedCursor.occurredAt, normalizedCursor.messageId],
+    );
+    const descending = (result.rows ?? []).map(rowToDirectMessage);
+    return {
+      ok: true,
+      history: {
+        ...(normalizeRequestId(requestId) ? { requestId: normalizeRequestId(requestId) } : undefined),
+        peerPlayerId: normalizedPeerPlayerId,
+        truncated: descending.length > DAOIST_MESSAGE_HISTORY_LIMIT,
+        messages: descending.slice(0, DAOIST_MESSAGE_HISTORY_LIMIT).reverse(),
       },
     };
+  }
+
+  async markDirectMessagesRead(
+    playerId: string,
+    peerPlayerId: string,
+    cursor?: ChatHistoryCursorView,
+  ): Promise<{ ok: boolean; reason?: string }> {
+    const normalizedPlayerId = normalizePlayerId(playerId);
+    const normalizedPeerPlayerId = normalizePlayerId(peerPlayerId);
+    if (!normalizedPlayerId || !normalizedPeerPlayerId || normalizedPlayerId === normalizedPeerPlayerId) {
+      return { ok: false, reason: 'invalid_target' };
+    }
+    if (!this.pool || !this.enabled) {
+      return { ok: false, reason: 'social_persistence_disabled' };
+    }
+    if (!await this.areRelated(normalizedPlayerId, normalizedPeerPlayerId)) {
+      return { ok: false, reason: 'relation_not_found' };
+    }
+    const normalizedCursor = normalizeMessageCursor(cursor);
+    if (!normalizedCursor.messageId) {
+      return { ok: false, reason: 'invalid_read_cursor' };
+    }
+    const pair = canonicalPair(normalizedPlayerId, normalizedPeerPlayerId);
+    const visibleMessage = await this.pool.query(
+      `SELECT message_id, sent_at_ms
+         FROM ${DAOIST_MESSAGE_TABLE}
+        WHERE player_a_id = $1
+          AND player_b_id = $2
+          AND from_player_id = $3
+          AND to_player_id = $4
+          AND message_id = $5
+          AND sent_at_ms = $6
+        LIMIT 1`,
+      [
+        pair[0],
+        pair[1],
+        normalizedPeerPlayerId,
+        normalizedPlayerId,
+        normalizedCursor.messageId,
+        normalizedCursor.occurredAt,
+      ],
+    );
+    const row = visibleMessage.rows?.[0];
+    if (!row) {
+      return { ok: false, reason: 'invalid_read_cursor' };
+    }
+    await this.pool.query(
+      `INSERT INTO ${DAOIST_MESSAGE_READ_TABLE} (
+         player_id, peer_player_id, last_read_at_ms, last_read_message_id, updated_at
+       ) VALUES ($1, $2, $3, $4, now())
+       ON CONFLICT (player_id, peer_player_id)
+       DO UPDATE SET
+         last_read_at_ms = EXCLUDED.last_read_at_ms,
+         last_read_message_id = EXCLUDED.last_read_message_id,
+         updated_at = now()
+       WHERE (${DAOIST_MESSAGE_READ_TABLE}.last_read_at_ms, ${DAOIST_MESSAGE_READ_TABLE}.last_read_message_id)
+           < (EXCLUDED.last_read_at_ms, EXCLUDED.last_read_message_id)`,
+      [normalizedPlayerId, normalizedPeerPlayerId, Math.max(0, Math.trunc(Number(row.sent_at_ms) || 0)), normalizeString(row.message_id)],
+    );
+    return { ok: true };
   }
 
   async areRelated(playerId: string, targetPlayerId: string, minimumLevel: DaoistRelationLevel = 'dao_friend'): Promise<boolean> {
@@ -396,6 +615,130 @@ export class SocialRuntimeService {
     return map;
   }
 
+  private async loadConversationSummaries(playerId: string): Promise<DaoistConversationSummaryView[]> {
+    if (!this.pool || !this.enabled) {
+      return [];
+    }
+    const result = await this.pool.query(
+      `WITH peers AS (
+         SELECT CASE WHEN player_a_id = $1 THEN player_b_id ELSE player_a_id END AS peer_player_id
+           FROM ${DAOIST_RELATION_TABLE}
+          WHERE player_a_id = $1 OR player_b_id = $1
+       )
+       SELECT
+         peers.peer_player_id,
+         COALESCE(unread.unread_count, 0)::bigint AS unread_count,
+         latest.sent_at_ms AS latest_message_at,
+         latest.message_id AS latest_message_id
+       FROM peers
+       LEFT JOIN ${DAOIST_MESSAGE_READ_TABLE} read_state
+         ON read_state.player_id = $1
+        AND read_state.peer_player_id = peers.peer_player_id
+       LEFT JOIN LATERAL (
+         SELECT message_id, sent_at_ms
+           FROM ${DAOIST_MESSAGE_TABLE}
+          WHERE player_a_id = LEAST($1, peers.peer_player_id)
+            AND player_b_id = GREATEST($1, peers.peer_player_id)
+          ORDER BY sent_at_ms DESC, message_id DESC
+          LIMIT 1
+       ) latest ON true
+       LEFT JOIN LATERAL (
+         SELECT COUNT(*) AS unread_count
+           FROM (
+             SELECT message_id, from_player_id, to_player_id, sent_at_ms
+               FROM ${DAOIST_MESSAGE_TABLE}
+              WHERE player_a_id = LEAST($1, peers.peer_player_id)
+                AND player_b_id = GREATEST($1, peers.peer_player_id)
+              ORDER BY sent_at_ms DESC, message_id DESC
+              LIMIT ${DAOIST_MESSAGE_HISTORY_LIMIT}
+           ) recent
+          WHERE recent.from_player_id = peers.peer_player_id
+            AND recent.to_player_id = $1
+            AND (
+              recent.sent_at_ms > COALESCE(read_state.last_read_at_ms, -1)
+              OR (recent.sent_at_ms = COALESCE(read_state.last_read_at_ms, -1)
+                AND recent.message_id > COALESCE(read_state.last_read_message_id, ''))
+            )
+       ) unread ON true
+       ORDER BY latest.sent_at_ms DESC NULLS LAST, peers.peer_player_id ASC`,
+      [playerId],
+    );
+    return (result.rows ?? []).map((row) => ({
+      peerPlayerId: normalizePlayerId(row.peer_player_id),
+      unreadCount: Math.max(0, Math.trunc(Number(row.unread_count) || 0)),
+      ...(Number.isFinite(Number(row.latest_message_at)) ? { latestMessageAt: Math.max(0, Math.trunc(Number(row.latest_message_at))) } : undefined),
+      ...(normalizeString(row.latest_message_id) ? { latestMessageId: normalizeString(row.latest_message_id) } : undefined),
+    })).filter((entry) => entry.peerPlayerId);
+  }
+
+  private scheduleMessagePrune(pair: [string, string]): void {
+    const key = `${pair[0]}\n${pair[1]}`;
+    this.pendingMessagePrunePairs.set(key, pair);
+    if (this.messagePruneTimer) {
+      return;
+    }
+    this.messagePruneTimer = setTimeout(() => {
+      this.messagePruneTimer = null;
+      void this.flushMessagePrunes();
+    }, DAOIST_MESSAGE_PRUNE_DELAY_MS);
+    this.messagePruneTimer.unref();
+  }
+
+  private recordPersistedMessageWrite(pair: [string, string]): void {
+    const key = `${pair[0]}\n${pair[1]}`;
+    const previous = this.messagePruneWriteCounts.get(key) ?? 0;
+    const next = previous >= DAOIST_MESSAGE_PRUNE_WRITE_INTERVAL ? 1 : previous + 1;
+    this.messagePruneWriteCounts.delete(key);
+    this.messagePruneWriteCounts.set(key, next);
+    while (this.messagePruneWriteCounts.size > DAOIST_MESSAGE_ACTIVE_PAIR_LIMIT) {
+      const oldestKey = this.messagePruneWriteCounts.keys().next().value;
+      if (typeof oldestKey !== 'string') {
+        break;
+      }
+      this.messagePruneWriteCounts.delete(oldestKey);
+    }
+    if (previous === 0 || next === DAOIST_MESSAGE_PRUNE_WRITE_INTERVAL) {
+      this.scheduleMessagePrune(pair);
+    }
+  }
+
+  private async flushMessagePrunes(): Promise<void> {
+    if (this.messagePruneFlushRunning || !this.pool || !this.enabled || this.pendingMessagePrunePairs.size === 0) {
+      return;
+    }
+    this.messagePruneFlushRunning = true;
+    try {
+      const pairs = Array.from(this.pendingMessagePrunePairs.entries()).slice(0, DAOIST_MESSAGE_PRUNE_BATCH_SIZE);
+      for (const [key, pair] of pairs) {
+        this.pendingMessagePrunePairs.delete(key);
+        try {
+          await this.pool.query(
+            `DELETE FROM ${DAOIST_MESSAGE_TABLE}
+              WHERE player_a_id = $1
+                AND player_b_id = $2
+                AND message_id NOT IN (
+                  SELECT message_id
+                    FROM ${DAOIST_MESSAGE_TABLE}
+                   WHERE player_a_id = $1 AND player_b_id = $2
+                   ORDER BY sent_at_ms DESC, message_id DESC
+                   LIMIT ${DAOIST_MESSAGE_HISTORY_LIMIT}
+                )`,
+            pair,
+          );
+        } catch (error) {
+          this.logger.warn(`私聊历史裁剪失败 pair=${key.replace('\n', ':')} error=${error instanceof Error ? error.message : String(error)}`);
+          this.pendingMessagePrunePairs.set(key, pair);
+        }
+      }
+    } finally {
+      this.messagePruneFlushRunning = false;
+      if (this.pendingMessagePrunePairs.size > 0) {
+        const nextPair = this.pendingMessagePrunePairs.values().next().value as [string, string];
+        this.scheduleMessagePrune(nextPair);
+      }
+    }
+  }
+
   private isNearby(fromPlayerId: string, targetPlayerId: string, runtime?: any): boolean {
     const fromPlayer = this.playerRuntimeService.getPlayer(fromPlayerId);
     const targetPlayer = this.playerRuntimeService.getPlayer(targetPlayerId);
@@ -472,6 +815,38 @@ async function ensureDaoistTables(pool: PoolLike): Promise<void> {
       CREATE INDEX IF NOT EXISTS player_daoist_request_from_idx
       ON ${DAOIST_REQUEST_TABLE}(from_player_id, status, expires_at_ms DESC)
     `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ${DAOIST_MESSAGE_TABLE} (
+        message_id varchar(160) PRIMARY KEY,
+        player_a_id varchar(100) NOT NULL,
+        player_b_id varchar(100) NOT NULL,
+        from_player_id varchar(100) NOT NULL,
+        from_name varchar(120) NOT NULL,
+        to_player_id varchar(100) NOT NULL,
+        to_name varchar(120) NOT NULL,
+        text varchar(240) NOT NULL,
+        sent_at_ms bigint NOT NULL,
+        created_at timestamptz NOT NULL DEFAULT now()
+      )
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS player_daoist_message_pair_time_idx
+      ON ${DAOIST_MESSAGE_TABLE}(player_a_id, player_b_id, sent_at_ms DESC, message_id DESC)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS player_daoist_message_unread_idx
+      ON ${DAOIST_MESSAGE_TABLE}(to_player_id, from_player_id, sent_at_ms DESC, message_id DESC)
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ${DAOIST_MESSAGE_READ_TABLE} (
+        player_id varchar(100) NOT NULL,
+        peer_player_id varchar(100) NOT NULL,
+        last_read_at_ms bigint NOT NULL,
+        last_read_message_id varchar(160) NOT NULL,
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        PRIMARY KEY (player_id, peer_player_id)
+      )
+    `);
   } finally {
     client.release();
   }
@@ -504,6 +879,44 @@ function resolveRuntimeInstanceName(runtime: any, instanceId: string): string {
 
 function normalizeDirectMessage(value: unknown): string {
   return typeof value === 'string'
-    ? value.trim().slice(0, 200).replace(/[<>&"']/g, (ch) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' })[ch] || ch)
+    ? value.trim().slice(0, 200)
     : '';
+}
+
+function normalizeMessageCursor(cursor: ChatHistoryCursorView | null | undefined): ChatHistoryCursorView {
+  return {
+    occurredAt: Math.min(Number.MAX_SAFE_INTEGER, Math.max(0, Math.trunc(Number(cursor?.occurredAt) || 0))),
+    messageId: normalizeString(cursor?.messageId).slice(0, 160),
+  };
+}
+
+function normalizeRequestId(value: unknown): string {
+  const requestId = normalizeString(value);
+  return requestId.length <= 128 ? requestId : '';
+}
+
+function refillDirectMessageAdmissionBucket(
+  bucket: DirectMessageAdmissionBucket,
+  capacity: number,
+  refillPerSecond: number,
+  now: number,
+): void {
+  const elapsedMs = Math.max(0, now - bucket.lastRefillAt);
+  if (elapsedMs <= 0) {
+    return;
+  }
+  bucket.tokens = Math.min(capacity, bucket.tokens + (elapsedMs * refillPerSecond) / 1_000);
+  bucket.lastRefillAt = now;
+}
+
+function rowToDirectMessage(row: any): DaoistDirectMessageView {
+  return {
+    messageId: normalizeString(row.message_id),
+    fromPlayerId: normalizePlayerId(row.from_player_id),
+    fromName: normalizeString(row.from_name),
+    toPlayerId: normalizePlayerId(row.to_player_id),
+    toName: normalizeString(row.to_name),
+    text: typeof row.text === 'string' ? row.text : '',
+    sentAt: Math.max(0, Math.trunc(Number(row.sent_at_ms) || 0)),
+  };
 }

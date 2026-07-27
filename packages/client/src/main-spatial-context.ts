@@ -20,13 +20,14 @@ export function resolveWorldDeltaResetContext(
 
 /** 构造与地图实例绑定的聊天持久化作用域，避免同模板实例之间串读本地消息。 */
 export function buildChatPersistenceScope(
-  player: Pick<PlayerState, 'id' | 'mapId' | 'instanceId'>,
+  player: Pick<PlayerState, 'id' | 'mapId' | 'instanceId' | 'sectId'>,
   fallback?: { mapId?: string; instanceId?: string },
 ): string {
   const playerId = String(player.id || 'anonymous').trim() || 'anonymous';
   const mapId = String(player.mapId || fallback?.mapId || 'unknown-map').trim() || 'unknown-map';
   const instanceId = String(player.instanceId || fallback?.instanceId || mapId).trim() || mapId;
-  return `${playerId}|${mapId}|${instanceId}`;
+  const sectId = String(player.sectId || 'none').trim() || 'none';
+  return `${playerId}|${mapId}|${instanceId}|${sectId}`;
 }
 
 function normalizeSpatialId(value: unknown): string | undefined {

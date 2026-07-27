@@ -69,6 +69,7 @@ const EXPECTED_STATIC_S2C_SURFACES = [
       'RedeemCodesResult',
       'ActivityStatus',
       'ActivityOperationResult',
+      'ChatHistory',
     ],
   },
   {

@@ -333,6 +333,7 @@ export interface ProjectedFormationEntry {
 export interface ProjectedSelfState {
   instanceId: string;
   templateId: string;
+  sectId: string | null;
   x: number;
   y: number;
   f: DirectionLike;
@@ -354,6 +355,7 @@ export interface ProjectorPlayerLike {
   selfRevision: number;
   instanceId: string;
   templateId: string;
+  sectId?: string | null;
   x: number;
   y: number;
   facing: DirectionLike;
