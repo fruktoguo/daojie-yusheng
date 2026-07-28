@@ -992,15 +992,18 @@ async function testRefundFailedTechniqueGenerationItemsBlocksOnlinePlayersByDefa
   assert.ok(!queries.some((entry) => entry.sql.includes('item_refunded = true') && entry.sql.includes('UPDATE technique_generation_job')));
 }
 
-async function testSchemaMigratesPlayerIdsToVarchar(): Promise<void> {
+async function testSchemaMigratesGeneratedTechniqueColumns(): Promise<void> {
   const queries: QueryRecord[] = [];
   await ensureGeneratedTechniqueTables(createFakeSchemaPool(queries));
 
   const normalizedSql = queries.map((entry) => entry.sql.replace(/\s+/g, ' ').trim().toLowerCase());
   assert.ok(normalizedSql.some((sql) => sql.includes('created_by_player_id varchar(120) not null')));
   assert.ok(normalizedSql.some((sql) => sql.includes('player_id varchar(120) not null')));
+  assert.ok(normalizedSql.some((sql) => sql.includes('player_context text')));
   assert.ok(normalizedSql.some((sql) => sql.includes('alter column created_by_player_id type varchar(120)')));
   assert.ok(normalizedSql.some((sql) => sql.includes('alter column player_id type varchar(120)')));
+  assert.ok(normalizedSql.some((sql) => sql.includes('alter column player_context type text')));
+  assert.ok(!normalizedSql.some((sql) => sql.includes('player_context varchar(200)')));
   assert.ok(normalizedSql.some((sql) => sql.includes('item_refunded boolean not null default false')));
   assert.ok(normalizedSql.some((sql) => sql.includes('add column if not exists item_refunded boolean not null default false')));
   assert.ok(normalizedSql.some((sql) => sql.includes('add column if not exists refunded_at timestamptz')));
@@ -1999,7 +2002,7 @@ async function main(): Promise<void> {
   await testPreviewFailedTechniqueGenerationItemRefunds();
   await testRefundFailedTechniqueGenerationItemsWritesInventoryAuditAndMarkers();
   await testRefundFailedTechniqueGenerationItemsBlocksOnlinePlayersByDefault();
-  await testSchemaMigratesPlayerIdsToVarchar();
+  await testSchemaMigratesGeneratedTechniqueColumns();
   await testPublishGeneratedTechniqueCastsRepeatedNameParameter();
   await testCurrentStatusRestoresGeneratedDraftPreview();
   await testRequestGenerationBlocksActiveDraftWithoutConsumingItem();

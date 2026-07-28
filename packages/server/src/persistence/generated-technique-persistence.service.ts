@@ -93,7 +93,7 @@ export async function ensureGeneratedTechniqueTables(pool: Pool): Promise<void> 
         requested_category    VARCHAR(16),
         rolled_grade          VARCHAR(16),
         rolled_realm_lv       INT,
-        player_context        VARCHAR(200),
+        player_context        TEXT,
         rolled_budget_percent NUMERIC NOT NULL DEFAULT 1,
         rolled_total_budget   NUMERIC NOT NULL DEFAULT 0,
 
@@ -126,6 +126,11 @@ export async function ensureGeneratedTechniqueTables(pool: Pool): Promise<void> 
       ALTER TABLE ${TECHNIQUE_GENERATION_JOB_TABLE}
       ALTER COLUMN player_id TYPE VARCHAR(120)
       USING player_id::text
+    `);
+    await client.query(`
+      ALTER TABLE ${TECHNIQUE_GENERATION_JOB_TABLE}
+      ALTER COLUMN player_context TYPE TEXT
+      USING player_context::text
     `);
     await client.query(`
       ALTER TABLE ${TECHNIQUE_GENERATION_JOB_TABLE}

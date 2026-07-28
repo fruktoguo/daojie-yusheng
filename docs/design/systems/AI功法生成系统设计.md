@@ -470,7 +470,7 @@ CREATE TABLE technique_generation_job (
   requested_category    VARCHAR(16),
   rolled_grade          VARCHAR(16),
   rolled_realm_lv       INT,
-  player_context        VARCHAR(200),
+  player_context        TEXT,         -- 业务层统一限制为 4000 字符
 
   draft_technique_id    VARCHAR(64),
   model_name            VARCHAR(64),
