@@ -35,7 +35,7 @@ async function main(): Promise<void> {
           ok: true,
           skipped: true,
           reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
-          answers: '无 DB 时已用 fake pool 验证 inventory/wallet/equipment/map/technique/buff/quest/auto/profession/alchemy/enhancement/logbook 快照保存不再发送裸整玩家 DELETE，inventory 重复 slot 会重排保留全部 item_instance_id，wallet/market_storage/equipment 非法 entry 不会被静默跳过后触发 stale cleanup，auto_battle_skill/auto_use_item_rule 可合法清空偏好列表，并验证单个清理任务失败不会阻断后续收尾且所有错误都会保留；with-db 下 PlayerDomainPersistenceService 还会验证同一玩家多领域单事务提交、失败整批回滚和逐领域 recovery watermark 过滤',
+          answers: '无 DB 时已用 fake pool 验证 inventory/wallet/equipment/map/technique/buff/quest/auto/profession/alchemy/enhancement/logbook 快照保存不再发送裸整玩家 DELETE，inventory 重复 slot 会重排保留全部 item_instance_id，wallet/market_storage/equipment 非法 entry 不会被静默跳过后触发 stale cleanup，auto_battle_skill/auto_use_item_rule 可合法清空偏好列表，logbook ACK 后的显式空队列可清除旧行且无效非空载荷仍受保护，并验证单个清理任务失败不会阻断后续收尾且所有错误都会保留；with-db 下 PlayerDomainPersistenceService 还会验证同一玩家多领域单事务提交、失败整批回滚和逐领域 recovery watermark 过滤',
           excludes: '不证明 bootstrap 已切到分域恢复，也不证明域级 dirty/多 worker/真实 with-db release 全链路；当前未连接数据库，因此未实际触发玩家表清理失败与 rollback 失败分支',
           completionMapping: 'release:proof:with-db.player-domain-persistence',
         },
@@ -1589,6 +1589,12 @@ async function main(): Promise<void> {
       }],
     };
     batchBaselineSnapshot.vitals = { hp: 71, maxHp: 100, qi: 41, maxQi: 100 };
+    batchBaselineSnapshot.pendingLogbookMessages = [{
+      id: 'log:batch-awaiting-ack',
+      kind: 'system',
+      text: '批量刷盘待确认提示',
+      at: batchBaselineVersion,
+    }];
     batchBaselineSnapshot.buffs = {
       revision: 30,
       buffs: [{
@@ -1613,6 +1619,7 @@ async function main(): Promise<void> {
         options: { ...batchBaselineOptions, allowInventoryEmptyOverwrite: true },
       },
       { snapshot: batchBaselineSnapshot, domains: ['vitals'], options: batchBaselineOptions },
+      { snapshot: batchBaselineSnapshot, domains: ['logbook'], options: batchBaselineOptions },
       { snapshot: batchBaselineSnapshot, domains: ['buff'], options: batchBaselineOptions },
     ]);
 
@@ -1668,7 +1675,8 @@ async function main(): Promise<void> {
       fetchRows(pool, 'SELECT item_id FROM player_inventory_item WHERE player_id = $1 ORDER BY slot_index ASC', [projectionBatchPlayerId]),
       fetchSingleRow(pool, 'SELECT hp, qi FROM player_vitals WHERE player_id = $1', [projectionBatchPlayerId]),
       fetchRows(pool, 'SELECT buff_id FROM player_persistent_buff_state WHERE player_id = $1 ORDER BY buff_id ASC', [projectionBatchPlayerId]),
-      fetchSingleRow(pool, 'SELECT inventory_version, vitals_version, buff_version FROM player_recovery_watermark WHERE player_id = $1', [projectionBatchPlayerId]),
+      fetchRows(pool, 'SELECT message_id FROM player_logbook_message WHERE player_id = $1 ORDER BY message_id ASC', [projectionBatchPlayerId]),
+      fetchSingleRow(pool, 'SELECT inventory_version, vitals_version, buff_version, logbook_version FROM player_recovery_watermark WHERE player_id = $1', [projectionBatchPlayerId]),
     ]);
     if (
       rolledBackBatchState[0].length !== 1
@@ -1677,9 +1685,12 @@ async function main(): Promise<void> {
       || Number(rolledBackBatchState[1]?.qi) !== 41
       || rolledBackBatchState[2].length !== 1
       || rolledBackBatchState[2][0]?.buff_id !== 'buff.batch_baseline'
-      || Number(rolledBackBatchState[3]?.inventory_version) !== batchBaselineVersion
-      || Number(rolledBackBatchState[3]?.vitals_version) !== batchBaselineVersion
-      || Number(rolledBackBatchState[3]?.buff_version) !== batchBaselineVersion
+      || rolledBackBatchState[3].length !== 1
+      || rolledBackBatchState[3][0]?.message_id !== 'log:batch-awaiting-ack'
+      || Number(rolledBackBatchState[4]?.inventory_version) !== batchBaselineVersion
+      || Number(rolledBackBatchState[4]?.vitals_version) !== batchBaselineVersion
+      || Number(rolledBackBatchState[4]?.buff_version) !== batchBaselineVersion
+      || Number(rolledBackBatchState[4]?.logbook_version) !== batchBaselineVersion
     ) {
       throw new Error(`player projection batch failure did not rollback every domain: ${JSON.stringify(rolledBackBatchState)}`);
     }
@@ -1718,6 +1729,7 @@ async function main(): Promise<void> {
       }],
     };
     mixedBatchSnapshot.vitals = { hp: 55, maxHp: 100, qi: 44, maxQi: 100 };
+    mixedBatchSnapshot.pendingLogbookMessages = [];
     const mixedBatchOptions = {
       expectedRuntimeOwnerId: batchRuntimeOwnerId,
       expectedSessionEpoch: batchSessionEpoch,
@@ -1730,19 +1742,23 @@ async function main(): Promise<void> {
         options: { ...mixedBatchOptions, allowInventoryEmptyOverwrite: true },
       },
       { snapshot: mixedBatchSnapshot, domains: ['vitals'], options: mixedBatchOptions },
+      { snapshot: mixedBatchSnapshot, domains: ['logbook'], options: mixedBatchOptions },
     ]);
     const mixedBatchState = await Promise.all([
       fetchRows(pool, 'SELECT item_id FROM player_inventory_item WHERE player_id = $1 ORDER BY slot_index ASC', [projectionBatchPlayerId]),
       fetchSingleRow(pool, 'SELECT hp, qi FROM player_vitals WHERE player_id = $1', [projectionBatchPlayerId]),
-      fetchSingleRow(pool, 'SELECT inventory_version, vitals_version FROM player_recovery_watermark WHERE player_id = $1', [projectionBatchPlayerId]),
+      fetchRows(pool, 'SELECT message_id FROM player_logbook_message WHERE player_id = $1 ORDER BY message_id ASC', [projectionBatchPlayerId]),
+      fetchSingleRow(pool, 'SELECT inventory_version, vitals_version, logbook_version FROM player_recovery_watermark WHERE player_id = $1', [projectionBatchPlayerId]),
     ]);
     if (
       mixedBatchState[0].length !== 1
       || mixedBatchState[0][0]?.item_id !== 'batch_newer_inventory_marker'
       || Number(mixedBatchState[1]?.hp) !== 55
       || Number(mixedBatchState[1]?.qi) !== 44
-      || Number(mixedBatchState[2]?.inventory_version) !== newerInventoryVersion
-      || Number(mixedBatchState[2]?.vitals_version) !== mixedBatchVersion
+      || mixedBatchState[2].length !== 0
+      || Number(mixedBatchState[3]?.inventory_version) !== newerInventoryVersion
+      || Number(mixedBatchState[3]?.vitals_version) !== mixedBatchVersion
+      || Number(mixedBatchState[3]?.logbook_version) !== mixedBatchVersion
     ) {
       throw new Error(`player projection batch independent watermark filtering failed: ${JSON.stringify(mixedBatchState)}`);
     }
@@ -1992,7 +2008,7 @@ async function main(): Promise<void> {
       playerId,
       edgePlayerId,
       directPlayerId,
-      answers: 'with-db 下 PlayerDomainPersistenceService 已能把 presence、wallet、vitals、progression core、attr、body training、inventory、market storage、map unlock、equipment、technique、persistent buff、quest、combat/auto-*、强化记录、日志与职业作业投影写入当前已落地的分域表；同一玩家多领域使用一个事务，后序领域 SQL 失败会回滚前序行与全部 watermark，混合新旧版本时又能逐领域跳过旧 payload 并提交其余领域；同时支持 inventory/wallet/equipment/map/technique/buff/quest/auto/profession/alchemy/enhancement/logbook/market storage 快照 stale 行清理、非法资产 entry 拒绝静默跳过、显式清空最后一个 inventory/equipment/buff row、旧 session 防覆盖及统一 active job 投影恢复',
+      answers: 'with-db 下 PlayerDomainPersistenceService 已能把 presence、wallet、vitals、progression core、attr、body training、inventory、market storage、map unlock、equipment、technique、persistent buff、quest、combat/auto-*、强化记录、日志与职业作业投影写入当前已落地的分域表；同一玩家多领域使用一个事务，后序领域 SQL 失败会回滚前序行与全部 watermark，混合新旧版本时又能逐领域跳过旧 payload 并提交其余领域，logbook ACK 后的显式空队列也能与同组 vitals 一起提交；同时支持 inventory/wallet/equipment/map/technique/buff/quest/auto/profession/alchemy/enhancement/logbook/market storage 快照 stale 行清理、非法资产 entry 拒绝静默跳过、显式清空最后一个 inventory/equipment/buff row、旧 session 防覆盖及统一 active job 投影恢复',
       excludes: '不证明 bootstrap 分域恢复、域级 dirty set、分域多 worker、完整玩家全域拆表都已落地',
       completionMapping: 'release:proof:with-db.player-domain-persistence',
       projectedTables: [...PLAYER_DOMAIN_PROJECTED_TABLES],
@@ -2018,6 +2034,7 @@ async function main(): Promise<void> {
       equipmentEmptyProjectionExplicitOptionSafe: true,
       buffEmptyProjectionExplicitOptionSafe: true,
       autoPreferenceEmptyOverwriteSafe: true,
+      logbookAckEmptyProjectionBatchSafe: true,
       marketStorageCrossOwnerConflictRejected,
     };
   } catch (error) {

@@ -7035,6 +7035,7 @@ async function replacePlayerLogbookMessages(
   playerId: string,
   rows: unknown[],
 ): Promise<void> {
+  const allowExplicitEmptyOverwrite = rows.length === 0;
   const normalizedRows: Array<{
     message_id: string;
     kind: string;
@@ -7122,6 +7123,8 @@ async function replacePlayerLogbookMessages(
     normalizedRows.map(({ message_id }) => ({ message_id })),
     'message_id varchar(180)',
     'incoming.message_id = target.message_id',
+    // pendingLogbookMessages 是待 ACK 队列；上游显式传入空数组表示全部消息均已确认。
+    { allowEmptyOverwrite: allowExplicitEmptyOverwrite },
   );
 }
 
