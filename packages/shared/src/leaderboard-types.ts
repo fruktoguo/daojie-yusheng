@@ -156,34 +156,42 @@ export interface LeaderboardBodyTrainingEntry extends LeaderboardPlayerEntry {
   expToNext: number;
 }
 
-/** 六维至尊属性榜条目。 */
-export interface LeaderboardSupremeAttrEntry {
-/**
- * attr：attr相关字段。
- */
-
-  attr: AttrKey;
-  /**
- * label：label名称或显示文本。
- */
-
-  label: string;  
-  /**
- * playerId：玩家ID标识。
- */
-
-  playerId: string;  
-  /**
- * playerName：玩家名称名称或显示文本。
- */
-
-  playerName: string;  
-  /**
- * value：值数值。
- */
-
+/** 六维单项排行榜条目。 */
+export interface LeaderboardAttributeEntry extends LeaderboardPlayerEntry {
+  /** 最终属性值。 */
   value: number;
 }
+
+/** 六维各自独立的前十榜单。 */
+export type LeaderboardAttributeBoards = Record<AttrKey, LeaderboardAttributeEntry[]>;
+
+/** 排行榜覆盖的八项通用技艺。 */
+export const LEADERBOARD_TECHNIQUE_KEYS = [
+  'alchemy',
+  'forging',
+  'enhancement',
+  'transmission',
+  'gather',
+  'mining',
+  'building',
+  'formation',
+] as const;
+
+/** 排行榜技艺键。 */
+export type LeaderboardTechniqueKey = typeof LEADERBOARD_TECHNIQUE_KEYS[number];
+
+/** 单项技艺排行榜条目。 */
+export interface LeaderboardTechniqueEntry extends LeaderboardPlayerEntry {
+  /** 技艺等级。 */
+  level: number;
+  /** 当前等级经验。 */
+  exp: number;
+  /** 升至下一级所需经验；圆满时可为 0。 */
+  expToNext: number;
+}
+
+/** 八项技艺各自独立的前十榜单。 */
+export type LeaderboardTechniqueBoards = Record<LeaderboardTechniqueKey, LeaderboardTechniqueEntry[]>;
 
 /** 宗门人数排行榜条目。 */
 export interface LeaderboardSectEntry {

@@ -3120,7 +3120,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
 
   /**
    * 批量查询排行榜所需的最小字段集。
-   * 用 ~10 个全表/条件查询替代逐个玩家的 loadPlayerDomains（20+ 表/玩家），
+   * 用固定数量的全表/条件查询替代逐个玩家的 loadPlayerDomains（20+ 表/玩家），
    * 跳过 quests、logbook、map_unlocks、auto_battle_skills 等排行榜不需要的表。
    * 返回的 snapshot 形状与 buildLeaderboardProjectionFromSnapshot 兼容。
    */
@@ -3151,6 +3151,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         progressionRows,
         attrStateRows,
         bodyTrainingRows,
+        professionRows,
         walletRows,
         inventorySpiritStoneRows,
         marketStorageSpiritStoneRows,
@@ -3175,6 +3176,9 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         ),
         this.pool.query<{ player_id?: unknown } & PlayerBodyTrainingLoadRow>(
           `SELECT player_id, level, exp, exp_to_next FROM ${PLAYER_BODY_TRAINING_STATE_TABLE}`,
+        ),
+        this.pool.query<{ player_id?: unknown } & PlayerProfessionStateLoadRow>(
+          `SELECT player_id, profession_type, level, exp, exp_to_next FROM ${PLAYER_PROFESSION_STATE_TABLE}`,
         ),
         this.pool.query<{ player_id?: unknown; wallet_type?: unknown; balance?: unknown }>(
           `SELECT player_id, wallet_type, balance FROM ${PLAYER_WALLET_TABLE} WHERE wallet_type = $1`,
@@ -3214,6 +3218,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
       const progressionByPid = indexRowsByPlayerId(progressionRows.rows);
       const attrStateByPid = indexRowsByPlayerId(attrStateRows.rows);
       const bodyTrainingByPid = indexRowsByPlayerId(bodyTrainingRows.rows);
+      const professionsByPid = indexMultiRowsByPlayerId(professionRows.rows);
       const walletByPid = indexRowsByPlayerId(walletRows.rows);
       const invSpiritByPid = indexRowsByPlayerId(inventorySpiritStoneRows.rows);
       const mktSpiritByPid = indexRowsByPlayerId(marketStorageSpiritStoneRows.rows);
@@ -3246,6 +3251,8 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
           applyProjectedAttrState(snapshot, attrStateByPid.get(playerId) ?? null);
           // body training
           applyProjectedBodyTraining(snapshot, bodyTrainingByPid.get(playerId) ?? null);
+          // 八项技艺等级与经验
+          applyProjectedProfessions(snapshot, professionsByPid.get(playerId) ?? []);
           // equipment
           applyProjectedEquipment(snapshot, equipByPid.get(playerId) ?? [], this.contentTemplateRepository);
           applyProjectedArtifacts(snapshot, artifactByPid.get(playerId) ?? [], this.contentTemplateRepository);

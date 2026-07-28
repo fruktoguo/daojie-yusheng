@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
-import { Direction } from '@mud/shared';
+import { ATTR_KEYS, Direction, LEADERBOARD_TECHNIQUE_KEYS } from '@mud/shared';
+import type { LeaderboardTechniqueKey } from '@mud/shared';
 
 import { installSmokeTimeout } from './smoke-timeout';
 import { LeaderboardRuntimeService } from '../runtime/player/leaderboard-runtime.service';
@@ -31,7 +32,13 @@ function createRuntimePlayer(input: {
   autoBattle?: boolean;
   alchemyJob?: Record<string, unknown> | null;
   enhancementJob?: Record<string, unknown> | null;
+  craftSkills?: Partial<Record<LeaderboardTechniqueKey, { level: number; exp: number; expToNext: number }>>;
 }) {
+  const readCraftSkill = (key: LeaderboardTechniqueKey) => input.craftSkills?.[key] ?? {
+    level: 1,
+    exp: 0,
+    expToNext: 100,
+  };
   return {
     playerId: input.playerId,
     name: input.playerName,
@@ -64,6 +71,14 @@ function createRuntimePlayer(input: {
     },
     alchemyJob: input.alchemyJob ?? null,
     enhancementJob: input.enhancementJob ?? null,
+    alchemySkill: readCraftSkill('alchemy'),
+    forgingSkill: readCraftSkill('forging'),
+    enhancementSkill: readCraftSkill('enhancement'),
+    transmissionSkill: readCraftSkill('transmission'),
+    gatherSkill: readCraftSkill('gather'),
+    miningSkill: readCraftSkill('mining'),
+    buildingSkill: readCraftSkill('building'),
+    formationSkill: readCraftSkill('formation'),
     attrs: {
       finalAttrs: {
         constitution: input.realmLv,
@@ -91,6 +106,16 @@ async function main(): Promise<void> {
     monsterKillCount: 2,
     eliteMonsterKillCount: 1,
     cultivationActive: true,
+    craftSkills: {
+      alchemy: { level: 4, exp: 40, expToNext: 100 },
+      forging: { level: 7, exp: 70, expToNext: 100 },
+      enhancement: { level: 2, exp: 20, expToNext: 100 },
+      transmission: { level: 5, exp: 50, expToNext: 100 },
+      gather: { level: 1, exp: 10, expToNext: 100 },
+      mining: { level: 4, exp: 40, expToNext: 100 },
+      building: { level: 3, exp: 30, expToNext: 100 },
+      formation: { level: 6, exp: 60, expToNext: 100 },
+    },
   });
   const offlinePlayer = createRuntimePlayer({
     playerId: 'player:offline',
@@ -108,6 +133,16 @@ async function main(): Promise<void> {
     autoBattle: true,
     alchemyJob: { jobRunId: 'job:ordinary-offline:alchemy' },
     enhancementJob: { jobRunId: 'job:ordinary-offline:enhancement' },
+    craftSkills: {
+      alchemy: { level: 6, exp: 50, expToNext: 100 },
+      forging: { level: 3, exp: 30, expToNext: 100 },
+      enhancement: { level: 8, exp: 80, expToNext: 100 },
+      transmission: { level: 2, exp: 20, expToNext: 100 },
+      gather: { level: 7, exp: 70, expToNext: 100 },
+      mining: { level: 1, exp: 10, expToNext: 100 },
+      building: { level: 6, exp: 60, expToNext: 100 },
+      formation: { level: 4, exp: 40, expToNext: 100 },
+    },
   });
   const offlineIdlePlayer = createRuntimePlayer({
     playerId: 'player:offline-idle',
@@ -124,6 +159,16 @@ async function main(): Promise<void> {
     cultivationActive: true,
     alchemyJob: { jobRunId: 'job:hanging:alchemy' },
     enhancementJob: { jobRunId: 'job:hanging:enhancement' },
+    craftSkills: {
+      alchemy: { level: 6, exp: 20, expToNext: 100 },
+      forging: { level: 5, exp: 50, expToNext: 100 },
+      enhancement: { level: 4, exp: 40, expToNext: 100 },
+      transmission: { level: 9, exp: 90, expToNext: 100 },
+      gather: { level: 3, exp: 30, expToNext: 100 },
+      mining: { level: 8, exp: 80, expToNext: 100 },
+      building: { level: 2, exp: 20, expToNext: 100 },
+      formation: { level: 1, exp: 10, expToNext: 100 },
+    },
   });
   const bannedOnlinePlayer = createRuntimePlayer({
     playerId: 'player:banned-online',
@@ -373,6 +418,40 @@ async function main(): Promise<void> {
   assert.deepEqual(
     leaderboard.boards.realm.map((entry) => entry.playerName),
     ['离线真名', '挂机真名', '在线真名'],
+  );
+  for (const attr of ATTR_KEYS) {
+    assert.deepEqual(
+      leaderboard.boards.attributes[attr].map((entry) => entry.playerId),
+      ['player:offline', 'player:offline-idle', 'player:online'],
+    );
+  }
+  const expectedTechniqueWinnerByKey: Record<LeaderboardTechniqueKey, string> = {
+    alchemy: 'player:offline',
+    forging: 'player:online',
+    enhancement: 'player:offline',
+    transmission: 'player:offline-idle',
+    gather: 'player:offline',
+    mining: 'player:offline-idle',
+    building: 'player:offline',
+    formation: 'player:online',
+  };
+  for (const technique of LEADERBOARD_TECHNIQUE_KEYS) {
+    assert.equal(
+      leaderboard.boards.techniques[technique][0]?.playerId,
+      expectedTechniqueWinnerByKey[technique],
+    );
+  }
+  assert.deepEqual(
+    leaderboard.boards.techniques.alchemy.map((entry) => ({
+      playerId: entry.playerId,
+      level: entry.level,
+      exp: entry.exp,
+    })),
+    [
+      { playerId: 'player:offline', level: 6, exp: 50 },
+      { playerId: 'player:offline-idle', level: 6, exp: 20 },
+      { playerId: 'player:online', level: 4, exp: 40 },
+    ],
   );
   assert.deepEqual(
     leaderboard.boards.spiritStones.map((entry) => ({

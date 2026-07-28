@@ -1,13 +1,29 @@
 /**
  * 排行榜纯函数构建模块。
  *
- * 这个模块只包含 8 个 board 的 sort/slice/map 纯函数，可以在主线程或
+ * 这个模块只包含各榜单的 sort/slice/map 纯函数，可以在主线程或
  * worker_threads 中安全运行（不依赖 NestJS DI、不依赖运行态 service）。
  *
  * 调用方负责把扁平 snapshot 数组传进来；snapshot 由
  * `LeaderboardRuntimeService.createSnapshot` 在主线程预先组装好（因为
  * 那一步依赖 mapTemplateRepository / marketRuntimeService 等 NestJS 单例）。
  */
+
+import {
+  ATTR_KEYS,
+  LEADERBOARD_TECHNIQUE_KEYS,
+  type AttrKey,
+  type LeaderboardAttributeBoards,
+  type LeaderboardTechniqueBoards,
+  type LeaderboardTechniqueKey,
+} from '@mud/shared';
+
+/** 排行榜技艺快照。 */
+export interface LeaderboardCraftSkillSnapshot {
+  level: number;
+  exp: number;
+  expToNext: number;
+}
 
 /** 排行榜扁平 snapshot 形状（调用方组装好后传入）。 */
 export interface LeaderboardFlatSnapshot {
@@ -35,7 +51,8 @@ export interface LeaderboardFlatSnapshot {
   bodyTrainingLevel: number;
   bodyTrainingExp: number;
   bodyTrainingExpToNext: number;
-  finalAttrs: Record<string, number>;
+  finalAttrs: Record<AttrKey, number>;
+  techniqueSkills: Record<LeaderboardTechniqueKey, LeaderboardCraftSkillSnapshot>;
   flags: {
     cultivation: boolean;
     combat: boolean;
@@ -43,16 +60,6 @@ export interface LeaderboardFlatSnapshot {
     enhancement: boolean;
   };
 }
-
-/** 六维主属性榜单中文标签（与 leaderboard-runtime.service 中保持一致）。 */
-export const SUPREME_ATTR_LABELS: Record<string, string> = {
-  constitution: '体魄',
-  spirit: '神识',
-  perception: '身法',
-  talent: '根骨',
-  strength: '力道',
-  meridians: '经脉',
-};
 
 /** 名称比较器（中文 zh-Hans-CN 排序）。 */
 export function compareLeaderboardName(left: LeaderboardFlatSnapshot, right: LeaderboardFlatSnapshot): number {
@@ -155,24 +162,61 @@ export function buildBodyTrainingBoard(snapshots: LeaderboardFlatSnapshot[], lim
     }));
 }
 
-/** 构造六维最高属性榜。 */
-export function buildSupremeAttrBoard(snapshots: LeaderboardFlatSnapshot[]): unknown[] {
-  return Object.keys(SUPREME_ATTR_LABELS).map((attr) => {
-    const top = [...snapshots].sort((left, right) => (right.finalAttrs[attr] - left.finalAttrs[attr]
-      || right.realmLv - left.realmLv
-      || compareLeaderboardName(left, right)))[0];
-    return {
-      attr,
-      label: SUPREME_ATTR_LABELS[attr],
-      playerId: top?.playerId ?? '',
-      playerName: top?.playerName ?? '暂无',
-      value: top?.finalAttrs[attr] ?? 0,
-    };
-  });
+/** 构造六维各自前十榜单。 */
+export function buildAttributeBoards(
+  snapshots: LeaderboardFlatSnapshot[],
+  limit: number,
+): LeaderboardAttributeBoards {
+  const boards = {} as LeaderboardAttributeBoards;
+  for (const attr of ATTR_KEYS) {
+    boards[attr] = [...snapshots]
+      .sort((left, right) => (right.finalAttrs[attr] - left.finalAttrs[attr]
+        || right.realmLv - left.realmLv
+        || compareLeaderboardName(left, right)))
+      .slice(0, limit)
+      .map((entry, index) => ({
+        rank: index + 1,
+        playerId: entry.playerId,
+        playerName: entry.playerName,
+        value: entry.finalAttrs[attr],
+      }));
+  }
+  return boards;
+}
+
+/** 构造八项技艺各自前十榜单。 */
+export function buildTechniqueBoards(
+  snapshots: LeaderboardFlatSnapshot[],
+  limit: number,
+): LeaderboardTechniqueBoards {
+  const boards = {} as LeaderboardTechniqueBoards;
+  for (const technique of LEADERBOARD_TECHNIQUE_KEYS) {
+    boards[technique] = [...snapshots]
+      .sort((left, right) => {
+        const leftSkill = left.techniqueSkills[technique];
+        const rightSkill = right.techniqueSkills[technique];
+        return rightSkill.level - leftSkill.level
+          || rightSkill.exp - leftSkill.exp
+          || compareLeaderboardName(left, right);
+      })
+      .slice(0, limit)
+      .map((entry, index) => {
+        const skill = entry.techniqueSkills[technique];
+        return {
+          rank: index + 1,
+          playerId: entry.playerId,
+          playerName: entry.playerName,
+          level: skill.level,
+          exp: skill.exp,
+          expToNext: skill.expToNext,
+        };
+      });
+  }
+  return boards;
 }
 
 /**
- * 一次性构建 8 个 board。worker 内调用入口。
+ * 一次性构建全部玩家榜单。worker 内调用入口。
  * sects 由调用方在主线程预算好（依赖 NestJS sectService）后透传。
  */
 export function buildAllLeaderboards(
@@ -186,9 +230,9 @@ export function buildAllLeaderboards(
   playerKills: unknown[];
   deaths: unknown[];
   bodyTraining: unknown[];
-  supremeAttrs: unknown[];
+  attributes: LeaderboardAttributeBoards;
+  techniques: LeaderboardTechniqueBoards;
   sects: unknown[];
-  invitation?: unknown;
 } {
   return {
     realm: buildRealmBoard(snapshots, limit),
@@ -197,7 +241,8 @@ export function buildAllLeaderboards(
     playerKills: buildPlayerKillBoard(snapshots, limit),
     deaths: buildDeathBoard(snapshots, limit),
     bodyTraining: buildBodyTrainingBoard(snapshots, limit),
-    supremeAttrs: buildSupremeAttrBoard(snapshots),
+    attributes: buildAttributeBoards(snapshots, limit),
+    techniques: buildTechniqueBoards(snapshots, limit),
     sects,
   };
 }

@@ -1,7 +1,7 @@
 /**
  * 排行榜构建 worker 入口。
  *
- * 在 worker_threads 中运行，专门处理排行榜的 8 个 board 排序/截断/映射。
+ * 在 worker_threads 中运行，专门处理玩家排行榜的排序、截断与映射。
  * 不依赖 NestJS 容器；调用方负责把扁平 snapshot 与 sects 透传过来。
  */
 import { parentPort } from 'node:worker_threads';

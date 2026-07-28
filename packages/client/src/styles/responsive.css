@@ -8,8 +8,7 @@
       .hud-resources,
       .hud-grid,
       .intel-grid,
-      .world-hero,
-      .leaderboard-supreme-grid {
+      .world-hero {
         grid-template-columns: 1fr;
       }
       .ui-detail-grid {
@@ -657,7 +656,12 @@
         align-items: stretch;
       }
       .leaderboard-toolbar {
+        display: flex;
         flex-direction: column;
+      }
+      .leaderboard-navigation,
+      .leaderboard-group-tabs {
+        width: 100%;
       }
       .leaderboard-toolbar-actions {
         justify-content: stretch;

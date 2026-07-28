@@ -10434,6 +10434,36 @@
       gap: 8px;
       flex: 0 0 auto;
     }
+    .leaderboard-navigation {
+      min-width: 0;
+      display: grid;
+      gap: 8px;
+    }
+    .leaderboard-group-tabs {
+      width: min(100%, 520px);
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .leaderboard-group-btn {
+      min-width: 0;
+      min-height: 36px;
+      padding: 7px 12px;
+      border: 1px solid var(--wash-ink);
+      background: var(--paper-white);
+      color: var(--color-role-body);
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-body-15);
+      white-space: nowrap;
+      cursor: pointer;
+      transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    }
+    .leaderboard-group-btn:hover,
+    .leaderboard-group-btn.active {
+      border-color: rgba(197, 60, 60, 0.42);
+      background: color-mix(in srgb, var(--paper-white) 86%, var(--stamp-red) 14%);
+      color: var(--color-role-body-strong);
+    }
     .leaderboard-tabs {
       display: flex;
       gap: 8px;
@@ -10547,40 +10577,6 @@
       font-family: var(--font-role-title);
       font-size: var(--font-size-role-body-15);
       color: var(--color-role-body-strong);
-    }
-    .leaderboard-supreme-grid {
-      min-height: 0;
-      height: 100%;
-      overflow-y: auto;
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-      padding-right: 4px;
-      align-content: start;
-    }
-    .leaderboard-supreme-card {
-      padding: 16px;
-      border: 1px solid var(--wash-ink);
-      background:
-        linear-gradient(180deg, rgba(214, 188, 142, 0.08), transparent),
-        var(--surface-muted-strong);
-      display: grid;
-      gap: 8px;
-    }
-    .leaderboard-supreme-label {
-      font-size: var(--font-size-12);
-      letter-spacing: 0.12em;
-      color: var(--color-role-label);
-    }
-    .leaderboard-supreme-name {
-      font-size: var(--font-size-role-body-16);
-      color: var(--color-role-body-strong);
-      font-weight: var(--font-weight-strong);
-    }
-    .leaderboard-supreme-value {
-      font-family: var(--font-role-title);
-      font-size: var(--font-size-role-title-22);
-      color: var(--stamp-red);
     }
     .leaderboard-world-grid {
       min-height: 0;

@@ -3,7 +3,14 @@
  *
  * 维护时要把用户意图、显示派生和服务端权威数据分清，避免为了展示便利复制业务规则。
  */
-import { S2C_Leaderboard, S2C_LeaderboardPlayerLocations, S2C_WorldSummary } from '@mud/shared';
+import { ATTR_KEYS, LEADERBOARD_TECHNIQUE_KEYS } from '@mud/shared';
+import type {
+  AttrKey,
+  LeaderboardTechniqueKey,
+  S2C_Leaderboard,
+  S2C_LeaderboardPlayerLocations,
+  S2C_WorldSummary,
+} from '@mud/shared';
 import type { SocketPanelSender } from './network/socket-send-panel';
 import { detailModalHost } from './ui/detail-modal-host';
 import { preserveSelection } from './ui/selection-preserver';
@@ -33,10 +40,46 @@ const WORLD_SUMMARY_MODAL_OWNER = 'world:summary';
 const LEADERBOARD_PLAYER_LOCATION_REFRESH_INTERVAL_MS = 10_000;
 const LEADERBOARD_PLAYER_LOCATION_EVENT = 'mud:leaderboard-player-locations';
 
-type LeaderboardTab = 'realm' | 'monsterKills' | 'spiritStones' | 'playerKills' | 'deaths' | 'bodyTraining' | 'supremeAttrs' | 'sects' | 'invitation';
+type LeaderboardGroup = 'heaven' | 'combat' | 'technique' | 'social';
+type LeaderboardBaseTab = 'realm' | 'monsterKills' | 'spiritStones' | 'playerKills' | 'deaths' | 'bodyTraining' | 'sects' | 'invitation';
+type LeaderboardAttributeTab = `attribute:${AttrKey}`;
+type LeaderboardTechniqueTab = `technique:${LeaderboardTechniqueKey}`;
+type LeaderboardTab = LeaderboardBaseTab | LeaderboardAttributeTab | LeaderboardTechniqueTab;
 
 const LEADERBOARD_LIMIT = 10;
+
+const LEADERBOARD_GROUPS: readonly LeaderboardGroup[] = ['combat', 'technique', 'heaven', 'social'];
+const LEADERBOARD_ATTRIBUTE_TABS = ATTR_KEYS.map((attr) => `attribute:${attr}` as LeaderboardAttributeTab);
+const LEADERBOARD_TECHNIQUE_TABS = LEADERBOARD_TECHNIQUE_KEYS.map((technique) => `technique:${technique}` as LeaderboardTechniqueTab);
+const LEADERBOARD_TABS_BY_GROUP: Record<LeaderboardGroup, readonly LeaderboardTab[]> = {
+  heaven: ['realm', 'bodyTraining', ...LEADERBOARD_ATTRIBUTE_TABS],
+  combat: ['monsterKills', 'playerKills', 'deaths'],
+  technique: LEADERBOARD_TECHNIQUE_TABS,
+  social: ['sects', 'invitation', 'spiritStones'],
+};
+
+function getLeaderboardGroupLabel(group: LeaderboardGroup): string {
+  switch (group) {
+    case 'heaven':
+      return t('world-summary.leaderboard.group.heaven', undefined);
+    case 'combat':
+      return t('world-summary.leaderboard.group.combat', undefined);
+    case 'technique':
+      return t('world-summary.leaderboard.group.technique', undefined);
+    case 'social':
+      return t('world-summary.leaderboard.group.social', undefined);
+  }
+}
+
 function getLeaderboardTabLabel(tab: LeaderboardTab): string {
+  const attr = resolveLeaderboardAttributeTab(tab);
+  if (attr) {
+    return getLeaderboardAttributeLabel(attr);
+  }
+  const technique = resolveLeaderboardTechniqueTab(tab);
+  if (technique) {
+    return getLeaderboardTechniqueLabel(technique);
+  }
   switch (tab) {
     case 'realm':
       return t('world-summary.leaderboard.tab.realm', undefined);
@@ -50,16 +93,71 @@ function getLeaderboardTabLabel(tab: LeaderboardTab): string {
       return t('world-summary.leaderboard.tab.deaths', undefined);
     case 'bodyTraining':
       return t('world-summary.leaderboard.tab.body-training', undefined);
-    case 'supremeAttrs':
-      return t('world-summary.leaderboard.tab.supreme-attrs', undefined);
     case 'sects':
       return t('world-summary.leaderboard.tab.sects', undefined);
     case 'invitation':
       return t('world-summary.leaderboard.tab.invitation', undefined);
   }
+  return '';
 }
 
-const LEADERBOARD_TABS: LeaderboardTab[] = ['realm', 'monsterKills', 'spiritStones', 'playerKills', 'deaths', 'bodyTraining', 'supremeAttrs', 'sects', 'invitation'];
+function getLeaderboardAttributeLabel(attr: AttrKey): string {
+  switch (attr) {
+    case 'constitution':
+      return t('world-summary.leaderboard.tab.attribute.constitution', undefined);
+    case 'spirit':
+      return t('world-summary.leaderboard.tab.attribute.spirit', undefined);
+    case 'perception':
+      return t('world-summary.leaderboard.tab.attribute.perception', undefined);
+    case 'talent':
+      return t('world-summary.leaderboard.tab.attribute.talent', undefined);
+    case 'strength':
+      return t('world-summary.leaderboard.tab.attribute.strength', undefined);
+    case 'meridians':
+      return t('world-summary.leaderboard.tab.attribute.meridians', undefined);
+  }
+}
+
+function getLeaderboardTechniqueLabel(technique: LeaderboardTechniqueKey): string {
+  switch (technique) {
+    case 'alchemy':
+      return t('world-summary.leaderboard.tab.technique.alchemy', undefined);
+    case 'forging':
+      return t('world-summary.leaderboard.tab.technique.forging', undefined);
+    case 'enhancement':
+      return t('world-summary.leaderboard.tab.technique.enhancement', undefined);
+    case 'transmission':
+      return t('world-summary.leaderboard.tab.technique.transmission', undefined);
+    case 'gather':
+      return t('world-summary.leaderboard.tab.technique.gather', undefined);
+    case 'mining':
+      return t('world-summary.leaderboard.tab.technique.mining', undefined);
+    case 'building':
+      return t('world-summary.leaderboard.tab.technique.building', undefined);
+    case 'formation':
+      return t('world-summary.leaderboard.tab.technique.formation', undefined);
+  }
+}
+
+function resolveLeaderboardAttributeTab(tab: LeaderboardTab): AttrKey | null {
+  if (!tab.startsWith('attribute:')) {
+    return null;
+  }
+  const attr = tab.slice('attribute:'.length) as AttrKey;
+  return ATTR_KEYS.includes(attr) ? attr : null;
+}
+
+function resolveLeaderboardTechniqueTab(tab: LeaderboardTab): LeaderboardTechniqueKey | null {
+  if (!tab.startsWith('technique:')) {
+    return null;
+  }
+  const technique = tab.slice('technique:'.length) as LeaderboardTechniqueKey;
+  return LEADERBOARD_TECHNIQUE_KEYS.includes(technique) ? technique : null;
+}
+
+function isLeaderboardGroup(value: string | undefined): value is LeaderboardGroup {
+  return value !== undefined && LEADERBOARD_GROUPS.includes(value as LeaderboardGroup);
+}
 /**
  * cloneJson：构建Json。
  * @param value T 参数说明。
@@ -123,9 +221,19 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
   let latestWorldSummary: S2C_WorldSummary | null = null;  
   let leaderboardPlayerLocationById = new Map<string, S2C_LeaderboardPlayerLocations['entries'][number]>();
   let leaderboardLocationTimer: number | null = null;
-  let activeLeaderboardTab: LeaderboardTab = 'realm';
+  let activeLeaderboardGroup: LeaderboardGroup = 'combat';
+  const activeLeaderboardTabByGroup: Record<LeaderboardGroup, LeaderboardTab> = {
+    heaven: 'realm',
+    combat: 'monsterKills',
+    technique: 'technique:alchemy',
+    social: 'sects',
+  };
   let leaderboardLoading = false;
   let worldSummaryLoading = false;
+
+  function getActiveLeaderboardTab(): LeaderboardTab {
+    return activeLeaderboardTabByGroup[activeLeaderboardGroup];
+  }
 
   function emitLeaderboardPlayerLocations(): void {
     window.dispatchEvent(new CustomEvent(LEADERBOARD_PLAYER_LOCATION_EVENT, {
@@ -244,7 +352,7 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
       if (!detailModalHost.isOpenFor(LEADERBOARD_MODAL_OWNER)) {
         return;
       }
-      if (activeLeaderboardTab === 'playerKills') {
+      if (getActiveLeaderboardTab() === 'playerKills') {
         patchLeaderboardPlayerLocationTexts();
       }
     },    
@@ -284,7 +392,9 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
   }
 
   function requestVisibleLeaderboardPlayerLocations(): void {
-    if (!detailModalHost.isOpenFor(LEADERBOARD_MODAL_OWNER) || !latestLeaderboard) {
+    if (!detailModalHost.isOpenFor(LEADERBOARD_MODAL_OWNER)
+      || !latestLeaderboard
+      || getActiveLeaderboardTab() !== 'playerKills') {
       return;
     }
     const playerIds = latestLeaderboard.boards.playerKills
@@ -323,13 +433,26 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
     if (!data) {
       return `<div class="empty-hint">${t('world-summary.leaderboard.empty', undefined)}</div>`;
     }
-    switch (activeLeaderboardTab) {
+    const activeTab = getActiveLeaderboardTab();
+    const attribute = resolveLeaderboardAttributeTab(activeTab);
+    if (attribute) {
+      return renderAttributeBoard(data, attribute);
+    }
+    const technique = resolveLeaderboardTechniqueTab(activeTab);
+    if (technique) {
+      return renderTechniqueBoard(data, technique);
+    }
+    switch (activeTab) {
       case 'realm':
         return renderStandardLeaderboardList(
           data.boards.realm.map((entry) => ({
             rank: entry.rank,
             name: entry.playerName,
             value: escapeHtml(entry.realmName),
+            meta: t('world-summary.leaderboard.meta.realm-progress', {
+              progress: formatDisplayInteger(entry.progress),
+              foundation: formatDisplayInteger(entry.foundation),
+            }),
           })),
         );
       case 'monsterKills':
@@ -372,10 +495,14 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
             rank: entry.rank,
             name: entry.playerName,
             value: t('world-summary.leaderboard.value.body-training', { level: formatDisplayInteger(entry.level) }),
+            meta: entry.expToNext > 0
+              ? t('world-summary.leaderboard.meta.progress', {
+                exp: formatDisplayInteger(entry.exp),
+                expToNext: formatDisplayInteger(entry.expToNext),
+              })
+              : t('world-summary.leaderboard.meta.exp', { exp: formatDisplayInteger(entry.exp) }),
           })),
         );
-      case 'supremeAttrs':
-        return renderSupremeAttrBoard(data);
       case 'sects':
         return renderStandardLeaderboardList(
           data.boards.sects.map((entry) => ({
@@ -393,19 +520,36 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
   }
 
   function renderLeaderboardModalBody(data: S2C_Leaderboard | null): string {
-    const tabs = LEADERBOARD_TABS
+    const activeTab = getActiveLeaderboardTab();
+    const groups = LEADERBOARD_GROUPS
+      .map((group) => `
+        <button
+          class="leaderboard-group-btn ${group === activeLeaderboardGroup ? 'active' : ''}"
+          data-leaderboard-group="${group}"
+          type="button"
+          role="tab"
+          aria-selected="${group === activeLeaderboardGroup ? 'true' : 'false'}"
+        >${escapeHtml(getLeaderboardGroupLabel(group))}</button>
+      `)
+      .join('');
+    const tabs = LEADERBOARD_TABS_BY_GROUP[activeLeaderboardGroup]
       .map((tab) => `
         <button
-          class="leaderboard-tab-btn ${tab === activeLeaderboardTab ? 'active' : ''}"
+          class="leaderboard-tab-btn ${tab === activeTab ? 'active' : ''}"
           data-leaderboard-tab="${tab}"
           type="button"
-        >${getLeaderboardTabLabel(tab)}</button>
+          role="tab"
+          aria-selected="${tab === activeTab ? 'true' : 'false'}"
+        >${escapeHtml(getLeaderboardTabLabel(tab))}</button>
       `)
       .join('');
     return `
       <div class="leaderboard-shell">
         <div class="leaderboard-toolbar">
-          <div class="leaderboard-tabs">${tabs}</div>
+          <div class="leaderboard-navigation">
+            <div class="leaderboard-group-tabs" role="tablist" aria-label="${escapeHtml(t('world-summary.leaderboard.navigation.groups-label', undefined))}">${groups}</div>
+            <div class="leaderboard-tabs" role="tablist" aria-label="${escapeHtml(t('world-summary.leaderboard.navigation.tabs-label', undefined))}">${tabs}</div>
+          </div>
           <div class="leaderboard-toolbar-actions">
             <button class="small-btn ghost" data-open-world-summary type="button">${t('world-summary.action.open-summary', undefined)}</button>
             <button class="small-btn" data-leaderboard-refresh type="button">${leaderboardLoading ? t('world-summary.generated-at.loading', undefined) : t('world-summary.action.refresh-leaderboard', undefined)}</button>
@@ -442,15 +586,29 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
       if (!target) {
         return;
       }
+      const groupButton = target.closest<HTMLElement>('[data-leaderboard-group]');
+      if (groupButton) {
+        event.preventDefault();
+        event.stopPropagation();
+        const group = groupButton.dataset.leaderboardGroup;
+        if (!isLeaderboardGroup(group) || group === activeLeaderboardGroup) {
+          return;
+        }
+        activeLeaderboardGroup = group;
+        renderLeaderboardModal();
+        return;
+      }
       const tabButton = target.closest<HTMLElement>('[data-leaderboard-tab]');
       if (tabButton) {
         event.preventDefault();
         event.stopPropagation();
         const tab = tabButton.dataset.leaderboardTab as LeaderboardTab | undefined;
-        if (!tab || tab === activeLeaderboardTab) {
+        if (!tab
+          || !LEADERBOARD_TABS_BY_GROUP[activeLeaderboardGroup].includes(tab)
+          || tab === getActiveLeaderboardTab()) {
           return;
         }
-        activeLeaderboardTab = tab;
+        activeLeaderboardTabByGroup[activeLeaderboardGroup] = tab;
         renderLeaderboardModal();
         return;
       }
@@ -539,21 +697,34 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
     `;
   }
 
-  function renderSupremeAttrBoard(data: S2C_Leaderboard): string {
-    if (data.boards.supremeAttrs.length === 0) {
-      return `<div class="empty-hint">${t('world-summary.leaderboard.empty', undefined)}</div>`;
-    }
-    return `
-      <div class="leaderboard-supreme-grid">
-        ${data.boards.supremeAttrs.map((entry) => `
-          <div class="leaderboard-supreme-card">
-            <div class="leaderboard-supreme-label">${escapeHtml(entry.label)}</div>
-            <div class="leaderboard-supreme-name">${escapeHtml(entry.playerName)}</div>
-            <div class="leaderboard-supreme-value">${formatDisplayInteger(entry.value)}</div>
-          </div>
-        `).join('')}
-      </div>
-    `;
+  function renderAttributeBoard(data: S2C_Leaderboard, attr: AttrKey): string {
+    return renderStandardLeaderboardList(
+      data.boards.attributes[attr].map((entry) => ({
+        rank: entry.rank,
+        name: entry.playerName,
+        value: t('world-summary.leaderboard.value.attribute', {
+          value: formatDisplayInteger(entry.value),
+        }),
+      })),
+    );
+  }
+
+  function renderTechniqueBoard(data: S2C_Leaderboard, technique: LeaderboardTechniqueKey): string {
+    return renderStandardLeaderboardList(
+      data.boards.techniques[technique].map((entry) => ({
+        rank: entry.rank,
+        name: entry.playerName,
+        value: t('world-summary.leaderboard.value.technique-level', {
+          level: formatDisplayInteger(entry.level),
+        }),
+        meta: entry.expToNext > 0
+          ? t('world-summary.leaderboard.meta.progress', {
+            exp: formatDisplayInteger(entry.exp),
+            expToNext: formatDisplayInteger(entry.expToNext),
+          })
+          : t('world-summary.leaderboard.meta.exp', { exp: formatDisplayInteger(entry.exp) }),
+      })),
+    );
   }
 
   function renderInvitationBoard(data: S2C_Leaderboard): string {

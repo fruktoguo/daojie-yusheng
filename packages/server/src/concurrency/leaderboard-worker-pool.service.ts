@@ -1,5 +1,5 @@
 /**
- * 排行榜构建工作池：把 8 个 board 的 sort/slice/map 卸载到 worker_threads，
+ * 排行榜构建工作池：把玩家榜单的 sort/slice/map 卸载到 worker_threads，
  * 避免每 10 分钟一次的全量刷新阻塞主线程上的 world tick。
  *
  * 设计要点：

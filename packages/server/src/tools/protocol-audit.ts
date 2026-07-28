@@ -5,7 +5,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { Pool } from 'pg';
-import { C2S, Direction, S2C } from '@mud/shared';
+import { ATTR_KEYS, C2S, Direction, LEADERBOARD_TECHNIQUE_KEYS, S2C } from '@mud/shared';
 import * as envAlias from '../config/env-alias';
 import * as lib from './protocol-audit-lib';
 import * as smokePlayerAuth from './smoke-player-auth';
@@ -1381,8 +1381,10 @@ async function statPanelCase(runtime) {
     return payload
       && typeof payload.generatedAt === 'number'
       && payload.boards !== undefined
-      && Array.isArray(payload.boards.supremeAttrs)
-      && payload.boards.supremeAttrs.length === 6
+      && payload.boards.attributes !== undefined
+      && ATTR_KEYS.every(function (attr) { return Array.isArray(payload.boards.attributes[attr]); })
+      && payload.boards.techniques !== undefined
+      && LEADERBOARD_TECHNIQUE_KEYS.every(function (technique) { return Array.isArray(payload.boards.techniques[technique]); })
       && Array.isArray(payload.boards.sects);
   }, 10000);
   await emitAndWait(socket, C2S.RequestWorldSummary, {}, S2C.WorldSummary, function (payload) {
