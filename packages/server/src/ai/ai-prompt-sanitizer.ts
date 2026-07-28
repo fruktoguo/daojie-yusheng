@@ -8,9 +8,8 @@
  * 玩家输入清洗 + Prompt 注入防御。
  *
  * 所有玩家提供的文本在进入 AI prompt 前必须经过本模块清洗。
+ * 长度上限由具体业务显式传入，避免不同 AI 功能共享错误的输入策略。
  */
-
-const MAX_PLAYER_CONTEXT_LENGTH = 200;
 
 const INJECTION_PATTERNS: RegExp[] = [
   /ignore\s+previous\s+instructions/i,
@@ -25,15 +24,17 @@ const INJECTION_PATTERNS: RegExp[] = [
 const CONTROL_CHAR_REGEX = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g;
 const CODE_BLOCK_REGEX = /```[\s\S]*?```/g;
 
-export function sanitizePlayerContext(raw: unknown): string {
+export function sanitizePlayerContext(raw: unknown, maxLength: number): string {
   if (typeof raw !== 'string') return '';
+  if (!Number.isSafeInteger(maxLength) || maxLength <= 0) return '';
 
   let text = raw.trim();
   if (!text) return '';
 
   // 1. 长度截断
-  if ([...text].length > MAX_PLAYER_CONTEXT_LENGTH) {
-    text = [...text].slice(0, MAX_PLAYER_CONTEXT_LENGTH).join('');
+  const characters = [...text];
+  if (characters.length > maxLength) {
+    text = characters.slice(0, maxLength).join('');
   }
 
   // 2. 剥离控制字符

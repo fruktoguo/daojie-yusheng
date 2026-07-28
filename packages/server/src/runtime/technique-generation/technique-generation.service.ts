@@ -17,6 +17,7 @@ import type { Attributes, TechniqueCategory, TechniqueLayerDef, TechniqueTemplat
 import {
   CUSTOM_TECHNIQUE_NAME_MAX_LENGTH,
   CUSTOM_TECHNIQUE_NAME_MIN_LENGTH,
+  CUSTOM_TECHNIQUE_PROMPT_MAX_LENGTH,
   HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID,
   HEAVENLY_DAO_SHOP_ITEMS,
   TECHNIQUE_GRADE_ORDER,
@@ -173,7 +174,7 @@ export class TechniqueGenerationService {
 
     // 5. 玩家锁内原子扣除玉简并创建 pending job；并发请求只能成功一个。
     const jobId = randomUUID();
-    const sanitizedContext = sanitizePlayerContext(params.playerContext);
+    const sanitizedContext = sanitizePlayerContext(params.playerContext, CUSTOM_TECHNIQUE_PROMPT_MAX_LENGTH);
     const beginResult = await beginDurableTechniqueGeneration(pool, {
       id: jobId,
       playerId: params.playerId,

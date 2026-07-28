@@ -5,7 +5,7 @@
  */
 import { memo, useCallback, useEffect, useState, type CSSProperties, type PointerEvent, type ReactElement } from 'react';
 import type { AttrKey, Attributes, SkillDef, TechniqueCategory, TechniqueGrade } from '@mud/shared';
-import { ATTR_KEYS, CUSTOM_TECHNIQUE_NAME_MAX_LENGTH, CUSTOM_TECHNIQUE_NAME_MIN_LENGTH, resolveSkillPlayerWindupTicks, resolveSkillUnlockLevel } from '@mud/shared';
+import { ATTR_KEYS, CUSTOM_TECHNIQUE_NAME_MAX_LENGTH, CUSTOM_TECHNIQUE_NAME_MIN_LENGTH, CUSTOM_TECHNIQUE_PROMPT_MAX_LENGTH, resolveSkillPlayerWindupTicks, resolveSkillUnlockLevel } from '@mud/shared';
 import { createPanelStore } from '../../stores/create-panel-store';
 import { ATTR_KEY_LABELS, getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../../../domain-labels';
 import { ATTR_COLORS, ATTR_ICON_ATLAS_CELLS } from '../../../constants/ui/attr-panel';
@@ -281,12 +281,12 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
               <textarea
                 id="technique-generation-context"
                 value={playerContext}
-                onChange={(e) => setPlayerContext(e.target.value.slice(0, 200))}
+                onChange={(e) => setPlayerContext([...e.target.value].slice(0, CUSTOM_TECHNIQUE_PROMPT_MAX_LENGTH).join(''))}
                 placeholder="描述功法风格、属性倾向或修行意象"
-                maxLength={200}
+                maxLength={CUSTOM_TECHNIQUE_PROMPT_MAX_LENGTH}
                 rows={5}
               />
-              <span className="technique-generation-panel__char-count">{[...playerContext].length}/200</span>
+              <span className="technique-generation-panel__char-count">{[...playerContext].length}/{CUSTOM_TECHNIQUE_PROMPT_MAX_LENGTH}</span>
             </section>
 
             <button

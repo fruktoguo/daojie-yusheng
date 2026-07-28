@@ -6,6 +6,7 @@
 import assert from 'node:assert/strict';
 import type { Pool } from 'pg';
 import {
+  CUSTOM_TECHNIQUE_PROMPT_MAX_LENGTH,
   S2C,
   calcTechniqueAttrValues,
   expandTechniqueArtsStrengthSkill,
@@ -186,14 +187,18 @@ async function testInitializedServiceConsumesRequestedItemSpend(): Promise<void>
   });
   let executedJobId = '';
   let executedModelName = '';
+  let executedPlayerContext = '';
   service.executeGeneration = async (jobId, params) => {
     executedJobId = jobId;
     executedModelName = params.modelConfig?.modelName ?? '';
+    executedPlayerContext = params.playerContext;
     return { success: true };
   };
 
   let appliedItemCount = 0;
   let appliedEnhanceLevel = 0;
+  const promptAtLimit = `${'悟'.repeat(CUSTOM_TECHNIQUE_PROMPT_MAX_LENGTH - 1)}🧭`;
+  const promptOverLimit = `${promptAtLimit}界`;
   const originalRandom = Math.random;
   Math.random = () => 0;
   let result: Awaited<ReturnType<TechniqueGenerationService['requestGeneration']>>;
@@ -203,6 +208,7 @@ async function testInitializedServiceConsumesRequestedItemSpend(): Promise<void>
       playerRealmLv: 31,
       playerHighestRealmLv: 100,
       category: 'arts',
+      playerContext: promptOverLimit,
       itemSpend: 4,
       expectedRuntimeOwnerId: 'runtime:techgen-smoke',
       expectedSessionEpoch: 7,
@@ -228,11 +234,13 @@ async function testInitializedServiceConsumesRequestedItemSpend(): Promise<void>
   assert.equal(insertJobQuery?.params?.[6], 4);
   assert.equal(insertJobQuery?.params?.[7], result.budgetPercent);
   assert.equal(insertJobQuery?.params?.[8], result.totalBudget);
+  assert.equal(insertJobQuery?.params?.[5], promptAtLimit);
   assert.ok(insertJobQuery?.sql.includes('item_consumed'));
   assert.ok(queries.some((entry) => entry.sql.includes('INSERT INTO durable_operation_log')));
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(executedJobId, result.jobId);
   assert.equal(executedModelName, 'smoke-model');
+  assert.equal(executedPlayerContext, promptAtLimit);
 }
 
 async function testItemShortageMarksJobFailedAfterAudit(): Promise<void> {
