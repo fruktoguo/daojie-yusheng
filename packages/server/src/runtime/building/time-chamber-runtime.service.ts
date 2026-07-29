@@ -49,6 +49,10 @@ import {
 } from '../world/durable-source-asset-reconciliation.helpers';
 import { resolveCompiledBuildingDefinition } from './building-definition-resolution.helpers';
 import { TimeChamberAdmissionPolicy } from './time-chamber-admission.policy';
+import {
+  resolveTimeChamberPasswordHashPatch,
+  verifyTimeChamberAccessPassword,
+} from './time-chamber-password.helpers';
 import { WorldRuntimeInstanceScheduleService } from '../world/world-runtime-instance-schedule.service';
 
 const TIME_CHAMBER_TABLE = 'instance_time_chamber_state';
@@ -85,6 +89,7 @@ interface TimeChamberState {
   activeExpiresAt: number | null;
   activationPlayerId: string | null;
   activationSpiritStones: number;
+  accessPasswordHash: string | null;
   maxSpeed: number;
   allowedSizeTiers: TimeChamberSizeTier[];
   revision: number;
@@ -369,6 +374,13 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
           : 'time_chamber_expiry_pending';
         return { ok: false, operation: 'activate', requestId, reason };
       }
+      const passwordVerification = await verifyTimeChamberAccessPassword(
+        payload.accessPassword,
+        resolved.state.accessPasswordHash,
+      );
+      if ('reason' in passwordVerification) {
+        return { ok: false, operation: 'activate', requestId, reason: passwordVerification.reason };
+      }
       const admission = await this.resolveAdmission(playerId, resolved.state, resolved.chamberInstance, runtime);
       if (!admission.ok) {
         return { ok: false, operation: 'activate', requestId, reason: admission.reason };
@@ -418,6 +430,13 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
         && !isTimeChamberActive(resolved.state, Date.now())
       ) {
         return { ok: false, operation: 'enter', requestId, reason: 'time_chamber_activation_required' };
+      }
+      const passwordVerification = await verifyTimeChamberAccessPassword(
+        payload.accessPassword,
+        resolved.state.accessPasswordHash,
+      );
+      if ('reason' in passwordVerification) {
+        return { ok: false, operation: 'enter', requestId, reason: passwordVerification.reason };
       }
       const admission = await this.resolveAdmission(playerId, resolved.state, resolved.chamberInstance, runtime);
       if (!admission.ok) {
@@ -472,11 +491,28 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
       ) {
         return { ok: false, operation: 'settings', requestId, reason: 'time_chamber_settings_locked' };
       }
-      await this.updateConfigRow(resolved.state, { configuredSpeed: speed, displayName: name, capacity });
+      let passwordPatch;
+      try {
+        passwordPatch = await resolveTimeChamberPasswordHashPatch(payload.passwordChange);
+      } catch (error) {
+        return {
+          ok: false,
+          operation: 'settings',
+          requestId,
+          reason: normalizeOperationFailure(error, 'invalid_time_chamber_password'),
+        };
+      }
+      await this.updateConfigRow(resolved.state, {
+        configuredSpeed: speed,
+        displayName: name,
+        capacity,
+        ...(passwordPatch.provided ? { accessPasswordHash: passwordPatch.passwordHash } : {}),
+      });
       const nameChanged = name !== resolved.state.displayName;
       resolved.state.configuredSpeed = speed;
       resolved.state.displayName = name;
       resolved.state.capacity = capacity;
+      if (passwordPatch.provided) resolved.state.accessPasswordHash = passwordPatch.passwordHash;
       resolved.state.revision += 1;
       if (nameChanged) {
         resolved.building.name = name;
@@ -576,7 +612,13 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
   }
 
   /** 密室处于有效开启时段时，玩家可在容量限制内进入。 */
-  async enter(playerId: string, sourceInstanceId: string, buildingId: string, runtime: any): Promise<{ ok: boolean; reason?: string }> {
+  async enter(
+    playerId: string,
+    sourceInstanceId: string,
+    buildingId: string,
+    runtime: any,
+    passwordVerifiedRevision?: unknown,
+  ): Promise<{ ok: boolean; reason?: string }> {
     return this.runBuildingOperation({ sourceInstanceId, buildingId }, async () => {
       const resolved = await this.resolveManagedChamber(playerId, { sourceInstanceId, buildingId }, runtime, false);
       if (resolved.ok !== true) {
@@ -587,6 +629,12 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
         && !isTimeChamberActive(resolved.state, Date.now())
       ) {
         return { ok: false, reason: 'time_chamber_activation_required' };
+      }
+      if (
+        resolved.state.accessPasswordHash
+        && !matchesExpectedRevision(passwordVerifiedRevision, resolved.state.revision)
+      ) {
+        return { ok: false, reason: 'time_chamber_unavailable' };
       }
       const admission = await this.resolveAdmission(playerId, resolved.state, resolved.chamberInstance, runtime);
       if (!admission.ok) {
@@ -1071,6 +1119,7 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
       effectiveSpeed: resolveEffectiveInstanceSpeed(instance),
       active,
       activeUntil: active ? state.activeExpiresAt : null,
+      passwordProtected: Boolean(state.accessPasswordHash),
       revision: state.revision,
     };
   }
@@ -1255,6 +1304,7 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
       direction: 'enter',
       sourceInstanceId: state.sourceInstanceId,
       buildingId: state.buildingId,
+      ...(state.accessPasswordHash ? { passwordVerifiedRevision: state.revision } : {}),
     });
     return true;
   }
@@ -1278,6 +1328,7 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
       state.activeExpiresAt = normalizeNullablePositiveInteger(row.active_expires_at_ms);
       state.activationPlayerId = normalizeString(row.activation_player_id) || null;
       state.activationSpiritStones = normalizeSafeInteger(row.activation_spirit_stones);
+      state.accessPasswordHash = normalizeString(row.access_password_hash) || null;
       state.revision = Math.max(1, normalizeSafeInteger(row.revision));
     }
   }
@@ -1439,6 +1490,7 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
       displayName?: string;
       sizeTier?: TimeChamberSizeTier;
       capacity?: number;
+      accessPasswordHash?: string | null;
     },
   ): Promise<void> {
     if (!this.pool) {
@@ -1450,9 +1502,10 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
               display_name = COALESCE($4, display_name),
               size_tier = COALESCE($5, size_tier),
               capacity = COALESCE($6, capacity),
+              access_password_hash = CASE WHEN $7::boolean THEN $8::text ELSE access_password_hash END,
               revision = revision + 1,
               updated_at = now()
-        WHERE source_instance_id = $1 AND building_id = $2 AND revision = $7`,
+        WHERE source_instance_id = $1 AND building_id = $2 AND revision = $9`,
       [
         state.sourceInstanceId,
         state.buildingId,
@@ -1460,6 +1513,8 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
         patch.displayName ?? null,
         patch.sizeTier ?? null,
         patch.capacity ?? null,
+        Object.prototype.hasOwnProperty.call(patch, 'accessPasswordHash'),
+        patch.accessPasswordHash ?? null,
         state.revision,
       ],
     );
@@ -1504,6 +1559,7 @@ async function ensureTimeChamberTable(pool: PoolLike): Promise<void> {
       active_expires_at_ms bigint,
       activation_player_id varchar(100),
       activation_spirit_stones bigint NOT NULL DEFAULT 0 CHECK (activation_spirit_stones >= 0),
+      access_password_hash text,
       revision bigint NOT NULL DEFAULT 1 CHECK (revision >= 1),
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now(),
@@ -1514,6 +1570,7 @@ async function ensureTimeChamberTable(pool: PoolLike): Promise<void> {
   await pool.query(`ALTER TABLE ${TIME_CHAMBER_TABLE} ADD COLUMN IF NOT EXISTS active_expires_at_ms bigint`);
   await pool.query(`ALTER TABLE ${TIME_CHAMBER_TABLE} ADD COLUMN IF NOT EXISTS activation_player_id varchar(100)`);
   await pool.query(`ALTER TABLE ${TIME_CHAMBER_TABLE} ADD COLUMN IF NOT EXISTS activation_spirit_stones bigint NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE ${TIME_CHAMBER_TABLE} ADD COLUMN IF NOT EXISTS access_password_hash text`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_time_chamber_owner ON ${TIME_CHAMBER_TABLE}(owner_player_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_time_chamber_activation_expiry ON ${TIME_CHAMBER_TABLE}(active_expires_at_ms) WHERE active_expires_at_ms IS NOT NULL`);
 }
@@ -1548,6 +1605,7 @@ function normalizeStateRow(row: any, config: ReturnType<typeof resolveTimeChambe
     activeExpiresAt: normalizeNullablePositiveInteger(row?.active_expires_at_ms),
     activationPlayerId: normalizeString(row?.activation_player_id) || null,
     activationSpiritStones: normalizeSafeInteger(row?.activation_spirit_stones),
+    accessPasswordHash: normalizeString(row?.access_password_hash) || null,
     maxSpeed: config?.maxSpeed ?? MAX_INSTANCE_TICK_SPEED,
     allowedSizeTiers: config?.allowedSizeTiers ?? ['small', 'medium', 'large'],
     revision: Math.max(1, normalizeSafeInteger(row?.revision)),

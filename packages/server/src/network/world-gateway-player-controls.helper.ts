@@ -12,6 +12,8 @@ import { C2S, S2C, type ClientToServerEventPayload, type TimeChamberOperationKin
 import type { Socket } from 'socket.io';
 
 const MAX_OFFLINE_GAIN_REFRESH_REQUEST_ID_LENGTH = 96;
+const TIME_CHAMBER_PASSWORD_ATTEMPTS_PER_WINDOW = 6;
+const TIME_CHAMBER_PASSWORD_ATTEMPT_WINDOW_MS = 10_000;
 
 interface WorldGatewayPlayerControlsDeps {
   gatewayGuardHelper: {
@@ -596,6 +598,7 @@ export class WorldGatewayPlayerControlsHelper {
     client: Socket,
     payload: ClientToServerEventPayload<typeof C2S.ActivateTimeChamber>,
   ): Promise<void> {
+    if (payload?.accessPassword && !this.allowTimeChamberPasswordAttempt(client, 'activate', payload.requestId)) return;
     await this.handleTimeChamberOperation(client, 'activate', 'ACTIVATE_TIME_CHAMBER_FAILED', payload?.requestId, () => this.gateway.timeChamberRuntimeService.activate(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService), true);
   }
 
@@ -603,6 +606,7 @@ export class WorldGatewayPlayerControlsHelper {
     client: Socket,
     payload: ClientToServerEventPayload<typeof C2S.EnterTimeChamber>,
   ): Promise<void> {
+    if (payload?.accessPassword && !this.allowTimeChamberPasswordAttempt(client, 'enter', payload.requestId)) return;
     await this.handleTimeChamberOperation(client, 'enter', 'ENTER_TIME_CHAMBER_FAILED', payload?.requestId, () => this.gateway.timeChamberRuntimeService.queueEnter(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService));
   }
 
@@ -713,6 +717,30 @@ export class WorldGatewayPlayerControlsHelper {
       });
       this.gateway.worldClientEventService.emitGatewayError(client, errorCode, error);
     }
+  }
+
+  private allowTimeChamberPasswordAttempt(
+    client: Socket,
+    operation: 'activate' | 'enter',
+    requestIdInput: unknown,
+  ): boolean {
+    const checkRateLimit = this.gateway.gatewayGuardHelper.checkRateLimit;
+    if (typeof checkRateLimit !== 'function' || checkRateLimit.call(
+      this.gateway.gatewayGuardHelper,
+      client,
+      'time-chamber-password',
+      TIME_CHAMBER_PASSWORD_ATTEMPTS_PER_WINDOW,
+      TIME_CHAMBER_PASSWORD_ATTEMPT_WINDOW_MS,
+    )) {
+      return true;
+    }
+    client.emit(S2C.TimeChamberOperationResult, {
+      ok: false,
+      operation,
+      requestId: normalizeTimeChamberRequestId(requestIdInput),
+      reason: 'time_chamber_password_rate_limited',
+    });
+    return false;
   }
 }
 

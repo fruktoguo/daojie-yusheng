@@ -512,6 +512,8 @@ const timeChamberDraftCapture = section(
 );
 assertIncludes(timeChamberDraftCapture, /this\.dirtySettings\.add\(target\.name\)/, '密室管理必须逐字段记录未提交草稿');
 assertIncludes(timeChamberDraftCapture, /target\.name === 'capacity'/, '密室最大人数输入必须纳入草稿保护，轮询不得回退原值');
+assertIncludes(timeChamberDraftCapture, /target\.name === 'password'/, '密室密码输入必须纳入草稿保护，轮询不得清空');
+assertIncludes(timeChamberDraftCapture, /this\.dirtySettings\.add\('password'\)/, '密室密码草稿必须独立记录');
 assertIncludes(timeChamberDraftCapture, /this\.sizeDirty = target\.value !== this\.detail\.sizeTier/, '密室空间选择必须独立保留未提交草稿');
 
 const timeChamberDraftReconcile = section(
@@ -522,6 +524,7 @@ const timeChamberDraftReconcile = section(
 );
 assertIncludes(timeChamberDraftReconcile, /acceptedOperation === 'settings'/, '密室配置只能在服务端成功回包后确认草稿');
 assertIncludes(timeChamberDraftReconcile, /!this\.dirtySettings\.has\(field\)/, '密室管理轮询只能覆盖未编辑字段');
+assertIncludes(timeChamberDraftReconcile, /this\.settingsDraft\.password = ''/, '密室密码草稿只能在配置成功后清空');
 
 const timeChamberUsageDetail = section(
   timeChamberUsage,
@@ -531,7 +534,9 @@ const timeChamberUsageDetail = section(
 );
 assertIncludes(timeChamberUsageDetail, /nextSignature === this\.detailSignature/, '密室开启重复详情回包必须零 DOM 写入');
 assertIncludes(timeChamberUsageDetail, /this\.durationHours = clampHours\(this\.durationHours, detail\)/, '密室开启刷新必须保留当前时长草稿');
+assertIncludes(timeChamberUsageDetail, /this\.passwordAction && detail\.passwordProtected/, '密室密码弹窗打开时轮询不得替换输入节点');
 assertMissing(timeChamberUsageDetail, /replaceChildren\(/, '密室开启详情刷新不得替换弹层 body');
+assertIncludes(timeChamberUsage, /if \(!this\.passwordAction\)/, '详情过期时服务端密码拒绝必须能补开密码弹窗');
 assertIncludes(timeChamberUsage, /const entryAvailable = detail\.active \|\| !activationRequired;/, '一倍速密室必须由稳定详情节点直接开放进入按钮');
 assertIncludes(timeChamberUsage, /element\.hidden = detail\.active \|\| !activationRequired;/, '一倍速密室必须隐藏计时购买控件');
 

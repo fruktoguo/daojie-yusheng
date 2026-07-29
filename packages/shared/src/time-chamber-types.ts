@@ -6,6 +6,7 @@ export const TIME_CHAMBER_MAX_SPEED = 10;
 export const TIME_CHAMBER_MIN_USAGE_HOURS = 1;
 export const TIME_CHAMBER_MAX_USAGE_HOURS = 168;
 export const TIME_CHAMBER_MAX_CAPACITY = 100;
+export const TIME_CHAMBER_MAX_PASSWORD_LENGTH = 64;
 
 export const TIME_CHAMBER_SIZE_OPTIONS: Readonly<Record<TimeChamberSizeTier, Readonly<{
   width: number;
@@ -41,6 +42,7 @@ export interface TimeChamberSummaryView {
   effectiveSpeed: number;
   active: boolean;
   activeUntil: number | null;
+  passwordProtected: boolean;
   revision: number;
 }
 
@@ -93,15 +95,23 @@ export interface C2S_RequestTimeChamberView extends TimeChamberBuildingRequestVi
 export interface C2S_ActivateTimeChamberView extends TimeChamberBuildingRequestView {
   durationHours: number;
   expectedRevision: number;
+  accessPassword?: string;
 }
 
-export interface C2S_EnterTimeChamberView extends TimeChamberBuildingRequestView {}
+export interface C2S_EnterTimeChamberView extends TimeChamberBuildingRequestView {
+  accessPassword?: string;
+}
+
+export type TimeChamberPasswordChangeView =
+  | { action: 'set'; password: string }
+  | { action: 'clear' };
 
 export interface C2S_UpdateTimeChamberSettingsView extends TimeChamberBuildingRequestView {
   name: string;
   speed: number;
   capacity: number;
   expectedRevision: number;
+  passwordChange?: TimeChamberPasswordChangeView;
 }
 
 export interface C2S_ResizeTimeChamberView extends TimeChamberBuildingRequestView {

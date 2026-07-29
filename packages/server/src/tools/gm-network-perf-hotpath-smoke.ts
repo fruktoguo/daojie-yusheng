@@ -4,7 +4,7 @@ installSmokeTimeout(__filename);
 
 import assert from 'node:assert/strict';
 
-import { S2C } from '@mud/shared';
+import { C2S, S2C } from '@mud/shared';
 
 import { RuntimeGmStateService } from '../runtime/gm/runtime-gm-state.service';
 
@@ -79,6 +79,17 @@ async function main(): Promise<void> {
     assert.ok(String(bucket.largePayloadSamples[0]?.body ?? '').includes('测试玩家_0'));
     assert.ok(String(bucket.largePayloadSamples[0]?.body ?? '').includes('monster_127'));
     assert.equal(String(bucket.largePayloadSamples[0]?.body ?? '').includes('<truncated>'), false);
+    const sensitivePassword = '不可记录的密室密码'.repeat(160);
+    service.recordNetworkIn(C2S.EnterTimeChamber, {
+      sourceInstanceId: 'source:sensitive',
+      buildingId: 'building:sensitive',
+      requestId: 'enter:sensitive',
+      accessPassword: sensitivePassword,
+    });
+    const sensitiveBucket = Array.from(service.networkInBucketByKey.values())[0];
+    assert.ok(Array.isArray(sensitiveBucket?.largePayloadSamples));
+    assert.equal(sensitiveBucket.largePayloadSamples[0]?.body, '[敏感请求正文已隐藏]');
+    assert.equal(String(sensitiveBucket.largePayloadSamples[0]?.body ?? '').includes(sensitivePassword), false);
 
     service.setNetworkPayloadCaptureEnabled(false);
     assert.equal(service.shouldCaptureNetworkPayloadBody(), false);
@@ -94,7 +105,7 @@ async function main(): Promise<void> {
   console.log(JSON.stringify({
     ok: true,
     answers:
-      'GM network perf 默认开启聚合字节桶且不依赖打开 GM 流量页；显式关闭后停止记录；只有单独开启采样后才允许 JSON.stringify 完整留样。',
+      'GM network perf 默认开启聚合字节桶且不依赖打开 GM 流量页；显式关闭后停止记录；只有单独开启采样后才允许 JSON.stringify 完整留样，密室密码事件始终屏蔽请求正文。',
     excludes:
       '不证明正式服真实 RSS 曲线，只证明 GM 网络统计的默认开关语义和包体测量热路径不再依赖 JSON.stringify。',
   }, null, 2));

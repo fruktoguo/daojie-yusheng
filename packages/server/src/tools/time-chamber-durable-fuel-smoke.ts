@@ -278,6 +278,7 @@ async function ensureTimeChamberTable(pool: Pool): Promise<void> {
       active_expires_at_ms bigint,
       activation_player_id varchar(100),
       activation_spirit_stones bigint NOT NULL DEFAULT 0,
+      access_password_hash text,
       revision bigint NOT NULL DEFAULT 1 CHECK (revision >= 1),
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now(),
@@ -288,6 +289,7 @@ async function ensureTimeChamberTable(pool: Pool): Promise<void> {
   await pool.query('ALTER TABLE instance_time_chamber_state ADD COLUMN IF NOT EXISTS active_expires_at_ms bigint');
   await pool.query('ALTER TABLE instance_time_chamber_state ADD COLUMN IF NOT EXISTS activation_player_id varchar(100)');
   await pool.query('ALTER TABLE instance_time_chamber_state ADD COLUMN IF NOT EXISTS activation_spirit_stones bigint NOT NULL DEFAULT 0');
+  await pool.query('ALTER TABLE instance_time_chamber_state ADD COLUMN IF NOT EXISTS access_password_hash text');
 }
 
 async function seedFixture(pool: Pool, input: {
