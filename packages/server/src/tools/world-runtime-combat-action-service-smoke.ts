@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const {
   COMBAT_AOI_RESULT_FIELD_BUDGET,
   COMBAT_PROTOCOL_LAYER_SPECS,
+  computeAffectedCellsFromAnchor,
   estimateCombatAoiResultEventFieldCount,
   resolveTargetingGeometryMaxTargets,
   normalizeTargetingDefaultMaxTargets,
@@ -46,11 +47,55 @@ async function run() {
   assert.equal(resolveTargetingGeometryMaxTargets({ range: 5, shape: 'box', width: 9, height: 9 }), 81);
   assert.equal(resolveTargetingGeometryMaxTargets({ range: 4, shape: 'area', radius: 2 }), 13);
   assert.equal(resolveTargetingGeometryMaxTargets({ range: 4, shape: 'ring', innerRadius: 1, radius: 3 }), 24);
-  assert.ok(resolveTargetingGeometryMaxTargets({ range: 5, shape: 'line', width: 3 }) >= 10);
+  assert.equal(resolveTargetingGeometryMaxTargets({ range: 1, shape: 'line', width: 9 }), 9);
+  assert.equal(resolveTargetingGeometryMaxTargets({ range: 5, shape: 'line', width: 3 }), 15);
   assert.ok(resolveTargetingGeometryMaxTargets({ range: 5, shape: 'orientedBox', width: 3, height: 5 }) >= 15);
   assert.equal(resolveTargetingGeometryMaxTargets({ range: 4, shape: 'checkerboard', width: 7, height: 7 }), 25);
   assert.equal(normalizeTargetingDefaultMaxTargets({ shape: 'box', range: 4, width: 7, height: 7, maxTargets: 0 }).maxTargets, 0);
   assert.equal(normalizeTargetingDefaultMaxTargets({ shape: 'box', range: 4, width: 7, height: 7, maxTargets: -1 }).maxTargets, 49);
+  assert.equal(normalizeTargetingDefaultMaxTargets({ shape: 'line', range: 1, width: 9, maxTargets: -1 }).maxTargets, 9);
+  assert.deepEqual(
+    computeAffectedCellsFromAnchor({ x: 0, y: 0 }, { x: 1, y: 0 }, { range: 1, shape: 'line', width: 9 }),
+    Array.from({ length: 9 }, (_, index) => ({ x: 1, y: index - 4 })),
+  );
+  assert.deepEqual(
+    computeAffectedCellsFromAnchor({ x: 0, y: 0 }, { x: 0, y: 1 }, { range: 1, shape: 'line', width: 9 }),
+    Array.from({ length: 9 }, (_, index) => ({ x: 4 - index, y: 1 })),
+  );
+  assert.deepEqual(
+    computeAffectedCellsFromAnchor({ x: 0, y: 0 }, { x: 1, y: 1 }, { range: 1, shape: 'line', width: 9 }),
+    Array.from({ length: 9 }, (_, index) => ({ x: 5 - index, y: index - 3 })),
+  );
+  assert.equal(
+    computeAffectedCellsFromAnchor({ x: 0, y: 0 }, { x: 5, y: 0 }, { range: 5, shape: 'line', width: 3 }).length,
+    15,
+  );
+  for (let targetY = -6; targetY <= 6; targetY += 1) {
+    for (let targetX = -6; targetX <= 6; targetX += 1) {
+      if (targetX === 0 && targetY === 0) {
+        continue;
+      }
+      const lineLength = Math.max(Math.abs(targetX), Math.abs(targetY));
+      for (const width of [1, 2, 3, 5, 9]) {
+        const cells = computeAffectedCellsFromAnchor(
+          { x: 0, y: 0 },
+          { x: targetX, y: targetY },
+          { range: 10, shape: 'line', width },
+        );
+        assert.equal(cells.length, lineLength * width, `直线覆盖格数错误: (${targetX}, ${targetY}), 宽度 ${width}`);
+        assert.equal(
+          new Set(cells.map((cell) => `${cell.x},${cell.y}`)).size,
+          cells.length,
+          `直线覆盖出现重复格: (${targetX}, ${targetY}), 宽度 ${width}`,
+        );
+        assert.equal(
+          cells.some((cell) => cell.x === 0 && cell.y === 0),
+          false,
+          `直线覆盖不应包含施法者所在格: (${targetX}, ${targetY}), 宽度 ${width}`,
+        );
+      }
+    }
+  }
   const diagnostics = [];
   const logs = [];
   const deps = {

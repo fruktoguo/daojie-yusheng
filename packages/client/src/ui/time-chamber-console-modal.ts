@@ -2,8 +2,10 @@
 import type {
   TimeChamberManagementDetailView,
   TimeChamberOperationKind,
+  TimeChamberPasswordChangeView,
   TimeChamberSizeTier,
 } from '@mud/shared';
+import { TIME_CHAMBER_MAX_PASSWORD_LENGTH } from '@mud/shared';
 
 import { formatDisplayNumber } from '../utils/number';
 import { detailModalHost } from './detail-modal-host';
@@ -15,12 +17,15 @@ type TimeChamberSettingsDraft = {
   name: string;
   speed: number;
   capacity: number;
+  passwordChange?: TimeChamberPasswordChangeView;
 };
 
 type TimeChamberSettingsInputDraft = {
   name: string;
   speed: string;
   capacity: string;
+  passwordEnabled: boolean;
+  password: string;
 };
 
 type TimeChamberAcceptedOperation = 'settings' | 'resize' | null;
@@ -147,15 +152,35 @@ export class TimeChamberConsoleModal {
       const name = form.elements.namedItem('name');
       const speed = form.elements.namedItem('speed');
       const capacity = form.elements.namedItem('capacity');
+      const passwordEnabled = form.elements.namedItem('passwordEnabled');
+      const password = form.elements.namedItem('password');
       if (
         name instanceof HTMLInputElement
         && speed instanceof HTMLSelectElement
         && capacity instanceof HTMLInputElement
+        && passwordEnabled instanceof HTMLInputElement
+        && password instanceof HTMLInputElement
       ) {
+        const passwordValue = password.value.normalize('NFC');
+        if (passwordEnabled.checked && passwordValue && passwordValue.trim().length === 0) {
+          password.setCustomValidity('进入密码不能全部为空白字符');
+          password.reportValidity();
+          return;
+        }
+        if (passwordEnabled.checked && !this.detail.passwordProtected && !passwordValue) {
+          password.setCustomValidity('请输入进入密码');
+          password.reportValidity();
+          return;
+        }
+        password.setCustomValidity('');
+        const passwordChange: TimeChamberPasswordChangeView | undefined = !passwordEnabled.checked
+          ? this.detail.passwordProtected ? { action: 'clear' } : undefined
+          : passwordValue ? { action: 'set', password: passwordValue } : undefined;
         this.callbacks.onSaveSettings({
           name: name.value.trim(),
           speed: Math.trunc(Number(speed.value)),
           capacity: Math.trunc(Number(capacity.value)),
+          ...(passwordChange ? { passwordChange } : {}),
         });
       }
       return;
@@ -192,6 +217,23 @@ export class TimeChamberConsoleModal {
       else this.dirtySettings.add(target.name);
       return;
     }
+    if (target instanceof HTMLInputElement && target.name === 'passwordEnabled') {
+      this.settingsDraft = this.settingsDraft ?? authoritative;
+      this.settingsDraft.passwordEnabled = target.checked;
+      if (target.checked === authoritative.passwordEnabled) this.dirtySettings.delete('passwordEnabled');
+      else this.dirtySettings.add('passwordEnabled');
+      const shell = this.getShell();
+      if (shell) syncPasswordFieldState(shell, this.settingsDraft);
+      return;
+    }
+    if (target instanceof HTMLInputElement && target.name === 'password') {
+      this.settingsDraft = this.settingsDraft ?? authoritative;
+      this.settingsDraft.password = target.value;
+      if (target.value) this.dirtySettings.add('password');
+      else this.dirtySettings.delete('password');
+      target.setCustomValidity('');
+      return;
+    }
     if (target.name === 'sizeTier' && isSizeTier(target.value)) {
       this.sizeDraft = target.value;
       this.sizeDirty = target.value !== this.detail.sizeTier;
@@ -207,6 +249,18 @@ export class TimeChamberConsoleModal {
         this.dirtySettings.delete(field);
       }
       if (!this.dirtySettings.has(field)) this.settingsDraft[field] = authoritative[field];
+    }
+    if (this.dirtySettings.has('passwordEnabled') && this.settingsDraft.passwordEnabled === authoritative.passwordEnabled) {
+      this.dirtySettings.delete('passwordEnabled');
+    }
+    if (!this.dirtySettings.has('passwordEnabled')) {
+      this.settingsDraft.passwordEnabled = authoritative.passwordEnabled;
+    }
+    if (acceptedOperation === 'settings') {
+      this.settingsDraft.password = '';
+      this.dirtySettings.delete('password');
+    } else if (!this.dirtySettings.has('password')) {
+      this.settingsDraft.password = '';
     }
     if (acceptedOperation === 'resize') this.sizeDirty = false;
     if (!this.sizeDirty || this.sizeDraft === detail.sizeTier) {
@@ -269,6 +323,7 @@ function buildSettingsSection(detail: TimeChamberManagementDetailView, draft: Ti
     buildLabeledInput('名称', 'name', 'text', draft.name, { max: 20 }),
     buildSpeedField(detail, draft.speed),
     buildLabeledInput('最大人数', 'capacity', 'number', draft.capacity, { min: 1, max: detail.maxCapacity }),
+    buildPasswordSetting(draft),
   );
   const lock = document.createElement('p');
   lock.className = 'time-chamber-setting-lock';
@@ -313,7 +368,7 @@ function buildControlSection(titleText: string, form: HTMLFormElement, wide = fa
 function buildLabeledInput(
   labelText: string,
   name: string,
-  type: 'text' | 'number',
+  type: 'text' | 'number' | 'password',
   value: string,
   limits: { min?: number; max?: number },
 ): HTMLElement {
@@ -326,15 +381,39 @@ function buildLabeledInput(
   input.type = type;
   input.name = name;
   input.value = value;
-  input.autocomplete = 'off';
+  input.autocomplete = type === 'password' ? 'new-password' : 'off';
   if (type === 'number') input.inputMode = 'numeric';
   if (limits.min !== undefined) input.min = String(limits.min);
   if (limits.max !== undefined) {
-    if (type === 'text') input.maxLength = limits.max;
+    if (type === 'text' || type === 'password') input.maxLength = limits.max;
     else input.max = String(limits.max);
   }
   label.append(caption, input);
   return label;
+}
+
+function buildPasswordSetting(draft: TimeChamberSettingsInputDraft): HTMLElement {
+  const field = document.createElement('div');
+  field.className = 'time-chamber-password-setting';
+  const toggle = document.createElement('label');
+  toggle.className = 'time-chamber-password-toggle';
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.name = 'passwordEnabled';
+  checkbox.checked = draft.passwordEnabled;
+  const caption = document.createElement('span');
+  caption.textContent = '启用进入密码';
+  toggle.append(checkbox, caption);
+  const passwordField = buildLabeledInput(
+    '进入密码',
+    'password',
+    'password',
+    draft.password,
+    { max: TIME_CHAMBER_MAX_PASSWORD_LENGTH },
+  );
+  field.append(toggle, passwordField);
+  syncPasswordFieldState(field, draft);
+  return field;
 }
 
 function buildSpeedField(detail: TimeChamberManagementDetailView, draftSpeed: string): HTMLElement {
@@ -390,6 +469,8 @@ function patchDetailFields(
   const draft = settingsDraft ?? buildSettingsInputDraft(detail);
   patchInput(shell, 'name', draft.name);
   patchInput(shell, 'capacity', draft.capacity);
+  patchInput(shell, 'password', draft.password);
+  syncPasswordFieldState(shell, draft);
   const capacity = shell.querySelector<HTMLInputElement>('input[name="capacity"]');
   if (capacity) {
     capacity.max = String(detail.maxCapacity);
@@ -417,6 +498,15 @@ function patchDetailFields(
 function patchInput(shell: HTMLElement, name: string, value: string): void {
   const input = shell.querySelector<HTMLInputElement>(`input[name="${name}"]`);
   if (input && input.value !== value) input.value = value;
+}
+
+function syncPasswordFieldState(shell: HTMLElement, draft: TimeChamberSettingsInputDraft): void {
+  const checkbox = shell.querySelector<HTMLInputElement>('input[name="passwordEnabled"]');
+  const password = shell.querySelector<HTMLInputElement>('input[name="password"]');
+  if (checkbox && checkbox.checked !== draft.passwordEnabled) checkbox.checked = draft.passwordEnabled;
+  if (!password) return;
+  password.disabled = !draft.passwordEnabled;
+  password.placeholder = draft.passwordEnabled ? '留空则保持当前密码' : '未启用';
 }
 
 function setField(shell: HTMLElement, name: string, value: string): void {
@@ -449,6 +539,8 @@ function buildSettingsInputDraft(detail: TimeChamberManagementDetailView): TimeC
     name: detail.displayName,
     speed: String(detail.configuredSpeed),
     capacity: String(detail.capacity),
+    passwordEnabled: detail.passwordProtected,
+    password: '',
   };
 }
 
@@ -468,6 +560,7 @@ function buildManagementDetailSignature(detail: TimeChamberManagementDetailView)
     detail.effectiveSpeed,
     detail.active,
     detail.activeUntil ?? '',
+    detail.passwordProtected,
     detail.revision,
     detail.minSpeed,
     detail.maxSpeed,

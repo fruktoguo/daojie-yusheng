@@ -7,7 +7,7 @@ import { BadRequestException, ForbiddenException, Logger, NotFoundException, Ser
 import { DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY, FORMATION_AURA_PER_SPIRIT_STONE, FORMATION_DISK_TIER_MULTIPLIERS, FORMATION_QI_HALF_LIFE_TICKS, FORMATION_SPIRIT_STONE_ITEM_ID, FORMATION_TICKS_PER_DAY, QI_HALF_LIFE_RATE_SCALE, buildQiHalfLifeRateScaled, formatDisplayInteger, getFormationTemplateById, isFormationSetupInput, normalizeFormationAllocation, normalizeFormationSetup, resolveFormationCostConfig, resolveFormationDamagePerAura, resolveFormationDamageReduction, resolveFormationLifecycle as resolveSharedFormationLifecycle, resolveFormationMinSpiritStoneCount, resolveFormationQiCost, resolveFormationSetupPlan, resolveFormationStats, resolveFormationVisual } from '@mud/shared';
 import { createHash } from 'node:crypto';
 import { Pool, type PoolClient } from 'pg';
-import { resolveServerDatabaseUrl } from '../../config/env-alias';
+import { readTrimmedEnv, resolveServerDatabaseUrl } from '../../config/env-alias';
 import {
     assertInstanceLeaseWriteFence,
     type InstanceLeaseWriteFence,
@@ -45,9 +45,35 @@ const INSTANCE_FORMATION_STATE_DOUBLE_COLUMNS = [
 const FORMATION_LIFECYCLE_DEPLOYED = 'deployed';
 const FORMATION_LIFECYCLE_PERSISTENT = 'persistent';
 const FORMATION_MAINTENANCE_CONTROL_RADIUS = 1;
+const FORMATION_MAINTENANCE_PERSISTENCE_DOMAINS = ['vitals', 'profession', 'active_job'] as const;
+const FORMATION_MAINTENANCE_CHECKPOINT_INTERVAL_MS = normalizeBoundedRuntimeInteger(
+    readTrimmedEnv(
+        'SERVER_FORMATION_MAINTENANCE_CHECKPOINT_INTERVAL_MS',
+        'FORMATION_MAINTENANCE_CHECKPOINT_INTERVAL_MS',
+    ),
+    10_000,
+    1_000,
+    60_000,
+);
+const FORMATION_MAINTENANCE_CHECKPOINT_RETRY_MS = 1_000;
 const FORMATION_QI_DECAY_RATE_SCALED = buildQiHalfLifeRateScaled(FORMATION_QI_HALF_LIFE_TICKS);
 const runtimeFormationProjectionCache = new WeakMap();
 const formationBoundaryTileCache = new WeakMap();
+
+type FormationMaintenanceCheckpoint = {
+    playerId: string;
+    formationInstanceId: string;
+    instanceId: string;
+    expectedJobRunId: string;
+    durableInput: Record<string, any>;
+    snapshotRevision: number;
+    formationUpdatedAtMs: number;
+    createdAt: number;
+    dueAt: number;
+    timer: ReturnType<typeof setTimeout> | null;
+    commitFailed: boolean;
+    deps: any;
+};
 
 /** world-runtime formation：阵法权威运行时，承接布阵、开关、补充与 tick 效果。 */
 class WorldRuntimeFormationService {
@@ -64,12 +90,27 @@ class WorldRuntimeFormationService {
     durableOperationService = null;
     formationPersistenceQueueById = new Map<string, Promise<void>>();
     formationPersistenceFenceByInstanceId = new Map<string, InstanceLeaseWriteFence>();
+    formationMaintenanceCheckpointById = new Map<string, FormationMaintenanceCheckpoint>();
+    formationMaintenanceCheckpointIntervalMs = FORMATION_MAINTENANCE_CHECKPOINT_INTERVAL_MS;
+    unregisterBeforeManualPlayerFlushBarrier: (() => void) | null = null;
 
-    constructor(contentTemplateRepository, playerRuntimeService, databasePoolProvider = null, durableOperationService = null) {
+    constructor(
+        contentTemplateRepository,
+        playerRuntimeService,
+        databasePoolProvider = null,
+        durableOperationService = null,
+        playerPersistenceFlushService = null,
+    ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
         this.databasePoolProvider = databasePoolProvider;
         this.durableOperationService = durableOperationService;
+        if (typeof playerPersistenceFlushService?.registerBeforeManualPlayerFlushBarrier === 'function') {
+            this.unregisterBeforeManualPlayerFlushBarrier = playerPersistenceFlushService.registerBeforeManualPlayerFlushBarrier(
+                'formation-maintenance-checkpoint',
+                (playerId) => this.flushPendingFormationMaintenanceForPlayer(playerId),
+            );
+        }
     }
 
     async runExclusiveFormationPersistence(formationInstanceIds, action) {
@@ -1670,6 +1711,7 @@ class WorldRuntimeFormationService {
     }
 
     async flushAllNow() {
+        await this.flushAllPendingFormationMaintenance();
         for (const [instanceId, timer] of this._formationPersistTimers) {
             clearTimeout(timer);
             this._formationPersistTimers.delete(instanceId);
@@ -1791,6 +1833,10 @@ class WorldRuntimeFormationService {
         }
         this.rememberFormationPersistenceFence(normalizedInstanceId, persistenceFence);
         await this.runExclusiveFormationPersistence([formationInstanceId], async () => {
+            if (this.formationMaintenanceCheckpointById.has(formationInstanceId)) {
+                this.dirtyFormationInstanceIds.add(normalizedInstanceId);
+                return;
+            }
             if (this.isFormationPersistenceBlocked([serialized.instanceId, serialized.eyeInstanceId])) {
                 return;
             }
@@ -1831,6 +1877,10 @@ class WorldRuntimeFormationService {
         this.rememberFormationPersistenceFence(normalizedInstanceId, persistenceFence);
         const removedAt = Math.max(0, Math.trunc(Number(formation.updatedAt) || Date.now()));
         await this.runExclusiveFormationPersistence([formationInstanceId], async () => {
+            if (this.formationMaintenanceCheckpointById.has(formationInstanceId)) {
+                this.markFormationRemovalDirty(formation, persistenceFence);
+                return;
+            }
             if (this.isFormationPersistenceBlocked([formation?.instanceId, formation?.eyeInstanceId])) {
                 return;
             }
@@ -1870,6 +1920,10 @@ class WorldRuntimeFormationService {
             ...removedKeys.keys(),
         ].filter(Boolean))).sort();
         await this.runExclusiveFormationPersistence(queuedFormationIds, async () => {
+            if (formations.some((formation) => this.formationMaintenanceCheckpointById.has(formation.id))) {
+                this.dirtyFormationInstanceIds.add(normalizedInstanceId);
+                return;
+            }
             if (this.isFormationPersistenceBlocked([normalizedInstanceId])) {
                 return;
             }
@@ -2039,6 +2093,18 @@ class WorldRuntimeFormationService {
             clearTimeout(timer);
         }
         this._formationPersistTimers.clear();
+        for (const checkpoint of this.formationMaintenanceCheckpointById.values()) {
+            if (checkpoint.timer) {
+                clearTimeout(checkpoint.timer);
+            }
+            this.playerRuntimeService.releasePersistenceDomains?.(
+                checkpoint.playerId,
+                FORMATION_MAINTENANCE_PERSISTENCE_DOMAINS,
+            );
+        }
+        this.formationMaintenanceCheckpointById.clear();
+        this.unregisterBeforeManualPlayerFlushBarrier?.();
+        this.unregisterBeforeManualPlayerFlushBarrier = null;
 
         // 共享连接池由 DatabasePoolProvider 统一关闭，此处只释放引用。
         this.persistencePool = null;
@@ -2228,8 +2294,18 @@ class WorldRuntimeFormationService {
         };
     }
 
-    runExclusivePlayerFormationResourceMutation(playerId, formationInstanceId, action) {
-        const runFormationLocked = () => this.runExclusiveFormationPersistence([formationInstanceId], action);
+    runExclusivePlayerFormationResourceMutation(
+        playerId,
+        formationInstanceId,
+        action,
+        options: { flushPendingMaintenance?: boolean } = {},
+    ) {
+        const runFormationLocked = () => this.runExclusiveFormationPersistence([formationInstanceId], async () => {
+            if (options.flushPendingMaintenance !== false) {
+                await this.flushPendingFormationMaintenanceLocked(formationInstanceId);
+            }
+            return action();
+        });
         const coordinator = this.playerRuntimeService?.runExclusiveAssetMutation;
         if (typeof coordinator !== 'function') {
             return runFormationLocked();
@@ -2237,6 +2313,110 @@ class WorldRuntimeFormationService {
         return coordinator.call(this.playerRuntimeService, [playerId], runFormationLocked, {
             deferAssetStatisticsUntilSuccess: true,
         });
+    }
+
+    /** 手动玩家刷盘、取消与迁移前强制收敛该玩家的阵法维护检查点。 */
+    async flushPendingFormationMaintenanceForPlayer(playerId) {
+        const normalizedPlayerId = normalizeOptionalString(playerId);
+        if (!normalizedPlayerId) {
+            return;
+        }
+        const formationInstanceIds = Array.from(this.formationMaintenanceCheckpointById.values())
+            .filter((checkpoint) => checkpoint.playerId === normalizedPlayerId)
+            .map((checkpoint) => checkpoint.formationInstanceId)
+            .sort();
+        for (const formationInstanceId of formationInstanceIds) {
+            await this.flushPendingFormationMaintenance(formationInstanceId);
+        }
+    }
+
+    /** 关闭前先提交所有跨玩家/阵法检查点，再进入普通玩家与阵法分域刷盘。 */
+    async flushAllPendingFormationMaintenance() {
+        const formationInstanceIds = Array.from(this.formationMaintenanceCheckpointById.keys()).sort();
+        for (const formationInstanceId of formationInstanceIds) {
+            await this.flushPendingFormationMaintenance(formationInstanceId);
+        }
+    }
+
+    async flushPendingFormationMaintenance(formationInstanceId) {
+        const normalizedFormationInstanceId = normalizeOptionalString(formationInstanceId);
+        const checkpoint = this.formationMaintenanceCheckpointById.get(normalizedFormationInstanceId);
+        if (!checkpoint) {
+            return false;
+        }
+        return this.runExclusivePlayerFormationResourceMutation(
+            checkpoint.playerId,
+            normalizedFormationInstanceId,
+            () => this.flushPendingFormationMaintenanceLocked(normalizedFormationInstanceId),
+            { flushPendingMaintenance: false },
+        );
+    }
+
+    async flushPendingFormationMaintenanceLocked(formationInstanceId) {
+        const normalizedFormationInstanceId = normalizeOptionalString(formationInstanceId);
+        const checkpoint = this.formationMaintenanceCheckpointById.get(normalizedFormationInstanceId);
+        if (!checkpoint) {
+            return false;
+        }
+        if (checkpoint.timer) {
+            clearTimeout(checkpoint.timer);
+            checkpoint.timer = null;
+        }
+        try {
+            await this.commitFormationMaintenancePlan(checkpoint.playerId, checkpoint.durableInput);
+        }
+        catch (error) {
+            checkpoint.commitFailed = true;
+            this.scheduleFormationMaintenanceCheckpoint(checkpoint, FORMATION_MAINTENANCE_CHECKPOINT_RETRY_MS);
+            throw error;
+        }
+        if (this.formationMaintenanceCheckpointById.get(normalizedFormationInstanceId) !== checkpoint) {
+            return false;
+        }
+        this.formationMaintenanceCheckpointById.delete(normalizedFormationInstanceId);
+        this.playerRuntimeService.markPersisted?.(
+            checkpoint.playerId,
+            new Set(FORMATION_MAINTENANCE_PERSISTENCE_DOMAINS),
+            checkpoint.snapshotRevision,
+        );
+        this.playerRuntimeService.releasePersistenceDomains?.(
+            checkpoint.playerId,
+            FORMATION_MAINTENANCE_PERSISTENCE_DOMAINS,
+        );
+        const currentFormation = this.findFormationInInstance(
+            checkpoint.instanceId,
+            normalizedFormationInstanceId,
+        );
+        if (
+            !currentFormation
+            || Math.trunc(Number(currentFormation.updatedAt) || 0) !== checkpoint.formationUpdatedAtMs
+            || this.dirtyFormationInstanceIds.has(checkpoint.instanceId)
+            || this.removedFormationKeysByInstanceId.has(checkpoint.instanceId)
+        ) {
+            this.persistInstanceFormationsSoon(checkpoint.instanceId);
+        }
+        return true;
+    }
+
+    scheduleFormationMaintenanceCheckpoint(checkpoint, delayMs = null) {
+        if (!checkpoint || this.formationMaintenanceCheckpointById.get(checkpoint.formationInstanceId) !== checkpoint) {
+            return;
+        }
+        if (checkpoint.timer) {
+            clearTimeout(checkpoint.timer);
+        }
+        const delay = Number.isFinite(Number(delayMs))
+            ? Math.max(1, Math.trunc(Number(delayMs)))
+            : Math.max(1, checkpoint.dueAt - Date.now());
+        checkpoint.timer = setTimeout(() => {
+            checkpoint.timer = null;
+            void this.flushPendingFormationMaintenance(checkpoint.formationInstanceId).catch((error) => {
+                this.logger.warn(
+                    `阵法维护检查点提交失败，已保留并重试：${checkpoint.formationInstanceId} ${error instanceof Error ? error.message : String(error)}`,
+                );
+            });
+        }, delay);
+        checkpoint.timer.unref?.();
     }
 
     async tickFormationMaintenanceDurably(player, tickAction, deps = null) {
@@ -2264,12 +2444,31 @@ class WorldRuntimeFormationService {
 
         return this.runExclusivePlayerFormationResourceMutation(playerId, formationInstanceId, async () => {
             const currentPlayer = this.playerRuntimeService.getPlayerOrThrow(playerId);
-            const currentJob = currentPlayer?.formationJob;
+            let currentJob = currentPlayer?.formationJob;
             const currentFormation = this.resolveMaintainableFormation(playerId, formationInstanceId, { deps });
+            let checkpoint = this.formationMaintenanceCheckpointById.get(formationInstanceId) ?? null;
+            if (checkpoint) {
+                const condition = currentJob
+                    ? this.checkFormationMaintenanceCondition(currentPlayer, currentJob, { deps })
+                    : { satisfied: false };
+                const mustFlushCheckpoint = checkpoint.playerId !== playerId
+                    || checkpoint.expectedJobRunId !== normalizeOptionalString(currentJob?.jobRunId)
+                    || checkpoint.commitFailed
+                    || Date.now() >= checkpoint.dueAt
+                    || Math.max(0, Number(currentPlayer?.qi) || 0) <= 0
+                    || condition.satisfied !== true;
+                if (mustFlushCheckpoint) {
+                    await this.flushPendingFormationMaintenanceLocked(formationInstanceId);
+                    checkpoint = null;
+                    currentJob = currentPlayer?.formationJob;
+                }
+            }
             if (!currentJob || currentJob.formationInstanceId !== formationInstanceId) {
                 return tickAction(deps);
             }
-            await ensureFormationMaintenanceActiveJobReady(playerId, currentPlayer, deps);
+            if (!checkpoint) {
+                await ensureFormationMaintenanceActiveJobReady(playerId, currentPlayer, deps);
+            }
             this.playerRuntimeService.recordActivity?.(
                 playerId,
                 Number(deps?.tick) || 0,
@@ -2284,7 +2483,6 @@ class WorldRuntimeFormationService {
             }
             const previousSuppress = currentPlayer.suppressImmediateDomainPersistence;
             currentPlayer.suppressImmediateDomainPersistence = true;
-            let stagedAfter = null;
             try {
                 const result = tickAction({
                     ...deps,
@@ -2315,50 +2513,83 @@ class WorldRuntimeFormationService {
                 }
                 const snapshotRevision = Math.max(0, Math.trunc(Number(currentPlayer.persistentRevision) || 0));
                 const formationSnapshot = serializeFormation(currentFormation);
-                stagedAfter = captureFormationMaintenanceRuntimeState(currentPlayer, currentFormation, instance);
-                restoreFormationMaintenanceRuntimeState(currentPlayer, currentFormation, instance, before);
-
-                const operationSignatureHash = createHash('sha256');
-                for (const value of [
-                    playerId,
-                    formationInstanceId,
-                    expectedJobRunId,
-                    expectedJobVersion,
-                    expectedFormationUpdatedAtMs,
-                ]) {
-                    operationSignatureHash.update(String(value));
-                    operationSignatureHash.update('\0');
+                const latestFormationUpdatedAtMs = Math.max(1, Math.trunc(Number(formationSnapshot.updatedAt) || 0));
+                if (checkpoint) {
+                    checkpoint.durableInput = {
+                        ...checkpoint.durableInput,
+                        expectedAssignedNodeId: durableContext.assignedNodeId,
+                        expectedLeaseToken: durableContext.leaseToken,
+                        expectedOwnershipEpoch: durableContext.ownershipEpoch,
+                        formationWrite: {
+                            formationInstanceId,
+                            instanceId: formationSnapshot.instanceId,
+                            snapshot: formationSnapshot,
+                        },
+                        nextActiveJob,
+                        nextPlayerSnapshot,
+                        qiAmount: Math.max(1, Math.trunc(Number(checkpoint.durableInput.qiAmount) || 0)) + qiAmount,
+                        formationQiAmount: Math.max(1, Math.trunc(Number(checkpoint.durableInput.formationQiAmount) || 0)) + formationQiAmount,
+                    };
+                    checkpoint.snapshotRevision = snapshotRevision;
+                    checkpoint.formationUpdatedAtMs = latestFormationUpdatedAtMs;
+                    checkpoint.deps = deps;
                 }
-                const operationSignature = operationSignatureHash.digest('hex').slice(0, 32);
-                const durableInput = {
-                    operationId: `op:formation-maintenance:${operationSignature}`,
-                    playerId,
-                    expectedRuntimeOwnerId: '',
-                    expectedSessionEpoch: 0,
-                    expectedInstanceId: durableContext.instanceId,
-                    expectedAssignedNodeId: durableContext.assignedNodeId,
-                    expectedLeaseToken: durableContext.leaseToken,
-                    expectedOwnershipEpoch: durableContext.ownershipEpoch,
-                    formationWrite: {
+                else {
+                    const operationSignatureHash = createHash('sha256');
+                    for (const value of [
+                        playerId,
+                        formationInstanceId,
+                        expectedJobRunId,
+                        expectedJobVersion,
+                        expectedFormationUpdatedAtMs,
+                    ]) {
+                        operationSignatureHash.update(String(value));
+                        operationSignatureHash.update('\0');
+                    }
+                    const now = Date.now();
+                    const operationSignature = operationSignatureHash.digest('hex').slice(0, 32);
+                    checkpoint = {
+                        playerId,
                         formationInstanceId,
                         instanceId: formationSnapshot.instanceId,
-                        snapshot: formationSnapshot,
-                    },
-                    expectedFormationUpdatedAtMs,
-                    expectedJobRunId,
-                    expectedJobVersion,
-                    nextActiveJob,
-                    nextPlayerSnapshot,
-                    qiAmount,
-                    formationQiAmount,
-                };
-                await this.commitFormationMaintenancePlan(playerId, durableInput);
-                restoreFormationMaintenanceRuntimeState(currentPlayer, currentFormation, instance, stagedAfter);
-                this.playerRuntimeService.markPersisted?.(
-                    playerId,
-                    new Set(['vitals', 'profession', 'active_job']),
-                    snapshotRevision,
-                );
+                        expectedJobRunId,
+                        durableInput: {
+                            operationId: `op:formation-maintenance:${operationSignature}`,
+                            playerId,
+                            expectedRuntimeOwnerId: '',
+                            expectedSessionEpoch: 0,
+                            expectedInstanceId: durableContext.instanceId,
+                            expectedAssignedNodeId: durableContext.assignedNodeId,
+                            expectedLeaseToken: durableContext.leaseToken,
+                            expectedOwnershipEpoch: durableContext.ownershipEpoch,
+                            formationWrite: {
+                                formationInstanceId,
+                                instanceId: formationSnapshot.instanceId,
+                                snapshot: formationSnapshot,
+                            },
+                            expectedFormationUpdatedAtMs,
+                            expectedJobRunId,
+                            expectedJobVersion,
+                            nextActiveJob,
+                            nextPlayerSnapshot,
+                            qiAmount,
+                            formationQiAmount,
+                        },
+                        snapshotRevision,
+                        formationUpdatedAtMs: latestFormationUpdatedAtMs,
+                        createdAt: now,
+                        dueAt: now + this.formationMaintenanceCheckpointIntervalMs,
+                        timer: null,
+                        commitFailed: false,
+                        deps,
+                    };
+                    this.formationMaintenanceCheckpointById.set(formationInstanceId, checkpoint);
+                    this.playerRuntimeService.holdPersistenceDomains?.(
+                        playerId,
+                        FORMATION_MAINTENANCE_PERSISTENCE_DOMAINS,
+                    );
+                    this.scheduleFormationMaintenanceCheckpoint(checkpoint);
+                }
                 return result;
             }
             catch (error) {
@@ -2368,7 +2599,7 @@ class WorldRuntimeFormationService {
             finally {
                 currentPlayer.suppressImmediateDomainPersistence = previousSuppress;
             }
-        });
+        }, { flushPendingMaintenance: false });
     }
 
     async commitFormationMaintenancePlan(playerId, durableInput) {
@@ -2614,6 +2845,14 @@ function normalizePositiveInteger(input, label) {
         throw new BadRequestException(`${label}必须大于 0`);
     }
     return value;
+}
+
+function normalizeBoundedRuntimeInteger(input, fallback, minimum, maximum) {
+    const value = Math.trunc(Number(input));
+    if (!Number.isFinite(value)) {
+        return fallback;
+    }
+    return Math.min(maximum, Math.max(minimum, value));
 }
 
 function normalizeNonNegativeInteger(input) {

@@ -4,7 +4,7 @@
 
 # 一体化发布脚本（适合 WSL）：
 #   1. 交互式输入提交信息
-#   2. git add -A && git commit && git push
+#   2. git add -A && git commit && 显式推送到当前 upstream
 #   3. CCR latest 完整构建 + 推送（client + server）
 #   4. CCR prod   完整构建 + 推送（client + server）
 #
@@ -67,9 +67,31 @@ if [ ! -x "./docker-build-prod.sh" ]; then
 fi
 
 CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+GIT_PUSH_REMOTE=""
+GIT_PUSH_BRANCH=""
+GIT_HAS_UPSTREAM=0
+if [ "$SKIP_GIT" != "1" ]; then
+  GIT_PUSH_REMOTE="$(git config --get "branch.${CURRENT_BRANCH}.remote" || true)"
+  GIT_PUSH_MERGE_REF="$(git config --get "branch.${CURRENT_BRANCH}.merge" || true)"
+  if [ -n "$GIT_PUSH_REMOTE" ] \
+    && [ "$GIT_PUSH_REMOTE" != "." ] \
+    && [[ "$GIT_PUSH_MERGE_REF" == refs/heads/* ]]; then
+    GIT_PUSH_BRANCH="${GIT_PUSH_MERGE_REF#refs/heads/}"
+    GIT_HAS_UPSTREAM=1
+  else
+    GIT_PUSH_REMOTE="origin"
+    GIT_PUSH_BRANCH="$CURRENT_BRANCH"
+  fi
+fi
 log_info "工作目录: $SCRIPT_DIR"
 log_info "当前分支: $CURRENT_BRANCH"
 log_info "镜像前缀: ${TENCENT_IMAGE_PREFIX:-（脚本内默认）}"
+if [ "$SKIP_GIT" != "1" ]; then
+  log_info "Git 推送目标: $CURRENT_BRANCH -> $GIT_PUSH_REMOTE/$GIT_PUSH_BRANCH"
+  if [ "$CURRENT_BRANCH" != "$GIT_PUSH_BRANCH" ]; then
+    log_warn "当前分支名与 upstream 分支名不同，将按上游配置显式推送"
+  fi
+fi
 
 #------------------------------------------------------------------------------
 # 1. Git 状态 + 输入提交信息
@@ -111,7 +133,7 @@ if [ "$SKIP_GIT" != "1" ]; then
     printf '  - git add -A\n'
     printf '  - git commit -m %q\n' "$COMMIT_MSG"
   fi
-  printf '  - git push (branch: %s)\n' "$CURRENT_BRANCH"
+  printf '  - git push (%s -> %s/%s)\n' "$CURRENT_BRANCH" "$GIT_PUSH_REMOTE" "$GIT_PUSH_BRANCH"
 fi
 printf '  - ./docker-build-latest.sh   (client + server, tag: latest)\n'
 printf '  - ./docker-build-prod.sh     (client + server, tag: prod)\n'
@@ -138,11 +160,11 @@ if [ "$SKIP_GIT" != "1" ]; then
   fi
 
   log_step "git push"
-  if git rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then
-    git push
+  if [ "$GIT_HAS_UPSTREAM" -eq 1 ]; then
+    git push "$GIT_PUSH_REMOTE" "HEAD:$GIT_PUSH_BRANCH"
   else
-    log_warn "当前分支没有上游，使用 -u origin $CURRENT_BRANCH"
-    git push -u origin "$CURRENT_BRANCH"
+    log_warn "当前分支没有远端 upstream，推送并建立 $GIT_PUSH_REMOTE/$GIT_PUSH_BRANCH"
+    git push -u "$GIT_PUSH_REMOTE" "HEAD:$GIT_PUSH_BRANCH"
   fi
 fi
 

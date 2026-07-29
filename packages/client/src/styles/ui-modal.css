@@ -207,6 +207,58 @@
   min-height: 36px;
 }
 
+.time-chamber-password-setting {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.time-chamber-password-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 20px;
+  color: var(--ink-grey);
+  font-size: var(--font-size-12);
+}
+
+.time-chamber-password-toggle input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent, currentColor);
+}
+
+.time-chamber-password-prompt {
+  display: grid;
+  gap: 12px;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.time-chamber-password-prompt .ui-input {
+  width: 100%;
+  min-height: 40px;
+}
+
+.time-chamber-password-error {
+  min-height: 18px;
+  margin: 0;
+  color: var(--danger-ink, #a33a34);
+  font-size: var(--font-size-12);
+}
+
+.time-chamber-password-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.time-chamber-password-actions .small-btn {
+  min-width: 96px;
+  min-height: 40px;
+}
+
 .time-chamber-settings-form > .small-btn {
   justify-self: end;
   min-width: 104px;
@@ -373,6 +425,15 @@
   .time-chamber-form .small-btn {
     width: 100%;
     min-height: 42px;
+  }
+
+  .time-chamber-password-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .time-chamber-password-actions .small-btn {
+    width: 100%;
   }
 }
 

@@ -4,6 +4,7 @@
  * 维护时应保持无副作用、可在浏览器与 Node 环境同时使用，不引入单端专属依赖。
  */
 import type { ItemStack } from './item-runtime-types';
+import type { StructuredNoticePayload } from './notice-types';
 
 /**
  * 任务状态、导航与日志本相关的共享类型。
@@ -307,4 +308,8 @@ export interface PendingLogbookMessage {
  */
 
   at: number;
+  /** 结构化通知载荷；客户端负责按 key 与变量拼接显示文本。 */
+  structured?: StructuredNoticePayload;
+  /** 多条结构化通知的合并载荷。 */
+  structuredGroup?: StructuredNoticePayload[];
 }

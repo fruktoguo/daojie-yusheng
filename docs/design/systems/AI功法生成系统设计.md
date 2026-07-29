@@ -335,7 +335,7 @@ class TechniqueGenerationService {
   ▼
 打开功法领悟界面（独立面板）
   ├─ 选择分类 tab：内功 / 术法 / [神通] / [秘术]（后两者灰色锁定）
-  ├─ 输入提示词（可选，≤200字）
+  ├─ 输入提示词（可选，≤4000字）
   └─ 点击"开始领悟"
   │
   ▼
@@ -402,12 +402,15 @@ class TechniqueCandidateValidator {
 公式（详见 `docs/design/balance/术法预算量化设计.md`）：
 - `BUDGET_max = 3 + realmLv × 0.5 × 1.4^(g-1) × majorRealmMultiplier`
 - `BUDGET(layer) = BUDGET_max × layer / maxLayer`
-- `totalWeight = Σ abs(itemWeight)`，`positiveWeight = Σ max(itemWeight, 0)`
-- 正权重：`itemBudget = BUDGET(layer) × itemWeight / positiveWeight`
-- 负权重：`itemBudget = BUDGET(layer) × itemWeight / totalWeight`
+- `positiveWeight = Σ max(itemWeight, 0)`
+- `sacrificeBudget = Σ (BUDGET(layer) × abs(negativeWeight) / 100)`，仅统计支持真实负面效果的结构项。
+- `positiveBudgetPool = BUDGET(layer) + sacrificeBudget`
+- 正权重：`itemBudget = positiveBudgetPool × itemWeight / positiveWeight`
+- 负权重：`itemBudget = -BUDGET(layer) × abs(itemWeight) / 100`
 - 每项真实值由该项转换公式反推，冷却、消耗、施法距离、范围覆盖和公式基底各自处理上下限。
-- 负权重只折算本项负预算，不进入正向分母，也不额外兑换成其它项正预算。
-- 每个转换方法返回真实值、已使用预算和未使用预算；触顶或离散档位暂时用不完的正预算由上层预算分配器按固定轮次平均回流到仍可增长的项目。
+- 百分比来源只允许 `0-100`，不接受负权重，也不产生牺牲预算。
+- 每个转换方法返回真实值、已使用预算和未使用预算；触顶或离散档位暂时用不完的正预算由上层预算分配器按固定轮次和原始正权重比例回流到仍可增长的项目。
+- 百分比组合倍率按最终正预算配比的变异系数连续衰减；均衡五项最高 `2.0`，严重失衡时回到 `1.0`。
 
 ---
 
@@ -467,7 +470,7 @@ CREATE TABLE technique_generation_job (
   requested_category    VARCHAR(16),
   rolled_grade          VARCHAR(16),
   rolled_realm_lv       INT,
-  player_context        VARCHAR(200),
+  player_context        TEXT,         -- 业务层统一限制为 4000 字符
 
   draft_technique_id    VARCHAR(64),
   model_name            VARCHAR(64),
@@ -558,7 +561,7 @@ tryGetRef(techniqueId: string): TechniqueTemplateRecord | undefined {
 
 界面包含：
 - **分类 Tab**：内功 / 术法 / 神通（锁定） / 秘术（锁定）
-- **提示词输入框**：可选，≤200 字，描述想要的功法主题/风格
+- **提示词输入框**：可选，≤4000 字，描述想要的功法主题/风格
 - **开始领悟按钮**
 - **预览区域**：生成完成后展示草稿详情
 - **操作按钮**：采纳（需命名）/ 放弃

@@ -25,6 +25,25 @@
     padding: 16px;
   }
 
+  /* 固定高度变体遗漏内部滚动时，统一由正文区承接手机端纵向手势。 */
+  #detail-modal-card {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #detail-modal-card > .detail-modal-head {
+    flex: 0 0 auto;
+  }
+
+  #detail-modal-card > #detail-modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: auto;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+  }
+
   .ui-modal-card.ui-modal-card--sm {
     width: min(360px, calc(100vw - 12px));
     max-height: min(82dvh, calc(100dvh - 16px));

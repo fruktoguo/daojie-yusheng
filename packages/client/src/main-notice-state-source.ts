@@ -3,8 +3,15 @@
  *
  * 维护时要把用户意图、显示派生和服务端权威数据分清，避免为了展示便利复制业务规则。
  */
-import { S2C_Notice, S2C_NoticeItem, S2C_SystemMsg, type NoticeKind } from '@mud/shared';
-import { ChatUI } from './ui/chat';
+import {
+  S2C_Notice,
+  S2C_NoticeItem,
+  S2C_SystemMsg,
+  type ChatHistorySyncView,
+  type NoticeKind,
+  type ServerChatMessageView,
+} from '@mud/shared';
+import { ChatUI, type ChatAddMessageOptions } from './ui/chat';
 import { t } from './ui/i18n';
 import { resolveStructuredNoticeText } from './ui/structured-notice-display';
 /**
@@ -120,7 +127,7 @@ type MainNoticeStateSourceOptions = {
  * chatUI：chatUI相关字段。
  */
 
-  chatUI: Pick<ChatUI, 'addMessage'>;  
+  chatUI: Pick<ChatUI, 'addMessage' | 'handleServerChatMessage' | 'applyServerChatHistory'>;
   /**
  * ackSystemMessages：ackSystemMessage相关字段。
  */
@@ -136,6 +143,7 @@ type MainNoticeStateSourceOptions = {
  */
 
   clearCurrentPath: () => void;
+  getCurrentPlayerId: () => string | null;
   /** 服务端指令打开面板（panel 标识） */
   onOpenPanel?: (panel: string) => void;
 };
@@ -180,6 +188,7 @@ function toSystemMsgFromNotice(item: S2C_NoticeItem): S2C_SystemMsg {
 
 
 export type MainNoticeStateSource = ReturnType<typeof createMainNoticeStateSource>;
+const CHAT_TOAST_MIN_INTERVAL_MS = 2_000;
 /**
  * createMainNoticeStateSource：构建并返回目标对象。
  * @param options MainNoticeStateSourceOptions 选项参数。
@@ -188,7 +197,93 @@ export type MainNoticeStateSource = ReturnType<typeof createMainNoticeStateSourc
 
 
 export function createMainNoticeStateSource(options: MainNoticeStateSourceOptions) {
+  const lastChatToastAtByChannel = new Map<string, number>();
+  const pendingSystemMessageAckIds = new Set<string>();
+  let systemMessageAckScheduled = false;
+  const scheduleSystemMessageAck = (id: string): void => {
+    pendingSystemMessageAckIds.add(id);
+    if (systemMessageAckScheduled) {
+      return;
+    }
+    systemMessageAckScheduled = true;
+    queueMicrotask(() => {
+      systemMessageAckScheduled = false;
+      const ids = Array.from(pendingSystemMessageAckIds);
+      pendingSystemMessageAckIds.clear();
+      if (ids.length > 0) {
+        options.ackSystemMessages(ids);
+      }
+    });
+  };
+  const persistNotice = (
+    data: S2C_SystemMsg,
+    text: string,
+    from: string | undefined,
+    kind: Parameters<ChatUI['addMessage']>[2],
+    extra: ChatAddMessageOptions | undefined = undefined,
+  ): Promise<boolean> => options.chatUI.addMessage(text, from, kind, {
+    ...(extra ?? {}),
+    id: data.id,
+    at: data.occurredAt,
+    forcePersist: data.persistUntilAck === true,
+  }).then((stored) => {
+    if (stored && data.persistUntilAck === true && data.id) {
+      scheduleSystemMessageAck(data.id);
+    }
+    return stored;
+  });
+
   return {  
+    handleChatMessage(data: ServerChatMessageView): void {
+      void options.chatUI.handleServerChatMessage(data, options.getCurrentPlayerId()).then(({ notify }) => {
+        if (!notify) {
+          return;
+        }
+        const now = Date.now();
+        const toastKey = `${options.getCurrentPlayerId() ?? 'none'}:${data.channel}`;
+        const lastToastAt = lastChatToastAtByChannel.get(toastKey) ?? 0;
+        if (now - lastToastAt < CHAT_TOAST_MIN_INTERVAL_MS) {
+          return;
+        }
+        lastChatToastAtByChannel.set(toastKey, now);
+        if (lastChatToastAtByChannel.size > 32) {
+          const oldestKey = lastChatToastAtByChannel.keys().next().value;
+          if (typeof oldestKey === 'string') {
+            lastChatToastAtByChannel.delete(oldestKey);
+          }
+        }
+        const channelLabel = data.channel === 'world'
+          ? t('shell.chat-world', undefined)
+          : data.channel === 'sect'
+            ? t('shell.chat-sect', undefined)
+            : t('shell.chat-nearby', undefined);
+        options.showToast(`${data.from} · ${channelLabel}：${data.text}`, 'chat');
+      });
+    },
+    handleChatHistory(data: ChatHistorySyncView): void {
+      void options.chatUI.applyServerChatHistory(data, options.getCurrentPlayerId()).then((result) => {
+        if (!result.applied) {
+          return;
+        }
+        const summaries = (['world', 'sect', 'nearby'] as const)
+          .map((channel) => {
+            const count = result.newMessageCounts[channel] ?? 0;
+            if (count <= 0) {
+              return '';
+            }
+            const label = channel === 'world'
+              ? t('shell.chat-world', undefined)
+              : channel === 'sect'
+                ? t('shell.chat-sect', undefined)
+                : t('shell.chat-nearby', undefined);
+            return `${label} ${count} 条`;
+          })
+          .filter(Boolean);
+        if (summaries.length > 0) {
+          options.showToast(`已同步新消息：${summaries.join('、')}`, 'chat');
+        }
+      });
+    },
   /**
  * handleSystemMsg：处理SystemMsg并更新相关状态。
  * @param data S2C_SystemMsg 原始数据。
@@ -202,7 +297,9 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
       const structured = data.structured as { key?: string; vars?: Record<string, string> } | undefined;
       if (structured?.key === 'notice.item.open-panel' && structured.vars?.panel) {
         options.onOpenPanel?.(structured.vars.panel);
-        return;
+        if (data.persistUntilAck !== true) {
+          return;
+        }
       }
 
       const rawText = typeof data.text === 'string' ? data.text.trim() : '';
@@ -210,22 +307,16 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
         return;
       }
       if (data.kind === 'chat') {
-        void options.chatUI.addMessage(rawText, data.from, data.kind, {
-          id: data.id,
-          at: data.occurredAt,
+        void persistNotice(data, rawText, data.from, data.kind, {
           scope: (data as any).scope,
         });
         return;
       }
       if (data.kind === 'grudge') {
         const text = resolveClientNoticeText(rawText, data.structured, (data as any).structuredGroup);
-        void options.chatUI.addMessage(text, data.from ?? t('notice.channel.grudge', undefined), data.kind, {
-          id: data.id,
-          at: data.occurredAt,
-        }).then((stored) => {
-          if (stored && data.persistUntilAck === true && data.id) {
-            options.ackSystemMessages([data.id]);
-          }
+        void persistNotice(data, text, data.from ?? t('notice.channel.grudge', undefined), data.kind, {
+          ...(data.structured ? { structured: data.structured } : undefined),
+          ...((data as any).structuredGroup ? { structuredGroup: (data as any).structuredGroup } : undefined),
         });
         options.showToast(text, data.kind);
         return;
@@ -234,7 +325,7 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
         const label = data.from ?? resolveNoticeChannelLabel(data.kind);
         const structuredGroup = (data as any).structuredGroup as unknown[] | undefined;
         const text = resolveClientNoticeText(rawText, data.structured, structuredGroup);
-        void options.chatUI.addMessage(text, label, data.kind, data.structured || structuredGroup ? {
+        void persistNotice(data, text, label, data.kind, data.structured || structuredGroup ? {
           ...(data.structured ? { structured: data.structured } : undefined),
           ...(structuredGroup ? { structuredGroup } : undefined),
         } : undefined);
@@ -253,7 +344,7 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
         );
         const structuredGroup = (data as any).structuredGroup as unknown[] | undefined;
         const text = resolveClientNoticeText(rawText, data.structured, structuredGroup);
-        void options.chatUI.addMessage(text, label, data.kind, data.structured || structuredGroup ? {
+        void persistNotice(data, text, label, data.kind, data.structured || structuredGroup ? {
           ...(data.structured ? { structured: data.structured } : undefined),
           ...(structuredGroup ? { structuredGroup } : undefined),
         } : undefined);
@@ -263,7 +354,7 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
       const fallbackKind = data.kind === 'info' ? 'system' : data.kind ?? 'system';
       const structuredGroup = (data as any).structuredGroup as unknown[] | undefined;
       const text = resolveClientNoticeText(rawText, data.structured, structuredGroup);
-      void options.chatUI.addMessage(text, data.from ?? t('notice.channel.system', undefined), fallbackKind, data.structured || structuredGroup ? {
+      void persistNotice(data, text, data.from ?? t('notice.channel.system', undefined), fallbackKind, data.structured || structuredGroup ? {
         ...(data.structured ? { structured: data.structured } : undefined),
         ...(structuredGroup ? { structuredGroup } : undefined),
       } : undefined);
@@ -287,7 +378,7 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
         if (item.kind === 'combat' && (item.combat || combatGroup)) {
           const label = item.from ?? t('notice.channel.combat', undefined);
           const combat = item.combat ?? combatGroup?.[0];
-          void options.chatUI.addMessage(item.text, label, 'combat', {
+          void persistNotice(toSystemMsgFromNotice(item), item.text, label, 'combat', {
             ...(combat ? { combat } : undefined),
             ...(combatGroup ? { combatGroup } : undefined),
           });

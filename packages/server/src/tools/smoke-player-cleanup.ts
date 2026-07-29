@@ -179,6 +179,7 @@ async function purgeSmokePlayerArtifactsByPlayerId(playerId, options = undefined
       result.deleted.identityRows = await deleteIdentityRowsByPlayerIds(client, [normalizedPlayerId]);
       await deleteIdentityMirrorRowsByPlayerIds(client, [normalizedPlayerId]);
       result.deleted.authRows = await deleteAuthRowsByPlayerIds(client, [normalizedPlayerId]);
+      await deleteSocialChatRowsByPlayerIds(client, [normalizedPlayerId]);
       await deleteMainlinePlayerScopedRows(client, [normalizedPlayerId]);
       result.deleted.legacyPlayerRows = await deleteLegacyPlayerRowsByPlayerIds(client, [normalizedPlayerId]);
       result.deleted.legacyUserRows = await deleteLegacyUserRowsByIds(client, [...userIds]);
@@ -276,6 +277,7 @@ async function purgeSmokeTestArtifacts(options = undefined) {
 
       if (!dryRun) {
         await deleteIdentityMirrorRowsByUsernamePatterns(client, accountPatterns);
+        await deleteSocialChatRowsByPlayerIds(client, playerIds);
         await deleteMainlinePlayerScopedRows(client, playerIds);
       }
 
@@ -370,6 +372,36 @@ async function deleteMainlinePlayerScopedRows(client, playerIds) {
       : `DELETE FROM ${tableName} WHERE player_id = ANY($1::text[])`;
     await safeQuery(client, sql, [playerIds]);
   }
+}
+
+async function deleteSocialChatRowsByPlayerIds(client, playerIds) {
+  if (!Array.isArray(playerIds) || playerIds.length === 0) {
+    return;
+  }
+  await safeQuery(client, `
+    DELETE FROM server_chat_message
+    WHERE from_player_id = ANY($1::text[])
+  `, [playerIds]);
+  await safeQuery(client, `
+    DELETE FROM player_daoist_message_read
+    WHERE player_id = ANY($1::text[])
+       OR peer_player_id = ANY($1::text[])
+  `, [playerIds]);
+  await safeQuery(client, `
+    DELETE FROM player_daoist_message
+    WHERE from_player_id = ANY($1::text[])
+       OR to_player_id = ANY($1::text[])
+  `, [playerIds]);
+  await safeQuery(client, `
+    DELETE FROM player_daoist_request
+    WHERE from_player_id = ANY($1::text[])
+       OR to_player_id = ANY($1::text[])
+  `, [playerIds]);
+  await safeQuery(client, `
+    DELETE FROM player_daoist_relation
+    WHERE player_a_id = ANY($1::text[])
+       OR player_b_id = ANY($1::text[])
+  `, [playerIds]);
 }
 
 async function findPlayerIdsByPatterns(client, playerPatterns) {

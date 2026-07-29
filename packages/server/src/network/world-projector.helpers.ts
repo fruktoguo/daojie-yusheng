@@ -561,6 +561,7 @@ function buildFullSelfDeltaFromState(self: ProjectedSelfState, selfRevision: num
         sr: selfRevision,
         iid: self.instanceId,
         mid: self.templateId,
+        sid: self.sectId,
         x: self.x,
         y: self.y,
         f: self.f,
@@ -851,6 +852,7 @@ function captureSelfState(player: ProjectorPlayerLike): ProjectedSelfState {
     return {
         instanceId: player.instanceId,
         templateId: player.templateId,
+        sectId: typeof player.sectId === 'string' && player.sectId.trim() ? player.sectId.trim() : null,
         x: player.x, y: player.y, f: player.facing,
         hp: player.hp, maxHp: player.maxHp, qi: player.qi, maxQi: player.maxQi,
         wallet: cloneWalletState(player.wallet),
@@ -884,7 +886,14 @@ function capturePanelState(player: ProjectorPlayerLike, previousPanel?: Projecte
     };
 }
 
-function buildPanelCursor(player: ProjectorPlayerLike, previousCursor?: ProjectedPanelCursor | null): ProjectedPanelCursor {
+function buildPanelCursor(
+    player: ProjectorPlayerLike,
+    previousCursor?: ProjectedPanelCursor | null,
+    reuse: {
+        attrSignature?: boolean;
+        actionSignature?: boolean;
+    } = {},
+): ProjectedPanelCursor {
     const canReuseInventoryCursor = previousCursor
         && Array.isArray(previousCursor.inventorySlotSignatures)
         && previousCursor.inventoryRevision === player.inventory.revision
@@ -907,40 +916,78 @@ function buildPanelCursor(player: ProjectorPlayerLike, previousCursor?: Projecte
         && previousCursor.buffEntrySignatures
         && previousCursor.buffRevision === player.buffs.revision
         && previousCursor.buffSignature === buffSignature;
+    const inventorySlotSignatures = canReuseInventoryCursor
+        ? previousCursor.inventorySlotSignatures
+        : player.inventory.items.map((entry) => buildStableProtocolSignature(entry));
+    const equipmentSlotSignatures = canReuseEquipmentCursor
+        ? previousCursor.equipmentSlotSignatures
+        : buildEquipmentSlotSignatures(player.equipment.slots);
+    const artifactRevision = resolveArtifactPanelRevision(player);
+    const artifactSlotSignatures = canReuseArtifactCursor
+        ? previousCursor.artifactSlotSignatures
+        : buildArtifactSlotSignatures(resolveArtifactPanelSlots(player));
+    const techniqueSignature = buildTechniquePanelSignature(player);
+    const actionIds = canReuseActionCursor
+        ? previousCursor.actionIds
+        : player.actions.actions.map((entry) => entry.id);
+    const actionEntrySignatures = canReuseActionCursor
+        ? previousCursor.actionEntrySignatures
+        : buildActionEntrySignatures(player.actions.actions);
+    const buffIds = canReuseBuffCursor
+        ? previousCursor.buffIds
+        : currentBuffs.map((entry) => entry.buffId);
+    const buffEntrySignatures = canReuseBuffCursor
+        ? previousCursor.buffEntrySignatures
+        : buildBuffEntrySignatures(currentBuffs);
+    const attrSignature = previousCursor && reuse.attrSignature === true
+        ? previousCursor.attrSignature
+        : buildAttrPanelSignature(player);
+    const actionSignature = previousCursor && reuse.actionSignature === true
+        ? previousCursor.actionSignature
+        : buildActionPanelSignature(player);
+    if (previousCursor
+        && previousCursor.inventoryRevision === player.inventory.revision
+        && previousCursor.inventoryCapacity === player.inventory.capacity
+        && previousCursor.inventorySize === player.inventory.items.length
+        && previousCursor.inventorySlotSignatures === inventorySlotSignatures
+        && previousCursor.equipmentRevision === player.equipment.revision
+        && previousCursor.equipmentSlotSignatures === equipmentSlotSignatures
+        && previousCursor.artifactRevision === artifactRevision
+        && previousCursor.artifactSlotSignatures === artifactSlotSignatures
+        && previousCursor.techniqueRevision === player.techniques.revision
+        && previousCursor.techniqueSignature === techniqueSignature
+        && previousCursor.attrRevision === player.attrs.revision
+        && previousCursor.actionRevision === player.actions.revision
+        && previousCursor.actionIds === actionIds
+        && previousCursor.actionEntrySignatures === actionEntrySignatures
+        && previousCursor.buffRevision === player.buffs.revision
+        && previousCursor.buffIds === buffIds
+        && previousCursor.buffEntrySignatures === buffEntrySignatures
+        && previousCursor.attrSignature === attrSignature
+        && previousCursor.actionSignature === actionSignature
+        && previousCursor.buffSignature === buffSignature) {
+        return previousCursor;
+    }
     return {
         inventoryRevision: player.inventory.revision,
         inventoryCapacity: player.inventory.capacity,
         inventorySize: player.inventory.items.length,
-        inventorySlotSignatures: canReuseInventoryCursor
-            ? previousCursor.inventorySlotSignatures
-            : player.inventory.items.map((entry) => buildStableProtocolSignature(entry)),
+        inventorySlotSignatures,
         equipmentRevision: player.equipment.revision,
-        equipmentSlotSignatures: canReuseEquipmentCursor
-            ? previousCursor.equipmentSlotSignatures
-            : buildEquipmentSlotSignatures(player.equipment.slots),
-        artifactRevision: resolveArtifactPanelRevision(player),
-        artifactSlotSignatures: canReuseArtifactCursor
-            ? previousCursor.artifactSlotSignatures
-            : buildArtifactSlotSignatures(resolveArtifactPanelSlots(player)),
+        equipmentSlotSignatures,
+        artifactRevision,
+        artifactSlotSignatures,
         techniqueRevision: player.techniques.revision,
-        techniqueSignature: buildTechniquePanelSignature(player),
+        techniqueSignature,
         attrRevision: player.attrs.revision,
         actionRevision: player.actions.revision,
-        actionIds: canReuseActionCursor
-            ? previousCursor.actionIds
-            : player.actions.actions.map((entry) => entry.id),
-        actionEntrySignatures: canReuseActionCursor
-            ? previousCursor.actionEntrySignatures
-            : buildActionEntrySignatures(player.actions.actions),
+        actionIds,
+        actionEntrySignatures,
         buffRevision: player.buffs.revision,
-        buffIds: canReuseBuffCursor
-            ? previousCursor.buffIds
-            : currentBuffs.map((entry) => entry.buffId),
-        buffEntrySignatures: canReuseBuffCursor
-            ? previousCursor.buffEntrySignatures
-            : buildBuffEntrySignatures(currentBuffs),
-        attrSignature: buildAttrPanelSignature(player),
-        actionSignature: buildActionPanelSignature(player),
+        buffIds,
+        buffEntrySignatures,
+        attrSignature,
+        actionSignature,
         buffSignature,
     };
 }
@@ -1050,6 +1097,7 @@ function buildActionPanelSignature(player: ProjectorPlayerLike): string {
         player.combat.autoIdleCultivation === true ? 1 : 0,
         player.combat.autoSwitchCultivation === true ? 1 : 0,
         player.combat.autoRootFoundation === true ? 1 : 0,
+        normalizeCombatAttackIntensity(player.combat.combatAttackIntensity),
         player.combat.cultivationActive === true ? 1 : 0,
         player.combat.senseQiActive === true ? 1 : 0,
         player.combat.wangQiActive === true ? 1 : 0,
@@ -1620,6 +1668,8 @@ function buildSelfDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike)
     const delta: SelfDeltaView = { sr: player.selfRevision };
     if (previous.self.instanceId !== player.instanceId) { delta.iid = player.instanceId; }
     if (previous.self.templateId !== player.templateId) { delta.mid = player.templateId; }
+    const currentSectId = typeof player.sectId === 'string' && player.sectId.trim() ? player.sectId.trim() : null;
+    if (previous.self.sectId !== currentSectId) { delta.sid = currentSectId; }
     if (previous.self.f !== player.facing) { delta.f = player.facing; }
     if (previous.self.hp !== player.hp) { delta.hp = player.hp; }
     if (previous.self.maxHp !== player.maxHp) { delta.maxHp = player.maxHp; }
@@ -1637,11 +1687,16 @@ function isSameMovementCapabilities(left: ProjectedSelfState['movementCapabiliti
 }
 
 function buildPanelUpdate(previous: PlayerStateSlice, player: ProjectorPlayerLike): PanelDeltaBuildResult {
-    const panelCursor = buildPanelCursor(player, previous.panelCursor);
-    const currentAttrPanel = previous.attrPanel && canReuseAttrPanelSlice(previous.attrPanel, player)
+    const canReuseAttrPanel = Boolean(previous.attrPanel && canReuseAttrPanelSlice(previous.attrPanel, player));
+    const canReuseActionPanel = Boolean(previous.actionPanel && canReuseActionPanelSlice(previous.actionPanel, player));
+    const panelCursor = buildPanelCursor(player, previous.panelCursor, {
+        attrSignature: canReuseAttrPanel,
+        actionSignature: canReuseActionPanel,
+    });
+    const currentAttrPanel = previous.attrPanel && canReuseAttrPanel
         ? previous.attrPanel
         : captureAttrPanelSlice(player);
-    const currentActionPanel = previous.actionPanel && canReuseActionPanelSlice(previous.actionPanel, player)
+    const currentActionPanel = previous.actionPanel && canReuseActionPanel
         ? previous.actionPanel
         : captureActionPanelSlice(player);
     const hasTechniqueCache = Boolean(previous.techniquePanel);

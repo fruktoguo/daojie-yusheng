@@ -812,6 +812,11 @@ export interface SelfDeltaView {
 
   mid?: string;  
   /**
+ * sid：当前所属宗门 ID；null 表示已退出宗门。
+ */
+
+  sid?: string | null;
+  /**
  * x：x相关字段。
  */
 

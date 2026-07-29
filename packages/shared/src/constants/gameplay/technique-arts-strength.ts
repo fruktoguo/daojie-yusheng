@@ -4,6 +4,7 @@
  * 维护时只调整平衡参数，不在这里写运行时状态或单端逻辑。
  */
 import type { NumericScalarStatKey } from '../../numeric';
+import type { SkillFormulaVar } from '../../skill-types';
 
 /** AI 术法首版允许参与伤害基底的战斗属性。 */
 export const TECHNIQUE_ARTS_STRENGTH_ALLOWED_ATTRIBUTE_BASE_STATS = [
@@ -36,6 +37,86 @@ export const TECHNIQUE_ARTS_STRENGTH_ATTRIBUTE_BASE_COSTS = {
   breakPower: 1,
   resolvePower: 1,
 } as const satisfies Record<typeof TECHNIQUE_ARTS_STRENGTH_ALLOWED_ATTRIBUTE_BASE_STATS[number], number>;
+
+/** 技艺等级百分比来源相对移动速度的等价值：1 级技艺 = 100 点移动速度。 */
+export const TECHNIQUE_ARTS_STRENGTH_CRAFT_LEVEL_MOVE_SPEED_EQUIVALENT = 100;
+
+/** 境界等级百分比来源相对移动速度的等价值：1 级境界 = 120 点移动速度。 */
+export const TECHNIQUE_ARTS_STRENGTH_REALM_LEVEL_MOVE_SPEED_EQUIVALENT = 120;
+
+/** 除功法层数外，可按预算加入总伤害乘区的标量来源。 */
+export const TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_SOURCE_BY_KEY = {
+  moveSpeed: {
+    label: '移动速度',
+    formulaVar: 'caster.stat.moveSpeed',
+    moveSpeedEquivalent: 1,
+  },
+  realmLevel: {
+    label: '境界等级',
+    formulaVar: 'caster.realmLv',
+    moveSpeedEquivalent: TECHNIQUE_ARTS_STRENGTH_REALM_LEVEL_MOVE_SPEED_EQUIVALENT,
+  },
+  alchemyLevel: {
+    label: '炼丹等级',
+    formulaVar: 'caster.craft.alchemy.level',
+    moveSpeedEquivalent: TECHNIQUE_ARTS_STRENGTH_CRAFT_LEVEL_MOVE_SPEED_EQUIVALENT,
+  },
+  forgingLevel: {
+    label: '炼器等级',
+    formulaVar: 'caster.craft.forging.level',
+    moveSpeedEquivalent: TECHNIQUE_ARTS_STRENGTH_CRAFT_LEVEL_MOVE_SPEED_EQUIVALENT,
+  },
+  enhancementLevel: {
+    label: '强化等级',
+    formulaVar: 'caster.craft.enhancement.level',
+    moveSpeedEquivalent: TECHNIQUE_ARTS_STRENGTH_CRAFT_LEVEL_MOVE_SPEED_EQUIVALENT,
+  },
+  transmissionLevel: {
+    label: '传法等级',
+    formulaVar: 'caster.craft.transmission.level',
+    moveSpeedEquivalent: TECHNIQUE_ARTS_STRENGTH_CRAFT_LEVEL_MOVE_SPEED_EQUIVALENT,
+  },
+  gatherLevel: {
+    label: '采集等级',
+    formulaVar: 'caster.craft.gather.level',
+    moveSpeedEquivalent: TECHNIQUE_ARTS_STRENGTH_CRAFT_LEVEL_MOVE_SPEED_EQUIVALENT,
+  },
+  miningLevel: {
+    label: '挖矿等级',
+    formulaVar: 'caster.craft.mining.level',
+    moveSpeedEquivalent: TECHNIQUE_ARTS_STRENGTH_CRAFT_LEVEL_MOVE_SPEED_EQUIVALENT,
+  },
+  buildingLevel: {
+    label: '营造等级',
+    formulaVar: 'caster.craft.building.level',
+    moveSpeedEquivalent: TECHNIQUE_ARTS_STRENGTH_CRAFT_LEVEL_MOVE_SPEED_EQUIVALENT,
+  },
+  formationLevel: {
+    label: '阵法等级',
+    formulaVar: 'caster.craft.formation.level',
+    moveSpeedEquivalent: TECHNIQUE_ARTS_STRENGTH_CRAFT_LEVEL_MOVE_SPEED_EQUIVALENT,
+  },
+} as const satisfies Record<string, {
+  label: string;
+  formulaVar: SkillFormulaVar;
+  moveSpeedEquivalent: number;
+}>;
+
+export type TechniqueArtsStrengthScalarPercentBonusKey =
+  keyof typeof TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_SOURCE_BY_KEY;
+
+export type TechniqueArtsStrengthPercentBonusKey =
+  | 'techLevel'
+  | TechniqueArtsStrengthScalarPercentBonusKey;
+
+export const TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_KEYS = Object.freeze(
+  Object.keys(TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_SOURCE_BY_KEY) as TechniqueArtsStrengthScalarPercentBonusKey[],
+);
+
+export const TECHNIQUE_ARTS_STRENGTH_PERCENT_BONUS_KEYS: readonly TechniqueArtsStrengthPercentBonusKey[] = Object.freeze([
+  'techLevel',
+  ...TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_KEYS,
+]);
 
 /** AI 术法强度归一化常量。 */
 export const TECHNIQUE_ARTS_STRENGTH_CONSTANTS = {
@@ -89,7 +170,12 @@ export const TECHNIQUE_ARTS_STRENGTH_CONSTANTS = {
   percentBonuses: {
     techLevelScaleBase: 0.1,
     moveSpeedScalePerStrength: 0.001,
-    minStrength: -100,
+    craftSkillLevelMoveSpeedEquivalent: TECHNIQUE_ARTS_STRENGTH_CRAFT_LEVEL_MOVE_SPEED_EQUIVALENT,
+    realmLevelMoveSpeedEquivalent: TECHNIQUE_ARTS_STRENGTH_REALM_LEVEL_MOVE_SPEED_EQUIVALENT,
+    synergyPairBonus: 0.1,
+    synergyMaxSources: 5,
+    synergyMaxCoefficientOfVariation: 1,
+    minStrength: 0,
     maxStrength: 100,
   },
 } as const;

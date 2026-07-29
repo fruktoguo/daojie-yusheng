@@ -8,8 +8,7 @@
       .hud-resources,
       .hud-grid,
       .intel-grid,
-      .world-hero,
-      .leaderboard-supreme-grid {
+      .world-hero {
         grid-template-columns: 1fr;
       }
       .ui-detail-grid {
@@ -30,6 +29,20 @@
       .chat-tabs .tab-btn {
         padding: 9px 8px;
         font-size: var(--font-size-13);
+      }
+    }
+
+    @media (max-width: 420px) {
+      .chat-tab-unread {
+        top: 4px;
+        right: 4px;
+        min-width: 8px;
+        width: 8px;
+        height: 8px;
+        padding: 0;
+        border-radius: 50%;
+        font-size: 0;
+        line-height: 0;
       }
     }
 
@@ -482,6 +495,59 @@
         height: min(88dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2) - 16px));
         max-height: none;
       }
+      .detail-modal.detail-modal--skill-preset {
+        --detail-modal-padding: 8px;
+        --detail-modal-safe-gap: 6px;
+        padding: var(--detail-modal-padding-top) var(--detail-modal-padding) var(--detail-modal-padding-bottom);
+      }
+      .detail-modal-card.detail-modal--skill-preset {
+        width: min(100%, calc(100vw - 16px));
+        height: min(90dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap) * 2) - 8px));
+        max-height: none;
+        padding: 14px 12px 12px;
+        zoom: 1;
+      }
+      .detail-modal-card.detail-modal--skill-preset #detail-modal-body {
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+      .skill-preset-shell {
+        height: auto;
+        min-height: 100%;
+      }
+      .skill-preset-hero,
+      .skill-preset-layout {
+        flex: 0 0 auto;
+        min-height: auto;
+      }
+      .skill-preset-card,
+      .skill-preset-list-card,
+      .skill-preset-import-card {
+        min-height: auto;
+        overflow: visible;
+      }
+      .skill-preset-list {
+        overflow: visible;
+      }
+      .skill-preset-save-row,
+      .skill-preset-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: stretch;
+      }
+      .skill-preset-save-row .skill-preset-name-input {
+        grid-column: 1 / -1;
+        min-height: 44px;
+      }
+      .skill-preset-save-row .small-btn,
+      .skill-preset-actions .small-btn {
+        width: 100%;
+        min-width: 0;
+        min-height: 44px;
+      }
+      .skill-preset-actions .small-btn:last-child:nth-child(odd) {
+        grid-column: 1 / -1;
+      }
       .detail-modal-card.detail-modal--sect-management {
         width: min(100%, calc(100vw - 16px));
         height: min(80dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2) - 16px));
@@ -590,7 +656,12 @@
         align-items: stretch;
       }
       .leaderboard-toolbar {
+        display: flex;
         flex-direction: column;
+      }
+      .leaderboard-navigation,
+      .leaderboard-group-tabs {
+        width: 100%;
       }
       .leaderboard-toolbar-actions {
         justify-content: stretch;

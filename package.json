@@ -13,6 +13,7 @@
     "organize:techniques": "node scripts/organize-techniques.mjs --write",
     "sync:qi-items": "node scripts/sync-qi-item-sources.mjs",
     "sync:technique-books": "node scripts/sync-technique-books.mjs",
+    "solve:technique-arts-weights": "pnpm --filter @mud/server solve:technique-arts-weights",
     "dev:client": "pnpm --filter @mud/client dev",
     "dev:server": "pnpm --filter @mud/server start:dev",
     "start:server": "pnpm --filter @mud/server start",

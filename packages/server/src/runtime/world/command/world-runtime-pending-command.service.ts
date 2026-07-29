@@ -687,6 +687,7 @@ export class WorldRuntimePendingCommandService {
                     command.sourceInstanceId,
                     command.buildingId,
                     deps,
+                    command.passwordVerifiedRevision,
                 )
                 : await deps.timeChamberRuntimeService.leave(playerId, deps);
             if (!result?.ok) {

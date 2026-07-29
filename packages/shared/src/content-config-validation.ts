@@ -195,7 +195,7 @@ function validateTongtianTower(value: unknown): ContentConfigValidationIssue[] {
       push(issues, `$.${key}`, `${key} 必须是非空字符串`);
     }
   }
-  for (const key of ['width', 'height', 'spawnIntervalTicks', 'normalMonstersPerPlayer', 'idleDestroyTicks'] as const) {
+  for (const key of ['width', 'height', 'spawnIntervalTicks', 'layerChangeCooldownSeconds', 'normalMonstersPerPlayer', 'idleDestroyTicks'] as const) {
     if (value[key] !== undefined && !isPositiveInteger(value[key])) push(issues, `$.${key}`, `${key} 必须是正整数`);
   }
   if (value.eliteMonstersPerPlayer !== undefined && !isNonNegativeInteger(value.eliteMonstersPerPlayer)) {

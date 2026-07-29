@@ -2547,7 +2547,7 @@ export class PlayerRuntimeService {
     getPendingLogbookMessages(playerId) {
 
         const player = this.getPlayerOrThrow(playerId);
-        return player.pendingLogbookMessages.map((entry) => ({ ...entry }));
+        return player.pendingLogbookMessages.map(clonePendingLogbookMessage);
     }
     /**
  * getLegacyPendingLogbookMessages：读取Legacy待处理LogbookMessage。
@@ -2764,9 +2764,94 @@ export class PlayerRuntimeService {
         if (typeof this.flushLedgerService?.isPlayerFlushAssetConflictQuarantined !== 'function') {
             return;
         }
-        if (await this.flushLedgerService.isPlayerFlushAssetConflictQuarantined(playerId)) {
-            throw new ServiceUnavailableException(`player_asset_flush_quarantined:${playerId}`);
+        if (!await this.flushLedgerService.isPlayerFlushAssetConflictQuarantined(playerId)) {
+            return;
         }
+        try {
+            const attempted = await this.tryRepairDetachedPlayerAssetFlushQuarantine(playerId);
+            if (attempted && !await this.flushLedgerService.isPlayerFlushAssetConflictQuarantined(playerId)) {
+                return;
+            }
+        }
+        catch (error) {
+            this.logger.error(
+                `离线挂机玩家登录资产隔离恢复失败：playerId=${playerId} error=${error instanceof Error ? error.message : String(error)}`,
+            );
+        }
+        throw new ServiceUnavailableException(`player_asset_flush_quarantined:${playerId}`);
+    }
+    /**
+     * 登录恢复只处理仍由本进程托管、且尚未绑定在线 session 的玩家。
+     * 资产锁覆盖数据库核对和运行时 ID 换发，避免等待 IO 时与装备、丢弃等资产操作交错。
+     */
+    async tryRepairDetachedPlayerAssetFlushQuarantine(playerId) {
+        const repair = this.flushLedgerService?.repairPlayerFlushAssetConflictQuarantines;
+        const initialPlayer = this.players.get(playerId);
+        if (typeof repair !== 'function' || !isDetachedPlayerRuntime(initialPlayer)) {
+            return false;
+        }
+        await this.runExclusiveAssetMutation([playerId], async () => {
+            const player = this.players.get(playerId);
+            if (!isDetachedPlayerRuntime(player)) {
+                throw new Error('player_asset_flush_runtime_became_active');
+            }
+            const runtimeInventoryItems = Array.isArray(player.inventory?.items)
+                ? player.inventory.items.map((item) => ({
+                    itemInstanceId: item?.itemInstanceId,
+                    itemId: item?.itemId,
+                    count: item?.count,
+                    name: item?.name,
+                    desc: item?.desc,
+                    enhanceLevel: item?.enhanceLevel,
+                    learnTechniqueId: item?.learnTechniqueId,
+                    learnTechniqueMaxLevel: item?.learnTechniqueMaxLevel,
+                    grade: item?.grade,
+                    level: item?.level,
+                    rawPayload: item?.rawPayload && typeof item.rawPayload === 'object'
+                        ? { ...item.rawPayload }
+                        : item?.rawPayload,
+                    lockedBy: item?.lockedBy,
+                }))
+                : [];
+            const summary = await repair.call(this.flushLedgerService, playerId, {
+                allowOfflineFenceRebase: true,
+                logUnresolved: false,
+                runtimeInventoryItems,
+            });
+            const remaps = Array.isArray(summary?.repairs)
+                ? summary.repairs.filter((entry) => entry?.playerId === playerId)
+                : [];
+            if (remaps.length === 0) {
+                return;
+            }
+            let changed = false;
+            for (const remap of remaps) {
+                const matches = player.inventory.items.filter((item) => (
+                    item?.itemInstanceId === remap.previousItemInstanceId
+                    && item?.itemId === remap.itemId
+                ));
+                if (matches.length === 0) {
+                    throw new Error(`player_asset_flush_runtime_remap_missing:${remap.previousItemInstanceId}`);
+                }
+                for (const item of matches) {
+                    item.itemInstanceId = remap.nextItemInstanceId;
+                    if (item.rawPayload && typeof item.rawPayload === 'object'
+                        && Object.prototype.hasOwnProperty.call(item.rawPayload, 'itemInstanceId')) {
+                        item.rawPayload.itemInstanceId = remap.nextItemInstanceId;
+                    }
+                }
+                changed = true;
+            }
+            if (changed) {
+                player.inventory.revision += 1;
+                markPlayerDirtyDomains(player, ['inventory']);
+                this.bumpPersistentRevision(player);
+            }
+            this.logger.warn(
+                `离线挂机玩家登录前已同步资产冲突换号：playerId=${playerId} remaps=${remaps.length}`,
+            );
+        });
+        return true;
     }
     /** 仅在测试 harness 缺失 RuntimeEventBusService 时打印一次警告，避免每条通知刷屏。 */
     warnNoticeFallbackOnce() {
@@ -5117,6 +5202,40 @@ export class PlayerRuntimeService {
             .filter((player) => isPlayerRuntimeDirty(player))
             .map((player) => player.playerId);
     }
+    /**
+     * 临时持有指定持久化域，使普通 flush/ledger 在跨域检查点提交前不抢先落盘。
+     * 使用引用计数，允许多个独立协调器安全嵌套持有同一域。
+     */
+    holdPersistenceDomains(playerId, domains) {
+        const player = this.players.get(playerId);
+        if (!player) {
+            return;
+        }
+        const holds = ensurePlayerPersistenceDomainHoldCountMap(player);
+        for (const domain of normalizePlayerPersistenceDomainNames(domains)) {
+            holds.set(domain, Math.max(0, Math.trunc(Number(holds.get(domain)) || 0)) + 1);
+        }
+    }
+    /** 释放跨域检查点持有的持久化域；归零后普通 flush 会重新看到仍然脏的域。 */
+    releasePersistenceDomains(playerId, domains) {
+        const player = this.players.get(playerId);
+        const holds = readPlayerPersistenceDomainHoldCountMap(player);
+        if (!holds) {
+            return;
+        }
+        for (const domain of normalizePlayerPersistenceDomainNames(domains)) {
+            const nextCount = Math.max(0, Math.trunc(Number(holds.get(domain)) || 0) - 1);
+            if (nextCount > 0) {
+                holds.set(domain, nextCount);
+            }
+            else {
+                holds.delete(domain);
+            }
+        }
+        if (holds.size === 0) {
+            delete player.persistenceDomainHoldCountByDomain;
+        }
+    }
     /** getPersistenceRevision：读取玩家持久化版本。 */
     getPersistenceRevision(playerId) {
         const player = this.players.get(playerId);
@@ -5147,10 +5266,10 @@ export class PlayerRuntimeService {
             if (isNativeGmBotPlayerId(player.playerId) || isImmediateDomainPersistenceSuppressed(player)) {
                 continue;
             }
-            const currentDomains = readPlayerDirtyDomains(player);
-            const domains = currentDomains && currentDomains.size > 0
+            const currentDomains = readUnheldPlayerDirtyDomains(player);
+            const domains = currentDomains.size > 0
                 ? Array.from(currentDomains)
-                : (player.persistentRevision > Math.max(
+                : (!hasHeldPlayerPersistenceDomains(player) && player.persistentRevision > Math.max(
                     Math.max(0, Math.trunc(Number(player.persistedRevision) || 0)),
                     Math.max(0, Math.trunc(Number(player.stagedRevision) || 0)),
                 )
@@ -5265,12 +5384,12 @@ export class PlayerRuntimeService {
             if (isNativeGmBotPlayerId(player.playerId) || isImmediateDomainPersistenceSuppressed(player)) {
                 continue;
             }
-            const dirtyDomains = readPlayerDirtyDomains(player);
-            if (dirtyDomains && dirtyDomains.size > 0) {
-                dirtyPlayers.set(player.playerId, new Set(dirtyDomains));
+            const dirtyDomains = readUnheldPlayerDirtyDomains(player);
+            if (dirtyDomains.size > 0) {
+                dirtyPlayers.set(player.playerId, dirtyDomains);
                 continue;
             }
-            if (player.persistentRevision > Math.max(
+            if (!hasHeldPlayerPersistenceDomains(player) && player.persistentRevision > Math.max(
                 Math.max(0, Math.trunc(Number(player.persistedRevision) || 0)),
                 Math.max(0, Math.trunc(Number(player.stagedRevision) || 0)),
             )) {
@@ -5550,6 +5669,14 @@ export class PlayerRuntimeService {
             alchemyJob: player.alchemyJob,
             enhancementJob: player.enhancementJob,
             bodyTraining: player.bodyTraining,
+            alchemySkill: player.alchemySkill,
+            forgingSkill: player.forgingSkill,
+            enhancementSkill: player.enhancementSkill,
+            transmissionSkill: player.transmissionSkill,
+            gatherSkill: player.gatherSkill,
+            miningSkill: player.miningSkill,
+            buildingSkill: player.buildingSkill,
+            formationSkill: player.formationSkill,
             monsterKillCount: player.monsterKillCount,
             eliteMonsterKillCount: player.eliteMonsterKillCount,
             bossMonsterKillCount: player.bossMonsterKillCount,
@@ -5597,6 +5724,14 @@ export class PlayerRuntimeService {
                 rootFoundation: normalizeCounter(snapshot.progression?.rootFoundation),
                 realm,
                 bodyTraining,
+                alchemySkill: normalizeCraftSkillState(snapshot.progression?.alchemySkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
+                forgingSkill: normalizeCraftSkillState(snapshot.progression?.forgingSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
+                enhancementSkill: normalizeCraftSkillState(snapshot.progression?.enhancementSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
+                transmissionSkill: normalizeCraftSkillState(snapshot.progression?.transmissionSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
+                gatherSkill: normalizeCraftSkillState(snapshot.progression?.gatherSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
+                miningSkill: normalizeCraftSkillState(snapshot.progression?.miningSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
+                buildingSkill: normalizeCraftSkillState(snapshot.progression?.buildingSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
+                formationSkill: normalizeCraftSkillState(snapshot.progression?.formationSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
                 attrs: this.playerAttributesService.createInitialState(),
                 equipment: { revision: 1, slots: equipmentSlots },
                 artifacts: normalizeArtifactStateWithTemplates(snapshot.artifacts, this.contentTemplateRepository, false),
@@ -6674,6 +6809,44 @@ function clearPlayerDirtyDomains(player) {
 function readPlayerDirtyDomains(player) {
     return player?.dirtyDomains instanceof Set ? player.dirtyDomains : null;
 }
+function ensurePlayerPersistenceDomainHoldCountMap(player) {
+    if (!(player?.persistenceDomainHoldCountByDomain instanceof Map)) {
+        player.persistenceDomainHoldCountByDomain = new Map();
+    }
+    return player.persistenceDomainHoldCountByDomain;
+}
+function readPlayerPersistenceDomainHoldCountMap(player) {
+    return player?.persistenceDomainHoldCountByDomain instanceof Map
+        ? player.persistenceDomainHoldCountByDomain
+        : null;
+}
+function normalizePlayerPersistenceDomainNames(domains) {
+    const normalized = new Set();
+    if (!domains || typeof domains[Symbol.iterator] !== 'function') {
+        return normalized;
+    }
+    for (const domain of domains) {
+        const value = typeof domain === 'string' ? domain.trim() : '';
+        if (value) {
+            normalized.add(value);
+        }
+    }
+    return normalized;
+}
+function hasHeldPlayerPersistenceDomains(player) {
+    return (readPlayerPersistenceDomainHoldCountMap(player)?.size ?? 0) > 0;
+}
+function readUnheldPlayerDirtyDomains(player) {
+    const dirtyDomains = readPlayerDirtyDomains(player);
+    if (!dirtyDomains || dirtyDomains.size === 0) {
+        return new Set();
+    }
+    const heldDomains = readPlayerPersistenceDomainHoldCountMap(player);
+    if (!heldDomains || heldDomains.size === 0) {
+        return new Set(dirtyDomains);
+    }
+    return new Set(Array.from(dirtyDomains).filter((domain) => !heldDomains.has(domain)));
+}
 function isImmediateDomainPersistenceSuppressed(player) {
     return Boolean(player?.suppressImmediateDomainPersistence);
 }
@@ -6681,11 +6854,11 @@ function isPlayerRuntimeDirty(player) {
     if (isImmediateDomainPersistenceSuppressed(player)) {
         return false;
     }
-    return (player?.dirtyDomains instanceof Set && player.dirtyDomains.size > 0)
-        || player.persistentRevision > Math.max(
+    return readUnheldPlayerDirtyDomains(player).size > 0
+        || (!hasHeldPlayerPersistenceDomains(player) && player.persistentRevision > Math.max(
             Math.max(0, Math.trunc(Number(player.persistedRevision) || 0)),
             Math.max(0, Math.trunc(Number(player.stagedRevision) || 0)),
-        );
+        ));
 }
 /**
  * buildEquipmentSnapshot：构建并返回目标对象。
@@ -10247,12 +10420,50 @@ function normalizePendingLogbookMessage(input) {
     const from = typeof input.from === 'string' && input.from.trim().length > 0
         ? input.from.trim()
         : undefined;
+    const structured = normalizePendingStructuredNotice(input.structured);
+    const structuredGroup = Array.isArray(input.structuredGroup)
+        ? input.structuredGroup.map(normalizePendingStructuredNotice).filter(Boolean)
+        : [];
     return {
         id,
         kind,
         text,
         from,
         at,
+        ...(structured ? { structured } : {}),
+        ...(structuredGroup.length > 0 ? { structuredGroup } : {}),
+    };
+}
+
+function normalizePendingStructuredNotice(input) {
+    if (!input || typeof input !== 'object' || typeof input.key !== 'string' || !input.key.trim()) {
+        return null;
+    }
+    const vars = input.vars && typeof input.vars === 'object' && !Array.isArray(input.vars)
+        ? Object.fromEntries(Object.entries(input.vars).filter(([, value]) => typeof value === 'string' || Number.isFinite(value)))
+        : null;
+    const pills = Array.isArray(input.pills)
+        ? input.pills.filter((entry) => entry && typeof entry === 'object' && typeof entry.key === 'string').map((entry) => ({
+            ...entry,
+            ...(Array.isArray(entry.tooltipLines) ? { tooltipLines: entry.tooltipLines.filter((line) => typeof line === 'string') } : {}),
+        }))
+        : null;
+    const badges = Array.isArray(input.badges) ? input.badges.filter((entry) => typeof entry === 'string') : null;
+    return {
+        key: input.key.trim(),
+        ...(vars && Object.keys(vars).length > 0 ? { vars } : {}),
+        ...(pills && pills.length > 0 ? { pills } : {}),
+        ...(badges && badges.length > 0 ? { badges } : {}),
+    };
+}
+
+function clonePendingLogbookMessage(entry) {
+    return {
+        ...entry,
+        ...(entry?.structured ? { structured: normalizePendingStructuredNotice(entry.structured) } : {}),
+        ...(Array.isArray(entry?.structuredGroup)
+            ? { structuredGroup: entry.structuredGroup.map(normalizePendingStructuredNotice).filter(Boolean) }
+            : {}),
     };
 }
 
@@ -10281,11 +10492,35 @@ function isSamePendingLogbookMessages(left, right) {
             || a.kind !== b.kind
             || a.text !== b.text
             || a.from !== b.from
-            || a.at !== b.at) {
+            || a.at !== b.at
+            || !isSamePendingNoticeValue(a.structured, b.structured)
+            || !isSamePendingNoticeValue(a.structuredGroup, b.structuredGroup)) {
             return false;
         }
     }
     return true;
+}
+
+function isSamePendingNoticeValue(left, right) {
+    if (left === right) {
+        return true;
+    }
+    if (Array.isArray(left) || Array.isArray(right)) {
+        if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
+            return false;
+        }
+        return left.every((entry, index) => isSamePendingNoticeValue(entry, right[index]));
+    }
+    if (!left || !right || typeof left !== 'object' || typeof right !== 'object') {
+        return false;
+    }
+    const leftKeys = Object.keys(left);
+    const rightKeys = Object.keys(right);
+    if (leftKeys.length !== rightKeys.length) {
+        return false;
+    }
+    return leftKeys.every((key) => Object.prototype.hasOwnProperty.call(right, key)
+        && isSamePendingNoticeValue(left[key], right[key]));
 }
 /**
  * clamp：执行clamp相关逻辑。
@@ -10350,6 +10585,13 @@ function repairDuplicateInventoryItemInstanceIds(items: any[]): boolean {
 
 function normalizeInventoryItemInstanceId(value: unknown): string {
     return typeof value === 'string' ? value.trim() : '';
+}
+
+function isDetachedPlayerRuntime(player: any): boolean {
+    if (!player || typeof player !== 'object') {
+        return false;
+    }
+    return typeof player.sessionId !== 'string' || player.sessionId.trim().length === 0;
 }
 
 function findInventoryItemIndexByInstanceId(items: any[] | null | undefined, itemInstanceId: unknown): number {
@@ -10521,11 +10763,15 @@ function buildActionEntries(player, currentTick) {
     const autoBattleSkillsChanged = !isSameAutoBattleSkillList(player.combat.autoBattleSkills, autoBattleSkills);
     player.combat.autoBattleSkills = autoBattleSkills;
     for (const entry of player.actions.contextActions) {
-        const readyTick = normalizeActionCooldownReadyTick(
+        const runtimeReadyTick = normalizeActionCooldownReadyTick(
             player,
             entry.id,
             currentTick,
             resolveContextActionCooldownTicks(entry),
+        );
+        const readyTick = Math.max(
+            runtimeReadyTick,
+            normalizeContextActionCooldownReadyTick(entry, currentTick),
         );
         const nextAction = reuseActionEntry(previousById.get(entry.id), {
             ...entry,
@@ -10575,6 +10821,12 @@ function resolveContextActionCooldownTicks(entry) {
     return null;
 }
 
+function normalizeContextActionCooldownReadyTick(entry, currentTick) {
+    const readyTick = Math.max(0, Math.trunc(Number(entry?.cooldownReadyTick ?? 0)));
+    const normalizedCurrentTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+    return readyTick > normalizedCurrentTick ? readyTick : 0;
+}
+
 function normalizeActionCooldownReadyTick(player, actionId, currentTick, maxCooldownTicks) {
     const cooldowns = player?.combat?.cooldownReadyTickBySkillId;
     if (!cooldowns || !actionId) {
@@ -10620,6 +10872,7 @@ function isSameActionList(previous, current) {
             || left.type !== right.type
             || left.desc !== right.desc
             || left.cooldownLeft !== right.cooldownLeft
+            || left.cooldownReadyTick !== right.cooldownReadyTick
             || left.range !== right.range
             || left.requiresTarget !== right.requiresTarget
             || left.targetMode !== right.targetMode

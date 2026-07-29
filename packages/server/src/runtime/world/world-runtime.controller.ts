@@ -267,6 +267,8 @@ export class WorldRuntimeController {
                 text: body?.text,
                 from: body?.from,
                 at: Number.isFinite(body?.at) ? Number(body.at) : Date.now(),
+                structured: body?.structured,
+                structuredGroup: body?.structuredGroup,
             }),
         };
     }

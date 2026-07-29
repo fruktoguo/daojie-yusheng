@@ -3448,7 +3448,7 @@ async function main(): Promise<void> {
       ok: true,
       playerId,
       runtimePlayerId,
-      answers: 'with-db 下已验证 DurableOperationService 的 runtime_owner_id + session_epoch fencing，以及 mail/market-storage/market-sell-now/market-buy-now/market-cancel/npc-shop/wallet/equipment/active-job-start/active-job-cancel/active-job-complete/active-job-advance/active-job-update 十三条强事务链的幂等回放与拒绝回滚；active-job-advance 额外覆盖 profession 同事务回读、重放身份、失败回滚、跨 owner 拒绝和资产 no-op 不改写，MailRuntimeService 真实领取入口也会走 durable claim 主链并刷新结构化邮箱真源',
+      answers: 'with-db 下已验证 DurableOperationService 的 runtime_owner_id + session_epoch fencing，以及 mail/market-storage/market-sell-now/market-buy-now/market-cancel/npc-shop/wallet/equipment/active-job-start/active-job-cancel/active-job-complete/active-job-advance/active-job-update 十三条强事务链的幂等回放与拒绝回滚；active-job-advance 额外覆盖同一 job 的 durable/审计压缩、无消费者 outbox 停发、profession 同事务回读、重放身份、失败回滚、跨 owner 拒绝和资产 no-op 不改写，MailRuntimeService 真实领取入口也会走 durable claim 主链并刷新结构化邮箱真源',
       excludes: '不证明真实客户端并发窗口、tick 编排内 mutation intent、GM restore、批量投递或 outbox dispatcher 消费',
       completionMapping: 'release:proof:with-db.durable-operation',
       firstResult,
@@ -3743,13 +3743,15 @@ async function verifyActiveJobAdvanceProfessionAndNoopWrites(
     expectedSessionEpoch: 19,
     expectedJobRunId: jobRunId,
     expectedJobVersion: 11,
-    nextInventoryItems: inventoryItems,
-    nextWalletBalances: walletBalances,
-    nextEquipmentSlots: equipmentSlots,
+    nextInventoryItems: [inventoryItems[0]],
+    nextWalletBalances: [walletBalances[0]],
     nextEnhancementRecords: enhancementRecords,
     nextProfessionStates: professionStates,
     nextActiveJob: secondJob,
     completionKind: 'advanced',
+    assetWriteMode: 'patch',
+    removedInventoryItemInstanceIds: [],
+    removedWalletTypes: [],
   });
   if (!secondResult.ok || secondResult.alreadyCommitted || secondResult.jobVersion !== 12) {
     throw new Error(`unexpected second active-job advance result: ${JSON.stringify(secondResult)}`);
@@ -3759,13 +3761,30 @@ async function verifyActiveJobAdvanceProfessionAndNoopWrites(
     throw new Error(`durable no-op asset rows were rewritten: before=${JSON.stringify(beforeNoop)} after=${JSON.stringify(afterNoop)}`);
   }
 
-  const operationRow = await fetchSingleRow(
+  const operationRows = await fetchRows(
     pool,
-    `SELECT operation_type, payload_jsonb FROM durable_operation_log WHERE operation_id = $1`,
-    [secondOperationId],
+    `SELECT operation_id, request_id, operation_type, payload_jsonb
+     FROM durable_operation_log
+     WHERE player_id = $1 AND operation_type = 'active_job_advance_with_assets'`,
+    [playerId],
   );
-  const outboxRow = await fetchSingleRow(pool, 'SELECT topic FROM outbox_event WHERE operation_id = $1', [secondOperationId]);
-  const auditRow = await fetchSingleRow(pool, 'SELECT action FROM asset_audit_log WHERE operation_id = $1', [secondOperationId]);
+  const operationRow = operationRows[0] ?? null;
+  const operationCompaction = (
+    operationRow?.payload_jsonb as Record<string, unknown> | null
+  )?._compaction as Record<string, unknown> | undefined;
+  const outboxRows = await fetchRows(
+    pool,
+    'SELECT topic FROM outbox_event WHERE operation_id = ANY($1::varchar[])',
+    [[firstOperationId, secondOperationId]],
+  );
+  const auditRows = await fetchRows(
+    pool,
+    `SELECT operation_id, action, delta_jsonb
+     FROM asset_audit_log
+     WHERE player_id = $1 AND asset_type = 'active_job' AND asset_ref_id = $2 AND action = 'advance'`,
+    [playerId, jobRunId],
+  );
+  const auditRow = auditRows[0] ?? null;
   const professionRow = await fetchSingleRow(
     pool,
     `SELECT level, exp, exp_to_next FROM player_profession_state WHERE player_id = $1 AND profession_type = 'enhancement'`,
@@ -3777,9 +3796,13 @@ async function verifyActiveJobAdvanceProfessionAndNoopWrites(
     [playerId],
   );
   if (
-    operationRow?.operation_type !== 'active_job_advance_with_assets'
+    operationRows.length !== 1
+    || operationRow?.operation_type !== 'active_job_advance_with_assets'
+    || operationRow?.request_id !== secondOperationId
     || Number((operationRow?.payload_jsonb as { professionStateCount?: unknown } | null)?.professionStateCount) !== 1
-    || outboxRow?.topic !== 'player.active_job.advanced'
+    || Number(operationCompaction?.operationCount) !== 2
+    || outboxRows.length !== 0
+    || auditRows.length !== 1
     || auditRow?.action !== 'advance'
     || Number(professionRow?.level) !== 5
     || Number(professionRow?.exp) !== 12
@@ -3789,7 +3812,7 @@ async function verifyActiveJobAdvanceProfessionAndNoopWrites(
   ) {
     throw new Error(
       `unexpected active-job advance profession projection: operation=${JSON.stringify(operationRow)}`
-      + ` outbox=${JSON.stringify(outboxRow)} audit=${JSON.stringify(auditRow)}`
+      + ` outbox=${JSON.stringify(outboxRows)} audit=${JSON.stringify(auditRows)}`
       + ` profession=${JSON.stringify(professionRow)} watermark=${JSON.stringify(watermarkRow)}`,
     );
   }

@@ -52,6 +52,7 @@ const FAILURE_TEXT: Record<string, string> = {
   invalid_time_chamber_speed: '时间倍率超出允许范围',
   invalid_time_chamber_capacity: '最大人数超出当前空间上限',
   invalid_time_chamber_name: '名称需为 1 至 20 个有效字符',
+  invalid_time_chamber_password: '进入密码需为 1 至 64 个有效字符',
   invalid_time_chamber_size: '该空间尺寸不可用',
   time_chamber_full: '密室使用名额已满',
   time_chamber_activation_required: '密室当前尚未开启',
@@ -67,6 +68,9 @@ const FAILURE_TEXT: Record<string, string> = {
   time_chamber_not_empty: '密室内部存在对象，暂时不能调整空间',
   time_chamber_has_buildings: '密室内已有建筑，不能再调整空间大小',
   time_chamber_revision_conflict: '密室状态已变化，请重新操作',
+  time_chamber_password_required: '请输入密室进入密码',
+  time_chamber_password_incorrect: '密室进入密码错误',
+  time_chamber_password_rate_limited: '密码尝试过于频繁，请稍后再试',
   time_chamber_operation_failed: '密室操作暂未完成，请稍后重试',
   time_chamber_activation_failed: '密室开启失败，请稍后重试',
 };
@@ -191,20 +195,22 @@ export function createMainTimeChamberStateSource(options: MainTimeChamberStateSo
 
   options.usageModal.setCallbacks({
     onClose: () => closePanel('usage'),
-    onActivate: (durationHours) => sendOperation<TimeChamberUsageDetailView>('usage', 'activate', (detail, requestId) => {
+    onActivate: (durationHours, accessPassword) => sendOperation<TimeChamberUsageDetailView>('usage', 'activate', (detail, requestId) => {
       options.socket.sendActivateTimeChamber({
         sourceInstanceId: detail.sourceInstanceId,
         buildingId: detail.buildingId,
         requestId,
         durationHours,
         expectedRevision: detail.revision,
+        ...(accessPassword ? { accessPassword } : {}),
       });
     }),
-    onEnter: () => sendOperation<TimeChamberUsageDetailView>('usage', 'enter', (detail, requestId) => {
+    onEnter: (accessPassword) => sendOperation<TimeChamberUsageDetailView>('usage', 'enter', (detail, requestId) => {
       options.socket.sendEnterTimeChamber({
         sourceInstanceId: detail.sourceInstanceId,
         buildingId: detail.buildingId,
         requestId,
+        ...(accessPassword ? { accessPassword } : {}),
       });
     }),
   });
@@ -299,7 +305,16 @@ export function createMainTimeChamberStateSource(options: MainTimeChamberStateSo
         }
       }
       if (!result.ok) {
-        options.showToast(FAILURE_TEXT[result.reason ?? ''] ?? '密室操作失败，请稍后重试', 'warn');
+        const failureText = FAILURE_TEXT[result.reason ?? ''] ?? '密室操作失败，请稍后重试';
+        const passwordFailure = result.reason === 'time_chamber_password_required'
+          || result.reason === 'time_chamber_password_incorrect'
+          || result.reason === 'time_chamber_password_rate_limited';
+        const passwordOperation = result.operation === 'activate' || result.operation === 'enter'
+          ? result.operation
+          : undefined;
+        if (!passwordFailure || !options.usageModal.showPasswordError(failureText, passwordOperation)) {
+          options.showToast(failureText, 'warn');
+        }
         if (isDetailOperation) {
           const failedMode = result.operation === 'usage_detail' ? 'usage' : 'management';
           clearModal(failedMode);

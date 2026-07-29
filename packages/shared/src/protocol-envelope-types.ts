@@ -5,6 +5,7 @@
  */
 import type { PlayerRealmState } from './cultivation-types';
 import type {
+  LeaderboardAttributeBoards,
   LeaderboardBodyTrainingEntry,
   LeaderboardDeathEntry,
   LeaderboardInvitationBoard,
@@ -14,7 +15,7 @@ import type {
   LeaderboardRealmEntry,
   LeaderboardSectEntry,
   LeaderboardSpiritStoneEntry,
-  LeaderboardSupremeAttrEntry,
+  LeaderboardTechniqueBoards,
   LeaderboardWorldSummary,
 } from './leaderboard-types';
 
@@ -74,11 +75,10 @@ export interface LeaderboardView {
  */
 
     bodyTraining: LeaderboardBodyTrainingEntry[];
-    /**
- * supremeAttrs：supremeAttr相关字段。
- */
-
-    supremeAttrs: LeaderboardSupremeAttrEntry[];
+    /** 六维各维度前十。 */
+    attributes: LeaderboardAttributeBoards;
+    /** 八项技艺各自前十。 */
+    techniques: LeaderboardTechniqueBoards;
     /**
  * sects：宗门排行榜字段。
  */

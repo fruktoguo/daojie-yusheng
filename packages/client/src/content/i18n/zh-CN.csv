@@ -780,6 +780,7 @@ skill-tooltip.buff.stacks.label,技能提示,层数,范围D固定前端可见文
 skill-tooltip.buff.stacks.unknown,技能提示,状态层数,范围D固定前端可见文本
 skill-tooltip.buff.stacks.value,技能提示,{stacks}层,范围D固定前端可见文本
 skill-tooltip.cast.unstable,技能提示,无法稳定施展,范围D固定前端可见文本
+skill-tooltip.chant.value,技能提示,{windupTicks} 息,范围D固定前端可见文本
 skill-tooltip.cleanse.value,技能提示,{target}，移除 {count} 个{category},范围D固定前端可见文本
 skill-tooltip.cooldown.value,技能提示,{cooldown} 息,范围D固定前端可见文本
 skill-tooltip.cost.actual-html,技能提示,"{baseCost}<span class=""skill-tooltip-cost-actual-separator""> · </span><span class=""{className}"">实际 {actualText}</span>",范围D固定前端可见文本
@@ -792,6 +793,7 @@ skill-tooltip.heal.allies,技能提示,友方治疗,范围D固定前端可见文
 skill-tooltip.heal.self,技能提示,自身治疗,范围D固定前端可见文本
 skill-tooltip.heal.target,技能提示,目标治疗,范围D固定前端可见文本
 skill-tooltip.label-line.effect,技能提示,效果：{value},范围D固定前端可见文本
+skill-tooltip.label.chant,技能提示,吟唱,范围D固定前端可见文本
 skill-tooltip.label.cleanse,技能提示,净化,范围D固定前端可见文本
 skill-tooltip.label.cooldown,技能提示,冷却,范围D固定前端可见文本
 skill-tooltip.label.effect,技能提示,效果,范围D固定前端可见文本
@@ -2086,7 +2088,7 @@ world.panel.sect-fallback.desc,世界面板,宗门驻地。,
 world.panel.sect-fallback.mood,世界面板,宗门,
 world.panel.sect-fallback.route,世界面板,宗门驻地,
 world.panel.threats-empty,世界面板,未知,
-world.panel.tianji.leaderboard-desc,世界面板,查看境界、击杀、灵石、死亡、炼体、六维最强与宗门榜单。,
+world.panel.tianji.leaderboard-desc,世界面板,按天榜、战斗、技艺与人榜查看全服排行。,
 world.panel.tianji.leaderboard-title,世界面板,排行榜,
 world.panel.tianji.title,世界面板,天机阁,
 world.panel.tianji.view,世界面板,查看,
@@ -2109,6 +2111,10 @@ world-summary.action.refresh-summary,世界信息,刷新卷宗,范围D固定前�
 world-summary.generated-at.loading,世界信息,调卷中,范围D固定前端可见文本
 world-summary.hint.total-spirit-stones,世界信息,包含背包、坊市托管仓与求购挂单中冻结的灵石。,范围D固定前端可见文本
 world-summary.leaderboard.empty,世界信息,暂无榜册内容。,范围D固定前端可见文本
+world-summary.leaderboard.group.combat,世界信息,战斗,范围D固定前端可见文本
+world-summary.leaderboard.group.heaven,世界信息,天榜,范围D固定前端可见文本
+world-summary.leaderboard.group.social,世界信息,人榜,范围D固定前端可见文本
+world-summary.leaderboard.group.technique,世界信息,技艺,范围D固定前端可见文本
 world-summary.leaderboard.invitation.foundation-title,世界信息,筑基成道,范围D固定前端可见文本
 world-summary.leaderboard.invitation.qi-title,世界信息,引气入道,范围D固定前端可见文本
 world-summary.leaderboard.invitation.total-title,世界信息,引渡总数,范围D固定前端可见文本
@@ -2116,9 +2122,20 @@ world-summary.leaderboard.loading,世界信息,天机阁正在调阅最新榜册
 world-summary.leaderboard.location.loading,世界信息,坐标：天机追索中,范围D固定前端可见文本
 world-summary.leaderboard.location.offline,世界信息,"离线坐标：{mapName} ({x}, {y})",范围D固定前端可见文本
 world-summary.leaderboard.location.online,世界信息,"坐标：{mapName} ({x}, {y})",范围D固定前端可见文本
+world-summary.leaderboard.meta.exp,世界信息,当前经验 {exp},范围D固定前端可见文本
 world-summary.leaderboard.meta.monster-kills,世界信息,精英 {elite} · Boss {boss},范围D固定前端可见文本
+world-summary.leaderboard.meta.progress,世界信息,经验 {exp} / {expToNext},范围D固定前端可见文本
+world-summary.leaderboard.meta.realm-progress,世界信息,修为 {progress} · 底蕴 {foundation},范围D固定前端可见文本
 world-summary.leaderboard.meta.sect-leader,世界信息,宗主 {leaderName},范围D固定前端可见文本
+world-summary.leaderboard.navigation.groups-label,世界信息,排行榜分组,范围D固定前端可见文本
+world-summary.leaderboard.navigation.tabs-label,世界信息,当前分组榜单,范围D固定前端可见文本
 world-summary.leaderboard.subtitle,世界信息,收录前 {limit} 名 · 十分钟一更 · {time},范围D固定前端可见文本
+world-summary.leaderboard.tab.attribute.constitution,世界信息,体魄,范围D固定前端可见文本
+world-summary.leaderboard.tab.attribute.meridians,世界信息,经脉,范围D固定前端可见文本
+world-summary.leaderboard.tab.attribute.perception,世界信息,身法,范围D固定前端可见文本
+world-summary.leaderboard.tab.attribute.spirit,世界信息,神识,范围D固定前端可见文本
+world-summary.leaderboard.tab.attribute.strength,世界信息,力道,范围D固定前端可见文本
+world-summary.leaderboard.tab.attribute.talent,世界信息,根骨,范围D固定前端可见文本
 world-summary.leaderboard.tab.body-training,世界信息,炼体,范围D固定前端可见文本
 world-summary.leaderboard.tab.deaths,世界信息,身陨,范围D固定前端可见文本
 world-summary.leaderboard.tab.invitation,世界信息,引渡,范围D固定前端可见文本
@@ -2127,8 +2144,16 @@ world-summary.leaderboard.tab.player-kills,世界信息,杀伐,范围D固定前�
 world-summary.leaderboard.tab.realm,世界信息,境界,范围D固定前端可见文本
 world-summary.leaderboard.tab.sects,世界信息,宗门,范围D固定前端可见文本
 world-summary.leaderboard.tab.spirit-stones,世界信息,灵石,范围D固定前端可见文本
-world-summary.leaderboard.tab.supreme-attrs,世界信息,六维最强,范围D固定前端可见文本
+world-summary.leaderboard.tab.technique.alchemy,世界信息,炼丹,范围D固定前端可见文本
+world-summary.leaderboard.tab.technique.building,世界信息,营造,范围D固定前端可见文本
+world-summary.leaderboard.tab.technique.enhancement,世界信息,强化,范围D固定前端可见文本
+world-summary.leaderboard.tab.technique.forging,世界信息,炼器,范围D固定前端可见文本
+world-summary.leaderboard.tab.technique.formation,世界信息,阵法,范围D固定前端可见文本
+world-summary.leaderboard.tab.technique.gather,世界信息,采集,范围D固定前端可见文本
+world-summary.leaderboard.tab.technique.mining,世界信息,挖矿,范围D固定前端可见文本
+world-summary.leaderboard.tab.technique.transmission,世界信息,传法,范围D固定前端可见文本
 world-summary.leaderboard.title,世界信息,排行榜,范围D固定前端可见文本
+world-summary.leaderboard.value.attribute,世界信息,{value} 点,范围D固定前端可见文本
 world-summary.leaderboard.value.body-training,世界信息,炼体 {level} 层,范围D固定前端可见文本
 world-summary.leaderboard.value.deaths,世界信息,死亡 {count},范围D固定前端可见文本
 world-summary.leaderboard.value.invitation-foundation,世界信息,{count} 人筑基,范围D固定前端可见文本
@@ -2138,6 +2163,7 @@ world-summary.leaderboard.value.monster-kills,世界信息,击杀 {count},范围
 world-summary.leaderboard.value.player-kills,世界信息,击杀玩家 {count},范围D固定前端可见文本
 world-summary.leaderboard.value.sect-members,世界信息,{count} 人,范围D固定前端可见文本
 world-summary.leaderboard.value.spirit-stones,世界信息,{count} 灵石,范围D固定前端可见文本
+world-summary.leaderboard.value.technique-level,世界信息,技艺 {level} 级,范围D固定前端可见文本
 world-summary.modal.hint.close-outside,世界信息,点击空白处关闭,范围D固定前端可见文本
 world-summary.row.action.alchemy,世界信息,炼丹,范围D固定前端可见文本
 world-summary.row.action.combat,世界信息,战斗,范围D固定前端可见文本
@@ -2446,6 +2472,7 @@ notice.combat.sha-backlash-convert,通知,身死后煞气入体，煞气反噬�
 notice.combat.sha-backlash-loss,通知,煞气反噬，折损修为 {progress}、底蕴 {foundation},
 notice.combat.sha-infusion,通知,杀念入体，煞气加深至 {stacks} 层,
 notice.combat.soul-injury,通知,神魂受损,
+notice.combat.offline-defeat,通知,你在离线挂机期间于{locationName}被{killerName}击败，离线挂机已结束。,
 notice.combat.temporary-tiles-created,通知,{skillName} 生成了 {count} 处临时石头,
 notice.command.caster-dead,通知,你当前无法继续行动。,
 notice.command.casting-busy,通知,正在吟唱中，无法执行该动作。,
@@ -2479,6 +2506,7 @@ notice.time-chamber.unavailable,通知,密室暂时无法通行，请稍后再�
 notice.tower.entered,通知,进入通天塔第 {layer} 层。,
 notice.tower.exited,通知,退出通天塔，返回 {mapName}。,
 notice.tower.layer-cleared,通知,通天塔第 {layer} 层已通关，可前往第 {unlockedLayer} 层。,
+notice.tower.layer-cleared-cooldown,通知,通天塔第 {layer} 层已清空，需等待 {cooldownSeconds} 秒后换层。,
 notice.craft.activity-condition-failed,通知,{activityLabel}中断：{reason},
 notice.craft.activity-interrupted,通知,{activityLabel}被{reasonLabel}打断,
 notice.craft.activity-interrupted-wait,通知,{itemName} 的{activityLabel}被打断，暂歇 {ticks} 息,

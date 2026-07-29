@@ -34,6 +34,12 @@ export const MOVE_SPEED_SOFT_CAP = MOVE_POINT_UNIT * 5;
 /** 移速软衰减后每翻倍提供的有效移速增量 */
 export const MOVE_SPEED_SOFT_CAP_LOG_GAIN = MOVE_POINT_UNIT * 3;
 
+/** 玩家移速软衰减起点；玩家高身法曲线独立于妖兽追击速度。 */
+export const PLAYER_MOVE_SPEED_SOFT_CAP = MOVE_POINT_UNIT * 10;
+
+/** 玩家移速软衰减后每翻倍提供的有效移速增量。 */
+export const PLAYER_MOVE_SPEED_SOFT_CAP_LOG_GAIN = MOVE_POINT_UNIT * 6;
+
 /** 各地形类型的移动消耗 */
 export const TILE_TRAVERSAL_COST: Record<TileType, number> = {
   floor: 100,

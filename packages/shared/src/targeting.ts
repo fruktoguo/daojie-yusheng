@@ -271,64 +271,47 @@ export function getCheckerboardCells(
   });
 }
 
-/** 计算点到线段的距离平方，用于粗略厚线判断。 */
-function getDistanceSquaredToSegment(point: GridPoint, start: GridPoint, end: GridPoint): number {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  if (dx === 0 && dy === 0) {
-    const px = point.x - start.x;
-    const py = point.y - start.y;
-    return px * px + py * py;
-  }
-  const t = Math.max(
-    0,
-    Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy)),
-  );
-  const closestX = start.x + dx * t;
-  const closestY = start.y + dy * t;
-  const offsetX = point.x - closestX;
-  const offsetY = point.y - closestY;
-  return offsetX * offsetX + offsetY * offsetY;
+/** 把连续分量量化为八方向格步长的一轴。 */
+function quantizeLineNormalComponent(value: number): number {
+  return value >= 0.5 ? 1 : value <= -0.5 ? -1 : 0;
 }
 
-/** 计算带宽度的直线覆盖格子。 */
-function getWideLineCells(start: GridPoint, end: GridPoint, width: number): GridPoint[] {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+/** 将直线法向量量化到最接近的八方向格步长。 */
+function resolveLineNormalStep(start: GridPoint, end: GridPoint): GridPoint {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const maxDelta = Math.max(Math.abs(dx), Math.abs(dy));
+  if (maxDelta <= 0) {
+    return { x: 0, y: 0 };
+  }
+  return {
+    x: quantizeLineNormalComponent(-dy / maxDelta),
+    y: quantizeLineNormalComponent(dx / maxDelta),
+  };
+}
 
-  const line = getLineCells(start, end);
-  if (line.length <= 1) {
+/** 计算无圆头的定宽直线条带，覆盖数与线长乘宽度保持一致。 */
+function getWideLineCells(start: GridPoint, end: GridPoint, width: number): GridPoint[] {
+  const centerLine = getLineCells(start, end).slice(1);
+  if (centerLine.length <= 0) {
     return [];
   }
   const normalizedWidth = Math.max(1, Math.floor(width));
   if (normalizedWidth <= 1) {
-    return line.slice(1);
+    return centerLine;
   }
-  const halfThickness = (normalizedWidth - 1) / 2;
-  const padding = Math.ceil(halfThickness);
-  const cells: GridPoint[] = [];
-  const seen = new Set<string>();
-  const minX = Math.min(start.x, end.x) - padding;
-  const maxX = Math.max(start.x, end.x) + padding;
-  const minY = Math.min(start.y, end.y) - padding;
-  const maxY = Math.max(start.y, end.y) + padding;
-  const maxDistanceSquared = halfThickness * halfThickness + 1e-9;
-
-  for (let y = minY; y <= maxY; y += 1) {
-    for (let x = minX; x <= maxX; x += 1) {
-      if (x === start.x && y === start.y) {
-        continue;
-      }
-      if (getDistanceSquaredToSegment({ x, y }, start, end) > maxDistanceSquared) {
-        continue;
-      }
-      const key = `${x},${y}`;
-      if (seen.has(key)) {
-        continue;
-      }
-      seen.add(key);
-      cells.push({ x, y });
+  const normal = resolveLineNormalStep(start, end);
+  const negativeWidth = Math.floor((normalizedWidth - 1) / 2);
+  const positiveWidth = normalizedWidth - 1 - negativeWidth;
+  const cells = new Array<GridPoint>(centerLine.length * normalizedWidth);
+  let index = 0;
+  for (const center of centerLine) {
+    for (let offset = -negativeWidth; offset <= positiveWidth; offset += 1) {
+      cells[index] = {
+        x: center.x + normal.x * offset,
+        y: center.y + normal.y * offset,
+      };
+      index += 1;
     }
   }
   return cells;

@@ -8,11 +8,25 @@
  * 管理多频道消息展示、角色级本地缓存与向上翻页加载历史
  */
 
-import { formatDisplayNumber, getDamageTrailColor, uiLabels, type BuffModifierMode, type CombatNoticePayload, type ElementKey, type NoticePillConfig, type SkillDamageKind, type StructuredNoticePayload } from '@mud/shared';
+import {
+  formatDisplayNumber,
+  getDamageTrailColor,
+  uiLabels,
+  type BuffModifierMode,
+  type C2S_RequestChatHistoryView,
+  type ChatHistoryCursorView,
+  type ChatHistorySyncView,
+  type CombatNoticePayload,
+  type ElementKey,
+  type NoticePillConfig,
+  type ServerChatMessageView,
+  type SkillDamageKind,
+  type StructuredNoticePayload,
+} from '@mud/shared';
 import {
   CHAT_CHANNELS,
   CHAT_LOG_LOAD_BATCH_SIZE,
-  CHAT_LOG_MAX_PERSISTED_MESSAGES_PER_CHANNEL,
+  CHAT_LOG_MAX_MEMORY_MESSAGES_PER_CHANNEL,
   CHAT_LOG_MAX_VISIBLE_MESSAGES,
   CHAT_LOG_SCROLL_TOP_LOAD_THRESHOLD_PX,
   CHAT_MESSAGE_KINDS,
@@ -26,6 +40,7 @@ import {
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 import {
   appendChannelMessages,
+  appendChannelMessageBatch,
   clearLegacyChatStorage,
   loadOlderChannelMessages,
   loadRecentChannelMessages,
@@ -67,7 +82,7 @@ interface ChatChannelState {
 }
 
 /** 追加聊天消息时可覆盖的消息元数据。 */
-interface ChatAddMessageOptions {
+export interface ChatAddMessageOptions {
 /**
  * id：ID标识。
  */
@@ -91,6 +106,18 @@ interface ChatAddMessageOptions {
   structured?: unknown;
   /** 结构化通知数据（多条合并）。 */
   structuredGroup?: unknown[];
+  /** 仅供低频待确认通知使用；普通高频战斗日志仍不写 IndexedDB。 */
+  forcePersist?: boolean;
+}
+
+export interface ChatRealtimeMessageResult {
+  stored: boolean;
+  notify: boolean;
+}
+
+export interface ChatHistoryApplyResult {
+  applied: boolean;
+  newMessageCounts: Partial<Record<ChatMessageScope, number>>;
 }
 
 /** 解析后的战斗伤害或治疗文本片段。 */
@@ -161,6 +188,8 @@ const COMBAT_HEAL_PILL_COLOR = 'var(--chat-pill-buff)';
 const COMBAT_RESULT_PILL_COLOR = 'var(--chat-pill-result)';
 /** 可主动发送聊天内容的频道。 */
 const CHAT_SENDABLE_CHANNELS = new Set<ChatChannel>(['nearby', 'world', 'sect']);
+/** 仅保留当前内存窗口所需的落盘键，避免长时间在线时 Set 无界增长。 */
+const CHAT_PERSISTED_KEY_MEMORY_LIMIT = CHAT_LOG_MAX_MEMORY_MESSAGES_PER_CHANNEL * CHAT_CHANNELS.length * 2;
 
 const COMBAT_DAMAGE_ELEMENT_LABEL_TO_KEY: Record<string, ElementKey> = {
   金: 'metal',
@@ -178,6 +207,21 @@ function isChatChannel(value: unknown): value is ChatChannel {
 /** 判断值是否属于已知聊天消息类型。 */
 function isChatMessageKind(value: unknown): value is ChatMessageKind {
   return typeof value === 'string' && CHAT_MESSAGE_KINDS.includes(value as ChatMessageKind);
+}
+
+function isServerChatMessage(value: unknown): value is ServerChatMessageView {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const candidate = value as Partial<ServerChatMessageView>;
+  return typeof candidate.messageId === 'string'
+    && candidate.messageId.length > 0
+    && typeof candidate.fromPlayerId === 'string'
+    && typeof candidate.from === 'string'
+    && typeof candidate.text === 'string'
+    && Number.isFinite(candidate.occurredAt)
+    && isChatChannel(candidate.channel)
+    && CHAT_SENDABLE_CHANNELS.has(candidate.channel);
 }
 
 /** 判断值是否属于已知聊天消息范围。 */
@@ -247,7 +291,7 @@ function mergeMessages(
     }
     merged.set(entry.id, entry);
   }
-  const messages = sortMessagesByTime([...merged.values()]).slice(-CHAT_LOG_MAX_PERSISTED_MESSAGES_PER_CHANNEL);
+  const messages = sortMessagesByTime([...merged.values()]).slice(-CHAT_LOG_MAX_MEMORY_MESSAGES_PER_CHANNEL);
   return {
     messages,
     ids: new Set(messages.map((entry) => entry.id)),
@@ -265,7 +309,7 @@ function appendRealtimeMessage(state: ChatChannelState, entry: ChatStoredMessage
   if (!last || last.at < entry.at || (last.at === entry.at && last.id.localeCompare(entry.id) <= 0)) {
     state.messages.push(entry);
     state.messageIds.add(entry.id);
-    const overflow = state.messages.length - CHAT_LOG_MAX_PERSISTED_MESSAGES_PER_CHANNEL;
+    const overflow = state.messages.length - CHAT_LOG_MAX_MEMORY_MESSAGES_PER_CHANNEL;
     if (overflow > 0) {
       const removed = state.messages.splice(0, overflow);
       for (const oldEntry of removed) state.messageIds.delete(oldEntry.id);
@@ -1066,6 +1110,8 @@ export class ChatUI {
   private channelStates = new Map<ChatChannel, ChatChannelState>();
   /** 发送消息的外部回调。 */
   private onSend: ((message: string, channel: ChatMessageScope) => void) | null = null;
+  /** 本地水合完成后提交云端增量游标。 */
+  private onHistorySync: ((payload: C2S_RequestChatHistoryView) => void) | null = null;
   /** 当前激活的聊天频道。 */
   private activeChannel: ChatChannel = DEFAULT_CHAT_CHANNEL;
   /** 当前聊天范围 ID。 */
@@ -1074,10 +1120,17 @@ export class ChatUI {
   private messageSequence = 0;
   /** 已写入本地缓存的消息键。 */
   private persistedMessageKeys = new Set<string>();
+  /** 已落盘键的插入顺序，用于按固定内存预算淘汰。 */
+  private persistedMessageKeyOrder: string[] = [];
   /** 待提交到本地缓存的消息。 */
   private pendingPersistence = new Map<string, Promise<boolean>>();
+  /** 非当前可见频道的未读消息数量。 */
+  private unreadByChannel = new Map<ChatChannel, number>();
   /** 范围加载令牌，用于丢弃过期结果。 */
   private scopeLoadToken = 0;
+  /** 公共聊天历史请求序列与当前有效请求，隔离跨图晚到响应。 */
+  private historySyncSequence = 0;
+  private activeHistorySyncRequestId: string | null = null;
   /** 日志簿是否处于可见状态。 */
   private logbookVisible = false;
   /** 伤害提示浮层。 */
@@ -1101,6 +1154,7 @@ export class ChatUI {
       this.panes = [...this.panel.querySelectorAll<HTMLElement>('[data-chat-pane]')];
     }
     clearLegacyChatStorage();
+    this.ensureUnreadBadges();
     this.sendBtn.addEventListener('click', () => this.submit());
     this.input.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
@@ -1147,24 +1201,37 @@ export class ChatUI {
     this.onSend = onSend;
   }
 
+  setHistorySyncCallback(
+    onHistorySync: (payload: C2S_RequestChatHistoryView) => void,
+  ): void {
+    this.onHistorySync = onHistorySync;
+  }
+
   /** 设置当前消息持久化范围。 */
   setPersistenceScope(scopeId: string | null): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    this.scopeLoadToken += 1;
     const normalizedScope = typeof scopeId === 'string' && scopeId.trim().length > 0
       ? scopeId.trim()
       : null;
     if (normalizedScope === this.currentScopeId) {
+      if (normalizedScope) {
+        this.requestCloudHistorySync();
+      }
       return;
     }
+    this.scopeLoadToken += 1;
     const preservedCombatState = shouldPreserveCombatLogSession(this.currentScopeId, normalizedScope)
       ? this.channelStates.get('combat')
       : undefined;
     this.currentScopeId = normalizedScope;
     this.input.value = '';
     this.persistedMessageKeys.clear();
+    this.persistedMessageKeyOrder = [];
     this.pendingPersistence.clear();
+    this.activeHistorySyncRequestId = null;
+    this.unreadByChannel.clear();
+    this.patchAllUnreadBadges();
     for (const channel of CHAT_CHANNELS) {
       this.channelStates.set(
         channel,
@@ -1213,6 +1280,7 @@ export class ChatUI {
       }
       return;
     }
+    this.clearUnread(this.activeChannel);
     this.clearInactiveChannels();
     this.renderChannel(this.activeChannel, { stickToBottom: true });
   }  
@@ -1259,8 +1327,28 @@ export class ChatUI {
       ...(resolvedOptions?.structuredGroup ? { structuredGroup: resolvedOptions.structuredGroup } : undefined),
     };
     const channels = this.resolveChannels(entry);
-    const shouldPersist = shouldPersistChatEntry(entry);
+    const shouldPersist = resolvedOptions?.forcePersist === true || shouldPersistChatEntry(entry);
     const messageKeys = new Map(channels.map((channel) => [channel, this.buildMessageKey(this.buildChannelScopeId(scopeId, channel), resolvedId)] as const));
+    const persistEntry = (): Promise<boolean> => {
+      const persistencePromise = appendChannelMessages(scopeId, entry, channels, (channel) => this.buildChannelScopeId(scopeId, channel))
+        .then((persisted) => {
+          if (persisted && scopeId === this.currentScopeId) {
+            for (const channel of channels) {
+              this.rememberPersistedMessageKey(messageKeys.get(channel)!);
+            }
+          }
+          return persisted;
+        })
+        .finally(() => {
+          for (const channel of channels) {
+            this.pendingPersistence.delete(messageKeys.get(channel)!);
+          }
+        });
+      for (const channel of channels) {
+        this.pendingPersistence.set(messageKeys.get(channel)!, persistencePromise);
+      }
+      return persistencePromise;
+    };
     const duplicateInAllChannels = channels.every((channel) => this.channelStates.get(channel)?.messageIds.has(resolvedId));
     if (duplicateInAllChannels) {
       if (!shouldPersist) {
@@ -1275,7 +1363,7 @@ export class ChatUI {
       if (pendingPersistence) {
         return pendingPersistence;
       }
-      return false;
+      return persistEntry();
     }
 
     for (const channel of channels) {
@@ -1307,24 +1395,111 @@ export class ChatUI {
       return true;
     }
 
-    const persistencePromise = appendChannelMessages(scopeId, entry, channels, (channel) => this.buildChannelScopeId(scopeId, channel))
-      .then((persisted) => {
-        if (persisted) {
-          for (const channel of channels) {
-            this.persistedMessageKeys.add(messageKeys.get(channel)!);
-          }
-        }
-        return persisted;
-      })
-      .finally(() => {
-        for (const channel of channels) {
-          this.pendingPersistence.delete(messageKeys.get(channel)!);
-        }
-      });
-    for (const channel of channels) {
-      this.pendingPersistence.set(messageKeys.get(channel)!, persistencePromise);
+    return persistEntry();
+  }
+
+  /** 接收单条服务端公共聊天，并只对非当前可见频道累计未读。 */
+  async handleServerChatMessage(
+    message: ServerChatMessageView,
+    currentPlayerId: string | null,
+  ): Promise<ChatRealtimeMessageResult> {
+    if (!this.currentScopeId || !isChatChannel(message.channel) || !CHAT_SENDABLE_CHANNELS.has(message.channel)) {
+      return { stored: false, notify: false };
     }
-    return persistencePromise;
+    const state = this.channelStates.get(message.channel);
+    const inserted = Boolean(state && !state.messageIds.has(message.messageId));
+    const incoming = Boolean(currentPlayerId && message.fromPlayerId !== currentPlayerId);
+    const notify = inserted && incoming && this.shouldNotifyChannel(message.channel);
+    if (notify) {
+      this.incrementUnread(message.channel);
+    }
+    const stored = await this.addMessage(message.text, message.from, 'chat', {
+      id: message.messageId,
+      at: message.occurredAt,
+      scope: message.channel,
+    });
+    return { stored, notify };
+  }
+
+  /** 批量合并云端公共聊天历史；一个历史包只写一次 IndexedDB 事务和一次 DOM 刷新。 */
+  async applyServerChatHistory(
+    payload: ChatHistorySyncView,
+    currentPlayerId: string | null,
+  ): Promise<ChatHistoryApplyResult> {
+    const scopeId = this.currentScopeId;
+    if (!scopeId || !Array.isArray(payload?.channels)) {
+      return { applied: false, newMessageCounts: {} };
+    }
+    if (!this.activeHistorySyncRequestId || payload.requestId !== this.activeHistorySyncRequestId) {
+      return { applied: false, newMessageCounts: {} };
+    }
+    this.activeHistorySyncRequestId = null;
+    const batchEntries: Array<{ entry: ChatStoredMessage; channels: ChatChannel[] }> = [];
+    const touchedChannels = new Set<ChatChannel>();
+    const newMessageCounts: Partial<Record<ChatMessageScope, number>> = {};
+    for (const channelPayload of payload.channels) {
+      const channel = channelPayload?.channel;
+      if (!isChatChannel(channel) || !CHAT_SENDABLE_CHANNELS.has(channel) || !Array.isArray(channelPayload.messages)) {
+        continue;
+      }
+      const state = this.channelStates.get(channel);
+      if (!state) {
+        continue;
+      }
+      const incoming: ChatStoredMessage[] = [];
+      let newIncomingCount = 0;
+      for (const message of channelPayload.messages) {
+        if (!isServerChatMessage(message) || message.channel !== channel) {
+          continue;
+        }
+        if (!state.messageIds.has(message.messageId)
+          && currentPlayerId
+          && message.fromPlayerId !== currentPlayerId) {
+          newIncomingCount += 1;
+        }
+        const entry: ChatStoredMessage = {
+          id: message.messageId,
+          at: message.occurredAt,
+          text: message.text,
+          from: message.from,
+          kind: 'chat',
+          scope: channel,
+        };
+        incoming.push(entry);
+        batchEntries.push({ entry, channels: [channel] });
+      }
+      if (incoming.length === 0) {
+        continue;
+      }
+      const merged = mergeMessages(state.messages, incoming);
+      state.messages = merged.messages;
+      state.messageIds = merged.ids;
+      state.loadedCount = Math.min(state.messages.length, Math.max(state.loadedCount, CHAT_LOG_MAX_VISIBLE_MESSAGES));
+      touchedChannels.add(channel);
+      if (newIncomingCount > 0 && this.shouldNotifyChannel(channel)) {
+        this.incrementUnread(channel, newIncomingCount);
+        newMessageCounts[channel] = newIncomingCount;
+      }
+    }
+    if (batchEntries.length === 0) {
+      return { applied: true, newMessageCounts };
+    }
+    if (this.logbookVisible && touchedChannels.has(this.activeChannel)) {
+      this.renderChannel(this.activeChannel, { stickToBottom: this.isLogNearBottom(this.logs.get(this.activeChannel)) });
+    }
+    const persisted = await appendChannelMessageBatch(
+      scopeId,
+      batchEntries,
+      (channel) => this.buildChannelScopeId(scopeId, channel),
+    );
+    if (persisted && scopeId === this.currentScopeId) {
+      for (const { entry, channels } of batchEntries) {
+        for (const channel of channels) {
+          this.rememberPersistedMessageKey(this.buildMessageKey(this.buildChannelScopeId(scopeId, channel), entry.id));
+        }
+      }
+    }
+    return { applied: true, newMessageCounts };
   }
 
   /** 解析当前要显示的频道集合。 */
@@ -1554,6 +1729,11 @@ export class ChatUI {
     if (!scopeId) {
       return;
     }
+    const remainingMemoryBudget = CHAT_LOG_MAX_MEMORY_MESSAGES_PER_CHANNEL - state.messages.length;
+    if (remainingMemoryBudget <= 0) {
+      state.hasLoadedAll = true;
+      return;
+    }
     state.loadingOlder = true;
     const previousScrollHeight = log.scrollHeight;
     const previousScrollTop = log.scrollTop;
@@ -1563,7 +1743,7 @@ export class ChatUI {
       channelScopeId,
       channel,
       oldestEntry,
-      CHAT_LOG_LOAD_BATCH_SIZE,
+      Math.min(CHAT_LOG_LOAD_BATCH_SIZE, remainingMemoryBudget),
     );
     state.loadingOlder = false;
     if (loadToken !== this.scopeLoadToken || scopeId !== this.currentScopeId) {
@@ -1577,7 +1757,7 @@ export class ChatUI {
     state.messages = merged.messages;
     state.messageIds = merged.ids;
     for (const entry of olderEntries) {
-      this.persistedMessageKeys.add(this.buildMessageKey(channelScopeId, entry.id));
+      this.rememberPersistedMessageKey(this.buildMessageKey(channelScopeId, entry.id));
     }
     state.loadedCount = Math.min(state.messages.length, state.loadedCount + olderEntries.length);
     if (olderEntries.length < CHAT_LOG_LOAD_BATCH_SIZE) {
@@ -1605,6 +1785,7 @@ export class ChatUI {
     if (previousChannel !== channel) {
       this.clearChannel(previousChannel);
     }
+    this.clearUnread(channel);
     if (this.logbookVisible) {
       this.clearInactiveChannels();
       this.renderChannel(channel, { stickToBottom: true });
@@ -1650,12 +1831,12 @@ export class ChatUI {
 
   /** 根据频道构建持久化作用域：附近/战斗/恩怨随实例隔离，世界/宗门随玩家保留。 */
   private buildChannelScopeId(scopeId: string, channel: ChatChannel): string {
-    const [playerId = scopeId, mapId = 'unknown-map', instanceId = mapId] = scopeId.split('|');
+    const [playerId = scopeId, mapId = 'unknown-map', instanceId = mapId, sectId = 'none'] = scopeId.split('|');
     if (channel === 'world') {
       return `${playerId}|world`;
     }
     if (channel === 'sect') {
-      return `${playerId}|sect`;
+      return `${playerId}|sect|${sectId || 'none'}`;
     }
     if (channel === 'combat' || channel === 'grudge' || channel === 'nearby') {
       return `${playerId}|${mapId}|${instanceId}|${channel}`;
@@ -1694,7 +1875,7 @@ export class ChatUI {
       state.loadedCount = Math.min(state.messages.length, Math.max(state.loadedCount, entries.length));
       state.hasLoadedAll = entries.length < CHAT_LOG_LOAD_BATCH_SIZE;
       for (const entry of entries) {
-        this.persistedMessageKeys.add(this.buildMessageKey(channelScopeId, entry.id));
+        this.rememberPersistedMessageKey(this.buildMessageKey(channelScopeId, entry.id));
       }
     }
 
@@ -1706,10 +1887,55 @@ export class ChatUI {
         }
         this.trimChannelState(state, CHAT_LOG_MAX_VISIBLE_MESSAGES);
       }
+      this.requestCloudHistorySync();
       return;
     }
 
     this.renderAllChannels({ stickToBottom: true });
+    this.requestCloudHistorySync();
+  }
+
+  private requestCloudHistorySync(): void {
+    if (!this.currentScopeId || !this.onHistorySync) {
+      return;
+    }
+    const cursors: Partial<Record<ChatMessageScope, ChatHistoryCursorView>> = {};
+    for (const channel of ['nearby', 'world', 'sect'] as const) {
+      const state = this.channelStates.get(channel);
+      const channelScopeId = this.buildChannelScopeId(this.currentScopeId, channel);
+      if (!state) {
+        continue;
+      }
+      for (let index = state.messages.length - 1; index >= 0; index -= 1) {
+        const entry = state.messages[index];
+        if (entry.kind !== 'chat' || entry.scope !== channel) {
+          continue;
+        }
+        if (!this.persistedMessageKeys.has(this.buildMessageKey(channelScopeId, entry.id))) {
+          continue;
+        }
+        cursors[channel] = { occurredAt: entry.at, messageId: entry.id };
+        break;
+      }
+    }
+    const requestId = `chat-history:${this.scopeLoadToken}:${++this.historySyncSequence}`;
+    this.activeHistorySyncRequestId = requestId;
+    this.onHistorySync({ requestId, cursors });
+  }
+
+  private rememberPersistedMessageKey(key: string): void {
+    if (this.persistedMessageKeys.has(key)) {
+      return;
+    }
+    this.persistedMessageKeys.add(key);
+    this.persistedMessageKeyOrder.push(key);
+    const overflow = this.persistedMessageKeyOrder.length - CHAT_PERSISTED_KEY_MEMORY_LIMIT;
+    if (overflow <= 0) {
+      return;
+    }
+    for (const expiredKey of this.persistedMessageKeyOrder.splice(0, overflow)) {
+      this.persistedMessageKeys.delete(expiredKey);
+    }
   }
 
   /** 裁剪频道缓存，保持消息数量上限。 */
@@ -1722,6 +1948,67 @@ export class ChatUI {
       state.hasLoadedAll = false;
     }
     state.loadedCount = Math.min(state.messages.length, maxMessages);
+  }
+
+  private ensureUnreadBadges(): void {
+    for (const tab of this.tabs) {
+      const channel = tab.dataset.chatChannel;
+      if (!isChatChannel(channel) || tab.querySelector('[data-chat-unread]')) {
+        continue;
+      }
+      tab.dataset.chatLabel = tab.textContent?.trim() || channel;
+      const badge = document.createElement('span');
+      badge.className = 'chat-tab-unread';
+      badge.dataset.chatUnread = channel;
+      badge.hidden = true;
+      badge.setAttribute('aria-hidden', 'true');
+      tab.appendChild(badge);
+    }
+  }
+
+  private shouldNotifyChannel(channel: ChatChannel): boolean {
+    return channel !== this.activeChannel
+      || !this.logbookVisible
+      || (typeof document !== 'undefined' && document.visibilityState === 'hidden');
+  }
+
+  private incrementUnread(channel: ChatChannel, amount = 1): void {
+    const next = Math.min(999, (this.unreadByChannel.get(channel) ?? 0) + Math.max(1, Math.trunc(amount)));
+    this.unreadByChannel.set(channel, next);
+    this.patchUnreadBadge(channel);
+  }
+
+  private clearUnread(channel: ChatChannel): void {
+    if (!this.unreadByChannel.delete(channel)) {
+      return;
+    }
+    this.patchUnreadBadge(channel);
+  }
+
+  private patchAllUnreadBadges(): void {
+    for (const channel of CHAT_CHANNELS) {
+      this.patchUnreadBadge(channel);
+    }
+  }
+
+  private patchUnreadBadge(channel: ChatChannel): void {
+    const count = this.unreadByChannel.get(channel) ?? 0;
+    const tab = this.tabs.find((entry) => entry.dataset.chatChannel === channel);
+    const badge = tab?.querySelector<HTMLElement>('[data-chat-unread]');
+    if (!tab || !badge) {
+      return;
+    }
+    badge.hidden = count <= 0;
+    const nextText = count > 99 ? '99+' : String(count);
+    if (badge.textContent !== nextText) {
+      badge.textContent = nextText;
+    }
+    tab.classList.toggle('has-unread', count > 0);
+    if (count > 0) {
+      tab.setAttribute('aria-label', `${tab.dataset.chatLabel ?? channel}，${count} 条未读消息`);
+    } else {
+      tab.removeAttribute('aria-label');
+    }
   }
 
   /** 清空单个频道的消息缓存。 */

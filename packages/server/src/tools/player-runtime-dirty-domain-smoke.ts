@@ -2019,6 +2019,39 @@ function testActionCooldownCountdownDoesNotBumpRevision(): void {
   assert.equal(player.actions.actions.find((entry) => entry.id === skillId)?.cooldownReadyTick, undefined);
 }
 
+function testDeclaredContextActionCooldownReadyTick(): void {
+  const playerId = 'player:context-action-cooldown';
+  const actionId = 'tower:tongtian:next';
+  const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+  const buildAction = (cooldownLeft: number, cooldownReadyTick?: number) => ({
+    id: actionId,
+    name: '前往下一层',
+    type: 'travel' as const,
+    desc: '',
+    cooldownLeft,
+    cooldownReadyTick,
+  });
+
+  player.lifeElapsedTicks = 100;
+  service.setContextActions(playerId, [buildAction(30, 130)], 100);
+  const revisionAfterCooldownStart = player.actions.revision;
+  assert.equal(player.actions.actions.find((entry) => entry.id === actionId)?.cooldownLeft, 30);
+  assert.equal(player.actions.actions.find((entry) => entry.id === actionId)?.cooldownReadyTick, 130);
+
+  player.lifeElapsedTicks = 101;
+  service.setContextActions(playerId, [buildAction(29, 130)], 101);
+  assert.equal(player.actions.revision, revisionAfterCooldownStart, '上下文动作倒计时不能每息推进动作 revision');
+  assert.equal(player.actions.actions.find((entry) => entry.id === actionId)?.cooldownLeft, 29);
+  assert.equal(player.actions.actions.find((entry) => entry.id === actionId)?.cooldownReadyTick, 130);
+
+  player.lifeElapsedTicks = 130;
+  service.setContextActions(playerId, [buildAction(0)], 130);
+  assert.equal(player.actions.revision, revisionAfterCooldownStart + 1);
+  assert.equal(player.actions.actions.find((entry) => entry.id === actionId)?.cooldownLeft, 0);
+  assert.equal(player.actions.actions.find((entry) => entry.id === actionId)?.cooldownReadyTick, undefined);
+}
+
 function testApplyProgressionResultDirtyDomains(): void {
   const playerId = 'player:progression-result';
   const service = createHydratedService(playerId);
@@ -2032,6 +2065,39 @@ function testApplyProgressionResultDirtyDomains(): void {
   });
 
   assertDirtyDomains(service, playerId, ['progression', 'attr', 'technique'], ['snapshot']);
+}
+
+function testPersistenceDomainHoldsHideOnlyOwnedDomains(): void {
+  const playerId = 'player:persistence-domain-hold';
+  const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+  service.markPersistenceDirtyDomains(player, ['vitals', 'profession', 'active_job', 'inventory']);
+  service.bumpPersistentRevision(player);
+
+  service.holdPersistenceDomains(playerId, ['vitals', 'profession', 'active_job']);
+  assert.deepEqual(
+    Array.from(service.listDirtyPlayerDomains().get(playerId) ?? []).sort(),
+    ['inventory'],
+    '跨域检查点只能隐藏自己持有的域，其他玩家资产仍应正常刷盘',
+  );
+  assert.deepEqual(
+    Array.from(service.listUnstagedPlayerDomainRevisions('generation:hold').get(playerId)?.keys() ?? []).sort(),
+    ['inventory'],
+    'flush ledger 不得提前接管仍由跨域检查点持有的域',
+  );
+
+  service.holdPersistenceDomains(playerId, ['active_job']);
+  service.releasePersistenceDomains(playerId, ['vitals', 'profession', 'active_job']);
+  assert.deepEqual(
+    Array.from(service.listDirtyPlayerDomains().get(playerId) ?? []).sort(),
+    ['inventory', 'profession', 'vitals'],
+    '引用计数未归零的 active_job 仍应保持持有',
+  );
+  service.releasePersistenceDomains(playerId, ['active_job']);
+  assert.deepEqual(
+    Array.from(service.listDirtyPlayerDomains().get(playerId) ?? []).sort(),
+    ['active_job', 'inventory', 'profession', 'vitals'],
+  );
 }
 
 function main(): void {
@@ -2089,7 +2155,9 @@ testLogbookDirtyDomain();
   testRespawnDirtyDomains();
   testRespawnPreservesActiveSkillCooldown();
   testActionCooldownCountdownDoesNotBumpRevision();
+  testDeclaredContextActionCooldownReadyTick();
   testApplyProgressionResultDirtyDomains();
+  testPersistenceDomainHoldsHideOnlyOwnedDomains();
   console.log('REPAIR_PROOF:ISSUE-000011:PASS');
   console.log(
     JSON.stringify(

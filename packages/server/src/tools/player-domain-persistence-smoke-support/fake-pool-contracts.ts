@@ -18,6 +18,7 @@ export async function runPlayerDomainFakePoolContracts(): Promise<void> {
   await assertEquipmentInstanceIdsRepairLegacyAndOutOfScopeConflicts();
   await assertEmptyCollectionSnapshotsDoNotIssueDeletes();
   await assertAutoPreferenceEmptyOverwriteIsAllowed();
+  await assertLogbookAcknowledgementCanClearPendingRows();
   await assertAssetDomainInvalidEntriesRefuseSilentPrune();
 }
 
@@ -869,6 +870,59 @@ async function assertAutoPreferenceEmptyOverwriteIsAllowed(): Promise<void> {
     if (!hasStaleKeyDelete) {
       throw new Error(`auto preference empty overwrite missing stale-key delete: ${tableName}`);
     }
+  }
+}
+
+async function assertLogbookAcknowledgementCanClearPendingRows(): Promise<void> {
+  const queries: string[] = [];
+  const fakeClient = {
+    async query(sql: string): Promise<{ rows: unknown[]; rowCount: number }> {
+      queries.push(sql);
+      if (sql.includes('SELECT 1 AS exists') && sql.includes('player_logbook_message')) {
+        return { rows: [{ exists: 1 }], rowCount: 1 };
+      }
+      return { rows: [], rowCount: 0 };
+    },
+    release() {
+      return undefined;
+    },
+  };
+  const service = new PlayerDomainPersistenceService(null, null);
+  Object.assign(service as unknown as { pool: unknown; enabled: boolean }, {
+    pool: {
+      async connect() {
+        return fakeClient;
+      },
+    },
+    enabled: true,
+  });
+
+  await service.savePlayerLogbookMessages('player:logbook-ack-empty', [], { versionSeed: 1 });
+
+  const explicitEmptyQueries = queries.map((query) => query.replace(/\s+/g, ' ').trim());
+  if (explicitEmptyQueries.some((query) => query.includes('SELECT 1 AS exists FROM player_logbook_message'))) {
+    throw new Error('日志 ACK 后的显式空队列不应触发资产域空覆盖保护');
+  }
+  const hasStaleKeyDelete = explicitEmptyQueries.some((query) => query.includes('DELETE FROM player_logbook_message target')
+    && query.includes('jsonb_to_recordset')
+    && query.includes('NOT EXISTS'));
+  if (!hasStaleKeyDelete) {
+    throw new Error('日志 ACK 后的显式空队列缺少 stale-key DELETE');
+  }
+
+  let invalidRowsRejected = false;
+  try {
+    await service.savePlayerLogbookMessages(
+      'player:logbook-invalid-empty',
+      [{ id: '', kind: 'system', text: '' }],
+      { versionSeed: 2 },
+    );
+  } catch (error) {
+    invalidRowsRejected = error instanceof Error
+      && error.message.includes('replace_logbook_message_refused_empty_overwrite');
+  }
+  if (!invalidRowsRejected) {
+    throw new Error('非空但无效的日志载荷不得被当作显式空队列清空旧数据');
   }
 }
 

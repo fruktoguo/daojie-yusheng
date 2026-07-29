@@ -5,10 +5,7 @@
  */
 import { Inject, Injectable, Logger, Optional, ServiceUnavailableException } from '@nestjs/common';
 import {
-  expandTechniqueArtsStrengthSkill,
-  normalizeTechniqueArtsStrengthTemplate,
   type ExpandedTechniqueArtsStrengthSkill,
-  type TechniqueGrade,
   type TechniqueArtsStrengthTargetType,
 } from '@mud/shared';
 import type { Pool, PoolClient } from 'pg';
@@ -20,13 +17,21 @@ import {
   GENERATED_TECHNIQUE_TABLE,
 } from '../../../../persistence/generated-technique-persistence.service';
 import { GeneratedTechniqueStoreService } from '../../../../runtime/technique-generation/generated-technique-store.service';
-import { normalizeGeneratedTechniqueTargetModes } from '../../../../runtime/technique-generation/generated-technique-target-mode-normalizer';
-import { calcArtsBudgetMax } from '../../../../runtime/technique-generation/technique-budget-normalizer';
 import type {
   GmCompatConversionRunOptions,
   GmCompatConversionRunResult,
   GmCompatConversionSample,
 } from '../../types';
+import {
+  asRecord,
+  buildGeneratedTechniqueArtsExpansionReport,
+  cloneJsonRecord,
+  isJsonEqual,
+  rebuildGeneratedTechniqueArtsRow,
+  resolveGeneratedTechniqueRowName,
+  toFiniteNumber,
+  type GeneratedTechniqueArtsCandidateRow,
+} from './generated-technique-arts-rebuild.helpers';
 
 export const AI_ARTS_STRENGTH_V1_TO_V2_CONVERSION_ID = 'technique_arts_strength_v1_to_v2';
 
@@ -40,16 +45,6 @@ const TARGET_TYPES = new Set<TechniqueArtsStrengthTargetType>([
   'ring',
   'checkerboard',
 ]);
-
-interface CandidateRow {
-  id: string;
-  status: string;
-  display_name?: string | null;
-  grade?: string | null;
-  realm_lv?: number | string | null;
-  template: unknown;
-  validation_report: unknown;
-}
 
 interface MigrationAnalysis {
   changed: boolean;
@@ -105,7 +100,7 @@ export class AiArtsStrengthV1ToV2Conversion {
       if (result.samples.length < SAMPLE_LIMIT) {
         result.samples.push({
           id: row.id,
-          name: resolveRowName(row),
+          name: resolveGeneratedTechniqueRowName(row),
           status: row.status,
           before: analysis.beforeSummary,
           after: analysis.afterSummary,
@@ -141,7 +136,7 @@ export class AiArtsStrengthV1ToV2Conversion {
     await this.schemaReady;
   }
 
-  private async loadRows(pool: Pool): Promise<CandidateRow[]> {
+  private async loadRows(pool: Pool): Promise<GeneratedTechniqueArtsCandidateRow[]> {
     const result = await pool.query(
       `SELECT id,
               status,
@@ -155,7 +150,7 @@ export class AiArtsStrengthV1ToV2Conversion {
           AND validation_report ? 'artsStrength'
         ORDER BY created_at ASC, id ASC`,
     );
-    return result.rows as CandidateRow[];
+    return result.rows as GeneratedTechniqueArtsCandidateRow[];
   }
 
   private async applyUpdates(pool: Pool, updates: Array<{ id: string; template: unknown; validationReport: unknown }>): Promise<void> {
@@ -233,7 +228,7 @@ function updateGeneratedTechniqueMigration(client: PoolClient, id: string, templ
   );
 }
 
-function analyzeRow(row: CandidateRow): MigrationAnalysis {
+function analyzeRow(row: GeneratedTechniqueArtsCandidateRow): MigrationAnalysis {
   const report = asRecord(row.validation_report);
   const artsStrength = asRecord(report?.artsStrength);
   const rawCandidate = asRecord(artsStrength?.rawCandidate);
@@ -241,62 +236,41 @@ function analyzeRow(row: CandidateRow): MigrationAnalysis {
     return { changed: false };
   }
   const migratedRawCandidate = migrateRawCandidate(rawCandidate);
-  const targetModeNormalizedRawCandidate = normalizeGeneratedTechniqueTargetModes(migratedRawCandidate.value, {
-    category: 'arts',
-  });
-  const normalized = normalizeTechniqueArtsStrengthTemplate(targetModeNormalizedRawCandidate);
-  if (!normalized.ok || !normalized.template) {
+  const rebuilt = rebuildGeneratedTechniqueArtsRow(row, migratedRawCandidate.value);
+  if (rebuilt.ok === false) {
     return {
       changed: false,
-      error: normalized.errors.join('; ') || '迁移后无法通过当前术法强度 schema',
+      error: rebuilt.error,
     };
   }
-  const expansion = expandMigratedTemplate(row, normalized.template);
-  if (expansion.ok === false) {
-    return {
-      changed: false,
-      error: expansion.error,
-    };
-  }
-  const currentTemplate = asRecord(row.template);
-  if (!currentTemplate) {
-    return {
-      changed: false,
-      error: '缺少 generated_technique.template，无法重算正式 SkillDef',
-    };
-  }
-  const updatedTemplate = {
-    ...cloneRecord(currentTemplate),
-    skills: expansion.expandedSkills.map((entry) => entry.skill),
-  };
-  const skillDefChanged = !isJsonEqual(asRecord(row.template)?.skills, updatedTemplate.skills);
-  const reportChanged = !isJsonEqual(artsStrength?.rawCandidate, targetModeNormalizedRawCandidate)
-    || !isJsonEqual(artsStrength?.normalizedTemplate, normalized.template)
-    || !isJsonEqual(artsStrength?.expansion, buildExpansionReport(expansion.expandedSkills));
+  const skillDefChanged = !isJsonEqual(asRecord(row.template)?.skills, rebuilt.updatedTemplate.skills);
+  const reportChanged = !isJsonEqual(artsStrength?.rawCandidate, rebuilt.normalizedRawCandidate)
+    || !isJsonEqual(artsStrength?.normalizedTemplate, rebuilt.normalizedTemplate)
+    || !isJsonEqual(artsStrength?.expansion, rebuilt.expansionReport);
   const changed = migratedRawCandidate.changed || skillDefChanged || reportChanged;
   if (!changed) {
     return { changed: false };
   }
   return {
     changed: true,
-    migratedRawCandidate: targetModeNormalizedRawCandidate,
-    normalizedTemplate: normalized.template,
-    updatedTemplate,
-    expandedSkills: expansion.expandedSkills,
+    migratedRawCandidate: rebuilt.normalizedRawCandidate,
+    normalizedTemplate: rebuilt.normalizedTemplate,
+    updatedTemplate: rebuilt.updatedTemplate,
+    expandedSkills: rebuilt.expandedSkills,
     beforeSummary: buildSummary(rawCandidate),
     afterSummary: {
-      ...asRecord(buildSummary(targetModeNormalizedRawCandidate)),
+      ...asRecord(buildSummary(rebuilt.normalizedRawCandidate)),
       skillDefChanged,
     },
   };
 }
 
 function buildUpdatedValidationReport(validationReport: unknown, analysis: MigrationAnalysis): unknown {
-  const report = cloneRecord(validationReport);
-  const artsStrength = cloneRecord(report.artsStrength);
+  const report = cloneJsonRecord(validationReport);
+  const artsStrength = cloneJsonRecord(report.artsStrength);
   artsStrength.rawCandidate = analysis.migratedRawCandidate;
   artsStrength.normalizedTemplate = analysis.normalizedTemplate;
-  artsStrength.expansion = buildExpansionReport(analysis.expandedSkills ?? []);
+  artsStrength.expansion = buildGeneratedTechniqueArtsExpansionReport(analysis.expandedSkills ?? []);
   artsStrength.version = Math.max(toFiniteNumber(artsStrength.version, 1), 2);
   artsStrength.migration = {
     ...(asRecord(artsStrength.migration) ?? {}),
@@ -309,83 +283,8 @@ function buildUpdatedValidationReport(validationReport: unknown, analysis: Migra
   return report;
 }
 
-function expandMigratedTemplate(
-  row: CandidateRow,
-  normalizedTemplate: NonNullable<ReturnType<typeof normalizeTechniqueArtsStrengthTemplate>['template']>,
-): { ok: true; expandedSkills: ExpandedTechniqueArtsStrengthSkill[] } | { ok: false; error: string } {
-  const template = asRecord(row.template);
-  const rawCandidate = asRecord(asRecord(asRecord(row.validation_report)?.artsStrength)?.rawCandidate);
-  const grade = normalizeTechniqueGrade(template?.grade ?? rawCandidate?.grade ?? row.grade);
-  if (!grade) {
-    return { ok: false, error: '无法确定功法品阶，不能重算术法 SkillDef' };
-  }
-  const realmLv = Math.max(1, Math.floor(toFiniteNumber(template?.realmLv ?? rawCandidate?.realmLv ?? row.realm_lv, 1)));
-  const techniqueId = typeof template?.id === 'string' && template.id.trim()
-    ? template.id.trim()
-    : row.id;
-  const targetBudget = resolveMigrationTargetBudget(row, grade, realmLv);
-  return {
-    ok: true,
-    expandedSkills: normalizedTemplate.skills.map((skill, index) => expandTechniqueArtsStrengthSkill({
-      techniqueId,
-      grade,
-      realmLv,
-      skillIndex: index,
-      skill,
-      targetBudget,
-    })),
-  };
-}
-
-function resolveMigrationTargetBudget(row: CandidateRow, grade: TechniqueGrade, realmLv: number): number {
-  const template = asRecord(row.template);
-  const templateBudget = toFiniteNumber(template?.totalBudget, Number.NaN);
-  if (Number.isFinite(templateBudget) && templateBudget > 0) {
-    return templateBudget;
-  }
-  const budgetPercent = Math.max(0, toFiniteNumber(template?.budgetPercent, 1));
-  return calcArtsBudgetMax(grade, realmLv) * budgetPercent;
-}
-
-function buildExpansionReport(expandedSkills: ExpandedTechniqueArtsStrengthSkill[]): Array<{
-  skillId: string;
-  inputBudget: number;
-  totalBudget: number;
-  targetBudget: number;
-  effectScale: number;
-  structureBudgetMultiplier: number;
-  budgetBreakdown: ExpandedTechniqueArtsStrengthSkill['budgetBreakdown'];
-}> {
-  return expandedSkills.map((entry) => ({
-    skillId: entry.skill.id,
-    inputBudget: entry.inputBudget,
-    totalBudget: entry.totalBudget,
-    targetBudget: entry.targetBudget,
-    effectScale: entry.effectScale,
-    structureBudgetMultiplier: entry.structureBudgetMultiplier,
-    budgetBreakdown: entry.budgetBreakdown,
-  }));
-}
-
-function normalizeTechniqueGrade(value: unknown): TechniqueGrade | null {
-  const text = typeof value === 'string' ? value : '';
-  if (
-    text === 'mortal'
-    || text === 'yellow'
-    || text === 'mystic'
-    || text === 'earth'
-    || text === 'heaven'
-    || text === 'spirit'
-    || text === 'saint'
-    || text === 'emperor'
-  ) {
-    return text;
-  }
-  return null;
-}
-
 function migrateRawCandidate(rawCandidate: Record<string, unknown>): { changed: boolean; value: Record<string, unknown> } {
-  const nextCandidate = cloneRecord(rawCandidate);
+  const nextCandidate = cloneJsonRecord(rawCandidate);
   const skills = Array.isArray(nextCandidate.skills) ? nextCandidate.skills : [];
   let changed = false;
   nextCandidate.skills = skills.map((skill) => {
@@ -401,7 +300,7 @@ function migrateRawCandidate(rawCandidate: Record<string, unknown>): { changed: 
 }
 
 function migrateSkill(skill: Record<string, unknown>): { changed: boolean; value: Record<string, unknown> } {
-  const nextSkill = cloneRecord(skill);
+  const nextSkill = cloneJsonRecord(skill);
   const targetSource = asRecord(nextSkill.target) ?? {};
   const targetingSource = asRecord(nextSkill.targeting) ?? {};
   const changed = hasLegacyTargetFields(targetSource)
@@ -413,7 +312,7 @@ function migrateSkill(skill: Record<string, unknown>): { changed: boolean; value
     targetSource.areaWeight,
     resolveLegacyAreaWeight(type, targetSource, targetingSource),
   );
-  const nextTarget = cloneRecord(targetSource);
+  const nextTarget = cloneJsonRecord(targetSource);
   nextTarget.type = type;
   nextTarget.castRangeWeight = castRangeWeight;
   nextTarget.areaWeight = areaWeight;
@@ -493,35 +392,4 @@ function buildSummary(candidate: Record<string, unknown>): unknown {
     skillRange: skill?.range ?? null,
     hasTargeting: Boolean(skill && Object.prototype.hasOwnProperty.call(skill, 'targeting')),
   };
-}
-
-function resolveRowName(row: CandidateRow): string {
-  if (typeof row.display_name === 'string' && row.display_name.trim()) {
-    return row.display_name.trim();
-  }
-  const template = asRecord(row.template);
-  if (typeof template?.name === 'string' && template.name.trim()) {
-    return template.name.trim();
-  }
-  return row.id;
-}
-
-function cloneRecord(value: unknown): Record<string, unknown> {
-  const source = asRecord(value) ?? {};
-  return { ...source };
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : null;
-}
-
-function toFiniteNumber(value: unknown, fallback: number): number {
-  const numberValue = Number(value);
-  return Number.isFinite(numberValue) ? numberValue : fallback;
-}
-
-function isJsonEqual(left: unknown, right: unknown): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
 }

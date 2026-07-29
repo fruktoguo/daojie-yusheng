@@ -335,6 +335,10 @@ class WorldGateway implements WorldGatewayHelperContext {
     handleChat(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayPlayerControlsHelper.handleChat(client, payload);
     }
+    @SubscribeMessage(C2S.RequestChatHistory)
+    handleRequestChatHistory(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayPlayerControlsHelper.handleRequestChatHistory(client, payload);
+    }
     @SubscribeMessage(C2S.RequestSocialPanel)
     handleRequestSocialPanel(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayPlayerControlsHelper.handleRequestSocialPanel(client, payload);
@@ -362,6 +366,14 @@ class WorldGateway implements WorldGatewayHelperContext {
     @SubscribeMessage(C2S.SendDaoistDirectMessage)
     handleSendDaoistDirectMessage(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayPlayerControlsHelper.handleSendDaoistDirectMessage(client, payload);
+    }
+    @SubscribeMessage(C2S.RequestDaoistDirectMessageHistory)
+    handleRequestDaoistDirectMessageHistory(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayPlayerControlsHelper.handleRequestDaoistDirectMessageHistory(client, payload);
+    }
+    @SubscribeMessage(C2S.MarkDaoistDirectMessagesRead)
+    handleMarkDaoistDirectMessagesRead(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayPlayerControlsHelper.handleMarkDaoistDirectMessagesRead(client, payload);
     }
     @SubscribeMessage(C2S.RequestTreasureVault)
     handleRequestTreasureVault(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {

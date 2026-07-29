@@ -184,10 +184,56 @@ function verifyLifeElapsedTicksOnlyRefreshesAttrPanelByDay(): void {
   );
 }
 
+function verifyStablePanelReusesAttrSignature(): void {
+  const instance = createInstance();
+  instance.connectPlayer({ playerId: 'player:observer', sessionId: 'session:observer', preferredX: 2, preferredY: 1 });
+  const projector = createProjector();
+  const player = createProjectorPlayer('player:observer');
+  const view = instance.buildPlayerView('player:observer', 10);
+  assert.ok(view);
+
+  let baseAttrsReads = 0;
+  const baseAttrs = player.attrs.baseAttrs;
+  Object.defineProperty(player.attrs, 'baseAttrs', {
+    configurable: true,
+    get: () => {
+      baseAttrsReads += 1;
+      return baseAttrs;
+    },
+  });
+  projector.createInitialEnvelope({ playerId: player.playerId, sessionId: 'session:observer' }, view, player);
+  baseAttrsReads = 0;
+
+  const delta = projector.createDeltaEnvelope(view, player);
+  assert.equal(delta, null);
+  assert.equal(baseAttrsReads, 0, '面板未变化时不得再次遍历属性对象计算签名');
+}
+
+function verifyCombatAttackIntensityInvalidatesActionPanel(): void {
+  const instance = createInstance();
+  instance.connectPlayer({ playerId: 'player:observer', sessionId: 'session:observer', preferredX: 2, preferredY: 1 });
+  const projector = createProjector();
+  const player = createProjectorPlayer('player:observer');
+  const view = instance.buildPlayerView('player:observer', 10);
+  assert.ok(view);
+  projector.createInitialEnvelope({ playerId: player.playerId, sessionId: 'session:observer' }, view, player);
+
+  player.combat.combatAttackIntensity = 12;
+  const delta = projector.createDeltaEnvelope(view, player);
+  assert.equal(delta?.panelDelta?.act?.combatAttackIntensity, 12, '攻击强度变化必须生成 action panel 差量');
+}
+
 function verifyIdentityAndVisiblePresentationStillInvalidateProjector(): void {
   const instance = createInstance();
   instance.connectPlayer({ playerId: 'player:observer', sessionId: 'session:observer', preferredX: 2, preferredY: 1 });
-  instance.connectPlayer({ playerId: 'player:near', sessionId: 'session:near', preferredX: 4, preferredY: 1 });
+  instance.connectPlayer({
+    playerId: 'player:near',
+    sessionId: 'session:near',
+    preferredX: 4,
+    preferredY: 1,
+    name: '初始道友',
+    displayName: '初',
+  });
   const identities = new Map<string, { pendingRoleName: string; displayName: string }>([
     ['player:near', { pendingRoleName: '初始道友', displayName: '初' }],
   ]);
@@ -200,7 +246,22 @@ function verifyIdentityAndVisiblePresentationStillInvalidateProjector(): void {
   const player = createProjectorPlayer('player:observer');
   const view = instance.buildPlayerView('player:observer', 10);
   assert.ok(view);
+  let identitySpreadReads = 0;
+  const visiblePlayer = { ...view.visiblePlayers[0] };
+  Object.defineProperty(visiblePlayer, 'identitySpreadProbe', {
+    enumerable: true,
+    get: () => {
+      identitySpreadReads += 1;
+      return true;
+    },
+  });
+  view.visiblePlayers = [visiblePlayer];
   projector.createInitialEnvelope({ playerId: player.playerId, sessionId: 'session:observer' }, view, player);
+  identitySpreadReads = 0;
+
+  const stableIdentityDelta = projector.createDeltaEnvelope(view, player);
+  assert.equal(stableIdentityDelta, null);
+  assert.equal(identitySpreadReads, 0, '身份字段未变化时不得展开可见玩家对象');
 
   identities.set('player:near', { pendingRoleName: '更新道友', displayName: '新' });
   const renamed = projector.createDeltaEnvelope(view, player);
@@ -309,6 +370,7 @@ function createProjectorPlayer(playerId: string) {
       autoIdleCultivation: false,
       autoSwitchCultivation: false,
       autoRootFoundation: false,
+      combatAttackIntensity: 10,
       cultivationActive: false,
       senseQiActive: false,
       wangQiActive: false,
@@ -325,6 +387,8 @@ verifyStaticDirtyUsesLocalChunks();
 verifyRemoteWorldRevisionSkipsProjectorRebuild();
 verifySelfDeltaDoesNotRebuildStableWorldProjection();
 verifyLifeElapsedTicksOnlyRefreshesAttrPanelByDay();
+verifyStablePanelReusesAttrSignature();
+verifyCombatAttackIntensityInvalidatesActionPanel();
 verifyIdentityAndVisiblePresentationStillInvalidateProjector();
 verifyVisibleMonsterBuffStillInvalidatesProjector();
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-aoi-cache-locality' }));

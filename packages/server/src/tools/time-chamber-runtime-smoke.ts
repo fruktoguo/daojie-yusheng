@@ -116,6 +116,7 @@ async function main(): Promise<void> {
     activeExpiresAt: null as number | null,
     activationPlayerId: null as string | null,
     activationSpiritStones: 0,
+    accessPasswordHash: null as string | null,
     maxSpeed: 10,
     allowedSizeTiers: ['small', 'medium', 'large'],
     revision: 1,
@@ -286,6 +287,123 @@ async function main(): Promise<void> {
   );
   assert.equal(currentLocation.instanceId, state.chamberInstanceId);
   currentLocation = { instanceId: state.sourceInstanceId, sessionId: 'session:one' };
+  freeQueuedCommands.length = 0;
+  let persistedPasswordHash: string | null | undefined;
+  serviceInternal.updateConfigRow = async (_state: any, patch: any) => {
+    if (Object.prototype.hasOwnProperty.call(patch, 'accessPasswordHash')) {
+      persistedPasswordHash = patch.accessPasswordHash;
+    }
+  };
+  const passwordSettings = await service.updateSettings('player:owner', {
+    sourceInstanceId: state.sourceInstanceId,
+    buildingId: state.buildingId,
+    requestId: 'settings:password-set',
+    name: state.displayName,
+    speed: state.configuredSpeed,
+    capacity: state.capacity,
+    expectedRevision: state.revision,
+    passwordChange: { action: 'set', password: '四象门禁' },
+  }, runtime);
+  assert.equal(passwordSettings.ok, true, '创建者应能设置密室进入密码');
+  assert.match(persistedPasswordHash ?? '', /^sn1\$/, '数据库只能持久化加盐 scrypt 哈希');
+  assert.notEqual(persistedPasswordHash, '四象门禁', '数据库不能保存密室明文密码');
+  assert.equal(passwordSettings.managementDetail?.passwordProtected, true, '管理详情只投影密码保护状态');
+  assert.deepEqual(
+    await service.queueEnter('player:one', {
+      sourceInstanceId: state.sourceInstanceId,
+      buildingId: state.buildingId,
+      requestId: 'enter:password-required',
+    }, transferRuntime),
+    {
+      ok: false,
+      operation: 'enter',
+      requestId: 'enter:password-required',
+      reason: 'time_chamber_password_required',
+    },
+    '受保护密室必须拒绝未提供密码的进入请求',
+  );
+  assert.equal(freeQueuedCommands.length, 0, '密码校验失败时不能留下待执行传送指令');
+  assert.equal((await service.queueEnter('player:one', {
+    sourceInstanceId: state.sourceInstanceId,
+    buildingId: state.buildingId,
+    requestId: 'enter:password-wrong',
+    accessPassword: '错误密码',
+  }, transferRuntime)).reason, 'time_chamber_password_incorrect', '错误密码必须在入队前拒绝');
+  const passwordEntry = await service.queueEnter('player:one', {
+    sourceInstanceId: state.sourceInstanceId,
+    buildingId: state.buildingId,
+    requestId: 'enter:password-correct',
+    accessPassword: '四象门禁',
+  }, transferRuntime);
+  assert.equal(passwordEntry.ok, true, '正确密码应允许进入意图入队');
+  assert.deepEqual(freeQueuedCommands, [{
+    kind: 'timeChamberTransfer',
+    direction: 'enter',
+    sourceInstanceId: state.sourceInstanceId,
+    buildingId: state.buildingId,
+    passwordVerifiedRevision: state.revision,
+  }], '内部传送指令只携带已验证 revision，不能携带明文密码');
+  assert.deepEqual(
+    await service.enter('player:one', state.sourceInstanceId, state.buildingId, transferRuntime),
+    { ok: false, reason: 'time_chamber_unavailable' },
+    '受保护密室不能绕过已验证 revision 直接执行传送',
+  );
+  assert.deepEqual(
+    await service.enter('player:one', state.sourceInstanceId, state.buildingId, transferRuntime, state.revision),
+    { ok: true },
+    '同一 revision 的服务端验证凭据应允许 tick 执行传送',
+  );
+  currentLocation = { instanceId: state.sourceInstanceId, sessionId: 'session:one' };
+  freeQueuedCommands.length = 0;
+  state.configuredSpeed = 2;
+  let durableActivationCount = 0;
+  serviceInternal.activateDurably = async (playerId: string, activationState: typeof state, durationHours: number) => {
+    durableActivationCount += 1;
+    activationState.activeStartedAt = Date.now();
+    activationState.activeExpiresAt = activationState.activeStartedAt + durationHours * 60 * 60 * 1_000;
+    activationState.activationPlayerId = playerId;
+    activationState.revision += 1;
+  };
+  assert.equal((await service.activate('player:one', {
+    sourceInstanceId: state.sourceInstanceId,
+    buildingId: state.buildingId,
+    requestId: 'activate:password-wrong',
+    durationHours: 1,
+    expectedRevision: state.revision,
+    accessPassword: '错误密码',
+  }, transferRuntime)).reason, 'time_chamber_password_incorrect', '错误密码必须在密室扣费开启前拒绝');
+  assert.equal(durableActivationCount, 0, '密码校验失败时不能进入密室资产事务');
+  const protectedActivation = await service.activate('player:one', {
+    sourceInstanceId: state.sourceInstanceId,
+    buildingId: state.buildingId,
+    requestId: 'activate:password-correct',
+    durationHours: 1,
+    expectedRevision: state.revision,
+    accessPassword: '四象门禁',
+  }, transferRuntime);
+  assert.equal(protectedActivation.ok, true, '正确密码应允许付费开启并排队进入');
+  assert.equal(protectedActivation.entryQueued, true);
+  assert.equal(durableActivationCount, 1, '密码通过后只能执行一次密室资产事务');
+  assert.deepEqual(freeQueuedCommands, [{
+    kind: 'timeChamberTransfer',
+    direction: 'enter',
+    sourceInstanceId: state.sourceInstanceId,
+    buildingId: state.buildingId,
+    passwordVerifiedRevision: state.revision,
+  }], '付费开启后的内部传送同样只能携带已验证 revision');
+  const clearPasswordSettings = await service.updateSettings('player:owner', {
+    sourceInstanceId: state.sourceInstanceId,
+    buildingId: state.buildingId,
+    requestId: 'settings:password-clear',
+    name: state.displayName,
+    speed: state.configuredSpeed,
+    capacity: state.capacity,
+    expectedRevision: state.revision,
+    passwordChange: { action: 'clear' },
+  }, runtime);
+  assert.equal(clearPasswordSettings.ok, true, '创建者应能清除密室进入密码');
+  assert.equal(persistedPasswordHash, null, '清除密码必须把数据库哈希设为 null');
+  assert.equal(clearPasswordSettings.managementDetail?.passwordProtected, false, '清除后详情应恢复公开进入');
   transferCount = 0;
   state.configuredSpeed = 3;
   state.activeStartedAt = Date.now();
@@ -351,7 +469,7 @@ async function main(): Promise<void> {
 
   console.log(JSON.stringify({
     ok: true,
-    answers: '密室三档空间为 5/7/9，可配置人数上限为 25/49/81；运行成本按实际配置容量和空间系数计算；一倍速常驻开放且拒绝计时开启，高倍速必须付费开启后进入；中心格为唯一密室保护禁建点；到期会迁出玩家、修正持久化位置并恢复 1 倍；拆除仍受实例 lease/epoch 围栏保护。',
+    answers: '密室三档空间为 5/7/9，可配置人数上限为 25/49/81；运行成本按实际配置容量和空间系数计算；一倍速常驻开放且拒绝计时开启，高倍速必须付费开启后进入；进入密码仅以 scrypt 哈希保存，缺失或错误密码在入队前拒绝，内部指令只携带已验证 revision；中心格为唯一密室保护禁建点；到期会迁出玩家、修正持久化位置并恢复 1 倍；拆除仍受实例 lease/epoch 围栏保护。',
     excludes: '不连接数据库，不证明真实事务、实例目录恢复和客户端控制台。',
     completionMapping: 'time-chamber-domain-runtime',
   }, null, 2));
@@ -372,6 +490,7 @@ async function testRecoveredMissingRuntimeHydration(): Promise<void> {
     activeExpiresAt: null,
     activationPlayerId: null,
     activationSpiritStones: 0,
+    accessPasswordHash: null,
     maxSpeed: 10,
     allowedSizeTiers: ['small', 'medium', 'large'],
     revision: 1,
@@ -516,6 +635,7 @@ async function testActivationExpiryRelocation(): Promise<void> {
     activeExpiresAt: (Date.now() - 1) as number | null,
     activationPlayerId: 'player:expired' as string | null,
     activationSpiritStones: 200,
+    accessPasswordHash: null,
     maxSpeed: 10,
     allowedSizeTiers: ['small', 'medium', 'large'],
     revision: 2,
@@ -633,6 +753,7 @@ async function testDeconstructLeaseFence(): Promise<void> {
     activeExpiresAt: null,
     activationPlayerId: null,
     activationSpiritStones: 0,
+    accessPasswordHash: null,
     maxSpeed: 10,
     allowedSizeTiers: ['small', 'medium', 'large'],
     revision: 3,

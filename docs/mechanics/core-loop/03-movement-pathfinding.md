@@ -7,18 +7,26 @@
 | MOVE_POINT_UNIT | 100 | `packages/shared/src/constants/gameplay/terrain.ts` |
 | BASE_MOVE_POINTS_PER_TICK | 100 | 同上 |
 | MAX_STORED_MOVE_POINTS | 100 | 同上 |
-| MOVE_SPEED_SOFT_CAP | 500 | 同上 |
-| MOVE_SPEED_SOFT_CAP_LOG_GAIN | 300 | 同上 |
+| MOVE_SPEED_SOFT_CAP | 500 | 同上，妖兽等通用曲线 |
+| MOVE_SPEED_SOFT_CAP_LOG_GAIN | 300 | 同上，妖兽等通用曲线 |
+| PLAYER_MOVE_SPEED_SOFT_CAP | 1000 | 同上，玩家专用曲线 |
+| PLAYER_MOVE_SPEED_SOFT_CAP_LOG_GAIN | 600 | 同上，玩家专用曲线 |
 
 ## 移动公式
 
 ### 有效移速（软上限衰减）
 
 ```ts
-getEffectiveMoveSpeed(moveSpeed):
+getEffectiveMoveSpeed(moveSpeed): // 妖兽等通用曲线
   if raw ≤ SOFT_CAP(500): return raw
   if raw > SOFT_CAP: return 500 + 300 × log₂(raw / 500)
+
+getEffectivePlayerMoveSpeed(moveSpeed):
+  if raw ≤ SOFT_CAP(1000): return raw
+  if raw > SOFT_CAP: return 1000 + 600 × log₂(raw / 1000)
 ```
+
+例如玩家原始移速为 `300000` 时，有效移速约为 `5937`；同值妖兽仍按通用曲线得到约 `3269`，不会因玩家高身法调整同步增强追击能力。高端移速仍按对数增长，单次连续移动同时继续受最多 20 步的运行时硬上限约束，避免高身法玩家把逐格占位与 AOI 成本无限放大。
 
 ### 每 tick 移动点数
 

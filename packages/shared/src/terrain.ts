@@ -19,6 +19,8 @@ import {
   MOVE_POINT_UNIT,
   MOVE_SPEED_SOFT_CAP,
   MOVE_SPEED_SOFT_CAP_LOG_GAIN,
+  PLAYER_MOVE_SPEED_SOFT_CAP,
+  PLAYER_MOVE_SPEED_SOFT_CAP_LOG_GAIN,
   TERRAIN_DESTROYED_RESTORE_TICKS,
   TERRAIN_REGEN_RATE_PER_TICK,
   TERRAIN_RESTORE_RETRY_DELAY_TICKS,
@@ -35,6 +37,8 @@ export {
   MOVE_POINT_UNIT,
   MOVE_SPEED_SOFT_CAP,
   MOVE_SPEED_SOFT_CAP_LOG_GAIN,
+  PLAYER_MOVE_SPEED_SOFT_CAP,
+  PLAYER_MOVE_SPEED_SOFT_CAP_LOG_GAIN,
   TERRAIN_DESTROYED_RESTORE_TICKS,
   TERRAIN_REGEN_RATE_PER_TICK,
   TERRAIN_RESTORE_RETRY_DELAY_TICKS,
@@ -143,8 +147,12 @@ export function doesTileTypeBlockSight(type: TileType): boolean {
 
 /** 根据移速属性计算每 tick 实际移动点数 */
 export function getEffectiveMoveSpeed(moveSpeed: number): number {
-  const raw = Number.isFinite(moveSpeed) ? Math.max(0, moveSpeed) : 0;
-  return raw <= MOVE_SPEED_SOFT_CAP ? raw : MOVE_SPEED_SOFT_CAP + MOVE_SPEED_SOFT_CAP_LOG_GAIN * Math.log2(raw / MOVE_SPEED_SOFT_CAP);
+  return applyMoveSpeedSoftCap(moveSpeed, MOVE_SPEED_SOFT_CAP, MOVE_SPEED_SOFT_CAP_LOG_GAIN);
+}
+
+/** 玩家专用有效移速，减轻高身法衰减而不改变妖兽追击曲线。 */
+export function getEffectivePlayerMoveSpeed(moveSpeed: number): number {
+  return applyMoveSpeedSoftCap(moveSpeed, PLAYER_MOVE_SPEED_SOFT_CAP, PLAYER_MOVE_SPEED_SOFT_CAP_LOG_GAIN);
 }
 
 export function getMovePointsPerTick(moveSpeed: number): number {
@@ -154,6 +162,11 @@ export function getMovePointsPerTick(moveSpeed: number): number {
 export function getMaxStoredMovePoints(moveSpeed: number, requiredMovePoints = 0): number {
   const required = Number.isFinite(requiredMovePoints) ? Math.max(0, Math.trunc(requiredMovePoints)) : 0;
   return Math.max(MAX_STORED_MOVE_POINTS, getMovePointsPerTick(moveSpeed), required);
+}
+
+function applyMoveSpeedSoftCap(moveSpeed: number, softCap: number, logGain: number): number {
+  const raw = Number.isFinite(moveSpeed) ? Math.max(0, moveSpeed) : 0;
+  return raw <= softCap ? raw : softCap + logGain * Math.log2(raw / softCap);
 }
 
 /** 地形耐久度材质类型 */

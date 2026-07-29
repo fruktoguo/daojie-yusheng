@@ -193,6 +193,8 @@ interface PendingLogbookMessageSnapshot {
   text: string;
   from?: string;
   at: number;
+  structured?: Record<string, unknown>;
+  structuredGroup?: Array<Record<string, unknown>>;
 }
 
 interface RuntimeBonusSnapshot {
@@ -866,6 +868,10 @@ function normalizePendingLogbookMessages(
           ? entry.from.trim()
           : undefined,
       at: Math.max(0, Math.trunc(entry.at)),
+      ...(asRecord(entry.structured) ? { structured: asRecord(entry.structured) as Record<string, unknown> } : undefined),
+      ...(Array.isArray(entry.structuredGroup)
+        ? { structuredGroup: entry.structuredGroup.map((item) => asRecord(item)).filter((item): item is Record<string, unknown> => item !== null) }
+        : undefined),
     };
     if (!candidate.id || !candidate.text) {
       continue;
@@ -891,6 +897,8 @@ function isPendingLogbookMessage(
   text: string;
   from?: string;
   at: number;
+  structured?: Record<string, unknown>;
+  structuredGroup?: Array<Record<string, unknown>>;
 } {
   if (!value || typeof value !== 'object') {
     return false;
@@ -902,6 +910,8 @@ function isPendingLogbookMessage(
     && normalizePendingLogbookKind(candidate.kind) === candidate.kind
     && typeof candidate.text === 'string'
     && (candidate.from === undefined || typeof candidate.from === 'string')
+    && (candidate.structured === undefined || asRecord(candidate.structured) !== null)
+    && (candidate.structuredGroup === undefined || (Array.isArray(candidate.structuredGroup) && candidate.structuredGroup.every((item) => asRecord(item) !== null)))
     && isFiniteNumber(candidate.at)
   );
 }

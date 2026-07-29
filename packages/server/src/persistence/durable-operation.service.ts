@@ -91,6 +91,8 @@ const DEAD_LETTER_EVENT_TABLE = 'dead_letter_event';
 const ASSET_AUDIT_LOG_TABLE = 'asset_audit_log';
 const ASSET_AUDIT_LOG_ARCHIVE_TABLE = 'asset_audit_log_archive';
 const DURABLE_OPERATION_ID_SAFE_LENGTH = 173;
+const HIGH_FREQUENCY_ASSET_AUDIT_CHECKPOINT_INTERVAL = 60;
+const DURABLE_OPERATION_COMPACTION_META_KEY = '_compaction';
 const DURABLE_OPERATION_BIGINT_COLUMNS_BY_TABLE = {
   [OUTBOX_EVENT_TABLE]: ['attempt_count'],
   [PLAYER_MAIL_ATTACHMENT_TABLE]: ['count'],
@@ -370,6 +372,21 @@ export interface CommitFormationMaintenanceMutationResult {
   jobVersion: number;
 }
 
+interface AssetMutationCompactionOptions {
+  operationKey: string;
+  accumulatePayloadFields?: readonly string[];
+  retainPayloadFields?: readonly string[];
+}
+
+interface AssetMutationCompactionContext {
+  operationKey: string;
+  operationId: string;
+  operationCount: number;
+  firstOperationId: string;
+  accumulatedTotals: Record<string, number>;
+  auditCheckpointDue: boolean;
+}
+
 /**
  * PostgreSQL 已收到 COMMIT 后连接报错时，调用方不能把事务按普通失败回滚运行态。
  * operationId 用于在新连接上查询 durable_operation_log 并完成幂等回读。
@@ -577,6 +594,12 @@ export interface CompleteActiveJobWithAssetsInput {
   nextProfessionStates?: DurableProfessionStateSnapshot[] | null;
   nextActiveJob?: DurableActiveJobSnapshot | null;
   completionKind?: ActiveJobCompletionKind;
+  /** 连续强化中间阶可只提交实际变化行；其他完成类型仍使用完整替换。 */
+  assetWriteMode?: 'replace' | 'patch';
+  /** patch 模式下本阶明确移除的背包实例。 */
+  removedInventoryItemInstanceIds?: string[] | null;
+  /** patch 模式下本阶余额归零并应删除的钱包类型。 */
+  removedWalletTypes?: string[] | null;
 }
 
 export type ActiveJobCompletionKind = 'completed' | 'advanced' | 'stopped';
@@ -717,37 +740,43 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     if (!normalizedOperationId) {
       throw new Error('invalid_operation_id');
     }
-    const [operation, outboxEvents, assetAuditLogs] = await Promise.all([
-      this.pool.query(
-        `
-          SELECT *
-          FROM ${DURABLE_OPERATION_LOG_TABLE}
-          WHERE operation_id = $1
-          LIMIT 1
-        `,
+    let operation = await this.pool.query(
+      `SELECT * FROM ${DURABLE_OPERATION_LOG_TABLE} WHERE operation_id = $1 LIMIT 1`,
+      [normalizedOperationId],
+    );
+    if (!operation.rowCount) {
+      operation = await this.pool.query(
+        `SELECT * FROM ${DURABLE_OPERATION_LOG_TABLE} WHERE request_id = $1 LIMIT 1`,
         [normalizedOperationId],
-      ),
+      );
+    }
+    const operationRow = operation.rows[0] ?? null;
+    const replayOperationIds = Array.from(new Set([
+      normalizedOperationId,
+      normalizeRequiredString(operationRow?.operation_id),
+    ].filter(Boolean)));
+    const [outboxEvents, assetAuditLogs] = await Promise.all([
       this.pool.query(
         `
           SELECT *
           FROM ${OUTBOX_EVENT_TABLE}
-          WHERE operation_id = $1
+          WHERE operation_id = ANY($1::varchar[])
           ORDER BY created_at ASC, event_id ASC
         `,
-        [normalizedOperationId],
+        [replayOperationIds],
       ),
       this.pool.query(
         `
           SELECT *
           FROM ${ASSET_AUDIT_LOG_TABLE}
-          WHERE operation_id = $1
+          WHERE operation_id = ANY($1::varchar[])
           ORDER BY created_at ASC, log_id ASC
         `,
-        [normalizedOperationId],
+        [replayOperationIds],
       ),
     ]);
     return {
-      operation: operation.rows[0] ?? null,
+      operation: operationRow,
       outboxEvents: outboxEvents.rows,
       assetAuditLogs: assetAuditLogs.rows,
     };
@@ -2014,7 +2043,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  /** 阵法维护每息把玩家灵力、技艺/job 与阵法灵力池作为同一资产转换提交。 */
+  /** 阵法维护每息原子提交资产真源；幂等日志按维护任务压缩，避免逐息扩张 outbox 与审计表。 */
   async commitFormationMaintenanceMutation(
     input: CommitFormationMaintenanceMutationInput,
   ): Promise<CommitFormationMaintenanceMutationResult> {
@@ -2070,6 +2099,12 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       nextFormationProfession: nextPlayerSnapshot.progression?.formationSkill ?? null,
       formationSnapshot,
     };
+    const compactionKey = buildDurableOperationCompactionKey(
+      'formation-maintenance',
+      normalizedPlayerId,
+      normalizedExpectedJobRunId,
+      normalizedFormationInstanceId,
+    );
 
     return this.executeAssetMutation<CommitFormationMaintenanceMutationResult>({
       operationId: normalizedOperationId,
@@ -2083,6 +2118,20 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       operationType: 'formation_maintenance_tick',
       aggregateType: 'instance_formation_state',
       payload,
+      compaction: {
+        operationKey: compactionKey,
+        accumulatePayloadFields: ['qiAmount', 'formationQiAmount'],
+        retainPayloadFields: [
+          'formationInstanceId',
+          'instanceId',
+          'expectedFormationUpdatedAtMs',
+          'expectedJobRunId',
+          'expectedJobVersion',
+          'nextJobVersion',
+          'qiAmount',
+          'formationQiAmount',
+        ],
+      },
       onAlreadyCommitted: async () => ({
         ok: true,
         alreadyCommitted: true,
@@ -2090,7 +2139,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         jobRunId: normalizedNextActiveJob.jobRunId,
         jobVersion: normalizedNextActiveJob.jobVersion,
       }),
-      onMutate: async (client) => {
+      onMutate: async (client, _persistenceVersion, _runtimeOwnerId, _sessionEpoch, compaction) => {
         const currentJob = await client.query<{
           job_run_id?: unknown;
           job_version?: unknown;
@@ -2132,24 +2181,12 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           ['vitals', 'profession', 'active_job'],
           { expectedProjectionVersion: nextPlayerSnapshot.savedAt },
         );
-        await insertDurableOutboxEvent(
+        if (!compaction) {
+          throw new Error('formation_maintenance_compaction_context_missing');
+        }
+        await upsertCompactedAssetAuditLog(
           client,
-          normalizedOperationId,
-          'formation.maintenance.tick',
-          normalizedFormationWorldInstanceId,
-          {
-            playerId: normalizedPlayerId,
-            formationInstanceId: normalizedFormationInstanceId,
-            instanceId: normalizedFormationWorldInstanceId,
-            jobRunId: normalizedNextActiveJob.jobRunId,
-            jobVersion: normalizedNextActiveJob.jobVersion,
-            qiAmount,
-            formationQiAmount,
-          },
-        );
-        await insertAssetAuditLog(
-          client,
-          normalizedOperationId,
+          compaction,
           normalizedPlayerId,
           'formation_maintenance',
           normalizedFormationInstanceId,
@@ -3878,10 +3915,28 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       : null;
     const completionKind = normalizeActiveJobCompletionKind(input.completionKind);
     const completionSemantics = resolveActiveJobCompletionSemantics(completionKind);
+    const assetWriteMode = input.assetWriteMode === 'patch' ? 'patch' : 'replace';
+    const removedInventoryItemInstanceIds = assetWriteMode === 'patch'
+      ? normalizeStringList(input.removedInventoryItemInstanceIds ?? [])
+      : [];
+    const removedWalletTypes = assetWriteMode === 'patch'
+      ? normalizeStringList(input.removedWalletTypes ?? [])
+      : [];
 
-    if (!normalizedExpectedJobRunId) {
+    if (
+      !normalizedExpectedJobRunId
+      || (assetWriteMode === 'patch' && completionKind !== 'advanced')
+      || (assetWriteMode === 'patch' && normalizedNextEquipmentSlots !== null)
+    ) {
       throw new Error('invalid_complete_active_job_with_assets_input');
     }
+    const compactionKey = completionKind === 'advanced'
+      ? buildDurableOperationCompactionKey(
+        'active-job-advance',
+        normalizedPlayerId,
+        normalizedExpectedJobRunId,
+      )
+      : null;
 
     const assetSnapshotDigest = buildActiveJobAssetSnapshotDigest({
       playerId: normalizedPlayerId,
@@ -3892,7 +3947,19 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       professionStates: normalizedNextProfessionStates,
       activeJob: normalizedNextActiveJob,
       techniqueActivityQueue: undefined,
+      ...(assetWriteMode === 'patch' ? {
+        assetWriteMode,
+        removedInventoryItemInstanceIds,
+        removedWalletTypes,
+      } : {}),
     });
+
+    const inventoryMutated = assetWriteMode === 'replace'
+      || normalizedNextInventoryItems.length > 0
+      || removedInventoryItemInstanceIds.length > 0;
+    const walletMutated = assetWriteMode === 'replace'
+      || normalizedNextWalletBalances.length > 0
+      || removedWalletTypes.length > 0;
 
     return this.executeAssetMutation<CompleteActiveJobWithAssetsResult>({
       operationId: normalizedOperationId,
@@ -3913,6 +3980,11 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         walletBalanceCount: normalizedNextWalletBalances.length,
         equipmentSlotCount: Array.isArray(normalizedNextEquipmentSlots) ? normalizedNextEquipmentSlots.length : 0,
         enhancementRecordCount: Array.isArray(normalizedNextEnhancementRecords) ? normalizedNextEnhancementRecords.length : 0,
+        ...(assetWriteMode === 'patch' ? {
+          assetWriteMode,
+          removedInventoryItemCount: removedInventoryItemInstanceIds.length,
+          removedWalletTypeCount: removedWalletTypes.length,
+        } : {}),
         ...(Array.isArray(normalizedNextProfessionStates)
           ? { professionStateCount: normalizedNextProfessionStates.length }
           : {}),
@@ -3920,6 +3992,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         nextJobVersion: normalizedNextActiveJob?.jobVersion ?? null,
         assetSnapshotDigest,
       },
+      compaction: compactionKey ? { operationKey: compactionKey } : null,
       onAlreadyCommitted: async () => ({
         ok: true,
         alreadyCommitted: true,
@@ -3927,7 +4000,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         jobRunId: normalizedNextActiveJob?.jobRunId ?? null,
         jobVersion: normalizedNextActiveJob?.jobVersion ?? null,
       }),
-      onMutate: async (client, persistenceVersion) => {
+      onMutate: async (client, persistenceVersion, _runtimeOwnerId, _sessionEpoch, compaction) => {
         const currentRow = await client.query<{
           job_run_id?: string | null;
           job_version?: string | number | null;
@@ -3967,15 +4040,35 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           }
         }
 
-        await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedNextInventoryItems, {
-          replaceLockedItems: true,
-        });
-        await replacePlayerWalletRows(client, normalizedPlayerId, normalizedNextWalletBalances);
+        if (assetWriteMode === 'patch') {
+          await patchPlayerInventoryItems(
+            client,
+            normalizedPlayerId,
+            normalizedNextInventoryItems,
+            removedInventoryItemInstanceIds,
+          );
+          await patchPlayerWalletRows(
+            client,
+            normalizedPlayerId,
+            normalizedNextWalletBalances,
+            removedWalletTypes,
+          );
+        } else {
+          await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedNextInventoryItems, {
+            replaceLockedItems: true,
+          });
+          await replacePlayerWalletRows(client, normalizedPlayerId, normalizedNextWalletBalances);
+        }
         if (Array.isArray(normalizedNextEquipmentSlots)) {
           await replacePlayerEquipmentSlots(client, normalizedPlayerId, normalizedNextEquipmentSlots);
         }
         if (Array.isArray(normalizedNextEnhancementRecords)) {
-          await replacePlayerEnhancementRecords(client, normalizedPlayerId, normalizedNextEnhancementRecords);
+          await replacePlayerEnhancementRecords(
+            client,
+            normalizedPlayerId,
+            normalizedNextEnhancementRecords,
+            { deleteMissing: assetWriteMode !== 'patch' },
+          );
         }
         if (Array.isArray(normalizedNextProfessionStates)) {
           await replacePlayerProfessionStates(client, normalizedPlayerId, normalizedNextProfessionStates);
@@ -4012,8 +4105,8 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           `,
           [
             normalizedPlayerId,
-            persistenceVersion,
-            persistenceVersion,
+            inventoryMutated ? persistenceVersion : 0,
+            walletMutated ? persistenceVersion : 0,
             Array.isArray(normalizedNextEquipmentSlots) ? persistenceVersion : 0,
             professionVersion,
             activeJobVersion,
@@ -4021,82 +4114,84 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           ],
         );
 
-        await client.query(
-          `
-            INSERT INTO ${OUTBOX_EVENT_TABLE}(
-              event_id,
-              operation_id,
-              topic,
-              partition_key,
-              payload_jsonb,
-              status,
-              attempt_count,
-              next_retry_at,
-              created_at
-            )
-            VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, now(), now())
-          `,
-          [
-            `outbox:${normalizedOperationId}`,
-            normalizedOperationId,
-            completionSemantics.outboxTopic,
+        const auditDelta = {
+          completionKind,
+          assetWriteMode,
+          inventoryItemCount: normalizedNextInventoryItems.length,
+          walletBalanceCount: normalizedNextWalletBalances.length,
+          enhancementRecordCount: Array.isArray(normalizedNextEnhancementRecords) ? normalizedNextEnhancementRecords.length : 0,
+          removedInventoryItemCount: removedInventoryItemInstanceIds.length,
+          removedWalletTypeCount: removedWalletTypes.length,
+          ...(Array.isArray(normalizedNextProfessionStates)
+            ? { professionStateCount: normalizedNextProfessionStates.length }
+            : {}),
+        };
+        const auditBefore = {
+          jobRunId: persistedJobRunId || null,
+          jobVersion: persistedJobVersion || null,
+        };
+        const auditAfter = {
+          jobRunId: normalizedNextActiveJob?.jobRunId ?? null,
+          jobVersion: normalizedNextActiveJob?.jobVersion ?? null,
+        };
+        if (compaction) {
+          await upsertCompactedAssetAuditLog(
+            client,
+            compaction,
             normalizedPlayerId,
-            JSON.stringify({
-              playerId: normalizedPlayerId,
-              action: completionSemantics.action,
-              completionKind,
-              expectedJobRunId: normalizedExpectedJobRunId,
-              expectedJobVersion: normalizedExpectedJobVersion,
-              nextJobRunId: normalizedNextActiveJob?.jobRunId ?? null,
-              nextJobVersion: normalizedNextActiveJob?.jobVersion ?? null,
-            }),
-            'ready',
-            0,
-          ],
-        );
-
-        await client.query(
-          `
-            INSERT INTO ${ASSET_AUDIT_LOG_TABLE}(
-              log_id,
-              operation_id,
-              player_id,
-              asset_type,
-              asset_ref_id,
-              action,
-              delta_jsonb,
-              before_jsonb,
-              after_jsonb,
-              created_at
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9::jsonb, now())
-          `,
-          [
-            `audit:${normalizedOperationId}`,
+            'active_job',
+            normalizedExpectedJobRunId,
+            completionSemantics.action,
+            auditDelta,
+            auditBefore,
+            auditAfter,
+          );
+        } else {
+          await client.query(
+            `
+              INSERT INTO ${OUTBOX_EVENT_TABLE}(
+                event_id,
+                operation_id,
+                topic,
+                partition_key,
+                payload_jsonb,
+                status,
+                attempt_count,
+                next_retry_at,
+                created_at
+              )
+              VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, now(), now())
+            `,
+            [
+              `outbox:${normalizedOperationId}`,
+              normalizedOperationId,
+              completionSemantics.outboxTopic,
+              normalizedPlayerId,
+              JSON.stringify({
+                playerId: normalizedPlayerId,
+                action: completionSemantics.action,
+                completionKind,
+                expectedJobRunId: normalizedExpectedJobRunId,
+                expectedJobVersion: normalizedExpectedJobVersion,
+                nextJobRunId: normalizedNextActiveJob?.jobRunId ?? null,
+                nextJobVersion: normalizedNextActiveJob?.jobVersion ?? null,
+              }),
+              'ready',
+              0,
+            ],
+          );
+          await insertAssetAuditLog(
+            client,
             normalizedOperationId,
             normalizedPlayerId,
             'active_job',
             normalizedExpectedJobRunId,
             completionSemantics.action,
-            JSON.stringify({
-              completionKind,
-              inventoryItemCount: normalizedNextInventoryItems.length,
-              walletBalanceCount: normalizedNextWalletBalances.length,
-              enhancementRecordCount: Array.isArray(normalizedNextEnhancementRecords) ? normalizedNextEnhancementRecords.length : 0,
-              ...(Array.isArray(normalizedNextProfessionStates)
-                ? { professionStateCount: normalizedNextProfessionStates.length }
-                : {}),
-            }),
-            JSON.stringify({
-              jobRunId: persistedJobRunId || null,
-              jobVersion: persistedJobVersion || null,
-            }),
-            JSON.stringify({
-              jobRunId: normalizedNextActiveJob?.jobRunId ?? null,
-              jobVersion: normalizedNextActiveJob?.jobVersion ?? null,
-            }),
-          ],
-        );
+            auditDelta,
+            auditBefore,
+            auditAfter,
+          );
+        }
 
         return {
           ok: true,
@@ -4118,16 +4213,40 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     if (!normalizedOperationId) {
       return null;
     }
-    const result = await this.pool.query<{ status?: string }>(
+    let result = await this.pool.query<{ status?: string }>(
       `SELECT status FROM ${DURABLE_OPERATION_LOG_TABLE} WHERE operation_id = $1 LIMIT 1`,
       [normalizedOperationId],
     );
+    if (!result.rowCount) {
+      result = await this.pool.query<{ status?: string }>(
+        `SELECT status FROM ${DURABLE_OPERATION_LOG_TABLE} WHERE request_id = $1 LIMIT 1`,
+        [normalizedOperationId],
+      );
+    }
     const status = normalizeRequiredString(result.rows[0]?.status);
     return status === 'committed' ? 'committed' : status === 'pending' ? 'pending' : null;
   }
 
   async isOperationCommitted(operationId: string): Promise<boolean> {
     return (await this.getOperationStatus(operationId)) === 'committed';
+  }
+
+  private async getCompactedOperationStatus(
+    operationKey: string,
+    operationId: string,
+  ): Promise<'pending' | 'committed' | null> {
+    if (!this.pool || !this.enabled) {
+      throw new Error('durable_operation_service_disabled');
+    }
+    const result = await this.pool.query<{ status?: unknown; request_id?: unknown }>(
+      `SELECT status, request_id FROM ${DURABLE_OPERATION_LOG_TABLE} WHERE operation_id = $1 LIMIT 1`,
+      [operationKey],
+    );
+    if (normalizeRequiredString(result.rows[0]?.request_id) !== operationId) {
+      return null;
+    }
+    const status = normalizeRequiredString(result.rows[0]?.status);
+    return status === 'committed' ? 'committed' : status === 'pending' ? 'pending' : null;
   }
 
   /**
@@ -4139,6 +4258,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     cause: unknown;
     affectedPlayerIds?: readonly string[];
     affectedInstanceIds?: readonly string[];
+    readStatus?: () => Promise<'pending' | 'committed' | null>;
     onSettled: (retryResult: TResult) => TResult;
     retry: () => Promise<TResult>;
   }): Promise<TResult> {
@@ -4149,7 +4269,9 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     while (!this.closing && this.pool && this.enabled) {
       attempt += 1;
       try {
-        await this.awaitStatusReadOrShutdown(this.getOperationStatus(input.operationId));
+        await this.awaitStatusReadOrShutdown(
+          input.readStatus ? input.readStatus() : this.getOperationStatus(input.operationId),
+        );
       } catch (error: unknown) {
         if (error instanceof DurableOperationShutdownError) {
           break;
@@ -4231,12 +4353,14 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     operationType: string;
     aggregateType: string;
     payload: unknown;
+    compaction?: AssetMutationCompactionOptions | null;
     onAlreadyCommitted: (client: import('pg').PoolClient, occurredAtMs: number) => Promise<TResult>;
     onMutate: (
       client: import('pg').PoolClient,
       persistenceVersion: number,
       runtimeOwnerId: string,
       sessionEpoch: number,
+      compaction: AssetMutationCompactionContext | null,
     ) => Promise<TResult>;
   }, commitOutcomeRetryRemaining = 1): Promise<TResult> {
     if (!this.pool || !this.enabled) {
@@ -4245,9 +4369,17 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
 
     const normalizedPlayerId = normalizeRequiredString(input.playerId);
     const normalizedOperationId = normalizeDurableOperationId(input.operationId);
-    if (!normalizedPlayerId || !normalizedOperationId) {
+    const normalizedCompactionKey = input.compaction
+      ? normalizeDurableOperationId(input.compaction.operationKey)
+      : '';
+    if (
+      !normalizedPlayerId
+      || !normalizedOperationId
+      || (input.compaction && !normalizedCompactionKey)
+    ) {
       throw new Error('invalid_execute_asset_mutation_input');
     }
+    const durableOperationKey = normalizedCompactionKey || normalizedOperationId;
 
     const client = await this.pool.connect();
     let clientReleased = false;
@@ -4264,17 +4396,37 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         operation_type?: string;
         aggregate_type?: string;
         player_id?: string;
+        request_id?: string;
         payload_jsonb?: unknown;
       }>(
         `
-          SELECT status, operation_type, aggregate_type, player_id, payload_jsonb
+          SELECT status, operation_type, aggregate_type, player_id, request_id, payload_jsonb
           FROM ${DURABLE_OPERATION_LOG_TABLE}
           WHERE operation_id = $1
           FOR UPDATE
         `,
-        [normalizedOperationId],
+        [durableOperationKey],
       );
-      if (existingOperation.rowCount) {
+      const existingOperationRow = existingOperation.rows[0] ?? null;
+      const existingRequestId = normalizeRequiredString(existingOperationRow?.request_id)
+        || durableOperationKey;
+      const sameCompactedInvocation = Boolean(
+        normalizedCompactionKey
+        && existingOperationRow
+        && existingRequestId === normalizedOperationId
+      );
+      if (existingOperationRow && normalizedCompactionKey) {
+        assertDurableOperationCompactionStreamIdentity(existingOperationRow, {
+          operationType: input.operationType,
+          aggregateType: input.aggregateType,
+          playerId: normalizedPlayerId,
+        });
+        if (sameCompactedInvocation) {
+          assertDurableOperationCompactedReplayIdentity(existingOperationRow, input.payload);
+        } else if (normalizeRequiredString(existingOperationRow.status) !== 'committed') {
+          throw new Error('durable_operation_compaction_stream_not_committed');
+        }
+      } else if (existingOperationRow) {
         assertDurableOperationReplayIdentity(existingOperation.rows[0], {
           operationType: input.operationType,
           aggregateType: input.aggregateType,
@@ -4282,7 +4434,10 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           payload: input.payload,
         });
       }
-      if (existingOperation.rowCount && existingOperation.rows[0]?.status === 'committed') {
+      if (
+        existingOperationRow?.status === 'committed'
+        && (!normalizedCompactionKey || sameCompactedInvocation)
+      ) {
         const committedResult = await input.onAlreadyCommitted(client, Date.now());
         clientReleased = await rollbackTransactionOrDestroyClient(client);
         return committedResult;
@@ -4330,7 +4485,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         );
       }
 
-      if (existingOperation.rowCount === 0) {
+      if (!normalizedCompactionKey && existingOperation.rowCount === 0) {
         await client.query(
           `
             INSERT INTO ${DURABLE_OPERATION_LOG_TABLE}(
@@ -4363,23 +4518,99 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         );
       }
 
+      const compactedPayload = normalizedCompactionKey
+        ? buildCompactedDurableOperationPayload({
+          operationKey: normalizedCompactionKey,
+          operationId: normalizedOperationId,
+          currentPayload: input.payload,
+          previousPayload: existingOperationRow?.payload_jsonb,
+          previousOperationId: existingOperationRow ? existingRequestId : null,
+          accumulatePayloadFields: input.compaction?.accumulatePayloadFields,
+          retainPayloadFields: input.compaction?.retainPayloadFields,
+        })
+        : null;
+
       mutationResult = await input.onMutate(
         client,
         persistenceVersion,
         persistedRuntimeOwnerId,
         Math.trunc(persistedSessionEpoch),
+        compactedPayload?.context ?? null,
       );
 
-      await client.query(
-        `
-          UPDATE ${DURABLE_OPERATION_LOG_TABLE}
-          SET
-            status = 'committed',
-            committed_at = now()
-          WHERE operation_id = $1
-        `,
-        [normalizedOperationId],
-      );
+      if (compactedPayload) {
+        if (existingOperationRow) {
+          const createdAtRefreshSql = compactedPayload.context.auditCheckpointDue
+            ? 'created_at = now(),'
+            : '';
+          const updateResult = await client.query(
+            `
+              UPDATE ${DURABLE_OPERATION_LOG_TABLE}
+              SET
+                runtime_owner_id = $2,
+                session_epoch = $3,
+                request_id = $4,
+                payload_jsonb = $5::jsonb,
+                error_code = NULL,
+                ${createdAtRefreshSql}
+                committed_at = now()
+              WHERE operation_id = $1
+            `,
+            [
+              normalizedCompactionKey,
+              persistedRuntimeOwnerId,
+              Math.trunc(persistedSessionEpoch),
+              normalizedOperationId,
+              JSON.stringify(compactedPayload.payload),
+            ],
+          );
+          if ((updateResult.rowCount ?? 0) !== 1) {
+            throw new Error('durable_operation_compaction_checkpoint_missing');
+          }
+        } else {
+          await client.query(
+            `
+              INSERT INTO ${DURABLE_OPERATION_LOG_TABLE}(
+                operation_id,
+                operation_type,
+                aggregate_type,
+                aggregate_id,
+                player_id,
+                runtime_owner_id,
+                session_epoch,
+                request_id,
+                payload_jsonb,
+                status,
+                created_at,
+                committed_at
+              )
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, 'committed', now(), now())
+            `,
+            [
+              normalizedCompactionKey,
+              input.operationType,
+              input.aggregateType,
+              normalizedPlayerId,
+              normalizedPlayerId,
+              persistedRuntimeOwnerId,
+              Math.trunc(persistedSessionEpoch),
+              normalizedOperationId,
+              JSON.stringify(compactedPayload.payload),
+            ],
+          );
+        }
+      } else {
+        await client.query(
+          `
+            UPDATE ${DURABLE_OPERATION_LOG_TABLE}
+            SET
+              status = 'committed',
+              committed_at = now()
+            WHERE operation_id = $1
+          `,
+          [normalizedOperationId],
+        );
+      }
 
       commitAttempted = true;
       await client.query('COMMIT');
@@ -4411,6 +4642,9 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         cause: commitOutcomeCause,
         affectedPlayerIds: [normalizedPlayerId],
         affectedInstanceIds: [normalizeRequiredString(input.expectedInstanceId)].filter(Boolean),
+        readStatus: normalizedCompactionKey
+          ? () => this.getCompactedOperationStatus(normalizedCompactionKey, normalizedOperationId)
+          : undefined,
         onSettled: (retryResult) => normalizeCurrentDurableInvocationResult(retryResult),
         retry: () => this.executeAssetMutation(input, -1),
       });
@@ -5390,6 +5624,132 @@ async function replacePlayerInventoryItems(
   );
 }
 
+/** 连续强化中间阶只更新已存在的稳定实例行，并按明确 ID 删除消耗完的物品。 */
+async function patchPlayerInventoryItems(
+  client: import('pg').PoolClient,
+  playerId: string,
+  items: DurableInventoryItemSnapshot[],
+  removedItemInstanceIds: readonly string[],
+): Promise<void> {
+  const rows: Array<{
+    item_instance_id: string;
+    item_id: string;
+    count: number;
+    raw_payload: Record<string, unknown>;
+    locked_by: string | null;
+  }> = [];
+  const incomingIds = new Set<string>();
+  for (let index = 0; index < (Array.isArray(items) ? items.length : 0); index += 1) {
+    const item = items[index];
+    const itemId = normalizeRequiredString(item?.itemId);
+    const itemInstanceId = normalizeRequiredString(item?.itemInstanceId);
+    if (!itemId || !itemInstanceId || isLegacyItemInstanceId(itemInstanceId) || incomingIds.has(itemInstanceId)) {
+      throw new Error(
+        `patchPlayerInventoryItems: invalid stable inventory entry playerId=${playerId} index=${index} entry=${safeStringifyDurableEntry(item)}`,
+      );
+    }
+    incomingIds.add(itemInstanceId);
+    const count = Math.max(1, Math.trunc(Number(item.count ?? 1)));
+    const lockedBy = normalizeOptionalString(item?.lockedBy);
+    const rawPayload = buildPersistedInventoryItemRawPayload({
+      itemId,
+      count,
+      name: item.name,
+      desc: item.desc,
+      enhanceLevel: item.enhanceLevel,
+      learnTechniqueId: item.learnTechniqueId,
+      learnTechniqueMaxLevel: item.learnTechniqueMaxLevel,
+      grade: item.grade,
+      level: item.level,
+      rawPayload: item.rawPayload,
+    });
+    if (lockedBy != null) {
+      const lockedAt = normalizeOptionalInteger(item?.lockedAt)
+        ?? normalizeOptionalInteger((item?.rawPayload as { lockedAt?: unknown } | null | undefined)?.lockedAt);
+      if (lockedAt != null) {
+        rawPayload.lockedAt = lockedAt;
+      }
+    }
+    rows.push({
+      item_instance_id: itemInstanceId,
+      item_id: itemId,
+      count,
+      raw_payload: rawPayload,
+      locked_by: lockedBy,
+    });
+  }
+  const removedIds = normalizeStringList(removedItemInstanceIds).sort();
+  if (removedIds.some((itemInstanceId) => incomingIds.has(itemInstanceId))) {
+    throw new Error(`patch_inventory_remove_update_conflict:playerId=${playerId}`);
+  }
+  const guardedIds = [...incomingIds, ...removedIds];
+  await assertNoForeignPlayerOwnedIds(
+    client,
+    PLAYER_INVENTORY_ITEM_TABLE,
+    'item_instance_id',
+    playerId,
+    guardedIds,
+    'inventory',
+  );
+  if (removedIds.length > 0) {
+    await client.query(
+      `DELETE FROM ${PLAYER_INVENTORY_ITEM_TABLE}
+       WHERE player_id = $1
+         AND item_instance_id = ANY($2::varchar[])`,
+      [playerId, removedIds],
+    );
+  }
+  if (rows.length > 0) {
+    const result = await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            item_instance_id varchar(180),
+            item_id varchar(120),
+            count bigint,
+            raw_payload jsonb,
+            locked_by varchar(180)
+          )
+        )
+        UPDATE ${PLAYER_INVENTORY_ITEM_TABLE} target
+        SET item_id = incoming.item_id,
+            count = incoming.count,
+            raw_payload = COALESCE(incoming.raw_payload, '{}'::jsonb),
+            locked_by = incoming.locked_by,
+            updated_at = now()
+        FROM incoming
+        WHERE target.player_id = $1
+          AND target.item_instance_id = incoming.item_instance_id
+          AND ROW(target.item_id, target.count, target.raw_payload, target.locked_by)
+            IS DISTINCT FROM ROW(incoming.item_id, incoming.count, COALESCE(incoming.raw_payload, '{}'::jsonb), incoming.locked_by)
+        RETURNING target.item_instance_id
+      `,
+      [playerId, JSON.stringify(rows)],
+    );
+    const unchangedIds = rows.map(({ item_instance_id }) => item_instance_id);
+    const existing = await client.query<{ item_instance_id: string }>(
+      `SELECT item_instance_id
+       FROM ${PLAYER_INVENTORY_ITEM_TABLE}
+       WHERE player_id = $1
+         AND item_instance_id = ANY($2::varchar[])`,
+      [playerId, unchangedIds],
+    );
+    if ((existing.rowCount ?? 0) !== rows.length) {
+      throw new Error(`patch_inventory_missing_item:playerId=${playerId}`);
+    }
+    void result;
+  }
+  await assertNoForeignPlayerOwnedIds(
+    client,
+    PLAYER_INVENTORY_ITEM_TABLE,
+    'item_instance_id',
+    playerId,
+    Array.from(incomingIds),
+    'inventory',
+  );
+}
+
 function createPersistedInventoryRowSignature(itemId: string, rawPayload: Record<string, unknown>): string {
   return createItemStackSignature({
     itemId,
@@ -5882,6 +6242,7 @@ async function replacePlayerEnhancementRecords(
   client: import('pg').PoolClient,
   playerId: string,
   rows: readonly DurableEnhancementRecordSnapshot[],
+  options: { deleteMissing?: boolean } = {},
 ): Promise<void> {
   const normalizedRows: Array<{
     record_id: string;
@@ -6024,22 +6385,24 @@ async function replacePlayerEnhancementRecords(
       'enhancement_record',
     );
   }
-  await client.query(
-    `
-      WITH incoming AS (
-        SELECT record_id
-        FROM jsonb_to_recordset($2::jsonb) AS entry(record_id varchar(180))
-      )
-      DELETE FROM ${PLAYER_ENHANCEMENT_RECORD_TABLE} target
-      WHERE target.player_id = $1
-        AND NOT EXISTS (
-          SELECT 1
-          FROM incoming
-          WHERE incoming.record_id = target.record_id
+  if (options.deleteMissing !== false) {
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT record_id
+          FROM jsonb_to_recordset($2::jsonb) AS entry(record_id varchar(180))
         )
-    `,
-    [playerId, JSON.stringify(normalizedRows.map(({ record_id }) => ({ record_id })))],
-  );
+        DELETE FROM ${PLAYER_ENHANCEMENT_RECORD_TABLE} target
+        WHERE target.player_id = $1
+          AND NOT EXISTS (
+            SELECT 1
+            FROM incoming
+            WHERE incoming.record_id = target.record_id
+          )
+      `,
+      [playerId, JSON.stringify(normalizedRows.map(({ record_id }) => ({ record_id })))],
+    );
+  }
 }
 
 async function replacePlayerProfessionStates(
@@ -6309,6 +6672,9 @@ function buildActiveJobAssetSnapshotDigest(input: {
   professionStates?: readonly DurableProfessionStateSnapshot[] | null;
   activeJob: DurableActiveJobSnapshot | null;
   techniqueActivityQueue?: readonly PlayerTechniqueActivityQueueUpsertInput[];
+  assetWriteMode?: 'patch';
+  removedInventoryItemInstanceIds?: readonly string[];
+  removedWalletTypes?: readonly string[];
 }): string {
   const canonicalSnapshot = {
     inventory: normalizeInventorySnapshotsForReplay(input.playerId, input.inventoryItems),
@@ -6326,6 +6692,13 @@ function buildActiveJobAssetSnapshotDigest(input: {
     techniqueActivityQueue: input.techniqueActivityQueue === undefined
       ? { mutation: 'unchanged' }
       : normalizeTechniqueActivityQueueSnapshots(input.techniqueActivityQueue),
+    ...(input.assetWriteMode === 'patch' ? {
+      assetPatch: {
+        writeMode: 'patch',
+        removedInventoryItemInstanceIds: normalizeStringList(input.removedInventoryItemInstanceIds ?? []).sort(),
+        removedWalletTypes: normalizeStringList(input.removedWalletTypes ?? []).sort(),
+      },
+    } : {}),
   };
   return createHash('sha256').update(stableDurableJson(canonicalSnapshot)).digest('hex');
 }
@@ -6868,6 +7241,144 @@ function normalizeDurableOperationId(value: unknown): string {
   return `${normalized.slice(0, DURABLE_OPERATION_ID_SAFE_LENGTH - suffix.length)}${suffix}`;
 }
 
+function buildDurableOperationCompactionKey(scope: string, ...parts: readonly unknown[]): string {
+  const normalizedScope = normalizeRequiredString(scope);
+  const normalizedParts = parts.map((part) => normalizeRequiredString(part)).filter(Boolean);
+  if (!normalizedScope || normalizedParts.length !== parts.length) {
+    throw new Error('invalid_durable_operation_compaction_key');
+  }
+  return normalizeDurableOperationId(`compact:${normalizedScope}:${normalizedParts.join(':')}`);
+}
+
+function buildCompactedDurableOperationPayload(input: {
+  operationKey: string;
+  operationId: string;
+  currentPayload: unknown;
+  previousPayload: unknown;
+  previousOperationId: string | null;
+  accumulatePayloadFields?: readonly string[];
+  retainPayloadFields?: readonly string[];
+}): { payload: Record<string, unknown>; context: AssetMutationCompactionContext } {
+  const currentPayload = normalizeDurableJsonObject(input.currentPayload);
+  if (Object.prototype.hasOwnProperty.call(currentPayload, DURABLE_OPERATION_COMPACTION_META_KEY)) {
+    throw new Error('durable_operation_payload_reserved_compaction_key');
+  }
+  const previousPayload = normalizeDurableJsonObject(input.previousPayload);
+  const previousMeta = normalizeDurableJsonObject(
+    previousPayload[DURABLE_OPERATION_COMPACTION_META_KEY],
+  );
+  const previousCount = Math.max(
+    input.previousOperationId ? 1 : 0,
+    normalizeOptionalInteger(previousMeta.operationCount) ?? 0,
+  );
+  const operationCount = input.previousOperationId === input.operationId
+    ? Math.max(1, previousCount)
+    : previousCount + 1;
+  const firstOperationId = normalizeRequiredString(previousMeta.firstOperationId)
+    || input.previousOperationId
+    || input.operationId;
+  const previousTotals = normalizeDurableJsonObject(previousMeta.accumulatedTotals);
+  const accumulatedTotals: Record<string, number> = {};
+  for (const field of input.accumulatePayloadFields ?? []) {
+    const normalizedField = normalizeRequiredString(field);
+    if (!normalizedField) {
+      continue;
+    }
+    const previousValue = Number(previousTotals[normalizedField] ?? 0);
+    const currentValue = Number(currentPayload[normalizedField] ?? 0);
+    if (!Number.isFinite(currentValue)) {
+      throw new Error(`invalid_durable_operation_compaction_accumulator:${normalizedField}`);
+    }
+    const total = (Number.isFinite(previousValue) ? previousValue : 0) + currentValue;
+    accumulatedTotals[normalizedField] = Number.isSafeInteger(total)
+      ? total
+      : Math.sign(total) * Number.MAX_SAFE_INTEGER;
+  }
+  const context: AssetMutationCompactionContext = {
+    operationKey: input.operationKey,
+    operationId: input.operationId,
+    operationCount,
+    firstOperationId,
+    accumulatedTotals,
+    auditCheckpointDue: operationCount === 1
+      || operationCount % HIGH_FREQUENCY_ASSET_AUDIT_CHECKPOINT_INTERVAL === 0,
+  };
+  const retainedPayload = input.retainPayloadFields
+    ? Object.fromEntries(
+      input.retainPayloadFields
+        .map((field) => normalizeRequiredString(field))
+        .filter(Boolean)
+        .map((field) => [field, currentPayload[field]]),
+    )
+    : currentPayload;
+  return {
+    payload: {
+      ...retainedPayload,
+      [DURABLE_OPERATION_COMPACTION_META_KEY]: {
+        operationCount,
+        firstOperationId,
+        lastOperationId: input.operationId,
+        accumulatedTotals,
+        payloadDigest: createHash('sha256').update(stableDurableJson(currentPayload)).digest('hex'),
+      },
+    },
+    context,
+  };
+}
+
+function unwrapCompactedDurableOperationPayload(value: unknown): Record<string, unknown> {
+  const payload = normalizeDurableJsonObject(value);
+  delete payload[DURABLE_OPERATION_COMPACTION_META_KEY];
+  return payload;
+}
+
+function assertDurableOperationCompactedReplayIdentity(
+  row: { payload_jsonb?: unknown },
+  expectedPayload: unknown,
+): void {
+  const storedPayload = normalizeDurableJsonObject(row.payload_jsonb);
+  const storedMeta = normalizeDurableJsonObject(
+    storedPayload[DURABLE_OPERATION_COMPACTION_META_KEY],
+  );
+  const storedDigest = normalizeRequiredString(storedMeta.payloadDigest);
+  if (storedDigest) {
+    const expectedDigest = createHash('sha256')
+      .update(stableDurableJson(expectedPayload))
+      .digest('hex');
+    if (storedDigest !== expectedDigest) {
+      throw new Error('durable_operation_replay_identity_conflict');
+    }
+    return;
+  }
+  if (
+    stableDurableJson(unwrapCompactedDurableOperationPayload(row.payload_jsonb))
+    !== stableDurableJson(expectedPayload)
+  ) {
+    throw new Error('durable_operation_replay_identity_conflict');
+  }
+}
+
+function assertDurableOperationCompactionStreamIdentity(
+  row: {
+    operation_type?: unknown;
+    aggregate_type?: unknown;
+    player_id?: unknown;
+  },
+  expected: {
+    operationType: unknown;
+    aggregateType: unknown;
+    playerId: unknown;
+  },
+): void {
+  if (
+    normalizeRequiredString(row.operation_type) !== normalizeRequiredString(expected.operationType)
+    || normalizeRequiredString(row.aggregate_type) !== normalizeRequiredString(expected.aggregateType)
+    || normalizeRequiredString(row.player_id) !== normalizeRequiredString(expected.playerId)
+  ) {
+    throw new Error('durable_operation_compaction_identity_conflict');
+  }
+}
+
 function assertDurableOperationReplayIdentity(
   row: {
     operation_type?: unknown;
@@ -7408,11 +7919,7 @@ async function insertAssetAuditLog(
   after: unknown,
   logIdSuffix?: string,
 ): Promise<void> {
-  const normalizedLogIdSuffix = normalizeOptionalString(logIdSuffix);
-  const rawLogId = `audit:${operationId}${normalizedLogIdSuffix ? `:${normalizedLogIdSuffix}` : ''}`;
-  const logId = rawLogId.length <= 180
-    ? rawLogId
-    : `audit:h:${createHash('sha256').update(rawLogId).digest('hex')}`;
+  const logId = buildAssetAuditLogId(operationId, logIdSuffix);
   await client.query(
     `
       INSERT INTO ${ASSET_AUDIT_LOG_TABLE}(
@@ -7426,10 +7933,82 @@ async function insertAssetAuditLog(
   );
 }
 
+async function upsertCompactedAssetAuditLog(
+  client: import('pg').PoolClient,
+  compaction: AssetMutationCompactionContext,
+  playerId: string,
+  assetType: string,
+  assetRefId: string,
+  action: string,
+  delta: unknown,
+  before: unknown,
+  after: unknown,
+): Promise<void> {
+  if (!compaction.auditCheckpointDue) {
+    return;
+  }
+  const logId = buildAssetAuditLogId(compaction.operationKey);
+  const compactedDelta = {
+    ...normalizeDurableJsonObject(delta),
+    operationCount: compaction.operationCount,
+    accumulatedTotals: compaction.accumulatedTotals,
+  };
+  const compactedBefore = {
+    ...normalizeDurableJsonObject(before),
+    firstOperationId: compaction.firstOperationId,
+  };
+  const compactedAfter = {
+    ...normalizeDurableJsonObject(after),
+    lastOperationId: compaction.operationId,
+  };
+  const result = await client.query(
+    `
+      INSERT INTO ${ASSET_AUDIT_LOG_TABLE}(
+        log_id, operation_id, player_id, asset_type, asset_ref_id, action,
+        delta_jsonb, before_jsonb, after_jsonb, created_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9::jsonb, now())
+      ON CONFLICT (log_id)
+      DO UPDATE SET
+        delta_jsonb = EXCLUDED.delta_jsonb,
+        after_jsonb = EXCLUDED.after_jsonb,
+        created_at = now()
+      WHERE ${ASSET_AUDIT_LOG_TABLE}.operation_id = EXCLUDED.operation_id
+        AND ${ASSET_AUDIT_LOG_TABLE}.player_id = EXCLUDED.player_id
+        AND ${ASSET_AUDIT_LOG_TABLE}.asset_type = EXCLUDED.asset_type
+        AND ${ASSET_AUDIT_LOG_TABLE}.asset_ref_id = EXCLUDED.asset_ref_id
+        AND ${ASSET_AUDIT_LOG_TABLE}.action = EXCLUDED.action
+    `,
+    [
+      logId,
+      compaction.operationKey,
+      playerId,
+      assetType,
+      assetRefId,
+      action,
+      JSON.stringify(compactedDelta),
+      JSON.stringify(compactedBefore),
+      JSON.stringify(compactedAfter),
+    ],
+  );
+  if ((result.rowCount ?? 0) !== 1) {
+    throw new Error('asset_audit_compaction_identity_conflict');
+  }
+}
+
+function buildAssetAuditLogId(operationId: string, logIdSuffix?: string): string {
+  const normalizedLogIdSuffix = normalizeOptionalString(logIdSuffix);
+  const rawLogId = `audit:${operationId}${normalizedLogIdSuffix ? `:${normalizedLogIdSuffix}` : ''}`;
+  return rawLogId.length <= 180
+    ? rawLogId
+    : `audit:h:${createHash('sha256').update(rawLogId).digest('hex')}`;
+}
+
 async function replacePlayerWalletRows(
   client: { query: (sql: string, params?: unknown[]) => Promise<unknown> },
   playerId: string,
   balances: readonly unknown[],
+  options: { deleteMissing?: boolean } = {},
 ): Promise<void> {
   const sourceBalances = Array.isArray(balances) ? balances : [];
   const rows: Array<{
@@ -7496,22 +8075,48 @@ async function replacePlayerWalletRows(
       [playerId, rowsJson],
     );
   }
-  await client.query(
-    `
-      WITH incoming AS (
-        SELECT wallet_type
-        FROM jsonb_to_recordset($2::jsonb) AS entry(wallet_type varchar(64))
-      )
-      DELETE FROM ${PLAYER_WALLET_TABLE} target
-      WHERE target.player_id = $1
-        AND NOT EXISTS (
-          SELECT 1
-          FROM incoming
-          WHERE incoming.wallet_type = target.wallet_type
+  if (options.deleteMissing !== false) {
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT wallet_type
+          FROM jsonb_to_recordset($2::jsonb) AS entry(wallet_type varchar(64))
         )
-    `,
-    [playerId, rowsJson],
-  );
+        DELETE FROM ${PLAYER_WALLET_TABLE} target
+        WHERE target.player_id = $1
+          AND NOT EXISTS (
+            SELECT 1
+            FROM incoming
+            WHERE incoming.wallet_type = target.wallet_type
+          )
+      `,
+      [playerId, rowsJson],
+    );
+  }
+}
+
+async function patchPlayerWalletRows(
+  client: { query: (sql: string, params?: unknown[]) => Promise<unknown> },
+  playerId: string,
+  balances: readonly unknown[],
+  removedWalletTypes: readonly string[],
+): Promise<void> {
+  const removedTypes = normalizeStringList(removedWalletTypes).sort();
+  const incomingTypes = new Set((Array.isArray(balances) ? balances : [])
+    .map((row) => normalizeRequiredString((row as { walletType?: unknown })?.walletType))
+    .filter(Boolean));
+  if (removedTypes.some((walletType) => incomingTypes.has(walletType))) {
+    throw new Error(`patch_wallet_remove_update_conflict:playerId=${playerId}`);
+  }
+  await replacePlayerWalletRows(client, playerId, balances, { deleteMissing: false });
+  if (removedTypes.length > 0) {
+    await client.query(
+      `DELETE FROM ${PLAYER_WALLET_TABLE}
+       WHERE player_id = $1
+         AND wallet_type = ANY($2::varchar[])`,
+      [playerId, removedTypes],
+    );
+  }
 }
 
 async function acquireSchemaInitLock(client: import('pg').PoolClient): Promise<void> {

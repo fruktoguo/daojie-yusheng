@@ -12,14 +12,22 @@ import { C2S, S2C, type ClientToServerEventPayload, type TimeChamberOperationKin
 import type { Socket } from 'socket.io';
 
 const MAX_OFFLINE_GAIN_REFRESH_REQUEST_ID_LENGTH = 96;
+const TIME_CHAMBER_PASSWORD_ATTEMPTS_PER_WINDOW = 6;
+const TIME_CHAMBER_PASSWORD_ATTEMPT_WINDOW_MS = 10_000;
 
 interface WorldGatewayPlayerControlsDeps {
   gatewayGuardHelper: {
     requirePlayerId(client: Socket): string | null | undefined;
     requireActivePlayerId(client: Socket): string | null | undefined;
+    checkRateLimit?(client: Socket, eventCategory?: string, maxPerWindow?: number, windowMs?: number): boolean;
   };
   worldClientEventService: {
-    broadcastChat(playerId: string, payload: ClientToServerEventPayload<typeof C2S.Chat>): void;
+    broadcastChat(
+      playerId: string,
+      payload: ClientToServerEventPayload<typeof C2S.Chat>,
+      runtime: WorldGatewayPlayerControlsDeps['worldRuntimeService'],
+    ): void;
+    emitChatHistory(client: Socket, playerId: string, payload: ClientToServerEventPayload<typeof C2S.RequestChatHistory>): Promise<void>;
     acknowledgeSystemMessages(playerId: string, payload: ClientToServerEventPayload<typeof C2S.AckSystemMessages>): void;
     emitGatewayError(client: Socket, code: string, error: unknown): void;
   };
@@ -28,6 +36,7 @@ interface WorldGatewayPlayerControlsDeps {
   timeChamberRuntimeService: any;
   worldSessionService: {
     getSocketByPlayerId(playerId: string): any;
+    getBinding(playerId: string): { connected?: boolean; socketId?: string | null } | null;
   };
   worldRuntimeService: {
     buildQuestListView(playerId: string, input?: unknown): unknown;
@@ -101,11 +110,32 @@ export class WorldGatewayPlayerControlsHelper {
     client: Socket,
     payload: ClientToServerEventPayload<typeof C2S.Chat>,
   ): void {
-    const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    const playerId = this.gateway.gatewayGuardHelper.requireActivePlayerId(client);
     if (!playerId) {
       return;
     }
-    this.gateway.worldClientEventService.broadcastChat(playerId, payload);
+    if (!this.allowChatRequest(client, 'chat-send', 5, 5_000, 'CHAT_RATE_LIMITED', '聊天发送过于频繁，请稍后再试')) {
+      return;
+    }
+    this.gateway.worldClientEventService.broadcastChat(playerId, payload, this.gateway.worldRuntimeService);
+  }
+
+  async handleRequestChatHistory(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.RequestChatHistory>,
+  ): Promise<void> {
+    const playerId = this.gateway.gatewayGuardHelper.requireActivePlayerId(client);
+    if (!playerId) {
+      return;
+    }
+    if (!this.allowChatRequest(client, 'chat-history', 4, 5_000, 'CHAT_HISTORY_RATE_LIMITED', '聊天记录同步过于频繁')) {
+      return;
+    }
+    try {
+      await this.gateway.worldClientEventService.emitChatHistory(client, playerId, payload);
+    } catch (error) {
+      this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_CHAT_HISTORY_FAILED', error);
+    }
   }
 
   handleAckSystemMessages(
@@ -332,12 +362,18 @@ export class WorldGatewayPlayerControlsHelper {
     client: Socket,
     _payload: ClientToServerEventPayload<typeof C2S.RequestSocialPanel>,
   ): Promise<void> {
-    const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    const playerId = this.gateway.gatewayGuardHelper.requireActivePlayerId(client);
     if (!playerId) {
       return;
     }
+    if (!this.allowChatRequest(client, 'social-panel', 4, 5_000, 'SOCIAL_PANEL_RATE_LIMITED', '社交信息刷新过于频繁')) {
+      return;
+    }
     try {
-      client.emit(S2C.SocialPanel, await this.gateway.socialRuntimeService.buildPanel(playerId, this.gateway.worldRuntimeService));
+      const panel = await this.gateway.socialRuntimeService.buildPanel(playerId, this.gateway.worldRuntimeService);
+      if (this.isCurrentPlayerSocket(client, playerId)) {
+        client.emit(S2C.SocialPanel, panel);
+      }
     } catch (error) {
       this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_SOCIAL_PANEL_FAILED', error);
     }
@@ -347,12 +383,18 @@ export class WorldGatewayPlayerControlsHelper {
     client: Socket,
     _payload: ClientToServerEventPayload<typeof C2S.RequestNearbyDaoistCandidates>,
   ): Promise<void> {
-    const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    const playerId = this.gateway.gatewayGuardHelper.requireActivePlayerId(client);
     if (!playerId) {
       return;
     }
+    if (!this.allowChatRequest(client, 'social-nearby', 4, 5_000, 'SOCIAL_NEARBY_RATE_LIMITED', '附近道友刷新过于频繁')) {
+      return;
+    }
     try {
-      client.emit(S2C.SocialPanel, await this.gateway.socialRuntimeService.buildPanel(playerId, this.gateway.worldRuntimeService));
+      const panel = await this.gateway.socialRuntimeService.buildPanel(playerId, this.gateway.worldRuntimeService);
+      if (this.isCurrentPlayerSocket(client, playerId)) {
+        client.emit(S2C.SocialPanel, panel);
+      }
     } catch (error) {
       this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_DAOIST_CANDIDATES_FAILED', error);
     }
@@ -430,20 +472,75 @@ export class WorldGatewayPlayerControlsHelper {
     client: Socket,
     payload: ClientToServerEventPayload<typeof C2S.SendDaoistDirectMessage>,
   ): Promise<void> {
-    const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    const playerId = this.gateway.gatewayGuardHelper.requireActivePlayerId(client);
     if (!playerId) {
+      return;
+    }
+    if (!this.allowChatRequest(client, 'daoist-message-send', 5, 5_000, 'DAOIST_MESSAGE_RATE_LIMITED', '私聊发送过于频繁，请稍后再试')) {
       return;
     }
     try {
       const result = await this.gateway.socialRuntimeService.createDirectMessage(playerId, payload?.targetPlayerId, payload?.message);
-      client.emit(S2C.SocialOperationResult, { ok: result?.ok === true, operation: 'message', reason: result?.reason });
+      if (this.isCurrentPlayerSocket(client, playerId)) {
+        client.emit(S2C.SocialOperationResult, { ok: result?.ok === true, operation: 'message', reason: result?.reason });
+      }
       if (result?.message) {
-        client.emit(S2C.DaoistDirectMessage, result.message);
+        const senderSocket = this.gateway.worldSessionService.getSocketByPlayerId(playerId);
+        senderSocket?.emit(S2C.DaoistDirectMessage, result.message);
         const targetSocket = this.gateway.worldSessionService.getSocketByPlayerId(result.message.toPlayerId);
         targetSocket?.emit(S2C.DaoistDirectMessage, result.message);
       }
     } catch (error) {
       this.gateway.worldClientEventService.emitGatewayError(client, 'SEND_DAOIST_MESSAGE_FAILED', error);
+    }
+  }
+
+  async handleRequestDaoistDirectMessageHistory(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.RequestDaoistDirectMessageHistory>,
+  ): Promise<void> {
+    const playerId = this.gateway.gatewayGuardHelper.requireActivePlayerId(client);
+    if (!playerId) {
+      return;
+    }
+    if (!this.allowChatRequest(client, 'daoist-message-history', 4, 5_000, 'DAOIST_HISTORY_RATE_LIMITED', '私聊记录同步过于频繁')) {
+      return;
+    }
+    try {
+      const result = await this.gateway.socialRuntimeService.loadDirectMessageHistory(
+        playerId,
+        payload?.peerPlayerId,
+        payload?.cursor,
+        payload?.requestId,
+      );
+      if (!this.isCurrentPlayerSocket(client, playerId)) {
+        return;
+      }
+      if (result?.history) {
+        client.emit(S2C.DaoistDirectMessageHistory, result.history);
+        return;
+      }
+      client.emit(S2C.SocialOperationResult, { ok: false, operation: 'message', reason: result?.reason });
+    } catch (error) {
+      this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_DAOIST_MESSAGE_HISTORY_FAILED', error);
+    }
+  }
+
+  async handleMarkDaoistDirectMessagesRead(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.MarkDaoistDirectMessagesRead>,
+  ): Promise<void> {
+    const playerId = this.gateway.gatewayGuardHelper.requireActivePlayerId(client);
+    if (!playerId) {
+      return;
+    }
+    if (!this.allowChatRequest(client, 'daoist-message-read', 10, 5_000, 'DAOIST_READ_RATE_LIMITED', '私聊已读同步过于频繁')) {
+      return;
+    }
+    try {
+      await this.gateway.socialRuntimeService.markDirectMessagesRead(playerId, payload?.peerPlayerId, payload?.cursor);
+    } catch (error) {
+      this.gateway.worldClientEventService.emitGatewayError(client, 'MARK_DAOIST_MESSAGES_READ_FAILED', error);
     }
   }
 
@@ -501,6 +598,7 @@ export class WorldGatewayPlayerControlsHelper {
     client: Socket,
     payload: ClientToServerEventPayload<typeof C2S.ActivateTimeChamber>,
   ): Promise<void> {
+    if (payload?.accessPassword && !this.allowTimeChamberPasswordAttempt(client, 'activate', payload.requestId)) return;
     await this.handleTimeChamberOperation(client, 'activate', 'ACTIVATE_TIME_CHAMBER_FAILED', payload?.requestId, () => this.gateway.timeChamberRuntimeService.activate(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService), true);
   }
 
@@ -508,6 +606,7 @@ export class WorldGatewayPlayerControlsHelper {
     client: Socket,
     payload: ClientToServerEventPayload<typeof C2S.EnterTimeChamber>,
   ): Promise<void> {
+    if (payload?.accessPassword && !this.allowTimeChamberPasswordAttempt(client, 'enter', payload.requestId)) return;
     await this.handleTimeChamberOperation(client, 'enter', 'ENTER_TIME_CHAMBER_FAILED', payload?.requestId, () => this.gateway.timeChamberRuntimeService.queueEnter(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService));
   }
 
@@ -535,6 +634,28 @@ export class WorldGatewayPlayerControlsHelper {
     if (result?.panel) {
       client.emit(S2C.SocialPanel, result.panel);
     }
+  }
+
+  private allowChatRequest(
+    client: Socket,
+    category: string,
+    maxPerWindow: number,
+    windowMs: number,
+    code: string,
+    message: string,
+  ): boolean {
+    const checkRateLimit = this.gateway.gatewayGuardHelper.checkRateLimit;
+    if (typeof checkRateLimit !== 'function'
+      || checkRateLimit.call(this.gateway.gatewayGuardHelper, client, category, maxPerWindow, windowMs)) {
+      return true;
+    }
+    client.emit(S2C.Error, { code, message });
+    return false;
+  }
+
+  private isCurrentPlayerSocket(client: Socket, playerId: string): boolean {
+    const binding = this.gateway.worldSessionService.getBinding(playerId);
+    return binding?.connected === true && binding.socketId === client.id;
   }
 
   private emitTargetSocialPanel(targetPlayerId: unknown, panel: unknown): void {
@@ -596,6 +717,30 @@ export class WorldGatewayPlayerControlsHelper {
       });
       this.gateway.worldClientEventService.emitGatewayError(client, errorCode, error);
     }
+  }
+
+  private allowTimeChamberPasswordAttempt(
+    client: Socket,
+    operation: 'activate' | 'enter',
+    requestIdInput: unknown,
+  ): boolean {
+    const checkRateLimit = this.gateway.gatewayGuardHelper.checkRateLimit;
+    if (typeof checkRateLimit !== 'function' || checkRateLimit.call(
+      this.gateway.gatewayGuardHelper,
+      client,
+      'time-chamber-password',
+      TIME_CHAMBER_PASSWORD_ATTEMPTS_PER_WINDOW,
+      TIME_CHAMBER_PASSWORD_ATTEMPT_WINDOW_MS,
+    )) {
+      return true;
+    }
+    client.emit(S2C.TimeChamberOperationResult, {
+      ok: false,
+      operation,
+      requestId: normalizeTimeChamberRequestId(requestIdInput),
+      reason: 'time_chamber_password_rate_limited',
+    });
+    return false;
   }
 }
 

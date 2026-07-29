@@ -61,18 +61,11 @@ async function main(): Promise<void> {
     worldRevision: 3,
   };
   const durableCalls: Array<Record<string, any>> = [];
-  let releaseFirstCommit: (() => void) | null = null;
   let rejectNextCommit = false;
-  const firstCommitGate = new Promise<void>((resolve) => {
-    releaseFirstCommit = resolve;
-  });
   const durableOperationService = {
     isEnabled: () => true,
     async commitFormationMaintenanceMutation(input: Record<string, any>) {
       durableCalls.push(input);
-      if (durableCalls.length === 1) {
-        await firstCommitGate;
-      }
       if (rejectNextCommit) {
         rejectNextCommit = false;
         throw new Error('simulated_formation_maintenance_commit_failure');
@@ -87,6 +80,7 @@ async function main(): Promise<void> {
     },
   };
   const persistedDomains: string[][] = [];
+  const heldDomains = new Set<string>();
   const playerRuntimeService = {
     getPlayerOrThrow(targetPlayerId: string) {
       assert.equal(targetPlayerId, playerId);
@@ -109,6 +103,12 @@ async function main(): Promise<void> {
     },
     markPersistenceDirtyDomains(_activePlayer: typeof player, domains: string[]): void {
       for (const domain of domains) player.dirtyDomains.add(domain);
+    },
+    holdPersistenceDomains(_targetPlayerId: string, domains: string[]): void {
+      for (const domain of domains) heldDomains.add(domain);
+    },
+    releasePersistenceDomains(_targetPlayerId: string, domains: string[]): void {
+      for (const domain of domains) heldDomains.delete(domain);
     },
     bumpPersistentRevision(activePlayer: typeof player): void {
       activePlayer.persistentRevision += 1;
@@ -146,6 +146,7 @@ async function main(): Promise<void> {
     null,
     durableOperationService as never,
   );
+  service.formationMaintenanceCheckpointIntervalMs = 60_000;
   service.formationsByInstanceId.set(instanceId, [formation]);
   const pipeline = new TechniqueActivityPipelineService();
   pipeline.register(new FormationStrategy());
@@ -163,19 +164,7 @@ async function main(): Promise<void> {
     },
   });
 
-  const firstTick = service.tickFormationMaintenanceDurably(player, tickAction, deps);
-  await new Promise<void>((resolve) => setImmediate(resolve));
-  if (durableCalls.length === 0) {
-    await firstTick;
-  }
-  assert.equal(durableCalls.length, 1);
-  assert.equal(player.qi, 100, 'durable 提交前不得扣除运行态灵力');
-  assert.equal(formation.remainingQiBudget, 100, 'durable 提交前不得暴露阵法后态');
-  assert.equal(player.formationJob.jobVersion, 1, 'durable 提交前不得推进 job version');
-  assert.equal(instance.worldRevision, 3, 'durable 提交前不得推进实例 revision');
-
-  releaseFirstCommit?.();
-  const firstResult = await firstTick;
+  const firstResult = await service.tickFormationMaintenanceDurably(player, tickAction, deps);
   assert.equal(firstResult.ok, true);
   assert.equal(player.qi, 84);
   assert.equal(formation.remainingQiBudget, 132);
@@ -183,14 +172,30 @@ async function main(): Promise<void> {
   assert.equal(player.formationSkill.exp, 1);
   assert.equal(player.formationJob.jobVersion, 2);
   assert.equal(instance.worldRevision, 4);
+  assert.equal(durableCalls.length, 0, '窗口内第一息不得触发数据库事务');
+  assert.deepEqual(Array.from(heldDomains).sort(), ['active_job', 'profession', 'vitals']);
+
+  const secondResult = await service.tickFormationMaintenanceDurably(player, tickAction, deps);
+  assert.equal(secondResult.ok, true);
+  assert.equal(player.qi, 68);
+  assert.equal(formation.remainingQiBudget, 164);
+  assert.equal(player.formationSkill.exp, 2);
+  assert.equal(player.formationJob.jobVersion, 3);
+  assert.equal(instance.worldRevision, 5);
+  assert.equal(durableCalls.length, 0, '连续维护息必须继续在内存合并');
+
+  await service.flushPendingFormationMaintenanceForPlayer(playerId);
   assert.deepEqual(persistedDomains, [['active_job', 'profession', 'vitals']]);
+  assert.deepEqual(Array.from(heldDomains), []);
+  assert.equal(durableCalls.length, 1);
   assert.equal(durableCalls[0]?.expectedLeaseToken, 'lease:formation-maintenance');
   assert.equal(durableCalls[0]?.expectedJobVersion, 1);
-  assert.equal(durableCalls[0]?.nextActiveJob.jobVersion, 2);
-  assert.equal(durableCalls[0]?.qiAmount, 16);
-  assert.equal(durableCalls[0]?.formationQiAmount, 32);
+  assert.equal(durableCalls[0]?.nextActiveJob.jobVersion, 3);
+  assert.equal(durableCalls[0]?.qiAmount, 32);
+  assert.equal(durableCalls[0]?.formationQiAmount, 64);
 
-  const beforeFailedTick = {
+  await service.tickFormationMaintenanceDurably(player, tickAction, deps);
+  const stagedBeforeFailedCommit = {
     qi: player.qi,
     formationQi: formation.remainingQiBudget,
     skillExp: player.formationSkill.exp,
@@ -199,7 +204,7 @@ async function main(): Promise<void> {
   };
   rejectNextCommit = true;
   await assert.rejects(
-    service.tickFormationMaintenanceDurably(player, tickAction, deps),
+    service.flushPendingFormationMaintenanceForPlayer(playerId),
     /simulated_formation_maintenance_commit_failure/,
   );
   assert.deepEqual({
@@ -208,14 +213,32 @@ async function main(): Promise<void> {
     skillExp: player.formationSkill.exp,
     jobVersion: player.formationJob.jobVersion,
     worldRevision: instance.worldRevision,
-  }, beforeFailedTick, 'durable 失败必须恢复玩家、job、技艺与阵法运行态');
+  }, stagedBeforeFailedCommit, '提交失败时必须保留已暴露运行态与同一待重试检查点');
+  assert.deepEqual(Array.from(heldDomains).sort(), ['active_job', 'profession', 'vitals']);
+  rejectNextCommit = true;
+  await assert.rejects(
+    service.tickFormationMaintenanceDurably(player, tickAction, deps),
+    /simulated_formation_maintenance_commit_failure/,
+    '检查点失败后下一息必须先重试，不得继续扩大未落盘窗口',
+  );
+  assert.deepEqual({
+    qi: player.qi,
+    formationQi: formation.remainingQiBudget,
+    skillExp: player.formationSkill.exp,
+    jobVersion: player.formationJob.jobVersion,
+    worldRevision: instance.worldRevision,
+  }, stagedBeforeFailedCommit);
+  await service.flushPendingFormationMaintenanceForPlayer(playerId);
+  assert.deepEqual(Array.from(heldDomains), []);
+  assert.equal(durableCalls.length, 4, '失败尝试与同一检查点重试都必须可观测');
 
   console.log(JSON.stringify({
     ok: true,
     case: 'formation-maintenance-durable-entry',
     answers: [
-      '阵法维护继续走统一 formation strategy/pipeline，提交前玩家、job、阵法与实例 revision 均不可见。',
-      'durable 成功后一次应用玩家灵力、阵法灵力、技艺经验与 job version；失败完整回滚。',
+      '阵法维护继续走统一 formation strategy/pipeline，运行态逐息可见，数据库按窗口合并提交。',
+      '连续两息只提交一次玩家灵力、阵法灵力、技艺经验与 job version 检查点。',
+      'durable 失败保留同一检查点与持久化域持有，重试成功后才释放普通刷盘。',
       '维护事务携带实例 node/token/epoch 与玩家 session fence。',
     ],
   }, null, 2));

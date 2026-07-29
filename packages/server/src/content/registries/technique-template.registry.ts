@@ -29,6 +29,8 @@ type TechniqueTemplateRecord = Record<string, unknown> & {
   realmLv?: number;
   attrRatio?: TechniqueTemplate['attrRatio'];
   attrFloat?: number;
+  budgetPercent?: number;
+  totalBudget?: number;
   maxLayer?: number;
   expDifficulty?: number;
   layerGains?: TechniqueTemplate['layerGains'];
@@ -211,6 +213,8 @@ function generatedTemplateToRecord(template: TechniqueTemplate): TechniqueTempla
     realmLv: template.realmLv,
     attrRatio: template.attrRatio,
     attrFloat: template.attrFloat,
+    budgetPercent: template.budgetPercent,
+    totalBudget: template.totalBudget,
     maxLayer: template.maxLayer,
     expDifficulty: template.expDifficulty,
     layerGains: template.layerGains,

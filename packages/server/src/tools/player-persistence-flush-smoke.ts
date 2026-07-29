@@ -264,6 +264,24 @@ async function testUnresolvedDurableCommitBlocksFlush(): Promise<void> {
   assert.deepEqual(harness.selectiveProjectionCalls, []);
 }
 
+async function testManualFlushRunsCrossDomainBarrierFirst(): Promise<void> {
+  const harness = createHarness();
+  const playerId = 'player:manual-flush-barrier';
+  harness.playerRuntimeService.dirtyDomains.set(playerId, new Set(['inventory']));
+  harness.playerRuntimeService.snapshots.set(playerId, buildSnapshot(121_000));
+  harness.service.registerBeforeManualPlayerFlushBarrier('formation-maintenance-test', async (targetPlayerId) => {
+    assert.equal(targetPlayerId, playerId);
+    harness.persistenceCallOrder.push(`barrier:${targetPlayerId}`);
+  });
+
+  await harness.service.flushPlayer(playerId);
+
+  assert.deepEqual(harness.persistenceCallOrder.slice(0, 2), [
+    `barrier:${playerId}`,
+    `projection:${playerId}`,
+  ]);
+}
+
 async function testOwnershipPresenceFlushPrecedesProjection(): Promise<void> {
   const harness = createHarness();
   const playerId = 'player:ownership-rotation-order';
@@ -590,6 +608,7 @@ async function main(): Promise<void> {
   await testOfflineGainShutdownFlushFailureBubbles();
   await testWorkerPoolSubmitIsNotUsed();
   await testUnresolvedDurableCommitBlocksFlush();
+  await testManualFlushRunsCrossDomainBarrierFirst();
   await testOwnershipPresenceFlushPrecedesProjection();
   await testQueuedCycleRechecksUnresolvedDurableCommitAfterAssetLock();
   await testShutdownCycleReportsNestedWorkerFailure();

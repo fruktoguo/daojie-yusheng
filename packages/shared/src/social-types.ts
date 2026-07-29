@@ -4,6 +4,7 @@
  * 关系与宝库权限由服务端裁定，客户端只展示状态并提交意图。
  */
 
+import type { ChatMessageScope } from './notice-types';
 import type { SyncedItemStack } from './synced-panel-types';
 
 export type DaoistRelationLevel = 'dao_friend' | 'close_friend';
@@ -48,6 +49,8 @@ export interface SocialPanelView {
   incomingRequests: DaoistRequestView[];
   outgoingRequests: DaoistRequestView[];
   nearbyCandidates: NearbyDaoistCandidateView[];
+  /** 私聊会话的云端未读摘要；历史正文按会话按需增量同步。 */
+  conversations?: DaoistConversationSummaryView[];
 }
 
 export type SocialOperationKind =
@@ -72,6 +75,52 @@ export interface DaoistDirectMessageView {
   toName: string;
   text: string;
   sentAt: number;
+}
+
+/** 服务端聊天记录的稳定复合游标。 */
+export interface ChatHistoryCursorView {
+  occurredAt: number;
+  messageId: string;
+}
+
+/** 公共聊天消息。 */
+export interface ServerChatMessageView extends ChatHistoryCursorView {
+  channel: ChatMessageScope;
+  fromPlayerId: string;
+  from: string;
+  text: string;
+}
+
+/** 单个公共频道的增量历史。 */
+export interface ChatHistoryChannelView {
+  channel: ChatMessageScope;
+  messages: ServerChatMessageView[];
+  /** 本地游标之后的云端记录超过保留窗口时为 true。 */
+  truncated: boolean;
+}
+
+/** 公共聊天增量同步包。 */
+export interface ChatHistorySyncView {
+  /** 客户端请求关联 ID，用于丢弃跨图、重连后的过期响应。 */
+  requestId?: string;
+  channels: ChatHistoryChannelView[];
+}
+
+/** 私聊会话的服务端未读摘要。 */
+export interface DaoistConversationSummaryView {
+  peerPlayerId: string;
+  unreadCount: number;
+  latestMessageAt?: number;
+  latestMessageId?: string;
+}
+
+/** 单个私聊会话的增量历史。 */
+export interface DaoistDirectMessageHistoryView {
+  /** 客户端请求关联 ID，用于隔离切号或并发会话响应。 */
+  requestId?: string;
+  peerPlayerId: string;
+  messages: DaoistDirectMessageView[];
+  truncated: boolean;
 }
 
 export type TreasureVaultPermissionKind = 'view' | 'deposit' | 'withdraw';
@@ -138,6 +187,23 @@ export interface C2S_RemoveDaoistRelationView {
 export interface C2S_SendDaoistDirectMessageView {
   targetPlayerId: string;
   message: string;
+}
+
+export interface C2S_RequestChatHistoryView {
+  requestId?: string;
+  cursors?: Partial<Record<ChatMessageScope, ChatHistoryCursorView>>;
+}
+
+export interface C2S_RequestDaoistDirectMessageHistoryView {
+  requestId?: string;
+  peerPlayerId: string;
+  cursor?: ChatHistoryCursorView;
+}
+
+export interface C2S_MarkDaoistDirectMessagesReadView {
+  peerPlayerId: string;
+  /** 客户端已经实际展示的最后一条入站消息；服务端只推进到这个位置。 */
+  cursor: ChatHistoryCursorView;
 }
 
 export interface C2S_RequestTreasureVaultView {

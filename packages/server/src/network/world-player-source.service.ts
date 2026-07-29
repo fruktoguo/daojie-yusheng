@@ -726,6 +726,12 @@ function normalizePendingLogbookMessages(value) {
 
             from: typeof entry.from === 'string' && entry.from.trim().length > 0 ? entry.from.trim() : undefined,
             at: Number.isFinite(entry.at) ? Math.max(0, Math.trunc(entry.at)) : 0,
+            ...(entry.structured && typeof entry.structured === 'object' && typeof entry.structured.key === 'string'
+                ? { structured: entry.structured }
+                : {}),
+            ...(Array.isArray(entry.structuredGroup)
+                ? { structuredGroup: entry.structuredGroup.filter((item) => item && typeof item === 'object' && typeof item.key === 'string') }
+                : {}),
         };
         if (!candidate.id || !candidate.text) {
             continue;

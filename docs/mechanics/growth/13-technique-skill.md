@@ -57,6 +57,7 @@ deriveTechniqueRealm(level, layers):
 
 自创功法生成时，功法境界与品阶使用两个独立的玩家境界口径：
 
+- 玩家可选的主题提示词最多为 `4000` 个字符；客户端和服务端共享同一上限，服务端清洗后才会进入 AI prompt，并只持久化清洗后的提示词快照。
 - 自创功法入口在玩家历史最高境界达到筑基前期（`highestRealmLv >= 31`）后永久解锁；当前境界回落不会重新锁定。
 - 每次抽取先按非对称分布生成一个 `±6` 境界偏移；功法 `realmLv` 以玩家当前境界加上该偏移，品阶参考境界以玩家历史最高境界加上同一个偏移，二者分别钳位到合法境界范围。
 - 品阶根据偏移后的历史最高境界确定基准品阶，再按非对称分布在 `±2` 档范围内随机；当前境界下降不会降低品阶抽取基准。例如历史最高境界 42 抽到 `+1` 偏移时，按 43 级确定品阶基准。
@@ -105,6 +106,8 @@ transmissionSkillFactor:
 
 自动切换主修同样会考虑允许自悟的 pending 功法：当前已学功法圆满后，若轮到 pending 功法，主修可自动切换到该 pending 并继续按自悟规则推进。
 
+设置或取消主修只修改后续修炼目标，不等同于开启或停止闭关修炼。炼丹、炼器、强化等技艺 job 进行中仍可切换主修；真正开启修炼由独立修炼开关控制，并按通用打断规则处理当前技艺 job。
+
 怪物击杀可推进当前主修 pending 的领悟进度，但领悟量不使用怪物经验值、等级差、血脉层次或掉落倍率换算；每击杀一个怪物只等同于自悟修炼 1 息的领悟增量。
 
 传法与自行领悟界面应展示当前估算速率、预计剩余完成息数和速率构成。速率构成至少包含基准进度、境界差影响、自身传法等级影响；传法 job 额外展示传授者传法等级影响、双方传法速度属性影响和合计影响。玩家个人领悟速度贡献由 `craftEffectStats.transmission.speedRate`、脚下设施传法速度和 `techniqueExpRate / 10000` 相加得到，允许正负值共同参与；A 给 B 传法时，A/B 各自先计算自己的个人领悟速度贡献，再把双方贡献相加成总传法速度增益或减益。传法速率与构成由服务端随 job 投影给学习者；个人领悟速度贡献由服务端通过本人属性增量的 `comprehensionSpeedRate` 标量投影，只有站位或个人加成变化时才同步，客户端再结合当前境界、传法等级和 pending 功法境界本地推算自行领悟速率与构成。速率展示只用于估算，不要求每息额外发送网络包。
@@ -114,6 +117,19 @@ transmissionSkillFactor:
 功法玩家态持久化只保存动态真源字段，不保存模板可补全的重复字段。已掌握功法从 `player_technique_state` 的 `tech_id/level/exp/exp_to_next/realm_lv/skills_enabled` 恢复，并在运行时通过内容模板补全 `name/grade/category/skills/layers`。未领悟功法从 `player_technique_comprehension` 的 `tech_id/source_kind/progress/required_progress/realm_lv/grade/category/creator_player_id/self_comprehension_allowed/created_at_tick/updated_at_tick` 恢复；`raw_payload` 不作为功法重复字段真源。
 
 `self_comprehension_allowed` 表示是否允许通过主修修炼自行领悟。功法书开启的普通功法、自己创建的自创功法为 `true`；被其他玩家传授加入的 pending 功法为 `false`，只能由传法 job 推进，不能设为主修；客户端按钮必须置灰，服务端必须拒绝该主修切换。
+
+## GM 手工自创功法
+
+GM 可通过原生 GM API 或“功法管理 → 手工创建”面板提交自创功法配置。预览接口为 `POST /api/gm/generated-techniques/preview`，只执行服务端校验和展开；创建接口为 `POST /api/gm/generated-techniques`，成功后直接发布到全局生成功法模板缓存，不自动把功法写入任何玩家的已掌握或待领悟状态。
+
+请求的 `technique` 必须使用严格的新格式：
+
+- 公共字段：`name`（2-20 个字符）、`desc`（最多 500 个字符）、`category`（`internal`/`arts`）、`grade`、`realmLv`（1-127）、`maxLayer`（3-49）、`expDifficulty`（0.5-2）、`budgetPercent`（0.8-1.2）。数值必须是 JSON number，未知字段拒绝。
+- `internal` 只接受六维 `attrRatio`，至少两个权重大于 0，不接受技能草稿。
+- `arts` 必须且只能有一个技能；技能可指定伤害类型、五行、目标形状/模式、六项 `structureStrength` 权重、1-5 项 `formulaStrength.attributeBases`，以及功法层数、移动速度、境界等级和八项技艺等级百分比权重。八项技艺为炼丹、炼器、强化、传法、采集、挖矿、营造、阵法；百分比权重只允许 `0-100`，其他结构权重允许 `-100` 到 `100`。权重只表示预算分配，不是真实伤害或冷却值。
+- `create` 必须携带 1-64 位 `operationId`。相同 operationId 和相同请求指纹会返回已有功法而不重复发布；相同 operationId 对应不同请求会拒绝。同名已发布功法也会拒绝。创建动作写入 GM 审计日志。
+
+服务端把权重展开成正式逐层属性和运行时 `SkillDef` 后再持久化；`validation_report.manual` 保留规范化输入、operationId 和请求指纹，便于 GM 回读和审计。现有已发布功法不提供原地编辑入口，修改应使用新的 operationId 和名称。
 
 ## 功法书残页抄录与分解
 
@@ -189,17 +205,44 @@ realValue = convertByItem(itemBudget)
 
 - `target.type/targetMode` 只描述目标形状和目标模式，不承载预算权重。
 - `structureStrength.damage/cost/cooldown/chant/castRange/area` 是强度权重，不是真实伤害、消耗、冷却、吟唱、距离或覆盖范围。
+- `line` 目标按“中心线长度 × 固定线宽”的无圆头条带选格，施法者所在格不计入覆盖；例如射程 1、宽度 9 必须且只能覆盖 9 格，预算覆盖数、hover 最大目标数与服务端实际命中使用同一口径。
+- `chant` 的负预算会换算为真实吟唱息数并写入正式 `SkillDef.playerCast.windupTicks`；零或正预算保持瞬发。预览、hover 与服务端权威施法都读取该正式字段。
 - 旧草稿里的 `target.castRangeWeight/areaWeight` 仍可作为兼容输入读取；新 AI 生成入口应写 `structureStrength.castRange/area`。
-- 负权重会让本项变差，并按绝对权重折算牺牲预算加入正向预算池，由正权重项目继续瓜分。
+- 结构负权重会让本项产生真实负面效果，并按绝对权重折算牺牲预算加入正向预算池；百分比来源不接受负权重，也不产生牺牲预算。
 - 冷却、消耗、施法距离、范围覆盖、属性基底和百分比组各自使用独立转换公式。
+- 百分比组中，移动速度每点按 `0.001` 计入总伤害乘区；每 1 级技艺按 100 点移动速度等价，即系数 `0.1`；每 1 级境界按 120 点移动速度等价，即系数 `0.12`。技艺等级由服务端权威玩家运行态读取，任一技艺升级都会使相关技能伤害缓存失效。
+- 百分比组合倍率按最终正预算配比计算。均衡 1/2/3/4/5 项的倍率上限为 `1.0/1.1/1.3/1.6/2.0`，五项以上仍封顶 `2.0`；服务端使用预算变异系数连续降低失衡配比的奖励，`CV >= 1` 时组合倍率回到 `1.0`。功法层数默认每层 `10%` 不计入组合来源，只有正预算购买的额外层数加成参与。
 - 有最小值或最大值的项目先展开真实值，再按真实可生效值反推已使用预算。
-- 每个转换方法返回真实值、已使用预算和未使用预算；触顶或离散档位暂时用不完的正预算按固定轮次平均回流到仍可增长的项目。
+- 每个转换方法返回真实值、已使用预算和未使用预算；触顶或离散档位暂时用不完的正预算按固定轮次、依照原始正权重比例回流到仍可增长的项目。
 
 详细公式见 `docs/design/balance/术法预算量化设计.md`。正式运行时仍保存展开后的 `SkillDef`，战斗 tick 不读取 AI 权重草稿。
 
 已发布 AI 术法的 `generated_technique.template.skills` 不会因公式代码更新而自动重算。公式调整后，运维需要先通过 GM 快捷指令“迁移旧版AI术法草稿”从 `rawCandidate` 重新展开模板，再通过“刷新在线玩家功法模板”让在线玩家已学技能重新水合；离线玩家下次登录时读取最新模板。
 
+批量取消已发布自创术法吟唱时，使用专用 GM 兼容转换 `generated-technique-chant-zero`。它只匹配原始草稿 `structureStrength.chant < 0` 且正式 `playerCast.windupTicks > 0` 的已发布自创术法，将吟唱权重归零后通过同一套正式预算展开器重算完整 `SkillDef`；系统内置功法、草稿和已经瞬发的自创术法不在范围内。`dry-run` 返回精确目标数和目标指纹，`apply` 必须回传二者，目标在两步之间发生变化时整批拒绝。更新在单事务中完成，并保存原吟唱权重和息数作为转换审计信息；提交后刷新生成功法缓存，再通过“刷新在线玩家功法模板”更新运行时玩家，普通离线玩家下次登录时从最新模板水合。
+
 系统自带功法为了迁移旧版手写 `SkillDef`，允许在 `artsStrength` 中使用显式还原参数：`target.rawRange/rawTargeting`、`structureStrength.costMultiplier/cooldownTicks` 和效果里的 `formulaStrength.rawFormula/hpFormulaStrength.rawFormula`。这些字段只用于静态系统内容等价还原旧数值，不进入 AI 生成提示词，也不改变预算公式本身。
+
+### 术法权重反推工具
+
+冷路径工具 `technique-arts-weight-solver` 可根据目标冷却、半径、消耗、目标数或公式强度反推 GM 手工术法权重。工具始终调用正式 `buildGmCustomTechnique` 展开器，只输出设计方案，不连接数据库、不发布或修改功法。
+
+```bash
+pnpm solve:technique-arts-weights -- --request request.json
+# 或从标准输入读取
+pnpm solve:technique-arts-weights -- --request - < request.json
+```
+
+请求结构：
+
+- `technique`：严格的 GM 手工术法输入。
+- `targets`：目标数组，`metric` 支持 `cooldown/radius/maxTargets/range/cost/spellAtkScale/formulaBudget/referenceFormulaValue`，`operator` 支持 `eq/lte/gte`。
+- `variables`：允许调整的权重组。同组 `keys` 绑定为同一个值，例如把移动速度、境界等级和传法等级三个百分比权重同步调整。
+- `objective`：支持 `minWeightDelta/maxSpellAtkScale/maxFormulaBudget/maxReferenceFormulaValue`。
+- `referenceFormulaVars`：仅在按参考公式值比较时提供；该值只代表技能公式结果，不包含减伤和其他战斗乘区。
+- `search`：可设置 `auto/exhaustive/adaptive`、评估上限、采样量、beam 宽度和返回数量。结果会明确标记是否完成全量穷举；自适应搜索不会冒充全局最优。
+
+变量键使用 `structure.damage`、`structure.area` 等六项结构权重，或 `percent.moveSpeed`、`percent.realmLevel`、`percent.transmissionLevel` 等百分比来源。未列入变量组的权重保持原值，可用于锁定 `cost=0`、`chant=0` 等约束。
 
 ## 炼体系统
 

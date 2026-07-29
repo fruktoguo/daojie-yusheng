@@ -5,26 +5,23 @@
  */
 /**
  * 修炼功法切换服务
- * 处理玩家设置/取消主修功法的意图，校验制作阻塞条件后委托 PlayerRuntime 执行
+ * 处理玩家设置/取消主修功法的意图并委托 PlayerRuntime 执行。
+ * 主修选择只修改修炼目标，不等同于开启闭关修炼，也不受技艺 job 阻塞。
  */
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { resolvePlayerFacingContentName } from '@mud/shared';
 
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { buildStructuredNotice } from './structured-notice.helpers';
 
-interface CultivationPlayerRuntimePort<TPlayer = unknown> {
-  getPlayerOrThrow(playerId: string): TPlayer;
+interface CultivationPlayerRuntimePort {
   cultivateTechnique(playerId: string, techniqueId: string | null): void;
   forgetTechnique(playerId: string, techniqueId: string | null): string;
   discardPendingTechniqueComprehension(playerId: string, techniqueId: string | null): string;
   getTechniqueName(playerId: string, techniqueId: string): string | null | undefined;
 }
 
-interface CultivationDeps<TPlayer = unknown> {
-  craftPanelRuntimeService: {
-    getCultivationBlockReason(player: TPlayer): string | null | undefined;
-  };
+interface CultivationDeps {
   queuePlayerNotice(playerId: string, message: string, kind: string, title?: unknown, icon?: unknown, structured?: unknown): void;
 }
 
@@ -37,11 +34,6 @@ export class WorldRuntimeCultivationService {
   ) {}
 
   dispatchCultivateTechnique(playerId: string, techniqueId: string | null, deps: CultivationDeps): void {
-    const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-    const blockReason = deps.craftPanelRuntimeService.getCultivationBlockReason(player);
-    if (blockReason) {
-      throw new BadRequestException(blockReason);
-    }
     this.playerRuntimeService.cultivateTechnique(playerId, techniqueId);
     if (!techniqueId) {
       const n = buildStructuredNotice('info', 'notice.cultivation.cleared', '已取消主修功法');

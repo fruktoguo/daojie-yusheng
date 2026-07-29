@@ -76,7 +76,7 @@ assert.match(
 );
 assert.match(
   chatSource,
-  /slice\(-CHAT_LOG_MAX_PERSISTED_MESSAGES_PER_CHANNEL\)/,
+  /slice\(-CHAT_LOG_MAX_MEMORY_MESSAGES_PER_CHANNEL\)/,
   '会话内战斗记录必须继续受频道容量上限约束',
 );
 

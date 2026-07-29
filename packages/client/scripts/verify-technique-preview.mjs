@@ -13,12 +13,14 @@ const vite = await createServer({
 });
 
 try {
-  const [localTemplates, bonusSummary, equipmentTooltip, editorCatalog, contentResolverModule] = await Promise.all([
+  const [localTemplates, bonusSummary, equipmentTooltip, editorCatalog, contentResolverModule, skillTooltip, panelDeltaStateSource] = await Promise.all([
     vite.ssrLoadModule('/src/content/local-templates.ts'),
     vite.ssrLoadModule('/src/ui/technique-bonus-summary.ts'),
     vite.ssrLoadModule('/src/ui/equipment-tooltip.ts'),
     vite.ssrLoadModule('/src/content/editor-catalog.ts'),
     vite.ssrLoadModule('/src/content/content-resolver.ts'),
+    vite.ssrLoadModule('/src/ui/skill-tooltip.ts'),
+    vite.ssrLoadModule('/src/main-panel-delta-state-source.ts'),
   ]);
 
   const stripHtml = (value) => value.replace(/<[^>]+>/gu, '');
@@ -127,6 +129,112 @@ try {
   assert.match(artsTooltipText, /冷却：20 息/u, '系统术法书必须显示具体冷却时间');
   assert.ok(artsTooltip.asideCards.length > 0, '系统术法书必须保留技能 Buff 详情侧栏');
 
+  const levelScalingSkill = {
+    id: 'skill.preview.level-scaling',
+    name: '百艺归元',
+    desc: '以自身境界与技艺积淀增幅术法。',
+    cooldown: 1,
+    cost: 0,
+    range: 1,
+    targeting: { shape: 'single', maxTargets: 1 },
+    effects: [{
+      type: 'damage',
+      damageKind: 'spell',
+      formula: {
+        op: 'mul',
+        args: [
+          { op: 'add', args: [{ var: 'caster.stat.spellAtk', scale: 1 }] },
+          {
+            op: 'add',
+            args: [
+              1,
+              { var: 'techLevel', scale: 0.1 },
+              { var: 'caster.realmLv', scale: 0.12 },
+              { var: 'caster.craft.alchemy.level', scale: 0.1 },
+              { var: 'caster.craft.forging.level', scale: 0.1 },
+              { var: 'caster.craft.enhancement.level', scale: 0.1 },
+              { var: 'caster.craft.transmission.level', scale: 0.1 },
+              { var: 'caster.craft.gather.level', scale: 0.1 },
+              { var: 'caster.craft.mining.level', scale: 0.1 },
+              { var: 'caster.craft.building.level', scale: 0.1 },
+              { var: 'caster.craft.formation.level', scale: 0.1 },
+            ],
+          },
+        ],
+      },
+    }],
+  };
+  const levelScalingPlayer = {
+    x: 0,
+    y: 0,
+    hp: 1_000,
+    maxHp: 1_000,
+    qi: 1_000,
+    realmLv: 1,
+    realm: { realmLv: 42 },
+    numericStats: { spellAtk: 100, maxQi: 1_000, maxQiOutputPerTick: 1_000 },
+    finalAttrs: {},
+    temporaryBuffs: [],
+    alchemySkill: { level: 1 },
+    forgingSkill: { level: 2 },
+    enhancementSkill: { level: 3 },
+    transmissionSkill: { level: 4 },
+    gatherSkill: { level: 5 },
+    miningSkill: { level: 6 },
+    buildingSkill: { level: 7 },
+    formationSkill: { level: 8 },
+  };
+  const levelScalingContext = {
+    techLevel: 3,
+    player: levelScalingPlayer,
+  };
+  assert.equal(
+    Math.round(skillTooltip.summarizeSkillPreviewMetrics(levelScalingSkill, levelScalingContext).actualDamage),
+    994,
+    '术法预览总伤害必须计入当前境界、功法层数和八项技艺等级',
+  );
+  const levelScalingTooltipText = stripHtml(
+    skillTooltip.buildSkillTooltipContent(levelScalingSkill, levelScalingContext).lines.join('\n'),
+  );
+  assert.match(levelScalingTooltipText, /法术伤害：994/u, '术法 hover 必须显示包含等级增幅的总伤害');
+  assert.doesNotMatch(levelScalingTooltipText, /吟唱/u, '瞬发术法不得显示零息吟唱');
+  for (const label of [
+    '自身境界等级',
+    '自身炼丹等级',
+    '自身炼器等级',
+    '自身强化等级',
+    '自身传法等级',
+    '自身采集等级',
+    '自身挖矿等级',
+    '自身营造等级',
+    '自身阵法等级',
+  ]) {
+    assert.match(levelScalingTooltipText, new RegExp(label, 'u'), `${label}必须进入 hover 伤害构成`);
+  }
+  const projectionStateSource = panelDeltaStateSource.createMainPanelDeltaStateSource({
+    getPlayer: () => levelScalingPlayer,
+    refreshObservedDecorations() {},
+    attrPanel: { update() {}, invalidateDetail() {} },
+    equipmentPanel: { update() {}, syncPlayerContext() {} },
+    bodyTrainingPanel: { syncFoundation() {}, syncDynamic() {} },
+    craftWorkbenchModal: { syncAttrUpdate() {}, syncEquipment() {} },
+    inventoryStateSource: { syncInventory() {}, syncPlayerContext() {} },
+    refreshHeavenGateModal() {},
+    refreshUiChrome() {},
+    syncAttrBridgeState() {},
+  });
+  projectionStateSource.handleAttrUpdate({
+    forgingSkill: { level: 12, exp: 0, expToNext: 100 },
+    miningSkill: { level: 16, exp: 0, expToNext: 100 },
+  });
+  assert.equal(levelScalingPlayer.forgingSkill.level, 12, '炼器等级增量必须回写当前玩家投影');
+  assert.equal(levelScalingPlayer.miningSkill.level, 16, '挖矿等级增量必须回写当前玩家投影');
+  assert.equal(
+    Math.round(skillTooltip.summarizeSkillPreviewMetrics(levelScalingSkill, levelScalingContext).actualDamage),
+    1_194,
+    '技艺升级后 hover 必须直接使用最新服务端投影，不得等待重登',
+  );
+
   const generatedTechniqueId = 'generated.technique.preview.detail';
   const generatedTechnique = {
     id: generatedTechniqueId,
@@ -157,6 +265,7 @@ try {
       }],
       unlockLevel: 2,
       targetMode: 'tile',
+      playerCast: { windupTicks: 7 },
     }],
   };
   const requestedTechniqueIds = [];
@@ -192,6 +301,7 @@ try {
   assert.match(generatedTooltipText, /星火印/u, '自创术法书必须显示动态模板里的技能名称');
   assert.match(generatedTooltipText, /火行法术伤害：777/u, '自创术法书必须显示动态模板里的具体伤害');
   assert.match(generatedTooltipText, /灵力消耗：321/u, '自创术法书必须显示动态模板里的具体消耗');
+  assert.match(generatedTooltipText, /吟唱：7 息/u, '自创术法书必须显示运行时实际吟唱时间');
   assert.match(generatedTooltipText, /冷却：9 息/u, '自创术法书必须显示动态模板里的具体冷却');
 
   let coveredTechniqueCount = 0;

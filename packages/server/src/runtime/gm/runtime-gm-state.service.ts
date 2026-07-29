@@ -76,6 +76,11 @@ const HEAP_SNAPSHOT_SUMMARY_TOP_LIMIT = Math.max(20, Math.min(120, Math.trunc(Nu
 const LARGE_NETWORK_PAYLOAD_CAPTURE_THRESHOLD_BYTES = 1024;
 const LARGE_NETWORK_PAYLOAD_SAMPLE_LIMIT = 5;
 const NETWORK_PAYLOAD_ESTIMATE_MAX_DEPTH = 16;
+const SENSITIVE_NETWORK_PAYLOAD_EVENTS = new Set<string>([
+    C2S.ActivateTimeChamber,
+    C2S.EnterTimeChamber,
+    C2S.UpdateTimeChamberSettings,
+]);
 const DEVELOPMENT_LIKE_ENVS = new Set(['development', 'dev', 'local', 'test']);
 const WORLD_DELTA_ENTITY_KEYS = Object.freeze(['p', 'm', 'n', 'o', 'g', 'c']);
 const CPU_BREAKDOWN_LABELS = Object.freeze({
@@ -1425,7 +1430,9 @@ function buildNetworkLargePayloadSample(captureEnabled, direction, event, payloa
         bytes: measurement.payloadBytes,
         packetBytes: measurement.packetBytes,
         recordedAt: Date.now(),
-        body: formatNetworkPayloadBody(payload),
+        body: SENSITIVE_NETWORK_PAYLOAD_EVENTS.has(measurement.eventKey)
+            ? '[敏感请求正文已隐藏]'
+            : formatNetworkPayloadBody(payload),
     };
 }
 

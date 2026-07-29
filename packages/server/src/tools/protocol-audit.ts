@@ -5,7 +5,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { Pool } from 'pg';
-import { C2S, Direction, S2C } from '@mud/shared';
+import { ATTR_KEYS, C2S, Direction, LEADERBOARD_TECHNIQUE_KEYS, S2C } from '@mud/shared';
 import * as envAlias from '../config/env-alias';
 import * as lib from './protocol-audit-lib';
 import * as smokePlayerAuth from './smoke-player-auth';
@@ -253,6 +253,7 @@ var STATIC_S2C_SURFACE_CHECKS = [
       'RedeemCodesResult',
       'ActivityStatus',
       'ActivityOperationResult',
+      'ChatHistory',
     ],
   },
   {
@@ -1380,8 +1381,10 @@ async function statPanelCase(runtime) {
     return payload
       && typeof payload.generatedAt === 'number'
       && payload.boards !== undefined
-      && Array.isArray(payload.boards.supremeAttrs)
-      && payload.boards.supremeAttrs.length === 6
+      && payload.boards.attributes !== undefined
+      && ATTR_KEYS.every(function (attr) { return Array.isArray(payload.boards.attributes[attr]); })
+      && payload.boards.techniques !== undefined
+      && LEADERBOARD_TECHNIQUE_KEYS.every(function (technique) { return Array.isArray(payload.boards.techniques[technique]); })
       && Array.isArray(payload.boards.sects);
   }, 10000);
   await emitAndWait(socket, C2S.RequestWorldSummary, {}, S2C.WorldSummary, function (payload) {
@@ -1657,18 +1660,20 @@ async function heartbeatChatCase(runtime) {
     return payload && payload.clientAt === 2003;
   }, 10000);
 /**
- * 记录noticeafter。
+ * 记录聊天消息游标。
  */
-  var noticeAfter = receiver.getEventCount(S2C.Notice);
+  var chatMessageAfter = receiver.getEventCount(S2C.ChatMessage);
 /**
  * 记录message。
  */
   var message = "协议审计聊天 " + senderId;
   sender.emit(C2S.Chat, { message: message });
-  await receiver.waitForEventAfter(S2C.Notice, noticeAfter, function (payload) {
-    return Array.isArray(payload?.items) && payload.items.some(function (item) {
-      return item?.kind === 'chat' && item.text === message && item.from === senderChatLabel;
-    });
+  await receiver.waitForEventAfter(S2C.ChatMessage, chatMessageAfter, function (payload) {
+    return payload
+      && payload.channel === 'nearby'
+      && payload.text === message
+      && payload.from === senderChatLabel
+      && payload.fromPlayerId === senderId;
   }, 10000);
 }
 /**

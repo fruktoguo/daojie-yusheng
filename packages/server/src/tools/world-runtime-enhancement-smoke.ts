@@ -235,6 +235,25 @@ async function testDurableEnhancementAdvanceCommitsProfessionAtomically(): Promi
   const player = createPlayer('player:enhancement:durable-advance', [
     createEquipmentItem('iron_sword', '铁剑', 8, 1),
   ]);
+  const spiritStone = player.inventory.items.pop();
+  for (let index = 0; index < 120; index += 1) {
+    player.inventory.items.push({
+      itemId: `material.test.${index}`,
+      itemInstanceId: randomUUID(),
+      count: index + 1,
+    });
+  }
+  player.inventory.items.push(spiritStone);
+  player.inventory.capacity = 160;
+  player.equipment.slots = [{
+    slot: 'technique_enhancement',
+    item: {
+      itemId: 'equip.copper_enhancement_hammer',
+      itemInstanceId: randomUUID(),
+      count: 1,
+      tags: ['enhancement_hammer'],
+    },
+  }];
   const { craftService } = createCraftHarness(player, [], [], { durableCalls });
   const target = player.inventory.items[0];
   const started = await craftService.startEnhancementDurably(player, {
@@ -258,6 +277,13 @@ async function testDurableEnhancementAdvanceCommitsProfessionAtomically(): Promi
   assert.deepEqual(durableCalls.map((call) => call.kind), ['start', 'complete']);
   const advanceCall = durableCalls[1]?.args;
   assert.equal(advanceCall?.completionKind, 'advanced');
+  assert.equal(advanceCall?.assetWriteMode, 'patch');
+  assert.equal(advanceCall?.nextInventoryItems?.length, 2, '大背包连续强化只应提交目标装备与灵石变化行');
+  assert.deepEqual(advanceCall?.removedInventoryItemInstanceIds, []);
+  assert.equal(advanceCall?.nextWalletBalances?.length, 1);
+  assert.equal(advanceCall?.nextEquipmentSlots, null);
+  assert.equal(advanceCall?.nextEnhancementRecords?.length, 1);
+  assert.equal(advanceCall?.nextProfessionStates?.length, 1);
   assert.equal(advanceCall?.nextActiveJob?.jobRunId, player.enhancementJob?.jobRunId);
   assert.equal(player.enhancementJob?.targetLevel, 3);
   assert.equal(player.enhancementSkill.exp > beforeExp, true);

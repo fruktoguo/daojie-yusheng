@@ -6,6 +6,7 @@
 import assert from 'node:assert/strict';
 import type { Pool } from 'pg';
 import {
+  CUSTOM_TECHNIQUE_PROMPT_MAX_LENGTH,
   S2C,
   calcTechniqueAttrValues,
   expandTechniqueArtsStrengthSkill,
@@ -186,14 +187,18 @@ async function testInitializedServiceConsumesRequestedItemSpend(): Promise<void>
   });
   let executedJobId = '';
   let executedModelName = '';
+  let executedPlayerContext = '';
   service.executeGeneration = async (jobId, params) => {
     executedJobId = jobId;
     executedModelName = params.modelConfig?.modelName ?? '';
+    executedPlayerContext = params.playerContext;
     return { success: true };
   };
 
   let appliedItemCount = 0;
   let appliedEnhanceLevel = 0;
+  const promptAtLimit = `${'悟'.repeat(CUSTOM_TECHNIQUE_PROMPT_MAX_LENGTH - 1)}🧭`;
+  const promptOverLimit = `${promptAtLimit}界`;
   const originalRandom = Math.random;
   Math.random = () => 0;
   let result: Awaited<ReturnType<TechniqueGenerationService['requestGeneration']>>;
@@ -203,6 +208,7 @@ async function testInitializedServiceConsumesRequestedItemSpend(): Promise<void>
       playerRealmLv: 31,
       playerHighestRealmLv: 100,
       category: 'arts',
+      playerContext: promptOverLimit,
       itemSpend: 4,
       expectedRuntimeOwnerId: 'runtime:techgen-smoke',
       expectedSessionEpoch: 7,
@@ -228,11 +234,13 @@ async function testInitializedServiceConsumesRequestedItemSpend(): Promise<void>
   assert.equal(insertJobQuery?.params?.[6], 4);
   assert.equal(insertJobQuery?.params?.[7], result.budgetPercent);
   assert.equal(insertJobQuery?.params?.[8], result.totalBudget);
+  assert.equal(insertJobQuery?.params?.[5], promptAtLimit);
   assert.ok(insertJobQuery?.sql.includes('item_consumed'));
   assert.ok(queries.some((entry) => entry.sql.includes('INSERT INTO durable_operation_log')));
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(executedJobId, result.jobId);
   assert.equal(executedModelName, 'smoke-model');
+  assert.equal(executedPlayerContext, promptAtLimit);
 }
 
 async function testItemShortageMarksJobFailedAfterAudit(): Promise<void> {
@@ -984,15 +992,18 @@ async function testRefundFailedTechniqueGenerationItemsBlocksOnlinePlayersByDefa
   assert.ok(!queries.some((entry) => entry.sql.includes('item_refunded = true') && entry.sql.includes('UPDATE technique_generation_job')));
 }
 
-async function testSchemaMigratesPlayerIdsToVarchar(): Promise<void> {
+async function testSchemaMigratesGeneratedTechniqueColumns(): Promise<void> {
   const queries: QueryRecord[] = [];
   await ensureGeneratedTechniqueTables(createFakeSchemaPool(queries));
 
   const normalizedSql = queries.map((entry) => entry.sql.replace(/\s+/g, ' ').trim().toLowerCase());
   assert.ok(normalizedSql.some((sql) => sql.includes('created_by_player_id varchar(120) not null')));
   assert.ok(normalizedSql.some((sql) => sql.includes('player_id varchar(120) not null')));
+  assert.ok(normalizedSql.some((sql) => sql.includes('player_context text')));
   assert.ok(normalizedSql.some((sql) => sql.includes('alter column created_by_player_id type varchar(120)')));
   assert.ok(normalizedSql.some((sql) => sql.includes('alter column player_id type varchar(120)')));
+  assert.ok(normalizedSql.some((sql) => sql.includes('alter column player_context type text')));
+  assert.ok(!normalizedSql.some((sql) => sql.includes('player_context varchar(200)')));
   assert.ok(normalizedSql.some((sql) => sql.includes('item_refunded boolean not null default false')));
   assert.ok(normalizedSql.some((sql) => sql.includes('add column if not exists item_refunded boolean not null default false')));
   assert.ok(normalizedSql.some((sql) => sql.includes('add column if not exists refunded_at timestamptz')));
@@ -1539,11 +1550,48 @@ async function testArtsCandidateAcceptsStrengthShape(): Promise<void> {
       structureStrength: { damage: 4, cost: 0, cooldown: 1, chant: 0, castRange: 3, area: 1 },
       formulaStrength: {
         attributeBases: { spellAtk: 4, resolvePower: 1 },
-        percentBonuses: { moveSpeed: 0 },
+        percentBonuses: {
+          moveSpeed: 1,
+          realmLevel: 1,
+          alchemyLevel: 1,
+          forgingLevel: 1,
+          enhancementLevel: 1,
+          transmissionLevel: 1,
+          gatherLevel: 1,
+          miningLevel: 1,
+          buildingLevel: 1,
+          formationLevel: 1,
+        },
       },
     }],
   }, 'arts');
   assert.equal(result.valid, true);
+}
+
+async function testArtsCandidateRejectsNegativePercentBonus(): Promise<void> {
+  const result = validateTechniqueCandidate({
+    name: '负权重术法',
+    grade: 'mystic',
+    category: 'arts',
+    realmLv: 31,
+    maxLayer: 9,
+    skills: [{
+      name: '负权重术',
+      unlockLevel: 1,
+      damageKind: 'spell',
+      target: { type: 'single', targetMode: 'entity' },
+      structureStrength: { damage: 1, cost: 0, cooldown: 0, chant: 0, castRange: 0, area: 0 },
+      formulaStrength: {
+        attributeBases: { spellAtk: 1 },
+        percentBonuses: { moveSpeed: -1 },
+      },
+    }],
+  }, 'arts');
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((entry) => (
+    entry.field.endsWith('percentBonuses.moveSpeed')
+    && entry.message.includes('[0, 100]')
+  )));
 }
 
 async function testArtsTileTargetModeNormalizesForEntityDamage(): Promise<void> {
@@ -1696,6 +1744,7 @@ async function testAiArtsStrengthMigrationNormalizesPublishedTileDamageSkill(): 
   assert.equal(refreshCount, 1);
   assert.equal(storedTemplate?.skills?.[0]?.targetMode, 'any');
   assert.equal(storedTemplate?.skills?.[0]?.targeting?.targetMode, 'any');
+  assert.equal(storedTemplate?.skills?.[0]?.playerCast?.windupTicks, 90);
   assert.equal(storedValidationReport?.artsStrength?.rawCandidate?.skills?.[0]?.target?.targetMode, 'any');
   assert.equal(storedValidationReport?.artsStrength?.normalizedTemplate?.skills?.[0]?.target?.targetMode, 'any');
 }
@@ -1717,7 +1766,7 @@ function createPublishedTileDamageArtsRow(): Record<string, unknown> {
       damageKind: 'spell',
       element: 'water',
       target: { type: 'area', targetMode: 'tile' },
-      structureStrength: { area: 100, cost: -10, chant: 0, damage: -100, cooldown: 30, castRange: -100 },
+      structureStrength: { area: 100, cost: -10, chant: -100, damage: -100, cooldown: 30, castRange: -100 },
       formulaStrength: { attributeBases: { spellAtk: 1 } },
     }],
   };
@@ -1729,6 +1778,7 @@ function createPublishedTileDamageArtsRow(): Record<string, unknown> {
     skill: normalizeTechniqueArtsStrengthSkill(rawCandidate.skills[0]),
     targetBudget: rawCandidate.totalBudget,
   }).skill;
+  delete skill.playerCast;
   return {
     id: 'gen_e24a698b2bc44477',
     status: 'published',
@@ -1772,6 +1822,7 @@ async function testTechniquePromptIncludesRolledBudgetContext(): Promise<void> {
     strengthRules?: { calculationFormulas?: string[] };
     outputChecklist?: string[];
     outputExample?: { skills?: { target?: { targetMode?: string } }[] };
+    allowedPercentBonusKeys?: string[];
   };
   assert.equal(artsPayload.generationContext?.grade, 'earth');
   assert.equal(artsPayload.generationContext?.realmLv, 43);
@@ -1780,7 +1831,25 @@ async function testTechniquePromptIncludesRolledBudgetContext(): Promise<void> {
   assert.equal(artsPayload.generationContext?.budgetPercent, 1.1);
   assertApprox(Number(artsPayload.budgetContext?.actualTotalBudget), calcArtsBudgetMax('earth', 43) * 1.1, 0.0001);
   assert.ok(artsPayload.strengthRules?.calculationFormulas?.some((entry) => entry.includes('itemBudget')));
+  assert.ok(artsPrompt.systemMessage.includes('否则通常保持 structureStrength.chant 为 0'));
+  assert.ok(artsPrompt.userMessage.includes('真实吟唱息数'));
+  assert.ok(artsPrompt.userMessage.includes('禁止负数'));
+  assert.ok(artsPrompt.userMessage.includes('CV = sqrt'));
+  assert.ok(artsPrompt.userMessage.includes('严重失衡时回到1.0'));
   assert.ok(artsPayload.outputChecklist?.some((entry) => entry.includes('普通范围伤害术法的 targetMode 必须优先使用 any')));
+  assert.deepEqual(artsPayload.allowedPercentBonusKeys, [
+    'techLevel',
+    'moveSpeed',
+    'realmLevel',
+    'alchemyLevel',
+    'forgingLevel',
+    'enhancementLevel',
+    'transmissionLevel',
+    'gatherLevel',
+    'miningLevel',
+    'buildingLevel',
+    'formationLevel',
+  ]);
   assert.equal(artsPayload.outputExample?.skills?.[0]?.target?.targetMode, 'any');
 
   const internalPrompt = buildTechniquePrompt({
@@ -1858,10 +1927,10 @@ async function testArtsStrengthBudgetAllocatesAndRefundsByItem(): Promise<void> 
   assert.equal(expanded.skill.targeting?.range, 3);
   assert.equal(expanded.skill.targeting?.targetMode, 'entity');
   assert.equal(expanded.skill.targeting?.radius, 1);
-  assert.equal(expanded.skill.cooldown, 34);
+  assert.equal(expanded.skill.cooldown, 32);
   assertApprox(expanded.skill.costMultiplier ?? 0, 9.5892, 0.0001);
   const formula = extractSkillEffectFormula(expanded.skill.effects[0]);
-  assertApprox(extractFormulaVarScale(formula, 'caster.stat.spellAtk'), 3.4947, 0.001);
+  assertApprox(extractFormulaVarScale(formula, 'caster.stat.spellAtk'), 0.8653, 0.001);
   assert.equal(extractFormulaVarScale(formula, 'techLevel'), 0.1);
 }
 
@@ -1933,7 +2002,7 @@ async function main(): Promise<void> {
   await testPreviewFailedTechniqueGenerationItemRefunds();
   await testRefundFailedTechniqueGenerationItemsWritesInventoryAuditAndMarkers();
   await testRefundFailedTechniqueGenerationItemsBlocksOnlinePlayersByDefault();
-  await testSchemaMigratesPlayerIdsToVarchar();
+  await testSchemaMigratesGeneratedTechniqueColumns();
   await testPublishGeneratedTechniqueCastsRepeatedNameParameter();
   await testCurrentStatusRestoresGeneratedDraftPreview();
   await testRequestGenerationBlocksActiveDraftWithoutConsumingItem();
@@ -1949,6 +2018,7 @@ async function main(): Promise<void> {
   await testGeneratedArtsTechniqueRecoversDraftSkillShape();
   await testInternalCandidateRejectsUnknownAttrRatioKeys();
   await testArtsCandidateAcceptsStrengthShape();
+  await testArtsCandidateRejectsNegativePercentBonus();
   await testArtsTileTargetModeNormalizesForEntityDamage();
   await testAiArtsStrengthMigrationNormalizesPublishedTileDamageSkill();
   await testTechniquePromptIncludesRolledBudgetContext();

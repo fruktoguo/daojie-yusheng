@@ -4,7 +4,12 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, Injectable, Logger, OnModuleDestroy, Optional } from '@nestjs/common';
-import { calculateMarketOrderReservedCost, resolvePlayerFacingContentName } from '@mud/shared';
+import {
+    ATTR_KEYS,
+    LEADERBOARD_TECHNIQUE_KEYS,
+    calculateMarketOrderReservedCost,
+    resolvePlayerFacingContentName,
+} from '@mud/shared';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { NativePlayerAuthStoreService } from '../../http/native/native-player-auth-store.service';
 import { MARKET_CURRENCY_ITEM_ID } from '../../constants/gameplay/market';
@@ -19,6 +24,14 @@ import { ActivityPersistenceService, type ActivityInvitationLeaderboardRow } fro
 import { LeaderboardWorkerPoolService } from '../../concurrency/leaderboard-worker-pool.service';
 import {
     buildAllLeaderboards,
+    buildAttributeBoards,
+    buildBodyTrainingBoard,
+    buildDeathBoard,
+    buildMonsterKillBoard,
+    buildPlayerKillBoard,
+    buildRealmBoard,
+    buildSpiritStoneBoard,
+    buildTechniqueBoards,
     type LeaderboardFlatSnapshot,
 } from './leaderboard-projection';
 import type { LeaderboardBuildPayload, LeaderboardBuildResult } from '../../concurrency/worker-task.types';
@@ -37,16 +50,6 @@ const INVITATION_LEADERBOARD_LIMIT = 3;
 
 /** 世界摘要缓存时间（30 秒）。摘要含在线人数等稍实时的数据，TTL 短一些。 */
 const WORLD_SUMMARY_CACHE_TTL_MS = 30 * 1000;
-
-/** 以六维主属性做“顶尖属性”榜单的中文标签。 */
-const SUPREME_ATTR_LABELS = {
-    constitution: '体魄',
-    spirit: '神识',
-    perception: '身法',
-    talent: '根骨',
-    strength: '力道',
-    meridians: '经脉',
-};
 
 @Injectable()
 export class LeaderboardRuntimeService implements OnModuleDestroy {
@@ -139,7 +142,14 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
 
         // 首次请求时同步计算一次（后续由定时器刷新）
         await this.refreshLeaderboardCache();
-        return this.sliceLeaderboard(this.cachedLeaderboard ?? { generatedAt: Date.now(), limit: 0, boards: { realm: [], monsterKills: [], spiritStones: [], playerKills: [], deaths: [], bodyTraining: [], supremeAttrs: [], sects: [], invitation: createEmptyInvitationBoard() } }, effectiveLimit);
+        return this.sliceLeaderboard(this.cachedLeaderboard ?? {
+            generatedAt: Date.now(),
+            limit: 0,
+            boards: {
+                ...buildAllLeaderboards([], [], 0),
+                invitation: createEmptyInvitationBoard(),
+            },
+        }, effectiveLimit);
     }
     /**
      * 启动后台定时刷新。首次请求时自动触发，之后每 10 分钟刷新。
@@ -181,7 +191,7 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
             await yieldToEventLoop();
             const invitation = await this.buildInvitationBoard(this.collectBannedPlayerIds());
             await yieldToEventLoop();
-            // 走 worker 卸载 8 个 board 排序；不可用或失败时 fallback 到分片同步路径。
+            // 走 worker 卸载玩家榜单排序；不可用或失败时 fallback 到分片同步路径。
             const playerBoards = await this.buildBoardsViaWorkerOrFallback(snapshots, sects, MAX_LEADERBOARD_LIMIT);
             const boards = {
                 ...playerBoards,
@@ -224,20 +234,22 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
      * 注意此分支只用于 worker 不可用 / 任务失败的兜底，正常路径走 worker。
      */
     private async buildBoardsOnMainThreadWithYield(snapshots: LeaderboardFlatSnapshot[], sects: unknown[], limit: number) {
-        const realm = this.buildRealmBoard(snapshots, limit);
+        const realm = buildRealmBoard(snapshots, limit);
         await yieldToEventLoop();
-        const monsterKills = this.buildMonsterKillBoard(snapshots, limit);
+        const monsterKills = buildMonsterKillBoard(snapshots, limit);
         await yieldToEventLoop();
-        const spiritStones = this.buildSpiritStoneBoard(snapshots, limit);
+        const spiritStones = buildSpiritStoneBoard(snapshots, limit);
         await yieldToEventLoop();
-        const playerKills = this.buildPlayerKillBoard(snapshots, limit);
+        const playerKills = buildPlayerKillBoard(snapshots, limit);
         await yieldToEventLoop();
-        const deaths = this.buildDeathBoard(snapshots, limit);
+        const deaths = buildDeathBoard(snapshots, limit);
         await yieldToEventLoop();
-        const bodyTraining = this.buildBodyTrainingBoard(snapshots, limit);
+        const bodyTraining = buildBodyTrainingBoard(snapshots, limit);
         await yieldToEventLoop();
-        const supremeAttrs = this.buildSupremeAttrBoard(snapshots);
-        return { realm, monsterKills, spiritStones, playerKills, deaths, bodyTraining, supremeAttrs, sects };
+        const attributes = buildAttributeBoards(snapshots, limit);
+        await yieldToEventLoop();
+        const techniques = buildTechniqueBoards(snapshots, limit);
+        return { realm, monsterKills, spiritStones, playerKills, deaths, bodyTraining, attributes, techniques, sects };
     }
     /** 构造世界摘要快照。 */
     async buildWorldSummary() {
@@ -372,7 +384,8 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
                 playerKills: source.boards.playerKills.slice(0, limit),
                 deaths: source.boards.deaths.slice(0, limit),
                 bodyTraining: source.boards.bodyTraining.slice(0, limit),
-                supremeAttrs: source.boards.supremeAttrs,
+                attributes: sliceLeaderboardBoardRecord(source.boards.attributes, ATTR_KEYS, limit),
+                techniques: sliceLeaderboardBoardRecord(source.boards.techniques, LEADERBOARD_TECHNIQUE_KEYS, limit),
                 sects: source.boards.sects.slice(0, limit),
                 invitation: source.boards.invitation ?? createEmptyInvitationBoard(),
             },
@@ -434,7 +447,7 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
             || typeof this.playerRuntimeService.buildStarterPersistenceSnapshot !== 'function') {
             return [];
         }
-        // 优先使用批量查询（13 次 SQL 替代 2219×20+ 次），大幅降低 DB 和内存压力
+        // 优先使用固定数量的批量查询替代逐玩家多表加载，大幅降低 DB 和内存压力
         if (typeof persistence.listLeaderboardSnapshots === 'function'
             && typeof this.playerRuntimeService.buildLeaderboardProjectionFromSnapshot === 'function') {
             return this.collectPersistedOfflineSnapshotsBatch(existingSnapshotsByPlayerId, persistence);
@@ -572,6 +585,16 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
                 strength: toNonNegativeInteger(finalAttrs.strength, 0),
                 meridians: toNonNegativeInteger(finalAttrs.meridians, 0),
             },
+            techniqueSkills: {
+                alchemy: readCraftSkillSnapshot(player.alchemySkill),
+                forging: readCraftSkillSnapshot(player.forgingSkill),
+                enhancement: readCraftSkillSnapshot(player.enhancementSkill),
+                transmission: readCraftSkillSnapshot(player.transmissionSkill),
+                gather: readCraftSkillSnapshot(player.gatherSkill),
+                mining: readCraftSkillSnapshot(player.miningSkill),
+                building: readCraftSkillSnapshot(player.buildingSkill),
+                formation: readCraftSkillSnapshot(player.formationSkill),
+            },
             flags: {
                 cultivation: player.combat?.cultivationActive === true,
                 combat: player.combat?.autoBattle === true
@@ -591,112 +614,6 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
             spiritStoneCount: visibleSpiritStones + currentReserved,
             reservedBuyOrderSpiritStoneCount: currentReserved,
         };
-    }
-    /** 构造境界榜。 */
-    buildRealmBoard(snapshots, limit) {
-        return [...snapshots]
-            .sort((left, right) => (right.realmLv - left.realmLv
-            || right.realmProgress - left.realmProgress
-            || right.bodyTrainingLevel - left.bodyTrainingLevel
-            || right.foundation - left.foundation
-            || right.bodyTrainingExp - left.bodyTrainingExp
-            || compareName(left, right)))
-            .slice(0, limit)
-            .map((entry, index) => ({
-            rank: index + 1,
-            playerId: entry.playerId,
-            playerName: entry.playerName,
-            realmLv: entry.realmLv,
-            realmName: entry.realmName,
-            realmShortName: entry.realmShortName,
-            progress: entry.realmProgress,
-            foundation: entry.foundation,
-        }));
-    }
-    /** 构造击杀榜。 */
-    buildMonsterKillBoard(snapshots, limit) {
-        return [...snapshots]
-            .sort((left, right) => (right.monsterKillCount - left.monsterKillCount
-            || right.bossMonsterKillCount - left.bossMonsterKillCount
-            || right.eliteMonsterKillCount - left.eliteMonsterKillCount
-            || compareName(left, right)))
-            .slice(0, limit)
-            .map((entry, index) => ({
-            rank: index + 1,
-            playerId: entry.playerId,
-            playerName: entry.playerName,
-            totalKills: entry.monsterKillCount,
-            eliteKills: entry.eliteMonsterKillCount,
-            bossKills: entry.bossMonsterKillCount,
-        }));
-    }
-    /** 构造灵石持有榜。 */
-    buildSpiritStoneBoard(snapshots, limit) {
-        return [...snapshots]
-            .sort((left, right) => right.spiritStoneCount - left.spiritStoneCount || compareName(left, right))
-            .slice(0, limit)
-            .map((entry, index) => ({
-            rank: index + 1,
-            playerId: entry.playerId,
-            playerName: entry.playerName,
-            spiritStoneCount: entry.spiritStoneCount,
-        }));
-    }
-    /** 构造玩家击杀榜。 */
-    buildPlayerKillBoard(snapshots, limit) {
-        return [...snapshots]
-            .sort((left, right) => right.playerKillCount - left.playerKillCount || compareName(left, right))
-            .slice(0, limit)
-            .map((entry, index) => ({
-            rank: index + 1,
-            playerId: entry.playerId,
-            playerName: entry.playerName,
-            playerKillCount: entry.playerKillCount,
-        }));
-    }
-    /** 构造死亡榜。 */
-    buildDeathBoard(snapshots, limit) {
-        return [...snapshots]
-            .sort((left, right) => right.deathCount - left.deathCount || compareName(left, right))
-            .slice(0, limit)
-            .map((entry, index) => ({
-            rank: index + 1,
-            playerId: entry.playerId,
-            playerName: entry.playerName,
-            deathCount: entry.deathCount,
-        }));
-    }
-    /** 构造体修榜。 */
-    buildBodyTrainingBoard(snapshots, limit) {
-        return [...snapshots]
-            .sort((left, right) => (right.bodyTrainingLevel - left.bodyTrainingLevel
-            || right.bodyTrainingExp - left.bodyTrainingExp
-            || compareName(left, right)))
-            .slice(0, limit)
-            .map((entry, index) => ({
-            rank: index + 1,
-            playerId: entry.playerId,
-            playerName: entry.playerName,
-            level: entry.bodyTrainingLevel,
-            exp: entry.bodyTrainingExp,
-            expToNext: entry.bodyTrainingExpToNext,
-        }));
-    }
-    /** 构造六维最高属性榜。 */
-    buildSupremeAttrBoard(snapshots) {
-        return Object.keys(SUPREME_ATTR_LABELS).map((attr) => {
-
-            const top = [...snapshots].sort((left, right) => (right.finalAttrs[attr] - left.finalAttrs[attr]
-                || right.realmLv - left.realmLv
-                || compareName(left, right)))[0];
-            return {
-                attr,
-                label: SUPREME_ATTR_LABELS[attr],
-                playerId: top?.playerId ?? '',
-                playerName: top?.playerName ?? '暂无',
-                value: top?.finalAttrs[attr] ?? 0,
-            };
-        });
     }
     /** 构造宗门人数榜。 */
     buildSectBoard(sectService, limit) {
@@ -876,15 +793,23 @@ function createEmptyInvitationBoard() {
         foundationReached: [],
     };
 }
-/**
- * compareName：执行compare名称相关逻辑。
- * @param left 参数说明。
- * @param right 参数说明。
- * @returns 无返回值，直接更新compare名称相关状态。
- */
 
-function compareName(left, right) {
-    return left.playerName.localeCompare(right.playerName, 'zh-Hans-CN');
+/** 按固定子榜键裁剪榜单，保持协议对象结构完整。 */
+function sliceLeaderboardBoardRecord(source, keys, limit) {
+    const result = {};
+    for (const key of keys) {
+        result[key] = Array.isArray(source?.[key]) ? source[key].slice(0, limit) : [];
+    }
+    return result;
+}
+
+/** 从玩家投影读取单项技艺状态。 */
+function readCraftSkillSnapshot(value) {
+    return {
+        level: Math.max(1, toNonNegativeInteger(value?.level, 1)),
+        exp: toNonNegativeNumber(value?.exp, 0),
+        expToNext: toNonNegativeNumber(value?.expToNext, 0),
+    };
 }
 /**
  * toNonNegativeInteger：执行toNonNegativeInteger相关逻辑。
@@ -897,6 +822,11 @@ function toNonNegativeInteger(input, fallback) {
 
     const normalized = Number.isFinite(input) ? Math.floor(Number(input)) : fallback;
     return Math.max(0, normalized);
+}
+
+function toNonNegativeNumber(input, fallback) {
+    const normalized = Number(input);
+    return Number.isFinite(normalized) ? Math.max(0, normalized) : fallback;
 }
 
 function normalizeMarketUnitPrice(input) {

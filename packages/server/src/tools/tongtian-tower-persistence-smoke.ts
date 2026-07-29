@@ -25,9 +25,17 @@ async function main(): Promise<void> {
       playerId,
       currentLayer: 1,
       highestLayer: 1,
+      layerChangeCooldownUntilMs: 0,
     });
+    const firstClear = first.recordLayerClear(playerId, 2, 123_456);
+    assert.equal(firstClear.firstClear, true);
+    assert.equal(firstClear.progress.layerChangeCooldownUntilMs, 0, '首次通过不能写入换层冷却');
     first.updateCurrentLayer(playerId, 3);
     first.promoteHighestLayer(playerId, 5);
+    const cooldownUntilMs = Date.now() + 60_000;
+    const repeatClear = first.recordLayerClear(playerId, 4, cooldownUntilMs);
+    assert.equal(repeatClear.firstClear, false);
+    assert.equal(repeatClear.progress.layerChangeCooldownUntilMs, cooldownUntilMs);
     await first.flushProgress(playerId);
 
     const second = new TongtianTowerPersistenceService(provider);
@@ -36,16 +44,22 @@ async function main(): Promise<void> {
       playerId,
       currentLayer: 3,
       highestLayer: 5,
+      layerChangeCooldownUntilMs: cooldownUntilMs,
     });
 
     second.updateCurrentLayer(playerId, 2);
     await second.flushProgress(playerId);
     const row = await pool.query(
-      `SELECT current_layer, highest_layer FROM ${TONGTIAN_TOWER_PROGRESS_TABLE} WHERE player_id = $1 LIMIT 1`,
+      `SELECT current_layer, highest_layer, layer_change_cooldown_until_ms FROM ${TONGTIAN_TOWER_PROGRESS_TABLE} WHERE player_id = $1 LIMIT 1`,
       [playerId],
     );
     assert.equal(Number(row.rows[0]?.current_layer), 2);
     assert.equal(Number(row.rows[0]?.highest_layer), 5, '最高层不能被较低 currentLayer 回退');
+    assert.equal(
+      Number(row.rows[0]?.layer_change_cooldown_until_ms),
+      cooldownUntilMs,
+      '换层冷却必须随通天塔进度回读，不能通过重连或重启绕过',
+    );
 
     console.log('tongtian-tower-persistence-smoke ok');
   } finally {

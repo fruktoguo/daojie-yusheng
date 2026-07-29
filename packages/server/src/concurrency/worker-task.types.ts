@@ -173,7 +173,7 @@ export interface LeaderboardBuildPayload {
 
 /** 排行榜构建结果 */
 export interface LeaderboardBuildResult {
-  /** 8 个 board 的最终结果 */
+  /** 玩家与宗门榜单的最终结果。 */
   boards: {
     realm: unknown[];
     monsterKills: unknown[];
@@ -181,7 +181,8 @@ export interface LeaderboardBuildResult {
     playerKills: unknown[];
     deaths: unknown[];
     bodyTraining: unknown[];
-    supremeAttrs: unknown[];
+    attributes: Record<string, unknown[]>;
+    techniques: Record<string, unknown[]>;
     sects: unknown[];
     invitation?: unknown;
   };
