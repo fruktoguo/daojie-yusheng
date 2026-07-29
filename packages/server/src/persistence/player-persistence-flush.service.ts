@@ -284,15 +284,20 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     dirtyDomains: ReadonlySet<string>,
     reason: string,
   ): Promise<boolean> {
+    const currentDirtyDomains = this.resolveDirtyPlayerDomains().get(playerId) ?? new Set<string>();
+    const effectiveDirtyDomains = intersectDirtyDomains(dirtyDomains, currentDirtyDomains);
     if (this.durableOperationService?.isPlayerCommitOutcomeUnresolved(playerId)) {
       throw new Error(`player_flush_blocked_by_unresolved_durable_commit:${playerId}`);
     }
     const domainEnabled = this.playerDomainPersistenceService.isEnabled();
-    if (!domainEnabled || dirtyDomains.size === 0) {
+    if (!domainEnabled || effectiveDirtyDomains.size === 0) {
       return false;
     }
 
-    if (dirtyDomains.size === 1 && dirtyDomains.has(PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN)) {
+    if (
+      effectiveDirtyDomains.size === 1
+      && effectiveDirtyDomains.has(PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN)
+    ) {
       const presence = this.playerRuntimeService.describePersistencePresence(playerId);
       if (!presence) {
         return false;
@@ -316,7 +321,7 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     }
 
     const snapshotRevision = this.playerRuntimeService.getPersistenceRevision?.(playerId) ?? null;
-    const snapshot = this.playerRuntimeService.buildPersistenceSnapshot(playerId, dirtyDomains);
+    const snapshot = this.playerRuntimeService.buildPersistenceSnapshot(playerId, effectiveDirtyDomains);
     if (!snapshot) {
       return false;
     }
@@ -331,7 +336,7 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     const result = await this.flushPlayerDirtyDomains(
       playerId,
       snapshot,
-      dirtyDomains,
+      effectiveDirtyDomains,
       reason,
       domainEnabled,
     );
@@ -412,7 +417,12 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
                   this.logger.warn(`跳过玩家刷盘：存在结果未确认的强事务 playerId=${playerId}`);
                   return;
                 }
-                const dirtyDomains = dirtyPlayerDomains.get(playerId) ?? new Set<string>();
+                const plannedDirtyDomains = dirtyPlayerDomains.get(playerId) ?? new Set<string>();
+                const currentDirtyDomains = this.resolveDirtyPlayerDomains().get(playerId) ?? new Set<string>();
+                const dirtyDomains = intersectDirtyDomains(plannedDirtyDomains, currentDirtyDomains);
+                if (dirtyDomains.size === 0) {
+                  return;
+                }
                 if (domainEnabled && dirtyDomains.size === 1 && dirtyDomains.has(PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN)) {
                   const presence = this.playerRuntimeService.describePersistencePresence(playerId);
                   if (!presence) {
@@ -772,6 +782,16 @@ function normalizeDirtyDomains(domains: ReadonlySet<string> | Iterable<string>):
     }
   }
   return normalized;
+}
+
+function intersectDirtyDomains(
+  plannedDomains: ReadonlySet<string> | Iterable<string>,
+  currentDomains: ReadonlySet<string> | Iterable<string>,
+): Set<string> {
+  const current = normalizeDirtyDomains(currentDomains);
+  return new Set(
+    Array.from(normalizeDirtyDomains(plannedDomains)).filter((domain) => current.has(domain)),
+  );
 }
 
 function isProjectableDirtyDomain(domain: string): boolean {

@@ -158,6 +158,11 @@ interface PlayerRuntimeFlushTaskPort {
   listDirtyPlayers?(): string[];
   getPersistenceRevision?(playerId: string): number | null;
   getPersistenceDomainRevision?(playerId: string, domain: string): number | null;
+  getUnstagedPersistenceDomainRevision?(
+    playerId: string,
+    domain: string,
+    stagingGenerationId: string,
+  ): number | null;
   ensureRuntimeOwnershipClaimed?(playerId: string): Promise<{
     runtimeOwnerId?: string | null;
     sessionEpoch?: number | null;
@@ -849,7 +854,15 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         if (!force && !this.shouldStagePlayerDomainNow(playerId, domain)) {
           continue;
         }
-        const domainRevision = Math.max(0, Math.trunc(Number(domainRevisions.get(domain) ?? 0)));
+        let domainRevision = Math.max(0, Math.trunc(Number(domainRevisions.get(domain) ?? 0)));
+        const refreshedDomainRevision = this.playerRuntimeService.getUnstagedPersistenceDomainRevision?.(
+          playerId,
+          domain,
+          this.stagingGenerationId,
+        );
+        if (refreshedDomainRevision !== undefined && refreshedDomainRevision !== null) {
+          domainRevision = Math.max(0, Math.trunc(Number(refreshedDomainRevision) || 0));
+        }
         if (domainRevision <= 0) {
           continue;
         }

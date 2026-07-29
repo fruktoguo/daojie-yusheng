@@ -2143,18 +2143,36 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         const currentJob = await client.query<{
           job_run_id?: unknown;
           job_version?: unknown;
+          job_type?: unknown;
+          status?: unknown;
+          phase?: unknown;
+          finished_at?: unknown;
+          detail_jsonb?: unknown;
         }>(
-          `SELECT job_run_id, job_version
+          `SELECT job_run_id, job_version, job_type, status, phase, finished_at, detail_jsonb
            FROM ${PLAYER_ACTIVE_JOB_TABLE}
            WHERE player_id = $1
            FOR UPDATE`,
           [normalizedPlayerId],
         );
-        const persistedJobRunId = normalizeRequiredString(currentJob.rows[0]?.job_run_id);
-        const persistedJobVersion = normalizeOptionalInteger(currentJob.rows[0]?.job_version) ?? 0;
+        const persistedJobRow = currentJob.rows[0];
+        const persistedJobRunId = normalizeRequiredString(persistedJobRow?.job_run_id);
+        const persistedJobVersion = normalizeOptionalInteger(persistedJobRow?.job_version) ?? 0;
+        const persistedJobDetail = persistedJobRow?.detail_jsonb && typeof persistedJobRow.detail_jsonb === 'object'
+          ? persistedJobRow.detail_jsonb as Record<string, unknown>
+          : null;
+        const persistedJobIsCheckpointPrefix = persistedJobRunId === normalizedExpectedJobRunId
+          && persistedJobVersion > normalizedExpectedJobVersion
+          && persistedJobVersion <= normalizedNextActiveJob.jobVersion
+          && normalizeRequiredString(persistedJobRow?.job_type) === 'formation'
+          && normalizeRequiredString(persistedJobRow?.status) === 'running'
+          && normalizeRequiredString(persistedJobRow?.phase) === 'maintaining'
+          && persistedJobRow?.finished_at == null
+          && normalizeRequiredString(persistedJobDetail?.jobRunId) === normalizedExpectedJobRunId
+          && (normalizeOptionalInteger(persistedJobDetail?.jobVersion) ?? 0) === persistedJobVersion;
         if (
           (persistedJobRunId && persistedJobRunId !== normalizedExpectedJobRunId)
-          || persistedJobVersion > normalizedExpectedJobVersion
+          || (persistedJobVersion > normalizedExpectedJobVersion && !persistedJobIsCheckpointPrefix)
         ) {
           throw new Error([
             'formation_maintenance_job_fencing_conflict',

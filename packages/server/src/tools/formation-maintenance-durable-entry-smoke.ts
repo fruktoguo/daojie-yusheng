@@ -184,6 +184,8 @@ async function main(): Promise<void> {
   assert.equal(instance.worldRevision, 5);
   assert.equal(durableCalls.length, 0, '连续维护息必须继续在内存合并');
 
+  const stagedSnapshotSavedAt = service.formationMaintenanceCheckpointById
+    .get(formationInstanceId)?.durableInput.nextPlayerSnapshot.savedAt;
   await service.flushPendingFormationMaintenanceForPlayer(playerId);
   assert.deepEqual(persistedDomains, [['active_job', 'profession', 'vitals']]);
   assert.deepEqual(Array.from(heldDomains), []);
@@ -191,6 +193,10 @@ async function main(): Promise<void> {
   assert.equal(durableCalls[0]?.expectedLeaseToken, 'lease:formation-maintenance');
   assert.equal(durableCalls[0]?.expectedJobVersion, 1);
   assert.equal(durableCalls[0]?.nextActiveJob.jobVersion, 3);
+  assert.ok(
+    durableCalls[0]?.nextPlayerSnapshot.savedAt > stagedSnapshotSavedAt,
+    '提交时必须刷新 projection version，确保可覆盖已经泄漏的同检查点前缀',
+  );
   assert.equal(durableCalls[0]?.qiAmount, 32);
   assert.equal(durableCalls[0]?.formationQiAmount, 64);
 

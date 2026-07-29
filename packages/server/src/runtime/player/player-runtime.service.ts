@@ -5255,6 +5255,41 @@ export class PlayerRuntimeService {
         }
         return getPlayerPersistenceDomainRevision(player, normalizedDomain);
     }
+    /** 在生成 ledger payload 前复核单域仍未被 hold，且仍存在未暂存修订。 */
+    getUnstagedPersistenceDomainRevision(playerId, domain, stagingGenerationId) {
+        const player = this.players.get(playerId);
+        const normalizedDomain = typeof domain === 'string' ? domain.trim() : '';
+        const normalizedGenerationId = normalizePlayerStagingGenerationId(stagingGenerationId);
+        if (
+            !player
+            || !normalizedDomain
+            || !normalizedGenerationId
+            || isNativeGmBotPlayerId(player.playerId)
+            || isImmediateDomainPersistenceSuppressed(player)
+        ) {
+            return 0;
+        }
+        const currentDomains = readUnheldPlayerDirtyDomains(player);
+        const isFallbackDomain = normalizedDomain === PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN;
+        const fallbackDirty = isFallbackDomain
+            && !hasHeldPlayerPersistenceDomains(player)
+            && player.persistentRevision > Math.max(
+                Math.max(0, Math.trunc(Number(player.persistedRevision) || 0)),
+                Math.max(0, Math.trunc(Number(player.stagedRevision) || 0)),
+            );
+        if (!currentDomains.has(normalizedDomain) && !fallbackDirty) {
+            return 0;
+        }
+        const domainRevision = isFallbackDomain
+            ? Math.max(0, Math.trunc(Number(player.persistentRevision) || 0))
+            : getPlayerPersistenceDomainRevision(player, normalizedDomain);
+        const stagedRevision = getPlayerStagedDomainRevision(
+            player,
+            normalizedDomain,
+            normalizedGenerationId,
+        );
+        return domainRevision > stagedRevision ? domainRevision : 0;
+    }
     /**
      * 列出尚未由当前 ledger generation 接管的脏域。
      * staged 只表示 payload 已经可靠写入 flush ledger，不代表数据库真源已经落盘。

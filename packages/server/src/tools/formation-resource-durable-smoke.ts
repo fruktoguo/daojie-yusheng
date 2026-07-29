@@ -266,7 +266,7 @@ async function main(): Promise<void> {
       ...maintenanceInput,
       operationId: `${operationPrefix}:maintenance:2`,
       expectedFormationUpdatedAtMs: now + 22,
-      expectedJobVersion: 2,
+      expectedJobVersion: 1,
       nextActiveJob: secondMaintenanceJob,
       formationWrite: {
         formationInstanceId,
@@ -290,7 +290,7 @@ async function main(): Promise<void> {
       || secondMaintenanceResult.alreadyCommitted
       || secondMaintenanceResult.jobVersion !== 3
     ) {
-      throw new Error(`unexpected second formation maintenance result: ${JSON.stringify(secondMaintenanceResult)}`);
+      throw new Error(`unexpected leaked-prefix formation maintenance result: ${JSON.stringify(secondMaintenanceResult)}`);
     }
     const secondMaintenanceReplay = await durable.commitFormationMaintenanceMutation(secondMaintenanceInput);
     if (!secondMaintenanceReplay.ok || !secondMaintenanceReplay.alreadyCommitted) {
@@ -356,6 +356,50 @@ async function main(): Promise<void> {
       expectedFormationSpiritStones: 40,
     });
     await assertFormationMaintenanceState(pool, playerId, maintenanceJob.jobRunId, 61, 2, 60);
+
+    await pool.query(
+      `UPDATE player_active_job
+          SET status = 'cancelled'
+        WHERE player_id = $1`,
+      [playerId],
+    );
+    rejected = false;
+    try {
+      await durable.commitFormationMaintenanceMutation({
+        ...maintenanceInput,
+        operationId: `${operationPrefix}:maintenance:cancelled-prefix`,
+        expectedFormationUpdatedAtMs: now + 81,
+        expectedJobVersion: 60,
+        nextActiveJob: buildFormationMaintenanceJob(playerId, formationInstanceId, 62),
+        formationWrite: {
+          formationInstanceId,
+          instanceId,
+          snapshot: buildFormationSnapshot(formationInstanceId, instanceId, now + 82, 40, 4_270),
+        },
+        nextPlayerSnapshot: buildMaintenancePlayerSnapshot(
+          now + 92,
+          instanceId,
+          60,
+          240,
+          playerId,
+          formationInstanceId,
+          62,
+          61,
+        ),
+      });
+    }
+    catch (error) {
+      rejected = String(error instanceof Error ? error.message : error).includes('formation_maintenance_job_fencing_conflict');
+    }
+    if (!rejected) {
+      throw new Error('expected cancelled formation maintenance prefix rejection');
+    }
+    await pool.query(
+      `UPDATE player_active_job
+          SET status = 'running'
+        WHERE player_id = $1`,
+      [playerId],
+    );
 
     rejected = false;
     try {
@@ -475,7 +519,7 @@ async function main(): Promise<void> {
     console.log(JSON.stringify({
       ok: true,
       case: 'formation-resource-durable',
-      answers: '真实 PostgreSQL 已证明布阵/补给及阵法维护 tick 的 presence + instance node/token/epoch + formation/job revision fencing；连续维护会原子提交 vitals/profession/active_job/formation/watermark，但同一任务只保留一条 durable 检查点和一条滚动审计，不产生无消费者 outbox，拒绝不污染真源且精确重放不重复。',
+      answers: '真实 PostgreSQL 已证明布阵/补给及阵法维护 tick 的 presence + instance node/token/epoch + formation/job revision fencing；连续维护会原子提交 vitals/profession/active_job/formation/watermark，同一 running/maintaining 任务的已落库前缀可被检查点原子补齐，取消态或越界版本仍硬拒绝；同一任务只保留一条 durable 检查点和一条滚动审计，不产生无消费者 outbox，拒绝不污染真源且精确重放不重复。',
       firstResult,
       replayResult,
       refillResult,

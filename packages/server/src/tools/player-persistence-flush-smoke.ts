@@ -334,6 +334,46 @@ async function testQueuedCycleRechecksUnresolvedDurableCommitAfterAssetLock(): P
   assert.deepEqual(harness.markedPersisted, []);
 }
 
+async function testQueuedCycleRechecksHeldDomainsAfterAssetLock(): Promise<void> {
+  const playerId = 'player:queued-domain-hold';
+  const harness = createHarness();
+  harness.playerRuntimeService.dirtyDomains.set(playerId, new Set(['active_job']));
+  harness.playerRuntimeService.snapshots.set(playerId, buildSnapshot(125_500));
+
+  let held = false;
+  const listDirtyPlayerDomains = harness.playerRuntimeService.listDirtyPlayerDomains.bind(
+    harness.playerRuntimeService,
+  );
+  harness.playerRuntimeService.listDirtyPlayerDomains = () => held
+    ? new Map()
+    : listDirtyPlayerDomains();
+  let notifyQueued!: () => void;
+  const queued = new Promise<void>((resolve) => {
+    notifyQueued = resolve;
+  });
+  let releaseAssetLock!: () => void;
+  const assetLock = new Promise<void>((resolve) => {
+    releaseAssetLock = resolve;
+  });
+  harness.playerRuntimeService.runExclusiveAssetMutation = async <T>(
+    _playerIds: readonly string[],
+    action: () => Promise<T> | T,
+  ): Promise<T> => {
+    notifyQueued();
+    await assetLock;
+    return action();
+  };
+
+  const flush = harness.service.flushDirtyPlayers();
+  await queued;
+  held = true;
+  releaseAssetLock();
+  await flush;
+
+  assert.deepEqual(harness.selectiveProjectionCalls, []);
+  assert.deepEqual(harness.markedPersisted, []);
+}
+
 async function testShutdownCycleReportsNestedWorkerFailure(): Promise<void> {
   const harness = createHarness();
   const playerId = 'player:shutdown-worker-failure';
@@ -611,6 +651,7 @@ async function main(): Promise<void> {
   await testManualFlushRunsCrossDomainBarrierFirst();
   await testOwnershipPresenceFlushPrecedesProjection();
   await testQueuedCycleRechecksUnresolvedDurableCommitAfterAssetLock();
+  await testQueuedCycleRechecksHeldDomainsAfterAssetLock();
   await testShutdownCycleReportsNestedWorkerFailure();
   await testShutdownCycleReportsUnresolvedFence();
 

@@ -23,6 +23,7 @@ async function main(): Promise<void> {
     await verifyRejectedLedgerGenerationKeepsDirty();
     await verifyPartiallyAcceptedLedgerGenerationMarksOnlyAccepted();
     await verifyShutdownRetriesSupersededGeneration();
+    await verifyPlayerHoldEstablishedDuringFenceClaimIsNotStaged();
     await verifyHeldInstanceDomainIsNotStaged();
     await verifyCompleteInstancePayloadStaging();
     await verifyStoppedEpochStartupReplay();
@@ -32,10 +33,60 @@ async function main(): Promise<void> {
   }
   console.log(JSON.stringify({
     ok: true,
-    answers: '统一 staging 已按 generation single-flight，高频修订在内存合并窗口内不重复覆盖 ledger；批量 CAS 只转移实际接受的 dirty 义务，被更新 generation 覆盖的领域会保留并在关机冻结阶段有界重试；玩家投影在 fence 不完整时会先 claim ownership 并重读完整 fence；被 durable 事务 hold 的实例域不会生成竞态 payload；实例覆盖完整 payload 与恢复前 replay。',
+    answers: '统一 staging 已按 generation single-flight，高频修订在内存合并窗口内不重复覆盖 ledger；批量 CAS 只转移实际接受的 dirty 义务，被更新 generation 覆盖的领域会保留并在关机冻结阶段有界重试；玩家投影在 fence 不完整时会先 claim ownership 并重读完整 fence，生成 payload 前再次复核玩家 domain hold；被 durable 事务 hold 的玩家域和实例域都不会生成竞态 payload；实例覆盖完整 payload 与恢复前 replay。',
     excludes: '不证明真实 PostgreSQL 多进程 claim 竞争；该部分由 flush-ledger DB smoke 覆盖。',
     completionMapping: 'flush-task-staged-transfer',
   }, null, 2));
+}
+
+async function verifyPlayerHoldEstablishedDuringFenceClaimIsNotStaged(): Promise<void> {
+  const playerId = 'held-player-domain-staging';
+  let held = false;
+  let snapshotBuildCount = 0;
+  let presence = {
+    online: true,
+    inWorld: true,
+    runtimeOwnerId: null as string | null,
+    sessionEpoch: 3,
+  };
+  const staged: FlushTask[] = [];
+  const runtime = new FlushTaskRuntimeService(
+    {
+      listUnstagedPlayerDomainRevisions: () => new Map([[playerId, new Map([['active_job', 1]])]]),
+      getUnstagedPersistenceDomainRevision: () => held ? 0 : 1,
+      getPersistenceRevision: () => 1,
+      describePersistencePresence: () => ({ ...presence }),
+      ensureRuntimeOwnershipClaimed: async () => {
+        held = true;
+        presence = { ...presence, runtimeOwnerId: 'runtime-owner-held-player', sessionEpoch: 4 };
+        return { runtimeOwnerId: presence.runtimeOwnerId, sessionEpoch: presence.sessionEpoch };
+      },
+      buildPersistenceSnapshot: () => {
+        snapshotBuildCount += 1;
+        return {
+          version: 1,
+          savedAt: 1,
+          placement: { templateId: 'map-1', x: 1, y: 1 },
+          progression: { formationJob: { jobRunId: 'job:held-player', jobVersion: 2 } },
+        };
+      },
+      markPersistenceDomainsStaged: () => undefined,
+    } as never,
+    { listDirtyPersistentInstanceDomains: () => [] } as never,
+    { flushPlayerDomains: async () => true } as never,
+    {
+      isEnabled: () => true,
+      upsertFlushTasks: async (tasks: FlushTask[]) => {
+        staged.push(...tasks);
+        return tasks.length;
+      },
+    } as never,
+    { signalPlayerFlush() {}, signalInstanceFlush() {} } as never,
+  );
+
+  await runtime.stageDirtyTasksOnce();
+  assert.equal(snapshotBuildCount, 0, 'fence claim 期间建立 hold 后不得再捕获玩家 payload');
+  assert.equal(staged.length, 0, 'hold 后的 active_job 不得被单边写入 ledger');
 }
 
 async function verifyHeldInstanceDomainIsNotStaged(): Promise<void> {

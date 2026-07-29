@@ -2603,6 +2603,12 @@ class WorldRuntimeFormationService {
     }
 
     async commitFormationMaintenancePlan(playerId, durableInput) {
+        if (durableInput?.nextPlayerSnapshot) {
+            durableInput.nextPlayerSnapshot = {
+                ...durableInput.nextPlayerSnapshot,
+                savedAt: nextPlayerPersistenceVersion(),
+            };
+        }
         const sessionFence = this.playerRuntimeService.getSessionFence?.(playerId) ?? null;
         if (!sessionFence?.runtimeOwnerId || !sessionFence?.sessionEpoch) {
             throw new ServiceUnavailableException('玩家资产事务围栏暂不可用');
