@@ -246,10 +246,15 @@ async function testDurableEnhancementFlushesStaleActivityProjectionBeforeStart()
   };
 
   (craftService as unknown as { playerPersistenceFlushService: unknown }).playerPersistenceFlushService = {
-    async flushPlayerDomains(playerId: string, domains: Iterable<string>): Promise<boolean> {
+    async flushPlayerDomains(
+      playerId: string,
+      domains: Iterable<string>,
+      options?: { forceCurrentSnapshot?: boolean },
+    ): Promise<boolean> {
       events.push('flush-active-job');
       assert.equal(playerId, player.playerId);
       assert.deepEqual(Array.from(domains), ['active_job']);
+      assert.equal(options?.forceCurrentSnapshot, true);
       assert.equal(player.dirtyDomains.has('active_job'), true, '强化前应强制重建当前运行态任务投影');
       assert.equal(player.buildingJob, undefined);
       persistedActiveJob = null;

@@ -2806,6 +2806,7 @@ export class CraftPanelRuntimeService {
                 this.playerPersistenceFlushService,
                 playerId,
                 ['active_job'],
+                { forceCurrentSnapshot: options.force === true },
             );
             const stillDirty = player?.dirtyDomains?.has?.('active_job') === true;
             return flushed === true && !stillDirty;

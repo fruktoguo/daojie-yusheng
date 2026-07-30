@@ -113,6 +113,14 @@ interface LeaseGuardPort {
   isPlayerPersistenceWritable(playerId: string): boolean;
 }
 
+interface FlushPlayerDomainsOptions {
+  /**
+   * 即使目标域的 dirty 已由 flush ledger staging 接管，也在玩家资产锁内对当前运行态重新拍快照并立即提交。
+   * 该选项不绕过 hydration、lease fence、projection watermark 或 durable commit 守卫。
+   */
+  forceCurrentSnapshot?: boolean;
+}
+
 /**
  * 检查玩家是否从持久化恢复（而非凭空创建的空白角色）。
  * 用于 flush 防御：阻止空白角色覆盖数据库中已有的老玩家存档。
@@ -240,27 +248,38 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     await this.flushResolvedPlayerDomains(playerId, dirtyDomains, 'manual');
   }
 
-  /** 立即刷单个玩家的指定 dirty domain，用于统一刷盘任务按 domain 隔离失败。 */
-  async flushPlayerDomains(playerId: string, domains: Iterable<string>): Promise<boolean> {
+  /** 立即刷单个玩家的指定 domain，用于统一刷盘任务按 domain 隔离失败或强事务边界收敛。 */
+  async flushPlayerDomains(
+    playerId: string,
+    domains: Iterable<string>,
+    options: FlushPlayerDomainsOptions = {},
+  ): Promise<boolean> {
     const requestedDomains = normalizeDirtyDomains(domains);
     if (requestedDomains.size === 0) {
       return false;
     }
     const currentDirtyDomains = this.resolveDirtyPlayerDomains().get(playerId) ?? new Set<string>();
-    const targetDomains = new Set(
-      Array.from(currentDirtyDomains).filter((domain) => requestedDomains.has(domain)),
+    const forceCurrentSnapshot = options.forceCurrentSnapshot === true;
+    const targetDomains = forceCurrentSnapshot
+      ? requestedDomains
+      : new Set(Array.from(currentDirtyDomains).filter((domain) => requestedDomains.has(domain)));
+    return this.flushResolvedPlayerDomains(
+      playerId,
+      targetDomains,
+      forceCurrentSnapshot ? 'forced-domain' : 'task-domain',
+      options,
     );
-    return this.flushResolvedPlayerDomains(playerId, targetDomains, 'task-domain');
   }
 
   private async flushResolvedPlayerDomains(
     playerId: string,
     dirtyDomains: ReadonlySet<string>,
     reason: string,
+    options: FlushPlayerDomainsOptions = {},
   ): Promise<boolean> {
     return this.runExclusivePlayerPersistenceMutation(
       playerId,
-      () => this.flushResolvedPlayerDomainsLocked(playerId, dirtyDomains, reason),
+      () => this.flushResolvedPlayerDomainsLocked(playerId, dirtyDomains, reason, options),
     );
   }
 
@@ -283,9 +302,12 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     playerId: string,
     dirtyDomains: ReadonlySet<string>,
     reason: string,
+    options: FlushPlayerDomainsOptions = {},
   ): Promise<boolean> {
     const currentDirtyDomains = this.resolveDirtyPlayerDomains().get(playerId) ?? new Set<string>();
-    const effectiveDirtyDomains = intersectDirtyDomains(dirtyDomains, currentDirtyDomains);
+    const effectiveDirtyDomains = options.forceCurrentSnapshot === true
+      ? normalizeDirtyDomains(dirtyDomains)
+      : intersectDirtyDomains(dirtyDomains, currentDirtyDomains);
     if (this.durableOperationService?.isPlayerCommitOutcomeUnresolved(playerId)) {
       throw new Error(`player_flush_blocked_by_unresolved_durable_commit:${playerId}`);
     }

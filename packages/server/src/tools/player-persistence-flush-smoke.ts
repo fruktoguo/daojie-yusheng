@@ -374,6 +374,40 @@ async function testQueuedCycleRechecksHeldDomainsAfterAssetLock(): Promise<void>
   assert.deepEqual(harness.markedPersisted, []);
 }
 
+async function testForcedDomainFlushSurvivesLedgerStagingAfterAssetLock(): Promise<void> {
+  const playerId = 'player:forced-domain-after-staging';
+  const harness = createHarness();
+  harness.playerRuntimeService.dirtyDomains.set(playerId, new Set(['active_job']));
+  harness.playerRuntimeService.snapshots.set(playerId, buildSnapshot(125_750));
+  harness.playerRuntimeService.runExclusiveAssetMutation = async <T>(
+    _playerIds: readonly string[],
+    action: () => Promise<T> | T,
+  ): Promise<T> => {
+    // 模拟 flush ledger 在即时刷盘排队期间接管同一修订并清除运行态 dirty。
+    harness.playerRuntimeService.dirtyDomains.delete(playerId);
+    return action();
+  };
+
+  const flushed = await harness.service.flushPlayerDomains(
+    playerId,
+    ['active_job'],
+    { forceCurrentSnapshot: true },
+  );
+
+  assert.equal(flushed, true);
+  assert.deepEqual(harness.selectiveProjectionCalls, [
+    {
+      playerId,
+      domains: ['active_job'],
+      allowInventoryEmptyOverwrite: false,
+      allowEquipmentEmptyOverwrite: false,
+      allowArtifactEmptyOverwrite: false,
+      allowBuffEmptyOverwrite: false,
+    },
+  ]);
+  assert.deepEqual(harness.markedPersisted, [playerId]);
+}
+
 async function testShutdownCycleReportsNestedWorkerFailure(): Promise<void> {
   const harness = createHarness();
   const playerId = 'player:shutdown-worker-failure';
@@ -652,6 +686,7 @@ async function main(): Promise<void> {
   await testOwnershipPresenceFlushPrecedesProjection();
   await testQueuedCycleRechecksUnresolvedDurableCommitAfterAssetLock();
   await testQueuedCycleRechecksHeldDomainsAfterAssetLock();
+  await testForcedDomainFlushSurvivesLedgerStagingAfterAssetLock();
   await testShutdownCycleReportsNestedWorkerFailure();
   await testShutdownCycleReportsUnresolvedFence();
 
