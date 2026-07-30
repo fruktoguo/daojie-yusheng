@@ -114,8 +114,10 @@ export class WorldRuntimeCraftTickService {
             ? DEFERRED_CRAFT_TICK_FLUSH_OPTIONS
             : CRAFT_TICK_FLUSH_OPTIONS;
         for (const playerId of playerIds) {
+          let player: any = null;
+          let buildingProjectionBoundaryReason: string | null = null;
           try {
-            const player = this.playerRuntimeService.getPlayer(playerId);
+            player = this.playerRuntimeService.getPlayer(playerId);
             if (!player) {
                 continue;
             }
@@ -124,6 +126,7 @@ export class WorldRuntimeCraftTickService {
             }
             this.ensureAlchemyLikeResourceCompatibilityAfterRestore(playerId, player, deps);
             for (const kind of this.craftPanelRuntimeService.listActiveTechniqueActivityKinds(player)) {
+                const buildingJobBeforeTick = kind === 'building' ? player.buildingJob : null;
                 const pendingResult = this.tickActiveTechniqueActivity(player, kind, deps);
                 const result = isPromiseLike(pendingResult) ? await pendingResult : pendingResult;
                 this.sleepConditionalTechniqueActivityIfRequested(player, result);
@@ -134,6 +137,9 @@ export class WorldRuntimeCraftTickService {
                     deps,
                     tickFlushOptions,
                 );
+                if (buildingJobBeforeTick && !player.buildingJob) {
+                    buildingProjectionBoundaryReason = 'building_tick_terminal';
+                }
             }
 
             // 队列推进：如果当前没有活跃任务，尝试启动队列中的下一个
@@ -160,6 +166,9 @@ export class WorldRuntimeCraftTickService {
                             deps,
                             deferRuntimeUpdates ? DEFERRED_CRAFT_QUEUE_FLUSH_OPTIONS : undefined,
                         );
+                        if (kind === 'building') {
+                            buildingProjectionBoundaryReason = 'building_queue_start';
+                        }
                     }
                 }
             }
@@ -187,6 +196,10 @@ export class WorldRuntimeCraftTickService {
                 this.logger.warn(
                     `玩家技艺 tick 失败通知入队失败 playerId=${playerId} error=${noticeError instanceof Error ? noticeError.message : String(noticeError)}`,
                 );
+            }
+          } finally {
+            if (player && buildingProjectionBoundaryReason) {
+                this.scheduleTechniqueActivityProjectionFlush(player, buildingProjectionBoundaryReason);
             }
           }
         }
@@ -243,6 +256,35 @@ export class WorldRuntimeCraftTickService {
     /** 高倍实例完成本帧全部逻辑息后统一下发最终技艺投影。 */
     flushDeferredRuntimeUpdates(deps): void {
         this.worldRuntimeCraftMutationService.flushDeferredRuntimeUpdates?.(deps);
+    }
+
+    /** 建造生命周期边界登记立即刷盘，但不让地图 tick 等待数据库。 */
+    private scheduleTechniqueActivityProjectionFlush(player, reason: string): void {
+        try {
+            const pendingFlush = this.craftPanelRuntimeService.flushTechniqueActivityProjection?.(player, {
+                force: true,
+                reason,
+            });
+            if (pendingFlush === undefined || pendingFlush === null) {
+                return;
+            }
+            void Promise.resolve(pendingFlush)
+                .then((flushed) => {
+                    if (flushed !== true) {
+                        this.logger.warn(`建造任务投影收敛未完成 playerId=${player?.playerId ?? 'unknown'} reason=${reason}`);
+                    }
+                })
+                .catch((error) => {
+                    this.logger.warn(
+                        `建造任务投影收敛失败 playerId=${player?.playerId ?? 'unknown'} reason=${reason} error=${error instanceof Error ? error.message : String(error)}`,
+                    );
+                });
+        }
+        catch (error) {
+            this.logger.warn(
+                `建造任务投影收敛调度失败 playerId=${player?.playerId ?? 'unknown'} reason=${reason} error=${error instanceof Error ? error.message : String(error)}`,
+            );
+        }
     }
 
     /** 玩家从持久化恢复后，首轮 craft tick 先迁移旧预扣炼丹/炼器 job。 */

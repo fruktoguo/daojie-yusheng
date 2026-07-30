@@ -113,6 +113,7 @@ export function executeBuildingTick(
   job.interruptState = null;
   job.pausedTicks = 0;
   job.phase = 'building';
+  job.jobVersion = Math.max(1, Math.trunc(Number(job.jobVersion) || 1)) + 1;
 
   playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job', ...(skillChanged ? ['profession'] : [])]);
   playerRuntimeService.bumpPersistentRevision?.(player);

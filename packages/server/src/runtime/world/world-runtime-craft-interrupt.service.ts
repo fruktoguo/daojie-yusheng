@@ -7,7 +7,7 @@
  * 制作/采集/建造中断服务
  * 当玩家移动或被打断时，统一中断所有进行中的技艺活动并休眠入队列
  */
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { CraftPanelRuntimeService } from '../craft/craft-panel-runtime.service';
 import { WorldRuntimeCraftMutationService } from './world-runtime-craft-mutation.service';
@@ -58,6 +58,10 @@ interface CraftPlayerLike {
 interface CraftPanelRuntimePort<TPlayer = CraftPlayerLike> {
   listActiveTechniqueActivityKinds(player: TPlayer): Iterable<string>;
   interruptTechniqueActivity(player: TPlayer, kind: string, reason: string, deps?: unknown): unknown;
+  flushTechniqueActivityProjection?(
+    player: TPlayer,
+    options?: { force?: boolean; reason?: string },
+  ): Promise<boolean> | boolean;
 }
 
 interface CraftMutationPort {
@@ -77,6 +81,7 @@ interface CraftInterruptDeps<TPlayer = CraftPlayerLike> {
 /** 技艺活动统一中断器：移动/被攻击时中断炼丹、锻造、采集、建造等活动 */
 @Injectable()
 export class WorldRuntimeCraftInterruptService {
+  private readonly logger = new Logger(WorldRuntimeCraftInterruptService.name);
   private readonly pipeline: TechniqueActivityPipelineService;
   private readonly queueService: TechniqueActivityQueueService;
 
@@ -112,12 +117,32 @@ export class WorldRuntimeCraftInterruptService {
         continue;
       }
       this.sleepConditionalTechniqueActivityBeforeInterrupt(player, kind, reason);
+      const mutation = this.craftPanelRuntimeService.interruptTechniqueActivity(player, kind, reason, deps);
       this.worldRuntimeCraftMutationService.flushCraftMutation(
         playerId,
-        this.craftPanelRuntimeService.interruptTechniqueActivity(player, kind, reason, deps),
+        mutation,
         kind,
         deps,
       );
+      if (kind === 'building' && (mutation as { ok?: boolean } | null)?.ok === true) {
+        const pendingFlush = this.craftPanelRuntimeService.flushTechniqueActivityProjection?.(player, {
+          force: true,
+          reason: `building_interrupt_${reason}`,
+        });
+        if (pendingFlush !== undefined && pendingFlush !== null) {
+          void Promise.resolve(pendingFlush)
+            .then((flushed) => {
+              if (flushed !== true) {
+                this.logger.warn(`建造中断任务投影收敛未完成 playerId=${playerId} reason=${reason}`);
+              }
+            })
+            .catch((error) => {
+              this.logger.warn(
+                `建造中断任务投影收敛失败 playerId=${playerId} error=${error instanceof Error ? error.message : String(error)}`,
+              );
+            });
+        }
+      }
     }
   }
 

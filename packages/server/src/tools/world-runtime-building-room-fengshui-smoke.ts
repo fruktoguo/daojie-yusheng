@@ -1164,8 +1164,15 @@ async function main() {
   assert.equal(startBuildResult.ok, true);
   assert.equal(startBuildResult.building.activeBuilderPlayerId, commandPlayer.playerId);
   WorldRuntimeService.prototype.dispatchStartBuildingConstruction.call(commandRuntime, commandPlayer.playerId, placeResult.building.id);
+  assert.equal(commandPlayer.buildingJob.jobType, "building");
+  assert.equal(commandPlayer.buildingJob.jobVersion, 1);
+  assert.equal(
+    commandPlayer.buildingJob.jobRunId.startsWith(`job:${commandPlayer.playerId}:building:`),
+    true,
+  );
   assert.equal(commandPlayer.buildingJob.remainingTicks, buildStrength);
   let previousBuildingExp = commandPlayer.buildingSkill.exp;
+  let previousJobVersion = commandPlayer.buildingJob.jobVersion;
   for (let index = 0; index < buildStrength - 1; index += 1) {
     const pendingTick = commandInstance.tickOnce();
     assert.equal(pendingTick.completedBuildings.length, 0);
@@ -1174,6 +1181,8 @@ async function main() {
     assert.equal(tickResult.ok, true);
     assert.ok(commandPlayer.buildingSkill.exp > previousBuildingExp);
     assert.equal(commandPlayer.buildingJob.remainingTicks, buildStrength - index - 1);
+    assert.equal(commandPlayer.buildingJob.jobVersion, previousJobVersion + 1);
+    previousJobVersion = commandPlayer.buildingJob.jobVersion;
     previousBuildingExp = commandPlayer.buildingSkill.exp;
   }
   const completionTick = commandInstance.tickOnce();

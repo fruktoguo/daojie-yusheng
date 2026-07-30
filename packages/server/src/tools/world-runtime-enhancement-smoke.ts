@@ -26,6 +26,7 @@ type DurableEnhancementCall = {
 async function main(): Promise<void> {
   testEnhancementCancelUsesPipelineLifecycle();
   await testStartInterruptAndCompleteEnhancement();
+  await testDurableEnhancementFlushesStaleActivityProjectionBeforeStart();
   await testDurableEnhancementPersistsAssetsAtomically();
   await testDurableEnhancementAdvanceCommitsProfessionAtomically();
   await testDurableEnhancementFailureRestoresFullRuntimeState();
@@ -62,6 +63,7 @@ async function main(): Promise<void> {
       '强化普通进度 tick 不新增 durable 操作；连续强化每阶只提交一条 advanced 强事务，并把强化技艺经验放入同一职业 patch。',
       '强化取消使用专用 cancel 强事务；队列自动启动失败时不会丢队首或遗留已扣材料。',
       'sessionId 为空但持有离线运行态 owner/epoch 时，强化资产边界仍可提交强事务。',
+      '强化启动前会先强制收敛当前 active_job 投影，数据库遗留建造任务不会再触发启动 CAS 冲突。',
     ],
   }, null, 2));
 }
@@ -228,6 +230,54 @@ async function testDurableEnhancementPersistsAssetsAtomically(): Promise<void> {
   assert.equal(player.inventory.lockedItems?.length ?? 0, 0);
   assert.equal(completeCall?.args.nextWalletBalances?.[0]?.balance, 19);
   assert.equal(player.inventory.items.find((item: any) => item.itemId === 'spirit_stone')?.count, 19);
+}
+
+async function testDurableEnhancementFlushesStaleActivityProjectionBeforeStart(): Promise<void> {
+  const player = createPlayer('player:enhancement:stale-building-projection', [
+    createEquipmentItem('iron_sword', '铁剑', 8, 1),
+  ]);
+  const { craftService } = createCraftHarness(player, [], []);
+  const target = player.inventory.items[0];
+  const events: string[] = [];
+  let persistedActiveJob: PersistedActiveJob | null = {
+    jobRunId: 'job:legacy:building',
+    jobType: 'building',
+    phase: 'building',
+  };
+
+  (craftService as unknown as { playerPersistenceFlushService: unknown }).playerPersistenceFlushService = {
+    async flushPlayerDomains(playerId: string, domains: Iterable<string>): Promise<boolean> {
+      events.push('flush-active-job');
+      assert.equal(playerId, player.playerId);
+      assert.deepEqual(Array.from(domains), ['active_job']);
+      assert.equal(player.dirtyDomains.has('active_job'), true, '强化前应强制重建当前运行态任务投影');
+      assert.equal(player.buildingJob, undefined);
+      persistedActiveJob = null;
+      player.dirtyDomains.delete('active_job');
+      return true;
+    },
+  };
+  (craftService as unknown as { durableOperationService: unknown }).durableOperationService = {
+    isEnabled(): boolean {
+      return true;
+    },
+    async startActiveJobWithAssets(args: { nextActiveJob: PersistedActiveJob }): Promise<void> {
+      events.push('durable-start');
+      if (persistedActiveJob) {
+        throw new Error('player_active_job_cas_conflict');
+      }
+      persistedActiveJob = args.nextActiveJob;
+    },
+  };
+
+  const result = await craftService.startEnhancementDurably(player, {
+    target: buildInventoryRef(target),
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(events, ['flush-active-job', 'durable-start']);
+  assert.equal(persistedActiveJob?.jobType, 'enhancement');
+  assert.equal(player.enhancementJob?.jobType, 'enhancement');
 }
 
 async function testDurableEnhancementAdvanceCommitsProfessionAtomically(): Promise<void> {
@@ -803,6 +853,15 @@ function createCraftHarness(
   const durableOperationService = options.durableCalls
     ? createDurableOperationService(options.durableCalls, options.failDurableKinds)
     : null;
+  const playerPersistenceFlushService = {
+    async flushPlayerDomains(playerId: string, domains: Iterable<string>): Promise<boolean> {
+      assert.equal(playerId, player.playerId);
+      for (const domain of domains) {
+        player.dirtyDomains.delete(domain);
+      }
+      return true;
+    },
+  };
   const craftService = new CraftPanelRuntimeService(
     createContentTemplateRepository() as never,
     playerRuntimeService as never,
@@ -824,6 +883,7 @@ function createCraftHarness(
       },
     } as never,
     durableOperationService as never,
+    playerPersistenceFlushService as never,
   );
   craftService.enhancementConfigs.set('iron_sword', { steps: [] });
   return { craftService };

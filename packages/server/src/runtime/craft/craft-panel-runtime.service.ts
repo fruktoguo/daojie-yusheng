@@ -19,6 +19,7 @@ import {
     nextPlayerPersistenceVersion,
     type PlayerTechniqueActivityQueueUpsertInput,
 } from '../../persistence/player-domain-persistence.service';
+import { PlayerPersistenceFlushService } from '../../persistence/player-persistence-flush.service';
 import { isFlushTaskConsumerMode } from '../../persistence/flush-task-runtime-mode';
 import type { TechniqueActivityQueueReorderAction } from '@mud/shared';
 import { DurableOperationService, type DurableProfessionStateSnapshot } from '../../persistence/durable-operation.service';
@@ -84,6 +85,8 @@ export class CraftPanelRuntimeService {
  */
 
     durableOperationService;
+    /** 玩家分域立即刷盘服务，用于收敛技艺任务生命周期边界。 */
+    playerPersistenceFlushService;
     /** 运行时日志器，记录炼丹、强化与配置加载问题。 */
     logger = new Logger(CraftPanelRuntimeService.name);
     /** 缓存炼丹目录，供面板快照和任务校验共用。 */
@@ -102,6 +105,7 @@ export class CraftPanelRuntimeService {
         craftPanelAlchemyQueryService: CraftPanelAlchemyQueryService,
         craftPanelEnhancementQueryService: CraftPanelEnhancementQueryService,
         @Optional() @Inject(DurableOperationService) durableOperationService: DurableOperationService | null = null,
+        @Optional() @Inject(PlayerPersistenceFlushService) playerPersistenceFlushService: PlayerPersistenceFlushService | null = null,
     ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
@@ -109,6 +113,7 @@ export class CraftPanelRuntimeService {
         this.craftPanelAlchemyQueryService = craftPanelAlchemyQueryService;
         this.craftPanelEnhancementQueryService = craftPanelEnhancementQueryService;
         this.durableOperationService = durableOperationService;
+        this.playerPersistenceFlushService = playerPersistenceFlushService;
     }
     /** 模块初始化：按需加载炼丹目录和强化配置。 */
     onModuleInit() {
@@ -302,6 +307,15 @@ export class CraftPanelRuntimeService {
             return buildCraftMutationResult('强化状态正在同步，请稍后重试。');
         }
         const durableEnabled = this.shouldUseDurableEnhancementPersistence(player);
+        if (
+            durableEnabled
+            && !await this.flushTechniqueActivityProjection(player, {
+                force: true,
+                reason: 'enhancement_start_handoff',
+            })
+        ) {
+            return buildCraftMutationResult('强化状态正在同步，请稍后重试。');
+        }
         const durablePresence = durableEnabled
             ? await this.resolveDurablePresenceFence(player.playerId)
             : null;
@@ -361,6 +375,15 @@ export class CraftPanelRuntimeService {
             return startQueuedActivity();
         }
         const durableEnabled = this.shouldUseDurableEnhancementPersistence(player);
+        if (
+            durableEnabled
+            && !await this.flushTechniqueActivityProjection(player, {
+                force: true,
+                reason: 'queued_enhancement_start_handoff',
+            })
+        ) {
+            return null;
+        }
         const durablePresence = durableEnabled
             ? await this.resolveDurablePresenceFence(player.playerId)
             : null;
@@ -2763,6 +2786,39 @@ export class CraftPanelRuntimeService {
         await this.playerDomainPersistenceService.savePlayerTechniqueActivityQueue(playerId, buildTechniqueActivityQueueSnapshotFromPlayer(player), {
             versionSeed,
         });
+    }
+    /**
+     * 在任务开始、终止或强事务切换边界立即收敛 active_job 与统一队列投影。
+     * 普通进度 tick 仍只标脏并由统一 flush 合并，避免把数据库 IO 放进热路径。
+     */
+    async flushTechniqueActivityProjection(player, options: { force?: boolean; reason?: string } = {}) {
+        const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
+        const flushPlayerDomains = this.playerPersistenceFlushService?.flushPlayerDomains;
+        if (!playerId || typeof flushPlayerDomains !== 'function') {
+            return false;
+        }
+        if (options.force === true) {
+            this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
+            this.playerRuntimeService.bumpPersistentRevision?.(player);
+        }
+        try {
+            const flushed = await flushPlayerDomains.call(
+                this.playerPersistenceFlushService,
+                playerId,
+                ['active_job'],
+            );
+            const stillDirty = player?.dirtyDomains?.has?.('active_job') === true;
+            return flushed === true && !stillDirty;
+        }
+        catch (error) {
+            const reason = typeof options.reason === 'string' && options.reason.trim()
+                ? options.reason.trim()
+                : 'technique_activity_boundary';
+            this.logger.warn(
+                `技艺任务投影收敛失败 playerId=${playerId} reason=${reason} error=${error instanceof Error ? error.message : String(error)}`,
+            );
+            return false;
+        }
     }
     /**
  * finalizeMutation：执行finalizeMutation相关逻辑。

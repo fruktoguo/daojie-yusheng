@@ -625,6 +625,12 @@ export interface PlayerGatherJob extends TechniqueActivityJobBase {
 
 /** 玩家当前营造任务的最小持久化运行态。 */
 export interface PlayerBuildingJob extends TechniqueActivityJobBase {
+  /** 本次建造任务的稳定运行 ID，用于持久化边界和保护性取消。 */
+  jobRunId?: string;
+  /** 建造任务类型标识。 */
+  jobType?: 'building';
+  /** 当前任务快照版本。 */
+  jobVersion?: number;
 /**
  * buildingId：建筑 ID。
  */

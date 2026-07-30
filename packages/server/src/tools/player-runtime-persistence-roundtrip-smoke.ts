@@ -165,12 +165,22 @@ function createSnapshot(gatherJob: any = null, buildingJob: any = null): any {
 function testGatherJobRoundtrip() {
     const service = createPlayerRuntimeService();
     const gatherJob = {
+        jobRunId: undefined,
+        jobType: 'gather',
+        jobVersion: 1,
         resourceNodeId: 'landmark.herb.moondew_grass',
         resourceNodeName: '月露草',
+        sourceId: undefined,
+        instanceId: undefined,
+        itemKey: undefined,
         phase: 'paused',
         startedAt: 100,
         totalTicks: 12,
         remainingTicks: 4,
+        workTotalTicks: 12,
+        workRemainingTicks: 4,
+        interruptWaitRemainingTicks: 0,
+        interruptState: null,
         pausedTicks: 2,
         successRate: 0.85,
         spiritStoneCost: 0,
@@ -187,6 +197,9 @@ function testGatherJobRoundtrip() {
 function testBuildingJobRoundtrip() {
     const service = createPlayerRuntimeService();
     const buildingJob = {
+        jobRunId: 'job:player:building:stable',
+        jobType: 'building',
+        jobVersion: 4,
         buildingId: 'building:half:1',
         buildingName: '门',
         instanceId: 'real:building_command_runtime_smoke',
@@ -194,6 +207,10 @@ function testBuildingJobRoundtrip() {
         startedAt: 100,
         totalTicks: 8,
         remainingTicks: 3,
+        workTotalTicks: 8,
+        workRemainingTicks: 3,
+        interruptWaitRemainingTicks: 0,
+        interruptState: null,
         pausedTicks: 0,
         successRate: 1,
         spiritStoneCost: 0,

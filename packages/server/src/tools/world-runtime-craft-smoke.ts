@@ -113,6 +113,7 @@ function testActiveTechniqueActivityCoversAllRuntimeKinds(): void {
 function testInterruptUsesUnifiedPipelineAndSleepsConditionalJobs(): void {
   const flushes: FlushCall[] = [];
   const genericInterrupts: string[] = [];
+  const projectionFlushes: Array<{ force?: boolean; reason?: string }> = [];
   const player = {
     playerId: 'player:interrupt',
     alchemyJob: { remainingTicks: 1 },
@@ -129,6 +130,10 @@ function testInterruptUsesUnifiedPipelineAndSleepsConditionalJobs(): void {
       interruptTechniqueActivity(_player: unknown, kind: string, reason: string): unknown {
         genericInterrupts.push(`${kind}:${reason}`);
         return { ok: true, panelChanged: true, messages: [{ kind: 'system', text: `${kind} interrupted` }] };
+      },
+      flushTechniqueActivityProjection(_player: unknown, options?: { force?: boolean; reason?: string }): boolean {
+        projectionFlushes.push(options ?? {});
+        return true;
       },
     },
     {
@@ -156,6 +161,7 @@ function testInterruptUsesUnifiedPipelineAndSleepsConditionalJobs(): void {
   assert.equal(flushes.some((entry) => entry[1] === 'gather'), true);
   assert.equal(flushes.some((entry) => entry[1] === 'building'), true);
   assert.equal(flushes.some((entry) => entry[1] === 'formation'), false);
+  assert.deepEqual(projectionFlushes, [{ force: true, reason: 'building_interrupt_move' }]);
   assert.equal(player.techniqueActivityQueue.length, 2);
   assert.equal(player.techniqueActivityQueue[0]?.kind, 'gather');
   assert.equal(player.techniqueActivityQueue[1]?.kind, 'building');
@@ -2322,6 +2328,7 @@ function testBuildingStrategyTickUsesStrategyHelper(): void {
 async function testCraftTickUsesUnifiedPipelineForGatherBuilding(): Promise<void> {
   const tickedKinds: string[] = [];
   const flushedKinds: string[] = [];
+  const projectionFlushes: Array<{ force?: boolean; reason?: string }> = [];
   const player = {
     playerId: 'player:tick',
     gatherJob: { remainingTicks: 2 },
@@ -2348,6 +2355,10 @@ async function testCraftTickUsesUnifiedPipelineForGatherBuilding(): Promise<void
       buildPipelineContext(): unknown {
         return {};
       },
+      flushTechniqueActivityProjection(_player: unknown, options?: { force?: boolean; reason?: string }): boolean {
+        projectionFlushes.push(options ?? {});
+        return true;
+      },
     },
     {
       flushCraftMutation(_playerId: string, _result: unknown, kind: string): void {
@@ -2362,6 +2373,7 @@ async function testCraftTickUsesUnifiedPipelineForGatherBuilding(): Promise<void
 
   assert.deepEqual(tickedKinds, ['gather', 'building']);
   assert.deepEqual(flushedKinds, ['gather', 'building']);
+  assert.deepEqual(projectionFlushes, []);
 }
 
 async function testCraftTickSleepsConditionalGatherFailure(): Promise<void> {
@@ -2419,6 +2431,7 @@ async function testCraftTickSleepsConditionalGatherFailure(): Promise<void> {
 }
 
 async function testCraftTickSleepsConditionalBuildingFailure(): Promise<void> {
+  const projectionFlushes: Array<{ force?: boolean; reason?: string }> = [];
   const player = {
     playerId: 'player:building-condition-fail',
     buildingJob: { remainingTicks: 3, buildingId: 'building-1', buildingName: '工坊' },
@@ -2456,6 +2469,10 @@ async function testCraftTickSleepsConditionalBuildingFailure(): Promise<void> {
       buildPipelineContext(): unknown {
         return {};
       },
+      flushTechniqueActivityProjection(_player: unknown, options?: { force?: boolean; reason?: string }): boolean {
+        projectionFlushes.push(options ?? {});
+        return true;
+      },
     },
     {
       flushCraftMutation(): void {},
@@ -2470,6 +2487,7 @@ async function testCraftTickSleepsConditionalBuildingFailure(): Promise<void> {
   assert.equal(player.techniqueActivityQueue[0]?.kind, 'building');
   assert.equal(player.techniqueActivityQueue[0]?.state, 'sleeping');
   assert.deepEqual(player.techniqueActivityQueue[0]?.payload, { buildingId: 'building-1' });
+  assert.deepEqual(projectionFlushes, [{ force: true, reason: 'building_tick_terminal' }]);
 }
 
 async function testCraftTickSleepsConditionalFormationFailure(): Promise<void> {

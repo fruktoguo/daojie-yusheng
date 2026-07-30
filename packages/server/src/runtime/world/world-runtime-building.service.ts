@@ -7,6 +7,7 @@
  * 建筑系统运行时服务
  * 处理建筑放置、拆除、建造进度、材料消耗和风水计算
  */
+import { randomUUID } from 'node:crypto';
 import { BUILDING_MAX_BUILD_TICKS, calculateTerrainDurability, hasBuildMaterialCategory, isGenericBuildMaterialSlotItemId, resolveGenericBuildMaterialSlotCategory, resolvePlayerFacingContentName } from '@mud/shared';
 import { resolveCompiledBuildingDefinition } from '../building/building-definition-resolution.helpers';
 import { resolveCraftSkillExpToNextByLevel } from '../craft/craft-skill-exp.helpers';
@@ -151,11 +152,15 @@ export function dispatchStartBuildingConstruction(runtime, playerId, buildingIdI
     );
     const remainingProgress = Math.max(1, Number(result.building.buildRemainingTicks ?? result.building.buildStrength ?? 1) || 1);
     const totalTicks = Math.max(1, Math.ceil(remainingProgress / resolveBuildingProgressPerTick(player)));
+    const startedAt = Date.now();
     player.buildingJob = {
+        jobRunId: `job:${playerId}:building:${randomUUID()}`,
+        jobType: 'building',
+        jobVersion: 1,
         buildingId: result.building.id,
         buildingName,
         instanceId: context.instance.meta.instanceId,
-        startedAt: Date.now(),
+        startedAt,
         totalTicks,
         remainingTicks: totalTicks,
         workTotalTicks: totalTicks,

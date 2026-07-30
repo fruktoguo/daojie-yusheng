@@ -9383,14 +9383,27 @@ function normalizeBuildingJob(value) {
     if (!value || typeof value !== 'object' || typeof value.buildingId !== 'string') {
         return null;
     }
+    const totalTicks = Math.max(1, Math.floor(Number(value.totalTicks) || 1));
+    const remainingTicks = Math.max(0, Math.floor(Number(value.remainingTicks) || 0));
+    const workTotalTicks = Math.max(1, Math.floor(Number(value.workTotalTicks ?? totalTicks) || totalTicks));
+    const workRemainingTicks = Math.max(0, Math.floor(Number(value.workRemainingTicks ?? remainingTicks) || remainingTicks));
     return {
+        jobRunId: typeof value.jobRunId === 'string' && value.jobRunId.trim() ? value.jobRunId.trim() : undefined,
+        jobType: 'building',
+        jobVersion: Math.max(1, Math.floor(Number(value.jobVersion) || 1)),
         buildingId: String(value.buildingId),
         buildingName: typeof value.buildingName === 'string' ? value.buildingName : String(value.buildingId),
         instanceId: typeof value.instanceId === 'string' ? value.instanceId : '',
         phase: value.phase === 'paused' ? 'paused' : 'building',
         startedAt: Math.max(0, Math.floor(Number(value.startedAt) || 0)),
-        totalTicks: Math.max(1, Math.floor(Number(value.totalTicks) || 1)),
-        remainingTicks: Math.max(0, Math.floor(Number(value.remainingTicks) || 0)),
+        totalTicks,
+        remainingTicks,
+        workTotalTicks,
+        workRemainingTicks,
+        interruptWaitRemainingTicks: Math.max(0, Math.floor(Number(value.interruptWaitRemainingTicks) || 0)),
+        interruptState: value.interruptState && typeof value.interruptState === 'object'
+            ? { ...value.interruptState }
+            : null,
         pausedTicks: Math.max(0, Math.floor(Number(value.pausedTicks) || 0)),
         successRate: Math.max(0, Math.min(1, Number(value.successRate) || 0)),
         spiritStoneCost: Math.max(0, Math.floor(Number(value.spiritStoneCost) || 0)),
@@ -9542,6 +9555,9 @@ function cloneGatherJob(entry) {
 function cloneBuildingJob(entry) {
     return {
         ...entry,
+        interruptState: entry?.interruptState && typeof entry.interruptState === 'object'
+            ? { ...entry.interruptState }
+            : entry?.interruptState ?? null,
     };
 }
 /**

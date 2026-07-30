@@ -489,19 +489,28 @@ export class WorldRuntimePlayerCommandService {
                     deps,
                 );
                 return;
-            case 'building':
+            case 'building': {
+                const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+                const result = deps.craftPanelRuntimeService.startTechniqueActivity(
+                    player,
+                    'building',
+                    payload,
+                    deps,
+                );
                 deps.worldRuntimeCraftMutationService.flushCraftMutation(
                     playerId,
-                    deps.craftPanelRuntimeService.startTechniqueActivity(
-                        this.playerRuntimeService.getPlayerOrThrow(playerId),
-                        'building',
-                        payload,
-                        deps,
-                    ),
+                    result,
                     'building',
                     deps,
                 );
+                if (result?.ok) {
+                    await deps.craftPanelRuntimeService.flushTechniqueActivityProjection?.(player, {
+                        force: true,
+                        reason: 'building_command_start',
+                    });
+                }
                 return;
+            }
             case 'formation':
                 await deps.worldRuntimeFormationService?.flushPendingFormationMaintenanceForPlayer?.(playerId);
                 deps.worldRuntimeCraftMutationService.flushCraftMutation(
@@ -570,18 +579,27 @@ export class WorldRuntimePlayerCommandService {
                     deps,
                 );
                 return;
-            case 'building':
-                deps.worldRuntimeCraftMutationService.flushCraftMutation(
-                    playerId,
-                    deps.craftPanelRuntimeService.cancelTechniqueActivity(
-                        this.playerRuntimeService.getPlayerOrThrow(playerId),
-                        'building',
-                        deps,
-                    ),
+            case 'building': {
+                const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+                const result = deps.craftPanelRuntimeService.cancelTechniqueActivity(
+                    player,
                     'building',
                     deps,
                 );
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(
+                    playerId,
+                    result,
+                    'building',
+                    deps,
+                );
+                if (result?.ok) {
+                    await deps.craftPanelRuntimeService.flushTechniqueActivityProjection?.(player, {
+                        force: true,
+                        reason: 'building_command_cancel',
+                    });
+                }
                 return;
+            }
             case 'formation':
                 await deps.worldRuntimeFormationService?.flushPendingFormationMaintenanceForPlayer?.(playerId);
                 deps.worldRuntimeCraftMutationService.flushCraftMutation(
