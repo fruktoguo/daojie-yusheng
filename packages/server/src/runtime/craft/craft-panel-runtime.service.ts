@@ -2808,8 +2808,9 @@ export class CraftPanelRuntimeService {
                 ['active_job'],
                 { forceCurrentSnapshot: options.force === true },
             );
-            const stillDirty = player?.dirtyDomains?.has?.('active_job') === true;
-            return flushed === true && !stillDirty;
+            // IO 期间可能产生更高版本的任务进度 dirty；本次快照已成功提交即可通过边界，
+            // 新修订继续由统一 flush 收敛，不能反向把已完成的边界提交判为失败。
+            return flushed === true;
         }
         catch (error) {
             const reason = typeof options.reason === 'string' && options.reason.trim()

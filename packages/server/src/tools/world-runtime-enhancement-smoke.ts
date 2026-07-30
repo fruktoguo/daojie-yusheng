@@ -258,7 +258,7 @@ async function testDurableEnhancementFlushesStaleActivityProjectionBeforeStart()
       assert.equal(player.dirtyDomains.has('active_job'), true, '强化前应强制重建当前运行态任务投影');
       assert.equal(player.buildingJob, undefined);
       persistedActiveJob = null;
-      player.dirtyDomains.delete('active_job');
+      // 模拟即时快照提交后又产生了更高版本任务 dirty；不能把本次成功提交误判为失败。
       return true;
     },
   };
