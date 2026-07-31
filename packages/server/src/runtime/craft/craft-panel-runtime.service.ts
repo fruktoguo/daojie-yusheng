@@ -18,6 +18,7 @@ import {
     buildEnhancementRecordRowsFromEntries,
     nextPlayerPersistenceVersion,
     type PlayerTechniqueActivityQueueUpsertInput,
+    isConvergedPlayerProjectionFenceError,
 } from '../../persistence/player-domain-persistence.service';
 import { PlayerPersistenceFlushService } from '../../persistence/player-persistence-flush.service';
 import { isFlushTaskConsumerMode } from '../../persistence/flush-task-runtime-mode';
@@ -2868,6 +2869,13 @@ export class CraftPanelRuntimeService {
             const reason = typeof options.reason === 'string' && options.reason.trim()
                 ? options.reason.trim()
                 : 'technique_activity_boundary';
+            if (isConvergedPlayerProjectionFenceError(error)) {
+                // 更新会话已经接管该玩家；旧会话的投影应跳过，不重试也不打成业务告警。
+                this.logger.debug(
+                    `技艺任务投影已被更新会话取代，按 stale-safe 收敛：playerId=${playerId} reason=${reason} error=${error.message}`,
+                );
+                return false;
+            }
             this.logger.warn(
                 `技艺任务投影收敛失败 playerId=${playerId} reason=${reason} error=${error instanceof Error ? error.message : String(error)}`,
             );

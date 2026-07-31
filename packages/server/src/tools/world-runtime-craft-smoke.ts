@@ -55,6 +55,7 @@ async function main(): Promise<void> {
   await testCraftTickSleepsConditionalGatherFailure();
   await testCraftTickSleepsConditionalBuildingFailure();
   await testCraftTickSleepsConditionalFormationFailure();
+  await testProjectionFenceStaleSafeDoesNotWarn();
 
   console.log(JSON.stringify({
     ok: true,
@@ -84,8 +85,52 @@ async function main(): Promise<void> {
       '炼丹/炼器/强化/采集/建造 tick 编排直接走统一 tickTechniqueActivity 入口。',
       '采集/建造 tick 条件失败会进入统一 sleeping 队列。',
       '阵法维护 tick 条件失败会进入统一 sleeping 队列。',
+      '更新会话替换造成的技艺投影 fence 按 stale-safe debug 收敛，不重复告警。',
     ],
   }, null, 2));
+}
+
+async function testProjectionFenceStaleSafeDoesNotWarn(): Promise<void> {
+  const debugMessages: string[] = [];
+  const warnMessages: string[] = [];
+  const service = Object.create(CraftPanelRuntimeService.prototype) as CraftPanelRuntimeService & {
+    playerPersistenceFlushService: { flushPlayerDomains: () => Promise<boolean> };
+    playerRuntimeService: {
+      markPersistenceDirtyDomains: () => void;
+      bumpPersistentRevision: () => void;
+    };
+    logger: {
+      debug: (message: string) => void;
+      warn: (message: string) => void;
+    };
+  };
+  service.playerRuntimeService = {
+    markPersistenceDirtyDomains(): void {},
+    bumpPersistentRevision(): void {},
+  };
+  service.playerPersistenceFlushService = {
+    async flushPlayerDomains(): Promise<boolean> {
+      throw new Error('player_snapshot_projection_stale_session:player:stale:expected=2:persisted=1');
+    },
+  };
+  service.logger = {
+    debug(message: string): void {
+      debugMessages.push(message);
+    },
+    warn(message: string): void {
+      warnMessages.push(message);
+    },
+  } as never;
+
+  const flushed = await service.flushTechniqueActivityProjection(
+    { playerId: 'player:stale' },
+    { force: true, reason: 'building_command_start' },
+  );
+
+  assert.equal(flushed, false);
+  assert.equal(warnMessages.length, 0);
+  assert.equal(debugMessages.length, 1);
+  assert.match(debugMessages[0] ?? '', /stale-safe/);
 }
 
 function testActiveTechniqueActivityCoversAllRuntimeKinds(): void {
