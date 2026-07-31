@@ -10,12 +10,18 @@ import {
   DEFAULT_SERVER_LISTEN_PORT,
   resolveServerListenEndpoint,
 } from '../config/server-listen-endpoint';
+import {
+  getGameConfigDescriptor,
+  validateGameConfigValue,
+} from '../config/game-config-registry';
+import { resolveWorkerPoolSize } from '../config/worker-pool-config';
 import { installSmokeTimeout } from './smoke-timeout';
 
 installSmokeTimeout(__filename);
 
 async function main(): Promise<void> {
   assertListenEndpointUsesProductionFallbacks();
+  assertWorkerPoolConfigUsesBoundedIntegers();
   const root = await mkdtemp(join(tmpdir(), 'startup-config-resilience-'));
   try {
     await assertServerEnvLoaderSkipsUnreadableFiles(root);
@@ -26,6 +32,28 @@ async function main(): Promise<void> {
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+}
+
+function assertWorkerPoolConfigUsesBoundedIntegers(): void {
+  assert.deepEqual(resolveWorkerPoolSize(undefined, 4, 6), {
+    poolSize: 4,
+    configuredValue: null,
+    adjusted: false,
+  });
+  assert.deepEqual(resolveWorkerPoolSize('2.5', 4, 6), {
+    poolSize: 2,
+    configuredValue: '2.5',
+    adjusted: true,
+  });
+  assert.equal(resolveWorkerPoolSize('not-a-count', 4, 6).poolSize, 4);
+  assert.equal(resolveWorkerPoolSize('0', 4, 6).poolSize, 1);
+  assert.equal(resolveWorkerPoolSize('99', 4, 6).poolSize, 6);
+
+  const descriptor = getGameConfigDescriptor('SERVER_INSTANCE_WORKER_COUNT');
+  assert.ok(descriptor);
+  assert.equal(validateGameConfigValue(descriptor, '2.5'), 'value must be an integer');
+  assert.equal(validateGameConfigValue(descriptor, '6'), null);
+  assert.equal(validateGameConfigValue(descriptor, '7'), 'value must be <= 6');
 }
 
 function assertListenEndpointUsesProductionFallbacks(): void {

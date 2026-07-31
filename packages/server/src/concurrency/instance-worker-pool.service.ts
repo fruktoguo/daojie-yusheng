@@ -19,6 +19,7 @@ import { Worker } from 'node:worker_threads';
 import type { WorkerTaskEnvelope, WorkerTaskResult, WorkerPoolConfig, WorkerPoolMetrics } from './worker-task.types';
 import { WorkerPoolMetricsService } from './worker-pool-metrics.service';
 import { isForceSyncMode, type SyncFallback } from './encoding-worker-pool.service';
+import { resolveWorkerPoolSize } from '../config/worker-pool-config';
 
 interface PendingInstanceTask {
   resolve: (result: WorkerTaskResult) => void;
@@ -45,10 +46,20 @@ export class InstanceWorkerPoolService {
   constructor(
     private readonly metricsService: WorkerPoolMetricsService,
   ) {
+    const poolSize = resolveWorkerPoolSize(
+      process.env.SERVER_INSTANCE_WORKER_COUNT,
+      cpus().length - 2,
+      6,
+    );
     this.config = {
-      poolSize: Math.max(1, Math.min(Number(process.env.SERVER_INSTANCE_WORKER_COUNT) || cpus().length - 2, 6)),
+      poolSize: poolSize.poolSize,
       defaultDeadlineMs: 800,
     };
+    if (poolSize.adjusted && poolSize.configuredValue !== null) {
+      this.logger.warn(
+        `SERVER_INSTANCE_WORKER_COUNT=${JSON.stringify(poolSize.configuredValue.slice(0, 80))} 不是可用的线程数，已归一化为 ${poolSize.poolSize}`,
+      );
+    }
   }
 
   async submit<TPayload, TResult>(

@@ -22,6 +22,7 @@ import type {
   WorkerPoolMetrics,
 } from './worker-task.types';
 import { WorkerPoolMetricsService } from './worker-pool-metrics.service';
+import { resolveWorkerPoolSize } from '../config/worker-pool-config';
 
 /** 同步 fallback 函数签名 */
 export type SyncFallback<TPayload, TResult> = (payload: TPayload) => TResult;
@@ -47,10 +48,16 @@ export class EncodingWorkerPoolService {
   constructor(
     private readonly metricsService: WorkerPoolMetricsService,
   ) {
+    const poolSize = resolveWorkerPoolSize(
+      process.env.SERVER_ENCODING_WORKER_COUNT,
+      cpus().length - 2,
+      6,
+    );
     this.config = {
-      poolSize: Math.max(1, Math.min(cpus().length - 2, 6)),
+      poolSize: poolSize.poolSize,
       defaultDeadlineMs: 500,
     };
+    this.warnAdjustedPoolSize('SERVER_ENCODING_WORKER_COUNT', poolSize);
   }
 
   /** 提交任务到 worker pool，返回结果 Promise */
@@ -78,6 +85,16 @@ export class EncodingWorkerPoolService {
     }
 
     return this.dispatchToWorker(taskId, kind, payload, deadline, fallback);
+  }
+
+  private warnAdjustedPoolSize(
+    key: string,
+    resolution: ReturnType<typeof resolveWorkerPoolSize>,
+  ): void {
+    if (!resolution.adjusted || resolution.configuredValue === null) return;
+    this.logger.warn(
+      `${key}=${JSON.stringify(resolution.configuredValue.slice(0, 80))} 不是可用的线程数，已归一化为 ${resolution.poolSize}`,
+    );
   }
 
   /** 初始化 worker pool（由 WorkerPoolModule onModuleInit 调用） */

@@ -14,6 +14,8 @@ Worker pool 默认开启，不是可选功能。
 
 可调环境变量：`SERVER_ENCODING_WORKER_COUNT`、`SERVER_INSTANCE_WORKER_COUNT`、`SERVER_PERSISTENCE_WORKER_COUNT`
 
+三项配置只接受正整数，正式上限分别为 `6`、`6`、`4`。GM 配置中心会拒绝小数和越界值；历史数据库值或手写 env 若仍然非法，启动期会记录 WARN 并归一化到安全范围，不会因 `new Array()` 收到小数而阻断服务启动。
+
 ## 监控
 
 GM 性能页 `perf.workerPool` 域查看各 pool 指标。

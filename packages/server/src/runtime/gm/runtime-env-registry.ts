@@ -51,6 +51,7 @@ const descriptors: RuntimeEnvDescriptor[] = [
   { key: 'SERVER_REDIS_MODE', label: 'Redis 模式', description: 'Redis 模式，例如 standalone / cluster。', category: '数据存储', restartRequired: true },
   { key: 'REDIS_MODE', label: 'Redis 模式（兼容）', description: 'Redis 模式兼容别名。', category: '数据存储', restartRequired: true },
 
+  { key: 'SERVER_ENCODING_WORKER_COUNT', label: '编码 Worker 数', description: '编码 worker 线程数上限。', category: '并发与队列', restartRequired: true },
   { key: 'SERVER_INSTANCE_WORKER_COUNT', label: '实例 Worker 数', description: '实例 worker 线程数上限。', category: '并发与队列', restartRequired: true },
   { key: 'SERVER_PERSISTENCE_WORKER_COUNT', label: '持久化 Worker 数', description: '持久化 worker 线程数上限。', category: '并发与队列', restartRequired: true },
   { key: 'SERVER_WORKER_POOL_FORCE_SYNC', label: '强制同步 Worker', description: '调试时强制 worker pool 同步执行。', category: '并发与队列', restartRequired: false },

@@ -19,7 +19,11 @@ import {
 } from '../../persistence/gm-runtime-flag-persistence.service';
 import { GmConfigPersistenceService } from '../../persistence/gm-config-persistence.service';
 import { GmAuditLogPersistenceService } from '../../persistence/gm-audit-log-persistence.service';
-import { listGameConfigDescriptors, getGameConfigDescriptor } from '../../config/game-config-registry';
+import {
+  getGameConfigDescriptor,
+  listGameConfigDescriptors,
+  validateGameConfigValue,
+} from '../../config/game-config-registry';
 import { GM_HIGH_RISK_CONFIRMATION_CONTRACT, GM_HTTP_CONTRACT } from './native-gm-contract';
 import { extractGmActor } from './native-gm-actor-context';
 import { assertGmHighRiskOperationAllowed, type GmHighRiskConfirmationBody } from './native-gm-high-risk';
@@ -1870,16 +1874,8 @@ export class NativeGmController {
         throw new BadRequestException(`Unknown config key: ${key}`);
       }
       const value = typeof body?.value === 'string' ? body.value : String(body?.value ?? '');
-      // 基本校验
-      if (descriptor.valueType === 'number') {
-        const num = Number(value);
-        if (Number.isNaN(num)) throw new BadRequestException('value must be a valid number');
-        if (descriptor.min !== undefined && num < descriptor.min) throw new BadRequestException(`value must be >= ${descriptor.min}`);
-        if (descriptor.max !== undefined && num > descriptor.max) throw new BadRequestException(`value must be <= ${descriptor.max}`);
-      }
-      if (descriptor.valueType === 'boolean') {
-        if (value !== 'true' && value !== 'false') throw new BadRequestException('value must be "true" or "false"');
-      }
+      const validationError = validateGameConfigValue(descriptor, value);
+      if (validationError) throw new BadRequestException(validationError);
       await this.gmConfigService.setValue(descriptor.key, value);
       return { ok: true, key: descriptor.key, value, pendingRestart: true };
     });

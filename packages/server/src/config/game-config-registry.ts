@@ -37,8 +37,9 @@ export const GAME_CONFIG_CATEGORY_ORDER = [
 
 const descriptors: GameConfigDescriptor[] = [
   // ─── 并发与线程池 ───
-  { key: 'SERVER_INSTANCE_WORKER_COUNT', label: '实例 Worker 数', description: '实例 worker 线程数上限。', category: '并发与线程池', valueType: 'number', defaultValue: '6', min: 1, max: 8 },
-  { key: 'SERVER_PERSISTENCE_WORKER_COUNT', label: '持久化 Worker 数', description: '持久化 worker 线程数上限。', category: '并发与线程池', valueType: 'number', defaultValue: '4', min: 1, max: 8 },
+  { key: 'SERVER_ENCODING_WORKER_COUNT', label: '编码 Worker 数', description: '编码 worker 线程数上限。', category: '并发与线程池', valueType: 'number', defaultValue: '6', min: 1, max: 6 },
+  { key: 'SERVER_INSTANCE_WORKER_COUNT', label: '实例 Worker 数', description: '实例 worker 线程数上限。', category: '并发与线程池', valueType: 'number', defaultValue: '6', min: 1, max: 6 },
+  { key: 'SERVER_PERSISTENCE_WORKER_COUNT', label: '持久化 Worker 数', description: '持久化 worker 线程数上限。', category: '并发与线程池', valueType: 'number', defaultValue: '2', min: 1, max: 4 },
   { key: 'SERVER_WORKER_POOL_FORCE_SYNC', label: '强制同步 Worker', description: '调试时强制 worker pool 同步执行，禁用多线程。', category: '并发与线程池', valueType: 'boolean', defaultValue: 'false' },
 
   // ─── 会话与缓冲 ───
@@ -80,4 +81,19 @@ export function listGameConfigDescriptors(): GameConfigDescriptor[] {
 export function getGameConfigCategoryOrder(category: string): number {
   const index = GAME_CONFIG_CATEGORY_ORDER.indexOf(category as typeof GAME_CONFIG_CATEGORY_ORDER[number]);
   return index === -1 ? 999 : index;
+}
+
+/** 配置中心统一写入校验；当前 number 配置均为计数、容量或毫秒整数。 */
+export function validateGameConfigValue(descriptor: GameConfigDescriptor, value: string): string | null {
+  if (descriptor.valueType === 'number') {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return 'value must be a valid number';
+    if (!Number.isInteger(parsed)) return 'value must be an integer';
+    if (descriptor.min !== undefined && parsed < descriptor.min) return `value must be >= ${descriptor.min}`;
+    if (descriptor.max !== undefined && parsed > descriptor.max) return `value must be <= ${descriptor.max}`;
+  }
+  if (descriptor.valueType === 'boolean' && value !== 'true' && value !== 'false') {
+    return 'value must be "true" or "false"';
+  }
+  return null;
 }
