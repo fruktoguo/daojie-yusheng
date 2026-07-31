@@ -569,6 +569,56 @@ function testAdvanceKillQuestProgressHydratesCorruptedRuntimeEntry() {
     ]);
     assert.deepEqual(log, [['markQuestStateDirty', 'player:1']]);
 }
+
+function testAdvanceKillQuestProgressSkipsInactiveQuestHydration() {
+    const log = [];
+    const player = {
+        quests: {
+            quests: [
+                ...Array.from({ length: 40 }, (_, index) => ({
+                    id: `completed-${index}`,
+                    status: 'completed',
+                    progress: 1,
+                    required: 1,
+                })),
+                {
+                    id: 'ready-talk',
+                    status: 'ready',
+                    objectiveType: 'talk',
+                    progress: 1,
+                    required: 1,
+                },
+                {
+                    id: 'active-talk',
+                    status: 'active',
+                    objectiveType: 'talk',
+                    progress: 0,
+                    required: 1,
+                },
+                {
+                    id: 'active-other-kill',
+                    status: 'active',
+                    objectiveType: 'kill',
+                    targetMonsterId: 'other-monster',
+                    progress: 0,
+                    required: 2,
+                },
+            ],
+        },
+    };
+    const service = createService({ player, log });
+    const originalHydrate = service.worldRuntimeQuestQueryService.hydrateQuestRuntimeState;
+    let hydrateCalls = 0;
+    service.worldRuntimeQuestQueryService.hydrateQuestRuntimeState = (...args) => {
+        hydrateCalls += 1;
+        return originalHydrate(...args);
+    };
+
+    service.advanceKillQuestProgress('player:1', 'rat', '灰尾鼠');
+
+    assert.equal(hydrateCalls, 2, '击杀推进只应水合 active 任务');
+    assert.deepEqual(log, []);
+}
 /**
  * testAdvanceLearnTechniqueQuest：执行testAdvanceLearn功法任务相关逻辑。
  * @returns 无返回值，直接更新testAdvanceLearn功法任务相关状态。
@@ -760,6 +810,7 @@ testTryAcceptNextQuestRejectsSecondMainQuest();
 testTryAcceptNextQuestRejectsInsufficientAcceptRealm();
 testAdvanceKillQuestProgress();
 testAdvanceKillQuestProgressHydratesCorruptedRuntimeEntry();
+testAdvanceKillQuestProgressSkipsInactiveQuestHydration();
 testAdvanceLearnTechniqueQuest();
 testAdvanceLearnTechniqueQuestHydratesCorruptedRuntimeEntry();
 testCanReceiveRewardItems();

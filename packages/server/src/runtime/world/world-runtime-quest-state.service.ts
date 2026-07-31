@@ -289,7 +289,13 @@ export class WorldRuntimeQuestStateService {
         }
         let changed = false;
         for (let index = 0; index < player.quests.quests.length; index += 1) {
-            const quest = this.hydrateQuestRuntimeState(playerId, player.quests.quests[index]);
+            const currentQuest = player.quests.quests[index];
+            // 已完成或非 active 任务不可能被击杀事件推进；避免每次击杀重复水合历史任务。
+            // active 任务仍必须经过水合，以修复旧存档缺失的目标字段后再判断目标怪物。
+            if (currentQuest?.status !== 'active') {
+                continue;
+            }
+            const quest = this.hydrateQuestRuntimeState(playerId, currentQuest);
             if (quest !== player.quests.quests[index]) {
                 player.quests.quests[index] = quest;
                 changed = true;
