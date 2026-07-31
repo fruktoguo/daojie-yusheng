@@ -5,9 +5,9 @@
  */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import { hostname } from 'node:os';
 import { Pool } from 'pg';
 
+import { resolveNodeId as resolveRuntimeNodeId } from '../config/node-runtime-config';
 import { resolveServerRuntimeRole, type ServerRuntimeRole } from '../config/runtime-role';
 import { DatabasePoolProvider } from '../persistence/database-pool.provider';
 import type { SchedulerSnapshot } from './scheduler.types';
@@ -196,16 +196,7 @@ function resolveSchedulerStateIdentity(): {
 }
 
 function resolveNodeId(runtimeRole: ServerRuntimeRole): string {
-  const explicit = normalizeString(process.env.SERVER_NODE_ID);
-  if (explicit) {
-    return explicit;
-  }
-  const publicPort = Number(
-    normalizeString(process.env.SERVER_PUBLIC_PORT) || normalizeString(process.env.SERVER_PORT),
-  );
-  const stablePort = Number.isFinite(publicPort) ? Math.max(1, Math.trunc(publicPort)) : 13001;
-  const host = hostname().trim() || 'node';
-  return `${host}:${stablePort}:${runtimeRole}`;
+  return resolveRuntimeNodeId(process.env, `:${runtimeRole}`);
 }
 
 function normalizeString(value: unknown): string {

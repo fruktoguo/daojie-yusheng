@@ -16,7 +16,6 @@ import {
   TIME_CHAMBER_MIN_USAGE_HOURS,
 } from '@mud/shared';
 import { createHash, randomUUID } from 'node:crypto';
-import { hostname } from 'node:os';
 import {
   assignStableItemInstanceId,
   upsertEquipmentSlotRowsWithItemInstanceIdRepair,
@@ -26,6 +25,7 @@ import {
 import { Pool } from 'pg';
 
 import { resolveServerDatabaseUrl } from '../config/env-alias';
+import { resolveNodeId } from '../config/node-runtime-config';
 import { DatabasePoolProvider } from './database-pool.provider';
 import { assertInstanceLeaseWriteFence } from './instance-lease-write-fence';
 import {
@@ -8166,15 +8166,5 @@ async function assertInstanceLeaseWritable(
 }
 
 function resolveCurrentNodeId(): string {
-  const explicit = typeof process.env.SERVER_NODE_ID === 'string' ? process.env.SERVER_NODE_ID.trim() : '';
-  if (explicit) {
-    return explicit;
-  }
-  const publicPort = Number(
-    typeof process.env.SERVER_PUBLIC_PORT === 'string' && process.env.SERVER_PUBLIC_PORT.trim()
-      ? process.env.SERVER_PUBLIC_PORT.trim()
-      : process.env.SERVER_PORT,
-  );
-  const stablePort = Number.isFinite(publicPort) ? Math.max(1, Math.trunc(publicPort)) : 13001;
-  return `${hostname().trim() || 'node'}:${stablePort}`;
+  return resolveNodeId();
 }

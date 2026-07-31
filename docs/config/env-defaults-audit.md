@@ -127,6 +127,8 @@
 | `SERVER_SESSION_DETACH_EXPIRE_MS` | `30000` | 会话分离过期 |
 | `SERVER_SESSION_REAPER_MAX_RETRIES` | `3` | 会话回收重试 |
 
+节点注册配置在启动期统一校验：公开端口只接受 `1..65535` 的十进制整数，非法值回退实际监听端口；节点 ID 与地址受数据库字段长度约束；容量权重和三个心跳阈值会归一化为安全整数，且死亡阈值不得小于疑似失联阈值。所有调整都会记录告警。
+
 ## GM 可管理配置默认值
 
 这些默认值来自 `packages/server/src/config/game-config-registry.ts`，可由 GM 配置表覆盖，默认均有上下限。

@@ -44,7 +44,7 @@ async function main(): Promise<void> {
   process.env.SERVER_PUBLIC_HOST = '127.0.0.1';
   process.env.SERVER_PUBLIC_PORT = '13101';
   process.env.SERVER_NODE_HEARTBEAT_INTERVAL_MS = '1000';
-  process.env.SERVER_NODE_SUSPECT_AFTER_MS = '2000';
+  process.env.SERVER_NODE_SUSPECT_AFTER_MS = '3000';
   process.env.SERVER_NODE_DEAD_AFTER_MS = '5000';
 
   const pool = new Pool({ connectionString: databaseUrl });

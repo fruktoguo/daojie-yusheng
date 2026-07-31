@@ -5,8 +5,8 @@
  */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { Pool } from 'pg';
-import { hostname } from 'node:os';
 
+import { resolveNodeId } from '../config/node-runtime-config';
 import { DatabasePoolProvider } from './database-pool.provider';
 import { ensureBigintColumnType } from './schema-bigint-migration';
 
@@ -224,18 +224,4 @@ async function ensureNodeRegistryTable(pool: Pool): Promise<void> {
   } finally {
     client.release();
   }
-}
-
-function resolveNodeId(): string {
-  const explicit = typeof process.env.SERVER_NODE_ID === 'string' ? process.env.SERVER_NODE_ID.trim() : '';
-  if (explicit) {
-    return explicit;
-  }
-  const publicPort = Number(
-    typeof process.env.SERVER_PUBLIC_PORT === 'string' && process.env.SERVER_PUBLIC_PORT.trim()
-      ? process.env.SERVER_PUBLIC_PORT.trim()
-      : process.env.SERVER_PORT,
-  );
-  const stablePort = Number.isFinite(publicPort) ? Math.max(1, Math.trunc(publicPort)) : 13001;
-  return `${hostname().trim() || 'node'}:${stablePort}`;
 }

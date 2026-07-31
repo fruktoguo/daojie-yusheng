@@ -9,13 +9,11 @@
  */
 import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 
+import {
+  resolveNodeRuntimeConfig,
+  type NodeRuntimeConfigResolution,
+} from '../config/node-runtime-config';
 import { NodeRegistryService } from './node-registry.service';
-
-/** 心跳间隔默认值 */
-const DEFAULT_NODE_REGISTRY_HEARTBEAT_INTERVAL_MS = 15_000;
-const DEFAULT_NODE_REGISTRY_SUSPECT_AFTER_MS = 30_000;
-const DEFAULT_NODE_REGISTRY_DEAD_AFTER_MS = 90_000;
-const DEFAULT_SERVER_PORT = 13001;
 
 /** 节点注册运行时：管理心跳定时器和过期节点扫描 */
 @Injectable()
@@ -23,6 +21,7 @@ export class NodeRegistryRuntimeService implements OnModuleInit, OnModuleDestroy
   private readonly logger = new Logger(NodeRegistryRuntimeService.name);
   private timer: ReturnType<typeof setInterval> | null = null;
   private running = false;
+  private config: NodeRuntimeConfigResolution | null = null;
 
   constructor(
     private readonly nodeRegistryService: NodeRegistryService,
@@ -33,18 +32,24 @@ export class NodeRegistryRuntimeService implements OnModuleInit, OnModuleDestroy
       return;
     }
 
+    const config = resolveNodeRuntimeConfig();
+    this.config = config;
+    for (const adjustment of config.adjustments) {
+      this.logger.warn(
+        `节点配置 ${adjustment.key}=${JSON.stringify(adjustment.configuredValue.slice(0, 80))} 已归一化为 ${JSON.stringify(adjustment.normalizedValue)}：${adjustment.reason}`,
+      );
+    }
     await this.nodeRegistryService.registerNode({
-      address: resolveNodeAddress(),
-      port: resolveNodePort(),
-      capacityWeight: resolveNodeCapacityWeight(),
+      address: config.address,
+      port: config.port,
+      capacityWeight: config.capacityWeight,
     });
 
-    const intervalMs = resolveHeartbeatIntervalMs();
     this.timer = setInterval(() => {
       void this.runHeartbeatCycle();
-    }, intervalMs);
+    }, config.heartbeatIntervalMs);
     this.timer.unref();
-    this.logger.log(`节点注册运行时已启动，心跳间隔 ${intervalMs}ms`);
+    this.logger.log(`节点注册运行时已启动，心跳间隔 ${config.heartbeatIntervalMs}ms`);
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -58,6 +63,7 @@ export class NodeRegistryRuntimeService implements OnModuleInit, OnModuleDestroy
         error instanceof Error ? error.stack : String(error),
       );
     });
+    this.config = null;
   }
 
   private async runHeartbeatCycle(): Promise<void> {
@@ -68,9 +74,10 @@ export class NodeRegistryRuntimeService implements OnModuleInit, OnModuleDestroy
     this.running = true;
     try {
       await this.nodeRegistryService.heartbeatNode();
+      const config = this.config ?? resolveNodeRuntimeConfig();
       const stale = await this.nodeRegistryService.scanStaleNodes({
-        suspectAfterMs: resolveSuspectAfterMs(),
-        deadAfterMs: resolveDeadAfterMs(),
+        suspectAfterMs: config.suspectAfterMs,
+        deadAfterMs: config.deadAfterMs,
       });
       if (stale.suspectNodeIds.length > 0 || stale.deadNodeIds.length > 0) {
         this.logger.warn(
@@ -86,54 +93,4 @@ export class NodeRegistryRuntimeService implements OnModuleInit, OnModuleDestroy
       this.running = false;
     }
   }
-}
-
-function resolveNodeAddress(): string {
-  const explicitPublicHost = readTrimmedEnv('SERVER_PUBLIC_HOST', 'SERVER_HOST');
-  return explicitPublicHost || '127.0.0.1';
-}
-
-function resolveNodePort(): number {
-  const parsed = Number(readTrimmedEnv('SERVER_PUBLIC_PORT', 'SERVER_PORT'));
-  return Number.isFinite(parsed) ? Math.max(1, Math.trunc(parsed)) : DEFAULT_SERVER_PORT;
-}
-
-function resolveNodeCapacityWeight(): number {
-  const parsed = Number(readTrimmedEnv('SERVER_NODE_CAPACITY_WEIGHT'));
-  return Number.isFinite(parsed) ? Math.max(1, Math.trunc(parsed)) : 1;
-}
-
-function resolveHeartbeatIntervalMs(): number {
-  const parsed = Number(readTrimmedEnv('SERVER_NODE_HEARTBEAT_INTERVAL_MS'));
-  return Number.isFinite(parsed)
-    ? Math.max(1_000, Math.trunc(parsed))
-    : DEFAULT_NODE_REGISTRY_HEARTBEAT_INTERVAL_MS;
-}
-
-function resolveSuspectAfterMs(): number {
-  const parsed = Number(readTrimmedEnv('SERVER_NODE_SUSPECT_AFTER_MS'));
-  return Number.isFinite(parsed)
-    ? Math.max(1_000, Math.trunc(parsed))
-    : DEFAULT_NODE_REGISTRY_SUSPECT_AFTER_MS;
-}
-
-function resolveDeadAfterMs(): number {
-  const parsed = Number(readTrimmedEnv('SERVER_NODE_DEAD_AFTER_MS'));
-  return Number.isFinite(parsed)
-    ? Math.max(resolveSuspectAfterMs(), Math.trunc(parsed))
-    : DEFAULT_NODE_REGISTRY_DEAD_AFTER_MS;
-}
-
-function readTrimmedEnv(...names: string[]): string {
-  for (const name of names) {
-    const value = process.env[name];
-    if (typeof value !== 'string') {
-      continue;
-    }
-    const normalized = value.trim();
-    if (normalized) {
-      return normalized;
-    }
-  }
-  return '';
 }

@@ -14,6 +14,12 @@ export interface ServerListenEndpointResolution {
   invalidPortValue: string | null;
 }
 
+export interface ServerPublicPortResolution {
+  port: number;
+  invalidPortValue: string | null;
+  invalidPortKey: 'SERVER_PUBLIC_PORT' | 'SERVER_PORT' | null;
+}
+
 /** 只接受 1..65535 的十进制整数；非法显式值回退到生产固定端口。 */
 export function resolveServerListenEndpoint(
   env: NodeJS.ProcessEnv = process.env,
@@ -30,17 +36,47 @@ export function resolveServerListenEndpoint(
     };
   }
 
-  const parsedPort = /^\d+$/u.test(rawPort) ? Number(rawPort) : Number.NaN;
-  if (!Number.isSafeInteger(parsedPort) || parsedPort < 1 || parsedPort > 65_535) {
-    return {
-      host,
-      port: DEFAULT_SERVER_LISTEN_PORT,
-      invalidPortValue: rawPort,
-    };
-  }
+  const resolvedPort = resolveTcpPort(rawPort, DEFAULT_SERVER_LISTEN_PORT);
 
   return {
     host,
+    ...resolvedPort,
+  };
+}
+
+/** 公网端口优先使用显式配置；非法时回退实际监听端口，避免注册不可达端点。 */
+export function resolveServerPublicPort(
+  env: NodeJS.ProcessEnv = process.env,
+): ServerPublicPortResolution {
+  const listenEndpoint = resolveServerListenEndpoint(env);
+  const rawPublicPort = typeof env.SERVER_PUBLIC_PORT === 'string'
+    ? env.SERVER_PUBLIC_PORT.trim()
+    : '';
+  if (!rawPublicPort) {
+    return {
+      port: listenEndpoint.port,
+      invalidPortValue: listenEndpoint.invalidPortValue,
+      invalidPortKey: listenEndpoint.invalidPortValue === null ? null : 'SERVER_PORT',
+    };
+  }
+
+  const resolved = resolveTcpPort(rawPublicPort, listenEndpoint.port);
+  return {
+    port: resolved.port,
+    invalidPortValue: resolved.invalidPortValue,
+    invalidPortKey: resolved.invalidPortValue === null ? null : 'SERVER_PUBLIC_PORT',
+  };
+}
+
+function resolveTcpPort(rawPort: string, fallbackPort: number): Pick<ServerListenEndpointResolution, 'port' | 'invalidPortValue'> {
+  const parsedPort = /^\d+$/u.test(rawPort) ? Number(rawPort) : Number.NaN;
+  if (!Number.isSafeInteger(parsedPort) || parsedPort < 1 || parsedPort > 65_535) {
+    return {
+      port: fallbackPort,
+      invalidPortValue: rawPort,
+    };
+  }
+  return {
     port: parsedPort,
     invalidPortValue: null,
   };

@@ -9,7 +9,9 @@ import {
   DEFAULT_SERVER_LISTEN_HOST,
   DEFAULT_SERVER_LISTEN_PORT,
   resolveServerListenEndpoint,
+  resolveServerPublicPort,
 } from '../config/server-listen-endpoint';
+import { resolveNodeId, resolveNodeRuntimeConfig } from '../config/node-runtime-config';
 import {
   getGameConfigDescriptor,
   validateGameConfigValue,
@@ -24,6 +26,7 @@ installSmokeTimeout(__filename);
 
 async function main(): Promise<void> {
   assertListenEndpointUsesProductionFallbacks();
+  assertNodeRuntimeConfigUsesDatabaseSafeValues();
   assertWorkerPoolConfigUsesBoundedIntegers();
   assertBootstrapDatabaseConfigRejectsInvalidRows();
   await assertOptionalOutboxSchemaFailuresDoNotBlockStartup();
@@ -138,6 +141,79 @@ function assertListenEndpointUsesProductionFallbacks(): void {
     assert.equal(resolved.invalidPortValue, invalidPortValue);
   }
   assert.equal(resolveServerListenEndpoint({ SERVER_PORT: '65535' }).port, 65_535);
+  assert.deepEqual(resolveServerPublicPort({
+    SERVER_PORT: '14001',
+    SERVER_PUBLIC_PORT: '65536',
+  }), {
+    port: 14_001,
+    invalidPortValue: '65536',
+    invalidPortKey: 'SERVER_PUBLIC_PORT',
+  });
+}
+
+function assertNodeRuntimeConfigUsesDatabaseSafeValues(): void {
+  const explicit = resolveNodeRuntimeConfig({
+    SERVER_NODE_ID: ' node-a ',
+    SERVER_PUBLIC_HOST: 'node-a.internal',
+    SERVER_PUBLIC_PORT: '14002',
+    SERVER_NODE_CAPACITY_WEIGHT: '3',
+    SERVER_NODE_HEARTBEAT_INTERVAL_MS: '5000',
+    SERVER_NODE_SUSPECT_AFTER_MS: '15000',
+    SERVER_NODE_DEAD_AFTER_MS: '30000',
+  });
+  assert.deepEqual({
+    nodeId: explicit.nodeId,
+    address: explicit.address,
+    port: explicit.port,
+    capacityWeight: explicit.capacityWeight,
+    heartbeatIntervalMs: explicit.heartbeatIntervalMs,
+    suspectAfterMs: explicit.suspectAfterMs,
+    deadAfterMs: explicit.deadAfterMs,
+  }, {
+    nodeId: 'node-a',
+    address: 'node-a.internal',
+    port: 14_002,
+    capacityWeight: 3,
+    heartbeatIntervalMs: 5_000,
+    suspectAfterMs: 15_000,
+    deadAfterMs: 30_000,
+  });
+  assert.deepEqual(explicit.adjustments, []);
+
+  const oversizedNodeId = 'node-'.padEnd(121, 'x');
+  const invalid = resolveNodeRuntimeConfig({
+    SERVER_NODE_ID: oversizedNodeId,
+    SERVER_HOST: '10.0.0.8',
+    SERVER_PORT: '14001',
+    SERVER_PUBLIC_HOST: 'host'.padEnd(181, 'x'),
+    SERVER_PUBLIC_PORT: '65536',
+    SERVER_NODE_CAPACITY_WEIGHT: '1e100',
+    SERVER_NODE_HEARTBEAT_INTERVAL_MS: '0',
+    SERVER_NODE_SUSPECT_AFTER_MS: '120000',
+    SERVER_NODE_DEAD_AFTER_MS: '5000',
+  });
+  assert.match(invalid.nodeId, /^node:sha256:[a-f0-9]{64}$/u);
+  assert.equal(invalid.address, '10.0.0.8');
+  assert.equal(invalid.port, 14_001);
+  assert.equal(invalid.capacityWeight, Number.MAX_SAFE_INTEGER);
+  assert.equal(invalid.heartbeatIntervalMs, 1_000);
+  assert.equal(invalid.suspectAfterMs, 120_000);
+  assert.equal(invalid.deadAfterMs, 120_000);
+  assert.deepEqual(
+    new Set(invalid.adjustments.map((entry) => entry.key)),
+    new Set([
+      'SERVER_NODE_ID',
+      'SERVER_PUBLIC_HOST',
+      'SERVER_PUBLIC_PORT',
+      'SERVER_NODE_CAPACITY_WEIGHT',
+      'SERVER_NODE_HEARTBEAT_INTERVAL_MS',
+      'SERVER_NODE_DEAD_AFTER_MS',
+    ]),
+  );
+
+  assert.equal(resolveNodeId({ SERVER_NODE_ID: 'node-explicit' }, ':worker'), 'node-explicit');
+  assert.match(resolveNodeId({ SERVER_PORT: '14001' }), /:14001$/u);
+  assert.match(resolveNodeId({ SERVER_PORT: '14001' }, ':api'), /:14001:api$/u);
 }
 
 async function assertRuntimeEnvManagementSkipsUnreadableOverlay(root: string): Promise<void> {
