@@ -259,6 +259,23 @@ async function main(): Promise<void> {
   assert.deepEqual(Array.from(heldDomains), []);
   assert.equal(durableCalls.length, 4, '失败尝试与同一检查点重试都必须可观测');
 
+  await service.tickFormationMaintenanceDurably(player, tickAction, deps);
+  assert.equal(service.formationMaintenanceCheckpointById.has(formationInstanceId), true);
+  const durableCallsBeforeOrphanSettlement = durableCalls.length;
+  service.formationsByInstanceId.delete(instanceId);
+  const orphanResult = await service.tickFormationMaintenanceDurably(player, tickAction, deps);
+  assert.equal(orphanResult?.ok, true);
+  assert.equal(orphanResult?.messages?.[0]?.key, 'notice.craft.activity-condition-failed');
+  assert.equal(player.formationJob, null, '目标阵法消失后必须清除孤儿维护任务');
+  assert.equal(player.dirtyDomains.has('active_job'), true, '孤儿任务清理必须进入 active_job 持久化');
+  assert.equal(service.formationMaintenanceCheckpointById.has(formationInstanceId), false);
+  assert.deepEqual(Array.from(heldDomains), []);
+  assert.equal(
+    durableCalls.length,
+    durableCallsBeforeOrphanSettlement + 1,
+    '目标消失前已暴露的维护检查点必须先提交，不能因清理孤儿任务而丢弃',
+  );
+
   console.log(JSON.stringify({
     ok: true,
     case: 'formation-maintenance-durable-entry',
@@ -268,6 +285,7 @@ async function main(): Promise<void> {
       'durable 失败保留同一检查点与持久化域持有，重试成功后才释放普通刷盘。',
       '维护事务携带实例 node/token/epoch 与玩家 session fence。',
       '检查点提交期间产生的新阵法变化会携带同一实例租约围栏进入补充刷盘。',
+      '目标阵法永久消失时先提交既有检查点，再由统一管线清除并持久化孤儿维护任务。',
     ],
   }, null, 2));
 }

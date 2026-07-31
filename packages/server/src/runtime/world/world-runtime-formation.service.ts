@@ -2457,7 +2457,29 @@ class WorldRuntimeFormationService {
         if (!playerId || !formationInstanceId) {
             return tickAction(deps);
         }
-        const formation = this.resolveMaintainableFormation(playerId, formationInstanceId, { deps });
+        let formation;
+        try {
+            formation = this.resolveMaintainableFormation(playerId, formationInstanceId, { deps });
+        }
+        catch (error) {
+            const condition = this.checkFormationMaintenanceCondition(player, player?.formationJob, { deps });
+            if (condition.satisfied === true || condition.shouldCancel !== true) {
+                throw error;
+            }
+            return this.runExclusivePlayerFormationResourceMutation(playerId, formationInstanceId, () => {
+                const currentPlayer = this.playerRuntimeService.getPlayerOrThrow(playerId);
+                const currentJob = currentPlayer?.formationJob;
+                if (!currentJob || currentJob.formationInstanceId !== formationInstanceId) {
+                    return undefined;
+                }
+                const currentCondition = this.checkFormationMaintenanceCondition(currentPlayer, currentJob, { deps });
+                if (currentCondition.satisfied === true || currentCondition.shouldCancel !== true) {
+                    return undefined;
+                }
+                // 锁内先由默认流程提交既有检查点，再让统一管线持久化清除永久失效的 job。
+                return tickAction(deps);
+            });
+        }
         const instance = this.resolveFormationWriteInstance(formation, deps);
         const durableContext = this.resolveFormationResourceDurableContext(
             instance,
