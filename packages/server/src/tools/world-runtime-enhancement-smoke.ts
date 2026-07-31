@@ -35,6 +35,7 @@ async function main(): Promise<void> {
   await testDurableEnhancementFlushesStaleActivityProjectionBeforeStart();
   await testDurableEnhancementPersistsAssetsAtomically();
   await testDurableEnhancementProgressFallsBackWhenAssetBusy();
+  await testDurableEnhancementProgressRollbackAfterPipelineFailure();
   await testDurableEnhancementAdvanceCommitsProfessionAtomically();
   await testDurableEnhancementFailureRestoresFullRuntimeState();
   await testDurableEnhancementCancelUsesCancelOperation();
@@ -285,6 +286,43 @@ async function testDurableEnhancementProgressFallsBackWhenAssetBusy(): Promise<v
   assert.equal(player.enhancementJob?.remainingTicks, 1);
   assert.equal(assetMutationProbe.idleChecks, 1);
   assert.equal(assetMutationProbe.exclusiveCalls, 2);
+  assert.deepEqual(durableCalls.map((call) => call.kind), ['start']);
+}
+
+async function testDurableEnhancementProgressRollbackAfterPipelineFailure(): Promise<void> {
+  const durableCalls: DurableEnhancementCall[] = [];
+  const assetMutationProbe: AssetMutationProbe = { busy: false, exclusiveCalls: 0, idleChecks: 0 };
+  const player = createPlayer('player:enhancement:progress-rollback', [
+    createEquipmentItem('iron_sword', '铁剑', 8, 1),
+  ]);
+  const { craftService } = createCraftHarness(player, [], [], { durableCalls, assetMutationProbe });
+  await craftService.startEnhancementDurably(player, {
+    target: buildInventoryRef(player.inventory.items[0]),
+  });
+  player.enhancementJob!.remainingTicks = 2;
+  player.enhancementJob!.workRemainingTicks = 2;
+  const beforeJob = structuredClone(player.enhancementJob);
+  const beforeEnhancementSkill = player.enhancementSkill;
+  const beforePersistentRevision = player.persistentRevision;
+  const beforeSelfRevision = player.selfRevision;
+  const beforeDirtyDomains = Array.from(player.dirtyDomains).sort();
+
+  (craftService as unknown as { finalizeMutation: () => never }).finalizeMutation = () => {
+    throw new Error('synthetic_enhancement_progress_failure');
+  };
+
+  assert.throws(
+    () => craftService.tickEnhancementDurably(player),
+    /synthetic_enhancement_progress_failure/,
+  );
+  assert.deepEqual(player.enhancementJob, beforeJob, 'pipeline 在递减后失败时必须恢复原始强化进度');
+  assert.equal(player.enhancementSkill, beforeEnhancementSkill, 'ensureCraftSkills 替换的技能引用必须回滚');
+  assert.equal(player.persistentRevision, beforePersistentRevision);
+  assert.equal(player.selfRevision, beforeSelfRevision);
+  assert.deepEqual(Array.from(player.dirtyDomains).sort(), beforeDirtyDomains);
+  assert.equal(player.suppressImmediateDomainPersistence, undefined);
+  assert.equal(assetMutationProbe.idleChecks, 1);
+  assert.equal(assetMutationProbe.exclusiveCalls, 1, '轻量路径异常不得额外进入资产强事务');
   assert.deepEqual(durableCalls.map((call) => call.kind), ['start']);
 }
 
