@@ -104,6 +104,7 @@ const selectedGroupNames = readOptionValues(cliArgs, '--group');
 const smokeCases = [
     { name: 'readiness-gate', scriptFile: 'readiness-gate-smoke.js', standalone: true },
     { name: 'process-supervisor', scriptFile: 'process-supervisor-smoke.js', standalone: true },
+    { name: 'startup-config-resilience', scriptFile: 'startup-config-resilience-smoke.js', standalone: true },
     { name: 'gm-database', scriptFile: 'gm-database-smoke.js', standalone: true },
     { name: 'shutdown-drain', scriptFile: 'shutdown-drain-smoke.js' },
     { name: 'session', scriptFile: 'session-smoke.js' },

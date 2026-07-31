@@ -14,7 +14,6 @@ import * as path from 'node:path';
 
 import {
   RUNTIME_ENV_FILE_PATH,
-  applyRuntimeEnvFileToProcess,
   parseEnvText,
 } from './runtime-env-file';
 
@@ -70,11 +69,10 @@ export function loadLocalRuntimeEnv(): void {
   }
 
   for (const absolutePath of candidateFiles) {
-    if (!fs.existsSync(absolutePath)) {
+    const entries = readStartupEnvFile(absolutePath);
+    if (!entries) {
       continue;
     }
-
-    const entries = parseEnvText(fs.readFileSync(absolutePath, 'utf8'));
     for (const [key, value] of entries) {
       if (typeof process.env[key] !== 'string' || process.env[key]?.trim() === '') {
         process.env[key] = value;
@@ -88,9 +86,33 @@ export function loadLocalRuntimeEnv(): void {
   );
 
   // `.runtime/server.local.env` 是 GM 持久化运行时覆盖层，需要覆盖同名变量。
-  if (fs.existsSync(RUNTIME_ENV_FILE_PATH)) {
-    applyRuntimeEnvFileToProcess(RUNTIME_ENV_FILE_PATH, true);
+  const runtimeEntries = readStartupEnvFile(RUNTIME_ENV_FILE_PATH);
+  if (runtimeEntries) {
+    for (const [key, value] of runtimeEntries) {
+      process.env[key] = value;
+    }
   }
+}
+
+/** 启动期本地覆盖文件属于可选输入，单个文件不可读时跳过并保留既有环境变量。 */
+function readStartupEnvFile(absolutePath: string): Map<string, string> | null {
+  try {
+    if (!fs.existsSync(absolutePath)) {
+      return null;
+    }
+    return parseEnvText(fs.readFileSync(absolutePath, 'utf8'));
+  } catch (error: unknown) {
+    const code = resolveFileErrorCode(error);
+    console.warn(`[启动配置] 无法读取本地环境变量文件，已跳过：path=${absolutePath} code=${code}`);
+    return null;
+  }
+}
+
+function resolveFileErrorCode(error: unknown): string {
+  if (error && typeof error === 'object' && 'code' in error && typeof error.code === 'string') {
+    return error.code;
+  }
+  return 'unknown';
 }
 
 loadLocalRuntimeEnv();

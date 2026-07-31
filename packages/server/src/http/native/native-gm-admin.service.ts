@@ -9,6 +9,7 @@ import {
     Injectable,
     InternalServerErrorException,
     Logger,
+    ServiceUnavailableException,
 } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream, createWriteStream, promises as fsPromises } from 'node:fs';
@@ -258,6 +259,9 @@ export class NativeGmAdminService {
  */
 
     backupDirectory = resolveBackupDirectory();
+    /** 备份卷不可用只降级 GM 备份能力，不能阻断核心服务启动。 */
+    backupDirectoryReady = false;
+    backupDirectoryErrorCode: string | null = null;
     /**
  * currentDatabaseJob：currentDatabaseJob相关字段。
  */
@@ -294,7 +298,7 @@ export class NativeGmAdminService {
     async onModuleInit() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        await fsPromises.mkdir(this.backupDirectory, { recursive: true });
+        await this.refreshBackupDirectoryAvailability(true);
 
         const databaseUrl = resolveServerDatabaseUrl();
         if (!databaseUrl.trim()) {
@@ -332,6 +336,7 @@ export class NativeGmAdminService {
 
     async getDatabaseState() {
 
+        await this.refreshBackupDirectoryAvailability(false);
         const backups = await this.listDatabaseBackups();
         const backupWorkerActive = await readBackupWorkerActive(this.backupDirectory);
         return {
@@ -374,8 +379,9 @@ export class NativeGmAdminService {
  * @returns 无返回值，直接更新triggerDatabaseBackup相关状态。
  */
 
-    triggerDatabaseBackup(actor?: GmActorContext) {
+    async triggerDatabaseBackup(actor?: GmActorContext) {
 
+        await this.assertBackupDirectoryAvailable();
         const backupId = buildBackupId();
 
         const startedAt = new Date().toISOString();
@@ -419,6 +425,7 @@ export class NativeGmAdminService {
 
         const normalizedBackupId = typeof backupId === 'string' ? backupId.trim() : '';
         try {
+            await this.assertBackupDirectoryAvailable();
             const record = await this.findBackupRecord(normalizedBackupId);
             if (!record) {
                 throw new BadRequestException('目标备份不存在');
@@ -462,6 +469,7 @@ export class NativeGmAdminService {
 
         const actor = input?.actor as GmActorContext | undefined;
         this.assertNoRunningDatabaseJob();
+        await this.assertBackupDirectoryAvailable();
         if (!input?.stream || typeof input.stream.pipe !== 'function') {
             throw new BadRequestException('缺少数据库备份上传内容');
         }
@@ -568,6 +576,7 @@ export class NativeGmAdminService {
             confirmationPhrase: GM_HIGH_RISK_CONFIRMATION_CONTRACT.phrases.databaseRestore,
             operationName: '数据库恢复',
         });
+        await this.assertBackupDirectoryAvailable();
         const normalizedBackupId = typeof backupId === 'string' ? backupId.trim() : '';
         if (NATIVE_GM_RESTORE_CONTRACT.requiresMaintenance && !this.isRuntimeMaintenanceActive()) {
             throw new BadRequestException('数据库恢复必须先进入维护态');
@@ -841,6 +850,7 @@ export class NativeGmAdminService {
  */
 
     async createDatabaseBackupSnapshot(input) {
+        await this.assertBackupDirectoryAvailable();
         input.job && this.updateDatabaseJobPhase(input.job, BACKUP_JOB_PHASE.VALIDATING);
         const databaseUrl = resolveServerDatabaseUrl();
         if (!databaseUrl.trim()) {
@@ -1087,7 +1097,9 @@ export class NativeGmAdminService {
     async listFilesystemBackups() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
+        if (!this.backupDirectoryReady) {
+            return [];
+        }
         const entries = await fsPromises.readdir(this.backupDirectory, { withFileTypes: true }).catch(() => []);
 
         const records = [];
@@ -1205,8 +1217,37 @@ export class NativeGmAdminService {
             throw new BadRequestException('备份文件损坏，无法解析');
         }
     }
+    /** 探测备份卷；失败时只记录降级状态，不向 Nest 生命周期抛错。 */
+    async refreshBackupDirectoryAvailability(logFailure: boolean): Promise<boolean> {
+        try {
+            await fsPromises.mkdir(this.backupDirectory, { recursive: true });
+            this.backupDirectoryReady = true;
+            this.backupDirectoryErrorCode = null;
+            return true;
+        }
+        catch (error) {
+            const errorCode = resolveFilesystemErrorCode(error);
+            this.backupDirectoryReady = false;
+            this.backupDirectoryErrorCode = errorCode;
+            if (logFailure) {
+                this.logger.error(
+                    `GM 数据库备份目录不可用，已仅禁用备份能力：path=${this.backupDirectory} code=${errorCode}`,
+                );
+            }
+            return false;
+        }
+    }
+    /** 运维请求触发时重试探测，卷恢复后无需重启即可重新启用备份。 */
+    async assertBackupDirectoryAvailable(): Promise<void> {
+        if (await this.refreshBackupDirectoryAvailability(false)) {
+            return;
+        }
+        throw new ServiceUnavailableException(
+            `数据库备份目录不可用，请检查 SERVER_GM_DATABASE_BACKUP_DIR（${this.backupDirectoryErrorCode ?? 'unknown'}）`,
+        );
+    }
     /**
- * releasePoolReference：释放对共享连接池的引用，由 DatabasePoolProvider 统一关闭真正的连接池。
+     * releasePoolReference：释放对共享连接池的引用，由 DatabasePoolProvider 统一关闭真正的连接池。
  * @returns 无返回值，直接更新连接池引用相关状态。
  */
 
@@ -1864,6 +1905,12 @@ function resolveBackupDirectory() {
         return resolve(configured);
     }
     return resolve(__dirname, '../../../../.runtime/gm-database-backups');
+}
+
+function resolveFilesystemErrorCode(error: unknown): string {
+    return error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
+        ? error.code
+        : 'unknown';
 }
 
 function resolveBackupWorkerRootDirectory(backupDirectory) {

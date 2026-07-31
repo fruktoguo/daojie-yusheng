@@ -53,6 +53,8 @@ const status = runVerificationSteps({
         '--case',
         'process-supervisor',
         '--case',
+        'startup-config-resilience',
+        '--case',
         'runtime',
         '--case',
         'session',

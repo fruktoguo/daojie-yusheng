@@ -59,10 +59,19 @@ function parseEnvFile(content) {
 }
 
 function loadEntriesFromFile(absolutePath, overwrite) {
-  if (!fs.existsSync(absolutePath)) {
+  let entries;
+  try {
+    if (!fs.existsSync(absolutePath)) {
+      return;
+    }
+    entries = parseEnvFile(fs.readFileSync(absolutePath, 'utf8'));
+  } catch (error) {
+    const code = error && typeof error === 'object' && typeof error.code === 'string'
+      ? error.code
+      : 'unknown';
+    console.warn(`[启动配置] 无法读取本地环境变量文件，已跳过：path=${absolutePath} code=${code}`);
     return;
   }
-  const entries = parseEnvFile(fs.readFileSync(absolutePath, 'utf8'));
   for (const [key, value] of entries) {
     if (overwrite) {
       process.env[key] = value;
@@ -89,5 +98,6 @@ function loadLocalRuntimeEnv() {
 loadLocalRuntimeEnv();
 
 module.exports = {
+  loadEntriesFromFile,
   loadLocalRuntimeEnv,
 };

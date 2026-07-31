@@ -1,0 +1,103 @@
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+
+import { NativeGmAdminService } from '../http/native/native-gm-admin.service';
+import { installSmokeTimeout } from './smoke-timeout';
+
+installSmokeTimeout(__filename);
+
+async function main(): Promise<void> {
+  const root = await mkdtemp(join(tmpdir(), 'startup-config-resilience-'));
+  try {
+    await assertServerEnvLoaderSkipsUnreadableFiles(root);
+    await assertRepositoryEnvLoaderSkipsUnreadableFiles(root);
+    await assertUnavailableBackupDirectoryDoesNotBlockModuleInit(root);
+    console.log('[startup-config-resilience-smoke] ok');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+}
+
+async function assertServerEnvLoaderSkipsUnreadableFiles(root: string): Promise<void> {
+  const fakeRepoRoot = join(root, 'server-loader');
+  const fakePackageRoot = join(fakeRepoRoot, 'packages', 'server');
+  await mkdir(fakePackageRoot, { recursive: true });
+  await mkdir(join(fakeRepoRoot, '.env'));
+  await mkdir(join(fakeRepoRoot, '.runtime'), { recursive: true });
+  await mkdir(join(fakeRepoRoot, '.runtime', 'server.local.env'));
+
+  const loaderPath = resolve(__dirname, '..', 'config', 'load-local-runtime-env.js');
+  const result = spawnSync(process.execPath, ['-e', `require(${JSON.stringify(loaderPath)})`], {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      SERVER_PACKAGE_ROOT: fakePackageRoot,
+      SERVER_SKIP_LOCAL_ENV_AUTOLOAD: '',
+    },
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(result.stderr, /\[启动配置\].*\.env.*code=EISDIR/u);
+  assert.match(result.stderr, /server\.local\.env.*code=EISDIR/u);
+}
+
+async function assertRepositoryEnvLoaderSkipsUnreadableFiles(root: string): Promise<void> {
+  const unreadablePath = join(root, 'repository-loader-directory');
+  await mkdir(unreadablePath);
+  const loaderPath = resolve(process.cwd(), 'scripts', 'load-local-runtime-env.js');
+  const script = [
+    `const loader = require(${JSON.stringify(loaderPath)});`,
+    `loader.loadEntriesFromFile(${JSON.stringify(unreadablePath)}, false);`,
+  ].join('');
+  const result = spawnSync(process.execPath, ['-e', script], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(result.stderr, /\[启动配置\].*repository-loader-directory.*code=EISDIR/u);
+}
+
+async function assertUnavailableBackupDirectoryDoesNotBlockModuleInit(root: string): Promise<void> {
+  const backupPath = join(root, 'backup-path-is-file');
+  await writeFile(backupPath, 'occupied', 'utf8');
+  const previous = captureEnv([
+    'SERVER_GM_DATABASE_BACKUP_DIR',
+    'GM_DATABASE_BACKUP_DIR',
+    'SERVER_DATABASE_URL',
+    'DATABASE_URL',
+  ]);
+  process.env.SERVER_GM_DATABASE_BACKUP_DIR = backupPath;
+  delete process.env.GM_DATABASE_BACKUP_DIR;
+  delete process.env.SERVER_DATABASE_URL;
+  delete process.env.DATABASE_URL;
+
+  try {
+    const service = new NativeGmAdminService({} as never, {} as never, null, null);
+    await service.onModuleInit();
+    await service.getDatabaseState();
+    assert.equal(service.backupDirectoryReady, false);
+    assert.equal(service.backupDirectoryErrorCode, 'EEXIST');
+    await assert.rejects(
+      () => service.triggerDatabaseBackup(),
+      /数据库备份目录不可用/u,
+    );
+    await service.onModuleDestroy();
+  } finally {
+    restoreEnv(previous);
+  }
+}
+
+function captureEnv(names: string[]): Map<string, string | undefined> {
+  return new Map(names.map((name) => [name, process.env[name]]));
+}
+
+function restoreEnv(snapshot: Map<string, string | undefined>): void {
+  for (const [name, value] of snapshot) {
+    if (typeof value === 'string') process.env[name] = value;
+    else delete process.env[name];
+  }
+}
+
+void main().catch((error: unknown) => {
+  console.error(error);
+  process.exitCode = 1;
+});
