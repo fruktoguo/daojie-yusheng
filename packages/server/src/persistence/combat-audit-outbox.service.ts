@@ -58,14 +58,23 @@ export class CombatAuditOutboxService implements OnModuleInit, OnModuleDestroy {
       this.logger.log('战斗审计发件箱已禁用：SERVER_COMBAT_AUDIT_ENABLED !== true');
       return;
     }
-    this.pool = this.databasePoolProvider?.getPool('combat-audit-outbox') ?? null;
-    if (!this.pool) {
-      this.logger.log('战斗审计发件箱已禁用：未提供 SERVER_DATABASE_URL/DATABASE_URL');
-      return;
+    try {
+      this.pool = this.databasePoolProvider?.getPool('combat-audit-outbox') ?? null;
+      if (!this.pool) {
+        this.logger.log('战斗审计发件箱已禁用：未提供 SERVER_DATABASE_URL/DATABASE_URL');
+        return;
+      }
+      await ensureCombatAuditOutboxTables(this.pool);
+      this.enabled = true;
+      this.logger.log('战斗审计发件箱已启用');
+    } catch (error: unknown) {
+      this.pool = null;
+      this.enabled = false;
+      this.logger.error(
+        `战斗审计发件箱初始化失败，已禁用审计写入：${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
     }
-    await ensureCombatAuditOutboxTables(this.pool);
-    this.enabled = true;
-    this.logger.log('战斗审计发件箱已启用');
   }
 
   async onModuleDestroy(): Promise<void> {

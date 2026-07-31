@@ -16,6 +16,8 @@ import {
 } from '../config/game-config-registry';
 import { resolveWorkerPoolSize } from '../config/worker-pool-config';
 import { resolveBootstrapGameConfigRow } from '../config/bootstrap-load-db-config';
+import { CombatAuditOutboxService } from '../persistence/combat-audit-outbox.service';
+import { OutboxDispatcherService } from '../persistence/outbox-dispatcher.service';
 import { installSmokeTimeout } from './smoke-timeout';
 
 installSmokeTimeout(__filename);
@@ -24,6 +26,7 @@ async function main(): Promise<void> {
   assertListenEndpointUsesProductionFallbacks();
   assertWorkerPoolConfigUsesBoundedIntegers();
   assertBootstrapDatabaseConfigRejectsInvalidRows();
+  await assertOptionalOutboxSchemaFailuresDoNotBlockStartup();
   const root = await mkdtemp(join(tmpdir(), 'startup-config-resilience-'));
   try {
     await assertServerEnvLoaderSkipsUnreadableFiles(root);
@@ -34,6 +37,39 @@ async function main(): Promise<void> {
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+}
+
+async function assertOptionalOutboxSchemaFailuresDoNotBlockStartup(): Promise<void> {
+  const expectedError = new Error('simulated_combat_audit_schema_unavailable');
+  const combatAuditService = new CombatAuditOutboxService(
+    {
+      getPool: () => ({
+        query: async () => Promise.reject(expectedError),
+      }),
+    } as never,
+    {
+      ensureInitialized: async () => undefined,
+      getFlag: (key: string) => key === 'combat_audit_enabled',
+    } as never,
+  );
+
+  await combatAuditService.onModuleInit();
+  assert.equal(combatAuditService.isEnabled(), false);
+  assert.equal(combatAuditService.enqueue({ action: 'damage' }), false);
+  assert.deepEqual(await combatAuditService.queryCombatAuditRows(), []);
+  await combatAuditService.onModuleDestroy();
+
+  const dispatcherError = new Error('simulated_outbox_dispatcher_schema_unavailable');
+  const dispatcherService = new OutboxDispatcherService({
+    getPool: () => ({
+      query: async () => Promise.reject(dispatcherError),
+    }),
+  } as never);
+
+  await dispatcherService.onModuleInit();
+  assert.equal(dispatcherService.isEnabled(), false);
+  assert.deepEqual(await dispatcherService.claimReadyEvents({ dispatcherId: 'startup-smoke' }), []);
+  await dispatcherService.onModuleDestroy();
 }
 
 function assertBootstrapDatabaseConfigRejectsInvalidRows(): void {

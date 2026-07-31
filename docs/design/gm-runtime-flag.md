@@ -64,7 +64,9 @@ DELETE /gm/runtime-flags/:key
 - `CombatAuditOutboxService` 在 `onModuleInit` 时检查 `combat_audit_enabled`：
   - flag 存在且为 `true` → 启用战斗审计
   - flag 不存在或为 `false` → 禁用战斗审计
-  - 如果 `GmRuntimeFlagPersistenceService` 不可用（无数据库），回退到环境变量 `SERVER_COMBAT_AUDIT_ENABLED`
+  - 正常应用已注入 `GmRuntimeFlagPersistenceService` 但其持久化不可用时 → 按默认 `false` 禁用战斗审计
+  - 独立工具未注入 `GmRuntimeFlagPersistenceService` 时 → 回退到环境变量 `SERVER_COMBAT_AUDIT_ENABLED`
+  - 审计表初始化失败 → 记录错误并仅禁用战斗审计，核心游戏服务继续启动
 - 开关变更后需要重启服务才能生效（战斗审计的启用/禁用在启动时决定）
 
 ## 新增开关的方式
