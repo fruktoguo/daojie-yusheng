@@ -2037,6 +2037,16 @@ export interface GmEditorTechniqueOption {
 
   attrFloat?: number;
   /**
+ * budgetPercent：服务端生成时确定的总预算百分比。
+ */
+
+  budgetPercent?: number;
+  /**
+ * totalBudget：服务端生成时确定的总预算快照。
+ */
+
+  totalBudget?: number;
+  /**
  * maxLayer：量化功法总层数。
  */
 

@@ -550,6 +550,8 @@ function expandPreviewTechniqueTemplateLayers(template: GmEditorTechniqueOption 
       realmLv: resolveTechniqueRealmLevel(template.realmLv, template.grade),
       attrRatio: template.attrRatio,
       attrFloat: template.attrFloat,
+      budgetPercent: template.budgetPercent,
+      totalBudget: template.totalBudget,
       maxLayer: template.maxLayer,
       expDifficulty: template.expDifficulty,
       layers: template.layers,

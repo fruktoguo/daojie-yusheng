@@ -268,13 +268,35 @@ try {
       playerCast: { windupTicks: 7 },
     }],
   };
+  const generatedInternalTechniqueId = 'generated.technique.preview.budgeted-internal';
+  const generatedInternalTechnique = {
+    id: generatedInternalTechniqueId,
+    name: '听潮照影篇',
+    desc: '静听灵潮，映照身形。',
+    grade: 'spirit',
+    category: 'internal',
+    realmLv: 48,
+    attrRatio: { spirit: 0.029, perception: 100 },
+    budgetPercent: 1.1827,
+    totalBudget: 3167.2706,
+    maxLayer: 9,
+    expDifficulty: 1.07,
+    layers: [],
+    skills: [],
+  };
+  const generatedTechniques = new Map([
+    [generatedTechniqueId, generatedTechnique],
+    [generatedInternalTechniqueId, generatedInternalTechnique],
+  ]);
   const requestedTechniqueIds = [];
   contentResolverModule.contentResolver.bindEmitter((payload) => {
     requestedTechniqueIds.push(...(payload.techniques ?? []));
     queueMicrotask(() => {
       contentResolverModule.contentResolver.handleContentTemplatesResponse({
         requestId: payload.requestId,
-        techniques: payload.techniques?.includes(generatedTechniqueId) ? [generatedTechnique] : [],
+        techniques: (payload.techniques ?? [])
+          .map((techniqueId) => generatedTechniques.get(techniqueId))
+          .filter(Boolean),
       });
     });
     return { accepted: true };
@@ -303,6 +325,28 @@ try {
   assert.match(generatedTooltipText, /灵力消耗：321/u, '自创术法书必须显示动态模板里的具体消耗');
   assert.match(generatedTooltipText, /吟唱：7 息/u, '自创术法书必须显示运行时实际吟唱时间');
   assert.match(generatedTooltipText, /冷却：9 息/u, '自创术法书必须显示动态模板里的具体冷却');
+
+  const generatedInternalBook = {
+    itemId: 'book.custom_technique',
+    name: '《听潮照影篇》',
+    type: 'skill_book',
+    desc: '完整记载听潮照影篇。',
+    count: 1,
+    learnTechniqueId: generatedInternalTechniqueId,
+  };
+  await localTemplates.fetchTechniqueTemplateForBookItem(generatedInternalBook);
+  const generatedInternalTooltip = equipmentTooltip.buildItemTooltipPayload(generatedInternalBook);
+  const generatedInternalTooltipText = stripHtml(generatedInternalTooltip.lines.join('\n'));
+  assert.match(
+    generatedInternalTooltipText,
+    /身法\+3168/u,
+    '自创内功书预览必须使用服务端确定的预算百分比展开满层属性',
+  );
+  assert.doesNotMatch(
+    generatedInternalTooltipText,
+    /身法\+2676/u,
+    '自创内功书预览不得回退到默认 100% 预算',
+  );
 
   let coveredTechniqueCount = 0;
   for (const technique of editorCatalog.LOCAL_EDITOR_CATALOG.techniques) {
