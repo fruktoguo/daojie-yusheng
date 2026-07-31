@@ -46,7 +46,14 @@ export class RuntimeEnvManagementService implements OnModuleInit {
       this.persistedEnv = new Map();
       return;
     }
-    this.reloadFromDisk();
+    try {
+      this.reloadFromDisk();
+    } catch (error: unknown) {
+      this.persistedEnv = new Map();
+      this.logger.error(
+        `GM 运行时环境变量文件不可读，已跳过本地覆盖层：${resolveFileErrorCode(error)}`,
+      );
+    }
   }
 
   list(): GmEnvironmentVarListRes {
@@ -198,6 +205,13 @@ export class RuntimeEnvManagementService implements OnModuleInit {
     }
     delete process.env[key];
   }
+}
+
+function resolveFileErrorCode(error: unknown): string {
+  if (error && typeof error === 'object' && 'code' in error && typeof error.code === 'string') {
+    return error.code;
+  }
+  return 'unknown';
 }
 
 function maskSensitiveValue(value: string): string {

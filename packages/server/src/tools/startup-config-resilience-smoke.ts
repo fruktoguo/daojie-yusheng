@@ -13,12 +13,39 @@ async function main(): Promise<void> {
   const root = await mkdtemp(join(tmpdir(), 'startup-config-resilience-'));
   try {
     await assertServerEnvLoaderSkipsUnreadableFiles(root);
+    await assertRuntimeEnvManagementSkipsUnreadableOverlay(root);
     await assertRepositoryEnvLoaderSkipsUnreadableFiles(root);
     await assertUnavailableBackupDirectoryDoesNotBlockModuleInit(root);
     console.log('[startup-config-resilience-smoke] ok');
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+}
+
+async function assertRuntimeEnvManagementSkipsUnreadableOverlay(root: string): Promise<void> {
+  const fakeRepoRoot = join(root, 'runtime-env-management');
+  const fakePackageRoot = join(fakeRepoRoot, 'packages', 'server');
+  await mkdir(fakePackageRoot, { recursive: true });
+  await mkdir(join(fakeRepoRoot, '.runtime'), { recursive: true });
+  await mkdir(join(fakeRepoRoot, '.runtime', 'server.local.env'));
+
+  const servicePath = resolve(__dirname, '..', 'runtime', 'gm', 'runtime-env-management.service.js');
+  const script = [
+    '(async()=>{',
+    `const { RuntimeEnvManagementService } = require(${JSON.stringify(servicePath)});`,
+    'await new RuntimeEnvManagementService().onModuleInit();',
+    '})().catch((error)=>{console.error(error);process.exitCode=1;});',
+  ].join('');
+  const result = spawnSync(process.execPath, ['-e', script], {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      SERVER_PACKAGE_ROOT: fakePackageRoot,
+      SERVER_SKIP_LOCAL_ENV_AUTOLOAD: '',
+    },
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(`${result.stdout}\n${result.stderr}`, /GM 运行时环境变量文件不可读.*EISDIR/u);
 }
 
 async function assertServerEnvLoaderSkipsUnreadableFiles(root: string): Promise<void> {
