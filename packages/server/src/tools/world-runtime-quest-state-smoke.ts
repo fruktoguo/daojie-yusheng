@@ -616,7 +616,7 @@ function testAdvanceKillQuestProgressSkipsInactiveQuestHydration() {
 
     service.advanceKillQuestProgress('player:1', 'rat', '灰尾鼠');
 
-    assert.equal(hydrateCalls, 2, '击杀推进只应水合 active 任务');
+    assert.equal(hydrateCalls, 0, '击杀推进不应水合已规范化且不匹配的 active 任务');
     assert.deepEqual(log, []);
 }
 /**

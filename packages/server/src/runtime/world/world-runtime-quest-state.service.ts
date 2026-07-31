@@ -291,10 +291,47 @@ export class WorldRuntimeQuestStateService {
         for (let index = 0; index < player.quests.quests.length; index += 1) {
             const currentQuest = player.quests.quests[index];
             // 已完成或非 active 任务不可能被击杀事件推进；避免每次击杀重复水合历史任务。
-            // active 任务仍必须经过水合，以修复旧存档缺失的目标字段后再判断目标怪物。
             if (currentQuest?.status !== 'active') {
                 continue;
             }
+            // 现代任务运行态已经带齐击杀目标字段时，非击杀任务以及目标不匹配的
+            // 击杀任务都不需要再次从模板克隆；字段缺失或类型异常的旧存档仍走水合。
+            const normalizedObjectiveType = typeof currentQuest.objectiveType === 'string'
+                ? currentQuest.objectiveType.trim()
+                : currentQuest.objectiveType;
+            const normalizedTargetMonsterId = currentQuest.targetMonsterId;
+            const normalizedRequired = Number(currentQuest.required);
+            if (
+                typeof normalizedObjectiveType === 'string'
+                && normalizedObjectiveType
+                && normalizedObjectiveType !== 'kill'
+            ) {
+                continue;
+            }
+            if (
+                normalizedObjectiveType === 'kill'
+                && typeof normalizedTargetMonsterId === 'string'
+                && normalizedTargetMonsterId.trim()
+                && Number.isFinite(normalizedRequired)
+                && normalizedRequired > 0
+            ) {
+                if (normalizedTargetMonsterId !== monsterId) {
+                    continue;
+                }
+                const nextProgress = Math.min(
+                    normalizedRequired,
+                    Math.max(0, Number(currentQuest.progress) || 0) + 1,
+                );
+                if (nextProgress !== currentQuest.progress) {
+                    currentQuest.progress = nextProgress;
+                    if (!currentQuest.targetName || currentQuest.targetName === currentQuest.targetMonsterId) {
+                        currentQuest.targetName = resolvePlayerFacingContentName(monsterId, '未知妖兽', monsterName);
+                    }
+                    changed = true;
+                }
+                continue;
+            }
+            // 只有字段不完整或尚未规范化的 active 任务需要水合，以兼容旧存档。
             const quest = this.hydrateQuestRuntimeState(playerId, currentQuest);
             if (quest !== player.quests.quests[index]) {
                 player.quests.quests[index] = quest;
