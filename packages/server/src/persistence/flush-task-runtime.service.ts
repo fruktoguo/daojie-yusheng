@@ -1432,6 +1432,8 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
             domains: [entry.domain],
             options: {
               allowInventoryEmptyOverwrite: entry.domain === 'inventory',
+              allowWalletEmptyOverwrite: entry.domain === 'wallet'
+                && Array.isArray(entry.payload.snapshot.wallet?.balances),
               allowEquipmentEmptyOverwrite: entry.domain === 'equipment',
               allowArtifactEmptyOverwrite: entry.domain === 'artifact',
               allowBuffEmptyOverwrite: entry.domain === 'buff',

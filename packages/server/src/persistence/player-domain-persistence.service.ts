@@ -333,6 +333,7 @@ export interface PlayerDomainWriteOptions {
 
 export interface PlayerSnapshotProjectionDomainWriteOptions {
   allowInventoryEmptyOverwrite?: boolean;
+  allowWalletEmptyOverwrite?: boolean;
   allowEquipmentEmptyOverwrite?: boolean;
   allowArtifactEmptyOverwrite?: boolean;
   allowBuffEmptyOverwrite?: boolean;
@@ -3748,7 +3749,8 @@ export async function savePlayerSnapshotProjectionDomainsWithClient(
   }
 
   if (rawDomains.has('wallet')) {
-    const walletBalances = Array.isArray(snapshot.wallet?.balances)
+    const hasExplicitWalletBalances = Array.isArray(snapshot.wallet?.balances);
+    const walletBalances = hasExplicitWalletBalances
       ? (snapshot.wallet.balances as readonly PlayerWalletUpsertInput[])
       : [];
     await replacePlayerWalletRows(
@@ -3756,6 +3758,9 @@ export async function savePlayerSnapshotProjectionDomainsWithClient(
       normalizedPlayerId,
       walletBalances,
       versionSeed,
+      {
+        allowEmptyOverwrite: options.allowWalletEmptyOverwrite === true && hasExplicitWalletBalances,
+      },
     );
     watermarkPatch.wallet_version = versionSeed;
   }
@@ -5005,7 +5010,7 @@ function isExplicitEquipmentSlotProjection(slots: readonly unknown[]): boolean {
  * - incoming 为空 + PG 中该玩家在该域有 N>0 行 → throw，让 withTransaction 整体 rollback；
  * - incoming 为空 + PG 中本来也是空 → no-op 通过（合法零状态）。
  *
- * 玩家正常游戏中 inventory/wallet/equipment/market_storage 不会从有变成全空（至少有起步装备/初始铜钱），
+ * 玩家正常游戏中 inventory/equipment/market_storage 不会从有变成全空（至少有起步装备），
  * technique/buff/quest 同样不会一次清光。如果有合法 reset 场景，应该走显式专门 API，不能通过整快照 replace 触发。
  */
 async function refuseEmptyOverwriteIfRowsExist(
@@ -5421,6 +5426,7 @@ async function replacePlayerWalletRows(
   playerId: string,
   rows: readonly PlayerWalletUpsertInput[],
   versionSeed: number,
+  options: PlayerDomainPruneOptions = {},
 ): Promise<void> {
   const sourceRows = Array.isArray(rows) ? rows : [];
   const normalizedRows: Array<{
@@ -5448,6 +5454,10 @@ async function replacePlayerWalletRows(
   }
 
   if (normalizedRows.length === 0) {
+    if (options.allowEmptyOverwrite === true) {
+      await deletePlayerWalletForExplicitEmptySnapshot(client, playerId);
+      return;
+    }
     await refuseEmptyOverwriteIfRowsExist(client, PLAYER_WALLET_TABLE, playerId, 0, 'wallet');
     return;
   }
@@ -5499,6 +5509,14 @@ async function replacePlayerWalletRows(
     `,
     [playerId, normalizedRowsJson],
   );
+}
+
+/** 仅处理投影 payload 明确携带空钱包数组的合法清空。 */
+async function deletePlayerWalletForExplicitEmptySnapshot(
+  client: PoolClient,
+  playerId: string,
+): Promise<void> {
+  await client.query(`DELETE FROM ${PLAYER_WALLET_TABLE} WHERE player_id = $1`, [playerId]);
 }
 
 async function replacePlayerMapUnlockRows(

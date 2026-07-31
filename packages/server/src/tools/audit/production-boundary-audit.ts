@@ -415,6 +415,9 @@ const CHECKS = [
     exclude: [
       " AND ",
     ],
+    allowedFunctions: [
+      "deletePlayerWalletForExplicitEmptySnapshot",
+    ],
   },
   {
     id: "persistence.snapshot_rewrite.player_domain_equipment",

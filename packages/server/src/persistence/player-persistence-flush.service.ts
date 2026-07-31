@@ -616,6 +616,8 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
         projectedDomains,
         {
           allowInventoryEmptyOverwrite: projectedDomains.has('inventory'),
+          allowWalletEmptyOverwrite: projectedDomains.has('wallet')
+            && Array.isArray(snapshot.wallet?.balances),
           allowEquipmentEmptyOverwrite: projectedDomains.has('equipment'),
           allowArtifactEmptyOverwrite: projectedDomains.has('artifact'),
           allowBuffEmptyOverwrite: projectedDomains.has('buff'),

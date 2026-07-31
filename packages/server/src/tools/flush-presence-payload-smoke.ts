@@ -243,6 +243,7 @@ async function main(): Promise<void> {
     await proveHistoricalPresenceFenceConvergence();
     await proveStartupReplayDrainsPresenceBeforeProjection();
     await proveStartupReplayAdvancesDurableFutureFence();
+    await proveStartupReplayAllowsExplicitEmptyWalletProjection();
     await proveStartupReplayPreservesTechniqueComprehensionTruth();
     proveInventoryOwnershipConflictPayloadRepair();
     await proveStartupReplayRepairsSafeInventoryOwnershipConflict();
@@ -254,7 +255,7 @@ async function main(): Promise<void> {
   }
   console.log(JSON.stringify({
     ok: true,
-    answers: '玩家 presence 与 snapshot projectable flush task 可在 worker role 下从 staging payload 写入 PlayerDomainPersistenceService，并 mark flushed；同一玩家的多个 projection 只调用一次单事务 batch writer，任一领域写失败时整组进入 retry且不会降级为逐域写入；历史 payload 缺 owner 时不信任可能残留的 ledger owner，只有 payload/DB 精确 fence 或同 epoch 双方均已释放 owner 才写入，旧 session/owner 与不存在玩家的 projection 会 stale-safe 收敛；启动重放遇到历史无授权的功法领悟空删除时保留数据库真源、隔离 technique 删除 payload，并继续提交同玩家其余领域；库存实例跨玩家归属冲突会先隔离，模板与完整实例态一致时只换发 payload 技术 ID，启动前离线且领域版本领先时才可重置旧 fence，在线或无法证明等价时继续保留 durable payload 等待人工核对。',
+    answers: '玩家 presence 与 snapshot projectable flush task 可在 worker role 下从 staging payload 写入 PlayerDomainPersistenceService，并 mark flushed；同一玩家的多个 projection 只调用一次单事务 batch writer，任一领域写失败时整组进入 retry且不会降级为逐域写入；历史 payload 缺 owner 时不信任可能残留的 ledger owner，只有 payload/DB 精确 fence 或同 epoch 双方均已释放 owner 才写入，旧 session/owner 与不存在玩家的 projection 会 stale-safe 收敛；启动重放会为明确携带 balances=[] 的 wallet payload 传递合法清空授权，缺字段不会获得授权；历史无授权的功法领悟空删除会保留数据库真源、隔离 technique 删除 payload，并继续提交同玩家其余领域；库存实例跨玩家归属冲突会先隔离，模板与完整实例态一致时只换发 payload 技术 ID，启动前离线且领域版本领先时才可重置旧 fence，在线或无法证明等价时继续保留 durable payload 等待人工核对。',
     excludes: '不证明邮件/市场/GM edit 或实例 domain，也不证明真实 DB with-db 竞争。',
     completionMapping: 'flush-player-payload',
   }, null, 2));
@@ -887,6 +888,78 @@ async function proveStartupReplayDrainsPresenceBeforeProjection(): Promise<void>
   const processed = await runtime.replayDurablePayloadsBeforeRecovery({ timeoutMs: 5_000 });
   assert.equal(processed, 2);
   assert.deepEqual(writeOrder, ['presence', 'projection']);
+}
+
+async function proveStartupReplayAllowsExplicitEmptyWalletProjection(): Promise<void> {
+  const playerId = 'wallet-explicit-empty-replay-player';
+  const task: FlushTask = {
+    scope: 'player',
+    id: playerId,
+    domain: 'wallet',
+    priority: 'high',
+    latestRevision: 195,
+    claimOwnerId: 'wallet-explicit-empty-claim',
+    payloadJson: {
+      kind: 'player_snapshot_projection',
+      projectedDomains: ['wallet'],
+      projectionVersion: 195,
+      snapshot: {
+        version: 1,
+        savedAt: 195,
+        placement: { templateId: 'map-1', x: 1, y: 2 },
+        wallet: { balances: [] },
+      },
+    },
+  };
+  let pending = true;
+  let authorizationObserved = false;
+  const runtime = new FlushTaskRuntimeService(
+    {} as never,
+    {} as never,
+    { flushPlayerDomains: async () => { throw new Error('startup replay 不得回退 runtime flush'); } } as never,
+    {
+      isEnabled: () => true,
+      countPendingPayloadTasks: async (input?: { scope?: string; domain?: string }) => {
+        if (input?.scope === 'player' && input.domain === 'presence') return 0;
+        return pending ? 1 : 0;
+      },
+      claimReadyPlayerFlushTaskGroups: async () => pending ? [task] : [],
+      claimReadyFlushTasks: async () => [],
+      renewFlushTaskClaims: async (tasks: FlushTask[]) => tasks.length,
+      markFlushTaskFlushed: async () => {
+        pending = false;
+        return true;
+      },
+      markFlushTasksRetry: async () => 0,
+      markFlushTaskRetry: async () => true,
+    } as never,
+    { signalPlayerFlush: () => undefined, signalInstanceFlush: () => undefined } as never,
+    undefined,
+    undefined,
+    {
+      isEnabled: () => true,
+      savePlayerSnapshotProjectionDomainBatch: async (
+        targetPlayerId: string,
+        entries: Array<{
+          domains: Iterable<string>;
+          snapshot: { wallet?: { balances?: unknown[] } };
+          options?: { allowWalletEmptyOverwrite?: boolean };
+        }>,
+      ) => {
+        assert.equal(targetPlayerId, playerId);
+        assert.equal(entries.length, 1);
+        assert.deepEqual(Array.from(entries[0]?.domains ?? []), ['wallet']);
+        assert.deepEqual(entries[0]?.snapshot.wallet?.balances, []);
+        assert.equal(entries[0]?.options?.allowWalletEmptyOverwrite, true);
+        authorizationObserved = true;
+      },
+    } as never,
+  );
+
+  const processed = await runtime.replayDurablePayloadsBeforeRecovery({ timeoutMs: 5_000 });
+  assert.equal(processed, 1);
+  assert.equal(authorizationObserved, true);
+  assert.equal(pending, false);
 }
 
 async function proveStartupReplayPreservesTechniqueComprehensionTruth(): Promise<void> {

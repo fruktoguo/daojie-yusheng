@@ -17,6 +17,7 @@ export async function runPlayerDomainFakePoolContracts(): Promise<void> {
   await assertEquipmentProjectionWritePlanRecorderDoesNotInventConflicts();
   await assertEquipmentInstanceIdsRepairLegacyAndOutOfScopeConflicts();
   await assertEmptyCollectionSnapshotsDoNotIssueDeletes();
+  await assertExplicitEmptyWalletProjectionUsesDedicatedClear();
   await assertAutoPreferenceEmptyOverwriteIsAllowed();
   await assertLogbookAcknowledgementCanClearPendingRows();
   await assertAssetDomainInvalidEntriesRefuseSilentPrune();
@@ -826,6 +827,54 @@ async function assertEmptyCollectionSnapshotsDoNotIssueDeletes(): Promise<void> 
 
   if (queries.some((sql) => sql.includes('DELETE FROM player_wallet') || sql.includes('DELETE FROM player_market_storage_item') || sql.includes('DELETE FROM player_equipment_slot'))) {
     throw new Error(`empty collection writes should not emit destructive deletes: ${queries.join('\n---\n')}`);
+  }
+}
+
+async function assertExplicitEmptyWalletProjectionUsesDedicatedClear(): Promise<void> {
+  const explicitEmptySnapshot = buildSnapshot(1);
+  explicitEmptySnapshot.wallet = { balances: [] };
+  const explicitClearPlan = await buildPlayerSnapshotProjectionWritePlan(
+    'player:explicit-empty-wallet',
+    explicitEmptySnapshot,
+    ['wallet'],
+    { allowWalletEmptyOverwrite: true },
+  );
+  const explicitClearDeletes = explicitClearPlan.steps.filter((step) =>
+    step.sql.includes('DELETE FROM player_wallet WHERE player_id = $1'),
+  );
+  if (explicitClearDeletes.length !== 1) {
+    throw new Error(`explicit empty wallet projection missing dedicated clear: ${JSON.stringify(explicitClearPlan.steps)}`);
+  }
+
+  const guardedEmptyPlan = await buildPlayerSnapshotProjectionWritePlan(
+    'player:guarded-empty-wallet',
+    explicitEmptySnapshot,
+    ['wallet'],
+  );
+  if (guardedEmptyPlan.steps.some((step) => step.sql.includes('DELETE FROM player_wallet WHERE player_id = $1'))) {
+    throw new Error(`unapproved empty wallet projection emitted clear: ${JSON.stringify(guardedEmptyPlan.steps)}`);
+  }
+  if (!guardedEmptyPlan.steps.some((step) =>
+    step.sql.includes('SELECT 1 AS exists') && step.sql.includes('player_wallet'),
+  )) {
+    throw new Error(`unapproved empty wallet projection bypassed guard: ${JSON.stringify(guardedEmptyPlan.steps)}`);
+  }
+
+  const missingWalletSnapshot = buildSnapshot(2);
+  delete missingWalletSnapshot.wallet;
+  const missingWalletPlan = await buildPlayerSnapshotProjectionWritePlan(
+    'player:missing-wallet',
+    missingWalletSnapshot,
+    ['wallet'],
+    { allowWalletEmptyOverwrite: true },
+  );
+  if (missingWalletPlan.steps.some((step) => step.sql.includes('DELETE FROM player_wallet WHERE player_id = $1'))) {
+    throw new Error(`missing wallet payload emitted clear: ${JSON.stringify(missingWalletPlan.steps)}`);
+  }
+  if (!missingWalletPlan.steps.some((step) =>
+    step.sql.includes('SELECT 1 AS exists') && step.sql.includes('player_wallet'),
+  )) {
+    throw new Error(`missing wallet payload bypassed guard: ${JSON.stringify(missingWalletPlan.steps)}`);
   }
 }
 

@@ -239,6 +239,13 @@ interface ExplicitDiscardComprehensionPruneResult {
   explicitlyDiscardedPendingDeleted: boolean;
 }
 
+interface ExplicitEmptyWalletProjectionResult {
+  playerId: string;
+  explicitEmptyDeleted: boolean;
+  missingPayloadRejected: boolean;
+  preservedRowsAfterMissingPayload: number;
+}
+
 async function main(): Promise<void> {
   if (!databaseUrl.trim()) {
     console.log(
@@ -274,12 +281,14 @@ async function main(): Promise<void> {
   let completedComprehensionPrune: CompletedComprehensionPruneResult | null = null;
   let blockedComprehensionPrune: BlockedComprehensionPruneResult | null = null;
   let explicitDiscardComprehensionPrune: ExplicitDiscardComprehensionPruneResult | null = null;
+  let explicitEmptyWalletProjection: ExplicitEmptyWalletProjectionResult | null = null;
   let successPayload: Record<string, unknown> | null = null;
   const testPlayerIds = [
     ...DOMAIN_CASES.map((domainCase) => `${playerIdBase}_${domainCase.tag}`),
     `${playerIdBase}_technique_comprehension_completed`,
     `${playerIdBase}_technique_comprehension_blocked`,
     `${playerIdBase}_technique_comprehension_discarded`,
+    `${playerIdBase}_wallet_explicit_empty`,
   ];
   let runError: unknown = null;
   const cleanupErrors: unknown[] = [];
@@ -358,6 +367,11 @@ async function main(): Promise<void> {
       pool,
       `${playerIdBase}_technique_comprehension_discarded`,
     );
+    explicitEmptyWalletProjection = await assertExplicitEmptyWalletProjectionCanClear(
+      service,
+      pool,
+      `${playerIdBase}_wallet_explicit_empty`,
+    );
 
     if (failures.length > 0) {
       throw new Error(`empty-overwrite guard failures:\n  - ${failures.join('\n  - ')}`);
@@ -370,8 +384,9 @@ async function main(): Promise<void> {
       completedComprehensionPrune,
       blockedComprehensionPrune,
       explicitDiscardComprehensionPrune,
+      explicitEmptyWalletProjection,
       answers:
-        '玩家分域 cleanup DELETE 在 incoming=[] + PG 已有 row 时，已被 refuseEmptyOverwriteIfRowsExist 守卫拒绝；withTransaction rollback 后 PG 中 row 数与 seed 一致。未领悟功法完成或携带匹配功法 ID 的显式放弃授权时允许删除旧 pending 行；普通空投影仍拒绝清空 pending。',
+        '玩家分域 cleanup DELETE 在 incoming=[] + PG 已有 row 时，已被 refuseEmptyOverwriteIfRowsExist 守卫拒绝；withTransaction rollback 后 PG 中 row 数与 seed 一致。wallet payload 明确携带 balances=[] 且有投影授权时可清除旧钱包投影，缺少 wallet 字段时仍拒绝删除。未领悟功法完成或携带匹配功法 ID 的显式放弃授权时允许删除旧 pending 行；普通空投影仍拒绝清空 pending。',
       excludes:
         '不证明 ensureNativeStarterSnapshot 入口的 load 失败拒绝写 starter / hasRecoveryWatermark guard，这两层由 world-player-snapshot.service 自身的逻辑路径覆盖。',
       completionMapping: 'release:proof:with-db.player-domain-empty-overwrite-guard',
@@ -417,6 +432,64 @@ async function main(): Promise<void> {
     throw new Error('player-domain-empty-overwrite-guard smoke 未生成成功结果');
   }
   console.log(JSON.stringify(successPayload, null, 2));
+}
+
+async function assertExplicitEmptyWalletProjectionCanClear(
+  service: PlayerDomainPersistenceService,
+  pool: Pool,
+  playerId: string,
+): Promise<ExplicitEmptyWalletProjectionResult> {
+  await cleanupPlayer(pool, playerId);
+  const versionSeed = Date.now();
+  await service.savePlayerWallet(
+    playerId,
+    [{ walletType: 'spirit_stone', balance: 100, frozenBalance: 0, version: versionSeed }],
+    { versionSeed },
+  );
+
+  const explicitEmptySnapshot = buildTechniqueProjectionSnapshot(playerId, [], []);
+  explicitEmptySnapshot.savedAt = versionSeed + 1;
+  explicitEmptySnapshot.wallet = { balances: [] };
+  await service.savePlayerSnapshotProjectionDomains(
+    playerId,
+    explicitEmptySnapshot,
+    ['wallet'],
+    { allowWalletEmptyOverwrite: true },
+  );
+  const rowsAfterExplicitEmpty = await countDomainRows(pool, 'player_wallet', playerId);
+
+  await service.savePlayerWallet(
+    playerId,
+    [{ walletType: 'spirit_stone', balance: 80, frozenBalance: 0, version: versionSeed + 2 }],
+    { versionSeed: versionSeed + 2 },
+  );
+  const missingWalletSnapshot = buildTechniqueProjectionSnapshot(playerId, [], []);
+  missingWalletSnapshot.savedAt = versionSeed + 3;
+  delete missingWalletSnapshot.wallet;
+  let missingPayloadRejected = false;
+  try {
+    await service.savePlayerSnapshotProjectionDomains(
+      playerId,
+      missingWalletSnapshot,
+      ['wallet'],
+      { allowWalletEmptyOverwrite: true },
+    );
+  } catch (error) {
+    missingPayloadRejected = error instanceof Error
+      && error.message.includes('replace_wallet_refused_empty_overwrite');
+  }
+  const preservedRowsAfterMissingPayload = await countDomainRows(pool, 'player_wallet', playerId);
+  const result = {
+    playerId,
+    explicitEmptyDeleted: rowsAfterExplicitEmpty === 0,
+    missingPayloadRejected,
+    preservedRowsAfterMissingPayload,
+  };
+  await cleanupPlayer(pool, playerId).catch(() => undefined);
+  if (!result.explicitEmptyDeleted || !result.missingPayloadRejected || preservedRowsAfterMissingPayload !== 1) {
+    throw new Error(`explicit empty wallet projection contract failed: ${JSON.stringify(result)}`);
+  }
+  return result;
 }
 
 async function assertUnmatchedTechniqueComprehensionStillBlocked(
