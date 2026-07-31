@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 
+import type { InstanceLeaseWriteFence } from '../persistence/instance-lease-write-fence';
 import { TechniqueActivityPipelineService } from '../runtime/craft/pipeline/technique-activity-pipeline.service';
 import { FormationStrategy } from '../runtime/craft/pipeline/strategies/formation.strategy';
 import { WorldRuntimeFormationService } from '../runtime/world/world-runtime-formation.service';
@@ -148,6 +149,16 @@ async function main(): Promise<void> {
   );
   service.formationMaintenanceCheckpointIntervalMs = 60_000;
   service.formationsByInstanceId.set(instanceId, [formation]);
+  const supplementalPersistenceCalls: Array<{
+    instanceId: string;
+    persistenceFence: InstanceLeaseWriteFence | null;
+  }> = [];
+  service.persistInstanceFormationsSoon = (
+    targetInstanceId: string,
+    persistenceFence: InstanceLeaseWriteFence | null = null,
+  ): void => {
+    supplementalPersistenceCalls.push({ instanceId: targetInstanceId, persistenceFence });
+  };
   const pipeline = new TechniqueActivityPipelineService();
   pipeline.register(new FormationStrategy());
   const tickAction = (tickDeps: typeof deps) => pipeline.tick(player, 'formation', {
@@ -186,6 +197,7 @@ async function main(): Promise<void> {
 
   const stagedSnapshotSavedAt = service.formationMaintenanceCheckpointById
     .get(formationInstanceId)?.durableInput.nextPlayerSnapshot.savedAt;
+  formation.updatedAt += 1;
   await service.flushPendingFormationMaintenanceForPlayer(playerId);
   assert.deepEqual(persistedDomains, [['active_job', 'profession', 'vitals']]);
   assert.deepEqual(Array.from(heldDomains), []);
@@ -199,6 +211,15 @@ async function main(): Promise<void> {
   );
   assert.equal(durableCalls[0]?.qiAmount, 32);
   assert.equal(durableCalls[0]?.formationQiAmount, 64);
+  assert.deepEqual(supplementalPersistenceCalls, [{
+    instanceId,
+    persistenceFence: {
+      instanceId,
+      assignedNodeId: 'node:formation-maintenance',
+      leaseToken: 'lease:formation-maintenance',
+      ownershipEpoch: 9,
+    },
+  }], '检查点提交期间运行态继续变化时，补充刷盘必须沿用已提交事务的实例租约围栏');
 
   await service.tickFormationMaintenanceDurably(player, tickAction, deps);
   const stagedBeforeFailedCommit = {
@@ -246,6 +267,7 @@ async function main(): Promise<void> {
       '连续两息只提交一次玩家灵力、阵法灵力、技艺经验与 job version 检查点。',
       'durable 失败保留同一检查点与持久化域持有，重试成功后才释放普通刷盘。',
       '维护事务携带实例 node/token/epoch 与玩家 session fence。',
+      '检查点提交期间产生的新阵法变化会携带同一实例租约围栏进入补充刷盘。',
     ],
   }, null, 2));
 }

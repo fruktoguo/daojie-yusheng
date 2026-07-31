@@ -244,6 +244,33 @@ class WorldRuntimeFormationService {
         return resolved;
     }
 
+    resolveFormationMaintenanceCheckpointFence(
+        checkpoint: FormationMaintenanceCheckpoint,
+    ): InstanceLeaseWriteFence {
+        const checkpointInstanceId = normalizeInstanceId(checkpoint?.instanceId);
+        const expectedInstanceId = normalizeInstanceId(checkpoint?.durableInput?.expectedInstanceId);
+        const assignedNodeId = normalizeOptionalString(checkpoint?.durableInput?.expectedAssignedNodeId);
+        const leaseToken = normalizeOptionalString(checkpoint?.durableInput?.expectedLeaseToken);
+        const ownershipEpoch = Number.isFinite(Number(checkpoint?.durableInput?.expectedOwnershipEpoch))
+            ? Math.max(0, Math.trunc(Number(checkpoint.durableInput.expectedOwnershipEpoch)))
+            : 0;
+        if (
+            !checkpointInstanceId
+            || expectedInstanceId !== checkpointInstanceId
+            || !assignedNodeId
+            || !leaseToken
+            || ownershipEpoch <= 0
+        ) {
+            throw new Error(`formation_maintenance_checkpoint_lease_fence_invalid:${checkpointInstanceId || 'unknown'}`);
+        }
+        return {
+            instanceId: checkpointInstanceId,
+            assignedNodeId,
+            leaseToken,
+            ownershipEpoch,
+        };
+    }
+
     enqueueFormationNotice(playerId, kind, key, fallbackText, vars = {}) {
         const notice = buildStructuredNotice(kind, key, fallbackText, {
             vars,
@@ -2362,7 +2389,9 @@ class WorldRuntimeFormationService {
             clearTimeout(checkpoint.timer);
             checkpoint.timer = null;
         }
+        let persistenceFence: InstanceLeaseWriteFence;
         try {
+            persistenceFence = this.resolveFormationMaintenanceCheckpointFence(checkpoint);
             await this.commitFormationMaintenancePlan(checkpoint.playerId, checkpoint.durableInput);
         }
         catch (error) {
@@ -2393,7 +2422,7 @@ class WorldRuntimeFormationService {
             || this.dirtyFormationInstanceIds.has(checkpoint.instanceId)
             || this.removedFormationKeysByInstanceId.has(checkpoint.instanceId)
         ) {
-            this.persistInstanceFormationsSoon(checkpoint.instanceId);
+            this.persistInstanceFormationsSoon(checkpoint.instanceId, persistenceFence);
         }
         return true;
     }
