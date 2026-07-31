@@ -26,6 +26,10 @@ import {
   shouldStartHttpServer,
 } from '../config/runtime-role';
 import { reportServerProcessFatalAndExit } from './process-supervisor';
+import {
+  DEFAULT_SERVER_LISTEN_PORT,
+  resolveServerListenEndpoint,
+} from '../config/server-listen-endpoint';
 
 /** 端口冲突诊断最多采样次数。 */
 const PORT_CONFLICT_SAMPLE_ATTEMPTS = 12;
@@ -247,8 +251,13 @@ async function bootstrap(): Promise<void> {
     next();
   });
 
-  const port = Number(process.env.SERVER_PORT ?? 13001);
-  const host = process.env.SERVER_HOST ?? '0.0.0.0';
+  const listenEndpoint = resolveServerListenEndpoint();
+  const { host, port } = listenEndpoint;
+  if (listenEndpoint.invalidPortValue !== null) {
+    logger.warn(
+      `非法 SERVER_PORT=${JSON.stringify(listenEndpoint.invalidPortValue.slice(0, 80))}，已回退生产默认端口 ${DEFAULT_SERVER_LISTEN_PORT}`,
+    );
+  }
 
   try {
     await app.listen(port, host);

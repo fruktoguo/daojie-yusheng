@@ -7,6 +7,7 @@ import { fork, type ChildProcess } from 'node:child_process';
 import { appendFileSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { request } from 'node:http';
 import { dirname, join, resolve } from 'node:path';
+import { resolveServerListenEndpoint } from '../config/server-listen-endpoint';
 
 const SUPERVISOR_CHILD_ENV = 'SERVER_PROCESS_SUPERVISOR_CHILD';
 const SUPERVISOR_GENERATION_ENV = 'SERVER_PROCESS_SUPERVISOR_GENERATION';
@@ -535,7 +536,7 @@ function resolveProcessSupervisorConfig(env: NodeJS.ProcessEnv): ProcessSupervis
     journalMaxBytes,
     journalRetainBytes: Math.floor(journalMaxBytes / 2),
     probeHost: String(env.SERVER_PROCESS_SUPERVISOR_PROBE_HOST ?? '').trim() || '127.0.0.1',
-    probePort: readBoundedInteger(env.SERVER_PORT, 13_001, 1, 65_535),
+    probePort: resolveServerListenEndpoint(env).port,
     probeEnabled: runtimeRole !== 'worker',
   };
 }

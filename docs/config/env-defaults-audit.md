@@ -46,7 +46,7 @@
 | 环境变量 | 默认值 | 说明 |
 |----------|--------|------|
 | `SERVER_HOST` | `0.0.0.0` | 容器环境可对外监听 |
-| `SERVER_PORT` | `13001` | 固定服务端容器端口 |
+| `SERVER_PORT` | `13001` | 固定服务端容器端口；非法、非整数或越界显式值会告警并回退该默认值，监听进程与监督探针使用同一解析口径 |
 | `SERVER_CORS_ENABLED` / `CORS_ENABLED` | `true` | 默认启用 CORS 保护链 |
 | `SERVER_CORS_METHODS` / `CORS_METHODS` | `GET,POST,PUT,PATCH,DELETE,OPTIONS` | API 所需方法集合 |
 | `SERVER_CORS_HEADERS` / `CORS_HEADERS` | `Content-Type,Authorization,X-Requested-With` | API 所需请求头集合 |

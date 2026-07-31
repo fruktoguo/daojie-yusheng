@@ -5,11 +5,17 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { NativeGmAdminService } from '../http/native/native-gm-admin.service';
+import {
+  DEFAULT_SERVER_LISTEN_HOST,
+  DEFAULT_SERVER_LISTEN_PORT,
+  resolveServerListenEndpoint,
+} from '../config/server-listen-endpoint';
 import { installSmokeTimeout } from './smoke-timeout';
 
 installSmokeTimeout(__filename);
 
 async function main(): Promise<void> {
+  assertListenEndpointUsesProductionFallbacks();
   const root = await mkdtemp(join(tmpdir(), 'startup-config-resilience-'));
   try {
     await assertServerEnvLoaderSkipsUnreadableFiles(root);
@@ -20,6 +26,32 @@ async function main(): Promise<void> {
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+}
+
+function assertListenEndpointUsesProductionFallbacks(): void {
+  assert.deepEqual(resolveServerListenEndpoint({}), {
+    host: DEFAULT_SERVER_LISTEN_HOST,
+    port: DEFAULT_SERVER_LISTEN_PORT,
+    invalidPortValue: null,
+  });
+  assert.deepEqual(resolveServerListenEndpoint({
+    SERVER_HOST: ' 127.0.0.1 ',
+    SERVER_PORT: ' 14001 ',
+  }), {
+    host: '127.0.0.1',
+    port: 14_001,
+    invalidPortValue: null,
+  });
+  for (const invalidPortValue of ['not-a-port', '13001.5', '0', '65536']) {
+    const resolved = resolveServerListenEndpoint({
+      SERVER_HOST: '   ',
+      SERVER_PORT: invalidPortValue,
+    });
+    assert.equal(resolved.host, DEFAULT_SERVER_LISTEN_HOST);
+    assert.equal(resolved.port, DEFAULT_SERVER_LISTEN_PORT);
+    assert.equal(resolved.invalidPortValue, invalidPortValue);
+  }
+  assert.equal(resolveServerListenEndpoint({ SERVER_PORT: '65535' }).port, 65_535);
 }
 
 async function assertRuntimeEnvManagementSkipsUnreadableOverlay(root: string): Promise<void> {
