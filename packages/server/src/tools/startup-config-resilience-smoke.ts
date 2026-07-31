@@ -15,6 +15,7 @@ import {
   validateGameConfigValue,
 } from '../config/game-config-registry';
 import { resolveWorkerPoolSize } from '../config/worker-pool-config';
+import { resolveBootstrapGameConfigRow } from '../config/bootstrap-load-db-config';
 import { installSmokeTimeout } from './smoke-timeout';
 
 installSmokeTimeout(__filename);
@@ -22,6 +23,7 @@ installSmokeTimeout(__filename);
 async function main(): Promise<void> {
   assertListenEndpointUsesProductionFallbacks();
   assertWorkerPoolConfigUsesBoundedIntegers();
+  assertBootstrapDatabaseConfigRejectsInvalidRows();
   const root = await mkdtemp(join(tmpdir(), 'startup-config-resilience-'));
   try {
     await assertServerEnvLoaderSkipsUnreadableFiles(root);
@@ -32,6 +34,26 @@ async function main(): Promise<void> {
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+}
+
+function assertBootstrapDatabaseConfigRejectsInvalidRows(): void {
+  assert.deepEqual(resolveBootstrapGameConfigRow({
+    key: 'SERVER_INSTANCE_WORKER_COUNT',
+    value: '6',
+  }), {
+    key: 'SERVER_INSTANCE_WORKER_COUNT',
+    value: '6',
+    validationError: null,
+  });
+  assert.equal(
+    resolveBootstrapGameConfigRow({
+      key: 'SERVER_INSTANCE_WORKER_COUNT',
+      value: '2.5',
+    })?.validationError,
+    'value must be an integer',
+  );
+  assert.equal(resolveBootstrapGameConfigRow({ key: 'UNKNOWN_CONFIG', value: '1' }), null);
+  assert.equal(resolveBootstrapGameConfigRow({ key: 'SERVER_INSTANCE_WORKER_COUNT', value: null }), null);
 }
 
 function assertWorkerPoolConfigUsesBoundedIntegers(): void {

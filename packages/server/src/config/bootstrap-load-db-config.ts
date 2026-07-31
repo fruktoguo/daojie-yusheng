@@ -11,7 +11,10 @@
 import { Pool } from 'pg';
 
 import { resolveServerDatabasePoolerUrl, resolveServerDatabaseUrl } from './env-alias';
-import { GAME_CONFIG_DESCRIPTOR_MAP } from './game-config-registry';
+import {
+  GAME_CONFIG_DESCRIPTOR_MAP,
+  validateGameConfigValue,
+} from './game-config-registry';
 
 const CONNECT_TIMEOUT_MS = 3000;
 const QUERY_TIMEOUT_MS = 5000;
@@ -46,11 +49,15 @@ export async function bootstrapLoadDbConfig(): Promise<number> {
 
     let count = 0;
     if (Array.isArray(result.rows)) {
-      for (const row of result.rows as Array<{ key: string; value: string }>) {
-        if (GAME_CONFIG_DESCRIPTOR_MAP.has(row.key)) {
-          process.env[row.key] = row.value;
-          count += 1;
+      for (const row of result.rows) {
+        const resolved = resolveBootstrapGameConfigRow(row);
+        if (!resolved) continue;
+        if (resolved.validationError) {
+          console.warn(`[启动配置] 已忽略数据库中的无效配置 ${resolved.key}：${resolved.validationError}`);
+          continue;
         }
+        process.env[resolved.key] = resolved.value;
+        count += 1;
       }
     }
     return count;
@@ -62,4 +69,24 @@ export async function bootstrapLoadDbConfig(): Promise<number> {
       await pool.end().catch(() => undefined);
     }
   }
+}
+
+export interface BootstrapGameConfigRowResolution {
+  key: string;
+  value: string;
+  validationError: string | null;
+}
+
+/** 只接受注册表内且通过当前 schema 校验的数据库配置行。 */
+export function resolveBootstrapGameConfigRow(row: unknown): BootstrapGameConfigRowResolution | null {
+  if (!row || typeof row !== 'object' || Array.isArray(row)) return null;
+  const record = row as { key?: unknown; value?: unknown };
+  const key = typeof record.key === 'string' ? record.key.trim() : '';
+  const descriptor = key ? GAME_CONFIG_DESCRIPTOR_MAP.get(key) : null;
+  if (!descriptor || typeof record.value !== 'string') return null;
+  return {
+    key,
+    value: record.value,
+    validationError: validateGameConfigValue(descriptor, record.value),
+  };
 }
