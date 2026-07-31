@@ -39,6 +39,7 @@ import { GatherStrategy } from './pipeline/strategies/gather.strategy';
 import { BuildingStrategy } from './pipeline/strategies/building.strategy';
 import { FormationStrategy } from './pipeline/strategies/formation.strategy';
 import { MiningStrategy } from './pipeline/strategies/mining.strategy';
+import { isEnhancementProgressOnlyTick } from './pipeline/strategies/enhancement-tick.helpers';
 import { resolvePlayerEffectiveLuck } from '../player/player-special-stat.helpers';
 import { resolvePlayerCraftRealmLevel } from './craft-effect-runtime.helpers';
 import {
@@ -502,12 +503,63 @@ export class CraftPanelRuntimeService {
         }
         return buildCraftTickResult();
     }
-    /** 线上强化 tick 入口：清理 job 或回写资产时同步提交强事务。 */
-    async tickEnhancementDurably(player, deps = null) {
+    /** 线上强化 tick 入口：普通进度走同步轻量段，清理 job 或回写资产仍同步提交强事务。 */
+    tickEnhancementDurably(player, deps = null) {
+        const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
+        const runWhileAssetIdle = this.playerRuntimeService?.tryRunSynchronousPlayerMutationWhileAssetIdle;
+        if (
+            playerId
+            && player?.enhancementDurableCommitInFlight !== true
+            && player?.suppressImmediateDomainPersistence !== true
+            && isEnhancementProgressOnlyTick(player)
+            && typeof runWhileAssetIdle === 'function'
+        ) {
+            let progressResult: any = null;
+            const executed = runWhileAssetIdle.call(this.playerRuntimeService, playerId, () => {
+                progressResult = this.tickEnhancementProgressOnly(player, deps);
+            });
+            if (executed) {
+                return progressResult;
+            }
+        }
         return this.runExclusivePlayerAssetMutation(
             player,
             () => this.tickEnhancementDurablyLocked(player, deps),
         );
+    }
+    /** 强化普通进度只修改规范化 job 与 active_job 修订；异常时按轻量快照原样回滚。 */
+    private tickEnhancementProgressOnly(player, deps = null) {
+        const before = captureEnhancementProgressRuntimeState(player);
+        const expectedJobRunId = player?.enhancementJob?.jobRunId;
+        const previousSuppress = player?.suppressImmediateDomainPersistence;
+        player.suppressImmediateDomainPersistence = true;
+        try {
+            const result: any = this.tickTechniqueActivity(player, 'enhancement', deps);
+            if (result && typeof result.then === 'function') {
+                throw new Error('enhancement_progress_tick_must_be_synchronous');
+            }
+            const violatesProgressBoundary = Boolean(
+                !result?.ok
+                || result.inventoryChanged
+                || result.equipmentChanged
+                || result.attrChanged
+                || Number(result.craftRealmExpGain) > 0
+                || !player?.enhancementJob
+                || player.enhancementJob.jobRunId !== expectedJobRunId,
+            );
+            if (violatesProgressBoundary) {
+                throw new Error('enhancement_progress_tick_crossed_asset_boundary');
+            }
+            this.queueEnhancementActiveJobFlush(player, previousSuppress);
+            return result;
+        }
+        catch (error) {
+            restoreEnhancementProgressRuntimeState(player, before);
+            throw error;
+        }
+        finally {
+            player.suppressImmediateDomainPersistence = previousSuppress;
+        }
     }
     async tickEnhancementDurablyLocked(player, deps = null) {
         if (player?.enhancementDurableCommitInFlight === true || player?.suppressImmediateDomainPersistence === true) {
@@ -3688,6 +3740,50 @@ function captureEnhancementAssetRuntimeState(player) {
         selfRevision: player?.selfRevision,
         dirtyDomains: player?.dirtyDomains instanceof Set ? new Set(player.dirtyDomains) : null,
     };
+}
+
+/** 普通进度息只保存 ensureCraftSkills 与 active_job 修订可能触达的引用和值。 */
+function captureEnhancementProgressRuntimeState(player) {
+    return {
+        alchemySkill: player?.alchemySkill,
+        forgingSkill: player?.forgingSkill,
+        gatherSkill: player?.gatherSkill,
+        miningSkill: player?.miningSkill,
+        formationSkill: player?.formationSkill,
+        enhancementSkill: player?.enhancementSkill,
+        enhancementSkillLevel: player?.enhancementSkillLevel,
+        alchemyPresets: player?.alchemyPresets,
+        enhancementRecords: player?.enhancementRecords,
+        alchemyJob: player?.alchemyJob,
+        forgingJob: player?.forgingJob,
+        enhancementJob: player?.enhancementJob,
+        persistentRevision: player?.persistentRevision,
+        selfRevision: player?.selfRevision,
+        dirtyDomains: player?.dirtyDomains instanceof Set ? new Set(player.dirtyDomains) : null,
+    };
+}
+
+function restoreEnhancementProgressRuntimeState(player, snapshot) {
+    if (!player || !snapshot) {
+        return;
+    }
+    player.alchemySkill = snapshot.alchemySkill;
+    player.forgingSkill = snapshot.forgingSkill;
+    player.gatherSkill = snapshot.gatherSkill;
+    player.miningSkill = snapshot.miningSkill;
+    player.formationSkill = snapshot.formationSkill;
+    player.enhancementSkill = snapshot.enhancementSkill;
+    player.enhancementSkillLevel = snapshot.enhancementSkillLevel;
+    player.alchemyPresets = snapshot.alchemyPresets;
+    player.enhancementRecords = snapshot.enhancementRecords;
+    player.alchemyJob = snapshot.alchemyJob;
+    player.forgingJob = snapshot.forgingJob;
+    player.enhancementJob = snapshot.enhancementJob;
+    player.persistentRevision = snapshot.persistentRevision;
+    player.selfRevision = snapshot.selfRevision;
+    player.dirtyDomains = snapshot.dirtyDomains instanceof Set
+        ? new Set(snapshot.dirtyDomains)
+        : snapshot.dirtyDomains;
 }
 
 function restoreEnhancementAssetRuntimeState(player, snapshot) {

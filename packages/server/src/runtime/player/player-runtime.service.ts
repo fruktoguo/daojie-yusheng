@@ -1173,6 +1173,27 @@ export class PlayerRuntimeService {
         return result;
     }
     /**
+     * 仅在玩家没有已登记资产事务时，于当前事件循环同步执行非资产状态推进。
+     * 队列检查与 action 封装在同一同步调用栈内，保证新的资产事务不能插入两者之间。
+     */
+    tryRunSynchronousPlayerMutationWhileAssetIdle(
+        playerId: string,
+        action: () => void,
+    ): boolean {
+        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+        if (!normalizedPlayerId || typeof action !== 'function') {
+            return false;
+        }
+        if (this.assetMutationQueueByPlayerId.has(normalizedPlayerId)) {
+            return false;
+        }
+        const result = (action as () => unknown)();
+        if (result && typeof (result as PromiseLike<unknown>).then === 'function') {
+            throw new Error('player_asset_idle_action_must_be_synchronous');
+        }
+        return true;
+    }
+    /**
      * 串行执行会跨 await 的玩家资产变更。一次涉及多名玩家时先同步登记全部有序 ticket，
      * 因而不同调用即使传入相反顺序也不会形成交叉等待。
      */

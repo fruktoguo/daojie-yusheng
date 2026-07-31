@@ -23,11 +23,18 @@ type DurableEnhancementCall = {
   args: any;
 };
 
+type AssetMutationProbe = {
+  busy: boolean;
+  exclusiveCalls: number;
+  idleChecks: number;
+};
+
 async function main(): Promise<void> {
   testEnhancementCancelUsesPipelineLifecycle();
   await testStartInterruptAndCompleteEnhancement();
   await testDurableEnhancementFlushesStaleActivityProjectionBeforeStart();
   await testDurableEnhancementPersistsAssetsAtomically();
+  await testDurableEnhancementProgressFallsBackWhenAssetBusy();
   await testDurableEnhancementAdvanceCommitsProfessionAtomically();
   await testDurableEnhancementFailureRestoresFullRuntimeState();
   await testDurableEnhancementCancelUsesCancelOperation();
@@ -61,6 +68,7 @@ async function main(): Promise<void> {
       '法宝复用现有强化生命周期，成功后按实例写回背包并提升 enhanceLevel。',
       '强化强事务提交真实钱包投影，提交失败会恢复钱包、队列、任务、装备与 revision 派生态。',
       '强化普通进度 tick 不新增 durable 操作；连续强化每阶只提交一条 advanced 强事务，并把强化技艺经验放入同一职业 patch。',
+      '强化普通进度和暂停等待在资产队列空闲时同步推进；资产队列忙或进入结算点时自动回退玩家资产串行区。',
       '强化取消使用专用 cancel 强事务；队列自动启动失败时不会丢队首或遗留已扣材料。',
       'sessionId 为空但持有离线运行态 owner/epoch 时，强化资产边界仍可提交强事务。',
       '强化启动前会先强制收敛当前 active_job 投影，数据库遗留建造任务不会再触发启动 CAS 冲突。',
@@ -167,10 +175,15 @@ async function testStartInterruptAndCompleteEnhancement(): Promise<void> {
 async function testDurableEnhancementPersistsAssetsAtomically(): Promise<void> {
   const durableCalls: DurableEnhancementCall[] = [];
   const presenceSaves: unknown[] = [];
+  const assetMutationProbe: AssetMutationProbe = { busy: false, exclusiveCalls: 0, idleChecks: 0 };
   const player = createPlayer('player:enhancement:durable', [
     createEquipmentItem('iron_sword', '铁剑', 8, 1),
   ]);
-  const { craftService } = createCraftHarness(player, [], [], { durableCalls, presenceSaves });
+  const { craftService } = createCraftHarness(player, [], [], {
+    durableCalls,
+    presenceSaves,
+    assetMutationProbe,
+  });
   const target = player.inventory.items[0];
   if (!target?.itemInstanceId) {
     throw new Error('missing enhancement target instance id');
@@ -195,20 +208,37 @@ async function testDurableEnhancementPersistsAssetsAtomically(): Promise<void> {
   assert.deepEqual(durableCalls[0]?.args.nextWalletBalances, [
     { walletType: 'spirit_stone', balance: 20, frozenBalance: 0, version: 1 },
   ]);
+  assert.equal(assetMutationProbe.exclusiveCalls, 1);
 
   player.enhancementJob!.remainingTicks = 2;
   player.enhancementJob!.workRemainingTicks = 2;
-  const tick = await craftService.tickEnhancementDurably(player);
+  const tick = craftService.tickEnhancementDurably(player);
+  assert.equal(isPromiseLike(tick), false, '强化普通进度息不应创建 Promise 或进入资产锁');
   assert.equal(tick.ok, true);
   assert.equal(durableCalls.length, 1);
   assert.equal(player.dirtyDomains.has('active_job'), true);
+  assert.equal(assetMutationProbe.idleChecks, 1);
+  assert.equal(assetMutationProbe.exclusiveCalls, 1);
+
+  player.enhancementJob!.phase = 'paused';
+  player.enhancementJob!.pausedTicks = 1;
+  player.enhancementJob!.interruptWaitRemainingTicks = 1;
+  const resumed = craftService.tickEnhancementDurably(player);
+  assert.equal(isPromiseLike(resumed), false, '强化暂停等待息也应保持同步轻量推进');
+  assert.equal(resumed.ok, true);
+  assert.equal(player.enhancementJob?.phase, 'enhancing');
+  assert.equal(player.enhancementJob?.remainingTicks, 1);
+  assert.equal(assetMutationProbe.idleChecks, 2);
+  assert.equal(assetMutationProbe.exclusiveCalls, 1);
 
   player.enhancementJob!.remainingTicks = 1;
   player.enhancementJob!.workRemainingTicks = 1;
   const originalRandom = Math.random;
   Math.random = () => 0;
   try {
-    const completed = await craftService.tickEnhancementDurably(player);
+    const pendingCompletion = craftService.tickEnhancementDurably(player);
+    assert.equal(isPromiseLike(pendingCompletion), true, '强化结算点必须回到异步资产强事务');
+    const completed = await pendingCompletion;
     assert.equal(completed.ok, true);
   } finally {
     Math.random = originalRandom;
@@ -230,6 +260,32 @@ async function testDurableEnhancementPersistsAssetsAtomically(): Promise<void> {
   assert.equal(player.inventory.lockedItems?.length ?? 0, 0);
   assert.equal(completeCall?.args.nextWalletBalances?.[0]?.balance, 19);
   assert.equal(player.inventory.items.find((item: any) => item.itemId === 'spirit_stone')?.count, 19);
+  assert.equal(assetMutationProbe.exclusiveCalls, 2);
+}
+
+async function testDurableEnhancementProgressFallsBackWhenAssetBusy(): Promise<void> {
+  const durableCalls: DurableEnhancementCall[] = [];
+  const assetMutationProbe: AssetMutationProbe = { busy: false, exclusiveCalls: 0, idleChecks: 0 };
+  const player = createPlayer('player:enhancement:asset-busy', [
+    createEquipmentItem('iron_sword', '铁剑', 8, 1),
+  ]);
+  const { craftService } = createCraftHarness(player, [], [], { durableCalls, assetMutationProbe });
+  await craftService.startEnhancementDurably(player, {
+    target: buildInventoryRef(player.inventory.items[0]),
+  });
+  player.enhancementJob!.remainingTicks = 2;
+  player.enhancementJob!.workRemainingTicks = 2;
+  assetMutationProbe.busy = true;
+
+  const pendingTick = craftService.tickEnhancementDurably(player);
+  assert.equal(isPromiseLike(pendingTick), true, '资产队列忙时普通进度也必须回退资产串行区');
+  const tick = await pendingTick;
+
+  assert.equal(tick.ok, true);
+  assert.equal(player.enhancementJob?.remainingTicks, 1);
+  assert.equal(assetMutationProbe.idleChecks, 1);
+  assert.equal(assetMutationProbe.exclusiveCalls, 2);
+  assert.deepEqual(durableCalls.map((call) => call.kind), ['start']);
 }
 
 async function testDurableEnhancementFlushesStaleActivityProjectionBeforeStart(): Promise<void> {
@@ -831,11 +887,12 @@ function createCraftHarness(
     durableCalls?: DurableEnhancementCall[];
     failDurableKinds?: ReadonlySet<DurableEnhancementCall['kind']>;
     presenceSaves?: unknown[];
+    assetMutationProbe?: AssetMutationProbe;
   } = {},
 ): {
   craftService: CraftPanelRuntimeService;
 } {
-  const playerRuntimeService = createPlayerRuntimeService(player);
+  const playerRuntimeService = createPlayerRuntimeService(player, options.assetMutationProbe);
   const playerDomainPersistenceService = {
     isEnabled(): boolean {
       return true;
@@ -966,7 +1023,7 @@ function createArtifactItem(itemId: string, name: string, level: number, enhance
   };
 }
 
-function createPlayerRuntimeService(player: any): any {
+function createPlayerRuntimeService(player: any, assetMutationProbe?: AssetMutationProbe): any {
   return {
     getPlayer(playerId: string): any | null {
       return playerId === player.playerId ? player : null;
@@ -1063,7 +1120,20 @@ function createPlayerRuntimeService(player: any): any {
     bumpPersistentRevision(targetPlayer: any): void {
       targetPlayer.persistentRevision += 1;
     },
+    tryRunSynchronousPlayerMutationWhileAssetIdle(_playerId: string, action: () => void): boolean {
+      if (assetMutationProbe) {
+        assetMutationProbe.idleChecks += 1;
+        if (assetMutationProbe.busy) {
+          return false;
+        }
+      }
+      action();
+      return true;
+    },
     async runExclusiveAssetMutation(_playerIds: string[], action: () => unknown): Promise<unknown> {
+      if (assetMutationProbe) {
+        assetMutationProbe.exclusiveCalls += 1;
+      }
       return action();
     },
     playerProgressionService: {
@@ -1159,6 +1229,10 @@ function buildInventoryRef(item: { itemInstanceId?: string }): { source: 'invent
 async function settleAsync(): Promise<void> {
   await new Promise((resolve) => setImmediate(resolve));
   await new Promise((resolve) => setImmediate(resolve));
+}
+
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+  return Boolean(value && typeof (value as PromiseLike<unknown>).then === 'function');
 }
 
 void main();

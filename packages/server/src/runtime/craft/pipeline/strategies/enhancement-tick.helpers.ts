@@ -13,6 +13,47 @@ import { advanceTechniqueActivityPause } from '../../technique-activity-runtime.
 import type { PipelineContext } from '../technique-activity-strategy';
 import { applyPlayerCraftExpRate, resolvePlayerCraftRealmLevel } from '../../craft-effect-runtime.helpers';
 
+const CONFLICTING_TECHNIQUE_JOB_SLOTS = [
+  'formationJob',
+  'buildingJob',
+  'miningJob',
+  'transmissionJob',
+  'gatherJob',
+  'forgingJob',
+  'alchemyJob',
+] as const;
+
+/**
+ * 仅识别不会进入资产结算、历史兼容清理或多任务冲突路径的强化进度息。
+ * 调用方可以据此跳过全量资产快照，但仍须通过统一 pipeline 推进 job。
+ */
+export function isEnhancementProgressOnlyTick(player: any): boolean {
+  const job = player?.enhancementJob;
+  if (!job || job.jobType !== 'enhancement' || job.target?.source !== 'inventory') {
+    return false;
+  }
+  if (
+    typeof job.jobRunId !== 'string'
+    || !job.jobRunId.trim()
+    || typeof job.itemInstanceId !== 'string'
+    || !job.itemInstanceId.trim()
+  ) {
+    return false;
+  }
+  if (CONFLICTING_TECHNIQUE_JOB_SLOTS.some((slot) => Boolean(player?.[slot]))) {
+    return false;
+  }
+  const remainingTicks = Number(job.remainingTicks);
+  const workRemainingTicks = Number(job.workRemainingTicks);
+  if (!Number.isFinite(remainingTicks) || !Number.isFinite(workRemainingTicks) || remainingTicks <= 0) {
+    return false;
+  }
+  if (job.phase === 'paused') {
+    return true;
+  }
+  return job.phase === 'enhancing' && remainingTicks > 1;
+}
+
 export function executeEnhancementTick(craftService: any, player: any, ctx: PipelineContext): unknown {
   craftService.ensureCraftSkills(player);
   const job = player?.enhancementJob;

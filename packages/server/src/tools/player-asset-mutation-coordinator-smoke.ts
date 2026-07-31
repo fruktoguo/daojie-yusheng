@@ -41,12 +41,28 @@ async function main(): Promise<void> {
   const independent = service.runExclusiveAssetMutation(['player:b'], async () => {
     log.push('b:independent');
   });
+  let synchronousMutationCount = 0;
+  assert.equal(
+    service.tryRunSynchronousPlayerMutationWhileAssetIdle('player:a', () => {
+      synchronousMutationCount += 1;
+    }),
+    false,
+  );
+  assert.equal(synchronousMutationCount, 0, '同玩家资产事务排队期间不得插入同步状态推进');
 
   await nextTurn();
   assert.deepEqual(log, ['a:first:start', 'b:independent']);
   firstGate.resolve();
   await Promise.all([first, second, independent]);
   assert.deepEqual(log, ['a:first:start', 'b:independent', 'a:first:end', 'a:second']);
+  await nextTurn();
+  assert.equal(
+    service.tryRunSynchronousPlayerMutationWhileAssetIdle('player:a', () => {
+      synchronousMutationCount += 1;
+    }),
+    true,
+  );
+  assert.equal(synchronousMutationCount, 1, '资产队列释放后应允许同步状态推进');
 
   const nested: string[] = [];
   await service.runExclusiveAssetMutation(['player:nested'], async () => {
@@ -103,7 +119,7 @@ async function main(): Promise<void> {
   console.log(JSON.stringify({
     ok: true,
     case: 'player-asset-mutation-coordinator',
-    answers: '同玩家资产写严格串行，不同玩家可并行；多玩家反向入参不会死锁；已持有玩家允许同异步链重入，禁止嵌套扩张锁集合；队列完成后自动释放；IO 期间 revision 已推进时 markPersisted 保留同域 dirty，当前 revision 完整落库后才清除。',
+    answers: '同玩家资产写严格串行，不同玩家可并行；多玩家反向入参不会死锁；已持有玩家允许同异步链重入，禁止嵌套扩张锁集合；同步非资产推进只在资产队列空闲时执行；队列完成后自动释放；IO 期间 revision 已推进时 markPersisted 保留同域 dirty，当前 revision 完整落库后才清除。',
   }));
 }
 
