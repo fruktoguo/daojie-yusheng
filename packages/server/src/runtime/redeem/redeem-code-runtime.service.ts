@@ -3,7 +3,7 @@
  *
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-import { Inject, BadRequestException, Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { Inject, BadRequestException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { canMergeItemStack, createItemStackSignature } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
@@ -37,6 +37,7 @@ const REDEEM_RATE_CACHE_MAX_PLAYERS = 10_000;
 
 @Injectable()
 export class RedeemCodeRuntimeService {
+    private readonly logger = new Logger(RedeemCodeRuntimeService.name);
 /**
  * contentTemplateRepository：内容Template仓储引用。
  */
@@ -67,6 +68,9 @@ export class RedeemCodeRuntimeService {
     revision = 1;
     /** 串行化分组/码表写操作。 */
     mutationQueue = Promise.resolve();
+    /** 只有完整回读数据库真源后才允许查询或变更兑换码，避免空缓存伪装成空码表。 */
+    catalogReady = false;
+    catalogLoadPromise = null;
     /** 注入内容、玩家与兑换码持久化服务。 */
     constructor(
         @Inject(ContentTemplateRepository) contentTemplateRepository: any,
@@ -85,31 +89,66 @@ export class RedeemCodeRuntimeService {
     }
     /** 模块初始化时从持久化回填兑换码数据。 */
     async onModuleInit() {
-        await this.reloadFromPersistence();
+        try {
+            await this.ensureCatalogReady();
+        }
+        catch (error) {
+            this.logger.error(
+                '兑换码启动回读失败，已仅禁用兑换码域并保留核心服务启动',
+                error instanceof Error ? error.stack : String(error),
+            );
+        }
     }
     /** 重新读取兑换码文档，供启动和恢复场景重建内存态。 */
     async reloadFromPersistence() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        this.catalogReady = false;
         const loaded = await this.redeemCodePersistenceService.loadDocument();
         if (!loaded) {
             this.groups = [];
             this.codes = [];
             this.revision = 1;
+            this.catalogReady = true;
             return;
         }
-        this.groups = loaded.groups
+        const groups = loaded.groups
             .filter((entry) => entry.id && entry.name.trim())
             .map((entry) => cloneGroup(entry));
 
-        const groupIdSet = new Set(this.groups.map((entry) => entry.id));
-        this.codes = loaded.codes
+        const groupIdSet = new Set(groups.map((entry) => entry.id));
+        const codes = loaded.codes
             .filter((entry) => entry.groupId && entry.code && groupIdSet.has(entry.groupId))
             .map((entry) => cloneCode(entry));
+        this.groups = groups;
+        this.codes = codes;
         this.revision = loaded.revision;
+        this.catalogReady = true;
+    }
+    /** 失败后由下一次低频请求重试回载，且并发请求共用同一个 Promise。 */
+    async ensureCatalogReady() {
+        if (this.catalogReady) {
+            return;
+        }
+        if (!this.catalogLoadPromise) {
+            this.catalogLoadPromise = this.reloadFromPersistence();
+        }
+        const loadPromise = this.catalogLoadPromise;
+        try {
+            await loadPromise;
+        }
+        catch {
+            throw new ServiceUnavailableException('redeem_code_persistence_unavailable');
+        }
+        finally {
+            if (this.catalogLoadPromise === loadPromise) {
+                this.catalogLoadPromise = null;
+            }
+        }
     }
     /** 列出全部兑换码分组。 */
     async listGroups() {
+        await this.ensureCatalogReady();
         return {
             groups: this.groups
                 .map((group) => this.toGroupView(group, this.listCodesByGroupId(group.id)))
@@ -119,6 +158,7 @@ export class RedeemCodeRuntimeService {
     /** 读取某个分组的详情和码表。 */
     async getGroupDetail(groupId) {
 
+        await this.ensureCatalogReady();
         const group = this.requireGroup(groupId);
 
         const codes = this.listCodesByGroupId(group.id);
@@ -130,6 +170,7 @@ export class RedeemCodeRuntimeService {
     /** 创建分组并批量生成兑换码。 */
     async createGroup(name, rewards, count) {
 
+        await this.ensureCatalogReady();
         const normalizedName = normalizeGroupName(name);
 
         const normalizedRewards = this.normalizeRewardsForMutation(rewards);
@@ -163,6 +204,7 @@ export class RedeemCodeRuntimeService {
     /** 更新分组名称和奖励内容。 */
     async updateGroup(groupId, name, rewards) {
 
+        await this.ensureCatalogReady();
         const normalizedName = normalizeGroupName(name);
 
         const normalizedRewards = this.normalizeRewardsForMutation(rewards);
@@ -184,6 +226,7 @@ export class RedeemCodeRuntimeService {
     /** 给某个分组追加新的兑换码。 */
     async appendCodes(groupId, count) {
 
+        await this.ensureCatalogReady();
         const normalizedCount = normalizeCreateCount(count);
         return this.runExclusiveWithRedeemCatalogRollback(async () => {
 
@@ -205,6 +248,7 @@ export class RedeemCodeRuntimeService {
     }
     /** 删除未产生使用记录的兑换码分组，并同步移除该分组下的码。 */
     async deleteGroup(groupId) {
+        await this.ensureCatalogReady();
         const normalizedGroupId = typeof groupId === 'string' ? groupId.trim() : '';
         if (!normalizedGroupId) {
             throw new BadRequestException('兑换码分组不存在');
@@ -243,6 +287,7 @@ export class RedeemCodeRuntimeService {
     async destroyCode(codeId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        await this.ensureCatalogReady();
         const normalizedCodeId = typeof codeId === 'string' ? codeId.trim() : '';
         if (!normalizedCodeId) {
             throw new BadRequestException('目标兑换码不存在');
@@ -280,6 +325,7 @@ export class RedeemCodeRuntimeService {
     async redeemCodes(playerId, submittedCodes) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        await this.ensureCatalogReady();
         const normalizedCodes = normalizeSubmittedCodes(submittedCodes);
         if (normalizedCodes.length === 0) {
             throw new BadRequestException('请至少填写一个兑换码');

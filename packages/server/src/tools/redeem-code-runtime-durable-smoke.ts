@@ -306,6 +306,7 @@ function buildHarness(code: string, options: {
     },
   ];
   (service as any).revision = 1;
+  (service as any).catalogReady = true;
 
   return {
     code,

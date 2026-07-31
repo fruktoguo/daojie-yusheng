@@ -17,15 +17,45 @@ async function main(): Promise<void> {
   await testLoadDocumentSelfInitializesPersistence(RedeemCodePersistenceService);
   await testLoadDocumentFailsWhenConfiguredPersistenceUnavailable(RedeemCodePersistenceService);
   await testClaimCodeForUseUsesTypedJsonTimestampParameters(RedeemCodePersistenceService);
+  await testRuntimeStartupIsolatesUnavailableCatalog(RedeemCodeRuntimeService);
   await testRuntimeRollsBackMemoryOnlyCatalogMutation(RedeemCodeRuntimeService);
 
   console.log(JSON.stringify({
     ok: true,
     case: 'redeem-code-persistence-startup',
-    answers: '兑换码启动回读会先启用专表持久化；GM 分组写入无法落库时会失败并回滚内存态，不再返回成功后重启丢失',
+    answers: '兑换码启动回读会先启用专表持久化；回读失败只禁用兑换码域且请求 fail-closed；GM 分组写入无法落库时会失败并回滚内存态，不再返回成功后重启丢失',
     excludes: '不连接真实 PostgreSQL，也不证明 live HTTP GM 面板链路',
     completionMapping: 'release:proof:redeem-code-persistence-startup',
   }, null, 2));
+}
+
+async function testRuntimeStartupIsolatesUnavailableCatalog(
+  RedeemCodeRuntimeService: new (...args: unknown[]) => {
+    onModuleInit(): Promise<void>;
+    listGroups(): Promise<unknown>;
+  },
+): Promise<void> {
+  let loadAttempts = 0;
+  const service = new RedeemCodeRuntimeService(
+    {},
+    {},
+    {
+      async loadDocument() {
+        loadAttempts += 1;
+        throw new Error('simulated_redeem_catalog_unavailable');
+      },
+    },
+    null,
+    null,
+  );
+
+  await service.onModuleInit();
+  assert.equal(loadAttempts, 1);
+  await assert.rejects(
+    () => service.listGroups(),
+    /redeem_code_persistence_unavailable/u,
+  );
+  assert.equal(loadAttempts, 2);
 }
 
 async function testLoadDocumentSelfInitializesPersistence(
