@@ -117,6 +117,12 @@ export class WorldRuntimeQuestQueryService {
         this.templateRepository = templateRepository;
         this.playerRuntimeService = playerRuntimeService;
     }    
+    /** 返回任务模板版本，供任务运行态在内容重载后主动收敛。 */
+    getQuestTemplateVersion() {
+        return typeof this.templateRepository?.getQuestTemplateVersion === 'function'
+            ? this.templateRepository.getQuestTemplateVersion()
+            : 0;
+    }
     resolveQuestRealmLevelLabel(targetRealmLv) {
         const normalizedRealmLv = normalizeQuestRealmLv(targetRealmLv);
         if (normalizedRealmLv === undefined) {

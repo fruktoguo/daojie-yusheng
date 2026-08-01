@@ -10,7 +10,7 @@ const { WorldRuntimeQuestStateService } = require("../runtime/world/world-runtim
  */
 
 
-function createService({ player, progressMap = {}, readyMap = {}, rewardMap = {}, nextQuestMap = {}, chainGapMap = {}, questTemplateMap = {}, hydratedQuestMap = {}, acceptRealmReachedMap = {}, unlockedQuestMap = {}, createdQuest = null, log = [], mailLog = [] } = {}) {
+function createService({ player, progressMap = {}, readyMap = {}, rewardMap = {}, nextQuestMap = {}, chainGapMap = {}, questTemplateMap = {}, hydratedQuestMap = {}, questTemplateVersionRef = { value: 1 }, acceptRealmReachedMap = {}, unlockedQuestMap = {}, createdQuest = null, log = [], mailLog = [] } = {}) {
     const playerRuntimeService = {    
     /**
  * getPlayer：读取玩家。
@@ -44,6 +44,9 @@ function createService({ player, progressMap = {}, readyMap = {}, rewardMap = {}
         },
     };
     const worldRuntimeQuestQueryService = {    
+        getQuestTemplateVersion() {
+            return questTemplateVersionRef.value;
+        },
     /**
  * resolveQuestProgress：规范化或转换任务进度。
  * @param playerId 玩家 ID。
@@ -499,7 +502,6 @@ function testAdvanceKillQuestProgress() {
     };
     const service = createService({
         player,
-        progressMap: { 'kill-rat': 1 },
         readyMap: { 'kill-rat': false },
         log,
     });
@@ -541,7 +543,6 @@ function testAdvanceKillQuestProgressHydratesCorruptedRuntimeEntry() {
                 acceptRealmLv: 4,
             },
         },
-        progressMap: { 'kill-rat': 1 },
         readyMap: { 'kill-rat': false },
         log,
     });
@@ -567,7 +568,10 @@ function testAdvanceKillQuestProgressHydratesCorruptedRuntimeEntry() {
             acceptRealmLv: 4,
         },
     ]);
-    assert.deepEqual(log, [['markQuestStateDirty', 'player:1']]);
+    assert.deepEqual(log, [
+        ['markQuestStateDirty', 'player:1'],
+        ['markQuestStateDirty', 'player:1'],
+    ]);
 }
 
 function testAdvanceKillQuestProgressSkipsInactiveQuestHydration() {
@@ -607,6 +611,7 @@ function testAdvanceKillQuestProgressSkipsInactiveQuestHydration() {
         },
     };
     const service = createService({ player, log });
+    service.refreshQuestStates('player:1');
     const originalHydrate = service.worldRuntimeQuestQueryService.hydrateQuestRuntimeState;
     let hydrateCalls = 0;
     service.worldRuntimeQuestQueryService.hydrateQuestRuntimeState = (...args) => {
@@ -618,6 +623,133 @@ function testAdvanceKillQuestProgressSkipsInactiveQuestHydration() {
 
     assert.equal(hydrateCalls, 0, '击杀推进不应水合已规范化且不匹配的 active 任务');
     assert.deepEqual(log, []);
+}
+
+function testAdvanceKillQuestProgressUsesNormalizedFastPath() {
+    const log = [];
+    const player = {
+        quests: {
+            quests: [{
+                id: 'kill-rat',
+                status: 'active',
+                objectiveType: 'kill',
+                targetMonsterId: 'rat',
+                targetName: 'rat',
+                progress: 0,
+                required: 2,
+            }],
+        },
+    };
+    const service = createService({ player, log });
+    service.refreshQuestStates('player:1');
+    const hydratedProgress = [];
+    const originalHydrate = service.worldRuntimeQuestQueryService.hydrateQuestRuntimeState;
+    service.worldRuntimeQuestQueryService.hydrateQuestRuntimeState = (playerId, quest) => {
+        hydratedProgress.push(quest.progress);
+        return originalHydrate(playerId, quest);
+    };
+
+    service.advanceKillQuestProgress('player:1', 'rat', '灰尾鼠');
+
+    assert.equal(player.quests.quests[0].progress, 1);
+    assert.deepEqual(hydratedProgress, [1], '匹配击杀应只在进度变更后的统一刷新中水合');
+}
+
+function testAdvanceKillQuestProgressFallsBackForMalformedRuntimeFields() {
+    const malformedCases = [
+        ['string-required', { required: '2' }],
+        ['string-progress', { progress: '0' }],
+        ['fractional-progress', { progress: 0.5 }],
+        ['padded-target', { targetMonsterId: ' rat ' }],
+        ['padded-objective', { objectiveType: ' kill' }],
+    ];
+    for (const [caseId, overrides] of malformedCases) {
+        const log = [];
+        const player = {
+            quests: {
+                quests: [{
+                    id: `kill-rat-${caseId}`,
+                    status: 'active',
+                    objectiveType: 'kill',
+                    targetMonsterId: 'rat',
+                    targetName: 'rat',
+                    progress: 0,
+                    required: 2,
+                    ...overrides,
+                }],
+            },
+        };
+        const service = createService({
+            player,
+            hydratedQuestMap: {
+                [player.quests.quests[0].id]: {
+                    objectiveType: 'kill',
+                    targetMonsterId: 'rat',
+                    targetName: 'rat',
+                    progress: 0,
+                    required: 2,
+                },
+            },
+            log,
+        });
+        service.refreshQuestStates('player:1');
+        Object.assign(player.quests.quests[0], overrides);
+        const malformedSnapshot = { ...player.quests.quests[0] };
+        const hydratedInputs = [];
+        const originalHydrate = service.worldRuntimeQuestQueryService.hydrateQuestRuntimeState;
+        service.worldRuntimeQuestQueryService.hydrateQuestRuntimeState = (playerId, quest) => {
+            hydratedInputs.push({ ...quest });
+            return originalHydrate(playerId, quest);
+        };
+
+        service.advanceKillQuestProgress('player:1', 'rat', '灰尾鼠');
+
+        assert.ok(hydratedInputs.length >= 2, `${caseId} 必须走击杀前 fallback 水合和击杀后统一刷新`);
+        assert.deepEqual(hydratedInputs[0], malformedSnapshot, `${caseId} 首次水合应读取异常运行态`);
+        assert.equal(player.quests.quests[0].progress, 1, `${caseId} 修复后仍应推进击杀进度`);
+    }
+}
+
+function testAdvanceKillQuestProgressRefreshesAfterTemplateReload() {
+    const log = [];
+    const templateVersionRef = { value: 1 };
+    const player = {
+        quests: {
+            quests: [{
+                id: 'kill-rat',
+                status: 'active',
+                objectiveType: 'kill',
+                targetMonsterId: 'rat',
+                targetName: '灰尾鼠',
+                progress: 0,
+                required: 2,
+            }],
+        },
+    };
+    const hydratedQuestMap = {
+        'kill-rat': {
+            objectiveType: 'kill',
+            targetMonsterId: 'rat',
+            targetName: '灰尾鼠',
+            progress: 0,
+            required: 2,
+        },
+    };
+    const service = createService({ player, hydratedQuestMap, questTemplateVersionRef: templateVersionRef, log });
+    service.refreshQuestStates('player:1');
+    hydratedQuestMap['kill-rat'] = {
+        objectiveType: 'kill',
+        targetMonsterId: 'wolf',
+        targetName: '青狼',
+        progress: 0,
+        required: 3,
+    };
+    templateVersionRef.value += 1;
+
+    service.advanceKillQuestProgress('player:1', 'rat', '灰尾鼠');
+
+    assert.equal(player.quests.quests[0].targetMonsterId, 'wolf');
+    assert.equal(player.quests.quests[0].progress, 0, '模板重载后旧目标击杀不得推进新任务');
 }
 /**
  * testAdvanceLearnTechniqueQuest：执行testAdvanceLearn功法任务相关逻辑。
@@ -811,6 +943,9 @@ testTryAcceptNextQuestRejectsInsufficientAcceptRealm();
 testAdvanceKillQuestProgress();
 testAdvanceKillQuestProgressHydratesCorruptedRuntimeEntry();
 testAdvanceKillQuestProgressSkipsInactiveQuestHydration();
+testAdvanceKillQuestProgressUsesNormalizedFastPath();
+testAdvanceKillQuestProgressFallsBackForMalformedRuntimeFields();
+testAdvanceKillQuestProgressRefreshesAfterTemplateReload();
 testAdvanceLearnTechniqueQuest();
 testAdvanceLearnTechniqueQuestHydratesCorruptedRuntimeEntry();
 testCanReceiveRewardItems();

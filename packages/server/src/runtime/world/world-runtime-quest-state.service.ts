@@ -14,6 +14,14 @@ const { cloneQuestState, normalizeQuestLine } = world_runtime_normalization_help
 const QUEST_REWARD_COMPENSATION_MAIL_TITLE = '任务奖励补发';
 const QUEST_REWARD_COMPENSATION_MAIL_BODY = '检测到历史任务进度已推进，现补发未领取的任务奖励。';
 const QUEST_REWARD_COMPENSATION_MAIL_SENDER = '司命台';
+const NORMALIZED_QUEST_OBJECTIVE_TYPES = new Set([
+    'kill',
+    'talk',
+    'submit_item',
+    'learn_technique',
+    'realm_progress',
+    'realm_stage',
+]);
 
 function hasIncompleteQuestInLine(playerQuests, line, exceptQuestId = '') {
     for (const quest of Array.isArray(playerQuests) ? playerQuests : []) {
@@ -64,6 +72,7 @@ function areQuestRuntimeStatesEquivalent(left, right) {
 
 /** world-runtime quest-state helpers：承接任务状态刷新、自动接续与奖励背包校验。 */
 interface QuestRefreshDependencyCursor {
+    templateVersion: number;
     questRevision: number;
     questCount: number;
     dependencyMask: number;
@@ -176,7 +185,11 @@ export class WorldRuntimeQuestStateService {
             return false;
         }
         const previousCursor = this.refreshDependencyCursorByPlayer.get(player);
-        if (previousCursor && !hasQuestRefreshDependencyChanged(player, previousCursor)) {
+        if (previousCursor && !hasQuestRefreshDependencyChanged(
+            player,
+            previousCursor,
+            this.resolveQuestTemplateVersion(),
+        )) {
             return false;
         }
         this.refreshQuestStates(playerId);
@@ -187,7 +200,16 @@ export class WorldRuntimeQuestStateService {
         if (!player || typeof player !== 'object') {
             return;
         }
-        this.refreshDependencyCursorByPlayer.set(player, buildQuestRefreshDependencyCursor(player));
+        this.refreshDependencyCursorByPlayer.set(
+            player,
+            buildQuestRefreshDependencyCursor(player, this.resolveQuestTemplateVersion()),
+        );
+    }
+    private resolveQuestTemplateVersion(): number {
+        const version = typeof this.worldRuntimeQuestQueryService?.getQuestTemplateVersion === 'function'
+            ? this.worldRuntimeQuestQueryService.getQuestTemplateVersion()
+            : 0;
+        return Number.isSafeInteger(version) && version >= 0 ? version : 0;
     }
     hydrateQuestRuntimeState(playerId, quest) {
         if (typeof this.worldRuntimeQuestQueryService.hydrateQuestRuntimeState !== 'function') {
@@ -287,6 +309,8 @@ export class WorldRuntimeQuestStateService {
         if (!player) {
             return;
         }
+        // 配置重载必须先把现有任务收敛到新模板，避免用旧目标误计本次击杀。
+        this.refreshQuestStatesIfDependenciesChanged(playerId);
         let changed = false;
         for (let index = 0; index < player.quests.quests.length; index += 1) {
             const currentQuest = player.quests.quests[index];
@@ -296,31 +320,16 @@ export class WorldRuntimeQuestStateService {
             }
             // 现代任务运行态已经带齐击杀目标字段时，非击杀任务以及目标不匹配的
             // 击杀任务都不需要再次从模板克隆；字段缺失或类型异常的旧存档仍走水合。
-            const normalizedObjectiveType = typeof currentQuest.objectiveType === 'string'
-                ? currentQuest.objectiveType.trim()
-                : currentQuest.objectiveType;
-            const normalizedTargetMonsterId = currentQuest.targetMonsterId;
-            const normalizedRequired = Number(currentQuest.required);
-            if (
-                typeof normalizedObjectiveType === 'string'
-                && normalizedObjectiveType
-                && normalizedObjectiveType !== 'kill'
-            ) {
+            if (isNormalizedQuestRuntimeState(currentQuest) && currentQuest.objectiveType !== 'kill') {
                 continue;
             }
-            if (
-                normalizedObjectiveType === 'kill'
-                && typeof normalizedTargetMonsterId === 'string'
-                && normalizedTargetMonsterId.trim()
-                && Number.isFinite(normalizedRequired)
-                && normalizedRequired > 0
-            ) {
-                if (normalizedTargetMonsterId !== monsterId) {
+            if (isNormalizedKillQuestRuntimeState(currentQuest)) {
+                if (currentQuest.targetMonsterId !== monsterId) {
                     continue;
                 }
                 const nextProgress = Math.min(
-                    normalizedRequired,
-                    Math.max(0, Number(currentQuest.progress) || 0) + 1,
+                    currentQuest.required,
+                    currentQuest.progress + 1,
                 );
                 if (nextProgress !== currentQuest.progress) {
                     currentQuest.progress = nextProgress;
@@ -340,7 +349,10 @@ export class WorldRuntimeQuestStateService {
             if (quest.status !== 'active' || quest.objectiveType !== 'kill' || quest.targetMonsterId !== monsterId) {
                 continue;
             }
-            const nextProgress = Math.min(quest.required, quest.progress + 1);
+            const normalizedProgress = Number.isFinite(Number(quest.progress))
+                ? Math.max(0, Math.trunc(Number(quest.progress)))
+                : 0;
+            const nextProgress = Math.min(quest.required, normalizedProgress + 1);
             if (nextProgress !== quest.progress) {
                 quest.progress = nextProgress;
                 if (!quest.targetName || quest.targetName === quest.targetMonsterId) {
@@ -462,7 +474,7 @@ export class WorldRuntimeQuestStateService {
     }
 };
 
-function buildQuestRefreshDependencyCursor(player): QuestRefreshDependencyCursor {
+function buildQuestRefreshDependencyCursor(player, templateVersion = 0): QuestRefreshDependencyCursor {
     const quests = Array.isArray(player?.quests?.quests) ? player.quests.quests : [];
     let dependencyMask = 0;
     for (const quest of quests) {
@@ -481,6 +493,7 @@ function buildQuestRefreshDependencyCursor(player): QuestRefreshDependencyCursor
         }
     }
     return {
+        templateVersion,
         questRevision: Math.trunc(Number(player?.quests?.revision) || 0),
         questCount: quests.length,
         dependencyMask,
@@ -496,9 +509,10 @@ function buildQuestRefreshDependencyCursor(player): QuestRefreshDependencyCursor
     };
 }
 
-function hasQuestRefreshDependencyChanged(player, cursor: QuestRefreshDependencyCursor): boolean {
+function hasQuestRefreshDependencyChanged(player, cursor: QuestRefreshDependencyCursor, templateVersion = 0): boolean {
     const quests = Array.isArray(player?.quests?.quests) ? player.quests.quests : [];
-    if (cursor.questRevision !== Math.trunc(Number(player?.quests?.revision) || 0)
+    if (cursor.templateVersion !== templateVersion
+        || cursor.questRevision !== Math.trunc(Number(player?.quests?.revision) || 0)
         || cursor.questCount !== quests.length) {
         return true;
     }
@@ -513,6 +527,30 @@ function hasQuestRefreshDependencyChanged(player, cursor: QuestRefreshDependency
     return Boolean(
         (cursor.dependencyMask & QUEST_REFRESH_DEPENDENCY_REALM)
         && cursor.realmLevel !== Math.trunc(Number(player?.realm?.realmLv) || 0),
+    );
+}
+
+function isNormalizedQuestRuntimeState(quest): boolean {
+    return Boolean(
+        quest
+        && NORMALIZED_QUEST_OBJECTIVE_TYPES.has(quest.objectiveType)
+        && typeof quest.required === 'number'
+        && Number.isSafeInteger(quest.required)
+        && quest.required > 0
+        && typeof quest.progress === 'number'
+        && Number.isSafeInteger(quest.progress)
+        && quest.progress >= 0
+        && quest.progress <= quest.required,
+    );
+}
+
+function isNormalizedKillQuestRuntimeState(quest): boolean {
+    return Boolean(
+        isNormalizedQuestRuntimeState(quest)
+        && quest.objectiveType === 'kill'
+        && typeof quest.targetMonsterId === 'string'
+        && quest.targetMonsterId.length > 0
+        && quest.targetMonsterId === quest.targetMonsterId.trim(),
     );
 }
 

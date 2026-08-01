@@ -10,10 +10,12 @@ import { deepFreezeTemplate } from '../../../content/registries/template-freeze'
 export class QuestTemplateRegistry {
   readonly questSourceById = new Map<string, any>();
   private readonly questIdsByMapId = new Map<string, string[]>();
+  private version = 0;
 
   loadAll(): void {
     this.questSourceById.clear();
     this.questIdsByMapId.clear();
+    this.version += 1;
   }
 
   registerMapTemplate(template: any): void {
@@ -42,6 +44,9 @@ export class QuestTemplateRegistry {
       }
     }
     this.questIdsByMapId.set(mapId, questIds);
+    if (questIds.length > 0) {
+      this.version += 1;
+    }
   }
 
   unregisterMapTemplate(mapIdInput: string): void {
@@ -51,11 +56,21 @@ export class QuestTemplateRegistry {
     }
     const questIds = this.questIdsByMapId.get(mapId) ?? [];
     this.questIdsByMapId.delete(mapId);
+    let removed = false;
     for (const questId of questIds) {
       if (this.questSourceById.get(questId)?.giverMapId === mapId) {
         this.questSourceById.delete(questId);
+        removed = true;
       }
     }
+    if (removed) {
+      this.version += 1;
+    }
+  }
+
+  /** 返回进程内任务模板版本；内容重载或任务模板注册变化时递增。 */
+  getVersion(): number {
+    return this.version;
   }
 
   getRef(questId: string): Readonly<any> {

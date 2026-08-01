@@ -207,6 +207,10 @@ export class MapTemplateRepository {
     getQuestSource(questId) {
         return this.questRegistry.getQuestSource(questId);
     }
+    /** 返回任务模板注册表版本，供运行态刷新游标识别内容重载。 */
+    getQuestTemplateVersion() {
+        return this.questRegistry.getVersion();
+    }
     /**
  * loadAll：读取All并返回结果。
  * @returns 无返回值，完成All的读取/组装。
