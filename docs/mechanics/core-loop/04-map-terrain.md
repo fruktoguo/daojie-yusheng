@@ -41,6 +41,7 @@ calculateTileRestoreRetryTicks(tileType) =
      - 有阻挡实体 → 重置为 calculateTileRestoreRetryTicks
      - 无阻挡 → 删除 damage 记录，恢复原始地块
 2. destroyed=false (受损):
+   - 矿脉在本次恢复推进前已受到有效伤害 → 不结算自然或固脉回血，等待下一次无新伤害的恢复推进
    - repairAmount = max(1, floor(maxHp × 0.01))
    - 若处于固脉效果范围内，额外追加同等一份 `max(1, floor(maxHp × 0.01))`
    - nextHp = min(maxHp, hp + repairAmount)
@@ -60,6 +61,7 @@ calculateTileRestoreRetryTicks(tileType) =
 - 战斗攻击或技能命中地块可以继续造成地块伤害，但不能在同一次伤害中重复结算挖矿 job 的经验和掉落。
 - 玩家主动挖矿应建模为技艺 job，记录矿脉/地块目标、实际工作进度、产出和挖矿经验。
 - 挖矿 job 必须进入统一技艺任务列表，显示实际工作进度、独立打断等待和取消按钮；攻击、移动、手动开始修炼等等待恢复不能改写挖矿实际工作量。
+- 矿脉在自上次恢复推进后受到有效伤害时，本次恢复不叠加自然或固脉回血；只有下一次没有新伤害的恢复推进才按正常公式回血。该时序只作用于矿脉，不改变普通地形、临时地块和建筑的恢复节奏。
 - 迁移到挖矿 job 前，必须审计现有地块伤害、阵法减伤、掉落和地形恢复链路，避免破坏战斗地块交互。
 
 ## 地形类型与地图字符映射
