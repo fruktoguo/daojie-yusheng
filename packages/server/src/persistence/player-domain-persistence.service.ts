@@ -9222,6 +9222,29 @@ export function isSupersededPlayerFlushFenceError(error: unknown): boolean {
     || isConvergedPlayerPresenceFenceError(error);
 }
 
+/**
+ * 判定资产强事务是否已被更高 session epoch 接管。
+ * 只有数据库中的 epoch 严格高于本次调用的 expected epoch 才能按 stale-safe 让位；
+ * 同 epoch owner 不一致或数据库 epoch 更旧仍属于真实围栏/实现错误，不能吞掉。
+ */
+export function isSupersededPlayerAssetFenceError(error: unknown): boolean {
+  if (!(error instanceof Error) || !error.message.startsWith('player_session_fencing_conflict:')) {
+    return false;
+  }
+  const expectedEpoch = readFenceEpoch(error.message, 'expectedSessionEpoch');
+  const persistedEpoch = readFenceEpoch(error.message, 'persistedSessionEpoch');
+  return expectedEpoch > 0 && persistedEpoch > expectedEpoch;
+}
+
+function readFenceEpoch(message: string, key: string): number {
+  const match = message.match(new RegExp(`(?:^|:)${key}=(\\d+)(?::|$)`));
+  if (!match) {
+    return 0;
+  }
+  const epoch = Number(match[1]);
+  return Number.isFinite(epoch) ? Math.trunc(epoch) : 0;
+}
+
 async function acquireSchemaInitLock(client: PoolClient): Promise<void> {
   await client.query('SELECT pg_advisory_xact_lock($1::integer, $2::integer)', [7100, 1]);
 }

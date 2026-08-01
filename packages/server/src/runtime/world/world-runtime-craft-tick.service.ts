@@ -95,7 +95,10 @@ export class WorldRuntimeCraftTickService {
         const tickablePlayerIds: string[] = [];
         for (const playerId of playerIds ?? []) {
             const player = this.playerRuntimeService.getPlayer(playerId);
-            if (hasTechniqueActivityTickWork(player)) {
+            if (
+                !this.craftPanelRuntimeService.isPlayerSessionFenceSuperseded?.(player)
+                && hasTechniqueActivityTickWork(player)
+            ) {
                 tickablePlayerIds.push(playerId);
             }
         }
@@ -121,6 +124,9 @@ export class WorldRuntimeCraftTickService {
             if (!player) {
                 continue;
             }
+            if (this.craftPanelRuntimeService.isPlayerSessionFenceSuperseded?.(player)) {
+                continue;
+            }
             if (!hasTechniqueActivityTickWork(player)) {
                 continue;
             }
@@ -129,6 +135,10 @@ export class WorldRuntimeCraftTickService {
                 const buildingJobBeforeTick = kind === 'building' ? player.buildingJob : null;
                 const pendingResult = this.tickActiveTechniqueActivity(player, kind, deps);
                 const result = isPromiseLike(pendingResult) ? await pendingResult : pendingResult;
+                if (result?.sessionFenceSuperseded === true) {
+                    // 旧会话已经被数据库 fence 拒绝；同息不再 flush 或启动队列，后续 tick 由新 fence 接管。
+                    break;
+                }
                 this.sleepConditionalTechniqueActivityIfRequested(player, result);
                 this.worldRuntimeCraftMutationService.flushCraftMutation(
                     playerId,
@@ -140,6 +150,10 @@ export class WorldRuntimeCraftTickService {
                 if (buildingJobBeforeTick && !player.buildingJob) {
                     buildingProjectionBoundaryReason = 'building_tick_terminal';
                 }
+            }
+
+            if (this.craftPanelRuntimeService.isPlayerSessionFenceSuperseded?.(player)) {
+                continue;
             }
 
             // 队列推进：如果当前没有活跃任务，尝试启动队列中的下一个

@@ -7,7 +7,9 @@ import { randomUUID } from 'node:crypto';
 
 import type { RuntimeTechniqueActivityKind } from '@mud/shared';
 import { computeEnhancementAdjustedSuccessRate } from '@mud/shared';
+import { isSupersededPlayerAssetFenceError } from '../persistence/player-domain-persistence.service';
 import { CraftPanelRuntimeService } from '../runtime/craft/craft-panel-runtime.service';
+import { WorldRuntimeCraftTickService } from '../runtime/world/world-runtime-craft-tick.service';
 
 type PersistedActiveJob = {
   jobRunId?: string;
@@ -38,6 +40,7 @@ async function main(): Promise<void> {
   await testDurableEnhancementProgressRollbackAfterPipelineFailure();
   await testDurableEnhancementAdvanceCommitsProfessionAtomically();
   await testDurableEnhancementFailureRestoresFullRuntimeState();
+  await testDurableEnhancementSessionFenceYieldsToNewOwner();
   await testDurableEnhancementCancelUsesCancelOperation();
   await testDurableEnhancementStopUsesStoppedCompletionKind();
   await testQueuedEnhancementDurableFailureRestoresQueueAndAssets();
@@ -68,6 +71,7 @@ async function main(): Promise<void> {
       '强化运行态物品缺少 name 或仅有 itemId 时，通知和队列使用内容目录基础显示名，不把起始强化等级写入连续强化文案。',
       '法宝复用现有强化生命周期，成功后按实例写回背包并提升 enhanceLevel。',
       '强化强事务提交真实钱包投影，提交失败会恢复钱包、队列、任务、装备与 revision 派生态。',
+      '旧 session 的强化资产 fence 冲突会让位并停止重复 tick；新 session fence 到位后会恢复推进。',
       '强化普通进度 tick 不新增 durable 操作；连续强化每阶只提交一条 advanced 强事务，并把强化技艺经验放入同一职业 patch。',
       '强化普通进度和暂停等待在资产队列空闲时同步推进；资产队列忙或进入结算点时自动回退玩家资产串行区。',
       '强化取消使用专用 cancel 强事务；队列自动启动失败时不会丢队首或遗留已扣材料。',
@@ -476,6 +480,76 @@ async function testDurableEnhancementFailureRestoresFullRuntimeState(): Promise<
   assert.equal(player.dirtyDomains.has('inventory'), true);
   assert.equal(player.dirtyDomains.has('wallet'), true);
   assert.equal(durableCalls.at(-1)?.args.nextWalletBalances?.[0]?.balance, 19);
+}
+
+async function testDurableEnhancementSessionFenceYieldsToNewOwner(): Promise<void> {
+  const durableCalls: DurableEnhancementCall[] = [];
+  let staleFence = true;
+  const player = createPlayer('player:enhancement:session-fence', [
+    createEquipmentItem('iron_sword', '铁剑', 8, 1),
+  ]);
+  const staleFenceError = 'player_session_fencing_conflict:'
+    + 'expectedRuntimeOwnerId=runtime:player:enhancement:session-fence:offline:'
+    + 'expectedSessionEpoch=1:'
+    + 'persistedRuntimeOwnerId=runtime:new-session:'
+    + 'persistedSessionEpoch=2';
+  assert.equal(isSupersededPlayerAssetFenceError(new Error(staleFenceError)), true);
+  assert.equal(
+    isSupersededPlayerAssetFenceError(new Error(staleFenceError.replace('persistedSessionEpoch=2', 'persistedSessionEpoch=1'))),
+    false,
+  );
+  const { craftService } = createCraftHarness(player, [], [], {
+    durableCalls,
+    durableErrorFactory: (kind) => kind === 'complete' && staleFence ? new Error(staleFenceError) : null,
+  });
+  const target = player.inventory.items[0];
+  await craftService.startEnhancementDurably(player, { target: buildInventoryRef(target) });
+  player.enhancementJob!.remainingTicks = 1;
+  player.enhancementJob!.workRemainingTicks = 1;
+
+  const flushes: unknown[] = [];
+  const notices: unknown[] = [];
+  const tickService = new WorldRuntimeCraftTickService(
+    createPlayerRuntimeService(player),
+    craftService,
+    {
+      flushCraftMutation(...args: unknown[]): void {
+        flushes.push(args);
+      },
+    },
+  );
+  const deps = {
+    queuePlayerNotice(...args: unknown[]): void {
+      notices.push(args);
+    },
+  };
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+  try {
+    await tickService.advanceCraftJobs([player.playerId], deps);
+    assert.equal(durableCalls.filter((call) => call.kind === 'complete').length, 1);
+    assert.equal(flushes.length, 0, '旧 session 让位时不能继续 flush 半完成运行态');
+    assert.equal(notices.length, 0, 'stale fence 让位不应进入通用错误通知');
+    assert.equal(craftService.isPlayerSessionFenceSuperseded(player), true);
+    assert.deepEqual(tickService.listTickablePlayerIds([player.playerId]), []);
+
+    await tickService.advanceCraftJobs([player.playerId], deps);
+    assert.equal(durableCalls.filter((call) => call.kind === 'complete').length, 1, '旧 fence 后续 tick 不得重复提交');
+
+    staleFence = false;
+    player.runtimeOwnerId = 'runtime:new-session';
+    player.sessionEpoch = 2;
+    assert.equal(craftService.isPlayerSessionFenceSuperseded(player), false);
+    assert.deepEqual(tickService.listTickablePlayerIds([player.playerId]), [player.playerId]);
+
+    await tickService.advanceCraftJobs([player.playerId], deps);
+    assert.equal(durableCalls.filter((call) => call.kind === 'complete').length, 2, '新 fence 应恢复一次完成提交');
+    assert.equal(player.enhancementJob, null);
+    assert.equal(notices.length, 0);
+    assert.equal(flushes.length, 1);
+  } finally {
+    Math.random = originalRandom;
+  }
 }
 
 async function testDurableEnhancementCancelUsesCancelOperation(): Promise<void> {
@@ -924,6 +998,7 @@ function createCraftHarness(
   options: {
     durableCalls?: DurableEnhancementCall[];
     failDurableKinds?: ReadonlySet<DurableEnhancementCall['kind']>;
+    durableErrorFactory?: (kind: DurableEnhancementCall['kind'], args: any) => Error | null;
     presenceSaves?: unknown[];
     assetMutationProbe?: AssetMutationProbe;
   } = {},
@@ -951,7 +1026,7 @@ function createCraftHarness(
     } : {}),
   };
   const durableOperationService = options.durableCalls
-    ? createDurableOperationService(options.durableCalls, options.failDurableKinds)
+    ? createDurableOperationService(options.durableCalls, options.failDurableKinds, options.durableErrorFactory)
     : null;
   const playerPersistenceFlushService = {
     async flushPlayerDomains(playerId: string, domains: Iterable<string>): Promise<boolean> {
@@ -1190,9 +1265,14 @@ function createPlayerRuntimeService(player: any, assetMutationProbe?: AssetMutat
 function createDurableOperationService(
   durableCalls: DurableEnhancementCall[],
   failKinds: ReadonlySet<DurableEnhancementCall['kind']> = new Set(),
+  errorFactory?: (kind: DurableEnhancementCall['kind'], args: any) => Error | null,
 ): any {
   const record = (kind: DurableEnhancementCall['kind'], args: any): void => {
     durableCalls.push({ kind, args });
+    const configuredError = errorFactory?.(kind, args);
+    if (configuredError) {
+      throw configuredError;
+    }
     if (failKinds.has(kind)) {
       throw new Error(`durable_${kind}_failed`);
     }

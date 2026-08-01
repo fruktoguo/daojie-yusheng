@@ -19,6 +19,8 @@ import {
     nextPlayerPersistenceVersion,
     type PlayerTechniqueActivityQueueUpsertInput,
     isConvergedPlayerProjectionFenceError,
+    isConvergedPlayerPresenceFenceError,
+    isSupersededPlayerAssetFenceError,
 } from '../../persistence/player-domain-persistence.service';
 import { PlayerPersistenceFlushService } from '../../persistence/player-persistence-flush.service';
 import { isFlushTaskConsumerMode } from '../../persistence/flush-task-runtime-mode';
@@ -97,6 +99,11 @@ export class CraftPanelRuntimeService {
     forgingCatalog = [];
     /** 缓存强化配置，避免每次操作都重新查表。 */
     enhancementConfigs = new Map();
+    /** 已被更高 session 接管的玩家 fence；只抑制相同旧 fence，新的本地会话会自动恢复 tick。 */
+    private readonly supersededPlayerSessionFences = new WeakMap<object, {
+        runtimeOwnerId: string | null;
+        sessionEpoch: number;
+    }>();
     /** 技艺管线服务。 */
     pipeline: TechniqueActivityPipelineService | null = null;
     /** 缓存依赖并初始化日志、配方与强化配置。 */
@@ -506,6 +513,9 @@ export class CraftPanelRuntimeService {
     }
     /** 线上强化 tick 入口：普通进度走同步轻量段，清理 job 或回写资产仍同步提交强事务。 */
     tickEnhancementDurably(player, deps = null) {
+        if (this.isPlayerSessionFenceSuperseded(player)) {
+            return buildSupersededCraftTickResult();
+        }
         const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
         const runWhileAssetIdle = this.playerRuntimeService?.tryRunSynchronousPlayerMutationWhileAssetIdle;
         if (
@@ -569,6 +579,7 @@ export class CraftPanelRuntimeService {
         const durableEnabled = this.shouldUseDurableEnhancementPersistence(player);
         const before = captureEnhancementAssetRuntimeState(player);
         const expectedJob = player?.enhancementJob ? { ...player.enhancementJob } : null;
+        let attemptedSessionFence = capturePlayerSessionFence(player);
         const previousSuppress = player?.suppressImmediateDomainPersistence;
         if (durableEnabled) {
             player.enhancementDurableCommitInFlight = true;
@@ -589,6 +600,12 @@ export class CraftPanelRuntimeService {
                 const durablePresence = durableEnabled
                     ? await this.resolveDurablePresenceFence(player.playerId)
                     : null;
+                if (durablePresence) {
+                    attemptedSessionFence = {
+                        runtimeOwnerId: durablePresence.runtimeOwnerId,
+                        sessionEpoch: durablePresence.sessionEpoch,
+                    };
+                }
                 await this.commitEnhancementActiveJobWithAssets(player, !player?.enhancementJob ? 'completed' : 'tick', expectedJob, {
                     allowSuppressed: durableEnabled,
                     presence: durablePresence,
@@ -601,6 +618,17 @@ export class CraftPanelRuntimeService {
         }
         catch (error) {
             this.restoreEnhancementAssetRuntimeState(player, before);
+            if (
+                isConvergedPlayerPresenceFenceError(error)
+                || isSupersededPlayerAssetFenceError(error)
+            ) {
+                const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
+                this.markPlayerSessionFenceSuperseded(player, attemptedSessionFence);
+                this.logger.debug(
+                    `强化 tick 已让位于更新会话：playerId=${playerId || 'unknown'} expectedSessionEpoch=${attemptedSessionFence.sessionEpoch}`,
+                );
+                return buildSupersededCraftTickResult();
+            }
             throw error;
         }
         finally {
@@ -750,6 +778,38 @@ export class CraftPanelRuntimeService {
             persistedDomains,
             snapshotRevision,
         );
+    }
+    /** 记录旧会话已被数据库更高 fence 接管，避免下一息重复提交同一旧 owner。 */
+    markPlayerSessionFenceSuperseded(player, expectedFence): boolean {
+        const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
+        if (!playerId || !player || typeof player !== 'object') {
+            return false;
+        }
+        const normalizedExpectedFence = normalizePlayerSessionFence(expectedFence);
+        const currentFence = capturePlayerSessionFence(player);
+        if (!isSamePlayerSessionFence(currentFence, normalizedExpectedFence)) {
+            // 本地会话已经先一步换代；不登记旧 fence，避免抑制新会话。
+            return false;
+        }
+        this.supersededPlayerSessionFences.set(player, normalizedExpectedFence);
+        return true;
+    }
+    /** 只抑制仍持有旧 fence 的玩家；本地新 session 变化后自动清除旧标记。 */
+    isPlayerSessionFenceSuperseded(player): boolean {
+        const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
+        if (!playerId || !player || typeof player !== 'object') {
+            return false;
+        }
+        const expectedFence = this.supersededPlayerSessionFences.get(player);
+        if (!expectedFence) {
+            return false;
+        }
+        const currentFence = capturePlayerSessionFence(player);
+        if (!isSamePlayerSessionFence(currentFence, expectedFence)) {
+            this.supersededPlayerSessionFences.delete(player);
+            return false;
+        }
+        return true;
     }
     shouldUseDurableEnhancementPersistence(player, options: { allowSuppressed?: boolean } = {}) {
         return Boolean(
@@ -4580,6 +4640,43 @@ function buildCraftMutationResult(error = undefined) {
         panelChanged: false,
     };
 }
+
+function buildSupersededCraftTickResult() {
+    return {
+        ...buildCraftTickResult(),
+        sessionFenceSuperseded: true,
+    };
+}
+
+function capturePlayerSessionFence(player): { runtimeOwnerId: string | null; sessionEpoch: number } {
+    const runtimeOwnerId = typeof player?.runtimeOwnerId === 'string' && player.runtimeOwnerId.trim()
+        ? player.runtimeOwnerId.trim()
+        : null;
+    const numericEpoch = Number(player?.sessionEpoch);
+    return {
+        runtimeOwnerId,
+        sessionEpoch: Number.isFinite(numericEpoch) ? Math.max(0, Math.trunc(numericEpoch)) : 0,
+    };
+}
+
+function normalizePlayerSessionFence(fence): { runtimeOwnerId: string | null; sessionEpoch: number } {
+    const numericEpoch = Number(fence?.sessionEpoch);
+    return {
+        runtimeOwnerId: typeof fence?.runtimeOwnerId === 'string' && fence.runtimeOwnerId.trim()
+            ? fence.runtimeOwnerId.trim()
+            : null,
+        sessionEpoch: Number.isFinite(numericEpoch) ? Math.max(0, Math.trunc(numericEpoch)) : 0,
+    };
+}
+
+function isSamePlayerSessionFence(
+    left: { runtimeOwnerId: string | null; sessionEpoch: number },
+    right: { runtimeOwnerId: string | null; sessionEpoch: number },
+): boolean {
+    return left.sessionEpoch === right.sessionEpoch
+        && left.runtimeOwnerId === right.runtimeOwnerId;
+}
+
 /**
  * buildCraftTickResult：构建并返回目标对象。
  * @param panelChanged 参数说明。
