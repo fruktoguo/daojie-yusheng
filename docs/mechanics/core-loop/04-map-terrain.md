@@ -16,9 +16,8 @@
 // 地图境界等级对应基础血量
 getTerrainRealmBaseHp(realmLv) = 100 × 1.4^(realmLv - 1)
 
-// 矿脉使用结构配置中的固有 miningLevel，其他地形/结构使用地图 mapLv
-durabilityLevel = profile.miningLevel ?? mapLv
-maxHp = round(getTerrainRealmBaseHp(durabilityLevel) × profile.multiplier)
+// 所有可破坏地形与结构统一使用地图 mapLv
+maxHp = round(getTerrainRealmBaseHp(mapLv) × profile.multiplier)
 
 // 特殊地形恢复速度倍率
 SPECIAL_TILE_RESTORE_SPEED_MULTIPLIERS = { cloud: 100 }
@@ -51,7 +50,7 @@ calculateTileRestoreRetryTicks(tileType) =
    - nextHp ≥ maxHp → 完全恢复，删除 damage 记录
 ```
 
-矿脉受击后同一次恢复推进仍按上述公式结算自然回血；固脉覆盖时再额外结算一份 `1% maxHp`。矿脉等级不随所在地图继续指数增长，例如 `mapLv=39` 的灵石矿仍按其固有 `miningLevel=20` 计算耐久。持久化记录回读时，以当前公式得到的 `maxHp` 为权威，并按旧 `hp/maxHp` 等比例保留剩余耐久。
+矿脉与其他可破坏地块统一按地图 `mapLv` 计算耐久。矿脉受击后同一次恢复推进仍结算自然回血；固脉覆盖时再额外结算一份 `1% maxHp`。
 
 ## 固脉额外回血
 

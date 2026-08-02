@@ -4923,11 +4923,11 @@ class MapInstanceRuntime {
             if (resolvedMaxHp <= 0) {
                 continue;
             }
-            const maxHp = Math.max(1, Math.trunc(resolvedMaxHp));
+            const maxHp = Math.max(1, Math.trunc(Number(entry.maxHp) || resolvedMaxHp));
             const destroyed = entry.destroyed === true;
             const hp = destroyed
                 ? 0
-                : rebasePersistedTileHp(entry.hp, entry.maxHp, maxHp);
+                : Math.max(1, Math.min(maxHp - 1, Math.trunc(Number(entry.hp) || maxHp)));
             const respawnLeft = destroyed
                 ? normalizeTileRestoreTicksLeft(entry.respawnLeft, tileType)
                 : 0;
@@ -8433,18 +8433,7 @@ function resolveTileDurability(template, tileType, x = null, y = null, layerStat
     const mapLv = Number.isFinite(template.source?.mapLv)
         ? Math.max(1, Math.floor(Number(template.source.mapLv)))
         : 1;
-    const durabilityLevel = Number.isFinite(Number(profile.miningLevel)) && Number(profile.miningLevel) > 0
-        ? Math.max(1, Math.trunc(Number(profile.miningLevel)))
-        : mapLv;
-    return calculateTerrainDurability(durabilityLevel, profile.multiplier);
-}
-/** rebasePersistedTileHp：耐久公式变化后按剩余比例回读旧受损地块。 */
-function rebasePersistedTileHp(persistedHp, persistedMaxHp, resolvedMaxHp) {
-    const nextMaxHp = Math.max(1, Math.trunc(Number(resolvedMaxHp) || 1));
-    const previousMaxHp = Math.max(1, Math.trunc(Number(persistedMaxHp) || nextMaxHp));
-    const previousHp = Math.max(1, Math.min(previousMaxHp - 1, Math.trunc(Number(persistedHp) || previousMaxHp)));
-    const remainingRatio = previousHp / previousMaxHp;
-    return Math.max(1, Math.min(nextMaxHp - 1, Math.round(nextMaxHp * remainingRatio)));
+    return calculateTerrainDurability(mapLv, profile.multiplier);
 }
 /** clampCoordinate：把坐标夹到地图边界内。 */
 function clampCoordinate(value, size) {
