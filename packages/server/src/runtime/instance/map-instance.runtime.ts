@@ -8,7 +8,7 @@
  * 单张地图的全部运行态：地块平面、占位、妖兽 AI、战斗、建筑、
  * 资源刷新、灵气流动、AOI 广播和持久化脏域追踪。
  */
-import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, DEFAULT_QI_RUNTIME_FLOW_CONFIGS, DISPERSED_AURA_RESOURCE_KEY, Direction, GROUND_ITEM_EXPIRE_TICKS, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_INSTANCE_TICK_SPEED, MAX_THREAT_VALUE, MOVE_POINT_UNIT, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateDispersedAuraGainPerTile, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, horizontalFacingFromDelta, horizontalFacingFromTo, isGroundInteractableCellLayerTarget, isOffsetInRange, isOreMinableTileType, isTileTypeWalkable, mergeItemStackEntryInto, normalizeHorizontalFacing, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolvePlayerFacingContentName, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
+import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, DEFAULT_QI_RUNTIME_FLOW_CONFIGS, DISPERSED_AURA_RESOURCE_KEY, Direction, GROUND_ITEM_EXPIRE_TICKS, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_INSTANCE_TICK_SPEED, MAX_THREAT_VALUE, MOVE_POINT_UNIT, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateDispersedAuraGainPerTile, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, horizontalFacingFromDelta, horizontalFacingFromTo, isGroundInteractableCellLayerTarget, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeHorizontalFacing, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolvePlayerFacingContentName, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
 import { readTrimmedEnv } from '../../config/env-alias';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import '../map/map-template.repository';
@@ -225,8 +225,6 @@ class MapInstanceRuntime {
  */
 
     tileDamageByTile = new Map();    
-    /** 自上次恢复推进后受伤的矿脉，避免被动回血抵消连续采矿进度。 */
-    damagedOreTileIndicesSinceLastRecovery = new Set<number>();
     /**
  * temporaryTileByTile：技能生成的非持久临时地块。
  */
@@ -1324,7 +1322,6 @@ class MapInstanceRuntime {
             this.setOccupied(nextX, nextY, player.handle);
         }
         this.tileDamageByTile.clear();
-        this.damagedOreTileIndicesSinceLastRecovery.clear();
         this.temporaryTileByTile.clear();
         for (const [tileIndex, state] of tileDamageEntries) {
             const oldIndex = Math.trunc(Number(tileIndex));
@@ -1427,7 +1424,6 @@ class MapInstanceRuntime {
         this.buildingTopologyIndex = new BuildingTopologyIndex(nextCellCapacity);
         this.roomIdByCell = new Int32Array(nextCellCapacity);
         this.tileDamageByTile.clear();
-        this.damagedOreTileIndicesSinceLastRecovery.clear();
         this.temporaryTileByTile.clear();
         this.hydrateRuntimeTiles(previousCellEntries);
         this.hydrateTileDamage(tileDamageEntries);
@@ -3819,20 +3815,6 @@ class MapInstanceRuntime {
     damageTilesBatch(entries: readonly TileDamageBatchInput[], options: TileDropRollOptions = {}) {
         return damageMapInstanceTilesBatch(this, entries, options, calculateTileRestoreTicks);
     }
-    /** recordTileDamageForRecovery：记录本恢复窗口内受到有效伤害的未摧毁矿脉。 */
-    recordTileDamageForRecovery(tileIndex: number, tileType: string, appliedDamage: number, destroyed: boolean): void {
-        if (!Number.isFinite(Number(tileIndex)) || !isOreMinableTileType(tileType)) {
-            return;
-        }
-        const normalizedTileIndex = Math.trunc(Number(tileIndex));
-        if (destroyed === true) {
-            this.damagedOreTileIndicesSinceLastRecovery.delete(normalizedTileIndex);
-            return;
-        }
-        if (Math.max(0, Math.trunc(Number(appliedDamage) || 0)) > 0) {
-            this.damagedOreTileIndicesSinceLastRecovery.add(normalizedTileIndex);
-        }
-    }
     /** createTemporaryTile：创建或刷新技能生成的临时地块。 */
     createTemporaryTile(x, y, tileType, maxHp, durationTicks, currentTick, options: any = {}) {
         if (!Number.isFinite(Number(x)) || !Number.isFinite(Number(y))) {
@@ -3989,7 +3971,6 @@ class MapInstanceRuntime {
 
         const hasStabilizerHpRecovery = canAttemptTerrainStabilizerHpRecovery(terrainStabilizerHpRecoveryChecker);
         if (this.tileDamageByTile.size === 0 && !hasStabilizerHpRecovery) {
-            this.damagedOreTileIndicesSinceLastRecovery.clear();
             return false;
         }
 
@@ -4070,11 +4051,6 @@ class MapInstanceRuntime {
                 continue;
             }
 
-            if (isOreMinableTileType(tileType)
-                && this.damagedOreTileIndicesSinceLastRecovery.has(normalizedTileIndex)) {
-                continue;
-            }
-
             const hp = Math.max(0, Math.min(maxHp, Math.trunc(Number(current?.hp) || maxHp)));
             if (hp >= maxHp) {
                 this.tileDamageByTile.delete(tileIndex);
@@ -4118,7 +4094,6 @@ class MapInstanceRuntime {
             this.markTileDamagePersistenceDirty(tileIndex);
             changed = true;
         }
-        this.damagedOreTileIndicesSinceLastRecovery.clear();
 
         if (hasStabilizerHpRecovery) {
             changed = this.advanceTemporaryTileHpRecoveryByTerrainStabilizer(terrainStabilizerHpRecoveryChecker, now) || changed;
@@ -4920,7 +4895,6 @@ class MapInstanceRuntime {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         this.tileDamageByTile.clear();
-        this.damagedOreTileIndicesSinceLastRecovery.clear();
         if (!Array.isArray(entries)) {
             this.persistentRevision = 1;
             this.persistedRevision = 1;
@@ -4949,11 +4923,11 @@ class MapInstanceRuntime {
             if (resolvedMaxHp <= 0) {
                 continue;
             }
-            const maxHp = Math.max(1, Math.trunc(Number(entry.maxHp) || resolvedMaxHp));
+            const maxHp = Math.max(1, Math.trunc(resolvedMaxHp));
             const destroyed = entry.destroyed === true;
             const hp = destroyed
                 ? 0
-                : Math.max(1, Math.min(maxHp - 1, Math.trunc(Number(entry.hp) || maxHp)));
+                : rebasePersistedTileHp(entry.hp, entry.maxHp, maxHp);
             const respawnLeft = destroyed
                 ? normalizeTileRestoreTicksLeft(entry.respawnLeft, tileType)
                 : 0;
@@ -8459,7 +8433,18 @@ function resolveTileDurability(template, tileType, x = null, y = null, layerStat
     const mapLv = Number.isFinite(template.source?.mapLv)
         ? Math.max(1, Math.floor(Number(template.source.mapLv)))
         : 1;
-    return calculateTerrainDurability(mapLv, profile.multiplier);
+    const durabilityLevel = Number.isFinite(Number(profile.miningLevel)) && Number(profile.miningLevel) > 0
+        ? Math.max(1, Math.trunc(Number(profile.miningLevel)))
+        : mapLv;
+    return calculateTerrainDurability(durabilityLevel, profile.multiplier);
+}
+/** rebasePersistedTileHp：耐久公式变化后按剩余比例回读旧受损地块。 */
+function rebasePersistedTileHp(persistedHp, persistedMaxHp, resolvedMaxHp) {
+    const nextMaxHp = Math.max(1, Math.trunc(Number(resolvedMaxHp) || 1));
+    const previousMaxHp = Math.max(1, Math.trunc(Number(persistedMaxHp) || nextMaxHp));
+    const previousHp = Math.max(1, Math.min(previousMaxHp - 1, Math.trunc(Number(persistedHp) || previousMaxHp)));
+    const remainingRatio = previousHp / previousMaxHp;
+    return Math.max(1, Math.min(nextMaxHp - 1, Math.round(nextMaxHp * remainingRatio)));
 }
 /** clampCoordinate：把坐标夹到地图边界内。 */
 function clampCoordinate(value, size) {

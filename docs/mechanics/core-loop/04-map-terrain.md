@@ -16,6 +16,10 @@
 // 地图境界等级对应基础血量
 getTerrainRealmBaseHp(realmLv) = 100 × 1.4^(realmLv - 1)
 
+// 矿脉使用结构配置中的固有 miningLevel，其他地形/结构使用地图 mapLv
+durabilityLevel = profile.miningLevel ?? mapLv
+maxHp = round(getTerrainRealmBaseHp(durabilityLevel) × profile.multiplier)
+
 // 特殊地形恢复速度倍率
 SPECIAL_TILE_RESTORE_SPEED_MULTIPLIERS = { cloud: 100 }
 
@@ -41,12 +45,13 @@ calculateTileRestoreRetryTicks(tileType) =
      - 有阻挡实体 → 重置为 calculateTileRestoreRetryTicks
      - 无阻挡 → 删除 damage 记录，恢复原始地块
 2. destroyed=false (受损):
-   - 矿脉在本次恢复推进前已受到有效伤害 → 不结算自然或固脉回血，等待下一次无新伤害的恢复推进
    - repairAmount = max(1, floor(maxHp × 0.01))
    - 若处于固脉效果范围内，额外追加同等一份 `max(1, floor(maxHp × 0.01))`
    - nextHp = min(maxHp, hp + repairAmount)
    - nextHp ≥ maxHp → 完全恢复，删除 damage 记录
 ```
+
+矿脉受击后同一次恢复推进仍按上述公式结算自然回血；固脉覆盖时再额外结算一份 `1% maxHp`。矿脉等级不随所在地图继续指数增长，例如 `mapLv=39` 的灵石矿仍按其固有 `miningLevel=20` 计算耐久。持久化记录回读时，以当前公式得到的 `maxHp` 为权威，并按旧 `hp/maxHp` 等比例保留剩余耐久。
 
 ## 固脉额外回血
 
@@ -61,7 +66,6 @@ calculateTileRestoreRetryTicks(tileType) =
 - 战斗攻击或技能命中地块可以继续造成地块伤害，但不能在同一次伤害中重复结算挖矿 job 的经验和掉落。
 - 玩家主动挖矿应建模为技艺 job，记录矿脉/地块目标、实际工作进度、产出和挖矿经验。
 - 挖矿 job 必须进入统一技艺任务列表，显示实际工作进度、独立打断等待和取消按钮；攻击、移动、手动开始修炼等等待恢复不能改写挖矿实际工作量。
-- 矿脉在自上次恢复推进后受到有效伤害时，本次恢复不叠加自然或固脉回血；只有下一次没有新伤害的恢复推进才按正常公式回血。该时序只作用于矿脉，不改变普通地形、临时地块和建筑的恢复节奏。
 - 迁移到挖矿 job 前，必须审计现有地块伤害、阵法减伤、掉落和地形恢复链路，避免破坏战斗地块交互。
 
 ## 地形类型与地图字符映射

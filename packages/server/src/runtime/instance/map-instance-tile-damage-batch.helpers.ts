@@ -68,7 +68,6 @@ interface TileDamageBatchHost {
   markStaticTileSyncDirtyByIndex(tileIndex: number, options?: { sightBlockingChanged?: boolean; pathingChanged?: boolean }): void;
   markTileDamagePersistenceDirtyHighPriority(tileIndex: number): void;
   markTileDamagePersistenceDirtyBatchHighPriority(tileIndices: ReadonlySet<number>): void;
-  recordTileDamageForRecovery?(tileIndex: number, tileType: string, appliedDamage: number, destroyed: boolean): void;
   recalculateRoomsAndFengShuiAfterTopologyChange(input: { reason: string; dirtyCellCount: number }): void;
   recalculateFengShuiAfterRoomInfluenceChange(tileIndex: number, reason: string): void;
   markPersistenceDirtyDomainsHighPriority(domains: string[]): void;
@@ -199,12 +198,6 @@ export function applyMapInstanceOrdinaryTileDamageMutation(
     respawnLeft: input.destroyed ? calculateRestoreTicks(input.current.tileType) : 0,
     modifiedAt: batch?.modifiedAt ?? Date.now(),
   });
-  instance.recordTileDamageForRecovery?.(
-    input.tileIndex,
-    input.current.tileType,
-    input.appliedDamage,
-    input.destroyed,
-  );
   instance.markStaticTileSyncDirtyByIndex(input.tileIndex, {
     sightBlockingChanged: input.destroyed === true,
     pathingChanged: input.destroyed === true,

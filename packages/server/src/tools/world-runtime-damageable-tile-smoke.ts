@@ -118,30 +118,6 @@ function createBlackIronOreTemplate() {
   };
 }
 
-function createSpiritOreTemplate(mapLv: number) {
-  return {
-    ...createTemplate(),
-    terrainRows: [
-      '.L.',
-      '...',
-      '...',
-    ],
-    walkableMask: Uint8Array.from([
-      1, 0, 1,
-      1, 1, 1,
-      1, 1, 1,
-    ]),
-    blocksSightMask: Uint8Array.from([
-      0, 1, 0,
-      0, 0, 0,
-      0, 0, 0,
-    ]),
-    source: {
-      mapLv,
-    },
-  };
-}
-
 function createInstance(template = createTemplate()) {
   return new MapInstanceRuntime({
     instanceId: 'instance:tile-smoke',
@@ -549,36 +525,6 @@ function testStoneDurabilityScalesWithMapLv() {
   assert.equal(lowRealmHp, calculateTerrainDurability(1, 50));
   assert.equal(highRealmHp, calculateTerrainDurability(10, 50));
   assert.ok(highRealmHp > lowRealmHp);
-}
-
-function testOreDamageDefersRecoveryUntilIdleWindow() {
-  const createHighRealmOreInstance = () => createInstance(createSpiritOreTemplate(39));
-  const expectedMaxHp = calculateTerrainDurability(39, 10_000);
-  const recoveryAmount = Math.max(1, Math.floor(expectedMaxHp * TERRAIN_REGEN_RATE_PER_TICK));
-  const damage = recoveryAmount + 100;
-
-  const directInstance = createHighRealmOreInstance();
-  assert.equal(directInstance.getTileCombatState(1, 0)?.maxHp, expectedMaxHp);
-  const directResult = directInstance.damageTile(1, 0, damage);
-  assert.equal(directResult?.destroyed, false);
-  const oreStabilizerChecker = (x: number, y: number) => x === 1 && y === 0;
-  Object.defineProperty(oreStabilizerChecker, 'hasTerrainStabilizer', {
-    value: true,
-    enumerable: false,
-  });
-  assert.equal(directInstance.advanceTileRecovery(() => false, null, oreStabilizerChecker), false);
-  assert.equal(directInstance.getTileCombatState(1, 0)?.hp, expectedMaxHp - damage);
-  assert.equal(directInstance.advanceTileRecovery(() => false), true);
-  assert.equal(directInstance.getTileCombatState(1, 0)?.hp, expectedMaxHp - 100);
-
-  const batchInstance = createHighRealmOreInstance();
-  const batchResult = batchInstance.damageTilesBatch([{ x: 1, y: 0, damage }]);
-  assert.equal(batchResult.fastPathCount, 1);
-  assert.equal(batchResult.results[0]?.destroyed, false);
-  assert.equal(batchInstance.advanceTileRecovery(() => false), false);
-  assert.equal(batchInstance.getTileCombatState(1, 0)?.hp, expectedMaxHp - damage);
-  assert.equal(batchInstance.advanceTileRecovery(() => false), true);
-  assert.equal(batchInstance.getTileCombatState(1, 0)?.hp, expectedMaxHp - 100);
 }
 
 function createXueshaLevelNinePlayer() {
@@ -1067,7 +1013,6 @@ async function main() {
   testDestroyedTileDoesNotRespawnUnderUnit();
   testSpecialTerrainRestoreSpeedMatchesMain();
   testStoneDurabilityScalesWithMapLv();
-  testOreDamageDefersRecoveryUntilIdleWindow();
   testProjectedAuraLevelUsesEffectiveResourceValue();
   testProjectedTotalQiLevelUsesNeutralElementalAndShaResources();
   testPlainTickDoesNotDirtyPersistence();
