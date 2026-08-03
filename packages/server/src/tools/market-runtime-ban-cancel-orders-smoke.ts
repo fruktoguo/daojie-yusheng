@@ -47,6 +47,16 @@ async function main(): Promise<void> {
       getPlayer(requestedPlayerId: string) {
         return requestedPlayerId === bidderPlayerId ? bidderPlayer : null;
       },
+      describePersistencePresence(requestedPlayerId: string) {
+        return requestedPlayerId === bidderPlayerId
+          ? {
+              online: true,
+              inWorld: true,
+              runtimeOwnerId: bidderPlayer.runtimeOwnerId,
+              sessionEpoch: bidderPlayer.sessionEpoch,
+            }
+          : null;
+      },
       snapshot(requestedPlayerId: string) {
         return requestedPlayerId === bidderPlayerId ? structuredClone(bidderPlayer) : null;
       },

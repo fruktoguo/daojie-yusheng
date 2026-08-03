@@ -69,6 +69,7 @@ const PLAYER_SCOPED_TABLES = [
   'player_presence',
   'player_recovery_watermark',
   'server_player_snapshot',
+  'server_player_auth',
 ] as const;
 
 async function main(): Promise<void> {
@@ -99,6 +100,7 @@ async function main(): Promise<void> {
   const marketBuyPlayerId = `mbuy_${now.toString(36)}`;
   const marketBuySellerId = `msell_${now.toString(36)}`;
   const marketCancelPlayerId = `mcancel_${now.toString(36)}`;
+  const marketBanPlayerId = `mban_${now.toString(36)}`;
   const shopPlayerId = `shop_${now.toString(36)}`;
   const walletPlayerId = `wallet_${now.toString(36)}`;
   const equipPlayerId = `equip_${now.toString(36)}`;
@@ -113,6 +115,7 @@ async function main(): Promise<void> {
   const marketSellOperationId = `op:${marketSellPlayerId}:sell-now:1`;
   const marketBuyOperationId = `op:${marketBuyPlayerId}:buy-now:1`;
   const marketCancelOperationId = `op:${marketCancelPlayerId}:cancel-order:1`;
+  const marketBanOperationId = `op:${marketBanPlayerId}:ban:1`;
   const shopOperationId = `op:${shopPlayerId}:npc-shop:1`;
   const walletOperationId = `op:${walletPlayerId}:wallet:1`;
   const equipOperationId = `op:${equipPlayerId}:equip:1`;
@@ -131,6 +134,9 @@ async function main(): Promise<void> {
   const marketSellRuntimeOwnerId = `runtime:${marketSellPlayerId}:10`;
   const marketBuyRuntimeOwnerId = `runtime:${marketBuyPlayerId}:10`;
   const marketCancelRuntimeOwnerId = `runtime:${marketCancelPlayerId}:10`;
+  const marketBanAt = new Date(now + 29).toISOString();
+  const marketBanReason = '批量小号风险复核';
+  const marketBanActor = 'gm:durable-smoke';
   const shopRuntimeOwnerId = `runtime:${shopPlayerId}:11`;
   const walletRuntimeOwnerId = `runtime:${walletPlayerId}:12`;
   const equipRuntimeOwnerId = `runtime:${equipPlayerId}:13`;
@@ -319,6 +325,7 @@ async function main(): Promise<void> {
     marketBuyPlayerId,
     marketBuySellerId,
     marketCancelPlayerId,
+    marketBanPlayerId,
     shopPlayerId,
     walletPlayerId,
     equipPlayerId,
@@ -366,6 +373,7 @@ async function main(): Promise<void> {
     await cleanupPlayer(pool, marketBuyPlayerId);
     await cleanupPlayer(pool, marketBuySellerId);
     await cleanupPlayer(pool, marketCancelPlayerId);
+    await cleanupPlayer(pool, marketBanPlayerId);
     await cleanupPlayer(pool, shopPlayerId);
     await cleanupPlayer(pool, walletPlayerId);
     await cleanupPlayer(pool, equipPlayerId);
@@ -1661,6 +1669,109 @@ async function main(): Promise<void> {
       || Number(marketCancelWatermarkRow.wallet_version) <= 0
     ) {
       throw new Error(`unexpected market cancel watermark row: ${JSON.stringify(marketCancelWatermarkRow)}`);
+    }
+
+    await seedMarketBanFixture(pool, {
+      playerId: marketBanPlayerId,
+      now: now + 29,
+    });
+    const marketBanPayload = {
+      operationId: marketBanOperationId,
+      cancelledOrderIds: [],
+    };
+    const marketBanResult = await service.settleMarketMutation({
+      operationId: marketBanOperationId,
+      playerId: marketBanPlayerId,
+      expectedRuntimeOwnerId: '',
+      expectedSessionEpoch: 0,
+      operationType: 'market_ban_cancel_orders',
+      payload: marketBanPayload,
+      banUser: {
+        playerId: marketBanPlayerId,
+        bannedAt: marketBanAt,
+        banReason: marketBanReason,
+        bannedBy: marketBanActor,
+      },
+      requirePresenceFence: false,
+    });
+    if (!marketBanResult.ok || marketBanResult.alreadyCommitted) {
+      throw new Error(`unexpected market ban durable result: ${JSON.stringify(marketBanResult)}`);
+    }
+    const marketBanReplayResult = await service.settleMarketMutation({
+      operationId: marketBanOperationId,
+      playerId: marketBanPlayerId,
+      expectedRuntimeOwnerId: '',
+      expectedSessionEpoch: 0,
+      operationType: 'market_ban_cancel_orders',
+      payload: marketBanPayload,
+      banUser: {
+        playerId: marketBanPlayerId,
+        bannedAt: marketBanAt,
+        banReason: marketBanReason,
+        bannedBy: marketBanActor,
+      },
+      requirePresenceFence: false,
+    });
+    if (!marketBanReplayResult.ok || !marketBanReplayResult.alreadyCommitted) {
+      throw new Error(`unexpected market ban replay result: ${JSON.stringify(marketBanReplayResult)}`);
+    }
+    const marketBanAccountRow = await fetchSingleRow(
+      pool,
+      `
+        SELECT
+          banned_at = $2::text::timestamptz AS banned_at_matches,
+          ban_reason,
+          banned_by,
+          payload #>> '{bannedAt}' AS payload_banned_at,
+          payload #>> '{banReason}' AS payload_ban_reason,
+          payload #>> '{bannedBy}' AS payload_banned_by
+        FROM server_player_auth
+        WHERE player_id = $1
+      `,
+      [marketBanPlayerId, marketBanAt],
+    );
+    const marketBanOperationRow = await fetchSingleRow(
+      pool,
+      'SELECT status, committed_at FROM durable_operation_log WHERE operation_id = $1',
+      [marketBanOperationId],
+    );
+    const marketBanOutboxRows = await fetchRows(
+      pool,
+      'SELECT topic, status FROM outbox_event WHERE operation_id = $1 ORDER BY event_id ASC',
+      [marketBanOperationId],
+    );
+    const marketBanAuditRows = await fetchRows(
+      pool,
+      'SELECT asset_type, action FROM asset_audit_log WHERE operation_id = $1 ORDER BY log_id ASC',
+      [marketBanOperationId],
+    );
+    if (
+      !marketBanAccountRow
+      || marketBanAccountRow.banned_at_matches !== true
+      || marketBanAccountRow.ban_reason !== marketBanReason
+      || marketBanAccountRow.banned_by !== marketBanActor
+      || marketBanAccountRow.payload_banned_at !== marketBanAt
+      || marketBanAccountRow.payload_ban_reason !== marketBanReason
+      || marketBanAccountRow.payload_banned_by !== marketBanActor
+    ) {
+      throw new Error(`unexpected market ban account row: ${JSON.stringify(marketBanAccountRow)}`);
+    }
+    if (!marketBanOperationRow || marketBanOperationRow.status !== 'committed' || !marketBanOperationRow.committed_at) {
+      throw new Error(`unexpected market ban durable operation row: ${JSON.stringify(marketBanOperationRow)}`);
+    }
+    if (
+      marketBanOutboxRows.length !== 1
+      || marketBanOutboxRows[0]?.topic !== 'player.market.mutation'
+      || marketBanOutboxRows[0]?.status !== 'ready'
+    ) {
+      throw new Error(`unexpected market ban outbox rows: ${JSON.stringify(marketBanOutboxRows)}`);
+    }
+    if (
+      marketBanAuditRows.length !== 1
+      || marketBanAuditRows[0]?.asset_type !== 'market_mutation'
+      || marketBanAuditRows[0]?.action !== 'market_ban_cancel_orders'
+    ) {
+      throw new Error(`unexpected market ban audit rows: ${JSON.stringify(marketBanAuditRows)}`);
     }
 
     await seedNpcShopFixture(pool, {
@@ -3448,7 +3559,7 @@ async function main(): Promise<void> {
       ok: true,
       playerId,
       runtimePlayerId,
-      answers: 'with-db 下已验证 DurableOperationService 的 runtime_owner_id + session_epoch fencing，以及 mail/market-storage/market-sell-now/market-buy-now/market-cancel/npc-shop/wallet/equipment/active-job-start/active-job-cancel/active-job-complete/active-job-advance/active-job-update 十三条强事务链的幂等回放与拒绝回滚；active-job-advance 额外覆盖同一 job 的 durable/审计压缩、无消费者 outbox 停发、profession 同事务回读、重放身份、失败回滚、跨 owner 拒绝和资产 no-op 不改写，MailRuntimeService 真实领取入口也会走 durable claim 主链并刷新结构化邮箱真源',
+      answers: 'with-db 下已验证 DurableOperationService 的 runtime_owner_id + session_epoch fencing，以及 mail/market-storage/market-sell-now/market-buy-now/market-cancel/market-ban/npc-shop/wallet/equipment/active-job-start/active-job-cancel/active-job-complete/active-job-advance/active-job-update 十四条强事务链的幂等回放与拒绝回滚；market-ban 额外覆盖账号封禁字段、payload、outbox 与审计在同一事务提交，active-job-advance 额外覆盖同一 job 的 durable/审计压缩、无消费者 outbox 停发、profession 同事务回读、重放身份、失败回滚、跨 owner 拒绝和资产 no-op 不改写，MailRuntimeService 真实领取入口也会走 durable claim 主链并刷新结构化邮箱真源',
       excludes: '不证明真实客户端并发窗口、tick 编排内 mutation intent、GM restore、批量投递或 outbox dispatcher 消费',
       completionMapping: 'release:proof:with-db.durable-operation',
       firstResult,
@@ -3458,6 +3569,7 @@ async function main(): Promise<void> {
       marketSellResult,
       marketBuyResult,
       marketCancelResult,
+      marketBanResult,
       shopOperationResult,
       walletMutationResult,
       equipOperationResult,
@@ -4300,6 +4412,46 @@ async function cleanupPlayer(pool: Pool, playerId: string): Promise<void> {
     for (const tableName of PLAYER_SCOPED_TABLES.slice(3)) {
       await client.query(`DELETE FROM ${quoteIdentifier(tableName)} WHERE player_id = $1`, [playerId]);
     }
+    await client.query('COMMIT');
+  } catch (error) {
+    await rollbackAndThrow(client, error);
+  } finally {
+    client.release();
+  }
+}
+
+async function seedMarketBanFixture(
+  pool: Pool,
+  input: { playerId: string; now: number },
+): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `
+        INSERT INTO server_player_auth(
+          user_id,
+          username,
+          player_id,
+          pending_role_name,
+          password_hash,
+          created_at,
+          payload
+        )
+        VALUES ($1, $2, $3, '封禁事务测试', 'smoke-password-hash', $4::timestamptz, $5::jsonb)
+      `,
+      [
+        `user:${input.playerId}`,
+        input.playerId,
+        input.playerId,
+        new Date(input.now).toISOString(),
+        JSON.stringify({
+          bannedAt: null,
+          banReason: null,
+          bannedBy: null,
+        }),
+      ],
+    );
     await client.query('COMMIT');
   } catch (error) {
     await rollbackAndThrow(client, error);

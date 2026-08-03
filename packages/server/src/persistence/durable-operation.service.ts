@@ -7888,9 +7888,9 @@ async function persistDurableMarketBanUser(client: import('pg').PoolClient, banU
     `
       UPDATE ${PLAYER_AUTH_TABLE}
       SET
-        banned_at = $2::timestamptz,
-        ban_reason = $3,
-        banned_by = $4,
+        banned_at = $2::text::timestamptz,
+        ban_reason = $3::text,
+        banned_by = $4::text,
         updated_at = now(),
         payload = jsonb_set(
           jsonb_set(jsonb_set(payload, '{bannedAt}', to_jsonb($2::text), true), '{banReason}', to_jsonb($3::text), true),

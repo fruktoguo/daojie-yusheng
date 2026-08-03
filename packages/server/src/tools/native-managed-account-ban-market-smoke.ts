@@ -62,6 +62,9 @@ async function main(): Promise<void> {
   const marketCancelledPlayerIds: string[] = [];
   let cacheInvalidationCount = 0;
   const authStore = {
+    assertOperational() {
+      return undefined;
+    },
     getMemoryUserByPlayerId(playerId: string) {
       return playerId === user.playerId ? structuredClone(user) : null;
     },
@@ -107,6 +110,9 @@ async function main(): Promise<void> {
   const durableSaves: UserRecord[] = [];
   const durableReplaces: UserRecord[] = [];
   const durableAuthStore = {
+    assertOperational() {
+      return undefined;
+    },
     getMemoryUserByPlayerId(playerId: string) {
       return playerId === durableUser.playerId ? structuredClone(durableUser) : null;
     },
@@ -150,6 +156,9 @@ async function main(): Promise<void> {
   const rollbackUser = createUser({ playerId: 'player:ban-market-rollback' });
   const rollbackSaves: UserRecord[] = [];
   const rollbackAuthStore = {
+    assertOperational() {
+      return undefined;
+    },
     getMemoryUserByPlayerId(playerId: string) {
       return playerId === rollbackUser.playerId ? structuredClone(rollbackUser) : null;
     },
