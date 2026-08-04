@@ -152,7 +152,15 @@ export class WorldRuntimePlayerCombatService {
         recordPlayerMonsterKillCount(deps, 'combat.playerMonsterKill.lootItems', items.length);
         for (let index = 0; index < items.length; index += 1) {
             const item = items[index];
-            await this.deliverMonsterLoot(killerPlayerId, instance, monster.x, monster.y, item, deps, `monster:${monster.runtimeId}:${index}`);
+            this.deliverMonsterLootSynchronously(
+                killerPlayerId,
+                instance,
+                monster.x,
+                monster.y,
+                item,
+                deps,
+                `monster:${monster.runtimeId}:${index}`,
+            );
         }
         recordPlayerMonsterKillPerf(
             deps,
@@ -339,27 +347,69 @@ export class WorldRuntimePlayerCombatService {
     async deliverMonsterLoot(playerId: string, instance: any, x: number, y: number, item: any, deps: any, sourceRefId = '') {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (this.playerRuntimeService.canReceiveInventoryItem(playerId, item)) {
+        this.deliverMonsterLootSynchronously(playerId, instance, x, y, item, deps, sourceRefId);
+    }
+
+    /** 击杀热路径直接同步交付，避免为每件掉落创建空 Promise 切换。 */
+    private deliverMonsterLootSynchronously(
+        playerId: string,
+        instance: any,
+        x: number,
+        y: number,
+        item: any,
+        deps: any,
+        _sourceRefId = '',
+    ): void {
+        let sectionStartedAt = beginPlayerMonsterKillPerf(deps);
+        const canReceive = this.playerRuntimeService.canReceiveInventoryItem(playerId, item);
+        sectionStartedAt = recordPlayerMonsterKillPerf(
+            deps,
+            'combat.playerMonsterKill.lootCapacityCheckMs',
+            sectionStartedAt,
+        );
+        if (canReceive) {
             const player = this.playerRuntimeService.getPlayer(playerId);
             if (!player) {
                 throw new Error(`inventory_grant_player_missing:${playerId}`);
             }
-            this.playerRuntimeService.receiveInventoryItem(playerId, item);
+            this.playerRuntimeService.receiveInventoryItem(playerId, item, {
+                inventoryOnlyStatistics: true,
+            });
+            sectionStartedAt = recordPlayerMonsterKillPerf(
+                deps,
+                'combat.playerMonsterKill.lootInventoryApplyMs',
+                sectionStartedAt,
+            );
             const itemLabel = formatItemStackLabel(item);
             const lootNotice = buildStructuredNotice('loot', 'notice.loot.obtained', `获得 ${itemLabel}`, {
                 vars: { itemName: itemLabel },
                 pills: [{ key: 'itemName', style: 'target' }],
             });
             deps.queuePlayerNotice(playerId, lootNotice.text, lootNotice.kind, undefined, undefined, lootNotice.structured);
+            recordPlayerMonsterKillPerf(
+                deps,
+                'combat.playerMonsterKill.lootNoticeMs',
+                sectionStartedAt,
+            );
             return;
         }
         deps.spawnGroundItem(instance, x, y, item);
+        sectionStartedAt = recordPlayerMonsterKillPerf(
+            deps,
+            'combat.playerMonsterKill.lootGroundSpawnMs',
+            sectionStartedAt,
+        );
         const dropNotice = buildStructuredNotice('loot', 'notice.loot.bag-full-ground', `${formatItemStackLabel(item)} 掉落在 (${x}, ${y}) 的地面上，但你的背包已满。`, {
             vars: { itemLabel: formatItemStackLabel(item), x, y },
             pills: [{ key: 'itemLabel', style: 'target' }],
         });
         deps.queuePlayerNotice(playerId, dropNotice.text, dropNotice.kind, undefined, undefined, dropNotice.structured);
-    }    
+        recordPlayerMonsterKillPerf(
+            deps,
+            'combat.playerMonsterKill.lootNoticeMs',
+            sectionStartedAt,
+        );
+    }
     /**
  * dispatchDamagePlayer：判断Damage玩家是否满足条件。
  * @param playerId 玩家 ID。

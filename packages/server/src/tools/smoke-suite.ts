@@ -114,6 +114,7 @@ const smokeCases = [
     { name: 'world-runtime-quest-realm-stage-ready', scriptFile: 'world-runtime-quest-realm-stage-ready-smoke.js', standalone: true },
     { name: 'combat', scriptFile: 'combat-smoke.js' },
     { name: 'combat-kill-performance-attribution', scriptFile: 'combat-kill-performance-attribution-smoke.js', standalone: true },
+    { name: 'combat-loot-statistics-hotpath', scriptFile: 'combat-loot-statistics-hotpath-smoke.js', standalone: true },
     { name: 'combat-e2e-outcome-matrix', scriptFile: 'combat-e2e-outcome-matrix-smoke.js', standalone: true },
     { name: 'combat-formula-main-parity', scriptFile: 'combat-formula-main-parity-smoke.js', standalone: true },
     { name: 'world-runtime-combat-action-service', scriptFile: 'world-runtime-combat-action-service-smoke.js', standalone: true },

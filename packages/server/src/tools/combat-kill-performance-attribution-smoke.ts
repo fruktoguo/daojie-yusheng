@@ -9,6 +9,11 @@ async function main(): Promise<void> {
   const events: string[] = [];
   const grants: Array<{ playerId: string; contributionRatio: number }> = [];
   const perfCounts = new Map<string, number>();
+  const drops = [
+    { itemId: 'drop:1', name: '掉落一', count: 1 },
+    { itemId: 'drop:2', name: '掉落二', count: 2 },
+    { itemId: 'drop:3', name: '掉落三', count: 3 },
+  ];
   const players = new Map<string, Record<string, any>>([
     ['player:combat-perf:killer', buildPlayer('player:combat-perf:killer', 20)],
     ['player:combat-perf:assist', buildPlayer('player:combat-perf:assist', 5)],
@@ -18,7 +23,7 @@ async function main(): Promise<void> {
       getMonsterCombatProfile: () => ({ expMultiplier: 1 }),
       rollMonsterDrops: () => {
         events.push('drop_roll');
-        return [];
+        return drops;
       },
     } as never,
     {
@@ -27,6 +32,15 @@ async function main(): Promise<void> {
         events.push(`progress:${playerId}`);
         grants.push({ playerId, contributionRatio: input.contributionRatio });
         return { changed: false };
+      },
+      canReceiveInventoryItem: () => true,
+      receiveInventoryItem(
+        _playerId: string,
+        item: { itemId: string },
+        options: { inventoryOnlyStatistics?: boolean } = {},
+      ) {
+        assert.equal(options.inventoryOnlyStatistics, true);
+        events.push(`receive:${item.itemId}`);
       },
     } as never,
     {
@@ -43,7 +57,16 @@ async function main(): Promise<void> {
     ],
   };
   const deps = {
-    queuePlayerNotice: () => events.push('notice'),
+    queuePlayerNotice(
+      _playerId: string,
+      _text: string,
+      _kind: string,
+      _expiresAt: unknown,
+      _source: unknown,
+      structured: { key?: string } | undefined,
+    ) {
+      events.push(structured?.key === 'notice.combat.killed' ? 'notice' : `loot_notice:${structured?.key}`);
+    },
     advanceKillQuestProgress: () => events.push('quest'),
     resolveCurrentTickForPlayerId: () => 100,
     recordPendingCommandSectionDuration(key: string, durationMs: number, count = 1) {
@@ -69,6 +92,12 @@ async function main(): Promise<void> {
     'progress:player:combat-perf:killer',
     'progress:player:combat-perf:assist',
     'drop_roll',
+    'receive:drop:1',
+    'loot_notice:notice.loot.obtained',
+    'receive:drop:2',
+    'loot_notice:notice.loot.obtained',
+    'receive:drop:3',
+    'loot_notice:notice.loot.obtained',
   ]);
   assert.deepEqual(grants, [
     { playerId: 'player:combat-perf:killer', contributionRatio: 0.25 },
@@ -81,6 +110,10 @@ async function main(): Promise<void> {
     'combat.playerMonsterKill.progressApplyMs': 2,
     'combat.playerMonsterKill.progressMs': 1,
     'combat.playerMonsterKill.dropRollMs': 1,
+    'combat.playerMonsterKill.lootItems': 3,
+    'combat.playerMonsterKill.lootCapacityCheckMs': 3,
+    'combat.playerMonsterKill.lootInventoryApplyMs': 3,
+    'combat.playerMonsterKill.lootNoticeMs': 3,
     'combat.playerMonsterKill.lootDeliveryMs': 1,
   });
 

@@ -3186,7 +3186,7 @@ export class PlayerRuntimeService {
  * @returns 无返回值，直接更新receive背包道具相关状态。
  */
 
-    receiveInventoryItem(playerId, item) {
+    receiveInventoryItem(playerId, item, options: any = {}) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.getPlayerOrThrow(playerId);
@@ -3207,7 +3207,9 @@ export class PlayerRuntimeService {
         this.playerProgressionService.refreshPreview(player);
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
-        this.recordAssetStatisticMutation(player, statisticBefore);
+        this.recordAssetStatisticMutation(player, statisticBefore, Date.now(), {
+            inventoryOnly: options?.inventoryOnlyStatistics === true,
+        });
         return player;
     }
     /**
@@ -5171,10 +5173,13 @@ export class PlayerRuntimeService {
         }
         const normalizedPlayerId = normalizeOfflineGainString(player?.playerId);
         const progressionOnly = options?.progressionOnly === true;
+        const inventoryOnly = !progressionOnly && options?.inventoryOnly === true;
         const deltaStartedAt = performance.now();
         const resolved = progressionOnly
             ? buildOfflineGainProgressionOnlyMutation(player, beforeSnapshot)
-            : null;
+            : inventoryOnly
+                ? buildOfflineGainInventoryOnlyMutation(player, beforeSnapshot, this.contentTemplateRepository)
+                : null;
         const afterSnapshot = resolved?.afterSnapshot
             ?? buildOfflineGainSnapshot(player, this.contentTemplateRepository, this.playerProgressionService);
         const delta = resolved?.delta
@@ -5183,9 +5188,15 @@ export class PlayerRuntimeService {
                 normalizeOfflineGainSnapshot(afterSnapshot),
                 (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level),
             );
-        recordPlayerTickPerf(options, progressionOnly
-            ? 'playerTick.offlineGainProgressionDeltaMs'
-            : 'playerTick.offlineGainFullDeltaMs', deltaStartedAt);
+        recordPlayerTickPerf(
+            options,
+            progressionOnly
+                ? 'playerTick.offlineGainProgressionDeltaMs'
+                : inventoryOnly
+                    ? 'playerTick.offlineGainInventoryDeltaMs'
+                    : 'playerTick.offlineGainFullDeltaMs',
+            deltaStartedAt,
+        );
         this.playerStatisticSnapshotsByPlayerId.set(normalizedPlayerId, afterSnapshot);
         const offlineSession = this.offlineGainSessionsByPlayerId.get(normalizedPlayerId);
         if (offlineSession && !normalizeOfflineGainString(player?.sessionId)) {
@@ -5238,7 +5249,7 @@ export class PlayerRuntimeService {
         );
     }
     /** 资产入口成功变更后记录统计；tick 内延迟到 tick 末统一结算，避免重复累计离线时长。 */
-    recordAssetStatisticMutation(player, beforeSnapshot, endedAt = Date.now()) {
+    recordAssetStatisticMutation(player, beforeSnapshot, endedAt = Date.now(), options: any = {}) {
         const normalizedPlayerId = normalizeOfflineGainString(player?.playerId);
         if (!normalizedPlayerId || !beforeSnapshot) {
             return;
@@ -5262,6 +5273,7 @@ export class PlayerRuntimeService {
         }
         this.recordPlayerStatisticMutation(player, beforeSnapshot, endedAt, {
             progressionOnly: false,
+            inventoryOnly: options?.inventoryOnly === true,
             countOfflineDuration: false,
         });
     }
@@ -7555,20 +7567,52 @@ function accumulateOfflineGainSessionDelta(session, beforeSnapshot, afterSnapsho
     );
 }
 function buildOfflineGainDeltaParts(before, after, resolveProfessionExpToNext = null) {
-    const itemDeltas = diffOfflineGainItems(before.inventoryItems, after.inventoryItems);
-    const spiritStones = itemDeltas
-        .filter((entry) => isWalletCacheItemId(entry.itemId))
-        .reduce((total, entry) => ({
-            gained: total.gained + normalizeOfflineGainCount(entry.gained ?? entry.count),
-            lost: total.lost + normalizeOfflineGainCount(entry.lost),
-            net: total.net + normalizeOfflineGainSignedCount(entry.net ?? ((entry.gained ?? entry.count ?? 0) - (entry.lost ?? 0))),
-        }), { gained: 0, lost: 0, net: 0 });
+    const inventoryDelta = buildOfflineGainInventoryDeltaParts(before.inventoryItems, after.inventoryItems);
     return {
-        spiritStones,
-        items: itemDeltas.filter((entry) => !isWalletCacheItemId(entry.itemId)),
+        ...inventoryDelta,
         progress: diffOfflineGainProgress(before, after),
         techniques: diffOfflineGainTechniques(before.techniques, after.techniques),
         professions: diffOfflineGainProfessions(before.professions, after.professions, resolveProfessionExpToNext),
+    };
+}
+function buildOfflineGainInventoryOnlyMutation(player, beforeSnapshot, contentTemplateRepository = null) {
+    const before = normalizeOfflineGainSnapshot(beforeSnapshot);
+    const afterSnapshot = markNormalizedOfflineGainSnapshot({
+        snapshotAt: Date.now(),
+        playerId: normalizeOfflineGainString(player?.playerId),
+        inventoryItems: buildOfflineGainInventorySnapshot([
+            ...(Array.isArray(player?.inventory?.items) ? player.inventory.items : []),
+            ...(Array.isArray(player?.inventory?.lockedItems) ? player.inventory.lockedItems : []),
+        ], contentTemplateRepository),
+        realm: before.realm,
+        foundation: before.foundation,
+        rootFoundation: before.rootFoundation,
+        combatExp: before.combatExp,
+        bodyTraining: before.bodyTraining,
+        techniques: before.techniques,
+        professions: before.professions,
+    });
+    return {
+        afterSnapshot,
+        delta: {
+            ...buildOfflineGainInventoryDeltaParts(before.inventoryItems, afterSnapshot.inventoryItems),
+            progress: [],
+            techniques: [],
+            professions: [],
+        },
+    };
+}
+function buildOfflineGainInventoryDeltaParts(beforeItems, afterItems) {
+    const itemDeltas = diffOfflineGainItems(beforeItems, afterItems);
+    return {
+        spiritStones: itemDeltas
+            .filter((entry) => isWalletCacheItemId(entry.itemId))
+            .reduce((total, entry) => ({
+                gained: total.gained + normalizeOfflineGainCount(entry.gained ?? entry.count),
+                lost: total.lost + normalizeOfflineGainCount(entry.lost),
+                net: total.net + normalizeOfflineGainSignedCount(entry.net ?? ((entry.gained ?? entry.count ?? 0) - (entry.lost ?? 0))),
+            }), { gained: 0, lost: 0, net: 0 }),
+        items: itemDeltas.filter((entry) => !isWalletCacheItemId(entry.itemId)),
     };
 }
 function buildOfflineGainProgressionOnlyMutation(player, beforeSnapshot) {
