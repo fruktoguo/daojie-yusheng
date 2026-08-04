@@ -165,7 +165,12 @@ export class WorldRuntimeCraftTickService {
                 let activityCompleted = false;
                 let result: any;
                 try {
-                    const pendingResult = this.tickActiveTechniqueActivity(player, kind, deps);
+                    const pendingResult = this.tickActiveTechniqueActivity(
+                        player,
+                        kind,
+                        deps,
+                        recordSectionDuration,
+                    );
                     asyncBoundary = isPromiseLike(pendingResult);
                     result = asyncBoundary ? await pendingResult : pendingResult;
                     activityCompleted = true;
@@ -292,9 +297,18 @@ export class WorldRuntimeCraftTickService {
     }
 
     /** 推进活跃技艺；强化必须走强事务入口，避免完成回写和 active_job 分裂。 */
-    private tickActiveTechniqueActivity(player: any, kind: string, deps: any): any {
+    private tickActiveTechniqueActivity(
+        player: any,
+        kind: string,
+        deps: any,
+        recordSectionDuration: CraftTickSectionRecorder = null,
+    ): any {
         if (kind === 'enhancement' && typeof this.craftPanelRuntimeService.tickEnhancementDurably === 'function') {
-            return this.craftPanelRuntimeService.tickEnhancementDurably(player, deps);
+            return this.craftPanelRuntimeService.tickEnhancementDurably(
+                player,
+                deps,
+                recordSectionDuration,
+            );
         }
         if (
             kind === 'formation'

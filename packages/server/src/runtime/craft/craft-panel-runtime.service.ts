@@ -55,6 +55,7 @@ const SPIRIT_STONE_ITEM_ID = ENHANCEMENT_SPIRIT_STONE_ITEM_ID;
 /** 炼丹/炼器资源扣除策略版本：每批完成结算前扣除一批。 */
 const ALCHEMY_LIKE_RESOURCE_CONSUMPTION_MODE_PER_BATCH = 'perBatchOnResolve';
 const ALCHEMY_LIKE_RESOURCE_CONSUMPTION_VERSION = 2;
+type CraftRuntimeSectionRecorder = ((key: string, durationMs: number, count?: number) => void) | null;
 
 /** 制作运行时服务：负责炼丹与强化的任务创建、进度推进与结果落库。 */
 @Injectable()
@@ -530,17 +531,21 @@ export class CraftPanelRuntimeService {
         return buildCraftTickResult();
     }
     /** 线上强化 tick 入口：普通进度走同步轻量段，清理 job 或回写资产仍同步提交强事务。 */
-    tickEnhancementDurably(player, deps = null) {
+    tickEnhancementDurably(
+        player,
+        deps = null,
+        recordSectionDuration: CraftRuntimeSectionRecorder = null,
+    ) {
         if (this.isPlayerSessionFenceSuperseded(player)) {
             return buildSupersededCraftTickResult();
         }
         const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
         const runWhileAssetIdle = this.playerRuntimeService?.tryRunSynchronousPlayerMutationWhileAssetIdle;
+        const stateGuarded = player?.enhancementDurableCommitInFlight === true
+            || player?.suppressImmediateDomainPersistence === true;
+        const progressOnly = Boolean(playerId && !stateGuarded && isEnhancementProgressOnlyTick(player));
         if (
-            playerId
-            && player?.enhancementDurableCommitInFlight !== true
-            && player?.suppressImmediateDomainPersistence !== true
-            && isEnhancementProgressOnlyTick(player)
+            progressOnly
             && typeof runWhileAssetIdle === 'function'
         ) {
             let progressResult: any = null;
@@ -551,10 +556,41 @@ export class CraftPanelRuntimeService {
                 return progressResult;
             }
         }
-        return this.runExclusivePlayerAssetMutation(
-            player,
-            () => this.tickEnhancementDurablyLocked(player, deps),
+        recordCraftRuntimeCount(
+            recordSectionDuration,
+            stateGuarded
+                ? 'instance.craftJob.enhancementAsyncStateGuard'
+                : progressOnly
+                    ? typeof runWhileAssetIdle === 'function'
+                        ? 'instance.craftJob.enhancementAsyncQueueBusy'
+                        : 'instance.craftJob.enhancementAsyncUnsupported'
+                    : 'instance.craftJob.enhancementAsyncSettlement',
         );
+        const queueStartedAt = beginCraftRuntimeSection(recordSectionDuration);
+        let actionCompletedAt: number | null = null;
+        const pendingResult = this.runExclusivePlayerAssetMutation(
+            player,
+            async () => {
+                recordCraftRuntimeSection(
+                    recordSectionDuration,
+                    'instance.craftJob.enhancementAssetQueueWaitMs',
+                    queueStartedAt,
+                );
+                try {
+                    return await this.tickEnhancementDurablyLocked(player, deps, recordSectionDuration);
+                }
+                finally {
+                    actionCompletedAt = performance.now();
+                }
+            },
+        );
+        return Promise.resolve(pendingResult).finally(() => {
+            recordCraftRuntimeSection(
+                recordSectionDuration,
+                'instance.craftJob.enhancementCoordinatorFinalizeMs',
+                actionCompletedAt,
+            );
+        });
     }
     /** 强化普通进度只修改规范化 job 与 active_job 修订；异常时按轻量快照原样回滚。 */
     private tickEnhancementProgressOnly(player, deps = null) {
@@ -590,7 +626,11 @@ export class CraftPanelRuntimeService {
             player.suppressImmediateDomainPersistence = previousSuppress;
         }
     }
-    async tickEnhancementDurablyLocked(player, deps = null) {
+    async tickEnhancementDurablyLocked(
+        player,
+        deps = null,
+        recordSectionDuration: CraftRuntimeSectionRecorder = null,
+    ) {
         if (player?.enhancementDurableCommitInFlight === true || player?.suppressImmediateDomainPersistence === true) {
             return buildCraftTickResult();
         }
@@ -604,7 +644,18 @@ export class CraftPanelRuntimeService {
             player.suppressImmediateDomainPersistence = true;
         }
         try {
-            const result = this.tickTechniqueActivity(player, 'enhancement', deps);
+            const runtimeResolveStartedAt = beginCraftRuntimeSection(recordSectionDuration);
+            let result: any;
+            try {
+                result = this.tickTechniqueActivity(player, 'enhancement', deps);
+            }
+            finally {
+                recordCraftRuntimeSection(
+                    recordSectionDuration,
+                    'instance.craftJob.enhancementRuntimeResolveMs',
+                    runtimeResolveStartedAt,
+                );
+            }
             if (!result?.ok) {
                 return result;
             }
@@ -615,9 +666,20 @@ export class CraftPanelRuntimeService {
                 || player.enhancementJob?.jobRunId !== expectedJob?.jobRunId,
             );
             if (expectedJob && hasAssetBoundary) {
-                const durablePresence = durableEnabled
-                    ? await this.resolveDurablePresenceFence(player.playerId)
-                    : null;
+                const presenceFenceStartedAt = beginCraftRuntimeSection(recordSectionDuration);
+                let durablePresence = null;
+                try {
+                    durablePresence = durableEnabled
+                        ? await this.resolveDurablePresenceFence(player.playerId, recordSectionDuration)
+                        : null;
+                }
+                finally {
+                    recordCraftRuntimeSection(
+                        recordSectionDuration,
+                        'instance.craftJob.enhancementPresenceFenceMs',
+                        presenceFenceStartedAt,
+                    );
+                }
                 if (durablePresence) {
                     attemptedSessionFence = {
                         runtimeOwnerId: durablePresence.runtimeOwnerId,
@@ -628,6 +690,7 @@ export class CraftPanelRuntimeService {
                     allowSuppressed: durableEnabled,
                     presence: durablePresence,
                     beforeState: before,
+                    recordSectionDuration,
                 });
             } else if (expectedJob && player?.enhancementJob) {
                 this.queueEnhancementActiveJobFlush(player, previousSuppress);
@@ -670,6 +733,7 @@ export class CraftPanelRuntimeService {
         presence?: { runtimeOwnerId: string; sessionEpoch: number } | null;
         expectedQueueHeadId?: string | null;
         beforeState?: ReturnType<typeof captureEnhancementAssetRuntimeState> | null;
+        recordSectionDuration?: CraftRuntimeSectionRecorder;
     } = {}) {
         if (!this.shouldUseDurableEnhancementPersistence(player, options)) {
             return;
@@ -679,6 +743,7 @@ export class CraftPanelRuntimeService {
             throw new Error('强化强事务提交失败：缺少玩家 ID');
         }
         const presence = options.presence ?? await this.resolveDurablePresenceFence(playerId);
+        const payloadBuildStartedAt = beginCraftRuntimeSection(options.recordSectionDuration ?? null);
         const advancedPatch = action === 'tick' && options.beforeState
             ? buildEnhancementAdvancedAssetPatch(playerId, options.beforeState, player)
             : null;
@@ -714,67 +779,83 @@ export class CraftPanelRuntimeService {
         const snapshotRevision = Number.isFinite(Number(player?.persistentRevision))
             ? Math.trunc(Number(player.persistentRevision))
             : null;
-        if (action === 'start') {
-            if (!activeJob) {
-                throw new Error(`强化强事务启动失败：缺少 active job playerId=${playerId}`);
+        recordCraftRuntimeSection(
+            options.recordSectionDuration ?? null,
+            'instance.craftJob.enhancementPayloadBuildMs',
+            payloadBuildStartedAt,
+        );
+        const durableCommitStartedAt = beginCraftRuntimeSection(options.recordSectionDuration ?? null);
+        try {
+            if (action === 'start') {
+                if (!activeJob) {
+                    throw new Error(`强化强事务启动失败：缺少 active job playerId=${playerId}`);
+                }
+                await this.durableOperationService.startActiveJobWithAssets({
+                    operationId: `enhancement:start:${playerId}:${activeJob.jobRunId}:${activeJob.jobVersion}`,
+                    playerId,
+                    expectedRuntimeOwnerId: presence.runtimeOwnerId,
+                    expectedSessionEpoch: presence.sessionEpoch,
+                    nextInventoryItems: inventoryItems,
+                    nextWalletBalances: walletBalances,
+                    nextActiveJob: activeJob,
+                    nextEnhancementRecords: enhancementRecords,
+                    ...(options.expectedQueueHeadId ? {
+                        expectedQueueHeadId: options.expectedQueueHeadId,
+                        nextTechniqueActivityQueue: buildTechniqueActivityQueueSnapshotFromPlayer(player),
+                    } : {}),
+                });
             }
-            await this.durableOperationService.startActiveJobWithAssets({
-                operationId: `enhancement:start:${playerId}:${activeJob.jobRunId}:${activeJob.jobVersion}`,
-                playerId,
-                expectedRuntimeOwnerId: presence.runtimeOwnerId,
-                expectedSessionEpoch: presence.sessionEpoch,
-                nextInventoryItems: inventoryItems,
-                nextWalletBalances: walletBalances,
-                nextActiveJob: activeJob,
-                nextEnhancementRecords: enhancementRecords,
-                ...(options.expectedQueueHeadId ? {
-                    expectedQueueHeadId: options.expectedQueueHeadId,
-                    nextTechniqueActivityQueue: buildTechniqueActivityQueueSnapshotFromPlayer(player),
-                } : {}),
-            });
-        }
-        else if (action === 'cancelled') {
-            if (!jobRunId) {
-                throw new Error(`强化强事务取消失败：缺少 jobRunId playerId=${playerId}`);
+            else if (action === 'cancelled') {
+                if (!jobRunId) {
+                    throw new Error(`强化强事务取消失败：缺少 jobRunId playerId=${playerId}`);
+                }
+                await this.durableOperationService.cancelActiveJobWithAssets({
+                    operationId: `enhancement:cancelled:${playerId}:${jobRunId}:${jobVersion}`,
+                    playerId,
+                    expectedRuntimeOwnerId: presence.runtimeOwnerId,
+                    expectedSessionEpoch: presence.sessionEpoch,
+                    expectedJobRunId: jobRunId,
+                    expectedJobVersion: jobVersion,
+                    nextInventoryItems: inventoryItems,
+                    nextWalletBalances: walletBalances,
+                    nextEquipmentSlots: equipmentSlots,
+                    nextEnhancementRecords: enhancementRecords,
+                });
             }
-            await this.durableOperationService.cancelActiveJobWithAssets({
-                operationId: `enhancement:cancelled:${playerId}:${jobRunId}:${jobVersion}`,
-                playerId,
-                expectedRuntimeOwnerId: presence.runtimeOwnerId,
-                expectedSessionEpoch: presence.sessionEpoch,
-                expectedJobRunId: jobRunId,
-                expectedJobVersion: jobVersion,
-                nextInventoryItems: inventoryItems,
-                nextWalletBalances: walletBalances,
-                nextEquipmentSlots: equipmentSlots,
-                nextEnhancementRecords: enhancementRecords,
-            });
-        }
-        else {
-            if (!jobRunId) {
-                throw new Error(`强化强事务完成失败：缺少 jobRunId playerId=${playerId}`);
+            else {
+                if (!jobRunId) {
+                    throw new Error(`强化强事务完成失败：缺少 jobRunId playerId=${playerId}`);
+                }
+                await this.durableOperationService.completeActiveJobWithAssets({
+                    operationId: `enhancement:${action}:${playerId}:${jobRunId}:${jobVersion}`,
+                    playerId,
+                    expectedRuntimeOwnerId: presence.runtimeOwnerId,
+                    expectedSessionEpoch: presence.sessionEpoch,
+                    expectedJobRunId: jobRunId,
+                    expectedJobVersion: jobVersion,
+                    nextInventoryItems: inventoryItems,
+                    nextWalletBalances: walletBalances,
+                    nextEquipmentSlots: equipmentSlots,
+                    nextEnhancementRecords: enhancementRecords,
+                    nextProfessionStates: professionStates,
+                    nextActiveJob: activeJob,
+                    completionKind: resolveEnhancementDurableCompletionKind(action, player, jobRunId, expectedJob),
+                    ...(advancedPatch ? {
+                        assetWriteMode: 'patch' as const,
+                        removedInventoryItemInstanceIds: advancedPatch.removedInventoryItemInstanceIds,
+                        removedWalletTypes: advancedPatch.removedWalletTypes,
+                    } : {}),
+                });
             }
-            await this.durableOperationService.completeActiveJobWithAssets({
-                operationId: `enhancement:${action}:${playerId}:${jobRunId}:${jobVersion}`,
-                playerId,
-                expectedRuntimeOwnerId: presence.runtimeOwnerId,
-                expectedSessionEpoch: presence.sessionEpoch,
-                expectedJobRunId: jobRunId,
-                expectedJobVersion: jobVersion,
-                nextInventoryItems: inventoryItems,
-                nextWalletBalances: walletBalances,
-                nextEquipmentSlots: equipmentSlots,
-                nextEnhancementRecords: enhancementRecords,
-                nextProfessionStates: professionStates,
-                nextActiveJob: activeJob,
-                completionKind: resolveEnhancementDurableCompletionKind(action, player, jobRunId, expectedJob),
-                ...(advancedPatch ? {
-                    assetWriteMode: 'patch' as const,
-                    removedInventoryItemInstanceIds: advancedPatch.removedInventoryItemInstanceIds,
-                    removedWalletTypes: advancedPatch.removedWalletTypes,
-                } : {}),
-            });
         }
+        finally {
+            recordCraftRuntimeSection(
+                options.recordSectionDuration ?? null,
+                'instance.craftJob.enhancementDurableCommitMs',
+                durableCommitStartedAt,
+            );
+        }
+        const markPersistedStartedAt = beginCraftRuntimeSection(options.recordSectionDuration ?? null);
         const persistedDomains = new Set<string>(['active_job']);
         if (!advancedPatch || advancedPatch.nextInventoryItems.length > 0 || advancedPatch.removedInventoryItemInstanceIds.length > 0) {
             persistedDomains.add('inventory');
@@ -795,6 +876,11 @@ export class CraftPanelRuntimeService {
             playerId,
             persistedDomains,
             snapshotRevision,
+        );
+        recordCraftRuntimeSection(
+            options.recordSectionDuration ?? null,
+            'instance.craftJob.enhancementMarkPersistedMs',
+            markPersistedStartedAt,
         );
     }
     /** 记录旧会话已被数据库更高 fence 接管，避免下一息重复提交同一旧 owner。 */
@@ -848,26 +934,90 @@ export class CraftPanelRuntimeService {
             deferAssetStatisticsUntilSuccess: true,
         });
     }
-    async resolveDurablePresenceFence(playerId) {
+    async resolveDurablePresenceFence(
+        playerId,
+        recordSectionDuration: CraftRuntimeSectionRecorder = null,
+    ) {
+        const describeStartedAt = beginCraftRuntimeSection(recordSectionDuration);
         let presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+        recordCraftRuntimeSection(
+            recordSectionDuration,
+            'instance.craftJob.enhancementPresenceDescribeMs',
+            describeStartedAt,
+        );
         if (
             (!presence?.runtimeOwnerId || !presence?.sessionEpoch)
             && typeof this.playerRuntimeService.ensureRuntimeOwnershipClaimed === 'function'
         ) {
-            await this.playerRuntimeService.ensureRuntimeOwnershipClaimed(playerId);
-            presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+            const claimStartedAt = beginCraftRuntimeSection(recordSectionDuration);
+            try {
+                await this.playerRuntimeService.ensureRuntimeOwnershipClaimed(playerId);
+                presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+            }
+            finally {
+                recordCraftRuntimeSection(
+                    recordSectionDuration,
+                    'instance.craftJob.enhancementPresenceClaimMs',
+                    claimStartedAt,
+                );
+            }
         }
         if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
             throw new Error(`强化强事务提交失败：缺少运行态所有权围栏 playerId=${playerId}`);
         }
+        const player = this.playerRuntimeService.getPlayer?.(playerId) ?? null;
+        const presenceDirty = player?.dirtyDomains instanceof Set && player.dirtyDomains.has('presence');
+        const presencePersisted = !presenceDirty
+            && this.playerRuntimeService.isPersistenceDomainPersisted?.(playerId, 'presence') === true;
+        recordCraftRuntimeCount(
+            recordSectionDuration,
+            presenceDirty
+                ? 'instance.craftJob.enhancementPresenceDirty'
+                : 'instance.craftJob.enhancementPresenceClean',
+        );
         if (
-            this.playerDomainPersistenceService?.isEnabled?.()
+            !presencePersisted
+            && this.playerDomainPersistenceService?.isEnabled?.()
             && typeof this.playerDomainPersistenceService.savePlayerPresence === 'function'
         ) {
-            await this.playerDomainPersistenceService.savePlayerPresence(playerId, {
-                ...presence,
-                versionSeed: nextPlayerPersistenceVersion(),
-            });
+            const presenceSnapshotRevision = this.playerRuntimeService.getPersistenceRevision?.(playerId) ?? null;
+            const presenceDomainRevision = this.playerRuntimeService.getPersistenceDomainRevision?.(
+                playerId,
+                'presence',
+            ) ?? null;
+            const persistStartedAt = beginCraftRuntimeSection(recordSectionDuration);
+            try {
+                await this.playerDomainPersistenceService.savePlayerPresence(playerId, {
+                    ...presence,
+                    versionSeed: nextPlayerPersistenceVersion(),
+                });
+            }
+            finally {
+                recordCraftRuntimeSection(
+                    recordSectionDuration,
+                    'instance.craftJob.enhancementPresencePersistMs',
+                    persistStartedAt,
+                );
+            }
+            if (
+                Number.isFinite(Number(presenceSnapshotRevision))
+                && Number.isFinite(Number(presenceDomainRevision))
+                && Number(presenceDomainRevision) > 0
+                && this.playerRuntimeService.getPersistenceDomainRevision?.(playerId, 'presence') === presenceDomainRevision
+                && typeof this.playerRuntimeService.markPersisted === 'function'
+            ) {
+                this.playerRuntimeService.markPersisted(
+                    playerId,
+                    new Set(['presence']),
+                    Math.trunc(Number(presenceSnapshotRevision)),
+                );
+            }
+        }
+        else if (presencePersisted) {
+            recordCraftRuntimeCount(
+                recordSectionDuration,
+                'instance.craftJob.enhancementPresenceSkip',
+            );
         }
         return {
             runtimeOwnerId: String(presence.runtimeOwnerId),
@@ -4678,6 +4828,26 @@ function cloneTargetRef(ref) {
     return ref.source === 'equipment'
         ? { source: 'equipment', slot: ref.slot }
         : { source: 'inventory', itemInstanceId: normalizeInventoryItemInstanceId(ref.itemInstanceId) };
+}
+function beginCraftRuntimeSection(recorder: CraftRuntimeSectionRecorder): number | null {
+    return typeof recorder === 'function' ? performance.now() : null;
+}
+function recordCraftRuntimeSection(
+    recorder: CraftRuntimeSectionRecorder,
+    key: string,
+    startedAt: number | null,
+    count = 1,
+): void {
+    if (typeof recorder !== 'function' || startedAt === null) {
+        return;
+    }
+    recorder(key, Math.max(0, performance.now() - startedAt), count);
+}
+function recordCraftRuntimeCount(recorder: CraftRuntimeSectionRecorder, key: string, count = 1): void {
+    if (typeof recorder !== 'function') {
+        return;
+    }
+    recorder(key, 0, count);
 }
 /**
  * buildCraftMutationResult：构建并返回目标对象。

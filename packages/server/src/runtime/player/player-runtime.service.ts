@@ -5502,6 +5502,25 @@ export class PlayerRuntimeService {
         }
         return getPlayerPersistenceDomainRevision(player, normalizedDomain);
     }
+    /** 判断指定持久化域是否已经按当前运行态修订落库且没有新的脏变更。 */
+    isPersistenceDomainPersisted(playerId, domain) {
+        const player = this.players.get(playerId);
+        const normalizedDomain = typeof domain === 'string' ? domain.trim() : '';
+        if (!player || !normalizedDomain || !(player.persistedDomainRevisionByDomain instanceof Map)) {
+            return false;
+        }
+        if (player.dirtyDomains instanceof Set && player.dirtyDomains.has(normalizedDomain)) {
+            return false;
+        }
+        const currentRevision = getPlayerPersistenceDomainRevision(player, normalizedDomain);
+        if (currentRevision <= 0) {
+            return false;
+        }
+        return Math.max(
+            0,
+            Math.trunc(Number(player.persistedDomainRevisionByDomain.get(normalizedDomain) ?? 0)),
+        ) === currentRevision;
+    }
     /** 在生成 ledger payload 前复核单域仍未被 hold，且仍存在未暂存修订。 */
     getUnstagedPersistenceDomainRevision(playerId, domain, stagingGenerationId) {
         const player = this.players.get(playerId);

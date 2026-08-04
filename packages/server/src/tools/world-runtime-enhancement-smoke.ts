@@ -36,6 +36,7 @@ async function main(): Promise<void> {
   await testStartInterruptAndCompleteEnhancement();
   await testDurableEnhancementFlushesStaleActivityProjectionBeforeStart();
   await testDurableEnhancementPersistsAssetsAtomically();
+  await testPresenceRevisionChangeKeepsNextFenceWrite();
   await testDurableEnhancementProgressFallsBackWhenAssetBusy();
   await testDurableEnhancementProgressRollbackAfterPipelineFailure();
   await testDurableEnhancementAdvanceCommitsProfessionAtomically();
@@ -181,6 +182,7 @@ async function testDurableEnhancementPersistsAssetsAtomically(): Promise<void> {
   const durableCalls: DurableEnhancementCall[] = [];
   const presenceSaves: unknown[] = [];
   const assetMutationProbe: AssetMutationProbe = { busy: false, exclusiveCalls: 0, idleChecks: 0 };
+  const perfCounts = new Map<string, number>();
   const player = createPlayer('player:enhancement:durable', [
     createEquipmentItem('iron_sword', '铁剑', 8, 1),
   ]);
@@ -241,7 +243,14 @@ async function testDurableEnhancementPersistsAssetsAtomically(): Promise<void> {
   const originalRandom = Math.random;
   Math.random = () => 0;
   try {
-    const pendingCompletion = craftService.tickEnhancementDurably(player);
+    const pendingCompletion = craftService.tickEnhancementDurably(
+      player,
+      null,
+      (key: string, durationMs: number, count = 1) => {
+        assert.equal(Number.isFinite(durationMs) && durationMs >= 0, true);
+        perfCounts.set(key, (perfCounts.get(key) ?? 0) + count);
+      },
+    );
     assert.equal(isPromiseLike(pendingCompletion), true, '强化结算点必须回到异步资产强事务');
     const completed = await pendingCompletion;
     assert.equal(completed.ok, true);
@@ -250,7 +259,7 @@ async function testDurableEnhancementPersistsAssetsAtomically(): Promise<void> {
   }
 
   const completeCall = durableCalls.at(-1);
-  assert.equal(presenceSaves.length, 2, '强化资产边界仍必须校验并刷新 presence fence');
+  assert.equal(presenceSaves.length, 1, '同一 presence 修订不应重复写入 presence fence');
   assert.equal(completeCall?.kind, 'complete');
   assert.equal(completeCall?.args.completionKind, 'completed');
   assert.equal(completeCall?.args.nextActiveJob, null);
@@ -266,11 +275,53 @@ async function testDurableEnhancementPersistsAssetsAtomically(): Promise<void> {
   assert.equal(completeCall?.args.nextWalletBalances?.[0]?.balance, 19);
   assert.equal(player.inventory.items.find((item: any) => item.itemId === 'spirit_stone')?.count, 19);
   assert.equal(assetMutationProbe.exclusiveCalls, 2);
+  for (const key of [
+    'instance.craftJob.enhancementAsyncSettlement',
+    'instance.craftJob.enhancementAssetQueueWaitMs',
+    'instance.craftJob.enhancementRuntimeResolveMs',
+    'instance.craftJob.enhancementPresenceFenceMs',
+    'instance.craftJob.enhancementPresenceDescribeMs',
+    'instance.craftJob.enhancementPresenceClean',
+    'instance.craftJob.enhancementPayloadBuildMs',
+    'instance.craftJob.enhancementDurableCommitMs',
+    'instance.craftJob.enhancementMarkPersistedMs',
+    'instance.craftJob.enhancementCoordinatorFinalizeMs',
+  ]) {
+    assert.equal(perfCounts.get(key), 1, `缺少强化异步分段统计：${key}`);
+  }
+  assert.equal(perfCounts.get('instance.craftJob.enhancementPresenceSkip'), 1);
+  assert.equal(perfCounts.has('instance.craftJob.enhancementPresencePersistMs'), false);
+  assert.equal(perfCounts.has('instance.craftJob.enhancementPresenceClaimMs'), false);
+  assert.equal(perfCounts.has('instance.craftJob.enhancementPresenceDirty'), false);
+}
+
+async function testPresenceRevisionChangeKeepsNextFenceWrite(): Promise<void> {
+  const presenceSaves: unknown[] = [];
+  const player = createPlayer('player:enhancement:presence-revision', []);
+  const { craftService } = createCraftHarness(player, [], [], {
+    presenceSaves,
+    presenceSaveHook(saveIndex: number): void {
+      if (saveIndex !== 1) {
+        return;
+      }
+      player.dirtyDomains.add('presence');
+      player.persistenceDomainRevisionByDomain.set('presence', 2);
+    },
+  });
+
+  await craftService.resolveDurablePresenceFence(player.playerId);
+  assert.equal(player.dirtyDomains.has('presence'), true, 'presence 写入期间的新心跳修订必须保留');
+  await craftService.resolveDurablePresenceFence(player.playerId);
+  assert.equal(presenceSaves.length, 2, '新心跳修订必须触发下一次 presence 写入');
+  assert.equal(player.dirtyDomains.has('presence'), false);
+  await craftService.resolveDurablePresenceFence(player.playerId);
+  assert.equal(presenceSaves.length, 2, '相同且已落库的 presence 修订才允许跳过');
 }
 
 async function testDurableEnhancementProgressFallsBackWhenAssetBusy(): Promise<void> {
   const durableCalls: DurableEnhancementCall[] = [];
   const assetMutationProbe: AssetMutationProbe = { busy: false, exclusiveCalls: 0, idleChecks: 0 };
+  const perfCounts = new Map<string, number>();
   const player = createPlayer('player:enhancement:asset-busy', [
     createEquipmentItem('iron_sword', '铁剑', 8, 1),
   ]);
@@ -282,7 +333,14 @@ async function testDurableEnhancementProgressFallsBackWhenAssetBusy(): Promise<v
   player.enhancementJob!.workRemainingTicks = 2;
   assetMutationProbe.busy = true;
 
-  const pendingTick = craftService.tickEnhancementDurably(player);
+  const pendingTick = craftService.tickEnhancementDurably(
+    player,
+    null,
+    (key: string, durationMs: number, count = 1) => {
+      assert.equal(Number.isFinite(durationMs) && durationMs >= 0, true);
+      perfCounts.set(key, (perfCounts.get(key) ?? 0) + count);
+    },
+  );
   assert.equal(isPromiseLike(pendingTick), true, '资产队列忙时普通进度也必须回退资产串行区');
   const tick = await pendingTick;
 
@@ -291,6 +349,11 @@ async function testDurableEnhancementProgressFallsBackWhenAssetBusy(): Promise<v
   assert.equal(assetMutationProbe.idleChecks, 1);
   assert.equal(assetMutationProbe.exclusiveCalls, 2);
   assert.deepEqual(durableCalls.map((call) => call.kind), ['start']);
+  assert.equal(perfCounts.get('instance.craftJob.enhancementAsyncQueueBusy'), 1);
+  assert.equal(perfCounts.get('instance.craftJob.enhancementAssetQueueWaitMs'), 1);
+  assert.equal(perfCounts.get('instance.craftJob.enhancementRuntimeResolveMs'), 1);
+  assert.equal(perfCounts.get('instance.craftJob.enhancementCoordinatorFinalizeMs'), 1);
+  assert.equal(perfCounts.has('instance.craftJob.enhancementPresenceFenceMs'), false);
 }
 
 async function testDurableEnhancementProgressRollbackAfterPipelineFailure(): Promise<void> {
@@ -1000,6 +1063,7 @@ function createCraftHarness(
     failDurableKinds?: ReadonlySet<DurableEnhancementCall['kind']>;
     durableErrorFactory?: (kind: DurableEnhancementCall['kind'], args: any) => Error | null;
     presenceSaves?: unknown[];
+    presenceSaveHook?: (saveIndex: number) => void;
     assetMutationProbe?: AssetMutationProbe;
   } = {},
 ): {
@@ -1022,6 +1086,7 @@ function createCraftHarness(
     ...(options.presenceSaves ? {
       async savePlayerPresence(_playerId: string, presence: unknown): Promise<void> {
         options.presenceSaves?.push(presence);
+        options.presenceSaveHook?.(options.presenceSaves?.length ?? 0);
       },
     } : {}),
   };
@@ -1108,7 +1173,9 @@ function createPlayer(playerId: string, items: Array<Record<string, unknown>>): 
     techniqueActivityQueue: [],
     persistentRevision: 1,
     selfRevision: 1,
-    dirtyDomains: new Set<string>(),
+    persistenceDomainRevisionByDomain: new Map<string, number>([['presence', 1]]),
+    persistedDomainRevisionByDomain: new Map<string, number>(),
+    dirtyDomains: new Set<string>(['presence']),
   };
 }
 
@@ -1186,7 +1253,23 @@ function createPlayerRuntimeService(player: any, assetMutationProbe?: AssetMutat
     markPersistenceDirtyDomains(targetPlayer: any, domains: string[]): void {
       for (const domain of domains) {
         targetPlayer.dirtyDomains.add(domain);
+        const revision = Math.max(0, Math.trunc(Number(targetPlayer.persistenceDomainRevisionByDomain.get(domain) ?? 0)));
+        targetPlayer.persistenceDomainRevisionByDomain.set(domain, revision + 1);
       }
+    },
+    getPersistenceRevision(_playerId: string): number {
+      return Number(player.persistentRevision);
+    },
+    getPersistenceDomainRevision(_playerId: string, domain: string): number {
+      return Math.max(0, Math.trunc(Number(player.persistenceDomainRevisionByDomain.get(domain) ?? 0)));
+    },
+    isPersistenceDomainPersisted(_playerId: string, domain: string): boolean {
+      if (player.dirtyDomains.has(domain)) {
+        return false;
+      }
+      const revision = Math.max(0, Math.trunc(Number(player.persistenceDomainRevisionByDomain.get(domain) ?? 0)));
+      return revision > 0
+        && Number(player.persistedDomainRevisionByDomain.get(domain) ?? 0) === revision;
     },
     describePersistencePresence(playerId: string): any | null {
       if (playerId !== player.playerId) {
@@ -1224,6 +1307,8 @@ function createPlayerRuntimeService(player: any, assetMutationProbe?: AssetMutat
       if (persistedDomains) {
         for (const domain of persistedDomains) {
           player.dirtyDomains.delete(domain);
+          const revision = Math.max(0, Math.trunc(Number(player.persistenceDomainRevisionByDomain.get(domain) ?? 0)));
+          player.persistedDomainRevisionByDomain.set(domain, revision);
         }
       }
       if (typeof persistedRevision === 'number') {
