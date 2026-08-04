@@ -71,6 +71,8 @@ const status = runVerificationSteps({
         '--case',
         'native-gm-player-domain-write',
         '--case',
+        'native-database-restore-handoff',
+        '--case',
         'world-gateway-inventory-helper',
         '--case',
         'world-runtime-sect-application-page',

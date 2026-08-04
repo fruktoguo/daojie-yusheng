@@ -90,6 +90,11 @@ interface NativePlayerAuthStoreServiceLike {
   reloadFromPersistence(): Promise<void>;
 }
 
+interface RestoreProcessRestartOptions {
+  delayMs?: number;
+  exitProcess?: (exitCode: number) => void;
+}
+
 /** 数据库恢复协调服务：恢复前刷盘/断连/清理，恢复后重载运行时。 */
 @Injectable()
 export class NativeDatabaseRestoreCoordinatorService {
@@ -195,5 +200,17 @@ export class NativeDatabaseRestoreCoordinatorService {
       await this.runtimeGmAuthService.reloadPasswordRecordFromPersistence();
     }
     await this.playerAuthStoreService.reloadFromPersistence();
+  }
+
+  /**
+   * 恢复 SQL 提交后直接退出当前进程，由外部守护进程重新拉起。
+   * 此处不能发送 SIGTERM：普通优雅关服会再次刷盘旧运行态，覆盖刚恢复的数据库。
+   */
+  scheduleProcessRestartAfterCommit(options: RestoreProcessRestartOptions = {}): ReturnType<typeof setTimeout> {
+    const delayMs = Number.isFinite(options.delayMs)
+      ? Math.max(0, Math.trunc(Number(options.delayMs)))
+      : 500;
+    const exitProcess = options.exitProcess ?? ((exitCode: number) => process.exit(exitCode));
+    return setTimeout(() => exitProcess(0), delayMs);
   }
 }

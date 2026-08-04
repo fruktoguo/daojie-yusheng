@@ -626,6 +626,7 @@ export class NativeGmAdminService {
             checksumSha256: recordedChecksum,
             fileName: record.fileName,
         }, true, null);
+        let restoreSqlCommitted = false;
         void this.runDatabaseJob(job, async () => {
             this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.CREATING_PRE_IMPORT_BACKUP);
             await this.createDatabaseBackupSnapshot({
@@ -645,6 +646,7 @@ export class NativeGmAdminService {
                     throw new BadRequestException('当前未提供 SERVER_DATABASE_URL/DATABASE_URL，无法执行 PostgreSQL 数据库恢复');
                 }
                 await restorePostgresCustomDump(record.filePath, databaseUrl);
+                restoreSqlCommitted = true;
                 if (this.pool) {
                     await restorePreservedGmAuthRecord(this.pool, preservedGmAuthRecord);
                     await ensureNativeGmAdminTables(this.pool);
@@ -654,21 +656,16 @@ export class NativeGmAdminService {
                     : '数据库恢复 SQL 已应用，GM 元表已重建并回填备份列表');
                 job.appliedAt = new Date().toISOString();
                 this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.COMMITTED);
-                job.status = 'completed';
-                job.finishedAt = new Date().toISOString();
-                this.lastDatabaseJob = { ...job };
-                this.currentDatabaseJob = null;
-                await this.persistDatabaseJobState().catch(() => undefined);
                 await this.recordDatabaseAudit('gm.database.restore.complete', actor, normalizedBackupId, undefined, {
                     jobId: job.id,
                     sourceBackupId: normalizedBackupId,
                     checkpointBackupId,
                     appliedAt: job.appliedAt,
                 }, true, null);
-                this.logger.log('数据库恢复已完成，即将发送 SIGTERM 触发优雅重启，确保所有子系统从干净状态初始化');
-                setTimeout(() => process.kill(process.pid, 'SIGTERM'), 500);
             } catch (error) {
-                delete process.env.SERVER_RUNTIME_RESTORE_ACTIVE;
+                if (!restoreSqlCommitted) {
+                    delete process.env.SERVER_RUNTIME_RESTORE_ACTIVE;
+                }
                 await this.recordDatabaseAudit('gm.database.restore.complete', actor, normalizedBackupId, undefined, {
                     jobId: job.id,
                     sourceBackupId: normalizedBackupId,
@@ -677,6 +674,12 @@ export class NativeGmAdminService {
                 }, false, error instanceof Error ? error.message : String(error));
                 throw error;
             }
+        }).finally(() => {
+            if (!restoreSqlCommitted) {
+                return;
+            }
+            this.logger.log('数据库恢复 SQL 已提交且任务状态已落库，将直接退出并由守护进程重启，避免旧运行态再次刷盘');
+            this.databaseRestoreCoordinator.scheduleProcessRestartAfterCommit();
         });
         return {
             job,

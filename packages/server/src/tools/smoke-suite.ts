@@ -151,6 +151,7 @@ const smokeCases = [
     { name: 'name-visibility', scriptFile: 'name-visibility-smoke.js', standalone: true },
     { name: 'native-auth-persistence-failure', scriptFile: 'native-auth-persistence-failure-smoke.js', standalone: true },
     { name: 'native-gm-player-domain-write', scriptFile: 'native-gm-player-domain-write-smoke.js', standalone: true },
+    { name: 'native-database-restore-handoff', scriptFile: 'native-database-restore-route-cleanup-smoke.js', standalone: true },
     { name: 'gm', scriptFile: 'gm-smoke.js' },
     { name: 'month-card-pool', scriptFile: 'month-card-pool-smoke.js', standalone: true },
     { name: 'daily-sign-in-fortune', scriptFile: 'daily-sign-in-fortune-smoke.js', standalone: true },

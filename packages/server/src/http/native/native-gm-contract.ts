@@ -70,6 +70,8 @@ export const GM_HIGH_RISK_CONFIRMATION_CONTRACT = Object.freeze({
 export const NATIVE_GM_RESTORE_CONTRACT = Object.freeze({
   restoreMode: 'replace_server_persistence',
   scope: 'server_persistence',
+  processHandoffAfterCommit: 'fail_stop_restart',
+  gracefulShutdownAfterCommit: false,
   flushPlayersBeforeRestore: true,
   flushMapsBeforeRestore: true,
   purgeSessionsBeforeRestore: true,

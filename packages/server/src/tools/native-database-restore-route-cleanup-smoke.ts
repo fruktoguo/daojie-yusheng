@@ -5,6 +5,8 @@ installSmokeTimeout(__filename);
 import assert from 'node:assert/strict';
 
 import { NativeDatabaseRestoreCoordinatorService } from '../http/native/native-database-restore-coordinator.service';
+import { NATIVE_GM_RESTORE_CONTRACT } from '../http/native/native-gm-contract';
+import { NativeGmAdminService } from '../http/native/native-gm-admin.service';
 
 async function main(): Promise<void> {
   const calls: Array<Record<string, unknown>> = [];
@@ -137,15 +139,37 @@ async function main(): Promise<void> {
     { kind: 'reload-player-auth' },
   ]);
 
+  let exitCode: number | null = null;
+  await new Promise<void>((resolve) => {
+    service.scheduleProcessRestartAfterCommit({
+      delayMs: 0,
+      exitProcess(code) {
+        exitCode = code;
+        resolve();
+      },
+    });
+  });
+  assert.equal(exitCode, 0);
+  assert.equal(NATIVE_GM_RESTORE_CONTRACT.processHandoffAfterCommit, 'fail_stop_restart');
+  assert.equal(NATIVE_GM_RESTORE_CONTRACT.gracefulShutdownAfterCommit, false);
+
+  const triggerRestoreSource = NativeGmAdminService.prototype.triggerDatabaseRestore.toString();
+  assert.match(triggerRestoreSource, /scheduleProcessRestartAfterCommit/);
+  assert.doesNotMatch(triggerRestoreSource, /process\.kill|SIGTERM/);
+  assert.ok(
+    triggerRestoreSource.indexOf('runDatabaseJob') < triggerRestoreSource.indexOf('scheduleProcessRestartAfterCommit'),
+    '必须在 runDatabaseJob 统一收尾后才安排进程交接',
+  );
+
   console.log(
     JSON.stringify(
       {
         ok: true,
         calls,
         answers:
-          'NativeDatabaseRestoreCoordinatorService.prepareForRestore 现在会把 detached-only 的 purge 玩家与 expired detached bindings 分开清理：前者继续批量 clearLocalRoutes，后者改为逐个 clearLocalRoute(playerId, sessionEpoch)，并同步清掉 detached player caches；同时仍在线的 runtime player 会跳过这次批量清理，统一委托给 removePlayer 做带 sessionEpoch 的 route cleanup。若 detached cleanup 失败，expired bindings 会被 requeue 回 worldSessionService；成功路径下手动清过的玩家还会从 purgedPlayerIds 中显式确认消费，避免后续 world sync 再重复清一次。',
+          'NativeDatabaseRestoreCoordinatorService.prepareForRestore 会完整清理 detached-only、expired detached 与 runtime player，并保留 sessionEpoch 围栏。恢复 SQL 提交后由 NativeGmAdminService 等待 runDatabaseJob 统一状态落库，再调用恢复协调器以退出码 0 直接结束当前进程，不进入 SIGTERM 优雅关服刷盘链路。',
         excludes:
-          '不证明真实 DB route 删除、restore 后 runtime 重建或 market reload，只证明 restore 协调器不会遗漏 expired detached bindings，也不会在 purge/runtime 重叠玩家上重复触发提前 route cleanup；当前进一步要求 expired detached route cleanup 会保留 sessionEpoch。成功路径下不会误 requeue，失败时才应把 expired bindings 放回队列。',
+          '不执行真实 pg_restore、真实进程退出或守护进程重启；只证明恢复协调器的清理语义、fail-stop 退出码和 GM 恢复入口的调用契约。',
         completionMapping: 'release:proof:native-database-restore-route-cleanup',
       },
       null,
