@@ -214,6 +214,8 @@ type MainStartupBindingsOptions = {
 
       onCancelEnhancement: () => void;
       onDecomposeTechniqueBook?: (itemInstanceId: string, count: number) => void;
+      onRequestTechniqueAggregation?: (payload: Parameters<SocketPanelSender['sendRequestTechniqueAggregation']>[0]) => boolean | void;
+      onPublishTechniqueAggregation?: (payload: Parameters<SocketPanelSender['sendPublishTechniqueAggregation']>[0]) => boolean | void;
     }) => void;
   };
   /**
@@ -326,6 +328,8 @@ type MainStartupBindingsOptions = {
     | 'sendCancelTechniqueActivity'
     | 'sendReorderTechniqueActivityQueue'
     | 'sendDestroyItem'
+    | 'sendRequestTechniqueAggregation'
+    | 'sendPublishTechniqueAggregation'
   >;
   /**
  * socialEconomySender：socialEconomySender相关字段。
@@ -473,6 +477,8 @@ export function bindMainStartup(options: MainStartupBindingsOptions): void {
     onStartEnhancement: (payload) => options.panelSender.sendStartEnhancement(payload),
     onCancelEnhancement: () => options.panelSender.sendCancelEnhancement(),
     onDecomposeTechniqueBook: (itemInstanceId, count) => options.panelSender.sendDestroyItem(itemInstanceId, count, { mode: 'decompose_technique_book' }),
+    onRequestTechniqueAggregation: (payload) => options.panelSender.sendRequestTechniqueAggregation(payload),
+    onPublishTechniqueAggregation: (payload) => options.panelSender.sendPublishTechniqueAggregation(payload),
   });
 
   options.debugPanel.setCallbacks(() => {

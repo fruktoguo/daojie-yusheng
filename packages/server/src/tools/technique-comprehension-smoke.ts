@@ -1199,6 +1199,129 @@ function testScriptureContemplationStartsJobAndCompletesTechnique() {
   assert.equal(learner.techniques.techniques.some((entry) => entry.techId === createdTechnique.techId), true);
 }
 
+function testAggregateConflictDiscardsCompletedPendingComprehension() {
+  const { progressionService, runtimeService } = createRuntimeService();
+  const aggregateTechnique = createTechnique('agg_conflict_pending', '冲突统合功法');
+  const learner = createPlayer('learner:aggregate-conflict', 0, 0);
+  const requiredProgress = expectedRequiredProgress('created', aggregateTechnique, learner.realm.realmLv);
+  runtimeTechniqueTemplates.set(aggregateTechnique.techId, aggregateTechnique);
+  learner.techniques.cultivatingTechId = aggregateTechnique.techId;
+  learner.combat.cultivationActive = true;
+  learner.pendingTechniqueComprehensions.push({
+    techId: aggregateTechnique.techId,
+    name: aggregateTechnique.name,
+    sourceKind: 'created',
+    selfComprehensionAllowed: true,
+    progress: requiredProgress - 1,
+    requiredProgress,
+    realmLv: aggregateTechnique.realmLv,
+    grade: aggregateTechnique.grade,
+    category: aggregateTechnique.category,
+    createdAtTick: 0,
+    updatedAtTick: 0,
+    activeTransferJob: null,
+  });
+  (progressionService as any).techniqueAggregationService = {
+    getMetadataById() {
+      return { techniqueId: aggregateTechnique.techId };
+    },
+    resolveComprehensionRequirement(_player: unknown, _technique: unknown, baseRequiredProgress: number) {
+      return baseRequiredProgress;
+    },
+    resolveLearningConflict() {
+      return {
+        code: 'TECHNIQUE_AGGREGATE_OVERLAP',
+        messageKey: 'error.technique-aggregation.overlap',
+        conflictSourceTechniqueIds: ['gen_conflicting_source'],
+        vars: { sourceTechniqueNames: '重叠源功法' },
+      };
+    },
+  };
+
+  try {
+    const result = progressionService.advanceCultivation(learner, 1);
+    runtimeService.applyProgressionResult(learner, result);
+
+    assert.equal(learner.pendingTechniqueComprehensions.length, 0);
+    assert.equal(learner.techniques.cultivatingTechId, undefined);
+    assert.equal(learner.combat.cultivationActive, false);
+    assert.equal(learner.dirtyDomains.has('technique'), true);
+    assert.equal(learner.dirtyDomains.has('combat_pref'), true);
+    assert.equal((learner as any).allowPendingTechniqueComprehensionEmptyOverwrite, true);
+    assert.deepEqual(
+      [...((learner as any).pendingTechniqueComprehensionEmptyOverwriteTechIds as Set<string>)],
+      [aggregateTechnique.techId],
+    );
+    assert.ok((learner as any).pendingTechniqueComprehensionEmptyOverwriteRevision > 0);
+  } finally {
+    runtimeTechniqueTemplates.delete(aggregateTechnique.techId);
+  }
+}
+
+function testAggregateCompletionAuthorizesRemovedPendingRows() {
+  const { progressionService, runtimeService } = createRuntimeService();
+  const aggregateTechnique = createTechnique('agg_pending_completion', '待领悟统合功法');
+  const learner = createPlayer('learner:aggregate-completion', 0, 0);
+  const requiredProgress = expectedRequiredProgress('created', aggregateTechnique, learner.realm.realmLv);
+  const removedPendingIds = ['gen_covered_pending', 'agg_old_revision'];
+  runtimeTechniqueTemplates.set(aggregateTechnique.techId, aggregateTechnique);
+  learner.techniques.cultivatingTechId = aggregateTechnique.techId;
+  learner.combat.cultivationActive = true;
+  learner.pendingTechniqueComprehensions.push(
+    {
+      techId: aggregateTechnique.techId,
+      name: aggregateTechnique.name,
+      sourceKind: 'created',
+      selfComprehensionAllowed: true,
+      progress: requiredProgress - 1,
+      requiredProgress,
+      realmLv: aggregateTechnique.realmLv,
+      grade: aggregateTechnique.grade,
+      category: aggregateTechnique.category,
+      createdAtTick: 0,
+      updatedAtTick: 0,
+      activeTransferJob: null,
+    },
+    ...removedPendingIds.map((techId) => ({ techId, progress: 0, requiredProgress: 10 })),
+  );
+  const aggregationService = {
+    getMetadataById(techniqueId: string) {
+      return techniqueId === aggregateTechnique.techId
+        ? { familyId: 'family:pending-completion', revision: 1, sourceTechniqueIds: ['gen_covered_pending'], sourceCount: 1 }
+        : undefined;
+    },
+    resolveComprehensionRequirement(_player: unknown, _technique: unknown, baseRequiredProgress: number) {
+      return baseRequiredProgress;
+    },
+    resolveLearningConflict() {
+      return null;
+    },
+    applyCompletionReplacement(player: any) {
+      player.pendingTechniqueComprehensions = (player.pendingTechniqueComprehensions ?? [])
+        .filter((entry: any) => !removedPendingIds.includes(entry?.techId));
+      return removedPendingIds;
+    },
+  };
+  (progressionService as any).techniqueAggregationService = aggregationService;
+  (runtimeService as any).techniqueAggregationService = aggregationService;
+
+  try {
+    const result = progressionService.advanceCultivation(learner, 1);
+    runtimeService.applyProgressionResult(learner, result);
+
+    assert.equal(learner.pendingTechniqueComprehensions.length, 0);
+    assert.equal(learner.techniques.techniques.some((entry) => entry.techId === aggregateTechnique.techId), true);
+    assert.equal(learner.dirtyDomains.has('technique'), true);
+    assert.equal((learner as any).allowPendingTechniqueComprehensionEmptyOverwrite, true);
+    assert.deepEqual(
+      new Set((learner as any).pendingTechniqueComprehensionEmptyOverwriteTechIds as Set<string>),
+      new Set([aggregateTechnique.techId, ...removedPendingIds]),
+    );
+  } finally {
+    runtimeTechniqueTemplates.delete(aggregateTechnique.techId);
+  }
+}
+
 function testFragmentLearnLimitCannotBecomePropagationAuthority() {
   const { progressionService, runtimeService } = createRuntimeService();
   const learner = createPlayer('learner:fragment-limit', 0, 0);
@@ -1387,6 +1510,8 @@ testTransmissionBlocksCancelsAndContinues();
 testTransmissionUsesStandingFacilitySpeedForBothPlayers();
 testScriptureRecordingUsesTransmissionJobAndLocksBuilding();
 testScriptureContemplationStartsJobAndCompletesTechnique();
+testAggregateConflictDiscardsCompletedPendingComprehension();
+testAggregateCompletionAuthorizesRemovedPendingRows();
 testFragmentLearnLimitCannotBecomePropagationAuthority();
 testTransmissionStatusesUseAuthoritativeTargetAndTechniqueState();
 

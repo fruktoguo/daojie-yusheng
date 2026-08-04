@@ -11,6 +11,7 @@ import { ContentTemplateRepository } from '../../content/content-template.reposi
 import { getMonsterCombatExpGradeFactor, resolveMonsterCombatExpTierFactor } from '../combat/monster-combat-exp-equivalent.helper';
 import { PlayerAttributesService } from './player-attributes.service';
 import { PlayerCountersPersistenceService } from '../../persistence/player-counters-persistence.service';
+import { TechniqueAggregationService } from '../technique-generation/technique-aggregation.service';
 import { normalizeRuntimeRealmExpMultiplier, normalizeRuntimeRealmLevelEntry } from './realm-runtime-exp.helpers';
 import { applyPlayerCraftExpRate, resolvePlayerCraftRealmLevel } from '../craft/craft-effect-runtime.helpers';
 import {
@@ -153,6 +154,8 @@ export class PlayerProgressionService {
     playerAttributesService;
     /** 玩家计数器持久化服务，用于记录逆天改命次数等。 */
     playerCountersPersistenceService;
+    /** 功法统合规则，只在领悟刷新/完成节点使用。 */
+    techniqueAggregationService;
     /** 运行时日志器，记录境界加载和结算异常。 */
     logger = new Logger(PlayerProgressionService.name);
     /** 已加载的境界表，按 realmLv 索引。 */
@@ -166,10 +169,12 @@ export class PlayerProgressionService {
         contentTemplateRepository: ContentTemplateRepository,
         playerAttributesService: PlayerAttributesService,
         @Optional() @Inject(PlayerCountersPersistenceService) playerCountersPersistenceService: PlayerCountersPersistenceService | null = null,
+        @Optional() @Inject(TechniqueAggregationService) techniqueAggregationService: TechniqueAggregationService | null = null,
     ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerAttributesService = playerAttributesService;
         this.playerCountersPersistenceService = playerCountersPersistenceService;
+        this.techniqueAggregationService = techniqueAggregationService;
     }
     /** 模块初始化时加载境界表。 */
     onModuleInit() {
@@ -2154,12 +2159,16 @@ export class PlayerProgressionService {
         if (pendingTechnique) {
             const sourceKind = pending.sourceKind === 'created' || isCreatedTechniqueId(pending.techId) ? 'created' : 'normal';
             pending.sourceKind = sourceKind;
-            pending.requiredProgress = calculateTechniqueComprehensionRequiredProgress({
+            const baseRequiredProgress = calculateTechniqueComprehensionRequiredProgress({
                 sourceKind,
                 techniqueRealmLv: pendingTechnique.realmLv,
                 grade: pendingTechnique.grade,
                 learnerRealmLv: player.realm?.realmLv ?? 1,
             });
+            const aggregateMetadata = this.techniqueAggregationService?.getMetadataById(pending.techId);
+            pending.requiredProgress = aggregateMetadata
+                ? this.techniqueAggregationService.resolveComprehensionRequirement(player, pendingTechnique, baseRequiredProgress)
+                : baseRequiredProgress;
             pending.realmLv = Math.max(1, Math.floor(Number(pendingTechnique.realmLv) || 1));
             pending.grade = pendingTechnique.grade ?? pending.grade;
             pending.category = pendingTechnique.category ?? pending.category;
@@ -2204,11 +2213,46 @@ export class PlayerProgressionService {
                 }],
             };
         }
+        const aggregationConflict = this.techniqueAggregationService?.resolveLearningConflict(player, pending.techId);
+        if (aggregationConflict) {
+            const cultivationPreferenceChanged = player.techniques?.cultivatingTechId === pending.techId;
+            player.pendingTechniqueComprehensions = (player.pendingTechniqueComprehensions ?? [])
+                .filter((entry) => entry?.techId !== pending.techId);
+            if (cultivationPreferenceChanged) {
+                player.techniques.cultivatingTechId = undefined;
+                if (player.combat) {
+                    player.combat.cultivationActive = false;
+                }
+            }
+            return {
+                changed: true,
+                panelDirty: false,
+                attrRecalculated: false,
+                techniquesDirty: true,
+                professionDirty: transmissionSkillDirty,
+                combatPrefDirty: cultivationPreferenceChanged,
+                actionsDirty: cultivationPreferenceChanged,
+                pendingTechniqueComprehensionRemovedIds: [pending.techId],
+                notices: [{
+                    text: aggregationConflict.messageKey,
+                    kind: 'warn',
+                    structured: {
+                        key: 'notice.technique-aggregation.overlap',
+                        vars: {
+                            sourceTechniqueNames: typeof aggregationConflict.vars?.sourceTechniqueNames === 'string'
+                                ? aggregationConflict.vars.sourceTechniqueNames
+                                : (aggregationConflict.conflictSourceTechniqueIds ?? []).join('、') || '未知功法',
+                        },
+                    },
+                }],
+            };
+        }
         const learnedEntry = toTechniqueUpdateEntryLocal(technique, pending.maxLevel);
         if (!player.techniques.techniques.some((entry) => entry.techId === learnedEntry.techId)) {
             player.techniques.techniques.push(learnedEntry);
             player.techniques.techniques.sort((left, right) => (left.realmLv ?? 0) - (right.realmLv ?? 0) || left.techId.localeCompare(right.techId, 'zh-Hans-CN'));
         }
+        const replacedTechniqueIds = this.techniqueAggregationService?.applyCompletionReplacement(player, pending.techId) ?? [];
         player.pendingTechniqueComprehensions = (player.pendingTechniqueComprehensions ?? []).filter((entry) => entry?.techId !== pending.techId);
         const attrRecalculated = this.playerAttributesService.recalculate(player);
         this.applyRealmPresentation(player, this.normalizeRealmState(player.realm));
@@ -2219,6 +2263,7 @@ export class PlayerProgressionService {
             techniquesDirty: true,
             professionDirty: transmissionSkillDirty,
             actionsDirty: true,
+            pendingTechniqueComprehensionRemovedIds: [pending.techId, ...replacedTechniqueIds],
             notices: [{
                 text: `${pendingTechniqueName} 已领悟完成。`,
                 kind: 'success',
@@ -2413,7 +2458,9 @@ function createEmptyMutation() {
         techniquesDirty: false,
         bodyTrainingDirty: false,
         professionDirty: false,
+        combatPrefDirty: false,
         actionsDirty: false,
+        pendingTechniqueComprehensionRemovedIds: [],
         notices: [],
     };
 }
@@ -2436,6 +2483,9 @@ function describeProgressionDirtyDomains(mutation) {
     if (mutation.professionDirty) {
         domains.push('profession');
     }
+    if (mutation.combatPrefDirty) {
+        domains.push('combat_pref');
+    }
     return domains;
 }
 
@@ -2444,6 +2494,9 @@ function toProgressionMutationResult(mutation) {
         changed: mutation?.changed === true,
         notices: Array.isArray(mutation?.notices) ? mutation.notices : [],
         actionsDirty: mutation?.actionsDirty === true,
+        pendingTechniqueComprehensionRemovedIds: Array.isArray(mutation?.pendingTechniqueComprehensionRemovedIds)
+            ? mutation.pendingTechniqueComprehensionRemovedIds
+            : [],
         dirtyDomains: describeProgressionDirtyDomains(mutation),
     };
 }
@@ -2471,7 +2524,14 @@ function mergeProgressionMutation(left, right) {
         techniquesDirty: left.techniquesDirty || right.techniquesDirty,
         bodyTrainingDirty: left.bodyTrainingDirty || right.bodyTrainingDirty,
         professionDirty: left.professionDirty || right.professionDirty,
+        combatPrefDirty: left.combatPrefDirty || right.combatPrefDirty,
         actionsDirty: left.actionsDirty || right.actionsDirty,
+        pendingTechniqueComprehensionRemovedIds: [
+            ...new Set([
+                ...(Array.isArray(left.pendingTechniqueComprehensionRemovedIds) ? left.pendingTechniqueComprehensionRemovedIds : []),
+                ...(Array.isArray(right.pendingTechniqueComprehensionRemovedIds) ? right.pendingTechniqueComprehensionRemovedIds : []),
+            ]),
+        ],
 
         notices: left.notices.length === 0
             ? right.notices

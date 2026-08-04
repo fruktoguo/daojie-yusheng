@@ -160,6 +160,7 @@ import { PlayerAttributesService } from './runtime/player/player-attributes.serv
 import { LeaderboardRuntimeService } from './runtime/player/leaderboard-runtime.service';
 import { PlayerProgressionService } from './runtime/player/player-progression.service';
 import { GeneratedTechniqueStoreService } from './runtime/technique-generation/generated-technique-store.service';
+import { TechniqueAggregationService } from './runtime/technique-generation/technique-aggregation.service';
 import { TechniqueGenerationService } from './runtime/technique-generation/technique-generation.service';
 import { MapPersistenceFlushService } from './persistence/map-persistence-flush.service';
 import { DurableOperationService } from './persistence/durable-operation.service';
@@ -402,6 +403,7 @@ const WORLD_GATEWAY_PROVIDERS = shouldStartHttpServer()
     LeaderboardRuntimeService,
     PlayerProgressionService,
     GeneratedTechniqueStoreService,
+    TechniqueAggregationService,
     TechniqueGenerationService,
     MailRuntimeService,
     ChatRuntimeService,

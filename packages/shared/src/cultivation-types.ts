@@ -9,6 +9,7 @@ import type { AttrKey, Attributes } from './attribute-types';
 import type { SkillDef } from './skill-types';
 import type { QiProjectionModifier } from './qi';
 import type { TechniqueComprehensionProgressBreakdown } from './technique-comprehension';
+import type { TechniqueAggregationMetadata } from './technique-aggregation';
 
 /** 功法境界。 */
 export enum TechniqueRealm {
@@ -193,6 +194,8 @@ export interface TechniqueTemplate {
 
   /** 功法携带的主动技能（术法类使用，内功一般为空）。 */
   skills?: SkillDef[];
+  /** 聚合功法的不可变家族/版本/叶子元数据；普通功法不填。 */
+  aggregate?: TechniqueAggregationMetadata;
 }
 
 /** 玩家大境界。 */

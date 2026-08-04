@@ -49,6 +49,7 @@ import { WorldGatewaySessionStateHelper } from './world-gateway-session-state.he
 import { WorldGatewayPresenceHelper } from './world-gateway-presence.helper';
 import { WorldGatewayContentHelper } from './world-gateway-content.helper';
 import { WorldGatewayTechniqueGenerationHelper } from './world-gateway-technique-generation.helper';
+import { WorldGatewayTechniqueAggregationHelper } from './world-gateway-technique-aggregation.helper';
 import { WorldGatewayTechniqueHelper } from './world-gateway-technique.helper';
 import { TechniqueGenerationService } from '../runtime/technique-generation/technique-generation.service';
 import type { WorldGatewayHelperContext } from './world-gateway-context.types';
@@ -94,6 +95,7 @@ class WorldGateway implements WorldGatewayHelperContext {
         gatewayClientEmitHelper: WorldGatewayClientEmitHelper; gatewayGuardHelper: WorldGatewayGuardHelper; gatewaySessionStateHelper: WorldGatewaySessionStateHelper;         gatewayPresenceHelper: WorldGatewayPresenceHelper;
         gatewayTechniqueHelper: WorldGatewayTechniqueHelper;
         gatewayTechniqueGenerationHelper: WorldGatewayTechniqueGenerationHelper;
+        gatewayTechniqueAggregationHelper: WorldGatewayTechniqueAggregationHelper;
         @WebSocketServer()
         server!: Server; logger: Logger = new Logger(WorldGateway.name);
         private draining = false;
@@ -145,6 +147,10 @@ class WorldGateway implements WorldGatewayHelperContext {
         this.gatewayTechniqueHelper = new WorldGatewayTechniqueHelper(this);
         this.gatewayTechniqueGenerationHelper = new WorldGatewayTechniqueGenerationHelper(this as any);
         this.gatewayTechniqueGenerationHelper.setService(this.techniqueGenerationService);
+        this.gatewayTechniqueAggregationHelper = new WorldGatewayTechniqueAggregationHelper(this as any);
+        if (this.playerRuntimeService.techniqueAggregationService) {
+            this.gatewayTechniqueAggregationHelper.setService(this.playerRuntimeService.techniqueAggregationService);
+        }
     }
     setDraining(draining: boolean): void {
         this.draining = draining;
@@ -742,6 +748,14 @@ class WorldGateway implements WorldGatewayHelperContext {
     @SubscribeMessage(C2S.TechniqueGeneration)
     handleTechniqueGeneration(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayTechniqueGenerationHelper.handleTechniqueGeneration(client, payload);
+    }
+    @SubscribeMessage(C2S.RequestTechniqueAggregation)
+    handleRequestTechniqueAggregation(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayTechniqueAggregationHelper.handleRequestPanel(client, payload);
+    }
+    @SubscribeMessage(C2S.PublishTechniqueAggregation)
+    handlePublishTechniqueAggregation(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayTechniqueAggregationHelper.handlePublish(client, payload);
     }
 }
 export { WorldGateway };

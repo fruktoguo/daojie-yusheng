@@ -408,6 +408,12 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
     sendReorderTechniqueActivityQueue(queueId: string, action: TechniqueActivityQueueReorderAction): void {
       deps.emitEvent(C2S.ReorderTechniqueActivityQueue, { queueId, action });
     },
+    sendRequestTechniqueAggregation(payload: ClientToServerEventPayload<typeof C2S.RequestTechniqueAggregation>): boolean {
+      return deps.emitEvent(C2S.RequestTechniqueAggregation, payload).accepted;
+    },
+    sendPublishTechniqueAggregation(payload: ClientToServerEventPayload<typeof C2S.PublishTechniqueAggregation>): boolean {
+      return deps.emitEvent(C2S.PublishTechniqueAggregation, payload).accepted;
+    },
   };
 }
 /**

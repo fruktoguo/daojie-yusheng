@@ -206,16 +206,84 @@ export async function loadGeneratedTechniqueSignature(pool: Pool): Promise<Gener
 export interface GeneratedTechniqueRow {
   id: string;
   template: unknown;
+  created_by_player_id?: string | null;
+  validation_report?: unknown;
 }
 
 export async function loadPublishedGeneratedTechniques(pool: Pool): Promise<GeneratedTechniqueRow[]> {
   const result = await pool.query(`
-    SELECT id, template
+    SELECT id, template, created_by_player_id, validation_report
     FROM ${GENERATED_TECHNIQUE_TABLE}
     WHERE is_published = true
     ORDER BY created_at DESC
   `);
   return result.rows as GeneratedTechniqueRow[];
+}
+
+export interface InsertPublishedAggregateTechniqueParams {
+  id: string;
+  generationId: string;
+  template: unknown;
+  schemaVersion: number;
+  createdByPlayerId: string;
+  displayName: string;
+  grade: string;
+  category: string;
+  realmLv: number;
+  validationReport: unknown;
+}
+
+/** 聚合版本没有可编辑的名称唯一性，使用不可变 ID 作为有界的唯一键。 */
+function buildAggregateNormalizedName(id: string): string {
+  return `aggregate_${id}`.toLowerCase().replace(/\s+/g, '').slice(0, 64);
+}
+
+/** 以不可变 ID 写入并发布聚合版本；重复请求只回读既有行。 */
+export async function insertPublishedAggregateTechnique(
+  pool: Pool,
+  params: InsertPublishedAggregateTechniqueParams,
+): Promise<'inserted' | 'existing'> {
+  const templateJson = JSON.stringify(params.template);
+  const result = await pool.query(
+    `INSERT INTO ${GENERATED_TECHNIQUE_TABLE} (
+      id, generation_id, template, schema_version,
+      status, usage_scope, is_published, published_at,
+      display_name, normalized_name, name_locked,
+      created_by_player_id, model_name, prompt_snapshot, validation_report,
+      grade, category, realm_lv
+    ) VALUES ($1,$2,$3,$4,'published','player_only',true,NOW(),$5,$6,true,$7,'aggregation','', $8,$9,$10,$11)
+    ON CONFLICT (id) DO NOTHING
+    RETURNING id`,
+    [
+      params.id,
+      params.generationId,
+      templateJson,
+      params.schemaVersion,
+      params.displayName,
+      buildAggregateNormalizedName(params.id),
+      params.createdByPlayerId,
+      JSON.stringify(params.validationReport),
+      params.grade,
+      params.category,
+      params.realmLv,
+    ],
+  );
+  if ((result.rowCount ?? 0) > 0) {
+    return 'inserted';
+  }
+  const existing = await pool.query(
+    `SELECT
+      created_by_player_id = $2 AS same_creator,
+      template = $3::jsonb AS same_template
+    FROM ${GENERATED_TECHNIQUE_TABLE}
+    WHERE id = $1`,
+    [params.id, params.createdByPlayerId, templateJson],
+  );
+  const row = existing.rows[0] as { same_creator?: boolean; same_template?: boolean } | undefined;
+  if (row?.same_creator !== true || row.same_template !== true) {
+    throw new Error('technique_aggregation_id_conflict');
+  }
+  return 'existing';
 }
 
 // ─── GM 只读查询 ───

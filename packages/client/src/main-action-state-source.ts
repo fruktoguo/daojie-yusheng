@@ -92,6 +92,8 @@ type MainActionStateSourceOptions = {
   openTransmissionPanel: () => void;
   /** openTechniqueRefiningPanel：打开炼法台面板。 */
   openTechniqueRefiningPanel: () => void;
+  /** openTechniqueAggregationPanel：打开指定炼法台的功法统合面板。 */
+  openTechniqueAggregationPanel: (buildingId: string) => void;
   /**
  * openScripturePlatformRecordingModal：打开藏经台录入弹层。
  */
@@ -201,6 +203,15 @@ export function createMainActionStateSource(options: MainActionStateSourceOption
         options.hideObserveModal();
         options.openTechniqueRefiningPanel();
         return;
+      }
+      if (actionId.startsWith('technique_refining:aggregate:')) {
+        const encodedBuildingId = actionId.slice('technique_refining:aggregate:'.length).trim();
+        if (encodedBuildingId && !encodedBuildingId.includes(':')) {
+          options.cancelTargeting();
+          options.hideObserveModal();
+          options.openTechniqueAggregationPanel(safeDecodeActionPart(encodedBuildingId));
+          return;
+        }
       }
       if (actionId.startsWith('scripture:record:')) {
         const encodedBuildingId = actionId.slice('scripture:record:'.length).trim();

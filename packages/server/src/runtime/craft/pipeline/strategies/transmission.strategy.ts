@@ -51,6 +51,19 @@ type TransmissionDepsPort = {
     playerProgressionService?: { refreshPreview?(player: any): void };
     rebuildActionState?(player: any, tick: number): void;
     queuePlayerStructuredNotice?(player: any, notice: TechniqueActivityNoticeMessage & { text?: string }): void;
+    resolveTechniqueLearningConflict?(player: any, techniqueId: string): {
+      conflictAggregateIds?: string[];
+      conflictSourceTechniqueIds?: string[];
+      vars?: Record<string, string | number>;
+    } | null;
+    discardPendingTechniqueComprehension?(playerId: string, techniqueId: string): unknown;
+    resolveLatestTechniqueId?(techniqueId: string): string;
+    applyTechniqueAggregationCompletion?(player: any, techniqueId: string): string[];
+    authorizePendingTechniqueComprehensionRemovals?(player: any, techniqueIds: string[]): boolean;
+    techniqueAggregationService?: {
+      getMetadataById?(techniqueId: string): unknown;
+      resolveComprehensionRequirement?(player: any, technique: any, fallback?: number): number;
+    } | null;
   };
 };
 
@@ -76,8 +89,9 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
     const learner = resolveLearner(player, payload, runtime);
     const mode = resolveTransmissionMode(payload);
     const teacherPlayerId = normalizeText((payload as { teacherPlayerId?: unknown } | null)?.teacherPlayerId);
-    const techniqueId = normalizeText((payload as { techniqueId?: unknown; techId?: unknown } | null)?.techniqueId)
+    const requestedTechniqueId = normalizeText((payload as { techniqueId?: unknown; techId?: unknown } | null)?.techniqueId)
       || normalizeText((payload as { techId?: unknown } | null)?.techId);
+    const techniqueId = runtime?.resolveLatestTechniqueId?.(requestedTechniqueId) || requestedTechniqueId;
     if (!learner?.playerId) {
       return { ok: false, error: '学习者不存在。' };
     }
@@ -100,27 +114,32 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
     if (!teacher) {
       return { ok: false, error: '传授者不存在。' };
     }
-    const teacherTechnique = teacher.techniques?.techniques?.find((entry: any) => entry?.techId === techniqueId);
+    const teacherTechnique = findTeacherTechniqueForTransmission(teacher, techniqueId, runtime);
     if (!teacherTechnique) {
       return { ok: false, error: '传授者尚未掌握该功法。' };
     }
     if (!isCreatedTechniqueId(techniqueId)) {
       return { ok: false, error: '只能传授自创功法。' };
     }
-    const teacherTechniqueTemplate = resolveTechniqueTemplateState(ctx, techniqueId);
+    const teacherTechniqueTemplate = resolveTechniqueTemplateState(ctx, teacherTechnique.techId);
     if (!isTechniqueEntryFullyMastered(teacherTechnique, teacherTechniqueTemplate)) {
       return { ok: false, error: '只有修至原功法满层后才能传授。' };
     }
     if (learner.techniques?.techniques?.some((entry: any) => entry?.techId === techniqueId)) {
       return { ok: false, error: '学习者已经掌握该功法。' };
     }
+    const aggregationConflict = runtime?.resolveTechniqueLearningConflict?.(learner, techniqueId);
+    if (aggregationConflict) {
+      return { ok: false, error: buildAggregationConflictError(aggregationConflict) };
+    }
     if (!isPlayerInTransmissionRange(teacher, learner, 2)) {
       return { ok: false, error: '传授距离超过 2 格。' };
     }
+    const learningTechnique = resolveTechniqueTemplateState(ctx, techniqueId) ?? teacherTechnique;
     const requiredProgress = calculateTechniqueComprehensionRequiredProgress({
       sourceKind: 'created',
-      techniqueRealmLv: teacherTechnique.realmLv,
-      grade: teacherTechnique.grade,
+      techniqueRealmLv: learningTechnique.realmLv,
+      grade: learningTechnique.grade,
       learnerRealmLv: learner.realm?.realmLv ?? 1,
       learnerTransmissionLevel: learner.transmissionSkill?.level ?? 1,
       teacherTransmissionLevel: teacher.transmissionSkill?.level ?? 1,
@@ -131,11 +150,11 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
         learnerPlayerId: learner.playerId,
         teacherPlayerId,
         techniqueId,
-        techniqueName: resolvePlayerFacingContentName(techniqueId, '未知功法', teacherTechnique.name),
+        techniqueName: resolvePlayerFacingContentName(techniqueId, '未知功法', learningTechnique.name, teacherTechnique.name),
         requiredProgress,
-        realmLv: Math.max(1, Math.floor(Number(teacherTechnique.realmLv) || 1)),
-        grade: teacherTechnique.grade ?? undefined,
-        category: teacherTechnique.category ?? undefined,
+        realmLv: Math.max(1, Math.floor(Number(learningTechnique.realmLv) || 1)),
+        grade: learningTechnique.grade ?? undefined,
+        category: learningTechnique.category ?? undefined,
         teacherName: resolveRuntimePlayerDisplayName(teacher, { playerId: teacherPlayerId, fallback: '未知玩家' }),
       },
     };
@@ -151,7 +170,7 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
       return createScriptureContemplationJob(player as any, validated, ctx);
     }
     const learner = player as any;
-    const pending = ensurePendingComprehension(learner, validated);
+    const pending = ensurePendingComprehension(learner, validated, ctx);
     const progress = Math.max(0, Number(pending.progress) || 0);
     const required = Math.max(1, Number(validated.requiredProgress) || 1);
     pending.requiredProgress = required;
@@ -256,18 +275,25 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
     }
     const deps = resolveTransmissionDeps(ctx);
     const teacher = deps?.playerRuntimeService?.getPlayer?.(job.teacherPlayerId) ?? null;
-    const teacherTechnique = teacher?.techniques?.techniques?.find((entry: any) => entry?.techId === job.techniqueId) ?? null;
+    const teacherTechnique = findTeacherTechniqueForTransmission(teacher, job.techniqueId, deps?.playerRuntimeService);
     if (!teacher || !teacherTechnique || !isPlayerInTransmissionRange(teacher, learner, job.range)) {
       return blockTransmission(learner, job, pending, 'teacher_out_of_range', ctx);
     }
-    if (!isTechniqueEntryFullyMastered(teacherTechnique, resolveTechniqueTemplateState(ctx, job.techniqueId))) {
+    if (!isTechniqueEntryFullyMastered(teacherTechnique, resolveTechniqueTemplateState(ctx, teacherTechnique.techId))) {
       return blockTransmission(learner, job, pending, 'teacher_technique_not_perfected', ctx);
     }
     if (job.status !== 'running' || job.blockedReason !== undefined) {
       job.status = 'running';
       delete job.blockedReason;
     }
-    refreshPendingRequirement(learner, pending, teacherTechnique, teacher, job);
+    refreshPendingRequirement(
+      learner,
+      pending,
+      resolveTechniqueTemplateState(ctx, job.techniqueId) ?? teacherTechnique,
+      teacher,
+      job,
+      ctx,
+    );
     const previousProgress = Math.max(0, Number(pending.progress) || 0);
     const requiredProgress = Math.max(1, Number(pending.requiredProgress) || 1);
     const progressBreakdown = resolveTransmissionProgressBreakdown(learner, teacher, pending.realmLv ?? teacherTechnique.realmLv, ctx);
@@ -294,6 +320,24 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
       learner.techniques.revision += 1;
       markTransmissionDirty(learner, ctx, ['active_job', 'technique', ...(learnerProfessionChanged ? ['profession'] : [])]);
       return { ...emptyTransmissionTickResult(), panelChanged: true, attrChanged: learnerProfessionChanged };
+    }
+    const completionConflict = deps?.playerRuntimeService?.resolveTechniqueLearningConflict?.(learner, pending.techId);
+    if (completionConflict) {
+      pending.progress = requiredProgress;
+      this.setActiveJob(learner, null);
+      discardConflictingPendingComprehension(learner, pending, deps);
+      markTransmissionDirty(learner, ctx, ['active_job', 'technique']);
+      return {
+        ...emptyTransmissionTickResult(),
+        panelChanged: true,
+        messages: [{
+          kind: 'transmission',
+          key: 'notice.technique-aggregation.overlap',
+          vars: {
+            sourceTechniqueNames: resolveAggregationConflictSourceNames(completionConflict),
+          },
+        }],
+      };
     }
     completeTransmission(learner, pending, job, ctx, learnerProfessionChanged);
     this.setActiveJob(learner, null);
@@ -429,20 +473,22 @@ function validateScriptureRecordingStart(
   if (activeRecordingJobRunId) {
     return { ok: false, error: '藏经台已有录入任务进行中。' };
   }
-  const technique = findPlayerTechnique(recorder, techniqueId);
+  const runtime = resolveTransmissionDeps(ctx)?.playerRuntimeService;
+  const technique = findTeacherTechniqueForTransmission(recorder, techniqueId, runtime);
   if (!technique) {
     return { ok: false, error: '尚未掌握该功法。' };
   }
   if (!isCreatedTechniqueId(techniqueId)) {
     return { ok: false, error: '只能录入自创功法。' };
   }
-  if (!isTechniqueEntryFullyMastered(technique, resolveTechniqueTemplateState(ctx, techniqueId))) {
+  if (!isTechniqueEntryFullyMastered(technique, resolveTechniqueTemplateState(ctx, technique.techId))) {
     return { ok: false, error: '只有练满的功法可以录入藏经台。' };
   }
+  const learningTechnique = resolveTechniqueTemplateState(ctx, techniqueId) ?? technique;
   const requiredProgress = calculateTechniqueComprehensionRequiredProgress({
     sourceKind: 'created',
-    techniqueRealmLv: technique.realmLv,
-    grade: technique.grade,
+    techniqueRealmLv: learningTechnique.realmLv,
+    grade: learningTechnique.grade,
     learnerRealmLv: recorder.realm?.realmLv ?? 1,
   });
   return {
@@ -452,11 +498,11 @@ function validateScriptureRecordingStart(
       learnerPlayerId: recorder.playerId,
       teacherPlayerId: recorder.playerId,
       techniqueId,
-      techniqueName: resolvePlayerFacingContentName(techniqueId, '未知功法', technique.name),
+      techniqueName: resolvePlayerFacingContentName(techniqueId, '未知功法', learningTechnique.name, technique.name),
       requiredProgress,
-      realmLv: Math.max(1, Math.floor(Number(technique.realmLv) || 1)),
-      grade: technique.grade ?? undefined,
-      category: technique.category ?? undefined,
+      realmLv: Math.max(1, Math.floor(Number(learningTechnique.realmLv) || 1)),
+      grade: learningTechnique.grade ?? undefined,
+      category: learningTechnique.category ?? undefined,
       teacherName: resolveRuntimePlayerDisplayName(recorder, { playerId: recorder.playerId, fallback: '未知玩家' }),
       buildingId,
     },
@@ -482,19 +528,39 @@ function validateScriptureContemplationStart(
   if (!isPlayerNearBuilding(learner, building, 1)) {
     return { ok: false, error: '不在藏经台 1 格范围内。' };
   }
-  const techniqueId = normalizeText(building.scriptureTechniqueId);
+  const requestedTechniqueId = normalizeText(building.scriptureTechniqueId);
+  const runtime = resolveTransmissionDeps(ctx)?.playerRuntimeService;
+  const techniqueId = runtime?.resolveLatestTechniqueId?.(requestedTechniqueId) || requestedTechniqueId;
   if (!techniqueId || Number(building.scriptureRecordedAtTick) <= 0) {
     return { ok: false, error: '藏经台尚未录入藏书。' };
   }
   if (learner.techniques?.techniques?.some((entry: any) => entry?.techId === techniqueId)) {
     return { ok: false, error: '已经掌握该功法。' };
   }
-  const requiredProgress = calculateTechniqueComprehensionRequiredProgress({
+  const aggregationConflict = runtime?.resolveTechniqueLearningConflict?.(learner, techniqueId);
+  if (aggregationConflict) {
+    return {
+      ok: false,
+      error: buildAggregationConflictError(aggregationConflict),
+    };
+  }
+  const learningTechnique = resolveTechniqueTemplateState(ctx, techniqueId);
+  const baseRequiredProgress = calculateTechniqueComprehensionRequiredProgress({
     sourceKind: 'created',
-    techniqueRealmLv: building.scriptureRealmLv,
-    grade: building.scriptureGrade,
+    techniqueRealmLv: learningTechnique?.realmLv ?? building.scriptureRealmLv,
+    grade: learningTechnique?.grade ?? building.scriptureGrade,
     learnerRealmLv: learner.realm?.realmLv ?? 1,
   });
+  const requiredProgress = resolveAggregateComprehensionRequirement(
+    learner,
+    learningTechnique ?? {
+      techId: techniqueId,
+      realmLv: building.scriptureRealmLv,
+      grade: building.scriptureGrade,
+    },
+    baseRequiredProgress,
+    ctx,
+  );
   return {
     ok: true,
     validated: {
@@ -502,11 +568,11 @@ function validateScriptureContemplationStart(
       learnerPlayerId: learner.playerId,
       teacherPlayerId: learner.playerId,
       techniqueId,
-      techniqueName: resolvePlayerFacingContentName(techniqueId, '未知功法', building.scriptureTechniqueName),
+      techniqueName: resolvePlayerFacingContentName(techniqueId, '未知功法', learningTechnique?.name, building.scriptureTechniqueName),
       requiredProgress,
-      realmLv: Math.max(1, Math.floor(Number(building.scriptureRealmLv) || 1)),
-      grade: building.scriptureGrade ?? undefined,
-      category: building.scriptureCategory ?? undefined,
+      realmLv: Math.max(1, Math.floor(Number(learningTechnique?.realmLv ?? building.scriptureRealmLv) || 1)),
+      grade: learningTechnique?.grade ?? building.scriptureGrade ?? undefined,
+      category: learningTechnique?.category ?? building.scriptureCategory ?? undefined,
       teacherName: resolveRuntimePlayerDisplayName(learner, { playerId: learner.playerId, fallback: '未知玩家' }),
       buildingId,
     },
@@ -571,7 +637,7 @@ function createScriptureRecordingJob(recorder: any, validated: TransmissionValid
 }
 
 function createScriptureContemplationJob(learner: any, validated: TransmissionValidatedPayload, ctx: PipelineContext): PlayerTransmissionJob {
-  const pending = ensurePendingComprehension(learner, validated);
+  const pending = ensurePendingComprehension(learner, validated, ctx);
   pending.selfComprehensionAllowed = false;
   const progress = Math.max(0, Number(pending.progress) || 0);
   const required = Math.max(1, Number(validated.requiredProgress) || 1);
@@ -615,7 +681,7 @@ function createScriptureContemplationJob(learner: any, validated: TransmissionVa
   };
 }
 
-function ensurePendingComprehension(learner: any, validated: TransmissionValidatedPayload): any {
+function ensurePendingComprehension(learner: any, validated: TransmissionValidatedPayload, ctx: PipelineContext): any {
   const pendingList = Array.isArray(learner.pendingTechniqueComprehensions)
     ? learner.pendingTechniqueComprehensions
     : [];
@@ -645,6 +711,17 @@ function ensurePendingComprehension(learner: any, validated: TransmissionValidat
     pending.category = validated.category;
   }
   learner.pendingTechniqueComprehensions = pendingList;
+  const runtime = resolveTransmissionDeps(ctx)?.playerRuntimeService;
+  const aggregateMetadata = runtime?.techniqueAggregationService?.getMetadataById?.(validated.techniqueId);
+  if (aggregateMetadata) {
+    pending.creatorPlayerId = (aggregateMetadata as { creatorPlayerId?: string }).creatorPlayerId;
+    pending.requiredProgress = resolveAggregateComprehensionRequirement(
+      learner,
+      resolveTechniqueTemplateState(ctx, validated.techniqueId) ?? validated,
+      validated.requiredProgress,
+      ctx,
+    );
+  }
   return pending;
 }
 
@@ -652,8 +729,32 @@ function findPendingComprehension(learner: any, techniqueId: string): any | null
   return (learner.pendingTechniqueComprehensions ?? []).find((entry: any) => entry?.techId === techniqueId) ?? null;
 }
 
-function refreshPendingRequirement(learner: any, pending: any, teacherTechnique: any, teacher: any, job: PlayerTransmissionJob): void {
-  const requiredProgress = calculateTechniqueComprehensionRequiredProgress({
+/** 旧统合版本仍可作为传授凭据，但学习目标始终是家族最新版。 */
+function findTeacherTechniqueForTransmission(
+  teacher: any,
+  targetTechniqueId: string,
+  runtime: TransmissionDepsPort['playerRuntimeService'] | null | undefined,
+): any | null {
+  const techniques = Array.isArray(teacher?.techniques?.techniques) ? teacher.techniques.techniques : [];
+  const exact = techniques.find((entry: any) => entry?.techId === targetTechniqueId);
+  if (exact) return exact;
+  if (typeof runtime?.resolveLatestTechniqueId !== 'function') return null;
+  return techniques.find((entry: any) => {
+    const ownedTechniqueId = normalizeText(entry?.techId);
+    return ownedTechniqueId
+      && runtime.resolveLatestTechniqueId!(ownedTechniqueId) === targetTechniqueId;
+  }) ?? null;
+}
+
+function refreshPendingRequirement(
+  learner: any,
+  pending: any,
+  teacherTechnique: any,
+  teacher: any,
+  job: PlayerTransmissionJob,
+  ctx: PipelineContext,
+): void {
+  const baseRequiredProgress = calculateTechniqueComprehensionRequiredProgress({
     sourceKind: 'created',
     techniqueRealmLv: teacherTechnique.realmLv,
     grade: teacherTechnique.grade,
@@ -661,6 +762,12 @@ function refreshPendingRequirement(learner: any, pending: any, teacherTechnique:
     learnerTransmissionLevel: learner.transmissionSkill?.level ?? 1,
     teacherTransmissionLevel: teacher.transmissionSkill?.level ?? 1,
   });
+  const requiredProgress = resolveAggregateComprehensionRequirement(
+    learner,
+    teacherTechnique,
+    baseRequiredProgress,
+    ctx,
+  );
   pending.requiredProgress = requiredProgress;
   pending.realmLv = Math.max(1, Math.floor(Number(teacherTechnique.realmLv) || 1));
   pending.grade = teacherTechnique.grade ?? pending.grade;
@@ -821,7 +928,9 @@ function executeScriptureContemplationTick(learner: any, job: PlayerTransmission
   if (!isPlayerNearBuilding(learner, building, 1)) {
     return blockScriptureContemplation(learner, job, 'scripture_platform_out_of_range', ctx);
   }
-  const currentTechniqueId = normalizeText(building.scriptureTechniqueId);
+  const runtime = resolveTransmissionDeps(ctx)?.playerRuntimeService;
+  const recordedTechniqueId = normalizeText(building.scriptureTechniqueId);
+  const currentTechniqueId = runtime?.resolveLatestTechniqueId?.(recordedTechniqueId) || recordedTechniqueId;
   if (!currentTechniqueId || currentTechniqueId !== job.techniqueId || Number(building.scriptureRecordedAtTick) <= 0) {
     return blockScriptureContemplation(learner, job, 'scripture_platform_unavailable', ctx);
   }
@@ -830,12 +939,23 @@ function executeScriptureContemplationTick(learner: any, job: PlayerTransmission
     markTransmissionDirty(learner, ctx, ['active_job']);
     return { ...emptyTransmissionTickResult(), panelChanged: true };
   }
-  const requiredProgress = calculateTechniqueComprehensionRequiredProgress({
+  const learningTechnique = resolveTechniqueTemplateState(ctx, job.techniqueId);
+  const baseRequiredProgress = calculateTechniqueComprehensionRequiredProgress({
     sourceKind: 'created',
-    techniqueRealmLv: building.scriptureRealmLv ?? job.realmLv,
-    grade: building.scriptureGrade ?? job.grade,
+    techniqueRealmLv: learningTechnique?.realmLv ?? building.scriptureRealmLv ?? job.realmLv,
+    grade: learningTechnique?.grade ?? building.scriptureGrade ?? job.grade,
     learnerRealmLv: learner.realm?.realmLv ?? 1,
   });
+  const requiredProgress = resolveAggregateComprehensionRequirement(
+    learner,
+    learningTechnique ?? {
+      techId: job.techniqueId,
+      realmLv: building.scriptureRealmLv ?? job.realmLv,
+      grade: building.scriptureGrade ?? job.grade,
+    },
+    baseRequiredProgress,
+    ctx,
+  );
   let pending = findPendingComprehension(learner, job.techniqueId);
   if (!pending) {
     pending = ensurePendingComprehension(learner, {
@@ -845,12 +965,12 @@ function executeScriptureContemplationTick(learner: any, job: PlayerTransmission
       techniqueId: job.techniqueId,
       techniqueName: job.techniqueName,
       requiredProgress,
-      realmLv: Math.max(1, Math.floor(Number(building.scriptureRealmLv ?? job.realmLv) || 1)),
-      grade: building.scriptureGrade ?? job.grade,
-      category: building.scriptureCategory ?? job.category,
+      realmLv: Math.max(1, Math.floor(Number(learningTechnique?.realmLv ?? building.scriptureRealmLv ?? job.realmLv) || 1)),
+      grade: learningTechnique?.grade ?? building.scriptureGrade ?? job.grade,
+      category: learningTechnique?.category ?? building.scriptureCategory ?? job.category,
       teacherName: job.teacherName,
       buildingId: job.buildingId,
-    });
+    }, ctx);
   }
   if (job.status !== 'running' || job.blockedReason !== undefined) {
     job.status = 'running';
@@ -862,15 +982,16 @@ function executeScriptureContemplationTick(learner: any, job: PlayerTransmission
   pending.name = resolvePlayerFacingContentName(
     job.techniqueId,
     '未知功法',
+    learningTechnique?.name,
     building.scriptureTechniqueName,
     job.techniqueName,
     pending.name,
   );
   pending.sourceKind = 'created';
   pending.requiredProgress = requiredProgress;
-  pending.realmLv = Math.max(1, Math.floor(Number(building.scriptureRealmLv ?? job.realmLv ?? pending.realmLv) || 1));
-  pending.grade = building.scriptureGrade ?? job.grade ?? pending.grade;
-  pending.category = building.scriptureCategory ?? job.category ?? pending.category;
+  pending.realmLv = Math.max(1, Math.floor(Number(learningTechnique?.realmLv ?? building.scriptureRealmLv ?? job.realmLv ?? pending.realmLv) || 1));
+  pending.grade = learningTechnique?.grade ?? building.scriptureGrade ?? job.grade ?? pending.grade;
+  pending.category = learningTechnique?.category ?? building.scriptureCategory ?? job.category ?? pending.category;
   pending.updatedAtTick = resolvePlayerRuntimeTick(learner);
   const progressBreakdown = resolveScriptureContemplationProgressBreakdown(learner, pending.realmLv, ctx);
   pending.progress = Math.min(requiredProgress, previousProgress + progressBreakdown.progressGain);
@@ -889,6 +1010,14 @@ function executeScriptureContemplationTick(learner: any, job: PlayerTransmission
     learner.techniques.revision += 1;
     markTransmissionDirty(learner, ctx, ['active_job', 'technique', ...(professionChanged ? ['profession'] : [])]);
     return { ...emptyTransmissionTickResult(), panelChanged: true, attrChanged: professionChanged };
+  }
+  const completionConflict = resolveTransmissionDeps(ctx)?.playerRuntimeService
+    ?.resolveTechniqueLearningConflict?.(learner, pending.techId);
+  if (completionConflict) {
+    learner.transmissionJob = null;
+    discardConflictingPendingComprehension(learner, pending, resolveTransmissionDeps(ctx));
+    markTransmissionDirty(learner, ctx, ['active_job', 'technique']);
+    return buildAggregationConflictTickResult(completionConflict);
   }
   completeTransmission(learner, pending, job, ctx, professionChanged);
   learner.transmissionJob = null;
@@ -952,6 +1081,7 @@ function completeTransmission(
   ctx: PipelineContext,
   professionChanged: boolean,
 ): void {
+  const deps = resolveTransmissionDeps(ctx);
   const technique = ctx.contentTemplateRepository && typeof (ctx.contentTemplateRepository as any).createTechniqueState === 'function'
     ? (ctx.contentTemplateRepository as any).createTechniqueState(pending.techId)
     : null;
@@ -960,13 +1090,86 @@ function completeTransmission(
     learner.techniques.techniques.sort((left: any, right: any) =>
       (left.realmLv ?? 0) - (right.realmLv ?? 0) || String(left.techId).localeCompare(String(right.techId), 'zh-Hans-CN'));
   }
+  const replacedTechniqueIds = deps?.playerRuntimeService?.applyTechniqueAggregationCompletion?.(learner, pending.techId) ?? [];
   learner.pendingTechniqueComprehensions = (learner.pendingTechniqueComprehensions ?? []).filter((entry: any) => entry?.techId !== pending.techId);
   learner.techniques.revision += 1;
-  const deps = resolveTransmissionDeps(ctx);
   deps?.playerRuntimeService?.playerAttributesService?.recalculate?.(learner);
   deps?.playerRuntimeService?.rebuildActionState?.(learner, resolvePlayerRuntimeTick(learner));
   deps?.playerRuntimeService?.playerProgressionService?.refreshPreview?.(learner);
   markTransmissionDirty(learner, ctx, ['active_job', 'technique', 'auto_battle_skill', 'attr', ...(professionChanged ? ['profession'] : [])]);
+  deps?.playerRuntimeService?.authorizePendingTechniqueComprehensionRemovals?.(
+    learner,
+    [pending.techId, ...replacedTechniqueIds],
+  );
+}
+
+function resolveAggregateComprehensionRequirement(
+  learner: any,
+  technique: any,
+  fallback: number,
+  ctx: PipelineContext,
+): number {
+  const aggregationService = resolveTransmissionDeps(ctx)?.playerRuntimeService?.techniqueAggregationService;
+  return Math.max(
+    1,
+    Math.ceil(aggregationService?.resolveComprehensionRequirement?.(learner, technique, fallback) ?? fallback),
+  );
+}
+
+function buildAggregationConflictTickResult(conflict: {
+  conflictAggregateIds?: string[];
+  conflictSourceTechniqueIds?: string[];
+  vars?: Record<string, string | number>;
+}): unknown {
+  return {
+    ...emptyTransmissionTickResult(),
+    panelChanged: true,
+    messages: [{
+      kind: 'transmission',
+      key: 'notice.technique-aggregation.overlap',
+      vars: {
+        sourceTechniqueNames: resolveAggregationConflictSourceNames(conflict),
+      },
+    }],
+  };
+}
+
+function buildAggregationConflictError(conflict: {
+  conflictSourceTechniqueIds?: string[];
+  vars?: Record<string, string | number>;
+}): string {
+  return 'TECHNIQUE_AGGREGATE_OVERLAP:' + resolveAggregationConflictSourceNames(conflict);
+}
+
+function resolveAggregationConflictSourceNames(conflict: {
+  conflictSourceTechniqueIds?: string[];
+  vars?: Record<string, string | number>;
+}): string {
+  const names = conflict.vars?.sourceTechniqueNames;
+  if (typeof names === 'string' && names.trim()) return names.trim();
+  return (conflict.conflictSourceTechniqueIds ?? []).filter(Boolean).join('、') || '未知功法';
+}
+
+function discardConflictingPendingComprehension(
+  learner: any,
+  pending: any,
+  deps: TransmissionDepsPort | null,
+): void {
+  const discard = deps?.playerRuntimeService?.discardPendingTechniqueComprehension;
+  if (typeof discard === 'function') {
+    try {
+      discard(learner.playerId, pending.techId);
+      return;
+    } catch {
+      // 运行态已在并发路径清理时，继续使用当前对象回退清理。
+    }
+  }
+  learner.pendingTechniqueComprehensions = (learner.pendingTechniqueComprehensions ?? [])
+    .filter((entry: any) => entry?.techId !== pending.techId);
+  if (learner.techniques?.cultivatingTechId === pending.techId) {
+    learner.techniques.cultivatingTechId = undefined;
+    if (learner.combat) learner.combat.cultivationActive = false;
+  }
 }
 
 function updateJobProgress(

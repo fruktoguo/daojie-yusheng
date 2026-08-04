@@ -5,7 +5,7 @@
  */
 import { Injectable } from '@nestjs/common';
 import * as fs from 'fs';
-import { TechniqueRealm, deriveTechniqueRealm, getTechniqueExpToNext, resolvePlayerFacingContentName } from '@mud/shared';
+import { TechniqueRealm, deriveTechniqueRealm, getTechniqueExpToNext, resolvePlayerFacingContentName, normalizeTechniqueAggregationMetadata } from '@mud/shared';
 import type { TechniqueTemplate } from '@mud/shared';
 import { resolveProjectPath } from '../../common/project-path';
 import type { GeneratedTechniqueStoreService } from '../../runtime/technique-generation/generated-technique-store.service';
@@ -36,6 +36,7 @@ type TechniqueTemplateRecord = Record<string, unknown> & {
   layerGains?: TechniqueTemplate['layerGains'];
   skills: Array<Record<string, unknown>>;
   layers: Array<Record<string, unknown> & { level: number; expToNext?: number; attrs?: Record<string, unknown>; specialStats?: Record<string, unknown>; qiProjection?: unknown }>;
+  aggregate?: ReturnType<typeof normalizeTechniqueAggregationMetadata>;
 };
 
 @Injectable()
@@ -147,6 +148,7 @@ export class TechniqueTemplateRegistry {
         specialStats: entry.specialStats ? { ...entry.specialStats } : undefined,
         qiProjection: cloneQiProjectionModifiers(entry.qiProjection),
       })),
+      ...(template.aggregate ? { aggregate: template.aggregate } : {}),
     })).sort((left, right) => (left.id as string).localeCompare(right.id as string, 'zh-Hans-CN'));
   }
 }
@@ -220,6 +222,7 @@ function generatedTemplateToRecord(template: TechniqueTemplate): TechniqueTempla
     layerGains: template.layerGains,
     skills: (template.skills ?? []) as unknown as Array<Record<string, unknown>>,
     layers: (template.layers ?? []) as Array<Record<string, unknown> & { level: number; expToNext?: number; attrs?: Record<string, unknown>; specialStats?: Record<string, unknown>; qiProjection?: unknown }>,
+    aggregate: normalizeTechniqueAggregationMetadata((template as unknown as Record<string, unknown>).aggregate) ?? undefined,
   };
 }
 

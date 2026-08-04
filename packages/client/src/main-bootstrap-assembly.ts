@@ -422,7 +422,7 @@ type MainBootstrapAssemblyOptions = {
  * craftWorkbenchModal：炼制Workbench弹层相关字段。
  */
 
-  craftWorkbenchModal: Pick<CraftWorkbenchModal, 'setCallbacks' | 'setTransmissionCallbacks' | 'handleTransmissionStatuses' | 'openAlchemy' | 'openForging' | 'openEnhancement' | 'openTransmission' | 'openTechniqueRefining'>;
+  craftWorkbenchModal: Pick<CraftWorkbenchModal, 'setCallbacks' | 'setTransmissionCallbacks' | 'handleTransmissionStatuses' | 'handleTechniqueAggregationPanel' | 'handleTechniqueAggregationResult' | 'openAlchemy' | 'openForging' | 'openEnhancement' | 'openTransmission' | 'openTechniqueRefining' | 'openTechniqueAggregation'>;
   /**
  * debugPanel：debug面板相关字段。
  */
@@ -551,6 +551,8 @@ type MainBootstrapAssemblyOptions = {
     | 'sendRequestLeaderboard'
     | 'sendRequestWorldSummary'
     | 'sendDestroyItem'
+    | 'sendRequestTechniqueAggregation'
+    | 'sendPublishTechniqueAggregation'
   >;
   /**
  * socialEconomySender：socialEconomySender相关字段。
@@ -945,6 +947,8 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
         options.techniqueGenerationSender.sendGetStatus(getTechniqueGenerationSelectedItemSpend());
       }
     },
+    onTechniqueAggregationPanel: (data) => options.craftWorkbenchModal.handleTechniqueAggregationPanel(data),
+    onTechniqueAggregationResult: (data) => options.craftWorkbenchModal.handleTechniqueAggregationResult(data),
     onError: (data) => options.connectionStateSource.handleError(data),
     onKick: (data) => options.connectionStateSource.handleKick(data),
     onConnectError: (message) => options.connectionStateSource.handleConnectError(message),

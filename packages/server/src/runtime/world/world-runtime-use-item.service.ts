@@ -166,16 +166,33 @@ export class WorldRuntimeUseItemService {
             if (!learnedTechniqueId) {
                 throw new NotFoundException('功法书缺少功法 ID');
             }
+            const resolvedTechniqueId = typeof this.playerRuntimeService.resolveLatestTechniqueId === 'function'
+                ? this.playerRuntimeService.resolveLatestTechniqueId(learnedTechniqueId)
+                : learnedTechniqueId;
             const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-            if (findPlayerLearnedTechnique(player, learnedTechniqueId)) {
+            if (findPlayerLearnedTechnique(player, resolvedTechniqueId)) {
                 throw new BadRequestException('已经掌握该功法');
             }
-            if (!this.contentTemplateRepository.createTechniqueState(learnedTechniqueId)) {
+            const aggregationConflict = this.playerRuntimeService.resolveTechniqueLearningConflict(player, resolvedTechniqueId);
+            if (aggregationConflict) {
+                const sourceTechniqueNames = typeof aggregationConflict.vars?.sourceTechniqueNames === 'string'
+                    ? aggregationConflict.vars.sourceTechniqueNames
+                    : (aggregationConflict.conflictSourceTechniqueIds ?? []).join('、');
+                const notice = buildStructuredNotice(
+                    'warn',
+                    'notice.technique-aggregation.overlap',
+                    '该功法与已有统合功法重叠，无法学习。',
+                    { vars: { sourceTechniqueNames: sourceTechniqueNames || resolvedTechniqueId } },
+                );
+                deps.queuePlayerNotice(playerId, notice.text, notice.kind, undefined, undefined, notice.structured);
+                return;
+            }
+            if (!this.contentTemplateRepository.createTechniqueState(resolvedTechniqueId)) {
                 throw new NotFoundException('功法书对应的功法不存在');
             }
             const added = this.playerRuntimeService.addPendingTechniqueComprehensionById(
                 playerId,
-                learnedTechniqueId,
+                resolvedTechniqueId,
                 'normal',
                 null,
                 { maxLevel: item.learnTechniqueMaxLevel },

@@ -47,6 +47,15 @@ function buildPendingCommandNotice(command, message) {
             return null;
         }
     }
+    const aggregationOverlap = resolveTechniqueAggregationOverlapMessage(message);
+    if (aggregationOverlap) {
+        return buildStructuredNotice(
+            'warn',
+            'notice.technique-aggregation.overlap',
+            '该功法与已有统合功法重叠，无法学习。',
+            { vars: { sourceTechniqueNames: aggregationOverlap } },
+        );
+    }
     if (message === '该目标无法被攻击') {
         return buildStructuredNotice('warn', 'notice.command.no-target', '没有可命中的目标');
     }
@@ -222,6 +231,7 @@ function isExpectedTechniqueActivityReject(message) {
         || message === '当前没有进行中的任务。'
         || message === '没有进行中的传授'
         || message === '学习者已经掌握该功法。'
+        || resolveTechniqueAggregationOverlapMessage(message) !== null
         || (typeof message === 'string' && /^当前没有可取消的.+任务。$/.test(message));
 }
 
@@ -232,7 +242,16 @@ function isExpectedInventoryReject(message) {
 
 /** 地块资源道具的位置约束拒绝：确定性业务规则，非系统异常。 */
 function isExpectedUseItemReject(message) {
-    return message === '当前位于安全区、出生点、传送点或 NPC 附近，无法使用地块资源道具。';
+    return message === '当前位于安全区、出生点、传送点或 NPC 附近，无法使用地块资源道具。'
+        || resolveTechniqueAggregationOverlapMessage(message) !== null;
+}
+
+function resolveTechniqueAggregationOverlapMessage(message) {
+    const prefix = 'TECHNIQUE_AGGREGATE_OVERLAP:';
+    if (typeof message !== 'string' || !message.startsWith(prefix)) {
+        return null;
+    }
+    return message.slice(prefix.length).trim() || '未知功法';
 }
 
 function isExpectedPendingCommandReject(command, message) {

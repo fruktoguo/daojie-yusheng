@@ -16,8 +16,13 @@
 
 import type { Pool } from 'pg';
 import { Injectable } from '@nestjs/common';
-import type { TechniqueTemplate } from '@mud/shared';
 import {
+  normalizeTechniqueAggregationMetadata,
+  type TechniqueAggregationMetadata,
+  type TechniqueTemplate,
+} from '@mud/shared';
+import {
+  insertPublishedAggregateTechnique,
   loadGeneratedTechniqueSignature,
   loadPublishedGeneratedTechniques,
   type GeneratedTechniqueSignature,
@@ -26,6 +31,8 @@ import {
 @Injectable()
 export class GeneratedTechniqueStoreService {
   private cache = new Map<string, TechniqueTemplate>();
+  private creatorById = new Map<string, string>();
+  private aggregateMetadataById = new Map<string, TechniqueAggregationMetadata>();
   private lastSignature: GeneratedTechniqueSignature | null = null;
   private pool: Pool | null = null;
 
@@ -49,9 +56,28 @@ export class GeneratedTechniqueStoreService {
 
       const rows = await loadPublishedGeneratedTechniques(this.pool);
       this.cache.clear();
+      this.creatorById.clear();
+      this.aggregateMetadataById.clear();
       for (const row of rows) {
         if (row.id && row.template && typeof row.template === 'object') {
-          this.cache.set(row.id, row.template as TechniqueTemplate);
+          const template = row.template as TechniqueTemplate;
+          this.cache.set(row.id, template);
+          if (typeof row.created_by_player_id === 'string' && row.created_by_player_id.trim()) {
+            this.creatorById.set(row.id, row.created_by_player_id.trim());
+          }
+          const normalizedMetadata = normalizeTechniqueAggregationMetadata(
+            (template as unknown as Record<string, unknown>).aggregate,
+          );
+          if (normalizedMetadata) {
+            const rowCreator = typeof row.created_by_player_id === 'string' && row.created_by_player_id.trim()
+              ? row.created_by_player_id.trim()
+              : undefined;
+            this.aggregateMetadataById.set(row.id, {
+              ...normalizedMetadata,
+              // 数据库创建者字段是真源，模板 JSON 中的冗余值不能改变更新权限。
+              ...(rowCreator ? { creatorPlayerId: rowCreator } : {}),
+            });
+          }
         }
       }
       this.lastSignature = sig;
@@ -69,6 +95,59 @@ export class GeneratedTechniqueStoreService {
   /** 按 ID 查找已发布的生成功法模板 */
   getById(id: string): TechniqueTemplate | undefined {
     return this.cache.get(id);
+  }
+
+  getCreatorPlayerId(id: string): string | undefined {
+    return this.creatorById.get(id);
+  }
+
+  getAggregateMetadata(id: string): TechniqueAggregationMetadata | undefined {
+    return this.aggregateMetadataById.get(id);
+  }
+
+  listAggregateMetadata(): Array<{ techniqueId: string; metadata: TechniqueAggregationMetadata }> {
+    return [...this.aggregateMetadataById.entries()]
+      .map(([techniqueId, metadata]) => ({ techniqueId, metadata }))
+      .sort((left, right) => left.metadata.familyId.localeCompare(right.metadata.familyId) || left.metadata.revision - right.metadata.revision);
+  }
+
+  getLatestAggregateForFamily(familyId: string): { techniqueId: string; template: TechniqueTemplate; metadata: TechniqueAggregationMetadata } | undefined {
+    const candidates = this.listAggregateMetadata()
+      .filter((entry) => entry.metadata.familyId === familyId)
+      .sort((left, right) => right.metadata.revision - left.metadata.revision);
+    const latest = candidates[0];
+    if (!latest) return undefined;
+    const template = this.cache.get(latest.techniqueId);
+    return template ? { techniqueId: latest.techniqueId, template, metadata: latest.metadata } : undefined;
+  }
+
+  async publishAggregate(params: {
+    id: string;
+    generationId: string;
+    template: TechniqueTemplate;
+    createdByPlayerId: string;
+    validationReport: unknown;
+  }): Promise<'inserted' | 'existing'> {
+    if (!this.pool) {
+      throw new Error('technique_aggregation_persistence_unavailable');
+    }
+    const result = await insertPublishedAggregateTechnique(this.pool, {
+      id: params.id,
+      generationId: params.generationId,
+      template: params.template,
+      schemaVersion: 1,
+      createdByPlayerId: params.createdByPlayerId,
+      displayName: params.template.name,
+      grade: params.template.grade,
+      category: params.template.category ?? 'internal',
+      realmLv: params.template.realmLv,
+      validationReport: params.validationReport,
+    });
+    await this.refreshAfterPublish();
+    if (!this.cache.has(params.id)) {
+      throw new Error('technique_aggregation_persistence_unavailable');
+    }
+    return result;
   }
 
   /** 列出所有已发布的生成功法模板 */

@@ -10,12 +10,18 @@ export const TECHNIQUE_COMPREHENSION_NORMAL_BASE_TICKS = 10;
 export const TECHNIQUE_COMPREHENSION_CREATED_BASE_TICKS = 300;
 export const TECHNIQUE_TRANSMISSION_RANGE = 2;
 export const CREATED_TECHNIQUE_ID_PREFIX = 'gen_';
+export const AGGREGATE_TECHNIQUE_ID_PREFIX = 'agg_';
 export const TECHNIQUE_COMPREHENSION_PRE_FOUNDATION_MAX_REALM_LV = 30;
 export const TECHNIQUE_COMPREHENSION_PRE_FOUNDATION_LEVEL1_REQUIRED_RATIO = 0.05;
 export const TECHNIQUE_COMPREHENSION_PRE_FOUNDATION_LEVEL30_REQUIRED_RATIO = 0.5;
 
 export function isCreatedTechniqueId(techId: string | null | undefined): boolean {
-  return typeof techId === 'string' && techId.trim().startsWith(CREATED_TECHNIQUE_ID_PREFIX);
+  if (typeof techId !== 'string') {
+    return false;
+  }
+  const normalized = techId.trim();
+  return normalized.startsWith(CREATED_TECHNIQUE_ID_PREFIX)
+    || normalized.startsWith(AGGREGATE_TECHNIQUE_ID_PREFIX);
 }
 
 export function getTechniqueComprehensionGradeFactor(grade: TechniqueGrade | null | undefined): number {

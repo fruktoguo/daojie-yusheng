@@ -310,11 +310,19 @@ export class WorldRuntimeContextActionQueryService {
                         const buildingName = typeof entry?.name === 'string' && entry.name.trim()
                             ? entry.name.trim()
                             : '炼法台';
+                        const encodedBuildingId = encodeURIComponent(building.id);
                         actions.push({
                             id: 'technique_refining:open',
                             name: `炼法：${buildingName}`,
                             type: 'interact',
                             desc: '打开炼法台，选择背包内功法书分解为功法残页，或抄录指定层数的功法书。',
+                            cooldownLeft: 0,
+                        });
+                        actions.push({
+                            id: `technique_refining:aggregate:${encodedBuildingId}`,
+                            name: `统合内功：${buildingName}`,
+                            type: 'interact',
+                            desc: '在炼法台统合同阶、已圆满的自创内功；聚合后源功法仍可传授，但学习聚合版本时会替换重叠功法。',
                             cooldownLeft: 0,
                         });
                     }

@@ -25,6 +25,10 @@ import type {
   S2C_EnhancementPanel,
   S2C_TechniqueActivityTasks,
   S2C_TechniqueTransmissionStatuses,
+  TechniqueAggregationPanelView,
+  TechniqueAggregationPreviewRequest,
+  TechniqueAggregationPublishRequest,
+  TechniqueAggregationResultView,
   TechniqueActivityCancelRef,
   TechniqueActivityQueueReorderAction,
   TechniqueActivityTaskView,
@@ -95,6 +99,8 @@ type CraftWorkbenchCallbacks = {
   onCancelTransmission?: (techId: string) => void;
   onDiscardTechniqueComprehension?: (techId: string) => void;
   onDecomposeTechniqueBook?: (itemInstanceId: string, count: number) => void;
+  onRequestTechniqueAggregation?: (payload: TechniqueAggregationPreviewRequest) => boolean | void;
+  onPublishTechniqueAggregation?: (payload: TechniqueAggregationPublishRequest) => boolean | void;
   getTransmissionTargets?: () => Array<{ playerId: string; name: string }>;
 };
 
@@ -380,6 +386,14 @@ export class CraftWorkbenchModal {
     this.transmissionView.handleTransmissionStatuses(data);
   }
 
+  handleTechniqueAggregationPanel(data: TechniqueAggregationPanelView): void {
+    this.transmissionView.handleTechniqueAggregationPanel(data);
+  }
+
+  handleTechniqueAggregationResult(data: TechniqueAggregationResultView): void {
+    this.transmissionView.handleTechniqueAggregationResult(data);
+  }
+
   initFromPlayer(player: PlayerState): void {
     this.inventory = player.inventory;
     this.equipment = player.equipment;
@@ -516,6 +530,14 @@ export class CraftWorkbenchModal {
     this.activeMode = 'technique_refining';
     this.loading = false;
     this.transmissionView.resetTechniqueRefiningSelection();
+    this.render();
+  }
+
+  openTechniqueAggregation(buildingId: string): void {
+    this.activeMode = 'technique_refining';
+    this.loading = false;
+    this.transmissionView.resetTechniqueRefiningSelection();
+    this.transmissionView.openTechniqueAggregation(buildingId);
     this.render();
   }
 

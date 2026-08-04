@@ -59,7 +59,6 @@ type CreateMainPanelContextOptions = {
     hydrateSyncedItemStack(item: SyncedItemStack, previous?: Inventory['items'][number]): Inventory['items'][number];
   };
 };
-/** createMainPanelContext：构建并返回目标对象。 */
 export function createMainPanelContext(options: CreateMainPanelContextOptions) {
   const {
     documentRef,
@@ -126,6 +125,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     openBuildingPanel: () => buildingFengShuiStateSource.openBuildingPanel(),
     openTransmissionPanel: () => craftWorkbenchModal.openTransmission(),
     openTechniqueRefiningPanel: () => craftWorkbenchModal.openTechniqueRefining(),
+    openTechniqueAggregationPanel: (buildingId) => craftWorkbenchModal.openTechniqueAggregation(buildingId),
     openScripturePlatformRecordingModal: (buildingId) => openScripturePlatformRecordingModal({ buildingId, getPlayer: () => rootRuntimeSource.getPlayer(), sendAction: (actionId) => runtimeSender.sendAction(actionId), showToast: (message, kind) => callbacks.showToast(message, kind) }),
     openTreasureVault: (buildingId) => socialStateSource.openTreasureVault(buildingId),
     openTimeChamberUsage: (buildingId) => timeChamberStateSource.openUsage(buildingId), openTimeChamberManagement: (buildingId) => timeChamberStateSource.openManagement(buildingId),

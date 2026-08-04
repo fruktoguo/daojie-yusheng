@@ -42,6 +42,7 @@ import {
   TECHNIQUE_SKILL_QI_COST_GRADE_POWER_BASE,
   TECHNIQUE_GRADE_ORDER,
 } from './constants/gameplay/technique';
+import { isTechniqueAggregationId } from './technique-aggregation';
 
 const BODY_TRAINING_FINITE_NUMBER_MAX = Number.MAX_VALUE;
 export const TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE = 'attr-multiplier:technique-max';
@@ -536,6 +537,10 @@ export function calcTechniqueMaxAttrPercentBonus(techniques: readonly TechniqueS
   for (const key of TECHNIQUE_ATTR_KEYS) {
     let maxValue = 0;
     for (const technique of techniques) {
+      // 聚合内功已经把源功法六维折算进自身；不得再进入“万法”最高值乘区。
+      if (isTechniqueAggregationId(technique.techId)) {
+        continue;
+      }
       const value = Number(calcTechniqueAttrValues(technique.level, technique.layers)[key] ?? 0);
       if (Number.isFinite(value) && value > maxValue) {
         maxValue = value;

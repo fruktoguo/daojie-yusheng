@@ -2707,6 +2707,7 @@ export const CLIENT_I18N_MESSAGES = {
   "notice.sect.terrain-manifested": "宗门地脉已向四方显化",
   "notice.shop.purchased": "购买 {itemLabel}，花费 {currency} x{cost}",
   "notice.system.cooldown": "行动调息中，剩余 {cooldownLeft} 息",
+  "notice.technique-aggregation.overlap": "无法学习：与已有统合功法重叠的源功法为 {sourceTechniqueNames}",
   "notice.time-chamber.exit-missing": "密室出口暂时不可用。",
   "notice.time-chamber.full": "密室当前已有修士，请稍后再试。",
   "notice.time-chamber.not-inside": "当前不在密室中。",

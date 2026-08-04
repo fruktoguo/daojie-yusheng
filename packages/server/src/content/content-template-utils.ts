@@ -5,7 +5,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_PLAYER_REALM_STAGE, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, ELEMENT_KEYS, EQUIP_SLOTS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_NUMERIC_TEMPLATES, TECHNIQUE_EXP_BASE, TechniqueRealm, buildQiResourceKey, calculateTechniqueSkillQiCost, cloneNumericRatioDivisors, cloneNumericStats, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, createMonsterMainCombatStatModifierStats, deriveTechniqueRealm, expandTechniqueAttrRatio, expandTechniqueExpCurve, expandTechniqueLayerGains, getTechniqueExpToNext, getTileTypeFromMapChar, inferMonsterTierFromName, isTileTypeWalkable, normalizeCraftEffectStatsPatch, normalizeEditableMapDocument, normalizeMonsterTier as normalizeSharedMonsterTier, normalizeTargetingDefaultMaxTargets, normalizeTechniqueAttrRatio, normalizeTechniqueLearnMaxLevel, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveSkillUnlockLevel, scaleTechniqueExp, shouldExpandTechniqueAttrRatio } from '@mud/shared';
+import { DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_PLAYER_REALM_STAGE, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, ELEMENT_KEYS, EQUIP_SLOTS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_NUMERIC_TEMPLATES, TECHNIQUE_EXP_BASE, TechniqueRealm, buildQiResourceKey, calculateTechniqueSkillQiCost, cloneNumericRatioDivisors, cloneNumericStats, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, createMonsterMainCombatStatModifierStats, deriveTechniqueRealm, expandTechniqueAttrRatio, expandTechniqueExpCurve, expandTechniqueLayerGains, getTechniqueExpToNext, getTileTypeFromMapChar, inferMonsterTierFromName, isTileTypeWalkable, normalizeCraftEffectStatsPatch, normalizeEditableMapDocument, normalizeMonsterTier as normalizeSharedMonsterTier, normalizeTargetingDefaultMaxTargets, normalizeTechniqueAggregationMetadata, normalizeTechniqueAttrRatio, normalizeTechniqueLearnMaxLevel, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveSkillUnlockLevel, scaleTechniqueExp, shouldExpandTechniqueAttrRatio } from '@mud/shared';
 import { resolveProjectPath } from '../common/project-path';
 
 const ITEM_INSTANCE_FIELD_KEYS = new Set(['itemId', 'itemInstanceId', 'count', 'enhanceLevel', 'enhancementLevel', 'learnTechniqueId', 'learnTechniqueMaxLevel', 'grade', 'level']);
@@ -1227,6 +1227,7 @@ function normalizeTechniqueTemplate(raw, sharedTechniqueBuffs = new Map()) {
         layerGains: isRecord(candidate.layerGains) ? cloneTechniqueLayerGains(candidate.layerGains) : undefined,
         layers: sparseLayers,
         skills,
+        aggregate: normalizeTechniqueAggregationMetadata(candidate.aggregate) ?? undefined,
     };
     const layers = expandTechniqueTemplateLayers(template);
     return {
@@ -1245,6 +1246,7 @@ function normalizeTechniqueTemplate(raw, sharedTechniqueBuffs = new Map()) {
         layerGains: template.layerGains,
         layers,
         skills,
+        aggregate: template.aggregate,
     };
 }
 
