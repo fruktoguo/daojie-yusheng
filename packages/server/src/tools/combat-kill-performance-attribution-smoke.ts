@@ -35,14 +35,14 @@ async function main(): Promise<void> {
         receivedProgressRecorder = typeof input.recordTickSectionDuration === 'function';
         return { changed: false };
       },
-      canReceiveInventoryItem: () => true,
-      receiveInventoryItem(
+      tryReceiveInventoryItem(
         _playerId: string,
         item: { itemId: string },
         options: { inventoryOnlyStatistics?: boolean } = {},
       ) {
         assert.equal(options.inventoryOnlyStatistics, true);
         events.push(`receive:${item.itemId}`);
+        return true;
       },
     } as never,
     {
@@ -114,8 +114,7 @@ async function main(): Promise<void> {
     'combat.playerMonsterKill.progressMs': 1,
     'combat.playerMonsterKill.dropRollMs': 1,
     'combat.playerMonsterKill.lootItems': 3,
-    'combat.playerMonsterKill.lootCapacityCheckMs': 3,
-    'combat.playerMonsterKill.lootInventoryApplyMs': 3,
+    'combat.playerMonsterKill.lootReceiptMs': 3,
     'combat.playerMonsterKill.lootNoticeMs': 3,
     'combat.playerMonsterKill.lootDeliveryMs': 1,
   });

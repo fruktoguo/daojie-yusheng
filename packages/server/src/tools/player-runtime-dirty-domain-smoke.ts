@@ -536,6 +536,33 @@ function testReceiveInventoryItemDirtyDomain(): void {
   assert.equal(player.selfRevision, previousSelfRevision);
 }
 
+function testTryReceiveInventoryItemChecksAndMergesOnce(): void {
+  const playerId = 'player:try-receive-item';
+  const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+  player.inventory.capacity = 1;
+  player.inventory.items = [{ itemId: 'rat_tail', count: 2 }];
+  const repository = (service as unknown as { contentTemplateRepository: { normalizeItem: (item: unknown) => unknown } }).contentTemplateRepository;
+  const originalNormalizeItem = repository.normalizeItem.bind(repository);
+  let normalizeCount = 0;
+  repository.normalizeItem = (item: unknown) => {
+    normalizeCount += 1;
+    return originalNormalizeItem(item);
+  };
+  const previousRevision = player.inventory.revision;
+
+  assert.equal(service.tryReceiveInventoryItem(playerId, { itemId: 'rat_tail', count: 3 }), true);
+  assert.equal(player.inventory.items[0]?.count, 5);
+  assert.equal(normalizeCount, 1);
+  assert.equal(player.inventory.revision, previousRevision + 1);
+
+  assert.equal(service.tryReceiveInventoryItem(playerId, { itemId: 'other_drop', count: 1 }), false);
+  assert.equal(normalizeCount, 2);
+  assert.equal(player.inventory.items.length, 1);
+  assert.equal(player.inventory.items[0]?.itemId, 'rat_tail');
+  assert.equal(player.inventory.revision, previousRevision + 1);
+}
+
 function testReceiveWalletItemDirtyDomain(): void {
   const playerId = 'player:receive-wallet';
   const service = createHydratedService(playerId);
@@ -2115,6 +2142,7 @@ testLogbookDirtyDomain();
   testWorldPreferenceDirtyDomain();
   testGrantWalletItemDirtyDomain();
   testReceiveInventoryItemDirtyDomain();
+  testTryReceiveInventoryItemChecksAndMergesOnce();
   testReceiveWalletItemDirtyDomain();
   testCreditWalletUsesInventoryCache();
   testDebitWalletFallsBackToInventory();

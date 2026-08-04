@@ -249,7 +249,9 @@ export function spawnTileDrops(input: {
       ? content.createItem(itemId, count)
       : null;
     const normalizedItem = item ?? { itemId, count };
-    receiveInventoryItem.call(input.deps.playerRuntimeService, input.playerId, normalizedItem);
+    receiveInventoryItem.call(input.deps.playerRuntimeService, input.playerId, normalizedItem, {
+      inventoryOnlyStatistics: true,
+    });
     labels.push(formatItemStackLabel(normalizedItem));
   }
   if (labels.length <= 0 || typeof input.deps?.queuePlayerNotice !== 'function') {

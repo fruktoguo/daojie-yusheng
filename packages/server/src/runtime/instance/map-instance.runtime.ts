@@ -393,7 +393,7 @@ class MapInstanceRuntime {
     aoiRevisionByChunkRow = new Map<number, Map<number, number>>();
     /** 仅跟踪会改变 FOV 的 chunk revision。 */
     aoiSightRevisionByChunkRow = new Map<number, Map<number, number>>();
-    /** 尚未被网络层消费的实例级地块静态脏坐标。 */
+    /** 静态地块同步脏索引；网络消费时才转换为协议坐标键，避免 tick 热路径拼接字符串。 */
     staticTileSyncDirtyTileKeys = new Set();
     /** 当前脏坐标批次开始前的地块静态同步 revision。 */
     staticTileSyncDirtyFromRevision = 0;
@@ -6143,19 +6143,18 @@ class MapInstanceRuntime {
         }
         const tileX = this.tilePlane.getX(tileIndex);
         const tileY = this.tilePlane.getY(tileIndex);
-        const key = `${tileX},${tileY}`;
         this.markAoiViewChangedAt(tileX, tileY, options);
         if (options?.pathingChanged === true) {
             this.staticPathingRevision = Math.max(0, Math.trunc(Number(this.staticPathingRevision) || 0)) + 1;
         }
-        if (this.staticTileSyncDirtyTileKeys.has(key)) {
+        if (this.staticTileSyncDirtyTileKeys.has(tileIndex)) {
             this.staticTileSyncRevision = Math.max(0, Math.trunc(Number(this.staticTileSyncRevision) || 0)) + 1;
             if (options?.sightBlockingChanged === true) {
                 this.sightBlockingRevision = Math.max(0, Math.trunc(Number(this.sightBlockingRevision) || 0)) + 1;
             }
             return false;
         }
-        this.staticTileSyncDirtyTileKeys.add(key);
+        this.staticTileSyncDirtyTileKeys.add(tileIndex);
         this.staticTileSyncRevision = Math.max(0, Math.trunc(Number(this.staticTileSyncRevision) || 0)) + 1;
         if (options?.sightBlockingChanged === true) {
             this.sightBlockingRevision = Math.max(0, Math.trunc(Number(this.sightBlockingRevision) || 0)) + 1;
@@ -6262,7 +6261,11 @@ class MapInstanceRuntime {
             return { fromRevision: toRevision, toRevision, tileKeys: [] };
         }
         const fromRevision = Math.max(0, Math.trunc(Number(this.staticTileSyncDirtyFromRevision) || 0));
-        const tileKeys = Array.from(this.staticTileSyncDirtyTileKeys);
+        const tileKeys = Array.from(this.staticTileSyncDirtyTileKeys, (tileIndex) => {
+            const x = this.tilePlane.getX(tileIndex);
+            const y = this.tilePlane.getY(tileIndex);
+            return `${x},${y}`;
+        });
         this.staticTileSyncDirtyTileKeys.clear();
         this.staticTileSyncDirtyFromRevision = toRevision;
         return { fromRevision, toRevision, tileKeys };

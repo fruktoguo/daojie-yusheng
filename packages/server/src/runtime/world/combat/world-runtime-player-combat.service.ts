@@ -365,25 +365,15 @@ export class WorldRuntimePlayerCombatService {
         _sourceRefId = '',
     ): void {
         let sectionStartedAt = beginPlayerMonsterKillPerf(deps);
-        const canReceive = this.playerRuntimeService.canReceiveInventoryItem(playerId, item);
+        const received = this.playerRuntimeService.tryReceiveInventoryItem(playerId, item, {
+            inventoryOnlyStatistics: true,
+        });
         sectionStartedAt = recordPlayerMonsterKillPerf(
             deps,
-            'combat.playerMonsterKill.lootCapacityCheckMs',
+            'combat.playerMonsterKill.lootReceiptMs',
             sectionStartedAt,
         );
-        if (canReceive) {
-            const player = this.playerRuntimeService.getPlayer(playerId);
-            if (!player) {
-                throw new Error(`inventory_grant_player_missing:${playerId}`);
-            }
-            this.playerRuntimeService.receiveInventoryItem(playerId, item, {
-                inventoryOnlyStatistics: true,
-            });
-            sectionStartedAt = recordPlayerMonsterKillPerf(
-                deps,
-                'combat.playerMonsterKill.lootInventoryApplyMs',
-                sectionStartedAt,
-            );
+        if (received) {
             const itemLabel = formatItemStackLabel(item);
             const lootNotice = buildStructuredNotice('loot', 'notice.loot.obtained', `获得 ${itemLabel}`, {
                 vars: { itemName: itemLabel },

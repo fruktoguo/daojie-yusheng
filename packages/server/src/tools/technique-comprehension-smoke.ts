@@ -871,6 +871,23 @@ function testAllMaxedTechniqueProgressionCache() {
   assert.equal(maxedChecks, checksAfterInvalidation);
 }
 
+function testInventoryPreviewOnlyRefreshesForBreakthroughMaterial() {
+  const { progressionService } = createRuntimeService();
+  const learner = createPlayer('learner:inventory-preview-filter', 0, 0);
+  progressionService.breakthroughTransitions.set(1, {
+    requirements: [{ type: 'item', itemId: 'required.material', count: 1 }],
+  });
+  let refreshCalls = 0;
+  progressionService.refreshPreview = (() => {
+    refreshCalls += 1;
+  }) as never;
+
+  assert.equal(progressionService.refreshPreviewForInventoryItem(learner, 'ordinary.drop'), false);
+  assert.equal(refreshCalls, 0);
+  assert.equal(progressionService.refreshPreviewForInventoryItem(learner, 'required.material'), true);
+  assert.equal(refreshCalls, 1);
+}
+
 function testMonsterKillAutoSwitchesAndProgressesPendingComprehension() {
   const { progressionService } = createRuntimeService();
   const learner = createPlayer('learner:kill-auto-switch-pending', 0, 0);
@@ -1581,6 +1598,7 @@ testAutoSwitchCultivationCanSelectPendingComprehension();
 testMonsterKillProgressesComprehensionByOneCultivationTick();
 testMonsterKillExpOnlyKeepsRealmPreviewStable();
 testAllMaxedTechniqueProgressionCache();
+testInventoryPreviewOnlyRefreshesForBreakthroughMaterial();
 testMonsterKillAutoSwitchesAndProgressesPendingComprehension();
 testCultivationCanStoreFractionalComprehensionProgress();
 testPendingTechniqueNameResolvesDisplayName();

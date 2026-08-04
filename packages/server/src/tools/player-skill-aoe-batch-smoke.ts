@@ -17,7 +17,7 @@ import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
 import { WorldRuntimeCombatActionService } from '../runtime/world/combat/world-runtime-combat-action.service';
 import { WorldRuntimePlayerSkillDispatchService } from '../runtime/world/combat/world-runtime-player-skill-dispatch.service';
 import { shouldAggregatePlayerSkillPresentation } from '../runtime/world/combat/player-skill-cast-summary.helpers';
-import { applyMiningExpForTileDamage, applyMiningExpForTileDamageBatch } from '../runtime/world/combat/tile-drop.helpers';
+import { applyMiningExpForTileDamage, applyMiningExpForTileDamageBatch, spawnTileDrops } from '../runtime/world/combat/tile-drop.helpers';
 import {
   createTileCombatAttributes,
   createTileCombatNumericStats,
@@ -368,6 +368,11 @@ async function testLargeTileCastBatchesAuthorityAndPresentation(): Promise<void>
   const thirdDamage = thirdHpBefore - (instance.getTileCombatState(0, 0)?.hp ?? 0);
   assert.ok(thirdDamage > firstDamage);
   assertAggregatedPresentation(harness, thirdDamage);
+  assert.equal(Array.from(instance.staticTileSyncDirtyTileKeys).every((entry) => Number.isInteger(entry)), true);
+  const consumedStaticTiles = instance.consumeStaticTileSyncDirtyTiles();
+  assert.equal(consumedStaticTiles.tileKeys.length, TARGET_COUNT);
+  assert.equal(consumedStaticTiles.tileKeys.includes('0,0'), true);
+  assert.equal(consumedStaticTiles.tileKeys.includes(`${MAP_SIZE - 1},${MAP_SIZE - 1}`), true);
 }
 
 async function testEnemyTargetsKeepPerTargetAuthorityAndAggregatePresentation(): Promise<void> {
@@ -632,6 +637,31 @@ function testSpecialTileFallsBackToSingleMutation(): void {
   assert.equal(instance.persistentRevision, persistentRevision + 2);
 }
 
+function testTileDropUsesInventoryOnlyStatistics(): void {
+  let receivedOptions: Record<string, unknown> | undefined;
+  spawnTileDrops({
+    playerId: 'player:tile-drop-statistics',
+    tileDrops: [{ itemId: 'ore.test', count: 2 }],
+    deps: {
+      contentTemplateRepository: {
+        createItem(itemId: string, count: number) {
+          return { itemId, count };
+        },
+      },
+      playerRuntimeService: {
+        getPlayer() {
+          return { miningSkill: { level: 1 }, attrs: { numericStats: {} } };
+        },
+        receiveInventoryItem(_playerId: string, _item: unknown, options: Record<string, unknown>) {
+          receivedOptions = options;
+        },
+      },
+      queuePlayerNotice() {},
+    } as never,
+  });
+  assert.equal(receivedOptions?.inventoryOnlyStatistics, true);
+}
+
 function testSelfCastOnlyAppliesSelfDirectedEffects(): void {
   const skill = {
     id: 'skill.xuanjin_huilan',
@@ -850,6 +880,7 @@ async function main(): Promise<void> {
   await testTargetDependentTileFormulaKeepsPerTargetResolution();
   testMiningExpBatchMatchesSequentialSettlement();
   testSpecialTileFallsBackToSingleMutation();
+  testTileDropUsesInventoryOnlyStatistics();
   testSelfCastOnlyAppliesSelfDirectedEffects();
   testTargetDependentFormulaBypassesReuse();
   testCraftSkillFormulaUsesAllLevelsAndInvalidatesReuse();

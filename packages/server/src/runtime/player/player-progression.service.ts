@@ -215,6 +215,24 @@ export class PlayerProgressionService {
         const resolved = this.normalizeRealmState(player.realm);
         this.applyRealmPresentation(player, resolved);
     }
+    /** 仅当变更物品属于当前突破材料时重建预览，普通掉落不会改变境界展示。 */
+    refreshPreviewForInventoryItem(player, itemId) {
+        const normalizedItemId = typeof itemId === 'string' ? itemId.trim() : '';
+        if (!normalizedItemId) {
+            this.refreshPreview(player);
+            return true;
+        }
+        const realmLv = Math.max(1, Math.trunc(Number(player?.realm?.realmLv) || 1));
+        const transition = this.breakthroughTransitions.get(realmLv);
+        const affectsPreview = transition?.requirements?.some((requirement) => (
+            requirement?.type === 'item' && requirement.itemId === normalizedItemId
+        )) === true;
+        if (!affectsPreview) {
+            return false;
+        }
+        this.refreshPreview(player);
+        return true;
+    }
     /** 增加境界经验并返回本次是否真的发生变化。 */
     gainRealmProgress(player, amount, options: any = {}) {
 

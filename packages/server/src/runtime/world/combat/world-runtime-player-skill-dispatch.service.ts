@@ -240,6 +240,19 @@ function recordPlayerSkillDispatchDuration(deps, key, durationMs, count = 1) {
     }
 }
 
+function recordPlayerSkillOutcomeApplyPerf(deps, startedAt, attributionKey) {
+    const recorder = deps?.recordPendingCommandSectionDuration;
+    if (typeof recorder !== 'function') {
+        return;
+    }
+    const durationMs = performance.now() - startedAt;
+    if (!Number.isFinite(durationMs) || durationMs < 0) {
+        return;
+    }
+    recorder('pendingCommands.castSkill.outcomeApplyMs', durationMs, 1);
+    recorder(attributionKey, durationMs, 1);
+}
+
 function isTimeChamberSkillDispatch(attacker, deps): boolean {
     return typeof attacker?.instanceId === 'string'
         && typeof deps?.timeChamberRuntimeService?.isTimeChamberInstance === 'function'
@@ -1535,7 +1548,11 @@ export class WorldRuntimePlayerSkillDispatchService {
                     targetX: attacker.x,
                     targetY: attacker.y,
                 });
-                recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.outcomeApplyMs', outcomeApplyStartedAt);
+                recordPlayerSkillOutcomeApplyPerf(
+                    deps,
+                    outcomeApplyStartedAt,
+                    'pendingCommands.castSkill.outcomeApply.selfMs',
+                );
                 castIndex += 1;
                 const selfHeal = Math.max(0, Math.round(Number(result.totalHeal) || 0));
                 const buffs = Array.isArray(result.selfBuffs) ? result.selfBuffs : [];
@@ -1622,7 +1639,11 @@ export class WorldRuntimePlayerSkillDispatchService {
                         defeated: false,
                         applyKillReward: false,
                     });
-                    recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.outcomeApplyMs', outcomeApplyStartedAt);
+                    recordPlayerSkillOutcomeApplyPerf(
+                        deps,
+                        outcomeApplyStartedAt,
+                        'pendingCommands.castSkill.outcomeApply.monsterMs',
+                    );
                     if (castSummary) {
                         recordPlayerSkillEnemySummary(castSummary, 0, false);
                         continue;
@@ -1662,7 +1683,11 @@ export class WorldRuntimePlayerSkillDispatchService {
                     broken: primaryRoll.broken === true,
                     applyKillReward: false,
                 });
-                recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.outcomeApplyMs', outcomeApplyStartedAt);
+                recordPlayerSkillOutcomeApplyPerf(
+                    deps,
+                    outcomeApplyStartedAt,
+                    'pendingCommands.castSkill.outcomeApply.monsterMs',
+                );
                 const outcome = appliedOutcome?.adapterResult;
                 if (outcome?.defeated) {
                     const killRewardStartedAt = performance.now();
@@ -1763,7 +1788,11 @@ export class WorldRuntimePlayerSkillDispatchService {
                     defeated: projectedDefeated,
                     applyDefeat: false,
                 });
-                recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.outcomeApplyMs', outcomeApplyStartedAt);
+                recordPlayerSkillOutcomeApplyPerf(
+                    deps,
+                    outcomeApplyStartedAt,
+                    'pendingCommands.castSkill.outcomeApply.playerMs',
+                );
                 this.worldRuntimeThreatService.addThreat(
                     this.worldRuntimeThreatService.buildPlayerOwnerId(targetPlayer.playerId),
                     this.worldRuntimeThreatService.buildPlayerTargetId(attacker.playerId),
@@ -1860,7 +1889,11 @@ export class WorldRuntimePlayerSkillDispatchService {
                         damage: 0,
                         rawDamage: Math.max(0, Math.round(Number(result.totalDamage) || 0)),
                     });
-                    recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.outcomeApplyMs', outcomeApplyStartedAt);
+                    recordPlayerSkillOutcomeApplyPerf(
+                        deps,
+                        outcomeApplyStartedAt,
+                        'pendingCommands.castSkill.outcomeApply.formationMs',
+                    );
                     const presentationStartedAt = performance.now();
                     emitCombatPresentation({
                         deps,
@@ -1884,7 +1917,11 @@ export class WorldRuntimePlayerSkillDispatchService {
                     damage: Math.max(0, Math.round(Number(result.totalDamage) || 0)),
                     rawDamage: Math.max(0, Math.round(Number(result.totalDamage) || 0)),
                 });
-                recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.outcomeApplyMs', outcomeApplyStartedAt);
+                recordPlayerSkillOutcomeApplyPerf(
+                    deps,
+                    outcomeApplyStartedAt,
+                    'pendingCommands.castSkill.outcomeApply.formationMs',
+                );
                 const adapterResult = appliedOutcome?.adapterResult ?? {};
                 const appliedDamage = normalizeAppliedDamage(adapterResult.appliedDamage, result.totalDamage);
                 const auraDamage = Math.max(0, Number(adapterResult.auraDamage) || 0);
@@ -1942,7 +1979,11 @@ export class WorldRuntimePlayerSkillDispatchService {
                         rawDamage: Math.max(0, Math.round(Number(result.totalDamage) || 0)),
                         formationBoundary: true,
                     });
-                    recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.outcomeApplyMs', outcomeApplyStartedAt);
+                    recordPlayerSkillOutcomeApplyPerf(
+                        deps,
+                        outcomeApplyStartedAt,
+                        'pendingCommands.castSkill.outcomeApply.formationBoundaryMs',
+                    );
                     const presentationStartedAt = performance.now();
                     emitCombatPresentation({
                         deps,
@@ -1967,7 +2008,11 @@ export class WorldRuntimePlayerSkillDispatchService {
                     rawDamage: Math.max(0, Math.round(Number(result.totalDamage) || 0)),
                     formationBoundary: true,
                 });
-                recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.outcomeApplyMs', outcomeApplyStartedAt);
+                recordPlayerSkillOutcomeApplyPerf(
+                    deps,
+                    outcomeApplyStartedAt,
+                    'pendingCommands.castSkill.outcomeApply.formationBoundaryMs',
+                );
                 const adapterResult = appliedOutcome?.adapterResult ?? {};
                 const appliedDamage = normalizeAppliedDamage(adapterResult.appliedDamage, result.totalDamage);
                 const auraDamage = Math.max(0, Number(adapterResult.auraDamage) || 0);
@@ -2048,7 +2093,11 @@ export class WorldRuntimePlayerSkillDispatchService {
                     damage: 0,
                     rawDamage: Math.max(0, Math.round(Number(result.totalDamage) || 0)),
                 });
-                recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.outcomeApplyMs', outcomeApplyStartedAt);
+                recordPlayerSkillOutcomeApplyPerf(
+                    deps,
+                    outcomeApplyStartedAt,
+                    'pendingCommands.castSkill.outcomeApply.tileMs',
+                );
                 if (castSummary) {
                     recordPlayerSkillTileSummary(castSummary, 0, false);
                     continue;
@@ -2085,7 +2134,11 @@ export class WorldRuntimePlayerSkillDispatchService {
                 mitigatedDamage: Math.max(0, Math.round(Number(mitigatedDamage) || 0)),
                 tileDropRateBonus: resolveMiningDropRateBonus(attacker),
             });
-            recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.outcomeApplyMs', outcomeApplyStartedAt);
+            recordPlayerSkillOutcomeApplyPerf(
+                deps,
+                outcomeApplyStartedAt,
+                'pendingCommands.castSkill.outcomeApply.tileMs',
+            );
             const tileDamageResult = appliedOutcome?.adapterResult;
             const appliedDamage = normalizeAppliedDamage(tileDamageResult?.appliedDamage, mitigatedDamage);
             spawnTileDrops({
@@ -2131,8 +2184,15 @@ export class WorldRuntimePlayerSkillDispatchService {
         }
         if (pendingTileDamage.length > 0 && castSummary) {
             const outcomeApplyStartedAt = performance.now();
+            let tileBatchSectionStartedAt = outcomeApplyStartedAt;
             const dropRateBonus = resolveMiningDropRateBonus(attacker);
             const batchResult = instance.damageTilesBatch(pendingTileDamage, { dropRateBonus });
+            recordPlayerSkillDispatchPerf(
+                deps,
+                'pendingCommands.castSkill.tileBatch.damageApplyMs',
+                tileBatchSectionStartedAt,
+            );
+            tileBatchSectionStartedAt = performance.now();
             let appliedTotalDamage = 0;
             let rawTotalDamage = 0;
             let hitCount = 0;
@@ -2160,11 +2220,23 @@ export class WorldRuntimePlayerSkillDispatchService {
                     destroyedTiles.push({ x: pending.x, y: pending.y });
                 }
             }
+            recordPlayerSkillDispatchPerf(
+                deps,
+                'pendingCommands.castSkill.tileBatch.resultCollectMs',
+                tileBatchSectionStartedAt,
+            );
+            tileBatchSectionStartedAt = performance.now();
             spawnTileDrops({
                 playerId: attacker.playerId,
                 tileDrops: batchedTileDrops,
                 deps,
             });
+            recordPlayerSkillDispatchPerf(
+                deps,
+                'pendingCommands.castSkill.tileBatch.dropSpawnMs',
+                tileBatchSectionStartedAt,
+            );
+            tileBatchSectionStartedAt = performance.now();
             const miningExpResult = applyMiningExpForTileDamageBatch({
                 attacker,
                 entries: pendingTileDamage,
@@ -2174,6 +2246,12 @@ export class WorldRuntimePlayerSkillDispatchService {
                 this.playerRuntimeService.markPersistenceDirtyDomains(attacker, ['profession']);
                 this.playerRuntimeService.bumpPersistentRevision(attacker);
             }
+            recordPlayerSkillDispatchPerf(
+                deps,
+                'pendingCommands.castSkill.tileBatch.miningExpMs',
+                tileBatchSectionStartedAt,
+            );
+            tileBatchSectionStartedAt = performance.now();
             if (settledTargetCount > 0) {
                 const firstTarget = pendingTileDamage[0];
                 this.recordPlayerSkillOutcome(outcomeDeps, attacker, skill, {
@@ -2194,7 +2272,16 @@ export class WorldRuntimePlayerSkillDispatchService {
                     fallbackCount: batchResult.fallbackCount,
                 });
             }
-            recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.outcomeApplyMs', outcomeApplyStartedAt);
+            recordPlayerSkillDispatchPerf(
+                deps,
+                'pendingCommands.castSkill.tileBatch.recordMs',
+                tileBatchSectionStartedAt,
+            );
+            recordPlayerSkillOutcomeApplyPerf(
+                deps,
+                outcomeApplyStartedAt,
+                'pendingCommands.castSkill.outcomeApply.tileBatchMs',
+            );
         }
         if (castIndex === 0) {
             throw new BadRequestException('没有可命中的目标');

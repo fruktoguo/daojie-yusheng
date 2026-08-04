@@ -11,7 +11,7 @@
 import { Inject, BadRequestException, Injectable, Logger, NotFoundException, Optional, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { ARTIFACT_SLOTS, ARTIFACT_UNLOCK_REALM_LV, ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_COMBAT_ATTACK_INTENSITY, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, cloneCraftEffectStats, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, findMergeableItemStackIndex, getBodyTrainingExpToNext, getTechniqueMaxLevel, isCreatedTechniqueId, isTechniqueFullyMastered, mergeItemStackInto, normalizeBodyTrainingState, normalizeCombatAttackIntensity, normalizeHorizontalFacing, percentModifierToMultiplier, resolveArtifactMaxQi, resolvePlayerFacingContentName, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, resolveTechniqueStandardMaxHpRecoveryAmount, resolveTechniqueStandardMaxQiRecoveryAmount, signedRatioValue } from '@mud/shared';
+import { ARTIFACT_SLOTS, ARTIFACT_UNLOCK_REALM_LV, ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_COMBAT_ATTACK_INTENSITY, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, addItemStackMergeCount, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, cloneCraftEffectStats, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, findMergeableItemStackIndex, getBodyTrainingExpToNext, getTechniqueMaxLevel, isCreatedTechniqueId, isTechniqueFullyMastered, mergeItemStackInto, normalizeBodyTrainingState, normalizeCombatAttackIntensity, normalizeHorizontalFacing, percentModifierToMultiplier, resolveArtifactMaxQi, resolvePlayerFacingContentName, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, resolveTechniqueStandardMaxHpRecoveryAmount, resolveTechniqueStandardMaxQiRecoveryAmount, signedRatioValue } from '@mud/shared';
 import type { TechniqueTransmissionStatusView } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
@@ -2646,6 +2646,18 @@ export class PlayerRuntimeService {
         }
         return player.inventory.items.length < player.inventory.capacity;
     }
+    /** 同步校验容量并入包，供击杀掉落避免重复规范化和重复堆叠扫描。 */
+    tryReceiveInventoryItem(playerId, item, options: any = {}) {
+        const player = this.getPlayerOrThrow(playerId);
+        const normalized = this.contentTemplateRepository.normalizeItem(item);
+        const mergeIndex = findMergeableItemStackIndex(player.inventory.items, normalized);
+        if (mergeIndex < 0 && !(player.inventory.items.length < player.inventory.capacity)) {
+            return false;
+        }
+        const statisticBefore = this.captureOfflineGainBeforeTick(player);
+        this.applyNormalizedInventoryReceipt(player, normalized, statisticBefore, options, mergeIndex);
+        return true;
+    }
     /**
  * peekInventoryItem：执行peek背包道具相关逻辑。
  * @param playerId 玩家 ID。
@@ -3197,18 +3209,44 @@ export class PlayerRuntimeService {
         const statisticBefore = this.captureOfflineGainBeforeTick(player);
 
         const normalized = this.contentTemplateRepository.normalizeItem(item);
+        this.applyNormalizedInventoryReceipt(player, normalized, statisticBefore, options);
+        return player;
+    }
+    /** 应用已规范化的入包结果；knownMergeIndex 只由同一同步调用栈内的容量检查提供。 */
+    applyNormalizedInventoryReceipt(player, normalized, statisticBefore, options: any = {}, knownMergeIndex = null) {
         // 装备类必须有稳定 itemInstanceId；缺失或处于迁移期 fallback 时分配新 UUID。
         // 这覆盖所有"装备入手"路径：掉落、合成、强化产物、GM、邮件、兑换码、NPC 商店、
         // 任务奖励、市场买家成交（市场内部已脱壳，到这里时 sourceItem 不带 instanceId）。
         assignItemInstanceIdIfNeeded(normalized);
-        const mergeResult = mergeItemStackInto(player.inventory.items, normalized);
+        let mergeResult;
+        if (knownMergeIndex !== null && knownMergeIndex >= 0 && player.inventory.items[knownMergeIndex]) {
+            const existing = player.inventory.items[knownMergeIndex];
+            addItemStackMergeCount(existing, normalized);
+            mergeResult = { entry: existing, index: knownMergeIndex, merged: true };
+        }
+        else if (knownMergeIndex !== null && knownMergeIndex < 0) {
+            player.inventory.items.push(normalized);
+            mergeResult = {
+                entry: normalized,
+                index: player.inventory.items.length - 1,
+                merged: false,
+            };
+        }
+        else {
+            mergeResult = mergeItemStackInto(player.inventory.items, normalized);
+        }
         if (mergeResult.merged && mergeResult.entry.count > MAX_ITEM_COUNT) {
             this.logger.warn(`物品数量达到上限 [playerId=${player.id}, itemId=${normalized.itemId}, attempted=${mergeResult.entry.count}, capped=${MAX_ITEM_COUNT}]`);
             mergeResult.entry.count = MAX_ITEM_COUNT;
         }
         player.inventory.revision += 1;
         this.refreshWalletCacheFromInventory(player, normalized.itemId);
-        this.playerProgressionService.refreshPreview(player);
+        if (typeof this.playerProgressionService?.refreshPreviewForInventoryItem === 'function') {
+            this.playerProgressionService.refreshPreviewForInventoryItem(player, normalized.itemId);
+        }
+        else {
+            this.playerProgressionService.refreshPreview(player);
+        }
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
         this.recordAssetStatisticMutation(player, statisticBefore, Date.now(), {

@@ -2624,6 +2624,7 @@ export class WorldRuntimeCombatActionService {
   }
 
   applyCombatOutcome(input: AnyRecord = {}) {
+    const outcomeNormalizeStartedAt = beginCombatOutcomePerf(input?.deps);
     const outcome = input.outcome ?? createCombatSuccessOutcome({
       phase: input.phase,
       actor: input.actor,
@@ -2633,6 +2634,7 @@ export class WorldRuntimeCombatActionService {
       result: this.normalizeCombatOutcomeResult(input.result ?? {}, input),
       application: input.application,
     });
+    recordCombatOutcomePerf(input?.deps, 'combat.outcome.createNormalizeMs', outcomeNormalizeStartedAt);
     const shouldRecord = input.record === true;
     if (!outcome.ok) {
       if (shouldRecord) {
@@ -2654,6 +2656,7 @@ export class WorldRuntimeCombatActionService {
         reason: CombatRejectReason.TargetTypeNotAllowed,
       };
     }
+    const adapterStartedAt = beginCombatOutcomePerf(input?.deps);
     const adapterResult = adapter({
       outcome,
       application,
@@ -2662,15 +2665,20 @@ export class WorldRuntimeCombatActionService {
       result: outcome.result,
       deps: input.deps,
     });
+    recordCombatOutcomePerf(input?.deps, 'combat.outcome.adapterMs', adapterStartedAt);
+    const mergeStartedAt = beginCombatOutcomePerf(input?.deps);
     if (input.mergeAdapterResultToOutcome === true && adapterResult?.ok !== false) {
       this.mergeAdapterResultToOutcome(outcome, adapterResult);
     }
+    recordCombatOutcomePerf(input?.deps, 'combat.outcome.mergeMs', mergeStartedAt);
+    const recordStartedAt = beginCombatOutcomePerf(input?.deps);
     if (shouldRecord && adapterResult?.ok !== false) {
       if (outcome.application !== application) {
         outcome.application = application;
       }
       this.recordAppliedCombatOutcome(input.deps, outcome, input.recordOptions ?? input.options);
     }
+    recordCombatOutcomePerf(input?.deps, 'combat.outcome.recordMs', recordStartedAt);
     return {
       ok: adapterResult?.ok !== false,
       outcome,
@@ -2945,6 +2953,36 @@ export class WorldRuntimeCombatActionService {
     const damage = Number.isFinite(Number(outcome.result?.damage)) ? Number(outcome.result.damage) : 0;
     const targetCount = resolveOutcomeTargetCount(outcome);
     return `战斗动作结算 阶段=${outcome.phase} 施放者=${actor} 动作=${outcome.actionId ?? '未知'} 实例=${outcome.instanceId ?? '未知'} 目标=${target} 目标数=${targetCount} 伤害=${damage}`;
+  }
+}
+
+function beginCombatOutcomePerf(deps: AnyRecord | null | undefined): number | null {
+  return typeof deps?.recordPendingCommandSectionDuration === 'function'
+    ? performance.now()
+    : null;
+}
+
+function recordCombatOutcomePerf(
+  deps: AnyRecord | null | undefined,
+  key: string,
+  startedAt: number | null,
+): void {
+  if (startedAt === null) {
+    return;
+  }
+  const recorder = deps?.recordPendingCommandSectionDuration;
+  if (typeof recorder !== 'function') {
+    return;
+  }
+  const durationMs = performance.now() - startedAt;
+  if (!Number.isFinite(durationMs) || durationMs < 0) {
+    return;
+  }
+  try {
+    recorder(key, durationMs, 1);
+  }
+  catch {
+    // 性能统计失败不能影响权威战斗结算。
   }
 }
 
