@@ -152,13 +152,57 @@ async function main(): Promise<void> {
   assert.equal(exitCode, 0);
   assert.equal(NATIVE_GM_RESTORE_CONTRACT.processHandoffAfterCommit, 'fail_stop_restart');
   assert.equal(NATIVE_GM_RESTORE_CONTRACT.gracefulShutdownAfterCommit, false);
+  assert.equal(NATIVE_GM_RESTORE_CONTRACT.preserveBackupMetadataAcrossRestore, true);
+
+  const metadataQueries: Array<{ sql: string; params?: unknown[] }> = [];
+  let metadataClientReleased = false;
+  const metadataAdminService = Object.create(NativeGmAdminService.prototype) as NativeGmAdminService;
+  metadataAdminService.pool = {
+    async connect() {
+      return {
+        async query(sql: string, params?: unknown[]) {
+          metadataQueries.push({ sql: sql.trim(), params });
+          return { rows: [] };
+        },
+        release() {
+          metadataClientReleased = true;
+        },
+      };
+    },
+  } as never;
+  metadataAdminService.persistenceEnabled = true;
+  const restoredMetadataCount = await metadataAdminService.restorePreservedBackupMetadataRecords([
+    {
+      id: 'backup:preserved',
+      kind: 'pre_import',
+      fileName: 'server-database-backup-backup-preserved.dump.gz',
+      createdAt: '2026-08-05T00:00:00.000Z',
+      sizeBytes: 123,
+      scope: 'server_persistence',
+      checksumSha256: 'a'.repeat(64),
+      format: 'postgres_custom_dump',
+    },
+    { id: '', kind: 'manual' },
+  ]);
+  assert.equal(restoredMetadataCount, 1);
+  assert.equal(metadataClientReleased, true);
+  assert.deepEqual(metadataQueries.map((entry) => entry.sql.split(/\s+/u)[0]), ['BEGIN', 'INSERT', 'COMMIT']);
+  assert.equal(metadataQueries[1]?.params?.[7], 'a'.repeat(64));
 
   const triggerRestoreSource = NativeGmAdminService.prototype.triggerDatabaseRestore.toString();
   assert.match(triggerRestoreSource, /scheduleProcessRestartAfterCommit/);
+  assert.match(triggerRestoreSource, /restorePreservedBackupMetadataRecords/);
   assert.doesNotMatch(triggerRestoreSource, /process\.kill|SIGTERM/);
   assert.ok(
     triggerRestoreSource.indexOf('runDatabaseJob') < triggerRestoreSource.indexOf('scheduleProcessRestartAfterCommit'),
     '必须在 runDatabaseJob 统一收尾后才安排进程交接',
+  );
+  const metadataLoadIndex = triggerRestoreSource.indexOf('loadPersistedBackupMetadataRecords');
+  const restoreSqlIndex = triggerRestoreSource.indexOf('restorePostgresCustomDump');
+  const metadataRestoreIndex = triggerRestoreSource.indexOf('restorePreservedBackupMetadataRecords');
+  assert.ok(
+    metadataLoadIndex >= 0 && metadataLoadIndex < restoreSqlIndex && restoreSqlIndex < metadataRestoreIndex,
+    '必须在 SQL 恢复前保护备份元数据，并在新 schema 建立后回填',
   );
 
   console.log(
@@ -167,9 +211,9 @@ async function main(): Promise<void> {
         ok: true,
         calls,
         answers:
-          'NativeDatabaseRestoreCoordinatorService.prepareForRestore 会完整清理 detached-only、expired detached 与 runtime player，并保留 sessionEpoch 围栏。恢复 SQL 提交后由 NativeGmAdminService 等待 runDatabaseJob 统一状态落库，再调用恢复协调器以退出码 0 直接结束当前进程，不进入 SIGTERM 优雅关服刷盘链路。',
+          'NativeDatabaseRestoreCoordinatorService.prepareForRestore 会完整清理 detached-only、expired detached 与 runtime player，并保留 sessionEpoch 围栏。恢复前先保护包含 checksum 的备份元数据，schema 替换后在事务内回填；恢复 SQL 提交后由 NativeGmAdminService 等待 runDatabaseJob 统一状态落库，再调用恢复协调器以退出码 0 直接结束当前进程，不进入 SIGTERM 优雅关服刷盘链路。',
         excludes:
-          '不执行真实 pg_restore、真实进程退出或守护进程重启；只证明恢复协调器的清理语义、fail-stop 退出码和 GM 恢复入口的调用契约。',
+          '不执行真实 pg_restore、真实进程退出或守护进程重启；只证明恢复协调器的清理语义、备份元数据事务回填、fail-stop 退出码和 GM 恢复入口的调用契约。',
         completionMapping: 'release:proof:native-database-restore-route-cleanup',
       },
       null,

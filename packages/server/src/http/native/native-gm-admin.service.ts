@@ -636,6 +636,8 @@ export class NativeGmAdminService {
                 job: null,
             });
             this.appendDatabaseJobLog(job, `导入前备份已生成：${checkpointBackupId}`);
+            const preservedBackupMetadataRecords = await this.loadPersistedBackupMetadataRecords();
+            this.appendDatabaseJobLog(job, `已保护 ${preservedBackupMetadataRecords.length} 条备份元数据，恢复后将原子回填`);
             process.env.SERVER_RUNTIME_RESTORE_ACTIVE = '1';
             try {
                 this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.PREPARING_RUNTIME);
@@ -650,10 +652,11 @@ export class NativeGmAdminService {
                 if (this.pool) {
                     await restorePreservedGmAuthRecord(this.pool, preservedGmAuthRecord);
                     await ensureNativeGmAdminTables(this.pool);
+                    await this.restorePreservedBackupMetadataRecords(preservedBackupMetadataRecords);
                 }
                 this.appendDatabaseJobLog(job, preservedGmAuthRecord
-                    ? '数据库恢复 SQL 已应用，当前 GM 密码记录已保留，GM 元表已重建并回填备份列表'
-                    : '数据库恢复 SQL 已应用，GM 元表已重建并回填备份列表');
+                    ? `数据库恢复 SQL 已应用，当前 GM 密码记录与 ${preservedBackupMetadataRecords.length} 条备份元数据已保留`
+                    : `数据库恢复 SQL 已应用，${preservedBackupMetadataRecords.length} 条备份元数据已保留`);
                 job.appliedAt = new Date().toISOString();
                 this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.COMMITTED);
                 await this.recordDatabaseAudit('gm.database.restore.complete', actor, normalizedBackupId, undefined, {
@@ -800,51 +803,33 @@ export class NativeGmAdminService {
         if (!normalized) {
             return;
         }
-        await this.pool.query(`
-        INSERT INTO ${DATABASE_BACKUP_METADATA_TABLE}(
-          backup_id,
-          kind,
-          file_name,
-          created_at_text,
-          size_bytes,
-          scope_label,
-          documents_count,
-          checksum_sha256,
-          tables_count,
-          tables_checksum_sha256,
-          format,
-          raw_payload,
-          updated_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, now())
-        ON CONFLICT (backup_id)
-        DO UPDATE SET
-          kind = EXCLUDED.kind,
-          file_name = EXCLUDED.file_name,
-          created_at_text = EXCLUDED.created_at_text,
-          size_bytes = EXCLUDED.size_bytes,
-          scope_label = EXCLUDED.scope_label,
-          documents_count = EXCLUDED.documents_count,
-          checksum_sha256 = EXCLUDED.checksum_sha256,
-          tables_count = EXCLUDED.tables_count,
-          tables_checksum_sha256 = EXCLUDED.tables_checksum_sha256,
-          format = EXCLUDED.format,
-          raw_payload = EXCLUDED.raw_payload,
-          updated_at = now()
-      `, [
-            normalized.id,
-            normalized.kind,
-            normalized.fileName,
-            normalized.createdAt,
-            normalizeNullableInteger(normalized.sizeBytes),
-            normalized.scope,
-            normalizeNullableInteger(normalized.documentsCount),
-            normalized.checksumSha256 ?? null,
-            normalizeNullableInteger(normalized.tablesCount),
-            normalized.tablesChecksumSha256 ?? null,
-            normalized.format ?? null,
-            JSON.stringify(normalized),
-        ]);
+        await upsertBackupMetadataRecord(this.pool, normalized);
+    }
+    /** 在恢复后的新 schema 中原子回填恢复前的备份索引和校验和。 */
+    async restorePreservedBackupMetadataRecords(records) {
+        if (!this.pool || !this.persistenceEnabled) {
+            return 0;
+        }
+        const normalizedRecords = (Array.isArray(records) ? records : [])
+            .map((record) => normalizeStoredBackupMetadata(record))
+            .filter(Boolean);
+        if (normalizedRecords.length === 0) {
+            return 0;
+        }
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
+            for (const record of normalizedRecords) {
+                await upsertBackupMetadataRecord(client, record);
+            }
+            await client.query('COMMIT');
+            return normalizedRecords.length;
+        } catch (error) {
+            await client.query('ROLLBACK').catch(() => undefined);
+            throw error;
+        } finally {
+            client.release();
+        }
     }
     /**
  * createDatabaseBackupSnapshot：构建并返回目标对象。
@@ -1767,6 +1752,54 @@ function buildDatabaseCleanupTimePredicate(column: DatabaseCleanupTimeColumn): s
         return `${quotedColumn} < to_char((now() AT TIME ZONE 'UTC') - $1::interval, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
     }
     return `${quotedColumn} < now() - $1::interval`;
+}
+
+async function upsertBackupMetadataRecord(queryable, normalized) {
+    await queryable.query(`
+        INSERT INTO ${DATABASE_BACKUP_METADATA_TABLE}(
+          backup_id,
+          kind,
+          file_name,
+          created_at_text,
+          size_bytes,
+          scope_label,
+          documents_count,
+          checksum_sha256,
+          tables_count,
+          tables_checksum_sha256,
+          format,
+          raw_payload,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, now())
+        ON CONFLICT (backup_id)
+        DO UPDATE SET
+          kind = EXCLUDED.kind,
+          file_name = EXCLUDED.file_name,
+          created_at_text = EXCLUDED.created_at_text,
+          size_bytes = EXCLUDED.size_bytes,
+          scope_label = EXCLUDED.scope_label,
+          documents_count = EXCLUDED.documents_count,
+          checksum_sha256 = EXCLUDED.checksum_sha256,
+          tables_count = EXCLUDED.tables_count,
+          tables_checksum_sha256 = EXCLUDED.tables_checksum_sha256,
+          format = EXCLUDED.format,
+          raw_payload = EXCLUDED.raw_payload,
+          updated_at = now()
+      `, [
+        normalized.id,
+        normalized.kind,
+        normalized.fileName,
+        normalized.createdAt,
+        normalizeNullableInteger(normalized.sizeBytes),
+        normalized.scope,
+        normalizeNullableInteger(normalized.documentsCount),
+        normalized.checksumSha256 ?? null,
+        normalizeNullableInteger(normalized.tablesCount),
+        normalized.tablesChecksumSha256 ?? null,
+        normalized.format ?? null,
+        JSON.stringify(normalized),
+    ]);
 }
 
 async function ensureNativeGmAdminTables(pool) {

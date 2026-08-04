@@ -72,6 +72,7 @@ export const NATIVE_GM_RESTORE_CONTRACT = Object.freeze({
   scope: 'server_persistence',
   processHandoffAfterCommit: 'fail_stop_restart',
   gracefulShutdownAfterCommit: false,
+  preserveBackupMetadataAcrossRestore: true,
   flushPlayersBeforeRestore: true,
   flushMapsBeforeRestore: true,
   purgeSessionsBeforeRestore: true,
