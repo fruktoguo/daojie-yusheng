@@ -253,6 +253,7 @@ const CPU_BREAKDOWN_LABELS = Object.freeze({
     'attribution.attributes.recalculate.unchanged': '归因·属性重算无变化次数',
     'attribution.attributes.deferredRequests': '归因·已合并属性重算请求数',
     'attribution.attributes.techniqueResolve.cacheHitMs': '归因·功法加成缓存命中',
+    'attribution.attributes.techniqueResolve.cacheRelevantHitMs': '归因·功法加成相关字段校验命中',
     'attribution.attributes.techniqueResolve.cacheMissMs': '归因·功法加成缓存未命中',
     'attribution.attributes.techniqueEntries': '归因·属性重算扫描功法数',
     'attribution.attributes.recalculate.techniques0Ms': '归因·属性重算（0 本功法）',

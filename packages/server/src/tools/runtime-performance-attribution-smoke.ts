@@ -15,7 +15,11 @@ function createTechnique(index: number) {
     realmLv: 1,
     realm: 0,
     skills: [],
-    layers: [],
+    layers: [{
+      level: 1,
+      attrs: { strength: index + 1 },
+      specialStats: { comprehension: index % 2 },
+    }],
   };
 }
 
@@ -61,6 +65,7 @@ function testAttributeRecalculationAttribution(): void {
   assert.equal(readCount(metrics, 'attribution.attributes.recalculate.techniques0Ms'), 2);
   assert.equal(readCount(metrics, 'attribution.attributes.techniqueResolve.cacheMissMs'), 1);
   assert.equal(readCount(metrics, 'attribution.attributes.techniqueResolve.cacheHitMs'), 1);
+  assert.equal(readCount(metrics, 'attribution.attributes.techniqueResolve.cacheRelevantHitMs'), 0);
   assert.equal(
     readCount(metrics, 'attribution.attributes.recalculate.changed')
       + readCount(metrics, 'attribution.attributes.recalculate.unchanged'),
@@ -77,6 +82,46 @@ function testAttributeRecalculationAttribution(): void {
 
   assert.equal(readCount(metrics, 'attribution.attributes.recalculate.techniques21PlusMs'), 1);
   assert.equal(readCount(metrics, 'attribution.attributes.techniqueEntries'), 21);
+  assert.equal(readCount(metrics, 'attribution.attributes.techniqueResolve.cacheMissMs'), 2);
+
+  const attrsAfterInitialResolve = structuredClone(player.attrs);
+  player.techniques.techniques[0].exp += 1;
+  player.techniques.revision += 1;
+  attributesService.recalculate(player as never);
+  flushExternalMetrics(metrics);
+
+  assert.deepEqual(player.attrs, attrsAfterInitialResolve);
+  assert.equal(readCount(metrics, 'attribution.attributes.techniqueResolve.cacheRelevantHitMs'), 1);
+  assert.equal(readCount(metrics, 'attribution.attributes.techniqueResolve.cacheMissMs'), 2);
+
+  attributesService.recalculate(player as never);
+  flushExternalMetrics(metrics);
+  assert.equal(readCount(metrics, 'attribution.attributes.techniqueResolve.cacheHitMs'), 2);
+
+  player.techniques.techniques[0].level += 1;
+  player.techniques.revision += 1;
+  attributesService.recalculate(player as never);
+  flushExternalMetrics(metrics);
+  assert.equal(readCount(metrics, 'attribution.attributes.techniqueResolve.cacheMissMs'), 3);
+
+  player.techniques.techniques[0].layers = [{
+    level: 1,
+    attrs: { strength: 1 },
+  }, {
+    level: 2,
+    attrs: { strength: 100 },
+  }];
+  player.techniques.revision += 1;
+  attributesService.recalculate(player as never);
+  flushExternalMetrics(metrics);
+  assert.equal(readCount(metrics, 'attribution.attributes.techniqueResolve.cacheMissMs'), 4);
+  assert.notDeepEqual(player.attrs, attrsAfterInitialResolve);
+
+  player.techniques.techniques.push(createTechnique(21));
+  player.techniques.revision += 1;
+  attributesService.recalculate(player as never);
+  flushExternalMetrics(metrics);
+  assert.equal(readCount(metrics, 'attribution.attributes.techniqueResolve.cacheMissMs'), 5);
 }
 
 function testResetDropsPendingExternalMetrics(): void {

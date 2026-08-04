@@ -41,6 +41,7 @@ export type RuntimeExternalSectionKey =
   | 'attribution.attributes.recalculate.unchanged'
   | 'attribution.attributes.deferredRequests'
   | 'attribution.attributes.techniqueResolve.cacheHitMs'
+  | 'attribution.attributes.techniqueResolve.cacheRelevantHitMs'
   | 'attribution.attributes.techniqueResolve.cacheMissMs'
   | 'attribution.attributes.techniqueEntries'
   | 'attribution.attributes.recalculate.techniques0Ms'

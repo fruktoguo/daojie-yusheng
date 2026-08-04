@@ -192,10 +192,6 @@ export class PlayerAttributesService {
         const rawBaseAttrs = normalizeRawBaseAttributes(player.attrs?.rawBaseAttrs);
 
         const techniqueCount = resolveTechniqueEntryCount(player.techniques);
-        const techniqueCacheHit = hasTechniqueBonusCacheHit(
-            player.techniques,
-            this.techniqueBonusCache,
-        );
         const techniqueResolveStartedAt = performance.now();
         const techniqueBonuses = resolveTechniqueBonusesForCalculation(
             player.techniques,
@@ -203,9 +199,11 @@ export class PlayerAttributesService {
             this.techniqueBonusCache,
         );
         this.recordAttributePerf(
-            techniqueCacheHit
+            techniqueBonuses.cacheKind === 'revision'
                 ? 'attribution.attributes.techniqueResolve.cacheHitMs'
-                : 'attribution.attributes.techniqueResolve.cacheMissMs',
+                : techniqueBonuses.cacheKind === 'relevant'
+                    ? 'attribution.attributes.techniqueResolve.cacheRelevantHitMs'
+                    : 'attribution.attributes.techniqueResolve.cacheMissMs',
             performance.now() - techniqueResolveStartedAt,
             1,
         );
@@ -968,15 +966,6 @@ function resolveTechniqueEntryCount(techniqueState): number {
     return Array.isArray(techniqueState?.techniques) ? techniqueState.techniques.length : 0;
 }
 
-function hasTechniqueBonusCacheHit(techniqueState, cache): boolean {
-    const holder = techniqueState && typeof techniqueState === 'object' ? techniqueState : null;
-    if (!holder) {
-        return false;
-    }
-    const revision = Math.max(0, Math.trunc(Number(holder.revision ?? 0) || 0));
-    return cache.get(holder)?.revision === revision;
-}
-
 function resolveTechniqueCountRecalculationKey(techniqueCount: number): RuntimeExternalSectionKey {
     if (techniqueCount <= 0) {
         return 'attribution.attributes.recalculate.techniques0Ms';
@@ -996,18 +985,27 @@ function resolveTechniqueCountRecalculationKey(techniqueCount: number): RuntimeE
 function resolveTechniqueBonusesForCalculation(techniqueState, scratch, cache) {
     const holder = techniqueState && typeof techniqueState === 'object' ? techniqueState : null;
     const revision = Math.max(0, Math.trunc(Number(holder?.revision ?? 0) || 0));
+    const sourceTechniques = Array.isArray(holder?.techniques) ? holder.techniques : [];
     if (holder) {
         const cached = cache.get(holder);
         if (cached?.revision === revision) {
+            cached.cacheKind = 'revision';
+            return cached;
+        }
+        if (cached && hasSameTechniqueBonusInputs(sourceTechniques, cached.relevantEntries)) {
+            cached.revision = revision;
+            cached.cacheKind = 'relevant';
             return cached;
         }
     }
     const techniques = resolveTechniqueStatesForCalculation(
-        Array.isArray(holder?.techniques) ? holder.techniques : [],
+        sourceTechniques,
         scratch,
     );
     const next = {
         revision,
+        cacheKind: 'miss',
+        relevantEntries: techniques.map(snapshotTechniqueBonusInput),
         attrBonus: calcTechniqueFinalAttrBonus(techniques),
         maxAttrPercentBonus: calcTechniqueMaxAttrPercentBonus(techniques),
         specialStatBonus: calcTechniqueFinalSpecialStatBonus(techniques),
@@ -1016,6 +1014,36 @@ function resolveTechniqueBonusesForCalculation(techniqueState, scratch, cache) {
         cache.set(holder, next);
     }
     return next;
+}
+
+function snapshotTechniqueBonusInput(technique) {
+    return {
+        technique,
+        techId: technique?.techId,
+        grade: technique?.grade,
+        level: technique?.level,
+        layers: technique?.layers,
+    };
+}
+
+function hasSameTechniqueBonusInputs(techniques, snapshots): boolean {
+    if (!Array.isArray(snapshots) || techniques.length !== snapshots.length) {
+        return false;
+    }
+    for (let index = 0; index < techniques.length; index += 1) {
+        const technique = techniques[index];
+        const snapshot = snapshots[index];
+        if (!technique
+            || typeof technique !== 'object'
+            || technique !== snapshot?.technique
+            || technique.techId !== snapshot.techId
+            || technique.grade !== snapshot.grade
+            || technique.level !== snapshot.level
+            || technique.layers !== snapshot.layers) {
+            return false;
+        }
+    }
+    return true;
 }
 
 /**
