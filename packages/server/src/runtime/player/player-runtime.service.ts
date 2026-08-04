@@ -383,15 +383,20 @@ export class PlayerRuntimeService {
         (player as any)._hydratedFromPersistence = true;
         player.sessionId = null;
         player.runtimeOwnerId = null;
-        // 从 DB presence 读取真实 session_epoch 作为恢复上下文，但不沿用旧进程 owner。
+        // 从 DB presence 读取真实 session_epoch 与离线起点作为恢复上下文，但不沿用旧进程 owner。
         // 启动编排必须在实例 lease/attach gate 通过后调用 ensureRuntimeOwnershipClaimed，
         // 避免多个节点在批量扫描阶段互相抢占同一玩家。
         let restoredSessionEpoch = 0;
+        let restoredOfflineSinceAt = null;
         if (typeof persistenceService?.loadPlayerPresence === 'function') {
             const persistedPresence = await persistenceService.loadPlayerPresence(normalizedPlayerId);
             const persistedEpoch = Number(persistedPresence?.sessionEpoch);
             if (Number.isFinite(persistedEpoch) && persistedEpoch > 0) {
                 restoredSessionEpoch = Math.trunc(persistedEpoch);
+            }
+            const persistedOfflineSinceAt = Number(persistedPresence?.offlineSinceAt);
+            if (Number.isFinite(persistedOfflineSinceAt) && persistedOfflineSinceAt > 0) {
+                restoredOfflineSinceAt = Math.trunc(persistedOfflineSinceAt);
             }
         }
         player.sessionEpoch = restoredSessionEpoch;
@@ -402,11 +407,13 @@ export class PlayerRuntimeService {
         (player as any).transferDeadlineAt = null;
         (player as any).transferWriteBlocked = false;
         (player as any).transferBufferedNotices = [];
-        if (!Number.isFinite(player.offlineSinceAt)) {
-            player.offlineSinceAt = Date.now();
-        }
         // 从 DB 恢复离线收益会话（含已累积的 payload）
         const persistedSession = await persistenceService.loadPlayerOfflineGainSession(normalizedPlayerId);
+        const persistedSessionStartedAt = Number(persistedSession?.startedAt);
+        player.offlineSinceAt = restoredOfflineSinceAt
+            ?? (Number.isFinite(persistedSessionStartedAt) && persistedSessionStartedAt > 0
+                ? Math.trunc(persistedSessionStartedAt)
+                : Date.now());
         const lateExisting = this.players.get(normalizedPlayerId);
         if (lateExisting) {
             return lateExisting;

@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict';
 
+import {
+  createNumericRatioDivisors,
+  createNumericStats,
+  DEFAULT_INVENTORY_CAPACITY,
+} from '@mud/shared';
+
 import { WorldSessionReaperService } from '../network/world-session-reaper.service';
 import { WorldSessionService } from '../network/world-session.service';
 import { ActivityRuntimeService } from '../runtime/activity/activity-runtime.service';
@@ -49,6 +55,7 @@ type TestPlayer = {
 };
 
 async function main(): Promise<void> {
+  await assertRestartPreservesOfflineSinceAt();
   assertPlayerRuntimeExpiryMarker();
   assertCraftCleanupHelpers();
   assertExpiredRuntimeDoesNotEnterCraftTick();
@@ -62,6 +69,112 @@ async function main(): Promise<void> {
     case: 'offline-hanging-runtime-cleanup',
     cleanupProof,
   }, null, 2));
+}
+
+async function assertRestartPreservesOfflineSinceAt(): Promise<void> {
+  const playerId = 'restart-preserves-offline-since';
+  const originalOfflineSinceAt = NOW_MS - 47 * HOUR_MS;
+  const snapshotSource = createPlayerRuntimeServiceForRestore();
+  const snapshot = snapshotSource.buildStarterPersistenceSnapshot(playerId);
+  let claimedOfflineSinceAt: unknown = null;
+  const persistence = {
+    isEnabled() {
+      return true;
+    },
+    async loadProjectedSnapshot() {
+      return snapshot;
+    },
+    async loadPlayerPresence() {
+      return {
+        sessionEpoch: 8,
+        offlineSinceAt: originalOfflineSinceAt,
+      };
+    },
+    async loadPlayerOfflineGainSession() {
+      return {
+        sessionId: 'offline-gain:restart-preserves',
+        startedAt: originalOfflineSinceAt + HOUR_MS,
+        baselinePayload: {},
+        accumulatedPayload: {},
+        accumulatedDurationMs: HOUR_MS,
+      };
+    },
+    async claimPlayerRuntimeOwnership(_claimedPlayerId: string, input: { offlineSinceAt?: unknown }) {
+      claimedOfflineSinceAt = input.offlineSinceAt;
+      return {
+        runtimeOwnerId: 'rt:claim:restart-preserves',
+        sessionEpoch: 9,
+      };
+    },
+  };
+  const runtime = createPlayerRuntimeServiceForRestore(persistence);
+  const player = await runtime.restoreOfflineHangingPlayer(playerId, persistence);
+  assert.ok(player);
+  assert.equal(player.offlineSinceAt, originalOfflineSinceAt);
+  assert.equal(runtime.describePersistencePresence(playerId)?.offlineSinceAt, originalOfflineSinceAt);
+
+  await runtime.ensureRuntimeOwnershipClaimed(playerId);
+  assert.equal(claimedOfflineSinceAt, originalOfflineSinceAt);
+}
+
+function createPlayerRuntimeServiceForRestore(playerDomainPersistenceService: unknown = undefined): PlayerRuntimeService {
+  return new PlayerRuntimeService(
+    {
+      createStarterInventory() {
+        return {
+          capacity: DEFAULT_INVENTORY_CAPACITY,
+          items: [],
+        };
+      },
+      createDefaultEquipment() {
+        return {};
+      },
+      normalizeItem(item: unknown) {
+        return item;
+      },
+      hydrateTechniqueState(entry: unknown) {
+        return entry;
+      },
+    } as never,
+    {
+      has(mapId: string) {
+        return mapId === 'yunlai_town';
+      },
+      getOrThrow(mapId: string) {
+        return {
+          id: mapId,
+          spawnX: 32,
+          spawnY: 5,
+        };
+      },
+      list() {
+        return [{ id: 'yunlai_town', spawnX: 32, spawnY: 5 }];
+      },
+    } as never,
+    {
+      createInitialState() {
+        return {
+          stage: '炼气',
+          baseAttrs: { constitution: 1, spirit: 1, perception: 1, talent: 1, strength: 1, meridians: 1 },
+          finalAttrs: { constitution: 1, spirit: 1, perception: 1, talent: 1, strength: 1, meridians: 1 },
+          numericStats: createNumericStats(),
+          ratioDivisors: createNumericRatioDivisors(),
+        };
+      },
+      recalculate() {
+        return undefined;
+      },
+    } as never,
+    {
+      initializePlayer() {
+        return undefined;
+      },
+      refreshPreview() {
+        return undefined;
+      },
+    } as never,
+    playerDomainPersistenceService as never,
+  );
 }
 
 function assertPlayerRuntimeExpiryMarker(): void {
