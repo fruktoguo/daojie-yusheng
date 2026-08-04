@@ -38,6 +38,17 @@ export const SECT_MEMBER_ROLE_HIERARCHY = [
 /** 宗门成员职位。 */
 export type SectMemberRole = typeof SECT_MEMBER_ROLE_HIERARCHY[number];
 
+/** 宗门职位的玩家可见名称。 */
+export const SECT_MEMBER_ROLE_LABELS: Readonly<Record<SectMemberRole, string>> = {
+  leader: '宗主',
+  supreme_elder: '太上长老',
+  deputy: '副宗主',
+  elder: '长老',
+  inner: '内门弟子',
+  outer: '外门弟子',
+  labor: '杂役弟子',
+};
+
 /** 宗门可配置职位权限。 */
 export const SECT_PERMISSION_IDS = [
   'guardian',

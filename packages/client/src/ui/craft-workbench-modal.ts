@@ -25,6 +25,8 @@ import type {
   S2C_EnhancementPanel,
   S2C_TechniqueActivityTasks,
   S2C_TechniqueTransmissionStatuses,
+  TechniqueAggregationAccessRequest,
+  TechniqueAggregationLearnRequest,
   TechniqueAggregationPanelView,
   TechniqueAggregationPreviewRequest,
   TechniqueAggregationPublishRequest,
@@ -101,6 +103,8 @@ type CraftWorkbenchCallbacks = {
   onDecomposeTechniqueBook?: (itemInstanceId: string, count: number) => void;
   onRequestTechniqueAggregation?: (payload: TechniqueAggregationPreviewRequest) => boolean | void;
   onPublishTechniqueAggregation?: (payload: TechniqueAggregationPublishRequest) => boolean | void;
+  onUpdateTechniqueAggregationAccess?: (payload: TechniqueAggregationAccessRequest) => boolean | void;
+  onLearnTechniqueAggregation?: (payload: TechniqueAggregationLearnRequest) => boolean | void;
   getTransmissionTargets?: () => Array<{ playerId: string; name: string }>;
 };
 
@@ -1291,10 +1295,11 @@ export class CraftWorkbenchModal {
       };
     }
     if (this.activeMode === 'technique_refining') {
+      const isUnification = this.transmissionView.isTechniqueAggregationOpen();
       return {
-        title: '炼法台',
+        title: isUnification ? '统法台' : '炼法台',
         subtitle: this.getCraftSubtitle(),
-        variantClass: 'detail-modal--craft detail-modal--craft-technique-refining',
+        variantClass: `detail-modal--craft detail-modal--craft-technique-refining${isUnification ? ' detail-modal--technique-unification' : ''}`,
         body: includeBody ? this.transmissionView.renderTechniqueRefiningBody() : '',
       };
     }
@@ -1315,7 +1320,7 @@ export class CraftWorkbenchModal {
       return '功法领悟与传授';
     }
     if (this.activeMode === 'technique_refining') {
-      return '功法书分解与抄录';
+      return this.transmissionView.isTechniqueAggregationOpen() ? '统合诸法，立脉传承' : '功法书分解与抄录';
     }
     return t('craft.workbench.modal.subtitle.default');
   }
@@ -1732,7 +1737,7 @@ export class CraftWorkbenchModal {
       return '传法';
     }
     if (this.activeMode === 'technique_refining') {
-      return '炼法台';
+      return this.transmissionView.isTechniqueAggregationOpen() ? '统法台' : '炼法台';
     }
     return t('craft.workbench.mode.craft');
   }
@@ -1751,7 +1756,9 @@ export class CraftWorkbenchModal {
       return '用于功法领悟与传授。';
     }
     if (this.activeMode === 'technique_refining') {
-      return '分解功法书为残页，也可以用残页抄录指定层数的功法书。';
+      return this.transmissionView.isTechniqueAggregationOpen()
+        ? '承载一脉功法，并依门规向有缘之人开放参悟。'
+        : '分解功法书为残页，也可以用残页抄录指定层数的功法书。';
     }
     return t('craft.workbench.profession.description.default');
   }

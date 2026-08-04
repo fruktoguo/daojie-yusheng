@@ -1,7 +1,7 @@
 /**
  * 功法统合权威服务。
  *
- * 聚合属于冷路径操作：预览/发布只在玩家明确打开炼法台或提交时执行；
+ * 统合属于冷路径操作：预览/凝篇只在玩家明确打开统法台或提交时执行；
  * tick 只调用下方的纯内存冲突与完成替换方法，不访问数据库。
  */
 import { Injectable } from '@nestjs/common';
@@ -10,16 +10,24 @@ import {
   TECHNIQUE_AGGREGATE_EFFECT_MULTIPLIER,
   TECHNIQUE_AGGREGATE_SCHEMA_VERSION,
   TECHNIQUE_AGGREGATE_ID_PREFIX,
+  CUSTOM_TECHNIQUE_NAME_MAX_LENGTH,
+  CUSTOM_TECHNIQUE_NAME_MIN_LENGTH,
+  DEFAULT_TECHNIQUE_UNIFICATION_ACCESS_POLICY,
   calculateTechniqueComprehensionRequiredProgress,
   calcTechniqueAttrValues,
   calcTechniqueQiProjectionModifiers,
   calcTechniqueSpecialStatValues,
   collectTechniqueCoverage,
   getTechniqueMaxLevel,
+  getGraphemeCount,
+  hasVisibleNameGrapheme,
+  containsInvisibleOnlyNameGrapheme,
   isCreatedTechniqueId,
   isTechniqueAggregationId,
   isTechniqueFullyMastered,
   resolveTechniqueAggregationOverlap,
+  cloneTechniqueUnificationAccessPolicy,
+  normalizeTechniqueUnificationAccessPolicy,
   type Attributes,
   type TechniqueAggregationErrorCode,
   type TechniqueAggregationErrorView,
@@ -29,6 +37,8 @@ import {
   type TechniqueAggregationPublishRequest,
   type TechniqueAggregationResultView,
   type TechniqueAggregationSourceView,
+  type TechniqueUnificationPlatformView,
+  type TechniqueUnificationAccessPolicy,
   type TechniqueGrade,
   type TechniqueLayerDef,
   type TechniqueTemplate,
@@ -52,6 +62,10 @@ interface TechniqueAggregationValidationSuccess {
   revision: number;
   previousRevision?: number;
   previousMetadata?: TechniqueAggregationMetadata;
+  displayName: string;
+  platformInstanceId?: string;
+  platformBuildingId?: string;
+  initialAccessPolicy: TechniqueUnificationAccessPolicy;
 }
 
 type TechniqueAggregationValidation =
@@ -67,6 +81,17 @@ interface TechniqueAggregationPublishSuccess {
 type TechniqueAggregationPublishOutcome =
   | TechniqueAggregationPublishSuccess
   | { ok: false; result: TechniqueAggregationResultView };
+
+export interface TechniqueAggregationPublishContext {
+  platformInstanceId?: string;
+  platformBuildingId?: string;
+}
+
+interface TechniqueAggregationPanelOptions {
+  includeEligibleSources?: boolean;
+  boundFamilyId?: string;
+  platform?: TechniqueUnificationPlatformView;
+}
 
 @Injectable()
 export class TechniqueAggregationService {
@@ -92,8 +117,28 @@ export class TechniqueAggregationService {
     return this.generatedTechniqueStoreService.listAggregateMetadata();
   }
 
+  resolveInitialFamilyId(operationId: unknown, creatorPlayerId: string): string {
+    return this.resolveFamilyId(operationId, creatorPlayerId);
+  }
+
+  findLatestAggregateForPlatform(instanceIdInput: string, buildingIdInput: string) {
+    const instanceId = normalizeText(instanceIdInput);
+    const buildingId = normalizeText(buildingIdInput);
+    if (!instanceId || !buildingId) return undefined;
+    return this.listMetadata()
+      .filter((entry) => (
+        entry.metadata.platformInstanceId === instanceId
+        && entry.metadata.platformBuildingId === buildingId
+      ))
+      .sort((left, right) => right.metadata.revision - left.metadata.revision)[0];
+  }
+
   /** 读取学习候选与当前覆盖情况；该方法不修改玩家状态。 */
-  buildPanel(player: any, request: { requestId?: string; buildingId?: string } = {}): TechniqueAggregationPanelView {
+  buildPanel(
+    player: any,
+    request: { requestId?: string; buildingId?: string } = {},
+    options: TechniqueAggregationPanelOptions = {},
+  ): TechniqueAggregationPanelView {
     const metadataEntries = this.generatedTechniqueStoreService.listAggregateMetadata();
     const metadataById = new Map(metadataEntries.map((entry) => [entry.techniqueId, entry.metadata]));
     const techniques = Array.isArray(player?.techniques?.techniques) ? player.techniques.techniques : [];
@@ -102,7 +147,7 @@ export class TechniqueAggregationService {
     const covered = new Set(coverage.leafTechniqueIds);
     const pendingById = new Map(pending.map((entry: any) => [String(entry?.techId ?? ''), entry]));
     const eligibleSources: TechniqueAggregationSourceView[] = [];
-    for (const entry of techniques) {
+    for (const entry of options.includeEligibleSources === false ? [] : techniques) {
       const techId = normalizeText(entry?.techId);
       if (!techId || isTechniqueAggregationId(techId) || !isCreatedTechniqueId(techId)) continue;
       const template = this.contentTemplateRepository.createTechniqueState(techId) as any;
@@ -131,7 +176,11 @@ export class TechniqueAggregationService {
 
     const familyMap = new Map<string, { techniqueId: string; metadata: TechniqueAggregationMetadata }>();
     for (const entry of metadataEntries) {
-      if (entry.metadata.creatorPlayerId !== player?.playerId) continue;
+      if (options.boundFamilyId) {
+        if (entry.metadata.familyId !== options.boundFamilyId) continue;
+      } else if (entry.metadata.creatorPlayerId !== player?.playerId) {
+        continue;
+      }
       const current = familyMap.get(entry.metadata.familyId);
       if (!current || entry.metadata.revision > current.metadata.revision) {
         familyMap.set(entry.metadata.familyId, entry);
@@ -168,6 +217,14 @@ export class TechniqueAggregationService {
       })
       .sort((left, right) => left.familyId.localeCompare(right.familyId));
 
+    const platform = options.platform ?? {
+      buildingId: normalizeText(request.buildingId) || 'unknown',
+      displayName: '统法台',
+      isOwner: true,
+      accessPolicy: cloneTechniqueUnificationAccessPolicy(DEFAULT_TECHNIQUE_UNIFICATION_ACCESS_POLICY),
+      canLearn: true,
+      learnerState: 'unbound' as const,
+    };
     return {
       ...(request.requestId ? { requestId: normalizeRequestId(request.requestId) } : {}),
       ...(request.buildingId ? { buildingId: normalizeText(request.buildingId) } : {}),
@@ -176,6 +233,7 @@ export class TechniqueAggregationService {
       families,
       totalCoveredLeafCount: coverage.leafTechniqueIds.length,
       learnedAggregateCount: coverage.aggregateTechniqueIds.length,
+      platform,
     };
   }
 
@@ -251,15 +309,6 @@ export class TechniqueAggregationService {
     const learned = Array.isArray(player?.techniques?.techniques) ? player.techniques.techniques : [];
     const coverage = collectTechniqueCoverage(learned, this.buildMetadataIndex(learned));
     const coveredLeaves = new Set(coverage.leafTechniqueIds);
-    for (const entry of Array.isArray(player?.pendingTechniqueComprehensions) ? player.pendingTechniqueComprehensions : []) {
-      const pendingId = normalizeText(entry?.techId);
-      // 当前候选尚未完成，不能把自己的叶子计入已覆盖数量，否则会把领悟需求错误降到最低值。
-      if (pendingId === techniqueId) continue;
-      const pendingMetadata = this.generatedTechniqueStoreService.getAggregateMetadata(pendingId);
-      if (pendingMetadata) {
-        for (const sourceId of pendingMetadata.sourceTechniqueIds) coveredLeaves.add(sourceId);
-      }
-    }
     const coveredCount = metadata.sourceTechniqueIds.filter((sourceId) => coveredLeaves.has(sourceId)).length;
     const uncoveredRatio = metadata.sourceCount <= 0
       ? 1
@@ -300,14 +349,18 @@ export class TechniqueAggregationService {
     return [...new Set(removedIds)];
   }
 
-  async publish(player: any, request: TechniqueAggregationPublishRequest): Promise<TechniqueAggregationPublishOutcome> {
+  async publish(
+    player: any,
+    request: TechniqueAggregationPublishRequest,
+    context: TechniqueAggregationPublishContext = {},
+  ): Promise<TechniqueAggregationPublishOutcome> {
     const operationId = normalizeRequestId(request.operationId) ?? randomUUID();
     const validationRequest = { ...request, operationId };
-    const replayed = this.resolvePublishReplay(player, validationRequest, operationId);
+    const replayed = this.resolvePublishReplay(player, validationRequest, operationId, context);
     if (replayed) {
       return replayed;
     }
-    const validation = this.validatePublishRequest(player, validationRequest);
+    const validation = this.validatePublishRequest(player, validationRequest, context);
     if ('error' in validation) {
       return { ok: false, result: this.resultFromError(validationRequest, validation.error) };
     }
@@ -354,6 +407,7 @@ export class TechniqueAggregationService {
     player: any,
     request: TechniqueAggregationPublishRequest,
     operationId: string,
+    context: TechniqueAggregationPublishContext,
   ): TechniqueAggregationPublishSuccess | null {
     const playerId = normalizeText(player?.playerId);
     const rawSourceIds = Array.isArray(request.sourceTechniqueIds)
@@ -366,6 +420,12 @@ export class TechniqueAggregationService {
     const familyId = requestedFamilyId || this.resolveFamilyId(operationId, playerId);
     const latest = this.generatedTechniqueStoreService.getLatestAggregateForFamily(familyId);
     if (!latest || latest.metadata.creatorPlayerId !== playerId) {
+      return null;
+    }
+    const platformInstanceId = normalizeText(context.platformInstanceId);
+    const platformBuildingId = normalizeText(context.platformBuildingId);
+    if ((latest.metadata.platformInstanceId && latest.metadata.platformInstanceId !== platformInstanceId)
+      || (latest.metadata.platformBuildingId && latest.metadata.platformBuildingId !== platformBuildingId)) {
       return null;
     }
 
@@ -385,6 +445,10 @@ export class TechniqueAggregationService {
       }
       expectedSourceIds = [...new Set([...previous.metadata.sourceTechniqueIds, ...rawSourceIds])];
     } else if (latest.metadata.revision !== 1) {
+      return null;
+    }
+    const requestedName = normalizeTechniqueAggregationName(request.customName);
+    if (!requestedFamilyId && requestedName && requestedName !== latest.template.name) {
       return null;
     }
     if (!haveSameTechniqueIds(expectedSourceIds, latest.metadata.sourceTechniqueIds)) {
@@ -436,7 +500,11 @@ export class TechniqueAggregationService {
     return result;
   }
 
-  private validatePublishRequest(player: any, request: TechniqueAggregationPublishRequest): TechniqueAggregationValidation {
+  private validatePublishRequest(
+    player: any,
+    request: TechniqueAggregationPublishRequest,
+    context: TechniqueAggregationPublishContext,
+  ): TechniqueAggregationValidation {
     if (!player?.playerId) return this.failure('TECHNIQUE_AGGREGATE_PERMISSION_DENIED');
     const rawIds: string[] = Array.isArray(request?.sourceTechniqueIds)
       ? request.sourceTechniqueIds.map(normalizeText).filter(Boolean)
@@ -448,11 +516,23 @@ export class TechniqueAggregationService {
     let revision = 1;
     let previousRevision: number | undefined;
     let previousMetadata: TechniqueAggregationMetadata | undefined;
+    let displayName = '';
+    let initialAccessPolicy = normalizeTechniqueUnificationAccessPolicy(request.accessPolicy);
+    const platformInstanceId = normalizeText(context.platformInstanceId);
+    const platformBuildingId = normalizeText(context.platformBuildingId);
     if (familyId) {
       const latest = this.generatedTechniqueStoreService.getLatestAggregateForFamily(familyId);
       if (!latest) return this.failure('TECHNIQUE_AGGREGATE_REVISION_INVALID');
       if (latest.metadata.creatorPlayerId !== player.playerId) {
         return this.failure('TECHNIQUE_AGGREGATE_PERMISSION_DENIED');
+      }
+      if ((latest.metadata.platformInstanceId && latest.metadata.platformInstanceId !== platformInstanceId)
+        || (latest.metadata.platformBuildingId && latest.metadata.platformBuildingId !== platformBuildingId)) {
+        return this.failure('TECHNIQUE_AGGREGATE_PLATFORM_MISMATCH');
+      }
+      displayName = normalizeTechniqueAggregationName(latest.template.name) ?? '';
+      if (!displayName) {
+        return this.failure('TECHNIQUE_AGGREGATE_NAME_INVALID');
       }
       const expectedRevision = Math.trunc(Number(request.expectedRevision) || 0);
       if (expectedRevision !== latest.metadata.revision) {
@@ -463,6 +543,10 @@ export class TechniqueAggregationService {
       revision = latest.metadata.revision + 1;
       previousRevision = latest.metadata.revision;
       previousMetadata = latest.metadata;
+      initialAccessPolicy = normalizeTechniqueUnificationAccessPolicy(
+        latest.metadata.initialAccessPolicy,
+        DEFAULT_TECHNIQUE_UNIFICATION_ACCESS_POLICY,
+      );
       const newSourceIds = rawIds.filter((id) => !latest.metadata.sourceTechniqueIds.includes(id));
       if (newSourceIds.length === 0) {
         return this.failure('TECHNIQUE_AGGREGATE_REVISION_NOT_ADDITIVE');
@@ -471,6 +555,15 @@ export class TechniqueAggregationService {
       rawIds.push(...latest.metadata.sourceTechniqueIds.filter((id) => !rawIds.includes(id)));
       familyId = latest.metadata.familyId;
     } else {
+      displayName = normalizeTechniqueAggregationName(request.customName) ?? '';
+      if (!displayName) {
+        return this.failure('TECHNIQUE_AGGREGATE_NAME_INVALID', {
+          vars: {
+            minLength: CUSTOM_TECHNIQUE_NAME_MIN_LENGTH,
+            maxLength: CUSTOM_TECHNIQUE_NAME_MAX_LENGTH,
+          },
+        });
+      }
       familyId = this.resolveFamilyId(request.operationId, player.playerId);
       // 相同 operationId 只能重放完全相同的首版；不同载荷不得复用不可变版本 ID。
       if (this.generatedTechniqueStoreService.getLatestAggregateForFamily(familyId)) {
@@ -523,6 +616,10 @@ export class TechniqueAggregationService {
       revision,
       ...(previousRevision ? { previousRevision } : {}),
       ...(previousMetadata ? { previousMetadata } : {}),
+      displayName,
+      ...(platformInstanceId ? { platformInstanceId } : {}),
+      ...(platformBuildingId ? { platformBuildingId } : {}),
+      initialAccessPolicy,
     };
   }
 
@@ -589,16 +686,17 @@ export class TechniqueAggregationService {
       sourceCount: validation.sourceTechniqueIds.length,
       ...(validation.previousRevision ? { previousRevision: validation.previousRevision } : {}),
       creatorPlayerId,
+      ...(validation.platformInstanceId ? { platformInstanceId: validation.platformInstanceId } : {}),
+      ...(validation.platformBuildingId ? { platformBuildingId: validation.platformBuildingId } : {}),
+      initialAccessPolicy: cloneTechniqueUnificationAccessPolicy(validation.initialAccessPolicy),
     };
     const id = this.buildAggregateTechniqueId(validation.familyId, validation.revision);
     const grade = sources[0]?.template?.grade as TechniqueGrade;
     const realmLv = Math.max(...sources.map(({ template }) => Math.max(1, Math.trunc(Number(template.realmLv) || 1))));
-    const familyTail = validation.familyId.slice(-6);
-    const name = '统合内功·' + sources[0]?.template?.name + '·' + validation.sourceTechniqueIds.length + '法·' + familyTail + '·v' + validation.revision;
     const template: TechniqueTemplate = {
       id,
-      name: name.slice(0, 64),
-      desc: '由 ' + validation.sourceTechniqueIds.length + ' 本同阶自创内功统合而成，六维总效提升 10%。',
+      name: validation.displayName,
+      desc: '此法典合参 ' + validation.sourceTechniqueIds.length + ' 门同阶自创内功，六维所得在诸法总和之上再增一成。',
       grade,
       category: TECHNIQUE_AGGREGATE_CATEGORY,
       realmLv,
@@ -629,6 +727,10 @@ export class TechniqueAggregationService {
         familyId: validation.familyId,
         revision: validation.revision,
         sourceTechniqueIds: validation.sourceTechniqueIds,
+        displayName: validation.displayName,
+        platformInstanceId: validation.platformInstanceId,
+        platformBuildingId: validation.platformBuildingId,
+        initialAccessPolicy: validation.initialAccessPolicy,
         totalTrainingDifficulty,
         effectMultiplier: TECHNIQUE_AGGREGATE_EFFECT_MULTIPLIER,
       },
@@ -649,7 +751,14 @@ export class TechniqueAggregationService {
   }
 
   private buildError(code: TechniqueAggregationErrorCode, extras: Partial<TechniqueAggregationErrorView> = {}): TechniqueAggregationErrorView {
+    const conflictAggregateIds = extras.conflictAggregateIds?.filter(Boolean) ?? [];
     const conflictSourceTechniqueIds = extras.conflictSourceTechniqueIds?.filter(Boolean) ?? [];
+    const aggregateTechniqueNames = conflictAggregateIds
+      .map((techniqueId) => normalizeName(
+        (this.contentTemplateRepository.createTechniqueState(techniqueId) as any)?.name,
+        techniqueId,
+      ))
+      .join('、');
     const sourceTechniqueNames = conflictSourceTechniqueIds
       .map((techniqueId) => normalizeName(
         (this.contentTemplateRepository.createTechniqueState(techniqueId) as any)?.name,
@@ -660,10 +769,11 @@ export class TechniqueAggregationService {
       code,
       messageKey: 'technique.aggregation.' + code.toLowerCase(),
       ...extras,
-      ...(sourceTechniqueNames ? {
+      ...(aggregateTechniqueNames || sourceTechniqueNames ? {
         vars: {
           ...extras.vars,
-          sourceTechniqueNames,
+          ...(aggregateTechniqueNames ? { aggregateTechniqueNames } : {}),
+          ...(sourceTechniqueNames ? { sourceTechniqueNames } : {}),
         },
       } : {}),
     };
@@ -690,6 +800,16 @@ function normalizeText(value: unknown): string {
 
 function normalizeName(value: unknown, fallback: string): string {
   return normalizeText(value) || normalizeText(fallback) || '未知功法';
+}
+
+function normalizeTechniqueAggregationName(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.normalize('NFC').trim().replace(/\s+/g, ' ');
+  const length = getGraphemeCount(normalized);
+  if (length < CUSTOM_TECHNIQUE_NAME_MIN_LENGTH || length > CUSTOM_TECHNIQUE_NAME_MAX_LENGTH) return null;
+  if (!hasVisibleNameGrapheme(normalized) || containsInvisibleOnlyNameGrapheme(normalized)) return null;
+  if (Array.from(normalized).length > 64 || /[\u0000-\u001f\u007f]/u.test(normalized)) return null;
+  return normalized;
 }
 
 function normalizeRequestId(value: unknown): string | undefined {

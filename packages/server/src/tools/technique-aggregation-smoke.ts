@@ -188,9 +188,18 @@ async function main(): Promise<void> {
   );
   assert.equal(panel.eligibleSources.every((entry) => entry.fullyMastered), true);
 
+  const invalidNameResult = await service.publish(creator, {
+    operationId: 'invalid-name',
+    customName: '一',
+    sourceTechniqueIds: [sourceA.id, sourceB.id],
+  });
+  assert.equal(invalidNameResult.ok, false);
+  assert.equal(invalidNameResult.result.code, 'TECHNIQUE_AGGREGATE_NAME_INVALID');
+
   const nonOwner = createPlayer('player:not-owner', [toRuntimeTechnique(sourceA), toRuntimeTechnique(sourceB)]);
   const nonOwnerResult = await service.publish(nonOwner, {
     operationId: 'non-owner',
+    customName: '无主法脉',
     sourceTechniqueIds: [sourceA.id, sourceB.id],
   });
   assert.equal(nonOwnerResult.ok, false);
@@ -200,6 +209,7 @@ async function main(): Promise<void> {
   const notMastered = createPlayer(creatorPlayerId, [toRuntimeTechnique(sourceA, 1), toRuntimeTechnique(sourceB)]);
   const notMasteredResult = await service.publish(notMastered, {
     operationId: 'not-mastered',
+    customName: '未成法脉',
     sourceTechniqueIds: [sourceA.id, sourceB.id],
   });
   assert.equal(notMasteredResult.ok, false);
@@ -207,6 +217,7 @@ async function main(): Promise<void> {
 
   const categoryResult = await service.publish(creator, {
     operationId: 'category-invalid',
+    customName: '异术法脉',
     sourceTechniqueIds: [sourceA.id, artsSource.id],
   });
   assert.equal(categoryResult.ok, false);
@@ -214,6 +225,7 @@ async function main(): Promise<void> {
 
   const gradeResult = await service.publish(creator, {
     operationId: 'grade-invalid',
+    customName: '杂阶法脉',
     sourceTechniqueIds: [sourceA.id, mismatchedGrade.id],
   });
   assert.equal(gradeResult.ok, false);
@@ -222,7 +234,16 @@ async function main(): Promise<void> {
   const first = await service.publish(creator, {
     requestId: 'publish-v1',
     operationId: 'aggregation-family-main',
+    customName: '归一真经',
+    accessPolicy: {
+      unrestricted: false,
+      friendLevels: ['close_friend'],
+      sectRoles: ['elder', 'inner'],
+    },
     sourceTechniqueIds: [sourceA.id, sourceB.id],
+  }, {
+    platformInstanceId: 'instance:sect-main',
+    platformBuildingId: 'unification-platform-1',
   });
   assert.equal(first.ok, true);
   assert.ok(first.ok && first.result.aggregate);
@@ -230,6 +251,13 @@ async function main(): Promise<void> {
   assert.equal(first.result.aggregate.revision, 1);
   assert.equal(first.result.aggregate.totalTrainingDifficulty, 200);
   assert.equal(first.result.aggregate.effectMultiplier, 1.1);
+  assert.equal(first.result.aggregate.name, '归一真经');
+  assert.equal(first.template.aggregate?.platformBuildingId, 'unification-platform-1');
+  assert.deepEqual(first.template.aggregate?.initialAccessPolicy, {
+    unrestricted: false,
+    friendLevels: ['close_friend'],
+    sectRoles: ['elder', 'inner'],
+  });
   const firstTemplate = store.getById(first.result.aggregate.techniqueId);
   assert.ok(firstTemplate);
   const firstRuntime = toRuntimeTechnique(firstTemplate!);
@@ -240,24 +268,35 @@ async function main(): Promise<void> {
   const firstReplay = await service.publish(firstReplayCreator, {
     requestId: 'publish-v1-replay',
     operationId: 'aggregation-family-main',
+    customName: '归一真经',
     sourceTechniqueIds: [sourceA.id, sourceB.id],
+  }, {
+    platformInstanceId: 'instance:sect-main',
+    platformBuildingId: 'unification-platform-1',
   });
   assert.equal(firstReplay.ok, true);
   assert.equal(firstReplay.result.aggregate?.techniqueId, firstRuntime.techId);
   const mismatchedReplay = await service.publish(creator, {
     operationId: 'aggregation-family-main',
+    customName: '归一真经',
     sourceTechniqueIds: [sourceA.id, sourceC.id],
+  }, {
+    platformInstanceId: 'instance:sect-main',
+    platformBuildingId: 'unification-platform-1',
   });
   assert.equal(mismatchedReplay.ok, false);
   assert.equal(mismatchedReplay.result.code, 'TECHNIQUE_AGGREGATE_ALREADY_EXISTS');
 
   const overlapResult = await service.publish(creator, {
     operationId: 'overlap-family',
+    customName: '重合法脉',
     sourceTechniqueIds: [sourceA.id, sourceC.id],
   });
   assert.equal(overlapResult.ok, false);
   assert.equal(overlapResult.result.code, 'TECHNIQUE_AGGREGATE_OVERLAP');
   assert.deepEqual(overlapResult.result.conflictSourceTechniqueIds, [sourceA.id]);
+  assert.equal(overlapResult.result.vars?.aggregateTechniqueNames, '归一真经');
+  assert.equal(overlapResult.result.vars?.sourceTechniqueNames, '归元诀');
 
   const halfCoveredLearner = createPlayer('player:half-covered', [toRuntimeTechnique(sourceA)]);
   halfCoveredLearner.pendingTechniqueComprehensions.push({
@@ -273,6 +312,16 @@ async function main(): Promise<void> {
     learnerTransmissionLevel: 1,
     teacherTransmissionLevel: 1,
   });
+  const pendingOnlyLearner = createPlayer('player:pending-only', []);
+  pendingOnlyLearner.pendingTechniqueComprehensions.push({
+    techId: firstRuntime.techId,
+    progress: 99,
+    requiredProgress: fullRequirement,
+  });
+  assert.equal(
+    service.resolveComprehensionRequirement(pendingOnlyLearner, firstRuntime, fullRequirement),
+    fullRequirement,
+  );
   store.listAggregateMetadataCallCount = 0;
   assert.equal(
     service.resolveComprehensionRequirement(halfCoveredLearner, firstRuntime, fullRequirement),
@@ -292,6 +341,9 @@ async function main(): Promise<void> {
     familyId: first.result.aggregate.familyId,
     expectedRevision: 1,
     sourceTechniqueIds: [sourceC.id],
+  }, {
+    platformInstanceId: 'instance:sect-main',
+    platformBuildingId: 'unification-platform-1',
   });
   assert.equal(second.ok, true);
   assert.ok(second.ok && second.result.aggregate);
@@ -310,6 +362,9 @@ async function main(): Promise<void> {
     familyId: first.result.aggregate.familyId,
     expectedRevision: 1,
     sourceTechniqueIds: [sourceC.id],
+  }, {
+    platformInstanceId: 'instance:sect-main',
+    platformBuildingId: 'unification-platform-1',
   });
   assert.equal(secondReplay.ok, true);
   assert.equal(secondReplay.result.aggregate?.techniqueId, second.result.aggregate.techniqueId);

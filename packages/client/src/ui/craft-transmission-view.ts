@@ -9,6 +9,9 @@ import type {
   ItemStack,
   PlayerState,
   S2C_TechniqueTransmissionStatuses,
+  SectMemberRole,
+  TechniqueAggregationAccessRequest,
+  TechniqueAggregationLearnRequest,
   TechniqueAggregationPanelView,
   TechniqueAggregationPreviewRequest,
   TechniqueAggregationPublishRequest,
@@ -16,12 +19,20 @@ import type {
   TechniqueCategory,
   TechniqueComprehensionProgressBreakdown,
   TechniqueGrade,
+  TechniqueUnificationAccessPolicy,
 } from '@mud/shared';
 import {
+  CUSTOM_TECHNIQUE_NAME_MAX_LENGTH,
+  CUSTOM_TECHNIQUE_NAME_MIN_LENGTH,
+  DEFAULT_TECHNIQUE_UNIFICATION_ACCESS_POLICY,
+  SECT_MEMBER_ROLE_HIERARCHY,
+  SECT_MEMBER_ROLE_LABELS,
   TECHNIQUE_GRADE_ORDER,
   calculateTechniqueBookCraftFragmentCost,
   calculateTechniqueBookDecomposeFragments,
   calculateTechniqueComprehensionProgressBreakdown,
+  cloneTechniqueUnificationAccessPolicy,
+  getGraphemeCount,
   getItemDisplayName,
   isCreatedTechniqueId,
   isTechniqueFullyMastered,
@@ -53,6 +64,8 @@ export type CraftTransmissionCallbacks = {
   getTransmissionTargets?: () => Array<{ playerId: string; name: string }>;
   onRequestTechniqueAggregation?: (payload: TechniqueAggregationPreviewRequest) => boolean | void;
   onPublishTechniqueAggregation?: (payload: TechniqueAggregationPublishRequest) => boolean | void;
+  onUpdateTechniqueAggregationAccess?: (payload: TechniqueAggregationAccessRequest) => boolean | void;
+  onLearnTechniqueAggregation?: (payload: TechniqueAggregationLearnRequest) => boolean | void;
 };
 
 /** @internal 传功子视图只通过这些显式端口读取工坊共享状态。 */
@@ -132,35 +145,42 @@ function resolveTechniqueAggregationError(
   result: Pick<TechniqueAggregationResultView, 'code' | 'messageKey' | 'vars'>,
 ): string {
   const labels: Record<string, string> = {
-    TECHNIQUE_AGGREGATE_BUILDING_REQUIRED: '请在炼法台旁进行功法统合。',
-    TECHNIQUE_AGGREGATE_BUILDING_OUT_OF_RANGE: '距离炼法台太远，无法进行功法统合。',
-    TECHNIQUE_AGGREGATE_BUILDING_INVALID: '当前炼法台不可用。',
-    TECHNIQUE_AGGREGATE_PERMISSION_DENIED: '只有自创功法的创建者可以进行统合。',
-    TECHNIQUE_AGGREGATE_SOURCE_EMPTY: '至少选择两本源功法。',
-    TECHNIQUE_AGGREGATE_SOURCE_DUPLICATE: '源功法不能重复选择。',
-    TECHNIQUE_AGGREGATE_SOURCE_NOT_FOUND: '有源功法已经不存在，请刷新面板。',
-    TECHNIQUE_AGGREGATE_SOURCE_NOT_CREATED: '系统功法不能参与统合。',
-    TECHNIQUE_AGGREGATE_SOURCE_NOT_OWNER: '只有源功法创建者本人可以进行统合。',
-    TECHNIQUE_AGGREGATE_SOURCE_NOT_MASTERED: '只有已经圆满的源功法可以参与统合。',
-    TECHNIQUE_AGGREGATE_SOURCE_CATEGORY_INVALID: '当前只允许统合内功。',
-    TECHNIQUE_AGGREGATE_SOURCE_GRADE_MISMATCH: '只能统合同品阶内功。',
-    TECHNIQUE_AGGREGATE_REVISION_INVALID: '统合版本已变化，请刷新后重试。',
-    TECHNIQUE_AGGREGATE_REVISION_NOT_ADDITIVE: '更新版本必须加入至少一本新的源功法。',
-    TECHNIQUE_AGGREGATE_OVERLAP: '所选功法与已有统合家族重叠，不能重复覆盖。',
-    TECHNIQUE_AGGREGATE_ALREADY_EXISTS: '相同统合版本已经存在。',
-    TECHNIQUE_AGGREGATE_OPERATION_REPLAYED: '该统合操作已经处理。',
-    TECHNIQUE_AGGREGATE_PERSISTENCE_UNAVAILABLE: '统合数据暂时无法保存，请稍后重试。',
-    TECHNIQUE_AGGREGATE_NOT_READY: '功法统合服务尚未准备完成，请稍后重试。',
+    TECHNIQUE_AGGREGATE_BUILDING_REQUIRED: '须在统法台近前方可凝篇。',
+    TECHNIQUE_AGGREGATE_BUILDING_OUT_OF_RANGE: '离统法台过远，法意难以相合。',
+    TECHNIQUE_AGGREGATE_BUILDING_INVALID: '此座统法台暂不可用。',
+    TECHNIQUE_AGGREGATE_PERMISSION_DENIED: '唯有自创内功之主方可将其归入法脉。',
+    TECHNIQUE_AGGREGATE_PLATFORM_OWNER_REQUIRED: '唯有台主方可续录法脉或更改门规。',
+    TECHNIQUE_AGGREGATE_PLATFORM_ALREADY_BOUND: '此台已有所承法脉，不可改易。',
+    TECHNIQUE_AGGREGATE_PLATFORM_UNBOUND: '此台尚未立下法脉。',
+    TECHNIQUE_AGGREGATE_PLATFORM_MISMATCH: '所呈法脉与此台所承不符。',
+    TECHNIQUE_AGGREGATE_ACCESS_DENIED: '传法门规未许你参阅此脉。',
+    TECHNIQUE_AGGREGATE_NAME_INVALID: `法脉名讳须为 ${CUSTOM_TECHNIQUE_NAME_MIN_LENGTH}-${CUSTOM_TECHNIQUE_NAME_MAX_LENGTH} 个字。`,
+    TECHNIQUE_AGGREGATE_LEARN_REJECTED: '此脉暂无法纳入参悟。',
+    TECHNIQUE_AGGREGATE_SOURCE_EMPTY: '至少择取两部源法。',
+    TECHNIQUE_AGGREGATE_SOURCE_DUPLICATE: '同一源法不可重复入卷。',
+    TECHNIQUE_AGGREGATE_SOURCE_NOT_FOUND: '部分源法已不在法录之中，请重新查阅。',
+    TECHNIQUE_AGGREGATE_SOURCE_NOT_CREATED: '唯有自创之法方可归入此卷。',
+    TECHNIQUE_AGGREGATE_SOURCE_NOT_OWNER: '唯有源法开创者本人方可将其归宗。',
+    TECHNIQUE_AGGREGATE_SOURCE_NOT_MASTERED: '源法须修至圆满，方可入卷。',
+    TECHNIQUE_AGGREGATE_SOURCE_CATEGORY_INVALID: '统法台当前只收录内功。',
+    TECHNIQUE_AGGREGATE_SOURCE_GRADE_MISMATCH: '一卷法脉只能统合同一品阶的内功。',
+    TECHNIQUE_AGGREGATE_REVISION_INVALID: '法脉卷次已有变动，请重新查阅。',
+    TECHNIQUE_AGGREGATE_REVISION_NOT_ADDITIVE: '续录新卷须添入至少一部新源法。',
+    TECHNIQUE_AGGREGATE_OVERLAP: '所参法脉与已有功法重叠，不可重复承习。',
+    TECHNIQUE_AGGREGATE_ALREADY_EXISTS: '此卷法脉已然凝成。',
+    TECHNIQUE_AGGREGATE_OPERATION_REPLAYED: '此次凝篇已受理。',
+    TECHNIQUE_AGGREGATE_PERSISTENCE_UNAVAILABLE: '法录暂不可书，请稍后再试。',
+    TECHNIQUE_AGGREGATE_NOT_READY: '统法台法阵尚未就绪，请稍后再试。',
   };
   const code = result.code ?? '';
   const label = labels[code];
   if (label) {
     if (code === 'TECHNIQUE_AGGREGATE_REVISION_INVALID' && result.vars?.expectedRevision !== undefined) {
-      return `${label}当前最新版为 v${formatDisplayInteger(Number(result.vars.expectedRevision) || 1)}。`;
+      return `${label}当前为第 ${formatDisplayInteger(Number(result.vars.expectedRevision) || 1)} 卷。`;
     }
     return label;
   }
-  return result.messageKey ? `统合失败（${result.messageKey}）。` : '功法统合失败，请稍后重试。';
+  return result.messageKey ? `凝篇未成（${result.messageKey}）。` : '法脉凝篇未成，请稍后再试。';
 }
 
 function renderTechniqueAggregationConflicts(
@@ -168,19 +188,22 @@ function renderTechniqueAggregationConflicts(
 ): string {
   const aggregateIds = result.conflictAggregateIds?.filter(Boolean) ?? [];
   const sourceIds = result.conflictSourceTechniqueIds?.filter(Boolean) ?? [];
+  const aggregateNames = typeof result.vars?.aggregateTechniqueNames === 'string'
+    ? result.vars.aggregateTechniqueNames.trim()
+    : '';
   const sourceNames = typeof result.vars?.sourceTechniqueNames === 'string'
     ? result.vars.sourceTechniqueNames.trim()
     : '';
   const invalidIds = result.invalidTechniqueIds?.filter(Boolean) ?? [];
   const rows: string[] = [];
   if (aggregateIds.length > 0) {
-    rows.push(`<li>重叠统合功法：${aggregateIds.map((id) => escapeHtml(id)).join('、')}</li>`);
+    rows.push(`<li>相冲法脉：${escapeHtml(aggregateNames || aggregateIds.join('、'))}</li>`);
   }
   if (sourceIds.length > 0) {
-    rows.push(`<li>重叠源功法：${escapeHtml(sourceNames || sourceIds.join('、'))}</li>`);
+    rows.push(`<li>重叠源法：${escapeHtml(sourceNames || sourceIds.join('、'))}</li>`);
   }
   if (invalidIds.length > 0) {
-    rows.push(`<li>不可用源功法：${invalidIds.map((id) => escapeHtml(id)).join('、')}</li>`);
+    rows.push(`<li>不可入卷：${invalidIds.map((id) => escapeHtml(id)).join('、')}</li>`);
   }
   return rows.length > 0 ? `<ul class="technique-aggregation-conflicts">${rows.join('')}</ul>` : '';
 }
@@ -190,6 +213,17 @@ function createTechniqueAggregationOperationId(sequence: number): string {
     ? globalThis.crypto.randomUUID()
     : `${Date.now().toString(36)}-${Math.max(1, sequence).toString(36)}`;
   return `technique-aggregation-op:${nonce}`;
+}
+
+function areTechniqueAggregationPoliciesEqual(
+  left: TechniqueUnificationAccessPolicy,
+  right: TechniqueUnificationAccessPolicy,
+): boolean {
+  return left.unrestricted === right.unrestricted
+    && left.friendLevels.length === right.friendLevels.length
+    && left.friendLevels.every((entry, index) => entry === right.friendLevels[index])
+    && left.sectRoles.length === right.sectRoles.length
+    && left.sectRoles.every((entry, index) => entry === right.sectRoles[index]);
 }
 
 function formatComprehensionProgressBreakdown(
@@ -245,12 +279,20 @@ export class CraftTransmissionView {
   private techniqueAggregationBuildingId = '';
   private techniqueAggregationFamilyId = '';
   private techniqueAggregationExpectedRevision: number | undefined;
+  private techniqueAggregationGradeFilter: TechniqueGrade | '' = '';
+  private techniqueAggregationNameDraft = '';
+  private techniqueAggregationAccessDraft = cloneTechniqueUnificationAccessPolicy(
+    DEFAULT_TECHNIQUE_UNIFICATION_ACCESS_POLICY,
+  );
+  private techniqueAggregationAccessDirty = false;
   private readonly selectedTechniqueAggregationSourceIds = new Set<string>();
   private techniqueAggregationRequestSequence = 0;
   private techniqueAggregationRequestId = '';
   private techniqueAggregationOperationId = '';
   private techniqueAggregationResult: TechniqueAggregationResultView | null = null;
   private techniqueAggregationPublishing = false;
+  private techniqueAggregationAccessSaving = false;
+  private techniqueAggregationLearning = false;
 
   constructor(private readonly parent: CraftTransmissionParent) {}
 
@@ -312,11 +354,23 @@ export class CraftTransmissionView {
     this.techniqueAggregationPanel = null;
     this.techniqueAggregationFamilyId = '';
     this.techniqueAggregationExpectedRevision = undefined;
+    this.techniqueAggregationGradeFilter = '';
+    this.techniqueAggregationNameDraft = '';
+    this.techniqueAggregationAccessDraft = cloneTechniqueUnificationAccessPolicy(
+      DEFAULT_TECHNIQUE_UNIFICATION_ACCESS_POLICY,
+    );
+    this.techniqueAggregationAccessDirty = false;
     this.selectedTechniqueAggregationSourceIds.clear();
     this.techniqueAggregationResult = null;
     this.techniqueAggregationOperationId = '';
     this.techniqueAggregationPublishing = false;
+    this.techniqueAggregationAccessSaving = false;
+    this.techniqueAggregationLearning = false;
     this.requestTechniqueAggregationPanel();
+  }
+
+  isTechniqueAggregationOpen(): boolean {
+    return this.techniqueAggregationBuildingId.length > 0;
   }
 
   closeTechniqueAggregation(): void {
@@ -324,11 +378,19 @@ export class CraftTransmissionView {
     this.techniqueAggregationPanel = null;
     this.techniqueAggregationFamilyId = '';
     this.techniqueAggregationExpectedRevision = undefined;
+    this.techniqueAggregationGradeFilter = '';
+    this.techniqueAggregationNameDraft = '';
+    this.techniqueAggregationAccessDraft = cloneTechniqueUnificationAccessPolicy(
+      DEFAULT_TECHNIQUE_UNIFICATION_ACCESS_POLICY,
+    );
+    this.techniqueAggregationAccessDirty = false;
     this.selectedTechniqueAggregationSourceIds.clear();
     this.techniqueAggregationRequestId = '';
     this.techniqueAggregationOperationId = '';
     this.techniqueAggregationResult = null;
     this.techniqueAggregationPublishing = false;
+    this.techniqueAggregationAccessSaving = false;
+    this.techniqueAggregationLearning = false;
   }
 
   handleTechniqueAggregationPanel(data: TechniqueAggregationPanelView): void {
@@ -336,6 +398,27 @@ export class CraftTransmissionView {
       return;
     }
     this.techniqueAggregationPanel = data;
+    const boundFamily = data.platform.familyId
+      ? data.families.find((family) => family.familyId === data.platform.familyId)
+      : undefined;
+    this.techniqueAggregationFamilyId = data.platform.familyId ?? '';
+    this.techniqueAggregationExpectedRevision = boundFamily?.latestRevision;
+    const availableGrades = this.resolveTechniqueAggregationGrades(data);
+    if (boundFamily?.grade) {
+      this.techniqueAggregationGradeFilter = boundFamily.grade;
+    } else if (!this.techniqueAggregationGradeFilter || !availableGrades.includes(this.techniqueAggregationGradeFilter)) {
+      this.techniqueAggregationGradeFilter = availableGrades[0] ?? '';
+    }
+    if (!this.techniqueAggregationAccessDirty) {
+      this.techniqueAggregationAccessDraft = cloneTechniqueUnificationAccessPolicy(data.platform.accessPolicy);
+    }
+    if (boundFamily && !this.techniqueAggregationNameDraft) {
+      this.techniqueAggregationNameDraft = boundFamily.name;
+    }
+    const eligibleIds = new Set(data.eligibleSources.map((entry) => entry.techId));
+    for (const techId of [...this.selectedTechniqueAggregationSourceIds]) {
+      if (!eligibleIds.has(techId)) this.selectedTechniqueAggregationSourceIds.delete(techId);
+    }
     this.techniqueAggregationResult = data.error
       ? {
         requestId: data.requestId,
@@ -359,13 +442,18 @@ export class CraftTransmissionView {
       return;
     }
     this.techniqueAggregationPublishing = false;
+    this.techniqueAggregationAccessSaving = false;
+    this.techniqueAggregationLearning = false;
     this.techniqueAggregationResult = data;
     if (data.ok) {
-      this.selectedTechniqueAggregationSourceIds.clear();
-      this.techniqueAggregationFamilyId = '';
-      this.techniqueAggregationExpectedRevision = undefined;
-      this.techniqueAggregationOperationId = '';
-      this.requestTechniqueAggregationPanel();
+      if (data.operation === 'publish' || data.aggregate) {
+        this.selectedTechniqueAggregationSourceIds.clear();
+        this.techniqueAggregationOperationId = '';
+        this.techniqueAggregationAccessDirty = false;
+      }
+      if (data.operation === 'access') {
+        this.techniqueAggregationAccessDirty = false;
+      }
     }
     if (this.parent.activeMode === 'technique_refining' && this.techniqueAggregationBuildingId) {
       this.parent.patchOpenCraftShell();
@@ -562,9 +650,15 @@ export class CraftTransmissionView {
     if (!panel) return false;
     const content = panel.parentElement;
     if (!content) return false;
-    const nextKey = this.buildTechniqueAggregationRenderKey();
-    if (panel.dataset.techniqueAggregationRenderKey === nextKey) return true;
+    const nextKey = this.buildTechniqueAggregationDataKey();
+    if (panel.dataset.techniqueAggregationDataKey === nextKey) {
+      this.patchTechniqueAggregationControls(panel);
+      return true;
+    }
+    const previousScrollTop = panel.querySelector<HTMLElement>('[data-technique-aggregation-source-list="true"]')?.scrollTop ?? 0;
     replaceElementHtml(content, this.renderTechniqueAggregationBody());
+    const nextList = content.querySelector<HTMLElement>('[data-technique-aggregation-source-list="true"]');
+    if (nextList) nextList.scrollTop = previousScrollTop;
     return true;
   }
 
@@ -1128,86 +1222,360 @@ export class CraftTransmissionView {
     `;
   }
 
-  private buildTechniqueAggregationRenderKey(): string {
+  private buildTechniqueAggregationDataKey(): string {
     const panel = this.techniqueAggregationPanel;
+    const platform = panel?.platform;
     return [
       this.techniqueAggregationBuildingId,
       panel?.requestId ?? '',
       panel?.revision ?? 0,
-      panel?.eligibleSources?.map((source) => [source.techId, source.level, source.maxLevel, source.fullyMastered].join(':')).join('|') ?? '',
-      panel?.families?.map((family) => [family.familyId, family.latestRevision, family.name, family.playerRevision ?? 0, family.playerCoveredCount].join(':')).join('|') ?? '',
-      [...this.selectedTechniqueAggregationSourceIds].sort().join(','),
-      this.techniqueAggregationFamilyId,
-      this.techniqueAggregationExpectedRevision ?? '',
-      this.techniqueAggregationPublishing ? 'publishing' : 'idle',
-      this.techniqueAggregationResult?.ok ?? '',
-      this.techniqueAggregationResult?.code ?? '',
-      this.techniqueAggregationResult?.aggregate?.techniqueId ?? '',
-      this.techniqueAggregationResult?.conflictAggregateIds?.join(',') ?? '',
-      this.techniqueAggregationResult?.conflictSourceTechniqueIds?.join(',') ?? '',
-      this.techniqueAggregationResult?.invalidTechniqueIds?.join(',') ?? '',
-      JSON.stringify(this.techniqueAggregationResult?.vars ?? {}),
+      panel?.eligibleSources?.map((source) => [
+        source.techId,
+        source.name,
+        source.grade,
+        source.level,
+        source.maxLevel,
+        source.fullyMastered ? 1 : 0,
+      ].join(':')).join('|') ?? '',
+      panel?.families?.map((family) => [
+        family.familyId,
+        family.latestRevision,
+        family.name,
+        family.grade,
+        family.sourceCount,
+        family.playerRevision ?? 0,
+        family.playerCoveredCount,
+        family.sourceTechniqueIds.join(','),
+      ].join(':')).join('|') ?? '',
+      platform?.ownerPlayerId ?? '',
+      platform?.isOwner ? 1 : 0,
+      platform?.familyId ?? '',
+      platform?.canLearn ? 1 : 0,
+      platform?.learnerState ?? '',
+      platform?.latestTechniqueId ?? '',
+      platform?.latestRevision ?? 0,
+      platform?.pendingProgress ?? 0,
+      platform?.pendingRequiredProgress ?? 0,
+      platform?.accessPolicy.unrestricted ? 1 : 0,
+      platform?.accessPolicy.friendLevels.join(',') ?? '',
+      platform?.accessPolicy.sectRoles.join(',') ?? '',
+      panel?.error?.code ?? '',
     ].join('::');
+  }
+
+  private resolveTechniqueAggregationGrades(panel = this.techniqueAggregationPanel): TechniqueGrade[] {
+    if (!panel) return [];
+    const values = new Set<TechniqueGrade>();
+    for (const source of panel.eligibleSources) values.add(source.grade);
+    for (const family of panel.families) values.add(family.grade);
+    return TECHNIQUE_GRADE_ORDER.filter((grade) => values.has(grade));
+  }
+
+  private getBoundTechniqueAggregationFamily() {
+    const panel = this.techniqueAggregationPanel;
+    return panel?.platform.familyId
+      ? panel.families.find((family) => family.familyId === panel.platform.familyId)
+      : undefined;
+  }
+
+  private getSelectedTechniqueAggregationSources() {
+    const sources = this.techniqueAggregationPanel?.eligibleSources ?? [];
+    return sources.filter((source) => this.selectedTechniqueAggregationSourceIds.has(source.techId));
+  }
+
+  private canPublishTechniqueAggregation(): boolean {
+    const panel = this.techniqueAggregationPanel;
+    if (!panel?.platform.isOwner || this.techniqueAggregationPublishing || this.techniqueAggregationAccessSaving) return false;
+    const family = this.getBoundTechniqueAggregationFamily();
+    const familySources = new Set(family?.sourceTechniqueIds ?? []);
+    const selected = this.getSelectedTechniqueAggregationSources();
+    const requiredCount = family ? 1 : 2;
+    if (selected.length < requiredCount || !this.techniqueAggregationGradeFilter) return false;
+    if (selected.some((source) => (
+      !source.fullyMastered
+      || source.grade !== this.techniqueAggregationGradeFilter
+      || familySources.has(source.techId)
+    ))) return false;
+    if (family) return family.grade === this.techniqueAggregationGradeFilter;
+    const nameLength = getGraphemeCount(this.techniqueAggregationNameDraft.trim());
+    return nameLength >= CUSTOM_TECHNIQUE_NAME_MIN_LENGTH && nameLength <= CUSTOM_TECHNIQUE_NAME_MAX_LENGTH;
+  }
+
+  private getTechniqueAggregationSelectionHint(): string {
+    const family = this.getBoundTechniqueAggregationFamily();
+    const selected = this.getSelectedTechniqueAggregationSources();
+    if (selected.length > 0) {
+      return `已择 ${formatDisplayInteger(selected.length)} 部 · ${getTechniqueGradeLabel(this.techniqueAggregationGradeFilter || selected[0].grade)} · 法效增益一成 · 修习难度取诸法总和之半`;
+    }
+    return family
+      ? '续录新卷，尚须择取至少一部同阶圆满源法。'
+      : '凝成首卷，尚须择取至少两部同阶圆满源法。';
+  }
+
+  private buildTechniqueAggregationResultKey(): string {
+    const result = this.techniqueAggregationResult;
+    return [
+      result?.ok ?? '',
+      result?.operation ?? '',
+      result?.code ?? '',
+      result?.messageKey ?? '',
+      result?.aggregate?.techniqueId ?? '',
+      result?.aggregate?.revision ?? '',
+      result?.conflictAggregateIds?.join(',') ?? '',
+      result?.conflictSourceTechniqueIds?.join(',') ?? '',
+      result?.invalidTechniqueIds?.join(',') ?? '',
+      Object.entries(result?.vars ?? {}).sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, value]) => `${key}:${String(value)}`).join(','),
+    ].join(':');
+  }
+
+  private renderTechniqueAggregationResult(): string {
+    const result = this.techniqueAggregationResult;
+    if (!result) return '';
+    if (!result.ok) {
+      return `<div class="technique-aggregation-error" role="alert">${escapeHtml(resolveTechniqueAggregationError(result))}${renderTechniqueAggregationConflicts(result)}</div>`;
+    }
+    if (result.operation === 'access') {
+      return '<div class="technique-aggregation-success" role="status">传法门规已刻入统法台。</div>';
+    }
+    if (result.operation === 'learn') {
+      return '<div class="technique-aggregation-success" role="status">此脉已纳入参悟法录。</div>';
+    }
+    if (result.aggregate) {
+      return `<div class="technique-aggregation-success" role="status">「${escapeHtml(result.aggregate.name)}」第 ${formatDisplayInteger(result.aggregate.revision)} 卷已成。</div>`;
+    }
+    return '';
+  }
+
+  private renderTechniqueAggregationPolicySummary(policy: TechniqueUnificationAccessPolicy): string {
+    if (policy.unrestricted) return '门规：诸修皆可参阅';
+    const clauses: string[] = [];
+    if (policy.friendLevels.includes('dao_friend')) clauses.push('道友以上');
+    else if (policy.friendLevels.includes('close_friend')) clauses.push('至交');
+    const sectLabels = policy.sectRoles.map((role) => SECT_MEMBER_ROLE_LABELS[role]);
+    if (sectLabels.length > 0) clauses.push(`同门：${sectLabels.join('、')}`);
+    return clauses.length > 0 ? `门规：${clauses.join('；')}` : '门规：仅台主自阅';
+  }
+
+  private renderTechniqueAggregationAccessEditor(bound: boolean): string {
+    const policy = this.techniqueAggregationAccessDraft;
+    const disabled = this.techniqueAggregationPublishing || this.techniqueAggregationAccessSaving;
+    const friendOptions = [
+      { value: 'dao_friend', label: '道友' },
+      { value: 'close_friend', label: '至交' },
+    ].map((entry) => `<label class="technique-aggregation-policy-option">
+      <input type="checkbox" data-technique-aggregation-access-friend="${entry.value}" ${policy.friendLevels.includes(entry.value as 'dao_friend' | 'close_friend') ? 'checked' : ''} ${policy.unrestricted || disabled ? 'disabled' : ''}>
+      <span>${entry.label}</span>
+    </label>`).join('');
+    const sectOptions = SECT_MEMBER_ROLE_HIERARCHY.map((role) => `<label class="technique-aggregation-policy-option">
+      <input type="checkbox" data-technique-aggregation-access-sect-role="${role}" ${policy.sectRoles.includes(role) ? 'checked' : ''} ${policy.unrestricted || disabled ? 'disabled' : ''}>
+      <span>${SECT_MEMBER_ROLE_LABELS[role]}</span>
+    </label>`).join('');
+    const authoritativePolicy = this.techniqueAggregationPanel?.platform.accessPolicy;
+    const saveDisabled = disabled
+      || !bound
+      || !this.techniqueAggregationAccessDirty
+      || (authoritativePolicy ? areTechniqueAggregationPoliciesEqual(policy, authoritativePolicy) : false);
+    return `<div class="technique-aggregation-policy" data-technique-aggregation-policy="true">
+      <label class="technique-aggregation-policy-unrestricted">
+        <input type="checkbox" data-technique-aggregation-access-unrestricted="true" ${policy.unrestricted ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
+        <span>不设门第，诸修皆可参阅</span>
+      </label>
+      <div class="technique-aggregation-policy-group">
+        <span class="technique-aggregation-policy-label">道缘</span>
+        <div class="technique-aggregation-policy-options">${friendOptions}</div>
+      </div>
+      <div class="technique-aggregation-policy-group">
+        <span class="technique-aggregation-policy-label">同门位次</span>
+        <div class="technique-aggregation-policy-options">${sectOptions}</div>
+      </div>
+      ${bound ? `<button type="button" class="small-btn" data-craft-action="technique-aggregation-save-access" ${saveDisabled ? 'disabled' : ''}>${this.techniqueAggregationAccessSaving ? '刻录中...' : '刻录门规'}</button>` : '<span class="alchemy-summary-mode">随首卷一并立规</span>'}
+    </div>`;
   }
 
   private renderTechniqueAggregationBody(): string {
     const panel = this.techniqueAggregationPanel;
     if (!panel) {
-      return `<div class="alchemy-tab-stack" data-technique-aggregation-panel="true" data-technique-aggregation-render-key="${escapeHtmlAttr(this.buildTechniqueAggregationRenderKey())}">
-        <section class="alchemy-summary-card"><div class="empty-hint">正在读取功法统合信息...</div></section>
+      return `<div class="alchemy-tab-stack" data-technique-aggregation-panel="true" data-technique-aggregation-data-key="${escapeHtmlAttr(this.buildTechniqueAggregationDataKey())}">
+        <section class="alchemy-summary-card"><div class="empty-hint">正在查阅统法台法录...</div></section>
       </div>`;
     }
-    const sources = panel?.eligibleSources ?? [];
-    const selected = this.selectedTechniqueAggregationSourceIds;
-    const selectedSources = sources.filter((source) => selected.has(source.techId));
-    const selectedFamily = panel.families.find((family) => family.familyId === this.techniqueAggregationFamilyId);
-    const selectedGrade = selectedSources[0]?.grade;
-    const requiredGrade = selectedFamily?.grade ?? selectedGrade;
-    const sameGrade = selectedSources.every((source) => !requiredGrade || source.grade === requiredGrade);
-    const minimumSelectionCount = this.techniqueAggregationFamilyId ? 1 : 2;
-    const publishEnabled = selectedSources.length >= minimumSelectionCount
-      && sameGrade
-      && selectedSources.every((source) => source.fullyMastered)
-      && !this.techniqueAggregationPublishing;
-    const result = this.techniqueAggregationResult;
-    const resultHtml = result && !result.ok
-      ? `<div class="technique-aggregation-error" role="alert">${escapeHtml(resolveTechniqueAggregationError(result))}${renderTechniqueAggregationConflicts(result)}</div>`
-      : result?.ok && result.aggregate
-        ? `<div class="technique-aggregation-success">已发布 ${escapeHtml(result.aggregate.name)}，已将源功法替换为聚合版本。</div>`
-        : '';
-    const sourceHtml = sources.length > 0
-      ? sources.map((source) => {
-        const isSelected = selected.has(source.techId);
-        const gradeMismatch = Boolean(requiredGrade) && source.grade !== requiredGrade;
-        const disabled = this.techniqueAggregationPublishing || !source.fullyMastered || gradeMismatch;
-        const state = source.fullyMastered ? `圆满 ${formatDisplayInteger(source.maxLevel)} 层` : `修炼 ${formatDisplayInteger(source.level)}/${formatDisplayInteger(source.maxLevel)} 层`;
-        return `<button type="button" class="technique-aggregation-source${isSelected ? ' is-selected' : ''}" data-craft-action="technique-aggregation-toggle-source" data-technique-id="${escapeHtmlAttr(source.techId)}" ${disabled ? 'disabled' : ''}>
-          <span class="technique-aggregation-source-main"><strong>${escapeHtml(resolveClientTechniqueName(source.techId, source.name))}</strong><small>${escapeHtml(getTechniqueGradeLabel(source.grade))} · ${escapeHtml(state)}</small></span>
-          <span class="technique-aggregation-source-mark">${isSelected ? '已选' : source.fullyMastered ? '选择' : '未圆满'}</span>
+    const platform = panel.platform;
+    const family = this.getBoundTechniqueAggregationFamily();
+    const familySourceIds = new Set(family?.sourceTechniqueIds ?? []);
+    const visibleGrade = family?.grade ?? this.techniqueAggregationGradeFilter;
+    const gradeOptions = this.resolveTechniqueAggregationGrades(panel)
+      .map((grade) => `<option value="${grade}" ${grade === visibleGrade ? 'selected' : ''}>${escapeHtml(getTechniqueGradeLabel(grade))}</option>`)
+      .join('');
+    const visibleSourceCount = panel.eligibleSources.filter((source) => !visibleGrade || source.grade === visibleGrade).length;
+    const sourceHtml = panel.eligibleSources.map((source) => {
+        const selected = this.selectedTechniqueAggregationSourceIds.has(source.techId);
+        const alreadyRecorded = familySourceIds.has(source.techId);
+        const visible = !visibleGrade || source.grade === visibleGrade;
+        const disabled = this.techniqueAggregationPublishing || !source.fullyMastered || alreadyRecorded;
+        const state = alreadyRecorded
+          ? '已入法脉'
+          : source.fullyMastered
+            ? selected ? '已择' : '择取'
+            : '未圆满';
+        const levelText = source.fullyMastered
+          ? `圆满 ${formatDisplayInteger(source.maxLevel)} 层`
+          : `修至 ${formatDisplayInteger(source.level)}/${formatDisplayInteger(source.maxLevel)} 层`;
+        return `<button type="button" class="technique-aggregation-source${selected ? ' is-selected' : ''}" data-craft-action="technique-aggregation-toggle-source" data-technique-id="${escapeHtmlAttr(source.techId)}" aria-pressed="${selected ? 'true' : 'false'}" ${visible ? '' : 'hidden'} ${disabled ? 'disabled' : ''}>
+          <span class="technique-aggregation-source-main"><strong>${escapeHtml(resolveClientTechniqueName(source.techId, source.name))}</strong><small>${escapeHtml(getTechniqueGradeLabel(source.grade))} · ${escapeHtml(levelText)}</small></span>
+          <span class="technique-aggregation-source-mark">${state}</span>
         </button>`;
-      }).join('')
-      : '<div class="empty-hint">当前没有可统合的自创内功。只有创建者本人且原功法圆满后才会出现在这里。</div>';
-    const familyHtml = (panel?.families ?? []).length > 0
-      ? (panel?.families ?? []).map((family) => `<button type="button" class="technique-aggregation-family${family.familyId === this.techniqueAggregationFamilyId ? ' is-selected' : ''}" data-craft-action="technique-aggregation-select-family" data-family-id="${escapeHtmlAttr(family.familyId)}" data-expected-revision="${family.latestRevision}" ${this.techniqueAggregationPublishing ? 'disabled' : ''}>
-          <span><strong>${escapeHtml(resolveClientTechniqueName(family.latestTechniqueId, family.name))}</strong><small>${escapeHtml(getTechniqueGradeLabel(family.grade))} · 最新 v${formatDisplayInteger(family.latestRevision)} · ${formatDisplayInteger(family.sourceCount)} 本源功法 · 已覆盖 ${formatDisplayInteger(family.playerCoveredCount)}/${formatDisplayInteger(family.sourceCount)}</small></span><span>${family.playerRevision ? `当前 v${formatDisplayInteger(family.playerRevision)}` : '未学习'}</span>
-        </button>`).join('')
-      : '<div class="empty-hint">尚未发布统合家族；首次发布后可在这里选择新增功法更新版本。</div>';
-    const selectionHint = selectedSources.length > 0
-      ? `已选 ${formatDisplayInteger(selectedSources.length)} 本${requiredGrade ? ` · ${getTechniqueGradeLabel(requiredGrade)}` : ''} · 聚合效果 +10% · 修炼难度按源功法总和的 50% 计算`
-      : this.techniqueAggregationFamilyId
-        ? '请选择至少一本同品阶的新源功法，用于发布家族下一版本。'
-        : '请选择至少两本同品阶、已圆满的自创内功。术法和系统功法不会出现在候选中。';
-    return `<div class="alchemy-tab-stack" data-technique-aggregation-panel="true" data-technique-aggregation-render-key="${escapeHtmlAttr(this.buildTechniqueAggregationRenderKey())}">
+      }).join('') + `<div class="empty-hint" data-technique-aggregation-grade-empty="true" ${visibleSourceCount > 0 ? 'hidden' : ''}>此阶暂无可归宗的自创内功。</div>`;
+    const familySummary = family
+      ? `<div class="technique-aggregation-lineage-summary">
+          <div><strong>${escapeHtml(resolveClientTechniqueName(family.latestTechniqueId, family.name))}</strong><small>${escapeHtml(getTechniqueGradeLabel(family.grade))} · 第 ${formatDisplayInteger(family.latestRevision)} 卷 · 收录 ${formatDisplayInteger(family.sourceCount)} 部源法</small></div>
+          <span>${family.playerRevision ? `已承第 ${formatDisplayInteger(family.playerRevision)} 卷` : `已通晓 ${formatDisplayInteger(family.playerCoveredCount)}/${formatDisplayInteger(family.sourceCount)}`}</span>
+        </div>`
+      : '<div class="technique-aggregation-lineage-summary is-unbound"><div><strong>此台尚未立脉</strong><small>凝成首卷后，此台所承法脉不可改易</small></div></div>';
+    const resultHtml = this.renderTechniqueAggregationResult();
+
+    if (platform.familyId && !family) {
+      return `<div class="alchemy-tab-stack" data-technique-aggregation-panel="true" data-technique-aggregation-data-key="${escapeHtmlAttr(this.buildTechniqueAggregationDataKey())}">
+        <section class="alchemy-summary-card">
+          <div class="alchemy-summary-head"><div class="alchemy-summary-title">台上法脉</div><span class="alchemy-summary-mode">${escapeHtml(platform.displayName)}</span></div>
+          <div class="technique-aggregation-error" role="alert">此台法脉卷册暂不可读取，请稍后再试。</div>
+          <div data-technique-aggregation-result="true" data-technique-aggregation-result-key="${escapeHtmlAttr(this.buildTechniqueAggregationResultKey())}">${resultHtml}</div>
+        </section>
+      </div>`;
+    }
+
+    if (!platform.isOwner) {
+      const learnLabel = platform.learnerState === 'pending'
+        ? `参悟中 ${formatDisplayInteger(platform.pendingProgress ?? 0)}/${formatDisplayInteger(platform.pendingRequiredProgress ?? 1)}`
+        : platform.learnerState === 'learned'
+          ? '已承此脉'
+          : platform.canLearn
+            ? '纳入参悟'
+            : '门规未许';
+      const learnDisabled = !family
+        || !platform.canLearn
+        || platform.learnerState === 'pending'
+        || platform.learnerState === 'learned'
+        || this.techniqueAggregationLearning;
+      return `<div class="alchemy-tab-stack" data-technique-aggregation-panel="true" data-technique-aggregation-data-key="${escapeHtmlAttr(this.buildTechniqueAggregationDataKey())}">
+        <section class="alchemy-summary-card">
+          <div class="alchemy-summary-head"><div class="alchemy-summary-title">台上法脉</div><span class="alchemy-summary-mode">${escapeHtml(platform.displayName)}</span></div>
+          ${familySummary}
+          <div class="technique-aggregation-policy-summary">${escapeHtml(this.renderTechniqueAggregationPolicySummary(platform.accessPolicy))}</div>
+          <button type="button" class="small-btn" data-craft-action="technique-aggregation-learn" ${learnDisabled ? 'disabled' : ''}>${this.techniqueAggregationLearning ? '纳录中...' : learnLabel}</button>
+          <div data-technique-aggregation-result="true" data-technique-aggregation-result-key="${escapeHtmlAttr(this.buildTechniqueAggregationResultKey())}">${resultHtml}</div>
+        </section>
+      </div>`;
+    }
+
+    const publishLabel = family ? '续录新卷' : '凝成首卷';
+    const publishEnabled = this.canPublishTechniqueAggregation();
+    return `<div class="alchemy-tab-stack" data-technique-aggregation-panel="true" data-technique-aggregation-data-key="${escapeHtmlAttr(this.buildTechniqueAggregationDataKey())}">
       <section class="alchemy-summary-card">
-        <div class="alchemy-summary-head"><div class="alchemy-summary-title">功法统合</div><span class="alchemy-summary-mode">已覆盖叶子 ${formatDisplayInteger(panel?.totalCoveredLeafCount ?? 0)} · 聚合 ${formatDisplayInteger(panel?.learnedAggregateCount ?? 0)} 本</span></div>
-        <p class="empty-hint">源功法不会封存，仍可继续修炼和传授；学习聚合功法时，重叠源功法和旧版本会被替换移除。</p>
-        <div class="technique-aggregation-source-list">${sourceHtml}</div>
-        <div class="technique-aggregation-selection-summary">${escapeHtml(selectionHint)}</div>
-        <button type="button" class="small-btn" data-craft-action="technique-aggregation-publish" ${publishEnabled ? '' : 'disabled'}>${this.techniqueAggregationPublishing ? '发布中...' : '发布统合功法'}</button>
-        ${resultHtml}
+        <div class="alchemy-summary-head"><div class="alchemy-summary-title">所承法脉</div><span class="alchemy-summary-mode">${escapeHtml(platform.displayName)}</span></div>
+        ${familySummary}
       </section>
-      <section class="alchemy-summary-card"><div class="alchemy-summary-head"><div class="alchemy-summary-title">已发布家族</div><span class="alchemy-summary-mode">更新必须加入至少一本新源功法</span></div><div class="technique-aggregation-family-list">${familyHtml}</div></section>
+      <section class="alchemy-summary-card technique-aggregation-compose">
+        <div class="alchemy-summary-head"><div class="alchemy-summary-title">${family ? '续录法卷' : '开宗立卷'}</div><span class="alchemy-summary-mode">内功 · 同阶 · 圆满自创</span></div>
+        <div class="technique-aggregation-compose-controls">
+          ${family
+            ? `<div class="technique-aggregation-fixed-field"><span>法脉名讳</span><strong>${escapeHtml(family.name)}</strong></div><div class="technique-aggregation-fixed-field"><span>所录品阶</span><strong>${escapeHtml(getTechniqueGradeLabel(family.grade))}</strong></div>`
+            : `<label class="technique-aggregation-name-field"><span>法脉名讳</span><input class="ui-input" type="text" data-technique-aggregation-name="true" minlength="${CUSTOM_TECHNIQUE_NAME_MIN_LENGTH}" maxlength="${CUSTOM_TECHNIQUE_NAME_MAX_LENGTH}" value="${escapeHtmlAttr(this.techniqueAggregationNameDraft)}" autocomplete="off"></label>
+              <label class="technique-aggregation-grade-field"><span>所录品阶</span><select class="ui-select" data-technique-aggregation-grade-filter="true" ${gradeOptions ? '' : 'disabled'}>${gradeOptions || '<option value="">暂无候选</option>'}</select></label>`}
+        </div>
+        <div class="technique-aggregation-source-list" data-technique-aggregation-source-list="true">${sourceHtml}</div>
+        <div class="technique-aggregation-selection-summary" data-technique-aggregation-selection-summary="true">${escapeHtml(this.getTechniqueAggregationSelectionHint())}</div>
+        <button type="button" class="small-btn" data-craft-action="technique-aggregation-publish" ${publishEnabled ? '' : 'disabled'}>${this.techniqueAggregationPublishing ? '凝篇中...' : publishLabel}</button>
+        <div data-technique-aggregation-result="true" data-technique-aggregation-result-key="${escapeHtmlAttr(this.buildTechniqueAggregationResultKey())}">${resultHtml}</div>
+      </section>
+      <section class="alchemy-summary-card">
+        <div class="alchemy-summary-head"><div class="alchemy-summary-title">传法门规</div><span class="alchemy-summary-mode">多项择一即可参阅</span></div>
+        ${this.renderTechniqueAggregationAccessEditor(Boolean(family))}
+      </section>
     </div>`;
+  }
+
+  private patchTechniqueAggregationControls(root: HTMLElement): void {
+    const panel = this.techniqueAggregationPanel;
+    if (!panel) return;
+    const family = this.getBoundTechniqueAggregationFamily();
+    const familySourceIds = new Set(family?.sourceTechniqueIds ?? []);
+    const visibleGrade = family?.grade ?? this.techniqueAggregationGradeFilter;
+    for (const button of root.querySelectorAll<HTMLButtonElement>('[data-craft-action="technique-aggregation-toggle-source"]')) {
+      const techId = (button.dataset.techniqueId ?? '').trim();
+      const source = panel.eligibleSources.find((entry) => entry.techId === techId);
+      if (!source) continue;
+      const selected = this.selectedTechniqueAggregationSourceIds.has(techId);
+      const alreadyRecorded = familySourceIds.has(techId);
+      button.hidden = Boolean(visibleGrade) && source.grade !== visibleGrade;
+      button.disabled = this.techniqueAggregationPublishing || !source.fullyMastered || alreadyRecorded;
+      button.classList.toggle('is-selected', selected);
+      button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      const mark = button.querySelector<HTMLElement>('.technique-aggregation-source-mark');
+      if (mark) mark.textContent = alreadyRecorded ? '已入法脉' : source.fullyMastered ? selected ? '已择' : '择取' : '未圆满';
+    }
+    const gradeEmpty = root.querySelector<HTMLElement>('[data-technique-aggregation-grade-empty="true"]');
+    if (gradeEmpty) {
+      gradeEmpty.hidden = panel.eligibleSources.some((source) => !visibleGrade || source.grade === visibleGrade);
+    }
+    const gradeSelect = root.querySelector<HTMLSelectElement>('[data-technique-aggregation-grade-filter="true"]');
+    if (gradeSelect && gradeSelect.value !== this.techniqueAggregationGradeFilter) {
+      gradeSelect.value = this.techniqueAggregationGradeFilter;
+    }
+    const nameInput = root.querySelector<HTMLInputElement>('[data-technique-aggregation-name="true"]');
+    if (nameInput && document.activeElement !== nameInput && nameInput.value !== this.techniqueAggregationNameDraft) {
+      nameInput.value = this.techniqueAggregationNameDraft;
+    }
+    const summary = root.querySelector<HTMLElement>('[data-technique-aggregation-selection-summary="true"]');
+    if (summary) summary.textContent = this.getTechniqueAggregationSelectionHint();
+    const publish = root.querySelector<HTMLButtonElement>('[data-craft-action="technique-aggregation-publish"]');
+    if (publish) {
+      publish.disabled = !this.canPublishTechniqueAggregation();
+      publish.textContent = this.techniqueAggregationPublishing ? '凝篇中...' : family ? '续录新卷' : '凝成首卷';
+    }
+    const unrestricted = root.querySelector<HTMLInputElement>('[data-technique-aggregation-access-unrestricted="true"]');
+    if (unrestricted) {
+      unrestricted.checked = this.techniqueAggregationAccessDraft.unrestricted;
+      unrestricted.disabled = this.techniqueAggregationPublishing || this.techniqueAggregationAccessSaving;
+    }
+    for (const input of root.querySelectorAll<HTMLInputElement>('[data-technique-aggregation-access-friend]')) {
+      const value = input.dataset.techniqueAggregationAccessFriend as 'dao_friend' | 'close_friend' | undefined;
+      input.checked = Boolean(value && this.techniqueAggregationAccessDraft.friendLevels.includes(value));
+      input.disabled = this.techniqueAggregationAccessDraft.unrestricted || this.techniqueAggregationPublishing || this.techniqueAggregationAccessSaving;
+    }
+    for (const input of root.querySelectorAll<HTMLInputElement>('[data-technique-aggregation-access-sect-role]')) {
+      const value = input.dataset.techniqueAggregationAccessSectRole as SectMemberRole | undefined;
+      input.checked = Boolean(value && this.techniqueAggregationAccessDraft.sectRoles.includes(value));
+      input.disabled = this.techniqueAggregationAccessDraft.unrestricted || this.techniqueAggregationPublishing || this.techniqueAggregationAccessSaving;
+    }
+    const saveAccess = root.querySelector<HTMLButtonElement>('[data-craft-action="technique-aggregation-save-access"]');
+    if (saveAccess) {
+      saveAccess.disabled = this.techniqueAggregationAccessSaving
+        || this.techniqueAggregationPublishing
+        || !this.techniqueAggregationAccessDirty
+        || areTechniqueAggregationPoliciesEqual(this.techniqueAggregationAccessDraft, panel.platform.accessPolicy);
+      saveAccess.textContent = this.techniqueAggregationAccessSaving ? '刻录中...' : '刻录门规';
+    }
+    const learn = root.querySelector<HTMLButtonElement>('[data-craft-action="technique-aggregation-learn"]');
+    if (learn) {
+      learn.disabled = !family
+        || !panel.platform.canLearn
+        || panel.platform.learnerState !== 'available'
+        || this.techniqueAggregationLearning;
+      learn.textContent = this.techniqueAggregationLearning
+        ? '纳录中...'
+        : panel.platform.learnerState === 'pending'
+          ? `参悟中 ${formatDisplayInteger(panel.platform.pendingProgress ?? 0)}/${formatDisplayInteger(panel.platform.pendingRequiredProgress ?? 1)}`
+          : panel.platform.learnerState === 'learned'
+            ? '已承此脉'
+            : panel.platform.canLearn ? '纳入参悟' : '门规未许';
+    }
+    const resultHost = root.querySelector<HTMLElement>('[data-technique-aggregation-result="true"]');
+    const resultKey = this.buildTechniqueAggregationResultKey();
+    if (resultHost && resultHost.dataset.techniqueAggregationResultKey !== resultKey) {
+      replaceElementHtml(resultHost, this.renderTechniqueAggregationResult());
+      resultHost.dataset.techniqueAggregationResultKey = resultKey;
+    }
   }
 
   private renderTechniqueBookCell(item: ItemStack): string {
@@ -1411,6 +1779,14 @@ export class CraftTransmissionView {
         families: [],
         totalCoveredLeafCount: 0,
         learnedAggregateCount: 0,
+        platform: {
+          buildingId: this.techniqueAggregationBuildingId,
+          displayName: '统法台',
+          isOwner: false,
+          accessPolicy: cloneTechniqueUnificationAccessPolicy(DEFAULT_TECHNIQUE_UNIFICATION_ACCESS_POLICY),
+          canLearn: false,
+          learnerState: 'unbound',
+        },
         error: {
           code: 'TECHNIQUE_AGGREGATE_NOT_READY',
           messageKey: 'technique.aggregation.technique_aggregate_not_ready',
@@ -1421,7 +1797,7 @@ export class CraftTransmissionView {
   }
 
   private publishTechniqueAggregation(): void {
-    if (this.techniqueAggregationPublishing) return;
+    if (this.techniqueAggregationPublishing || this.techniqueAggregationAccessSaving) return;
     const panel = this.techniqueAggregationPanel;
     const sourceTechniqueIds = [...this.selectedTechniqueAggregationSourceIds].sort();
     const minimumSelectionCount = this.techniqueAggregationFamilyId ? 1 : 2;
@@ -1443,7 +1819,10 @@ export class CraftTransmissionView {
         ...(this.techniqueAggregationFamilyId ? {
           familyId: this.techniqueAggregationFamilyId,
           expectedRevision: this.techniqueAggregationExpectedRevision,
-        } : {}),
+        } : {
+          customName: this.techniqueAggregationNameDraft,
+          accessPolicy: cloneTechniqueUnificationAccessPolicy(this.techniqueAggregationAccessDraft),
+        }),
         sourceTechniqueIds,
       });
     } catch {
@@ -1455,6 +1834,70 @@ export class CraftTransmissionView {
         requestId: this.techniqueAggregationRequestId,
         operationId: this.techniqueAggregationOperationId,
         ok: false,
+        code: 'TECHNIQUE_AGGREGATE_NOT_READY',
+      };
+      this.parent.patchOpenCraftShell();
+    }
+  }
+
+  private updateTechniqueAggregationAccess(): void {
+    const panel = this.techniqueAggregationPanel;
+    if (!panel?.platform.isOwner
+      || !panel.platform.familyId
+      || this.techniqueAggregationAccessSaving
+      || this.techniqueAggregationPublishing) return;
+    const request = this.transmissionCallbacks?.onUpdateTechniqueAggregationAccess
+      ?? this.parent.callbacks?.onUpdateTechniqueAggregationAccess;
+    if (!request) return;
+    this.techniqueAggregationAccessSaving = true;
+    this.techniqueAggregationResult = null;
+    this.parent.patchOpenCraftShell();
+    let accepted: boolean | void;
+    try {
+      accepted = request({
+        requestId: this.techniqueAggregationRequestId,
+        buildingId: this.techniqueAggregationBuildingId,
+        accessPolicy: cloneTechniqueUnificationAccessPolicy(this.techniqueAggregationAccessDraft),
+      });
+    } catch {
+      accepted = false;
+    }
+    if (accepted === false) {
+      this.techniqueAggregationAccessSaving = false;
+      this.techniqueAggregationResult = {
+        requestId: this.techniqueAggregationRequestId,
+        ok: false,
+        operation: 'access',
+        code: 'TECHNIQUE_AGGREGATE_NOT_READY',
+      };
+      this.parent.patchOpenCraftShell();
+    }
+  }
+
+  private learnTechniqueAggregation(): void {
+    const panel = this.techniqueAggregationPanel;
+    if (!panel?.platform.canLearn || panel.platform.learnerState !== 'available' || this.techniqueAggregationLearning) return;
+    const request = this.transmissionCallbacks?.onLearnTechniqueAggregation
+      ?? this.parent.callbacks?.onLearnTechniqueAggregation;
+    if (!request) return;
+    this.techniqueAggregationLearning = true;
+    this.techniqueAggregationResult = null;
+    this.parent.patchOpenCraftShell();
+    let accepted: boolean | void;
+    try {
+      accepted = request({
+        requestId: this.techniqueAggregationRequestId,
+        buildingId: this.techniqueAggregationBuildingId,
+      });
+    } catch {
+      accepted = false;
+    }
+    if (accepted === false) {
+      this.techniqueAggregationLearning = false;
+      this.techniqueAggregationResult = {
+        requestId: this.techniqueAggregationRequestId,
+        ok: false,
+        operation: 'learn',
         code: 'TECHNIQUE_AGGREGATE_NOT_READY',
       };
       this.parent.patchOpenCraftShell();
@@ -1513,41 +1956,16 @@ export class CraftTransmissionView {
       const techId = (target.dataset.techniqueId ?? '').trim();
       const source = this.techniqueAggregationPanel?.eligibleSources.find((entry) => entry.techId === techId);
       if (!source || !source.fullyMastered) return true;
+      const family = this.getBoundTechniqueAggregationFamily();
+      if (family?.sourceTechniqueIds.includes(techId)) return true;
       if (this.selectedTechniqueAggregationSourceIds.has(techId)) {
         this.selectedTechniqueAggregationSourceIds.delete(techId);
       } else {
-        const selectedFamily = this.techniqueAggregationPanel?.families.find((entry) => entry.familyId === this.techniqueAggregationFamilyId);
-        if (selectedFamily?.grade && selectedFamily.grade !== source.grade) return true;
         const currentGrade = this.techniqueAggregationPanel?.eligibleSources.find((entry) => this.selectedTechniqueAggregationSourceIds.has(entry.techId))?.grade;
         if (currentGrade && currentGrade !== source.grade) return true;
+        if (family?.grade && family.grade !== source.grade) return true;
+        this.techniqueAggregationGradeFilter = source.grade;
         this.selectedTechniqueAggregationSourceIds.add(techId);
-      }
-      this.techniqueAggregationResult = null;
-      this.techniqueAggregationOperationId = '';
-      this.parent.patchOpenCraftShell();
-      return true;
-    }
-    if (action === 'technique-aggregation-select-family') {
-      if (this.techniqueAggregationPublishing) return true;
-      const nextFamilyId = (target.dataset.familyId ?? '').trim();
-      if (nextFamilyId === this.techniqueAggregationFamilyId) {
-        this.techniqueAggregationFamilyId = '';
-        this.techniqueAggregationExpectedRevision = undefined;
-        this.selectedTechniqueAggregationSourceIds.clear();
-        this.techniqueAggregationResult = null;
-        this.techniqueAggregationOperationId = '';
-        this.parent.patchOpenCraftShell();
-        return true;
-      }
-      this.techniqueAggregationFamilyId = nextFamilyId;
-      this.techniqueAggregationExpectedRevision = Math.max(1, Math.trunc(Number(target.dataset.expectedRevision) || 1));
-      const family = this.techniqueAggregationPanel?.families.find((entry) => entry.familyId === this.techniqueAggregationFamilyId);
-      const familySources = new Set(family?.sourceTechniqueIds ?? []);
-      this.selectedTechniqueAggregationSourceIds.clear();
-      for (const source of this.techniqueAggregationPanel?.eligibleSources ?? []) {
-        if (source.fullyMastered && !familySources.has(source.techId) && (!family?.grade || source.grade === family.grade)) {
-          this.selectedTechniqueAggregationSourceIds.add(source.techId);
-        }
       }
       this.techniqueAggregationResult = null;
       this.techniqueAggregationOperationId = '';
@@ -1556,6 +1974,14 @@ export class CraftTransmissionView {
     }
     if (action === 'technique-aggregation-publish') {
       this.publishTechniqueAggregation();
+      return true;
+    }
+    if (action === 'technique-aggregation-save-access') {
+      this.updateTechniqueAggregationAccess();
+      return true;
+    }
+    if (action === 'technique-aggregation-learn') {
+      this.learnTechniqueAggregation();
       return true;
     }
     if (action === 'technique-refining-toggle-book') {
@@ -1627,6 +2053,14 @@ export class CraftTransmissionView {
 
   bindEvents(body: HTMLElement, signal: AbortSignal): void {
     body.addEventListener('input', (event) => {
+      if (event.target instanceof HTMLInputElement && event.target.matches('[data-technique-aggregation-name="true"]')) {
+        this.techniqueAggregationNameDraft = event.target.value;
+        this.techniqueAggregationResult = null;
+        this.techniqueAggregationOperationId = '';
+        const panel = body.querySelector<HTMLElement>('[data-technique-aggregation-panel="true"]');
+        if (panel) this.patchTechniqueAggregationControls(panel);
+        return;
+      }
       if (event.target instanceof HTMLInputElement && event.target.matches('[data-technique-refining-count-input="true"]')) {
         this.selectedTechniqueBookCount = Math.max(1, Math.floor(Number(event.target.value || '1') || 1));
         this.patchTechniqueRefiningTotals(body);
@@ -1651,6 +2085,54 @@ export class CraftTransmissionView {
       }
     }, { signal });
     body.addEventListener('change', (event) => {
+      if (event.target instanceof HTMLSelectElement && event.target.matches('[data-technique-aggregation-grade-filter="true"]')) {
+        const grade = TECHNIQUE_GRADE_ORDER.includes(event.target.value as TechniqueGrade)
+          ? event.target.value as TechniqueGrade
+          : '';
+        this.techniqueAggregationGradeFilter = grade;
+        this.selectedTechniqueAggregationSourceIds.clear();
+        this.techniqueAggregationResult = null;
+        this.techniqueAggregationOperationId = '';
+        const panel = body.querySelector<HTMLElement>('[data-technique-aggregation-panel="true"]');
+        if (panel) this.patchTechniqueAggregationControls(panel);
+        return;
+      }
+      if (event.target instanceof HTMLInputElement && event.target.matches('[data-technique-aggregation-access-unrestricted="true"]')) {
+        this.techniqueAggregationAccessDraft.unrestricted = event.target.checked;
+        this.techniqueAggregationAccessDirty = true;
+        this.techniqueAggregationResult = null;
+        const panel = body.querySelector<HTMLElement>('[data-technique-aggregation-panel="true"]');
+        if (panel) this.patchTechniqueAggregationControls(panel);
+        return;
+      }
+      if (event.target instanceof HTMLInputElement && event.target.matches('[data-technique-aggregation-access-friend]')) {
+        const value = event.target.dataset.techniqueAggregationAccessFriend;
+        if (value === 'dao_friend' || value === 'close_friend') {
+          const values = new Set(this.techniqueAggregationAccessDraft.friendLevels);
+          if (event.target.checked) values.add(value); else values.delete(value);
+          this.techniqueAggregationAccessDraft.friendLevels = (['dao_friend', 'close_friend'] as const)
+            .filter((entry) => values.has(entry));
+          this.techniqueAggregationAccessDirty = true;
+          this.techniqueAggregationResult = null;
+          const panel = body.querySelector<HTMLElement>('[data-technique-aggregation-panel="true"]');
+          if (panel) this.patchTechniqueAggregationControls(panel);
+        }
+        return;
+      }
+      if (event.target instanceof HTMLInputElement && event.target.matches('[data-technique-aggregation-access-sect-role]')) {
+        const value = event.target.dataset.techniqueAggregationAccessSectRole as SectMemberRole | undefined;
+        if (value && SECT_MEMBER_ROLE_HIERARCHY.includes(value)) {
+          const values = new Set(this.techniqueAggregationAccessDraft.sectRoles);
+          if (event.target.checked) values.add(value); else values.delete(value);
+          this.techniqueAggregationAccessDraft.sectRoles = SECT_MEMBER_ROLE_HIERARCHY
+            .filter((entry) => values.has(entry));
+          this.techniqueAggregationAccessDirty = true;
+          this.techniqueAggregationResult = null;
+          const panel = body.querySelector<HTMLElement>('[data-technique-aggregation-panel="true"]');
+          if (panel) this.patchTechniqueAggregationControls(panel);
+        }
+        return;
+      }
       if (event.target instanceof HTMLSelectElement && event.target.matches('[data-transmission-book-grade-filter="true"]')) {
         this.techniqueBookCraftGradeFilter = this.normalizeTechniqueBookCraftGradeFilter(event.target.value);
         this.parent.patchOpenCraftShell();

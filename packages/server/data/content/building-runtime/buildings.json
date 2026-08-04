@@ -63,6 +63,15 @@
     "economy": { "buildTicks": 1800, "durabilityMultiplier": 80, "maxHp": 100, "cost": [{ "itemId": "wood", "count": 4 }, { "itemId": "stone", "count": 2 }] }
   },
   {
+    "id": "technique_unification_platform",
+    "name": "统法台",
+    "visual": { "glyph": "统", "color": "#4f7664", "layer": "furniture" },
+    "placement": { "layer": "facility", "footprint": [{ "dx": 0, "dy": 0 }] },
+    "topology": { "blocksMove": false, "blocksSight": false },
+    "fengShui": { "elementVector": { "wood": 12, "water": 8, "earth": 4 }, "traits": ["facility.technique_unification", "storage.technique_lineage"], "comfort": 3, "stability": 10, "qiAffinity": 2 },
+    "economy": { "buildTicks": 1800, "durabilityMultiplier": 90, "maxHp": 110, "cost": [{ "itemId": "wood", "count": 4 }, { "itemId": "stone", "count": 2 }] }
+  },
+  {
     "id": "time_chamber",
     "name": "密室",
     "visual": { "glyph": "室", "color": "#6554c0", "layer": "furniture" },

@@ -5,11 +5,29 @@
  * 叶子功法集合，玩家覆盖数量据此计算，不能用聚合行数代替覆盖数量。
  */
 import type { TechniqueCategory, TechniqueGrade, TechniqueState } from './cultivation-types';
+import type { DaoistRelationLevel } from './social-types';
+import { SECT_MEMBER_ROLE_HIERARCHY, type SectMemberRole } from './sect-types';
 
 export const TECHNIQUE_AGGREGATE_ID_PREFIX = 'agg_';
 export const TECHNIQUE_AGGREGATE_SCHEMA_VERSION = 1;
 export const TECHNIQUE_AGGREGATE_CATEGORY: TechniqueCategory = 'internal';
 export const TECHNIQUE_AGGREGATE_EFFECT_MULTIPLIER = 1.1;
+export const TECHNIQUE_UNIFICATION_PLATFORM_DEF_ID = 'technique_unification_platform';
+
+export interface TechniqueUnificationAccessPolicy {
+  /** 开启后不再检查好友层级或宗门职位。 */
+  unrestricted: boolean;
+  /** 多组选项按“任一满足”裁定；道友同时包含至交。 */
+  friendLevels: DaoistRelationLevel[];
+  /** 仅匹配台主当前宗门内的所选职位。 */
+  sectRoles: SectMemberRole[];
+}
+
+export const DEFAULT_TECHNIQUE_UNIFICATION_ACCESS_POLICY: Readonly<TechniqueUnificationAccessPolicy> = {
+  unrestricted: true,
+  friendLevels: [],
+  sectRoles: [],
+};
 
 export type TechniqueAggregationErrorCode =
   | 'TECHNIQUE_AGGREGATE_NOT_READY'
@@ -17,6 +35,13 @@ export type TechniqueAggregationErrorCode =
   | 'TECHNIQUE_AGGREGATE_BUILDING_OUT_OF_RANGE'
   | 'TECHNIQUE_AGGREGATE_BUILDING_INVALID'
   | 'TECHNIQUE_AGGREGATE_PERMISSION_DENIED'
+  | 'TECHNIQUE_AGGREGATE_PLATFORM_OWNER_REQUIRED'
+  | 'TECHNIQUE_AGGREGATE_PLATFORM_ALREADY_BOUND'
+  | 'TECHNIQUE_AGGREGATE_PLATFORM_UNBOUND'
+  | 'TECHNIQUE_AGGREGATE_PLATFORM_MISMATCH'
+  | 'TECHNIQUE_AGGREGATE_ACCESS_DENIED'
+  | 'TECHNIQUE_AGGREGATE_NAME_INVALID'
+  | 'TECHNIQUE_AGGREGATE_LEARN_REJECTED'
   | 'TECHNIQUE_AGGREGATE_SOURCE_EMPTY'
   | 'TECHNIQUE_AGGREGATE_SOURCE_DUPLICATE'
   | 'TECHNIQUE_AGGREGATE_SOURCE_NOT_FOUND'
@@ -43,6 +68,10 @@ export interface TechniqueAggregationMetadata {
   previousRevision?: number;
   /** 聚合发布者，冗余保存以便缓存未加载数据库行时仍可鉴权。 */
   creatorPlayerId?: string;
+  /** 首次凝篇所在统法台，用于发布成功但建筑域尚未刷盘时恢复绑定。 */
+  platformInstanceId?: string;
+  platformBuildingId?: string;
+  initialAccessPolicy?: TechniqueUnificationAccessPolicy;
 }
 
 export interface TechniqueAggregationSourceView {
@@ -88,7 +117,39 @@ export interface TechniqueAggregationPublishRequest {
   /** 首版为空；更新时填写现有 familyId。 */
   familyId?: string;
   expectedRevision?: number;
+  /** 首次凝篇必填；续录沿用法脉原名。 */
+  customName?: string;
+  /** 首次凝篇可一并设置，后续通过独立门规请求修改。 */
+  accessPolicy?: TechniqueUnificationAccessPolicy;
   sourceTechniqueIds: string[];
+}
+
+export interface TechniqueAggregationAccessRequest {
+  requestId?: string;
+  buildingId?: string;
+  accessPolicy: TechniqueUnificationAccessPolicy;
+}
+
+export interface TechniqueAggregationLearnRequest {
+  requestId?: string;
+  buildingId?: string;
+}
+
+export type TechniqueUnificationLearnerState = 'unbound' | 'available' | 'pending' | 'learned';
+
+export interface TechniqueUnificationPlatformView {
+  buildingId: string;
+  displayName: string;
+  ownerPlayerId?: string;
+  isOwner: boolean;
+  familyId?: string;
+  accessPolicy: TechniqueUnificationAccessPolicy;
+  canLearn: boolean;
+  learnerState: TechniqueUnificationLearnerState;
+  latestTechniqueId?: string;
+  latestRevision?: number;
+  pendingProgress?: number;
+  pendingRequiredProgress?: number;
 }
 
 export interface TechniqueAggregationPanelView {
@@ -101,6 +162,7 @@ export interface TechniqueAggregationPanelView {
   totalCoveredLeafCount: number;
   /** 当前玩家拥有的聚合行数，用于展示压缩收益。 */
   learnedAggregateCount: number;
+  platform: TechniqueUnificationPlatformView;
   error?: TechniqueAggregationErrorView;
 }
 
@@ -118,6 +180,7 @@ export interface TechniqueAggregationResultView {
   requestId?: string;
   operationId?: string;
   ok: boolean;
+  operation?: 'publish' | 'access' | 'learn';
   code?: TechniqueAggregationErrorCode;
   messageKey?: string;
   vars?: Record<string, string | number>;
@@ -140,6 +203,8 @@ export interface TechniqueAggregationResultView {
 
 export type C2S_RequestTechniqueAggregation = TechniqueAggregationPreviewRequest;
 export type C2S_PublishTechniqueAggregation = TechniqueAggregationPublishRequest;
+export type C2S_UpdateTechniqueAggregationAccess = TechniqueAggregationAccessRequest;
+export type C2S_LearnTechniqueAggregation = TechniqueAggregationLearnRequest;
 export type S2C_TechniqueAggregationPanel = TechniqueAggregationPanelView;
 export type S2C_TechniqueAggregationResult = TechniqueAggregationResultView;
 
@@ -173,6 +238,13 @@ export function normalizeTechniqueAggregationMetadata(value: unknown): Technique
   const creatorPlayerId = typeof raw.creatorPlayerId === 'string' && raw.creatorPlayerId.trim()
     ? raw.creatorPlayerId.trim()
     : undefined;
+  const platformInstanceId = typeof raw.platformInstanceId === 'string' && raw.platformInstanceId.trim()
+    ? raw.platformInstanceId.trim()
+    : undefined;
+  const platformBuildingId = typeof raw.platformBuildingId === 'string' && raw.platformBuildingId.trim()
+    ? raw.platformBuildingId.trim()
+    : undefined;
+  const initialAccessPolicy = normalizeTechniqueUnificationAccessPolicy(raw.initialAccessPolicy);
   return {
     schemaVersion: Math.max(1, Math.trunc(Number(raw.schemaVersion) || TECHNIQUE_AGGREGATE_SCHEMA_VERSION)),
     familyId,
@@ -181,6 +253,50 @@ export function normalizeTechniqueAggregationMetadata(value: unknown): Technique
     sourceCount: sourceTechniqueIds.length,
     ...(previousRevision && previousRevision > 0 ? { previousRevision } : {}),
     ...(creatorPlayerId ? { creatorPlayerId } : {}),
+    ...(platformInstanceId ? { platformInstanceId } : {}),
+    ...(platformBuildingId ? { platformBuildingId } : {}),
+    ...(raw.initialAccessPolicy ? { initialAccessPolicy } : {}),
+  };
+}
+
+export function normalizeTechniqueUnificationAccessPolicy(
+  value: unknown,
+  fallback: Readonly<TechniqueUnificationAccessPolicy> = DEFAULT_TECHNIQUE_UNIFICATION_ACCESS_POLICY,
+): TechniqueUnificationAccessPolicy {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return cloneTechniqueUnificationAccessPolicy(fallback);
+  }
+  const raw = value as Record<string, unknown>;
+  const unrestricted = raw.unrestricted === true;
+  if (unrestricted) {
+    return { unrestricted: true, friendLevels: [], sectRoles: [] };
+  }
+  const friendLevelSet = new Set(
+    Array.isArray(raw.friendLevels)
+      ? raw.friendLevels.filter((entry): entry is DaoistRelationLevel => entry === 'dao_friend' || entry === 'close_friend')
+      : [],
+  );
+  const sectRoleSet = new Set(
+    Array.isArray(raw.sectRoles)
+      ? raw.sectRoles.filter((entry): entry is SectMemberRole => (
+        typeof entry === 'string' && SECT_MEMBER_ROLE_HIERARCHY.includes(entry as SectMemberRole)
+      ))
+      : [],
+  );
+  return {
+    unrestricted: false,
+    friendLevels: (['dao_friend', 'close_friend'] as const).filter((entry) => friendLevelSet.has(entry)),
+    sectRoles: SECT_MEMBER_ROLE_HIERARCHY.filter((entry) => sectRoleSet.has(entry)),
+  };
+}
+
+export function cloneTechniqueUnificationAccessPolicy(
+  value: Readonly<TechniqueUnificationAccessPolicy>,
+): TechniqueUnificationAccessPolicy {
+  return {
+    unrestricted: value.unrestricted === true,
+    friendLevels: [...value.friendLevels],
+    sectRoles: [...value.sectRoles],
   };
 }
 

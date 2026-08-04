@@ -318,11 +318,17 @@ export class WorldRuntimeContextActionQueryService {
                             desc: '打开炼法台，选择背包内功法书分解为功法残页，或抄录指定层数的功法书。',
                             cooldownLeft: 0,
                         });
+                    }
+                    if (building?.defId === 'technique_unification_platform' && building?.state === 'active') {
+                        const buildingName = typeof entry?.name === 'string' && entry.name.trim()
+                            ? entry.name.trim()
+                            : '统法台';
+                        const encodedBuildingId = encodeURIComponent(building.id);
                         actions.push({
-                            id: `technique_refining:aggregate:${encodedBuildingId}`,
-                            name: `统合内功：${buildingName}`,
+                            id: `technique_unification:open:${encodedBuildingId}`,
+                            name: `参阅法脉：${buildingName}`,
                             type: 'interact',
-                            desc: '在炼法台统合同阶、已圆满的自创内功；聚合后源功法仍可传授，但学习聚合版本时会替换重叠功法。',
+                            desc: '登台查阅所承法脉；台主可将同阶圆满的自创内功凝为一卷，并立下传法门规。',
                             cooldownLeft: 0,
                         });
                     }

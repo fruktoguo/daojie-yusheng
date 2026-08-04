@@ -246,6 +246,47 @@
     "blocksSight": false
   },
   {
+    "id": "technique_unification_platform",
+    "name": "统法台",
+    "layer": "facility",
+    "visualGlyph": "统",
+    "visualColor": "#4f7664",
+    "allowRotate": true,
+    "footprint": [
+      {
+        "dx": 0,
+        "dy": 0
+      }
+    ],
+    "cost": [
+      {
+        "itemId": "wood",
+        "count": 4
+      },
+      {
+        "itemId": "stone",
+        "count": 2
+      }
+    ],
+    "traits": [
+      "facility.technique_unification",
+      "storage.technique_lineage"
+    ],
+    "elementVector": {
+      "wood": 12,
+      "water": 8,
+      "earth": 4
+    },
+    "durabilityMultiplier": 90,
+    "buildTicks": 1800,
+    "maxHp": 110,
+    "stability": 10,
+    "comfort": 3,
+    "opening": "none",
+    "blocksMove": false,
+    "blocksSight": false
+  },
+  {
     "id": "time_chamber",
     "name": "密室",
     "layer": "facility",

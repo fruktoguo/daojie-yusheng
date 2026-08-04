@@ -757,5 +757,13 @@ class WorldGateway implements WorldGatewayHelperContext {
     handlePublishTechniqueAggregation(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayTechniqueAggregationHelper.handlePublish(client, payload);
     }
+    @SubscribeMessage(C2S.UpdateTechniqueAggregationAccess)
+    handleUpdateTechniqueAggregationAccess(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayTechniqueAggregationHelper.handleUpdateAccess(client, payload);
+    }
+    @SubscribeMessage(C2S.LearnTechniqueAggregation)
+    handleLearnTechniqueAggregation(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayTechniqueAggregationHelper.handleLearn(client, payload);
+    }
 }
 export { WorldGateway };

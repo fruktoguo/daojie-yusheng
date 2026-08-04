@@ -553,6 +553,8 @@ type MainBootstrapAssemblyOptions = {
     | 'sendDestroyItem'
     | 'sendRequestTechniqueAggregation'
     | 'sendPublishTechniqueAggregation'
+    | 'sendUpdateTechniqueAggregationAccess'
+    | 'sendLearnTechniqueAggregation'
   >;
   /**
  * socialEconomySender：socialEconomySender相关字段。

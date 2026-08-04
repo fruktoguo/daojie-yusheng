@@ -8,7 +8,7 @@
  * 单张地图的全部运行态：地块平面、占位、妖兽 AI、战斗、建筑、
  * 资源刷新、灵气流动、AOI 广播和持久化脏域追踪。
  */
-import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, DEFAULT_QI_RUNTIME_FLOW_CONFIGS, DISPERSED_AURA_RESOURCE_KEY, Direction, GROUND_ITEM_EXPIRE_TICKS, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_INSTANCE_TICK_SPEED, MAX_THREAT_VALUE, MOVE_POINT_UNIT, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateDispersedAuraGainPerTile, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, horizontalFacingFromDelta, horizontalFacingFromTo, isGroundInteractableCellLayerTarget, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeHorizontalFacing, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolvePlayerFacingContentName, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
+import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, DEFAULT_QI_RUNTIME_FLOW_CONFIGS, DISPERSED_AURA_RESOURCE_KEY, Direction, GROUND_ITEM_EXPIRE_TICKS, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_INSTANCE_TICK_SPEED, MAX_THREAT_VALUE, MOVE_POINT_UNIT, QI_HALF_LIFE_RATE_SCALE, StructureType, TECHNIQUE_UNIFICATION_PLATFORM_DEF_ID, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateDispersedAuraGainPerTile, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, horizontalFacingFromDelta, horizontalFacingFromTo, isGroundInteractableCellLayerTarget, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeHorizontalFacing, normalizeStructureType, normalizeSurfaceType, normalizeTechniqueUnificationAccessPolicy, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolvePlayerFacingContentName, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
 import { readTrimmedEnv } from '../../config/env-alias';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import '../map/map-template.repository';
@@ -1843,6 +1843,40 @@ class MapInstanceRuntime {
         this.markPersistenceDirtyDomainsHighPriority(['building']);
         return { ok: true, building, changed: true };
     }
+    /** updateTechniqueUnificationPlatformState：在实例权威边界内绑定法脉或刻录传法门规。 */
+    updateTechniqueUnificationPlatformState(
+        buildingIdInput,
+        input: { familyId?: unknown; accessPolicy?: unknown } = {},
+    ) {
+        const buildingId = normalizeBuildingId(buildingIdInput);
+        const familyId = normalizeBuildingId(input?.familyId);
+        const building = buildingId ? this.buildingById.get(buildingId) : null;
+        if (!building || building.defId !== TECHNIQUE_UNIFICATION_PLATFORM_DEF_ID || building.state !== 'active') {
+            return { ok: false, reason: 'technique_unification_platform_invalid' };
+        }
+        if (!familyId) {
+            return { ok: false, reason: 'technique_unification_family_required' };
+        }
+        const currentFamilyId = normalizeBuildingId(building.techniqueAggregationFamilyId);
+        if (currentFamilyId && currentFamilyId !== familyId) {
+            return { ok: false, reason: 'technique_unification_platform_already_bound' };
+        }
+        const currentPolicy = normalizeTechniqueUnificationAccessPolicy(building.techniqueAggregationAccessPolicy);
+        const nextPolicy = normalizeTechniqueUnificationAccessPolicy(input?.accessPolicy);
+        if (currentFamilyId === familyId && haveSameTechniqueUnificationAccessPolicy(currentPolicy, nextPolicy)) {
+            return { ok: true, building, changed: false };
+        }
+        building.techniqueAggregationFamilyId = familyId;
+        building.techniqueAggregationAccessPolicy = nextPolicy;
+        building.updatedAtTick = Math.max(0, Math.trunc(Number(this.tick) || 0));
+        building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
+        this.localBuildingViewCacheById.delete(building.id);
+        this.markAoiViewChangedAt(building.x, building.y);
+        this.worldRevision += 1;
+        this.persistentRevision += 1;
+        this.markPersistenceDirtyDomainsHighPriority(['building']);
+        return { ok: true, building, changed: true };
+    }
     /** deconstructBuildingInstance：服务端权威拆除建筑，调用方负责返还和审计。 */
     deconstructBuildingInstance(buildingIdInput, options: { treasureVaultRecovered?: boolean; timeChamberReleased?: boolean } = {}) {
         const buildingId = normalizeBuildingId(buildingIdInput);
@@ -2791,6 +2825,12 @@ class MapInstanceRuntime {
                 id,
                 name: typeof entry?.name === 'string' && entry.name.trim() ? entry.name.trim() : undefined,
                 treasureVaultPermissions: normalizePersistedTreasureVaultPermissions(entry?.treasureVaultPermissions),
+                ...(normalizeBuildingId(entry?.techniqueAggregationFamilyId) ? {
+                    techniqueAggregationFamilyId: normalizeBuildingId(entry.techniqueAggregationFamilyId),
+                } : {}),
+                ...(entry?.techniqueAggregationAccessPolicy ? {
+                    techniqueAggregationAccessPolicy: normalizeTechniqueUnificationAccessPolicy(entry.techniqueAggregationAccessPolicy),
+                } : {}),
                 defId,
                 defHandle,
                 instanceId: this.meta.instanceId,
@@ -9755,6 +9795,13 @@ function rotationToIndex(rotation) {
 }
 function normalizeBuildingId(value) {
     return typeof value === 'string' && value.trim().length > 0 ? value.trim() : '';
+}
+function haveSameTechniqueUnificationAccessPolicy(left, right) {
+    return left.unrestricted === right.unrestricted
+        && left.friendLevels.length === right.friendLevels.length
+        && left.friendLevels.every((entry, index) => entry === right.friendLevels[index])
+        && left.sectRoles.length === right.sectRoles.length
+        && left.sectRoles.every((entry, index) => entry === right.sectRoles[index]);
 }
 function normalizeBuildingState(value) {
     switch (value) {

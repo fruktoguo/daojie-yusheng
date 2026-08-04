@@ -7,6 +7,7 @@ import type { CellLayerTarget } from './map-layer-types';
 import type { TechniqueCategory, TechniqueGrade } from './cultivation-types';
 import type { CraftEffectStatsPatch } from './craft-effect-stats';
 import type { TreasureVaultPermissionMap } from './social-types';
+import type { TechniqueUnificationAccessPolicy } from './technique-aggregation';
 import type { TileType } from './world-core-types';
 
 export type FiveElement = 'metal' | 'wood' | 'water' | 'fire' | 'earth' | 'neutral';
@@ -156,6 +157,10 @@ export interface BuildingInstance {
   name?: string;
   /** 宝库使用权限；缺失的权限项由宝库运行时按默认规则补齐。 */
   treasureVaultPermissions?: Partial<TreasureVaultPermissionMap>;
+  /** 统法台一经凝篇即绑定稳定法脉，不允许切换。 */
+  techniqueAggregationFamilyId?: string;
+  /** 统法台传阅门规；缺失时默认不设门槛。 */
+  techniqueAggregationAccessPolicy?: TechniqueUnificationAccessPolicy;
   defId: string;
   defHandle: number;
   instanceId: string;

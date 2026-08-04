@@ -1548,6 +1548,9 @@ export class PlayerRuntimeService {
                 normalizedCreatorPlayerId ?? existing.creatorPlayerId,
                 existing,
             );
+            if (typeof options?.selfComprehensionAllowed === 'boolean') {
+                selfComprehensionAllowed = options.selfComprehensionAllowed;
+            }
             existing.selfComprehensionAllowed = selfComprehensionAllowed;
             if (normalizedCreatorPlayerId) {
                 existing.creatorPlayerId = normalizedCreatorPlayerId;
@@ -1559,6 +1562,9 @@ export class PlayerRuntimeService {
                 normalizedSourceKind,
                 normalizedCreatorPlayerId,
             );
+            if (typeof options?.selfComprehensionAllowed === 'boolean') {
+                selfComprehensionAllowed = options.selfComprehensionAllowed;
+            }
             pending.push({
                 techId: normalizedTechId,
                 name: resolvePlayerFacingContentName(normalizedTechId, '未知功法', technique.name),
