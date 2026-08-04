@@ -8,9 +8,10 @@
  * 把境界、装备、buff、根骨、功法和临时修正折算成最终六维属性和数值面板，
  * 并在属性变化时同步更新生命/灵力上限和当前值比例。
  */
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CRAFT_EFFECT_KINDS, CRAFT_EFFECT_SKILL_KINDS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_BASE_ATTRS, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, NUMERIC_STAT_MULTIPLIER_FLOORS, addCraftEffectStatsFromItem, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcBodyTrainingAttrPercentBonus, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, cloneCraftEffectStats, cloneNumericRatioDivisors, cloneNumericStats, compileValueStatsToActualStats, createEmptyCraftEffectStats, createNumericStats, getEffectivePlayerMoveSpeed, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, percentModifierToMultiplier, resolvePlayerFacingContentName, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } from '@mud/shared';
 import { PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID } from '../../constants/gameplay/pvp';
+import { type RuntimeExternalSectionKey, WorldRuntimeMetricsService } from '../world/world-runtime-metrics.service';
 import { resolvePlayerDailySignInFortuneLuck } from './player-special-stat.helpers';
 
 /** 玩家属性结算器：把境界、装备、buff 和根骨折算成最终面板。 */
@@ -24,6 +25,11 @@ export class PlayerAttributesService {
     enhancedEquipmentScratch = [];
     techniqueBonusCache = new WeakMap();
     deferredRecalculationStates = new WeakMap();
+
+    constructor(
+        @Optional() @Inject(WorldRuntimeMetricsService)
+        private readonly worldRuntimeMetricsService?: WorldRuntimeMetricsService,
+    ) {}
 
     /** 创建默认属性快照，供新角色和重建场景使用。 */
     createInitialState() {
@@ -49,6 +55,7 @@ export class PlayerAttributesService {
         const deferred = this.deferredRecalculationStates.get(player);
         if (deferred && deferred.depth > 0) {
             deferred.recalculateRequested = true;
+            this.recordAttributePerf('attribution.attributes.deferredRequests', 0, 1);
             return true;
         }
         return this.recalculateNow(player);
@@ -101,12 +108,15 @@ export class PlayerAttributesService {
         return { requested, changed, panelDirtyChanged };
     }
     recalculateNow(player) {
+        const startedAt = performance.now();
+        const techniqueCount = resolveTechniqueEntryCount(player.techniques);
         const previousMaxHp = Math.max(1, Math.round(player.maxHp));
 
         const previousMaxQi = Math.max(0, Math.round(player.maxQi));
 
         const next = this.buildState(player);
         if (!hasAttrStateChanged(player.attrs, next)) {
+            this.recordAttributeRecalculation(startedAt, techniqueCount, false);
             return false;
         }
         player.attrs.stage = next.stage;
@@ -130,7 +140,25 @@ export class PlayerAttributesService {
             ? clamp(Math.round(player.qi / previousMaxQi * nextMaxQi), 0, nextMaxQi)
             : nextMaxQi;
         player.selfRevision += 1;
+        this.recordAttributeRecalculation(startedAt, techniqueCount, true);
         return true;
+    }
+
+    private recordAttributeRecalculation(startedAt: number, techniqueCount: number, changed: boolean): void {
+        const durationMs = performance.now() - startedAt;
+        this.recordAttributePerf('attribution.attributes.recalculateMs', durationMs, 1);
+        this.recordAttributePerf(resolveTechniqueCountRecalculationKey(techniqueCount), durationMs, 1);
+        this.recordAttributePerf(
+            changed
+                ? 'attribution.attributes.recalculate.changed'
+                : 'attribution.attributes.recalculate.unchanged',
+            0,
+            1,
+        );
+    }
+
+    private recordAttributePerf(key: RuntimeExternalSectionKey, durationMs: number, count: number): void {
+        this.worldRuntimeMetricsService?.recordExternalSectionDuration(key, durationMs, count);
     }
     /** 只让属性面板标脏，不重新结算具体数值。 */
     markPanelDirty(player) {
@@ -163,11 +191,25 @@ export class PlayerAttributesService {
 
         const rawBaseAttrs = normalizeRawBaseAttributes(player.attrs?.rawBaseAttrs);
 
+        const techniqueCount = resolveTechniqueEntryCount(player.techniques);
+        const techniqueCacheHit = hasTechniqueBonusCacheHit(
+            player.techniques,
+            this.techniqueBonusCache,
+        );
+        const techniqueResolveStartedAt = performance.now();
         const techniqueBonuses = resolveTechniqueBonusesForCalculation(
             player.techniques,
             this.techniqueStatesScratch,
             this.techniqueBonusCache,
         );
+        this.recordAttributePerf(
+            techniqueCacheHit
+                ? 'attribution.attributes.techniqueResolve.cacheHitMs'
+                : 'attribution.attributes.techniqueResolve.cacheMissMs',
+            performance.now() - techniqueResolveStartedAt,
+            1,
+        );
+        this.recordAttributePerf('attribution.attributes.techniqueEntries', 0, techniqueCount);
         const techniqueAttrBonus = techniqueBonuses.attrBonus;
         const techniqueMaxAttrPercentBonus = techniqueBonuses.maxAttrPercentBonus;
 
@@ -920,6 +962,35 @@ function resolveTechniqueStatesForCalculation(techniques, scratch) {
         });
     }
     return scratch;
+}
+
+function resolveTechniqueEntryCount(techniqueState): number {
+    return Array.isArray(techniqueState?.techniques) ? techniqueState.techniques.length : 0;
+}
+
+function hasTechniqueBonusCacheHit(techniqueState, cache): boolean {
+    const holder = techniqueState && typeof techniqueState === 'object' ? techniqueState : null;
+    if (!holder) {
+        return false;
+    }
+    const revision = Math.max(0, Math.trunc(Number(holder.revision ?? 0) || 0));
+    return cache.get(holder)?.revision === revision;
+}
+
+function resolveTechniqueCountRecalculationKey(techniqueCount: number): RuntimeExternalSectionKey {
+    if (techniqueCount <= 0) {
+        return 'attribution.attributes.recalculate.techniques0Ms';
+    }
+    if (techniqueCount <= 5) {
+        return 'attribution.attributes.recalculate.techniques1To5Ms';
+    }
+    if (techniqueCount <= 10) {
+        return 'attribution.attributes.recalculate.techniques6To10Ms';
+    }
+    if (techniqueCount <= 20) {
+        return 'attribution.attributes.recalculate.techniques11To20Ms';
+    }
+    return 'attribution.attributes.recalculate.techniques21PlusMs';
 }
 
 function resolveTechniqueBonusesForCalculation(techniqueState, scratch, cache) {

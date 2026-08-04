@@ -20,6 +20,33 @@ import type { InstanceTickSchedulePlan } from './world-runtime-instance-schedule
 
 const DEFERRED_CRAFT_RUNTIME_UPDATE_OPTIONS = Object.freeze({ deferRuntimeUpdates: true });
 
+type InstanceStepAttributionKeys = Readonly<{
+  stepDurationKey: string;
+  playerStepCountKey: string;
+  materializationDurationKey: string | null;
+}>;
+
+const TIME_CHAMBER_FIRST_STEP_ATTRIBUTION: InstanceStepAttributionKeys = Object.freeze({
+  stepDurationKey: 'attribution.instance.timeChamber.firstStepMs',
+  playerStepCountKey: 'attribution.instance.timeChamber.playerSteps',
+  materializationDurationKey: null,
+});
+const TIME_CHAMBER_EXTRA_STEP_ATTRIBUTION: InstanceStepAttributionKeys = Object.freeze({
+  stepDurationKey: 'attribution.instance.timeChamber.extraStepMs',
+  playerStepCountKey: 'attribution.instance.timeChamber.playerSteps',
+  materializationDurationKey: 'attribution.instance.timeChamber.extraStepMaterializationMs',
+});
+const NON_TIME_CHAMBER_FIRST_STEP_ATTRIBUTION: InstanceStepAttributionKeys = Object.freeze({
+  stepDurationKey: 'attribution.instance.nonTimeChamber.firstStepMs',
+  playerStepCountKey: 'attribution.instance.nonTimeChamber.playerSteps',
+  materializationDurationKey: null,
+});
+const NON_TIME_CHAMBER_CATCH_UP_STEP_ATTRIBUTION: InstanceStepAttributionKeys = Object.freeze({
+  stepDurationKey: 'attribution.instance.nonTimeChamber.catchUpStepMs',
+  playerStepCountKey: 'attribution.instance.nonTimeChamber.playerSteps',
+  materializationDurationKey: 'attribution.instance.nonTimeChamber.catchUpMaterializationMs',
+});
+
 /** world-runtime instance tick orchestration：承接实例级 tick 编排外壳。 */
 @Injectable()
 export class WorldRuntimeInstanceTickOrchestrationService {
@@ -460,6 +487,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
         const instanceTicksStartedAt = performance.now();
         for (const { instance, steps, speed, sleepMonsterAi } of instanceStepPlans) {
             const deferCraftRuntimeUpdates = steps > 1;
+            const isTimeChamber = isTimeChamberInstance(instance.meta.instanceId, deps);
             for (let index = 0; index < steps; index += 1) {
                 if (scheduledPlans !== null && !isScheduledInstancePlanStillCurrent(instance, speed, deps)) {
                     break;
@@ -470,6 +498,8 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                     }
                     break;
                 }
+                const attribution = resolveInstanceStepAttribution(isTimeChamber, index);
+                const attributedStepStartedAt = performance.now();
                 // 加速 tick 补偿：对于后续逻辑 tick，为当前实例的玩家重新物化命令
                 if (index > 0) {
                     const instanceStepMaterializationStartedAt = performance.now();
@@ -492,7 +522,11 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                         (key, durationMs, count = 1) => addTickSectionDuration(sectionDurations, key, durationMs, count),
                         new Set(instance.listPlayerIds()),
                     ));
-                    addMeasuredTickSection(sectionDurations, 'instance.stepCommandMaterializationMs', instanceStepMaterializationStartedAt);
+                    const materializationDurationMs = performance.now() - instanceStepMaterializationStartedAt;
+                    addTickSectionDuration(sectionDurations, 'instance.stepCommandMaterializationMs', materializationDurationMs, 1);
+                    if (attribution.materializationDurationKey) {
+                        addTickSectionDuration(sectionDurations, attribution.materializationDurationKey, materializationDurationMs, 1);
+                    }
                     if (!isScheduledInstancePlanStillCurrent(instance, speed, deps)) {
                         break;
                     }
@@ -803,6 +837,18 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                     }, () => deps.worldRuntimeTongtianTowerService.advanceInstance(instance, deps));
                     addMeasuredTickSection(sectionDurations, 'instance.tongtianTowerAdvanceMs', tongtianTowerAdvanceStartedAt);
                 }
+                addTickSectionDuration(
+                    sectionDurations,
+                    attribution.stepDurationKey,
+                    performance.now() - attributedStepStartedAt,
+                    1,
+                );
+                addTickSectionDuration(
+                    sectionDurations,
+                    attribution.playerStepCountKey,
+                    0,
+                    currentPlayerIds.length,
+                );
                 if (!fuelConsumed) {
                     break;
                 }
@@ -882,6 +928,25 @@ function addTickSectionDuration(sections: TickSectionDurations, key: string, dur
     current.totalMs += normalizedDuration;
     current.count += normalizedCount;
     sections[key] = current;
+}
+
+function isTimeChamberInstance(instanceId: string, deps): boolean {
+    return typeof deps.timeChamberRuntimeService?.isTimeChamberInstance === 'function'
+        && deps.timeChamberRuntimeService.isTimeChamberInstance(instanceId) === true;
+}
+
+function resolveInstanceStepAttribution(
+    isTimeChamber: boolean,
+    stepIndex: number,
+): InstanceStepAttributionKeys {
+    if (isTimeChamber) {
+        return stepIndex > 0
+            ? TIME_CHAMBER_EXTRA_STEP_ATTRIBUTION
+            : TIME_CHAMBER_FIRST_STEP_ATTRIBUTION;
+    }
+    return stepIndex > 0
+        ? NON_TIME_CHAMBER_CATCH_UP_STEP_ATTRIBUTION
+        : NON_TIME_CHAMBER_FIRST_STEP_ATTRIBUTION;
 }
 
 function computeFallbackInstanceIntentProposal(payload) {

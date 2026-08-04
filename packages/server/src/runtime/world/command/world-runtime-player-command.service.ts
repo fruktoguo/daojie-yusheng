@@ -61,6 +61,25 @@ function recordCombatAction(player, currentTick) {
     player.combat.combatActionsUsedThisTick = used + 1;
 }
 
+function recordSkillCommandAttribution(deps, command, startedAt: number): void {
+    const recorder = deps?.recordPendingCommandSectionDuration;
+    if (typeof recorder !== 'function') {
+        return;
+    }
+    try {
+        recorder(
+            command?.autoCombat === true
+                ? 'attribution.skill.autoCommandMs'
+                : 'attribution.skill.manualCommandMs',
+            performance.now() - startedAt,
+            1,
+        );
+    }
+    catch {
+        // 性能诊断不能影响权威战斗命令。
+    }
+}
+
 function normalizeTechniqueActivityKind(kind) {
     return kind === 'forging'
         || kind === 'enhancement'
@@ -872,6 +891,7 @@ export class WorldRuntimePlayerCommandService {
         }
     }
     async dispatchCombatCommand(playerId, player, command, deps, executor) {
+        const attributedSkillCommandStartedAt = command.kind === 'castSkill' ? performance.now() : null;
         const shouldCheckActionReady = PLAYER_COMBAT_COMMAND_KINDS.has(command.kind) && command.skipActionReadyCheck !== true;
         const currentTick = shouldCheckActionReady && typeof deps.resolveCurrentTickForPlayerId === 'function'
             ? Math.max(0, Math.trunc(deps.resolveCurrentTickForPlayerId(playerId)))
@@ -884,10 +904,17 @@ export class WorldRuntimePlayerCommandService {
         if (shouldCheckActionReady) {
             assertCombatActionReady(player, currentTick);
         }
-        const result = await executor();
-        if (shouldCheckActionReady) {
-            recordCombatAction(player, currentTick);
+        try {
+            const result = await executor();
+            if (shouldCheckActionReady) {
+                recordCombatAction(player, currentTick);
+            }
+            return result;
         }
-        return result;
+        finally {
+            if (attributedSkillCommandStartedAt !== null) {
+                recordSkillCommandAttribution(deps, command, attributedSkillCommandStartedAt);
+            }
+        }
     }
 };

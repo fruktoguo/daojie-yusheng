@@ -240,6 +240,25 @@ function recordPlayerSkillDispatchDuration(deps, key, durationMs, count = 1) {
     }
 }
 
+function isTimeChamberSkillDispatch(attacker, deps): boolean {
+    return typeof attacker?.instanceId === 'string'
+        && typeof deps?.timeChamberRuntimeService?.isTimeChamberInstance === 'function'
+        && deps.timeChamberRuntimeService.isTimeChamberInstance(attacker.instanceId) === true;
+}
+
+function resolveSkillTargetCountDurationKey(targetCount: number): string {
+    if (targetCount <= 1) {
+        return 'attribution.skill.resolve.targets1Ms';
+    }
+    if (targetCount <= 5) {
+        return 'attribution.skill.resolve.targets2To5Ms';
+    }
+    if (targetCount <= 20) {
+        return 'attribution.skill.resolve.targets6To20Ms';
+    }
+    return 'attribution.skill.resolve.targets21PlusMs';
+}
+
 function buildEffectivePlayerSkillGeometry(attacker, skill) {
     return buildEffectiveTargetingGeometry({
         range: resolveRuntimeSkillRange(skill),
@@ -1377,6 +1396,8 @@ export class WorldRuntimePlayerSkillDispatchService {
         if (targets.length === 0) {
             throw new BadRequestException('没有可命中的目标');
         }
+        const attributedSkillResolveStartedAt = performance.now();
+        const isTimeChamber = isTimeChamberSkillDispatch(attacker, deps);
         const castId = nextCastId();
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
         const currentTick = deps.resolveCurrentTickForPlayerId(attacker.playerId);
@@ -1647,6 +1668,14 @@ export class WorldRuntimePlayerSkillDispatchService {
                     const killRewardStartedAt = performance.now();
                     await deps.handlePlayerMonsterKill(instance, outcome.monster, attacker.playerId);
                     recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.killRewardMs', killRewardStartedAt);
+                    recordPlayerSkillDispatchDuration(
+                        deps,
+                        isTimeChamber
+                            ? 'attribution.skill.timeChamber.monsterDefeats'
+                            : 'attribution.skill.nonTimeChamber.monsterDefeats',
+                        0,
+                        1,
+                    );
                 }
                 if (castSummary) {
                     recordPlayerSkillEnemySummary(
@@ -2218,6 +2247,22 @@ export class WorldRuntimePlayerSkillDispatchService {
             deps.worldRuntimeSectService?.expandSectForDestroyedTile?.(attacker.instanceId, tile.x, tile.y, deps);
         }
         recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.postEffectsMs', postEffectsStartedAt);
+        const attributedResolveDurationMs = performance.now() - attributedSkillResolveStartedAt;
+        recordPlayerSkillDispatchDuration(
+            deps,
+            isTimeChamber
+                ? 'attribution.skill.timeChamber.resolveMs'
+                : 'attribution.skill.nonTimeChamber.resolveMs',
+            attributedResolveDurationMs,
+            1,
+        );
+        recordPlayerSkillDispatchDuration(
+            deps,
+            resolveSkillTargetCountDurationKey(targets.length),
+            attributedResolveDurationMs,
+            1,
+        );
+        recordPlayerSkillDispatchDuration(deps, 'attribution.skill.targets', 0, targets.length);
     }
     resolvePlayerSkillActionPlanForDispatch(attacker, skill, input, instance, deps) {
         if (!this.worldRuntimeCombatActionService?.resolvePlayerSkillActionPlan) {

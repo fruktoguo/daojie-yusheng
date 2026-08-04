@@ -34,6 +34,21 @@ export type TickSectionDurations = Record<string, TickSectionDurationSample>;
 export type TickSectionDurationHistory = Record<string, TickSectionDurationSample[]>;
 export type TickMetricSummaryByKey = Record<string, { totalMs: number; count: number; sampleCount: number }>;
 
+/** 跨运行时深层调用上报的固定归因指标，禁止使用动态玩家、实例或技能 ID 作为 key。 */
+export type RuntimeExternalSectionKey =
+  | 'attribution.attributes.recalculateMs'
+  | 'attribution.attributes.recalculate.changed'
+  | 'attribution.attributes.recalculate.unchanged'
+  | 'attribution.attributes.deferredRequests'
+  | 'attribution.attributes.techniqueResolve.cacheHitMs'
+  | 'attribution.attributes.techniqueResolve.cacheMissMs'
+  | 'attribution.attributes.techniqueEntries'
+  | 'attribution.attributes.recalculate.techniques0Ms'
+  | 'attribution.attributes.recalculate.techniques1To5Ms'
+  | 'attribution.attributes.recalculate.techniques6To10Ms'
+  | 'attribution.attributes.recalculate.techniques11To20Ms'
+  | 'attribution.attributes.recalculate.techniques21PlusMs';
+
 const TICK_PHASE_KEYS: ReadonlyArray<keyof TickPhaseDurations> = [
   'resetFrameEffectsMs',
   'planInstanceStepsMs',
@@ -75,6 +90,7 @@ export class WorldRuntimeMetricsService {
   cumulativeSyncFlushCount = 0;
   cumulativeTickPhaseSummaries: TickMetricSummaryByKey = createTickPhaseCumulativeSummaries();
   cumulativeTickSectionSummaries: TickMetricSummaryByKey = {};
+  private pendingExternalSectionDurations: TickSectionDurations = createEmptyTickSectionDurations();
 
   resetCpuPerfCounters(): void {
     this.tickDurationHistoryMs = [];
@@ -88,17 +104,20 @@ export class WorldRuntimeMetricsService {
     this.cumulativeSyncFlushCount = 0;
     this.cumulativeTickPhaseSummaries = createTickPhaseCumulativeSummaries();
     this.cumulativeTickSectionSummaries = {};
+    this.pendingExternalSectionDurations = createEmptyTickSectionDurations();
   }
 
   recordIdleFrame(startedAt: number): void {
     this.lastTickPhaseDurations = { ...EMPTY_TICK_PHASE_DURATIONS };
-    this.lastTickSectionDurations = {};
+    this.lastTickSectionDurations = normalizeSectionDurations(this.drainExternalSectionDurations({}));
     this.lastTickDurationMs = roundDurationMs(performance.now() - startedAt);
     pushDurationMetric(this.tickDurationHistoryMs, this.lastTickDurationMs);
     pushTickPhaseDurationHistory(this.tickPhaseDurationHistoryMs, this.lastTickPhaseDurations);
+    pushTickSectionDurationHistory(this.tickSectionDurationHistoryMs, this.lastTickSectionDurations);
     this.cumulativeTickDurationMs = roundDurationMs(this.cumulativeTickDurationMs + this.lastTickDurationMs);
     this.cumulativeTickFrameCount += 1;
     addTickPhaseCumulativeSummaries(this.cumulativeTickPhaseSummaries, this.lastTickPhaseDurations);
+    addTickSectionCumulativeSummaries(this.cumulativeTickSectionSummaries, this.lastTickSectionDurations);
   }
 
   recordFrameResult(
@@ -117,7 +136,7 @@ export class WorldRuntimeMetricsService {
       postTickCleanupMs: roundDurationMs(phaseDurations.postTickCleanupMs),
       playerAdvanceMs: roundDurationMs(phaseDurations.playerAdvanceMs),
     };
-    this.lastTickSectionDurations = normalizeSectionDurations(sectionDurations);
+    this.lastTickSectionDurations = normalizeSectionDurations(this.drainExternalSectionDurations(sectionDurations));
     this.lastTickDurationMs = roundDurationMs(performance.now() - startedAt);
     pushDurationMetric(this.tickDurationHistoryMs, this.lastTickDurationMs);
     pushTickPhaseDurationHistory(this.tickPhaseDurationHistoryMs, this.lastTickPhaseDurations);
@@ -133,6 +152,19 @@ export class WorldRuntimeMetricsService {
     pushDurationMetric(this.syncFlushDurationHistoryMs, this.lastSyncFlushDurationMs);
     this.cumulativeSyncFlushDurationMs = roundDurationMs(this.cumulativeSyncFlushDurationMs + this.lastSyncFlushDurationMs);
     this.cumulativeSyncFlushCount += 1;
+  }
+
+  /** 深层服务把统计暂存到下一帧，避免为诊断参数污染整条业务调用链。 */
+  recordExternalSectionDuration(key: RuntimeExternalSectionKey, durationMs: number, count = 1): void {
+    addTickSectionDuration(this.pendingExternalSectionDurations, key, durationMs, count);
+  }
+
+  private drainExternalSectionDurations(target: TickSectionDurations): TickSectionDurations {
+    for (const [key, sample] of Object.entries(this.pendingExternalSectionDurations)) {
+      addTickSectionDuration(target, key, sample.totalMs, sample.count);
+    }
+    this.pendingExternalSectionDurations = createEmptyTickSectionDurations();
+    return target;
   }
 }
 
@@ -159,6 +191,27 @@ function createTickPhaseDurationHistory(): TickPhaseDurationHistory {
     postTickCleanupMs: [],
     playerAdvanceMs: [],
   };
+}
+
+function createEmptyTickSectionDurations(): TickSectionDurations {
+  return Object.create(null) as TickSectionDurations;
+}
+
+function addTickSectionDuration(
+  sections: TickSectionDurations,
+  key: string,
+  durationMs: number,
+  count: number,
+): void {
+  const normalizedDuration = Math.max(0, Number(durationMs) || 0);
+  const normalizedCount = Math.max(0, Math.trunc(Number(count) || 0));
+  if (normalizedDuration <= 0 && normalizedCount <= 0) {
+    return;
+  }
+  const current = sections[key] ?? { totalMs: 0, count: 0 };
+  current.totalMs += normalizedDuration;
+  current.count += normalizedCount;
+  sections[key] = current;
 }
 
 function createTickPhaseCumulativeSummaries(): TickMetricSummaryByKey {
