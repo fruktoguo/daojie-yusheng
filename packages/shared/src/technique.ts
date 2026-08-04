@@ -122,9 +122,14 @@ function accumulateQiProjectionModifiers(
 export function getTechniqueMaxLevel(layers?: TechniqueLayerDef[], currentLevel = 1): number {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const normalized = normalizeLayers(layers);
-  if (normalized.length > 0) {
-    return normalized[normalized.length - 1].level;
+  if (layers && layers.length > 0) {
+    let maxLevel = layers[0].level;
+    for (let index = 1; index < layers.length; index += 1) {
+      if (layers[index].level > maxLevel) {
+        maxLevel = layers[index].level;
+      }
+    }
+    return maxLevel;
   }
   return Math.max(1, currentLevel);
 }
@@ -135,11 +140,20 @@ export function normalizeTechniqueLearnMaxLevel(
   layers?: TechniqueLayerDef[],
   currentLevel = 1,
 ): number | undefined {
+  return normalizeTechniqueLearnMaxLevelAgainstTemplate(
+    input,
+    getTechniqueMaxLevel(layers, currentLevel),
+  );
+}
+
+function normalizeTechniqueLearnMaxLevelAgainstTemplate(
+  input: unknown,
+  templateMaxLevel: number,
+): number | undefined {
   const numeric = Number(input);
   if (!Number.isFinite(numeric) || numeric <= 0) {
     return undefined;
   }
-  const templateMaxLevel = getTechniqueMaxLevel(layers, currentLevel);
   const normalized = Math.max(1, Math.min(templateMaxLevel, Math.trunc(numeric)));
   return normalized < templateMaxLevel ? normalized : undefined;
 }
@@ -149,10 +163,9 @@ export function getTechniqueTrainingMaxLevel(
   technique: Pick<TechniqueState, 'level' | 'layers' | 'learnTechniqueMaxLevel'>,
 ): number {
   const templateMaxLevel = getTechniqueMaxLevel(technique.layers, technique.level);
-  return normalizeTechniqueLearnMaxLevel(
+  return normalizeTechniqueLearnMaxLevelAgainstTemplate(
     technique.learnTechniqueMaxLevel,
-    technique.layers,
-    technique.level,
+    templateMaxLevel,
   ) ?? templateMaxLevel;
 }
 

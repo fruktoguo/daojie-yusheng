@@ -8,6 +8,7 @@ installSmokeTimeout(__filename);
 async function main(): Promise<void> {
   const events: string[] = [];
   const grants: Array<{ playerId: string; contributionRatio: number }> = [];
+  let receivedProgressRecorder = false;
   const perfCounts = new Map<string, number>();
   const drops = [
     { itemId: 'drop:1', name: '掉落一', count: 1 },
@@ -28,9 +29,10 @@ async function main(): Promise<void> {
     } as never,
     {
       getPlayer: (playerId: string) => players.get(playerId) ?? null,
-      grantMonsterKillProgress(playerId: string, input: { contributionRatio: number }) {
+      grantMonsterKillProgress(playerId: string, input: { contributionRatio: number; recordTickSectionDuration?: unknown }) {
         events.push(`progress:${playerId}`);
         grants.push({ playerId, contributionRatio: input.contributionRatio });
+        receivedProgressRecorder = typeof input.recordTickSectionDuration === 'function';
         return { changed: false };
       },
       canReceiveInventoryItem: () => true,
@@ -103,6 +105,7 @@ async function main(): Promise<void> {
     { playerId: 'player:combat-perf:killer', contributionRatio: 0.25 },
     { playerId: 'player:combat-perf:assist', contributionRatio: 0.75 },
   ]);
+  assert.equal(receivedProgressRecorder, true);
   assert.deepEqual(Object.fromEntries(perfCounts), {
     'combat.playerMonsterKill.preparationMs': 1,
     'combat.playerMonsterKill.participantPlanMs': 1,

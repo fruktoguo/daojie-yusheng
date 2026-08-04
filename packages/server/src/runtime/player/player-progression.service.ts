@@ -164,6 +164,8 @@ export class PlayerProgressionService {
     maxRealmLevel = 1;
     /** 已加载的突破配置，按来源境界等级索引。 */
     breakthroughTransitions = new Map();
+    /** 功法推进索引；宽泛 revision 变化时按真正影响圆满判定的字段复核。 */
+    techniqueProgressionCache = new WeakMap();
     /** 注入内容仓库和属性结算器。 */
     constructor(
         contentTemplateRepository: ContentTemplateRepository,
@@ -484,7 +486,7 @@ export class PlayerProgressionService {
     grantMonsterKillProgress(player, input: any = {}) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
+        let phaseStartedAt = beginMonsterKillProgressPerf(input);
         const monsterLevel = Math.max(1, Math.floor(Number(input.monsterLevel) || 1));
 
         const expAdjustmentRealmLv = Math.max(1, Math.floor(Number(input.expAdjustmentRealmLv) || player.realm?.realmLv || 1));
@@ -509,6 +511,11 @@ export class PlayerProgressionService {
 
         const techniqueBaseGain = this.getTechniqueCombatExp(monsterLevel, expAdjustmentRealmLv, monsterTier, expMultiplier, contributionRatio);
 
+        phaseStartedAt = recordMonsterKillProgressPerf(
+            input,
+            'combat.playerMonsterKill.progressGainPlanMs',
+            phaseStartedAt,
+        );
         let mutation = createEmptyMutation();
         if (realmGain > 0) {
             mutation = mergeProgressionMutation(mutation, this.gainRealmProgressInternal(player, realmGain, {
@@ -517,6 +524,11 @@ export class PlayerProgressionService {
                 trackCombatExp: true,
             }));
         }
+        phaseStartedAt = recordMonsterKillProgressPerf(
+            input,
+            'combat.playerMonsterKill.progressRealmAdvanceMs',
+            phaseStartedAt,
+        );
         if (techniqueBaseGain > 0) {
             mutation = mergeProgressionMutation(mutation, this.advanceTechniqueProgressInternal(player, techniqueBaseGain, {
                 expBonus: player.attrs.numericStats.techniqueExpRate,
@@ -526,6 +538,11 @@ export class PlayerProgressionService {
                 getInstanceRuntime: input.getInstanceRuntime,
             }));
         }
+        phaseStartedAt = recordMonsterKillProgressPerf(
+            input,
+            'combat.playerMonsterKill.progressTechniqueAdvanceMs',
+            phaseStartedAt,
+        );
 
         const actualRealmGain = calculateRealmProgressGain(beforeRealmLv, beforeRealmProgress, player.realm);
 
@@ -559,9 +576,19 @@ export class PlayerProgressionService {
                         kind: 'info',
                         structured: { key: 'notice.combat.kill-progress', vars: { action: input.isKiller === false ? '参与击杀' : '斩杀', target: input.monsterName?.trim() || '敌人', details: segments.join('，') }, pills: [{ key: 'target', style: 'target' }] },
                     }],
-            });
+                });
         }
+        phaseStartedAt = recordMonsterKillProgressPerf(
+            input,
+            'combat.playerMonsterKill.progressNoticeBuildMs',
+            phaseStartedAt,
+        );
         if (!mutation.changed) {
+            recordMonsterKillProgressPerf(
+                input,
+                'combat.playerMonsterKill.progressFinalizeMs',
+                phaseStartedAt,
+            );
             return {
                 changed: false,
                 notices: [],
@@ -570,6 +597,11 @@ export class PlayerProgressionService {
             };
         }
         this.finalizeProgressionMutation(player, mutation);
+        recordMonsterKillProgressPerf(
+            input,
+            'combat.playerMonsterKill.progressFinalizeMs',
+            phaseStartedAt,
+        );
         return toProgressionMutationResult(mutation);
     }
     /** 处理天门界面的斩根、重掷和抽灵根操作。 */
@@ -1838,7 +1870,48 @@ export class PlayerProgressionService {
         if (!currentTechId) {
             return null;
         }
-        return player.techniques.techniques.find((entry) => entry.techId === currentTechId) ?? null;
+        return this.resolveTechniqueProgressionCache(player).techniquesById.get(currentTechId) ?? null;
+    }
+    resolveTechniqueProgressionCache(player) {
+        const holder = player?.techniques && typeof player.techniques === 'object'
+            ? player.techniques
+            : null;
+        const techniques = Array.isArray(holder?.techniques) ? holder.techniques : [];
+        const revision = Math.max(0, Math.trunc(Number(holder?.revision ?? 0) || 0));
+        if (holder) {
+            const cached = this.techniqueProgressionCache.get(holder);
+            if (cached?.revision === revision) {
+                return cached;
+            }
+            if (cached && hasSameTechniqueProgressionInputs(techniques, cached.relevantEntries)) {
+                cached.revision = revision;
+                return cached;
+            }
+        }
+        const techniquesById = new Map();
+        const trainableTechniques = [];
+        const relevantEntries = new Array(techniques.length);
+        for (let index = 0; index < techniques.length; index += 1) {
+            const technique = techniques[index];
+            if (technique && !techniquesById.has(technique.techId)) {
+                techniquesById.set(technique.techId, technique);
+            }
+            if (!this.isTechniqueMaxed(technique)) {
+                trainableTechniques.push(technique);
+            }
+            relevantEntries[index] = snapshotTechniqueProgressionInput(technique);
+        }
+        const next = {
+            revision,
+            techniquesById,
+            trainableTechniques,
+            allTechniquesMaxed: techniques.length > 0 && trainableTechniques.length === 0,
+            relevantEntries,
+        };
+        if (holder) {
+            this.techniqueProgressionCache.set(holder, next);
+        }
+        return next;
     }
     /**
  * resolveActiveCultivatingTechnique：规范化或转换激活Cultivating功法。
@@ -1947,10 +2020,7 @@ export class PlayerProgressionService {
     }
     findNextCultivationTarget(player, currentTechId) {
         const targets = [];
-        for (const technique of player.techniques.techniques ?? []) {
-            if (!technique || this.isTechniqueMaxed(technique)) {
-                continue;
-            }
+        for (const technique of this.resolveTechniqueProgressionCache(player).trainableTechniques) {
             targets.push({
                 kind: 'learned',
                 techId: technique.techId,
@@ -1997,8 +2067,7 @@ export class PlayerProgressionService {
     }
     /** 判断已学功法是否都已达到各自当前可修炼上限。 */
     areAllTechniquesMaxed(player) {
-        return player.techniques.techniques.length > 0
-            && player.techniques.techniques.every((entry) => this.isTechniqueMaxed(entry));
+        return this.resolveTechniqueProgressionCache(player).allTechniquesMaxed;
     }
     /**
  * advanceTechniqueProgressInternal：执行advance功法进度Internal相关逻辑。
@@ -2095,8 +2164,9 @@ export class PlayerProgressionService {
         if (technique.level === previousLevel && technique.exp === previousExp) {
             return resolved;
         }
-        this.applyRealmPresentation(player, this.normalizeRealmState(player.realm));
         if (technique.level !== previousLevel) {
+            this.techniqueProgressionCache.delete(player.techniques);
+            this.applyRealmPresentation(player, this.normalizeRealmState(player.realm));
             attrRecalculated = this.playerAttributesService.recalculate(player) || attrRecalculated;
         }
 
@@ -2254,6 +2324,7 @@ export class PlayerProgressionService {
         }
         const replacedTechniqueIds = this.techniqueAggregationService?.applyCompletionReplacement(player, pending.techId) ?? [];
         player.pendingTechniqueComprehensions = (player.pendingTechniqueComprehensions ?? []).filter((entry) => entry?.techId !== pending.techId);
+        this.techniqueProgressionCache.delete(player.techniques);
         const attrRecalculated = this.playerAttributesService.recalculate(player);
         this.applyRealmPresentation(player, this.normalizeRealmState(player.realm));
         let mutation = {
@@ -2539,6 +2610,63 @@ function mergeProgressionMutation(left, right) {
                 ? left.notices
                 : [...left.notices, ...right.notices],
     };
+}
+
+function snapshotTechniqueProgressionInput(technique) {
+    const layers = Array.isArray(technique?.layers) ? technique.layers : null;
+    return {
+        technique,
+        techId: technique?.techId,
+        level: technique?.level,
+        expToNext: technique?.expToNext,
+        learnTechniqueMaxLevel: technique?.learnTechniqueMaxLevel,
+        layers,
+        layerCount: layers?.length ?? 0,
+        lastLayerLevel: layers && layers.length > 0 ? layers[layers.length - 1]?.level : undefined,
+    };
+}
+
+function hasSameTechniqueProgressionInputs(techniques, snapshots): boolean {
+    if (!Array.isArray(snapshots) || techniques.length !== snapshots.length) {
+        return false;
+    }
+    for (let index = 0; index < techniques.length; index += 1) {
+        const technique = techniques[index];
+        const snapshot = snapshots[index];
+        if (technique !== snapshot?.technique) {
+            return false;
+        }
+        if (!technique || typeof technique !== 'object') {
+            continue;
+        }
+        const layers = Array.isArray(technique.layers) ? technique.layers : null;
+        if (technique.techId !== snapshot.techId
+            || technique.level !== snapshot.level
+            || technique.expToNext !== snapshot.expToNext
+            || technique.learnTechniqueMaxLevel !== snapshot.learnTechniqueMaxLevel
+            || layers !== snapshot.layers
+            || (layers?.length ?? 0) !== snapshot.layerCount
+            || (layers && layers.length > 0 ? layers[layers.length - 1]?.level : undefined) !== snapshot.lastLayerLevel) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function beginMonsterKillProgressPerf(input): number | null {
+    return typeof input?.recordTickSectionDuration === 'function'
+        ? performance.now()
+        : null;
+}
+
+function recordMonsterKillProgressPerf(input, key, startedAt): number | null {
+    const recorder = input?.recordTickSectionDuration;
+    if (typeof recorder !== 'function' || startedAt === null) {
+        return null;
+    }
+    const endedAt = performance.now();
+    recorder(key, endedAt - startedAt, 1);
+    return endedAt;
 }
 /**
  * applyRateBonus：处理RateBonu并更新相关状态。

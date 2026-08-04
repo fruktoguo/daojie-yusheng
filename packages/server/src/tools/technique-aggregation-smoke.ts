@@ -5,6 +5,8 @@ import {
   calcTechniqueMaxAttrPercentBonus,
   calculateTechniqueComprehensionRequiredProgress,
   getTechniqueMaxLevel,
+  getTechniqueTrainingMaxLevel,
+  normalizeTechniqueLearnMaxLevel,
   type TechniqueAggregationMetadata,
   type TechniqueGrade,
   type TechniqueState,
@@ -141,6 +143,19 @@ function createPlayer(playerId: string, techniques: TechniqueState[]) {
 }
 
 async function main(): Promise<void> {
+  const unsortedLayers = [
+    { level: 3, expToNext: 0, attrs: {} },
+    { level: 1, expToNext: 10, attrs: {} },
+    { level: 2, expToNext: 20, attrs: {} },
+  ];
+  assert.equal(getTechniqueMaxLevel(unsortedLayers, 1), 3);
+  assert.equal(getTechniqueTrainingMaxLevel({
+    level: 1,
+    layers: unsortedLayers,
+    learnTechniqueMaxLevel: 2,
+  }), 2);
+  assert.equal(normalizeTechniqueLearnMaxLevel(3, unsortedLayers, 1), undefined);
+
   const creatorPlayerId = 'player:aggregation-creator';
   const collaboratorPlayerId = 'player:aggregation-collaborator';
   const store = new FakeGeneratedTechniqueStore();

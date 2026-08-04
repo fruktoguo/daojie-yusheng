@@ -794,6 +794,83 @@ function testMonsterKillProgressesComprehensionByOneCultivationTick() {
   );
 }
 
+function testMonsterKillExpOnlyKeepsRealmPreviewStable() {
+  const { progressionService } = createRuntimeService();
+  const learner = createPlayer('learner:kill-exp-only-preview', 0, 0);
+  const cultivating = {
+    ...technique,
+    layers: [
+      { level: 1, expToNext: 100, attrs: {} },
+      { level: 2, expToNext: 100, attrs: {} },
+    ],
+  };
+  learner.techniques.techniques.push(cultivating);
+  learner.techniques.cultivatingTechId = cultivating.techId;
+  progressionService.applyRealmPresentation(
+    learner,
+    progressionService.createRealmStateFromLevel(1, 0),
+  );
+  let presentationCalls = 0;
+  const originalApplyRealmPresentation = progressionService.applyRealmPresentation.bind(progressionService);
+  progressionService.applyRealmPresentation = ((player: any, realm: any) => {
+    presentationCalls += 1;
+    return originalApplyRealmPresentation(player, realm);
+  }) as never;
+
+  const result = progressionService.grantMonsterKillProgress(learner, {
+    monsterLevel: 1,
+    monsterTier: 'mortal_blood',
+    expMultiplier: 100,
+    contributionRatio: 1,
+    expAdjustmentRealmLv: 1,
+  });
+
+  assert.equal(result.changed, true);
+  assert.equal(learner.techniques.techniques[0]?.level, 1);
+  assert.ok((learner.techniques.techniques[0]?.exp ?? 0) > 0);
+  assert.equal(presentationCalls, 1);
+}
+
+function testAllMaxedTechniqueProgressionCache() {
+  const { progressionService } = createRuntimeService();
+  const learner = createPlayer('learner:all-maxed-cache', 0, 0);
+  const layers = [
+    { level: 1, expToNext: 100, attrs: {} },
+    { level: 2, expToNext: 0, attrs: {} },
+  ];
+  learner.techniques.techniques = Array.from({ length: 700 }, (_, index) => ({
+    ...technique,
+    techId: `tech.maxed.${index}`,
+    level: 2,
+    exp: 0,
+    expToNext: 0,
+    layers,
+  }));
+  learner.techniques.cultivatingTechId = learner.techniques.techniques[0]?.techId ?? null;
+  let maxedChecks = 0;
+  const originalIsTechniqueMaxed = progressionService.isTechniqueMaxed.bind(progressionService);
+  progressionService.isTechniqueMaxed = ((entry: any) => {
+    maxedChecks += 1;
+    return originalIsTechniqueMaxed(entry);
+  }) as never;
+
+  assert.equal(progressionService.areAllTechniquesMaxed(learner), true);
+  assert.equal(maxedChecks, 700);
+  learner.techniques.revision += 1;
+  assert.equal(progressionService.areAllTechniquesMaxed(learner), true);
+  assert.equal(maxedChecks, 700);
+
+  const trainable = learner.techniques.techniques[699];
+  trainable.level = 1;
+  trainable.expToNext = 100;
+  learner.techniques.revision += 1;
+  assert.equal(progressionService.areAllTechniquesMaxed(learner), false);
+  assert.equal(maxedChecks, 1400);
+  const checksAfterInvalidation = maxedChecks;
+  assert.equal(progressionService.findNextCultivationTarget(learner, learner.techniques.cultivatingTechId)?.techId, trainable.techId);
+  assert.equal(maxedChecks, checksAfterInvalidation);
+}
+
 function testMonsterKillAutoSwitchesAndProgressesPendingComprehension() {
   const { progressionService } = createRuntimeService();
   const learner = createPlayer('learner:kill-auto-switch-pending', 0, 0);
@@ -1502,6 +1579,8 @@ testSelfComprehensionUsesStandingFacilitySpeed();
 testComprehensionSpeedRateProjectionAndCodec();
 testAutoSwitchCultivationCanSelectPendingComprehension();
 testMonsterKillProgressesComprehensionByOneCultivationTick();
+testMonsterKillExpOnlyKeepsRealmPreviewStable();
+testAllMaxedTechniqueProgressionCache();
 testMonsterKillAutoSwitchesAndProgressesPendingComprehension();
 testCultivationCanStoreFractionalComprehensionProgress();
 testPendingTechniqueNameResolvesDisplayName();

@@ -2170,12 +2170,16 @@ export class PlayerRuntimeService {
     grantMonsterKillProgress(playerId, input, currentTick = 0) {
 
         const player = this.getPlayerOrThrow(playerId);
+        const snapshotStartedAt = performance.now();
         const statisticBefore = this.captureOfflineGainBeforeTick(player);
+        recordPlayerTickPerf(input, 'combat.playerMonsterKill.progressSnapshotMs', snapshotStartedAt);
 
+        const progressionStartedAt = performance.now();
         const result = this.playerProgressionService.grantMonsterKillProgress(player, {
             ...input,
         });
-        return this.applyProgressionResultWithStatistics(player, result, statisticBefore, currentTick);
+        recordPlayerTickPerf(input, 'combat.playerMonsterKill.progressResolveMs', progressionStartedAt);
+        return this.applyProgressionResultWithStatistics(player, result, statisticBefore, currentTick, false, input);
     }
     /**
  * refreshProgressionPreview：执行refresh修炼进度Preview相关逻辑。
@@ -6679,12 +6683,23 @@ export class PlayerRuntimeService {
         }
     }
     /** applyProgressionResultWithStatistics：应用进度变更，并按变更发生顺序记录收支，避免快照净值互相抵消。 */
-    applyProgressionResultWithStatistics(player, result, beforeSnapshot, currentTick = 0, rebuildActions = false) {
+    applyProgressionResultWithStatistics(
+        player,
+        result,
+        beforeSnapshot,
+        currentTick = 0,
+        rebuildActions = false,
+        performanceOptions = null,
+    ) {
+        const applyStartedAt = performance.now();
         this.applyProgressionResult(player, result, currentTick, rebuildActions);
+        recordPlayerTickPerf(performanceOptions, 'combat.playerMonsterKill.progressResultApplyMs', applyStartedAt);
         if (result?.changed) {
+            const statisticStartedAt = performance.now();
             this.recordPlayerStatisticMutation(player, beforeSnapshot, Date.now(), {
                 progressionOnly: isProgressionOnlyStatisticResult(result),
             });
+            recordPlayerTickPerf(performanceOptions, 'combat.playerMonsterKill.progressStatisticsMs', statisticStartedAt);
         }
         return player;
     }
