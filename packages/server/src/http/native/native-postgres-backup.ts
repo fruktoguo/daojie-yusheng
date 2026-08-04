@@ -19,7 +19,10 @@ import { Worker } from 'node:worker_threads';
 import { createGunzip, createGzip } from 'node:zlib';
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 import type { Readable } from 'node:stream';
-import { cleanupPostgresRestoreOrphanSectState } from './native-postgres-restore-cleanup';
+import {
+  cleanupPostgresRestoreOrphanSectState,
+  reconcilePostgresRestoreMissingPlayerPresence,
+} from './native-postgres-restore-cleanup';
 
 export type NativeDatabaseBackupFormat = 'postgres_custom_dump' | 'legacy_json_snapshot' | 'unknown';
 
@@ -123,6 +126,7 @@ export async function restorePostgresCustomDump(filePath: string, databaseUrl: s
     await materializeFilteredRestoreSql(restoreDumpPath, restoreSpec, supportedSettings, skippedParameters, sqlFilePath);
     await executeSqlFile(sqlFilePath, databaseUrl);
     await cleanupPostgresRestoreOrphanSectState(databaseUrl);
+    await reconcilePostgresRestoreMissingPlayerPresence(databaseUrl);
   } catch (error: unknown) {
     const skipSummary = skippedParameters.size > 0
       ? `\n已自动忽略目标库不支持的会话参数: ${[...skippedParameters].sort((left, right) => left.localeCompare(right, 'zh-CN')).join(', ')}`

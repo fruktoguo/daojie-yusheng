@@ -73,6 +73,8 @@ const status = runVerificationSteps({
         '--case',
         'native-database-restore-handoff',
         '--case',
+        'offline-hanging-presence-import',
+        '--case',
         'world-gateway-inventory-helper',
         '--case',
         'world-runtime-sect-application-page',

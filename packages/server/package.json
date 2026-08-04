@@ -105,6 +105,7 @@
     "migrate:technique-arts-strength-content": "pnpm compile && node dist/tools/migrate-technique-arts-strength-content.js --apply",
     "migrate:drop-gm-map-config": "pnpm compile && node dist/tools/migrate-drop-gm-map-config.js",
     "smoke:native-database-restore-sect-cleanup": "pnpm compile && node dist/tools/native-database-restore-sect-cleanup-smoke.js",
+    "smoke:offline-hanging-presence-import": "pnpm compile && node dist/tools/offline-hanging-presence-import-smoke.js",
     "smoke:gm-world-dirty-backlog": "pnpm compile && node dist/tools/gm-world-dirty-backlog-smoke.js",
     "smoke:gm-world-nodes": "pnpm compile && node dist/tools/gm-world-nodes-smoke.js",
     "smoke:instance-lease-sync-error": "pnpm compile && node dist/tools/instance-lease-sync-error-smoke.js",

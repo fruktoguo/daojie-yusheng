@@ -13,6 +13,10 @@ import { Pool, type PoolClient } from 'pg';
 const SERVER_SECT_TABLE = 'server_sect';
 const INSTANCE_FORMATION_STATE_TABLE = 'instance_formation_state';
 const INSTANCE_CATALOG_TABLE = 'instance_catalog';
+const PLAYER_RECOVERY_WATERMARK_TABLE = 'player_recovery_watermark';
+const PLAYER_PRESENCE_TABLE = 'player_presence';
+const PLAYER_POSITION_CHECKPOINT_TABLE = 'player_position_checkpoint';
+const PLAYER_OFFLINE_GAIN_SESSION_TABLE = 'player_offline_gain_session';
 const INSTANCE_DOMAIN_INSTANCE_TABLES = [
   'instance_tile_resource_state',
   'instance_tile_cell',
@@ -44,6 +48,13 @@ export interface PostgresRestoreSectCleanupReport {
   overlayPortalEntriesRemoved: number;
 }
 
+export interface PostgresRestorePlayerPresenceReconciliationReport {
+  supported: boolean;
+  seededRows: number;
+  seededInWorldRows: number;
+  seededOfflineRows: number;
+}
+
 export async function cleanupPostgresRestoreOrphanSectState(databaseUrl: string): Promise<PostgresRestoreSectCleanupReport> {
   const pool = new Pool({
     connectionString: databaseUrl,
@@ -73,6 +84,175 @@ export async function cleanupPostgresRestoreOrphanSectStateWithClient(
   } finally {
     client.release();
   }
+}
+
+/**
+ * 恢复显式触发后补齐缺失的玩家 presence 投影。
+ * 已有 presence 不会被覆盖；离线起点优先沿用离线收益会话，其次使用位置存档时间。
+ */
+export async function reconcilePostgresRestoreMissingPlayerPresence(
+  databaseUrl: string,
+): Promise<PostgresRestorePlayerPresenceReconciliationReport> {
+  const pool = new Pool({
+    connectionString: databaseUrl,
+    max: 1,
+    idleTimeoutMillis: 5_000,
+    connectionTimeoutMillis: 5_000,
+  });
+  try {
+    return await reconcilePostgresRestoreMissingPlayerPresenceWithClient(pool);
+  } finally {
+    await pool.end().catch(() => undefined);
+  }
+}
+
+export async function reconcilePostgresRestoreMissingPlayerPresenceWithClient(
+  pool: Pick<Pool, 'connect'>,
+): Promise<PostgresRestorePlayerPresenceReconciliationReport> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const report = await reconcilePostgresRestoreMissingPlayerPresenceInTransaction(client);
+    await client.query('COMMIT');
+    return report;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function reconcilePostgresRestoreMissingPlayerPresenceInTransaction(
+  client: PoolClient,
+): Promise<PostgresRestorePlayerPresenceReconciliationReport> {
+  const unsupportedReport: PostgresRestorePlayerPresenceReconciliationReport = {
+    supported: false,
+    seededRows: 0,
+    seededInWorldRows: 0,
+    seededOfflineRows: 0,
+  };
+  if (!(await hasTable(client, PLAYER_RECOVERY_WATERMARK_TABLE))
+    || !(await hasColumn(client, PLAYER_RECOVERY_WATERMARK_TABLE, 'player_id'))
+    || !(await hasPlayerPresenceReconciliationColumns(client))) {
+    return unsupportedReport;
+  }
+
+  const hasPositionCheckpoint = await hasTable(client, PLAYER_POSITION_CHECKPOINT_TABLE)
+    && await hasColumn(client, PLAYER_POSITION_CHECKPOINT_TABLE, 'player_id')
+    && await hasColumn(client, PLAYER_POSITION_CHECKPOINT_TABLE, 'instance_id')
+    && await hasColumn(client, PLAYER_POSITION_CHECKPOINT_TABLE, 'updated_at');
+  const hasOfflineGainSession = await hasTable(client, PLAYER_OFFLINE_GAIN_SESSION_TABLE)
+    && await hasColumn(client, PLAYER_OFFLINE_GAIN_SESSION_TABLE, 'player_id')
+    && await hasColumn(client, PLAYER_OFFLINE_GAIN_SESSION_TABLE, 'started_at');
+  const positionJoin = hasPositionCheckpoint
+    ? `LEFT JOIN ${PLAYER_POSITION_CHECKPOINT_TABLE} position ON position.player_id = watermark.player_id`
+    : '';
+  const offlineGainJoin = hasOfflineGainSession
+    ? `LEFT JOIN ${PLAYER_OFFLINE_GAIN_SESSION_TABLE} offline_gain ON offline_gain.player_id = watermark.player_id`
+    : '';
+  const inWorldExpression = hasPositionCheckpoint
+    ? `position.player_id IS NOT NULL AND NULLIF(btrim(position.instance_id), '') IS NOT NULL`
+    : 'false';
+  const positionUpdatedAtExpression = hasPositionCheckpoint
+    ? `floor(EXTRACT(EPOCH FROM position.updated_at) * 1000)::bigint`
+    : 'NULL::bigint';
+  const offlineGainStartedAtExpression = hasOfflineGainSession
+    ? 'offline_gain.started_at'
+    : 'NULL::bigint';
+
+  const result = await client.query<{
+    seeded_rows?: unknown;
+    seeded_in_world_rows?: unknown;
+    seeded_offline_rows?: unknown;
+  }>(`
+    WITH missing_presence AS (
+      SELECT
+        watermark.player_id,
+        ${inWorldExpression} AS in_world,
+        CASE
+          WHEN ${inWorldExpression} THEN GREATEST(
+            0::bigint,
+            LEAST(
+              COALESCE(
+                ${offlineGainStartedAtExpression},
+                ${positionUpdatedAtExpression},
+                floor(EXTRACT(EPOCH FROM now()) * 1000)::bigint
+              ),
+              floor(EXTRACT(EPOCH FROM now()) * 1000)::bigint
+            )
+          )
+          ELSE NULL::bigint
+        END AS offline_since_at
+      FROM ${PLAYER_RECOVERY_WATERMARK_TABLE} watermark
+      LEFT JOIN ${PLAYER_PRESENCE_TABLE} presence ON presence.player_id = watermark.player_id
+      ${positionJoin}
+      ${offlineGainJoin}
+      WHERE presence.player_id IS NULL
+    ), inserted AS (
+      INSERT INTO ${PLAYER_PRESENCE_TABLE}(
+        player_id,
+        online,
+        in_world,
+        last_heartbeat_at,
+        offline_since_at,
+        runtime_owner_id,
+        session_epoch,
+        transfer_state,
+        transfer_target_node_id,
+        updated_at
+      )
+      SELECT
+        player_id,
+        false,
+        in_world,
+        NULL,
+        offline_since_at,
+        NULL,
+        1,
+        NULL,
+        NULL,
+        now()
+      FROM missing_presence
+      ON CONFLICT (player_id) DO NOTHING
+      RETURNING in_world
+    )
+    SELECT
+      count(*)::int AS seeded_rows,
+      count(*) FILTER (WHERE in_world)::int AS seeded_in_world_rows,
+      count(*) FILTER (WHERE NOT in_world)::int AS seeded_offline_rows
+    FROM inserted
+  `);
+  const row = result.rows?.[0];
+  return {
+    supported: true,
+    seededRows: normalizeCount(row?.seeded_rows),
+    seededInWorldRows: normalizeCount(row?.seeded_in_world_rows),
+    seededOfflineRows: normalizeCount(row?.seeded_offline_rows),
+  };
+}
+
+async function hasPlayerPresenceReconciliationColumns(client: PoolClient): Promise<boolean> {
+  if (!(await hasTable(client, PLAYER_PRESENCE_TABLE))) {
+    return false;
+  }
+  for (const columnName of [
+    'player_id',
+    'online',
+    'in_world',
+    'last_heartbeat_at',
+    'offline_since_at',
+    'runtime_owner_id',
+    'session_epoch',
+    'transfer_state',
+    'transfer_target_node_id',
+    'updated_at',
+  ]) {
+    if (!(await hasColumn(client, PLAYER_PRESENCE_TABLE, columnName))) {
+      return false;
+    }
+  }
+  return true;
 }
 
 async function cleanupPostgresRestoreOrphanSectStateInTransaction(
@@ -320,4 +500,9 @@ function quoteIdentifier(identifier: string): string {
 
 function normalizeString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeCount(value: unknown): number {
+  const count = Number(value);
+  return Number.isFinite(count) ? Math.max(0, Math.trunc(count)) : 0;
 }
