@@ -9,11 +9,12 @@ installSmokeTimeout(__filename);
 async function main(): Promise<void> {
   await testIdlePlayersSkipCraftPipeline();
   await testCraftBatchKeepsPerPlayerIsolation();
+  await testCraftTickRecordsFixedPerformanceDimensions();
   await testStatisticDiffOnlyRunsForRealMutation();
 
   console.log(JSON.stringify({
     ok: true,
-    cases: ['idle_players_skip_craft_pipeline', 'active_and_queued_players_are_selected', 'batched_craft_tick_keeps_player_isolation', 'unchanged_tick_skips_statistics_diff', 'statistic_signal_records_diff', 'async_tick_records_after_resolution'],
+    cases: ['idle_players_skip_craft_pipeline', 'active_and_queued_players_are_selected', 'batched_craft_tick_keeps_player_isolation', 'craft_tick_records_fixed_performance_dimensions', 'unchanged_tick_skips_statistics_diff', 'statistic_signal_records_diff', 'async_tick_records_after_resolution'],
   }, null, 2));
 }
 
@@ -134,6 +135,50 @@ async function testCraftBatchKeepsPerPlayerIsolation(): Promise<void> {
   assert.deepEqual(flushed, ['player:craft-ok']);
   assert.deepEqual(notices, ['player:craft-fail']);
   assert.equal(warnings.length, 1, '异步通知失败必须被捕获，不能形成 unhandledRejection');
+}
+
+async function testCraftTickRecordsFixedPerformanceDimensions(): Promise<void> {
+  const players = new Map([
+    ['player:craft-sync', { playerId: 'player:craft-sync', miningJob: { remainingTicks: 2 } }],
+    ['player:craft-async', { playerId: 'player:craft-async', enhancementJob: { remainingTicks: 1 } }],
+  ]);
+  const perfCounts = new Map<string, number>();
+  const service = new WorldRuntimeCraftTickService(
+    {
+      getPlayer: (playerId: string) => players.get(playerId) ?? null,
+    } as never,
+    {
+      ensureAlchemyLikeActiveJobResourceCompatibilityMutation: () => ({ ok: true }),
+      listActiveTechniqueActivityKinds: (player: { playerId: string }) => (
+        player.playerId === 'player:craft-sync' ? ['mining'] : ['enhancement']
+      ),
+      hasAnyActiveTechniqueActivity: () => true,
+      tickTechniqueActivity: () => buildResult(),
+      tickEnhancementDurably: () => Promise.resolve(buildResult({ inventoryChanged: true })),
+    } as never,
+    { flushCraftMutation() {} } as never,
+  );
+
+  await service.advanceCraftJobs(
+    [...players.keys()],
+    {},
+    undefined,
+    (key: string, durationMs: number, count = 1) => {
+      assert.equal(Number.isFinite(durationMs) && durationMs >= 0, true);
+      perfCounts.set(key, (perfCounts.get(key) ?? 0) + count);
+    },
+  );
+
+  assert.equal(perfCounts.get('instance.craftJob.compatibilityMs'), 2);
+  assert.equal(perfCounts.get('instance.craftJob.activeKindPlanMs'), 2);
+  assert.equal(perfCounts.get('instance.craftJob.miningMs'), 1);
+  assert.equal(perfCounts.get('instance.craftJob.enhancementMs'), 1);
+  assert.equal(perfCounts.get('instance.craftJob.syncAdvanceMs'), 1);
+  assert.equal(perfCounts.get('instance.craftJob.asyncBoundaryMs'), 1);
+  assert.equal(perfCounts.get('instance.craftJob.progressOnlyMs'), 1);
+  assert.equal(perfCounts.get('instance.craftJob.assetMutationMs'), 1);
+  assert.equal(perfCounts.get('instance.craftJob.mutationFlushMs'), 2);
+  assert.equal(perfCounts.has('instance.craftJob.queueAdvanceMs'), false);
 }
 
 function buildResult(overrides: Record<string, unknown> = {}): Record<string, unknown> {

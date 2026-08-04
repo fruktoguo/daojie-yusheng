@@ -125,7 +125,11 @@ function main(): void {
   assertMatch(interruptEntry, /return buildCraftTickResult\(\);/, 'interruptTechniqueActivity must return an empty result for unregistered kinds');
   assertMatch(tickEntry, /return buildCraftTickResult\(\);/, 'tickTechniqueActivity must return an empty result for unregistered kinds');
 
-  assertMatch(worldTickSource, /for \(const kind of this\.craftPanelRuntimeService\.listActiveTechniqueActivityKinds\(player\)\) \{[\s\S]*?this\.craftPanelRuntimeService\.tickTechniqueActivity\(player, kind, deps\)/, 'world craft tick must enumerate active kinds and tick through the craft pipeline entry');
+  assertMatch(
+    worldTickSource,
+    /const activeKinds = this\.craftPanelRuntimeService\.listActiveTechniqueActivityKinds\(player\);[\s\S]*?for \(const kind of activeKinds\) \{[\s\S]*?this\.craftPanelRuntimeService\.tickTechniqueActivity\(player, kind, deps\)/,
+    'world craft tick must enumerate active kinds and tick through the craft pipeline entry',
+  );
   assertNoMatch(worldTickSource, /\btickAlchemy\s*\(|\btickEnhancement\s*\(|\btickGather\s*\(|\btickBuildingConstruction\s*\(/, 'world craft tick must not directly dispatch per-technique tick services');
   assertMatch(worldInterruptSource, /for \(const kind of this\.craftPanelRuntimeService\.listActiveTechniqueActivityKinds\(player\)\) \{[\s\S]*?this\.craftPanelRuntimeService\.interruptTechniqueActivity\(player, kind, reason, deps\)/, 'world craft interrupt must enumerate active kinds and interrupt through the craft pipeline entry');
 

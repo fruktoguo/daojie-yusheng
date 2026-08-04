@@ -36,6 +36,8 @@ const DEFERRED_CRAFT_QUEUE_FLUSH_OPTIONS = Object.freeze({
     deferRuntimeUpdates: true,
 });
 
+type CraftTickSectionRecorder = ((key: string, durationMs: number, count?: number) => void) | null;
+
 /** world-runtime craft tick orchestration：承接 craft job tick 推进编排。 */
 @Injectable()
 export class WorldRuntimeCraftTickService {
@@ -112,7 +114,12 @@ export class WorldRuntimeCraftTickService {
  * @returns 无返回值，直接更新advance炼制Job相关状态。
  */
 
-    async advanceCraftJobs(playerIds, deps, options: any = undefined) {
+    async advanceCraftJobs(
+        playerIds,
+        deps,
+        options: any = undefined,
+        recordSectionDuration: CraftTickSectionRecorder = null,
+    ) {
         const deferRuntimeUpdates = options?.deferRuntimeUpdates === true;
         const tickFlushOptions = deferRuntimeUpdates
             ? DEFERRED_CRAFT_TICK_FLUSH_OPTIONS
@@ -134,23 +141,75 @@ export class WorldRuntimeCraftTickService {
             if (!hasTechniqueActivityTickWork(player)) {
                 continue;
             }
-            this.ensureAlchemyLikeResourceCompatibilityAfterRestore(playerId, player, deps);
-            for (const kind of this.craftPanelRuntimeService.listActiveTechniqueActivityKinds(player)) {
+            const compatibilityStartedAt = beginCraftTickSection(recordSectionDuration);
+            try {
+                this.ensureAlchemyLikeResourceCompatibilityAfterRestore(playerId, player, deps);
+            } finally {
+                recordCraftTickSection(
+                    recordSectionDuration,
+                    'instance.craftJob.compatibilityMs',
+                    compatibilityStartedAt,
+                );
+            }
+            const activeKindPlanStartedAt = beginCraftTickSection(recordSectionDuration);
+            const activeKinds = this.craftPanelRuntimeService.listActiveTechniqueActivityKinds(player);
+            recordCraftTickSection(
+                recordSectionDuration,
+                'instance.craftJob.activeKindPlanMs',
+                activeKindPlanStartedAt,
+            );
+            for (const kind of activeKinds) {
                 const buildingJobBeforeTick = kind === 'building' ? player.buildingJob : null;
-                const pendingResult = this.tickActiveTechniqueActivity(player, kind, deps);
-                const result = isPromiseLike(pendingResult) ? await pendingResult : pendingResult;
+                const activityStartedAt = beginCraftTickSection(recordSectionDuration);
+                let asyncBoundary = false;
+                let activityCompleted = false;
+                let result: any;
+                try {
+                    const pendingResult = this.tickActiveTechniqueActivity(player, kind, deps);
+                    asyncBoundary = isPromiseLike(pendingResult);
+                    result = asyncBoundary ? await pendingResult : pendingResult;
+                    activityCompleted = true;
+                } finally {
+                    const durationMs = resolveCraftTickSectionDuration(activityStartedAt);
+                    recordCraftTickDuration(recordSectionDuration, resolveCraftJobKindDurationKey(kind), durationMs);
+                    recordCraftTickDuration(
+                        recordSectionDuration,
+                        asyncBoundary
+                            ? 'instance.craftJob.asyncBoundaryMs'
+                            : 'instance.craftJob.syncAdvanceMs',
+                        durationMs,
+                    );
+                    if (activityCompleted) {
+                        recordCraftTickDuration(
+                            recordSectionDuration,
+                            hasCraftAssetMutation(result)
+                                ? 'instance.craftJob.assetMutationMs'
+                                : 'instance.craftJob.progressOnlyMs',
+                            durationMs,
+                        );
+                    }
+                }
                 if (result?.sessionFenceSuperseded === true) {
                     // 旧会话已经被数据库 fence 拒绝；同息不再 flush 或启动队列，后续 tick 由新 fence 接管。
                     break;
                 }
                 this.sleepConditionalTechniqueActivityIfRequested(player, result);
-                this.worldRuntimeCraftMutationService.flushCraftMutation(
-                    playerId,
-                    result,
-                    kind,
-                    deps,
-                    tickFlushOptions,
-                );
+                const mutationFlushStartedAt = beginCraftTickSection(recordSectionDuration);
+                try {
+                    this.worldRuntimeCraftMutationService.flushCraftMutation(
+                        playerId,
+                        result,
+                        kind,
+                        deps,
+                        tickFlushOptions,
+                    );
+                } finally {
+                    recordCraftTickSection(
+                        recordSectionDuration,
+                        'instance.craftJob.mutationFlushMs',
+                        mutationFlushStartedAt,
+                    );
+                }
                 if (buildingJobBeforeTick && !player.buildingJob) {
                     buildingProjectionBoundaryReason = 'building_tick_terminal';
                 }
@@ -162,32 +221,41 @@ export class WorldRuntimeCraftTickService {
 
             // 队列推进：如果当前没有活跃任务，尝试启动队列中的下一个
             if (!this.craftPanelRuntimeService.hasAnyActiveTechniqueActivity(player)) {
-                const ctx = this.craftPanelRuntimeService.buildPipelineContext(deps);
-                const queueHead = typeof this.queueService.getQueue === 'function'
-                    ? this.queueService.getQueue(player)[0]
-                    : null;
-                const queueResult = queueHead?.kind === 'enhancement'
-                    && typeof this.craftPanelRuntimeService.startQueuedEnhancementDurably === 'function'
-                    ? await this.craftPanelRuntimeService.startQueuedEnhancementDurably(
-                        player,
-                        () => this.queueService.tickQueue(player, ctx),
-                        deps,
-                    )
-                    : this.queueService.tickQueue(player, ctx);
-                if (queueResult?.ok) {
-                    const kind = this.resolveQueueResultKind(player);
-                    if (kind) {
-                        this.worldRuntimeCraftMutationService.flushCraftMutation(
-                            playerId,
-                            queueResult,
-                            kind,
+                const queueStartedAt = beginCraftTickSection(recordSectionDuration);
+                try {
+                    const ctx = this.craftPanelRuntimeService.buildPipelineContext(deps);
+                    const queueHead = typeof this.queueService.getQueue === 'function'
+                        ? this.queueService.getQueue(player)[0]
+                        : null;
+                    const queueResult = queueHead?.kind === 'enhancement'
+                        && typeof this.craftPanelRuntimeService.startQueuedEnhancementDurably === 'function'
+                        ? await this.craftPanelRuntimeService.startQueuedEnhancementDurably(
+                            player,
+                            () => this.queueService.tickQueue(player, ctx),
                             deps,
-                            deferRuntimeUpdates ? DEFERRED_CRAFT_QUEUE_FLUSH_OPTIONS : undefined,
-                        );
-                        if (kind === 'building') {
-                            buildingProjectionBoundaryReason = 'building_queue_start';
+                        )
+                        : this.queueService.tickQueue(player, ctx);
+                    if (queueResult?.ok) {
+                        const kind = this.resolveQueueResultKind(player);
+                        if (kind) {
+                            this.worldRuntimeCraftMutationService.flushCraftMutation(
+                                playerId,
+                                queueResult,
+                                kind,
+                                deps,
+                                deferRuntimeUpdates ? DEFERRED_CRAFT_QUEUE_FLUSH_OPTIONS : undefined,
+                            );
+                            if (kind === 'building') {
+                                buildingProjectionBoundaryReason = 'building_queue_start';
+                            }
                         }
                     }
+                } finally {
+                    recordCraftTickSection(
+                        recordSectionDuration,
+                        'instance.craftJob.queueAdvanceMs',
+                        queueStartedAt,
+                    );
                 }
             }
           } catch (error) {
@@ -378,6 +446,60 @@ function isOfflineHangingRuntimeExpired(player: unknown): boolean {
 
 function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
     return Boolean(value && typeof (value as { then?: unknown }).then === 'function');
+}
+
+function beginCraftTickSection(recorder: CraftTickSectionRecorder): number | null {
+    return typeof recorder === 'function' ? performance.now() : null;
+}
+
+function resolveCraftTickSectionDuration(startedAt: number | null): number | null {
+    if (startedAt === null) {
+        return null;
+    }
+    return Math.max(0, performance.now() - startedAt);
+}
+
+function recordCraftTickDuration(
+    recorder: CraftTickSectionRecorder,
+    key: string,
+    durationMs: number | null,
+    count = 1,
+): void {
+    if (typeof recorder !== 'function' || durationMs === null) {
+        return;
+    }
+    recorder(key, durationMs, count);
+}
+
+function recordCraftTickSection(
+    recorder: CraftTickSectionRecorder,
+    key: string,
+    startedAt: number | null,
+    count = 1,
+): void {
+    recordCraftTickDuration(recorder, key, resolveCraftTickSectionDuration(startedAt), count);
+}
+
+function resolveCraftJobKindDurationKey(kind: string): string {
+    switch (kind) {
+        case 'alchemy': return 'instance.craftJob.alchemyMs';
+        case 'forging': return 'instance.craftJob.forgingMs';
+        case 'enhancement': return 'instance.craftJob.enhancementMs';
+        case 'transmission': return 'instance.craftJob.transmissionMs';
+        case 'gather': return 'instance.craftJob.gatherMs';
+        case 'mining': return 'instance.craftJob.miningMs';
+        case 'building': return 'instance.craftJob.buildingMs';
+        case 'formation': return 'instance.craftJob.formationMs';
+        default: return 'instance.craftJob.otherMs';
+    }
+}
+
+function hasCraftAssetMutation(result: any): boolean {
+    return result?.inventoryChanged === true
+        || result?.equipmentChanged === true
+        || result?.attrChanged === true
+        || Number(result?.craftRealmExpGain) > 0
+        || (Array.isArray(result?.groundDrops) && result.groundDrops.length > 0);
 }
 
 export function buildCraftTickErrorNotice(error: unknown): { text: string; kind: string; structured?: unknown } {

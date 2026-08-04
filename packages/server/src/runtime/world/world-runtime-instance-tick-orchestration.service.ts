@@ -305,6 +305,9 @@ export class WorldRuntimeInstanceTickOrchestrationService {
         const elapsedWorldTicks = this.advanceWorldClock(deps, frameDurationMs);
         const worldMaintenanceDue = elapsedWorldTicks > 0;
         const sectionDurations = createTickSectionDurations();
+        const recordCraftJobSectionDuration = (key: string, durationMs: number, count = 1): void => {
+            addTickSectionDuration(sectionDurations, key, durationMs, count);
+        };
         const resetFrameEffectsStartedAt = performance.now();
         this.runIsolatedSyncOperation(deps, 'reset_frame_effects', { worldTick: deps.tick }, () => deps.worldRuntimeCombatEffectsService.resetFrameEffects());
         const resetFrameEffectsMs = performance.now() - resetFrameEffectsStartedAt;
@@ -821,6 +824,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                             craftPlayerIds,
                             deps,
                             deferCraftRuntimeUpdates ? DEFERRED_CRAFT_RUNTIME_UPDATE_OPTIONS : undefined,
+                            recordCraftJobSectionDuration,
                         ));
                         addMeasuredTickSection(sectionDurations, 'instance.craftJobAdvanceMs', craftJobAdvanceStartedAt, craftPlayerIds.length);
                     }

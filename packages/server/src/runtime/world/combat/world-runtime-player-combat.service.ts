@@ -17,6 +17,40 @@ import * as world_runtime_normalization_helpers_1 from '../world-runtime.normali
 
 const { formatItemStackLabel } = world_runtime_normalization_helpers_1;
 
+type CombatSectionRecorder = (key: string, durationMs: number, count?: number) => void;
+
+function beginPlayerMonsterKillPerf(deps: any): number | null {
+    return typeof deps?.recordPendingCommandSectionDuration === 'function'
+        ? performance.now()
+        : null;
+}
+
+function recordPlayerMonsterKillPerf(
+    deps: any,
+    key: string,
+    startedAt: number | null,
+    count = 1,
+): number | null {
+    const recorder = deps?.recordPendingCommandSectionDuration as CombatSectionRecorder | undefined;
+    if (typeof recorder !== 'function' || startedAt === null) {
+        return null;
+    }
+    const endedAt = performance.now();
+    const durationMs = endedAt - startedAt;
+    if (Number.isFinite(durationMs) && durationMs >= 0) {
+        recorder(key, durationMs, count);
+    }
+    return endedAt;
+}
+
+function recordPlayerMonsterKillCount(deps: any, key: string, count: number): void {
+    const recorder = deps?.recordPendingCommandSectionDuration as CombatSectionRecorder | undefined;
+    if (typeof recorder !== 'function' || count <= 0) {
+        return;
+    }
+    recorder(key, 0, count);
+}
+
 /** world-runtime player combat outcome：承接玩家战斗结果收口与击杀奖励分发。 */
 @Injectable()
 export class WorldRuntimePlayerCombatService {
@@ -61,6 +95,7 @@ export class WorldRuntimePlayerCombatService {
     async handlePlayerMonsterKill(instance: any, monster: any, killerPlayerId: string, deps: any) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        let sectionStartedAt = beginPlayerMonsterKillPerf(deps);
         const killNotice = buildStructuredNotice('combat', 'notice.combat.killed', `${monster.name} 被你斩杀`, {
             vars: { monsterName: monster.name },
             pills: [{ key: 'monsterName', style: 'target' }],
@@ -90,7 +125,17 @@ export class WorldRuntimePlayerCombatService {
             });
         }
         this.incrementMonsterKillCounter(killerPlayerId, monster.tier);
+        sectionStartedAt = recordPlayerMonsterKillPerf(
+            deps,
+            'combat.playerMonsterKill.preparationMs',
+            sectionStartedAt,
+        );
         this.distributeMonsterKillProgress(instance, monster, killerPlayerId, deps);
+        sectionStartedAt = recordPlayerMonsterKillPerf(
+            deps,
+            'combat.playerMonsterKill.progressMs',
+            sectionStartedAt,
+        );
         const killer = this.playerRuntimeService.getPlayer(killerPlayerId);
         const lootRate = killer?.attrs.numericStats.lootRate ?? 0;
         const rareLootRate = killer?.attrs.numericStats.rareLootRate ?? 0;
@@ -99,10 +144,21 @@ export class WorldRuntimePlayerCombatService {
             monsterLevel: monster.level,
             monsterTier: monster.tier,
         });
+        sectionStartedAt = recordPlayerMonsterKillPerf(
+            deps,
+            'combat.playerMonsterKill.dropRollMs',
+            sectionStartedAt,
+        );
+        recordPlayerMonsterKillCount(deps, 'combat.playerMonsterKill.lootItems', items.length);
         for (let index = 0; index < items.length; index += 1) {
             const item = items[index];
             await this.deliverMonsterLoot(killerPlayerId, instance, monster.x, monster.y, item, deps, `monster:${monster.runtimeId}:${index}`);
         }
+        recordPlayerMonsterKillPerf(
+            deps,
+            'combat.playerMonsterKill.lootDeliveryMs',
+            sectionStartedAt,
+        );
     }    
     /**
  * distributeMonsterKillProgress：判断distribute怪物Kill进度是否满足条件。
@@ -116,6 +172,7 @@ export class WorldRuntimePlayerCombatService {
     distributeMonsterKillProgress(instance: any, monster: any, killerPlayerId: string, deps: any) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        let sectionStartedAt = beginPlayerMonsterKillPerf(deps);
         const participants = this.resolveMonsterExpParticipants(instance, monster.runtimeId, killerPlayerId);
         const topContributionRealmLv = this.resolveMonsterTopContributionRealmLv(participants);
         const killerRealmLv = this.resolvePlayerRealmLv(killerPlayerId);
@@ -131,6 +188,12 @@ export class WorldRuntimePlayerCombatService {
                 monster?.y,
             );
         const auditEnabled = this.isCombatSemanticAuditEnabled();
+        sectionStartedAt = recordPlayerMonsterKillPerf(
+            deps,
+            'combat.playerMonsterKill.participantPlanMs',
+            sectionStartedAt,
+        );
+        recordPlayerMonsterKillCount(deps, 'combat.playerMonsterKill.participants', participants.length);
         for (const participant of participants) {
             const contributionRatio = totalContribution > 0 ? participant.contribution / totalContribution : 1;
             const beforeProgression = auditEnabled
@@ -178,6 +241,12 @@ export class WorldRuntimePlayerCombatService {
                 });
             }
         }
+        recordPlayerMonsterKillPerf(
+            deps,
+            'combat.playerMonsterKill.progressApplyMs',
+            sectionStartedAt,
+            participants.length,
+        );
     }    
     /**
  * resolveMonsterExpParticipants：规范化或转换怪物ExpParticipant。
