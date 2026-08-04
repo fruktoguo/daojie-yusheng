@@ -65,18 +65,12 @@ export class GeneratedTechniqueStoreService {
           if (typeof row.created_by_player_id === 'string' && row.created_by_player_id.trim()) {
             this.creatorById.set(row.id, row.created_by_player_id.trim());
           }
-          const normalizedMetadata = normalizeTechniqueAggregationMetadata(
-            (template as unknown as Record<string, unknown>).aggregate,
+          const normalizedMetadata = resolvePersistedTechniqueAggregationMetadata(
+            template,
+            row.created_by_player_id,
           );
           if (normalizedMetadata) {
-            const rowCreator = typeof row.created_by_player_id === 'string' && row.created_by_player_id.trim()
-              ? row.created_by_player_id.trim()
-              : undefined;
-            this.aggregateMetadataById.set(row.id, {
-              ...normalizedMetadata,
-              // 数据库创建者字段是真源，模板 JSON 中的冗余值不能改变更新权限。
-              ...(rowCreator ? { creatorPlayerId: rowCreator } : {}),
-            });
+            this.aggregateMetadataById.set(row.id, normalizedMetadata);
           }
         }
       }
@@ -165,4 +159,25 @@ export class GeneratedTechniqueStoreService {
       && this.lastSignature.count === sig.count
       && this.lastSignature.maxUpdatedAt === sig.maxUpdatedAt;
   }
+}
+
+/** @internal 聚合行的数据库创建者是本卷修订者，稳定法脉初创者来自不可变模板。 */
+export function resolvePersistedTechniqueAggregationMetadata(
+  template: TechniqueTemplate,
+  createdByPlayerId: unknown,
+): TechniqueAggregationMetadata | null {
+  const metadata = normalizeTechniqueAggregationMetadata(
+    (template as unknown as Record<string, unknown>).aggregate,
+  );
+  if (!metadata) return null;
+  const revisionAuthorPlayerId = typeof createdByPlayerId === 'string' && createdByPlayerId.trim()
+    ? createdByPlayerId.trim()
+    : metadata.revisionAuthorPlayerId;
+  return {
+    ...metadata,
+    ...(metadata.creatorPlayerId
+      ? { creatorPlayerId: metadata.creatorPlayerId }
+      : revisionAuthorPlayerId ? { creatorPlayerId: revisionAuthorPlayerId } : {}),
+    ...(revisionAuthorPlayerId ? { revisionAuthorPlayerId } : {}),
+  };
 }

@@ -414,8 +414,8 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
     sendPublishTechniqueAggregation(payload: ClientToServerEventPayload<typeof C2S.PublishTechniqueAggregation>): boolean {
       return deps.emitEvent(C2S.PublishTechniqueAggregation, payload).accepted;
     },
-    sendUpdateTechniqueAggregationAccess(payload: ClientToServerEventPayload<typeof C2S.UpdateTechniqueAggregationAccess>): boolean {
-      return deps.emitEvent(C2S.UpdateTechniqueAggregationAccess, payload).accepted;
+    sendUpdateTechniqueAggregationPermissions(payload: ClientToServerEventPayload<typeof C2S.UpdateTechniqueAggregationPermissions>): boolean {
+      return deps.emitEvent(C2S.UpdateTechniqueAggregationPermissions, payload).accepted;
     },
     sendLearnTechniqueAggregation(payload: ClientToServerEventPayload<typeof C2S.LearnTechniqueAggregation>): boolean {
       return deps.emitEvent(C2S.LearnTechniqueAggregation, payload).accepted;

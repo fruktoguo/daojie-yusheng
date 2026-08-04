@@ -7,7 +7,7 @@ import type { CellLayerTarget } from './map-layer-types';
 import type { TechniqueCategory, TechniqueGrade } from './cultivation-types';
 import type { CraftEffectStatsPatch } from './craft-effect-stats';
 import type { TreasureVaultPermissionMap } from './social-types';
-import type { TechniqueUnificationAccessPolicy } from './technique-aggregation';
+import type { TechniqueUnificationPermissions } from './technique-aggregation';
 import type { TileType } from './world-core-types';
 
 export type FiveElement = 'metal' | 'wood' | 'water' | 'fire' | 'earth' | 'neutral';
@@ -159,8 +159,8 @@ export interface BuildingInstance {
   treasureVaultPermissions?: Partial<TreasureVaultPermissionMap>;
   /** 统法台一经凝篇即绑定稳定法脉，不允许切换。 */
   techniqueAggregationFamilyId?: string;
-  /** 统法台传阅门规；缺失时默认不设门槛。 */
-  techniqueAggregationAccessPolicy?: TechniqueUnificationAccessPolicy;
+  /** 统法台参阅与修订权限；缺失时参阅开放、修订仅限台主。 */
+  techniqueAggregationPermissions?: TechniqueUnificationPermissions;
   defId: string;
   defHandle: number;
   instanceId: string;

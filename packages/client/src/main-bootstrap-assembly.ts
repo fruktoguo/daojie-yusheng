@@ -553,7 +553,7 @@ type MainBootstrapAssemblyOptions = {
     | 'sendDestroyItem'
     | 'sendRequestTechniqueAggregation'
     | 'sendPublishTechniqueAggregation'
-    | 'sendUpdateTechniqueAggregationAccess'
+    | 'sendUpdateTechniqueAggregationPermissions'
     | 'sendLearnTechniqueAggregation'
   >;
   /**

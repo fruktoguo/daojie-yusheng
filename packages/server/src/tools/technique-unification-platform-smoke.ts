@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   S2C,
-  normalizeTechniqueUnificationAccessPolicy,
+  normalizeTechniqueUnificationPermissions,
   type TechniqueAggregationMetadata,
   type TechniqueAggregationPanelView,
   type TechniqueAggregationPublishRequest,
@@ -16,6 +16,7 @@ type RuntimePlayer = {
   y: number;
   techniques: { revision: number; techniques: Array<{ techId: string }> };
   pendingTechniqueComprehensions: Array<Record<string, unknown>>;
+  eligibleSourceIds: string[];
 };
 
 class TestSocket {
@@ -35,10 +36,10 @@ class TestSocket {
 }
 
 async function main(): Promise<void> {
-  const owner = createPlayer('player:owner');
-  const closeFriend = createPlayer('player:close-friend');
-  const innerDisciple = createPlayer('player:inner-disciple');
-  const stranger = createPlayer('player:stranger');
+  const owner = createPlayer('player:owner', ['gen:a', 'gen:b', 'gen:c']);
+  const closeFriend = createPlayer('player:close-friend', ['gen:friend']);
+  const innerDisciple = createPlayer('player:inner-disciple', ['gen:inner']);
+  const stranger = createPlayer('player:stranger', ['gen:stranger']);
   const players = new Map([owner, closeFriend, innerDisciple, stranger].map((player) => [player.playerId, player]));
   const building: any = {
     id: 'building:unification-1',
@@ -72,12 +73,12 @@ async function main(): Promise<void> {
       if (target.techniqueAggregationFamilyId && target.techniqueAggregationFamilyId !== familyId) {
         return { ok: false, reason: 'technique_unification_platform_already_bound' };
       }
-      const nextPolicy = normalizeTechniqueUnificationAccessPolicy(input.accessPolicy);
+      const nextPermissions = normalizeTechniqueUnificationPermissions(input.permissions);
       const changed = target.techniqueAggregationFamilyId !== familyId
-        || JSON.stringify(target.techniqueAggregationAccessPolicy) !== JSON.stringify(nextPolicy);
+        || JSON.stringify(target.techniqueAggregationPermissions) !== JSON.stringify(nextPermissions);
       if (changed) {
         target.techniqueAggregationFamilyId = familyId;
-        target.techniqueAggregationAccessPolicy = nextPolicy;
+        target.techniqueAggregationPermissions = nextPermissions;
         target.revision += 1;
         this.markPersistenceDirtyDomainsHighPriority(['building']);
       }
@@ -191,28 +192,29 @@ async function main(): Promise<void> {
     operationId: 'operation-1',
     buildingId: building.id,
     customName: '归元正法',
-    accessPolicy: { unrestricted: false, friendLevels: ['close_friend'], sectRoles: [] },
+    permissions: {
+      read: { unrestricted: false, friendLevels: ['close_friend'], sectRoles: [] },
+      revision: { unrestricted: false, friendLevels: [], sectRoles: [] },
+    },
     sourceTechniqueIds: ['gen:a', 'gen:b'],
   });
   const boundFamilyId = String(building.techniqueAggregationFamilyId ?? '');
   assert.equal(boundFamilyId, 'family:operation-1');
-  assert.deepEqual(building.techniqueAggregationAccessPolicy, {
-    unrestricted: false,
-    friendLevels: ['close_friend'],
-    sectRoles: [],
+  assert.deepEqual(building.techniqueAggregationPermissions, {
+    read: { unrestricted: false, friendLevels: ['close_friend'], sectRoles: [] },
+    revision: { unrestricted: false, friendLevels: [], sectRoles: [] },
   });
   assert.equal(instance.dirtyDomains.includes('building'), true);
   assert.equal(instanceFlushes.length > 0, true);
   assert.equal(playerFlushes.length > 0, true);
 
   delete building.techniqueAggregationFamilyId;
-  delete building.techniqueAggregationAccessPolicy;
+  delete building.techniqueAggregationPermissions;
   await helper.handleRequestPanel(ownerSocket as never, { requestId: 'recover-panel', buildingId: building.id });
   assert.equal(building.techniqueAggregationFamilyId, boundFamilyId);
-  assert.deepEqual(building.techniqueAggregationAccessPolicy, {
-    unrestricted: false,
-    friendLevels: ['close_friend'],
-    sectRoles: [],
+  assert.deepEqual(building.techniqueAggregationPermissions, {
+    read: { unrestricted: false, friendLevels: ['close_friend'], sectRoles: [] },
+    revision: { unrestricted: false, friendLevels: [], sectRoles: [] },
   });
 
   await helper.handlePublish(ownerSocket as never, {
@@ -228,10 +230,24 @@ async function main(): Promise<void> {
 
   const closeFriendSocket = new TestSocket({ playerId: closeFriend.playerId });
   await helper.handleRequestPanel(closeFriendSocket as never, { requestId: 'friend-panel', buildingId: building.id });
-  assert.equal(closeFriendSocket.last<TechniqueAggregationPanelView>(S2C.TechniqueAggregationPanel).platform.canLearn, true);
+  const closeFriendPanel = closeFriendSocket.last<TechniqueAggregationPanelView>(S2C.TechniqueAggregationPanel);
+  assert.equal(closeFriendPanel.platform.canLearn, true);
+  assert.equal(closeFriendPanel.platform.canRevise, false);
+  assert.deepEqual(closeFriendPanel.eligibleSources, []);
   await helper.handleLearn(closeFriendSocket as never, { requestId: 'friend-learn', buildingId: building.id });
   assert.deepEqual(pendingOptions.at(-1), { selfComprehensionAllowed: true });
   assert.equal(closeFriend.pendingTechniqueComprehensions.length, 1);
+  await helper.handlePublish(closeFriendSocket as never, {
+    requestId: 'friend-revision-denied',
+    operationId: 'friend-revision-denied',
+    buildingId: building.id,
+    expectedRevision: 2,
+    sourceTechniqueIds: ['gen:friend'],
+  });
+  assert.equal(
+    closeFriendSocket.last<any>(S2C.TechniqueAggregationResult).code,
+    'TECHNIQUE_AGGREGATE_REVISION_PERMISSION_DENIED',
+  );
 
   const strangerSocket = new TestSocket({ playerId: stranger.playerId });
   await helper.handleLearn(strangerSocket as never, { requestId: 'stranger-learn', buildingId: building.id });
@@ -240,38 +256,80 @@ async function main(): Promise<void> {
     'TECHNIQUE_AGGREGATE_ACCESS_DENIED',
   );
 
-  await helper.handleUpdateAccess(ownerSocket as never, {
-    requestId: 'access-sect',
+  await helper.handleUpdatePermissions(ownerSocket as never, {
+    requestId: 'read-sect',
     buildingId: building.id,
-    accessPolicy: { unrestricted: false, friendLevels: [], sectRoles: ['inner'] },
+    scope: 'read',
+    policy: { unrestricted: false, friendLevels: [], sectRoles: ['inner'] },
   });
   const innerSocket = new TestSocket({ playerId: innerDisciple.playerId });
   await helper.handleRequestPanel(innerSocket as never, { requestId: 'inner-panel', buildingId: building.id });
-  assert.equal(innerSocket.last<TechniqueAggregationPanelView>(S2C.TechniqueAggregationPanel).platform.canLearn, true);
+  const innerReadPanel = innerSocket.last<TechniqueAggregationPanelView>(S2C.TechniqueAggregationPanel);
+  assert.equal(innerReadPanel.platform.canLearn, true);
+  assert.equal(innerReadPanel.platform.canRevise, false);
   await helper.handleRequestPanel(closeFriendSocket as never, { requestId: 'friend-panel-2', buildingId: building.id });
   assert.equal(closeFriendSocket.last<TechniqueAggregationPanelView>(S2C.TechniqueAggregationPanel).platform.canLearn, false);
 
-  await helper.handleUpdateAccess(ownerSocket as never, {
-    requestId: 'access-open',
+  await helper.handleUpdatePermissions(ownerSocket as never, {
+    requestId: 'revision-sect',
     buildingId: building.id,
-    accessPolicy: { unrestricted: true, friendLevels: ['dao_friend'], sectRoles: ['leader'] },
+    scope: 'revision',
+    policy: { unrestricted: false, friendLevels: [], sectRoles: ['inner'] },
   });
-  await helper.handleRequestPanel(strangerSocket as never, { requestId: 'stranger-panel', buildingId: building.id });
-  assert.equal(strangerSocket.last<TechniqueAggregationPanelView>(S2C.TechniqueAggregationPanel).platform.canLearn, true);
-  assert.deepEqual(building.techniqueAggregationAccessPolicy, {
-    unrestricted: true,
-    friendLevels: [],
-    sectRoles: [],
+  await helper.handleRequestPanel(innerSocket as never, { requestId: 'inner-revision-panel', buildingId: building.id });
+  const innerRevisionPanel = innerSocket.last<TechniqueAggregationPanelView>(S2C.TechniqueAggregationPanel);
+  assert.equal(innerRevisionPanel.platform.canLearn, true);
+  assert.equal(innerRevisionPanel.platform.canRevise, true);
+  assert.deepEqual(innerRevisionPanel.eligibleSources.map((entry) => entry.techId), ['gen:inner']);
+  assert.equal(innerRevisionPanel.eligibleSources[0]?.strengthPercent, 108);
+  await helper.handlePublish(innerSocket as never, {
+    requestId: 'inner-revision',
+    operationId: 'inner-revision',
+    buildingId: building.id,
+    expectedRevision: 2,
+    sourceTechniqueIds: ['gen:inner'],
   });
+  const collaborativeEntry = aggregation.entries.at(-1);
+  assert.equal(collaborativeEntry?.metadata.creatorPlayerId, owner.playerId);
+  assert.equal(collaborativeEntry?.metadata.revisionAuthorPlayerId, innerDisciple.playerId);
+  assert.equal(collaborativeEntry?.metadata.revision, 3);
 
-  const nonOwnerAccessSocket = new TestSocket({ playerId: innerDisciple.playerId });
-  await helper.handleUpdateAccess(nonOwnerAccessSocket as never, {
-    requestId: 'access-forbidden',
+  await helper.handlePublish(strangerSocket as never, {
+    requestId: 'stranger-revision-denied',
+    operationId: 'stranger-revision-denied',
     buildingId: building.id,
-    accessPolicy: { unrestricted: false, friendLevels: [], sectRoles: [] },
+    expectedRevision: 3,
+    sourceTechniqueIds: ['gen:stranger'],
   });
   assert.equal(
-    nonOwnerAccessSocket.last<any>(S2C.TechniqueAggregationResult).code,
+    strangerSocket.last<any>(S2C.TechniqueAggregationResult).code,
+    'TECHNIQUE_AGGREGATE_REVISION_PERMISSION_DENIED',
+  );
+
+  await helper.handleUpdatePermissions(ownerSocket as never, {
+    requestId: 'read-open',
+    buildingId: building.id,
+    scope: 'read',
+    policy: { unrestricted: true, friendLevels: ['dao_friend'], sectRoles: ['leader'] },
+  });
+  await helper.handleRequestPanel(strangerSocket as never, { requestId: 'stranger-panel', buildingId: building.id });
+  const strangerPanel = strangerSocket.last<TechniqueAggregationPanelView>(S2C.TechniqueAggregationPanel);
+  assert.equal(strangerPanel.platform.canLearn, true);
+  assert.equal(strangerPanel.platform.canRevise, false);
+  assert.deepEqual(building.techniqueAggregationPermissions, {
+    read: { unrestricted: true, friendLevels: [], sectRoles: [] },
+    revision: { unrestricted: false, friendLevels: [], sectRoles: ['inner'] },
+  });
+
+  const nonOwnerPermissionSocket = new TestSocket({ playerId: innerDisciple.playerId });
+  await helper.handleUpdatePermissions(nonOwnerPermissionSocket as never, {
+    requestId: 'permission-forbidden',
+    buildingId: building.id,
+    scope: 'revision',
+    policy: { unrestricted: false, friendLevels: [], sectRoles: [] },
+  });
+  assert.equal(
+    nonOwnerPermissionSocket.last<any>(S2C.TechniqueAggregationResult).code,
     'TECHNIQUE_AGGREGATE_PLATFORM_OWNER_REQUIRED',
   );
 
@@ -309,7 +367,11 @@ class FakeAggregationService {
   buildPanel(
     player: RuntimePlayer,
     request: { requestId?: string; buildingId?: string },
-    options: { boundFamilyId?: string; platform: TechniqueUnificationPlatformView },
+    options: {
+      boundFamilyId?: string;
+      includeEligibleSources?: boolean;
+      platform: TechniqueUnificationPlatformView;
+    },
   ): TechniqueAggregationPanelView {
     const latest = options.boundFamilyId
       ? [...this.entries]
@@ -320,7 +382,20 @@ class FakeAggregationService {
       requestId: request.requestId,
       buildingId: request.buildingId,
       revision: player.techniques.revision,
-      eligibleSources: [],
+      eligibleSources: options.includeEligibleSources === false
+        ? []
+        : player.eligibleSourceIds.map((techId, index) => ({
+          techId,
+          name: `自创内功${index + 1}`,
+          grade: 'mortal' as const,
+          category: 'internal' as const,
+          realmLv: index % 2 === 0 ? 3 : 2,
+          strengthPercent: 108,
+          level: 9,
+          maxLevel: 9,
+          fullyMastered: true,
+          covered: false,
+        })),
       families: latest ? [{
         familyId: latest.metadata.familyId,
         latestRevision: latest.metadata.revision,
@@ -352,7 +427,12 @@ class FakeAggregationService {
   async publish(
     player: RuntimePlayer,
     request: TechniqueAggregationPublishRequest,
-    context: { platformInstanceId?: string; platformBuildingId?: string },
+    context: {
+      platformInstanceId?: string;
+      platformBuildingId?: string;
+      platformOwnerPlayerId?: string;
+      revisionPermissionGranted?: boolean;
+    },
   ) {
     this.lastPublishRequest = { ...request };
     const familyId = request.familyId || this.resolveInitialFamilyId(request.operationId);
@@ -372,10 +452,12 @@ class FakeAggregationService {
       ...(previous ? { previousRevision: previous.metadata.revision } : {}),
       sourceTechniqueIds,
       sourceCount: sourceTechniqueIds.length,
-      creatorPlayerId: player.playerId,
+      creatorPlayerId: previous?.metadata.creatorPlayerId ?? context.platformOwnerPlayerId ?? player.playerId,
+      revisionAuthorPlayerId: player.playerId,
       platformInstanceId: context.platformInstanceId,
       platformBuildingId: context.platformBuildingId,
-      initialAccessPolicy: request.accessPolicy,
+      initialPermissions: previous?.metadata.initialPermissions
+        ?? normalizeTechniqueUnificationPermissions(request.permissions),
     };
     this.entries.push({ techniqueId, metadata, name: previous?.name ?? request.customName ?? '未名法脉' });
     return {
@@ -402,7 +484,7 @@ class FakeAggregationService {
   }
 }
 
-function createPlayer(playerId: string): RuntimePlayer {
+function createPlayer(playerId: string, eligibleSourceIds: string[] = []): RuntimePlayer {
   return {
     playerId,
     instanceId: 'instance:sect-main',
@@ -410,6 +492,7 @@ function createPlayer(playerId: string): RuntimePlayer {
     y: 10,
     techniques: { revision: 1, techniques: [] },
     pendingTechniqueComprehensions: [],
+    eligibleSourceIds,
   };
 }
 

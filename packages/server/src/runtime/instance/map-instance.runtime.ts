@@ -8,7 +8,7 @@
  * 单张地图的全部运行态：地块平面、占位、妖兽 AI、战斗、建筑、
  * 资源刷新、灵气流动、AOI 广播和持久化脏域追踪。
  */
-import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, DEFAULT_QI_RUNTIME_FLOW_CONFIGS, DISPERSED_AURA_RESOURCE_KEY, Direction, GROUND_ITEM_EXPIRE_TICKS, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_INSTANCE_TICK_SPEED, MAX_THREAT_VALUE, MOVE_POINT_UNIT, QI_HALF_LIFE_RATE_SCALE, StructureType, TECHNIQUE_UNIFICATION_PLATFORM_DEF_ID, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateDispersedAuraGainPerTile, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, horizontalFacingFromDelta, horizontalFacingFromTo, isGroundInteractableCellLayerTarget, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeHorizontalFacing, normalizeStructureType, normalizeSurfaceType, normalizeTechniqueUnificationAccessPolicy, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolvePlayerFacingContentName, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
+import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, DEFAULT_QI_RUNTIME_FLOW_CONFIGS, DISPERSED_AURA_RESOURCE_KEY, Direction, GROUND_ITEM_EXPIRE_TICKS, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_INSTANCE_TICK_SPEED, MAX_THREAT_VALUE, MOVE_POINT_UNIT, QI_HALF_LIFE_RATE_SCALE, StructureType, TECHNIQUE_UNIFICATION_PLATFORM_DEF_ID, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateDispersedAuraGainPerTile, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, horizontalFacingFromDelta, horizontalFacingFromTo, isGroundInteractableCellLayerTarget, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeHorizontalFacing, normalizeStructureType, normalizeSurfaceType, normalizeTechniqueUnificationPermissions, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolvePlayerFacingContentName, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
 import { readTrimmedEnv } from '../../config/env-alias';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import '../map/map-template.repository';
@@ -1843,10 +1843,10 @@ class MapInstanceRuntime {
         this.markPersistenceDirtyDomainsHighPriority(['building']);
         return { ok: true, building, changed: true };
     }
-    /** updateTechniqueUnificationPlatformState：在实例权威边界内绑定法脉或刻录传法门规。 */
+    /** updateTechniqueUnificationPlatformState：在实例权威边界内绑定法脉或更新权限。 */
     updateTechniqueUnificationPlatformState(
         buildingIdInput,
-        input: { familyId?: unknown; accessPolicy?: unknown } = {},
+        input: { familyId?: unknown; permissions?: unknown } = {},
     ) {
         const buildingId = normalizeBuildingId(buildingIdInput);
         const familyId = normalizeBuildingId(input?.familyId);
@@ -1861,13 +1861,13 @@ class MapInstanceRuntime {
         if (currentFamilyId && currentFamilyId !== familyId) {
             return { ok: false, reason: 'technique_unification_platform_already_bound' };
         }
-        const currentPolicy = normalizeTechniqueUnificationAccessPolicy(building.techniqueAggregationAccessPolicy);
-        const nextPolicy = normalizeTechniqueUnificationAccessPolicy(input?.accessPolicy);
-        if (currentFamilyId === familyId && haveSameTechniqueUnificationAccessPolicy(currentPolicy, nextPolicy)) {
+        const currentPermissions = normalizeTechniqueUnificationPermissions(building.techniqueAggregationPermissions);
+        const nextPermissions = normalizeTechniqueUnificationPermissions(input?.permissions);
+        if (currentFamilyId === familyId && haveSameTechniqueUnificationPermissions(currentPermissions, nextPermissions)) {
             return { ok: true, building, changed: false };
         }
         building.techniqueAggregationFamilyId = familyId;
-        building.techniqueAggregationAccessPolicy = nextPolicy;
+        building.techniqueAggregationPermissions = nextPermissions;
         building.updatedAtTick = Math.max(0, Math.trunc(Number(this.tick) || 0));
         building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
         this.localBuildingViewCacheById.delete(building.id);
@@ -2828,8 +2828,8 @@ class MapInstanceRuntime {
                 ...(normalizeBuildingId(entry?.techniqueAggregationFamilyId) ? {
                     techniqueAggregationFamilyId: normalizeBuildingId(entry.techniqueAggregationFamilyId),
                 } : {}),
-                ...(entry?.techniqueAggregationAccessPolicy ? {
-                    techniqueAggregationAccessPolicy: normalizeTechniqueUnificationAccessPolicy(entry.techniqueAggregationAccessPolicy),
+                ...(entry?.techniqueAggregationPermissions ? {
+                    techniqueAggregationPermissions: normalizeTechniqueUnificationPermissions(entry.techniqueAggregationPermissions),
                 } : {}),
                 defId,
                 defHandle,
@@ -9802,6 +9802,10 @@ function haveSameTechniqueUnificationAccessPolicy(left, right) {
         && left.friendLevels.every((entry, index) => entry === right.friendLevels[index])
         && left.sectRoles.length === right.sectRoles.length
         && left.sectRoles.every((entry, index) => entry === right.sectRoles[index]);
+}
+function haveSameTechniqueUnificationPermissions(left, right) {
+    return haveSameTechniqueUnificationAccessPolicy(left.read, right.read)
+        && haveSameTechniqueUnificationAccessPolicy(left.revision, right.revision);
 }
 function normalizeBuildingState(value) {
     switch (value) {

@@ -25,7 +25,7 @@ import type {
   S2C_EnhancementPanel,
   S2C_TechniqueActivityTasks,
   S2C_TechniqueTransmissionStatuses,
-  TechniqueAggregationAccessRequest,
+  TechniqueAggregationPermissionRequest,
   TechniqueAggregationLearnRequest,
   TechniqueAggregationPanelView,
   TechniqueAggregationPreviewRequest,
@@ -103,7 +103,7 @@ type CraftWorkbenchCallbacks = {
   onDecomposeTechniqueBook?: (itemInstanceId: string, count: number) => void;
   onRequestTechniqueAggregation?: (payload: TechniqueAggregationPreviewRequest) => boolean | void;
   onPublishTechniqueAggregation?: (payload: TechniqueAggregationPublishRequest) => boolean | void;
-  onUpdateTechniqueAggregationAccess?: (payload: TechniqueAggregationAccessRequest) => boolean | void;
+  onUpdateTechniqueAggregationPermissions?: (payload: TechniqueAggregationPermissionRequest) => boolean | void;
   onLearnTechniqueAggregation?: (payload: TechniqueAggregationLearnRequest) => boolean | void;
   getTransmissionTargets?: () => Array<{ playerId: string; name: string }>;
 };
@@ -1757,7 +1757,7 @@ export class CraftWorkbenchModal {
     }
     if (this.activeMode === 'technique_refining') {
       return this.transmissionView.isTechniqueAggregationOpen()
-        ? '承载一脉功法，并依门规向有缘之人开放参悟。'
+        ? '承载一脉功法，并依权限向有缘之人开放参阅与修订。'
         : '分解功法书为残页，也可以用残页抄录指定层数的功法书。';
     }
     return t('craft.workbench.profession.description.default');

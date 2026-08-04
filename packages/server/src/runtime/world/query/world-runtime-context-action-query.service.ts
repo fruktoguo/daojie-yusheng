@@ -328,7 +328,7 @@ export class WorldRuntimeContextActionQueryService {
                             id: `technique_unification:open:${encodedBuildingId}`,
                             name: `参阅法脉：${buildingName}`,
                             type: 'interact',
-                            desc: '登台查阅所承法脉；台主可将同阶圆满的自创内功凝为一卷，并立下传法门规。',
+                            desc: '登台查阅所承法脉；获准修订者可将同阶圆满的自创内功续录入卷。',
                             cooldownLeft: 0,
                         });
                     }

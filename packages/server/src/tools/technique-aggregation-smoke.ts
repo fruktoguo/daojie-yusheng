@@ -5,13 +5,13 @@ import {
   calcTechniqueMaxAttrPercentBonus,
   calculateTechniqueComprehensionRequiredProgress,
   getTechniqueMaxLevel,
-  normalizeTechniqueAggregationMetadata,
   type TechniqueAggregationMetadata,
   type TechniqueGrade,
   type TechniqueState,
   type TechniqueTemplate,
 } from '@mud/shared';
 import { TechniqueAggregationService } from '../runtime/technique-generation/technique-aggregation.service';
+import { resolvePersistedTechniqueAggregationMetadata } from '../runtime/technique-generation/generated-technique-store.service';
 import { TransmissionStrategy } from '../runtime/craft/pipeline/strategies/transmission.strategy';
 
 type PublishedAggregateParams = {
@@ -29,7 +29,7 @@ class FakeGeneratedTechniqueStore {
   register(template: TechniqueTemplate, creatorPlayerId: string): void {
     this.templates.set(template.id, structuredClone(template));
     this.creators.set(template.id, creatorPlayerId);
-    const metadata = normalizeTechniqueAggregationMetadata(template.aggregate);
+    const metadata = resolvePersistedTechniqueAggregationMetadata(template, creatorPlayerId);
     if (metadata) this.aggregateMetadata.set(template.id, metadata);
   }
 
@@ -77,6 +77,7 @@ function createSourceTemplate(
   options: {
     grade?: TechniqueGrade;
     category?: TechniqueTemplate['category'];
+    budgetPercent?: number;
     expToNext: number;
     constitutionPerLayer: number;
   },
@@ -87,6 +88,7 @@ function createSourceTemplate(
     grade: options.grade ?? 'mortal',
     category: options.category ?? 'internal',
     realmLv: 1,
+    budgetPercent: options.budgetPercent ?? 1,
     maxLayer: 2,
     layers: [
       {
@@ -140,12 +142,15 @@ function createPlayer(playerId: string, techniques: TechniqueState[]) {
 
 async function main(): Promise<void> {
   const creatorPlayerId = 'player:aggregation-creator';
+  const collaboratorPlayerId = 'player:aggregation-collaborator';
   const store = new FakeGeneratedTechniqueStore();
   const sourceA = createSourceTemplate('gen_aggregation_a', '归元诀', {
+    budgetPercent: 0.8,
     expToNext: 100,
     constitutionPerLayer: 10,
   });
   const sourceB = createSourceTemplate('gen_aggregation_b', '守一功', {
+    budgetPercent: 1.2,
     expToNext: 300,
     constitutionPerLayer: 20,
   });
@@ -163,9 +168,24 @@ async function main(): Promise<void> {
     expToNext: 100,
     constitutionPerLayer: 10,
   });
+  const collaborationA = createSourceTemplate('gen_collaboration_a', '两仪真诀', {
+    expToNext: 120,
+    constitutionPerLayer: 11,
+  });
+  const collaborationB = createSourceTemplate('gen_collaboration_b', '太和内经', {
+    expToNext: 180,
+    constitutionPerLayer: 13,
+  });
+  const collaborationC = createSourceTemplate('gen_collaboration_c', '同参玄功', {
+    expToNext: 160,
+    constitutionPerLayer: 17,
+  });
   for (const template of [sourceA, sourceB, sourceC, mismatchedGrade, artsSource]) {
     store.register(template, creatorPlayerId);
   }
+  store.register(collaborationA, creatorPlayerId);
+  store.register(collaborationB, creatorPlayerId);
+  store.register(collaborationC, collaboratorPlayerId);
   const repository = {
     createTechniqueState(techniqueId: string): TechniqueState | null {
       const template = store.getById(techniqueId);
@@ -187,6 +207,8 @@ async function main(): Promise<void> {
     new Set([sourceA.id, sourceB.id, sourceC.id, mismatchedGrade.id]),
   );
   assert.equal(panel.eligibleSources.every((entry) => entry.fullyMastered), true);
+  assert.equal(panel.eligibleSources.find((entry) => entry.techId === sourceA.id)?.strengthPercent, 80);
+  assert.equal(panel.eligibleSources.find((entry) => entry.techId === sourceB.id)?.strengthPercent, 120);
 
   const invalidNameResult = await service.publish(creator, {
     operationId: 'invalid-name',
@@ -231,14 +253,77 @@ async function main(): Promise<void> {
   assert.equal(gradeResult.ok, false);
   assert.equal(gradeResult.result.code, 'TECHNIQUE_AGGREGATE_SOURCE_GRADE_MISMATCH');
 
+  const collaborationOwner = createPlayer(creatorPlayerId, [
+    toRuntimeTechnique(collaborationA),
+    toRuntimeTechnique(collaborationB),
+  ]);
+  const collaborationFirst = await service.publish(collaborationOwner, {
+    operationId: 'collaboration-family',
+    customName: '同参道典',
+    sourceTechniqueIds: [collaborationA.id, collaborationB.id],
+  }, {
+    platformInstanceId: 'instance:collaboration',
+    platformBuildingId: 'unification-platform-collaboration',
+    platformOwnerPlayerId: creatorPlayerId,
+  });
+  assert.equal(collaborationFirst.ok, true);
+  assert.ok(collaborationFirst.ok && collaborationFirst.result.aggregate);
+  if (!collaborationFirst.ok || !collaborationFirst.result.aggregate) {
+    throw new Error('协作法脉首卷发布失败');
+  }
+  const collaborator = createPlayer(collaboratorPlayerId, [toRuntimeTechnique(collaborationC)]);
+  const deniedRevision = await service.publish(collaborator, {
+    operationId: 'collaboration-revision-denied',
+    familyId: collaborationFirst.result.aggregate.familyId,
+    expectedRevision: 1,
+    sourceTechniqueIds: [collaborationC.id],
+  }, {
+    platformInstanceId: 'instance:collaboration',
+    platformBuildingId: 'unification-platform-collaboration',
+    platformOwnerPlayerId: creatorPlayerId,
+    revisionPermissionGranted: false,
+  });
+  assert.equal(deniedRevision.ok, false);
+  assert.equal(deniedRevision.result.code, 'TECHNIQUE_AGGREGATE_PERMISSION_DENIED');
+  const collaborativeRevision = await service.publish(collaborator, {
+    operationId: 'collaboration-revision-allowed',
+    familyId: collaborationFirst.result.aggregate.familyId,
+    expectedRevision: 1,
+    sourceTechniqueIds: [collaborationC.id],
+  }, {
+    platformInstanceId: 'instance:collaboration',
+    platformBuildingId: 'unification-platform-collaboration',
+    platformOwnerPlayerId: creatorPlayerId,
+    revisionPermissionGranted: true,
+  });
+  assert.equal(collaborativeRevision.ok, true);
+  assert.ok(collaborativeRevision.ok && collaborativeRevision.result.aggregate);
+  if (!collaborativeRevision.ok || !collaborativeRevision.result.aggregate) {
+    throw new Error('协作法脉续录失败');
+  }
+  assert.deepEqual(
+    collaborativeRevision.result.aggregate.sourceTechniqueIds,
+    [collaborationA.id, collaborationB.id, collaborationC.id].sort(),
+  );
+  const collaborativeMetadata = store.getAggregateMetadata(collaborativeRevision.result.aggregate.techniqueId);
+  assert.equal(collaborativeMetadata?.creatorPlayerId, creatorPlayerId);
+  assert.equal(collaborativeMetadata?.revisionAuthorPlayerId, collaboratorPlayerId);
+
   const first = await service.publish(creator, {
     requestId: 'publish-v1',
     operationId: 'aggregation-family-main',
     customName: '归一真经',
-    accessPolicy: {
-      unrestricted: false,
-      friendLevels: ['close_friend'],
-      sectRoles: ['elder', 'inner'],
+    permissions: {
+      read: {
+        unrestricted: false,
+        friendLevels: ['close_friend'],
+        sectRoles: ['elder', 'inner'],
+      },
+      revision: {
+        unrestricted: false,
+        friendLevels: [],
+        sectRoles: [],
+      },
     },
     sourceTechniqueIds: [sourceA.id, sourceB.id],
   }, {
@@ -253,10 +338,17 @@ async function main(): Promise<void> {
   assert.equal(first.result.aggregate.effectMultiplier, 1.1);
   assert.equal(first.result.aggregate.name, '归一真经');
   assert.equal(first.template.aggregate?.platformBuildingId, 'unification-platform-1');
-  assert.deepEqual(first.template.aggregate?.initialAccessPolicy, {
-    unrestricted: false,
-    friendLevels: ['close_friend'],
-    sectRoles: ['elder', 'inner'],
+  assert.deepEqual(first.template.aggregate?.initialPermissions, {
+    read: {
+      unrestricted: false,
+      friendLevels: ['close_friend'],
+      sectRoles: ['elder', 'inner'],
+    },
+    revision: {
+      unrestricted: false,
+      friendLevels: [],
+      sectRoles: [],
+    },
   });
   const firstTemplate = store.getById(first.result.aggregate.techniqueId);
   assert.ok(firstTemplate);

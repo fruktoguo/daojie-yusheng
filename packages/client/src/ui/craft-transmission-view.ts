@@ -10,9 +10,9 @@ import type {
   PlayerState,
   S2C_TechniqueTransmissionStatuses,
   SectMemberRole,
-  TechniqueAggregationAccessRequest,
   TechniqueAggregationLearnRequest,
   TechniqueAggregationPanelView,
+  TechniqueAggregationPermissionRequest,
   TechniqueAggregationPreviewRequest,
   TechniqueAggregationPublishRequest,
   TechniqueAggregationResultView,
@@ -20,11 +20,12 @@ import type {
   TechniqueComprehensionProgressBreakdown,
   TechniqueGrade,
   TechniqueUnificationAccessPolicy,
+  TechniqueUnificationPermissionScope,
 } from '@mud/shared';
 import {
   CUSTOM_TECHNIQUE_NAME_MAX_LENGTH,
   CUSTOM_TECHNIQUE_NAME_MIN_LENGTH,
-  DEFAULT_TECHNIQUE_UNIFICATION_ACCESS_POLICY,
+  DEFAULT_TECHNIQUE_UNIFICATION_PERMISSIONS,
   SECT_MEMBER_ROLE_HIERARCHY,
   SECT_MEMBER_ROLE_LABELS,
   TECHNIQUE_GRADE_ORDER,
@@ -32,6 +33,7 @@ import {
   calculateTechniqueBookDecomposeFragments,
   calculateTechniqueComprehensionProgressBreakdown,
   cloneTechniqueUnificationAccessPolicy,
+  cloneTechniqueUnificationPermissions,
   getGraphemeCount,
   getItemDisplayName,
   isCreatedTechniqueId,
@@ -64,7 +66,7 @@ export type CraftTransmissionCallbacks = {
   getTransmissionTargets?: () => Array<{ playerId: string; name: string }>;
   onRequestTechniqueAggregation?: (payload: TechniqueAggregationPreviewRequest) => boolean | void;
   onPublishTechniqueAggregation?: (payload: TechniqueAggregationPublishRequest) => boolean | void;
-  onUpdateTechniqueAggregationAccess?: (payload: TechniqueAggregationAccessRequest) => boolean | void;
+  onUpdateTechniqueAggregationPermissions?: (payload: TechniqueAggregationPermissionRequest) => boolean | void;
   onLearnTechniqueAggregation?: (payload: TechniqueAggregationLearnRequest) => boolean | void;
 };
 
@@ -86,6 +88,7 @@ export interface CraftTransmissionParent {
 const TECHNIQUE_REFINING_CONFIRM_OWNER = 'craft-workbench-modal:technique-refining-confirm';
 const TECHNIQUE_COMPREHENSION_DISCARD_CONFIRM_OWNER = 'craft-workbench-modal:technique-comprehension-discard-confirm';
 const TRANSMISSION_STATUS_REQUEST_TIMEOUT_MS = 5_000;
+const TECHNIQUE_AGGREGATION_PAGE_SIZE = 12;
 
 function escapeHtml(value: string): string {
   return value
@@ -149,11 +152,12 @@ function resolveTechniqueAggregationError(
     TECHNIQUE_AGGREGATE_BUILDING_OUT_OF_RANGE: '离统法台过远，法意难以相合。',
     TECHNIQUE_AGGREGATE_BUILDING_INVALID: '此座统法台暂不可用。',
     TECHNIQUE_AGGREGATE_PERMISSION_DENIED: '唯有自创内功之主方可将其归入法脉。',
-    TECHNIQUE_AGGREGATE_PLATFORM_OWNER_REQUIRED: '唯有台主方可续录法脉或更改门规。',
+    TECHNIQUE_AGGREGATE_PLATFORM_OWNER_REQUIRED: '唯有台主方可开宗立卷或设置权限。',
     TECHNIQUE_AGGREGATE_PLATFORM_ALREADY_BOUND: '此台已有所承法脉，不可改易。',
     TECHNIQUE_AGGREGATE_PLATFORM_UNBOUND: '此台尚未立下法脉。',
     TECHNIQUE_AGGREGATE_PLATFORM_MISMATCH: '所呈法脉与此台所承不符。',
-    TECHNIQUE_AGGREGATE_ACCESS_DENIED: '传法门规未许你参阅此脉。',
+    TECHNIQUE_AGGREGATE_ACCESS_DENIED: '此台的参阅权限未向你开放。',
+    TECHNIQUE_AGGREGATE_REVISION_PERMISSION_DENIED: '此台的修订权限未向你开放。',
     TECHNIQUE_AGGREGATE_NAME_INVALID: `法脉名讳须为 ${CUSTOM_TECHNIQUE_NAME_MIN_LENGTH}-${CUSTOM_TECHNIQUE_NAME_MAX_LENGTH} 个字。`,
     TECHNIQUE_AGGREGATE_LEARN_REJECTED: '此脉暂无法纳入参悟。',
     TECHNIQUE_AGGREGATE_SOURCE_EMPTY: '至少择取两部源法。',
@@ -280,18 +284,21 @@ export class CraftTransmissionView {
   private techniqueAggregationFamilyId = '';
   private techniqueAggregationExpectedRevision: number | undefined;
   private techniqueAggregationGradeFilter: TechniqueGrade | '' = '';
+  private techniqueAggregationRealmFilter: number | null = null;
+  private techniqueAggregationSourcePage = 1;
   private techniqueAggregationNameDraft = '';
-  private techniqueAggregationAccessDraft = cloneTechniqueUnificationAccessPolicy(
-    DEFAULT_TECHNIQUE_UNIFICATION_ACCESS_POLICY,
+  private techniqueAggregationPermissionTab: TechniqueUnificationPermissionScope = 'read';
+  private techniqueAggregationPermissionsDraft = cloneTechniqueUnificationPermissions(
+    DEFAULT_TECHNIQUE_UNIFICATION_PERMISSIONS,
   );
-  private techniqueAggregationAccessDirty = false;
+  private readonly techniqueAggregationPermissionDirtyScopes = new Set<TechniqueUnificationPermissionScope>();
   private readonly selectedTechniqueAggregationSourceIds = new Set<string>();
   private techniqueAggregationRequestSequence = 0;
   private techniqueAggregationRequestId = '';
   private techniqueAggregationOperationId = '';
   private techniqueAggregationResult: TechniqueAggregationResultView | null = null;
   private techniqueAggregationPublishing = false;
-  private techniqueAggregationAccessSaving = false;
+  private techniqueAggregationPermissionSaving: TechniqueUnificationPermissionScope | null = null;
   private techniqueAggregationLearning = false;
 
   constructor(private readonly parent: CraftTransmissionParent) {}
@@ -355,16 +362,19 @@ export class CraftTransmissionView {
     this.techniqueAggregationFamilyId = '';
     this.techniqueAggregationExpectedRevision = undefined;
     this.techniqueAggregationGradeFilter = '';
+    this.techniqueAggregationRealmFilter = null;
+    this.techniqueAggregationSourcePage = 1;
     this.techniqueAggregationNameDraft = '';
-    this.techniqueAggregationAccessDraft = cloneTechniqueUnificationAccessPolicy(
-      DEFAULT_TECHNIQUE_UNIFICATION_ACCESS_POLICY,
+    this.techniqueAggregationPermissionTab = 'read';
+    this.techniqueAggregationPermissionsDraft = cloneTechniqueUnificationPermissions(
+      DEFAULT_TECHNIQUE_UNIFICATION_PERMISSIONS,
     );
-    this.techniqueAggregationAccessDirty = false;
+    this.techniqueAggregationPermissionDirtyScopes.clear();
     this.selectedTechniqueAggregationSourceIds.clear();
     this.techniqueAggregationResult = null;
     this.techniqueAggregationOperationId = '';
     this.techniqueAggregationPublishing = false;
-    this.techniqueAggregationAccessSaving = false;
+    this.techniqueAggregationPermissionSaving = null;
     this.techniqueAggregationLearning = false;
     this.requestTechniqueAggregationPanel();
   }
@@ -379,17 +389,20 @@ export class CraftTransmissionView {
     this.techniqueAggregationFamilyId = '';
     this.techniqueAggregationExpectedRevision = undefined;
     this.techniqueAggregationGradeFilter = '';
+    this.techniqueAggregationRealmFilter = null;
+    this.techniqueAggregationSourcePage = 1;
     this.techniqueAggregationNameDraft = '';
-    this.techniqueAggregationAccessDraft = cloneTechniqueUnificationAccessPolicy(
-      DEFAULT_TECHNIQUE_UNIFICATION_ACCESS_POLICY,
+    this.techniqueAggregationPermissionTab = 'read';
+    this.techniqueAggregationPermissionsDraft = cloneTechniqueUnificationPermissions(
+      DEFAULT_TECHNIQUE_UNIFICATION_PERMISSIONS,
     );
-    this.techniqueAggregationAccessDirty = false;
+    this.techniqueAggregationPermissionDirtyScopes.clear();
     this.selectedTechniqueAggregationSourceIds.clear();
     this.techniqueAggregationRequestId = '';
     this.techniqueAggregationOperationId = '';
     this.techniqueAggregationResult = null;
     this.techniqueAggregationPublishing = false;
-    this.techniqueAggregationAccessSaving = false;
+    this.techniqueAggregationPermissionSaving = null;
     this.techniqueAggregationLearning = false;
   }
 
@@ -409,8 +422,16 @@ export class CraftTransmissionView {
     } else if (!this.techniqueAggregationGradeFilter || !availableGrades.includes(this.techniqueAggregationGradeFilter)) {
       this.techniqueAggregationGradeFilter = availableGrades[0] ?? '';
     }
-    if (!this.techniqueAggregationAccessDirty) {
-      this.techniqueAggregationAccessDraft = cloneTechniqueUnificationAccessPolicy(data.platform.accessPolicy);
+    const availableRealmLevels = this.resolveTechniqueAggregationRealmLevels(data);
+    if (this.techniqueAggregationRealmFilter !== null && !availableRealmLevels.includes(this.techniqueAggregationRealmFilter)) {
+      this.techniqueAggregationRealmFilter = null;
+    }
+    for (const scope of ['read', 'revision'] as const) {
+      if (!this.techniqueAggregationPermissionDirtyScopes.has(scope)) {
+        this.techniqueAggregationPermissionsDraft[scope] = cloneTechniqueUnificationAccessPolicy(
+          data.platform.permissions[scope],
+        );
+      }
     }
     if (boundFamily && !this.techniqueAggregationNameDraft) {
       this.techniqueAggregationNameDraft = boundFamily.name;
@@ -419,6 +440,7 @@ export class CraftTransmissionView {
     for (const techId of [...this.selectedTechniqueAggregationSourceIds]) {
       if (!eligibleIds.has(techId)) this.selectedTechniqueAggregationSourceIds.delete(techId);
     }
+    this.clampTechniqueAggregationSourcePage();
     this.techniqueAggregationResult = data.error
       ? {
         requestId: data.requestId,
@@ -442,17 +464,17 @@ export class CraftTransmissionView {
       return;
     }
     this.techniqueAggregationPublishing = false;
-    this.techniqueAggregationAccessSaving = false;
+    this.techniqueAggregationPermissionSaving = null;
     this.techniqueAggregationLearning = false;
     this.techniqueAggregationResult = data;
     if (data.ok) {
       if (data.operation === 'publish' || data.aggregate) {
         this.selectedTechniqueAggregationSourceIds.clear();
         this.techniqueAggregationOperationId = '';
-        this.techniqueAggregationAccessDirty = false;
+        this.techniqueAggregationPermissionDirtyScopes.clear();
       }
-      if (data.operation === 'access') {
-        this.techniqueAggregationAccessDirty = false;
+      if (data.operation === 'permissions' && data.permissionScope) {
+        this.techniqueAggregationPermissionDirtyScopes.delete(data.permissionScope);
       }
     }
     if (this.parent.activeMode === 'technique_refining' && this.techniqueAggregationBuildingId) {
@@ -1233,6 +1255,8 @@ export class CraftTransmissionView {
         source.techId,
         source.name,
         source.grade,
+        source.realmLv,
+        source.strengthPercent,
         source.level,
         source.maxLevel,
         source.fullyMastered ? 1 : 0,
@@ -1251,14 +1275,18 @@ export class CraftTransmissionView {
       platform?.isOwner ? 1 : 0,
       platform?.familyId ?? '',
       platform?.canLearn ? 1 : 0,
+      platform?.canRevise ? 1 : 0,
       platform?.learnerState ?? '',
       platform?.latestTechniqueId ?? '',
       platform?.latestRevision ?? 0,
       platform?.pendingProgress ?? 0,
       platform?.pendingRequiredProgress ?? 0,
-      platform?.accessPolicy.unrestricted ? 1 : 0,
-      platform?.accessPolicy.friendLevels.join(',') ?? '',
-      platform?.accessPolicy.sectRoles.join(',') ?? '',
+      platform?.permissions.read.unrestricted ? 1 : 0,
+      platform?.permissions.read.friendLevels.join(',') ?? '',
+      platform?.permissions.read.sectRoles.join(',') ?? '',
+      platform?.permissions.revision.unrestricted ? 1 : 0,
+      platform?.permissions.revision.friendLevels.join(',') ?? '',
+      platform?.permissions.revision.sectRoles.join(',') ?? '',
       panel?.error?.code ?? '',
     ].join('::');
   }
@@ -1269,6 +1297,16 @@ export class CraftTransmissionView {
     for (const source of panel.eligibleSources) values.add(source.grade);
     for (const family of panel.families) values.add(family.grade);
     return TECHNIQUE_GRADE_ORDER.filter((grade) => values.has(grade));
+  }
+
+  private resolveTechniqueAggregationRealmLevels(panel = this.techniqueAggregationPanel): number[] {
+    if (!panel) return [];
+    const family = this.getBoundTechniqueAggregationFamily();
+    const grade = family?.grade ?? this.techniqueAggregationGradeFilter;
+    return [...new Set(panel.eligibleSources
+      .filter((source) => !grade || source.grade === grade)
+      .map((source) => Math.max(1, Math.trunc(Number(source.realmLv) || 1))))]
+      .sort((left, right) => right - left);
   }
 
   private getBoundTechniqueAggregationFamily() {
@@ -1283,9 +1321,35 @@ export class CraftTransmissionView {
     return sources.filter((source) => this.selectedTechniqueAggregationSourceIds.has(source.techId));
   }
 
+  private getFilteredTechniqueAggregationSources() {
+    const family = this.getBoundTechniqueAggregationFamily();
+    const grade = family?.grade ?? this.techniqueAggregationGradeFilter;
+    return (this.techniqueAggregationPanel?.eligibleSources ?? []).filter((source) => (
+      (!grade || source.grade === grade)
+      && (this.techniqueAggregationRealmFilter === null || source.realmLv === this.techniqueAggregationRealmFilter)
+    ));
+  }
+
+  private getSelectableTechniqueAggregationSources() {
+    const familySourceIds = new Set(this.getBoundTechniqueAggregationFamily()?.sourceTechniqueIds ?? []);
+    return this.getFilteredTechniqueAggregationSources().filter((source) => (
+      source.fullyMastered && !familySourceIds.has(source.techId)
+    ));
+  }
+
+  private clampTechniqueAggregationSourcePage(): void {
+    const totalPages = Math.max(1, Math.ceil(
+      this.getFilteredTechniqueAggregationSources().length / TECHNIQUE_AGGREGATION_PAGE_SIZE,
+    ));
+    this.techniqueAggregationSourcePage = Math.min(
+      totalPages,
+      Math.max(1, Math.trunc(Number(this.techniqueAggregationSourcePage) || 1)),
+    );
+  }
+
   private canPublishTechniqueAggregation(): boolean {
     const panel = this.techniqueAggregationPanel;
-    if (!panel?.platform.isOwner || this.techniqueAggregationPublishing || this.techniqueAggregationAccessSaving) return false;
+    if (!panel?.platform.canRevise || this.techniqueAggregationPublishing || this.techniqueAggregationPermissionSaving) return false;
     const family = this.getBoundTechniqueAggregationFamily();
     const familySources = new Set(family?.sourceTechniqueIds ?? []);
     const selected = this.getSelectedTechniqueAggregationSources();
@@ -1317,6 +1381,7 @@ export class CraftTransmissionView {
     return [
       result?.ok ?? '',
       result?.operation ?? '',
+      result?.permissionScope ?? '',
       result?.code ?? '',
       result?.messageKey ?? '',
       result?.aggregate?.techniqueId ?? '',
@@ -1335,8 +1400,9 @@ export class CraftTransmissionView {
     if (!result.ok) {
       return `<div class="technique-aggregation-error" role="alert">${escapeHtml(resolveTechniqueAggregationError(result))}${renderTechniqueAggregationConflicts(result)}</div>`;
     }
-    if (result.operation === 'access') {
-      return '<div class="technique-aggregation-success" role="status">传法门规已刻入统法台。</div>';
+    if (result.operation === 'permissions') {
+      const label = result.permissionScope === 'revision' ? '修订权限' : '参阅权限';
+      return `<div class="technique-aggregation-success" role="status">${label}已保存。</div>`;
     }
     if (result.operation === 'learn') {
       return '<div class="technique-aggregation-success" role="status">此脉已纳入参悟法录。</div>';
@@ -1347,39 +1413,45 @@ export class CraftTransmissionView {
     return '';
   }
 
-  private renderTechniqueAggregationPolicySummary(policy: TechniqueUnificationAccessPolicy): string {
-    if (policy.unrestricted) return '门规：诸修皆可参阅';
+  private renderTechniqueAggregationPolicySummary(
+    scope: TechniqueUnificationPermissionScope,
+    policy: TechniqueUnificationAccessPolicy,
+  ): string {
+    const label = scope === 'revision' ? '修订权限' : '参阅权限';
+    if (policy.unrestricted) return `${label}：所有修士`;
     const clauses: string[] = [];
     if (policy.friendLevels.includes('dao_friend')) clauses.push('道友以上');
     else if (policy.friendLevels.includes('close_friend')) clauses.push('至交');
     const sectLabels = policy.sectRoles.map((role) => SECT_MEMBER_ROLE_LABELS[role]);
     if (sectLabels.length > 0) clauses.push(`同门：${sectLabels.join('、')}`);
-    return clauses.length > 0 ? `门规：${clauses.join('；')}` : '门规：仅台主自阅';
+    return clauses.length > 0 ? `${label}：${clauses.join('；')}` : `${label}：仅台主`;
   }
 
-  private renderTechniqueAggregationAccessEditor(bound: boolean): string {
-    const policy = this.techniqueAggregationAccessDraft;
-    const disabled = this.techniqueAggregationPublishing || this.techniqueAggregationAccessSaving;
+  private renderTechniqueAggregationPermissionEditor(bound: boolean): string {
+    const scope = this.techniqueAggregationPermissionTab;
+    const policy = this.techniqueAggregationPermissionsDraft[scope];
+    const scopeLabel = scope === 'revision' ? '修订' : '参阅';
+    const disabled = this.techniqueAggregationPublishing || this.techniqueAggregationPermissionSaving !== null;
     const friendOptions = [
       { value: 'dao_friend', label: '道友' },
       { value: 'close_friend', label: '至交' },
     ].map((entry) => `<label class="technique-aggregation-policy-option">
-      <input type="checkbox" data-technique-aggregation-access-friend="${entry.value}" ${policy.friendLevels.includes(entry.value as 'dao_friend' | 'close_friend') ? 'checked' : ''} ${policy.unrestricted || disabled ? 'disabled' : ''}>
+      <input type="checkbox" data-technique-aggregation-permission-friend="${entry.value}" ${policy.friendLevels.includes(entry.value as 'dao_friend' | 'close_friend') ? 'checked' : ''} ${policy.unrestricted || disabled ? 'disabled' : ''}>
       <span>${entry.label}</span>
     </label>`).join('');
     const sectOptions = SECT_MEMBER_ROLE_HIERARCHY.map((role) => `<label class="technique-aggregation-policy-option">
-      <input type="checkbox" data-technique-aggregation-access-sect-role="${role}" ${policy.sectRoles.includes(role) ? 'checked' : ''} ${policy.unrestricted || disabled ? 'disabled' : ''}>
+      <input type="checkbox" data-technique-aggregation-permission-sect-role="${role}" ${policy.sectRoles.includes(role) ? 'checked' : ''} ${policy.unrestricted || disabled ? 'disabled' : ''}>
       <span>${SECT_MEMBER_ROLE_LABELS[role]}</span>
     </label>`).join('');
-    const authoritativePolicy = this.techniqueAggregationPanel?.platform.accessPolicy;
+    const authoritativePolicy = this.techniqueAggregationPanel?.platform.permissions[scope];
     const saveDisabled = disabled
       || !bound
-      || !this.techniqueAggregationAccessDirty
+      || !this.techniqueAggregationPermissionDirtyScopes.has(scope)
       || (authoritativePolicy ? areTechniqueAggregationPoliciesEqual(policy, authoritativePolicy) : false);
-    return `<div class="technique-aggregation-policy" data-technique-aggregation-policy="true">
+    return `<div class="technique-aggregation-policy" data-technique-aggregation-permission-editor="true">
       <label class="technique-aggregation-policy-unrestricted">
-        <input type="checkbox" data-technique-aggregation-access-unrestricted="true" ${policy.unrestricted ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
-        <span>不设门第，诸修皆可参阅</span>
+        <input type="checkbox" data-technique-aggregation-permission-unrestricted="true" ${policy.unrestricted ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
+        <span>不作限制，所有修士均可${scopeLabel}</span>
       </label>
       <div class="technique-aggregation-policy-group">
         <span class="technique-aggregation-policy-label">道缘</span>
@@ -1389,7 +1461,87 @@ export class CraftTransmissionView {
         <span class="technique-aggregation-policy-label">同门位次</span>
         <div class="technique-aggregation-policy-options">${sectOptions}</div>
       </div>
-      ${bound ? `<button type="button" class="small-btn" data-craft-action="technique-aggregation-save-access" ${saveDisabled ? 'disabled' : ''}>${this.techniqueAggregationAccessSaving ? '刻录中...' : '刻录门规'}</button>` : '<span class="alchemy-summary-mode">随首卷一并立规</span>'}
+      ${bound ? `<button type="button" class="small-btn" data-craft-action="technique-aggregation-save-permission" ${saveDisabled ? 'disabled' : ''}>${this.techniqueAggregationPermissionSaving === scope ? '保存中...' : `保存${scopeLabel}权限`}</button>` : '<span class="alchemy-summary-mode">两项权限将随首卷一并保存</span>'}
+    </div>`;
+  }
+
+  private renderTechniqueAggregationPermissions(bound: boolean): string {
+    return `<div class="technique-aggregation-permissions" data-technique-aggregation-permissions="true">
+      <div class="technique-aggregation-permission-tabs" role="tablist" aria-label="统法台权限">
+        ${(['read', 'revision'] as const).map((scope) => {
+          const active = scope === this.techniqueAggregationPermissionTab;
+          const label = scope === 'read' ? '参阅权限' : '修订权限';
+          return `<button type="button" class="technique-aggregation-permission-tab${active ? ' is-active' : ''}" role="tab" aria-selected="${active ? 'true' : 'false'}" data-craft-action="technique-aggregation-permission-tab" data-permission-scope="${scope}">${label}</button>`;
+        }).join('')}
+      </div>
+      ${this.renderTechniqueAggregationPermissionEditor(bound)}
+    </div>`;
+  }
+
+  private renderTechniqueAggregationSourceCard(
+    source: TechniqueAggregationPanelView['eligibleSources'][number],
+    familySourceIds: ReadonlySet<string>,
+  ): string {
+    const selected = this.selectedTechniqueAggregationSourceIds.has(source.techId);
+    const alreadyRecorded = familySourceIds.has(source.techId);
+    const disabled = this.techniqueAggregationPublishing || !source.fullyMastered || alreadyRecorded;
+    const state = alreadyRecorded ? '已入法脉' : source.fullyMastered ? selected ? '已选' : '可选' : '未圆满';
+    const realmLabel = getLocalRealmLevelEntry(source.realmLv)?.displayName
+      ?? `Lv.${formatDisplayInteger(source.realmLv)}`;
+    const levelText = source.fullyMastered
+      ? `圆满 ${formatDisplayInteger(source.maxLevel)} 层`
+      : `${formatDisplayInteger(source.level)}/${formatDisplayInteger(source.maxLevel)} 层`;
+    return `<button type="button" class="inventory-cell inventory-cell--grade inventory-cell--grade-${source.grade} technique-aggregation-source${selected ? ' is-selected' : ''}" data-craft-action="technique-aggregation-toggle-source" data-technique-id="${escapeHtmlAttr(source.techId)}" aria-pressed="${selected ? 'true' : 'false'}" ${disabled ? 'disabled' : ''}>
+      <div class="inventory-cell-head"><span class="inventory-cell-type">内功</span><span class="technique-aggregation-source-strength">强度 ${formatDisplayInteger(source.strengthPercent)}%</span></div>
+      <span class="technique-aggregation-source-mark">${state}</span>
+      <div class="inventory-cell-grade-line">${escapeHtml(getTechniqueGradeLabel(source.grade))} · ${escapeHtml(realmLabel)}</div>
+      <div class="inventory-cell-name" aria-label="${escapeHtmlAttr(source.name)}">${escapeHtml(resolveClientTechniqueName(source.techId, source.name))}</div>
+      <span class="item-card-chip item-card-chip--level">${escapeHtml(levelText)}</span>
+    </button>`;
+  }
+
+  private renderTechniqueAggregationDirectoryContent(): string {
+    const panel = this.techniqueAggregationPanel;
+    if (!panel) return '';
+    this.clampTechniqueAggregationSourcePage();
+    const family = this.getBoundTechniqueAggregationFamily();
+    const familySourceIds = new Set(family?.sourceTechniqueIds ?? []);
+    const grades = this.resolveTechniqueAggregationGrades(panel);
+    const gradeOptions = grades.map((grade) => (
+      `<option value="${grade}" ${grade === this.techniqueAggregationGradeFilter ? 'selected' : ''}>${escapeHtml(getTechniqueGradeLabel(grade))}</option>`
+    )).join('');
+    const realmLevels = this.resolveTechniqueAggregationRealmLevels(panel);
+    const realmOptions = realmLevels.map((realmLv) => {
+      const label = getLocalRealmLevelEntry(realmLv)?.displayName ?? `Lv.${formatDisplayInteger(realmLv)}`;
+      return `<option value="${realmLv}" ${realmLv === this.techniqueAggregationRealmFilter ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+    }).join('');
+    const filtered = this.getFilteredTechniqueAggregationSources();
+    const totalPages = Math.max(1, Math.ceil(filtered.length / TECHNIQUE_AGGREGATION_PAGE_SIZE));
+    const offset = (this.techniqueAggregationSourcePage - 1) * TECHNIQUE_AGGREGATION_PAGE_SIZE;
+    const pageSources = filtered.slice(offset, offset + TECHNIQUE_AGGREGATION_PAGE_SIZE);
+    const selectable = this.getSelectableTechniqueAggregationSources();
+    const allSelected = selectable.length > 0
+      && selectable.every((source) => this.selectedTechniqueAggregationSourceIds.has(source.techId));
+    const from = filtered.length > 0 ? offset + 1 : 0;
+    const to = Math.min(filtered.length, offset + pageSources.length);
+    return `<div class="technique-aggregation-directory-toolbar">
+      <div class="technique-aggregation-directory-filters">
+        <label><span>品阶</span><select class="ui-select" data-technique-aggregation-grade-filter="true" ${family ? 'disabled' : ''}>${gradeOptions || '<option value="">暂无候选</option>'}</select></label>
+        <label><span>境界</span><select class="ui-select" data-technique-aggregation-realm-filter="true"><option value="">全部境界</option>${realmOptions}</select></label>
+      </div>
+      <div class="technique-aggregation-directory-actions">
+        <button type="button" class="small-btn ghost" data-craft-action="technique-aggregation-select-all" ${selectable.length === 0 || allSelected || this.techniqueAggregationPublishing ? 'disabled' : ''}>全选</button>
+        <button type="button" class="small-btn ghost" data-craft-action="technique-aggregation-clear-selection" ${this.selectedTechniqueAggregationSourceIds.size === 0 || this.techniqueAggregationPublishing ? 'disabled' : ''}>全部取消</button>
+      </div>
+    </div>
+    <div class="technique-aggregation-source-list" data-technique-aggregation-source-list="true">
+      ${pageSources.map((source) => this.renderTechniqueAggregationSourceCard(source, familySourceIds)).join('')}
+    </div>
+    ${pageSources.length === 0 ? '<div class="empty-hint">当前筛选下暂无可归宗的自创内功。</div>' : ''}
+    <div class="technique-aggregation-pagination">
+      <button type="button" class="small-btn ghost" data-craft-action="technique-aggregation-page-prev" ${this.techniqueAggregationSourcePage <= 1 ? 'disabled' : ''}>上一页</button>
+      <span>第 ${formatDisplayInteger(this.techniqueAggregationSourcePage)} / ${formatDisplayInteger(totalPages)} 页 · ${formatDisplayInteger(from)}-${formatDisplayInteger(to)} / ${formatDisplayInteger(filtered.length)}</span>
+      <button type="button" class="small-btn ghost" data-craft-action="technique-aggregation-page-next" ${this.techniqueAggregationSourcePage >= totalPages ? 'disabled' : ''}>下一页</button>
     </div>`;
   }
 
@@ -1402,30 +1554,6 @@ export class CraftTransmissionView {
     }
     const platform = panel.platform;
     const family = this.getBoundTechniqueAggregationFamily();
-    const familySourceIds = new Set(family?.sourceTechniqueIds ?? []);
-    const visibleGrade = family?.grade ?? this.techniqueAggregationGradeFilter;
-    const gradeOptions = this.resolveTechniqueAggregationGrades(panel)
-      .map((grade) => `<option value="${grade}" ${grade === visibleGrade ? 'selected' : ''}>${escapeHtml(getTechniqueGradeLabel(grade))}</option>`)
-      .join('');
-    const visibleSourceCount = panel.eligibleSources.filter((source) => !visibleGrade || source.grade === visibleGrade).length;
-    const sourceHtml = panel.eligibleSources.map((source) => {
-        const selected = this.selectedTechniqueAggregationSourceIds.has(source.techId);
-        const alreadyRecorded = familySourceIds.has(source.techId);
-        const visible = !visibleGrade || source.grade === visibleGrade;
-        const disabled = this.techniqueAggregationPublishing || !source.fullyMastered || alreadyRecorded;
-        const state = alreadyRecorded
-          ? '已入法脉'
-          : source.fullyMastered
-            ? selected ? '已择' : '择取'
-            : '未圆满';
-        const levelText = source.fullyMastered
-          ? `圆满 ${formatDisplayInteger(source.maxLevel)} 层`
-          : `修至 ${formatDisplayInteger(source.level)}/${formatDisplayInteger(source.maxLevel)} 层`;
-        return `<button type="button" class="technique-aggregation-source${selected ? ' is-selected' : ''}" data-craft-action="technique-aggregation-toggle-source" data-technique-id="${escapeHtmlAttr(source.techId)}" aria-pressed="${selected ? 'true' : 'false'}" ${visible ? '' : 'hidden'} ${disabled ? 'disabled' : ''}>
-          <span class="technique-aggregation-source-main"><strong>${escapeHtml(resolveClientTechniqueName(source.techId, source.name))}</strong><small>${escapeHtml(getTechniqueGradeLabel(source.grade))} · ${escapeHtml(levelText)}</small></span>
-          <span class="technique-aggregation-source-mark">${state}</span>
-        </button>`;
-      }).join('') + `<div class="empty-hint" data-technique-aggregation-grade-empty="true" ${visibleSourceCount > 0 ? 'hidden' : ''}>此阶暂无可归宗的自创内功。</div>`;
     const familySummary = family
       ? `<div class="technique-aggregation-lineage-summary">
           <div><strong>${escapeHtml(resolveClientTechniqueName(family.latestTechniqueId, family.name))}</strong><small>${escapeHtml(getTechniqueGradeLabel(family.grade))} · 第 ${formatDisplayInteger(family.latestRevision)} 卷 · 收录 ${formatDisplayInteger(family.sourceCount)} 部源法</small></div>
@@ -1443,55 +1571,46 @@ export class CraftTransmissionView {
         </section>
       </div>`;
     }
-
-    if (!platform.isOwner) {
-      const learnLabel = platform.learnerState === 'pending'
-        ? `参悟中 ${formatDisplayInteger(platform.pendingProgress ?? 0)}/${formatDisplayInteger(platform.pendingRequiredProgress ?? 1)}`
-        : platform.learnerState === 'learned'
-          ? '已承此脉'
-          : platform.canLearn
-            ? '纳入参悟'
-            : '门规未许';
-      const learnDisabled = !family
-        || !platform.canLearn
-        || platform.learnerState === 'pending'
-        || platform.learnerState === 'learned'
-        || this.techniqueAggregationLearning;
-      return `<div class="alchemy-tab-stack" data-technique-aggregation-panel="true" data-technique-aggregation-data-key="${escapeHtmlAttr(this.buildTechniqueAggregationDataKey())}">
-        <section class="alchemy-summary-card">
-          <div class="alchemy-summary-head"><div class="alchemy-summary-title">台上法脉</div><span class="alchemy-summary-mode">${escapeHtml(platform.displayName)}</span></div>
-          ${familySummary}
-          <div class="technique-aggregation-policy-summary">${escapeHtml(this.renderTechniqueAggregationPolicySummary(platform.accessPolicy))}</div>
-          <button type="button" class="small-btn" data-craft-action="technique-aggregation-learn" ${learnDisabled ? 'disabled' : ''}>${this.techniqueAggregationLearning ? '纳录中...' : learnLabel}</button>
-          <div data-technique-aggregation-result="true" data-technique-aggregation-result-key="${escapeHtmlAttr(this.buildTechniqueAggregationResultKey())}">${resultHtml}</div>
-        </section>
-      </div>`;
-    }
-
+    const learnLabel = platform.learnerState === 'pending'
+      ? `参悟中 ${formatDisplayInteger(platform.pendingProgress ?? 0)}/${formatDisplayInteger(platform.pendingRequiredProgress ?? 1)}`
+      : platform.learnerState === 'learned'
+        ? '已承此脉'
+        : platform.canLearn
+          ? '纳入参悟'
+          : '权限未开放';
+    const learnDisabled = !family
+      || !platform.canLearn
+      || platform.learnerState === 'pending'
+      || platform.learnerState === 'learned'
+      || this.techniqueAggregationLearning;
     const publishLabel = family ? '续录新卷' : '凝成首卷';
     const publishEnabled = this.canPublishTechniqueAggregation();
     return `<div class="alchemy-tab-stack" data-technique-aggregation-panel="true" data-technique-aggregation-data-key="${escapeHtmlAttr(this.buildTechniqueAggregationDataKey())}">
       <section class="alchemy-summary-card">
-        <div class="alchemy-summary-head"><div class="alchemy-summary-title">所承法脉</div><span class="alchemy-summary-mode">${escapeHtml(platform.displayName)}</span></div>
+        <div class="alchemy-summary-head"><div class="alchemy-summary-title">${platform.isOwner ? '所承法脉' : '台上法脉'}</div><span class="alchemy-summary-mode">${escapeHtml(platform.displayName)}</span></div>
         ${familySummary}
+        ${family ? `<div class="technique-aggregation-permission-summaries">
+          <span>${escapeHtml(this.renderTechniqueAggregationPolicySummary('read', platform.permissions.read))}</span>
+          <span>${escapeHtml(this.renderTechniqueAggregationPolicySummary('revision', platform.permissions.revision))}</span>
+        </div>
+        <button type="button" class="small-btn" data-craft-action="technique-aggregation-learn" ${learnDisabled ? 'disabled' : ''}>${this.techniqueAggregationLearning ? '纳录中...' : learnLabel}</button>` : ''}
+        <div data-technique-aggregation-result="true" data-technique-aggregation-result-key="${escapeHtmlAttr(this.buildTechniqueAggregationResultKey())}">${resultHtml}</div>
       </section>
-      <section class="alchemy-summary-card technique-aggregation-compose">
+      ${platform.canRevise ? `<section class="alchemy-summary-card technique-aggregation-compose">
         <div class="alchemy-summary-head"><div class="alchemy-summary-title">${family ? '续录法卷' : '开宗立卷'}</div><span class="alchemy-summary-mode">内功 · 同阶 · 圆满自创</span></div>
         <div class="technique-aggregation-compose-controls">
           ${family
             ? `<div class="technique-aggregation-fixed-field"><span>法脉名讳</span><strong>${escapeHtml(family.name)}</strong></div><div class="technique-aggregation-fixed-field"><span>所录品阶</span><strong>${escapeHtml(getTechniqueGradeLabel(family.grade))}</strong></div>`
-            : `<label class="technique-aggregation-name-field"><span>法脉名讳</span><input class="ui-input" type="text" data-technique-aggregation-name="true" minlength="${CUSTOM_TECHNIQUE_NAME_MIN_LENGTH}" maxlength="${CUSTOM_TECHNIQUE_NAME_MAX_LENGTH}" value="${escapeHtmlAttr(this.techniqueAggregationNameDraft)}" autocomplete="off"></label>
-              <label class="technique-aggregation-grade-field"><span>所录品阶</span><select class="ui-select" data-technique-aggregation-grade-filter="true" ${gradeOptions ? '' : 'disabled'}>${gradeOptions || '<option value="">暂无候选</option>'}</select></label>`}
+            : `<label class="technique-aggregation-name-field"><span>法脉名讳</span><input class="ui-input" type="text" data-technique-aggregation-name="true" minlength="${CUSTOM_TECHNIQUE_NAME_MIN_LENGTH}" maxlength="${CUSTOM_TECHNIQUE_NAME_MAX_LENGTH}" value="${escapeHtmlAttr(this.techniqueAggregationNameDraft)}" autocomplete="off"></label>`}
         </div>
-        <div class="technique-aggregation-source-list" data-technique-aggregation-source-list="true">${sourceHtml}</div>
+        <div class="technique-aggregation-directory" data-technique-aggregation-directory="true">${this.renderTechniqueAggregationDirectoryContent()}</div>
         <div class="technique-aggregation-selection-summary" data-technique-aggregation-selection-summary="true">${escapeHtml(this.getTechniqueAggregationSelectionHint())}</div>
         <button type="button" class="small-btn" data-craft-action="technique-aggregation-publish" ${publishEnabled ? '' : 'disabled'}>${this.techniqueAggregationPublishing ? '凝篇中...' : publishLabel}</button>
-        <div data-technique-aggregation-result="true" data-technique-aggregation-result-key="${escapeHtmlAttr(this.buildTechniqueAggregationResultKey())}">${resultHtml}</div>
-      </section>
-      <section class="alchemy-summary-card">
-        <div class="alchemy-summary-head"><div class="alchemy-summary-title">传法门规</div><span class="alchemy-summary-mode">多项择一即可参阅</span></div>
-        ${this.renderTechniqueAggregationAccessEditor(Boolean(family))}
-      </section>
+      </section>` : ''}
+      ${platform.isOwner ? `<section class="alchemy-summary-card">
+        <div class="alchemy-summary-head"><div class="alchemy-summary-title">权限</div><span class="alchemy-summary-mode">参阅与修订分别设置</span></div>
+        ${this.renderTechniqueAggregationPermissions(Boolean(family))}
+      </section>` : ''}
     </div>`;
   }
 
@@ -1500,27 +1619,25 @@ export class CraftTransmissionView {
     if (!panel) return;
     const family = this.getBoundTechniqueAggregationFamily();
     const familySourceIds = new Set(family?.sourceTechniqueIds ?? []);
-    const visibleGrade = family?.grade ?? this.techniqueAggregationGradeFilter;
     for (const button of root.querySelectorAll<HTMLButtonElement>('[data-craft-action="technique-aggregation-toggle-source"]')) {
       const techId = (button.dataset.techniqueId ?? '').trim();
       const source = panel.eligibleSources.find((entry) => entry.techId === techId);
       if (!source) continue;
       const selected = this.selectedTechniqueAggregationSourceIds.has(techId);
       const alreadyRecorded = familySourceIds.has(techId);
-      button.hidden = Boolean(visibleGrade) && source.grade !== visibleGrade;
       button.disabled = this.techniqueAggregationPublishing || !source.fullyMastered || alreadyRecorded;
       button.classList.toggle('is-selected', selected);
       button.setAttribute('aria-pressed', selected ? 'true' : 'false');
       const mark = button.querySelector<HTMLElement>('.technique-aggregation-source-mark');
-      if (mark) mark.textContent = alreadyRecorded ? '已入法脉' : source.fullyMastered ? selected ? '已择' : '择取' : '未圆满';
-    }
-    const gradeEmpty = root.querySelector<HTMLElement>('[data-technique-aggregation-grade-empty="true"]');
-    if (gradeEmpty) {
-      gradeEmpty.hidden = panel.eligibleSources.some((source) => !visibleGrade || source.grade === visibleGrade);
+      if (mark) mark.textContent = alreadyRecorded ? '已入法脉' : source.fullyMastered ? selected ? '已选' : '可选' : '未圆满';
     }
     const gradeSelect = root.querySelector<HTMLSelectElement>('[data-technique-aggregation-grade-filter="true"]');
     if (gradeSelect && gradeSelect.value !== this.techniqueAggregationGradeFilter) {
       gradeSelect.value = this.techniqueAggregationGradeFilter;
+    }
+    const realmSelect = root.querySelector<HTMLSelectElement>('[data-technique-aggregation-realm-filter="true"]');
+    if (realmSelect && realmSelect.value !== (this.techniqueAggregationRealmFilter?.toString() ?? '')) {
+      realmSelect.value = this.techniqueAggregationRealmFilter?.toString() ?? '';
     }
     const nameInput = root.querySelector<HTMLInputElement>('[data-technique-aggregation-name="true"]');
     if (nameInput && document.activeElement !== nameInput && nameInput.value !== this.techniqueAggregationNameDraft) {
@@ -1528,33 +1645,44 @@ export class CraftTransmissionView {
     }
     const summary = root.querySelector<HTMLElement>('[data-technique-aggregation-selection-summary="true"]');
     if (summary) summary.textContent = this.getTechniqueAggregationSelectionHint();
+    const selectableSources = this.getSelectableTechniqueAggregationSources();
+    const allSelected = selectableSources.length > 0
+      && selectableSources.every((source) => this.selectedTechniqueAggregationSourceIds.has(source.techId));
+    const selectAll = root.querySelector<HTMLButtonElement>('[data-craft-action="technique-aggregation-select-all"]');
+    if (selectAll) selectAll.disabled = selectableSources.length === 0 || allSelected || this.techniqueAggregationPublishing;
+    const clearSelection = root.querySelector<HTMLButtonElement>('[data-craft-action="technique-aggregation-clear-selection"]');
+    if (clearSelection) clearSelection.disabled = this.selectedTechniqueAggregationSourceIds.size === 0 || this.techniqueAggregationPublishing;
     const publish = root.querySelector<HTMLButtonElement>('[data-craft-action="technique-aggregation-publish"]');
     if (publish) {
       publish.disabled = !this.canPublishTechniqueAggregation();
       publish.textContent = this.techniqueAggregationPublishing ? '凝篇中...' : family ? '续录新卷' : '凝成首卷';
     }
-    const unrestricted = root.querySelector<HTMLInputElement>('[data-technique-aggregation-access-unrestricted="true"]');
+    const activePolicy = this.techniqueAggregationPermissionsDraft[this.techniqueAggregationPermissionTab];
+    const unrestricted = root.querySelector<HTMLInputElement>('[data-technique-aggregation-permission-unrestricted="true"]');
     if (unrestricted) {
-      unrestricted.checked = this.techniqueAggregationAccessDraft.unrestricted;
-      unrestricted.disabled = this.techniqueAggregationPublishing || this.techniqueAggregationAccessSaving;
+      unrestricted.checked = activePolicy.unrestricted;
+      unrestricted.disabled = this.techniqueAggregationPublishing || this.techniqueAggregationPermissionSaving !== null;
     }
-    for (const input of root.querySelectorAll<HTMLInputElement>('[data-technique-aggregation-access-friend]')) {
-      const value = input.dataset.techniqueAggregationAccessFriend as 'dao_friend' | 'close_friend' | undefined;
-      input.checked = Boolean(value && this.techniqueAggregationAccessDraft.friendLevels.includes(value));
-      input.disabled = this.techniqueAggregationAccessDraft.unrestricted || this.techniqueAggregationPublishing || this.techniqueAggregationAccessSaving;
+    for (const input of root.querySelectorAll<HTMLInputElement>('[data-technique-aggregation-permission-friend]')) {
+      const value = input.dataset.techniqueAggregationPermissionFriend as 'dao_friend' | 'close_friend' | undefined;
+      input.checked = Boolean(value && activePolicy.friendLevels.includes(value));
+      input.disabled = activePolicy.unrestricted || this.techniqueAggregationPublishing || this.techniqueAggregationPermissionSaving !== null;
     }
-    for (const input of root.querySelectorAll<HTMLInputElement>('[data-technique-aggregation-access-sect-role]')) {
-      const value = input.dataset.techniqueAggregationAccessSectRole as SectMemberRole | undefined;
-      input.checked = Boolean(value && this.techniqueAggregationAccessDraft.sectRoles.includes(value));
-      input.disabled = this.techniqueAggregationAccessDraft.unrestricted || this.techniqueAggregationPublishing || this.techniqueAggregationAccessSaving;
+    for (const input of root.querySelectorAll<HTMLInputElement>('[data-technique-aggregation-permission-sect-role]')) {
+      const value = input.dataset.techniqueAggregationPermissionSectRole as SectMemberRole | undefined;
+      input.checked = Boolean(value && activePolicy.sectRoles.includes(value));
+      input.disabled = activePolicy.unrestricted || this.techniqueAggregationPublishing || this.techniqueAggregationPermissionSaving !== null;
     }
-    const saveAccess = root.querySelector<HTMLButtonElement>('[data-craft-action="technique-aggregation-save-access"]');
-    if (saveAccess) {
-      saveAccess.disabled = this.techniqueAggregationAccessSaving
+    const savePermission = root.querySelector<HTMLButtonElement>('[data-craft-action="technique-aggregation-save-permission"]');
+    if (savePermission) {
+      const scope = this.techniqueAggregationPermissionTab;
+      savePermission.disabled = this.techniqueAggregationPermissionSaving !== null
         || this.techniqueAggregationPublishing
-        || !this.techniqueAggregationAccessDirty
-        || areTechniqueAggregationPoliciesEqual(this.techniqueAggregationAccessDraft, panel.platform.accessPolicy);
-      saveAccess.textContent = this.techniqueAggregationAccessSaving ? '刻录中...' : '刻录门规';
+        || !this.techniqueAggregationPermissionDirtyScopes.has(scope)
+        || areTechniqueAggregationPoliciesEqual(activePolicy, panel.platform.permissions[scope]);
+      savePermission.textContent = this.techniqueAggregationPermissionSaving === scope
+        ? '保存中...'
+        : `保存${scope === 'revision' ? '修订' : '参阅'}权限`;
     }
     const learn = root.querySelector<HTMLButtonElement>('[data-craft-action="technique-aggregation-learn"]');
     if (learn) {
@@ -1568,7 +1696,7 @@ export class CraftTransmissionView {
           ? `参悟中 ${formatDisplayInteger(panel.platform.pendingProgress ?? 0)}/${formatDisplayInteger(panel.platform.pendingRequiredProgress ?? 1)}`
           : panel.platform.learnerState === 'learned'
             ? '已承此脉'
-            : panel.platform.canLearn ? '纳入参悟' : '门规未许';
+            : panel.platform.canLearn ? '纳入参悟' : '权限未开放';
     }
     const resultHost = root.querySelector<HTMLElement>('[data-technique-aggregation-result="true"]');
     const resultKey = this.buildTechniqueAggregationResultKey();
@@ -1576,6 +1704,27 @@ export class CraftTransmissionView {
       replaceElementHtml(resultHost, this.renderTechniqueAggregationResult());
       resultHost.dataset.techniqueAggregationResultKey = resultKey;
     }
+  }
+
+  private patchTechniqueAggregationDirectory(root: HTMLElement): void {
+    const directory = root.querySelector<HTMLElement>('[data-technique-aggregation-directory="true"]');
+    if (!directory) return;
+    replaceElementHtml(directory, this.renderTechniqueAggregationDirectoryContent());
+  }
+
+  private patchTechniqueAggregationPermissions(root: HTMLElement): void {
+    const permissions = root.querySelector<HTMLElement>('[data-technique-aggregation-permissions="true"]');
+    if (!permissions) return;
+    const template = document.createElement('template');
+    template.innerHTML = this.renderTechniqueAggregationPermissions(Boolean(this.getBoundTechniqueAggregationFamily())).trim();
+    const next = template.content.firstElementChild;
+    if (next instanceof HTMLElement) permissions.replaceChildren(...next.childNodes);
+  }
+
+  private patchOpenTechniqueAggregationControls(): void {
+    const body = document.getElementById('detail-modal-body');
+    const root = body?.querySelector<HTMLElement>('[data-technique-aggregation-panel="true"]');
+    if (root) this.patchTechniqueAggregationControls(root);
   }
 
   private renderTechniqueBookCell(item: ItemStack): string {
@@ -1783,8 +1932,9 @@ export class CraftTransmissionView {
           buildingId: this.techniqueAggregationBuildingId,
           displayName: '统法台',
           isOwner: false,
-          accessPolicy: cloneTechniqueUnificationAccessPolicy(DEFAULT_TECHNIQUE_UNIFICATION_ACCESS_POLICY),
+          permissions: cloneTechniqueUnificationPermissions(DEFAULT_TECHNIQUE_UNIFICATION_PERMISSIONS),
           canLearn: false,
+          canRevise: false,
           learnerState: 'unbound',
         },
         error: {
@@ -1797,7 +1947,7 @@ export class CraftTransmissionView {
   }
 
   private publishTechniqueAggregation(): void {
-    if (this.techniqueAggregationPublishing || this.techniqueAggregationAccessSaving) return;
+    if (this.techniqueAggregationPublishing || this.techniqueAggregationPermissionSaving) return;
     const panel = this.techniqueAggregationPanel;
     const sourceTechniqueIds = [...this.selectedTechniqueAggregationSourceIds].sort();
     const minimumSelectionCount = this.techniqueAggregationFamilyId ? 1 : 2;
@@ -1809,7 +1959,7 @@ export class CraftTransmissionView {
       ?? this.parent.callbacks?.onPublishTechniqueAggregation;
     if (!request) return;
     this.techniqueAggregationPublishing = true;
-    this.parent.patchOpenCraftShell();
+    this.patchOpenTechniqueAggregationControls();
     let accepted: boolean | void;
     try {
       accepted = request({
@@ -1821,7 +1971,7 @@ export class CraftTransmissionView {
           expectedRevision: this.techniqueAggregationExpectedRevision,
         } : {
           customName: this.techniqueAggregationNameDraft,
-          accessPolicy: cloneTechniqueUnificationAccessPolicy(this.techniqueAggregationAccessDraft),
+          permissions: cloneTechniqueUnificationPermissions(this.techniqueAggregationPermissionsDraft),
         }),
         sourceTechniqueIds,
       });
@@ -1836,41 +1986,44 @@ export class CraftTransmissionView {
         ok: false,
         code: 'TECHNIQUE_AGGREGATE_NOT_READY',
       };
-      this.parent.patchOpenCraftShell();
+      this.patchOpenTechniqueAggregationControls();
     }
   }
 
-  private updateTechniqueAggregationAccess(): void {
+  private updateTechniqueAggregationPermission(): void {
     const panel = this.techniqueAggregationPanel;
     if (!panel?.platform.isOwner
       || !panel.platform.familyId
-      || this.techniqueAggregationAccessSaving
+      || this.techniqueAggregationPermissionSaving
       || this.techniqueAggregationPublishing) return;
-    const request = this.transmissionCallbacks?.onUpdateTechniqueAggregationAccess
-      ?? this.parent.callbacks?.onUpdateTechniqueAggregationAccess;
+    const request = this.transmissionCallbacks?.onUpdateTechniqueAggregationPermissions
+      ?? this.parent.callbacks?.onUpdateTechniqueAggregationPermissions;
     if (!request) return;
-    this.techniqueAggregationAccessSaving = true;
+    const scope = this.techniqueAggregationPermissionTab;
+    this.techniqueAggregationPermissionSaving = scope;
     this.techniqueAggregationResult = null;
-    this.parent.patchOpenCraftShell();
+    this.patchOpenTechniqueAggregationControls();
     let accepted: boolean | void;
     try {
       accepted = request({
         requestId: this.techniqueAggregationRequestId,
         buildingId: this.techniqueAggregationBuildingId,
-        accessPolicy: cloneTechniqueUnificationAccessPolicy(this.techniqueAggregationAccessDraft),
+        scope,
+        policy: cloneTechniqueUnificationAccessPolicy(this.techniqueAggregationPermissionsDraft[scope]),
       });
     } catch {
       accepted = false;
     }
     if (accepted === false) {
-      this.techniqueAggregationAccessSaving = false;
+      this.techniqueAggregationPermissionSaving = null;
       this.techniqueAggregationResult = {
         requestId: this.techniqueAggregationRequestId,
         ok: false,
-        operation: 'access',
+        operation: 'permissions',
+        permissionScope: scope,
         code: 'TECHNIQUE_AGGREGATE_NOT_READY',
       };
-      this.parent.patchOpenCraftShell();
+      this.patchOpenTechniqueAggregationControls();
     }
   }
 
@@ -1969,15 +2122,50 @@ export class CraftTransmissionView {
       }
       this.techniqueAggregationResult = null;
       this.techniqueAggregationOperationId = '';
-      this.parent.patchOpenCraftShell();
+      const root = body.querySelector<HTMLElement>('[data-technique-aggregation-panel="true"]');
+      if (root) this.patchTechniqueAggregationControls(root);
+      return true;
+    }
+    if (action === 'technique-aggregation-select-all') {
+      for (const source of this.getSelectableTechniqueAggregationSources()) {
+        this.selectedTechniqueAggregationSourceIds.add(source.techId);
+      }
+      this.techniqueAggregationResult = null;
+      this.techniqueAggregationOperationId = '';
+      const root = body.querySelector<HTMLElement>('[data-technique-aggregation-panel="true"]');
+      if (root) this.patchTechniqueAggregationControls(root);
+      return true;
+    }
+    if (action === 'technique-aggregation-clear-selection') {
+      this.selectedTechniqueAggregationSourceIds.clear();
+      this.techniqueAggregationResult = null;
+      this.techniqueAggregationOperationId = '';
+      const root = body.querySelector<HTMLElement>('[data-technique-aggregation-panel="true"]');
+      if (root) this.patchTechniqueAggregationControls(root);
+      return true;
+    }
+    if (action === 'technique-aggregation-page-prev' || action === 'technique-aggregation-page-next') {
+      this.techniqueAggregationSourcePage += action.endsWith('next') ? 1 : -1;
+      this.clampTechniqueAggregationSourcePage();
+      const root = body.querySelector<HTMLElement>('[data-technique-aggregation-panel="true"]');
+      if (root) this.patchTechniqueAggregationDirectory(root);
+      return true;
+    }
+    if (action === 'technique-aggregation-permission-tab') {
+      const scope = target.dataset.permissionScope;
+      if (scope === 'read' || scope === 'revision') {
+        this.techniqueAggregationPermissionTab = scope;
+        const root = body.querySelector<HTMLElement>('[data-technique-aggregation-panel="true"]');
+        if (root) this.patchTechniqueAggregationPermissions(root);
+      }
       return true;
     }
     if (action === 'technique-aggregation-publish') {
       this.publishTechniqueAggregation();
       return true;
     }
-    if (action === 'technique-aggregation-save-access') {
-      this.updateTechniqueAggregationAccess();
+    if (action === 'technique-aggregation-save-permission') {
+      this.updateTechniqueAggregationPermission();
       return true;
     }
     if (action === 'technique-aggregation-learn') {
@@ -2090,43 +2278,63 @@ export class CraftTransmissionView {
           ? event.target.value as TechniqueGrade
           : '';
         this.techniqueAggregationGradeFilter = grade;
+        this.techniqueAggregationRealmFilter = null;
+        this.techniqueAggregationSourcePage = 1;
         this.selectedTechniqueAggregationSourceIds.clear();
         this.techniqueAggregationResult = null;
         this.techniqueAggregationOperationId = '';
         const panel = body.querySelector<HTMLElement>('[data-technique-aggregation-panel="true"]');
-        if (panel) this.patchTechniqueAggregationControls(panel);
+        if (panel) {
+          this.patchTechniqueAggregationDirectory(panel);
+          this.patchTechniqueAggregationControls(panel);
+        }
         return;
       }
-      if (event.target instanceof HTMLInputElement && event.target.matches('[data-technique-aggregation-access-unrestricted="true"]')) {
-        this.techniqueAggregationAccessDraft.unrestricted = event.target.checked;
-        this.techniqueAggregationAccessDirty = true;
+      if (event.target instanceof HTMLSelectElement && event.target.matches('[data-technique-aggregation-realm-filter="true"]')) {
+        const realmLv = Math.trunc(Number(event.target.value));
+        this.techniqueAggregationRealmFilter = event.target.value && Number.isFinite(realmLv) && realmLv > 0
+          ? realmLv
+          : null;
+        this.techniqueAggregationSourcePage = 1;
+        const panel = body.querySelector<HTMLElement>('[data-technique-aggregation-panel="true"]');
+        if (panel) this.patchTechniqueAggregationDirectory(panel);
+        return;
+      }
+      if (event.target instanceof HTMLInputElement && event.target.matches('[data-technique-aggregation-permission-unrestricted="true"]')) {
+        const scope = this.techniqueAggregationPermissionTab;
+        this.techniqueAggregationPermissionsDraft[scope].unrestricted = event.target.checked;
+        this.techniqueAggregationPermissionDirtyScopes.add(scope);
         this.techniqueAggregationResult = null;
         const panel = body.querySelector<HTMLElement>('[data-technique-aggregation-panel="true"]');
         if (panel) this.patchTechniqueAggregationControls(panel);
         return;
       }
-      if (event.target instanceof HTMLInputElement && event.target.matches('[data-technique-aggregation-access-friend]')) {
-        const value = event.target.dataset.techniqueAggregationAccessFriend;
+      if (event.target instanceof HTMLInputElement && event.target.matches('[data-technique-aggregation-permission-friend]')) {
+        const value = event.target.dataset.techniqueAggregationPermissionFriend;
         if (value === 'dao_friend' || value === 'close_friend') {
-          const values = new Set(this.techniqueAggregationAccessDraft.friendLevels);
+          const scope = this.techniqueAggregationPermissionTab;
+          const policy = this.techniqueAggregationPermissionsDraft[scope];
+          const values = new Set(policy.friendLevels);
           if (event.target.checked) values.add(value); else values.delete(value);
-          this.techniqueAggregationAccessDraft.friendLevels = (['dao_friend', 'close_friend'] as const)
+          policy.friendLevels = (['dao_friend', 'close_friend'] as const)
             .filter((entry) => values.has(entry));
-          this.techniqueAggregationAccessDirty = true;
+          this.techniqueAggregationPermissionDirtyScopes.add(scope);
           this.techniqueAggregationResult = null;
           const panel = body.querySelector<HTMLElement>('[data-technique-aggregation-panel="true"]');
           if (panel) this.patchTechniqueAggregationControls(panel);
         }
         return;
       }
-      if (event.target instanceof HTMLInputElement && event.target.matches('[data-technique-aggregation-access-sect-role]')) {
-        const value = event.target.dataset.techniqueAggregationAccessSectRole as SectMemberRole | undefined;
+      if (event.target instanceof HTMLInputElement && event.target.matches('[data-technique-aggregation-permission-sect-role]')) {
+        const value = event.target.dataset.techniqueAggregationPermissionSectRole as SectMemberRole | undefined;
         if (value && SECT_MEMBER_ROLE_HIERARCHY.includes(value)) {
-          const values = new Set(this.techniqueAggregationAccessDraft.sectRoles);
+          const scope = this.techniqueAggregationPermissionTab;
+          const policy = this.techniqueAggregationPermissionsDraft[scope];
+          const values = new Set(policy.sectRoles);
           if (event.target.checked) values.add(value); else values.delete(value);
-          this.techniqueAggregationAccessDraft.sectRoles = SECT_MEMBER_ROLE_HIERARCHY
+          policy.sectRoles = SECT_MEMBER_ROLE_HIERARCHY
             .filter((entry) => values.has(entry));
-          this.techniqueAggregationAccessDirty = true;
+          this.techniqueAggregationPermissionDirtyScopes.add(scope);
           this.techniqueAggregationResult = null;
           const panel = body.querySelector<HTMLElement>('[data-technique-aggregation-panel="true"]');
           if (panel) this.patchTechniqueAggregationControls(panel);

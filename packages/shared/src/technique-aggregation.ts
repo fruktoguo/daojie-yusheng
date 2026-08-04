@@ -29,6 +29,26 @@ export const DEFAULT_TECHNIQUE_UNIFICATION_ACCESS_POLICY: Readonly<TechniqueUnif
   sectRoles: [],
 };
 
+export type TechniqueUnificationPermissionScope = 'read' | 'revision';
+
+/** 统法台参阅与修订分别裁定，任一权限都不隐含另一权限。 */
+export interface TechniqueUnificationPermissions {
+  read: TechniqueUnificationAccessPolicy;
+  revision: TechniqueUnificationAccessPolicy;
+}
+
+export const DEFAULT_TECHNIQUE_UNIFICATION_PERMISSIONS: Readonly<{
+  read: Readonly<TechniqueUnificationAccessPolicy>;
+  revision: Readonly<TechniqueUnificationAccessPolicy>;
+}> = {
+  read: DEFAULT_TECHNIQUE_UNIFICATION_ACCESS_POLICY,
+  revision: {
+    unrestricted: false,
+    friendLevels: [],
+    sectRoles: [],
+  },
+};
+
 export type TechniqueAggregationErrorCode =
   | 'TECHNIQUE_AGGREGATE_NOT_READY'
   | 'TECHNIQUE_AGGREGATE_BUILDING_REQUIRED'
@@ -40,6 +60,7 @@ export type TechniqueAggregationErrorCode =
   | 'TECHNIQUE_AGGREGATE_PLATFORM_UNBOUND'
   | 'TECHNIQUE_AGGREGATE_PLATFORM_MISMATCH'
   | 'TECHNIQUE_AGGREGATE_ACCESS_DENIED'
+  | 'TECHNIQUE_AGGREGATE_REVISION_PERMISSION_DENIED'
   | 'TECHNIQUE_AGGREGATE_NAME_INVALID'
   | 'TECHNIQUE_AGGREGATE_LEARN_REJECTED'
   | 'TECHNIQUE_AGGREGATE_SOURCE_EMPTY'
@@ -66,12 +87,14 @@ export interface TechniqueAggregationMetadata {
   sourceCount: number;
   /** 同一家族上一版；首版为空。 */
   previousRevision?: number;
-  /** 聚合发布者，冗余保存以便缓存未加载数据库行时仍可鉴权。 */
+  /** 法脉初创者；后续由他人修订时保持不变。 */
   creatorPlayerId?: string;
+  /** 当前卷修订者，用于幂等重放与审计。 */
+  revisionAuthorPlayerId?: string;
   /** 首次凝篇所在统法台，用于发布成功但建筑域尚未刷盘时恢复绑定。 */
   platformInstanceId?: string;
   platformBuildingId?: string;
-  initialAccessPolicy?: TechniqueUnificationAccessPolicy;
+  initialPermissions?: TechniqueUnificationPermissions;
 }
 
 export interface TechniqueAggregationSourceView {
@@ -80,6 +103,8 @@ export interface TechniqueAggregationSourceView {
   grade: TechniqueGrade;
   category: TechniqueCategory;
   realmLv: number;
+  /** 自创内功模板的权威生成强度，范围为 80-120。 */
+  strengthPercent: number;
   level: number;
   maxLevel: number;
   fullyMastered: boolean;
@@ -119,15 +144,16 @@ export interface TechniqueAggregationPublishRequest {
   expectedRevision?: number;
   /** 首次凝篇必填；续录沿用法脉原名。 */
   customName?: string;
-  /** 首次凝篇可一并设置，后续通过独立门规请求修改。 */
-  accessPolicy?: TechniqueUnificationAccessPolicy;
+  /** 首次凝篇可一并设置，后续通过独立权限请求修改。 */
+  permissions?: TechniqueUnificationPermissions;
   sourceTechniqueIds: string[];
 }
 
-export interface TechniqueAggregationAccessRequest {
+export interface TechniqueAggregationPermissionRequest {
   requestId?: string;
   buildingId?: string;
-  accessPolicy: TechniqueUnificationAccessPolicy;
+  scope: TechniqueUnificationPermissionScope;
+  policy: TechniqueUnificationAccessPolicy;
 }
 
 export interface TechniqueAggregationLearnRequest {
@@ -143,8 +169,9 @@ export interface TechniqueUnificationPlatformView {
   ownerPlayerId?: string;
   isOwner: boolean;
   familyId?: string;
-  accessPolicy: TechniqueUnificationAccessPolicy;
+  permissions: TechniqueUnificationPermissions;
   canLearn: boolean;
+  canRevise: boolean;
   learnerState: TechniqueUnificationLearnerState;
   latestTechniqueId?: string;
   latestRevision?: number;
@@ -180,7 +207,8 @@ export interface TechniqueAggregationResultView {
   requestId?: string;
   operationId?: string;
   ok: boolean;
-  operation?: 'publish' | 'access' | 'learn';
+  operation?: 'publish' | 'permissions' | 'learn';
+  permissionScope?: TechniqueUnificationPermissionScope;
   code?: TechniqueAggregationErrorCode;
   messageKey?: string;
   vars?: Record<string, string | number>;
@@ -203,7 +231,7 @@ export interface TechniqueAggregationResultView {
 
 export type C2S_RequestTechniqueAggregation = TechniqueAggregationPreviewRequest;
 export type C2S_PublishTechniqueAggregation = TechniqueAggregationPublishRequest;
-export type C2S_UpdateTechniqueAggregationAccess = TechniqueAggregationAccessRequest;
+export type C2S_UpdateTechniqueAggregationPermissions = TechniqueAggregationPermissionRequest;
 export type C2S_LearnTechniqueAggregation = TechniqueAggregationLearnRequest;
 export type S2C_TechniqueAggregationPanel = TechniqueAggregationPanelView;
 export type S2C_TechniqueAggregationResult = TechniqueAggregationResultView;
@@ -238,13 +266,16 @@ export function normalizeTechniqueAggregationMetadata(value: unknown): Technique
   const creatorPlayerId = typeof raw.creatorPlayerId === 'string' && raw.creatorPlayerId.trim()
     ? raw.creatorPlayerId.trim()
     : undefined;
+  const revisionAuthorPlayerId = typeof raw.revisionAuthorPlayerId === 'string' && raw.revisionAuthorPlayerId.trim()
+    ? raw.revisionAuthorPlayerId.trim()
+    : undefined;
   const platformInstanceId = typeof raw.platformInstanceId === 'string' && raw.platformInstanceId.trim()
     ? raw.platformInstanceId.trim()
     : undefined;
   const platformBuildingId = typeof raw.platformBuildingId === 'string' && raw.platformBuildingId.trim()
     ? raw.platformBuildingId.trim()
     : undefined;
-  const initialAccessPolicy = normalizeTechniqueUnificationAccessPolicy(raw.initialAccessPolicy);
+  const initialPermissions = normalizeTechniqueUnificationPermissions(raw.initialPermissions);
   return {
     schemaVersion: Math.max(1, Math.trunc(Number(raw.schemaVersion) || TECHNIQUE_AGGREGATE_SCHEMA_VERSION)),
     familyId,
@@ -253,9 +284,10 @@ export function normalizeTechniqueAggregationMetadata(value: unknown): Technique
     sourceCount: sourceTechniqueIds.length,
     ...(previousRevision && previousRevision > 0 ? { previousRevision } : {}),
     ...(creatorPlayerId ? { creatorPlayerId } : {}),
+    ...(revisionAuthorPlayerId ? { revisionAuthorPlayerId } : {}),
     ...(platformInstanceId ? { platformInstanceId } : {}),
     ...(platformBuildingId ? { platformBuildingId } : {}),
-    ...(raw.initialAccessPolicy ? { initialAccessPolicy } : {}),
+    ...(raw.initialPermissions ? { initialPermissions } : {}),
   };
 }
 
@@ -297,6 +329,35 @@ export function cloneTechniqueUnificationAccessPolicy(
     unrestricted: value.unrestricted === true,
     friendLevels: [...value.friendLevels],
     sectRoles: [...value.sectRoles],
+  };
+}
+
+export function normalizeTechniqueUnificationPermissions(
+  value: unknown,
+  fallback: Readonly<{
+    read: Readonly<TechniqueUnificationAccessPolicy>;
+    revision: Readonly<TechniqueUnificationAccessPolicy>;
+  }> = DEFAULT_TECHNIQUE_UNIFICATION_PERMISSIONS,
+): TechniqueUnificationPermissions {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return cloneTechniqueUnificationPermissions(fallback);
+  }
+  const raw = value as Record<string, unknown>;
+  return {
+    read: normalizeTechniqueUnificationAccessPolicy(raw.read, fallback.read),
+    revision: normalizeTechniqueUnificationAccessPolicy(raw.revision, fallback.revision),
+  };
+}
+
+export function cloneTechniqueUnificationPermissions(
+  value: Readonly<{
+    read: Readonly<TechniqueUnificationAccessPolicy>;
+    revision: Readonly<TechniqueUnificationAccessPolicy>;
+  }>,
+): TechniqueUnificationPermissions {
+  return {
+    read: cloneTechniqueUnificationAccessPolicy(value.read),
+    revision: cloneTechniqueUnificationAccessPolicy(value.revision),
   };
 }
 

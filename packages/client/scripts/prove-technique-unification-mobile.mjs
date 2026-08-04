@@ -1,8 +1,8 @@
 /**
  * 统法台手机端布局与交互连续性 proof。
  *
- * 使用正式 Vite 页面、CraftWorkbenchModal 和样式，验证品阶过滤、名称草稿、
- * 候选列表独立滚动及门规区域在窄屏和短屏下均可到达。
+ * 使用正式 Vite 页面、CraftWorkbenchModal 和样式，验证权限双 Tab、品阶/境界筛选、
+ * 法卷卡格分页、跨页全选及弹层正文在窄屏和短屏下均可纵向到达。
  */
 import assert from 'node:assert/strict';
 import { delay, withClientBrowserProof } from './browser-proof-runtime.mjs';
@@ -17,29 +17,38 @@ const initializeExpression = String.raw`
     modal.setCallbacks({
       onRequestTechniqueAggregation: () => true,
       onPublishTechniqueAggregation: () => true,
-      onUpdateTechniqueAggregationAccess: () => true,
+      onUpdateTechniqueAggregationPermissions: () => true,
       onLearnTechniqueAggregation: () => true,
     });
     modal.openTechniqueAggregation('building:mobile-proof');
-    const grades = ['mortal', 'yellow'];
-    const sources = Array.from({ length: 48 }, (_, index) => {
-      const grade = grades[index % grades.length];
-      return {
-        techId: 'gen_mobile_' + grade + '_' + index,
-        name: (grade === 'mortal' ? '凡阶归元功' : '黄阶守一经') + (index + 1),
-        grade,
+    const mortalSources = Array.from({ length: 28 }, (_, index) => ({
+        techId: 'gen_mobile_mortal_' + index,
+        name: '凡阶归元功' + (index + 1),
+        grade: 'mortal',
         category: 'internal',
-        realmLv: 1,
+        realmLv: index < 16 ? 1 : 2,
+        strengthPercent: 80 + (index % 41),
         level: 9,
         maxLevel: 9,
         fullyMastered: true,
         covered: false,
-      };
-    });
+      }));
+    const yellowSources = Array.from({ length: 2 }, (_, index) => ({
+      techId: 'gen_mobile_yellow_' + index,
+      name: '黄阶守一经' + (index + 1),
+      grade: 'yellow',
+      category: 'internal',
+      realmLv: 3,
+      strengthPercent: 119 - index,
+      level: 9,
+      maxLevel: 9,
+      fullyMastered: true,
+      covered: false,
+    }));
     modal.handleTechniqueAggregationPanel({
       revision: 7,
       buildingId: 'building:mobile-proof',
-      eligibleSources: sources,
+      eligibleSources: [...mortalSources, ...yellowSources],
       families: [],
       totalCoveredLeafCount: 0,
       learnedAggregateCount: 0,
@@ -48,8 +57,12 @@ const initializeExpression = String.raw`
         displayName: '玄门统法台',
         ownerPlayerId: 'player:owner',
         isOwner: true,
-        accessPolicy: { unrestricted: false, friendLevels: ['close_friend'], sectRoles: ['elder', 'inner'] },
-        canLearn: true,
+        permissions: {
+          read: { unrestricted: false, friendLevels: ['close_friend'], sectRoles: ['elder', 'inner'] },
+          revision: { unrestricted: false, friendLevels: [], sectRoles: ['inner'] },
+        },
+        canLearn: false,
+        canRevise: true,
         learnerState: 'unbound',
       },
     });
@@ -64,27 +77,35 @@ const measureExpression = String.raw`
     const card = document.getElementById('detail-modal-card');
     const body = document.getElementById('detail-modal-body');
     const panel = document.querySelector('[data-technique-aggregation-panel="true"]');
+    const directory = document.querySelector('[data-technique-aggregation-directory="true"]');
     const list = document.querySelector('[data-technique-aggregation-source-list="true"]');
-    const policy = document.querySelector('[data-technique-aggregation-policy="true"]');
+    const permissions = document.querySelector('[data-technique-aggregation-permissions="true"]');
+    const editor = document.querySelector('[data-technique-aggregation-permission-editor="true"]');
     const grade = document.querySelector('[data-technique-aggregation-grade-filter="true"]');
+    const realm = document.querySelector('[data-technique-aggregation-realm-filter="true"]');
     const name = document.querySelector('[data-technique-aggregation-name="true"]');
     if (!(card instanceof HTMLElement)
       || !(body instanceof HTMLElement)
       || !(panel instanceof HTMLElement)
+      || !(directory instanceof HTMLElement)
       || !(list instanceof HTMLElement)
-      || !(policy instanceof HTMLElement)
+      || !(permissions instanceof HTMLElement)
+      || !(editor instanceof HTMLElement)
       || !(grade instanceof HTMLSelectElement)
+      || !(realm instanceof HTMLSelectElement)
       || !(name instanceof HTMLInputElement)) {
       throw new Error('统法台移动端 proof 结构不完整');
     }
     const cardRect = card.getBoundingClientRect();
-    const listRect = list.getBoundingClientRect();
-    const visibleSources = Array.from(list.querySelectorAll('.technique-aggregation-source'))
-      .filter((entry) => entry instanceof HTMLElement && !entry.hidden);
-    const overflowNodes = [card, body, panel, list, policy, ...Array.from(policy.querySelectorAll('*'))]
+    const sourceCards = Array.from(list.querySelectorAll('.technique-aggregation-source'))
+      .filter((entry) => entry instanceof HTMLElement);
+    const sourceRects = sourceCards.map((entry) => entry.getBoundingClientRect());
+    const overflowNodes = [card, body, panel, ...Array.from(panel.querySelectorAll('*'))]
       .filter((entry) => entry instanceof HTMLElement && entry.scrollWidth > entry.clientWidth + 1)
       .map((entry) => entry.className || entry.tagName);
-    const optionRects = Array.from(policy.querySelectorAll('.technique-aggregation-policy-option'))
+    const optionRects = Array.from(editor.querySelectorAll('.technique-aggregation-policy-option'))
+      .map((entry) => entry.getBoundingClientRect());
+    const tabRects = Array.from(permissions.querySelectorAll('.technique-aggregation-permission-tab'))
       .map((entry) => entry.getBoundingClientRect());
     return {
       viewportHeight: innerHeight,
@@ -92,79 +113,115 @@ const measureExpression = String.raw`
       cardBottom: cardRect.bottom,
       cardClass: card.className,
       bodyOverflowY: getComputedStyle(body).overflowY,
+      bodyClientHeight: body.clientHeight,
+      bodyScrollHeight: body.scrollHeight,
       listOverflowY: getComputedStyle(list).overflowY,
       listClientHeight: list.clientHeight,
       listScrollHeight: list.scrollHeight,
-      listTop: listRect.top,
-      listBottom: listRect.bottom,
-      visibleSourceCount: visibleSources.length,
-      visibleSourceGrades: [...new Set(visibleSources.map((entry) => entry.querySelector('small')?.textContent?.split(' · ')[0] ?? ''))],
+      sourceCount: sourceCards.length,
+      sourceGridColumns: getComputedStyle(list).gridTemplateColumns.split(' ').filter(Boolean).length,
+      minSourceHeight: sourceRects.length > 0 ? Math.min(...sourceRects.map((rect) => rect.height)) : 0,
+      maxSourceHeight: sourceRects.length > 0 ? Math.max(...sourceRects.map((rect) => rect.height)) : 0,
+      maxSourceWidth: sourceRects.length > 0 ? Math.max(...sourceRects.map((rect) => rect.width)) : 0,
+      inventoryCardCount: list.querySelectorAll('.technique-aggregation-source.inventory-cell').length,
+      firstStrength: sourceCards[0]?.querySelector('.technique-aggregation-source-strength')?.textContent?.trim() ?? '',
       gradeValue: grade.value,
       gradeOptionCount: grade.options.length,
+      realmOptionCount: realm.options.length,
       nameValue: name.value,
-      policyBottom: policy.getBoundingClientRect().bottom,
+      pageText: directory.querySelector('.technique-aggregation-pagination span')?.textContent?.trim() ?? '',
+      permissionTabLabels: Array.from(permissions.querySelectorAll('.technique-aggregation-permission-tab'))
+        .map((entry) => entry.textContent?.trim() ?? ''),
+      activePermissionTab: permissions.querySelector('.technique-aggregation-permission-tab.is-active')?.textContent?.trim() ?? '',
       minPolicyOptionHeight: optionRects.length > 0 ? Math.min(...optionRects.map((rect) => rect.height)) : 0,
+      minPermissionTabHeight: tabRects.length > 0 ? Math.min(...tabRects.map((rect) => rect.height)) : 0,
       overflowNodes,
-    };
-  })()
-`;
-
-const scrollListExpression = String.raw`
-  (() => {
-    const list = document.querySelector('[data-technique-aggregation-source-list="true"]');
-    if (!(list instanceof HTMLElement)) throw new Error('候选列表不存在');
-    list.scrollTop = list.scrollHeight;
-    const visible = Array.from(list.querySelectorAll('.technique-aggregation-source'))
-      .filter((entry) => entry instanceof HTMLElement && !entry.hidden);
-    const last = visible.at(-1);
-    if (!(last instanceof HTMLElement)) throw new Error('没有可见候选');
-    const listRect = list.getBoundingClientRect();
-    const lastRect = last.getBoundingClientRect();
-    return {
-      scrollTop: list.scrollTop,
-      lastVisible: lastRect.bottom <= listRect.bottom + 1 && lastRect.top >= listRect.top - 1,
     };
   })()
 `;
 
 const interactionExpression = String.raw`
   (() => {
-    const list = document.querySelector('[data-technique-aggregation-source-list="true"]');
-    const grade = document.querySelector('[data-technique-aggregation-grade-filter="true"]');
+    const directory = document.querySelector('[data-technique-aggregation-directory="true"]');
+    const permissions = document.querySelector('[data-technique-aggregation-permissions="true"]');
+    const realm = document.querySelector('[data-technique-aggregation-realm-filter="true"]');
     const name = document.querySelector('[data-technique-aggregation-name="true"]');
-    if (!(list instanceof HTMLElement) || !(grade instanceof HTMLSelectElement) || !(name instanceof HTMLInputElement)) {
+    if (!(directory instanceof HTMLElement)
+      || !(permissions instanceof HTMLElement)
+      || !(realm instanceof HTMLSelectElement)
+      || !(name instanceof HTMLInputElement)) {
       throw new Error('统法台交互结构不完整');
     }
-    list.dataset.proofIdentity = 'preserved';
     name.focus();
     name.value = '太玄归一真经';
     name.dispatchEvent(new Event('input', { bubbles: true }));
+
+    realm.value = '2';
+    realm.dispatchEvent(new Event('change', { bubbles: true }));
+    const realmFilteredCards = document.querySelectorAll('.technique-aggregation-source');
+    const realmPageText = document.querySelector('.technique-aggregation-pagination span')?.textContent?.trim() ?? '';
+    const realmStrength = realmFilteredCards[0]?.querySelector('.technique-aggregation-source-strength')?.textContent?.trim() ?? '';
+
+    const currentRealm = document.querySelector('[data-technique-aggregation-realm-filter="true"]');
+    if (!(currentRealm instanceof HTMLSelectElement)) throw new Error('境界筛选器丢失');
+    currentRealm.value = '';
+    currentRealm.dispatchEvent(new Event('change', { bubbles: true }));
+    document.querySelector('[data-craft-action="technique-aggregation-select-all"]')?.click();
+    const firstPageSelected = document.querySelectorAll('.technique-aggregation-source.is-selected').length;
+    const selectedSummary = document.querySelector('[data-technique-aggregation-selection-summary="true"]')?.textContent?.trim() ?? '';
+    document.querySelector('[data-craft-action="technique-aggregation-page-next"]')?.click();
+    const secondPageSelected = document.querySelectorAll('.technique-aggregation-source.is-selected').length;
+    const secondPageText = document.querySelector('.technique-aggregation-pagination span')?.textContent?.trim() ?? '';
+    document.querySelector('[data-craft-action="technique-aggregation-clear-selection"]')?.click();
+    const selectedAfterClear = document.querySelectorAll('.technique-aggregation-source.is-selected').length;
+
+    const grade = document.querySelector('[data-technique-aggregation-grade-filter="true"]');
+    if (!(grade instanceof HTMLSelectElement)) throw new Error('品阶筛选器丢失');
     grade.value = 'yellow';
     grade.dispatchEvent(new Event('change', { bubbles: true }));
-    const currentList = document.querySelector('[data-technique-aggregation-source-list="true"]');
-    const visible = Array.from(currentList.querySelectorAll('.technique-aggregation-source'))
-      .filter((entry) => entry instanceof HTMLElement && !entry.hidden);
-    visible[0]?.click();
+    const sparseCards = Array.from(document.querySelectorAll('.technique-aggregation-source'))
+      .filter((entry) => entry instanceof HTMLElement);
+    const sparseWidths = sparseCards.map((entry) => entry.getBoundingClientRect().width);
+
+    const revisionTab = document.querySelector('[data-permission-scope="revision"]');
+    if (!(revisionTab instanceof HTMLButtonElement)) throw new Error('修订权限 Tab 不存在');
+    revisionTab.click();
     const currentName = document.querySelector('[data-technique-aggregation-name="true"]');
+    const activeTab = document.querySelector('.technique-aggregation-permission-tab.is-active');
+    const permissionEditor = document.querySelector('[data-technique-aggregation-permission-editor="true"]');
     return {
-      listIdentityPreserved: currentList === list && currentList.dataset.proofIdentity === 'preserved',
+      directoryIdentityPreserved: document.querySelector('[data-technique-aggregation-directory="true"]') === directory,
+      permissionsIdentityPreserved: document.querySelector('[data-technique-aggregation-permissions="true"]') === permissions,
+      nameIdentityPreserved: currentName === name,
       nameValue: currentName instanceof HTMLInputElement ? currentName.value : '',
-      gradeValue: grade.value,
-      visibleCount: visible.length,
-      selectedCount: currentList.querySelectorAll('.technique-aggregation-source.is-selected').length,
+      realmFilteredCount: realmFilteredCards.length,
+      realmPageText,
+      realmStrength,
+      firstPageSelected,
+      selectedSummary,
+      secondPageSelected,
+      secondPageText,
+      selectedAfterClear,
+      gradeValue: document.querySelector('[data-technique-aggregation-grade-filter="true"]')?.value ?? '',
+      sparseCount: sparseCards.length,
+      maxSparseWidth: sparseWidths.length > 0 ? Math.max(...sparseWidths) : 0,
+      activePermissionTab: activeTab?.textContent?.trim() ?? '',
+      permissionEditorText: permissionEditor?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+      checkedRevisionRoles: Array.from(permissionEditor?.querySelectorAll('[data-technique-aggregation-permission-sect-role]:checked') ?? [])
+        .map((entry) => entry.dataset.techniqueAggregationPermissionSectRole),
     };
   })()
 `;
 
-const scrollBodyToPolicyExpression = String.raw`
+const scrollBodyToPermissionsExpression = String.raw`
   (() => {
     const body = document.getElementById('detail-modal-body');
-    const policy = document.querySelector('[data-technique-aggregation-policy="true"]');
-    if (!(body instanceof HTMLElement) || !(policy instanceof HTMLElement)) return false;
+    const permissions = document.querySelector('[data-technique-aggregation-permissions="true"]');
+    if (!(body instanceof HTMLElement) || !(permissions instanceof HTMLElement)) return false;
     body.scrollTop = body.scrollHeight;
     const bodyRect = body.getBoundingClientRect();
-    const policyRect = policy.getBoundingClientRect();
-    return policyRect.top < bodyRect.bottom && policyRect.bottom <= bodyRect.bottom + 1;
+    const permissionsRect = permissions.getBoundingClientRect();
+    return permissionsRect.top < bodyRect.bottom && permissionsRect.bottom <= bodyRect.bottom + 1;
   })()
 `;
 
@@ -173,12 +230,19 @@ function assertLayout(measurement, label) {
   assert(measurement.cardBottom <= measurement.viewportHeight, `${label}弹层底部越出视口：${JSON.stringify(measurement)}`);
   assert.match(measurement.cardClass, /detail-modal--technique-unification/, `${label}未应用统法台弹层变体`);
   assert.match(measurement.bodyOverflowY, /auto|scroll/, `${label}正文没有纵向滚动路径`);
-  assert.match(measurement.listOverflowY, /auto|scroll/, `${label}候选区没有独立纵向滚动`);
-  assert(measurement.listClientHeight >= 200, `${label}候选区未纵向展开：${JSON.stringify(measurement)}`);
-  assert(measurement.listScrollHeight > measurement.listClientHeight + 1, `${label}长候选列表没有形成滚动范围`);
-  assert.equal(measurement.visibleSourceCount, 24, `${label}品阶页候选数量错误`);
+  assert(measurement.bodyScrollHeight > measurement.bodyClientHeight, `${label}正文没有形成纵向滚动范围`);
+  assert.equal(measurement.listOverflowY, 'visible', `${label}手机端法卷目录不应形成嵌套滚动`);
+  assert(measurement.listScrollHeight <= measurement.listClientHeight + 1, `${label}法卷目录仍存在内部滚动范围`);
+  assert(measurement.sourceCount > 0 && measurement.sourceCount <= 12, `${label}单页法卷数量超出 12 条`);
+  assert.equal(measurement.inventoryCardCount, measurement.sourceCount, `${label}法卷未全部使用背包式卡格`);
+  assert.equal(measurement.sourceGridColumns, 2, `${label}手机端法卷目录未保持双列`);
+  assert(measurement.minSourceHeight >= 111.5, `${label}法卷卡高度不足`);
+  assert(measurement.maxSourceHeight - measurement.minSourceHeight <= 1, `${label}同页法卷卡高度不稳定`);
+  assert(measurement.maxSourceWidth <= 180, `${label}少量法卷被横向拉伸过宽`);
   assert.equal(measurement.gradeOptionCount, 2, `${label}品阶过滤项不完整`);
-  assert(measurement.minPolicyOptionHeight >= 39.5, `${label}门规触控高度不足 40px`);
+  assert(measurement.minPolicyOptionHeight >= 39.5, `${label}权限选项触控高度不足 40px`);
+  assert(measurement.minPermissionTabHeight >= 41.5, `${label}权限 Tab 触控高度不足 42px`);
+  assert.deepEqual(measurement.permissionTabLabels, ['参阅权限', '修订权限'], `${label}权限 Tab 不完整`);
   assert.deepEqual(measurement.overflowNodes, [], `${label}出现横向溢出：${JSON.stringify(measurement.overflowNodes)}`);
 }
 
@@ -186,17 +250,32 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'technique-uni
   assert.equal(await cdp.evaluate(initializeExpression), '统法台', '未打开正式统法台弹层');
   const initial = await cdp.evaluate(measureExpression);
   assertLayout(initial, '标准手机视口');
-  const listScrolled = await cdp.evaluate(scrollListExpression);
-  assert(listScrolled.scrollTop > 0, '候选列表未实际滚动');
-  assert.equal(listScrolled.lastVisible, true, '候选列表滚动到底后末项仍不可见');
+  assert.equal(initial.sourceCount, 12, '首页未限制为 12 部法卷');
+  assert.equal(initial.realmOptionCount, 3, '境界过滤项不完整');
+  assert.equal(initial.firstStrength, '强度 80%', '未显示服务端权威功法强度');
+  assert.match(initial.pageText, /第 1 \/ 3 页 · 1-12 \/ 28/, '首页分页摘要错误');
+  assert.equal(initial.activePermissionTab, '参阅权限', '默认未打开参阅权限 Tab');
 
   const interaction = await cdp.evaluate(interactionExpression);
-  assert.equal(interaction.listIdentityPreserved, true, '切换品阶时重建了候选列表节点');
-  assert.equal(interaction.nameValue, '太玄归一真经', '切换品阶或择取源法后丢失法脉名草稿');
+  assert.equal(interaction.directoryIdentityPreserved, true, '筛选或分页时替换了法卷目录根节点');
+  assert.equal(interaction.permissionsIdentityPreserved, true, '切换权限 Tab 时替换了权限根节点');
+  assert.equal(interaction.nameIdentityPreserved, true, '筛选或切换权限时替换了法脉名输入框');
+  assert.equal(interaction.nameValue, '太玄归一真经', '筛选、分页或切换权限后丢失法脉名草稿');
+  assert.equal(interaction.realmFilteredCount, 12, '境界过滤结果数量错误');
+  assert.match(interaction.realmPageText, /第 1 \/ 1 页 · 1-12 \/ 12/, '境界过滤后的分页摘要错误');
+  assert.equal(interaction.realmStrength, '强度 96%', '境界过滤后强度显示错误');
+  assert.equal(interaction.firstPageSelected, 12, '全选后当前页未全部呈现选中态');
+  assert.match(interaction.selectedSummary, /已择 28 部/, '全选未覆盖当前筛选的全部分页');
+  assert.equal(interaction.secondPageSelected, 12, '翻页后跨页全选状态未保留');
+  assert.match(interaction.secondPageText, /第 2 \/ 3 页 · 13-24 \/ 28/, '下一页分页摘要错误');
+  assert.equal(interaction.selectedAfterClear, 0, '全部取消后仍残留选中法卷');
   assert.equal(interaction.gradeValue, 'yellow', '品阶过滤未切换到黄阶');
-  assert.equal(interaction.visibleCount, 24, '黄阶页候选数量错误');
-  assert.equal(interaction.selectedCount, 1, '择取源法后局部选中态错误');
-  assert.equal(await cdp.evaluate(scrollBodyToPolicyExpression), true, '标准手机视口无法滚动到门规底部');
+  assert.equal(interaction.sparseCount, 2, '黄阶少量法卷筛选结果错误');
+  assert(interaction.maxSparseWidth <= 180, '只有两部法卷时卡格被拉伸过宽');
+  assert.equal(interaction.activePermissionTab, '修订权限', '修订权限 Tab 未切换');
+  assert.match(interaction.permissionEditorText, /所有修士均可修订/, '修订权限编辑器文案错误');
+  assert.deepEqual(interaction.checkedRevisionRoles, ['inner'], '修订权限草稿未独立保留');
+  assert.equal(await cdp.evaluate(scrollBodyToPermissionsExpression), true, '标准手机视口无法滚动到权限底部');
 
   await cdp.send('Emulation.setDeviceMetricsOverride', {
     width: SHORT_VIEWPORT.width,
@@ -208,7 +287,7 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'technique-uni
   });
   await delay(80);
   assertLayout(await cdp.evaluate(measureExpression), '短屏手机视口');
-  assert.equal(await cdp.evaluate(scrollBodyToPolicyExpression), true, '短屏手机视口无法滚动到门规底部');
+  assert.equal(await cdp.evaluate(scrollBodyToPermissionsExpression), true, '短屏手机视口无法滚动到权限底部');
 
   await cdp.evaluate(`document.documentElement.dataset.colorMode = 'dark'`);
   await delay(80);

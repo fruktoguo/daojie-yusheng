@@ -1,23 +1,25 @@
 /**
  * 统法台功法统合网络入口。
  *
- * 该 helper 负责 socket 鉴权、统法台位置与门规校验，以及建筑法脉绑定；
+ * 该 helper 负责 socket 鉴权、统法台位置与参阅/修订权限校验，以及建筑法脉绑定；
  * 功法编纂规则与不可变版本发布仍由 TechniqueAggregationService 保持权威。
  */
 import {
-  DEFAULT_TECHNIQUE_UNIFICATION_ACCESS_POLICY,
+  DEFAULT_TECHNIQUE_UNIFICATION_PERMISSIONS,
   S2C,
   TECHNIQUE_UNIFICATION_PLATFORM_DEF_ID,
-  cloneTechniqueUnificationAccessPolicy,
+  cloneTechniqueUnificationPermissions,
   normalizeTechniqueUnificationAccessPolicy,
-  type TechniqueAggregationAccessRequest,
+  normalizeTechniqueUnificationPermissions,
   type TechniqueAggregationErrorView,
   type TechniqueAggregationLearnRequest,
   type TechniqueAggregationPanelView,
   type TechniqueAggregationPreviewRequest,
   type TechniqueAggregationPublishRequest,
+  type TechniqueAggregationPermissionRequest,
   type TechniqueAggregationResultView,
-  type TechniqueUnificationAccessPolicy,
+  type TechniqueUnificationPermissions,
+  type TechniqueUnificationPermissionScope,
   type TechniqueUnificationLearnerState,
   type TechniqueUnificationPlatformView,
 } from '@mud/shared';
@@ -137,18 +139,23 @@ export class WorldGatewayTechniqueAggregationHelper {
             return { ok: false as const, result: this.resultFromError(request, current.error, 'publish') };
           }
           await this.recoverPlatformBinding(current);
-          if (!this.isPlatformOwner(current.building, playerId)) {
+          const boundFamilyId = normalizeText(current.building.techniqueAggregationFamilyId);
+          const isOwner = this.isPlatformOwner(current.building, playerId);
+          const revisionPermissionGranted = boundFamilyId
+            ? await this.canUsePlatformPermission(current.building, playerId, 'revision')
+            : isOwner;
+          if ((!boundFamilyId && !isOwner) || (boundFamilyId && !revisionPermissionGranted)) {
             return {
               ok: false as const,
               result: this.resultFromError(
                 request,
-                this.error('TECHNIQUE_AGGREGATE_PLATFORM_OWNER_REQUIRED'),
+                this.error(boundFamilyId
+                  ? 'TECHNIQUE_AGGREGATE_REVISION_PERMISSION_DENIED'
+                  : 'TECHNIQUE_AGGREGATE_PLATFORM_OWNER_REQUIRED'),
                 'publish',
               ),
             };
           }
-
-          const boundFamilyId = normalizeText(current.building.techniqueAggregationFamilyId);
           if (!boundFamilyId && request.familyId) {
             return {
               ok: false as const,
@@ -168,13 +175,15 @@ export class WorldGatewayTechniqueAggregationHelper {
           const authoritativeRequest: TechniqueAggregationPublishRequest = {
             ...request,
             familyId: isInitialReplay ? undefined : boundFamilyId || undefined,
-            accessPolicy: boundFamilyId && !isInitialReplay
+            permissions: boundFamilyId && !isInitialReplay
               ? undefined
-              : normalizeTechniqueUnificationAccessPolicy(request.accessPolicy),
+              : normalizeTechniqueUnificationPermissions(request.permissions),
           };
           const published = await this.aggregationService!.publish(current.player, authoritativeRequest, {
             platformInstanceId: current.instance.meta.instanceId,
             platformBuildingId: current.building.id,
+            platformOwnerPlayerId: normalizeText(current.building.ownerPlayerId),
+            revisionPermissionGranted,
           });
           if (!published.ok || !published.result.aggregate) {
             return published;
@@ -194,7 +203,7 @@ export class WorldGatewayTechniqueAggregationHelper {
             this.bindPlatform(
               current,
               published.result.aggregate.familyId,
-              normalizeTechniqueUnificationAccessPolicy(authoritativeRequest.accessPolicy),
+              normalizeTechniqueUnificationPermissions(authoritativeRequest.permissions),
             );
           }
           const learned = this.deps.playerRuntimeService.learnPublishedAggregateTechniqueById(
@@ -239,48 +248,54 @@ export class WorldGatewayTechniqueAggregationHelper {
     }
   }
 
-  async handleUpdateAccess(client: Socket, payload: TechniqueAggregationAccessRequest): Promise<void> {
+  async handleUpdatePermissions(client: Socket, payload: TechniqueAggregationPermissionRequest): Promise<void> {
     const playerId = this.deps.gatewayGuardHelper.requirePlayerId(client);
     if (!playerId) return;
     this.deps.worldClientEventService.markProtocol(client, 'mainline');
-    const request = this.normalizeAccessRequest(payload);
+    const request = this.normalizePermissionRequest(payload);
     const check = this.checkBuilding(playerId, request.buildingId);
     if ('error' in check) {
-      client.emit(S2C.TechniqueAggregationResult, this.resultFromError(request, check.error, 'access'));
+      client.emit(S2C.TechniqueAggregationResult, this.resultFromError(request, check.error, 'permissions'));
       return;
     }
     try {
       const result = await this.runExclusivePlatformMutation(check, async () => {
         const current = this.checkBuilding(playerId, request.buildingId);
-        if ('error' in current) return this.resultFromError(request, current.error, 'access');
+        if ('error' in current) return this.resultFromError(request, current.error, 'permissions');
         await this.recoverPlatformBinding(current);
         if (!this.isPlatformOwner(current.building, playerId)) {
           return this.resultFromError(
             request,
             this.error('TECHNIQUE_AGGREGATE_PLATFORM_OWNER_REQUIRED'),
-            'access',
+            'permissions',
           );
         }
         if (!normalizeText(current.building.techniqueAggregationFamilyId)) {
-          return this.resultFromError(request, this.error('TECHNIQUE_AGGREGATE_PLATFORM_UNBOUND'), 'access');
+          return this.resultFromError(request, this.error('TECHNIQUE_AGGREGATE_PLATFORM_UNBOUND'), 'permissions');
         }
-        const nextPolicy = normalizeTechniqueUnificationAccessPolicy(request.accessPolicy);
+        const nextPermissions = this.getPlatformPermissions(current.building);
+        nextPermissions[request.scope] = normalizeTechniqueUnificationAccessPolicy(request.policy);
         this.writePlatformState(
           current,
           normalizeText(current.building.techniqueAggregationFamilyId),
-          nextPolicy,
+          nextPermissions,
         );
         await this.flushPlatform(current);
-        return { requestId: request.requestId, ok: true, operation: 'access' as const };
+        return {
+          requestId: request.requestId,
+          ok: true,
+          operation: 'permissions' as const,
+          permissionScope: request.scope,
+        };
       });
       client.emit(S2C.TechniqueAggregationResult, result);
       if (result.ok) await this.emitCurrentPanel(client, playerId, request);
     } catch (error) {
-      this.deps.worldClientEventService.emitGatewayError(client, 'TECHNIQUE_AGGREGATION_ACCESS_FAILED', error);
+      this.deps.worldClientEventService.emitGatewayError(client, 'TECHNIQUE_AGGREGATION_PERMISSIONS_FAILED', error);
       client.emit(S2C.TechniqueAggregationResult, this.resultFromError(
         request,
         this.error('TECHNIQUE_AGGREGATE_PERSISTENCE_UNAVAILABLE'),
-        'access',
+        'permissions',
       ));
     }
   }
@@ -313,7 +328,7 @@ export class WorldGatewayTechniqueAggregationHelper {
           if (!familyId) {
             return this.resultFromError(request, this.error('TECHNIQUE_AGGREGATE_PLATFORM_UNBOUND'), 'learn');
           }
-          if (!await this.canLearnFromPlatform(current.building, playerId)) {
+          if (!await this.canUsePlatformPermission(current.building, playerId, 'read')) {
             return this.resultFromError(request, this.error('TECHNIQUE_AGGREGATE_ACCESS_DENIED'), 'learn');
           }
           const latest = this.resolveLatestFamilyEntry(familyId);
@@ -378,10 +393,15 @@ export class WorldGatewayTechniqueAggregationHelper {
   ): Promise<TechniqueAggregationPanelView> {
     const familyId = normalizeText(check.building.techniqueAggregationFamilyId);
     const isOwner = this.isPlatformOwner(check.building, check.player.playerId);
-    const canLearn = familyId ? await this.canLearnFromPlatform(check.building, check.player.playerId) : false;
-    const platform = this.buildPlatformView(check, isOwner, canLearn);
+    const [canLearn, canRevise] = familyId
+      ? await Promise.all([
+        this.canUsePlatformPermission(check.building, check.player.playerId, 'read'),
+        this.canUsePlatformPermission(check.building, check.player.playerId, 'revision'),
+      ])
+      : [false, isOwner];
+    const platform = this.buildPlatformView(check, isOwner, canLearn, canRevise);
     const panel = this.aggregationService!.buildPanel(check.player, request, {
-      includeEligibleSources: isOwner,
+      includeEligibleSources: canRevise,
       ...(familyId ? { boundFamilyId: familyId } : {}),
       platform,
     });
@@ -393,6 +413,7 @@ export class WorldGatewayTechniqueAggregationHelper {
     check: Extract<AggregationBuildingCheck, { ok: true }>,
     isOwner: boolean,
     canLearn: boolean,
+    canRevise: boolean,
   ): TechniqueUnificationPlatformView {
     const familyId = normalizeText(check.building.techniqueAggregationFamilyId);
     const latest = familyId ? this.resolveLatestFamilyEntry(familyId) : null;
@@ -403,8 +424,9 @@ export class WorldGatewayTechniqueAggregationHelper {
       ...(normalizeText(check.building.ownerPlayerId) ? { ownerPlayerId: normalizeText(check.building.ownerPlayerId) } : {}),
       isOwner,
       ...(familyId ? { familyId } : {}),
-      accessPolicy: cloneTechniqueUnificationAccessPolicy(this.getPlatformAccessPolicy(check.building)),
+      permissions: cloneTechniqueUnificationPermissions(this.getPlatformPermissions(check.building)),
       canLearn,
+      canRevise,
       learnerState: latest ? learner?.state ?? 'available' : 'unbound',
       ...(latest ? {
         latestTechniqueId: latest.techniqueId,
@@ -449,12 +471,16 @@ export class WorldGatewayTechniqueAggregationHelper {
     };
   }
 
-  private async canLearnFromPlatform(building: any, playerIdInput: string): Promise<boolean> {
+  private async canUsePlatformPermission(
+    building: any,
+    playerIdInput: string,
+    scope: TechniqueUnificationPermissionScope,
+  ): Promise<boolean> {
     const playerId = normalizeText(playerIdInput);
     const ownerPlayerId = normalizeText(building?.ownerPlayerId);
     if (!playerId || !ownerPlayerId) return false;
     if (playerId === ownerPlayerId) return true;
-    const policy = this.getPlatformAccessPolicy(building);
+    const policy = this.getPlatformPermissions(building)[scope];
     if (policy.unrestricted) return true;
 
     if (policy.friendLevels.length > 0 && this.deps.socialRuntimeService?.areRelated) {
@@ -489,9 +515,9 @@ export class WorldGatewayTechniqueAggregationHelper {
     const changed = this.bindPlatform(
       check,
       recovered.metadata.familyId,
-      normalizeTechniqueUnificationAccessPolicy(
-        recovered.metadata.initialAccessPolicy,
-        DEFAULT_TECHNIQUE_UNIFICATION_ACCESS_POLICY,
+      normalizeTechniqueUnificationPermissions(
+        recovered.metadata.initialPermissions,
+        DEFAULT_TECHNIQUE_UNIFICATION_PERMISSIONS,
       ),
     );
     if (changed) await this.flushPlatform(check);
@@ -500,23 +526,23 @@ export class WorldGatewayTechniqueAggregationHelper {
   private bindPlatform(
     check: Extract<AggregationBuildingCheck, { ok: true }>,
     familyId: string,
-    accessPolicy: TechniqueUnificationAccessPolicy,
+    permissions: TechniqueUnificationPermissions,
   ): boolean {
     const currentFamilyId = normalizeText(check.building.techniqueAggregationFamilyId);
     if (currentFamilyId && currentFamilyId !== familyId) {
       throw new Error(`technique_unification_platform_already_bound:${check.building.id}`);
     }
-    return this.writePlatformState(check, familyId, accessPolicy);
+    return this.writePlatformState(check, familyId, permissions);
   }
 
   private writePlatformState(
     check: Extract<AggregationBuildingCheck, { ok: true }>,
     familyId: string,
-    accessPolicy: TechniqueUnificationAccessPolicy,
+    permissions: TechniqueUnificationPermissions,
   ): boolean {
     const mutation = check.instance.updateTechniqueUnificationPlatformState?.(
       check.building.id,
-      { familyId, accessPolicy },
+      { familyId, permissions },
     );
     if (!mutation?.ok) {
       throw new Error(`${mutation?.reason ?? 'technique_unification_platform_runtime_unavailable'}:${check.building.id}`);
@@ -540,10 +566,10 @@ export class WorldGatewayTechniqueAggregationHelper {
       .sort((left, right) => right.metadata.revision - left.metadata.revision)[0] ?? null;
   }
 
-  private getPlatformAccessPolicy(building: any): TechniqueUnificationAccessPolicy {
-    return normalizeTechniqueUnificationAccessPolicy(
-      building?.techniqueAggregationAccessPolicy,
-      DEFAULT_TECHNIQUE_UNIFICATION_ACCESS_POLICY,
+  private getPlatformPermissions(building: any): TechniqueUnificationPermissions {
+    return normalizeTechniqueUnificationPermissions(
+      building?.techniqueAggregationPermissions,
+      DEFAULT_TECHNIQUE_UNIFICATION_PERMISSIONS,
     );
   }
 
@@ -586,8 +612,8 @@ export class WorldGatewayTechniqueAggregationHelper {
         ? Math.trunc(Number(payload.expectedRevision))
         : undefined,
       customName: typeof payload?.customName === 'string' ? payload.customName : undefined,
-      accessPolicy: payload?.accessPolicy
-        ? normalizeTechniqueUnificationAccessPolicy(payload.accessPolicy)
+      permissions: payload?.permissions
+        ? normalizeTechniqueUnificationPermissions(payload.permissions)
         : undefined,
       sourceTechniqueIds: Array.isArray(payload?.sourceTechniqueIds)
         ? payload.sourceTechniqueIds.map(normalizeText).filter(Boolean)
@@ -595,11 +621,12 @@ export class WorldGatewayTechniqueAggregationHelper {
     };
   }
 
-  private normalizeAccessRequest(payload: TechniqueAggregationAccessRequest): TechniqueAggregationAccessRequest {
+  private normalizePermissionRequest(payload: TechniqueAggregationPermissionRequest): TechniqueAggregationPermissionRequest {
     return {
       requestId: normalizeText(payload?.requestId) || undefined,
       buildingId: normalizeText(payload?.buildingId) || undefined,
-      accessPolicy: normalizeTechniqueUnificationAccessPolicy(payload?.accessPolicy),
+      scope: payload?.scope === 'revision' ? 'revision' : 'read',
+      policy: normalizeTechniqueUnificationAccessPolicy(payload?.policy),
     };
   }
 
@@ -627,8 +654,9 @@ export class WorldGatewayTechniqueAggregationHelper {
         buildingId: normalizeText(request.buildingId) || 'unknown',
         displayName: normalizeText(check?.building?.name) || '统法台',
         isOwner: false,
-        accessPolicy: cloneTechniqueUnificationAccessPolicy(DEFAULT_TECHNIQUE_UNIFICATION_ACCESS_POLICY),
+        permissions: cloneTechniqueUnificationPermissions(DEFAULT_TECHNIQUE_UNIFICATION_PERMISSIONS),
         canLearn: false,
+        canRevise: false,
         learnerState: 'unbound',
       },
       error,

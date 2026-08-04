@@ -17,7 +17,7 @@
 import type * as RequestPayloads from './protocol-request-payload-types';
 import type * as ResponsePayloads from './protocol-response-payload-types';
 import type {
-  TechniqueAggregationAccessRequest,
+  TechniqueAggregationPermissionRequest,
   TechniqueAggregationLearnRequest,
   TechniqueAggregationPanelView,
   TechniqueAggregationPreviewRequest,
@@ -219,7 +219,7 @@ export const C2S = {
   TechniqueGeneration: 'n:c:techniqueGeneration',
   RequestTechniqueAggregation: 'n:c:requestTechniqueAggregation',
   PublishTechniqueAggregation: 'n:c:publishTechniqueAggregation',
-  UpdateTechniqueAggregationAccess: 'n:c:updateTechniqueAggregationAccess',
+  UpdateTechniqueAggregationPermissions: 'n:c:updateTechniqueAggregationPermissions',
   LearnTechniqueAggregation: 'n:c:learnTechniqueAggregation',
 } as const;
 
@@ -438,7 +438,7 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.TechniqueGeneration]: RequestPayloads.C2S_TechniqueGeneration;
   [C2S.RequestTechniqueAggregation]: TechniqueAggregationPreviewRequest;
   [C2S.PublishTechniqueAggregation]: TechniqueAggregationPublishRequest;
-  [C2S.UpdateTechniqueAggregationAccess]: TechniqueAggregationAccessRequest;
+  [C2S.UpdateTechniqueAggregationPermissions]: TechniqueAggregationPermissionRequest;
   [C2S.LearnTechniqueAggregation]: TechniqueAggregationLearnRequest;
 }
 
