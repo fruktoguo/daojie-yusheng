@@ -85,6 +85,8 @@ const status = runVerificationSteps({
         '--case',
         'world-gateway-offline-gain-refresh',
         '--case',
+        'offline-hanging-runtime-cleanup',
+        '--case',
         'world-runtime-controller-lease-guard',
         '--case',
         'player-statistic-ledger-io',

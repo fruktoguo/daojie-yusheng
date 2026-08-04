@@ -213,7 +213,6 @@ function createHarness(durableOperationService: Record<string, unknown> | null =
     undefined,
     undefined,
     undefined,
-    undefined,
     durableOperationService as never,
   );
   service.setLeaseGuard({

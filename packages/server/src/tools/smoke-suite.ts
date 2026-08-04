@@ -165,6 +165,7 @@ const smokeCases = [
     { name: 'monster-reset', scriptFile: 'monster-reset-smoke.js' },
     { name: 'monster-loot', scriptFile: 'monster-loot-smoke.js' },
     { name: 'player-recovery', scriptFile: 'player-recovery-smoke.js' },
+    { name: 'offline-hanging-runtime-cleanup', scriptFile: 'offline-hanging-runtime-cleanup-smoke.js', standalone: true },
     { name: 'player-respawn', scriptFile: 'player-respawn-smoke.js' },
   { name: 'persistence', scriptFile: 'persistence-smoke.js', standalone: true },
   { name: 'player-persistence-flush', scriptFile: 'player-persistence-flush-smoke.js', standalone: true },

@@ -288,6 +288,24 @@ export class CraftPanelRuntimeService {
         return listRuntimeTechniqueActivityKinds()
             .filter((kind) => this.hasActiveTechniqueActivity(player, kind));
     }
+    /** 返回所有仍占用 job 槽的技艺活动，包含 remainingTicks 已归零的僵死任务。 */
+    listCancelableTechniqueActivityKinds(player) {
+        return listRuntimeTechniqueActivityKinds()
+            .filter((kind) => hasCancelableTechniqueActivityJob(player, kind));
+    }
+    /** 将历史上寄生在炼丹槽的炼器任务迁回独立槽，供 tick 与统一取消生命周期复用。 */
+    normalizeLegacyForgingJobSlot(player) {
+        if (player?.alchemyJob?.jobType !== 'forging') {
+            return false;
+        }
+        player.forgingJob = player.alchemyJob;
+        player.alchemyJob = null;
+        this.finalizeMutation(player, {
+            persistentOnly: true,
+            dirtyDomains: ['active_job'],
+        });
+        return true;
+    }
     /** 判断任一制造型技艺是否正在占用任务槽。 */
     hasAnyActiveTechniqueActivity(player) {
         return this.listActiveTechniqueActivityKinds(player).length > 0;
@@ -920,6 +938,21 @@ export class CraftPanelRuntimeService {
                     pills: [{ key: 'label', style: 'target' }],
             }],
         };
+    }
+    /** 清空统一技艺等待队列；当前 job 必须由对应 strategy 的 cancel 生命周期处理。 */
+    clearTechniqueActivityQueue(player) {
+        const removedCount = Array.isArray(player?.techniqueActivityQueue)
+            ? player.techniqueActivityQueue.length
+            : 0;
+        if (removedCount <= 0) {
+            return 0;
+        }
+        setPlayerTechniqueActivityQueue(player, []);
+        this.finalizeMutation(player, {
+            persistentOnly: true,
+            dirtyDomains: ['active_job'],
+        });
+        return removedCount;
     }
     /** 调整统一技艺等待队列顺序；边界位置和陈旧 ID 按幂等无变化处理。 */
     reorderTechniqueActivityQueue(player, queueId, action: TechniqueActivityQueueReorderAction) {
@@ -1954,15 +1987,7 @@ export class CraftPanelRuntimeService {
                 dirtyDomains: ['active_job'],
             });
         }
-        // 锻造独立化迁移：将寄生在 alchemyJob 上的 forging 任务迁移到独立 forgingJob 槽。
-        if (player.alchemyJob?.jobType === 'forging') {
-            player.forgingJob = player.alchemyJob;
-            player.alchemyJob = null;
-            this.finalizeMutation(player, {
-                persistentOnly: true,
-                dirtyDomains: ['active_job'],
-            });
-        }
+        this.normalizeLegacyForgingJobSlot(player);
         if (player.forgingJob && typeof player.forgingJob === 'object' && 'recipeId' in player.forgingJob) {
             player.forgingJob = cloneAlchemyJob(player.forgingJob);
             if (isCompletedAlchemyLikeJob(player.forgingJob)) {
@@ -3673,6 +3698,34 @@ function normalizeRuntimeTechniqueActivityKind(kind) {
         || kind === 'formation'
         ? kind
         : 'alchemy';
+}
+
+function hasCancelableTechniqueActivityJob(player, kind) {
+    if (!player || typeof player !== 'object') {
+        return false;
+    }
+    if (kind === 'alchemy') {
+        return Boolean(player.alchemyJob && player.alchemyJob.jobType !== 'forging');
+    }
+    if (kind === 'forging') {
+        return Boolean(player.forgingJob || player.alchemyJob?.jobType === 'forging');
+    }
+    if (kind === 'enhancement') {
+        return Boolean(player.enhancementJob);
+    }
+    if (kind === 'transmission') {
+        return Boolean(player.transmissionJob);
+    }
+    if (kind === 'formation') {
+        return Boolean(player.formationJob);
+    }
+    if (kind === 'gather') {
+        return Boolean(player.gatherJob);
+    }
+    if (kind === 'mining') {
+        return Boolean(player.miningJob);
+    }
+    return kind === 'building' && Boolean(player.buildingJob);
 }
 
 function createTechniqueActivityQueueId(kind) {

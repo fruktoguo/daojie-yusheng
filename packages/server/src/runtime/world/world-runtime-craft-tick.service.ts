@@ -96,7 +96,8 @@ export class WorldRuntimeCraftTickService {
         for (const playerId of playerIds ?? []) {
             const player = this.playerRuntimeService.getPlayer(playerId);
             if (
-                !this.craftPanelRuntimeService.isPlayerSessionFenceSuperseded?.(player)
+                !isOfflineHangingRuntimeExpired(player)
+                && !this.craftPanelRuntimeService.isPlayerSessionFenceSuperseded?.(player)
                 && hasTechniqueActivityTickWork(player)
             ) {
                 tickablePlayerIds.push(playerId);
@@ -122,6 +123,9 @@ export class WorldRuntimeCraftTickService {
           try {
             player = this.playerRuntimeService.getPlayer(playerId);
             if (!player) {
+                continue;
+            }
+            if (isOfflineHangingRuntimeExpired(player)) {
                 continue;
             }
             if (this.craftPanelRuntimeService.isPlayerSessionFenceSuperseded?.(player)) {
@@ -362,6 +366,14 @@ function hasTechniqueActivityTickWork(player: any): boolean {
         return true;
     }
     return Array.isArray(player.techniqueActivityQueue) && player.techniqueActivityQueue.length > 0;
+}
+
+function isOfflineHangingRuntimeExpired(player: unknown): boolean {
+    if (!player || typeof player !== 'object') {
+        return false;
+    }
+    const expiredAt = Number((player as { offlineHangingExpiredAt?: unknown }).offlineHangingExpiredAt);
+    return Number.isFinite(expiredAt) && expiredAt > 0;
 }
 
 function isPromiseLike(value: unknown): value is PromiseLike<unknown> {

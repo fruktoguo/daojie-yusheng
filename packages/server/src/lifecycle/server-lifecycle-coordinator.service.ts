@@ -28,6 +28,7 @@ import { TechniqueGenerationService } from '../runtime/technique-generation/tech
 import { ensureGeneratedTechniqueTables } from '../persistence/generated-technique-persistence.service';
 import { PlayerDomainPersistenceService } from '../persistence/player-domain-persistence.service';
 import { TimeChamberRuntimeService } from '../runtime/building/time-chamber-runtime.service';
+import { OfflineHangingRuntimeCleanupService } from '../runtime/world/world-runtime-offline-hanging-cleanup.service';
 
 @Injectable()
 export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap, OnModuleDestroy {
@@ -55,6 +56,7 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
     @Optional() @Inject(TechniqueGenerationService) private readonly techniqueGenerationService?: TechniqueGenerationService,
     @Optional() @Inject(PlayerDomainPersistenceService) private readonly playerDomainPersistenceService?: PlayerDomainPersistenceService,
     @Optional() @Inject(TimeChamberRuntimeService) private readonly timeChamberRuntimeService?: TimeChamberRuntimeService,
+    @Optional() @Inject(OfflineHangingRuntimeCleanupService) private readonly offlineHangingRuntimeCleanupService?: OfflineHangingRuntimeCleanupService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -250,6 +252,7 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
       this.flushTaskRuntimeService?.startForLifecycleCoordinator();
       this.playerPersistenceFlushService?.startForLifecycleCoordinator();
       this.mapPersistenceFlushService?.startForLifecycleCoordinator();
+      this.offlineHangingRuntimeCleanupService?.startForLifecycleCoordinator();
     }
     if (shouldStartBackgroundWorkers()) {
       this.startupBarrierService.openOutbox();

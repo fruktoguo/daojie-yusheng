@@ -47,6 +47,14 @@ export interface WorldSessionBinding {
   expireAt: number | null;
 }
 
+export interface DetachedRuntimeReapInput {
+  playerId: string;
+  instanceId?: string | null;
+  sectId?: string | null;
+  sessionEpoch?: number | null;
+  detachedAt?: number | null;
+}
+
 /** 死信队列条目：保留 binding 与失败上下文供运维/GM 面板观察。 */
 export interface ExpiredBindingDeadLetterEntry {
   binding: WorldSessionBinding;
@@ -195,6 +203,8 @@ export class WorldSessionService {
 
     this.clearExpiry(playerId);
     this.expiredBindings.delete(playerId);
+    this.requeueAttemptsByPlayerId.delete(playerId);
+    this.expiredBindingDeadLetter.delete(playerId);
     if (previous?.sessionId && previous.sessionId !== sessionId) {
       this.bindingBySessionId.delete(previous.sessionId);
     }
@@ -533,6 +543,44 @@ export class WorldSessionService {
     const bindings = Array.from(this.expiredBindings.values());
     this.expiredBindings.clear();
     return bindings;
+  }
+
+  /**
+   * 把启动恢复得到、但没有 socket binding 的超时离线运行态接入统一 reaper。
+   * 任意当前 binding 都代表玩家已重连或进入了更新的 detach 窗口，此时旧运行态不得入队。
+   */
+  enqueueDetachedRuntimeForReap(input: DetachedRuntimeReapInput): boolean {
+    const playerId = typeof input?.playerId === 'string' ? input.playerId.trim() : '';
+    if (!playerId || this.bindingByPlayerId.has(playerId)) {
+      return false;
+    }
+    if (this.expiredBindings.has(playerId)) {
+      return true;
+    }
+
+    const now = Date.now();
+    const sessionEpoch = normalizeSessionEpoch(input.sessionEpoch);
+    this.clearExpiry(playerId);
+    this.requeueAttemptsByPlayerId.delete(playerId);
+    this.expiredBindingDeadLetter.delete(playerId);
+    this.expiredBindings.set(playerId, {
+      playerId,
+      sessionId: `offline-expired:${playerId}:${sessionEpoch}`,
+      socketId: null,
+      instanceId: normalizeInstanceId(input.instanceId),
+      sectId: normalizeSectId(input.sectId),
+      sessionEpoch: sessionEpoch > 0 ? sessionEpoch : null,
+      resumed: false,
+      connected: false,
+      detachedAt: Number.isFinite(input.detachedAt) ? Math.trunc(Number(input.detachedAt)) : now,
+      expireAt: now,
+    });
+    return true;
+  }
+
+  hasDetachedRuntimePendingReap(playerId: string): boolean {
+    const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+    return Boolean(normalizedPlayerId && this.expiredBindings.has(normalizedPlayerId));
   }
 
   /**

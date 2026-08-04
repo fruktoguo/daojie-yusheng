@@ -220,6 +220,14 @@ async function assertAllRoleStartupOrder(): Promise<void> {
       order.push('time-chamber-apply');
     },
   };
+  (coordinator as unknown as {
+    offlineHangingRuntimeCleanupService?: { startForLifecycleCoordinator(): void };
+  }).offlineHangingRuntimeCleanupService = {
+    startForLifecycleCoordinator() {
+      order.push('offline-cleanup');
+      assert.equal(barrier.isFlushOpen(), true);
+    },
+  };
 
   await coordinator.start();
 
@@ -235,6 +243,7 @@ async function assertAllRoleStartupOrder(): Promise<void> {
     'flush-task',
     'player-flush',
     'map-flush',
+    'offline-cleanup',
     'worker',
     'lease-sync',
   ]);

@@ -528,6 +528,14 @@ async function testRestoreOfflineHangingPlayersSkipsMissingTowerInstance() {
                 };
             },
         },
+        activityRuntimeService: {
+            async listActiveMonthCardPlayerIds() {
+                return [];
+            },
+            async listEternalMonthCardPlayerIds() {
+                return [];
+            },
+        },
         getInstanceRuntime(instanceId) {
             return instances.get(instanceId) ?? null;
         },
@@ -596,6 +604,31 @@ async function testRestoreOfflineHangingPlayersSkipsMissingTowerInstance() {
             },
         ],
     });
+}
+
+async function testRestoreOfflineHangingPlayersFailsClosedWithoutEntitlements() {
+    const service = new WorldRuntimeLifecycleService();
+    let expireCalls = 0;
+    await assert.rejects(
+        () => service.restoreOfflineHangingPlayers({
+            playerRuntimeService: {
+                playerDomainPersistenceService: {
+                    isEnabled() {
+                        return true;
+                    },
+                    async expireOfflineHangingPlayers() {
+                        expireCalls += 1;
+                        return 0;
+                    },
+                    async listOfflineHangingPlayerPositions() {
+                        return [];
+                    },
+                },
+            },
+        }),
+        /offline_hanging_entitlement_runtime_unavailable/,
+    );
+    assert.equal(expireCalls, 0);
 }
 
 async function testStartupEagerRebuildClaimsLeaseBeforeHydration() {
@@ -861,6 +894,7 @@ async function main() {
     testBootstrapPublicInstances();
     await testRestoreAndRebuild();
     await testRestoreOfflineHangingPlayersSkipsMissingTowerInstance();
+    await testRestoreOfflineHangingPlayersFailsClosedWithoutEntitlements();
     await testStartupEagerRebuildClaimsLeaseBeforeHydration();
     await testStartupLazyRebuildPreservesCatalogAndSkipsHeavyDomainRestore();
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-lifecycle' }, null, 2));

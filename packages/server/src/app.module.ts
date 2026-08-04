@@ -158,6 +158,7 @@ import { MapTemplateRepository } from './runtime/map/map-template.repository';
 import { RuntimeMapConfigService } from './runtime/map/runtime-map-config.service';
 import { PlayerAttributesService } from './runtime/player/player-attributes.service';
 import { LeaderboardRuntimeService } from './runtime/player/leaderboard-runtime.service';
+import { OfflineHangingRuntimeCleanupService } from './runtime/world/world-runtime-offline-hanging-cleanup.service';
 import { PlayerProgressionService } from './runtime/player/player-progression.service';
 import { GeneratedTechniqueStoreService } from './runtime/technique-generation/generated-technique-store.service';
 import { TechniqueAggregationService } from './runtime/technique-generation/technique-aggregation.service';
@@ -401,6 +402,7 @@ const WORLD_GATEWAY_PROVIDERS = shouldStartHttpServer()
     PlayerCountersPersistenceService,
     PlayerAttributesService,
     LeaderboardRuntimeService,
+    OfflineHangingRuntimeCleanupService,
     PlayerProgressionService,
     GeneratedTechniqueStoreService,
     TechniqueAggregationService,

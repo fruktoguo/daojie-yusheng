@@ -41,6 +41,14 @@ async function main(): Promise<void> {
   };
 
   const result = await service.restoreOfflineHangingPlayers({
+    activityRuntimeService: {
+      async listActiveMonthCardPlayerIds() {
+        return [];
+      },
+      async listEternalMonthCardPlayerIds() {
+        return [];
+      },
+    },
     playerRuntimeService: {
       playerDomainPersistenceService: {
         isEnabled() {

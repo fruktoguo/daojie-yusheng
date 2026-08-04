@@ -58,6 +58,11 @@
 - 功德月卡有效期间：最大离线挂机时长提升至 72 小时
 - 永恒权益激活后，只要玩家未被击杀，离线挂机不会因时长耗尽从“离线挂机”转为“离线”
 - 月卡和永恒权益只影响玩家从“离线挂机”转为“离线”的最长保留时间，不改变离线收益效率
+- 启动恢复和运行中清理都必须先从活动权益数据库读取月卡/永恒名单；权益持久化不可用或查询失败时整轮停止，禁止把查询失败降级成“所有人无卡”
+- 运行中达到时长上限后，先设置仅存在于内存的“清理中”屏障，冻结该角色的自动战斗、自动筑基和自动打坐恢复，并禁止旧 reaper 提前卸载；随后通过统一技艺 `cancel` 生命周期依次结束炼丹、锻造、强化、传法、阵法维护、采集、挖矿、建造，并清空等待队列；不得直接改写 `remainingTicks`
+- 只有任务投影与离线收益最终结算全部成功后，运行态才进入“可回收”阶段并让 presence 投影切换为 `in_world=false`；进程若在中途退出，数据库仍保留可恢复状态，重启后可继续幂等清理
+- 技艺取消和离线收益最终结算成功后，清理器生成无 socket 的过期会话交给统一 session reaper；reaper 负责最终刷盘、地图卸载、运行态释放和本地路由清理，使数据库 `in_world=false` 与内存态同步收敛
+- 清理期间若玩家建立了新 session，旧回收任务立即失效；新 session 会清除临时到期标记，旧 reaper 不得再卸载该角色
 
 ## 功德月卡领取池
 
@@ -95,3 +100,5 @@
 ## 相关源文件
 
 - `packages/server/src/runtime/player/player-runtime.service.ts` — 离线收益核心
+- `packages/server/src/runtime/world/world-runtime-offline-hanging-cleanup.service.ts` — 运行中离线时长上限、权益校验与任务取消编排
+- `packages/server/src/network/world-session.service.ts` — 无 socket 运行态的 reaper 交接与重连 fencing

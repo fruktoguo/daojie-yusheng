@@ -8,6 +8,7 @@
  * 管理实例的创建、销毁、TTL 过期清理和世界启动/关闭流程
  */
 import { Injectable } from '@nestjs/common';
+import { BASE_OFFLINE_MAX_HOURS, MERIT_MONTH_CARD_OFFLINE_MAX_HOURS } from '@mud/shared';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 import {
     logPrunedBuildingAudit,
@@ -487,14 +488,17 @@ export class WorldRuntimeLifecycleService {
             return result;
         }
         result.enabled = true;
-        const activeMonthCardPlayerIds = typeof deps.activityRuntimeService?.listActiveMonthCardPlayerIds === 'function'
-            ? await deps.activityRuntimeService.listActiveMonthCardPlayerIds()
-            : [];
-        const eternalMonthCardPlayerIds = typeof deps.activityRuntimeService?.listEternalMonthCardPlayerIds === 'function'
-            ? await deps.activityRuntimeService.listEternalMonthCardPlayerIds()
-            : [];
-        const baseOfflineTimeoutMs = 48 * 60 * 60 * 1000;
-        const monthCardOfflineTimeoutMs = 72 * 60 * 60 * 1000;
+        if (typeof deps.activityRuntimeService?.listActiveMonthCardPlayerIds !== 'function'
+            || typeof deps.activityRuntimeService?.listEternalMonthCardPlayerIds !== 'function') {
+            throw new Error('offline_hanging_entitlement_runtime_unavailable');
+        }
+        const [activeMonthCardPlayerIds, eternalMonthCardPlayerIds] = await Promise.all([
+            deps.activityRuntimeService.listActiveMonthCardPlayerIds(),
+            deps.activityRuntimeService.listEternalMonthCardPlayerIds(),
+        ]);
+        const baseOfflineTimeoutMs = BASE_OFFLINE_MAX_HOURS * 60 * 60 * 1000;
+        const monthCardOfflineTimeoutMs = MERIT_MONTH_CARD_OFFLINE_MAX_HOURS * 60 * 60 * 1000;
+        let expireFailed = false;
         // 先将超过权益时长的离线玩家标记为彻底离线
         try {
             const expiredCount = await persistenceService.expireOfflineHangingPlayers(baseOfflineTimeoutMs, activeMonthCardPlayerIds, monthCardOfflineTimeoutMs, eternalMonthCardPlayerIds);
@@ -503,6 +507,7 @@ export class WorldRuntimeLifecycleService {
                 deps.logger?.log?.(`离线挂机超时离场：${result.expired} 名玩家已标记为彻底离线`);
             }
         } catch (error) {
+            expireFailed = true;
             markSkipped('expire_failed');
             deps.logger?.warn?.(`清理超时离线玩家失败：${error instanceof Error ? error.message : String(error)}`);
         }
@@ -518,7 +523,7 @@ export class WorldRuntimeLifecycleService {
         }
         result.candidates = Array.isArray(positions) ? positions.length : 0;
         if (!positions || positions.length === 0) {
-            this.updateOfflineRestoreRetry(0);
+            this.updateOfflineRestoreRetry(expireFailed ? 1 : 0);
             return result;
         }
         const towerActivationFailures = await activateOfflinePlayerTowerInstances(deps, positions);
@@ -658,7 +663,7 @@ export class WorldRuntimeLifecycleService {
                 }
             }));
         }
-        this.updateOfflineRestoreRetry(towerActivationFailures + restoreFailures);
+        this.updateOfflineRestoreRetry(towerActivationFailures + restoreFailures + (expireFailed ? 1 : 0));
         result.restored = restored;
         if (restored > 0 || result.skipped > 0) {
             deps.logger?.log?.(`离线挂机玩家恢复完成：成功 ${restored}，跳过 ${result.skipped}，总计 ${positions.length}`);

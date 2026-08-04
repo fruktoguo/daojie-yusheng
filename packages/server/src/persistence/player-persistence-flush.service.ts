@@ -12,9 +12,7 @@ import { Inject, Injectable, Logger, Optional, type OnModuleDestroy, type OnModu
 import { performance } from 'node:perf_hooks';
 
 import { readTrimmedEnv } from '../config/env-alias';
-import { shouldStartAuthoritativeRuntime } from '../config/runtime-role';
 import { StartupBarrierService } from '../lifecycle/startup-barrier.service';
-import { DEFAULT_OFFLINE_PLAYER_TIMEOUT_SEC } from '@mud/shared';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import {
   PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS,
@@ -26,7 +24,6 @@ import { PersistenceWorkerPoolService } from '../concurrency/persistence-worker-
 import { DatabasePoolProvider } from './database-pool.provider';
 import { FlushDiagnosticsService, type PlayerFlushDiagnostics } from './flush-diagnostics.service';
 import { shouldRunLegacyFlushIntervals } from './flush-task-runtime-mode';
-import { ActivityPersistenceService } from './activity-persistence.service';
 import { DurableOperationService } from './durable-operation.service';
 
 /**
@@ -148,7 +145,6 @@ interface FlushDirtyDomainsResult {
 export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PlayerPersistenceFlushService.name);
   private timer: NodeJS.Timeout | null = null;
-  private offlineExpireTimer: NodeJS.Timeout | null = null;
   private flushPromise: Promise<void> | null = null;
   private leaseGuard: LeaseGuardPort | null = null;
   private flushThrottleUntilAt = 0;
@@ -169,8 +165,6 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     private readonly flushDiagnostics?: FlushDiagnosticsService,
     @Optional() @Inject(StartupBarrierService)
     private readonly startupBarrierService?: StartupBarrierService,
-    @Optional() @Inject(ActivityPersistenceService)
-    private readonly activityPersistenceService?: ActivityPersistenceService,
     @Optional() @Inject(DurableOperationService)
     private readonly durableOperationService?: DurableOperationService,
   ) {}
@@ -196,28 +190,12 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     } else {
       this.logger.log('玩家持久化直接定时器已停用，由统一刷盘任务运行时调度');
     }
-    if (!shouldStartAuthoritativeRuntime()) {
-      this.logger.log('离线挂机超时检查已跳过：当前 role 不持有玩家运行态');
-      return;
-    }
-    if (this.offlineExpireTimer) {
-      return;
-    }
-    // 每 5 分钟检查一次离线挂机超时
-    this.offlineExpireTimer = setInterval(() => {
-      void this.expireOfflineHangingPlayersRuntime();
-    }, 5 * 60 * 1000);
-    this.offlineExpireTimer.unref();
   }
 
   onModuleDestroy(): void {
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
-    }
-    if (this.offlineExpireTimer) {
-      clearInterval(this.offlineExpireTimer);
-      this.offlineExpireTimer = null;
     }
     this.beforeManualPlayerFlushBarriers.clear();
   }
@@ -722,80 +700,6 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     return failedPlayerIds;
   }
 
-  /** 运行时定期检查：将离线超过 48 小时的挂机玩家标记为可卸载，由 reaper 自然完成清理。 */
-  private async expireOfflineHangingPlayersRuntime(): Promise<void> {
-    const runtimeService = this.playerRuntimeService as any;
-    const players: Map<string, any> | undefined = runtimeService.players;
-    if (!players || players.size === 0) {
-      return;
-    }
-    const baseOfflineTimeoutMs = DEFAULT_OFFLINE_PLAYER_TIMEOUT_SEC * 1000;
-    const monthCardOfflineTimeoutMs = 72 * 60 * 60 * 1000;
-    const now = Date.now();
-    const activeMonthCardPlayerIds = new Set(
-      await this.activityPersistenceService?.listActiveMonthCardPlayerIds?.(now).catch(() => []) ?? [],
-    );
-    const eternalMonthCardPlayerIds = new Set(
-      await this.activityPersistenceService?.listEternalMonthCardPlayerIds?.().catch(() => []) ?? [],
-    );
-    const expiredPlayerIds: string[] = [];
-    for (const [playerId, player] of players) {
-      if (!player) continue;
-      const isOffline = !player.sessionId || (typeof player.sessionId === 'string' && !player.sessionId.trim());
-      if (!isOffline) continue;
-      const offlineSince = Number(player.offlineSinceAt);
-      if (!Number.isFinite(offlineSince) || offlineSince <= 0) continue;
-      if (eternalMonthCardPlayerIds.has(playerId)) continue;
-      const timeoutMs = activeMonthCardPlayerIds.has(playerId) ? monthCardOfflineTimeoutMs : baseOfflineTimeoutMs;
-      if (now - offlineSince >= timeoutMs) {
-        expiredPlayerIds.push(playerId);
-      }
-    }
-    if (expiredPlayerIds.length === 0) {
-      return;
-    }
-    for (const playerId of expiredPlayerIds) {
-      try {
-        const player = players.get(playerId);
-        if (!player) continue;
-        // 结算离线收益
-        if (typeof runtimeService.finalizeOfflineGainSessionForPlayer === 'function') {
-          await runtimeService.finalizeOfflineGainSessionForPlayer(player);
-        }
-        // 清除所有活动状态，使 hasDetachedRuntimeActivity 返回 false
-        if (player.combat) {
-          player.combat.cultivationActive = false;
-          player.combat.autoRootFoundation = false;
-          player.combat.autoBattle = false;
-        }
-        if (player.alchemyJob) player.alchemyJob.remainingTicks = 0;
-        if (player.forgingJob) player.forgingJob.remainingTicks = 0;
-        if (player.enhancementJob) player.enhancementJob.remainingTicks = 0;
-        if (player.gatherJob) player.gatherJob.remainingTicks = 0;
-        if (player.buildingJob) player.buildingJob.remainingTicks = 0;
-        // 持久化 presence 标记为彻底离线
-        if (this.playerDomainPersistenceService.isEnabled()) {
-          const presence = runtimeService.describePersistencePresence?.(playerId);
-          if (presence) {
-            await this.playerDomainPersistenceService.savePlayerPresence(playerId, {
-              ...presence,
-              online: false,
-              inWorld: false,
-              offlineSinceAt: presence.offlineSinceAt ?? now,
-              versionSeed: nextPlayerPersistenceVersion(now),
-            });
-          }
-        }
-      } catch (error) {
-        this.logger.warn(
-          `运行时离线超时清理失败：${playerId} ${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
-    }
-    if (expiredPlayerIds.length > 0) {
-      this.logger.log(`运行时离线挂机超时：${expiredPlayerIds.length} 名玩家已标记为可卸载，等待回收器清理`);
-    }
-  }
 }
 
 function normalizeDirtyDomains(domains: ReadonlySet<string> | Iterable<string>): Set<string> {

@@ -1074,12 +1074,78 @@ export class PlayerRuntimeService {
         if (online) {
             return false;
         }
+        if (isOfflineHangingRuntimeExpired(player) && !isOfflineHangingRuntimeReadyForReap(player)) {
+            return false;
+        }
         if (this.offlineGainSessionsByPlayerId.has(playerId)) {
             if (!this.playerDomainPersistenceService?.isEnabled?.() || hasPendingDetachedAutomation(player)) {
                 return false;
             }
         }
         return !hasDetachedRuntimeActivity(player);
+    }
+    /** 标记离线挂机已到权益上限，并停止等待 reaper 期间仍可能自动恢复的战斗活动。 */
+    markOfflineHangingRuntimeExpired(playerId, expiredAt = Date.now()) {
+        const normalizedPlayerId = normalizeOfflineGainString(playerId);
+        const player = normalizedPlayerId ? this.players.get(normalizedPlayerId) : null;
+        if (!player || isPlayerRuntimeOnline(player) || isRuntimeTransferInProgress(player)) {
+            return false;
+        }
+        const expiryMarkerChanged = !isOfflineHangingRuntimeExpired(player);
+        if (expiryMarkerChanged) {
+            player.offlineHangingExpiredAt = Math.max(1, Math.trunc(Number(expiredAt) || Date.now()));
+            player.offlineHangingReapReadyAt = null;
+        }
+        const combat = player.combat ?? (player.combat = {});
+        const cultivationChanged = combat.cultivationActive === true;
+        const combatChanged = cultivationChanged
+            || combat.autoRootFoundation === true
+            || combat.autoBattle === true
+            || combat.manualEngagePending === true
+            || combat.retaliatePlayerTargetId != null
+            || combat.retaliatePlayerTargetLastAttackTick != null
+            || combat.combatTargetId != null
+            || combat.combatTargetLocked === true;
+        combat.cultivationActive = false;
+        combat.autoRootFoundation = false;
+        combat.autoBattle = false;
+        combat.manualEngagePending = false;
+        combat.retaliatePlayerTargetId = null;
+        combat.retaliatePlayerTargetLastAttackTick = null;
+        combat.combatTargetId = null;
+        combat.combatTargetLocked = false;
+        if (cultivationChanged) {
+            this.playerAttributesService.recalculate(player);
+        }
+        if (!expiryMarkerChanged && !combatChanged) {
+            return true;
+        }
+        if (combatChanged) {
+            markPlayerDirtyDomains(player, [
+                'combat_pref',
+                ...(cultivationChanged ? ['attr'] : []),
+            ]);
+            this.bumpPersistentRevision(player);
+        }
+        return true;
+    }
+    /** 清理前置步骤全部完成后开放 reaper，并让 presence 在最终刷盘时切换为彻底离线。 */
+    markOfflineHangingRuntimeReadyForReap(playerId, readyAt = Date.now()) {
+        const normalizedPlayerId = normalizeOfflineGainString(playerId);
+        const player = normalizedPlayerId ? this.players.get(normalizedPlayerId) : null;
+        if (!player
+            || !isOfflineHangingRuntimeExpired(player)
+            || isPlayerRuntimeOnline(player)
+            || isRuntimeTransferInProgress(player)) {
+            return false;
+        }
+        if (isOfflineHangingRuntimeReadyForReap(player)) {
+            return true;
+        }
+        player.offlineHangingReapReadyAt = Math.max(1, Math.trunc(Number(readyAt) || Date.now()));
+        markPlayerDirtyDomains(player, [PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN]);
+        this.bumpPersistentRevision(player);
+        return true;
     }
     /** 打开指定坐标的战利品窗口。 */
     openLootWindow(playerId, tileX, tileY) {
@@ -1873,7 +1939,9 @@ export class PlayerRuntimeService {
         const online = typeof player.sessionId === 'string' && player.sessionId.trim().length > 0;
         return {
             online,
-            inWorld: typeof player.templateId === 'string' && player.templateId.trim().length > 0,
+            inWorld: !isOfflineHangingRuntimeReadyForReap(player)
+                && typeof player.templateId === 'string'
+                && player.templateId.trim().length > 0,
             lastHeartbeatAt: Number.isFinite(player.lastHeartbeatAt)
                 ? Math.trunc(Number(player.lastHeartbeatAt))
                 : (online ? Date.now() : null),
@@ -6373,6 +6441,8 @@ export class PlayerRuntimeService {
         player.runtimeOwnerId = buildRuntimeOwnerId(player.playerId, sessionId, player.sessionEpoch);
         player.lastHeartbeatAt = Date.now();
         player.offlineSinceAt = null;
+        player.offlineHangingExpiredAt = null;
+        player.offlineHangingReapReadyAt = null;
         this.playerStatisticSnapshotsByPlayerId.set(player.playerId, buildOfflineGainSnapshot(player, this.contentTemplateRepository, this.playerProgressionService));
         markPlayerDirtyDomains(player, [PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN]);
         return player;
@@ -6386,6 +6456,8 @@ export class PlayerRuntimeService {
         if (normalizedSessionId && normalizedSessionId === existingSessionId && player.runtimeOwnerId) {
             player.lastHeartbeatAt = Date.now();
             player.offlineSinceAt = null;
+            player.offlineHangingExpiredAt = null;
+            player.offlineHangingReapReadyAt = null;
             markPlayerDirtyDomains(player, [PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN]);
             return player;
         }
@@ -6423,6 +6495,8 @@ export class PlayerRuntimeService {
         player.runtimeOwnerId = buildRuntimeOwnerId(player.playerId, normalizedSessionId, player.sessionEpoch);
         player.lastHeartbeatAt = now;
         player.offlineSinceAt = null;
+        player.offlineHangingExpiredAt = null;
+        player.offlineHangingReapReadyAt = null;
         player.transferState = 'in_transfer';
         player.transferTargetNodeId = normalizedTargetNodeId || null;
         player.transferStartedAt = now;
@@ -11698,10 +11772,30 @@ function normalizeCultivationAuraMultiplier(value) {
  * @returns 无返回值，完成ResumeIdleCultivation的条件判断。
  */
 
+function isPlayerRuntimeOnline(player) {
+    return typeof player?.sessionId === 'string' && player.sessionId.trim().length > 0;
+}
+
+function isRuntimeTransferInProgress(player) {
+    return player?.transferState === 'in_transfer'
+        || (typeof player?.transferTargetNodeId === 'string' && player.transferTargetNodeId.trim().length > 0);
+}
+
+function isOfflineHangingRuntimeExpired(player) {
+    return Number.isFinite(Number(player?.offlineHangingExpiredAt))
+        && Number(player.offlineHangingExpiredAt) > 0;
+}
+
+function isOfflineHangingRuntimeReadyForReap(player) {
+    return Number.isFinite(Number(player?.offlineHangingReapReadyAt))
+        && Number(player.offlineHangingReapReadyAt) > 0;
+}
+
 function shouldResumeIdleCultivation(player, currentTick) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (player.hp <= 0
+        || isOfflineHangingRuntimeExpired(player)
         || player.combat.cultivationActive
         || player.combat.autoIdleCultivation === false
         || hasRemainingTechniqueActivityQueue(player)

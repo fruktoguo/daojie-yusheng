@@ -431,10 +431,16 @@ export class ActivityRuntimeService {
   }
 
   async listActiveMonthCardPlayerIds(nowMs = Date.now()): Promise<string[]> {
+    if (!this.activityPersistenceService.isEnabled()) {
+      throw new Error('activity_entitlement_persistence_unavailable');
+    }
     return this.activityPersistenceService.listActiveMonthCardPlayerIds(nowMs);
   }
 
   async listEternalMonthCardPlayerIds(): Promise<string[]> {
+    if (!this.activityPersistenceService.isEnabled()) {
+      throw new Error('activity_entitlement_persistence_unavailable');
+    }
     return this.activityPersistenceService.listEternalMonthCardPlayerIds();
   }
 
