@@ -68,6 +68,16 @@ function testAttributeRecalculationAttribution(): void {
   assert.equal(readCount(metrics, 'attribution.attributes.techniqueResolve.cacheMissMs'), 1);
   assert.equal(readCount(metrics, 'attribution.attributes.techniqueResolve.cacheHitMs'), 1);
   assert.equal(readCount(metrics, 'attribution.attributes.techniqueResolve.cacheRelevantHitMs'), 0);
+  assert.equal(readCount(metrics, 'attribution.attributes.build.sourceSetupMs'), 2);
+  assert.equal(readCount(metrics, 'attribution.attributes.build.baseAttributesMs'), 2);
+  assert.equal(readCount(metrics, 'attribution.attributes.build.equipmentProjectionMs'), 2);
+  assert.equal(readCount(metrics, 'attribution.attributes.equipmentResolve.cacheMissMs'), 1);
+  assert.equal(readCount(metrics, 'attribution.attributes.equipmentResolve.cacheHitMs'), 1);
+  assert.equal(readCount(metrics, 'attribution.attributes.build.buffAttributeProjectionMs'), 2);
+  assert.equal(readCount(metrics, 'attribution.attributes.build.attributeWeightsMs'), 2);
+  assert.equal(readCount(metrics, 'attribution.attributes.build.equipmentStatsMs'), 2);
+  assert.equal(readCount(metrics, 'attribution.attributes.build.buffStatsMs'), 2);
+  assert.equal(readCount(metrics, 'attribution.attributes.build.finalModifiersMs'), 2);
   assert.equal(
     readCount(metrics, 'attribution.attributes.recalculate.changed')
       + readCount(metrics, 'attribution.attributes.recalculate.unchanged'),
@@ -124,6 +134,45 @@ function testAttributeRecalculationAttribution(): void {
   attributesService.recalculate(player as never);
   flushExternalMetrics(metrics);
   assert.equal(readCount(metrics, 'attribution.attributes.techniqueResolve.cacheMissMs'), 5);
+
+  const equipmentMissesBefore = readCount(metrics, 'attribution.attributes.equipmentResolve.cacheMissMs');
+  player.equipment = {
+    revision: 2,
+    slots: [{
+      slot: 'weapon',
+      item: {
+        itemId: 'equipment:perf',
+        name: '性能装备',
+        type: 'equipment',
+        level: 1,
+        count: 1,
+        enhanceLevel: 0,
+        equipAttrs: { strength: 10 },
+      },
+    }],
+  };
+  attributesService.recalculate(player as never, 'equipment');
+  flushExternalMetrics(metrics);
+  assert.equal(
+    readCount(metrics, 'attribution.attributes.equipmentResolve.cacheMissMs'),
+    equipmentMissesBefore + 1,
+    'expected equipment revision and slot replacement to invalidate the projection cache',
+  );
+  const strengthAfterEquipment = player.attrs.finalAttrs.strength;
+
+  attributesService.recalculate(player as never, 'buff');
+  flushExternalMetrics(metrics);
+  assert.equal(player.attrs.finalAttrs.strength, strengthAfterEquipment);
+  assert.ok(readCount(metrics, 'attribution.attributes.equipmentResolve.cacheHitMs') >= 2);
+
+  player.realm.realmLv = 2;
+  attributesService.recalculate(player as never, 'realm_progression');
+  flushExternalMetrics(metrics);
+  assert.equal(
+    readCount(metrics, 'attribution.attributes.equipmentResolve.cacheMissMs'),
+    equipmentMissesBefore + 2,
+    'expected realm level changes to invalidate equipment effectiveness projection',
+  );
 }
 
 function testAttributeRecalculationReasonDimensions(): void {

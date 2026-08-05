@@ -60,6 +60,7 @@ export class PlayerAttributesService {
     techniqueStatesScratch = [];
     enhancedEquipmentScratch = [];
     techniqueBonusCache = new WeakMap();
+    equipmentProjectionCache = new WeakMap();
     deferredRecalculationStates = new WeakMap();
 
     constructor(
@@ -246,6 +247,7 @@ export class PlayerAttributesService {
     buildState(player) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        const sourceSetupStartedAt = performance.now();
         const stage = player.realm?.stage ?? DEFAULT_PLAYER_REALM_STAGE;
 
         const realmLv = Math.max(1, Math.floor(Number(player.realm?.realmLv ?? 1) || 1));
@@ -259,6 +261,7 @@ export class PlayerAttributesService {
         const vitalBaselineBonus = resolveVitalBaselineBonus(runtimeBonuses);
 
         const rawBaseAttrs = normalizeRawBaseAttributes(player.attrs?.rawBaseAttrs);
+        this.recordAttributePerf('attribution.attributes.build.sourceSetupMs', performance.now() - sourceSetupStartedAt, 1);
 
         const techniqueCount = resolveTechniqueEntryCount(player.techniques);
         const techniqueResolveStartedAt = performance.now();
@@ -280,6 +283,7 @@ export class PlayerAttributesService {
         const techniqueAttrBonus = techniqueBonuses.attrBonus;
         const techniqueMaxAttrPercentBonus = techniqueBonuses.maxAttrPercentBonus;
 
+        const baseAttributesStartedAt = performance.now();
         const bodyTrainingLevel = Math.max(0, Math.trunc(Number(player.bodyTraining?.level ?? 0) || 0));
 
         const baseAttrs = cloneAttributes(rawBaseAttrs);
@@ -289,24 +293,33 @@ export class PlayerAttributesService {
             addAttributes(baseAttrs, bonus.attrs);
         }
         clampAttributes(baseAttrs);
+        this.recordAttributePerf('attribution.attributes.build.baseAttributesMs', performance.now() - baseAttributesStartedAt, 1);
 
+        const equipmentProjectionStartedAt = performance.now();
         const finalAttrs = cloneAttributes(baseAttrs);
-        const enhancedEquipment = this.enhancedEquipmentScratch;
-        enhancedEquipment.length = 0;
+        const equipmentResolveStartedAt = performance.now();
+        const equipmentProjection = resolveEnhancedEquipmentForCalculation(
+            player,
+            realmLv,
+            this.enhancedEquipmentScratch,
+            this.equipmentProjectionCache,
+        );
+        const enhancedEquipment = equipmentProjection.items;
+        this.recordAttributePerf(
+            equipmentProjection.cacheHit
+                ? 'attribution.attributes.equipmentResolve.cacheHitMs'
+                : 'attribution.attributes.equipmentResolve.cacheMissMs',
+            performance.now() - equipmentResolveStartedAt,
+            1,
+        );
         const craftEffectStats = createEmptyCraftEffectStats();
-        for (const entry of player.equipment.slots) {
-            const item = entry?.item;
-            if (!item || typeof item !== 'object') {
-                continue;
-            }
-            const enhancedItem = applyEquipmentAttributeEffectivenessToItemStack(item, realmLv);
-            if (!enhancedItem) {
-                continue;
-            }
-            enhancedEquipment.push(enhancedItem);
+        for (const enhancedItem of enhancedEquipment) {
             addAttributes(finalAttrs, enhancedItem.equipAttrs);
             addCraftEffectStatsFromItem(craftEffectStats, enhancedItem);
         }
+        this.recordAttributePerf('attribution.attributes.build.equipmentProjectionMs', performance.now() - equipmentProjectionStartedAt, 1);
+        this.recordAttributePerf('attribution.attributes.build.equipmentEntries', 0, equipmentProjection.sourceEntryCount);
+        const buffAttributeProjectionStartedAt = performance.now();
         const attrPercentBonuses = resetAttributePercentBonusAccumulator(this.attrPercentBonusAccumulatorScratch);
         const rootFoundation = Math.max(0, Math.trunc(Number(player.rootFoundation ?? 0) || 0));
         if (rootFoundation > 0) {
@@ -342,7 +355,10 @@ export class PlayerAttributesService {
         applySingleAttributePercentBonuses(finalAttrs, attrPercentBonuses.buff);
         applySingleAttributePercentBonuses(finalAttrs, attrPercentBonuses.pill);
         clampAttributes(finalAttrs);
+        this.recordAttributePerf('attribution.attributes.build.buffAttributeProjectionMs', performance.now() - buffAttributeProjectionStartedAt, 1);
+        this.recordAttributePerf('attribution.attributes.build.buffEntries', 0, activeBuffs.length);
 
+        const attributeWeightsStartedAt = performance.now();
         const numericStats = cloneNumericStats(template.stats);
 
         const percentBonuses = resetNumericStats(this.percentBonusAccumulatorScratch);
@@ -356,6 +372,8 @@ export class PlayerAttributesService {
             accumulateAttrPercentBonus(percentBonuses, key, value);
         }
         applySpecialStatWeights(numericStats, player, techniqueBonuses.specialStatBonus, enhancedEquipment);
+        this.recordAttributePerf('attribution.attributes.build.attributeWeightsMs', performance.now() - attributeWeightsStartedAt, 1);
+        const equipmentStatsStartedAt = performance.now();
         for (const enhancedItem of enhancedEquipment) {
             addPartialNumericStats(numericStats, resolveItemStats(enhancedItem.equipStats, enhancedItem.equipValueStats));
             for (const effect of resolveActiveEquipmentProgressEffects(enhancedItem, player)) {
@@ -371,6 +389,8 @@ export class PlayerAttributesService {
                 }
             }
         }
+        this.recordAttributePerf('attribution.attributes.build.equipmentStatsMs', performance.now() - equipmentStatsStartedAt, 1);
+        const buffStatsStartedAt = performance.now();
         for (const buff of activeBuffs) {
             if (!isActiveRuntimeBuff(buff)) {
                 continue;
@@ -390,6 +410,8 @@ export class PlayerAttributesService {
                 addBuffNumericStats(numericStats, buff, effectFactor);
             }
         }
+        this.recordAttributePerf('attribution.attributes.build.buffStatsMs', performance.now() - buffStatsStartedAt, 1);
+        const finalModifiersStartedAt = performance.now();
         for (const bonus of projectedRuntimeBonuses) {
             addPartialNumericStats(numericStats, bonus.stats);
         }
@@ -404,6 +426,7 @@ export class PlayerAttributesService {
         applyPercentBonuses(numericStats, buffStatPercentBonuses.pill);
         applyWorldTimeVisionModifier(numericStats, player);
         roundNumericStats(numericStats);
+        this.recordAttributePerf('attribution.attributes.build.finalModifiersMs', performance.now() - finalModifiersStartedAt, 1);
         return {
             stage,
             rawBaseAttrs,
@@ -781,6 +804,41 @@ function resolveEquipmentSpecialStats(player, enhancedEquipment = undefined) {
         result.luck += Math.max(0, Math.trunc(Number(enhancedItem.equipSpecialStats?.luck ?? 0) || 0));
     }
     return result;
+}
+
+function resolveEnhancedEquipmentForCalculation(player, realmLv, scratch, cache) {
+    const equipment = player?.equipment;
+    const slots = Array.isArray(equipment?.slots) ? equipment.slots : [];
+    const revision = Math.max(0, Math.trunc(Number(equipment?.revision) || 0));
+    const cached = cache.get(player);
+    if (cached
+        && cached.revision === revision
+        && cached.realmLv === realmLv
+        && cached.slots === slots) {
+        return {
+            items: cached.items,
+            sourceEntryCount: slots.length,
+            cacheHit: true,
+        };
+    }
+    scratch.length = 0;
+    for (const entry of slots) {
+        const item = entry?.item;
+        if (!item || typeof item !== 'object') {
+            continue;
+        }
+        const enhancedItem = applyEquipmentAttributeEffectivenessToItemStack(item, realmLv);
+        if (enhancedItem) {
+            scratch.push(enhancedItem);
+        }
+    }
+    const items = scratch.slice();
+    cache.set(player, { revision, realmLv, slots, items });
+    return {
+        items,
+        sourceEntryCount: slots.length,
+        cacheHit: false,
+    };
 }
 /**
  * applyPercentBonuses：处理PercentBonuse并更新相关状态。
