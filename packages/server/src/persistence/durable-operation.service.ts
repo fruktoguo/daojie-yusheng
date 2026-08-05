@@ -6468,14 +6468,6 @@ async function replacePlayerEnhancementRecords(
 
   if (normalizedRows.length > 0) {
     const recordIds = normalizedRows.map(({ record_id }) => record_id);
-    await assertNoForeignPlayerOwnedIds(
-      client,
-      PLAYER_ENHANCEMENT_RECORD_TABLE,
-      'record_id',
-      playerId,
-      recordIds,
-      'enhancement_record',
-    );
     await client.query(
       `
         WITH incoming AS (
@@ -6559,6 +6551,7 @@ async function replacePlayerEnhancementRecords(
       `,
       [playerId, JSON.stringify(normalizedRows)],
     );
+    // ON CONFLICT 的归属条件阻止覆盖其他玩家；写后回读仍负责捕获已有或并发出现的冲突。
     await assertNoForeignPlayerOwnedIds(
       client,
       PLAYER_ENHANCEMENT_RECORD_TABLE,
