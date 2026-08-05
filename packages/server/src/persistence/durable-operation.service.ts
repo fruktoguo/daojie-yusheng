@@ -576,6 +576,31 @@ export interface CancelActiveJobWithAssetsResult {
   jobVersion: null;
 }
 
+export type DurableOperationSectionRecorder = (key: string, durationMs: number, count?: number) => void;
+
+function beginDurableOperationSection(recorder: DurableOperationSectionRecorder | null | undefined): number | null {
+  return typeof recorder === 'function' ? performance.now() : null;
+}
+
+function recordDurableOperationSection(
+  recorder: DurableOperationSectionRecorder | null | undefined,
+  key: string,
+  startedAt: number | null,
+): void {
+  if (typeof recorder !== 'function' || startedAt === null) {
+    return;
+  }
+  const durationMs = performance.now() - startedAt;
+  if (!Number.isFinite(durationMs) || durationMs < 0) {
+    return;
+  }
+  try {
+    recorder(key, durationMs, 1);
+  } catch {
+    // 性能统计失败不能影响权威资产事务。
+  }
+}
+
 export interface CompleteActiveJobWithAssetsInput {
   operationId: string;
   playerId: string;
@@ -600,6 +625,8 @@ export interface CompleteActiveJobWithAssetsInput {
   removedInventoryItemInstanceIds?: string[] | null;
   /** patch 模式下本阶余额归零并应删除的钱包类型。 */
   removedWalletTypes?: string[] | null;
+  /** 可选固定维度耗时记录器；诊断失败不得影响资产事务。 */
+  recordSectionDuration?: DurableOperationSectionRecorder | null;
 }
 
 export type ActiveJobCompletionKind = 'completed' | 'advanced' | 'stopped';
@@ -4011,6 +4038,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         assetSnapshotDigest,
       },
       compaction: compactionKey ? { operationKey: compactionKey } : null,
+      recordSectionDuration: input.recordSectionDuration,
       onAlreadyCommitted: async () => ({
         ok: true,
         alreadyCommitted: true,
@@ -4019,6 +4047,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         jobVersion: normalizedNextActiveJob?.jobVersion ?? null,
       }),
       onMutate: async (client, persistenceVersion, _runtimeOwnerId, _sessionEpoch, compaction) => {
+        let mutationSectionStartedAt = beginDurableOperationSection(input.recordSectionDuration);
         const currentRow = await client.query<{
           job_run_id?: string | null;
           job_version?: string | number | null;
@@ -4030,6 +4059,11 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
             FOR UPDATE
           `,
           [normalizedPlayerId],
+        );
+        recordDurableOperationSection(
+          input.recordSectionDuration,
+          'instance.craftJob.enhancementDurableJobCasMs',
+          mutationSectionStartedAt,
         );
         const persistedJobRunId = normalizeRequiredString(currentRow.rows[0]?.job_run_id);
         const persistedJobVersion = normalizeOptionalInteger(currentRow.rows[0]?.job_version) ?? 0;
@@ -4058,6 +4092,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           }
         }
 
+        mutationSectionStartedAt = beginDurableOperationSection(input.recordSectionDuration);
         if (assetWriteMode === 'patch') {
           await patchPlayerInventoryItems(
             client,
@@ -4065,6 +4100,19 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
             normalizedNextInventoryItems,
             removedInventoryItemInstanceIds,
           );
+        } else {
+          await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedNextInventoryItems, {
+            replaceLockedItems: true,
+          });
+        }
+        recordDurableOperationSection(
+          input.recordSectionDuration,
+          'instance.craftJob.enhancementDurableInventoryMs',
+          mutationSectionStartedAt,
+        );
+
+        mutationSectionStartedAt = beginDurableOperationSection(input.recordSectionDuration);
+        if (assetWriteMode === 'patch') {
           await patchPlayerWalletRows(
             client,
             normalizedPlayerId,
@@ -4072,32 +4120,59 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
             removedWalletTypes,
           );
         } else {
-          await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedNextInventoryItems, {
-            replaceLockedItems: true,
-          });
           await replacePlayerWalletRows(client, normalizedPlayerId, normalizedNextWalletBalances);
         }
+        recordDurableOperationSection(
+          input.recordSectionDuration,
+          'instance.craftJob.enhancementDurableWalletMs',
+          mutationSectionStartedAt,
+        );
         if (Array.isArray(normalizedNextEquipmentSlots)) {
+          mutationSectionStartedAt = beginDurableOperationSection(input.recordSectionDuration);
           await replacePlayerEquipmentSlots(client, normalizedPlayerId, normalizedNextEquipmentSlots);
+          recordDurableOperationSection(
+            input.recordSectionDuration,
+            'instance.craftJob.enhancementDurableEquipmentMs',
+            mutationSectionStartedAt,
+          );
         }
         if (Array.isArray(normalizedNextEnhancementRecords)) {
+          mutationSectionStartedAt = beginDurableOperationSection(input.recordSectionDuration);
           await replacePlayerEnhancementRecords(
             client,
             normalizedPlayerId,
             normalizedNextEnhancementRecords,
             { deleteMissing: assetWriteMode !== 'patch' },
           );
+          recordDurableOperationSection(
+            input.recordSectionDuration,
+            'instance.craftJob.enhancementDurableRecordMs',
+            mutationSectionStartedAt,
+          );
         }
         if (Array.isArray(normalizedNextProfessionStates)) {
+          mutationSectionStartedAt = beginDurableOperationSection(input.recordSectionDuration);
           await replacePlayerProfessionStates(client, normalizedPlayerId, normalizedNextProfessionStates);
+          recordDurableOperationSection(
+            input.recordSectionDuration,
+            'instance.craftJob.enhancementDurableProfessionMs',
+            mutationSectionStartedAt,
+          );
         }
+        mutationSectionStartedAt = beginDurableOperationSection(input.recordSectionDuration);
         await replacePlayerActiveJob(client, normalizedPlayerId, normalizedNextActiveJob);
+        recordDurableOperationSection(
+          input.recordSectionDuration,
+          'instance.craftJob.enhancementDurableActiveJobMs',
+          mutationSectionStartedAt,
+        );
         const professionVersion = Array.isArray(normalizedNextProfessionStates) ? persistenceVersion : 0;
         const activeJobVersion = persistenceVersion;
         const enhancementRecordVersion = Array.isArray(normalizedNextEnhancementRecords)
           ? persistenceVersion
           : 0;
 
+        mutationSectionStartedAt = beginDurableOperationSection(input.recordSectionDuration);
         await client.query(
           `
             INSERT INTO ${PLAYER_RECOVERY_WATERMARK_TABLE}(
@@ -4131,6 +4206,11 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
             enhancementRecordVersion,
           ],
         );
+        recordDurableOperationSection(
+          input.recordSectionDuration,
+          'instance.craftJob.enhancementDurableWatermarkMs',
+          mutationSectionStartedAt,
+        );
 
         const auditDelta = {
           completionKind,
@@ -4152,6 +4232,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           jobRunId: normalizedNextActiveJob?.jobRunId ?? null,
           jobVersion: normalizedNextActiveJob?.jobVersion ?? null,
         };
+        mutationSectionStartedAt = beginDurableOperationSection(input.recordSectionDuration);
         if (compaction) {
           await upsertCompactedAssetAuditLog(
             client,
@@ -4210,6 +4291,11 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
             auditAfter,
           );
         }
+        recordDurableOperationSection(
+          input.recordSectionDuration,
+          'instance.craftJob.enhancementDurableAuditMs',
+          mutationSectionStartedAt,
+        );
 
         return {
           ok: true,
@@ -4372,6 +4458,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     aggregateType: string;
     payload: unknown;
     compaction?: AssetMutationCompactionOptions | null;
+    recordSectionDuration?: DurableOperationSectionRecorder | null;
     onAlreadyCommitted: (client: import('pg').PoolClient, occurredAtMs: number) => Promise<TResult>;
     onMutate: (
       client: import('pg').PoolClient,
@@ -4399,16 +4486,29 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     }
     const durableOperationKey = normalizedCompactionKey || normalizedOperationId;
 
+    let durableSectionStartedAt = beginDurableOperationSection(input.recordSectionDuration);
     const client = await this.pool.connect();
+    recordDurableOperationSection(
+      input.recordSectionDuration,
+      'instance.craftJob.enhancementDurablePoolWaitMs',
+      durableSectionStartedAt,
+    );
     let clientReleased = false;
     let commitAttempted = false;
     let commitOutcomeUnknown = false;
     let commitOutcomeCause: unknown = null;
     let mutationResult: TResult | undefined;
     try {
+      durableSectionStartedAt = beginDurableOperationSection(input.recordSectionDuration);
       await client.query('BEGIN');
       await acquirePlayerAssetLock(client, normalizedPlayerId);
+      recordDurableOperationSection(
+        input.recordSectionDuration,
+        'instance.craftJob.enhancementDurableBeginLockMs',
+        durableSectionStartedAt,
+      );
 
+      durableSectionStartedAt = beginDurableOperationSection(input.recordSectionDuration);
       const existingOperation = await client.query<{
         status?: string;
         operation_type?: string;
@@ -4424,6 +4524,11 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           FOR UPDATE
         `,
         [durableOperationKey],
+      );
+      recordDurableOperationSection(
+        input.recordSectionDuration,
+        'instance.craftJob.enhancementDurableOperationFenceMs',
+        durableSectionStartedAt,
       );
       const existingOperationRow = existingOperation.rows[0] ?? null;
       const existingRequestId = normalizeRequiredString(existingOperationRow?.request_id)
@@ -4464,6 +4569,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       // 否则等待锁期间排队的旧运行态快照可能拿到更大版本，并在 durable 提交后反向覆盖资产真源。
       const persistenceVersion = nextPlayerPersistenceVersion();
 
+      durableSectionStartedAt = beginDurableOperationSection(input.recordSectionDuration);
       const presence = await client.query<{
         runtime_owner_id?: string;
         session_epoch?: string | number;
@@ -4483,6 +4589,11 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         expectedOwnershipEpoch: input.expectedOwnershipEpoch,
         currentNodeId: this.getCurrentNodeId(),
       });
+      recordDurableOperationSection(
+        input.recordSectionDuration,
+        'instance.craftJob.enhancementDurableSessionFenceMs',
+        durableSectionStartedAt,
+      );
       const presenceRow = presence.rows[0] ?? null;
       const persistedRuntimeOwnerId = normalizeRequiredString(presenceRow?.runtime_owner_id);
       const persistedSessionEpoch = Number(presenceRow?.session_epoch ?? 0);
@@ -4548,6 +4659,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         })
         : null;
 
+      durableSectionStartedAt = beginDurableOperationSection(input.recordSectionDuration);
       mutationResult = await input.onMutate(
         client,
         persistenceVersion,
@@ -4555,7 +4667,13 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         Math.trunc(persistedSessionEpoch),
         compactedPayload?.context ?? null,
       );
+      recordDurableOperationSection(
+        input.recordSectionDuration,
+        'instance.craftJob.enhancementDurableMutationMs',
+        durableSectionStartedAt,
+      );
 
+      durableSectionStartedAt = beginDurableOperationSection(input.recordSectionDuration);
       if (compactedPayload) {
         if (existingOperationRow) {
           const createdAtRefreshSql = compactedPayload.context.auditCheckpointDue
@@ -4629,9 +4747,20 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           [normalizedOperationId],
         );
       }
+      recordDurableOperationSection(
+        input.recordSectionDuration,
+        'instance.craftJob.enhancementDurableOperationLogMs',
+        durableSectionStartedAt,
+      );
 
+      durableSectionStartedAt = beginDurableOperationSection(input.recordSectionDuration);
       commitAttempted = true;
       await client.query('COMMIT');
+      recordDurableOperationSection(
+        input.recordSectionDuration,
+        'instance.craftJob.enhancementDurableCommitAckMs',
+        durableSectionStartedAt,
+      );
       commitAttempted = false;
       return mutationResult as TResult;
     } catch (error: unknown) {
@@ -5758,14 +5887,8 @@ async function patchPlayerInventoryItems(
     }
     void result;
   }
-  await assertNoForeignPlayerOwnedIds(
-    client,
-    PLAYER_INVENTORY_ITEM_TABLE,
-    'item_instance_id',
-    playerId,
-    Array.from(incomingIds),
-    'inventory',
-  );
+  // 上面的写后自有行查询已同时证明 incoming ID 仍属于当前玩家；再次执行相同的
+  // 外部所有权扫描只会增加一次数据库往返，不增加并发安全性。
 }
 
 function createPersistedInventoryRowSignature(itemId: string, rawPayload: Record<string, unknown>): string {

@@ -131,6 +131,7 @@ function verifyNormalInstanceCatchUpFloor(): void {
 
   const staleDebtPlan = service.collectDue(5_001, () => normal)[0];
   assert.equal(staleDebtPlan?.steps, 4, '普通实例必须保留既有的单批 4 步过载缓冲');
+  assert.equal(staleDebtPlan?.droppedSteps, 1, '调度计划必须携带本批实际丢弃息数供运行态归因');
   assert.equal(service.getDroppedLogicalStepCount(), 1, '普通实例只丢弃超出 4 步缓冲的旧债务');
 }
 
@@ -145,6 +146,7 @@ function verifyConfiguredSpeedCatchUpWindow(): void {
 
   const staleDebtPlan = service.collectDue(5_001, () => chamber)[0];
   assert.equal(staleDebtPlan?.steps, 7, '超过一秒的积压仍只能补偿最近一秒应有的逻辑息');
+  assert.equal(staleDebtPlan?.droppedSteps, 21, '高倍实例计划必须暴露被过载保护丢弃的旧逻辑息');
   assert.equal(service.getDroppedLogicalStepCount(), 21, '更旧的 7 倍逻辑债务必须继续受有界过载保护');
 }
 
@@ -184,6 +186,7 @@ async function verifyStaleScheduledPlanIsRejected(): Promise<void> {
     instance: plannedInstance,
     steps: 1,
     speed: 10,
+    droppedSteps: 0,
   }];
 
   const replacedTicks = await orchestration.advanceFrame(

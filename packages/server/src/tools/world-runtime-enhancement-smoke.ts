@@ -273,6 +273,7 @@ async function testDurableEnhancementPersistsAssetsAtomically(): Promise<void> {
   assert.equal(player.enhancementJob, null);
   assert.equal(player.inventory.lockedItems?.length ?? 0, 0);
   assert.equal(completeCall?.args.nextWalletBalances?.[0]?.balance, 19);
+  assert.equal(typeof completeCall?.args.recordSectionDuration, 'function');
   assert.equal(player.inventory.items.find((item: any) => item.itemId === 'spirit_stone')?.count, 19);
   assert.equal(assetMutationProbe.exclusiveCalls, 2);
   for (const key of [

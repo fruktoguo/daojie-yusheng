@@ -18,6 +18,8 @@ export interface InstanceTickSchedulePlan<TInstance extends SchedulableInstanceR
   instance: TInstance;
   steps: number;
   speed: number;
+  /** 超出有界追赶窗口而被丢弃的旧逻辑息，仅用于固定维度性能诊断。 */
+  droppedSteps: number;
 }
 
 interface ScheduleState {
@@ -263,11 +265,12 @@ export class WorldRuntimeInstanceScheduleService {
         const overdueSteps = Math.floor(Math.max(0, nowMs - state.nextDueAtMs) / intervalMs) + 1;
         const maxCatchUpSteps = resolveMaxCatchUpSteps(state.speed);
         const steps = Math.max(1, Math.min(maxCatchUpSteps, overdueSteps));
-        plans.push({ instanceId: node.instanceId, instance, steps, speed: state.speed });
+        const droppedSteps = Math.max(0, overdueSteps - steps);
+        plans.push({ instanceId: node.instanceId, instance, steps, speed: state.speed, droppedSteps });
         plannedInstanceIds.add(node.instanceId);
-        if (overdueSteps > maxCatchUpSteps) {
+        if (droppedSteps > 0) {
           // 超载时只补有限逻辑息，其余债务直接丢弃并重同步到当前时间，防止永久追债。
-          this.droppedLogicalStepCount += overdueSteps - steps;
+          this.droppedLogicalStepCount += droppedSteps;
           state.nextDueAtMs = nowMs + intervalMs;
         } else {
           state.nextDueAtMs += steps * intervalMs;

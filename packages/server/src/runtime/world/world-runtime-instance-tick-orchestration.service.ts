@@ -26,6 +26,13 @@ type InstanceStepAttributionKeys = Readonly<{
   materializationDurationKey: string | null;
 }>;
 
+type TimeChamberSpeedAttributionKeys = Readonly<{
+  plansKey: string;
+  authorizedStepsKey: string;
+  executedStepsKey: string;
+  droppedStepsKey: string;
+}>;
+
 const TIME_CHAMBER_FIRST_STEP_ATTRIBUTION: InstanceStepAttributionKeys = Object.freeze({
   stepDurationKey: 'attribution.instance.timeChamber.firstStepMs',
   playerStepCountKey: 'attribution.instance.timeChamber.playerSteps',
@@ -46,6 +53,18 @@ const NON_TIME_CHAMBER_CATCH_UP_STEP_ATTRIBUTION: InstanceStepAttributionKeys = 
   playerStepCountKey: 'attribution.instance.nonTimeChamber.playerSteps',
   materializationDurationKey: 'attribution.instance.nonTimeChamber.catchUpMaterializationMs',
 });
+/** 固定 1-10 倍维度在启动期生成，tick 热路径不拼接动态指标 key。 */
+const TIME_CHAMBER_SPEED_ATTRIBUTION_BY_SPEED: ReadonlyArray<TimeChamberSpeedAttributionKeys> = Object.freeze(
+  Array.from({ length: 10 }, (_, index) => {
+    const speed = index + 1;
+    return Object.freeze({
+      plansKey: `attribution.instance.timeChamber.speed${speed}.plans`,
+      authorizedStepsKey: `attribution.instance.timeChamber.speed${speed}.authorizedSteps`,
+      executedStepsKey: `attribution.instance.timeChamber.speed${speed}.executedSteps`,
+      droppedStepsKey: `attribution.instance.timeChamber.speed${speed}.droppedSteps`,
+    });
+  }),
+);
 
 /** world-runtime instance tick orchestration：承接实例级 tick 编排外壳。 */
 @Injectable()
@@ -318,9 +337,14 @@ export class WorldRuntimeInstanceTickOrchestrationService {
         const planInstanceStepsStartedAt = performance.now();
         const instanceStepPlans = [];
         let plannedLogicalTicks = 0;
-        const candidatePlans: Array<{ instance: any; steps: number | null; speed: number | null }> = scheduledPlans === null
+        const candidatePlans: Array<{
+            instance: any;
+            steps: number | null;
+            speed: number | null;
+            droppedSteps?: number;
+        }> = scheduledPlans === null
             ? Array.from(deps.listInstanceRuntimes() as Iterable<any>, (instance) => ({ instance, steps: null, speed: null }))
-            : scheduledPlans as Array<{ instance: any; steps: number; speed: number }>;
+            : scheduledPlans as Array<{ instance: any; steps: number; speed: number; droppedSteps?: number }>;
         for (const candidatePlan of candidatePlans) {
             const instance = candidatePlan.instance;
             if (typeof deps.isInstanceLeaseWritable === 'function' && !deps.isInstanceLeaseWritable(instance)) {
@@ -344,6 +368,10 @@ export class WorldRuntimeInstanceTickOrchestrationService {
             }
             const playerCount = resolveInstancePlayerCount(instance);
             const sleepMonsterAi = playerCount <= 0;
+            const isTimeChamber = isTimeChamberInstance(instance.meta.instanceId, deps);
+            const speedAttribution = isTimeChamber
+                ? resolveTimeChamberSpeedAttribution(speed)
+                : null;
             if (instance._throttledSinceMs != null) {
                 instance._throttledSinceMs = null;
             }
@@ -361,8 +389,26 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                         deps,
                     );
                 }
+                if (speedAttribution) {
+                    addTickSectionDuration(sectionDurations, speedAttribution.plansKey, 0, 1);
+                    addTickSectionDuration(sectionDurations, speedAttribution.authorizedStepsKey, 0, steps);
+                    addTickSectionDuration(
+                        sectionDurations,
+                        speedAttribution.droppedStepsKey,
+                        0,
+                        candidatePlan.droppedSteps ?? 0,
+                    );
+                }
+                else {
+                    addTickSectionDuration(
+                        sectionDurations,
+                        'attribution.instance.nonTimeChamber.droppedSteps',
+                        0,
+                        candidatePlan.droppedSteps ?? 0,
+                    );
+                }
                 if (steps > 0) {
-                    instanceStepPlans.push({ instance, steps, speed, sleepMonsterAi });
+                    instanceStepPlans.push({ instance, steps, speed, sleepMonsterAi, isTimeChamber, speedAttribution });
                     plannedLogicalTicks += steps;
                 }
                 continue;
@@ -389,7 +435,11 @@ export class WorldRuntimeInstanceTickOrchestrationService {
             if (steps <= 0) {
                 continue;
             }
-            instanceStepPlans.push({ instance, steps, speed, sleepMonsterAi });
+            if (speedAttribution) {
+                addTickSectionDuration(sectionDurations, speedAttribution.plansKey, 0, 1);
+                addTickSectionDuration(sectionDurations, speedAttribution.authorizedStepsKey, 0, steps);
+            }
+            instanceStepPlans.push({ instance, steps, speed, sleepMonsterAi, isTimeChamber, speedAttribution });
             plannedLogicalTicks += steps;
         }
         const planInstanceStepsMs = performance.now() - planInstanceStepsStartedAt;
@@ -488,9 +538,9 @@ export class WorldRuntimeInstanceTickOrchestrationService {
         // T-19: 预分配 tickOnce 返回值容器，循环内复用
         const reusableTickResult = { completedBuildings: [] as any[], transfers: [] as any[], monsterActions: [] as any[] };
         const instanceTicksStartedAt = performance.now();
-        for (const { instance, steps, speed, sleepMonsterAi } of instanceStepPlans) {
+        for (const { instance, steps, speed, sleepMonsterAi, isTimeChamber, speedAttribution } of instanceStepPlans) {
             const deferCraftRuntimeUpdates = steps > 1;
-            const isTimeChamber = isTimeChamberInstance(instance.meta.instanceId, deps);
+            let executedSteps = 0;
             for (let index = 0; index < steps; index += 1) {
                 if (scheduledPlans !== null && !isScheduledInstancePlanStillCurrent(instance, speed, deps)) {
                     break;
@@ -598,6 +648,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                     break;
                 }
                 totalLogicalTicks += 1;
+                executedSteps += 1;
                 const fuelConsumed = scheduledPlans === null
                     || typeof deps.timeChamberRuntimeService?.consumeScheduledStep !== 'function'
                     || deps.timeChamberRuntimeService.consumeScheduledStep(
@@ -857,6 +908,9 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                     break;
                 }
             }
+            if (speedAttribution) {
+                addTickSectionDuration(sectionDurations, speedAttribution.executedStepsKey, 0, executedSteps);
+            }
             if (deferCraftRuntimeUpdates) {
                 deps.worldRuntimeCraftTickService?.flushDeferredRuntimeUpdates?.(deps);
             }
@@ -937,6 +991,11 @@ function addTickSectionDuration(sections: TickSectionDurations, key: string, dur
 function isTimeChamberInstance(instanceId: string, deps): boolean {
     return typeof deps.timeChamberRuntimeService?.isTimeChamberInstance === 'function'
         && deps.timeChamberRuntimeService.isTimeChamberInstance(instanceId) === true;
+}
+
+function resolveTimeChamberSpeedAttribution(speed: number): TimeChamberSpeedAttributionKeys {
+    const normalizedSpeed = Math.max(1, Math.min(10, Math.trunc(Number(speed) || 1)));
+    return TIME_CHAMBER_SPEED_ATTRIBUTION_BY_SPEED[normalizedSpeed - 1];
 }
 
 function resolveInstanceStepAttribution(

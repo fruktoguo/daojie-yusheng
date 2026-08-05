@@ -845,6 +845,7 @@ export class CraftPanelRuntimeService {
                         removedInventoryItemInstanceIds: advancedPatch.removedInventoryItemInstanceIds,
                         removedWalletTypes: advancedPatch.removedWalletTypes,
                     } : {}),
+                    recordSectionDuration: options.recordSectionDuration,
                 });
             }
         }

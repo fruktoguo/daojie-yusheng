@@ -83,7 +83,19 @@ const SENSITIVE_NETWORK_PAYLOAD_EVENTS = new Set<string>([
 ]);
 const DEVELOPMENT_LIKE_ENVS = new Set(['development', 'dev', 'local', 'test']);
 const WORLD_DELTA_ENTITY_KEYS = Object.freeze(['p', 'm', 'n', 'o', 'g', 'c']);
+function buildTimeChamberSpeedCpuBreakdownLabels(): Record<string, string> {
+    const labels: Record<string, string> = {};
+    for (let speed = 1; speed <= 10; speed += 1) {
+        const prefix = `attribution.instance.timeChamber.speed${speed}`;
+        labels[`${prefix}.plans`] = `归因·密室 ${speed} 倍调度计划数`;
+        labels[`${prefix}.authorizedSteps`] = `归因·密室 ${speed} 倍授权逻辑步`;
+        labels[`${prefix}.executedSteps`] = `归因·密室 ${speed} 倍完成逻辑步`;
+        labels[`${prefix}.droppedSteps`] = `归因·密室 ${speed} 倍丢弃逻辑步`;
+    }
+    return labels;
+}
 const CPU_BREAKDOWN_LABELS = Object.freeze({
+    ...buildTimeChamberSpeedCpuBreakdownLabels(),
     resetFrameEffectsMs: '重置帧效果',
     planInstanceStepsMs: '规划实例步进',
     preTickMaterializationMs: '预 tick 物化',
@@ -122,6 +134,7 @@ const CPU_BREAKDOWN_LABELS = Object.freeze({
     'attribution.instance.nonTimeChamber.catchUpStepMs': '归因·非密室追赶逻辑步',
     'attribution.instance.nonTimeChamber.catchUpMaterializationMs': '归因·非密室追赶步命令物化',
     'attribution.instance.nonTimeChamber.playerSteps': '归因·非密室玩家逻辑步数',
+    'attribution.instance.nonTimeChamber.droppedSteps': '归因·非密室丢弃逻辑步',
     'instance.blockedPlayerLookupMs': '实例·阻塞玩家查询',
     'instance.terrainStabilizationCheckerMs': '实例·地形稳定检查器',
     'instance.coreTickMs': '实例·核心 tickOnce',
@@ -190,6 +203,22 @@ const CPU_BREAKDOWN_LABELS = Object.freeze({
     'instance.craftJob.enhancementPresenceSkip': '强化所有权围栏·跳过重复 presence 写入次数',
     'instance.craftJob.enhancementPayloadBuildMs': '强化异步边界·提交载荷构建',
     'instance.craftJob.enhancementDurableCommitMs': '强化异步边界·数据库事务提交',
+    'instance.craftJob.enhancementDurablePoolWaitMs': '强化强事务·连接池等待',
+    'instance.craftJob.enhancementDurableBeginLockMs': '强化强事务·开启事务/玩家锁',
+    'instance.craftJob.enhancementDurableOperationFenceMs': '强化强事务·幂等操作围栏',
+    'instance.craftJob.enhancementDurableSessionFenceMs': '强化强事务·数据库会话围栏',
+    'instance.craftJob.enhancementDurableMutationMs': '强化强事务·资产写入总计',
+    'instance.craftJob.enhancementDurableOperationLogMs': '强化强事务·操作日志收敛',
+    'instance.craftJob.enhancementDurableCommitAckMs': '强化强事务·COMMIT 回包',
+    'instance.craftJob.enhancementDurableJobCasMs': '强化资产写入·任务 CAS',
+    'instance.craftJob.enhancementDurableInventoryMs': '强化资产写入·背包',
+    'instance.craftJob.enhancementDurableWalletMs': '强化资产写入·钱包',
+    'instance.craftJob.enhancementDurableEquipmentMs': '强化资产写入·装备槽',
+    'instance.craftJob.enhancementDurableRecordMs': '强化资产写入·强化记录',
+    'instance.craftJob.enhancementDurableProfessionMs': '强化资产写入·职业经验',
+    'instance.craftJob.enhancementDurableActiveJobMs': '强化资产写入·活跃任务',
+    'instance.craftJob.enhancementDurableWatermarkMs': '强化资产写入·恢复水位',
+    'instance.craftJob.enhancementDurableAuditMs': '强化资产写入·审计检查点',
     'instance.craftJob.enhancementMarkPersistedMs': '强化异步边界·提交后标记',
     'instance.craftJob.enhancementCoordinatorFinalizeMs': '强化异步边界·事务收尾/统计',
     'instance.tongtianTowerAdvanceMs': '实例·通天塔推进',
