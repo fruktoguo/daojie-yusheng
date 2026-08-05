@@ -37,6 +37,7 @@ async function main(): Promise<void> {
   verifyProgressionOnlyStatisticHintMatchesFullDiff();
   verifyProgressionOnlyStatisticHintSkipsTechniqueTraversal();
   verifyProgressionOnlyStatisticHintFallsBackForTechniqueSetChanges();
+  verifyOfflineProgressionMergeMatchesFullMerge();
 
   console.log(JSON.stringify({
     ok: true,
@@ -51,6 +52,7 @@ async function main(): Promise<void> {
       'progression_hint_matches_full_diff',
       'progression_hint_skips_technique_traversal',
       'progression_hint_falls_back_for_technique_set_changes',
+      'offline_progression_merge_matches_full_merge',
     ],
   }, null, 2));
 }
@@ -274,6 +276,103 @@ function verifyProgressionOnlyStatisticHintFallsBackForTechniqueSetChanges(): vo
       (entry: any) => entry.techniqueId === 'technique:new',
     ),
     true,
+  );
+}
+
+function verifyOfflineProgressionMergeMatchesFullMerge(): void {
+  const fastService = createService();
+  const referenceService = createService();
+  const fastPlayer = createPlayer('player:offline-progress-fast');
+  const referencePlayer = structuredClone(fastPlayer);
+  referencePlayer.playerId = 'player:offline-progress-reference';
+  referencePlayer.dirtyDomains = new Set<string>();
+  fastPlayer.sessionId = null;
+  referencePlayer.sessionId = null;
+  fastService.players.set(fastPlayer.playerId, fastPlayer);
+  referenceService.players.set(referencePlayer.playerId, referencePlayer);
+  const fastBaseline = fastService.captureOfflineGainBeforeTick(fastPlayer);
+  const referenceBaseline = referenceService.captureOfflineGainBeforeTick(referencePlayer);
+  const accumulatedPayload = {
+    spiritStones: { gained: 9, lost: 2, net: 7 },
+    items: [{ itemId: 'material.iron', name: '玄铁', gained: 3, lost: 0, net: 3, count: 3 }],
+    progress: [{ kind: 'foundation', label: '底蕴', gained: 4, lost: 0, net: 4, amount: 4 }],
+    techniques: [{ techniqueId: 'technique:5', name: '功法5', expGained: 6, expLost: 0, netExp: 6, expGain: 6 }],
+    professions: [{ professionType: 'alchemy', label: '炼丹', expGained: 7, expLost: 0, netExp: 7, expGain: 7 }],
+  };
+  fastService.offlineGainSessionsByPlayerId.set(fastPlayer.playerId, {
+    startedAt: Date.now() - 10_000,
+    baselinePayload: fastBaseline,
+    accumulatedPayload: structuredClone(accumulatedPayload),
+    accumulatedDurationMs: 5_000,
+  });
+  referenceService.offlineGainSessionsByPlayerId.set(referencePlayer.playerId, {
+    startedAt: Date.now() - 10_000,
+    baselinePayload: referenceBaseline,
+    accumulatedPayload: structuredClone(accumulatedPayload),
+    accumulatedDurationMs: 5_000,
+  });
+
+  fastPlayer.combatExp += 1;
+  referencePlayer.combatExp += 1;
+  fastService.recordPlayerStatisticMutation(fastPlayer, fastBaseline, Date.now(), { progressionOnly: true, statisticTechniqueChangedIds: [] });
+  referenceService.recordPlayerStatisticMutation(referencePlayer, referenceBaseline, Date.now(), { progressionOnly: false });
+
+  const fastBeforeSecond = fastService.captureOfflineGainBeforeTick(fastPlayer);
+  const referenceBeforeSecond = referenceService.captureOfflineGainBeforeTick(referencePlayer);
+  const fastSession = fastService.offlineGainSessionsByPlayerId.get(fastPlayer.playerId);
+  const unchangedSpiritStones = fastSession.accumulatedPayload.spiritStones;
+  const unchangedItems = fastSession.accumulatedPayload.items;
+  const unchangedProfessions = fastSession.accumulatedPayload.professions;
+  const changedTechniqueId = fastPlayer.techniques.techniques[137].techId;
+  fastPlayer.realm.progress += 11;
+  referencePlayer.realm.progress += 11;
+  fastPlayer.foundation += 13;
+  referencePlayer.foundation += 13;
+  fastPlayer.combatExp += 17;
+  referencePlayer.combatExp += 17;
+  fastPlayer.techniques.techniques[137].exp += 19;
+  referencePlayer.techniques.techniques[137].exp += 19;
+  fastService.recordPlayerStatisticMutation(fastPlayer, fastBeforeSecond, Date.now(), {
+    progressionOnly: true,
+    statisticTechniqueChangedIds: [changedTechniqueId],
+  });
+  referenceService.recordPlayerStatisticMutation(referencePlayer, referenceBeforeSecond, Date.now(), { progressionOnly: false });
+
+  const fastBeforeLevelAdvance = fastService.captureOfflineGainBeforeTick(fastPlayer);
+  const referenceBeforeLevelAdvance = referenceService.captureOfflineGainBeforeTick(referencePlayer);
+  fastPlayer.realm.realmLv += 1;
+  referencePlayer.realm.realmLv += 1;
+  fastPlayer.realm.progress = 3;
+  referencePlayer.realm.progress = 3;
+  fastPlayer.realm.progressToNext = 200;
+  referencePlayer.realm.progressToNext = 200;
+  fastPlayer.techniques.techniques[137].level += 1;
+  referencePlayer.techniques.techniques[137].level += 1;
+  fastPlayer.techniques.techniques[137].exp = 5;
+  referencePlayer.techniques.techniques[137].exp = 5;
+  fastPlayer.techniques.techniques[137].expToNext = 2_000;
+  referencePlayer.techniques.techniques[137].expToNext = 2_000;
+  fastService.recordPlayerStatisticMutation(fastPlayer, fastBeforeLevelAdvance, Date.now(), {
+    progressionOnly: true,
+    statisticTechniqueChangedIds: [changedTechniqueId],
+  });
+  referenceService.recordPlayerStatisticMutation(referencePlayer, referenceBeforeLevelAdvance, Date.now(), { progressionOnly: false });
+
+  assert.strictEqual(fastSession.accumulatedPayload.spiritStones, unchangedSpiritStones);
+  assert.strictEqual(fastSession.accumulatedPayload.items, unchangedItems);
+  assert.strictEqual(fastSession.accumulatedPayload.professions, unchangedProfessions);
+  assert.deepEqual(
+    fastSession.accumulatedPayload,
+    referenceService.offlineGainSessionsByPlayerId.get(referencePlayer.playerId).accumulatedPayload,
+  );
+  assert.equal(fastSession.accumulatedDurationMs, 8_000);
+  assert.equal(
+    referenceService.offlineGainSessionsByPlayerId.get(referencePlayer.playerId).accumulatedDurationMs,
+    fastSession.accumulatedDurationMs,
+  );
+  assert.deepEqual(
+    projectSnapshot(fastService.playerStatisticSnapshotsByPlayerId.get(fastPlayer.playerId)),
+    projectSnapshot(referenceService.playerStatisticSnapshotsByPlayerId.get(referencePlayer.playerId)),
   );
 }
 

@@ -90,6 +90,8 @@ const pvpShaBacklashBuffByRealmLv = new Map();
 /** 运行时生成的收益结构已经过规范化，可直接复用，避免每息深拷贝全量功法。 */
 const normalizedOfflineGainSnapshots = new WeakSet<object>();
 const normalizedOfflineGainReportPartsRecords = new WeakSet<object>();
+/** 通用或专用合并生成的载荷已收敛唯一键，可安全进入行级 copy-on-write 快路径。 */
+const canonicalOfflineGainReportPartsRecords = new WeakSet<object>();
 const offlineGainTechniqueIndexBySnapshot = new WeakMap<object[], Map<string, number>>();
 @Injectable()
 export class PlayerRuntimeService {
@@ -5294,10 +5296,9 @@ export class PlayerRuntimeService {
                 recordPlayerTickPerf(options, 'playerTick.offlineGainOfflineMergeMs', offlineMergeStartedAt);
                 return;
             }
-            offlineSession.accumulatedPayload = mergeOfflineGainReportPartsBySum(
-                normalizeOfflineGainReportParts(offlineSession.accumulatedPayload),
-                delta,
-            );
+            offlineSession.accumulatedPayload = progressionOnly
+                ? mergeOfflineGainProgressionReportPartsBySum(offlineSession.accumulatedPayload, delta)
+                : mergeOfflineGainReportPartsBySum(offlineSession.accumulatedPayload, delta);
             recordPlayerTickPerf(options, 'playerTick.offlineGainOfflineMergeMs', offlineMergeStartedAt);
             return;
         }
@@ -7832,13 +7833,13 @@ function buildOfflineGainProgressionOnlyMutation(player, beforeSnapshot, statist
     const afterSnapshot = buildOfflineGainProgressionOnlySnapshot(player, before, techniqueResult.snapshot);
     return {
         afterSnapshot,
-        delta: {
+        delta: markNormalizedOfflineGainReportParts({
             spiritStones: { gained: 0, lost: 0, net: 0 },
             items: [],
             progress: diffOfflineGainProgress(before, afterSnapshot),
             techniques: techniqueResult.delta,
             professions: [],
-        },
+        }),
     };
 }
 function buildOfflineGainProgressionOnlySnapshot(player, previousSnapshot, techniqueSnapshot = undefined) {
@@ -8388,13 +8389,99 @@ function normalizeOfflineGainOptionalCount(value) {
 function mergeOfflineGainReportPartsBySum(leftValue, rightValue) {
     const left = normalizeOfflineGainReportParts(leftValue);
     const right = normalizeOfflineGainReportParts(rightValue);
-    return markNormalizedOfflineGainReportParts({
+    const merged = markNormalizedOfflineGainReportParts({
         spiritStones: mergeOfflineGainAmountRecord(left.spiritStones, right.spiritStones, 'sum'),
         items: mergeOfflineGainItems(left.items, right.items, 'sum'),
         progress: mergeOfflineGainProgress(left.progress, right.progress, 'sum'),
         techniques: mergeOfflineGainTechniques(left.techniques, right.techniques, 'sum'),
         professions: mergeOfflineGainProfessions(left.professions, right.professions, 'sum'),
     });
+    canonicalOfflineGainReportPartsRecords.add(merged);
+    return merged;
+}
+/** 进度变更不会携带资产或职业差量，只复制实际变化的统计行。 */
+function mergeOfflineGainProgressionReportPartsBySum(leftValue, rightValue) {
+    const left = normalizeOfflineGainReportParts(leftValue);
+    const right = normalizeOfflineGainReportParts(rightValue);
+    if (!canonicalOfflineGainReportPartsRecords.has(left)
+        || right.spiritStones.gained > 0
+        || right.spiritStones.lost > 0
+        || right.spiritStones.net !== 0
+        || right.items.length > 0
+        || right.professions.length > 0) {
+        return mergeOfflineGainReportPartsBySum(left, right);
+    }
+    const merged = markNormalizedOfflineGainReportParts({
+        spiritStones: left.spiritStones,
+        items: left.items,
+        progress: mergeOfflineGainProgressRowsBySum(left.progress, right.progress),
+        techniques: mergeOfflineGainTechniqueRowsBySum(left.techniques, right.techniques),
+        professions: left.professions,
+    });
+    canonicalOfflineGainReportPartsRecords.add(merged);
+    return merged;
+}
+function mergeOfflineGainProgressRowsBySum(leftRows, rightRows) {
+    if (rightRows.length === 0) {
+        return leftRows;
+    }
+    const mergedRows = leftRows.slice();
+    for (const entry of rightRows) {
+        const index = mergedRows.findIndex((current) => current.kind === entry.kind);
+        if (index < 0) {
+            mergedRows.push({ ...entry });
+            continue;
+        }
+        const current = mergedRows[index];
+        const amount = mergeOfflineGainAmountRecord(current, entry, 'sum');
+        mergedRows[index] = {
+            ...current,
+            label: entry.label || current.label,
+            gained: amount.gained,
+            lost: amount.lost,
+            net: amount.net,
+            amount: amount.gained,
+            levelGain: mergeOfflineGainOptionalAmount(current.levelGain, entry.levelGain, 'sum'),
+            levelLoss: mergeOfflineGainOptionalAmount(current.levelLoss, entry.levelLoss, 'sum'),
+            currentLevel: entry.currentLevel ?? current.currentLevel,
+        };
+    }
+    return mergedRows;
+}
+function mergeOfflineGainTechniqueRowsBySum(leftRows, rightRows) {
+    if (rightRows.length === 0) {
+        return leftRows;
+    }
+    const mergedRows = leftRows.slice();
+    for (const entry of rightRows) {
+        const index = mergedRows.findIndex((current) => current.techniqueId === entry.techniqueId);
+        if (index < 0) {
+            mergedRows.push({ ...entry });
+            continue;
+        }
+        const current = mergedRows[index];
+        const amount = mergeOfflineGainAmountRecord({
+            gained: current.expGained,
+            lost: current.expLost,
+            net: current.netExp,
+        }, {
+            gained: entry.expGained,
+            lost: entry.expLost,
+            net: entry.netExp,
+        }, 'sum');
+        mergedRows[index] = {
+            ...current,
+            name: entry.name || current.name,
+            expGained: amount.gained,
+            expLost: amount.lost,
+            netExp: amount.net,
+            expGain: amount.gained,
+            levelGain: mergeOfflineGainOptionalAmount(current.levelGain, entry.levelGain, 'sum'),
+            levelLoss: mergeOfflineGainOptionalAmount(current.levelLoss, entry.levelLoss, 'sum'),
+            currentLevel: entry.currentLevel ?? current.currentLevel,
+        };
+    }
+    return mergedRows.sort((left, right) => String(left.name ?? left.techniqueId).localeCompare(String(right.name ?? right.techniqueId), 'zh-Hans-CN'));
 }
 function mergeOfflineGainReportPartsByMaximum(leftValue, rightValue) {
     const left = normalizeOfflineGainReportParts(leftValue);
