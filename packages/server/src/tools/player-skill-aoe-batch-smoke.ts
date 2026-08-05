@@ -260,6 +260,40 @@ function testDamageAggregationBoundary(): void {
   assert.equal(shouldAggregatePlayerSkillPresentation(9, [{ type: 'buff' }]), false);
 }
 
+function testSkillTargetPlanReusesCategoryRelationResolution(): void {
+  const skill = {
+    id: 'skill.target-relation-cache',
+    name: '关系缓存测试术',
+    range: 2,
+    targetMode: 'tile',
+    targeting: { range: 2, shape: 'area', radius: 1, maxTargets: 9, targetMode: 'tile' },
+    effects: [{ type: 'damage', damageKind: 'spell', formula: 1 }],
+  };
+  const instance = createMapInstance(['LLL', 'LLL', 'LLL'], 'instance:target-relation-cache');
+  const attacker = createCaster(skill, instance.meta.instanceId);
+  attacker.x = 1;
+  attacker.y = 1;
+  let targetingRulesReadCount = 0;
+  Object.defineProperty(attacker.combat, 'combatTargetingRules', {
+    configurable: true,
+    get() {
+      targetingRulesReadCount += 1;
+      return { hostile: ['terrain'], friendly: [] };
+    },
+  });
+  const harness = createRuntimeHarness(attacker, instance);
+
+  const targets = harness.dispatchService.collectSkillTargetsFromAnchor(
+    attacker,
+    skill,
+    { x: 1, y: 1 },
+    harness.deps,
+    { kind: 'tile', x: 1, y: 1 },
+  );
+  assert.equal(targets.filter((target) => target.kind === 'tile').length, 5);
+  assert.equal(targetingRulesReadCount, 1, '同一次目标规划中的地形关系只能解析一次');
+}
+
 function assertAggregatedPresentation(harness: ReturnType<typeof createRuntimeHarness>, expectedDamage: number): void {
   assert.equal(harness.actionLabels.length, 1);
   assert.equal(harness.attackEffects.length, 0);
@@ -907,6 +941,7 @@ function testCraftSkillFormulaUsesAllLevelsAndInvalidatesReuse(): void {
 
 async function main(): Promise<void> {
   testDamageAggregationBoundary();
+  testSkillTargetPlanReusesCategoryRelationResolution();
   await testLargeTileCastBatchesAuthorityAndPresentation();
   await testEnemyTargetsKeepPerTargetAuthorityAndAggregatePresentation();
   await testTargetDependentTileFormulaKeepsPerTargetResolution();

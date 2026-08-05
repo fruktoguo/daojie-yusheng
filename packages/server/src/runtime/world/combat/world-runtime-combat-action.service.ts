@@ -348,7 +348,10 @@ export class WorldRuntimeCombatActionService {
 
   createSkillDefinition(action, skill, input: AnyRecord = {}) {
     const geometry = normalizeSkillGeometry(skill);
-    const maxTargets = resolveSkillMaxTargets(skill, geometry);
+    const precomputedMaxTargets = Number(input.precomputedMaxTargets);
+    const maxTargets = Number.isFinite(precomputedMaxTargets) && precomputedMaxTargets >= 0
+      ? Math.max(0, Math.floor(precomputedMaxTargets))
+      : resolveSkillMaxTargets(skill, geometry);
     const requiresTarget = resolveSkillRequiresTarget({
       ...skill,
       range: geometry.range,
@@ -618,6 +621,7 @@ export class WorldRuntimeCombatActionService {
       }
     }
     else if (shouldCollectTargetsFromCells) {
+      const cellGeometryStartedAt = typeof input.recordPlanSectionDuration === 'function' ? nowMs() : 0;
       const cellsResult = this.computeCombatTargetCells({
         ...input,
         action,
@@ -625,6 +629,9 @@ export class WorldRuntimeCombatActionService {
         origin: input.actorPosition ?? input.actor ?? input.attacker ?? input.player,
         anchor: input.anchor ?? action.anchor ?? action.target,
       });
+      if (cellGeometryStartedAt > 0) {
+        input.recordPlanSectionDuration('cellGeometryMs', elapsedMs(cellGeometryStartedAt), 1);
+      }
       if (!cellsResult.ok) {
         rejected.push({
           ok: false,
@@ -636,6 +643,7 @@ export class WorldRuntimeCombatActionService {
         });
       }
       else {
+        const cellLookupStartedAt = typeof input.recordPlanSectionDuration === 'function' ? nowMs() : 0;
         this.collectCombatTargetsFromCells({
           ...input,
           action,
@@ -646,6 +654,12 @@ export class WorldRuntimeCombatActionService {
           rejected,
           targets,
         });
+        if (cellLookupStartedAt > 0) {
+          input.recordPlanSectionDuration('cellLookupMs', elapsedMs(cellLookupStartedAt), 1);
+        }
+        if (typeof input.recordPlanSectionDuration === 'function') {
+          input.recordPlanSectionDuration('affectedCells', 0, cellsResult.cells.length);
+        }
       }
     }
     else if (action.target && input.collectTargetsFromCells !== 'prefer') {
@@ -972,6 +986,7 @@ export class WorldRuntimeCombatActionService {
   }
 
   resolvePlayerSkillActionPlan(input: AnyRecord = {}) {
+    let phaseStartedAt = typeof input.recordPlanSectionDuration === 'function' ? nowMs() : 0;
     const attacker = input.attacker
       ?? input.player
       ?? input.playerRuntimeService?.getPlayer?.(input.playerId)
@@ -988,6 +1003,9 @@ export class WorldRuntimeCombatActionService {
     const definition = skill
       ? this.createPlayerSkillPlanDefinition(action, skill, input, attacker)
       : null;
+    if (phaseStartedAt > 0) {
+      input.recordPlanSectionDuration('definitionMs', elapsedMs(phaseStartedAt), 1);
+    }
     if (!attacker || attacker.hp <= 0) {
       return {
         ok: false,
@@ -1022,6 +1040,7 @@ export class WorldRuntimeCombatActionService {
       };
     }
 
+    phaseStartedAt = typeof input.recordPlanSectionDuration === 'function' ? nowMs() : 0;
     const targets = Array.isArray(input.resolvedTargets)
       ? this.normalizePlayerSkillPlanTargets(input.resolvedTargets, {
         ...input,
@@ -1053,6 +1072,10 @@ export class WorldRuntimeCombatActionService {
         formationService: input.formationService,
         collectTargetsFromCells: 'prefer',
       });
+    if (phaseStartedAt > 0) {
+      input.recordPlanSectionDuration('collectionMs', elapsedMs(phaseStartedAt), 1);
+    }
+    phaseStartedAt = typeof input.recordPlanSectionDuration === 'function' ? nowMs() : 0;
     const validation = this.validateCombatTargets({
       ...input,
       action,
@@ -1064,6 +1087,10 @@ export class WorldRuntimeCombatActionService {
       canDamageTile: input.canDamageTile ?? input.instance?.canDamageTile ?? input.instance?.meta?.canDamageTile,
       resolveCombatRelation: input.resolveCombatRelation,
     });
+    if (phaseStartedAt > 0) {
+      input.recordPlanSectionDuration('validationMs', elapsedMs(phaseStartedAt), 1);
+    }
+    phaseStartedAt = typeof input.recordPlanSectionDuration === 'function' ? nowMs() : 0;
     const timing = input.skipResourceAndCooldown === true
       ? { ok: true, rejected: [] }
       : this.validateActionCostAndCooldown({
@@ -1075,6 +1102,9 @@ export class WorldRuntimeCombatActionService {
         currentTick: input.currentTick,
         cooldownReadyTickByActionId: input.cooldownReadyTickByActionId ?? attacker.combat?.cooldownReadyTickBySkillId,
       });
+    if (phaseStartedAt > 0) {
+      input.recordPlanSectionDuration('resourceCooldownMs', elapsedMs(phaseStartedAt), 1);
+    }
     const rejected = [
       ...(targetCollection.rejected ?? []),
       ...(validation.rejected ?? []),
@@ -1120,6 +1150,7 @@ export class WorldRuntimeCombatActionService {
     const baseDefinition = this.createSkillDefinition(action, skill, {
       ...input,
       actorKind: CombatActorKind.Player,
+      precomputedMaxTargets: input.maxTargets,
     });
     const allowedTargetKinds = Array.isArray(input.allowedTargetKinds) && input.allowedTargetKinds.length > 0
       ? input.allowedTargetKinds

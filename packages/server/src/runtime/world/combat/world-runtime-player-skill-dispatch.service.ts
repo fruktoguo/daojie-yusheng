@@ -272,6 +272,8 @@ function resolveSkillTargetCountDurationKey(targetCount: number): string {
     return 'attribution.skill.resolve.targets21PlusMs';
 }
 
+const PLAYER_SKILL_TARGET_PLAN_PROFILE_SAMPLE_RATE = 64;
+
 function buildEffectivePlayerSkillGeometry(attacker, skill) {
     return buildEffectiveTargetingGeometry({
         range: resolveRuntimeSkillRange(skill),
@@ -422,8 +424,8 @@ function applyPlayerHorizontalFacingToward(playerRuntimeService, instance, attac
     playerRuntimeService.markPersistenceDirtyDomains?.(attacker, ['world_anchor', 'position_checkpoint']);
     playerRuntimeService.bumpPersistentRevision?.(attacker);
 }
-function buildPlayerSkillAffectedCells(attacker, skill, anchor) {
-    const geometry = buildEffectivePlayerSkillGeometry(attacker, skill);
+function buildPlayerSkillAffectedCells(attacker, skill, anchor, effectiveGeometry = null) {
+    const geometry = effectiveGeometry ?? buildEffectivePlayerSkillGeometry(attacker, skill);
     const shape = geometry.shape ?? 'single';
     if (shape === 'single') {
         return chebyshevDistance(attacker.x, attacker.y, anchor.x, anchor.y) <= geometry.range
@@ -653,6 +655,7 @@ export class WorldRuntimePlayerSkillDispatchService {
     worldRuntimeThreatService;
     playerSkillOutcomeAdapters;
     monsterCombatStateCache = new WeakMap();
+    playerSkillTargetPlanProfileSequence = 0;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
@@ -947,7 +950,8 @@ export class WorldRuntimePlayerSkillDispatchService {
             const primaryTarget = targetRef ? this.resolveLegacySkillTargetRef(attacker, skill, targetRef, deps) : null;
             return this.dispatchCastSkillAtAnchor(attacker, skill.id, skill, anchor, primaryTarget, deps);
         }
-        const warningCells = buildPlayerSkillAffectedCells(attacker, skill, anchor);
+        const geometry = buildEffectivePlayerSkillGeometry(attacker, skill);
+        const warningCells = buildPlayerSkillAffectedCells(attacker, skill, anchor, geometry);
         if (warningCells.length === 0) {
             throw new BadRequestException('目标超出技能范围');
         }
@@ -957,7 +961,6 @@ export class WorldRuntimePlayerSkillDispatchService {
         const cooldownReadyTick = Math.max(0, Math.trunc(Number(attacker.combat?.cooldownReadyTickBySkillId?.[skill.id] ?? 0)));
         deps.worldRuntimeNavigationService?.clearNavigationIntent?.(attacker.playerId);
         applyPlayerHorizontalFacingToward(this.playerRuntimeService, instance, attacker, anchor);
-        const geometry = buildEffectivePlayerSkillGeometry(attacker, skill);
         const warningOrigin = (geometry.shape ?? 'single') === 'line'
             ? { x: attacker.x, y: attacker.y }
             : anchor;
@@ -2369,7 +2372,21 @@ export class WorldRuntimePlayerSkillDispatchService {
         const cooldownReadyTickByActionId = skill?.id
             ? { [skill.id]: normalizePlayerSkillCooldownReadyTick(attacker, skill, input.currentTick) }
             : attacker.combat?.cooldownReadyTickBySkillId;
-        return this.worldRuntimeCombatActionService.resolvePlayerSkillActionPlan({
+        const shouldProfilePlan = typeof deps?.recordPendingCommandSectionDuration === 'function'
+            && (this.playerSkillTargetPlanProfileSequence++ % PLAYER_SKILL_TARGET_PLAN_PROFILE_SAMPLE_RATE) === 0;
+        const recordPlanSectionDuration = shouldProfilePlan
+            ? (sectionKey, durationMs, count = 1) => recordPlayerSkillDispatchDuration(
+                deps,
+                `pendingCommands.castSkill.targetPlan.${sectionKey}`,
+                durationMs * PLAYER_SKILL_TARGET_PLAN_PROFILE_SAMPLE_RATE,
+                count * PLAYER_SKILL_TARGET_PLAN_PROFILE_SAMPLE_RATE,
+            )
+            : undefined;
+        let monsterRelationResolved = false;
+        let monsterRelation = null;
+        let terrainRelationResolved = false;
+        let terrainRelation = null;
+        const plan = this.worldRuntimeCombatActionService.resolvePlayerSkillActionPlan({
             playerId: attacker.playerId,
             skillId: skill?.id,
             attacker,
@@ -2391,15 +2408,25 @@ export class WorldRuntimePlayerSkillDispatchService {
                     });
                 }
                 if (target.kind === CombatTargetKind.Monster) {
-                    return resolveCombatRelation(attacker, { kind: 'monster' });
+                    if (!monsterRelationResolved) {
+                        monsterRelation = resolveCombatRelation(attacker, { kind: 'monster' });
+                        monsterRelationResolved = true;
+                    }
+                    return monsterRelation;
                 }
                 if (target.kind === CombatTargetKind.Self) {
                     return { hostile: true, canAttack: true, relation: 'self' };
                 }
-                return resolveCombatRelation(attacker, { kind: 'terrain' });
+                if (!terrainRelationResolved) {
+                    terrainRelation = resolveCombatRelation(attacker, { kind: 'terrain' });
+                    terrainRelationResolved = true;
+                }
+                return terrainRelation;
             },
             ...input,
+            recordPlanSectionDuration,
         });
+        return plan;
     }
     toLegacyPlayerSkillTargets(targets, attacker) {
         const legacyTargets = [];
