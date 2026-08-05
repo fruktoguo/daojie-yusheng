@@ -5,7 +5,7 @@
  */
 import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import * as fs from 'fs';
-import { DEFAULT_PLAYER_REALM_STAGE, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, PLAYER_REALM_STAGE_LEVEL_RANGES, PlayerRealmStage, SHATTER_SPIRIT_PILL_COST_RATIO as SHARED_SHATTER_SPIRIT_PILL_COST_RATIO, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, computeCraftSkillExpGain, deriveTechniqueRealm, getBodyTrainingExpToNext, getMonsterKillExpLevelAdjustment, getMonsterLevelExpDecayMultiplier, getTechniqueExpLevelAdjustment, getTechniqueExpToNext, getTechniqueTrainingMaxLevel, isCreatedTechniqueId, isTechniqueFullyMastered, normalizeBodyTrainingState, normalizeTechniqueLearnMaxLevel, resolvePlayerFacingContentName } from '@mud/shared';
+import { DEFAULT_PLAYER_REALM_STAGE, MONSTER_KILL_EXP_LEVEL_DELTA_CAP, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, PLAYER_REALM_STAGE_LEVEL_RANGES, PlayerRealmStage, SHATTER_SPIRIT_PILL_COST_RATIO as SHARED_SHATTER_SPIRIT_PILL_COST_RATIO, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, computeCraftSkillExpGain, deriveTechniqueRealm, getBodyTrainingExpToNext, getMonsterKillExpLevelAdjustment, getMonsterLevelExpDecayMultiplier, getTechniqueExpLevelAdjustment, getTechniqueExpToNext, getTechniqueTrainingMaxLevel, isCreatedTechniqueId, isTechniqueFullyMastered, normalizeBodyTrainingState, normalizeMonsterTier, normalizeTechniqueLearnMaxLevel, resolvePlayerFacingContentName } from '@mud/shared';
 import { resolveProjectPath } from '../../common/project-path';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { getMonsterCombatExpGradeFactor, resolveMonsterCombatExpTierFactor } from '../combat/monster-combat-exp-equivalent.helper';
@@ -166,6 +166,18 @@ export class PlayerProgressionService {
     breakthroughTransitions = new Map();
     /** 功法推进索引；宽泛 revision 变化时按真正影响圆满判定的字段复核。 */
     techniqueProgressionCache = new WeakMap();
+    /** 击杀经验所需的境界升级经验缓存；境界配置重载时整体失效。 */
+    realmCombatExpToNextByMonsterLevel: Array<number | undefined> = [];
+    /** 怪物等级分段衰减只依赖等级，可跨全部玩家与击杀复用。 */
+    monsterLevelExpDecayByMonsterLevel: Array<number | undefined> = [];
+    /** 玩家高于怪物时，等级差修正与血脉无关。 */
+    monsterKillOverlevelExpAdjustmentByDelta = new Float64Array(MONSTER_KILL_EXP_LEVEL_DELTA_CAP + 1);
+    /** 玩家低于怪物时，按凡血、异种、妖王三类复用等级差修正。 */
+    monsterKillUnderlevelExpAdjustmentByTierAndDelta = [
+        new Float64Array(MONSTER_KILL_EXP_LEVEL_DELTA_CAP + 1),
+        new Float64Array(MONSTER_KILL_EXP_LEVEL_DELTA_CAP + 1),
+        new Float64Array(MONSTER_KILL_EXP_LEVEL_DELTA_CAP + 1),
+    ];
     /** 注入内容仓库和属性结算器。 */
     constructor(
         contentTemplateRepository: ContentTemplateRepository,
@@ -1136,6 +1148,7 @@ export class PlayerProgressionService {
         const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'));
         const expMultiplier = normalizeRuntimeRealmExpMultiplier(raw?.expMultiplier);
         this.realmLevels.clear();
+        this.realmCombatExpToNextByMonsterLevel = [];
         for (const entry of raw.levels ?? []) {
             const runtimeEntry = normalizeRuntimeRealmLevelEntry(entry, expMultiplier);
             if (!runtimeEntry) {
@@ -2477,19 +2490,79 @@ export class PlayerProgressionService {
 
         const level = Math.max(1, Math.floor(monsterLevel));
 
-        const expToNext = this.getRealmRuntimeExpToNext(level);
+        const expToNext = this.resolveRealmCombatExpToNext(level);
         if (expToNext <= 0) {
             return 0;
         }
 
-        const levelAdjustment = getMonsterKillRealmExpAdjustment(playerRealmLv, level, monsterTier);
-        const monsterLevelDecay = getMonsterLevelExpDecayMultiplier(level);
+        const levelAdjustment = this.resolveMonsterKillRealmExpAdjustment(playerRealmLv, level, monsterTier);
+        const monsterLevelDecay = this.resolveMonsterLevelExpDecay(level);
         return expToNext
             * Math.max(0, expMultiplier)
             * levelAdjustment
             * monsterLevelDecay
             * clamp(contributionRatio, 0, 1)
             / 1000;
+    }
+    /** 复用击杀经验热路径中的境界配置查表；非法或越界输入保留原始回退行为。 */
+    resolveRealmCombatExpToNext(level) {
+        if (!Number.isSafeInteger(level) || level < 1 || level > this.maxRealmLevel) {
+            return this.getRealmRuntimeExpToNext(level);
+        }
+        const cached = this.realmCombatExpToNextByMonsterLevel[level];
+        if (cached !== undefined) {
+            return cached;
+        }
+        const resolved = this.getRealmRuntimeExpToNext(level);
+        this.realmCombatExpToNextByMonsterLevel[level] = resolved;
+        return resolved;
+    }
+    /** 复用怪物等级分段衰减，最终经验乘法顺序仍由调用方原样执行。 */
+    resolveMonsterLevelExpDecay(level) {
+        if (!Number.isSafeInteger(level) || level < 1 || level > this.maxRealmLevel) {
+            return getMonsterLevelExpDecayMultiplier(level);
+        }
+        const cached = this.monsterLevelExpDecayByMonsterLevel[level];
+        if (cached !== undefined) {
+            return cached;
+        }
+        const resolved = getMonsterLevelExpDecayMultiplier(level);
+        this.monsterLevelExpDecayByMonsterLevel[level] = resolved;
+        return resolved;
+    }
+    /** 复用最多十级的等级差幂运算；同一输入仍采用 shared 的权威公式生成首个值。 */
+    resolveMonsterKillRealmExpAdjustment(playerRealmLv, monsterLevel, monsterTier) {
+        const normalizedPlayerLevel = Math.max(1, Math.floor(playerRealmLv));
+        const normalizedMonsterLevel = Math.max(1, Math.floor(monsterLevel));
+        if (!Number.isFinite(normalizedPlayerLevel) || !Number.isFinite(normalizedMonsterLevel)) {
+            return getMonsterKillRealmExpAdjustment(playerRealmLv, monsterLevel, monsterTier);
+        }
+        if (normalizedPlayerLevel === normalizedMonsterLevel) {
+            return 1;
+        }
+        const levelDelta = Math.min(
+            MONSTER_KILL_EXP_LEVEL_DELTA_CAP,
+            Math.abs(normalizedMonsterLevel - normalizedPlayerLevel),
+        );
+        if (normalizedPlayerLevel > normalizedMonsterLevel) {
+            const cached = this.monsterKillOverlevelExpAdjustmentByDelta[levelDelta];
+            if (cached > 0) {
+                return cached;
+            }
+            const resolved = getMonsterKillRealmExpAdjustment(playerRealmLv, monsterLevel, monsterTier);
+            this.monsterKillOverlevelExpAdjustmentByDelta[levelDelta] = resolved;
+            return resolved;
+        }
+        const normalizedTier = normalizeMonsterTier(monsterTier);
+        const tierIndex = normalizedTier === 'demon_king' ? 2 : normalizedTier === 'variant' ? 1 : 0;
+        const tierCache = this.monsterKillUnderlevelExpAdjustmentByTierAndDelta[tierIndex];
+        const cached = tierCache[levelDelta];
+        if (cached > 0) {
+            return cached;
+        }
+        const resolved = getMonsterKillRealmExpAdjustment(playerRealmLv, monsterLevel, monsterTier);
+        tierCache[levelDelta] = resolved;
+        return resolved;
     }
     /**
  * getTechniqueCombatExp：读取功法战斗Exp。
