@@ -5829,66 +5829,108 @@ async function patchPlayerInventoryItems(
   if (removedIds.some((itemInstanceId) => incomingIds.has(itemInstanceId))) {
     throw new Error(`patch_inventory_remove_update_conflict:playerId=${playerId}`);
   }
-  const guardedIds = [...incomingIds, ...removedIds];
-  await assertNoForeignPlayerOwnedIds(
-    client,
-    PLAYER_INVENTORY_ITEM_TABLE,
-    'item_instance_id',
-    playerId,
-    guardedIds,
-    'inventory',
-  );
-  if (removedIds.length > 0) {
-    await client.query(
-      `DELETE FROM ${PLAYER_INVENTORY_ITEM_TABLE}
-       WHERE player_id = $1
-         AND item_instance_id = ANY($2::varchar[])`,
-      [playerId, removedIds],
-    );
+  if (rows.length === 0 && removedIds.length === 0) {
+    return;
   }
-  if (rows.length > 0) {
-    const result = await client.query(
-      `
-        WITH incoming AS (
-          SELECT *
-          FROM jsonb_to_recordset($2::jsonb) AS entry(
-            item_instance_id varchar(180),
-            item_id varchar(120),
-            count bigint,
-            raw_payload jsonb,
-            locked_by varchar(180)
-          )
+  const result = await client.query<{
+    conflicting_id?: unknown;
+    conflicting_owner_id?: unknown;
+    existing_incoming_count?: unknown;
+  }>(
+    `
+      WITH incoming AS (
+        SELECT *
+        FROM jsonb_to_recordset($2::jsonb) AS entry(
+          item_instance_id varchar(180),
+          item_id varchar(120),
+          count bigint,
+          raw_payload jsonb,
+          locked_by varchar(180)
         )
+      ),
+      guarded_ids AS (
+        SELECT item_instance_id FROM incoming
+        UNION
+        SELECT unnest($3::varchar[])
+      ),
+      locked_guarded AS MATERIALIZED (
+        SELECT target.item_instance_id, target.player_id
+        FROM ${PLAYER_INVENTORY_ITEM_TABLE} target
+        INNER JOIN guarded_ids guarded USING (item_instance_id)
+        ORDER BY target.item_instance_id
+        FOR UPDATE OF target
+      ),
+      guard_state AS MATERIALIZED (
+        SELECT
+          (
+            SELECT item_instance_id
+            FROM locked_guarded
+            WHERE player_id <> $1
+            ORDER BY item_instance_id
+            LIMIT 1
+          ) AS conflicting_id,
+          (
+            SELECT player_id
+            FROM locked_guarded
+            WHERE player_id <> $1
+            ORDER BY item_instance_id
+            LIMIT 1
+          ) AS conflicting_owner_id,
+          (
+            SELECT count(*)
+            FROM locked_guarded locked
+            INNER JOIN incoming USING (item_instance_id)
+            WHERE locked.player_id = $1
+          ) AS existing_incoming_count,
+          (SELECT count(*) FROM incoming) AS incoming_count
+      ),
+      deleted AS (
+        DELETE FROM ${PLAYER_INVENTORY_ITEM_TABLE} target
+        USING guard_state guard
+        WHERE target.player_id = $1
+          AND target.item_instance_id = ANY($3::varchar[])
+          AND guard.conflicting_id IS NULL
+          AND guard.existing_incoming_count = guard.incoming_count
+        RETURNING target.item_instance_id
+      ),
+      updated AS (
         UPDATE ${PLAYER_INVENTORY_ITEM_TABLE} target
         SET item_id = incoming.item_id,
             count = incoming.count,
             raw_payload = COALESCE(incoming.raw_payload, '{}'::jsonb),
             locked_by = incoming.locked_by,
             updated_at = now()
-        FROM incoming
+        FROM incoming, guard_state guard
         WHERE target.player_id = $1
           AND target.item_instance_id = incoming.item_instance_id
+          AND guard.conflicting_id IS NULL
+          AND guard.existing_incoming_count = guard.incoming_count
           AND ROW(target.item_id, target.count, target.raw_payload, target.locked_by)
             IS DISTINCT FROM ROW(incoming.item_id, incoming.count, COALESCE(incoming.raw_payload, '{}'::jsonb), incoming.locked_by)
         RETURNING target.item_instance_id
-      `,
-      [playerId, JSON.stringify(rows)],
+      )
+      SELECT
+        guard.conflicting_id,
+        guard.conflicting_owner_id,
+        guard.existing_incoming_count
+      FROM guard_state guard
+      CROSS JOIN (SELECT count(*) FROM deleted) deleted_count
+      CROSS JOIN (SELECT count(*) FROM updated) updated_count
+    `,
+    [playerId, JSON.stringify(rows), removedIds],
+  );
+  const guard = result.rows[0] ?? null;
+  const conflictingId = normalizeRequiredString(guard?.conflicting_id);
+  if (conflictingId) {
+    throw new Error(
+      `replace_inventory_ownership_conflict:playerId=${playerId}`
+      + ` id=${conflictingId}`
+      + ` owner=${normalizeRequiredString(guard?.conflicting_owner_id) || 'unknown'}`,
     );
-    const unchangedIds = rows.map(({ item_instance_id }) => item_instance_id);
-    const existing = await client.query<{ item_instance_id: string }>(
-      `SELECT item_instance_id
-       FROM ${PLAYER_INVENTORY_ITEM_TABLE}
-       WHERE player_id = $1
-         AND item_instance_id = ANY($2::varchar[])`,
-      [playerId, unchangedIds],
-    );
-    if ((existing.rowCount ?? 0) !== rows.length) {
-      throw new Error(`patch_inventory_missing_item:playerId=${playerId}`);
-    }
-    void result;
   }
-  // 上面的写后自有行查询已同时证明 incoming ID 仍属于当前玩家；再次执行相同的
-  // 外部所有权扫描只会增加一次数据库往返，不增加并发安全性。
+  if (Number(guard?.existing_incoming_count ?? 0) !== rows.length) {
+    throw new Error(`patch_inventory_missing_item:playerId=${playerId}`);
+  }
 }
 
 function createPersistedInventoryRowSignature(itemId: string, rawPayload: Record<string, unknown>): string {
