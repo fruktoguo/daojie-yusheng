@@ -37,6 +37,8 @@ async function main(): Promise<void> {
   verifyProgressionOnlyStatisticHintMatchesFullDiff();
   verifyProgressionOnlyStatisticHintSkipsTechniqueTraversal();
   verifyProgressionOnlyStatisticHintFallsBackForTechniqueSetChanges();
+  verifyProgressionAndInventoryStatisticMatchesFullDiff();
+  verifyProgressionAndInventoryStatisticSkipsUnchangedDomains();
   verifyOfflineProgressionMergeMatchesFullMerge();
 
   console.log(JSON.stringify({
@@ -52,6 +54,8 @@ async function main(): Promise<void> {
       'progression_hint_matches_full_diff',
       'progression_hint_skips_technique_traversal',
       'progression_hint_falls_back_for_technique_set_changes',
+      'progression_inventory_matches_full_diff',
+      'progression_inventory_skips_unchanged_domains',
       'offline_progression_merge_matches_full_merge',
     ],
   }, null, 2));
@@ -277,6 +281,77 @@ function verifyProgressionOnlyStatisticHintFallsBackForTechniqueSetChanges(): vo
     ),
     true,
   );
+}
+
+function verifyProgressionAndInventoryStatisticMatchesFullDiff(): void {
+  const fastService = createService();
+  const referenceService = createService();
+  const fastPlayer = createPlayer('player:progress-inventory-fast');
+  const referencePlayer = structuredClone(fastPlayer);
+  referencePlayer.playerId = 'player:progress-inventory-reference';
+  referencePlayer.sessionId = 'session:progress-inventory-reference';
+  referencePlayer.dirtyDomains = new Set<string>();
+  fastService.players.set(fastPlayer.playerId, fastPlayer);
+  referenceService.players.set(referencePlayer.playerId, referencePlayer);
+
+  const fastBefore = fastService.captureOfflineGainBeforeTick(fastPlayer);
+  const referenceBefore = referenceService.captureOfflineGainBeforeTick(referencePlayer);
+  fastPlayer.inventory.items.splice(0, 1);
+  referencePlayer.inventory.items.splice(0, 1);
+  fastPlayer.inventory.revision += 1;
+  referencePlayer.inventory.revision += 1;
+  fastPlayer.realm.progress = 0;
+  referencePlayer.realm.progress = 0;
+  fastPlayer.rootFoundation += 1;
+  referencePlayer.rootFoundation += 1;
+
+  fastService.recordPlayerStatisticMutation(fastPlayer, fastBefore, Date.now(), {
+    progressionAndInventoryOnly: true,
+    statisticTechniqueChangedIds: [],
+  });
+  referenceService.recordPlayerStatisticMutation(referencePlayer, referenceBefore, Date.now());
+
+  assert.deepEqual(
+    projectStatisticParts(fastService.getPendingPlayerStatisticRecords(fastPlayer.playerId)[0]),
+    projectStatisticParts(referenceService.getPendingPlayerStatisticRecords(referencePlayer.playerId)[0]),
+  );
+  assert.deepEqual(
+    projectSnapshot(fastService.playerStatisticSnapshotsByPlayerId.get(fastPlayer.playerId)),
+    projectSnapshot(referenceService.playerStatisticSnapshotsByPlayerId.get(referencePlayer.playerId)),
+  );
+}
+
+function verifyProgressionAndInventoryStatisticSkipsUnchangedDomains(): void {
+  const service = createService();
+  const player = createPlayer('player:progress-inventory-no-scan');
+  service.players.set(player.playerId, player);
+  const before = service.captureOfflineGainBeforeTick(player);
+  player.inventory.items.splice(0, 1);
+  player.inventory.revision += 1;
+  player.realm.progress = 0;
+  player.rootFoundation += 1;
+  player.techniques.techniques = new Proxy(player.techniques.techniques, {
+    get(target, property, receiver) {
+      if (property === Symbol.iterator || property === 'map' || property === 'forEach') {
+        throw new Error('progression_inventory_statistics_traversed_techniques');
+      }
+      return Reflect.get(target, property, receiver);
+    },
+  });
+  Object.defineProperty(player, 'alchemySkill', {
+    configurable: true,
+    get() {
+      throw new Error('progression_inventory_statistics_traversed_professions');
+    },
+  });
+
+  service.recordPlayerStatisticMutation(player, before, Date.now(), {
+    progressionAndInventoryOnly: true,
+    statisticTechniqueChangedIds: [],
+  });
+
+  assert.equal(service.getPlayerStatisticTotalsSync(player.playerId)?.today.spiritStones.lost, 11);
+  assert.equal(service.getPlayerStatisticTotalsSync(player.playerId)?.today.progress.gained, 1);
 }
 
 function verifyOfflineProgressionMergeMatchesFullMerge(): void {

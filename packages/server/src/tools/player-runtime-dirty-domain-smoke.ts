@@ -2001,8 +2001,13 @@ function testAdvanceSinglePlayerTickAutoRefinesRootFoundation(): void {
   player.inventory.revision = 1;
   player.combat.autoRootFoundation = true;
   service.markPersisted(playerId);
+  const recordedPerfKeys: string[] = [];
 
-  service.advanceSinglePlayerTick(player, 1, {});
+  service.advanceSinglePlayerTick(player, 1, {
+    recordTickSectionDuration(key: string) {
+      recordedPerfKeys.push(key);
+    },
+  });
 
   assert.equal(player.rootFoundation, 1);
   assert.equal(player.combat.autoRootFoundation, false);
@@ -2013,6 +2018,8 @@ function testAdvanceSinglePlayerTickAutoRefinesRootFoundation(): void {
     notice.text.includes('已关闭自动凝练根基')
     && notice.structured?.key === 'notice.action.auto-root-foundation-cap'
   )));
+  assert.ok(recordedPerfKeys.includes('playerTick.offlineGainProgressionInventoryDeltaMs'));
+  assert.equal(recordedPerfKeys.includes('playerTick.offlineGainFullDeltaMs'), false);
   assertDirtyDomains(service, playerId, ['inventory', 'progression', 'attr', 'vitals', 'combat_pref'], ['snapshot']);
 }
 

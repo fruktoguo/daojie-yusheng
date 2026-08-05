@@ -242,6 +242,7 @@ const CPU_BREAKDOWN_LABELS = Object.freeze({
     'playerTick.cooldownActionStateMs': '玩家 tick·冷却动作态',
     'playerTick.offlineGainAccumulateMs': '玩家 tick·收益累计',
     'playerTick.offlineGainProgressionDeltaMs': '收益累计·进度差量',
+    'playerTick.offlineGainProgressionInventoryDeltaMs': '收益累计·进度背包联合差量',
     'playerTick.offlineGainFullDeltaMs': '收益累计·全量差量',
     'playerTick.offlineGainInventoryDeltaMs': '收益累计·单物品差量',
     'playerTick.offlineGainOfflineMergeMs': '收益累计·离线合并',

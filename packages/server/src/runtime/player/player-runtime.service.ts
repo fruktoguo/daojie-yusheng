@@ -5110,13 +5110,15 @@ export class PlayerRuntimeService {
                 beforeSnapshot: offlineGainBefore,
                 changed: false,
                 progressionOnly: true,
+                progressionAndInventoryOnly: true,
             };
             this.playerStatisticTickContextsByPlayerId.set(player.playerId, statisticTickContext);
             try {
             let statisticChangedThisTick = false;
-            let statisticTechniqueChangedIdsThisTick;
+            let statisticTechniqueChangedIdsThisTick = [];
             recordPlayerTickPerf(options, 'playerTick.offlineGainSnapshotMs', offlineGainSnapshotStartedAt);
             let statisticProgressionOnlyThisTick = true;
+            let statisticProgressionAndInventoryOnlyThisTick = true;
             const chronologyStartedAt = performance.now();
             if (advancePlayerChronology(player)) {
                 markPlayerDirtyDomains(player, ['progression']);
@@ -5195,6 +5197,8 @@ export class PlayerRuntimeService {
                 this.applyProgressionResult(player, result, playerTick);
                 statisticChangedThisTick = statisticChangedThisTick || result?.changed === true;
                 statisticProgressionOnlyThisTick = statisticProgressionOnlyThisTick && isProgressionOnlyStatisticResult(result);
+                statisticProgressionAndInventoryOnlyThisTick = statisticProgressionAndInventoryOnlyThisTick
+                    && isProgressionAndInventoryOnlyStatisticResult(result);
                 if (result?.changed === true) {
                     statisticTechniqueChangedIdsThisTick = Array.isArray(result?.statisticTechniqueChangedIds)
                         ? result.statisticTechniqueChangedIds
@@ -5208,6 +5212,8 @@ export class PlayerRuntimeService {
                 this.applyProgressionResult(player, result, playerTick, true);
                 statisticChangedThisTick = statisticChangedThisTick || result?.changed === true;
                 statisticProgressionOnlyThisTick = statisticProgressionOnlyThisTick && isProgressionOnlyStatisticResult(result);
+                statisticProgressionAndInventoryOnlyThisTick = statisticProgressionAndInventoryOnlyThisTick
+                    && isProgressionAndInventoryOnlyStatisticResult(result);
                 this.disableAutoRootFoundationAtCap(player, playerTick);
                 recordPlayerTickPerf(options, 'playerTick.rootFoundationMs', rootFoundationStartedAt);
             }
@@ -5223,9 +5229,13 @@ export class PlayerRuntimeService {
             const offlineGainAccumulateStartedAt = performance.now();
             const contextualStatisticChanged = statisticChangedThisTick || statisticTickContext.changed === true;
             const contextualProgressionOnly = statisticProgressionOnlyThisTick && statisticTickContext.progressionOnly === true;
+            const contextualProgressionAndInventoryOnly = !contextualProgressionOnly
+                && statisticProgressionAndInventoryOnlyThisTick
+                && statisticTickContext.progressionAndInventoryOnly === true;
             this.accumulateOfflineGainAfterTick(player, offlineGainBefore, contextualStatisticChanged, {
                 progressionOnly: contextualProgressionOnly,
-                statisticTechniqueChangedIds: contextualProgressionOnly
+                progressionAndInventoryOnly: contextualProgressionAndInventoryOnly,
+                statisticTechniqueChangedIds: contextualProgressionOnly || contextualProgressionAndInventoryOnly
                     ? statisticTechniqueChangedIdsThisTick
                     : undefined,
                 recordTickSectionDuration: options.recordTickSectionDuration,
@@ -5280,6 +5290,7 @@ export class PlayerRuntimeService {
         }
         this.recordPlayerStatisticMutation(player, beforeSnapshot, Date.now(), {
             progressionOnly: options?.progressionOnly === true,
+            progressionAndInventoryOnly: options?.progressionAndInventoryOnly === true,
             statisticTechniqueChangedIds: options?.statisticTechniqueChangedIds,
             recordTickSectionDuration: options?.recordTickSectionDuration,
         });
@@ -5291,7 +5302,8 @@ export class PlayerRuntimeService {
         }
         const normalizedPlayerId = normalizeOfflineGainString(player?.playerId);
         const progressionOnly = options?.progressionOnly === true;
-        const inventoryOnly = !progressionOnly && options?.inventoryOnly === true;
+        const progressionAndInventoryOnly = !progressionOnly && options?.progressionAndInventoryOnly === true;
+        const inventoryOnly = !progressionOnly && !progressionAndInventoryOnly && options?.inventoryOnly === true;
         const deltaStartedAt = performance.now();
         const resolved = progressionOnly
             ? buildOfflineGainProgressionOnlyMutation(
@@ -5299,14 +5311,21 @@ export class PlayerRuntimeService {
                 beforeSnapshot,
                 options?.statisticTechniqueChangedIds,
             )
-            : inventoryOnly
-                ? buildOfflineGainInventoryOnlyMutation(
+            : progressionAndInventoryOnly
+                ? buildOfflineGainProgressionAndInventoryMutation(
                     player,
                     beforeSnapshot,
                     this.contentTemplateRepository,
-                    options?.inventoryItemDeltaHint,
+                    options?.statisticTechniqueChangedIds,
                 )
-                : null;
+                : inventoryOnly
+                    ? buildOfflineGainInventoryOnlyMutation(
+                        player,
+                        beforeSnapshot,
+                        this.contentTemplateRepository,
+                        options?.inventoryItemDeltaHint,
+                    )
+                    : null;
         const afterSnapshot = resolved?.afterSnapshot
             ?? buildOfflineGainSnapshot(player, this.contentTemplateRepository, this.playerProgressionService);
         const delta = resolved?.delta
@@ -5319,9 +5338,11 @@ export class PlayerRuntimeService {
             options,
             progressionOnly
                 ? 'playerTick.offlineGainProgressionDeltaMs'
-                : inventoryOnly
-                    ? 'playerTick.offlineGainInventoryDeltaMs'
-                    : 'playerTick.offlineGainFullDeltaMs',
+                : progressionAndInventoryOnly
+                    ? 'playerTick.offlineGainProgressionInventoryDeltaMs'
+                    : inventoryOnly
+                        ? 'playerTick.offlineGainInventoryDeltaMs'
+                        : 'playerTick.offlineGainFullDeltaMs',
             deltaStartedAt,
         );
         this.playerStatisticSnapshotsByPlayerId.set(normalizedPlayerId, afterSnapshot);
@@ -5395,6 +5416,8 @@ export class PlayerRuntimeService {
         if (context && context.beforeSnapshot) {
             context.changed = true;
             context.progressionOnly = false;
+            context.progressionAndInventoryOnly = context.progressionAndInventoryOnly === true
+                && options?.inventoryOnly === true;
             return;
         }
         this.recordPlayerStatisticMutation(player, beforeSnapshot, endedAt, {
@@ -6822,6 +6845,7 @@ export class PlayerRuntimeService {
             const statisticStartedAt = performance.now();
             this.recordPlayerStatisticMutation(player, beforeSnapshot, Date.now(), {
                 progressionOnly: isProgressionOnlyStatisticResult(result),
+                progressionAndInventoryOnly: isProgressionAndInventoryOnlyStatisticResult(result),
                 statisticTechniqueChangedIds: result?.statisticTechniqueChangedIds,
             });
             recordPlayerTickPerf(performanceOptions, 'combat.playerMonsterKill.progressStatisticsMs', statisticStartedAt);
@@ -7755,6 +7779,18 @@ function isProgressionOnlyStatisticResult(result) {
     }
     return dirtyDomains.every((domain) => PROGRESSION_ONLY_STATISTIC_DOMAINS.has(domain));
 }
+function isProgressionAndInventoryOnlyStatisticResult(result) {
+    if (result?.changed !== true) {
+        return true;
+    }
+    const dirtyDomains = Array.isArray(result?.dirtyDomains) ? result.dirtyDomains : [];
+    if (dirtyDomains.length === 0) {
+        return true;
+    }
+    return dirtyDomains.every((domain) => (
+        domain === 'inventory' || PROGRESSION_ONLY_STATISTIC_DOMAINS.has(domain)
+    ));
+}
 function mergeOfflineGainSessionRecords(persistedSession, memorySession) {
     if (!persistedSession && !memorySession) {
         return null;
@@ -7944,6 +7980,33 @@ function buildOfflineGainProgressionOnlyMutation(player, beforeSnapshot, statist
             techniques: techniqueResult.delta,
             professions: [],
         }),
+    };
+}
+function buildOfflineGainProgressionAndInventoryMutation(
+    player,
+    beforeSnapshot,
+    contentTemplateRepository = null,
+    statisticTechniqueChangedIds = undefined,
+) {
+    const inventoryMutation = buildOfflineGainInventoryOnlyMutation(
+        player,
+        beforeSnapshot,
+        contentTemplateRepository,
+    );
+    const progressionMutation = buildOfflineGainProgressionOnlyMutation(
+        player,
+        inventoryMutation.afterSnapshot,
+        statisticTechniqueChangedIds,
+    );
+    return {
+        afterSnapshot: progressionMutation.afterSnapshot,
+        delta: {
+            spiritStones: inventoryMutation.delta.spiritStones,
+            items: inventoryMutation.delta.items,
+            progress: progressionMutation.delta.progress,
+            techniques: progressionMutation.delta.techniques,
+            professions: [],
+        },
     };
 }
 function buildOfflineGainProgressionOnlySnapshot(player, previousSnapshot, techniqueSnapshot = undefined) {
