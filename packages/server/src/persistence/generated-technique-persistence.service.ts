@@ -240,7 +240,7 @@ function buildAggregateNormalizedName(id: string): string {
 
 /** 以不可变 ID 写入并发布聚合版本；重复请求只回读既有行。 */
 export async function insertPublishedAggregateTechnique(
-  pool: Pool,
+  pool: Pool | PoolClient,
   params: InsertPublishedAggregateTechniqueParams,
 ): Promise<'inserted' | 'existing'> {
   const templateJson = JSON.stringify(params.template);

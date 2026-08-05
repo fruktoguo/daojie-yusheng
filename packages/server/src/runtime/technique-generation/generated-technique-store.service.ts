@@ -27,6 +27,11 @@ import {
   loadPublishedGeneratedTechniques,
   type GeneratedTechniqueSignature,
 } from '../../persistence/generated-technique-persistence.service';
+import {
+  publishDurableJadeTechniqueAggregation,
+  type PublishDurableJadeTechniqueAggregationResult,
+  type TechniqueGenerationSessionFence,
+} from '../../persistence/technique-generation-durable-persistence';
 
 @Injectable()
 export class GeneratedTechniqueStoreService {
@@ -137,6 +142,44 @@ export class GeneratedTechniqueStoreService {
       realmLv: params.template.realmLv,
       validationReport: params.validationReport,
     });
+    await this.refreshAfterPublish();
+    if (!this.cache.has(params.id)) {
+      throw new Error('technique_aggregation_persistence_unavailable');
+    }
+    return result;
+  }
+
+  async publishJadeAggregate(params: {
+    id: string;
+    generationId: string;
+    template: TechniqueTemplate;
+    createdByPlayerId: string;
+    validationReport: unknown;
+    playerId: string;
+    operationId: string;
+    requestFingerprint: string;
+    fence: TechniqueGenerationSessionFence;
+  }): Promise<PublishDurableJadeTechniqueAggregationResult> {
+    if (!this.pool) {
+      throw new Error('technique_aggregation_persistence_unavailable');
+    }
+    const result = await publishDurableJadeTechniqueAggregation(this.pool, {
+      id: params.id,
+      generationId: params.generationId,
+      template: params.template,
+      schemaVersion: 1,
+      createdByPlayerId: params.createdByPlayerId,
+      displayName: params.template.name,
+      grade: params.template.grade,
+      category: params.template.category ?? 'internal',
+      realmLv: params.template.realmLv,
+      validationReport: params.validationReport,
+      playerId: params.playerId,
+      operationId: params.operationId,
+      requestFingerprint: params.requestFingerprint,
+      ...params.fence,
+    });
+    if (!result.ok) return result;
     await this.refreshAfterPublish();
     if (!this.cache.has(params.id)) {
       throw new Error('technique_aggregation_persistence_unavailable');

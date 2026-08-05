@@ -5,8 +5,10 @@
  * 叶子功法集合，玩家覆盖数量据此计算，不能用聚合行数代替覆盖数量。
  */
 import type { TechniqueCategory, TechniqueGrade, TechniqueState } from './cultivation-types';
+import type { Attributes } from './attribute-types';
 import type { DaoistRelationLevel } from './social-types';
 import { SECT_MEMBER_ROLE_HIERARCHY, type SectMemberRole } from './sect-types';
+import { TECHNIQUE_ATTR_KEYS } from './constants/gameplay/technique';
 
 export const TECHNIQUE_AGGREGATE_ID_PREFIX = 'agg_';
 export const TECHNIQUE_AGGREGATE_SCHEMA_VERSION = 1;
@@ -30,6 +32,7 @@ export const DEFAULT_TECHNIQUE_UNIFICATION_ACCESS_POLICY: Readonly<TechniqueUnif
 };
 
 export type TechniqueUnificationPermissionScope = 'read' | 'revision';
+export type TechniqueAggregationRecordMode = 'sources' | 'jade';
 
 /** 统法台参阅与修订分别裁定，任一权限都不隐含另一权限。 */
 export interface TechniqueUnificationPermissions {
@@ -71,6 +74,8 @@ export type TechniqueAggregationErrorCode =
   | 'TECHNIQUE_AGGREGATE_SOURCE_NOT_MASTERED'
   | 'TECHNIQUE_AGGREGATE_SOURCE_CATEGORY_INVALID'
   | 'TECHNIQUE_AGGREGATE_SOURCE_GRADE_MISMATCH'
+  | 'TECHNIQUE_AGGREGATE_JADE_REQUIRES_FAMILY'
+  | 'TECHNIQUE_AGGREGATE_JADE_ITEM_NOT_ENOUGH'
   | 'TECHNIQUE_AGGREGATE_REVISION_INVALID'
   | 'TECHNIQUE_AGGREGATE_REVISION_NOT_ADDITIVE'
   | 'TECHNIQUE_AGGREGATE_OVERLAP'
@@ -91,6 +96,16 @@ export interface TechniqueAggregationMetadata {
   creatorPlayerId?: string;
   /** 当前卷修订者，用于幂等重放与审计。 */
   revisionAuthorPlayerId?: string;
+  /** 当前卷的录法方式；旧卷缺失时按源法续录处理。 */
+  revisionKind?: TechniqueAggregationRecordMode;
+  /** 当前卷客户端操作标识，用于玉简录法幂等回读。 */
+  revisionOperationId?: string;
+  /** 已融入本法脉的悟道玉简总数，不计入源法叶子数量。 */
+  jadeEnhancementCount?: number;
+  /** 玉简历次生成的基础六维累计值；编译统合层时统一享受一成增益。 */
+  jadeBonusAttrs?: Partial<Attributes>;
+  /** 最近一次玉简录法的随机强度，范围为 80-120。 */
+  latestJadeStrengthPercent?: number;
   /** 首次凝篇所在统法台，用于发布成功但建筑域尚未刷盘时恢复绑定。 */
   platformInstanceId?: string;
   platformBuildingId?: string;
@@ -121,8 +136,10 @@ export interface TechniqueAggregationFamilyView {
   name: string;
   grade: TechniqueGrade;
   category: TechniqueCategory;
+  realmLv: number;
   sourceCount: number;
   sourceTechniqueIds: string[];
+  jadeEnhancementCount: number;
   creatorPlayerId?: string;
   /** 玩家当前已持有的同一家族版本；没有则为空。 */
   playerRevision?: number;
@@ -146,6 +163,8 @@ export interface TechniqueAggregationPublishRequest {
   customName?: string;
   /** 首次凝篇可一并设置，后续通过独立权限请求修改。 */
   permissions?: TechniqueUnificationPermissions;
+  /** 缺失时兼容为录入自有源法。 */
+  recordMode?: TechniqueAggregationRecordMode;
   sourceTechniqueIds: string[];
 }
 
@@ -189,6 +208,8 @@ export interface TechniqueAggregationPanelView {
   totalCoveredLeafCount: number;
   /** 当前玩家拥有的聚合行数，用于展示压缩收益。 */
   learnedAggregateCount: number;
+  /** 当前背包中可供直接录法的悟道玉简数量。 */
+  jadeItemCount: number;
   platform: TechniqueUnificationPlatformView;
   error?: TechniqueAggregationErrorView;
 }
@@ -208,6 +229,7 @@ export interface TechniqueAggregationResultView {
   operationId?: string;
   ok: boolean;
   operation?: 'publish' | 'permissions' | 'learn';
+  recordMode?: TechniqueAggregationRecordMode;
   permissionScope?: TechniqueUnificationPermissionScope;
   code?: TechniqueAggregationErrorCode;
   messageKey?: string;
@@ -224,6 +246,8 @@ export interface TechniqueAggregationResultView {
     category: TechniqueCategory;
     sourceCount: number;
     sourceTechniqueIds: string[];
+    jadeEnhancementCount: number;
+    jadeStrengthPercent?: number;
     totalTrainingDifficulty: number;
     effectMultiplier: number;
   };
@@ -276,6 +300,16 @@ export function normalizeTechniqueAggregationMetadata(value: unknown): Technique
     ? raw.platformBuildingId.trim()
     : undefined;
   const initialPermissions = normalizeTechniqueUnificationPermissions(raw.initialPermissions);
+  const revisionKind = raw.revisionKind === 'jade' ? 'jade' : raw.revisionKind === 'sources' ? 'sources' : undefined;
+  const revisionOperationId = typeof raw.revisionOperationId === 'string' && raw.revisionOperationId.trim()
+    ? raw.revisionOperationId.trim().slice(0, 96)
+    : undefined;
+  const jadeEnhancementCount = Math.max(0, Math.trunc(Number(raw.jadeEnhancementCount) || 0));
+  const jadeBonusAttrs = normalizeTechniqueAggregationBonusAttrs(raw.jadeBonusAttrs);
+  const rawLatestJadeStrength = Number(raw.latestJadeStrengthPercent);
+  const latestJadeStrengthPercent = Number.isFinite(rawLatestJadeStrength)
+    ? Math.max(80, Math.min(120, Math.round(rawLatestJadeStrength)))
+    : undefined;
   return {
     schemaVersion: Math.max(1, Math.trunc(Number(raw.schemaVersion) || TECHNIQUE_AGGREGATE_SCHEMA_VERSION)),
     familyId,
@@ -285,10 +319,28 @@ export function normalizeTechniqueAggregationMetadata(value: unknown): Technique
     ...(previousRevision && previousRevision > 0 ? { previousRevision } : {}),
     ...(creatorPlayerId ? { creatorPlayerId } : {}),
     ...(revisionAuthorPlayerId ? { revisionAuthorPlayerId } : {}),
+    ...(revisionKind ? { revisionKind } : {}),
+    ...(revisionOperationId ? { revisionOperationId } : {}),
+    ...(jadeEnhancementCount > 0 ? { jadeEnhancementCount } : {}),
+    ...(jadeBonusAttrs ? { jadeBonusAttrs } : {}),
+    ...(latestJadeStrengthPercent !== undefined ? { latestJadeStrengthPercent } : {}),
     ...(platformInstanceId ? { platformInstanceId } : {}),
     ...(platformBuildingId ? { platformBuildingId } : {}),
     ...(raw.initialPermissions ? { initialPermissions } : {}),
   };
+}
+
+function normalizeTechniqueAggregationBonusAttrs(value: unknown): Partial<Attributes> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const raw = value as Record<string, unknown>;
+  const result: Partial<Attributes> = {};
+  for (const key of TECHNIQUE_ATTR_KEYS) {
+    const amount = Number(raw[key]);
+    if (Number.isFinite(amount) && amount > 0) {
+      result[key] = Math.round(amount * 1000) / 1000;
+    }
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
 }
 
 export function normalizeTechniqueUnificationAccessPolicy(

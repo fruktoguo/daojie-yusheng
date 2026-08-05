@@ -18,8 +18,10 @@ import {
 import {
   GENERATED_TECHNIQUE_TABLE,
   TECHNIQUE_GENERATION_JOB_TABLE,
+  insertPublishedAggregateTechnique,
   type InsertGeneratedTechniqueParams,
   type InsertGenerationJobParams,
+  type InsertPublishedAggregateTechniqueParams,
 } from './generated-technique-persistence.service';
 
 const PLAYER_PRESENCE_TABLE = 'player_presence';
@@ -73,6 +75,105 @@ export interface BeginDurableTechniqueGenerationResult {
   alreadyCommitted: boolean;
   inventoryItems: TechniqueGenerationRuntimeInventoryItem[];
   errorCode?: 'ACTIVE_JOB_EXISTS' | 'ITEM_NOT_ENOUGH';
+}
+
+export interface PublishDurableJadeTechniqueAggregationInput
+  extends InsertPublishedAggregateTechniqueParams, TechniqueGenerationSessionFence {
+  playerId: string;
+  operationId: string;
+  requestFingerprint: string;
+}
+
+export interface PublishDurableJadeTechniqueAggregationResult {
+  ok: boolean;
+  alreadyCommitted: boolean;
+  inventoryItems: TechniqueGenerationRuntimeInventoryItem[];
+  errorCode?: 'ITEM_NOT_ENOUGH';
+}
+
+/** 将一枚悟道玉简扣除与统合法卷发布原子提交，重放只回读已提交结果。 */
+export async function publishDurableJadeTechniqueAggregation(
+  pool: Pool,
+  input: PublishDurableJadeTechniqueAggregationInput,
+): Promise<PublishDurableJadeTechniqueAggregationResult> {
+  return withPlayerTechniqueGenerationTransaction(pool, input.playerId, async (client) => {
+    await assertTechniqueGenerationSessionFence(client, input.playerId, input);
+    const operationId = buildTechniqueAggregationJadeOperationId(input.operationId);
+    const existingOperation = await loadCommittedTechniqueAggregationJadeOperation(client, operationId, input);
+    if (existingOperation) {
+      return {
+        ok: true,
+        alreadyCommitted: true,
+        inventoryItems: await loadTechniqueGenerationRuntimeInventory(client, input.playerId),
+      };
+    }
+
+    const consumed = await consumeTechniqueGenerationItem(
+      client,
+      input.playerId,
+      TECHNIQUE_GENERATION_ITEM_ID,
+      1,
+    );
+    if (!consumed.ok) {
+      return {
+        ok: false,
+        alreadyCommitted: false,
+        inventoryItems: [],
+        errorCode: 'ITEM_NOT_ENOUGH',
+      };
+    }
+
+    const inserted = await insertPublishedAggregateTechnique(client, input);
+    if (inserted !== 'inserted') {
+      throw new Error(`technique_aggregation_jade_operation_missing:${input.id}`);
+    }
+    await touchTechniqueGenerationRecoveryWatermark(client, input.playerId, 'inventory_version');
+    await insertCommittedTechniqueGenerationOperation(client, {
+      operationId,
+      playerId: input.playerId,
+      operationType: 'technique_aggregation_jade_consume',
+      aggregateType: GENERATED_TECHNIQUE_TABLE,
+      aggregateId: input.id,
+      fence: input,
+      payload: {
+        jobId: input.id,
+        aggregateTechniqueId: input.id,
+        requestFingerprint: input.requestFingerprint,
+        itemId: TECHNIQUE_GENERATION_ITEM_ID,
+        itemSpend: 1,
+      },
+    });
+    await insertTechniqueGenerationOutbox(client, {
+      operationId,
+      topic: 'player.inventory.consumed',
+      playerId: input.playerId,
+      payload: {
+        playerId: input.playerId,
+        sourceType: 'technique_aggregation_jade',
+        sourceRefId: input.id,
+        consumedItems: [{ itemId: TECHNIQUE_GENERATION_ITEM_ID, count: 1 }],
+      },
+    });
+    await insertTechniqueGenerationAssetAudit(client, {
+      operationId,
+      playerId: input.playerId,
+      assetRefId: input.id,
+      action: 'consume',
+      delta: {
+        sourceType: 'technique_aggregation_jade',
+        itemId: TECHNIQUE_GENERATION_ITEM_ID,
+        count: -1,
+      },
+      before: { itemId: TECHNIQUE_GENERATION_ITEM_ID, count: consumed.beforeCount },
+      after: { itemId: TECHNIQUE_GENERATION_ITEM_ID, count: consumed.afterCount },
+    });
+
+    return {
+      ok: true,
+      alreadyCommitted: false,
+      inventoryItems: await loadTechniqueGenerationRuntimeInventory(client, input.playerId),
+    };
+  });
 }
 
 export async function beginDurableTechniqueGeneration(
@@ -1107,6 +1208,40 @@ async function loadCommittedTechniqueGenerationOperation(
   return payload;
 }
 
+async function loadCommittedTechniqueAggregationJadeOperation(
+  client: PoolClient,
+  operationId: string,
+  expected: PublishDurableJadeTechniqueAggregationInput,
+): Promise<Record<string, unknown> | null> {
+  const result = await client.query<{
+    player_id?: unknown;
+    operation_type?: unknown;
+    aggregate_type?: unknown;
+    aggregate_id?: unknown;
+    payload_jsonb?: unknown;
+  }>(
+    `SELECT player_id, operation_type, aggregate_type, aggregate_id, payload_jsonb
+       FROM ${DURABLE_OPERATION_LOG_TABLE}
+      WHERE operation_id = $1 AND status = 'committed'
+      FOR UPDATE`,
+    [operationId],
+  );
+  if ((result.rowCount ?? 0) === 0) return null;
+  const row = result.rows[0];
+  const payload = asRecord(row?.payload_jsonb);
+  if (
+    normalizeOptionalString(row?.player_id) !== normalizeOptionalString(expected.playerId)
+    || normalizeOptionalString(row?.operation_type) !== 'technique_aggregation_jade_consume'
+    || normalizeOptionalString(row?.aggregate_type) !== GENERATED_TECHNIQUE_TABLE
+    || normalizeOptionalString(row?.aggregate_id) !== normalizeOptionalString(expected.id)
+    || normalizeOptionalString(payload?.aggregateTechniqueId) !== normalizeOptionalString(expected.id)
+    || normalizeOptionalString(payload?.requestFingerprint) !== normalizeOptionalString(expected.requestFingerprint)
+  ) {
+    throw new Error(`technique_aggregation_jade_operation_replay_identity_conflict:${operationId}`);
+  }
+  return payload;
+}
+
 async function insertTechniqueGenerationOutbox(
   client: PoolClient,
   input: {
@@ -1165,6 +1300,12 @@ async function insertTechniqueGenerationAssetAudit(
 
 function buildTechniqueGenerationOperationId(kind: string, jobId: string): string {
   return `op:technique-generation-${kind}:${jobId}`;
+}
+
+function buildTechniqueAggregationJadeOperationId(value: string): string {
+  const normalized = normalizeOptionalString(value)?.slice(0, 96);
+  if (!normalized) throw new Error('technique_aggregation_jade_operation_id_required');
+  return `op:technique-aggregation-jade:${normalized}`;
 }
 
 function buildTechniqueGenerationItemInstanceId(operationId: string): string {
