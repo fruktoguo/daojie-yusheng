@@ -2151,6 +2151,66 @@ function testActionCooldownCountdownDoesNotBumpRevision(): void {
   assert.equal(player.actions.actions.find((entry) => entry.id === skillId)?.cooldownReadyTick, undefined);
 }
 
+function testActionCooldownTickOnlyRebuildsAtDirtyBoundary(): void {
+  const playerId = 'player:action-cooldown-dirty-boundary';
+  const skillId = 'skill.cooldown.dirty-boundary';
+  const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+  player.combat.autoIdleCultivation = false;
+  player.techniques.techniques = [
+    {
+      techId: 'tech.cooldown.dirty-boundary',
+      level: 1,
+      exp: 0,
+      expToNext: 10,
+      realmLv: 1,
+      skillsEnabled: true,
+      name: '冷却脏边界测试',
+      grade: null,
+      category: 'arts',
+      skills: [
+        {
+          id: skillId,
+          name: '冷却脏边界术',
+          desc: '',
+          cooldown: 30,
+          range: 1,
+          requiresTarget: true,
+        },
+      ],
+    },
+  ] as never;
+
+  player.lifeElapsedTicks = 100;
+  service.rebuildActionState(player, 100);
+  service.setSkillCooldownReadyTick(playerId, skillId, 130, 100);
+  const originalRebuildActionState = service.rebuildActionState.bind(service);
+  let tickRebuildCount = 0;
+  service.rebuildActionState = ((...args: Parameters<typeof service.rebuildActionState>) => {
+    tickRebuildCount += 1;
+    return originalRebuildActionState(...args);
+  }) as typeof service.rebuildActionState;
+
+  service.advanceSinglePlayerTick(player, 101, {});
+  assert.equal(tickRebuildCount, 0, '冷却中间息只需保留绝对 readyTick，不应重建整张 action 表');
+  assert.equal(player.actions.actions.find((entry) => entry.id === skillId)?.cooldownReadyTick, 130);
+
+  player.lifeElapsedTicks = 129;
+  service.advanceSinglePlayerTick(player, 130, {});
+  assert.equal(tickRebuildCount, 1, '冷却到期边界必须重建 action 表并清理 readyTick');
+  assert.equal(player.combat.cooldownReadyTickBySkillId[skillId], undefined);
+  assert.equal(player.actions.actions.find((entry) => entry.id === skillId)?.cooldownLeft, 0);
+  assert.equal(player.actions.actions.find((entry) => entry.id === skillId)?.cooldownReadyTick, undefined);
+
+  player.lifeElapsedTicks = 200;
+  service.setSkillCooldownReadyTick(playerId, skillId, 230, 200);
+  tickRebuildCount = 0;
+  player.attrs.numericStats.cooldownSpeed = 100;
+  service.advanceSinglePlayerTick(player, 201, {});
+  assert.equal(tickRebuildCount, 1, '冷却速度输入变化后必须立即沿用原有最大窗口校验');
+  assert.equal(player.combat.cooldownReadyTickBySkillId[skillId], undefined);
+}
+
 function testDeclaredContextActionCooldownReadyTick(): void {
   const playerId = 'player:context-action-cooldown';
   const actionId = 'tower:tongtian:next';
@@ -2291,6 +2351,7 @@ testLogbookDirtyDomain();
   testRespawnDirtyDomains();
   testRespawnPreservesActiveSkillCooldown();
   testActionCooldownCountdownDoesNotBumpRevision();
+  testActionCooldownTickOnlyRebuildsAtDirtyBoundary();
   testDeclaredContextActionCooldownReadyTick();
   testApplyProgressionResultDirtyDomains();
   testPersistenceDomainHoldsHideOnlyOwnedDomains();

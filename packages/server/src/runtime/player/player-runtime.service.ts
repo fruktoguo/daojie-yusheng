@@ -160,6 +160,12 @@ export class PlayerRuntimeService {
     playerStatisticLastEmittedTotalsByPlayerId = new Map();
     /** 当前玩家 tick 的统计上下文，tick 内资产变更只标记一次，tick 末统一 diff。 */
     playerStatisticTickContextsByPlayerId = new Map();
+    /** action 冷却投影只在到期边界或冷却速度输入变化时需要重新物化。 */
+    private readonly actionCooldownProjectionScheduleByPlayer = new WeakMap<object, {
+        nextReadyTick: number;
+        cooldownSpeed: number;
+        cooldownDivisor: number;
+    }>();
     /** 数据库禁用时等待客户端归档的离线收益报告。 */
     pendingOfflineGainReportsByPlayerId = new Map();
     /** 当前连接期已经下发过的待确认离线收益报告，避免每个同步 tick 重复推送。 */
@@ -5205,7 +5211,11 @@ export class PlayerRuntimeService {
                 this.disableAutoRootFoundationAtCap(player, playerTick);
                 recordPlayerTickPerf(options, 'playerTick.rootFoundationMs', rootFoundationStartedAt);
             }
-            if (hasActiveSkillCooldown(player, playerTick)) {
+            if (shouldRefreshSkillCooldownActionState(
+                player,
+                playerTick,
+                this.actionCooldownProjectionScheduleByPlayer.get(player),
+            )) {
                 const cooldownActionStateStartedAt = performance.now();
                 this.rebuildActionState(player, playerTick);
                 recordPlayerTickPerf(options, 'playerTick.cooldownActionStateMs', cooldownActionStateStartedAt);
@@ -6858,6 +6868,10 @@ export class PlayerRuntimeService {
         const techniqueFlagsChanged = syncTechniqueSkillAvailability(player);
         if (!nextActionResult.changed && !techniqueFlagsChanged && !nextActionResult.autoBattleSkillsChanged) {
             player.actions.actions = nextActions;
+            this.actionCooldownProjectionScheduleByPlayer.set(
+                player,
+                buildActionCooldownProjectionSchedule(player, playerTick),
+            );
             return;
         }
         player.actions.actions = nextActions;
@@ -6871,6 +6885,10 @@ export class PlayerRuntimeService {
         if (nextActionResult.autoBattleSkillsChanged) {
             markPlayerDirtyDomains(player, ['auto_battle_skill']);
         }
+        this.actionCooldownProjectionScheduleByPlayer.set(
+            player,
+            buildActionCooldownProjectionSchedule(player, playerTick),
+        );
     }
     /**
  * applyConsumableItem：处理Consumable道具并更新相关状态。
@@ -12247,20 +12265,63 @@ function recoverPlayerVitals(player, currentTick = -1) {
     return changed;
 }
 /**
- * hasActiveSkillCooldown：判断激活技能冷却是否满足条件。
+ * shouldRefreshSkillCooldownActionState：判断技能冷却投影是否到达重建边界。
  * @param player 玩家对象。
  * @param currentTick 参数说明。
  * @returns 无返回值，完成激活技能冷却的条件判断。
  */
 
-function hasActiveSkillCooldown(player, currentTick) {
+function shouldRefreshSkillCooldownActionState(player, currentTick, schedule) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (player.actions.actions.length === 0) {
+    if (!schedule) {
+        return hasTrackedSkillCooldown(player);
+    }
+    if (schedule.nextReadyTick <= 0) {
         return false;
     }
-    for (const readyTick of Object.values(player.combat.cooldownReadyTickBySkillId) as any[]) {
-        if (readyTick > 0 && readyTick >= currentTick) {
+    const cooldownSpeed = Math.trunc(Number(player.attrs?.numericStats?.cooldownSpeed ?? 0));
+    const cooldownDivisor = Math.max(1, Math.trunc(Number(player.attrs?.ratioDivisors?.cooldownSpeed ?? 100)));
+    return currentTick >= schedule.nextReadyTick
+        || cooldownSpeed !== schedule.cooldownSpeed
+        || cooldownDivisor !== schedule.cooldownDivisor;
+}
+
+/** 记录当前 action 投影下一次真正可能变化的冷却边界。 */
+function buildActionCooldownProjectionSchedule(player, currentTick) {
+    const normalizedCurrentTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+    let nextReadyTick = 0;
+    const cooldowns = player?.combat?.cooldownReadyTickBySkillId;
+    if (cooldowns && typeof cooldowns === 'object') {
+        for (const skillId in cooldowns) {
+            if (!Object.prototype.hasOwnProperty.call(cooldowns, skillId)) {
+                continue;
+            }
+            const readyTick = Math.max(0, Math.trunc(Number(cooldowns[skillId]) || 0));
+            if (readyTick <= normalizedCurrentTick) {
+                continue;
+            }
+            if (nextReadyTick <= 0 || readyTick < nextReadyTick) {
+                nextReadyTick = readyTick;
+            }
+        }
+    }
+    return {
+        nextReadyTick,
+        cooldownSpeed: Math.trunc(Number(player.attrs?.numericStats?.cooldownSpeed ?? 0)),
+        cooldownDivisor: Math.max(1, Math.trunc(Number(player.attrs?.ratioDivisors?.cooldownSpeed ?? 100))),
+    };
+}
+
+/** 未建立调度缓存时仅检查是否存在需要收敛的技能冷却。 */
+function hasTrackedSkillCooldown(player) {
+    const cooldowns = player?.combat?.cooldownReadyTickBySkillId;
+    if (!cooldowns || typeof cooldowns !== 'object') {
+        return false;
+    }
+    for (const skillId in cooldowns) {
+        if (Object.prototype.hasOwnProperty.call(cooldowns, skillId)
+            && Math.max(0, Math.trunc(Number(cooldowns[skillId]) || 0)) > 0) {
             return true;
         }
     }
