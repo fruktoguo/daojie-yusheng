@@ -521,11 +521,11 @@ export class CraftPanelRuntimeService {
             const result: any = this.pipeline.tick(player, kind, ctx);
             if (result && typeof result.then === 'function') {
                 return result.then((resolved) => {
-                    this.recordTechniqueActivityStatisticMutation(player, resolved, true);
+                    this.recordTechniqueActivityStatisticMutation(player, resolved, true, kind);
                     return resolved;
                 });
             }
-            this.recordTechniqueActivityStatisticMutation(player, result, true);
+            this.recordTechniqueActivityStatisticMutation(player, result, true, kind);
             return result;
         }
         return buildCraftTickResult();
@@ -1033,7 +1033,7 @@ export class CraftPanelRuntimeService {
         this.playerRuntimeService.rebuildActionState?.(player, 0);
     }
     /** 技艺 pipeline 入口补记直接改背包/技艺经验的收支；已由玩家运行时入口记录的部分会被当前快照过滤。 */
-    recordTechniqueActivityStatisticMutation(player, result, requireStatisticSignal = false) {
+    recordTechniqueActivityStatisticMutation(player, result, requireStatisticSignal = false, kind = null) {
         if (!result?.ok || !player) {
             return;
         }
@@ -1041,6 +1041,20 @@ export class CraftPanelRuntimeService {
             return;
         }
         const beforeSnapshot = this.playerRuntimeService.captureOfflineGainBeforeTick?.(player);
+        const useProgressionAndProfessionOnly = requireStatisticSignal
+            && kind === 'building'
+            && result.inventoryChanged !== true
+            && result.equipmentChanged !== true
+            && (!Array.isArray(result.groundDrops) || result.groundDrops.length === 0);
+        if (useProgressionAndProfessionOnly) {
+            this.playerRuntimeService.recordAssetStatisticMutation?.(
+                player,
+                beforeSnapshot,
+                undefined,
+                { progressionAndProfessionOnly: true },
+            );
+            return;
+        }
         this.playerRuntimeService.recordAssetStatisticMutation?.(player, beforeSnapshot);
     }
     buildPipelineContext(deps = null) {

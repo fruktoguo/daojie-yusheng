@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
 import { CraftPanelRuntimeService } from '../runtime/craft/craft-panel-runtime.service';
+import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import { WorldRuntimeCraftTickService } from '../runtime/world/world-runtime-craft-tick.service';
 import { installSmokeTimeout } from './smoke-timeout';
 
@@ -11,10 +12,11 @@ async function main(): Promise<void> {
   await testCraftBatchKeepsPerPlayerIsolation();
   await testCraftTickRecordsFixedPerformanceDimensions();
   await testStatisticDiffOnlyRunsForRealMutation();
+  await testBuildingStatisticFastPathMatchesFullDiff();
 
   console.log(JSON.stringify({
     ok: true,
-    cases: ['idle_players_skip_craft_pipeline', 'active_and_queued_players_are_selected', 'batched_craft_tick_keeps_player_isolation', 'craft_tick_records_fixed_performance_dimensions', 'unchanged_tick_skips_statistics_diff', 'statistic_signal_records_diff', 'async_tick_records_after_resolution'],
+    cases: ['idle_players_skip_craft_pipeline', 'active_and_queued_players_are_selected', 'batched_craft_tick_keeps_player_isolation', 'craft_tick_records_fixed_performance_dimensions', 'unchanged_tick_skips_statistics_diff', 'statistic_signal_records_diff', 'async_tick_records_after_resolution', 'building_statistic_fast_path_matches_full_diff'],
   }, null, 2));
 }
 
@@ -63,6 +65,7 @@ async function testStatisticDiffOnlyRunsForRealMutation(): Promise<void> {
   const player = { playerId: 'player:technique-statistics-hotpath' };
   let captureCount = 0;
   let recordCount = 0;
+  const statisticOptions: unknown[] = [];
   let nextResult: unknown = buildResult();
   const service: any = Object.create(CraftPanelRuntimeService.prototype);
   service.pipeline = {
@@ -71,8 +74,9 @@ async function testStatisticDiffOnlyRunsForRealMutation(): Promise<void> {
   };
   service.playerRuntimeService = {
     captureOfflineGainBeforeTick: () => ({ snapshot: ++captureCount }),
-    recordAssetStatisticMutation: () => {
+    recordAssetStatisticMutation: (...args: unknown[]) => {
       recordCount += 1;
+      statisticOptions.push(args[3]);
     },
   };
 
@@ -83,12 +87,192 @@ async function testStatisticDiffOnlyRunsForRealMutation(): Promise<void> {
   nextResult = buildResult({ attrChanged: true });
   service.tickTechniqueActivity(player, 'transmission');
   assert.equal(recordCount, 1, '职业经验变化必须进入统计差分');
+  assert.equal(statisticOptions[0], undefined, '非建造技艺继续使用原统计路径');
 
   nextResult = Promise.resolve(buildResult({ inventoryChanged: true }));
   await service.tickTechniqueActivity(player, 'gather');
   assert.equal(recordCount, 2, '异步技艺结算完成后必须补记统计差分');
-  assert.equal(captureCount, 5);
+  assert.equal(statisticOptions[1], undefined, '带背包变化的技艺不能走职业专用路径');
 
+  nextResult = buildResult({ attrChanged: true, craftRealmExpGain: 1 });
+  service.tickTechniqueActivity(player, 'building');
+  assert.equal(recordCount, 3, '建造职业经验变化必须进入统计差分');
+  assert.deepEqual(statisticOptions[2], { progressionAndProfessionOnly: true });
+  assert.equal(captureCount, 7);
+
+}
+
+async function testBuildingStatisticFastPathMatchesFullDiff(): Promise<void> {
+  const fast = createStatisticService();
+  const reference = createStatisticService();
+  const fastPlayer = createStatisticPlayer('player:building-stat-fast');
+  const referencePlayer = structuredClone(fastPlayer);
+  referencePlayer.playerId = 'player:building-stat-reference';
+
+  const fastBefore = fast.captureOfflineGainBeforeTick(fastPlayer);
+  const referenceBefore = reference.captureOfflineGainBeforeTick(referencePlayer);
+  fast.offlineGainSessionsByPlayerId.set(fastPlayer.playerId, createOfflineStatisticSession(fastBefore));
+  reference.offlineGainSessionsByPlayerId.set(referencePlayer.playerId, createOfflineStatisticSession(referenceBefore));
+
+  for (const player of [fastPlayer, referencePlayer]) {
+    player.realm.progress += 17;
+    player.foundation += 3;
+    player.buildingSkill.exp += 4;
+  }
+
+  fast.recordAssetStatisticMutation(fastPlayer, fastBefore, undefined, { progressionAndProfessionOnly: true });
+  reference.recordAssetStatisticMutation(referencePlayer, referenceBefore);
+
+  assert.deepEqual(
+    normalizeComparable(projectStatisticSnapshot(fast.playerStatisticSnapshotsByPlayerId.get(fastPlayer.playerId))),
+    normalizeComparable(projectStatisticSnapshot(reference.playerStatisticSnapshotsByPlayerId.get(referencePlayer.playerId))),
+  );
+  assert.deepEqual(
+    normalizeComparable(fast.offlineGainSessionsByPlayerId.get(fastPlayer.playerId).accumulatedPayload),
+    normalizeComparable(reference.offlineGainSessionsByPlayerId.get(referencePlayer.playerId).accumulatedPayload),
+  );
+
+  const onlineFast = createStatisticService();
+  const onlineReference = createStatisticService();
+  const onlineFastPlayer = createStatisticPlayer('player:building-stat-online-fast');
+  const onlineReferencePlayer = structuredClone(onlineFastPlayer);
+  onlineReferencePlayer.playerId = 'player:building-stat-online-reference';
+  onlineFastPlayer.sessionId = 'session:building-stat-online-fast';
+  onlineReferencePlayer.sessionId = 'session:building-stat-online-reference';
+  const onlineFastBefore = onlineFast.captureOfflineGainBeforeTick(onlineFastPlayer);
+  const onlineReferenceBefore = onlineReference.captureOfflineGainBeforeTick(onlineReferencePlayer);
+  for (const player of [onlineFastPlayer, onlineReferencePlayer]) {
+    player.realm.progress += 9;
+    player.buildingSkill.exp += 2;
+  }
+  onlineFast.recordAssetStatisticMutation(
+    onlineFastPlayer,
+    onlineFastBefore,
+    undefined,
+    { progressionAndProfessionOnly: true },
+  );
+  onlineReference.recordAssetStatisticMutation(onlineReferencePlayer, onlineReferenceBefore);
+  assert.deepEqual(
+    normalizeComparable(onlineFast.onlineStatisticDeltas),
+    normalizeComparable(onlineReference.onlineStatisticDeltas),
+  );
+
+  const protectedPlayer = createStatisticPlayer('player:building-stat-no-scan');
+  const protectedService = createStatisticService();
+  const protectedBefore = protectedService.captureOfflineGainBeforeTick(protectedPlayer);
+  protectedPlayer.inventory.items = new Proxy(protectedPlayer.inventory.items, {
+    get(target, property, receiver) {
+      if (property === Symbol.iterator || property === 'map' || property === 'forEach') {
+        throw new Error('building_profession_fast_path_traversed_inventory');
+      }
+      return Reflect.get(target, property, receiver);
+    },
+  });
+  protectedPlayer.techniques.techniques = new Proxy(protectedPlayer.techniques.techniques, {
+    get(target, property, receiver) {
+      if (property === Symbol.iterator || property === 'map' || property === 'forEach') {
+        throw new Error('building_profession_fast_path_traversed_techniques');
+      }
+      return Reflect.get(target, property, receiver);
+    },
+  });
+  protectedPlayer.buildingSkill.exp += 1;
+  protectedService.recordAssetStatisticMutation(
+    protectedPlayer,
+    protectedBefore,
+    undefined,
+    { progressionAndProfessionOnly: true },
+  );
+}
+
+function createStatisticService(): any {
+  const service: any = Object.create(PlayerRuntimeService.prototype);
+  service.playerStatisticSnapshotsByPlayerId = new Map();
+  service.offlineGainSessionsByPlayerId = new Map();
+  service.playerStatisticTickContextsByPlayerId = new Map();
+  service.assetMutationContext = { getStore: () => null };
+  service.contentTemplateRepository = null;
+  service.playerProgressionService = {
+    getRealmRuntimeExpToNext: (level: number) => 1000 + Math.max(1, Math.floor(Number(level) || 1)),
+  };
+  service.onlineStatisticDeltas = [];
+  service.recordPlayerStatisticTotals = (_playerId: string, delta: unknown) => {
+    service.onlineStatisticDeltas.push(delta);
+  };
+  service.queueOnlinePlayerStatisticReport = (_playerId: string, _player: unknown, delta: unknown) => {
+    service.onlineStatisticDeltas.push(delta);
+  };
+  return service;
+}
+
+function createStatisticPlayer(playerId: string): any {
+  return {
+    playerId,
+    sessionId: null,
+    realm: { realmLv: 35, progress: 12345, progressToNext: 99999 },
+    foundation: 100,
+    rootFoundation: 50,
+    combatExp: 200,
+    bodyTraining: { level: 10, exp: 20, expToNext: 100 },
+    techniques: {
+      techniques: Array.from({ length: 200 }, (_, index) => ({
+        techId: `tech:${index}`,
+        name: `功法${index}`,
+        level: 20,
+        exp: index,
+        expToNext: 1000,
+      })),
+    },
+    inventory: {
+      items: Array.from({ length: 200 }, (_, index) => ({
+        itemId: `item:${index}`,
+        name: `物品${index}`,
+        count: 1,
+      })),
+      lockedItems: [],
+    },
+    alchemySkill: { level: 10, exp: 1, expToNext: 100 },
+    forgingSkill: { level: 11, exp: 2, expToNext: 110 },
+    buildingSkill: { level: 12, exp: 3, expToNext: 120 },
+    gatherSkill: { level: 13, exp: 4, expToNext: 130 },
+    enhancementSkill: { level: 14, exp: 5, expToNext: 140 },
+    miningSkill: { level: 15, exp: 6, expToNext: 150 },
+  };
+}
+
+function createOfflineStatisticSession(baselinePayload: unknown): any {
+  return {
+    startedAt: Date.now() - 10_000,
+    baselinePayload,
+    accumulatedPayload: {
+      spiritStones: { gained: 0, lost: 0, net: 0 },
+      items: [],
+      progress: [],
+      techniques: [],
+      professions: [],
+    },
+    accumulatedDurationMs: 0,
+  };
+}
+
+function projectStatisticSnapshot(snapshot: any): unknown {
+  if (!snapshot) {
+    return null;
+  }
+  return {
+    inventoryItems: snapshot.inventoryItems,
+    realm: snapshot.realm,
+    foundation: snapshot.foundation,
+    rootFoundation: snapshot.rootFoundation,
+    combatExp: snapshot.combatExp,
+    bodyTraining: snapshot.bodyTraining,
+    techniques: snapshot.techniques,
+    professions: snapshot.professions,
+  };
+}
+
+function normalizeComparable(value: unknown): unknown {
+  return JSON.parse(JSON.stringify(value));
 }
 
 async function testCraftBatchKeepsPerPlayerIsolation(): Promise<void> {

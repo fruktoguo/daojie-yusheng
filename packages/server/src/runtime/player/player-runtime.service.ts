@@ -5337,7 +5337,13 @@ export class PlayerRuntimeService {
         const normalizedPlayerId = normalizeOfflineGainString(player?.playerId);
         const progressionOnly = options?.progressionOnly === true;
         const progressionAndInventoryOnly = !progressionOnly && options?.progressionAndInventoryOnly === true;
-        const inventoryOnly = !progressionOnly && !progressionAndInventoryOnly && options?.inventoryOnly === true;
+        const progressionAndProfessionOnly = !progressionOnly
+            && !progressionAndInventoryOnly
+            && options?.progressionAndProfessionOnly === true;
+        const inventoryOnly = !progressionOnly
+            && !progressionAndInventoryOnly
+            && !progressionAndProfessionOnly
+            && options?.inventoryOnly === true;
         const deltaStartedAt = performance.now();
         const resolved = progressionOnly
             ? buildOfflineGainProgressionOnlyMutation(
@@ -5352,14 +5358,20 @@ export class PlayerRuntimeService {
                     this.contentTemplateRepository,
                     options?.statisticTechniqueChangedIds,
                 )
-                : inventoryOnly
-                    ? buildOfflineGainInventoryOnlyMutation(
+                : progressionAndProfessionOnly
+                    ? buildOfflineGainProgressionAndProfessionMutation(
                         player,
                         beforeSnapshot,
-                        this.contentTemplateRepository,
-                        options?.inventoryItemDeltaHint,
+                        this.playerProgressionService,
                     )
-                    : null;
+                    : inventoryOnly
+                        ? buildOfflineGainInventoryOnlyMutation(
+                            player,
+                            beforeSnapshot,
+                            this.contentTemplateRepository,
+                            options?.inventoryItemDeltaHint,
+                        )
+                        : null;
         const afterSnapshot = resolved?.afterSnapshot
             ?? buildOfflineGainSnapshot(player, this.contentTemplateRepository, this.playerProgressionService);
         const delta = resolved?.delta
@@ -5374,9 +5386,11 @@ export class PlayerRuntimeService {
                 ? 'playerTick.offlineGainProgressionDeltaMs'
                 : progressionAndInventoryOnly
                     ? 'playerTick.offlineGainProgressionInventoryDeltaMs'
-                    : inventoryOnly
-                        ? 'playerTick.offlineGainInventoryDeltaMs'
-                        : 'playerTick.offlineGainFullDeltaMs',
+                    : progressionAndProfessionOnly
+                        ? 'playerTick.offlineGainProgressionProfessionDeltaMs'
+                        : inventoryOnly
+                            ? 'playerTick.offlineGainInventoryDeltaMs'
+                            : 'playerTick.offlineGainFullDeltaMs',
             deltaStartedAt,
         );
         this.playerStatisticSnapshotsByPlayerId.set(normalizedPlayerId, afterSnapshot);
@@ -5392,7 +5406,9 @@ export class PlayerRuntimeService {
             }
             offlineSession.accumulatedPayload = progressionOnly
                 ? mergeOfflineGainProgressionReportPartsBySum(offlineSession.accumulatedPayload, delta)
-                : mergeOfflineGainReportPartsBySum(offlineSession.accumulatedPayload, delta);
+                : progressionAndProfessionOnly
+                    ? mergeOfflineGainProgressionAndProfessionReportPartsBySum(offlineSession.accumulatedPayload, delta)
+                    : mergeOfflineGainReportPartsBySum(offlineSession.accumulatedPayload, delta);
             recordPlayerTickPerf(options, 'playerTick.offlineGainOfflineMergeMs', offlineMergeStartedAt);
             return;
         }
@@ -5456,6 +5472,7 @@ export class PlayerRuntimeService {
         }
         this.recordPlayerStatisticMutation(player, beforeSnapshot, endedAt, {
             progressionOnly: false,
+            progressionAndProfessionOnly: options?.progressionAndProfessionOnly === true,
             inventoryOnly: options?.inventoryOnly === true,
             inventoryItemDeltaHint: options?.inventoryItemDeltaHint,
             recordTickSectionDuration: options?.recordTickSectionDuration,
@@ -8035,6 +8052,26 @@ function buildOfflineGainProgressionOnlyMutation(player, beforeSnapshot, statist
         }),
     };
 }
+function buildOfflineGainProgressionAndProfessionMutation(player, beforeSnapshot, playerProgressionService = null) {
+    const before = normalizeOfflineGainSnapshot(beforeSnapshot);
+    const resolveProfessionExpToNext = (level) => resolveCraftSkillExpToNextByLevel(playerProgressionService, level);
+    const afterSnapshot = buildOfflineGainProgressionOnlySnapshot(
+        player,
+        before,
+        before.techniques,
+        buildOfflineGainProfessionSnapshots(player, resolveProfessionExpToNext),
+    );
+    return {
+        afterSnapshot,
+        delta: markNormalizedOfflineGainReportParts({
+            spiritStones: { gained: 0, lost: 0, net: 0 },
+            items: [],
+            progress: diffOfflineGainProgress(before, afterSnapshot),
+            techniques: [],
+            professions: diffOfflineGainProfessions(before.professions, afterSnapshot.professions, resolveProfessionExpToNext),
+        }),
+    };
+}
 function buildOfflineGainProgressionAndInventoryMutation(
     player,
     beforeSnapshot,
@@ -8062,7 +8099,12 @@ function buildOfflineGainProgressionAndInventoryMutation(
         },
     };
 }
-function buildOfflineGainProgressionOnlySnapshot(player, previousSnapshot, techniqueSnapshot = undefined) {
+function buildOfflineGainProgressionOnlySnapshot(
+    player,
+    previousSnapshot,
+    techniqueSnapshot = undefined,
+    professionSnapshot = undefined,
+) {
     return markNormalizedOfflineGainSnapshot({
         snapshotAt: Date.now(),
         playerId: normalizeOfflineGainString(player?.playerId),
@@ -8087,7 +8129,7 @@ function buildOfflineGainProgressionOnlySnapshot(player, previousSnapshot, techn
         techniques: Array.isArray(techniqueSnapshot)
             ? techniqueSnapshot
             : buildOfflineGainProgressionTechniqueSnapshot(player?.techniques?.techniques, previousSnapshot.techniques),
-        professions: previousSnapshot.professions,
+        professions: Array.isArray(professionSnapshot) ? professionSnapshot : previousSnapshot.professions,
     });
 }
 function hasOfflineGainReportParts(parts) {
@@ -8641,6 +8683,28 @@ function mergeOfflineGainProgressionReportPartsBySum(leftValue, rightValue) {
     canonicalOfflineGainReportPartsRecords.add(merged);
     return merged;
 }
+/** 进度与职业经验变更不会携带背包或功法差量，保留其余累计数组引用。 */
+function mergeOfflineGainProgressionAndProfessionReportPartsBySum(leftValue, rightValue) {
+    const left = normalizeOfflineGainReportParts(leftValue);
+    const right = normalizeOfflineGainReportParts(rightValue);
+    if (!canonicalOfflineGainReportPartsRecords.has(left)
+        || right.spiritStones.gained > 0
+        || right.spiritStones.lost > 0
+        || right.spiritStones.net !== 0
+        || right.items.length > 0
+        || right.techniques.length > 0) {
+        return mergeOfflineGainReportPartsBySum(left, right);
+    }
+    const merged = markNormalizedOfflineGainReportParts({
+        spiritStones: left.spiritStones,
+        items: left.items,
+        progress: mergeOfflineGainProgressRowsBySum(left.progress, right.progress),
+        techniques: left.techniques,
+        professions: mergeOfflineGainProfessions(left.professions, right.professions, 'sum'),
+    });
+    canonicalOfflineGainReportPartsRecords.add(merged);
+    return merged;
+}
 function mergeOfflineGainProgressRowsBySum(leftRows, rightRows) {
     if (rightRows.length === 0) {
         return leftRows;
@@ -8852,15 +8916,18 @@ function buildOfflineGainSnapshot(player, contentTemplateRepository = null, play
                 : normalizeOfflineGainCount(player?.bodyTraining?.expToNext),
         }),
         techniques: buildOfflineGainTechniqueSnapshot(player?.techniques?.techniques),
-        professions: [
-            buildOfflineGainProfessionSnapshot('alchemy', '炼丹', player?.alchemySkill, resolveProfessionExpToNext),
-            buildOfflineGainProfessionSnapshot('forging', '炼器', player?.forgingSkill, resolveProfessionExpToNext),
-            buildOfflineGainProfessionSnapshot('building', '营造', player?.buildingSkill, resolveProfessionExpToNext),
-            buildOfflineGainProfessionSnapshot('gather', '采集', player?.gatherSkill, resolveProfessionExpToNext),
-            buildOfflineGainProfessionSnapshot('enhancement', '强化', player?.enhancementSkill, resolveProfessionExpToNext),
-            buildOfflineGainProfessionSnapshot('mining', '挖矿', player?.miningSkill, resolveProfessionExpToNext),
-        ].filter((entry) => Boolean(entry)),
+        professions: buildOfflineGainProfessionSnapshots(player, resolveProfessionExpToNext),
     });
+}
+function buildOfflineGainProfessionSnapshots(player, resolveProfessionExpToNext) {
+    return [
+        buildOfflineGainProfessionSnapshot('alchemy', '炼丹', player?.alchemySkill, resolveProfessionExpToNext),
+        buildOfflineGainProfessionSnapshot('forging', '炼器', player?.forgingSkill, resolveProfessionExpToNext),
+        buildOfflineGainProfessionSnapshot('building', '营造', player?.buildingSkill, resolveProfessionExpToNext),
+        buildOfflineGainProfessionSnapshot('gather', '采集', player?.gatherSkill, resolveProfessionExpToNext),
+        buildOfflineGainProfessionSnapshot('enhancement', '强化', player?.enhancementSkill, resolveProfessionExpToNext),
+        buildOfflineGainProfessionSnapshot('mining', '挖矿', player?.miningSkill, resolveProfessionExpToNext),
+    ].filter((entry) => Boolean(entry));
 }
 function buildOfflineGainInventorySnapshot(items, contentTemplateRepository = null) {
     const byItemId = new Map();

@@ -110,9 +110,9 @@ function main(): void {
     'this.playerRuntimeService.captureOfflineGainBeforeTick?.(player);',
     'const result: any = this.pipeline.tick(player, kind, ctx);',
     "if (result && typeof result.then === 'function') {",
-    'this.recordTechniqueActivityStatisticMutation(player, resolved, true);',
+    'this.recordTechniqueActivityStatisticMutation(player, resolved, true, kind);',
     'return resolved;',
-    'this.recordTechniqueActivityStatisticMutation(player, result, true);',
+    'this.recordTechniqueActivityStatisticMutation(player, result, true, kind);',
     'return result;',
   ], 'tickTechniqueActivity must preserve baseline -> sync/async pipeline -> filtered statistic ordering');
   assertMatch(
