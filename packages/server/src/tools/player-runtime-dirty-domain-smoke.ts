@@ -248,6 +248,16 @@ function createHydratedService(playerId: string) {
   return service;
 }
 
+function createRealAttributeHydratedService(playerId: string) {
+  const service = createPlayerRuntimeService();
+  const attributeService = new PlayerAttributesService();
+  (service as unknown as { playerAttributesService: PlayerAttributesService }).playerAttributesService = attributeService;
+  const player = service.hydrateFromSnapshot(playerId, `${playerId}:session`, createSnapshot());
+  service.players.set(playerId, player);
+  service.markPersisted(playerId);
+  return { service, attributeService, player };
+}
+
 function assertDirtyDomains(service: ReturnType<typeof createPlayerRuntimeService>, playerId: string, expected: string[], absent: string[] = []) {
   const dirtyDomains = service.listDirtyPlayerDomains().get(playerId);
   assert.ok(dirtyDomains, `expected dirty domains for ${playerId}`);
@@ -1385,6 +1395,68 @@ function testDeferredAttributeRecalculationCanForceFreshness(): void {
   assert.equal(buildStateCalls, 2, 'expected one forced flush and one final batch flush');
 }
 
+function createAttributeBuffInput(buffId: string, payload: Record<string, unknown>) {
+  return {
+    buffId,
+    name: buffId,
+    desc: '',
+    baseDesc: '',
+    shortMark: '',
+    category: 'temporary',
+    visibility: 'public',
+    duration: 5,
+    remainingTicks: 5,
+    stacks: 1,
+    maxStacks: 1,
+    sourceSkillId: null,
+    sourceSkillName: null,
+    realmLv: 1,
+    color: null,
+    ...payload,
+  };
+}
+
+function testRuntimeAttributeDirtyScopeCoalescesNonVitalBuffs(): void {
+  const playerId = 'player:combat-non-vital-buff-coalesce';
+  const { service, attributeService, player } = createRealAttributeHydratedService(playerId);
+  const originalBuildState = attributeService.buildState.bind(attributeService);
+  let buildStateCalls = 0;
+  attributeService.buildState = (target: unknown) => {
+    buildStateCalls += 1;
+    return originalBuildState(target);
+  };
+
+  const result = service.withDeferredAttributeRecalculation(playerId, () => {
+    service.applyTemporaryBuff(playerId, createAttributeBuffInput('buff:phys-atk', { stats: { physAtk: 10 } }));
+    service.applyTemporaryBuff(playerId, createAttributeBuffInput('buff:spell-def', { stats: { spellDef: 20 } }));
+  });
+
+  assert.equal(result.requested, true);
+  assert.equal(buildStateCalls, 1, 'expected ordinary combat buffs to share one attribute flush');
+  assert.equal(player.buffs.buffs.length, 2);
+}
+
+function testRuntimeAttributeDirtyScopeKeepsVitalBuffsImmediate(): void {
+  const playerId = 'player:combat-vital-buff-freshness';
+  const { service, attributeService, player } = createRealAttributeHydratedService(playerId);
+  const originalBuildState = attributeService.buildState.bind(attributeService);
+  let buildStateCalls = 0;
+  attributeService.buildState = (target: unknown) => {
+    buildStateCalls += 1;
+    return originalBuildState(target);
+  };
+  const initialHpRatio = player.hp / player.maxHp;
+
+  const result = service.withDeferredAttributeRecalculation(playerId, () => {
+    service.applyTemporaryBuff(playerId, createAttributeBuffInput('buff:constitution', { attrs: { constitution: 10 } }));
+    service.applyTemporaryBuff(playerId, createAttributeBuffInput('buff:max-qi', { stats: { maxQi: 100 } }));
+  });
+
+  assert.equal(result.requested, true);
+  assert.equal(buildStateCalls, 2, 'expected each vital-capacity buff to force freshness at its application point');
+  assert.ok(Math.abs(player.hp / player.maxHp - initialHpRatio) <= (1 / player.maxHp));
+}
+
 function testAdvanceSinglePlayerTickCoalescesAttributeRecalculation(): void {
   const playerId = 'player:tick-attr-coalesce';
   const service = createHydratedService(playerId);
@@ -2205,6 +2277,8 @@ testLogbookDirtyDomain();
   testEquipmentBuffConditionKeepsAttrDirtyDomain();
   testDeferredAttributeRecalculationCoalescesRequests();
   testDeferredAttributeRecalculationCanForceFreshness();
+  testRuntimeAttributeDirtyScopeCoalescesNonVitalBuffs();
+  testRuntimeAttributeDirtyScopeKeepsVitalBuffsImmediate();
   testAdvanceSinglePlayerTickCoalescesAttributeRecalculation();
   testProgressionServiceDirtyDomains();
   testHeavenGateEnterRecalculatesAttributes();

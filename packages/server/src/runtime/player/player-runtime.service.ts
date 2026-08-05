@@ -11,7 +11,7 @@
 import { Inject, BadRequestException, Injectable, Logger, NotFoundException, Optional, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { ARTIFACT_SLOTS, ARTIFACT_UNLOCK_REALM_LV, ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_COMBAT_ATTACK_INTENSITY, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, addItemStackMergeCount, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, cloneCraftEffectStats, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, findMergeableItemStackIndex, getBodyTrainingExpToNext, getTechniqueMaxLevel, isCreatedTechniqueId, isTechniqueFullyMastered, mergeItemStackInto, normalizeBodyTrainingState, normalizeCombatAttackIntensity, normalizeHorizontalFacing, percentModifierToMultiplier, resolveArtifactMaxQi, resolvePlayerFacingContentName, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, resolveTechniqueStandardMaxHpRecoveryAmount, resolveTechniqueStandardMaxQiRecoveryAmount, signedRatioValue } from '@mud/shared';
+import { ARTIFACT_SLOTS, ARTIFACT_UNLOCK_REALM_LV, ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_COMBAT_ATTACK_INTENSITY, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, addItemStackMergeCount, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, cloneCraftEffectStats, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, findMergeableItemStackIndex, getBodyTrainingExpToNext, getTechniqueMaxLevel, isCreatedTechniqueId, isTechniqueFullyMastered, mergeItemStackInto, normalizeBodyTrainingState, normalizeCombatAttackIntensity, normalizeHorizontalFacing, percentModifierToMultiplier, resolveArtifactMaxQi, resolvePlayerFacingContentName, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, resolveTechniqueStandardMaxHpRecoveryAmount, resolveTechniqueStandardMaxQiRecoveryAmount, signedRatioValue } from '@mud/shared';
 import type { TechniqueTransmissionStatusView } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
@@ -4219,6 +4219,26 @@ export class PlayerRuntimeService {
         }
         return player;
     }
+
+    /** 在一个权威操作区间内合并同一玩家的属性重算请求。 */
+    withDeferredAttributeRecalculation(playerId, callback) {
+        const player = this.getPlayerOrThrow(playerId);
+        if (typeof this.playerAttributesService?.withDeferredRecalculation !== 'function') {
+            return {
+                value: callback(),
+                requested: false,
+                changed: false,
+                panelDirtyChanged: false,
+            };
+        }
+        return this.playerAttributesService.withDeferredRecalculation(player, callback);
+    }
+
+    /** 权威读取属性前收敛当前操作区间内尚未结算的脏状态。 */
+    ensurePlayerAttributesFresh(playerId) {
+        const player = this.getPlayerOrThrow(playerId);
+        return this.playerAttributesService?.ensureFresh?.(player) ?? { requested: false, changed: false };
+    }
     /**
  * spendQi：执行spendQi相关逻辑。
  * @param playerId 玩家 ID。
@@ -4762,6 +4782,7 @@ export class PlayerRuntimeService {
         const existing = player.buffs.buffs.find((entry) => entry.buffId === buff.buffId);
         let changed = false;
         let attrRelevantChanged = false;
+        let requiresImmediateAttributeFreshness = false;
         if (existing) {
             if (!isConsumableBuffSource(buff) && isNonConsumableTemporaryBuffReapplyNoop(existing, buff)) {
                 return player;
@@ -4777,6 +4798,8 @@ export class PlayerRuntimeService {
             const previousPersistOnReturnToSpawn = existing.persistOnReturnToSpawn === true;
             const previousActive = isRuntimeBuffActive(existing);
             const affectsAttributes = doesBuffAffectAttributeProjection(player, existing) || doesBuffAffectAttributeProjection(player, buff);
+            const affectsVitalCapacity = doesBuffAffectVitalCapacityProjection(player, existing)
+                || doesBuffAffectVitalCapacityProjection(player, buff);
             const sameAttributePayload = isSameTemporaryBuffAttributePayload(existing, buff);
             const samePrototypePayload = isSameTemporaryBuffPrototypePayload(existing, buff);
             if (isConsumableBuffSource(buff)) {
@@ -4820,11 +4843,14 @@ export class PlayerRuntimeService {
                     || previousStacks !== existing.stacks
                     || previousRealmLv !== existing.realmLv
                     || !sameAttributePayload);
+            requiresImmediateAttributeFreshness = attrRelevantChanged && affectsVitalCapacity;
         }
         else {
             player.buffs.buffs.push(createRuntimeTemporaryBuff(buff));
             changed = true;
             attrRelevantChanged = doesBuffAffectAttributeProjection(player, buff);
+            requiresImmediateAttributeFreshness = attrRelevantChanged
+                && doesBuffAffectVitalCapacityProjection(player, buff);
         }
         if (!changed) {
             return player;
@@ -4839,6 +4865,9 @@ export class PlayerRuntimeService {
         player.buffs.revision += 1;
         if (attrRelevantChanged) {
             this.playerAttributesService.recalculate(player, 'buff');
+            if (requiresImmediateAttributeFreshness) {
+                this.playerAttributesService.ensureFresh?.(player);
+            }
         }
         markPlayerDirtyDomains(player, attrRelevantChanged ? ['buff', 'attr'] : ['buff']);
         this.bumpPersistentRevision(player);
@@ -7085,6 +7114,39 @@ function doesBuffAffectAttributeProjection(player, buff) {
     return doesTemporaryBuffAffectAttributes(buff) || doesBuffGateEquipmentProgressEffect(player, buff?.buffId);
 }
 
+function doesBuffAffectVitalCapacityProjection(player, buff) {
+    return doesTemporaryBuffAffectVitalCapacity(buff)
+        || doesBuffGateVitalCapacityEquipmentProgressEffect(player, buff?.buffId);
+}
+
+function doesTemporaryBuffAffectVitalCapacity(buff) {
+    if (!buff) {
+        return false;
+    }
+    if (hasNonZeroNumericValue(buff.stats?.maxHp) || hasNonZeroNumericValue(buff.stats?.maxQi)) {
+        return true;
+    }
+    for (const attrKey of ATTR_KEYS) {
+        if (!hasNonZeroNumericValue(buff.attrs?.[attrKey])) {
+            continue;
+        }
+        const flatWeights = ATTR_TO_NUMERIC_WEIGHTS[attrKey];
+        const percentWeights = ATTR_TO_PERCENT_NUMERIC_WEIGHTS[attrKey];
+        if (hasVitalCapacityWeight(flatWeights) || hasVitalCapacityWeight(percentWeights)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function hasVitalCapacityWeight(weights) {
+    return hasNonZeroNumericValue(weights?.maxHp) || hasNonZeroNumericValue(weights?.maxQi);
+}
+
+function hasNonZeroNumericValue(value) {
+    return value !== undefined && Number(value) !== 0;
+}
+
 function doesBuffGateEquipmentProgressEffect(player, buffId) {
     const normalizedBuffId = typeof buffId === 'string' ? buffId.trim() : '';
     if (!normalizedBuffId) {
@@ -7097,6 +7159,30 @@ function doesBuffGateEquipmentProgressEffect(player, buffId) {
                 continue;
             }
             if (doesEquipmentConditionListReferenceBuff(effect.conditions, normalizedBuffId)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+function doesBuffGateVitalCapacityEquipmentProgressEffect(player, buffId) {
+    const normalizedBuffId = typeof buffId === 'string' ? buffId.trim() : '';
+    if (!normalizedBuffId) {
+        return false;
+    }
+    for (const slotEntry of player?.equipment?.slots ?? []) {
+        const effects = Array.isArray(slotEntry?.item?.effects) ? slotEntry.item.effects : [];
+        for (const effect of effects) {
+            if (effect?.type !== 'progress_boost'
+                || !doesEquipmentConditionListReferenceBuff(effect.conditions, normalizedBuffId)) {
+                continue;
+            }
+            if (doesTemporaryBuffAffectVitalCapacity(effect)) {
+                return true;
+            }
+            if (hasNonZeroNumericValue(effect.valueStats?.maxHp)
+                || hasNonZeroNumericValue(effect.valueStats?.maxQi)) {
                 return true;
             }
         }

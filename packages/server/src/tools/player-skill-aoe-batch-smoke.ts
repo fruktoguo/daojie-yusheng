@@ -779,6 +779,71 @@ function testSelfCastOnlyAppliesSelfDirectedEffects(): void {
   assert.deepEqual(appliedBuffIds, ['buff.water_glide']);
 }
 
+function testPlayerSkillAttributeDirtyScopeEndsBeforeDamageApplication(): void {
+  const skill = {
+    id: 'skill.attribute_dirty_boundary',
+    name: '归一',
+    cost: 0,
+    cooldown: 1,
+    range: 1,
+    effects: [
+      { type: 'damage', damageKind: 'spell', formula: 100 },
+      {
+        type: 'buff',
+        target: 'target',
+        buffId: 'buff.attribute_dirty_boundary',
+        name: '定息',
+        category: 'debuff',
+        duration: 5,
+        stats: { spellDef: -10 },
+      },
+      {
+        type: 'buff',
+        target: 'target',
+        buffId: 'buff.attribute_dirty_boundary.second',
+        name: '凝息',
+        category: 'debuff',
+        duration: 5,
+        stats: { dodge: -10 },
+      },
+    ],
+  };
+  const attacker = createCaster(skill, 'instance:attribute-dirty-boundary');
+  const target = createCaster(skill, 'instance:attribute-dirty-boundary');
+  target.playerId = 'player:attribute-dirty-target';
+  const order: string[] = [];
+  const playerCombatService = new PlayerCombatService({
+    ensurePlayerAttributesFresh(playerId: string) {
+      order.push(`fresh:${playerId}`);
+    },
+    withDeferredAttributeRecalculation(playerId: string, callback: () => unknown) {
+      order.push(`scope:start:${playerId}`);
+      const value = callback();
+      order.push(`scope:end:${playerId}`);
+      return { value };
+    },
+    spendQi() {},
+    setSkillCooldownReadyTick() {},
+    applyTemporaryBuff(playerId: string) {
+      order.push(`buff:${playerId}`);
+    },
+    healPlayer() {},
+    setRetaliatePlayerTarget() {
+      order.push('retaliate');
+    },
+    applyDamage(playerId: string) {
+      order.push(`damage:${playerId}`);
+    },
+  } as any);
+
+  const result = playerCombatService.castSkill(attacker, target, skill.id, 1, 1);
+
+  assert.ok(result.totalDamage > 0);
+  assert.ok(order.indexOf(`buff:${target.playerId}`) > order.indexOf(`scope:start:${target.playerId}`));
+  assert.ok(order.indexOf(`scope:end:${target.playerId}`) < order.indexOf(`damage:${target.playerId}`));
+  assert.ok(order.indexOf(`scope:end:${attacker.playerId}`) < order.indexOf(`damage:${target.playerId}`));
+}
+
 function createTileCombatTarget(hp: number): any {
   return {
     runtimeId: `tile:target:${hp}`,
@@ -949,6 +1014,7 @@ async function main(): Promise<void> {
   testSpecialTileFallsBackToSingleMutation();
   testTileDropUsesInventoryOnlyStatistics();
   testSelfCastOnlyAppliesSelfDirectedEffects();
+  testPlayerSkillAttributeDirtyScopeEndsBeforeDamageApplication();
   testTargetDependentFormulaBypassesReuse();
   testCraftSkillFormulaUsesAllLevelsAndInvalidatesReuse();
   testDamageSummaryProtobufRoundTrip();

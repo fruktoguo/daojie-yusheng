@@ -15,6 +15,8 @@ import {
     snapshotCombatantCraftSkillLevels,
 } from './skill-formula-craft-level.helpers';
 
+const skillBuffDirectionCountCache = new WeakMap();
+
 /** 战斗运行时技能结算服务。 */
 @Injectable()
 export class PlayerCombatService {
@@ -30,6 +32,7 @@ export class PlayerCombatService {
 
     /** 构建单次施法可复用的施法者战斗态，避免 AOE 多目标重复包装玩家属性。 */
     createCombatPlayerState(player) {
+        this.ensurePlayerAttributesFresh(player.playerId);
         return toCombatPlayerState(player);
     }
 
@@ -41,6 +44,20 @@ export class PlayerCombatService {
     /** 重置施法伤害复用统计，不清空缓存内容。 */
     resetSkillDamageCacheStats() {
         this.skillDamageCacheStats = createSkillDamageCacheStats();
+    }
+
+    /** 战斗公式读取前收敛此前操作留下的属性脏状态。 */
+    ensurePlayerAttributesFresh(playerId) {
+        return this.playerRuntimeService.ensurePlayerAttributesFresh?.(playerId)
+            ?? { requested: false, changed: false };
+    }
+
+    /** 合并单次技能内同一玩家的重复属性重算，返回原回调结果。 */
+    withDeferredPlayerAttributeRecalculation(playerId, enabled, callback) {
+        if (!enabled || typeof this.playerRuntimeService.withDeferredAttributeRecalculation !== 'function') {
+            return callback();
+        }
+        return this.playerRuntimeService.withDeferredAttributeRecalculation(playerId, callback)?.value;
     }
 
     /**
@@ -78,12 +95,18 @@ export class PlayerCombatService {
             throw new BadRequestException('不能以自己为攻击目标');
         }
 
+        const attackerFreshness = this.ensurePlayerAttributesFresh(attacker.playerId);
+        this.ensurePlayerAttributesFresh(target.playerId);
         const resolved = options?.resolvedSkill?.skill?.id === skillId
             ? options.resolvedSkill
             : this.resolvePlayerSkillForCast(attacker, skillId, currentTick);
-        const attackerState = options?.attackerCombatState ?? toCombatPlayerState(attacker);
+        const attackerState = options?.attackerCombatState && attackerFreshness.changed !== true
+            ? options.attackerCombatState
+            : toCombatPlayerState(attacker);
+        const deferAttackerAttributes = shouldDeferSkillBuffRecalculation(resolved.skill, 'self', options);
+        const deferTargetAttributes = shouldDeferSkillBuffRecalculation(resolved.skill, 'target', options);
 
-        const result = this.executeResolvedSkillCast(attackerState, toCombatPlayerState(target), resolved, currentTick, distance, {
+        const result = this.withDeferredPlayerAttributeRecalculation(attacker.playerId, deferAttackerAttributes, () => this.withDeferredPlayerAttributeRecalculation(target.playerId, deferTargetAttributes, () => this.executeResolvedSkillCast(attackerState, toCombatPlayerState(target), resolved, currentTick, distance, {
             spendQi: (amount) => {
                 if (options?.skipResourceAndCooldown === true) {
                     return;
@@ -106,7 +129,7 @@ export class PlayerCombatService {
             applySelfHeal: (amount) => {
                 this.playerRuntimeService.healPlayer(attacker.playerId, amount);
             },
-        }, options);
+        }, options)));
         if (options?.skipTargetRetaliation !== true) {
             this.playerRuntimeService.setRetaliatePlayerTarget(target.playerId, attacker.playerId, currentTick);
         }
@@ -120,15 +143,19 @@ export class PlayerCombatService {
      * 玩家对自身施放 buff 技能（无目标校验）。
      */
     castSelfSkill(attacker, skillId, currentTick, options = undefined) {
+        const attackerFreshness = this.ensurePlayerAttributesFresh(attacker.playerId);
         const resolved = options?.resolvedSkill?.skill?.id === skillId
             ? options.resolvedSkill
             : this.resolvePlayerSkillForCast(attacker, skillId, currentTick);
-        const selfState = options?.attackerCombatState ?? toCombatPlayerState(attacker);
+        const selfState = options?.attackerCombatState && attackerFreshness.changed !== true
+            ? options.attackerCombatState
+            : toCombatPlayerState(attacker);
         const selfCastOptions = {
             ...(options ?? {}),
             skipTargetEffects: true,
         };
-        const result = this.executeResolvedSkillCast(selfState, selfState, resolved, currentTick, 0, {
+        const deferAttackerAttributes = shouldDeferSkillBuffRecalculation(resolved.skill, 'self', selfCastOptions);
+        const result = this.withDeferredPlayerAttributeRecalculation(attacker.playerId, deferAttackerAttributes, () => this.executeResolvedSkillCast(selfState, selfState, resolved, currentTick, 0, {
             spendQi: (amount) => {
                 if (options?.skipResourceAndCooldown === true) {
                     return;
@@ -148,7 +175,7 @@ export class PlayerCombatService {
             applySelfHeal: (amount) => {
                 this.playerRuntimeService.healPlayer(attacker.playerId, amount);
             },
-        }, selfCastOptions);
+        }, selfCastOptions));
         return {
             ...result,
             targetPlayerId: attacker.playerId,
@@ -160,12 +187,16 @@ export class PlayerCombatService {
      * 与 castSkill 类似，但目标 buff 通过外部回调应用（怪物 buff 系统不同）。
      */
     castSkillToMonster(attacker, target, skillId, currentTick, distance, applyTargetBuff, options = undefined) {
+        const attackerFreshness = this.ensurePlayerAttributesFresh(attacker.playerId);
         const resolved = options?.resolvedSkill?.skill?.id === skillId
             ? options.resolvedSkill
             : this.resolvePlayerSkillForCast(attacker, skillId, currentTick);
-        const attackerState = options?.attackerCombatState ?? toCombatPlayerState(attacker);
+        const attackerState = options?.attackerCombatState && attackerFreshness.changed !== true
+            ? options.attackerCombatState
+            : toCombatPlayerState(attacker);
+        const deferAttackerAttributes = shouldDeferSkillBuffRecalculation(resolved.skill, 'self', options);
 
-        const result = this.executeResolvedSkillCast(attackerState, target, resolved, currentTick, distance, {
+        const result = this.withDeferredPlayerAttributeRecalculation(attacker.playerId, deferAttackerAttributes, () => this.executeResolvedSkillCast(attackerState, target, resolved, currentTick, distance, {
             spendQi: (amount) => {
                 if (options?.skipResourceAndCooldown === true) {
                     return;
@@ -186,7 +217,7 @@ export class PlayerCombatService {
             applySelfHeal: (amount) => {
                 this.playerRuntimeService.healPlayer(attacker.playerId, amount);
             },
-        }, options);
+        }, options));
         return {
             ...result,
             targetMonsterId: target.runtimeId,
@@ -203,12 +234,14 @@ export class PlayerCombatService {
      * 怪物侧跳过元气和冷却检查（由 AI 层保证），伤害直接应用到玩家。
      */
     castMonsterSkill(attacker, target, skillId, currentTick, distance, applySelfBuff, applyTargetBuff, spendQi, options = undefined) {
+        this.ensurePlayerAttributesFresh(target.playerId);
         const resolved = options?.resolvedSkill?.skill?.id === skillId
             ? options.resolvedSkill
             : resolveMonsterSkill(attacker, skillId);
         const attackerState = options?.attackerCombatState ?? attacker;
 
-        const result = this.executeResolvedSkillCast(attackerState, toCombatPlayerState(target), resolved, currentTick, distance, {
+        const deferTargetAttributes = shouldDeferSkillBuffRecalculation(resolved.skill, 'target', options);
+        const result = this.withDeferredPlayerAttributeRecalculation(target.playerId, deferTargetAttributes, () => this.executeResolvedSkillCast(attackerState, toCombatPlayerState(target), resolved, currentTick, distance, {
             setCooldownReadyTick: () => undefined,
             spendQi,
             applySelfBuff,
@@ -216,7 +249,7 @@ export class PlayerCombatService {
                 this.playerRuntimeService.applyTemporaryBuff(target.playerId, buff);
             }),
             applySelfHeal: () => undefined,
-        }, options);
+        }, options));
         if (options?.skipTargetDamageApplication !== true && result.totalDamage > 0) {
             this.playerRuntimeService.applyDamage(target.playerId, result.totalDamage);
         }
@@ -651,6 +684,43 @@ function toTemporaryBuff(effect, skill) {
         persistOnReturnToSpawn: effect.persistOnReturnToSpawn === true,
     };
 }
+
+function shouldDeferSkillBuffRecalculation(skill, direction, options) {
+    if ((direction === 'self' && options?.skipSelfEffects === true)
+        || (direction === 'target' && options?.skipTargetEffects === true)) {
+        return false;
+    }
+    const counts = resolveSkillBuffDirectionCounts(skill);
+    return direction === 'self' ? counts.self > 1 : counts.target > 1;
+}
+
+function resolveSkillBuffDirectionCounts(skill) {
+    if (!skill || typeof skill !== 'object') {
+        return EMPTY_SKILL_BUFF_DIRECTION_COUNTS;
+    }
+    const cached = skillBuffDirectionCountCache.get(skill);
+    if (cached) {
+        return cached;
+    }
+    let self = 0;
+    let target = 0;
+    for (const effect of Array.isArray(skill.effects) ? skill.effects : []) {
+        if (effect?.type !== 'buff') {
+            continue;
+        }
+        if (effect.target === 'self' || effect.target === 'allies') {
+            self += 1;
+        }
+        else {
+            target += 1;
+        }
+    }
+    const counts = { self, target };
+    skillBuffDirectionCountCache.set(skill, counts);
+    return counts;
+}
+
+const EMPTY_SKILL_BUFF_DIRECTION_COUNTS = Object.freeze({ self: 0, target: 0 });
 
 function resolveTemporaryBuffStats(effect) {
     if (effect.stats) {
