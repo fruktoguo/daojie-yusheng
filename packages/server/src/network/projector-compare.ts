@@ -626,6 +626,9 @@ export function isSameSpecialStats(left: PlayerSpecialStats, right: PlayerSpecia
 }
 
 export function isSameAttrBonuses(left: AttrBonus[], right: AttrBonus[]) {
+    if (left === right) {
+        return true;
+    }
     if (left.length !== right.length) {
         return false;
     }

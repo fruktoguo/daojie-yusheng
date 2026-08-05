@@ -126,6 +126,16 @@ const buildingProjectionCache = new WeakMap<ProjectorBuildingLike, ProjectedBuil
 const formationProjectionCache = new WeakMap<ProjectorFormationLike, { signature: string; projected: ProjectedFormationEntry }>();
 const attrBonusCloneCache = new WeakMap<AttrBonus[], AttrBonus[]>();
 const projectedAttrBonusCache = new WeakMap<ProjectorPlayerLike, { signature: string; bonuses: AttrBonus[] }>();
+type AttrBonusConditionDependencies = {
+    revision: number;
+    slotsRef: unknown[];
+    hpRatio: boolean;
+    qiRatio: boolean;
+    cultivating: boolean;
+    map: boolean;
+    unknown: boolean;
+};
+const attrBonusConditionDependencyCache = new WeakMap<object, AttrBonusConditionDependencies>();
 const EMPTY_VISIBLE_BUFFS: VisibleBuffState[] = [];
 
 type SpecialStatsCacheEntry = {
@@ -370,22 +380,80 @@ function buildAttrBonuses(player: ProjectorPlayerLike): AttrBonus[] {
 
 function buildProjectedAttrBonusesSignature(player: ProjectorPlayerLike): string {
     const realm = player.realm as Record<string, unknown> | null | undefined;
+    const dependencies = resolveAttrBonusConditionDependencies(player);
+    const includeAllConditionInputs = dependencies.unknown;
     return [
         player.attrs.revision,
         player.techniques.revision,
         player.equipment.revision,
         player.buffs.revision,
         player.realmLv ?? '',
-        player.hp,
-        player.maxHp,
-        player.qi,
-        player.maxQi,
-        player.combat.cultivationActive === true ? 1 : 0,
+        includeAllConditionInputs || dependencies.hpRatio ? player.hp : '',
+        includeAllConditionInputs || dependencies.hpRatio ? player.maxHp : '',
+        includeAllConditionInputs || dependencies.qiRatio ? player.qi : '',
+        includeAllConditionInputs || dependencies.qiRatio ? player.maxQi : '',
+        includeAllConditionInputs || dependencies.cultivating
+            ? player.combat.cultivationActive === true ? 1 : 0
+            : '',
+        includeAllConditionInputs || dependencies.map ? player.templateId : '',
         realm?.stage ?? '',
         realm?.displayName ?? '',
         realm?.name ?? '',
         stableShallowSignature((player as { runtimeBonuses?: unknown }).runtimeBonuses),
     ].join('|');
+}
+
+function resolveAttrBonusConditionDependencies(player: ProjectorPlayerLike): AttrBonusConditionDependencies {
+    const equipment = player.equipment;
+    const slots = Array.isArray(equipment?.slots) ? equipment.slots : [];
+    const revision = Math.max(0, Math.trunc(Number(equipment?.revision ?? 0) || 0));
+    if (!equipment || typeof equipment !== 'object') {
+        return { revision, slotsRef: slots, hpRatio: false, qiRatio: false, cultivating: false, map: false, unknown: false };
+    }
+    const cached = attrBonusConditionDependencyCache.get(equipment);
+    if (cached && cached.revision === revision && cached.slotsRef === slots) {
+        return cached;
+    }
+    const dependencies: AttrBonusConditionDependencies = {
+        revision,
+        slotsRef: slots,
+        hpRatio: false,
+        qiRatio: false,
+        cultivating: false,
+        map: false,
+        unknown: false,
+    };
+    for (const entry of slots) {
+        for (const effect of (entry as { item?: { effects?: unknown[] } } | null | undefined)?.item?.effects ?? []) {
+            if ((effect as { type?: unknown } | null | undefined)?.type !== 'progress_boost') {
+                continue;
+            }
+            for (const condition of (effect as { conditions?: { items?: unknown[] } } | null | undefined)?.conditions?.items ?? []) {
+                switch ((condition as { type?: unknown } | null | undefined)?.type) {
+                    case 'hp_ratio':
+                        dependencies.hpRatio = true;
+                        break;
+                    case 'qi_ratio':
+                        dependencies.qiRatio = true;
+                        break;
+                    case 'is_cultivating':
+                        dependencies.cultivating = true;
+                        break;
+                    case 'map':
+                        dependencies.map = true;
+                        break;
+                    case 'time_segment':
+                    case 'has_buff':
+                        break;
+                    default:
+                        dependencies.unknown = true;
+                        break;
+                }
+            }
+        }
+    }
+    attrBonusConditionDependencyCache.set(equipment, dependencies);
+    return dependencies;
 }
 
 function buildSpecialStatsPatch(previous: PlayerSpecialStats, current: PlayerSpecialStats): Partial<PlayerSpecialStats> | undefined {

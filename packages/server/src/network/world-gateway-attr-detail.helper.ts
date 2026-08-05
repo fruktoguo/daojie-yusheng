@@ -3,9 +3,18 @@
  *
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_CONFIG, TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE, TechniqueRealm, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, calcTechniqueQiProjectionModifiers, cloneNumericStats, compileValueStatsToActualStats, createNumericStats, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, resolvePlayerFacingContentName, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate, type PartialNumericStats } from '@mud/shared';
+import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_CONFIG, TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE, TechniqueRealm, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, calcTechniqueQiProjectionModifiers, cloneNumericStats, compileValueStatsToActualStats, createNumericStats, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, resolvePlayerFacingContentName, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate, type AttrBonus, type PartialNumericStats } from '@mud/shared';
 import { PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID } from '../constants/gameplay/pvp';
 import { resolvePlayerDailySignInFortuneLuck } from '../runtime/player/player-special-stat.helpers';
+
+type TechniqueDetailCacheEntry = {
+    revision: number;
+    techniquesRef: unknown[];
+    bonuses: AttrBonus[];
+};
+
+const techniqueDetailCache = new WeakMap<object, TechniqueDetailCacheEntry>();
+const EMPTY_TECHNIQUE_DETAIL_BONUSES: AttrBonus[] = [];
 
 export function buildAttrDetailBonuses(player) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -22,36 +31,7 @@ export function buildAttrDetailBonuses(player) {
             attrs: clonePartialAttributes(realmAttrBonus),
         });
     }
-    const techniqueStates = (player.techniques?.techniques ?? []).map(toTechniqueState);
-    const techniqueAttrs = calcTechniqueFinalAttrBonus(techniqueStates);
-    if (hasNonZeroAttributes(techniqueAttrs)) {
-        bonuses.push({
-            source: 'technique:aggregate',
-            label: '功法总成',
-            attrs: clonePartialAttributes(techniqueAttrs),
-        });
-    }
-    const techniqueMaxAttrPercentBonus = calcTechniqueMaxAttrPercentBonus(techniqueStates);
-    if (hasNonZeroAttributes(techniqueMaxAttrPercentBonus)) {
-        bonuses.push({
-            source: TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE,
-            label: '万法归元',
-            attrs: clonePartialAttributes(techniqueMaxAttrPercentBonus),
-            attrMode: 'percent',
-        });
-    }
-    for (const techniqueState of techniqueStates) {
-        const qiProjection = calcTechniqueQiProjectionModifiers(techniqueState.level, techniqueState.layers);
-        if (qiProjection.length === 0) {
-            continue;
-        }
-        bonuses.push({
-            source: `technique:${techniqueState.techId}`,
-            label: resolvePlayerFacingContentName(techniqueState.techId, '未知功法', techniqueState.name),
-            attrs: {},
-            qiProjection: cloneQiProjectionModifiers(qiProjection),
-        });
-    }
+    bonuses.push(...resolveTechniqueDetailBonuses(player));
     for (const entry of player.equipment?.slots ?? []) {
         const item = entry.item ? applyEquipmentAttributeEffectivenessToItemStack(entry.item, playerRealmLv) : null;
         if (!item) {
@@ -106,6 +86,60 @@ export function buildAttrDetailBonuses(player) {
             meta: isPlainObject(bonus.meta) ? { ...bonus.meta } : undefined,
         });
     }
+    return bonuses;
+}
+
+function resolveTechniqueDetailBonuses(player): AttrBonus[] {
+    const holder = player?.techniques;
+    const sourceTechniques = Array.isArray(holder?.techniques) ? holder.techniques : [];
+    if (!holder || typeof holder !== 'object' || sourceTechniques.length === 0) {
+        return EMPTY_TECHNIQUE_DETAIL_BONUSES;
+    }
+
+    const revision = Math.max(0, Math.trunc(Number(holder.revision ?? 0) || 0));
+    const cached = techniqueDetailCache.get(holder);
+    if (cached
+        && cached.revision === revision
+        && cached.techniquesRef === sourceTechniques) {
+        return cached.bonuses;
+    }
+
+    const techniqueStates = sourceTechniques.map(toTechniqueState);
+    const bonuses: AttrBonus[] = [];
+    const techniqueAttrs = calcTechniqueFinalAttrBonus(techniqueStates);
+    if (hasNonZeroAttributes(techniqueAttrs)) {
+        bonuses.push({
+            source: 'technique:aggregate',
+            label: '功法总成',
+            attrs: clonePartialAttributes(techniqueAttrs),
+        });
+    }
+    const techniqueMaxAttrPercentBonus = calcTechniqueMaxAttrPercentBonus(techniqueStates);
+    if (hasNonZeroAttributes(techniqueMaxAttrPercentBonus)) {
+        bonuses.push({
+            source: TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE,
+            label: '万法归元',
+            attrs: clonePartialAttributes(techniqueMaxAttrPercentBonus),
+            attrMode: 'percent',
+        });
+    }
+    for (const techniqueState of techniqueStates) {
+        const qiProjection = calcTechniqueQiProjectionModifiers(techniqueState.level, techniqueState.layers);
+        if (qiProjection.length === 0) {
+            continue;
+        }
+        bonuses.push({
+            source: `technique:${techniqueState.techId}`,
+            label: resolvePlayerFacingContentName(techniqueState.techId, '未知功法', techniqueState.name),
+            attrs: {},
+            qiProjection: cloneQiProjectionModifiers(qiProjection),
+        });
+    }
+    techniqueDetailCache.set(holder, {
+        revision,
+        techniquesRef: sourceTechniques,
+        bonuses,
+    });
     return bonuses;
 }
 /**
