@@ -38,7 +38,7 @@ function normalizePayloadValue(key: string, value: unknown): string {
     return Number.isFinite(value) ? String(Math.trunc(value)) : '';
   }
   if (typeof value === 'string') return value;
-  return JSON.stringify(value);
+  return JSON.stringify(value) ?? '';
 }
 
 /**
@@ -149,8 +149,48 @@ export function findMergeableItemStackIndex<TItem extends ItemStackMergeItem>(
   if (!canMergeItemStack(item)) {
     return -1;
   }
-  const signature = createItemStackSignature(item);
-  return items.findIndex((entry) => canMergeItemStack(entry) && createItemStackSignature(entry) === signature);
+  for (let index = 0; index < items.length; index += 1) {
+    const entry = items[index];
+    if (canMergeItemStack(entry) && hasEqualItemStackSignature(entry, item)) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+/**
+ * 与 createItemStackSignature 保持同一规范化语义，但常见合法物品只比较原始字段，
+ * 避免背包热路径为每个候选格分配 parts 数组和签名字符串。
+ */
+function hasEqualItemStackSignature(left: ItemStackMergeItem, right: ItemStackMergeItem): boolean {
+  const leftItemId = typeof left?.itemId === 'string' ? left.itemId : '';
+  const rightItemId = typeof right?.itemId === 'string' ? right.itemId : '';
+  if (leftItemId !== rightItemId) {
+    return false;
+  }
+  for (const key of ITEM_INSTANCE_PAYLOAD_KEYS) {
+    if (!hasEqualNormalizedPayloadValue(key, left?.[key], right?.[key])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function hasEqualNormalizedPayloadValue(key: string, left: unknown, right: unknown): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (typeof left === 'number' && typeof right === 'number') {
+    const leftFinite = Number.isFinite(left);
+    const rightFinite = Number.isFinite(right);
+    return leftFinite && rightFinite
+      ? Math.trunc(left) === Math.trunc(right)
+      : !leftFinite && !rightFinite;
+  }
+  if (typeof left === 'string' && typeof right === 'string') {
+    return false;
+  }
+  return normalizePayloadValue(key, left) === normalizePayloadValue(key, right);
 }
 
 /** 将一个物品合入普通物品数组，返回实际承载该堆叠的条目。 */

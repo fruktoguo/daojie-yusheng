@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 
-import { mergeItemStackInto } from '@mud/shared';
+import {
+  ITEM_INSTANCE_PAYLOAD_KEYS,
+  createItemStackSignature,
+  findMergeableItemStackIndex,
+  mergeItemStackInto,
+} from '@mud/shared';
 
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import { installSmokeTimeout } from './smoke-timeout';
@@ -16,6 +21,7 @@ interface SmokeItem {
 }
 
 async function main(): Promise<void> {
+  verifyMergeLookupMatchesSignatureSemantics();
   verifyInventoryOnlyStatisticMatchesFullDiff({ itemId: 'material.iron', name: '玄铁', count: 3 });
   verifyInventoryOnlyStatisticMatchesFullDiff({ itemId: 'spirit_stone', name: '灵石', count: 7 });
   verifyInventoryOnlyStatisticMatchesFullDiff({
@@ -30,12 +36,52 @@ async function main(): Promise<void> {
   console.log(JSON.stringify({
     ok: true,
     cases: [
+      'merge_lookup_matches_signature_semantics',
       'ordinary_item_matches_full_diff',
       'wallet_item_matches_full_diff',
       'same_item_different_instance_state_matches_full_diff',
       'inventory_only_path_skips_technique_traversal',
     ],
   }, null, 2));
+}
+
+function verifyMergeLookupMatchesSignatureSemantics(): void {
+  const payloadValues: unknown[] = [
+    undefined,
+    null,
+    0,
+    -0,
+    1,
+    1.9,
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+    '',
+    '0',
+    '1',
+    'mortal',
+    false,
+    true,
+    { value: 1 },
+    [1, 2],
+    () => 1,
+    Symbol('payload'),
+  ];
+  for (const key of ITEM_INSTANCE_PAYLOAD_KEYS) {
+    for (const leftValue of payloadValues) {
+      for (const rightValue of payloadValues) {
+        const left = { itemId: 'signature-proof', [key]: leftValue };
+        const right = { itemId: 'signature-proof', [key]: rightValue };
+        const expected = createItemStackSignature(left) === createItemStackSignature(right);
+        const actual = findMergeableItemStackIndex([left], right) === 0;
+        assert.equal(actual, expected, `direct merge lookup must match signature key=${key}`);
+      }
+    }
+  }
+  assert.equal(findMergeableItemStackIndex([{ itemId: 'signature-proof' }], { itemId: 'other' }), -1);
+  assert.equal(findMergeableItemStackIndex(
+    [{ itemId: 'book.custom_technique', learnTechniqueId: '' }],
+    { itemId: 'book.custom_technique', learnTechniqueId: '' },
+  ), -1);
 }
 
 function verifyInventoryOnlyStatisticMatchesFullDiff(item: SmokeItem): void {
