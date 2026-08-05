@@ -7,6 +7,9 @@ COPY packages/client/package.json packages/client/
 ARG PNPM_VERSION=10.29.1
 ARG NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
 ENV NPM_CONFIG_REGISTRY=${NPM_CONFIG_REGISTRY}
+ENV CHROME_BIN=/usr/bin/chromium
+RUN sed -i 's#dl-cdn.alpinelinux.org#mirrors.aliyun.com#' /etc/apk/repositories \
+  && apk add --no-cache chromium font-noto-cjk
 RUN npm install -g "pnpm@${PNPM_VERSION}" --registry="${NPM_CONFIG_REGISTRY}" \
   && pnpm --version
 RUN pnpm install --frozen-lockfile
@@ -18,7 +21,7 @@ COPY packages/server/src/tools/protocol-audit.ts packages/server/src/tools/proto
 COPY packages/server/src/runtime/instance/map-instance.runtime.ts packages/server/src/runtime/instance/map-instance.runtime.ts
 ARG BUILD_CACHEBUST=local
 RUN printf '%s\n' "$BUILD_CACHEBUST" >/dev/null
-RUN pnpm build:client
+RUN NODE_OPTIONS=--experimental-websocket pnpm build:client
 
 FROM nginx:alpine
 ENV NGINX_WORKER_PROCESSES=auto
