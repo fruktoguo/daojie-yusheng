@@ -28,7 +28,7 @@ class FakeGeneratedTechniqueStore {
   private readonly creators = new Map<string, string>();
   private readonly aggregateMetadata = new Map<string, TechniqueAggregationMetadata>();
   private readonly jadeItemCounts = new Map<string, number>();
-  private readonly jadeOperations = new Map<string, { techniqueId: string; requestFingerprint: string }>();
+  private readonly jadeOperations = new Map<string, { techniqueId: string; requestFingerprint: string; itemSpend: number }>();
   listAggregateMetadataCallCount = 0;
   jadePublishCommitCount = 0;
 
@@ -84,11 +84,14 @@ class FakeGeneratedTechniqueStore {
     playerId: string;
     operationId: string;
     requestFingerprint: string;
+    itemSpend: number;
   }) {
     const operationKey = `${params.playerId}\u0000${params.operationId}`;
     const existing = this.jadeOperations.get(operationKey);
     if (existing) {
-      if (existing.techniqueId !== params.id || existing.requestFingerprint !== params.requestFingerprint) {
+      if (existing.techniqueId !== params.id
+        || existing.requestFingerprint !== params.requestFingerprint
+        || existing.itemSpend !== params.itemSpend) {
         throw new Error('technique_aggregation_jade_operation_replay_identity_conflict');
       }
       return {
@@ -98,7 +101,7 @@ class FakeGeneratedTechniqueStore {
       };
     }
     const itemCount = this.jadeItemCounts.get(params.playerId) ?? 0;
-    if (itemCount < 1) {
+    if (itemCount < params.itemSpend) {
       return {
         ok: false as const,
         alreadyCommitted: false,
@@ -107,11 +110,12 @@ class FakeGeneratedTechniqueStore {
       };
     }
     if (this.templates.has(params.id)) throw new Error('technique_aggregation_jade_operation_missing');
-    this.jadeItemCounts.set(params.playerId, itemCount - 1);
+    this.jadeItemCounts.set(params.playerId, itemCount - params.itemSpend);
     this.register(params.template, params.createdByPlayerId);
     this.jadeOperations.set(operationKey, {
       techniqueId: params.id,
       requestFingerprint: params.requestFingerprint,
+      itemSpend: params.itemSpend,
     });
     this.jadePublishCommitCount += 1;
     return {
@@ -411,8 +415,8 @@ async function main(): Promise<void> {
   const jadeOwner = createPlayer(creatorPlayerId, [
     toRuntimeTechnique(jadeSourceA),
     toRuntimeTechnique(jadeSourceB),
-  ], 1);
-  store.setJadeItemCount(creatorPlayerId, 1);
+  ], 3);
+  store.setJadeItemCount(creatorPlayerId, 3);
   const jadeFamilyFirst = await service.publish(jadeOwner, {
     operationId: 'jade-family-first',
     customName: '太素衡真录',
@@ -430,16 +434,21 @@ async function main(): Promise<void> {
   const jadeFamilyPanel = service.buildPanel(jadeOwner, {}, {
     boundFamilyId: jadeFamilyFirst.result.aggregate.familyId,
   });
-  assert.equal(jadeFamilyPanel.jadeItemCount, 1);
+  assert.equal(jadeFamilyPanel.jadeItemCount, 3);
   assert.equal(jadeFamilyPanel.families[0]?.realmLv, 1);
   assert.equal(jadeFamilyPanel.families[0]?.jadeEnhancementCount, 0);
+  assert.deepEqual(
+    jadeFamilyPanel.families[0]?.sourceTechniques.map((entry) => entry.name).sort(),
+    [jadeSourceA.name, jadeSourceB.name].sort(),
+  );
   const jadeFirstTemplate = store.getById(jadeFamilyFirst.result.aggregate.techniqueId);
   assert.ok(jadeFirstTemplate);
   const jadeFirstRuntime = toRuntimeTechnique(jadeFirstTemplate!);
   const jadeFirstAttrs = calcTechniqueAttrValues(jadeFirstRuntime.level, jadeFirstRuntime.layers);
 
   const originalRandom = Math.random;
-  Math.random = () => 0.5;
+  const jadeRolls = [0, 0.5, 1];
+  Math.random = () => jadeRolls.shift() ?? 0.5;
   let jadeRevision;
   try {
     jadeRevision = await service.publish(jadeOwner, {
@@ -447,6 +456,7 @@ async function main(): Promise<void> {
       familyId: jadeFamilyFirst.result.aggregate.familyId,
       expectedRevision: 1,
       recordMode: 'jade',
+      jadeItemSpend: 3,
       sourceTechniqueIds: [],
     }, {
       platformInstanceId: 'instance:jade',
@@ -468,8 +478,9 @@ async function main(): Promise<void> {
   }
   assert.equal(jadeRevision.result.recordMode, 'jade');
   assert.equal(jadeRevision.result.aggregate.revision, 2);
-  assert.equal(jadeRevision.result.aggregate.jadeEnhancementCount, 1);
-  assert.equal(jadeRevision.result.aggregate.jadeStrengthPercent, 100);
+  assert.equal(jadeRevision.result.aggregate.jadeEnhancementCount, 3);
+  assert.equal(jadeRevision.result.aggregate.jadeItemSpend, 3);
+  assert.deepEqual(jadeRevision.result.aggregate.jadeStrengthPercents, [80, 100, 120]);
   assert.deepEqual(
     jadeRevision.result.aggregate.sourceTechniqueIds,
     jadeFamilyFirst.result.aggregate.sourceTechniqueIds,
@@ -493,13 +504,24 @@ async function main(): Promise<void> {
   assert.equal(jadeMetadata?.revisionKind, 'jade');
   assert.equal(jadeMetadata?.revisionOperationId, 'jade-family-enhancement-1');
   assert.equal(jadeMetadata?.sourceCount, 2);
+  assert.equal(jadeMetadata?.jadeEnhancementCount, 3);
+  assert.deepEqual(jadeMetadata?.latestJadeStrengthPercents, [80, 100, 120]);
   assert.equal(Object.keys(jadeMetadata?.jadeBonusAttrs ?? {}).length, TECHNIQUE_ATTR_KEYS.length);
+  const jadeRevisionPanel = service.buildPanel(jadeOwner, {}, {
+    boundFamilyId: jadeFamilyFirst.result.aggregate.familyId,
+  });
+  assert.deepEqual(
+    jadeRevisionPanel.families[0]?.fullLevelAttrs,
+    Object.fromEntries(TECHNIQUE_ATTR_KEYS.map((key) => [key, jadeRevisionAttrs[key] ?? 0])),
+    '总览六维必须直接投影最新版法卷的满层权威值',
+  );
 
   const jadeReplay = await service.publish(jadeOwner, {
     operationId: 'jade-family-enhancement-1',
     familyId: jadeFamilyFirst.result.aggregate.familyId,
     expectedRevision: 1,
     recordMode: 'jade',
+    jadeItemSpend: 3,
     sourceTechniqueIds: [],
   }, {
     platformInstanceId: 'instance:jade',
@@ -515,6 +537,27 @@ async function main(): Promise<void> {
   assert.equal(jadeReplay.result.aggregate?.techniqueId, jadeRevision.result.aggregate.techniqueId);
   assert.deepEqual(jadeReplay.ok ? jadeReplay.committedInventoryItems : undefined, []);
   assert.equal(store.jadePublishCommitCount, 1, '幂等重放不可再次扣除悟道玉简');
+
+  const invalidJadeQuantity = await service.publish(jadeOwner, {
+    operationId: 'jade-family-enhancement-invalid-quantity',
+    familyId: jadeFamilyFirst.result.aggregate.familyId,
+    expectedRevision: 2,
+    recordMode: 'jade',
+    jadeItemSpend: 101,
+    sourceTechniqueIds: [],
+  }, {
+    platformInstanceId: 'instance:jade',
+    platformBuildingId: 'unification-platform-jade',
+    platformOwnerPlayerId: creatorPlayerId,
+    revisionPermissionGranted: true,
+    jadePersistenceFence: {
+      expectedRuntimeOwnerId: 'runtime:test',
+      expectedSessionEpoch: 1,
+    },
+  });
+  assert.equal(invalidJadeQuantity.ok, false);
+  assert.equal(invalidJadeQuantity.result.code, 'TECHNIQUE_AGGREGATE_JADE_QUANTITY_INVALID');
+  assert.equal(store.jadePublishCommitCount, 1, '数量越界不可发布法卷或扣除玉简');
 
   jadeOwner.techniques.techniques = [jadeRevisionRuntime, toRuntimeTechnique(jadeSourceC)];
   const jadeSourceRevision = await service.publish(jadeOwner, {
@@ -535,7 +578,7 @@ async function main(): Promise<void> {
     throw new Error('玉简法脉续录源法失败');
   }
   assert.equal(jadeSourceRevision.result.aggregate.revision, 3);
-  assert.equal(jadeSourceRevision.result.aggregate.jadeEnhancementCount, 1);
+  assert.equal(jadeSourceRevision.result.aggregate.jadeEnhancementCount, 3);
   assert.equal(
     jadeSourceRevision.result.aggregate.totalTrainingDifficulty,
     jadeFamilyFirst.result.aggregate.totalTrainingDifficulty + 80,

@@ -14,9 +14,13 @@ const initializeExpression = String.raw`
   (async () => {
     const { CraftWorkbenchModal } = await import('/src/ui/craft-workbench-modal.ts');
     const modal = new CraftWorkbenchModal();
+    window.__techniqueUnificationPublishPayload = null;
     modal.setCallbacks({
       onRequestTechniqueAggregation: () => true,
-      onPublishTechniqueAggregation: () => true,
+      onPublishTechniqueAggregation: (payload) => {
+        window.__techniqueUnificationPublishPayload = structuredClone(payload);
+        return true;
+      },
       onUpdateTechniqueAggregationPermissions: () => true,
       onLearnTechniqueAggregation: () => true,
     });
@@ -64,7 +68,19 @@ const initializeExpression = String.raw`
         realmLv: 3,
         sourceCount: 2,
         sourceTechniqueIds: [mortalSources[0].techId, mortalSources[1].techId],
+        sourceTechniques: [
+          { techniqueId: mortalSources[0].techId, name: mortalSources[0].name },
+          { techniqueId: mortalSources[1].techId, name: mortalSources[1].name },
+        ],
         jadeEnhancementCount: 2,
+        fullLevelAttrs: {
+          constitution: 111,
+          spirit: 122,
+          perception: 133,
+          talent: 144,
+          strength: 155,
+          meridians: 166,
+        },
         creatorPlayerId: 'player:owner',
         playerCoveredCount: 0,
       }] : [],
@@ -285,7 +301,32 @@ const openBoundJadeExpression = String.raw`
     document.querySelector('[data-primary-tab="record"]')?.click();
     document.querySelector('[data-record-mode="jade"]')?.click();
     const panel = document.querySelector('[data-technique-aggregation-panel="true"]');
+    const countInput = panel?.querySelector('[data-technique-aggregation-jade-count="true"]');
     const button = document.querySelector('[data-craft-action="technique-aggregation-record-jade"]');
+    if (!(countInput instanceof HTMLInputElement) || !(button instanceof HTMLButtonElement)) {
+      throw new Error('悟道玉简数量预检结构不完整');
+    }
+    countInput.value = '2';
+    countInput.dispatchEvent(new Event('input', { bubbles: true }));
+    const publishBeforeConfirm = window.__techniqueUnificationPublishPayload;
+    button.click();
+    const confirmLayer = document.querySelector('.confirm-modal-layer:not(.hidden)');
+    const confirmButton = confirmLayer?.querySelector('[data-confirm-modal-confirm="true"]');
+    const confirmTitle = confirmLayer?.querySelector('.confirm-modal-title')?.textContent?.trim() ?? '';
+    const confirmText = confirmLayer?.querySelector('.confirm-modal-body')?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+    const confirmButtonText = confirmButton?.textContent?.trim() ?? '';
+    if (!(confirmButton instanceof HTMLButtonElement)) throw new Error('悟道玉简二次确认弹层未打开');
+    confirmButton.click();
+    const publishPayload = window.__techniqueUnificationPublishPayload;
+    modal.handleTechniqueAggregationResult({
+      requestId: publishPayload?.requestId,
+      operationId: publishPayload?.operationId,
+      ok: false,
+      recordMode: 'jade',
+      code: 'TECHNIQUE_AGGREGATE_NOT_READY',
+    });
+    const previewMetrics = Array.from(panel?.querySelectorAll('.technique-aggregation-jade-preview-metrics > span') ?? [])
+      .map((entry) => entry.textContent?.replace(/\s+/g, ' ').trim() ?? '');
     return {
       activeMainTab: panel?.querySelector('.technique-aggregation-primary-tab.is-active')?.textContent?.trim() ?? '',
       activeRecordTab: panel?.querySelector('.technique-aggregation-record-tab.is-active')?.textContent?.trim() ?? '',
@@ -293,7 +334,15 @@ const openBoundJadeExpression = String.raw`
       jadeMetricCount: panel?.querySelectorAll('.technique-aggregation-jade-metrics > span').length ?? 0,
       balanceLabels: Array.from(panel?.querySelectorAll('.technique-aggregation-jade-balance > span') ?? [])
         .map((entry) => entry.textContent?.trim() ?? ''),
-      recordButtonEnabled: button instanceof HTMLButtonElement && !button.disabled,
+      selectedCount: countInput.value,
+      previewMetrics,
+      buttonText: button.textContent?.trim() ?? '',
+      recordButtonEnabled: !button.disabled,
+      publishBeforeConfirm,
+      confirmTitle,
+      confirmText,
+      confirmButtonText,
+      publishPayload,
       hasDirectory: Boolean(panel?.querySelector('[data-technique-aggregation-directory="true"]')),
       overflow: panel instanceof HTMLElement && panel.scrollWidth > panel.clientWidth + 1,
     };
@@ -336,10 +385,17 @@ const openOverviewExpression = String.raw`
   (() => {
     document.querySelector('[data-primary-tab="overview"]')?.click();
     const panel = document.querySelector('[data-technique-aggregation-panel="true"]');
+    const recordedSources = panel?.querySelector('.technique-aggregation-recorded-sources');
     return {
       activeMainTab: panel?.querySelector('.technique-aggregation-primary-tab.is-active')?.textContent?.trim() ?? '',
       overviewText: panel?.querySelector('.technique-aggregation-tab-content')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
       metricCount: panel?.querySelectorAll('.technique-aggregation-overview-metrics > span').length ?? 0,
+      sourceNames: Array.from(panel?.querySelectorAll('.technique-aggregation-recorded-sources strong') ?? [])
+        .map((entry) => entry.textContent?.trim() ?? ''),
+      attributeTexts: Array.from(panel?.querySelectorAll('.technique-aggregation-attribute-grid > span') ?? [])
+        .map((entry) => entry.textContent?.replace(/\s+/g, ' ').trim() ?? ''),
+      sourceOverflowY: recordedSources instanceof HTMLElement ? getComputedStyle(recordedSources).overflowY : '',
+      overflow: panel instanceof HTMLElement && panel.scrollWidth > panel.clientWidth + 1,
       hasRecordTabs: Boolean(panel?.querySelector('.technique-aggregation-record-tabs')),
       hasPermissions: Boolean(panel?.querySelector('[data-technique-aggregation-permissions="true"]')),
     };
@@ -468,7 +524,17 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'technique-uni
   assert.match(jade.jadeText, /现有玉简3 枚/, '悟道玉简数量显示错误');
   assert.match(jade.jadeText, /道韵强度80%-120%/, '悟道玉简强度范围显示错误');
   assert.deepEqual(jade.balanceLabels, ['五行无偏', '六维均衡', '不另立功法'], '悟道玉简均衡规则文案不完整');
+  assert.equal(jade.selectedCount, '2', '玉简预检未保留手动指定数量');
+  assert.deepEqual(jade.previewMetrics, ['本次融入2 枚', '录后道韵4 道', '背包余量1 枚'], '玉简数量预检结果错误');
+  assert.equal(jade.buttonText, '进入二次确认', '玉简录法按钮未明确进入二次确认');
   assert.equal(jade.recordButtonEnabled, true, '持有悟道玉简时录法按钮不可用');
+  assert.equal(jade.publishBeforeConfirm, null, '打开二次确认前已提交玉简录法');
+  assert.equal(jade.confirmTitle, '录法二次确认', '玉简二次确认标题错误');
+  assert.match(jade.confirmText, /本次消耗2 枚悟道玉简/, '二次确认未显示本次消耗数量');
+  assert.match(jade.confirmText, /录后道韵4 道/, '二次确认未显示录后道韵总数');
+  assert.equal(jade.confirmButtonText, '确认融入 2 枚', '二次确认按钮数量错误');
+  assert.equal(jade.publishPayload?.recordMode, 'jade', '二次确认后未提交玉简录法');
+  assert.equal(jade.publishPayload?.jadeItemSpend, 2, '二次确认未携带指定玉简数量');
   assert.equal(jade.hasDirectory, false, '悟道玉简录法页混入自有功法目录');
   assert.equal(jade.overflow, false, '悟道玉简录法页出现横向溢出');
 
@@ -489,6 +555,12 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'technique-uni
   assert.equal(overview.metricCount, 3, '已绑定总览指标不完整');
   assert.match(overview.overviewText, /源法2 部/, '总览未显示源法数量');
   assert.match(overview.overviewText, /玉简道韵2 道/, '总览未显示玉简道韵数量');
+  assert.match(overview.overviewText, /录法构成/, '总览未显示录法构成');
+  assert.deepEqual(overview.sourceNames, ['凡阶归元功1', '凡阶归元功2'], '总览源法名录不完整');
+  assert.equal(overview.attributeTexts.length, 6, '总览未显示完整六维加成');
+  assert.deepEqual(overview.attributeTexts, ['体魄 +111', '神识 +122', '身法 +133', '根骨 +144', '力道 +155', '经脉 +166'], '总览六维加成显示错误');
+  assert.equal(overview.sourceOverflowY, 'visible', '手机端录法构成未随正文纵向展开');
+  assert.equal(overview.overflow, false, '总览源法与六维区域出现横向溢出');
   assert.equal(overview.hasRecordTabs, false, '总览页混入录法方式');
   assert.equal(overview.hasPermissions, false, '总览页混入权限编辑器');
 

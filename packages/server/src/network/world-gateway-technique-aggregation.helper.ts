@@ -626,6 +626,9 @@ export class WorldGatewayTechniqueAggregationHelper {
         ? normalizeTechniqueUnificationPermissions(payload.permissions)
         : undefined,
       recordMode: payload?.recordMode === 'jade' ? 'jade' : 'sources',
+      jadeItemSpend: Number.isFinite(Number(payload?.jadeItemSpend))
+        ? Number(payload.jadeItemSpend)
+        : payload?.jadeItemSpend === undefined ? undefined : Number.NaN,
       sourceTechniqueIds: Array.isArray(payload?.sourceTechniqueIds)
         ? payload.sourceTechniqueIds.map(normalizeText).filter(Boolean)
         : [],

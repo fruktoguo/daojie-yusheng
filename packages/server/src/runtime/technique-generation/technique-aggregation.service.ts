@@ -10,6 +10,7 @@ import {
   TECHNIQUE_AGGREGATE_EFFECT_MULTIPLIER,
   TECHNIQUE_AGGREGATE_SCHEMA_VERSION,
   TECHNIQUE_AGGREGATE_ID_PREFIX,
+  TECHNIQUE_AGGREGATION_MAX_JADE_ITEM_SPEND,
   CUSTOM_TECHNIQUE_NAME_MAX_LENGTH,
   CUSTOM_TECHNIQUE_NAME_MIN_LENGTH,
   DEFAULT_TECHNIQUE_UNIFICATION_PERMISSIONS,
@@ -82,6 +83,7 @@ interface TechniqueAggregationValidationSuccess {
   initialPermissions: TechniqueUnificationPermissions;
   recordMode: TechniqueAggregationRecordMode;
   revisionOperationId: string;
+  jadeItemSpend: number;
 }
 
 type TechniqueAggregationValidation =
@@ -229,6 +231,13 @@ export class TechniqueAggregationService {
       .map(({ techniqueId, metadata }) => {
         const template = this.contentTemplateRepository.createTechniqueState(techniqueId) as any;
         const playerState = playerAggregateByFamily.get(metadata.familyId);
+        const sourceTechniques = metadata.sourceTechniqueIds.map((sourceTechniqueId) => {
+          const sourceTemplate = this.contentTemplateRepository.createTechniqueState(sourceTechniqueId) as any;
+          return {
+            techniqueId: sourceTechniqueId,
+            name: normalizeName(sourceTemplate?.name, sourceTechniqueId),
+          };
+        });
         return {
           familyId: metadata.familyId,
           latestRevision: metadata.revision,
@@ -239,7 +248,9 @@ export class TechniqueAggregationService {
           realmLv: Math.max(1, Math.trunc(Number(template?.realmLv) || 1)),
           sourceCount: metadata.sourceTechniqueIds.length,
           sourceTechniqueIds: [...metadata.sourceTechniqueIds],
+          sourceTechniques,
           jadeEnhancementCount: Math.max(0, metadata.jadeEnhancementCount ?? 0),
+          fullLevelAttrs: resolveTechniqueFullLevelAttrs(template),
           ...(metadata.creatorPlayerId ? { creatorPlayerId: metadata.creatorPlayerId } : {}),
           ...(playerState ? { playerRevision: playerState.revision } : {}),
           playerCoveredCount: playerState?.covered ?? 0,
@@ -405,6 +416,7 @@ export class TechniqueAggregationService {
           playerId: String(player.playerId),
           operationId,
           requestFingerprint: jadeRequestFingerprint,
+          itemSpend: normalizeJadeItemSpend(validationRequest.jadeItemSpend) ?? 1,
           fence: context.jadePersistenceFence,
         });
         if (!durableResult.ok) {
@@ -429,8 +441,11 @@ export class TechniqueAggregationService {
       validation,
       sourceTemplates,
       validation.recordMode === 'jade'
-        ? this.rollBalancedJadeEnhancement(sourceTemplates)
-        : undefined,
+        ? Array.from(
+          { length: validation.jadeItemSpend },
+          () => this.rollBalancedJadeEnhancement(sourceTemplates),
+        )
+        : [],
     );
     let committedInventoryItems: TechniqueGenerationRuntimeInventoryItem[] | undefined;
     let publishedTemplate = aggregate.template;
@@ -453,6 +468,7 @@ export class TechniqueAggregationService {
           playerId: String(player.playerId),
           operationId,
           requestFingerprint: jadeRequestFingerprint,
+          itemSpend: validation.jadeItemSpend,
           fence: context.jadePersistenceFence,
         });
         if (!durableResult.ok) {
@@ -532,7 +548,12 @@ export class TechniqueAggregationService {
 
     if (recordMode === 'jade') {
       const expectedRevision = Math.trunc(Number(request.expectedRevision) || 0);
+      const jadeItemSpend = normalizeJadeItemSpend(request.jadeItemSpend);
+      const committedJadeItemSpend = latest.metadata.latestJadeStrengthPercents?.length
+        ?? (latest.metadata.latestJadeStrengthPercent !== undefined ? 1 : 0);
       if (!requestedFamilyId
+        || jadeItemSpend === null
+        || committedJadeItemSpend !== jadeItemSpend
         || latest.metadata.revision !== expectedRevision + 1
         || latest.metadata.previousRevision !== expectedRevision
         || latest.metadata.revisionKind !== 'jade'
@@ -595,8 +616,14 @@ export class TechniqueAggregationService {
           sourceCount: metadata.sourceTechniqueIds.length,
           sourceTechniqueIds: [...metadata.sourceTechniqueIds],
           jadeEnhancementCount: Math.max(0, metadata.jadeEnhancementCount ?? 0),
+          ...(metadata.revisionKind === 'jade' ? {
+            jadeItemSpend: metadata.latestJadeStrengthPercents?.length ?? 1,
+          } : {}),
           ...(metadata.revisionKind === 'jade' && metadata.latestJadeStrengthPercent !== undefined
             ? { jadeStrengthPercent: metadata.latestJadeStrengthPercent }
+            : {}),
+          ...(metadata.revisionKind === 'jade' && metadata.latestJadeStrengthPercents?.length
+            ? { jadeStrengthPercents: [...metadata.latestJadeStrengthPercents] }
             : {}),
           totalTrainingDifficulty,
           effectMultiplier: TECHNIQUE_AGGREGATE_EFFECT_MULTIPLIER,
@@ -626,6 +653,12 @@ export class TechniqueAggregationService {
     const revisionAuthorPlayerId = normalizeText(player?.playerId);
     if (!revisionAuthorPlayerId) return this.failure('TECHNIQUE_AGGREGATE_PERMISSION_DENIED');
     const recordMode = normalizeAggregationRecordMode(request?.recordMode);
+    const jadeItemSpend = normalizeJadeItemSpend(request?.jadeItemSpend);
+    if (recordMode === 'jade' && jadeItemSpend === null) {
+      return this.failure('TECHNIQUE_AGGREGATE_JADE_QUANTITY_INVALID', {
+        vars: { maxCount: TECHNIQUE_AGGREGATION_MAX_JADE_ITEM_SPEND },
+      });
+    }
     const revisionOperationId = normalizeRequestId(request?.operationId) ?? '';
     const rawIds: string[] = Array.isArray(request?.sourceTechniqueIds)
       ? request.sourceTechniqueIds.map(normalizeText).filter(Boolean)
@@ -763,6 +796,7 @@ export class TechniqueAggregationService {
       initialPermissions,
       recordMode,
       revisionOperationId,
+      jadeItemSpend: recordMode === 'jade' ? jadeItemSpend ?? 1 : 0,
     };
   }
 
@@ -770,7 +804,7 @@ export class TechniqueAggregationService {
     revisionAuthorPlayerId: string,
     validation: TechniqueAggregationValidationSuccess,
     sources: Array<{ techniqueId: string; template: any; learned: any }>,
-    jadeEnhancement?: BalancedJadeEnhancement,
+    jadeEnhancements: BalancedJadeEnhancement[],
   ): { template: TechniqueTemplate; totalTrainingDifficulty: number; validationReport: Record<string, unknown> } {
     const sourceMaxLayers = sources.map(({ template }) => getTechniqueMaxLevel(template.layers, 1));
     const maxLayer = Math.max(MIN_AGGREGATE_LAYER, Math.min(MAX_AGGREGATE_LAYER, Math.max(...sourceMaxLayers)));
@@ -785,12 +819,17 @@ export class TechniqueAggregationService {
     const previousAttrs: Record<string, number> = {};
     const previousSpecial: Record<string, number> = {};
     const attrKeys: Array<keyof Attributes> = ['constitution', 'spirit', 'perception', 'talent', 'strength', 'meridians'];
+    const latestJadeBonusAttrs = jadeEnhancements.reduce<Partial<Attributes>>(
+      (total, enhancement) => mergeTechniqueAttrs(total, enhancement.bonusAttrs),
+      {},
+    );
     const jadeBonusAttrs = mergeTechniqueAttrs(
       validation.previousMetadata?.jadeBonusAttrs,
-      jadeEnhancement?.bonusAttrs,
+      latestJadeBonusAttrs,
     );
     const jadeEnhancementCount = Math.max(0, validation.previousMetadata?.jadeEnhancementCount ?? 0)
-      + (jadeEnhancement ? 1 : 0);
+      + jadeEnhancements.length;
+    const latestJadeStrengthPercents = jadeEnhancements.map((enhancement) => enhancement.strengthPercent);
     for (let level = 1; level <= maxLayer; level += 1) {
       const attrs: Record<string, number> = {};
       const specialStats: Record<string, number> = {};
@@ -846,9 +885,17 @@ export class TechniqueAggregationService {
       revisionOperationId: validation.revisionOperationId,
       ...(jadeEnhancementCount > 0 ? { jadeEnhancementCount } : {}),
       ...(Object.keys(jadeBonusAttrs).length > 0 ? { jadeBonusAttrs } : {}),
-      ...(jadeEnhancement ? { latestJadeStrengthPercent: jadeEnhancement.strengthPercent } : (
+      ...(latestJadeStrengthPercents.length > 0 ? {
+        latestJadeStrengthPercent: latestJadeStrengthPercents[latestJadeStrengthPercents.length - 1],
+        latestJadeStrengthPercents,
+      } : (
         validation.previousMetadata?.latestJadeStrengthPercent !== undefined
-          ? { latestJadeStrengthPercent: validation.previousMetadata.latestJadeStrengthPercent }
+          ? {
+            latestJadeStrengthPercent: validation.previousMetadata.latestJadeStrengthPercent,
+            ...(validation.previousMetadata.latestJadeStrengthPercents
+              ? { latestJadeStrengthPercents: [...validation.previousMetadata.latestJadeStrengthPercents] }
+              : {}),
+          }
           : {}
       )),
       ...(validation.platformInstanceId ? { platformInstanceId: validation.platformInstanceId } : {}),
@@ -899,13 +946,13 @@ export class TechniqueAggregationService {
         revisionOperationId: validation.revisionOperationId,
         jadeEnhancementCount,
         jadeBonusAttrs,
-        ...(jadeEnhancement ? {
-          jadeEnhancement: {
-            budgetPercent: jadeEnhancement.budgetPercent,
-            strengthPercent: jadeEnhancement.strengthPercent,
+        ...(jadeEnhancements.length > 0 ? {
+          jadeEnhancements: jadeEnhancements.map((enhancement) => ({
+            budgetPercent: enhancement.budgetPercent,
+            strengthPercent: enhancement.strengthPercent,
             distribution: 'balanced_six_attributes',
-            bonusAttrs: jadeEnhancement.bonusAttrs,
-          },
+            bonusAttrs: enhancement.bonusAttrs,
+          })),
         } : {}),
         displayName: validation.displayName,
         platformInstanceId: validation.platformInstanceId,
@@ -1041,7 +1088,16 @@ function buildJadeRequestFingerprint(
     familyId: normalizeText(request.familyId),
     expectedRevision: Math.max(0, Math.trunc(Number(request.expectedRevision) || 0)),
     recordMode: normalizeAggregationRecordMode(request.recordMode),
+    jadeItemSpend: normalizeJadeItemSpend(request.jadeItemSpend) ?? 0,
   })).digest('hex');
+}
+
+function normalizeJadeItemSpend(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') return 1;
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || !Number.isInteger(numeric)) return null;
+  if (numeric < 1 || numeric > TECHNIQUE_AGGREGATION_MAX_JADE_ITEM_SPEND) return null;
+  return numeric;
 }
 
 function countInventoryItem(player: any, itemId: string): number {
@@ -1063,6 +1119,17 @@ function mergeTechniqueAttrs(
   for (const key of TECHNIQUE_ATTR_KEYS) {
     const value = Number(left?.[key] ?? 0) + Number(right?.[key] ?? 0);
     if (Number.isFinite(value) && value > 0) result[key] = roundMetric(value);
+  }
+  return result;
+}
+
+function resolveTechniqueFullLevelAttrs(template: any): Partial<Attributes> {
+  const maxLevel = getTechniqueMaxLevel(Array.isArray(template?.layers) ? template.layers : undefined, 1);
+  const cumulative = calcTechniqueAttrValues(maxLevel, Array.isArray(template?.layers) ? template.layers : undefined);
+  const result: Partial<Attributes> = {};
+  for (const key of TECHNIQUE_ATTR_KEYS) {
+    const value = Number(cumulative[key] ?? 0);
+    result[key] = Number.isFinite(value) ? roundMetric(value) : 0;
   }
   return result;
 }

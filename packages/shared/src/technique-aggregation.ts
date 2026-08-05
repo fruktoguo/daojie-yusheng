@@ -15,6 +15,7 @@ export const TECHNIQUE_AGGREGATE_SCHEMA_VERSION = 1;
 export const TECHNIQUE_AGGREGATE_CATEGORY: TechniqueCategory = 'internal';
 export const TECHNIQUE_AGGREGATE_EFFECT_MULTIPLIER = 1.1;
 export const TECHNIQUE_UNIFICATION_PLATFORM_DEF_ID = 'technique_unification_platform';
+export const TECHNIQUE_AGGREGATION_MAX_JADE_ITEM_SPEND = 100;
 
 export interface TechniqueUnificationAccessPolicy {
   /** 开启后不再检查好友层级或宗门职位。 */
@@ -75,6 +76,7 @@ export type TechniqueAggregationErrorCode =
   | 'TECHNIQUE_AGGREGATE_SOURCE_CATEGORY_INVALID'
   | 'TECHNIQUE_AGGREGATE_SOURCE_GRADE_MISMATCH'
   | 'TECHNIQUE_AGGREGATE_JADE_REQUIRES_FAMILY'
+  | 'TECHNIQUE_AGGREGATE_JADE_QUANTITY_INVALID'
   | 'TECHNIQUE_AGGREGATE_JADE_ITEM_NOT_ENOUGH'
   | 'TECHNIQUE_AGGREGATE_REVISION_INVALID'
   | 'TECHNIQUE_AGGREGATE_REVISION_NOT_ADDITIVE'
@@ -106,6 +108,8 @@ export interface TechniqueAggregationMetadata {
   jadeBonusAttrs?: Partial<Attributes>;
   /** 最近一次玉简录法的随机强度，范围为 80-120。 */
   latestJadeStrengthPercent?: number;
+  /** 最近一次玉简录法逐枚抽取的随机强度，范围均为 80-120。 */
+  latestJadeStrengthPercents?: number[];
   /** 首次凝篇所在统法台，用于发布成功但建筑域尚未刷盘时恢复绑定。 */
   platformInstanceId?: string;
   platformBuildingId?: string;
@@ -139,7 +143,14 @@ export interface TechniqueAggregationFamilyView {
   realmLv: number;
   sourceCount: number;
   sourceTechniqueIds: string[];
+  /** 最新卷完整收录的源法名录；仅在低频统法台面板中传输。 */
+  sourceTechniques: Array<{
+    techniqueId: string;
+    name: string;
+  }>;
   jadeEnhancementCount: number;
+  /** 最新卷满层后的权威六维总加成，已包含统合一成增益。 */
+  fullLevelAttrs: Partial<Attributes>;
   creatorPlayerId?: string;
   /** 玩家当前已持有的同一家族版本；没有则为空。 */
   playerRevision?: number;
@@ -165,6 +176,8 @@ export interface TechniqueAggregationPublishRequest {
   permissions?: TechniqueUnificationPermissions;
   /** 缺失时兼容为录入自有源法。 */
   recordMode?: TechniqueAggregationRecordMode;
+  /** 玉简录法的消耗数量；每枚独立抽取强度，缺失时兼容为 1。 */
+  jadeItemSpend?: number;
   sourceTechniqueIds: string[];
 }
 
@@ -247,7 +260,9 @@ export interface TechniqueAggregationResultView {
     sourceCount: number;
     sourceTechniqueIds: string[];
     jadeEnhancementCount: number;
+    jadeItemSpend?: number;
     jadeStrengthPercent?: number;
+    jadeStrengthPercents?: number[];
     totalTrainingDifficulty: number;
     effectMultiplier: number;
   };
@@ -310,6 +325,13 @@ export function normalizeTechniqueAggregationMetadata(value: unknown): Technique
   const latestJadeStrengthPercent = Number.isFinite(rawLatestJadeStrength)
     ? Math.max(80, Math.min(120, Math.round(rawLatestJadeStrength)))
     : undefined;
+  const latestJadeStrengthPercents = Array.isArray(raw.latestJadeStrengthPercents)
+    ? raw.latestJadeStrengthPercents
+      .map((entry) => Number(entry))
+      .filter((entry) => Number.isFinite(entry))
+      .slice(0, TECHNIQUE_AGGREGATION_MAX_JADE_ITEM_SPEND)
+      .map((entry) => Math.max(80, Math.min(120, Math.round(entry))))
+    : latestJadeStrengthPercent !== undefined ? [latestJadeStrengthPercent] : [];
   return {
     schemaVersion: Math.max(1, Math.trunc(Number(raw.schemaVersion) || TECHNIQUE_AGGREGATE_SCHEMA_VERSION)),
     familyId,
@@ -324,6 +346,7 @@ export function normalizeTechniqueAggregationMetadata(value: unknown): Technique
     ...(jadeEnhancementCount > 0 ? { jadeEnhancementCount } : {}),
     ...(jadeBonusAttrs ? { jadeBonusAttrs } : {}),
     ...(latestJadeStrengthPercent !== undefined ? { latestJadeStrengthPercent } : {}),
+    ...(latestJadeStrengthPercents.length > 0 ? { latestJadeStrengthPercents } : {}),
     ...(platformInstanceId ? { platformInstanceId } : {}),
     ...(platformBuildingId ? { platformBuildingId } : {}),
     ...(raw.initialPermissions ? { initialPermissions } : {}),

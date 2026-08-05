@@ -1579,6 +1579,182 @@
       overflow-wrap: anywhere;
     }
 
+    .technique-aggregation-overview-section,
+    .technique-aggregation-jade-precheck {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+      padding-top: 10px;
+      border-top: 1px solid rgba(60, 47, 39, 0.1);
+    }
+
+    .technique-aggregation-overview-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .technique-aggregation-overview-head > strong {
+      color: var(--ink-black);
+      font-size: var(--font-size-13);
+    }
+
+    .technique-aggregation-overview-head > small {
+      color: var(--ink-grey);
+      font-size: var(--font-size-11);
+      text-align: right;
+    }
+
+    .technique-aggregation-recorded-sources {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 5px;
+      max-height: 190px;
+      overflow-y: auto;
+      overscroll-behavior-y: contain;
+      scrollbar-gutter: stable;
+    }
+
+    .technique-aggregation-recorded-sources > span,
+    .technique-aggregation-recorded-jade {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+      min-height: 34px;
+      padding: 6px 8px;
+      border: 1px solid rgba(60, 47, 39, 0.09);
+      background: var(--surface-muted-strong);
+    }
+
+    .technique-aggregation-recorded-sources small {
+      color: var(--ink-grey);
+      font-size: var(--font-size-10);
+    }
+
+    .technique-aggregation-recorded-sources strong,
+    .technique-aggregation-recorded-jade strong {
+      min-width: 0;
+      color: var(--ink-black);
+      font-size: var(--font-size-12);
+      overflow-wrap: anywhere;
+    }
+
+    .technique-aggregation-recorded-jade {
+      border-left: 3px solid rgba(79, 118, 100, 0.62);
+    }
+
+    .technique-aggregation-recorded-jade > span {
+      color: var(--ink-grey);
+      font-size: var(--font-size-11);
+    }
+
+    .technique-aggregation-attribute-grid,
+    .technique-aggregation-jade-preview-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .technique-aggregation-attribute-grid > span,
+    .technique-aggregation-jade-preview-metrics > span {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+      padding: 8px 9px;
+      border-left: 2px solid rgba(168, 95, 35, 0.42);
+      background: rgba(168, 95, 35, 0.06);
+    }
+
+    .technique-aggregation-attribute-grid small,
+    .technique-aggregation-jade-preview-metrics small {
+      color: var(--ink-grey);
+      font-size: var(--font-size-11);
+    }
+
+    .technique-aggregation-attribute-grid strong,
+    .technique-aggregation-jade-preview-metrics strong {
+      color: var(--ink-black);
+      font-size: var(--font-size-13);
+      overflow-wrap: anywhere;
+    }
+
+    .technique-aggregation-jade-quantity {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+    }
+
+    .technique-aggregation-jade-stepper {
+      display: grid;
+      grid-template-columns: 36px 76px 36px auto;
+      gap: 5px;
+      min-width: 0;
+    }
+
+    .technique-aggregation-jade-stepper .small-btn {
+      width: 36px;
+      min-width: 36px;
+      padding-inline: 0;
+    }
+
+    .technique-aggregation-jade-stepper .small-btn:last-child {
+      width: auto;
+      min-width: 54px;
+      padding-inline: 9px;
+    }
+
+    .technique-aggregation-jade-stepper .ui-input {
+      width: 76px;
+      min-width: 0;
+      text-align: center;
+    }
+
+    .technique-aggregation-jade-note {
+      margin: 0;
+      color: var(--ink-grey);
+      font-size: var(--font-size-11);
+      line-height: 1.5;
+    }
+
+    .technique-aggregation-jade-confirm {
+      display: grid;
+      gap: 8px;
+    }
+
+    .technique-aggregation-jade-confirm > div {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--wash-ink);
+    }
+
+    .technique-aggregation-jade-confirm > div > span,
+    .technique-aggregation-jade-confirm > p {
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+    }
+
+    .technique-aggregation-jade-confirm > div > strong {
+      color: var(--ink-black);
+      text-align: right;
+    }
+
+    .technique-aggregation-jade-confirm > p {
+      margin: 2px 0 0;
+      line-height: 1.55;
+    }
+
     .technique-aggregation-jade-balance {
       display: flex;
       flex-wrap: wrap;
@@ -1889,6 +2065,13 @@
       border-color: rgba(233, 224, 207, 0.16);
     }
 
+    :root[data-color-mode="dark"] .technique-aggregation-overview-section,
+    :root[data-color-mode="dark"] .technique-aggregation-jade-precheck,
+    :root[data-color-mode="dark"] .technique-aggregation-recorded-sources > span,
+    :root[data-color-mode="dark"] .technique-aggregation-recorded-jade {
+      border-color: rgba(233, 224, 207, 0.14);
+    }
+
     :root[data-color-mode="dark"] .technique-aggregation-primary-tab.is-active,
     :root[data-color-mode="dark"] .technique-aggregation-record-tab.is-active,
     :root[data-color-mode="dark"] .technique-aggregation-permission-tab.is-active {
@@ -1928,6 +2111,35 @@
       }
       .technique-aggregation-overview-metrics {
         grid-template-columns: minmax(0, 1fr);
+      }
+      .technique-aggregation-recorded-sources {
+        grid-template-columns: minmax(0, 1fr);
+        max-height: none;
+        overflow: visible;
+        scrollbar-gutter: auto;
+      }
+      .technique-aggregation-overview-head,
+      .technique-aggregation-jade-quantity {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+      .technique-aggregation-overview-head > small {
+        text-align: left;
+      }
+      .technique-aggregation-attribute-grid,
+      .technique-aggregation-jade-preview-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .technique-aggregation-jade-stepper {
+        width: 100%;
+        grid-template-columns: 40px minmax(72px, 1fr) 40px auto;
+      }
+      .technique-aggregation-jade-stepper .small-btn {
+        width: 40px;
+        min-width: 40px;
+      }
+      .technique-aggregation-jade-stepper .ui-input {
+        width: 100%;
       }
       .technique-aggregation-jade-metrics {
         grid-template-columns: repeat(2, minmax(0, 1fr));

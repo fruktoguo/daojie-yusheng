@@ -40,7 +40,7 @@ class TestSocket {
 async function main(): Promise<void> {
   const owner = createPlayer('player:owner', ['gen:a', 'gen:b', 'gen:c']);
   const closeFriend = createPlayer('player:close-friend', ['gen:friend']);
-  const innerDisciple = createPlayer('player:inner-disciple', ['gen:inner'], 1);
+  const innerDisciple = createPlayer('player:inner-disciple', ['gen:inner'], 3);
   const stranger = createPlayer('player:stranger', ['gen:stranger'], 1);
   const players = new Map([owner, closeFriend, innerDisciple, stranger].map((player) => [player.playerId, player]));
   const building: any = {
@@ -317,7 +317,7 @@ async function main(): Promise<void> {
   await helper.handleRequestPanel(innerSocket as never, { requestId: 'inner-jade-panel', buildingId: building.id });
   assert.equal(
     innerSocket.last<TechniqueAggregationPanelView>(S2C.TechniqueAggregationPanel).jadeItemCount,
-    1,
+    3,
   );
   await helper.handlePublish(innerSocket as never, {
     requestId: 'inner-jade-revision',
@@ -326,19 +326,23 @@ async function main(): Promise<void> {
     familyId: 'family:forged-switch',
     expectedRevision: 3,
     recordMode: 'jade',
+    jadeItemSpend: 2,
     sourceTechniqueIds: [],
   });
   const jadeResult = innerSocket.last<any>(S2C.TechniqueAggregationResult);
   assert.equal(jadeResult.ok, true);
   assert.equal(jadeResult.recordMode, 'jade');
   assert.equal(jadeResult.aggregate?.revision, 4);
-  assert.equal(jadeResult.aggregate?.jadeEnhancementCount, 1);
+  assert.equal(jadeResult.aggregate?.jadeEnhancementCount, 2);
+  assert.equal(jadeResult.aggregate?.jadeItemSpend, 2);
   assert.equal(jadeResult.aggregate?.jadeStrengthPercent, 104);
+  assert.deepEqual(jadeResult.aggregate?.jadeStrengthPercents, [104, 104]);
   assert.equal(aggregation.lastPublishRequest?.familyId, boundFamilyId);
+  assert.equal(aggregation.lastPublishRequest?.jadeItemSpend, 2);
   assert.deepEqual(aggregation.lastPublishRequest?.sourceTechniqueIds, []);
   assert.equal(playerFlushes.some((domains) => domains.includes('inventory')), true);
-  assert.deepEqual(innerDisciple.inventory.items, []);
-  assert.deepEqual(replacedInventories.at(-1), { playerId: innerDisciple.playerId, items: [] });
+  assert.equal(innerDisciple.inventory.items[0]?.count, 1);
+  assert.equal((replacedInventories.at(-1)?.items[0] as any)?.count, 1);
   const jadeEntry = aggregation.entries.at(-1);
   assert.equal(jadeEntry?.metadata.revisionKind, 'jade');
   assert.deepEqual(jadeEntry?.metadata.sourceTechniqueIds, collaborativeEntry?.metadata.sourceTechniqueIds);
@@ -470,7 +474,19 @@ class FakeAggregationService {
         realmLv: 3,
         sourceCount: latest.metadata.sourceCount,
         sourceTechniqueIds: [...latest.metadata.sourceTechniqueIds],
+        sourceTechniques: latest.metadata.sourceTechniqueIds.map((techniqueId) => ({
+          techniqueId,
+          name: techniqueId,
+        })),
         jadeEnhancementCount: latest.metadata.jadeEnhancementCount ?? 0,
+        fullLevelAttrs: {
+          constitution: 11,
+          spirit: 12,
+          perception: 13,
+          talent: 14,
+          strength: 15,
+          meridians: 16,
+        },
         creatorPlayerId: latest.metadata.creatorPlayerId,
         playerCoveredCount: 0,
       }] : [{
@@ -483,7 +499,12 @@ class FakeAggregationService {
         realmLv: 1,
         sourceCount: 2,
         sourceTechniqueIds: ['gen:x', 'gen:y'],
+        sourceTechniques: [
+          { techniqueId: 'gen:x', name: '功法甲' },
+          { techniqueId: 'gen:y', name: '功法乙' },
+        ],
         jadeEnhancementCount: 0,
+        fullLevelAttrs: {},
         playerCoveredCount: 0,
       }],
       totalCoveredLeafCount: 0,
@@ -516,6 +537,7 @@ class FakeAggregationService {
       .sort((left, right) => right.metadata.revision - left.metadata.revision)[0];
     const revision = previous ? previous.metadata.revision + 1 : 1;
     const recordMode = request.recordMode === 'jade' ? 'jade' : 'sources';
+    const jadeItemSpend = recordMode === 'jade' ? Math.max(1, Math.trunc(Number(request.jadeItemSpend) || 1)) : 0;
     const sourceTechniqueIds = recordMode === 'jade'
       ? [...(previous?.metadata.sourceTechniqueIds ?? [])]
       : [...new Set([
@@ -534,7 +556,11 @@ class FakeAggregationService {
       revisionAuthorPlayerId: player.playerId,
       revisionKind: recordMode,
       revisionOperationId: request.operationId,
-      jadeEnhancementCount: Math.max(0, previous?.metadata.jadeEnhancementCount ?? 0) + (recordMode === 'jade' ? 1 : 0),
+      jadeEnhancementCount: Math.max(0, previous?.metadata.jadeEnhancementCount ?? 0) + jadeItemSpend,
+      ...(recordMode === 'jade' ? {
+        latestJadeStrengthPercent: 104,
+        latestJadeStrengthPercents: Array.from({ length: jadeItemSpend }, () => 104),
+      } : {}),
       platformInstanceId: context.platformInstanceId,
       platformBuildingId: context.platformBuildingId,
       initialPermissions: previous?.metadata.initialPermissions
@@ -559,12 +585,22 @@ class FakeAggregationService {
           sourceCount: sourceTechniqueIds.length,
           sourceTechniqueIds,
           jadeEnhancementCount: metadata.jadeEnhancementCount ?? 0,
-          ...(recordMode === 'jade' ? { jadeStrengthPercent: 104 } : {}),
+          ...(recordMode === 'jade' ? {
+            jadeItemSpend,
+            jadeStrengthPercent: 104,
+            jadeStrengthPercents: Array.from({ length: jadeItemSpend }, () => 104),
+          } : {}),
           totalTrainingDifficulty: 100,
           effectMultiplier: 1.1,
         },
       },
-      ...(recordMode === 'jade' ? { committedInventoryItems: [] } : {}),
+      ...(recordMode === 'jade' ? {
+        committedInventoryItems: (() => {
+          const current = player.inventory.items.find((item) => item.itemId === 'wudao_yujian');
+          const remaining = Math.max(0, Math.trunc(Number(current?.count) || 0) - jadeItemSpend);
+          return remaining > 0 ? [{ ...current, count: remaining }] : [];
+        })(),
+      } : {}),
     };
   }
 }

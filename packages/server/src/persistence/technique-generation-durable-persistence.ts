@@ -9,6 +9,7 @@
 import type { Pool, PoolClient } from 'pg';
 import {
   TECHNIQUE_GRADE_ORDER,
+  TECHNIQUE_AGGREGATION_MAX_JADE_ITEM_SPEND,
   calculateTechniqueComprehensionRequiredProgress,
   type TechniqueCategory,
   type TechniqueGrade,
@@ -82,6 +83,7 @@ export interface PublishDurableJadeTechniqueAggregationInput
   playerId: string;
   operationId: string;
   requestFingerprint: string;
+  itemSpend: number;
 }
 
 export interface PublishDurableJadeTechniqueAggregationResult {
@@ -91,11 +93,16 @@ export interface PublishDurableJadeTechniqueAggregationResult {
   errorCode?: 'ITEM_NOT_ENOUGH';
 }
 
-/** 将一枚悟道玉简扣除与统合法卷发布原子提交，重放只回读已提交结果。 */
+/** 将指定数量悟道玉简的扣除与统合法卷发布原子提交，重放只回读已提交结果。 */
 export async function publishDurableJadeTechniqueAggregation(
   pool: Pool,
   input: PublishDurableJadeTechniqueAggregationInput,
 ): Promise<PublishDurableJadeTechniqueAggregationResult> {
+  if (!Number.isInteger(input.itemSpend)
+    || input.itemSpend < 1
+    || input.itemSpend > TECHNIQUE_AGGREGATION_MAX_JADE_ITEM_SPEND) {
+    throw new Error('technique_aggregation_jade_item_spend_invalid');
+  }
   return withPlayerTechniqueGenerationTransaction(pool, input.playerId, async (client) => {
     await assertTechniqueGenerationSessionFence(client, input.playerId, input);
     const operationId = buildTechniqueAggregationJadeOperationId(input.operationId);
@@ -112,7 +119,7 @@ export async function publishDurableJadeTechniqueAggregation(
       client,
       input.playerId,
       TECHNIQUE_GENERATION_ITEM_ID,
-      1,
+      input.itemSpend,
     );
     if (!consumed.ok) {
       return {
@@ -140,7 +147,7 @@ export async function publishDurableJadeTechniqueAggregation(
         aggregateTechniqueId: input.id,
         requestFingerprint: input.requestFingerprint,
         itemId: TECHNIQUE_GENERATION_ITEM_ID,
-        itemSpend: 1,
+        itemSpend: input.itemSpend,
       },
     });
     await insertTechniqueGenerationOutbox(client, {
@@ -151,7 +158,7 @@ export async function publishDurableJadeTechniqueAggregation(
         playerId: input.playerId,
         sourceType: 'technique_aggregation_jade',
         sourceRefId: input.id,
-        consumedItems: [{ itemId: TECHNIQUE_GENERATION_ITEM_ID, count: 1 }],
+        consumedItems: [{ itemId: TECHNIQUE_GENERATION_ITEM_ID, count: input.itemSpend }],
       },
     });
     await insertTechniqueGenerationAssetAudit(client, {
@@ -162,7 +169,7 @@ export async function publishDurableJadeTechniqueAggregation(
       delta: {
         sourceType: 'technique_aggregation_jade',
         itemId: TECHNIQUE_GENERATION_ITEM_ID,
-        count: -1,
+        count: -input.itemSpend,
       },
       before: { itemId: TECHNIQUE_GENERATION_ITEM_ID, count: consumed.beforeCount },
       after: { itemId: TECHNIQUE_GENERATION_ITEM_ID, count: consumed.afterCount },
@@ -1236,6 +1243,7 @@ async function loadCommittedTechniqueAggregationJadeOperation(
     || normalizeOptionalString(row?.aggregate_id) !== normalizeOptionalString(expected.id)
     || normalizeOptionalString(payload?.aggregateTechniqueId) !== normalizeOptionalString(expected.id)
     || normalizeOptionalString(payload?.requestFingerprint) !== normalizeOptionalString(expected.requestFingerprint)
+    || Math.trunc(Number(payload?.itemSpend) || 0) !== expected.itemSpend
   ) {
     throw new Error(`technique_aggregation_jade_operation_replay_identity_conflict:${operationId}`);
   }

@@ -158,6 +158,7 @@ export class GeneratedTechniqueStoreService {
     playerId: string;
     operationId: string;
     requestFingerprint: string;
+    itemSpend: number;
     fence: TechniqueGenerationSessionFence;
   }): Promise<PublishDurableJadeTechniqueAggregationResult> {
     if (!this.pool) {
@@ -177,6 +178,7 @@ export class GeneratedTechniqueStoreService {
       playerId: params.playerId,
       operationId: params.operationId,
       requestFingerprint: params.requestFingerprint,
+      itemSpend: params.itemSpend,
       ...params.fence,
     });
     if (!result.ok) return result;
