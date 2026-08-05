@@ -1434,6 +1434,8 @@ export class WorldRuntimePlayerSkillDispatchService {
             : null;
         let syncKillRewardCalls = 0;
         let asyncKillRewardFallbackCalls = 0;
+        let monsterRuntimeRefCalls = 0;
+        let monsterSnapshotFallbackCalls = 0;
         const currentTick = deps.resolveCurrentTickForPlayerId(attacker.playerId);
         const effectColor = getSkillEffectColor(skill);
         const damageKind = resolveSkillDamageKind(skill);
@@ -1615,7 +1617,15 @@ export class WorldRuntimePlayerSkillDispatchService {
                 continue;
             }
             if (target.kind === 'monster') {
-                const monster = instance.getMonster(target.monsterId);
+                let monster;
+                if (typeof instance.getMonsterRuntimeRef === 'function') {
+                    monsterRuntimeRefCalls += 1;
+                    monster = instance.getMonsterRuntimeRef(target.monsterId);
+                }
+                else {
+                    monsterSnapshotFallbackCalls += 1;
+                    monster = instance.getMonster(target.monsterId);
+                }
                 if (!monster?.alive) {
                     this.recordPlayerSkillTargetSkip(deps, attacker, skill, target, monster
                         ? CombatRejectReason.MonsterDead
@@ -2339,6 +2349,22 @@ export class WorldRuntimePlayerSkillDispatchService {
                 'pendingCommands.castSkill.killRewardAsyncFallbackCalls',
                 0,
                 asyncKillRewardFallbackCalls,
+            );
+        }
+        if (monsterRuntimeRefCalls > 0) {
+            recordPlayerSkillDispatchDuration(
+                deps,
+                'pendingCommands.castSkill.monsterRuntimeRefCalls',
+                0,
+                monsterRuntimeRefCalls,
+            );
+        }
+        if (monsterSnapshotFallbackCalls > 0) {
+            recordPlayerSkillDispatchDuration(
+                deps,
+                'pendingCommands.castSkill.monsterSnapshotFallbackCalls',
+                0,
+                monsterSnapshotFallbackCalls,
             );
         }
         recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.targetApplyMs', targetApplyStartedAt, targets.length);

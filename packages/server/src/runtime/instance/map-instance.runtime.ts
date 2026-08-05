@@ -4908,6 +4908,10 @@ class MapInstanceRuntime {
         const monster = this.monstersByRuntimeId.get(runtimeId);
         return monster ? snapshotMonster(monster) : null;
     }
+    /** getMonsterRuntimeRef：读取权威妖兽运行态引用，仅供服务端热路径内部只读使用。 */
+    getMonsterRuntimeRef(runtimeId) {
+        return this.monstersByRuntimeId.get(runtimeId) ?? null;
+    }
     /** getNpc：按 ID 读取 NPC。 */
     getNpc(npcId) {
 

@@ -445,6 +445,8 @@ async function testEnemyTargetsKeepPerTargetAuthorityAndAggregatePresentation():
   const instanceId = 'instance:aoe-enemy-summary';
   const attacker = createCaster(skill, instanceId);
   const monsters = new Map<string, any>();
+  let snapshotLookupCount = 0;
+  let runtimeRefLookupCount = 0;
   for (let index = 0; index < 9; index += 1) {
     const numericStats = createNumericStats();
     numericStats.maxHp = 1_000;
@@ -471,6 +473,11 @@ async function testEnemyTargetsKeepPerTargetAuthorityAndAggregatePresentation():
     meta: { instanceId },
     worldRevision: 0,
     getMonster(runtimeId: string) {
+      snapshotLookupCount += 1;
+      return monsters.get(runtimeId) ?? null;
+    },
+    getMonsterRuntimeRef(runtimeId: string) {
+      runtimeRefLookupCount += 1;
       return monsters.get(runtimeId) ?? null;
     },
     applyTemporaryBuffToMonster() {},
@@ -509,6 +516,10 @@ async function testEnemyTargetsKeepPerTargetAuthorityAndAggregatePresentation():
     bypasses: 0,
   });
   assert.equal(harness.getCastSkillToMonsterCount(), 9);
+  assert.equal(snapshotLookupCount, 0);
+  assert.equal(runtimeRefLookupCount, 9);
+  assert.equal(harness.sectionDurations.get('pendingCommands.castSkill.monsterRuntimeRefCalls')?.count, 9);
+  assert.equal(harness.sectionDurations.has('pendingCommands.castSkill.monsterSnapshotFallbackCalls'), false);
   assert.equal(harness.actionLabels.length, 1);
   assert.equal(harness.attackEffects.length, 0);
   assert.equal(harness.damageFloats.length, 0);
@@ -610,6 +621,8 @@ async function testMonsterKillRewardUsesSynchronousEntryInTargetOrder(): Promise
   assert.equal(asyncFallbackCalls, 0);
   assert.equal(harness.sectionDurations.get('pendingCommands.castSkill.killRewardSyncCalls')?.count, 3);
   assert.equal(harness.sectionDurations.has('pendingCommands.castSkill.killRewardAsyncFallbackCalls'), false);
+  assert.equal(harness.sectionDurations.get('pendingCommands.castSkill.monsterSnapshotFallbackCalls')?.count, 3);
+  assert.equal(harness.sectionDurations.has('pendingCommands.castSkill.monsterRuntimeRefCalls'), false);
 }
 
 async function testMonsterKillRewardStillAwaitsAsyncFallback(): Promise<void> {
@@ -686,11 +699,13 @@ async function testMonsterKillRewardStillAwaitsAsyncFallback(): Promise<void> {
     },
   );
   assert.deepEqual(settlementOrder, ['damage', 'reward:start']);
-  assert.equal(harness.sectionDurations.get('pendingCommands.castSkill.killRewardAsyncFallbackCalls')?.count, 1);
   releaseReward();
   await dispatchPromise;
   assert.deepEqual(settlementOrder, ['damage', 'reward:start', 'reward:end']);
+  assert.equal(harness.sectionDurations.get('pendingCommands.castSkill.killRewardAsyncFallbackCalls')?.count, 1);
   assert.equal(harness.sectionDurations.has('pendingCommands.castSkill.killRewardSyncCalls'), false);
+  assert.equal(harness.sectionDurations.get('pendingCommands.castSkill.monsterSnapshotFallbackCalls')?.count, 1);
+  assert.equal(harness.sectionDurations.has('pendingCommands.castSkill.monsterRuntimeRefCalls'), false);
 }
 
 async function testTargetDependentTileFormulaKeepsPerTargetResolution(): Promise<void> {
