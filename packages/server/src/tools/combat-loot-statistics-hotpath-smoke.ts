@@ -32,6 +32,9 @@ async function main(): Promise<void> {
     itemInstanceId: '00000000-0000-4000-8000-000000000002',
   });
   verifyInventoryOnlyStatisticSkipsTechniqueTraversal();
+  verifyProgressionOnlyStatisticHintMatchesFullDiff();
+  verifyProgressionOnlyStatisticHintSkipsTechniqueTraversal();
+  verifyProgressionOnlyStatisticHintFallsBackForTechniqueSetChanges();
 
   console.log(JSON.stringify({
     ok: true,
@@ -41,6 +44,9 @@ async function main(): Promise<void> {
       'wallet_item_matches_full_diff',
       'same_item_different_instance_state_matches_full_diff',
       'inventory_only_path_skips_technique_traversal',
+      'progression_hint_matches_full_diff',
+      'progression_hint_skips_technique_traversal',
+      'progression_hint_falls_back_for_technique_set_changes',
     ],
   }, null, 2));
 }
@@ -132,6 +138,92 @@ function verifyInventoryOnlyStatisticSkipsTechniqueTraversal(): void {
     { inventoryOnlyStatistics: true },
   );
   assert.equal(service.getPendingPlayerStatisticRecords(player.playerId).length, 1);
+}
+
+function verifyProgressionOnlyStatisticHintMatchesFullDiff(): void {
+  const fastService = createService();
+  const referenceService = createService();
+  const fastPlayer = createPlayer('player:combat-progress-fast');
+  const referencePlayer = structuredClone(fastPlayer);
+  referencePlayer.playerId = 'player:combat-progress-reference';
+  referencePlayer.sessionId = 'session:combat-progress-reference';
+  referencePlayer.dirtyDomains = new Set<string>();
+  fastService.players.set(fastPlayer.playerId, fastPlayer);
+  referenceService.players.set(referencePlayer.playerId, referencePlayer);
+
+  const fastBefore = fastService.captureOfflineGainBeforeTick(fastPlayer);
+  const referenceBefore = referenceService.captureOfflineGainBeforeTick(referencePlayer);
+  const changedTechniqueId = fastPlayer.techniques.techniques[137].techId;
+  fastPlayer.techniques.techniques[137].exp += 17;
+  referencePlayer.techniques.techniques[137].exp += 17;
+
+  fastService.recordPlayerStatisticMutation(fastPlayer, fastBefore, Date.now(), {
+    progressionOnly: true,
+    statisticTechniqueChangedIds: [changedTechniqueId],
+  });
+  referenceService.recordPlayerStatisticMutation(referencePlayer, referenceBefore, Date.now(), {
+    progressionOnly: true,
+  });
+
+  assert.deepEqual(
+    fastService.getPlayerStatisticTotalsSync(fastPlayer.playerId)?.today,
+    referenceService.getPlayerStatisticTotalsSync(referencePlayer.playerId)?.today,
+  );
+  assert.deepEqual(
+    projectSnapshot(fastService.playerStatisticSnapshotsByPlayerId.get(fastPlayer.playerId)),
+    projectSnapshot(referenceService.playerStatisticSnapshotsByPlayerId.get(referencePlayer.playerId)),
+  );
+}
+
+function verifyProgressionOnlyStatisticHintSkipsTechniqueTraversal(): void {
+  const service = createService();
+  const player = createPlayer('player:combat-progress-no-scan');
+  service.players.set(player.playerId, player);
+  const before = service.captureOfflineGainBeforeTick(player);
+  const changedTechnique = player.techniques.techniques[17];
+  changedTechnique.exp += 9;
+  const originalTechniques = player.techniques.techniques;
+  player.techniques.techniques = new Proxy(originalTechniques, {
+    get(target, property, receiver) {
+      if (property === Symbol.iterator || property === 'map' || property === 'forEach') {
+        throw new Error('progression_hint_traversed_techniques');
+      }
+      return Reflect.get(target, property, receiver);
+    },
+  });
+
+  service.recordPlayerStatisticMutation(player, before, Date.now(), {
+    progressionOnly: true,
+    statisticTechniqueChangedIds: [changedTechnique.techId],
+  });
+  assert.equal(service.getPlayerStatisticTotalsSync(player.playerId)?.today.techniques.gained, 9);
+}
+
+function verifyProgressionOnlyStatisticHintFallsBackForTechniqueSetChanges(): void {
+  const service = createService();
+  const player = createPlayer('player:combat-progress-fallback');
+  service.players.set(player.playerId, player);
+  const before = service.captureOfflineGainBeforeTick(player);
+  player.techniques.techniques.push({
+    techId: 'technique:new',
+    name: '新增功法',
+    level: 1,
+    exp: 3,
+    expToNext: 1_000,
+    layers: [{ level: 1, expToNext: 1_000 }],
+  });
+
+  service.recordPlayerStatisticMutation(player, before, Date.now(), {
+    progressionOnly: true,
+    statisticTechniqueChangedIds: ['technique:0'],
+  });
+  assert.equal(service.getPlayerStatisticTotalsSync(player.playerId)?.today.techniques.gained, 3);
+  assert.equal(
+    service.playerStatisticSnapshotsByPlayerId.get(player.playerId)?.techniques.some(
+      (entry: any) => entry.techniqueId === 'technique:new',
+    ),
+    true,
+  );
 }
 
 function createService(): PlayerRuntimeService {

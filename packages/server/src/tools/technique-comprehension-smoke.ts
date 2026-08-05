@@ -789,6 +789,7 @@ function testMonsterKillProgressesComprehensionByOneCultivationTick() {
   assert.equal(result.changed, true);
   assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 11);
   assert.equal(learner.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 1));
+  assert.deepEqual((result as any).statisticTechniqueChangedIds, []);
   assert.ok(
     result.notices.some((notice: any) => String(notice.structured?.vars?.details ?? '').includes(`${createdTechnique.name} 领悟进度 +11`)),
   );
@@ -829,6 +830,41 @@ function testMonsterKillExpOnlyKeepsRealmPreviewStable() {
   assert.equal(learner.techniques.techniques[0]?.level, 1);
   assert.ok((learner.techniques.techniques[0]?.exp ?? 0) > 0);
   assert.equal(presentationCalls, 1);
+  assert.deepEqual((result as any).statisticTechniqueChangedIds, [cultivating.techId]);
+}
+
+function testMonsterKillTechniqueCompletionFallsBackToFullStatisticDiff() {
+  const { progressionService } = createRuntimeService();
+  const learner = createPlayer('learner:kill-comprehension-complete', 0, 0);
+  const requiredProgress = expectedRequiredProgress('created', createdTechnique, learner.realm.realmLv);
+  learner.techniques.cultivatingTechId = createdTechnique.techId;
+  learner.pendingTechniqueComprehensions.push({
+    techId: createdTechnique.techId,
+    name: createdTechnique.name,
+    sourceKind: 'created',
+    selfComprehensionAllowed: true,
+    progress: requiredProgress - 1,
+    requiredProgress,
+    realmLv: 1,
+    grade: 'mortal',
+    category: 'internal',
+    createdAtTick: 0,
+    updatedAtTick: 0,
+    activeTransferJob: null,
+  });
+
+  const result = progressionService.grantMonsterKillProgress(learner, {
+    monsterLevel: 1,
+    monsterTier: 'mortal_blood',
+    expMultiplier: 1,
+    contributionRatio: 1,
+    expAdjustmentRealmLv: 1,
+  });
+
+  assert.equal(result.changed, true);
+  assert.equal(learner.pendingTechniqueComprehensions.length, 0);
+  assert.equal(learner.techniques.techniques.some((entry) => entry.techId === createdTechnique.techId), true);
+  assert.equal(Object.prototype.hasOwnProperty.call(result, 'statisticTechniqueChangedIds'), false);
 }
 
 function testAllMaxedTechniqueProgressionCache() {
@@ -930,6 +966,7 @@ function testMonsterKillAutoSwitchesAndProgressesPendingComprehension() {
   assert.equal(learner.techniques.cultivatingTechId, createdTechnique.techId);
   assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 1);
   assert.ok(result.notices.some((notice: any) => notice.structured?.key === 'notice.progression.technique-auto-switch'));
+  assert.deepEqual((result as any).statisticTechniqueChangedIds, []);
 }
 
 function testCultivationCanStoreFractionalComprehensionProgress() {
@@ -1597,6 +1634,7 @@ testComprehensionSpeedRateProjectionAndCodec();
 testAutoSwitchCultivationCanSelectPendingComprehension();
 testMonsterKillProgressesComprehensionByOneCultivationTick();
 testMonsterKillExpOnlyKeepsRealmPreviewStable();
+testMonsterKillTechniqueCompletionFallsBackToFullStatisticDiff();
 testAllMaxedTechniqueProgressionCache();
 testInventoryPreviewOnlyRefreshesForBreakthroughMaterial();
 testMonsterKillAutoSwitchesAndProgressesPendingComprehension();

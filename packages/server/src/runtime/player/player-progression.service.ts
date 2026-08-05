@@ -523,7 +523,15 @@ export class PlayerProgressionService {
 
         const beforeRealmProgress = player.realm?.progress ?? 0;
 
-        const beforeTechnique = snapshotCultivatingTechnique(player);
+        const learnedTechniquesBefore = player.techniques?.techniques;
+        const learnedTechniqueCountBefore = Array.isArray(learnedTechniquesBefore)
+            ? learnedTechniquesBefore.length
+            : 0;
+        // 复用功法推进索引；击杀推进后还会再次读取同一索引，避免对全量功法重复 find。
+        const beforeTechnique = snapshotCultivatingTechnique(
+            player,
+            this.resolveCultivatingTechnique(player),
+        );
 
         const realmGain = applyRateBonus(this.getRealmCombatExp(monsterLevel, expAdjustmentRealmLv, monsterTier, expMultiplier, contributionRatio), player.attrs.numericStats.playerExpRate, 0);
 
@@ -568,7 +576,11 @@ export class PlayerProgressionService {
 
         const actualCombatExpGain = Math.max(0, player.combatExp - beforeCombatExp);
 
-        const actualTechniqueGain = calculateTechniqueGain(beforeTechnique, snapshotCultivatingTechnique(player));
+        const afterTechnique = snapshotCultivatingTechnique(
+            player,
+            this.resolveCultivatingTechnique(player),
+        );
+        const actualTechniqueGain = calculateTechniqueGain(beforeTechnique, afterTechnique);
         if (actualRealmGain > 0 || actualFoundationGain > 0 || actualCombatExpGain > 0 || actualTechniqueGain.gained > 0) {
 
             const segments = [];
@@ -620,7 +632,18 @@ export class PlayerProgressionService {
             'combat.playerMonsterKill.progressFinalizeMs',
             phaseStartedAt,
         );
-        return toProgressionMutationResult(mutation);
+        const statisticTechniqueChangedIds = resolveMonsterKillStatisticTechniqueChangedIds(
+            player,
+            beforeTechnique,
+            afterTechnique,
+            learnedTechniquesBefore,
+            learnedTechniqueCountBefore,
+            mutation,
+        );
+        return {
+            ...toProgressionMutationResult(mutation),
+            ...(statisticTechniqueChangedIds === null ? {} : { statisticTechniqueChangedIds }),
+        };
     }
     /** 处理天门界面的斩根、重掷和抽灵根操作。 */
     handleHeavenGateAction(player, action, element) {
@@ -2839,7 +2862,7 @@ function getMonsterKillRealmExpAdjustment(playerRealmLv, monsterLevel, monsterTi
  * @returns 无返回值，直接更新快照Cultivating功法相关状态。
  */
 
-function snapshotCultivatingTechnique(player) {
+function snapshotCultivatingTechnique(player, resolvedTechnique = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
@@ -2854,7 +2877,9 @@ function snapshotCultivatingTechnique(player) {
         };
     }
 
-    const technique = player.techniques.techniques.find((entry) => entry.techId === techId);
+    const technique = resolvedTechnique === undefined
+        ? player.techniques.techniques.find((entry) => entry.techId === techId)
+        : resolvedTechnique;
     const pending = technique ? null : (player.pendingTechniqueComprehensions ?? []).find((entry) => entry?.techId === techId);
     if (pending) {
         return {
@@ -2863,6 +2888,7 @@ function snapshotCultivatingTechnique(player) {
             kind: 'comprehension',
             level: 0,
             exp: Math.max(0, Number(pending.progress) || 0),
+            technique: null,
         };
     }
     return {
@@ -2871,7 +2897,47 @@ function snapshotCultivatingTechnique(player) {
         name: resolvePlayerFacingContentName(techId, '未知功法', technique?.name),
         level: Math.max(0, Math.floor(technique?.level ?? 0)),
         exp: Math.max(0, Math.floor(technique?.exp ?? 0)),
+        expToNext: Math.max(0, Math.floor(technique?.expToNext ?? 0)),
+        technique: technique ?? null,
     };
+}
+
+/**
+ * 仅为击杀推进的统计差分提供完整变更集合；功法集合变化或待领悟移除时必须回退全量扫描。
+ */
+function resolveMonsterKillStatisticTechniqueChangedIds(
+    player,
+    beforeTechnique,
+    afterTechnique,
+    learnedTechniquesBefore,
+    learnedTechniqueCountBefore,
+    mutation,
+) {
+    const learnedTechniquesAfter = player?.techniques?.techniques;
+    if (!Array.isArray(learnedTechniquesBefore)
+        || learnedTechniquesAfter !== learnedTechniquesBefore
+        || learnedTechniquesAfter.length !== learnedTechniqueCountBefore
+        || (Array.isArray(mutation?.pendingTechniqueComprehensionRemovedIds)
+            && mutation.pendingTechniqueComprehensionRemovedIds.length > 0)) {
+        return null;
+    }
+    const changedIds = [];
+    if (beforeTechnique?.kind === 'technique' && beforeTechnique.technique && beforeTechnique.techId) {
+        const current = beforeTechnique.technique;
+        if (Math.max(0, Math.floor(Number(current.level) || 0)) !== beforeTechnique.level
+            || Math.max(0, Math.floor(Number(current.exp) || 0)) !== beforeTechnique.exp
+            || Math.max(0, Math.floor(Number(current.expToNext) || 0)) !== beforeTechnique.expToNext) {
+            changedIds.push(beforeTechnique.techId);
+        }
+    }
+    if (changedIds.length === 0
+        && afterTechnique?.kind === 'technique'
+        && afterTechnique.technique
+        && afterTechnique.techId
+        && afterTechnique.techId !== beforeTechnique?.techId) {
+        changedIds.push(afterTechnique.techId);
+    }
+    return changedIds;
 }
 
 function toTechniqueUpdateEntryLocal(technique, maxLevelInput = undefined) {

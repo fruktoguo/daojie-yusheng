@@ -5218,7 +5218,11 @@ export class PlayerRuntimeService {
         const inventoryOnly = !progressionOnly && options?.inventoryOnly === true;
         const deltaStartedAt = performance.now();
         const resolved = progressionOnly
-            ? buildOfflineGainProgressionOnlyMutation(player, beforeSnapshot)
+            ? buildOfflineGainProgressionOnlyMutation(
+                player,
+                beforeSnapshot,
+                options?.statisticTechniqueChangedIds,
+            )
             : inventoryOnly
                 ? buildOfflineGainInventoryOnlyMutation(player, beforeSnapshot, this.contentTemplateRepository)
                 : null;
@@ -6736,6 +6740,7 @@ export class PlayerRuntimeService {
             const statisticStartedAt = performance.now();
             this.recordPlayerStatisticMutation(player, beforeSnapshot, Date.now(), {
                 progressionOnly: isProgressionOnlyStatisticResult(result),
+                statisticTechniqueChangedIds: result?.statisticTechniqueChangedIds,
             });
             recordPlayerTickPerf(performanceOptions, 'combat.playerMonsterKill.progressStatisticsMs', statisticStartedAt);
         }
@@ -7687,9 +7692,13 @@ function buildOfflineGainInventoryDeltaParts(beforeItems, afterItems) {
         items: itemDeltas.filter((entry) => !isWalletCacheItemId(entry.itemId)),
     };
 }
-function buildOfflineGainProgressionOnlyMutation(player, beforeSnapshot) {
+function buildOfflineGainProgressionOnlyMutation(player, beforeSnapshot, statisticTechniqueChangedIds = undefined) {
     const before = normalizeOfflineGainSnapshot(beforeSnapshot);
-    const techniqueResult = buildOfflineGainProgressionTechniqueSnapshotAndDelta(player?.techniques?.techniques, before.techniques);
+    const techniqueResult = buildOfflineGainProgressionTechniqueSnapshotAndDelta(
+        player?.techniques?.techniques,
+        before.techniques,
+        statisticTechniqueChangedIds,
+    );
     const afterSnapshot = buildOfflineGainProgressionOnlySnapshot(player, before, techniqueResult.snapshot);
     return {
         afterSnapshot,
@@ -8482,9 +8491,97 @@ function buildOfflineGainProgressionTechniqueSnapshot(techniques, previousTechni
         })
         .filter((entry) => Boolean(entry));
 }
-function buildOfflineGainProgressionTechniqueSnapshotAndDelta(techniques, previousTechniques) {
+/** 统计调用方已证明功法集合未变化时，只重建本次实际变更的功法槽位。 */
+function buildHintedOfflineGainProgressionTechniqueSnapshotAndDelta(techniques, previousTechniques, changedTechniqueIds) {
     const currentTechniques = Array.isArray(techniques) ? techniques : [];
     const previousSnapshot = Array.isArray(previousTechniques) ? previousTechniques : [];
+    if (currentTechniques.length !== previousSnapshot.length) {
+        return null;
+    }
+    if (changedTechniqueIds.length === 0) {
+        return { snapshot: previousSnapshot, delta: [] };
+    }
+    const previousIndexById = resolveOfflineGainTechniqueSnapshotIndex(previousSnapshot);
+    if (previousIndexById.size !== previousSnapshot.length) {
+        return null;
+    }
+    const seenIds = changedTechniqueIds.length > 1 ? new Set<string>() : null;
+    let snapshot = previousSnapshot;
+    const delta = [];
+    for (const rawTechniqueId of changedTechniqueIds) {
+        const techniqueId = normalizeOfflineGainString(rawTechniqueId);
+        if (!techniqueId || seenIds?.has(techniqueId)) {
+            if (!techniqueId) {
+                return null;
+            }
+            continue;
+        }
+        seenIds?.add(techniqueId);
+        const previousIndex = previousIndexById.get(techniqueId);
+        if (previousIndex === undefined) {
+            return null;
+        }
+        const entry = currentTechniques[previousIndex];
+        if (normalizeOfflineGainString(entry?.techId) !== techniqueId) {
+            return null;
+        }
+        const previous = previousSnapshot[previousIndex];
+        const level = Math.max(1, Math.trunc(Number(entry?.level ?? 1) || 1));
+        const exp = normalizeOfflineGainCount(entry?.exp);
+        const expToNext = normalizeOfflineGainCount(entry?.expToNext);
+        if (previous.level === level && previous.exp === exp && previous.expToNext === expToNext) {
+            continue;
+        }
+        const after = {
+            techniqueId,
+            name: resolvePlayerFacingContentName(techniqueId, '未知功法', entry?.name),
+            level,
+            exp,
+            expToNext,
+            expToNextByLevel: previous?.expToNextByLevel ?? buildOfflineGainTechniqueExpTable(entry),
+        };
+        if (snapshot === previousSnapshot) {
+            snapshot = previousSnapshot.slice();
+        }
+        snapshot[previousIndex] = after;
+        const changed = calculateOfflineGainExpChange(previous ?? {}, after);
+        if (changed.expGained <= 0 && changed.expLost <= 0 && changed.levelGain <= 0 && changed.levelLoss <= 0) {
+            continue;
+        }
+        delta.push({
+            techniqueId: after.techniqueId,
+            name: normalizeOfflineGainString(after.name) || undefined,
+            expGained: changed.expGained,
+            expLost: changed.expLost,
+            netExp: changed.netExp,
+            expGain: changed.expGained,
+            levelGain: changed.levelGain > 0 ? changed.levelGain : undefined,
+            levelLoss: changed.levelLoss > 0 ? changed.levelLoss : undefined,
+            currentLevel: normalizeOfflineGainCount(after.level),
+        });
+    }
+    if (snapshot !== previousSnapshot) {
+        offlineGainTechniqueIndexBySnapshot.set(snapshot, previousIndexById);
+    }
+    return { snapshot, delta };
+}
+function buildOfflineGainProgressionTechniqueSnapshotAndDelta(
+    techniques,
+    previousTechniques,
+    statisticTechniqueChangedIds = undefined,
+) {
+    const currentTechniques = Array.isArray(techniques) ? techniques : [];
+    const previousSnapshot = Array.isArray(previousTechniques) ? previousTechniques : [];
+    if (Array.isArray(statisticTechniqueChangedIds)) {
+        const hinted = buildHintedOfflineGainProgressionTechniqueSnapshotAndDelta(
+            currentTechniques,
+            previousSnapshot,
+            statisticTechniqueChangedIds,
+        );
+        if (hinted) {
+            return hinted;
+        }
+    }
     const previousIndexById = resolveOfflineGainTechniqueSnapshotIndex(previousSnapshot);
     if (currentTechniques.length !== previousSnapshot.length) {
         return buildFullOfflineGainProgressionTechniqueSnapshotAndDelta(currentTechniques, previousSnapshot);
