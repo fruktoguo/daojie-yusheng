@@ -105,6 +105,10 @@ export class ContentTemplateRepository {
     getItemName(itemId) {
         return this.itemRegistry.getItemName(itemId);
     }
+    /** 判断物品是否允许进入交易行目录及流通入口。 */
+    isItemMarketTradable(itemId) {
+        return this.itemRegistry.isMarketTradable(itemId);
+    }
     /** 列出全部物品模板的浅拷贝。 */
     listItemTemplates() {
         return this.itemRegistry.listItemTemplates();

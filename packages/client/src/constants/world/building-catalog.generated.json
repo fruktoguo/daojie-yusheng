@@ -260,12 +260,8 @@
     ],
     "cost": [
       {
-        "itemId": "wood",
-        "count": 4
-      },
-      {
-        "itemId": "stone",
-        "count": 2
+        "itemId": "mat.technique_unification_test",
+        "count": 1
       }
     ],
     "traits": [

@@ -2646,6 +2646,7 @@ export const CLIENT_I18N_MESSAGES = {
   "notice.market.auction.settled-seller": "你的寄拍已成交：{itemName} x{quantity}，入账 {currencyName} x{totalPrice}。",
   "notice.market.buy-order-duplicate": "同一种物品已有求购挂单，不能重复求购。",
   "notice.market.custom-technique-order-book-forbidden": "自创功法残卷不能在普通坊市交易，请前往传法台或拍卖行。",
+  "notice.market.item-not-tradable": "此物不入坊市流通。",
   "notice.market.transmission-empty-book": "这卷残卷已残缺不全，无法寄售。",
   "notice.market.transmission-invalid-price": "传法台售价必须是正整数。",
   "notice.market.transmission-lot-missing": "这卷功法残卷已不在传法台。",

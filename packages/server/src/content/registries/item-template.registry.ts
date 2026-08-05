@@ -104,6 +104,12 @@ export class ItemTemplateRegistry {
     return (this.tryGetRef(itemId)?.name as string) ?? null;
   }
 
+  /** 交易行只接受目录中存在且未显式关闭流通的物品。 */
+  isMarketTradable(itemId: string): boolean {
+    const template = this.tryGetRef(itemId);
+    return template !== undefined && template.marketTradable !== false;
+  }
+
   getItemSortLevel(item: Record<string, unknown> | null | undefined, techniqueLevelResolver?: (techniqueId: string) => number | null): number {
     const template = this.tryGetRef(String(item?.itemId ?? ''));
     if (template?.learnTechniqueId) {

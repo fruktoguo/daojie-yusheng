@@ -123,6 +123,7 @@ export function buildGmEditorItemOptionFromTemplate(raw: unknown): GmEditorItemO
     baselineQiPercent: normalizeNumber(raw.baselineQiPercent),
     qiPercent: normalizeNumber(raw.qiPercent),
     cooldown: normalizeNumber(raw.cooldown),
+    marketTradable: raw.marketTradable === false ? false : undefined,
     consumeBuffs: cloneArray(raw.consumeBuffs) as GmEditorItemOption['consumeBuffs'],
     enhanceLevel: normalizeNumber(raw.enhanceLevel),
     craftEffectStats: normalizeCraftEffectStatsPatch(raw.craftEffectStats as never),

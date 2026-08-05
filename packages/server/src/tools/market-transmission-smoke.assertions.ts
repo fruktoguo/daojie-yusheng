@@ -8,6 +8,7 @@ import { CUSTOM_TECHNIQUE_BOOK_ITEM_ID } from '@mud/shared';
 import { normalizeMarketOrderRow } from '../persistence/market-persistence.service';
 
 type LooseRecord = Record<string, unknown>;
+const NON_TRADABLE_TEST_ITEM_ID = 'mat.technique_unification_test';
 
 type MarketInternals = {
   openOrders: LooseRecord[];
@@ -52,6 +53,27 @@ export async function runTransmissionAssertions(
   const projected = internals.toFullItem({ itemId: CUSTOM_TECHNIQUE_BOOK_ITEM_ID, count: 1, learnTechniqueId: 'gen_aaa', learnTechniqueMaxLevel: 3 });
   assert.equal(projected.learnTechniqueId, 'gen_aaa', 'toFullItem 丢失了 learnTechniqueId');
   assert.equal(projected.learnTechniqueMaxLevel, 3, 'toFullItem 丢失了 learnTechniqueMaxLevel');
+
+  // 不可交易模板必须同时退出目录，并在普通挂售、求购和拍卖寄售入口失败关闭。
+  const hiddenMarketSell = await service.createSellOrder(sellerId, {
+    itemRef: { itemInstanceId: 'seller-test-material' }, quantity: 1, unitPrice: 10, listingMode: 'market',
+  });
+  const hiddenAuctionSell = await service.createSellOrder(sellerId, {
+    itemRef: { itemInstanceId: 'seller-test-material' }, quantity: 1, unitPrice: 10, listingMode: 'auction',
+  });
+  const hiddenBuyOrder = await service.createBuyOrder(buyerId, {
+    itemId: NON_TRADABLE_TEST_ITEM_ID, quantity: 1, unitPrice: 10,
+  });
+  assert.ok(noticeText(hiddenMarketSell).includes('不入坊市流通'), noticeText(hiddenMarketSell));
+  assert.ok(noticeText(hiddenAuctionSell).includes('不入坊市流通'), noticeText(hiddenAuctionSell));
+  assert.ok(noticeText(hiddenBuyOrder).includes('不入坊市流通'), noticeText(hiddenBuyOrder));
+  assert.equal(internals.openOrders.length, 0);
+  const hiddenListing = service.buildMarketListingsPage({ page: 1, pageSize: 20, category: 'all' });
+  assert.equal(
+    hiddenListing.items.some((entry) => entry.itemId === NON_TRADABLE_TEST_ITEM_ID),
+    false,
+    '不可交易物品仍出现在普通坊市目录',
+  );
 
   // 1. 残卷不能挂进普通坊市 order-book。
   const marketSell = await service.createSellOrder(sellerId, { itemRef: { itemInstanceId: 'seller-scroll-a' }, quantity: 1, unitPrice: 10, listingMode: 'market' });

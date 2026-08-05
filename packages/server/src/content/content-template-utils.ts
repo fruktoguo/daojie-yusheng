@@ -754,6 +754,7 @@ function normalizeItemTemplate(raw) {
         baselineQiPercent,
         qiPercent,
         cooldown,
+        marketTradable: candidate.marketTradable === false ? false : undefined,
         craftEffectStats: normalizeCraftEffectStatsPatch(candidate.craftEffectStats),
         consumeBuffs,
         tags: normalizeItemTags(candidate.tags, materialCategory),

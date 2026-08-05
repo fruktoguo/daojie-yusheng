@@ -2200,6 +2200,8 @@ export interface GmEditorItemOption {
  */
 
   cooldown?: number;
+  /** 是否允许进入交易行目录并参与坊市流通，缺省为允许。 */
+  marketTradable?: boolean;
   /**
  * consumeBuffs：consumeBuff相关字段。
  */

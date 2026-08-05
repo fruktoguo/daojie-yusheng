@@ -7,7 +7,7 @@ import type { AuctionHouseTab, ItemStack, MarketListedItemView, MarketTradeHisto
 import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, createItemStackSignature, ITEM_TYPES, MARKET_PRICE_PRESET_VALUES, normalizeEnhanceLevel } from '@mud/shared';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
 import { getItemTypeLabel } from '../../domain-labels';
-import { getLocalRealmLevelEntry, resolvePreviewItem } from '../../content/local-templates';
+import { getLocalItemTemplate, getLocalRealmLevelEntry, resolvePreviewItem } from '../../content/local-templates';
 import { getItemDisplayMeta } from '../item-display';
 import { detailModalHost } from '../detail-modal-host';
 import { t } from '../i18n';
@@ -1275,7 +1275,10 @@ export class MarketAuctionView {
     const currencyItemId = update?.currencyItemId ?? '';
     return this.panel.inventory.items
       .map((item) => ({ itemInstanceId: normalizeInventoryItemInstanceId(item.itemInstanceId), item }))
-      .filter((entry) => entry.itemInstanceId && entry.item.count > 0 && entry.item.itemId !== currencyItemId);
+      .filter((entry) => entry.itemInstanceId
+        && entry.item.count > 0
+        && entry.item.itemId !== currencyItemId
+        && getLocalItemTemplate(entry.item.itemId)?.marketTradable !== false);
   }
 
   getFilteredAuctionConsignItems(

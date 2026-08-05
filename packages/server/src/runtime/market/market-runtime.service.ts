@@ -738,7 +738,7 @@ export class MarketRuntimeService {
                 return this.singleMessage(playerId, '挂售数量超过了当前持有数量。');
             }
             if (!this.canTradeItemOnMarket(item)) {
-                return this.singleMessage(playerId, `${this.getCurrencyItemName()}是坊市货币，不能挂售。`);
+                return this.buildItemNotTradableResult(playerId);
             }
             if (listingMode === 'market' && item.itemId === CUSTOM_TECHNIQUE_BOOK_ITEM_ID) {
                 // 普通坊市按 itemId 聚合盘口，残卷共用 itemId 会导致 A 功法被当 B 功法成交。
@@ -912,7 +912,7 @@ export class MarketRuntimeService {
                 return this.singleMessage(playerId, '求购的物品不存在。');
             }
             if (!this.canTradeItemOnMarket(item)) {
-                return this.singleMessage(playerId, `${this.getCurrencyItemName()}是坊市货币，不能求购。`);
+                return this.buildItemNotTradableResult(playerId);
             }
             if (item.itemId === CUSTOM_TECHNIQUE_BOOK_ITEM_ID) {
                 // 求购单的物品由模板重建，不含 learnTechniqueId；一旦撮合成交会把空书交付买家。
@@ -1133,7 +1133,7 @@ export class MarketRuntimeService {
                 return this.singleMessage(playerId, '出售数量超过了当前持有数量。');
             }
             if (!this.canTradeItemOnMarket(item)) {
-                return this.singleMessage(playerId, `${this.getCurrencyItemName()}是坊市货币，不能出售给求购盘。`);
+                return this.buildItemNotTradableResult(playerId);
             }
             if (this.isOrdinaryMarketEnhancementLevelRestricted(item)) {
                 return this.singleMessage(playerId, `+${MARKET_MAX_ENHANCE_LEVEL + 1} 以上装备不能出售给普通求购盘，请走拍卖行寄拍。`);
@@ -3457,7 +3457,18 @@ export class MarketRuntimeService {
  */
 
     canTradeItemOnMarket(item) {
-        return item.itemId !== MARKET_CURRENCY_ITEM_ID;
+        const itemId = typeof item?.itemId === 'string' ? item.itemId.trim() : '';
+        if (!itemId || itemId === MARKET_CURRENCY_ITEM_ID) {
+            return false;
+        }
+        if (typeof this.contentTemplateRepository.isItemMarketTradable === 'function') {
+            return this.contentTemplateRepository.isItemMarketTradable(itemId) === true;
+        }
+        return item?.marketTradable !== false;
+    }
+    /** 构造物品禁止进入坊市时的统一结构化提示。 */
+    buildItemNotTradableResult(playerId) {
+        return this.singleStructuredMessage(playerId, 'warn', 'notice.market.item-not-tradable', '此物不入坊市流通。', {});
     }
     /**
      * 普通坊市（order-book）是否接受该物品。

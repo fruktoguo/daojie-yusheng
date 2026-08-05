@@ -1,13 +1,20 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   S2C,
   normalizeTechniqueUnificationPermissions,
+  type BuildingDef,
   type TechniqueAggregationMetadata,
   type TechniqueAggregationPanelView,
   type TechniqueAggregationPublishRequest,
   type TechniqueUnificationPlatformView,
 } from '@mud/shared';
+import { resolveProjectPath } from '../common/project-path';
+import { ContentTemplateRepository } from '../content/content-template.repository';
 import { WorldGatewayTechniqueAggregationHelper } from '../network/world-gateway-technique-aggregation.helper';
+import { compileBuildingDefinitions } from '../runtime/building/building-content.repository';
+
+const TECHNIQUE_UNIFICATION_TEST_ITEM_ID = 'mat.technique_unification_test';
 
 type RuntimePlayer = {
   playerId: string;
@@ -38,6 +45,7 @@ class TestSocket {
 }
 
 async function main(): Promise<void> {
+  assertTechniqueUnificationConstructionGate();
   const owner = createPlayer('player:owner', ['gen:a', 'gen:b', 'gen:c']);
   const closeFriend = createPlayer('player:close-friend', ['gen:friend']);
   const innerDisciple = createPlayer('player:inner-disciple', ['gen:inner'], 3);
@@ -408,6 +416,34 @@ async function main(): Promise<void> {
     instanceFlushes: instanceFlushes.length,
     playerFlushes: playerFlushes.length,
   })}\n`);
+}
+
+/** 锁定统法台正式开放前的临时建造门槛与交易行隔离。 */
+function assertTechniqueUnificationConstructionGate(): void {
+  const contentRepository = new ContentTemplateRepository();
+  contentRepository.loadAll();
+  const testItem = contentRepository.createItem(TECHNIQUE_UNIFICATION_TEST_ITEM_ID, 1);
+  assert.equal(testItem?.name, '测试材料');
+  assert.equal(contentRepository.isItemMarketTradable(TECHNIQUE_UNIFICATION_TEST_ITEM_ID), false);
+  assert.equal(
+    contentRepository.listItemTemplates()
+      .find((item) => item.itemId === TECHNIQUE_UNIFICATION_TEST_ITEM_ID)?.marketTradable,
+    false,
+    '客户端与 GM 共用目录必须保留不可交易标记',
+  );
+
+  const definitions = JSON.parse(readFileSync(resolveProjectPath(
+    'packages',
+    'server',
+    'data',
+    'content',
+    'building-runtime',
+    'buildings.json',
+  ), 'utf8')) as BuildingDef[];
+  const platform = compileBuildingDefinitions(definitions).defById.get('technique_unification_platform');
+  assert.ok(platform, '统法台建筑定义缺失');
+  assert.deepEqual(platform.costItemIds, [TECHNIQUE_UNIFICATION_TEST_ITEM_ID]);
+  assert.deepEqual(Array.from(platform.costCounts), [1]);
 }
 
 class FakeAggregationService {

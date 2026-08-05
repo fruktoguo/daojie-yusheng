@@ -12,6 +12,7 @@ import { MarketRuntimeService } from '../runtime/market/market-runtime.service';
 import { runTransmissionAssertions } from './market-transmission-smoke.assertions';
 
 type LooseRecord = Record<string, unknown>;
+const NON_TRADABLE_TEST_ITEM_ID = 'mat.technique_unification_test';
 
 /** 只暴露 smoke 需要直接触碰的内部成员，避免整文件 ts-nocheck。 */
 type MarketInternals = {
@@ -55,6 +56,7 @@ async function main(): Promise<void> {
         scroll('seller-scroll-a', 'gen_aaa', '《驭火诀》'),
         scroll('seller-scroll-b', 'gen_bbb', '《寒江引》'),
         { itemId: 'rat_tail', count: 1, name: '鼠尾', itemInstanceId: 'seller-rat-tail' },
+        { itemId: NON_TRADABLE_TEST_ITEM_ID, count: 1, name: '测试材料', itemInstanceId: 'seller-test-material' },
         { ...scroll('seller-empty-book', '', '功法书'), learnTechniqueId: undefined },
       ] as LooseRecord[],
     },
@@ -77,14 +79,30 @@ async function main(): Promise<void> {
         return { ...item, count: Number.isFinite(Number(item?.count ?? 0)) ? Math.max(1, Math.trunc(Number(item.count))) : 1 };
       },
       getItemName(itemId: string) {
-        return itemId === CUSTOM_TECHNIQUE_BOOK_ITEM_ID ? '功法书' : itemId;
+        if (itemId === CUSTOM_TECHNIQUE_BOOK_ITEM_ID) return '功法书';
+        if (itemId === NON_TRADABLE_TEST_ITEM_ID) return '测试材料';
+        return itemId;
       },
       createItem(itemId: string, count = 1) {
         // 模板重建：与生产一致，恒不带 learnTechniqueId —— 这正是求购必造空书的根源。
-        return { itemId, count, name: itemId === CUSTOM_TECHNIQUE_BOOK_ITEM_ID ? '功法书' : itemId, type: itemId === CUSTOM_TECHNIQUE_BOOK_ITEM_ID ? 'skill_book' : 'material' };
+        return {
+          itemId,
+          count,
+          name: itemId === CUSTOM_TECHNIQUE_BOOK_ITEM_ID
+            ? '功法书'
+            : itemId === NON_TRADABLE_TEST_ITEM_ID ? '测试材料' : itemId,
+          type: itemId === CUSTOM_TECHNIQUE_BOOK_ITEM_ID ? 'skill_book' : 'material',
+        };
       },
       listItemTemplates() {
-        return [{ itemId: CUSTOM_TECHNIQUE_BOOK_ITEM_ID }, { itemId: 'rat_tail' }];
+        return [
+          { itemId: CUSTOM_TECHNIQUE_BOOK_ITEM_ID },
+          { itemId: 'rat_tail' },
+          { itemId: NON_TRADABLE_TEST_ITEM_ID, marketTradable: false },
+        ];
+      },
+      isItemMarketTradable(itemId: string) {
+        return itemId !== NON_TRADABLE_TEST_ITEM_ID;
       },
       getItemSortLevel() {
         return 0;
