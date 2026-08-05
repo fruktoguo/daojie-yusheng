@@ -1103,7 +1103,7 @@ export function syncWorldTimeVisionForPlayers(instance, playerIds, playerRuntime
         }
         player.worldTime = timeState;
         if (typeof playerRuntimeService.playerAttributesService?.recalculate === 'function') {
-            playerRuntimeService.playerAttributesService.recalculate(player);
+            playerRuntimeService.playerAttributesService.recalculate(player, 'world_time');
         }
     }
 }

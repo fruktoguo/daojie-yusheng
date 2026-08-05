@@ -1029,7 +1029,7 @@ export class CraftPanelRuntimeService {
     restoreEnhancementAssetRuntimeState(player, snapshot) {
         restoreEnhancementAssetRuntimeState(player, snapshot);
         this.playerRuntimeService.playerProgressionService?.refreshPreview?.(player);
-        this.playerRuntimeService.playerAttributesService?.recalculate?.(player);
+        this.playerRuntimeService.playerAttributesService?.recalculate?.(player, 'craft_settlement');
         this.playerRuntimeService.rebuildActionState?.(player, 0);
     }
     /** 技艺 pipeline 入口补记直接改背包/技艺经验的收支；已由玩家运行时入口记录的部分会被当前快照过滤。 */
@@ -3137,7 +3137,7 @@ export class CraftPanelRuntimeService {
         }
         if (options.equipmentChanged) {
             player.equipment.revision += 1;
-            this.playerRuntimeService.playerAttributesService.recalculate(player);
+            this.playerRuntimeService.playerAttributesService.recalculate(player, 'craft_settlement');
             this.playerRuntimeService.rebuildActionState(player, 0);
             dirtyDomains.push('equipment', 'attr');
         }

@@ -1362,6 +1362,29 @@ function testDeferredAttributeRecalculationCoalescesRequests(): void {
   assert.equal(player.attrs.revision, beforeRevision + 1, 'expected deferred recalc or panel dirty to bump attrs revision once');
 }
 
+function testDeferredAttributeRecalculationCanForceFreshness(): void {
+  const attributeService = new PlayerAttributesService();
+  const player = createAttributeServiceSmokePlayer(attributeService);
+  const originalBuildState = attributeService.buildState.bind(attributeService);
+  let buildStateCalls = 0;
+  attributeService.buildState = (target: unknown) => {
+    buildStateCalls += 1;
+    return originalBuildState(target);
+  };
+
+  const result = attributeService.withDeferredRecalculation(player, () => {
+    attributeService.recalculate(player);
+    attributeService.recalculate(player);
+    const firstFlush = attributeService.ensureFresh(player);
+    assert.equal(firstFlush.requested, true);
+    assert.equal(attributeService.ensureFresh(player).requested, false);
+    attributeService.recalculate(player);
+  });
+
+  assert.equal(result.requested, true);
+  assert.equal(buildStateCalls, 2, 'expected one forced flush and one final batch flush');
+}
+
 function testAdvanceSinglePlayerTickCoalescesAttributeRecalculation(): void {
   const playerId = 'player:tick-attr-coalesce';
   const service = createHydratedService(playerId);
@@ -2181,6 +2204,7 @@ testLogbookDirtyDomain();
   testApplyTemporaryBuffDirtyDomain();
   testEquipmentBuffConditionKeepsAttrDirtyDomain();
   testDeferredAttributeRecalculationCoalescesRequests();
+  testDeferredAttributeRecalculationCanForceFreshness();
   testAdvanceSinglePlayerTickCoalescesAttributeRecalculation();
   testProgressionServiceDirtyDomains();
   testHeavenGateEnterRecalculatesAttributes();

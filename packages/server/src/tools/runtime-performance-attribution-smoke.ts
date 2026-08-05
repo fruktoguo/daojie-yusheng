@@ -57,12 +57,14 @@ function testAttributeRecalculationAttribution(): void {
   const attributesService = new PlayerAttributesService(metrics);
   const player = createPlayer(attributesService);
 
-  attributesService.recalculate(player as never);
+  attributesService.recalculate(player as never, 'world_time');
   attributesService.recalculate(player as never);
   flushExternalMetrics(metrics);
 
   assert.equal(readCount(metrics, 'attribution.attributes.recalculateMs'), 2);
   assert.equal(readCount(metrics, 'attribution.attributes.recalculate.techniques0Ms'), 2);
+  assert.equal(readCount(metrics, 'attribution.attributes.request.worldTime'), 1);
+  assert.equal(readCount(metrics, 'attribution.attributes.request.other'), 1);
   assert.equal(readCount(metrics, 'attribution.attributes.techniqueResolve.cacheMissMs'), 1);
   assert.equal(readCount(metrics, 'attribution.attributes.techniqueResolve.cacheHitMs'), 1);
   assert.equal(readCount(metrics, 'attribution.attributes.techniqueResolve.cacheRelevantHitMs'), 0);
@@ -124,6 +126,36 @@ function testAttributeRecalculationAttribution(): void {
   assert.equal(readCount(metrics, 'attribution.attributes.techniqueResolve.cacheMissMs'), 5);
 }
 
+function testAttributeRecalculationReasonDimensions(): void {
+  const metrics = new WorldRuntimeMetricsService();
+  const attributesService = new PlayerAttributesService(metrics);
+  const player = createPlayer(attributesService);
+  const dimensions = [
+    ['feng_shui_luck', 'attribution.attributes.request.fengShuiLuck'],
+    ['realm_progression', 'attribution.attributes.request.realmProgression'],
+    ['technique_progression', 'attribution.attributes.request.techniqueProgression'],
+    ['body_training', 'attribution.attributes.request.bodyTraining'],
+    ['buff', 'attribution.attributes.request.buff'],
+    ['cultivation_state', 'attribution.attributes.request.cultivationState'],
+    ['initialization', 'attribution.attributes.request.initialization'],
+    ['leaderboard_projection', 'attribution.attributes.request.leaderboardProjection'],
+    ['equipment', 'attribution.attributes.request.equipment'],
+    ['technique_mutation', 'attribution.attributes.request.techniqueMutation'],
+    ['fortune', 'attribution.attributes.request.fortune'],
+    ['respawn', 'attribution.attributes.request.respawn'],
+    ['craft_settlement', 'attribution.attributes.request.craftSettlement'],
+  ] as const;
+
+  for (const [reason] of dimensions) {
+    attributesService.recalculate(player as never, reason);
+  }
+  flushExternalMetrics(metrics);
+
+  for (const [, metricKey] of dimensions) {
+    assert.equal(readCount(metrics, metricKey), 1, `expected fixed attribute reason metric: ${metricKey}`);
+  }
+}
+
 function testResetDropsPendingExternalMetrics(): void {
   const metrics = new WorldRuntimeMetricsService();
   metrics.recordExternalSectionDuration('attribution.attributes.deferredRequests', 0, 3);
@@ -133,8 +165,30 @@ function testResetDropsPendingExternalMetrics(): void {
   assert.equal(readCount(metrics, 'attribution.attributes.deferredRequests'), 0);
 }
 
+function testDeferredAttributeRecalculationMetrics(): void {
+  const metrics = new WorldRuntimeMetricsService();
+  const attributesService = new PlayerAttributesService(metrics);
+  const player = createPlayer(attributesService);
+
+  attributesService.withDeferredRecalculation(player as never, () => {
+    attributesService.recalculate(player as never, 'buff');
+    attributesService.recalculate(player as never, 'buff');
+    attributesService.ensureFresh(player as never);
+    attributesService.recalculate(player as never, 'buff');
+  });
+  flushExternalMetrics(metrics);
+
+  assert.equal(readCount(metrics, 'attribution.attributes.deferredRequests'), 3);
+  assert.equal(readCount(metrics, 'attribution.attributes.coalescedRequests'), 1);
+  assert.equal(readCount(metrics, 'attribution.attributes.ensureFreshFlushes'), 1);
+  assert.equal(readCount(metrics, 'attribution.attributes.batchFlushes'), 1);
+  assert.equal(readCount(metrics, 'attribution.attributes.recalculateMs'), 2);
+}
+
 function main(): void {
   testAttributeRecalculationAttribution();
+  testAttributeRecalculationReasonDimensions();
+  testDeferredAttributeRecalculationMetrics();
   testResetDropsPendingExternalMetrics();
   console.log('runtime performance attribution smoke passed');
 }

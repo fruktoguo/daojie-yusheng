@@ -1124,7 +1124,7 @@ export class PlayerRuntimeService {
         combat.combatTargetId = null;
         combat.combatTargetLocked = false;
         if (cultivationChanged) {
-            this.playerAttributesService.recalculate(player);
+            this.playerAttributesService.recalculate(player, 'cultivation_state');
         }
         if (!expiryMarkerChanged && !combatChanged) {
             return true;
@@ -1471,7 +1471,7 @@ export class PlayerRuntimeService {
             player.combat.cultivationActive = true;
         }
         const currentTick = resolvePlayerRuntimeTick(player, 0);
-        this.playerAttributesService.recalculate(player);
+        this.playerAttributesService.recalculate(player, 'technique_mutation');
         this.rebuildActionState(player, currentTick);
         this.playerProgressionService.refreshPreview(player);
         markPlayerDirtyDomains(player, ['technique', 'auto_battle_skill', 'attr']);
@@ -1515,7 +1515,7 @@ export class PlayerRuntimeService {
         player.techniques.cultivatingTechId = resolvedTechniqueId;
         player.combat.cultivationActive = false;
         const currentTick = resolvePlayerRuntimeTick(player, 0);
-        this.playerAttributesService.recalculate(player);
+        this.playerAttributesService.recalculate(player, 'technique_mutation');
         this.rebuildActionState(player, currentTick);
         this.playerProgressionService.refreshPreview(player);
         markPlayerDirtyDomains(player, ['technique', 'combat_pref', 'auto_battle_skill', 'attr']);
@@ -1562,7 +1562,7 @@ export class PlayerRuntimeService {
             player.techniques.techniques = nextTechniques;
             player.techniques.revision += 1;
             const currentTick = resolvePlayerRuntimeTick(player, 0);
-            this.playerAttributesService.recalculate(player);
+            this.playerAttributesService.recalculate(player, 'technique_progression');
             this.rebuildActionState(player, currentTick);
             this.playerProgressionService.refreshPreview(player);
             markPlayerDirtyDomains(player, ['technique', 'auto_battle_skill', 'attr']);
@@ -2064,7 +2064,7 @@ export class PlayerRuntimeService {
         const player = this.getPlayerOrThrow(playerId);
         player.equipment.slots = normalizeEquipmentSlotsWithTemplates(slots, this.contentTemplateRepository);
         player.equipment.revision += 1;
-        this.playerAttributesService.recalculate(player);
+        this.playerAttributesService.recalculate(player, 'equipment');
         markPlayerDirtyDomains(player, ['equipment', 'attr']);
         this.bumpPersistentRevision(player);
         return player;
@@ -2276,7 +2276,7 @@ export class PlayerRuntimeService {
         if (Math.trunc(Number(player.fengShuiLuck ?? 0) || 0) !== nextFengShuiLuck) {
             player.fengShuiLuck = nextFengShuiLuck;
             selfChanged = true;
-            this.playerAttributesService.recalculate(player);
+            this.playerAttributesService.recalculate(player, 'feng_shui_luck');
             markPlayerDirtyDomains(player, ['attr']);
         }
         if (anchorChanged) {
@@ -2363,7 +2363,7 @@ export class PlayerRuntimeService {
         if (Math.trunc(Number(player.fengShuiLuck ?? 0) || 0) !== nextFengShuiLuck) {
             player.fengShuiLuck = nextFengShuiLuck;
             selfChanged = true;
-            this.playerAttributesService.recalculate(player);
+            this.playerAttributesService.recalculate(player, 'feng_shui_luck');
             markPlayerDirtyDomains(player, ['attr']);
         }
         if (anchorChanged) {
@@ -2499,7 +2499,7 @@ export class PlayerRuntimeService {
         }
         player.dailySignInFortuneLuck = nextLuck;
         player.dailySignInFortuneExpireAt = nextExpireAtMs;
-        const attrChanged = this.playerAttributesService.recalculate(player);
+        const attrChanged = this.playerAttributesService.recalculate(player, 'fortune');
         if (!attrChanged) {
             this.playerAttributesService.markPanelDirty(player);
         }
@@ -3829,7 +3829,7 @@ export class PlayerRuntimeService {
         }
         player.inventory.revision += 1;
         player.equipment.revision += 1;
-        this.playerAttributesService.recalculate(player);
+        this.playerAttributesService.recalculate(player, 'equipment');
         markPlayerDirtyDomains(player, ['inventory', 'equipment', 'attr']);
         this.bumpPersistentRevision(player);
         return player;
@@ -3891,7 +3891,7 @@ export class PlayerRuntimeService {
         equipmentEntry.item = null;
         player.inventory.revision += 1;
         player.equipment.revision += 1;
-        this.playerAttributesService.recalculate(player);
+        this.playerAttributesService.recalculate(player, 'equipment');
         markPlayerDirtyDomains(player, ['inventory', 'equipment', 'attr']);
         this.bumpPersistentRevision(player);
         return player;
@@ -4064,7 +4064,7 @@ export class PlayerRuntimeService {
         }
         player.techniques.revision += 1;
         const currentTick = resolvePlayerRuntimeTick(player, 0);
-        this.playerAttributesService.recalculate(player);
+        this.playerAttributesService.recalculate(player, 'technique_mutation');
         this.rebuildActionState(player, currentTick);
         this.playerProgressionService.refreshPreview(player);
         markPlayerDirtyDomains(player, ['technique', 'auto_battle_skill', 'attr']);
@@ -4141,7 +4141,7 @@ export class PlayerRuntimeService {
         player.bodyTraining = nextBodyTraining;
         player.techniques.revision += 1;
         if (nextBodyTraining.level !== previousBodyTraining.level) {
-            this.playerAttributesService.recalculate(player);
+            this.playerAttributesService.recalculate(player, 'body_training');
             markPlayerDirtyDomains(player, ['attr']);
         }
         else {
@@ -4184,7 +4184,7 @@ export class PlayerRuntimeService {
         player.bodyTraining = nextBodyTraining;
         player.techniques.revision += 1;
         if (nextBodyTraining.level !== currentBodyTraining.level) {
-            this.playerAttributesService.recalculate(player);
+            this.playerAttributesService.recalculate(player, 'body_training');
             markPlayerDirtyDomains(player, ['attr']);
         }
         else {
@@ -4213,7 +4213,7 @@ export class PlayerRuntimeService {
         player.combat.lastActiveTick = resolvePlayerRuntimeTick(player, currentTick);
         if (input.interruptCultivation === true && player.combat.cultivationActive) {
             player.combat.cultivationActive = false;
-            this.playerAttributesService.recalculate(player);
+            this.playerAttributesService.recalculate(player, 'cultivation_state');
             markPlayerDirtyDomains(player, ['combat_pref', 'attr']);
             this.bumpPersistentRevision(player);
         }
@@ -4519,7 +4519,7 @@ export class PlayerRuntimeService {
             return player;
         }
         if (cultivationActiveChanged) {
-            this.playerAttributesService.recalculate(player);
+            this.playerAttributesService.recalculate(player, 'cultivation_state');
         }
         this.rebuildActionState(player, currentTick);
         markPlayerDirtyDomains(player, cultivationActiveChanged ? ['combat_pref', 'attr'] : ['combat_pref']);
@@ -4838,7 +4838,7 @@ export class PlayerRuntimeService {
         }
         player.buffs.revision += 1;
         if (attrRelevantChanged) {
-            this.playerAttributesService.recalculate(player);
+            this.playerAttributesService.recalculate(player, 'buff');
         }
         markPlayerDirtyDomains(player, attrRelevantChanged ? ['buff', 'attr'] : ['buff']);
         this.bumpPersistentRevision(player);
@@ -4971,7 +4971,7 @@ export class PlayerRuntimeService {
             return a < b ? -1 : a > b ? 1 : 0;
         });
         player.buffs.revision += 1;
-        this.playerAttributesService.recalculate(player);
+        this.playerAttributesService.recalculate(player, 'buff');
         markPlayerDirtyDomains(player, ['buff', 'attr']);
         this.bumpPersistentRevision(player);
         return player.buffs.buffs.find((entry) => entry.buffId === buff.buffId);
@@ -4991,7 +4991,7 @@ export class PlayerRuntimeService {
         if (nextStacks <= 0) {
             player.buffs.buffs.splice(index, 1);
             player.buffs.revision += 1;
-            this.playerAttributesService.recalculate(player);
+            this.playerAttributesService.recalculate(player, 'buff');
             markPlayerDirtyDomains(player, ['buff', 'attr']);
             this.bumpPersistentRevision(player);
             return 0;
@@ -4999,7 +4999,7 @@ export class PlayerRuntimeService {
         existing.stacks = nextStacks;
         existing.remainingTicks = Math.max(1, Math.round(existing.duration || 1));
         player.buffs.revision += 1;
-        this.playerAttributesService.recalculate(player);
+        this.playerAttributesService.recalculate(player, 'buff');
         markPlayerDirtyDomains(player, ['buff', 'attr']);
         this.bumpPersistentRevision(player);
         return nextStacks;
@@ -5094,7 +5094,7 @@ export class PlayerRuntimeService {
                 player.buffs.revision += 1;
                 const dirtyDomains = ['buff'];
                 if (buffTickResult.attrChanged) {
-                    this.playerAttributesService.recalculate(player);
+                    this.playerAttributesService.recalculate(player, 'buff');
                     dirtyDomains.push('attr');
                 }
                 if (buffTickResult.vitalsChanged) {
@@ -5145,7 +5145,7 @@ export class PlayerRuntimeService {
             const idleCultivationResumeStartedAt = performance.now();
             if (player.hp > 0 && shouldResumeIdleCultivation(player, playerTick)) {
                 player.combat.cultivationActive = true;
-                this.playerAttributesService.recalculate(player);
+                this.playerAttributesService.recalculate(player, 'cultivation_state');
                 markPlayerDirtyDomains(player, ['combat_pref', 'attr']);
                 this.bumpPersistentRevision(player);
             }
@@ -5499,7 +5499,7 @@ export class PlayerRuntimeService {
             player.buffs.buffs = keptBuffs;
             player.buffs.revision += 1;
             changed = true;
-            this.playerAttributesService.recalculate(player);
+            this.playerAttributesService.recalculate(player, 'respawn');
         }
         if (Object.keys(player.combat.cooldownReadyTickBySkillId).length > 0) {
             this.rebuildActionState(player, currentTick);
@@ -5517,7 +5517,7 @@ export class PlayerRuntimeService {
         player.combat.cultivationActive = false;
         if (wasCultivationActive) {
             changed = true;
-            this.playerAttributesService.recalculate(player);
+            this.playerAttributesService.recalculate(player, 'respawn');
         }
         player.combat.lastActiveTick = Math.max(player.combat.lastActiveTick, currentTick);
         if (changed) {
@@ -6152,7 +6152,7 @@ export class PlayerRuntimeService {
             };
             player.attrs.rawBaseAttrs = decodePersistedRawBaseAttrs(snapshot.attrState?.baseAttrs);
             // 计算 finalAttrs（不修改 hp/qi/selfRevision，排行榜不需要）
-            this.playerAttributesService.recalculate(player);
+            this.playerAttributesService.recalculate(player, 'leaderboard_projection');
             return player;
         } catch (_error) {
             return null;
@@ -6408,7 +6408,7 @@ export class PlayerRuntimeService {
         }
         this.refreshWalletCacheFromInventory(player);
         if (ensureVitalBaselineBonus(player, snapshot.vitals)) {
-            this.playerAttributesService.recalculate(player);
+            this.playerAttributesService.recalculate(player, 'initialization');
             markPlayerDirtyDomains(player, ['attr']);
             player.hp = clamp(snapshot.vitals.hp, 0, player.maxHp);
             player.qi = clamp(snapshot.vitals.qi, 0, player.maxQi);

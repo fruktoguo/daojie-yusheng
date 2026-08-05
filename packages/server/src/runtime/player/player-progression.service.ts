@@ -187,7 +187,7 @@ export class PlayerProgressionService {
 
         const resolved = this.resolveInitialRealmState(player);
         this.applyRealmPresentation(player, resolved);
-        this.playerAttributesService.recalculate(player);
+        this.playerAttributesService.recalculate(player, 'initialization');
         // recalculate 后立刻刷一次 breakthrough preview，避免 detail 文案残留
         // createInitialState 默认 baseAttrs（六维总值 60）。否则手机端在 recalculate
         // 之后、下一次 refreshPreview 之前打开突破弹层，会看到"当前六维总属性 60"。
@@ -1317,7 +1317,7 @@ export class PlayerProgressionService {
             || previousStage !== player.realm?.stage
             || !isSameHeavenGateRoots(previousRoots, player.spiritualRoots);
         if (attrRecalculated) {
-            this.playerAttributesService.recalculate(player);
+            this.playerAttributesService.recalculate(player, 'realm_progression');
             // recalculate 后立刻刷一次 breakthrough preview，避免下一级突破要求里的
             // "当前六维总属性 X / Y" 仍按 recalculate 之前的 finalAttrs 拼装。
             this.refreshPreview(player);
@@ -2235,7 +2235,7 @@ export class PlayerProgressionService {
         if (technique.level !== previousLevel) {
             this.techniqueProgressionCache.delete(player.techniques);
             this.applyRealmPresentation(player, this.normalizeRealmState(player.realm));
-            attrRecalculated = this.playerAttributesService.recalculate(player) || attrRecalculated;
+            attrRecalculated = this.playerAttributesService.recalculate(player, 'technique_progression') || attrRecalculated;
         }
 
         let mutation = {
@@ -2393,7 +2393,7 @@ export class PlayerProgressionService {
         const replacedTechniqueIds = this.techniqueAggregationService?.applyCompletionReplacement(player, pending.techId) ?? [];
         player.pendingTechniqueComprehensions = (player.pendingTechniqueComprehensions ?? []).filter((entry) => entry?.techId !== pending.techId);
         this.techniqueProgressionCache.delete(player.techniques);
-        const attrRecalculated = this.playerAttributesService.recalculate(player);
+        const attrRecalculated = this.playerAttributesService.recalculate(player, 'technique_progression');
         this.applyRealmPresentation(player, this.normalizeRealmState(player.realm));
         let mutation = {
             changed: true,
@@ -2448,7 +2448,7 @@ export class PlayerProgressionService {
         this.applyRealmPresentation(player, this.normalizeRealmState(player.realm));
         let attrRecalculated = resolved.attrRecalculated;
         if (bodyTraining.level !== previousLevel) {
-            attrRecalculated = this.playerAttributesService.recalculate(player) || attrRecalculated;
+            attrRecalculated = this.playerAttributesService.recalculate(player, 'body_training') || attrRecalculated;
         }
         return {
             changed: true,

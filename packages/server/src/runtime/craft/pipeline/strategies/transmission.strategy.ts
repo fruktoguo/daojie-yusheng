@@ -47,7 +47,7 @@ type TransmissionDepsPort = {
     getPlayerOrThrow?(playerId: string): any;
     markPersistenceDirtyDomains?(player: any, domains: string[]): void;
     bumpPersistentRevision?(player: any): void;
-    playerAttributesService?: { recalculate?(player: any): boolean };
+    playerAttributesService?: { recalculate?(player: any, reason?: any): boolean };
     playerProgressionService?: { refreshPreview?(player: any): void };
     rebuildActionState?(player: any, tick: number): void;
     queuePlayerStructuredNotice?(player: any, notice: TechniqueActivityNoticeMessage & { text?: string }): void;
@@ -1093,7 +1093,7 @@ function completeTransmission(
   const replacedTechniqueIds = deps?.playerRuntimeService?.applyTechniqueAggregationCompletion?.(learner, pending.techId) ?? [];
   learner.pendingTechniqueComprehensions = (learner.pendingTechniqueComprehensions ?? []).filter((entry: any) => entry?.techId !== pending.techId);
   learner.techniques.revision += 1;
-  deps?.playerRuntimeService?.playerAttributesService?.recalculate?.(learner);
+  deps?.playerRuntimeService?.playerAttributesService?.recalculate?.(learner, 'technique_mutation');
   deps?.playerRuntimeService?.rebuildActionState?.(learner, resolvePlayerRuntimeTick(learner));
   deps?.playerRuntimeService?.playerProgressionService?.refreshPreview?.(learner);
   markTransmissionDirty(learner, ctx, ['active_job', 'technique', 'auto_battle_skill', 'attr', ...(professionChanged ? ['profession'] : [])]);

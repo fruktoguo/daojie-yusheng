@@ -14,6 +14,41 @@ import { PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID } from '.
 import { type RuntimeExternalSectionKey, WorldRuntimeMetricsService } from '../world/world-runtime-metrics.service';
 import { resolvePlayerDailySignInFortuneLuck } from './player-special-stat.helpers';
 
+type AttributeRecalculationReason =
+    | 'world_time'
+    | 'feng_shui_luck'
+    | 'realm_progression'
+    | 'technique_progression'
+    | 'body_training'
+    | 'buff'
+    | 'cultivation_state'
+    | 'initialization'
+    | 'leaderboard_projection'
+    | 'equipment'
+    | 'technique_mutation'
+    | 'fortune'
+    | 'respawn'
+    | 'craft_settlement'
+    | 'other';
+
+const ATTRIBUTE_RECALCULATION_REQUEST_METRIC_BY_REASON: Record<AttributeRecalculationReason, RuntimeExternalSectionKey> = {
+    world_time: 'attribution.attributes.request.worldTime',
+    feng_shui_luck: 'attribution.attributes.request.fengShuiLuck',
+    realm_progression: 'attribution.attributes.request.realmProgression',
+    technique_progression: 'attribution.attributes.request.techniqueProgression',
+    body_training: 'attribution.attributes.request.bodyTraining',
+    buff: 'attribution.attributes.request.buff',
+    cultivation_state: 'attribution.attributes.request.cultivationState',
+    initialization: 'attribution.attributes.request.initialization',
+    leaderboard_projection: 'attribution.attributes.request.leaderboardProjection',
+    equipment: 'attribution.attributes.request.equipment',
+    technique_mutation: 'attribution.attributes.request.techniqueMutation',
+    fortune: 'attribution.attributes.request.fortune',
+    respawn: 'attribution.attributes.request.respawn',
+    craft_settlement: 'attribution.attributes.request.craftSettlement',
+    other: 'attribution.attributes.request.other',
+};
+
 /** 玩家属性结算器：把境界、装备、buff 和根骨折算成最终面板。 */
 @Injectable()
 export class PlayerAttributesService {
@@ -49,12 +84,22 @@ export class PlayerAttributesService {
         };
     }
     /** 重新计算玩家的最终属性和数值面板。 */
-    recalculate(player) {
+    recalculate(player, reason: AttributeRecalculationReason = 'other') {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        this.recordAttributePerf(
+            ATTRIBUTE_RECALCULATION_REQUEST_METRIC_BY_REASON[reason]
+                ?? ATTRIBUTE_RECALCULATION_REQUEST_METRIC_BY_REASON.other,
+            0,
+            1,
+        );
         const deferred = this.deferredRecalculationStates.get(player);
         if (deferred && deferred.depth > 0) {
+            if (deferred.recalculateRequested) {
+                this.recordAttributePerf('attribution.attributes.coalescedRequests', 0, 1);
+            }
             deferred.recalculateRequested = true;
+            deferred.recalculationRequestedInScope = true;
             this.recordAttributePerf('attribution.attributes.deferredRequests', 0, 1);
             return true;
         }
@@ -68,6 +113,8 @@ export class PlayerAttributesService {
             state = {
                 depth: 0,
                 recalculateRequested: false,
+                recalculationRequestedInScope: false,
+                attributesChangedInScope: false,
                 panelDirtyRequested: false,
             };
             this.deferredRecalculationStates.set(player, state);
@@ -83,8 +130,8 @@ export class PlayerAttributesService {
         }
         state.depth -= 1;
         let flushResult = {
-            requested: state.recalculateRequested,
-            changed: false,
+            requested: state.recalculationRequestedInScope,
+            changed: state.attributesChangedInScope,
             panelDirtyChanged: false,
         };
         if (isOuter && state.depth <= 0) {
@@ -97,15 +144,32 @@ export class PlayerAttributesService {
         return { value, ...flushResult };
     }
     flushDeferredRecalculation(player, state) {
-        const requested = state.recalculateRequested === true;
+        const requested = state.recalculationRequestedInScope === true;
         const panelDirtyRequested = state.panelDirtyRequested === true;
-        const changed = requested ? this.recalculateNow(player) : false;
+        let changed = state.attributesChangedInScope === true;
+        if (state.recalculateRequested === true) {
+            this.recordAttributePerf('attribution.attributes.batchFlushes', 0, 1);
+            changed = this.recalculateNow(player) || changed;
+            state.recalculateRequested = false;
+        }
         let panelDirtyChanged = false;
         if (panelDirtyRequested && !changed) {
             this.markPanelDirtyNow(player);
             panelDirtyChanged = true;
         }
         return { requested, changed, panelDirtyChanged };
+    }
+    /** 在延迟区间内遇到权威读取时立即收敛当前脏属性；区间后续请求仍可继续合并。 */
+    ensureFresh(player) {
+        const state = this.deferredRecalculationStates.get(player);
+        if (!state || state.depth <= 0 || state.recalculateRequested !== true) {
+            return { requested: false, changed: false };
+        }
+        state.recalculateRequested = false;
+        this.recordAttributePerf('attribution.attributes.ensureFreshFlushes', 0, 1);
+        const changed = this.recalculateNow(player);
+        state.attributesChangedInScope = state.attributesChangedInScope || changed;
+        return { requested: true, changed };
     }
     recalculateNow(player) {
         const startedAt = performance.now();
