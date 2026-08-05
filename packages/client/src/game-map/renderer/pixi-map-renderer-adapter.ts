@@ -70,6 +70,7 @@ import { normalizeRuntimeImagePackVersion } from '../../renderer/runtime-image-p
 import { PixiRenderProfiler } from './pixi-render-profiler';
 import { isPixiEntityInViewport, PixiFrameGridPointSet } from './pixi-frame-spatial-index';
 import { PixiCombatEffectRuntime } from './pixi-combat-effect-runtime';
+import { buildArtifactAuraGeometry } from './pixi-artifact-aura-geometry';
 import {
   buildPixiTerrainChunkOverlaySignature,
   buildPixiTerrainChunkStaticSignature,
@@ -2190,13 +2191,8 @@ export class PixiMapRendererAdapter {
 
   private createArtifactAuraFrame(cellSize: number, frameIndex: number): Graphics {
     const graphics = new Graphics();
-    const half = Math.max(10, cellSize * 0.56);
-    const side = half * 2;
-    const perimeter = side * 4;
-    const dashLength = Math.max(6, cellSize * 0.18);
-    const gapLength = Math.max(4, cellSize * 0.12);
-    const cycleLength = dashLength + gapLength;
-    const phase = frameIndex / ARTIFACT_AURA_FRAME_COUNT * cycleLength;
+    const geometry = buildArtifactAuraGeometry(cellSize, frameIndex, ARTIFACT_AURA_FRAME_COUNT);
+    const { half, side, perimeter } = geometry;
 
     const pointAt = (distance: number): { x: number; y: number } => {
       const wrapped = ((distance % perimeter) + perimeter) % perimeter;
@@ -2211,22 +2207,11 @@ export class PixiMapRendererAdapter {
       }
       return { x: -half, y: half - (wrapped - side * 3) };
     };
-    const nextCornerDistance = (distance: number): number => {
-      const wrapped = ((distance % perimeter) + perimeter) % perimeter;
-      const sideIndex = Math.min(3, Math.floor(wrapped / side));
-      return distance + (side * (sideIndex + 1) - wrapped);
-    };
     const appendDashes = (): void => {
-      for (let start = -phase; start < perimeter; start += cycleLength) {
-        const end = start + dashLength;
-        let cursor = start;
-        while (cursor < end - 0.001) {
-          const segmentEnd = Math.min(end, nextCornerDistance(cursor));
-          const from = pointAt(cursor);
-          const to = pointAt(segmentEnd);
-          graphics.moveTo(from.x, from.y).lineTo(to.x, to.y);
-          cursor = segmentEnd;
-        }
+      for (const segment of geometry.segments) {
+        const from = pointAt(segment.from);
+        const to = pointAt(segment.to);
+        graphics.moveTo(from.x, from.y).lineTo(to.x, to.y);
       }
     };
     appendDashes();

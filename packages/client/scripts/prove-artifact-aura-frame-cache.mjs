@@ -5,11 +5,13 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 
 const MARKER = 'REPAIR_PROOF:ISSUE-000004:PASS';
 const clientRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const rendererPath = path.join(clientRoot, 'src/game-map/renderer/pixi-map-renderer-adapter.ts');
 const statePath = path.join(clientRoot, 'src/game-map/renderer/pixi-render-state.ts');
+const geometryPath = path.join(clientRoot, 'src/game-map/renderer/pixi-artifact-aura-geometry.ts');
 
 function extractMethod(source, name) {
   const start = source.indexOf(`  private ${name}(`);
@@ -18,9 +20,23 @@ function extractMethod(source, name) {
   return source.slice(start, next < 0 ? source.length : next);
 }
 
-const [rendererSource, stateSource] = await Promise.all([
+function loadTypeScriptModule(source, fileName) {
+  const compiled = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    },
+    fileName,
+  }).outputText;
+  const module = { exports: {} };
+  new Function('exports', 'module', compiled)(module.exports, module);
+  return module.exports;
+}
+
+const [rendererSource, stateSource, geometrySource] = await Promise.all([
   readFile(rendererPath, 'utf8'),
   readFile(statePath, 'utf8'),
+  readFile(geometryPath, 'utf8'),
 ]);
 
 assert.match(rendererSource, /const ARTIFACT_AURA_FRAME_COUNT = 16;/, '法宝光环必须使用有界相位帧');
@@ -30,6 +46,41 @@ assert.match(stateSource, /artifactAuraFrames: Graphics\[\];/, '实体视图必�
 const syncMethod = extractMethod(rendererSource, 'syncArtifactAura');
 assert.match(syncMethod, /view\.artifactAuraCellSize !== cellSize/, '缩放变化时必须重建对应尺寸的相位帧');
 assert.match(syncMethod, /this\.createArtifactAuraFrame\(cellSize, frameIndex\)/, '启用时必须一次创建相位帧');
+
+const createFrameMethod = extractMethod(rendererSource, 'createArtifactAuraFrame');
+assert.match(createFrameMethod, /buildArtifactAuraGeometry\(cellSize, frameIndex, ARTIFACT_AURA_FRAME_COUNT\)/, '相位帧必须复用有界几何生成器');
+assert.doesNotMatch(createFrameMethod, /\bwhile\s*\(/, '相位帧生成不得包含可能停滞的无界循环');
+
+const { buildArtifactAuraGeometry } = loadTypeScriptModule(geometrySource, geometryPath);
+for (let cellSize = 1; cellSize <= 512; cellSize += 1) {
+  for (let frameIndex = 0; frameIndex < 16; frameIndex += 1) {
+    const geometry = buildArtifactAuraGeometry(cellSize, frameIndex, 16);
+    const dashLength = Math.max(6, cellSize * 0.18);
+    const gapLength = Math.max(4, cellSize * 0.12);
+    const cycleLength = dashLength + gapLength;
+    const phase = frameIndex / 16 * cycleLength;
+    const expectedDashCount = Math.ceil((geometry.perimeter + phase) / cycleLength);
+    const totalSegmentLength = geometry.segments.reduce((sum, segment) => sum + segment.to - segment.from, 0);
+    assert.ok(Number.isFinite(geometry.half) && geometry.half > 0, `格子 ${cellSize} 相位 ${frameIndex} 的半边长必须有效`);
+    assert.ok(Number.isFinite(geometry.perimeter) && geometry.perimeter > 0, `格子 ${cellSize} 相位 ${frameIndex} 的周长必须有效`);
+    assert.ok(
+      geometry.segments.length >= expectedDashCount && geometry.segments.length <= expectedDashCount * 2,
+      `格子 ${cellSize} 相位 ${frameIndex} 的每条虚线最多只能跨一个拐角`,
+    );
+    assert.ok(
+      Math.abs(totalSegmentLength - expectedDashCount * dashLength) <= 1e-6,
+      `格子 ${cellSize} 相位 ${frameIndex} 的虚线总长度不得丢失`,
+    );
+    for (const segment of geometry.segments) {
+      assert.ok(Number.isFinite(segment.from) && Number.isFinite(segment.to), `格子 ${cellSize} 相位 ${frameIndex} 的线段距离必须有效`);
+      assert.ok(segment.to > segment.from, `格子 ${cellSize} 相位 ${frameIndex} 的线段必须严格前进`);
+    }
+  }
+}
+for (const dangerousCellSize of [21, 27, 41]) {
+  const geometry = buildArtifactAuraGeometry(dangerousCellSize, 0, 16);
+  assert.ok(geometry.segments.every((segment) => segment.to > segment.from), `历史危险格子尺寸 ${dangerousCellSize} 不得再停滞`);
+}
 
 const frameUpdateMethod = extractMethod(rendererSource, 'updateArtifactAuraFrame');
 assert.match(frameUpdateMethod, /previousFrame\.visible = false;/, '动画帧必须关闭旧相位');
