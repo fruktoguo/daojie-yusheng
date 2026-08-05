@@ -51,11 +51,23 @@ function main() {
   }
 
   const samples = [];
+  let finalizedTickCount = 0;
+  let dirtyRequestCount = 0;
+  let coalescedRequestCount = 0;
   for (let iteration = 0; iteration < iterations; iteration += 1) {
     const base = 2 + (iteration % Math.max(1, size - 8));
-    const startedAt = Date.now();
+    instance.tickOnce();
+    const startedAt = performance.now();
     placeSmallRoom(instance, base, 2 + (iteration % 4));
-    samples.push(Date.now() - startedAt);
+    if (instance.hasPendingBuildingRoomFengShuiChanges()) {
+      const finalized = instance.finalizePendingBuildingRoomFengShuiChanges();
+      if (finalized.flushed) {
+        finalizedTickCount += 1;
+        dirtyRequestCount += finalized.requestCount;
+        coalescedRequestCount += finalized.coalescedRequestCount;
+      }
+    }
+    samples.push(performance.now() - startedAt);
   }
 
   const overlay = buildOverlaySample(instance, Math.floor(size / 2), Math.floor(size / 2), 12);
@@ -75,10 +87,13 @@ function main() {
     roomCount: instance.roomsById.size,
     fengShuiCount: instance.fengShuiByRoomId.size,
     deferredCount: instance.buildingRoomDeferredStartCells.length,
-    placeAndRecalcMs: {
+    placeAndTickEndRecalcMs: {
       avg: Number(avg.toFixed(2)),
-      p95,
-      max: sorted[sorted.length - 1] ?? 0,
+      p95: Number(p95.toFixed(2)),
+      max: Number((sorted[sorted.length - 1] ?? 0).toFixed(2)),
+      finalizedTickCount,
+      dirtyRequestCount,
+      coalescedRequestCount,
     },
     overlay: {
       cellCount: overlay.cells.length,
@@ -155,14 +170,17 @@ function buildOpenMapProbe(size) {
   });
   const runtime = getDefaultBuildingRuntime();
   instance.configureBuildingRuntime(runtime.catalog, runtime.rules);
-  const startedAt = Date.now();
+  instance.tickOnce();
+  const startedAt = performance.now();
   const result = instance.placeBuildingInstance({ defId: "stone_wall", x: Math.floor(size / 2), y: Math.floor(size / 2), buildingId: "bench:open_probe_wall" });
-  const ms = Date.now() - startedAt;
+  const finalized = instance.finalizePendingBuildingRoomFengShuiChanges();
+  const ms = performance.now() - startedAt;
   assert.equal(result.ok, true);
+  assert.equal(finalized.flushed, true);
   assert.equal(instance.roomsById.size, 0);
   return {
     size,
-    ms,
+    ms: Number(ms.toFixed(2)),
     deferredCount: instance.buildingRoomDeferredStartCells.length,
   };
 }

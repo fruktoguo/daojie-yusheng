@@ -892,6 +892,52 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                     }, () => deps.worldRuntimeTongtianTowerService.advanceInstance(instance, deps));
                     addMeasuredTickSection(sectionDurations, 'instance.tongtianTowerAdvanceMs', tongtianTowerAdvanceStartedAt);
                 }
+                if (instance.hasPendingBuildingRoomFengShuiChanges?.() === true) {
+                    const fengShuiFinalizeStartedAt = performance.now();
+                    let fengShuiFinalizeResult: any = null;
+                    const finalized = this.runIsolatedSyncOperation(deps, 'instance_fengshui_finalize', {
+                        instanceId: instance.meta.instanceId,
+                        instanceTick: instance.tick,
+                        worldTick: deps.tick,
+                    }, () => {
+                        fengShuiFinalizeResult = instance.finalizePendingBuildingRoomFengShuiChanges?.() ?? null;
+                    });
+                    const fengShuiFinalizeDurationMs = performance.now() - fengShuiFinalizeStartedAt;
+                    addTickSectionDuration(sectionDurations, 'instance.fengShuiFinalizeMs', fengShuiFinalizeDurationMs, 1);
+                    if (!finalized) {
+                        addTickSectionDuration(sectionDurations, 'instance.fengShuiFinalizeFailures', 0, 1);
+                    }
+                    else if (fengShuiFinalizeResult?.flushed === true) {
+                        const modeDurationKey = fengShuiFinalizeResult.mode === 'topology'
+                            ? 'instance.fengShuiFinalizeTopologyMs'
+                            : 'instance.fengShuiFinalizeLocalMs';
+                        addTickSectionDuration(sectionDurations, modeDurationKey, fengShuiFinalizeDurationMs, 1);
+                        addTickSectionDuration(
+                            sectionDurations,
+                            'instance.fengShuiFinalizeRequests',
+                            0,
+                            Math.max(0, Math.trunc(Number(fengShuiFinalizeResult.requestCount) || 0)),
+                        );
+                        addTickSectionDuration(
+                            sectionDurations,
+                            'instance.fengShuiFinalizeCoalescedRequests',
+                            0,
+                            Math.max(0, Math.trunc(Number(fengShuiFinalizeResult.coalescedRequestCount) || 0)),
+                        );
+                        addTickSectionDuration(
+                            sectionDurations,
+                            'instance.fengShuiFinalizeDirtyCells',
+                            0,
+                            Math.max(0, Math.trunc(Number(fengShuiFinalizeResult.dirtyCellCount) || 0)),
+                        );
+                        addTickSectionDuration(
+                            sectionDurations,
+                            'instance.fengShuiFinalizeRooms',
+                            0,
+                            Math.max(0, Math.trunc(Number(fengShuiFinalizeResult.roomCount) || 0)),
+                        );
+                    }
+                }
                 addTickSectionDuration(
                     sectionDurations,
                     attribution.stepDurationKey,

@@ -114,7 +114,12 @@ function createDeps(log) {
  * @returns 无返回值，直接更新record帧结果相关状态。
  */
 
-            recordFrameResult(_startedAt, durations) { log.push('recordFrameResult'); this.frameCalled = true; this.durations = durations; },
+            recordFrameResult(_startedAt, durations, sectionDurations) {
+                log.push('recordFrameResult');
+                this.frameCalled = true;
+                this.durations = durations;
+                this.sectionDurations = sectionDurations;
+            },
         },        
         /**
  * processPendingRespawns：处理待处理重生并更新相关状态。
@@ -689,6 +694,70 @@ async function verifyOperationFailuresAreIsolatedWithinTick() {
     assert.ok(warnings.length >= 8);
 }
 
+async function verifyFengShuiFinalizesAtEveryAcceleratedLogicalStep() {
+    const log = [];
+    const deps = createDeps(log);
+    const instance = deps.getInstanceRuntime('instance:1');
+    instance.tick = 0;
+    instance.tickSpeed = 3;
+    instance.paused = false;
+    instance.playersById = new Map();
+    let pending = false;
+    let finalizeCount = 0;
+    instance.listPlayerIds = () => [];
+    instance.tickOnce = () => {
+        instance.tick += 1;
+        pending = true;
+        log.push(`fengshui.tick:${instance.tick}`);
+        return { completedBuildings: [], transfers: [], monsterActions: [] };
+    };
+    instance.hasPendingBuildingRoomFengShuiChanges = () => pending;
+    instance.finalizePendingBuildingRoomFengShuiChanges = () => {
+        assert.equal(pending, true);
+        finalizeCount += 1;
+        pending = false;
+        log.push(`fengshui.finalize:${instance.tick}`);
+        return {
+            flushed: true,
+            mode: 'local',
+            requestCount: 2,
+            coalescedRequestCount: 1,
+            dirtyCellCount: 1,
+            roomCount: 1,
+        };
+    };
+    deps.worldRuntimeNavigationService.materializeNavigationCommandsForInstance = async () => {};
+    deps.timeChamberRuntimeService = {
+        isTimeChamberInstance: () => true,
+        consumeScheduledStep: () => true,
+    };
+
+    const service = new WorldRuntimeInstanceTickOrchestrationService();
+    const ticks = await service.advanceFrame(deps, 100, null, [{
+        instanceId: instance.meta.instanceId,
+        instance,
+        steps: 3,
+        speed: 3,
+        droppedSteps: 0,
+    }]);
+
+    assert.equal(ticks, 3);
+    assert.equal(finalizeCount, 3, '密室每个逻辑息都必须各自在末尾收敛一次风水');
+    assert.deepEqual(log.filter((entry) => typeof entry === 'string' && entry.startsWith('fengshui.')), [
+        'fengshui.tick:1',
+        'fengshui.finalize:1',
+        'fengshui.tick:2',
+        'fengshui.finalize:2',
+        'fengshui.tick:3',
+        'fengshui.finalize:3',
+    ]);
+    const durations = deps.worldRuntimeMetricsService.sectionDurations;
+    assert.equal(durations['instance.fengShuiFinalizeMs'].count, 3);
+    assert.equal(durations['instance.fengShuiFinalizeLocalMs'].count, 3);
+    assert.equal(durations['instance.fengShuiFinalizeRequests'].count, 6);
+    assert.equal(durations['instance.fengShuiFinalizeCoalescedRequests'].count, 3);
+}
+
 Promise.resolve()
     .then(() => verifyNormalPath())
     .then(() => verifyZeroTickPath())
@@ -700,6 +769,7 @@ Promise.resolve()
     .then(() => verifyTemporaryTileExpiryUsesInstanceTick())
     .then(() => verifyTileQiDrainRelocatesPlayerToSpawnOnEmptyQi())
     .then(() => verifyOperationFailuresAreIsolatedWithinTick())
+    .then(() => verifyFengShuiFinalizesAtEveryAcceleratedLogicalStep())
     .then(() => {
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-instance-tick-orchestration' }, null, 2));
 });

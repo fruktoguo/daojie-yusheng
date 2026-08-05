@@ -197,6 +197,72 @@ function assertPrunedVaultRecoveryGuard(catalog, rules) {
   assert.equal(keepInstance.buildingById.has("building:vault:ring"), true);
 }
 
+function assertFengShuiTickEndCoalescing(instance) {
+  const initialSnapshot = instance.getFengShuiSnapshotAt(2, 2);
+  assert.ok(initialSnapshot);
+
+  instance.tickOnce();
+  assert.equal(instance.damageTile(0, 1, 1)?.building, true);
+  assert.equal(instance.damageTile(0, 1, 1)?.building, true);
+  assert.equal(instance.hasPendingBuildingRoomFengShuiChanges(), true);
+  assert.equal(instance.isPersistenceDomainHeld("fengshui"), true);
+  assert.equal(instance.getFengShuiSnapshotAt(2, 2), initialSnapshot, "同息内标脏不得提前替换风水快照");
+
+  const localFinalize = instance.finalizePendingBuildingRoomFengShuiChanges();
+  assert.equal(localFinalize.flushed, true);
+  assert.equal(localFinalize.mode, "local");
+  assert.equal(localFinalize.requestCount, 2);
+  assert.equal(localFinalize.coalescedRequestCount, 1);
+  assert.equal(localFinalize.dirtyCellCount, 1);
+  assert.equal(instance.isPersistenceDomainHeld("fengshui"), false);
+  const finalizedSnapshot = instance.getFengShuiSnapshotAt(2, 2);
+  assert.ok(finalizedSnapshot);
+  assert.notEqual(finalizedSnapshot, initialSnapshot, "息末必须原子替换新的风水快照");
+
+  assert.equal(instance.damageTile(0, 1, 1)?.building, true);
+  const sameTickFinalize = instance.finalizePendingBuildingRoomFengShuiChanges();
+  assert.equal(sameTickFinalize.flushed, false);
+  assert.equal(sameTickFinalize.reason, "already_finalized_this_tick");
+  assert.equal(instance.getFengShuiSnapshotAt(2, 2), finalizedSnapshot);
+  assert.equal(instance.isPersistenceDomainHeld("fengshui"), true);
+  instance.tickOnce();
+  const nextTickFinalize = instance.finalizePendingBuildingRoomFengShuiChanges();
+  assert.equal(nextTickFinalize.flushed, true);
+  assert.equal(instance.isPersistenceDomainHeld("fengshui"), false);
+
+  instance.tickOnce();
+  assert.equal(instance.damageTile(0, 1, 1)?.building, true);
+  const recalculateImmediately = instance.recalculateFengShuiForRoomIdsImmediately;
+  instance.recalculateFengShuiForRoomIdsImmediately = () => {
+    throw new Error("fengshui_finalize_smoke_failure");
+  };
+  assert.throws(
+    () => instance.finalizePendingBuildingRoomFengShuiChanges(),
+    /fengshui_finalize_smoke_failure/,
+  );
+  assert.equal(instance.hasPendingBuildingRoomFengShuiChanges(), true);
+  assert.equal(instance.isPersistenceDomainHeld("fengshui"), true);
+  instance.recalculateFengShuiForRoomIdsImmediately = recalculateImmediately;
+  instance.tickOnce();
+  assert.equal(instance.finalizePendingBuildingRoomFengShuiChanges().flushed, true);
+  assert.equal(instance.isPersistenceDomainHeld("fengshui"), false);
+
+  instance.tickOnce();
+  assert.equal(instance.markFengShuiDirtyAfterRoomInfluenceChange(instance.toTileIndex(2, 2), "smoke_local"), true);
+  assert.equal(instance.markRoomsAndFengShuiDirtyAfterTopologyChange({ reason: "smoke_topology", dirtyCellCount: 1 }), true);
+  assert.equal(instance.pendingBuildingRoomFengShuiState.topologyDirty, true);
+  assert.equal(instance.pendingBuildingRoomFengShuiState.dirtyRoomIds.size, 0, "拓扑脏必须覆盖局部房间计划");
+  assert.equal(instance.isPersistenceDomainHeld("room"), true);
+  assert.equal(instance.isPersistenceDomainHeld("fengshui"), true);
+  const topologyFinalize = instance.finalizePendingBuildingRoomFengShuiChanges();
+  assert.equal(topologyFinalize.flushed, true);
+  assert.equal(topologyFinalize.mode, "topology");
+  assert.equal(topologyFinalize.requestCount, 2);
+  assert.equal(topologyFinalize.coalescedRequestCount, 1);
+  assert.equal(instance.isPersistenceDomainHeld("room"), false);
+  assert.equal(instance.isPersistenceDomainHeld("fengshui"), false);
+}
+
 async function main() {
   const catalog = compileBuildingDefinitions([
     {
@@ -502,6 +568,15 @@ async function main() {
   }
   assert.equal(instance.placeBuildingInstance({ defId: "alchemy_furnace", x: 2, y: 2 }).ok, true);
   assert.equal(instance.placeBuildingInstance({ defId: "spirit_wood_shelf", x: 1, y: 1 }).ok, true);
+  assert.equal(instance.listRoomSummaries().length, 0, "本息结束前不得发布半成品房间派生状态");
+  assert.equal(instance.hasPendingBuildingRoomFengShuiChanges(), true);
+  assert.equal(instance.isPersistenceDomainHeld("room"), true);
+  assert.equal(instance.isPersistenceDomainHeld("fengshui"), true);
+  const setupFinalize = instance.finalizePendingBuildingRoomFengShuiChanges();
+  assert.equal(setupFinalize.flushed, true);
+  assert.equal(setupFinalize.mode, "topology");
+  assert.ok(setupFinalize.requestCount > 1);
+  assert.ok(setupFinalize.coalescedRequestCount > 0);
   const runtimeRooms = instance.listRoomSummaries();
   assert.equal(runtimeRooms.length, 1);
   assert.equal(runtimeRooms[0].enclosed, true);
@@ -509,6 +584,7 @@ async function main() {
   const runtimeFengShui = instance.getFengShuiSnapshotAt(2, 2);
   assert.ok(runtimeFengShui);
   assert.equal(runtimeFengShui.reasons.some((reason) => reason.code === "trait.alchemy_heat_source"), true);
+  assertFengShuiTickEndCoalescing(instance);
   assert.ok(instance.buildBuildingPersistenceEntries().length >= 1);
   const namedBuilding = instance.buildingById.values().next().value;
   assert.ok(namedBuilding);
@@ -693,6 +769,8 @@ async function main() {
     .find((entry) => entry.defId === "stone_wall" && entry.x === 0 && entry.y === 1);
   assert.ok(recoveredDamagedWall);
   assert.equal(recoveredInstance.damageTile(recoveredDamagedWall.x, recoveredDamagedWall.y, Number.MAX_SAFE_INTEGER).destroyed, true);
+  assert.equal(recoveredInstance.listRoomSummaries().length, 1, "拓扑变化在本息结束前必须继续暴露上一版房间快照");
+  assert.equal(recoveredInstance.finalizePendingBuildingRoomFengShuiChanges().flushed, true);
   assert.equal(recoveredInstance.listRoomSummaries().length, 0);
   assert.equal(recoveredInstance.getFengShuiSnapshotAt(2, 2), null);
   const recoveredWall = recoveredInstance.buildBuildingPersistenceEntries()
@@ -706,6 +784,9 @@ async function main() {
   assert.ok(wallToOpen);
   const removed = instance.deconstructBuildingInstance(wallToOpen.id);
   assert.equal(removed.ok, true);
+  assert.equal(instance.listRoomSummaries().length, 1);
+  instance.tickOnce();
+  assert.equal(instance.finalizePendingBuildingRoomFengShuiChanges().flushed, true);
   const openRooms = instance.listRoomSummaries();
   assert.equal(openRooms.length, 0);
   const openedFengShui = instance.getFengShuiSnapshotAt(2, 2);
@@ -759,13 +840,18 @@ async function main() {
   const damagedWall = staticInstance.damageTile(0, 1, 1);
   assert.ok(damagedWall);
   assert.equal(damagedWall.destroyed, false);
+  assert.equal(staticInstance.getFengShuiSnapshotAt(2, 2), staticInitialFengShui);
+  assert.equal(staticInstance.finalizePendingBuildingRoomFengShuiChanges().flushed, true);
   const staticDamagedFengShui = staticInstance.getFengShuiSnapshotAt(2, 2);
   assert.ok(staticDamagedFengShui);
   assert.ok(staticDamagedFengShui.score < staticInitialFengShui.score);
   assert.equal(staticDamagedFengShui.reasons.some((reason) => reason.code === "integrity.penalty"), true);
+  staticInstance.tickOnce();
   const brokenWall = staticInstance.damageTile(0, 1, Number.MAX_SAFE_INTEGER);
   assert.ok(brokenWall);
   assert.equal(brokenWall.destroyed, true);
+  assert.equal(staticInstance.listRoomSummaries().length, 1);
+  assert.equal(staticInstance.finalizePendingBuildingRoomFengShuiChanges().flushed, true);
   assert.equal(staticInstance.listRoomSummaries().length, 0);
   assert.equal(staticInstance.getFengShuiSnapshotAt(2, 2), null);
   staticTemplateRepository.registerRuntimeMapTemplate({

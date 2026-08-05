@@ -84,11 +84,27 @@ export interface MapInstanceBuildingDelegate {
   /** 拓扑变化后重算房间和风水。 */
   recalculateRoomsAndFengShuiAfterTopologyChange(options?: RebuildFengShuiOptions): unknown;
 
+  /** 拓扑变化后标脏，延迟到当前逻辑息末统一重算。 */
+  markRoomsAndFengShuiDirtyAfterTopologyChange(options?: RebuildFengShuiOptions): boolean;
+
   /** 判断 cell 变化是否需要触发房间重算。 */
   shouldRecalculateRoomsForTileMutation(cellIndex: number, previousTileType?: number | null, nextTileType?: number | null): boolean;
 
   /** 房间影响区域内物品/资源变化后只重算受影响房间风水。 */
   recalculateFengShuiAfterRoomInfluenceChange(cellIndex: number, reason?: string): boolean;
+
+  /** 房间影响区域变化后标脏，合并同息内重复 cell/room。 */
+  markFengShuiDirtyAfterRoomInfluenceChange(
+    cellIndex: number,
+    reason?: string,
+    options?: { highPriority?: boolean },
+  ): boolean;
+
+  /** 当前实例是否存在尚未在息末收敛的房间/风水变化。 */
+  hasPendingBuildingRoomFengShuiChanges(): boolean;
+
+  /** 在逻辑息末最多执行一次房间/风水收敛。 */
+  finalizePendingBuildingRoomFengShuiChanges(): unknown;
 
   /** GM 修复：全量重建并报告修复结果。 */
   repairBuildingRoomFengShuiState(): BuildingOperationResult;

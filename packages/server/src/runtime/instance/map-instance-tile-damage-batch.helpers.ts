@@ -103,9 +103,8 @@ interface TileDamageBatchHost {
   markStaticTileSyncDirtyByIndex(tileIndex: number, options?: { sightBlockingChanged?: boolean; pathingChanged?: boolean }): void;
   markTileDamagePersistenceDirtyHighPriority(tileIndex: number): void;
   markTileDamagePersistenceDirtyBatchHighPriority(tileIndices: ReadonlySet<number>): void;
-  recalculateRoomsAndFengShuiAfterTopologyChange(input: { reason: string; dirtyCellCount: number }): void;
-  recalculateFengShuiAfterRoomInfluenceChange(tileIndex: number, reason: string): void;
-  markPersistenceDirtyDomainsHighPriority(domains: string[]): void;
+  markRoomsAndFengShuiDirtyAfterTopologyChange(input: { reason: string; dirtyCellCount: number; highPriority?: boolean }): void;
+  markFengShuiDirtyAfterRoomInfluenceChange(tileIndex: number, reason: string, options?: { highPriority?: boolean }): void;
 }
 
 /**
@@ -367,11 +366,17 @@ export function applyMapInstanceOrdinaryTileDamageMutation(
     instance.worldRevision += 1;
     instance.markTileDamagePersistenceDirtyHighPriority(input.tileIndex);
     if (input.affectsRoomTopology) {
-      instance.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'tile_destroyed', dirtyCellCount: 1 });
-      instance.markPersistenceDirtyDomainsHighPriority(['room', 'fengshui']);
+      instance.markRoomsAndFengShuiDirtyAfterTopologyChange({
+        reason: 'tile_destroyed',
+        dirtyCellCount: 1,
+        highPriority: true,
+      });
     } else if (input.affectsRoomIntegrity) {
-      instance.recalculateFengShuiAfterRoomInfluenceChange(input.tileIndex, 'tile_integrity_damaged');
-      instance.markPersistenceDirtyDomainsHighPriority(['fengshui']);
+      instance.markFengShuiDirtyAfterRoomInfluenceChange(
+        input.tileIndex,
+        'tile_integrity_damaged',
+        { highPriority: true },
+      );
     }
     instance.persistentRevision += 1;
   }

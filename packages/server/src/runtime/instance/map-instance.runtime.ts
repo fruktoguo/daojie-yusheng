@@ -75,6 +75,21 @@ type InstancePersistenceDomainMutationContext = {
     active: boolean;
 };
 
+type PendingBuildingRoomFengShuiState = {
+    topologyDirty: boolean;
+    topologyRequestCount: number;
+    localRequestCount: number;
+    topologyDirtyCellCount: number;
+    dirtyCellIndices: Set<number>;
+    dirtyRoomIds: Set<string>;
+    roomRoleInferenceByRoomId: Map<string, boolean>;
+    snapshotRevisionOffsetByRoomId: Map<string, number>;
+    latestReason: string;
+    highPriorityDomains: Set<string>;
+    roomDomainHoldRelease: (() => void) | null;
+    fengShuiDomainHoldRelease: (() => void) | null;
+};
+
 const INSTANCE_PERSISTENCE_DOMAIN_MUTATION_CONTEXT = new AsyncLocalStorage<InstancePersistenceDomainMutationContext>();
 
 /** DEFAULT_VIEW_RADIUS：默认视野半径。 */
@@ -535,12 +550,20 @@ class MapInstanceRuntime {
         reason: 'init',
         fullTopologyRebuild: false,
         dirtyCellCount: 0,
+        requestCount: 0,
+        coalescedRequestCount: 0,
+        topologyRequestCount: 0,
+        localRequestCount: 0,
         roomCount: 0,
         fengShuiCount: 0,
         deferredCount: 0,
         durationMs: 0,
         updatedAtTick: 0,
     };
+    /** 房间/风水派生状态按实例惰性创建；同一逻辑息只在息末统一收敛。 */
+    pendingBuildingRoomFengShuiState: PendingBuildingRoomFengShuiState | null = null;
+    /** 防止同一逻辑息在多个编排入口重复结算。 */
+    lastBuildingRoomFengShuiFinalizeTick = -1;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param request 请求参数。
@@ -1471,9 +1494,13 @@ class MapInstanceRuntime {
         this.worldRevision += 1;
         this.persistentRevision += 1;
         this.markPersistenceDirtyDomainsHighPriority(['tile_cell']);
-        if (this.shouldRecalculateRoomsForTileMutation(tileIndex, this.resolveDefaultTileLayerFallbackForCell(tileIndex).legacyTileType, tileType)) {
-            this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'runtime_tile_activated', dirtyCellCount: 1 });
-            this.markPersistenceDirtyDomainsHighPriority(['room', 'fengshui']);
+        if (options?.skipRoomFengShuiDirty !== true
+            && this.shouldRecalculateRoomsForTileMutation(tileIndex, this.resolveDefaultTileLayerFallbackForCell(tileIndex).legacyTileType, tileType)) {
+            this.markRoomsAndFengShuiDirtyAfterTopologyChange({
+                reason: 'runtime_tile_activated',
+                dirtyCellCount: 1,
+                highPriority: true,
+            });
         }
         return { created: true, tileIndex };
     }
@@ -1747,15 +1774,15 @@ class MapInstanceRuntime {
                 ? cells.some((cellIndex) => this.shouldRecalculateRoomsForTileMutation(cellIndex, this.tilePlane.getTileType(cellIndex), compiled.visualTileType ?? this.getEffectiveTileTypeByCellIndex(cellIndex)))
                 : affectsRoofTopology && wasInRoomInfluence;
             if (shouldRecalculateRooms) {
-                this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'place', dirtyCellCount: cells.length });
-                dirtyDomains = dirtyDomains.concat(['room', 'fengshui']);
+                this.markRoomsAndFengShuiDirtyAfterTopologyChange({
+                    reason: 'place',
+                    dirtyCellCount: cells.length,
+                    highPriority: true,
+                });
             }
             else if (compiledBuildingAffectsFengShui(compiled) || affectsRoofTopology) {
                 for (const cellIndex of cells) {
-                    this.recalculateFengShuiAfterRoomInfluenceChange(cellIndex, 'building_place_fengshui');
-                }
-                if (wasInRoomInfluence) {
-                    dirtyDomains.push('fengshui');
+                    this.markFengShuiDirtyAfterRoomInfluenceChange(cellIndex, 'building_place_fengshui', { highPriority: true });
                 }
             }
             if (previousTileTypes.length > 0) {
@@ -1915,11 +1942,15 @@ class MapInstanceRuntime {
             ? compiledBuildingAffectsRoomBoundaryTopology(compiled) || (compiled.roofCoverage > 0 && wasInRoomInfluence)
             : changedCells.some((cellIndex) => this.shouldRecalculateRoomsForTileMutation(cellIndex));
         if (shouldRecalculateRooms) {
-            this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'deconstruct', dirtyCellCount: changedCells.length });
+            this.markRoomsAndFengShuiDirtyAfterTopologyChange({
+                reason: 'deconstruct',
+                dirtyCellCount: changedCells.length,
+                highPriority: true,
+            });
         }
         else if (compiled && compiledBuildingAffectsFengShui(compiled) && wasInRoomInfluence) {
             for (const cellIndex of changedCells) {
-                this.recalculateFengShuiAfterRoomInfluenceChange(cellIndex, 'building_deconstruct_fengshui');
+                this.markFengShuiDirtyAfterRoomInfluenceChange(cellIndex, 'building_deconstruct_fengshui', { highPriority: true });
             }
         }
         this.markAoiViewChangedAt(building.x, building.y);
@@ -1927,8 +1958,6 @@ class MapInstanceRuntime {
         this.persistentRevision += 1;
         this.markPersistenceDirtyDomainsHighPriority([
             'building',
-            ...(shouldRecalculateRooms ? ['room', 'fengshui'] : []),
-            ...(!shouldRecalculateRooms && compiled && compiledBuildingAffectsFengShui(compiled) && wasInRoomInfluence ? ['fengshui'] : []),
             ...(previousTileTypes.length > 0 ? ['tile_cell'] : []),
         ]);
         return { ok: true, buildingId };
@@ -2064,8 +2093,205 @@ class MapInstanceRuntime {
         }
         return { repairedCellCount, orphanReferenceCount };
     }
-    /** recalculateRoomsAndFengShuiAfterTopologyChange：基于当前拓扑索引重算房间/风水，不重扫建筑拓扑。 */
+    /** 惰性创建本息房间/风水脏状态，避免为无变化实例常驻分配集合。 */
+    getOrCreatePendingBuildingRoomFengShuiState(reasonInput) {
+        if (this.pendingBuildingRoomFengShuiState) {
+            return this.pendingBuildingRoomFengShuiState;
+        }
+        const reason = typeof reasonInput === 'string' && reasonInput.trim()
+            ? reasonInput.trim()
+            : 'room_fengshui_dirty';
+        const pending: PendingBuildingRoomFengShuiState = {
+            topologyDirty: false,
+            topologyRequestCount: 0,
+            localRequestCount: 0,
+            topologyDirtyCellCount: 0,
+            dirtyCellIndices: new Set(),
+            dirtyRoomIds: new Set(),
+            roomRoleInferenceByRoomId: new Map(),
+            snapshotRevisionOffsetByRoomId: new Map(),
+            latestReason: reason,
+            highPriorityDomains: new Set(),
+            roomDomainHoldRelease: null,
+            fengShuiDomainHoldRelease: null,
+        };
+        this.pendingBuildingRoomFengShuiState = pending;
+        return pending;
+    }
+    /** 首次标脏时先持有派生域，防止 flush 读取尚未在息末收敛的旧快照。 */
+    ensurePendingBuildingRoomFengShuiDomain(pending, domain, highPriority = false) {
+        const holdKey = domain === 'room' ? 'roomDomainHoldRelease' : 'fengShuiDomainHoldRelease';
+        if (pending[holdKey] === null) {
+            pending[holdKey] = this.acquirePersistenceDomainHold(domain);
+            this.markPersistenceDirtyDomains([domain]);
+        }
+        if (highPriority === true && !pending.highPriorityDomains.has(domain)) {
+            markMapInstanceDirtyDomainHighPriority(this, [domain]);
+            pending.highPriorityDomains.add(domain);
+        }
+    }
+    /** 成功收敛或显式立即重建后释放派生域围栏。失败路径不会调用此方法。 */
+    releasePendingBuildingRoomFengShuiState(pending) {
+        if (!pending || this.pendingBuildingRoomFengShuiState !== pending) {
+            return;
+        }
+        this.pendingBuildingRoomFengShuiState = null;
+        pending.roomDomainHoldRelease?.();
+        pending.fengShuiDomainHoldRelease?.();
+        pending.roomDomainHoldRelease = null;
+        pending.fengShuiDomainHoldRelease = null;
+    }
+    /** 拓扑变化只标脏；完整房间检测和风水计算统一延迟到本逻辑息末。 */
+    markRoomsAndFengShuiDirtyAfterTopologyChange(options: any = {}) {
+        const reason = typeof options?.reason === 'string' && options.reason.trim()
+            ? options.reason.trim()
+            : 'topology_change';
+        const pending = this.getOrCreatePendingBuildingRoomFengShuiState(reason);
+        pending.latestReason = reason;
+        pending.topologyDirty = true;
+        pending.topologyRequestCount += 1;
+        pending.topologyDirtyCellCount += Math.max(0, Math.trunc(Number(options?.dirtyCellCount) || 0));
+        // 全量拓扑重建覆盖局部房间计划，但保留请求计数供性能归因。
+        pending.dirtyRoomIds.clear();
+        pending.roomRoleInferenceByRoomId.clear();
+        pending.snapshotRevisionOffsetByRoomId.clear();
+        const highPriority = options?.highPriority === true;
+        this.ensurePendingBuildingRoomFengShuiDomain(pending, 'room', highPriority);
+        this.ensurePendingBuildingRoomFengShuiDomain(pending, 'fengshui', highPriority);
+        return true;
+    }
+    /** 房间影响区变化只收集受影响房间；同息重复 cell/room 由 Set 合并。 */
+    markFengShuiDirtyAfterRoomInfluenceChange(cellIndexInput, reasonInput = 'room_influence_change', options: any = {}) {
+        const cellIndex = Math.trunc(Number(cellIndexInput));
+        if (!Number.isFinite(cellIndex) || cellIndex < 0) {
+            return false;
+        }
+        const reason = typeof reasonInput === 'string' && reasonInput.trim()
+            ? reasonInput.trim()
+            : 'room_influence_change';
+        const existingPending = this.pendingBuildingRoomFengShuiState;
+        if (existingPending?.topologyDirty === true) {
+            existingPending.latestReason = reason;
+            existingPending.localRequestCount += 1;
+            existingPending.dirtyCellIndices.add(cellIndex);
+            this.ensurePendingBuildingRoomFengShuiDomain(existingPending, 'fengshui', options?.highPriority === true);
+            return true;
+        }
+        const roomIds = this.collectRoomInfluenceRoomIdsByCell(cellIndex);
+        if (roomIds.length === 0) {
+            return false;
+        }
+        const pending = this.getOrCreatePendingBuildingRoomFengShuiState(reason);
+        pending.latestReason = reason;
+        pending.localRequestCount += 1;
+        pending.dirtyCellIndices.add(cellIndex);
+        for (const roomIdInput of roomIds) {
+            const roomId = typeof roomIdInput === 'string' ? roomIdInput : '';
+            if (!roomId) {
+                continue;
+            }
+            pending.dirtyRoomIds.add(roomId);
+            // 同一房间内最后一次变化决定是否重新自动推断角色。
+            pending.roomRoleInferenceByRoomId.set(roomId, true);
+            pending.snapshotRevisionOffsetByRoomId.set(roomId, 0);
+        }
+        this.ensurePendingBuildingRoomFengShuiDomain(pending, 'fengshui', options?.highPriority === true);
+        return true;
+    }
+    /** 已知 roomId 的低频入口，主要用于保持手动角色变更的原有计算语义。 */
+    markFengShuiDirtyRoom(roomIdInput, reasonInput = 'room_change', options: any = {}) {
+        const roomId = typeof roomIdInput === 'string' ? roomIdInput.trim() : '';
+        if (!roomId || !this.roomsById.has(roomId)) {
+            return false;
+        }
+        const reason = typeof reasonInput === 'string' && reasonInput.trim()
+            ? reasonInput.trim()
+            : 'room_change';
+        const pending = this.getOrCreatePendingBuildingRoomFengShuiState(reason);
+        pending.latestReason = reason;
+        pending.localRequestCount += 1;
+        if (pending.topologyDirty !== true) {
+            pending.dirtyRoomIds.add(roomId);
+            pending.roomRoleInferenceByRoomId.set(roomId, options?.inferRoomRole !== false);
+            pending.snapshotRevisionOffsetByRoomId.set(
+                roomId,
+                Math.max(0, Math.trunc(Number(options?.snapshotRevisionOffset) || 0)),
+            );
+        }
+        const highPriority = options?.highPriority === true;
+        if (options?.includeRoomDomain === true) {
+            this.ensurePendingBuildingRoomFengShuiDomain(pending, 'room', highPriority);
+        }
+        this.ensurePendingBuildingRoomFengShuiDomain(pending, 'fengshui', highPriority);
+        return true;
+    }
+    hasPendingBuildingRoomFengShuiChanges() {
+        return this.pendingBuildingRoomFengShuiState !== null;
+    }
+    /** 每个逻辑息末最多收敛一次；异常时保留脏状态和持久化围栏供下一息重试。 */
+    finalizePendingBuildingRoomFengShuiChanges() {
+        const pending = this.pendingBuildingRoomFengShuiState;
+        if (!pending) {
+            return { flushed: false, reason: 'clean' };
+        }
+        const currentTick = Math.max(0, Math.trunc(Number(this.tick) || 0));
+        if (this.lastBuildingRoomFengShuiFinalizeTick === currentTick) {
+            return { flushed: false, reason: 'already_finalized_this_tick', pending: true };
+        }
+        const requestCount = pending.topologyRequestCount + pending.localRequestCount;
+        const dirtyCellCount = pending.topologyDirtyCellCount + pending.dirtyCellIndices.size;
+        const startedAt = performance.now();
+        const mode = pending.topologyDirty ? 'topology' : 'local';
+        let roomCount = pending.dirtyRoomIds.size;
+        if (pending.topologyDirty) {
+            this.recalculateRoomsAndFengShuiImmediatelyAfterTopologyChange({
+                reason: `tick_finalize:${pending.latestReason}`,
+                dirtyCellCount,
+                requestCount,
+                coalescedRequestCount: Math.max(0, requestCount - 1),
+                topologyRequestCount: pending.topologyRequestCount,
+                localRequestCount: pending.localRequestCount,
+            });
+            roomCount = this.roomsById.size;
+        }
+        else {
+            this.recalculateFengShuiForRoomIdsImmediately(Array.from(pending.dirtyRoomIds), {
+                reason: `tick_finalize:${pending.latestReason}`,
+                dirtyCellCount,
+                requestCount,
+                coalescedRequestCount: Math.max(0, requestCount - 1),
+                topologyRequestCount: pending.topologyRequestCount,
+                localRequestCount: pending.localRequestCount,
+                roomRoleInferenceByRoomId: pending.roomRoleInferenceByRoomId,
+                snapshotRevisionOffsetByRoomId: pending.snapshotRevisionOffsetByRoomId,
+            });
+        }
+        const durationMs = Math.max(0, performance.now() - startedAt);
+        this.lastBuildingRoomFengShuiFinalizeTick = currentTick;
+        this.releasePendingBuildingRoomFengShuiState(pending);
+        return {
+            flushed: true,
+            mode,
+            requestCount,
+            coalescedRequestCount: Math.max(0, requestCount - 1),
+            topologyRequestCount: pending.topologyRequestCount,
+            localRequestCount: pending.localRequestCount,
+            dirtyCellCount,
+            roomCount,
+            durationMs,
+        };
+    }
+    /** 显式立即入口供启动恢复和 GM 修复使用；成功后覆盖并释放已有延迟计划。 */
     recalculateRoomsAndFengShuiAfterTopologyChange(options: any = {}) {
+        const result = this.recalculateRoomsAndFengShuiImmediatelyAfterTopologyChange(options);
+        const pending = this.pendingBuildingRoomFengShuiState;
+        if (pending) {
+            this.releasePendingBuildingRoomFengShuiState(pending);
+        }
+        return result;
+    }
+    /** 基于当前拓扑索引立即重算房间/风水，不重扫建筑拓扑。 */
+    recalculateRoomsAndFengShuiImmediatelyAfterTopologyChange(options: any = {}) {
         const startedAt = Number.isFinite(Number(options?.startedAt)) ? Number(options.startedAt) : Date.now();
         const catalog = this.buildingCatalog;
         const provider = createRuntimeTilePlaneRoomCellProvider(this.tilePlane, this.buildingTopologyIndex, {
@@ -2107,10 +2333,15 @@ class MapInstanceRuntime {
             this.fengShuiByRoomId.set(room.id, snapshot);
         }
         const durationMs = Math.max(0, Date.now() - startedAt);
+        const requestCount = Math.max(1, Math.trunc(Number(options?.requestCount) || 1));
         this.lastBuildingRoomRebuildStats = {
             reason: typeof options?.reason === 'string' && options.reason.trim() ? options.reason.trim() : 'recalculate',
             fullTopologyRebuild: options?.fullTopologyRebuild === true,
             dirtyCellCount: Math.max(0, Math.trunc(Number(options?.dirtyCellCount) || 0)),
+            requestCount,
+            coalescedRequestCount: Math.max(0, Math.trunc(Number(options?.coalescedRequestCount) || requestCount - 1)),
+            topologyRequestCount: Math.max(0, Math.trunc(Number(options?.topologyRequestCount) || 0)),
+            localRequestCount: Math.max(0, Math.trunc(Number(options?.localRequestCount) || 0)),
             roomCount: this.roomsById.size,
             fengShuiCount: this.fengShuiByRoomId.size,
             deferredCount: this.buildingRoomDeferredStartCells.length,
@@ -2250,40 +2481,66 @@ class MapInstanceRuntime {
         }
         return this.isRoomTopologyCell(cellIndex, previousTileType) || this.isRoomTopologyCell(cellIndex, nextTileType);
     }
-    /** recalculateFengShuiAfterRoomInfluenceChange：房间内物品/资源变化只重算受影响房间风水。 */
-    recalculateFengShuiAfterRoomInfluenceChange(cellIndexInput, reason = 'room_influence_change') {
-        const roomIds = this.collectRoomInfluenceRoomIdsByCell(cellIndexInput);
-        if (roomIds.length === 0) {
-            return false;
-        }
+    /** 立即重算指定房间聚合与风水，供息末收敛和低频显式入口复用。 */
+    recalculateFengShuiForRoomIdsImmediately(roomIdsInput, options: any = {}) {
+        const startedAt = performance.now();
+        const roomIds = Array.from(new Set((Array.isArray(roomIdsInput) ? roomIdsInput : [])
+            .map((roomId) => typeof roomId === 'string' ? roomId.trim() : '')
+            .filter((roomId) => roomId && this.roomsById.has(roomId))));
         const recalculatedAggregates = this.buildRoomAggregates(roomIds);
         for (const [roomId, aggregate] of recalculatedAggregates.entries()) {
             this.roomAggregatesById.set(roomId, aggregate);
         }
+        const roomRoleInferenceByRoomId = options?.roomRoleInferenceByRoomId instanceof Map
+            ? options.roomRoleInferenceByRoomId
+            : null;
+        const snapshotRevisionOffsetByRoomId = options?.snapshotRevisionOffsetByRoomId instanceof Map
+            ? options.snapshotRevisionOffsetByRoomId
+            : null;
         for (const roomId of roomIds) {
             const room = this.roomsById.get(roomId);
             const aggregate = this.roomAggregatesById.get(roomId);
             if (!room || !aggregate) {
                 continue;
             }
-            room.role = inferRoomRole(this.buildingCatalog, room, aggregate).role;
+            if (roomRoleInferenceByRoomId?.get(roomId) !== false) {
+                room.role = inferRoomRole(this.buildingCatalog, room, aggregate).role;
+            }
             const snapshot = calculateFengShuiSnapshot(room, aggregate, this.fengShuiRules, {
                 instanceId: this.meta.instanceId,
                 updatedAtTick: this.tick,
-                revision: aggregate.aggregateRevision,
+                revision: aggregate.aggregateRevision + Math.max(0, Math.trunc(Number(snapshotRevisionOffsetByRoomId?.get(roomId)) || 0)),
             });
             this.fengShuiByRoomId.set(room.id, snapshot);
         }
+        const requestCount = Math.max(1, Math.trunc(Number(options?.requestCount) || 1));
         this.lastBuildingRoomRebuildStats = {
-            reason: typeof reason === 'string' && reason.trim() ? reason.trim() : 'room_influence_change',
+            reason: typeof options?.reason === 'string' && options.reason.trim() ? options.reason.trim() : 'room_influence_change',
             fullTopologyRebuild: false,
-            dirtyCellCount: 1,
+            dirtyCellCount: Math.max(0, Math.trunc(Number(options?.dirtyCellCount) || 0)),
+            requestCount,
+            coalescedRequestCount: Math.max(0, Math.trunc(Number(options?.coalescedRequestCount) || requestCount - 1)),
+            topologyRequestCount: Math.max(0, Math.trunc(Number(options?.topologyRequestCount) || 0)),
+            localRequestCount: Math.max(0, Math.trunc(Number(options?.localRequestCount) || 0)),
             roomCount: this.roomsById.size,
             fengShuiCount: this.fengShuiByRoomId.size,
             deferredCount: this.buildingRoomDeferredStartCells.length,
-            durationMs: 0,
+            durationMs: Math.max(0, performance.now() - startedAt),
             updatedAtTick: this.tick,
         };
+        return this.lastBuildingRoomRebuildStats;
+    }
+    /** 低频显式立即入口；生产 tick 变化应使用 markFengShuiDirtyAfterRoomInfluenceChange。 */
+    recalculateFengShuiAfterRoomInfluenceChange(cellIndexInput, reason = 'room_influence_change') {
+        const roomIds = this.collectRoomInfluenceRoomIdsByCell(cellIndexInput);
+        if (roomIds.length === 0) {
+            return false;
+        }
+        this.recalculateFengShuiForRoomIdsImmediately(roomIds, {
+            reason,
+            dirtyCellCount: 1,
+            localRequestCount: 1,
+        });
         this.markPersistenceDirtyDomains(['fengshui']);
         return true;
     }
@@ -2636,19 +2893,15 @@ class MapInstanceRuntime {
             return { ok: false, reason: 'room_not_found' };
         }
         room.role = role;
-        const aggregate = this.roomAggregatesById.get(room.id);
-        if (aggregate) {
-            const snapshot = calculateFengShuiSnapshot(room, aggregate, this.fengShuiRules, {
-                instanceId: this.meta.instanceId,
-                updatedAtTick: this.tick,
-                revision: aggregate.aggregateRevision + 1,
-            });
-            this.fengShuiByRoomId.set(room.id, snapshot);
-        }
+        this.markFengShuiDirtyRoom(room.id, 'room_role_changed', {
+            highPriority: true,
+            includeRoomDomain: true,
+            inferRoomRole: false,
+            snapshotRevisionOffset: 1,
+        });
         this.markAoiViewChangedGlobally();
         this.worldRevision += 1;
         this.persistentRevision += 1;
-        this.markPersistenceDirtyDomainsHighPriority(['room', 'fengshui']);
         return { ok: true, room: { ...room }, fengShui: this.fengShuiByRoomId.get(room.id) ?? null };
     }
     getFengShuiSnapshotAt(x, y) {
@@ -3115,14 +3368,18 @@ class MapInstanceRuntime {
             ? cells.some((cellIndex) => this.shouldRecalculateRoomsForTileMutation(cellIndex, this.tilePlane.getTileType(cellIndex), compiled.visualTileType ?? this.getEffectiveTileTypeByCellIndex(cellIndex)))
             : affectsRoofTopology && wasInRoomInfluence;
         if (shouldRecalculateRooms) {
-            this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'build_complete', dirtyCellCount: cells.length });
-            return ['building', 'room', 'fengshui', ...(previousTileTypes.length > 0 ? ['tile_cell'] : []), ...(clearedTileDamage ? ['tile_damage'] : [])];
+            this.markRoomsAndFengShuiDirtyAfterTopologyChange({
+                reason: 'build_complete',
+                dirtyCellCount: cells.length,
+                highPriority: true,
+            });
+            return ['building', ...(previousTileTypes.length > 0 ? ['tile_cell'] : []), ...(clearedTileDamage ? ['tile_damage'] : [])];
         }
         if (compiledBuildingAffectsFengShui(compiled) || affectsRoofTopology) {
             for (const cellIndex of cells) {
-                this.recalculateFengShuiAfterRoomInfluenceChange(cellIndex, 'building_complete_fengshui');
+                this.markFengShuiDirtyAfterRoomInfluenceChange(cellIndex, 'building_complete_fengshui', { highPriority: true });
             }
-            return ['building', ...(wasInRoomInfluence ? ['fengshui'] : []), ...(previousTileTypes.length > 0 ? ['tile_cell'] : []), ...(clearedTileDamage ? ['tile_damage'] : [])];
+            return ['building', ...(previousTileTypes.length > 0 ? ['tile_cell'] : []), ...(clearedTileDamage ? ['tile_damage'] : [])];
         }
         return ['building', ...(previousTileTypes.length > 0 ? ['tile_cell'] : []), ...(clearedTileDamage ? ['tile_damage'] : [])];
     }
@@ -3732,8 +3989,11 @@ class MapInstanceRuntime {
             this.worldRevision += 1;
             this.markPersistenceDirtyDomainsHighPriority(['temporary_tile']);
             if (affectsRoomTopology) {
-                this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'temporary_tile_destroyed', dirtyCellCount: 1 });
-                this.markPersistenceDirtyDomainsHighPriority(['room', 'fengshui']);
+                this.markRoomsAndFengShuiDirtyAfterTopologyChange({
+                    reason: 'temporary_tile_destroyed',
+                    dirtyCellCount: 1,
+                    highPriority: true,
+                });
             }
             this.persistentRevision += 1;
             return {
@@ -3793,8 +4053,7 @@ class MapInstanceRuntime {
                 this.persistentRevision += 1;
                 this.markPersistenceDirtyDomainsHighPriority(['building']);
                 if (this.isCellInRoomInfluence(tileIndex)) {
-                    this.recalculateFengShuiAfterRoomInfluenceChange(tileIndex, 'building_integrity_damaged');
-                    this.markPersistenceDirtyDomainsHighPriority(['fengshui']);
+                    this.markFengShuiDirtyAfterRoomInfluenceChange(tileIndex, 'building_integrity_damaged', { highPriority: true });
                 }
             }
             return {
@@ -3826,8 +4085,11 @@ class MapInstanceRuntime {
             this.markStaticTileSyncDirtyByIndex(tileIndex, { sightBlockingChanged: true, pathingChanged: true });
             this.markTileDamagePersistenceDirtyHighPriority(tileIndex);
             if (this.shouldRecalculateRoomsForTileMutation(tileIndex, current.tileType, this.resolveDefaultTileLayerFallbackForCell(tileIndex).legacyTileType)) {
-                this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'sect_boundary_opened', dirtyCellCount: 1 });
-                this.markPersistenceDirtyDomainsHighPriority(['room', 'fengshui']);
+                this.markRoomsAndFengShuiDirtyAfterTopologyChange({
+                    reason: 'sect_boundary_opened',
+                    dirtyCellCount: 1,
+                    highPriority: true,
+                });
             }
             this.persistentRevision += 1;
             return {
@@ -3887,8 +4149,11 @@ class MapInstanceRuntime {
         this.worldRevision += 1;
         this.markPersistenceDirtyDomainsHighPriority(['temporary_tile']);
         if (this.shouldRecalculateRoomsForTileMutation(tileIndex, previousEffectiveTileType, this.getEffectiveTileTypeByCellIndex(tileIndex))) {
-            this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'temporary_tile_created', dirtyCellCount: 1 });
-            this.markPersistenceDirtyDomainsHighPriority(['room', 'fengshui']);
+            this.markRoomsAndFengShuiDirtyAfterTopologyChange({
+                reason: 'temporary_tile_created',
+                dirtyCellCount: 1,
+                highPriority: true,
+            });
         }
         this.persistentRevision += 1;
         return { created: true, refreshed: Boolean(existingTemporary), tileIndex };
@@ -3955,8 +4220,10 @@ class MapInstanceRuntime {
         }
         if (changed) {
             if (topologyChangedCellCount > 0) {
-                this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'temporary_tile_expired', dirtyCellCount: topologyChangedCellCount });
-                this.markPersistenceDirtyDomains(['room', 'fengshui']);
+                this.markRoomsAndFengShuiDirtyAfterTopologyChange({
+                    reason: 'temporary_tile_expired',
+                    dirtyCellCount: topologyChangedCellCount,
+                });
             }
             this.worldRevision += 1;
             this.markPersistenceDirtyDomains(['temporary_tile']);
@@ -4142,12 +4409,14 @@ class MapInstanceRuntime {
 
         if (changed) {
             if (topologyChangedCellCount > 0) {
-                this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'tile_recovered', dirtyCellCount: topologyChangedCellCount });
-                this.markPersistenceDirtyDomains(['room', 'fengshui']);
+                this.markRoomsAndFengShuiDirtyAfterTopologyChange({
+                    reason: 'tile_recovered',
+                    dirtyCellCount: topologyChangedCellCount,
+                });
             }
             else if (fengShuiInfluenceCells.size > 0) {
                 for (const cellIndex of fengShuiInfluenceCells) {
-                    this.recalculateFengShuiAfterRoomInfluenceChange(cellIndex, 'tile_integrity_recovered');
+                    this.markFengShuiDirtyAfterRoomInfluenceChange(cellIndex, 'tile_integrity_recovered');
                 }
             }
             this.worldRevision += 1;
@@ -4248,9 +4517,8 @@ class MapInstanceRuntime {
         }
         if (fengShuiInfluenceCells.size > 0) {
             for (const cellIndex of fengShuiInfluenceCells) {
-                this.recalculateFengShuiAfterRoomInfluenceChange(cellIndex, 'building_integrity_recovered');
+                this.markFengShuiDirtyAfterRoomInfluenceChange(cellIndex, 'building_integrity_recovered');
             }
-            this.markPersistenceDirtyDomains(['fengshui']);
         }
         return changed;
     }
@@ -5067,7 +5335,7 @@ class MapInstanceRuntime {
                 }
                 continue;
             }
-            const activated = this.activateRuntimeTile(x, y, tileType);
+            const activated = this.activateRuntimeTile(x, y, tileType, { skipRoomFengShuiDirty: true });
             if (activated?.tileIndex >= 0) {
                 this.applyPersistedTileLayers(activated.tileIndex, entry);
             }
@@ -5610,7 +5878,7 @@ class MapInstanceRuntime {
         }
         pile.items.sort(compareGroundEntries);
         this.markGroundItemPersistenceDirty(normalizedTileIndex);
-        this.recalculateFengShuiAfterRoomInfluenceChange(normalizedTileIndex, 'ground_item_transaction_reverted');
+        this.markFengShuiDirtyAfterRoomInfluenceChange(normalizedTileIndex, 'ground_item_transaction_reverted');
         this.persistentRevision += 1;
         this.worldRevision += 1;
         return true;
@@ -5656,7 +5924,7 @@ class MapInstanceRuntime {
             pile.items.sort(compareGroundEntries);
         }
         this.markGroundItemPersistenceDirty(normalizedTileIndex);
-        this.recalculateFengShuiAfterRoomInfluenceChange(normalizedTileIndex, 'ground_item_transaction_reverted');
+        this.markFengShuiDirtyAfterRoomInfluenceChange(normalizedTileIndex, 'ground_item_transaction_reverted');
         this.persistentRevision += 1;
         this.worldRevision += 1;
         return true;
@@ -5689,7 +5957,7 @@ class MapInstanceRuntime {
             });
         }
         this.markGroundItemPersistenceDirty(normalizedTileIndex);
-        this.recalculateFengShuiAfterRoomInfluenceChange(normalizedTileIndex, 'ground_item_transaction_restored');
+        this.markFengShuiDirtyAfterRoomInfluenceChange(normalizedTileIndex, 'ground_item_transaction_restored');
         this.persistentRevision += 1;
         this.worldRevision += 1;
     }
@@ -6342,7 +6610,7 @@ class MapInstanceRuntime {
                 pile.items.sort(compareGroundEntries);
             }
             this.markGroundItemPersistenceDirty(tileIndex);
-            this.recalculateFengShuiAfterRoomInfluenceChange(tileIndex, 'ground_item_expired');
+            this.markFengShuiDirtyAfterRoomInfluenceChange(tileIndex, 'ground_item_expired');
             changed = true;
         }
         for (const tileIndex of toDelete) {
@@ -6456,7 +6724,7 @@ class MapInstanceRuntime {
             changed = true;
             if (changed) {
                 this.markGroundItemPersistenceDirty(tileIndex);
-                this.recalculateFengShuiAfterRoomInfluenceChange(tileIndex, 'ground_item_changed');
+                this.markFengShuiDirtyAfterRoomInfluenceChange(tileIndex, 'ground_item_changed');
                 this.persistentRevision += 1;
                 this.worldRevision += 1;
             }
@@ -6477,7 +6745,7 @@ class MapInstanceRuntime {
         };
         this.groundPilesByTile.set(tileIndex, pile);
         this.markGroundItemPersistenceDirty(tileIndex);
-        this.recalculateFengShuiAfterRoomInfluenceChange(tileIndex, 'ground_item_added');
+        this.markFengShuiDirtyAfterRoomInfluenceChange(tileIndex, 'ground_item_added');
         this.persistentRevision += 1;
         this.worldRevision += 1;
         return toGroundPileView(pile);
@@ -6539,7 +6807,7 @@ class MapInstanceRuntime {
             this.localGroundPileViewCacheBySourceId.delete(buildGroundSourceId(tileIndex));
         }
         this.markGroundItemPersistenceDirty(tileIndex);
-        this.recalculateFengShuiAfterRoomInfluenceChange(tileIndex, 'ground_item_taken');
+        this.markFengShuiDirtyAfterRoomInfluenceChange(tileIndex, 'ground_item_taken');
         this.persistentRevision += 1;
         this.worldRevision += 1;
         return toInventoryItemFromGroundItem(entry.item);
@@ -7896,7 +8164,7 @@ class MapInstanceRuntime {
             this.tileResourceBuckets.delete(resourceKey);
         }
         this.markTileResourcePersistenceDirty(resourceKey, tileIndex);
-        this.recalculateFengShuiAfterRoomInfluenceChange(tileIndex, 'tile_resource_changed');
+        this.markFengShuiDirtyAfterRoomInfluenceChange(tileIndex, 'tile_resource_changed');
         this.persistentRevision += 1;
     }
     /** ensureCellStorageCapacity：保证按 cell index 寻址的运行时列容量足够。 */
