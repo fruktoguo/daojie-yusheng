@@ -304,7 +304,7 @@ const openBoundJadeExpression = String.raw`
     const countInput = panel?.querySelector('[data-technique-aggregation-jade-count="true"]');
     const button = document.querySelector('[data-craft-action="technique-aggregation-record-jade"]');
     if (!(countInput instanceof HTMLInputElement) || !(button instanceof HTMLButtonElement)) {
-      throw new Error('悟道玉简数量预检结构不完整');
+      throw new Error('悟道玉简数量选择结构不完整');
     }
     countInput.value = '2';
     countInput.dispatchEvent(new Event('input', { bubbles: true }));
@@ -315,7 +315,7 @@ const openBoundJadeExpression = String.raw`
     const confirmTitle = confirmLayer?.querySelector('.confirm-modal-title')?.textContent?.trim() ?? '';
     const confirmText = confirmLayer?.querySelector('.confirm-modal-body')?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
     const confirmButtonText = confirmButton?.textContent?.trim() ?? '';
-    if (!(confirmButton instanceof HTMLButtonElement)) throw new Error('悟道玉简二次确认弹层未打开');
+    if (!(confirmButton instanceof HTMLButtonElement)) throw new Error('悟道玉简确认弹层未打开');
     confirmButton.click();
     const publishPayload = window.__techniqueUnificationPublishPayload;
     modal.handleTechniqueAggregationResult({
@@ -418,6 +418,28 @@ const restrictTabsExpression = String.raw`
   })()
 `;
 
+const inspectSanitizedErrorExpression = String.raw`
+  (() => {
+    const modal = window.__techniqueUnificationProofModal;
+    modal.handleTechniqueAggregationResult({
+      ok: false,
+      code: 'TECHNIQUE_AGGREGATE_OVERLAP',
+      messageKey: 'technique.aggregation.internal_overlap',
+      conflictAggregateIds: ['agg_internal_debug'],
+      conflictSourceTechniqueIds: ['gen_internal_debug'],
+      invalidTechniqueIds: ['gen_invalid_debug'],
+    });
+    const conflictText = document.querySelector('[data-technique-aggregation-result="true"]')?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+    modal.handleTechniqueAggregationResult({
+      ok: false,
+      code: 'TECHNIQUE_AGGREGATE_UNKNOWN',
+      messageKey: 'technique.aggregation.internal_unknown',
+    });
+    const fallbackText = document.querySelector('[data-technique-aggregation-result="true"]')?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+    return { conflictText, fallbackText };
+  })()
+`;
+
 function assertShell(measurement, label) {
   assert(measurement.cardTop >= 0, `${label}弹层顶部越出视口：${JSON.stringify(measurement)}`);
   assert(measurement.cardBottom <= measurement.viewportHeight, `${label}弹层底部越出视口：${JSON.stringify(measurement)}`);
@@ -466,7 +488,7 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'technique-uni
   assert.equal(sourceInitial.firstStrength, '强度 80%', '未显示服务端权威功法强度');
   assert.equal(sourceInitial.gradeOptionCount, 2, '品阶过滤项不完整');
   assert.equal(sourceInitial.realmOptionCount, 3, '境界过滤项不完整');
-  assert.match(sourceInitial.pageText, /第 1 \/ 3 页 · 1-12 \/ 28/, '首页分页摘要错误');
+  assert.match(sourceInitial.pageText, /第 1 页，共 3 页 · 当前 1-12 部，共 28 部/, '首页分页摘要错误');
   assert.equal(sourceInitial.activeRecordTab, '录入自有功法', '默认未打开自有功法录法');
 
   const interaction = await cdp.evaluate(sourceInteractionExpression);
@@ -478,12 +500,12 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'technique-uni
   assert.equal(interaction.backgroundImagePreserved, true, '选中法卷不应改变品阶底纹');
   assert.doesNotMatch(interaction.selectedCardText, /已选|可选/, '选中状态仍使用文字标记');
   assert.equal(interaction.realmFilteredCount, 12, '境界过滤结果数量错误');
-  assert.match(interaction.realmPageText, /第 1 \/ 1 页 · 1-12 \/ 12/, '境界过滤后的分页摘要错误');
+  assert.match(interaction.realmPageText, /第 1 页，共 1 页 · 当前 1-12 部，共 12 部/, '境界过滤后的分页摘要错误');
   assert.equal(interaction.realmStrength, '强度 96%', '境界过滤后强度显示错误');
   assert.equal(interaction.firstPageSelected, 12, '全选后当前页未全部呈现选中边框');
-  assert.match(interaction.selectedSummary, /已择 28 部/, '全选未覆盖当前筛选的全部分页');
+  assert.match(interaction.selectedSummary, /已选 28 部/, '全选未覆盖当前筛选的全部分页');
   assert.equal(interaction.secondPageSelected, 12, '翻页后跨页全选状态未保留');
-  assert.match(interaction.secondPageText, /第 2 \/ 3 页 · 13-24 \/ 28/, '下一页分页摘要错误');
+  assert.match(interaction.secondPageText, /第 2 页，共 3 页 · 当前 13-24 部，共 28 部/, '下一页分页摘要错误');
   assert.equal(interaction.selectedAfterClear, 0, '全部取消后仍残留选中法卷');
   assert.equal(interaction.gradeValue, 'yellow', '品阶过滤未切换到黄阶');
   assert.equal(interaction.sparseCount, 2, '黄阶少量法卷筛选结果错误');
@@ -521,18 +543,19 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'technique-uni
   assert.equal(jade.activeMainTab, '录法', '绑定法脉后未停留在录法页');
   assert.equal(jade.activeRecordTab, '融入悟道玉简', '未切换到悟道玉简录法');
   assert.equal(jade.jadeMetricCount, 4, '悟道玉简录法摘要不完整');
-  assert.match(jade.jadeText, /现有玉简3 枚/, '悟道玉简数量显示错误');
+  assert.match(jade.jadeText, /所持玉简3 枚/, '悟道玉简数量显示错误');
   assert.match(jade.jadeText, /道韵强度80%-120%/, '悟道玉简强度范围显示错误');
-  assert.deepEqual(jade.balanceLabels, ['五行无偏', '六维均衡', '不另立功法'], '悟道玉简均衡规则文案不完整');
-  assert.equal(jade.selectedCount, '2', '玉简预检未保留手动指定数量');
-  assert.deepEqual(jade.previewMetrics, ['本次融入2 枚', '录后道韵4 道', '背包余量1 枚'], '玉简数量预检结果错误');
-  assert.equal(jade.buttonText, '进入二次确认', '玉简录法按钮未明确进入二次确认');
+  assert.deepEqual(jade.balanceLabels, ['五行无偏', '六维均衡', '归于此脉'], '悟道玉简均衡规则文案不完整');
+  assert.equal(jade.selectedCount, '2', '玉简融入数量未保留手动指定值');
+  assert.deepEqual(jade.previewMetrics, ['将耗玉简2 枚', '融入后4 道', '余下玉简1 枚'], '玉简融入数量摘要错误');
+  assert.equal(jade.buttonText, '融入法脉', '玉简录法按钮文案错误');
   assert.equal(jade.recordButtonEnabled, true, '持有悟道玉简时录法按钮不可用');
   assert.equal(jade.publishBeforeConfirm, null, '打开二次确认前已提交玉简录法');
-  assert.equal(jade.confirmTitle, '录法二次确认', '玉简二次确认标题错误');
-  assert.match(jade.confirmText, /本次消耗2 枚悟道玉简/, '二次确认未显示本次消耗数量');
-  assert.match(jade.confirmText, /录后道韵4 道/, '二次确认未显示录后道韵总数');
-  assert.equal(jade.confirmButtonText, '确认融入 2 枚', '二次确认按钮数量错误');
+  assert.equal(jade.confirmTitle, '确认融入玉简', '玉简确认标题错误');
+  assert.match(jade.confirmText, /将耗玉简2 枚/, '确认弹层未显示本次消耗数量');
+  assert.match(jade.confirmText, /融入后4 道/, '确认弹层未显示融入后的道韵总数');
+  assert.equal(jade.confirmButtonText, '融入 2 枚玉简', '确认按钮数量错误');
+  assert.doesNotMatch(`${jade.jadeText} ${jade.confirmTitle} ${jade.confirmText} ${jade.buttonText}`, /预检|二次确认|随机结果|服务端|客户端|revision|messageKey/, '玉简录法仍暴露开发者术语');
   assert.equal(jade.publishPayload?.recordMode, 'jade', '二次确认后未提交玉简录法');
   assert.equal(jade.publishPayload?.jadeItemSpend, 2, '二次确认未携带指定玉简数量');
   assert.equal(jade.hasDirectory, false, '悟道玉简录法页混入自有功法目录');
@@ -555,7 +578,9 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'technique-uni
   assert.equal(overview.metricCount, 3, '已绑定总览指标不完整');
   assert.match(overview.overviewText, /源法2 部/, '总览未显示源法数量');
   assert.match(overview.overviewText, /玉简道韵2 道/, '总览未显示玉简道韵数量');
-  assert.match(overview.overviewText, /录法构成/, '总览未显示录法构成');
+  assert.match(overview.overviewText, /法脉所录/, '总览未显示录入构成');
+  assert.match(overview.overviewText, /圆满六维总加成/, '总览六维标题不符合玩家语义');
+  assert.doesNotMatch(overview.overviewText, /预检|二次确认|服务端|客户端|revision|messageKey|Lv\./, '总览仍暴露开发者术语');
   assert.deepEqual(overview.sourceNames, ['凡阶归元功1', '凡阶归元功2'], '总览源法名录不完整');
   assert.equal(overview.attributeTexts.length, 6, '总览未显示完整六维加成');
   assert.deepEqual(overview.attributeTexts, ['体魄 +111', '神识 +122', '身法 +133', '根骨 +144', '力道 +155', '经脉 +166'], '总览六维加成显示错误');
@@ -569,6 +594,14 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'technique-uni
   assert.equal(restricted.active, '总览', '权限收窄后未回退总览');
   assert.equal(restricted.hasRecordTabs, false, '普通参阅者仍可进入录法页');
   assert.equal(restricted.hasPermissions, false, '非建造者仍可进入权限页');
+
+  const sanitizedError = await cdp.evaluate(inspectSanitizedErrorExpression);
+  assert.match(sanitizedError.conflictText, /1 部已有法脉/, '冲突提示未保留玩家可理解的数量');
+  assert.match(sanitizedError.conflictText, /1 部已有功法/, '重叠提示未保留玩家可理解的数量');
+  assert.match(sanitizedError.conflictText, /1 部不可入卷/, '无效功法提示未保留玩家可理解的数量');
+  assert.doesNotMatch(sanitizedError.conflictText, /agg_internal_debug|gen_internal_debug|gen_invalid_debug|internal_overlap/, '冲突提示泄露内部标识');
+  assert.equal(sanitizedError.fallbackText, '法脉凝篇未成，请稍后再试。', '未知错误未使用玩家可见兜底文案');
+  assert.doesNotMatch(sanitizedError.fallbackText, /internal_unknown|messageKey/, '未知错误泄露内部消息键');
 });
 
 console.log('technique unification mobile proof passed');

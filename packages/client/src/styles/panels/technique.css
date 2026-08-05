@@ -2198,6 +2198,8 @@
         order: -1;
         width: 100%;
         min-width: 0;
+        line-height: 1.4;
+        white-space: normal;
       }
       .technique-aggregation-source-mark,
       .technique-aggregation-family > span:last-child {
