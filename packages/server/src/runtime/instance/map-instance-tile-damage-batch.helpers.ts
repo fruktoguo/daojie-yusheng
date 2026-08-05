@@ -1,5 +1,7 @@
 export type TileDropRollOptions = {
   dropRateBonus?: number;
+  /** 调用方已由技能目标规划保证坐标唯一时，跳过批处理内的重复坐标 Set。 */
+  assumeUniqueEntries?: boolean;
 };
 
 export type TileDamageBatchInput = {
@@ -99,7 +101,8 @@ export function damageMapInstanceTilesBatch(
     dirtyTileIndices: new Set(),
   };
   const results: Array<TileDamageResult | null> = [];
-  const seenTileIndices = new Set<number>();
+  const assumeUniqueEntries = options?.assumeUniqueEntries === true;
+  const seenTileIndices = assumeUniqueEntries ? null : new Set<number>();
   let fastPathCount = 0;
   let fallbackCount = 0;
   for (const entry of entries) {
@@ -109,11 +112,11 @@ export function damageMapInstanceTilesBatch(
     const tileIndex = instance.toTileIndex(x, y);
     const canUsePrevalidatedState = Boolean(entry?.state)
       && tileIndex >= 0
-      && !seenTileIndices.has(tileIndex);
+      && (assumeUniqueEntries || !seenTileIndices?.has(tileIndex));
     const current = canUsePrevalidatedState
       ? entry.state ?? null
       : instance.getTileCombatState(x, y);
-    if (tileIndex >= 0) {
+    if (tileIndex >= 0 && seenTileIndices) {
       seenTileIndices.add(tileIndex);
     }
     if (!current || current.destroyed === true) {

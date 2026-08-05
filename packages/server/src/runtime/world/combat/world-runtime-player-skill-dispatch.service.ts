@@ -2186,7 +2186,10 @@ export class WorldRuntimePlayerSkillDispatchService {
             const outcomeApplyStartedAt = performance.now();
             let tileBatchSectionStartedAt = outcomeApplyStartedAt;
             const dropRateBonus = resolveMiningDropRateBonus(attacker);
-            const batchResult = instance.damageTilesBatch(pendingTileDamage, { dropRateBonus });
+            const batchResult = instance.damageTilesBatch(pendingTileDamage, {
+                dropRateBonus,
+                assumeUniqueEntries: true,
+            });
             recordPlayerSkillDispatchPerf(
                 deps,
                 'pendingCommands.castSkill.tileBatch.damageApplyMs',

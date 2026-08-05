@@ -289,6 +289,12 @@ async function testLargeTileCastBatchesAuthorityAndPresentation(): Promise<void>
   const targets = createTileTargets();
   const getTileCombatState = instance.getTileCombatState.bind(instance);
   let tileStateReadCount = 0;
+  const damageTilesBatch = instance.damageTilesBatch.bind(instance);
+  let batchOptions: Record<string, unknown> | null = null;
+  instance.damageTilesBatch = (entries: readonly unknown[], options: Record<string, unknown>) => {
+    batchOptions = options;
+    return damageTilesBatch(entries as never, options as never);
+  };
   instance.getTileCombatState = (x: number, y: number) => {
     tileStateReadCount += 1;
     return getTileCombatState(x, y);
@@ -326,6 +332,7 @@ async function testLargeTileCastBatchesAuthorityAndPresentation(): Promise<void>
   assert.equal(harness.combatOutcomes[0].result.batch, true);
   assert.equal(harness.combatOutcomes[0].result.fastPathCount, TARGET_COUNT);
   assert.equal(harness.combatOutcomes[0].result.fallbackCount, 0);
+  assert.equal(batchOptions?.assumeUniqueEntries, true);
 
   harness.clearPresentation();
   harness.setCurrentTick(2);
