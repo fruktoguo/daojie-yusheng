@@ -128,6 +128,7 @@ function createRuntimeHarness(attacker: any, instance: MapInstanceRuntime) {
   const notices: any[] = [];
   const combatOutcomes: any[] = [];
   const receivedItems: any[] = [];
+  const sectionDurations = new Map<string, { totalMs: number; count: number }>();
   const playerRuntimeService = {
     getPlayerOrThrow(playerId: string) {
       assert.equal(playerId, attacker.playerId);
@@ -203,6 +204,12 @@ function createRuntimeHarness(attacker: any, instance: MapInstanceRuntime) {
       },
     },
     worldRuntimeSectService: {},
+    recordPendingCommandSectionDuration(key: string, durationMs: number, count = 1) {
+      const current = sectionDurations.get(key) ?? { totalMs: 0, count: 0 };
+      current.totalMs += Math.max(0, Number(durationMs) || 0);
+      current.count += Math.max(0, Math.trunc(Number(count) || 0));
+      sectionDurations.set(key, current);
+    },
   };
   return {
     playerCombatService,
@@ -216,6 +223,7 @@ function createRuntimeHarness(attacker: any, instance: MapInstanceRuntime) {
     notices,
     combatOutcomes,
     receivedItems,
+    sectionDurations,
     getCastSkillToMonsterCount() {
       return castSkillToMonsterCount;
     },
@@ -333,6 +341,15 @@ async function testLargeTileCastBatchesAuthorityAndPresentation(): Promise<void>
   assert.equal(harness.combatOutcomes[0].result.fastPathCount, TARGET_COUNT);
   assert.equal(harness.combatOutcomes[0].result.fallbackCount, 0);
   assert.equal(batchOptions?.assumeUniqueEntries, true);
+  assert.equal(typeof batchOptions?.recordBatchSectionDuration, 'function');
+  assert.equal(harness.sectionDurations.get('pendingCommands.castSkill.tileBatch.damageApply.entryResolveMs')?.count, TARGET_COUNT);
+  assert.equal(harness.sectionDurations.get('pendingCommands.castSkill.tileBatch.damageApply.dropRollMs')?.count, TARGET_COUNT);
+  assert.equal(harness.sectionDurations.get('pendingCommands.castSkill.tileBatch.damageApply.mutationMs')?.count, TARGET_COUNT);
+  assert.equal(harness.sectionDurations.get('pendingCommands.castSkill.tileBatch.damageApply.stateWriteMs')?.count, TARGET_COUNT);
+  assert.equal(harness.sectionDurations.get('pendingCommands.castSkill.tileBatch.damageApply.staticSyncMs')?.count, TARGET_COUNT);
+  assert.equal(harness.sectionDurations.get('pendingCommands.castSkill.tileBatch.damageApply.finalizeMs')?.count, 1);
+  assert.equal(harness.sectionDurations.get('pendingCommands.castSkill.tileBatch.damageApply.fastPathEntries')?.count, TARGET_COUNT);
+  assert.equal(harness.sectionDurations.get('pendingCommands.castSkill.tileBatch.damageApply.dirtyEntries')?.count, TARGET_COUNT);
 
   harness.clearPresentation();
   harness.setCurrentTick(2);
@@ -632,16 +649,24 @@ function testSpecialTileFallsBackToSingleMutation(): void {
   assert.equal(temporary.created, true);
   const worldRevision = instance.worldRevision;
   const persistentRevision = instance.persistentRevision;
+  const sectionCounts = new Map<string, number>();
   const result = instance.damageTilesBatch([
     { x: 1, y: 0, damage: 1 },
     { x: 2, y: 1, damage: 1 },
-  ]);
+  ], {
+    recordBatchSectionDuration(section, _durationMs, count = 1) {
+      sectionCounts.set(section, (sectionCounts.get(section) ?? 0) + count);
+    },
+  });
   assert.equal(result.fastPathCount, 1);
   assert.equal(result.fallbackCount, 1);
   assert.equal(result.results[0]?.appliedDamage, 1);
   assert.equal(result.results[1]?.temporary, true);
   assert.equal(instance.worldRevision, worldRevision + 2);
   assert.equal(instance.persistentRevision, persistentRevision + 2);
+  assert.equal(sectionCounts.get('fastPathEntries'), 1);
+  assert.equal(sectionCounts.get('fallbackEntries'), 1);
+  assert.equal(sectionCounts.get('fallbackTemporaryEntries'), 1);
 }
 
 function testTileDropUsesInventoryOnlyStatistics(): void {

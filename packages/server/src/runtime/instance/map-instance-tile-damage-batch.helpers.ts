@@ -2,7 +2,29 @@ export type TileDropRollOptions = {
   dropRateBonus?: number;
   /** 调用方已由技能目标规划保证坐标唯一时，跳过批处理内的重复坐标 Set。 */
   assumeUniqueEntries?: boolean;
+  /** 批处理内部阶段计时；聚合完成后每个阶段只回调一次。 */
+  recordBatchSectionDuration?: (section: TileDamageBatchPerformanceSection, durationMs: number, count?: number) => void;
 };
+
+export type TileDamageBatchPerformanceSection =
+  | 'entryResolveMs'
+  | 'fallbackMs'
+  | 'dropRollMs'
+  | 'mutationMs'
+  | 'stateWriteMs'
+  | 'staticSyncMs'
+  | 'finalizeMs'
+  | 'fastPathEntries'
+  | 'fallbackEntries'
+  | 'fallbackVirtualBoundaryEntries'
+  | 'fallbackTemporaryEntries'
+  | 'fallbackBuildingEntries'
+  | 'fallbackInvalidTileEntries'
+  | 'fallbackSectBoundaryEntries'
+  | 'fallbackRoomTopologyEntries'
+  | 'fallbackRoomIntegrityEntries'
+  | 'destroyedEntries'
+  | 'dirtyEntries';
 
 export type TileDamageBatchInput = {
   x: number;
@@ -15,6 +37,17 @@ export type TileDamageBatchInput = {
 interface TileDamageBatchMutationContext {
   modifiedAt: number;
   dirtyTileIndices: Set<number>;
+  performanceTotals: TileDamageBatchPerformanceTotals | null;
+}
+
+interface TileDamageBatchPerformanceTotals {
+  entryResolveMs: number;
+  fallbackMs: number;
+  dropRollMs: number;
+  mutationMs: number;
+  stateWriteMs: number;
+  staticSyncMs: number;
+  finalizeMs: number;
 }
 
 export interface TileCombatState {
@@ -99,13 +132,33 @@ export function damageMapInstanceTilesBatch(
   const batch: TileDamageBatchMutationContext = {
     modifiedAt: Date.now(),
     dirtyTileIndices: new Set(),
+    performanceTotals: typeof options?.recordBatchSectionDuration === 'function'
+      ? {
+        entryResolveMs: 0,
+        fallbackMs: 0,
+        dropRollMs: 0,
+        mutationMs: 0,
+        stateWriteMs: 0,
+        staticSyncMs: 0,
+        finalizeMs: 0,
+      }
+      : null,
   };
   const results: Array<TileDamageResult | null> = [];
   const assumeUniqueEntries = options?.assumeUniqueEntries === true;
   const seenTileIndices = assumeUniqueEntries ? null : new Set<number>();
   let fastPathCount = 0;
   let fallbackCount = 0;
+  let fallbackVirtualBoundaryCount = 0;
+  let fallbackTemporaryCount = 0;
+  let fallbackBuildingCount = 0;
+  let fallbackInvalidTileCount = 0;
+  let fallbackSectBoundaryCount = 0;
+  let fallbackRoomTopologyCount = 0;
+  let fallbackRoomIntegrityCount = 0;
+  let destroyedCount = 0;
   for (const entry of entries) {
+    const entryResolveStartedAt = batch.performanceTotals ? performance.now() : 0;
     const x = Math.trunc(Number(entry?.x));
     const y = Math.trunc(Number(entry?.y));
     const normalizedDamage = Math.max(0, Math.round(Number(entry?.damage) || 0));
@@ -120,10 +173,16 @@ export function damageMapInstanceTilesBatch(
       seenTileIndices.add(tileIndex);
     }
     if (!current || current.destroyed === true) {
+      if (batch.performanceTotals) {
+        batch.performanceTotals.entryResolveMs += performance.now() - entryResolveStartedAt;
+      }
       results.push(null);
       continue;
     }
     if (normalizedDamage <= 0) {
+      if (batch.performanceTotals) {
+        batch.performanceTotals.entryResolveMs += performance.now() - entryResolveStartedAt;
+      }
       results.push({
         destroyed: current.destroyed,
         hp: current.hp,
@@ -139,8 +198,28 @@ export function damageMapInstanceTilesBatch(
       || current.building === true
       || tileIndex < 0;
     if (requiresStateFallback) {
+      if (batch.performanceTotals) {
+        batch.performanceTotals.entryResolveMs += performance.now() - entryResolveStartedAt;
+      }
       fallbackCount += 1;
-      results.push(instance.damageTile(x, y, normalizedDamage, options));
+      if (current.virtualBoundary === true) {
+        fallbackVirtualBoundaryCount += 1;
+      } else if (current.temporary === true) {
+        fallbackTemporaryCount += 1;
+      } else if (current.building === true) {
+        fallbackBuildingCount += 1;
+      } else {
+        fallbackInvalidTileCount += 1;
+      }
+      const fallbackStartedAt = batch.performanceTotals ? performance.now() : 0;
+      const result = instance.damageTile(x, y, normalizedDamage, options);
+      if (batch.performanceTotals) {
+        batch.performanceTotals.fallbackMs += performance.now() - fallbackStartedAt;
+      }
+      if (result?.destroyed === true) {
+        destroyedCount += 1;
+      }
+      results.push(result);
       continue;
     }
 
@@ -156,16 +235,40 @@ export function damageMapInstanceTilesBatch(
     const affectsRoomIntegrity = destroyed !== true
       && current.hp >= current.maxHp
       && instance.isCellInRoomInfluence(tileIndex);
-    const requiresFallback = (destroyed && instance.isSectRuntimeExpandedBoundaryStone(tileIndex, current))
+    const isSectBoundary = destroyed && instance.isSectRuntimeExpandedBoundaryStone(tileIndex, current);
+    const requiresFallback = isSectBoundary
       || affectsRoomTopology
       || affectsRoomIntegrity;
+    if (batch.performanceTotals) {
+      batch.performanceTotals.entryResolveMs += performance.now() - entryResolveStartedAt;
+    }
     if (requiresFallback) {
       fallbackCount += 1;
-      results.push(instance.damageTile(x, y, normalizedDamage, options));
+      if (isSectBoundary) {
+        fallbackSectBoundaryCount += 1;
+      } else if (affectsRoomTopology) {
+        fallbackRoomTopologyCount += 1;
+      } else {
+        fallbackRoomIntegrityCount += 1;
+      }
+      const fallbackStartedAt = batch.performanceTotals ? performance.now() : 0;
+      const result = instance.damageTile(x, y, normalizedDamage, options);
+      if (batch.performanceTotals) {
+        batch.performanceTotals.fallbackMs += performance.now() - fallbackStartedAt;
+      }
+      if (result?.destroyed === true) {
+        destroyedCount += 1;
+      }
+      results.push(result);
       continue;
     }
 
+    const dropRollStartedAt = batch.performanceTotals ? performance.now() : 0;
     const tileDrops = instance.rollTileDrops(current, appliedDamage, destroyed, options);
+    if (batch.performanceTotals) {
+      batch.performanceTotals.dropRollMs += performance.now() - dropRollStartedAt;
+    }
+    const mutationStartedAt = batch.performanceTotals ? performance.now() : 0;
     const result = applyMapInstanceOrdinaryTileDamageMutation(instance, {
       current,
       tileIndex,
@@ -176,16 +279,61 @@ export function damageMapInstanceTilesBatch(
       affectsRoomTopology: false,
       affectsRoomIntegrity: false,
     }, batch, calculateRestoreTicks);
+    if (batch.performanceTotals) {
+      batch.performanceTotals.mutationMs += performance.now() - mutationStartedAt;
+    }
     fastPathCount += 1;
+    if (destroyed) {
+      destroyedCount += 1;
+    }
     results.push(result);
   }
 
+  const finalizeStartedAt = batch.performanceTotals ? performance.now() : 0;
   if (batch.dirtyTileIndices.size > 0) {
     instance.worldRevision += 1;
     instance.markTileDamagePersistenceDirtyBatchHighPriority(batch.dirtyTileIndices);
     instance.persistentRevision += 1;
   }
+  if (batch.performanceTotals) {
+    batch.performanceTotals.finalizeMs += performance.now() - finalizeStartedAt;
+    const recorder = options.recordBatchSectionDuration;
+    recorder?.('entryResolveMs', batch.performanceTotals.entryResolveMs, entries.length);
+    recorder?.('dropRollMs', batch.performanceTotals.dropRollMs, fastPathCount);
+    recorder?.('mutationMs', batch.performanceTotals.mutationMs, fastPathCount);
+    recorder?.('stateWriteMs', batch.performanceTotals.stateWriteMs, fastPathCount);
+    recorder?.('staticSyncMs', batch.performanceTotals.staticSyncMs, fastPathCount);
+    recorder?.('finalizeMs', batch.performanceTotals.finalizeMs, 1);
+    if (fallbackCount > 0) {
+      recorder?.('fallbackMs', batch.performanceTotals.fallbackMs, fallbackCount);
+    }
+    recorder?.('fastPathEntries', 0, fastPathCount);
+    if (fallbackCount > 0) {
+      recorder?.('fallbackEntries', 0, fallbackCount);
+    }
+    recordTileDamageBatchCount(recorder, 'fallbackVirtualBoundaryEntries', fallbackVirtualBoundaryCount);
+    recordTileDamageBatchCount(recorder, 'fallbackTemporaryEntries', fallbackTemporaryCount);
+    recordTileDamageBatchCount(recorder, 'fallbackBuildingEntries', fallbackBuildingCount);
+    recordTileDamageBatchCount(recorder, 'fallbackInvalidTileEntries', fallbackInvalidTileCount);
+    recordTileDamageBatchCount(recorder, 'fallbackSectBoundaryEntries', fallbackSectBoundaryCount);
+    recordTileDamageBatchCount(recorder, 'fallbackRoomTopologyEntries', fallbackRoomTopologyCount);
+    recordTileDamageBatchCount(recorder, 'fallbackRoomIntegrityEntries', fallbackRoomIntegrityCount);
+    if (destroyedCount > 0) {
+      recorder?.('destroyedEntries', 0, destroyedCount);
+    }
+    recorder?.('dirtyEntries', 0, batch.dirtyTileIndices.size);
+  }
   return { results, fastPathCount, fallbackCount };
+}
+
+function recordTileDamageBatchCount(
+  recorder: TileDropRollOptions['recordBatchSectionDuration'],
+  section: TileDamageBatchPerformanceSection,
+  count: number,
+): void {
+  if (count > 0) {
+    recorder?.(section, 0, count);
+  }
 }
 
 export function applyMapInstanceOrdinaryTileDamageMutation(
@@ -194,6 +342,7 @@ export function applyMapInstanceOrdinaryTileDamageMutation(
   batch: TileDamageBatchMutationContext | null,
   calculateRestoreTicks: (tileType: unknown) => number,
 ) {
+  const stateWriteStartedAt = batch?.performanceTotals ? performance.now() : 0;
   instance.tileDamageByTile.set(input.tileIndex, {
     hp: input.nextHp,
     maxHp: input.current.maxHp,
@@ -201,10 +350,17 @@ export function applyMapInstanceOrdinaryTileDamageMutation(
     respawnLeft: input.destroyed ? calculateRestoreTicks(input.current.tileType) : 0,
     modifiedAt: batch?.modifiedAt ?? Date.now(),
   });
+  if (batch?.performanceTotals) {
+    batch.performanceTotals.stateWriteMs += performance.now() - stateWriteStartedAt;
+  }
+  const staticSyncStartedAt = batch?.performanceTotals ? performance.now() : 0;
   instance.markStaticTileSyncDirtyByIndex(input.tileIndex, {
     sightBlockingChanged: input.destroyed === true,
     pathingChanged: input.destroyed === true,
   });
+  if (batch?.performanceTotals) {
+    batch.performanceTotals.staticSyncMs += performance.now() - staticSyncStartedAt;
+  }
   if (batch) {
     batch.dirtyTileIndices.add(input.tileIndex);
   } else {

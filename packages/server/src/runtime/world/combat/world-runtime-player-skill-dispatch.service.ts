@@ -2189,6 +2189,14 @@ export class WorldRuntimePlayerSkillDispatchService {
             const batchResult = instance.damageTilesBatch(pendingTileDamage, {
                 dropRateBonus,
                 assumeUniqueEntries: true,
+                recordBatchSectionDuration: typeof deps?.recordPendingCommandSectionDuration === 'function'
+                    ? (section: string, durationMs: number, count = 1) => recordPlayerSkillDispatchDuration(
+                        deps,
+                        `pendingCommands.castSkill.tileBatch.damageApply.${section}`,
+                        durationMs,
+                        count,
+                    )
+                    : undefined,
             });
             recordPlayerSkillDispatchPerf(
                 deps,
