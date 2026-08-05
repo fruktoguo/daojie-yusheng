@@ -330,6 +330,12 @@ export class WorldRuntimeBasicAttackService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
+        const syncKillRewardOwner = typeof deps.handlePlayerMonsterKillSynchronously === 'function'
+            ? deps
+            : deps.worldRuntimePlayerCombatOutcomeService;
+        const syncKillReward = typeof syncKillRewardOwner?.handlePlayerMonsterKillSynchronously === 'function'
+            ? syncKillRewardOwner.handlePlayerMonsterKillSynchronously
+            : null;
         const monster = instance.getMonster(targetMonsterId);
         if (!monster || !monster.alive) {
             throw new NotFoundException(`妖兽不存在：${targetMonsterId}`);
@@ -360,7 +366,12 @@ export class WorldRuntimeBasicAttackService {
         });
         const outcome = appliedOutcome?.adapterResult;
         if (outcome?.defeated) {
-            await deps.handlePlayerMonsterKill(instance, outcome.monster, attacker.playerId);
+            if (syncKillReward) {
+                syncKillReward.call(syncKillRewardOwner, instance, outcome.monster, attacker.playerId, deps);
+            }
+            else {
+                await deps.handlePlayerMonsterKill(instance, outcome.monster, attacker.playerId);
+            }
         }
         emitCombatPresentation({
             deps,

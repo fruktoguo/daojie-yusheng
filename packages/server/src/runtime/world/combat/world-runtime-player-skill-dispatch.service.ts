@@ -1426,6 +1426,14 @@ export class WorldRuntimePlayerSkillDispatchService {
         const isTimeChamber = isTimeChamberSkillDispatch(attacker, deps);
         const castId = nextCastId();
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
+        const syncKillRewardOwner = typeof deps.handlePlayerMonsterKillSynchronously === 'function'
+            ? deps
+            : deps.worldRuntimePlayerCombatOutcomeService;
+        const syncKillReward = typeof syncKillRewardOwner?.handlePlayerMonsterKillSynchronously === 'function'
+            ? syncKillRewardOwner.handlePlayerMonsterKillSynchronously
+            : null;
+        let syncKillRewardCalls = 0;
+        let asyncKillRewardFallbackCalls = 0;
         const currentTick = deps.resolveCurrentTickForPlayerId(attacker.playerId);
         const effectColor = getSkillEffectColor(skill);
         const damageKind = resolveSkillDamageKind(skill);
@@ -1704,7 +1712,14 @@ export class WorldRuntimePlayerSkillDispatchService {
                 const outcome = appliedOutcome?.adapterResult;
                 if (outcome?.defeated) {
                     const killRewardStartedAt = performance.now();
-                    await deps.handlePlayerMonsterKill(instance, outcome.monster, attacker.playerId);
+                    if (syncKillReward) {
+                        syncKillReward.call(syncKillRewardOwner, instance, outcome.monster, attacker.playerId, deps);
+                        syncKillRewardCalls += 1;
+                    }
+                    else {
+                        asyncKillRewardFallbackCalls += 1;
+                        await deps.handlePlayerMonsterKill(instance, outcome.monster, attacker.playerId);
+                    }
                     recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.killRewardMs', killRewardStartedAt);
                     recordPlayerSkillDispatchDuration(
                         deps,
@@ -2309,6 +2324,22 @@ export class WorldRuntimePlayerSkillDispatchService {
         }
         if (castIndex === 0) {
             throw new BadRequestException('没有可命中的目标');
+        }
+        if (syncKillRewardCalls > 0) {
+            recordPlayerSkillDispatchDuration(
+                deps,
+                'pendingCommands.castSkill.killRewardSyncCalls',
+                0,
+                syncKillRewardCalls,
+            );
+        }
+        if (asyncKillRewardFallbackCalls > 0) {
+            recordPlayerSkillDispatchDuration(
+                deps,
+                'pendingCommands.castSkill.killRewardAsyncFallbackCalls',
+                0,
+                asyncKillRewardFallbackCalls,
+            );
         }
         recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.targetApplyMs', targetApplyStartedAt, targets.length);
         const postEffectsStartedAt = performance.now();

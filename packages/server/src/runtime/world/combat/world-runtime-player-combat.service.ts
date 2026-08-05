@@ -93,6 +93,11 @@ export class WorldRuntimePlayerCombatService {
  */
 
     async handlePlayerMonsterKill(instance: any, monster: any, killerPlayerId: string, deps: any) {
+        this.handlePlayerMonsterKillSynchronously(instance, monster, killerPlayerId, deps);
+    }
+
+    /** 击杀奖励链仅修改内存态，热路径直接同步结算，避免每只妖兽产生空 Promise 边界。 */
+    handlePlayerMonsterKillSynchronously(instance: any, monster: any, killerPlayerId: string, deps: any): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         let sectionStartedAt = beginPlayerMonsterKillPerf(deps);

@@ -308,6 +308,8 @@ const CPU_BREAKDOWN_LABELS = Object.freeze({
     'pendingCommands.castSkill.tileBatch.miningExpMs': '批量地块·挖矿经验',
     'pendingCommands.castSkill.tileBatch.recordMs': '批量地块·战斗事件记录',
     'pendingCommands.castSkill.killRewardMs': '目标结算·击杀/击败处理',
+    'pendingCommands.castSkill.killRewardSyncCalls': '目标结算·击杀同步快路径次数',
+    'pendingCommands.castSkill.killRewardAsyncFallbackCalls': '目标结算·击杀异步回退次数',
     'combat.playerMonsterKill.preparationMs': '击杀奖励·通知/任务/计数',
     'combat.playerMonsterKill.progressMs': '击杀奖励·进度结算总计',
     'combat.playerMonsterKill.participantPlanMs': '击杀奖励·参与者规划',

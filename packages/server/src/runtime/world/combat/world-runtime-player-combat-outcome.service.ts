@@ -57,6 +57,11 @@ export class WorldRuntimePlayerCombatOutcomeService {
     async handlePlayerMonsterKill(instance, monster, killerPlayerId, deps) {
         return this.worldRuntimePlayerCombatService.handlePlayerMonsterKill(instance, monster, killerPlayerId, deps);
     }
+
+    /** 击杀热路径同步入口；原异步入口继续用于兼容既有调用方。 */
+    handlePlayerMonsterKillSynchronously(instance, monster, killerPlayerId, deps) {
+        this.worldRuntimePlayerCombatService.handlePlayerMonsterKillSynchronously(instance, monster, killerPlayerId, deps);
+    }
     /**
  * handlePlayerDefeat：处理玩家Defeat并更新相关状态。
  * @param playerId 玩家 ID。

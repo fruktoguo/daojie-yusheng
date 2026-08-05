@@ -524,6 +524,175 @@ async function testEnemyTargetsKeepPerTargetAuthorityAndAggregatePresentation():
   }
 }
 
+async function testMonsterKillRewardUsesSynchronousEntryInTargetOrder(): Promise<void> {
+  const skill = {
+    id: 'skill.kill_reward_sync',
+    name: '逐妖结算',
+    cost: 0,
+    cooldown: 1,
+    range: 20,
+    effects: [{ type: 'damage', damageKind: 'spell', formula: { var: 'caster.stat.spellAtk' } }],
+  };
+  const instanceId = 'instance:kill-reward-sync';
+  const attacker = createCaster(skill, instanceId);
+  const monsters = new Map<string, any>();
+  const settlementOrder: string[] = [];
+  for (let index = 0; index < 3; index += 1) {
+    const runtimeId = `monster:kill-sync:${index}`;
+    monsters.set(runtimeId, {
+      runtimeId,
+      monsterId: 'monster.kill_sync_target',
+      name: `同步结算目标${index + 1}`,
+      x: index,
+      y: 0,
+      hp: 1,
+      maxHp: 1,
+      qi: 0,
+      maxQi: 0,
+      alive: true,
+      level: 1,
+      tier: 'normal',
+      attrs: {},
+      numericStats: createNumericStats(),
+      ratioDivisors: createNumericRatioDivisors(),
+      buffs: [],
+    });
+  }
+  const instance = {
+    meta: { instanceId },
+    worldRevision: 0,
+    getMonster(runtimeId: string) {
+      return monsters.get(runtimeId) ?? null;
+    },
+    applyTemporaryBuffToMonster() {},
+    applyDamageToMonster(runtimeId: string, damage: number) {
+      const monster = monsters.get(runtimeId);
+      if (!monster) return null;
+      settlementOrder.push(`damage:${runtimeId}`);
+      const appliedDamage = Math.min(monster.hp, Math.max(0, Math.round(damage)));
+      monster.hp -= appliedDamage;
+      monster.alive = monster.hp > 0;
+      return { monster, appliedDamage, defeated: !monster.alive };
+    },
+  };
+  const harness = createRuntimeHarness(attacker, instance as any);
+  let asyncFallbackCalls = 0;
+  await harness.dispatchService.dispatchSkillTargets(
+    attacker,
+    skill.id,
+    skill,
+    Array.from(monsters.keys(), (monsterId) => ({ kind: 'monster', monsterId })),
+    {
+      ...harness.deps,
+      handlePlayerMonsterKillSynchronously(_instance: unknown, monster: any, playerId: string) {
+        assert.equal(playerId, attacker.playerId);
+        settlementOrder.push(`reward:${monster.runtimeId}`);
+      },
+      async handlePlayerMonsterKill() {
+        asyncFallbackCalls += 1;
+      },
+    } as any,
+    {
+      prevalidatedTargets: true,
+      skipResourceAndCooldown: true,
+      targetX: attacker.x,
+      targetY: attacker.y,
+    },
+  );
+  assert.deepEqual(settlementOrder, [
+    'damage:monster:kill-sync:0',
+    'reward:monster:kill-sync:0',
+    'damage:monster:kill-sync:1',
+    'reward:monster:kill-sync:1',
+    'damage:monster:kill-sync:2',
+    'reward:monster:kill-sync:2',
+  ]);
+  assert.equal(asyncFallbackCalls, 0);
+  assert.equal(harness.sectionDurations.get('pendingCommands.castSkill.killRewardSyncCalls')?.count, 3);
+  assert.equal(harness.sectionDurations.has('pendingCommands.castSkill.killRewardAsyncFallbackCalls'), false);
+}
+
+async function testMonsterKillRewardStillAwaitsAsyncFallback(): Promise<void> {
+  const skill = {
+    id: 'skill.kill_reward_async_fallback',
+    name: '异步兼容结算',
+    cost: 0,
+    cooldown: 1,
+    range: 20,
+    effects: [{ type: 'damage', damageKind: 'spell', formula: { var: 'caster.stat.spellAtk' } }],
+  };
+  const instanceId = 'instance:kill-reward-async-fallback';
+  const attacker = createCaster(skill, instanceId);
+  const runtimeId = 'monster:kill-async:0';
+  const numericStats = createNumericStats();
+  const monster = {
+    runtimeId,
+    monsterId: 'monster.kill_async_target',
+    name: '异步回退目标',
+    x: 0,
+    y: 0,
+    hp: 1,
+    maxHp: 1,
+    qi: 0,
+    maxQi: 0,
+    alive: true,
+    level: 1,
+    tier: 'normal',
+    attrs: {},
+    numericStats,
+    ratioDivisors: createNumericRatioDivisors(),
+    buffs: [],
+  };
+  const settlementOrder: string[] = [];
+  const instance = {
+    meta: { instanceId },
+    worldRevision: 0,
+    getMonster(targetRuntimeId: string) {
+      return targetRuntimeId === runtimeId ? monster : null;
+    },
+    applyTemporaryBuffToMonster() {},
+    applyDamageToMonster(targetRuntimeId: string, damage: number) {
+      assert.equal(targetRuntimeId, runtimeId);
+      settlementOrder.push('damage');
+      const appliedDamage = Math.min(monster.hp, Math.max(0, Math.round(damage)));
+      monster.hp -= appliedDamage;
+      monster.alive = monster.hp > 0;
+      return { monster, appliedDamage, defeated: !monster.alive };
+    },
+  };
+  const harness = createRuntimeHarness(attacker, instance as any);
+  let releaseReward!: () => void;
+  const rewardGate = new Promise<void>((resolve) => {
+    releaseReward = resolve;
+  });
+  const dispatchPromise = harness.dispatchService.dispatchSkillTargets(
+    attacker,
+    skill.id,
+    skill,
+    [{ kind: 'monster', monsterId: runtimeId }],
+    {
+      ...harness.deps,
+      async handlePlayerMonsterKill() {
+        settlementOrder.push('reward:start');
+        await rewardGate;
+        settlementOrder.push('reward:end');
+      },
+    } as any,
+    {
+      prevalidatedTargets: true,
+      skipResourceAndCooldown: true,
+      targetX: attacker.x,
+      targetY: attacker.y,
+    },
+  );
+  assert.deepEqual(settlementOrder, ['damage', 'reward:start']);
+  assert.equal(harness.sectionDurations.get('pendingCommands.castSkill.killRewardAsyncFallbackCalls')?.count, 1);
+  releaseReward();
+  await dispatchPromise;
+  assert.deepEqual(settlementOrder, ['damage', 'reward:start', 'reward:end']);
+  assert.equal(harness.sectionDurations.has('pendingCommands.castSkill.killRewardSyncCalls'), false);
+}
+
 async function testTargetDependentTileFormulaKeepsPerTargetResolution(): Promise<void> {
   const skill = {
     id: 'skill.target_hp_tile_dispatch',
@@ -1009,6 +1178,8 @@ async function main(): Promise<void> {
   testSkillTargetPlanReusesCategoryRelationResolution();
   await testLargeTileCastBatchesAuthorityAndPresentation();
   await testEnemyTargetsKeepPerTargetAuthorityAndAggregatePresentation();
+  await testMonsterKillRewardUsesSynchronousEntryInTargetOrder();
+  await testMonsterKillRewardStillAwaitsAsyncFallback();
   await testTargetDependentTileFormulaKeepsPerTargetResolution();
   testMiningExpBatchMatchesSequentialSettlement();
   testSpecialTileFallsBackToSingleMutation();
