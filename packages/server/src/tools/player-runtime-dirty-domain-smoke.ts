@@ -852,6 +852,12 @@ function testUseConsumableItemDirtyDomain(): void {
   });
   player.inventory.revision += 1;
   service.markPersisted(playerId);
+  let statisticOptions: Record<string, unknown> | undefined;
+  const recordPlayerStatisticMutation = service.recordPlayerStatisticMutation.bind(service);
+  service.recordPlayerStatisticMutation = ((...args: Parameters<typeof service.recordPlayerStatisticMutation>) => {
+    statisticOptions = args[3];
+    return recordPlayerStatisticMutation(...args);
+  }) as typeof service.recordPlayerStatisticMutation;
 
   service.useItem(playerId, 0);
 
@@ -859,6 +865,12 @@ function testUseConsumableItemDirtyDomain(): void {
   assert.equal(player.buffs.buffs.filter((buff) => buff.visibility === 'hidden').length, 2);
   assert.ok(player.buffs.buffs.every((buff) => buff.visibility !== 'hidden'
     || (buff.persistOnDeath === true && buff.persistOnReturnToSpawn === true)));
+  assert.equal(statisticOptions?.inventoryOnly, true);
+  assert.deepEqual(statisticOptions?.inventoryItemDeltaHint, {
+    itemId: 'pill.heal_minor',
+    name: undefined,
+    countDelta: -1,
+  });
   assertDirtyDomains(service, playerId, ['inventory', 'vitals', 'buff'], ['snapshot']);
 
   const persistedSnapshot = service.buildPersistenceSnapshot(playerId);
@@ -1071,6 +1083,12 @@ function testUseShatterSpiritPillConsumable(): void {
   } as never);
   player.inventory.revision += 1;
   service.markPersisted(playerId);
+  const statisticOptions: Array<Record<string, unknown> | undefined> = [];
+  const recordPlayerStatisticMutation = service.recordPlayerStatisticMutation.bind(service);
+  service.recordPlayerStatisticMutation = ((...args: Parameters<typeof service.recordPlayerStatisticMutation>) => {
+    statisticOptions.push(args[3]);
+    return recordPlayerStatisticMutation(...args);
+  }) as typeof service.recordPlayerStatisticMutation;
 
   service.useItem(playerId, 0);
 
@@ -1082,6 +1100,9 @@ function testUseShatterSpiritPillConsumable(): void {
   assert.equal(player.heavenGate?.averageBonus, 6);
   assert.equal(player.spiritualRoots, null);
   assert.equal(player.notices.queue.some((notice) => notice.text.includes('碎灵丹')), true);
+  assert.equal(statisticOptions.length, 2);
+  assert.equal(statisticOptions.at(-1)?.inventoryOnly, false);
+  assert.equal(statisticOptions.at(-1)?.inventoryItemDeltaHint, undefined);
   assertDirtyDomains(service, playerId, ['inventory', 'progression', 'attr', 'vitals'], ['snapshot']);
 }
 
@@ -1872,9 +1893,13 @@ function testIdleCultivationResumeIgnoresStaleNavigationBlockForPendingComprehen
   }] as never;
   player.transmissionSkill = { level: 1, exp: 0, expToNext: 60 } as never;
   service.markPersisted(playerId);
+  const recordedPerfKeys: string[] = [];
 
   service.advanceSinglePlayerTick(player, 10, {
     idleCultivationBlockedPlayerIds: new Set([playerId]),
+    recordTickSectionDuration(key: string) {
+      recordedPerfKeys.push(key);
+    },
   });
 
   assert.equal(player.combat.cultivationActive, true);
@@ -1883,6 +1908,8 @@ function testIdleCultivationResumeIgnoresStaleNavigationBlockForPendingComprehen
     (player.pendingTechniqueComprehensions[0]?.progress ?? 0) > 0
       || player.techniques.techniques.some((entry) => entry.techId === 'manual.tech'),
   );
+  assert.ok(recordedPerfKeys.includes('playerTick.offlineGainProgressionDeltaMs'));
+  assert.equal(recordedPerfKeys.includes('playerTick.offlineGainFullDeltaMs'), false);
 }
 
 function testIdleCultivationResumeRequiresTenIdleTicksAndNoTechniqueQueue(): void {

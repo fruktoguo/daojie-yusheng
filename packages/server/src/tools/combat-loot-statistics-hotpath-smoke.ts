@@ -34,6 +34,7 @@ async function main(): Promise<void> {
   verifyInventoryOnlyStatisticHintUsesCappedReceiptCount();
   verifyInventoryOnlyStatisticSkipsTechniqueTraversal();
   verifyInventoryOnlyStatisticHintSkipsInventoryTraversal();
+  verifyInventoryOnlyStatisticNegativeHintMatchesFullDiff();
   verifyProgressionOnlyStatisticHintMatchesFullDiff();
   verifyProgressionOnlyStatisticHintSkipsTechniqueTraversal();
   verifyProgressionOnlyStatisticHintFallsBackForTechniqueSetChanges();
@@ -51,6 +52,7 @@ async function main(): Promise<void> {
       'inventory_hint_uses_capped_receipt_count',
       'inventory_only_path_skips_technique_traversal',
       'inventory_hint_skips_inventory_traversal',
+      'inventory_negative_hint_matches_full_diff',
       'progression_hint_matches_full_diff',
       'progression_hint_skips_technique_traversal',
       'progression_hint_falls_back_for_technique_set_changes',
@@ -195,6 +197,49 @@ function verifyInventoryOnlyStatisticHintSkipsInventoryTraversal(): void {
   });
 
   assert.equal(service.getPlayerStatisticTotalsSync(player.playerId)?.today.spiritStones.gained, 5);
+}
+
+function verifyInventoryOnlyStatisticNegativeHintMatchesFullDiff(): void {
+  const fastService = createService();
+  const referenceService = createService();
+  const fastPlayer = createPlayer('player:inventory-negative-hint-fast');
+  const referencePlayer = structuredClone(fastPlayer);
+  referencePlayer.playerId = 'player:inventory-negative-hint-reference';
+  referencePlayer.sessionId = 'session:inventory-negative-hint-reference';
+  referencePlayer.dirtyDomains = new Set<string>();
+  fastService.players.set(fastPlayer.playerId, fastPlayer);
+  referenceService.players.set(referencePlayer.playerId, referencePlayer);
+  const fastBefore = fastService.captureOfflineGainBeforeTick(fastPlayer);
+  const referenceBefore = referenceService.captureOfflineGainBeforeTick(referencePlayer);
+  fastPlayer.inventory.items[0].count -= 5;
+  referencePlayer.inventory.items[0].count -= 5;
+  fastPlayer.inventory.items = new Proxy(fastPlayer.inventory.items, {
+    get(target, property, receiver) {
+      if (property === Symbol.iterator || property === 'map' || property === 'forEach') {
+        throw new Error('inventory_negative_hint_traversed_inventory');
+      }
+      return Reflect.get(target, property, receiver);
+    },
+  });
+
+  fastService.recordPlayerStatisticMutation(fastPlayer, fastBefore, Date.now(), {
+    inventoryOnly: true,
+    inventoryItemDeltaHint: {
+      itemId: 'spirit_stone',
+      name: '灵石',
+      countDelta: -5,
+    },
+  });
+  referenceService.recordPlayerStatisticMutation(referencePlayer, referenceBefore, Date.now());
+
+  assert.deepEqual(
+    projectStatisticParts(fastService.getPendingPlayerStatisticRecords(fastPlayer.playerId)[0]),
+    projectStatisticParts(referenceService.getPendingPlayerStatisticRecords(referencePlayer.playerId)[0]),
+  );
+  assert.deepEqual(
+    projectSnapshot(fastService.playerStatisticSnapshotsByPlayerId.get(fastPlayer.playerId)),
+    projectSnapshot(referenceService.playerStatisticSnapshotsByPlayerId.get(referencePlayer.playerId)),
+  );
 }
 
 function verifyProgressionOnlyStatisticHintMatchesFullDiff(): void {

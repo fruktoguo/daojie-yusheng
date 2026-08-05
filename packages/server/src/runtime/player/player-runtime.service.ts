@@ -3411,7 +3411,21 @@ export class PlayerRuntimeService {
             ]
             : ['inventory']);
         this.bumpPersistentRevision(player);
-        this.recordAssetStatisticMutation(player, statisticBefore);
+        const requiresFullStatisticDiff = !learnTechniqueId && (
+            Boolean(resolveSpiritualRootSeedTier(item))
+            || item.itemId === SHATTER_SPIRIT_PILL_ITEM_ID
+            || item.itemId === WANGSHENG_PILL_ITEM_ID
+        );
+        this.recordAssetStatisticMutation(player, statisticBefore, Date.now(), {
+            inventoryOnly: !requiresFullStatisticDiff,
+            inventoryItemDeltaHint: requiresFullStatisticDiff
+                ? undefined
+                : {
+                    itemId: item.itemId,
+                    name: item.name,
+                    countDelta: -1,
+                },
+        });
         return player;
     }
     /**
@@ -7768,6 +7782,10 @@ const PROGRESSION_ONLY_STATISTIC_DOMAINS = new Set([
     'technique',
     'body_training',
     'vitals',
+    // PlayerProgressionService 的 profession 仅指传法经验，收益职业快照不包含该字段。
+    'profession',
+    // 修炼选择影响权威偏好与动作态，但不属于收益快照。
+    'combat_pref',
 ]);
 function isProgressionOnlyStatisticResult(result) {
     if (result?.changed !== true) {
@@ -7880,7 +7898,7 @@ function buildOfflineGainInventoryOnlyMutation(
 function buildHintedOfflineGainInventoryOnlyMutation(before, hint, contentTemplateRepository = null) {
     const itemId = normalizeOfflineGainString(hint?.itemId);
     const countDelta = normalizeOfflineGainSignedCount(hint?.countDelta);
-    if (!itemId || countDelta < 0 || !Array.isArray(before?.inventoryItems)) {
+    if (!itemId || countDelta === 0 || !Array.isArray(before?.inventoryItems)) {
         return null;
     }
     const inventoryItems = before.inventoryItems;
@@ -7896,12 +7914,24 @@ function buildHintedOfflineGainInventoryOnlyMutation(before, hint, contentTempla
     if (itemIndex >= 0) {
         const previous = inventoryItems[itemIndex];
         itemName = previous.name;
-        afterInventoryItems[itemIndex] = {
-            ...previous,
-            count: normalizeOfflineGainCount(previous.count) + countDelta,
-        };
+        const nextCount = normalizeOfflineGainCount(previous.count) + countDelta;
+        if (nextCount < 0) {
+            return null;
+        }
+        if (nextCount === 0) {
+            afterInventoryItems.splice(itemIndex, 1);
+        }
+        else {
+            afterInventoryItems[itemIndex] = {
+                ...previous,
+                count: nextCount,
+            };
+        }
     }
     else {
+        if (countDelta < 0) {
+            return null;
+        }
         itemName = resolvePlayerFacingContentName(
             itemId,
             '未知物品',
@@ -7927,21 +7957,21 @@ function buildHintedOfflineGainInventoryOnlyMutation(before, hint, contentTempla
         techniques: before.techniques,
         professions: before.professions,
     });
-    const itemDelta = countDelta > 0
-        ? [{
+    const gained = Math.max(0, countDelta);
+    const lost = Math.max(0, -countDelta);
+    const itemDelta = [{
             itemId,
             name: normalizeOfflineGainString(itemName) || undefined,
-            gained: countDelta,
-            lost: 0,
+            gained,
+            lost,
             net: countDelta,
-            count: countDelta,
-        }]
-        : [];
+            count: gained,
+        }];
     return {
         afterSnapshot,
         delta: {
             spiritStones: isWalletCacheItemId(itemId)
-                ? { gained: countDelta, lost: 0, net: countDelta }
+                ? { gained, lost, net: countDelta }
                 : { gained: 0, lost: 0, net: 0 },
             items: isWalletCacheItemId(itemId) ? [] : itemDelta,
             progress: [],
