@@ -2649,7 +2649,11 @@ export class PlayerRuntimeService {
     /** 同步校验容量并入包，供击杀掉落避免重复规范化和重复堆叠扫描。 */
     tryReceiveInventoryItem(playerId, item, options: any = {}) {
         const player = this.getPlayerOrThrow(playerId);
-        const normalized = this.contentTemplateRepository.normalizeItem(item);
+        // 击杀掉落由当前 ItemTemplateRegistry 刚完成实例化，同一调用栈内可直接转移所有权。
+        // 其他入口继续规范化，避免把外部或持久化载荷误当成可信运行时实例。
+        const normalized = options?.normalizedItemOwnershipTransfer === true
+            ? item
+            : this.contentTemplateRepository.normalizeItem(item);
         const mergeIndex = findMergeableItemStackIndex(player.inventory.items, normalized);
         if (mergeIndex < 0 && !(player.inventory.items.length < player.inventory.capacity)) {
             return false;
@@ -3219,10 +3223,17 @@ export class PlayerRuntimeService {
         // 任务奖励、市场买家成交（市场内部已脱壳，到这里时 sourceItem 不带 instanceId）。
         assignItemInstanceIdIfNeeded(normalized);
         let mergeResult;
+        let inventoryItemDeltaHint;
         if (knownMergeIndex !== null && knownMergeIndex >= 0 && player.inventory.items[knownMergeIndex]) {
             const existing = player.inventory.items[knownMergeIndex];
+            const previousCount = normalizeOfflineGainCount(existing.count);
             addItemStackMergeCount(existing, normalized);
             mergeResult = { entry: existing, index: knownMergeIndex, merged: true };
+            inventoryItemDeltaHint = {
+                itemId: normalized.itemId,
+                name: normalized.name,
+                countDelta: Math.max(0, normalizeOfflineGainCount(existing.count) - previousCount),
+            };
         }
         else if (knownMergeIndex !== null && knownMergeIndex < 0) {
             player.inventory.items.push(normalized);
@@ -3231,13 +3242,25 @@ export class PlayerRuntimeService {
                 index: player.inventory.items.length - 1,
                 merged: false,
             };
+            inventoryItemDeltaHint = {
+                itemId: normalized.itemId,
+                name: normalized.name,
+                countDelta: normalizeOfflineGainCount(normalized.count),
+            };
         }
         else {
             mergeResult = mergeItemStackInto(player.inventory.items, normalized);
         }
         if (mergeResult.merged && mergeResult.entry.count > MAX_ITEM_COUNT) {
-            this.logger.warn(`物品数量达到上限 [playerId=${player.id}, itemId=${normalized.itemId}, attempted=${mergeResult.entry.count}, capped=${MAX_ITEM_COUNT}]`);
+            const attemptedCount = normalizeOfflineGainCount(mergeResult.entry.count);
+            this.logger.warn(`物品数量达到上限 [playerId=${player.id}, itemId=${normalized.itemId}, attempted=${attemptedCount}, capped=${MAX_ITEM_COUNT}]`);
             mergeResult.entry.count = MAX_ITEM_COUNT;
+            if (inventoryItemDeltaHint) {
+                inventoryItemDeltaHint.countDelta = Math.max(
+                    0,
+                    inventoryItemDeltaHint.countDelta - Math.max(0, attemptedCount - MAX_ITEM_COUNT),
+                );
+            }
         }
         player.inventory.revision += 1;
         this.refreshWalletCacheFromInventory(player, normalized.itemId);
@@ -3251,6 +3274,8 @@ export class PlayerRuntimeService {
         this.bumpPersistentRevision(player);
         this.recordAssetStatisticMutation(player, statisticBefore, Date.now(), {
             inventoryOnly: options?.inventoryOnlyStatistics === true,
+            inventoryItemDeltaHint,
+            recordTickSectionDuration: options?.recordTickSectionDuration,
         });
         return player;
     }
@@ -5234,7 +5259,12 @@ export class PlayerRuntimeService {
                 options?.statisticTechniqueChangedIds,
             )
             : inventoryOnly
-                ? buildOfflineGainInventoryOnlyMutation(player, beforeSnapshot, this.contentTemplateRepository)
+                ? buildOfflineGainInventoryOnlyMutation(
+                    player,
+                    beforeSnapshot,
+                    this.contentTemplateRepository,
+                    options?.inventoryItemDeltaHint,
+                )
                 : null;
         const afterSnapshot = resolved?.afterSnapshot
             ?? buildOfflineGainSnapshot(player, this.contentTemplateRepository, this.playerProgressionService);
@@ -5330,6 +5360,8 @@ export class PlayerRuntimeService {
         this.recordPlayerStatisticMutation(player, beforeSnapshot, endedAt, {
             progressionOnly: false,
             inventoryOnly: options?.inventoryOnly === true,
+            inventoryItemDeltaHint: options?.inventoryItemDeltaHint,
+            recordTickSectionDuration: options?.recordTickSectionDuration,
             countOfflineDuration: false,
         });
     }
@@ -7662,8 +7694,21 @@ function buildOfflineGainDeltaParts(before, after, resolveProfessionExpToNext = 
         professions: diffOfflineGainProfessions(before.professions, after.professions, resolveProfessionExpToNext),
     };
 }
-function buildOfflineGainInventoryOnlyMutation(player, beforeSnapshot, contentTemplateRepository = null) {
+function buildOfflineGainInventoryOnlyMutation(
+    player,
+    beforeSnapshot,
+    contentTemplateRepository = null,
+    inventoryItemDeltaHint = undefined,
+) {
     const before = normalizeOfflineGainSnapshot(beforeSnapshot);
+    const hinted = buildHintedOfflineGainInventoryOnlyMutation(
+        before,
+        inventoryItemDeltaHint,
+        contentTemplateRepository,
+    );
+    if (hinted) {
+        return hinted;
+    }
     const afterSnapshot = markNormalizedOfflineGainSnapshot({
         snapshotAt: Date.now(),
         playerId: normalizeOfflineGainString(player?.playerId),
@@ -7683,6 +7728,81 @@ function buildOfflineGainInventoryOnlyMutation(player, beforeSnapshot, contentTe
         afterSnapshot,
         delta: {
             ...buildOfflineGainInventoryDeltaParts(before.inventoryItems, afterSnapshot.inventoryItems),
+            progress: [],
+            techniques: [],
+            professions: [],
+        },
+    };
+}
+
+/** 同一同步入包调用栈已给出实际数量变化时，只更新对应物品统计槽位。 */
+function buildHintedOfflineGainInventoryOnlyMutation(before, hint, contentTemplateRepository = null) {
+    const itemId = normalizeOfflineGainString(hint?.itemId);
+    const countDelta = normalizeOfflineGainSignedCount(hint?.countDelta);
+    if (!itemId || countDelta < 0 || !Array.isArray(before?.inventoryItems)) {
+        return null;
+    }
+    const inventoryItems = before.inventoryItems;
+    let itemIndex = -1;
+    for (let index = 0; index < inventoryItems.length; index += 1) {
+        if (inventoryItems[index]?.itemId === itemId) {
+            itemIndex = index;
+            break;
+        }
+    }
+    const afterInventoryItems = inventoryItems.slice();
+    let itemName;
+    if (itemIndex >= 0) {
+        const previous = inventoryItems[itemIndex];
+        itemName = previous.name;
+        afterInventoryItems[itemIndex] = {
+            ...previous,
+            count: normalizeOfflineGainCount(previous.count) + countDelta,
+        };
+    }
+    else {
+        itemName = resolvePlayerFacingContentName(
+            itemId,
+            '未知物品',
+            hint?.name,
+            typeof contentTemplateRepository?.getItemName === 'function'
+                ? contentTemplateRepository.getItemName(itemId)
+                : null,
+        );
+        if (countDelta > 0) {
+            afterInventoryItems.push({ itemId, name: itemName, count: countDelta });
+            afterInventoryItems.sort((left, right) => String(left.name ?? left.itemId).localeCompare(String(right.name ?? right.itemId), 'zh-Hans-CN'));
+        }
+    }
+    const afterSnapshot = markNormalizedOfflineGainSnapshot({
+        snapshotAt: Date.now(),
+        playerId: before.playerId,
+        inventoryItems: afterInventoryItems,
+        realm: before.realm,
+        foundation: before.foundation,
+        rootFoundation: before.rootFoundation,
+        combatExp: before.combatExp,
+        bodyTraining: before.bodyTraining,
+        techniques: before.techniques,
+        professions: before.professions,
+    });
+    const itemDelta = countDelta > 0
+        ? [{
+            itemId,
+            name: normalizeOfflineGainString(itemName) || undefined,
+            gained: countDelta,
+            lost: 0,
+            net: countDelta,
+            count: countDelta,
+        }]
+        : [];
+    return {
+        afterSnapshot,
+        delta: {
+            spiritStones: isWalletCacheItemId(itemId)
+                ? { gained: countDelta, lost: 0, net: countDelta }
+                : { gained: 0, lost: 0, net: 0 },
+            items: isWalletCacheItemId(itemId) ? [] : itemDelta,
             progress: [],
             techniques: [],
             professions: [],

@@ -561,6 +561,16 @@ function testTryReceiveInventoryItemChecksAndMergesOnce(): void {
   assert.equal(player.inventory.items.length, 1);
   assert.equal(player.inventory.items[0]?.itemId, 'rat_tail');
   assert.equal(player.inventory.revision, previousRevision + 1);
+
+  player.inventory.capacity = 2;
+  const generatedDrop = originalNormalizeItem({ itemId: 'generated_drop', count: 4 });
+  assert.equal(service.tryReceiveInventoryItem(playerId, generatedDrop, {
+    normalizedItemOwnershipTransfer: true,
+  }), true);
+  assert.equal(normalizeCount, 2);
+  assert.equal(player.inventory.items[1], generatedDrop);
+  assert.equal(player.inventory.items[1]?.count, 4);
+  assert.equal(player.inventory.revision, previousRevision + 2);
 }
 
 function testReceiveWalletItemDirtyDomain(): void {

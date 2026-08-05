@@ -31,7 +31,9 @@ async function main(): Promise<void> {
     enhanceLevel: 2,
     itemInstanceId: '00000000-0000-4000-8000-000000000002',
   });
+  verifyInventoryOnlyStatisticHintUsesCappedReceiptCount();
   verifyInventoryOnlyStatisticSkipsTechniqueTraversal();
+  verifyInventoryOnlyStatisticHintSkipsInventoryTraversal();
   verifyProgressionOnlyStatisticHintMatchesFullDiff();
   verifyProgressionOnlyStatisticHintSkipsTechniqueTraversal();
   verifyProgressionOnlyStatisticHintFallsBackForTechniqueSetChanges();
@@ -43,7 +45,9 @@ async function main(): Promise<void> {
       'ordinary_item_matches_full_diff',
       'wallet_item_matches_full_diff',
       'same_item_different_instance_state_matches_full_diff',
+      'inventory_hint_uses_capped_receipt_count',
       'inventory_only_path_skips_technique_traversal',
+      'inventory_hint_skips_inventory_traversal',
       'progression_hint_matches_full_diff',
       'progression_hint_skips_technique_traversal',
       'progression_hint_falls_back_for_technique_set_changes',
@@ -118,6 +122,25 @@ function verifyInventoryOnlyStatisticMatchesFullDiff(item: SmokeItem): void {
   );
 }
 
+function verifyInventoryOnlyStatisticHintUsesCappedReceiptCount(): void {
+  const service = createService();
+  const player = createPlayer('player:combat-loot-cap');
+  service.players.set(player.playerId, player);
+  const maxItemCount = 2_147_483_647;
+  player.inventory.items[0].count = maxItemCount - 2;
+  service.captureOfflineGainBeforeTick(player);
+
+  const received = service.tryReceiveInventoryItem(
+    player.playerId,
+    { itemId: 'spirit_stone', name: '灵石', count: 5 },
+    { inventoryOnlyStatistics: true },
+  );
+
+  assert.equal(received, true);
+  assert.equal(player.inventory.items[0].count, maxItemCount);
+  assert.equal(service.getPlayerStatisticTotalsSync(player.playerId)?.today.spiritStones.gained, 2);
+}
+
 function verifyInventoryOnlyStatisticSkipsTechniqueTraversal(): void {
   const service = createService();
   const player = createPlayer('player:combat-loot-no-technique-scan');
@@ -138,6 +161,34 @@ function verifyInventoryOnlyStatisticSkipsTechniqueTraversal(): void {
     { inventoryOnlyStatistics: true },
   );
   assert.equal(service.getPendingPlayerStatisticRecords(player.playerId).length, 1);
+}
+
+function verifyInventoryOnlyStatisticHintSkipsInventoryTraversal(): void {
+  const service = createService();
+  const player = createPlayer('player:combat-loot-no-inventory-scan');
+  service.players.set(player.playerId, player);
+  const before = service.captureOfflineGainBeforeTick(player);
+  const spiritStones = player.inventory.items[0];
+  spiritStones.count += 5;
+  player.inventory.items = new Proxy(player.inventory.items, {
+    get(target, property, receiver) {
+      if (property === Symbol.iterator || property === 'map' || property === 'forEach') {
+        throw new Error('inventory_hint_traversed_inventory');
+      }
+      return Reflect.get(target, property, receiver);
+    },
+  });
+
+  service.recordPlayerStatisticMutation(player, before, Date.now(), {
+    inventoryOnly: true,
+    inventoryItemDeltaHint: {
+      itemId: spiritStones.itemId,
+      name: spiritStones.name,
+      countDelta: 5,
+    },
+  });
+
+  assert.equal(service.getPlayerStatisticTotalsSync(player.playerId)?.today.spiritStones.gained, 5);
 }
 
 function verifyProgressionOnlyStatisticHintMatchesFullDiff(): void {

@@ -7,19 +7,19 @@ async function main(): Promise<void> {
   testMonsterEquipmentDropDefaultsMatchMainTierBuckets();
   testMonsterKillExpSettlementUsesTemplateMultiplier();
   await testMonsterKillCountersUseTierBuckets();
-  await testMonsterLootDurableGrant();
-  await testMonsterLootRequiresDurableContext();
-  await testMonsterLootFallsBackToGroundWhenDurableGrantFails();
-  await testPvPLootDurableGrant();
-  await testPvPLootRequiresDurableContext();
+  await testMonsterLootUsesSynchronousInventoryReceipt();
+  await testMonsterLootDoesNotRequireDurableContext();
+  await testMonsterLootFallsBackToGroundWhenInventoryIsFull();
+  await testPvPLootUsesSynchronousInventoryReceipt();
+  await testPvPLootFallsBackToGroundWhenInventoryIsFull();
   await testPvPKillClearsMatchedRetaliateTarget();
   await testOfflineDefeatRemovesRuntimeImmediately();
-  await testCombatSemanticAuditEvents();
+  await testCombatSideEffectsWhenSemanticAuditIsDisabled();
   console.log(JSON.stringify({
     ok: true,
     case: 'world-runtime-player-combat',
-    answers: '怪物掉落直入背包与 PvP 血精奖励现在都会走 grantInventoryItems durable 主链；缺少 durable 上下文时 fail closed，不再回退到运行态背包；只有 durable 提交失败或背包满才落地；PvP 击杀时若击杀者当前仇敌正是死者，会立即清掉该仇敌 ID；真实怪物击杀、经验、掉落和玩家死亡副作用点会产出语义化 combat audit action',
-    excludes: '不证明地面拾取/容器拿取、库存已满落地拾取物的一致性、也不证明更泛化的 tick 资产 intent 编排',
+    answers: '怪物掉落会在击杀热路径同步完成容量校验与运行态入包，并通过 inventory 脏域刷盘；背包满时原物落地；PvP 血精奖励保持同步入包与满包落地；PvP 击杀时若击杀者当前仇敌正是死者，会立即清掉该仇敌 ID；语义审计关闭时，真实怪物击杀、经验、掉落和玩家死亡副作用仍正常执行',
+    excludes: '不证明地面拾取/容器拿取、库存已满落地拾取物的一致性、当前关闭的 combat audit 事件，也不证明更泛化的 tick 资产 intent 编排',
   }, null, 2));
 }
 
@@ -53,6 +53,9 @@ async function testOfflineDefeatRemovesRuntimeImmediately() {
         backlashTotalStacks: 0,
         remainingInfusionStacks: 0,
       };
+    },
+    queuePendingLogbookMessage(playerId: string, message: { structured?: { key?: string } }) {
+      log.push(['queuePendingLogbookMessage', playerId, message.structured?.key]);
     },
   };
   const service = new WorldRuntimePlayerCombatService({} as never, playerRuntimeService as never);
@@ -91,9 +94,11 @@ async function testOfflineDefeatRemovesRuntimeImmediately() {
   await service.handlePlayerDefeat(victim.playerId, deps as never, 'monster:offline:killer');
 
   assert.deepEqual(log, [
+    ['markPendingRespawn', victim.playerId],
     ['clearMonsterAggroForPlayer', victim.playerId],
     ['clearThreatOwner', `player:${victim.playerId}`],
     ['clearThreatTargetEverywhere', `player:${victim.playerId}`],
+    ['queuePendingLogbookMessage', victim.playerId, 'notice.combat.offline-defeat'],
     ['removeOfflineDefeatedPlayer', victim.playerId],
   ]);
 }
@@ -175,7 +180,7 @@ async function testMonsterKillCountersUseTierBuckets() {
   ]);
 }
 
-async function testCombatSemanticAuditEvents() {
+async function testCombatSideEffectsWhenSemanticAuditIsDisabled() {
   const auditEvents: Array<Record<string, unknown>> = [];
   const notices: Array<unknown[]> = [];
   const killer = {
@@ -236,7 +241,7 @@ async function testCombatSemanticAuditEvents() {
     getPlayer(playerId: string) {
       return players.get(playerId) ?? null;
     },
-    canReceiveInventoryItem(playerId: string, incomingItem: { itemId: string }) {
+    tryReceiveInventoryItem(playerId: string, incomingItem: { itemId: string }) {
       assert.equal(playerId, killer.playerId);
       assert.equal(incomingItem.itemId, item.itemId);
       return false;
@@ -298,11 +303,13 @@ async function testCombatSemanticAuditEvents() {
   await service.handlePlayerMonsterKill(instance as never, monster as never, killer.playerId, deps as never);
   await service.handlePlayerDefeat(victim.playerId, deps as never, monster.runtimeId);
 
-  const actions = auditEvents.map((event) => event.action);
-  assert.deepEqual(actions, ['kill', 'exp_gain', 'loot_drop', 'death']);
-  assert.equal((auditEvents.find((event) => event.action === 'exp_gain')?.result as Record<string, unknown>)?.delta?.['combatExp'], 12);
-  assert.equal((auditEvents.find((event) => event.action === 'loot_drop')?.result as Record<string, unknown>)?.reason, 'inventory_full');
-  assert.equal((auditEvents.find((event) => event.action === 'death')?.actor as Record<string, unknown>)?.kind, 'monster');
+  assert.deepEqual(auditEvents, []);
+  assert.equal(killer.combatExp, 12);
+  assert.equal(killer.realm.progress, 12);
+  assert.equal(notices.some((entry) => entry[0] === 'advanceKillQuestProgress'), true);
+  assert.equal(notices.some((entry) => entry[0] === 'spawnGroundItem'), true);
+  assert.equal(notices.some((entry) => entry[0] === 'markPendingRespawn'), true);
+  assert.equal(notices.some((entry) => entry[0] === 'clearPendingCommand'), true);
 }
 
 function testMonsterEquipmentDropDefaultsMatchMainTierBuckets() {
@@ -382,90 +389,41 @@ function testMonsterKillExpSettlementUsesTemplateMultiplier() {
   assert.equal(grants[1]?.currentTick, 102);
 }
 
-async function testMonsterLootDurableGrant() {
+async function testMonsterLootUsesSynchronousInventoryReceipt() {
   const log: Array<unknown[]> = [];
-  const durableCalls: Array<Record<string, unknown>> = [];
-  let resolveDurable = () => {};
-
   const player = {
     playerId: 'player:combat:loot',
     instanceId: 'instance:combat:1',
-    runtimeOwnerId: 'runtime:combat:1',
-    sessionEpoch: 9,
     inventory: {
       items: [],
       revision: 0,
       capacity: 20,
     },
-    persistentRevision: 0,
-    selfRevision: 0,
-    dirtyDomains: new Set<string>(),
-    suppressImmediateDomainPersistence: false,
   };
   const item = { itemId: 'rat_tail', name: '鼠尾', count: 2, type: 'material' };
   const instance = {
     meta: { instanceId: 'instance:combat:1' },
-    dropGroundItem(x: number, y: number, droppedItem: unknown) {
-      log.push(['dropGroundItem', x, y, droppedItem]);
-      return { ok: true };
-    },
   };
   const playerRuntimeService = {
-    getPlayer(playerId: string) {
+    tryReceiveInventoryItem(
+      playerId: string,
+      grantedItem: typeof item,
+      options: {
+        inventoryOnlyStatistics?: boolean;
+        normalizedItemOwnershipTransfer?: boolean;
+      },
+    ) {
       assert.equal(playerId, player.playerId);
-      return player;
-    },
-    getPlayerOrThrow(playerId: string) {
-      assert.equal(playerId, player.playerId);
-      return player;
-    },
-    canReceiveInventoryItem(playerId: string, incomingItem: { itemId: string }) {
-      assert.equal(playerId, player.playerId);
-      assert.equal(incomingItem.itemId, item.itemId);
-      return true;
-    },
-    receiveInventoryItem(playerId: string, grantedItem: { itemId: string; count: number }) {
-      assert.equal(playerId, player.playerId);
-      player.inventory.items.push({ ...grantedItem });
+      assert.equal(grantedItem, item);
+      assert.equal(options.inventoryOnlyStatistics, true);
+      assert.equal(options.normalizedItemOwnershipTransfer, true);
+      player.inventory.items.push(grantedItem);
       player.inventory.revision += 1;
-      player.persistentRevision += 1;
-      player.selfRevision += 1;
-      player.dirtyDomains = new Set(['inventory']);
-    },
-    playerProgressionService: {
-      refreshPreview() {},
+      return true;
     },
   };
   const service = new WorldRuntimePlayerCombatService({} as never, playerRuntimeService as never);
   const deps = {
-    durableOperationService: {
-      isEnabled() {
-        return true;
-      },
-      grantInventoryItems(input: Record<string, unknown>) {
-        durableCalls.push(input);
-        return new Promise((resolve) => {
-          resolveDurable = () => resolve({
-            ok: true,
-            alreadyCommitted: false,
-            grantedCount: 2,
-            sourceType: 'monster_loot',
-          });
-        });
-      },
-    },
-    instanceCatalogService: {
-      isEnabled() {
-        return true;
-      },
-      async loadInstanceCatalog(instanceId: string) {
-        assert.equal(instanceId, 'instance:combat:1');
-        return {
-          assigned_node_id: 'node:combat',
-          ownership_epoch: 21,
-        };
-      },
-    },
     queuePlayerNotice(playerId: string, text: string, kind: string) {
       log.push(['queuePlayerNotice', playerId, text, kind]);
     },
@@ -474,32 +432,19 @@ async function testMonsterLootDurableGrant() {
     },
   };
 
-  service.deliverMonsterLoot(player.playerId, instance as never, 7, 8, item as never, deps as never, 'monster:rat:1');
-  await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(log.length, 0);
-  assert.equal(durableCalls.length, 1);
-  assert.equal(durableCalls[0]?.expectedRuntimeOwnerId, 'runtime:combat:1');
-  assert.equal(durableCalls[0]?.expectedSessionEpoch, 9);
-  assert.equal(durableCalls[0]?.expectedInstanceId, 'instance:combat:1');
-  assert.equal(durableCalls[0]?.expectedAssignedNodeId, 'node:combat');
-  assert.equal(durableCalls[0]?.expectedOwnershipEpoch, 21);
-  assert.equal(durableCalls[0]?.sourceType, 'monster_loot');
-  assert.equal(durableCalls[0]?.sourceRefId, 'monster:rat:1');
-  assert.equal((durableCalls[0]?.grantedItems as Array<Record<string, unknown>>)?.[0]?.itemId, 'rat_tail');
-  resolveDurable();
-  await new Promise((resolve) => setImmediate(resolve));
+  await service.deliverMonsterLoot(player.playerId, instance as never, 7, 8, item as never, deps as never, 'monster:rat:1');
+  assert.equal(player.inventory.items[0], item);
+  assert.equal(player.inventory.revision, 1);
   assert.deepEqual(log, [
     ['queuePlayerNotice', 'player:combat:loot', '获得 鼠尾 x2', 'loot'],
   ]);
 }
 
-async function testMonsterLootRequiresDurableContext() {
+async function testMonsterLootDoesNotRequireDurableContext() {
   const log: Array<unknown[]> = [];
   const player = {
     playerId: 'player:combat:no-durable-context',
     instanceId: 'instance:combat:1',
-    runtimeOwnerId: null,
-    sessionEpoch: 0,
     inventory: {
       items: [],
       revision: 0,
@@ -511,19 +456,12 @@ async function testMonsterLootRequiresDurableContext() {
     meta: { instanceId: 'instance:combat:1' },
   };
   const playerRuntimeService = {
-    getPlayer(playerId: string) {
+    tryReceiveInventoryItem(playerId: string, incomingItem: typeof item) {
       assert.equal(playerId, player.playerId);
-      return player;
-    },
-    canReceiveInventoryItem(playerId: string, incomingItem: { itemId: string }) {
-      assert.equal(playerId, player.playerId);
-      assert.equal(incomingItem.itemId, item.itemId);
-      return true;
-    },
-    receiveInventoryItem(playerId: string, grantedItem: { itemId: string; count: number }) {
-      assert.equal(playerId, player.playerId);
-      player.inventory.items.push({ ...grantedItem });
+      assert.equal(incomingItem, item);
+      player.inventory.items.push(incomingItem);
       player.inventory.revision += 1;
+      return true;
     },
   };
   const service = new WorldRuntimePlayerCombatService({} as never, playerRuntimeService as never);
@@ -536,81 +474,38 @@ async function testMonsterLootRequiresDurableContext() {
     },
   };
 
-  await assert.rejects(
-    () => service.deliverMonsterLoot(player.playerId, instance as never, 7, 8, item as never, deps as never, 'monster:rat:no-context'),
-    /durable_inventory_grant_required:monster_loot:player:combat:no-durable-context:rat_tail/,
-  );
-
-  assert.deepEqual(log, []);
-  assert.deepEqual(player.inventory.items, []);
-  assert.equal(player.inventory.revision, 0);
+  await service.deliverMonsterLoot(player.playerId, instance as never, 7, 8, item as never, deps as never, 'monster:rat:no-context');
+  assert.deepEqual(player.inventory.items, [item]);
+  assert.equal(player.inventory.revision, 1);
+  assert.deepEqual(log, [
+    ['queuePlayerNotice', player.playerId, '获得 鼠尾', 'loot'],
+  ]);
 }
 
-async function testMonsterLootFallsBackToGroundWhenDurableGrantFails() {
+async function testMonsterLootFallsBackToGroundWhenInventoryIsFull() {
   const log: Array<unknown[]> = [];
   const player = {
-    playerId: 'player:combat:durable-failure',
+    playerId: 'player:combat:inventory-full',
     instanceId: 'instance:combat:1',
-    runtimeOwnerId: 'runtime:combat:failure',
-    sessionEpoch: 3,
     inventory: {
       items: [],
       revision: 0,
-      capacity: 20,
+      capacity: 0,
     },
-    persistentRevision: 0,
-    selfRevision: 0,
-    dirtyDomains: new Set<string>(),
-    suppressImmediateDomainPersistence: false,
   };
   const item = { itemId: 'rat_tail', name: '鼠尾', count: 1, type: 'material' };
   const instance = {
     meta: { instanceId: 'instance:combat:1' },
   };
   const playerRuntimeService = {
-    getPlayer(playerId: string) {
+    tryReceiveInventoryItem(playerId: string, incomingItem: typeof item) {
       assert.equal(playerId, player.playerId);
-      return player;
-    },
-    canReceiveInventoryItem(playerId: string, incomingItem: { itemId: string }) {
-      assert.equal(playerId, player.playerId);
-      assert.equal(incomingItem.itemId, item.itemId);
-      return true;
-    },
-    receiveInventoryItem(playerId: string, grantedItem: { itemId: string; count: number }) {
-      assert.equal(playerId, player.playerId);
-      player.inventory.items.push({ ...grantedItem });
-      player.inventory.revision += 1;
-      player.persistentRevision += 1;
-      player.selfRevision += 1;
-      player.dirtyDomains = new Set(['inventory']);
-    },
-    playerProgressionService: {
-      refreshPreview() {},
+      assert.equal(incomingItem, item);
+      return false;
     },
   };
   const service = new WorldRuntimePlayerCombatService({} as never, playerRuntimeService as never);
   const deps = {
-    durableOperationService: {
-      isEnabled() {
-        return true;
-      },
-      async grantInventoryItems() {
-        throw new Error('simulated_durable_failure');
-      },
-    },
-    instanceCatalogService: {
-      isEnabled() {
-        return true;
-      },
-      async loadInstanceCatalog(instanceId: string) {
-        assert.equal(instanceId, 'instance:combat:1');
-        return {
-          assigned_node_id: 'node:combat',
-          ownership_epoch: 21,
-        };
-      },
-    },
     queuePlayerNotice(playerId: string, text: string, kind: string) {
       log.push(['queuePlayerNotice', playerId, text, kind]);
     },
@@ -623,13 +518,13 @@ async function testMonsterLootFallsBackToGroundWhenDurableGrantFails() {
 
   assert.deepEqual(log, [
     ['spawnGroundItem', true, 7, 8, item],
-    ['queuePlayerNotice', player.playerId, '鼠尾 掉落在 (7, 8) 的地面上，但本次奖励落盘失败。', 'loot'],
+    ['queuePlayerNotice', player.playerId, '鼠尾 掉落在 (7, 8) 的地面上，但你的背包已满。', 'loot'],
   ]);
   assert.deepEqual(player.inventory.items, []);
   assert.equal(player.inventory.revision, 0);
 }
 
-async function testPvPLootDurableGrant() {
+async function testPvPLootUsesSynchronousInventoryReceipt() {
   const log: Array<unknown[]> = [];
   const durableCalls: Array<Record<string, unknown>> = [];
   let resolveDurable = () => {};
@@ -744,25 +639,17 @@ async function testPvPLootDurableGrant() {
     },
   };
 
-  service.applyPvPKillRewards(killer as never, victim as never, deathSite as never, deps as never);
-  await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(log.length, 0);
-  assert.equal(durableCalls.length, 1);
-  assert.equal(durableCalls[0]?.expectedRuntimeOwnerId, 'runtime:combat:pvp');
-  assert.equal(durableCalls[0]?.expectedSessionEpoch, 12);
-  assert.equal(durableCalls[0]?.expectedInstanceId, 'instance:combat:pvp');
-  assert.equal(durableCalls[0]?.expectedAssignedNodeId, 'node:combat');
-  assert.equal(durableCalls[0]?.expectedOwnershipEpoch, 22);
-  assert.equal(durableCalls[0]?.sourceType, 'pvp_loot');
-  assert.equal(durableCalls[0]?.sourceRefId, 'pvp:player:combat:killer:player:combat:victim:stone.blood_essence');
-  resolveDurable();
-  await new Promise((resolve) => setImmediate(resolve));
+  await service.applyPvPKillRewards(killer as never, victim as never, deathSite as never, deps as never);
+  assert.equal(durableCalls.length, 0);
+  assert.equal(killer.inventory.items.length, 1);
+  assert.equal(killer.inventory.items[0]?.itemId, reward.itemId);
+  assert.equal(killer.inventory.revision, 1);
   assert.deepEqual(log, [
-    ['queuePlayerNotice', 'player:combat:killer', '你从 乙 体内掠得 血精 x4。', 'loot'],
+    ['queuePlayerNotice', 'player:combat:killer', '获得 血精 x4', 'loot'],
   ]);
 }
 
-async function testPvPLootRequiresDurableContext() {
+async function testPvPLootFallsBackToGroundWhenInventoryIsFull() {
   const log: Array<unknown[]> = [];
   const killer = {
     playerId: 'player:combat:killer:no-durable',
@@ -804,10 +691,10 @@ async function testPvPLootRequiresDurableContext() {
     canReceiveInventoryItem(playerId: string, incomingItem: { itemId: string }) {
       assert.equal(playerId, killer.playerId);
       assert.equal(incomingItem.itemId, reward.itemId);
-      return true;
+      return false;
     },
     receiveInventoryItem() {
-      throw new Error('pvp reward without durable context must not mutate runtime inventory');
+      throw new Error('背包已满时不应写入运行态背包');
     },
     hasActiveBuff() {
       return true;
@@ -827,12 +714,12 @@ async function testPvPLootRequiresDurableContext() {
     },
   };
 
-  await assert.rejects(
-    () => service.applyPvPKillRewards(killer as never, victim as never, deathSite as never, deps as never),
-    /durable_inventory_grant_required:pvp_loot:player:combat:killer:no-durable:stone\.blood_essence/,
-  );
+  await service.applyPvPKillRewards(killer as never, victim as never, deathSite as never, deps as never);
 
-  assert.deepEqual(log, []);
+  assert.deepEqual(log, [
+    ['spawnGroundItem', true, 3, 4, reward],
+    ['queuePlayerNotice', killer.playerId, '你的背包已满，血精 x4 掉在了 乙 倒下之处。', 'loot'],
+  ]);
   assert.deepEqual(killer.inventory.items, []);
   assert.equal(killer.inventory.revision, 0);
 }
@@ -903,10 +790,10 @@ async function testPvPKillClearsMatchedRetaliateTarget() {
   await service.handlePlayerDefeat(victim.playerId, deps as never, killer.playerId);
 
   assert.deepEqual(log, [
+    ['markPendingRespawn', victim.playerId],
     ['clearRetaliatePlayerTargetIfMatches', killer.playerId, victim.playerId, 77],
     ['applyPvPKillRewards', killer.playerId, victim.playerId],
     ['clearPendingCommand', victim.playerId],
-    ['markPendingRespawn', victim.playerId],
   ]);
 }
 

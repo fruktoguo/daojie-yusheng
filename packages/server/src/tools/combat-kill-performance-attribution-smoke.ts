@@ -38,9 +38,15 @@ async function main(): Promise<void> {
       tryReceiveInventoryItem(
         _playerId: string,
         item: { itemId: string },
-        options: { inventoryOnlyStatistics?: boolean } = {},
+        options: {
+          inventoryOnlyStatistics?: boolean;
+          normalizedItemOwnershipTransfer?: boolean;
+          recordTickSectionDuration?: unknown;
+        } = {},
       ) {
         assert.equal(options.inventoryOnlyStatistics, true);
+        assert.equal(options.normalizedItemOwnershipTransfer, true);
+        assert.equal(typeof options.recordTickSectionDuration, 'function');
         events.push(`receive:${item.itemId}`);
         return true;
       },

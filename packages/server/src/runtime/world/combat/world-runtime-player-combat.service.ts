@@ -367,6 +367,8 @@ export class WorldRuntimePlayerCombatService {
         let sectionStartedAt = beginPlayerMonsterKillPerf(deps);
         const received = this.playerRuntimeService.tryReceiveInventoryItem(playerId, item, {
             inventoryOnlyStatistics: true,
+            normalizedItemOwnershipTransfer: true,
+            recordTickSectionDuration: deps.recordPendingCommandSectionDuration,
         });
         sectionStartedAt = recordPlayerMonsterKillPerf(
             deps,
