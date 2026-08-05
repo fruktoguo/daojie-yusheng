@@ -694,7 +694,7 @@ async function verifyOperationFailuresAreIsolatedWithinTick() {
     assert.ok(warnings.length >= 8);
 }
 
-async function verifyFengShuiFinalizesAtEveryAcceleratedLogicalStep() {
+async function verifyFengShuiFinalizesOnceAfterAcceleratedStepBatch() {
     const log = [];
     const deps = createDeps(log);
     const instance = deps.getInstanceRuntime('instance:1');
@@ -720,9 +720,9 @@ async function verifyFengShuiFinalizesAtEveryAcceleratedLogicalStep() {
         return {
             flushed: true,
             mode: 'local',
-            requestCount: 2,
-            coalescedRequestCount: 1,
-            dirtyCellCount: 1,
+            requestCount: 6,
+            coalescedRequestCount: 5,
+            dirtyCellCount: 3,
             roomCount: 1,
         };
     };
@@ -742,20 +742,18 @@ async function verifyFengShuiFinalizesAtEveryAcceleratedLogicalStep() {
     }]);
 
     assert.equal(ticks, 3);
-    assert.equal(finalizeCount, 3, '密室每个逻辑息都必须各自在末尾收敛一次风水');
+    assert.equal(finalizeCount, 1, '密室同一调度批次的风水变化必须只在所有逻辑步结束后收敛一次');
     assert.deepEqual(log.filter((entry) => typeof entry === 'string' && entry.startsWith('fengshui.')), [
         'fengshui.tick:1',
-        'fengshui.finalize:1',
         'fengshui.tick:2',
-        'fengshui.finalize:2',
         'fengshui.tick:3',
         'fengshui.finalize:3',
     ]);
     const durations = deps.worldRuntimeMetricsService.sectionDurations;
-    assert.equal(durations['instance.fengShuiFinalizeMs'].count, 3);
-    assert.equal(durations['instance.fengShuiFinalizeLocalMs'].count, 3);
+    assert.equal(durations['instance.fengShuiFinalizeMs'].count, 1);
+    assert.equal(durations['instance.fengShuiFinalizeLocalMs'].count, 1);
     assert.equal(durations['instance.fengShuiFinalizeRequests'].count, 6);
-    assert.equal(durations['instance.fengShuiFinalizeCoalescedRequests'].count, 3);
+    assert.equal(durations['instance.fengShuiFinalizeCoalescedRequests'].count, 5);
 }
 
 Promise.resolve()
@@ -769,7 +767,7 @@ Promise.resolve()
     .then(() => verifyTemporaryTileExpiryUsesInstanceTick())
     .then(() => verifyTileQiDrainRelocatesPlayerToSpawnOnEmptyQi())
     .then(() => verifyOperationFailuresAreIsolatedWithinTick())
-    .then(() => verifyFengShuiFinalizesAtEveryAcceleratedLogicalStep())
+    .then(() => verifyFengShuiFinalizesOnceAfterAcceleratedStepBatch())
     .then(() => {
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-instance-tick-orchestration' }, null, 2));
 });

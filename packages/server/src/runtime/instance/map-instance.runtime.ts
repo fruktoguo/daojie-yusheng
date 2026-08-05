@@ -560,9 +560,9 @@ class MapInstanceRuntime {
         durationMs: 0,
         updatedAtTick: 0,
     };
-    /** 房间/风水派生状态按实例惰性创建；同一逻辑息只在息末统一收敛。 */
+    /** 房间/风水派生状态按实例惰性创建；变化只标脏并按实例倍率低频收敛。 */
     pendingBuildingRoomFengShuiState: PendingBuildingRoomFengShuiState | null = null;
-    /** 防止同一逻辑息在多个编排入口重复结算。 */
+    /** 防止刷新窗口内的多个编排入口重复结算。 */
     lastBuildingRoomFengShuiFinalizeTick = -1;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
@@ -2093,7 +2093,7 @@ class MapInstanceRuntime {
         }
         return { repairedCellCount, orphanReferenceCount };
     }
-    /** 惰性创建本息房间/风水脏状态，避免为无变化实例常驻分配集合。 */
+    /** 惰性创建本批次房间/风水脏状态，避免为无变化实例常驻分配集合。 */
     getOrCreatePendingBuildingRoomFengShuiState(reasonInput) {
         if (this.pendingBuildingRoomFengShuiState) {
             return this.pendingBuildingRoomFengShuiState;
@@ -2141,7 +2141,7 @@ class MapInstanceRuntime {
         pending.roomDomainHoldRelease = null;
         pending.fengShuiDomainHoldRelease = null;
     }
-    /** 拓扑变化只标脏；完整房间检测和风水计算统一延迟到本逻辑息末。 */
+    /** 拓扑变化只标脏；完整房间检测和风水计算统一延迟到实例调度批次末。 */
     markRoomsAndFengShuiDirtyAfterTopologyChange(options: any = {}) {
         const reason = typeof options?.reason === 'string' && options.reason.trim()
             ? options.reason.trim()
@@ -2228,7 +2228,24 @@ class MapInstanceRuntime {
     hasPendingBuildingRoomFengShuiChanges() {
         return this.pendingBuildingRoomFengShuiState !== null;
     }
-    /** 每个逻辑息末最多收敛一次；异常时保留脏状态和持久化围栏供下一息重试。 */
+    /** 按实例倍率把逻辑息折算为约一秒现实时间的风水收敛间隔。 */
+    getBuildingRoomFengShuiFinalizeIntervalTicks() {
+        const speed = Number(this.tickSpeed);
+        return Math.max(1, Math.ceil(Number.isFinite(speed) && speed > 0 ? speed : 1));
+    }
+    /** 判断当前脏快照是否已到刷新边界；首次脏数据立即允许收敛。 */
+    shouldFinalizePendingBuildingRoomFengShuiChanges() {
+        if (!this.pendingBuildingRoomFengShuiState) {
+            return false;
+        }
+        const currentTick = Math.max(0, Math.trunc(Number(this.tick) || 0));
+        const lastFinalizeTick = Math.trunc(Number(this.lastBuildingRoomFengShuiFinalizeTick));
+        if (!Number.isFinite(lastFinalizeTick) || lastFinalizeTick < 0 || currentTick < lastFinalizeTick) {
+            return true;
+        }
+        return currentTick - lastFinalizeTick >= this.getBuildingRoomFengShuiFinalizeIntervalTicks();
+    }
+    /** 到达刷新边界后最多收敛一次；异常时保留脏状态和持久化围栏供下一批次重试。 */
     finalizePendingBuildingRoomFengShuiChanges() {
         const pending = this.pendingBuildingRoomFengShuiState;
         if (!pending) {
@@ -2237,6 +2254,16 @@ class MapInstanceRuntime {
         const currentTick = Math.max(0, Math.trunc(Number(this.tick) || 0));
         if (this.lastBuildingRoomFengShuiFinalizeTick === currentTick) {
             return { flushed: false, reason: 'already_finalized_this_tick', pending: true };
+        }
+        if (!this.shouldFinalizePendingBuildingRoomFengShuiChanges()) {
+            const intervalTicks = this.getBuildingRoomFengShuiFinalizeIntervalTicks();
+            const elapsedTicks = Math.max(0, currentTick - this.lastBuildingRoomFengShuiFinalizeTick);
+            return {
+                flushed: false,
+                reason: 'cadence_wait',
+                pending: true,
+                remainingTicks: Math.max(1, intervalTicks - elapsedTicks),
+            };
         }
         const requestCount = pending.topologyRequestCount + pending.localRequestCount;
         const dirtyCellCount = pending.topologyDirtyCellCount + pending.dirtyCellIndices.size;

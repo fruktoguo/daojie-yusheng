@@ -261,6 +261,23 @@ function assertFengShuiTickEndCoalescing(instance) {
   assert.equal(topologyFinalize.coalescedRequestCount, 1);
   assert.equal(instance.isPersistenceDomainHeld("room"), false);
   assert.equal(instance.isPersistenceDomainHeld("fengshui"), false);
+
+  instance.tickSpeed = 10;
+  assert.equal(instance.markFengShuiDirtyAfterRoomInfluenceChange(instance.toTileIndex(2, 2), "smoke_cadence"), true);
+  for (let offset = 1; offset < 10; offset += 1) {
+    instance.tickOnce();
+  }
+  assert.equal(instance.shouldFinalizePendingBuildingRoomFengShuiChanges(), false);
+  const cadenceWait = instance.finalizePendingBuildingRoomFengShuiChanges();
+  assert.equal(cadenceWait.flushed, false);
+  assert.equal(cadenceWait.reason, "cadence_wait");
+  assert.equal(cadenceWait.remainingTicks, 1);
+  assert.equal(instance.isPersistenceDomainHeld("fengshui"), true);
+  instance.tickOnce();
+  assert.equal(instance.shouldFinalizePendingBuildingRoomFengShuiChanges(), true);
+  assert.equal(instance.finalizePendingBuildingRoomFengShuiChanges().flushed, true);
+  assert.equal(instance.isPersistenceDomainHeld("fengshui"), false);
+  instance.tickSpeed = 1;
 }
 
 async function main() {
