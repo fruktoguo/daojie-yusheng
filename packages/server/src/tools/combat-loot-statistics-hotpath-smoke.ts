@@ -192,7 +192,7 @@ function verifyProgressionOnlyStatisticHintSkipsTechniqueTraversal(): void {
     },
   });
 
-  service.recordPlayerStatisticMutation(player, before, Date.now(), {
+  service.accumulateOfflineGainAfterTick(player, before, true, {
     progressionOnly: true,
     statisticTechniqueChangedIds: [changedTechnique.techId],
   });

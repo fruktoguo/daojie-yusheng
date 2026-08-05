@@ -628,6 +628,31 @@ function testCultivationUsesElapsedTicksForPendingComprehension() {
   assert.equal(learner.pendingTechniqueComprehensions[0]?.requiredProgress, expectedRequiredProgress('created', createdTechnique, learner.realm.realmLv));
   assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 11);
   assert.equal(learner.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 1));
+  assert.deepEqual((result as any).statisticTechniqueChangedIds, []);
+}
+
+function testCultivationReportsSingleTechniqueStatisticHint() {
+  const { progressionService } = createRuntimeService();
+  const learner = createPlayer('learner:cultivation-statistic-hint', 0, 0);
+  const cultivating = {
+    ...technique,
+    techId: 'tech.cultivation-statistic-hint',
+    name: '统计提示功法',
+    layers: [
+      { level: 1, expToNext: 100, attrs: {} },
+      { level: 2, expToNext: 0, attrs: {} },
+    ],
+  };
+  learner.combat.cultivationActive = true;
+  learner.attrs.numericStats.techniqueExpPerTick = 5;
+  learner.techniques.techniques.push(cultivating);
+  learner.techniques.cultivatingTechId = cultivating.techId;
+
+  const result = progressionService.advanceCultivation(learner, 1);
+
+  assert.equal(result.changed, true);
+  assert.equal(cultivating.exp, 5);
+  assert.deepEqual((result as any).statisticTechniqueChangedIds, [cultivating.techId]);
 }
 
 function testSelfComprehensionUsesStandingFacilitySpeed() {
@@ -754,6 +779,7 @@ function testAutoSwitchCultivationCanSelectPendingComprehension() {
   assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 1);
   assert.equal(learner.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 1));
   assert.ok(result.notices.some((notice: any) => notice.structured?.key === 'notice.progression.technique-auto-switch'));
+  assert.deepEqual((result as any).statisticTechniqueChangedIds, []);
 }
 
 function testMonsterKillProgressesComprehensionByOneCultivationTick() {
@@ -1376,6 +1402,7 @@ function testAggregateConflictDiscardsCompletedPendingComprehension() {
     assert.equal(learner.pendingTechniqueComprehensions.length, 0);
     assert.equal(learner.techniques.cultivatingTechId, undefined);
     assert.equal(learner.combat.cultivationActive, false);
+    assert.equal(Object.prototype.hasOwnProperty.call(result, 'statisticTechniqueChangedIds'), false);
     assert.equal(learner.dirtyDomains.has('technique'), true);
     assert.equal(learner.dirtyDomains.has('combat_pref'), true);
     assert.equal((learner as any).allowPendingTechniqueComprehensionEmptyOverwrite, true);
@@ -1629,6 +1656,7 @@ testCreatedPendingWithoutCreatorDoesNotAutoMainTechnique();
 testRequiredProgressUsesPreFoundationLearnerReduction();
 testDynamicFactorsApplyToProgressGain();
 testCultivationUsesElapsedTicksForPendingComprehension();
+testCultivationReportsSingleTechniqueStatisticHint();
 testSelfComprehensionUsesStandingFacilitySpeed();
 testComprehensionSpeedRateProjectionAndCodec();
 testAutoSwitchCultivationCanSelectPendingComprehension();

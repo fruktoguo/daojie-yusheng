@@ -5052,6 +5052,7 @@ export class PlayerRuntimeService {
             this.playerStatisticTickContextsByPlayerId.set(player.playerId, statisticTickContext);
             try {
             let statisticChangedThisTick = false;
+            let statisticTechniqueChangedIdsThisTick;
             recordPlayerTickPerf(options, 'playerTick.offlineGainSnapshotMs', offlineGainSnapshotStartedAt);
             let statisticProgressionOnlyThisTick = true;
             const chronologyStartedAt = performance.now();
@@ -5132,6 +5133,11 @@ export class PlayerRuntimeService {
                 this.applyProgressionResult(player, result, playerTick);
                 statisticChangedThisTick = statisticChangedThisTick || result?.changed === true;
                 statisticProgressionOnlyThisTick = statisticProgressionOnlyThisTick && isProgressionOnlyStatisticResult(result);
+                if (result?.changed === true) {
+                    statisticTechniqueChangedIdsThisTick = Array.isArray(result?.statisticTechniqueChangedIds)
+                        ? result.statisticTechniqueChangedIds
+                        : undefined;
+                }
                 recordPlayerTickPerf(options, 'playerTick.cultivationAdvanceMs', cultivationAdvanceStartedAt);
             }
             if (player.hp > 0 && player.combat.autoRootFoundation === true) {
@@ -5153,6 +5159,9 @@ export class PlayerRuntimeService {
             const contextualProgressionOnly = statisticProgressionOnlyThisTick && statisticTickContext.progressionOnly === true;
             this.accumulateOfflineGainAfterTick(player, offlineGainBefore, contextualStatisticChanged, {
                 progressionOnly: contextualProgressionOnly,
+                statisticTechniqueChangedIds: contextualProgressionOnly
+                    ? statisticTechniqueChangedIdsThisTick
+                    : undefined,
                 recordTickSectionDuration: options.recordTickSectionDuration,
             });
             recordPlayerTickPerf(options, 'playerTick.offlineGainAccumulateMs', offlineGainAccumulateStartedAt);
@@ -5205,6 +5214,7 @@ export class PlayerRuntimeService {
         }
         this.recordPlayerStatisticMutation(player, beforeSnapshot, Date.now(), {
             progressionOnly: options?.progressionOnly === true,
+            statisticTechniqueChangedIds: options?.statisticTechniqueChangedIds,
             recordTickSectionDuration: options?.recordTickSectionDuration,
         });
     }

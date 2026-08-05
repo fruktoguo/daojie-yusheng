@@ -461,6 +461,14 @@ export class PlayerProgressionService {
             };
         }
 
+        const learnedTechniquesBefore = player.techniques?.techniques;
+        const learnedTechniqueCountBefore = Array.isArray(learnedTechniquesBefore)
+            ? learnedTechniquesBefore.length
+            : 0;
+        const beforeStatisticTechnique = snapshotCultivatingTechniqueStatisticState(
+            player,
+            this.resolveCultivatingTechnique(player),
+        );
         const resolved = this.resolveActiveCultivatingTechnique(player);
         let mutation = resolved;
 
@@ -497,8 +505,24 @@ export class PlayerProgressionService {
                 dirtyDomains: [],
             };
         }
+        // 必须在 finalize 增加 techniques.revision 之前读取；普通经验推进可继续命中现有索引。
+        const afterStatisticTechnique = snapshotCultivatingTechniqueStatisticState(
+            player,
+            this.resolveCultivatingTechnique(player),
+        );
+        const statisticTechniqueChangedIds = resolveSingleTechniqueProgressStatisticChangedIds(
+            player,
+            beforeStatisticTechnique,
+            afterStatisticTechnique,
+            learnedTechniquesBefore,
+            learnedTechniqueCountBefore,
+            mutation,
+        );
         this.finalizeProgressionMutation(player, mutation);
-        return toProgressionMutationResult(mutation);
+        return {
+            ...toProgressionMutationResult(mutation),
+            ...(statisticTechniqueChangedIds === null ? {} : { statisticTechniqueChangedIds }),
+        };
     }
     /** 统计击杀妖兽后获得的境界和功法经验。 */
     grantMonsterKillProgress(player, input: any = {}) {
@@ -632,7 +656,7 @@ export class PlayerProgressionService {
             'combat.playerMonsterKill.progressFinalizeMs',
             phaseStartedAt,
         );
-        const statisticTechniqueChangedIds = resolveMonsterKillStatisticTechniqueChangedIds(
+        const statisticTechniqueChangedIds = resolveSingleTechniqueProgressStatisticChangedIds(
             player,
             beforeTechnique,
             afterTechnique,
@@ -2905,7 +2929,7 @@ function snapshotCultivatingTechnique(player, resolvedTechnique = undefined) {
 /**
  * 仅为击杀推进的统计差分提供完整变更集合；功法集合变化或待领悟移除时必须回退全量扫描。
  */
-function resolveMonsterKillStatisticTechniqueChangedIds(
+function resolveSingleTechniqueProgressStatisticChangedIds(
     player,
     beforeTechnique,
     afterTechnique,
@@ -2922,7 +2946,7 @@ function resolveMonsterKillStatisticTechniqueChangedIds(
         return null;
     }
     const changedIds = [];
-    if (beforeTechnique?.kind === 'technique' && beforeTechnique.technique && beforeTechnique.techId) {
+    if (beforeTechnique?.technique && beforeTechnique.techId) {
         const current = beforeTechnique.technique;
         if (Math.max(0, Math.floor(Number(current.level) || 0)) !== beforeTechnique.level
             || Math.max(0, Math.floor(Number(current.exp) || 0)) !== beforeTechnique.exp
@@ -2931,13 +2955,36 @@ function resolveMonsterKillStatisticTechniqueChangedIds(
         }
     }
     if (changedIds.length === 0
-        && afterTechnique?.kind === 'technique'
-        && afterTechnique.technique
+        && afterTechnique?.technique
         && afterTechnique.techId
         && afterTechnique.techId !== beforeTechnique?.techId) {
         changedIds.push(afterTechnique.techId);
     }
     return changedIds;
+}
+
+/** 修炼统计只需要学习中功法的三个数值，不解析名称或待领悟展示。 */
+function snapshotCultivatingTechniqueStatisticState(player, resolvedTechnique = undefined) {
+    const techId = player?.techniques?.cultivatingTechId;
+    if (!techId) {
+        return {
+            techId: null,
+            level: 0,
+            exp: 0,
+            expToNext: 0,
+            technique: null,
+        };
+    }
+    const technique = resolvedTechnique === undefined
+        ? player.techniques.techniques.find((entry) => entry.techId === techId)
+        : resolvedTechnique;
+    return {
+        techId,
+        level: Math.max(0, Math.floor(Number(technique?.level) || 0)),
+        exp: Math.max(0, Math.floor(Number(technique?.exp) || 0)),
+        expToNext: Math.max(0, Math.floor(Number(technique?.expToNext) || 0)),
+        technique: technique ?? null,
+    };
 }
 
 function toTechniqueUpdateEntryLocal(technique, maxLevelInput = undefined) {
