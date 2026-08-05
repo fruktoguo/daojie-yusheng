@@ -590,13 +590,17 @@ export class WorldRuntimeCombatActionService {
         push(resolved.target);
       }
     }
-    else if (!shouldCollectTargetsFromCells && action.warningCells?.length > 0 && typeof instance?.getPlayersAtTile === 'function') {
+    else if (!shouldCollectTargetsFromCells && action.warningCells?.length > 0
+      && (typeof instance?.getPlayerRuntimeRefsAtTile === 'function' || typeof instance?.getPlayersAtTile === 'function')) {
       const seen = new Set();
+      const getPlayersAtTile = typeof instance.getPlayerRuntimeRefsAtTile === 'function'
+        ? instance.getPlayerRuntimeRefsAtTile.bind(instance)
+        : instance.getPlayersAtTile.bind(instance);
       for (const cell of action.warningCells) {
         if (targets.length >= definition.maxTargets) {
           break;
         }
-        for (const player of instance.getPlayersAtTile(cell.x, cell.y) ?? []) {
+        for (const player of getPlayersAtTile(cell.x, cell.y) ?? []) {
           if (!player?.playerId || seen.has(player.playerId)) {
             continue;
           }
@@ -735,8 +739,10 @@ export class WorldRuntimeCombatActionService {
     const allowContainer = allowedTargetKinds.includes(CombatTargetKind.Container);
     const allowTile = allowedTargetKinds.includes(CombatTargetKind.Tile);
     const instanceId = input.action?.instanceId ?? input.instanceId;
-    const getMonsterAtTile = allowMonster && typeof instance?.getMonsterAtTile === 'function'
-      ? instance.getMonsterAtTile.bind(instance)
+    const getMonsterAtTile = allowMonster && typeof instance?.getMonsterRuntimeRefAtTile === 'function'
+      ? instance.getMonsterRuntimeRefAtTile.bind(instance)
+      : allowMonster && typeof instance?.getMonsterAtTile === 'function'
+        ? instance.getMonsterAtTile.bind(instance)
       : null;
     const monsterByTile = allowMonster && !getMonsterAtTile && typeof instance?.listMonsters === 'function'
       ? indexLiveMonstersByTile(instance.listMonsters())
@@ -750,8 +756,10 @@ export class WorldRuntimeCombatActionService {
     const getBoundaryBarrierCombatState = allowFormation && typeof input.formationService?.getBoundaryBarrierCombatState === 'function'
       ? input.formationService.getBoundaryBarrierCombatState.bind(input.formationService)
       : null;
-    const getPlayersAtTile = allowPlayer && typeof instance?.getPlayersAtTile === 'function'
-      ? instance.getPlayersAtTile.bind(instance)
+    const getPlayersAtTile = allowPlayer && typeof instance?.getPlayerRuntimeRefsAtTile === 'function'
+      ? instance.getPlayerRuntimeRefsAtTile.bind(instance)
+      : allowPlayer && typeof instance?.getPlayersAtTile === 'function'
+        ? instance.getPlayersAtTile.bind(instance)
       : null;
     const getContainerAtTile = allowContainer && typeof instance?.getContainerAtTile === 'function'
       ? instance.getContainerAtTile.bind(instance)
@@ -1799,12 +1807,17 @@ export class WorldRuntimeCombatActionService {
     };
 
     if (warningCells.length > 0) {
-      if (typeof instance?.getPlayersAtTile === 'function') {
+      const getPlayersAtTile = typeof instance?.getPlayerRuntimeRefsAtTile === 'function'
+        ? instance.getPlayerRuntimeRefsAtTile.bind(instance)
+        : typeof instance?.getPlayersAtTile === 'function'
+          ? instance.getPlayersAtTile.bind(instance)
+          : null;
+      if (getPlayersAtTile) {
         for (const cell of warningCells) {
           if (targets.length >= maxTargets) {
             break;
           }
-          for (const tilePlayer of instance.getPlayersAtTile(cell.x, cell.y) ?? []) {
+          for (const tilePlayer of getPlayersAtTile(cell.x, cell.y) ?? []) {
             pushPlayerAtPosition(tilePlayer?.playerId, cell, 'warning_cell');
             if (targets.length >= maxTargets) {
               break;

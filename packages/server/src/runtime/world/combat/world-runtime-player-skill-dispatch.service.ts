@@ -1281,12 +1281,17 @@ export class WorldRuntimePlayerSkillDispatchService {
         if (affectedCells.length === 0) {
             return null;
         }
-        const monsterByTile = typeof instance.getMonsterAtTile === 'function'
+        const getMonsterAtTile = typeof instance.getMonsterRuntimeRefAtTile === 'function'
+            ? instance.getMonsterRuntimeRefAtTile.bind(instance)
+            : typeof instance.getMonsterAtTile === 'function'
+                ? instance.getMonsterAtTile.bind(instance)
+                : null;
+        const monsterByTile = getMonsterAtTile
             ? null
             : buildLiveMonsterTileIndex(typeof instance.listMonsters === 'function' ? instance.listMonsters() : []);
         for (const cell of affectedCells) {
-            const monster = typeof instance.getMonsterAtTile === 'function'
-                ? instance.getMonsterAtTile(cell.x, cell.y)
+            const monster = getMonsterAtTile
+                ? getMonsterAtTile(cell.x, cell.y)
                 : monsterByTile.get(buildCombatTileKey(cell.x, cell.y));
             if (
                 monster?.runtimeId
@@ -1324,9 +1329,14 @@ export class WorldRuntimePlayerSkillDispatchService {
         // affectedCells (通常 ≤ 50 格) 上的玩家，是 OOM 现场短命对象主源之一。
         // 改成对每个 affectedCell 直接走 instance.getPlayersAtTile，是 O(occupants) 扫桶。
         // 如果 instance 没实现，直接跳过本段、继续地块/阵眼分支，不退化全服扫。
-        if (instance?.meta?.supportsPvp === true && typeof instance.getPlayersAtTile === 'function') {
+        const getPlayersAtTile = typeof instance?.getPlayerRuntimeRefsAtTile === 'function'
+            ? instance.getPlayerRuntimeRefsAtTile.bind(instance)
+            : typeof instance?.getPlayersAtTile === 'function'
+                ? instance.getPlayersAtTile.bind(instance)
+                : null;
+        if (instance?.meta?.supportsPvp === true && getPlayersAtTile) {
             for (const cell of affectedCells) {
-                const occupants = instance.getPlayersAtTile(cell.x, cell.y);
+                const occupants = getPlayersAtTile(cell.x, cell.y);
                 for (const candidate of occupants) {
                     if (
                         !candidate?.playerId

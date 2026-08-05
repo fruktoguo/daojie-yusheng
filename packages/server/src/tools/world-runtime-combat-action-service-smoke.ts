@@ -821,6 +821,8 @@ async function run() {
     },
     effects: [{ type: 'damage', damageKind: 'spell' }],
   };
+  let monsterRuntimeRefLookups = 0;
+  let playerRuntimeRefLookups = 0;
   const entityAreaPlan = service.resolvePlayerSkillActionPlan({
     playerId: 'player:attacker',
     targetRef: 'tile:12:10',
@@ -835,10 +837,22 @@ async function run() {
     instance: {
       ...targetInstance,
       canSeeTileFrom: () => true,
-      getMonsterAtTile: (x, y) => (x === 12 && y === 10
-        ? { runtimeId: 'monster:area-target', x, y, alive: true }
-        : null),
-      getPlayersAtTile: (x, y) => (x === 12 && y === 11 ? [{ playerId: 'player:area-target' }] : []),
+      getMonsterRuntimeRefAtTile: (x, y) => {
+        monsterRuntimeRefLookups += 1;
+        return x === 12 && y === 10
+          ? { runtimeId: 'monster:area-target', x, y, alive: true }
+          : null;
+      },
+      getMonsterAtTile: () => {
+        throw new Error('目标规划存在运行时引用入口时不应复制妖兽快照');
+      },
+      getPlayerRuntimeRefsAtTile: (x, y) => {
+        playerRuntimeRefLookups += 1;
+        return x === 12 && y === 11 ? [{ playerId: 'player:area-target' }] : [];
+      },
+      getPlayersAtTile: () => {
+        throw new Error('目标规划存在运行时引用入口时不应复制玩家快照');
+      },
     },
     playerRuntimeService: {
       getPlayer: (playerId) => ({ playerId, hp: 100, instanceId: 'instance:test' }),
@@ -852,6 +866,8 @@ async function run() {
     [CombatTargetKind.Monster, CombatTargetKind.Player].sort(),
   );
   assert.equal(entityAreaPlan.selectedTargets.some((target) => target.kind === CombatTargetKind.Tile), false);
+  assert.ok(monsterRuntimeRefLookups > 0);
+  assert.ok(playerRuntimeRefLookups > 0);
 
   const anyAreaSkill = {
     ...entityAreaSkill,

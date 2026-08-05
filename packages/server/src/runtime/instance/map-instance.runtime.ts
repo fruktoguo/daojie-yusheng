@@ -4645,6 +4645,24 @@ class MapInstanceRuntime {
         }
         return results;
     }
+    /** 权威运行时内部只读入口；避免目标规划为每个命中玩家复制完整地块快照。 */
+    getPlayerRuntimeRefsAtTile(x, y) {
+        if (!this.isInBounds(x, y)) {
+            return [];
+        }
+        const playerIds = this.playerIdsByTile.get(this.toTileIndex(x, y));
+        if (!playerIds || playerIds.size === 0) {
+            return [];
+        }
+        const results = [];
+        for (const playerId of playerIds) {
+            const player = this.playersById.get(playerId);
+            if (player) {
+                results.push(player);
+            }
+        }
+        return results;
+    }
     /** getPortalAtTile：读取指定地块上的传送点。 */
     getPortalAtTile(x, y) {
         return this.getPortalAt(x, y);
@@ -4760,6 +4778,18 @@ class MapInstanceRuntime {
         }
         const monster = this.monstersByRuntimeId.get(runtimeId);
         return monster?.alive ? snapshotMonster(monster) : null;
+    }
+    /** 权威运行时内部只读入口；目标规划不得修改返回的妖兽真源引用。 */
+    getMonsterRuntimeRefAtTile(x, y) {
+        if (!this.isInBounds(x, y)) {
+            return null;
+        }
+        const runtimeId = this.monsterRuntimeIdByTile.get(this.toTileIndex(x, y));
+        if (!runtimeId) {
+            return null;
+        }
+        const monster = this.monstersByRuntimeId.get(runtimeId);
+        return monster?.alive ? monster : null;
     }
     /** addRuntimeMonster：添加运行时动态妖兽，不绑定普通地图刷新点持久化。 */
     addRuntimeMonster(monster) {

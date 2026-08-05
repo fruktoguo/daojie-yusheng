@@ -698,12 +698,17 @@ function collectMonsterSkillRuntimeTargets(instance, playerRuntimeService, deps,
         });
     };
     if (Array.isArray(warningCells) && warningCells.length > 0) {
-        if (typeof instance.getPlayersAtTile === 'function') {
+        const getPlayersAtTile = typeof instance.getPlayerRuntimeRefsAtTile === 'function'
+            ? instance.getPlayerRuntimeRefsAtTile.bind(instance)
+            : typeof instance.getPlayersAtTile === 'function'
+                ? instance.getPlayersAtTile.bind(instance)
+                : null;
+        if (getPlayersAtTile) {
             for (const cell of warningCells) {
                 if (entries.length >= maxTargets) {
                     break;
                 }
-                for (const tilePlayer of instance.getPlayersAtTile(cell.x, cell.y) ?? []) {
+                for (const tilePlayer of getPlayersAtTile(cell.x, cell.y) ?? []) {
                     pushPlayerAtPosition(tilePlayer.playerId, { x: cell.x, y: cell.y });
                     if (entries.length >= maxTargets) {
                         break;
