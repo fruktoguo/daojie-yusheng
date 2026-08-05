@@ -797,7 +797,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                         playerCount: currentPlayerIds.length,
                     }), () => syncWorldTimeVisionForPlayers(instance, currentPlayerIds, deps.playerRuntimeService, speed, this.runtimeMapConfigService));
                     addMeasuredTickSection(sectionDurations, 'instance.playerWorldTimeVisionMs', worldTimeVisionStartedAt, currentPlayerIds.length);
-                    const cultivationAuraMultiplierByPlayerId = new Map();
+                    let cultivationAuraMultiplierByPlayerId = new Map();
                     const cultivationAuraProjectionStartedAt = performance.now();
                     this.runIsolatedSyncOperation(deps, 'player_cultivation_aura_projection_batch', () => ({
                         instanceId: instance.meta.instanceId,
@@ -805,10 +805,11 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                         worldTick: deps.tick,
                         playerCount: currentPlayerIds.length,
                     }), () => {
-                        const entry = buildCultivationAuraMultiplierByPlayerId(instance, currentPlayerIds, deps.playerRuntimeService);
-                        for (const [id, value] of entry) {
-                            cultivationAuraMultiplierByPlayerId.set(id, value);
-                        }
+                        cultivationAuraMultiplierByPlayerId = buildCultivationAuraMultiplierByPlayerId(
+                            instance,
+                            currentPlayerIds,
+                            deps.playerRuntimeService,
+                        );
                     });
                     addMeasuredTickSection(sectionDurations, 'instance.cultivationAuraProjectionMs', cultivationAuraProjectionStartedAt, currentPlayerIds.length);
                     const terrainTickEffectsStartedAt = performance.now();

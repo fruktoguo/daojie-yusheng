@@ -51,11 +51,20 @@ interface QiProjectionPlayerView {
     revision?: number;
     buffs?: QiProjectionBuffState[] | null;
   };
-  attrs?: {
-    revision?: number;
-  };
   attrBonuses?: QiProjectionBonusState[] | null;
   runtimeBonuses?: QiProjectionBonusState[] | null;
+}
+
+interface QiProjectionTechniqueInputSnapshot {
+  technique: QiProjectionTechniqueState;
+  level: number | undefined;
+  layers: TechniqueLayerDef[] | undefined;
+}
+
+interface QiProjectionBuffInputSnapshot {
+  buff: QiProjectionBuffState;
+  active: boolean;
+  qiProjection: QiProjectionModifier[] | undefined;
 }
 
 /** 玩家对单个灵气资源的投影结果 */
@@ -70,13 +79,14 @@ interface PlayerQiProjectionCacheSignature {
   techniquesRef: QiProjectionTechniqueState[] | null | undefined;
   buffsRevision: number;
   buffsRef: QiProjectionBuffState[] | null | undefined;
-  attrsRevision: number;
   attrBonusesRef: QiProjectionBonusState[] | null | undefined;
   runtimeBonusesRef: QiProjectionBonusState[] | null | undefined;
 }
 
 interface PlayerQiProjectionCacheEntry {
   signature: PlayerQiProjectionCacheSignature;
+  techniqueInputs: QiProjectionTechniqueInputSnapshot[];
+  buffInputs: QiProjectionBuffInputSnapshot[];
   modifiers: QiProjectionModifier[];
   projections: Map<string, PlayerQiResourceProjection | null>;
 }
@@ -170,8 +180,18 @@ function getPlayerQiProjectionCache(
   if (cached && isSamePlayerQiProjectionCacheSignature(cached.signature, signature)) {
     return cached;
   }
+  if (cached
+    && cached.signature.attrBonusesRef === signature.attrBonusesRef
+    && cached.signature.runtimeBonusesRef === signature.runtimeBonusesRef
+    && hasSameTechniqueProjectionInputs(signature.techniquesRef, cached.techniqueInputs)
+    && hasSameBuffProjectionInputs(signature.buffsRef, cached.buffInputs)) {
+    cached.signature = signature;
+    return cached;
+  }
   const entry: PlayerQiProjectionCacheEntry = {
     signature,
+    techniqueInputs: snapshotTechniqueProjectionInputs(signature.techniquesRef),
+    buffInputs: snapshotBuffProjectionInputs(signature.buffsRef),
     modifiers: collectPlayerQiProjectionModifiers(player),
     projections: new Map(),
   };
@@ -185,7 +205,6 @@ function buildPlayerQiProjectionCacheSignature(player: QiProjectionPlayerView): 
     techniquesRef: player.techniques?.techniques,
     buffsRevision: normalizeRevision(player.buffs?.revision),
     buffsRef: player.buffs?.buffs,
-    attrsRevision: normalizeRevision(player.attrs?.revision),
     attrBonusesRef: player.attrBonuses,
     runtimeBonusesRef: player.runtimeBonuses,
   };
@@ -199,9 +218,74 @@ function isSamePlayerQiProjectionCacheSignature(
     && left.techniquesRef === right.techniquesRef
     && left.buffsRevision === right.buffsRevision
     && left.buffsRef === right.buffsRef
-    && left.attrsRevision === right.attrsRevision
     && left.attrBonusesRef === right.attrBonusesRef
     && left.runtimeBonusesRef === right.runtimeBonusesRef;
+}
+
+function snapshotTechniqueProjectionInputs(
+  techniques: QiProjectionTechniqueState[] | null | undefined,
+): QiProjectionTechniqueInputSnapshot[] {
+  return (techniques ?? []).map((technique) => ({
+    technique,
+    level: technique.level,
+    layers: technique.layers,
+  }));
+}
+
+function hasSameTechniqueProjectionInputs(
+  techniques: QiProjectionTechniqueState[] | null | undefined,
+  snapshots: QiProjectionTechniqueInputSnapshot[],
+): boolean {
+  const entries = techniques ?? [];
+  if (entries.length !== snapshots.length) {
+    return false;
+  }
+  for (let index = 0; index < entries.length; index += 1) {
+    const technique = entries[index];
+    const snapshot = snapshots[index];
+    if (technique !== snapshot.technique
+      || technique.level !== snapshot.level
+      || technique.layers !== snapshot.layers) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function snapshotBuffProjectionInputs(
+  buffs: QiProjectionBuffState[] | null | undefined,
+): QiProjectionBuffInputSnapshot[] {
+  return (buffs ?? []).map((buff) => ({
+    buff,
+    active: isQiProjectionBuffActive(buff),
+    qiProjection: buff.qiProjection,
+  }));
+}
+
+function hasSameBuffProjectionInputs(
+  buffs: QiProjectionBuffState[] | null | undefined,
+  snapshots: QiProjectionBuffInputSnapshot[],
+): boolean {
+  const entries = buffs ?? [];
+  if (entries.length !== snapshots.length) {
+    return false;
+  }
+  for (let index = 0; index < entries.length; index += 1) {
+    const buff = entries[index];
+    const snapshot = snapshots[index];
+    if (buff !== snapshot.buff
+      || isQiProjectionBuffActive(buff) !== snapshot.active
+      || buff.qiProjection !== snapshot.qiProjection) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function isQiProjectionBuffActive(buff: QiProjectionBuffState): boolean {
+  return (buff.remainingTicks ?? 0) > 0
+    && (buff.stacks ?? 0) > 0
+    && Array.isArray(buff.qiProjection);
 }
 
 function normalizeRevision(value: unknown): number {

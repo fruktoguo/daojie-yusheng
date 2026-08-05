@@ -3,6 +3,7 @@
 const assert = require("node:assert/strict");
 
 const { WorldRuntimeInstanceTickOrchestrationService } = require("../runtime/world/world-runtime-instance-tick-orchestration.service");
+const { resolvePlayerQiResourceProjection } = require("../runtime/world/world-runtime-qi-projection.helpers");
 /**
  * createDeps：构建并返回目标对象。
  * @param log 参数说明。
@@ -756,6 +757,76 @@ async function verifyFengShuiFinalizesOnceAfterAcceleratedStepBatch() {
     assert.equal(durations['instance.fengShuiFinalizeCoalescedRequests'].count, 5);
 }
 
+function verifyQiProjectionCacheTracksOnlyRelevantInputs() {
+    const layers = [{
+        level: 1,
+        expToNext: 10,
+        qiProjection: [{
+            selector: { resourceKeys: ['aura.refined.neutral'] },
+            visibility: 'absorbable',
+            efficiencyBpMultiplier: 11000,
+        }],
+    }, {
+        level: 2,
+        expToNext: 0,
+        qiProjection: [{
+            selector: { resourceKeys: ['aura.refined.neutral'] },
+            visibility: 'absorbable',
+            efficiencyBpMultiplier: 12000,
+        }],
+    }];
+    const technique = { level: 1, exp: 0, layers };
+    const buff = {
+        remainingTicks: 3,
+        stacks: 1,
+        qiProjection: [{
+            selector: { resourceKeys: ['aura.refined.neutral'] },
+            efficiencyBpMultiplier: 10500,
+        }],
+    };
+    const player = {
+        attrs: { revision: 1 },
+        techniques: { revision: 1, techniques: [technique] },
+        buffs: { revision: 1, buffs: [buff] },
+        attrBonuses: [],
+        runtimeBonuses: [],
+    };
+    const initial = resolvePlayerQiResourceProjection(player, 'aura.refined.neutral');
+
+    player.attrs.revision += 1;
+    assert.equal(resolvePlayerQiResourceProjection(player, 'aura.refined.neutral'), initial);
+
+    technique.exp += 1;
+    player.techniques.revision += 1;
+    assert.equal(resolvePlayerQiResourceProjection(player, 'aura.refined.neutral'), initial);
+
+    buff.remainingTicks -= 1;
+    player.buffs.revision += 1;
+    assert.equal(resolvePlayerQiResourceProjection(player, 'aura.refined.neutral'), initial);
+
+    technique.level = 2;
+    player.techniques.revision += 1;
+    const afterTechniqueLevel = resolvePlayerQiResourceProjection(player, 'aura.refined.neutral');
+    assert.notEqual(afterTechniqueLevel, initial);
+    assert.notEqual(afterTechniqueLevel?.efficiencyBp, initial?.efficiencyBp);
+
+    buff.remainingTicks = 0;
+    player.buffs.revision += 1;
+    const afterBuffExpiry = resolvePlayerQiResourceProjection(player, 'aura.refined.neutral');
+    assert.notEqual(afterBuffExpiry, afterTechniqueLevel);
+    assert.notEqual(afterBuffExpiry?.efficiencyBp, afterTechniqueLevel?.efficiencyBp);
+
+    player.runtimeBonuses = [{
+        qiProjection: [{
+            selector: { resourceKeys: ['aura.refined.neutral'] },
+            efficiencyBpMultiplier: 13000,
+        }],
+    }];
+    const afterRuntimeBonus = resolvePlayerQiResourceProjection(player, 'aura.refined.neutral');
+    assert.notEqual(afterRuntimeBonus, afterBuffExpiry);
+    assert.notEqual(afterRuntimeBonus?.efficiencyBp, afterBuffExpiry?.efficiencyBp);
+}
+
 Promise.resolve()
     .then(() => verifyNormalPath())
     .then(() => verifyZeroTickPath())
@@ -768,6 +839,7 @@ Promise.resolve()
     .then(() => verifyTileQiDrainRelocatesPlayerToSpawnOnEmptyQi())
     .then(() => verifyOperationFailuresAreIsolatedWithinTick())
     .then(() => verifyFengShuiFinalizesOnceAfterAcceleratedStepBatch())
+    .then(() => verifyQiProjectionCacheTracksOnlyRelevantInputs())
     .then(() => {
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-instance-tick-orchestration' }, null, 2));
 });
