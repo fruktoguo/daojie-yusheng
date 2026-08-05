@@ -240,7 +240,9 @@ export async function handleBuildDeconstructIntent(runtime, playerId, payload) {
     if (!building) {
         return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: 'building_not_found' }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
     }
-    if (!sectAccess.applies && building.ownerPlayerId !== playerId) {
+    if (!sectAccess.applies
+        && building.ownerPlayerId !== playerId
+        && !isOwnedTimeChamberInstance(context.instance, playerId)) {
         return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: 'building_owner_mismatch' }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
     }
     const targetAccess = resolveDeconstructTargetAccess(runtime, context, playerId, building, payload);
@@ -542,6 +544,14 @@ function resolveSectBuildingAccess(runtime, context, playerId, permissionId) {
         allowed: verdict === true,
         sectId,
     };
+}
+
+/** 密室创建者可以治理室内建筑，但不会接管建筑本身的资产归属。 */
+function isOwnedTimeChamberInstance(instance, playerId) {
+    const ownerPlayerId = normalizeBuildingRequestId(instance?.meta?.ownerPlayerId);
+    return instance?.meta?.kind === 'time_chamber'
+        && ownerPlayerId.length > 0
+        && ownerPlayerId === normalizeBuildingRequestId(playerId);
 }
 function normalizeBuildingRequestId(value) {
     return typeof value === 'string' && value.trim() ? value.trim() : '';

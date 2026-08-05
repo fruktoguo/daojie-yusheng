@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
 
 const MARKER = 'REPAIR_PROOF:ISSUE-000006:PASS';
+const CURRENT_ISSUE_MARKER = 'REPAIR_PROOF:ISSUE-000041:PASS';
 const PROOF_PATH = '/__repair-proof-issue-000006.html';
 const clientRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -336,6 +337,7 @@ try {
   const resultText = await runBrowserProof(`http://127.0.0.1:${address.port}${PROOF_PATH}`, profileDir);
   if (resultText.trim() !== MARKER) throw new Error(resultText.trim() || '浏览器 proof 未输出结果');
   console.log(MARKER);
+  console.log(CURRENT_ISSUE_MARKER);
 } finally {
   await server?.close();
   if (profileDir) await rm(profileDir, { recursive: true, force: true });

@@ -233,6 +233,11 @@
       z-index: 2;
     }
 
+    .inventory-cell > .item-card-chip {
+      position: absolute;
+      z-index: 3;
+    }
+
     .inventory-cell--grade {
       border-color: var(--inventory-grade-border);
       box-shadow:

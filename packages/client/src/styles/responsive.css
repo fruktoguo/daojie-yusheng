@@ -425,7 +425,25 @@
         grid-template-columns: 1fr;
       }
       .tech-modal-stack {
-        grid-template-rows: auto minmax(0, 1.08fr) minmax(0, 0.92fr);
+        grid-template-rows: auto auto auto auto;
+        height: auto;
+        min-height: 100%;
+      }
+      .detail-modal-card.detail-modal--technique #detail-modal-body {
+        overflow-x: hidden;
+        overflow-y: auto;
+        overscroll-behavior-y: contain;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-gutter: stable;
+      }
+      .detail-modal-card.detail-modal--technique .tech-modal-pane,
+      .detail-modal-card.detail-modal--technique .tech-modal-pane-body {
+        min-height: auto;
+      }
+      .detail-modal-card.detail-modal--technique .tech-modal-pane-body,
+      .detail-modal-card.detail-modal--technique .tech-modal-pane--constellation .tech-modal-pane-body {
+        overflow: visible;
+        padding-right: 0;
       }
       .tech-focus-grid {
         grid-template-columns: 1fr;
@@ -457,7 +475,8 @@
         overflow-y: auto;
       }
       .tech-starfield-canvas-shell {
-        min-height: clamp(300px, 48vh, 460px);
+        min-height: clamp(360px, 58dvh, 520px);
+        touch-action: pan-y;
       }
       .heaven-gate-board {
         --heaven-gate-core-size: clamp(88px, 26vw, 118px);
