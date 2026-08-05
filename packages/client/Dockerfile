@@ -7,9 +7,10 @@ COPY packages/client/package.json packages/client/
 ARG PNPM_VERSION=10.29.1
 ARG NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
 ENV NPM_CONFIG_REGISTRY=${NPM_CONFIG_REGISTRY}
-ENV CHROME_BIN=/usr/bin/chromium
+ENV CHROME_BIN=/usr/lib/chromium/chromium
 RUN sed -i 's#dl-cdn.alpinelinux.org#mirrors.aliyun.com#' /etc/apk/repositories \
   && apk add --no-cache chromium font-noto-cjk
+RUN test -x "$CHROME_BIN"
 RUN npm install -g "pnpm@${PNPM_VERSION}" --registry="${NPM_CONFIG_REGISTRY}" \
   && pnpm --version
 RUN pnpm install --frozen-lockfile

@@ -34,6 +34,7 @@ async function findChromeExecutable() {
     process.env.CHROME_BIN,
     '/usr/bin/google-chrome-stable',
     '/usr/bin/google-chrome',
+    '/usr/lib/chromium/chromium',
     '/usr/bin/chromium',
     '/usr/bin/chromium-browser',
     '/opt/google/chrome/google-chrome',
