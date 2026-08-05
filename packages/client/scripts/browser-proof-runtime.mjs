@@ -159,6 +159,8 @@ export async function withClientBrowserProof({ viewport, profilePrefix }, run) {
       '--disable-extensions',
       '--disable-sync',
       '--disable-gpu',
+      // Docker build 默认只有 64MB /dev/shm，避免渲染器在布局 proof 中阻塞。
+      '--disable-dev-shm-usage',
       '--no-sandbox',
       '--remote-debugging-port=0',
       `--user-data-dir=${profileDir}`,
