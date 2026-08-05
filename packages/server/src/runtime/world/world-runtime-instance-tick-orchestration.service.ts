@@ -74,6 +74,11 @@ export class WorldRuntimeInstanceTickOrchestrationService {
   private readonly defeatedPlayerIds = new Set<string>();
   /** 以运行时实例为键保存 1Hz 世界时钟余数，避免状态泄漏到总 facade。 */
   private readonly worldTickElapsedRemainderMsByRuntime = new WeakMap<object, number>();
+  /** 建筑域或目录变化时一次性使该实例玩家的领悟展示投影失效。 */
+  private readonly comprehensionProjectionBuildingSourceByInstance = new WeakMap<object, {
+    buildingRevision: number;
+    buildingCatalog: unknown;
+  }>();
 
   constructor(
     @Optional() @Inject(InstanceWorkerPoolService)
@@ -85,6 +90,29 @@ export class WorldRuntimeInstanceTickOrchestrationService {
   /** T-17: 外部标记玩家死亡，加入增量集合。 */
   markPlayerDefeated(playerId: string): void {
     this.defeatedPlayerIds.add(playerId);
+  }
+
+  private consumeComprehensionProjectionBuildingInvalidation(instance: any): boolean {
+    if (!instance || typeof instance !== 'object') {
+      return true;
+    }
+    const buildingRevision = typeof instance.getPersistenceDomainRevision === 'function'
+      ? Math.max(0, Math.trunc(Number(instance.getPersistenceDomainRevision('building')) || 0))
+      : Math.max(0, Math.trunc(Number(instance.persistenceDomainRevisionByDomain?.get?.('building')) || 0));
+    const buildingCatalog = instance.buildingCatalog ?? null;
+    const previous = this.comprehensionProjectionBuildingSourceByInstance.get(instance);
+    if (
+      previous
+      && previous.buildingRevision === buildingRevision
+      && previous.buildingCatalog === buildingCatalog
+    ) {
+      return false;
+    }
+    this.comprehensionProjectionBuildingSourceByInstance.set(instance, {
+      buildingRevision,
+      buildingCatalog,
+    });
+    return true;
   }
 
   private recordIsolatedOperationFailure(deps, phase, error, details = {}) {
@@ -780,6 +808,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                 });
                 addMeasuredTickSection(sectionDurations, 'instance.listPlayerIdsMs', listPlayerIdsStartedAt);
                 if (currentPlayerIds.length > 0) {
+                    const invalidateComprehensionProjection = this.consumeComprehensionProjectionBuildingInvalidation(instance);
                     const playerAnchorSyncStartedAt = performance.now();
                     this.runIsolatedSyncOperation(deps, 'player_world_anchor_sync_batch', () => ({
                         instanceId: instance.meta.instanceId,
@@ -835,6 +864,8 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                             getInstanceRuntime: (instanceId) => deps.getInstanceRuntime(instanceId),
                             markPlayerDefeated: (defeatedPlayerId) => this.markPlayerDefeated(defeatedPlayerId),
                             onPlayerQiSpent: (player, amount) => instance.disperseQiAt?.(player?.x, player?.y, amount),
+                            invalidateComprehensionProjection,
+                            deferComprehensionProjection: index < steps - 1,
                             recordTickSectionDuration: (key, durationMs, count = 1) => addTickSectionDuration(sectionDurations, key, durationMs, count),
                         }));
                     }

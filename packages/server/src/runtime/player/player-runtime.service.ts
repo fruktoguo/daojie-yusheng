@@ -29,7 +29,11 @@ import { MapTemplateRepository } from '../map/map-template.repository';
 import { PlayerAttributesService } from './player-attributes.service';
 import { PlayerProgressionService } from './player-progression.service';
 import { TechniqueAggregationService } from '../technique-generation/technique-aggregation.service';
-import { refreshPlayerComprehensionSpeedRateProjection } from './player-comprehension-speed.helpers';
+import {
+    PLAYER_COMPREHENSION_PROJECTION_CACHE_HIT,
+    markPlayerComprehensionSpeedRateProjectionDirty,
+    refreshPlayerComprehensionSpeedRateProjectionIfDirty,
+} from './player-comprehension-speed.helpers';
 import { applyPlayerCraftExpRate, resolvePlayerCraftRealmLevel } from '../craft/craft-effect-runtime.helpers';
 import { cloneAutoUsePillList, cloneCombatTargetingRules, isSameAutoUsePillList, isSameCombatTargetingRules, normalizePersistedAutoUsePills, normalizePersistedCombatTargetingRules } from './player-combat-config.helpers';
 import { projectHeavenGateState, projectRealmState } from './player-realm-projection.helpers';
@@ -5190,9 +5194,25 @@ export class PlayerRuntimeService {
                 this.bumpPersistentRevision(player);
             }
             recordPlayerTickPerf(options, 'playerTick.artifactTickMs', artifactTickStartedAt);
-            refreshPlayerComprehensionSpeedRateProjection(player, {
-                getInstanceRuntime: options.getInstanceRuntime,
-            });
+            if (options.invalidateComprehensionProjection === true) {
+                markPlayerComprehensionSpeedRateProjectionDirty(player);
+            }
+            if (options.deferComprehensionProjection === true) {
+                recordPlayerTickCount(options, 'playerTick.comprehensionProjectionDeferrals');
+            }
+            else {
+                const comprehensionProjectionStartedAt = performance.now();
+                const comprehensionProjectionResult = refreshPlayerComprehensionSpeedRateProjectionIfDirty(player, {
+                    getInstanceRuntime: options.getInstanceRuntime,
+                });
+                recordPlayerTickPerf(options, 'playerTick.comprehensionProjectionMs', comprehensionProjectionStartedAt);
+                recordPlayerTickCount(
+                    options,
+                    comprehensionProjectionResult === PLAYER_COMPREHENSION_PROJECTION_CACHE_HIT
+                        ? 'playerTick.comprehensionProjectionCacheHits'
+                        : 'playerTick.comprehensionProjectionRecalculations',
+                );
+            }
             const idleCultivationResumeStartedAt = performance.now();
             if (player.hp > 0 && shouldResumeIdleCultivation(player, playerTick)) {
                 player.combat.cultivationActive = true;
@@ -7023,6 +7043,9 @@ function markPlayerDirtyDomains(player, domains) {
     for (const domain of Array.isArray(domains) ? domains : []) {
         if (typeof domain === 'string' && domain.trim()) {
             const normalizedDomain = domain.trim();
+            if (normalizedDomain === 'world_anchor' || normalizedDomain === 'position_checkpoint') {
+                markPlayerComprehensionSpeedRateProjectionDirty(player);
+            }
             if (normalizedDomain === 'technique'
                 && Array.isArray(player.pendingTechniqueComprehensions)
                 && player.pendingTechniqueComprehensions.length > 0) {
@@ -13091,6 +13114,14 @@ function recordPlayerTickPerf(options, key, startedAt, count = 1) {
         return;
     }
     recorder(key, performance.now() - startedAt, count);
+}
+
+function recordPlayerTickCount(options, key, count = 1) {
+    const recorder = options?.recordTickSectionDuration;
+    if (typeof recorder !== 'function') {
+        return;
+    }
+    recorder(key, 0, count);
 }
 
 function normalizeEquipmentSlotsWithTemplates(slots, contentTemplateRepository) {

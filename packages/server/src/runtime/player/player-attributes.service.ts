@@ -9,10 +9,11 @@
  * 并在属性变化时同步更新生命/灵力上限和当前值比例。
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CRAFT_EFFECT_KINDS, CRAFT_EFFECT_SKILL_KINDS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_BASE_ATTRS, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, NUMERIC_STAT_MULTIPLIER_FLOORS, addCraftEffectStatsFromItem, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcBodyTrainingAttrPercentBonus, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, cloneCraftEffectStats, cloneNumericRatioDivisors, cloneNumericStats, compileValueStatsToActualStats, createEmptyCraftEffectStats, createNumericStats, getEffectivePlayerMoveSpeed, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, percentModifierToMultiplier, resolvePlayerFacingContentName, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } from '@mud/shared';
+import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CRAFT_EFFECT_KINDS, CRAFT_EFFECT_SKILL_KINDS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_BASE_ATTRS, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, NUMERIC_STAT_MULTIPLIER_FLOORS, addCraftEffectStatsFromItem, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcBodyTrainingAttrPercentBonus, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, cloneCraftEffectStats, cloneNumericRatioDivisors, cloneNumericStats, compileValueStatsToActualStats, createEmptyCraftEffectStats, createNumericStats, getEffectivePlayerMoveSpeed, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, percentModifierToMultiplier, readCraftEffectStat, resolvePlayerFacingContentName, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } from '@mud/shared';
 import { PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID } from '../../constants/gameplay/pvp';
 import { type RuntimeExternalSectionKey, WorldRuntimeMetricsService } from '../world/world-runtime-metrics.service';
 import { resolvePlayerDailySignInFortuneLuck } from './player-special-stat.helpers';
+import { markPlayerComprehensionSpeedRateProjectionDirty } from './player-comprehension-speed.helpers';
 
 type AttributeRecalculationReason =
     | 'world_time'
@@ -183,6 +184,7 @@ export class PlayerAttributesService {
             this.recordAttributeRecalculation(startedAt, techniqueCount, false);
             return false;
         }
+        const comprehensionProjectionSourceChanged = hasComprehensionProjectionSourceChanged(player.attrs, next);
         player.attrs.stage = next.stage;
         player.attrs.rawBaseAttrs = next.rawBaseAttrs;
         player.attrs.baseAttrs = next.baseAttrs;
@@ -204,6 +206,9 @@ export class PlayerAttributesService {
             ? clamp(Math.round(player.qi / previousMaxQi * nextMaxQi), 0, nextMaxQi)
             : nextMaxQi;
         player.selfRevision += 1;
+        if (comprehensionProjectionSourceChanged) {
+            markPlayerComprehensionSpeedRateProjectionDirty(player);
+        }
         this.recordAttributeRecalculation(startedAt, techniqueCount, true);
         return true;
     }
@@ -433,6 +438,18 @@ function applySpiritualRoots(target, roots) {
     target.elementDamageReduce.water += roots.water;
     target.elementDamageReduce.fire += roots.fire;
     target.elementDamageReduce.earth += roots.earth;
+}
+
+function hasComprehensionProjectionSourceChanged(previous, next) {
+    return normalizeComprehensionProjectionSourceNumber(readCraftEffectStat(previous?.craftEffectStats, 'transmission', 'speedRate'))
+        !== normalizeComprehensionProjectionSourceNumber(readCraftEffectStat(next?.craftEffectStats, 'transmission', 'speedRate'))
+        || normalizeComprehensionProjectionSourceNumber(previous?.numericStats?.techniqueExpRate)
+        !== normalizeComprehensionProjectionSourceNumber(next?.numericStats?.techniqueExpRate);
+}
+
+function normalizeComprehensionProjectionSourceNumber(value) {
+    const normalized = Number(value);
+    return Number.isFinite(normalized) ? normalized : 0;
 }
 
 function applyCultivationBaselineStats(target) {

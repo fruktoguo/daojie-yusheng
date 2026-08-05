@@ -757,6 +757,48 @@ async function verifyFengShuiFinalizesOnceAfterAcceleratedStepBatch() {
     assert.equal(durations['instance.fengShuiFinalizeCoalescedRequests'].count, 5);
 }
 
+async function verifyComprehensionProjectionRunsOnlyOnFinalAcceleratedStep() {
+    const log = [];
+    const deps = createDeps(log);
+    const instance = deps.getInstanceRuntime('instance:1');
+    instance.tick = 0;
+    instance.tickSpeed = 3;
+    instance.paused = false;
+    let buildingRevision = 0;
+    instance.getPersistenceDomainRevision = (domain) => domain === 'building' ? buildingRevision : 0;
+    instance.tickOnce = () => {
+        instance.tick += 1;
+        if (instance.tick === 2) {
+            buildingRevision += 1;
+        }
+        return { completedBuildings: [], transfers: [], monsterActions: [] };
+    };
+    deps.worldRuntimeNavigationService.materializeNavigationCommandsForInstance = async () => {};
+    deps.timeChamberRuntimeService = {
+        isTimeChamberInstance: () => true,
+        consumeScheduledStep: () => true,
+    };
+    const projectionDeferrals = [];
+    const projectionInvalidations = [];
+    deps.playerRuntimeService.advanceTickForPlayerIds = (_playerIds, _tick, options) => {
+        projectionDeferrals.push(options.deferComprehensionProjection);
+        projectionInvalidations.push(options.invalidateComprehensionProjection);
+    };
+
+    const service = new WorldRuntimeInstanceTickOrchestrationService();
+    const ticks = await service.advanceFrame(deps, 100, null, [{
+        instanceId: instance.meta.instanceId,
+        instance,
+        steps: 3,
+        speed: 3,
+        droppedSteps: 0,
+    }]);
+
+    assert.equal(ticks, 3);
+    assert.deepEqual(projectionDeferrals, [true, true, false]);
+    assert.deepEqual(projectionInvalidations, [true, true, false]);
+}
+
 function verifyQiProjectionCacheTracksOnlyRelevantInputs() {
     const layers = [{
         level: 1,
@@ -839,6 +881,7 @@ Promise.resolve()
     .then(() => verifyTileQiDrainRelocatesPlayerToSpawnOnEmptyQi())
     .then(() => verifyOperationFailuresAreIsolatedWithinTick())
     .then(() => verifyFengShuiFinalizesOnceAfterAcceleratedStepBatch())
+    .then(() => verifyComprehensionProjectionRunsOnlyOnFinalAcceleratedStep())
     .then(() => verifyQiProjectionCacheTracksOnlyRelevantInputs())
     .then(() => {
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-instance-tick-orchestration' }, null, 2));

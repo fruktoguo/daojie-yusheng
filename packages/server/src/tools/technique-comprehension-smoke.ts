@@ -14,7 +14,12 @@ import { projectBootstrapTechniqueStateForSync } from '../network/world-sync-pla
 import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
 import { MapTemplateRepository } from '../runtime/map/map-template.repository';
 import {
+  PLAYER_COMPREHENSION_PROJECTION_CACHE_HIT,
+  PLAYER_COMPREHENSION_PROJECTION_RECALCULATED_CHANGED,
+  PLAYER_COMPREHENSION_PROJECTION_RECALCULATED_UNCHANGED,
+  markPlayerComprehensionSpeedRateProjectionDirty,
   refreshPlayerComprehensionSpeedRateProjection,
+  refreshPlayerComprehensionSpeedRateProjectionIfDirty,
   resolvePlayerComprehensionSpeedRate,
 } from '../runtime/player/player-comprehension-speed.helpers';
 import { PlayerProgressionService } from '../runtime/player/player-progression.service';
@@ -724,6 +729,56 @@ function testSelfComprehensionUsesStandingFacilitySpeed() {
   });
   assert.equal(damagedMatResult.changed, true);
   assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 5);
+}
+
+function testComprehensionProjectionUsesDirtySourceCache() {
+  const learner = createPlayer('learner:projection-dirty-cache', 0, 0);
+  const instance = createMeditationMatInstance([{ id: learner.playerId, x: learner.x, y: learner.y }]);
+
+  assert.equal(
+    refreshPlayerComprehensionSpeedRateProjectionIfDirty(learner, { instanceRuntime: instance }),
+    PLAYER_COMPREHENSION_PROJECTION_RECALCULATED_CHANGED,
+  );
+  const firstRevision = learner.attrs.revision;
+  assert.equal(
+    refreshPlayerComprehensionSpeedRateProjectionIfDirty(learner, { instanceRuntime: instance }),
+    PLAYER_COMPREHENSION_PROJECTION_CACHE_HIT,
+    '来源未变化时必须命中投影缓存',
+  );
+  assert.equal(learner.attrs.revision, firstRevision, '缓存命中不能推动属性增量修订');
+
+  markPlayerComprehensionSpeedRateProjectionDirty(learner);
+  assert.equal(
+    refreshPlayerComprehensionSpeedRateProjectionIfDirty(learner, { instanceRuntime: instance }),
+    PLAYER_COMPREHENSION_PROJECTION_RECALCULATED_UNCHANGED,
+    '显式标脏必须触发一次收敛，即使结果未变化',
+  );
+
+  learner.attrs.numericStats.techniqueExpRate = 100;
+  markPlayerComprehensionSpeedRateProjectionDirty(learner);
+  assert.equal(
+    refreshPlayerComprehensionSpeedRateProjectionIfDirty(learner, { instanceRuntime: instance }),
+    PLAYER_COMPREHENSION_PROJECTION_RECALCULATED_CHANGED,
+    '个人速度来源直接变化时也必须失效',
+  );
+  assert.equal((learner as any).comprehensionSpeedRate, 1.01);
+
+  const mat = instance.buildingById.get(`mat:${learner.playerId}`);
+  assert.ok(mat);
+  mat.state = 'building';
+  mat.revision += 1;
+  markPlayerComprehensionSpeedRateProjectionDirty(learner);
+  assert.equal(
+    refreshPlayerComprehensionSpeedRateProjectionIfDirty(learner, { instanceRuntime: instance }),
+    PLAYER_COMPREHENSION_PROJECTION_RECALCULATED_CHANGED,
+    '脚下建筑状态修订必须使展示缓存失效',
+  );
+  assert.equal((learner as any).comprehensionSpeedRate, 0.01);
+  assert.equal(
+    resolvePlayerComprehensionSpeedRate(learner, { instanceRuntime: instance }),
+    0.01,
+    '权威公式必须绕过展示缓存读取当前真实来源',
+  );
 }
 
 function testComprehensionSpeedRateProjectionAndCodec() {
@@ -1686,6 +1741,7 @@ testDynamicFactorsApplyToProgressGain();
 testCultivationUsesElapsedTicksForPendingComprehension();
 testCultivationReportsSingleTechniqueStatisticHint();
 testSelfComprehensionUsesStandingFacilitySpeed();
+testComprehensionProjectionUsesDirtySourceCache();
 testComprehensionSpeedRateProjectionAndCodec();
 testAutoSwitchCultivationCanSelectPendingComprehension();
 testMonsterKillProgressesComprehensionByOneCultivationTick();

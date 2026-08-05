@@ -1852,6 +1852,57 @@ function testAdvanceSinglePlayerTickDirtyDomain(): void {
   assertDirtyDomains(service, playerId, ['progression', 'buff'], ['snapshot', 'attr']);
 }
 
+function testAdvanceSinglePlayerTickDefersComprehensionProjection(): void {
+  const playerId = 'player:tick-comprehension-projection';
+  const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+  player.comprehensionSpeedRate = -1;
+  const deferredPerfKeys: string[] = [];
+
+  service.advanceSinglePlayerTick(player, 1, {
+    deferComprehensionProjection: true,
+    recordTickSectionDuration(key: string) {
+      deferredPerfKeys.push(key);
+    },
+  });
+
+  assert.equal(player.comprehensionSpeedRate, -1);
+  assert.ok(deferredPerfKeys.includes('playerTick.comprehensionProjectionDeferrals'));
+  assert.equal(deferredPerfKeys.includes('playerTick.comprehensionProjectionMs'), false);
+
+  const finalizedPerfKeys: string[] = [];
+  service.advanceSinglePlayerTick(player, 2, {
+    deferComprehensionProjection: false,
+    recordTickSectionDuration(key: string) {
+      finalizedPerfKeys.push(key);
+    },
+  });
+
+  assert.notEqual(player.comprehensionSpeedRate, -1);
+  assert.ok(finalizedPerfKeys.includes('playerTick.comprehensionProjectionMs'));
+  assert.ok(finalizedPerfKeys.includes('playerTick.comprehensionProjectionRecalculations'));
+  assert.equal(finalizedPerfKeys.includes('playerTick.comprehensionProjectionDeferrals'), false);
+
+  const cachedPerfKeys: string[] = [];
+  service.advanceSinglePlayerTick(player, 3, {
+    recordTickSectionDuration(key: string) {
+      cachedPerfKeys.push(key);
+    },
+  });
+  assert.ok(cachedPerfKeys.includes('playerTick.comprehensionProjectionCacheHits'));
+  assert.equal(cachedPerfKeys.includes('playerTick.comprehensionProjectionRecalculations'), false);
+
+  service.markPersistenceDirtyDomains(player, ['world_anchor']);
+  const movedPerfKeys: string[] = [];
+  service.advanceSinglePlayerTick(player, 4, {
+    recordTickSectionDuration(key: string) {
+      movedPerfKeys.push(key);
+    },
+  });
+  assert.ok(movedPerfKeys.includes('playerTick.comprehensionProjectionRecalculations'));
+  assert.equal(movedPerfKeys.includes('playerTick.comprehensionProjectionCacheHits'), false);
+}
+
 function testIdleCultivationResumeIgnoresStaleNavigationBlockForPendingComprehension(): void {
   const playerId = 'player:idle-cultivation-pending';
   const service = createHydratedService(playerId);
@@ -2377,6 +2428,7 @@ testLogbookDirtyDomain();
   testProgressionServiceDirtyDomains();
   testHeavenGateEnterRecalculatesAttributes();
   testAdvanceSinglePlayerTickDirtyDomain();
+  testAdvanceSinglePlayerTickDefersComprehensionProjection();
   testIdleCultivationResumeIgnoresStaleNavigationBlockForPendingComprehension();
   testIdleCultivationResumeRequiresTenIdleTicksAndNoTechniqueQueue();
   testIdleCultivationUsesAffectedPlayerClock();
