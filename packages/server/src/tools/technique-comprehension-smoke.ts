@@ -821,6 +821,34 @@ function testMonsterKillProgressesComprehensionByOneCultivationTick() {
   );
 }
 
+function testMonsterKillReusesSharedBaseCombatExp() {
+  const { progressionService } = createRuntimeService();
+  const learner = createPlayer('learner:kill-shared-base-exp', 0, 0);
+  let realmExpCalls = 0;
+  let techniqueExpCalls = 0;
+  const originalRealmExp = progressionService.getRealmCombatExp.bind(progressionService);
+  const originalTechniqueExp = progressionService.getTechniqueCombatExp.bind(progressionService);
+  progressionService.getRealmCombatExp = ((...args: Parameters<typeof progressionService.getRealmCombatExp>) => {
+    realmExpCalls += 1;
+    return originalRealmExp(...args);
+  }) as never;
+  progressionService.getTechniqueCombatExp = ((...args: Parameters<typeof progressionService.getTechniqueCombatExp>) => {
+    techniqueExpCalls += 1;
+    return originalTechniqueExp(...args);
+  }) as never;
+
+  progressionService.grantMonsterKillProgress(learner, {
+    monsterLevel: 1,
+    monsterTier: 'mortal_blood',
+    expMultiplier: 1,
+    contributionRatio: 1,
+    expAdjustmentRealmLv: 1,
+  });
+
+  assert.equal(realmExpCalls, 1, '境界与功法必须复用同一次基础击杀经验计算');
+  assert.equal(techniqueExpCalls, 0, '击杀热路径不应重复调用等价的功法基础经验入口');
+}
+
 function testMonsterKillExpOnlyKeepsRealmPreviewStable() {
   const { progressionService } = createRuntimeService();
   const learner = createPlayer('learner:kill-exp-only-preview', 0, 0);
@@ -1661,6 +1689,7 @@ testSelfComprehensionUsesStandingFacilitySpeed();
 testComprehensionSpeedRateProjectionAndCodec();
 testAutoSwitchCultivationCanSelectPendingComprehension();
 testMonsterKillProgressesComprehensionByOneCultivationTick();
+testMonsterKillReusesSharedBaseCombatExp();
 testMonsterKillExpOnlyKeepsRealmPreviewStable();
 testMonsterKillTechniqueCompletionFallsBackToFullStatisticDiff();
 testAllMaxedTechniqueProgressionCache();

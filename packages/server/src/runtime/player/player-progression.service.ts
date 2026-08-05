@@ -557,9 +557,12 @@ export class PlayerProgressionService {
             this.resolveCultivatingTechnique(player),
         );
 
-        const realmGain = applyRateBonus(this.getRealmCombatExp(monsterLevel, expAdjustmentRealmLv, monsterTier, expMultiplier, contributionRatio), player.attrs.numericStats.playerExpRate, 0);
+        // 境界与功法的击杀基础经验口径严格相同，只计算一次；各自后续的倍率、随机取整和推进顺序保持独立。
+        const baseCombatExp = this.getRealmCombatExp(monsterLevel, expAdjustmentRealmLv, monsterTier, expMultiplier, contributionRatio);
 
-        const techniqueBaseGain = this.getTechniqueCombatExp(monsterLevel, expAdjustmentRealmLv, monsterTier, expMultiplier, contributionRatio);
+        const realmGain = applyRateBonus(baseCombatExp, player.attrs.numericStats.playerExpRate, 0);
+
+        const techniqueBaseGain = baseCombatExp;
 
         phaseStartedAt = recordMonsterKillProgressPerf(
             input,
