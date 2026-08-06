@@ -7,13 +7,33 @@ import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CU
 import { PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID } from '../constants/gameplay/pvp';
 import { resolvePlayerDailySignInFortuneLuck } from '../runtime/player/player-special-stat.helpers';
 
-type TechniqueDetailCacheEntry = {
-    revision: number;
+type TechniqueEffectFingerprint = {
+    techId: unknown;
+    name: unknown;
+    level: unknown;
+    realmLv: unknown;
+    realm: unknown;
+    skillsEnabled: unknown;
+    grade: unknown;
+    category: unknown;
+    learnTechniqueMaxLevel: unknown;
+    skills: unknown;
+    layers: unknown;
+};
+
+type TechniqueSpecialStats = ReturnType<typeof calcTechniqueFinalSpecialStatBonus>;
+
+type TechniqueEffectCacheEntry = {
     techniquesRef: unknown[];
+    sourceRevision: number;
+    fingerprints: TechniqueEffectFingerprint[];
+    effectRevision: number;
+    specialStats: TechniqueSpecialStats;
     bonuses: AttrBonus[];
 };
 
-const techniqueDetailCache = new WeakMap<object, TechniqueDetailCacheEntry>();
+const techniqueEffectCache = new WeakMap<object, TechniqueEffectCacheEntry>();
+const EMPTY_TECHNIQUE_SPECIAL_STATS: TechniqueSpecialStats = { comprehension: 0, luck: 0 };
 const EMPTY_TECHNIQUE_DETAIL_BONUSES: AttrBonus[] = [];
 
 export function buildAttrDetailBonuses(player) {
@@ -96,12 +116,49 @@ function resolveTechniqueDetailBonuses(player): AttrBonus[] {
         return EMPTY_TECHNIQUE_DETAIL_BONUSES;
     }
 
-    const revision = Math.max(0, Math.trunc(Number(holder.revision ?? 0) || 0));
-    const cached = techniqueDetailCache.get(holder);
-    if (cached
-        && cached.revision === revision
-        && cached.techniquesRef === sourceTechniques) {
-        return cached.bonuses;
+    return resolveTechniqueEffectCache(player).bonuses;
+}
+
+/** 返回不受经验字段影响的功法效果 revision，供属性投影缓存使用。 */
+export function getTechniqueEffectRevision(player): number {
+    const holder = player?.techniques;
+    const sourceTechniques = Array.isArray(holder?.techniques) ? holder.techniques : [];
+    if (!holder || typeof holder !== 'object' || sourceTechniques.length === 0) {
+        return 0;
+    }
+    return resolveTechniqueEffectCache(player).effectRevision;
+}
+
+/** 返回按功法效果字段缓存的特殊属性汇总。 */
+export function getTechniqueFinalSpecialStatBonusCached(player): TechniqueSpecialStats {
+    const holder = player?.techniques;
+    const sourceTechniques = Array.isArray(holder?.techniques) ? holder.techniques : [];
+    if (!holder || typeof holder !== 'object' || sourceTechniques.length === 0) {
+        return EMPTY_TECHNIQUE_SPECIAL_STATS;
+    }
+    return resolveTechniqueEffectCache(player).specialStats;
+}
+
+function resolveTechniqueEffectCache(player): TechniqueEffectCacheEntry {
+    const holder = player.techniques;
+    const sourceTechniques = holder.techniques;
+    const sourceRevision = normalizeTechniqueRevision(holder.revision);
+    const cached = techniqueEffectCache.get(holder);
+    if (cached && cached.techniquesRef === sourceTechniques) {
+        if (cached.sourceRevision === sourceRevision) {
+            return cached;
+        }
+        if (areTechniqueEffectInputsStable(cached.fingerprints, sourceTechniques)) {
+            cached.sourceRevision = sourceRevision;
+            return cached;
+        }
+    }
+    if (cached && areTechniqueEffectInputsStable(cached.fingerprints, sourceTechniques)) {
+        // 运行态重建可能只替换数组容器；只要效果输入顺序和内容不变，可以复用派生结果。
+        cached.techniquesRef = sourceTechniques;
+        cached.sourceRevision = sourceRevision;
+        cached.fingerprints = sourceTechniques.map(buildTechniqueEffectFingerprint);
+        return cached;
     }
 
     const techniqueStates = sourceTechniques.map(toTechniqueState);
@@ -135,12 +192,65 @@ function resolveTechniqueDetailBonuses(player): AttrBonus[] {
             qiProjection: cloneQiProjectionModifiers(qiProjection),
         });
     }
-    techniqueDetailCache.set(holder, {
-        revision,
+    const next: TechniqueEffectCacheEntry = {
         techniquesRef: sourceTechniques,
+        sourceRevision,
+        fingerprints: sourceTechniques.map(buildTechniqueEffectFingerprint),
+        effectRevision: (cached?.effectRevision ?? 0) + 1,
+        specialStats: calcTechniqueFinalSpecialStatBonus(techniqueStates),
         bonuses,
-    });
-    return bonuses;
+    };
+    techniqueEffectCache.set(holder, next);
+    return next;
+}
+
+function buildTechniqueEffectFingerprint(entry): TechniqueEffectFingerprint {
+    return {
+        techId: entry?.techId,
+        name: entry?.name,
+        level: entry?.level,
+        realmLv: entry?.realmLv,
+        realm: entry?.realm,
+        skillsEnabled: entry?.skillsEnabled,
+        grade: entry?.grade,
+        category: entry?.category,
+        learnTechniqueMaxLevel: entry?.learnTechniqueMaxLevel,
+        skills: entry?.skills,
+        layers: entry?.layers,
+    };
+}
+
+function normalizeTechniqueRevision(value: unknown): number {
+    return Math.max(0, Math.trunc(Number(value ?? 0) || 0));
+}
+
+function areTechniqueEffectInputsStable(
+    fingerprints: TechniqueEffectFingerprint[],
+    sourceTechniques: unknown[],
+): boolean {
+    // exp/expToNext 只影响进度展示，不影响属性、特殊属性或气机投影，因此刻意排除。
+    if (fingerprints.length !== sourceTechniques.length) {
+        return false;
+    }
+    for (let index = 0; index < sourceTechniques.length; index += 1) {
+        const current = sourceTechniques[index] as any;
+        const previous = fingerprints[index];
+        if (!previous
+            || previous.techId !== current?.techId
+            || previous.name !== current?.name
+            || previous.level !== current?.level
+            || previous.realmLv !== current?.realmLv
+            || previous.realm !== current?.realm
+            || previous.skillsEnabled !== current?.skillsEnabled
+            || previous.grade !== current?.grade
+            || previous.category !== current?.category
+            || previous.learnTechniqueMaxLevel !== current?.learnTechniqueMaxLevel
+            || previous.skills !== current?.skills
+            || previous.layers !== current?.layers) {
+            return false;
+        }
+    }
+    return true;
 }
 /**
  * buildAttrDetailNumericStatBreakdowns：构建并返回目标对象。

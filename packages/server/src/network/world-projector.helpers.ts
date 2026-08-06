@@ -20,7 +20,6 @@ import {
   type ItemStack,
   type TechniqueTransmissionJobState,
   type SyncedItemStack,
-  type TechniqueState,
   type TechniqueUpdateEntryView,
   type VisibleBuffState,
   type WorldBuildingPatchView,
@@ -34,7 +33,6 @@ import {
   type WorldPortalPatchView,
   GAME_DAY_TICKS,
   applyEquipmentAttributeEffectivenessToItemStack,
-  calcTechniqueFinalSpecialStatBonus,
   cloneCraftEffectStats,
   getFirstGrapheme,
   normalizeCombatAttackIntensity,
@@ -91,6 +89,7 @@ import {
   isSameBuffList,
   isSameActionOrder,
   isSameCraftSkillState,
+  isSameTechniqueEntry,
 } from './projector-compare';
 import {
   diffPlayerEntries,
@@ -114,7 +113,11 @@ import {
   diffNumericStats,
   diffRatioDivisors,
 } from './projector-diff';
-import { buildAttrDetailBonuses } from './world-gateway-attr-detail.helper';
+import {
+  buildAttrDetailBonuses,
+  getTechniqueEffectRevision,
+  getTechniqueFinalSpecialStatBonusCached,
+} from './world-gateway-attr-detail.helper';
 
 const npcProjectionCache = new WeakMap<ProjectorNpcLike, ProjectedNpcEntry>();
 const monsterProjectionCache = new WeakMap<ProjectorMonsterLike, ProjectedMonsterEntry>();
@@ -125,7 +128,12 @@ const containerProjectionCache = new WeakMap<ProjectorContainerLike, ProjectedCo
 const buildingProjectionCache = new WeakMap<ProjectorBuildingLike, ProjectedBuildingEntry>();
 const formationProjectionCache = new WeakMap<ProjectorFormationLike, { signature: string; projected: ProjectedFormationEntry }>();
 const attrBonusCloneCache = new WeakMap<AttrBonus[], AttrBonus[]>();
-const projectedAttrBonusCache = new WeakMap<ProjectorPlayerLike, { signature: string; bonuses: AttrBonus[] }>();
+const projectedAttrBonusCache = new WeakMap<ProjectorPlayerLike, {
+    signature: string;
+    techniquesHolder: ProjectorPlayerLike['techniques'];
+    techniquesRef: ProjectorPlayerLike['techniques']['techniques'];
+    bonuses: AttrBonus[];
+}>();
 type AttrBonusConditionDependencies = {
     revision: number;
     slotsRef: unknown[];
@@ -139,8 +147,10 @@ const attrBonusConditionDependencyCache = new WeakMap<object, AttrBonusCondition
 const EMPTY_VISIBLE_BUFFS: VisibleBuffState[] = [];
 
 type SpecialStatsCacheEntry = {
+    techniquesHolder: ProjectorPlayerLike['techniques'];
+    techniquesRef: ProjectorPlayerLike['techniques']['techniques'];
     attrsRevision: number;
-    techniquesRevision: number;
+    techniqueEffectRevision: number;
     equipmentRevision: number;
     foundation: number;
     rootFoundation: number;
@@ -170,10 +180,13 @@ function resolvePlayerSpecialStatsCached(player: ProjectorPlayerLike): PlayerSpe
     const luck = Math.max(0, Math.trunc(Number(player.luck ?? 0) || 0));
     const fengShuiLuck = Math.trunc(Number(player.fengShuiLuck ?? 0) || 0);
     const dailySignInFortuneLuck = resolvePlayerDailySignInFortuneLuck(player);
+    const techniqueEffectRevision = getTechniqueEffectRevision(player);
     const cached = specialStatsCache.get(player);
     if (cached
+        && cached.techniquesHolder === player.techniques
+        && cached.techniquesRef === player.techniques.techniques
         && cached.attrsRevision === player.attrs.revision
-        && cached.techniquesRevision === player.techniques.revision
+        && cached.techniqueEffectRevision === techniqueEffectRevision
         && cached.equipmentRevision === player.equipment.revision
         && cached.foundation === player.foundation
         && cached.rootFoundation === rootFoundation
@@ -187,8 +200,10 @@ function resolvePlayerSpecialStatsCached(player: ProjectorPlayerLike): PlayerSpe
     }
     const stats = resolvePlayerSpecialStats(player);
     specialStatsCache.set(player, {
+        techniquesHolder: player.techniques,
+        techniquesRef: player.techniques.techniques,
         attrsRevision: player.attrs.revision,
-        techniquesRevision: player.techniques.revision,
+        techniqueEffectRevision,
         equipmentRevision: player.equipment.revision,
         foundation: player.foundation,
         rootFoundation,
@@ -204,7 +219,7 @@ function resolvePlayerSpecialStatsCached(player: ProjectorPlayerLike): PlayerSpe
 }
 
 function resolvePlayerSpecialStats(player: ProjectorPlayerLike): PlayerSpecialStats {
-  const techniqueSpecialStats = calcTechniqueFinalSpecialStatBonus(player.techniques.techniques.map(toTechniqueState));
+  const techniqueSpecialStats = getTechniqueFinalSpecialStatBonusCached(player);
   const equipmentSpecialStats = resolveEquipmentSpecialStats(player);
   const baseLuck = Math.max(0, Math.trunc(Number(player.luck ?? 0) || 0));
   return {
@@ -244,23 +259,6 @@ function toEquipmentEffectivenessItemStack(item: SyncedItemStack): ItemStack {
     name: resolvePlayerFacingContentName(item.itemId, '未知物品', item.name),
     type: item.type ?? 'equipment',
   } as ItemStack;
-}
-
-function toTechniqueState(entry: TechniqueUpdateEntryView): TechniqueState {
-  return {
-    techId: entry.techId,
-    name: entry.name ?? '',
-    level: entry.level ?? 1,
-    exp: entry.exp ?? 0,
-    expToNext: entry.expToNext ?? 0,
-    realmLv: entry.realmLv ?? 1,
-    realm: entry.realm ?? 0,
-    skillsEnabled: entry.skillsEnabled !== false,
-    skills: entry.skills ?? [],
-    grade: entry.grade,
-    category: entry.category,
-    layers: entry.layers,
-  };
 }
 
 function normalizeOptionalNonNegativeInteger(value: unknown): number | undefined {
@@ -359,22 +357,39 @@ function resolvePortalDisplayName(
 function buildAttrBonuses(player: ProjectorPlayerLike): AttrBonus[] {
     const signature = buildProjectedAttrBonusesSignature(player);
     const projectedCached = projectedAttrBonusCache.get(player);
-    if (projectedCached?.signature === signature) {
+    if (projectedCached?.signature === signature
+        && projectedCached.techniquesHolder === player.techniques
+        && projectedCached.techniquesRef === player.techniques.techniques) {
         return projectedCached.bonuses;
     }
     const source = buildAttrDetailBonuses(player);
     if (source.length === 0) {
-        projectedAttrBonusCache.set(player, { signature, bonuses: [] });
+        projectedAttrBonusCache.set(player, {
+            signature,
+            techniquesHolder: player.techniques,
+            techniquesRef: player.techniques.techniques,
+            bonuses: [],
+        });
         return [];
     }
     const cached = attrBonusCloneCache.get(source);
     if (cached && isSameAttrBonuses(cached, source)) {
-        projectedAttrBonusCache.set(player, { signature, bonuses: cached });
+        projectedAttrBonusCache.set(player, {
+            signature,
+            techniquesHolder: player.techniques,
+            techniquesRef: player.techniques.techniques,
+            bonuses: cached,
+        });
         return cached;
     }
     const cloned = source.map((entry) => cloneAttrBonus(entry));
     attrBonusCloneCache.set(source, cloned);
-    projectedAttrBonusCache.set(player, { signature, bonuses: cloned });
+    projectedAttrBonusCache.set(player, {
+        signature,
+        techniquesHolder: player.techniques,
+        techniquesRef: player.techniques.techniques,
+        bonuses: cloned,
+    });
     return cloned;
 }
 
@@ -384,7 +399,7 @@ function buildProjectedAttrBonusesSignature(player: ProjectorPlayerLike): string
     const includeAllConditionInputs = dependencies.unknown;
     return [
         player.attrs.revision,
-        player.techniques.revision,
+        getTechniqueEffectRevision(player),
         player.equipment.revision,
         player.buffs.revision,
         player.realmLv ?? '',
@@ -944,7 +959,7 @@ function capturePanelState(player: ProjectorPlayerLike, previousPanel?: Projecte
         artifact: prev && prev.artifact.revision === resolveArtifactPanelRevision(player)
             ? prev.artifact : captureArtifactPanelSlice(player),
         technique: prev && prev.technique.revision === player.techniques.revision
-            ? prev.technique : captureTechniquePanelSlice(player),
+            ? prev.technique : captureTechniquePanelSlice(player, prev?.technique),
         attr: prev && canReuseAttrPanelSlice(prev.attr, player)
             ? prev.attr : captureAttrPanelSlice(player),
         action: prev && canReuseActionPanelSlice(prev.action, player)
@@ -1435,14 +1450,50 @@ function resolveArtifactPanelSlots(player: ProjectorPlayerLike): NonNullable<Pro
     return Array.isArray(player.artifacts?.slots) ? player.artifacts.slots : [];
 }
 
-function captureTechniquePanelSlice(player: ProjectorPlayerLike): ProjectedPanelState['technique'] {
+function captureTechniquePanelSlice(
+    player: ProjectorPlayerLike,
+    previous?: ProjectedPanelState['technique'] | null,
+): ProjectedPanelState['technique'] {
+    const sourceTechniques = player.techniques.techniques;
     return {
         revision: player.techniques.revision,
-        techniques: player.techniques.techniques.map((entry) => cloneTechniqueEntry(entry)),
+        techniques: reuseTechniquePanelEntries(sourceTechniques, previous?.techniques),
         cultivatingTechId: player.techniques.cultivatingTechId,
         bodyTraining: player.bodyTraining ? { ...player.bodyTraining } : null,
         pendingComprehensions: clonePendingComprehensions(player.pendingTechniqueComprehensions, player.transmissionJob),
     };
+}
+
+/**
+ * 功法 revision 可能因单个功法经验推进而每息变化；静态功法条目仍然共享同一份模板引用。
+ * 逐条比较后复用未变化的前帧快照，避免为数百个功法重复 clone 和深层 diff。
+ */
+function reuseTechniquePanelEntries(
+    source: TechniqueUpdateEntryView[],
+    previous: TechniqueUpdateEntryView[] | null | undefined,
+): TechniqueUpdateEntryView[] {
+    if (!Array.isArray(previous) || previous.length === 0) {
+        return source.map((entry) => cloneTechniqueEntry(entry));
+    }
+
+    const sameOrder = previous.length === source.length
+        && source.every((entry, index) => previous[index]?.techId === entry.techId);
+    if (sameOrder) {
+        return source.map((entry, index) => {
+            const previousEntry = previous[index];
+            return previousEntry && isSameTechniqueEntry(previousEntry, entry)
+                ? previousEntry
+                : cloneTechniqueEntry(entry);
+        });
+    }
+
+    const previousById = new Map(previous.map((entry) => [entry.techId, entry]));
+    return source.map((entry) => {
+        const previousEntry = previousById.get(entry.techId);
+        return previousEntry && isSameTechniqueEntry(previousEntry, entry)
+            ? previousEntry
+            : cloneTechniqueEntry(entry);
+    });
 }
 
 function captureAttrPanelSlice(player: ProjectorPlayerLike): ProjectedAttrPanelState {
@@ -1777,7 +1828,7 @@ function buildPanelUpdate(previous: PlayerStateSlice, player: ProjectorPlayerLik
     }) ?? {};
     let techniquePanel = previous.techniquePanel;
     if (previous.techniquePanel && previous.panelCursor.techniqueSignature !== panelCursor.techniqueSignature) {
-        const currentTechnique = captureTechniquePanelSlice(player);
+        const currentTechnique = captureTechniquePanelSlice(player, previous.techniquePanel);
         const techniquePatch = diffTechniqueEntries(previous.techniquePanel.techniques, currentTechnique.techniques);
         const removed = diffRemovedTechniqueIds(previous.techniquePanel.techniques, currentTechnique.techniques);
         delta.tech = {

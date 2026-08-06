@@ -1,5 +1,5 @@
 /**
- * 验证属性详情投影的功法派生缓存只在功法 revision/引用变化时失效，
+ * 验证属性详情投影的功法派生缓存只在影响效果的字段变化时失效，
  * 同时确保依赖生命、真气或修炼状态的装备条件仍然即时重新判断。
  */
 import assert from 'node:assert/strict';
@@ -51,6 +51,20 @@ assert.equal(afterVitalTechniqueAggregate, firstTechniqueAggregate);
 assert.deepEqual(afterVitalChange, first);
 
 player.techniques.revision += 1;
+player.techniques.techniques[0].exp = 7;
+const afterTechniqueExperienceChange = buildAttrDetailBonuses(player);
+const afterExperienceTechniqueAggregate = afterTechniqueExperienceChange.find((entry) => entry.source === 'technique:aggregate');
+assert.equal(afterExperienceTechniqueAggregate, firstTechniqueAggregate);
+assert.deepEqual(afterTechniqueExperienceChange, first);
+
+player.techniques.revision += 1;
+player.techniques.techniques = player.techniques.techniques.map((entry) => ({ ...entry, exp: (entry.exp ?? 0) + 1 }));
+const afterTechniqueExperienceReplacement = buildAttrDetailBonuses(player);
+const afterReplacementTechniqueAggregate = afterTechniqueExperienceReplacement.find((entry) => entry.source === 'technique:aggregate');
+assert.equal(afterReplacementTechniqueAggregate, firstTechniqueAggregate);
+assert.deepEqual(afterTechniqueExperienceReplacement, first);
+
+player.techniques.revision += 1;
 player.techniques.techniques = player.techniques.techniques.slice();
 player.techniques.techniques[0] = {
     ...player.techniques.techniques[0],
@@ -97,6 +111,8 @@ console.log(JSON.stringify({
     case: 'world-gateway-attr-detail-cache',
     techniqueCount: techniques.length,
     cachedOnVitalChange: true,
-    invalidatedOnTechniqueRevision: true,
+    cachedOnTechniqueExperienceChange: true,
+    cachedOnTechniqueExperienceReplacement: true,
+    invalidatedOnTechniqueEffectChange: true,
     equipmentConditionReevaluated: true,
 }, null, 2));

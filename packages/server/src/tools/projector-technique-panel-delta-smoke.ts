@@ -35,6 +35,8 @@ function main(): void {
   const attrPanelBonusProof = proveAttrPanelUsesProjectedTechniqueBonuses();
   const attrWidePatchProof = proveAttrWidePatchAvoidsFullSnapshot();
   const actionCooldownProof = proveActionCooldownReadyTickDelta();
+  const stableEntryReuseProof = proveStableTechniqueEntriesAreReused();
+  const techniqueHolderIdentityProof = proveTechniqueHolderReplacementInvalidatesAttrProjection();
 
   console.log(JSON.stringify({
     ok: true,
@@ -45,9 +47,66 @@ function main(): void {
     attrPanelBonusProof,
     attrWidePatchProof,
     actionCooldownProof,
+    stableEntryReuseProof,
+    techniqueHolderIdentityProof,
     answers:
-      '功法面板首个全量包和新增功法仍可携带静态 skills/layers；每秒经验/等级动态变化只发字段级 patch，不再带 full/skills/layers/name 等模板详情；属性面板常驻 bonuses 使用投影后的功法加成，包含万法归元与凝气法灵脉投影；属性面板大范围数值变化仍发字段 patch，不回退 full；行动面板会下发技能 cooldownReadyTick 的设置与清除差量，并省略未变化的稳定开关。',
+      '功法面板首个全量包和新增功法仍可携带静态 skills/layers；每秒经验/等级动态变化只发字段级 patch，不再带 full/skills/layers/name 等模板详情，并复用未变化的功法条目；属性面板常驻 bonuses 使用投影后的功法加成，包含万法归元与凝气法灵脉投影；属性面板大范围数值变化仍发字段 patch，不回退 full；行动面板会下发技能 cooldownReadyTick 的设置与清除差量，并省略未变化的稳定开关。',
   }, null, 2));
+}
+
+function proveTechniqueHolderReplacementInvalidatesAttrProjection(): {
+  attrPatchEmitted: boolean;
+  replacementLabelProjected: boolean;
+} {
+  const service = createProjector();
+  const player = createPlayerWithTechnique('tech_holder', 0);
+  service.createInitialEnvelope({ playerId: player.playerId, sessionId: 'projector_session' }, createProjectorView(), player);
+  const source = player.techniques.techniques[0];
+  player.techniques = {
+    revision: 1,
+    techniques: [{ ...source, name: '替换功法' }],
+    cultivatingTechId: player.techniques.cultivatingTechId,
+  };
+  const envelope = service.createDeltaEnvelope({ ...createProjectorView(), tick: 2 }, player);
+  const attr = envelope?.panelDelta?.attr;
+  const attrPatchEmitted = attr !== undefined;
+  const replacementLabelProjected = attr?.bonuses?.some((entry: any) => entry.label === '替换功法') === true;
+
+  assert.equal(attrPatchEmitted, true);
+  assert.equal(replacementLabelProjected, true);
+  return { attrPatchEmitted, replacementLabelProjected };
+}
+
+function proveStableTechniqueEntriesAreReused(): {
+  changedEntryCloned: boolean;
+  stableEntryReused: boolean;
+  expPatchPreserved: boolean;
+} {
+  const service = createProjector();
+  const player = createProjectorPlayer();
+  const stableEntry = createTechnique('tech_stable', 0);
+  const changedEntry = createTechnique('tech_changed', 0);
+  player.techniques = {
+    revision: 1,
+    techniques: [changedEntry, stableEntry],
+    cultivatingTechId: 'tech_changed',
+  };
+  service.createInitialEnvelope({ playerId: player.playerId, sessionId: 'projector_session' }, createProjectorView(), player);
+  const previous = getProjectorCache(service).techniquePanel;
+
+  changedEntry.exp = 1;
+  player.techniques.revision = 2;
+  const envelope = service.createDeltaEnvelope({ ...createProjectorView(), tick: 2 }, player);
+  const current = getProjectorCache(service).techniquePanel;
+  const patch = envelope?.panelDelta?.tech?.techniques?.find((entry: any) => entry.techId === 'tech_changed');
+  const changedEntryCloned = current?.techniques?.[0] !== previous?.techniques?.[0];
+  const stableEntryReused = current?.techniques?.[1] === previous?.techniques?.[1];
+  const expPatchPreserved = patch?.exp === 1 && patch?.skills === undefined && patch?.layers === undefined;
+
+  assert.equal(changedEntryCloned, true);
+  assert.equal(stableEntryReused, true);
+  assert.equal(expPatchPreserved, true);
+  return { changedEntryCloned, stableEntryReused, expPatchPreserved };
 }
 
 function proveNoCacheFullPanelKeepsTechniqueStaticDetails(): {
