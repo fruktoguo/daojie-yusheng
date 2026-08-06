@@ -568,6 +568,7 @@ export class PlayerProgressionService {
             player,
             this.resolveCultivatingTechnique(player),
         );
+        const techniqueRevisionBefore = Math.max(0, Math.trunc(Number(player?.techniques?.revision ?? 0) || 0));
 
         // 境界与功法的击杀基础经验口径严格相同，只计算一次；各自后续的倍率、随机取整和推进顺序保持独立。
         const baseCombatExp = this.getRealmCombatExp(monsterLevel, expAdjustmentRealmLv, monsterTier, expMultiplier, contributionRatio);
@@ -666,6 +667,23 @@ export class PlayerProgressionService {
             };
         }
         this.finalizeProgressionMutation(player, mutation);
+        if (mutation.techniquesDirty) {
+            const cacheRevisionReused = this.tryAdvanceTechniqueProgressionCacheRevision(
+                player,
+                techniqueRevisionBefore,
+                learnedTechniquesBefore,
+                learnedTechniqueCountBefore,
+                beforeTechnique,
+                afterTechnique,
+                mutation,
+            );
+            recordMonsterKillProgressCount(
+                input,
+                cacheRevisionReused
+                    ? 'combat.playerMonsterKill.techniqueCacheRevisionReuse'
+                    : 'combat.playerMonsterKill.techniqueCacheRevisionFallback',
+            );
+        }
         recordMonsterKillProgressPerf(
             input,
             'combat.playerMonsterKill.progressFinalizeMs',
@@ -1994,6 +2012,43 @@ export class PlayerProgressionService {
         }
         return next;
     }
+    /** 普通经验增长不改变功法索引输入，可直接承接 finalize 后的新 revision。 */
+    tryAdvanceTechniqueProgressionCacheRevision(
+        player,
+        revisionBefore,
+        learnedTechniquesBefore,
+        learnedTechniqueCountBefore,
+        beforeTechnique,
+        afterTechnique,
+        mutation,
+    ) {
+        const holder = player?.techniques && typeof player.techniques === 'object'
+            ? player.techniques
+            : null;
+        const learnedTechniquesAfter = holder?.techniques;
+        const cached = holder ? this.techniqueProgressionCache.get(holder) : null;
+        const revisionAfter = Math.max(0, Math.trunc(Number(holder?.revision ?? 0) || 0));
+        if (!holder
+            || !cached
+            || !Array.isArray(learnedTechniquesBefore)
+            || learnedTechniquesAfter !== learnedTechniquesBefore
+            || learnedTechniquesAfter.length !== learnedTechniqueCountBefore
+            || cached.revision !== revisionBefore
+            || revisionAfter !== revisionBefore + 1
+            || (Array.isArray(mutation?.pendingTechniqueComprehensionRemovedIds)
+                && mutation.pendingTechniqueComprehensionRemovedIds.length > 0)
+            || !beforeTechnique?.technique
+            || beforeTechnique.technique !== afterTechnique?.technique
+            || beforeTechnique.techId !== afterTechnique?.techId
+            || holder.cultivatingTechId !== beforeTechnique.techId
+            || beforeTechnique.level !== afterTechnique.level
+            || beforeTechnique.expToNext !== afterTechnique.expToNext
+            || cached.techniquesById.get(beforeTechnique.techId) !== beforeTechnique.technique) {
+            return false;
+        }
+        cached.revision = revisionAfter;
+        return true;
+    }
     /**
  * resolveActiveCultivatingTechnique：规范化或转换激活Cultivating功法。
  * @param player 玩家对象。
@@ -2808,6 +2863,14 @@ function recordMonsterKillProgressPerf(input, key, startedAt): number | null {
     const endedAt = performance.now();
     recorder(key, endedAt - startedAt, 1);
     return endedAt;
+}
+
+function recordMonsterKillProgressCount(input, key, count = 1): void {
+    const recorder = input?.recordTickSectionDuration;
+    if (typeof recorder !== 'function' || count <= 0) {
+        return;
+    }
+    recorder(key, 0, count);
 }
 /**
  * applyRateBonus：处理RateBonu并更新相关状态。

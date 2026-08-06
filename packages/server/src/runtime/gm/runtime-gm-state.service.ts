@@ -326,6 +326,8 @@ const CPU_BREAKDOWN_LABELS = Object.freeze({
     'combat.playerMonsterKill.progressTechniqueAdvanceMs': '击杀奖励·功法推进',
     'combat.playerMonsterKill.progressNoticeBuildMs': '击杀奖励·收益通知构建',
     'combat.playerMonsterKill.progressFinalizeMs': '击杀奖励·进度脏标记',
+    'combat.playerMonsterKill.techniqueCacheRevisionReuse': '击杀奖励·功法缓存 revision 快进次数',
+    'combat.playerMonsterKill.techniqueCacheRevisionFallback': '击杀奖励·功法缓存完整校验回退次数',
     'combat.playerMonsterKill.progressResultApplyMs': '击杀奖励·进度结果落地',
     'combat.playerMonsterKill.progressStatisticsMs': '击杀奖励·离线统计差量',
     'combat.playerMonsterKill.participants': '击杀奖励·参与者数',

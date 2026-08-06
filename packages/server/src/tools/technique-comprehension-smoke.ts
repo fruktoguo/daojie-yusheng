@@ -1016,6 +1016,57 @@ function testAllMaxedTechniqueProgressionCache() {
   assert.equal(maxedChecks, checksAfterInvalidation);
 }
 
+function testMonsterKillExperienceOnlyAdvancesTechniqueCacheRevision() {
+  const { progressionService } = createRuntimeService();
+  const learner = createPlayer('learner:kill-technique-cache-revision', 0, 0);
+  const layers = [
+    { level: 1, expToNext: 1_000_000, attrs: {} },
+    { level: 2, expToNext: 0, attrs: {} },
+  ];
+  learner.techniques.techniques = Array.from({ length: 700 }, (_, index) => ({
+    ...technique,
+    techId: `tech.kill-cache.${index}`,
+    name: `击杀缓存功法${index}`,
+    level: 1,
+    exp: 0,
+    expToNext: 1_000_000,
+    layers,
+  }));
+  learner.techniques.cultivatingTechId = learner.techniques.techniques[0]?.techId ?? null;
+  const perfCounts = new Map<string, number>();
+  const input = {
+    monsterLevel: 1,
+    monsterName: '缓存试炼妖',
+    monsterTier: 'mortal_blood',
+    expMultiplier: 1_000,
+    contributionRatio: 1,
+    expAdjustmentRealmLv: 1,
+    recordTickSectionDuration(key: string, _durationMs: number, count = 1) {
+      perfCounts.set(key, (perfCounts.get(key) ?? 0) + count);
+    },
+  };
+
+  progressionService.grantMonsterKillProgress(learner, input);
+  const cacheAfterFirstKill = (progressionService as any).techniqueProgressionCache.get(learner.techniques);
+  assert.ok(cacheAfterFirstKill);
+  assert.equal(cacheAfterFirstKill.revision, learner.techniques.revision);
+  assert.equal(cacheAfterFirstKill.techniquesById.get(learner.techniques.cultivatingTechId), learner.techniques.techniques[0]);
+
+  progressionService.grantMonsterKillProgress(learner, input);
+  const cacheAfterSecondKill = (progressionService as any).techniqueProgressionCache.get(learner.techniques);
+  assert.equal(cacheAfterSecondKill, cacheAfterFirstKill);
+  assert.equal(cacheAfterSecondKill.revision, learner.techniques.revision);
+  assert.equal(perfCounts.get('combat.playerMonsterKill.techniqueCacheRevisionReuse'), 2);
+  assert.equal(perfCounts.has('combat.playerMonsterKill.techniqueCacheRevisionFallback'), false);
+  assert.equal(learner.techniques.techniques[0]?.level, 1);
+  assert.ok((learner.techniques.techniques[0]?.exp ?? 0) > 0);
+
+  learner.techniques.techniques[0].exp = 999_990;
+  progressionService.grantMonsterKillProgress(learner, input);
+  assert.equal(learner.techniques.techniques[0]?.level, 2);
+  assert.equal(perfCounts.get('combat.playerMonsterKill.techniqueCacheRevisionFallback'), 1);
+}
+
 function testInventoryPreviewOnlyRefreshesForBreakthroughMaterial() {
   const { progressionService } = createRuntimeService();
   const learner = createPlayer('learner:inventory-preview-filter', 0, 0);
@@ -1749,6 +1800,7 @@ testMonsterKillReusesSharedBaseCombatExp();
 testMonsterKillExpOnlyKeepsRealmPreviewStable();
 testMonsterKillTechniqueCompletionFallsBackToFullStatisticDiff();
 testAllMaxedTechniqueProgressionCache();
+testMonsterKillExperienceOnlyAdvancesTechniqueCacheRevision();
 testInventoryPreviewOnlyRefreshesForBreakthroughMaterial();
 testMonsterKillAutoSwitchesAndProgressesPendingComprehension();
 testCultivationCanStoreFractionalComprehensionProgress();
