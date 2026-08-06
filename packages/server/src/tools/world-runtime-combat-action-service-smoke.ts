@@ -869,6 +869,60 @@ async function run() {
   assert.ok(monsterRuntimeRefLookups > 0);
   assert.ok(playerRuntimeRefLookups > 0);
 
+  let aggregateRuntimeRefLookups = 0;
+  const aggregateTargetInstance = {
+    ...targetInstance,
+    getCombatTargetRuntimeRefsAtTile: (x, y, options) => {
+      aggregateRuntimeRefLookups += 1;
+      return (x === 12 && y === 10) || (x === 12 && y === 11)
+        ? {
+          monster: options?.monster === true && x === 12 && y === 10
+            ? { runtimeId: 'monster:area-target', x, y, alive: true }
+            : null,
+          players: options?.player === true && x === 12 && y === 11
+            ? [{ playerId: 'player:area-target' }]
+            : null,
+          container: null,
+        }
+        : null;
+    },
+    getMonsterRuntimeRefAtTile: () => {
+      throw new Error('聚合目标入口启用时不应再次读取妖兽索引');
+    },
+    getMonsterAtTile: () => {
+      throw new Error('聚合目标入口启用时不应复制妖兽快照');
+    },
+    getPlayerRuntimeRefsAtTile: () => {
+      throw new Error('聚合目标入口启用时不应再次读取玩家索引');
+    },
+    getPlayersAtTile: () => {
+      throw new Error('聚合目标入口启用时不应复制玩家快照');
+    },
+  };
+  const aggregateAreaPlan = service.resolvePlayerSkillActionPlan({
+    playerId: 'player:attacker',
+    targetRef: 'tile:12:10',
+    attacker: {
+      playerId: 'player:attacker',
+      hp: 100,
+      instanceId: 'instance:test',
+      x: 10,
+      y: 10,
+    },
+    skill: entityAreaSkill,
+    instance: aggregateTargetInstance,
+    playerRuntimeService: {
+      getPlayer: (playerId) => ({ playerId, hp: 100, instanceId: 'instance:test' }),
+    },
+    resolveCombatRelation: () => ({ hostile: true }),
+  });
+  assert.equal(aggregateAreaPlan.ok, true);
+  assert.deepEqual(
+    aggregateAreaPlan.selectedTargets.map((target) => ({ kind: target.kind, id: target.id })),
+    entityAreaPlan.selectedTargets.map((target) => ({ kind: target.kind, id: target.id })),
+  );
+  assert.ok(aggregateRuntimeRefLookups > 0);
+
   const anyAreaSkill = {
     ...entityAreaSkill,
     id: 'skill:any-area',

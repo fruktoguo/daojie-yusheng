@@ -3886,7 +3886,10 @@ class MapInstanceRuntime {
             return null;
         }
 
-        const tileIndex = this.toTileIndex(x, y);
+        return this.getTileCombatStateAtIndexedCell(this.toTileIndex(x, y), x, y);
+    }
+    /** 已完成边界与索引解析的地块战斗状态读取，供同格目标聚合查询复用。 */
+    getTileCombatStateAtIndexedCell(tileIndex, x, y) {
         const temporary = this.temporaryTileByTile.get(tileIndex);
         if (temporary) {
             return {
@@ -4662,6 +4665,58 @@ class MapInstanceRuntime {
             }
         }
         return results;
+    }
+    /**
+     * 按一次地块索引读取战斗规划所需的运行态引用。
+     * 仅返回允许的目标类型，空地块不分配临时数组或对象。
+     */
+    getCombatTargetRuntimeRefsAtTile(x, y, options: any = {}) {
+        if (!this.isInBounds(x, y)) {
+            const tileState = options.tile === true ? this.getTileCombatState(x, y) : null;
+            return tileState ? { monster: null, players: null, container: null, tileState } : null;
+        }
+        const tileIndex = this.toTileIndex(x, y);
+        let monster = null;
+        let players = null;
+        let container = null;
+        const tileState = options.tile === true
+            ? this.getTileCombatStateAtIndexedCell(tileIndex, x, y)
+            : null;
+        if (options.monster !== false) {
+            const runtimeId = this.monsterRuntimeIdByTile.get(tileIndex);
+            const candidate = runtimeId ? this.monstersByRuntimeId.get(runtimeId) : null;
+            if (candidate?.alive) {
+                monster = candidate;
+            }
+        }
+        if (options.player !== false) {
+            const playerIds = this.playerIdsByTile.get(tileIndex);
+            if (playerIds && playerIds.size > 0) {
+                const indexedPlayers = [];
+                for (const playerId of playerIds) {
+                    const player = this.playersById.get(playerId);
+                    if (player) {
+                        indexedPlayers.push(player);
+                    }
+                }
+                if (indexedPlayers.length > 0) {
+                    players = indexedPlayers;
+                }
+            }
+        }
+        if (options.container !== false) {
+            const containerId = this.containerIdByTile.get(tileIndex);
+            if (containerId) {
+                const candidate = this.containersById.get(containerId);
+                if (candidate) {
+                    container = snapshotContainer(candidate);
+                }
+            }
+        }
+        if (!monster && !players && !container && !tileState) {
+            return null;
+        }
+        return { monster, players, container, tileState };
     }
     /** getPortalAtTile：读取指定地块上的传送点。 */
     getPortalAtTile(x, y) {
