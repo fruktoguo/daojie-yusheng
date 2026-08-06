@@ -34,6 +34,8 @@ import { WorldSyncPlayerStateService } from './world-sync-player-state.service';
 import { WorldSyncProtocolService } from './world-sync-protocol.service';
 import { WorldSyncQuestLootService } from './world-sync-quest-loot.service';
 import { WorldSyncThreatService } from './world-sync-threat.service';
+import type { SyncFlushBreakdownSample } from './world-sync-flush-breakdown';
+import { incrementSyncFlushCount } from './world-sync-flush-breakdown';
 
 type MapTemplateRepositoryInstance = InstanceType<typeof MapTemplateRepository>;
 type WorldSyncMapSnapshotServiceInstance = InstanceType<typeof WorldSyncMapSnapshotService>;
@@ -139,6 +141,7 @@ interface WorldDeltaMapPatchSyncOptions {
 
 interface EmitAuxDeltaSyncOptions {
   deferMapChanged?: boolean;
+  breakdown?: SyncFlushBreakdownSample;
 }
 
 /** 辅助状态同步服务：编排 bootstrap 首包和 tick 增量中的地图静态、时间、境界、威胁和拾取窗口同步。 */
@@ -258,6 +261,7 @@ export class WorldSyncAuxStateService {
     const previous = this.protocolAuxStateByPlayerId.get(playerId) ?? null;
     if (!previous) {
       if (options.deferMapChanged === true) {
+        incrementSyncFlushCount(options.breakdown, 'auxDeferredCount');
         return false;
       }
       this.emitAuxInitialSync(playerId, socket, view, player);
@@ -266,6 +270,13 @@ export class WorldSyncAuxStateService {
 
     const template = this.templateRepository.getOrThrow(view.instance.templateId);
     const mapStaticPlan = this.worldSyncMapStaticAuxService.buildDeltaMapStaticPlan(playerId, view, player, template);
+    if ('reusedCache' in mapStaticPlan && mapStaticPlan.reusedCache === true) {
+      incrementSyncFlushCount(options.breakdown, 'auxMapCacheHitCount');
+    } else if ('instanceDirtyDiff' in mapStaticPlan && mapStaticPlan.instanceDirtyDiff === true) {
+      incrementSyncFlushCount(options.breakdown, 'auxMapDirtyDiffCount');
+    } else {
+      incrementSyncFlushCount(options.breakdown, 'auxMapRebuildCount');
+    }
     const visibleTiles = mapStaticPlan.visibleTiles;
     const currentVisibleMinimapMarkers = mapStaticPlan.visibleMinimapMarkers;
     const mapChanged = mapStaticPlan.mapChanged;
@@ -276,10 +287,12 @@ export class WorldSyncAuxStateService {
     const shouldEmitTimeSync = !isSameTimeSyncState(previous.time, currentTimeSyncState);
 
     if (mapChanged && options.deferMapChanged === true) {
+      incrementSyncFlushCount(options.breakdown, 'auxDeferredCount');
       return false;
     }
 
     if (mapChanged) {
+      incrementSyncFlushCount(options.breakdown, 'auxMapChangedCount');
       const minimapLibrary = this.worldSyncMapSnapshotService.buildMinimapLibrarySync(player);
       const mapUnlocked = Array.isArray(player.unlockedMapIds) && player.unlockedMapIds.includes(template.id);
       this.worldSyncProtocolService.sendMapStatic(
@@ -304,6 +317,12 @@ export class WorldSyncAuxStateService {
         || mapStaticPlan.tilePatches.length > 0
       );
     if (hasMapPatch || shouldEmitTimeSync) {
+      if (hasMapPatch) {
+        incrementSyncFlushCount(options.breakdown, 'auxMapPatchCount');
+      }
+      if (shouldEmitTimeSync) {
+        incrementSyncFlushCount(options.breakdown, 'auxTimeChangedCount');
+      }
       this.worldSyncProtocolService.sendWorldDelta(
         socket,
         this.buildWorldDeltaMapPatchPayload(view, {
@@ -326,21 +345,32 @@ export class WorldSyncAuxStateService {
     const realmChanged = !isCachedRealmCurrent(previous, currentRealm);
     const nextRealm = realmChanged ? cloneRealmState(currentRealm) : previous.realm;
     if (realmChanged) {
+      incrementSyncFlushCount(options.breakdown, 'auxRealmChangedCount');
       this.worldSyncProtocolService.sendRealm(socket, this.buildRealmSyncPayload(player, nextRealm));
     }
 
     const lootWindow = this.worldSyncQuestLootService.buildLootWindowSyncState(playerId);
     const lootWindowChanged = !isCachedLootWindowCurrent(previous, lootWindow);
     if (lootWindowChanged) {
+      incrementSyncFlushCount(options.breakdown, 'auxLootChangedCount');
       this.worldSyncProtocolService.sendLootWindow(socket, { window: lootWindow });
     }
 
+    let threatChanged = false;
     const currentThreatArrows = this.worldSyncThreatService.emitDeltaThreatSync(
       socket,
       view,
       previous.threatArrows,
       mapChanged,
+      () => {
+        threatChanged = true;
+        incrementSyncFlushCount(options.breakdown, 'auxThreatChangedCount');
+      },
     );
+
+    if (!mapChanged && !hasMapPatch && !shouldEmitTimeSync && !realmChanged && !lootWindowChanged && !threatChanged) {
+      incrementSyncFlushCount(options.breakdown, 'auxNoopCount');
+    }
 
     this.worldSyncMapStaticAuxService.commitPlayerCache(playerId, mapStaticPlan.cacheState);
     this.protocolAuxStateByPlayerId.set(playerId, {

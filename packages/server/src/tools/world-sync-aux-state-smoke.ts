@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 
 import { EQUIP_SLOTS } from '@mud/shared';
 import { WorldSyncAuxStateService } from '../network/world-sync-aux-state.service';
+import { createSyncFlushBreakdownSample } from '../network/world-sync-flush-breakdown';
 
 function createService(
   log: unknown[] = [],
@@ -509,6 +510,25 @@ function testProgressOnlyRealmChangeDoesNotResendRealm() {
   );
 }
 
+function testAuxBreakdownCountsStableNoop() {
+  const log: unknown[] = [];
+  const { service } = createService(log, { deltaMapPatch: false });
+  const socket = { id: 'socket:breakdown', emit() {} };
+  const player = createPlayer('炼气', 10);
+  const breakdown = createSyncFlushBreakdownSample();
+
+  service.emitAuxInitialSync('player:breakdown', socket, createView(70), player);
+  service.emitAuxDeltaSync('player:breakdown', socket, createView(70), player, { breakdown });
+
+  assert.equal(breakdown.auxMapRebuildCount, 1);
+  assert.equal(breakdown.auxNoopCount, 1);
+  assert.equal(breakdown.auxMapPatchCount, 0);
+  assert.equal(breakdown.auxTimeChangedCount, 0);
+  assert.equal(breakdown.auxRealmChangedCount, 0);
+  assert.equal(breakdown.auxLootChangedCount, 0);
+  assert.equal(breakdown.auxThreatChangedCount, 0);
+}
+
 testAuxStateSync();
 testMapChangeDoesNotAutoUnlockCurrentMap();
 testInitialSyncSendsCurrentUnlockedMinimap();
@@ -516,6 +536,7 @@ testMapStaticOmitsDefaultFloorTypeOnWire();
 testTimeOnlyDeltaSyncsTickInterval();
 testInitialSyncSendsAcceleratedInstanceInterval();
 testProgressOnlyRealmChangeDoesNotResendRealm();
+testAuxBreakdownCountsStableNoop();
 console.log(
   JSON.stringify({
     ok: true,

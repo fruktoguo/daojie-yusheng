@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 
 import { C2S, S2C } from '@mud/shared';
 
+import { createSyncFlushBreakdownSample } from '../network/world-sync-flush-breakdown';
 import { RuntimeGmStateService } from '../runtime/gm/runtime-gm-state.service';
 
 async function main(): Promise<void> {
@@ -93,6 +94,18 @@ async function main(): Promise<void> {
 
     service.setNetworkPayloadCaptureEnabled(false);
     assert.equal(service.shouldCaptureNetworkPayloadBody(), false);
+
+    const syncBreakdown = createSyncFlushBreakdownSample();
+    syncBreakdown.envelopeNoopCount = 3;
+    syncBreakdown.envelopePanelDeltaCount = 1;
+    syncBreakdown.auxNoopCount = 2;
+    syncBreakdown.auxThreatChangedCount = 1;
+    service.recordSyncFlushBreakdown(syncBreakdown);
+    const cpuBreakdown = service.buildPerformanceSnapshot().cpu.breakdown;
+    assert.equal(findCpuBreakdownCount(cpuBreakdown, 'syncFlush.envelope.noop'), 3);
+    assert.equal(findCpuBreakdownCount(cpuBreakdown, 'syncFlush.envelope.panelDelta'), 1);
+    assert.equal(findCpuBreakdownCount(cpuBreakdown, 'syncFlush.aux.noop'), 2);
+    assert.equal(findCpuBreakdownCount(cpuBreakdown, 'syncFlush.aux.threatChanged'), 1);
   } finally {
     JSON.stringify = originalStringify;
     restoreEnv('SERVER_GM_NETWORK_PERF_ENABLED', originalEnabled);
@@ -115,10 +128,31 @@ function createRuntimeGmStateService(): RuntimeGmStateService {
   return new RuntimeGmStateService(
     { listSummaries: () => [] } as never,
     { listPlayerSnapshots: () => [] } as never,
-    { getRuntimeSummary: () => ({ lastTickDurationMs: 0 }) } as never,
+    {
+      getRuntimeSummary: () => ({
+        lastTickDurationMs: 20,
+        tickPerf: {
+          totalMs: { avg60: 20 },
+          syncFlushMs: { avg60: 5, count: 4 },
+          cumulative: {
+            totalMs: { totalMs: 80 },
+            syncFlushMs: { totalMs: 20, count: 4 },
+            phaseSummaries: { pendingCommandsMs: { sampleCount: 4 } },
+            sectionSummaries: {},
+          },
+        },
+      }),
+    } as never,
     {} as never,
     {} as never,
   );
+}
+
+function findCpuBreakdownCount(
+  rows: Array<{ key?: string; count?: number }>,
+  key: string,
+): number | undefined {
+  return rows.find((row) => row.key === key)?.count;
 }
 
 function createLargeWorldDeltaPayload(): Record<string, unknown> {

@@ -1,5 +1,5 @@
 import type { SyncFlushBreakdownSample } from './world-sync-flush-breakdown';
-import { runMeasuredSyncFlushStep } from './world-sync-flush-breakdown';
+import { incrementSyncFlushCount, runMeasuredSyncFlushStep } from './world-sync-flush-breakdown';
 
 interface ContextActionsSyncCursor {
     instanceId: string | null;
@@ -26,6 +26,7 @@ export class WorldSyncContextActionsCache {
         const nextCursor = buildContextActionsSyncCursor(playerId, view, worldRuntimeService, playerRuntimeService);
         const previousCursor = this.cursorByPlayerId.get(playerId);
         if (reuseWithinTick && previousCursor && nextCursor && isSameContextActionsSyncCursor(previousCursor, nextCursor)) {
+            incrementSyncFlushCount(breakdown, 'contextActionsCacheHitCount');
             return;
         }
         runMeasuredSyncFlushStep(

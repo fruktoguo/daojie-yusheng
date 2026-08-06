@@ -44,12 +44,15 @@ export class WorldSyncThreatService {
         return threatArrows;
     }
     /** 增量同步时按需下发 threat arrow patch。 */
-    emitDeltaThreatSync(socket, view, previousThreatArrows, mapChanged) {
+    emitDeltaThreatSync(socket, view, previousThreatArrows, mapChanged, onChanged = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const currentThreatArrows = this.buildThreatArrows(view);
         const threatArrowPatch = diffThreatArrows(previousThreatArrows ?? null, currentThreatArrows, mapChanged);
         if (threatArrowPatch.full || threatArrowPatch.adds.length > 0 || threatArrowPatch.removes.length > 0) {
+            if (typeof onChanged === 'function') {
+                onChanged();
+            }
             socket.emit(S2C.WorldDelta, {
                 t: view.tick,
                 wr: view.worldRevision,

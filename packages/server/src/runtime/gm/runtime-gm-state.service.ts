@@ -429,6 +429,23 @@ const CPU_BREAKDOWN_LABELS = Object.freeze({
     'syncFlush.runtimeEventsMs': '同步·运行时事件',
     'syncFlush.statisticRecordsMs': '同步·统计记录',
     'syncFlush.clearCachesMs': '同步·缓存清理',
+    'syncFlush.contextActions.cacheHit': '同步·上下文动作同息命中',
+    'syncFlush.envelope.noop': '同步·主包空包',
+    'syncFlush.envelope.worldDelta': '同步·主包含世界差量',
+    'syncFlush.envelope.selfDelta': '同步·主包含自身差量',
+    'syncFlush.envelope.panelDelta': '同步·主包含面板差量',
+    'syncFlush.envelope.event': '同步·主包含表现或事件',
+    'syncFlush.aux.deferred': '同步·辅助状态跨图延后',
+    'syncFlush.aux.noop': '同步·辅助状态无变化',
+    'syncFlush.aux.mapCacheHit': '同步·辅助地图缓存命中',
+    'syncFlush.aux.mapDirtyDiff': '同步·辅助地图脏地块差量',
+    'syncFlush.aux.mapRebuild': '同步·辅助地图重建',
+    'syncFlush.aux.mapChanged': '同步·辅助地图切换',
+    'syncFlush.aux.mapPatch': '同步·辅助地图差量包',
+    'syncFlush.aux.timeChanged': '同步·辅助时间变化',
+    'syncFlush.aux.realmChanged': '同步·辅助境界变化',
+    'syncFlush.aux.lootChanged': '同步·辅助拾取窗变化',
+    'syncFlush.aux.threatChanged': '同步·辅助仇恨箭头变化',
     otherMs: '其余开销',
 });
 const SYNC_FLUSH_BREAKDOWN_DEFS = Object.freeze([
@@ -444,6 +461,29 @@ const SYNC_FLUSH_BREAKDOWN_DEFS = Object.freeze([
     { key: 'runtimeEventsMs', countKey: 'runtimeEventsCount' },
     { key: 'statisticRecordsMs', countKey: 'statisticRecordsCount' },
     { key: 'clearCachesMs', countKey: 'clearCachesCount' },
+]);
+const SYNC_FLUSH_DETAIL_COUNT_DEFS = Object.freeze([
+    { key: 'contextActions.cacheHit', countKey: 'contextActionsCacheHitCount' },
+    { key: 'envelope.noop', countKey: 'envelopeNoopCount' },
+    { key: 'envelope.worldDelta', countKey: 'envelopeWorldDeltaCount' },
+    { key: 'envelope.selfDelta', countKey: 'envelopeSelfDeltaCount' },
+    { key: 'envelope.panelDelta', countKey: 'envelopePanelDeltaCount' },
+    { key: 'envelope.event', countKey: 'envelopeEventCount' },
+    { key: 'aux.deferred', countKey: 'auxDeferredCount' },
+    { key: 'aux.noop', countKey: 'auxNoopCount' },
+    { key: 'aux.mapCacheHit', countKey: 'auxMapCacheHitCount' },
+    { key: 'aux.mapDirtyDiff', countKey: 'auxMapDirtyDiffCount' },
+    { key: 'aux.mapRebuild', countKey: 'auxMapRebuildCount' },
+    { key: 'aux.mapChanged', countKey: 'auxMapChangedCount' },
+    { key: 'aux.mapPatch', countKey: 'auxMapPatchCount' },
+    { key: 'aux.timeChanged', countKey: 'auxTimeChangedCount' },
+    { key: 'aux.realmChanged', countKey: 'auxRealmChangedCount' },
+    { key: 'aux.lootChanged', countKey: 'auxLootChangedCount' },
+    { key: 'aux.threatChanged', countKey: 'auxThreatChangedCount' },
+]);
+const SYNC_FLUSH_ALL_DEFS = Object.freeze([
+    ...SYNC_FLUSH_BREAKDOWN_DEFS,
+    ...SYNC_FLUSH_DETAIL_COUNT_DEFS,
 ]);
 const C2S_NAME_BY_EVENT = buildProtocolNameByEvent(C2S);
 const S2C_NAME_BY_EVENT = buildProtocolNameByEvent(S2C);
@@ -631,6 +671,20 @@ export class RuntimeGmStateService {
                 def.key,
                 Number(sample?.[def.key] ?? 0),
                 Number(sample?.[def.countKey] ?? 0),
+            );
+        }
+        for (const def of SYNC_FLUSH_DETAIL_COUNT_DEFS) {
+            const history = this.syncFlushBreakdownHistoryByKey.get(def.key);
+            if (!history) {
+                continue;
+            }
+            const count = Number(sample?.[def.countKey] ?? 0);
+            pushSyncFlushBreakdownMetric(history, 0, count);
+            addSyncFlushBreakdownCumulativeMetric(
+                this.syncFlushBreakdownCumulativeByKey,
+                def.key,
+                0,
+                count,
             );
         }
     }
@@ -1944,7 +1998,7 @@ function buildTickSectionBreakdownRows(sectionSummaries: Record<string, TickSect
 
 function createSyncFlushBreakdownHistoryByKey() {
     const result = new Map();
-    for (const def of SYNC_FLUSH_BREAKDOWN_DEFS) {
+    for (const def of SYNC_FLUSH_ALL_DEFS) {
         result.set(def.key, []);
     }
     return result;
@@ -1952,7 +2006,7 @@ function createSyncFlushBreakdownHistoryByKey() {
 
 function createSyncFlushBreakdownCumulativeByKey() {
     const result = new Map();
-    for (const def of SYNC_FLUSH_BREAKDOWN_DEFS) {
+    for (const def of SYNC_FLUSH_ALL_DEFS) {
         result.set(def.key, { totalMs: 0, count: 0, sampleCount: 0 });
     }
     return result;
@@ -1984,7 +2038,7 @@ function buildSyncFlushBreakdownRows(syncFlushBreakdownHistoryByKey, totalWindow
         return [];
     }
     const rows = [];
-    for (const def of SYNC_FLUSH_BREAKDOWN_DEFS) {
+    for (const def of SYNC_FLUSH_ALL_DEFS) {
         const history = syncFlushBreakdownHistoryByKey.get(def.key);
         let totalMs = 0;
         let count = 0;

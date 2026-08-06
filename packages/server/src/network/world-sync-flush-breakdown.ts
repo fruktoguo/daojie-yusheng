@@ -36,6 +36,23 @@ export interface SyncFlushBreakdownSample {
     statisticRecordsCount: number;
     clearCachesMs: number;
     clearCachesCount: number;
+    contextActionsCacheHitCount: number;
+    envelopeNoopCount: number;
+    envelopeWorldDeltaCount: number;
+    envelopeSelfDeltaCount: number;
+    envelopePanelDeltaCount: number;
+    envelopeEventCount: number;
+    auxDeferredCount: number;
+    auxNoopCount: number;
+    auxMapCacheHitCount: number;
+    auxMapDirtyDiffCount: number;
+    auxMapRebuildCount: number;
+    auxMapChangedCount: number;
+    auxMapPatchCount: number;
+    auxTimeChangedCount: number;
+    auxRealmChangedCount: number;
+    auxLootChangedCount: number;
+    auxThreatChangedCount: number;
 }
 
 export function createSyncFlushBreakdownSample(): SyncFlushBreakdownSample {
@@ -67,6 +84,23 @@ export function createSyncFlushBreakdownSample(): SyncFlushBreakdownSample {
         statisticRecordsCount: 0,
         clearCachesMs: 0,
         clearCachesCount: 0,
+        contextActionsCacheHitCount: 0,
+        envelopeNoopCount: 0,
+        envelopeWorldDeltaCount: 0,
+        envelopeSelfDeltaCount: 0,
+        envelopePanelDeltaCount: 0,
+        envelopeEventCount: 0,
+        auxDeferredCount: 0,
+        auxNoopCount: 0,
+        auxMapCacheHitCount: 0,
+        auxMapDirtyDiffCount: 0,
+        auxMapRebuildCount: 0,
+        auxMapChangedCount: 0,
+        auxMapPatchCount: 0,
+        auxTimeChangedCount: 0,
+        auxRealmChangedCount: 0,
+        auxLootChangedCount: 0,
+        auxThreatChangedCount: 0,
     };
 }
 
@@ -93,7 +127,24 @@ export type SyncFlushCountKey = keyof Pick<SyncFlushBreakdownSample,
     | 'emitEnvelopeCount'
     | 'questSyncCount'
     | 'runtimeEventsCount'
-    | 'statisticRecordsCount'>;
+    | 'statisticRecordsCount'
+    | 'contextActionsCacheHitCount'
+    | 'envelopeNoopCount'
+    | 'envelopeWorldDeltaCount'
+    | 'envelopeSelfDeltaCount'
+    | 'envelopePanelDeltaCount'
+    | 'envelopeEventCount'
+    | 'auxDeferredCount'
+    | 'auxNoopCount'
+    | 'auxMapCacheHitCount'
+    | 'auxMapDirtyDiffCount'
+    | 'auxMapRebuildCount'
+    | 'auxMapChangedCount'
+    | 'auxMapPatchCount'
+    | 'auxTimeChangedCount'
+    | 'auxRealmChangedCount'
+    | 'auxLootChangedCount'
+    | 'auxThreatChangedCount'>;
 
 export function addSyncFlushDuration(
     breakdown: SyncFlushBreakdownSample | undefined,
@@ -114,6 +165,28 @@ export function incrementSyncFlushCount(
         return;
     }
     breakdown[key] += 1;
+}
+
+export function recordSyncEnvelopeDetail(
+    breakdown: SyncFlushBreakdownSample | undefined,
+    envelope: any,
+): void {
+    if (!envelope) {
+        incrementSyncFlushCount(breakdown, 'envelopeNoopCount');
+        return;
+    }
+    if (envelope.worldDelta) {
+        incrementSyncFlushCount(breakdown, 'envelopeWorldDeltaCount');
+    }
+    if (envelope.selfDelta) {
+        incrementSyncFlushCount(breakdown, 'envelopeSelfDeltaCount');
+    }
+    if (envelope.panelDelta) {
+        incrementSyncFlushCount(breakdown, 'envelopePanelDeltaCount');
+    }
+    if (envelope.gmStatePush || envelope.worldDelta?.fx || envelope.worldDelta?.eventBus) {
+        incrementSyncFlushCount(breakdown, 'envelopeEventCount');
+    }
 }
 
 export function runMeasuredSyncFlushStep<T>(

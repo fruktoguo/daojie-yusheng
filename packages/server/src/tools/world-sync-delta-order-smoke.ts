@@ -235,6 +235,10 @@ function testFlushConnectedPlayersRecordsBreakdownAndSyncsRoomOnce() {
     assert.equal(records[0].questSyncCount, 1);
     assert.equal(records[0].runtimeEventsCount, 1);
     assert.equal(records[0].statisticRecordsCount, 1);
+    assert.equal(records[0].envelopeNoopCount, 0);
+    assert.equal(records[0].envelopeWorldDeltaCount, 1);
+    assert.equal(records[0].envelopeSelfDeltaCount, 0);
+    assert.equal(records[0].envelopePanelDeltaCount, 0);
 }
 
 function testPeriodicFlushReusesContextActionsWithinSameTick() {
@@ -253,7 +257,9 @@ function testPeriodicFlushReusesContextActionsWithinSameTick() {
 
     assert.equal(log.filter((entry) => entry[0] === 'refreshPlayerContextActions').length, 1);
     assert.equal(records[0].contextActionsCount, 1);
+    assert.equal(records[0].contextActionsCacheHitCount, 0);
     assert.equal(records[1].contextActionsCount, 0);
+    assert.equal(records[1].contextActionsCacheHitCount, 1);
 
     player.quests.revision += 1;
     service.flushConnectedPlayers();
@@ -283,12 +289,22 @@ function testFlushConnectedPlayersSkipsWorkerWhenDisabled() {
 
 function testFlushConnectedPlayersRunsPostSyncWithoutEnvelope() {
     const log = [];
-    const { service } = createService(log, { deltaEnvelope: null });
+    const records: Record<string, number>[] = [];
+    const { service } = createService(log, {
+        deltaEnvelope: null,
+        runtimeGmStateService: {
+            recordSyncFlushBreakdown(sample: Record<string, number>) {
+                records.push(sample);
+            },
+        },
+    });
 
     service.flushConnectedPlayers();
 
     assert.ok(!log.some((entry) => entry[0] === 'sendEnvelope'));
     assert.ok(log.some((entry) => entry[0] === 'emitQuestSyncIfChanged'));
+    assert.equal(records[0].envelopeNoopCount, 1);
+    assert.equal(records[0].envelopeWorldDeltaCount, 0);
 }
 
 function testStatisticTotalsPatchUsesCompactOfflineGainPayload() {
