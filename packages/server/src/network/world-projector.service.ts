@@ -8,6 +8,11 @@ import { S2C, getFirstGrapheme, type VisibleBuffState } from '@mud/shared';
 import { NativePlayerAuthStoreService } from '../http/native/native-player-auth-store.service';
 import { MapTemplateRepository } from '../runtime/map/map-template.repository';
 import { isSameBuffList } from './projector-compare';
+import {
+    addSyncFlushDuration,
+    incrementSyncFlushCount,
+    type SyncFlushBreakdownSample,
+} from './world-sync-flush-breakdown';
 
 import {
     buildBootstrapPanelDelta,
@@ -131,15 +136,29 @@ export class WorldProjectorService {
     }
 
     /** 为已在线玩家构造增量 envelope：对比前帧缓存，仅包含变化的 world/self/panel patch。 */
-    createDeltaEnvelope(view: any, player: any) {
+    createDeltaEnvelope(view: any, player: any, breakdown?: SyncFlushBreakdownSample) {
+        const identityStartedAt = performance.now();
         const identityView = this.withAccountIdentityProjection(view);
+        addSyncFlushDuration(breakdown, 'projectorIdentityMs', identityStartedAt);
+        incrementSyncFlushCount(breakdown, 'projectorIdentityCount');
+        const worldStartedAt = performance.now();
         const worldSource = captureProjectorWorldSource(view, identityView);
         const previous = this.cacheByPlayerId.get(identityView.playerId);
         if (!previous) {
             const worldState = captureWorldState(identityView, (mapId) => this.resolveMapName(mapId));
+            addSyncFlushDuration(breakdown, 'projectorWorldMs', worldStartedAt);
+            incrementSyncFlushCount(breakdown, 'projectorWorldCount');
+            incrementSyncFlushCount(breakdown, 'projectorWorldCaptureCount');
+            incrementSyncFlushCount(breakdown, 'projectorFullRebuildCount');
+            const panelStartedAt = performance.now();
             const playerState = capturePlayerState(player);
+            addSyncFlushDuration(breakdown, 'projectorPanelMs', panelStartedAt);
+            incrementSyncFlushCount(breakdown, 'projectorPanelCount');
+            const cacheStartedAt = performance.now();
             this.cacheByPlayerId.set(identityView.playerId, combineProjectorState(worldState, playerState));
             this.worldSourceByPlayerId.set(identityView.playerId, worldSource);
+            addSyncFlushDuration(breakdown, 'projectorCacheMs', cacheStartedAt);
+            incrementSyncFlushCount(breakdown, 'projectorCacheCount');
             return {
                 mapEnter: buildMapEnter(identityView),
                 worldDelta: buildFullWorldDeltaFromState(identityView, worldState),
@@ -149,9 +168,19 @@ export class WorldProjectorService {
         }
         if (previous.instanceId !== identityView.instance.instanceId || previous.self?.templateId !== player.templateId) {
             const worldState = captureWorldState(identityView, (mapId) => this.resolveMapName(mapId));
+            addSyncFlushDuration(breakdown, 'projectorWorldMs', worldStartedAt);
+            incrementSyncFlushCount(breakdown, 'projectorWorldCount');
+            incrementSyncFlushCount(breakdown, 'projectorWorldCaptureCount');
+            incrementSyncFlushCount(breakdown, 'projectorFullRebuildCount');
+            const panelStartedAt = performance.now();
             const playerState = capturePlayerState(player);
+            addSyncFlushDuration(breakdown, 'projectorPanelMs', panelStartedAt);
+            incrementSyncFlushCount(breakdown, 'projectorPanelCount');
+            const cacheStartedAt = performance.now();
             this.cacheByPlayerId.set(identityView.playerId, combineProjectorState(worldState, playerState));
             this.worldSourceByPlayerId.set(identityView.playerId, worldSource);
+            addSyncFlushDuration(breakdown, 'projectorCacheMs', cacheStartedAt);
+            incrementSyncFlushCount(breakdown, 'projectorCacheCount');
             return {
                 mapEnter: buildMapEnter(identityView),
                 worldDelta: buildFullWorldDeltaFromState(identityView, worldState),
@@ -163,13 +192,15 @@ export class WorldProjectorService {
         const hasRuntimeAoiRevision = Boolean(previousWorldSource)
             && hasStableProjectorAoiRevision(previousWorldSource)
             && hasStableProjectorAoiRevision(worldSource);
-        const currentWorld = (hasRuntimeAoiRevision || previous.worldRevision === identityView.worldRevision)
+        const canReuseWorld = (hasRuntimeAoiRevision || previous.worldRevision === identityView.worldRevision)
             && isSameProjectorWorldSource(previousWorldSource, worldSource)
             && !hasDynamicContainerCountdown(identityView, previous.containers)
             && !hasPlayerPresentationChange(identityView, previous.players)
-            && !hasMonsterBuffPresentationChange(identityView, previous.monsters)
+            && !hasMonsterBuffPresentationChange(identityView, previous.monsters);
+        const currentWorld = canReuseWorld
             ? previous
             : captureWorldState(identityView, (mapId) => this.resolveMapName(mapId));
+        incrementSyncFlushCount(breakdown, canReuseWorld ? 'projectorWorldReuseCount' : 'projectorWorldCaptureCount');
         const worldChanged = previous.worldRevision !== currentWorld.worldRevision || currentWorld !== previous;
         const playerPatch = worldChanged ? diffPlayerEntries(previous.players, currentWorld.players) : [];
         const monsterPatch = worldChanged ? diffMonsterEntries(previous.monsters, currentWorld.monsters) : [];
@@ -179,9 +210,18 @@ export class WorldProjectorService {
         const containerPatch = worldChanged ? diffContainerEntries(previous.containers, currentWorld.containers) : [];
         const buildingPatch = worldChanged ? diffBuildingEntries(previous.buildings, currentWorld.buildings) : [];
         const formationPatch = worldChanged ? diffFormationEntries(previous.formations, currentWorld.formations) : [];
+        addSyncFlushDuration(breakdown, 'projectorWorldMs', worldStartedAt);
+        incrementSyncFlushCount(breakdown, 'projectorWorldCount');
+        const selfStartedAt = performance.now();
         const selfDelta = buildSelfDelta(previous, player);
+        addSyncFlushDuration(breakdown, 'projectorSelfMs', selfStartedAt);
+        incrementSyncFlushCount(breakdown, 'projectorSelfCount');
+        const panelStartedAt = performance.now();
         const panelUpdate = buildPanelUpdate(previous, player);
+        addSyncFlushDuration(breakdown, 'projectorPanelMs', panelStartedAt);
+        incrementSyncFlushCount(breakdown, 'projectorPanelCount');
         const panelDelta = panelUpdate.delta;
+        const cacheStartedAt = performance.now();
         const hasWorldPatch = playerPatch.length > 0
             || monsterPatch.length > 0
             || npcPatch.length > 0
@@ -207,6 +247,8 @@ export class WorldProjectorService {
         if (worldChanged) {
             this.worldSourceByPlayerId.set(identityView.playerId, worldSource);
         }
+        addSyncFlushDuration(breakdown, 'projectorCacheMs', cacheStartedAt);
+        incrementSyncFlushCount(breakdown, 'projectorCacheCount');
         if (
             !hasWorldPatch
             && !selfDelta

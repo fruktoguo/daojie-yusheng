@@ -9,6 +9,9 @@ function createService(
   options: {
     deltaMapChanged?: boolean;
     deltaMapPatch?: boolean;
+    deltaInstanceDirtyDiff?: boolean;
+    deltaDirtyTileCount?: number;
+    deltaVisibleDirtyTileCount?: number;
     tickIntervalMs?: number;
   } = {},
 ) {
@@ -123,6 +126,11 @@ function createService(
           tilePatches: hasMapPatch ? [{ x: 3, y: 4, tile: { type: 'wall' } }] : [],
           visibleMinimapMarkerAdds: hasMapPatch ? [{ id: 'marker.b', kind: 'npc', x: 4, y: 4, label: '丙', detail: '丁' }] : [],
           visibleMinimapMarkerRemoves: hasMapPatch ? ['marker.a'] : [],
+          ...(options.deltaInstanceDirtyDiff === true ? {
+            instanceDirtyDiff: true,
+            dirtyTileCount: options.deltaDirtyTileCount ?? 0,
+            visibleDirtyTileCount: options.deltaVisibleDirtyTileCount ?? 0,
+          } : {}),
           cacheState: {
             mapId: 'map.a',
             instanceId: 'inst.a',
@@ -512,7 +520,12 @@ function testProgressOnlyRealmChangeDoesNotResendRealm() {
 
 function testAuxBreakdownCountsStableNoop() {
   const log: unknown[] = [];
-  const { service } = createService(log, { deltaMapPatch: false });
+  const { service } = createService(log, {
+    deltaMapPatch: false,
+    deltaInstanceDirtyDiff: true,
+    deltaDirtyTileCount: 9,
+    deltaVisibleDirtyTileCount: 4,
+  });
   const socket = { id: 'socket:breakdown', emit() {} };
   const player = createPlayer('炼气', 10);
   const breakdown = createSyncFlushBreakdownSample();
@@ -520,7 +533,11 @@ function testAuxBreakdownCountsStableNoop() {
   service.emitAuxInitialSync('player:breakdown', socket, createView(70), player);
   service.emitAuxDeltaSync('player:breakdown', socket, createView(70), player, { breakdown });
 
-  assert.equal(breakdown.auxMapRebuildCount, 1);
+  assert.equal(breakdown.auxMapDirtyDiffCount, 1);
+  assert.equal(breakdown.auxMapDirtyTileCount, 9);
+  assert.equal(breakdown.auxMapVisibleDirtyTileCount, 4);
+  assert.equal(breakdown.auxMapTilePatchEntryCount, 0);
+  assert.equal(breakdown.auxMapDirtyProjectionNoopCount, 1);
   assert.equal(breakdown.auxNoopCount, 1);
   assert.equal(breakdown.auxMapPatchCount, 0);
   assert.equal(breakdown.auxTimeChangedCount, 0);

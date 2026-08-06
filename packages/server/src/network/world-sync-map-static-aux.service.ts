@@ -215,26 +215,35 @@ function buildInstanceDirtyDeltaMapStaticPlan(snapshotService, previous, view, p
     if (!isVisibleTileSetUnchanged(previous, view)) {
         return null;
     }
-    const nextVisibleTiles = new Map(previous.visibleTiles);
+    let nextVisibleTiles = previous.visibleTiles;
     const tilePatches = [];
+    let visibleDirtyTileCount = 0;
     for (const key of instanceStaticPlan.dirtyTileKeys) {
         if (!previous.visibleTiles?.has?.(key)) {
             continue;
         }
+        visibleDirtyTileCount += 1;
         const [x, y] = parseCoordKey(key);
         const tile = typeof snapshotService.buildCompositeTileSyncState === 'function'
             ? snapshotService.buildCompositeTileSyncState(view, template, x, y, player)
             : null;
         const previousTile = previous.visibleTiles.get(key) ?? null;
         if (tile) {
-            nextVisibleTiles.set(key, tile);
-            if (!previousTile || !isSameTile(previousTile, tile)) {
-                tilePatches.push({ x, y, tile: cloneTilePatch(tile) });
+            if (previousTile && isSameTile(previousTile, tile)) {
+                continue;
             }
+            if (nextVisibleTiles === previous.visibleTiles) {
+                nextVisibleTiles = new Map(previous.visibleTiles);
+            }
+            nextVisibleTiles.set(key, tile);
+            tilePatches.push({ x, y, tile: cloneTilePatch(tile) });
             continue;
         }
-        nextVisibleTiles.delete(key);
         if (previousTile) {
+            if (nextVisibleTiles === previous.visibleTiles) {
+                nextVisibleTiles = new Map(previous.visibleTiles);
+            }
+            nextVisibleTiles.delete(key);
             tilePatches.push({ x, y, tile: null });
         }
     }
@@ -245,6 +254,8 @@ function buildInstanceDirtyDeltaMapStaticPlan(snapshotService, previous, view, p
         tilePatches,
         visibleMinimapMarkerAdds: [],
         visibleMinimapMarkerRemoves: [],
+        dirtyTileCount: instanceStaticPlan.dirtyTileKeys.length,
+        visibleDirtyTileCount,
         cacheState: {
             ...previous,
             worldRevision: normalizeRevision(view.worldRevision),
@@ -459,7 +470,7 @@ function isSameTile(left, right) {
         && left.aura === right.aura
         && left.movementCost === right.movementCost
         && left.qiDrainPerTick === right.qiDrainPerTick
-        && isSameTileResourceList(left.resources, right.resources)
+        && isSameCompactTileResourceList(left.resources, right.resources)
         && left.occupiedBy === right.occupiedBy
         && left.modifiedAt === right.modifiedAt
         && left.hp === right.hp
@@ -489,22 +500,40 @@ function isSameStringList(left, right) {
   return true;
 }
 
-function isSameTileResourceList(left, right) {
+/** 地块增量只下发非中性资源的 key + level，内部绝对值变化不能制造空的网络 patch。 */
+function isSameCompactTileResourceList(left, right) {
   if (left === right) {
     return true;
   }
-  if (!left || !right || left.length !== right.length) {
-    return false;
-  }
-  for (let index = 0; index < left.length; index += 1) {
-    if (left[index]?.key !== right[index]?.key
-      || left[index]?.label !== right[index]?.label
-      || left[index]?.value !== right[index]?.value
-      || left[index]?.effectiveValue !== right[index]?.effectiveValue
-      || left[index]?.level !== right[index]?.level
-      || left[index]?.sourceValue !== right[index]?.sourceValue) {
+  let leftIndex = 0;
+  let rightIndex = 0;
+  while (true) {
+    while (Array.isArray(left) && leftIndex < left.length) {
+      const entry = left[leftIndex];
+      if (entry && typeof entry.key === 'string' && entry.key.length > 0 && entry.key !== 'aura.refined.neutral') {
+        break;
+      }
+      leftIndex += 1;
+    }
+    while (Array.isArray(right) && rightIndex < right.length) {
+      const entry = right[rightIndex];
+      if (entry && typeof entry.key === 'string' && entry.key.length > 0 && entry.key !== 'aura.refined.neutral') {
+        break;
+      }
+      rightIndex += 1;
+    }
+    const leftEntry = Array.isArray(left) ? left[leftIndex] : undefined;
+    const rightEntry = Array.isArray(right) ? right[rightIndex] : undefined;
+    if (!leftEntry || !rightEntry) {
+      return !leftEntry && !rightEntry;
+    }
+    const leftLevel = Number(leftEntry.level);
+    const rightLevel = Number(rightEntry.level);
+    if (leftEntry.key !== rightEntry.key
+      || (Number.isFinite(leftLevel) ? leftLevel : undefined) !== (Number.isFinite(rightLevel) ? rightLevel : undefined)) {
       return false;
     }
+    leftIndex += 1;
+    rightIndex += 1;
   }
-  return true;
 }

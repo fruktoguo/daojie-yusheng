@@ -5,6 +5,7 @@ installSmokeTimeout(__filename);
 import assert from 'node:assert/strict';
 
 import { WorldProjectorService } from '../network/world-projector.service';
+import { createSyncFlushBreakdownSample } from '../network/world-sync-flush-breakdown';
 import { TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE } from '@mud/shared';
 
 type TechniqueEntry = {
@@ -35,6 +36,7 @@ function main(): void {
   const attrPanelBonusProof = proveAttrPanelUsesProjectedTechniqueBonuses();
   const attrWidePatchProof = proveAttrWidePatchAvoidsFullSnapshot();
   const realmProgressPatchProof = proveRealmProgressPatchAvoidsWideSnapshot();
+  const projectorBreakdownProof = proveProjectorBreakdownRecorded();
   const actionCooldownProof = proveActionCooldownReadyTickDelta();
   const stableEntryReuseProof = proveStableTechniqueEntriesAreReused();
   const techniqueHolderIdentityProof = proveTechniqueHolderReplacementInvalidatesAttrProjection();
@@ -48,6 +50,7 @@ function main(): void {
     attrPanelBonusProof,
     attrWidePatchProof,
     realmProgressPatchProof,
+    projectorBreakdownProof,
     actionCooldownProof,
     stableEntryReuseProof,
     techniqueHolderIdentityProof,
@@ -444,6 +447,43 @@ function proveRealmProgressPatchAvoidsWideSnapshot(): {
   assert.equal(onlyProgressFields, true);
   assert.equal(stableAttrSlicesReused, true);
   return { attrKeys, onlyProgressFields, stableAttrSlicesReused };
+}
+
+function proveProjectorBreakdownRecorded(): {
+  stageCounts: number[];
+  worldReuseCount: number;
+  worldCaptureCount: number;
+} {
+  const service = createProjector();
+  const player = createProjectorPlayer();
+  const view = createProjectorView();
+  service.createInitialEnvelope({ playerId: player.playerId, sessionId: 'projector_session' }, view, player);
+  const breakdown = createSyncFlushBreakdownSample();
+
+  const envelope = service.createDeltaEnvelope({ ...createProjectorView(), tick: 2 }, player, breakdown);
+  const stageCounts = [
+    breakdown.projectorIdentityCount,
+    breakdown.projectorWorldCount,
+    breakdown.projectorSelfCount,
+    breakdown.projectorPanelCount,
+    breakdown.projectorCacheCount,
+  ];
+
+  assert.equal(envelope, null);
+  assert.deepEqual(stageCounts, [1, 1, 1, 1, 1]);
+  assert.equal(breakdown.projectorWorldReuseCount, 1);
+  assert.equal(breakdown.projectorWorldCaptureCount, 0);
+  assert.equal(breakdown.projectorFullRebuildCount, 0);
+  assert.ok(breakdown.projectorIdentityMs >= 0);
+  assert.ok(breakdown.projectorWorldMs >= 0);
+  assert.ok(breakdown.projectorSelfMs >= 0);
+  assert.ok(breakdown.projectorPanelMs >= 0);
+  assert.ok(breakdown.projectorCacheMs >= 0);
+  return {
+    stageCounts,
+    worldReuseCount: breakdown.projectorWorldReuseCount,
+    worldCaptureCount: breakdown.projectorWorldCaptureCount,
+  };
 }
 
 function createProjector(): WorldProjectorService {

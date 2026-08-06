@@ -30,6 +30,16 @@ export interface SyncFlushBreakdownSample {
     envelopeProjectorCount: number;
     envelopeEventBusMs: number;
     envelopeEventBusCount: number;
+    projectorIdentityMs: number;
+    projectorIdentityCount: number;
+    projectorWorldMs: number;
+    projectorWorldCount: number;
+    projectorSelfMs: number;
+    projectorSelfCount: number;
+    projectorPanelMs: number;
+    projectorPanelCount: number;
+    projectorCacheMs: number;
+    projectorCacheCount: number;
     auxSyncMs: number;
     auxSyncCount: number;
     emitEnvelopeMs: number;
@@ -48,6 +58,9 @@ export interface SyncFlushBreakdownSample {
     envelopeSelfDeltaCount: number;
     envelopePanelDeltaCount: number;
     envelopeEventCount: number;
+    projectorFullRebuildCount: number;
+    projectorWorldReuseCount: number;
+    projectorWorldCaptureCount: number;
     auxDeferredCount: number;
     auxNoopCount: number;
     auxMapCacheHitCount: number;
@@ -55,6 +68,10 @@ export interface SyncFlushBreakdownSample {
     auxMapRebuildCount: number;
     auxMapChangedCount: number;
     auxMapPatchCount: number;
+    auxMapDirtyTileCount: number;
+    auxMapVisibleDirtyTileCount: number;
+    auxMapTilePatchEntryCount: number;
+    auxMapDirtyProjectionNoopCount: number;
     auxTimeChangedCount: number;
     auxRealmChangedCount: number;
     auxLootChangedCount: number;
@@ -84,6 +101,16 @@ export function createSyncFlushBreakdownSample(): SyncFlushBreakdownSample {
         envelopeProjectorCount: 0,
         envelopeEventBusMs: 0,
         envelopeEventBusCount: 0,
+        projectorIdentityMs: 0,
+        projectorIdentityCount: 0,
+        projectorWorldMs: 0,
+        projectorWorldCount: 0,
+        projectorSelfMs: 0,
+        projectorSelfCount: 0,
+        projectorPanelMs: 0,
+        projectorPanelCount: 0,
+        projectorCacheMs: 0,
+        projectorCacheCount: 0,
         auxSyncMs: 0,
         auxSyncCount: 0,
         emitEnvelopeMs: 0,
@@ -102,6 +129,9 @@ export function createSyncFlushBreakdownSample(): SyncFlushBreakdownSample {
         envelopeSelfDeltaCount: 0,
         envelopePanelDeltaCount: 0,
         envelopeEventCount: 0,
+        projectorFullRebuildCount: 0,
+        projectorWorldReuseCount: 0,
+        projectorWorldCaptureCount: 0,
         auxDeferredCount: 0,
         auxNoopCount: 0,
         auxMapCacheHitCount: 0,
@@ -109,6 +139,10 @@ export function createSyncFlushBreakdownSample(): SyncFlushBreakdownSample {
         auxMapRebuildCount: 0,
         auxMapChangedCount: 0,
         auxMapPatchCount: 0,
+        auxMapDirtyTileCount: 0,
+        auxMapVisibleDirtyTileCount: 0,
+        auxMapTilePatchEntryCount: 0,
+        auxMapDirtyProjectionNoopCount: 0,
         auxTimeChangedCount: 0,
         auxRealmChangedCount: 0,
         auxLootChangedCount: 0,
@@ -126,6 +160,11 @@ export type SyncFlushDurationKey = keyof Pick<SyncFlushBreakdownSample,
     | 'envelopeContainerProjectionMs'
     | 'envelopeProjectorMs'
     | 'envelopeEventBusMs'
+    | 'projectorIdentityMs'
+    | 'projectorWorldMs'
+    | 'projectorSelfMs'
+    | 'projectorPanelMs'
+    | 'projectorCacheMs'
     | 'auxSyncMs'
     | 'emitEnvelopeMs'
     | 'questSyncMs'
@@ -141,6 +180,11 @@ export type SyncFlushCountKey = keyof Pick<SyncFlushBreakdownSample,
     | 'envelopeContainerProjectionCount'
     | 'envelopeProjectorCount'
     | 'envelopeEventBusCount'
+    | 'projectorIdentityCount'
+    | 'projectorWorldCount'
+    | 'projectorSelfCount'
+    | 'projectorPanelCount'
+    | 'projectorCacheCount'
     | 'auxSyncCount'
     | 'emitEnvelopeCount'
     | 'questSyncCount'
@@ -152,6 +196,9 @@ export type SyncFlushCountKey = keyof Pick<SyncFlushBreakdownSample,
     | 'envelopeSelfDeltaCount'
     | 'envelopePanelDeltaCount'
     | 'envelopeEventCount'
+    | 'projectorFullRebuildCount'
+    | 'projectorWorldReuseCount'
+    | 'projectorWorldCaptureCount'
     | 'auxDeferredCount'
     | 'auxNoopCount'
     | 'auxMapCacheHitCount'
@@ -159,6 +206,10 @@ export type SyncFlushCountKey = keyof Pick<SyncFlushBreakdownSample,
     | 'auxMapRebuildCount'
     | 'auxMapChangedCount'
     | 'auxMapPatchCount'
+    | 'auxMapDirtyTileCount'
+    | 'auxMapVisibleDirtyTileCount'
+    | 'auxMapTilePatchEntryCount'
+    | 'auxMapDirtyProjectionNoopCount'
     | 'auxTimeChangedCount'
     | 'auxRealmChangedCount'
     | 'auxLootChangedCount'
@@ -178,11 +229,13 @@ export function addSyncFlushDuration(
 export function incrementSyncFlushCount(
     breakdown: SyncFlushBreakdownSample | undefined,
     key: SyncFlushCountKey,
+    amount = 1,
 ): void {
-    if (!breakdown) {
+    const normalizedAmount = Math.max(0, Math.trunc(Number(amount) || 0));
+    if (!breakdown || normalizedAmount <= 0) {
         return;
     }
-    breakdown[key] += 1;
+    breakdown[key] += normalizedAmount;
 }
 
 export function recordSyncEnvelopeDetail(

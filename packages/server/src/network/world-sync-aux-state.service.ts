@@ -274,9 +274,15 @@ export class WorldSyncAuxStateService {
       incrementSyncFlushCount(options.breakdown, 'auxMapCacheHitCount');
     } else if ('instanceDirtyDiff' in mapStaticPlan && mapStaticPlan.instanceDirtyDiff === true) {
       incrementSyncFlushCount(options.breakdown, 'auxMapDirtyDiffCount');
+      incrementSyncFlushCount(options.breakdown, 'auxMapDirtyTileCount', mapStaticPlan.dirtyTileCount);
+      incrementSyncFlushCount(options.breakdown, 'auxMapVisibleDirtyTileCount', mapStaticPlan.visibleDirtyTileCount);
+      if (mapStaticPlan.tilePatches.length === 0) {
+        incrementSyncFlushCount(options.breakdown, 'auxMapDirtyProjectionNoopCount');
+      }
     } else {
       incrementSyncFlushCount(options.breakdown, 'auxMapRebuildCount');
     }
+    incrementSyncFlushCount(options.breakdown, 'auxMapTilePatchEntryCount', mapStaticPlan.tilePatches.length);
     const visibleTiles = mapStaticPlan.visibleTiles;
     const currentVisibleMinimapMarkers = mapStaticPlan.visibleMinimapMarkers;
     const mapChanged = mapStaticPlan.mapChanged;

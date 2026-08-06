@@ -113,7 +113,7 @@ export class WorldSyncEnvelopeService {
         addSyncFlushDuration(breakdown, 'envelopeContainerProjectionMs', containerProjectionStartedAt);
         incrementSyncFlushCount(breakdown, 'envelopeContainerProjectionCount');
         const projectorStartedAt = performance.now();
-        const projectedEnvelope = this.worldProjectorService.createDeltaEnvelope(projectedView, player);
+        const projectedEnvelope = this.worldProjectorService.createDeltaEnvelope(projectedView, player, breakdown);
         addSyncFlushDuration(breakdown, 'envelopeProjectorMs', projectorStartedAt);
         incrementSyncFlushCount(breakdown, 'envelopeProjectorCount');
         const eventBusStartedAt = performance.now();

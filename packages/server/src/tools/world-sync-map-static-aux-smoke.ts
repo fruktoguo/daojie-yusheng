@@ -359,6 +359,93 @@ function testInstanceDirtyDiffOnlyProjectsDirtyVisibleTiles() {
     assert.equal(plan.cacheState.staticSyncRevision, 1);
 }
 
+function testInstanceDirtyDiffSkipsRawAuraChangesWithinSameLevel() {
+    let staticRevision = 1;
+    let projectedTile = {
+        type: 'floor',
+        aura: 26,
+        resources: [{
+            key: 'aura.refined.neutral',
+            label: '灵气',
+            value: 30_765_596,
+            effectiveValue: 33_842_156,
+            level: 26,
+            sourceValue: 0,
+        }],
+    };
+    const initialTile = {
+        ...projectedTile,
+        resources: projectedTile.resources.map((entry) => ({ ...entry })),
+    };
+    const visibleTiles = {
+        matrix: [[initialTile]],
+        byKey: new Map([['3,4', initialTile]]),
+    };
+    const service = new WorldSyncMapStaticAuxService(
+        {
+            buildVisibleTilesSnapshot() {
+                return visibleTiles;
+            },
+            getInstanceStaticTileSyncRevision() {
+                return 0;
+            },
+            buildInstanceStaticTileDiffPlan() {
+                return {
+                    fromRevision: staticRevision - 1,
+                    toRevision: staticRevision,
+                    dirtyTileKeys: ['3,4'],
+                };
+            },
+            buildCompositeTileSyncState() {
+                return projectedTile;
+            },
+        },
+        {
+            buildMinimapMarkers() {
+                return [];
+            },
+            buildVisibleMinimapMarkers() {
+                return [];
+            },
+            diffVisibleMinimapMarkers() {
+                return { adds: [], removes: [] };
+            },
+        },
+    );
+    const player = createPlayer();
+    const view = createView(3, 4, 'inst.a', 1, ['3,4']);
+    const initial = service.buildInitialMapStaticState(view, player, {});
+    service.commitPlayerCache('player:1', initial.cacheState);
+
+    projectedTile = {
+        ...projectedTile,
+        resources: [{
+            ...projectedTile.resources[0],
+            value: 30_700_000,
+            effectiveValue: 33_770_000,
+            sourceValue: 12,
+        }],
+    };
+    const sameLevelPlan: any = service.buildDeltaMapStaticPlan('player:1', view, player, {});
+
+    assert.deepEqual(sameLevelPlan.tilePatches, []);
+    assert.equal(sameLevelPlan.cacheState.visibleTiles, initial.cacheState.visibleTiles);
+    assert.equal(sameLevelPlan.cacheState.staticSyncRevision, 1);
+    service.commitPlayerCache('player:1', sameLevelPlan.cacheState);
+
+    staticRevision = 2;
+    projectedTile = {
+        ...projectedTile,
+        aura: 27,
+        resources: [{ ...projectedTile.resources[0], level: 27 }],
+    };
+    const nextLevelPlan: any = service.buildDeltaMapStaticPlan('player:1', view, player, {});
+
+    assert.deepEqual(nextLevelPlan.tilePatches, [{ x: 3, y: 4, tile: { type: 'floor', aura: 27 } }]);
+    assert.notEqual(nextLevelPlan.cacheState.visibleTiles, sameLevelPlan.cacheState.visibleTiles);
+    assert.equal(nextLevelPlan.cacheState.staticSyncRevision, 2);
+}
+
 function testInstanceDirtyDiffFallsBackWhenVisibleKeysMissing() {
     let buildVisibleTilesSnapshotCount = 0;
     let buildCompositeTileSyncStateCount = 0;
@@ -487,6 +574,7 @@ testTilePatchKeepsAuthorityTraversalAndLayerFields();
 testInstanceChangeStillRequiresMapStatic();
 testUnchangedWorldRevisionSkipsVisibleTilePlan();
 testInstanceDirtyDiffOnlyProjectsDirtyVisibleTiles();
+testInstanceDirtyDiffSkipsRawAuraChangesWithinSameLevel();
 testInstanceDirtyDiffFallsBackWhenVisibleKeysMissing();
 testFullVisibleDiffKeepsPreviousSnapshotBeforeRefresh();
 
