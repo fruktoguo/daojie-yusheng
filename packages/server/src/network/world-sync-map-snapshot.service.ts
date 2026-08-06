@@ -170,6 +170,12 @@ export class WorldSyncMapSnapshotService {
   }
 
   buildVisibleTileKeySet(view, player, template) {
+    // buildPlayerView 已经按同一套视线规则生成了 visibleTileKeys；事件过滤只需要坐标集合，
+    // 直接复用这份权威投影，避免每个在线玩家再次遍历视野方格并解析复合地块。
+    if (Array.isArray(view?.visibleTileKeys) && view.visibleTileKeys.length > 0
+      && view.visibleTileKeys.every((key) => typeof key === 'string')) {
+      return new Set(view.visibleTileKeys);
+    }
     const radius = resolvePlayerEffectiveViewRange(player);
     const originX = view.self.x - radius;
     const originY = view.self.y - radius;

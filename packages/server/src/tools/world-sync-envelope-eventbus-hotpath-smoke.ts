@@ -5,12 +5,14 @@ installSmokeTimeout(__filename);
 import assert from 'node:assert/strict';
 
 import { WorldSyncEnvelopeService } from '../network/world-sync-envelope.service';
+import { WorldSyncMapSnapshotService } from '../network/world-sync-map-snapshot.service';
 
 async function main(): Promise<void> {
   const noEventsProof = runNoEventsProof();
   const sharedVisibleSetProof = runSharedVisibleSetProof();
   const hiddenAttackEndpointProof = runHiddenAttackEndpointProof();
   const clearCacheProof = runClearCacheProof();
+  const visibleTileKeyReuseProof = runVisibleTileKeyReuseProof();
 
   console.log(JSON.stringify({
     ok: true,
@@ -18,11 +20,50 @@ async function main(): Promise<void> {
     sharedVisibleSetProof,
     hiddenAttackEndpointProof,
     clearCacheProof,
+    visibleTileKeyReuseProof,
     answers:
       'WorldDelta 组包在没有实例表现事件时不再构造玩家可见 tile Set；战斗特效和 AOI 表现同时存在时只构造一次可见 Set；攻击线必须起点和终点都可见才下发；玩家同步缓存清理会同步丢弃 EventBus 玩家队列。',
     excludes:
       '不证明正式服真实 RSS 曲线，只证明 envelope 热路径避免了无事件时的可见格子 Set 分配和双重构造。',
   }, null, 2));
+}
+
+function runVisibleTileKeyReuseProof(): { fastPathKeys: string[]; fallbackLookups: number } {
+  let tileLookupCount = 0;
+  const service = new WorldSyncMapSnapshotService(
+    {
+      getInstanceTileState: () => {
+        tileLookupCount += 1;
+        return null;
+      },
+      getInstanceRuntime: () => null,
+    } as never,
+    { getPlayer: () => null } as never,
+    {
+      has: () => true,
+      getOrThrow: () => ({ id: 'map.a', width: 3, height: 3, terrainRows: ['...', '...', '...'] }),
+    } as never,
+    { getMapTimeConfig: () => null, getMapTickSpeed: () => 1 } as never,
+    {} as never,
+    null,
+  );
+  const template = { id: 'map.a', width: 3, height: 3, terrainRows: ['...', '...', '...'] };
+  const player = { attrs: { numericStats: { viewRange: 1 } } };
+  const fastPathView = {
+    instance: { instanceId: 'inst.a', templateId: 'map.a' },
+    self: { x: 1, y: 1 },
+    visibleTileKeys: ['1,1', '2,1', '2,1'],
+    visibleTileIndices: [],
+  };
+  const fastPath = service.buildVisibleTileKeySet(fastPathView, player, template);
+  const fastPathKeys = [...fastPath].map((key) => String(key)).sort();
+  assert.deepEqual(fastPathKeys, ['1,1', '2,1']);
+  assert.equal(tileLookupCount, 0);
+
+  const fallbackView = { ...fastPathView, visibleTileKeys: [] };
+  service.buildVisibleTileKeySet(fallbackView, player, template);
+  assert.ok(tileLookupCount > 0);
+  return { fastPathKeys, fallbackLookups: tileLookupCount };
 }
 
 function runNoEventsProof(): { visibleSetBuilds: number; returnedSameEnvelope: boolean } {
