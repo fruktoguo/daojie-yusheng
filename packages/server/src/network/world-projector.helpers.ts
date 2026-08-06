@@ -118,6 +118,11 @@ import {
   getTechniqueEffectRevision,
   getTechniqueFinalSpecialStatBonusCached,
 } from './world-gateway-attr-detail.helper';
+import {
+  addSyncFlushDuration,
+  incrementSyncFlushCount,
+  type SyncFlushBreakdownSample,
+} from './world-sync-flush-breakdown';
 
 const npcProjectionCache = new WeakMap<ProjectorNpcLike, ProjectedNpcEntry>();
 const monsterProjectionCache = new WeakMap<ProjectorMonsterLike, ProjectedMonsterEntry>();
@@ -401,7 +406,7 @@ function buildProjectedAttrBonusesSignature(player: ProjectorPlayerLike): string
         player.attrs.revision,
         getTechniqueEffectRevision(player),
         player.equipment.revision,
-        player.buffs.revision,
+        buildProjectedBuffAttrBonusSignature(player),
         player.realmLv ?? '',
         includeAllConditionInputs || dependencies.hpRatio ? player.hp : '',
         includeAllConditionInputs || dependencies.hpRatio ? player.maxHp : '',
@@ -416,6 +421,23 @@ function buildProjectedAttrBonusesSignature(player: ProjectorPlayerLike): string
         realm?.name ?? '',
         stableShallowSignature((player as { runtimeBonuses?: unknown }).runtimeBonuses),
     ].join('|');
+}
+
+/** 属性加成明细不包含 buff 倒计时；只用真正影响该投影的字段参与缓存失效。 */
+function buildProjectedBuffAttrBonusSignature(player: ProjectorPlayerLike): string {
+    const buffs = Array.isArray(player.buffs?.buffs) ? player.buffs.buffs : [];
+    let hash = fnvMix(FNV_OFFSET_BASIS, buffs.length);
+    for (const entry of buffs) {
+        const buff = entry as VisibleBuffState & { sourceSkillId?: unknown };
+        hash = fnvMix(hash, stableShallowHash(buff?.buffId ?? null));
+        hash = fnvMix(hash, stableShallowHash(buff?.name ?? null));
+        hash = fnvMix(hash, stableShallowHash(buff?.attrs ?? null));
+        hash = fnvMix(hash, stableShallowHash(buff?.attrMode ?? null));
+        hash = fnvMix(hash, stableShallowHash(buff?.stats ?? null));
+        hash = fnvMix(hash, stableShallowHash(buff?.qiProjection ?? null));
+        hash = fnvMix(hash, stableShallowHash(buff?.sourceSkillId ?? null));
+    }
+    return String(hash >>> 0);
 }
 
 function resolveAttrBonusConditionDependencies(player: ProjectorPlayerLike): AttrBonusConditionDependencies {
@@ -977,6 +999,7 @@ function buildPanelCursor(
         attrSignatureMode?: 'realm_progress' | 'full';
         actionSignature?: boolean;
     } = {},
+    projectedBuffs?: VisibleBuffState[],
 ): ProjectedPanelCursor {
     const canReuseInventoryCursor = previousCursor
         && Array.isArray(previousCursor.inventorySlotSignatures)
@@ -993,7 +1016,7 @@ function buildPanelCursor(
         && Array.isArray(previousCursor.actionIds)
         && previousCursor.actionEntrySignatures
         && previousCursor.actionRevision === player.actions.revision;
-    const currentBuffs = projectVisiblePlayerBuffs(player);
+    const currentBuffs = projectedBuffs ?? projectVisiblePlayerBuffs(player);
     const buffSignature = buildBuffListSignature(player.buffs.revision, currentBuffs);
     const canReuseBuffCursor = previousCursor
         && Array.isArray(previousCursor.buffIds)
@@ -1579,8 +1602,11 @@ function captureActionPanelSlice(player: ProjectorPlayerLike): ProjectedActionPa
     };
 }
 
-function captureBuffPanelSlice(player: ProjectorPlayerLike): ProjectedPanelState['buff'] {
-    return { revision: player.buffs.revision, buffs: projectVisiblePlayerBuffs(player) };
+function captureBuffPanelSlice(
+    player: ProjectorPlayerLike,
+    projectedBuffs?: VisibleBuffState[],
+): ProjectedPanelState['buff'] {
+    return { revision: player.buffs.revision, buffs: projectedBuffs ?? projectVisiblePlayerBuffs(player) };
 }
 
 function combineProjectorState(worldState: WorldStateSlice, playerState: PlayerStateSlice): ProjectorState {
@@ -1835,26 +1861,62 @@ function isSameMovementCapabilities(left: ProjectedSelfState['movementCapabiliti
     return (left?.staticObstacleIgnore === true) === (right?.staticObstacleIgnore === true);
 }
 
-function buildPanelUpdate(previous: PlayerStateSlice, player: ProjectorPlayerLike): PanelDeltaBuildResult {
+function buildPanelUpdate(
+    previous: PlayerStateSlice,
+    player: ProjectorPlayerLike,
+    breakdown?: SyncFlushBreakdownSample,
+): PanelDeltaBuildResult {
+    const attrCheckStartedAt = performance.now();
     const attrChangeKind = previous.attrPanel
         ? resolveAttrPanelChangeKind(previous.attrPanel, player)
         : 'full';
+    addSyncFlushDuration(breakdown, 'projectorPanelAttrCheckMs', attrCheckStartedAt);
+    incrementSyncFlushCount(breakdown, 'projectorPanelAttrCheckCount');
+    incrementSyncFlushCount(
+        breakdown,
+        attrChangeKind === 'none'
+            ? 'projectorPanelAttrNoneCount'
+            : attrChangeKind === 'realm_progress'
+                ? 'projectorPanelAttrRealmProgressCount'
+                : 'projectorPanelAttrFullCount',
+    );
     const canReuseAttrPanel = attrChangeKind === 'none';
     const canReuseActionPanel = Boolean(previous.actionPanel && canReuseActionPanelSlice(previous.actionPanel, player));
+    if (canReuseActionPanel) {
+        incrementSyncFlushCount(breakdown, 'projectorPanelActionReuseCount');
+    }
+    const buffProjectionStartedAt = performance.now();
+    const currentBuffs = projectVisiblePlayerBuffs(player);
+    addSyncFlushDuration(breakdown, 'projectorPanelBuffProjectionMs', buffProjectionStartedAt);
+    incrementSyncFlushCount(breakdown, 'projectorPanelBuffProjectionCount');
+    incrementSyncFlushCount(breakdown, 'projectorPanelBuffEntryCount', currentBuffs.length);
+    const cursorStartedAt = performance.now();
     const panelCursor = buildPanelCursor(player, previous.panelCursor, {
         attrSignature: canReuseAttrPanel,
         attrSignatureMode: attrChangeKind === 'realm_progress' ? 'realm_progress' : 'full',
         actionSignature: canReuseActionPanel,
-    });
+    }, currentBuffs);
+    addSyncFlushDuration(breakdown, 'projectorPanelCursorMs', cursorStartedAt);
+    incrementSyncFlushCount(breakdown, 'projectorPanelCursorCount');
+    const attrSliceStartedAt = performance.now();
     const currentAttrPanel = previous.attrPanel && canReuseAttrPanel
         ? previous.attrPanel
         : previous.attrPanel && attrChangeKind === 'realm_progress'
             ? patchRealmProgressAttrPanelSlice(previous.attrPanel, player)
         : captureAttrPanelSlice(player);
+    addSyncFlushDuration(breakdown, 'projectorPanelAttrSliceMs', attrSliceStartedAt);
+    incrementSyncFlushCount(breakdown, 'projectorPanelAttrSliceCount');
+    const actionSliceStartedAt = performance.now();
     const currentActionPanel = previous.actionPanel && canReuseActionPanel
         ? previous.actionPanel
         : captureActionPanelSlice(player);
+    addSyncFlushDuration(breakdown, 'projectorPanelActionSliceMs', actionSliceStartedAt);
+    incrementSyncFlushCount(breakdown, 'projectorPanelActionSliceCount');
+    if (!canReuseActionPanel) {
+        incrementSyncFlushCount(breakdown, 'projectorPanelActionEntryCount', player.actions.actions.length);
+    }
     const hasTechniqueCache = Boolean(previous.techniquePanel);
+    const deltaStartedAt = performance.now();
     const delta = buildPanelDeltaFromCursor(previous.panelCursor, panelCursor, player, {
         previousAttr: previous.attrPanel,
         currentAttr: currentAttrPanel,
@@ -1862,9 +1924,14 @@ function buildPanelUpdate(previous: PlayerStateSlice, player: ProjectorPlayerLik
         previousAction: previous.actionPanel,
         currentAction: currentActionPanel,
         skipTechnique: hasTechniqueCache,
+        currentBuffs,
     }) ?? {};
+    addSyncFlushDuration(breakdown, 'projectorPanelDeltaMs', deltaStartedAt);
+    incrementSyncFlushCount(breakdown, 'projectorPanelDeltaCount');
+    const techniqueStartedAt = performance.now();
     let techniquePanel = previous.techniquePanel;
     if (previous.techniquePanel && previous.panelCursor.techniqueSignature !== panelCursor.techniqueSignature) {
+        incrementSyncFlushCount(breakdown, 'projectorPanelTechniqueEntryCount', player.techniques.techniques.length);
         const currentTechnique = captureTechniquePanelSlice(player, previous.techniquePanel);
         const techniquePatch = diffTechniqueEntries(previous.techniquePanel.techniques, currentTechnique.techniques);
         const removed = diffRemovedTechniqueIds(previous.techniquePanel.techniques, currentTechnique.techniques);
@@ -1883,8 +1950,27 @@ function buildPanelUpdate(previous: PlayerStateSlice, player: ProjectorPlayerLik
     } else if (!techniquePanel) {
         techniquePanel = captureTechniquePanelSlice(player);
     }
+    addSyncFlushDuration(breakdown, 'projectorPanelTechniqueMs', techniqueStartedAt);
+    incrementSyncFlushCount(breakdown, 'projectorPanelTechniqueCount');
     const finalDelta = delta.inv || delta.eq || delta.art || delta.tech || delta.attr || delta.act || delta.buff ? delta : null;
+    recordPanelDeltaBreakdown(breakdown, finalDelta);
     return { delta: finalDelta, panelCursor, attrPanel: currentAttrPanel, actionPanel: currentActionPanel, techniquePanel };
+}
+
+function recordPanelDeltaBreakdown(
+    breakdown: SyncFlushBreakdownSample | undefined,
+    delta: S2C_PanelDelta | null,
+): void {
+    if (!delta) {
+        return;
+    }
+    if (delta.inv) { incrementSyncFlushCount(breakdown, 'projectorPanelInventoryDeltaCount'); }
+    if (delta.eq) { incrementSyncFlushCount(breakdown, 'projectorPanelEquipmentDeltaCount'); }
+    if (delta.art) { incrementSyncFlushCount(breakdown, 'projectorPanelArtifactDeltaCount'); }
+    if (delta.tech) { incrementSyncFlushCount(breakdown, 'projectorPanelTechniqueDeltaCount'); }
+    if (delta.attr) { incrementSyncFlushCount(breakdown, 'projectorPanelAttrDeltaCount'); }
+    if (delta.act) { incrementSyncFlushCount(breakdown, 'projectorPanelActionDeltaCount'); }
+    if (delta.buff) { incrementSyncFlushCount(breakdown, 'projectorPanelBuffDeltaCount'); }
 }
 
 function buildPanelDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike): S2C_PanelDelta | null {
@@ -1902,6 +1988,7 @@ function buildPanelDeltaFromCursor(
         currentAttr?: ProjectedAttrPanelState;
         previousAction?: ProjectedActionPanelState;
         currentAction?: ProjectedActionPanelState;
+        currentBuffs?: VisibleBuffState[];
     } = {},
 ): S2C_PanelDelta | null {
     const delta: S2C_PanelDelta = {};
@@ -1953,7 +2040,7 @@ function buildPanelDeltaFromCursor(
             : buildFullActionDeltaFromState(currentAction);
     }
     if (previousCursor.buffSignature !== currentCursor.buffSignature) {
-        const buff = captureBuffPanelSlice(player);
+        const buff = captureBuffPanelSlice(player, options.currentBuffs);
         const buffPatch = diffBuffEntriesFromCursor(previousCursor, currentCursor, buff.buffs);
         const removedBuffIds = diffRemovedIds(previousCursor.buffIds, currentCursor.buffIds);
         delta.buff = {

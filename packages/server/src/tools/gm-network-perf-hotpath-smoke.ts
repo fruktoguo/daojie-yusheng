@@ -98,12 +98,17 @@ async function main(): Promise<void> {
     const syncBreakdown = createSyncFlushBreakdownSample();
     syncBreakdown.envelopeNoopCount = 3;
     syncBreakdown.envelopePanelDeltaCount = 1;
+    syncBreakdown.projectorPanelBuffProjectionMs = 4;
+    syncBreakdown.projectorPanelBuffProjectionCount = 2;
+    syncBreakdown.projectorPanelBuffDeltaCount = 5;
     syncBreakdown.auxNoopCount = 2;
     syncBreakdown.auxThreatChangedCount = 1;
     service.recordSyncFlushBreakdown(syncBreakdown);
     const cpuBreakdown = service.buildPerformanceSnapshot().cpu.breakdown;
     assert.equal(findCpuBreakdownCount(cpuBreakdown, 'syncFlush.envelope.noop'), 3);
     assert.equal(findCpuBreakdownCount(cpuBreakdown, 'syncFlush.envelope.panelDelta'), 1);
+    assert.equal(findCpuBreakdownCount(cpuBreakdown, 'syncFlush.projectorPanelBuffProjectionMs'), 2);
+    assert.equal(findCpuBreakdownCount(cpuBreakdown, 'syncFlush.projector.panel.buffDelta'), 5);
     assert.equal(findCpuBreakdownCount(cpuBreakdown, 'syncFlush.aux.noop'), 2);
     assert.equal(findCpuBreakdownCount(cpuBreakdown, 'syncFlush.aux.threatChanged'), 1);
   } finally {

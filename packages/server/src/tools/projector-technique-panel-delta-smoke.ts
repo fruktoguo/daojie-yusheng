@@ -36,6 +36,7 @@ function main(): void {
   const attrPanelBonusProof = proveAttrPanelUsesProjectedTechniqueBonuses();
   const attrWidePatchProof = proveAttrWidePatchAvoidsFullSnapshot();
   const realmProgressPatchProof = proveRealmProgressPatchAvoidsWideSnapshot();
+  const buffCountdownAttrCacheProof = proveBuffCountdownKeepsAttrBonusCache();
   const projectorBreakdownProof = proveProjectorBreakdownRecorded();
   const actionCooldownProof = proveActionCooldownReadyTickDelta();
   const stableEntryReuseProof = proveStableTechniqueEntriesAreReused();
@@ -50,6 +51,7 @@ function main(): void {
     attrPanelBonusProof,
     attrWidePatchProof,
     realmProgressPatchProof,
+    buffCountdownAttrCacheProof,
     projectorBreakdownProof,
     actionCooldownProof,
     stableEntryReuseProof,
@@ -57,6 +59,81 @@ function main(): void {
     answers:
       '功法面板首个全量包和新增功法仍可携带静态 skills/layers；每秒经验/等级动态变化只发字段级 patch，不再带 full/skills/layers/name 等模板详情，并复用未变化的功法条目；属性面板常驻 bonuses 使用投影后的功法加成，包含万法归元与凝气法灵脉投影；属性面板大范围数值变化仍发字段 patch，不回退 full；行动面板会下发技能 cooldownReadyTick 的设置与清除差量，并省略未变化的稳定开关。',
   }, null, 2));
+}
+
+function proveBuffCountdownKeepsAttrBonusCache(): {
+  equipmentReadsAfterCountdown: number;
+  buffRevisionDeltaPreserved: boolean;
+  attrDeltaOmitted: boolean;
+  effectMutationInvalidated: boolean;
+} {
+  const service = createProjector();
+  const player = createProjectorPlayer();
+  let equipmentReads = 0;
+  const equipmentItem = {
+    itemId: 'proof_sword',
+    name: '证明剑',
+    type: 'equipment',
+    count: 1,
+    equipAttrs: { constitution: 1 },
+  };
+  const equipmentSlot = { slot: 'weapon' } as Record<string, unknown>;
+  Object.defineProperty(equipmentSlot, 'item', {
+    enumerable: true,
+    get() {
+      equipmentReads += 1;
+      return equipmentItem;
+    },
+  });
+  player.equipment = { revision: 2, slots: [equipmentSlot] } as never;
+  player.buffs = {
+    revision: 2,
+    buffs: [{
+      buffId: 'buff.attr_cache_proof',
+      name: '属性缓存证明',
+      shortMark: '证',
+      category: 'buff',
+      visibility: 'public',
+      remainingTicks: 10,
+      duration: 10,
+      stacks: 1,
+      maxStacks: 1,
+      attrs: { spirit: 1 },
+      attrMode: 'flat',
+    }],
+  } as never;
+  service.createInitialEnvelope(
+    { playerId: player.playerId, sessionId: 'projector_session' },
+    createProjectorView(),
+    player,
+  );
+  equipmentReads = 0;
+  player.buffs.buffs[0].remainingTicks = 9;
+  player.buffs.revision += 1;
+
+  const envelope = service.createDeltaEnvelope({ ...createProjectorView(), tick: 2 }, player);
+  const buffRevisionDeltaPreserved = envelope?.panelDelta?.buff?.r === player.buffs.revision;
+  const attrDeltaOmitted = envelope?.panelDelta?.attr === undefined;
+
+  assert.equal(equipmentReads, 0);
+  assert.equal(buffRevisionDeltaPreserved, true);
+  assert.equal(attrDeltaOmitted, true);
+  const equipmentReadsAfterCountdown = equipmentReads;
+  player.buffs.buffs[0].attrs = { spirit: 2 };
+  player.buffs.revision += 1;
+  const effectEnvelope = service.createDeltaEnvelope({ ...createProjectorView(), tick: 3 }, player);
+  const effectMutationInvalidated = equipmentReads > 0
+    && effectEnvelope?.panelDelta?.attr?.bonuses?.some((entry) => (
+      entry.source === 'buff:buff.attr_cache_proof'
+      && entry.attrs?.spirit === 2
+    )) === true;
+  assert.equal(effectMutationInvalidated, true);
+  return {
+    equipmentReadsAfterCountdown,
+    buffRevisionDeltaPreserved,
+    attrDeltaOmitted,
+    effectMutationInvalidated,
+  };
 }
 
 function proveTechniqueHolderReplacementInvalidatesAttrProjection(): {
@@ -451,6 +528,7 @@ function proveRealmProgressPatchAvoidsWideSnapshot(): {
 
 function proveProjectorBreakdownRecorded(): {
   stageCounts: number[];
+  panelStageCounts: number[];
   worldReuseCount: number;
   worldCaptureCount: number;
 } {
@@ -468,12 +546,24 @@ function proveProjectorBreakdownRecorded(): {
     breakdown.projectorPanelCount,
     breakdown.projectorCacheCount,
   ];
+  const panelStageCounts = [
+    breakdown.projectorPanelAttrCheckCount,
+    breakdown.projectorPanelBuffProjectionCount,
+    breakdown.projectorPanelCursorCount,
+    breakdown.projectorPanelAttrSliceCount,
+    breakdown.projectorPanelActionSliceCount,
+    breakdown.projectorPanelDeltaCount,
+    breakdown.projectorPanelTechniqueCount,
+  ];
 
   assert.equal(envelope, null);
   assert.deepEqual(stageCounts, [1, 1, 1, 1, 1]);
+  assert.deepEqual(panelStageCounts, [1, 1, 1, 1, 1, 1, 1]);
   assert.equal(breakdown.projectorWorldReuseCount, 1);
   assert.equal(breakdown.projectorWorldCaptureCount, 0);
   assert.equal(breakdown.projectorFullRebuildCount, 0);
+  assert.equal(breakdown.projectorPanelAttrNoneCount, 1);
+  assert.equal(breakdown.projectorPanelActionReuseCount, 1);
   assert.ok(breakdown.projectorIdentityMs >= 0);
   assert.ok(breakdown.projectorWorldMs >= 0);
   assert.ok(breakdown.projectorSelfMs >= 0);
@@ -481,6 +571,7 @@ function proveProjectorBreakdownRecorded(): {
   assert.ok(breakdown.projectorCacheMs >= 0);
   return {
     stageCounts,
+    panelStageCounts,
     worldReuseCount: breakdown.projectorWorldReuseCount,
     worldCaptureCount: breakdown.projectorWorldCaptureCount,
   };

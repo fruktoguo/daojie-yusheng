@@ -217,7 +217,7 @@ export class WorldProjectorService {
         addSyncFlushDuration(breakdown, 'projectorSelfMs', selfStartedAt);
         incrementSyncFlushCount(breakdown, 'projectorSelfCount');
         const panelStartedAt = performance.now();
-        const panelUpdate = buildPanelUpdate(previous, player);
+        const panelUpdate = buildPanelUpdate(previous, player, breakdown);
         addSyncFlushDuration(breakdown, 'projectorPanelMs', panelStartedAt);
         incrementSyncFlushCount(breakdown, 'projectorPanelCount');
         const panelDelta = panelUpdate.delta;

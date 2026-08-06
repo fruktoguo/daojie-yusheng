@@ -38,6 +38,20 @@ export interface SyncFlushBreakdownSample {
     projectorSelfCount: number;
     projectorPanelMs: number;
     projectorPanelCount: number;
+    projectorPanelAttrCheckMs: number;
+    projectorPanelAttrCheckCount: number;
+    projectorPanelBuffProjectionMs: number;
+    projectorPanelBuffProjectionCount: number;
+    projectorPanelCursorMs: number;
+    projectorPanelCursorCount: number;
+    projectorPanelAttrSliceMs: number;
+    projectorPanelAttrSliceCount: number;
+    projectorPanelActionSliceMs: number;
+    projectorPanelActionSliceCount: number;
+    projectorPanelDeltaMs: number;
+    projectorPanelDeltaCount: number;
+    projectorPanelTechniqueMs: number;
+    projectorPanelTechniqueCount: number;
     projectorCacheMs: number;
     projectorCacheCount: number;
     auxSyncMs: number;
@@ -61,6 +75,20 @@ export interface SyncFlushBreakdownSample {
     projectorFullRebuildCount: number;
     projectorWorldReuseCount: number;
     projectorWorldCaptureCount: number;
+    projectorPanelAttrNoneCount: number;
+    projectorPanelAttrRealmProgressCount: number;
+    projectorPanelAttrFullCount: number;
+    projectorPanelActionReuseCount: number;
+    projectorPanelInventoryDeltaCount: number;
+    projectorPanelEquipmentDeltaCount: number;
+    projectorPanelArtifactDeltaCount: number;
+    projectorPanelTechniqueDeltaCount: number;
+    projectorPanelAttrDeltaCount: number;
+    projectorPanelActionDeltaCount: number;
+    projectorPanelBuffDeltaCount: number;
+    projectorPanelTechniqueEntryCount: number;
+    projectorPanelActionEntryCount: number;
+    projectorPanelBuffEntryCount: number;
     auxDeferredCount: number;
     auxNoopCount: number;
     auxMapCacheHitCount: number;
@@ -109,6 +137,20 @@ export function createSyncFlushBreakdownSample(): SyncFlushBreakdownSample {
         projectorSelfCount: 0,
         projectorPanelMs: 0,
         projectorPanelCount: 0,
+        projectorPanelAttrCheckMs: 0,
+        projectorPanelAttrCheckCount: 0,
+        projectorPanelBuffProjectionMs: 0,
+        projectorPanelBuffProjectionCount: 0,
+        projectorPanelCursorMs: 0,
+        projectorPanelCursorCount: 0,
+        projectorPanelAttrSliceMs: 0,
+        projectorPanelAttrSliceCount: 0,
+        projectorPanelActionSliceMs: 0,
+        projectorPanelActionSliceCount: 0,
+        projectorPanelDeltaMs: 0,
+        projectorPanelDeltaCount: 0,
+        projectorPanelTechniqueMs: 0,
+        projectorPanelTechniqueCount: 0,
         projectorCacheMs: 0,
         projectorCacheCount: 0,
         auxSyncMs: 0,
@@ -132,6 +174,20 @@ export function createSyncFlushBreakdownSample(): SyncFlushBreakdownSample {
         projectorFullRebuildCount: 0,
         projectorWorldReuseCount: 0,
         projectorWorldCaptureCount: 0,
+        projectorPanelAttrNoneCount: 0,
+        projectorPanelAttrRealmProgressCount: 0,
+        projectorPanelAttrFullCount: 0,
+        projectorPanelActionReuseCount: 0,
+        projectorPanelInventoryDeltaCount: 0,
+        projectorPanelEquipmentDeltaCount: 0,
+        projectorPanelArtifactDeltaCount: 0,
+        projectorPanelTechniqueDeltaCount: 0,
+        projectorPanelAttrDeltaCount: 0,
+        projectorPanelActionDeltaCount: 0,
+        projectorPanelBuffDeltaCount: 0,
+        projectorPanelTechniqueEntryCount: 0,
+        projectorPanelActionEntryCount: 0,
+        projectorPanelBuffEntryCount: 0,
         auxDeferredCount: 0,
         auxNoopCount: 0,
         auxMapCacheHitCount: 0,
@@ -164,6 +220,13 @@ export type SyncFlushDurationKey = keyof Pick<SyncFlushBreakdownSample,
     | 'projectorWorldMs'
     | 'projectorSelfMs'
     | 'projectorPanelMs'
+    | 'projectorPanelAttrCheckMs'
+    | 'projectorPanelBuffProjectionMs'
+    | 'projectorPanelCursorMs'
+    | 'projectorPanelAttrSliceMs'
+    | 'projectorPanelActionSliceMs'
+    | 'projectorPanelDeltaMs'
+    | 'projectorPanelTechniqueMs'
     | 'projectorCacheMs'
     | 'auxSyncMs'
     | 'emitEnvelopeMs'
@@ -184,6 +247,13 @@ export type SyncFlushCountKey = keyof Pick<SyncFlushBreakdownSample,
     | 'projectorWorldCount'
     | 'projectorSelfCount'
     | 'projectorPanelCount'
+    | 'projectorPanelAttrCheckCount'
+    | 'projectorPanelBuffProjectionCount'
+    | 'projectorPanelCursorCount'
+    | 'projectorPanelAttrSliceCount'
+    | 'projectorPanelActionSliceCount'
+    | 'projectorPanelDeltaCount'
+    | 'projectorPanelTechniqueCount'
     | 'projectorCacheCount'
     | 'auxSyncCount'
     | 'emitEnvelopeCount'
@@ -199,6 +269,20 @@ export type SyncFlushCountKey = keyof Pick<SyncFlushBreakdownSample,
     | 'projectorFullRebuildCount'
     | 'projectorWorldReuseCount'
     | 'projectorWorldCaptureCount'
+    | 'projectorPanelAttrNoneCount'
+    | 'projectorPanelAttrRealmProgressCount'
+    | 'projectorPanelAttrFullCount'
+    | 'projectorPanelActionReuseCount'
+    | 'projectorPanelInventoryDeltaCount'
+    | 'projectorPanelEquipmentDeltaCount'
+    | 'projectorPanelArtifactDeltaCount'
+    | 'projectorPanelTechniqueDeltaCount'
+    | 'projectorPanelAttrDeltaCount'
+    | 'projectorPanelActionDeltaCount'
+    | 'projectorPanelBuffDeltaCount'
+    | 'projectorPanelTechniqueEntryCount'
+    | 'projectorPanelActionEntryCount'
+    | 'projectorPanelBuffEntryCount'
     | 'auxDeferredCount'
     | 'auxNoopCount'
     | 'auxMapCacheHitCount'
