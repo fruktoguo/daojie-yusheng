@@ -24,6 +24,12 @@ export interface SyncFlushBreakdownSample {
     playerStateCount: number;
     envelopeMs: number;
     envelopeCount: number;
+    envelopeContainerProjectionMs: number;
+    envelopeContainerProjectionCount: number;
+    envelopeProjectorMs: number;
+    envelopeProjectorCount: number;
+    envelopeEventBusMs: number;
+    envelopeEventBusCount: number;
     auxSyncMs: number;
     auxSyncCount: number;
     emitEnvelopeMs: number;
@@ -72,6 +78,12 @@ export function createSyncFlushBreakdownSample(): SyncFlushBreakdownSample {
         playerStateCount: 0,
         envelopeMs: 0,
         envelopeCount: 0,
+        envelopeContainerProjectionMs: 0,
+        envelopeContainerProjectionCount: 0,
+        envelopeProjectorMs: 0,
+        envelopeProjectorCount: 0,
+        envelopeEventBusMs: 0,
+        envelopeEventBusCount: 0,
         auxSyncMs: 0,
         auxSyncCount: 0,
         emitEnvelopeMs: 0,
@@ -111,6 +123,9 @@ export type SyncFlushDurationKey = keyof Pick<SyncFlushBreakdownSample,
     | 'contextActionsMs'
     | 'playerStateMs'
     | 'envelopeMs'
+    | 'envelopeContainerProjectionMs'
+    | 'envelopeProjectorMs'
+    | 'envelopeEventBusMs'
     | 'auxSyncMs'
     | 'emitEnvelopeMs'
     | 'questSyncMs'
@@ -123,6 +138,9 @@ export type SyncFlushCountKey = keyof Pick<SyncFlushBreakdownSample,
     | 'contextActionsCount'
     | 'playerStateCount'
     | 'envelopeCount'
+    | 'envelopeContainerProjectionCount'
+    | 'envelopeProjectorCount'
+    | 'envelopeEventBusCount'
     | 'auxSyncCount'
     | 'emitEnvelopeCount'
     | 'questSyncCount'

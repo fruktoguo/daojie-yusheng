@@ -10,6 +10,7 @@ const {
     fromWireTick,
 } = require("@mud/shared");
 const { WorldSyncEnvelopeService } = require("../network/world-sync-envelope.service");
+const { createSyncFlushBreakdownSample } = require("../network/world-sync-flush-breakdown");
 /**
  * testEnvelopeService：执行testEnvelope服务相关逻辑。
  * @returns 无返回值，直接更新testEnvelope服务相关状态。
@@ -108,8 +109,15 @@ function testEnvelopeService() {
     assert.equal(decoded.fx[0].toX, 7);
     assert.equal(decoded.fx[1].type, 'warning_zone');
     assert.equal(decoded.fx[1].cells.length, 2);
-    const delta = service.createDeltaEnvelope('player:1', { ...view, tick: 11, worldRevision: 21, selfRevision: 31 }, {});
+    const breakdown = createSyncFlushBreakdownSample();
+    const delta = service.createDeltaEnvelope('player:1', { ...view, tick: 11, worldRevision: 21, selfRevision: 31 }, {}, breakdown);
     assert.equal(delta.worldDelta.fx.length, 2);
+    assert.equal(breakdown.envelopeContainerProjectionCount, 1);
+    assert.equal(breakdown.envelopeProjectorCount, 1);
+    assert.equal(breakdown.envelopeEventBusCount, 1);
+    assert.ok(breakdown.envelopeContainerProjectionMs >= 0);
+    assert.ok(breakdown.envelopeProjectorMs >= 0);
+    assert.ok(breakdown.envelopeEventBusMs >= 0);
     service.clearPlayerCache('player:1');
 }
 

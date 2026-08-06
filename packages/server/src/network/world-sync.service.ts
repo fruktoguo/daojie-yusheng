@@ -130,7 +130,7 @@ export class WorldSyncService {
         this.contextActionsCache.refresh(playerId, view, this.worldRuntimeService, this.playerRuntimeService, breakdown, reuseContextActionsWithinTick);
         const player = runMeasuredSyncFlushStep(breakdown, 'playerStateMs', 'playerStateCount', () => this.playerRuntimeService.syncFromWorldView(playerId, sessionId, view));
         this.worldSessionService.syncPlayerSectChannel?.(playerId, player?.sectId ?? null);
-        const envelope = runMeasuredSyncFlushStep(breakdown, 'envelopeMs', 'envelopeCount', () => this.worldSyncEnvelopeService.createDeltaEnvelope(playerId, view, player));
+        const envelope = runMeasuredSyncFlushStep(breakdown, 'envelopeMs', 'envelopeCount', () => this.worldSyncEnvelopeService.createDeltaEnvelope(playerId, view, player, breakdown));
         recordSyncEnvelopeDetail(breakdown, envelope);
         const auxSynced = runMeasuredAuxSync(breakdown, () => this.emitAuxDeltaSync(playerId, socket, view, player, {
             deferMapChanged: true,

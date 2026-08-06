@@ -15,6 +15,11 @@ import { MapTemplateRepository } from '../runtime/map/map-template.repository';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { WorldProjectorService } from './world-projector.service';
 import { WorldSyncMapSnapshotService } from './world-sync-map-snapshot.service';
+import {
+    addSyncFlushDuration,
+    incrementSyncFlushCount,
+    type SyncFlushBreakdownSample,
+} from './world-sync-flush-breakdown';
 
 const containerRespawnProjectionCache = new WeakMap<object, Map<number, unknown>>();
 
@@ -102,15 +107,25 @@ export class WorldSyncEnvelopeService {
  * @returns 无返回值，直接更新DeltaEnvelope相关状态。
  */
 
-    createDeltaEnvelope(playerId, view, player) {
+    createDeltaEnvelope(playerId, view, player, breakdown?: SyncFlushBreakdownSample) {
+        const containerProjectionStartedAt = performance.now();
         const projectedView = this.withContainerRespawnProjection(view);
+        addSyncFlushDuration(breakdown, 'envelopeContainerProjectionMs', containerProjectionStartedAt);
+        incrementSyncFlushCount(breakdown, 'envelopeContainerProjectionCount');
+        const projectorStartedAt = performance.now();
+        const projectedEnvelope = this.worldProjectorService.createDeltaEnvelope(projectedView, player);
+        addSyncFlushDuration(breakdown, 'envelopeProjectorMs', projectorStartedAt);
+        incrementSyncFlushCount(breakdown, 'envelopeProjectorCount');
+        const eventBusStartedAt = performance.now();
         const envelope = this.appendEventBusPayload(
             playerId,
-            this.worldProjectorService.createDeltaEnvelope(projectedView, player),
+            projectedEnvelope,
             projectedView,
             player,
             { drainPlayer: true },
         );
+        addSyncFlushDuration(breakdown, 'envelopeEventBusMs', eventBusStartedAt);
+        incrementSyncFlushCount(breakdown, 'envelopeEventBusCount');
         this.logMovementEnvelope(playerId, 'delta', envelope);
         return envelope;
     }

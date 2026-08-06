@@ -34,6 +34,7 @@ function main(): void {
   const levelDeltaProof = proveTechniqueLevelDeltaAvoidsStaticDetails();
   const attrPanelBonusProof = proveAttrPanelUsesProjectedTechniqueBonuses();
   const attrWidePatchProof = proveAttrWidePatchAvoidsFullSnapshot();
+  const realmProgressPatchProof = proveRealmProgressPatchAvoidsWideSnapshot();
   const actionCooldownProof = proveActionCooldownReadyTickDelta();
   const stableEntryReuseProof = proveStableTechniqueEntriesAreReused();
   const techniqueHolderIdentityProof = proveTechniqueHolderReplacementInvalidatesAttrProjection();
@@ -46,6 +47,7 @@ function main(): void {
     levelDeltaProof,
     attrPanelBonusProof,
     attrWidePatchProof,
+    realmProgressPatchProof,
     actionCooldownProof,
     stableEntryReuseProof,
     techniqueHolderIdentityProof,
@@ -405,6 +407,43 @@ function proveAttrWidePatchAvoidsFullSnapshot(): {
   assert.equal(numericStatsPatched, true);
   assert.equal(stableLargeFieldsOmitted, true);
   return { attrIsPatch, finalAttrsPatched, numericStatsPatched, stableLargeFieldsOmitted };
+}
+
+function proveRealmProgressPatchAvoidsWideSnapshot(): {
+  attrKeys: string[];
+  onlyProgressFields: boolean;
+  stableAttrSlicesReused: boolean;
+} {
+  const service = createProjector();
+  const player = createProjectorPlayer();
+  player.realm = { realmLv: 1, progress: 10, progressToNext: 100, breakthroughReady: false };
+  service.createInitialEnvelope({ playerId: player.playerId, sessionId: 'projector_session' }, createProjectorView(), player);
+  const previous = getProjectorCache(service).attrPanel;
+  // 运行态属性对象会在启动期规范化 craftEffectStats；让 smoke 使用同一份规范化值，
+  // 只验证修为进度差量路径，不把缺省字段兼容行为混入证明。
+  (player.attrs as any).craftEffectStats = previous.craftEffectStats;
+
+  player.realm.progress = 11;
+  const envelope = service.createDeltaEnvelope({ ...createProjectorView(), tick: 2 }, player);
+  const attr = envelope?.panelDelta?.attr;
+  const attrKeys = Object.keys(attr ?? {}).sort();
+  const onlyProgressFields = attr?.r === player.attrs.revision
+    && attr?.realmProgress === 11
+    && attr?.realmProgressToNext === undefined
+    && attr?.realmBreakthroughReady === undefined
+    && attr?.full === undefined
+    && attr?.baseAttrs === undefined
+    && attr?.finalAttrs === undefined
+    && attr?.numericStats === undefined;
+  const current = getProjectorCache(service).attrPanel;
+  const stableAttrSlicesReused = current?.finalAttrs === previous?.finalAttrs
+    && current?.numericStats === previous?.numericStats
+    && current?.bonuses === previous?.bonuses;
+
+  assert.deepEqual(attrKeys, ['r', 'realmProgress']);
+  assert.equal(onlyProgressFields, true);
+  assert.equal(stableAttrSlicesReused, true);
+  return { attrKeys, onlyProgressFields, stableAttrSlicesReused };
 }
 
 function createProjector(): WorldProjectorService {

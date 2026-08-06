@@ -974,6 +974,7 @@ function buildPanelCursor(
     previousCursor?: ProjectedPanelCursor | null,
     reuse: {
         attrSignature?: boolean;
+        attrSignatureMode?: 'realm_progress' | 'full';
         actionSignature?: boolean;
     } = {},
 ): ProjectedPanelCursor {
@@ -1024,7 +1025,9 @@ function buildPanelCursor(
         : buildBuffEntrySignatures(currentBuffs);
     const attrSignature = previousCursor && reuse.attrSignature === true
         ? previousCursor.attrSignature
-        : buildAttrPanelSignature(player);
+        : reuse.attrSignatureMode === 'realm_progress'
+            ? buildRealmProgressPanelSignature(player)
+            : buildAttrPanelSignature(player);
     const actionSignature = previousCursor && reuse.actionSignature === true
         ? previousCursor.actionSignature
         : buildActionPanelSignature(player);
@@ -1104,6 +1107,12 @@ function buildAttrPanelSignature(player: ProjectorPlayerLike): string {
         buildCraftSkillSignature(player.transmissionSkill),
         buildAttrBonusesSignature(buildAttrBonuses(player)),
     ].join('|');
+}
+
+/** 修为推进只改变属性面板中的进度字段时，使用轻量游标，避免重复 hash 整个属性面板。 */
+function buildRealmProgressPanelSignature(player: ProjectorPlayerLike): string {
+    const realm = player.realm ?? null;
+    return `realm-progress:${player.attrs.revision}|${realm?.progress ?? ''}|${realm?.progressToNext ?? ''}|${realm?.breakthroughReady === true ? 1 : 0}`;
 }
 
 function resolveCraftEffectStatsSignature(stats: CraftEffectStatsPatch | null | undefined): string {
@@ -1342,15 +1351,14 @@ function fnvMix(hash: number, value: number): number {
     return hash >>> 0;
 }
 
-function canReuseAttrPanelSlice(previousAttr: ProjectedAttrPanelState, player: ProjectorPlayerLike): boolean {
-    return previousAttr.revision === player.attrs.revision
+type AttrPanelChangeKind = 'none' | 'realm_progress' | 'full';
+
+function resolveAttrPanelChangeKind(previousAttr: ProjectedAttrPanelState, player: ProjectorPlayerLike): AttrPanelChangeKind {
+    const otherFieldsUnchanged = previousAttr.revision === player.attrs.revision
         && previousAttr.stage === player.attrs.stage
         && previousAttr.boneAgeBaseYears === player.boneAgeBaseYears
         && resolveLifeElapsedDayBucket(previousAttr.lifeElapsedTicks) === resolveLifeElapsedDayBucket(player.lifeElapsedTicks)
         && previousAttr.lifespanYears === player.lifespanYears
-        && previousAttr.realmProgress === player.realm?.progress
-        && previousAttr.realmProgressToNext === player.realm?.progressToNext
-        && previousAttr.realmBreakthroughReady === player.realm?.breakthroughReady
         && isSameCraftSkillState(previousAttr.alchemySkill, player.alchemySkill)
         && isSameCraftSkillState(previousAttr.forgingSkill, player.forgingSkill)
         && isSameCraftSkillState(previousAttr.buildingSkill, player.buildingSkill)
@@ -1363,6 +1371,28 @@ function canReuseAttrPanelSlice(previousAttr: ProjectedAttrPanelState, player: P
         && previousAttr.comprehensionSpeedRate === resolveProjectedComprehensionSpeedRate(player)
         && isSameSpecialStats(previousAttr.specialStats, resolvePlayerSpecialStatsCached(player))
         && isSameAttrBonuses(previousAttr.bonuses, buildAttrBonuses(player));
+    if (!otherFieldsUnchanged) {
+        return 'full';
+    }
+    return previousAttr.realmProgress !== player.realm?.progress
+        || previousAttr.realmProgressToNext !== player.realm?.progressToNext
+        || previousAttr.realmBreakthroughReady !== player.realm?.breakthroughReady
+        ? 'realm_progress'
+        : 'none';
+}
+
+function canReuseAttrPanelSlice(previousAttr: ProjectedAttrPanelState, player: ProjectorPlayerLike): boolean {
+    return resolveAttrPanelChangeKind(previousAttr, player) === 'none';
+}
+
+function patchRealmProgressAttrPanelSlice(previousAttr: ProjectedAttrPanelState, player: ProjectorPlayerLike): ProjectedAttrPanelState {
+    return {
+        ...previousAttr,
+        revision: player.attrs.revision,
+        realmProgress: player.realm?.progress,
+        realmProgressToNext: player.realm?.progressToNext,
+        realmBreakthroughReady: player.realm?.breakthroughReady,
+    };
 }
 
 function isSameCraftEffectStats(left: CraftEffectStatsPatch | null | undefined, right: CraftEffectStatsPatch | null | undefined): boolean {
@@ -1806,14 +1836,20 @@ function isSameMovementCapabilities(left: ProjectedSelfState['movementCapabiliti
 }
 
 function buildPanelUpdate(previous: PlayerStateSlice, player: ProjectorPlayerLike): PanelDeltaBuildResult {
-    const canReuseAttrPanel = Boolean(previous.attrPanel && canReuseAttrPanelSlice(previous.attrPanel, player));
+    const attrChangeKind = previous.attrPanel
+        ? resolveAttrPanelChangeKind(previous.attrPanel, player)
+        : 'full';
+    const canReuseAttrPanel = attrChangeKind === 'none';
     const canReuseActionPanel = Boolean(previous.actionPanel && canReuseActionPanelSlice(previous.actionPanel, player));
     const panelCursor = buildPanelCursor(player, previous.panelCursor, {
         attrSignature: canReuseAttrPanel,
+        attrSignatureMode: attrChangeKind === 'realm_progress' ? 'realm_progress' : 'full',
         actionSignature: canReuseActionPanel,
     });
     const currentAttrPanel = previous.attrPanel && canReuseAttrPanel
         ? previous.attrPanel
+        : previous.attrPanel && attrChangeKind === 'realm_progress'
+            ? patchRealmProgressAttrPanelSlice(previous.attrPanel, player)
         : captureAttrPanelSlice(player);
     const currentActionPanel = previous.actionPanel && canReuseActionPanel
         ? previous.actionPanel
@@ -1822,6 +1858,7 @@ function buildPanelUpdate(previous: PlayerStateSlice, player: ProjectorPlayerLik
     const delta = buildPanelDeltaFromCursor(previous.panelCursor, panelCursor, player, {
         previousAttr: previous.attrPanel,
         currentAttr: currentAttrPanel,
+        attrProgressOnly: attrChangeKind === 'realm_progress',
         previousAction: previous.actionPanel,
         currentAction: currentActionPanel,
         skipTechnique: hasTechniqueCache,
@@ -1860,6 +1897,7 @@ function buildPanelDeltaFromCursor(
     player: ProjectorPlayerLike,
     options: {
         skipTechnique?: boolean;
+        attrProgressOnly?: boolean;
         previousAttr?: ProjectedAttrPanelState;
         currentAttr?: ProjectedAttrPanelState;
         previousAction?: ProjectedActionPanelState;
@@ -1902,7 +1940,9 @@ function buildPanelDeltaFromCursor(
     }
     if (previousCursor.attrSignature !== currentCursor.attrSignature) {
         const currentAttr = options.currentAttr ?? captureAttrPanelSlice(player);
-        delta.attr = options.previousAttr
+        delta.attr = options.attrProgressOnly && options.previousAttr
+            ? buildRealmProgressAttrDelta(options.previousAttr, currentAttr)
+            : options.previousAttr
             ? buildAttrDeltaFromState(options.previousAttr, currentAttr)
             : buildFullAttrDeltaFromState(currentAttr);
     }
@@ -1923,6 +1963,23 @@ function buildPanelDeltaFromCursor(
         };
     }
     return delta.inv || delta.eq || delta.art || delta.tech || delta.attr || delta.act || delta.buff ? delta : null;
+}
+
+function buildRealmProgressAttrDelta(
+    previousAttr: ProjectedAttrPanelState,
+    currentAttr: ProjectedAttrPanelState,
+): ProjectedAttrDeltaView {
+    const delta: ProjectedAttrDeltaView = { r: currentAttr.revision };
+    if (previousAttr.realmProgress !== currentAttr.realmProgress) {
+        delta.realmProgress = currentAttr.realmProgress;
+    }
+    if (previousAttr.realmProgressToNext !== currentAttr.realmProgressToNext) {
+        delta.realmProgressToNext = currentAttr.realmProgressToNext;
+    }
+    if (previousAttr.realmBreakthroughReady !== currentAttr.realmBreakthroughReady) {
+        delta.realmBreakthroughReady = currentAttr.realmBreakthroughReady;
+    }
+    return delta;
 }
 
 function diffInventorySlotsFromCursor(
