@@ -16,6 +16,8 @@ import {
 } from './skill-formula-craft-level.helpers';
 
 const skillBuffDirectionCountCache = new WeakMap();
+/** 只缓存技能所属功法与技能对象；冷却就绪 tick 仍按每次施法读取。 */
+const playerSkillLookupCacheByTechniques = new WeakMap();
 
 /** 战斗运行时技能结算服务。 */
 @Injectable()
@@ -81,7 +83,12 @@ export class PlayerCombatService {
 
     /** 解析并规范化玩家技能；同一次多目标施法可复用该结果，避免按目标重复扫描功法列表。 */
     resolvePlayerSkillForCast(attacker, skillId, currentTick) {
-        const resolved = resolvePlayerSkill(attacker.techniques.techniques, attacker.combat.cooldownReadyTickBySkillId, skillId);
+        const resolved = resolvePlayerSkill(
+            attacker.techniques,
+            attacker.combat.cooldownReadyTickBySkillId,
+            skillId,
+            playerSkillLookupCacheByTechniques,
+        );
         normalizeResolvedPlayerSkillCooldown(attacker, resolved, currentTick);
         return resolved;
     }
@@ -482,24 +489,37 @@ export class PlayerCombatService {
  * 从功法列表中解析指定技能，校验解锁等级。
  * 返回 skill 对象、功法等级和冷却就绪 tick。
  */
-function resolvePlayerSkill(techniques, cooldownReadyTickBySkillId, skillId) {
-    for (const technique of techniques) {
-        const skill = technique.skills?.find((entry) => entry.id === skillId);
-        if (!skill) {
-            continue;
+function resolvePlayerSkill(techniqueState, cooldownReadyTickBySkillId, skillId, cache) {
+    const techniques = Array.isArray(techniqueState?.techniques)
+        ? techniqueState.techniques
+        : [];
+    const revision = Math.max(0, Math.trunc(Number(techniqueState?.revision ?? 0) || 0));
+    let cached = cache.get(techniques);
+    if (!cached || cached.revision !== revision) {
+        const lookup = new Map();
+        for (const technique of techniques) {
+            for (const skill of technique?.skills ?? []) {
+                if (skill != null && !lookup.has(skill.id)) {
+                    lookup.set(skill.id, { skill, technique });
+                }
+            }
         }
-
-        const unlockLevel = typeof skill.unlockLevel === 'number' ? skill.unlockLevel : 1;
-        if ((technique.level ?? 1) < unlockLevel) {
-            throw new BadRequestException(`技能 ${skillId} 尚未解锁`);
-        }
-        return {
-            skill,
-            level: Math.max(1, technique.level ?? 1),
-            readyTick: cooldownReadyTickBySkillId[skillId] ?? 0,
-        };
+        cached = { revision, lookup };
+        cache.set(techniques, cached);
     }
-    throw new NotFoundException(`技能不存在：${skillId}`);
+    const entry = cached.lookup.get(skillId);
+    if (!entry) {
+        throw new NotFoundException(`技能不存在：${skillId}`);
+    }
+    const unlockLevel = typeof entry.skill.unlockLevel === 'number' ? entry.skill.unlockLevel : 1;
+    if ((entry.technique.level ?? 1) < unlockLevel) {
+        throw new BadRequestException(`技能 ${skillId} 尚未解锁`);
+    }
+    return {
+        skill: entry.skill,
+        level: Math.max(1, entry.technique.level ?? 1),
+        readyTick: cooldownReadyTickBySkillId[skillId] ?? 0,
+    };
 }
 
 /**

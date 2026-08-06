@@ -874,11 +874,24 @@ export class WorldRuntimePendingCommandService {
     async dispatchPendingCommands(deps, recordTickSectionDuration = null, scopedPlayerIds: Iterable<string> | null = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const sourceEntries = scopedPlayerIds
-            ? Array.from(scopedPlayerIds, (playerId) => [playerId, this.pendingCommands.get(playerId)] as const)
-            : Array.from(this.pendingCommands.entries());
-        const pendingEntries = sourceEntries.map(([playerId, queue]) => [playerId, queue?.[0]] as const)
-            .filter((entry): entry is readonly [string, PendingCommandEntry] => Boolean(entry[1]));
+        // 加速实例通常传入玩家 ID 子集；一次遍历直接取队首，避免 sourceEntries/map/filter 的短命数组。
+        const pendingEntries: Array<readonly [string, PendingCommandEntry]> = [];
+        if (scopedPlayerIds) {
+            for (const playerId of scopedPlayerIds) {
+                const pendingEntry = this.pendingCommands.get(playerId)?.[0];
+                if (pendingEntry) {
+                    pendingEntries.push([playerId, pendingEntry]);
+                }
+            }
+        }
+        else {
+            for (const [playerId, queue] of this.pendingCommands) {
+                const pendingEntry = queue?.[0];
+                if (pendingEntry) {
+                    pendingEntries.push([playerId, pendingEntry]);
+                }
+            }
+        }
         for (const [playerId, pendingEntry] of pendingEntries) {
             const queueBeforeDispatch = this.pendingCommands.get(playerId);
             if (!queueBeforeDispatch || queueBeforeDispatch[0] !== pendingEntry) {

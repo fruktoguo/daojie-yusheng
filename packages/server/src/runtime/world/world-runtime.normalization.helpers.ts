@@ -13,6 +13,13 @@
 import { BadRequestException } from '@nestjs/common';
 import { ARTIFACT_SLOTS, Direction, EQUIP_SLOTS, applyCombatAttackIntensityQiCost, calcQiCostWithOutputLimit, createItemStackSignature, getDamageTrailColor, getItemStackDisplayLabel, mergeItemStackEntryInto, mergeItemStackInto, resolvePlayerFacingContentName, resolveSkillEffectiveRange } from '@mud/shared';
 
+/** 按功法状态 revision 缓存技能索引；revision 变化时整表重建，保持原有首个同名技能优先级。 */
+const playerSkillLookupCacheByTechniqueState = new WeakMap<object, {
+    revision: number;
+    techniques: unknown[];
+    lookup: Map<unknown, unknown>;
+}>();
+
 /** 统一动作 ID。 */
 export function normalizeRuntimeActionId(actionIdInput) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -702,14 +709,32 @@ export function normalizeRollCount(input) {
 export function findPlayerSkill(player, skillId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    for (const technique of player.techniques.techniques) {
+    const techniqueState = player?.techniques;
+    const techniques = Array.isArray(techniqueState?.techniques)
+        ? techniqueState.techniques
+        : [];
+    if (!techniqueState || typeof techniqueState !== 'object') {
+        return null;
+    }
+    const revision = Math.max(0, Math.trunc(Number(techniqueState.revision ?? 0) || 0));
+    const cached = playerSkillLookupCacheByTechniqueState.get(techniqueState);
+    if (cached?.revision === revision && cached.techniques === techniques) {
+        return cached.lookup.get(skillId) ?? null;
+    }
+    const lookup = new Map();
+    for (const technique of techniques) {
         for (const skill of technique.skills ?? []) {
-            if (skill.id === skillId) {
-                return skill;
+            if (skill != null && !lookup.has(skill.id)) {
+                lookup.set(skill.id, skill);
             }
         }
     }
-    return null;
+    playerSkillLookupCacheByTechniqueState.set(techniqueState, {
+        revision,
+        techniques,
+        lookup,
+    });
+    return lookup.get(skillId) ?? null;
 }
 /** 判断技能是否包含伤害/对目标生效效果。 */
 export function isHostileSkill(skill) {
