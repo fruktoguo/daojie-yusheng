@@ -601,6 +601,21 @@ function recordDurableOperationSection(
   }
 }
 
+function recordDurableOperationCount(
+  recorder: DurableOperationSectionRecorder | null | undefined,
+  key: string,
+  count = 1,
+): void {
+  if (typeof recorder !== 'function' || !Number.isFinite(count) || count <= 0) {
+    return;
+  }
+  try {
+    recorder(key, 0, count);
+  } catch {
+    // 性能统计失败不能影响权威资产事务。
+  }
+}
+
 export interface CompleteActiveJobWithAssetsInput {
   operationId: string;
   playerId: string;
@@ -4094,11 +4109,17 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
 
         mutationSectionStartedAt = beginDurableOperationSection(input.recordSectionDuration);
         if (assetWriteMode === 'patch') {
-          await patchPlayerInventoryItems(
+          const inventoryPatchPath = await patchPlayerInventoryItems(
             client,
             normalizedPlayerId,
             normalizedNextInventoryItems,
             removedInventoryItemInstanceIds,
+          );
+          recordDurableOperationCount(
+            input.recordSectionDuration,
+            inventoryPatchPath === 'stable_update'
+              ? 'instance.craftJob.enhancementDurableInventoryStableUpdate'
+              : 'instance.craftJob.enhancementDurableInventoryGuardedFallback',
           );
         } else {
           await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedNextInventoryItems, {
@@ -5777,7 +5798,7 @@ async function patchPlayerInventoryItems(
   playerId: string,
   items: DurableInventoryItemSnapshot[],
   removedItemInstanceIds: readonly string[],
-): Promise<void> {
+): Promise<'stable_update' | 'guarded_fallback'> {
   const rows: Array<{
     item_instance_id: string;
     item_id: string;
@@ -5830,7 +5851,37 @@ async function patchPlayerInventoryItems(
     throw new Error(`patch_inventory_remove_update_conflict:playerId=${playerId}`);
   }
   if (rows.length === 0 && removedIds.length === 0) {
-    return;
+    return 'guarded_fallback';
+  }
+  if (rows.length > 0 && removedIds.length === 0) {
+    const stableUpdateResult = await client.query(
+      `
+        UPDATE ${PLAYER_INVENTORY_ITEM_TABLE} target
+        SET item_id = incoming.item_id,
+            count = incoming.count,
+            raw_payload = COALESCE(incoming.raw_payload, '{}'::jsonb),
+            locked_by = incoming.locked_by,
+            updated_at = now()
+        FROM jsonb_to_recordset($2::jsonb) AS incoming(
+          item_instance_id varchar(180),
+          item_id varchar(120),
+          count bigint,
+          raw_payload jsonb,
+          locked_by varchar(180)
+        )
+        WHERE target.player_id = $1
+          AND target.item_instance_id = incoming.item_instance_id
+          AND ROW(target.item_id, target.count, target.raw_payload, target.locked_by)
+            IS DISTINCT FROM ROW(incoming.item_id, incoming.count, COALESCE(incoming.raw_payload, '{}'::jsonb), incoming.locked_by)
+        RETURNING target.item_instance_id
+      `,
+      [playerId, JSON.stringify(rows)],
+    );
+    if ((stableUpdateResult.rowCount ?? 0) === rows.length) {
+      return 'stable_update';
+    }
+    // no-op、缺失行或跨玩家实例必须继续走完整守卫。前面的局部更新仍处于同一事务，
+    // 守卫失败时会随事务整体回滚；守卫成功时也不会重复写入已更新的行。
   }
   const result = await client.query<{
     conflicting_id?: unknown;
@@ -5931,6 +5982,7 @@ async function patchPlayerInventoryItems(
   if (Number(guard?.existing_incoming_count ?? 0) !== rows.length) {
     throw new Error(`patch_inventory_missing_item:playerId=${playerId}`);
   }
+  return 'guarded_fallback';
 }
 
 function createPersistedInventoryRowSignature(itemId: string, rawPayload: Record<string, unknown>): string {

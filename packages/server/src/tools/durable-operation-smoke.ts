@@ -3836,8 +3836,19 @@ async function verifyActiveJobAdvanceProfessionAndNoopWrites(
     throw new Error('expected profession payload change to reject durable operation replay');
   }
 
-  const beforeNoop = await readDurableAssetRowVersions(pool, playerId);
+  const inventoryPatchPerfCounts = new Map<string, number>();
+  const recordInventoryPatchPerf = (key: string, _durationMs: number, count = 1): void => {
+    inventoryPatchPerfCounts.set(key, (inventoryPatchPerfCounts.get(key) ?? 0) + count);
+  };
   const secondOperationId = `op:${playerId}:active-job:advance:2`;
+  const advancedInventoryItem = {
+    ...inventoryItems[0],
+    enhanceLevel: 3,
+    rawPayload: {
+      ...(inventoryItems[0]?.rawPayload ?? {}),
+      enhanceLevel: 3,
+    },
+  };
   const secondJob = {
     ...nextJob,
     jobVersion: 12,
@@ -3855,7 +3866,7 @@ async function verifyActiveJobAdvanceProfessionAndNoopWrites(
     expectedSessionEpoch: 19,
     expectedJobRunId: jobRunId,
     expectedJobVersion: 11,
-    nextInventoryItems: [inventoryItems[0]],
+    nextInventoryItems: [advancedInventoryItem],
     nextWalletBalances: [walletBalances[0]],
     nextEnhancementRecords: enhancementRecords,
     nextProfessionStates: professionStates,
@@ -3864,9 +3875,58 @@ async function verifyActiveJobAdvanceProfessionAndNoopWrites(
     assetWriteMode: 'patch',
     removedInventoryItemInstanceIds: [],
     removedWalletTypes: [],
+    recordSectionDuration: recordInventoryPatchPerf,
   });
   if (!secondResult.ok || secondResult.alreadyCommitted || secondResult.jobVersion !== 12) {
     throw new Error(`unexpected second active-job advance result: ${JSON.stringify(secondResult)}`);
+  }
+  if (inventoryPatchPerfCounts.get('instance.craftJob.enhancementDurableInventoryStableUpdate') !== 1) {
+    throw new Error(`stable inventory patch path was not used: ${JSON.stringify([...inventoryPatchPerfCounts])}`);
+  }
+  const advancedInventoryRow = await fetchSingleRow(
+    pool,
+    'SELECT raw_payload FROM player_inventory_item WHERE player_id = $1 AND item_instance_id = $2',
+    [playerId, itemInstanceId],
+  );
+  if (Number((advancedInventoryRow?.raw_payload as { enhanceLevel?: unknown } | null)?.enhanceLevel) !== 3) {
+    throw new Error(`stable inventory patch did not persist the changed row: ${JSON.stringify(advancedInventoryRow)}`);
+  }
+
+  const beforeNoop = await readDurableAssetRowVersions(pool, playerId);
+  const thirdOperationId = `op:${playerId}:active-job:advance:3`;
+  const thirdJob = {
+    ...secondJob,
+    jobVersion: 13,
+    remainingTicks: 6,
+    detailJson: {
+      ...(secondJob.detailJson as Record<string, unknown>),
+      jobVersion: 13,
+      remainingTicks: 6,
+    },
+  };
+  const thirdResult = await service.completeActiveJobWithAssets({
+    operationId: thirdOperationId,
+    playerId,
+    expectedRuntimeOwnerId: runtimeOwnerId,
+    expectedSessionEpoch: 19,
+    expectedJobRunId: jobRunId,
+    expectedJobVersion: 12,
+    nextInventoryItems: [advancedInventoryItem],
+    nextWalletBalances: [walletBalances[0]],
+    nextEnhancementRecords: enhancementRecords,
+    nextProfessionStates: professionStates,
+    nextActiveJob: thirdJob,
+    completionKind: 'advanced',
+    assetWriteMode: 'patch',
+    removedInventoryItemInstanceIds: [],
+    removedWalletTypes: [],
+    recordSectionDuration: recordInventoryPatchPerf,
+  });
+  if (!thirdResult.ok || thirdResult.alreadyCommitted || thirdResult.jobVersion !== 13) {
+    throw new Error(`unexpected third active-job advance result: ${JSON.stringify(thirdResult)}`);
+  }
+  if (inventoryPatchPerfCounts.get('instance.craftJob.enhancementDurableInventoryGuardedFallback') !== 1) {
+    throw new Error(`no-op inventory patch did not use guarded fallback: ${JSON.stringify([...inventoryPatchPerfCounts])}`);
   }
   const afterNoop = await readDurableAssetRowVersions(pool, playerId);
   if (JSON.stringify(afterNoop) !== JSON.stringify(beforeNoop)) {
@@ -3887,7 +3947,7 @@ async function verifyActiveJobAdvanceProfessionAndNoopWrites(
   const outboxRows = await fetchRows(
     pool,
     'SELECT topic FROM outbox_event WHERE operation_id = ANY($1::varchar[])',
-    [[firstOperationId, secondOperationId]],
+    [[firstOperationId, secondOperationId, thirdOperationId]],
   );
   const auditRows = await fetchRows(
     pool,
@@ -3910,9 +3970,9 @@ async function verifyActiveJobAdvanceProfessionAndNoopWrites(
   if (
     operationRows.length !== 1
     || operationRow?.operation_type !== 'active_job_advance_with_assets'
-    || operationRow?.request_id !== secondOperationId
+    || operationRow?.request_id !== thirdOperationId
     || Number((operationRow?.payload_jsonb as { professionStateCount?: unknown } | null)?.professionStateCount) !== 1
-    || Number(operationCompaction?.operationCount) !== 2
+    || Number(operationCompaction?.operationCount) !== 3
     || outboxRows.length !== 0
     || auditRows.length !== 1
     || auditRow?.action !== 'advance'
@@ -3938,7 +3998,7 @@ async function verifyActiveJobAdvanceProfessionAndNoopWrites(
       expectedRuntimeOwnerId: runtimeOwnerId,
       expectedSessionEpoch: 19,
       expectedJobRunId: jobRunId,
-      expectedJobVersion: 12,
+      expectedJobVersion: 13,
       nextInventoryItems: inventoryItems,
       nextWalletBalances: walletBalances,
       nextEquipmentSlots: equipmentSlots,
@@ -3947,9 +4007,9 @@ async function verifyActiveJobAdvanceProfessionAndNoopWrites(
         row.professionType === 'enhancement' ? { ...row, exp: 99 } : row
       )),
       nextActiveJob: {
-        ...secondJob,
+        ...thirdJob,
         jobRunId: `invalid:${'x'.repeat(220)}`,
-        jobVersion: 13,
+        jobVersion: 14,
       },
       completionKind: 'advanced',
     });
@@ -3974,7 +4034,7 @@ async function verifyActiveJobAdvanceProfessionAndNoopWrites(
   if (
     !rollbackRejected
     || afterRollbackJob?.job_run_id !== jobRunId
-    || Number(afterRollbackJob?.job_version) !== 12
+    || Number(afterRollbackJob?.job_version) !== 13
     || Number(afterRollbackProfession?.exp) !== 12
     || rollbackOperation
   ) {
@@ -3988,7 +4048,9 @@ async function verifyActiveJobAdvanceProfessionAndNoopWrites(
   return {
     firstResult,
     secondResult,
+    thirdResult,
     crossOwnerInventoryRejected: true,
+    stableInventoryPatchUsed: true,
     professionReplayIdentityProtected: true,
     noOpRowsPreserved: true,
     professionRollbackAtomic: true,

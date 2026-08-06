@@ -212,6 +212,8 @@ const CPU_BREAKDOWN_LABELS = Object.freeze({
     'instance.craftJob.enhancementDurableCommitAckMs': '强化强事务·COMMIT 回包',
     'instance.craftJob.enhancementDurableJobCasMs': '强化资产写入·任务 CAS',
     'instance.craftJob.enhancementDurableInventoryMs': '强化资产写入·背包',
+    'instance.craftJob.enhancementDurableInventoryStableUpdate': '强化背包写入·稳定实例快路径次数',
+    'instance.craftJob.enhancementDurableInventoryGuardedFallback': '强化背包写入·完整守卫回退次数',
     'instance.craftJob.enhancementDurableWalletMs': '强化资产写入·钱包',
     'instance.craftJob.enhancementDurableEquipmentMs': '强化资产写入·装备槽',
     'instance.craftJob.enhancementDurableRecordMs': '强化资产写入·强化记录',
