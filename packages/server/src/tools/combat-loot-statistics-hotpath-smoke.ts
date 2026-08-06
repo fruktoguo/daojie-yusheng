@@ -38,6 +38,7 @@ async function main(): Promise<void> {
   verifyProgressionOnlyStatisticHintMatchesFullDiff();
   verifyProgressionOnlyStatisticHintSkipsTechniqueTraversal();
   verifyProgressionOnlyStatisticHintFallsBackForTechniqueSetChanges();
+  verifyProgressionStatisticTimingIsForwarded();
   verifyProgressionAndInventoryStatisticMatchesFullDiff();
   verifyProgressionAndInventoryStatisticSkipsUnchangedDomains();
   verifyOfflineProgressionMergeMatchesFullMerge();
@@ -56,6 +57,7 @@ async function main(): Promise<void> {
       'progression_hint_matches_full_diff',
       'progression_hint_skips_technique_traversal',
       'progression_hint_falls_back_for_technique_set_changes',
+      'progression_statistic_timing_is_forwarded',
       'progression_inventory_matches_full_diff',
       'progression_inventory_skips_unchanged_domains',
       'offline_progression_merge_matches_full_merge',
@@ -326,6 +328,40 @@ function verifyProgressionOnlyStatisticHintFallsBackForTechniqueSetChanges(): vo
     ),
     true,
   );
+}
+
+function verifyProgressionStatisticTimingIsForwarded(): void {
+  const service = createService();
+  const player = createPlayer('player:combat-progress-timing');
+  service.players.set(player.playerId, player);
+  const before = service.captureOfflineGainBeforeTick(player);
+  const metricKeys: string[] = [];
+  player.combatExp += 1;
+
+  service.applyProgressionResultWithStatistics(
+    player,
+    {
+      changed: true,
+      notices: [],
+      dirtyDomains: ['progression'],
+      statisticTechniqueChangedIds: [],
+    },
+    before,
+    0,
+    false,
+    {
+      recordTickSectionDuration(key: string): void {
+        metricKeys.push(key);
+      },
+    },
+  );
+
+  assert.deepEqual(metricKeys, [
+    'combat.playerMonsterKill.progressResultApplyMs',
+    'playerTick.offlineGainProgressionDeltaMs',
+    'playerTick.offlineGainOnlineTotalsMs',
+    'combat.playerMonsterKill.progressStatisticsMs',
+  ]);
 }
 
 function verifyProgressionAndInventoryStatisticMatchesFullDiff(): void {

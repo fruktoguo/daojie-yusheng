@@ -5486,14 +5486,14 @@ export class PlayerRuntimeService {
             return;
         }
         const delta = summarizePlayerStatisticPeriodTotal(parts);
-        if (!hasPlayerStatisticPeriodTotal(delta)) {
+        if (!hasNormalizedPlayerStatisticPeriodTotal(delta)) {
             return;
         }
         const dayKey = buildPlayerStatisticLocalDayKey(endedAt);
-        mergePlayerStatisticDayTotalMap(this.playerStatisticDayTotalsByPlayerId, normalizedPlayerId, dayKey, delta);
+        mergeNormalizedPlayerStatisticDayTotalMap(this.playerStatisticDayTotalsByPlayerId, normalizedPlayerId, dayKey, delta);
         this.pendingPlayerStatisticTotalsEmitPlayerIds.add(normalizedPlayerId);
         if (this.playerDomainPersistenceService?.isEnabled?.()) {
-            mergePlayerStatisticDayTotalMap(this.pendingPlayerStatisticDayTotalsByPlayerId, normalizedPlayerId, dayKey, delta);
+            mergeNormalizedPlayerStatisticDayTotalMap(this.pendingPlayerStatisticDayTotalsByPlayerId, normalizedPlayerId, dayKey, delta);
             this.schedulePlayerStatisticLedgerFlush(normalizedPlayerId);
         }
     }
@@ -6898,6 +6898,7 @@ export class PlayerRuntimeService {
                 progressionOnly: isProgressionOnlyStatisticResult(result),
                 progressionAndInventoryOnly: isProgressionAndInventoryOnlyStatisticResult(result),
                 statisticTechniqueChangedIds: result?.statisticTechniqueChangedIds,
+                recordTickSectionDuration: performanceOptions?.recordTickSectionDuration,
             });
             recordPlayerTickPerf(performanceOptions, 'combat.playerMonsterKill.progressStatisticsMs', statisticStartedAt);
         }
@@ -8320,10 +8321,13 @@ function summarizePlayerStatisticPeriodTotal(parts) {
             lost: entry.expLost,
         });
     }
-    return normalizePlayerStatisticPeriodTotal(total);
+    return total;
 }
 function hasPlayerStatisticPeriodTotal(total) {
     const normalized = normalizePlayerStatisticPeriodTotal(total);
+    return hasNormalizedPlayerStatisticPeriodTotal(normalized);
+}
+function hasNormalizedPlayerStatisticPeriodTotal(normalized) {
     return normalized.spiritStones.gained > 0
         || normalized.spiritStones.lost > 0
         || normalized.progress.gained > 0
@@ -8332,6 +8336,20 @@ function hasPlayerStatisticPeriodTotal(total) {
         || normalized.techniques.lost > 0
         || normalized.professions.gained > 0
         || normalized.professions.lost > 0;
+}
+/** 仅接收本模块刚生成的规范化统计量，供击杀热路径跳过重复防御性复制。 */
+function mergeNormalizedPlayerStatisticDayTotalMap(target, playerId, dayKey, delta) {
+    const normalizedPlayerId = normalizeOfflineGainString(playerId);
+    const normalizedDayKey = normalizeOfflineGainString(dayKey);
+    if (!normalizedPlayerId || !normalizedDayKey || !hasNormalizedPlayerStatisticPeriodTotal(delta)) {
+        return;
+    }
+    const byDay = target.get(normalizedPlayerId) ?? new Map();
+    byDay.set(
+        normalizedDayKey,
+        mergeNormalizedPlayerStatisticPeriodTotals(byDay.get(normalizedDayKey), delta),
+    );
+    target.set(normalizedPlayerId, byDay);
 }
 function mergePlayerStatisticDayTotalMap(target, playerId, dayKey, delta) {
     const normalizedPlayerId = normalizeOfflineGainString(playerId);
@@ -8385,6 +8403,14 @@ function mergePlayerStatisticPeriodTotals(leftValue, rightValue, sign = 1) {
         professions: mergePlayerStatisticAmount(left.professions, right.professions, sign),
     };
 }
+function mergeNormalizedPlayerStatisticPeriodTotals(left, right, sign = 1) {
+    return {
+        spiritStones: mergeNormalizedPlayerStatisticAmount(left?.spiritStones, right.spiritStones, sign),
+        progress: mergeNormalizedPlayerStatisticAmount(left?.progress, right.progress, sign),
+        techniques: mergeNormalizedPlayerStatisticAmount(left?.techniques, right.techniques, sign),
+        professions: mergeNormalizedPlayerStatisticAmount(left?.professions, right.professions, sign),
+    };
+}
 function normalizePlayerStatisticAmountRecord(value) {
     const record = value && typeof value === 'object' ? value : {};
     const gained = normalizeOfflineGainCount(record.gained ?? record.amount ?? record.expGained ?? record.expGain ?? record.count);
@@ -8400,6 +8426,15 @@ function mergePlayerStatisticAmount(leftValue, rightValue, sign = 1) {
     const right = normalizePlayerStatisticAmountRecord(rightValue);
     const gained = Math.max(0, left.gained + (sign * right.gained));
     const lost = Math.max(0, left.lost + (sign * right.lost));
+    return {
+        gained,
+        lost,
+        net: gained - lost,
+    };
+}
+function mergeNormalizedPlayerStatisticAmount(left, right, sign = 1) {
+    const gained = Math.max(0, (left?.gained ?? 0) + (sign * right.gained));
+    const lost = Math.max(0, (left?.lost ?? 0) + (sign * right.lost));
     return {
         gained,
         lost,
