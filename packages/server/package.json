@@ -70,6 +70,7 @@
     "smoke:all": "node dist/tools/run-stable-smoke-suite.js",
     "smoke:all:with-db": "node dist/tools/run-stable-smoke-suite.js --include-persistence",
     "smoke:worker-pool-equivalence": "pnpm compile && node dist/tools/worker-pool-equivalence-smoke.js",
+    "smoke:persistence-worker-missing-fallback": "pnpm compile && node dist/tools/persistence-worker-missing-fallback-smoke.js",
     "smoke:async-pathfinding-cache-and-batch": "pnpm compile && node dist/tools/async-pathfinding-cache-and-batch-smoke.js",
     "smoke:runtime": "pnpm compile && node dist/tools/run-stable-smoke-suite.js --case runtime",
     "smoke:building-room-fengshui": "pnpm compile && node dist/tools/world-runtime-building-room-fengshui-smoke.js",

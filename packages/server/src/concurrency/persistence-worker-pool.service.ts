@@ -5,6 +5,7 @@
  */
 import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { Worker } from 'node:worker_threads';
 
@@ -22,6 +23,8 @@ interface PendingPersistenceTask {
   workerIndex: number;
 }
 
+const MISSING_WORKER_RECOVERY_INTERVAL_MS = 1_000;
+
 @Injectable()
 export class PersistenceWorkerPoolService {
   private readonly logger = new Logger(PersistenceWorkerPoolService.name);
@@ -32,6 +35,9 @@ export class PersistenceWorkerPoolService {
   private roundRobinIndex = 0;
   private shuttingDown = false;
   private activeWorkerCount = 0;
+  private missingWorkerPath: string | null = null;
+  private missingWorkerRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
+  private missingWorkerPathLogged = false;
 
   constructor(
     private readonly metricsService: WorkerPoolMetricsService,
@@ -72,7 +78,9 @@ export class PersistenceWorkerPoolService {
       return;
     }
     this.ensureWorkersStarted();
-    this.logger.log(`持久化工作池已启动：${this.activeWorkerCount} 个工作线程`);
+    if (this.activeWorkerCount > 0) {
+      this.logger.log(`持久化工作池已启动：${this.activeWorkerCount} 个工作线程`);
+    }
   }
 
   shutdown(): void {
@@ -81,6 +89,10 @@ export class PersistenceWorkerPoolService {
   }
 
   private shutdownWorkers(): void {
+    if (this.missingWorkerRecoveryTimer) {
+      clearTimeout(this.missingWorkerRecoveryTimer);
+      this.missingWorkerRecoveryTimer = null;
+    }
     for (const worker of this.workers) worker?.terminate();
     this.workers = [];
     this.activeWorkerCount = 0;
@@ -102,17 +114,32 @@ export class PersistenceWorkerPoolService {
 
   private ensureWorkersStarted(): void {
     if (this.forceSyncMode || this.activeWorkerCount > 0 || this.shuttingDown) return;
-    const workerPath = resolve(__dirname, 'workers', 'persistence-build.worker.js');
+    const workerPath = this.resolveWorkerPath();
+    if (!this.workerFileExists(workerPath)) {
+      this.markWorkerPathMissing(workerPath);
+      return;
+    }
+    this.clearMissingWorkerPath();
     this.workers = new Array(this.config.poolSize).fill(null);
     for (let i = 0; i < this.config.poolSize; i += 1) this.spawnSingleWorker(workerPath, i);
     this.metricsService.setActiveWorkers('persistence', this.activeWorkerCount);
   }
 
   private spawnSingleWorker(workerPath: string, index: number): void {
+    if (this.shuttingDown) return;
+    if (!this.workerFileExists(workerPath)) {
+      this.markWorkerPathMissing(workerPath);
+      return;
+    }
     try {
       const worker = new Worker(workerPath);
       worker.on('message', (msg: WorkerTaskResult) => this.handleWorkerResult(msg));
       worker.on('error', (err) => {
+        if (isWorkerModuleMissing(err, workerPath)) {
+          this.markWorkerPathMissing(workerPath);
+          this.handleWorkerDeath(worker, index, workerPath);
+          return;
+        }
         this.logger.error(`持久化工作线程 ${index} 错误：${err.message}`);
         this.handleWorkerDeath(worker, index, workerPath);
       });
@@ -123,6 +150,10 @@ export class PersistenceWorkerPoolService {
       this.activeWorkerCount += 1;
       this.metricsService.setActiveWorkers('persistence', this.activeWorkerCount);
     } catch (err: unknown) {
+      if (isWorkerModuleMissing(err, workerPath)) {
+        this.markWorkerPathMissing(workerPath);
+        return;
+      }
       this.logger.error(`持久化工作线程 ${index} 启动失败：${err instanceof Error ? err.message : String(err)}`);
     }
   }
@@ -212,8 +243,72 @@ export class PersistenceWorkerPoolService {
       this.pendingTasks.delete(taskId);
       pending.resolve(this.executeFallbackSync(taskId, pending.payload, pending.fallback, 'Worker died'));
     }
+    if (this.missingWorkerPath) {
+      this.scheduleMissingWorkerRecovery();
+      return;
+    }
     setTimeout(() => {
       if (!this.shuttingDown && !this.workers[index]) this.spawnSingleWorker(workerPath, index);
     }, 1000);
   }
+
+  protected resolveWorkerPath(): string {
+    return resolve(__dirname, 'workers', 'persistence-build.worker.js');
+  }
+
+  protected workerFileExists(workerPath: string): boolean {
+    return existsSync(workerPath);
+  }
+
+  private markWorkerPathMissing(workerPath: string): void {
+    this.missingWorkerPath = workerPath;
+    if (!this.missingWorkerPathLogged) {
+      this.missingWorkerPathLogged = true;
+      this.logger.warn(
+        `持久化工作池已临时降级为同步路径：worker 文件不存在 ${workerPath}；将自动探测恢复`,
+      );
+    }
+    this.scheduleMissingWorkerRecovery();
+  }
+
+  private clearMissingWorkerPath(): void {
+    this.missingWorkerPath = null;
+    this.missingWorkerPathLogged = false;
+    if (this.missingWorkerRecoveryTimer) {
+      clearTimeout(this.missingWorkerRecoveryTimer);
+      this.missingWorkerRecoveryTimer = null;
+    }
+  }
+
+  private scheduleMissingWorkerRecovery(): void {
+    if (this.shuttingDown || this.missingWorkerRecoveryTimer || !this.missingWorkerPath) return;
+    this.missingWorkerRecoveryTimer = setTimeout(() => {
+      this.missingWorkerRecoveryTimer = null;
+      const workerPath = this.missingWorkerPath;
+      if (!workerPath || this.shuttingDown) return;
+      if (!this.workerFileExists(workerPath)) {
+        this.scheduleMissingWorkerRecovery();
+        return;
+      }
+
+      this.clearMissingWorkerPath();
+      if (this.workers.length !== this.config.poolSize) {
+        this.workers = new Array(this.config.poolSize).fill(null);
+      }
+      for (let index = 0; index < this.workers.length; index += 1) {
+        if (!this.workers[index]) this.spawnSingleWorker(workerPath, index);
+      }
+      this.metricsService.setActiveWorkers('persistence', this.activeWorkerCount);
+      if (this.activeWorkerCount > 0) {
+        this.logger.log(`持久化工作池 worker 文件已恢复：${this.activeWorkerCount} 个工作线程可用`);
+      }
+    }, MISSING_WORKER_RECOVERY_INTERVAL_MS);
+    this.missingWorkerRecoveryTimer.unref();
+  }
+}
+
+function isWorkerModuleMissing(error: unknown, workerPath: string): boolean {
+  const candidate = error as { code?: unknown; message?: unknown };
+  const message = typeof candidate?.message === 'string' ? candidate.message : '';
+  return candidate?.code === 'MODULE_NOT_FOUND' && message.includes(workerPath);
 }
