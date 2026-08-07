@@ -39,6 +39,7 @@ export interface TechniqueGenerationPanelState {
     }>;
   } | null;
   selectedItemSpend: number;
+  selectedMode: 'single' | 'batch';
   generating: boolean;
   currentJob: {
     jobId: string;
@@ -61,6 +62,31 @@ export interface TechniqueGenerationPanelState {
     fullLevelAttrs?: Partial<Attributes>;
     skills?: SkillDef[];
   } | null;
+  currentBatch: {
+    batchId: string;
+    status: 'pending' | 'running' | 'generated_draft';
+    count: number;
+    createdAt: string;
+    draftExpireAt?: string;
+    jobs: Array<{
+      jobId: string;
+      rolledGrade: TechniqueGrade;
+      rolledRealmLv: number;
+    }>;
+    drafts: Array<{
+      jobId: string;
+      techniqueId: string;
+      suggestedName: string;
+      grade: TechniqueGrade;
+      category: TechniqueCategory;
+      realmLv: number;
+      desc: string;
+      maxLayer: number;
+      modelName?: string;
+      fullLevelAttrs?: Partial<Attributes>;
+      skills?: SkillDef[];
+    }>;
+  } | null;
   error: string;
 }
 
@@ -71,19 +97,23 @@ export const { store: techniqueGenerationStore, useStore: useTechniqueGeneration
     unavailableReason: '',
     rollRange: null,
     selectedItemSpend: 1,
+    selectedMode: 'single',
     generating: false,
     currentJob: null,
     currentDraft: null,
+    currentBatch: null,
     error: '',
   });
 
 // ─── Callbacks ───────────────────────────────────────────────────────────────
 
 interface TechniqueGenerationCallbacks {
-  onGenerate: ((category: TechniqueCategory, playerContext: string, itemSpend: number) => void) | null;
-  onPreviewItemSpend: ((itemSpend: number) => void) | null;
+  onGenerate: ((category: TechniqueCategory, playerContext: string, itemSpend: number, mode: 'single' | 'batch') => void) | null;
+  onPreviewItemSpend: ((itemSpend: number, mode: 'single' | 'batch') => void) | null;
   onAdopt: ((jobId: string, customName: string) => void) | null;
   onDiscard: ((jobId: string) => void) | null;
+  onAdoptBatch: ((batchId: string) => void) | null;
+  onDiscardBatch: ((batchId: string) => void) | null;
   onClose: (() => void) | null;
 }
 
@@ -92,6 +122,8 @@ const callbacks: TechniqueGenerationCallbacks = {
   onPreviewItemSpend: null,
   onAdopt: null,
   onDiscard: null,
+  onAdoptBatch: null,
+  onDiscardBatch: null,
   onClose: null,
 };
 
@@ -102,6 +134,10 @@ export function setTechniqueGenerationCallbacks(cbs: Partial<TechniqueGeneration
 // ─── Component ───────────────────────────────────────────────────────────────
 
 type CategoryTab = 'internal' | 'arts' | 'divine' | 'secret';
+type BatchConfirmation =
+  | { action: 'generate'; count: number }
+  | { action: 'adopt'; count: number; batchId: string }
+  | { action: 'discard'; count: number; batchId: string };
 
 const CATEGORY_TABS: Array<{ value: CategoryTab; label: string; locked: boolean }> = [
   { value: 'internal', label: '内功', locked: false },
@@ -194,7 +230,10 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
   const [selectedCategory, setSelectedCategory] = useState<CategoryTab>('internal');
   const [playerContext, setPlayerContext] = useState('');
   const [customName, setCustomName] = useState('');
+  const [batchPage, setBatchPage] = useState(1);
+  const [batchConfirmation, setBatchConfirmation] = useState<BatchConfirmation | null>(null);
   const itemSpend = state.selectedItemSpend;
+  const selectedMode = state.selectedMode;
 
   useEffect(() => () => hideTechniqueGenerationTooltip(), []);
 
@@ -202,6 +241,10 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
     if (!state.currentDraft) return;
     setCustomName([...state.currentDraft.suggestedName].slice(0, CUSTOM_TECHNIQUE_NAME_MAX_LENGTH).join(''));
   }, [state.currentDraft?.techniqueId, state.currentDraft?.suggestedName]);
+
+  useEffect(() => {
+    setBatchPage(1);
+  }, [state.currentBatch?.batchId]);
 
   useEffect(() => {
     const min = state.rollRange?.itemSpendMin ?? 1;
@@ -214,16 +257,35 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
 
   const handleGenerate = useCallback(() => {
     if (state.generating) return;
-    callbacks.onGenerate?.(selectedCategory as TechniqueCategory, playerContext, itemSpend);
-  }, [selectedCategory, playerContext, itemSpend, state.generating]);
+    if (selectedMode === 'batch') {
+      setBatchConfirmation({ action: 'generate', count: itemSpend });
+      return;
+    }
+    callbacks.onGenerate?.(selectedCategory as TechniqueCategory, playerContext, itemSpend, selectedMode);
+  }, [selectedCategory, playerContext, itemSpend, selectedMode, state.generating]);
 
   const handleItemSpendChange = useCallback((value: number) => {
     const min = state.rollRange?.itemSpendMin ?? 1;
     const max = state.rollRange?.itemSpendMax ?? 1;
     const next = Math.max(min, Math.min(max, Math.trunc(value)));
     techniqueGenerationStore.patchState({ selectedItemSpend: next });
-    callbacks.onPreviewItemSpend?.(next);
-  }, [state.rollRange?.itemSpendMin, state.rollRange?.itemSpendMax]);
+    callbacks.onPreviewItemSpend?.(next, selectedMode);
+  }, [selectedMode, state.rollRange?.itemSpendMin, state.rollRange?.itemSpendMax]);
+
+  const handleModeChange = useCallback((mode: 'single' | 'batch') => {
+    if (mode === selectedMode || (mode === 'batch' && selectedCategory !== 'internal')) return;
+    techniqueGenerationStore.patchState({ selectedMode: mode });
+    callbacks.onPreviewItemSpend?.(itemSpend, mode);
+  }, [itemSpend, selectedCategory, selectedMode]);
+
+  const handleCategoryChange = useCallback((category: CategoryTab) => {
+    if (category === selectedCategory) return;
+    setSelectedCategory(category);
+    if (category !== 'internal' && selectedMode === 'batch') {
+      techniqueGenerationStore.patchState({ selectedMode: 'single' });
+      callbacks.onPreviewItemSpend?.(itemSpend, 'single');
+    }
+  }, [itemSpend, selectedCategory, selectedMode]);
 
   const handleAdopt = useCallback(() => {
     if (!state.currentDraft?.jobId || !customName.trim()) return;
@@ -234,6 +296,38 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
     if (!state.currentDraft?.jobId) return;
     callbacks.onDiscard?.(state.currentDraft.jobId);
   }, [state.currentDraft]);
+
+  const handleAdoptBatch = useCallback(() => {
+    if (!state.currentBatch?.batchId) return;
+    setBatchConfirmation({
+      action: 'adopt',
+      count: state.currentBatch.drafts.length,
+      batchId: state.currentBatch.batchId,
+    });
+  }, [state.currentBatch]);
+
+  const handleDiscardBatch = useCallback(() => {
+    if (!state.currentBatch?.batchId) return;
+    setBatchConfirmation({
+      action: 'discard',
+      count: state.currentBatch.drafts.length,
+      batchId: state.currentBatch.batchId,
+    });
+  }, [state.currentBatch]);
+
+  const handleConfirmBatchAction = useCallback(() => {
+    if (!batchConfirmation) return;
+    setBatchConfirmation(null);
+    if (batchConfirmation.action === 'generate') {
+      callbacks.onGenerate?.('internal', playerContext, batchConfirmation.count, 'batch');
+      return;
+    }
+    if (batchConfirmation.action === 'adopt') {
+      callbacks.onAdoptBatch?.(batchConfirmation.batchId);
+      return;
+    }
+    callbacks.onDiscardBatch?.(batchConfirmation.batchId);
+  }, [batchConfirmation, playerContext]);
 
   if (!state.visible) return null;
 
@@ -246,14 +340,42 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
         </div>
       )}
 
-      {state.available && !state.currentJob && !state.currentDraft && !state.generating && (
+      {state.available && !state.currentJob && !state.currentDraft && !state.currentBatch && !state.generating && (
         <div className="technique-generation-panel__input">
           <aside className="technique-generation-panel__side technique-generation-panel__side--left">
             {renderRealmRange(state.rollRange)}
-            {renderItemSpendSelector(state.rollRange, itemSpend, handleItemSpendChange)}
+            {renderItemSpendSelector(state.rollRange, itemSpend, selectedMode, handleItemSpendChange)}
           </aside>
 
           <div className="technique-generation-panel__main">
+            <section className="technique-generation-panel__section">
+              <div className="technique-generation-panel__section-title">参悟方式</div>
+              <div className="technique-generation-panel__tabs technique-generation-panel__mode-tabs" role="tablist" aria-label="参悟方式">
+                <button
+                  type="button"
+                  className={`technique-generation-panel__tab ${selectedMode === 'single' ? 'active' : ''}`}
+                  aria-pressed={selectedMode === 'single'}
+                  onClick={() => handleModeChange('single')}
+                >
+                  <span>单部领悟</span>
+                </button>
+                <button
+                  type="button"
+                  className={`technique-generation-panel__tab ${selectedMode === 'batch' ? 'active' : ''} ${selectedCategory !== 'internal' ? 'locked' : ''}`}
+                  disabled={selectedCategory !== 'internal'}
+                  aria-pressed={selectedMode === 'batch'}
+                  onClick={() => handleModeChange('batch')}
+                >
+                  <span>批量领悟</span>
+                  {selectedCategory !== 'internal' && <small>仅限内功</small>}
+                </button>
+              </div>
+              {selectedMode === 'batch' && (
+                <p className="technique-generation-panel__mode-note">
+                  每枚玉简各成一部内功，品阶、境界与强度分别推演；名号与法意由天机拟定，六维权重均衡。
+                </p>
+              )}
+            </section>
             <section className="technique-generation-panel__section">
               <div className="technique-generation-panel__section-title">功法类型</div>
               <div className="technique-generation-panel__tabs" role="tablist" aria-label="功法类型">
@@ -264,7 +386,7 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
                     className={`technique-generation-panel__tab ${selectedCategory === tab.value ? 'active' : ''} ${tab.locked ? 'locked' : ''}`}
                     disabled={tab.locked}
                     aria-pressed={selectedCategory === tab.value}
-                    onClick={() => !tab.locked && setSelectedCategory(tab.value)}
+                    onClick={() => !tab.locked && handleCategoryChange(tab.value)}
                   >
                     <span>{tab.label}</span>
                     {tab.locked && <small>未开放</small>}
@@ -294,7 +416,7 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
               className="technique-generation-panel__generate-btn small-btn"
               onClick={handleGenerate}
             >
-              开始领悟
+              {selectedMode === 'batch' ? `批量领悟 ${itemSpend} 部` : '开始领悟'}
             </button>
           </div>
 
@@ -392,10 +514,26 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
         </div>
       )}
 
+      {state.currentBatch?.status === 'generated_draft' && state.currentBatch.drafts.length > 0 && (
+        renderBatchPreview(
+          state.currentBatch,
+          batchPage,
+          setBatchPage,
+          handleAdoptBatch,
+          handleDiscardBatch,
+        )
+      )}
+
       {state.error && (
         <div className="technique-generation-panel__error">
           {state.error}
         </div>
+      )}
+
+      {batchConfirmation && renderBatchConfirmation(
+        batchConfirmation,
+        handleConfirmBatchAction,
+        () => setBatchConfirmation(null),
       )}
     </div>
   );
@@ -648,28 +786,141 @@ function normalizeRealmLvChances(range: NonNullable<TechniqueGenerationPanelStat
   }));
 }
 
+function renderBatchPreview(
+  batch: NonNullable<TechniqueGenerationPanelState['currentBatch']>,
+  pageInput: number,
+  onPageChange: (page: number) => void,
+  onAdopt: () => void,
+  onDiscard: () => void,
+): ReactElement {
+  const pageSize = 6;
+  const totalPages = Math.max(1, Math.ceil(batch.drafts.length / pageSize));
+  const page = Math.max(1, Math.min(totalPages, Math.trunc(pageInput) || 1));
+  const pageDrafts = batch.drafts.slice((page - 1) * pageSize, page * pageSize);
+  return (
+    <div className="technique-generation-panel__preview technique-generation-panel__batch-preview">
+      <div className="technique-generation-panel__batch-heading">
+        <div>
+          <div className="technique-generation-panel__section-title">批量领悟结果</div>
+          <p>共得 {batch.drafts.length} 部内功，六维权重均衡。采纳后将一并进入待领悟功法。</p>
+        </div>
+        <span>第 {page} / {totalPages} 页</span>
+      </div>
+      <div className="technique-generation-panel__batch-grid">
+        {pageDrafts.map((draft) => (
+          <article key={draft.jobId} className="technique-generation-panel__batch-card">
+            <header>
+              <strong>{draft.suggestedName}</strong>
+              <span>{getTechniqueGradeLabel(draft.grade)} · {formatTechniqueGenerationRealmLabel(draft.realmLv)}</span>
+            </header>
+            <p>{draft.desc}</p>
+            <div className="technique-generation-panel__batch-attrs" aria-label={`${draft.suggestedName}满层六维`}>
+              {ATTR_KEYS.map((key) => (
+                <span key={key}>
+                  {ATTR_KEY_LABELS[key]}
+                  <strong>{formatDisplaySignedNumber(Number(draft.fullLevelAttrs?.[key] ?? 0))}</strong>
+                </span>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+      {totalPages > 1 && (
+        <div className="technique-generation-panel__batch-pagination">
+          <button type="button" className="small-btn ghost" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>上一页</button>
+          <span>每页 {pageSize} 部</span>
+          <button type="button" className="small-btn ghost" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)}>下一页</button>
+        </div>
+      )}
+      <div className="technique-generation-panel__actions">
+        <button type="button" className="small-btn technique-generation-panel__adopt" onClick={onAdopt}>
+          全部采纳并学习
+        </button>
+        <button type="button" className="small-btn ghost" onClick={onDiscard}>
+          放弃本批功法
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function renderBatchConfirmation(
+  confirmation: BatchConfirmation,
+  onConfirm: () => void,
+  onCancel: () => void,
+): ReactElement {
+  const content = confirmation.action === 'generate'
+    ? {
+        title: '确认批量领悟',
+        detail: `本次将消耗 ${confirmation.count} 枚悟道玉简，分别推演 ${confirmation.count} 部内功。`,
+        note: '每部功法独立随机品阶、境界与强度，六维权重均衡；提交后需整批采纳或整批放弃。',
+        confirmLabel: '确认推演',
+      }
+    : confirmation.action === 'adopt'
+      ? {
+          title: '确认采纳本批功法',
+          detail: `共 ${confirmation.count} 部内功将一并纳入待领悟功法。`,
+          note: '采纳后各部功法仍需分别完成领悟进度。',
+          confirmLabel: '全部采纳',
+        }
+      : {
+          title: '确认放弃本批功法',
+          detail: `共 ${confirmation.count} 部内功草稿将一并放弃。`,
+          note: '放弃后的功德返还比例由服务端统一结算，本批草稿无法恢复。',
+          confirmLabel: '确认放弃',
+        };
+  return (
+    <div className="technique-generation-panel__confirm-backdrop" role="presentation" onPointerDown={onCancel}>
+      <section
+        className="technique-generation-panel__confirm"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="technique-generation-batch-confirm-title"
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        <div id="technique-generation-batch-confirm-title" className="technique-generation-panel__section-title">
+          {content.title}
+        </div>
+        <strong>{content.detail}</strong>
+        <p>{content.note}</p>
+        <div className="technique-generation-panel__actions">
+          <button type="button" className="small-btn technique-generation-panel__adopt" onClick={onConfirm}>
+            {content.confirmLabel}
+          </button>
+          <button type="button" className="small-btn ghost" onClick={onCancel}>返回</button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function renderItemSpendSelector(
   range: TechniqueGenerationPanelState['rollRange'],
   itemSpend: number,
+  mode: 'single' | 'batch',
   onChange: (value: number) => void,
 ): ReactElement {
   const min = range?.itemSpendMin ?? 1;
   const max = range?.itemSpendMax ?? 1;
+  const label = mode === 'batch' ? '批量数量' : '玉简';
+  const tooltipLine = mode === 'batch'
+    ? `本次领悟 ${itemSpend} 部内功，消耗 ${itemSpend} 枚悟道玉简`
+    : `投入 ${itemSpend} 枚悟道玉简，择优凝成一部功法`;
   return (
     <section className="technique-generation-panel__section technique-generation-panel__boost-card">
       <div
         className="technique-generation-panel__rail-label"
         onPointerMove={(event) => {
-          showTechniqueGenerationTooltip('悟道玉简', [`投入 ${itemSpend} 枚`], event);
+          showTechniqueGenerationTooltip(label, [tooltipLine], event);
           moveTechniqueGenerationTooltip(event);
         }}
         onPointerLeave={hideTechniqueGenerationTooltip}
       >
-        玉简
+        {label}
       </div>
       <input
         id="technique-generation-item-spend"
-        aria-label="悟道玉简投入数量"
+        aria-label={mode === 'batch' ? '批量领悟数量' : '悟道玉简投入数量'}
         type="range"
         min={min}
         max={max}
@@ -677,11 +928,11 @@ function renderItemSpendSelector(
         value={itemSpend}
         onChange={(event) => onChange(Number(event.currentTarget.value))}
       />
-      <div className="technique-generation-panel__stepper" role="group" aria-label="调整悟道玉简数量">
+      <div className="technique-generation-panel__stepper" role="group" aria-label={mode === 'batch' ? '调整批量领悟数量' : '调整悟道玉简数量'}>
         <button type="button" className="small-btn ghost" onClick={() => onChange(itemSpend + 1)} disabled={itemSpend >= max}>+</button>
         <strong
           onPointerMove={(event) => {
-            showTechniqueGenerationTooltip('悟道玉简', [`投入 ${itemSpend} 枚`], event);
+            showTechniqueGenerationTooltip(label, [tooltipLine], event);
             moveTechniqueGenerationTooltip(event);
           }}
           onPointerLeave={hideTechniqueGenerationTooltip}

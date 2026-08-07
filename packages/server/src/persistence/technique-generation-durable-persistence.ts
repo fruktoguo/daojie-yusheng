@@ -9,7 +9,6 @@
 import type { Pool, PoolClient } from 'pg';
 import {
   TECHNIQUE_GRADE_ORDER,
-  TECHNIQUE_AGGREGATION_MAX_JADE_ITEM_SPEND,
   calculateTechniqueComprehensionRequiredProgress,
   type TechniqueCategory,
   type TechniqueGrade,
@@ -19,10 +18,8 @@ import {
 import {
   GENERATED_TECHNIQUE_TABLE,
   TECHNIQUE_GENERATION_JOB_TABLE,
-  insertPublishedAggregateTechnique,
   type InsertGeneratedTechniqueParams,
   type InsertGenerationJobParams,
-  type InsertPublishedAggregateTechniqueParams,
 } from './generated-technique-persistence.service';
 
 const PLAYER_PRESENCE_TABLE = 'player_presence';
@@ -76,111 +73,6 @@ export interface BeginDurableTechniqueGenerationResult {
   alreadyCommitted: boolean;
   inventoryItems: TechniqueGenerationRuntimeInventoryItem[];
   errorCode?: 'ACTIVE_JOB_EXISTS' | 'ITEM_NOT_ENOUGH';
-}
-
-export interface PublishDurableJadeTechniqueAggregationInput
-  extends InsertPublishedAggregateTechniqueParams, TechniqueGenerationSessionFence {
-  playerId: string;
-  operationId: string;
-  requestFingerprint: string;
-  itemSpend: number;
-}
-
-export interface PublishDurableJadeTechniqueAggregationResult {
-  ok: boolean;
-  alreadyCommitted: boolean;
-  inventoryItems: TechniqueGenerationRuntimeInventoryItem[];
-  errorCode?: 'ITEM_NOT_ENOUGH';
-}
-
-/** 将指定数量悟道玉简的扣除与统合法卷发布原子提交，重放只回读已提交结果。 */
-export async function publishDurableJadeTechniqueAggregation(
-  pool: Pool,
-  input: PublishDurableJadeTechniqueAggregationInput,
-): Promise<PublishDurableJadeTechniqueAggregationResult> {
-  if (!Number.isInteger(input.itemSpend)
-    || input.itemSpend < 1
-    || input.itemSpend > TECHNIQUE_AGGREGATION_MAX_JADE_ITEM_SPEND) {
-    throw new Error('technique_aggregation_jade_item_spend_invalid');
-  }
-  return withPlayerTechniqueGenerationTransaction(pool, input.playerId, async (client) => {
-    await assertTechniqueGenerationSessionFence(client, input.playerId, input);
-    const operationId = buildTechniqueAggregationJadeOperationId(input.operationId);
-    const existingOperation = await loadCommittedTechniqueAggregationJadeOperation(client, operationId, input);
-    if (existingOperation) {
-      return {
-        ok: true,
-        alreadyCommitted: true,
-        inventoryItems: await loadTechniqueGenerationRuntimeInventory(client, input.playerId),
-      };
-    }
-
-    const consumed = await consumeTechniqueGenerationItem(
-      client,
-      input.playerId,
-      TECHNIQUE_GENERATION_ITEM_ID,
-      input.itemSpend,
-    );
-    if (!consumed.ok) {
-      return {
-        ok: false,
-        alreadyCommitted: false,
-        inventoryItems: [],
-        errorCode: 'ITEM_NOT_ENOUGH',
-      };
-    }
-
-    const inserted = await insertPublishedAggregateTechnique(client, input);
-    if (inserted !== 'inserted') {
-      throw new Error(`technique_aggregation_jade_operation_missing:${input.id}`);
-    }
-    await touchTechniqueGenerationRecoveryWatermark(client, input.playerId, 'inventory_version');
-    await insertCommittedTechniqueGenerationOperation(client, {
-      operationId,
-      playerId: input.playerId,
-      operationType: 'technique_aggregation_jade_consume',
-      aggregateType: GENERATED_TECHNIQUE_TABLE,
-      aggregateId: input.id,
-      fence: input,
-      payload: {
-        jobId: input.id,
-        aggregateTechniqueId: input.id,
-        requestFingerprint: input.requestFingerprint,
-        itemId: TECHNIQUE_GENERATION_ITEM_ID,
-        itemSpend: input.itemSpend,
-      },
-    });
-    await insertTechniqueGenerationOutbox(client, {
-      operationId,
-      topic: 'player.inventory.consumed',
-      playerId: input.playerId,
-      payload: {
-        playerId: input.playerId,
-        sourceType: 'technique_aggregation_jade',
-        sourceRefId: input.id,
-        consumedItems: [{ itemId: TECHNIQUE_GENERATION_ITEM_ID, count: input.itemSpend }],
-      },
-    });
-    await insertTechniqueGenerationAssetAudit(client, {
-      operationId,
-      playerId: input.playerId,
-      assetRefId: input.id,
-      action: 'consume',
-      delta: {
-        sourceType: 'technique_aggregation_jade',
-        itemId: TECHNIQUE_GENERATION_ITEM_ID,
-        count: -input.itemSpend,
-      },
-      before: { itemId: TECHNIQUE_GENERATION_ITEM_ID, count: consumed.beforeCount },
-      after: { itemId: TECHNIQUE_GENERATION_ITEM_ID, count: consumed.afterCount },
-    });
-
-    return {
-      ok: true,
-      alreadyCommitted: false,
-      inventoryItems: await loadTechniqueGenerationRuntimeInventory(client, input.playerId),
-    };
-  });
 }
 
 export async function beginDurableTechniqueGeneration(
@@ -304,6 +196,142 @@ export async function beginDurableTechniqueGeneration(
   });
 }
 
+export interface BeginDurableTechniqueGenerationBatchInput extends TechniqueGenerationSessionFence {
+  batchId: string;
+  playerId: string;
+  jobs: InsertGenerationJobParams[];
+}
+
+/** 批量领悟一次扣除对应数量玉简，并原子创建全部子任务。 */
+export async function beginDurableTechniqueGenerationBatch(
+  pool: Pool,
+  input: BeginDurableTechniqueGenerationBatchInput,
+): Promise<BeginDurableTechniqueGenerationResult> {
+  return withPlayerTechniqueGenerationTransaction(pool, input.playerId, async (client) => {
+    await assertTechniqueGenerationSessionFence(client, input.playerId, input);
+    const jobs = input.jobs.filter((job) => job.playerId === input.playerId);
+    if (jobs.length === 0 || jobs.length !== input.jobs.length) {
+      throw new Error('invalid_technique_generation_batch_jobs');
+    }
+    const operationId = buildTechniqueGenerationOperationId('consume_batch', input.batchId);
+    const existingOperation = await loadCommittedTechniqueGenerationOperation(client, operationId, {
+      playerId: input.playerId,
+      operationType: 'technique_generation_consume_batch',
+      aggregateType: TECHNIQUE_GENERATION_JOB_TABLE,
+      jobId: input.batchId,
+    });
+    if (existingOperation) {
+      return {
+        ok: true,
+        alreadyCommitted: true,
+        inventoryItems: await loadTechniqueGenerationRuntimeInventory(client, input.playerId),
+      };
+    }
+
+    const activeJob = await client.query(
+      `SELECT id
+         FROM ${TECHNIQUE_GENERATION_JOB_TABLE}
+        WHERE player_id = $1
+          AND ${ACTIVE_GENERATION_JOB_PREDICATE}
+        ORDER BY created_at ASC, id ASC
+        LIMIT 1
+        FOR UPDATE`,
+      [input.playerId],
+    );
+    if ((activeJob.rowCount ?? 0) > 0) {
+      return {
+        ok: false,
+        alreadyCommitted: false,
+        inventoryItems: [],
+        errorCode: 'ACTIVE_JOB_EXISTS',
+      };
+    }
+
+    const consumed = await consumeTechniqueGenerationItem(
+      client,
+      input.playerId,
+      TECHNIQUE_GENERATION_ITEM_ID,
+      jobs.length,
+    );
+    if (!consumed.ok) {
+      return {
+        ok: false,
+        alreadyCommitted: false,
+        inventoryItems: [],
+        errorCode: 'ITEM_NOT_ENOUGH',
+      };
+    }
+
+    for (const job of jobs) {
+      await client.query(
+        `INSERT INTO ${TECHNIQUE_GENERATION_JOB_TABLE} (
+          id, player_id, status, requested_category,
+          rolled_grade, rolled_realm_lv, player_context, item_spend,
+          rolled_budget_percent, rolled_total_budget,
+          item_consumed, consumed_at
+        ) VALUES ($1,$2,'pending',$3,$4,$5,$6,1,$7,$8,true,NOW())`,
+        [
+          job.id,
+          input.playerId,
+          job.requestedCategory,
+          job.rolledGrade,
+          job.rolledRealmLv,
+          job.playerContext,
+          job.budgetPercent,
+          job.totalBudget,
+        ],
+      );
+    }
+    await touchTechniqueGenerationRecoveryWatermark(client, input.playerId, 'inventory_version');
+    const jobIds = jobs.map((job) => job.id);
+    await insertCommittedTechniqueGenerationOperation(client, {
+      operationId,
+      playerId: input.playerId,
+      operationType: 'technique_generation_consume_batch',
+      aggregateType: TECHNIQUE_GENERATION_JOB_TABLE,
+      aggregateId: input.batchId,
+      fence: input,
+      payload: {
+        jobId: input.batchId,
+        batchId: input.batchId,
+        jobIds,
+        itemId: TECHNIQUE_GENERATION_ITEM_ID,
+        itemSpend: jobs.length,
+      },
+    });
+    await insertTechniqueGenerationOutbox(client, {
+      operationId,
+      topic: 'player.inventory.consumed',
+      playerId: input.playerId,
+      payload: {
+        playerId: input.playerId,
+        sourceType: 'technique_generation_batch',
+        sourceRefId: input.batchId,
+        consumedItems: [{ itemId: TECHNIQUE_GENERATION_ITEM_ID, count: jobs.length }],
+      },
+    });
+    await insertTechniqueGenerationAssetAudit(client, {
+      operationId,
+      playerId: input.playerId,
+      assetRefId: input.batchId,
+      action: 'consume',
+      delta: {
+        sourceType: 'technique_generation_batch',
+        itemId: TECHNIQUE_GENERATION_ITEM_ID,
+        count: -jobs.length,
+      },
+      before: { itemId: TECHNIQUE_GENERATION_ITEM_ID, count: consumed.beforeCount },
+      after: { itemId: TECHNIQUE_GENERATION_ITEM_ID, count: consumed.afterCount },
+    });
+
+    return {
+      ok: true,
+      alreadyCommitted: false,
+      inventoryItems: await loadTechniqueGenerationRuntimeInventory(client, input.playerId),
+    };
+  });
+}
+
 /** 只允许一个执行者把 pending 或超时 running job 认领为 running。 */
 export async function claimTechniqueGenerationExecution(pool: Pool, jobId: string): Promise<boolean> {
   const result = await pool.query(
@@ -327,6 +355,52 @@ export async function claimTechniqueGenerationExecution(pool: Pool, jobId: strin
     [jobId],
   );
   return (result.rowCount ?? 0) > 0;
+}
+
+/** 批量任务只能由同一执行者整批认领，禁止出现部分 running。 */
+export async function claimTechniqueGenerationBatchExecution(
+  pool: Pool,
+  playerId: string,
+  jobIds: readonly string[],
+): Promise<boolean> {
+  if (jobIds.length === 0) return false;
+  return withPlayerTechniqueGenerationTransaction(pool, playerId, async (client) => {
+    const result = await client.query<{
+      id?: unknown;
+      can_claim?: unknown;
+    }>(
+      `SELECT id,
+              (
+                status = 'pending'
+                OR (
+                  status = 'running'
+                  AND updated_at <= NOW() - INTERVAL '${GENERATION_EXECUTION_STALE_INTERVAL}'
+                )
+              ) AS can_claim
+         FROM ${TECHNIQUE_GENERATION_JOB_TABLE}
+        WHERE player_id = $1
+          AND id = ANY($2::text[])
+          AND item_consumed = true
+          AND draft_technique_id IS NULL
+        ORDER BY id ASC
+        FOR UPDATE`,
+      [playerId, [...jobIds]],
+    );
+    if ((result.rowCount ?? 0) !== jobIds.length || result.rows.some((row) => row.can_claim !== true)) {
+      return false;
+    }
+    const updated = await client.query(
+      `UPDATE ${TECHNIQUE_GENERATION_JOB_TABLE}
+          SET status = 'running',
+              finished_at = NULL,
+              error_code = NULL,
+              error_message = NULL,
+              updated_at = NOW()
+        WHERE player_id = $1 AND id = ANY($2::text[])`,
+      [playerId, [...jobIds]],
+    );
+    return (updated.rowCount ?? 0) === jobIds.length;
+  });
 }
 
 export interface PersistGeneratedTechniqueDraftInput extends InsertGeneratedTechniqueParams {
@@ -393,6 +467,89 @@ export async function persistGeneratedTechniqueDraft(
       throw new Error(`technique_generation_draft_state_conflict:${input.generationId}`);
     }
     return { ok: true, techniqueId: input.id };
+  });
+}
+
+export interface PersistGeneratedTechniqueDraftBatchInput {
+  playerId: string;
+  modelName: string;
+  attemptCount: number;
+  draftExpireHours: number;
+  drafts: PersistGeneratedTechniqueDraftInput[];
+}
+
+/** 批量模板与全部子任务草稿指针同事务提交。 */
+export async function persistGeneratedTechniqueDraftBatch(
+  pool: Pool,
+  input: PersistGeneratedTechniqueDraftBatchInput,
+): Promise<{ ok: boolean; techniqueIds: string[] }> {
+  return withPlayerTechniqueGenerationTransaction(pool, input.playerId, async (client) => {
+    const jobIds = input.drafts.map((draft) => draft.generationId);
+    if (jobIds.length === 0 || input.drafts.some((draft) => draft.createdByPlayerId !== input.playerId)) {
+      throw new Error('invalid_technique_generation_batch_drafts');
+    }
+    const jobsResult = await client.query<{
+      id?: unknown;
+      status?: unknown;
+      draft_technique_id?: unknown;
+    }>(
+      `SELECT id, status, draft_technique_id
+         FROM ${TECHNIQUE_GENERATION_JOB_TABLE}
+        WHERE player_id = $1 AND id = ANY($2::text[])
+        ORDER BY id ASC
+        FOR UPDATE`,
+      [input.playerId, jobIds],
+    );
+    if ((jobsResult.rowCount ?? 0) !== jobIds.length) {
+      return { ok: false, techniqueIds: [] };
+    }
+    const existingIds = jobsResult.rows.map((row) => normalizeOptionalString(row.draft_technique_id));
+    if (existingIds.every(Boolean)) {
+      return { ok: true, techniqueIds: existingIds as string[] };
+    }
+    if (existingIds.some(Boolean) || jobsResult.rows.some((row) => row.status !== 'running')) {
+      return { ok: false, techniqueIds: [] };
+    }
+
+    for (const draft of input.drafts) {
+      await client.query(
+        `INSERT INTO ${GENERATED_TECHNIQUE_TABLE} (
+          id, generation_id, template, schema_version,
+          status, created_by_player_id, model_name,
+          prompt_snapshot, validation_report,
+          grade, category, realm_lv
+        ) VALUES ($1,$2,$3::jsonb,$4,'draft',$5,$6,$7,$8::jsonb,$9,$10,$11)`,
+        [
+          draft.id,
+          draft.generationId,
+          JSON.stringify(draft.template),
+          draft.schemaVersion,
+          input.playerId,
+          input.modelName,
+          draft.promptSnapshot,
+          JSON.stringify(draft.validationReport),
+          draft.grade,
+          draft.category,
+          draft.realmLv,
+        ],
+      );
+      const updated = await client.query(
+        `UPDATE ${TECHNIQUE_GENERATION_JOB_TABLE}
+            SET status = 'generated_draft',
+                draft_technique_id = $2,
+                model_name = $3,
+                attempt_count = $4,
+                draft_expire_at = NOW() + ($5::int * INTERVAL '1 hour'),
+                finished_at = NOW(),
+                updated_at = NOW()
+          WHERE id = $1 AND player_id = $6 AND status = 'running'`,
+        [draft.generationId, draft.id, input.modelName, input.attemptCount, input.draftExpireHours, input.playerId],
+      );
+      if ((updated.rowCount ?? 0) !== 1) {
+        throw new Error(`technique_generation_batch_draft_state_conflict:${draft.generationId}`);
+      }
+    }
+    return { ok: true, techniqueIds: input.drafts.map((draft) => draft.id) };
   });
 }
 
@@ -594,6 +751,232 @@ export async function adoptDurableTechniqueDraft(
   });
 }
 
+export interface AdoptDurableTechniqueDraftBatchInput extends TechniqueGenerationSessionFence {
+  playerId: string;
+  batchId: string;
+  jobIds: string[];
+  learnerRealmLv: number;
+  currentTick: number;
+}
+
+export interface AdoptDurableTechniqueDraftBatchResult {
+  ok: boolean;
+  alreadyCommitted: boolean;
+  techniqueIds: string[];
+  techniqueNames: string[];
+  errorCode?: 'JOB_NOT_FOUND' | 'JOB_STATE_INVALID' | 'DRAFT_EXPIRED' | 'NAME_CONFLICT' | 'TECHNIQUE_ALREADY_LEARNED';
+}
+
+/** 批量发布模板并写入待领悟真源，整批成功或整批回滚。 */
+export async function adoptDurableTechniqueDraftBatch(
+  pool: Pool,
+  input: AdoptDurableTechniqueDraftBatchInput,
+): Promise<AdoptDurableTechniqueDraftBatchResult> {
+  return withPlayerTechniqueGenerationTransaction(pool, input.playerId, async (client) => {
+    await assertTechniqueGenerationSessionFence(client, input.playerId, input);
+    const operationId = buildTechniqueGenerationOperationId('adopt_batch', input.batchId);
+    const existingOperation = await loadCommittedTechniqueGenerationOperation(client, operationId, {
+      playerId: input.playerId,
+      operationType: 'technique_generation_adopt_batch',
+      aggregateType: PLAYER_TECHNIQUE_COMPREHENSION_TABLE,
+      jobId: input.batchId,
+    });
+    if (existingOperation) {
+      return {
+        ok: true,
+        alreadyCommitted: true,
+        techniqueIds: normalizeStringArray(existingOperation.techniqueIds),
+        techniqueNames: normalizeStringArray(existingOperation.techniqueNames),
+      };
+    }
+    if (input.jobIds.length === 0) {
+      return { ok: false, alreadyCommitted: false, techniqueIds: [], techniqueNames: [], errorCode: 'JOB_NOT_FOUND' };
+    }
+
+    const jobsResult = await client.query<{
+      id?: unknown;
+      status?: unknown;
+      draft_expire_at?: unknown;
+      technique_id?: unknown;
+      template?: unknown;
+    }>(
+      `SELECT j.id,
+              j.status,
+              j.draft_expire_at,
+              gt.id AS technique_id,
+              gt.template
+         FROM ${TECHNIQUE_GENERATION_JOB_TABLE} j
+         JOIN ${GENERATED_TECHNIQUE_TABLE} gt ON gt.id = j.draft_technique_id
+        WHERE j.player_id = $1 AND j.id = ANY($2::text[])
+        ORDER BY j.id ASC
+        FOR UPDATE OF j, gt`,
+      [input.playerId, input.jobIds],
+    );
+    if ((jobsResult.rowCount ?? 0) !== input.jobIds.length) {
+      return { ok: false, alreadyCommitted: false, techniqueIds: [], techniqueNames: [], errorCode: 'JOB_NOT_FOUND' };
+    }
+    if (jobsResult.rows.some((row) => row.status !== 'generated_draft')) {
+      return { ok: false, alreadyCommitted: false, techniqueIds: [], techniqueNames: [], errorCode: 'JOB_STATE_INVALID' };
+    }
+    if (jobsResult.rows.some((row) => {
+      const expireAt = normalizeTimestamp(row.draft_expire_at);
+      return expireAt !== null && expireAt <= Date.now();
+    })) {
+      return { ok: false, alreadyCommitted: false, techniqueIds: [], techniqueNames: [], errorCode: 'DRAFT_EXPIRED' };
+    }
+
+    const drafts = jobsResult.rows.map((row) => {
+      const techniqueId = normalizeOptionalString(row.technique_id);
+      const template = asRecord(row.template) as unknown as TechniqueTemplate | null;
+      const displayName = normalizeOptionalString(template?.name);
+      return {
+        jobId: normalizeOptionalString(row.id) ?? '',
+        techniqueId: techniqueId ?? '',
+        template,
+        displayName: displayName ?? '',
+        normalizedName: displayName?.toLowerCase().replace(/\s+/g, '') ?? '',
+      };
+    });
+    if (drafts.some((draft) => !draft.jobId || !draft.techniqueId || !draft.template || !draft.displayName || !draft.normalizedName)) {
+      return { ok: false, alreadyCommitted: false, techniqueIds: [], techniqueNames: [], errorCode: 'JOB_STATE_INVALID' };
+    }
+    if (new Set(drafts.map((draft) => draft.normalizedName)).size !== drafts.length) {
+      return { ok: false, alreadyCommitted: false, techniqueIds: [], techniqueNames: [], errorCode: 'NAME_CONFLICT' };
+    }
+
+    const nameConflict = await client.query(
+      `SELECT id
+         FROM ${GENERATED_TECHNIQUE_TABLE}
+        WHERE normalized_name = ANY($1::text[])
+          AND is_published = true
+          AND NOT (id = ANY($2::text[]))
+        LIMIT 1`,
+      [drafts.map((draft) => draft.normalizedName), drafts.map((draft) => draft.techniqueId)],
+    );
+    if ((nameConflict.rowCount ?? 0) > 0) {
+      return { ok: false, alreadyCommitted: false, techniqueIds: [], techniqueNames: [], errorCode: 'NAME_CONFLICT' };
+    }
+    const learnedResult = await client.query(
+      `SELECT tech_id
+         FROM ${PLAYER_TECHNIQUE_STATE_TABLE}
+        WHERE player_id = $1 AND tech_id = ANY($2::text[])
+        LIMIT 1
+        FOR UPDATE`,
+      [input.playerId, drafts.map((draft) => draft.techniqueId)],
+    );
+    if ((learnedResult.rowCount ?? 0) > 0) {
+      return { ok: false, alreadyCommitted: false, techniqueIds: [], techniqueNames: [], errorCode: 'TECHNIQUE_ALREADY_LEARNED' };
+    }
+
+    const currentTick = Math.max(0, Math.trunc(Number(input.currentTick) || 0));
+    const learnerRealmLv = Math.max(1, Math.trunc(Number(input.learnerRealmLv) || 1));
+    const operationTechniques: Array<{
+      techniqueId: string;
+      techniqueName: string;
+      requiredProgress: number;
+      realmLv: number;
+      grade: TechniqueGrade;
+      category: TechniqueCategory;
+    }> = [];
+    for (const draft of drafts) {
+      const template = draft.template!;
+      const grade = normalizeTechniqueGrade(template.grade);
+      const category = normalizeTechniqueCategory(template.category);
+      const realmLv = Math.max(1, Math.trunc(Number(template.realmLv) || 1));
+      const requiredProgress = calculateTechniqueComprehensionRequiredProgress({
+        sourceKind: 'created',
+        techniqueRealmLv: realmLv,
+        grade,
+        learnerRealmLv,
+      });
+      await client.query(
+        `UPDATE ${GENERATED_TECHNIQUE_TABLE}
+            SET is_published = true,
+                published_at = COALESCE(published_at, NOW()),
+                display_name = $2::text,
+                normalized_name = $3::text,
+                name_locked = true,
+                template = jsonb_set(template, '{name}', to_jsonb($2::text), true),
+                status = 'published',
+                updated_at = NOW()
+          WHERE id = $1`,
+        [draft.techniqueId, draft.displayName, draft.normalizedName],
+      );
+      await client.query(
+        `INSERT INTO ${PLAYER_TECHNIQUE_COMPREHENSION_TABLE}(
+          player_id, tech_id, source_kind, progress, required_progress,
+          realm_lv, grade, category, creator_player_id, self_comprehension_allowed,
+          created_at_tick, updated_at_tick, active_transfer_job_id,
+          active_transfer_teacher_id, raw_payload, updated_at
+        ) VALUES ($1,$2,'created',0,$3,$4,$5,$6,$1,true,$7,$7,NULL,NULL,'{}'::jsonb,NOW())
+        ON CONFLICT (player_id, tech_id)
+        DO UPDATE SET
+          source_kind = 'created',
+          required_progress = EXCLUDED.required_progress,
+          realm_lv = EXCLUDED.realm_lv,
+          grade = EXCLUDED.grade,
+          category = EXCLUDED.category,
+          creator_player_id = EXCLUDED.creator_player_id,
+          self_comprehension_allowed = true,
+          updated_at_tick = GREATEST(${PLAYER_TECHNIQUE_COMPREHENSION_TABLE}.updated_at_tick, EXCLUDED.updated_at_tick),
+          updated_at = NOW()`,
+        [input.playerId, draft.techniqueId, requiredProgress, realmLv, grade, category, currentTick],
+      );
+      operationTechniques.push({
+        techniqueId: draft.techniqueId,
+        techniqueName: draft.displayName,
+        requiredProgress,
+        realmLv,
+        grade,
+        category,
+      });
+    }
+    const updatedJobs = await client.query(
+      `UPDATE ${TECHNIQUE_GENERATION_JOB_TABLE}
+          SET status = 'learned',
+              finished_at = COALESCE(finished_at, NOW()),
+              error_code = NULL,
+              error_message = NULL,
+              updated_at = NOW()
+        WHERE player_id = $1 AND id = ANY($2::text[]) AND status = 'generated_draft'`,
+      [input.playerId, input.jobIds],
+    );
+    if ((updatedJobs.rowCount ?? 0) !== input.jobIds.length) {
+      throw new Error(`technique_generation_batch_adopt_state_conflict:${input.batchId}`);
+    }
+    await touchTechniqueGenerationRecoveryWatermark(client, input.playerId, 'technique_version');
+    const operationPayload = {
+      jobId: input.batchId,
+      batchId: input.batchId,
+      techniqueIds: operationTechniques.map((entry) => entry.techniqueId),
+      techniqueNames: operationTechniques.map((entry) => entry.techniqueName),
+      techniques: operationTechniques,
+      currentTick,
+    };
+    await insertCommittedTechniqueGenerationOperation(client, {
+      operationId,
+      playerId: input.playerId,
+      operationType: 'technique_generation_adopt_batch',
+      aggregateType: PLAYER_TECHNIQUE_COMPREHENSION_TABLE,
+      aggregateId: input.batchId,
+      fence: input,
+      payload: operationPayload,
+    });
+    await insertTechniqueGenerationOutbox(client, {
+      operationId,
+      topic: 'player.technique.comprehension.batch_created',
+      playerId: input.playerId,
+      payload: { playerId: input.playerId, ...operationPayload },
+    });
+    return {
+      ok: true,
+      alreadyCommitted: false,
+      techniqueIds: operationPayload.techniqueIds,
+      techniqueNames: operationPayload.techniqueNames,
+    };
+  });
+}
+
 export interface DiscardDurableTechniqueDraftInput extends TechniqueGenerationSessionFence {
   playerId: string;
   jobId: string;
@@ -737,6 +1120,171 @@ export async function discardDurableTechniqueDraft(
       ...operationPayload,
     };
   });
+}
+
+export interface DiscardDurableTechniqueDraftBatchInput extends TechniqueGenerationSessionFence {
+  playerId: string;
+  batchId: string;
+  jobIds: string[];
+  refundCurrencyItemId: string;
+  refundRatio: number;
+  refundBasePrice: number;
+}
+
+/** 整批放弃草稿并按总玉简数量一次性返还功德。 */
+export async function discardDurableTechniqueDraftBatch(
+  pool: Pool,
+  input: DiscardDurableTechniqueDraftBatchInput,
+): Promise<DiscardDurableTechniqueDraftResult> {
+  return withPlayerTechniqueGenerationTransaction(pool, input.playerId, async (client) => {
+    await assertTechniqueGenerationSessionFence(client, input.playerId, input);
+    const operationId = buildTechniqueGenerationOperationId('discard_batch', input.batchId);
+    const existingOperation = await loadCommittedTechniqueGenerationOperation(client, operationId, {
+      playerId: input.playerId,
+      operationType: 'technique_generation_discard_batch',
+      aggregateType: TECHNIQUE_GENERATION_JOB_TABLE,
+      jobId: input.batchId,
+    });
+    if (existingOperation) {
+      return {
+        ok: true,
+        alreadyCommitted: true,
+        inventoryItems: await loadTechniqueGenerationRuntimeInventory(client, input.playerId),
+        itemSpend: normalizePositiveInteger(existingOperation.itemSpend, input.jobIds.length),
+        refundRatio: normalizePositiveNumber(existingOperation.refundRatio, input.refundRatio),
+        refundAmount: normalizePositiveInteger(existingOperation.refundAmount, input.refundBasePrice),
+        refundCurrencyItemId: normalizeOptionalString(existingOperation.refundCurrencyItemId) ?? input.refundCurrencyItemId,
+      };
+    }
+    if (input.jobIds.length === 0) {
+      return { ok: false, alreadyCommitted: false, inventoryItems: [], errorCode: 'JOB_STATE_INVALID' };
+    }
+    const jobsResult = await client.query<{
+      status?: unknown;
+      item_spend?: unknown;
+      item_consumed?: unknown;
+      item_refunded?: unknown;
+    }>(
+      `SELECT status, item_spend, item_consumed, item_refunded
+         FROM ${TECHNIQUE_GENERATION_JOB_TABLE}
+        WHERE player_id = $1 AND id = ANY($2::text[])
+        ORDER BY id ASC
+        FOR UPDATE`,
+      [input.playerId, input.jobIds],
+    );
+    if ((jobsResult.rowCount ?? 0) !== input.jobIds.length
+      || jobsResult.rows.some((row) => row.status !== 'generated_draft')) {
+      return { ok: false, alreadyCommitted: false, inventoryItems: [], errorCode: 'JOB_STATE_INVALID' };
+    }
+    const itemSpend = jobsResult.rows.reduce(
+      (sum, row) => sum + normalizePositiveInteger(row.item_spend, 1),
+      0,
+    );
+    const refundAmount = Math.max(
+      1,
+      Math.floor(itemSpend * normalizePositiveInteger(input.refundBasePrice, 1) * normalizePositiveNumber(input.refundRatio, 0.3)),
+    );
+    const shouldRefund = jobsResult.rows.some((row) => row.item_consumed === true && row.item_refunded !== true);
+    const beforeAfter = shouldRefund
+      ? await grantTechniqueGenerationInventoryItem(
+          client,
+          input.playerId,
+          input.refundCurrencyItemId,
+          refundAmount,
+          operationId,
+        )
+      : { beforeCount: 0, afterCount: 0 };
+    const updated = await client.query(
+      `UPDATE ${TECHNIQUE_GENERATION_JOB_TABLE}
+          SET status = 'discarded',
+              item_refunded = CASE WHEN item_consumed = true THEN true ELSE item_refunded END,
+              refunded_at = CASE WHEN item_consumed = true THEN COALESCE(refunded_at, NOW()) ELSE refunded_at END,
+              finished_at = COALESCE(finished_at, NOW()),
+              updated_at = NOW()
+        WHERE player_id = $1 AND id = ANY($2::text[]) AND status = 'generated_draft'`,
+      [input.playerId, input.jobIds],
+    );
+    if ((updated.rowCount ?? 0) !== input.jobIds.length) {
+      throw new Error(`technique_generation_batch_discard_state_conflict:${input.batchId}`);
+    }
+    if (shouldRefund) {
+      await touchTechniqueGenerationRecoveryWatermark(client, input.playerId, 'inventory_version');
+    }
+    const operationPayload = {
+      jobId: input.batchId,
+      batchId: input.batchId,
+      itemSpend,
+      refundRatio: input.refundRatio,
+      refundAmount,
+      refundCurrencyItemId: input.refundCurrencyItemId,
+    };
+    await insertCommittedTechniqueGenerationOperation(client, {
+      operationId,
+      playerId: input.playerId,
+      operationType: 'technique_generation_discard_batch',
+      aggregateType: TECHNIQUE_GENERATION_JOB_TABLE,
+      aggregateId: input.batchId,
+      fence: input,
+      payload: operationPayload,
+    });
+    if (shouldRefund) {
+      await insertTechniqueGenerationOutbox(client, {
+        operationId,
+        topic: 'player.inventory.granted',
+        playerId: input.playerId,
+        payload: {
+          playerId: input.playerId,
+          sourceType: 'technique_generation_batch_discard',
+          sourceRefId: input.batchId,
+          grantedItems: [{ itemId: input.refundCurrencyItemId, count: refundAmount }],
+        },
+      });
+      await insertTechniqueGenerationAssetAudit(client, {
+        operationId,
+        playerId: input.playerId,
+        assetRefId: input.batchId,
+        action: 'grant',
+        delta: {
+          sourceType: 'technique_generation_batch_discard',
+          itemId: input.refundCurrencyItemId,
+          count: refundAmount,
+        },
+        before: { itemId: input.refundCurrencyItemId, count: beforeAfter.beforeCount },
+        after: { itemId: input.refundCurrencyItemId, count: beforeAfter.afterCount },
+      });
+    }
+    return {
+      ok: true,
+      alreadyCommitted: false,
+      inventoryItems: await loadTechniqueGenerationRuntimeInventory(client, input.playerId),
+      ...operationPayload,
+    };
+  });
+}
+
+/** 批量生成失败时统一标记所有仍在执行中的子任务。 */
+export async function failDurableTechniqueGenerationBatch(
+  pool: Pool,
+  playerId: string,
+  jobIds: readonly string[],
+  errorCode: string,
+  errorMessage: string,
+): Promise<number> {
+  if (jobIds.length === 0) return 0;
+  const result = await pool.query(
+    `UPDATE ${TECHNIQUE_GENERATION_JOB_TABLE}
+        SET status = 'failed',
+            error_code = $3,
+            error_message = $4,
+            finished_at = COALESCE(finished_at, NOW()),
+            updated_at = NOW()
+      WHERE player_id = $1
+        AND id = ANY($2::text[])
+        AND status = 'running'
+        AND draft_technique_id IS NULL`,
+    [playerId, [...jobIds], errorCode, errorMessage],
+  );
+  return result.rowCount ?? 0;
 }
 
 export interface RefundDurableFailedTechniqueGenerationJobsInput extends TechniqueGenerationSessionFence {
@@ -1215,41 +1763,6 @@ async function loadCommittedTechniqueGenerationOperation(
   return payload;
 }
 
-async function loadCommittedTechniqueAggregationJadeOperation(
-  client: PoolClient,
-  operationId: string,
-  expected: PublishDurableJadeTechniqueAggregationInput,
-): Promise<Record<string, unknown> | null> {
-  const result = await client.query<{
-    player_id?: unknown;
-    operation_type?: unknown;
-    aggregate_type?: unknown;
-    aggregate_id?: unknown;
-    payload_jsonb?: unknown;
-  }>(
-    `SELECT player_id, operation_type, aggregate_type, aggregate_id, payload_jsonb
-       FROM ${DURABLE_OPERATION_LOG_TABLE}
-      WHERE operation_id = $1 AND status = 'committed'
-      FOR UPDATE`,
-    [operationId],
-  );
-  if ((result.rowCount ?? 0) === 0) return null;
-  const row = result.rows[0];
-  const payload = asRecord(row?.payload_jsonb);
-  if (
-    normalizeOptionalString(row?.player_id) !== normalizeOptionalString(expected.playerId)
-    || normalizeOptionalString(row?.operation_type) !== 'technique_aggregation_jade_consume'
-    || normalizeOptionalString(row?.aggregate_type) !== GENERATED_TECHNIQUE_TABLE
-    || normalizeOptionalString(row?.aggregate_id) !== normalizeOptionalString(expected.id)
-    || normalizeOptionalString(payload?.aggregateTechniqueId) !== normalizeOptionalString(expected.id)
-    || normalizeOptionalString(payload?.requestFingerprint) !== normalizeOptionalString(expected.requestFingerprint)
-    || Math.trunc(Number(payload?.itemSpend) || 0) !== expected.itemSpend
-  ) {
-    throw new Error(`technique_aggregation_jade_operation_replay_identity_conflict:${operationId}`);
-  }
-  return payload;
-}
-
 async function insertTechniqueGenerationOutbox(
   client: PoolClient,
   input: {
@@ -1310,12 +1823,6 @@ function buildTechniqueGenerationOperationId(kind: string, jobId: string): strin
   return `op:technique-generation-${kind}:${jobId}`;
 }
 
-function buildTechniqueAggregationJadeOperationId(value: string): string {
-  const normalized = normalizeOptionalString(value)?.slice(0, 96);
-  if (!normalized) throw new Error('technique_aggregation_jade_operation_id_required');
-  return `op:technique-aggregation-jade:${normalized}`;
-}
-
 function buildTechniqueGenerationItemInstanceId(operationId: string): string {
   return `techgen-item:${operationId}`.slice(0, 180);
 }
@@ -1344,6 +1851,12 @@ function normalizeTimestamp(value: unknown): number | null {
 
 function normalizeOptionalString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.map(normalizeOptionalString).filter((entry): entry is string => Boolean(entry))
+    : [];
 }
 
 function normalizePositiveInteger(value: unknown, fallback: number): number {

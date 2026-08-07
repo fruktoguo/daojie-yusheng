@@ -10,15 +10,12 @@ import {
   TECHNIQUE_AGGREGATE_EFFECT_MULTIPLIER,
   TECHNIQUE_AGGREGATE_SCHEMA_VERSION,
   TECHNIQUE_AGGREGATE_ID_PREFIX,
-  TECHNIQUE_AGGREGATION_MAX_JADE_ITEM_SPEND,
   CUSTOM_TECHNIQUE_NAME_MAX_LENGTH,
   CUSTOM_TECHNIQUE_NAME_MIN_LENGTH,
   DEFAULT_TECHNIQUE_UNIFICATION_PERMISSIONS,
   TECHNIQUE_INTERNAL_BUDGET_PERCENT_RANGE,
   TECHNIQUE_ATTR_KEYS,
-  TECHNIQUE_INTERNAL_STAGE_WEIGHT,
   calculateTechniqueComprehensionRequiredProgress,
-  calcInternalTechniqueAttrTotalByBudgetPercent,
   calcTechniqueAttrValues,
   calcTechniqueQiProjectionModifiers,
   calcTechniqueSpecialStatValues,
@@ -31,7 +28,6 @@ import {
   isTechniqueAggregationId,
   isTechniqueFullyMastered,
   resolveTechniqueAggregationOverlap,
-  resolveTechniqueStageLayers,
   cloneTechniqueUnificationPermissions,
   normalizeTechniqueUnificationPermissions,
   type Attributes,
@@ -41,7 +37,6 @@ import {
   type TechniqueAggregationMetadata,
   type TechniqueAggregationPanelView,
   type TechniqueAggregationPublishRequest,
-  type TechniqueAggregationRecordMode,
   type TechniqueAggregationResultView,
   type TechniqueAggregationSourceView,
   type TechniqueUnificationPlatformView,
@@ -53,12 +48,6 @@ import {
 import { createHash, randomUUID } from 'node:crypto';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { GeneratedTechniqueStoreService } from './generated-technique-store.service';
-import { TECHNIQUE_GENERATION_ITEM_ID } from './technique-generation-constants';
-import { rollTechniqueBudgetPercent } from './technique-generation-roll';
-import type {
-  TechniqueGenerationRuntimeInventoryItem,
-  TechniqueGenerationSessionFence,
-} from '../../persistence/technique-generation-durable-persistence';
 
 const MAX_AGGREGATE_LAYER = 49;
 const MIN_AGGREGATE_LAYER = 3;
@@ -81,9 +70,6 @@ interface TechniqueAggregationValidationSuccess {
   familyCreatorPlayerId: string;
   revisionAuthorPlayerId: string;
   initialPermissions: TechniqueUnificationPermissions;
-  recordMode: TechniqueAggregationRecordMode;
-  revisionOperationId: string;
-  jadeItemSpend: number;
 }
 
 type TechniqueAggregationValidation =
@@ -94,7 +80,6 @@ interface TechniqueAggregationPublishSuccess {
   ok: true;
   result: TechniqueAggregationResultView;
   template: TechniqueTemplate;
-  committedInventoryItems?: TechniqueGenerationRuntimeInventoryItem[];
 }
 
 type TechniqueAggregationPublishOutcome =
@@ -106,19 +91,12 @@ export interface TechniqueAggregationPublishContext {
   platformBuildingId?: string;
   platformOwnerPlayerId?: string;
   revisionPermissionGranted?: boolean;
-  jadePersistenceFence?: TechniqueGenerationSessionFence;
 }
 
 interface TechniqueAggregationPanelOptions {
   includeEligibleSources?: boolean;
   boundFamilyId?: string;
   platform?: TechniqueUnificationPlatformView;
-}
-
-interface BalancedJadeEnhancement {
-  budgetPercent: number;
-  strengthPercent: number;
-  bonusAttrs: Partial<Attributes>;
 }
 
 @Injectable()
@@ -249,7 +227,6 @@ export class TechniqueAggregationService {
           sourceCount: metadata.sourceTechniqueIds.length,
           sourceTechniqueIds: [...metadata.sourceTechniqueIds],
           sourceTechniques,
-          jadeEnhancementCount: Math.max(0, metadata.jadeEnhancementCount ?? 0),
           fullLevelAttrs: resolveTechniqueFullLevelAttrs(template),
           ...(metadata.creatorPlayerId ? { creatorPlayerId: metadata.creatorPlayerId } : {}),
           ...(playerState ? { playerRevision: playerState.revision } : {}),
@@ -275,7 +252,6 @@ export class TechniqueAggregationService {
       families,
       totalCoveredLeafCount: coverage.leafTechniqueIds.length,
       learnedAggregateCount: coverage.aggregateTechniqueIds.length,
-      jadeItemCount: countInventoryItem(player, TECHNIQUE_GENERATION_ITEM_ID),
       platform,
     };
   }
@@ -399,32 +375,8 @@ export class TechniqueAggregationService {
   ): Promise<TechniqueAggregationPublishOutcome> {
     const operationId = normalizeRequestId(request.operationId) ?? randomUUID();
     const validationRequest = { ...request, operationId };
-    const jadeRequestFingerprint = buildJadeRequestFingerprint(validationRequest, operationId);
     const replayed = this.resolvePublishReplay(player, validationRequest, operationId, context);
     if (replayed) {
-      if (normalizeAggregationRecordMode(validationRequest.recordMode) === 'jade') {
-        if (!context.jadePersistenceFence) {
-          const persistenceError = this.buildError('TECHNIQUE_AGGREGATE_PERSISTENCE_UNAVAILABLE');
-          return { ok: false, result: this.resultFromError(validationRequest, persistenceError) };
-        }
-        const durableResult = await this.generatedTechniqueStoreService.publishJadeAggregate({
-          id: replayed.template.id,
-          generationId: 'aggregation_' + replayed.template.aggregate!.familyId + '_v' + replayed.template.aggregate!.revision,
-          template: replayed.template,
-          createdByPlayerId: String(player.playerId),
-          validationReport: { kind: 'technique_aggregation_jade_replay' },
-          playerId: String(player.playerId),
-          operationId,
-          requestFingerprint: jadeRequestFingerprint,
-          itemSpend: normalizeJadeItemSpend(validationRequest.jadeItemSpend) ?? 1,
-          fence: context.jadePersistenceFence,
-        });
-        if (!durableResult.ok) {
-          const itemError = this.buildError('TECHNIQUE_AGGREGATE_JADE_ITEM_NOT_ENOUGH');
-          return { ok: false, result: this.resultFromError(validationRequest, itemError) };
-        }
-        replayed.committedInventoryItems = durableResult.inventoryItems;
-      }
       return replayed;
     }
     const validation = this.validatePublishRequest(player, validationRequest, context);
@@ -440,51 +392,15 @@ export class TechniqueAggregationService {
       player?.playerId,
       validation,
       sourceTemplates,
-      validation.recordMode === 'jade'
-        ? Array.from(
-          { length: validation.jadeItemSpend },
-          () => this.rollBalancedJadeEnhancement(sourceTemplates),
-        )
-        : [],
     );
-    let committedInventoryItems: TechniqueGenerationRuntimeInventoryItem[] | undefined;
-    let publishedTemplate = aggregate.template;
-    let publishedTrainingDifficulty = aggregate.totalTrainingDifficulty;
     try {
-      const publishParams = {
+      await this.generatedTechniqueStoreService.publishAggregate({
         id: aggregate.template.id,
         generationId: 'aggregation_' + validation.familyId + '_v' + validation.revision,
         template: aggregate.template,
         createdByPlayerId: String(player.playerId),
         validationReport: aggregate.validationReport,
-      };
-      if (validation.recordMode === 'jade') {
-        if (!context.jadePersistenceFence) {
-          const persistenceError = this.buildError('TECHNIQUE_AGGREGATE_PERSISTENCE_UNAVAILABLE');
-          return { ok: false, result: this.resultFromError(validationRequest, persistenceError) };
-        }
-        const durableResult = await this.generatedTechniqueStoreService.publishJadeAggregate({
-          ...publishParams,
-          playerId: String(player.playerId),
-          operationId,
-          requestFingerprint: jadeRequestFingerprint,
-          itemSpend: validation.jadeItemSpend,
-          fence: context.jadePersistenceFence,
-        });
-        if (!durableResult.ok) {
-          const itemError = this.buildError('TECHNIQUE_AGGREGATE_JADE_ITEM_NOT_ENOUGH');
-          return { ok: false, result: this.resultFromError(validationRequest, itemError) };
-        }
-        committedInventoryItems = durableResult.inventoryItems;
-        const committedTemplate = this.generatedTechniqueStoreService.getById(aggregate.template.id);
-        if (!committedTemplate?.aggregate) {
-          throw new Error('technique_aggregation_persistence_unavailable');
-        }
-        publishedTemplate = committedTemplate;
-        publishedTrainingDifficulty = sumTechniqueTrainingDifficulty(committedTemplate);
-      } else {
-        await this.generatedTechniqueStoreService.publishAggregate(publishParams);
-      }
+      });
     } catch (error) {
       if (error instanceof Error && error.message === 'technique_aggregation_persistence_unavailable') {
         const persistenceError = this.buildError('TECHNIQUE_AGGREGATE_PERSISTENCE_UNAVAILABLE');
@@ -496,15 +412,13 @@ export class TechniqueAggregationService {
       }
       throw error;
     }
-    const outcome = this.buildSuccessOutcome(
-      publishedTemplate,
-      publishedTemplate.aggregate!,
+    return this.buildSuccessOutcome(
+      aggregate.template,
+      aggregate.template.aggregate!,
       validationRequest,
       operationId,
-      publishedTrainingDifficulty,
+      aggregate.totalTrainingDifficulty,
     );
-    if (committedInventoryItems) outcome.committedInventoryItems = committedInventoryItems;
-    return outcome;
   }
 
   /** 数据库版本已落地但玩家快照尚未完成时，重放同一请求以补齐个人态替换。 */
@@ -515,14 +429,10 @@ export class TechniqueAggregationService {
     context: TechniqueAggregationPublishContext,
   ): TechniqueAggregationPublishSuccess | null {
     const playerId = normalizeText(player?.playerId);
-    const recordMode = normalizeAggregationRecordMode(request.recordMode);
     const rawSourceIds = Array.isArray(request.sourceTechniqueIds)
       ? request.sourceTechniqueIds.map(normalizeText).filter(Boolean)
       : [];
-    if (!playerId
-      || (recordMode === 'sources' && rawSourceIds.length < 1)
-      || (recordMode === 'jade' && rawSourceIds.length > 0)
-      || new Set(rawSourceIds).size !== rawSourceIds.length) {
+    if (!playerId || rawSourceIds.length < 1 || new Set(rawSourceIds).size !== rawSourceIds.length) {
       return null;
     }
     const requestedFamilyId = normalizeText(request.familyId);
@@ -544,23 +454,6 @@ export class TechniqueAggregationService {
     if ((latest.metadata.platformInstanceId && latest.metadata.platformInstanceId !== platformInstanceId)
       || (latest.metadata.platformBuildingId && latest.metadata.platformBuildingId !== platformBuildingId)) {
       return null;
-    }
-
-    if (recordMode === 'jade') {
-      const expectedRevision = Math.trunc(Number(request.expectedRevision) || 0);
-      const jadeItemSpend = normalizeJadeItemSpend(request.jadeItemSpend);
-      const committedJadeItemSpend = latest.metadata.latestJadeStrengthPercents?.length
-        ?? (latest.metadata.latestJadeStrengthPercent !== undefined ? 1 : 0);
-      if (!requestedFamilyId
-        || jadeItemSpend === null
-        || committedJadeItemSpend !== jadeItemSpend
-        || latest.metadata.revision !== expectedRevision + 1
-        || latest.metadata.previousRevision !== expectedRevision
-        || latest.metadata.revisionKind !== 'jade'
-        || latest.metadata.revisionOperationId !== operationId) {
-        return null;
-      }
-      return this.buildSuccessOutcome(latest.template, latest.metadata, request, operationId);
     }
 
     let expectedSourceIds = rawSourceIds;
@@ -605,7 +498,6 @@ export class TechniqueAggregationService {
         requestId: normalizeRequestId(request.requestId),
         operationId,
         ok: true,
-        recordMode: metadata.revisionKind ?? normalizeAggregationRecordMode(request.recordMode),
         aggregate: {
           techniqueId: template.id,
           familyId: metadata.familyId,
@@ -615,16 +507,6 @@ export class TechniqueAggregationService {
           category: template.category ?? TECHNIQUE_AGGREGATE_CATEGORY,
           sourceCount: metadata.sourceTechniqueIds.length,
           sourceTechniqueIds: [...metadata.sourceTechniqueIds],
-          jadeEnhancementCount: Math.max(0, metadata.jadeEnhancementCount ?? 0),
-          ...(metadata.revisionKind === 'jade' ? {
-            jadeItemSpend: metadata.latestJadeStrengthPercents?.length ?? 1,
-          } : {}),
-          ...(metadata.revisionKind === 'jade' && metadata.latestJadeStrengthPercent !== undefined
-            ? { jadeStrengthPercent: metadata.latestJadeStrengthPercent }
-            : {}),
-          ...(metadata.revisionKind === 'jade' && metadata.latestJadeStrengthPercents?.length
-            ? { jadeStrengthPercents: [...metadata.latestJadeStrengthPercents] }
-            : {}),
           totalTrainingDifficulty,
           effectMultiplier: TECHNIQUE_AGGREGATE_EFFECT_MULTIPLIER,
         },
@@ -652,23 +534,12 @@ export class TechniqueAggregationService {
   ): TechniqueAggregationValidation {
     const revisionAuthorPlayerId = normalizeText(player?.playerId);
     if (!revisionAuthorPlayerId) return this.failure('TECHNIQUE_AGGREGATE_PERMISSION_DENIED');
-    const recordMode = normalizeAggregationRecordMode(request?.recordMode);
-    const jadeItemSpend = normalizeJadeItemSpend(request?.jadeItemSpend);
-    if (recordMode === 'jade' && jadeItemSpend === null) {
-      return this.failure('TECHNIQUE_AGGREGATE_JADE_QUANTITY_INVALID', {
-        vars: { maxCount: TECHNIQUE_AGGREGATION_MAX_JADE_ITEM_SPEND },
-      });
-    }
-    const revisionOperationId = normalizeRequestId(request?.operationId) ?? '';
     const rawIds: string[] = Array.isArray(request?.sourceTechniqueIds)
       ? request.sourceTechniqueIds.map(normalizeText).filter(Boolean)
       : [];
-    if (recordMode === 'sources' && rawIds.length === 0) return this.failure('TECHNIQUE_AGGREGATE_SOURCE_EMPTY');
+    if (rawIds.length === 0) return this.failure('TECHNIQUE_AGGREGATE_SOURCE_EMPTY');
     if (new Set(rawIds).size !== rawIds.length) return this.failure('TECHNIQUE_AGGREGATE_SOURCE_DUPLICATE');
     const familyIdInput = normalizeText(request?.familyId);
-    if (recordMode === 'jade' && !familyIdInput) {
-      return this.failure('TECHNIQUE_AGGREGATE_JADE_REQUIRES_FAMILY');
-    }
     let familyId = familyIdInput;
     let revision = 1;
     let previousRevision: number | undefined;
@@ -711,16 +582,12 @@ export class TechniqueAggregationService {
         latest.metadata.initialPermissions,
         DEFAULT_TECHNIQUE_UNIFICATION_PERMISSIONS,
       );
-      if (recordMode === 'sources') {
-        const newSourceIds = rawIds.filter((id) => !latest.metadata.sourceTechniqueIds.includes(id));
-        if (newSourceIds.length === 0) {
-          return this.failure('TECHNIQUE_AGGREGATE_REVISION_NOT_ADDITIVE');
-        }
-        // 允许只提交新增功法；最终叶子集合仍保留旧版本全部内容。
-        rawIds.push(...latest.metadata.sourceTechniqueIds.filter((id) => !rawIds.includes(id)));
-      } else {
-        rawIds.splice(0, rawIds.length, ...latest.metadata.sourceTechniqueIds);
+      const newSourceIds = rawIds.filter((id) => !latest.metadata.sourceTechniqueIds.includes(id));
+      if (newSourceIds.length === 0) {
+        return this.failure('TECHNIQUE_AGGREGATE_REVISION_NOT_ADDITIVE');
       }
+      // 允许只提交新增功法；最终叶子集合仍保留旧版本全部内容。
+      rawIds.push(...latest.metadata.sourceTechniqueIds.filter((id) => !rawIds.includes(id)));
       familyId = latest.metadata.familyId;
     } else {
       const platformOwnerPlayerId = normalizeText(context.platformOwnerPlayerId);
@@ -794,9 +661,6 @@ export class TechniqueAggregationService {
       familyCreatorPlayerId,
       revisionAuthorPlayerId,
       initialPermissions,
-      recordMode,
-      revisionOperationId,
-      jadeItemSpend: recordMode === 'jade' ? jadeItemSpend ?? 1 : 0,
     };
   }
 
@@ -804,7 +668,6 @@ export class TechniqueAggregationService {
     revisionAuthorPlayerId: string,
     validation: TechniqueAggregationValidationSuccess,
     sources: Array<{ techniqueId: string; template: any; learned: any }>,
-    jadeEnhancements: BalancedJadeEnhancement[],
   ): { template: TechniqueTemplate; totalTrainingDifficulty: number; validationReport: Record<string, unknown> } {
     const sourceMaxLayers = sources.map(({ template }) => getTechniqueMaxLevel(template.layers, 1));
     const maxLayer = Math.max(MIN_AGGREGATE_LAYER, Math.min(MAX_AGGREGATE_LAYER, Math.max(...sourceMaxLayers)));
@@ -819,17 +682,6 @@ export class TechniqueAggregationService {
     const previousAttrs: Record<string, number> = {};
     const previousSpecial: Record<string, number> = {};
     const attrKeys: Array<keyof Attributes> = ['constitution', 'spirit', 'perception', 'talent', 'strength', 'meridians'];
-    const latestJadeBonusAttrs = jadeEnhancements.reduce<Partial<Attributes>>(
-      (total, enhancement) => mergeTechniqueAttrs(total, enhancement.bonusAttrs),
-      {},
-    );
-    const jadeBonusAttrs = mergeTechniqueAttrs(
-      validation.previousMetadata?.jadeBonusAttrs,
-      latestJadeBonusAttrs,
-    );
-    const jadeEnhancementCount = Math.max(0, validation.previousMetadata?.jadeEnhancementCount ?? 0)
-      + jadeEnhancements.length;
-    const latestJadeStrengthPercents = jadeEnhancements.map((enhancement) => enhancement.strengthPercent);
     for (let level = 1; level <= maxLayer; level += 1) {
       const attrs: Record<string, number> = {};
       const specialStats: Record<string, number> = {};
@@ -844,11 +696,6 @@ export class TechniqueAggregationService {
         const special = calcTechniqueSpecialStatValues(sourceLevel, state.layers ?? source.template.layers);
         specialStats.comprehension = (specialStats.comprehension ?? 0) + Number(special.comprehension ?? 0) * TECHNIQUE_AGGREGATE_EFFECT_MULTIPLIER;
         specialStats.luck = (specialStats.luck ?? 0) + Number(special.luck ?? 0) * TECHNIQUE_AGGREGATE_EFFECT_MULTIPLIER;
-      }
-      const jadeCumulative = resolveBalancedJadeCumulativeAtLevel(jadeBonusAttrs, level, maxLayer);
-      for (const key of attrKeys) {
-        attrs[key] = (attrs[key] ?? 0)
-          + Number(jadeCumulative[key] ?? 0) * TECHNIQUE_AGGREGATE_EFFECT_MULTIPLIER;
       }
       const incrementalAttrs: Partial<Attributes> = {};
       for (const key of attrKeys) {
@@ -881,23 +728,6 @@ export class TechniqueAggregationService {
       ...(validation.previousRevision ? { previousRevision: validation.previousRevision } : {}),
       creatorPlayerId: validation.familyCreatorPlayerId,
       revisionAuthorPlayerId,
-      revisionKind: validation.recordMode,
-      revisionOperationId: validation.revisionOperationId,
-      ...(jadeEnhancementCount > 0 ? { jadeEnhancementCount } : {}),
-      ...(Object.keys(jadeBonusAttrs).length > 0 ? { jadeBonusAttrs } : {}),
-      ...(latestJadeStrengthPercents.length > 0 ? {
-        latestJadeStrengthPercent: latestJadeStrengthPercents[latestJadeStrengthPercents.length - 1],
-        latestJadeStrengthPercents,
-      } : (
-        validation.previousMetadata?.latestJadeStrengthPercent !== undefined
-          ? {
-            latestJadeStrengthPercent: validation.previousMetadata.latestJadeStrengthPercent,
-            ...(validation.previousMetadata.latestJadeStrengthPercents
-              ? { latestJadeStrengthPercents: [...validation.previousMetadata.latestJadeStrengthPercents] }
-              : {}),
-          }
-          : {}
-      )),
       ...(validation.platformInstanceId ? { platformInstanceId: validation.platformInstanceId } : {}),
       ...(validation.platformBuildingId ? { platformBuildingId: validation.platformBuildingId } : {}),
       initialPermissions: cloneTechniqueUnificationPermissions(validation.initialPermissions),
@@ -908,9 +738,7 @@ export class TechniqueAggregationService {
     const template: TechniqueTemplate = {
       id,
       name: validation.displayName,
-      desc: '此法典合参 ' + validation.sourceTechniqueIds.length + ' 门同阶自创内功'
-        + (jadeEnhancementCount > 0 ? '，并融入 ' + jadeEnhancementCount + ' 枚悟道玉简道韵' : '')
-        + '，六维所得在诸法总和之上再增一成。',
+      desc: '此法典合参 ' + validation.sourceTechniqueIds.length + ' 门同阶自创内功，六维所得在诸法总和之上再增一成。',
       grade,
       category: TECHNIQUE_AGGREGATE_CATEGORY,
       realmLv,
@@ -942,18 +770,6 @@ export class TechniqueAggregationService {
         familyId: validation.familyId,
         revision: validation.revision,
         sourceTechniqueIds: validation.sourceTechniqueIds,
-        revisionKind: validation.recordMode,
-        revisionOperationId: validation.revisionOperationId,
-        jadeEnhancementCount,
-        jadeBonusAttrs,
-        ...(jadeEnhancements.length > 0 ? {
-          jadeEnhancements: jadeEnhancements.map((enhancement) => ({
-            budgetPercent: enhancement.budgetPercent,
-            strengthPercent: enhancement.strengthPercent,
-            distribution: 'balanced_six_attributes',
-            bonusAttrs: enhancement.bonusAttrs,
-          })),
-        } : {}),
         displayName: validation.displayName,
         platformInstanceId: validation.platformInstanceId,
         platformBuildingId: validation.platformBuildingId,
@@ -961,23 +777,6 @@ export class TechniqueAggregationService {
         totalTrainingDifficulty,
         effectMultiplier: TECHNIQUE_AGGREGATE_EFFECT_MULTIPLIER,
       },
-    };
-  }
-
-  private rollBalancedJadeEnhancement(
-    sources: Array<{ techniqueId: string; template: any; learned: any }>,
-  ): BalancedJadeEnhancement {
-    const grade = sources[0]?.template?.grade as TechniqueGrade;
-    const realmLv = Math.max(...sources.map(({ template }) => Math.max(1, Math.trunc(Number(template.realmLv) || 1))));
-    const budgetPercent = rollTechniqueBudgetPercent();
-    const attrTotal = calcInternalTechniqueAttrTotalByBudgetPercent(grade, realmLv, budgetPercent);
-    const perAttribute = roundMetric(attrTotal / TECHNIQUE_ATTR_KEYS.length);
-    const bonusAttrs: Partial<Attributes> = {};
-    for (const key of TECHNIQUE_ATTR_KEYS) bonusAttrs[key] = perAttribute;
-    return {
-      budgetPercent,
-      strengthPercent: resolveTechniqueStrengthPercent(budgetPercent),
-      bonusAttrs,
     };
   }
 
@@ -1028,7 +827,6 @@ export class TechniqueAggregationService {
       requestId: normalizeRequestId(request?.requestId),
       operationId: normalizeRequestId(request?.operationId),
       ok: false,
-      recordMode: normalizeAggregationRecordMode(request?.recordMode),
       code: error.code,
       messageKey: error.messageKey,
       vars: error.vars,
@@ -1075,54 +873,6 @@ function resolveTechniqueStrengthPercent(value: unknown): number {
   ) * 100);
 }
 
-function normalizeAggregationRecordMode(value: unknown): TechniqueAggregationRecordMode {
-  return value === 'jade' ? 'jade' : 'sources';
-}
-
-function buildJadeRequestFingerprint(
-  request: TechniqueAggregationPublishRequest,
-  operationId: string,
-): string {
-  return createHash('sha256').update(JSON.stringify({
-    operationId,
-    familyId: normalizeText(request.familyId),
-    expectedRevision: Math.max(0, Math.trunc(Number(request.expectedRevision) || 0)),
-    recordMode: normalizeAggregationRecordMode(request.recordMode),
-    jadeItemSpend: normalizeJadeItemSpend(request.jadeItemSpend) ?? 0,
-  })).digest('hex');
-}
-
-function normalizeJadeItemSpend(value: unknown): number | null {
-  if (value === undefined || value === null || value === '') return 1;
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric) || !Number.isInteger(numeric)) return null;
-  if (numeric < 1 || numeric > TECHNIQUE_AGGREGATION_MAX_JADE_ITEM_SPEND) return null;
-  return numeric;
-}
-
-function countInventoryItem(player: any, itemId: string): number {
-  return (Array.isArray(player?.inventory?.items) ? player.inventory.items : []).reduce(
-    (sum: number, item: any) => (
-      normalizeText(item?.itemId) === itemId
-        ? sum + Math.max(0, Math.trunc(Number(item?.count) || 0))
-        : sum
-    ),
-    0,
-  );
-}
-
-function mergeTechniqueAttrs(
-  left: Partial<Attributes> | undefined,
-  right: Partial<Attributes> | undefined,
-): Partial<Attributes> {
-  const result: Partial<Attributes> = {};
-  for (const key of TECHNIQUE_ATTR_KEYS) {
-    const value = Number(left?.[key] ?? 0) + Number(right?.[key] ?? 0);
-    if (Number.isFinite(value) && value > 0) result[key] = roundMetric(value);
-  }
-  return result;
-}
-
 function resolveTechniqueFullLevelAttrs(template: any): Partial<Attributes> {
   const maxLevel = getTechniqueMaxLevel(Array.isArray(template?.layers) ? template.layers : undefined, 1);
   const cumulative = calcTechniqueAttrValues(maxLevel, Array.isArray(template?.layers) ? template.layers : undefined);
@@ -1130,33 +880,6 @@ function resolveTechniqueFullLevelAttrs(template: any): Partial<Attributes> {
   for (const key of TECHNIQUE_ATTR_KEYS) {
     const value = Number(cumulative[key] ?? 0);
     result[key] = Number.isFinite(value) ? roundMetric(value) : 0;
-  }
-  return result;
-}
-
-function resolveBalancedJadeCumulativeAtLevel(
-  fullLevelAttrs: Partial<Attributes>,
-  levelInput: number,
-  maxLayerInput: number,
-): Partial<Attributes> {
-  const maxLayer = Math.max(3, Math.trunc(Number(maxLayerInput) || 3));
-  const level = Math.max(1, Math.min(maxLayer, Math.trunc(Number(levelInput) || 1)));
-  if (level >= maxLayer) return { ...fullLevelAttrs };
-  const stageLayers = resolveTechniqueStageLayers(maxLayer);
-  const stageWeightSum = TECHNIQUE_INTERNAL_STAGE_WEIGHT.reduce((sum, value) => sum + value, 0);
-  let completedLayers = 0;
-  let completedWeight = 0;
-  for (let stage = 0; stage < stageLayers.length; stage += 1) {
-    const stageLayerCount = Math.max(1, stageLayers[stage]);
-    const completedInStage = Math.max(0, Math.min(stageLayerCount, level - completedLayers));
-    completedWeight += TECHNIQUE_INTERNAL_STAGE_WEIGHT[stage] * completedInStage / stageLayerCount;
-    completedLayers += stageLayers[stage];
-  }
-  const ratio = Math.max(0, Math.min(1, completedWeight / stageWeightSum));
-  const result: Partial<Attributes> = {};
-  for (const key of TECHNIQUE_ATTR_KEYS) {
-    const value = Number(fullLevelAttrs[key] ?? 0);
-    if (Number.isFinite(value) && value > 0) result[key] = roundMetric(value * ratio);
   }
   return result;
 }

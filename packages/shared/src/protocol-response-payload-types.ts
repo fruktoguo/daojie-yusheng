@@ -396,8 +396,25 @@ export interface S2C_TechniqueGenerationResult {
     fullLevelAttrs?: Partial<Attributes>;
     skills?: SkillDef[];
   };
+  batchId?: string;
+  previews?: Array<{
+    jobId: string;
+    techniqueId: string;
+    suggestedName: string;
+    grade: TechniqueGrade;
+    category: TechniqueCategory;
+    realmLv: number;
+    desc: string;
+    maxLayer: number;
+    expDifficulty?: number;
+    modelName?: string;
+    fullLevelAttrs?: Partial<Attributes>;
+    skills?: SkillDef[];
+  }>;
   techniqueId?: string;
   techniqueName?: string;
+  techniqueIds?: string[];
+  techniqueNames?: string[];
   discardRefund?: {
     itemSpend: number;
     refundRatio: number;
@@ -452,5 +469,31 @@ export interface S2C_TechniqueGenerationStatus {
     modelName?: string;
     fullLevelAttrs?: Partial<Attributes>;
     skills?: SkillDef[];
+  } | null;
+  currentBatch: {
+    batchId: string;
+    status: 'pending' | 'running' | 'generated_draft';
+    count: number;
+    createdAt: string;
+    draftExpireAt?: string;
+    jobs: Array<{
+      jobId: string;
+      rolledGrade: TechniqueGrade;
+      rolledRealmLv: number;
+    }>;
+    drafts: Array<{
+      jobId: string;
+      techniqueId: string;
+      suggestedName: string;
+      grade: TechniqueGrade;
+      category: TechniqueCategory;
+      realmLv: number;
+      desc: string;
+      maxLayer: number;
+      expDifficulty?: number;
+      modelName?: string;
+      fullLevelAttrs?: Partial<Attributes>;
+      skills?: SkillDef[];
+    }>;
   } | null;
 }

@@ -49,6 +49,7 @@ import { bindMainLowFrequencySocketEvents } from './main-low-frequency-socket-bi
 import { contentResolver } from './content/content-resolver';
 import {
   getTechniqueGenerationSelectedItemSpend,
+  getTechniqueGenerationSelectedMode,
   syncTechniqueGenerationState,
   techniqueGenerationStore,
 } from './react-ui/panels/technique-generation/mount-technique-generation-panel';
@@ -849,31 +850,46 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     onNotice: (payload) => options.noticeStateSource.handleNotice(payload),
     onTechniqueGenerationStatus: (data) => {
       const jobIsGenerating = data.currentJob?.status === 'pending' || data.currentJob?.status === 'running';
+      const batchIsGenerating = data.currentBatch?.status === 'pending' || data.currentBatch?.status === 'running';
       syncTechniqueGenerationState({
         available: data.available,
         unavailableReason: data.unavailableReason ?? '',
         rollRange: data.rollRange ?? null,
         currentJob: data.currentJob,
         currentDraft: data.currentDraft,
-        generating: jobIsGenerating,
+        currentBatch: data.currentBatch,
+        selectedMode: data.currentBatch ? 'batch' : data.currentJob ? 'single' : techniqueGenerationStore.getState().selectedMode,
+        generating: jobIsGenerating || batchIsGenerating,
         error: data.currentJob?.status === 'generated_draft' && !data.currentDraft
           ? '功法草稿数据异常，请联系管理员处理'
-          : '',
+          : data.currentBatch?.status === 'generated_draft' && data.currentBatch.drafts.length !== data.currentBatch.count
+            ? '批量功法草稿数据异常，请联系管理员处理'
+            : '',
       });
     },
     onTechniqueGenerationResult: (data) => {
       const grade = data.preview ? parseTechniqueGenerationGrade(data.preview.grade) : null;
       const category = data.preview ? parseTechniqueGenerationCategory(data.preview.category) : null;
       if (data.result === 'learned') {
-        options.showToast(data.techniqueName ? `已学习 ${data.techniqueName}` : '功法已学习', 'success');
+        const batchLearnedCount = data.techniqueIds?.length ?? 0;
+        options.showToast(
+          batchLearnedCount > 0
+            ? `已将 ${batchLearnedCount} 部功法纳入领悟`
+            : data.techniqueName ? `已学习 ${data.techniqueName}` : '功法已学习',
+          'success',
+        );
         syncTechniqueGenerationState({
           generating: false,
           currentDraft: null,
           currentJob: null,
+          currentBatch: null,
           error: '',
         });
         if (techniqueGenerationStore.getState().visible) {
-          options.techniqueGenerationSender.sendGetStatus(getTechniqueGenerationSelectedItemSpend());
+          options.techniqueGenerationSender.sendGetStatus(
+            getTechniqueGenerationSelectedItemSpend(),
+            getTechniqueGenerationSelectedMode(),
+          );
         }
         return;
       }
@@ -903,10 +919,14 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
           generating: false,
           currentDraft: null,
           currentJob: null,
+          currentBatch: null,
           error: '',
         });
         if (techniqueGenerationStore.getState().visible) {
-          options.techniqueGenerationSender.sendGetStatus(getTechniqueGenerationSelectedItemSpend());
+          options.techniqueGenerationSender.sendGetStatus(
+            getTechniqueGenerationSelectedItemSpend(),
+            getTechniqueGenerationSelectedMode(),
+          );
         }
         return;
       }
@@ -931,6 +951,48 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
         });
         return;
       }
+      if (data.result === 'success' && data.batchId && Array.isArray(data.previews)) {
+        const drafts = data.previews.flatMap((preview) => {
+          const previewGrade = parseTechniqueGenerationGrade(preview.grade);
+          const previewCategory = parseTechniqueGenerationCategory(preview.category);
+          if (!previewGrade || previewCategory !== 'internal') return [];
+          return [{
+            jobId: preview.jobId,
+            techniqueId: preview.techniqueId,
+            suggestedName: preview.suggestedName,
+            grade: previewGrade,
+            category: previewCategory,
+            realmLv: preview.realmLv,
+            desc: preview.desc,
+            maxLayer: preview.maxLayer,
+            modelName: preview.modelName,
+            fullLevelAttrs: preview.fullLevelAttrs,
+            skills: preview.skills,
+          }];
+        });
+        if (drafts.length === data.previews.length && drafts.length > 0) {
+          syncTechniqueGenerationState({
+            generating: false,
+            selectedMode: 'batch',
+            currentJob: null,
+            currentDraft: null,
+            currentBatch: {
+              batchId: data.batchId,
+              status: 'generated_draft',
+              count: drafts.length,
+              createdAt: new Date().toISOString(),
+              jobs: drafts.map((draft) => ({
+                jobId: draft.jobId,
+                rolledGrade: draft.grade,
+                rolledRealmLv: draft.realmLv,
+              })),
+              drafts,
+            },
+            error: '',
+          });
+          return;
+        }
+      }
       if (data.result === 'failed') {
         options.showToast(data.errorMessage ?? '功法领悟失败', 'warn');
       }
@@ -941,12 +1003,16 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
       syncTechniqueGenerationState({
         generating: false,
         currentJob: null,
+        currentBatch: null,
         error: data.result === 'failed'
           ? (data.errorMessage ?? '功法领悟失败')
           : (data.preview && (!grade || !category) ? '功法领悟结果格式异常' : ''),
       });
       if (shouldRefreshAfterFailure) {
-        options.techniqueGenerationSender.sendGetStatus(getTechniqueGenerationSelectedItemSpend());
+        options.techniqueGenerationSender.sendGetStatus(
+          getTechniqueGenerationSelectedItemSpend(),
+          getTechniqueGenerationSelectedMode(),
+        );
       }
     },
     onTechniqueAggregationPanel: (data) => options.craftWorkbenchModal.handleTechniqueAggregationPanel(data),

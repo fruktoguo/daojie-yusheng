@@ -12,16 +12,22 @@ type TechniqueGenerationSenderDeps = {
 
 export function createSocketTechniqueGenerationSender(deps: TechniqueGenerationSenderDeps) {
   return {
-    sendGetStatus(itemSpend?: number): void {
-      deps.emitEvent(C2S.TechniqueGeneration, { action: 'getStatus', itemSpend });
+    sendGetStatus(itemSpend?: number, mode: 'single' | 'batch' = 'single'): void {
+      deps.emitEvent(C2S.TechniqueGeneration, { action: 'getStatus', itemSpend, mode });
     },
 
-    sendGenerate(category: 'internal' | 'arts', playerContext?: string, itemSpend?: number): void {
+    sendGenerate(
+      category: 'internal' | 'arts',
+      playerContext?: string,
+      itemSpend?: number,
+      mode: 'single' | 'batch' = 'single',
+    ): void {
       deps.emitEvent(C2S.TechniqueGeneration, {
         action: 'generate',
         category,
         playerContext,
         itemSpend,
+        mode,
       });
     },
 
@@ -35,6 +41,14 @@ export function createSocketTechniqueGenerationSender(deps: TechniqueGenerationS
 
     sendDiscard(jobId: string): void {
       deps.emitEvent(C2S.TechniqueGeneration, { action: 'discard', jobId });
+    },
+
+    sendAdoptBatch(batchId: string): void {
+      deps.emitEvent(C2S.TechniqueGeneration, { action: 'adoptBatch', batchId });
+    },
+
+    sendDiscardBatch(batchId: string): void {
+      deps.emitEvent(C2S.TechniqueGeneration, { action: 'discardBatch', batchId });
     },
   };
 }

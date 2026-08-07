@@ -38,10 +38,16 @@ import {
 } from '../../persistence/generated-technique-persistence.service';
 import {
   adoptDurableTechniqueDraft,
+  adoptDurableTechniqueDraftBatch,
   beginDurableTechniqueGeneration,
+  beginDurableTechniqueGenerationBatch,
+  claimTechniqueGenerationBatchExecution,
   claimTechniqueGenerationExecution,
   discardDurableTechniqueDraft,
+  discardDurableTechniqueDraftBatch,
+  failDurableTechniqueGenerationBatch,
   persistGeneratedTechniqueDraft,
+  persistGeneratedTechniqueDraftBatch,
   refundDurableFailedTechniqueGenerationJobs,
   TechniqueGenerationCommitOutcomeUnknownError,
   type TechniqueGenerationRuntimeInventoryItem,
@@ -49,7 +55,11 @@ import {
 
 import { GeneratedTechniqueStoreService } from './generated-technique-store.service';
 import { validateTechniqueCandidate } from './technique-candidate-validator';
-import { buildTechniquePrompt, buildRetryPrompt } from './technique-prompt-builder';
+import {
+  buildBatchInternalTechniqueNamingPrompt,
+  buildTechniquePrompt,
+  buildRetryPrompt,
+} from './technique-prompt-builder';
 import {
   buildGeneratedTechniqueTemplate,
   calculateGeneratedTechniqueTotalBudget,
@@ -66,11 +76,20 @@ import {
   TECHNIQUE_GENERATION_SCHEMA_VERSION,
 } from './technique-generation-constants';
 import { normalizeGeneratedTechniqueTargetModes } from './generated-technique-target-mode-normalizer';
+import {
+  buildBalancedInternalTechniqueCandidate,
+  createTechniqueGenerationBatchIdentity,
+  resolveTechniqueGenerationBatchId,
+  resolveTechniqueGenerationBatchIndex,
+} from './technique-generation-batch';
 import type {
   GenerationJobResult,
   GenerationExecutionResult,
   AdoptResult,
+  BatchAdoptResult,
   GenerationStatus,
+  TechniqueBatchPreview,
+  TechniqueGenerationBatchStatus,
   TechniquePreview,
   DiscardResult,
 } from './technique-generation.types';
@@ -100,11 +119,40 @@ export class TechniqueGenerationService {
     return this.pool !== null && this.generatedStore !== null && this.modelConfigResolver !== null;
   }
 
-  async getCurrentStatusForPlayer(playerId: string): Promise<Pick<GenerationStatus, 'currentJob' | 'currentDraft'>> {
-    const job = await this.loadCurrentGenerationJobForPlayer(playerId);
-    if (!job) {
-      return { currentJob: null, currentDraft: null };
+  async getCurrentStatusForPlayer(
+    playerId: string,
+  ): Promise<Pick<GenerationStatus, 'currentJob' | 'currentDraft' | 'currentBatch'>> {
+    const jobs = await this.loadCurrentGenerationJobsForPlayer(playerId);
+    if (jobs.length === 0) {
+      return { currentJob: null, currentDraft: null, currentBatch: null };
     }
+    const batchId = resolveTechniqueGenerationBatchId(jobs[0].id);
+    if (batchId) {
+      const batchJobs = jobs
+        .filter((job) => resolveTechniqueGenerationBatchId(job.id) === batchId)
+        .sort(compareLoadedGenerationJobs);
+      const status = resolveTechniqueGenerationBatchStatus(batchJobs);
+      const drafts = status === 'generated_draft'
+        ? await this.getBatchPreviews(playerId, batchId)
+        : [];
+      const currentBatch: TechniqueGenerationBatchStatus = {
+        batchId,
+        status,
+        count: batchJobs.length,
+        createdAt: formatTechniqueGenerationTimestamp(batchJobs[0]?.createdAt),
+        draftExpireAt: batchJobs[0]?.draftExpireAt
+          ? formatTechniqueGenerationTimestamp(batchJobs[0].draftExpireAt)
+          : undefined,
+        jobs: batchJobs.map((job) => ({
+          jobId: job.id,
+          rolledGrade: job.rolledGrade,
+          rolledRealmLv: job.rolledRealmLv,
+        })),
+        drafts,
+      };
+      return { currentJob: null, currentDraft: null, currentBatch };
+    }
+    const job = jobs[0];
     const currentJob = {
       jobId: job.id,
       status: job.status,
@@ -117,7 +165,7 @@ export class TechniqueGenerationService {
     const currentDraft = job.status === 'generated_draft'
       ? await this.getPreview(playerId, job.id)
       : null;
-    return { currentJob, currentDraft };
+    return { currentJob, currentDraft, currentBatch: null };
   }
 
   /** 发起生成 */
@@ -148,8 +196,8 @@ export class TechniqueGenerationService {
       return { success: false, error: '当前仅开放内功和术法', errorCode: 'CATEGORY_LOCKED' };
     }
 
-    const activeJob = await this.loadCurrentGenerationJobForPlayer(params.playerId);
-    if (activeJob) {
+    const activeJobs = await this.loadCurrentGenerationJobsForPlayer(params.playerId);
+    if (activeJobs.length > 0) {
       return { success: false, error: '请先处理未完成的功法领悟', errorCode: 'ACTIVE_JOB_EXISTS' };
     }
 
@@ -220,6 +268,105 @@ export class TechniqueGenerationService {
     });
 
     return { success: true, jobId, rolledGrade, rolledRealmLv, itemSpend, budgetPercent, totalBudget };
+  }
+
+  /** 发起批量内功领悟；每枚玉简对应一部独立随机结果。 */
+  async requestBatchGeneration(params: {
+    playerId: string;
+    playerRealmLv: number;
+    playerHighestRealmLv: number;
+    playerContext?: string;
+    itemSpend?: number;
+    expectedRuntimeOwnerId?: string | null;
+    expectedSessionEpoch?: number | null;
+    applyInventorySnapshot?: (items: TechniqueGenerationRuntimeInventoryItem[]) => Promise<void> | void;
+    settleFailedRefund?: () => Promise<boolean>;
+  }): Promise<GenerationJobResult> {
+    const pool = this.pool;
+    if (!pool) {
+      return { success: false, error: '功法领悟系统未就绪', errorCode: 'SERVICE_UNAVAILABLE' };
+    }
+    if (params.playerHighestRealmLv < TECHNIQUE_GENERATION_UNLOCK_REALM_LV) {
+      return { success: false, error: '需筑基期方可领悟', errorCode: 'REALM_LOCKED' };
+    }
+    const activeJobs = await this.loadCurrentGenerationJobsForPlayer(params.playerId);
+    if (activeJobs.length > 0) {
+      return { success: false, error: '请先处理未完成的功法领悟', errorCode: 'ACTIVE_JOB_EXISTS' };
+    }
+    const modelConfig = await this.modelConfigResolver?.();
+    if (!modelConfig) {
+      return { success: false, error: 'AI 模型未配置', errorCode: 'NO_MODEL' };
+    }
+    const expectedRuntimeOwnerId = normalizeTechniqueGenerationOwnerId(params.expectedRuntimeOwnerId);
+    const expectedSessionEpoch = normalizeTechniqueGenerationSessionEpoch(params.expectedSessionEpoch);
+    if (!expectedRuntimeOwnerId || expectedSessionEpoch === null || typeof params.applyInventorySnapshot !== 'function') {
+      return { success: false, error: '玩家资产持久化上下文不可用', errorCode: 'PERSISTENCE_CONTEXT_UNAVAILABLE' };
+    }
+
+    const batchCount = normalizeTechniqueGenerationItemSpend(params.itemSpend);
+    const identity = createTechniqueGenerationBatchIdentity(batchCount);
+    const sanitizedContext = sanitizePlayerContext(params.playerContext, CUSTOM_TECHNIQUE_PROMPT_MAX_LENGTH);
+    const jobs: BatchGenerationExecutionJob[] = identity.jobIds.map((jobId, index) => {
+      const roll = rollBoostedTechniqueOutcome(params.playerRealmLv, params.playerHighestRealmLv, 1);
+      const budgetPercent = rollTechniqueBudgetPercent();
+      return {
+        jobId,
+        batchId: identity.batchId,
+        index: index + 1,
+        grade: roll.grade,
+        realmLv: roll.realmLv,
+        budgetPercent,
+        totalBudget: calculateGeneratedTechniqueTotalBudget('internal', roll.grade, roll.realmLv, budgetPercent),
+      };
+    });
+    const beginResult = await beginDurableTechniqueGenerationBatch(pool, {
+      batchId: identity.batchId,
+      playerId: params.playerId,
+      jobs: jobs.map((job) => ({
+        id: job.jobId,
+        playerId: params.playerId,
+        requestedCategory: 'internal',
+        rolledGrade: job.grade,
+        rolledRealmLv: job.realmLv,
+        playerContext: sanitizedContext,
+        itemSpend: 1,
+        budgetPercent: job.budgetPercent,
+        totalBudget: job.totalBudget,
+      })),
+      expectedRuntimeOwnerId,
+      expectedSessionEpoch,
+    });
+    if (!beginResult.ok) {
+      if (beginResult.errorCode === 'ACTIVE_JOB_EXISTS') {
+        return { success: false, error: '请先处理未完成的功法领悟', errorCode: 'ACTIVE_JOB_EXISTS' };
+      }
+      return { success: false, error: '悟道玉简不足', errorCode: 'ITEM_NOT_ENOUGH' };
+    }
+    try {
+      await params.applyInventorySnapshot(beginResult.inventoryItems);
+    } catch (error: unknown) {
+      this.logger.error(
+        `批量内功扣除玉简已提交但运行态同步失败 playerId=${params.playerId} batchId=${identity.batchId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+    setImmediate(() => {
+      this.executeBatchGeneration(identity.batchId, {
+        playerId: params.playerId,
+        playerContext: sanitizedContext,
+        jobs,
+        modelConfig,
+        settleFailedRefund: params.settleFailedRefund,
+      }).catch(() => undefined);
+    });
+    return {
+      success: true,
+      jobId: identity.jobIds[0],
+      batchId: identity.batchId,
+      batchCount,
+      jobIds: identity.jobIds,
+      itemSpend: batchCount,
+    };
   }
 
   /** 执行生成（异步） */
@@ -391,6 +538,159 @@ export class TechniqueGenerationService {
     }
   }
 
+  /** 批量执行只让 AI 生成名称和描述，数值模板完全由服务端构建。 */
+  async executeBatchGeneration(batchId: string, params: {
+    playerId: string;
+    playerContext: string;
+    jobs: BatchGenerationExecutionJob[];
+    modelConfig?: AiTextModelConfig;
+    settleFailedRefund?: () => Promise<boolean>;
+  }): Promise<GenerationExecutionResult> {
+    const pool = this.pool;
+    if (!pool) return { success: false, error: '功法领悟系统未就绪' };
+    const jobIds = params.jobs.map((job) => job.jobId);
+    let claimed = false;
+    try {
+      claimed = await claimTechniqueGenerationBatchExecution(pool, params.playerId, jobIds);
+    } catch (error: unknown) {
+      return { success: false, error: error instanceof Error ? error.message : '批量领悟任务认领失败' };
+    }
+    if (!claimed) return { success: false, error: '批量领悟任务已由其他执行器处理' };
+
+    try {
+      const modelConfig = params.modelConfig ?? await this.modelConfigResolver?.();
+      if (!modelConfig) {
+        await this.failBatchGenerationAndRefund(batchId, params, 'NO_MODEL', 'AI 模型未配置');
+        return { success: false, error: 'AI 模型未配置' };
+      }
+      const basePrompt = buildBatchInternalTechniqueNamingPrompt({
+        playerContext: params.playerContext,
+        entries: params.jobs.map((job) => ({
+          index: job.index,
+          grade: job.grade,
+          realmLv: job.realmLv,
+        })),
+      });
+      let namingEntries: BatchTechniqueNamingEntry[] | null = null;
+      let successfulAiResult: AiTaskResult | null = null;
+      let lastFailureReason = '';
+      let lastFailureCode: 'AI_FAILED' | 'PARSE_FAILED' | 'VALIDATION_FAILED' = 'VALIDATION_FAILED';
+      const maxAttempts = 3;
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        const prompt = lastFailureReason ? buildRetryPrompt(basePrompt, lastFailureReason) : basePrompt;
+        const aiResult = await executeAiTask({
+          taskType: 'technique_generation_batch_naming',
+          modelConfig,
+          systemMessage: prompt.systemMessage,
+          userMessage: prompt.userMessage,
+          responseFormat: 'json_object',
+          temperature: lastFailureReason ? 0.65 : 0.85,
+          timeoutMs: 90_000,
+          maxAttempts: 1,
+        });
+        if (!aiResult.success) {
+          lastFailureReason = aiResult.error || 'AI 调用失败';
+          lastFailureCode = 'AI_FAILED';
+          continue;
+        }
+        const parsedResult = parseAiJsonObject(aiResult.content);
+        if (parsedResult.ok === false) {
+          lastFailureReason = [
+            'JSON 解析失败，请只输出包含 techniques 数组的合法 JSON 对象',
+            parsedResult.error ? `解析错误：${parsedResult.error}` : '',
+          ].filter(Boolean).join('；');
+          lastFailureCode = 'PARSE_FAILED';
+          continue;
+        }
+        const normalized = normalizeBatchTechniqueNamingResponse(parsedResult.value, params.jobs.length);
+        if (normalized.ok === false) {
+          lastFailureReason = normalized.error;
+          lastFailureCode = 'VALIDATION_FAILED';
+          continue;
+        }
+        const conflicts = await this.findPublishedTechniqueNameConflicts(normalized.value.map((entry) => entry.normalizedName));
+        if (conflicts.length > 0) {
+          lastFailureReason = `以下名称已存在，请全部更换：${conflicts.join('、')}`;
+          lastFailureCode = 'VALIDATION_FAILED';
+          continue;
+        }
+        namingEntries = normalized.value;
+        successfulAiResult = { ...aiResult, attemptCount: attempt };
+        break;
+      }
+      if (!namingEntries || !successfulAiResult) {
+        const reason = lastFailureReason || '批量功法文案未通过校验';
+        await this.failBatchGenerationAndRefund(batchId, params, lastFailureCode, reason);
+        return { success: false, error: reason };
+      }
+
+      const maxLayer = TECHNIQUE_INTERNAL_DEFAULT_MAX_LAYER;
+      const drafts = params.jobs.map((job, index) => {
+        const naming = namingEntries![index];
+        const techniqueId = `gen_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+        const candidate = buildBalancedInternalTechniqueCandidate({
+          name: naming.name,
+          desc: naming.desc,
+          maxLayer,
+        });
+        const built = buildGeneratedTechniqueTemplate({
+          techniqueId,
+          candidate,
+          category: 'internal',
+          grade: job.grade,
+          realmLv: job.realmLv,
+          maxLayer,
+          budgetPercent: job.budgetPercent,
+          totalBudget: job.totalBudget,
+        });
+        if (built.ok === false) {
+          throw new Error(built.errors.map((entry) => `${entry.field}: ${entry.message}`).join('; ') || '批量内功模板无法构建');
+        }
+        return {
+          id: techniqueId,
+          generationId: job.jobId,
+          template: built.template,
+          schemaVersion: TECHNIQUE_GENERATION_SCHEMA_VERSION,
+          createdByPlayerId: params.playerId,
+          modelName: successfulAiResult!.modelName,
+          promptSnapshot: params.playerContext,
+          validationReport: {
+            ...built.validationReport,
+            batchNamingOnly: true,
+            batchId,
+            batchIndex: job.index,
+            equalSixAttributeWeights: true,
+          },
+          grade: job.grade,
+          category: 'internal',
+          realmLv: job.realmLv,
+          attemptCount: successfulAiResult!.attemptCount,
+          draftExpireHours: TECHNIQUE_GENERATION_DRAFT_EXPIRE_HOURS,
+        };
+      });
+      const persisted = await persistGeneratedTechniqueDraftBatch(pool, {
+        playerId: params.playerId,
+        modelName: successfulAiResult.modelName,
+        attemptCount: successfulAiResult.attemptCount,
+        draftExpireHours: TECHNIQUE_GENERATION_DRAFT_EXPIRE_HOURS,
+        drafts,
+      });
+      if (!persisted.ok || persisted.techniqueIds.length !== drafts.length) {
+        throw new Error(`technique_generation_batch_draft_state_conflict:${batchId}`);
+      }
+      return { success: true, techniqueId: persisted.techniqueIds[0] };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '批量领悟失败';
+      if (error instanceof TechniqueGenerationCommitOutcomeUnknownError) {
+        this.logger.warn(`批量内功草稿事务结果待确认 batchId=${batchId}`);
+        return { success: false, error: '批量功法草稿正在确认中，请稍后查看。' };
+      }
+      await this.failBatchGenerationAndRefund(batchId, params, 'GENERATION_FAILED', message).catch(() => undefined);
+      return { success: false, error: message };
+    }
+  }
+
   async getPreview(playerId: string, jobId: string): Promise<TechniquePreview | null> {
     const pool = this.pool;
     if (!pool) {
@@ -410,26 +710,31 @@ export class TechniqueGenerationService {
     if (!template) {
       return null;
     }
-    const previewLayers = resolvePreviewLayers(template);
-    const maxLayer = template.maxLayer ?? TECHNIQUE_INTERNAL_DEFAULT_MAX_LAYER;
-    const fullLevelAttrs = previewLayers
-      ? normalizePositiveAttrs(calcTechniqueAttrValues(maxLayer, previewLayers))
-      : undefined;
-    return {
-      techniqueId: template.id,
-      suggestedName: template.name,
-      grade: template.grade,
-      category: template.category ?? 'internal',
-      realmLv: template.realmLv ?? 1,
-      desc: template.desc ?? '',
-      fullLevelAttrs,
-      skills: Array.isArray(template.skills) ? template.skills : undefined,
-      maxLayer,
-      expDifficulty: template.expDifficulty ?? 1,
-      modelName: typeof row?.model_name === 'string' && row.model_name.trim() ? row.model_name.trim() : undefined,
-      budgetPercent: template.budgetPercent,
-      totalBudget: template.totalBudget,
-    };
+    return buildTechniquePreview(template, row?.model_name);
+  }
+
+  async getBatchPreviews(playerId: string, batchId: string): Promise<TechniqueBatchPreview[]> {
+    const pool = this.pool;
+    if (!pool) return [];
+    const result = await pool.query(
+      `SELECT j.id AS job_id,
+              gt.template,
+              gt.model_name
+         FROM technique_generation_job j
+         JOIN generated_technique gt ON gt.id = j.draft_technique_id
+        WHERE j.player_id = $1
+          AND LEFT(j.id, CHAR_LENGTH($2) + 1) = $2 || '_'
+          AND j.status = 'generated_draft'
+        ORDER BY j.id ASC`,
+      [playerId, batchId],
+    );
+    return (result.rows as Array<{ job_id?: unknown; template?: unknown; model_name?: unknown }>)
+      .map((row) => {
+        const jobId = typeof row.job_id === 'string' ? row.job_id : '';
+        const template = row.template as TechniqueTemplate | undefined;
+        return jobId && template ? { jobId, ...buildTechniquePreview(template, row.model_name) } : null;
+      })
+      .filter((entry): entry is TechniqueBatchPreview => entry !== null);
   }
 
   /** 采纳草稿 → 直接学习 */
@@ -512,6 +817,64 @@ export class TechniqueGenerationService {
     };
   }
 
+  async adoptBatchDraft(params: {
+    playerId: string;
+    batchId: string;
+    learnerRealmLv: number;
+    currentTick: number;
+    expectedRuntimeOwnerId?: string | null;
+    expectedSessionEpoch?: number | null;
+    applyPendingComprehensions?: (techniqueIds: string[]) => Promise<void> | void;
+  }): Promise<BatchAdoptResult> {
+    const pool = this.pool;
+    if (!pool) return { success: false, error: '功法领悟系统未就绪', errorCode: 'SERVICE_UNAVAILABLE' };
+    const expectedRuntimeOwnerId = normalizeTechniqueGenerationOwnerId(params.expectedRuntimeOwnerId);
+    const expectedSessionEpoch = normalizeTechniqueGenerationSessionEpoch(params.expectedSessionEpoch);
+    if (!expectedRuntimeOwnerId || expectedSessionEpoch === null || typeof params.applyPendingComprehensions !== 'function') {
+      return { success: false, error: '玩家功法持久化上下文不可用', errorCode: 'PERSISTENCE_CONTEXT_UNAVAILABLE' };
+    }
+    const jobs = (await this.loadCurrentGenerationJobsForPlayer(params.playerId))
+      .filter((job) => resolveTechniqueGenerationBatchId(job.id) === params.batchId)
+      .sort(compareLoadedGenerationJobs);
+    if (jobs.length === 0) return { success: false, error: '批量领悟任务不存在', errorCode: 'JOB_NOT_FOUND' };
+    let adopted;
+    try {
+      adopted = await adoptDurableTechniqueDraftBatch(pool, {
+        playerId: params.playerId,
+        batchId: params.batchId,
+        jobIds: jobs.map((job) => job.id),
+        learnerRealmLv: params.learnerRealmLv,
+        currentTick: params.currentTick,
+        expectedRuntimeOwnerId,
+        expectedSessionEpoch,
+      });
+    } catch (error: unknown) {
+      if (isPostgresUniqueViolation(error)) {
+        return { success: false, error: '部分功法名称已存在，请重新领悟', errorCode: 'NAME_CONFLICT' };
+      }
+      throw error;
+    }
+    if (!adopted.ok) {
+      const mapped = mapTechniqueGenerationAdoptError(adopted.errorCode);
+      return { success: false, error: mapped.error, errorCode: mapped.errorCode };
+    }
+    await this.generatedStore?.refreshAfterPublish();
+    try {
+      await params.applyPendingComprehensions(adopted.techniqueIds);
+    } catch (error: unknown) {
+      this.logger.error(
+        `批量内功采纳已提交但运行态同步失败 playerId=${params.playerId} batchId=${params.batchId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+    return {
+      success: true,
+      batchId: params.batchId,
+      techniqueIds: adopted.techniqueIds,
+      techniqueNames: adopted.techniqueNames,
+    };
+  }
+
   /** 取消草稿并按悟道玉简投入折算返还功德。 */
   async discardDraft(params: {
     playerId: string;
@@ -568,13 +931,65 @@ export class TechniqueGenerationService {
     };
   }
 
+  async discardBatchDraft(params: {
+    playerId: string;
+    batchId: string;
+    expectedRuntimeOwnerId?: string | null;
+    expectedSessionEpoch?: number | null;
+    applyInventorySnapshot?: (items: TechniqueGenerationRuntimeInventoryItem[]) => Promise<void> | void;
+  }): Promise<DiscardResult> {
+    const pool = this.pool;
+    if (!pool) return { success: false, error: '功法领悟系统未就绪', errorCode: 'SERVICE_UNAVAILABLE' };
+    const expectedRuntimeOwnerId = normalizeTechniqueGenerationOwnerId(params.expectedRuntimeOwnerId);
+    const expectedSessionEpoch = normalizeTechniqueGenerationSessionEpoch(params.expectedSessionEpoch);
+    if (!expectedRuntimeOwnerId || expectedSessionEpoch === null || typeof params.applyInventorySnapshot !== 'function') {
+      return { success: false, error: '玩家资产持久化上下文不可用', errorCode: 'PERSISTENCE_CONTEXT_UNAVAILABLE' };
+    }
+    const jobs = (await this.loadCurrentGenerationJobsForPlayer(params.playerId))
+      .filter((job) => resolveTechniqueGenerationBatchId(job.id) === params.batchId)
+      .sort(compareLoadedGenerationJobs);
+    if (jobs.length === 0) return { success: false, error: '无可取消的批量草稿', errorCode: 'JOB_STATE_INVALID' };
+    const refundRatio = rollDiscardRefundRatio();
+    const refundCurrencyItemId = HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID;
+    const discarded = await discardDurableTechniqueDraftBatch(pool, {
+      playerId: params.playerId,
+      batchId: params.batchId,
+      jobIds: jobs.map((job) => job.id),
+      refundCurrencyItemId,
+      refundRatio,
+      refundBasePrice: TECHNIQUE_GENERATION_REFUND_BASE_PRICE,
+      expectedRuntimeOwnerId,
+      expectedSessionEpoch,
+    });
+    if (!discarded.ok) {
+      return { success: false, error: '无可取消的批量草稿', errorCode: discarded.errorCode ?? 'JOB_STATE_INVALID' };
+    }
+    try {
+      await params.applyInventorySnapshot(discarded.inventoryItems);
+    } catch (error: unknown) {
+      this.logger.error(
+        `批量内功放弃返还已提交但运行态同步失败 playerId=${params.playerId} batchId=${params.batchId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+    return {
+      success: true,
+      refund: {
+        itemSpend: normalizeRefundItemSpend(discarded.itemSpend),
+        refundRatio: Number(discarded.refundRatio ?? refundRatio),
+        refundAmount: normalizeRefundItemSpend(discarded.refundAmount),
+        refundCurrencyItemId: discarded.refundCurrencyItemId ?? refundCurrencyItemId,
+      },
+    };
+  }
+
   /** 过期清理 */
   async expireStaleJobs(): Promise<number> {
     if (!this.pool) return 0;
     return expireStaleGenerationJobs(this.pool);
   }
 
-  async recoverPendingJobs(limit = 20): Promise<number> {
+  async recoverPendingJobs(limit = 200): Promise<number> {
     const pool = this.pool;
     if (!pool) {
       return 0;
@@ -584,7 +999,35 @@ export class TechniqueGenerationService {
       return 0;
     }
     const jobs = await loadRecoverableGenerationJobs(pool, limit);
+    const scheduledBatchIds = new Set<string>();
+    let scheduledCount = 0;
     for (const job of jobs) {
+      const batchId = resolveTechniqueGenerationBatchId(job.id);
+      if (batchId) {
+        if (scheduledBatchIds.has(batchId)) continue;
+        scheduledBatchIds.add(batchId);
+        const batchJobs = await this.loadRecoverableBatchGenerationJobs(job.playerId, batchId);
+        if (batchJobs.length === 0) continue;
+        scheduledCount += batchJobs.length;
+        setImmediate(() => {
+          this.executeBatchGeneration(batchId, {
+            playerId: job.playerId,
+            playerContext: batchJobs[0]?.playerContext ?? '',
+            jobs: batchJobs.map((entry, index) => ({
+              jobId: entry.id,
+              batchId,
+              index: resolveTechniqueGenerationBatchIndex(entry.id) ?? index + 1,
+              grade: normalizeTechniqueGenerationGrade(entry.grade),
+              realmLv: entry.realmLv,
+              budgetPercent: entry.budgetPercent,
+              totalBudget: entry.totalBudget,
+            })),
+            modelConfig,
+          }).catch(() => undefined);
+        });
+        continue;
+      }
+      scheduledCount += 1;
       setImmediate(() => {
         this.executeGeneration(job.id, {
           category: job.category as TechniqueCategory,
@@ -599,7 +1042,7 @@ export class TechniqueGenerationService {
         }).catch(() => undefined);
       });
     }
-    return jobs.length;
+    return scheduledCount;
   }
 
   async refundFailedConsumedJobsForPlayer(params: {
@@ -670,10 +1113,55 @@ export class TechniqueGenerationService {
     }
   }
 
-  private async loadCurrentGenerationJobForPlayer(playerId: string): Promise<LoadedCurrentGenerationJob | null> {
+  private async failBatchGenerationAndRefund(
+    batchId: string,
+    params: {
+      playerId: string;
+      jobs: BatchGenerationExecutionJob[];
+      settleFailedRefund?: () => Promise<boolean>;
+    },
+    errorCode: string,
+    errorMessage: string,
+  ): Promise<void> {
+    const pool = this.pool;
+    if (!pool) return;
+    const marked = await failDurableTechniqueGenerationBatch(
+      pool,
+      params.playerId,
+      params.jobs.map((job) => job.jobId),
+      errorCode,
+      errorMessage,
+    );
+    if (marked === 0 || typeof params.settleFailedRefund !== 'function') return;
+    try {
+      await params.settleFailedRefund();
+    } catch (error: unknown) {
+      this.logger.warn(
+        `批量内功失败返还暂未完成 batchId=${batchId} error=${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  private async findPublishedTechniqueNameConflicts(normalizedNames: readonly string[]): Promise<string[]> {
+    const pool = this.pool;
+    if (!pool || normalizedNames.length === 0) return [];
+    const result = await pool.query(
+      `SELECT COALESCE(display_name, template->>'name', normalized_name) AS name
+         FROM generated_technique
+        WHERE is_published = true
+          AND normalized_name = ANY($1::text[])
+        ORDER BY name ASC`,
+      [[...normalizedNames]],
+    );
+    return (result.rows as Array<{ name?: unknown }>)
+      .map((row) => typeof row.name === 'string' ? row.name.trim() : '')
+      .filter(Boolean);
+  }
+
+  private async loadCurrentGenerationJobsForPlayer(playerId: string): Promise<LoadedCurrentGenerationJob[]> {
     const pool = this.pool;
     if (!pool) {
-      return null;
+      return [];
     }
     const result = await pool.query(
       `SELECT id,
@@ -699,22 +1187,62 @@ export class TechniqueGenerationService {
                  END ASC,
                  created_at ASC,
                  id ASC
-        LIMIT 1`,
+        LIMIT 100`,
       [playerId],
     );
-    const row = result.rows[0] as CurrentGenerationJobRow | undefined;
-    if (!row || !isRecoverableGenerationJobStatus(row.status)) {
-      return null;
-    }
-    return {
-      id: row.id,
-      status: row.status,
-      category: typeof row.requested_category === 'string' ? row.requested_category : '',
-      rolledGrade: normalizeTechniqueGenerationGrade(row.rolled_grade),
-      rolledRealmLv: normalizePositiveInteger(row.rolled_realm_lv, 0),
-      createdAt: row.created_at,
-      draftExpireAt: row.draft_expire_at ?? null,
-    };
+    return (result.rows as CurrentGenerationJobRow[])
+      .filter((row) => isRecoverableGenerationJobStatus(row.status))
+      .map((row) => ({
+        id: row.id,
+        status: row.status as LoadedCurrentGenerationJob['status'],
+        category: typeof row.requested_category === 'string' ? row.requested_category : '',
+        rolledGrade: normalizeTechniqueGenerationGrade(row.rolled_grade),
+        rolledRealmLv: normalizePositiveInteger(row.rolled_realm_lv, 0),
+        createdAt: row.created_at,
+        draftExpireAt: row.draft_expire_at ?? null,
+      }));
+  }
+
+  private async loadRecoverableBatchGenerationJobs(
+    playerId: string,
+    batchId: string,
+  ): Promise<Array<{
+    id: string;
+    playerContext: string;
+    grade: string;
+    realmLv: number;
+    budgetPercent: number;
+    totalBudget: number;
+  }>> {
+    const pool = this.pool;
+    if (!pool) return [];
+    const result = await pool.query(
+      `SELECT id,
+              player_context,
+              rolled_grade,
+              rolled_realm_lv,
+              rolled_budget_percent,
+              rolled_total_budget
+         FROM technique_generation_job
+        WHERE player_id = $1
+          AND LEFT(id, CHAR_LENGTH($2) + 1) = $2 || '_'
+          AND (
+            status = 'pending'
+            OR (status = 'running' AND updated_at <= NOW() - INTERVAL '10 minutes')
+          )
+          AND item_consumed = true
+          AND draft_technique_id IS NULL
+        ORDER BY id ASC`,
+      [playerId, batchId],
+    );
+    return (result.rows as Array<Record<string, unknown>>).map((row) => ({
+      id: typeof row.id === 'string' ? row.id : '',
+      playerContext: typeof row.player_context === 'string' ? row.player_context : '',
+      grade: typeof row.rolled_grade === 'string' ? row.rolled_grade : 'mortal',
+      realmLv: normalizePositiveInteger(row.rolled_realm_lv, 1),
+      budgetPercent: normalizePositiveNumber(row.rolled_budget_percent, 1),
+      totalBudget: normalizePositiveNumber(row.rolled_total_budget, 0),
+    })).filter((row) => row.id.length > 0);
   }
 }
 
@@ -728,6 +1256,22 @@ interface LoadedCurrentGenerationJob {
   rolledRealmLv: number;
   createdAt: unknown;
   draftExpireAt: unknown;
+}
+
+interface BatchGenerationExecutionJob {
+  jobId: string;
+  batchId: string;
+  index: number;
+  grade: TechniqueTemplate['grade'];
+  realmLv: number;
+  budgetPercent: number;
+  totalBudget: number;
+}
+
+interface BatchTechniqueNamingEntry {
+  name: string;
+  desc: string;
+  normalizedName: string;
 }
 
 interface CurrentGenerationJobRow {
@@ -765,6 +1309,11 @@ function normalizePositiveInteger(value: unknown, fallback: number): number {
   return Math.max(0, Math.trunc(numeric));
 }
 
+function normalizePositiveNumber(value: unknown, fallback: number): number {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : fallback;
+}
+
 function rollDiscardRefundRatio(): number {
   const raw = DISCARD_REFUND_RATIO_MIN + Math.random() * (DISCARD_REFUND_RATIO_MAX - DISCARD_REFUND_RATIO_MIN);
   return Math.round(raw * 10000) / 10000;
@@ -779,6 +1328,84 @@ function formatTechniqueGenerationTimestamp(value: unknown): string {
     return Number.isNaN(parsed.getTime()) ? value : parsed.toISOString();
   }
   return new Date(0).toISOString();
+}
+
+function compareLoadedGenerationJobs(left: LoadedCurrentGenerationJob, right: LoadedCurrentGenerationJob): number {
+  const leftIndex = resolveTechniqueGenerationBatchIndex(left.id) ?? 0;
+  const rightIndex = resolveTechniqueGenerationBatchIndex(right.id) ?? 0;
+  return leftIndex - rightIndex || left.id.localeCompare(right.id);
+}
+
+function resolveTechniqueGenerationBatchStatus(
+  jobs: readonly LoadedCurrentGenerationJob[],
+): TechniqueGenerationBatchStatus['status'] {
+  if (jobs.length > 0 && jobs.every((job) => job.status === 'generated_draft')) return 'generated_draft';
+  if (jobs.some((job) => job.status === 'running' || job.status === 'generated_draft')) return 'running';
+  return 'pending';
+}
+
+function buildTechniquePreview(template: TechniqueTemplate, modelNameInput: unknown): TechniquePreview {
+  const previewLayers = resolvePreviewLayers(template);
+  const maxLayer = template.maxLayer ?? TECHNIQUE_INTERNAL_DEFAULT_MAX_LAYER;
+  const fullLevelAttrs = previewLayers
+    ? normalizePositiveAttrs(calcTechniqueAttrValues(maxLayer, previewLayers))
+    : undefined;
+  return {
+    techniqueId: template.id,
+    suggestedName: template.name,
+    grade: template.grade,
+    category: template.category ?? 'internal',
+    realmLv: template.realmLv ?? 1,
+    desc: template.desc ?? '',
+    fullLevelAttrs,
+    skills: Array.isArray(template.skills) ? template.skills : undefined,
+    maxLayer,
+    expDifficulty: template.expDifficulty ?? 1,
+    modelName: typeof modelNameInput === 'string' && modelNameInput.trim() ? modelNameInput.trim() : undefined,
+    budgetPercent: template.budgetPercent,
+    totalBudget: template.totalBudget,
+  };
+}
+
+function normalizeBatchTechniqueNamingResponse(
+  value: Record<string, unknown>,
+  expectedCount: number,
+): { ok: true; value: BatchTechniqueNamingEntry[] } | { ok: false; error: string } {
+  const techniques = value.techniques;
+  if (!Array.isArray(techniques) || techniques.length !== expectedCount) {
+    return { ok: false, error: `techniques 数量必须严格等于 ${expectedCount}` };
+  }
+  const entries: BatchTechniqueNamingEntry[] = [];
+  for (let index = 0; index < techniques.length; index += 1) {
+    const raw = techniques[index];
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      return { ok: false, error: `techniques[${index}] 必须是对象` };
+    }
+    const record = raw as Record<string, unknown>;
+    const extraKeys = Object.keys(record).filter((key) => key !== 'name' && key !== 'desc');
+    if (extraKeys.length > 0) {
+      return { ok: false, error: `techniques[${index}] 只能包含 name 和 desc` };
+    }
+    const name = typeof record.name === 'string' ? record.name.trim() : '';
+    const desc = typeof record.desc === 'string' ? record.desc.trim() : '';
+    const nameLength = [...name].length;
+    const descLength = [...desc].length;
+    if (nameLength < CUSTOM_TECHNIQUE_NAME_MIN_LENGTH || nameLength > CUSTOM_TECHNIQUE_NAME_MAX_LENGTH) {
+      return { ok: false, error: `techniques[${index}].name 必须为 ${CUSTOM_TECHNIQUE_NAME_MIN_LENGTH}~${CUSTOM_TECHNIQUE_NAME_MAX_LENGTH} 字` };
+    }
+    if (descLength < 20 || descLength > 60) {
+      return { ok: false, error: `techniques[${index}].desc 必须为 20~60 字` };
+    }
+    entries.push({
+      name,
+      desc,
+      normalizedName: name.toLowerCase().replace(/\s+/g, ''),
+    });
+  }
+  if (new Set(entries.map((entry) => entry.normalizedName)).size !== entries.length) {
+    return { ok: false, error: '同批功法名称不得重复' };
+  }
+  return { ok: true, value: entries };
 }
 
 function resolvePreviewLayers(template: TechniqueTemplate): TechniqueLayerDef[] | undefined {

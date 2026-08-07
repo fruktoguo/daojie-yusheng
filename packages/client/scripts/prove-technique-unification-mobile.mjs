@@ -72,7 +72,6 @@ const initializeExpression = String.raw`
           { techniqueId: mortalSources[0].techId, name: mortalSources[0].name },
           { techniqueId: mortalSources[1].techId, name: mortalSources[1].name },
         ],
-        jadeEnhancementCount: 2,
         fullLevelAttrs: {
           constitution: 111,
           spirit: 122,
@@ -86,7 +85,6 @@ const initializeExpression = String.raw`
       }] : [],
       totalCoveredLeafCount: 0,
       learnedAggregateCount: 0,
-      jadeItemCount: 3,
       platform: {
         buildingId: 'building:mobile-proof',
         displayName: '玄门统法台',
@@ -293,64 +291,11 @@ const sourceInteractionExpression = String.raw`
   })()
 `;
 
-const openBoundJadeExpression = String.raw`
+const openPermissionsExpression = String.raw`
   (() => {
     const modal = window.__techniqueUnificationProofModal;
     const buildPanel = window.__techniqueUnificationBuildPanel;
     modal.handleTechniqueAggregationPanel(buildPanel({ bound: true, isOwner: true, canRevise: true }));
-    document.querySelector('[data-primary-tab="record"]')?.click();
-    document.querySelector('[data-record-mode="jade"]')?.click();
-    const panel = document.querySelector('[data-technique-aggregation-panel="true"]');
-    const countInput = panel?.querySelector('[data-technique-aggregation-jade-count="true"]');
-    const button = document.querySelector('[data-craft-action="technique-aggregation-record-jade"]');
-    if (!(countInput instanceof HTMLInputElement) || !(button instanceof HTMLButtonElement)) {
-      throw new Error('悟道玉简数量选择结构不完整');
-    }
-    countInput.value = '2';
-    countInput.dispatchEvent(new Event('input', { bubbles: true }));
-    const publishBeforeConfirm = window.__techniqueUnificationPublishPayload;
-    button.click();
-    const confirmLayer = document.querySelector('.confirm-modal-layer:not(.hidden)');
-    const confirmButton = confirmLayer?.querySelector('[data-confirm-modal-confirm="true"]');
-    const confirmTitle = confirmLayer?.querySelector('.confirm-modal-title')?.textContent?.trim() ?? '';
-    const confirmText = confirmLayer?.querySelector('.confirm-modal-body')?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
-    const confirmButtonText = confirmButton?.textContent?.trim() ?? '';
-    if (!(confirmButton instanceof HTMLButtonElement)) throw new Error('悟道玉简确认弹层未打开');
-    confirmButton.click();
-    const publishPayload = window.__techniqueUnificationPublishPayload;
-    modal.handleTechniqueAggregationResult({
-      requestId: publishPayload?.requestId,
-      operationId: publishPayload?.operationId,
-      ok: false,
-      recordMode: 'jade',
-      code: 'TECHNIQUE_AGGREGATE_NOT_READY',
-    });
-    const previewMetrics = Array.from(panel?.querySelectorAll('.technique-aggregation-jade-preview-metrics > span') ?? [])
-      .map((entry) => entry.textContent?.replace(/\s+/g, ' ').trim() ?? '');
-    return {
-      activeMainTab: panel?.querySelector('.technique-aggregation-primary-tab.is-active')?.textContent?.trim() ?? '',
-      activeRecordTab: panel?.querySelector('.technique-aggregation-record-tab.is-active')?.textContent?.trim() ?? '',
-      jadeText: panel?.querySelector('.technique-aggregation-jade-record')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
-      jadeMetricCount: panel?.querySelectorAll('.technique-aggregation-jade-metrics > span').length ?? 0,
-      balanceLabels: Array.from(panel?.querySelectorAll('.technique-aggregation-jade-balance > span') ?? [])
-        .map((entry) => entry.textContent?.trim() ?? ''),
-      selectedCount: countInput.value,
-      previewMetrics,
-      buttonText: button.textContent?.trim() ?? '',
-      recordButtonEnabled: !button.disabled,
-      publishBeforeConfirm,
-      confirmTitle,
-      confirmText,
-      confirmButtonText,
-      publishPayload,
-      hasDirectory: Boolean(panel?.querySelector('[data-technique-aggregation-directory="true"]')),
-      overflow: panel instanceof HTMLElement && panel.scrollWidth > panel.clientWidth + 1,
-    };
-  })()
-`;
-
-const openPermissionsExpression = String.raw`
-  (() => {
     document.querySelector('[data-primary-tab="permissions"]')?.click();
     const panel = document.querySelector('[data-technique-aggregation-panel="true"]');
     const permissions = panel?.querySelector('[data-technique-aggregation-permissions="true"]');
@@ -479,8 +424,8 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'technique-uni
 
   assert.deepEqual(
     await cdp.evaluate(openSourceRecordExpression),
-    ['录入自有功法', '融入悟道玉简'],
-    '录法方式 Tab 不完整',
+    [],
+    '录法页不应再显示录法方式 Tab',
   );
   const sourceInitial = await cdp.evaluate(measureSourceExpression);
   assertSourceLayout(sourceInitial, '标准手机视口');
@@ -489,7 +434,7 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'technique-uni
   assert.equal(sourceInitial.gradeOptionCount, 2, '品阶过滤项不完整');
   assert.equal(sourceInitial.realmOptionCount, 3, '境界过滤项不完整');
   assert.match(sourceInitial.pageText, /第 1 页，共 3 页 · 当前 1-12 部，共 28 部/, '首页分页摘要错误');
-  assert.equal(sourceInitial.activeRecordTab, '录入自有功法', '默认未打开自有功法录法');
+  assert.equal(sourceInitial.activeRecordTab, '', '移除玉简录法后不应保留多余的二级录法 Tab');
 
   const interaction = await cdp.evaluate(sourceInteractionExpression);
   assert.equal(interaction.directoryIdentityPreserved, true, '筛选或分页时替换了法卷目录根节点');
@@ -539,28 +484,6 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'technique-uni
   await cdp.evaluate(`document.documentElement.dataset.colorMode = 'light'`);
   await delay(80);
 
-  const jade = await cdp.evaluate(openBoundJadeExpression);
-  assert.equal(jade.activeMainTab, '录法', '绑定法脉后未停留在录法页');
-  assert.equal(jade.activeRecordTab, '融入悟道玉简', '未切换到悟道玉简录法');
-  assert.equal(jade.jadeMetricCount, 4, '悟道玉简录法摘要不完整');
-  assert.match(jade.jadeText, /所持玉简3 枚/, '悟道玉简数量显示错误');
-  assert.match(jade.jadeText, /道韵强度80%-120%/, '悟道玉简强度范围显示错误');
-  assert.deepEqual(jade.balanceLabels, ['五行无偏', '六维均衡', '归于此脉'], '悟道玉简均衡规则文案不完整');
-  assert.equal(jade.selectedCount, '2', '玉简融入数量未保留手动指定值');
-  assert.deepEqual(jade.previewMetrics, ['将耗玉简2 枚', '融入后4 道', '余下玉简1 枚'], '玉简融入数量摘要错误');
-  assert.equal(jade.buttonText, '融入法脉', '玉简录法按钮文案错误');
-  assert.equal(jade.recordButtonEnabled, true, '持有悟道玉简时录法按钮不可用');
-  assert.equal(jade.publishBeforeConfirm, null, '打开二次确认前已提交玉简录法');
-  assert.equal(jade.confirmTitle, '确认融入玉简', '玉简确认标题错误');
-  assert.match(jade.confirmText, /将耗玉简2 枚/, '确认弹层未显示本次消耗数量');
-  assert.match(jade.confirmText, /融入后4 道/, '确认弹层未显示融入后的道韵总数');
-  assert.equal(jade.confirmButtonText, '融入 2 枚玉简', '确认按钮数量错误');
-  assert.doesNotMatch(`${jade.jadeText} ${jade.confirmTitle} ${jade.confirmText} ${jade.buttonText}`, /预检|二次确认|随机结果|服务端|客户端|revision|messageKey/, '玉简录法仍暴露开发者术语');
-  assert.equal(jade.publishPayload?.recordMode, 'jade', '二次确认后未提交玉简录法');
-  assert.equal(jade.publishPayload?.jadeItemSpend, 2, '二次确认未携带指定玉简数量');
-  assert.equal(jade.hasDirectory, false, '悟道玉简录法页混入自有功法目录');
-  assert.equal(jade.overflow, false, '悟道玉简录法页出现横向溢出');
-
   const permissions = await cdp.evaluate(openPermissionsExpression);
   assert.equal(permissions.activeMainTab, '权限', '未切换到权限页');
   assert.equal(permissions.permissionIdentityPreserved, true, '切换权限组时替换了权限根节点');
@@ -571,13 +494,12 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'technique-uni
   assert(permissions.minPolicyOptionHeight >= 39.5, '权限选项触控高度不足 40px');
   assert(permissions.minPermissionTabHeight >= 41.5, '权限 Tab 触控高度不足 42px');
   assert.equal(permissions.hasDirectory, false, '权限页混入法卷目录');
-  assert.equal(permissions.hasJadeRecord, false, '权限页混入悟道玉简录法');
+  assert.equal(permissions.hasJadeRecord, false, '权限页混入录法内容');
 
   const overview = await cdp.evaluate(openOverviewExpression);
   assert.equal(overview.activeMainTab, '总览', '未切回总览页');
-  assert.equal(overview.metricCount, 3, '已绑定总览指标不完整');
+  assert.equal(overview.metricCount, 2, '已绑定总览指标不完整');
   assert.match(overview.overviewText, /源法2 部/, '总览未显示源法数量');
-  assert.match(overview.overviewText, /玉简道韵2 道/, '总览未显示玉简道韵数量');
   assert.match(overview.overviewText, /法脉所录/, '总览未显示录入构成');
   assert.match(overview.overviewText, /圆满六维总加成/, '总览六维标题不符合玩家语义');
   assert.doesNotMatch(overview.overviewText, /预检|二次确认|服务端|客户端|revision|messageKey|Lv\./, '总览仍暴露开发者术语');

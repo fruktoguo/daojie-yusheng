@@ -86,6 +86,12 @@ export class WorldGatewayTechniqueGenerationHelper {
       case 'discard':
         return this.handleDiscard(client, playerId, request);
 
+      case 'adoptBatch':
+        return this.handleAdoptBatch(client, playerId, request);
+
+      case 'discardBatch':
+        return this.handleDiscardBatch(client, playerId, request);
+
       default:
         this.deps.worldClientEventService.emitGatewayError(client, 'UNKNOWN_ACTION', new Error('未知操作'));
         return undefined;
@@ -97,18 +103,27 @@ export class WorldGatewayTechniqueGenerationHelper {
     const realmLv = this.deps.playerRuntimeService.getPlayerRealmLv(playerId);
     const highestRealmLv = this.deps.playerRuntimeService.getPlayerHighestRealmLv(playerId) ?? realmLv;
     const itemSpend = normalizeTechniqueGenerationItemSpend(request.itemSpend);
+    const mode = request.mode === 'batch' ? 'batch' : 'single';
     const currentStatus = await this.techniqueGenerationService!.getCurrentStatusForPlayer(playerId);
     const unlocked = (highestRealmLv ?? 0) >= TECHNIQUE_GENERATION_UNLOCK_REALM_LV;
     const status = {
       available: unlocked,
       unavailableReason: unlocked ? undefined : '需筑基期方可领悟',
       rollRange: realmLv && unlocked
-        ? buildTechniqueGenerationRollRange(realmLv, highestRealmLv ?? realmLv, itemSpend)
+        ? {
+          ...buildTechniqueGenerationRollRange(
+            realmLv,
+            highestRealmLv ?? realmLv,
+            mode === 'batch' ? 1 : itemSpend,
+          ),
+          itemSpendDefault: itemSpend,
+        }
         : undefined,
       currentJob: currentStatus.currentJob,
       currentDraft: currentStatus.currentDraft && currentStatus.currentJob
         ? { jobId: currentStatus.currentJob.jobId, ...currentStatus.currentDraft }
         : null,
+      currentBatch: currentStatus.currentBatch,
     };
     client.emit(S2C.TechniqueGenerationStatus, status);
     if (currentStatus.currentJob && (currentStatus.currentJob.status === 'pending' || currentStatus.currentJob.status === 'running')) {
@@ -116,6 +131,21 @@ export class WorldGatewayTechniqueGenerationHelper {
       setImmediate(() => {
         this.emitGenerationResultWhenReady(client, playerId, activeJobId, 0).catch(() => undefined);
       });
+    }
+    if (currentStatus.currentBatch
+      && (currentStatus.currentBatch.status === 'pending' || currentStatus.currentBatch.status === 'running')) {
+      const activeJobId = currentStatus.currentBatch.jobs[0]?.jobId ?? '';
+      if (activeJobId) {
+        setImmediate(() => {
+          this.emitGenerationResultWhenReady(
+            client,
+            playerId,
+            activeJobId,
+            0,
+            currentStatus.currentBatch!.batchId,
+          ).catch(() => undefined);
+        });
+      }
     }
     return status;
   }
@@ -125,6 +155,7 @@ export class WorldGatewayTechniqueGenerationHelper {
     const category = request.category as TechniqueCategory;
     const playerContext = typeof request.playerContext === 'string' ? request.playerContext : undefined;
     const itemSpend = normalizeTechniqueGenerationItemSpend(request.itemSpend);
+    const mode = request.mode === 'batch' ? 'batch' : 'single';
     const realmLv = this.deps.playerRuntimeService.getPlayerRealmLv(playerId);
 
     if (!realmLv) {
@@ -132,24 +163,30 @@ export class WorldGatewayTechniqueGenerationHelper {
     }
     const highestRealmLv = this.deps.playerRuntimeService.getPlayerHighestRealmLv(playerId) ?? realmLv;
 
+    if (mode === 'batch' && category !== 'internal') {
+      return { success: false, error: '批量领悟当前仅支持内功', errorCode: 'CATEGORY_LOCKED' };
+    }
+
     let result: Awaited<ReturnType<TechniqueGenerationService['requestGeneration']>>;
     try {
       result = await this.runExclusivePlayerAssetMutation(playerId, async () => {
         await this.prepareInventoryForDurableMutation(playerId);
         const fence = this.requireTechniqueGenerationSessionFence(playerId);
-        return this.techniqueGenerationService!.requestGeneration({
+        const common = {
           playerId,
           playerRealmLv: realmLv,
           playerHighestRealmLv: highestRealmLv,
-          category,
           playerContext,
           itemSpend,
           ...fence,
-          applyInventorySnapshot: async (items) => {
+          applyInventorySnapshot: async (items: unknown[]) => {
             this.applyCommittedInventorySnapshot(playerId, items);
           },
           settleFailedRefund: async () => (await this.settleFailedConsumedJobs(client, playerId)) > 0,
-        });
+        };
+        return mode === 'batch'
+          ? this.techniqueGenerationService!.requestBatchGeneration(common)
+          : this.techniqueGenerationService!.requestGeneration({ ...common, category });
       });
     } catch (error: unknown) {
       client.emit(S2C.TechniqueGenerationResult, {
@@ -162,7 +199,7 @@ export class WorldGatewayTechniqueGenerationHelper {
 
     if (result.success && result.jobId) {
       setImmediate(() => {
-        this.emitGenerationResultWhenReady(client, playerId, result.jobId!, 0).catch(() => undefined);
+        this.emitGenerationResultWhenReady(client, playerId, result.jobId!, 0, result.batchId).catch(() => undefined);
       });
       return {
         success: true,
@@ -170,6 +207,8 @@ export class WorldGatewayTechniqueGenerationHelper {
         rolledGrade: result.rolledGrade,
         rolledRealmLv: result.rolledRealmLv,
         itemSpend: result.itemSpend,
+        batchId: result.batchId,
+        batchCount: result.batchCount,
       };
     }
 
@@ -181,7 +220,34 @@ export class WorldGatewayTechniqueGenerationHelper {
     return result;
   }
 
-  private async emitGenerationResultWhenReady(client: Socket, playerId: string, jobId: string, attempt: number): Promise<void> {
+  private async emitGenerationResultWhenReady(
+    client: Socket,
+    playerId: string,
+    jobId: string,
+    attempt: number,
+    batchId?: string,
+  ): Promise<void> {
+    if (batchId) {
+      const previews = await this.techniqueGenerationService!.getBatchPreviews(playerId, batchId);
+      if (previews.length === 0 && attempt < 120) {
+        setTimeout(() => {
+          this.emitGenerationResultWhenReady(client, playerId, jobId, attempt + 1, batchId).catch(() => undefined);
+        }, 1000);
+        return;
+      }
+      client.emit(S2C.TechniqueGenerationResult, previews.length > 0 ? {
+        jobId,
+        batchId,
+        result: 'success',
+        previews,
+      } : {
+        jobId,
+        batchId,
+        result: 'failed',
+        errorMessage: '批量领悟超时，请稍后重试',
+      });
+      return;
+    }
     const result = await this.techniqueGenerationService!.getPreview(playerId, jobId);
     if (!result && attempt < 120) {
       setTimeout(() => {
@@ -198,6 +264,80 @@ export class WorldGatewayTechniqueGenerationHelper {
       result: 'failed',
       errorMessage: '功法领悟超时，请稍后重试',
     });
+  }
+
+  private async handleAdoptBatch(client: Socket, playerId: string, request: Record<string, unknown>): Promise<unknown> {
+    const batchId = String(request.batchId ?? '');
+    let result: Awaited<ReturnType<TechniqueGenerationService['adoptBatchDraft']>>;
+    try {
+      result = await this.runExclusivePlayerAssetMutation(playerId, async () => {
+        await this.prepareTechniqueForDurableMutation(playerId);
+        const fence = this.requireTechniqueGenerationSessionFence(playerId);
+        const player = this.deps.playerRuntimeService.getPlayer?.(playerId);
+        return this.techniqueGenerationService!.adoptBatchDraft({
+          playerId,
+          batchId,
+          learnerRealmLv: this.deps.playerRuntimeService.getPlayerRealmLv(playerId) ?? 1,
+          currentTick: Math.max(0, Math.trunc(Number(player?.lifeElapsedTicks) || 0)),
+          ...fence,
+          applyPendingComprehensions: async (techniqueIds) => {
+            const addPending = this.deps.playerRuntimeService.addPendingTechniqueComprehensionById;
+            if (typeof addPending !== 'function') return;
+            for (const techniqueId of techniqueIds) {
+              addPending.call(this.deps.playerRuntimeService, playerId, techniqueId, 'created', playerId);
+            }
+          },
+        });
+      });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '批量功法采纳失败';
+      client.emit(S2C.TechniqueGenerationResult, { jobId: '', batchId, result: 'failed', errorMessage });
+      return { success: false, error: errorMessage, errorCode: 'ADOPT_FAILED' };
+    }
+    client.emit(S2C.TechniqueGenerationResult, result.success ? {
+      jobId: '',
+      batchId,
+      result: 'learned',
+      techniqueIds: result.techniqueIds,
+      techniqueNames: result.techniqueNames,
+    } : {
+      jobId: '',
+      batchId,
+      result: 'failed',
+      errorMessage: result.error ?? '批量功法采纳失败',
+    });
+    if (result.success) this.deps.worldSyncService?.emitDeltaSync(playerId, client);
+    return result;
+  }
+
+  private async handleDiscardBatch(client: Socket, playerId: string, request: Record<string, unknown>): Promise<unknown> {
+    const batchId = String(request.batchId ?? '');
+    let result: Awaited<ReturnType<TechniqueGenerationService['discardBatchDraft']>>;
+    try {
+      result = await this.runExclusivePlayerAssetMutation(playerId, async () => {
+        await this.prepareInventoryForDurableMutation(playerId);
+        const fence = this.requireTechniqueGenerationSessionFence(playerId);
+        return this.techniqueGenerationService!.discardBatchDraft({
+          playerId,
+          batchId,
+          ...fence,
+          applyInventorySnapshot: async (items) => this.applyCommittedInventorySnapshot(playerId, items),
+        });
+      });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '批量功法放弃失败';
+      client.emit(S2C.TechniqueGenerationResult, { jobId: '', batchId, result: 'failed', errorMessage });
+      return { success: false, error: errorMessage };
+    }
+    client.emit(S2C.TechniqueGenerationResult, {
+      jobId: '',
+      batchId,
+      result: result.success ? 'discarded' : 'failed',
+      errorMessage: result.success ? undefined : result.error ?? '批量功法放弃失败',
+      discardRefund: result.success ? result.refund : undefined,
+    });
+    if (result.success) this.deps.worldSyncService?.emitDeltaSync(playerId, client);
+    return result;
   }
 
   private async refundNoModelFailedJobs(client: Socket, playerId: string): Promise<void> {

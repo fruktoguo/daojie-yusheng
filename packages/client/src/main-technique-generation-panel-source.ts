@@ -3,6 +3,7 @@ import { detailModalHost } from './ui/detail-modal-host';
 import {
   closeTechniqueGenerationPanel,
   getTechniqueGenerationSelectedItemSpend,
+  getTechniqueGenerationSelectedMode,
   openTechniqueGenerationPanel,
   setTechniqueGenerationCallbacks,
   syncTechniqueGenerationState,
@@ -19,17 +20,19 @@ export function createMainTechniqueGenerationPanelSource(
   const { sender } = options;
 
   setTechniqueGenerationCallbacks({
-    onGenerate: (category, playerContext, itemSpend) => {
+    onGenerate: (category, playerContext, itemSpend, mode) => {
       if (category !== 'internal' && category !== 'arts') {
         syncTechniqueGenerationState({ error: '当前仅开放内功和术法' });
         return;
       }
-      sender.sendGenerate(category, playerContext, itemSpend);
-      syncTechniqueGenerationState({ generating: true, currentDraft: null, error: '' });
+      sender.sendGenerate(category, playerContext, itemSpend, mode);
+      syncTechniqueGenerationState({ generating: true, currentDraft: null, currentBatch: null, error: '' });
     },
-    onPreviewItemSpend: (itemSpend) => sender.sendGetStatus(itemSpend),
+    onPreviewItemSpend: (itemSpend, mode) => sender.sendGetStatus(itemSpend, mode),
     onAdopt: (jobId, customName) => sender.sendAdopt(jobId, customName),
     onDiscard: (jobId) => sender.sendDiscard(jobId),
+    onAdoptBatch: (batchId) => sender.sendAdoptBatch(batchId),
+    onDiscardBatch: (batchId) => sender.sendDiscardBatch(batchId),
     onClose: () => detailModalHost.close('technique-generation-panel'),
   });
 
@@ -47,7 +50,10 @@ export function createMainTechniqueGenerationPanelSource(
         renderBody: (body) => body.replaceChildren(),
         onAfterRender: (body) => {
           openTechniqueGenerationPanel(body);
-          sender.sendGetStatus(getTechniqueGenerationSelectedItemSpend());
+          sender.sendGetStatus(
+            getTechniqueGenerationSelectedItemSpend(),
+            getTechniqueGenerationSelectedMode(),
+          );
           syncTechniqueGenerationState({ available: true, unavailableReason: '' });
         },
         onClose: () => closeTechniqueGenerationPanel(),

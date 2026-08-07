@@ -19,6 +19,8 @@ export type TechniqueGenerationJobStatus =
   | 'expired'
   | 'failed';
 
+export type TechniqueGenerationMode = 'single' | 'batch';
+
 export interface GenerationJobResult {
   success: boolean;
   jobId?: string;
@@ -27,6 +29,9 @@ export interface GenerationJobResult {
   itemSpend?: number;
   budgetPercent?: number;
   totalBudget?: number;
+  batchId?: string;
+  batchCount?: number;
+  jobIds?: string[];
   error?: string;
   errorCode?: string;
 }
@@ -41,6 +46,15 @@ export interface AdoptResult {
   success: boolean;
   techniqueId?: string;
   techniqueName?: string;
+  error?: string;
+  errorCode?: string;
+}
+
+export interface BatchAdoptResult {
+  success: boolean;
+  batchId?: string;
+  techniqueIds?: string[];
+  techniqueNames?: string[];
   error?: string;
   errorCode?: string;
 }
@@ -75,6 +89,24 @@ export interface TechniquePreview {
   totalBudget?: number;
 }
 
+export interface TechniqueBatchPreview extends TechniquePreview {
+  jobId: string;
+}
+
+export interface TechniqueGenerationBatchStatus {
+  batchId: string;
+  status: Extract<TechniqueGenerationJobStatus, 'pending' | 'running' | 'generated_draft'>;
+  count: number;
+  createdAt: string;
+  draftExpireAt?: string;
+  jobs: Array<{
+    jobId: string;
+    rolledGrade: TechniqueGrade;
+    rolledRealmLv: number;
+  }>;
+  drafts: TechniqueBatchPreview[];
+}
+
 export interface GenerationStatus {
   available: boolean;
   unavailableReason?: string;
@@ -88,4 +120,5 @@ export interface GenerationStatus {
     draftExpireAt?: string;
   } | null;
   currentDraft: TechniquePreview | null;
+  currentBatch: TechniqueGenerationBatchStatus | null;
 }

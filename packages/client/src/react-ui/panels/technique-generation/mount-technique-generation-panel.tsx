@@ -57,4 +57,8 @@ export function getTechniqueGenerationSelectedItemSpend(): number {
   return techniqueGenerationStore.getState().selectedItemSpend;
 }
 
+export function getTechniqueGenerationSelectedMode(): 'single' | 'batch' {
+  return techniqueGenerationStore.getState().selectedMode;
+}
+
 export { setTechniqueGenerationCallbacks, techniqueGenerationStore };

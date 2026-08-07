@@ -55,9 +55,6 @@ interface TechniqueAggregationGatewayDeps {
     | 'resolveTechniqueLearningConflict'
   > & {
     runExclusiveAssetMutation?: <T>(playerIds: readonly string[], action: () => Promise<T> | T) => Promise<T>;
-    getSessionFence?: (playerId: string) => { runtimeOwnerId?: string | null; sessionEpoch?: number | null } | null;
-    listDirtyPlayerDomains?: () => Map<string, Set<string>>;
-    replaceInventoryItems?: (playerId: string, items: unknown[]) => unknown;
   };
   worldRuntimeService: Pick<WorldRuntimeService, 'getInstanceRuntime' | 'flushInstanceDomains'> & {
     worldRuntimeSectService?: {
@@ -182,23 +179,15 @@ export class WorldGatewayTechniqueAggregationHelper {
               ? undefined
               : normalizeTechniqueUnificationPermissions(request.permissions),
           };
-          const jadePersistenceFence = authoritativeRequest.recordMode === 'jade'
-            ? await this.prepareJadePersistence(playerId)
-            : undefined;
           const published = await this.aggregationService!.publish(current.player, authoritativeRequest, {
             platformInstanceId: current.instance.meta.instanceId,
             platformBuildingId: current.building.id,
             platformOwnerPlayerId: normalizeText(current.building.ownerPlayerId),
             revisionPermissionGranted,
-            ...(jadePersistenceFence ? { jadePersistenceFence } : {}),
           });
           if (!published.ok || !published.result.aggregate) {
             return published;
           }
-          if (published.committedInventoryItems) {
-            this.applyCommittedInventorySnapshot(playerId, published.committedInventoryItems);
-          }
-
           if (boundFamilyId && published.result.aggregate.familyId !== boundFamilyId) {
             return {
               ok: false as const,
@@ -625,10 +614,6 @@ export class WorldGatewayTechniqueAggregationHelper {
       permissions: payload?.permissions
         ? normalizeTechniqueUnificationPermissions(payload.permissions)
         : undefined,
-      recordMode: payload?.recordMode === 'jade' ? 'jade' : 'sources',
-      jadeItemSpend: Number.isFinite(Number(payload?.jadeItemSpend))
-        ? Number(payload.jadeItemSpend)
-        : payload?.jadeItemSpend === undefined ? undefined : Number.NaN,
       sourceTechniqueIds: Array.isArray(payload?.sourceTechniqueIds)
         ? payload.sourceTechniqueIds.map(normalizeText).filter(Boolean)
         : [],
@@ -664,7 +649,6 @@ export class WorldGatewayTechniqueAggregationHelper {
       families: [],
       totalCoveredLeafCount: 0,
       learnedAggregateCount: 0,
-      jadeItemCount: 0,
       platform: {
         buildingId: normalizeText(request.buildingId) || 'unknown',
         displayName: normalizeText(check?.building?.name) || '统法台',
@@ -692,7 +676,6 @@ export class WorldGatewayTechniqueAggregationHelper {
       operationId: request.operationId,
       ok: false,
       operation,
-      recordMode: 'recordMode' in request && request.recordMode === 'jade' ? 'jade' : 'sources',
       code: error.code,
       messageKey: error.messageKey,
       vars: error.vars,
@@ -700,41 +683,6 @@ export class WorldGatewayTechniqueAggregationHelper {
       conflictSourceTechniqueIds: error.conflictSourceTechniqueIds,
       invalidTechniqueIds: error.invalidTechniqueIds,
     };
-  }
-
-  private async prepareJadePersistence(playerId: string): Promise<{
-    expectedRuntimeOwnerId: string;
-    expectedSessionEpoch: number;
-  }> {
-    const dirtyDomains = this.deps.playerRuntimeService.listDirtyPlayerDomains?.().get(playerId)
-      ?? this.deps.playerRuntimeService.getPlayer(playerId)?.dirtyDomains
-      ?? null;
-    const flushDomain = dirtyDomains?.has('snapshot')
-      ? 'snapshot'
-      : dirtyDomains?.has('inventory') ? 'inventory' : null;
-    if (flushDomain) {
-      const flush = this.deps.playerPersistenceFlushService?.flushPlayerDomains;
-      if (typeof flush !== 'function') {
-        throw new Error('technique_aggregation_jade_inventory_flush_unavailable');
-      }
-      const flushed = await flush.call(this.deps.playerPersistenceFlushService, playerId, [flushDomain]);
-      if (!flushed) throw new Error('technique_aggregation_jade_inventory_flush_failed');
-    }
-    const fence = this.deps.playerRuntimeService.getSessionFence?.(playerId);
-    const expectedRuntimeOwnerId = normalizeText(fence?.runtimeOwnerId);
-    const expectedSessionEpoch = Math.max(0, Math.trunc(Number(fence?.sessionEpoch) || 0));
-    if (!expectedRuntimeOwnerId || expectedSessionEpoch <= 0) {
-      throw new Error('technique_aggregation_jade_session_fence_unavailable');
-    }
-    return { expectedRuntimeOwnerId, expectedSessionEpoch };
-  }
-
-  private applyCommittedInventorySnapshot(playerId: string, items: unknown[]): void {
-    const replace = this.deps.playerRuntimeService.replaceInventoryItems;
-    if (typeof replace !== 'function') {
-      throw new Error('technique_aggregation_jade_inventory_runtime_sync_unavailable');
-    }
-    replace.call(this.deps.playerRuntimeService, playerId, items);
   }
 
   private runExclusivePlayerMutation<T>(playerId: string, action: () => Promise<T> | T): Promise<T> {

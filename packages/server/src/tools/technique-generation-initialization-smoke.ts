@@ -6,6 +6,7 @@
 import assert from 'node:assert/strict';
 import type { Pool } from 'pg';
 import {
+  ATTR_KEYS,
   CUSTOM_TECHNIQUE_PROMPT_MAX_LENGTH,
   S2C,
   calcTechniqueAttrValues,
@@ -37,7 +38,16 @@ import {
 import { TechniqueTemplateRegistry } from '../content/registries/technique-template.registry';
 import { validateTechniqueCandidate } from '../runtime/technique-generation/technique-candidate-validator';
 import { calcArtsBudgetMax } from '../runtime/technique-generation/technique-budget-normalizer';
-import { buildTechniquePrompt } from '../runtime/technique-generation/technique-prompt-builder';
+import {
+  buildBatchInternalTechniqueNamingPrompt,
+  buildTechniquePrompt,
+} from '../runtime/technique-generation/technique-prompt-builder';
+import {
+  buildBalancedInternalTechniqueCandidate,
+  createTechniqueGenerationBatchIdentity,
+  resolveTechniqueGenerationBatchId,
+  resolveTechniqueGenerationBatchIndex,
+} from '../runtime/technique-generation/technique-generation-batch';
 import {
   buildTechniqueGenerationRollRange,
   rollBoostedTechniqueOutcome,
@@ -160,6 +170,100 @@ async function testGenerationUnlockUsesHighestRealm(): Promise<void> {
     category: 'internal',
   });
   assert.equal(locked.errorCode, 'REALM_LOCKED', '历史最高境界未达筑基时仍应锁定');
+}
+
+function testBatchGenerationUsesNamingOnlyPromptAndBalancedAttributes(): void {
+  const identity = createTechniqueGenerationBatchIdentity(3);
+  assert.equal(identity.jobIds.length, 3);
+  assert.equal(new Set(identity.jobIds).size, 3);
+  assert.ok(identity.jobIds.every((jobId) => resolveTechniqueGenerationBatchId(jobId) === identity.batchId));
+  assert.deepEqual(identity.jobIds.map(resolveTechniqueGenerationBatchIndex), [1, 2, 3]);
+
+  const candidate = buildBalancedInternalTechniqueCandidate({
+    name: '六合归元功',
+    desc: '引六合清气归于丹田，使筋骨神魂齐头并进，气机往复而不偏于一隅。',
+    maxLayer: 9,
+  });
+  assert.equal(candidate.category, 'internal');
+  assert.equal(candidate.expDifficulty, 1);
+  assert.deepEqual(Object.keys(candidate.attrRatio).sort(), [...ATTR_KEYS].sort());
+  assert.ok(ATTR_KEYS.every((key) => candidate.attrRatio[key] === 1));
+
+  const prompt = buildBatchInternalTechniqueNamingPrompt({
+    playerContext: '清静守一，五行相济',
+    entries: [
+      { index: 1, grade: 'mystic', realmLv: 31 },
+      { index: 2, grade: 'earth', realmLv: 42 },
+    ],
+  });
+  const payload = JSON.parse(prompt.userMessage) as Record<string, unknown>;
+  assert.equal(payload.count, 2);
+  assert.equal(Array.isArray(payload.entries), true);
+  assert.ok(prompt.systemMessage.includes('只为一批内功拟定名称和描述'));
+  assert.ok(prompt.systemMessage.includes('不得输出 category'));
+  assert.ok(!prompt.systemMessage.includes('设计属性权重'));
+}
+
+async function testBatchGenerationConsumesOneJadePerTechnique(): Promise<void> {
+  const queries: QueryRecord[] = [];
+  const pool = createFakeConnectedPool(queries, (sql) => {
+    if (sql.includes('FROM player_presence')) {
+      return { rows: [{ runtime_owner_id: 'runtime:batch-smoke', session_epoch: 9 }], rowCount: 1 };
+    }
+    if (sql.includes('FROM player_inventory_item') && sql.includes('item_id = $2') && sql.includes('FOR UPDATE')) {
+      return { rows: [{ item_instance_id: 'item:batch-wudao', count: 8 }], rowCount: 1 };
+    }
+    if (sql.includes('FROM player_inventory_item') && sql.includes('raw_payload') && !sql.includes('FOR UPDATE')) {
+      return {
+        rows: [{
+          item_instance_id: 'item:batch-wudao',
+          item_id: 'wudao_yujian',
+          count: 5,
+          slot_index: 0,
+          raw_payload: { count: 5 },
+        }],
+        rowCount: 1,
+      };
+    }
+    return { rows: [], rowCount: 0 };
+  });
+  const service = new TechniqueGenerationService();
+  service.initialize({
+    pool,
+    generatedStore: { refreshAfterPublish: async () => undefined } as unknown as GeneratedTechniqueStoreService,
+    modelConfigResolver: async () => createFakeTextModelConfig(),
+  });
+  let executedBatchId = '';
+  let executedJobCount = 0;
+  service.executeBatchGeneration = async (batchId, params) => {
+    executedBatchId = batchId;
+    executedJobCount = params.jobs.length;
+    return { success: true };
+  };
+  let appliedJadeCount = -1;
+  const result = await service.requestBatchGeneration({
+    playerId: 'p_batch_generation_smoke',
+    playerRealmLv: 31,
+    playerHighestRealmLv: 31,
+    playerContext: '六维均衡',
+    itemSpend: 3,
+    expectedRuntimeOwnerId: 'runtime:batch-smoke',
+    expectedSessionEpoch: 9,
+    applyInventorySnapshot: async (items) => {
+      appliedJadeCount = items.find((entry) => entry.itemId === 'wudao_yujian')?.count ?? 0;
+    },
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(result.batchCount, 3);
+  assert.equal(result.itemSpend, 3);
+  assert.equal(result.jobIds?.length, 3);
+  assert.equal(appliedJadeCount, 5);
+  assert.equal(queries.filter((entry) => entry.sql.includes('INSERT INTO technique_generation_job')).length, 3);
+  assert.ok(queries.some((entry) => entry.params?.includes('technique_generation_consume_batch')));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(executedBatchId, result.batchId);
+  assert.equal(executedJobCount, 3);
 }
 
 async function testInitializedServiceConsumesRequestedItemSpend(): Promise<void> {
@@ -1988,6 +2092,8 @@ async function main(): Promise<void> {
   await testUninitializedServiceDoesNotConsumeItem();
   await testNoModelFailsWithoutConsumingItem();
   await testGenerationUnlockUsesHighestRealm();
+  testBatchGenerationUsesNamingOnlyPromptAndBalancedAttributes();
+  await testBatchGenerationConsumesOneJadePerTechnique();
   await testInitializedServiceConsumesRequestedItemSpend();
   await testItemShortageMarksJobFailedAfterAudit();
   await testExecuteGenerationFailureRefundsConsumedItems();

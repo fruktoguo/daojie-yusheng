@@ -338,7 +338,9 @@ export type { C2S_RequestContentTemplates } from './content-resolver-types';
 
 /** AI 功法生成请求。 */
 export type C2S_TechniqueGeneration =
-  | { action: 'getStatus'; itemSpend?: number }
-  | { action: 'generate'; category: 'internal' | 'arts'; playerContext?: string; itemSpend?: number }
+  | { action: 'getStatus'; itemSpend?: number; mode?: 'single' | 'batch' }
+  | { action: 'generate'; category: 'internal' | 'arts'; playerContext?: string; itemSpend?: number; mode?: 'single' | 'batch' }
   | { action: 'adopt'; jobId: string; customName: string }
-  | { action: 'discard'; jobId: string };
+  | { action: 'discard'; jobId: string }
+  | { action: 'adoptBatch'; batchId: string }
+  | { action: 'discardBatch'; batchId: string };

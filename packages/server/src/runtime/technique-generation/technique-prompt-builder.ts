@@ -48,6 +48,15 @@ export interface TechniquePromptOutput {
   userMessage: string;
 }
 
+export interface BatchInternalTechniqueNamingPromptParams {
+  playerContext: string;
+  entries: Array<{
+    index: number;
+    grade: TechniqueGrade;
+    realmLv: number;
+  }>;
+}
+
 const INTERNAL_SYSTEM_PROMPT = `你是修仙游戏的功法设计师。根据玩家需求生成一个完整的内功功法 JSON。
 严格遵循下方约束，不要生成约束里不允许的字段。
 
@@ -70,6 +79,24 @@ AttrKey 枚举：constitution / spirit / perception / talent / strength / meridi
 - 至少分配 2 个维度的权重
 - grade、realmLv、budgetPercent、totalBudget 由服务端随机后注入，不要输出
 - 功法名称和描述要有修仙风格，避免现代用语`;
+
+const BATCH_INTERNAL_NAMING_SYSTEM_PROMPT = `你是修仙游戏的功法命名与文案撰写者。
+本次只为一批内功拟定名称和描述，不参与任何数值、属性、权重、层数或技能设计。
+
+输出格式：只输出一个可被 JSON.parse 直接解析的 JSON 对象，不要输出代码块、解释或额外文字。
+JSON 根对象只能包含 techniques 字段：
+{
+  "techniques": [
+    { "name": "内功名称", "desc": "内功描述" }
+  ]
+}
+
+规则：
+- techniques 数量必须与输入 entries 数量完全一致，并严格保持相同顺序
+- name 必须为中文，${CUSTOM_TECHNIQUE_NAME_MIN_LENGTH}~${CUSTOM_TECHNIQUE_NAME_MAX_LENGTH}字，同批名称不得重复
+- desc 必须为中文，20~60字，描述功法意象、修行方式或气韵
+- 名称和描述须符合对应品阶与境界，不得让低阶功法使用毁天灭地等失衡措辞
+- 不得输出 category、grade、realmLv、attrRatio、属性、权重、maxLayer、expDifficulty、skills 或其他字段`;
 
 const ARTS_SYSTEM_PROMPT = `你是修仙游戏的术法强度设计器。请严格输出单个 JSON 对象，不要输出代码块或解释文本。
 你只能填写强度导向的术法草稿，服务端会把 strength 权重归一化并展开成正式 SkillDef。
@@ -97,6 +124,40 @@ export function buildTechniquePrompt(params: TechniquePromptParams): TechniquePr
   return {
     systemMessage,
     userMessage: JSON.stringify(buildInternalPromptInput(params), null, 2),
+  };
+}
+
+export function buildBatchInternalTechniqueNamingPrompt(
+  params: BatchInternalTechniqueNamingPromptParams,
+): TechniquePromptOutput {
+  return {
+    systemMessage: BATCH_INTERNAL_NAMING_SYSTEM_PROMPT,
+    userMessage: JSON.stringify({
+      task: '为一批已由服务端完成数值生成的内功拟定名称和描述',
+      count: params.entries.length,
+      playerTheme: params.playerContext || undefined,
+      entries: params.entries.map((entry) => {
+        const realmStage = resolveRealmStageInfo(entry.realmLv);
+        return {
+          index: entry.index,
+          grade: entry.grade,
+          gradeLabel: gradeLabel(entry.grade),
+          realmLv: entry.realmLv,
+          realmStage: realmStage.stage,
+          realmStageLabel: realmStage.label,
+        };
+      }),
+      outputSchema: {
+        techniques: params.entries.map(() => ({
+          name: `中文内功名，${CUSTOM_TECHNIQUE_NAME_MIN_LENGTH}到${CUSTOM_TECHNIQUE_NAME_MAX_LENGTH}字`,
+          desc: '中文描述，20到60字',
+        })),
+      },
+      forbiddenFields: [
+        'category', 'grade', 'realmLv', 'attrRatio', 'attributes', 'weights',
+        'maxLayer', 'expDifficulty', 'layers', 'skills', 'budgetPercent', 'totalBudget',
+      ],
+    }, null, 2),
   };
 }
 
