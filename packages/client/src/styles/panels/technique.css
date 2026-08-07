@@ -1290,6 +1290,30 @@
       min-height: 0;
     }
 
+    .tech-modal-stack--with-strength {
+      grid-template-rows: auto auto minmax(0, 1.2fr) minmax(0, 0.9fr) auto;
+    }
+
+    .tech-modal-strength {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 38px;
+      padding: 8px 12px;
+      border: 1px solid color-mix(in srgb, var(--stamp-red) 32%, transparent);
+      background: color-mix(in srgb, var(--stamp-red) 8%, var(--surface-muted));
+      color: var(--ink-grey);
+      font-size: var(--font-size-role-body-13);
+    }
+
+    .tech-modal-strength strong {
+      color: var(--stamp-red);
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-18);
+      line-height: 1;
+    }
+
     .tech-modal-summary {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));

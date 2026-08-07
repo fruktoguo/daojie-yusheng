@@ -4,9 +4,8 @@
  * 维护时要保持 handler 只接收意图、做鉴权和排队，不直接绕过运行时修改权威状态。
  */
 import {
+  compareTechniqueDisplayOrder,
   S2C,
-  TECHNIQUE_GRADE_ORDER,
-  TechniqueRealm,
   deriveTechniqueRealm,
   getTechniqueMaxLevel,
   resolvePlayerFacingContentName,
@@ -21,9 +20,6 @@ const TECHNIQUE_PAGE_DEFAULT_LIMIT = 12;
 const TECHNIQUE_PAGE_MAX_LIMIT = 24;
 const TECHNIQUE_CATEGORY_FILTERS = new Set<string>(['all', 'arts', 'internal', 'divine', 'secret']);
 const TECHNIQUE_STATUS_FILTERS = new Set<string>(['in_progress', 'completed', 'all']);
-const TECHNIQUE_GRADE_SORT_INDEX = new Map(
-  TECHNIQUE_GRADE_ORDER.map((grade, index) => [grade, index] as const),
-);
 
 /** 世界 socket 功法 helper：收敛功法面板低频分页查询入口。 */
 export class WorldGatewayTechniqueHelper {
@@ -47,7 +43,7 @@ export class WorldGatewayTechniqueHelper {
   }
 }
 
-function buildTechniquePagePayload(player: any, payload: any) {
+export function buildTechniquePagePayload(player: any, payload: any) {
   const category = normalizeTechniquePageCategory(payload?.category);
   const status = normalizeTechniquePageStatus(payload?.status);
   const search = normalizeTechniquePageSearch(payload?.search);
@@ -58,7 +54,7 @@ function buildTechniquePagePayload(player: any, payload: any) {
     .filter((entry) => matchesTechniquePageCategory(entry, category))
     .filter((entry) => matchesTechniquePageStatus(entry, status))
     .filter((entry) => matchesTechniquePageSearch(entry, search))
-    .sort(compareTechniqueForPanel);
+    .sort(compareTechniqueDisplayOrder);
   const items = filtered
     .slice(offset, offset + limit)
     .map((entry) => projectTechniquePageItem(entry));
@@ -139,26 +135,6 @@ function matchesTechniquePageSearch(entry: any, search: string): boolean {
   return search.split(' ').every((term) => term.length === 0 || name.includes(term));
 }
 
-function compareTechniqueForPanel(left: any, right: any): number {
-  const realmDiff = getResolvedTechniqueRealm(right) - getResolvedTechniqueRealm(left);
-  if (realmDiff !== 0) {
-    return realmDiff;
-  }
-  const gradeDiff = getTechniqueGradeSortIndex(right?.grade) - getTechniqueGradeSortIndex(left?.grade);
-  if (gradeDiff !== 0) {
-    return gradeDiff;
-  }
-  const realmLevelDiff = normalizeTechniqueNumber(right?.realmLv, 0) - normalizeTechniqueNumber(left?.realmLv, 0);
-  if (realmLevelDiff !== 0) {
-    return realmLevelDiff;
-  }
-  const levelDiff = normalizeTechniqueLevel(right?.level) - normalizeTechniqueLevel(left?.level);
-  if (levelDiff !== 0) {
-    return levelDiff;
-  }
-  return String(left?.name ?? left?.techId ?? '').localeCompare(String(right?.name ?? right?.techId ?? ''), 'zh-CN');
-}
-
 function projectTechniquePageItem(entry: any) {
   const level = normalizeTechniqueLevel(entry?.level);
   const layers = Array.isArray(entry?.layers) ? entry.layers : [];
@@ -186,26 +162,18 @@ function resolveTechniqueCategory(entry: any): TechniqueCategory {
   return category === 'internal' || category === 'divine' || category === 'secret' ? category : 'arts';
 }
 
-function getResolvedTechniqueRealm(entry: any): TechniqueRealm {
-  if (Number.isFinite(Number(entry?.realm))) {
-    return Math.trunc(Number(entry.realm)) as TechniqueRealm;
-  }
-  return deriveTechniqueRealm(normalizeTechniqueLevel(entry?.level), Array.isArray(entry?.layers) ? entry.layers : undefined);
-}
-
-function getTechniqueGradeSortIndex(value: unknown): number {
-  return TECHNIQUE_GRADE_SORT_INDEX.get(normalizeTechniqueGrade(value)) ?? 0;
-}
-
 function normalizeTechniqueGrade(value: unknown): TechniqueGrade {
-  return TECHNIQUE_GRADE_ORDER.includes(value as TechniqueGrade) ? value as TechniqueGrade : 'mortal';
+  return value === 'yellow'
+    || value === 'mystic'
+    || value === 'earth'
+    || value === 'heaven'
+    || value === 'spirit'
+    || value === 'saint'
+    || value === 'emperor'
+    ? value
+    : 'mortal';
 }
 
 function normalizeTechniqueLevel(value: unknown): number {
   return Math.max(1, Math.trunc(Number(value ?? 1) || 1));
-}
-
-function normalizeTechniqueNumber(value: unknown, fallback: number): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
 }

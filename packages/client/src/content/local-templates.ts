@@ -9,6 +9,9 @@ import {
   expandTechniqueAttrRatio,
   expandTechniqueExpCurve,
   expandTechniqueLayerGains,
+  isCreatedTechniqueId,
+  isTechniqueAggregationId,
+  TECHNIQUE_INTERNAL_BUDGET_PERCENT_RANGE,
   type GmEditorItemOption,
   type GmEditorRealmOption,
   type GmEditorTechniqueOption,
@@ -100,7 +103,34 @@ export function fetchTechniqueTemplateForBookItem(
   item: Pick<ItemStack, 'itemId' | 'learnTechniqueId'>,
 ): Promise<GmEditorTechniqueOption | null> {
   const techniqueId = resolveTechniqueIdFromBookItem(item);
-  return techniqueId ? contentResolver.fetchTechnique(techniqueId) : Promise.resolve(null);
+  return techniqueId ? fetchTechniqueTemplateById(techniqueId) : Promise.resolve(null);
+}
+
+/** 按功法 ID 低频补齐完整模板，供功法详情等入口复用。 */
+export function fetchTechniqueTemplateById(techniqueId: string): Promise<GmEditorTechniqueOption | null> {
+  const normalizedTechniqueId = techniqueId.trim();
+  return normalizedTechniqueId ? contentResolver.fetchTechnique(normalizedTechniqueId) : Promise.resolve(null);
+}
+
+/** 读取普通自创功法的生成强度；统合功法使用独立的一成增益规则，不套用此字段。 */
+export function resolveCreatedTechniqueStrengthPercent(techniqueId: string): number | null {
+  if (!isCreatedTechniqueId(techniqueId) || isTechniqueAggregationId(techniqueId)) {
+    return null;
+  }
+  const template = getLocalTechniqueTemplate(techniqueId);
+  if (!template) {
+    return null;
+  }
+  const category = template.category ?? ((template.skills?.length ?? 0) > 0 ? 'arts' : 'internal');
+  if (category !== 'internal' && category !== 'arts') {
+    return null;
+  }
+  const rawBudgetPercent = Number(template.budgetPercent);
+  const budgetPercent = Number.isFinite(rawBudgetPercent) ? rawBudgetPercent : 1;
+  return Math.round(Math.min(
+    TECHNIQUE_INTERNAL_BUDGET_PERCENT_RANGE[1],
+    Math.max(TECHNIQUE_INTERNAL_BUDGET_PERCENT_RANGE[0], budgetPercent),
+  ) * 100);
 }
 
 for (const item of LOCAL_EDITOR_CATALOG.items) {

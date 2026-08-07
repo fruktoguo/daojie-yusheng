@@ -235,7 +235,7 @@ try {
     '技艺升级后 hover 必须直接使用最新服务端投影，不得等待重登',
   );
 
-  const generatedTechniqueId = 'generated.technique.preview.detail';
+  const generatedTechniqueId = 'gen_preview_arts_detail';
   const generatedTechnique = {
     id: generatedTechniqueId,
     name: '星火演法',
@@ -243,6 +243,8 @@ try {
     grade: 'yellow',
     category: 'arts',
     realmLv: 12,
+    budgetPercent: 0.87,
+    totalBudget: 87,
     maxLayer: 3,
     layers: [
       { level: 1, expToNext: 100, attrs: { spirit: 2 } },
@@ -268,7 +270,7 @@ try {
       playerCast: { windupTicks: 7 },
     }],
   };
-  const generatedInternalTechniqueId = 'generated.technique.preview.budgeted-internal';
+  const generatedInternalTechniqueId = 'gen_preview_budgeted_internal';
   const generatedInternalTechnique = {
     id: generatedInternalTechniqueId,
     name: '听潮照影篇',
@@ -317,6 +319,11 @@ try {
   const fetchedGeneratedTechnique = await localTemplates.fetchTechniqueTemplateForBookItem(generatedBook);
   assert.equal(fetchedGeneratedTechnique?.id, generatedTechniqueId, '自创功法书必须能按 learnTechniqueId 读取完整模板');
   assert.deepEqual(requestedTechniqueIds, [generatedTechniqueId], '自创功法详情查询必须只请求当前功法 ID');
+  assert.equal(
+    localTemplates.resolveCreatedTechniqueStrengthPercent(generatedTechniqueId),
+    87,
+    '自创术法详情必须显示服务端确定的 80%-120% 强度',
+  );
   const generatedTooltip = equipmentTooltip.buildItemTooltipPayload(generatedBook);
   const generatedTooltipText = stripHtml(generatedTooltip.lines.join('\n'));
   assert.match(generatedTooltipText, /神识\+9/u, '自创功法属性链必须能读取动态模板的逐层累计属性');
@@ -335,6 +342,16 @@ try {
     learnTechniqueId: generatedInternalTechniqueId,
   };
   await localTemplates.fetchTechniqueTemplateForBookItem(generatedInternalBook);
+  assert.equal(
+    localTemplates.resolveCreatedTechniqueStrengthPercent(generatedInternalTechniqueId),
+    118,
+    '自创内功详情必须显示服务端确定的 80%-120% 强度',
+  );
+  assert.equal(
+    localTemplates.resolveCreatedTechniqueStrengthPercent('ningqi_chengji'),
+    null,
+    '系统功法不得伪造自创功法强度',
+  );
   const generatedInternalTooltip = equipmentTooltip.buildItemTooltipPayload(generatedInternalBook);
   const generatedInternalTooltipText = stripHtml(generatedInternalTooltip.lines.join('\n'));
   assert.match(

@@ -5,7 +5,7 @@
  */
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import type { PlayerState, TechniqueCategory, TechniqueState } from '@mud/shared';
-import { getTechniqueMaxLevel, isTechniqueFullyMastered, isTechniqueLearnLimitReached, TECHNIQUE_GRADE_ORDER } from '@mud/shared';
+import { compareTechniqueDisplayOrder, getTechniqueMaxLevel, isTechniqueFullyMastered, isTechniqueLearnLimitReached } from '@mud/shared';
 import { createPanelStore } from '../../stores/create-panel-store';
 import { getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../../../domain-labels';
 import { getLocalRealmLevelEntry } from '../../../content/local-templates';
@@ -69,7 +69,6 @@ const STATUS_FILTERS: Array<{ value: TechniqueStatusFilter; label: string }> = [
   { value: 'all', label: t('technique.filter.status.all', undefined) },
 ];
 
-const GRADE_SORT_INDEX = new Map(TECHNIQUE_GRADE_ORDER.map((g, i) => [g, i] as const));
 const TECHNIQUE_PANEL_PAGE_SIZE = 12;
 
 function resolveTechniqueCategory(tech: TechniqueState): TechniqueCategory {
@@ -115,12 +114,7 @@ function getTechniqueRealmLevelData(realmLv: number): { displayName: string; lv:
 }
 
 function sortTechniques(techniques: TechniqueState[]): TechniqueState[] {
-  return [...techniques].sort((a, b) => {
-    const ga = GRADE_SORT_INDEX.get(a.grade!) ?? 99;
-    const gb = GRADE_SORT_INDEX.get(b.grade!) ?? 99;
-    if (ga !== gb) return gb - ga;
-    return (b.level ?? 0) - (a.level ?? 0);
-  });
+  return [...techniques].sort(compareTechniqueDisplayOrder);
 }
 
 // ─── Main Component ──────────────────────────────────────────────────────────
@@ -165,6 +159,10 @@ export const TechniquePanel = memo(function TechniquePanel() {
     }
     return counts;
   }, [techniques]);
+  const sortedPendingComprehensions = useMemo(
+    () => [...(pendingComprehensions ?? [])].sort(compareTechniqueDisplayOrder),
+    [pendingComprehensions],
+  );
 
   if (techniques.length === 0 && (pendingComprehensions ?? []).length === 0) {
     return <div className="empty-hint">{t('technique.empty.none-learned', undefined)}</div>;
@@ -205,7 +203,7 @@ export const TechniquePanel = memo(function TechniquePanel() {
           ))}
         </div>
         <div className="tech-panel-list">
-          {(pendingComprehensions ?? []).map((pending) => (
+          {sortedPendingComprehensions.map((pending) => (
             <PendingTechniqueCard
               key={`pending:${pending.techId}`}
               pending={pending}

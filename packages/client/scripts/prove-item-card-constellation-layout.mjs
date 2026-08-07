@@ -83,7 +83,8 @@ const openConstellationFixtureExpression = String.raw`
       variantClass: 'detail-modal--technique',
       title: '周天星图布局检查',
       subtitle: '手机端完整节点链可达',
-      bodyHtml: '<div class="tech-modal-stack">'
+      bodyHtml: '<div class="tech-modal-stack tech-modal-stack--with-strength">'
+        + '<section class="tech-modal-strength" data-tech-modal-strength="true"><span>功法强度</span><strong>118%</strong></section>'
         + '<section class="tech-modal-summary">'
         + '<div class="tech-modal-stat"><span class="tech-modal-label">当前经验</span><span>123456</span></div>'
         + '<div class="tech-modal-stat"><span class="tech-modal-label">总经验</span><span>987654</span></div>'
@@ -141,6 +142,8 @@ const measureConstellationExpression = String.raw`
     const card = document.getElementById('detail-modal-card');
     const body = document.getElementById('detail-modal-body');
     const stack = document.querySelector('.tech-modal-stack');
+    const strength = document.querySelector('[data-tech-modal-strength="true"]');
+    const summary = document.querySelector('.tech-modal-summary');
     const constellationBody = document.querySelector('.tech-modal-pane--constellation .tech-modal-pane-body');
     const root = document.querySelector('[data-tech-constellation-root="true"]');
     const footer = document.querySelector('[data-constellation-proof-footer="true"]');
@@ -148,6 +151,8 @@ const measureConstellationExpression = String.raw`
     if (!(card instanceof HTMLElement)
       || !(body instanceof HTMLElement)
       || !(stack instanceof HTMLElement)
+      || !(strength instanceof HTMLElement)
+      || !(summary instanceof HTMLElement)
       || !(constellationBody instanceof HTMLElement)
       || !(root instanceof HTMLElement)
       || !(footer instanceof HTMLElement)) {
@@ -155,6 +160,8 @@ const measureConstellationExpression = String.raw`
     }
     const bodyRect = body.getBoundingClientRect();
     const rootRect = root.getBoundingClientRect();
+    const strengthRect = strength.getBoundingClientRect();
+    const summaryRect = summary.getBoundingClientRect();
     const constellationBodyRect = constellationBody.getBoundingClientRect();
     const footerRect = footer.getBoundingClientRect();
     return {
@@ -163,6 +170,8 @@ const measureConstellationExpression = String.raw`
       bodyScrollHeight: body.scrollHeight,
       bodyScrollTop: body.scrollTop,
       stackHeight: stack.getBoundingClientRect().height,
+      strengthText: strength.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+      strengthAboveSummary: strengthRect.bottom <= summaryRect.top + 1,
       constellationBodyOverflowY: getComputedStyle(constellationBody).overflowY,
       canvasClientWidth: root.clientWidth,
       canvasClientHeight: root.clientHeight,
@@ -202,6 +211,8 @@ await withClientBrowserProof({ viewport: MOBILE_VIEWPORT, profilePrefix: 'item-c
   assert.equal(await cdp.evaluate(openConstellationFixtureExpression), '周天星图布局检查', '未打开正式功法详情弹层');
   const initial = await cdp.evaluate(measureConstellationExpression);
   assert.equal(initial.bodyOverflowY, 'auto', `手机功法详情未建立单一纵向滚动：${JSON.stringify(initial)}`);
+  assert.equal(initial.strengthText, '功法强度118%', '手机功法详情顶部未显示自创功法强度');
+  assert.equal(initial.strengthAboveSummary, true, '手机功法强度未位于详情摘要上方');
   assert(initial.bodyScrollHeight > initial.bodyClientHeight + 1, '手机功法详情没有形成有效纵向滚动范围');
   assert.equal(initial.constellationBodyOverflowY, 'visible', '手机星图仍被内层容器裁切');
   assert(initial.canvasClientHeight >= 360, `手机星图纵向空间不足：${initial.canvasClientHeight}`);
@@ -247,6 +258,8 @@ await withClientBrowserProof({ viewport: MOBILE_VIEWPORT, profilePrefix: 'item-c
   await delay(150);
   const desktop = await cdp.evaluate(measureConstellationExpression);
   assert.equal(desktop.bodyOverflowY, 'hidden', '桌面功法详情不应改为整页滚动');
+  assert.equal(desktop.strengthText, '功法强度118%', '桌面功法详情顶部未显示自创功法强度');
+  assert.equal(desktop.strengthAboveSummary, true, '桌面功法强度未位于详情摘要上方');
   assert.equal(desktop.constellationBodyOverflowY, 'hidden', '桌面星图内部布局行为发生变化');
   assert(desktop.stackHeight <= desktop.bodyClientHeight + 1, '桌面功法栈超出固定详情区域');
   assert.equal(desktop.nodeCount, 49, '桌面布局切换后星图节点丢失');

@@ -47,6 +47,55 @@ import { isTechniqueAggregationId } from './technique-aggregation';
 const BODY_TRAINING_FINITE_NUMBER_MAX = Number.MAX_VALUE;
 export const TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE = 'attr-multiplier:technique-max';
 
+/** 功法列表展示排序所需的最小字段。 */
+export interface TechniqueDisplayOrderEntry {
+  realmLv?: number | null;
+  grade?: TechniqueGrade | null;
+  level?: number | null;
+  name?: string | null;
+  techId?: string | null;
+}
+
+/**
+ * 统一功法列表的展示顺序：境界等级越高越靠前，同境界下品阶越高越靠前。
+ * 当前层数和名称仅作为稳定的次级排序，不能覆盖境界与品阶优先级。
+ */
+export function compareTechniqueDisplayOrder(
+  left: TechniqueDisplayOrderEntry,
+  right: TechniqueDisplayOrderEntry,
+): number {
+  const realmLevelDiff = normalizeTechniqueDisplayNumber(right.realmLv)
+    - normalizeTechniqueDisplayNumber(left.realmLv);
+  if (realmLevelDiff !== 0) {
+    return realmLevelDiff;
+  }
+  const gradeDiff = resolveTechniqueDisplayGradeIndex(right.grade)
+    - resolveTechniqueDisplayGradeIndex(left.grade);
+  if (gradeDiff !== 0) {
+    return gradeDiff;
+  }
+  const levelDiff = normalizeTechniqueDisplayNumber(right.level)
+    - normalizeTechniqueDisplayNumber(left.level);
+  if (levelDiff !== 0) {
+    return levelDiff;
+  }
+  const nameDiff = String(left.name ?? '').localeCompare(String(right.name ?? ''), 'zh-CN');
+  if (nameDiff !== 0) {
+    return nameDiff;
+  }
+  return String(left.techId ?? '').localeCompare(String(right.techId ?? ''), 'zh-CN');
+}
+
+function normalizeTechniqueDisplayNumber(value: unknown): number {
+  const normalized = Number(value);
+  return Number.isFinite(normalized) ? normalized : 0;
+}
+
+function resolveTechniqueDisplayGradeIndex(grade: TechniqueGrade | null | undefined): number {
+  const index = grade ? TECHNIQUE_GRADE_ORDER.indexOf(grade) : -1;
+  return index >= 0 ? index : 0;
+}
+
 /** 创建全零六维属性对象 */
 export function createZeroAttributes(): Attributes {
   return {

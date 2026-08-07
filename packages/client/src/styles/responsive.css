@@ -424,8 +424,10 @@
       .tech-modal-summary {
         grid-template-columns: 1fr;
       }
-      .tech-modal-stack {
-        grid-template-rows: auto auto auto auto;
+      .tech-modal-stack,
+      .tech-modal-stack--with-strength {
+        grid-template-rows: none;
+        grid-auto-rows: auto;
         height: auto;
         min-height: 100%;
       }

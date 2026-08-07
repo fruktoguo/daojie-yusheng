@@ -276,7 +276,7 @@ export class ContentResolver {
 
   /** 异步获取功法完整模板。 */
   fetchTechnique(techId: string): Promise<GmEditorTechniqueOption | null> {
-    const cached = this.getTechnique(techId);
+    const cached = this.getCompleteTechnique(techId);
     if (cached) {
       return Promise.resolve(cached);
     }
@@ -391,6 +391,16 @@ export class ContentResolver {
     }
     const dynamicItem = this.dynamicItems.get(itemId);
     return dynamicItem?.complete ? dynamicItem.data : null;
+  }
+
+  /** 查询可用于详情页的完整功法模板；精简摘要不能替代强度等静态详情。 */
+  private getCompleteTechnique(techId: string): GmEditorTechniqueOption | null {
+    const staticTechnique = this.staticTechniques.get(techId);
+    if (staticTechnique) {
+      return staticTechnique;
+    }
+    const dynamicTechnique = this.dynamicTechniques.get(techId);
+    return dynamicTechnique?.complete ? dynamicTechnique.data : null;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

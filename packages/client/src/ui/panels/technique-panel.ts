@@ -14,16 +14,18 @@ import {
   calcTechniqueNextLevelGains,
   calcTechniqueNextLevelSpecialStatGains,
   calcTechniqueQiProjectionModifiers,
+  compareTechniqueDisplayOrder,
   deriveTechniqueRealm,
   getTechniqueExpLevelAdjustment,
   getTechniqueMaxLevel,
   isTechniqueFullyMastered,
   isTechniqueLearnLimitReached,
+  isCreatedTechniqueId,
+  isTechniqueAggregationId,
   PlayerState,
   resolveSkillUnlockLevel,
   TECHNIQUE_ATTR_KEYS,
   TECHNIQUE_EXP_LEVEL_DELTA_MULTIPLIER_STEP,
-  TECHNIQUE_GRADE_ORDER,
   TechniqueCategory,
   TechniqueLayerDef,
   TechniqueRealm,
@@ -32,7 +34,14 @@ import {
   type S2C_TechniquePage,
 } from '@mud/shared';
 import { getTechniqueCategoryLabel, getTechniqueGradeLabel, getTechniqueRealmLabel } from '../../domain-labels';
-import { getLocalRealmLevelEntry, resolveClientTechniqueName, resolvePreviewTechnique, resolvePreviewTechniques } from '../../content/local-templates';
+import {
+  fetchTechniqueTemplateById,
+  getLocalRealmLevelEntry,
+  resolveClientTechniqueName,
+  resolveCreatedTechniqueStrengthPercent,
+  resolvePreviewTechnique,
+  resolvePreviewTechniques,
+} from '../../content/local-templates';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { confirmModalHost } from '../confirm-modal-host';
 import { detailModalHost } from '../detail-modal-host';
@@ -139,10 +148,6 @@ const TECHNIQUE_STATUS_FILTERS: Array<{
   { value: 'all', label: t('technique.filter.status.all', undefined) },
 ];
 
-/** TECHNIQUE_GRADE_SORT_INDEX：TECHNIQUE GRADE排序索引映射。 */
-const TECHNIQUE_GRADE_SORT_INDEX = new Map(
-  TECHNIQUE_GRADE_ORDER.map((grade, index) => [grade, index] as const),
-);
 const TECHNIQUE_PANEL_PAGE_SIZE = 12;
 const TECHNIQUE_SEARCH_DEBOUNCE_MS = 180;
 
@@ -320,11 +325,6 @@ function getPlayerRealmLv(player?: PlayerState): number | null {
   return Number.isFinite(realmLv) ? Math.max(1, Math.floor(Number(realmLv))) : null;
 }
 
-/** getTechniqueGradeSortIndex：读取Technique Grade排序索引。 */
-function getTechniqueGradeSortIndex(tech: TechniqueState): number {
-  return TECHNIQUE_GRADE_SORT_INDEX.get(tech.grade ?? 'mortal') ?? -1;
-}
-
 /** getRealmLevelDisplayName：读取境界等级显示名称。 */
 function getRealmLevelDisplayName(realmLv: number): string {
   const entry = getLocalRealmLevelEntry(realmLv);
@@ -362,25 +362,7 @@ function buildTechniqueExpTooltipLines(tech: TechniqueState, player?: PlayerStat
 
 /** sortTechniquesForPanel：排序Techniques For面板。 */
 function sortTechniquesForPanel(techniques: TechniqueState[]): TechniqueState[] {
-  return [...techniques].sort((left, right) => {
-    const realmDelta = getResolvedTechniqueRealm(right) - getResolvedTechniqueRealm(left);
-    if (realmDelta !== 0) {
-      return realmDelta;
-    }
-    const gradeDelta = getTechniqueGradeSortIndex(right) - getTechniqueGradeSortIndex(left);
-    if (gradeDelta !== 0) {
-      return gradeDelta;
-    }
-    const realmLevelDelta = right.realmLv - left.realmLv;
-    if (realmLevelDelta !== 0) {
-      return realmLevelDelta;
-    }
-    const levelDelta = right.level - left.level;
-    if (levelDelta !== 0) {
-      return levelDelta;
-    }
-    return left.name.localeCompare(right.name, 'zh-CN');
-  });
+  return [...techniques].sort(compareTechniqueDisplayOrder);
 }
 
 /** findTechniqueRealmStartLevel：查找Technique境界Start等级。 */
@@ -926,6 +908,17 @@ export class TechniquePanel {
     const openedTech = this.findPreviewTechnique(techId);
     this.openLayerLevel = openedTech?.level ?? null;
     this.renderModal();
+    if (
+      isCreatedTechniqueId(techId)
+      && !isTechniqueAggregationId(techId)
+      && resolveCreatedTechniqueStrengthPercent(techId) === null
+    ) {
+      void fetchTechniqueTemplateById(techId).then(() => {
+        if (this.openTechId === techId) {
+          this.renderModal();
+        }
+      });
+    }
   }
 
   /** renderList：渲染列表。 */
@@ -1386,6 +1379,17 @@ export class TechniquePanel {
     const focusHtml = this.renderLayerFocus(tech, layers, selectedLevel, skillsByLevel, milestones);
     const constellationSignature = this.buildConstellationStructureSignature(layers, skillsByLevel);
     const totalExp = calcTechniqueTotalExp(tech);
+    const showsCreatedTechniqueStrength = isCreatedTechniqueId(tech.techId)
+      && !isTechniqueAggregationId(tech.techId);
+    const strengthPercent = showsCreatedTechniqueStrength
+      ? resolveCreatedTechniqueStrengthPercent(tech.techId)
+      : null;
+    const strengthHtml = showsCreatedTechniqueStrength
+      ? `<section class="tech-modal-strength" data-tech-modal-strength="true">
+          <span>功法强度</span>
+          <strong>${strengthPercent === null ? '读取中' : `${formatDisplayInteger(strengthPercent)}%`}</strong>
+        </section>`
+      : '';
     detailModalHost.open({
       ownerId: TechniquePanel.MODAL_OWNER,
       size: 'wide',
@@ -1399,7 +1403,8 @@ export class TechniquePanel {
         maxLevel: formatDisplayInteger(maxLevel),
       }),
       bodyHtml: `
-      <div class="tech-modal-stack">
+      <div class="tech-modal-stack${showsCreatedTechniqueStrength ? ' tech-modal-stack--with-strength' : ''}">
+        ${strengthHtml}
         <section class="tech-modal-summary">
           <div class="tech-modal-stat">
             <span class="tech-modal-label">${t('technique.modal.label.current-exp', undefined)}</span>
@@ -2028,7 +2033,8 @@ export class TechniquePanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const techniques = this.getDisplayTechniques();
-    const pendingComprehensions = this.lastState.pendingComprehensions ?? this.lastState.previewPlayer?.pendingTechniqueComprehensions ?? [];
+    const pendingComprehensions = [...(this.lastState.pendingComprehensions ?? this.lastState.previewPlayer?.pendingTechniqueComprehensions ?? [])]
+      .sort(compareTechniqueDisplayOrder);
     const hasPagedListContext = this.hasPagedListContext();
     if (techniques.length === 0 && pendingComprehensions.length === 0 && !hasPagedListContext) {
       return false;
