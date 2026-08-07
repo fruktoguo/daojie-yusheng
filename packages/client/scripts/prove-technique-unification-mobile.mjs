@@ -291,6 +291,42 @@ const sourceInteractionExpression = String.raw`
   })()
 `;
 
+const openPublishConfirmExpression = String.raw`
+  (() => {
+    const modal = window.__techniqueUnificationProofModal;
+    const buildPanel = window.__techniqueUnificationBuildPanel;
+    window.__techniqueUnificationPublishPayload = null;
+    modal.openTechniqueAggregation('building:mobile-proof');
+    modal.handleTechniqueAggregationPanel(buildPanel());
+    document.querySelector('[data-primary-tab="record"]')?.click();
+    const name = document.querySelector('[data-technique-aggregation-name="true"]');
+    const cards = Array.from(document.querySelectorAll('.technique-aggregation-source'));
+    if (!(name instanceof HTMLInputElement)
+      || !(cards[0] instanceof HTMLButtonElement)
+      || !(cards[1] instanceof HTMLButtonElement)) {
+      throw new Error('统法台凝篇确认准备失败');
+    }
+    name.value = '太玄归一真经';
+    name.dispatchEvent(new Event('input', { bubbles: true }));
+    cards[0].click();
+    cards[1].click();
+    document.querySelector('[data-craft-action="technique-aggregation-publish"]')?.click();
+    const title = document.querySelector('.confirm-modal-title')?.textContent?.trim() ?? '';
+    const subtitle = document.querySelector('.confirm-modal-subtitle')?.textContent?.trim() ?? '';
+    const body = document.querySelector('.confirm-modal-body')?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+    const confirmLabel = document.querySelector('[data-confirm-modal-confirm="true"]')?.textContent?.trim() ?? '';
+    const payloadBeforeConfirm = window.__techniqueUnificationPublishPayload;
+    document.querySelector('[data-confirm-modal-confirm="true"]')?.click();
+    const payloadAfterConfirm = window.__techniqueUnificationPublishPayload;
+    modal.handleTechniqueAggregationResult({
+      ok: false,
+      code: 'TECHNIQUE_AGGREGATE_NOT_READY',
+      messageKey: 'technique.aggregation.technique_aggregate_not_ready',
+    });
+    return { title, subtitle, body, confirmLabel, payloadBeforeConfirm, payloadAfterConfirm };
+  })()
+`;
+
 const openPermissionsExpression = String.raw`
   (() => {
     const modal = window.__techniqueUnificationProofModal;
@@ -455,6 +491,15 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'technique-uni
   assert.equal(interaction.gradeValue, 'yellow', '品阶过滤未切换到黄阶');
   assert.equal(interaction.sparseCount, 2, '黄阶少量法卷筛选结果错误');
   assert(interaction.maxSparseWidth <= 180, '只有两部法卷时卡格被拉伸过宽');
+
+  const publishConfirm = await cdp.evaluate(openPublishConfirmExpression);
+  assert.equal(publishConfirm.title, '确认凝成首卷', '首次凝篇未经过二次确认');
+  assert.equal(publishConfirm.subtitle, '法脉「太玄归一真经」', '二次确认未展示法脉名讳');
+  assert.match(publishConfirm.body, /法脉名讳一经凝篇，往后不可更改/, '二次确认未强调名讳不可更改');
+  assert.equal(publishConfirm.confirmLabel, '确认凝篇', '二次确认按钮文案错误');
+  assert.equal(publishConfirm.payloadBeforeConfirm, null, '二次确认前不应提交凝篇请求');
+  assert.equal(publishConfirm.payloadAfterConfirm?.customName, '太玄归一真经', '确认后提交的法脉名讳错误');
+  assert.equal(publishConfirm.payloadAfterConfirm?.sourceTechniqueIds?.length, 2, '确认后提交的源法数量错误');
 
   await cdp.send('Emulation.setDeviceMetricsOverride', {
     width: SHORT_VIEWPORT.width,

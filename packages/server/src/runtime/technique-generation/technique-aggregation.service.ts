@@ -110,13 +110,18 @@ export class TechniqueAggregationService {
     return this.generatedTechniqueStoreService.getAggregateMetadata(techniqueId);
   }
 
+  getLatestAggregateForFamily(familyIdInput: string) {
+    const familyId = normalizeText(familyIdInput);
+    return familyId ? this.generatedTechniqueStoreService.getLatestAggregateForFamily(familyId) : undefined;
+  }
+
   /** 新玩家拿到旧版本书籍时，统一指向同一家族的最新不可变版本。 */
   resolveLatestTechniqueId(techniqueIdInput: string): string {
     const techniqueId = normalizeText(techniqueIdInput);
     if (!techniqueId) return '';
     const metadata = this.generatedTechniqueStoreService.getAggregateMetadata(techniqueId);
     if (!metadata) return techniqueId;
-    return this.generatedTechniqueStoreService.getLatestAggregateForFamily(metadata.familyId)?.techniqueId ?? techniqueId;
+    return this.getLatestAggregateForFamily(metadata.familyId)?.techniqueId ?? techniqueId;
   }
 
   listMetadata(): Array<{ techniqueId: string; metadata: TechniqueAggregationMetadata }> {
@@ -131,12 +136,15 @@ export class TechniqueAggregationService {
     const instanceId = normalizeText(instanceIdInput);
     const buildingId = normalizeText(buildingIdInput);
     if (!instanceId || !buildingId) return undefined;
-    return this.listMetadata()
+    const latest = this.listMetadata()
       .filter((entry) => (
         entry.metadata.platformInstanceId === instanceId
         && entry.metadata.platformBuildingId === buildingId
       ))
       .sort((left, right) => right.metadata.revision - left.metadata.revision)[0];
+    if (!latest) return undefined;
+    const template = this.generatedTechniqueStoreService.getById(latest.techniqueId);
+    return template ? { ...latest, template } : undefined;
   }
 
   /** 读取学习候选与当前覆盖情况；该方法不修改玩家状态。 */

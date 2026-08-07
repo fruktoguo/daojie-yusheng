@@ -260,8 +260,12 @@
     ],
     "cost": [
       {
-        "itemId": "mat.technique_unification_test",
-        "count": 1
+        "itemId": "wood",
+        "count": 4
+      },
+      {
+        "itemId": "stone",
+        "count": 2
       }
     ],
     "traits": [
@@ -274,7 +278,7 @@
       "earth": 4
     },
     "durabilityMultiplier": 90,
-    "buildTicks": 1800,
+    "buildTicks": 21600,
     "maxHp": 110,
     "stability": 10,
     "comfort": 3,

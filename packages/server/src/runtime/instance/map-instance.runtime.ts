@@ -1873,7 +1873,7 @@ class MapInstanceRuntime {
     /** updateTechniqueUnificationPlatformState：在实例权威边界内绑定法脉或更新权限。 */
     updateTechniqueUnificationPlatformState(
         buildingIdInput,
-        input: { familyId?: unknown; permissions?: unknown } = {},
+        input: { familyId?: unknown; permissions?: unknown; techniqueName?: unknown } = {},
     ) {
         const buildingId = normalizeBuildingId(buildingIdInput);
         const familyId = normalizeBuildingId(input?.familyId);
@@ -1890,11 +1890,18 @@ class MapInstanceRuntime {
         }
         const currentPermissions = normalizeTechniqueUnificationPermissions(building.techniqueAggregationPermissions);
         const nextPermissions = normalizeTechniqueUnificationPermissions(input?.permissions);
-        if (currentFamilyId === familyId && haveSameTechniqueUnificationPermissions(currentPermissions, nextPermissions)) {
+        const techniqueName = normalizeBuildingId(input?.techniqueName);
+        const nextName = techniqueName ? `统法台：${techniqueName}` : building.name;
+        if (currentFamilyId === familyId
+            && haveSameTechniqueUnificationPermissions(currentPermissions, nextPermissions)
+            && building.name === nextName) {
             return { ok: true, building, changed: false };
         }
         building.techniqueAggregationFamilyId = familyId;
         building.techniqueAggregationPermissions = nextPermissions;
+        if (techniqueName) {
+            building.name = nextName;
+        }
         building.updatedAtTick = Math.max(0, Math.trunc(Number(this.tick) || 0));
         building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
         this.localBuildingViewCacheById.delete(building.id);

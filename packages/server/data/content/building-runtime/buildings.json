@@ -69,7 +69,7 @@
     "placement": { "layer": "facility", "footprint": [{ "dx": 0, "dy": 0 }] },
     "topology": { "blocksMove": false, "blocksSight": false },
     "fengShui": { "elementVector": { "wood": 12, "water": 8, "earth": 4 }, "traits": ["facility.technique_unification", "storage.technique_lineage"], "comfort": 3, "stability": 10, "qiAffinity": 2 },
-    "economy": { "buildTicks": 1800, "durabilityMultiplier": 90, "maxHp": 110, "cost": [{ "itemId": "mat.technique_unification_test", "count": 1 }] }
+    "economy": { "buildTicks": 21600, "durabilityMultiplier": 90, "maxHp": 110, "cost": [{ "itemId": "wood", "count": 4 }, { "itemId": "stone", "count": 2 }] }
   },
   {
     "id": "time_chamber",

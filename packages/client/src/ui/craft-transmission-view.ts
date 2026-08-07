@@ -90,6 +90,7 @@ export interface CraftTransmissionParent {
 }
 
 const TECHNIQUE_REFINING_CONFIRM_OWNER = 'craft-workbench-modal:technique-refining-confirm';
+const TECHNIQUE_AGGREGATION_PUBLISH_CONFIRM_OWNER = 'craft-workbench-modal:technique-aggregation-publish-confirm';
 const TECHNIQUE_COMPREHENSION_DISCARD_CONFIRM_OWNER = 'craft-workbench-modal:technique-comprehension-discard-confirm';
 const TRANSMISSION_STATUS_REQUEST_TIMEOUT_MS = 5_000;
 const TECHNIQUE_AGGREGATION_PAGE_SIZE = 12;
@@ -392,6 +393,7 @@ export class CraftTransmissionView {
   }
 
   closeTechniqueAggregation(): void {
+    confirmModalHost.close(TECHNIQUE_AGGREGATION_PUBLISH_CONFIRM_OWNER);
     this.techniqueAggregationBuildingId = '';
     this.techniqueAggregationPanel = null;
     this.techniqueAggregationFamilyId = '';
@@ -2091,6 +2093,25 @@ export class CraftTransmissionView {
     }
   }
 
+  private openTechniqueAggregationPublishConfirmModal(): void {
+    if (!this.canPublishTechniqueAggregation()) return;
+    const family = this.getBoundTechniqueAggregationFamily();
+    const techniqueName = family?.name ?? this.techniqueAggregationNameDraft.trim();
+    const selectedCount = this.getSelectedTechniqueAggregationSources().length;
+    confirmModalHost.open({
+      ownerId: TECHNIQUE_AGGREGATION_PUBLISH_CONFIRM_OWNER,
+      title: family ? '确认续录新卷' : '确认凝成首卷',
+      subtitle: `法脉「${techniqueName}」`,
+      bodyHtml: family
+        ? `<div class="alchemy-summary-metric"><span class="alchemy-summary-metric-label">本次续录</span><strong class="alchemy-summary-metric-value">${formatDisplayInteger(selectedCount)} 部圆满内功</strong></div><div class="empty-hint">续录完成后，新卷将承接既有法脉名讳与全部源法。</div>`
+        : `<div class="alchemy-summary-metric"><span class="alchemy-summary-metric-label">法脉名讳</span><strong class="alchemy-summary-metric-value">${escapeHtml(techniqueName)}</strong></div><div class="alchemy-summary-metric"><span class="alchemy-summary-metric-label">首卷收录</span><strong class="alchemy-summary-metric-value">${formatDisplayInteger(selectedCount)} 部圆满内功</strong></div><div class="market-action-hint market-action-hint--error"><strong>法脉名讳一经凝篇，往后不可更改。</strong><br>请确认名讳无误后再行统法。</div>`,
+      confirmLabel: family ? '确认续录' : '确认凝篇',
+      cancelLabel: '返回查验',
+      ...(!family ? { confirmButtonClass: 'danger' } : {}),
+      onConfirm: () => this.publishTechniqueAggregation(),
+    });
+  }
+
   private updateTechniqueAggregationPermission(): void {
     const panel = this.techniqueAggregationPanel;
     if (!panel?.platform.isOwner
@@ -2273,7 +2294,7 @@ export class CraftTransmissionView {
       return true;
     }
     if (action === 'technique-aggregation-publish') {
-      this.publishTechniqueAggregation();
+      this.openTechniqueAggregationPublishConfirmModal();
       return true;
     }
     if (action === 'technique-aggregation-save-permission') {

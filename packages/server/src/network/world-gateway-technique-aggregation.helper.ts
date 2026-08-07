@@ -203,6 +203,7 @@ export class WorldGatewayTechniqueAggregationHelper {
               current,
               published.result.aggregate.familyId,
               normalizeTechniqueUnificationPermissions(authoritativeRequest.permissions),
+              published.result.aggregate.name,
             );
           }
           const learned = this.deps.playerRuntimeService.learnPublishedAggregateTechniqueById(
@@ -505,7 +506,20 @@ export class WorldGatewayTechniqueAggregationHelper {
   }
 
   private async recoverPlatformBinding(check: Extract<AggregationBuildingCheck, { ok: true }>): Promise<void> {
-    if (normalizeText(check.building.techniqueAggregationFamilyId) || !this.aggregationService) return;
+    if (!this.aggregationService) return;
+    const currentFamilyId = normalizeText(check.building.techniqueAggregationFamilyId);
+    if (currentFamilyId) {
+      const latest = this.aggregationService.getLatestAggregateForFamily(currentFamilyId);
+      if (!latest) return;
+      const changed = this.bindPlatform(
+        check,
+        currentFamilyId,
+        this.getPlatformPermissions(check.building),
+        latest.template.name,
+      );
+      if (changed) await this.flushPlatform(check);
+      return;
+    }
     const recovered = this.aggregationService.findLatestAggregateForPlatform(
       check.instance.meta.instanceId,
       check.building.id,
@@ -518,6 +532,7 @@ export class WorldGatewayTechniqueAggregationHelper {
         recovered.metadata.initialPermissions,
         DEFAULT_TECHNIQUE_UNIFICATION_PERMISSIONS,
       ),
+      recovered.template.name,
     );
     if (changed) await this.flushPlatform(check);
   }
@@ -526,22 +541,24 @@ export class WorldGatewayTechniqueAggregationHelper {
     check: Extract<AggregationBuildingCheck, { ok: true }>,
     familyId: string,
     permissions: TechniqueUnificationPermissions,
+    techniqueName?: string,
   ): boolean {
     const currentFamilyId = normalizeText(check.building.techniqueAggregationFamilyId);
     if (currentFamilyId && currentFamilyId !== familyId) {
       throw new Error(`technique_unification_platform_already_bound:${check.building.id}`);
     }
-    return this.writePlatformState(check, familyId, permissions);
+    return this.writePlatformState(check, familyId, permissions, techniqueName);
   }
 
   private writePlatformState(
     check: Extract<AggregationBuildingCheck, { ok: true }>,
     familyId: string,
     permissions: TechniqueUnificationPermissions,
+    techniqueName?: string,
   ): boolean {
     const mutation = check.instance.updateTechniqueUnificationPlatformState?.(
       check.building.id,
-      { familyId, permissions },
+      { familyId, permissions, techniqueName },
     );
     if (!mutation?.ok) {
       throw new Error(`${mutation?.reason ?? 'technique_unification_platform_runtime_unavailable'}:${check.building.id}`);
@@ -560,9 +577,7 @@ export class WorldGatewayTechniqueAggregationHelper {
   }
 
   private resolveLatestFamilyEntry(familyId: string) {
-    return this.aggregationService?.listMetadata()
-      .filter((entry) => entry.metadata.familyId === familyId)
-      .sort((left, right) => right.metadata.revision - left.metadata.revision)[0] ?? null;
+    return this.aggregationService?.getLatestAggregateForFamily(familyId) ?? null;
   }
 
   private getPlatformPermissions(building: any): TechniqueUnificationPermissions {

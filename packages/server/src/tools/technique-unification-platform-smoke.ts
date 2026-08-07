@@ -10,11 +10,8 @@ import {
   type TechniqueUnificationPlatformView,
 } from '@mud/shared';
 import { resolveProjectPath } from '../common/project-path';
-import { ContentTemplateRepository } from '../content/content-template.repository';
 import { WorldGatewayTechniqueAggregationHelper } from '../network/world-gateway-technique-aggregation.helper';
 import { compileBuildingDefinitions } from '../runtime/building/building-content.repository';
-
-const TECHNIQUE_UNIFICATION_TEST_ITEM_ID = 'mat.technique_unification_test';
 
 type RuntimePlayer = {
   playerId: string;
@@ -45,7 +42,7 @@ class TestSocket {
 }
 
 async function main(): Promise<void> {
-  assertTechniqueUnificationConstructionGate();
+  assertTechniqueUnificationConstructionConfig();
   const owner = createPlayer('player:owner', ['gen:a', 'gen:b', 'gen:c']);
   const closeFriend = createPlayer('player:close-friend', ['gen:friend']);
   const innerDisciple = createPlayer('player:inner-disciple', ['gen:inner']);
@@ -84,11 +81,15 @@ async function main(): Promise<void> {
         return { ok: false, reason: 'technique_unification_platform_already_bound' };
       }
       const nextPermissions = normalizeTechniqueUnificationPermissions(input.permissions);
+      const techniqueName = typeof input?.techniqueName === 'string' ? input.techniqueName.trim() : '';
+      const nextName = techniqueName ? `统法台：${techniqueName}` : target.name;
       const changed = target.techniqueAggregationFamilyId !== familyId
-        || JSON.stringify(target.techniqueAggregationPermissions) !== JSON.stringify(nextPermissions);
+        || JSON.stringify(target.techniqueAggregationPermissions) !== JSON.stringify(nextPermissions)
+        || target.name !== nextName;
       if (changed) {
         target.techniqueAggregationFamilyId = familyId;
         target.techniqueAggregationPermissions = nextPermissions;
+        if (techniqueName) target.name = nextName;
         target.revision += 1;
         this.markPersistenceDirtyDomainsHighPriority(['building']);
       }
@@ -227,6 +228,7 @@ async function main(): Promise<void> {
   });
   const boundFamilyId = String(building.techniqueAggregationFamilyId ?? '');
   assert.equal(boundFamilyId, 'family:operation-1');
+  assert.equal(building.name, '统法台：归元正法');
   assert.deepEqual(building.techniqueAggregationPermissions, {
     read: { unrestricted: false, friendLevels: ['close_friend'], sectRoles: [] },
     revision: { unrestricted: false, friendLevels: [], sectRoles: [] },
@@ -235,10 +237,16 @@ async function main(): Promise<void> {
   assert.equal(instanceFlushes.length > 0, true);
   assert.equal(playerFlushes.length > 0, true);
 
+  building.name = '统法台';
+  await helper.handleRequestPanel(ownerSocket as never, { requestId: 'repair-bound-name', buildingId: building.id });
+  assert.equal(building.name, '统法台：归元正法');
+
   delete building.techniqueAggregationFamilyId;
   delete building.techniqueAggregationPermissions;
+  building.name = '统法台';
   await helper.handleRequestPanel(ownerSocket as never, { requestId: 'recover-panel', buildingId: building.id });
   assert.equal(building.techniqueAggregationFamilyId, boundFamilyId);
+  assert.equal(building.name, '统法台：归元正法');
   assert.deepEqual(building.techniqueAggregationPermissions, {
     read: { unrestricted: false, friendLevels: ['close_friend'], sectRoles: [] },
     revision: { unrestricted: false, friendLevels: [], sectRoles: [] },
@@ -369,20 +377,8 @@ async function main(): Promise<void> {
   })}\n`);
 }
 
-/** 锁定统法台正式开放前的临时建造门槛与交易行隔离。 */
-function assertTechniqueUnificationConstructionGate(): void {
-  const contentRepository = new ContentTemplateRepository();
-  contentRepository.loadAll();
-  const testItem = contentRepository.createItem(TECHNIQUE_UNIFICATION_TEST_ITEM_ID, 1);
-  assert.equal(testItem?.name, '测试材料');
-  assert.equal(contentRepository.isItemMarketTradable(TECHNIQUE_UNIFICATION_TEST_ITEM_ID), false);
-  assert.equal(
-    contentRepository.listItemTemplates()
-      .find((item) => item.itemId === TECHNIQUE_UNIFICATION_TEST_ITEM_ID)?.marketTradable,
-    false,
-    '客户端与 GM 共用目录必须保留不可交易标记',
-  );
-
+/** 锁定统法台正式建造配方与最低结构强度。 */
+function assertTechniqueUnificationConstructionConfig(): void {
   const definitions = JSON.parse(readFileSync(resolveProjectPath(
     'packages',
     'server',
@@ -391,10 +387,14 @@ function assertTechniqueUnificationConstructionGate(): void {
     'building-runtime',
     'buildings.json',
   ), 'utf8')) as BuildingDef[];
-  const platform = compileBuildingDefinitions(definitions).defById.get('technique_unification_platform');
+  const compiled = compileBuildingDefinitions(definitions).defById;
+  const refiningTable = compiled.get('technique_refining_table');
+  const platform = compiled.get('technique_unification_platform');
+  assert.ok(refiningTable, '炼法台建筑定义缺失');
   assert.ok(platform, '统法台建筑定义缺失');
-  assert.deepEqual(platform.costItemIds, [TECHNIQUE_UNIFICATION_TEST_ITEM_ID]);
-  assert.deepEqual(Array.from(platform.costCounts), [1]);
+  assert.deepEqual(platform.costItemIds, refiningTable.costItemIds);
+  assert.deepEqual(Array.from(platform.costCounts), Array.from(refiningTable.costCounts));
+  assert.equal(platform.buildTicks, 21_600);
 }
 
 class FakeAggregationService {
@@ -413,10 +413,18 @@ class FakeAggregationService {
     return this.entries.find((entry) => entry.techniqueId === techniqueId)?.metadata;
   }
 
+  getLatestAggregateForFamily(familyId: string) {
+    const latest = [...this.entries]
+      .filter((entry) => entry.metadata.familyId === familyId)
+      .sort((left, right) => right.metadata.revision - left.metadata.revision)[0];
+    return latest ? { ...latest, template: { id: latest.techniqueId, name: latest.name } } : undefined;
+  }
+
   findLatestAggregateForPlatform(instanceId: string, buildingId: string) {
-    return [...this.entries]
+    const latest = [...this.entries]
       .filter((entry) => entry.metadata.platformInstanceId === instanceId && entry.metadata.platformBuildingId === buildingId)
       .sort((left, right) => right.metadata.revision - left.metadata.revision)[0];
+    return latest ? { ...latest, template: { id: latest.techniqueId, name: latest.name } } : undefined;
   }
 
   buildPanel(
