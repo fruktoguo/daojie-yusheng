@@ -118,6 +118,7 @@ const FLOATING_PANEL_TOGGLES: Array<{
 interface SettingsPanelState {
   accountName: string;
   playerId: string;
+  playerNo: number | null;
   displayName: string;
   roleName: string;
 }
@@ -125,6 +126,7 @@ interface SettingsPanelState {
 export const { store: settingsPanelStore, useStore: useSettingsPanelStore } = createPanelStore<SettingsPanelState>({
   accountName: '',
   playerId: '',
+  playerNo: null,
   displayName: '',
   roleName: '',
 });
@@ -382,6 +384,10 @@ const AccountTab = memo(function AccountTab({ state }: { state: SettingsPanelSta
         <div className="account-settings-field ui-form-field">
           <label className="ui-form-label">{t('settings.account.label.current-account', undefined)}</label>
           <input className="ui-input" type="text" value={state.accountName} readOnly />
+        </div>
+        <div className="account-settings-field ui-form-field">
+          <label className="ui-form-label">{t('settings.account.label.player-no', undefined)}</label>
+          <input className="ui-input" type="text" value={state.playerNo ?? '—'} readOnly />
         </div>
       </div>
       <div className="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">

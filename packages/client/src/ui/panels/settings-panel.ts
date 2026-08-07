@@ -162,6 +162,8 @@ export class SettingsPanel {
   private currentAccountName = '';
   /** currentPlayerId：当前玩家ID。 */
   private currentPlayerId = '';
+  /** currentPlayerNo：当前玩家 ID 序号。 */
+  private currentPlayerNo: number | null = null;
   /** currentDisplayName：当前显示名称。 */
   private currentDisplayName = '';
   /** currentRoleName：当前角色名称。 */
@@ -209,6 +211,10 @@ export class SettingsPanel {
     }
     this.currentAccountName = this.options.getCurrentAccountName().normalize('NFC');
     this.currentPlayerId = this.options.getCurrentPlayerId().trim();
+    const playerNo = this.options.getCurrentPlayerNo();
+    this.currentPlayerNo = typeof playerNo === 'number' && Number.isSafeInteger(playerNo) && playerNo > 0
+      ? playerNo
+      : null;
     this.currentDisplayName = this.options.getCurrentDisplayName().normalize('NFC');
     this.currentRoleName = this.options.getCurrentRoleName().normalize('NFC');
     this.displayNameAvailable = true;
@@ -252,14 +258,13 @@ export class SettingsPanel {
   }
 
   private buildSubtitle(): string {
-    const playerNo = this.options?.getCurrentPlayerNo?.() ?? null;
     const base = t('settings.modal.subtitle', {
       account: this.currentAccountName || t('settings.modal.not-logged-in', undefined),
       displayName: this.currentDisplayName || t('settings.modal.not-set', undefined),
       roleName: this.currentRoleName || t('settings.modal.not-set', undefined),
     });
-    if (typeof playerNo === 'number' && playerNo > 0) {
-      return `${base} · 序列：${playerNo}`;
+    if (this.currentPlayerNo !== null) {
+      return `${base} · ${t('settings.account.label.player-no', undefined)}：${this.currentPlayerNo}`;
     }
     return base;
   }
@@ -268,6 +273,7 @@ export class SettingsPanel {
     syncReactSettingsPanelState({
       accountName: this.currentAccountName,
       playerId: this.currentPlayerId,
+      playerNo: this.currentPlayerNo,
       displayName: this.currentDisplayName,
       roleName: this.currentRoleName,
     });
@@ -726,6 +732,10 @@ export class SettingsPanel {
         <div class="account-settings-field ui-form-field">
           <label class="ui-form-label" for="settings-account-name">${escapeHtml(t('settings.account.label.current-account', undefined))}</label>
           <input id="settings-account-name" class="ui-input" type="text" value="${escapeHtml(this.currentAccountName)}" readonly />
+        </div>
+        <div class="account-settings-field ui-form-field">
+          <label class="ui-form-label" for="settings-player-no">${escapeHtml(t('settings.account.label.player-no', undefined))}</label>
+          <input id="settings-player-no" class="ui-input" type="text" value="${escapeHtml(this.currentPlayerNo === null ? '—' : String(this.currentPlayerNo))}" readonly />
         </div>
       </div>
       <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">

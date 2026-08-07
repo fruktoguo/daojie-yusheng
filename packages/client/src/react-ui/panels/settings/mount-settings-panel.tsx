@@ -23,6 +23,7 @@ export function shouldUseReactSettingsPanel(): boolean {
 export function syncReactSettingsPanelState(input: {
   accountName: string;
   playerId: string;
+  playerNo: number | null;
   displayName: string;
   roleName: string;
 }): void {

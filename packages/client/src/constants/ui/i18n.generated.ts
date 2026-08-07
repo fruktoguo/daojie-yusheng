@@ -1817,6 +1817,7 @@ export const CLIENT_I18N_MESSAGES = {
   "settings.account.label.current-password": "当前密码",
   "settings.account.label.display-name": "显示名称",
   "settings.account.label.new-password": "新密码",
+  "settings.account.label.player-no": "ID序号",
   "settings.account.label.role-name": "角色名称",
   "settings.account.placeholder.current-password": "输入当前密码",
   "settings.account.placeholder.display-name": "字",
