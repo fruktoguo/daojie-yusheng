@@ -349,34 +349,6 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
 
           <div className="technique-generation-panel__main">
             <section className="technique-generation-panel__section">
-              <div className="technique-generation-panel__section-title">参悟方式</div>
-              <div className="technique-generation-panel__tabs technique-generation-panel__mode-tabs" role="tablist" aria-label="参悟方式">
-                <button
-                  type="button"
-                  className={`technique-generation-panel__tab ${selectedMode === 'single' ? 'active' : ''}`}
-                  aria-pressed={selectedMode === 'single'}
-                  onClick={() => handleModeChange('single')}
-                >
-                  <span>单部领悟</span>
-                </button>
-                <button
-                  type="button"
-                  className={`technique-generation-panel__tab ${selectedMode === 'batch' ? 'active' : ''} ${selectedCategory !== 'internal' ? 'locked' : ''}`}
-                  disabled={selectedCategory !== 'internal'}
-                  aria-pressed={selectedMode === 'batch'}
-                  onClick={() => handleModeChange('batch')}
-                >
-                  <span>批量领悟</span>
-                  {selectedCategory !== 'internal' && <small>仅限内功</small>}
-                </button>
-              </div>
-              {selectedMode === 'batch' && (
-                <p className="technique-generation-panel__mode-note">
-                  每枚玉简各成一部内功，品阶、境界与强度分别推演；名号与法意由天机拟定，六维权重均衡。
-                </p>
-              )}
-            </section>
-            <section className="technique-generation-panel__section">
               <div className="technique-generation-panel__section-title">功法类型</div>
               <div className="technique-generation-panel__tabs" role="tablist" aria-label="功法类型">
                 {CATEGORY_TABS.map((tab) => (
@@ -394,6 +366,34 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
                 ))}
               </div>
             </section>
+            {selectedCategory === 'internal' && (
+              <section className="technique-generation-panel__section">
+                <div className="technique-generation-panel__section-title">参悟方式</div>
+                <div className="technique-generation-panel__tabs technique-generation-panel__mode-tabs" role="tablist" aria-label="参悟方式">
+                  <button
+                    type="button"
+                    className={`technique-generation-panel__tab ${selectedMode === 'single' ? 'active' : ''}`}
+                    aria-pressed={selectedMode === 'single'}
+                    onClick={() => handleModeChange('single')}
+                  >
+                    <span>单部领悟</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`technique-generation-panel__tab ${selectedMode === 'batch' ? 'active' : ''}`}
+                    aria-pressed={selectedMode === 'batch'}
+                    onClick={() => handleModeChange('batch')}
+                  >
+                    <span>批量领悟</span>
+                  </button>
+                </div>
+                {selectedMode === 'batch' && (
+                  <p className="technique-generation-panel__mode-note">
+                    每枚玉简各成一部内功，品阶、境界与强度分别推演；名号与法意由天机拟定，六维权重均衡。
+                  </p>
+                )}
+              </section>
+            )}
 
             <section className="technique-generation-panel__section technique-generation-panel__section--context">
               <label className="technique-generation-panel__field-label" htmlFor="technique-generation-context">

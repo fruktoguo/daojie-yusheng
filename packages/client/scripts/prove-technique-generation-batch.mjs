@@ -17,6 +17,16 @@ assert.match(panelSource, /全部采纳并学习/);
 assert.match(panelSource, /放弃本批功法/);
 assert.match(panelSource, /六维权重均衡/);
 assert.match(panelSource, /const pageSize = 6/);
+assert.match(
+  panelSource,
+  /功法类型[\s\S]*selectedCategory === 'internal'[\s\S]*参悟方式/,
+  '参悟方式必须位于功法类型之后，并且仅在内功类型下显示',
+);
+assert.doesNotMatch(
+  panelSource,
+  /disabled=\{selectedCategory !== 'internal'\}/,
+  '非内功类型不应保留禁用的批量领悟入口',
+);
 
 assert.match(senderSource, /action: 'adoptBatch'/);
 assert.match(senderSource, /action: 'discardBatch'/);
@@ -32,5 +42,5 @@ assert.match(mobileSource, /\.technique-generation-panel__confirm[\s\S]*max-heig
 console.log(JSON.stringify({
   ok: true,
   case: 'technique-generation-batch',
-  assertions: 15,
+  assertions: 17,
 }));
