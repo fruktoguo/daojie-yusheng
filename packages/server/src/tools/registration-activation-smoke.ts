@@ -39,6 +39,8 @@ async function main(): Promise<void> {
 
     const firstUser = await authStore.findUserByUsername('regact1');
     assert.ok(firstUser?.inviteCode);
+    assert.equal(firstUser?.registerIp, '198.51.100.40');
+    assert.equal(firstUser?.registerDeviceId, 'device-a');
     assert.equal(await authStore.hasObservedAuthIp('198.51.100.40'), true);
     assert.equal(await authStore.hasObservedAuthIp('203.0.113.91'), false);
 
@@ -58,6 +60,22 @@ async function main(): Promise<void> {
       'password123',
       { ip: '203.0.113.91', deviceId: 'device-login', userAgent: 'registration-smoke' },
     );
+    const loggedInUser = await authStore.findUserByUsername('regact1');
+    assert.equal(loggedInUser?.registerIp, '198.51.100.40');
+    assert.equal(loggedInUser?.registerDeviceId, 'device-a');
+    assert.equal(loggedInUser?.lastLoginIp, '203.0.113.91');
+    assert.equal(loggedInUser?.lastLoginDeviceId, 'device-login');
+
+    assert.ok(loggedInUser);
+    await authStore.saveUser({
+      ...loggedInUser,
+      registerIp: '192.0.2.200',
+      registerDeviceId: 'replacement-device',
+      updatedAt: Date.now(),
+    });
+    const preservedRegistrationUser = await authStore.findUserByUsername('regact1');
+    assert.equal(preservedRegistrationUser?.registerIp, '198.51.100.40');
+    assert.equal(preservedRegistrationUser?.registerDeviceId, 'device-a');
     assert.equal(await authStore.hasObservedAuthIp('203.0.113.91'), true);
 
     await assert.rejects(
@@ -182,6 +200,7 @@ async function main(): Promise<void> {
       assertions: [
         'first registration records register_ip in the shared auth store',
         'login records last_login_ip in the same auth store',
+        'registration IP and device remain immutable after login and account updates',
         'registration from a previously logged-in IP requires activation code',
         'invalid activation code is rejected',
         'valid activation code allows registration',

@@ -728,6 +728,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
         playerNo: previous.playerNo,
       };
     }
+    normalized = preserveInitialRegistrationMetadata(normalized, previous);
 
     if (this.pool && this.enabled) {
       normalized = await this.persistUserWithQueryRunner(this.pool, normalized);
@@ -754,6 +755,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
         playerNo: previous.playerNo,
       };
     }
+    normalized = preserveInitialRegistrationMetadata(normalized, previous);
 
     if (this.pool && this.enabled) {
       const client = await this.pool.connect();
@@ -787,10 +789,10 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
   }
 
   private async persistUserWithQueryRunner(
-    runner: { query: <T = { player_no?: unknown }>(sql: string, values?: unknown[]) => Promise<{ rows: T[] }> },
+    runner: { query: <T = { player_no?: unknown; register_ip?: unknown; register_device_id?: unknown }>(sql: string, values?: unknown[]) => Promise<{ rows: T[] }> },
     normalized: NativePlayerAuthUser,
   ): Promise<NativePlayerAuthUser> {
-    const saved = await runner.query<{ player_no?: unknown }>(`
+    const saved = await runner.query<{ player_no?: unknown; register_ip?: unknown; register_device_id?: unknown }>(`
         WITH input_player_no AS (
           SELECT COALESCE($4::bigint, nextval('${PLAYER_AUTH_PLAYER_NO_SEQUENCE}'::regclass)) AS value
         )
@@ -854,12 +856,12 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
           password_hash = EXCLUDED.password_hash,
           total_online_seconds = EXCLUDED.total_online_seconds,
           current_online_started_at = EXCLUDED.current_online_started_at,
-          register_ip = EXCLUDED.register_ip,
+          register_ip = COALESCE(NULLIF(BTRIM(${PLAYER_AUTH_TABLE}.register_ip), ''), EXCLUDED.register_ip),
           last_login_ip = EXCLUDED.last_login_ip,
           last_login_at = EXCLUDED.last_login_at,
           invite_code = EXCLUDED.invite_code,
           register_invitation_code = EXCLUDED.register_invitation_code,
-          register_device_id = EXCLUDED.register_device_id,
+          register_device_id = COALESCE(NULLIF(BTRIM(${PLAYER_AUTH_TABLE}.register_device_id), ''), EXCLUDED.register_device_id),
           last_login_device_id = EXCLUDED.last_login_device_id,
           last_user_agent = EXCLUDED.last_user_agent,
           banned_at = EXCLUDED.banned_at,
@@ -867,8 +869,29 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
           banned_by = EXCLUDED.banned_by,
           created_at = EXCLUDED.created_at,
           updated_at = now(),
-          payload = jsonb_set(EXCLUDED.payload, '{playerNo}', to_jsonb(COALESCE(${PLAYER_AUTH_TABLE}.player_no, EXCLUDED.player_no)), true)
-        RETURNING player_no
+          payload = jsonb_set(
+            jsonb_set(
+              jsonb_set(
+                EXCLUDED.payload,
+                '{playerNo}',
+                to_jsonb(COALESCE(${PLAYER_AUTH_TABLE}.player_no, EXCLUDED.player_no)),
+                true
+              ),
+              '{registerIp}',
+              COALESCE(
+                to_jsonb(COALESCE(NULLIF(BTRIM(${PLAYER_AUTH_TABLE}.register_ip), ''), EXCLUDED.register_ip)),
+                'null'::jsonb
+              ),
+              true
+            ),
+            '{registerDeviceId}',
+            COALESCE(
+              to_jsonb(COALESCE(NULLIF(BTRIM(${PLAYER_AUTH_TABLE}.register_device_id), ''), EXCLUDED.register_device_id)),
+              'null'::jsonb
+            ),
+            true
+          )
+        RETURNING player_no, register_ip, register_device_id
       `, [
         normalized.id,
         normalized.username,
@@ -893,14 +916,13 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
         normalized.createdAt,
         JSON.stringify(toPersistedUser(normalized)),
       ]);
-      const persistedPlayerNo = normalizeOptionalPlayerNo(saved.rows[0]?.player_no);
-      if (persistedPlayerNo !== null) {
-        return {
-          ...normalized,
-          playerNo: persistedPlayerNo,
-        };
-      }
-      return normalized;
+      const persistedRow = saved.rows[0];
+      return {
+        ...normalized,
+        playerNo: normalizeOptionalPlayerNo(persistedRow?.player_no) ?? normalized.playerNo,
+        registerIp: normalizeOptionalString(persistedRow?.register_ip),
+        registerDeviceId: normalizeOptionalString(persistedRow?.register_device_id),
+      };
   }
 
   async getOrCreateRegistrationActivationCodeForSourceText(sourceText: string): Promise<RegistrationActivationCodeRecord> {
@@ -1568,6 +1590,21 @@ function normalizeAuthRecord(raw: AuthRecordCandidate | null | undefined, fallba
     updatedAt: typeof raw.updatedAt === 'number' && Number.isFinite(raw.updatedAt)
       ? Math.max(0, Math.trunc(raw.updatedAt))
       : Date.now(),
+  };
+}
+
+/** 首次写入的注册来源属于审计真源，后续账号更新只能补空，不能改写。 */
+function preserveInitialRegistrationMetadata(
+  current: NativePlayerAuthUser,
+  previous: NativePlayerAuthUser | null,
+): NativePlayerAuthUser {
+  if (!previous) {
+    return current;
+  }
+  return {
+    ...current,
+    registerIp: previous.registerIp ?? current.registerIp,
+    registerDeviceId: previous.registerDeviceId ?? current.registerDeviceId,
   };
 }
 /**
