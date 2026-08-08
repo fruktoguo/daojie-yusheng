@@ -17,6 +17,7 @@ import './styles/ui-primitives.css';
 import './styles/ui-modal.css';
 import './styles/ui-shells.css';
 import './styles/ui-recipes.css';
+import './styles/access-policy.css';
 // 原 panels.css 已按面板领域拆分到 styles/panels/ 下，import 顺序按各文件首条规则在原 panels.css 中的行号排列，保持层叠顺序不变。
 import './styles/panels/panel-common.css';
 import './styles/panels/chat.css';

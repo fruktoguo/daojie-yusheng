@@ -85,6 +85,8 @@ import { TreasureVaultRuntimeService } from './runtime/building/treasure-vault-r
 import { TimeChamberAdmissionPolicy } from './runtime/building/time-chamber-admission.policy';
 import { TimeChamberRuntimeService } from './runtime/building/time-chamber-runtime.service';
 import { SocialRuntimeService } from './runtime/social/social-runtime.service';
+import { AccessPolicyRuntimeService } from './runtime/access/access-policy-runtime.service';
+import { AccessPolicyResourceService } from './runtime/access/access-policy-resource.service';
 import { ChatRuntimeService } from './runtime/chat/chat-runtime.service';
 import { WorldRuntimeNpcShopQueryService } from './runtime/world/query/world-runtime-npc-shop-query.service';
 import { WorldRuntimeQuestQueryService } from './runtime/world/query/world-runtime-quest-query.service';
@@ -300,6 +302,8 @@ const WORLD_GATEWAY_PROVIDERS = shouldStartHttpServer()
     TimeChamberAdmissionPolicy,
     TimeChamberRuntimeService,
     SocialRuntimeService,
+    AccessPolicyRuntimeService,
+    AccessPolicyResourceService,
     WorldRuntimeNpcShopQueryService,
     WorldRuntimeQuestQueryService,
     WorldRuntimeQuestStateService,

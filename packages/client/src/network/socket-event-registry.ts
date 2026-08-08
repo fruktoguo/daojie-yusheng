@@ -93,11 +93,16 @@ export function createSocketServerEventRegistry(deps: SocketServerEventRegistryD
  * on：执行on相关逻辑。
  * @param event TEvent 参数说明。
  * @param cb ServerEventCallback<TEvent> 参数说明。
- * @returns 无返回值，直接更新on相关状态。
+ * @returns 返回取消订阅函数。
  */
 
-    on<TEvent extends BoundServerEventName>(event: TEvent, cb: ServerEventCallback<TEvent>): void {
-      getCallbacks(event).push(cb);
+    on<TEvent extends BoundServerEventName>(event: TEvent, cb: ServerEventCallback<TEvent>): () => void {
+      const bucket = getCallbacks(event);
+      bucket.push(cb);
+      return () => {
+        const index = bucket.indexOf(cb);
+        if (index >= 0) bucket.splice(index, 1);
+      };
     },    
     /**
  * bindSessionEvents：执行bindSession事件相关逻辑。

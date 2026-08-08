@@ -73,6 +73,7 @@ export class SocialRuntimeService implements OnModuleDestroy {
   private messagePruneTimer: ReturnType<typeof setTimeout> | null = null;
   private messagePruneFlushRunning = false;
   private lastDirectMessageSentAt = 0;
+  private readonly relationChangeListeners = new Set<(playerAId: string, playerBId: string) => void>();
 
   constructor(
     @Inject(DatabasePoolProvider) private readonly databasePoolProvider: DatabasePoolProvider,
@@ -110,6 +111,13 @@ export class SocialRuntimeService implements OnModuleDestroy {
       clearTimeout(this.messagePruneTimer);
       this.messagePruneTimer = null;
     }
+    this.relationChangeListeners.clear();
+  }
+
+  /** 注册关系变更监听器，供权限缓存等只读派生层及时失效。 */
+  registerRelationChangeListener(listener: (playerAId: string, playerBId: string) => void): () => void {
+    this.relationChangeListeners.add(listener);
+    return () => this.relationChangeListeners.delete(listener);
   }
 
   isEnabled(): boolean {
@@ -254,6 +262,7 @@ export class SocialRuntimeService implements OnModuleDestroy {
         );
       }
       await client.query('COMMIT');
+      if (accept) this.notifyRelationChanged(request.from_player_id, request.to_player_id);
       return {
         ok: true,
         fromPlayerId: request.from_player_id,
@@ -286,6 +295,7 @@ export class SocialRuntimeService implements OnModuleDestroy {
     if (Number(result.rowCount ?? 0) <= 0) {
       return { ok: false, reason: 'relation_not_found', panel: await this.buildPanel(fromId, runtime) };
     }
+    this.notifyRelationChanged(fromId, toId);
     return { ok: true, panel: await this.buildPanel(fromId, runtime), targetPanel: await this.buildPanel(toId, runtime) };
   }
 
@@ -297,6 +307,7 @@ export class SocialRuntimeService implements OnModuleDestroy {
     }
     const pair = canonicalPair(fromId, toId);
     await this.pool.query(`DELETE FROM ${DAOIST_RELATION_TABLE} WHERE player_a_id = $1 AND player_b_id = $2`, [pair[0], pair[1]]);
+    this.notifyRelationChanged(fromId, toId);
     return { ok: true, panel: await this.buildPanel(fromId, runtime), targetPanel: await this.buildPanel(toId, runtime) };
   }
 
@@ -508,10 +519,19 @@ export class SocialRuntimeService implements OnModuleDestroy {
   }
 
   async areRelated(playerId: string, targetPlayerId: string, minimumLevel: DaoistRelationLevel = 'dao_friend'): Promise<boolean> {
+    const level = await this.resolveRelationLevel(playerId, targetPlayerId);
+    if (minimumLevel === 'close_friend') {
+      return level === 'close_friend';
+    }
+    return level === 'dao_friend' || level === 'close_friend';
+  }
+
+  /** 单次读取双方当前道友层级，供通用权限缓存复用。 */
+  async resolveRelationLevel(playerId: string, targetPlayerId: string): Promise<DaoistRelationLevel | null> {
     const fromId = normalizePlayerId(playerId);
     const toId = normalizePlayerId(targetPlayerId);
     if (!fromId || !toId || fromId === toId || !this.pool || !this.enabled) {
-      return false;
+      return null;
     }
     const pair = canonicalPair(fromId, toId);
     const result = await this.pool.query(
@@ -519,10 +539,7 @@ export class SocialRuntimeService implements OnModuleDestroy {
       [pair[0], pair[1]],
     );
     const level = result.rows?.[0]?.level;
-    if (minimumLevel === 'close_friend') {
-      return level === 'close_friend';
-    }
-    return level === 'dao_friend' || level === 'close_friend';
+    return level === 'close_friend' || level === 'dao_friend' ? level : null;
   }
 
   private async loadRelations(playerId: string, runtime?: any): Promise<DaoistRelationView[]> {
@@ -769,6 +786,19 @@ export class SocialRuntimeService implements OnModuleDestroy {
       name: runtimePlayer?.name,
       displayName: identity?.displayName ?? runtimePlayer?.displayName,
     }, { playerId, fallback: '未知玩家' });
+  }
+
+  private notifyRelationChanged(playerAId: string, playerBId: string): void {
+    const playerA = normalizePlayerId(playerAId);
+    const playerB = normalizePlayerId(playerBId);
+    if (!playerA || !playerB || playerA === playerB) return;
+    for (const listener of this.relationChangeListeners) {
+      try {
+        listener(playerA, playerB);
+      } catch (error) {
+        this.logger.warn(`道友关系变更监听器执行失败：${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
   }
 }
 

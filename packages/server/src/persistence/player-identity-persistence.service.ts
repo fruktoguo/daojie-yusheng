@@ -426,6 +426,43 @@ export class PlayerIdentityPersistenceService {
         }
         return playerIds;
     }
+    /** 按玩家序号批量读取身份，供权限保存前一次性解析稳定 playerId。 */
+    async findPlayerIdentitiesByPlayerNos(playerNos: readonly number[]): Promise<Map<number, any>> {
+        if (!this.pool || !this.enabled) {
+            return new Map();
+        }
+        const normalizedPlayerNos = Array.from(new Set(
+            (playerNos ?? [])
+                .map((value) => Number(value))
+                .filter((value) => Number.isSafeInteger(value) && value > 0),
+        ));
+        if (normalizedPlayerNos.length === 0) {
+            return new Map();
+        }
+        const result = await this.pool.query(`
+          SELECT
+            user_id,
+            username,
+            player_id,
+            player_no,
+            display_name,
+            player_name,
+            persisted_source,
+            updated_at,
+            payload
+          FROM ${PLAYER_IDENTITY_TABLE}
+          WHERE player_no = ANY($1::bigint[])
+        `, [normalizedPlayerNos]);
+        const identitiesByPlayerNo = new Map<number, any>();
+        for (const row of result.rows ?? []) {
+            const normalized = normalizePersistedPlayerIdentityRow(row);
+            const playerNo = Number(normalized?.playerNo);
+            if (normalized?.playerId && Number.isSafeInteger(playerNo) && playerNo > 0) {
+                identitiesByPlayerNo.set(playerNo, normalized);
+            }
+        }
+        return identitiesByPlayerNo;
+    }
     /**
      * 按角色名 / 显示名 / 账号名模糊反查 playerId 列表。
      * 用 ILIKE '%keyword%' 做不区分大小写的子串匹配，限速 LIMIT 防止误输入"a"这类宽匹配卡库。

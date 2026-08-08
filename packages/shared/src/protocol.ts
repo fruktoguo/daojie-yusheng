@@ -17,6 +17,13 @@
 import type * as RequestPayloads from './protocol-request-payload-types';
 import type * as ResponsePayloads from './protocol-response-payload-types';
 import type {
+  AccessPolicyPlayerResultView,
+  AccessPolicyResourceResultView,
+  C2S_RequestAccessPolicyView,
+  C2S_ResolveAccessPolicyPlayerView,
+  C2S_SaveAccessPolicyView,
+} from './access-policy';
+import type {
   TechniqueAggregationPermissionRequest,
   TechniqueAggregationLearnRequest,
   TechniqueAggregationPanelView,
@@ -221,6 +228,9 @@ export const C2S = {
   PublishTechniqueAggregation: 'n:c:publishTechniqueAggregation',
   UpdateTechniqueAggregationPermissions: 'n:c:updateTechniqueAggregationPermissions',
   LearnTechniqueAggregation: 'n:c:learnTechniqueAggregation',
+  RequestAccessPolicy: 'n:c:requestAccessPolicy',
+  ResolveAccessPolicyPlayer: 'n:c:resolveAccessPolicyPlayer',
+  SaveAccessPolicy: 'n:c:saveAccessPolicy',
 } as const;
 
 /** 服务端发往客户端的事件名集合。 */
@@ -294,6 +304,8 @@ export const S2C = {
   TechniqueGenerationResult: 'n:s:techniqueGenerationResult',
   TechniqueAggregationPanel: 'n:s:techniqueAggregationPanel',
   TechniqueAggregationResult: 'n:s:techniqueAggregationResult',
+  AccessPolicyResourceResult: 'n:s:accessPolicyResourceResult',
+  AccessPolicyPlayerResult: 'n:s:accessPolicyPlayerResult',
 } as const;
 
 /** 客户端事件名联合。 */
@@ -440,6 +452,9 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.PublishTechniqueAggregation]: TechniqueAggregationPublishRequest;
   [C2S.UpdateTechniqueAggregationPermissions]: TechniqueAggregationPermissionRequest;
   [C2S.LearnTechniqueAggregation]: TechniqueAggregationLearnRequest;
+  [C2S.RequestAccessPolicy]: C2S_RequestAccessPolicyView;
+  [C2S.ResolveAccessPolicyPlayer]: C2S_ResolveAccessPolicyPlayerView;
+  [C2S.SaveAccessPolicy]: C2S_SaveAccessPolicyView;
 }
 
 /** 服务端事件与载荷映射，作为 bootstrap/panel/delta 的共享护栏。 */
@@ -513,6 +528,8 @@ export interface S2C_PayloadMap extends Record<S2C_EventName, unknown> {
   [S2C.TechniqueGenerationResult]: ResponsePayloads.S2C_TechniqueGenerationResult;
   [S2C.TechniqueAggregationPanel]: TechniqueAggregationPanelView;
   [S2C.TechniqueAggregationResult]: TechniqueAggregationResultView;
+  [S2C.AccessPolicyResourceResult]: AccessPolicyResourceResultView;
+  [S2C.AccessPolicyPlayerResult]: AccessPolicyPlayerResultView;
 }
 
 /** 根据客户端事件名读取对应载荷类型。 */

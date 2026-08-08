@@ -23,6 +23,7 @@ import {
   type ServerToClientEventPayload,
 } from '@mud/shared';
 import { createSocketAdminSender } from './socket-send-admin';
+import { createSocketAccessPolicySender } from './socket-send-access-policy';
 import { createSocketBuildingSender } from './socket-send-building';
 import { createSocketPanelSender } from './socket-send-panel';
 import { createSocketRuntimeSender } from './socket-send-runtime';
@@ -32,6 +33,7 @@ import { createSocketTechniqueGenerationSender } from './socket-send-technique-g
 import { createSocketServerEventRegistry } from './socket-event-registry';
 import { createSocketLifecycleController } from './socket-lifecycle-controller';
 import type { SocketAdminSender } from './socket-send-admin';
+import type { SocketAccessPolicySender } from './socket-send-access-policy';
 import type { SocketBuildingSender } from './socket-send-building';
 import type { SocketPanelSender } from './socket-send-panel';
 import type { SocketRuntimeSender } from './socket-send-runtime';
@@ -87,6 +89,10 @@ export class SocketManager {
   });
   /** AI 功法生成请求发包 owner。 */
   private readonly techniqueGenerationSender = createSocketTechniqueGenerationSender({
+    emitEvent: (event, payload) => this.sendEvent(event, payload),
+  });
+  /** 通用权限编辑的低频请求 owner。 */
+  private readonly accessPolicySender = createSocketAccessPolicySender({
     emitEvent: (event, payload) => this.sendEvent(event, payload),
   });
   /** 服务端事件注册与回调桶 owner。 */
@@ -157,8 +163,8 @@ export class SocketManager {
   on<TEvent extends BoundServerEventName>(
     event: TEvent,
     cb: ServerEventCallback<TEvent>,
-  ): void {
-    this.serverEvents.on(event, cb);
+  ): () => void {
+    return this.serverEvents.on(event, cb);
   }
 
   /** 向服务端发送事件，自动编码载荷。 */
@@ -345,6 +351,10 @@ export class SocketManager {
 
   get techniqueGeneration(): SocketTechniqueGenerationSender {
     return this.techniqueGenerationSender;
+  }
+
+  get accessPolicy(): SocketAccessPolicySender {
+    return this.accessPolicySender;
   }
 }
 

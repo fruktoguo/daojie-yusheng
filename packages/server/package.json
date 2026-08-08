@@ -95,6 +95,7 @@
     "smoke:world-gateway-inventory-helper": "pnpm compile && node dist/tools/world-gateway-inventory-helper-smoke.js",
     "smoke:world-gateway-technique-page": "pnpm compile && node dist/tools/world-gateway-technique-page-smoke.js",
     "smoke:world-runtime-sect-application-page": "pnpm compile && node dist/tools/world-runtime-sect-application-page-smoke.js",
+    "smoke:access-policy": "pnpm compile && node dist/tools/access-policy-runtime-smoke.js",
     "smoke:world-runtime-sect-member-profile": "pnpm compile && node dist/tools/world-runtime-sect-member-profile-smoke.js",
     "smoke:combat-audit-outbox": "pnpm compile && node dist/tools/combat-audit-outbox-smoke.js",
     "smoke:gm-database": "pnpm compile && node dist/tools/gm-database-smoke.js",

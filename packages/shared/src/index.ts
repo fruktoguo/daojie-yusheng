@@ -20,6 +20,7 @@ export * from './automation-types';
 export * from './action-combat-types';
 export * from './activity-types';
 export * from './attribute-types';
+export * from './access-policy';
 export * from './attr-detail-types';
 export * from './client-core-request-types';
 export * from './client-service-request-types';
