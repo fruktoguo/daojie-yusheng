@@ -10,6 +10,8 @@ import {
   type AccessPolicy,
   type AccessPolicyResourceSnapshot,
   type AccessPolicyResourceResultView,
+  type AccessPolicyResourceSetResultView,
+  type AccessPolicyResourceSetSnapshot,
   type ClientToServerEventPayload,
 } from '@mud/shared';
 import type { Socket } from 'socket.io';
@@ -50,6 +52,27 @@ export class WorldGatewayAccessPolicyHelper {
     } catch (error) {
       this.warn('读取权限资源失败', error);
       client.emit(S2C.AccessPolicyResourceResult, failureResourceResult(requestId, 'load', 'access_policy_internal_error'));
+    }
+  }
+
+  async handleRequestAccessPolicySet(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.RequestAccessPolicySet>,
+  ): Promise<void> {
+    const requestId = normalizeRequestId(payload?.requestId);
+    const playerId = this.gateway.gatewayGuardHelper.requireActivePlayerId(client);
+    if (!playerId || !requestId) return;
+    if (!this.allowSet(client, requestId, 'access-policy-set-load', 8)) return;
+    try {
+      if (!this.gateway.accessPolicyResourceService) {
+        client.emit(S2C.AccessPolicyResourceSetResult, failureResourceSetResult(requestId, 'access_policy_service_unavailable'));
+        return;
+      }
+      const result = await this.gateway.accessPolicyResourceService.loadSetForEditor(playerId, payload.ref);
+      client.emit(S2C.AccessPolicyResourceSetResult, toResourceSetResult(requestId, result));
+    } catch (error) {
+      this.warn('读取权限资源组失败', error);
+      client.emit(S2C.AccessPolicyResourceSetResult, failureResourceSetResult(requestId, 'access_policy_internal_error'));
     }
   }
 
@@ -132,9 +155,28 @@ export class WorldGatewayAccessPolicyHelper {
     return false;
   }
 
+  private allowSet(client: Socket, requestId: string, category: string, limit: number): boolean {
+    if (this.gateway.gatewayGuardHelper.checkRateLimit(client, category, limit, 5_000)) return true;
+    client.emit(S2C.AccessPolicyResourceSetResult, failureResourceSetResult(requestId, 'access_policy_rate_limited'));
+    return false;
+  }
+
   private warn(message: string, error: unknown): void {
     this.gateway.logger?.warn(`${message}：${error instanceof Error ? error.message : String(error)}`);
   }
+}
+
+function toResourceSetResult(
+  requestId: string,
+  result: Awaited<ReturnType<AccessPolicyResourceService['loadSetForEditor']>>,
+): AccessPolicyResourceSetResultView {
+  return result.ok === true
+    ? { requestId, ok: true, snapshot: projectResourceSetForEditor(result.snapshot) }
+    : { requestId, ok: false, reason: result.reason };
+}
+
+function failureResourceSetResult(requestId: string, reason: string): AccessPolicyResourceSetResultView {
+  return { requestId, ok: false, reason };
 }
 
 function toResourceResult(
@@ -182,6 +224,22 @@ function normalizeRequestId(value: unknown): string {
 function projectSnapshotForEditor(snapshot: AccessPolicyResourceSnapshot): AccessPolicyResourceSnapshot {
   const { resourceType, resourceId, slot, policy, revision } = snapshot;
   return { resourceType, resourceId, slot, policy: projectPolicyForEditor(policy), revision };
+}
+
+function projectResourceSetForEditor(snapshot: AccessPolicyResourceSetSnapshot): AccessPolicyResourceSetSnapshot {
+  return {
+    resourceType: snapshot.resourceType,
+    resourceId: snapshot.resourceId,
+    title: snapshot.title,
+    slots: snapshot.slots.map((slot) => ({
+      slot: slot.slot,
+      label: slot.label,
+      ...(slot.description ? { description: slot.description } : {}),
+      defaultPolicy: projectPolicyForEditor(slot.defaultPolicy),
+      policy: projectPolicyForEditor(slot.policy),
+      revision: slot.revision,
+    })),
+  };
 }
 
 function projectPolicyForEditor(policy: AccessPolicy): AccessPolicy {

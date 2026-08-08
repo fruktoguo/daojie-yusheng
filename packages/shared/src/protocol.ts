@@ -19,7 +19,9 @@ import type * as ResponsePayloads from './protocol-response-payload-types';
 import type {
   AccessPolicyPlayerResultView,
   AccessPolicyResourceResultView,
+  AccessPolicyResourceSetResultView,
   C2S_RequestAccessPolicyView,
+  C2S_RequestAccessPolicySetView,
   C2S_ResolveAccessPolicyPlayerView,
   C2S_SaveAccessPolicyView,
 } from './access-policy';
@@ -229,6 +231,7 @@ export const C2S = {
   UpdateTechniqueAggregationPermissions: 'n:c:updateTechniqueAggregationPermissions',
   LearnTechniqueAggregation: 'n:c:learnTechniqueAggregation',
   RequestAccessPolicy: 'n:c:requestAccessPolicy',
+  RequestAccessPolicySet: 'n:c:requestAccessPolicySet',
   ResolveAccessPolicyPlayer: 'n:c:resolveAccessPolicyPlayer',
   SaveAccessPolicy: 'n:c:saveAccessPolicy',
 } as const;
@@ -305,6 +308,7 @@ export const S2C = {
   TechniqueAggregationPanel: 'n:s:techniqueAggregationPanel',
   TechniqueAggregationResult: 'n:s:techniqueAggregationResult',
   AccessPolicyResourceResult: 'n:s:accessPolicyResourceResult',
+  AccessPolicyResourceSetResult: 'n:s:accessPolicyResourceSetResult',
   AccessPolicyPlayerResult: 'n:s:accessPolicyPlayerResult',
 } as const;
 
@@ -453,6 +457,7 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.UpdateTechniqueAggregationPermissions]: TechniqueAggregationPermissionRequest;
   [C2S.LearnTechniqueAggregation]: TechniqueAggregationLearnRequest;
   [C2S.RequestAccessPolicy]: C2S_RequestAccessPolicyView;
+  [C2S.RequestAccessPolicySet]: C2S_RequestAccessPolicySetView;
   [C2S.ResolveAccessPolicyPlayer]: C2S_ResolveAccessPolicyPlayerView;
   [C2S.SaveAccessPolicy]: C2S_SaveAccessPolicyView;
 }
@@ -529,6 +534,7 @@ export interface S2C_PayloadMap extends Record<S2C_EventName, unknown> {
   [S2C.TechniqueAggregationPanel]: TechniqueAggregationPanelView;
   [S2C.TechniqueAggregationResult]: TechniqueAggregationResultView;
   [S2C.AccessPolicyResourceResult]: AccessPolicyResourceResultView;
+  [S2C.AccessPolicyResourceSetResult]: AccessPolicyResourceSetResultView;
   [S2C.AccessPolicyPlayerResult]: AccessPolicyPlayerResultView;
 }
 

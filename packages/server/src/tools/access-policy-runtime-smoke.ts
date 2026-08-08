@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 
 import {
+  EVERYONE_ACCESS_POLICY,
   OWNER_ONLY_ACCESS_POLICY,
   cloneAccessPolicy,
   evaluateCompiledAccessPolicy,
@@ -142,34 +143,56 @@ assert.deepEqual(resolved, { playerNo: 10002, playerId: 'player:visitor', roleNa
 
 const resourceService = new AccessPolicyResourceService(runtime);
 const ref: AccessPolicyResourceRef = { resourceType: 'smoke_resource', resourceId: 'resource:1', slot: 'use' };
-let snapshot = {
-  ...ref,
+const withdrawRef: AccessPolicyResourceRef = { ...ref, slot: 'withdraw' };
+let resourceState = {
+  resourceType: ref.resourceType,
+  resourceId: ref.resourceId,
+  title: '测试宝箱',
   ownerPlayerId: 'player:owner',
-  revision: 1,
-  policy: cloneAccessPolicy(OWNER_ONLY_ACCESS_POLICY),
+  policies: {} as Record<string, AccessPolicy>,
 };
 let activeCommits = 0;
 let maxActiveCommits = 0;
 resourceService.registerAdapter({
   resourceType: ref.resourceType,
-  async load() {
-    return { ...snapshot, policy: cloneAccessPolicy(snapshot.policy) };
+  slots: [
+    {
+      slot: ref.slot,
+      label: '可看和可放',
+      description: '查看内容并放入物品。',
+      defaultPolicy: cloneAccessPolicy(EVERYONE_ACCESS_POLICY),
+    },
+    {
+      slot: withdrawRef.slot,
+      label: '可拿',
+      description: '从资源中取出物品。',
+      defaultPolicy: cloneAccessPolicy(OWNER_ONLY_ACCESS_POLICY),
+    },
+  ],
+  async load(_actorPlayerId, resourceId) {
+    return resourceId === ref.resourceId
+      ? { ...resourceState, policies: { ...resourceState.policies } }
+      : null;
   },
   canManage(actorPlayerId, current) {
     return actorPlayerId === current.ownerPlayerId;
   },
-  async commit(_actorPlayerId, _current, nextPolicy, expectedRevision) {
+  async commit(_actorPlayerId, _current, commitRef, nextPolicy, expectedRevision) {
     activeCommits += 1;
     maxActiveCommits = Math.max(maxActiveCommits, activeCommits);
     try {
       await delay(10);
-      if (snapshot.revision !== expectedRevision) throw new Error('access_policy_revision_conflict');
-      snapshot = {
-        ...snapshot,
-        revision: expectedRevision + 1,
-        policy: cloneAccessPolicy(nextPolicy),
+      const currentPolicy = resourceState.policies[commitRef.slot]
+        ?? (commitRef.slot === ref.slot ? EVERYONE_ACCESS_POLICY : OWNER_ONLY_ACCESS_POLICY);
+      if (currentPolicy.revision !== expectedRevision) throw new Error('access_policy_revision_conflict');
+      resourceState = {
+        ...resourceState,
+        policies: {
+          ...resourceState.policies,
+          [commitRef.slot]: cloneAccessPolicy(nextPolicy),
+        },
       };
-      return { ...snapshot, policy: cloneAccessPolicy(snapshot.policy) };
+      return { ...resourceState, policies: { ...resourceState.policies } };
     } finally {
       activeCommits -= 1;
     }
@@ -180,6 +203,15 @@ const denied = await resourceService.loadForEditor('player:visitor', ref);
 assert.deepEqual(denied, { ok: false, reason: 'access_policy_manage_denied' });
 const loaded = await resourceService.loadForEditor('player:owner', ref);
 assert.equal(loaded.ok, true);
+assert.equal(loaded.ok === true ? loaded.snapshot.policy.mode : '', 'everyone', '缺失槽位必须使用资源声明的开放默认策略');
+const loadedSet = await resourceService.loadSetForEditor('player:owner', {
+  resourceType: ref.resourceType,
+  resourceId: ref.resourceId,
+});
+assert.equal(loadedSet.ok, true);
+assert.deepEqual(loadedSet.ok === true
+  ? loadedSet.snapshot.slots.map((slot) => [slot.slot, slot.policy.mode])
+  : [], [['use', 'everyone'], ['withdraw', 'owner_only']], '同一资源必须一次返回全部槽位及各自默认策略');
 
 const playerDraft = buildPolicy(1, [{
   type: 'players',
@@ -194,8 +226,9 @@ assert.equal(staleSave.ok, false, '相同旧版本的并发保存必须冲突');
 assert.equal(staleSave.ok === false ? staleSave.reason : '', 'access_policy_revision_conflict');
 assert.equal(staleSave.ok === false ? staleSave.current?.revision : 0, 2, '并发冲突必须带回当前权威版本');
 assert.equal(maxActiveCommits, 1, '同一资源保存必须在进程内串行执行');
-assert.equal(snapshot.revision, 2);
-const savedPlayer = snapshot.policy.conditions[0];
+assert.equal(resourceState.policies.use.revision, 2);
+assert.equal(resourceState.policies.withdraw, undefined, '保存一个槽位不得写入或改变其他槽位');
+const savedPlayer = resourceState.policies.use.conditions[0];
 assert.equal(savedPlayer?.type, 'players');
 assert.deepEqual(savedPlayer?.type === 'players' ? savedPlayer.players[0] : null, {
   playerNo: 10002,
@@ -227,6 +260,19 @@ assert.equal(conflictPacket?.ok, false);
 assert.equal(conflictPacket?.reason, 'access_policy_revision_conflict');
 assert.equal(conflictPacket?.snapshot?.revision, 2, '冲突回包必须包含当前权威快照');
 assert.equal(conflictPacket?.snapshot?.policy?.conditions?.[0]?.players?.[0]?.playerId, undefined, '客户端快照不得泄露稳定 playerId');
+
+await gatewayHelper.handleRequestAccessPolicySet({
+  emit(event: string, payload: any) {
+    emittedPackets.push({ event, payload });
+  },
+} as never, {
+  requestId: 'smoke-set',
+  ref: { resourceType: ref.resourceType, resourceId: ref.resourceId },
+});
+const setPacket = emittedPackets.at(-1)?.payload;
+assert.equal(setPacket?.ok, true);
+assert.deepEqual(setPacket?.snapshot?.slots?.map((slot: any) => slot.label), ['可看和可放', '可拿']);
+assert.equal(setPacket?.snapshot?.slots?.[0]?.policy?.conditions?.[0]?.players?.[0]?.playerId, undefined, '资源组回包不得泄露稳定 playerId');
 
 const invalidRef = await resourceService.loadForEditor('player:owner', {
   resourceType: 'x'.repeat(65),

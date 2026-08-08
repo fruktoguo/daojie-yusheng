@@ -8,10 +8,14 @@
 
 ## 2. 策略模型
 
-每个资源权限槽位保存一份 `AccessPolicy`：
+每个资源可以声明最多 8 个权限槽位，每个槽位保存一份独立的 `AccessPolicy`。例如同一宝箱类资源可以声明“可拿”和“可看与可放”两个槽位，两项权限分别检测、分别保存，互不隐含。
+
+通用默认策略为“无策略”，即任何玩家都可以使用；业务自身的距离、资产、状态、冷却和事务约束仍然生效。资源适配器可以为不同资源、不同槽位声明不同默认策略，例如一个槽位默认开放，另一个槽位默认仅所有者。
+
+单个 `AccessPolicy` 支持：
 
 - `owner_only`：仅资源所有者可用。
-- `everyone`：所有玩家可用；距离、资产、状态等业务约束仍由业务系统独立校验。
+- `everyone`：无附加权限策略，所有玩家可用；距离、资产、状态等业务约束仍由业务系统独立校验。
 - `conditional`：最多选择两种不同类别的条件。
 - 两组条件通过 `any`（或）或 `all`（且）组合。
 - 同一类别内部的多选项按“任一命中”处理，例如关系类别或宗门职位。
@@ -44,22 +48,24 @@
 客户端使用以下低频单播请求：
 
 - `RequestAccessPolicy`：读取资源权限快照。
+- `RequestAccessPolicySet`：一次读取同一资源的全部权限槽位、显示说明、默认策略和当前策略。
 - `ResolveAccessPolicyPlayer`：按数字序号解析玩家并回显角色名。
 - `SaveAccessPolicy`：提交策略和 `expectedRevision`。
 
 服务端保存流程：
 
 1. 校验当前 socket 仍是玩家有效会话，并按操作类别限流。
-2. 通过 `resourceType` 找到已注册资源适配器。
-3. 读取业务权威快照并校验管理资格。
+2. 通过 `resourceType` 找到已注册资源适配器和槽位声明。
+3. 读取一次业务权威资源状态并校验管理资格；多权限界面不按槽位重复定位资源。
 4. 校验资源 revision 与策略 revision 一致，并执行乐观锁比较。
 5. 批量按玩家序号查询身份，忽略客户端提交的 `playerId` 和角色名。
-6. 同一资源在单进程内串行提交；业务适配器仍必须在自身事务、CAS 或实例独占边界中再次校验 revision。
+6. 同一资源的所有槽位在单进程内串行提交，避免业务适配器写回整个资源时不同槽位互相覆盖；业务适配器仍必须在自身事务、CAS 或实例独占边界中再次校验 revision。
 7. 只有业务持久化成功后才返回新快照；新 revision 必须严格等于旧 revision 加一。
 8. revision 冲突时返回当前权威快照，编辑器加载最新配置后再允许用户重新修改，避免反复提交旧版本或静默覆盖他人变更。
 
 资源适配器负责：
 
+- 声明权限槽位、界面名称、说明和每个槽位的默认策略。
 - 定位资源和权限槽位。
 - 判断谁能管理该资源。
 - 在资源自己的持久化真源中提交策略。
@@ -77,15 +83,16 @@
 - 非法 schema、未知资源、权限数据损坏、关系读取失败和持久化失败均失败关闭。
 - 枚举数组必须全部合法；非法宗门职位不得被规范化成“同宗门全部成员”，非法关系类别也不得被静默忽略。
 - 客户端请求带 request ID、超时和操作类型匹配，忽略迟到或串错的回包。
+- 多权限资源只在打开管理界面时读取一次；每个槽位保留独立编辑器实例，切换页签不丢失草稿、指定玩家或输入状态。
 - 权限事件属于主动请求的低频 Detail / Result 层，不进入 tick、AOI 或广播链路。
 
 tick 热路径不得直接调用需要数据库关系查询的异步事实收集。若未来出现每息或更高频权限检测，业务必须在进入热路径前准备好 `CompiledAccessPolicy` 和内存事实快照，再调用 shared 纯检测器。
 
 ## 6. 业务接入步骤
 
-1. 为资源定义稳定的 `resourceType`、`resourceId` 和权限 `slot`。
-2. 在业务水合阶段规范化策略，并缓存 `prepare` 返回的编译结果。
-3. 注册 `AccessPolicyResourceAdapter`，实现 `load`、`canManage` 和带 revision 的 `commit`。
-4. 客户端先通过 `AccessPolicySocketClient.load` 读取快照，再将 `createEditorCallbacks(ref)` 传给 `AccessPolicyEditor`。
+1. 为资源定义稳定的 `resourceType`、`resourceId`，并声明一个或多个权限 `slot` 及各自默认策略。
+2. 在业务水合阶段规范化已保存策略，并缓存 `prepare` 返回的编译结果；真正未配置的槽位使用声明默认值，损坏或未来版本数据必须失败关闭。
+3. 注册 `AccessPolicyResourceAdapter`，实现资源级 `load`、`canManage` 和带槽位 revision 的 `commit`。
+4. 单权限界面可通过 `AccessPolicySocketClient.load` + `AccessPolicyEditor`；多权限界面通过 `loadSet` + `AccessPolicyResourceEditor` 一次加载并按页签编辑。
 5. 业务使用权限时调用服务端 `evaluate` 或 `evaluateMany`，不得消费客户端草稿。
 6. 添加该业务的迁移、回读、并发冲突和权限矩阵 smoke 后，才能移除旧权限实现。

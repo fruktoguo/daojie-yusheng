@@ -8,8 +8,9 @@ const VIEWPORT = { width: 390, height: 760 };
 await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-policy-proof-' }, async (cdp) => {
   const result = await cdp.evaluate(String.raw`
     (async () => {
-      const [{ AccessPolicyEditor }, { AccessPolicySocketClient }, shared] = await Promise.all([
+      const [{ AccessPolicyEditor }, { AccessPolicyResourceEditor }, { AccessPolicySocketClient }, shared] = await Promise.all([
         import('/src/ui/access-policy-editor.ts'),
+        import('/src/ui/access-policy-resource-editor.ts'),
         import('/src/ui/access-policy-socket-client.ts'),
         import('/@fs/home/yuohira/mud-mmo-next/packages/shared/src/index.ts'),
       ]);
@@ -119,6 +120,7 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
 
       const fakeHandlers = new Map();
       let requestPayload = null;
+      let requestSetPayload = null;
       const fakeSocket = {
         on(event, callback) {
           fakeHandlers.set(event, callback);
@@ -134,6 +136,36 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
                 ...payload.ref,
                 revision: 2,
                 policy: { ...shared.cloneAccessPolicy(shared.OWNER_ONLY_ACCESS_POLICY), revision: 2 },
+              },
+            }));
+            return { accepted: true };
+          },
+          requestSet(payload) {
+            requestSetPayload = payload;
+            queueMicrotask(() => fakeHandlers.get(shared.S2C.AccessPolicyResourceSetResult)?.({
+              requestId: payload.requestId,
+              ok: true,
+              snapshot: {
+                ...payload.ref,
+                title: '测试宝箱',
+                slots: [
+                  {
+                    slot: 'view_deposit',
+                    label: '可看和可放',
+                    description: '查看内容并放入物品。',
+                    defaultPolicy: shared.cloneAccessPolicy(shared.EVERYONE_ACCESS_POLICY),
+                    policy: shared.cloneAccessPolicy(shared.EVERYONE_ACCESS_POLICY),
+                    revision: 1,
+                  },
+                  {
+                    slot: 'withdraw',
+                    label: '可拿',
+                    description: '从资源中取出物品。',
+                    defaultPolicy: shared.cloneAccessPolicy(shared.OWNER_ONLY_ACCESS_POLICY),
+                    policy: shared.cloneAccessPolicy(shared.OWNER_ONLY_ACCESS_POLICY),
+                    revision: 1,
+                  },
+                ],
               },
             }));
             return { accepted: true };
@@ -172,9 +204,38 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
       const socketClient = new AccessPolicySocketClient(fakeSocket, 500);
       const transportRef = { resourceType: 'proof', resourceId: 'resource:1', slot: 'use' };
       const loaded = await socketClient.load(transportRef);
+      const loadedSet = await socketClient.loadSet({ resourceType: 'proof', resourceId: 'resource:1' });
       const resolvedPlayer = await socketClient.resolvePlayerNo(10002);
       const saved = await socketClient.save(transportRef, loaded.policy, loaded.revision);
       const conflicted = await socketClient.save(transportRef, loaded.policy, 3);
+
+      const resourceRoot = document.createElement('div');
+      resourceRoot.style.marginTop = '16px';
+      overlay.append(resourceRoot);
+      const resourceEditor = new AccessPolicyResourceEditor({
+        root: resourceRoot,
+        snapshot: loadedSet,
+        resolvePlayerNo: (playerNo) => socketClient.resolvePlayerNo(playerNo),
+        save: (ref, policy, expectedRevision) => socketClient.save(ref, policy, expectedRevision),
+      });
+      const resourceTabLabels = Array.from(resourceRoot.querySelectorAll('.access-policy-resource-tabs button'))
+        .map((entry) => entry.textContent?.trim() ?? '');
+      const firstDefaultMode = resourceRoot.querySelector('.access-policy-resource-panel:not([hidden]) .access-policy-mode-group button.active')?.textContent?.trim() ?? '';
+      Array.from(resourceRoot.querySelectorAll('.access-policy-resource-panel:not([hidden]) .access-policy-mode-group button'))
+        .find((entry) => entry.textContent?.trim() === '仅所有者')?.click();
+      const firstDraftBeforeSwitch = resourceEditor.getPolicy('view_deposit')?.mode ?? '';
+      Array.from(resourceRoot.querySelectorAll('.access-policy-resource-tabs button'))
+        .find((entry) => entry.textContent?.trim() === '可拿')?.click();
+      const secondDefaultMode = resourceRoot.querySelector('.access-policy-resource-panel:not([hidden]) .access-policy-mode-group button.active')?.textContent?.trim() ?? '';
+      Array.from(resourceRoot.querySelectorAll('.access-policy-resource-tabs button'))
+        .find((entry) => entry.textContent?.trim() === '可看和可放')?.click();
+      const firstDraftAfterSwitch = resourceEditor.getPolicy('view_deposit')?.mode ?? '';
+      resourceRoot.querySelector('.access-policy-resource-panel:not([hidden]) .access-policy-footer button')?.click();
+      await waitFor(() => resourceRoot.querySelector('.access-policy-resource-panel:not([hidden]) .access-policy-status')?.textContent?.includes('权限已保存'));
+      const resourceSlotModesAfterSave = [
+        resourceEditor.getPolicy('view_deposit')?.mode ?? '',
+        resourceEditor.getPolicy('withdraw')?.mode ?? '',
+      ];
 
       const conflictRoot = document.createElement('div');
       overlay.append(conflictRoot);
@@ -193,7 +254,7 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
         },
       });
       const conflictEveryone = Array.from(conflictRoot.querySelectorAll('.access-policy-mode-group button'))
-        .find((entry) => entry.textContent?.trim() === '所有人');
+        .find((entry) => entry.textContent?.trim() === '无策略');
       conflictEveryone.click();
       conflictRoot.querySelector('.access-policy-footer button').click();
       await waitFor(() => conflictRoot.querySelector('.access-policy-status')?.textContent?.includes('已加载最新配置'));
@@ -221,7 +282,16 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
         shellWidth: shell?.getBoundingClientRect().width ?? 0,
         shellScrollWidth: shell?.scrollWidth ?? 0,
         requestResourceType: requestPayload?.ref?.resourceType ?? '',
+        requestSetResourceType: requestSetPayload?.ref?.resourceType ?? '',
         loadedRevision: loaded.revision,
+        resourceTabLabels,
+        firstDefaultMode,
+        secondDefaultMode,
+        firstDraftBeforeSwitch,
+        firstDraftAfterSwitch,
+        resourceSlotModesAfterSave,
+        resourceShellWidth: resourceRoot.querySelector('.access-policy-resource-editor')?.getBoundingClientRect().width ?? 0,
+        resourceShellScrollWidth: resourceRoot.querySelector('.access-policy-resource-editor')?.scrollWidth ?? 0,
         resolvedPlayer,
         transportSaveOk: saved.ok,
         transportConflictRevision: conflicted.currentPolicy?.revision ?? 0,
@@ -252,7 +322,15 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
   assert.equal(result.status, '权限已保存。');
   assert(result.shellScrollWidth <= result.shellWidth + 1, '手机视口出现横向溢出');
   assert.equal(result.requestResourceType, 'proof', '请求客户端未透传资源键');
+  assert.equal(result.requestSetResourceType, 'proof', '资源组请求未透传资源键');
   assert.equal(result.loadedRevision, 2, '请求客户端未关联 load 回包');
+  assert.deepEqual(result.resourceTabLabels, ['可看和可放', '可拿'], '多权限资源必须按声明顺序展示槽位');
+  assert.equal(result.firstDefaultMode, '无策略', '资源默认开放策略必须显示为无策略');
+  assert.equal(result.secondDefaultMode, '仅所有者', '不同槽位必须支持不同默认策略');
+  assert.equal(result.firstDraftBeforeSwitch, 'owner_only');
+  assert.equal(result.firstDraftAfterSwitch, 'owner_only', '切换权限页签不得丢失未保存草稿');
+  assert.deepEqual(result.resourceSlotModesAfterSave, ['owner_only', 'owner_only'], '保存一个槽位不得改变其他槽位');
+  assert(result.resourceShellScrollWidth <= result.resourceShellWidth + 1, '多权限资源编辑器在手机视口出现横向溢出');
   assert.deepEqual(result.resolvedPlayer, { playerNo: 10002, roleName: '青云剑客' });
   assert.equal(result.transportSaveOk, true, '请求客户端未关联 save 回包');
   assert.equal(result.transportConflictRevision, 4, '请求客户端未透传冲突时的当前权威策略');
@@ -264,15 +342,18 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
   const dark = await cdp.evaluate(`(() => {
     const editor = document.querySelector('.access-policy-editor');
     const card = document.querySelector('.access-policy-condition');
+    const resourceEditor = document.querySelector('.access-policy-resource-editor');
     return {
       color: editor ? getComputedStyle(editor).color : '',
       background: card ? getComputedStyle(card).backgroundColor : '',
       overflow: editor ? editor.scrollWidth > editor.clientWidth + 1 : true,
+      resourceOverflow: resourceEditor ? resourceEditor.scrollWidth > resourceEditor.clientWidth + 1 : true,
     };
   })()`);
   assert.notEqual(dark.color, '');
   assert.notEqual(dark.background, 'rgba(0, 0, 0, 0)');
   assert.equal(dark.overflow, false, '深色手机模式出现横向溢出');
+  assert.equal(dark.resourceOverflow, false, '深色手机模式多权限资源编辑器出现横向溢出');
 });
 
 console.log(JSON.stringify({ ok: true, case: 'access-policy-editor' }, null, 2));

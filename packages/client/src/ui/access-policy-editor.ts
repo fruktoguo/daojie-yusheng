@@ -7,7 +7,7 @@ import {
   ACCESS_POLICY_MAX_CONDITIONS,
   ACCESS_POLICY_MAX_SPECIFIED_PLAYERS,
   ATTR_KEY_LABELS,
-  OWNER_ONLY_ACCESS_POLICY,
+  DEFAULT_ACCESS_POLICY,
   SECT_MEMBER_ROLE_HIERARCHY,
   SECT_MEMBER_ROLE_LABELS,
   cloneAccessPolicy,
@@ -118,7 +118,7 @@ export class AccessPolicyEditor {
       ),
     );
     this.disabled = options.disabled === true;
-    this.authoritativePolicy = cloneAccessPolicy(options.policy ?? OWNER_ONLY_ACCESS_POLICY);
+    this.authoritativePolicy = cloneAccessPolicy(options.policy ?? DEFAULT_ACCESS_POLICY);
     this.draft = cloneAccessPolicy(this.authoritativePolicy);
     this.render();
   }
@@ -127,6 +127,16 @@ export class AccessPolicyEditor {
     this.authoritativePolicy = cloneAccessPolicy(policy);
     this.draft = cloneAccessPolicy(policy);
     this.setDirty(false);
+    this.render();
+  }
+
+  /** 用业务默认策略替换当前草稿，但保留权威 revision，下一次保存仍走正常乐观锁。 */
+  setDraft(policy: AccessPolicy): void {
+    if (this.disabled || this.saving || this.destroyed) return;
+    const next = cloneAccessPolicy(policy);
+    next.revision = this.authoritativePolicy.revision;
+    this.draft = next;
+    this.setDirty(true);
     this.render();
   }
 
@@ -159,8 +169,8 @@ export class AccessPolicyEditor {
     modeGroup.setAttribute('role', 'group');
     modeGroup.setAttribute('aria-label', '权限模式');
     for (const entry of [
+      { value: 'everyone' as const, label: '无策略' },
       { value: 'owner_only' as const, label: '仅所有者' },
-      { value: 'everyone' as const, label: '所有人' },
       { value: 'conditional' as const, label: '按条件' },
     ]) {
       const button = document.createElement('button');
@@ -178,7 +188,7 @@ export class AccessPolicyEditor {
     hint.textContent = this.draft.mode === 'owner_only'
       ? '只有资源所有者可以使用。'
       : this.draft.mode === 'everyone'
-        ? '所有玩家均可使用，仍由业务系统执行距离、状态和资产校验。'
+        ? '不附加权限限制，任何玩家均可使用；业务系统仍会执行距离、状态和资产校验。'
         : '最多设置两种不同类别的条件；条件内部为任一匹配，两组之间可选择或/且。';
     shell.append(hint);
 

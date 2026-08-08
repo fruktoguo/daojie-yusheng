@@ -396,6 +396,10 @@ class WorldGateway implements WorldGatewayHelperContext {
     handleRequestAccessPolicy(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayAccessPolicyHelper.handleRequestAccessPolicy(client, payload);
     }
+    @SubscribeMessage(C2S.RequestAccessPolicySet)
+    handleRequestAccessPolicySet(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayAccessPolicyHelper.handleRequestAccessPolicySet(client, payload);
+    }
     @SubscribeMessage(C2S.ResolveAccessPolicyPlayer)
     handleResolveAccessPolicyPlayer(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayAccessPolicyHelper.handleResolveAccessPolicyPlayer(client, payload);

@@ -1,15 +1,18 @@
 /**
  * 通用权限编辑器的请求关联客户端。
  *
- * 负责低频 load / 玩家序号解析 / save 的超时、迟到回包隔离和错误归一化；
- * 具体业务面板只需要提供资源 ref，再把 callbacks 交给 AccessPolicyEditor。
+ * 负责低频单槽位 load、资源组 load、玩家序号解析和 save 的超时、迟到回包隔离；
+ * 业务面板可以把单槽位交给 AccessPolicyEditor，或把资源组交给 AccessPolicyResourceEditor。
  */
 import {
   S2C,
   type AccessPolicy,
   type AccessPolicyPlayerResultView,
+  type AccessPolicyResourceLocator,
   type AccessPolicyResourceRef,
   type AccessPolicyResourceResultView,
+  type AccessPolicyResourceSetResultView,
+  type AccessPolicyResourceSetSnapshot,
   type AccessPolicyResourceSnapshot,
   type AccessPolicySpecifiedPlayer,
 } from '@mud/shared';
@@ -30,8 +33,14 @@ type PendingPlayerRequest = {
   resolve(result: AccessPolicyPlayerResultView): void;
 };
 
+type PendingResourceSetRequest = {
+  timeout: ReturnType<typeof setTimeout>;
+  resolve(result: AccessPolicyResourceSetResultView): void;
+};
+
 export class AccessPolicySocketClient {
   private readonly pendingResources = new Map<string, PendingResourceRequest>();
+  private readonly pendingResourceSets = new Map<string, PendingResourceSetRequest>();
   private readonly pendingPlayers = new Map<string, PendingPlayerRequest>();
   private readonly unsubscribe: Array<() => void>;
   private requestSequence = 0;
@@ -43,12 +52,35 @@ export class AccessPolicySocketClient {
   ) {
     this.unsubscribe = [
       socket.on(S2C.AccessPolicyResourceResult, (result) => this.handleResourceResult(result)),
+      socket.on(S2C.AccessPolicyResourceSetResult, (result) => this.handleResourceSetResult(result)),
       socket.on(S2C.AccessPolicyPlayerResult, (result) => this.handlePlayerResult(result)),
     ];
   }
 
   async load(ref: AccessPolicyResourceRef): Promise<AccessPolicyResourceSnapshot> {
     const result = await this.requestResource('load', (requestId) => this.socket.accessPolicy.request({ requestId, ref }));
+    if (!result.ok || !result.snapshot) throw new Error(resolveAccessPolicyClientError(result.reason));
+    return result.snapshot;
+  }
+
+  async loadSet(ref: AccessPolicyResourceLocator): Promise<AccessPolicyResourceSetSnapshot> {
+    const requestId = this.nextRequestId('load-set');
+    const response = new Promise<AccessPolicyResourceSetResultView>((resolve) => {
+      const timeout = setTimeout(() => {
+        this.pendingResourceSets.delete(requestId);
+        resolve({ requestId, ok: false, reason: 'access_policy_request_timeout' });
+      }, this.requestTimeoutMs);
+      this.pendingResourceSets.set(requestId, { timeout, resolve });
+    });
+    const sent = this.socket.accessPolicy.requestSet({ requestId, ref });
+    if (!sent.accepted) {
+      this.finishResourceSetRequest(requestId, {
+        requestId,
+        ok: false,
+        reason: `access_policy_socket_${sent.reason}`,
+      });
+    }
+    const result = await response;
     if (!result.ok || !result.snapshot) throw new Error(resolveAccessPolicyClientError(result.reason));
     return result.snapshot;
   }
@@ -115,6 +147,9 @@ export class AccessPolicySocketClient {
         reason: 'access_policy_client_disposed',
       });
     }
+    for (const [requestId] of this.pendingResourceSets) {
+      this.finishResourceSetRequest(requestId, { requestId, ok: false, reason: 'access_policy_client_disposed' });
+    }
     for (const [requestId] of this.pendingPlayers) {
       this.finishPlayerRequest(requestId, { requestId, ok: false, reason: 'access_policy_client_disposed' });
     }
@@ -150,6 +185,11 @@ export class AccessPolicySocketClient {
     this.finishResourceRequest(result.requestId, result);
   }
 
+  private handleResourceSetResult(result: AccessPolicyResourceSetResultView): void {
+    if (!this.pendingResourceSets.has(result?.requestId)) return;
+    this.finishResourceSetRequest(result.requestId, result);
+  }
+
   private handlePlayerResult(result: AccessPolicyPlayerResultView): void {
     if (!this.pendingPlayers.has(result?.requestId)) return;
     this.finishPlayerRequest(result.requestId, result);
@@ -159,6 +199,14 @@ export class AccessPolicySocketClient {
     const pending = this.pendingResources.get(requestId);
     if (!pending) return;
     this.pendingResources.delete(requestId);
+    clearTimeout(pending.timeout);
+    pending.resolve(result);
+  }
+
+  private finishResourceSetRequest(requestId: string, result: AccessPolicyResourceSetResultView): void {
+    const pending = this.pendingResourceSets.get(requestId);
+    if (!pending) return;
+    this.pendingResourceSets.delete(requestId);
     clearTimeout(pending.timeout);
     pending.resolve(result);
   }

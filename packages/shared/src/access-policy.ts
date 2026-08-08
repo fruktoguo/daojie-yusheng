@@ -12,6 +12,7 @@ import { SECT_MEMBER_ROLE_HIERARCHY, type SectMemberRole } from './sect-types';
 export const ACCESS_POLICY_SCHEMA_VERSION = 1;
 export const ACCESS_POLICY_MAX_CONDITIONS = 2;
 export const ACCESS_POLICY_MAX_SPECIFIED_PLAYERS = 64;
+export const ACCESS_POLICY_MAX_RESOURCE_SLOTS = 8;
 
 export type AccessPolicyMode = 'owner_only' | 'everyone' | 'conditional';
 export type AccessPolicyOperator = 'any' | 'all';
@@ -92,11 +93,23 @@ export interface AccessPolicy {
   revision: number;
 }
 
-/** 业务资源接入通用权限系统时使用的稳定定位键。 */
-export interface AccessPolicyResourceRef {
+/** 不包含具体权限槽位的资源定位键，用于一次读取同一资源的全部权限。 */
+export interface AccessPolicyResourceLocator {
   resourceType: string;
   resourceId: string;
+}
+
+/** 业务资源接入通用权限系统时使用的稳定定位键。 */
+export interface AccessPolicyResourceRef extends AccessPolicyResourceLocator {
   slot: string;
+}
+
+/** 资源适配器声明的单个权限槽位及其业务默认策略。 */
+export interface AccessPolicyResourceSlotDefinition {
+  slot: string;
+  label: string;
+  description?: string;
+  defaultPolicy: AccessPolicy;
 }
 
 /** 权限编辑器读取和保存后的权威资源快照。 */
@@ -105,9 +118,23 @@ export interface AccessPolicyResourceSnapshot extends AccessPolicyResourceRef {
   revision: number;
 }
 
+/** 同一资源的全部权限槽位，供通用多权限界面一次加载。 */
+export interface AccessPolicyResourceSetSnapshot extends AccessPolicyResourceLocator {
+  title: string;
+  slots: Array<AccessPolicyResourceSlotDefinition & {
+    policy: AccessPolicy;
+    revision: number;
+  }>;
+}
+
 export interface C2S_RequestAccessPolicyView {
   requestId: string;
   ref: AccessPolicyResourceRef;
+}
+
+export interface C2S_RequestAccessPolicySetView {
+  requestId: string;
+  ref: AccessPolicyResourceLocator;
 }
 
 export interface C2S_ResolveAccessPolicyPlayerView {
@@ -129,6 +156,13 @@ export interface AccessPolicyResourceResultView {
   reason?: string;
   snapshot?: AccessPolicyResourceSnapshot;
   unresolvedPlayerNos?: number[];
+}
+
+export interface AccessPolicyResourceSetResultView {
+  requestId: string;
+  ok: boolean;
+  reason?: string;
+  snapshot?: AccessPolicyResourceSetSnapshot;
 }
 
 export interface AccessPolicyPlayerResolutionView {
@@ -209,6 +243,17 @@ export interface AccessPolicyValidationResult {
   policy?: AccessPolicy;
   issues: AccessPolicyValidationIssue[];
 }
+
+export const EVERYONE_ACCESS_POLICY: Readonly<AccessPolicy> = {
+  schemaVersion: ACCESS_POLICY_SCHEMA_VERSION,
+  mode: 'everyone',
+  operator: 'any',
+  conditions: [],
+  revision: 1,
+};
+
+/** 通用权限没有业务覆盖时的默认值：无附加权限策略，所有玩家可用。 */
+export const DEFAULT_ACCESS_POLICY: Readonly<AccessPolicy> = EVERYONE_ACCESS_POLICY;
 
 export const OWNER_ONLY_ACCESS_POLICY: Readonly<AccessPolicy> = {
   schemaVersion: ACCESS_POLICY_SCHEMA_VERSION,
@@ -297,10 +342,11 @@ export function validateAccessPolicy(
 
 export function normalizeAccessPolicy(
   value: unknown,
-  fallback: Readonly<AccessPolicy> = OWNER_ONLY_ACCESS_POLICY,
+  fallback: Readonly<AccessPolicy> = DEFAULT_ACCESS_POLICY,
 ): AccessPolicy {
+  if (value === undefined || value === null) return cloneAccessPolicy(fallback);
   const result = validateAccessPolicy(value, { requireResolvedPlayers: true });
-  return result.ok && result.policy ? cloneAccessPolicy(result.policy) : cloneAccessPolicy(fallback);
+  return result.ok && result.policy ? cloneAccessPolicy(result.policy) : cloneAccessPolicy(OWNER_ONLY_ACCESS_POLICY);
 }
 
 export function cloneAccessPolicy(policy: Readonly<AccessPolicy>): AccessPolicy {

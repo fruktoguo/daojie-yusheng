@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const {
   ACCESS_POLICY_DEPENDENCY,
+  OWNER_ONLY_ACCESS_POLICY,
   compileAccessPolicy,
   evaluateCompiledAccessPolicy,
   normalizeAccessPolicy,
@@ -118,7 +119,10 @@ assert.equal(mixedRelationKinds.ok, false, '关系类别包含未知值时必须
 const invalidFallback = normalizeAccessPolicy({ schemaVersion: 99, mode: 'everyone' });
 assert.equal(invalidFallback.mode, 'owner_only', '损坏或未来版本数据必须失败关闭');
 
-const ownerOnly = compileAccessPolicy(normalizeAccessPolicy(null));
+const defaultEveryone = compileAccessPolicy(normalizeAccessPolicy(null));
+assert.equal(evaluateCompiledAccessPolicy(defaultEveryone, facts), true, '未配置权限时默认不限制任何玩家');
+
+const ownerOnly = compileAccessPolicy(OWNER_ONLY_ACCESS_POLICY);
 assert.equal(evaluateCompiledAccessPolicy(ownerOnly, facts), false, '仅所有者策略必须拒绝普通玩家');
 assert.equal(evaluateCompiledAccessPolicy(ownerOnly, { ...facts, isOwner: true }), true, '所有者始终放行');
 

@@ -13,6 +13,9 @@ export function createSocketAccessPolicySender(deps: SocketAccessPolicySenderDep
     request(payload: ClientToServerEventPayload<typeof C2S.RequestAccessPolicy>): SocketSendResult {
       return deps.emitEvent(C2S.RequestAccessPolicy, payload);
     },
+    requestSet(payload: ClientToServerEventPayload<typeof C2S.RequestAccessPolicySet>): SocketSendResult {
+      return deps.emitEvent(C2S.RequestAccessPolicySet, payload);
+    },
     resolvePlayer(payload: ClientToServerEventPayload<typeof C2S.ResolveAccessPolicyPlayer>): SocketSendResult {
       return deps.emitEvent(C2S.ResolveAccessPolicyPlayer, payload);
     },
