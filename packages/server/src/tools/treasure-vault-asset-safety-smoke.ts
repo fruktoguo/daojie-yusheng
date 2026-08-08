@@ -73,12 +73,30 @@ async function main(): Promise<void> {
     ] }, activeRuntime.runtime);
     assert.equal(depositResult.ok, true, `deposit failed: ${JSON.stringify(depositResult)}`);
 
-    const activeRows = await fetchRows(pool, 'SELECT owner_player_id, building_name, raw_payload FROM instance_building_storage_item WHERE instance_id = $1 AND building_id = $2', [instanceId, buildingId]);
+    const activeRows = await fetchRows(pool, 'SELECT storage_item_id, owner_player_id, building_name, count, enhance_level, raw_payload FROM instance_building_storage_item WHERE instance_id = $1 AND building_id = $2', [instanceId, buildingId]);
     assert.equal(activeRows.length, 2);
     assert.ok(activeRows.every((row) => row?.owner_player_id === ownerId));
     assert.ok(activeRows.every((row) => row?.building_name === '宝库·主动'));
-    assert.equal(activeRows.find((row) => row?.raw_payload?.itemInstanceId === 'gem.active')?.raw_payload?.enhanceLevel, 7);
-    assert.equal(activeRows.find((row) => row?.raw_payload?.itemInstanceId === 'gem.batch')?.raw_payload?.enhanceLevel, 5);
+    assert.ok(activeRows.every((row) => row?.raw_payload?.itemInstanceId === undefined), '宝库真源不得保存背包 itemInstanceId');
+    assert.equal(activeRows.find((row) => Number(row?.enhance_level) === 7)?.raw_payload?.customMarker, 'marker:gem.active');
+    assert.equal(activeRows.find((row) => Number(row?.enhance_level) === 5)?.raw_payload?.customMarker, 'marker:gem.batch');
+    assert.ok(depositResult.detail?.items.every((item) => item.itemInstanceId === undefined), '宝库详情不得投影背包 itemInstanceId');
+
+    await insertVaultRow(pool, instanceId, buildingId, ownerId, '宝库·主动', 'gem.legacy', 3, 9, 2);
+    for (let index = 0; index < 3; index += 1) {
+      const legacyWithdraw = await service.withdraw(ownerId, {
+        instanceId,
+        buildingId,
+        storageItemId: 'storage:gem.legacy',
+        count: 1,
+      }, activeRuntime.runtime);
+      assert.equal(legacyWithdraw.ok, true, `legacy withdraw failed: ${JSON.stringify(legacyWithdraw)}`);
+    }
+    const legacyReceipts = playerRuntime.listInventoryItems().filter((item) => item.customMarker === 'marker:gem.legacy');
+    assert.equal(legacyReceipts.length, 3);
+    assert.equal(new Set(legacyReceipts.map((item) => item.itemInstanceId)).size, 3, '每次宝库取出必须分配独立 itemInstanceId');
+    assert.ok(legacyReceipts.every((item) => item.itemInstanceId !== 'gem.legacy'));
+    assert.equal((await fetchRows(pool, 'SELECT 1 FROM instance_building_storage_item WHERE storage_item_id = $1', ['storage:gem.legacy'])).length, 0);
 
     const unauthorizedRename = await service.rename('vault_other_player', { instanceId, buildingId, name: '不可改名' }, activeRuntime.runtime);
     assert.equal(unauthorizedRename.ok, false);
@@ -166,6 +184,8 @@ async function main(): Promise<void> {
       cases: [
         'batch_deposit_writes_all_items_in_one_transaction',
         'batch_deposit_failure_rolls_back_storage_and_inventory',
+        'deposit_strips_inventory_item_identity',
+        'legacy_storage_withdraw_reassigns_unique_item_identity',
         'owner_only_rename_updates_runtime_and_recovery_metadata',
         'owner_only_organize_merges_stacks_and_persists_inventory_order',
         'direct_recovery_writes_one_mail_then_deletes_storage',
@@ -174,7 +194,7 @@ async function main(): Promise<void> {
         'missing_instance_orphan_recovery',
         'missing_owner_blocks_and_keeps_storage',
       ],
-      answers: '宝库批量存入会在同一事务写入全部物品；仅建造者可在单个事务内合并同签名堆叠并持久重排库位；库存独立表保存 owner/buildingName/full item payload；主动/停止实例/地图丢失回收都会一封邮件返还全部物品；缺 owner 的异常库存不会被删除。',
+      answers: '宝库批量存入会在同一事务写入全部物品且不保存背包 itemInstanceId；旧库存即使残留实例 ID，每次取出也会分配独立新身份；仅建造者可在单个事务内合并同签名堆叠并持久重排库位；主动/停止实例/地图丢失回收都会一封邮件返还全部物品且不传播旧身份；缺 owner 的异常库存不会被删除。',
       excludes: '不启动真实 socket 客户端，不证明玩家实际点击领取附件 UI。',
       completionMapping: 'release:proof:with-db.treasure-vault-asset-safety',
     }, null, 2));
@@ -222,6 +242,9 @@ function createPlayerRuntime(ownerId: string) {
     },
     receiveInventoryItem(_playerId: string, item: Record<string, unknown>) {
       player.inventory.items.push(item as any);
+    },
+    listInventoryItems() {
+      return player.inventory.items.slice();
     },
   };
 }
@@ -323,10 +346,11 @@ async function assertRecoveryMail(
   const attachments = await fetchRows(pool, 'SELECT item_id, count, item_payload_jsonb FROM player_mail_attachment WHERE mail_id = $1 ORDER BY attachment_id ASC', [mailId]);
   assert.equal(attachments.length, expectedItems.length);
   for (const expected of expectedItems) {
-    const attachment = attachments.find((entry) => entry?.item_payload_jsonb?.itemInstanceId === expected.itemInstanceId);
+    const attachment = attachments.find((entry) => entry?.item_payload_jsonb?.customMarker === `marker:${expected.itemInstanceId}`);
     assert.equal(attachment?.item_id, 'rat_tail');
     assert.equal(Number(attachment?.count), expected.count);
     assert.equal(attachment?.item_payload_jsonb?.customMarker, `marker:${expected.itemInstanceId}`);
+    assert.equal(attachment?.item_payload_jsonb?.itemInstanceId, undefined, '宝库返还邮件不得传播旧 itemInstanceId');
   }
 }
 

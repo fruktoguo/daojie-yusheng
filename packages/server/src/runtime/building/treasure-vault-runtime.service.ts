@@ -27,6 +27,7 @@ import { SocialRuntimeService } from '../social/social-runtime.service';
 import { MailRuntimeService } from '../mail/mail-runtime.service';
 import { resolvePlayerDisplayName } from '../player/player-display-name';
 import { compareInventoryItems } from '../player/inventory-sort.helpers';
+import { reassignItemInstanceId } from '../world/item-instance-id.helpers';
 import { resolveCompiledBuildingDefinition } from './building-definition-resolution.helpers';
 
 const TREASURE_VAULT_STORAGE_TABLE = 'instance_building_storage_item';
@@ -193,6 +194,7 @@ export class TreasureVaultRuntimeService {
     const available = Math.max(1, Math.trunc(Number(row.count) || 1));
     const takeCount = Math.min(count, available);
     const item = buildItemFromStorageRow(row, takeCount);
+    reassignItemInstanceId(item);
     if (!this.canReceiveInventoryItem(playerId, item)) {
       return { ok: false, operation: 'withdraw', reason: 'inventory_full' };
     }
@@ -609,7 +611,7 @@ export class TreasureVaultRuntimeService {
             `UPDATE ${TREASURE_VAULT_STORAGE_TABLE}
                 SET count = count + $4,
                     updated_at = now(),
-                    raw_payload = raw_payload || $5::jsonb,
+                    raw_payload = (raw_payload - 'itemInstanceId' - 'instanceId') || $5::jsonb,
                     owner_player_id = COALESCE(NULLIF($6, ''), owner_player_id),
                     building_name = COALESCE(NULLIF($7, ''), building_name)
               WHERE instance_id = $1 AND building_id = $2 AND storage_item_id = $3`,
@@ -922,8 +924,11 @@ function projectStorageRow(row: any): TreasureVaultItemView {
 
 function buildItemFromStorageRow(row: any, count: number): any {
   const raw = row?.raw_payload && typeof row.raw_payload === 'object' ? row.raw_payload : {};
+  const payload = { ...raw };
+  delete payload.itemInstanceId;
+  delete payload.instanceId;
   return {
-    ...raw,
+    ...payload,
     itemId: normalizeString(row?.item_id),
     count: normalizePositiveCount(count),
     ...(Number.isFinite(Number(row?.enhance_level)) ? { enhanceLevel: Math.max(0, Math.trunc(Number(row.enhance_level))) } : {}),
@@ -933,7 +938,12 @@ function buildItemFromStorageRow(row: any, count: number): any {
 function buildRawPayload(item: any): Record<string, unknown> {
   const payload: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(item ?? {})) {
-    if (key === 'itemId' || key === 'count' || key === 'storageItemId' || key === 'slotIndex') {
+    if (key === 'itemId'
+      || key === 'count'
+      || key === 'itemInstanceId'
+      || key === 'instanceId'
+      || key === 'storageItemId'
+      || key === 'slotIndex') {
       continue;
     }
     payload[key] = value;
