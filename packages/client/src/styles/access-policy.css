@@ -84,15 +84,50 @@
 
 .access-policy-mode-group,
 .access-policy-operator {
+  gap: 8px;
+}
+
+.access-policy-mode-group {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.access-policy-operator {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
 }
 
 .access-policy-mode-group .ui-filter-tab,
 .access-policy-operator .ui-filter-tab {
   min-height: 40px;
   padding-inline: 14px;
+}
+
+.access-policy-mode-group .ui-filter-tab {
+  width: 100%;
+  min-width: 0;
+  white-space: normal;
+}
+
+.access-policy-custom-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  gap: 10px;
+  padding-block: 4px;
+  border-top: 1px solid var(--wash-ink);
+}
+
+.access-policy-custom-entry span {
+  min-width: 0;
+  color: var(--color-role-body-strong);
+  font-size: var(--font-size-role-body-12);
+  line-height: 1.5;
+}
+
+.access-policy-custom-entry .small-btn {
+  flex: 0 0 auto;
 }
 
 .access-policy-hint,
@@ -255,6 +290,15 @@
   .access-policy-footer,
   .access-policy-player-controls {
     align-items: stretch;
+  }
+
+  .access-policy-custom-entry {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .access-policy-custom-entry .small-btn {
+    min-height: 42px;
   }
 
   .access-policy-player-controls {

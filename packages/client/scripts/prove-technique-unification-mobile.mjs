@@ -410,7 +410,17 @@ const openPermissionsExpression = String.raw`
       .map((entry) => entry.getBoundingClientRect());
     const tabRects = Array.from(permissions.querySelectorAll('.access-policy-resource-tabs button'))
       .map((entry) => entry.getBoundingClientRect());
-    return {
+    const customButton = Array.from(permissions.querySelectorAll('.access-policy-resource-panel:not([hidden]) .access-policy-mode-group button'))
+      .find((entry) => entry.textContent?.trim() === '自定义策略');
+    if (!(customButton instanceof HTMLButtonElement)) throw new Error('统法台自定义权限入口缺失');
+    customButton.click();
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const customPanel = document.querySelector('.access-policy-panel-layer:not(.hidden)');
+    const customCard = customPanel?.querySelector('.access-policy-panel');
+    if (!(customPanel instanceof HTMLElement) || !(customCard instanceof HTMLElement)) {
+      throw new Error('统法台自定义权限面板未打开');
+    }
+    const result = {
       activeMainTab: panel?.querySelector('.technique-aggregation-primary-tab.is-active')?.textContent?.trim() ?? '',
       permissionIdentityPreserved: panel?.querySelector('[data-technique-aggregation-permissions="true"]') === permissionIdentity,
       permissionTabLabels: Array.from(permissions.querySelectorAll('.access-policy-resource-tabs button'))
@@ -418,7 +428,11 @@ const openPermissionsExpression = String.raw`
       activePermissionTab: permissions.querySelector('.access-policy-resource-tabs button.active')?.textContent?.trim() ?? '',
       activePermissionMode: permissions.querySelector('.access-policy-resource-panel:not([hidden]) .access-policy-mode-group button.active')?.textContent?.trim() ?? '',
       permissionEditorText: permissions.querySelector('.access-policy-resource-panel:not([hidden])')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
-      checkedRevisionRoles: Array.from(permissions.querySelectorAll('.access-policy-resource-panel:not([hidden]) .access-policy-checkbox-options label'))
+      hasInlineConditions: Boolean(permissions.querySelector('.access-policy-resource-panel:not([hidden]) .access-policy-condition')),
+      customPanelIndependent: !permissions.contains(customPanel),
+      customPanelOverflow: customCard.scrollWidth > customCard.clientWidth + 1,
+      customPanelCloseSize: customPanel.querySelector('.access-policy-panel-close')?.getBoundingClientRect().height ?? 0,
+      checkedRevisionRoles: Array.from(customPanel.querySelectorAll('.access-policy-checkbox-options label'))
         .filter((entry) => entry.querySelector('input')?.checked)
         .map((entry) => entry.textContent?.trim() ?? ''),
       minPolicyOptionHeight: optionRects.length > 0 ? Math.min(...optionRects.map((rect) => rect.height)) : 0,
@@ -426,6 +440,8 @@ const openPermissionsExpression = String.raw`
       hasDirectory: Boolean(panel?.querySelector('[data-technique-aggregation-directory="true"]')),
       hasJadeRecord: Boolean(panel?.querySelector('.technique-aggregation-jade-record')),
     };
+    customPanel.querySelector('.access-policy-panel-close')?.click();
+    return result;
   })()
 `;
 
@@ -601,8 +617,12 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'technique-uni
   assert.equal(permissions.permissionIdentityPreserved, true, '切换权限组时替换了权限根节点');
   assert.deepEqual(permissions.permissionTabLabels, ['参阅', '修订'], '通用权限槽位 Tab 不完整');
   assert.equal(permissions.activePermissionTab, '修订', '修订权限槽位未切换');
-  assert.equal(permissions.activePermissionMode, '按条件', '修订权限策略模式错误');
+  assert.equal(permissions.activePermissionMode, '自定义策略', '修订权限策略模式错误');
   assert.match(permissions.permissionEditorText, /默认策略：仅所有者/, '修订权限默认策略说明错误');
+  assert.equal(permissions.hasInlineConditions, false, '统法台权限页不应内嵌自定义条件');
+  assert.equal(permissions.customPanelIndependent, true, '统法台自定义策略未使用独立权限面板');
+  assert.equal(permissions.customPanelOverflow, false, '统法台自定义权限面板出现横向溢出');
+  assert(permissions.customPanelCloseSize >= 39.5, '自定义权限面板关闭按钮触控尺寸不足 40px');
   assert.deepEqual(permissions.checkedRevisionRoles, ['内门弟子'], '修订权限草稿未独立保留');
   assert(permissions.minPolicyOptionHeight >= 39.5, '权限选项触控高度不足 40px');
   assert(permissions.minPermissionTabHeight >= 41.5, '权限 Tab 触控高度不足 42px');

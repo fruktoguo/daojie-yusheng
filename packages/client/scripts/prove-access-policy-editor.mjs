@@ -59,64 +59,89 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
         throw new Error('权限编辑器交互等待超时');
       };
 
-      clickText('.access-policy-mode-group button', '按条件');
-      let typeSelect = root.querySelector('.access-policy-condition select');
+      const modeLabels = Array.from(root.querySelectorAll('.access-policy-mode-group button'))
+        .map((entry) => entry.textContent?.trim() ?? '');
+      clickText('.access-policy-mode-group button', '自定义策略');
+      const customPanel = await waitFor(() => document.querySelector('.access-policy-panel-layer:not(.hidden)'));
+      const customRoot = customPanel.querySelector('.access-policy-panel-body');
+      if (!(customRoot instanceof HTMLElement)) throw new Error('自定义权限策略面板未挂载');
+      const clickCustomText = (selector, text) => {
+        const target = Array.from(customRoot.querySelectorAll(selector)).find((entry) => entry.textContent?.trim() === text);
+        if (!(target instanceof HTMLElement)) throw new Error('自定义权限面板未找到控件：' + text);
+        target.click();
+      };
+      const customPanelIndependent = customPanel.parentElement === document.body && !root.contains(customPanel);
+      const customPanelTitle = customPanel.querySelector('.access-policy-panel-title')?.textContent?.trim() ?? '';
+      const selectorHasInlineConditions = Boolean(root.querySelector('.access-policy-condition'));
+      let typeSelect = customRoot.querySelector('.access-policy-condition select');
       const conditionTypeLabels = Array.from(typeSelect?.options ?? []).map((option) => option.textContent?.trim() ?? '');
-      const relationLabels = Array.from(root.querySelectorAll('.access-policy-checkbox-options label'))
+      const relationLabels = Array.from(customRoot.querySelectorAll('.access-policy-checkbox-options label'))
         .map((entry) => entry.textContent?.trim() ?? '');
 
       typeSelect.value = 'sect';
       typeSelect.dispatchEvent(new Event('change', { bubbles: true }));
-      const allSectMembers = root.querySelector('.access-policy-condition-fields > div > .inline-check input');
+      const allSectMembers = customRoot.querySelector('.access-policy-condition-fields > div > .inline-check input');
       allSectMembers.click();
-      const sectText = root.querySelector('.access-policy-condition-fields')?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
-      const checkedSectRole = Array.from(root.querySelectorAll('.access-policy-checkbox-field input[type="checkbox"]'))
+      const sectText = customRoot.querySelector('.access-policy-condition-fields')?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+      const checkedSectRole = Array.from(customRoot.querySelectorAll('.access-policy-checkbox-field input[type="checkbox"]'))
         .find((entry) => entry.checked);
       checkedSectRole.click();
-      const sectLastRoleProtected = Array.from(root.querySelectorAll('.access-policy-checkbox-field input[type="checkbox"]'))
+      const sectLastRoleProtected = Array.from(customRoot.querySelectorAll('.access-policy-checkbox-field input[type="checkbox"]'))
         .some((entry) => entry.checked);
-      const sectProtectionStatus = root.querySelector('.access-policy-status')?.textContent?.trim() ?? '';
+      const sectProtectionStatus = customRoot.querySelector('.access-policy-status')?.textContent?.trim() ?? '';
 
-      typeSelect = root.querySelector('.access-policy-condition select');
+      typeSelect = customRoot.querySelector('.access-policy-condition select');
       typeSelect.value = 'role_name';
       typeSelect.dispatchEvent(new Event('change', { bubbles: true }));
-      const roleNameMatchLabels = Array.from(root.querySelectorAll('.access-policy-condition-fields select option'))
+      const roleNameMatchLabels = Array.from(customRoot.querySelectorAll('.access-policy-condition-fields select option'))
         .map((entry) => entry.textContent?.trim() ?? '');
 
-      typeSelect = root.querySelector('.access-policy-condition select');
+      typeSelect = customRoot.querySelector('.access-policy-condition select');
       typeSelect.value = 'realm';
       typeSelect.dispatchEvent(new Event('change', { bubbles: true }));
-      const realmComparisonLabels = Array.from(root.querySelectorAll('.access-policy-condition-fields select option'))
+      const realmComparisonLabels = Array.from(customRoot.querySelectorAll('.access-policy-condition-fields select option'))
         .map((entry) => entry.textContent?.trim() ?? '');
 
-      typeSelect = root.querySelector('.access-policy-condition select');
+      typeSelect = customRoot.querySelector('.access-policy-condition select');
       typeSelect.value = 'attribute';
       typeSelect.dispatchEvent(new Event('change', { bubbles: true }));
-      const attributeText = root.querySelector('.access-policy-condition-fields')?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+      const attributeText = customRoot.querySelector('.access-policy-condition-fields')?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
 
-      typeSelect = root.querySelector('.access-policy-condition select');
+      typeSelect = customRoot.querySelector('.access-policy-condition select');
       typeSelect.value = 'players';
       typeSelect.dispatchEvent(new Event('change', { bubbles: true }));
-      const playerInput = root.querySelector('.access-policy-player-controls input');
+      const playerInput = customRoot.querySelector('.access-policy-player-controls input');
       playerInput.value = '10002';
-      clickText('.access-policy-player-controls button', '查询并添加');
-      await waitFor(() => root.querySelector('.access-policy-player-chip'));
+      clickCustomText('.access-policy-player-controls button', '查询并添加');
+      await waitFor(() => customRoot.querySelector('.access-policy-player-chip'));
 
-      clickText('.access-policy-add-condition', '添加第二组条件');
-      const typeSelects = root.querySelectorAll('.access-policy-condition select');
+      clickCustomText('.access-policy-add-condition', '添加第二组条件');
+      const typeSelects = customRoot.querySelectorAll('.access-policy-condition select');
       const secondType = typeSelects[1];
       secondType.value = 'role_name';
       secondType.dispatchEvent(new Event('change', { bubbles: true }));
-      const secondCard = root.querySelectorAll('.access-policy-condition')[1];
+      const secondCard = customRoot.querySelectorAll('.access-policy-condition')[1];
       const secondSelect = secondCard.querySelector('.access-policy-condition-fields select');
       secondSelect.value = 'contains';
       secondSelect.dispatchEvent(new Event('change', { bubbles: true }));
       const roleNameInput = secondCard.querySelector('input[type="text"]');
       roleNameInput.value = '剑客';
       roleNameInput.dispatchEvent(new Event('input', { bubbles: true }));
-      clickText('.access-policy-operator button', '必须同时满足');
-      clickText('.access-policy-footer button', '保存权限');
+      clickCustomText('.access-policy-operator button', '必须同时满足');
+      const playerChipText = customRoot.querySelector('.access-policy-player-chip')?.textContent?.replace('×', '').trim() ?? '';
+      const conditionCount = customRoot.querySelectorAll('.access-policy-condition').length;
+      const hasThirdConditionButton = Boolean(customRoot.querySelector('.access-policy-add-condition'));
+      const operatorLabels = Array.from(customRoot.querySelectorAll('.access-policy-operator button'))
+        .map((entry) => entry.textContent?.trim() ?? '');
+      const customPanelShell = customPanel.querySelector('.access-policy-panel');
+      const customPanelWidth = customPanelShell?.getBoundingClientRect().width ?? 0;
+      const customPanelScrollWidth = customPanelShell?.scrollWidth ?? 0;
+      clickCustomText('.access-policy-footer button', '保存权限');
       await waitFor(() => root.querySelector('.access-policy-status')?.textContent?.includes('权限已保存'));
+      const parentConnectedAfterCustomSave = root.isConnected;
+      const activeModeAfterCustomSave = root.querySelector('.access-policy-mode-group button.active')?.textContent?.trim() ?? '';
+      await Promise.resolve();
+      const focusedModeAfterCustomSave = document.activeElement?.textContent?.trim() ?? '';
 
       const fakeHandlers = new Map();
       let requestPayload = null;
@@ -220,6 +245,8 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
       });
       const resourceTabLabels = Array.from(resourceRoot.querySelectorAll('.access-policy-resource-tabs button'))
         .map((entry) => entry.textContent?.trim() ?? '');
+      const resourceModeLabels = Array.from(resourceRoot.querySelectorAll('.access-policy-resource-panel:not([hidden]) .access-policy-mode-group button'))
+        .map((entry) => entry.textContent?.trim() ?? '');
       const firstDefaultMode = resourceRoot.querySelector('.access-policy-resource-panel:not([hidden]) .access-policy-mode-group button.active')?.textContent?.trim() ?? '';
       Array.from(resourceRoot.querySelectorAll('.access-policy-resource-panel:not([hidden]) .access-policy-mode-group button'))
         .find((entry) => entry.textContent?.trim() === '仅所有者')?.click();
@@ -255,7 +282,10 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
           return { ok: false, reason: 'unused' };
         },
       });
-      const compatibilityTypeSelect = compatibilityRoot.querySelector('.access-policy-condition select');
+      Array.from(compatibilityRoot.querySelectorAll('.access-policy-mode-group button'))
+        .find((entry) => entry.textContent?.trim() === '自定义策略')?.click();
+      const compatibilityPanel = await waitFor(() => document.querySelector('.access-policy-panel-layer:not(.hidden)'));
+      const compatibilityTypeSelect = compatibilityPanel.querySelector('.access-policy-condition select');
       const compatibilityConditionType = compatibilityTypeSelect?.value ?? '';
       const compatibilityConditionLabel = compatibilityTypeSelect?.selectedOptions[0]?.textContent?.trim() ?? '';
       compatibilityEditor.destroy();
@@ -277,7 +307,7 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
         },
       });
       const conflictEveryone = Array.from(conflictRoot.querySelectorAll('.access-policy-mode-group button'))
-        .find((entry) => entry.textContent?.trim() === '无策略');
+        .find((entry) => entry.textContent?.trim() === '所有人');
       conflictEveryone.click();
       conflictRoot.querySelector('.access-policy-footer button').click();
       await waitFor(() => conflictRoot.querySelector('.access-policy-status')?.textContent?.includes('已加载最新配置'));
@@ -285,8 +315,20 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
       const conflictStatus = conflictRoot.querySelector('.access-policy-status')?.textContent?.trim() ?? '';
       conflictEditor.destroy();
 
+      clickText('.access-policy-mode-group button', '自定义策略');
+      await waitFor(() => document.querySelector('.access-policy-panel-layer:not(.hidden)'));
+
       const shell = root.querySelector('.access-policy-editor');
       return {
+        modeLabels,
+        customPanelIndependent,
+        customPanelTitle,
+        selectorHasInlineConditions,
+        customPanelWidth,
+        customPanelScrollWidth,
+        parentConnectedAfterCustomSave,
+        activeModeAfterCustomSave,
+        focusedModeAfterCustomSave,
         conditionTypeLabels,
         relationLabels,
         sectText,
@@ -296,10 +338,10 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
         realmComparisonLabels,
         attributeText,
         playerInputType: playerInput.type,
-        playerChipText: root.querySelector('.access-policy-player-chip')?.textContent?.replace('×', '').trim() ?? '',
-        conditionCount: root.querySelectorAll('.access-policy-condition').length,
-        hasThirdConditionButton: Boolean(root.querySelector('.access-policy-add-condition')),
-        operatorLabels: Array.from(root.querySelectorAll('.access-policy-operator button')).map((entry) => entry.textContent?.trim() ?? ''),
+        playerChipText,
+        conditionCount,
+        hasThirdConditionButton,
+        operatorLabels,
         savedPolicy,
         status: root.querySelector('.access-policy-status')?.textContent?.trim() ?? '',
         shellWidth: shell?.getBoundingClientRect().width ?? 0,
@@ -308,6 +350,7 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
         requestSetResourceType: requestSetPayload?.ref?.resourceType ?? '',
         loadedRevision: loaded.revision,
         resourceTabLabels,
+        resourceModeLabels,
         firstDefaultMode,
         secondDefaultMode,
         firstDraftBeforeSwitch,
@@ -326,6 +369,14 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
     })()
   `);
 
+  assert.deepEqual(result.modeLabels, ['所有人', '仅所有者', '自定义策略'], '权限入口必须固定为三种模式');
+  assert.equal(result.customPanelIndependent, true, '自定义策略必须挂载到独立权限面板');
+  assert.equal(result.customPanelTitle, '自定义权限策略');
+  assert.equal(result.selectorHasInlineConditions, false, '资源权限页不得内嵌自定义条件表单');
+  assert(result.customPanelScrollWidth <= result.customPanelWidth + 1, '自定义权限面板在手机视口出现横向溢出');
+  assert.equal(result.parentConnectedAfterCustomSave, true, '自定义策略保存不得销毁父权限面板');
+  assert.equal(result.activeModeAfterCustomSave, '自定义策略', '保存自定义条件后未切换为自定义策略');
+  assert.equal(result.focusedModeAfterCustomSave, '自定义策略', '保存后键盘焦点未回到当前权限模式');
   assert.deepEqual(result.conditionTypeLabels, ['好友关系', '同宗门', '指定玩家', '角色名字', '境界', '属性']);
   assert.deepEqual(result.relationLabels, ['道友', '至交', '师父', '徒弟', '仇家']);
   for (const role of ['同宗门全部成员', '宗主', '太上长老', '副宗主', '长老', '内门弟子', '外门弟子', '杂役弟子']) {
@@ -350,7 +401,8 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
   assert.equal(result.requestSetResourceType, 'proof', '资源组请求未透传资源键');
   assert.equal(result.loadedRevision, 2, '请求客户端未关联 load 回包');
   assert.deepEqual(result.resourceTabLabels, ['可看和可放', '可拿'], '多权限资源必须按声明顺序展示槽位');
-  assert.equal(result.firstDefaultMode, '无策略', '资源默认开放策略必须显示为无策略');
+  assert.deepEqual(result.resourceModeLabels, ['所有人', '仅所有者', '自定义策略'], '多权限资源槽位未使用固定三态');
+  assert.equal(result.firstDefaultMode, '所有人', '资源默认开放策略必须显示为所有人');
   assert.equal(result.secondDefaultMode, '仅所有者', '不同槽位必须支持不同默认策略');
   assert.equal(result.firstDraftBeforeSwitch, 'owner_only');
   assert.equal(result.firstDraftAfterSwitch, 'owner_only', '切换权限页签不得丢失未保存草稿');
@@ -367,20 +419,45 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
   await cdp.evaluate(`document.documentElement.dataset.colorMode = 'dark'`);
   await delay(80);
   const dark = await cdp.evaluate(`(() => {
-    const editor = document.querySelector('.access-policy-editor');
-    const card = document.querySelector('.access-policy-condition');
+    const panel = document.querySelector('.access-policy-panel-layer:not(.hidden) .access-policy-panel');
+    const editor = panel?.querySelector('.access-policy-editor--custom');
+    const card = panel?.querySelector('.access-policy-condition');
     const resourceEditor = document.querySelector('.access-policy-resource-editor');
     return {
       color: editor ? getComputedStyle(editor).color : '',
       background: card ? getComputedStyle(card).backgroundColor : '',
       overflow: editor ? editor.scrollWidth > editor.clientWidth + 1 : true,
+      panelOverflow: panel ? panel.scrollWidth > panel.clientWidth + 1 : true,
       resourceOverflow: resourceEditor ? resourceEditor.scrollWidth > resourceEditor.clientWidth + 1 : true,
     };
   })()`);
   assert.notEqual(dark.color, '');
   assert.notEqual(dark.background, 'rgba(0, 0, 0, 0)');
   assert.equal(dark.overflow, false, '深色手机模式出现横向溢出');
+  assert.equal(dark.panelOverflow, false, '深色手机模式自定义权限面板出现横向溢出');
   assert.equal(dark.resourceOverflow, false, '深色手机模式多权限资源编辑器出现横向溢出');
+
+  const closeGuard = await cdp.evaluate(`(() => {
+    const layer = document.querySelector('.access-policy-panel-layer:not(.hidden)');
+    const any = Array.from(layer?.querySelectorAll('.access-policy-operator button') ?? [])
+      .find((entry) => entry.textContent?.trim() === '满足任一');
+    const close = layer?.querySelector('.access-policy-panel-close');
+    if (!(layer instanceof HTMLElement) || !(any instanceof HTMLButtonElement) || !(close instanceof HTMLButtonElement)) {
+      throw new Error('自定义权限关闭保护结构不完整');
+    }
+    any.click();
+    const originalConfirm = window.confirm;
+    window.confirm = () => false;
+    close.click();
+    const blocked = !layer.classList.contains('hidden');
+    window.confirm = () => true;
+    close.click();
+    const closed = layer.classList.contains('hidden');
+    window.confirm = originalConfirm;
+    return { blocked, closed };
+  })()`);
+  assert.equal(closeGuard.blocked, true, '拒绝放弃未保存策略时弹层仍被关闭');
+  assert.equal(closeGuard.closed, true, '确认放弃未保存策略后弹层未关闭');
 });
 
 console.log(JSON.stringify({ ok: true, case: 'access-policy-editor' }, null, 2));

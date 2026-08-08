@@ -1,0 +1,145 @@
+/* 自定义权限策略独立弹层；与宝库、统法台等父业务面板并存。 */
+
+.access-policy-panel-layer {
+  --ui-modal-padding: 18px;
+  z-index: 2200;
+  background: var(--overlay-backdrop);
+  backdrop-filter: blur(3px);
+}
+
+.access-policy-panel-layer.hidden {
+  display: none;
+}
+
+.access-policy-panel-backdrop {
+  position: absolute;
+  inset: 0;
+}
+
+.access-policy-panel {
+  --ui-modal-width: min(760px, calc(100vw - 32px));
+  --ui-modal-max-height: min(86dvh, 820px);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: min(520px, calc(100dvh - 48px));
+  overflow: hidden;
+  padding: 0;
+  background: var(--surface-card);
+}
+
+.access-policy-panel-header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  justify-content: space-between;
+  min-width: 0;
+  gap: 16px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--wash-ink);
+}
+
+.access-policy-panel-heading {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.access-policy-panel-title,
+.access-policy-panel-subtitle {
+  min-width: 0;
+  margin: 0;
+}
+
+.access-policy-panel-title {
+  color: var(--ink-black);
+  font-family: var(--font-role-title);
+  font-size: var(--font-size-role-title-22);
+  line-height: 1.25;
+}
+
+.access-policy-panel-subtitle {
+  color: var(--color-role-body-muted);
+  font-size: var(--font-size-role-body-12);
+  line-height: 1.5;
+}
+
+.access-policy-panel-subtitle[hidden] {
+  display: none;
+}
+
+.access-policy-panel-close {
+  display: inline-grid;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--wash-ink);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  color: var(--ink-grey);
+  font: inherit;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.access-policy-panel-close:hover,
+.access-policy-panel-close:focus-visible {
+  border-color: var(--ink-grey);
+  color: var(--ink-black);
+}
+
+.access-policy-panel-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 18px 20px 20px;
+}
+
+.access-policy-panel .access-policy-editor--custom {
+  min-height: 100%;
+  align-content: start;
+}
+
+.access-policy-panel .access-policy-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  margin-top: 4px;
+  padding: 14px 0 max(16px, env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--wash-ink);
+  background: var(--surface-card);
+}
+
+@media (max-width: 760px) {
+  .access-policy-panel-layer {
+    --ui-modal-padding: 6px;
+  }
+
+  .access-policy-panel {
+    --ui-modal-width: calc(100vw - 12px);
+    --ui-modal-max-height: min(94dvh, calc(100dvh - 12px));
+    min-height: min(560px, calc(100dvh - 12px));
+  }
+
+  .access-policy-panel-header {
+    padding: 14px 14px 12px;
+  }
+
+  .access-policy-panel-title {
+    font-size: var(--font-size-role-title-18);
+  }
+
+  .access-policy-panel-body {
+    padding: 14px 14px 16px;
+  }
+
+  .access-policy-panel .access-policy-footer {
+    padding-block: 12px max(12px, env(safe-area-inset-bottom, 0px));
+  }
+}

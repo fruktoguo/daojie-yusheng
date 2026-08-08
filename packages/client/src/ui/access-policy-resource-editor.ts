@@ -99,7 +99,7 @@ export class AccessPolicyResourceEditor {
     const title = document.createElement('strong');
     title.textContent = this.snapshot.title;
     const hint = document.createElement('span');
-    hint.textContent = '每项权限独立保存；未设置时使用该资源声明的默认策略。';
+    hint.textContent = '每项权限固定为所有人、仅所有者或自定义策略，并分别保存。';
     header.append(title, hint);
     shell.append(header);
 
@@ -162,6 +162,7 @@ export class AccessPolicyResourceEditor {
         policy: slot.policy,
         capabilities: this.options.capabilitiesBySlot?.[slot.slot] ?? this.options.capabilities,
         disabled: this.disabled,
+        customPanelContext: `${this.snapshot.title} · ${slot.label}`,
         resolvePlayerNo: (playerNo) => this.options.resolvePlayerNo(playerNo),
         save: (policy, expectedRevision) => this.options.save(ref, policy, expectedRevision),
         onDirtyChange: (dirty) => this.handleSlotDirtyChange(slot.slot, dirty),
@@ -183,7 +184,7 @@ export class AccessPolicyResourceEditor {
 }
 
 function describePolicy(policy: AccessPolicy): string {
-  if (policy.mode === 'everyone') return '无策略，任何人可用';
+  if (policy.mode === 'everyone') return '所有人';
   if (policy.mode === 'owner_only') return '仅所有者';
-  return policy.operator === 'all' ? '按条件，全部满足' : '按条件，满足任一';
+  return policy.operator === 'all' ? '自定义策略，全部满足' : '自定义策略，满足任一';
 }

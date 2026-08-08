@@ -21,6 +21,8 @@ import {
   validateAccessPolicy,
 } from '@mud/shared';
 
+import { accessPolicyPanelHost } from './access-policy-panel-host';
+
 export type AccessPolicyEditorConditionType = AccessPolicyCondition['type'];
 
 export interface AccessPolicyEditorRealmOption {
@@ -48,9 +50,14 @@ export interface AccessPolicyEditorOptions {
   policy?: AccessPolicy;
   capabilities?: AccessPolicyEditorCapabilities;
   disabled?: boolean;
+  /** selector 为固定三态入口；custom 仅供独立自定义策略面板使用。 */
+  presentation?: 'selector' | 'custom';
+  customPanelContext?: string;
   resolvePlayerNo(playerNo: number): Promise<AccessPolicySpecifiedPlayer | null>;
   save(policy: AccessPolicy, expectedRevision: number): Promise<AccessPolicyEditorSaveResult>;
   onDirtyChange?(dirty: boolean): void;
+  onSaved?(policy: AccessPolicy): void;
+  onConflict?(policy: AccessPolicy): void;
 }
 
 const CONDITION_TYPE_LABELS: Readonly<Record<AccessPolicyEditorConditionType, string>> = {
@@ -87,6 +94,8 @@ const DEFAULT_RELATIONS: readonly AccessPolicyRelationKind[] = [
   'enemy',
 ];
 
+let accessPolicyEditorSequence = 0;
+
 export class AccessPolicyEditor {
   private readonly root: HTMLElement;
   private readonly options: AccessPolicyEditorOptions;
@@ -94,15 +103,21 @@ export class AccessPolicyEditor {
   private readonly relationKinds: readonly AccessPolicyRelationKind[];
   private readonly realmOptions: readonly AccessPolicyEditorRealmOption[];
   private readonly maxSpecifiedPlayers: number;
+  private readonly presentation: 'selector' | 'custom';
+  private readonly customPanelOwnerId: string;
   private authoritativePolicy: AccessPolicy;
   private draft: AccessPolicy;
+  private lastConditionalPolicy: AccessPolicy;
   private disabled: boolean;
   private dirty = false;
+  private customPanelDirty = false;
+  private emittedDirty = false;
   private saving = false;
   private destroyed = false;
   private requestSerial = 0;
   private statusNode: HTMLElement | null = null;
   private saveButton: HTMLButtonElement | null = null;
+  private customEditor: AccessPolicyEditor | null = null;
 
   constructor(options: AccessPolicyEditorOptions) {
     this.options = options;
@@ -117,15 +132,24 @@ export class AccessPolicyEditor {
         Math.trunc(Number(options.capabilities?.maxSpecifiedPlayers) || ACCESS_POLICY_MAX_SPECIFIED_PLAYERS),
       ),
     );
+    this.presentation = options.presentation ?? 'selector';
+    this.customPanelOwnerId = `access-policy-custom:${++accessPolicyEditorSequence}`;
     this.disabled = options.disabled === true;
     this.authoritativePolicy = cloneAccessPolicy(options.policy ?? DEFAULT_ACCESS_POLICY);
     this.draft = cloneAccessPolicy(this.authoritativePolicy);
+    this.lastConditionalPolicy = this.resolveConditionalPolicy(this.draft);
+    if (this.presentation === 'custom' && this.draft.mode !== 'conditional') {
+      this.authoritativePolicy = cloneAccessPolicy(this.lastConditionalPolicy);
+      this.draft = cloneAccessPolicy(this.lastConditionalPolicy);
+    }
     this.render();
   }
 
   setPolicy(policy: AccessPolicy): void {
+    this.closeCustomPanel();
     this.authoritativePolicy = cloneAccessPolicy(policy);
     this.draft = cloneAccessPolicy(policy);
+    if (policy.mode === 'conditional') this.lastConditionalPolicy = cloneAccessPolicy(policy);
     this.setDirty(false);
     this.render();
   }
@@ -136,6 +160,7 @@ export class AccessPolicyEditor {
     const next = cloneAccessPolicy(policy);
     next.revision = this.authoritativePolicy.revision;
     this.draft = next;
+    if (next.mode === 'conditional') this.lastConditionalPolicy = cloneAccessPolicy(next);
     this.setDirty(true);
     this.render();
   }
@@ -143,16 +168,23 @@ export class AccessPolicyEditor {
   setDisabled(disabled: boolean): void {
     if (this.disabled === disabled) return;
     this.disabled = disabled;
+    this.customEditor?.setDisabled(disabled);
     this.render();
   }
 
   getPolicy(): AccessPolicy {
-    return cloneAccessPolicy(this.draft);
+    return this.customEditor?.getPolicy() ?? cloneAccessPolicy(this.draft);
+  }
+
+  hasUnsavedChanges(): boolean {
+    return this.dirty || this.customPanelDirty;
   }
 
   destroy(): void {
+    if (this.destroyed) return;
     this.destroyed = true;
     this.requestSerial += 1;
+    this.closeCustomPanel();
     this.root.replaceChildren();
   }
 
@@ -161,41 +193,74 @@ export class AccessPolicyEditor {
     this.requestSerial += 1;
     const fragment = document.createDocumentFragment();
     const shell = document.createElement('section');
-    shell.className = 'access-policy-editor';
+    shell.className = `access-policy-editor access-policy-editor--${this.presentation}`;
     shell.dataset.accessPolicyEditor = 'true';
 
+    const hint = document.createElement('div');
+    hint.className = 'access-policy-hint';
+    if (this.presentation === 'custom') {
+      hint.textContent = '最多设置两种不同类别的条件；条件内部为任一匹配，两组之间可选择或/且。';
+      shell.append(hint);
+      shell.append(this.renderConditionalBody());
+    } else {
+      shell.append(this.renderModeSelector());
+      hint.textContent = this.draft.mode === 'owner_only'
+        ? '只有资源所有者可以使用。'
+        : this.draft.mode === 'everyone'
+          ? '任何玩家均可使用；业务系统仍会执行距离、状态和资产校验。'
+          : `已启用自定义策略：${describeConditionalPolicy(this.draft)}。`;
+      shell.append(hint);
+      if (this.draft.mode === 'conditional') shell.append(this.renderCustomPolicyEntry());
+    }
+
+    shell.append(this.renderFooter());
+    fragment.append(shell);
+    this.root.replaceChildren(fragment);
+  }
+
+  private renderModeSelector(): HTMLElement {
     const modeGroup = document.createElement('div');
     modeGroup.className = 'access-policy-mode-group';
     modeGroup.setAttribute('role', 'group');
     modeGroup.setAttribute('aria-label', '权限模式');
     for (const entry of [
-      { value: 'everyone' as const, label: '无策略' },
+      { value: 'everyone' as const, label: '所有人' },
       { value: 'owner_only' as const, label: '仅所有者' },
-      { value: 'conditional' as const, label: '按条件' },
+      { value: 'conditional' as const, label: '自定义策略' },
     ]) {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = `ui-filter-tab${this.draft.mode === entry.value ? ' active' : ''}`;
+      button.dataset.accessPolicyMode = entry.value;
       button.textContent = entry.label;
       button.disabled = this.disabled || this.saving;
-      button.addEventListener('click', () => this.changeMode(entry.value));
+      button.setAttribute('aria-pressed', this.draft.mode === entry.value ? 'true' : 'false');
+      if (entry.value === 'conditional') button.setAttribute('aria-haspopup', 'dialog');
+      button.addEventListener('click', () => {
+        if (entry.value === 'conditional') this.openCustomPanel();
+        else this.changeMode(entry.value);
+      });
       modeGroup.append(button);
     }
-    shell.append(modeGroup);
+    return modeGroup;
+  }
 
-    const hint = document.createElement('div');
-    hint.className = 'access-policy-hint';
-    hint.textContent = this.draft.mode === 'owner_only'
-      ? '只有资源所有者可以使用。'
-      : this.draft.mode === 'everyone'
-        ? '不附加权限限制，任何玩家均可使用；业务系统仍会执行距离、状态和资产校验。'
-        : '最多设置两种不同类别的条件；条件内部为任一匹配，两组之间可选择或/且。';
-    shell.append(hint);
+  private renderCustomPolicyEntry(): HTMLElement {
+    const entry = document.createElement('div');
+    entry.className = 'access-policy-custom-entry';
+    const summary = document.createElement('span');
+    summary.textContent = describeConditionalPolicy(this.draft);
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.className = 'small-btn ghost';
+    edit.textContent = '编辑自定义策略';
+    edit.disabled = this.disabled || this.saving;
+    edit.addEventListener('click', () => this.openCustomPanel());
+    entry.append(summary, edit);
+    return entry;
+  }
 
-    if (this.draft.mode === 'conditional') {
-      shell.append(this.renderConditionalBody());
-    }
-
+  private renderFooter(): HTMLElement {
     const footer = document.createElement('div');
     footer.className = 'access-policy-footer';
     this.statusNode = document.createElement('div');
@@ -209,9 +274,7 @@ export class AccessPolicyEditor {
     this.saveButton.disabled = this.disabled || this.saving || !this.dirty;
     this.saveButton.addEventListener('click', () => void this.save());
     footer.append(this.saveButton);
-    shell.append(footer);
-    fragment.append(shell);
-    this.root.replaceChildren(fragment);
+    return footer;
   }
 
   private renderConditionalBody(): HTMLElement {
@@ -573,15 +636,116 @@ export class AccessPolicyEditor {
     return field;
   }
 
-  private changeMode(mode: AccessPolicyMode): void {
-    if (this.draft.mode === mode) return;
-    this.draft.mode = mode;
-    if (mode !== 'conditional') {
-      this.draft.conditions = [];
-      this.draft.operator = 'any';
-    } else if (this.draft.conditions.length === 0) {
-      this.draft.conditions = [createDefaultCondition(this.conditionTypes[0] ?? 'relation', this.relationKinds, this.realmOptions)];
+  private openCustomPanel(): void {
+    if (this.presentation !== 'selector' || this.disabled || this.saving || this.destroyed) return;
+    if (accessPolicyPanelHost.isOpenFor(this.customPanelOwnerId)) return;
+    const policy = this.draft.mode === 'conditional'
+      ? this.resolveConditionalPolicy(this.draft)
+      : this.resolveConditionalPolicy(this.lastConditionalPolicy);
+    policy.revision = this.authoritativePolicy.revision;
+    const startsDirty = this.dirty || this.draft.mode !== 'conditional';
+    const opened = accessPolicyPanelHost.open({
+      ownerId: this.customPanelOwnerId,
+      title: '自定义权限策略',
+      subtitle: this.options.customPanelContext,
+      onRequestClose: () => (
+        !this.customEditor?.hasUnsavedChanges()
+        || window.confirm('自定义权限策略尚未保存，确认放弃本次修改？')
+      ),
+      onClose: () => this.releaseCustomEditor(),
+      renderBody: (body) => {
+        const editor = new AccessPolicyEditor({
+          root: body,
+          policy,
+          capabilities: this.options.capabilities,
+          disabled: this.disabled,
+          presentation: 'custom',
+          resolvePlayerNo: (playerNo) => this.options.resolvePlayerNo(playerNo),
+          save: (nextPolicy, expectedRevision) => this.options.save(nextPolicy, expectedRevision),
+          onDirtyChange: (dirty) => this.setCustomPanelDirty(dirty),
+          onSaved: (savedPolicy) => this.handleCustomPolicySaved(savedPolicy),
+          onConflict: (currentPolicy) => this.handleCustomPolicyConflict(currentPolicy),
+        });
+        this.customEditor = editor;
+        if (startsDirty) editor.setDraft(policy);
+      },
+    });
+    if (!opened) this.releaseCustomEditor();
+  }
+
+  private handleCustomPolicySaved(policy: AccessPolicy): void {
+    this.authoritativePolicy = cloneAccessPolicy(policy);
+    this.draft = cloneAccessPolicy(policy);
+    this.lastConditionalPolicy = cloneAccessPolicy(policy);
+    this.dirty = false;
+    this.releaseCustomEditor();
+    accessPolicyPanelHost.close(this.customPanelOwnerId);
+    this.render();
+    this.setStatus('权限已保存。', false);
+    this.focusActiveMode();
+    this.emitDirtyChange();
+    this.options.onSaved?.(cloneAccessPolicy(policy));
+  }
+
+  private handleCustomPolicyConflict(policy: AccessPolicy): void {
+    this.authoritativePolicy = cloneAccessPolicy(policy);
+    this.draft = cloneAccessPolicy(policy);
+    if (policy.mode === 'conditional') this.lastConditionalPolicy = cloneAccessPolicy(policy);
+    this.dirty = false;
+    this.releaseCustomEditor();
+    accessPolicyPanelHost.close(this.customPanelOwnerId);
+    this.render();
+    this.setStatus('权限已被其他操作修改，已加载最新配置，请重新修改。', true);
+    this.focusActiveMode();
+    this.emitDirtyChange();
+    this.options.onConflict?.(cloneAccessPolicy(policy));
+  }
+
+  private closeCustomPanel(): void {
+    this.releaseCustomEditor();
+    accessPolicyPanelHost.close(this.customPanelOwnerId);
+  }
+
+  private focusActiveMode(): void {
+    queueMicrotask(() => {
+      if (!this.destroyed) {
+        this.root.querySelector<HTMLButtonElement>('.access-policy-mode-group button.active')
+          ?.focus({ preventScroll: true });
+      }
+    });
+  }
+
+  private releaseCustomEditor(): void {
+    const editor = this.customEditor;
+    this.customEditor = null;
+    editor?.destroy();
+    this.setCustomPanelDirty(false);
+  }
+
+  private resolveConditionalPolicy(policy: Readonly<AccessPolicy>): AccessPolicy {
+    const next = cloneAccessPolicy(policy);
+    next.mode = 'conditional';
+    if (next.conditions.length === 0) {
+      next.conditions = [createDefaultCondition(
+        this.conditionTypes[0] ?? 'relation',
+        this.relationKinds,
+        this.realmOptions,
+      )];
     }
+    if (next.conditions.length < 2) next.operator = 'any';
+    return next;
+  }
+
+  private changeMode(mode: AccessPolicyMode): void {
+    if (mode === 'conditional') {
+      this.openCustomPanel();
+      return;
+    }
+    if (this.draft.mode === mode) return;
+    if (this.draft.mode === 'conditional') this.lastConditionalPolicy = cloneAccessPolicy(this.draft);
+    this.draft.mode = mode;
+    this.draft.conditions = [];
+    this.draft.operator = 'any';
     this.markChanged();
     this.render();
   }
@@ -679,9 +843,13 @@ export class AccessPolicyEditor {
         if (result.reason === 'access_policy_revision_conflict' && result.currentPolicy) {
           this.authoritativePolicy = cloneAccessPolicy(result.currentPolicy);
           this.draft = cloneAccessPolicy(result.currentPolicy);
+          if (result.currentPolicy.mode === 'conditional') {
+            this.lastConditionalPolicy = cloneAccessPolicy(result.currentPolicy);
+          }
           this.setDirty(false);
           this.render();
           this.setStatus('权限已被其他操作修改，已加载最新配置，请重新修改。', true);
+          this.options.onConflict?.(cloneAccessPolicy(result.currentPolicy));
           return;
         }
         const unresolved = result.unresolvedPlayerNos?.length
@@ -692,9 +860,11 @@ export class AccessPolicyEditor {
       }
       this.authoritativePolicy = cloneAccessPolicy(result.policy);
       this.draft = cloneAccessPolicy(result.policy);
+      if (result.policy.mode === 'conditional') this.lastConditionalPolicy = cloneAccessPolicy(result.policy);
       this.setDirty(false);
       this.render();
       this.setStatus('权限已保存。', false);
+      this.options.onSaved?.(cloneAccessPolicy(result.policy));
     } catch (error) {
       this.setStatus(error instanceof Error ? error.message : '权限保存失败。', true);
     } finally {
@@ -710,6 +880,19 @@ export class AccessPolicyEditor {
   private setDirty(dirty: boolean): void {
     if (this.dirty === dirty) return;
     this.dirty = dirty;
+    this.emitDirtyChange();
+  }
+
+  private setCustomPanelDirty(dirty: boolean): void {
+    if (this.customPanelDirty === dirty) return;
+    this.customPanelDirty = dirty;
+    this.emitDirtyChange();
+  }
+
+  private emitDirtyChange(): void {
+    const dirty = this.dirty || this.customPanelDirty;
+    if (this.emittedDirty === dirty) return;
+    this.emittedDirty = dirty;
     this.options.onDirtyChange?.(dirty);
   }
 
@@ -836,4 +1019,11 @@ function resolveSaveError(reason: string | undefined): string {
     default:
       return '权限保存失败。';
   }
+}
+
+function describeConditionalPolicy(policy: Readonly<AccessPolicy>): string {
+  const count = Math.max(0, policy.conditions.length);
+  if (count === 0) return '尚未设置条件';
+  if (count === 1) return '1 类条件';
+  return policy.operator === 'all' ? '2 类条件，必须同时满足' : '2 类条件，满足任一即可';
 }
