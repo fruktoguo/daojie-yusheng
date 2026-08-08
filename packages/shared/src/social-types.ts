@@ -4,6 +4,7 @@
  * 关系与宝库权限由服务端裁定，客户端只展示状态并提交意图。
  */
 
+import type { AccessPolicyResourceLocator } from './access-policy';
 import type { ChatMessageScope } from './notice-types';
 import type { SyncedItemStack } from './synced-panel-types';
 
@@ -125,18 +126,6 @@ export interface DaoistDirectMessageHistoryView {
 
 export type TreasureVaultPermissionKind = 'view' | 'deposit' | 'withdraw';
 
-export type TreasureVaultPermissionScope =
-  | 'all'
-  | 'party'
-  | 'sect'
-  | 'dao_friend'
-  | 'close_friend';
-
-export type TreasureVaultPermissionMap = Record<
-  TreasureVaultPermissionKind,
-  TreasureVaultPermissionScope[]
->;
-
 export interface TreasureVaultItemView extends SyncedItemStack {
   storageItemId: string;
   slotIndex: number;
@@ -148,7 +137,7 @@ export interface TreasureVaultDetailView {
   buildingName: string;
   ownerPlayerId: string | null;
   ownerName?: string;
-  permissions: TreasureVaultPermissionMap;
+  accessPolicyResource: AccessPolicyResourceLocator;
   effectivePermissions: Record<TreasureVaultPermissionKind, boolean>;
   items: TreasureVaultItemView[];
   capacity: number;
@@ -157,7 +146,7 @@ export interface TreasureVaultDetailView {
 
 export interface TreasureVaultOperationResultView {
   ok: boolean;
-  operation: 'detail' | 'deposit' | 'withdraw' | 'organize' | 'permissions' | 'rename';
+  operation: 'detail' | 'deposit' | 'withdraw' | 'organize' | 'rename';
   reason?: string;
   detail?: TreasureVaultDetailView;
 }
@@ -236,12 +225,6 @@ export interface C2S_TreasureVaultWithdrawView {
 export interface C2S_OrganizeTreasureVaultView {
   instanceId?: string;
   buildingId: string;
-}
-
-export interface C2S_UpdateTreasureVaultPermissionsView {
-  instanceId?: string;
-  buildingId: string;
-  permissions: Partial<TreasureVaultPermissionMap>;
 }
 
 export interface C2S_RenameTreasureVaultView {

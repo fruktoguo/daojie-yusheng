@@ -24,7 +24,6 @@ export type {
   C2S_TreasureVaultDepositView,
   C2S_TreasureVaultWithdrawView,
   C2S_UpdateDaoistRelationLevelView,
-  C2S_UpdateTreasureVaultPermissionsView,
   ChatHistoryChannelView,
   ChatHistoryCursorView,
   ChatHistorySyncView,

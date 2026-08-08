@@ -606,10 +606,14 @@ async function main() {
   const namedBuilding = instance.buildingById.values().next().value;
   assert.ok(namedBuilding);
   namedBuilding.name = "自定义建筑名";
-  namedBuilding.treasureVaultPermissions = {
-    view: ["all", "sect"],
-    deposit: ["party"],
-    withdraw: ["close_friend"],
+  namedBuilding.accessPolicies = {
+    use: {
+      schemaVersion: 1,
+      mode: "conditional",
+      operator: "any",
+      conditions: [{ type: "relation", relations: ["close_friend"] }],
+      revision: 3,
+    },
   };
   const persistenceState = instance.buildBuildingRoomFengShuiPersistenceState();
   assert.ok(persistenceState.buildings.some((entry) => entry.cells?.some((cell) => cell.previousTileType === TileType.Floor)));
@@ -632,10 +636,14 @@ async function main() {
   assert.equal(hydrateResult.rebuilt, true);
   assert.equal(recoveredInstance.buildingById.size, instance.buildingById.size);
   assert.equal(recoveredInstance.buildingById.get(namedBuilding.id)?.name, "自定义建筑名");
-  assert.deepEqual(recoveredInstance.buildingById.get(namedBuilding.id)?.treasureVaultPermissions, {
-    view: ["all", "sect"],
-    deposit: ["party"],
-    withdraw: ["close_friend"],
+  assert.deepEqual(recoveredInstance.buildingById.get(namedBuilding.id)?.accessPolicies, {
+    use: {
+      schemaVersion: 1,
+      mode: "conditional",
+      operator: "any",
+      conditions: [{ type: "relation", relations: ["close_friend"] }],
+      revision: 3,
+    },
   });
   assert.equal(recoveredInstance.listRoomSummaries().length, 1);
   assert.ok(recoveredInstance.getFengShuiSnapshotAt(2, 2));

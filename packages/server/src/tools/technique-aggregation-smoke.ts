@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  OWNER_ONLY_ACCESS_POLICY,
   TECHNIQUE_ATTR_KEYS,
   TechniqueRealm,
   calcTechniqueAttrValues,
@@ -346,22 +347,20 @@ async function main(): Promise<void> {
     requestId: 'publish-v1',
     operationId: 'aggregation-family-main',
     customName: '归一真经',
-    permissions: {
-      read: {
-        unrestricted: false,
-        friendLevels: ['close_friend'],
-        sectRoles: ['elder', 'inner'],
-      },
-      revision: {
-        unrestricted: false,
-        friendLevels: [],
-        sectRoles: [],
-      },
-    },
     sourceTechniqueIds: [sourceA.id, sourceB.id],
   }, {
     platformInstanceId: 'instance:sect-main',
     platformBuildingId: 'unification-platform-1',
+    initialPermissions: {
+      read: {
+        schemaVersion: 1,
+        mode: 'conditional',
+        operator: 'any',
+        conditions: [{ type: 'sect', roles: ['elder', 'inner'] }],
+        revision: 1,
+      },
+      revision: OWNER_ONLY_ACCESS_POLICY,
+    },
   });
   assert.equal(first.ok, true);
   assert.ok(first.ok && first.result.aggregate);
@@ -373,15 +372,13 @@ async function main(): Promise<void> {
   assert.equal(first.template.aggregate?.platformBuildingId, 'unification-platform-1');
   assert.deepEqual(first.template.aggregate?.initialPermissions, {
     read: {
-      unrestricted: false,
-      friendLevels: ['close_friend'],
-      sectRoles: ['elder', 'inner'],
+      schemaVersion: 1,
+      mode: 'conditional',
+      operator: 'any',
+      conditions: [{ type: 'sect', roles: ['elder', 'inner'] }],
+      revision: 1,
     },
-    revision: {
-      unrestricted: false,
-      friendLevels: [],
-      sectRoles: [],
-    },
+    revision: OWNER_ONLY_ACCESS_POLICY,
   });
   const firstTemplate = store.getById(first.result.aggregate.techniqueId);
   assert.ok(firstTemplate);

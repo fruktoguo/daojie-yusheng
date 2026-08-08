@@ -26,7 +26,6 @@ import type {
   C2S_SaveAccessPolicyView,
 } from './access-policy';
 import type {
-  TechniqueAggregationPermissionRequest,
   TechniqueAggregationLearnRequest,
   TechniqueAggregationPanelView,
   TechniqueAggregationPreviewRequest,
@@ -63,7 +62,6 @@ import type {
   C2S_TreasureVaultDepositView,
   C2S_TreasureVaultWithdrawView,
   C2S_UpdateDaoistRelationLevelView,
-  C2S_UpdateTreasureVaultPermissionsView,
   ChatHistorySyncView,
   DaoistDirectMessageView,
   DaoistDirectMessageHistoryView,
@@ -211,7 +209,6 @@ export const C2S = {
   TreasureVaultDeposit: 'n:c:treasureVaultDeposit',
   TreasureVaultWithdraw: 'n:c:treasureVaultWithdraw',
   OrganizeTreasureVault: 'n:c:organizeTreasureVault',
-  UpdateTreasureVaultPermissions: 'n:c:updateTreasureVaultPermissions',
   RenameTreasureVault: 'n:c:renameTreasureVault',
   RequestTimeChamber: 'n:c:requestTimeChamber',
   ActivateTimeChamber: 'n:c:activateTimeChamber',
@@ -228,7 +225,6 @@ export const C2S = {
   TechniqueGeneration: 'n:c:techniqueGeneration',
   RequestTechniqueAggregation: 'n:c:requestTechniqueAggregation',
   PublishTechniqueAggregation: 'n:c:publishTechniqueAggregation',
-  UpdateTechniqueAggregationPermissions: 'n:c:updateTechniqueAggregationPermissions',
   LearnTechniqueAggregation: 'n:c:learnTechniqueAggregation',
   RequestAccessPolicy: 'n:c:requestAccessPolicy',
   RequestAccessPolicySet: 'n:c:requestAccessPolicySet',
@@ -437,7 +433,6 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.TreasureVaultDeposit]: C2S_TreasureVaultDepositView;
   [C2S.TreasureVaultWithdraw]: C2S_TreasureVaultWithdrawView;
   [C2S.OrganizeTreasureVault]: C2S_OrganizeTreasureVaultView;
-  [C2S.UpdateTreasureVaultPermissions]: C2S_UpdateTreasureVaultPermissionsView;
   [C2S.RenameTreasureVault]: C2S_RenameTreasureVaultView;
   [C2S.RequestTimeChamber]: C2S_RequestTimeChamberView;
   [C2S.ActivateTimeChamber]: C2S_ActivateTimeChamberView;
@@ -454,7 +449,6 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.TechniqueGeneration]: RequestPayloads.C2S_TechniqueGeneration;
   [C2S.RequestTechniqueAggregation]: TechniqueAggregationPreviewRequest;
   [C2S.PublishTechniqueAggregation]: TechniqueAggregationPublishRequest;
-  [C2S.UpdateTechniqueAggregationPermissions]: TechniqueAggregationPermissionRequest;
   [C2S.LearnTechniqueAggregation]: TechniqueAggregationLearnRequest;
   [C2S.RequestAccessPolicy]: C2S_RequestAccessPolicyView;
   [C2S.RequestAccessPolicySet]: C2S_RequestAccessPolicySetView;

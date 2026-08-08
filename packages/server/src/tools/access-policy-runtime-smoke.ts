@@ -2,8 +2,11 @@
 import assert from 'node:assert/strict';
 
 import {
+  ACCESS_POLICY_RESOURCE_TYPE,
   EVERYONE_ACCESS_POLICY,
   OWNER_ONLY_ACCESS_POLICY,
+  TECHNIQUE_UNIFICATION_ACCESS_POLICY_SLOT,
+  TREASURE_VAULT_ACCESS_POLICY_SLOT,
   cloneAccessPolicy,
   evaluateCompiledAccessPolicy,
   type AccessPolicy,
@@ -12,6 +15,8 @@ import {
 
 import { AccessPolicyResourceService } from '../runtime/access/access-policy-resource.service';
 import { AccessPolicyRuntimeService } from '../runtime/access/access-policy-runtime.service';
+import { normalizePersistedBuildingAccessPolicies } from '../runtime/access/building-access-policy-legacy';
+import { BuildingAccessPolicyService } from '../runtime/access/building-access-policy.service';
 import { WorldGatewayAccessPolicyHelper } from '../network/world-gateway-access-policy.helper';
 
 const players = new Map<string, any>([
@@ -97,6 +102,7 @@ const runtime = new AccessPolicyRuntimeService(
 );
 
 async function main(): Promise<void> {
+assertLegacyBuildingPolicyMigration();
 const unregisterProvider = runtime.registerRelationProvider({
   id: 'smoke-master-apprentice',
   relationKinds: ['master', 'apprentice'],
@@ -142,6 +148,7 @@ const resolved = await runtime.resolvePlayerNo(10002);
 assert.deepEqual(resolved, { playerNo: 10002, playerId: 'player:visitor', roleName: '青云剑客' });
 
 const resourceService = new AccessPolicyResourceService(runtime);
+await assertBuildingAccessPolicyAdapters(resourceService);
 const ref: AccessPolicyResourceRef = { resourceType: 'smoke_resource', resourceId: 'resource:1', slot: 'use' };
 const withdrawRef: AccessPolicyResourceRef = { ...ref, slot: 'withdraw' };
 let resourceState = {
@@ -326,6 +333,232 @@ function buildPolicy(
 
 function evaluationContext() {
   return { actorPlayerId: 'player:visitor', ownerPlayerId: 'player:owner' };
+}
+
+function assertLegacyBuildingPolicyMigration(): void {
+  const treasurePolicies = normalizePersistedBuildingAccessPolicies({
+    treasureVaultPermissions: {
+      view: ['all', 'sect'],
+      deposit: ['party'],
+      withdraw: ['close_friend'],
+    },
+  }, 'treasure_vault');
+  assert.deepEqual(treasurePolicies?.[TREASURE_VAULT_ACCESS_POLICY_SLOT.viewDeposit], {
+    schemaVersion: 1,
+    mode: 'conditional',
+    operator: 'any',
+    conditions: [{ type: 'party' }],
+    revision: 1,
+  }, '旧查看/存入权限合并时必须采用安全交集');
+  assert.deepEqual(treasurePolicies?.[TREASURE_VAULT_ACCESS_POLICY_SLOT.withdraw], {
+    schemaVersion: 1,
+    mode: 'conditional',
+    operator: 'any',
+    conditions: [{ type: 'relation', relations: ['close_friend'] }],
+    revision: 1,
+  });
+
+  const failClosedTreasurePolicies = normalizePersistedBuildingAccessPolicies({
+    treasureVaultPermissions: {
+      view: ['party', 'sect', 'dao_friend'],
+      deposit: ['party', 'sect', 'dao_friend'],
+      withdraw: ['all'],
+    },
+  }, 'treasure_vault');
+  assert.equal(
+    failClosedTreasurePolicies?.[TREASURE_VAULT_ACCESS_POLICY_SLOT.viewDeposit]?.mode,
+    'owner_only',
+    '无法压入两类条件的旧宝库权限必须失败关闭，不能扩大访问范围',
+  );
+
+  const techniquePolicies = normalizePersistedBuildingAccessPolicies({
+    techniqueAggregationPermissions: {
+      read: {
+        unrestricted: false,
+        friendLevels: ['close_friend'],
+        sectRoles: ['elder', 'inner'],
+      },
+      revision: {
+        unrestricted: false,
+        friendLevels: [],
+        sectRoles: [],
+      },
+    },
+  }, 'technique_unification_platform');
+  assert.deepEqual(
+    techniquePolicies?.[TECHNIQUE_UNIFICATION_ACCESS_POLICY_SLOT.read]?.conditions.map((entry) => entry.type),
+    ['relation', 'sect'],
+    '旧统法台关系与宗门权限必须迁移为两类通用条件',
+  );
+  assert.equal(
+    techniquePolicies?.[TECHNIQUE_UNIFICATION_ACCESS_POLICY_SLOT.revision]?.mode,
+    'owner_only',
+  );
+
+  const explicitPolicyWins = normalizePersistedBuildingAccessPolicies({
+    accessPolicies: {
+      read: EVERYONE_ACCESS_POLICY,
+    },
+    techniqueAggregationPermissions: {
+      read: { unrestricted: false, friendLevels: [], sectRoles: [] },
+    },
+  }, 'technique_unification_platform');
+  assert.equal(
+    explicitPolicyWins?.[TECHNIQUE_UNIFICATION_ACCESS_POLICY_SLOT.read]?.mode,
+    'everyone',
+    '新通用策略必须优先于旧字段，避免双写真源回退',
+  );
+
+  const partialLegacyPolicies = normalizePersistedBuildingAccessPolicies({
+    treasureVaultPermissions: { withdraw: ['all'] },
+  }, 'treasure_vault');
+  assert.equal(
+    partialLegacyPolicies?.[TREASURE_VAULT_ACCESS_POLICY_SLOT.viewDeposit]?.mode,
+    'everyone',
+    '旧宝库缺失查看/存入字段时必须保留原有开放默认值',
+  );
+  const partialTechniquePolicies = normalizePersistedBuildingAccessPolicies({
+    techniqueAggregationPermissions: {
+      revision: { unrestricted: false, friendLevels: [], sectRoles: [] },
+    },
+  }, 'technique_unification_platform');
+  assert.equal(
+    partialTechniquePolicies?.[TECHNIQUE_UNIFICATION_ACCESS_POLICY_SLOT.read]?.mode,
+    'everyone',
+    '旧统法台缺失参阅字段时必须保留原有开放默认值',
+  );
+
+  const corruptedExplicitPolicy = normalizePersistedBuildingAccessPolicies({
+    accessPolicies: {
+      [TREASURE_VAULT_ACCESS_POLICY_SLOT.viewDeposit]: { mode: 'everyone' },
+    },
+  }, 'treasure_vault');
+  assert.equal(
+    corruptedExplicitPolicy?.[TREASURE_VAULT_ACCESS_POLICY_SLOT.viewDeposit]?.mode,
+    'owner_only',
+    '损坏的显式通用策略必须失败关闭，不能回落到业务开放默认值',
+  );
+}
+
+async function assertBuildingAccessPolicyAdapters(resourceService: AccessPolicyResourceService): Promise<void> {
+  const instanceId = 'instance:access-policy-smoke';
+  const vault = {
+    id: 'building:vault',
+    defId: 'treasure_vault',
+    state: 'active',
+    name: '测试宝库',
+    ownerPlayerId: 'player:owner',
+    ownerSectId: 'sect:玄门',
+    x: 5,
+    y: 5,
+    revision: 1,
+  } as any;
+  const platform = {
+    id: 'building:platform',
+    defId: 'technique_unification_platform',
+    state: 'active',
+    name: '测试统法台',
+    ownerPlayerId: 'player:owner',
+    x: 5,
+    y: 5,
+    revision: 1,
+  } as any;
+  let flushCount = 0;
+  const instance = {
+    meta: { instanceId, persistent: true },
+    buildingById: new Map([[vault.id, vault], [platform.id, platform]]),
+    updateBuildingAccessPolicyState(buildingId: string, slot: string, policy: AccessPolicy, expectedRevision: number) {
+      const building = this.buildingById.get(buildingId);
+      if (!building) return { ok: false, reason: 'access_policy_resource_not_found' };
+      const currentRevision = building.accessPolicies?.[slot]?.revision ?? 1;
+      if (currentRevision !== expectedRevision) {
+        return { ok: false, reason: 'access_policy_revision_conflict' };
+      }
+      building.accessPolicies = {
+        ...(building.accessPolicies ?? {}),
+        [slot]: cloneAccessPolicy(policy),
+      };
+      building.revision += 1;
+      return { ok: true, building, changed: true };
+    },
+  };
+  const buildingService = new BuildingAccessPolicyService(
+    runtime,
+    resourceService,
+    {
+      getPlayer(playerId: string) {
+        const player = players.get(playerId);
+        return player ? { ...player, instanceId, x: 5, y: 5 } : null;
+      },
+    } as never,
+    {
+      getInstanceRuntime(requestedInstanceId: string) {
+        return requestedInstanceId === instanceId ? instance : null;
+      },
+      async flushInstanceDomains(requestedInstanceId: string, domains: string[]) {
+        assert.equal(requestedInstanceId, instanceId);
+        assert.deepEqual(domains, ['building']);
+        flushCount += 1;
+        return { persistedDomains: domains, skipped: false };
+      },
+    } as never,
+  );
+  buildingService.onModuleInit();
+  try {
+    const vaultLocator = buildingService.buildTreasureVaultResource(vault.id);
+    const vaultSet = await resourceService.loadSetForEditor('player:owner', vaultLocator);
+    assert.equal(vaultSet.ok, true);
+    assert.deepEqual(vaultSet.ok === true
+      ? vaultSet.snapshot.slots.map((slot) => [slot.slot, slot.label, slot.policy.mode])
+      : [], [
+      ['view_deposit', '可看和可放', 'everyone'],
+      ['withdraw', '可拿', 'owner_only'],
+    ], '宝库必须通过通用资源适配器声明两个独立默认槽位');
+    assert.deepEqual(
+      await resourceService.loadSetForEditor('player:visitor', vaultLocator),
+      { ok: false, reason: 'access_policy_manage_denied' },
+      '非建造者不得打开建筑权限编辑器',
+    );
+
+    const saveWithdraw = await resourceService.save('player:owner', {
+      ...vaultLocator,
+      slot: TREASURE_VAULT_ACCESS_POLICY_SLOT.withdraw,
+    }, 1, cloneAccessPolicy(EVERYONE_ACCESS_POLICY));
+    assert.equal(saveWithdraw.ok, true, '宝库通用权限必须在建筑域刷盘后保存成功');
+    assert.equal(flushCount, 1);
+    assert.equal(vault.accessPolicies.withdraw.revision, 2);
+    assert.deepEqual(
+      await buildingService.evaluateTreasureVault('player:visitor', vault),
+      { viewDeposit: true, withdraw: true },
+      '宝库查看/存入与取出必须分别消费通用策略',
+    );
+
+    const platformSet = await resourceService.loadSetForEditor(
+      'player:owner',
+      buildingService.buildTechniquePlatformResource(platform.id),
+    );
+    assert.equal(platformSet.ok, true);
+    assert.deepEqual(platformSet.ok === true
+      ? platformSet.snapshot.slots.map((slot) => [slot.slot, slot.label, slot.policy.mode])
+      : [], [
+      ['read', '参阅', 'everyone'],
+      ['revision', '修订', 'owner_only'],
+    ], '统法台必须通过通用资源适配器声明参阅与修订槽位');
+    assert.deepEqual(
+      await buildingService.evaluateTechniquePlatform('player:visitor', platform),
+      { read: true, revision: false },
+    );
+  } finally {
+    buildingService.onModuleDestroy();
+  }
+  assert.equal(
+    await resourceService.loadSetForEditor('player:owner', {
+      resourceType: ACCESS_POLICY_RESOURCE_TYPE.treasureVault,
+      resourceId: vault.id,
+    }).then((result) => result.ok),
+    false,
+    '模块销毁时必须注销建筑权限适配器',
+  );
 }
 
 function buildAttrs(value: number) {

@@ -277,7 +277,11 @@ export class AccessPolicyEditor {
     typeRow.append(createFieldLabel('条件类别'));
     const typeSelect = document.createElement('select');
     typeSelect.className = 'ui-select';
-    for (const type of this.getAvailableConditionTypes(index)) {
+    const availableTypes = this.getAvailableConditionTypes(index);
+    const visibleTypes = availableTypes.includes(condition.type)
+      ? availableTypes
+      : [condition.type, ...availableTypes];
+    for (const type of visibleTypes) {
       const option = document.createElement('option');
       option.value = type;
       option.textContent = CONDITION_TYPE_LABELS[type];

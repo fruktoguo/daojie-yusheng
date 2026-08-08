@@ -269,7 +269,7 @@ export class WorldRuntimeContextActionQueryService {
                                 id: `treasure_vault:permissions:${encodedBuildingId}`,
                                 name: `设置权限：${buildingName}`,
                                 type: 'interact',
-                                desc: '建造者可设置宝库查看、存入、取出的使用权限。',
+                                desc: '建造者可分别设置宝库查看与存入、取出的使用权限。',
                                 cooldownLeft: 0,
                             });
                         }

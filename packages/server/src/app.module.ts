@@ -87,6 +87,7 @@ import { TimeChamberRuntimeService } from './runtime/building/time-chamber-runti
 import { SocialRuntimeService } from './runtime/social/social-runtime.service';
 import { AccessPolicyRuntimeService } from './runtime/access/access-policy-runtime.service';
 import { AccessPolicyResourceService } from './runtime/access/access-policy-resource.service';
+import { BuildingAccessPolicyService } from './runtime/access/building-access-policy.service';
 import { ChatRuntimeService } from './runtime/chat/chat-runtime.service';
 import { WorldRuntimeNpcShopQueryService } from './runtime/world/query/world-runtime-npc-shop-query.service';
 import { WorldRuntimeQuestQueryService } from './runtime/world/query/world-runtime-quest-query.service';
@@ -304,6 +305,7 @@ const WORLD_GATEWAY_PROVIDERS = shouldStartHttpServer()
     SocialRuntimeService,
     AccessPolicyRuntimeService,
     AccessPolicyResourceService,
+    BuildingAccessPolicyService,
     WorldRuntimeNpcShopQueryService,
     WorldRuntimeQuestQueryService,
     WorldRuntimeQuestStateService,

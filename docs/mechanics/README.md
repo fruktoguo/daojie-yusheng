@@ -97,7 +97,7 @@ docs/mechanics/
 | [30-mail](./economy/30-mail.md) | 邮件系统 | 分页、过期机制、LRU 邮箱缓存 |
 | [31-sect](./economy/31-sect.md) | 宗门系统 | 角色权限、护宗大阵、领地扩展 |
 | [32-leaderboard](./economy/32-leaderboard.md) | 排行榜 | 4 组二级榜单、10 分钟刷新、世界摘要 |
-| [33-daoist-social](./economy/33-daoist-social.md) | 道友系统 | 附近申请、道友/至交、私聊和宝库权限范围 |
+| [33-daoist-social](./economy/33-daoist-social.md) | 道友系统 | 附近申请、道友/至交、私聊和通用权限关系事实 |
 
 ---
 

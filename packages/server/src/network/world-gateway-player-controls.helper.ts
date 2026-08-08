@@ -572,13 +572,6 @@ export class WorldGatewayPlayerControlsHelper {
     await this.handleTreasureVaultOperation(client, 'TREASURE_VAULT_ORGANIZE_FAILED', () => this.gateway.treasureVaultRuntimeService.organize(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService));
   }
 
-  async handleUpdateTreasureVaultPermissions(
-    client: Socket,
-    payload: ClientToServerEventPayload<typeof C2S.UpdateTreasureVaultPermissions>,
-  ): Promise<void> {
-    await this.handleTreasureVaultOperation(client, 'TREASURE_VAULT_PERMISSIONS_FAILED', () => this.gateway.treasureVaultRuntimeService.updatePermissions(this.gateway.gatewayGuardHelper.requirePlayerId(client), payload, this.gateway.worldRuntimeService));
-  }
-
   async handleRenameTreasureVault(
     client: Socket,
     payload: ClientToServerEventPayload<typeof C2S.RenameTreasureVault>,

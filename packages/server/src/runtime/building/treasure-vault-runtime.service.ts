@@ -15,20 +15,17 @@ import {
   type TreasureVaultDetailView,
   type TreasureVaultItemView,
   type TreasureVaultOperationResultView,
-  type TreasureVaultPermissionKind,
-  type TreasureVaultPermissionMap,
-  type TreasureVaultPermissionScope,
 } from '@mud/shared';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
-import { SocialRuntimeService } from '../social/social-runtime.service';
 import { MailRuntimeService } from '../mail/mail-runtime.service';
 import { resolvePlayerDisplayName } from '../player/player-display-name';
 import { compareInventoryItems } from '../player/inventory-sort.helpers';
 import { reassignItemInstanceId } from '../world/item-instance-id.helpers';
 import { resolveCompiledBuildingDefinition } from './building-definition-resolution.helpers';
+import { BuildingAccessPolicyService } from '../access/building-access-policy.service';
 
 const TREASURE_VAULT_STORAGE_TABLE = 'instance_building_storage_item';
 const PLAYER_MAIL_TABLE = 'player_mail';
@@ -41,13 +38,6 @@ const TREASURE_VAULT_DEF_ID = 'treasure_vault';
 const DEFAULT_TREASURE_VAULT_CAPACITY = 80;
 const MAX_TREASURE_VAULT_DEPOSIT_BATCH_SIZE = 100;
 const MAX_TREASURE_VAULT_NAME_LENGTH = 20;
-const DEFAULT_PERMISSIONS: TreasureVaultPermissionMap = {
-  view: ['all'],
-  deposit: ['all'],
-  withdraw: [],
-};
-const PERMISSION_KINDS: TreasureVaultPermissionKind[] = ['view', 'deposit', 'withdraw'];
-const PERMISSION_SCOPES = new Set<TreasureVaultPermissionScope>(['all', 'party', 'sect', 'dao_friend', 'close_friend']);
 
 type QueryResultLike = { rows: any[]; rowCount?: number };
 type PoolClientLike = {
@@ -69,7 +59,7 @@ export class TreasureVaultRuntimeService {
     @Inject(DatabasePoolProvider) private readonly databasePoolProvider: DatabasePoolProvider,
     @Inject(PlayerRuntimeService) private readonly playerRuntimeService: PlayerRuntimeService,
     @Inject(ContentTemplateRepository) private readonly contentTemplateRepository: ContentTemplateRepository,
-    @Inject(SocialRuntimeService) private readonly socialRuntimeService: SocialRuntimeService,
+    @Inject(BuildingAccessPolicyService) private readonly buildingAccessPolicyService: BuildingAccessPolicyService,
     @Inject(MailRuntimeService) private readonly mailRuntimeService: MailRuntimeService,
   ) {}
 
@@ -108,10 +98,15 @@ export class TreasureVaultRuntimeService {
     if (resolved.ok !== true) {
       return { ok: false, operation: 'detail', reason: resolved.reason };
     }
-    if (!await this.canUsePermission(playerId, resolved.instance, resolved.building, 'view')) {
+    const access = await this.buildingAccessPolicyService.evaluateTreasureVault(playerId, resolved.building);
+    if (!access.viewDeposit) {
       return { ok: false, operation: 'detail', reason: 'treasure_vault_permission_denied' };
     }
-    return { ok: true, operation: 'detail', detail: await this.buildDetailView(playerId, resolved.instance, resolved.building) };
+    return {
+      ok: true,
+      operation: 'detail',
+      detail: await this.buildDetailView(playerId, resolved.instance, resolved.building, access),
+    };
   }
 
   async deposit(playerId: string, payload: C2S_TreasureVaultDepositView, runtime: any): Promise<TreasureVaultOperationResultView> {
@@ -122,7 +117,7 @@ export class TreasureVaultRuntimeService {
     if (resolved.ok !== true) {
       return { ok: false, operation: 'deposit', reason: resolved.reason };
     }
-    if (!await this.canUsePermission(playerId, resolved.instance, resolved.building, 'deposit')) {
+    if (!(await this.buildingAccessPolicyService.evaluateTreasureVault(playerId, resolved.building)).viewDeposit) {
       return { ok: false, operation: 'deposit', reason: 'treasure_vault_permission_denied' };
     }
     const requests = normalizeDepositRequests(
@@ -179,7 +174,7 @@ export class TreasureVaultRuntimeService {
     if (resolved.ok !== true) {
       return { ok: false, operation: 'withdraw', reason: resolved.reason };
     }
-    if (!await this.canUsePermission(playerId, resolved.instance, resolved.building, 'withdraw')) {
+    if (!(await this.buildingAccessPolicyService.evaluateTreasureVault(playerId, resolved.building)).withdraw) {
       return { ok: false, operation: 'withdraw', reason: 'treasure_vault_permission_denied' };
     }
     const storageItemId = normalizeString(payload.storageItemId);
@@ -230,28 +225,6 @@ export class TreasureVaultRuntimeService {
       this.logger.error('宝库整理失败，事务已回滚', error instanceof Error ? error.stack : String(error));
       return { ok: false, operation: 'organize', reason: 'treasure_vault_organize_failed' };
     }
-  }
-
-  async updatePermissions(playerId: string, payload: { instanceId?: string; buildingId?: string; permissions?: Partial<TreasureVaultPermissionMap> }, runtime: any): Promise<TreasureVaultOperationResultView> {
-    const resolved = this.resolveVault(runtime, playerId, payload);
-    if (resolved.ok !== true) {
-      return { ok: false, operation: 'permissions', reason: resolved.reason };
-    }
-    if (normalizeString(resolved.building.ownerPlayerId) !== normalizeString(playerId)) {
-      return { ok: false, operation: 'permissions', reason: 'treasure_vault_owner_required' };
-    }
-    resolved.building.treasureVaultPermissions = normalizePermissionMap(payload.permissions, getBuildingPermissions(resolved.building));
-    resolved.building.updatedAtTick = Math.max(0, Math.trunc(Number(resolved.instance.tick) || 0));
-    resolved.building.revision = Math.max(1, Math.trunc(Number(resolved.building.revision) || 1)) + 1;
-    resolved.instance.markAoiViewChangedAt?.(resolved.building.x, resolved.building.y);
-    resolved.instance.worldRevision = Math.max(0, Math.trunc(Number(resolved.instance.worldRevision) || 0)) + 1;
-    resolved.instance.persistentRevision = Math.max(0, Math.trunc(Number(resolved.instance.persistentRevision) || 0)) + 1;
-    if (typeof resolved.instance.markPersistenceDirtyDomainsHighPriority === 'function') {
-      resolved.instance.markPersistenceDirtyDomainsHighPriority(['building']);
-    } else {
-      resolved.instance.markPersistenceDirtyDomains?.(['building']);
-    }
-    return { ok: true, operation: 'permissions', detail: await this.buildDetailView(playerId, resolved.instance, resolved.building) };
   }
 
   async rename(playerId: string, payload: C2S_RenameTreasureVaultView, runtime: any): Promise<TreasureVaultOperationResultView> {
@@ -504,10 +477,15 @@ export class TreasureVaultRuntimeService {
     };
   }
 
-  private async buildDetailView(playerId: string, instance: any, building: any): Promise<TreasureVaultDetailView> {
+  private async buildDetailView(
+    playerId: string,
+    instance: any,
+    building: any,
+    accessInput?: { viewDeposit: boolean; withdraw: boolean },
+  ): Promise<TreasureVaultDetailView> {
     const instanceId = normalizeString(instance?.meta?.instanceId);
     const buildingId = normalizeString(building?.id);
-    const permissions = getBuildingPermissions(building);
+    const access = accessInput ?? await this.buildingAccessPolicyService.evaluateTreasureVault(playerId, building);
     const rows = await this.loadStorageRows(instanceId, buildingId);
     return {
       instanceId,
@@ -515,11 +493,11 @@ export class TreasureVaultRuntimeService {
       buildingName: resolveBuildingName(instance, building),
       ownerPlayerId: normalizeString(building?.ownerPlayerId) || null,
       ownerName: resolveOwnerName(this.playerRuntimeService.getPlayer(normalizeString(building?.ownerPlayerId))),
-      permissions,
+      accessPolicyResource: this.buildingAccessPolicyService.buildTreasureVaultResource(buildingId),
       effectivePermissions: {
-        view: await this.canUsePermission(playerId, instance, building, 'view'),
-        deposit: await this.canUsePermission(playerId, instance, building, 'deposit'),
-        withdraw: await this.canUsePermission(playerId, instance, building, 'withdraw'),
+        view: access.viewDeposit,
+        deposit: access.viewDeposit,
+        withdraw: access.withdraw,
       },
       items: rows.map(projectStorageRow),
       capacity: resolveVaultCapacity(instance, building),
@@ -547,36 +525,6 @@ export class TreasureVaultRuntimeService {
       return { ok: false, reason: 'not_treasure_vault' };
     }
     return { ok: true, instance, building, capacity };
-  }
-
-  private async canUsePermission(playerId: string, instance: any, building: any, kind: TreasureVaultPermissionKind): Promise<boolean> {
-    const normalizedPlayerId = normalizeString(playerId);
-    const ownerPlayerId = normalizeString(building?.ownerPlayerId);
-    if (normalizedPlayerId && ownerPlayerId && normalizedPlayerId === ownerPlayerId) {
-      return true;
-    }
-    const permissions = getBuildingPermissions(building);
-    const scopes = permissions[kind] ?? [];
-    if (scopes.includes('all')) {
-      return true;
-    }
-    const player = this.playerRuntimeService.getPlayer(normalizedPlayerId);
-    if (!player) {
-      return false;
-    }
-    if (scopes.includes('party') && normalizeString(player.partyId) && normalizeString(player.partyId) === normalizeString(this.playerRuntimeService.getPlayer(ownerPlayerId)?.partyId)) {
-      return true;
-    }
-    if (scopes.includes('sect') && normalizeString(player.sectId) && normalizeString(player.sectId) === normalizeString(building?.ownerSectId)) {
-      return true;
-    }
-    if (ownerPlayerId && scopes.includes('close_friend') && await this.socialRuntimeService.areRelated(normalizedPlayerId, ownerPlayerId, 'close_friend')) {
-      return true;
-    }
-    if (ownerPlayerId && scopes.includes('dao_friend') && await this.socialRuntimeService.areRelated(normalizedPlayerId, ownerPlayerId, 'dao_friend')) {
-      return true;
-    }
-    return false;
   }
 
   private async storeItem(instanceId: string, buildingId: string, item: any, capacity: number, building?: any, instance?: any): Promise<void> {
@@ -868,20 +816,6 @@ async function ensureTreasureVaultTables(pool: PoolLike): Promise<void> {
   } finally {
     client.release();
   }
-}
-
-function getBuildingPermissions(building: any): TreasureVaultPermissionMap {
-  return normalizePermissionMap(building?.treasureVaultPermissions, DEFAULT_PERMISSIONS);
-}
-
-function normalizePermissionMap(input: unknown, fallback: TreasureVaultPermissionMap): TreasureVaultPermissionMap {
-  const source = input && typeof input === 'object' ? input as Partial<TreasureVaultPermissionMap> : {};
-  const next: TreasureVaultPermissionMap = { view: [], deposit: [], withdraw: [] };
-  for (const kind of PERMISSION_KINDS) {
-    const rawScopes = Array.isArray(source[kind]) ? source[kind] : fallback[kind];
-    next[kind] = Array.from(new Set(rawScopes.filter((scope): scope is TreasureVaultPermissionScope => PERMISSION_SCOPES.has(scope as TreasureVaultPermissionScope))));
-  }
-  return next;
 }
 
 function isTreasureVaultBuilding(instance: any, building: any): boolean {

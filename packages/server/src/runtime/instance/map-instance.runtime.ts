@@ -8,10 +8,11 @@
  * 单张地图的全部运行态：地块平面、占位、妖兽 AI、战斗、建筑、
  * 资源刷新、灵气流动、AOI 广播和持久化脏域追踪。
  */
-import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, DEFAULT_QI_RUNTIME_FLOW_CONFIGS, DISPERSED_AURA_RESOURCE_KEY, Direction, GROUND_ITEM_EXPIRE_TICKS, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_INSTANCE_TICK_SPEED, MAX_THREAT_VALUE, MOVE_POINT_UNIT, QI_HALF_LIFE_RATE_SCALE, StructureType, TECHNIQUE_UNIFICATION_PLATFORM_DEF_ID, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateDispersedAuraGainPerTile, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, horizontalFacingFromDelta, horizontalFacingFromTo, isGroundInteractableCellLayerTarget, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeHorizontalFacing, normalizeStructureType, normalizeSurfaceType, normalizeTechniqueUnificationPermissions, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolvePlayerFacingContentName, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
+import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, DEFAULT_QI_RUNTIME_FLOW_CONFIGS, DISPERSED_AURA_RESOURCE_KEY, Direction, GROUND_ITEM_EXPIRE_TICKS, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_INSTANCE_TICK_SPEED, MAX_THREAT_VALUE, MOVE_POINT_UNIT, QI_HALF_LIFE_RATE_SCALE, StructureType, TECHNIQUE_UNIFICATION_PLATFORM_DEF_ID, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateDispersedAuraGainPerTile, calculateTerrainDurability, cloneAccessPolicy, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, horizontalFacingFromDelta, horizontalFacingFromTo, isGroundInteractableCellLayerTarget, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeHorizontalFacing, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolvePlayerFacingContentName, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType, validateAccessPolicy } from '@mud/shared';
 import { readTrimmedEnv } from '../../config/env-alias';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import '../map/map-template.repository';
+import { normalizePersistedBuildingAccessPolicies } from '../access/building-access-policy-legacy';
 import { RuntimeTilePlane } from '../map/runtime-tile-plane';
 import { BuildingTopologyIndex } from '../building/building-topology-index.service';
 import { createRuntimeTilePlaneRoomCellProvider, detectRooms, isRoomTopologyTileType, isStaticRoomBoundaryTile } from '../building/room-detection.service';
@@ -42,8 +43,6 @@ const DISPERSED_AURA_MIN_DECAY_PER_TICK = Math.max(0, Math.trunc(Number(DISPERSE
 const TILE_RESOURCE_EPSILON = 1e-9;
 const DEFAULT_TILE_LAYER_FALLBACK_SEED = resolveDefaultTileLayerFallback();
 const BASE_CHANT_TICK_DURATION_MS = 1000;
-const TREASURE_VAULT_PERMISSION_KINDS = ['view', 'deposit', 'withdraw'];
-const TREASURE_VAULT_PERMISSION_SCOPES = new Set(['all', 'party', 'sect', 'dao_friend', 'close_friend']);
 /** 宗门模板不会原生生成门窗；这两类结构只能来自建筑投影。 */
 const SECT_BUILDING_VISUAL_STRUCTURE_TYPES = new Set([
     StructureType.Door,
@@ -1870,10 +1869,10 @@ class MapInstanceRuntime {
         this.markPersistenceDirtyDomainsHighPriority(['building']);
         return { ok: true, building, changed: true };
     }
-    /** updateTechniqueUnificationPlatformState：在实例权威边界内绑定法脉或更新权限。 */
+    /** updateTechniqueUnificationPlatformState：在实例权威边界内绑定法脉。 */
     updateTechniqueUnificationPlatformState(
         buildingIdInput,
-        input: { familyId?: unknown; permissions?: unknown; techniqueName?: unknown } = {},
+        input: { familyId?: unknown; techniqueName?: unknown; accessPolicies?: unknown } = {},
     ) {
         const buildingId = normalizeBuildingId(buildingIdInput);
         const familyId = normalizeBuildingId(input?.familyId);
@@ -1888,20 +1887,69 @@ class MapInstanceRuntime {
         if (currentFamilyId && currentFamilyId !== familyId) {
             return { ok: false, reason: 'technique_unification_platform_already_bound' };
         }
-        const currentPermissions = normalizeTechniqueUnificationPermissions(building.techniqueAggregationPermissions);
-        const nextPermissions = normalizeTechniqueUnificationPermissions(input?.permissions);
         const techniqueName = normalizeBuildingId(input?.techniqueName);
         const nextName = techniqueName ? `统法台：${techniqueName}` : building.name;
+        const seededPolicies = normalizePersistedBuildingAccessPolicies(
+            { accessPolicies: input?.accessPolicies },
+            TECHNIQUE_UNIFICATION_PLATFORM_DEF_ID,
+        );
+        const missingSeedEntries = seededPolicies
+            ? Object.entries(seededPolicies).filter(([slot]) => !building.accessPolicies?.[slot])
+            : [];
         if (currentFamilyId === familyId
-            && haveSameTechniqueUnificationPermissions(currentPermissions, nextPermissions)
-            && building.name === nextName) {
+            && building.name === nextName
+            && missingSeedEntries.length === 0) {
             return { ok: true, building, changed: false };
         }
         building.techniqueAggregationFamilyId = familyId;
-        building.techniqueAggregationPermissions = nextPermissions;
+        if (missingSeedEntries.length > 0) {
+            building.accessPolicies = {
+                ...Object.fromEntries(missingSeedEntries),
+                ...(building.accessPolicies ?? {}),
+            };
+        }
         if (techniqueName) {
             building.name = nextName;
         }
+        building.updatedAtTick = Math.max(0, Math.trunc(Number(this.tick) || 0));
+        building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
+        this.localBuildingViewCacheById.delete(building.id);
+        this.markAoiViewChangedAt(building.x, building.y);
+        this.worldRevision += 1;
+        this.persistentRevision += 1;
+        this.markPersistenceDirtyDomainsHighPriority(['building']);
+        return { ok: true, building, changed: true };
+    }
+    /** updateBuildingAccessPolicyState：在实例权威边界内按槽位 CAS 更新通用权限。 */
+    updateBuildingAccessPolicyState(buildingIdInput, slotInput, policyInput, expectedRevisionInput) {
+        const buildingId = normalizeBuildingId(buildingIdInput);
+        const slot = normalizeBuildingId(slotInput);
+        const expectedRevision = Math.trunc(Number(expectedRevisionInput) || 0);
+        const building = buildingId ? this.buildingById.get(buildingId) : null;
+        if (!building || !slot || expectedRevision <= 0) {
+            return { ok: false, reason: 'access_policy_resource_not_found' };
+        }
+        const next = validateAccessPolicy(policyInput, { requireResolvedPlayers: true });
+        if (!next.ok || !next.policy || next.policy.revision !== expectedRevision + 1) {
+            return { ok: false, reason: 'access_policy_invalid' };
+        }
+        const currentRaw = building.accessPolicies && typeof building.accessPolicies === 'object'
+            ? building.accessPolicies[slot]
+            : undefined;
+        const current = currentRaw === undefined
+            ? null
+            : validateAccessPolicy(currentRaw, { requireResolvedPlayers: true });
+        if (current && (!current.ok || !current.policy)) {
+            return { ok: false, reason: 'access_policy_invalid' };
+        }
+        const currentRevision = current?.policy?.revision ?? 1;
+        if (currentRevision !== expectedRevision) {
+            return { ok: false, reason: 'access_policy_revision_conflict' };
+        }
+        building.accessPolicies = {
+            ...(building.accessPolicies ?? {}),
+            [slot]: cloneAccessPolicy(next.policy),
+        };
         building.updatedAtTick = Math.max(0, Math.trunc(Number(this.tick) || 0));
         building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
         this.localBuildingViewCacheById.delete(building.id);
@@ -3108,15 +3156,13 @@ class MapInstanceRuntime {
                 continue;
             }
             const defHandle = Math.max(0, Math.trunc(Number(compiled?.handle) || 0));
+            const accessPolicies = normalizePersistedBuildingAccessPolicies(entry, defId);
             const building = {
                 id,
                 name: typeof entry?.name === 'string' && entry.name.trim() ? entry.name.trim() : undefined,
-                treasureVaultPermissions: normalizePersistedTreasureVaultPermissions(entry?.treasureVaultPermissions),
+                ...(accessPolicies ? { accessPolicies } : {}),
                 ...(normalizeBuildingId(entry?.techniqueAggregationFamilyId) ? {
                     techniqueAggregationFamilyId: normalizeBuildingId(entry.techniqueAggregationFamilyId),
-                } : {}),
-                ...(entry?.techniqueAggregationPermissions ? {
-                    techniqueAggregationPermissions: normalizeTechniqueUnificationPermissions(entry.techniqueAggregationPermissions),
                 } : {}),
                 defId,
                 defHandle,
@@ -10190,17 +10236,6 @@ function rotationToIndex(rotation) {
 function normalizeBuildingId(value) {
     return typeof value === 'string' && value.trim().length > 0 ? value.trim() : '';
 }
-function haveSameTechniqueUnificationAccessPolicy(left, right) {
-    return left.unrestricted === right.unrestricted
-        && left.friendLevels.length === right.friendLevels.length
-        && left.friendLevels.every((entry, index) => entry === right.friendLevels[index])
-        && left.sectRoles.length === right.sectRoles.length
-        && left.sectRoles.every((entry, index) => entry === right.sectRoles[index]);
-}
-function haveSameTechniqueUnificationPermissions(left, right) {
-    return haveSameTechniqueUnificationAccessPolicy(left.read, right.read)
-        && haveSameTechniqueUnificationAccessPolicy(left.revision, right.revision);
-}
 function normalizeBuildingState(value) {
     switch (value) {
         case 'planned':
@@ -10634,22 +10669,6 @@ function normalizeInteractableKindList(value) {
     return Array.isArray(value)
         ? value.filter((kind) => typeof kind === 'string' && kind.trim()).map((kind) => kind.trim())
         : [];
-}
-function normalizePersistedTreasureVaultPermissions(value) {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-        return undefined;
-    }
-    const result = {};
-    let hasPermissionKind = false;
-    for (const kind of TREASURE_VAULT_PERMISSION_KINDS) {
-        const scopes = value[kind];
-        if (!Array.isArray(scopes)) {
-            continue;
-        }
-        hasPermissionKind = true;
-        result[kind] = Array.from(new Set(scopes.filter((scope) => TREASURE_VAULT_PERMISSION_SCOPES.has(scope))));
-    }
-    return hasPermissionKind ? result : undefined;
 }
 function areInteractableKindListsEqual(left, right) {
     const leftList = normalizeInteractableKindList(left);

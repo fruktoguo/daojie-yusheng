@@ -1,7 +1,7 @@
 /**
  * 统法台手机端布局与交互连续性 proof。
  *
- * 使用正式 Vite 页面、CraftWorkbenchModal 和样式，验证主 Tab 权限裁剪、双录法入口、
+ * 使用正式 Vite 页面、CraftWorkbenchModal、通用权限编辑器和样式，验证主 Tab 权限裁剪、
  * 法卷分页筛选、选中边框、强度角标以及窄屏纵向滚动路径。
  */
 import assert from 'node:assert/strict';
@@ -21,8 +21,72 @@ const initializeExpression = String.raw`
         window.__techniqueUnificationPublishPayload = structuredClone(payload);
         return true;
       },
-      onUpdateTechniqueAggregationPermissions: () => true,
       onLearnTechniqueAggregation: () => true,
+    });
+    const everyonePolicy = {
+      schemaVersion: 1,
+      mode: 'everyone',
+      operator: 'any',
+      conditions: [],
+      revision: 1,
+    };
+    const ownerOnlyPolicy = {
+      schemaVersion: 1,
+      mode: 'owner_only',
+      operator: 'any',
+      conditions: [],
+      revision: 1,
+    };
+    const readPolicy = {
+      schemaVersion: 1,
+      mode: 'conditional',
+      operator: 'any',
+      conditions: [{ type: 'relation', relations: ['close_friend'] }],
+      revision: 1,
+    };
+    const revisionPolicy = {
+      schemaVersion: 1,
+      mode: 'conditional',
+      operator: 'any',
+      conditions: [{ type: 'sect', roles: ['inner'] }],
+      revision: 1,
+    };
+    modal.setAccessPolicyClient({
+      async loadSet(ref) {
+        return structuredClone({
+          ...ref,
+          title: '玄门统法台',
+          slots: [
+            {
+              slot: 'read',
+              label: '参阅',
+              description: '查看并参悟统法台当前法脉。',
+              defaultPolicy: everyonePolicy,
+              policy: readPolicy,
+              revision: readPolicy.revision,
+            },
+            {
+              slot: 'revision',
+              label: '修订',
+              description: '向统法台当前法脉续录自己的圆满功法。',
+              defaultPolicy: ownerOnlyPolicy,
+              policy: revisionPolicy,
+              revision: revisionPolicy.revision,
+            },
+          ],
+        });
+      },
+      async resolvePlayerNo(playerNo) {
+        return playerNo === 10002
+          ? { playerNo, playerId: 'player:visitor', roleName: '青云剑客' }
+          : null;
+      },
+      async save(_ref, policy, expectedRevision) {
+        return {
+          ok: true,
+          policy: { ...structuredClone(policy), revision: expectedRevision + 1 },
+        };
+      },
     });
     modal.openTechniqueAggregation('building:mobile-proof');
     const mortalSources = Array.from({ length: 28 }, (_, index) => ({
@@ -50,10 +114,6 @@ const initializeExpression = String.raw`
       covered: false,
     }));
     const sources = [...mortalSources, ...yellowSources];
-    const permissions = {
-      read: { unrestricted: false, friendLevels: ['close_friend'], sectRoles: ['elder', 'inner'] },
-      revision: { unrestricted: false, friendLevels: [], sectRoles: ['inner'] },
-    };
     const buildPanel = ({ bound = false, isOwner = true, canRevise = true } = {}) => ({
       revision: 7,
       buildingId: 'building:mobile-proof',
@@ -91,7 +151,10 @@ const initializeExpression = String.raw`
         ownerPlayerId: 'player:owner',
         isOwner,
         ...(bound ? { familyId: 'family:mobile-proof', latestTechniqueId: 'agg_mobile_proof_v4', latestRevision: 4 } : {}),
-        permissions,
+        accessPolicyResource: {
+          resourceType: 'technique_unification_platform',
+          resourceId: 'building:mobile-proof',
+        },
         canLearn: bound,
         canRevise,
         learnerState: bound ? 'available' : 'unbound',
@@ -328,32 +391,36 @@ const openPublishConfirmExpression = String.raw`
 `;
 
 const openPermissionsExpression = String.raw`
-  (() => {
+  (async () => {
     const modal = window.__techniqueUnificationProofModal;
     const buildPanel = window.__techniqueUnificationBuildPanel;
     modal.handleTechniqueAggregationPanel(buildPanel({ bound: true, isOwner: true, canRevise: true }));
     document.querySelector('[data-primary-tab="permissions"]')?.click();
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     const panel = document.querySelector('[data-technique-aggregation-panel="true"]');
     const permissions = panel?.querySelector('[data-technique-aggregation-permissions="true"]');
-    const revisionTab = panel?.querySelector('[data-permission-scope="revision"]');
+    const revisionTab = Array.from(permissions?.querySelectorAll('.access-policy-resource-tabs button') ?? [])
+      .find((entry) => entry.textContent?.trim() === '修订');
     if (!(permissions instanceof HTMLElement) || !(revisionTab instanceof HTMLButtonElement)) {
       throw new Error('统法台权限页结构不完整');
     }
     const permissionIdentity = permissions;
     revisionTab.click();
-    const optionRects = Array.from(permissions.querySelectorAll('.technique-aggregation-policy-option'))
+    const optionRects = Array.from(permissions.querySelectorAll('.access-policy-resource-panel:not([hidden]) .access-policy-mode-group button'))
       .map((entry) => entry.getBoundingClientRect());
-    const tabRects = Array.from(permissions.querySelectorAll('.technique-aggregation-permission-tab'))
+    const tabRects = Array.from(permissions.querySelectorAll('.access-policy-resource-tabs button'))
       .map((entry) => entry.getBoundingClientRect());
     return {
       activeMainTab: panel?.querySelector('.technique-aggregation-primary-tab.is-active')?.textContent?.trim() ?? '',
       permissionIdentityPreserved: panel?.querySelector('[data-technique-aggregation-permissions="true"]') === permissionIdentity,
-      permissionTabLabels: Array.from(permissions.querySelectorAll('.technique-aggregation-permission-tab'))
+      permissionTabLabels: Array.from(permissions.querySelectorAll('.access-policy-resource-tabs button'))
         .map((entry) => entry.textContent?.trim() ?? ''),
-      activePermissionTab: permissions.querySelector('.technique-aggregation-permission-tab.is-active')?.textContent?.trim() ?? '',
-      permissionEditorText: permissions.querySelector('[data-technique-aggregation-permission-editor="true"]')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
-      checkedRevisionRoles: Array.from(permissions.querySelectorAll('[data-technique-aggregation-permission-sect-role]:checked'))
-        .map((entry) => entry.dataset.techniqueAggregationPermissionSectRole),
+      activePermissionTab: permissions.querySelector('.access-policy-resource-tabs button.active')?.textContent?.trim() ?? '',
+      activePermissionMode: permissions.querySelector('.access-policy-resource-panel:not([hidden]) .access-policy-mode-group button.active')?.textContent?.trim() ?? '',
+      permissionEditorText: permissions.querySelector('.access-policy-resource-panel:not([hidden])')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+      checkedRevisionRoles: Array.from(permissions.querySelectorAll('.access-policy-resource-panel:not([hidden]) .access-policy-checkbox-options label'))
+        .filter((entry) => entry.querySelector('input')?.checked)
+        .map((entry) => entry.textContent?.trim() ?? ''),
       minPolicyOptionHeight: optionRects.length > 0 ? Math.min(...optionRects.map((rect) => rect.height)) : 0,
       minPermissionTabHeight: tabRects.length > 0 ? Math.min(...tabRects.map((rect) => rect.height)) : 0,
       hasDirectory: Boolean(panel?.querySelector('[data-technique-aggregation-directory="true"]')),
@@ -532,10 +599,11 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'technique-uni
   const permissions = await cdp.evaluate(openPermissionsExpression);
   assert.equal(permissions.activeMainTab, '权限', '未切换到权限页');
   assert.equal(permissions.permissionIdentityPreserved, true, '切换权限组时替换了权限根节点');
-  assert.deepEqual(permissions.permissionTabLabels, ['参阅权限', '修订权限'], '权限组 Tab 不完整');
-  assert.equal(permissions.activePermissionTab, '修订权限', '修订权限 Tab 未切换');
-  assert.match(permissions.permissionEditorText, /所有修士均可修订/, '修订权限编辑器文案错误');
-  assert.deepEqual(permissions.checkedRevisionRoles, ['inner'], '修订权限草稿未独立保留');
+  assert.deepEqual(permissions.permissionTabLabels, ['参阅', '修订'], '通用权限槽位 Tab 不完整');
+  assert.equal(permissions.activePermissionTab, '修订', '修订权限槽位未切换');
+  assert.equal(permissions.activePermissionMode, '按条件', '修订权限策略模式错误');
+  assert.match(permissions.permissionEditorText, /默认策略：仅所有者/, '修订权限默认策略说明错误');
+  assert.deepEqual(permissions.checkedRevisionRoles, ['内门弟子'], '修订权限草稿未独立保留');
   assert(permissions.minPolicyOptionHeight >= 39.5, '权限选项触控高度不足 40px');
   assert(permissions.minPermissionTabHeight >= 41.5, '权限 Tab 触控高度不足 42px');
   assert.equal(permissions.hasDirectory, false, '权限页混入法卷目录');

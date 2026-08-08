@@ -25,7 +25,6 @@ import type {
   S2C_EnhancementPanel,
   S2C_TechniqueActivityTasks,
   S2C_TechniqueTransmissionStatuses,
-  TechniqueAggregationPermissionRequest,
   TechniqueAggregationLearnRequest,
   TechniqueAggregationPanelView,
   TechniqueAggregationPreviewRequest,
@@ -74,6 +73,7 @@ import { CraftQueueView } from './craft-queue-view';
 import type { CraftQueueParent } from './craft-queue-view';
 import { CraftTransmissionView } from './craft-transmission-view';
 import type { CraftTransmissionCallbacks, CraftTransmissionParent } from './craft-transmission-view';
+import type { AccessPolicySocketClient } from './access-policy-socket-client';
 import {
   getReactCraftWorkbenchState,
   mountReactCraftWorkbenchPanel,
@@ -103,7 +103,6 @@ type CraftWorkbenchCallbacks = {
   onDecomposeTechniqueBook?: (itemInstanceId: string, count: number) => void;
   onRequestTechniqueAggregation?: (payload: TechniqueAggregationPreviewRequest) => boolean | void;
   onPublishTechniqueAggregation?: (payload: TechniqueAggregationPublishRequest) => boolean | void;
-  onUpdateTechniqueAggregationPermissions?: (payload: TechniqueAggregationPermissionRequest) => boolean | void;
   onLearnTechniqueAggregation?: (payload: TechniqueAggregationLearnRequest) => boolean | void;
   getTransmissionTargets?: () => Array<{ playerId: string; name: string }>;
 };
@@ -384,6 +383,10 @@ export class CraftWorkbenchModal {
 
   setTransmissionCallbacks(callbacks: CraftTransmissionCallbacks): void {
     this.transmissionView.setCallbacks(callbacks);
+  }
+
+  setAccessPolicyClient(client: AccessPolicySocketClient, onSaved?: (message: string, kind?: 'success' | 'warn') => void): void {
+    this.transmissionView.setAccessPolicyClient(client, (message) => onSaved?.(message, 'success'));
   }
 
   handleTransmissionStatuses(data: S2C_TechniqueTransmissionStatuses): void {

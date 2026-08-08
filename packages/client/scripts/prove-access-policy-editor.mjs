@@ -237,6 +237,29 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
         resourceEditor.getPolicy('withdraw')?.mode ?? '',
       ];
 
+      const compatibilityRoot = document.createElement('div');
+      overlay.append(compatibilityRoot);
+      const compatibilityEditor = new AccessPolicyEditor({
+        root: compatibilityRoot,
+        policy: {
+          schemaVersion: 1,
+          mode: 'conditional',
+          operator: 'any',
+          conditions: [{ type: 'party' }],
+          revision: 1,
+        },
+        async resolvePlayerNo() {
+          return null;
+        },
+        async save() {
+          return { ok: false, reason: 'unused' };
+        },
+      });
+      const compatibilityTypeSelect = compatibilityRoot.querySelector('.access-policy-condition select');
+      const compatibilityConditionType = compatibilityTypeSelect?.value ?? '';
+      const compatibilityConditionLabel = compatibilityTypeSelect?.selectedOptions[0]?.textContent?.trim() ?? '';
+      compatibilityEditor.destroy();
+
       const conflictRoot = document.createElement('div');
       overlay.append(conflictRoot);
       const conflictEditor = new AccessPolicyEditor({
@@ -292,6 +315,8 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
         resourceSlotModesAfterSave,
         resourceShellWidth: resourceRoot.querySelector('.access-policy-resource-editor')?.getBoundingClientRect().width ?? 0,
         resourceShellScrollWidth: resourceRoot.querySelector('.access-policy-resource-editor')?.scrollWidth ?? 0,
+        compatibilityConditionType,
+        compatibilityConditionLabel,
         resolvedPlayer,
         transportSaveOk: saved.ok,
         transportConflictRevision: conflicted.currentPolicy?.revision ?? 0,
@@ -330,6 +355,8 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
   assert.equal(result.firstDraftBeforeSwitch, 'owner_only');
   assert.equal(result.firstDraftAfterSwitch, 'owner_only', '切换权限页签不得丢失未保存草稿');
   assert.deepEqual(result.resourceSlotModesAfterSave, ['owner_only', 'owner_only'], '保存一个槽位不得改变其他槽位');
+  assert.equal(result.compatibilityConditionType, 'party', '旧宝库同队条件必须在编辑器中保持真实类型');
+  assert.equal(result.compatibilityConditionLabel, '同队伍', '旧宝库同队条件必须提供可辨识回显');
   assert(result.resourceShellScrollWidth <= result.resourceShellWidth + 1, '多权限资源编辑器在手机视口出现横向溢出');
   assert.deepEqual(result.resolvedPlayer, { playerNo: 10002, roleName: '青云剑客' });
   assert.equal(result.transportSaveOk, true, '请求客户端未关联 save 回包');

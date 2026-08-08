@@ -6,8 +6,7 @@
 import type { CellLayerTarget } from './map-layer-types';
 import type { TechniqueCategory, TechniqueGrade } from './cultivation-types';
 import type { CraftEffectStatsPatch } from './craft-effect-stats';
-import type { TreasureVaultPermissionMap } from './social-types';
-import type { TechniqueUnificationPermissions } from './technique-aggregation';
+import type { AccessPolicy } from './access-policy';
 import type { TileType } from './world-core-types';
 
 export type FiveElement = 'metal' | 'wood' | 'water' | 'fire' | 'earth' | 'neutral';
@@ -155,12 +154,10 @@ export interface BuildingInstance {
   id: string;
   /** 玩家自定义名称；为空时使用建筑定义名称。 */
   name?: string;
-  /** 宝库使用权限；缺失的权限项由宝库运行时按默认规则补齐。 */
-  treasureVaultPermissions?: Partial<TreasureVaultPermissionMap>;
+  /** 建筑接入通用权限系统后的显式策略；缺失槽位由资源适配器提供业务默认值。 */
+  accessPolicies?: Partial<Record<string, AccessPolicy>>;
   /** 统法台一经凝篇即绑定稳定法脉，不允许切换。 */
   techniqueAggregationFamilyId?: string;
-  /** 统法台参阅与修订权限；缺失时参阅开放、修订仅限台主。 */
-  techniqueAggregationPermissions?: TechniqueUnificationPermissions;
   defId: string;
   defHandle: number;
   instanceId: string;

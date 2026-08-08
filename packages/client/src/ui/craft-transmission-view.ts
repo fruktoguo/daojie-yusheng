@@ -10,33 +10,24 @@ import type {
   ItemStack,
   PlayerState,
   S2C_TechniqueTransmissionStatuses,
-  SectMemberRole,
   TechniqueAggregationLearnRequest,
   TechniqueAggregationPanelView,
-  TechniqueAggregationPermissionRequest,
   TechniqueAggregationPreviewRequest,
   TechniqueAggregationPublishRequest,
   TechniqueAggregationResultView,
   TechniqueCategory,
   TechniqueComprehensionProgressBreakdown,
   TechniqueGrade,
-  TechniqueUnificationAccessPolicy,
-  TechniqueUnificationPermissionScope,
 } from '@mud/shared';
 import {
   CUSTOM_TECHNIQUE_NAME_MAX_LENGTH,
   CUSTOM_TECHNIQUE_NAME_MIN_LENGTH,
-  DEFAULT_TECHNIQUE_UNIFICATION_PERMISSIONS,
   ATTR_KEY_LABELS,
-  SECT_MEMBER_ROLE_HIERARCHY,
-  SECT_MEMBER_ROLE_LABELS,
   TECHNIQUE_ATTR_KEYS,
   TECHNIQUE_GRADE_ORDER,
   calculateTechniqueBookCraftFragmentCost,
   calculateTechniqueBookDecomposeFragments,
   calculateTechniqueComprehensionProgressBreakdown,
-  cloneTechniqueUnificationAccessPolicy,
-  cloneTechniqueUnificationPermissions,
   getGraphemeCount,
   getItemDisplayName,
   isCreatedTechniqueId,
@@ -48,6 +39,8 @@ import { formatDisplayInteger, formatDisplayNumber, formatDisplaySignedNumber } 
 import { confirmModalHost } from './confirm-modal-host';
 import { t } from './i18n';
 import { getItemDecorClassName, getItemDisplayMeta } from './item-display';
+import { AccessPolicyResourceEditor } from './access-policy-resource-editor';
+import type { AccessPolicySocketClient } from './access-policy-socket-client';
 
 type TechniqueBookCraftGradeFilter = 'all' | TechniqueGrade;
 type TechniqueBookCraftCategoryFilter = 'all' | TechniqueCategory;
@@ -70,7 +63,6 @@ export type CraftTransmissionCallbacks = {
   getTransmissionTargets?: () => Array<{ playerId: string; name: string }>;
   onRequestTechniqueAggregation?: (payload: TechniqueAggregationPreviewRequest) => boolean | void;
   onPublishTechniqueAggregation?: (payload: TechniqueAggregationPublishRequest) => boolean | void;
-  onUpdateTechniqueAggregationPermissions?: (payload: TechniqueAggregationPermissionRequest) => boolean | void;
   onLearnTechniqueAggregation?: (payload: TechniqueAggregationLearnRequest) => boolean | void;
 };
 
@@ -226,17 +218,6 @@ function createTechniqueAggregationOperationId(sequence: number): string {
   return `technique-aggregation-op:${nonce}`;
 }
 
-function areTechniqueAggregationPoliciesEqual(
-  left: TechniqueUnificationAccessPolicy,
-  right: TechniqueUnificationAccessPolicy,
-): boolean {
-  return left.unrestricted === right.unrestricted
-    && left.friendLevels.length === right.friendLevels.length
-    && left.friendLevels.every((entry, index) => entry === right.friendLevels[index])
-    && left.sectRoles.length === right.sectRoles.length
-    && left.sectRoles.every((entry, index) => entry === right.sectRoles[index]);
-}
-
 function formatComprehensionProgressBreakdown(
   breakdown: TechniqueComprehensionProgressBreakdown | null | undefined,
 ): string {
@@ -295,24 +276,27 @@ export class CraftTransmissionView {
   private techniqueAggregationSourcePage = 1;
   private techniqueAggregationNameDraft = '';
   private techniqueAggregationPrimaryTab: TechniqueAggregationPrimaryTab = 'overview';
-  private techniqueAggregationPermissionTab: TechniqueUnificationPermissionScope = 'read';
-  private techniqueAggregationPermissionsDraft = cloneTechniqueUnificationPermissions(
-    DEFAULT_TECHNIQUE_UNIFICATION_PERMISSIONS,
-  );
-  private readonly techniqueAggregationPermissionDirtyScopes = new Set<TechniqueUnificationPermissionScope>();
+  private accessPolicyClient: AccessPolicySocketClient | null = null;
+  private accessPolicyEditor: AccessPolicyResourceEditor | null = null;
+  private accessPolicyLoadToken = 0;
+  private onAccessPolicySaved?: (message: string) => void;
   private readonly selectedTechniqueAggregationSourceIds = new Set<string>();
   private techniqueAggregationRequestSequence = 0;
   private techniqueAggregationRequestId = '';
   private techniqueAggregationOperationId = '';
   private techniqueAggregationResult: TechniqueAggregationResultView | null = null;
   private techniqueAggregationPublishing = false;
-  private techniqueAggregationPermissionSaving: TechniqueUnificationPermissionScope | null = null;
   private techniqueAggregationLearning = false;
 
   constructor(private readonly parent: CraftTransmissionParent) {}
 
   setCallbacks(callbacks: CraftTransmissionCallbacks): void {
     this.transmissionCallbacks = callbacks;
+  }
+
+  setAccessPolicyClient(client: AccessPolicySocketClient, onSaved?: (message: string) => void): void {
+    this.accessPolicyClient = client;
+    this.onAccessPolicySaved = onSaved;
   }
 
   handleTransmissionStatuses(data: S2C_TechniqueTransmissionStatuses): void {
@@ -374,16 +358,11 @@ export class CraftTransmissionView {
     this.techniqueAggregationSourcePage = 1;
     this.techniqueAggregationNameDraft = '';
     this.techniqueAggregationPrimaryTab = 'overview';
-    this.techniqueAggregationPermissionTab = 'read';
-    this.techniqueAggregationPermissionsDraft = cloneTechniqueUnificationPermissions(
-      DEFAULT_TECHNIQUE_UNIFICATION_PERMISSIONS,
-    );
-    this.techniqueAggregationPermissionDirtyScopes.clear();
+    this.destroyAccessPolicyEditor();
     this.selectedTechniqueAggregationSourceIds.clear();
     this.techniqueAggregationResult = null;
     this.techniqueAggregationOperationId = '';
     this.techniqueAggregationPublishing = false;
-    this.techniqueAggregationPermissionSaving = null;
     this.techniqueAggregationLearning = false;
     this.requestTechniqueAggregationPanel();
   }
@@ -403,17 +382,12 @@ export class CraftTransmissionView {
     this.techniqueAggregationSourcePage = 1;
     this.techniqueAggregationNameDraft = '';
     this.techniqueAggregationPrimaryTab = 'overview';
-    this.techniqueAggregationPermissionTab = 'read';
-    this.techniqueAggregationPermissionsDraft = cloneTechniqueUnificationPermissions(
-      DEFAULT_TECHNIQUE_UNIFICATION_PERMISSIONS,
-    );
-    this.techniqueAggregationPermissionDirtyScopes.clear();
+    this.destroyAccessPolicyEditor();
     this.selectedTechniqueAggregationSourceIds.clear();
     this.techniqueAggregationRequestId = '';
     this.techniqueAggregationOperationId = '';
     this.techniqueAggregationResult = null;
     this.techniqueAggregationPublishing = false;
-    this.techniqueAggregationPermissionSaving = null;
     this.techniqueAggregationLearning = false;
   }
 
@@ -441,13 +415,6 @@ export class CraftTransmissionView {
     if (this.techniqueAggregationRealmFilter !== null && !availableRealmLevels.includes(this.techniqueAggregationRealmFilter)) {
       this.techniqueAggregationRealmFilter = null;
     }
-    for (const scope of ['read', 'revision'] as const) {
-      if (!this.techniqueAggregationPermissionDirtyScopes.has(scope)) {
-        this.techniqueAggregationPermissionsDraft[scope] = cloneTechniqueUnificationAccessPolicy(
-          data.platform.permissions[scope],
-        );
-      }
-    }
     if (boundFamily && !this.techniqueAggregationNameDraft) {
       this.techniqueAggregationNameDraft = boundFamily.name;
     }
@@ -471,6 +438,7 @@ export class CraftTransmissionView {
       : this.techniqueAggregationResult;
     if (this.parent.activeMode === 'technique_refining' && this.techniqueAggregationBuildingId) {
       this.parent.patchOpenCraftShell();
+      if (this.techniqueAggregationPrimaryTab === 'permissions') void this.mountAccessPolicyEditor();
     }
   }
 
@@ -479,17 +447,12 @@ export class CraftTransmissionView {
       return;
     }
     this.techniqueAggregationPublishing = false;
-    this.techniqueAggregationPermissionSaving = null;
     this.techniqueAggregationLearning = false;
     this.techniqueAggregationResult = data;
     if (data.ok) {
       if (data.operation === 'publish' || data.aggregate) {
         this.selectedTechniqueAggregationSourceIds.clear();
         this.techniqueAggregationOperationId = '';
-        this.techniqueAggregationPermissionDirtyScopes.clear();
-      }
-      if (data.operation === 'permissions' && data.permissionScope) {
-        this.techniqueAggregationPermissionDirtyScopes.delete(data.permissionScope);
       }
     }
     if (this.parent.activeMode === 'technique_refining' && this.techniqueAggregationBuildingId) {
@@ -696,6 +659,7 @@ export class CraftTransmissionView {
     replaceElementHtml(content, this.renderTechniqueAggregationBody());
     const nextList = content.querySelector<HTMLElement>('[data-technique-aggregation-source-list="true"]');
     if (nextList) nextList.scrollTop = previousScrollTop;
+    if (this.techniqueAggregationPrimaryTab === 'permissions') void this.mountAccessPolicyEditor();
     return true;
   }
 
@@ -1300,12 +1264,8 @@ export class CraftTransmissionView {
       platform?.latestRevision ?? 0,
       platform?.pendingProgress ?? 0,
       platform?.pendingRequiredProgress ?? 0,
-      platform?.permissions.read.unrestricted ? 1 : 0,
-      platform?.permissions.read.friendLevels.join(',') ?? '',
-      platform?.permissions.read.sectRoles.join(',') ?? '',
-      platform?.permissions.revision.unrestricted ? 1 : 0,
-      platform?.permissions.revision.friendLevels.join(',') ?? '',
-      platform?.permissions.revision.sectRoles.join(',') ?? '',
+      platform?.accessPolicyResource.resourceType ?? '',
+      platform?.accessPolicyResource.resourceId ?? '',
       panel?.error?.code ?? '',
     ].join('::');
   }
@@ -1375,7 +1335,7 @@ export class CraftTransmissionView {
 
   private canPublishTechniqueAggregation(): boolean {
     const panel = this.techniqueAggregationPanel;
-    if (!panel?.platform.canRevise || this.techniqueAggregationPublishing || this.techniqueAggregationPermissionSaving) return false;
+    if (!panel?.platform.canRevise || this.techniqueAggregationPublishing) return false;
     const family = this.getBoundTechniqueAggregationFamily();
     const familySources = new Set(family?.sourceTechniqueIds ?? []);
     const selected = this.getSelectedTechniqueAggregationSources();
@@ -1407,7 +1367,6 @@ export class CraftTransmissionView {
     return [
       result?.ok ?? '',
       result?.operation ?? '',
-      result?.permissionScope ?? '',
       result?.code ?? '',
       result?.messageKey ?? '',
       result?.aggregate?.techniqueId ?? '',
@@ -1426,10 +1385,6 @@ export class CraftTransmissionView {
     if (!result.ok) {
       return `<div class="technique-aggregation-error" role="alert">${escapeHtml(resolveTechniqueAggregationError(result))}${renderTechniqueAggregationConflicts(result)}</div>`;
     }
-    if (result.operation === 'permissions') {
-      const label = result.permissionScope === 'revision' ? '修订权限' : '参阅权限';
-      return `<div class="technique-aggregation-success" role="status">${label}已保存。</div>`;
-    }
     if (result.operation === 'learn') {
       return '<div class="technique-aggregation-success" role="status">此法已列入参悟。</div>';
     }
@@ -1439,68 +1394,9 @@ export class CraftTransmissionView {
     return '';
   }
 
-  private renderTechniqueAggregationPolicySummary(
-    scope: TechniqueUnificationPermissionScope,
-    policy: TechniqueUnificationAccessPolicy,
-  ): string {
-    const label = scope === 'revision' ? '修订权限' : '参阅权限';
-    if (policy.unrestricted) return `${label}：所有修士`;
-    const clauses: string[] = [];
-    if (policy.friendLevels.includes('dao_friend')) clauses.push('道友以上');
-    else if (policy.friendLevels.includes('close_friend')) clauses.push('至交');
-    const sectLabels = policy.sectRoles.map((role) => SECT_MEMBER_ROLE_LABELS[role]);
-    if (sectLabels.length > 0) clauses.push(`同门：${sectLabels.join('、')}`);
-    return clauses.length > 0 ? `${label}：${clauses.join('；')}` : `${label}：仅台主`;
-  }
-
-  private renderTechniqueAggregationPermissionEditor(bound: boolean): string {
-    const scope = this.techniqueAggregationPermissionTab;
-    const policy = this.techniqueAggregationPermissionsDraft[scope];
-    const scopeLabel = scope === 'revision' ? '修订' : '参阅';
-    const disabled = this.techniqueAggregationPublishing || this.techniqueAggregationPermissionSaving !== null;
-    const friendOptions = [
-      { value: 'dao_friend', label: '道友' },
-      { value: 'close_friend', label: '至交' },
-    ].map((entry) => `<label class="technique-aggregation-policy-option">
-      <input type="checkbox" data-technique-aggregation-permission-friend="${entry.value}" ${policy.friendLevels.includes(entry.value as 'dao_friend' | 'close_friend') ? 'checked' : ''} ${policy.unrestricted || disabled ? 'disabled' : ''}>
-      <span>${entry.label}</span>
-    </label>`).join('');
-    const sectOptions = SECT_MEMBER_ROLE_HIERARCHY.map((role) => `<label class="technique-aggregation-policy-option">
-      <input type="checkbox" data-technique-aggregation-permission-sect-role="${role}" ${policy.sectRoles.includes(role) ? 'checked' : ''} ${policy.unrestricted || disabled ? 'disabled' : ''}>
-      <span>${SECT_MEMBER_ROLE_LABELS[role]}</span>
-    </label>`).join('');
-    const authoritativePolicy = this.techniqueAggregationPanel?.platform.permissions[scope];
-    const saveDisabled = disabled
-      || !bound
-      || !this.techniqueAggregationPermissionDirtyScopes.has(scope)
-      || (authoritativePolicy ? areTechniqueAggregationPoliciesEqual(policy, authoritativePolicy) : false);
-    return `<div class="technique-aggregation-policy" data-technique-aggregation-permission-editor="true">
-      <label class="technique-aggregation-policy-unrestricted">
-        <input type="checkbox" data-technique-aggregation-permission-unrestricted="true" ${policy.unrestricted ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
-        <span>不作限制，所有修士均可${scopeLabel}</span>
-      </label>
-      <div class="technique-aggregation-policy-group">
-        <span class="technique-aggregation-policy-label">道缘</span>
-        <div class="technique-aggregation-policy-options">${friendOptions}</div>
-      </div>
-      <div class="technique-aggregation-policy-group">
-        <span class="technique-aggregation-policy-label">同门位次</span>
-        <div class="technique-aggregation-policy-options">${sectOptions}</div>
-      </div>
-      ${bound ? `<button type="button" class="small-btn" data-craft-action="technique-aggregation-save-permission" ${saveDisabled ? 'disabled' : ''}>${this.techniqueAggregationPermissionSaving === scope ? '保存中...' : `保存${scopeLabel}权限`}</button>` : '<span class="alchemy-summary-mode">首卷凝成时，两项权限一并生效</span>'}
-    </div>`;
-  }
-
-  private renderTechniqueAggregationPermissions(bound: boolean): string {
+  private renderTechniqueAggregationPermissions(): string {
     return `<div class="technique-aggregation-permissions" data-technique-aggregation-permissions="true">
-      <div class="technique-aggregation-permission-tabs" role="tablist" aria-label="统法台权限">
-        ${(['read', 'revision'] as const).map((scope) => {
-          const active = scope === this.techniqueAggregationPermissionTab;
-          const label = scope === 'read' ? '参阅权限' : '修订权限';
-          return `<button type="button" class="technique-aggregation-permission-tab${active ? ' is-active' : ''}" role="tab" aria-selected="${active ? 'true' : 'false'}" data-craft-action="technique-aggregation-permission-tab" data-permission-scope="${scope}">${label}</button>`;
-        }).join('')}
-      </div>
-      ${this.renderTechniqueAggregationPermissionEditor(bound)}
+      <div data-technique-aggregation-access-policy-editor="true"><div class="empty-hint">正在读取权限策略...</div></div>
     </div>`;
   }
 
@@ -1618,8 +1514,8 @@ export class CraftTransmissionView {
       <div class="technique-aggregation-attribute-grid">${this.renderTechniqueAggregationAttrs(family.fullLevelAttrs ?? {})}</div>
     </div>
     <div class="technique-aggregation-permission-summaries">
-      <span>${escapeHtml(this.renderTechniqueAggregationPolicySummary('read', panel.platform.permissions.read))}</span>
-      <span>${escapeHtml(this.renderTechniqueAggregationPolicySummary('revision', panel.platform.permissions.revision))}</span>
+      <span>当前角色：${panel.platform.canLearn ? '可参阅' : '不可参阅'}</span>
+      <span>当前角色：${panel.platform.canRevise ? '可修订' : '不可修订'}</span>
     </div>`;
   }
 
@@ -1680,7 +1576,7 @@ export class CraftTransmissionView {
   ): string {
     return `<section class="alchemy-summary-card">
       <div class="alchemy-summary-head"><div class="alchemy-summary-title">权限</div><span class="alchemy-summary-mode">参阅与修订分别设置</span></div>
-      ${this.renderTechniqueAggregationPermissions(Boolean(family))}
+      ${this.renderTechniqueAggregationPermissions()}
       ${this.renderTechniqueAggregationResultHost()}
     </section>`;
   }
@@ -1759,33 +1655,6 @@ export class CraftTransmissionView {
       publish.disabled = !this.canPublishTechniqueAggregation();
       publish.textContent = this.techniqueAggregationPublishing ? '凝篇中...' : family ? '续录新卷' : '凝成首卷';
     }
-    const activePolicy = this.techniqueAggregationPermissionsDraft[this.techniqueAggregationPermissionTab];
-    const unrestricted = root.querySelector<HTMLInputElement>('[data-technique-aggregation-permission-unrestricted="true"]');
-    if (unrestricted) {
-      unrestricted.checked = activePolicy.unrestricted;
-      unrestricted.disabled = this.techniqueAggregationPublishing || this.techniqueAggregationPermissionSaving !== null;
-    }
-    for (const input of root.querySelectorAll<HTMLInputElement>('[data-technique-aggregation-permission-friend]')) {
-      const value = input.dataset.techniqueAggregationPermissionFriend as 'dao_friend' | 'close_friend' | undefined;
-      input.checked = Boolean(value && activePolicy.friendLevels.includes(value));
-      input.disabled = activePolicy.unrestricted || this.techniqueAggregationPublishing || this.techniqueAggregationPermissionSaving !== null;
-    }
-    for (const input of root.querySelectorAll<HTMLInputElement>('[data-technique-aggregation-permission-sect-role]')) {
-      const value = input.dataset.techniqueAggregationPermissionSectRole as SectMemberRole | undefined;
-      input.checked = Boolean(value && activePolicy.sectRoles.includes(value));
-      input.disabled = activePolicy.unrestricted || this.techniqueAggregationPublishing || this.techniqueAggregationPermissionSaving !== null;
-    }
-    const savePermission = root.querySelector<HTMLButtonElement>('[data-craft-action="technique-aggregation-save-permission"]');
-    if (savePermission) {
-      const scope = this.techniqueAggregationPermissionTab;
-      savePermission.disabled = this.techniqueAggregationPermissionSaving !== null
-        || this.techniqueAggregationPublishing
-        || !this.techniqueAggregationPermissionDirtyScopes.has(scope)
-        || areTechniqueAggregationPoliciesEqual(activePolicy, panel.platform.permissions[scope]);
-      savePermission.textContent = this.techniqueAggregationPermissionSaving === scope
-        ? '保存中...'
-        : `保存${scope === 'revision' ? '修订' : '参阅'}权限`;
-    }
     const learn = root.querySelector<HTMLButtonElement>('[data-craft-action="technique-aggregation-learn"]');
     if (learn) {
       learn.disabled = !family
@@ -1814,13 +1683,40 @@ export class CraftTransmissionView {
     replaceElementHtml(directory, this.renderTechniqueAggregationDirectoryContent());
   }
 
-  private patchTechniqueAggregationPermissions(root: HTMLElement): void {
-    const permissions = root.querySelector<HTMLElement>('[data-technique-aggregation-permissions="true"]');
-    if (!permissions) return;
-    const template = document.createElement('template');
-    template.innerHTML = this.renderTechniqueAggregationPermissions(Boolean(this.getBoundTechniqueAggregationFamily())).trim();
-    const next = template.content.firstElementChild;
-    if (next instanceof HTMLElement) permissions.replaceChildren(...next.childNodes);
+  private async mountAccessPolicyEditor(): Promise<void> {
+    const client = this.accessPolicyClient;
+    const resource = this.techniqueAggregationPanel?.platform.accessPolicyResource;
+    const host = document.querySelector<HTMLElement>('[data-technique-aggregation-access-policy-editor="true"]');
+    if (!client || !resource || !host || !this.techniqueAggregationPanel?.platform.isOwner) return;
+    const token = ++this.accessPolicyLoadToken;
+    try {
+      const snapshot = await client.loadSet(resource);
+      if (token !== this.accessPolicyLoadToken || !host.isConnected) return;
+      this.accessPolicyEditor?.destroy();
+      host.replaceChildren();
+      this.accessPolicyEditor = new AccessPolicyResourceEditor({
+        root: host,
+        snapshot,
+        resolvePlayerNo: (playerNo) => client.resolvePlayerNo(playerNo),
+        save: async (ref, policy, expectedRevision) => {
+          const result = await client.save(ref, policy, expectedRevision);
+          if (result.ok) {
+            this.onAccessPolicySaved?.('权限已保存。');
+            this.requestTechniqueAggregationPanel();
+          }
+          return result;
+        },
+      });
+    } catch (error) {
+      if (token !== this.accessPolicyLoadToken || !host.isConnected) return;
+      host.innerHTML = `<div class="empty-hint">${escapeHtml(error instanceof Error ? error.message : '权限读取失败，请稍后重试。')}</div>`;
+    }
+  }
+
+  private destroyAccessPolicyEditor(): void {
+    this.accessPolicyLoadToken += 1;
+    this.accessPolicyEditor?.destroy();
+    this.accessPolicyEditor = null;
   }
 
   private patchOpenTechniqueAggregationControls(): void {
@@ -2030,11 +1926,14 @@ export class CraftTransmissionView {
         families: [],
         totalCoveredLeafCount: 0,
         learnedAggregateCount: 0,
-        platform: {
-          buildingId: this.techniqueAggregationBuildingId,
-          displayName: '统法台',
-          isOwner: false,
-          permissions: cloneTechniqueUnificationPermissions(DEFAULT_TECHNIQUE_UNIFICATION_PERMISSIONS),
+          platform: {
+            buildingId: this.techniqueAggregationBuildingId,
+            displayName: '统法台',
+            isOwner: false,
+            accessPolicyResource: {
+              resourceType: 'technique_unification_platform',
+              resourceId: this.techniqueAggregationBuildingId,
+            },
           canLearn: false,
           canRevise: false,
           learnerState: 'unbound',
@@ -2049,7 +1948,7 @@ export class CraftTransmissionView {
   }
 
   private publishTechniqueAggregation(): void {
-    if (this.techniqueAggregationPublishing || this.techniqueAggregationPermissionSaving) return;
+    if (this.techniqueAggregationPublishing) return;
     const panel = this.techniqueAggregationPanel;
     const sourceTechniqueIds = [...this.selectedTechniqueAggregationSourceIds].sort();
     if (!panel) return;
@@ -2074,7 +1973,6 @@ export class CraftTransmissionView {
           expectedRevision: this.techniqueAggregationExpectedRevision,
         } : {
           customName: this.techniqueAggregationNameDraft,
-          permissions: cloneTechniqueUnificationPermissions(this.techniqueAggregationPermissionsDraft),
         }),
         sourceTechniqueIds,
       });
@@ -2110,43 +2008,6 @@ export class CraftTransmissionView {
       ...(!family ? { confirmButtonClass: 'danger' } : {}),
       onConfirm: () => this.publishTechniqueAggregation(),
     });
-  }
-
-  private updateTechniqueAggregationPermission(): void {
-    const panel = this.techniqueAggregationPanel;
-    if (!panel?.platform.isOwner
-      || !panel.platform.familyId
-      || this.techniqueAggregationPermissionSaving
-      || this.techniqueAggregationPublishing) return;
-    const request = this.transmissionCallbacks?.onUpdateTechniqueAggregationPermissions
-      ?? this.parent.callbacks?.onUpdateTechniqueAggregationPermissions;
-    if (!request) return;
-    const scope = this.techniqueAggregationPermissionTab;
-    this.techniqueAggregationPermissionSaving = scope;
-    this.techniqueAggregationResult = null;
-    this.patchOpenTechniqueAggregationControls();
-    let accepted: boolean | void;
-    try {
-      accepted = request({
-        requestId: this.techniqueAggregationRequestId,
-        buildingId: this.techniqueAggregationBuildingId,
-        scope,
-        policy: cloneTechniqueUnificationAccessPolicy(this.techniqueAggregationPermissionsDraft[scope]),
-      });
-    } catch {
-      accepted = false;
-    }
-    if (accepted === false) {
-      this.techniqueAggregationPermissionSaving = null;
-      this.techniqueAggregationResult = {
-        requestId: this.techniqueAggregationRequestId,
-        ok: false,
-        operation: 'permissions',
-        permissionScope: scope,
-        code: 'TECHNIQUE_AGGREGATE_NOT_READY',
-      };
-      this.patchOpenTechniqueAggregationControls();
-    }
   }
 
   private learnTechniqueAggregation(): void {
@@ -2234,6 +2095,7 @@ export class CraftTransmissionView {
         || (tab === 'permissions' && platform?.isOwner)) {
         this.techniqueAggregationPrimaryTab = tab;
         this.parent.patchOpenCraftShell();
+        if (tab === 'permissions') void this.mountAccessPolicyEditor();
       }
       return true;
     }
@@ -2284,21 +2146,8 @@ export class CraftTransmissionView {
       if (root) this.patchTechniqueAggregationDirectory(root);
       return true;
     }
-    if (action === 'technique-aggregation-permission-tab') {
-      const scope = target.dataset.permissionScope;
-      if (scope === 'read' || scope === 'revision') {
-        this.techniqueAggregationPermissionTab = scope;
-        const root = body.querySelector<HTMLElement>('[data-technique-aggregation-panel="true"]');
-        if (root) this.patchTechniqueAggregationPermissions(root);
-      }
-      return true;
-    }
     if (action === 'technique-aggregation-publish') {
       this.openTechniqueAggregationPublishConfirmModal();
-      return true;
-    }
-    if (action === 'technique-aggregation-save-permission') {
-      this.updateTechniqueAggregationPermission();
       return true;
     }
     if (action === 'technique-aggregation-learn') {
@@ -2431,47 +2280,6 @@ export class CraftTransmissionView {
         this.techniqueAggregationSourcePage = 1;
         const panel = body.querySelector<HTMLElement>('[data-technique-aggregation-panel="true"]');
         if (panel) this.patchTechniqueAggregationDirectory(panel);
-        return;
-      }
-      if (event.target instanceof HTMLInputElement && event.target.matches('[data-technique-aggregation-permission-unrestricted="true"]')) {
-        const scope = this.techniqueAggregationPermissionTab;
-        this.techniqueAggregationPermissionsDraft[scope].unrestricted = event.target.checked;
-        this.techniqueAggregationPermissionDirtyScopes.add(scope);
-        this.techniqueAggregationResult = null;
-        const panel = body.querySelector<HTMLElement>('[data-technique-aggregation-panel="true"]');
-        if (panel) this.patchTechniqueAggregationControls(panel);
-        return;
-      }
-      if (event.target instanceof HTMLInputElement && event.target.matches('[data-technique-aggregation-permission-friend]')) {
-        const value = event.target.dataset.techniqueAggregationPermissionFriend;
-        if (value === 'dao_friend' || value === 'close_friend') {
-          const scope = this.techniqueAggregationPermissionTab;
-          const policy = this.techniqueAggregationPermissionsDraft[scope];
-          const values = new Set(policy.friendLevels);
-          if (event.target.checked) values.add(value); else values.delete(value);
-          policy.friendLevels = (['dao_friend', 'close_friend'] as const)
-            .filter((entry) => values.has(entry));
-          this.techniqueAggregationPermissionDirtyScopes.add(scope);
-          this.techniqueAggregationResult = null;
-          const panel = body.querySelector<HTMLElement>('[data-technique-aggregation-panel="true"]');
-          if (panel) this.patchTechniqueAggregationControls(panel);
-        }
-        return;
-      }
-      if (event.target instanceof HTMLInputElement && event.target.matches('[data-technique-aggregation-permission-sect-role]')) {
-        const value = event.target.dataset.techniqueAggregationPermissionSectRole as SectMemberRole | undefined;
-        if (value && SECT_MEMBER_ROLE_HIERARCHY.includes(value)) {
-          const scope = this.techniqueAggregationPermissionTab;
-          const policy = this.techniqueAggregationPermissionsDraft[scope];
-          const values = new Set(policy.sectRoles);
-          if (event.target.checked) values.add(value); else values.delete(value);
-          policy.sectRoles = SECT_MEMBER_ROLE_HIERARCHY
-            .filter((entry) => values.has(entry));
-          this.techniqueAggregationPermissionDirtyScopes.add(scope);
-          this.techniqueAggregationResult = null;
-          const panel = body.querySelector<HTMLElement>('[data-technique-aggregation-panel="true"]');
-          if (panel) this.patchTechniqueAggregationControls(panel);
-        }
         return;
       }
       if (event.target instanceof HTMLSelectElement && event.target.matches('[data-transmission-book-grade-filter="true"]')) {

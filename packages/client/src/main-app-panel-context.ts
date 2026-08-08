@@ -91,8 +91,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
       npcShopModal,
       npcQuestModal,
       entityDetailModal, timeChamberUsageModal, timeChamberConsoleModal,
-      craftWorkbenchModal,
-      panelSystem,
+      craftWorkbenchModal, accessPolicyClient, panelSystem,
     },
     rootRuntimeSource,
     callbacks,
@@ -105,7 +104,8 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     socket: socialEconomySender,
     isSocketConnected: () => socket.connected,
   });
-  const socialStateSource = createMainSocialStateSource({ socialPanel, treasureVaultModal, socket: socialEconomySender, getPlayer: () => rootRuntimeSource.getPlayer(), hydrateInventoryItem: (item, previous) => detailHydrationSource.hydrateSyncedItemStack(item, previous), showToast: (message, kind) => uiStateSource.showToast(message, kind) });
+  const socialStateSource = createMainSocialStateSource({ socialPanel, treasureVaultModal, accessPolicyClient, socket: socialEconomySender, getPlayer: () => rootRuntimeSource.getPlayer(), hydrateInventoryItem: (item, previous) => detailHydrationSource.hydrateSyncedItemStack(item, previous), showToast: (message, kind) => uiStateSource.showToast(message, kind) });
+  craftWorkbenchModal.setAccessPolicyClient(accessPolicyClient, (message, kind) => uiStateSource.showToast(message, kind));
   const timeChamberStateSource = createMainTimeChamberStateSource({ usageModal: timeChamberUsageModal, managementModal: timeChamberConsoleModal, socket: buildingSender, getPlayer: () => rootRuntimeSource.getPlayer(), showToast: (message, kind) => uiStateSource.showToast(message, kind) });
   let uiStateSource!: ReturnType<typeof createMainUiStateSource>;
   let panelDeltaStateSource!: ReturnType<typeof import('./main-panel-delta-state-source').createMainPanelDeltaStateSource>;

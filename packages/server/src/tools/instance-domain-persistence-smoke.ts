@@ -767,10 +767,14 @@ async function main(): Promise<void> {
           createdAtTick: 10,
           updatedAtTick: 12,
           revision: 3,
-          treasureVaultPermissions: {
-            view: ['all', 'sect'],
-            deposit: ['party'],
-            withdraw: ['close_friend'],
+          accessPolicies: {
+            use: {
+              schemaVersion: 1,
+              mode: 'conditional',
+              operator: 'any',
+              conditions: [{ type: 'relation', relations: ['close_friend'] }],
+              revision: 3,
+            },
           },
           cells: [{ tileIndex: 88, x: 6, y: 8 }],
         },
@@ -832,10 +836,14 @@ async function main(): Promise<void> {
       false,
       '建筑定义句柄是进程内派生索引，不得写回持久化 payload',
     );
-    assert.deepEqual(loadedBuildingRoomFengShuiState.buildings[0]?.treasureVaultPermissions, {
-      view: ['all', 'sect'],
-      deposit: ['party'],
-      withdraw: ['close_friend'],
+    assert.deepEqual(loadedBuildingRoomFengShuiState.buildings[0]?.accessPolicies, {
+      use: {
+        schemaVersion: 1,
+        mode: 'conditional',
+        operator: 'any',
+        conditions: [{ type: 'relation', relations: ['close_friend'] }],
+        revision: 3,
+      },
     });
     assert.deepEqual(loadedBuildingRoomFengShuiState.buildings[0]?.cells, [{
       buildingId: 'building:stone_wall:1',

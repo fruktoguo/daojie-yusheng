@@ -6,7 +6,14 @@
  */
 import type { TechniqueCategory, TechniqueGrade, TechniqueState } from './cultivation-types';
 import type { Attributes } from './attribute-types';
-import type { DaoistRelationLevel } from './social-types';
+import type { AccessPolicy, AccessPolicyResourceLocator } from './access-policy';
+import {
+  EVERYONE_ACCESS_POLICY,
+  OWNER_ONLY_ACCESS_POLICY,
+  cloneAccessPolicy,
+  normalizeAccessPolicy,
+  validateAccessPolicy,
+} from './access-policy';
 import { SECT_MEMBER_ROLE_HIERARCHY, type SectMemberRole } from './sect-types';
 
 export const TECHNIQUE_AGGREGATE_ID_PREFIX = 'agg_';
@@ -15,39 +22,18 @@ export const TECHNIQUE_AGGREGATE_CATEGORY: TechniqueCategory = 'internal';
 export const TECHNIQUE_AGGREGATE_EFFECT_MULTIPLIER = 1.1;
 export const TECHNIQUE_UNIFICATION_PLATFORM_DEF_ID = 'technique_unification_platform';
 
-export interface TechniqueUnificationAccessPolicy {
-  /** 开启后不再检查好友层级或宗门职位。 */
-  unrestricted: boolean;
-  /** 多组选项按“任一满足”裁定；道友同时包含至交。 */
-  friendLevels: DaoistRelationLevel[];
-  /** 仅匹配台主当前宗门内的所选职位。 */
-  sectRoles: SectMemberRole[];
-}
-
-export const DEFAULT_TECHNIQUE_UNIFICATION_ACCESS_POLICY: Readonly<TechniqueUnificationAccessPolicy> = {
-  unrestricted: true,
-  friendLevels: [],
-  sectRoles: [],
-};
-
-export type TechniqueUnificationPermissionScope = 'read' | 'revision';
-
 /** 统法台参阅与修订分别裁定，任一权限都不隐含另一权限。 */
 export interface TechniqueUnificationPermissions {
-  read: TechniqueUnificationAccessPolicy;
-  revision: TechniqueUnificationAccessPolicy;
+  read: AccessPolicy;
+  revision: AccessPolicy;
 }
 
 export const DEFAULT_TECHNIQUE_UNIFICATION_PERMISSIONS: Readonly<{
-  read: Readonly<TechniqueUnificationAccessPolicy>;
-  revision: Readonly<TechniqueUnificationAccessPolicy>;
+  read: Readonly<AccessPolicy>;
+  revision: Readonly<AccessPolicy>;
 }> = {
-  read: DEFAULT_TECHNIQUE_UNIFICATION_ACCESS_POLICY,
-  revision: {
-    unrestricted: false,
-    friendLevels: [],
-    sectRoles: [],
-  },
+  read: EVERYONE_ACCESS_POLICY,
+  revision: OWNER_ONLY_ACCESS_POLICY,
 };
 
 export type TechniqueAggregationErrorCode =
@@ -153,16 +139,7 @@ export interface TechniqueAggregationPublishRequest {
   expectedRevision?: number;
   /** 首次凝篇必填；续录沿用法脉原名。 */
   customName?: string;
-  /** 首次凝篇可一并设置，后续通过独立权限请求修改。 */
-  permissions?: TechniqueUnificationPermissions;
   sourceTechniqueIds: string[];
-}
-
-export interface TechniqueAggregationPermissionRequest {
-  requestId?: string;
-  buildingId?: string;
-  scope: TechniqueUnificationPermissionScope;
-  policy: TechniqueUnificationAccessPolicy;
 }
 
 export interface TechniqueAggregationLearnRequest {
@@ -178,7 +155,7 @@ export interface TechniqueUnificationPlatformView {
   ownerPlayerId?: string;
   isOwner: boolean;
   familyId?: string;
-  permissions: TechniqueUnificationPermissions;
+  accessPolicyResource: AccessPolicyResourceLocator;
   canLearn: boolean;
   canRevise: boolean;
   learnerState: TechniqueUnificationLearnerState;
@@ -216,8 +193,7 @@ export interface TechniqueAggregationResultView {
   requestId?: string;
   operationId?: string;
   ok: boolean;
-  operation?: 'publish' | 'permissions' | 'learn';
-  permissionScope?: TechniqueUnificationPermissionScope;
+  operation?: 'publish' | 'learn';
   code?: TechniqueAggregationErrorCode;
   messageKey?: string;
   vars?: Record<string, string | number>;
@@ -240,7 +216,6 @@ export interface TechniqueAggregationResultView {
 
 export type C2S_RequestTechniqueAggregation = TechniqueAggregationPreviewRequest;
 export type C2S_PublishTechniqueAggregation = TechniqueAggregationPublishRequest;
-export type C2S_UpdateTechniqueAggregationPermissions = TechniqueAggregationPermissionRequest;
 export type C2S_LearnTechniqueAggregation = TechniqueAggregationLearnRequest;
 export type S2C_TechniqueAggregationPanel = TechniqueAggregationPanelView;
 export type S2C_TechniqueAggregationResult = TechniqueAggregationResultView;
@@ -300,52 +275,11 @@ export function normalizeTechniqueAggregationMetadata(value: unknown): Technique
   };
 }
 
-export function normalizeTechniqueUnificationAccessPolicy(
-  value: unknown,
-  fallback: Readonly<TechniqueUnificationAccessPolicy> = DEFAULT_TECHNIQUE_UNIFICATION_ACCESS_POLICY,
-): TechniqueUnificationAccessPolicy {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return cloneTechniqueUnificationAccessPolicy(fallback);
-  }
-  const raw = value as Record<string, unknown>;
-  const unrestricted = raw.unrestricted === true;
-  if (unrestricted) {
-    return { unrestricted: true, friendLevels: [], sectRoles: [] };
-  }
-  const friendLevelSet = new Set(
-    Array.isArray(raw.friendLevels)
-      ? raw.friendLevels.filter((entry): entry is DaoistRelationLevel => entry === 'dao_friend' || entry === 'close_friend')
-      : [],
-  );
-  const sectRoleSet = new Set(
-    Array.isArray(raw.sectRoles)
-      ? raw.sectRoles.filter((entry): entry is SectMemberRole => (
-        typeof entry === 'string' && SECT_MEMBER_ROLE_HIERARCHY.includes(entry as SectMemberRole)
-      ))
-      : [],
-  );
-  return {
-    unrestricted: false,
-    friendLevels: (['dao_friend', 'close_friend'] as const).filter((entry) => friendLevelSet.has(entry)),
-    sectRoles: SECT_MEMBER_ROLE_HIERARCHY.filter((entry) => sectRoleSet.has(entry)),
-  };
-}
-
-export function cloneTechniqueUnificationAccessPolicy(
-  value: Readonly<TechniqueUnificationAccessPolicy>,
-): TechniqueUnificationAccessPolicy {
-  return {
-    unrestricted: value.unrestricted === true,
-    friendLevels: [...value.friendLevels],
-    sectRoles: [...value.sectRoles],
-  };
-}
-
 export function normalizeTechniqueUnificationPermissions(
   value: unknown,
   fallback: Readonly<{
-    read: Readonly<TechniqueUnificationAccessPolicy>;
-    revision: Readonly<TechniqueUnificationAccessPolicy>;
+    read: Readonly<AccessPolicy>;
+    revision: Readonly<AccessPolicy>;
   }> = DEFAULT_TECHNIQUE_UNIFICATION_PERMISSIONS,
 ): TechniqueUnificationPermissions {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -353,21 +287,51 @@ export function normalizeTechniqueUnificationPermissions(
   }
   const raw = value as Record<string, unknown>;
   return {
-    read: normalizeTechniqueUnificationAccessPolicy(raw.read, fallback.read),
-    revision: normalizeTechniqueUnificationAccessPolicy(raw.revision, fallback.revision),
+    read: normalizeTechniqueUnificationPolicy(raw.read, fallback.read),
+    revision: normalizeTechniqueUnificationPolicy(raw.revision, fallback.revision),
   };
 }
 
 export function cloneTechniqueUnificationPermissions(
   value: Readonly<{
-    read: Readonly<TechniqueUnificationAccessPolicy>;
-    revision: Readonly<TechniqueUnificationAccessPolicy>;
+    read: Readonly<AccessPolicy>;
+    revision: Readonly<AccessPolicy>;
   }>,
 ): TechniqueUnificationPermissions {
   return {
-    read: cloneTechniqueUnificationAccessPolicy(value.read),
-    revision: cloneTechniqueUnificationAccessPolicy(value.revision),
+    read: cloneAccessPolicy(value.read),
+    revision: cloneAccessPolicy(value.revision),
   };
+}
+
+/** 兼容旧统法台关系/宗门权限快照；新写入始终使用通用 AccessPolicy。 */
+function normalizeTechniqueUnificationPolicy(
+  value: unknown,
+  fallback: Readonly<AccessPolicy>,
+): AccessPolicy {
+  const validated = validateAccessPolicy(value, { requireResolvedPlayers: true });
+  if (validated.ok && validated.policy) return validated.policy;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return normalizeAccessPolicy(value, fallback);
+  }
+  const raw = value as Record<string, unknown>;
+  if (raw.unrestricted === true) return cloneAccessPolicy(EVERYONE_ACCESS_POLICY);
+  const conditions: AccessPolicy['conditions'] = [];
+  const relations = (['dao_friend', 'close_friend'] as const)
+    .filter((entry) => Array.isArray(raw.friendLevels) && raw.friendLevels.includes(entry));
+  if (relations.length > 0) conditions.push({ type: 'relation', relations });
+  const roleSet = new Set(Array.isArray(raw.sectRoles) ? raw.sectRoles : []);
+  const roles = SECT_MEMBER_ROLE_HIERARCHY.filter((entry): entry is SectMemberRole => roleSet.has(entry));
+  if (roles.length > 0) conditions.push({ type: 'sect', roles });
+  return conditions.length > 0
+    ? {
+        schemaVersion: 1,
+        mode: 'conditional',
+        operator: 'any',
+        conditions,
+        revision: 1,
+      }
+    : cloneAccessPolicy(OWNER_ONLY_ACCESS_POLICY);
 }
 
 export function resolveTechniqueAggregationMetadata(value: unknown): TechniqueAggregationMetadata | null {

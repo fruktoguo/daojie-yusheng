@@ -1688,8 +1688,7 @@
     }
 
     .technique-aggregation-lineage-summary small,
-    .technique-aggregation-lineage-summary > span,
-    .technique-aggregation-policy-summary {
+    .technique-aggregation-lineage-summary > span {
       color: var(--ink-grey);
       font-size: var(--font-size-12);
       line-height: 1.45;
@@ -2014,51 +2013,10 @@
       overflow-wrap: anywhere;
     }
 
-    .technique-aggregation-policy {
-      display: grid;
-      gap: 10px;
-      min-width: 0;
-    }
-
     .technique-aggregation-permissions {
       display: grid;
       gap: 12px;
       min-width: 0;
-    }
-
-    .technique-aggregation-permission-tabs {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 2px;
-      padding: 2px;
-      border: 1px solid rgba(60, 47, 39, 0.12);
-      border-radius: 6px;
-      background: var(--surface-muted-strong);
-    }
-
-    .technique-aggregation-permission-tab {
-      min-width: 0;
-      min-height: 38px;
-      padding: 7px 10px;
-      border: 0;
-      border-radius: 4px;
-      background: transparent;
-      color: var(--ink-grey);
-      font: inherit;
-      font-size: var(--font-size-12);
-      cursor: pointer;
-    }
-
-    .technique-aggregation-permission-tab:hover {
-      background: var(--surface-hover);
-      color: var(--ink-black);
-    }
-
-    .technique-aggregation-permission-tab.is-active {
-      background: var(--surface-raised, var(--surface));
-      box-shadow: 0 1px 3px rgba(44, 32, 24, 0.12);
-      color: var(--ink-black);
-      font-weight: 700;
     }
 
     .technique-aggregation-permission-summaries {
@@ -2070,43 +2028,6 @@
       line-height: 1.45;
     }
 
-    .technique-aggregation-policy-unrestricted,
-    .technique-aggregation-policy-option {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      min-height: 36px;
-      cursor: pointer;
-    }
-
-    .technique-aggregation-policy-unrestricted input,
-    .technique-aggregation-policy-option input {
-      width: 18px;
-      height: 18px;
-      margin: 0;
-      accent-color: #4f7664;
-    }
-
-    .technique-aggregation-policy-group {
-      display: grid;
-      grid-template-columns: 76px minmax(0, 1fr);
-      align-items: start;
-      gap: 8px;
-      min-width: 0;
-    }
-
-    .technique-aggregation-policy-label {
-      padding-top: 9px;
-      color: var(--ink-grey);
-      font-size: var(--font-size-12);
-    }
-
-    .technique-aggregation-policy-options {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 2px 14px;
-      min-width: 0;
-    }
 
     .technique-aggregation-family {
       display: flex;
@@ -2271,7 +2192,6 @@
 
     :root[data-color-mode="dark"] .technique-aggregation-primary-tabs,
     :root[data-color-mode="dark"] .technique-aggregation-record-tabs,
-    :root[data-color-mode="dark"] .technique-aggregation-permission-tabs,
     :root[data-color-mode="dark"] .technique-aggregation-overview-metrics > span,
     :root[data-color-mode="dark"] .technique-aggregation-jade-metrics > span {
       border-color: rgba(233, 224, 207, 0.16);
@@ -2285,8 +2205,7 @@
     }
 
     :root[data-color-mode="dark"] .technique-aggregation-primary-tab.is-active,
-    :root[data-color-mode="dark"] .technique-aggregation-record-tab.is-active,
-    :root[data-color-mode="dark"] .technique-aggregation-permission-tab.is-active {
+    :root[data-color-mode="dark"] .technique-aggregation-record-tab.is-active {
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.32);
     }
 
@@ -2370,19 +2289,6 @@
       }
       .technique-aggregation-lineage-summary > span {
         text-align: left;
-      }
-      .technique-aggregation-policy-group {
-        grid-template-columns: minmax(0, 1fr);
-        gap: 2px;
-      }
-      .technique-aggregation-policy-label {
-        padding-top: 0;
-      }
-      .technique-aggregation-policy-option {
-        min-height: 40px;
-      }
-      .technique-aggregation-permission-tab {
-        min-height: 42px;
       }
       .technique-aggregation-directory-toolbar {
         align-items: stretch;

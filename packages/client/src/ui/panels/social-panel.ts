@@ -10,9 +10,6 @@ import type {
   SocialPanelView,
   SyncedItemStack,
   TreasureVaultDetailView,
-  TreasureVaultPermissionKind,
-  TreasureVaultPermissionMap,
-  TreasureVaultPermissionScope,
   TreasureVaultOperationResultView,
 } from '@mud/shared';
 import { createItemStackSignature, getTechniqueMaxLevel, resolvePlayerFacingContentName, TECHNIQUE_GRADE_ORDER } from '@mud/shared';
@@ -26,6 +23,8 @@ import { getLocalTechniqueTemplate, resolvePreviewItem, resolveTechniqueIdFromBo
 import { describePreviewBonuses } from '../stat-preview';
 import { renderTradeQuantityControl } from '../trade-control-renderers';
 import { normalizeTreasureVaultTransferCount } from '../treasure-vault-transfer-count';
+import { AccessPolicyResourceEditor } from '../access-policy-resource-editor';
+import type { AccessPolicySocketClient } from '../access-policy-socket-client';
 
 type SocialPanelCallbacks = {
   onRefresh(): void;
@@ -42,7 +41,7 @@ type TreasureVaultCallbacks = {
   onDeposit(items: Array<{ itemInstanceId: string; count: number }>): void;
   onWithdraw(storageItemId: string, count: number): void;
   onOrganize(): void;
-  onUpdatePermissions(permissions: TreasureVaultPermissionMap): void;
+  onPermissionsSaved(): void;
   onRename(name: string): void;
 };
 
@@ -88,22 +87,6 @@ function resolveSocialInstanceName(instanceId: unknown, instanceName: unknown): 
   return resolvePlayerFacingContentName(instanceId, '未知地域', instanceName);
 }
 
-const PERMISSION_KIND_LABEL: Record<TreasureVaultPermissionKind, string> = {
-  view: '可看',
-  deposit: '可存',
-  withdraw: '可拿',
-};
-
-const PERMISSION_SCOPE_LABEL: Record<TreasureVaultPermissionScope, string> = {
-  all: '所有人',
-  party: '队友',
-  sect: '同门',
-  dao_friend: '道友',
-  close_friend: '至交',
-};
-
-const PERMISSION_KINDS: TreasureVaultPermissionKind[] = ['view', 'deposit', 'withdraw'];
-const PERMISSION_SCOPES: TreasureVaultPermissionScope[] = ['all', 'party', 'sect', 'dao_friend', 'close_friend'];
 const MAX_SOCIAL_MESSAGES_PER_PEER = 100;
 const SOCIAL_SCROLL_BOTTOM_THRESHOLD_PX = 24;
 const TREASURE_VAULT_DEPOSIT_PAGE_SIZE = 30;
@@ -987,6 +970,9 @@ export class TreasureVaultModal {
   private itemSort: TreasureVaultItemSort = 'slot';
   private organizeSubmitting = false;
   private renaming = false;
+  private accessPolicyClient: AccessPolicySocketClient | null = null;
+  private accessPolicyEditor: AccessPolicyResourceEditor | null = null;
+  private accessPolicyLoadToken = 0;
   private readonly selectedDepositCounts = new Map<string, number>();
 
   constructor() {
@@ -1002,6 +988,10 @@ export class TreasureVaultModal {
 
   setCallbacks(callbacks: TreasureVaultCallbacks): void {
     this.callbacks = callbacks;
+  }
+
+  setAccessPolicyClient(client: AccessPolicySocketClient): void {
+    this.accessPolicyClient = client;
   }
 
   setCurrentPlayer(playerId: string | null, inventoryItems: SyncedItemStack[]): void {
@@ -1030,6 +1020,7 @@ export class TreasureVaultModal {
     if (this.detail && (this.detail.instanceId !== detail.instanceId || this.detail.buildingId !== detail.buildingId)) {
       this.itemSort = 'slot';
       this.organizeSubmitting = false;
+      this.destroyAccessPolicyEditor();
     }
     this.detail = detail;
     this.activeTab = this.resolveVisibleTab(this.preferredTab, detail);
@@ -1063,6 +1054,7 @@ export class TreasureVaultModal {
   }
 
   clear(): void {
+    this.destroyAccessPolicyEditor();
     this.detail = null;
     this.currentPlayerId = null;
     this.inventoryItems = [];
@@ -1160,9 +1152,6 @@ export class TreasureVaultModal {
         const count = target.dataset.vaultWithdrawMode === 'all' ? this.resolveStorageItemCount(storageItemId) : 1;
         if (storageItemId) this.callbacks.onWithdraw(storageItemId, count);
         detailModalHost.close(TreasureVaultModal.ITEM_DETAIL_MODAL_OWNER);
-      }
-      if (action === 'permissions') {
-        this.callbacks.onUpdatePermissions(this.readPermissions());
       }
     });
   }
@@ -1621,6 +1610,7 @@ export class TreasureVaultModal {
       this.root.innerHTML = '';
       return;
     }
+    this.destroyAccessPolicyEditor();
     const canEditPermissions = detail.ownerPlayerId === this.currentPlayerId;
     const activeTab = this.resolveVisibleTab(this.activeTab, detail);
     this.activeTab = activeTab;
@@ -1654,6 +1644,9 @@ export class TreasureVaultModal {
         </div>
       </div>
     `;
+    if (activeTab === 'permissions' && canEditPermissions) {
+      void this.mountAccessPolicyEditor(detail);
+    }
   }
 
   private resolveVisibleTab(tab: TreasureVaultModalTab, detail: TreasureVaultDetailView): TreasureVaultModalTab {
@@ -2044,25 +2037,13 @@ export class TreasureVaultModal {
     return `
       <div class="treasure-vault-permission-summary">
         <div class="panel-section-title">当前规则</div>
-        ${PERMISSION_KINDS.map((kind) => `
-          <div class="panel-row">
-            <span class="panel-label">${PERMISSION_KIND_LABEL[kind]}</span>
-            <span class="panel-value">${this.renderScopeSummary(detail.permissions[kind])}</span>
-          </div>
-        `).join('')}
+        <div class="panel-row"><span class="panel-label">可看和可放</span><span class="panel-value">${detail.effectivePermissions.view ? '当前角色允许' : '当前角色不允许'}</span></div>
+        <div class="panel-row"><span class="panel-label">可拿</span><span class="panel-value">${detail.effectivePermissions.withdraw ? '当前角色允许' : '当前角色不允许'}</span></div>
         ${canEditPermissions
           ? '<button class="small-btn" type="button" data-vault-action="tab" data-vault-tab="permissions">设置使用权限</button>'
           : '<div class="panel-subtext">使用权限仅建造者可设置。</div>'}
       </div>
     `;
-  }
-
-  private renderScopeSummary(scopes: TreasureVaultPermissionScope[] | undefined): string {
-    const normalized = (scopes ?? []).filter((scope) => PERMISSION_SCOPES.includes(scope));
-    if (normalized.length === 0) {
-      return '仅建造者';
-    }
-    return normalized.map((scope) => PERMISSION_SCOPE_LABEL[scope]).join('、');
   }
 
   private renderPermissions(detail: TreasureVaultDetailView, canEdit: boolean): string {
@@ -2072,40 +2053,41 @@ export class TreasureVaultModal {
     return `
       <div class="treasure-vault-permission-editor">
         <div class="panel-section-title">设置使用权限</div>
-        <div class="panel-subtext">建造者始终拥有查看、存入、取出和修改权限；下方规则只影响其他玩家。</div>
-        ${PERMISSION_KINDS.map((kind) => `
-          <div class="ui-list-row">
-            <div class="ui-list-main">
-              <div class="ui-list-title">${PERMISSION_KIND_LABEL[kind]}</div>
-              <div class="ui-list-subtitle">
-                ${PERMISSION_SCOPES.map((scope) => `
-                  <label class="inline-check">
-                    <input type="checkbox" data-vault-permission-kind="${kind}" data-vault-permission-scope="${scope}" ${detail.permissions[kind]?.includes(scope) ? 'checked' : ''} ${canEdit ? '' : 'disabled'}>
-                    ${PERMISSION_SCOPE_LABEL[scope]}
-                  </label>
-                `).join('')}
-              </div>
-            </div>
-          </div>
-        `).join('')}
-        <div class="ui-inline-actions-end">
-          <button class="small-btn" type="button" data-vault-action="permissions">保存权限</button>
-        </div>
+        <div class="panel-subtext">建造者始终拥有管理权限；下方两项策略分别控制可看和可放、可拿。</div>
+        <div data-vault-access-policy-editor="true"><div class="empty-hint">正在读取权限策略...</div></div>
       </div>
     `;
   }
 
-  private readPermissions(): TreasureVaultPermissionMap {
-    const next: TreasureVaultPermissionMap = { view: [], deposit: [], withdraw: [] };
-    for (const input of this.root.querySelectorAll<HTMLInputElement>('[data-vault-permission-kind]')) {
-      if (!input.checked) continue;
-      const kind = input.dataset.vaultPermissionKind as TreasureVaultPermissionKind;
-      const scope = input.dataset.vaultPermissionScope as TreasureVaultPermissionScope;
-      if (PERMISSION_KINDS.includes(kind) && PERMISSION_SCOPES.includes(scope)) {
-        next[kind].push(scope);
-      }
+  private async mountAccessPolicyEditor(detail: TreasureVaultDetailView): Promise<void> {
+    const client = this.accessPolicyClient;
+    const host = this.root.querySelector<HTMLElement>('[data-vault-access-policy-editor="true"]');
+    if (!client || !host) return;
+    const token = ++this.accessPolicyLoadToken;
+    try {
+      const snapshot = await client.loadSet(detail.accessPolicyResource);
+      if (token !== this.accessPolicyLoadToken || this.detail !== detail || !host.isConnected) return;
+      host.replaceChildren();
+      this.accessPolicyEditor = new AccessPolicyResourceEditor({
+        root: host,
+        snapshot,
+        resolvePlayerNo: (playerNo) => client.resolvePlayerNo(playerNo),
+        save: async (ref, policy, expectedRevision) => {
+          const result = await client.save(ref, policy, expectedRevision);
+          if (result.ok) this.callbacks?.onPermissionsSaved();
+          return result;
+        },
+      });
+    } catch (error) {
+      if (token !== this.accessPolicyLoadToken || !host.isConnected) return;
+      host.innerHTML = `<div class="empty-hint">${escapeHtml(error instanceof Error ? error.message : '权限读取失败，请稍后重试。')}</div>`;
     }
-    return next;
+  }
+
+  private destroyAccessPolicyEditor(): void {
+    this.accessPolicyLoadToken += 1;
+    this.accessPolicyEditor?.destroy();
+    this.accessPolicyEditor = null;
   }
 }
 

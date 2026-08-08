@@ -1,12 +1,16 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
+  EVERYONE_ACCESS_POLICY,
+  OWNER_ONLY_ACCESS_POLICY,
   S2C,
   normalizeTechniqueUnificationPermissions,
+  type AccessPolicy,
   type BuildingDef,
   type TechniqueAggregationMetadata,
   type TechniqueAggregationPanelView,
   type TechniqueAggregationPublishRequest,
+  type TechniqueUnificationPermissions,
   type TechniqueUnificationPlatformView,
 } from '@mud/shared';
 import { resolveProjectPath } from '../common/project-path';
@@ -48,6 +52,14 @@ async function main(): Promise<void> {
   const innerDisciple = createPlayer('player:inner-disciple', ['gen:inner']);
   const stranger = createPlayer('player:stranger', ['gen:stranger']);
   const players = new Map([owner, closeFriend, innerDisciple, stranger].map((player) => [player.playerId, player]));
+  const closeFriendReadPolicy = createConditionalPolicy({
+    type: 'relation',
+    relations: ['close_friend'],
+  });
+  const innerSectPolicy = createConditionalPolicy({
+    type: 'sect',
+    roles: ['inner'],
+  });
   const building: any = {
     id: 'building:unification-1',
     defId: 'technique_unification_platform',
@@ -57,6 +69,10 @@ async function main(): Promise<void> {
     x: 10,
     y: 10,
     revision: 1,
+    accessPolicies: {
+      read: closeFriendReadPolicy,
+      revision: OWNER_ONLY_ACCESS_POLICY,
+    },
   };
   const instance = {
     meta: { instanceId: owner.instanceId, persistent: true },
@@ -80,15 +96,17 @@ async function main(): Promise<void> {
       if (target.techniqueAggregationFamilyId && target.techniqueAggregationFamilyId !== familyId) {
         return { ok: false, reason: 'technique_unification_platform_already_bound' };
       }
-      const nextPermissions = normalizeTechniqueUnificationPermissions(input.permissions);
+      const nextPermissions = normalizeTechniqueUnificationPermissions(
+        input?.accessPolicies ?? target.accessPolicies,
+      );
       const techniqueName = typeof input?.techniqueName === 'string' ? input.techniqueName.trim() : '';
       const nextName = techniqueName ? `统法台：${techniqueName}` : target.name;
       const changed = target.techniqueAggregationFamilyId !== familyId
-        || JSON.stringify(target.techniqueAggregationPermissions) !== JSON.stringify(nextPermissions)
+        || JSON.stringify(target.accessPolicies) !== JSON.stringify(nextPermissions)
         || target.name !== nextName;
       if (changed) {
         target.techniqueAggregationFamilyId = familyId;
-        target.techniqueAggregationPermissions = nextPermissions;
+        target.accessPolicies = nextPermissions;
         if (techniqueName) target.name = nextName;
         target.revision += 1;
         this.markPersistenceDirtyDomainsHighPriority(['building']);
@@ -183,11 +201,19 @@ async function main(): Promise<void> {
         },
       },
     } as never,
-    socialRuntimeService: {
-      async areRelated(left: string, right: string, minimumLevel: string) {
-        return minimumLevel === 'close_friend'
-          && new Set([left, right]).has(owner.playerId)
-          && new Set([left, right]).has(closeFriend.playerId);
+    buildingAccessPolicyService: {
+      buildTechniquePlatformResource(buildingId: string) {
+        return { resourceType: 'technique_unification_platform', resourceId: buildingId };
+      },
+      resolveTechniquePlatformPolicies(currentBuilding: any): TechniqueUnificationPermissions {
+        return normalizeTechniqueUnificationPermissions(currentBuilding?.accessPolicies);
+      },
+      async evaluateTechniquePlatform(playerId: string, currentBuilding: any) {
+        const policies = normalizeTechniqueUnificationPermissions(currentBuilding?.accessPolicies);
+        return {
+          read: evaluateTestPolicy(policies.read, playerId, owner.playerId, closeFriend.playerId, innerDisciple.playerId),
+          revision: evaluateTestPolicy(policies.revision, playerId, owner.playerId, closeFriend.playerId, innerDisciple.playerId),
+        };
       },
     } as never,
     playerPersistenceFlushService: {
@@ -220,18 +246,14 @@ async function main(): Promise<void> {
     operationId: 'operation-1',
     buildingId: building.id,
     customName: '归元正法',
-    permissions: {
-      read: { unrestricted: false, friendLevels: ['close_friend'], sectRoles: [] },
-      revision: { unrestricted: false, friendLevels: [], sectRoles: [] },
-    },
     sourceTechniqueIds: ['gen:a', 'gen:b'],
   });
   const boundFamilyId = String(building.techniqueAggregationFamilyId ?? '');
   assert.equal(boundFamilyId, 'family:operation-1');
   assert.equal(building.name, '统法台：归元正法');
-  assert.deepEqual(building.techniqueAggregationPermissions, {
-    read: { unrestricted: false, friendLevels: ['close_friend'], sectRoles: [] },
-    revision: { unrestricted: false, friendLevels: [], sectRoles: [] },
+  assert.deepEqual(building.accessPolicies, {
+    read: closeFriendReadPolicy,
+    revision: OWNER_ONLY_ACCESS_POLICY,
   });
   assert.equal(instance.dirtyDomains.includes('building'), true);
   assert.equal(instanceFlushes.length > 0, true);
@@ -242,14 +264,14 @@ async function main(): Promise<void> {
   assert.equal(building.name, '统法台：归元正法');
 
   delete building.techniqueAggregationFamilyId;
-  delete building.techniqueAggregationPermissions;
+  delete building.accessPolicies;
   building.name = '统法台';
   await helper.handleRequestPanel(ownerSocket as never, { requestId: 'recover-panel', buildingId: building.id });
   assert.equal(building.techniqueAggregationFamilyId, boundFamilyId);
   assert.equal(building.name, '统法台：归元正法');
-  assert.deepEqual(building.techniqueAggregationPermissions, {
-    read: { unrestricted: false, friendLevels: ['close_friend'], sectRoles: [] },
-    revision: { unrestricted: false, friendLevels: [], sectRoles: [] },
+  assert.deepEqual(building.accessPolicies, {
+    read: closeFriendReadPolicy,
+    revision: OWNER_ONLY_ACCESS_POLICY,
   });
 
   await helper.handlePublish(ownerSocket as never, {
@@ -291,12 +313,10 @@ async function main(): Promise<void> {
     'TECHNIQUE_AGGREGATE_ACCESS_DENIED',
   );
 
-  await helper.handleUpdatePermissions(ownerSocket as never, {
-    requestId: 'read-sect',
-    buildingId: building.id,
-    scope: 'read',
-    policy: { unrestricted: false, friendLevels: [], sectRoles: ['inner'] },
-  });
+  building.accessPolicies = {
+    read: innerSectPolicy,
+    revision: OWNER_ONLY_ACCESS_POLICY,
+  };
   const innerSocket = new TestSocket({ playerId: innerDisciple.playerId });
   await helper.handleRequestPanel(innerSocket as never, { requestId: 'inner-panel', buildingId: building.id });
   const innerReadPanel = innerSocket.last<TechniqueAggregationPanelView>(S2C.TechniqueAggregationPanel);
@@ -305,12 +325,10 @@ async function main(): Promise<void> {
   await helper.handleRequestPanel(closeFriendSocket as never, { requestId: 'friend-panel-2', buildingId: building.id });
   assert.equal(closeFriendSocket.last<TechniqueAggregationPanelView>(S2C.TechniqueAggregationPanel).platform.canLearn, false);
 
-  await helper.handleUpdatePermissions(ownerSocket as never, {
-    requestId: 'revision-sect',
-    buildingId: building.id,
-    scope: 'revision',
-    policy: { unrestricted: false, friendLevels: [], sectRoles: ['inner'] },
-  });
+  building.accessPolicies = {
+    read: innerSectPolicy,
+    revision: innerSectPolicy,
+  };
   await helper.handleRequestPanel(innerSocket as never, { requestId: 'inner-revision-panel', buildingId: building.id });
   const innerRevisionPanel = innerSocket.last<TechniqueAggregationPanelView>(S2C.TechniqueAggregationPanel);
   assert.equal(innerRevisionPanel.platform.canLearn, true);
@@ -341,32 +359,18 @@ async function main(): Promise<void> {
     'TECHNIQUE_AGGREGATE_REVISION_PERMISSION_DENIED',
   );
 
-  await helper.handleUpdatePermissions(ownerSocket as never, {
-    requestId: 'read-open',
-    buildingId: building.id,
-    scope: 'read',
-    policy: { unrestricted: true, friendLevels: ['dao_friend'], sectRoles: ['leader'] },
-  });
+  building.accessPolicies = {
+    read: EVERYONE_ACCESS_POLICY,
+    revision: innerSectPolicy,
+  };
   await helper.handleRequestPanel(strangerSocket as never, { requestId: 'stranger-panel', buildingId: building.id });
   const strangerPanel = strangerSocket.last<TechniqueAggregationPanelView>(S2C.TechniqueAggregationPanel);
   assert.equal(strangerPanel.platform.canLearn, true);
   assert.equal(strangerPanel.platform.canRevise, false);
-  assert.deepEqual(building.techniqueAggregationPermissions, {
-    read: { unrestricted: true, friendLevels: [], sectRoles: [] },
-    revision: { unrestricted: false, friendLevels: [], sectRoles: ['inner'] },
+  assert.deepEqual(building.accessPolicies, {
+    read: EVERYONE_ACCESS_POLICY,
+    revision: innerSectPolicy,
   });
-
-  const nonOwnerPermissionSocket = new TestSocket({ playerId: innerDisciple.playerId });
-  await helper.handleUpdatePermissions(nonOwnerPermissionSocket as never, {
-    requestId: 'permission-forbidden',
-    buildingId: building.id,
-    scope: 'revision',
-    policy: { unrestricted: false, friendLevels: [], sectRoles: [] },
-  });
-  assert.equal(
-    nonOwnerPermissionSocket.last<any>(S2C.TechniqueAggregationResult).code,
-    'TECHNIQUE_AGGREGATE_PLATFORM_OWNER_REQUIRED',
-  );
 
   process.stdout.write(`${JSON.stringify({
     ok: true,
@@ -395,6 +399,37 @@ function assertTechniqueUnificationConstructionConfig(): void {
   assert.deepEqual(platform.costItemIds, refiningTable.costItemIds);
   assert.deepEqual(Array.from(platform.costCounts), Array.from(refiningTable.costCounts));
   assert.equal(platform.buildTicks, 21_600);
+}
+
+function createConditionalPolicy(condition: AccessPolicy['conditions'][number]): AccessPolicy {
+  return {
+    schemaVersion: 1,
+    mode: 'conditional',
+    operator: 'any',
+    conditions: [condition],
+    revision: 1,
+  };
+}
+
+function evaluateTestPolicy(
+  policy: AccessPolicy,
+  playerId: string,
+  ownerPlayerId: string,
+  closeFriendPlayerId: string,
+  innerDisciplePlayerId: string,
+): boolean {
+  if (playerId === ownerPlayerId || policy.mode === 'everyone') return true;
+  if (policy.mode === 'owner_only' || policy.mode !== 'conditional') return false;
+  const matches = policy.conditions.map((condition) => {
+    if (condition.type === 'relation') {
+      return playerId === closeFriendPlayerId && condition.relations.includes('close_friend');
+    }
+    if (condition.type === 'sect') {
+      return playerId === innerDisciplePlayerId && condition.roles.includes('inner');
+    }
+    return false;
+  });
+  return policy.operator === 'all' ? matches.every(Boolean) : matches.some(Boolean);
 }
 
 class FakeAggregationService {
@@ -514,6 +549,7 @@ class FakeAggregationService {
       platformBuildingId?: string;
       platformOwnerPlayerId?: string;
       revisionPermissionGranted?: boolean;
+      initialPermissions?: TechniqueUnificationPermissions;
     },
   ) {
     this.lastPublishRequest = { ...request };
@@ -539,7 +575,7 @@ class FakeAggregationService {
       platformInstanceId: context.platformInstanceId,
       platformBuildingId: context.platformBuildingId,
       initialPermissions: previous?.metadata.initialPermissions
-        ?? normalizeTechniqueUnificationPermissions(request.permissions),
+        ?? normalizeTechniqueUnificationPermissions(context.initialPermissions),
     };
     this.entries.push({ techniqueId, metadata, name: previous?.name ?? request.customName ?? '未名法脉' });
     return {

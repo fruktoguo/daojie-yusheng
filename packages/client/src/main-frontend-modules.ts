@@ -26,6 +26,7 @@ import { EntityDetailModal } from './ui/entity-detail-modal';
 import { TimeChamberConsoleModal } from './ui/time-chamber-console-modal';
 import { TimeChamberUsageModal } from './ui/time-chamber-usage-modal';
 import { CraftWorkbenchModal } from './ui/craft-workbench-modal';
+import { AccessPolicySocketClient } from './ui/access-policy-socket-client';
 import { createClientPanelSystem } from './ui/panel-system/bootstrap';
 import { createMapRuntime } from './game-map/runtime/map-runtime';
 import { initializeMapPerformanceConfig } from './ui/performance-config';
@@ -38,9 +39,11 @@ import { initializeMapPerformanceConfig } from './ui/performance-config';
 
 export function createMainFrontendModules(windowRef: Window) {
   const socket = new SocketManager();
+  const accessPolicyClient = new AccessPolicySocketClient(socket);
 
   return {
     socket,
+    accessPolicyClient,
     runtimeSender: socket.runtime,
     panelSender: socket.panel,
     socialEconomySender: socket.socialEconomy,

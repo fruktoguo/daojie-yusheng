@@ -3,7 +3,7 @@
  *
  * 纯规则位于 shared；本服务只负责按编译依赖读取权威运行态、身份、宗门和关系事实。
  */
-import { Inject, Injectable, Logger, OnModuleDestroy, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleDestroy, Optional, forwardRef } from '@nestjs/common';
 import {
   ACCESS_POLICY_DEPENDENCY,
   type AccessPolicy,
@@ -77,7 +77,7 @@ export class AccessPolicyRuntimeService implements OnModuleDestroy {
     @Inject(PlayerIdentityPersistenceService) private readonly playerIdentityPersistenceService: PlayerIdentityPersistenceService,
     @Optional() @Inject(NativePlayerAuthStoreService) private readonly authStore: NativePlayerAuthStoreService | null = null,
     @Optional() @Inject(SocialRuntimeService) private readonly socialRuntimeService: SocialRuntimeService | null = null,
-    @Optional() @Inject(WorldRuntimeService) private readonly worldRuntimeService: WorldRuntimeService | null = null,
+    @Optional() @Inject(forwardRef(() => WorldRuntimeService)) private readonly worldRuntimeService: WorldRuntimeService | null = null,
   ) {
     if (this.socialRuntimeService?.registerRelationChangeListener) {
       this.unregisterSocialRelationListener = this.socialRuntimeService.registerRelationChangeListener((left, right) => {

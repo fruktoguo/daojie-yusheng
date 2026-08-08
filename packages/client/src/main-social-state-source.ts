@@ -14,6 +14,7 @@ import type { ToastKind } from './main-app-assembly-types';
 import { SocialPanel, TreasureVaultModal } from './ui/panels/social-panel';
 import type { TreasureVaultModalTab } from './ui/panels/social-panel';
 import { appendDaoistMessages, loadRecentDaoistMessages } from './ui/daoist-message-storage';
+import type { AccessPolicySocketClient } from './ui/access-policy-socket-client';
 
 type MainSocialStateSourceOptions = {
   socialPanel: SocialPanel;
@@ -33,9 +34,9 @@ type MainSocialStateSourceOptions = {
     | 'sendTreasureVaultDeposit'
     | 'sendTreasureVaultWithdraw'
     | 'sendOrganizeTreasureVault'
-    | 'sendUpdateTreasureVaultPermissions'
     | 'sendRenameTreasureVault'
   >;
+  accessPolicyClient: AccessPolicySocketClient;
   showToast(message: string, kind?: ToastKind): void;
   getPlayer(): PlayerState | null;
   hydrateInventoryItem(item: SyncedItemStack, previous?: PlayerState['inventory']['items'][number]): PlayerState['inventory']['items'][number];
@@ -99,17 +100,14 @@ export function createMainSocialStateSource(options: MainSocialStateSourceOption
       if (!detail) return;
       options.socket.sendOrganizeTreasureVault({ buildingId: detail.buildingId, instanceId: detail.instanceId });
     },
-    onUpdatePermissions: (permissions) => {
-      const detail = currentTreasureVaultDetail;
-      if (!detail) return;
-      options.socket.sendUpdateTreasureVaultPermissions({ buildingId: detail.buildingId, instanceId: detail.instanceId, permissions });
-    },
+    onPermissionsSaved: () => options.showToast('权限已保存。', 'success'),
     onRename: (name) => {
       const detail = currentTreasureVaultDetail;
       if (!detail) return;
       options.socket.sendRenameTreasureVault({ buildingId: detail.buildingId, instanceId: detail.instanceId, name });
     },
   });
+  options.treasureVaultModal.setAccessPolicyClient(options.accessPolicyClient);
 
   let currentTreasureVaultDetail: TreasureVaultDetailView | null = null;
   let currentPlayerId: string | null = null;
@@ -266,9 +264,7 @@ export function createMainSocialStateSource(options: MainSocialStateSourceOption
         currentTreasureVaultDetail = result.detail;
       }
       options.treasureVaultModal.handleOperationResult(result);
-      if (result.ok === true && result.operation === 'permissions') {
-        options.showToast('宝库权限更新成功', 'success');
-      } else if (result.ok === true && result.operation === 'rename') {
+      if (result.ok === true && result.operation === 'rename') {
         options.showToast('宝库重命名成功', 'success');
       } else if (result.ok === true && result.operation === 'organize') {
         options.showToast('宝库整理完成', 'success');

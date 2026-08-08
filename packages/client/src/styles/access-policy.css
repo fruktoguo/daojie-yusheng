@@ -48,6 +48,8 @@
 .access-policy-resource-tabs .ui-filter-tab {
   flex: 0 0 auto;
   position: relative;
+  min-height: 42px;
+  padding-inline: 14px;
 }
 
 .access-policy-resource-tabs .ui-filter-tab.dirty::after {
@@ -85,6 +87,12 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.access-policy-mode-group .ui-filter-tab,
+.access-policy-operator .ui-filter-tab {
+  min-height: 40px;
+  padding-inline: 14px;
 }
 
 .access-policy-hint,

@@ -91,6 +91,7 @@ export interface TechniqueAggregationPublishContext {
   platformBuildingId?: string;
   platformOwnerPlayerId?: string;
   revisionPermissionGranted?: boolean;
+  initialPermissions?: TechniqueUnificationPermissions;
 }
 
 interface TechniqueAggregationPanelOptions {
@@ -247,7 +248,10 @@ export class TechniqueAggregationService {
       buildingId: normalizeText(request.buildingId) || 'unknown',
       displayName: '统法台',
       isOwner: true,
-      permissions: cloneTechniqueUnificationPermissions(DEFAULT_TECHNIQUE_UNIFICATION_PERMISSIONS),
+      accessPolicyResource: {
+        resourceType: 'technique_unification_platform',
+        resourceId: normalizeText(request.buildingId) || 'unknown',
+      },
       canLearn: true,
       canRevise: true,
       learnerState: 'unbound' as const,
@@ -554,7 +558,10 @@ export class TechniqueAggregationService {
     let previousMetadata: TechniqueAggregationMetadata | undefined;
     let displayName = '';
     let familyCreatorPlayerId = normalizeText(context.platformOwnerPlayerId) || revisionAuthorPlayerId;
-    let initialPermissions = normalizeTechniqueUnificationPermissions(request.permissions);
+    let initialPermissions = normalizeTechniqueUnificationPermissions(
+      context.initialPermissions,
+      DEFAULT_TECHNIQUE_UNIFICATION_PERMISSIONS,
+    );
     const platformInstanceId = normalizeText(context.platformInstanceId);
     const platformBuildingId = normalizeText(context.platformBuildingId);
     if (familyId) {

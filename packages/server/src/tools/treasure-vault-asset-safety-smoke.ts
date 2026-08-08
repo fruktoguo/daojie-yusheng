@@ -51,7 +51,15 @@ async function main(): Promise<void> {
     databasePoolProvider,
     playerRuntime as never,
     contentTemplateRepository,
-    { areRelated: async () => false } as never,
+    {
+      buildTreasureVaultResource(resourceBuildingId: string) {
+        return { resourceType: 'treasure_vault', resourceId: resourceBuildingId };
+      },
+      async evaluateTreasureVault(playerId: string, building: { ownerPlayerId?: string | null }) {
+        const allowed = playerId === building.ownerPlayerId;
+        return { viewDeposit: allowed, withdraw: allowed };
+      },
+    } as never,
     { discardMailboxCache: () => undefined } as never,
   );
 

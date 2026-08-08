@@ -14,6 +14,21 @@ export const ACCESS_POLICY_MAX_CONDITIONS = 2;
 export const ACCESS_POLICY_MAX_SPECIFIED_PLAYERS = 64;
 export const ACCESS_POLICY_MAX_RESOURCE_SLOTS = 8;
 
+export const ACCESS_POLICY_RESOURCE_TYPE = {
+  treasureVault: 'treasure_vault',
+  techniqueUnificationPlatform: 'technique_unification_platform',
+} as const;
+
+export const TREASURE_VAULT_ACCESS_POLICY_SLOT = {
+  viewDeposit: 'view_deposit',
+  withdraw: 'withdraw',
+} as const;
+
+export const TECHNIQUE_UNIFICATION_ACCESS_POLICY_SLOT = {
+  read: 'read',
+  revision: 'revision',
+} as const;
+
 export type AccessPolicyMode = 'owner_only' | 'everyone' | 'conditional';
 export type AccessPolicyOperator = 'any' | 'all';
 export type AccessPolicyComparison = 'gt' | 'lt';
