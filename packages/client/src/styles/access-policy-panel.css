@@ -1,10 +1,10 @@
 /* 自定义权限策略独立弹层；与宝库、统法台等父业务面板并存。 */
 
 .access-policy-panel-layer {
-  --ui-modal-padding: 18px;
+  --ui-modal-padding: 20px;
   z-index: 2200;
-  background: var(--overlay-backdrop);
-  backdrop-filter: blur(3px);
+  background: color-mix(in srgb, var(--overlay-backdrop) 92%, transparent);
+  backdrop-filter: blur(6px) saturate(0.82);
 }
 
 .access-policy-panel-layer.hidden {
@@ -17,32 +17,92 @@
 }
 
 .access-policy-panel {
-  --ui-modal-width: min(760px, calc(100vw - 32px));
-  --ui-modal-max-height: min(86dvh, 820px);
+  --ui-modal-width: min(920px, calc(100vw - 40px));
+  --ui-modal-max-height: min(88vh, 860px);
+  --ui-modal-max-height: min(88dvh, 860px);
   position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   min-height: min(520px, calc(100dvh - 48px));
   overflow: hidden;
   padding: 0;
-  background: var(--surface-card);
+  border: 1.5px solid var(--ink-black);
+  border-radius: var(--radius-md);
+  background: var(--surface-gradient-paper);
+  box-shadow:
+    8px 8px 0 color-mix(in srgb, var(--ink-black) 16%, transparent),
+    var(--shadow-soft-lg);
+}
+
+.access-policy-panel::before {
+  content: '';
+  position: absolute;
+  z-index: 4;
+  inset: 6px;
+  border: 1px solid color-mix(in srgb, var(--ink-black) 10%, transparent);
+  border-radius: calc(var(--radius-md) - 3px);
+  pointer-events: none;
+}
+
+.access-policy-panel::after {
+  content: '';
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  left: 24px;
+  width: 84px;
+  height: 3px;
+  background: var(--stamp-red);
+  pointer-events: none;
 }
 
 .access-policy-panel-header {
   display: flex;
   flex: 0 0 auto;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   min-width: 0;
-  gap: 16px;
-  padding: 18px 20px 14px;
-  border-bottom: 1px solid var(--wash-ink);
+  gap: 20px;
+  padding: 22px 26px 18px;
+  border-bottom: 1px solid var(--border-strong);
+  background: color-mix(in srgb, var(--surface-elevated) 78%, var(--accent-soft));
 }
 
 .access-policy-panel-heading {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 14px;
+}
+
+.access-policy-panel-mark {
+  display: inline-grid;
+  flex: 0 0 46px;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border: 1px solid var(--stamp-red);
+  border-radius: 2px;
+  color: var(--stamp-red);
+  font-family: var(--font-role-title);
+  font-size: var(--font-size-role-title-22);
+  line-height: 1;
+  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--stamp-red) 10%, transparent);
+}
+
+.access-policy-panel-heading-copy {
   display: grid;
   min-width: 0;
-  gap: 4px;
+  gap: 2px;
+}
+
+.access-policy-panel-kicker {
+  color: var(--accent-ink);
+  font-size: var(--font-size-role-body-11);
+  font-weight: var(--font-weight-role-label);
+  line-height: 1.4;
+  letter-spacing: 0;
 }
 
 .access-policy-panel-title,
@@ -54,14 +114,14 @@
 .access-policy-panel-title {
   color: var(--ink-black);
   font-family: var(--font-role-title);
-  font-size: var(--font-size-role-title-22);
+  font-size: var(--font-size-role-title-24);
   line-height: 1.25;
 }
 
 .access-policy-panel-subtitle {
   color: var(--color-role-body-muted);
   font-size: var(--font-size-role-body-12);
-  line-height: 1.5;
+  line-height: 1.45;
 }
 
 .access-policy-panel-subtitle[hidden] {
@@ -70,25 +130,40 @@
 
 .access-policy-panel-close {
   display: inline-grid;
-  flex: 0 0 40px;
-  width: 40px;
-  height: 40px;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
   place-items: center;
   padding: 0;
-  border: 1px solid var(--wash-ink);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  background: var(--surface-muted);
+  background: color-mix(in srgb, var(--surface-muted-strong) 88%, transparent);
   color: var(--ink-grey);
   font: inherit;
-  font-size: 24px;
+  font-size: 25px;
   line-height: 1;
   cursor: pointer;
+  transition:
+    border-color var(--motion-base) var(--ease-standard),
+    background var(--motion-base) var(--ease-standard),
+    color var(--motion-base) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
 }
 
 .access-policy-panel-close:hover,
 .access-policy-panel-close:focus-visible {
-  border-color: var(--ink-grey);
-  color: var(--ink-black);
+  border-color: var(--stamp-red);
+  background: var(--ghost-btn-active-bg);
+  color: var(--stamp-red);
+}
+
+.access-policy-panel-close:active {
+  transform: scale(0.96);
+}
+
+.access-policy-panel-close:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--stamp-red) 34%, transparent);
+  outline-offset: 2px;
 }
 
 .access-policy-panel-body {
@@ -98,48 +173,498 @@
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 18px 20px 20px;
+  padding: 22px 26px 24px;
+  background: color-mix(in srgb, var(--surface-card) 76%, transparent);
+  scrollbar-gutter: stable;
 }
 
 .access-policy-panel .access-policy-editor--custom {
   min-height: 100%;
   align-content: start;
+  gap: 16px;
 }
 
-.access-policy-panel .access-policy-footer {
+.access-policy-panel .access-policy-hint--custom {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--wash-ink));
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent-soft) 62%, var(--surface-muted));
+  color: var(--color-role-body-strong);
+}
+
+.access-policy-panel .access-policy-hint-mark {
+  display: inline-grid;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid var(--accent-border);
+  border-radius: 50%;
+  color: var(--accent-ink);
+  font-family: var(--font-role-title);
+  font-size: var(--font-size-role-title-14);
+}
+
+.access-policy-panel .access-policy-conditional {
+  gap: 16px;
+}
+
+.access-policy-panel .access-policy-operator {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border-block: 1px solid var(--wash-ink);
+  background: color-mix(in srgb, var(--surface-muted-strong) 72%, transparent);
+}
+
+.access-policy-panel .access-policy-operator-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.access-policy-panel .access-policy-operator-copy strong {
+  color: var(--ink-black);
+  font-family: var(--font-role-title);
+  font-size: var(--font-size-role-title-16);
+  line-height: 1.35;
+}
+
+.access-policy-panel .access-policy-operator-copy span {
+  color: var(--color-role-body-muted);
+  font-size: var(--font-size-role-body-11);
+  line-height: 1.4;
+}
+
+.access-policy-panel .access-policy-operator-controls {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 270px;
+  padding: 3px;
+  border: 1px solid var(--wash-ink);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-card) 84%, transparent);
+}
+
+.access-policy-panel .access-policy-operator .ui-filter-tab {
+  min-height: 36px;
+  border-color: transparent;
+  background: transparent;
+}
+
+.access-policy-panel .access-policy-operator .ui-filter-tab.active {
+  border-color: color-mix(in srgb, var(--stamp-red) 34%, transparent);
+  background: var(--ghost-btn-active-bg);
+  color: var(--stamp-red);
+  box-shadow: inset 0 -2px 0 var(--stamp-red);
+}
+
+.access-policy-panel .access-policy-condition-list {
+  gap: 14px;
+}
+
+.access-policy-panel .access-policy-condition-list[data-condition-count='2'] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.access-policy-panel .access-policy-condition {
+  position: relative;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--ink-black) 18%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-card) 88%, var(--surface-muted));
+  box-shadow: var(--shadow-soft-sm);
+}
+
+.access-policy-panel .access-policy-condition::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: color-mix(in srgb, var(--accent) 72%, var(--stamp-red));
+}
+
+.access-policy-panel .access-policy-condition-head {
+  align-items: center;
+  margin: -14px -14px 0;
+  padding: 12px 14px 11px 16px;
+  border-bottom: 1px solid var(--wash-ink);
+  background: color-mix(in srgb, var(--surface-muted-strong) 76%, transparent);
+}
+
+.access-policy-panel .access-policy-condition-identity {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 10px;
+}
+
+.access-policy-panel .access-policy-condition-index {
+  display: inline-grid;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid var(--accent-border);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--accent-soft) 72%, transparent);
+  color: var(--accent-ink);
+  font-family: var(--font-family-monospace);
+  font-size: var(--font-size-role-body-12);
+  font-weight: var(--font-weight-strong);
+}
+
+.access-policy-panel .access-policy-condition-heading {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.access-policy-panel .access-policy-condition-heading strong {
+  color: var(--ink-black);
+  font-family: var(--font-role-title);
+  font-size: var(--font-size-role-title-16);
+  line-height: 1.35;
+}
+
+.access-policy-panel .access-policy-condition-heading span {
+  overflow: hidden;
+  color: var(--color-role-body-muted);
+  font-size: var(--font-size-role-body-11);
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.access-policy-panel .access-policy-condition-remove {
+  display: inline-grid;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-grey);
+  font: inherit;
+  font-size: 21px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.access-policy-panel .access-policy-condition-remove:hover,
+.access-policy-panel .access-policy-condition-remove:focus-visible {
+  border-color: color-mix(in srgb, var(--stamp-red) 30%, transparent);
+  background: var(--ghost-btn-active-bg);
+  color: var(--stamp-red);
+}
+
+.access-policy-panel .access-policy-condition-remove:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.access-policy-panel .access-policy-condition-type {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--wash-ink);
+}
+
+.access-policy-panel .access-policy-condition-fields {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+}
+
+.access-policy-panel .access-policy-field .ui-input,
+.access-policy-panel .access-policy-field .ui-select,
+.access-policy-panel .access-policy-player-controls .ui-input {
+  min-height: 40px;
+  background: color-mix(in srgb, var(--surface-muted-solid) 90%, transparent);
+}
+
+.access-policy-panel .access-policy-field .ui-input:focus,
+.access-policy-panel .access-policy-field .ui-select:focus,
+.access-policy-panel .access-policy-player-controls .ui-input:focus {
+  border-color: var(--accent-border);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-soft) 78%, transparent);
+}
+
+.access-policy-panel .access-policy-player-chip {
+  border-color: var(--accent-border);
+  background: color-mix(in srgb, var(--accent-soft) 46%, var(--surface-muted-strong));
+}
+
+.access-policy-panel .access-policy-condition-empty {
+  display: grid;
+  min-height: 150px;
+  place-content: center;
+  gap: 4px;
+  padding: 24px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--color-role-body-muted);
+  text-align: center;
+}
+
+.access-policy-panel .access-policy-condition-empty strong {
+  color: var(--ink-black);
+  font-family: var(--font-role-title);
+  font-size: var(--font-size-role-title-16);
+}
+
+.access-policy-panel .access-policy-condition-empty span {
+  font-size: var(--font-size-role-body-12);
+}
+
+.access-policy-panel .access-policy-add-condition {
+  justify-self: stretch;
+  min-height: 44px;
+  border-style: dashed;
+  background: color-mix(in srgb, var(--surface-muted) 72%, transparent);
+  color: var(--color-role-body-strong);
+}
+
+.access-policy-panel .access-policy-add-condition::before {
+  content: '+';
+  display: inline-block;
+  margin-right: 7px;
+  color: var(--accent-ink);
+  font-size: 18px;
+  line-height: 1;
+  vertical-align: -1px;
+}
+
+.access-policy-panel .access-policy-add-condition:hover {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--ink-black);
+}
+
+.access-policy-panel .access-policy-footer--custom {
   position: sticky;
-  bottom: 0;
-  z-index: 1;
-  margin-top: 4px;
-  padding: 14px 0 max(16px, env(safe-area-inset-bottom, 0px));
-  border-top: 1px solid var(--wash-ink);
-  background: var(--surface-card);
+  bottom: -24px;
+  z-index: 2;
+  margin: 2px 0 -24px;
+  padding: 14px 0 max(18px, env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--border-strong);
+  background: color-mix(in srgb, var(--surface-card) 94%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.access-policy-panel .access-policy-footer--custom .access-policy-status {
+  position: relative;
+  padding-left: 14px;
+}
+
+.access-policy-panel .access-policy-footer--custom .access-policy-status::before {
+  content: '';
+  position: absolute;
+  top: 7px;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink-light);
+}
+
+.access-policy-panel .access-policy-footer--custom .access-policy-status.error::before {
+  background: var(--stamp-red);
+}
+
+.access-policy-panel .access-policy-footer--custom .access-policy-status:empty::before {
+  display: none;
+}
+
+.access-policy-panel .access-policy-footer--custom .small-btn {
+  min-width: 132px;
+  min-height: 42px;
+  background: var(--ink-black);
+  color: var(--paper-light);
+  font-weight: var(--font-weight-role-label);
+}
+
+.access-policy-panel .access-policy-footer--custom .small-btn:hover {
+  border-color: var(--stamp-red);
+  background: var(--stamp-red);
+  color: var(--paper-white);
+}
+
+.access-policy-panel .access-policy-footer--custom .small-btn:disabled {
+  border-color: var(--wash-ink);
+  background: var(--surface-muted);
+  color: var(--ink-light);
+}
+
+html[data-color-mode='dark'] .access-policy-panel {
+  box-shadow:
+    8px 8px 0 rgba(0, 0, 0, 0.42),
+    var(--shadow-soft-lg);
+}
+
+@media (max-width: 860px) {
+  .access-policy-panel .access-policy-condition-list[data-condition-count='2'] {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 760px) {
   .access-policy-panel-layer {
     --ui-modal-padding: 6px;
+    align-items: flex-end;
   }
 
   .access-policy-panel {
     --ui-modal-width: calc(100vw - 12px);
+    --ui-modal-max-height: min(94vh, calc(100vh - 12px));
     --ui-modal-max-height: min(94dvh, calc(100dvh - 12px));
     min-height: min(560px, calc(100dvh - 12px));
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.2);
+  }
+
+  .access-policy-panel::before {
+    inset: 5px;
+  }
+
+  .access-policy-panel::after {
+    left: 18px;
+    width: 68px;
   }
 
   .access-policy-panel-header {
-    padding: 14px 14px 12px;
+    gap: 12px;
+    padding: 15px 16px 13px;
+  }
+
+  .access-policy-panel-heading {
+    gap: 10px;
+  }
+
+  .access-policy-panel-mark {
+    flex-basis: 38px;
+    width: 38px;
+    height: 38px;
+    font-size: var(--font-size-role-title-18);
+  }
+
+  .access-policy-panel-kicker {
+    font-size: var(--font-size-role-body-10);
   }
 
   .access-policy-panel-title {
     font-size: var(--font-size-role-title-18);
   }
 
-  .access-policy-panel-body {
-    padding: 14px 14px 16px;
+  .access-policy-panel-subtitle {
+    overflow: hidden;
+    max-width: calc(100vw - 132px);
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .access-policy-panel .access-policy-footer {
-    padding-block: 12px max(12px, env(safe-area-inset-bottom, 0px));
+  .access-policy-panel-close {
+    flex-basis: 44px;
+    width: 44px;
+    height: 44px;
+  }
+
+  .access-policy-panel-body {
+    padding: 14px 16px 16px;
+    scrollbar-gutter: auto;
+  }
+
+  .access-policy-panel .access-policy-editor--custom {
+    gap: 12px;
+  }
+
+  .access-policy-panel .access-policy-hint--custom {
+    align-items: flex-start;
+    padding: 9px 10px;
+  }
+
+  .access-policy-panel .access-policy-hint-mark {
+    flex-basis: 26px;
+    width: 26px;
+    height: 26px;
+  }
+
+  .access-policy-panel .access-policy-operator {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 9px;
+    padding: 10px 0;
+    background: transparent;
+  }
+
+  .access-policy-panel .access-policy-operator-controls {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .access-policy-panel .access-policy-condition {
+    padding: 12px;
+  }
+
+  .access-policy-panel .access-policy-condition-head {
+    align-items: center;
+    margin: -12px -12px 0;
+    padding: 10px 12px 10px 14px;
+  }
+
+  .access-policy-panel .access-policy-condition-index {
+    flex-basis: 32px;
+    width: 32px;
+    height: 32px;
+  }
+
+  .access-policy-panel .access-policy-condition-remove {
+    flex-basis: 40px;
+    width: 40px;
+    height: 40px;
+  }
+
+  .access-policy-panel .access-policy-footer--custom {
+    bottom: -16px;
+    margin: 0 0 -16px;
+    padding: 12px 0 max(12px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .access-policy-panel .access-policy-footer--custom .small-btn {
+    min-width: 124px;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 420px) {
+  .access-policy-panel .access-policy-footer--custom {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .access-policy-panel .access-policy-footer--custom .access-policy-status:empty {
+    display: none;
+  }
+
+  .access-policy-panel .access-policy-footer--custom .small-btn {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .access-policy-panel-close {
+    transition: none;
   }
 }

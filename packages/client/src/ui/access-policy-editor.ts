@@ -199,7 +199,14 @@ export class AccessPolicyEditor {
     const hint = document.createElement('div');
     hint.className = 'access-policy-hint';
     if (this.presentation === 'custom') {
-      hint.textContent = '最多设置两种不同类别的条件；条件内部为任一匹配，两组之间可选择或/且。';
+      hint.classList.add('access-policy-hint--custom');
+      const hintMark = document.createElement('span');
+      hintMark.className = 'access-policy-hint-mark';
+      hintMark.setAttribute('aria-hidden', 'true');
+      hintMark.textContent = '则';
+      const hintText = document.createElement('span');
+      hintText.textContent = '最多设置两种不同类别的条件；条件内部为任一匹配，两组之间可选择或/且。';
+      hint.append(hintMark, hintText);
       shell.append(hint);
       shell.append(this.renderConditionalBody());
     } else {
@@ -262,7 +269,7 @@ export class AccessPolicyEditor {
 
   private renderFooter(): HTMLElement {
     const footer = document.createElement('div');
-    footer.className = 'access-policy-footer';
+    footer.className = `access-policy-footer access-policy-footer--${this.presentation}`;
     this.statusNode = document.createElement('div');
     this.statusNode.className = 'access-policy-status';
     this.statusNode.setAttribute('aria-live', 'polite');
@@ -283,12 +290,35 @@ export class AccessPolicyEditor {
     if (this.draft.conditions.length === 2) {
       const operator = document.createElement('div');
       operator.className = 'access-policy-operator';
-      operator.append(this.createOperatorButton('any', '满足任一'), this.createOperatorButton('all', '必须同时满足'));
+      const operatorCopy = document.createElement('div');
+      operatorCopy.className = 'access-policy-operator-copy';
+      const operatorLabel = document.createElement('strong');
+      operatorLabel.textContent = '条件关系';
+      const operatorHint = document.createElement('span');
+      operatorHint.textContent = '两组规则如何共同生效';
+      operatorCopy.append(operatorLabel, operatorHint);
+      const operatorControls = document.createElement('div');
+      operatorControls.className = 'access-policy-operator-controls';
+      operatorControls.setAttribute('role', 'group');
+      operatorControls.setAttribute('aria-label', '两组权限条件的关系');
+      operatorControls.append(this.createOperatorButton('any', '满足任一'), this.createOperatorButton('all', '必须同时满足'));
+      operator.append(operatorCopy, operatorControls);
       body.append(operator);
     }
     const list = document.createElement('div');
     list.className = 'access-policy-condition-list';
+    list.dataset.conditionCount = String(this.draft.conditions.length);
     this.draft.conditions.forEach((condition, index) => list.append(this.renderCondition(condition, index)));
+    if (this.draft.conditions.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'access-policy-condition-empty';
+      const emptyTitle = document.createElement('strong');
+      emptyTitle.textContent = '尚未设置权限条件';
+      const emptyHint = document.createElement('span');
+      emptyHint.textContent = '添加一组条件后才能保存自定义策略。';
+      empty.append(emptyTitle, emptyHint);
+      list.append(empty);
+    }
     body.append(list);
     if (this.draft.conditions.length < ACCESS_POLICY_MAX_CONDITIONS) {
       const add = document.createElement('button');
@@ -307,6 +337,7 @@ export class AccessPolicyEditor {
     button.type = 'button';
     button.className = `ui-filter-tab${this.draft.operator === operator ? ' active' : ''}`;
     button.textContent = label;
+    button.setAttribute('aria-pressed', this.draft.operator === operator ? 'true' : 'false');
     button.disabled = this.disabled || this.saving;
     button.addEventListener('click', () => {
       if (this.draft.operator === operator) return;
@@ -323,20 +354,33 @@ export class AccessPolicyEditor {
     card.dataset.accessPolicyConditionIndex = String(index);
     const head = document.createElement('div');
     head.className = 'access-policy-condition-head';
+    const identity = document.createElement('div');
+    identity.className = 'access-policy-condition-identity';
+    const ordinal = document.createElement('span');
+    ordinal.className = 'access-policy-condition-index';
+    ordinal.textContent = String(index + 1).padStart(2, '0');
+    const heading = document.createElement('div');
+    heading.className = 'access-policy-condition-heading';
     const title = document.createElement('strong');
-    title.textContent = `权限条件 ${index + 1}`;
-    head.append(title);
+    title.textContent = `规则组 ${index + 1}`;
+    const summary = document.createElement('span');
+    summary.textContent = CONDITION_TYPE_LABELS[condition.type];
+    heading.append(title, summary);
+    identity.append(ordinal, heading);
+    head.append(identity);
     const remove = document.createElement('button');
     remove.type = 'button';
-    remove.className = 'small-btn ghost';
-    remove.textContent = '移除';
+    remove.className = 'access-policy-condition-remove';
+    remove.setAttribute('aria-label', `移除规则组 ${index + 1}`);
+    remove.title = '移除规则组';
+    remove.textContent = '×';
     remove.disabled = this.disabled || this.saving;
     remove.addEventListener('click', () => this.removeCondition(index));
     head.append(remove);
     card.append(head);
 
     const typeRow = document.createElement('label');
-    typeRow.className = 'access-policy-field';
+    typeRow.className = 'access-policy-field access-policy-condition-type';
     typeRow.append(createFieldLabel('条件类别'));
     const typeSelect = document.createElement('select');
     typeSelect.className = 'ui-select';

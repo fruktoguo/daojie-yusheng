@@ -72,6 +72,7 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
       };
       const customPanelIndependent = customPanel.parentElement === document.body && !root.contains(customPanel);
       const customPanelTitle = customPanel.querySelector('.access-policy-panel-title')?.textContent?.trim() ?? '';
+      const customPanelKicker = customPanel.querySelector('.access-policy-panel-kicker')?.textContent?.trim() ?? '';
       const selectorHasInlineConditions = Boolean(root.querySelector('.access-policy-condition'));
       let typeSelect = customRoot.querySelector('.access-policy-condition select');
       const conditionTypeLabels = Array.from(typeSelect?.options ?? []).map((option) => option.textContent?.trim() ?? '');
@@ -133,9 +134,24 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
       const hasThirdConditionButton = Boolean(customRoot.querySelector('.access-policy-add-condition'));
       const operatorLabels = Array.from(customRoot.querySelectorAll('.access-policy-operator button'))
         .map((entry) => entry.textContent?.trim() ?? '');
+      const operatorPressedStates = Array.from(customRoot.querySelectorAll('.access-policy-operator button'))
+        .map((entry) => entry.getAttribute('aria-pressed') ?? '');
+      const conditionIndices = Array.from(customRoot.querySelectorAll('.access-policy-condition-index'))
+        .map((entry) => entry.textContent?.trim() ?? '');
+      const conditionList = customRoot.querySelector('.access-policy-condition-list');
+      const conditionCards = Array.from(customRoot.querySelectorAll('.access-policy-condition'));
+      const operatorHeading = customRoot.querySelector('.access-policy-operator-copy strong')?.textContent?.trim() ?? '';
+      const operatorControlRole = customRoot.querySelector('.access-policy-operator-controls')?.getAttribute('role') ?? '';
+      const mobileConditionStacked = conditionCards.length === 2
+        && Math.abs(conditionCards[0].getBoundingClientRect().left - conditionCards[1].getBoundingClientRect().left) <= 1
+        && conditionCards[1].getBoundingClientRect().top > conditionCards[0].getBoundingClientRect().bottom;
+      const conditionCardShadow = conditionCards[0] ? getComputedStyle(conditionCards[0]).boxShadow : '';
+      const panelHeader = customPanel.querySelector('.access-policy-panel-header');
       const customPanelShell = customPanel.querySelector('.access-policy-panel');
       const customPanelWidth = customPanelShell?.getBoundingClientRect().width ?? 0;
       const customPanelScrollWidth = customPanelShell?.scrollWidth ?? 0;
+      const panelHeaderBackground = panelHeader ? getComputedStyle(panelHeader).backgroundColor : '';
+      const panelBodyBackground = getComputedStyle(customRoot).backgroundColor;
       clickCustomText('.access-policy-footer button', '保存权限');
       await waitFor(() => root.querySelector('.access-policy-status')?.textContent?.includes('权限已保存'));
       const parentConnectedAfterCustomSave = root.isConnected;
@@ -323,6 +339,7 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
         modeLabels,
         customPanelIndependent,
         customPanelTitle,
+        customPanelKicker,
         selectorHasInlineConditions,
         customPanelWidth,
         customPanelScrollWidth,
@@ -340,8 +357,17 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
         playerInputType: playerInput.type,
         playerChipText,
         conditionCount,
+        conditionCountMarker: conditionList?.dataset.conditionCount ?? '',
+        conditionIndices,
+        conditionCardShadow,
+        mobileConditionStacked,
         hasThirdConditionButton,
         operatorLabels,
+        operatorPressedStates,
+        operatorHeading,
+        operatorControlRole,
+        panelHeaderBackground,
+        panelBodyBackground,
         savedPolicy,
         status: root.querySelector('.access-policy-status')?.textContent?.trim() ?? '',
         shellWidth: shell?.getBoundingClientRect().width ?? 0,
@@ -372,6 +398,7 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
   assert.deepEqual(result.modeLabels, ['所有人', '仅所有者', '自定义策略'], '权限入口必须固定为三种模式');
   assert.equal(result.customPanelIndependent, true, '自定义策略必须挂载到独立权限面板');
   assert.equal(result.customPanelTitle, '自定义权限策略');
+  assert.equal(result.customPanelKicker, '权限策略', '独立弹层缺少权限场景标识');
   assert.equal(result.selectorHasInlineConditions, false, '资源权限页不得内嵌自定义条件表单');
   assert(result.customPanelScrollWidth <= result.customPanelWidth + 1, '自定义权限面板在手机视口出现横向溢出');
   assert.equal(result.parentConnectedAfterCustomSave, true, '自定义策略保存不得销毁父权限面板');
@@ -391,8 +418,16 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
   assert.equal(result.playerInputType, 'number', '指定玩家入口必须只能输入序号');
   assert.equal(result.playerChipText, '#10002 青云剑客', '序号解析后必须展示对应玩家名称');
   assert.equal(result.conditionCount, 2, '权限最多允许两组条件');
+  assert.equal(result.conditionCountMarker, '2', '规则组布局缺少稳定的条件数量标记');
+  assert.deepEqual(result.conditionIndices, ['01', '02'], '规则组缺少可辨识编号');
+  assert.notEqual(result.conditionCardShadow, 'none', '规则组没有建立独立视觉层级');
+  assert.equal(result.mobileConditionStacked, true, '手机模式的两组条件必须纵向排列');
   assert.equal(result.hasThirdConditionButton, false, '两组条件后不得继续添加');
   assert.deepEqual(result.operatorLabels, ['满足任一', '必须同时满足']);
+  assert.deepEqual(result.operatorPressedStates, ['false', 'true'], '条件关系控件没有暴露当前选中态');
+  assert.equal(result.operatorHeading, '条件关系', '两组条件缺少独立关系区');
+  assert.equal(result.operatorControlRole, 'group', '条件关系控件缺少分组语义');
+  assert.notEqual(result.panelHeaderBackground, result.panelBodyBackground, '独立弹层标题区与工作区没有视觉分层');
   assert.equal(result.savedPolicy?.operator, 'all');
   assert.deepEqual(result.savedPolicy?.conditions?.map((entry) => entry.type), ['players', 'role_name']);
   assert.equal(result.status, '权限已保存。');
@@ -415,6 +450,41 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
   assert.equal(result.transportConflictRevision, 4, '请求客户端未透传冲突时的当前权威策略');
   assert.equal(result.conflictActiveMode, '仅所有者', '冲突后编辑器必须加载当前权威策略');
   assert.match(result.conflictStatus, /已加载最新配置/);
+
+  await cdp.send('Emulation.setDeviceMetricsOverride', {
+    width: 1180,
+    height: 820,
+    deviceScaleFactor: 1,
+    mobile: false,
+    screenWidth: 1180,
+    screenHeight: 820,
+  });
+  await delay(80);
+  const desktop = await cdp.evaluate(`(() => {
+    const panel = document.querySelector('.access-policy-panel-layer:not(.hidden) .access-policy-panel');
+    const cards = Array.from(panel?.querySelectorAll('.access-policy-condition') ?? []);
+    const firstRect = cards[0]?.getBoundingClientRect();
+    const secondRect = cards[1]?.getBoundingClientRect();
+    return {
+      panelWidth: panel?.getBoundingClientRect().width ?? 0,
+      panelOverflow: panel ? panel.scrollWidth > panel.clientWidth + 1 : true,
+      twoColumns: Boolean(firstRect && secondRect
+        && Math.abs(firstRect.top - secondRect.top) <= 1
+        && secondRect.left > firstRect.right),
+    };
+  })()`);
+  assert(desktop.panelWidth >= 880, '桌面模式没有使用独立权限工作区宽度');
+  assert.equal(desktop.panelOverflow, false, '桌面模式自定义权限面板出现横向溢出');
+  assert.equal(desktop.twoColumns, true, '桌面模式的两组条件没有并列展示');
+
+  await cdp.send('Emulation.setDeviceMetricsOverride', {
+    width: VIEWPORT.width,
+    height: VIEWPORT.height,
+    deviceScaleFactor: 1,
+    mobile: false,
+    screenWidth: VIEWPORT.width,
+    screenHeight: VIEWPORT.height,
+  });
 
   await cdp.evaluate(`document.documentElement.dataset.colorMode = 'dark'`);
   await delay(80);
