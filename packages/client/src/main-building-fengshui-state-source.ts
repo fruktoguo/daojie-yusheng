@@ -1278,16 +1278,22 @@ function renderBuildModeToolbar(options: BuildModeToolbarOptions): void {
   const actions = document.createElement('div');
   actions.className = 'building-mode-actions';
 
-  const placeButton = buildModeActionButton('选择位置', 'place', true);
+  const placeButton = buildModeActionButton(options.mobileLayoutActive ? '选位置' : '选择位置', 'place', true);
+  placeButton.setAttribute('aria-label', '选择位置');
   const placeBaseDisabled = !(player && selected);
   placeButton.dataset.baseDisabled = String(placeBaseDisabled);
   placeButton.disabled = placeBaseDisabled || options.materialSlots.some((slot) => slot.selectionRequired && !slot.ready);
   actions.appendChild(placeButton);
-  const deconstructButton = buildModeActionButton('拆除建筑', 'deconstruct');
+  const deconstructButton = buildModeActionButton(options.mobileLayoutActive ? '拆除' : '拆除建筑', 'deconstruct');
+  deconstructButton.setAttribute('aria-label', '拆除建筑');
   deconstructButton.classList.toggle('active', options.pendingDeconstructActive);
   deconstructButton.disabled = !player;
   actions.appendChild(deconstructButton);
-  const continuousButton = buildModeActionButton(options.continuousSelection ? '连续选择：开' : '连续选择：关', 'continuous');
+  const continuousLabel = options.continuousSelection ? '连续选择：开' : '连续选择：关';
+  const continuousButton = buildModeActionButton(options.mobileLayoutActive
+    ? `连选：${options.continuousSelection ? '开' : '关'}`
+    : continuousLabel, 'continuous');
+  continuousButton.setAttribute('aria-label', continuousLabel);
   continuousButton.classList.toggle('active', options.continuousSelection);
   continuousButton.setAttribute('aria-pressed', String(options.continuousSelection));
   actions.appendChild(continuousButton);
@@ -1296,7 +1302,8 @@ function renderBuildModeToolbar(options: BuildModeToolbarOptions): void {
   exitButton.className = 'building-mode-exit';
   exitButton.dataset.action = 'exit';
   exitButton.dataset.uiKey = 'building-mode-action:exit';
-  exitButton.textContent = '退出营造';
+  exitButton.textContent = options.mobileLayoutActive ? '退出' : '退出营造';
+  exitButton.setAttribute('aria-label', '退出营造');
   actions.appendChild(exitButton);
   stageHead.replaceChildren(headMain, actions);
 

@@ -890,87 +890,135 @@
         font-size: var(--font-size-role-body-16);
       }
       .building-mode-toolbar {
-        left: 6px;
-        right: 6px;
-        bottom: max(8px, env(safe-area-inset-bottom, 0px));
+        left: 4px;
+        right: 4px;
+        bottom: max(4px, env(safe-area-inset-bottom, 0px));
         width: auto;
-        height: min(46dvh, 340px);
+        height: min(36dvh, 200px);
         max-height: calc(100% - 12px);
         transform: none;
       }
       .building-mode-shell {
-        border-radius: 16px;
+        border-radius: 10px;
       }
       .building-mode-content {
         grid-template-columns: 1fr;
         grid-auto-rows: max-content;
         align-content: start;
-        gap: 6px;
-        padding: 8px;
+        gap: 4px;
+        padding: 5px;
         overflow-y: auto;
       }
       .building-mode-panel,
       .building-mode-stage,
       .building-mode-material-panel,
       .building-mode-strength-panel {
-        padding: 10px;
-        border-radius: 12px;
+        padding: 6px;
+        border-radius: 8px;
+      }
+      .building-mode-material-panel,
+      .building-mode-strength-panel {
+        gap: 4px;
+      }
+      .building-mode-panel-title {
+        font-size: 10px;
+        letter-spacing: 0;
       }
       .building-mode-material-grid {
-        grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+        gap: 3px;
         overflow-y: auto;
-        padding: 4px 5px 6px 4px;
+        padding: 2px 3px 3px 2px;
       }
       .building-mode-material-card {
-        min-height: 36px;
-        padding: 6px 18px 6px 6px;
+        min-height: 30px;
+        padding: 4px 16px 4px 5px;
+        border-radius: 7px;
       }
       .building-mode-strength-input-wrap {
-        padding: 8px 10px;
+        gap: 5px;
+        padding: 4px 7px;
+        border-radius: 8px;
       }
       .building-mode-strength-input-wrap input {
         font-size: 16px;
       }
+      .building-mode-strength-hint {
+        font-size: 10px;
+        line-height: 1.25;
+      }
       .building-mode-stage-head {
         grid-template-columns: 1fr;
-        gap: 8px;
+        gap: 4px;
       }
       .building-mode-stage {
         grid-template-rows: auto auto;
+        gap: 4px;
+      }
+      .building-mode-stage-summary {
+        gap: 3px;
+      }
+      .building-mode-title {
+        gap: 1px;
       }
       .building-mode-title strong,
       .building-mode-title span {
         white-space: normal;
       }
+      .building-mode-title strong {
+        font-size: 13px;
+        line-height: 1.2;
+      }
+      .building-mode-title span {
+        font-size: 10px;
+        line-height: 1.2;
+      }
+      .building-mode-stage-status {
+        min-height: 22px;
+        padding: 0 6px;
+        border-radius: 8px;
+        font-size: 10px;
+        letter-spacing: 0;
+        line-height: 1.2;
+      }
       .building-mode-actions {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 3px;
         width: 100%;
       }
       .building-mode-action,
       .building-mode-exit {
-        min-height: 42px;
-        font-size: var(--font-size-role-body-12);
+        min-height: 30px;
+        padding: 2px 3px;
+        border-radius: 7px;
+        font-size: 10px;
+        line-height: 1;
+        white-space: nowrap;
       }
       .building-mode-item-grid {
-        grid-auto-columns: minmax(44px, 48px);
-        gap: 5px;
-        min-height: 60px;
-        padding: 4px 6px 8px 4px;
+        grid-auto-columns: minmax(36px, 38px);
+        gap: 3px;
+        min-height: 44px;
+        padding: 3px;
       }
       .building-mode-item {
-        padding: 4px;
-        border-radius: 10px;
+        padding: 2px;
+        border-radius: 7px;
       }
       .building-mode-item-label {
-        font-size: 13px;
+        font-size: 10px;
       }
       .building-mode-footer {
-        padding: 0 8px 8px;
+        padding: 0 5px 5px;
+      }
+      .building-mode-tab-rail {
+        gap: 4px;
       }
       .building-mode-tab {
-        min-height: 40px;
-        padding: 7px 8px;
-        font-size: var(--font-size-role-body-12);
+        min-height: 30px;
+        padding: 3px 5px;
+        border-radius: 7px;
+        font-size: 10px;
       }
       .split-tab-btn {
         border-bottom: none;

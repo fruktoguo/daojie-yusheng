@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { delay, withClientBrowserProof } from './browser-proof-runtime.mjs';
 
 const MARKER = 'REPAIR_PROOF:ISSUE-000016:PASS';
+const MOBILE_COMPACT_MARKER = 'PROOF:BUILDING_MOBILE_COMPACT:PASS';
 const VIEWPORT = { width: 390, height: 844 };
 
 const fixtureExpression = String.raw`
@@ -63,7 +64,10 @@ const fixtureExpression = String.raw`
       sidePanel: {
         getLayoutCollapseState: () => ({ leftCollapsed: false, rightCollapsed: false, bottomCollapsed: false }),
         setLayoutCollapseState() {},
-        setBuildingModeActive() {},
+        setBuildingModeActive(active) {
+          const shell = document.getElementById('game-shell');
+          if (shell) shell.dataset.buildingMode = String(active);
+        },
         isMobileLayoutActive: () => true,
       },
     });
@@ -83,6 +87,7 @@ const measureExpression = String.raw`
     const cards = [...(toolbar?.querySelectorAll('.building-mode-material-card') ?? [])];
     const buildingItems = [...(toolbar?.querySelectorAll('.building-mode-item') ?? [])];
     const actions = [...(toolbar?.querySelectorAll('.building-mode-action, .building-mode-exit') ?? [])];
+    const tabs = [...(toolbar?.querySelectorAll('.building-mode-tab') ?? [])];
     if (!(toolbar instanceof HTMLElement)
       || !(content instanceof HTMLElement)
       || !(stage instanceof HTMLElement)
@@ -90,7 +95,8 @@ const measureExpression = String.raw`
       throw new Error('营造工具栏未按正式路径打开');
     }
     const contentRect = content.getBoundingClientRect();
-    const measureTouchTarget = (element) => {
+    const toolbarRect = toolbar.getBoundingClientRect();
+    const measureTouchTarget = (element, clipRect = contentRect) => {
       if (!(element instanceof HTMLElement)) return null;
       const rect = element.getBoundingClientRect();
       const hit = document.elementFromPoint((rect.left + rect.right) / 2, (rect.top + rect.bottom) / 2);
@@ -98,19 +104,24 @@ const measureExpression = String.raw`
         key: element.dataset.action ?? element.dataset.defId ?? '',
         width: rect.width,
         height: rect.height,
-        fullyVisible: rect.top >= contentRect.top - 1 && rect.bottom <= contentRect.bottom + 1,
+        fullyVisible: rect.top >= clipRect.top - 1 && rect.bottom <= clipRect.bottom + 1,
         centerHitsTarget: hit === element || element.contains(hit),
+        textFits: element.scrollWidth <= element.clientWidth + 1,
+        ariaLabel: element.getAttribute('aria-label') ?? '',
       };
     };
     return {
       visible: !toolbar.classList.contains('hidden'),
       contentOverflowY: getComputedStyle(content).overflowY,
       contentScrollTop: content.scrollTop,
+      toolbarHeight: toolbarRect.height,
+      worldVisibleRatio: toolbarRect.top / window.innerHeight,
       stageBeforeConfiguration: stage.getBoundingClientRect().top < materialPanel.getBoundingClientRect().top,
       strengthValue: toolbar.querySelector('[data-action="build-strength"]')?.value ?? '',
       strengthFocused: document.activeElement === toolbar.querySelector('[data-action="build-strength"]'),
       firstBuildingItem: measureTouchTarget(buildingItems[0]),
-      actionTargets: actions.map(measureTouchTarget),
+      actionTargets: actions.map((action) => measureTouchTarget(action)),
+      tabTargets: tabs.map((tab) => measureTouchTarget(tab, toolbarRect)),
       cards: cards.map((card) => ({
         itemId: card.dataset.itemId ?? '',
         name: card.querySelector('.building-mode-material-card-name')?.textContent?.trim() ?? '',
@@ -131,14 +142,19 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'building-mate
   assert.equal(initial.visible, true, '手机端营造工具栏不可见');
   assert.equal(initial.contentOverflowY, 'auto', '手机端营造内容没有纵向滚动路径');
   assert.equal(initial.contentScrollTop, 0, '营造工具栏首次打开不应依赖预设滚动位置');
+  assert(initial.toolbarHeight <= 200.5, '手机端营造工具栏占屏高度超过 200px');
+  assert(initial.worldVisibleRatio >= 0.74, '手机端营造模式保留的游戏世界高度不足 74%');
   assert.equal(initial.stageBeforeConfiguration, true, '手机端造物与操作区没有置于配置区之前');
   assert(initial.firstBuildingItem, '手机端营造工具栏没有可选造物');
   assert.equal(initial.firstBuildingItem.fullyVisible, true, '手机端首个造物没有完整显示');
   assert.equal(initial.firstBuildingItem.centerHitsTarget, true, '手机端首个造物的触点被其他区域遮挡');
-  assert(initial.firstBuildingItem.width >= 44 && initial.firstBuildingItem.height >= 44, '手机端造物触控面积不足 44px');
+  assert(initial.firstBuildingItem.width >= 38 && initial.firstBuildingItem.height >= 38, '手机端造物触控面积不足 38px');
   assert.equal(initial.actionTargets.length, 4, '手机端营造主操作数量异常');
   assert(initial.actionTargets.every((target) => target?.fullyVisible && target.centerHitsTarget), '手机端营造主操作存在裁切或触点遮挡');
-  assert(initial.actionTargets.every((target) => target && target.height >= 42), '手机端营造主操作触控高度不足');
+  assert(initial.actionTargets.every((target) => target && target.height >= 30 && target.textFits), '手机端营造主操作尺寸或文字适配异常');
+  assert.deepEqual(initial.actionTargets.map((target) => target?.ariaLabel), ['选择位置', '拆除建筑', '连续选择：关', '退出营造'], '手机端紧凑文案丢失完整无障碍名称');
+  assert.equal(initial.tabTargets.length, 3, '手机端营造分类按钮数量异常');
+  assert(initial.tabTargets.every((target) => target?.centerHitsTarget && target.height >= 30 && target.textFits), '手机端营造分类按钮尺寸或触点异常');
   assert.deepEqual(
     initial.cards.map((card) => card.itemId),
     ['black_iron_chunk', 'cleft_iron_fragment'],
@@ -231,7 +247,24 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'building-mate
   assert(buildingSelection, '手机端没有第二个造物可用于触控切换验证');
   assert.equal(buildingSelection.activeDefId, buildingSelection.targetDefId, '手机端造物触点没有切换选中项');
   assert.equal(buildingSelection.contentScrollTop, 0, '造物重绘后主操作区不再位于默认可见位置');
+
+  await cdp.send('Emulation.setDeviceMetricsOverride', {
+    width: 320,
+    height: 568,
+    deviceScaleFactor: 1,
+    mobile: false,
+    screenWidth: 320,
+    screenHeight: 568,
+  });
+  await delay(50);
+  const narrow = await cdp.evaluate(measureExpression);
+  assert(narrow.toolbarHeight <= 200.5, '窄屏营造工具栏占屏高度超过 200px');
+  assert.equal(narrow.firstBuildingItem?.fullyVisible, true, '窄屏首个造物没有完整显示');
+  assert.equal(narrow.firstBuildingItem?.centerHitsTarget, true, '窄屏首个造物触点被其他区域遮挡');
+  assert(narrow.actionTargets.every((target) => target?.fullyVisible && target.centerHitsTarget && target.textFits), '窄屏营造主操作存在裁切、遮挡或文字溢出');
+  assert(narrow.tabTargets.every((target) => target?.centerHitsTarget && target.textFits), '窄屏营造分类按钮存在遮挡或文字溢出');
   await cdp.evaluate(`window.__buildingMaterialProof.source.clear()`);
 });
 
 console.log(MARKER);
+console.log(MOBILE_COMPACT_MARKER);
