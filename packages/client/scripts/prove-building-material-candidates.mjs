@@ -55,7 +55,9 @@ const fixtureExpression = String.raw`
       getPlayer: () => player,
       getVisibleTileAt: () => ({}),
       showToast() {},
-      beginTargeting() {},
+      beginTargeting(...args) {
+        window.__buildingMaterialProof.targetingCalls.push(args);
+      },
       cancelTargeting() {},
       getInfoRadius: () => 8,
       sidePanel: {
@@ -65,9 +67,9 @@ const fixtureExpression = String.raw`
         isMobileLayoutActive: () => true,
       },
     });
+    window.__buildingMaterialProof = { source, player, targetingCalls: [] };
     source.openBuildingPanel();
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    window.__buildingMaterialProof = { source, player };
     return true;
   })()
 `;
@@ -76,15 +78,39 @@ const measureExpression = String.raw`
   (() => {
     const toolbar = document.getElementById('building-mode-toolbar');
     const content = toolbar?.querySelector('.building-mode-content');
+    const stage = toolbar?.querySelector('.building-mode-stage');
+    const materialPanel = toolbar?.querySelector('.building-mode-material-panel');
     const cards = [...(toolbar?.querySelectorAll('.building-mode-material-card') ?? [])];
-    if (!(toolbar instanceof HTMLElement) || !(content instanceof HTMLElement)) {
+    const buildingItems = [...(toolbar?.querySelectorAll('.building-mode-item') ?? [])];
+    const actions = [...(toolbar?.querySelectorAll('.building-mode-action, .building-mode-exit') ?? [])];
+    if (!(toolbar instanceof HTMLElement)
+      || !(content instanceof HTMLElement)
+      || !(stage instanceof HTMLElement)
+      || !(materialPanel instanceof HTMLElement)) {
       throw new Error('营造工具栏未按正式路径打开');
     }
+    const contentRect = content.getBoundingClientRect();
+    const measureTouchTarget = (element) => {
+      if (!(element instanceof HTMLElement)) return null;
+      const rect = element.getBoundingClientRect();
+      const hit = document.elementFromPoint((rect.left + rect.right) / 2, (rect.top + rect.bottom) / 2);
+      return {
+        key: element.dataset.action ?? element.dataset.defId ?? '',
+        width: rect.width,
+        height: rect.height,
+        fullyVisible: rect.top >= contentRect.top - 1 && rect.bottom <= contentRect.bottom + 1,
+        centerHitsTarget: hit === element || element.contains(hit),
+      };
+    };
     return {
       visible: !toolbar.classList.contains('hidden'),
       contentOverflowY: getComputedStyle(content).overflowY,
+      contentScrollTop: content.scrollTop,
+      stageBeforeConfiguration: stage.getBoundingClientRect().top < materialPanel.getBoundingClientRect().top,
       strengthValue: toolbar.querySelector('[data-action="build-strength"]')?.value ?? '',
       strengthFocused: document.activeElement === toolbar.querySelector('[data-action="build-strength"]'),
+      firstBuildingItem: measureTouchTarget(buildingItems[0]),
+      actionTargets: actions.map(measureTouchTarget),
       cards: cards.map((card) => ({
         itemId: card.dataset.itemId ?? '',
         name: card.querySelector('.building-mode-material-card-name')?.textContent?.trim() ?? '',
@@ -104,12 +130,32 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'building-mate
   const initial = await cdp.evaluate(measureExpression);
   assert.equal(initial.visible, true, '手机端营造工具栏不可见');
   assert.equal(initial.contentOverflowY, 'auto', '手机端营造内容没有纵向滚动路径');
+  assert.equal(initial.contentScrollTop, 0, '营造工具栏首次打开不应依赖预设滚动位置');
+  assert.equal(initial.stageBeforeConfiguration, true, '手机端造物与操作区没有置于配置区之前');
+  assert(initial.firstBuildingItem, '手机端营造工具栏没有可选造物');
+  assert.equal(initial.firstBuildingItem.fullyVisible, true, '手机端首个造物没有完整显示');
+  assert.equal(initial.firstBuildingItem.centerHitsTarget, true, '手机端首个造物的触点被其他区域遮挡');
+  assert(initial.firstBuildingItem.width >= 44 && initial.firstBuildingItem.height >= 44, '手机端造物触控面积不足 44px');
+  assert.equal(initial.actionTargets.length, 4, '手机端营造主操作数量异常');
+  assert(initial.actionTargets.every((target) => target?.fullyVisible && target.centerHitsTarget), '手机端营造主操作存在裁切或触点遮挡');
+  assert(initial.actionTargets.every((target) => target && target.height >= 42), '手机端营造主操作触控高度不足');
   assert.deepEqual(
     initial.cards.map((card) => card.itemId),
     ['black_iron_chunk', 'cleft_iron_fragment'],
     '玄铁偏好不应隐藏其他合法石材候选',
   );
   assert(initial.cards.every((card) => !card.disabled && card.textFits), '合法材料卡片不可用或名称溢出');
+
+  const placeTriggered = await cdp.evaluate(`
+    (() => {
+      const button = document.querySelector('[data-action="place"]');
+      const rect = button.getBoundingClientRect();
+      const hit = document.elementFromPoint((rect.left + rect.right) / 2, (rect.top + rect.bottom) / 2);
+      hit?.click();
+      return window.__buildingMaterialProof.targetingCalls.length;
+    })()
+  `);
+  assert.equal(placeTriggered, 1, '手机端点击选择位置的触点没有进入地图选点流程');
 
   const prepared = await cdp.evaluate(`
     (() => {
@@ -164,6 +210,27 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'building-mate
   await delay(50);
   const dark = await cdp.evaluate(measureExpression);
   assert.equal(dark.cards.length, 3, '深色模式切换后营造材料候选丢失');
+  assert.equal(dark.firstBuildingItem?.centerHitsTarget, true, '深色模式下造物触点被其他区域遮挡');
+
+  const buildingSelection = await cdp.evaluate(`
+    (() => {
+      const buttons = [...document.querySelectorAll('.building-mode-item[data-def-id]')];
+      const target = buttons.find((button) => !button.classList.contains('active'));
+      if (!(target instanceof HTMLElement)) return null;
+      const targetDefId = target.dataset.defId;
+      const rect = target.getBoundingClientRect();
+      const hit = document.elementFromPoint((rect.left + rect.right) / 2, (rect.top + rect.bottom) / 2);
+      hit?.click();
+      return {
+        targetDefId,
+        activeDefId: document.querySelector('.building-mode-item.active')?.dataset.defId ?? '',
+        contentScrollTop: document.querySelector('.building-mode-content')?.scrollTop ?? -1,
+      };
+    })()
+  `);
+  assert(buildingSelection, '手机端没有第二个造物可用于触控切换验证');
+  assert.equal(buildingSelection.activeDefId, buildingSelection.targetDefId, '手机端造物触点没有切换选中项');
+  assert.equal(buildingSelection.contentScrollTop, 0, '造物重绘后主操作区不再位于默认可见位置');
   await cdp.evaluate(`window.__buildingMaterialProof.source.clear()`);
 });
 

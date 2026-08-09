@@ -686,6 +686,7 @@ export function createMainBuildingFengShuiStateSource(options: MainBuildingFengS
     const player = options.getPlayer();
     const materialSlots = buildMaterialSlots(player, selectedEntry, selectedMaterialItemIdsBySlot);
     const inventoryRevision = Math.max(0, Math.trunc(Number(player?.inventory?.revision) || 0));
+    const mobileLayoutActive = options.sidePanel.isMobileLayoutActive();
     const buildPreviewKey = pendingPlacementIntent && pendingPlacementHover && activeDefId
       ? `${activeDefId}|${pendingPlacementHover.x}|${pendingPlacementHover.y}`
       : 'none';
@@ -699,7 +700,7 @@ export function createMainBuildingFengShuiStateSource(options: MainBuildingFengS
     }
     const renderKey = [
       buildPreviewKey,
-      options.sidePanel.isMobileLayoutActive() ? 'mobile' : 'desktop',
+      mobileLayoutActive ? 'mobile' : 'desktop',
       selectedCategory,
       String(buildStrength),
       pendingDeconstructTargeting ? 'deconstruct' : 'place',
@@ -726,6 +727,7 @@ export function createMainBuildingFengShuiStateSource(options: MainBuildingFengS
       filteredEntries,
       selectedEntry,
       selectedDefId: activeDefId,
+      mobileLayoutActive,
       getPlayer: options.getPlayer,
       latestBuildResult,
       materialSlots,
@@ -1077,6 +1079,7 @@ type BuildModeToolbarOptions = {
   filteredEntries: BuildingCatalogEntry[];
   selectedEntry: BuildingCatalogEntry | null;
   selectedDefId: string;
+  mobileLayoutActive: boolean;
   getPlayer: () => PlayerState | null;
   latestBuildResult: ServerToClientEventPayload<typeof S2C.BuildResult> | null;
   materialSlots: BuildMaterialSlot[];
@@ -1339,7 +1342,9 @@ function renderBuildModeToolbar(options: BuildModeToolbarOptions): void {
   }
   footer.appendChild(tabRail);
 
-  content.replaceChildren(materialPanel, strengthPanel, stage);
+  content.replaceChildren(...(options.mobileLayoutActive
+    ? [stage, materialPanel, strengthPanel]
+    : [materialPanel, strengthPanel, stage]));
   shell.replaceChildren(content, footer);
   fragment.appendChild(shell);
   options.host.replaceChildren(fragment);
