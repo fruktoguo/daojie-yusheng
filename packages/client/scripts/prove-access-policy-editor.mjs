@@ -12,7 +12,7 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'mud-access-po
         import('/src/ui/access-policy-editor.ts'),
         import('/src/ui/access-policy-resource-editor.ts'),
         import('/src/ui/access-policy-socket-client.ts'),
-        import('/@fs/home/yuohira/mud-mmo-next/packages/shared/src/index.ts'),
+        import('/@id/@mud/shared'),
       ]);
       const overlay = document.createElement('div');
       overlay.style.position = 'fixed';
