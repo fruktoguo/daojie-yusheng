@@ -43,6 +43,7 @@ import {
   TECHNIQUE_GRADE_ORDER,
 } from './constants/gameplay/technique';
 import { isTechniqueAggregationId } from './technique-aggregation';
+import { normalizeTechniqueStrengthPercent } from './technique-internal-normalization';
 
 const BODY_TRAINING_FINITE_NUMBER_MAX = Number.MAX_VALUE;
 export const TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE = 'attr-multiplier:technique-max';
@@ -51,14 +52,15 @@ export const TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE = 'attr-multiplier:techniqu
 export interface TechniqueDisplayOrderEntry {
   realmLv?: number | null;
   grade?: TechniqueGrade | null;
+  strengthPercent?: number | null;
   level?: number | null;
   name?: string | null;
   techId?: string | null;
 }
 
 /**
- * 统一功法列表的展示顺序：境界等级越高越靠前，同境界下品阶越高越靠前。
- * 当前层数和名称仅作为稳定的次级排序，不能覆盖境界与品阶优先级。
+ * 统一功法列表的展示顺序：境界等级、品阶、功法强度依次降序。
+ * 当前层数和名称仅作为稳定的次级排序，不能覆盖前三项优先级。
  */
 export function compareTechniqueDisplayOrder(
   left: TechniqueDisplayOrderEntry,
@@ -73,6 +75,11 @@ export function compareTechniqueDisplayOrder(
     - resolveTechniqueDisplayGradeIndex(left.grade);
   if (gradeDiff !== 0) {
     return gradeDiff;
+  }
+  const strengthDiff = normalizeTechniqueStrengthPercent(right.strengthPercent)
+    - normalizeTechniqueStrengthPercent(left.strengthPercent);
+  if (strengthDiff !== 0) {
+    return strengthDiff;
   }
   const levelDiff = normalizeTechniqueDisplayNumber(right.level)
     - normalizeTechniqueDisplayNumber(left.level);

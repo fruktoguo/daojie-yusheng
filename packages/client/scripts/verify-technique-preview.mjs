@@ -13,7 +13,7 @@ const vite = await createServer({
 });
 
 try {
-  const [localTemplates, bonusSummary, equipmentTooltip, editorCatalog, contentResolverModule, skillTooltip, panelDeltaStateSource] = await Promise.all([
+  const [localTemplates, bonusSummary, equipmentTooltip, editorCatalog, contentResolverModule, skillTooltip, panelDeltaStateSource, techniqueListView] = await Promise.all([
     vite.ssrLoadModule('/src/content/local-templates.ts'),
     vite.ssrLoadModule('/src/ui/technique-bonus-summary.ts'),
     vite.ssrLoadModule('/src/ui/equipment-tooltip.ts'),
@@ -21,9 +21,74 @@ try {
     vite.ssrLoadModule('/src/content/content-resolver.ts'),
     vite.ssrLoadModule('/src/ui/skill-tooltip.ts'),
     vite.ssrLoadModule('/src/main-panel-delta-state-source.ts'),
+    vite.ssrLoadModule('/src/ui/technique-list-view.ts'),
   ]);
 
   const stripHtml = (value) => value.replace(/<[^>]+>/gu, '');
+
+  const createListTechnique = ({ techId, name, level, strengthPercent, category = 'internal' }) => ({
+    techId,
+    name,
+    level,
+    exp: 0,
+    expToNext: level >= 9 ? 0 : 100,
+    realmLv: 31,
+    realm: level >= 9 ? 3 : 0,
+    strengthPercent,
+    grade: 'earth',
+    category,
+    skills: [],
+    layers: Array.from({ length: 9 }, (_, index) => ({
+      level: index + 1,
+      expToNext: index === 8 ? 0 : 100,
+    })),
+  });
+  const pendingListTechnique = {
+    techId: 'pending-medium-strength',
+    name: '待悟中等功法',
+    sourceKind: 'created',
+    selfComprehensionAllowed: true,
+    progress: 1,
+    requiredProgress: 100,
+    realmLv: 31,
+    strengthPercent: 110,
+    grade: 'earth',
+    category: 'internal',
+    createdAtTick: 1,
+    updatedAtTick: 1,
+  };
+  const listTechniques = [
+    createListTechnique({ techId: 'learned-weak', name: '已学较弱功法', level: 8, strengthPercent: 80 }),
+    createListTechnique({ techId: 'learned-strong', name: '已学较强功法', level: 1, strengthPercent: 120 }),
+    createListTechnique({ techId: 'learned-completed', name: '已圆满功法', level: 9, strengthPercent: 100 }),
+  ];
+  assert.deepEqual(
+    techniqueListView.buildTechniqueListEntries(
+      listTechniques,
+      [pendingListTechnique],
+      { category: 'all', status: 'in_progress' },
+    ).map((entry) => entry.kind === 'learned' ? entry.technique.techId : entry.pending.techId),
+    ['learned-strong', 'pending-medium-strength', 'learned-weak'],
+    '同境界同品阶功法必须按强度降序，且强度优先于当前修炼层数',
+  );
+  assert.deepEqual(
+    techniqueListView.buildTechniqueListEntries(
+      listTechniques,
+      [pendingListTechnique],
+      { category: 'all', status: 'completed' },
+    ).map((entry) => entry.kind === 'learned' ? entry.technique.techId : entry.pending.techId),
+    ['learned-completed'],
+    '未领悟功法不得出现在已圆满 Tab',
+  );
+  assert.equal(
+    techniqueListView.countTechniqueListCategories(
+      listTechniques,
+      [pendingListTechnique],
+      'in_progress',
+    ).internal,
+    3,
+    '未领悟功法必须计入未圆满分类数量',
+  );
 
   const resolveTemplatePreview = (techniqueId) => {
     const technique = localTemplates.getLocalTechniqueTemplate(techniqueId);

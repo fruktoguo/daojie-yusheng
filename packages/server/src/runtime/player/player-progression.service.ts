@@ -5,7 +5,7 @@
  */
 import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import * as fs from 'fs';
-import { DEFAULT_PLAYER_REALM_STAGE, MONSTER_KILL_EXP_LEVEL_DELTA_CAP, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, PLAYER_REALM_STAGE_LEVEL_RANGES, PlayerRealmStage, SHATTER_SPIRIT_PILL_COST_RATIO as SHARED_SHATTER_SPIRIT_PILL_COST_RATIO, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, computeCraftSkillExpGain, deriveTechniqueRealm, getBodyTrainingExpToNext, getMonsterKillExpLevelAdjustment, getMonsterLevelExpDecayMultiplier, getTechniqueExpLevelAdjustment, getTechniqueExpToNext, getTechniqueTrainingMaxLevel, isCreatedTechniqueId, isTechniqueFullyMastered, normalizeBodyTrainingState, normalizeMonsterTier, normalizeTechniqueLearnMaxLevel, resolvePlayerFacingContentName } from '@mud/shared';
+import { DEFAULT_PLAYER_REALM_STAGE, MONSTER_KILL_EXP_LEVEL_DELTA_CAP, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, PLAYER_REALM_STAGE_LEVEL_RANGES, PlayerRealmStage, SHATTER_SPIRIT_PILL_COST_RATIO as SHARED_SHATTER_SPIRIT_PILL_COST_RATIO, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, computeCraftSkillExpGain, deriveTechniqueRealm, getBodyTrainingExpToNext, getMonsterKillExpLevelAdjustment, getMonsterLevelExpDecayMultiplier, getTechniqueExpLevelAdjustment, getTechniqueExpToNext, getTechniqueTrainingMaxLevel, isCreatedTechniqueId, isTechniqueFullyMastered, normalizeBodyTrainingState, normalizeMonsterTier, normalizeTechniqueLearnMaxLevel, normalizeTechniqueStrengthPercent, resolvePlayerFacingContentName } from '@mud/shared';
 import { resolveProjectPath } from '../../common/project-path';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { getMonsterCombatExpGradeFactor, resolveMonsterCombatExpTierFactor } from '../combat/monster-combat-exp-equivalent.helper';
@@ -3140,6 +3140,7 @@ function toTechniqueUpdateEntryLocal(technique, maxLevelInput = undefined) {
         exp: technique.exp,
         expToNext: learnTechniqueMaxLevel !== undefined && level >= learnTechniqueMaxLevel ? 0 : technique.expToNext,
         realmLv: technique.realmLv,
+        strengthPercent: normalizeTechniqueStrengthPercent(technique.strengthPercent),
         realm: deriveTechniqueRealm(level, layers),
         skillsEnabled: technique.skillsEnabled !== false,
         name: technique.name,

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { TechniqueRealm } from '@mud/shared';
+import { TechniqueRealm, fromWireTechniqueEntry, toWireTechniqueEntry } from '@mud/shared';
 import { buildTechniquePagePayload } from '../network/world-gateway-technique.helper';
 
 function createTechnique(input: {
@@ -9,6 +9,7 @@ function createTechnique(input: {
   grade: 'mortal' | 'yellow' | 'mystic' | 'earth' | 'heaven' | 'spirit' | 'saint' | 'emperor';
   level: number;
   realm: TechniqueRealm;
+  strengthPercent?: number;
 }) {
   return {
     ...input,
@@ -44,12 +45,30 @@ const player = {
         realm: TechniqueRealm.Entry,
       }),
       createTechnique({
-        techId: 'high-realm-high-grade',
-        name: '高境界天阶功法',
+        techId: 'high-realm-high-grade-default',
+        name: '高境界天阶基准功法',
+        realmLv: 60,
+        grade: 'heaven',
+        level: 9,
+        realm: TechniqueRealm.Perfection,
+      }),
+      createTechnique({
+        techId: 'high-realm-high-grade-strong',
+        name: '高境界天阶强功法',
         realmLv: 60,
         grade: 'heaven',
         level: 1,
         realm: TechniqueRealm.Entry,
+        strengthPercent: 120,
+      }),
+      createTechnique({
+        techId: 'high-realm-high-grade-weak',
+        name: '高境界天阶弱功法',
+        realmLv: 60,
+        grade: 'heaven',
+        level: 9,
+        realm: TechniqueRealm.Perfection,
+        strengthPercent: 80,
       }),
     ],
   },
@@ -59,17 +78,28 @@ const page = buildTechniquePagePayload(player, {
   category: 'all',
   status: 'all',
   offset: 0,
-  limit: 2,
+  limit: 4,
   requestId: 'technique-page-sort-smoke',
 });
 
 assert.deepEqual(
   page.items.map((entry) => entry.techId),
-  ['high-realm-high-grade', 'high-realm-low-grade'],
-  '功法分页必须先按境界等级降序，再按品阶降序，且排序必须发生在分页之前',
+  [
+    'high-realm-high-grade-strong',
+    'high-realm-high-grade-default',
+    'high-realm-high-grade-weak',
+    'high-realm-low-grade',
+  ],
+  '功法分页必须在分页前依次按境界等级、品阶、强度降序，强度优先于当前修炼层数',
 );
-assert.equal(page.total, 3);
+assert.equal(page.total, 5);
 assert.equal(page.revision, 7);
+assert.equal(page.items[0]?.strengthPercent, 120);
+assert.equal(
+  fromWireTechniqueEntry(toWireTechniqueEntry(page.items[0]!)).strengthPercent,
+  120,
+  '功法强度必须通过 protobuf 增量编解码完整保留',
+);
 
 console.log(JSON.stringify({
   ok: true,

@@ -618,6 +618,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         previousSameTechnique?.learnTechniqueMaxLevel,
       ),
       realmLv: template?.realmLv ?? patch.realmLv ?? previousSameTechnique?.realmLv ?? 1,
+      strengthPercent: patch.strengthPercent ?? previousSameTechnique?.strengthPercent ?? 100,
       realm: patch.realm ?? previousSameTechnique?.realm ?? TechniqueRealm.Entry,
       name: resolveClientTechniqueName(patch.techId, applyNullablePatch(patch.name, previousSameTechnique?.name), template?.name),
       skills: mergedSkills

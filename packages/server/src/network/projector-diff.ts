@@ -366,6 +366,9 @@ function buildTechniqueEntryPatch(previous: TechniqueUpdateEntryView | null, cur
         patch.learnTechniqueMaxLevel = current.learnTechniqueMaxLevel ?? null;
     }
     if (previous.realmLv !== current.realmLv) { patch.realmLv = current.realmLv; }
+    if ((previous.strengthPercent ?? 100) !== (current.strengthPercent ?? 100)) {
+        patch.strengthPercent = current.strengthPercent ?? 100;
+    }
     if (previous.realm !== current.realm) { patch.realm = current.realm; }
     if ((previous.skillsEnabled !== false) !== (current.skillsEnabled !== false)) {
         patch.skillsEnabled = current.skillsEnabled !== false;

@@ -219,6 +219,7 @@ message TechniqueUpdateEntryPayload {
   optional bool clearCategory = 18;
   optional uint32 learnTechniqueMaxLevel = 19;
   optional bool clearLearnTechniqueMaxLevel = 20;
+  optional uint32 strengthPercent = 21;
 }
 
 message ActionsUpdatePayload {

@@ -59,6 +59,14 @@ import { TechniqueConstellationCanvas, TechniqueConstellationCanvasData, Techniq
 import { formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
 import { t } from '../i18n';
 import {
+  buildTechniqueListEntries,
+  countTechniqueListCategories,
+  matchesPendingTechniqueFilters,
+  type TechniqueCategoryFilter,
+  type TechniquePendingListEntry,
+  type TechniqueStatusFilter,
+} from '../technique-list-view';
+import {
   mountReactTechniquePanel,
   setReactTechniquePanelCallbacks,
   shouldUseReactTechniquePanel,
@@ -112,11 +120,6 @@ interface TechniquePagedSnapshot {
   revision: number;
   items: TechniqueState[];
 }
-
-/** TechniqueCategoryFilter：功法分类筛选条件。 */
-type TechniqueCategoryFilter = 'all' | TechniqueCategory;
-/** TechniqueStatusFilter：功法圆满进度筛选条件。 */
-type TechniqueStatusFilter = 'in_progress' | 'completed' | 'all';
 
 const TECHNIQUE_CATEGORY_FILTERS: Array<{
 /**
@@ -804,10 +807,16 @@ export class TechniquePanel {
   private syncReactState(): void {
     syncReactTechniquePanelState({
       techniques: resolvePreviewTechniques(this.lastState.techniques),
-      pendingComprehensions: this.lastState.pendingComprehensions ?? this.lastState.previewPlayer?.pendingTechniqueComprehensions ?? [],
+      pendingComprehensions: this.getPendingTechniqueListEntries(),
       cultivatingTechId: this.lastState.cultivatingTechId,
       previewPlayer: this.lastState.previewPlayer,
     });
+  }
+
+  private getPendingTechniqueListEntries(): TechniquePendingListEntry[] {
+    return this.lastState.pendingComprehensions
+      ?? this.lastState.previewPlayer?.pendingTechniqueComprehensions
+      ?? [];
   }
 
   private handleCultivate(techId: string | null): void {
@@ -926,7 +935,7 @@ export class TechniquePanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const techniques = this.getDisplayTechniques();
-    const pendingComprehensions = this.lastState.pendingComprehensions ?? this.lastState.previewPlayer?.pendingTechniqueComprehensions ?? [];
+    const pendingComprehensions = this.getPendingTechniqueListEntries();
     if (techniques.length === 0 && pendingComprehensions.length === 0 && !this.hasPagedListContext()) {
       this.clear();
       return;
@@ -1240,6 +1249,18 @@ export class TechniquePanel {
     ));
   }
 
+  private getVisiblePendingComprehensions(
+    pendingComprehensions = this.getPendingTechniqueListEntries(),
+    category = this.categoryFilter,
+    status = this.statusFilter,
+  ): TechniquePendingListEntry[] {
+    return pendingComprehensions.filter((pending) => matchesPendingTechniqueFilters(pending, {
+      category,
+      status,
+      search: this.searchQuery,
+    }));
+  }
+
   private getPageState(filteredTechniques: TechniqueState[]): {
     totalItems: number;
     totalPages: number;
@@ -1305,10 +1326,20 @@ export class TechniquePanel {
   }
 
   /** patchFilterTabs：处理patch筛选标签页。 */
-  private patchFilterTabs(techniques: TechniqueState[]): boolean {
+  private patchFilterTabs(
+    techniques: TechniqueState[],
+    pendingComprehensions = this.getPendingTechniqueListEntries(),
+  ): boolean {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const pagedTotal = this.hasActivePagedSnapshot() ? this.pagedSnapshot?.total ?? 0 : null;
+    const categoryCounts = countTechniqueListCategories(
+      techniques,
+      pendingComprehensions,
+      this.statusFilter,
+      this.searchQuery,
+    );
+    const visiblePendingCount = this.getVisiblePendingComprehensions(pendingComprehensions).length;
     for (const filter of TECHNIQUE_CATEGORY_FILTERS) {
       const button = this.pane.querySelector<HTMLButtonElement>(`[data-tech-category-filter="${filter.value}"]`);
       const countNode = this.pane.querySelector<HTMLElement>(`[data-tech-category-count="${filter.value}"]`);
@@ -1316,10 +1347,8 @@ export class TechniquePanel {
         return false;
       }
       const count = pagedTotal === null
-        ? techniques.filter((tech) => (
-          this.matchesStatusFilter(tech) && (filter.value === 'all' || resolveTechniqueCategory(tech) === filter.value)
-        )).length
-        : filter.value === this.categoryFilter ? pagedTotal : 0;
+        ? categoryCounts[filter.value]
+        : filter.value === this.categoryFilter ? pagedTotal + visiblePendingCount : 0;
       button.classList.toggle('active', this.categoryFilter === filter.value);
       countNode.textContent = formatDisplayInteger(count);
     }
@@ -1331,10 +1360,12 @@ export class TechniquePanel {
         return false;
       }
       const count = pagedTotal === null
-        ? techniques.filter((tech) => (
-          this.matchesCategoryFilter(tech) && this.matchesStatusFilter(tech, filter.value)
-        )).length
-        : filter.value === this.statusFilter ? pagedTotal : 0;
+        ? buildTechniqueListEntries(techniques, pendingComprehensions, {
+          category: this.categoryFilter,
+          status: filter.value,
+          search: this.searchQuery,
+        }).length
+        : filter.value === this.statusFilter ? pagedTotal + visiblePendingCount : 0;
       button.classList.toggle('active', this.statusFilter === filter.value);
       countNode.textContent = formatDisplayInteger(count);
     }
@@ -2033,13 +2064,12 @@ export class TechniquePanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const techniques = this.getDisplayTechniques();
-    const pendingComprehensions = [...(this.lastState.pendingComprehensions ?? this.lastState.previewPlayer?.pendingTechniqueComprehensions ?? [])]
-      .sort(compareTechniqueDisplayOrder);
+    const pendingComprehensions = this.getPendingTechniqueListEntries();
     const hasPagedListContext = this.hasPagedListContext();
     if (techniques.length === 0 && pendingComprehensions.length === 0 && !hasPagedListContext) {
       return false;
     }
-    if (!this.patchFilterTabs(techniques)) {
+    if (!this.patchFilterTabs(techniques, pendingComprehensions)) {
       return false;
     }
     const filteredTechniques = this.getVisibleTechniques(techniques);
@@ -2047,12 +2077,17 @@ export class TechniquePanel {
       return false;
     }
     const pageTechniques = this.getPagedTechniques(filteredTechniques);
+    const visibleEntries = buildTechniqueListEntries(pageTechniques, pendingComprehensions, {
+      category: this.categoryFilter,
+      status: this.statusFilter,
+      search: this.searchQuery,
+    });
     const visibleTechniqueIds = pageTechniques.map((tech) => tech.techId);
     const listRoot = this.pane.querySelector<HTMLElement>('[data-tech-list="true"]');
     if (!listRoot) {
       return false;
     }
-    if (filteredTechniques.length === 0 && pendingComprehensions.length === 0) {
+    if (visibleEntries.length === 0) {
       const emptyNode = listRoot.querySelector<HTMLElement>('[data-tech-empty="true"]') ?? createEmptyHint('');
       emptyNode.dataset.techEmpty = 'true';
       emptyNode.textContent = this.getFilteredEmptyHint();
@@ -2070,12 +2105,13 @@ export class TechniquePanel {
     });
 
     const orderedCards: HTMLElement[] = [];
-    for (const pending of pendingComprehensions) {
-      orderedCards.push(this.createPendingTechniqueCardElement(pending));
-    }
-    for (const tech of pageTechniques) {
-      const card = existingCards.get(tech.techId) ?? this.createTechniqueCardElement(tech);
-      existingCards.delete(tech.techId);
+    for (const entry of visibleEntries) {
+      if (entry.kind === 'pending') {
+        orderedCards.push(this.createPendingTechniqueCardElement(entry.pending));
+        continue;
+      }
+      const card = existingCards.get(entry.technique.techId) ?? this.createTechniqueCardElement(entry.technique);
+      existingCards.delete(entry.technique.techId);
       orderedCards.push(card);
     }
     this.syncTechniqueListContent(listRoot, orderedCards);

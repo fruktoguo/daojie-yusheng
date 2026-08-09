@@ -69,6 +69,8 @@ deriveTechniqueRealm(level, layers):
 
 未领悟功法使用 `requiredProgress/progress` 表示领悟总需求和当前进度。
 
+功法面板把未领悟功法归入“未圆满”：只在“未圆满”或“全部”状态下展示，并与已掌握功法共同服从分类和名称筛选。列表统一按功法境界等级、品阶、生成强度依次降序排列；当前修炼层数、名称和功法 ID 只用于同强度条目的稳定次级排序。生成强度来自模板 `budgetPercent` 的 `80%-120%` 投影，未配置时按普通功法基准 `100%` 处理；该字段只用于低频展示与排序，不参与客户端效果结算，也不写入玩家动态持久化真源。
+
 ```typescript
 rawRequiredProgress = base × techniqueRealmLv × gradeFactor
 requiredProgress = ceil(rawRequiredProgress × learnerPreFoundationRatio)

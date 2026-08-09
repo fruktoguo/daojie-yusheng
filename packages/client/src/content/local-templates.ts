@@ -11,7 +11,7 @@ import {
   expandTechniqueLayerGains,
   isCreatedTechniqueId,
   isTechniqueAggregationId,
-  TECHNIQUE_INTERNAL_BUDGET_PERCENT_RANGE,
+  resolveTechniqueStrengthPercent,
   type GmEditorItemOption,
   type GmEditorRealmOption,
   type GmEditorTechniqueOption,
@@ -125,12 +125,7 @@ export function resolveCreatedTechniqueStrengthPercent(techniqueId: string): num
   if (category !== 'internal' && category !== 'arts') {
     return null;
   }
-  const rawBudgetPercent = Number(template.budgetPercent);
-  const budgetPercent = Number.isFinite(rawBudgetPercent) ? rawBudgetPercent : 1;
-  return Math.round(Math.min(
-    TECHNIQUE_INTERNAL_BUDGET_PERCENT_RANGE[1],
-    Math.max(TECHNIQUE_INTERNAL_BUDGET_PERCENT_RANGE[0], budgetPercent),
-  ) * 100);
+  return resolveTechniqueStrengthPercent(template.budgetPercent);
 }
 
 for (const item of LOCAL_EDITOR_CATALOG.items) {
@@ -491,6 +486,7 @@ export function resolvePreviewTechnique(technique: TechniqueState): TechniqueSta
     grade: technique.grade ?? template.grade,
     category: technique.category ?? template.category ?? (sourceSkills.length > 0 ? 'arts' : 'internal'),
     realmLv,
+    strengthPercent: technique.strengthPercent ?? resolveTechniqueStrengthPercent(template.budgetPercent),
     realm: deriveTechniqueRealm(technique.level, resolvedLayers),
     skills: sourceSkills.map((skill) => (
       resolvePreviewTechniqueSkill(

@@ -35,6 +35,23 @@ export const TECHNIQUE_INTERNAL_EXP_DIFFICULTY_RANGE: readonly [number, number] 
 /** 生成模板的服务端总预算百分比范围。 */
 export const TECHNIQUE_INTERNAL_BUDGET_PERCENT_RANGE: readonly [number, number] = [0.8, 1.2];
 
+/** 把功法模板预算倍率转换为列表与详情统一使用的 80-120 强度百分比。 */
+export function resolveTechniqueStrengthPercent(value: unknown): number {
+  const numeric = value === null || value === undefined || value === '' ? Number.NaN : Number(value);
+  const budgetPercent = Number.isFinite(numeric) ? numeric : 1;
+  return normalizeTechniqueStrengthPercent(budgetPercent * 100);
+}
+
+/** 规范化列表与详情使用的功法强度百分比，缺省按普通功法基准 100 处理。 */
+export function normalizeTechniqueStrengthPercent(value: unknown): number {
+  const numeric = value === null || value === undefined || value === '' ? Number.NaN : Number(value);
+  return Math.round(clampRange(
+    Number.isFinite(numeric) ? numeric : 100,
+    TECHNIQUE_INTERNAL_BUDGET_PERCENT_RANGE[0] * 100,
+    TECHNIQUE_INTERNAL_BUDGET_PERCENT_RANGE[1] * 100,
+  ));
+}
+
 /** 每层经验增长公比（阶段内部平滑递增基底）。 */
 export const TECHNIQUE_INTERNAL_K = 1.10 as const;
 

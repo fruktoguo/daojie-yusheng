@@ -8,6 +8,7 @@ import {
   S2C,
   deriveTechniqueRealm,
   getTechniqueMaxLevel,
+  normalizeTechniqueStrengthPercent,
   resolvePlayerFacingContentName,
   type TechniqueCategory,
   type TechniqueGrade,
@@ -148,6 +149,7 @@ function projectTechniquePageItem(entry: any) {
       ? { learnTechniqueMaxLevel: Math.max(1, Math.trunc(Number(entry.learnTechniqueMaxLevel))) }
       : {}),
     realmLv: Number.isFinite(Number(entry?.realmLv)) ? Math.max(1, Math.trunc(Number(entry.realmLv))) : undefined,
+    strengthPercent: normalizeTechniqueStrengthPercent(entry?.strengthPercent),
     realm: Number.isFinite(Number(entry?.realm)) ? Math.trunc(Number(entry.realm)) : deriveTechniqueRealm(level, layers),
     skillsEnabled: entry?.skillsEnabled !== false,
     grade: normalizeTechniqueGrade(entry?.grade),

@@ -46,7 +46,10 @@ function createTechnique(techId: string, name: string) {
 }
 
 const technique = createTechnique('tech.test', '试炼功法');
-const createdTechnique = createTechnique('gen_test_created', '自创试炼功法');
+const createdTechnique = {
+  ...createTechnique('gen_test_created', '自创试炼功法'),
+  strengthPercent: 118,
+};
 const runtimeTechniqueTemplates = new Map<string, ReturnType<typeof createTechnique>>();
 const fragmentLimitedTechnique = {
   ...createTechnique('gen_fragment_limited', '残卷试炼功法'),
@@ -583,6 +586,7 @@ function testCreatedPendingRefreshDoesNotUnlockTransmittedTechnique() {
 
   assert.equal(runtimeService.addPendingTechniqueComprehensionById(learner.playerId, createdTechnique.techId, 'created'), true);
   assert.equal(learner.pendingTechniqueComprehensions.length, 1);
+  assert.equal(learner.pendingTechniqueComprehensions[0]?.strengthPercent, 118);
   assert.equal(learner.pendingTechniqueComprehensions[0]?.selfComprehensionAllowed, false);
 
   assert.equal(

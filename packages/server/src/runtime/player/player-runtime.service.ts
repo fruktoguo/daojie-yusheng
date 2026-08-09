@@ -11,7 +11,7 @@
 import { Inject, BadRequestException, Injectable, Logger, NotFoundException, Optional, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { ARTIFACT_SLOTS, ARTIFACT_UNLOCK_REALM_LV, ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_COMBAT_ATTACK_INTENSITY, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, addItemStackMergeCount, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, cloneCraftEffectStats, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, findMergeableItemStackIndex, getBodyTrainingExpToNext, getTechniqueMaxLevel, isCreatedTechniqueId, isTechniqueFullyMastered, mergeItemStackInto, normalizeBodyTrainingState, normalizeCombatAttackIntensity, normalizeHorizontalFacing, percentModifierToMultiplier, resolveArtifactMaxQi, resolvePlayerFacingContentName, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, resolveTechniqueStandardMaxHpRecoveryAmount, resolveTechniqueStandardMaxQiRecoveryAmount, signedRatioValue } from '@mud/shared';
+import { ARTIFACT_SLOTS, ARTIFACT_UNLOCK_REALM_LV, ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_COMBAT_ATTACK_INTENSITY, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, addItemStackMergeCount, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, cloneCraftEffectStats, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, findMergeableItemStackIndex, getBodyTrainingExpToNext, getTechniqueMaxLevel, isCreatedTechniqueId, isTechniqueFullyMastered, mergeItemStackInto, normalizeBodyTrainingState, normalizeCombatAttackIntensity, normalizeHorizontalFacing, normalizeTechniqueStrengthPercent, percentModifierToMultiplier, resolveArtifactMaxQi, resolvePlayerFacingContentName, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, resolveTechniqueStandardMaxHpRecoveryAmount, resolveTechniqueStandardMaxQiRecoveryAmount, signedRatioValue } from '@mud/shared';
 import type { TechniqueTransmissionStatusView } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
@@ -1623,6 +1623,7 @@ export class PlayerRuntimeService {
             existing.requiredProgress = requiredProgress;
             existing.updatedAtTick = currentTick;
             existing.name = resolvePlayerFacingContentName(normalizedTechId, '未知功法', technique.name, existing.name);
+            existing.strengthPercent = normalizeTechniqueStrengthPercent(technique.strengthPercent);
             existing.sourceKind = normalizedSourceKind;
             if (maxLevel !== undefined) {
                 existing.maxLevel = maxLevel;
@@ -1653,6 +1654,7 @@ export class PlayerRuntimeService {
             pending.push({
                 techId: normalizedTechId,
                 name: resolvePlayerFacingContentName(normalizedTechId, '未知功法', technique.name),
+                strengthPercent: normalizeTechniqueStrengthPercent(technique.strengthPercent),
                 sourceKind: normalizedSourceKind,
                 creatorPlayerId: normalizedCreatorPlayerId ?? undefined,
                 selfComprehensionAllowed,
@@ -1810,6 +1812,7 @@ export class PlayerRuntimeService {
             pending.category = technique.category;
             changed = true;
         }
+        pending.strengthPercent = normalizeTechniqueStrengthPercent(technique.strengthPercent);
         const name = resolvePlayerFacingContentName(pending.techId, '未知功法', technique.name, pending.name);
         if (pending.name !== name) {
             pending.name = name;
@@ -3356,6 +3359,7 @@ export class PlayerRuntimeService {
                 existing.requiredProgress = requiredProgress;
                 existing.updatedAtTick = currentTick;
                 existing.name = resolvePlayerFacingContentName(learnTechniqueId, '未知功法', technique.name, existing.name);
+                existing.strengthPercent = normalizeTechniqueStrengthPercent(technique.strengthPercent);
                 existing.selfComprehensionAllowed = true;
                 existing.sourceKind = aggregateMetadata ? 'created' : 'normal';
                 if (aggregateMetadata) {
@@ -3369,6 +3373,7 @@ export class PlayerRuntimeService {
                 pending.push({
                     techId: learnTechniqueId,
                     name: resolvePlayerFacingContentName(learnTechniqueId, '未知功法', technique.name),
+                    strengthPercent: normalizeTechniqueStrengthPercent(technique.strengthPercent),
                     sourceKind: aggregateMetadata ? 'created' : 'normal',
                     ...(aggregateMetadata?.creatorPlayerId ? { creatorPlayerId: aggregateMetadata.creatorPlayerId } : {}),
                     selfComprehensionAllowed: true,
@@ -7177,6 +7182,7 @@ function hasTechniqueTemplateProjectionChanged(current, hydrated) {
         || current?.grade !== hydrated?.grade
         || current?.category !== hydrated?.category
         || current?.realmLv !== hydrated?.realmLv
+        || current?.strengthPercent !== hydrated?.strengthPercent
         || current?.learnTechniqueMaxLevel !== hydrated?.learnTechniqueMaxLevel
         || current?.skills !== hydrated?.skills
         || current?.layers !== hydrated?.layers;
@@ -11737,6 +11743,7 @@ function toTechniqueUpdateEntry(technique) {
         exp: technique.exp,
         expToNext: technique.expToNext,
         realmLv: technique.realmLv,
+        strengthPercent: normalizeTechniqueStrengthPercent(technique.strengthPercent),
         realm: technique.realm ?? TechniqueRealm.Entry,
 
         skillsEnabled: technique.skillsEnabled !== false,

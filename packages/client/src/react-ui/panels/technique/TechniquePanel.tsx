@@ -5,18 +5,26 @@
  */
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import type { PlayerState, TechniqueCategory, TechniqueState } from '@mud/shared';
-import { compareTechniqueDisplayOrder, getTechniqueMaxLevel, isTechniqueFullyMastered, isTechniqueLearnLimitReached } from '@mud/shared';
+import { getTechniqueMaxLevel, isTechniqueFullyMastered, isTechniqueLearnLimitReached } from '@mud/shared';
 import { createPanelStore } from '../../stores/create-panel-store';
 import { getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../../../domain-labels';
 import { getLocalRealmLevelEntry } from '../../../content/local-templates';
 import { formatDisplayInteger } from '../../../utils/number';
 import { t } from '../../../ui/i18n';
+import {
+  buildTechniqueListEntries,
+  countTechniqueListCategories,
+  resolveTechniqueListCategory,
+  type TechniqueCategoryFilter,
+  type TechniquePendingListEntry,
+  type TechniqueStatusFilter,
+} from '../../../ui/technique-list-view';
 
 // ─── Store ───────────────────────────────────────────────────────────────────
 
 interface TechniquePanelState {
   techniques: TechniqueState[];
-  pendingComprehensions: PlayerState['pendingTechniqueComprehensions'];
+  pendingComprehensions: TechniquePendingListEntry[];
   cultivatingTechId: string | undefined;
   previewPlayer: PlayerState | null;
 }
@@ -52,9 +60,6 @@ export function setTechniquePanelCallbacks(cbs: Partial<TechniquePanelCallbacks>
 
 // ─── Types & Helpers ─────────────────────────────────────────────────────────
 
-type TechniqueCategoryFilter = 'all' | TechniqueCategory;
-type TechniqueStatusFilter = 'in_progress' | 'completed' | 'all';
-
 const CATEGORY_FILTERS: Array<{ value: TechniqueCategoryFilter; label: string }> = [
   { value: 'all', label: t('technique.filter.category.all', undefined) },
   { value: 'arts', label: t('technique.filter.category.arts', undefined) },
@@ -72,7 +77,7 @@ const STATUS_FILTERS: Array<{ value: TechniqueStatusFilter; label: string }> = [
 const TECHNIQUE_PANEL_PAGE_SIZE = 12;
 
 function resolveTechniqueCategory(tech: TechniqueState): TechniqueCategory {
-  return tech.category ?? 'arts';
+  return resolveTechniqueListCategory(tech);
 }
 
 function shouldShowSkillToggle(tech: TechniqueState): boolean {
@@ -113,10 +118,6 @@ function getTechniqueRealmLevelData(realmLv: number): { displayName: string; lv:
   return { displayName, lv: normalizedRealmLv };
 }
 
-function sortTechniques(techniques: TechniqueState[]): TechniqueState[] {
-  return [...techniques].sort(compareTechniqueDisplayOrder);
-}
-
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export const TechniquePanel = memo(function TechniquePanel() {
@@ -125,44 +126,29 @@ export const TechniquePanel = memo(function TechniquePanel() {
   const [statusFilter, setStatusFilter] = useState<TechniqueStatusFilter>('in_progress');
   const [currentPage, setCurrentPage] = useState(1);
 
-  const filtered = useMemo(() => {
-    let list = techniques;
-    if (categoryFilter !== 'all') {
-      list = list.filter((t) => resolveTechniqueCategory(t) === categoryFilter);
-    }
-    if (statusFilter !== 'all') {
-      list = list.filter((t) => {
-        const maxLevel = getTechniqueMaxLevel(t.layers, t.level);
-        return statusFilter === 'in_progress' ? t.level < maxLevel : t.level >= maxLevel;
-      });
-    }
-    return sortTechniques(list);
-  }, [techniques, categoryFilter, statusFilter]);
+  const visibleEntries = useMemo(() => buildTechniqueListEntries(
+    techniques,
+    pendingComprehensions,
+    { category: categoryFilter, status: statusFilter },
+  ), [techniques, pendingComprehensions, categoryFilter, statusFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / TECHNIQUE_PANEL_PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(visibleEntries.length / TECHNIQUE_PANEL_PAGE_SIZE));
   const safePage = Math.min(Math.max(1, currentPage), totalPages);
   useEffect(() => {
     if (safePage !== currentPage) {
       setCurrentPage(safePage);
     }
   }, [currentPage, safePage]);
-  const pagedTechniques = useMemo(() => {
+  const pagedEntries = useMemo(() => {
     const start = (safePage - 1) * TECHNIQUE_PANEL_PAGE_SIZE;
-    return filtered.slice(start, start + TECHNIQUE_PANEL_PAGE_SIZE);
-  }, [filtered, safePage]);
+    return visibleEntries.slice(start, start + TECHNIQUE_PANEL_PAGE_SIZE);
+  }, [visibleEntries, safePage]);
 
-  const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: techniques.length };
-    for (const tech of techniques) {
-      const cat = resolveTechniqueCategory(tech);
-      counts[cat] = (counts[cat] ?? 0) + 1;
-    }
-    return counts;
-  }, [techniques]);
-  const sortedPendingComprehensions = useMemo(
-    () => [...(pendingComprehensions ?? [])].sort(compareTechniqueDisplayOrder),
-    [pendingComprehensions],
-  );
+  const categoryCounts = useMemo(() => countTechniqueListCategories(
+    techniques,
+    pendingComprehensions,
+    statusFilter,
+  ), [techniques, pendingComprehensions, statusFilter]);
 
   if (techniques.length === 0 && (pendingComprehensions ?? []).length === 0) {
     return <div className="empty-hint">{t('technique.empty.none-learned', undefined)}</div>;
@@ -203,30 +189,31 @@ export const TechniquePanel = memo(function TechniquePanel() {
           ))}
         </div>
         <div className="tech-panel-list">
-          {sortedPendingComprehensions.map((pending) => (
-            <PendingTechniqueCard
-              key={`pending:${pending.techId}`}
-              pending={pending}
-              isCultivating={cultivatingTechId === pending.techId}
-            />
-          ))}
-          {filtered.length > 0
-            ? pagedTechniques.map((tech) => (
-              <TechniqueCard
-                key={tech.techId}
-                tech={tech}
-                isCultivating={cultivatingTechId === tech.techId}
-                previewPlayer={previewPlayer}
-              />
-            ))
+          {visibleEntries.length > 0
+            ? pagedEntries.map((entry) => entry.kind === 'pending'
+              ? (
+                <PendingTechniqueCard
+                  key={`pending:${entry.pending.techId}`}
+                  pending={entry.pending}
+                  isCultivating={cultivatingTechId === entry.pending.techId}
+                />
+              )
+              : (
+                <TechniqueCard
+                  key={entry.technique.techId}
+                  tech={entry.technique}
+                  isCultivating={cultivatingTechId === entry.technique.techId}
+                  previewPlayer={previewPlayer}
+                />
+              ))
             : <div className="empty-hint">{resolveFilteredEmptyHint(statusFilter)}</div>}
         </div>
       </div>
-      {filtered.length > TECHNIQUE_PANEL_PAGE_SIZE && (
+      {visibleEntries.length > TECHNIQUE_PANEL_PAGE_SIZE && (
         <div className="tech-pagination">
           <button className="small-btn ghost" type="button" disabled={safePage <= 1} onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}>上一页</button>
           <span className="tech-pagination-status">
-            第 {formatDisplayInteger(safePage)} / {formatDisplayInteger(totalPages)} 页 · 共 {formatDisplayInteger(filtered.length)} 门
+            第 {formatDisplayInteger(safePage)} / {formatDisplayInteger(totalPages)} 页 · 共 {formatDisplayInteger(visibleEntries.length)} 门
           </span>
           <button className="small-btn ghost" type="button" disabled={safePage >= totalPages} onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}>下一页</button>
         </div>
@@ -236,7 +223,7 @@ export const TechniquePanel = memo(function TechniquePanel() {
 });
 
 const PendingTechniqueCard = memo(function PendingTechniqueCard({ pending, isCultivating }: {
-  pending: NonNullable<PlayerState['pendingTechniqueComprehensions']>[number];
+  pending: TechniquePendingListEntry;
   isCultivating: boolean;
 }) {
   const ratio = pending.requiredProgress > 0 ? Math.min(1, pending.progress / pending.requiredProgress) : 0;

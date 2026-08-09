@@ -12,6 +12,7 @@ import {
   isCreatedTechniqueId,
   isTechniqueFullyMastered,
   normalizeTechniqueLearnMaxLevel,
+  normalizeTechniqueStrengthPercent,
   resolvePlayerFacingContentName,
   type PlayerTransmissionJob,
   type TechniqueActivityNoticeMessage,
@@ -33,6 +34,7 @@ type TransmissionValidatedPayload = {
   techniqueName: string;
   requiredProgress: number;
   realmLv: number;
+  strengthPercent: number;
   grade?: PlayerTransmissionJob['grade'];
   category?: PlayerTransmissionJob['category'];
   teacherName?: string;
@@ -153,6 +155,7 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
         techniqueName: resolvePlayerFacingContentName(techniqueId, '未知功法', learningTechnique.name, teacherTechnique.name),
         requiredProgress,
         realmLv: Math.max(1, Math.floor(Number(learningTechnique.realmLv) || 1)),
+        strengthPercent: normalizeTechniqueStrengthPercent(learningTechnique.strengthPercent),
         grade: learningTechnique.grade ?? undefined,
         category: learningTechnique.category ?? undefined,
         teacherName: resolveRuntimePlayerDisplayName(teacher, { playerId: teacherPlayerId, fallback: '未知玩家' }),
@@ -501,6 +504,7 @@ function validateScriptureRecordingStart(
       techniqueName: resolvePlayerFacingContentName(techniqueId, '未知功法', learningTechnique.name, technique.name),
       requiredProgress,
       realmLv: Math.max(1, Math.floor(Number(learningTechnique.realmLv) || 1)),
+      strengthPercent: normalizeTechniqueStrengthPercent(learningTechnique.strengthPercent),
       grade: learningTechnique.grade ?? undefined,
       category: learningTechnique.category ?? undefined,
       teacherName: resolveRuntimePlayerDisplayName(recorder, { playerId: recorder.playerId, fallback: '未知玩家' }),
@@ -571,6 +575,7 @@ function validateScriptureContemplationStart(
       techniqueName: resolvePlayerFacingContentName(techniqueId, '未知功法', learningTechnique?.name, building.scriptureTechniqueName),
       requiredProgress,
       realmLv: Math.max(1, Math.floor(Number(learningTechnique?.realmLv ?? building.scriptureRealmLv) || 1)),
+      strengthPercent: normalizeTechniqueStrengthPercent(learningTechnique?.strengthPercent),
       grade: learningTechnique?.grade ?? building.scriptureGrade ?? undefined,
       category: learningTechnique?.category ?? building.scriptureCategory ?? undefined,
       teacherName: resolveRuntimePlayerDisplayName(learner, { playerId: learner.playerId, fallback: '未知玩家' }),
@@ -690,6 +695,7 @@ function ensurePendingComprehension(learner: any, validated: TransmissionValidat
     pending = {
       techId: validated.techniqueId,
       name: validated.techniqueName,
+      strengthPercent: validated.strengthPercent,
       sourceKind: 'created',
       selfComprehensionAllowed: false,
       progress: 0,
@@ -703,6 +709,7 @@ function ensurePendingComprehension(learner: any, validated: TransmissionValidat
     pendingList.push(pending);
   } else {
     pending.name = validated.techniqueName;
+    pending.strengthPercent = validated.strengthPercent;
     pending.sourceKind = 'created';
     pending.selfComprehensionAllowed = false;
     pending.requiredProgress = validated.requiredProgress;
@@ -966,6 +973,7 @@ function executeScriptureContemplationTick(learner: any, job: PlayerTransmission
       techniqueName: job.techniqueName,
       requiredProgress,
       realmLv: Math.max(1, Math.floor(Number(learningTechnique?.realmLv ?? building.scriptureRealmLv ?? job.realmLv) || 1)),
+      strengthPercent: normalizeTechniqueStrengthPercent(learningTechnique?.strengthPercent),
       grade: learningTechnique?.grade ?? building.scriptureGrade ?? job.grade,
       category: learningTechnique?.category ?? building.scriptureCategory ?? job.category,
       teacherName: job.teacherName,
@@ -1386,6 +1394,7 @@ function toTechniqueUpdateEntry(technique: any, maxLevelInput: unknown = undefin
     exp: technique.exp,
     expToNext: learnTechniqueMaxLevel !== undefined && level >= learnTechniqueMaxLevel ? 0 : technique.expToNext,
     realmLv: technique.realmLv,
+    strengthPercent: normalizeTechniqueStrengthPercent(technique.strengthPercent),
     realm: deriveTechniqueRealm(level, layers),
     skillsEnabled: technique.skillsEnabled !== false,
     name: technique.name,

@@ -1548,6 +1548,7 @@ async function testGeneratedTechniqueBootstrapProjectionKeepsTemplateFields(): P
       grade: 'mystic',
       category: 'internal',
       realmLv: 31,
+      budgetPercent: 1.1827,
       attrRatio: { strength: 3, constitution: 1 },
       maxLayer: 9,
       expDifficulty: 1,
@@ -1561,6 +1562,7 @@ async function testGeneratedTechniqueBootstrapProjectionKeepsTemplateFields(): P
   assert.equal(projected.grade, 'mystic');
   assert.equal(projected.category, 'internal');
   assert.equal(projected.realmLv, 31);
+  assert.equal(projected.strengthPercent, 118);
   assert.equal(projected.layers?.length, 9);
 }
 

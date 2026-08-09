@@ -172,6 +172,8 @@ export interface TechniqueUpdateEntryView {
  */
 
   realmLv?: number;  
+  /** 功法模板强度百分比；仅在完整条目或该静态字段变化时下发。 */
+  strengthPercent?: number;
   /**
  * realm：realm相关字段。
  */

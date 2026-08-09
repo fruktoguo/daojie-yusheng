@@ -41,6 +41,7 @@ export function toWireTechniqueEntry(entry: TechniqueUpdateEntry): Record<string
     wire.learnTechniqueMaxLevel = entry.learnTechniqueMaxLevel;
   }
   if (entry.realmLv !== undefined) wire.realmLv = entry.realmLv;
+  if (entry.strengthPercent !== undefined) wire.strengthPercent = entry.strengthPercent;
   if (entry.realm !== undefined) wire.realm = entry.realm;
   setNullableWireValue(wire, 'name', 'clearName', entry.name);
   setNullableWireValue(wire, 'grade', 'clearGrade', entry.grade);
@@ -74,6 +75,7 @@ export function fromWireTechniqueEntry(wire: Record<string, unknown>): Technique
     patch.learnTechniqueMaxLevel = Number(wire.learnTechniqueMaxLevel ?? 0);
   }
   if (hasOwn(wire, 'realmLv')) patch.realmLv = Number(wire.realmLv ?? 1);
+  if (hasOwn(wire, 'strengthPercent')) patch.strengthPercent = Number(wire.strengthPercent ?? 100);
   if (hasOwn(wire, 'realm')) patch.realm = Number(wire.realm ?? 0) as TechniqueState['realm'];
   const name = readNullableWireValue<string>(wire, 'name', 'clearName');
   if (name !== undefined) patch.name = name;

@@ -471,6 +471,8 @@ export interface TechniqueState {
  */
 
   realmLv: number;  
+  /** 功法模板的生成强度百分比；普通功法为 100，仅用于低频展示与排序。 */
+  strengthPercent?: number;
   /**
  * realm：realm相关字段。
  */
@@ -547,6 +549,8 @@ export interface TechniqueTransmissionJobState {
 export interface PendingTechniqueComprehensionState {
   techId: string;
   name: string;
+  /** 功法模板的生成强度百分比；普通功法为 100，仅用于低频展示与排序。 */
+  strengthPercent?: number;
   sourceKind: TechniqueComprehensionSourceKind;
   creatorPlayerId?: string;
   /**

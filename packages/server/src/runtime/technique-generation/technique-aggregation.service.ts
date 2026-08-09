@@ -13,7 +13,6 @@ import {
   CUSTOM_TECHNIQUE_NAME_MAX_LENGTH,
   CUSTOM_TECHNIQUE_NAME_MIN_LENGTH,
   DEFAULT_TECHNIQUE_UNIFICATION_PERMISSIONS,
-  TECHNIQUE_INTERNAL_BUDGET_PERCENT_RANGE,
   TECHNIQUE_ATTR_KEYS,
   calculateTechniqueComprehensionRequiredProgress,
   calcTechniqueAttrValues,
@@ -28,6 +27,7 @@ import {
   isTechniqueAggregationId,
   isTechniqueFullyMastered,
   resolveTechniqueAggregationOverlap,
+  resolveTechniqueStrengthPercent,
   cloneTechniqueUnificationPermissions,
   normalizeTechniqueUnificationPermissions,
   type Attributes,
@@ -877,15 +877,6 @@ function normalizeRequestId(value: unknown): string | undefined {
 
 function roundMetric(value: number): number {
   return Math.round(value * 1000) / 1000;
-}
-
-function resolveTechniqueStrengthPercent(value: unknown): number {
-  const normalized = Number(value);
-  const budgetPercent = Number.isFinite(normalized) ? normalized : 1;
-  return Math.round(Math.min(
-    TECHNIQUE_INTERNAL_BUDGET_PERCENT_RANGE[1],
-    Math.max(TECHNIQUE_INTERNAL_BUDGET_PERCENT_RANGE[0], budgetPercent),
-  ) * 100);
 }
 
 function resolveTechniqueFullLevelAttrs(template: any): Partial<Attributes> {

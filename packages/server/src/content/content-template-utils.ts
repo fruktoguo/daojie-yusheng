@@ -5,7 +5,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_PLAYER_REALM_STAGE, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, ELEMENT_KEYS, EQUIP_SLOTS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_NUMERIC_TEMPLATES, TECHNIQUE_EXP_BASE, TechniqueRealm, buildQiResourceKey, calculateTechniqueSkillQiCost, cloneNumericRatioDivisors, cloneNumericStats, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, createMonsterMainCombatStatModifierStats, deriveTechniqueRealm, expandTechniqueAttrRatio, expandTechniqueExpCurve, expandTechniqueLayerGains, getTechniqueExpToNext, getTileTypeFromMapChar, inferMonsterTierFromName, isTileTypeWalkable, normalizeCraftEffectStatsPatch, normalizeEditableMapDocument, normalizeMonsterTier as normalizeSharedMonsterTier, normalizeTargetingDefaultMaxTargets, normalizeTechniqueAggregationMetadata, normalizeTechniqueAttrRatio, normalizeTechniqueLearnMaxLevel, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveSkillUnlockLevel, scaleTechniqueExp, shouldExpandTechniqueAttrRatio } from '@mud/shared';
+import { DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_PLAYER_REALM_STAGE, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, ELEMENT_KEYS, EQUIP_SLOTS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_NUMERIC_TEMPLATES, TECHNIQUE_EXP_BASE, TechniqueRealm, buildQiResourceKey, calculateTechniqueSkillQiCost, cloneNumericRatioDivisors, cloneNumericStats, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, createMonsterMainCombatStatModifierStats, deriveTechniqueRealm, expandTechniqueAttrRatio, expandTechniqueExpCurve, expandTechniqueLayerGains, getTechniqueExpToNext, getTileTypeFromMapChar, inferMonsterTierFromName, isTileTypeWalkable, normalizeCraftEffectStatsPatch, normalizeEditableMapDocument, normalizeMonsterTier as normalizeSharedMonsterTier, normalizeTargetingDefaultMaxTargets, normalizeTechniqueAggregationMetadata, normalizeTechniqueAttrRatio, normalizeTechniqueLearnMaxLevel, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveSkillUnlockLevel, resolveTechniqueStrengthPercent, scaleTechniqueExp, shouldExpandTechniqueAttrRatio } from '@mud/shared';
 import { resolveProjectPath } from '../common/project-path';
 
 const ITEM_INSTANCE_FIELD_KEYS = new Set(['itemId', 'itemInstanceId', 'count', 'enhanceLevel', 'enhancementLevel', 'learnTechniqueId', 'learnTechniqueMaxLevel', 'grade', 'level']);
@@ -340,6 +340,7 @@ function buildTechniqueRuntimeStateFromTemplate(template: any, input: any = {}) 
         exp,
         expToNext,
         realmLv: template.realmLv,
+        strengthPercent: resolveTechniqueStrengthPercent(template.budgetPercent),
         realm,
         skillsEnabled: input?.skillsEnabled !== false,
         // skills/layers 是启动期内容模板，运行态只读共享；玩家态只保留等级/经验等动态字段。
