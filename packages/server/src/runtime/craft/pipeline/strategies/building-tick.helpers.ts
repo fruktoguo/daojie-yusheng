@@ -150,12 +150,11 @@ async function executeBuildingDeconstructionTick(
     return buildBuildingTickResult(true, [buildBuildingNotice('warn', 'notice.craft.building.deconstruct-too-far')]);
   }
 
-  const previousRemainingTicks = Math.max(
-    1,
-    Math.trunc(Number(building.deconstructRemainingTicks ?? job.remainingTicks) || 1),
-  );
-  const nextRemainingTicks = previousRemainingTicks - 1;
-  building.deconstructRemainingTicks = nextRemainingTicks;
+  const progressPerTick = resolveBuildingProgressPerTick(player);
+  const previousRemainingProgress = resolveBuildingDeconstructionRemainingProgress(building, job);
+  const nextRemainingProgress = Math.max(0, Number((previousRemainingProgress - progressPerTick).toFixed(6)));
+  const nextRemainingTicks = Math.max(0, Math.ceil(nextRemainingProgress / progressPerTick));
+  building.deconstructRemainingTicks = nextRemainingProgress;
   building.updatedAtTick = instance.tick;
   building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
   instance.localBuildingViewCacheById?.delete?.(building.id);
@@ -190,7 +189,6 @@ async function executeBuildingDeconstructionTick(
   const totalTicks = Math.max(
     nextRemainingTicks,
     Math.trunc(Number(job.totalTicks) || 0),
-    Math.trunc(Number(building.buildStrength) || 0),
     1,
   );
   job.buildingName = resolvePlayerFacingContentName(
@@ -403,6 +401,14 @@ function resolveBuildingRemainingProgress(building: Record<string, any>): number
     return Math.max(1, Number(building.buildStrength));
   }
   return 1;
+}
+
+function resolveBuildingDeconstructionRemainingProgress(
+  building: Record<string, any>,
+  job: Record<string, any>,
+): number {
+  const value = Number(building?.deconstructRemainingTicks ?? job?.workRemainingTicks ?? job?.remainingTicks);
+  return Number.isFinite(value) ? Math.max(0, value) : 1;
 }
 
 function resolveBuildingProgressPerTick(player: Record<string, any>): number {

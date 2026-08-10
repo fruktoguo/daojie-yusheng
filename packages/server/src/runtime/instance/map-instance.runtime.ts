@@ -3265,9 +3265,9 @@ class MapInstanceRuntime {
                 buildStrength: Number.isFinite(Number(entry?.buildStrength)) ? Math.max(1, Math.trunc(Number(entry.buildStrength))) : undefined,
                 builderSkillLevel: Number.isFinite(Number(entry?.builderSkillLevel)) ? Math.max(1, Math.trunc(Number(entry.builderSkillLevel))) : undefined,
                 buildCompleteTick: Number.isFinite(Number(entry?.buildCompleteTick)) ? Math.max(0, Math.trunc(Number(entry.buildCompleteTick))) : undefined,
-                buildRemainingTicks: Number.isFinite(Number(entry?.buildRemainingTicks)) ? Math.max(0, Math.trunc(Number(entry.buildRemainingTicks))) : undefined,
+                buildRemainingTicks: normalizePersistedBuildingProgress(entry?.buildRemainingTicks),
                 activeBuilderPlayerId: normalizeBuildingId(entry?.activeBuilderPlayerId) || null,
-                deconstructRemainingTicks: Number.isFinite(Number(entry?.deconstructRemainingTicks)) ? Math.max(0, Math.trunc(Number(entry.deconstructRemainingTicks))) : undefined,
+                deconstructRemainingTicks: normalizePersistedBuildingProgress(entry?.deconstructRemainingTicks),
                 activeDeconstructorPlayerId: normalizeBuildingId(entry?.activeDeconstructorPlayerId) || null,
                 deconstructPreviousState: entry?.state === 'deconstructing'
                     ? normalizeBuildingDeconstructPreviousState(entry?.deconstructPreviousState, entry?.buildRemainingTicks)
@@ -10443,6 +10443,12 @@ function normalizeBuildingRemainingTicks(value, fallbackValue = undefined) {
             ? Number(fallbackValue)
             : 1;
     return Math.max(1, resolved);
+}
+function normalizePersistedBuildingProgress(value) {
+    const resolved = Number(value);
+    return Number.isFinite(resolved)
+        ? Math.max(0, Number(resolved.toFixed(6)))
+        : undefined;
 }
 function resolveBuildingRemainingTicks(building) {
     if (Number.isFinite(Number(building?.buildRemainingTicks))) {

@@ -1179,6 +1179,11 @@ async function main() {
     y: 2,
     hp: 100,
     dirtyDomains: new Set(),
+    attrs: {
+      craftEffectStats: {
+        building: { speedRate: 0 },
+      },
+    },
     buildingSkill: {
       level: 4,
       exp: 0,
@@ -1326,6 +1331,7 @@ async function main() {
   });
   assert.ok(observe.overlay);
   assertWangQiObserveRespectsPlayerView();
+  commandPlayer.attrs.craftEffectStats.building.speedRate = 0.5;
   commandBuilding.ownerPlayerId = "player:other-builder";
   const foreignDeconstructResult = await WorldRuntimeService.prototype.handleBuildDeconstructIntent.call(commandRuntime, commandPlayer.playerId, {
     requestId: "deconstruct:req:foreign",
@@ -1333,14 +1339,15 @@ async function main() {
   });
   assert.equal(foreignDeconstructResult.ok, true);
   assert.equal(foreignDeconstructResult.deconstructStarted, true);
-  assert.equal(foreignDeconstructResult.deconstructTicks, buildStrength);
+  const acceleratedDeconstructTicks = Math.ceil(buildStrength / 1.5);
+  assert.equal(foreignDeconstructResult.deconstructTicks, acceleratedDeconstructTicks);
   assert.equal(commandBuilding.state, "deconstructing");
   assert.equal(commandBuilding.deconstructRemainingTicks, buildStrength);
   assert.equal(commandPlayer.buildingJob.operation, "deconstruct");
-  for (let index = 0; index < buildStrength - 1; index += 1) {
+  for (let index = 0; index < acceleratedDeconstructTicks - 1; index += 1) {
     await WorldRuntimeService.prototype.tickBuildingConstruction.call(commandRuntime, commandPlayer.playerId);
     assert.equal(commandInstance.buildingById.has(placeResult.building.id), true);
-    assert.equal(commandBuilding.deconstructRemainingTicks, buildStrength - index - 1);
+    assert.equal(commandBuilding.deconstructRemainingTicks, buildStrength - (index + 1) * 1.5);
   }
   await WorldRuntimeService.prototype.tickBuildingConstruction.call(commandRuntime, commandPlayer.playerId);
   assert.equal(commandInstance.buildingById.has(placeResult.building.id), false);
@@ -1361,15 +1368,22 @@ async function main() {
     buildingId: ownerlessPlacement.building.id,
   });
   assert.equal(ownerlessDeconstructResult.ok, true);
-  assert.equal(ownerlessDeconstructResult.deconstructTicks, 4);
+  assert.equal(ownerlessDeconstructResult.deconstructTicks, 3);
   await WorldRuntimeService.prototype.tickBuildingConstruction.call(commandRuntime, commandPlayer.playerId);
+  assert.equal(ownerlessPlacement.building.deconstructRemainingTicks, 2.5);
+  const persistedOwnerlessBuildings = commandInstance.buildBuildingPersistenceEntries();
+  assert.equal(persistedOwnerlessBuildings[0]?.deconstructRemainingTicks, 2.5);
+  commandInstance.hydrateBuildingRoomFengShuiState({ buildings: persistedOwnerlessBuildings });
+  const restoredOwnerlessBuilding = commandInstance.buildingById.get(ownerlessPlacement.building.id);
+  assert.ok(restoredOwnerlessBuilding);
+  assert.equal(restoredOwnerlessBuilding.deconstructRemainingTicks, 2.5);
   WorldRuntimeService.prototype.interruptBuildingConstruction.call(commandRuntime, commandPlayer.playerId, "cancel");
-  assert.equal(ownerlessPlacement.building.state, "active");
-  assert.equal(ownerlessPlacement.building.buildStrength, 4);
-  assert.equal(ownerlessPlacement.building.deconstructRemainingTicks, undefined);
-  assert.equal(ownerlessPlacement.building.activeDeconstructorPlayerId, null);
+  assert.equal(restoredOwnerlessBuilding.state, "active");
+  assert.equal(restoredOwnerlessBuilding.buildStrength, 4);
+  assert.equal(restoredOwnerlessBuilding.deconstructRemainingTicks, undefined);
+  assert.equal(restoredOwnerlessBuilding.activeDeconstructorPlayerId, null);
 
-  ownerlessPlacement.building.ownerPlayerId = commandPlayer.playerId;
+  restoredOwnerlessBuilding.ownerPlayerId = commandPlayer.playerId;
   const deconstructResult = await WorldRuntimeService.prototype.handleBuildDeconstructIntent.call(commandRuntime, commandPlayer.playerId, {
     requestId: "deconstruct:req:1",
     buildingId: ownerlessPlacement.building.id,

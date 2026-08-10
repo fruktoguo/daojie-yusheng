@@ -209,11 +209,12 @@ export function dispatchStartBuildingDeconstruction(runtime, playerId, buildingI
         return { ok: false, reason: 'building_not_found' };
     }
     const compiled = resolveCompiledBuildingDefinition(context.instance.buildingCatalog, building);
-    const totalTicks = Math.max(
+    const totalWorkTicks = Math.max(
         1,
         Math.trunc(Number(building.buildStrength ?? compiled?.buildTicks) || 1),
     );
-    const result = context.instance.startBuildingDeconstruction?.(buildingId, playerId, totalTicks)
+    const totalTicks = Math.max(1, Math.ceil(totalWorkTicks / resolveBuildingProgressPerTick(player)));
+    const result = context.instance.startBuildingDeconstruction?.(buildingId, playerId, totalWorkTicks)
         ?? { ok: false, reason: 'building_deconstruct_unsupported' };
     if (result?.ok !== true || !result.building) {
         return { ok: false, reason: result?.reason ?? 'building_deconstruct_failed' };
