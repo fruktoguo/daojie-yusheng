@@ -10,6 +10,10 @@
 import { randomUUID } from 'node:crypto';
 import { BUILDING_MAX_BUILD_TICKS, calculateTerrainDurability, hasBuildMaterialCategory, isGenericBuildMaterialSlotItemId, resolveGenericBuildMaterialSlotCategory, resolvePlayerFacingContentName } from '@mud/shared';
 import { resolveCompiledBuildingDefinition } from '../building/building-definition-resolution.helpers';
+import {
+    resolveBuildingDeconstructionDurationTicks,
+    resolveBuildingDeconstructionWork,
+} from '../building/building-deconstruction.helpers';
 import { resolveCraftSkillExpToNextByLevel } from '../craft/craft-skill-exp.helpers';
 import { executeBuildingTick } from '../craft/pipeline/strategies/building-tick.helpers';
 import { buildStructuredNotice } from './structured-notice.helpers';
@@ -209,11 +213,8 @@ export function dispatchStartBuildingDeconstruction(runtime, playerId, buildingI
         return { ok: false, reason: 'building_not_found' };
     }
     const compiled = resolveCompiledBuildingDefinition(context.instance.buildingCatalog, building);
-    const totalWorkTicks = Math.max(
-        1,
-        Math.trunc(Number(building.buildStrength ?? compiled?.buildTicks) || 1),
-    );
-    const totalTicks = Math.max(1, Math.ceil(totalWorkTicks / resolveBuildingProgressPerTick(player)));
+    const totalWorkTicks = resolveBuildingDeconstructionWork(building, compiled?.buildTicks);
+    const totalTicks = resolveBuildingDeconstructionDurationTicks(totalWorkTicks, player, building);
     const result = context.instance.startBuildingDeconstruction?.(buildingId, playerId, totalWorkTicks)
         ?? { ok: false, reason: 'building_deconstruct_unsupported' };
     if (result?.ok !== true || !result.building) {

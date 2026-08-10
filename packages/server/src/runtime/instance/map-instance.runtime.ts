@@ -1906,7 +1906,7 @@ class MapInstanceRuntime {
         if (building.state === 'destroyed' || building.state === 'planned') {
             return { ok: false, reason: 'building_deconstruct_unavailable' };
         }
-        const totalTicks = Math.max(1, Math.trunc(Number(totalTicksInput) || 1));
+        const totalTicks = Math.max(1, Number((Number(totalTicksInput) || 1).toFixed(6)));
         building.deconstructPreviousState = normalizeBuildingDeconstructPreviousState(building.state, building.buildRemainingTicks);
         building.state = 'deconstructing';
         building.deconstructRemainingTicks = totalTicks;
@@ -7591,9 +7591,11 @@ class MapInstanceRuntime {
             : isUnderDeconstruction
                 ? Math.max(0, Math.ceil(Number(building.deconstructRemainingTicks) || 0))
                 : undefined;
-        const totalTicks = isUnderConstruction || isUnderDeconstruction
+        const totalTicks = isUnderConstruction
             ? Math.max(remainingTicks ?? 0, Math.trunc(Number(building.buildStrength) || 1), 1)
-            : undefined;
+            : isUnderDeconstruction
+                ? Math.max(remainingTicks ?? 0, Math.ceil(resolveBuildingDeconstructionTotalWork(building)), 1)
+                : undefined;
         const char = typeof compiled?.glyph === 'string' && compiled.glyph.trim()
             ? compiled.glyph.trim()[0] ?? '筑'
             : (compiled?.name?.trim()?.[0] ?? '筑');
@@ -10458,6 +10460,20 @@ function resolveBuildingRemainingTicks(building) {
         return Math.max(1, Math.ceil(Number(building.buildStrength)));
     }
     return 1;
+}
+function resolveBuildingDeconstructionTotalWork(building) {
+    const buildStrength = Math.max(1, Number(building?.buildStrength) || 1);
+    const previousState = normalizeBuildingDeconstructPreviousState(
+        building?.deconstructPreviousState,
+        building?.buildRemainingTicks,
+    );
+    if (previousState !== 'building') {
+        return buildStrength;
+    }
+    const remainingWork = Number.isFinite(Number(building?.buildRemainingTicks))
+        ? Math.min(buildStrength, Math.max(0, Number(building.buildRemainingTicks)))
+        : buildStrength;
+    return Math.max(1, Number((buildStrength - remainingWork).toFixed(6)));
 }
 function shouldProjectLocalBuilding(building, compiled) {
     if (building?.state === 'building' || building?.state === 'deconstructing') {

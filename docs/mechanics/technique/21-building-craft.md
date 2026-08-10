@@ -37,6 +37,7 @@
 | BUILDING_DEFAULT_BUILD_TICKS | 1 | `packages/shared/src/constants/gameplay/building.ts` |
 | BUILDING_MAX_BUILD_TICKS | 86400 | 同上，玩家自定义单次建造最大工时（一整天） |
 | BUILDING_DEFAULT_DECONSTRUCT_TICKS | 1 | 同上 |
+| BUILDING_DECONSTRUCT_SKILL_EFFICIENCY_PER_LEVEL | 0.02 | 同上，拆除时比较拆除者与原建造者营造等级 |
 | BUILDING_DEFAULT_MAX_HP | 100 | 同上 |
 
 ## 执行流程

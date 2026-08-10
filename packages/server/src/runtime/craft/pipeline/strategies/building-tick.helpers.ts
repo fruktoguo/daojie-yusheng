@@ -9,6 +9,7 @@ import {
   resolvePlayerCraftEffectStat,
   resolvePlayerCraftRealmLevel,
 } from '../../craft-effect-runtime.helpers';
+import { resolveBuildingDeconstructionProgressPerTick } from '../../../building/building-deconstruction.helpers';
 
 export function executeBuildingTick(
   playerId: string,
@@ -150,7 +151,7 @@ async function executeBuildingDeconstructionTick(
     return buildBuildingTickResult(true, [buildBuildingNotice('warn', 'notice.craft.building.deconstruct-too-far')]);
   }
 
-  const progressPerTick = resolveBuildingProgressPerTick(player);
+  const progressPerTick = resolveBuildingDeconstructionProgressPerTick(player, building);
   const previousRemainingProgress = resolveBuildingDeconstructionRemainingProgress(building, job);
   const nextRemainingProgress = Math.max(0, Number((previousRemainingProgress - progressPerTick).toFixed(6)));
   const nextRemainingTicks = Math.max(0, Math.ceil(nextRemainingProgress / progressPerTick));

@@ -1414,12 +1414,49 @@ async function main() {
     buildingId: unfinishedPlacement.building.id,
   });
   assert.equal(unfinishedDeconstructResult.ok, true);
+  assert.equal(unfinishedDeconstructResult.deconstructTicks, 2, "半成品只拆除已经完成的 2 息施工量");
   assert.equal(unfinishedPlacement.building.deconstructPreviousState, "building");
   commandInstance.rebuildBuildingRoomFengShuiState({ reason: "deconstructing_unfinished_restore" });
   assert.equal(commandInstance.getActiveBuildingCombatStateAtCellIndex(commandInstance.toTileIndex(1, 1)), null);
   WorldRuntimeService.prototype.interruptBuildingConstruction.call(commandRuntime, commandPlayer.playerId, "cancel");
   assert.equal(unfinishedPlacement.building.state, "building");
   assert.equal(unfinishedPlacement.building.buildRemainingTicks, 3);
+  const unfinishedRestartResult = await WorldRuntimeService.prototype.handleBuildDeconstructIntent.call(commandRuntime, commandPlayer.playerId, {
+    requestId: "deconstruct:req:unfinished:restart",
+    buildingId: unfinishedPlacement.building.id,
+  });
+  assert.equal(unfinishedRestartResult.ok, true);
+  await WorldRuntimeService.prototype.tickBuildingConstruction.call(commandRuntime, commandPlayer.playerId);
+  assert.equal(commandInstance.buildingById.has(unfinishedPlacement.building.id), true);
+  await WorldRuntimeService.prototype.tickBuildingConstruction.call(commandRuntime, commandPlayer.playerId);
+  assert.equal(commandInstance.buildingById.has(unfinishedPlacement.building.id), false, "半成品可以完成延时拆除");
+
+  commandPlayer.attrs.craftEffectStats.building.speedRate = 0;
+  commandPlayer.buildingSkill.level = 1;
+  const highSkillPlacement = commandInstance.placeBuildingInstance({
+    buildingId: "building:high-skill:deconstruct",
+    defId: "stone_wall",
+    x: 1,
+    y: 1,
+    ownerPlayerId: "player:level-60-builder",
+    state: "active",
+    buildStrength: 100,
+    builderSkillLevel: 60,
+  });
+  assert.equal(highSkillPlacement.ok, true);
+  const highSkillDeconstructResult = await WorldRuntimeService.prototype.handleBuildDeconstructIntent.call(commandRuntime, commandPlayer.playerId, {
+    requestId: "deconstruct:req:high-skill",
+    buildingId: highSkillPlacement.building.id,
+  });
+  assert.equal(highSkillDeconstructResult.ok, true);
+  assert.equal(highSkillDeconstructResult.deconstructTicks, 218, "1 级拆除者不能按 100 息拆掉 60 级建筑");
+  await WorldRuntimeService.prototype.tickBuildingConstruction.call(commandRuntime, commandPlayer.playerId);
+  assert.equal(
+    highSkillPlacement.building.deconstructRemainingTicks,
+    99.541284,
+    "实际拆除推进必须使用同一套双方等级效率换算",
+  );
+  WorldRuntimeService.prototype.interruptBuildingConstruction.call(commandRuntime, commandPlayer.playerId, "cancel");
   assert.ok(commandRuntime.listBuildingOperationAudit(10).length >= 2);
   assert.equal(typeof commandInstance.lastBuildingRoomRebuildStats.durationMs, "number");
   assert.equal(Array.isArray(commandInstance.buildingRoomDeferredStartCells), true);
