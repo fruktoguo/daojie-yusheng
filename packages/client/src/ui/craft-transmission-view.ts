@@ -31,6 +31,7 @@ import {
   getGraphemeCount,
   getItemDisplayName,
   isCreatedTechniqueId,
+  isTechniqueAggregationId,
   isTechniqueFullyMastered,
 } from '@mud/shared';
 import { getLocalRealmLevelEntry, getLocalTechniqueTemplate, resolveClientTechniqueName } from '../content/local-templates';
@@ -892,7 +893,7 @@ export class CraftTransmissionView {
 
   private getTransmittableTechniques(): PlayerState['techniques'] {
     return (this.parent.transmissionTechniques ?? []).filter((tech) => {
-      if (!isCreatedTechniqueId(tech.techId)) {
+      if (!isCreatedTechniqueId(tech.techId) || isTechniqueAggregationId(tech.techId)) {
         return false;
       }
       const template = getLocalTechniqueTemplate(tech.techId);
@@ -935,7 +936,7 @@ export class CraftTransmissionView {
     tech: PlayerState['techniques'][number] | undefined,
   ): PlayerState['techniques'][number] | null {
     const techId = typeof tech?.techId === 'string' && tech.techId.trim() ? tech.techId.trim() : '';
-    if (!techId || !isCreatedTechniqueId(techId)) {
+    if (!techId || !isCreatedTechniqueId(techId) || isTechniqueAggregationId(techId)) {
       return null;
     }
     const template = getLocalTechniqueTemplate(techId);
@@ -1240,6 +1241,9 @@ export class CraftTransmissionView {
         source.level,
         source.maxLevel,
         source.fullyMastered ? 1 : 0,
+        source.aggregate?.familyId ?? '',
+        source.aggregate?.revision ?? 0,
+        source.aggregate?.sourceCount ?? 0,
       ].join(':')).join('|') ?? '',
       panel?.families?.map((family) => [
         family.familyId,
@@ -1307,6 +1311,10 @@ export class CraftTransmissionView {
     return sources.filter((source) => this.selectedTechniqueAggregationSourceIds.has(source.techId));
   }
 
+  private getSelectedTechniqueAggregationAggregateSource() {
+    return this.getSelectedTechniqueAggregationSources().find((source) => source.aggregate);
+  }
+
   private getFilteredTechniqueAggregationSources() {
     const family = this.getBoundTechniqueAggregationFamily();
     const grade = family?.grade ?? this.techniqueAggregationGradeFilter;
@@ -1319,7 +1327,7 @@ export class CraftTransmissionView {
   private getSelectableTechniqueAggregationSources() {
     const familySourceIds = new Set(this.getBoundTechniqueAggregationFamily()?.sourceTechniqueIds ?? []);
     return this.getFilteredTechniqueAggregationSources().filter((source) => (
-      source.fullyMastered && !familySourceIds.has(source.techId)
+      source.fullyMastered && !source.aggregate && !familySourceIds.has(source.techId)
     ));
   }
 
@@ -1339,14 +1347,18 @@ export class CraftTransmissionView {
     const family = this.getBoundTechniqueAggregationFamily();
     const familySources = new Set(family?.sourceTechniqueIds ?? []);
     const selected = this.getSelectedTechniqueAggregationSources();
-    const requiredCount = family ? 1 : 2;
+    const aggregateSources = selected.filter((source) => source.aggregate);
+    const reboundSource = family ? undefined : aggregateSources[0];
+    const requiredCount = family || reboundSource ? 1 : 2;
     if (selected.length < requiredCount || !this.techniqueAggregationGradeFilter) return false;
     if (selected.some((source) => (
       !source.fullyMastered
       || source.grade !== this.techniqueAggregationGradeFilter
       || familySources.has(source.techId)
     ))) return false;
+    if (aggregateSources.length > 1 || (family && aggregateSources.length > 0)) return false;
     if (family) return family.grade === this.techniqueAggregationGradeFilter;
+    if (reboundSource) return true;
     const nameLength = getGraphemeCount(this.techniqueAggregationNameDraft.trim());
     return nameLength >= CUSTOM_TECHNIQUE_NAME_MIN_LENGTH && nameLength <= CUSTOM_TECHNIQUE_NAME_MAX_LENGTH;
   }
@@ -1354,7 +1366,12 @@ export class CraftTransmissionView {
   private getTechniqueAggregationSelectionHint(): string {
     const family = this.getBoundTechniqueAggregationFamily();
     const selected = this.getSelectedTechniqueAggregationSources();
+    const reboundSource = family ? undefined : selected.find((source) => source.aggregate);
     if (selected.length > 0) {
+      if (reboundSource?.aggregate) {
+        const addedCount = selected.filter((source) => !source.aggregate).length;
+        return `将「${reboundSource.name}」第 ${formatDisplayInteger(reboundSource.aggregate.revision)} 卷重新录入此台，续接其 ${formatDisplayInteger(reboundSource.aggregate.sourceCount)} 部源法${addedCount > 0 ? `，并新增 ${formatDisplayInteger(addedCount)} 部同阶内功` : ''}。`;
+      }
       return `已选 ${formatDisplayInteger(selected.length)} 部${getTechniqueGradeLabel(this.techniqueAggregationGradeFilter || selected[0].grade)}内功。成卷后六维总效提升一成，修习难度为诸法总和之半。`;
     }
     return family
@@ -1407,18 +1424,22 @@ export class CraftTransmissionView {
     const selected = this.selectedTechniqueAggregationSourceIds.has(source.techId);
     const alreadyRecorded = familySourceIds.has(source.techId);
     const disabled = this.techniqueAggregationPublishing || !source.fullyMastered || alreadyRecorded;
-    const state = alreadyRecorded ? '已入法脉' : source.fullyMastered ? '' : '未圆满';
+    const state = alreadyRecorded
+      ? '已入法脉'
+      : source.aggregate ? '创建者可重录' : source.fullyMastered ? '' : '未圆满';
     const realmLabel = getLocalRealmLevelEntry(source.realmLv)?.displayName
       ?? `境界 ${formatDisplayInteger(source.realmLv)}`;
     const levelText = source.fullyMastered
       ? `圆满 ${formatDisplayInteger(source.maxLevel)} 层`
       : `${formatDisplayInteger(source.level)}/${formatDisplayInteger(source.maxLevel)} 层`;
     return `<button type="button" class="inventory-cell inventory-cell--grade inventory-cell--grade-${source.grade} technique-aggregation-source${selected ? ' is-selected' : ''}" data-craft-action="technique-aggregation-toggle-source" data-technique-id="${escapeHtmlAttr(source.techId)}" aria-pressed="${selected ? 'true' : 'false'}" ${disabled ? 'disabled' : ''}>
-      <div class="inventory-cell-head"><span class="inventory-cell-type">内功</span></div>
+      <div class="inventory-cell-head"><span class="inventory-cell-type">${source.aggregate ? '旧统法' : '内功'}</span></div>
       ${state ? `<span class="technique-aggregation-source-mark">${state}</span>` : '<span class="technique-aggregation-source-mark" aria-hidden="true"></span>'}
       <div class="inventory-cell-grade-line">${escapeHtml(getTechniqueGradeLabel(source.grade))} · ${escapeHtml(realmLabel)}</div>
       <div class="inventory-cell-name" aria-label="${escapeHtmlAttr(source.name)}">${escapeHtml(resolveClientTechniqueName(source.techId, source.name))}</div>
-      <span class="item-card-chip technique-aggregation-source-strength">强度 ${formatDisplayInteger(source.strengthPercent)}%</span>
+      ${source.aggregate
+        ? `<span class="item-card-chip technique-aggregation-source-strength">第 ${formatDisplayInteger(source.aggregate.revision)} 卷 · ${formatDisplayInteger(source.aggregate.sourceCount)} 部源法</span>`
+        : `<span class="item-card-chip technique-aggregation-source-strength">强度 ${formatDisplayInteger(source.strengthPercent)}%</span>`}
       <span class="item-card-chip item-card-chip--level">${escapeHtml(levelText)}</span>
     </button>`;
   }
@@ -1460,7 +1481,7 @@ export class CraftTransmissionView {
     <div class="technique-aggregation-source-list" data-technique-aggregation-source-list="true">
       ${pageSources.map((source) => this.renderTechniqueAggregationSourceCard(source, familySourceIds)).join('')}
     </div>
-    ${pageSources.length === 0 ? '<div class="empty-hint">当前筛选下暂无可归宗的自创内功。</div>' : ''}
+    ${pageSources.length === 0 ? '<div class="empty-hint">当前筛选下暂无可录入的自创内功或旧统法。</div>' : ''}
     <div class="technique-aggregation-pagination">
       <button type="button" class="small-btn ghost" data-craft-action="technique-aggregation-page-prev" ${this.techniqueAggregationSourcePage <= 1 ? 'disabled' : ''}>上一页</button>
       <span>第 ${formatDisplayInteger(this.techniqueAggregationSourcePage)} 页，共 ${formatDisplayInteger(totalPages)} 页 · 当前 ${formatDisplayInteger(from)}-${formatDisplayInteger(to)} 部，共 ${formatDisplayInteger(filtered.length)} 部</span>
@@ -1548,11 +1569,12 @@ export class CraftTransmissionView {
   private renderTechniqueAggregationSourceRecording(
     family: TechniqueAggregationPanelView['families'][number] | undefined,
   ): string {
-    const publishLabel = family ? '续录新卷' : '凝成首卷';
+    const reboundSource = family ? undefined : this.getSelectedTechniqueAggregationAggregateSource();
+    const publishLabel = family ? '续录新卷' : reboundSource ? '重新录入' : '凝成首卷';
     return `<div class="technique-aggregation-compose-controls">
       ${family
         ? `<div class="technique-aggregation-fixed-field"><span>法脉名讳</span><strong>${escapeHtml(family.name)}</strong></div><div class="technique-aggregation-fixed-field"><span>法脉品阶</span><strong>${escapeHtml(getTechniqueGradeLabel(family.grade))}</strong></div>`
-        : `<label class="technique-aggregation-name-field"><span>法脉名讳</span><input class="ui-input" type="text" data-technique-aggregation-name="true" minlength="${CUSTOM_TECHNIQUE_NAME_MIN_LENGTH}" maxlength="${CUSTOM_TECHNIQUE_NAME_MAX_LENGTH}" value="${escapeHtmlAttr(this.techniqueAggregationNameDraft)}" autocomplete="off"></label>`}
+        : `<label class="technique-aggregation-name-field"><span>${reboundSource ? '续接法脉' : '法脉名讳'}</span><input class="ui-input" type="text" data-technique-aggregation-name="true" minlength="${CUSTOM_TECHNIQUE_NAME_MIN_LENGTH}" maxlength="${CUSTOM_TECHNIQUE_NAME_MAX_LENGTH}" value="${escapeHtmlAttr(reboundSource?.name ?? this.techniqueAggregationNameDraft)}" autocomplete="off" ${reboundSource ? 'disabled' : ''}></label>`}
     </div>
     <div class="technique-aggregation-directory" data-technique-aggregation-directory="true">${this.renderTechniqueAggregationDirectoryContent()}</div>
     <div class="technique-aggregation-selection-summary" data-technique-aggregation-selection-summary="true">${escapeHtml(this.getTechniqueAggregationSelectionHint())}</div>
@@ -1562,8 +1584,9 @@ export class CraftTransmissionView {
   private renderTechniqueAggregationRecord(
     family: TechniqueAggregationPanelView['families'][number] | undefined,
   ): string {
+    const reboundSource = family ? undefined : this.getSelectedTechniqueAggregationAggregateSource();
     return `<section class="alchemy-summary-card technique-aggregation-compose">
-      <div class="alchemy-summary-head"><div class="alchemy-summary-title">录法</div><span class="alchemy-summary-mode">${family ? `第 ${formatDisplayInteger(family.latestRevision)} 卷` : '开宗立卷'}</span></div>
+      <div class="alchemy-summary-head"><div class="alchemy-summary-title">录法</div><span class="alchemy-summary-mode">${family ? `第 ${formatDisplayInteger(family.latestRevision)} 卷` : reboundSource ? '旧脉重录' : '开宗立卷'}</span></div>
       <div data-technique-aggregation-record-content="true">
         ${this.renderTechniqueAggregationSourceRecording(family)}
       </div>
@@ -1627,7 +1650,11 @@ export class CraftTransmissionView {
       button.classList.toggle('is-selected', selected);
       button.setAttribute('aria-pressed', selected ? 'true' : 'false');
       const mark = button.querySelector<HTMLElement>('.technique-aggregation-source-mark');
-      if (mark) mark.textContent = alreadyRecorded ? '已入法脉' : source.fullyMastered ? '' : '未圆满';
+      if (mark) {
+        mark.textContent = alreadyRecorded
+          ? '已入法脉'
+          : source.aggregate ? '创建者可重录' : source.fullyMastered ? '' : '未圆满';
+      }
     }
     const gradeSelect = root.querySelector<HTMLSelectElement>('[data-technique-aggregation-grade-filter="true"]');
     if (gradeSelect && gradeSelect.value !== this.techniqueAggregationGradeFilter) {
@@ -1638,8 +1665,13 @@ export class CraftTransmissionView {
       realmSelect.value = this.techniqueAggregationRealmFilter?.toString() ?? '';
     }
     const nameInput = root.querySelector<HTMLInputElement>('[data-technique-aggregation-name="true"]');
-    if (nameInput && document.activeElement !== nameInput && nameInput.value !== this.techniqueAggregationNameDraft) {
-      nameInput.value = this.techniqueAggregationNameDraft;
+    const reboundSource = family ? undefined : this.getSelectedTechniqueAggregationAggregateSource();
+    const displayedName = reboundSource?.name ?? this.techniqueAggregationNameDraft;
+    if (nameInput) {
+      nameInput.disabled = Boolean(reboundSource);
+    }
+    if (nameInput && document.activeElement !== nameInput && nameInput.value !== displayedName) {
+      nameInput.value = displayedName;
     }
     const summary = root.querySelector<HTMLElement>('[data-technique-aggregation-selection-summary="true"]');
     if (summary) summary.textContent = this.getTechniqueAggregationSelectionHint();
@@ -1653,7 +1685,9 @@ export class CraftTransmissionView {
     const publish = root.querySelector<HTMLButtonElement>('[data-craft-action="technique-aggregation-publish"]');
     if (publish) {
       publish.disabled = !this.canPublishTechniqueAggregation();
-      publish.textContent = this.techniqueAggregationPublishing ? '凝篇中...' : family ? '续录新卷' : '凝成首卷';
+      publish.textContent = this.techniqueAggregationPublishing
+        ? '凝篇中...'
+        : family ? '续录新卷' : reboundSource ? '重新录入' : '凝成首卷';
     }
     const learn = root.querySelector<HTMLButtonElement>('[data-craft-action="technique-aggregation-learn"]');
     if (learn) {
@@ -1952,7 +1986,10 @@ export class CraftTransmissionView {
     const panel = this.techniqueAggregationPanel;
     const sourceTechniqueIds = [...this.selectedTechniqueAggregationSourceIds].sort();
     if (!panel) return;
-    const minimumSelectionCount = this.techniqueAggregationFamilyId ? 1 : 2;
+    const reboundSource = this.techniqueAggregationFamilyId
+      ? undefined
+      : this.getSelectedTechniqueAggregationAggregateSource();
+    const minimumSelectionCount = this.techniqueAggregationFamilyId || reboundSource ? 1 : 2;
     if (sourceTechniqueIds.length < minimumSelectionCount) return;
     if (!this.techniqueAggregationOperationId) {
       this.techniqueAggregationOperationId = createTechniqueAggregationOperationId(++this.techniqueAggregationRequestSequence);
@@ -1971,7 +2008,7 @@ export class CraftTransmissionView {
         ...(this.techniqueAggregationFamilyId ? {
           familyId: this.techniqueAggregationFamilyId,
           expectedRevision: this.techniqueAggregationExpectedRevision,
-        } : {
+        } : reboundSource ? {} : {
           customName: this.techniqueAggregationNameDraft,
         }),
         sourceTechniqueIds,
@@ -1994,18 +2031,22 @@ export class CraftTransmissionView {
   private openTechniqueAggregationPublishConfirmModal(): void {
     if (!this.canPublishTechniqueAggregation()) return;
     const family = this.getBoundTechniqueAggregationFamily();
-    const techniqueName = family?.name ?? this.techniqueAggregationNameDraft.trim();
+    const reboundSource = family ? undefined : this.getSelectedTechniqueAggregationAggregateSource();
+    const techniqueName = family?.name ?? reboundSource?.name ?? this.techniqueAggregationNameDraft.trim();
     const selectedCount = this.getSelectedTechniqueAggregationSources().length;
+    const addedCount = this.getSelectedTechniqueAggregationSources().filter((source) => !source.aggregate).length;
     confirmModalHost.open({
       ownerId: TECHNIQUE_AGGREGATION_PUBLISH_CONFIRM_OWNER,
-      title: family ? '确认续录新卷' : '确认凝成首卷',
+      title: family ? '确认续录新卷' : reboundSource ? '确认重新录入' : '确认凝成首卷',
       subtitle: `法脉「${techniqueName}」`,
-      bodyHtml: family
+      bodyHtml: reboundSource?.aggregate
+        ? `<div class="alchemy-summary-metric"><span class="alchemy-summary-metric-label">续接旧卷</span><strong class="alchemy-summary-metric-value">第 ${formatDisplayInteger(reboundSource.aggregate.revision)} 卷 · ${formatDisplayInteger(reboundSource.aggregate.sourceCount)} 部源法</strong></div><div class="alchemy-summary-metric"><span class="alchemy-summary-metric-label">本次新增</span><strong class="alchemy-summary-metric-value">${formatDisplayInteger(addedCount)} 部圆满内功</strong></div><div class="empty-hint">重新录入会续接原法脉并生成新卷，不会把统法作为嵌套源法重复计算。</div>`
+        : family
         ? `<div class="alchemy-summary-metric"><span class="alchemy-summary-metric-label">本次续录</span><strong class="alchemy-summary-metric-value">${formatDisplayInteger(selectedCount)} 部圆满内功</strong></div><div class="empty-hint">续录完成后，新卷将承接既有法脉名讳与全部源法。</div>`
         : `<div class="alchemy-summary-metric"><span class="alchemy-summary-metric-label">法脉名讳</span><strong class="alchemy-summary-metric-value">${escapeHtml(techniqueName)}</strong></div><div class="alchemy-summary-metric"><span class="alchemy-summary-metric-label">首卷收录</span><strong class="alchemy-summary-metric-value">${formatDisplayInteger(selectedCount)} 部圆满内功</strong></div><div class="market-action-hint market-action-hint--error"><strong>法脉名讳一经凝篇，往后不可更改。</strong><br>请确认名讳无误后再行统法。</div>`,
-      confirmLabel: family ? '确认续录' : '确认凝篇',
+      confirmLabel: family ? '确认续录' : reboundSource ? '确认重录' : '确认凝篇',
       cancelLabel: '返回查验',
-      ...(!family ? { confirmButtonClass: 'danger' } : {}),
+      ...(!family && !reboundSource ? { confirmButtonClass: 'danger' } : {}),
       onConfirm: () => this.publishTechniqueAggregation(),
     });
   }
@@ -2112,6 +2153,12 @@ export class CraftTransmissionView {
         const currentGrade = this.techniqueAggregationPanel?.eligibleSources.find((entry) => this.selectedTechniqueAggregationSourceIds.has(entry.techId))?.grade;
         if (currentGrade && currentGrade !== source.grade) return true;
         if (family?.grade && family.grade !== source.grade) return true;
+        if (source.aggregate) {
+          for (const selectedId of [...this.selectedTechniqueAggregationSourceIds]) {
+            const selectedSource = this.techniqueAggregationPanel?.eligibleSources.find((entry) => entry.techId === selectedId);
+            if (selectedSource?.aggregate) this.selectedTechniqueAggregationSourceIds.delete(selectedId);
+          }
+        }
         this.techniqueAggregationGradeFilter = source.grade;
         this.selectedTechniqueAggregationSourceIds.add(techId);
       }

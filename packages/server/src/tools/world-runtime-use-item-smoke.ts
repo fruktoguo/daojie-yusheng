@@ -208,6 +208,12 @@ function createService(overrides: ServiceOverrides) {
             ]);
             return true;
         },
+        resolveLatestTechniqueId(techniqueId) {
+            return techniqueId;
+        },
+        resolveTechniqueLearningConflict() {
+            return null;
+        },
         consumeItemByItemId(playerId, itemId, count) {
             overrides.log.push(['consumeItemByItemId', playerId, itemId, count]);
             return overrides.consumeItemByItemIdResult ?? true;
@@ -232,6 +238,17 @@ function createService(overrides: ServiceOverrides) {
                     techId: techniqueId,
                     name: '炼法烟测诀',
                     category: 'arts',
+                    realmLv: 4,
+                    grade: 'yellow',
+                    level: 1,
+                    layers: [{ level: 1 }, { level: 2 }, { level: 3 }, { level: 4 }],
+                };
+            }
+            if (techniqueId === 'agg_refining_smoke') {
+                return {
+                    techId: techniqueId,
+                    name: '统法烟测诀',
+                    category: 'internal',
                     realmLv: 4,
                     grade: 'yellow',
                     level: 1,
@@ -551,6 +568,22 @@ async function testCustomTechniqueBookRejectsMissingTemplateWithoutConsume() {
     assert.deepEqual(log, []);
 }
 
+async function testCustomTechniqueBookRejectsAggregateWithoutConsume() {
+    const log = [];
+    const service = createService({ log });
+    service.playerRuntimeService.peekInventoryItem = () => ({
+        itemId: 'book.custom_technique',
+        itemInstanceId: 'item:book:aggregate',
+        name: '《统法烟测诀》',
+        learnTechniqueId: 'agg_refining_smoke',
+    });
+    await assert.rejects(
+        () => service.dispatchUseItem('player:1', 'item:book:aggregate', createDeps(log)),
+        /统法只能从统法台参悟/,
+    );
+    assert.deepEqual(log, []);
+}
+
 async function testCustomTechniqueBookRejectsPlanWithoutConsume() {
     const log = [];
     const service = createService({ log });
@@ -684,6 +717,23 @@ function testTechniqueRefiningCraftRejectsSystemTechnique() {
     assert.deepEqual(log, []);
 }
 
+function testTechniqueRefiningCraftRejectsAggregateTechnique() {
+    const log = [];
+    const service = createService({ log });
+    service.playerRuntimeService.getPlayerOrThrow = () => ({
+        x: 3,
+        y: 4,
+        techniques: {
+            techniques: [{ techId: 'agg_refining_smoke', level: 4 }],
+        },
+    });
+    assert.throws(
+        () => service.dispatchCraftTechniqueBook('player:1', 'agg_refining_smoke', 4, createTechniqueRefiningDeps(log)),
+        /统法不能抄录为功法书/,
+    );
+    assert.deepEqual(log, []);
+}
+
 function testTechniqueRefiningDecomposeBookBranch() {
     const log = [];
     const service = createService({ log });
@@ -739,6 +789,7 @@ async function main() {
     testTechniqueGenerationOpenPanelBranch();
     await testCustomTechniqueBookRejectsLearnedTechniqueWithoutConsume();
     await testCustomTechniqueBookRejectsMissingTemplateWithoutConsume();
+    await testCustomTechniqueBookRejectsAggregateWithoutConsume();
     await testCustomTechniqueBookRejectsPlanWithoutConsume();
     await testCustomTechniqueBookAddsPlanBeforeConsume();
     testTechniqueRefiningCraftBookBranch();
@@ -746,6 +797,7 @@ async function main() {
     testTechniqueRefiningCraftRejectsOutOfRange();
     testTechniqueRefiningCraftRejectsUnknownOrUnlearnedTechnique();
     testTechniqueRefiningCraftRejectsSystemTechnique();
+    testTechniqueRefiningCraftRejectsAggregateTechnique();
     testTechniqueRefiningDecomposeBookBranch();
     testTechniqueRefiningDecomposeRejectsMissingTemplate();
 

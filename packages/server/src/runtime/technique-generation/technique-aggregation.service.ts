@@ -162,11 +162,41 @@ export class TechniqueAggregationService {
     const covered = new Set(coverage.leafTechniqueIds);
     const pendingById = new Map(pending.map((entry: any) => [String(entry?.techId ?? ''), entry]));
     const eligibleSources: TechniqueAggregationSourceView[] = [];
+    const aggregateSourcesByFamily = new Map<string, TechniqueAggregationSourceView>();
     for (const entry of options.includeEligibleSources === false ? [] : techniques) {
       const techId = normalizeText(entry?.techId);
-      if (!techId || isTechniqueAggregationId(techId) || !isCreatedTechniqueId(techId)) continue;
+      if (!techId || !isCreatedTechniqueId(techId)) continue;
       const template = this.contentTemplateRepository.createTechniqueState(techId) as any;
       if (!template || template.category !== TECHNIQUE_AGGREGATE_CATEGORY) continue;
+      const aggregateMetadata = metadataById.get(techId);
+      if (aggregateMetadata) {
+        if (options.boundFamilyId || aggregateMetadata.creatorPlayerId !== player?.playerId) continue;
+        const maxLevel = getTechniqueMaxLevel(Array.isArray(template.layers) ? template.layers : undefined, entry.level);
+        const fullyMastered = isTechniqueFullyMastered({ level: entry.level, layers: template.layers });
+        const latest = this.getLatestAggregateForFamily(aggregateMetadata.familyId);
+        const candidate: TechniqueAggregationSourceView = {
+          techId,
+          name: normalizeName(latest?.template?.name, normalizeName(entry.name, template.name)),
+          grade: latest?.template?.grade ?? template.grade,
+          category: latest?.template?.category ?? template.category,
+          realmLv: Math.max(1, Math.trunc(Number(latest?.template?.realmLv ?? template.realmLv) || 1)),
+          strengthPercent: 100,
+          level: Math.max(1, Math.trunc(Number(entry.level) || 1)),
+          maxLevel,
+          fullyMastered,
+          covered: true,
+          aggregate: {
+            familyId: aggregateMetadata.familyId,
+            revision: aggregateMetadata.revision,
+            sourceCount: latest?.metadata.sourceCount ?? aggregateMetadata.sourceCount,
+          },
+        };
+        const previous = aggregateSourcesByFamily.get(aggregateMetadata.familyId);
+        if (!previous || (previous.aggregate?.revision ?? 0) < aggregateMetadata.revision) {
+          aggregateSourcesByFamily.set(aggregateMetadata.familyId, candidate);
+        }
+        continue;
+      }
       if (this.generatedTechniqueStoreService.getCreatorPlayerId(techId) !== player?.playerId) continue;
       const generatedTemplate = this.generatedTechniqueStoreService.getById(techId);
       const maxLevel = getTechniqueMaxLevel(Array.isArray(template.layers) ? template.layers : undefined, entry.level);
@@ -189,6 +219,7 @@ export class TechniqueAggregationService {
         } : {}),
       });
     }
+    eligibleSources.push(...aggregateSourcesByFamily.values());
     eligibleSources.sort(compareSourceView);
 
     const familyMap = new Map<string, { techniqueId: string; metadata: TechniqueAggregationMetadata }>();
@@ -448,7 +479,20 @@ export class TechniqueAggregationService {
       return null;
     }
     const requestedFamilyId = normalizeText(request.familyId);
-    const familyId = requestedFamilyId || this.resolveFamilyId(operationId, playerId);
+    const aggregateSourceIds = rawSourceIds.filter((techniqueId) => techniqueId.startsWith(TECHNIQUE_AGGREGATE_ID_PREFIX));
+    if (aggregateSourceIds.length > 1 || (requestedFamilyId && aggregateSourceIds.length > 0)) {
+      return null;
+    }
+    const reboundSourceMetadata = aggregateSourceIds.length === 1
+      ? this.generatedTechniqueStoreService.getAggregateMetadata(aggregateSourceIds[0])
+      : undefined;
+    if (aggregateSourceIds.length === 1
+      && (!reboundSourceMetadata || normalizeText(reboundSourceMetadata.creatorPlayerId) !== playerId)) {
+      return null;
+    }
+    const familyId = requestedFamilyId
+      || reboundSourceMetadata?.familyId
+      || this.resolveFamilyId(operationId, playerId);
     const latest = this.generatedTechniqueStoreService.getLatestAggregateForFamily(familyId);
     const revisionAuthorPlayerId = normalizeText(latest?.metadata.revisionAuthorPlayerId)
       || normalizeText(latest?.metadata.creatorPlayerId);
@@ -468,7 +512,7 @@ export class TechniqueAggregationService {
       return null;
     }
 
-    let expectedSourceIds = rawSourceIds;
+    let expectedSourceIds: string[] = rawSourceIds.filter((techniqueId) => !techniqueId.startsWith(TECHNIQUE_AGGREGATE_ID_PREFIX));
     if (requestedFamilyId) {
       const expectedRevision = Math.trunc(Number(request.expectedRevision) || 0);
       if (expectedRevision < 1
@@ -483,11 +527,26 @@ export class TechniqueAggregationService {
         return null;
       }
       expectedSourceIds = [...new Set([...previous.metadata.sourceTechniqueIds, ...rawSourceIds])];
+    } else if (reboundSourceMetadata) {
+      const previousRevision = Math.trunc(Number(latest.metadata.previousRevision) || 0);
+      if (previousRevision < 1 || reboundSourceMetadata.familyId !== latest.metadata.familyId) {
+        return null;
+      }
+      const previous = this.listMetadata().find((entry) => (
+        entry.metadata.familyId === familyId && entry.metadata.revision === previousRevision
+      ));
+      if (!previous || reboundSourceMetadata.revision > previous.metadata.revision) {
+        return null;
+      }
+      expectedSourceIds = [...new Set([
+        ...previous.metadata.sourceTechniqueIds,
+        ...expectedSourceIds,
+      ])];
     } else if (latest.metadata.revision !== 1) {
       return null;
     }
     const requestedName = normalizeTechniqueAggregationName(request.customName);
-    if (!requestedFamilyId && requestedName && requestedName !== latest.template.name) {
+    if (!requestedFamilyId && !reboundSourceMetadata && requestedName && requestedName !== latest.template.name) {
       return null;
     }
     if (!haveSameTechniqueIds(expectedSourceIds, latest.metadata.sourceTechniqueIds)) {
@@ -546,12 +605,22 @@ export class TechniqueAggregationService {
   ): TechniqueAggregationValidation {
     const revisionAuthorPlayerId = normalizeText(player?.playerId);
     if (!revisionAuthorPlayerId) return this.failure('TECHNIQUE_AGGREGATE_PERMISSION_DENIED');
-    const rawIds: string[] = Array.isArray(request?.sourceTechniqueIds)
+    const submittedIds: string[] = Array.isArray(request?.sourceTechniqueIds)
       ? request.sourceTechniqueIds.map(normalizeText).filter(Boolean)
       : [];
-    if (rawIds.length === 0) return this.failure('TECHNIQUE_AGGREGATE_SOURCE_EMPTY');
-    if (new Set(rawIds).size !== rawIds.length) return this.failure('TECHNIQUE_AGGREGATE_SOURCE_DUPLICATE');
+    if (submittedIds.length === 0) return this.failure('TECHNIQUE_AGGREGATE_SOURCE_EMPTY');
+    if (new Set(submittedIds).size !== submittedIds.length) return this.failure('TECHNIQUE_AGGREGATE_SOURCE_DUPLICATE');
     const familyIdInput = normalizeText(request?.familyId);
+    const aggregateSourceIds = submittedIds.filter((techniqueId) => techniqueId.startsWith(TECHNIQUE_AGGREGATE_ID_PREFIX));
+    if (aggregateSourceIds.length > 1 || (familyIdInput && aggregateSourceIds.length > 0)) {
+      return this.failure('TECHNIQUE_AGGREGATE_SOURCE_NOT_CREATED', {
+        invalidTechniqueIds: aggregateSourceIds,
+      });
+    }
+    const rawIds: string[] = submittedIds.filter((techniqueId) => !techniqueId.startsWith(TECHNIQUE_AGGREGATE_ID_PREFIX));
+    const learnedById = new Map<string, any>(
+      (player.techniques?.techniques ?? []).map((entry: any) => [normalizeText(entry?.techId), entry] as [string, any]),
+    );
     let familyId = familyIdInput;
     let revision = 1;
     let previousRevision: number | undefined;
@@ -604,6 +673,51 @@ export class TechniqueAggregationService {
       // 允许只提交新增功法；最终叶子集合仍保留旧版本全部内容。
       rawIds.push(...latest.metadata.sourceTechniqueIds.filter((id) => !rawIds.includes(id)));
       familyId = latest.metadata.familyId;
+    } else if (aggregateSourceIds.length === 1) {
+      const sourceAggregateId = aggregateSourceIds[0];
+      const sourceAggregateMetadata = this.generatedTechniqueStoreService.getAggregateMetadata(sourceAggregateId);
+      const sourceAggregateTemplate = this.contentTemplateRepository.createTechniqueState(sourceAggregateId) as any;
+      const learnedAggregate = learnedById.get(sourceAggregateId);
+      if (!sourceAggregateMetadata || !sourceAggregateTemplate) {
+        return this.failure('TECHNIQUE_AGGREGATE_SOURCE_NOT_FOUND', {
+          invalidTechniqueIds: [sourceAggregateId],
+        });
+      }
+      if (normalizeText(sourceAggregateMetadata.creatorPlayerId) !== revisionAuthorPlayerId) {
+        return this.failure('TECHNIQUE_AGGREGATE_SOURCE_NOT_OWNER', {
+          invalidTechniqueIds: [sourceAggregateId],
+        });
+      }
+      if (!learnedAggregate || !isTechniqueFullyMastered({
+        level: learnedAggregate.level,
+        layers: sourceAggregateTemplate.layers,
+      })) {
+        return this.failure('TECHNIQUE_AGGREGATE_SOURCE_NOT_MASTERED', {
+          invalidTechniqueIds: [sourceAggregateId],
+        });
+      }
+      const platformOwnerPlayerId = normalizeText(context.platformOwnerPlayerId);
+      if (platformOwnerPlayerId && platformOwnerPlayerId !== revisionAuthorPlayerId) {
+        return this.failure('TECHNIQUE_AGGREGATE_PERMISSION_DENIED');
+      }
+      const latest = this.generatedTechniqueStoreService.getLatestAggregateForFamily(sourceAggregateMetadata.familyId);
+      if (!latest || normalizeText(latest.metadata.creatorPlayerId) !== revisionAuthorPlayerId) {
+        return this.failure('TECHNIQUE_AGGREGATE_REVISION_INVALID');
+      }
+      displayName = normalizeTechniqueAggregationName(latest.template.name) ?? '';
+      if (!displayName) {
+        return this.failure('TECHNIQUE_AGGREGATE_NAME_INVALID');
+      }
+      familyId = latest.metadata.familyId;
+      revision = latest.metadata.revision + 1;
+      previousRevision = latest.metadata.revision;
+      previousMetadata = latest.metadata;
+      familyCreatorPlayerId = revisionAuthorPlayerId;
+      initialPermissions = normalizeTechniqueUnificationPermissions(
+        context.initialPermissions,
+        DEFAULT_TECHNIQUE_UNIFICATION_PERMISSIONS,
+      );
+      rawIds.push(...latest.metadata.sourceTechniqueIds.filter((id) => !rawIds.includes(id)));
     } else {
       const platformOwnerPlayerId = normalizeText(context.platformOwnerPlayerId);
       if (platformOwnerPlayerId && platformOwnerPlayerId !== revisionAuthorPlayerId) {
@@ -624,9 +738,6 @@ export class TechniqueAggregationService {
         return this.failure('TECHNIQUE_AGGREGATE_ALREADY_EXISTS');
       }
     }
-    const learnedById = new Map<string, any>(
-      (player.techniques?.techniques ?? []).map((entry: any) => [normalizeText(entry?.techId), entry] as [string, any]),
-    );
     const sourceTemplates: Array<{ id: string; template: any; learned: any }> = [];
     for (const id of rawIds) {
       const template = this.contentTemplateRepository.createTechniqueState(id) as any;

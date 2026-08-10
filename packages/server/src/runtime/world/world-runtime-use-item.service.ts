@@ -8,7 +8,7 @@
  * 处理丹药、技能书、传送符、灵石等各类物品的使用逻辑分支
  */
 import { Inject, Injectable, BadRequestException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
-import { CUSTOM_TECHNIQUE_BOOK_ITEM_ID, DEFAULT_QI_RESOURCE_DESCRIPTOR, MERIT_ETERNAL_DAILY_SIGN_IN_FIXED_BONUS, MERIT_ETERNAL_POOL_GRANT, MERIT_ETERNAL_USE_BEHAVIOR, MERIT_MONTH_CARD_DURATION_DAYS, MERIT_MONTH_CARD_POOL_GRANT, MERIT_MONTH_CARD_USE_BEHAVIOR, SECT_ENTRANCE_RELOCATION_USE_BEHAVIOR, TECHNIQUE_FRAGMENT_ITEM_ID, buildQiResourceKey, calculateTechniqueBookCraftFragmentCost, calculateTechniqueBookDecomposeFragments, getItemDisplayName, getTechniqueMaxLevel, isCreatedTechniqueId, isTechniqueFullyMastered, resolvePlayerFacingContentName } from '@mud/shared';
+import { CUSTOM_TECHNIQUE_BOOK_ITEM_ID, DEFAULT_QI_RESOURCE_DESCRIPTOR, MERIT_ETERNAL_DAILY_SIGN_IN_FIXED_BONUS, MERIT_ETERNAL_POOL_GRANT, MERIT_ETERNAL_USE_BEHAVIOR, MERIT_MONTH_CARD_DURATION_DAYS, MERIT_MONTH_CARD_POOL_GRANT, MERIT_MONTH_CARD_USE_BEHAVIOR, SECT_ENTRANCE_RELOCATION_USE_BEHAVIOR, TECHNIQUE_FRAGMENT_ITEM_ID, buildQiResourceKey, calculateTechniqueBookCraftFragmentCost, calculateTechniqueBookDecomposeFragments, getItemDisplayName, getTechniqueMaxLevel, isCreatedTechniqueId, isTechniqueAggregationId, isTechniqueFullyMastered, resolvePlayerFacingContentName } from '@mud/shared';
 import { randomUUID } from 'node:crypto';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
@@ -169,6 +169,9 @@ export class WorldRuntimeUseItemService {
             const resolvedTechniqueId = typeof this.playerRuntimeService.resolveLatestTechniqueId === 'function'
                 ? this.playerRuntimeService.resolveLatestTechniqueId(learnedTechniqueId)
                 : learnedTechniqueId;
+            if (isTechniqueAggregationId(resolvedTechniqueId)) {
+                throw new BadRequestException('统法只能从统法台参悟');
+            }
             const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
             if (findPlayerLearnedTechnique(player, resolvedTechniqueId)) {
                 throw new BadRequestException('已经掌握该功法');
@@ -291,6 +294,9 @@ export class WorldRuntimeUseItemService {
         const techniqueId = typeof techniqueIdInput === 'string' && techniqueIdInput.trim() ? techniqueIdInput.trim() : '';
         if (!techniqueId) {
             throw new BadRequestException('请选择要抄录的功法');
+        }
+        if (isTechniqueAggregationId(techniqueId)) {
+            throw new BadRequestException('统法不能抄录为功法书，只能从统法台参悟');
         }
         if (!isCreatedTechniqueId(techniqueId)) {
             throw new BadRequestException('只能抄录自创功法');

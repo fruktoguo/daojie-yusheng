@@ -10,6 +10,7 @@ import {
   deriveTechniqueRealm,
   getTechniqueMaxLevel,
   isCreatedTechniqueId,
+  isTechniqueAggregationId,
   isTechniqueFullyMastered,
   normalizeTechniqueLearnMaxLevel,
   normalizeTechniqueStrengthPercent,
@@ -108,6 +109,9 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
     }
     if (mode === 'scripture_contemplation') {
       return validateScriptureContemplationStart(learner, payload, ctx);
+    }
+    if (isTechniqueAggregationId(techniqueId)) {
+      return { ok: false, error: '统法只能从统法台参悟，不能由玩家传授。' };
     }
     if (!teacherPlayerId) {
       return { ok: false, error: '传授者不能为空。' };
@@ -256,9 +260,15 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
       return emptyTransmissionTickResult();
     }
     if (job.jobType === 'scripture_recording') {
+      if (isTechniqueAggregationId(job.techniqueId)) {
+        return blockScriptureRecording(learner, job, 'technique_aggregation_platform_required', ctx);
+      }
       return executeScriptureRecordingTick(learner, job, ctx);
     }
     if (job.jobType === 'scripture_contemplation') {
+      if (isTechniqueAggregationId(job.techniqueId)) {
+        return blockScriptureContemplation(learner, job, 'technique_aggregation_platform_required', ctx);
+      }
       return executeScriptureContemplationTick(learner, job, ctx);
     }
     if (job.phase === 'paused') {
@@ -273,6 +283,9 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
       return { ...emptyTransmissionTickResult(), panelChanged: true };
     }
     delete pending.activeTransferJob;
+    if (isTechniqueAggregationId(job.techniqueId)) {
+      return blockTransmission(learner, job, pending, 'technique_aggregation_platform_required', ctx);
+    }
     if (!isCreatedTechniqueId(job.techniqueId)) {
       return blockTransmission(learner, job, pending, 'not_created_technique', ctx);
     }
@@ -477,6 +490,9 @@ function validateScriptureRecordingStart(
     return { ok: false, error: '藏经台已有录入任务进行中。' };
   }
   const runtime = resolveTransmissionDeps(ctx)?.playerRuntimeService;
+  if (isTechniqueAggregationId(techniqueId)) {
+    return { ok: false, error: '统法只能从统法台参悟，不能录入藏经台。' };
+  }
   const technique = findTeacherTechniqueForTransmission(recorder, techniqueId, runtime);
   if (!technique) {
     return { ok: false, error: '尚未掌握该功法。' };
@@ -537,6 +553,9 @@ function validateScriptureContemplationStart(
   const techniqueId = runtime?.resolveLatestTechniqueId?.(requestedTechniqueId) || requestedTechniqueId;
   if (!techniqueId || Number(building.scriptureRecordedAtTick) <= 0) {
     return { ok: false, error: '藏经台尚未录入藏书。' };
+  }
+  if (isTechniqueAggregationId(techniqueId)) {
+    return { ok: false, error: '统法只能从统法台参悟。' };
   }
   if (learner.techniques?.techniques?.some((entry: any) => entry?.techId === techniqueId)) {
     return { ok: false, error: '已经掌握该功法。' };
@@ -736,7 +755,6 @@ function findPendingComprehension(learner: any, techniqueId: string): any | null
   return (learner.pendingTechniqueComprehensions ?? []).find((entry: any) => entry?.techId === techniqueId) ?? null;
 }
 
-/** 旧统合版本仍可作为传授凭据，但学习目标始终是家族最新版。 */
 function findTeacherTechniqueForTransmission(
   teacher: any,
   targetTechniqueId: string,

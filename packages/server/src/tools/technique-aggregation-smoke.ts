@@ -494,6 +494,69 @@ async function main(): Promise<void> {
   const secondTemplate = store.getById(second.result.aggregate.techniqueId);
   assert.ok(secondTemplate);
   const secondRuntime = toRuntimeTechnique(secondTemplate!);
+  const rebindCreator = createPlayer(creatorPlayerId, [secondRuntime]);
+  const rebindPanel = service.buildPanel(rebindCreator, {
+    requestId: 'rebind-panel',
+    buildingId: 'unification-platform-rebuilt',
+  });
+  const rebindCandidate = rebindPanel.eligibleSources.find((entry) => entry.techId === secondRuntime.techId);
+  assert.equal(rebindCandidate?.aggregate?.familyId, second.result.aggregate.familyId);
+  assert.equal(rebindCandidate?.aggregate?.revision, 2);
+  assert.equal(rebindCandidate?.aggregate?.sourceCount, 3);
+
+  const aggregateLearner = createPlayer('player:aggregate-learner', [secondRuntime]);
+  const aggregateLearnerPanel = service.buildPanel(aggregateLearner, {
+    requestId: 'learner-rebind-panel',
+    buildingId: 'unification-platform-learner',
+  });
+  assert.equal(aggregateLearnerPanel.eligibleSources.some((entry) => entry.aggregate), false);
+  const aggregateLearnerRebind = await service.publish(aggregateLearner, {
+    operationId: 'learner-rebind-denied',
+    sourceTechniqueIds: [secondRuntime.techId],
+  }, {
+    platformInstanceId: 'instance:learner-platform',
+    platformBuildingId: 'unification-platform-learner',
+    platformOwnerPlayerId: aggregateLearner.playerId,
+  });
+  assert.equal(aggregateLearnerRebind.ok, false);
+  assert.equal(aggregateLearnerRebind.result.code, 'TECHNIQUE_AGGREGATE_SOURCE_NOT_OWNER');
+
+  const rebound = await service.publish(rebindCreator, {
+    requestId: 'publish-rebound',
+    operationId: 'aggregation-family-rebound',
+    sourceTechniqueIds: [secondRuntime.techId],
+  }, {
+    platformInstanceId: 'instance:sect-rebuilt',
+    platformBuildingId: 'unification-platform-rebuilt',
+    platformOwnerPlayerId: creatorPlayerId,
+  });
+  assert.equal(rebound.ok, true);
+  assert.ok(rebound.ok && rebound.result.aggregate);
+  if (!rebound.ok || !rebound.result.aggregate) throw new Error('旧统法重新录入失败');
+  assert.equal(rebound.result.aggregate.familyId, second.result.aggregate.familyId);
+  assert.equal(rebound.result.aggregate.revision, 3);
+  assert.deepEqual(rebound.result.aggregate.sourceTechniqueIds, second.result.aggregate.sourceTechniqueIds);
+  const reboundMetadata = service.getMetadataById(rebound.result.aggregate.techniqueId);
+  assert.equal(reboundMetadata?.creatorPlayerId, creatorPlayerId);
+  assert.equal(reboundMetadata?.platformInstanceId, 'instance:sect-rebuilt');
+  assert.equal(reboundMetadata?.platformBuildingId, 'unification-platform-rebuilt');
+  assert.equal(service.resolveLatestTechniqueId(firstRuntime.techId), rebound.result.aggregate.techniqueId);
+
+  const reboundReplayCreator = createPlayer(creatorPlayerId, [
+    toRuntimeTechnique(store.getById(rebound.result.aggregate.techniqueId)!),
+  ]);
+  const reboundReplay = await service.publish(reboundReplayCreator, {
+    requestId: 'publish-rebound-replay',
+    operationId: 'aggregation-family-rebound',
+    sourceTechniqueIds: [secondRuntime.techId],
+  }, {
+    platformInstanceId: 'instance:sect-rebuilt',
+    platformBuildingId: 'unification-platform-rebuilt',
+    platformOwnerPlayerId: creatorPlayerId,
+  });
+  assert.equal(reboundReplay.ok, true);
+  assert.equal(reboundReplay.result.aggregate?.techniqueId, rebound.result.aggregate.techniqueId);
+
   const replacingPlayer = createPlayer('player:replacement', [
     toRuntimeTechnique(sourceA),
     toRuntimeTechnique(sourceB),
@@ -591,8 +654,8 @@ async function main(): Promise<void> {
     teacherPlayerId: oldVersionTeacher.playerId,
     techniqueId: firstRuntime.techId,
   }, transmissionContext as never);
-  assert.equal(directValidation.ok, true, 'error' in directValidation ? directValidation.error : undefined);
-  assert.equal(directValidation.validated?.techniqueId, secondRuntime.techId);
+  assert.equal(directValidation.ok, false);
+  assert.match(directValidation.error ?? '', /统法只能从统法台参悟/);
 
   const scriptureValidation = transmission.validateStart(latestLearner, {
     mode: 'scripture_contemplation',
@@ -600,22 +663,74 @@ async function main(): Promise<void> {
     techniqueId: firstRuntime.techId,
     buildingId: scriptureBuilding.id,
   }, transmissionContext as never);
-  assert.equal(scriptureValidation.ok, true, 'error' in scriptureValidation ? scriptureValidation.error : undefined);
-  if (!scriptureValidation.ok) throw new Error('旧版藏经台无法解析最新版统合功法');
-  assert.equal(scriptureValidation.validated.techniqueId, secondRuntime.techId);
-  const scriptureJob = transmission.createJob(latestLearner, scriptureValidation.validated, transmissionContext as never);
-  transmission.setActiveJob(latestLearner, scriptureJob);
-  transmission.executeTick(latestLearner, transmissionContext as never);
-  assert.notEqual(latestLearner.transmissionJob?.status, 'blocked');
-  assert.equal(latestLearner.pendingTechniqueComprehensions[0]?.techId, secondRuntime.techId);
+  assert.equal(scriptureValidation.ok, false);
+  assert.match(scriptureValidation.error ?? '', /统法只能从统法台参悟/);
+
+  const legacyPending = {
+    techId: firstRuntime.techId,
+    name: firstRuntime.name,
+    progress: 12,
+    requiredProgress: 100,
+    realmLv: firstRuntime.realmLv,
+    grade: firstRuntime.grade,
+    category: firstRuntime.category,
+    updatedAtTick: 1,
+  };
+  latestLearner.pendingTechniqueComprehensions.push(legacyPending);
+  (latestLearner as any).transmissionJob = {
+    jobType: 'transmission',
+    techniqueId: firstRuntime.techId,
+    remainingTicks: 88,
+    status: 'running',
+    phase: 'transmitting',
+  };
+  const legacyTransmissionTick = transmission.executeTick(latestLearner, transmissionContext as never) as any;
+  assert.equal(legacyTransmissionTick.panelChanged, true);
+  assert.equal((latestLearner as any).transmissionJob?.status, 'blocked');
+  assert.equal(
+    (latestLearner as any).transmissionJob?.blockedReason,
+    'technique_aggregation_platform_required',
+  );
+  assert.equal(legacyPending.progress, 12);
+
+  (latestLearner as any).transmissionJob = {
+    jobType: 'scripture_contemplation',
+    techniqueId: firstRuntime.techId,
+    buildingId: scriptureBuilding.id,
+    remainingTicks: 88,
+    status: 'running',
+    phase: 'transmitting',
+  };
+  const legacyContemplationTick = transmission.executeTick(latestLearner, transmissionContext as never) as any;
+  assert.equal(legacyContemplationTick.panelChanged, true);
+  assert.equal(
+    (latestLearner as any).transmissionJob?.blockedReason,
+    'technique_aggregation_platform_required',
+  );
+  assert.equal(legacyPending.progress, 12);
+
+  (oldVersionTeacher as any).transmissionJob = {
+    jobType: 'scripture_recording',
+    techniqueId: firstRuntime.techId,
+    buildingId: scriptureBuilding.id,
+    remainingTicks: 88,
+    status: 'running',
+    phase: 'transmitting',
+  };
+  const legacyRecordingTick = transmission.executeTick(oldVersionTeacher, transmissionContext as never) as any;
+  assert.equal(legacyRecordingTick.panelChanged, true);
+  assert.equal(
+    (oldVersionTeacher as any).transmissionJob?.blockedReason,
+    'technique_aggregation_platform_required',
+  );
 
   console.log(JSON.stringify({
     ok: true,
     case: 'technique-aggregation',
     firstRevision: first.result.aggregate.revision,
-    latestRevision: second.result.aggregate.revision,
-    sourceCount: second.result.aggregate.sourceCount,
-    totalTrainingDifficulty: second.result.aggregate.totalTrainingDifficulty,
+    latestRevision: rebound.result.aggregate.revision,
+    sourceCount: rebound.result.aggregate.sourceCount,
+    totalTrainingDifficulty: rebound.result.aggregate.totalTrainingDifficulty,
   }));
 }
 

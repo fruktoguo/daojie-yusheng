@@ -373,6 +373,9 @@ function resolveTransmissionBlockedReason(reason: unknown): string {
   if (reason === 'not_created_technique') {
     return '只能传授自创功法';
   }
+  if (reason === 'technique_aggregation_platform_required') {
+    return '统法只能从统法台参悟';
+  }
   if (reason === 'scripture_platform_unavailable') {
     return '藏经台不可用';
   }

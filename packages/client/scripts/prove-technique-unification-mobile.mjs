@@ -113,11 +113,28 @@ const initializeExpression = String.raw`
       fullyMastered: true,
       covered: false,
     }));
+    const previousAggregateSource = {
+      techId: 'agg_mobile_previous_v4',
+      name: '太玄归一真经',
+      grade: 'mortal',
+      category: 'internal',
+      realmLv: 3,
+      strengthPercent: 100,
+      level: 9,
+      maxLevel: 9,
+      fullyMastered: true,
+      covered: true,
+      aggregate: {
+        familyId: 'family:mobile-previous',
+        revision: 4,
+        sourceCount: 18,
+      },
+    };
     const sources = [...mortalSources, ...yellowSources];
-    const buildPanel = ({ bound = false, isOwner = true, canRevise = true } = {}) => ({
+    const buildPanel = ({ bound = false, isOwner = true, canRevise = true, includeRebind = false } = {}) => ({
       revision: 7,
       buildingId: 'building:mobile-proof',
-      eligibleSources: canRevise ? sources : [],
+      eligibleSources: canRevise ? [...(includeRebind ? [previousAggregateSource] : []), ...sources] : [],
       families: bound ? [{
         familyId: 'family:mobile-proof',
         latestRevision: 4,
@@ -390,6 +407,48 @@ const openPublishConfirmExpression = String.raw`
   })()
 `;
 
+const openRebindConfirmExpression = String.raw`
+  (() => {
+    const modal = window.__techniqueUnificationProofModal;
+    const buildPanel = window.__techniqueUnificationBuildPanel;
+    window.__techniqueUnificationPublishPayload = null;
+    modal.openTechniqueAggregation('building:mobile-proof');
+    modal.handleTechniqueAggregationPanel(buildPanel({ includeRebind: true }));
+    document.querySelector('[data-primary-tab="record"]')?.click();
+    const card = document.querySelector('[data-technique-id="agg_mobile_previous_v4"]');
+    if (!(card instanceof HTMLButtonElement)) {
+      throw new Error('旧统法重录候选未显示');
+    }
+    card.click();
+    const name = document.querySelector('[data-technique-aggregation-name="true"]');
+    const publish = document.querySelector('[data-craft-action="technique-aggregation-publish"]');
+    const marker = card.querySelector('.technique-aggregation-source-mark')?.textContent?.trim() ?? '';
+    const chip = card.querySelector('.technique-aggregation-source-strength')?.textContent?.trim() ?? '';
+    if (!(name instanceof HTMLInputElement) || !(publish instanceof HTMLButtonElement)) {
+      throw new Error('旧统法重录控件不完整');
+    }
+    const publishLabel = publish.textContent?.trim() ?? '';
+    publish.click();
+    const title = document.querySelector('.confirm-modal-title')?.textContent?.trim() ?? '';
+    const body = document.querySelector('.confirm-modal-body')?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+    const confirmLabel = document.querySelector('[data-confirm-modal-confirm="true"]')?.textContent?.trim() ?? '';
+    document.querySelector('[data-confirm-modal-confirm="true"]')?.click();
+    const publishingLabel = publish.textContent?.trim() ?? '';
+    return {
+      marker,
+      chip,
+      nameDisabled: name.disabled,
+      nameValue: name.value,
+      publishLabel,
+      publishingLabel,
+      title,
+      body,
+      confirmLabel,
+      payload: window.__techniqueUnificationPublishPayload,
+    };
+  })()
+`;
+
 const openPermissionsExpression = String.raw`
   (async () => {
     const modal = window.__techniqueUnificationProofModal;
@@ -583,6 +642,19 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'technique-uni
   assert.equal(publishConfirm.payloadBeforeConfirm, null, '二次确认前不应提交凝篇请求');
   assert.equal(publishConfirm.payloadAfterConfirm?.customName, '太玄归一真经', '确认后提交的法脉名讳错误');
   assert.equal(publishConfirm.payloadAfterConfirm?.sourceTechniqueIds?.length, 2, '确认后提交的源法数量错误');
+
+  const rebindConfirm = await cdp.evaluate(openRebindConfirmExpression);
+  assert.equal(rebindConfirm.marker, '创建者可重录', '旧统法候选未标识创建者重录权限');
+  assert.equal(rebindConfirm.chip, '第 4 卷 · 18 部源法', '旧统法候选未显示卷次与叶子数量');
+  assert.equal(rebindConfirm.nameDisabled, true, '重新录入时仍允许改写原法脉名讳');
+  assert.equal(rebindConfirm.nameValue, '太玄归一真经', '重新录入未沿用原法脉名讳');
+  assert.equal(rebindConfirm.publishLabel, '重新录入', '重新录入按钮文案错误');
+  assert.equal(rebindConfirm.publishingLabel, '凝篇中...', '重新录入提交后未进入防重复提交状态');
+  assert.equal(rebindConfirm.title, '确认重新录入', '旧统法重新录入未经过二次确认');
+  assert.match(rebindConfirm.body, /不会把统法作为嵌套源法重复计算/, '重新录入确认未说明叶子展开规则');
+  assert.equal(rebindConfirm.confirmLabel, '确认重录', '重新录入确认按钮文案错误');
+  assert.deepEqual(rebindConfirm.payload?.sourceTechniqueIds, ['agg_mobile_previous_v4'], '重新录入提交的旧统法错误');
+  assert.equal('customName' in (rebindConfirm.payload ?? {}), false, '重新录入不应提交可改写的法脉名讳');
 
   await cdp.send('Emulation.setDeviceMetricsOverride', {
     width: SHORT_VIEWPORT.width,

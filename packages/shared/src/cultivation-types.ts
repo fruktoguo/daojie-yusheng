@@ -519,6 +519,7 @@ export type TechniqueTransmissionBlockedReason =
   | 'teacher_out_of_range'
   | 'teacher_technique_not_perfected'
   | 'not_created_technique'
+  | 'technique_aggregation_platform_required'
   | 'scripture_platform_unavailable'
   | 'scripture_platform_out_of_range'
   | 'scripture_recording_locked';

@@ -97,6 +97,12 @@ export interface TechniqueAggregationSourceView {
   fullyMastered: boolean;
   /** 该功法作为叶子被玩家覆盖时计入的数量，便于客户端显示公平进度。 */
   covered: boolean;
+  /** 仅法脉创建者可见；选择后会把既有法脉展开为叶子并重新录入新统法台。 */
+  aggregate?: {
+    familyId: string;
+    revision: number;
+    sourceCount: number;
+  };
   pendingProgress?: number;
   pendingRequiredProgress?: number;
 }
@@ -139,6 +145,7 @@ export interface TechniqueAggregationPublishRequest {
   expectedRevision?: number;
   /** 首次凝篇必填；续录沿用法脉原名。 */
   customName?: string;
+  /** 未绑定统法台可提交一部本人创建的旧统法；服务端会续接原法脉，不建立嵌套统法。 */
   sourceTechniqueIds: string[];
 }
 
