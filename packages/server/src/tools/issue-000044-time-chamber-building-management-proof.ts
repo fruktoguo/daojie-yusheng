@@ -6,6 +6,8 @@ import { MapTemplateRepository } from '../runtime/map/map-template.repository';
 import {
   dispatchStartBuildingConstruction,
   handleBuildDeconstructIntent,
+  interruptBuildingConstruction,
+  tickBuildingConstruction,
 } from '../runtime/world/world-runtime-building.service';
 import { WorldRuntimeContextActionQueryService } from '../runtime/world/query/world-runtime-context-action-query.service';
 
@@ -120,6 +122,7 @@ function placeBuilding(
     y: number;
     ownerPlayerId: string | null;
     state: 'building' | 'active';
+    buildStrength?: number;
   },
 ): void {
   const result = instance.placeBuildingInstance(input);
@@ -189,6 +192,8 @@ async function main(): Promise<void> {
   const chamber = createInstance(repository, 'time-chamber:issue-000044', 'time_chamber', CHAMBER_OWNER_ID);
   const chamberOwner = createPlayer(CHAMBER_OWNER_ID);
   const visitor = createPlayer(VISITOR_ID);
+  visitor.x = 4;
+  visitor.y = 1;
   attachPlayer(chamber, chamberOwner);
   attachPlayer(chamber, visitor);
 
@@ -203,7 +208,7 @@ async function main(): Promise<void> {
   placeBuilding(chamber, { buildingId: foreignCompletedId, defId: 'stone_wall', x: 3, y: 1, ownerPlayerId: FOREIGN_BUILDER_ID, state: 'active' });
   placeBuilding(chamber, { buildingId: foreignVisitorTargetId, defId: 'stone_wall', x: 4, y: 1, ownerPlayerId: FOREIGN_BUILDER_ID, state: 'active' });
   placeBuilding(chamber, { buildingId: ownerlessLegacyId, defId: 'stone_wall', x: 5, y: 1, ownerPlayerId: null, state: 'active' });
-  placeBuilding(chamber, { buildingId: foreignVaultId, defId: 'treasure_vault', x: 6, y: 1, ownerPlayerId: FOREIGN_BUILDER_ID, state: 'active' });
+  placeBuilding(chamber, { buildingId: foreignVaultId, defId: 'treasure_vault', x: 6, y: 1, ownerPlayerId: FOREIGN_BUILDER_ID, state: 'active', buildStrength: 2 });
 
   const players = new Map([
     [chamberOwner.playerId, chamberOwner],
@@ -230,28 +235,58 @@ async function main(): Promise<void> {
   assert.equal(chamberOwner.buildingJob?.buildingId, foreignStartId, '继续施工必须进入通用建筑 job 生命周期');
   assert.equal(chamberOwner.dirtyDomains.has('active_job'), true, '建筑 job 必须进入既有持久化脏域');
 
-  const visitorDenied = await handleBuildDeconstructIntent(chamberRuntime, VISITOR_ID, {
-    requestId: 'issue-000044:visitor-denied',
+  const visitorDeconstruct = await handleBuildDeconstructIntent(chamberRuntime, VISITOR_ID, {
+    requestId: 'issue-000044:visitor-deconstruct',
     buildingId: foreignVisitorTargetId,
   });
-  assert.equal(visitorDenied.reason, 'building_owner_mismatch', '普通访客不得借密室场景拆除他人建筑');
+  assert.equal(visitorDeconstruct.ok, true, '普通访客可以对他人建筑发起等时拆除');
+  assert.equal(visitorDeconstruct.deconstructStarted, true);
   assert.equal(chamber.buildingById.has(foreignVisitorTargetId), true);
+  await tickBuildingConstruction(chamberRuntime, VISITOR_ID);
+  assert.equal(chamber.buildingById.has(foreignVisitorTargetId), false, '完整经过建造耗时后才真正拆除');
+
+  interruptBuildingConstruction(chamberRuntime, CHAMBER_OWNER_ID, 'cancel');
+  assert.equal(chamberOwner.buildingJob, null, '切换目标前必须释放继续施工任务');
 
   for (const [requestId, buildingId] of [
     ['issue-000044:owner-half-built', foreignHalfBuiltId],
     ['issue-000044:owner-completed', foreignCompletedId],
     ['issue-000044:owner-legacy', ownerlessLegacyId],
   ] as const) {
+    const target = chamber.buildingById.get(buildingId);
+    assert.ok(target);
+    chamberOwner.x = target.x;
+    chamberOwner.y = target.y;
+    const attachedOwner = chamber.playersById.get(CHAMBER_OWNER_ID);
+    assert.ok(attachedOwner);
+    attachedOwner.x = target.x;
+    attachedOwner.y = target.y;
     const result = await handleBuildDeconstructIntent(chamberRuntime, CHAMBER_OWNER_ID, { requestId, buildingId });
-    assert.equal(result.ok, true, `密室主人应能清理 ${buildingId}，实际原因：${String(result.reason ?? '')}`);
+    assert.equal(result.ok, true, `密室主人应能发起清理 ${buildingId}，实际原因：${String(result.reason ?? '')}`);
+    assert.equal(result.deconstructStarted, true, '非建筑所有者必须进入等时拆除任务');
+    assert.equal(chamber.buildingById.has(buildingId), true);
+    await tickBuildingConstruction(chamberRuntime, CHAMBER_OWNER_ID);
     assert.equal(chamber.buildingById.has(buildingId), false);
   }
 
+  const vaultTarget = chamber.buildingById.get(foreignVaultId);
+  assert.ok(vaultTarget);
+  chamberOwner.x = vaultTarget.x;
+  chamberOwner.y = vaultTarget.y;
+  const attachedOwner = chamber.playersById.get(CHAMBER_OWNER_ID);
+  assert.ok(attachedOwner);
+  attachedOwner.x = vaultTarget.x;
+  attachedOwner.y = vaultTarget.y;
   const vaultResult = await handleBuildDeconstructIntent(chamberRuntime, CHAMBER_OWNER_ID, {
     requestId: 'issue-000044:owner-vault',
     buildingId: foreignVaultId,
   });
-  assert.equal(vaultResult.ok, true, `密室主人应能清理他人宝库，实际原因：${String(vaultResult.reason ?? '')}`);
+  assert.equal(vaultResult.ok, true, `密室主人应能发起清理他人宝库，实际原因：${String(vaultResult.reason ?? '')}`);
+  assert.equal(vaultResult.deconstructStarted, true);
+  assert.equal(vaultResult.deconstructTicks, 2);
+  for (let index = 0; index < Number(vaultResult.deconstructTicks); index += 1) {
+    await tickBuildingConstruction(chamberRuntime, CHAMBER_OWNER_ID);
+  }
   assert.deepEqual(vaultRecoveries, [{
     instanceId: chamber.meta.instanceId,
     buildingId: foreignVaultId,
@@ -287,12 +322,15 @@ async function main(): Promise<void> {
     new Map([[publicPlayer.playerId, publicPlayer]]),
     publicRecoveries,
   );
-  const publicDenied = await handleBuildDeconstructIntent(publicRuntime, CHAMBER_OWNER_ID, {
-    requestId: 'issue-000044:public-denied',
+  const publicDeconstruct = await handleBuildDeconstructIntent(publicRuntime, CHAMBER_OWNER_ID, {
+    requestId: 'issue-000044:public-deconstruct',
     buildingId: publicForeignBuildingId,
   });
-  assert.equal(publicDenied.reason, 'building_owner_mismatch', '普通地图即使带 ownerPlayerId 元数据也不得放宽建筑归属规则');
+  assert.equal(publicDeconstruct.ok, true, '普通地图允许对他人建筑发起等时拆除');
+  assert.equal(publicDeconstruct.deconstructStarted, true);
   assert.equal(publicInstance.buildingById.has(publicForeignBuildingId), true);
+  await tickBuildingConstruction(publicRuntime, CHAMBER_OWNER_ID);
+  assert.equal(publicInstance.buildingById.has(publicForeignBuildingId), false);
   assert.deepEqual(publicRecoveries, []);
 
   console.log(MARKER);

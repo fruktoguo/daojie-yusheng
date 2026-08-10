@@ -66,6 +66,12 @@ export interface MapInstanceBuildingDelegate {
   /** 停止建筑施工（解绑建造者）。 */
   stopBuildingConstruction(buildingId: string, playerId: string): BuildingOperationResult;
 
+  /** 开始延时拆除（绑定拆除者并保留可取消恢复状态）。 */
+  startBuildingDeconstruction(buildingId: string, playerId: string, totalTicks: number): BuildingOperationResult;
+
+  /** 停止延时拆除并恢复原建筑状态。 */
+  stopBuildingDeconstruction(buildingId: string, playerId: string): BuildingOperationResult;
+
   /** 拆除建筑实例。 */
   deconstructBuildingInstance(buildingId: string): BuildingOperationResult;
 

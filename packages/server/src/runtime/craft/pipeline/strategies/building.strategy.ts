@@ -23,7 +23,7 @@ export class BuildingStrategy implements TechniqueActivityStrategy {
   readonly kind = 'building' as const;
   readonly jobSlot = 'buildingJob';
   readonly skillSlot = 'buildingSkill';
-  readonly activityLabel = '建造';
+  readonly activityLabel = '营造';
   readonly pauseTicks = 0;
   readonly conditional = true;
 
@@ -38,11 +38,15 @@ export class BuildingStrategy implements TechniqueActivityStrategy {
   validateStart(player: unknown, payload: unknown, ctx: PipelineContext): TechniqueActivityStartValidationResult {
     const playerId = resolvePlayerId(player);
     const buildingId = resolveBuildingId(payload);
+    const operation = resolveBuildingOperation(payload);
     const deps = resolveBuildingDeps(ctx);
-    if (!playerId || !buildingId || typeof deps?.dispatchStartBuildingConstruction !== 'function') {
+    const dispatcher = operation === 'deconstruct'
+      ? deps?.dispatchStartBuildingDeconstruction
+      : deps?.dispatchStartBuildingConstruction;
+    if (!playerId || !buildingId || typeof dispatcher !== 'function') {
       return { ok: false, error: '建造运行时不可用。' };
     }
-    return { ok: true, validated: { playerId, buildingId, payload } };
+    return { ok: true, validated: { playerId, buildingId, operation, payload } };
   }
 
   queueStart(player: unknown, validated: unknown, payload: unknown, ctx: PipelineContext): unknown | null {
@@ -54,15 +58,17 @@ export class BuildingStrategy implements TechniqueActivityStrategy {
       return { ok: false, error: '技艺任务队列已满。', panelChanged: true, messages: [], groundDrops: [] };
     }
     const buildingId = resolveBuildingId(validated) || resolveBuildingId(payload);
+    const operation = resolveBuildingOperation(validated) || resolveBuildingOperation(payload);
     const nextPayload = {
       ...(payload && typeof payload === 'object' ? payload as Record<string, unknown> : {}),
       buildingId,
+      operation,
     };
     const item = {
       queueId: createBuildingQueueId(buildingId),
       kind: 'building',
       payload: nextPayload,
-      label: '营造任务',
+      label: operation === 'deconstruct' ? '拆除建筑' : '营造任务',
       state: 'pending',
       createdAt: Date.now(),
       cancelRef: { kind: 'building', queueId: '' },
@@ -93,9 +99,18 @@ export class BuildingStrategy implements TechniqueActivityStrategy {
     const buildingId = typeof (validated as { buildingId?: unknown } | null)?.buildingId === 'string'
       ? String((validated as { buildingId: string }).buildingId).trim()
       : '';
+    const operation = resolveBuildingOperation(validated);
     const deps = resolveBuildingDeps(ctx);
     try {
-      deps.dispatchStartBuildingConstruction(playerId, buildingId);
+      const result = operation === 'deconstruct'
+        ? deps.dispatchStartBuildingDeconstruction?.(playerId, buildingId)
+        : deps.dispatchStartBuildingConstruction?.(playerId, buildingId);
+      if (operation === 'deconstruct' && (result as { ok?: boolean } | null)?.ok !== true) {
+        return {
+          ok: false,
+          error: localizeBuildingDeconstructionFailure((result as { reason?: unknown } | null)?.reason),
+        };
+      }
       if (!this.getActiveJob(player)) {
         return { ok: false, error: '建造任务创建失败。' };
       }
@@ -120,7 +135,9 @@ export class BuildingStrategy implements TechniqueActivityStrategy {
     const totalTicks = Math.max(1, Math.trunc(Number(job?.totalTicks ?? job?.workTotalTicks ?? 1) || 1));
     return [{
       kind: 'building',
-      key: 'notice.craft.building.start',
+      key: job?.operation === 'deconstruct'
+        ? 'notice.craft.building.deconstruct-start'
+        : 'notice.craft.building.start',
       vars: { buildingName, totalTicks },
       pills: [{ key: 'buildingName', style: 'target' }],
     }];
@@ -135,8 +152,8 @@ export class BuildingStrategy implements TechniqueActivityStrategy {
     return executeBuildingTick(playerId, ctx, deps as never);
   }
 
-  resolveResumePhase(_job: any): string {
-    return 'building';
+  resolveResumePhase(job: any): string {
+    return job?.operation === 'deconstruct' ? 'deconstructing' : 'building';
   }
 
   isResolvePoint(job: any): boolean {
@@ -185,6 +202,19 @@ export class BuildingStrategy implements TechniqueActivityStrategy {
     if (!instance || !building) {
       return { satisfied: false, reason: '建造目标已经不存在。', shouldCancel: true };
     }
+    const operation = resolveBuildingOperation(job);
+    if (operation === 'deconstruct') {
+      if (building.state !== 'deconstructing' || building.activeDeconstructorPlayerId !== playerId) {
+        return { satisfied: false, reason: '建筑当前不可继续拆除。', shouldCancel: true };
+      }
+      const sectRemovePermission = typeof deps?.worldRuntimeSectService?.resolveSectInstancePermission === 'function'
+        ? deps.worldRuntimeSectService.resolveSectInstancePermission(playerId, instanceId, 'building_remove')
+        : null;
+      if (sectRemovePermission === false) {
+        return { satisfied: false, reason: '当前职位没有宗门拆除权限。', shouldCancel: true };
+      }
+      return { satisfied: true };
+    }
     if (building.state !== 'building') {
       return { satisfied: false, reason: '建筑当前不可继续施工。', shouldCancel: true };
     }
@@ -208,6 +238,7 @@ export class BuildingStrategy implements TechniqueActivityStrategy {
 
 type BuildingDepsPort = {
   dispatchStartBuildingConstruction?: (playerId: string, buildingId: string) => unknown;
+  dispatchStartBuildingDeconstruction?: (playerId: string, buildingId: string) => unknown;
   tickBuildingConstruction?: (playerId: string) => unknown;
   playerRuntimeService?: {
     getPlayer?(playerId: string): Record<string, any> | null;
@@ -247,6 +278,31 @@ function resolveBuildingId(value: unknown): string {
   const record = value as { buildingId?: unknown } | null | undefined;
   const buildingId = record?.buildingId;
   return typeof buildingId === 'string' && buildingId.trim() ? buildingId.trim() : '';
+}
+
+function resolveBuildingOperation(value: unknown): 'construct' | 'deconstruct' {
+  return (value as { operation?: unknown } | null | undefined)?.operation === 'deconstruct'
+    ? 'deconstruct'
+    : 'construct';
+}
+
+function localizeBuildingDeconstructionFailure(reason: unknown): string {
+  switch (reason) {
+    case 'sect_demolish_permission_denied':
+      return '当前职位没有宗门拆除权限。';
+    case 'building_job_active':
+      return '当前已有营造任务在进行中。';
+    case 'technique_activity_busy':
+      return '当前已有其他技艺任务在进行中。';
+    case 'building_deconstructing':
+      return '该建筑正在被其他玩家拆除。';
+    case 'building_too_far':
+      return '需要靠近建筑后才能开始拆除。';
+    case 'building_not_found':
+      return '拆除目标已经不存在。';
+    default:
+      return '无法开始拆除建筑。';
+  }
 }
 
 function resolveBuildingDeps(ctx: PipelineContext): BuildingDepsPort | null {
@@ -333,6 +389,13 @@ function releaseBuildingActiveBuilder(player: unknown, job: unknown, ctx: Pipeli
     : null;
   const building = instance?.buildingById?.get?.(buildingId);
   if (!playerId || !buildingId || !instance || !building) {
+    return;
+  }
+  if (resolveBuildingOperation(job) === 'deconstruct'
+    && building.state === 'deconstructing'
+    && typeof instance.stopBuildingDeconstruction === 'function') {
+    instance.stopBuildingDeconstruction(buildingId, playerId);
+    deps?.refreshPlayerContextActions?.(playerId);
     return;
   }
   if (building.state === 'building' && typeof instance.stopBuildingConstruction === 'function') {

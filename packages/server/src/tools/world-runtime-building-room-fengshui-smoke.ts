@@ -1331,27 +1331,81 @@ async function main() {
     requestId: "deconstruct:req:foreign",
     buildingId: placeResult.building.id,
   });
-  assert.equal(foreignDeconstructResult.ok, false);
-  assert.equal(foreignDeconstructResult.reason, "building_owner_mismatch");
-  commandBuilding.ownerPlayerId = null;
+  assert.equal(foreignDeconstructResult.ok, true);
+  assert.equal(foreignDeconstructResult.deconstructStarted, true);
+  assert.equal(foreignDeconstructResult.deconstructTicks, buildStrength);
+  assert.equal(commandBuilding.state, "deconstructing");
+  assert.equal(commandBuilding.deconstructRemainingTicks, buildStrength);
+  assert.equal(commandPlayer.buildingJob.operation, "deconstruct");
+  for (let index = 0; index < buildStrength - 1; index += 1) {
+    await WorldRuntimeService.prototype.tickBuildingConstruction.call(commandRuntime, commandPlayer.playerId);
+    assert.equal(commandInstance.buildingById.has(placeResult.building.id), true);
+    assert.equal(commandBuilding.deconstructRemainingTicks, buildStrength - index - 1);
+  }
+  await WorldRuntimeService.prototype.tickBuildingConstruction.call(commandRuntime, commandPlayer.playerId);
+  assert.equal(commandInstance.buildingById.has(placeResult.building.id), false);
+  assert.equal(commandPlayer.buildingJob, null);
+
+  const ownerlessPlacement = commandInstance.placeBuildingInstance({
+    buildingId: "building:ownerless:cancel",
+    defId: "stone_wall",
+    x: 1,
+    y: 1,
+    ownerPlayerId: null,
+    state: "active",
+    buildStrength: 4,
+  });
+  assert.equal(ownerlessPlacement.ok, true);
   const ownerlessDeconstructResult = await WorldRuntimeService.prototype.handleBuildDeconstructIntent.call(commandRuntime, commandPlayer.playerId, {
     requestId: "deconstruct:req:ownerless",
-    buildingId: placeResult.building.id,
+    buildingId: ownerlessPlacement.building.id,
   });
-  assert.equal(ownerlessDeconstructResult.ok, false);
-  assert.equal(ownerlessDeconstructResult.reason, "building_owner_mismatch");
-  commandBuilding.ownerPlayerId = commandPlayer.playerId;
+  assert.equal(ownerlessDeconstructResult.ok, true);
+  assert.equal(ownerlessDeconstructResult.deconstructTicks, 4);
+  await WorldRuntimeService.prototype.tickBuildingConstruction.call(commandRuntime, commandPlayer.playerId);
+  WorldRuntimeService.prototype.interruptBuildingConstruction.call(commandRuntime, commandPlayer.playerId, "cancel");
+  assert.equal(ownerlessPlacement.building.state, "active");
+  assert.equal(ownerlessPlacement.building.buildStrength, 4);
+  assert.equal(ownerlessPlacement.building.deconstructRemainingTicks, undefined);
+  assert.equal(ownerlessPlacement.building.activeDeconstructorPlayerId, null);
+
+  ownerlessPlacement.building.ownerPlayerId = commandPlayer.playerId;
   const deconstructResult = await WorldRuntimeService.prototype.handleBuildDeconstructIntent.call(commandRuntime, commandPlayer.playerId, {
     requestId: "deconstruct:req:1",
-    buildingId: placeResult.building.id,
+    buildingId: ownerlessPlacement.building.id,
   });
   assert.equal(deconstructResult.ok, true);
+  assert.equal(deconstructResult.deconstructStarted, undefined);
+  assert.equal(commandInstance.buildingById.has(ownerlessPlacement.building.id), false);
   const duplicateDeconstructResult = await WorldRuntimeService.prototype.handleBuildDeconstructIntent.call(commandRuntime, commandPlayer.playerId, {
     requestId: "deconstruct:req:1",
-    buildingId: placeResult.building.id,
+    buildingId: ownerlessPlacement.building.id,
   });
   assert.equal(duplicateDeconstructResult.ok, true);
   assert.equal(duplicateDeconstructResult.duplicate, true);
+
+  const unfinishedPlacement = commandInstance.placeBuildingInstance({
+    buildingId: "building:unfinished:deconstruct",
+    defId: "stone_wall",
+    x: 1,
+    y: 1,
+    ownerPlayerId: "player:other-builder",
+    state: "building",
+    buildStrength: 5,
+    buildRemainingTicks: 3,
+  });
+  assert.equal(unfinishedPlacement.ok, true);
+  const unfinishedDeconstructResult = await WorldRuntimeService.prototype.handleBuildDeconstructIntent.call(commandRuntime, commandPlayer.playerId, {
+    requestId: "deconstruct:req:unfinished",
+    buildingId: unfinishedPlacement.building.id,
+  });
+  assert.equal(unfinishedDeconstructResult.ok, true);
+  assert.equal(unfinishedPlacement.building.deconstructPreviousState, "building");
+  commandInstance.rebuildBuildingRoomFengShuiState({ reason: "deconstructing_unfinished_restore" });
+  assert.equal(commandInstance.getActiveBuildingCombatStateAtCellIndex(commandInstance.toTileIndex(1, 1)), null);
+  WorldRuntimeService.prototype.interruptBuildingConstruction.call(commandRuntime, commandPlayer.playerId, "cancel");
+  assert.equal(unfinishedPlacement.building.state, "building");
+  assert.equal(unfinishedPlacement.building.buildRemainingTicks, 3);
   assert.ok(commandRuntime.listBuildingOperationAudit(10).length >= 2);
   assert.equal(typeof commandInstance.lastBuildingRoomRebuildStats.durationMs, "number");
   assert.equal(Array.isArray(commandInstance.buildingRoomDeferredStartCells), true);

@@ -178,6 +178,12 @@ export interface BuildingInstance {
   buildCompleteTick?: number;
   buildRemainingTicks?: number;
   activeBuilderPlayerId?: string | null;
+  /** 非所有人拆除时的剩余工作息数；完工后按 buildStrength 初始化。 */
+  deconstructRemainingTicks?: number;
+  /** 当前执行延时拆除的玩家。 */
+  activeDeconstructorPlayerId?: string | null;
+  /** 延时拆除取消后需要恢复的原始建筑状态。 */
+  deconstructPreviousState?: BuildingInstanceState;
   scriptureTechniqueId?: string | null;
   scriptureTechniqueName?: string | null;
   scriptureProgress?: number;

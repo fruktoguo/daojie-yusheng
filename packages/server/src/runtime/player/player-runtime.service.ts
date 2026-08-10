@@ -10398,8 +10398,14 @@ function normalizeBuildingJob(value) {
         jobVersion: Math.max(1, Math.floor(Number(value.jobVersion) || 1)),
         buildingId: String(value.buildingId),
         buildingName: typeof value.buildingName === 'string' ? value.buildingName : String(value.buildingId),
+        label: typeof value.label === 'string' && value.label.trim() ? value.label.trim() : undefined,
         instanceId: typeof value.instanceId === 'string' ? value.instanceId : '',
-        phase: value.phase === 'paused' ? 'paused' : 'building',
+        operation: value.operation === 'deconstruct' ? 'deconstruct' : 'construct',
+        phase: value.phase === 'paused'
+            ? 'paused'
+            : value.operation === 'deconstruct' || value.phase === 'deconstructing'
+                ? 'deconstructing'
+                : 'building',
         startedAt: Math.max(0, Math.floor(Number(value.startedAt) || 0)),
         totalTicks,
         remainingTicks,

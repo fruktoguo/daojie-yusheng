@@ -1043,7 +1043,7 @@ async function main() {
   assert.ok(deputyMaintainingCoreActions.some((action) => action.id === "sect:guardian:cancel_maintain"));
   await sectService.executeSectAction(deputyPlayerId, "sect:guardian:cancel_maintain", deps);
   assert.equal(deputyPlayer.formationJob, null);
-  const managedBuilding = {
+  const managedBuilding: Record<string, any> = {
     id: 'building:sect-managed',
     defId: 'stone_wall',
     x: 1,
@@ -1051,6 +1051,7 @@ async function main() {
     ownerPlayerId: elderPlayerId,
     ownerSectId: expandedSect.sectId,
     state: 'building',
+    buildStrength: 1,
   };
   const buildingById = new Map([[managedBuilding.id, managedBuilding]]);
   const sectBuildingInstance = {
@@ -1079,6 +1080,15 @@ async function main() {
     startBuildingConstruction(buildingId) {
       const building = buildingById.get(buildingId);
       return building ? { ok: true, building } : { ok: false, reason: 'building_not_found' };
+    },
+    startBuildingDeconstruction(buildingId, playerId, totalTicks) {
+      const building = buildingById.get(buildingId);
+      if (!building) return { ok: false, reason: 'building_not_found' };
+      building.deconstructPreviousState = building.state;
+      building.state = 'deconstructing';
+      building.deconstructRemainingTicks = totalTicks;
+      building.activeDeconstructorPlayerId = playerId;
+      return { ok: true, building };
     },
     deconstructBuildingInstance(buildingId) {
       return { ok: buildingById.delete(buildingId) };
@@ -1148,7 +1158,9 @@ async function main() {
     buildingId: managedBuilding.id,
   });
   assert.equal(allowedRemove.ok, true);
-  assert.equal(buildingById.has(managedBuilding.id), false);
+  assert.equal(allowedRemove.deconstructStarted, true);
+  assert.equal(buildingById.has(managedBuilding.id), true);
+  assert.equal(managedBuilding.state, 'deconstructing');
   await sectService.executeSectAction(playerId, `sect:member:remove:${encodeURIComponent(elderPlayerId)}`, deps);
   assert.equal(expandedSect.members.some((entry) => entry.playerId === elderPlayerId), false);
   assert.equal(elderPlayer.sectId, null);

@@ -34,6 +34,7 @@ interface CraftPlayerLike {
     remainingTicks?: number;
     buildingId?: string;
     buildingName?: string;
+    operation?: 'construct' | 'deconstruct';
   } | null;
   formationJob?: {
     remainingTicks?: number;
@@ -168,8 +169,8 @@ export class WorldRuntimeCraftInterruptService {
       const buildingJob = player.buildingJob;
       this.queueService.sleepToQueue(
         player, 'building',
-        { buildingId: buildingJob.buildingId },
-        buildingJob.buildingName ?? '建造',
+        { buildingId: buildingJob.buildingId, operation: buildingJob.operation ?? 'construct' },
+        buildingJob.operation === 'deconstruct' ? '拆除建筑' : (buildingJob.buildingName ?? '建造'),
         reason === 'move' ? '离开建筑' : '被打断',
       );
     }

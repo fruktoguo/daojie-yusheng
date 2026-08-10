@@ -14,7 +14,7 @@ export function executeBuildingTick(
   playerId: string,
   ctx: PipelineContext,
   runtimeOverride?: BuildingTickRuntimePort,
-): BuildingTickResult {
+): BuildingTickResult | Promise<BuildingTickResult> {
   const runtime = runtimeOverride ?? resolveBuildingRuntime(ctx);
   const playerRuntimeService = runtime?.playerRuntimeService;
   const player = playerRuntimeService?.getPlayer?.(playerId);
@@ -31,6 +31,10 @@ export function executeBuildingTick(
     markPlayerActiveJobDirty(playerRuntimeService, player);
     runtime.refreshPlayerContextActions?.(playerId);
     return buildBuildingTickResult(true, [buildBuildingNotice('warn', 'notice.craft.building.target-missing')]);
+  }
+
+  if (job.operation === 'deconstruct') {
+    return executeBuildingDeconstructionTick(playerId, player, job, instance, building, runtime);
   }
 
   if (building.state !== 'building') {
@@ -118,6 +122,98 @@ export function executeBuildingTick(
   playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job', ...(skillChanged ? ['profession'] : [])]);
   playerRuntimeService.bumpPersistentRevision?.(player);
   return buildBuildingTickResult(true, [], false, skillChanged, gainedExp / 2);
+}
+
+async function executeBuildingDeconstructionTick(
+  playerId: string,
+  player: Record<string, any>,
+  job: Record<string, any>,
+  instance: Record<string, any>,
+  building: Record<string, any>,
+  runtime: BuildingTickRuntimePort,
+): Promise<BuildingTickResult> {
+  const playerRuntimeService = runtime.playerRuntimeService;
+  if (!playerRuntimeService) {
+    return buildBuildingTickResult();
+  }
+  if (building.state !== 'deconstructing' || building.activeDeconstructorPlayerId !== playerId) {
+    player.buildingJob = null;
+    markPlayerActiveJobDirty(playerRuntimeService, player);
+    runtime.refreshPlayerContextActions?.(playerId);
+    return buildBuildingTickResult(true, [buildBuildingNotice('warn', 'notice.craft.building.deconstruct-unavailable')]);
+  }
+  if (!isPlayerNearBuilding(player, building, 1)) {
+    instance.stopBuildingDeconstruction?.(building.id, playerId);
+    player.buildingJob = null;
+    markPlayerActiveJobDirty(playerRuntimeService, player);
+    runtime.refreshPlayerContextActions?.(playerId);
+    return buildBuildingTickResult(true, [buildBuildingNotice('warn', 'notice.craft.building.deconstruct-too-far')]);
+  }
+
+  const previousRemainingTicks = Math.max(
+    1,
+    Math.trunc(Number(building.deconstructRemainingTicks ?? job.remainingTicks) || 1),
+  );
+  const nextRemainingTicks = previousRemainingTicks - 1;
+  building.deconstructRemainingTicks = nextRemainingTicks;
+  building.updatedAtTick = instance.tick;
+  building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
+  instance.localBuildingViewCacheById?.delete?.(building.id);
+  instance.markAoiViewChangedAt?.(building.x, building.y);
+  instance.worldRevision = Math.max(0, Math.trunc(Number(instance.worldRevision) || 0)) + 1;
+  instance.persistentRevision = Math.max(0, Math.trunc(Number(instance.persistentRevision) || 0)) + 1;
+  instance.markPersistenceDirtyDomainsHighPriority?.(['building']);
+
+  if (nextRemainingTicks <= 0) {
+    const result = await runtime.completeBuildingDeconstruction?.(
+      playerId,
+      instance.meta?.instanceId ?? job.instanceId,
+      building.id,
+    ) ?? { ok: false, reason: 'building_deconstruct_unsupported' };
+    if (result?.ok !== true) {
+      instance.stopBuildingDeconstruction?.(building.id, playerId);
+      player.buildingJob = null;
+      markPlayerActiveJobDirty(playerRuntimeService, player);
+      runtime.refreshPlayerContextActions?.(playerId);
+      return buildBuildingTickResult(true, [buildBuildingNotice(
+        'warn',
+        'notice.craft.building.deconstruct-failed',
+        { reason: String(result?.reason ?? 'unknown') },
+      )]);
+    }
+    player.buildingJob = null;
+    markPlayerActiveJobDirty(playerRuntimeService, player);
+    runtime.refreshPlayerContextActions?.(playerId);
+    return buildBuildingTickResult(true, [buildBuildingDeconstructionCompletionNotice(runtime, building)]);
+  }
+
+  const totalTicks = Math.max(
+    nextRemainingTicks,
+    Math.trunc(Number(job.totalTicks) || 0),
+    Math.trunc(Number(building.buildStrength) || 0),
+    1,
+  );
+  job.buildingName = resolvePlayerFacingContentName(
+    building.defId,
+    '未知建筑',
+    runtime.resolveBuildingDisplayName?.(instance, building),
+    job.buildingName,
+  );
+  job.instanceId = instance.meta?.instanceId ?? job.instanceId;
+  job.operation = 'deconstruct';
+  job.label = '拆除建筑';
+  job.totalTicks = totalTicks;
+  job.remainingTicks = nextRemainingTicks;
+  job.workTotalTicks = totalTicks;
+  job.workRemainingTicks = nextRemainingTicks;
+  job.interruptWaitRemainingTicks = 0;
+  job.interruptState = null;
+  job.pausedTicks = 0;
+  job.phase = 'deconstructing';
+  job.jobVersion = Math.max(1, Math.trunc(Number(job.jobVersion) || 1)) + 1;
+  playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
+  playerRuntimeService.bumpPersistentRevision?.(player);
+  return buildBuildingTickResult(true);
 }
 
 function resolveBuildingRuntime(ctx: PipelineContext): BuildingTickRuntimePort | null {
@@ -223,6 +319,21 @@ function buildBuildingCompletionNotice(runtime: BuildingTickRuntimePort, buildin
   return buildBuildingNotice(
     'building',
     'notice.craft.building.completed',
+    { buildingName },
+    [{ key: 'buildingName', style: 'target' }],
+  );
+}
+
+function buildBuildingDeconstructionCompletionNotice(runtime: BuildingTickRuntimePort, building: Record<string, any>): TechniqueActivityNoticeMessage {
+  const buildingName = resolvePlayerFacingContentName(
+    building?.defId,
+    '未知建筑',
+    runtime.resolveBuildingDisplayNameByRuntime?.(runtime, building),
+    building?.name,
+  );
+  return buildBuildingNotice(
+    'building',
+    'notice.craft.building.deconstruct-completed',
     { buildingName },
     [{ key: 'buildingName', style: 'target' }],
   );
@@ -346,8 +457,11 @@ type BuildingTickRuntimePort = {
     buildingById?: Map<string, Record<string, any>>;
     markAoiViewChangedAt?(x: number, y: number): boolean;
     activatePlacedBuildingTopologyAndVisual?(building: Record<string, any>): string[];
+    stopBuildingDeconstruction?(buildingId: string, playerId: string): unknown;
+    localBuildingViewCacheById?: { delete?(buildingId: string): unknown };
     markPersistenceDirtyDomainsHighPriority?(domains: string[]): void;
   } | null;
+  completeBuildingDeconstruction?(playerId: string, instanceId: string, buildingId: string): Promise<{ ok?: boolean; reason?: string }>;
   refreshPlayerContextActions?(playerId: string): unknown;
   resolveBuildingDisplayName?(instance: unknown, building: Record<string, any>): string | null;
   resolveBuildingDisplayNameByRuntime?(runtime: unknown, building: Record<string, any>): string | null;

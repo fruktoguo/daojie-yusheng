@@ -1707,7 +1707,11 @@ class MapInstanceRuntime {
         }
         const state = normalizeBuildingState(input?.state ?? 'active');
         const previousTileTypes = [];
-        const usesActiveTopology = buildingUsesActiveTopology({ state });
+        const usesActiveTopology = buildingUsesActiveTopology({
+            state,
+            deconstructPreviousState: input?.deconstructPreviousState,
+            buildRemainingTicks: input?.buildRemainingTicks,
+        });
         const wasInRoomInfluence = usesActiveTopology
             ? cells.some((cellIndex) => this.isCellInRoomInfluence(cellIndex))
             : false;
@@ -1750,6 +1754,15 @@ class MapInstanceRuntime {
             activeBuilderPlayerId: state === 'building'
                 ? (normalizeBuildingId(input?.activeBuilderPlayerId) || null)
                 : null,
+            deconstructRemainingTicks: state === 'deconstructing'
+                ? normalizeBuildingRemainingTicks(input?.deconstructRemainingTicks, input?.buildStrength)
+                : undefined,
+            activeDeconstructorPlayerId: state === 'deconstructing'
+                ? (normalizeBuildingId(input?.activeDeconstructorPlayerId) || null)
+                : null,
+            deconstructPreviousState: state === 'deconstructing'
+                ? normalizeBuildingDeconstructPreviousState(input?.deconstructPreviousState, input?.buildRemainingTicks)
+                : undefined,
         };
         this.buildingById.set(building.id, building);
         this.buildingCellsById.set(building.id, cells);
@@ -1863,6 +1876,76 @@ class MapInstanceRuntime {
         building.buildCompleteTick = undefined;
         building.updatedAtTick = this.tick;
         building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
+        this.markAoiViewChangedAt(building.x, building.y);
+        this.worldRevision += 1;
+        this.persistentRevision += 1;
+        this.markPersistenceDirtyDomainsHighPriority(['building']);
+        return { ok: true, building, changed: true };
+    }
+    /** startBuildingDeconstruction：非所有人拆除时进入逐息任务。 */
+    startBuildingDeconstruction(buildingIdInput, playerIdInput, totalTicksInput) {
+        const buildingId = normalizeBuildingId(buildingIdInput);
+        const playerId = normalizeBuildingId(playerIdInput);
+        const building = buildingId ? this.buildingById.get(buildingId) : null;
+        if (!building) {
+            return { ok: false, reason: 'building_not_found' };
+        }
+        const player = playerId ? this.playersById.get(playerId) : null;
+        if (!player) {
+            return { ok: false, reason: 'player_not_found' };
+        }
+        if (chebyshevDistance(player.x, player.y, building.x, building.y) > 1) {
+            return { ok: false, reason: 'building_too_far' };
+        }
+        if (building.state === 'deconstructing') {
+            if (building.activeDeconstructorPlayerId === playerId) {
+                return { ok: true, building, changed: false };
+            }
+            return { ok: false, reason: 'building_deconstructing' };
+        }
+        if (building.state === 'destroyed' || building.state === 'planned') {
+            return { ok: false, reason: 'building_deconstruct_unavailable' };
+        }
+        const totalTicks = Math.max(1, Math.trunc(Number(totalTicksInput) || 1));
+        building.deconstructPreviousState = normalizeBuildingDeconstructPreviousState(building.state, building.buildRemainingTicks);
+        building.state = 'deconstructing';
+        building.deconstructRemainingTicks = totalTicks;
+        building.activeDeconstructorPlayerId = playerId;
+        building.activeBuilderPlayerId = null;
+        building.buildCompleteTick = undefined;
+        building.updatedAtTick = this.tick;
+        building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
+        this.localBuildingViewCacheById.delete(building.id);
+        this.markAoiViewChangedAt(building.x, building.y);
+        this.worldRevision += 1;
+        this.persistentRevision += 1;
+        this.markPersistenceDirtyDomainsHighPriority(['building']);
+        return { ok: true, building, changed: true };
+    }
+    /** stopBuildingDeconstruction：取消逐息拆除并恢复进入拆除前的建筑状态。 */
+    stopBuildingDeconstruction(buildingIdInput, playerIdInput) {
+        const buildingId = normalizeBuildingId(buildingIdInput);
+        const playerId = normalizeBuildingId(playerIdInput);
+        const building = buildingId ? this.buildingById.get(buildingId) : null;
+        if (!building) {
+            return { ok: false, reason: 'building_not_found' };
+        }
+        if (building.state !== 'deconstructing') {
+            return { ok: true, building, changed: false };
+        }
+        if (playerId && building.activeDeconstructorPlayerId !== playerId) {
+            return { ok: true, building, changed: false };
+        }
+        building.state = normalizeBuildingDeconstructPreviousState(
+            building.deconstructPreviousState,
+            building.buildRemainingTicks,
+        );
+        building.deconstructRemainingTicks = undefined;
+        building.activeDeconstructorPlayerId = null;
+        building.deconstructPreviousState = undefined;
+        building.updatedAtTick = this.tick;
+        building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
+        this.localBuildingViewCacheById.delete(building.id);
         this.markAoiViewChangedAt(building.x, building.y);
         this.worldRevision += 1;
         this.persistentRevision += 1;
@@ -3184,6 +3267,11 @@ class MapInstanceRuntime {
                 buildCompleteTick: Number.isFinite(Number(entry?.buildCompleteTick)) ? Math.max(0, Math.trunc(Number(entry.buildCompleteTick))) : undefined,
                 buildRemainingTicks: Number.isFinite(Number(entry?.buildRemainingTicks)) ? Math.max(0, Math.trunc(Number(entry.buildRemainingTicks))) : undefined,
                 activeBuilderPlayerId: normalizeBuildingId(entry?.activeBuilderPlayerId) || null,
+                deconstructRemainingTicks: Number.isFinite(Number(entry?.deconstructRemainingTicks)) ? Math.max(0, Math.trunc(Number(entry.deconstructRemainingTicks))) : undefined,
+                activeDeconstructorPlayerId: normalizeBuildingId(entry?.activeDeconstructorPlayerId) || null,
+                deconstructPreviousState: entry?.state === 'deconstructing'
+                    ? normalizeBuildingDeconstructPreviousState(entry?.deconstructPreviousState, entry?.buildRemainingTicks)
+                    : undefined,
                 scriptureTechniqueId: normalizeBuildingId(entry?.scriptureTechniqueId) || null,
                 scriptureTechniqueName: typeof entry?.scriptureTechniqueName === 'string' && entry.scriptureTechniqueName.trim() ? entry.scriptureTechniqueName.trim() : null,
                 scriptureProgress: Number.isFinite(Number(entry?.scriptureProgress)) ? Math.max(0, Number(entry.scriptureProgress)) : undefined,
@@ -3381,6 +3469,27 @@ class MapInstanceRuntime {
     advanceBuildingConstruction() {
         let changed = false;
         for (const building of this.buildingById.values()) {
+            if (building?.state === 'deconstructing') {
+                const activeDeconstructorPlayerId = normalizeBuildingId(building.activeDeconstructorPlayerId);
+                const activeDeconstructor = activeDeconstructorPlayerId
+                    ? this.playersById.get(activeDeconstructorPlayerId)
+                    : null;
+                if (!activeDeconstructor
+                    || chebyshevDistance(activeDeconstructor.x, activeDeconstructor.y, building.x, building.y) > 1) {
+                    building.state = normalizeBuildingDeconstructPreviousState(
+                        building.deconstructPreviousState,
+                        building.buildRemainingTicks,
+                    );
+                    building.deconstructRemainingTicks = undefined;
+                    building.activeDeconstructorPlayerId = null;
+                    building.deconstructPreviousState = undefined;
+                    building.updatedAtTick = this.tick;
+                    building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
+                    this.localBuildingViewCacheById.delete(building.id);
+                    changed = true;
+                }
+                continue;
+            }
             if (building?.state !== 'building') {
                 continue;
             }
@@ -3402,7 +3511,7 @@ class MapInstanceRuntime {
             return [];
         }
         for (const building of this.buildingById.values()) {
-            if (building?.state === 'building') {
+            if (building?.state === 'building' || building?.state === 'deconstructing') {
                 this.markAoiViewChangedAt(building.x, building.y);
             }
         }
@@ -7476,8 +7585,15 @@ class MapInstanceRuntime {
     /** getLocalBuildingViewEntry：复用未变化的建筑视野条目。 */
     getLocalBuildingViewEntry(building, compiled) {
         const isUnderConstruction = building?.state === 'building';
-        const remainingTicks = isUnderConstruction ? resolveBuildingRemainingTicks(building) : undefined;
-        const totalTicks = isUnderConstruction ? Math.max(remainingTicks, Math.trunc(Number(building.buildStrength) || 1), 1) : undefined;
+        const isUnderDeconstruction = building?.state === 'deconstructing';
+        const remainingTicks = isUnderConstruction
+            ? resolveBuildingRemainingTicks(building)
+            : isUnderDeconstruction
+                ? Math.max(0, Math.ceil(Number(building.deconstructRemainingTicks) || 0))
+                : undefined;
+        const totalTicks = isUnderConstruction || isUnderDeconstruction
+            ? Math.max(remainingTicks ?? 0, Math.trunc(Number(building.buildStrength) || 1), 1)
+            : undefined;
         const char = typeof compiled?.glyph === 'string' && compiled.glyph.trim()
             ? compiled.glyph.trim()[0] ?? '筑'
             : (compiled?.name?.trim()?.[0] ?? '筑');
@@ -10249,10 +10365,25 @@ function normalizeBuildingState(value) {
             return 'active';
     }
 }
+function normalizeBuildingDeconstructPreviousState(value, buildRemainingTicks = undefined) {
+    const state = normalizeBuildingState(value);
+    if (state === 'building' || state === 'active' || state === 'damaged') {
+        return state;
+    }
+    return Number(buildRemainingTicks) > 0 ? 'building' : 'active';
+}
 function buildingUsesActiveTopology(buildingOrState) {
+    const building = typeof buildingOrState === 'string' ? null : buildingOrState;
     const state = typeof buildingOrState === 'string'
         ? buildingOrState
-        : normalizeBuildingState(buildingOrState?.state);
+        : normalizeBuildingState(building?.state);
+    if (state === 'deconstructing') {
+        const previousState = normalizeBuildingDeconstructPreviousState(
+            building?.deconstructPreviousState,
+            building?.buildRemainingTicks,
+        );
+        return previousState !== 'building';
+    }
     return state !== 'planned' && state !== 'building' && state !== 'destroyed';
 }
 
@@ -10323,7 +10454,7 @@ function resolveBuildingRemainingTicks(building) {
     return 1;
 }
 function shouldProjectLocalBuilding(building, compiled) {
-    if (building?.state === 'building') {
+    if (building?.state === 'building' || building?.state === 'deconstructing') {
         return true;
     }
     if (building?.state !== 'active') {

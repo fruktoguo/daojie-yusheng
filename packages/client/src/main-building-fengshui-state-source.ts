@@ -485,7 +485,19 @@ function normalizeMaterialFailure(reason: string | undefined): string {
     return '目标建筑不在当前视野内';
   }
   if (reason === 'not_owner' || reason === 'building_owner_mismatch') {
-    return '该建筑不是你建造的，无法拆除';
+    return '该建筑当前不允许由你拆除';
+  }
+  if (reason === 'building_job_active') {
+    return '当前已有营造任务在进行中';
+  }
+  if (reason === 'technique_activity_busy') {
+    return '当前已有其他技艺任务在进行中';
+  }
+  if (reason === 'building_deconstructing') {
+    return '该建筑正在被其他玩家拆除';
+  }
+  if (reason === 'building_deconstruct_unavailable') {
+    return '该建筑当前不可拆除';
   }
   if (reason === 'sect_build_permission_denied') {
     return '当前职位没有宗门建造权限';
@@ -937,7 +949,9 @@ export function createMainBuildingFengShuiStateSource(options: MainBuildingFengS
         options.setBuildPreviewOverlay(null);
         options.showToast(
           operation === 'deconstruct'
-            ? '建筑已拆除'
+            ? data.deconstructStarted
+              ? `已开始拆除，预计 ${Math.max(1, Math.trunc(Number(data.deconstructTicks) || 1))} 息`
+              : '建筑已拆除'
             : data.building?.state === 'building'
             ? '已开始建造'
             : data.building

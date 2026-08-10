@@ -160,6 +160,7 @@ export function dispatchStartBuildingConstruction(runtime, playerId, buildingIdI
         buildingId: result.building.id,
         buildingName,
         instanceId: context.instance.meta.instanceId,
+        operation: 'construct',
         startedAt,
         totalTicks,
         remainingTicks: totalTicks,
@@ -175,6 +176,85 @@ export function dispatchStartBuildingConstruction(runtime, playerId, buildingIdI
     runtime.playerRuntimeService.bumpPersistentRevision?.(player);
     runtime.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
     runtime.refreshPlayerContextActions?.(playerId);
+}
+
+export function dispatchStartBuildingDeconstruction(runtime, playerId, buildingIdInput) {
+    const context = resolvePlayerBuildingContext(runtime, playerId);
+    const player = context.player;
+    const buildingId = normalizeBuildingRequestId(buildingIdInput);
+    if (!buildingId) {
+        return { ok: false, reason: 'building_not_found' };
+    }
+    const sectAccess = resolveSectBuildingAccess(runtime, context, playerId, 'building_remove');
+    if (sectAccess.applies && !sectAccess.allowed) {
+        return { ok: false, reason: 'sect_demolish_permission_denied' };
+    }
+    const activeJob = player?.buildingJob;
+    if (activeJob && Number(activeJob.remainingTicks) > 0) {
+        if (activeJob.operation === 'deconstruct' && activeJob.buildingId === buildingId) {
+            return {
+                ok: true,
+                changed: false,
+                building: toBuildingInstanceView(context.instance.buildingById?.get?.(buildingId)),
+                totalTicks: Math.max(1, Math.trunc(Number(activeJob.totalTicks) || 1)),
+            };
+        }
+        return { ok: false, reason: 'building_job_active' };
+    }
+    if (runtime.craftPanelRuntimeService?.hasAnyActiveTechniqueActivity?.(player)) {
+        return { ok: false, reason: 'technique_activity_busy' };
+    }
+    const building = context.instance.buildingById?.get?.(buildingId);
+    if (!building) {
+        return { ok: false, reason: 'building_not_found' };
+    }
+    const compiled = resolveCompiledBuildingDefinition(context.instance.buildingCatalog, building);
+    const totalTicks = Math.max(
+        1,
+        Math.trunc(Number(building.buildStrength ?? compiled?.buildTicks) || 1),
+    );
+    const result = context.instance.startBuildingDeconstruction?.(buildingId, playerId, totalTicks)
+        ?? { ok: false, reason: 'building_deconstruct_unsupported' };
+    if (result?.ok !== true || !result.building) {
+        return { ok: false, reason: result?.reason ?? 'building_deconstruct_failed' };
+    }
+    const buildingName = resolvePlayerFacingContentName(
+        result.building.defId,
+        '未知建筑',
+        resolveBuildingDisplayName(context.instance, result.building),
+        result.building.name,
+    );
+    const startedAt = Date.now();
+    player.buildingJob = {
+        jobRunId: `job:${playerId}:building:${randomUUID()}`,
+        jobType: 'building',
+        jobVersion: 1,
+        buildingId: result.building.id,
+        buildingName,
+        label: '拆除建筑',
+        instanceId: context.instance.meta.instanceId,
+        operation: 'deconstruct',
+        startedAt,
+        totalTicks,
+        remainingTicks: totalTicks,
+        workTotalTicks: totalTicks,
+        workRemainingTicks: totalTicks,
+        interruptWaitRemainingTicks: 0,
+        interruptState: null,
+        pausedTicks: 0,
+        successRate: 1,
+        spiritStoneCost: 0,
+        phase: 'deconstructing',
+    };
+    runtime.playerRuntimeService.bumpPersistentRevision?.(player);
+    runtime.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
+    runtime.refreshPlayerContextActions?.(playerId);
+    return {
+        ok: true,
+        changed: result.changed !== false,
+        building: toBuildingInstanceView(result.building),
+        totalTicks,
+    };
 }
 
 function resolveBuildingProgressPerTick(player) {
@@ -193,7 +273,12 @@ export function interruptBuildingConstruction(runtime, playerId, reason = 'cance
         ? job.instanceId.trim()
         : context.location.instanceId;
     const instance = runtime.getInstanceRuntime?.(instanceId) ?? context.instance;
-    instance?.stopBuildingConstruction?.(job.buildingId, playerId);
+    if (job.operation === 'deconstruct') {
+        instance?.stopBuildingDeconstruction?.(job.buildingId, playerId);
+    }
+    else {
+        instance?.stopBuildingConstruction?.(job.buildingId, playerId);
+    }
     player.buildingJob = null;
     runtime.playerRuntimeService.bumpPersistentRevision?.(player);
     runtime.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
@@ -214,6 +299,9 @@ export function tickBuildingConstruction(runtime, playerId) {
         ...runtime,
         resolveBuildingDisplayName,
         resolveBuildingDisplayNameByRuntime,
+        completeBuildingDeconstruction: (activePlayerId, instanceId, buildingId) => (
+            completeBuildingDeconstruction(runtime, activePlayerId, instanceId, buildingId)
+        ),
     });
 }
 
@@ -240,14 +328,20 @@ export async function handleBuildDeconstructIntent(runtime, playerId, payload) {
     if (!building) {
         return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: 'building_not_found' }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
     }
-    if (!sectAccess.applies
-        && building.ownerPlayerId !== playerId
-        && !isOwnedTimeChamberInstance(context.instance, playerId)) {
-        return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: 'building_owner_mismatch' }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
-    }
     const targetAccess = resolveDeconstructTargetAccess(runtime, context, playerId, building, payload);
     if (!targetAccess.ok) {
         return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: targetAccess.reason }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
+    }
+    if (building.ownerPlayerId !== playerId) {
+        const startResult = dispatchStartBuildingDeconstruction(runtime, playerId, building.id);
+        return recordBuildingOperation(runtime, operationKey, {
+            requestId,
+            ok: startResult?.ok === true,
+            reason: startResult?.ok === true ? undefined : startResult?.reason ?? 'building_deconstruct_failed',
+            building: startResult?.building,
+            deconstructStarted: startResult?.ok === true,
+            deconstructTicks: startResult?.ok === true ? startResult.totalTicks : undefined,
+        }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
     }
     const result = await deconstructBuildingWithSpecialLifecycle(runtime, context.instance, building, 'deconstruct');
     return recordBuildingOperation(runtime, operationKey, {
@@ -257,6 +351,26 @@ export async function handleBuildDeconstructIntent(runtime, playerId, payload) {
         treasureVaultRecoveryMailId: result.mailId,
         treasureVaultRecoveredItems: result.itemCount,
     }, { action: 'deconstruct', playerId, instanceId: context.instance.meta.instanceId, buildingId });
+}
+
+export async function completeBuildingDeconstruction(runtime, playerIdInput, instanceIdInput, buildingIdInput) {
+    const playerId = normalizeBuildingRequestId(playerIdInput);
+    const instanceId = normalizeBuildingRequestId(instanceIdInput);
+    const buildingId = normalizeBuildingRequestId(buildingIdInput);
+    const player = playerId ? runtime.playerRuntimeService?.getPlayer?.(playerId) : null;
+    const job = player?.buildingJob;
+    const instance = instanceId ? runtime.getInstanceRuntime?.(instanceId) : null;
+    const building = buildingId ? instance?.buildingById?.get?.(buildingId) : null;
+    if (!player || !job || job.operation !== 'deconstruct' || job.buildingId !== buildingId) {
+        return { ok: false, reason: 'building_deconstruct_job_mismatch' };
+    }
+    if (!instance || !building) {
+        return { ok: false, reason: 'building_not_found' };
+    }
+    if (building.state !== 'deconstructing' || building.activeDeconstructorPlayerId !== playerId) {
+        return { ok: false, reason: 'building_deconstruct_state_mismatch' };
+    }
+    return deconstructBuildingWithSpecialLifecycle(runtime, instance, building, 'deconstruct');
 }
 
 /** 完工视觉建筑不重复投影实体；ID 缺失时按权威占格选择玩家实际点击的最上层建筑。 */
@@ -546,13 +660,6 @@ function resolveSectBuildingAccess(runtime, context, playerId, permissionId) {
     };
 }
 
-/** 密室创建者可以治理室内建筑，但不会接管建筑本身的资产归属。 */
-function isOwnedTimeChamberInstance(instance, playerId) {
-    const ownerPlayerId = normalizeBuildingRequestId(instance?.meta?.ownerPlayerId);
-    return instance?.meta?.kind === 'time_chamber'
-        && ownerPlayerId.length > 0
-        && ownerPlayerId === normalizeBuildingRequestId(playerId);
-}
 function normalizeBuildingRequestId(value) {
     return typeof value === 'string' && value.trim() ? value.trim() : '';
 }
@@ -769,6 +876,8 @@ function toBuildingInstanceView(building) {
         buildCompleteTick: building.buildCompleteTick,
         buildRemainingTicks: building.buildRemainingTicks,
         activeBuilderPlayerId: building.activeBuilderPlayerId ?? null,
+        deconstructRemainingTicks: building.deconstructRemainingTicks,
+        activeDeconstructorPlayerId: building.activeDeconstructorPlayerId ?? null,
         revision: building.revision,
     };
 }

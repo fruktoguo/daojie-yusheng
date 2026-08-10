@@ -646,11 +646,13 @@ export interface PlayerBuildingJob extends TechniqueActivityJobBase {
  */
 
   instanceId: string;
+  /** 营造任务操作类型；旧存档缺失时按建造处理。 */
+  operation?: 'construct' | 'deconstruct';
   /**
  * phase：phase相关字段。
  */
 
-  phase: 'building' | 'paused';
+  phase: 'building' | 'deconstructing' | 'paused';
 }
 
 /** 玩家当前挖矿任务的最小持久化运行态。 */

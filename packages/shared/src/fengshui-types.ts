@@ -130,6 +130,8 @@ export interface BuildingInstanceView {
   buildCompleteTick?: number;
   buildRemainingTicks?: number;
   activeBuilderPlayerId?: string | null;
+  deconstructRemainingTicks?: number;
+  activeDeconstructorPlayerId?: string | null;
   revision: number;
 }
 
@@ -139,6 +141,9 @@ export interface BuildResultView {
   reason?: string;
   building?: BuildingInstanceView;
   consumedItems?: Array<{ itemId: string; count: number }>;
+  /** 非所有人拆除已进入逐息营造任务，而不是立即删除建筑。 */
+  deconstructStarted?: boolean;
+  deconstructTicks?: number;
 }
 
 export interface RoomSummaryView {

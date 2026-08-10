@@ -90,10 +90,9 @@ import { PlayerRuntimeService } from '../player/player-runtime.service';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 import * as world_runtime_observation_helpers_1 from './query/world-runtime.observation.helpers';
 import * as world_runtime_path_planning_helpers_1 from './world-runtime.path-planning.helpers';
-import { buildCurrentRoomSummaryPatch, buildFengShuiObserveView, dispatchStartBuildingConstruction, handleBuildDeconstructIntent, handleBuildPlaceIntent, handleGmBuildDeconstruct, handleRoomSetRoleIntent, handleStartBuildingConstruction, interruptBuildingConstruction, listBuildingOperationAudit, tickBuildingConstruction } from './world-runtime-building.service';
+import { buildCurrentRoomSummaryPatch, buildFengShuiObserveView, dispatchStartBuildingConstruction, dispatchStartBuildingDeconstruction, handleBuildDeconstructIntent, handleBuildPlaceIntent, handleGmBuildDeconstruct, handleRoomSetRoleIntent, handleStartBuildingConstruction, interruptBuildingConstruction, listBuildingOperationAudit, tickBuildingConstruction } from './world-runtime-building.service';
 import { claimRecoverableCatalogInstances, destroyManagedInstance, fenceInstanceRuntime, getInstanceLeaseStatus, getInstancePlayerAttachReadiness, hydratePersistentInstanceSnapshot, isInstanceLeaseWritable, migrateInstanceToNode, migratePlayerToNode, rebuildPersistentInstance, releaseLocalInstanceLeasesForShutdown, syncAllInstanceLeases, syncInstanceLease, unfreezeInstanceWriting } from './world-runtime-instance-lease.helpers';
 import { WorldRuntimeInstanceLeaseReadinessService } from './world-runtime-instance-lease-readiness.service';
-
 const {
     buildPublicInstanceId,
     parseRuntimeInstanceDescriptor,
@@ -819,6 +818,7 @@ export class WorldRuntimeService {
         dispatchStartBuildingConstruction(playerId, buildingId) {
         return dispatchStartBuildingConstruction(this, playerId, buildingId);
     }
+        dispatchStartBuildingDeconstruction(playerId, buildingId) { return dispatchStartBuildingDeconstruction(this, playerId, buildingId); }
         interruptBuildingConstruction(playerId, reason) {
         return interruptBuildingConstruction(this, playerId, reason);
     }
