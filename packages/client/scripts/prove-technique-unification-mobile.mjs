@@ -131,7 +131,13 @@ const initializeExpression = String.raw`
       },
     };
     const sources = [...mortalSources, ...yellowSources];
-    const buildPanel = ({ bound = false, isOwner = true, canRevise = true, includeRebind = false } = {}) => ({
+    const buildPanel = ({
+      bound = false,
+      isOwner = true,
+      canRevise = true,
+      includeRebind = false,
+      playerRevision,
+    } = {}) => ({
       revision: 7,
       buildingId: 'building:mobile-proof',
       eligibleSources: canRevise ? [...(includeRebind ? [previousAggregateSource] : []), ...sources] : [],
@@ -158,6 +164,7 @@ const initializeExpression = String.raw`
           meridians: 166,
         },
         creatorPlayerId: 'player:owner',
+        ...(Number.isFinite(playerRevision) ? { playerRevision } : {}),
         playerCoveredCount: 0,
       }] : [],
       totalCoveredLeafCount: 0,
@@ -525,6 +532,26 @@ const openOverviewExpression = String.raw`
   })()
 `;
 
+const inspectRevisionUpdateExpression = String.raw`
+  (() => {
+    const modal = window.__techniqueUnificationProofModal;
+    const buildPanel = window.__techniqueUnificationBuildPanel;
+    modal.handleTechniqueAggregationPanel(buildPanel({
+      bound: true,
+      isOwner: false,
+      canRevise: false,
+      playerRevision: 3,
+    }));
+    const panel = document.querySelector('[data-technique-aggregation-panel="true"]');
+    const learn = panel?.querySelector('[data-craft-action="technique-aggregation-learn"]');
+    return {
+      learnLabel: learn?.textContent?.trim() ?? '',
+      learnDisabled: learn instanceof HTMLButtonElement ? learn.disabled : true,
+      summary: panel?.querySelector('.technique-aggregation-lineage-summary')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+    };
+  })()
+`;
+
 const restrictTabsExpression = String.raw`
   (() => {
     const modal = window.__techniqueUnificationProofModal;
@@ -715,6 +742,11 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'technique-uni
   assert.equal(overview.overflow, false, '总览源法与六维区域出现横向溢出');
   assert.equal(overview.hasRecordTabs, false, '总览页混入录法方式');
   assert.equal(overview.hasPermissions, false, '总览页混入权限编辑器');
+
+  const revisionUpdate = await cdp.evaluate(inspectRevisionUpdateExpression);
+  assert.equal(revisionUpdate.learnLabel, '获取最新版 · 第 4 卷', '旧卷玩家未显示最新版获取入口');
+  assert.equal(revisionUpdate.learnDisabled, false, '旧卷玩家的最新版获取入口被错误禁用');
+  assert.match(revisionUpdate.summary, /已习得第 3 卷 · 最新第 4 卷/, '总览未明确展示旧卷与最新卷差异');
 
   const restricted = await cdp.evaluate(restrictTabsExpression);
   assert.deepEqual(restricted.labels, ['总览'], '普通参阅者仍可看到录法或权限 Tab');

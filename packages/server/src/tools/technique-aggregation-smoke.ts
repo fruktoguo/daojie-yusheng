@@ -15,7 +15,10 @@ import {
   type TechniqueTemplate,
 } from '@mud/shared';
 import { TechniqueAggregationService } from '../runtime/technique-generation/technique-aggregation.service';
-import { resolvePersistedTechniqueAggregationMetadata } from '../runtime/technique-generation/generated-technique-store.service';
+import {
+  GeneratedTechniqueStoreService,
+  resolvePersistedTechniqueAggregationMetadata,
+} from '../runtime/technique-generation/generated-technique-store.service';
 import { TransmissionStrategy } from '../runtime/craft/pipeline/strategies/transmission.strategy';
 
 type PublishedAggregateParams = {
@@ -146,7 +149,75 @@ function createPlayer(playerId: string, techniques: TechniqueState[]) {
   };
 }
 
+async function assertGeneratedTechniqueStoreRefreshesExternalRevision(): Promise<void> {
+  const creatorPlayerId = 'player:external-revision-creator';
+  const familyId = 'external_revision_family';
+  const buildTemplate = (revision: number): TechniqueTemplate => ({
+    id: `agg_external_revision_family_v${revision}`,
+    name: '跨进程统法',
+    grade: 'mortal',
+    category: 'internal',
+    realmLv: 1,
+    maxLayer: 2,
+    layers: [
+      { level: 1, expToNext: 10, attrs: { constitution: revision } },
+      { level: 2, expToNext: 0, attrs: { constitution: revision } },
+    ],
+    skills: [],
+    aggregate: {
+      schemaVersion: 1,
+      familyId,
+      revision,
+      ...(revision > 1 ? { previousRevision: revision - 1 } : {}),
+      sourceTechniqueIds: ['gen_external_a', 'gen_external_b'],
+      sourceCount: 2,
+      creatorPlayerId,
+      revisionAuthorPlayerId: revision > 1 ? 'player:external-revision-author' : creatorPlayerId,
+      initialPermissions: {
+        read: OWNER_ONLY_ACCESS_POLICY,
+        revision: OWNER_ONLY_ACCESS_POLICY,
+      },
+    },
+  });
+  let rows = [buildTemplate(1)].map((template) => ({
+    id: template.id,
+    template,
+    created_by_player_id: creatorPlayerId,
+  }));
+  let rejectSignature = false;
+  const pool = {
+    async query(sql: string) {
+      if (sql.includes('COUNT(*)::int AS count')) {
+        if (rejectSignature) throw new Error('signature unavailable');
+        return { rows: [{ count: rows.length, max_updated_at: `revision-${rows.length}` }] };
+      }
+      if (sql.includes('SELECT id, template, created_by_player_id, validation_report')) {
+        return { rows: structuredClone(rows) };
+      }
+      throw new Error(`未预期的生成功法查询：${sql}`);
+    },
+  };
+  const store = new GeneratedTechniqueStoreService();
+  store.initialize(pool as never);
+  await store.reload();
+  assert.equal(store.getLatestAggregateForFamily(familyId)?.metadata.revision, 1);
+
+  rows = [buildTemplate(1), buildTemplate(2)].map((template) => ({
+    id: template.id,
+    template,
+    created_by_player_id: template.aggregate?.revisionAuthorPlayerId ?? creatorPlayerId,
+  }));
+  assert.equal(store.getLatestAggregateForFamily(familyId)?.metadata.revision, 1);
+  await store.ensureFresh();
+  assert.equal(store.getLatestAggregateForFamily(familyId)?.metadata.revision, 2);
+
+  rejectSignature = true;
+  await assert.rejects(store.ensureFresh(), /generated_technique_cache_refresh_failed/);
+  assert.equal(store.getLatestAggregateForFamily(familyId)?.metadata.revision, 2);
+}
+
 async function main(): Promise<void> {
+  await assertGeneratedTechniqueStoreRefreshesExternalRevision();
   const unsortedLayers = [
     { level: 3, expToNext: 0, attrs: {} },
     { level: 1, expToNext: 10, attrs: {} },

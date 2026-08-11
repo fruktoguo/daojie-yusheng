@@ -94,7 +94,7 @@ export class WorldGatewayTechniqueAggregationHelper {
       const panel = await this.runExclusivePlatformMutation(check, async () => {
         const current = this.checkBuilding(playerId, request.buildingId);
         if ('error' in current) return this.errorPanel(request, current.error);
-        await this.recoverPlatformBinding(current);
+        await this.refreshCatalogAndRecoverPlatform(current);
         return this.buildPanel(current, request);
       });
       client.emit(S2C.TechniqueAggregationPanel, panel);
@@ -132,7 +132,7 @@ export class WorldGatewayTechniqueAggregationHelper {
           if ('error' in current) {
             return { ok: false as const, result: this.resultFromError(request, current.error, 'publish') };
           }
-          await this.recoverPlatformBinding(current);
+          await this.refreshCatalogAndRecoverPlatform(current);
           const boundFamilyId = normalizeText(current.building.techniqueAggregationFamilyId);
           const isOwner = this.isPlatformOwner(current.building, playerId);
           const access = boundFamilyId
@@ -265,7 +265,7 @@ export class WorldGatewayTechniqueAggregationHelper {
         const learnAndPersist = async (): Promise<TechniqueAggregationResultView> => {
           const current = this.checkBuilding(playerId, request.buildingId);
           if ('error' in current) return this.resultFromError(request, current.error, 'learn');
-          await this.recoverPlatformBinding(current);
+          await this.refreshCatalogAndRecoverPlatform(current);
           const familyId = normalizeText(current.building.techniqueAggregationFamilyId);
           if (!familyId) {
             return this.resultFromError(request, this.error('TECHNIQUE_AGGREGATE_PLATFORM_UNBOUND'), 'learn');
@@ -326,7 +326,15 @@ export class WorldGatewayTechniqueAggregationHelper {
   ): Promise<void> {
     const check = this.checkBuilding(playerId, request.buildingId);
     if ('error' in check || !this.aggregationService) return;
+    await this.refreshCatalogAndRecoverPlatform(check);
     client.emit(S2C.TechniqueAggregationPanel, await this.buildPanel(check, request));
+  }
+
+  private async refreshCatalogAndRecoverPlatform(
+    check: Extract<AggregationBuildingCheck, { ok: true }>,
+  ): Promise<void> {
+    await this.aggregationService!.ensureCatalogFresh();
+    await this.recoverPlatformBinding(check);
   }
 
   private async buildPanel(

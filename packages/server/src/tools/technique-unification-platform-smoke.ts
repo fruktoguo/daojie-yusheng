@@ -347,6 +347,20 @@ async function main(): Promise<void> {
   assert.equal(collaborativeEntry?.metadata.revisionAuthorPlayerId, innerDisciple.playerId);
   assert.equal(collaborativeEntry?.metadata.revision, 3);
 
+  aggregation.queueExternalRevision('player:external-reviser');
+  await helper.handleRequestPanel(ownerSocket as never, {
+    requestId: 'owner-external-revision-panel',
+    buildingId: building.id,
+  });
+  const refreshedOwnerPanel = ownerSocket.last<TechniqueAggregationPanelView>(S2C.TechniqueAggregationPanel);
+  assert.equal(refreshedOwnerPanel.platform.latestRevision, 4);
+  assert.equal(refreshedOwnerPanel.platform.learnerState, 'available');
+  await helper.handleLearn(ownerSocket as never, {
+    requestId: 'owner-external-revision-learn',
+    buildingId: building.id,
+  });
+  assert.equal(owner.pendingTechniqueComprehensions.at(-1)?.techId, `agg:${boundFamilyId}:v4`);
+
   await helper.handlePublish(strangerSocket as never, {
     requestId: 'stranger-revision-denied',
     operationId: 'stranger-revision-denied',
@@ -435,6 +449,31 @@ function evaluateTestPolicy(
 class FakeAggregationService {
   readonly entries: Array<{ techniqueId: string; metadata: TechniqueAggregationMetadata; name: string }> = [];
   lastPublishRequest: TechniqueAggregationPublishRequest | null = null;
+  private queuedExternalEntry: { techniqueId: string; metadata: TechniqueAggregationMetadata; name: string } | null = null;
+
+  async ensureCatalogFresh(): Promise<void> {
+    if (!this.queuedExternalEntry) return;
+    this.entries.push(this.queuedExternalEntry);
+    this.queuedExternalEntry = null;
+  }
+
+  queueExternalRevision(revisionAuthorPlayerId: string): void {
+    const previous = [...this.entries].sort((left, right) => right.metadata.revision - left.metadata.revision)[0];
+    assert.ok(previous, '外部修订需要已有法脉');
+    const revision = previous.metadata.revision + 1;
+    this.queuedExternalEntry = {
+      techniqueId: `agg:${previous.metadata.familyId}:v${revision}`,
+      name: previous.name,
+      metadata: {
+        ...previous.metadata,
+        revision,
+        previousRevision: previous.metadata.revision,
+        sourceTechniqueIds: [...previous.metadata.sourceTechniqueIds, `gen:external:${revision}`],
+        sourceCount: previous.metadata.sourceCount + 1,
+        revisionAuthorPlayerId,
+      },
+    };
+  }
 
   resolveInitialFamilyId(operationId: unknown): string {
     return `family:${String(operationId)}`;

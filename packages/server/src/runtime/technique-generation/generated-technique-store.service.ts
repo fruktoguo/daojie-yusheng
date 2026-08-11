@@ -35,6 +35,7 @@ export class GeneratedTechniqueStoreService {
   private aggregateMetadataById = new Map<string, TechniqueAggregationMetadata>();
   private lastSignature: GeneratedTechniqueSignature | null = null;
   private pool: Pool | null = null;
+  private reloadInFlight: Promise<boolean> | null = null;
 
   /** 注入数据库连接池（由外部在启动期调用） */
   initialize(pool: Pool): void {
@@ -48,42 +49,78 @@ export class GeneratedTechniqueStoreService {
 
   /** 签名比对 + 按需重载 */
   async reload(): Promise<void> {
-    if (!this.pool) return;
+    await this.reloadOnce();
+  }
+
+  /** 低频权威入口调用；数据库不可用时失败关闭，避免继续使用陈旧版本。 */
+  async ensureFresh(): Promise<void> {
+    if (!(await this.reloadOnce())) {
+      throw new Error('generated_technique_cache_refresh_failed');
+    }
+  }
+
+  private async reloadOnce(): Promise<boolean> {
+    if (this.reloadInFlight) {
+      return this.reloadInFlight;
+    }
+    const run = this.reloadFromPersistence();
+    this.reloadInFlight = run;
+    try {
+      return await run;
+    } finally {
+      if (this.reloadInFlight === run) {
+        this.reloadInFlight = null;
+      }
+    }
+  }
+
+  private async reloadFromPersistence(): Promise<boolean> {
+    if (!this.pool) return false;
 
     try {
       const sig = await loadGeneratedTechniqueSignature(this.pool);
-      if (this.isSignatureEqual(sig)) return;
+      if (this.isSignatureEqual(sig)) return true;
 
       const rows = await loadPublishedGeneratedTechniques(this.pool);
-      this.cache.clear();
-      this.creatorById.clear();
-      this.aggregateMetadataById.clear();
+      const nextCache = new Map<string, TechniqueTemplate>();
+      const nextCreatorById = new Map<string, string>();
+      const nextAggregateMetadataById = new Map<string, TechniqueAggregationMetadata>();
       for (const row of rows) {
         if (row.id && row.template && typeof row.template === 'object') {
           const template = row.template as TechniqueTemplate;
-          this.cache.set(row.id, template);
+          nextCache.set(row.id, template);
           if (typeof row.created_by_player_id === 'string' && row.created_by_player_id.trim()) {
-            this.creatorById.set(row.id, row.created_by_player_id.trim());
+            nextCreatorById.set(row.id, row.created_by_player_id.trim());
           }
           const normalizedMetadata = resolvePersistedTechniqueAggregationMetadata(
             template,
             row.created_by_player_id,
           );
           if (normalizedMetadata) {
-            this.aggregateMetadataById.set(row.id, normalizedMetadata);
+            nextAggregateMetadataById.set(row.id, normalizedMetadata);
           }
         }
       }
+      this.cache = nextCache;
+      this.creatorById = nextCreatorById;
+      this.aggregateMetadataById = nextAggregateMetadataById;
       this.lastSignature = sig;
+      return true;
     } catch {
       // 表未初始化时静默忽略（启动期容错）
+      return false;
     }
   }
 
   /** 发布后主动刷新 */
   async refreshAfterPublish(): Promise<void> {
+    if (this.reloadInFlight) {
+      await this.reloadInFlight;
+    }
     this.lastSignature = null;
-    await this.reload();
+    if (!(await this.reloadOnce())) {
+      throw new Error('generated_technique_cache_refresh_failed');
+    }
   }
 
   /** 按 ID 查找已发布的生成功法模板 */

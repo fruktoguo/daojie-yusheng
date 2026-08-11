@@ -116,6 +116,11 @@ export class TechniqueAggregationService {
     return familyId ? this.generatedTechniqueStoreService.getLatestAggregateForFamily(familyId) : undefined;
   }
 
+  /** 统法台属于低频入口，每次读取或变更前校验数据库签名以接收其他进程发布的新卷。 */
+  async ensureCatalogFresh(): Promise<void> {
+    await this.generatedTechniqueStoreService.ensureFresh();
+  }
+
   /** 新玩家拿到旧版本书籍时，统一指向同一家族的最新不可变版本。 */
   resolveLatestTechniqueId(techniqueIdInput: string): string {
     const techniqueId = normalizeText(techniqueIdInput);

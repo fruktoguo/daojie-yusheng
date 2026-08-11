@@ -1516,9 +1516,14 @@ export class CraftTransmissionView {
         techniqueId,
         name: resolveClientTechniqueName(techniqueId),
       }));
+    const learnedRevisionLabel = family.playerRevision
+      ? family.playerRevision < family.latestRevision
+        ? `已习得第 ${formatDisplayInteger(family.playerRevision)} 卷 · 最新第 ${formatDisplayInteger(family.latestRevision)} 卷`
+        : `已习得第 ${formatDisplayInteger(family.playerRevision)} 卷`
+      : `已习得 ${formatDisplayInteger(family.playerCoveredCount)}/${formatDisplayInteger(family.sourceCount)} 部源法`;
     return `<div class="technique-aggregation-lineage-summary">
       <div><strong>${escapeHtml(resolveClientTechniqueName(family.latestTechniqueId, family.name))}</strong><small>${escapeHtml(getTechniqueGradeLabel(family.grade))} · 第 ${formatDisplayInteger(family.latestRevision)} 卷</small></div>
-      <span>${family.playerRevision ? `已习得第 ${formatDisplayInteger(family.playerRevision)} 卷` : `已习得 ${formatDisplayInteger(family.playerCoveredCount)}/${formatDisplayInteger(family.sourceCount)} 部源法`}</span>
+      <span>${learnedRevisionLabel}</span>
     </div>
     <div class="technique-aggregation-overview-metrics">
       <span><small>源法</small><strong>${formatDisplayInteger(family.sourceCount)} 部</strong></span>
@@ -1549,11 +1554,7 @@ export class CraftTransmissionView {
     family: TechniqueAggregationPanelView['families'][number] | undefined,
   ): string {
     const platform = panel.platform;
-    const learnLabel = platform.learnerState === 'pending'
-      ? `参悟中 · ${formatDisplayInteger(platform.pendingProgress ?? 0)}/${formatDisplayInteger(platform.pendingRequiredProgress ?? 1)}`
-      : platform.learnerState === 'learned'
-        ? '已习得此法'
-        : platform.canLearn ? '参悟此法' : '无权参阅';
+    const learnLabel = this.resolveTechniqueAggregationLearnLabel(panel, family);
     const learnDisabled = !family
       || !platform.canLearn
       || platform.learnerState !== 'available'
@@ -1564,6 +1565,21 @@ export class CraftTransmissionView {
       ${family ? `<button type="button" class="small-btn" data-craft-action="technique-aggregation-learn" ${learnDisabled ? 'disabled' : ''}>${this.techniqueAggregationLearning ? '正在纳入...' : learnLabel}</button>` : ''}
       ${this.renderTechniqueAggregationResultHost()}
     </section>`;
+  }
+
+  private resolveTechniqueAggregationLearnLabel(
+    panel: TechniqueAggregationPanelView,
+    family: TechniqueAggregationPanelView['families'][number] | undefined,
+  ): string {
+    const platform = panel.platform;
+    if (platform.learnerState === 'pending') {
+      return `参悟中 · ${formatDisplayInteger(platform.pendingProgress ?? 0)}/${formatDisplayInteger(platform.pendingRequiredProgress ?? 1)}`;
+    }
+    if (platform.learnerState === 'learned') return '已习得此法';
+    if (!platform.canLearn) return '无权参阅';
+    return family?.playerRevision && family.playerRevision < family.latestRevision
+      ? `获取最新版 · 第 ${formatDisplayInteger(family.latestRevision)} 卷`
+      : '参悟此法';
   }
 
   private renderTechniqueAggregationSourceRecording(
@@ -1697,11 +1713,7 @@ export class CraftTransmissionView {
         || this.techniqueAggregationLearning;
       learn.textContent = this.techniqueAggregationLearning
         ? '正在纳入...'
-        : panel.platform.learnerState === 'pending'
-          ? `参悟中 · ${formatDisplayInteger(panel.platform.pendingProgress ?? 0)}/${formatDisplayInteger(panel.platform.pendingRequiredProgress ?? 1)}`
-          : panel.platform.learnerState === 'learned'
-            ? '已习得此法'
-            : panel.platform.canLearn ? '参悟此法' : '无权参阅';
+        : this.resolveTechniqueAggregationLearnLabel(panel, family);
     }
     const resultHost = root.querySelector<HTMLElement>('[data-technique-aggregation-result="true"]');
     const resultKey = this.buildTechniqueAggregationResultKey();
