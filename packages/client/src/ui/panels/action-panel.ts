@@ -1523,7 +1523,6 @@ export class ActionPanel {
           cooldownLeft: 0,
           range: skill.targeting?.range ?? skill.range,
           requiresTarget: resolveSkillRequiresTarget(skill),
-          targetMode: skill.targetMode ?? 'any',
           autoBattleEnabled: config?.entry.enabled ?? true,
           autoBattleOrder: config?.index,
           skillEnabled: config?.entry.skillEnabled ?? true,

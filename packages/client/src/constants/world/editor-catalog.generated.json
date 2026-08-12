@@ -151,8 +151,7 @@
               "type": "buff"
             }
           ],
-          "unlockLevel": 1,
-          "targetMode": "tile"
+          "unlockLevel": 1
         }
       ]
     },
@@ -1141,8 +1140,7 @@
               "stacks": 5
             }
           ],
-          "unlockLevel": 1,
-          "targetMode": "tile"
+          "unlockLevel": 1
         }
       ]
     },
@@ -1222,7 +1220,6 @@
             }
           ],
           "unlockLevel": 1,
-          "targetMode": "tile",
           "playerCast": {
             "windupTicks": 3,
             "warningColor": "#ef6b3b"
@@ -2276,8 +2273,7 @@
               "type": "buff"
             }
           ],
-          "unlockLevel": 1,
-          "targetMode": "tile"
+          "unlockLevel": 1
         }
       ]
     },
@@ -2432,8 +2428,7 @@
               "type": "buff"
             }
           ],
-          "unlockLevel": 1,
-          "targetMode": "tile"
+          "unlockLevel": 1
         }
       ]
     },
@@ -3058,8 +3053,7 @@
               "stacks": 10
             }
           ],
-          "unlockLevel": 1,
-          "targetMode": "tile"
+          "unlockLevel": 1
         }
       ]
     },
@@ -3122,8 +3116,7 @@
               }
             }
           ],
-          "unlockLevel": 1,
-          "targetMode": "tile"
+          "unlockLevel": 1
         }
       ]
     },
@@ -3492,8 +3485,7 @@
               "type": "buff"
             }
           ],
-          "unlockLevel": 1,
-          "targetMode": "tile"
+          "unlockLevel": 1
         }
       ]
     },
@@ -4528,8 +4520,7 @@
               "type": "buff"
             }
           ],
-          "unlockLevel": 1,
-          "targetMode": "tile"
+          "unlockLevel": 1
         }
       ]
     },
@@ -6353,7 +6344,6 @@
           "range": 6,
           "targeting": {
             "shape": "single",
-            "targetMode": "tile",
             "maxTargets": 1
           },
           "effects": [
@@ -6392,8 +6382,7 @@
             }
           ],
           "unlockLevel": 1,
-          "requiresTarget": true,
-          "targetMode": "tile"
+          "requiresTarget": true
         },
         {
           "id": "skill.yi_kunlun_hollow_square",
@@ -6407,7 +6396,6 @@
             "shape": "box",
             "width": 3,
             "height": 3,
-            "targetMode": "tile",
             "maxTargets": 8
           },
           "effects": [
@@ -6447,8 +6435,7 @@
             }
           ],
           "unlockLevel": 4,
-          "requiresTarget": true,
-          "targetMode": "tile"
+          "requiresTarget": true
         },
         {
           "id": "skill.yi_kunlun_horizontal_wall",
@@ -6462,7 +6449,6 @@
             "shape": "box",
             "width": 3,
             "height": 1,
-            "targetMode": "tile",
             "maxTargets": 3
           },
           "effects": [
@@ -6501,8 +6487,7 @@
             }
           ],
           "unlockLevel": 7,
-          "requiresTarget": true,
-          "targetMode": "tile"
+          "requiresTarget": true
         }
       ]
     },
@@ -6840,8 +6825,7 @@
               "type": "buff"
             }
           ],
-          "unlockLevel": 1,
-          "targetMode": "tile"
+          "unlockLevel": 1
         }
       ]
     },

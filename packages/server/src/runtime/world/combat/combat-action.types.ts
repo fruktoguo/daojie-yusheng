@@ -110,7 +110,6 @@ export function createCombatActionDefinition(input: AnyRecord = {}) {
     name: input.name ?? null,
     source: input.source ?? CombatActionSource.System,
     requiresTarget: input.requiresTarget !== false,
-    targetMode: input.targetMode ?? null,
     allowedTargetKinds: Array.isArray(input.allowedTargetKinds) ? [...input.allowedTargetKinds] : [],
     range: Math.max(0, Math.floor(Number(input.range) || 0)),
     geometry: {

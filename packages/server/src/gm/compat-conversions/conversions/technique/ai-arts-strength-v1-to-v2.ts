@@ -28,6 +28,7 @@ import {
   cloneJsonRecord,
   isJsonEqual,
   rebuildGeneratedTechniqueArtsRow,
+  removeGeneratedTechniqueTargetModeFields,
   resolveGeneratedTechniqueRowName,
   toFiniteNumber,
   type GeneratedTechniqueArtsCandidateRow,
@@ -246,7 +247,8 @@ function analyzeRow(row: GeneratedTechniqueArtsCandidateRow): MigrationAnalysis 
   const skillDefChanged = !isJsonEqual(asRecord(row.template)?.skills, rebuilt.updatedTemplate.skills);
   const reportChanged = !isJsonEqual(artsStrength?.rawCandidate, rebuilt.normalizedRawCandidate)
     || !isJsonEqual(artsStrength?.normalizedTemplate, rebuilt.normalizedTemplate)
-    || !isJsonEqual(artsStrength?.expansion, rebuilt.expansionReport);
+    || !isJsonEqual(artsStrength?.expansion, rebuilt.expansionReport)
+    || !isJsonEqual(row.validation_report, removeGeneratedTechniqueTargetModeFields(cloneJsonRecord(row.validation_report)));
   const changed = migratedRawCandidate.changed || skillDefChanged || reportChanged;
   if (!changed) {
     return { changed: false };
@@ -266,7 +268,7 @@ function analyzeRow(row: GeneratedTechniqueArtsCandidateRow): MigrationAnalysis 
 }
 
 function buildUpdatedValidationReport(validationReport: unknown, analysis: MigrationAnalysis): unknown {
-  const report = cloneJsonRecord(validationReport);
+  const report = removeGeneratedTechniqueTargetModeFields(cloneJsonRecord(validationReport));
   const artsStrength = cloneJsonRecord(report.artsStrength);
   artsStrength.rawCandidate = analysis.migratedRawCandidate;
   artsStrength.normalizedTemplate = analysis.normalizedTemplate;
@@ -304,6 +306,7 @@ function migrateSkill(skill: Record<string, unknown>): { changed: boolean; value
   const targetSource = asRecord(nextSkill.target) ?? {};
   const targetingSource = asRecord(nextSkill.targeting) ?? {};
   const changed = hasLegacyTargetFields(targetSource)
+    || Object.prototype.hasOwnProperty.call(skill, 'targetMode')
     || Object.prototype.hasOwnProperty.call(skill, 'range')
     || Object.prototype.hasOwnProperty.call(skill, 'targeting');
   const type = normalizeTargetType(targetSource.type ?? targetSource.shape ?? targetingSource.shape);
@@ -321,9 +324,11 @@ function migrateSkill(skill: Record<string, unknown>): { changed: boolean; value
   delete nextTarget.width;
   delete nextTarget.height;
   delete nextTarget.shape;
+  delete nextTarget.targetMode;
   nextSkill.target = nextTarget;
   delete nextSkill.range;
   delete nextSkill.targeting;
+  delete nextSkill.targetMode;
   return {
     changed,
     value: nextSkill,
@@ -335,7 +340,8 @@ function hasLegacyTargetFields(target: Record<string, unknown>): boolean {
     || Object.prototype.hasOwnProperty.call(target, 'radius')
     || Object.prototype.hasOwnProperty.call(target, 'width')
     || Object.prototype.hasOwnProperty.call(target, 'height')
-    || Object.prototype.hasOwnProperty.call(target, 'shape');
+    || Object.prototype.hasOwnProperty.call(target, 'shape')
+    || Object.prototype.hasOwnProperty.call(target, 'targetMode');
 }
 
 function resolveLegacyAreaWeight(
@@ -379,9 +385,16 @@ function buildSummary(candidate: Record<string, unknown>): unknown {
   const target = asRecord(skill?.target);
   return {
     skillName: typeof skill?.name === 'string' ? skill.name : null,
+    hasLegacyTargetMode: Boolean(
+      skill
+      && (
+        Object.prototype.hasOwnProperty.call(skill, 'targetMode')
+        || Boolean(target && Object.prototype.hasOwnProperty.call(target, 'targetMode'))
+        || Boolean(asRecord(skill.targeting) && Object.prototype.hasOwnProperty.call(asRecord(skill.targeting)!, 'targetMode'))
+      )
+    ),
     target: target ? {
       type: target.type ?? target.shape ?? null,
-      targetMode: target.targetMode ?? null,
       range: target.range ?? null,
       radius: target.radius ?? null,
       width: target.width ?? null,

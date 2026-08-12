@@ -1191,7 +1191,6 @@ function rebuildBenchActions(player, currentTick) {
                 cooldownLeft: Math.max(0, (player.combat.cooldownReadyTickBySkillId[skill.id] ?? 0) - currentTick),
                 range: skill.targeting?.range ?? skill.range,
                 requiresTarget: skill.requiresTarget ?? true,
-                targetMode: skill.targetMode ?? 'entity',
             });
         }
     }

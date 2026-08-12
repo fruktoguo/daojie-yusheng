@@ -879,8 +879,7 @@ async function testSkillTileDamageGrantsMiningExp() {
     cost: 0,
     cooldown: 1,
     effects: [{ type: 'damage', damageKind: 'spell' }],
-    targetMode: 'tile',
-    targeting: { range: 3, shape: 'single', maxTargets: 1, targetMode: 'tile' },
+    targeting: { range: 3, shape: 'single', maxTargets: 1 },
     range: 3,
   };
   const attacker = Object.assign(runtimePlayer, {

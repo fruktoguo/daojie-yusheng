@@ -32,6 +32,7 @@ import {
   asRecord,
   cloneJsonRecord,
   rebuildGeneratedTechniqueArtsRow,
+  removeGeneratedTechniqueTargetModeFields,
   resolveGeneratedTechniqueRowName,
   toFiniteNumber,
   type GeneratedTechniqueArtsCandidateRow,
@@ -388,7 +389,7 @@ function buildUpdatedValidationReport(
   targetSkills: TargetSkillSummary[],
   convertedAt: string,
 ): Record<string, unknown> {
-  const report = cloneJsonRecord(validationReport);
+  const report = removeGeneratedTechniqueTargetModeFields(cloneJsonRecord(validationReport));
   const artsStrength = cloneJsonRecord(report.artsStrength);
   artsStrength.rawCandidate = rebuilt.normalizedRawCandidate;
   artsStrength.normalizedTemplate = rebuilt.normalizedTemplate;

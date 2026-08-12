@@ -227,7 +227,7 @@ function createTechniqueRow(
       unlockLevel: 1,
       damageKind: 'spell',
       element: 'fire',
-      target: { type: 'area', targetMode: 'any', castRangeWeight: 20, areaWeight: 20 },
+      target: { type: 'area', castRangeWeight: 20, areaWeight: 20 },
       structureStrength: {
         damage: 80,
         cost: -10,

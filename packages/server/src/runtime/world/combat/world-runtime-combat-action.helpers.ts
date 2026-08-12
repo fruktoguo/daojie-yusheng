@@ -15,6 +15,14 @@ import {
 
 type AnyRecord = Record<string, any>;
 
+const UNIVERSAL_SKILL_TARGET_KINDS = Object.freeze([
+  CombatTargetKind.Player,
+  CombatTargetKind.Monster,
+  CombatTargetKind.Tile,
+  CombatTargetKind.Formation,
+  CombatTargetKind.Container,
+]);
+
 function findSkillDefinition(actor, skillId) {
   if (!actor || !skillId) {
     return null;
@@ -52,47 +60,10 @@ function normalizeSkillGeometry(skill: AnyRecord = {}) {
 }
 
 function resolveSkillAllowedTargetKinds(skill: AnyRecord = {}) {
-  const explicit = skill.targeting?.allowedTargetKinds ?? skill.allowedTargetKinds;
-  if (Array.isArray(explicit) && explicit.length > 0) {
-    return explicit.filter(Boolean);
-  }
-  const targetMode = skill.targetMode ?? skill.targeting?.targetMode;
-  if (targetMode === 'self' || isPlayerSelfOnlySkill(skill)) {
+  if (isPlayerSelfOnlySkill(skill)) {
     return [CombatTargetKind.Self];
   }
-  if (targetMode === 'tile') {
-    const geometry = normalizeSkillGeometry(skill);
-    if ((geometry.shape ?? 'single') !== 'single') {
-      return [
-        CombatTargetKind.Player,
-        CombatTargetKind.Monster,
-        CombatTargetKind.Tile,
-        CombatTargetKind.Formation,
-        CombatTargetKind.Container,
-      ];
-    }
-    return [CombatTargetKind.Tile];
-  }
-  if (targetMode === 'entity') {
-    return [CombatTargetKind.Player, CombatTargetKind.Monster];
-  }
-  if (targetMode === 'any') {
-    return [
-      CombatTargetKind.Player,
-      CombatTargetKind.Monster,
-      CombatTargetKind.Tile,
-      CombatTargetKind.Formation,
-      CombatTargetKind.Container,
-    ];
-  }
-  return [
-    CombatTargetKind.Player,
-    CombatTargetKind.Monster,
-    CombatTargetKind.Tile,
-    CombatTargetKind.Formation,
-    CombatTargetKind.Container,
-    CombatTargetKind.Self,
-  ];
+  return UNIVERSAL_SKILL_TARGET_KINDS;
 }
 
 function isPlayerSelfOnlySkill(skill: AnyRecord = {}) {

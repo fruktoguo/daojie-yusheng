@@ -10,7 +10,6 @@ import {
   type TechniqueGrade,
 } from '@mud/shared';
 
-import { normalizeGeneratedTechniqueTargetModes } from '../../../../runtime/technique-generation/generated-technique-target-mode-normalizer';
 import { calcArtsBudgetMax } from '../../../../runtime/technique-generation/technique-budget-normalizer';
 
 export interface GeneratedTechniqueArtsCandidateRow {
@@ -51,9 +50,7 @@ export function rebuildGeneratedTechniqueArtsRow(
   row: GeneratedTechniqueArtsCandidateRow,
   rawCandidate: Record<string, unknown>,
 ): GeneratedTechniqueArtsRebuildSuccess | GeneratedTechniqueArtsRebuildFailure {
-  const normalizedRawCandidate = normalizeGeneratedTechniqueTargetModes(rawCandidate, {
-    category: 'arts',
-  });
+  const normalizedRawCandidate = removeGeneratedTechniqueTargetModeFields(rawCandidate);
   const normalized = normalizeTechniqueArtsStrengthTemplate(normalizedRawCandidate);
   if (!normalized.ok || !normalized.template) {
     return {
@@ -89,10 +86,10 @@ export function rebuildGeneratedTechniqueArtsRow(
     skill,
     targetBudget,
   }));
-  const updatedTemplate = {
+  const updatedTemplate = removeGeneratedTechniqueTargetModeFields({
     ...currentTemplate,
     skills: expandedSkills.map((entry) => entry.skill),
-  };
+  });
 
   return {
     ok: true,
@@ -132,6 +129,28 @@ export function resolveGeneratedTechniqueRowName(row: GeneratedTechniqueArtsCand
 export function cloneJsonRecord(value: unknown): Record<string, unknown> {
   const source = asRecord(value) ?? {};
   return structuredClone(source);
+}
+
+/** 兼容转换冷路径专用：从生成功法 JSON 中递归删除已废弃的技能目标模式。 */
+export function removeGeneratedTechniqueTargetModeFields(value: Record<string, unknown>): Record<string, unknown> {
+  return removeTargetModeValue(structuredClone(value)) as Record<string, unknown>;
+}
+
+function removeTargetModeValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(removeTargetModeValue);
+  }
+  const record = asRecord(value);
+  if (!record) {
+    return value;
+  }
+  const result: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(record)) {
+    if (key !== 'targetMode') {
+      result[key] = removeTargetModeValue(entry);
+    }
+  }
+  return result;
 }
 
 export function asRecord(value: unknown): Record<string, unknown> | null {

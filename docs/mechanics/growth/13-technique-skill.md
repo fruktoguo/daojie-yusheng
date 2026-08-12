@@ -130,7 +130,7 @@ GM 可通过原生 GM API 或“功法管理 → 手工创建”面板提交自�
 
 - 公共字段：`name`（2-20 个字符）、`desc`（最多 500 个字符）、`category`（`internal`/`arts`）、`grade`、`realmLv`（1-127）、`maxLayer`（3-49）、`expDifficulty`（0.5-2）、`budgetPercent`（0.8-1.2）。数值必须是 JSON number，未知字段拒绝。
 - `internal` 只接受六维 `attrRatio`，至少两个权重大于 0，不接受技能草稿。
-- `arts` 必须且只能有一个技能；技能可指定伤害类型、五行、目标形状/模式、六项 `structureStrength` 权重、1-5 项 `formulaStrength.attributeBases`，以及功法层数、移动速度、境界等级和八项技艺等级百分比权重。八项技艺为炼丹、炼器、强化、传法、采集、挖矿、营造、阵法；百分比权重只允许 `0-100`，其他结构权重允许 `-100` 到 `100`。权重只表示预算分配，不是真实伤害或冷却值。
+- `arts` 必须且只能有一个技能；技能可指定伤害类型、五行、目标形状、六项 `structureStrength` 权重、1-5 项 `formulaStrength.attributeBases`，以及功法层数、移动速度、境界等级和八项技艺等级百分比权重。八项技艺为炼丹、炼器、强化、传法、采集、挖矿、营造、阵法；百分比权重只允许 `0-100`，其他结构权重允许 `-100` 到 `100`。权重只表示预算分配，不是真实伤害或冷却值。
 - `create` 必须携带 1-64 位 `operationId`。相同 operationId 和相同请求指纹会返回已有功法而不重复发布；相同 operationId 对应不同请求会拒绝。同名已发布功法也会拒绝。创建动作写入 GM 审计日志。
 
 服务端把权重展开成正式逐层属性和运行时 `SkillDef` 后再持久化；`validation_report.manual` 保留规范化输入、operationId 和请求指纹，便于 GM 回读和审计。现有已发布功法不提供原地编辑入口，修改应使用新的 operationId 和名称。
@@ -231,7 +231,7 @@ negative itemBudget = -BUDGET(layer) * abs(itemWeight) / 100
 realValue = convertByItem(itemBudget)
 ```
 
-- `target.type/targetMode` 只描述目标形状和目标模式，不承载预算权重。
+- `target.type` 只描述目标形状，不承载预算权重。技能不再配置目标类型模式：所有需要选取目标的技能统一允许作用于玩家、怪物、地块、阵法和容器；纯自身/无目标技能由效果和 `requiresTarget` 推导。
 - `structureStrength.damage/cost/cooldown/chant/castRange/area` 是强度权重，不是真实伤害、消耗、冷却、吟唱、距离或覆盖范围。
 - `line` 目标按“中心线长度 × 固定线宽”的无圆头条带选格，施法者所在格不计入覆盖；例如射程 1、宽度 9 必须且只能覆盖 9 格，预算覆盖数、hover 最大目标数与服务端实际命中使用同一口径。
 - `chant` 的负预算会换算为真实吟唱息数并写入正式 `SkillDef.playerCast.windupTicks`；零或正预算保持瞬发。预览、hover 与服务端权威施法都读取该正式字段。

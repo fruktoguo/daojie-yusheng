@@ -35,7 +35,6 @@ export interface TechniqueArtsStrengthTargetInput {
   innerRadius?: number;
   checkerParity?: 'even' | 'odd';
   maxTargets?: number;
-  targetMode?: 'any' | 'entity' | 'tile';
   rawTargeting?: SkillTargetingDef | null;
 }
 
@@ -66,7 +65,6 @@ export interface TechniqueArtsStrengthSkillInput {
   unlockRealm?: number;
   unlockPlayerRealm?: number;
   requiresTarget?: boolean;
-  targetMode?: 'any' | 'entity' | 'tile';
   damageKind?: SkillDamageKind;
   element?: ElementKey;
   target?: TechniqueArtsStrengthTargetInput;
@@ -100,7 +98,6 @@ export interface NormalizedTechniqueArtsStrengthTarget {
   innerRadius?: number;
   checkerParity?: 'even' | 'odd';
   maxTargets?: number;
-  targetMode?: 'any' | 'entity' | 'tile';
   rawTargeting?: SkillTargetingDef | null;
   rawRange?: number;
   coveredCells: number;
@@ -140,7 +137,6 @@ export interface NormalizedTechniqueArtsStrengthSkill {
   unlockRealm?: number;
   unlockPlayerRealm?: number;
   requiresTarget?: boolean;
-  targetMode?: 'any' | 'entity' | 'tile';
   damageKind: SkillDamageKind;
   element?: ElementKey;
   target: NormalizedTechniqueArtsStrengthTarget;
@@ -267,9 +263,6 @@ function normalizeTarget(raw: unknown): NormalizedTechniqueArtsStrengthTarget {
     : 'single';
   const range = normalizePositiveWeight(source.castRangeWeight);
   const areaWeight = normalizePositiveWeight(source.areaWeight);
-  const targetMode = source.targetMode === 'any' || source.targetMode === 'entity' || source.targetMode === 'tile'
-    ? source.targetMode
-    : undefined;
   const rawTargeting = Object.prototype.hasOwnProperty.call(source, 'rawTargeting')
     ? normalizeRawTargeting(source.rawTargeting)
     : undefined;
@@ -281,27 +274,27 @@ function normalizeTarget(raw: unknown): NormalizedTechniqueArtsStrengthTarget {
     : undefined;
 
   if (type === 'line') {
-    return buildTargetWithStrength({ type, range, width: areaWeight, maxTargets, targetMode, rawTargeting, rawRange }, estimateCoveredCellsFromWeight(areaWeight));
+    return buildTargetWithStrength({ type, range, width: areaWeight, maxTargets, rawTargeting, rawRange }, estimateCoveredCellsFromWeight(areaWeight));
   }
   if (type === 'box') {
-    return buildTargetWithStrength({ type, range, width: areaWeight, height: areaWeight, maxTargets, targetMode, rawTargeting, rawRange }, estimateCoveredCellsFromWeight(areaWeight));
+    return buildTargetWithStrength({ type, range, width: areaWeight, height: areaWeight, maxTargets, rawTargeting, rawRange }, estimateCoveredCellsFromWeight(areaWeight));
   }
   if (type === 'orientedBox') {
-    return buildTargetWithStrength({ type, range, width: areaWeight, height: areaWeight, maxTargets, targetMode, rawTargeting, rawRange }, estimateCoveredCellsFromWeight(areaWeight));
+    return buildTargetWithStrength({ type, range, width: areaWeight, height: areaWeight, maxTargets, rawTargeting, rawRange }, estimateCoveredCellsFromWeight(areaWeight));
   }
   if (type === 'checkerboard') {
     const checkerParity = source.checkerParity === 'odd' ? 'odd' : 'even';
-    return buildTargetWithStrength({ type, range, width: areaWeight, height: areaWeight, checkerParity, maxTargets, targetMode, rawTargeting, rawRange }, estimateCoveredCellsFromWeight(areaWeight));
+    return buildTargetWithStrength({ type, range, width: areaWeight, height: areaWeight, checkerParity, maxTargets, rawTargeting, rawRange }, estimateCoveredCellsFromWeight(areaWeight));
   }
   if (type === 'area') {
-    return buildTargetWithStrength({ type, range, radius: areaWeight, maxTargets, targetMode, rawTargeting, rawRange }, estimateCoveredCellsFromWeight(areaWeight));
+    return buildTargetWithStrength({ type, range, radius: areaWeight, maxTargets, rawTargeting, rawRange }, estimateCoveredCellsFromWeight(areaWeight));
   }
   if (type === 'ring') {
     const radius = areaWeight;
     const innerRadius = normalizePositiveWeight(source.innerRadius);
-    return buildTargetWithStrength({ type, range, radius, innerRadius, maxTargets, targetMode, rawTargeting, rawRange }, estimateCoveredCellsFromWeight(radius));
+    return buildTargetWithStrength({ type, range, radius, innerRadius, maxTargets, rawTargeting, rawRange }, estimateCoveredCellsFromWeight(radius));
   }
-  return buildTargetWithStrength({ type: 'single', range, maxTargets, targetMode, rawTargeting, rawRange }, 1);
+  return buildTargetWithStrength({ type: 'single', range, maxTargets, rawTargeting, rawRange }, 1);
 }
 
 function normalizePositiveWeight(value: unknown): number {
@@ -317,7 +310,7 @@ function normalizeRawTargeting(raw: unknown): SkillTargetingDef | null {
   if (raw === null) {
     return null;
   }
-  return isRecord(raw) ? { ...raw } as SkillTargetingDef : null;
+  return isRecord(raw) ? stripUndefinedTargeting(raw as SkillTargetingDef) : null;
 }
 
 function buildTargetWithStrength(
@@ -540,9 +533,6 @@ export function normalizeTechniqueArtsStrengthSkill(raw: unknown): NormalizedTec
     unlockRealm: Number.isFinite(Number(source.unlockRealm)) ? Math.max(0, Math.floor(Number(source.unlockRealm))) : undefined,
     unlockPlayerRealm: Number.isFinite(Number(source.unlockPlayerRealm)) ? Math.max(0, Math.floor(Number(source.unlockPlayerRealm))) : undefined,
     requiresTarget: typeof source.requiresTarget === 'boolean' ? source.requiresTarget : undefined,
-    targetMode: source.targetMode === 'any' || source.targetMode === 'entity' || source.targetMode === 'tile'
-      ? source.targetMode
-      : undefined,
     damageKind: DAMAGE_KINDS.includes(source.damageKind as SkillDamageKind) ? source.damageKind as SkillDamageKind : 'spell',
     element: ELEMENT_KEYS.includes(source.element as ElementKey) ? source.element as ElementKey : undefined,
     target,
@@ -761,7 +751,6 @@ function convertTargetBudget(
   const maxCoveredCells = 1 + positiveShapeBudget * constants.coverageCellsPerBudget;
   const baseTarget = {
     maxTargets: target.maxTargets,
-    targetMode: target.targetMode,
     rawTargeting: target.rawTargeting,
   };
   let converted: NormalizedTechniqueArtsStrengthTarget;
@@ -1249,7 +1238,6 @@ export function expandTechniqueArtsStrengthSkill(params: ExpandTechniqueArtsStre
       unlockRealm: params.skill.unlockRealm as any,
       unlockPlayerRealm: params.skill.unlockPlayerRealm as any,
       ...(explicitRequiresTarget ? { requiresTarget: params.skill.requiresTarget } : requiresTarget ? {} : { requiresTarget: false }),
-      targetMode: params.skill.targetMode ?? params.skill.target.targetMode,
       playerCast: buildExpandedPlayerCast(params.skill.playerCast, chantConversion.value),
       monsterCast: params.skill.monsterCast as any,
     },
@@ -1297,7 +1285,6 @@ export function expandTechniqueArtsStrengthContentSkill(
       requiresTarget: typeof source.requiresTarget === 'boolean'
         ? source.requiresTarget
         : source.artsStrength.requiresTarget,
-      targetMode: source.targetMode ?? source.artsStrength.targetMode,
       playerCast: source.playerCast ?? source.artsStrength.playerCast,
       monsterCast: source.monsterCast ?? source.artsStrength.monsterCast,
     }
@@ -1593,7 +1580,6 @@ function buildTargetingDef(target: NormalizedTechniqueArtsStrengthTarget): Skill
       range: target.range,
       width: target.width,
       maxTargets: target.maxTargets,
-      targetMode: target.targetMode,
     }));
   }
   if (target.type === 'box') {
@@ -1603,7 +1589,6 @@ function buildTargetingDef(target: NormalizedTechniqueArtsStrengthTarget): Skill
       width: target.width,
       height: target.height,
       maxTargets: target.maxTargets,
-      targetMode: target.targetMode,
     }));
   }
   if (target.type === 'orientedBox') {
@@ -1613,7 +1598,6 @@ function buildTargetingDef(target: NormalizedTechniqueArtsStrengthTarget): Skill
       width: target.width,
       height: target.height,
       maxTargets: target.maxTargets,
-      targetMode: target.targetMode,
     }));
   }
   if (target.type === 'checkerboard') {
@@ -1624,7 +1608,6 @@ function buildTargetingDef(target: NormalizedTechniqueArtsStrengthTarget): Skill
       height: target.height,
       checkerParity: target.checkerParity,
       maxTargets: target.maxTargets,
-      targetMode: target.targetMode,
     }));
   }
   if (target.type === 'area') {
@@ -1633,7 +1616,6 @@ function buildTargetingDef(target: NormalizedTechniqueArtsStrengthTarget): Skill
       range: target.range,
       radius: target.radius,
       maxTargets: target.maxTargets,
-      targetMode: target.targetMode,
     }));
   }
   if (target.type === 'ring') {
@@ -1643,39 +1625,50 @@ function buildTargetingDef(target: NormalizedTechniqueArtsStrengthTarget): Skill
       radius: target.radius,
       innerRadius: target.innerRadius,
       maxTargets: target.maxTargets,
-      targetMode: target.targetMode,
     }));
   }
   return normalizeTargetingDefaultMaxTargets(stripUndefinedTargeting({
     shape: 'single',
     range: target.range,
     maxTargets: target.maxTargets,
-    targetMode: target.targetMode,
   }));
 }
 
 export function normalizeTargetingDefaultMaxTargets(targeting: SkillTargetingDef): SkillTargetingDef {
-  const configured = targeting.maxTargets;
+  const normalizedTargeting = stripUndefinedTargeting(targeting);
+  const configured = normalizedTargeting.maxTargets;
   if (Number.isFinite(Number(configured)) && Number(configured) >= 0) {
-    return { ...targeting, maxTargets: Math.floor(Number(configured)) };
+    return { ...normalizedTargeting, maxTargets: Math.floor(Number(configured)) };
   }
   return {
-    ...targeting,
+    ...normalizedTargeting,
     maxTargets: resolveTargetingGeometryMaxTargets({
-      range: Number.isFinite(Number(targeting.range)) ? Math.max(0, Math.floor(Number(targeting.range))) : 0,
-      shape: targeting.shape ?? 'single',
-      radius: targeting.radius,
-      innerRadius: targeting.innerRadius,
-      width: targeting.width,
-      height: targeting.height,
-      checkerParity: targeting.checkerParity,
+      range: Number.isFinite(Number(normalizedTargeting.range)) ? Math.max(0, Math.floor(Number(normalizedTargeting.range))) : 0,
+      shape: normalizedTargeting.shape ?? 'single',
+      radius: normalizedTargeting.radius,
+      innerRadius: normalizedTargeting.innerRadius,
+      width: normalizedTargeting.width,
+      height: normalizedTargeting.height,
+      checkerParity: normalizedTargeting.checkerParity,
     }),
   };
 }
 
 function stripUndefinedTargeting(targeting: SkillTargetingDef): SkillTargetingDef {
   const result: SkillTargetingDef = {};
-  for (const [key, value] of Object.entries(targeting) as Array<[keyof SkillTargetingDef, unknown]>) {
+  const keys = [
+    'shape',
+    'range',
+    'radius',
+    'innerRadius',
+    'width',
+    'height',
+    'checkerParity',
+    'maxTargets',
+    'requiresTarget',
+  ] as const satisfies readonly (keyof SkillTargetingDef)[];
+  for (const key of keys) {
+    const value = targeting[key];
     if (value !== undefined) {
       (result as Record<string, unknown>)[key] = value;
     }

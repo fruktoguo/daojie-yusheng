@@ -75,7 +75,6 @@ import {
   TECHNIQUE_GENERATION_DRAFT_EXPIRE_HOURS,
   TECHNIQUE_GENERATION_SCHEMA_VERSION,
 } from './technique-generation-constants';
-import { normalizeGeneratedTechniqueTargetModes } from './generated-technique-target-mode-normalizer';
 import {
   buildBalancedInternalTechniqueCandidate,
   createTechniqueGenerationBatchIdentity,
@@ -1504,7 +1503,7 @@ export function normalizeGeneratedTechniqueCandidateForServer(
     budgetPercent: fixed.budgetPercent,
     totalBudget: fixed.totalBudget,
   });
-  return normalizeGeneratedTechniqueTargetModes(fixedCandidate, fixed);
+  return fixedCandidate;
 }
 
 type ParseAiJsonObjectResult =

@@ -100,14 +100,13 @@ JSON 根对象只能包含 techniques 字段：
 
 const ARTS_SYSTEM_PROMPT = `你是修仙游戏的术法强度设计器。请严格输出单个 JSON 对象，不要输出代码块或解释文本。
 你只能填写强度导向的术法草稿，服务端会把 strength 权重归一化并展开成正式 SkillDef。
-所有强度预算权重只能写在 structureStrength；target 只写目标形状和点选模式；formulaStrength 只写伤害属性构成和可选百分比来源。
+所有强度预算权重只能写在 structureStrength；target 只写目标形状；formulaStrength 只写伤害属性构成和可选百分比来源。
 除非玩家在需求中主动提及吟唱、蓄力、施法前摇或类似设定，否则通常保持 structureStrength.chant 为 0，不要自行添加吟唱时间。
 不要输出约束里没有列出的字段；不要输出 grade、realmLv、budgetPercent、totalBudget、真实伤害值、真实灵力消耗、真实冷却、真实施法距离、真实影响半径、effects、buff、heal 或技能公式。`;
 
 const ARTS_TARGET_TYPE_ENUM = ['single', 'line', 'box', 'area'] as const;
 const ARTS_DAMAGE_KIND_ENUM = ['physical', 'spell'] as const;
 const ARTS_ELEMENT_ENUM = ['metal', 'wood', 'water', 'fire', 'earth'] as const;
-const ARTS_TARGET_MODE_ENUM = ['any', 'entity', 'tile'] as const;
 const ARTS_STRUCTURE_STRENGTH_KEYS = ['damage', 'cost', 'cooldown', 'chant', 'castRange', 'area'] as const;
 
 export function buildTechniquePrompt(params: TechniquePromptParams): TechniquePromptOutput {
@@ -230,7 +229,6 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
       element: ARTS_ELEMENT_ENUM,
       target: {
         type: ARTS_TARGET_TYPE_ENUM,
-        targetMode: ARTS_TARGET_MODE_ENUM,
       },
       structureStrength: Object.fromEntries(ARTS_STRUCTURE_STRENGTH_KEYS.map((key) => [
         key,
@@ -269,9 +267,9 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
         ...scalarPercentBonusRules,
       ],
       rangeMeaning: [
-        'target 只描述目标形状和目标模式，不承载任何预算权重；不要在 target 里写 castRangeWeight、areaWeight 或真实范围字段。',
+        'target 只描述目标形状，不承载任何预算权重；不要在 target 里写 castRangeWeight、areaWeight 或真实范围字段。',
         'target.type 选择 single/line/box/area；真实范围、距离和覆盖格数由 structureStrength.castRange / structureStrength.area 展开。',
-        'targetMode 表示最终可影响目标类型：single 打怪/打人优先使用 entity；line/box/area/ring/checkerboard 等范围伤害默认使用 any，让范围内实体和可破坏地块都按形状结算；只有只破坏地块、地形、建筑、墙体、阵法或临时障碍时才使用 tile。',
+        '所有需要选取目标的技能统一可影响玩家、怪物、地块、阵法和容器，不允许输出目标类型模式。',
         '玩家主题中的“范围32格”表示希望覆盖强度接近32格，不是真实半径32；请用 structureStrength.area 表达覆盖倾向。',
         `structureStrength.castRange 表示施法距离预算倾向：1格为0预算，2格约消耗1*${constants.structure.castRangeBudgetGrowth}预算，3格约消耗2*${constants.structure.castRangeBudgetGrowth}^2预算；不要把它当作最终施法距离。`,
         `影响范围按预算换算覆盖格：每1点实际范围预算约增加${constants.structure.coverageCellsPerBudget}格，line/box/area 会按各自形状向下取整成真实宽度、边长或半径。`,
@@ -285,6 +283,7 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
       'effects', 'value', 'formula', 'buff', 'buffId', 'heal',
       'maxTargets', 'inputBudget', 'targetBudget',
       'range', 'radius', 'width', 'height',
+      'targetMode',
       'damageValue', 'baseDamage',
     ],
     outputChecklist: [
@@ -296,8 +295,7 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
       '不得输出 forbiddenFields 中的任何字段。',
       'formulaStrength.attributeBases 至少1个、最多5个 key，key 必须来自 allowedAttributeBaseStats。',
       'formulaStrength.attributeBases 的值必须是正构成权重；最低伤害也要写 1，不能写 0 或负数。',
-      'target 只允许 type/targetMode；不要输出 castRangeWeight/areaWeight/range/radius/width/height。',
-      '普通范围伤害术法的 targetMode 必须优先使用 any；单体打怪或打人术法使用 entity；不能因为 type 是 line/box/area 就写 tile。',
+      'target 只允许 type；不要输出 targetMode/castRangeWeight/areaWeight/range/radius/width/height。',
       'structureStrength 必须只包含 damage/cost/cooldown/chant/castRange/area；为了表达玩家偏好，建议六个字段都写出来。',
       '施法距离和影响范围权重必须写在 structureStrength.castRange / structureStrength.area，不要写进 target。',
       '属性基底优先按主题选择，例如蛮力/拳掌偏 physAtk 或 breakPower，玄妙法术偏 spellAtk，身法风格可少量使用 dodge/moveSpeed。',
@@ -317,7 +315,7 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
           unlockLevel: 1,
           damageKind: 'physical',
           element: 'metal',
-          target: { type: 'line', targetMode: 'any' },
+          target: { type: 'line' },
           structureStrength: { damage: 4, cost: 0, cooldown: 1, chant: 0, castRange: 3, area: 1 },
           formulaStrength: {
             attributeBases: { physAtk: 4 },

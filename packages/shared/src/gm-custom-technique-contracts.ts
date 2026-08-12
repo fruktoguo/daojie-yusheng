@@ -14,7 +14,6 @@ import type {
 
 export type GmCustomTechniqueCategory = Extract<TechniqueCategory, 'internal' | 'arts'>;
 export type GmCustomTechniqueTargetType = 'single' | 'line' | 'box' | 'area';
-export type GmCustomTechniqueTargetMode = 'any' | 'entity' | 'tile';
 
 export interface GmCustomTechniqueStructureStrengthInput {
   damage: number;
@@ -38,7 +37,6 @@ export interface GmCustomTechniqueArtsSkillInput {
   element?: ElementKey;
   target: {
     type: GmCustomTechniqueTargetType;
-    targetMode: GmCustomTechniqueTargetMode;
   };
   structureStrength: GmCustomTechniqueStructureStrengthInput;
   formulaStrength: GmCustomTechniqueFormulaStrengthInput;

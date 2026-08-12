@@ -711,18 +711,8 @@ function resolveTechniqueSkill(player, techId) {
 function resolveTechniqueSkillId(player, techId) {
     return resolveTechniqueSkill(player, techId).id;
 }
-/**
- * 按真实目标模式构造 CastSkill 发包。
- */
+/** 按技能目标构造 CastSkill 发包。 */
 function buildCastSkillPayload(skill, target) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (skill?.targetMode === 'tile') {
-        return {
-            skillId: skill.id,
-            targetRef: `tile:${target.x}:${target.y}`,
-        };
-    }
     return {
         skillId: skill.id,
         targetMonsterId: target.runtimeId,

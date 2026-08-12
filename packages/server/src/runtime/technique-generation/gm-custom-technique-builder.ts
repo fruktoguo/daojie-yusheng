@@ -55,9 +55,8 @@ const SKILL_KEYS = new Set([
   'structureStrength',
   'formulaStrength',
 ]);
-const TARGET_KEYS = new Set(['type', 'targetMode']);
+const TARGET_KEYS = new Set(['type']);
 const TARGET_TYPES = new Set(['single', 'line', 'box', 'area']);
-const TARGET_MODES = new Set(['any', 'entity', 'tile']);
 const STRUCTURE_KEYS = ['damage', 'cost', 'cooldown', 'chant', 'castRange', 'area'] as const;
 const STRUCTURE_KEY_SET = new Set<string>(STRUCTURE_KEYS);
 const FORMULA_KEYS = new Set(['attributeBases', 'percentBonuses']);
@@ -242,12 +241,8 @@ function normalizeTarget(
   const type = TARGET_TYPES.has(String(source.type))
     ? source.type as GmCustomTechniqueArtsSkillInput['target']['type']
     : null;
-  const targetMode = TARGET_MODES.has(String(source.targetMode))
-    ? source.targetMode as GmCustomTechniqueArtsSkillInput['target']['targetMode']
-    : null;
   if (!type) errors.push(error('skills[0].target.type', '目标形状不在允许范围'));
-  if (!targetMode) errors.push(error('skills[0].target.targetMode', '目标模式不在允许范围'));
-  return type && targetMode ? { type, targetMode } : null;
+  return type ? { type } : null;
 }
 
 function normalizeStructureStrength(

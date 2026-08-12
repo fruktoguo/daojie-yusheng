@@ -225,7 +225,6 @@ async function run() {
     cost: 5,
     cooldown: 3,
     range: 4,
-    targetMode: 'entity',
     targeting: { shape: 'single', maxTargets: 1 },
     effects: [{ type: 'damage' }],
     playerCast: { windupTicks: 2, warningColor: '#ffaa00' },
@@ -342,7 +341,6 @@ async function run() {
           id: 'skill:revision-chant',
           name: '版本吟唱术',
           range: 2,
-          targetMode: 'entity',
           targeting: { shape: 'single', maxTargets: 1 },
           effects: [{ type: 'damage' }],
           version: 2,
@@ -658,7 +656,6 @@ async function run() {
             cost: 4,
             cooldown: 7,
             range: 5,
-            targetMode: 'any',
             targeting: {
               shape: 'line',
               width: 2,
@@ -680,6 +677,13 @@ async function run() {
   assert.equal(playerSkillDefinition.definition.cooldownTicks, 7);
   assert.equal(playerSkillDefinition.definition.maxTargets, 4);
   assert.equal(playerSkillDefinition.definition.effects[0].type, 'damage');
+  assert.deepEqual(playerSkillDefinition.definition.allowedTargetKinds, [
+    CombatTargetKind.Player,
+    CombatTargetKind.Monster,
+    CombatTargetKind.Tile,
+    CombatTargetKind.Formation,
+    CombatTargetKind.Container,
+  ]);
 
   const playerSkillCells = service.computeCombatTargetCells({
     action: playerSkillDefinition.action,
@@ -808,13 +812,11 @@ async function run() {
   assert.equal(monsterTargets.targets[0].kind, CombatTargetKind.Monster);
   assert.equal(monsterTargets.targets[0].id, 'monster:target');
 
-  const entityAreaSkill = {
+  const universalAreaSkill = {
     id: 'skill:entity-area',
-    name: '实体范围测试术',
+    name: '全类型范围测试术',
     range: 3,
-    targetMode: 'entity',
     targeting: {
-      targetMode: 'entity',
       shape: 'area',
       radius: 1,
       maxTargets: 9,
@@ -823,7 +825,7 @@ async function run() {
   };
   let monsterRuntimeRefLookups = 0;
   let playerRuntimeRefLookups = 0;
-  const entityAreaPlan = service.resolvePlayerSkillActionPlan({
+  const universalAreaPlan = service.resolvePlayerSkillActionPlan({
     playerId: 'player:attacker',
     targetRef: 'tile:12:10',
     attacker: {
@@ -833,7 +835,7 @@ async function run() {
       x: 10,
       y: 10,
     },
-    skill: entityAreaSkill,
+    skill: universalAreaSkill,
     instance: {
       ...targetInstance,
       canSeeTileFrom: () => true,
@@ -859,13 +861,11 @@ async function run() {
     },
     resolveCombatRelation: () => ({ hostile: true }),
   });
-  assert.equal(entityAreaPlan.ok, true);
-  assert.equal(entityAreaPlan.selectedTargets.length, 2);
-  assert.deepEqual(
-    entityAreaPlan.selectedTargets.map((target) => target.kind).sort(),
-    [CombatTargetKind.Monster, CombatTargetKind.Player].sort(),
-  );
-  assert.equal(entityAreaPlan.selectedTargets.some((target) => target.kind === CombatTargetKind.Tile), false);
+  assert.equal(universalAreaPlan.ok, true);
+  assert.equal(universalAreaPlan.selectedTargets.length, 7);
+  assert.equal(universalAreaPlan.selectedTargets.filter((target) => target.kind === CombatTargetKind.Monster).length, 1);
+  assert.equal(universalAreaPlan.selectedTargets.filter((target) => target.kind === CombatTargetKind.Player).length, 1);
+  assert.equal(universalAreaPlan.selectedTargets.filter((target) => target.kind === CombatTargetKind.Tile).length, 5);
   assert.ok(monsterRuntimeRefLookups > 0);
   assert.ok(playerRuntimeRefLookups > 0);
 
@@ -874,17 +874,18 @@ async function run() {
     ...targetInstance,
     getCombatTargetRuntimeRefsAtTile: (x, y, options) => {
       aggregateRuntimeRefLookups += 1;
-      return (x === 12 && y === 10) || (x === 12 && y === 11)
-        ? {
-          monster: options?.monster === true && x === 12 && y === 10
-            ? { runtimeId: 'monster:area-target', x, y, alive: true }
-            : null,
-          players: options?.player === true && x === 12 && y === 11
-            ? [{ playerId: 'player:area-target' }]
-            : null,
-          container: null,
-        }
-        : null;
+      return {
+        monster: options?.monster === true && x === 12 && y === 10
+          ? { runtimeId: 'monster:area-target', x, y, alive: true }
+          : null,
+        players: options?.player === true && x === 12 && y === 11
+          ? [{ playerId: 'player:area-target' }]
+          : null,
+        container: null,
+        tileState: options?.tile === true
+          ? { x, y, hp: 10, maxHp: 10, destroyed: false }
+          : null,
+      };
     },
     getMonsterRuntimeRefAtTile: () => {
       throw new Error('聚合目标入口启用时不应再次读取妖兽索引');
@@ -909,7 +910,7 @@ async function run() {
       x: 10,
       y: 10,
     },
-    skill: entityAreaSkill,
+    skill: universalAreaSkill,
     instance: aggregateTargetInstance,
     playerRuntimeService: {
       getPlayer: (playerId) => ({ playerId, hp: 100, instanceId: 'instance:test' }),
@@ -919,18 +920,16 @@ async function run() {
   assert.equal(aggregateAreaPlan.ok, true);
   assert.deepEqual(
     aggregateAreaPlan.selectedTargets.map((target) => ({ kind: target.kind, id: target.id })),
-    entityAreaPlan.selectedTargets.map((target) => ({ kind: target.kind, id: target.id })),
+    universalAreaPlan.selectedTargets.map((target) => ({ kind: target.kind, id: target.id })),
   );
   assert.ok(aggregateRuntimeRefLookups > 0);
 
   const anyAreaSkill = {
-    ...entityAreaSkill,
+    ...universalAreaSkill,
     id: 'skill:any-area',
     name: '实体地块范围测试术',
-    targetMode: 'any',
     targeting: {
-      ...entityAreaSkill.targeting,
-      targetMode: 'any',
+      ...universalAreaSkill.targeting,
       maxTargets: 20,
     },
   };
@@ -1726,7 +1725,6 @@ async function run() {
     id: 'skill:aoe-edge',
     name: '边缘范围术',
     range: 5,
-    targetMode: 'tile',
     targeting: { shape: 'box', width: 3, height: 3, maxTargets: 9 },
     effects: [{ type: 'damage', formula: 1 }],
   }, [{ kind: 'monster', monsterId: 'monster:aoe-edge', x: 6, y: 0 }], {
@@ -1754,7 +1752,6 @@ async function run() {
     {
       id: 'skill:validate',
       range: 2,
-      targetMode: 'entity',
       effects: [{ type: 'damage' }],
     },
   );
@@ -1838,15 +1835,16 @@ async function run() {
   assert.equal(noTargets.ok, false);
   assert.equal(noTargets.rejected[0].reason, CombatRejectReason.NoTargets);
 
-  const typeRejected = service.validateCombatTargets({
+  const tileAllowed = service.validateCombatTargets({
     action: skillAction,
     definition: validationDefinition,
     actorPosition: { x: 10, y: 10 },
     targets: [{ kind: CombatTargetKind.Tile, x: 11, y: 10 }],
     instance: { canSeeTileFrom: () => true },
+    canDamageTile: true,
   });
-  assert.equal(typeRejected.ok, false);
-  assert.equal(typeRejected.rejected[0].reason, CombatRejectReason.TargetTypeNotAllowed);
+  assert.equal(tileAllowed.ok, true);
+  assert.equal(tileAllowed.allowedCount, 1);
 
   const rangeRejected = service.validateCombatTargets({
     action: skillAction,
@@ -2389,7 +2387,6 @@ async function run() {
           id: 'skill:pending',
           name: '远处术',
           range: 1,
-          targetMode: 'entity',
           effects: [{ type: 'damage' }],
         }],
       }],
@@ -2864,7 +2861,6 @@ async function run() {
       id: 'skill:stale',
       name: '执行阶段检测术',
       range: 3,
-      targetMode: 'any',
       effects: [{ type: 'damage' }],
     }, [
       { kind: 'monster', monsterId: 'monster:missing' },

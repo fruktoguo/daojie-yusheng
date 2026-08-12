@@ -888,9 +888,9 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
           requiresTarget,
         })
         : requiresTarget,
-      targetMode: applyNullablePatch(patch.targetMode, previousSameAction?.targetMode ?? staticAction?.targetMode)
-        ?? skillTemplate?.targetMode
-        ?? (isSkillAction ? 'any' : undefined),
+      targetMode: isSkillAction
+        ? undefined
+        : applyNullablePatch(patch.targetMode, previousSameAction?.targetMode ?? staticAction?.targetMode),
       scriptureTechniqueId: applyNullablePatch(patch.scriptureTechniqueId, previousSameAction?.scriptureTechniqueId),
       scriptureTechniqueName: applyNullablePatch(patch.scriptureTechniqueName, previousSameAction?.scriptureTechniqueName),
       scriptureTechniqueRealmLv: applyNullablePatch(patch.scriptureTechniqueRealmLv, previousSameAction?.scriptureTechniqueRealmLv),

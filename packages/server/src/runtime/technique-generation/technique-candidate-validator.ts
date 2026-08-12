@@ -38,7 +38,6 @@ const ARTS_STRENGTH_ALLOWED_ATTRIBUTE_BASE_STATS = new Set<string>(
   TECHNIQUE_ARTS_STRENGTH_ALLOWED_ATTRIBUTE_BASE_STATS,
 );
 const ARTS_STRENGTH_TARGET_TYPES = new Set<string>(['single', 'line', 'box', 'area']);
-const ARTS_STRENGTH_TARGET_MODES = new Set<string>(['any', 'entity', 'tile']);
 const ARTS_STRENGTH_SKILL_FORBIDDEN_FIELDS = [
   'id',
   'cost',
@@ -53,6 +52,7 @@ const ARTS_STRENGTH_SKILL_FORBIDDEN_FIELDS = [
   'buffId',
   'heal',
   'maxTargets',
+  'targetMode',
   'totalBudget',
   'inputBudget',
   'targetBudget',
@@ -66,7 +66,6 @@ const ARTS_STRENGTH_TARGET_KEYS = new Set<string>([
   'type',
   'castRangeWeight',
   'areaWeight',
-  'targetMode',
 ]);
 
 /** 完整校验链 */
@@ -261,9 +260,6 @@ function validateArtsStrengthTarget(raw: unknown, skillIndex: number, errors: Va
   }
   if (target.type !== undefined && !ARTS_STRENGTH_TARGET_TYPES.has(String(target.type))) {
     errors.push({ layer: 2, field: `skills[${skillIndex}].target.type`, message: 'target.type 不在允许范围' });
-  }
-  if (target.targetMode !== undefined && !ARTS_STRENGTH_TARGET_MODES.has(String(target.targetMode))) {
-    errors.push({ layer: 2, field: `skills[${skillIndex}].target.targetMode`, message: 'targetMode 不在允许范围' });
   }
   validateOptionalArtsPositiveWeight(target.castRangeWeight, `skills[${skillIndex}].target.castRangeWeight`, errors);
   validateOptionalArtsPositiveWeight(target.areaWeight, `skills[${skillIndex}].target.areaWeight`, errors);

@@ -1083,9 +1083,7 @@ function formatTargeting(skill: SkillDef): string {
     const height = skill.targeting?.height ?? width;
     return t('skill-tooltip.targeting.oriented-box', { width: formatDisplayInteger(width), height: formatDisplayInteger(height), count: formatDisplayInteger(maxTargets) });
   }
-  return skill.targetMode === 'tile'
-    ? t('skill-tooltip.targeting.single-tile', undefined)
-    : t('skill-tooltip.targeting.single', undefined);
+  return t('skill-tooltip.targeting.single', undefined);
 }
 
 /** 构建完整的技能提示内容（富文本行 + 侧栏 Buff 卡片） */

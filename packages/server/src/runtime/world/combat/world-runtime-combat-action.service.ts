@@ -323,7 +323,6 @@ export class WorldRuntimeCombatActionService {
       name: input.name ?? '普攻',
       source: action?.source ?? CombatActionSource.System,
       requiresTarget: true,
-      targetMode: input.targetMode ?? 'entity',
       allowedTargetKinds: input.allowedTargetKinds ?? [
         CombatTargetKind.Player,
         CombatTargetKind.Monster,
@@ -367,7 +366,6 @@ export class WorldRuntimeCombatActionService {
       name: resolvePlayerFacingContentName(skill.id ?? action?.actionId, '未知技能', skill.name),
       source: action?.source ?? CombatActionSource.System,
       requiresTarget,
-      targetMode: skill.targetMode ?? skill.targeting?.targetMode ?? null,
       allowedTargetKinds: resolveSkillAllowedTargetKinds(skill),
       range: geometry.range,
       geometry,

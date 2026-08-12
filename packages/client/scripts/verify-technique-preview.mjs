@@ -331,7 +331,6 @@ try {
         formula: 777,
       }],
       unlockLevel: 2,
-      targetMode: 'tile',
       playerCast: { windupTicks: 7 },
     }],
   };

@@ -11816,7 +11816,6 @@ function buildActionEntries(player, currentTick) {
                 cooldownReadyTick: normalizedReadyTick > currentTick ? normalizedReadyTick : undefined,
                 range: skill.targeting?.range ?? skill.range,
                 requiresTarget: resolveSkillRequiresTarget(skill),
-                targetMode: skill.targetMode ?? 'entity',
                 autoBattleEnabled: autoBattleSkill?.entry?.enabled ?? true,
                 autoBattleOrder: autoBattleSkill?.order,
                 skillEnabled: autoBattleSkill?.entry?.skillEnabled !== false,

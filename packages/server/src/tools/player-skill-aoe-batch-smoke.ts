@@ -265,8 +265,7 @@ function testSkillTargetPlanReusesCategoryRelationResolution(): void {
     id: 'skill.target-relation-cache',
     name: '关系缓存测试术',
     range: 2,
-    targetMode: 'tile',
-    targeting: { range: 2, shape: 'area', radius: 1, maxTargets: 9, targetMode: 'tile' },
+    targeting: { range: 2, shape: 'area', radius: 1, maxTargets: 9 },
     effects: [{ type: 'damage', damageKind: 'spell', formula: 1 }],
   };
   const instance = createMapInstance(['LLL', 'LLL', 'LLL'], 'instance:target-relation-cache');
@@ -321,8 +320,7 @@ async function testLargeTileCastBatchesAuthorityAndPresentation(): Promise<void>
     cost: 0,
     cooldown: 1,
     range: 20,
-    targetMode: 'tile',
-    targeting: { range: 20, shape: 'square', radius: 10, maxTargets: TARGET_COUNT, targetMode: 'tile' },
+    targeting: { range: 20, shape: 'square', radius: 10, maxTargets: TARGET_COUNT },
     effects: [{ type: 'damage', damageKind: 'spell', formula: { var: 'caster.stat.spellAtk' } }],
   };
   const instance = createMapInstance(Array.from({ length: MAP_SIZE }, () => 'L'.repeat(MAP_SIZE)), 'instance:aoe-batch');
@@ -715,7 +713,7 @@ async function testTargetDependentTileFormulaKeepsPerTargetResolution(): Promise
     cost: 0,
     cooldown: 1,
     range: 3,
-    targeting: { range: 3, shape: 'square', radius: 1, maxTargets: 9, targetMode: 'tile' },
+    targeting: { range: 3, shape: 'square', radius: 1, maxTargets: 9 },
     effects: [{ type: 'damage', damageKind: 'spell', formula: { var: 'target.hp' } }],
   };
   const instance = createMapInstance(['LLL', 'LLL', 'LLL'], 'instance:target-formula-fallback');

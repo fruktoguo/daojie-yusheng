@@ -34,7 +34,6 @@ for (const field of [
   'attr.constitution',
   'attr.meridians',
   'skill.target.type',
-  'skill.target.targetMode',
   'structure.damage',
   'structure.area',
   'base.maxHp',
@@ -53,6 +52,9 @@ for (const field of [
 ]) {
   assert.match(html, new RegExp(`name=["']${field.replaceAll('.', '\\.')}["']`, 'u'), `GM 手工功法表单缺少 ${field}`);
 }
+
+assert.doesNotMatch(html, /name=["']skill\.target\.targetMode["']/u, 'GM 手工功法表单仍暴露已删除的目标模式');
+assert.doesNotMatch(editorSource, /skill\.target\.targetMode/u, 'GM 手工功法请求仍提交已删除的目标模式');
 
 for (const field of [
   'techLevel',
@@ -87,6 +89,7 @@ console.log(JSON.stringify({
   case: 'gm-custom-technique-editor',
   assertions: [
     '手工创建子页和完整配置字段存在',
+    '技能目标模式已从表单和请求契约删除',
     '预览与创建 API 已接入',
     '百分比权重仅允许0到100',
     '失败重试复用 operationId',

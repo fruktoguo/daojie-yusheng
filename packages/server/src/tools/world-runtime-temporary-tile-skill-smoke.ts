@@ -62,7 +62,6 @@ function main(): void {
     targeting: {
       shape: 'single',
       range: 6,
-      targetMode: 'tile',
       maxTargets: 1,
     },
     effects: [

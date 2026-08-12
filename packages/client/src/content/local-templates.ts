@@ -419,7 +419,6 @@ export function resolvePreviewSkill(skill: SkillDef): SkillDef {
     unlockRealm: skill.unlockRealm ?? template.unlockRealm,
     unlockPlayerRealm: skill.unlockPlayerRealm ?? template.unlockPlayerRealm,
     requiresTarget: skill.requiresTarget ?? template.requiresTarget,
-    targetMode: skill.targetMode ?? template.targetMode,
   };
   return {
     ...resolved,

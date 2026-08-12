@@ -737,7 +737,6 @@ export function isSameSkillDef(left: SkillDef | null | undefined, right: SkillDe
         && left.unlockRealm === right.unlockRealm
         && left.unlockPlayerRealm === right.unlockPlayerRealm
         && left.requiresTarget === right.requiresTarget
-        && left.targetMode === right.targetMode
         && isSameSkillPlayerCastDef(left.playerCast, right.playerCast)
         && isSameSkillMonsterCastDef(left.monsterCast, right.monsterCast);
 }
@@ -757,8 +756,7 @@ export function isSameSkillTargetingDef(left: SkillTargetingDef | null | undefin
         && left.height === right.height
         && left.checkerParity === right.checkerParity
         && left.maxTargets === right.maxTargets
-        && left.requiresTarget === right.requiresTarget
-        && left.targetMode === right.targetMode;
+        && left.requiresTarget === right.requiresTarget;
 }
 
 export function isSameSkillEffectList(left: SkillEffectDef[] | null | undefined, right: SkillEffectDef[] | null | undefined) {

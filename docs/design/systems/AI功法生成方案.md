@@ -217,7 +217,7 @@ AI 输出：
 
 ```json
 {
-  "target": { "type": "area", "targetMode": "entity" },
+  "target": { "type": "area" },
   "structureStrength": { "damage": 1, "cost": -20, "cooldown": 80, "chant": 0, "castRange": 6, "area": 6 },
   "formulaStrength": { "attributeBases": { "spellAtk": 1 } }
 }

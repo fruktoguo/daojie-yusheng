@@ -74,7 +74,7 @@ function testGeneratedLineTargetingCoverage(): void {
       name: '九曜横断',
       unlockLevel: 1,
       damageKind: 'spell',
-      target: { type: 'line', targetMode: 'any' },
+      target: { type: 'line' },
       structureStrength: {
         damage: 1,
         cost: 0,
@@ -90,7 +90,6 @@ function testGeneratedLineTargetingCoverage(): void {
     shape: 'line',
     range: 1,
     width: 9,
-    targetMode: 'any',
     maxTargets: 9,
   });
 }
@@ -108,7 +107,7 @@ function testPercentBonusRefundPreservesRatio(): void {
       name: '比例回流烟测',
       unlockLevel: 1,
       damageKind: 'spell',
-      target: { type: 'single', targetMode: 'entity' },
+      target: { type: 'single' },
       structureStrength: { damage: 0, cost: 0, cooldown: 0, chant: 0, castRange: 0, area: 100 },
       formulaStrength: {
         attributeBases: { spellAtk: 1 },
@@ -212,7 +211,7 @@ function testArtsExpansion(): void {
       unlockLevel: 2,
       damageKind: 'spell',
       element: 'fire',
-      target: { type: 'area', targetMode: 'any' },
+      target: { type: 'area' },
       structureStrength: {
         damage: 100,
         cost: 40,
@@ -290,7 +289,7 @@ function testNegativeChantExpansion(): void {
       unlockLevel: 1,
       damageKind: 'spell',
       element: 'fire',
-      target: { type: 'single', targetMode: 'entity' },
+      target: { type: 'single' },
       structureStrength: {
         damage: 100,
         cost: 0,
@@ -336,6 +335,28 @@ function testStrictValidation(): void {
     assert.ok(stringNumber.errors.some((entry) => entry.field === 'realmLv'));
   }
 
+  const removedTargetMode = buildGmCustomTechnique({
+    name: '旧目标模式烟测术',
+    category: 'arts',
+    grade: 'mystic',
+    realmLv: 31,
+    maxLayer: 9,
+    expDifficulty: 1,
+    budgetPercent: 1,
+    skills: [{
+      name: '旧目标模式',
+      unlockLevel: 1,
+      damageKind: 'spell',
+      target: { type: 'single', targetMode: 'entity' },
+      structureStrength: { damage: 1, cost: 0, cooldown: 0, chant: 0, castRange: 0, area: 0 },
+      formulaStrength: { attributeBases: { spellAtk: 1 } },
+    }],
+  }, 'gen_gm_smoke_removed_target_mode');
+  assert.equal(removedTargetMode.ok, false);
+  if (removedTargetMode.ok === false) {
+    assert.ok(removedTargetMode.errors.some((entry) => entry.field === 'skills[0].target.targetMode'));
+  }
+
   const negativePercentBonus = buildGmCustomTechnique({
     name: '负权重烟测术',
     category: 'arts',
@@ -348,7 +369,7 @@ function testStrictValidation(): void {
       name: '负权重烟测',
       unlockLevel: 1,
       damageKind: 'spell',
-      target: { type: 'single', targetMode: 'entity' },
+      target: { type: 'single' },
       structureStrength: { damage: 1, cost: 0, cooldown: 0, chant: 0, castRange: 0, area: 0 },
       formulaStrength: {
         attributeBases: { spellAtk: 1 },

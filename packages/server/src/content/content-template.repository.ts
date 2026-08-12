@@ -2158,7 +2158,6 @@ function normalizeSkill(raw, grade, realmLv, sharedTechniqueBuffs = new Map()) {
         unlockRealm,
         unlockPlayerRealm: candidate.unlockPlayerRealm,
         requiresTarget: requiresTarget === false ? false : candidate.requiresTarget,
-        targetMode: candidate.targetMode,
         playerCast: normalizeSkillCastDef(candidate.playerCast, false),
         monsterCast: normalizeSkillCastDef(candidate.monsterCast, true),
     };

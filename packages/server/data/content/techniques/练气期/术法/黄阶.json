@@ -61,8 +61,7 @@
             "buffRef": "lianqi.metal.edge_mark"
           }
         ],
-        "unlockLevel": 1,
-        "targetMode": "tile"
+        "unlockLevel": 1
       }
     ]
   },
@@ -308,8 +307,7 @@
             "stacks": 10
           }
         ],
-        "unlockLevel": 1,
-        "targetMode": "tile"
+        "unlockLevel": 1
       }
     ]
   },
@@ -402,8 +400,7 @@
             "buffRef": "lianqi.wood.bloom"
           }
         ],
-        "unlockLevel": 1,
-        "targetMode": "tile"
+        "unlockLevel": 1
       }
     ]
   },

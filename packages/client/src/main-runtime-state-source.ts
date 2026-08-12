@@ -371,7 +371,6 @@ type BootstrapActionSkillTemplate = {
   desc?: string;
   range?: number;
   requiresTarget?: boolean;
-  targetMode?: ActionDef['targetMode'];
   targeting?: SkillTargetingDef;
 };
 
@@ -412,7 +411,7 @@ function hydrateBootstrapAction(
         requiresTarget,
       })
       : requiresTarget,
-    targetMode: action.targetMode ?? staticAction?.targetMode ?? skillTemplate?.targetMode ?? bootstrapSkillTemplate?.targetMode ?? (nextType === 'skill' ? 'any' : undefined),
+    targetMode: nextType === 'skill' ? undefined : action.targetMode ?? staticAction?.targetMode,
     autoBattleEnabled: action.autoBattleEnabled,
     autoBattleOrder: action.autoBattleOrder,
     skillEnabled: action.skillEnabled,

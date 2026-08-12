@@ -213,7 +213,6 @@ function buildTechniqueInput(form: HTMLFormElement): GmCustomTechniqueInput {
     ...(element ? { element: element as GmCustomTechniqueArtsSkillInput['element'] } : {}),
     target: {
       type: readText(form, 'skill.target.type') as GmCustomTechniqueArtsSkillInput['target']['type'],
-      targetMode: readText(form, 'skill.target.targetMode') as GmCustomTechniqueArtsSkillInput['target']['targetMode'],
     },
     structureStrength: readNumberRecord(form, 'structure', STRUCTURE_KEYS),
     formulaStrength: {

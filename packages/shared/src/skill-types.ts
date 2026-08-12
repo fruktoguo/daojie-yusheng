@@ -135,11 +135,6 @@ export interface SkillTargetingDef {
  */
 
   requiresTarget?: boolean;
-  /**
- * targetMode：目标Mode相关字段。
- */
-
-  targetMode?: 'any' | 'entity' | 'tile';
 }
 
 /** 技能伤害效果定义。 */
@@ -709,11 +704,6 @@ export interface SkillDef {
  */
 
   requiresTarget?: boolean;
-  /**
- * targetMode：目标Mode相关字段。
- */
-
-  targetMode?: 'any' | 'entity' | 'tile';
   /**
  * playerCast：玩家吟唱表现相关字段。
  */

@@ -202,8 +202,7 @@
             "buffRef": "lianqi.water.frost_mark"
           }
         ],
-        "unlockLevel": 1,
-        "targetMode": "tile"
+        "unlockLevel": 1
       }
     ]
   },
@@ -267,8 +266,7 @@
             "buffRef": "lianqi.wood.vine_mark"
           }
         ],
-        "unlockLevel": 1,
-        "targetMode": "tile"
+        "unlockLevel": 1
       }
     ]
   },

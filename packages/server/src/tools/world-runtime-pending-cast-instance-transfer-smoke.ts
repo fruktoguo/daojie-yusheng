@@ -36,7 +36,6 @@ function createSkill() {
     cost: 5,
     cooldown: 3,
     range: 4,
-    targetMode: 'entity',
     targeting: { shape: 'single', maxTargets: 1 },
     effects: [{ type: 'damage' }],
     playerCast: { windupTicks: 2, warningColor: '#ffaa00' },

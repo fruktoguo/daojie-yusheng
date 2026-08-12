@@ -642,7 +642,6 @@ function createAction(id: string, cooldownLeft: number, cooldownReadyTick: numbe
     cooldownReadyTick,
     range: 1,
     requiresTarget: true,
-    targetMode: 'entity',
     autoBattleEnabled: true,
     autoBattleOrder: 0,
     skillEnabled: true,

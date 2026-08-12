@@ -55,7 +55,6 @@ function createPlayer(): any {
                     desc: '以青锋破敌。',
                     range: 2,
                     requiresTarget: true,
-                    targetMode: 'entity',
                 }],
             }],
             cultivatingTechId: 'tech.a',
@@ -67,7 +66,7 @@ function createPlayer(): any {
         enhancementSkillLevel: 3,
         actions: {
             actions: [
-                { id: 'skill.a', name: '青锋', type: 'skill', desc: '以青锋破敌。', range: 2, requiresTarget: true, targetMode: 'entity' },
+                { id: 'skill.a', name: '青锋', type: 'skill', desc: '以青锋破敌。', range: 2, requiresTarget: true },
                 {
                     id: 'skill.disabled',
                     name: '封脉',
@@ -77,7 +76,6 @@ function createPlayer(): any {
                     cooldownReadyTick: 35,
                     range: 3,
                     requiresTarget: true,
-                    targetMode: 'entity',
                     autoBattleEnabled: false,
                     autoBattleOrder: 2,
                     skillEnabled: false,

@@ -18,7 +18,7 @@ const technique: GmCustomArtsTechniqueInput = {
     desc: '用于验证冷却、半径与伤害权重的联合反推。',
     unlockLevel: 9,
     damageKind: 'spell',
-    target: { type: 'area', targetMode: 'any' },
+    target: { type: 'area' },
     structureStrength: {
       damage: -100,
       cost: 0,

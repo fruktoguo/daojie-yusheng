@@ -248,8 +248,11 @@ export function resolveTargetRefForAction(
   if ((geometry.shape ?? 'single') !== 'single') {
     return encodeTileTargetRef({ x: target.x, y: target.y });
   }
+  if (skill) {
+    return entityTargetRef ?? encodeTileTargetRef({ x: target.x, y: target.y });
+  }
   if (action.targetMode === 'entity') {
-    return entityTargetRef ?? (skill ? encodeTileTargetRef({ x: target.x, y: target.y }) : null);
+    return entityTargetRef;
   }
   if (action.targetMode === 'tile') {
     return encodeTileTargetRef({ x: target.x, y: target.y });
