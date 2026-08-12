@@ -87,6 +87,43 @@ api() {
   fi
 }
 
+# ---- 二进制备份下载；避免通用 api() 将响应装入 shell 变量而损坏内容 ----
+# download_backup BACKUP_ID DESTINATION
+download_backup() {
+  local backup_id="$1" destination="$2" token status temp_file
+  [ -n "$backup_id" ] || die "备份 ID 不能为空"
+  [ -n "$destination" ] || die "下载目标不能为空"
+  [ ! -e "$destination" ] || die "下载目标已存在：$destination"
+  mkdir -p "$(dirname "$destination")"
+  temp_file="$(mktemp "${destination}.tmp.XXXXXX")"
+  token="$(ensure_token)"
+  _download() {
+    local tk="$1"
+    curl -sS --max-time "$CURL_TIMEOUT" -o "$temp_file" -w '%{http_code}' \
+      -H "Authorization: Bearer $tk" \
+      "$BASE_URL/api/gm/database/backups/$backup_id/download"
+  }
+  status="$(_download "$token")" || {
+    rm -f "$temp_file"
+    die "备份下载失败：$backup_id"
+  }
+  if [ "$status" = "401" ]; then
+    token="$(login)"
+    status="$(_download "$token")" || {
+      rm -f "$temp_file"
+      die "备份下载失败：$backup_id"
+    }
+  fi
+  case "$status" in
+    2*) mv "$temp_file" "$destination" ;;
+    *)
+      rm -f "$temp_file"
+      die "备份下载失败：HTTP $status，备份 $backup_id"
+      ;;
+  esac
+  printf '%s\n' "$destination"
+}
+
 # ---- 诊断查询（只读 SQL / 内置指令）----
 diag() {
   local cmd="$1" limit="${2:-100}"
@@ -103,6 +140,7 @@ usage() {
   get  <path>           鉴权 GET，如 get /api/gm/state
   post <path> [json]    鉴权 POST，json 为请求体字符串
   raw  <METHOD> <path> [json]   任意方法
+  download-backup <id> <path>   下载数据库备份到指定本地路径
 
   logs [limit] [before] 服务端控制台日志（默认 100 条）
   state                 全服运行态总览
@@ -129,6 +167,7 @@ case "$cmd" in
   get)      [ $# -ge 1 ] || usage; api GET "$1" ;;
   post)     [ $# -ge 1 ] || usage; api POST "$1" "${2:-}" ;;
   raw)      [ $# -ge 2 ] || usage; api "$1" "$2" "${3:-}" ;;
+  download-backup) [ $# -ge 2 ] || usage; download_backup "$1" "$2" ;;
   logs)     p="/api/gm/logs?limit=${1:-100}"; [ -n "${2:-}" ] && p="$p&before=$2"; api GET "$p" ;;
   state)    api GET /api/gm/state ;;
   players)  if [ -n "${1:-}" ]; then api GET "/api/gm/players?search=$1"; else api GET /api/gm/players; fi ;;
