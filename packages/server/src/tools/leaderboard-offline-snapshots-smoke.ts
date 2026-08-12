@@ -333,6 +333,25 @@ async function main(): Promise<void> {
       return [bannedOnlinePlayer.playerId, bannedOfflinePlayer.playerId];
     },
   };
+  let treasureVaultSummaryCalls = 0;
+  let treasureVaultCountsByOwner = new Map<string, number>([
+    [onlinePlayer.playerId, 400],
+    [offlinePlayer.playerId, 50],
+    [bannedOfflinePlayer.playerId, 10_000],
+    ['gm_bot_leaderboard_smoke', 20_000],
+    ['player:missing-vault-owner', 13],
+  ]);
+  let unownedTreasureVaultCount = 7;
+  const treasureVaultRuntimeService = {
+    async summarizeStoredItemCountsByOwner(itemId: string) {
+      assert.equal(itemId, 'spirit_stone');
+      treasureVaultSummaryCalls += 1;
+      return {
+        countsByOwnerPlayerId: new Map(treasureVaultCountsByOwner),
+        unownedCount: unownedTreasureVaultCount,
+      };
+    },
+  };
   const syncedInvitationHighestRealmLevels = new Map<string, number>();
   const activityPersistenceService = {
     isEnabled() {
@@ -404,6 +423,7 @@ async function main(): Promise<void> {
     null,
     authStore as never,
     activityPersistenceService as never,
+    treasureVaultRuntimeService as never,
   );
 
   const leaderboard = await service.buildLeaderboard(10, sectService);
@@ -459,11 +479,12 @@ async function main(): Promise<void> {
       spiritStoneCount: entry.spiritStoneCount,
     })),
     [
-      { playerId: 'player:offline', spiritStoneCount: 200 },
-      { playerId: 'player:online', spiritStoneCount: 1 },
+      { playerId: 'player:online', spiritStoneCount: 401 },
+      { playerId: 'player:offline', spiritStoneCount: 250 },
       { playerId: 'player:offline-idle', spiritStoneCount: 0 },
     ],
   );
+  assert.equal(treasureVaultSummaryCalls, 1);
   assert.deepEqual(
     leaderboard.boards.playerKills.map((entry) => entry.playerId),
     ['player:offline', 'player:offline-idle', 'player:online'],
@@ -567,6 +588,14 @@ async function main(): Promise<void> {
       unitPrice: 1000,
     },
   ];
+  treasureVaultCountsByOwner = new Map<string, number>([
+    [onlinePlayer.playerId, 40],
+    [offlinePlayer.playerId, 60],
+    [bannedOfflinePlayer.playerId, 10_000],
+    ['gm_bot_leaderboard_smoke', 20_000],
+    ['player:missing-vault-owner', 13],
+  ]);
+  unownedTreasureVaultCount = 7;
   const worldSummary = await service.buildWorldSummary();
   assert.deepEqual(worldSummary.summary.realmCounts, {
     initial: 0,
@@ -580,7 +609,8 @@ async function main(): Promise<void> {
     playerKills: 17,
     playerDeaths: 2,
   });
-  assert.equal(worldSummary.summary.totalSpiritStones, 301);
+  assert.equal(worldSummary.summary.totalSpiritStones, 421);
+  assert.equal(treasureVaultSummaryCalls, 2, '世界摘要必须按 30 秒口径重新读取宝库真源，不能沿用 10 分钟榜单快照');
   assert.equal(worldSummary.summary.actionCounts.cultivation, 2);
   assert.equal(worldSummary.summary.actionCounts.combat, 0);
   assert.equal(worldSummary.summary.actionCounts.alchemy, 1);

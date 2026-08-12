@@ -45,6 +45,7 @@ export interface LeaderboardFlatSnapshot {
   bossMonsterKillCount: number;
   spiritStoneCount: number;
   reservedBuyOrderSpiritStoneCount: number;
+  treasureVaultSpiritStoneCount: number;
   marketStorageSpiritStoneCount: number;
   playerKillCount: number;
   deathCount: number;

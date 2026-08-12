@@ -22,6 +22,7 @@ import { PlayerIdentityPersistenceService } from '../../persistence/player-ident
 import { PlayerCountersPersistenceService } from '../../persistence/player-counters-persistence.service';
 import { ActivityPersistenceService, type ActivityInvitationLeaderboardRow } from '../../persistence/activity-persistence.service';
 import { LeaderboardWorkerPoolService } from '../../concurrency/leaderboard-worker-pool.service';
+import { TreasureVaultRuntimeService } from '../building/treasure-vault-runtime.service';
 import {
     buildAllLeaderboards,
     buildAttributeBoards,
@@ -105,6 +106,7 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
         @Optional() @Inject(LeaderboardWorkerPoolService) leaderboardWorkerPoolService: LeaderboardWorkerPoolService | null = null,
         @Optional() @Inject(NativePlayerAuthStoreService) private readonly nativePlayerAuthStoreService: NativePlayerAuthStoreService | null = null,
         @Optional() @Inject(ActivityPersistenceService) private readonly activityPersistenceService: ActivityPersistenceService | null = null,
+        @Optional() @Inject(TreasureVaultRuntimeService) private readonly treasureVaultRuntimeService: TreasureVaultRuntimeService | null = null,
     ) {
         this.playerRuntimeService = playerRuntimeService;
         this.marketRuntimeService = marketRuntimeService;
@@ -260,12 +262,13 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
             return cached;
         }
 
+        const bannedPlayerIds = this.collectBannedPlayerIds();
+        const treasureVaultSummary = await this.collectTreasureVaultSpiritStoneSummary(bannedPlayerIds);
         // 优先复用排行榜已缓存的 snapshot（避免重复拉离线玩家数据）
         let snapshots: any[];
         if (this.cachedLeaderboardSnapshotsByPlayerId.size > 0) {
             // 排行榜缓存已有全量 snapshot，直接复用；
             // 用运行态数据覆盖在线玩家的实时活动 flags
-            const bannedPlayerIds = this.collectBannedPlayerIds();
             const reservedBuyOrdersByPlayerId = this.collectReservedBuyOrderSpiritStonesByPlayerId(bannedPlayerIds);
             const runtimeSnapshots = this.collectRuntimeSnapshots()
                 .filter((p) => !isNativeGmBotPlayerId(p.playerId))
@@ -274,6 +277,7 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
                     player,
                     null,
                     reservedBuyOrdersByPlayerId.get(player.playerId) ?? 0,
+                    treasureVaultSummary.countsByOwnerPlayerId.get(player.playerId) ?? 0,
                 ));
             // 离线玩家直接取缓存，在线玩家用实时数据
             const runtimePlayerIds = new Set(runtimeSnapshots.map((s) => s.playerId));
@@ -284,14 +288,17 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
             ].map((snapshot) => this.applyReservedBuyOrderSpiritStoneCount(
                 snapshot,
                 reservedBuyOrdersByPlayerId.get(snapshot.playerId) ?? 0,
+            )).map((snapshot) => this.applyTreasureVaultSpiritStoneCount(
+                snapshot,
+                treasureVaultSummary.countsByOwnerPlayerId.get(snapshot.playerId) ?? 0,
             ));
         } else {
-            snapshots = await this.collectWorldSummarySnapshots();
+            snapshots = await this.collectWorldSummarySnapshots(bannedPlayerIds, treasureVaultSummary);
         }
 
         const payload = {
             generatedAt: Date.now(),
-            summary: this.buildWorldBoard(snapshots),
+            summary: this.buildWorldBoard(snapshots, treasureVaultSummary.totalCount),
         };
         this.cachedWorldSummary = payload;
         return payload;
@@ -345,8 +352,7 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
         return this.cachedLeaderboardSnapshotsByPlayerId;
     }
     /** 采集世界摘要快照：运行态优先，离线玩家从分域持久化补齐；世界摘要不需要角色名回读。 */
-    async collectWorldSummarySnapshots() {
-        const bannedPlayerIds = this.collectBannedPlayerIds();
+    async collectWorldSummarySnapshots(bannedPlayerIds = this.collectBannedPlayerIds(), treasureVaultSummary = null) {
         const playersByPlayerId = new Map();
         for (const player of this.collectRuntimeSnapshots()) {
             if (bannedPlayerIds.has(player.playerId)) {
@@ -361,10 +367,13 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
             playersByPlayerId.set(player.playerId, player);
         }
         const reservedBuyOrdersByPlayerId = this.collectReservedBuyOrderSpiritStonesByPlayerId(bannedPlayerIds);
+        const resolvedTreasureVaultSummary = treasureVaultSummary
+            ?? await this.collectTreasureVaultSpiritStoneSummary(bannedPlayerIds);
         return [...playersByPlayerId.values()].map((player) => this.createSnapshot(
             player,
             null,
             reservedBuyOrdersByPlayerId.get(player.playerId) ?? 0,
+            resolvedTreasureVaultSummary.countsByOwnerPlayerId.get(player.playerId) ?? 0,
         ));
     }
     /** 把缓存中的榜单裁剪到指定长度。 */
@@ -413,10 +422,12 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
         // identity 查询完成后再让一次，给 world tick 留出 createSnapshot 之前的窗口。
         await yieldToEventLoop();
         const reservedBuyOrdersByPlayerId = this.collectReservedBuyOrderSpiritStonesByPlayerId(bannedPlayerIds);
+        const treasureVaultSummary = await this.collectTreasureVaultSpiritStoneSummary(bannedPlayerIds);
         return [...playersByPlayerId.values()].map((player) => this.createSnapshot(
             player,
             identitiesByPlayerId.get(player.playerId) ?? null,
             reservedBuyOrdersByPlayerId.get(player.playerId) ?? 0,
+            treasureVaultSummary.countsByOwnerPlayerId.get(player.playerId) ?? 0,
         ));
     }
     /** 采集当前运行态玩家快照，排除 bot；无 session 的离线挂机也保留给排行榜。 */
@@ -544,10 +555,11 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
         return identityService.listPlayerIdentitiesByPlayerIds(playerIds);
     }
     /** 把单个玩家快照整理成排行榜所需的扁平结构。 */
-    createSnapshot(player, identity = null, reservedBuyOrderSpiritStoneCount = 0) {
+    createSnapshot(player, identity = null, reservedBuyOrderSpiritStoneCount = 0, treasureVaultSpiritStoneCount = 0) {
 
         const finalAttrs = player.attrs?.finalAttrs ?? {};
         const normalizedReservedBuyOrderSpiritStoneCount = toNonNegativeInteger(reservedBuyOrderSpiritStoneCount, 0);
+        const normalizedTreasureVaultSpiritStoneCount = toNonNegativeInteger(treasureVaultSpiritStoneCount, 0);
         return {
             playerId: player.playerId,
             playerName: normalizePlayerName(player, identity),
@@ -569,8 +581,11 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
             monsterKillCount: readPlayerCounterValue(this.playerCountersPersistenceService, player, 'monsterKillCount'),
             eliteMonsterKillCount: readPlayerCounterValue(this.playerCountersPersistenceService, player, 'eliteMonsterKillCount'),
             bossMonsterKillCount: readPlayerCounterValue(this.playerCountersPersistenceService, player, 'bossMonsterKillCount'),
-            spiritStoneCount: this.getWalletBalance(player, MARKET_CURRENCY_ITEM_ID) + normalizedReservedBuyOrderSpiritStoneCount,
+            spiritStoneCount: this.getWalletBalance(player, MARKET_CURRENCY_ITEM_ID)
+                + normalizedReservedBuyOrderSpiritStoneCount
+                + normalizedTreasureVaultSpiritStoneCount,
             reservedBuyOrderSpiritStoneCount: normalizedReservedBuyOrderSpiritStoneCount,
+            treasureVaultSpiritStoneCount: normalizedTreasureVaultSpiritStoneCount,
             marketStorageSpiritStoneCount: this.getMarketStorageItemCount(player, MARKET_CURRENCY_ITEM_ID),
             playerKillCount: readPlayerCounterValue(this.playerCountersPersistenceService, player, 'playerKillCount'),
             deathCount: readPlayerCounterValue(this.playerCountersPersistenceService, player, 'deathCount'),
@@ -613,6 +628,17 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
             ...snapshot,
             spiritStoneCount: visibleSpiritStones + currentReserved,
             reservedBuyOrderSpiritStoneCount: currentReserved,
+        };
+    }
+    /** 以宝库真源中的当前汇总替换 snapshot 中可能过期的宝库灵石。 */
+    applyTreasureVaultSpiritStoneCount(snapshot, treasureVaultSpiritStoneCount) {
+        const previousTreasureVaultCount = toNonNegativeInteger(snapshot?.treasureVaultSpiritStoneCount, 0);
+        const currentTreasureVaultCount = toNonNegativeInteger(treasureVaultSpiritStoneCount, 0);
+        const nonTreasureVaultSpiritStones = Math.max(0, toNonNegativeInteger(snapshot?.spiritStoneCount, 0) - previousTreasureVaultCount);
+        return {
+            ...snapshot,
+            spiritStoneCount: nonTreasureVaultSpiritStones + currentTreasureVaultCount,
+            treasureVaultSpiritStoneCount: currentTreasureVaultCount,
         };
     }
     /** 构造宗门人数榜。 */
@@ -677,9 +703,20 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
         });
     }
     /** 构造世界在线分布与交易摘要。 */
-    buildWorldBoard(snapshots) {
+    buildWorldBoard(snapshots, totalTreasureVaultSpiritStones = 0) {
 
-        const totalSpiritStones = snapshots.reduce((total, snapshot) => total + snapshot.spiritStoneCount + snapshot.marketStorageSpiritStoneCount, 0);
+        const representedTreasureVaultSpiritStones = snapshots.reduce(
+            (total, snapshot) => total + toNonNegativeInteger(snapshot.treasureVaultSpiritStoneCount, 0),
+            0,
+        );
+        const unrepresentedTreasureVaultSpiritStones = Math.max(
+            0,
+            toNonNegativeInteger(totalTreasureVaultSpiritStones, 0) - representedTreasureVaultSpiritStones,
+        );
+        const totalSpiritStones = snapshots.reduce(
+            (total, snapshot) => total + snapshot.spiritStoneCount + snapshot.marketStorageSpiritStoneCount,
+            unrepresentedTreasureVaultSpiritStones,
+        );
 
         const eliteMonsterKills = snapshots.reduce((total, snapshot) => total + snapshot.eliteMonsterKillCount, 0);
 
@@ -737,6 +774,22 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
             totalsByPlayerId.set(ownerId, (totalsByPlayerId.get(ownerId) ?? 0) + cost);
         }
         return totalsByPlayerId;
+    }
+    /** 从宝库持久化真源按创建者汇总灵石，并沿用榜单的封禁与 GM Bot 排除口径。 */
+    async collectTreasureVaultSpiritStoneSummary(excludedPlayerIds = new Set()) {
+        const vaultService = this.treasureVaultRuntimeService;
+        if (!vaultService || typeof vaultService.summarizeStoredItemCountsByOwner !== 'function') {
+            return { countsByOwnerPlayerId: new Map(), totalCount: 0 };
+        }
+        const summary = await vaultService.summarizeStoredItemCountsByOwner(MARKET_CURRENCY_ITEM_ID);
+        const countsByOwnerPlayerId = new Map([...summary.countsByOwnerPlayerId.entries()].filter(([playerId]) => (
+            !excludedPlayerIds.has(playerId) && !isNativeGmBotPlayerId(playerId)
+        )));
+        return {
+            countsByOwnerPlayerId,
+            totalCount: [...countsByOwnerPlayerId.values()].reduce((total, count) => total + toNonNegativeInteger(count, 0), 0)
+                + toNonNegativeInteger(summary.unownedCount, 0),
+        };
     }
     /** 读取玩家钱包里某个货币类型的持有数量。 */
     getWalletBalance(player, walletType) {

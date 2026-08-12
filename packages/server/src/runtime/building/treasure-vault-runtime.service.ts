@@ -49,6 +49,11 @@ type PoolLike = {
   query(sql: string, params?: unknown[]): Promise<QueryResultLike>;
 };
 
+export interface TreasureVaultStoredItemCountSummary {
+  countsByOwnerPlayerId: Map<string, number>;
+  unownedCount: number;
+}
+
 @Injectable()
 export class TreasureVaultRuntimeService {
   private readonly logger = new Logger(TreasureVaultRuntimeService.name);
@@ -88,6 +93,40 @@ export class TreasureVaultRuntimeService {
 
   isEnabled(): boolean {
     return this.enabled && this.pool !== null;
+  }
+
+  /** 按宝库创建者汇总指定物品；无法归属的历史异常库存单独返回。 */
+  async summarizeStoredItemCountsByOwner(itemId: string): Promise<TreasureVaultStoredItemCountSummary> {
+    const normalizedItemId = normalizeString(itemId);
+    if (!this.pool || !this.enabled || !normalizedItemId) {
+      return { countsByOwnerPlayerId: new Map(), unownedCount: 0 };
+    }
+    const result = await this.pool.query(
+      `SELECT resolved.owner_player_id, COALESCE(SUM(resolved.count), 0)::text AS total_count
+         FROM (
+           SELECT COALESCE(NULLIF(btrim(storage.owner_player_id), ''), NULLIF(btrim(building.owner_player_id), '')) AS owner_player_id,
+                  storage.count
+             FROM ${TREASURE_VAULT_STORAGE_TABLE} storage
+             LEFT JOIN ${INSTANCE_BUILDING_STATE_TABLE} building
+               ON building.instance_id = storage.instance_id
+              AND building.building_id = storage.building_id
+            WHERE storage.item_id = $1
+         ) resolved
+        GROUP BY resolved.owner_player_id`,
+      [normalizedItemId],
+    );
+    const totalsByOwnerPlayerId = new Map<string, number>();
+    let unownedCount = 0;
+    for (const row of result.rows ?? []) {
+      const ownerPlayerId = normalizeString(row?.owner_player_id);
+      const totalCount = Math.max(0, Math.trunc(Number(row?.total_count) || 0));
+      if (ownerPlayerId && totalCount > 0) {
+        totalsByOwnerPlayerId.set(ownerPlayerId, totalCount);
+      } else if (totalCount > 0) {
+        unownedCount += totalCount;
+      }
+    }
+    return { countsByOwnerPlayerId: totalsByOwnerPlayerId, unownedCount };
   }
 
   async buildDetail(playerId: string, payload: { instanceId?: string; buildingId?: string }, runtime: any): Promise<TreasureVaultOperationResultView> {

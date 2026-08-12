@@ -90,6 +90,18 @@ async function main(): Promise<void> {
     assert.equal(activeRows.find((row) => Number(row?.enhance_level) === 5)?.raw_payload?.customMarker, 'marker:gem.batch');
     assert.ok(depositResult.detail?.items.every((item) => item.itemInstanceId === undefined), '宝库详情不得投影背包 itemInstanceId');
 
+    await pool.query(
+      `INSERT INTO instance_building_storage_item(storage_item_id, instance_id, building_id, slot_index, item_id, count, raw_payload, owner_player_id, building_name)
+       VALUES
+         ('storage:summary:owned', $1, $2, 70, 'spirit_stone', 11, '{}'::jsonb, NULL, '宝库·主动'),
+         ('storage:summary:unowned', $3, $4, 0, 'spirit_stone', 7, '{}'::jsonb, NULL, '宝库·异常')`,
+      [instanceId, buildingId, blockedInstanceId, blockedBuildingId],
+    );
+    const spiritStoneSummary = await service.summarizeStoredItemCountsByOwner('spirit_stone');
+    assert.equal(spiritStoneSummary.countsByOwnerPlayerId.get(ownerId), 11, '库存行缺 owner 时必须回退建筑创建者');
+    assert.equal(spiritStoneSummary.unownedCount, 7, '无法归属的历史异常库存必须单列供世界总量统计');
+    await pool.query("DELETE FROM instance_building_storage_item WHERE storage_item_id IN ('storage:summary:owned', 'storage:summary:unowned')");
+
     await insertVaultRow(pool, instanceId, buildingId, ownerId, '宝库·主动', 'gem.legacy', 3, 9, 2);
     for (let index = 0; index < 3; index += 1) {
       const legacyWithdraw = await service.withdraw(ownerId, {
@@ -196,13 +208,14 @@ async function main(): Promise<void> {
         'legacy_storage_withdraw_reassigns_unique_item_identity',
         'owner_only_rename_updates_runtime_and_recovery_metadata',
         'owner_only_organize_merges_stacks_and_persists_inventory_order',
+        'stored_item_summary_uses_building_owner_and_preserves_unowned_total',
         'direct_recovery_writes_one_mail_then_deletes_storage',
         'retry_is_idempotent_without_duplicate_storage_loss',
         'stopped_instance_recovery_before_purge',
         'missing_instance_orphan_recovery',
         'missing_owner_blocks_and_keeps_storage',
       ],
-      answers: '宝库批量存入会在同一事务写入全部物品且不保存背包 itemInstanceId；旧库存即使残留实例 ID，每次取出也会分配独立新身份；仅建造者可在单个事务内合并同签名堆叠并持久重排库位；主动/停止实例/地图丢失回收都会一封邮件返还全部物品且不传播旧身份；缺 owner 的异常库存不会被删除。',
+      answers: '宝库批量存入会在同一事务写入全部物品且不保存背包 itemInstanceId；低频统计按宝库创建者汇总指定物品，旧库存行缺 owner 时回退建筑状态，仍无法归属的数量单独保留；旧库存即使残留实例 ID，每次取出也会分配独立新身份；仅建造者可在单个事务内合并同签名堆叠并持久重排库位；主动/停止实例/地图丢失回收都会一封邮件返还全部物品且不传播旧身份；缺 owner 的异常库存不会被删除。',
       excludes: '不启动真实 socket 客户端，不证明玩家实际点击领取附件 UI。',
       completionMapping: 'release:proof:with-db.treasure-vault-asset-safety',
     }, null, 2));
