@@ -36,9 +36,9 @@ async function main(): Promise<void> {
 }
 
 function testHeavenlyDaoSuppressionFormula(): void {
-  assert.equal(resolveHeavenlyDaoSuppressionStacksForKill(10, 5), 0);
-  assert.equal(resolveHeavenlyDaoSuppressionStacksForKill(10, 4), 1);
-  assert.equal(resolveHeavenlyDaoSuppressionStacksForKill(10, 3), 2);
+  assert.equal(resolveHeavenlyDaoSuppressionStacksForKill(30, 13), 0);
+  assert.equal(resolveHeavenlyDaoSuppressionStacksForKill(30, 12), 1);
+  assert.equal(resolveHeavenlyDaoSuppressionStacksForKill(30, 11), 2);
   assert.equal(resolveHeavenlyDaoSuppressionMultiplier(1), 1000 / 1001);
   assert.equal(resolveHeavenlyDaoSuppressionMultiplier(1000), 0.5);
   assert.equal(resolveHeavenlyDaoSuppressionMultiplier(2000), 1 / 3);
@@ -49,7 +49,7 @@ async function testVirtualWorldLowLevelKillAddsHeavenlyDaoSuppression(): Promise
   const appliedStacks: number[] = [];
   const killer = {
     playerId: 'player:combat:heavenly-dao',
-    realm: { realmLv: 10 },
+    realm: { realmLv: 30 },
     attrs: { numericStats: { lootRate: 0, rareLootRate: 0 } },
   };
   const playerRuntimeService = {
@@ -98,13 +98,19 @@ async function testVirtualWorldLowLevelKillAddsHeavenlyDaoSuppression(): Promise
 
   await service.handlePlayerMonsterKill(
     createInstance({ instanceId: 'public:test_map', kind: 'public', linePreset: 'peaceful' }) as never,
-    createMonster('monster:heavenly-dao:gap-6', 4) as never,
+    createMonster('monster:heavenly-dao:gap-17', 13) as never,
+    killer.playerId,
+    deps as never,
+  );
+  await service.handlePlayerMonsterKill(
+    createInstance({ instanceId: 'public:test_map', kind: 'public', linePreset: 'peaceful' }) as never,
+    createMonster('monster:heavenly-dao:gap-18', 12) as never,
     killer.playerId,
     deps as never,
   );
   await service.handlePlayerMonsterKill(
     createInstance({ instanceId: 'line:test_map:peaceful:2', kind: 'public', linePreset: 'peaceful' }) as never,
-    createMonster('monster:heavenly-dao:gap-8', 2) as never,
+    createMonster('monster:heavenly-dao:gap-20', 10) as never,
     killer.playerId,
     deps as never,
   );

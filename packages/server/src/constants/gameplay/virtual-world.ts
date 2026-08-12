@@ -5,7 +5,7 @@ export { HEAVENLY_DAO_SUPPRESSION_BUFF_ID };
 export const HEAVENLY_DAO_SUPPRESSION_SOURCE_ID = 'virtual_world.low_level_monster_kill';
 export const HEAVENLY_DAO_SUPPRESSION_DURATION_TICKS = 60 * 60;
 export const HEAVENLY_DAO_SUPPRESSION_MAX_STACKS = 999_999;
-export const HEAVENLY_DAO_SUPPRESSION_MIN_REALM_GAP = 6;
+export const HEAVENLY_DAO_SUPPRESSION_MIN_REALM_GAP = 18;
 export const HEAVENLY_DAO_SUPPRESSION_DIVISOR = 1_000;
 
 /** 六维之外所有会直接参与战斗、施法或战斗机动的数值属性。 */
@@ -42,7 +42,7 @@ const HEAVENLY_DAO_SUPPRESSION_COMBAT_STAT_KEY_SET: ReadonlySet<NumericScalarSta
 
 export const HEAVENLY_DAO_SUPPRESSION_ELEMENT_KEYS = ELEMENT_KEYS;
 
-/** 境界差六级时一层，之后每多一级再增加一层。 */
+/** 境界差十八级时一层，之后每多一级再增加一层。 */
 export function resolveHeavenlyDaoSuppressionStacksForKill(
   playerRealmLevelInput: unknown,
   monsterRealmLevelInput: unknown,
