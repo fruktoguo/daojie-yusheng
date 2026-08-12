@@ -7,7 +7,11 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { resolvePlayerFacingContentName } from '@mud/shared';
 import { ContentTemplateRepository } from '../../../content/content-template.repository';
-import { BLOOD_ESSENCE_ITEM_ID, PVP_SOUL_INJURY_BUFF_ID } from '../../../constants/gameplay/pvp';
+import { BLOOD_ESSENCE_ITEM_ID } from '../../../constants/gameplay/pvp';
+import {
+    REAL_WORLD_MONSTER_KILL_DROP_RATE_BONUS_BP,
+    REAL_WORLD_MONSTER_KILL_EXP_MULTIPLIER,
+} from '../../../constants/gameplay/real-world';
 import { resolveHeavenlyDaoSuppressionStacksForKill } from '../../../constants/gameplay/virtual-world';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
 import { resolvePlayerDisplayName } from '../../player/player-display-name';
@@ -16,7 +20,7 @@ import { buildStructuredNotice } from '../structured-notice.helpers';
 import { resolveFormationMonsterExpMultiplier } from './formation-combat-effect.helpers';
 import * as world_runtime_normalization_helpers_1 from '../world-runtime.normalization.helpers';
 
-const { formatItemStackLabel, isVirtualPublicWorldInstance } = world_runtime_normalization_helpers_1;
+const { formatItemStackLabel, isRealPublicWorldInstance, isVirtualPublicWorldInstance } = world_runtime_normalization_helpers_1;
 
 type CombatSectionRecorder = (key: string, durationMs: number, count?: number) => void;
 
@@ -149,7 +153,10 @@ export class WorldRuntimePlayerCombatService {
             'combat.playerMonsterKill.progressMs',
             sectionStartedAt,
         );
-        const lootRate = killer?.attrs.numericStats.lootRate ?? 0;
+        const realWorldDropRateBonus = isRealPublicWorldInstance(instance)
+            ? REAL_WORLD_MONSTER_KILL_DROP_RATE_BONUS_BP
+            : 0;
+        const lootRate = (killer?.attrs.numericStats.lootRate ?? 0) + realWorldDropRateBonus;
         const rareLootRate = killer?.attrs.numericStats.rareLootRate ?? 0;
         const items = this.contentTemplateRepository.rollMonsterDrops(monster.monsterId, 1, lootRate, rareLootRate, {
             playerRealmLv: killer?.realm?.realmLv,
@@ -200,13 +207,15 @@ export class WorldRuntimePlayerCombatService {
         for (const participant of participants) {
             totalContribution += participant.contribution;
         }
-        const expMultiplier = this.resolveMonsterExpMultiplier(monster)
+        const monsterExpMultiplier = this.resolveMonsterExpMultiplier(monster);
+        const expMultiplier = (Number.isFinite(monsterExpMultiplier) ? monsterExpMultiplier : 1)
             * resolveFormationMonsterExpMultiplier(
                 deps.worldRuntimeFormationService,
                 instance?.meta?.instanceId,
                 monster?.x,
                 monster?.y,
-            );
+            )
+            * (isRealPublicWorldInstance(instance) ? REAL_WORLD_MONSTER_KILL_EXP_MULTIPLIER : 1);
         const auditEnabled = this.isCombatSemanticAuditEnabled();
         const recordProgressSectionDuration = typeof deps?.recordPendingCommandSectionDuration === 'function'
             ? (key: string, durationMs: number, count = 1) => deps.recordPendingCommandSectionDuration(key, durationMs, count)
@@ -597,11 +606,17 @@ export class WorldRuntimePlayerCombatService {
             });
             deps.queuePlayerNotice(killer.playerId, shaNotice.text, shaNotice.kind, undefined, undefined, shaNotice.structured);
         }
-        if (!this.playerRuntimeService.hasActiveBuff(victim.playerId, PVP_SOUL_INJURY_BUFF_ID)) {
-            this.playerRuntimeService.applyPvPSoulInjury(victim.playerId);
-            const soulNotice = buildStructuredNotice('combat', 'notice.combat.soul-injury', '神魂受损；身死与遁返都不会清除，需静养一时辰。', {});
-            deps.queuePlayerNotice(victim.playerId, soulNotice.text, soulNotice.kind, undefined, undefined, soulNotice.structured);
-        }
+        const soulInjuryStacks = this.playerRuntimeService.applyPvPSoulInjury(victim.playerId);
+        const soulNotice = buildStructuredNotice(
+            'combat',
+            'notice.combat.soul-injury',
+            '神魂受损加深；身死与遁返都不会清除，需静养一时辰。',
+            {
+                vars: { stacks: soulInjuryStacks },
+                pills: [{ key: 'stacks', style: 'damage' }],
+            },
+        );
+        deps.queuePlayerNotice(victim.playerId, soulNotice.text, soulNotice.kind, undefined, undefined, soulNotice.structured);
         const victimName = resolvePlayerDisplayName(victim, { playerId: victim?.playerId, fallback: '未知玩家' });
         const bloodEssenceCount = Math.max(1, Math.floor((victim.realm?.realmLv ?? 1) ** 2));
         const reward = this.contentTemplateRepository.createItem(BLOOD_ESSENCE_ITEM_ID, bloodEssenceCount);

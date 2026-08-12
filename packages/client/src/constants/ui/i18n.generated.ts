@@ -2479,7 +2479,7 @@ export const CLIENT_I18N_MESSAGES = {
   "notice.combat.sha-backlash-convert": "身死后煞气入体，煞气反噬累计 {total} 层（剩余 {remaining}）",
   "notice.combat.sha-backlash-loss": "煞气反噬，折损修为 {progress}、底蕴 {foundation}",
   "notice.combat.sha-infusion": "杀念入体，煞气加深至 {stacks} 层",
-  "notice.combat.soul-injury": "神魂受损",
+  "notice.combat.soul-injury": "神魂受损加深至 {stacks} 层",
   "notice.combat.temporary-tiles-created": "{skillName} 生成了 {count} 处临时石头",
   "notice.command.caster-dead": "你当前无法继续行动。",
   "notice.command.casting-busy": "正在吟唱中，无法执行该动作。",

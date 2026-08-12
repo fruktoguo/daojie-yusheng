@@ -6,6 +6,7 @@
 export * from './core';
 export * from './action';
 export * from './world';
+export * from './pvp';
 export * from './aura';
 export * from './qi';
 export * from './combat';

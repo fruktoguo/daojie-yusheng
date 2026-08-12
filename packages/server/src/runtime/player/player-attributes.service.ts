@@ -10,7 +10,12 @@
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CRAFT_EFFECT_KINDS, CRAFT_EFFECT_SKILL_KINDS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_BASE_ATTRS, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, NUMERIC_STAT_MULTIPLIER_FLOORS, addCraftEffectStatsFromItem, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcBodyTrainingAttrPercentBonus, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, cloneCraftEffectStats, cloneNumericRatioDivisors, cloneNumericStats, compileValueStatsToActualStats, createEmptyCraftEffectStats, createNumericStats, getEffectivePlayerMoveSpeed, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, percentModifierToMultiplier, readCraftEffectStat, resolvePlayerFacingContentName, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } from '@mud/shared';
-import { PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID } from '../../constants/gameplay/pvp';
+import {
+    PVP_SHA_INFUSION_ATTACK_CAP_PERCENT,
+    PVP_SHA_INFUSION_BUFF_ID,
+    PVP_SOUL_INJURY_BUFF_ID,
+    resolvePvPSoulInjuryMultiplier,
+} from '../../constants/gameplay/pvp';
 import {
     HEAVENLY_DAO_SUPPRESSION_BUFF_ID,
     HEAVENLY_DAO_SUPPRESSION_COMBAT_STAT_KEYS,
@@ -360,6 +365,7 @@ export class PlayerAttributesService {
         addAttributes(finalAttrs, flatBuffAttrs);
         applySingleAttributePercentBonuses(finalAttrs, attrPercentBonuses.buff);
         applySingleAttributePercentBonuses(finalAttrs, attrPercentBonuses.pill);
+        applyPvPSoulInjury(finalAttrs, activeBuffs);
         clampAttributes(finalAttrs);
         this.recordAttributePerf('attribution.attributes.build.buffAttributeProjectionMs', performance.now() - buffAttributeProjectionStartedAt, 1);
         this.recordAttributePerf('attribution.attributes.build.buffEntries', 0, activeBuffs.length);
@@ -896,6 +902,19 @@ function resolveBuffModifierMode(mode) {
 
 function isActiveRuntimeBuff(buff) {
     return Boolean(buff && buff.remainingTicks > 0 && buff.stacks > 0);
+}
+
+function applyPvPSoulInjury(finalAttrs, activeBuffs) {
+    const soulInjury = activeBuffs.find((buff) => (
+        buff?.buffId === PVP_SOUL_INJURY_BUFF_ID && isActiveRuntimeBuff(buff)
+    ));
+    if (!soulInjury) {
+        return;
+    }
+    const multiplier = resolvePvPSoulInjuryMultiplier(soulInjury.stacks);
+    for (const key of ATTR_KEYS) {
+        finalAttrs[key] *= multiplier;
+    }
 }
 
 function applyHeavenlyDaoSuppression(finalAttrs, numericStats, activeBuffs) {

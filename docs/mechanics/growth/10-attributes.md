@@ -54,6 +54,7 @@ percentModifierToMultiplier(percent):
 7. 百分比乘区依次叠加:
    bodyTraining → techniqueMax → realm(根基) → flatBuff → buff% → pill%
 8. clamp ≥ 0
+9. 神魂受损最终六维乘区（仅有该 Debuff 时）
 ```
 
 ### 数值面板叠加顺序
@@ -75,6 +76,8 @@ percentModifierToMultiplier(percent):
 ```
 
 天道压制先按常规链路计算未受压制的六维和数值面板，再对最终六维、战斗数值及五行增伤/减伤分别乘一次 `1000 / (1000 + stacks)`。掉落、修为获取、技艺经验和视野等非战斗属性不进入该乘区。
+
+神魂受损在六维常规百分比链路之后、六维派生数值面板之前按层数套用线性乘区：`max(70%, 90% - (stacks - 1)%)`。因此六维及其派生数值只受一次影响，经验率、掉率等非六维属性不直接进入该乘区。
 
 ## 境界等级数值缩放
 

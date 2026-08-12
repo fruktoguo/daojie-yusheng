@@ -77,7 +77,7 @@ export interface PlayerInventoryService {
 /** 玩家 Buff 子服务接口：临时 buff 应用、PvP 煞气和魂伤管理。 */
 export interface PlayerBuffService {
   applyTemporaryBuff(playerId: string, buff: BuffApplyInput): void;
-  applyPvPSoulInjury(playerId: string): void;
+  applyPvPSoulInjury(playerId: string): number;
   addPvPShaInfusionStack(playerId: string): void;
   addPvPShaBacklashStacks(playerId: string, stacks: number): void;
   addHeavenlyDaoSuppressionStacks(playerId: string, stacks: number): number;

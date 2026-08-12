@@ -2,6 +2,13 @@ import assert from 'node:assert/strict';
 
 import { ATTR_KEYS } from '@mud/shared';
 import {
+  PVP_SOUL_INJURY_BUFF_ID,
+  PVP_SOUL_INJURY_DURATION_TICKS,
+  PVP_SOUL_INJURY_MAX_STACKS,
+  resolvePvPSoulInjuryMultiplier,
+  resolvePvPSoulInjuryReductionPercent,
+} from '../constants/gameplay/pvp';
+import {
   HEAVENLY_DAO_SUPPRESSION_BUFF_ID,
   HEAVENLY_DAO_SUPPRESSION_COMBAT_STAT_KEYS,
   HEAVENLY_DAO_SUPPRESSION_DURATION_TICKS,
@@ -15,7 +22,66 @@ import { materializeRuntimeTemporaryBuff } from '../runtime/player/runtime-buff-
 function main(): void {
   testHeavenlyDaoSuppressionAppliesOnceToFinalProjection();
   testHeavenlyDaoSuppressionStackingAndPersistence();
+  testPvPSoulInjuryReducesOnlySixDimensions();
+  testPvPSoulInjuryStackingAndCap();
   console.log(JSON.stringify({ ok: true, case: 'virtual-world-heavenly-dao-suppression' }, null, 2));
+}
+
+function testPvPSoulInjuryReducesOnlySixDimensions(): void {
+  const attributesService = new PlayerAttributesService();
+  const basePlayer = createPlayer(attributesService, 0);
+  const oneStackPlayer = createPlayer(attributesService, 0, 1);
+  const twoStackPlayer = createPlayer(attributesService, 0, 2);
+  const cappedPlayer = createPlayer(attributesService, 0, PVP_SOUL_INJURY_MAX_STACKS);
+  for (const player of [basePlayer, oneStackPlayer, twoStackPlayer, cappedPlayer]) {
+    attributesService.recalculate(player);
+  }
+
+  assert.equal(resolvePvPSoulInjuryReductionPercent(1), 10);
+  assert.equal(resolvePvPSoulInjuryReductionPercent(2), 11);
+  assert.equal(resolvePvPSoulInjuryReductionPercent(PVP_SOUL_INJURY_MAX_STACKS), 30);
+  for (const key of ATTR_KEYS) {
+    assert.equal(oneStackPlayer.attrs.finalAttrs[key], basePlayer.attrs.finalAttrs[key] * 0.9);
+    assert.equal(twoStackPlayer.attrs.finalAttrs[key], basePlayer.attrs.finalAttrs[key] * 0.89);
+    assert.equal(cappedPlayer.attrs.finalAttrs[key], basePlayer.attrs.finalAttrs[key] * 0.7);
+  }
+  assert.equal(oneStackPlayer.attrs.numericStats.playerExpRate, basePlayer.attrs.numericStats.playerExpRate);
+  assert.equal(oneStackPlayer.attrs.numericStats.lootRate, basePlayer.attrs.numericStats.lootRate);
+
+  const soulInjuryBonus = buildAttrDetailBonuses(twoStackPlayer)
+    .find((entry) => entry.source === `buff:${PVP_SOUL_INJURY_BUFF_ID}`);
+  assert.equal(soulInjuryBonus?.attrMode, 'percent');
+  assert.equal(soulInjuryBonus?.attrs?.constitution, -11);
+  assert.equal(soulInjuryBonus?.meta?.linearReductionPercent, true);
+}
+
+function testPvPSoulInjuryStackingAndCap(): void {
+  const attributesService = new PlayerAttributesService();
+  const runtimeService = new PlayerRuntimeService(
+    {} as never,
+    {} as never,
+    attributesService,
+    {} as never,
+  );
+  const player = createPlayer(attributesService, 0);
+  player.playerId = 'player:pvp-soul-injury';
+  runtimeService.players.set(player.playerId, player);
+
+  assert.equal(runtimeService.applyPvPSoulInjury(player.playerId), 1);
+  const buff = player.buffs.buffs.find((entry) => entry.buffId === PVP_SOUL_INJURY_BUFF_ID);
+  assert.ok(buff);
+  assert.equal(buff.maxStacks, PVP_SOUL_INJURY_MAX_STACKS);
+  assert.equal(buff.remainingTicks, PVP_SOUL_INJURY_DURATION_TICKS);
+  buff.remainingTicks = 17;
+  assert.equal(runtimeService.applyPvPSoulInjury(player.playerId), 2);
+  assert.equal(buff.remainingTicks, PVP_SOUL_INJURY_DURATION_TICKS);
+  for (let index = 2; index < PVP_SOUL_INJURY_MAX_STACKS + 5; index += 1) {
+    runtimeService.applyPvPSoulInjury(player.playerId);
+  }
+  assert.equal(buff.stacks, PVP_SOUL_INJURY_MAX_STACKS);
+  assert.equal(player.dirtyDomains.has('buff'), true);
+  assert.equal(player.dirtyDomains.has('attr'), true);
+  assert.equal(player.dirtyDomains.has('vitals'), true);
 }
 
 function testHeavenlyDaoSuppressionAppliesOnceToFinalProjection(): void {
@@ -140,7 +206,11 @@ function buildRespawnInput(player: any) {
   };
 }
 
-function createPlayer(attributesService: PlayerAttributesService, heavenlyDaoStacks: number): any {
+function createPlayer(
+  attributesService: PlayerAttributesService,
+  heavenlyDaoStacks: number,
+  soulInjuryStacks = 0,
+): any {
   const combatStats = Object.fromEntries(
     HEAVENLY_DAO_SUPPRESSION_COMBAT_STAT_KEYS.map((key) => [key, key === 'actionsPerTurn' ? 999 : 1_000]),
   );
@@ -180,16 +250,28 @@ function createPlayer(attributesService: PlayerAttributesService, heavenlyDaoSta
     techniques: { techniques: [] },
     bodyTraining: { level: 0 },
     equipment: { slots: [] },
-    buffs: { revision: 1, buffs: heavenlyDaoStacks > 0 ? [{
-      buffId: HEAVENLY_DAO_SUPPRESSION_BUFF_ID,
-      name: '天道压制',
-      remainingTicks: HEAVENLY_DAO_SUPPRESSION_DURATION_TICKS,
-      duration: HEAVENLY_DAO_SUPPRESSION_DURATION_TICKS,
-      stacks: heavenlyDaoStacks,
-      maxStacks: HEAVENLY_DAO_SUPPRESSION_MAX_STACKS,
-      persistOnDeath: true,
-      persistOnReturnToSpawn: true,
-    }] : [] },
+    buffs: { revision: 1, buffs: [
+      ...(heavenlyDaoStacks > 0 ? [{
+        buffId: HEAVENLY_DAO_SUPPRESSION_BUFF_ID,
+        name: '天道压制',
+        remainingTicks: HEAVENLY_DAO_SUPPRESSION_DURATION_TICKS,
+        duration: HEAVENLY_DAO_SUPPRESSION_DURATION_TICKS,
+        stacks: heavenlyDaoStacks,
+        maxStacks: HEAVENLY_DAO_SUPPRESSION_MAX_STACKS,
+        persistOnDeath: true,
+        persistOnReturnToSpawn: true,
+      }] : []),
+      ...(soulInjuryStacks > 0 ? [{
+        buffId: PVP_SOUL_INJURY_BUFF_ID,
+        name: '神魂受损',
+        remainingTicks: PVP_SOUL_INJURY_DURATION_TICKS,
+        duration: PVP_SOUL_INJURY_DURATION_TICKS,
+        stacks: soulInjuryStacks,
+        maxStacks: PVP_SOUL_INJURY_MAX_STACKS,
+        persistOnDeath: true,
+        persistOnReturnToSpawn: true,
+      }] : []),
+    ] },
     combat: {
       cooldownReadyTickBySkillId: {},
       autoBattle: false,

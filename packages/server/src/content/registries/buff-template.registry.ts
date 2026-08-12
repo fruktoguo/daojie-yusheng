@@ -16,6 +16,7 @@ import {
   PVP_SHA_INFUSION_SOURCE_ID,
   PVP_SOUL_INJURY_BUFF_ID,
   PVP_SOUL_INJURY_DURATION_TICKS,
+  PVP_SOUL_INJURY_MAX_STACKS,
   PVP_SOUL_INJURY_SOURCE_ID,
 } from '../../constants/gameplay/pvp';
 import { createRuntimeTemporaryBuff } from '../../runtime/player/runtime-buff-instance';
@@ -193,15 +194,15 @@ export class BuffTemplateRegistry {
     const template = deepFreezeTemplate({
       buffId: PVP_SOUL_INJURY_BUFF_ID,
       name: '神魂受损',
-      desc: '神魂受创；身死与遁返都不会清除，需静养满一时辰。',
-      baseDesc: '神魂受创；身死与遁返都不会清除，需静养满一时辰。',
+      desc: '六维降低 10%，之后每层额外降低 1%，最多降低 30%；身死与遁返都不会清除，需静养满一时辰。',
+      baseDesc: '六维降低 10%，之后每层额外降低 1%，最多降低 30%；身死与遁返都不会清除，需静养满一时辰。',
       shortMark: '残',
       category: 'debuff',
       visibility: 'public',
       remainingTicks: PVP_SOUL_INJURY_DURATION_TICKS,
       duration: PVP_SOUL_INJURY_DURATION_TICKS,
       stacks: 1,
-      maxStacks: 1,
+      maxStacks: PVP_SOUL_INJURY_MAX_STACKS,
       sourceSkillId: PVP_SOUL_INJURY_SOURCE_ID,
       sourceSkillName: '杀孽',
       realmLv,

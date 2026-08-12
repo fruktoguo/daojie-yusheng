@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 
 import { ContentTemplateRepository } from '../content/content-template.repository';
 import {
+  REAL_WORLD_MONSTER_KILL_DROP_RATE_BONUS_BP,
+  REAL_WORLD_MONSTER_KILL_EXP_MULTIPLIER,
+} from '../constants/gameplay/real-world';
+import {
   HEAVENLY_DAO_SUPPRESSION_DURATION_TICKS,
   resolveHeavenlyDaoSuppressionMultiplier,
   resolveHeavenlyDaoSuppressionStacksForKill,
@@ -11,6 +15,7 @@ import { WorldRuntimePlayerCombatService } from '../runtime/world/combat/world-r
 async function main(): Promise<void> {
   testMonsterEquipmentDropDefaultsMatchMainTierBuckets();
   testMonsterKillExpSettlementUsesTemplateMultiplier();
+  testRealWorldMonsterKillRewardsOnlyApplyToPublicRealLine();
   testHeavenlyDaoSuppressionFormula();
   await testVirtualWorldLowLevelKillAddsHeavenlyDaoSuppression();
   await testMonsterKillCountersUseTierBuckets();
@@ -485,6 +490,101 @@ function testMonsterKillExpSettlementUsesTemplateMultiplier() {
   assert.equal(grants[1]?.currentTick, 102);
 }
 
+function testRealWorldMonsterKillRewardsOnlyApplyToPublicRealLine(): void {
+  const grants: Array<{ instanceId: string; playerId: string; expMultiplier: number }> = [];
+  const dropQueries: Array<{ instanceId: string; lootRate: number; rareLootRate: number }> = [];
+  const players = new Map([
+    ['player:real:killer', {
+      playerId: 'player:real:killer',
+      instanceId: '',
+      realm: { realmLv: 5 },
+      attrs: { numericStats: { lootRate: 750, rareLootRate: 250 } },
+    }],
+    ['player:real:assist', {
+      playerId: 'player:real:assist',
+      instanceId: '',
+      realm: { realmLv: 4 },
+      attrs: { numericStats: { lootRate: 0, rareLootRate: 0 } },
+    }],
+  ]);
+  let activeInstanceId = '';
+  const contentTemplateRepository = {
+    getMonsterCombatProfile() {
+      return { expMultiplier: 5 };
+    },
+    rollMonsterDrops(_monsterId: string, _rolls: number, lootRate: number, rareLootRate: number) {
+      dropQueries.push({ instanceId: activeInstanceId, lootRate, rareLootRate });
+      return [];
+    },
+  };
+  const playerRuntimeService = {
+    getPlayer(playerId: string) {
+      return players.get(playerId) ?? null;
+    },
+    grantMonsterKillProgress(playerId: string, input: { expMultiplier: number }) {
+      grants.push({ instanceId: activeInstanceId, playerId, expMultiplier: input.expMultiplier });
+      return { changed: false };
+    },
+  };
+  const service = new WorldRuntimePlayerCombatService(contentTemplateRepository as never, playerRuntimeService as never);
+  const createInstance = (meta: Record<string, unknown>) => ({
+    meta,
+    getMonsterDamageContributionEntries() {
+      return [
+        { playerId: 'player:real:killer', damage: 3 },
+        { playerId: 'player:real:assist', damage: 1 },
+      ];
+    },
+  });
+  const monster = {
+    runtimeId: 'monster:real-reward:1',
+    monsterId: 'monster:real-reward',
+    name: '现世奖励测试妖兽',
+    level: 5,
+    tier: 'mortal_blood',
+    x: 1,
+    y: 1,
+  };
+  const deps = {
+    queuePlayerNotice() {},
+    advanceKillQuestProgress() {},
+    resolveCurrentTickForPlayerId() {
+      return 1;
+    },
+  };
+  const cases = [
+    createInstance({ instanceId: 'real:test', kind: 'public', linePreset: 'real' }),
+    createInstance({ instanceId: 'public:test', kind: 'public', linePreset: 'peaceful' }),
+    createInstance({ instanceId: 'sect:test', kind: 'sect', linePreset: 'real' }),
+  ];
+
+  for (const instance of cases) {
+    activeInstanceId = String(instance.meta.instanceId);
+    for (const player of players.values()) {
+      player.instanceId = activeInstanceId;
+    }
+    service.handlePlayerMonsterKillSynchronously(instance as never, monster as never, 'player:real:killer', deps as never);
+  }
+
+  const realWorldGrants = grants.filter((entry) => entry.instanceId === 'real:test');
+  assert.equal(realWorldGrants.length, 2, '现世击杀的所有有效参战者都应获得经验增幅');
+  for (const grant of realWorldGrants) {
+    assert.equal(grant.expMultiplier, 5 * REAL_WORLD_MONSTER_KILL_EXP_MULTIPLIER);
+  }
+  for (const grant of grants.filter((entry) => entry.instanceId !== 'real:test')) {
+    assert.equal(grant.expMultiplier, 5, '虚境与独立实例不应获得现世经验增幅');
+  }
+  assert.deepEqual(dropQueries, [
+    {
+      instanceId: 'real:test',
+      lootRate: 750 + REAL_WORLD_MONSTER_KILL_DROP_RATE_BONUS_BP,
+      rareLootRate: 250,
+    },
+    { instanceId: 'public:test', lootRate: 750, rareLootRate: 250 },
+    { instanceId: 'sect:test', lootRate: 750, rareLootRate: 250 },
+  ]);
+}
+
 async function testMonsterLootUsesSynchronousInventoryReceipt() {
   const log: Array<unknown[]> = [];
   const player = {
@@ -686,13 +786,12 @@ async function testPvPLootUsesSynchronousInventoryReceipt() {
       killer.selfRevision += 1;
       killer.dirtyDomains = new Set(['inventory']);
     },
-    hasActiveBuff() {
-      return true;
-    },
     addPvPShaInfusionStack() {
       return 1;
     },
-    applyPvPSoulInjury() {},
+    applyPvPSoulInjury() {
+      return 1;
+    },
     playerProgressionService: {
       refreshPreview() {},
     },
@@ -741,6 +840,7 @@ async function testPvPLootUsesSynchronousInventoryReceipt() {
   assert.equal(killer.inventory.items[0]?.itemId, reward.itemId);
   assert.equal(killer.inventory.revision, 1);
   assert.deepEqual(log, [
+    ['queuePlayerNotice', 'player:combat:victim', '神魂受损加深；身死与遁返都不会清除，需静养一时辰。', 'combat'],
     ['queuePlayerNotice', 'player:combat:killer', '获得 血精 x4', 'loot'],
   ]);
 }
@@ -792,13 +892,12 @@ async function testPvPLootFallsBackToGroundWhenInventoryIsFull() {
     receiveInventoryItem() {
       throw new Error('背包已满时不应写入运行态背包');
     },
-    hasActiveBuff() {
-      return true;
-    },
     addPvPShaInfusionStack() {
       return 1;
     },
-    applyPvPSoulInjury() {},
+    applyPvPSoulInjury() {
+      return 2;
+    },
   };
   const service = new WorldRuntimePlayerCombatService(contentTemplateRepository as never, playerRuntimeService as never);
   const deps = {
@@ -813,6 +912,7 @@ async function testPvPLootFallsBackToGroundWhenInventoryIsFull() {
   await service.applyPvPKillRewards(killer as never, victim as never, deathSite as never, deps as never);
 
   assert.deepEqual(log, [
+    ['queuePlayerNotice', 'player:combat:victim:no-durable', '神魂受损加深；身死与遁返都不会清除，需静养一时辰。', 'combat'],
     ['spawnGroundItem', true, 3, 4, reward],
     ['queuePlayerNotice', killer.playerId, '你的背包已满，血精 x4 掉在了 乙 倒下之处。', 'loot'],
   ]);

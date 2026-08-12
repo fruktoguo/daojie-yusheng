@@ -31,6 +31,7 @@ import {
   S2C_AttrDetail,
   PlayerState,
   PlayerSpecialStats,
+  PVP_SOUL_INJURY_BUFF_ID,
   type CraftEffectKind,
   type CraftEffectSkillKind,
   type CraftEffectStatsPatch,
@@ -325,6 +326,12 @@ function isHeavenlyDaoSuppressionAttrBonus(bonus: AttrBonus): boolean {
     && bonus.source === `buff:${HEAVENLY_DAO_SUPPRESSION_BUFF_ID}`;
 }
 
+function isPvPSoulInjuryAttrBonus(bonus: AttrBonus): boolean {
+  return bonus.attrMode === 'percent'
+    && bonus.source === `buff:${PVP_SOUL_INJURY_BUFF_ID}`
+    && bonus.meta?.linearReductionPercent === true;
+}
+
 function sumAttrBonusPercent(bonuses: AttrBonus[], key: AttrKey, predicate: (bonus: AttrBonus) => boolean): number {
   let total = 0;
   for (const bonus of bonuses) {
@@ -349,9 +356,10 @@ function buildAttributeBreakdownLines(
   const bodyTrainingMultiplier = percentModifierToMultiplier(resolveBodyTrainingAttributePercent(specialStats));
   const techniqueMaxMultiplier = percentModifierToMultiplier(sumAttrBonusPercent(bonuses, key, isTechniqueMaxPercentAttrBonus));
   const realmMultiplier = percentModifierToMultiplier(resolveRootFoundationAttributePercent(specialStats));
-  const regularBuffMultiplier = percentModifierToMultiplier(sumAttrBonusPercent(bonuses, key, (bonus) => bonus.attrMode === 'percent' && !isTechniqueMaxPercentAttrBonus(bonus) && !isPillPercentAttrBonus(bonus) && !isHeavenlyDaoSuppressionAttrBonus(bonus)));
+  const regularBuffMultiplier = percentModifierToMultiplier(sumAttrBonusPercent(bonuses, key, (bonus) => bonus.attrMode === 'percent' && !isTechniqueMaxPercentAttrBonus(bonus) && !isPillPercentAttrBonus(bonus) && !isHeavenlyDaoSuppressionAttrBonus(bonus) && !isPvPSoulInjuryAttrBonus(bonus)));
   const heavenlyDaoSuppressionMultiplier = percentModifierToMultiplier(sumAttrBonusPercent(bonuses, key, isHeavenlyDaoSuppressionAttrBonus));
-  const buffMultiplier = regularBuffMultiplier * heavenlyDaoSuppressionMultiplier;
+  const pvpSoulInjuryMultiplier = Math.max(0, 1 + sumAttrBonusPercent(bonuses, key, isPvPSoulInjuryAttrBonus) / 100);
+  const buffMultiplier = regularBuffMultiplier * heavenlyDaoSuppressionMultiplier * pvpSoulInjuryMultiplier;
   const pillMultiplier = percentModifierToMultiplier(sumAttrBonusPercent(bonuses, key, isPillPercentAttrBonus));
   const totalMultiplier = bodyTrainingMultiplier * techniqueMaxMultiplier * realmMultiplier * buffMultiplier * pillMultiplier;
   return [
@@ -1228,7 +1236,10 @@ export class AttrPanel {
       for (const key of ATTR_KEYS) {
         if (bonus.attrs[key] !== undefined) {
           if (bonus.attrMode === 'percent') {
-            result[key] = Math.max(0, result[key] * percentModifierToMultiplier(bonus.attrs[key]!));
+            const multiplier = isPvPSoulInjuryAttrBonus(bonus)
+              ? Math.max(0, 1 + bonus.attrs[key]! / 100)
+              : percentModifierToMultiplier(bonus.attrs[key]!);
+            result[key] = Math.max(0, result[key] * multiplier);
           } else {
             result[key] += bonus.attrs[key]!;
           }

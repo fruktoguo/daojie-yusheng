@@ -15,7 +15,7 @@ import { ARTIFACT_SLOTS, ARTIFACT_UNLOCK_REALM_LV, ATTR_KEYS, ATTR_TO_NUMERIC_WE
 import type { TechniqueTransmissionStatusView } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
-import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_BACKLASH_DECAY_TICKS, PVP_SHA_BACKLASH_PERCENT_PER_STACK, PVP_SHA_BACKLASH_SOURCE_ID, PVP_SHA_BACKLASH_STACK_DIVISOR, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID, PVP_SHA_INFUSION_DECAY_TICKS, PVP_SHA_INFUSION_SOURCE_ID, PVP_SOUL_INJURY_BUFF_ID, PVP_SOUL_INJURY_DURATION_TICKS, PVP_SOUL_INJURY_SOURCE_ID } from '../../constants/gameplay/pvp';
+import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_BACKLASH_DECAY_TICKS, PVP_SHA_BACKLASH_PERCENT_PER_STACK, PVP_SHA_BACKLASH_SOURCE_ID, PVP_SHA_BACKLASH_STACK_DIVISOR, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID, PVP_SHA_INFUSION_DECAY_TICKS, PVP_SHA_INFUSION_SOURCE_ID, PVP_SOUL_INJURY_BUFF_ID, PVP_SOUL_INJURY_DURATION_TICKS, PVP_SOUL_INJURY_MAX_STACKS, PVP_SOUL_INJURY_SOURCE_ID } from '../../constants/gameplay/pvp';
 import { HEAVENLY_DAO_SUPPRESSION_BUFF_ID, HEAVENLY_DAO_SUPPRESSION_DURATION_TICKS, HEAVENLY_DAO_SUPPRESSION_MAX_STACKS, HEAVENLY_DAO_SUPPRESSION_SOURCE_ID } from '../../constants/gameplay/virtual-world';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import {
@@ -4933,7 +4933,12 @@ export class PlayerRuntimeService {
     }
     /** 施加神魂受损 Debuff。 */
     applyPvPSoulInjury(playerId) {
-        return this.applyOrRefreshPvpBuff(playerId, buildPvPSoulInjuryBuffState(getPlayerRealmLevel(this.getPlayerOrThrow(playerId))));
+        const next = this.applyOrRefreshPvpBuff(
+            playerId,
+            buildPvPSoulInjuryBuffState(getPlayerRealmLevel(this.getPlayerOrThrow(playerId))),
+            1,
+        );
+        return next.stacks;
     }
     /** 增加一层煞气入体。 */
     addPvPShaInfusionStack(playerId) {
@@ -7237,7 +7242,12 @@ function isRuntimeBuffActive(buff) {
 }
 
 function doesTemporaryBuffAffectAttributes(buff) {
-    return Boolean(buff && (buff.attrs || buff.stats || buff.buffId === HEAVENLY_DAO_SUPPRESSION_BUFF_ID));
+    return Boolean(buff && (
+        buff.attrs
+        || buff.stats
+        || buff.buffId === HEAVENLY_DAO_SUPPRESSION_BUFF_ID
+        || buff.buffId === PVP_SOUL_INJURY_BUFF_ID
+    ));
 }
 
 function doesBuffAffectAttributeProjection(player, buff) {
@@ -7253,7 +7263,7 @@ function doesTemporaryBuffAffectVitalCapacity(buff) {
     if (!buff) {
         return false;
     }
-    if (buff.buffId === HEAVENLY_DAO_SUPPRESSION_BUFF_ID) {
+    if (buff.buffId === HEAVENLY_DAO_SUPPRESSION_BUFF_ID || buff.buffId === PVP_SOUL_INJURY_BUFF_ID) {
         return true;
     }
     if (hasNonZeroNumericValue(buff.stats?.maxHp) || hasNonZeroNumericValue(buff.stats?.maxQi)) {
@@ -12740,15 +12750,15 @@ function buildPvPSoulInjuryBuffState(sourceRealmLv) {
     const buff = freezeRuntimeBuffTemplate({
         buffId: PVP_SOUL_INJURY_BUFF_ID,
         name: '神魂受损',
-        desc: '神魂受创；身死与遁返都不会清除，需静养满一时辰。',
-        baseDesc: '神魂受创；身死与遁返都不会清除，需静养满一时辰。',
+        desc: '六维降低 10%，之后每层额外降低 1%，最多降低 30%；身死与遁返都不会清除，需静养满一时辰。',
+        baseDesc: '六维降低 10%，之后每层额外降低 1%，最多降低 30%；身死与遁返都不会清除，需静养满一时辰。',
         shortMark: '残',
         category: 'debuff',
         visibility: 'public',
         remainingTicks: PVP_SOUL_INJURY_DURATION_TICKS,
         duration: PVP_SOUL_INJURY_DURATION_TICKS,
         stacks: 1,
-        maxStacks: 1,
+        maxStacks: PVP_SOUL_INJURY_MAX_STACKS,
         sourceSkillId: PVP_SOUL_INJURY_SOURCE_ID,
         sourceSkillName: '杀孽',
         realmLv,

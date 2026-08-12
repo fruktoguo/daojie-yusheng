@@ -5,7 +5,10 @@ import {
   handleBuildPlaceIntent,
   handleStartBuildingConstruction,
 } from '../runtime/world/world-runtime-building.service';
-import { isVirtualPublicWorldInstance } from '../runtime/world/world-runtime.normalization.helpers';
+import {
+  isRealPublicWorldInstance,
+  isVirtualPublicWorldInstance,
+} from '../runtime/world/world-runtime.normalization.helpers';
 
 function main(): void {
   testVirtualWorldClassification();
@@ -21,6 +24,10 @@ function testVirtualWorldClassification(): void {
   assert.equal(isVirtualPublicWorldInstance({ meta: { instanceId: 'tower:1', kind: 'dungeon', linePreset: 'peaceful' } }), false);
   assert.equal(isVirtualPublicWorldInstance({ meta: { instanceId: 'sect:1', kind: 'sect', linePreset: 'peaceful' } }), false);
   assert.equal(isVirtualPublicWorldInstance({ meta: { instanceId: 'time_chamber:1', kind: 'player_owned', linePreset: 'peaceful' } }), false);
+  assert.equal(isRealPublicWorldInstance({ meta: { instanceId: 'real:test', kind: 'public', linePreset: 'real' } }), true);
+  assert.equal(isRealPublicWorldInstance({ meta: { instanceId: 'line:test:real:2', kind: 'public', linePreset: 'real' } }), true);
+  assert.equal(isRealPublicWorldInstance({ meta: { instanceId: 'public:test', kind: 'public', linePreset: 'peaceful' } }), false);
+  assert.equal(isRealPublicWorldInstance({ meta: { instanceId: 'sect:1', kind: 'sect', linePreset: 'real' } }), false);
 }
 
 function testVirtualWorldRejectsPlacementAndConstructionStart(): void {

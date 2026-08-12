@@ -60,6 +60,25 @@ export function isVirtualPublicWorldInstance(instance) {
         && !instanceId.startsWith('real:')
         && !instanceId.includes(':real:');
 }
+/** 判断实例是否为公开世界的现世分线；独立副本与玩家自有实例不享受现世规则。 */
+export function isRealPublicWorldInstance(instance) {
+    const meta = instance?.meta ?? instance;
+    const instanceId = typeof (meta?.instanceId ?? instance?.instanceId) === 'string'
+        ? (meta.instanceId ?? instance.instanceId).trim()
+        : '';
+    const kind = typeof (meta?.kind ?? instance?.kind) === 'string'
+        ? (meta.kind ?? instance.kind).trim()
+        : '';
+    const linePreset = typeof (meta?.linePreset ?? instance?.linePreset) === 'string'
+        ? (meta.linePreset ?? instance.linePreset).trim()
+        : '';
+    const isPublicWorld = kind === 'public'
+        || instanceId.startsWith('public:')
+        || instanceId.startsWith('real:')
+        || instanceId.startsWith('line:');
+    return isPublicWorld
+        && (linePreset === 'real' || instanceId.startsWith('real:') || instanceId.includes(':real:'));
+}
 /** 判断实例持久化策略是否有效。 */
 function isRuntimeInstancePersistentPolicy(value) {
     return value === 'persistent' || value === 'long_lived' || value === 'session' || value === 'ephemeral';

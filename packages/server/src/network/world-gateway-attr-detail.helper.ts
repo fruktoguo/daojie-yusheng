@@ -4,7 +4,12 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_CONFIG, TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE, TechniqueRealm, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, calcTechniqueQiProjectionModifiers, cloneNumericStats, compileValueStatsToActualStats, createNumericStats, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, percentModifierToMultiplier, resolvePlayerFacingContentName, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate, type AttrBonus, type PartialNumericStats } from '@mud/shared';
-import { PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID } from '../constants/gameplay/pvp';
+import {
+    PVP_SHA_INFUSION_ATTACK_CAP_PERCENT,
+    PVP_SHA_INFUSION_BUFF_ID,
+    PVP_SOUL_INJURY_BUFF_ID,
+    resolvePvPSoulInjuryReductionPercent,
+} from '../constants/gameplay/pvp';
 import {
     HEAVENLY_DAO_SUPPRESSION_BUFF_ID,
     isHeavenlyDaoSuppressionCombatStatKey,
@@ -84,7 +89,11 @@ export function buildAttrDetailBonuses(player) {
         const heavenlyDaoSuppression = buff?.buffId === HEAVENLY_DAO_SUPPRESSION_BUFF_ID
             && Number(buff.remainingTicks) > 0
             && Number(buff.stacks) > 0;
+        const pvpSoulInjury = buff?.buffId === PVP_SOUL_INJURY_BUFF_ID
+            && Number(buff.remainingTicks) > 0
+            && Number(buff.stacks) > 0;
         if (!heavenlyDaoSuppression
+            && !pvpSoulInjury
             && !hasNonZeroAttributes(buff.attrs)
             && !hasNonZeroPartialNumericStats(buff.stats)
             && !Array.isArray(buff.qiProjection)) {
@@ -93,17 +102,23 @@ export function buildAttrDetailBonuses(player) {
         const heavenlyDaoSuppressionPercent = heavenlyDaoSuppression
             ? resolveHeavenlyDaoSuppressionPercentModifier(buff.stacks)
             : 0;
+        const pvpSoulInjuryPercent = pvpSoulInjury
+            ? -resolvePvPSoulInjuryReductionPercent(buff.stacks)
+            : 0;
         bonuses.push({
             source: `buff:${buff.buffId}`,
             label: resolvePlayerFacingContentName(buff.buffId, '未知增益', buff.name),
             attrs: heavenlyDaoSuppression
                 ? Object.fromEntries(ATTR_KEYS.map((key) => [key, heavenlyDaoSuppressionPercent]))
-                : clonePartialAttributes(buff.attrs),
-            attrMode: heavenlyDaoSuppression ? 'percent' : resolveBuffModifierMode(buff.attrMode),
+                : pvpSoulInjury
+                    ? Object.fromEntries(ATTR_KEYS.map((key) => [key, pvpSoulInjuryPercent]))
+                    : clonePartialAttributes(buff.attrs),
+            attrMode: heavenlyDaoSuppression || pvpSoulInjury ? 'percent' : resolveBuffModifierMode(buff.attrMode),
             stats: clonePartialNumericStats(buff.stats),
             qiProjection: cloneQiProjectionModifiers(buff.qiProjection),
             meta: {
                 sourceSkillId: typeof buff.sourceSkillId === 'string' ? buff.sourceSkillId : '',
+                ...(pvpSoulInjury ? { linearReductionPercent: true } : {}),
             },
         });
     }

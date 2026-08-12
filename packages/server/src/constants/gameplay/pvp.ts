@@ -7,14 +7,31 @@
  * PVP 玩法常量：定义击杀奖励（血精石、煞气注入）和惩罚（魂伤、煞气反噬）
  * 的 buff ID、来源标识、持续时间和数值参数。
  */
-import { buildQiResourceKey } from '@mud/shared';
+import {
+  PVP_SOUL_INJURY_ADDITIONAL_REDUCTION_PERCENT,
+  PVP_SOUL_INJURY_BASE_REDUCTION_PERCENT,
+  PVP_SOUL_INJURY_BUFF_ID,
+  PVP_SOUL_INJURY_MAX_REDUCTION_PERCENT,
+  PVP_SOUL_INJURY_MAX_STACKS,
+  buildQiResourceKey,
+  resolvePvPSoulInjuryMultiplier,
+  resolvePvPSoulInjuryReductionPercent,
+} from '@mud/shared';
 
 // ─── 击杀奖励：血精石 ───
 export const BLOOD_ESSENCE_ITEM_ID = 'stone.blood_essence';
 export const BLOOD_ESSENCE_SHA_GAIN = 10;
 
 // ─── 击杀惩罚：魂伤 debuff ───
-export const PVP_SOUL_INJURY_BUFF_ID = 'pvp.soul_injury';
+export {
+  PVP_SOUL_INJURY_ADDITIONAL_REDUCTION_PERCENT,
+  PVP_SOUL_INJURY_BASE_REDUCTION_PERCENT,
+  PVP_SOUL_INJURY_BUFF_ID,
+  PVP_SOUL_INJURY_MAX_REDUCTION_PERCENT,
+  PVP_SOUL_INJURY_MAX_STACKS,
+  resolvePvPSoulInjuryMultiplier,
+  resolvePvPSoulInjuryReductionPercent,
+};
 export const PVP_SOUL_INJURY_SOURCE_ID = 'pvp.kill';
 export const PVP_SOUL_INJURY_DURATION_TICKS = 3600;
 

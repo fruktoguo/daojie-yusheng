@@ -2472,7 +2472,7 @@ notice.combat.safe-zone-stop,通知,安全区内无法攻击，自动战斗已�
 notice.combat.sha-backlash-convert,通知,身死后煞气入体，煞气反噬累计 {total} 层（剩余 {remaining}）,
 notice.combat.sha-backlash-loss,通知,煞气反噬，折损修为 {progress}、底蕴 {foundation},
 notice.combat.sha-infusion,通知,杀念入体，煞气加深至 {stacks} 层,
-notice.combat.soul-injury,通知,神魂受损,
+notice.combat.soul-injury,通知,神魂受损加深至 {stacks} 层,
 notice.combat.offline-defeat,通知,你在离线挂机期间于{locationName}被{killerName}击败，离线挂机已结束。,
 notice.combat.temporary-tiles-created,通知,{skillName} 生成了 {count} 处临时石头,
 notice.command.caster-dead,通知,你当前无法继续行动。,
