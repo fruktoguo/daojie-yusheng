@@ -423,7 +423,7 @@ type MainBootstrapAssemblyOptions = {
  * craftWorkbenchModal：炼制Workbench弹层相关字段。
  */
 
-  craftWorkbenchModal: Pick<CraftWorkbenchModal, 'setCallbacks' | 'setTransmissionCallbacks' | 'handleTransmissionStatuses' | 'handleTechniqueAggregationPanel' | 'handleTechniqueAggregationResult' | 'openAlchemy' | 'openForging' | 'openEnhancement' | 'openTransmission' | 'openTechniqueRefining' | 'openTechniqueAggregation'>;
+  craftWorkbenchModal: Pick<CraftWorkbenchModal, 'setCallbacks' | 'setTransmissionCallbacks' | 'handleTransmissionStatuses' | 'handleTechniqueAggregationPanel' | 'handleTechniqueAggregationResult' | 'handleTechniqueAggregationCatalogChanged' | 'openAlchemy' | 'openForging' | 'openEnhancement' | 'openTransmission' | 'openTechniqueRefining' | 'openTechniqueAggregation'>;
   /**
  * debugPanel：debug面板相关字段。
  */
@@ -553,6 +553,7 @@ type MainBootstrapAssemblyOptions = {
     | 'sendRequestWorldSummary'
     | 'sendDestroyItem'
     | 'sendRequestTechniqueAggregation'
+    | 'sendCloseTechniqueAggregation'
     | 'sendPublishTechniqueAggregation'
     | 'sendLearnTechniqueAggregation'
   >;
@@ -1016,6 +1017,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     },
     onTechniqueAggregationPanel: (data) => options.craftWorkbenchModal.handleTechniqueAggregationPanel(data),
     onTechniqueAggregationResult: (data) => options.craftWorkbenchModal.handleTechniqueAggregationResult(data),
+    onTechniqueAggregationCatalogChanged: (data) => options.craftWorkbenchModal.handleTechniqueAggregationCatalogChanged(data),
     onError: (data) => options.connectionStateSource.handleError(data),
     onKick: (data) => options.connectionStateSource.handleKick(data),
     onConnectError: (message) => options.connectionStateSource.handleConnectError(message),

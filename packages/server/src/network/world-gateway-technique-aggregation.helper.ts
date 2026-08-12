@@ -9,6 +9,7 @@ import {
   S2C,
   TECHNIQUE_UNIFICATION_PLATFORM_DEF_ID,
   type TechniqueAggregationErrorView,
+  type TechniqueAggregationCatalogChangedView,
   type TechniqueAggregationLearnRequest,
   type TechniqueAggregationPanelView,
   type TechniqueAggregationPreviewRequest,
@@ -64,12 +65,34 @@ interface TechniqueAggregationGatewayDeps {
 
 export class WorldGatewayTechniqueAggregationHelper {
   private readonly platformMutationTails = new Map<string, Promise<void>>();
+  private readonly catalogViewerBySocketId = new Map<string, { client: Socket; familyId: string }>();
   private aggregationService: TechniqueAggregationService | null = null;
+  private unsubscribeCatalogChanges: (() => void) | null = null;
 
   constructor(private readonly deps: TechniqueAggregationGatewayDeps) {}
 
   setService(service: TechniqueAggregationService): void {
+    this.unsubscribeCatalogChanges?.();
     this.aggregationService = service;
+    this.unsubscribeCatalogChanges = service.onCatalogChanged?.((change) => {
+      this.broadcastCatalogChange(change);
+    }) ?? null;
+  }
+
+  private broadcastCatalogChange(change: TechniqueAggregationCatalogChangedView): void {
+    for (const [socketId, viewer] of this.catalogViewerBySocketId) {
+      if (viewer.client.connected === false) {
+        this.catalogViewerBySocketId.delete(socketId);
+        continue;
+      }
+      if (viewer.familyId === change.familyId) {
+        viewer.client.emit(S2C.TechniqueAggregationCatalogChanged, change);
+      }
+    }
+  }
+
+  releaseClient(client: Socket): void {
+    this.catalogViewerBySocketId.delete(client.id);
   }
 
   async handleRequestPanel(client: Socket, payload: TechniqueAggregationPreviewRequest): Promise<void> {
@@ -80,11 +103,11 @@ export class WorldGatewayTechniqueAggregationHelper {
     try {
       const check = this.checkBuilding(playerId, request.buildingId);
       if ('error' in check) {
-        client.emit(S2C.TechniqueAggregationPanel, this.errorPanel(request, check.error));
+        this.emitPanel(client, this.errorPanel(request, check.error));
         return;
       }
       if (!this.aggregationService) {
-        client.emit(S2C.TechniqueAggregationPanel, this.errorPanel(
+        this.emitPanel(client, this.errorPanel(
           request,
           this.error('TECHNIQUE_AGGREGATE_NOT_READY'),
           check,
@@ -97,10 +120,10 @@ export class WorldGatewayTechniqueAggregationHelper {
         await this.refreshCatalogAndRecoverPlatform(current);
         return this.buildPanel(current, request);
       });
-      client.emit(S2C.TechniqueAggregationPanel, panel);
+      this.emitPanel(client, panel);
     } catch (error) {
       this.deps.worldClientEventService.emitGatewayError(client, 'TECHNIQUE_AGGREGATION_PANEL_FAILED', error);
-      client.emit(S2C.TechniqueAggregationPanel, this.errorPanel(
+      this.emitPanel(client, this.errorPanel(
         request,
         this.error('TECHNIQUE_AGGREGATE_PERSISTENCE_UNAVAILABLE'),
       ));
@@ -327,7 +350,17 @@ export class WorldGatewayTechniqueAggregationHelper {
     const check = this.checkBuilding(playerId, request.buildingId);
     if ('error' in check || !this.aggregationService) return;
     await this.refreshCatalogAndRecoverPlatform(check);
-    client.emit(S2C.TechniqueAggregationPanel, await this.buildPanel(check, request));
+    this.emitPanel(client, await this.buildPanel(check, request));
+  }
+
+  private emitPanel(client: Socket, panel: TechniqueAggregationPanelView): void {
+    const familyId = normalizeText(panel.platform.familyId);
+    if (familyId) {
+      this.catalogViewerBySocketId.set(client.id, { client, familyId });
+    } else {
+      this.catalogViewerBySocketId.delete(client.id);
+    }
+    client.emit(S2C.TechniqueAggregationPanel, panel);
   }
 
   private async refreshCatalogAndRecoverPlatform(

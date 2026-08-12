@@ -215,6 +215,7 @@ type MainStartupBindingsOptions = {
       onCancelEnhancement: () => void;
       onDecomposeTechniqueBook?: (itemInstanceId: string, count: number) => void;
       onRequestTechniqueAggregation?: (payload: Parameters<SocketPanelSender['sendRequestTechniqueAggregation']>[0]) => boolean | void;
+      onCloseTechniqueAggregation?: () => boolean | void;
       onPublishTechniqueAggregation?: (payload: Parameters<SocketPanelSender['sendPublishTechniqueAggregation']>[0]) => boolean | void;
       onLearnTechniqueAggregation?: (payload: Parameters<SocketPanelSender['sendLearnTechniqueAggregation']>[0]) => boolean | void;
     }) => void;
@@ -330,6 +331,7 @@ type MainStartupBindingsOptions = {
     | 'sendReorderTechniqueActivityQueue'
     | 'sendDestroyItem'
     | 'sendRequestTechniqueAggregation'
+    | 'sendCloseTechniqueAggregation'
     | 'sendPublishTechniqueAggregation'
     | 'sendLearnTechniqueAggregation'
   >;
@@ -480,6 +482,7 @@ export function bindMainStartup(options: MainStartupBindingsOptions): void {
     onCancelEnhancement: () => options.panelSender.sendCancelEnhancement(),
     onDecomposeTechniqueBook: (itemInstanceId, count) => options.panelSender.sendDestroyItem(itemInstanceId, count, { mode: 'decompose_technique_book' }),
     onRequestTechniqueAggregation: (payload) => options.panelSender.sendRequestTechniqueAggregation(payload),
+    onCloseTechniqueAggregation: () => options.panelSender.sendCloseTechniqueAggregation(),
     onPublishTechniqueAggregation: (payload) => options.panelSender.sendPublishTechniqueAggregation(payload),
     onLearnTechniqueAggregation: (payload) => options.panelSender.sendLearnTechniqueAggregation(payload),
   });

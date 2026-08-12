@@ -184,6 +184,7 @@ type MainLowFrequencySocketBindingsOptions = {
   onTechniqueGenerationResult: (data: ServerToClientEventPayload<typeof S2C.TechniqueGenerationResult>) => void;
   onTechniqueAggregationPanel: (data: ServerToClientEventPayload<typeof S2C.TechniqueAggregationPanel>) => void;
   onTechniqueAggregationResult: (data: ServerToClientEventPayload<typeof S2C.TechniqueAggregationResult>) => void;
+  onTechniqueAggregationCatalogChanged: (data: ServerToClientEventPayload<typeof S2C.TechniqueAggregationCatalogChanged>) => void;
   /**
  * onError：onError相关字段。
  */
@@ -273,6 +274,7 @@ export function bindMainLowFrequencySocketEvents(options: MainLowFrequencySocket
   options.socket.on(S2C.TechniqueGenerationResult, options.onTechniqueGenerationResult);
   options.socket.on(S2C.TechniqueAggregationPanel, options.onTechniqueAggregationPanel);
   options.socket.on(S2C.TechniqueAggregationResult, options.onTechniqueAggregationResult);
+  options.socket.on(S2C.TechniqueAggregationCatalogChanged, options.onTechniqueAggregationCatalogChanged);
   options.socket.on(S2C.Error, options.onError);
   options.socket.onKick(options.onKick);
   options.socket.onConnectError(options.onConnectError);

@@ -230,6 +230,7 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
       modelConfigResolver: () => this.resolveTechniqueGenerationTextModelConfig(),
     });
     await this.generatedTechniqueStoreService.reload();
+    this.generatedTechniqueStoreService.startCatalogRefresh();
     const recoveredJobs = await this.techniqueGenerationService.recoverPendingJobs();
     this.logger.log(
       `AI 生成功法持久化已初始化：缓存数量=${this.generatedTechniqueStoreService.size} 就绪=${this.techniqueGenerationService.isReady()} 恢复任务=${recoveredJobs}`,

@@ -186,6 +186,12 @@ export interface TechniqueAggregationPanelView {
   error?: TechniqueAggregationErrorView;
 }
 
+/** 已发布统法目录出现新卷；客户端只在正在查看同一法脉时重新请求低频面板。 */
+export interface TechniqueAggregationCatalogChangedView {
+  familyId: string;
+  latestRevision: number;
+}
+
 export interface TechniqueAggregationErrorView {
   code: TechniqueAggregationErrorCode;
   /** 客户端按 code 选择本地文案，不使用服务端拼接文本。 */
@@ -226,6 +232,7 @@ export type C2S_PublishTechniqueAggregation = TechniqueAggregationPublishRequest
 export type C2S_LearnTechniqueAggregation = TechniqueAggregationLearnRequest;
 export type S2C_TechniqueAggregationPanel = TechniqueAggregationPanelView;
 export type S2C_TechniqueAggregationResult = TechniqueAggregationResultView;
+export type S2C_TechniqueAggregationCatalogChanged = TechniqueAggregationCatalogChangedView;
 
 export interface TechniqueAggregationCoverage {
   leafTechniqueIds: string[];

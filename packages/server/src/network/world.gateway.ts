@@ -254,6 +254,7 @@ class WorldGateway implements WorldGatewayHelperContext {
     /** socket 断开：解绑会话、清理订阅状态、持久化离线 presence 并 flush 玩家数据。 */
     async handleDisconnect(client: Socket) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+        this.gatewayTechniqueAggregationHelper.releaseClient(client);
         const binding = this.worldSessionService.unregisterSocket(client.id);
         if (!binding) {
             return;
@@ -773,6 +774,11 @@ class WorldGateway implements WorldGatewayHelperContext {
     @SubscribeMessage(C2S.RequestTechniqueAggregation)
     handleRequestTechniqueAggregation(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayTechniqueAggregationHelper.handleRequestPanel(client, payload);
+    }
+    @SubscribeMessage(C2S.CloseTechniqueAggregation)
+    handleCloseTechniqueAggregation(@ConnectedSocket() client: Socket) {
+        if (!this.gatewayGuardHelper.requirePlayerId(client)) return;
+        this.gatewayTechniqueAggregationHelper.releaseClient(client);
     }
     @SubscribeMessage(C2S.PublishTechniqueAggregation)
     handlePublishTechniqueAggregation(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {

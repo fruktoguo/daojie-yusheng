@@ -26,6 +26,7 @@ import type {
   C2S_SaveAccessPolicyView,
 } from './access-policy';
 import type {
+  TechniqueAggregationCatalogChangedView,
   TechniqueAggregationLearnRequest,
   TechniqueAggregationPanelView,
   TechniqueAggregationPreviewRequest,
@@ -224,6 +225,7 @@ export const C2S = {
   RequestContentTemplates: 'n:c:requestContentTemplates',
   TechniqueGeneration: 'n:c:techniqueGeneration',
   RequestTechniqueAggregation: 'n:c:requestTechniqueAggregation',
+  CloseTechniqueAggregation: 'n:c:closeTechniqueAggregation',
   PublishTechniqueAggregation: 'n:c:publishTechniqueAggregation',
   LearnTechniqueAggregation: 'n:c:learnTechniqueAggregation',
   RequestAccessPolicy: 'n:c:requestAccessPolicy',
@@ -303,6 +305,7 @@ export const S2C = {
   TechniqueGenerationResult: 'n:s:techniqueGenerationResult',
   TechniqueAggregationPanel: 'n:s:techniqueAggregationPanel',
   TechniqueAggregationResult: 'n:s:techniqueAggregationResult',
+  TechniqueAggregationCatalogChanged: 'n:s:techniqueAggregationCatalogChanged',
   AccessPolicyResourceResult: 'n:s:accessPolicyResourceResult',
   AccessPolicyResourceSetResult: 'n:s:accessPolicyResourceSetResult',
   AccessPolicyPlayerResult: 'n:s:accessPolicyPlayerResult',
@@ -448,6 +451,7 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.RequestContentTemplates]: C2S_RequestContentTemplates;
   [C2S.TechniqueGeneration]: RequestPayloads.C2S_TechniqueGeneration;
   [C2S.RequestTechniqueAggregation]: TechniqueAggregationPreviewRequest;
+  [C2S.CloseTechniqueAggregation]: Record<string, never>;
   [C2S.PublishTechniqueAggregation]: TechniqueAggregationPublishRequest;
   [C2S.LearnTechniqueAggregation]: TechniqueAggregationLearnRequest;
   [C2S.RequestAccessPolicy]: C2S_RequestAccessPolicyView;
@@ -527,6 +531,7 @@ export interface S2C_PayloadMap extends Record<S2C_EventName, unknown> {
   [S2C.TechniqueGenerationResult]: ResponsePayloads.S2C_TechniqueGenerationResult;
   [S2C.TechniqueAggregationPanel]: TechniqueAggregationPanelView;
   [S2C.TechniqueAggregationResult]: TechniqueAggregationResultView;
+  [S2C.TechniqueAggregationCatalogChanged]: TechniqueAggregationCatalogChangedView;
   [S2C.AccessPolicyResourceResult]: AccessPolicyResourceResultView;
   [S2C.AccessPolicyResourceSetResult]: AccessPolicyResourceSetResultView;
   [S2C.AccessPolicyPlayerResult]: AccessPolicyPlayerResultView;

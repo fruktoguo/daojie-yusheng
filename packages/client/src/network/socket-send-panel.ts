@@ -411,6 +411,9 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
     sendRequestTechniqueAggregation(payload: ClientToServerEventPayload<typeof C2S.RequestTechniqueAggregation>): boolean {
       return deps.emitEvent(C2S.RequestTechniqueAggregation, payload).accepted;
     },
+    sendCloseTechniqueAggregation(): boolean {
+      return deps.emitEvent(C2S.CloseTechniqueAggregation, {}).accepted;
+    },
     sendPublishTechniqueAggregation(payload: ClientToServerEventPayload<typeof C2S.PublishTechniqueAggregation>): boolean {
       return deps.emitEvent(C2S.PublishTechniqueAggregation, payload).accepted;
     },

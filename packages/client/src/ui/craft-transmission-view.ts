@@ -10,6 +10,7 @@ import type {
   ItemStack,
   PlayerState,
   S2C_TechniqueTransmissionStatuses,
+  TechniqueAggregationCatalogChangedView,
   TechniqueAggregationLearnRequest,
   TechniqueAggregationPanelView,
   TechniqueAggregationPreviewRequest,
@@ -63,6 +64,7 @@ export type CraftTransmissionCallbacks = {
   onRequestTransmissionStatuses?: (payload: C2S_RequestTechniqueTransmissionStatuses) => boolean;
   getTransmissionTargets?: () => Array<{ playerId: string; name: string }>;
   onRequestTechniqueAggregation?: (payload: TechniqueAggregationPreviewRequest) => boolean | void;
+  onCloseTechniqueAggregation?: () => boolean | void;
   onPublishTechniqueAggregation?: (payload: TechniqueAggregationPublishRequest) => boolean | void;
   onLearnTechniqueAggregation?: (payload: TechniqueAggregationLearnRequest) => boolean | void;
 };
@@ -284,6 +286,7 @@ export class CraftTransmissionView {
   private readonly selectedTechniqueAggregationSourceIds = new Set<string>();
   private techniqueAggregationRequestSequence = 0;
   private techniqueAggregationRequestId = '';
+  private techniqueAggregationInvalidatedRevision = 0;
   private techniqueAggregationOperationId = '';
   private techniqueAggregationResult: TechniqueAggregationResultView | null = null;
   private techniqueAggregationPublishing = false;
@@ -334,12 +337,14 @@ export class CraftTransmissionView {
     this.transmissionStatusTargetPlayerId = '';
     this.failedTransmissionStatusTargetPlayerId = '';
     this.transmissionLearnedByTechniqueId.clear();
-    if (this.parent.activeMode !== 'transmission') {
-      return;
+    if (this.parent.activeMode === 'transmission') {
+      const body = document.getElementById('detail-modal-body');
+      if (body instanceof HTMLElement) {
+        this.requestTransmissionStatuses(body);
+      }
     }
-    const body = document.getElementById('detail-modal-body');
-    if (body instanceof HTMLElement) {
-      this.requestTransmissionStatuses(body);
+    if (this.parent.activeMode === 'technique_refining' && this.techniqueAggregationBuildingId) {
+      this.requestTechniqueAggregationPanel();
     }
   }
 
@@ -363,6 +368,7 @@ export class CraftTransmissionView {
     this.selectedTechniqueAggregationSourceIds.clear();
     this.techniqueAggregationResult = null;
     this.techniqueAggregationOperationId = '';
+    this.techniqueAggregationInvalidatedRevision = 0;
     this.techniqueAggregationPublishing = false;
     this.techniqueAggregationLearning = false;
     this.requestTechniqueAggregationPanel();
@@ -373,6 +379,7 @@ export class CraftTransmissionView {
   }
 
   closeTechniqueAggregation(): void {
+    const wasOpen = this.techniqueAggregationBuildingId.length > 0;
     confirmModalHost.close(TECHNIQUE_AGGREGATION_PUBLISH_CONFIRM_OWNER);
     this.techniqueAggregationBuildingId = '';
     this.techniqueAggregationPanel = null;
@@ -386,10 +393,20 @@ export class CraftTransmissionView {
     this.destroyAccessPolicyEditor();
     this.selectedTechniqueAggregationSourceIds.clear();
     this.techniqueAggregationRequestId = '';
+    this.techniqueAggregationInvalidatedRevision = 0;
     this.techniqueAggregationOperationId = '';
     this.techniqueAggregationResult = null;
     this.techniqueAggregationPublishing = false;
     this.techniqueAggregationLearning = false;
+    if (wasOpen) {
+      const close = this.transmissionCallbacks?.onCloseTechniqueAggregation
+        ?? this.parent.callbacks?.onCloseTechniqueAggregation;
+      try {
+        close?.();
+      } catch {
+        // 关闭本地面板不应被网络断开阻塞；服务端仍会在 socket 断开时释放订阅。
+      }
+    }
   }
 
   handleTechniqueAggregationPanel(data: TechniqueAggregationPanelView): void {
@@ -406,6 +423,9 @@ export class CraftTransmissionView {
       : undefined;
     this.techniqueAggregationFamilyId = data.platform.familyId ?? '';
     this.techniqueAggregationExpectedRevision = boundFamily?.latestRevision;
+    if ((boundFamily?.latestRevision ?? 0) >= this.techniqueAggregationInvalidatedRevision) {
+      this.techniqueAggregationInvalidatedRevision = 0;
+    }
     const availableGrades = this.resolveTechniqueAggregationGrades(data);
     if (boundFamily?.grade) {
       this.techniqueAggregationGradeFilter = boundFamily.grade;
@@ -444,7 +464,15 @@ export class CraftTransmissionView {
   }
 
   handleTechniqueAggregationResult(data: TechniqueAggregationResultView): void {
-    if (data.requestId && this.techniqueAggregationRequestId && data.requestId !== this.techniqueAggregationRequestId) {
+    const matchesActiveOperation = Boolean(
+      data.operationId
+      && this.techniqueAggregationOperationId
+      && data.operationId === this.techniqueAggregationOperationId,
+    );
+    if (!matchesActiveOperation
+      && data.requestId
+      && this.techniqueAggregationRequestId
+      && data.requestId !== this.techniqueAggregationRequestId) {
       return;
     }
     this.techniqueAggregationPublishing = false;
@@ -461,6 +489,18 @@ export class CraftTransmissionView {
     }
   }
 
+  handleTechniqueAggregationCatalogChanged(data: TechniqueAggregationCatalogChangedView): void {
+    if (this.parent.activeMode !== 'technique_refining' || !this.techniqueAggregationBuildingId) return;
+    if (!this.techniqueAggregationFamilyId || data.familyId !== this.techniqueAggregationFamilyId) return;
+    const knownRevision = Math.max(
+      this.techniqueAggregationExpectedRevision ?? 0,
+      this.techniqueAggregationInvalidatedRevision,
+    );
+    if (data.latestRevision <= knownRevision) return;
+    this.techniqueAggregationInvalidatedRevision = data.latestRevision;
+    this.requestTechniqueAggregationPanel();
+  }
+
   closeTransientUi(): void {
     confirmModalHost.close(TECHNIQUE_REFINING_CONFIRM_OWNER);
     confirmModalHost.close(TECHNIQUE_COMPREHENSION_DISCARD_CONFIRM_OWNER);
@@ -472,6 +512,7 @@ export class CraftTransmissionView {
     this.transmissionStatusTargetPlayerId = '';
     this.failedTransmissionStatusTargetPlayerId = '';
     this.transmissionLearnedByTechniqueId.clear();
+    this.closeTechniqueAggregation();
   }
 
   buildTransmissionRenderKey(): string {

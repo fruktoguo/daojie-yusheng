@@ -201,6 +201,8 @@ async function assertGeneratedTechniqueStoreRefreshesExternalRevision(): Promise
   store.initialize(pool as never);
   await store.reload();
   assert.equal(store.getLatestAggregateForFamily(familyId)?.metadata.revision, 1);
+  const catalogChanges: Array<{ familyId: string; latestRevision: number }> = [];
+  const unsubscribe = store.onAggregateCatalogChanged((change) => catalogChanges.push(change));
 
   rows = [buildTemplate(1), buildTemplate(2)].map((template) => ({
     id: template.id,
@@ -210,6 +212,8 @@ async function assertGeneratedTechniqueStoreRefreshesExternalRevision(): Promise
   assert.equal(store.getLatestAggregateForFamily(familyId)?.metadata.revision, 1);
   await store.ensureFresh();
   assert.equal(store.getLatestAggregateForFamily(familyId)?.metadata.revision, 2);
+  assert.deepEqual(catalogChanges, [{ familyId, latestRevision: 2 }]);
+  unsubscribe();
 
   rejectSignature = true;
   await assert.rejects(store.ensureFresh(), /generated_technique_cache_refresh_failed/);

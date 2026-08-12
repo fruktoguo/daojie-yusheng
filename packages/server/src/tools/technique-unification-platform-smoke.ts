@@ -8,6 +8,7 @@ import {
   type AccessPolicy,
   type BuildingDef,
   type TechniqueAggregationMetadata,
+  type TechniqueAggregationCatalogChangedView,
   type TechniqueAggregationPanelView,
   type TechniqueAggregationPublishRequest,
   type TechniqueUnificationPermissions,
@@ -30,7 +31,10 @@ type RuntimePlayer = {
 };
 
 class TestSocket {
+  private static sequence = 0;
   readonly emitted: Array<{ event: string; payload: any }> = [];
+  readonly id = `test-socket:${++TestSocket.sequence}`;
+  readonly connected = true;
 
   constructor(readonly data: { playerId: string }) {}
 
@@ -42,6 +46,10 @@ class TestSocket {
     const entry = [...this.emitted].reverse().find((candidate) => candidate.event === event);
     assert.ok(entry, `未收到事件 ${event}`);
     return entry.payload as T;
+  }
+
+  count(event: string): number {
+    return this.emitted.filter((entry) => entry.event === event).length;
   }
 }
 
@@ -348,18 +356,29 @@ async function main(): Promise<void> {
   assert.equal(collaborativeEntry?.metadata.revision, 3);
 
   aggregation.queueExternalRevision('player:external-reviser');
+  await aggregation.ensureCatalogFresh();
+  assert.deepEqual(
+    ownerSocket.last<TechniqueAggregationCatalogChangedView>(S2C.TechniqueAggregationCatalogChanged),
+    { familyId: boundFamilyId, latestRevision: 4 },
+  );
+  assert.equal(strangerSocket.count(S2C.TechniqueAggregationCatalogChanged), 0);
+  const ownerCatalogChangeCountBeforeClose = ownerSocket.count(S2C.TechniqueAggregationCatalogChanged);
+  helper.releaseClient(ownerSocket as never);
+  aggregation.queueExternalRevision('player:external-reviser-after-close');
+  await aggregation.ensureCatalogFresh();
+  assert.equal(ownerSocket.count(S2C.TechniqueAggregationCatalogChanged), ownerCatalogChangeCountBeforeClose);
   await helper.handleRequestPanel(ownerSocket as never, {
     requestId: 'owner-external-revision-panel',
     buildingId: building.id,
   });
   const refreshedOwnerPanel = ownerSocket.last<TechniqueAggregationPanelView>(S2C.TechniqueAggregationPanel);
-  assert.equal(refreshedOwnerPanel.platform.latestRevision, 4);
+  assert.equal(refreshedOwnerPanel.platform.latestRevision, 5);
   assert.equal(refreshedOwnerPanel.platform.learnerState, 'available');
   await helper.handleLearn(ownerSocket as never, {
     requestId: 'owner-external-revision-learn',
     buildingId: building.id,
   });
-  assert.equal(owner.pendingTechniqueComprehensions.at(-1)?.techId, `agg:${boundFamilyId}:v4`);
+  assert.equal(owner.pendingTechniqueComprehensions.at(-1)?.techId, `agg:${boundFamilyId}:v5`);
 
   await helper.handlePublish(strangerSocket as never, {
     requestId: 'stranger-revision-denied',
@@ -450,10 +469,17 @@ class FakeAggregationService {
   readonly entries: Array<{ techniqueId: string; metadata: TechniqueAggregationMetadata; name: string }> = [];
   lastPublishRequest: TechniqueAggregationPublishRequest | null = null;
   private queuedExternalEntry: { techniqueId: string; metadata: TechniqueAggregationMetadata; name: string } | null = null;
+  private readonly catalogChangeListeners = new Set<(change: TechniqueAggregationCatalogChangedView) => void>();
+
+  onCatalogChanged(listener: (change: TechniqueAggregationCatalogChangedView) => void): () => void {
+    this.catalogChangeListeners.add(listener);
+    return () => this.catalogChangeListeners.delete(listener);
+  }
 
   async ensureCatalogFresh(): Promise<void> {
     if (!this.queuedExternalEntry) return;
     this.entries.push(this.queuedExternalEntry);
+    this.notifyCatalogChanged(this.queuedExternalEntry.metadata);
     this.queuedExternalEntry = null;
   }
 
@@ -473,6 +499,11 @@ class FakeAggregationService {
         revisionAuthorPlayerId,
       },
     };
+  }
+
+  private notifyCatalogChanged(metadata: TechniqueAggregationMetadata): void {
+    const change = { familyId: metadata.familyId, latestRevision: metadata.revision };
+    for (const listener of this.catalogChangeListeners) listener(change);
   }
 
   resolveInitialFamilyId(operationId: unknown): string {
@@ -617,6 +648,7 @@ class FakeAggregationService {
         ?? normalizeTechniqueUnificationPermissions(context.initialPermissions),
     };
     this.entries.push({ techniqueId, metadata, name: previous?.name ?? request.customName ?? '未名法脉' });
+    this.notifyCatalogChanged(metadata);
     return {
       ok: true as const,
       template: { id: techniqueId },

@@ -94,6 +94,7 @@ export const GAMEPLAY_SERVER_EVENTS = [
   S2C.TechniqueGenerationResult,
   S2C.TechniqueAggregationPanel,
   S2C.TechniqueAggregationResult,
+  S2C.TechniqueAggregationCatalogChanged,
   S2C.AccessPolicyResourceResult,
   S2C.AccessPolicyResourceSetResult,
   S2C.AccessPolicyPlayerResult,

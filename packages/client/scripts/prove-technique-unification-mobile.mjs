@@ -15,8 +15,12 @@ const initializeExpression = String.raw`
     const { CraftWorkbenchModal } = await import('/src/ui/craft-workbench-modal.ts');
     const modal = new CraftWorkbenchModal();
     window.__techniqueUnificationPublishPayload = null;
+    window.__techniqueUnificationRequests = [];
     modal.setCallbacks({
-      onRequestTechniqueAggregation: () => true,
+      onRequestTechniqueAggregation: (payload) => {
+        window.__techniqueUnificationRequests.push(structuredClone(payload));
+        return true;
+      },
       onPublishTechniqueAggregation: (payload) => {
         window.__techniqueUnificationPublishPayload = structuredClone(payload);
         return true;
@@ -137,14 +141,15 @@ const initializeExpression = String.raw`
       canRevise = true,
       includeRebind = false,
       playerRevision,
+      latestRevision = 4,
     } = {}) => ({
       revision: 7,
       buildingId: 'building:mobile-proof',
       eligibleSources: canRevise ? [...(includeRebind ? [previousAggregateSource] : []), ...sources] : [],
       families: bound ? [{
         familyId: 'family:mobile-proof',
-        latestRevision: 4,
-        latestTechniqueId: 'agg_mobile_proof_v4',
+        latestRevision,
+        latestTechniqueId: 'agg_mobile_proof_v' + latestRevision,
         name: '太玄归一真经',
         grade: 'mortal',
         category: 'internal',
@@ -174,7 +179,7 @@ const initializeExpression = String.raw`
         displayName: '玄门统法台',
         ownerPlayerId: 'player:owner',
         isOwner,
-        ...(bound ? { familyId: 'family:mobile-proof', latestTechniqueId: 'agg_mobile_proof_v4', latestRevision: 4 } : {}),
+        ...(bound ? { familyId: 'family:mobile-proof', latestTechniqueId: 'agg_mobile_proof_v' + latestRevision, latestRevision } : {}),
         accessPolicyResource: {
           resourceType: 'technique_unification_platform',
           resourceId: 'building:mobile-proof',
@@ -568,6 +573,56 @@ const restrictTabsExpression = String.raw`
   })()
 `;
 
+const inspectCatalogRefreshExpression = String.raw`
+  (() => {
+    const modal = window.__techniqueUnificationProofModal;
+    const buildPanel = window.__techniqueUnificationBuildPanel;
+    const requests = window.__techniqueUnificationRequests;
+    const activeOperationId = window.__techniqueUnificationPublishPayload?.operationId;
+    if (!activeOperationId) throw new Error('统法修订操作标识未保留');
+    const before = requests.length;
+    modal.handleTechniqueAggregationCatalogChanged({ familyId: 'family:other', latestRevision: 9 });
+    modal.handleTechniqueAggregationCatalogChanged({ familyId: 'family:mobile-proof', latestRevision: 4 });
+    modal.handleTechniqueAggregationCatalogChanged({ familyId: 'family:mobile-proof', latestRevision: 5 });
+    modal.handleTechniqueAggregationCatalogChanged({ familyId: 'family:mobile-proof', latestRevision: 5 });
+    const requestCountDelta = requests.length - before;
+    const latestRequest = structuredClone(requests.at(-1));
+    modal.handleTechniqueAggregationPanel(buildPanel({
+      bound: true,
+      isOwner: false,
+      canRevise: false,
+      playerRevision: 3,
+      latestRevision: 5,
+    }));
+    modal.handleTechniqueAggregationResult({
+      requestId: 'technique-aggregation:stale-publish-request',
+      operationId: activeOperationId,
+      ok: true,
+      operation: 'publish',
+      aggregate: {
+        techniqueId: 'agg_mobile_proof_v5',
+        familyId: 'family:mobile-proof',
+        revision: 5,
+        name: '太玄归一真经',
+        grade: 'mortal',
+        category: 'internal',
+        sourceCount: 18,
+        sourceTechniqueIds: ['gen:mobile-proof-1', 'gen:mobile-proof-2'],
+        totalTrainingDifficulty: 900,
+        effectMultiplier: 1.1,
+      },
+    });
+    const panel = document.querySelector('[data-technique-aggregation-panel="true"]');
+    return {
+      requestCountDelta,
+      latestRequest,
+      learnLabel: panel?.querySelector('[data-craft-action="technique-aggregation-learn"]')?.textContent?.trim() ?? '',
+      summary: panel?.querySelector('.technique-aggregation-lineage-summary')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+      publishResult: panel?.querySelector('[data-technique-aggregation-result="true"]')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+    };
+  })()
+`;
+
 const inspectSanitizedErrorExpression = String.raw`
   (() => {
     const modal = window.__techniqueUnificationProofModal;
@@ -747,6 +802,14 @@ await withClientBrowserProof({ viewport: VIEWPORT, profilePrefix: 'technique-uni
   assert.equal(revisionUpdate.learnLabel, '获取最新版 · 第 4 卷', '旧卷玩家未显示最新版获取入口');
   assert.equal(revisionUpdate.learnDisabled, false, '旧卷玩家的最新版获取入口被错误禁用');
   assert.match(revisionUpdate.summary, /已习得第 3 卷 · 最新第 4 卷/, '总览未明确展示旧卷与最新卷差异');
+
+  const catalogRefresh = await cdp.evaluate(inspectCatalogRefreshExpression);
+  assert.equal(catalogRefresh.requestCountDelta, 1, '同一新卷通知触发了重复面板请求');
+  assert.equal(catalogRefresh.latestRequest?.buildingId, 'building:mobile-proof', '目录更新未重拉当前统法台');
+  assert.match(catalogRefresh.latestRequest?.requestId ?? '', /^technique-aggregation:/, '目录更新请求缺少独立 requestId');
+  assert.equal(catalogRefresh.learnLabel, '获取最新版 · 第 5 卷', '目录更新后未展示最新卷获取入口');
+  assert.match(catalogRefresh.summary, /已习得第 3 卷 · 最新第 5 卷/, '目录更新后卷次摘要仍然陈旧');
+  assert.equal(catalogRefresh.publishResult, '「太玄归一真经」第 5 卷已成。', '目录刷新抢先到达时误丢了合法修订结果');
 
   const restricted = await cdp.evaluate(restrictTabsExpression);
   assert.deepEqual(restricted.labels, ['总览'], '普通参阅者仍可看到录法或权限 Tab');

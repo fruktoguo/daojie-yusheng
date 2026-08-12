@@ -32,6 +32,7 @@ import {
   normalizeTechniqueUnificationPermissions,
   type Attributes,
   type TechniqueAggregationErrorCode,
+  type TechniqueAggregationCatalogChangedView,
   type TechniqueAggregationErrorView,
   type TechniqueAggregationFamilyView,
   type TechniqueAggregationMetadata,
@@ -119,6 +120,12 @@ export class TechniqueAggregationService {
   /** 统法台属于低频入口，每次读取或变更前校验数据库签名以接收其他进程发布的新卷。 */
   async ensureCatalogFresh(): Promise<void> {
     await this.generatedTechniqueStoreService.ensureFresh();
+  }
+
+  onCatalogChanged(
+    listener: (change: TechniqueAggregationCatalogChangedView) => void,
+  ): () => void {
+    return this.generatedTechniqueStoreService.onAggregateCatalogChanged(listener);
   }
 
   /** 新玩家拿到旧版本书籍时，统一指向同一家族的最新不可变版本。 */

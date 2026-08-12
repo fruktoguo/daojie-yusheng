@@ -25,6 +25,7 @@ import type {
   S2C_EnhancementPanel,
   S2C_TechniqueActivityTasks,
   S2C_TechniqueTransmissionStatuses,
+  TechniqueAggregationCatalogChangedView,
   TechniqueAggregationLearnRequest,
   TechniqueAggregationPanelView,
   TechniqueAggregationPreviewRequest,
@@ -102,6 +103,7 @@ type CraftWorkbenchCallbacks = {
   onDiscardTechniqueComprehension?: (techId: string) => void;
   onDecomposeTechniqueBook?: (itemInstanceId: string, count: number) => void;
   onRequestTechniqueAggregation?: (payload: TechniqueAggregationPreviewRequest) => boolean | void;
+  onCloseTechniqueAggregation?: () => boolean | void;
   onPublishTechniqueAggregation?: (payload: TechniqueAggregationPublishRequest) => boolean | void;
   onLearnTechniqueAggregation?: (payload: TechniqueAggregationLearnRequest) => boolean | void;
   getTransmissionTargets?: () => Array<{ playerId: string; name: string }>;
@@ -399,6 +401,10 @@ export class CraftWorkbenchModal {
 
   handleTechniqueAggregationResult(data: TechniqueAggregationResultView): void {
     this.transmissionView.handleTechniqueAggregationResult(data);
+  }
+
+  handleTechniqueAggregationCatalogChanged(data: TechniqueAggregationCatalogChangedView): void {
+    this.transmissionView.handleTechniqueAggregationCatalogChanged(data);
   }
 
   initFromPlayer(player: PlayerState): void {
