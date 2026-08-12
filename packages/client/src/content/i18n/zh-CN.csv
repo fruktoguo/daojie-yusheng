@@ -2531,6 +2531,7 @@ notice.craft.building.sleeping,通知,建筑施工条件暂时不满足，已转
 notice.craft.building.start,通知,开始建造：{buildingName}，预计 {totalTicks} 息,
 notice.craft.building.target-missing,通知,建造目标已经不存在。,
 notice.craft.building.unavailable,通知,建筑当前不可继续施工。,
+notice.craft.building.virtual-world-forbidden,通知,虚境不能建造建筑，当前施工已停止。,
 notice.craft.enhancement.advance-continue,通知,{itemName} 已强化成功 +{currentLevel}，继续冲击 +{nextTargetLevel},
 notice.craft.enhancement.advance-missing-target,通知,{itemName} 当前强化目标数据缺失，队列已停止,
 notice.craft.enhancement.advance-resources-missing,通知,{itemName} 当前已到 +{currentLevel}，后续强化所需灵石、材料或保护物不足，队列已停止,

@@ -101,6 +101,14 @@ isPillBuff = sourceSkillId.startsWith('item:')
 - `infiniteDuration = true` 时不衰减
 - sustainCost: 每 tick 消耗资源，不足时移除
 
+## 天道压制
+
+- Buff ID：`virtual_world.heavenly_dao_suppression`，来源为虚境击杀低于自身至少 6 个境界等级的怪物。
+- 每次触发按境界差增加层数，并把整组持续时间刷新为 3600 息；到期时整组移除，不逐层衰减。
+- `persistOnDeath` 与 `persistOnReturnToSpawn` 均为 `true`，因此身死和遁返不能清除。
+- 它不走普通 `stacks × realmEffectiveness` 百分比 Buff 链，而是在属性最终结算层按 `1000 / (1000 + stacks)` 同时压制最终六维与全部战斗属性。这样每项只衰减一次，避免六维派生数值再被重复压制。
+- 1000 层保留 50%，即减少 50%；2000 层保留约 33.33%，即减少约 66.67%。
+
 ## Buff 来源分类
 
 - 技能施加: sourceSkillId = 技能ID

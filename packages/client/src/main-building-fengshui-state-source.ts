@@ -445,6 +445,9 @@ function normalizeMaterialFailure(reason: string | undefined): string {
   if (reason === 'not_in_world') {
     return '当前不在可建造世界';
   }
+  if (reason === 'virtual_world_building_forbidden') {
+    return '虚境不能建造建筑，请前往现世';
+  }
   if (reason === 'invalid_building_def' || reason === 'building_def_not_found') {
     return '建筑配置不存在';
   }

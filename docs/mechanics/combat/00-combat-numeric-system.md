@@ -160,9 +160,12 @@ clamp >= 0
 * 丹药百分比
 * 世界时间视野修正
 round
+* 天道压制最终乘区（仅六维、战斗数值与五行增伤/减伤）
 ```
 
 最终 `roundNumericStats` 会把大多数数值压到非负整数；允许负值的字段包括 `moveSpeed`、`cooldownSpeed`、`auraCostReduce`、`auraPowerRate`、`playerExpRate`、`techniqueExpRate`、`lootRate`、`rareLootRate`、`extraAggroRate`。
+
+天道压制在常规结算完成后只乘一次 `1000 / (1000 + stacks)`；经验、掉落和视野等非战斗数值不受影响。
 
 ### 境界数值缩放
 

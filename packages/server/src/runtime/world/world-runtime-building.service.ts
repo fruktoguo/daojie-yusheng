@@ -17,6 +17,7 @@ import {
 import { resolveCraftSkillExpToNextByLevel } from '../craft/craft-skill-exp.helpers';
 import { executeBuildingTick } from '../craft/pipeline/strategies/building-tick.helpers';
 import { buildStructuredNotice } from './structured-notice.helpers';
+import { isVirtualPublicWorldInstance } from './world-runtime.normalization.helpers';
 
 /**
  * 建筑操作结果缓存上限：默认 1000，可通过 env SERVER_BUILDING_OPERATION_RESULTS_LIMIT
@@ -49,6 +50,9 @@ export function handleBuildPlaceIntent(runtime, playerId, payload) {
         return { ...replay, duplicate: true };
     }
     const context = resolvePlayerBuildingContext(runtime, playerId);
+    if (isVirtualPublicWorldInstance(context.instance)) {
+        return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: 'virtual_world_building_forbidden' }, { action: 'place', playerId, instanceId: context.instance?.meta?.instanceId ?? null });
+    }
     if (!context.instance?.meta?.persistent) {
         return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: 'instance_not_persistent' }, { action: 'place', playerId, instanceId: context.instance?.meta?.instanceId ?? null });
     }
@@ -112,6 +116,9 @@ export function handleBuildPlaceIntent(runtime, playerId, payload) {
 export function handleStartBuildingConstruction(runtime, playerId, buildingIdInput) {
     const context = resolvePlayerBuildingContext(runtime, playerId);
     const buildingId = normalizeBuildingRequestId(buildingIdInput);
+    if (isVirtualPublicWorldInstance(context.instance)) {
+        return { ok: false, reason: 'virtual_world_building_forbidden' };
+    }
     const sectAccess = resolveSectBuildingAccess(runtime, context, playerId, 'building_create');
     if (sectAccess.applies && !sectAccess.allowed) {
         return { ok: false, reason: 'sect_build_permission_denied' };
@@ -826,6 +833,8 @@ function localizeStartBuildingFailure(reason) {
             return '只能建造自己的半成品';
         case 'sect_build_permission_denied':
             return '当前职位没有宗门建造权限';
+        case 'virtual_world_building_forbidden':
+            return '虚境不能建造建筑，请前往现世';
         case 'player_not_found':
             return '当前角色不存在';
         case 'building_too_far':

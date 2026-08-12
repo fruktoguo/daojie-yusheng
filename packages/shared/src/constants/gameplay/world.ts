@@ -27,6 +27,9 @@ export const WORLD_TIME_SOURCE_ID = 'world:time';
 /** 夜色环境效果 Buff ID */
 export const WORLD_DARKNESS_BUFF_ID = 'world:darkness';
 
+/** 虚境击杀低境界怪物时施加的天道压制 Buff ID。 */
+export const HEAVENLY_DAO_SUPPRESSION_BUFF_ID = 'virtual_world.heavenly_dao_suppression';
+
 /** 夜色环境效果持续时间 */
 export const WORLD_DARKNESS_BUFF_DURATION = 2;
 

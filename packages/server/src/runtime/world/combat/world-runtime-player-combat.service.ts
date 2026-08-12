@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { resolvePlayerFacingContentName } from '@mud/shared';
 import { ContentTemplateRepository } from '../../../content/content-template.repository';
 import { BLOOD_ESSENCE_ITEM_ID, PVP_SOUL_INJURY_BUFF_ID } from '../../../constants/gameplay/pvp';
+import { resolveHeavenlyDaoSuppressionStacksForKill } from '../../../constants/gameplay/virtual-world';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
 import { resolvePlayerDisplayName } from '../../player/player-display-name';
 import { PlayerCountersPersistenceService } from '../../../persistence/player-counters-persistence.service';
@@ -15,7 +16,7 @@ import { buildStructuredNotice } from '../structured-notice.helpers';
 import { resolveFormationMonsterExpMultiplier } from './formation-combat-effect.helpers';
 import * as world_runtime_normalization_helpers_1 from '../world-runtime.normalization.helpers';
 
-const { formatItemStackLabel } = world_runtime_normalization_helpers_1;
+const { formatItemStackLabel, isVirtualPublicWorldInstance } = world_runtime_normalization_helpers_1;
 
 type CombatSectionRecorder = (key: string, durationMs: number, count?: number) => void;
 
@@ -135,13 +136,19 @@ export class WorldRuntimePlayerCombatService {
             'combat.playerMonsterKill.preparationMs',
             sectionStartedAt,
         );
+        const killer = this.playerRuntimeService.getPlayer(killerPlayerId);
+        const heavenlyDaoSuppressionStacks = isVirtualPublicWorldInstance(instance)
+            ? resolveHeavenlyDaoSuppressionStacksForKill(killer?.realm?.realmLv, monster?.level)
+            : 0;
+        if (heavenlyDaoSuppressionStacks > 0) {
+            this.playerRuntimeService.addHeavenlyDaoSuppressionStacks(killerPlayerId, heavenlyDaoSuppressionStacks);
+        }
         this.distributeMonsterKillProgress(instance, monster, killerPlayerId, deps);
         sectionStartedAt = recordPlayerMonsterKillPerf(
             deps,
             'combat.playerMonsterKill.progressMs',
             sectionStartedAt,
         );
-        const killer = this.playerRuntimeService.getPlayer(killerPlayerId);
         const lootRate = killer?.attrs.numericStats.lootRate ?? 0;
         const rareLootRate = killer?.attrs.numericStats.rareLootRate ?? 0;
         const items = this.contentTemplateRepository.rollMonsterDrops(monster.monsterId, 1, lootRate, rareLootRate, {

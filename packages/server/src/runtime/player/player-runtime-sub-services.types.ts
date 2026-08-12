@@ -80,6 +80,7 @@ export interface PlayerBuffService {
   applyPvPSoulInjury(playerId: string): void;
   addPvPShaInfusionStack(playerId: string): void;
   addPvPShaBacklashStacks(playerId: string, stacks: number): void;
+  addHeavenlyDaoSuppressionStacks(playerId: string, stacks: number): number;
   getBuffStacks(playerId: string, buffId: string): number;
   hasActiveBuff(playerId: string, buffId: string, minStacks?: number): boolean;
   applyShaInfusionDeathPenalty(playerId: string): void;

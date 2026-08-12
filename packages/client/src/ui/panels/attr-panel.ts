@@ -23,9 +23,11 @@ import {
   DEFAULT_QI_EFFICIENCY_BP,
   ELEMENT_KEYS,
   HeavenGateRootValues,
+  HEAVENLY_DAO_SUPPRESSION_BUFF_ID,
   NumericStatBreakdownMap,
   NumericRatioDivisors,
   NumericStats,
+  percentModifierToMultiplier,
   S2C_AttrDetail,
   PlayerState,
   PlayerSpecialStats,
@@ -318,6 +320,11 @@ function isTechniqueMaxPercentAttrBonus(bonus: AttrBonus): boolean {
   return bonus.attrMode === 'percent' && bonus.source === TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE;
 }
 
+function isHeavenlyDaoSuppressionAttrBonus(bonus: AttrBonus): boolean {
+  return bonus.attrMode === 'percent'
+    && bonus.source === `buff:${HEAVENLY_DAO_SUPPRESSION_BUFF_ID}`;
+}
+
 function sumAttrBonusPercent(bonuses: AttrBonus[], key: AttrKey, predicate: (bonus: AttrBonus) => boolean): number {
   let total = 0;
   for (const bonus of bonuses) {
@@ -342,7 +349,9 @@ function buildAttributeBreakdownLines(
   const bodyTrainingMultiplier = percentModifierToMultiplier(resolveBodyTrainingAttributePercent(specialStats));
   const techniqueMaxMultiplier = percentModifierToMultiplier(sumAttrBonusPercent(bonuses, key, isTechniqueMaxPercentAttrBonus));
   const realmMultiplier = percentModifierToMultiplier(resolveRootFoundationAttributePercent(specialStats));
-  const buffMultiplier = percentModifierToMultiplier(sumAttrBonusPercent(bonuses, key, (bonus) => bonus.attrMode === 'percent' && !isTechniqueMaxPercentAttrBonus(bonus) && !isPillPercentAttrBonus(bonus)));
+  const regularBuffMultiplier = percentModifierToMultiplier(sumAttrBonusPercent(bonuses, key, (bonus) => bonus.attrMode === 'percent' && !isTechniqueMaxPercentAttrBonus(bonus) && !isPillPercentAttrBonus(bonus) && !isHeavenlyDaoSuppressionAttrBonus(bonus)));
+  const heavenlyDaoSuppressionMultiplier = percentModifierToMultiplier(sumAttrBonusPercent(bonuses, key, isHeavenlyDaoSuppressionAttrBonus));
+  const buffMultiplier = regularBuffMultiplier * heavenlyDaoSuppressionMultiplier;
   const pillMultiplier = percentModifierToMultiplier(sumAttrBonusPercent(bonuses, key, isPillPercentAttrBonus));
   const totalMultiplier = bodyTrainingMultiplier * techniqueMaxMultiplier * realmMultiplier * buffMultiplier * pillMultiplier;
   return [
@@ -379,11 +388,6 @@ function replaceElementHtml(root: HTMLElement, html: string): void {
 function formatCritDamageDisplay(value: number): string {
   const total = 200 + value / 10;
   return formatDisplayPercent(total);
-}
-
-/** percentModifierToMultiplier：将百分比修饰换算成乘区倍率。 */
-function percentModifierToMultiplier(percent: number): number {
-  return Math.max(0, 1 + percent / 100);
 }
 
 /** formatMoveSpeedEffect：格式化移动速度效果。 */

@@ -10,6 +10,7 @@ import {
   resolvePlayerCraftRealmLevel,
 } from '../../craft-effect-runtime.helpers';
 import { resolveBuildingDeconstructionProgressPerTick } from '../../../building/building-deconstruction.helpers';
+import { isVirtualPublicWorldInstance } from '../../../world/world-runtime.normalization.helpers';
 
 export function executeBuildingTick(
   playerId: string,
@@ -36,6 +37,14 @@ export function executeBuildingTick(
 
   if (job.operation === 'deconstruct') {
     return executeBuildingDeconstructionTick(playerId, player, job, instance, building, runtime);
+  }
+
+  if (isVirtualPublicWorldInstance(instance)) {
+    instance.stopBuildingConstruction?.(building.id, playerId);
+    player.buildingJob = null;
+    markPlayerActiveJobDirty(playerRuntimeService, player);
+    runtime.refreshPlayerContextActions?.(playerId);
+    return buildBuildingTickResult(true, [buildBuildingNotice('warn', 'notice.craft.building.virtual-world-forbidden')]);
   }
 
   if (building.state !== 'building') {
@@ -464,6 +473,7 @@ type BuildingTickRuntimePort = {
     buildingById?: Map<string, Record<string, any>>;
     markAoiViewChangedAt?(x: number, y: number): boolean;
     activatePlacedBuildingTopologyAndVisual?(building: Record<string, any>): string[];
+    stopBuildingConstruction?(buildingId: string, playerId: string): unknown;
     stopBuildingDeconstruction?(buildingId: string, playerId: string): unknown;
     localBuildingViewCacheById?: { delete?(buildingId: string): unknown };
     markPersistenceDirtyDomainsHighPriority?(domains: string[]): void;

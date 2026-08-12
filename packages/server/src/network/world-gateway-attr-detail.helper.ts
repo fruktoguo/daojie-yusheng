@@ -3,8 +3,14 @@
  *
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_CONFIG, TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE, TechniqueRealm, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, calcTechniqueQiProjectionModifiers, cloneNumericStats, compileValueStatsToActualStats, createNumericStats, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, resolvePlayerFacingContentName, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate, type AttrBonus, type PartialNumericStats } from '@mud/shared';
+import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_CONFIG, TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE, TechniqueRealm, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, calcTechniqueQiProjectionModifiers, cloneNumericStats, compileValueStatsToActualStats, createNumericStats, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, percentModifierToMultiplier, resolvePlayerFacingContentName, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate, type AttrBonus, type PartialNumericStats } from '@mud/shared';
 import { PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID } from '../constants/gameplay/pvp';
+import {
+    HEAVENLY_DAO_SUPPRESSION_BUFF_ID,
+    isHeavenlyDaoSuppressionCombatStatKey,
+    resolveHeavenlyDaoSuppressionMultiplier,
+    resolveHeavenlyDaoSuppressionPercentModifier,
+} from '../constants/gameplay/virtual-world';
 import { resolvePlayerDailySignInFortuneLuck } from '../runtime/player/player-special-stat.helpers';
 
 type TechniqueEffectFingerprint = {
@@ -75,14 +81,25 @@ export function buildAttrDetailBonuses(player) {
         }
     }
     for (const buff of player.buffs?.buffs ?? []) {
-        if (!hasNonZeroAttributes(buff.attrs) && !hasNonZeroPartialNumericStats(buff.stats) && !Array.isArray(buff.qiProjection)) {
+        const heavenlyDaoSuppression = buff?.buffId === HEAVENLY_DAO_SUPPRESSION_BUFF_ID
+            && Number(buff.remainingTicks) > 0
+            && Number(buff.stacks) > 0;
+        if (!heavenlyDaoSuppression
+            && !hasNonZeroAttributes(buff.attrs)
+            && !hasNonZeroPartialNumericStats(buff.stats)
+            && !Array.isArray(buff.qiProjection)) {
             continue;
         }
+        const heavenlyDaoSuppressionPercent = heavenlyDaoSuppression
+            ? resolveHeavenlyDaoSuppressionPercentModifier(buff.stacks)
+            : 0;
         bonuses.push({
             source: `buff:${buff.buffId}`,
             label: resolvePlayerFacingContentName(buff.buffId, '未知增益', buff.name),
-            attrs: clonePartialAttributes(buff.attrs),
-            attrMode: resolveBuffModifierMode(buff.attrMode),
+            attrs: heavenlyDaoSuppression
+                ? Object.fromEntries(ATTR_KEYS.map((key) => [key, heavenlyDaoSuppressionPercent]))
+                : clonePartialAttributes(buff.attrs),
+            attrMode: heavenlyDaoSuppression ? 'percent' : resolveBuffModifierMode(buff.attrMode),
             stats: clonePartialNumericStats(buff.stats),
             qiProjection: cloneQiProjectionModifiers(buff.qiProjection),
             meta: {
@@ -271,9 +288,14 @@ export function buildAttrDetailNumericStatBreakdowns(player) {
     const pillMultiplierStats = createNumericStats();
     const attrMultipliers = createNumericStats();
     const finalAttrs = player.attrs?.finalAttrs ?? player.attrs?.baseAttrs;
+    const heavenlyDaoSuppressionStacks = resolveActiveBuffStacks(
+        player.buffs?.buffs,
+        HEAVENLY_DAO_SUPPRESSION_BUFF_ID,
+    );
+    const heavenlyDaoSuppressionMultiplier = resolveHeavenlyDaoSuppressionMultiplier(heavenlyDaoSuppressionStacks);
     if (finalAttrs) {
         for (const key of ATTR_KEYS) {
-            const value = Number(finalAttrs[key] ?? 0);
+            const value = Number(finalAttrs[key] ?? 0) / heavenlyDaoSuppressionMultiplier;
             if (value === 0) {
                 continue;
             }
@@ -331,6 +353,15 @@ export function buildAttrDetailNumericStatBreakdowns(player) {
         const realmBaseValue = getNumericStatValue(realmBaseStats, key);
         const baseValue = getNumericStatValue(baseStats, key);
         const flatBuffValue = getNumericStatValue(flatBuffStats, key);
+        const combatSuppressionMultiplier = isHeavenlyDaoSuppressionCombatStatKey(key)
+            ? heavenlyDaoSuppressionMultiplier
+            : 1;
+        const buffMultiplierPct = getNumericStatValue(buffMultiplierStats, key);
+        const combinedBuffMultiplierPct = combatSuppressionMultiplier < 1
+            ? multiplierToPercentModifier(
+                percentModifierToMultiplier(buffMultiplierPct) * combatSuppressionMultiplier,
+            )
+            : buffMultiplierPct;
         breakdowns[key] = {
             realmBaseValue,
             bonusBaseValue: baseValue - realmBaseValue,
@@ -339,12 +370,29 @@ export function buildAttrDetailNumericStatBreakdowns(player) {
             preMultiplierValue: getNumericStatValue(preMultiplierStats, key),
             attrMultiplierPct: getNumericStatValue(attrMultipliers, key),
             realmMultiplier: getRealmNumericMultiplier(key, realmLv),
-            buffMultiplierPct: getNumericStatValue(buffMultiplierStats, key),
+            buffMultiplierPct: combinedBuffMultiplierPct,
             pillMultiplierPct: getNumericStatValue(pillMultiplierStats, key),
             finalValue: getNumericStatValue(finalStats, key),
         };
     }
     return breakdowns;
+}
+
+function resolveActiveBuffStacks(buffs, buffId) {
+    const buff = Array.isArray(buffs)
+        ? buffs.find((entry) => entry?.buffId === buffId && Number(entry.remainingTicks) > 0 && Number(entry.stacks) > 0)
+        : null;
+    return buff ? Math.max(0, Math.trunc(Number(buff.stacks) || 0)) : 0;
+}
+
+function multiplierToPercentModifier(multiplierInput) {
+    const multiplier = Number(multiplierInput);
+    if (!Number.isFinite(multiplier) || multiplier === 1) {
+        return 0;
+    }
+    return multiplier > 1
+        ? (multiplier - 1) * 100
+        : -(1 / Math.max(Number.EPSILON, multiplier) - 1) * 100;
 }
 
 function applySpecialStatWeights(target, player, techniqueSpecialStats) {

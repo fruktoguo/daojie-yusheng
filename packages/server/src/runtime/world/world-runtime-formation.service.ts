@@ -18,6 +18,7 @@ import { buildWalletBalancesFromInventory } from '../player/wallet-inventory-pro
 import { assignItemInstanceIdIfNeeded } from './item-instance-id.helpers';
 import { buildStructuredNotice } from './structured-notice.helpers';
 import { findProtectedPlacementConflict, formatProtectedPlacementConflictReason } from './protected-placement.helpers';
+import { isVirtualPublicWorldInstance } from './world-runtime.normalization.helpers';
 
 const TERRAIN_STABILIZER_EFFECT_KIND = 'terrain_stabilizer';
 const TILE_AURA_SOURCE_EFFECT_KIND = 'tile_aura_source';
@@ -2998,18 +2999,6 @@ function assertCanPlaceFormationInInstance(instance) {
     if (isVirtualPublicWorldInstance(instance)) {
         throw new BadRequestException('虚境不能布置阵法，请前往现世。');
     }
-}
-
-function isVirtualPublicWorldInstance(instance) {
-    const meta = instance?.meta ?? instance;
-    const instanceId = normalizeInstanceId(meta?.instanceId ?? instance?.instanceId);
-    const kind = normalizeOptionalString(meta?.kind ?? instance?.kind);
-    const linePreset = normalizeOptionalString(meta?.linePreset ?? instance?.linePreset);
-    const isPublicWorld = kind === 'public' || instanceId.startsWith('public:') || instanceId.startsWith('line:');
-    if (!isPublicWorld) {
-        return false;
-    }
-    return linePreset !== 'real' && !instanceId.startsWith('real:') && !instanceId.includes(':real:');
 }
 
 function normalizeFormationDiskTier(input) {

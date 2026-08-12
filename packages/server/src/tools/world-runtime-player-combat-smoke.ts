@@ -1,11 +1,18 @@
 import assert from 'node:assert/strict';
 
 import { ContentTemplateRepository } from '../content/content-template.repository';
+import {
+  HEAVENLY_DAO_SUPPRESSION_DURATION_TICKS,
+  resolveHeavenlyDaoSuppressionMultiplier,
+  resolveHeavenlyDaoSuppressionStacksForKill,
+} from '../constants/gameplay/virtual-world';
 import { WorldRuntimePlayerCombatService } from '../runtime/world/combat/world-runtime-player-combat.service';
 
 async function main(): Promise<void> {
   testMonsterEquipmentDropDefaultsMatchMainTierBuckets();
   testMonsterKillExpSettlementUsesTemplateMultiplier();
+  testHeavenlyDaoSuppressionFormula();
+  await testVirtualWorldLowLevelKillAddsHeavenlyDaoSuppression();
   await testMonsterKillCountersUseTierBuckets();
   await testMonsterLootUsesSynchronousInventoryReceipt();
   await testMonsterLootDoesNotRequireDurableContext();
@@ -21,6 +28,95 @@ async function main(): Promise<void> {
     answers: '怪物掉落会在击杀热路径同步完成容量校验与运行态入包，并通过 inventory 脏域刷盘；背包满时原物落地；PvP 血精奖励保持同步入包与满包落地；PvP 击杀时若击杀者当前仇敌正是死者，会立即清掉该仇敌 ID；语义审计关闭时，真实怪物击杀、经验、掉落和玩家死亡副作用仍正常执行',
     excludes: '不证明地面拾取/容器拿取、库存已满落地拾取物的一致性、当前关闭的 combat audit 事件，也不证明更泛化的 tick 资产 intent 编排',
   }, null, 2));
+}
+
+function testHeavenlyDaoSuppressionFormula(): void {
+  assert.equal(resolveHeavenlyDaoSuppressionStacksForKill(10, 5), 0);
+  assert.equal(resolveHeavenlyDaoSuppressionStacksForKill(10, 4), 1);
+  assert.equal(resolveHeavenlyDaoSuppressionStacksForKill(10, 3), 2);
+  assert.equal(resolveHeavenlyDaoSuppressionMultiplier(1), 1000 / 1001);
+  assert.equal(resolveHeavenlyDaoSuppressionMultiplier(1000), 0.5);
+  assert.equal(resolveHeavenlyDaoSuppressionMultiplier(2000), 1 / 3);
+  assert.equal(HEAVENLY_DAO_SUPPRESSION_DURATION_TICKS, 3600);
+}
+
+async function testVirtualWorldLowLevelKillAddsHeavenlyDaoSuppression(): Promise<void> {
+  const appliedStacks: number[] = [];
+  const killer = {
+    playerId: 'player:combat:heavenly-dao',
+    realm: { realmLv: 10 },
+    attrs: { numericStats: { lootRate: 0, rareLootRate: 0 } },
+  };
+  const playerRuntimeService = {
+    getPlayer(playerId: string) {
+      return playerId === killer.playerId ? killer : null;
+    },
+    addHeavenlyDaoSuppressionStacks(playerId: string, stacks: number) {
+      assert.equal(playerId, killer.playerId);
+      appliedStacks.push(stacks);
+      return stacks;
+    },
+    grantMonsterKillProgress() {
+      return { changed: false };
+    },
+  };
+  const service = new WorldRuntimePlayerCombatService({
+    rollMonsterDrops() {
+      return [];
+    },
+    getMonsterCombatProfile() {
+      return { expMultiplier: 1 };
+    },
+  } as never, playerRuntimeService as never);
+  const deps = {
+    queuePlayerNotice() {},
+    advanceKillQuestProgress() {},
+    resolveCurrentTickForPlayerId() {
+      return 1;
+    },
+  };
+  const createInstance = (meta: Record<string, unknown>) => ({
+    meta,
+    getMonsterDamageContributionEntries() {
+      return [{ playerId: killer.playerId, damage: 1 }];
+    },
+  });
+  const createMonster = (runtimeId: string, level: number) => ({
+    runtimeId,
+    monsterId: runtimeId,
+    name: runtimeId,
+    level,
+    tier: 'mortal_blood',
+    x: 1,
+    y: 1,
+  });
+
+  await service.handlePlayerMonsterKill(
+    createInstance({ instanceId: 'public:test_map', kind: 'public', linePreset: 'peaceful' }) as never,
+    createMonster('monster:heavenly-dao:gap-6', 4) as never,
+    killer.playerId,
+    deps as never,
+  );
+  await service.handlePlayerMonsterKill(
+    createInstance({ instanceId: 'line:test_map:peaceful:2', kind: 'public', linePreset: 'peaceful' }) as never,
+    createMonster('monster:heavenly-dao:gap-8', 2) as never,
+    killer.playerId,
+    deps as never,
+  );
+  await service.handlePlayerMonsterKill(
+    createInstance({ instanceId: 'real:test_map', kind: 'public', linePreset: 'real' }) as never,
+    createMonster('monster:heavenly-dao:real', 1) as never,
+    killer.playerId,
+    deps as never,
+  );
+  await service.handlePlayerMonsterKill(
+    createInstance({ instanceId: 'tower:1', kind: 'dungeon', linePreset: 'peaceful' }) as never,
+    createMonster('monster:heavenly-dao:tower', 1) as never,
+    killer.playerId,
+    deps as never,
+  );
+
+  assert.deepEqual(appliedStacks, [1, 3]);
 }
 
 async function testOfflineDefeatRemovesRuntimeImmediately() {

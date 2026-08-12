@@ -11,6 +11,12 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CRAFT_EFFECT_KINDS, CRAFT_EFFECT_SKILL_KINDS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_BASE_ATTRS, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, NUMERIC_STAT_MULTIPLIER_FLOORS, addCraftEffectStatsFromItem, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcBodyTrainingAttrPercentBonus, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, cloneCraftEffectStats, cloneNumericRatioDivisors, cloneNumericStats, compileValueStatsToActualStats, createEmptyCraftEffectStats, createNumericStats, getEffectivePlayerMoveSpeed, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, percentModifierToMultiplier, readCraftEffectStat, resolvePlayerFacingContentName, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } from '@mud/shared';
 import { PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID } from '../../constants/gameplay/pvp';
+import {
+    HEAVENLY_DAO_SUPPRESSION_BUFF_ID,
+    HEAVENLY_DAO_SUPPRESSION_COMBAT_STAT_KEYS,
+    HEAVENLY_DAO_SUPPRESSION_ELEMENT_KEYS,
+    resolveHeavenlyDaoSuppressionMultiplier,
+} from '../../constants/gameplay/virtual-world';
 import { type RuntimeExternalSectionKey, WorldRuntimeMetricsService } from '../world/world-runtime-metrics.service';
 import { resolvePlayerDailySignInFortuneLuck } from './player-special-stat.helpers';
 import { markPlayerComprehensionSpeedRateProjectionDirty } from './player-comprehension-speed.helpers';
@@ -426,6 +432,7 @@ export class PlayerAttributesService {
         applyPercentBonuses(numericStats, buffStatPercentBonuses.pill);
         applyWorldTimeVisionModifier(numericStats, player);
         roundNumericStats(numericStats);
+        applyHeavenlyDaoSuppression(finalAttrs, numericStats, activeBuffs);
         this.recordAttributePerf('attribution.attributes.build.finalModifiersMs', performance.now() - finalModifiersStartedAt, 1);
         return {
             stage,
@@ -889,6 +896,28 @@ function resolveBuffModifierMode(mode) {
 
 function isActiveRuntimeBuff(buff) {
     return Boolean(buff && buff.remainingTicks > 0 && buff.stacks > 0);
+}
+
+function applyHeavenlyDaoSuppression(finalAttrs, numericStats, activeBuffs) {
+    const heavenlyDaoSuppression = activeBuffs.find((buff) => (
+        buff?.buffId === HEAVENLY_DAO_SUPPRESSION_BUFF_ID && isActiveRuntimeBuff(buff)
+    ));
+    if (!heavenlyDaoSuppression) {
+        return;
+    }
+    const multiplier = resolveHeavenlyDaoSuppressionMultiplier(heavenlyDaoSuppression.stacks);
+    for (const key of ATTR_KEYS) {
+        finalAttrs[key] *= multiplier;
+    }
+    for (const key of HEAVENLY_DAO_SUPPRESSION_COMBAT_STAT_KEYS) {
+        const suppressedValue = Math.round(numericStats[key] * multiplier);
+        numericStats[key] = SIGNED_NUMERIC_STAT_KEYS.has(key) ? suppressedValue : Math.max(0, suppressedValue);
+    }
+    for (const element of HEAVENLY_DAO_SUPPRESSION_ELEMENT_KEYS) {
+        numericStats.elementDamageBonus[element] = Math.round(numericStats.elementDamageBonus[element] * multiplier);
+        numericStats.elementDamageReduce[element] = Math.max(0, Math.round(numericStats.elementDamageReduce[element] * multiplier));
+    }
+    clampAttributes(finalAttrs);
 }
 
 function getBuffEffectFactor(buff, targetRealmLv) {

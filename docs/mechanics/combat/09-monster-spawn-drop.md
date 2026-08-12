@@ -96,6 +96,13 @@ ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_MULTIPLIER = 0.7
 
 玩家等级超过怪物 1 级以上时，普通怪自动灵石和自动功德掉率 ×0.7
 
+## 虚境低境界击杀压制
+
+- 仅公开世界虚境中，由实际完成击杀的玩家承受；助攻玩家、现世、宗门、通天塔和密室不触发。
+- 击杀怪物时使用奖励结算前的玩家 `realmLv` 与怪物 `level` 计算境界差。差值小于 6 不触发；差 6 级增加 1 层，之后每多差 1 级再增加 1 层，即 `addedStacks = realmGap - 5`。
+- 触发后增加运行时 Debuff `virtual_world.heavenly_dao_suppression`（天道压制），每次获得都会把整组层数的剩余时间刷新为 3600 息。
+- Buff 随玩家 Buff 分域持久化；死亡、遁返和断线重连均不能清除。
+
 ## LootPool 结构
 
 ```ts

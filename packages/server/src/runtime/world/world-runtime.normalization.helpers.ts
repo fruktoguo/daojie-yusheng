@@ -42,6 +42,24 @@ export function isRuntimeInstanceLinePreset(value) {
 export function normalizeRuntimeInstanceLinePreset(value) {
     return isRuntimeInstanceLinePreset(value) ? value : 'peaceful';
 }
+/** 判断实例是否为公开世界的虚境分线；宗门、通天塔、密室等独立实例不属于虚境。 */
+export function isVirtualPublicWorldInstance(instance) {
+    const meta = instance?.meta ?? instance;
+    const instanceId = typeof (meta?.instanceId ?? instance?.instanceId) === 'string'
+        ? (meta.instanceId ?? instance.instanceId).trim()
+        : '';
+    const kind = typeof (meta?.kind ?? instance?.kind) === 'string'
+        ? (meta.kind ?? instance.kind).trim()
+        : '';
+    const linePreset = typeof (meta?.linePreset ?? instance?.linePreset) === 'string'
+        ? (meta.linePreset ?? instance.linePreset).trim()
+        : '';
+    const isPublicWorld = kind === 'public' || instanceId.startsWith('public:') || instanceId.startsWith('line:');
+    return isPublicWorld
+        && linePreset !== 'real'
+        && !instanceId.startsWith('real:')
+        && !instanceId.includes(':real:');
+}
 /** 判断实例持久化策略是否有效。 */
 function isRuntimeInstancePersistentPolicy(value) {
     return value === 'persistent' || value === 'long_lived' || value === 'session' || value === 'ephemeral';
@@ -140,11 +158,7 @@ export function buildRuntimeInstancePresetMeta(input) {
         : buildRuntimeInstanceDisplayName(input?.templateName, linePreset, lineIndex, defaultEntry);
     const instanceId = typeof input?.instanceId === 'string' ? input.instanceId.trim() : '';
     const kind = typeof input?.kind === 'string' ? input.kind.trim() : '';
-    const isPublicWorld = kind === 'public' || instanceId.startsWith('public:') || instanceId.startsWith('line:');
-    const isVirtualPublicWorld = isPublicWorld
-        && linePreset !== 'real'
-        && !instanceId.startsWith('real:')
-        && !instanceId.includes(':real:');
+    const isVirtualPublicWorld = isVirtualPublicWorldInstance({ instanceId, kind, linePreset });
     return {
         displayName,
         linePreset,

@@ -2526,6 +2526,7 @@ export const CLIENT_I18N_MESSAGES = {
   "notice.craft.building.start": "开始建造：{buildingName}，预计 {totalTicks} 息",
   "notice.craft.building.target-missing": "建造目标已经不存在。",
   "notice.craft.building.unavailable": "建筑当前不可继续施工。",
+  "notice.craft.building.virtual-world-forbidden": "虚境不能建造建筑，当前施工已停止。",
   "notice.craft.enhancement.advance-continue": "{itemName} 已强化成功 +{currentLevel}，继续冲击 +{nextTargetLevel}",
   "notice.craft.enhancement.advance-missing-target": "{itemName} 当前强化目标数据缺失，队列已停止",
   "notice.craft.enhancement.advance-resources-missing": "{itemName} 当前已到 +{currentLevel}，后续强化所需灵石、材料或保护物不足，队列已停止",

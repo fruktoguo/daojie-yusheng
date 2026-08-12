@@ -16,6 +16,7 @@ import type { TechniqueTransmissionStatusView } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_BACKLASH_DECAY_TICKS, PVP_SHA_BACKLASH_PERCENT_PER_STACK, PVP_SHA_BACKLASH_SOURCE_ID, PVP_SHA_BACKLASH_STACK_DIVISOR, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID, PVP_SHA_INFUSION_DECAY_TICKS, PVP_SHA_INFUSION_SOURCE_ID, PVP_SOUL_INJURY_BUFF_ID, PVP_SOUL_INJURY_DURATION_TICKS, PVP_SOUL_INJURY_SOURCE_ID } from '../../constants/gameplay/pvp';
+import { HEAVENLY_DAO_SUPPRESSION_BUFF_ID, HEAVENLY_DAO_SUPPRESSION_DURATION_TICKS, HEAVENLY_DAO_SUPPRESSION_MAX_STACKS, HEAVENLY_DAO_SUPPRESSION_SOURCE_ID } from '../../constants/gameplay/virtual-world';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import {
     PlayerDomainPersistenceService,
@@ -91,6 +92,7 @@ const PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN = 'presence';
 const pvpSoulInjuryBuffByRealmLv = new Map();
 const pvpShaInfusionBuffByRealmLv = new Map();
 const pvpShaBacklashBuffByRealmLv = new Map();
+const heavenlyDaoSuppressionBuffByRealmLv = new Map();
 /** 运行时生成的收益结构已经过规范化，可直接复用，避免每息深拷贝全量功法。 */
 const normalizedOfflineGainSnapshots = new WeakSet<object>();
 const normalizedOfflineGainReportPartsRecords = new WeakSet<object>();
@@ -4948,6 +4950,20 @@ export class PlayerRuntimeService {
         const next = this.applyOrRefreshPvpBuff(playerId, buildPvPShaBacklashBuffState(getPlayerRealmLevel(player), addedStacks), addedStacks);
         return next.stacks;
     }
+    /** 增加天道压制层数，并把整组持续时间刷新为一小时。 */
+    addHeavenlyDaoSuppressionStacks(playerId, addedStacks) {
+        const normalizedAddedStacks = Math.max(0, Math.trunc(Number(addedStacks) || 0));
+        if (normalizedAddedStacks <= 0) {
+            return this.getBuffStacks(playerId, HEAVENLY_DAO_SUPPRESSION_BUFF_ID);
+        }
+        const player = this.getPlayerOrThrow(playerId);
+        const next = this.applyOrRefreshPvpBuff(
+            playerId,
+            buildHeavenlyDaoSuppressionBuffState(getPlayerRealmLevel(player)),
+            normalizedAddedStacks,
+        );
+        return next.stacks;
+    }
     /** 查询指定 Buff 当前层数。 */
     getBuffStacks(playerId, buffId) {
         const player = this.getPlayerOrThrow(playerId);
@@ -5007,7 +5023,7 @@ export class PlayerRuntimeService {
             remainingInfusionStacks,
         };
     }
-    /** 按 PVP 规则刷新或叠加指定 Buff。 */
+    /** 刷新或叠加持续型 Buff，整组层数共用同一到期时间。 */
     applyOrRefreshPvpBuff(playerId, buff, stackDelta = 0) {
         const player = this.getPlayerOrThrow(playerId);
         const existing = player.buffs.buffs.find((entry) => entry.buffId === buff.buffId);
@@ -5023,7 +5039,10 @@ export class PlayerRuntimeService {
         }
         else {
             const created = createRuntimeTemporaryBuff(buff);
-            created.stacks = Math.max(1, Math.round(stackDelta || buff.stacks || 1));
+            created.stacks = Math.min(
+                Math.max(1, Math.round(created.maxStacks ?? 1)),
+                Math.max(1, Math.round(stackDelta || buff.stacks || 1)),
+            );
             player.buffs.buffs.push(created);
         }
         player.buffs.buffs.sort((left, right) => {
@@ -5033,7 +5052,12 @@ export class PlayerRuntimeService {
         });
         player.buffs.revision += 1;
         this.playerAttributesService.recalculate(player, 'buff');
-        markPlayerDirtyDomains(player, ['buff', 'attr']);
+        if (doesTemporaryBuffAffectVitalCapacity(buff)) {
+            this.playerAttributesService.ensureFresh?.(player);
+        }
+        markPlayerDirtyDomains(player, doesTemporaryBuffAffectVitalCapacity(buff)
+            ? ['buff', 'attr', 'vitals']
+            : ['buff', 'attr']);
         this.bumpPersistentRevision(player);
         return player.buffs.buffs.find((entry) => entry.buffId === buff.buffId);
     }
@@ -7213,7 +7237,7 @@ function isRuntimeBuffActive(buff) {
 }
 
 function doesTemporaryBuffAffectAttributes(buff) {
-    return Boolean(buff && (buff.attrs || buff.stats));
+    return Boolean(buff && (buff.attrs || buff.stats || buff.buffId === HEAVENLY_DAO_SUPPRESSION_BUFF_ID));
 }
 
 function doesBuffAffectAttributeProjection(player, buff) {
@@ -7228,6 +7252,9 @@ function doesBuffAffectVitalCapacityProjection(player, buff) {
 function doesTemporaryBuffAffectVitalCapacity(buff) {
     if (!buff) {
         return false;
+    }
+    if (buff.buffId === HEAVENLY_DAO_SUPPRESSION_BUFF_ID) {
+        return true;
     }
     if (hasNonZeroNumericValue(buff.stats?.maxHp) || hasNonZeroNumericValue(buff.stats?.maxQi)) {
         return true;
@@ -12285,6 +12312,7 @@ function tickTemporaryBuffs(buffs, player = null) {
         if (activeBuffIds && buff.expireWithBuffId && !activeBuffIds.has(buff.expireWithBuffId)) {
             buff.remainingTicks = 0;
             attrChanged = doesBuffAffectAttributeProjection(player, buff) || attrChanged;
+            vitalsChanged = doesBuffAffectVitalCapacityProjection(player, buff) || vitalsChanged;
             listChanged = true;
             continue;
         }
@@ -12304,6 +12332,7 @@ function tickTemporaryBuffs(buffs, player = null) {
                 if (!sustainResult.sustained) {
                     buff.remainingTicks = 0;
                     attrChanged = doesBuffAffectAttributeProjection(player, buff) || attrChanged;
+                    vitalsChanged = doesBuffAffectVitalCapacityProjection(player, buff) || vitalsChanged;
                     listChanged = true;
                     continue;
                 }
@@ -12322,10 +12351,12 @@ function tickTemporaryBuffs(buffs, player = null) {
                 buff.stacks -= 1;
                 buff.remainingTicks = Math.max(1, Math.round(buff.duration || 1));
                 attrChanged = doesBuffAffectAttributeProjection(player, buff) || attrChanged;
+                vitalsChanged = doesBuffAffectVitalCapacityProjection(player, buff) || vitalsChanged;
             }
         }
         if (buff.remainingTicks <= 0 || buff.stacks <= 0) {
             attrChanged = doesBuffAffectAttributeProjection(player, buff) || attrChanged;
+            vitalsChanged = doesBuffAffectVitalCapacityProjection(player, buff) || vitalsChanged;
             listChanged = true;
         }
     }
@@ -12343,6 +12374,7 @@ function tickTemporaryBuffs(buffs, player = null) {
             if (buff.remainingTicks > 0 && buff.expireWithBuffId && !finalActiveBuffIds.has(buff.expireWithBuffId)) {
                 buff.remainingTicks = 0;
                 attrChanged = doesBuffAffectAttributeProjection(player, buff) || attrChanged;
+                vitalsChanged = doesBuffAffectVitalCapacityProjection(player, buff) || vitalsChanged;
                 listChanged = true;
             }
         }
@@ -12799,6 +12831,34 @@ function buildPvPShaBacklashBuffState(sourceRealmLv, stacks) {
         persistOnReturnToSpawn: true,
         });
         pvpShaBacklashBuffByRealmLv.set(realmLv, cached);
+    }
+    return cached;
+}
+
+function buildHeavenlyDaoSuppressionBuffState(sourceRealmLv) {
+    const realmLv = Math.max(1, Math.floor(sourceRealmLv));
+    let cached = heavenlyDaoSuppressionBuffByRealmLv.get(realmLv);
+    if (!cached) {
+        cached = freezeRuntimeBuffTemplate({
+            buffId: HEAVENLY_DAO_SUPPRESSION_BUFF_ID,
+            name: '天道压制',
+            desc: '六维与全部战斗属性按 1000 / (1000 + 层数) 衰减；再次触发会叠层并刷新一小时，身死与遁返不能清除。',
+            baseDesc: '六维与全部战斗属性按 1000 / (1000 + 层数) 衰减；再次触发会叠层并刷新一小时，身死与遁返不能清除。',
+            shortMark: '压',
+            category: 'debuff',
+            visibility: 'public',
+            remainingTicks: HEAVENLY_DAO_SUPPRESSION_DURATION_TICKS,
+            duration: HEAVENLY_DAO_SUPPRESSION_DURATION_TICKS,
+            stacks: 1,
+            maxStacks: HEAVENLY_DAO_SUPPRESSION_MAX_STACKS,
+            sourceSkillId: HEAVENLY_DAO_SUPPRESSION_SOURCE_ID,
+            sourceSkillName: '天道',
+            realmLv,
+            color: '#75634c',
+            persistOnDeath: true,
+            persistOnReturnToSpawn: true,
+        });
+        heavenlyDaoSuppressionBuffByRealmLv.set(realmLv, cached);
     }
     return cached;
 }
