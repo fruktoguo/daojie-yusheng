@@ -73,6 +73,10 @@ export interface BroadcastMailPersistenceResult {
   recipientCount: number;
 }
 
+export interface UnclaimedMailItemCountSummary {
+  countsByPlayerId: Map<string, number>;
+}
+
 interface StructuredMailRow {
   mail_id?: unknown;
   sender_label?: unknown;
@@ -221,6 +225,41 @@ export class MailPersistenceService implements OnModuleInit, OnModuleDestroy {
     } finally {
       client.release();
     }
+  }
+
+  /** 按玩家汇总当前仍可领取的指定附件物品，不把已领取、软删或过期邮件计入资产。 */
+  async summarizeUnclaimedItemCountsByPlayer(itemId: string): Promise<UnclaimedMailItemCountSummary> {
+    const normalizedItemId = normalizeRequiredString(itemId);
+    if (!this.pool || !this.enabled || !normalizedItemId) {
+      return { countsByPlayerId: new Map() };
+    }
+    const now = Date.now();
+    const result = await this.pool.query<{ player_id?: unknown; total_count?: unknown }>(
+      `
+        SELECT attachment.player_id, COALESCE(SUM(attachment.count), 0)::text AS total_count
+        FROM ${PLAYER_MAIL_ATTACHMENT_TABLE} attachment
+        INNER JOIN ${PLAYER_MAIL_TABLE} mail
+          ON mail.player_id = attachment.player_id
+         AND mail.mail_id = attachment.mail_id
+        WHERE attachment.attachment_kind = 'item'
+          AND attachment.item_id = $1
+          AND attachment.claimed_at IS NULL
+          AND mail.claimed_at IS NULL
+          AND mail.deleted_at IS NULL
+          AND (mail.expire_at IS NULL OR mail.expire_at > $2)
+        GROUP BY attachment.player_id
+      `,
+      [normalizedItemId, now],
+    );
+    const countsByPlayerId = new Map<string, number>();
+    for (const row of result.rows ?? []) {
+      const playerId = normalizeRequiredString(row?.player_id);
+      const totalCount = Math.max(0, Math.trunc(Number(row?.total_count) || 0));
+      if (playerId && totalCount > 0) {
+        countsByPlayerId.set(playerId, totalCount);
+      }
+    }
+    return { countsByPlayerId };
   }
 
   async saveMailbox(playerId: string, mailbox: unknown): Promise<void> {

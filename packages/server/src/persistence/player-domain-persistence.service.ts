@@ -3155,7 +3155,6 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         professionRows,
         walletRows,
         inventorySpiritStoneRows,
-        marketStorageSpiritStoneRows,
         equipmentRows,
         artifactRows,
         techniqueRows,
@@ -3186,11 +3185,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
           [currencyItemId],
         ),
         this.pool.query<{ player_id?: unknown; total_count?: unknown }>(
-          `SELECT player_id, SUM(count)::bigint AS total_count FROM ${PLAYER_INVENTORY_ITEM_TABLE} WHERE item_id = $1 AND (locked_by IS NULL OR locked_by = '') GROUP BY player_id`,
-          [currencyItemId],
-        ),
-        this.pool.query<{ player_id?: unknown; total_count?: unknown }>(
-          `SELECT player_id, SUM(count)::bigint AS total_count FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE} WHERE item_id = $1 GROUP BY player_id`,
+          `SELECT player_id, SUM(count)::bigint AS total_count FROM ${PLAYER_INVENTORY_ITEM_TABLE} WHERE item_id = $1 GROUP BY player_id`,
           [currencyItemId],
         ),
         this.pool.query<{ player_id?: unknown } & PlayerEquipmentSlotLoadRow>(
@@ -3222,7 +3217,6 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
       const professionsByPid = indexMultiRowsByPlayerId(professionRows.rows);
       const walletByPid = indexRowsByPlayerId(walletRows.rows);
       const invSpiritByPid = indexRowsByPlayerId(inventorySpiritStoneRows.rows);
-      const mktSpiritByPid = indexRowsByPlayerId(marketStorageSpiritStoneRows.rows);
       const equipByPid = indexMultiRowsByPlayerId(equipmentRows.rows);
       const artifactByPid = indexMultiRowsByPlayerId(artifactRows.rows);
       const techByPid = indexMultiRowsByPlayerId(techniqueRows.rows);
@@ -3263,19 +3257,15 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
           applyProjectedPersistentBuffs(snapshot, buffByPid.get(playerId) ?? []);
           // combat preferences (排行榜只需 autoBattle, combatTargetId, cultivatingTechId)
           applyProjectedCombatPreferences(snapshot, combatByPid.get(playerId) ?? null);
-          // wallet/inventory/marketStorage 灵石计数
+          // wallet/inventory 灵石计数；市场仓由市场资产汇总统一读取，避免重复查询。
           const walletRow = walletByPid.get(playerId);
           const walletBalance = walletRow ? Math.max(0, Math.trunc(Number(walletRow.balance) || 0)) : 0;
           const invCount = Math.max(0, Math.trunc(Number(invSpiritByPid.get(playerId)?.total_count) || 0));
-          const mktCount = Math.max(0, Math.trunc(Number(mktSpiritByPid.get(playerId)?.total_count) || 0));
           snapshot.wallet = { balances: walletBalance > 0 || invCount > 0
             ? [{ walletType: currencyItemId, balance: walletBalance, count: invCount }] as any
             : [] };
           snapshot.inventory = { ...snapshot.inventory, items: invCount > 0
             ? [{ itemId: currencyItemId, count: invCount }] as any
-            : [] };
-          snapshot.marketStorage = { items: mktCount > 0
-            ? [{ itemId: currencyItemId, count: mktCount }] as any
             : [] };
           // active job (排行榜只需判断 alchemy/enhancement 存在性)
           const jobRow = activeJobByPid.get(playerId);

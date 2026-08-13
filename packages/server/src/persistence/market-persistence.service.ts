@@ -211,6 +211,29 @@ export class MarketPersistenceService {
         const items = rows.map((row) => normalizeStructuredStorageItem(row));
         return { items };
     }
+
+    /** 按玩家汇总托管仓内指定物品，供低频资产统计读取完整数据库真源。 */
+    async summarizeStorageItemCountsByPlayer(itemId) {
+        const normalizedItemId = typeof itemId === 'string' ? itemId.trim() : '';
+        if (!this.pool || !this.enabled || !normalizedItemId) {
+            return new Map();
+        }
+        const result = await this.pool.query(`
+          SELECT player_id, COALESCE(SUM(count), 0)::text AS total_count
+          FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE}
+          WHERE item_id = $1
+          GROUP BY player_id
+        `, [normalizedItemId]);
+        const totalsByPlayerId = new Map();
+        for (const row of result.rows ?? []) {
+            const playerId = typeof row?.player_id === 'string' ? row.player_id.trim() : '';
+            const totalCount = Math.max(0, Math.trunc(Number(row?.total_count) || 0));
+            if (playerId && totalCount > 0) {
+                totalsByPlayerId.set(playerId, totalCount);
+            }
+        }
+        return totalsByPlayerId;
+    }
     /**
  * persistMutation：判断persistMutation是否满足条件。
  * @param input 输入参数。

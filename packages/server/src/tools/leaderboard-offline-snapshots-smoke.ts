@@ -61,7 +61,7 @@ function createRuntimePlayer(input: {
     playerKillCount: input.playerKillCount ?? 0,
     deathCount: input.deathCount ?? 0,
     bodyTraining: { level: 0, exp: 0, expToNext: 1 },
-    inventory: { items: [] },
+    inventory: { items: [], lockedItems: [] as Array<Record<string, unknown>> },
     wallet: { balances: [] },
     marketStorage: { items: [] },
     combat: {
@@ -144,6 +144,11 @@ async function main(): Promise<void> {
       formation: { level: 4, exp: 40, expToNext: 100 },
     },
   });
+  onlinePlayer.inventory.lockedItems = [{
+    itemId: 'spirit_stone',
+    count: 9,
+    lockedBy: 'unexpected:locked-spirit-stone',
+  }];
   const offlineIdlePlayer = createRuntimePlayer({
     playerId: 'player:offline-idle',
     playerName: '离线挂机',
@@ -268,6 +273,15 @@ async function main(): Promise<void> {
       ]));
     },
   };
+  let marketSpiritStoneCounts = new Map<string, number>([
+    [onlinePlayer.playerId, 20],
+    [offlinePlayer.playerId, 200],
+    [offlineIdlePlayer.playerId, 5],
+    [bannedOnlinePlayer.playerId, 10_000],
+    ['gm_bot_leaderboard_smoke', 20_000],
+    ['player:missing-market-owner', 11],
+  ]);
+  let marketSpiritStoneSummaryCalls = 0;
   const marketRuntimeService = {
     openOrders: [
       {
@@ -301,6 +315,10 @@ async function main(): Promise<void> {
     ],
     buildMarketStorage() {
       return { items: [] };
+    },
+    async summarizeSpiritStoneAssetsByPlayer() {
+      marketSpiritStoneSummaryCalls += 1;
+      return new Map(marketSpiritStoneCounts);
     },
   };
   const mapTemplateRepository = {
@@ -350,6 +368,22 @@ async function main(): Promise<void> {
         countsByOwnerPlayerId: new Map(treasureVaultCountsByOwner),
         unownedCount: unownedTreasureVaultCount,
       };
+    },
+  };
+  let mailSpiritStoneCounts = new Map<string, number>([
+    [onlinePlayer.playerId, 30],
+    [offlinePlayer.playerId, 40],
+    [offlineIdlePlayer.playerId, 6],
+    [bannedOfflinePlayer.playerId, 10_000],
+    ['gm_bot_leaderboard_smoke', 20_000],
+    ['player:missing-mail-owner', 17],
+  ]);
+  let mailSpiritStoneSummaryCalls = 0;
+  const mailPersistenceService = {
+    async summarizeUnclaimedItemCountsByPlayer(itemId: string) {
+      assert.equal(itemId, 'spirit_stone');
+      mailSpiritStoneSummaryCalls += 1;
+      return { countsByPlayerId: new Map(mailSpiritStoneCounts) };
     },
   };
   const syncedInvitationHighestRealmLevels = new Map<string, number>();
@@ -424,6 +458,7 @@ async function main(): Promise<void> {
     authStore as never,
     activityPersistenceService as never,
     treasureVaultRuntimeService as never,
+    mailPersistenceService as never,
   );
 
   const leaderboard = await service.buildLeaderboard(10, sectService);
@@ -479,12 +514,14 @@ async function main(): Promise<void> {
       spiritStoneCount: entry.spiritStoneCount,
     })),
     [
-      { playerId: 'player:online', spiritStoneCount: 401 },
-      { playerId: 'player:offline', spiritStoneCount: 250 },
-      { playerId: 'player:offline-idle', spiritStoneCount: 0 },
+      { playerId: 'player:online', spiritStoneCount: 459 },
+      { playerId: 'player:offline', spiritStoneCount: 290 },
+      { playerId: 'player:offline-idle', spiritStoneCount: 11 },
     ],
   );
   assert.equal(treasureVaultSummaryCalls, 1);
+  assert.equal(marketSpiritStoneSummaryCalls, 1);
+  assert.equal(mailSpiritStoneSummaryCalls, 1);
   assert.deepEqual(
     leaderboard.boards.playerKills.map((entry) => entry.playerId),
     ['player:offline', 'player:offline-idle', 'player:online'],
@@ -588,6 +625,22 @@ async function main(): Promise<void> {
       unitPrice: 1000,
     },
   ];
+  marketSpiritStoneCounts = new Map<string, number>([
+    [onlinePlayer.playerId, 2],
+    [offlinePlayer.playerId, 300],
+    [offlineIdlePlayer.playerId, 7],
+    [bannedOfflinePlayer.playerId, 10_000],
+    ['gm_bot_leaderboard_smoke', 20_000],
+    ['player:missing-market-owner', 11],
+  ]);
+  mailSpiritStoneCounts = new Map<string, number>([
+    [onlinePlayer.playerId, 3],
+    [offlinePlayer.playerId, 4],
+    [offlineIdlePlayer.playerId, 8],
+    [bannedOfflinePlayer.playerId, 10_000],
+    ['gm_bot_leaderboard_smoke', 20_000],
+    ['player:missing-mail-owner', 17],
+  ]);
   treasureVaultCountsByOwner = new Map<string, number>([
     [onlinePlayer.playerId, 40],
     [offlinePlayer.playerId, 60],
@@ -609,8 +662,10 @@ async function main(): Promise<void> {
     playerKills: 17,
     playerDeaths: 2,
   });
-  assert.equal(worldSummary.summary.totalSpiritStones, 421);
+  assert.equal(worldSummary.summary.totalSpiritStones, 481);
   assert.equal(treasureVaultSummaryCalls, 2, '世界摘要必须按 30 秒口径重新读取宝库真源，不能沿用 10 分钟榜单快照');
+  assert.equal(marketSpiritStoneSummaryCalls, 2, '世界摘要必须重新读取市场仓库、求购与竞拍冻结资产');
+  assert.equal(mailSpiritStoneSummaryCalls, 2, '世界摘要必须重新读取未领取邮件附件');
   assert.equal(worldSummary.summary.actionCounts.cultivation, 2);
   assert.equal(worldSummary.summary.actionCounts.combat, 0);
   assert.equal(worldSummary.summary.actionCounts.alchemy, 1);

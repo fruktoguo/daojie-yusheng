@@ -39,6 +39,7 @@ const mailEntry = {
 
 async function main(): Promise<void> {
   verifyMaximumBatchOperationId();
+  await verifyUnclaimedItemSummaryQuery();
   await verifyStaleMutationUsesMonotonicCas();
   await verifyOrdinarySnapshotCannotPruneDurableRows();
 
@@ -49,6 +50,23 @@ async function main(): Promise<void> {
     answers: '邮件 operationId 对最大批量做稳定 hash；旧节点写只合并单调状态，不删除重建附件，计数在事务锁内从数据库回算',
     excludes: '本 smoke 是无数据库严格查询契约；真实 PostgreSQL 并发仍由 with-db 邮件 smoke 证明',
   }, null, 2));
+}
+
+async function verifyUnclaimedItemSummaryQuery(): Promise<void> {
+  const harness = createFakePersistenceHarness();
+  const summary = await harness.persistence.summarizeUnclaimedItemCountsByPlayer('spirit_stone');
+  assert.deepEqual([...summary.countsByPlayerId.entries()], [
+    ['player:mail:one', 8],
+    ['player:mail:two', 3],
+  ]);
+  const query = findQuery(harness.queries, 'COALESCE(SUM(attachment.count)');
+  assert.match(query.sql, /attachment\.attachment_kind = 'item'/u);
+  assert.match(query.sql, /attachment\.claimed_at IS NULL/u);
+  assert.match(query.sql, /mail\.claimed_at IS NULL/u);
+  assert.match(query.sql, /mail\.deleted_at IS NULL/u);
+  assert.match(query.sql, /mail\.expire_at IS NULL OR mail\.expire_at > \$2/u);
+  assert.equal(query.params[0], 'spirit_stone');
+  assert.equal(typeof query.params[1], 'number');
 }
 
 function verifyMaximumBatchOperationId(): void {
@@ -144,6 +162,16 @@ function createFakePersistenceHarness(): FakePersistenceHarness {
       const sql = normalizeSql(sqlValue);
       const params = Array.isArray(paramsValue) ? paramsValue : [];
       queries.push({ sql, params });
+      if (sql.includes('COALESCE(SUM(attachment.count)')) {
+        return {
+          rows: [
+            { player_id: 'player:mail:one', total_count: '8' },
+            { player_id: 'player:mail:two', total_count: '3' },
+            { player_id: '', total_count: '99' },
+          ],
+          rowCount: 3,
+        };
+      }
       if (sql.includes('SELECT counter_version FROM player_mail_counter')) {
         return { rows: [{ counter_version: 200 }], rowCount: 1 };
       }
@@ -161,6 +189,9 @@ function createFakePersistenceHarness(): FakePersistenceHarness {
     release(): void {},
   };
   const pool = {
+    async query(sql: string, params?: unknown[]): Promise<{ rows: Array<Record<string, unknown>>; rowCount: number }> {
+      return client.query(sql, params);
+    },
     async connect(): Promise<typeof client> {
       return client;
     },

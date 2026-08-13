@@ -6291,7 +6291,10 @@ export class PlayerRuntimeService {
                 alchemyJob: snapshot.progression?.alchemyJob ?? null,
                 enhancementJob: snapshot.progression?.enhancementJob ?? null,
                 // inventory/wallet/marketStorage 保留原始数据用于灵石计数，不做 normalizeItem
-                inventory: { items: snapshot.inventory.items ?? [] },
+                inventory: {
+                    items: snapshot.inventory.items ?? [],
+                    lockedItems: Array.isArray(snapshot.inventory.lockedItems) ? snapshot.inventory.lockedItems : [],
+                },
                 wallet: { balances: Array.isArray(snapshot.wallet?.balances) ? snapshot.wallet.balances : [] },
                 marketStorage: { items: Array.isArray(snapshot.marketStorage?.items) ? snapshot.marketStorage.items : [] },
                 hp: snapshot.vitals.hp,

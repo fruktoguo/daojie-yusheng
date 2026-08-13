@@ -641,6 +641,52 @@ export class MarketRuntimeService {
             })),
         };
     }
+    /**
+     * 汇总玩家暂存在坊市边界内的灵石：托管仓、开放求购预留以及有效竞拍冻结。
+     * 托管仓先读完整数据库真源，再以当前已 hydrate 的运行态覆盖，避免 LRU 缓存遗漏或脏读旧值。
+     */
+    async summarizeSpiritStoneAssetsByPlayer() {
+        const persistedStorageCounts: Map<string, number> = typeof this.marketPersistenceService?.summarizeStorageItemCountsByPlayer === 'function'
+            ? await this.marketPersistenceService.summarizeStorageItemCountsByPlayer(MARKET_CURRENCY_ITEM_ID)
+            : new Map<string, number>();
+        return this.runExclusive(async () => {
+            const totalsByPlayerId = new Map<string, number>(persistedStorageCounts);
+            for (const playerId of this.loadedStoragePlayerIds) {
+                const storageCount = cloneStorage(this.storageByPlayerId.get(playerId)).items.reduce(
+                    (total, item) => item?.itemId === MARKET_CURRENCY_ITEM_ID
+                        ? total + Math.max(0, Math.trunc(Number(item.count) || 0))
+                        : total,
+                    0,
+                );
+                if (storageCount > 0) {
+                    totalsByPlayerId.set(playerId, storageCount);
+                }
+                else {
+                    totalsByPlayerId.delete(playerId);
+                }
+            }
+            for (const order of this.openOrders) {
+                if (order?.status !== 'open' || order?.side !== 'buy') {
+                    continue;
+                }
+                const ownerId = typeof order.ownerId === 'string' ? order.ownerId.trim() : '';
+                const reservedCost = calculateMarketOrderReservedCost(order.remainingQuantity, order.unitPrice) ?? 0;
+                if (ownerId && reservedCost > 0) {
+                    totalsByPlayerId.set(ownerId, (totalsByPlayerId.get(ownerId) ?? 0) + reservedCost);
+                }
+            }
+            for (const bids of this.auctionBidsByItemKey.values()) {
+                for (const bid of Array.isArray(bids) ? bids : []) {
+                    const bidderId = typeof bid?.bidderId === 'string' ? bid.bidderId.trim() : '';
+                    const reservedCost = Math.max(0, Math.trunc(Number(bid?.reservedCost) || 0));
+                    if (bidderId && reservedCost > 0) {
+                        totalsByPlayerId.set(bidderId, (totalsByPlayerId.get(bidderId) ?? 0) + reservedCost);
+                    }
+                }
+            }
+            return totalsByPlayerId;
+        });
+    }
     /** 构造某件物品的坊市图鉴页，供查看价格和挂单情况。 */
     buildItemBook(itemKey) {
 

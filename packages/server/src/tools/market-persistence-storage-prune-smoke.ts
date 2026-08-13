@@ -15,6 +15,26 @@ async function main(): Promise<void> {
     },
   };
   const service = new MarketPersistenceService(null);
+  Object.assign(service as unknown as Record<string, unknown>, {
+    enabled: true,
+    pool: {
+      async query(sql: string, params: unknown[] = []) {
+        assert.match(sql, /FROM player_market_storage_item/u);
+        assert.match(sql, /WHERE item_id = \$1/u);
+        assert.match(sql, /GROUP BY player_id/u);
+        assert.deepEqual(params, ['spirit_stone']);
+        return {
+          rows: [
+            { player_id: 'player:market:1', total_count: '7' },
+            { player_id: 'player:market:2', total_count: '0' },
+            { player_id: '', total_count: '99' },
+          ],
+        };
+      },
+    },
+  });
+  const storageSummary = await service.summarizeStorageItemCountsByPlayer('spirit_stone');
+  assert.deepEqual([...storageSummary.entries()], [['player:market:1', 7]]);
 
   await service.persistStructuredStorages(
     client,

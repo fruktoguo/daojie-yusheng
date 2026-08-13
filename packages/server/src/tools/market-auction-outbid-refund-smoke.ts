@@ -33,6 +33,7 @@ async function main(): Promise<void> {
   const previousBidderId = 'player:auction-outbid:previous';
   const nextBidderId = 'player:auction-outbid:next';
   const offlineHangingBidderId = 'player:auction-outbid:offline-hanging';
+  const buyOrderOwnerId = 'player:auction-outbid:buy-order';
   const players = new Map<string, SmokePlayer>([
     [sellerId, buildPlayer(sellerId, '寄拍者', [])],
     [previousBidderId, buildPlayer(previousBidderId, '前竞拍者', [
@@ -137,6 +138,13 @@ async function main(): Promise<void> {
       async loadStorageForPlayer() {
         return { items: [] };
       },
+      async summarizeStorageItemCountsByPlayer(itemId: string) {
+        assert.equal(itemId, 'spirit_stone');
+        return new Map<string, number>([
+          [sellerId, 2],
+          ['player:market-storage-only', 5],
+        ]);
+      },
       async persistMutation() {
         return undefined;
       },
@@ -192,8 +200,30 @@ async function main(): Promise<void> {
       }],
     },
   };
-  (service as unknown as { openOrders: Array<Record<string, unknown>> }).openOrders = [order];
+  (service as unknown as { openOrders: Array<Record<string, unknown>> }).openOrders = [
+    order,
+    {
+      id: 'order:buy:reserved',
+      ownerId: buyOrderOwnerId,
+      side: 'buy',
+      status: 'open',
+      remainingQuantity: 2,
+      unitPrice: 3,
+    },
+  ];
   (service as unknown as { hydrateAuctionStateFromOpenOrders(): void }).hydrateAuctionStateFromOpenOrders();
+  service.storageByPlayerId.set(sellerId, { items: [{ itemId: 'spirit_stone', count: 4 }] });
+  service.loadedStoragePlayerIds.add(sellerId);
+  assert.deepEqual(
+    [...(await service.summarizeSpiritStoneAssetsByPlayer()).entries()].sort(([left], [right]) => left.localeCompare(right)),
+    [
+      ['player:auction-outbid:buy-order', 6],
+      ['player:auction-outbid:previous', 10],
+      ['player:auction-outbid:seller', 4],
+      ['player:market-storage-only', 5],
+    ],
+    '资产汇总必须用运行态覆盖已 hydrate 仓库，并计入当前竞拍冻结',
+  );
   const lotKey = (service as unknown as { buildAuctionLotKey(value: unknown): string }).buildAuctionLotKey(order);
   const nextBid = (service as unknown as { getAuctionMinimumBidPrice(value: number): number }).getAuctionMinimumBidPrice(10);
 
@@ -216,6 +246,7 @@ async function main(): Promise<void> {
   assert.equal(notice?.structured?.vars?.currencyName, 'spirit_stone');
   assert.equal(notice?.structured?.vars?.refundAmount, 10);
   assert.equal(result.affectedPlayerIds.includes(previousBidderId), true);
+  assert.equal((await service.summarizeSpiritStoneAssetsByPlayer()).get(nextBidderId), nextBid);
 
   const offlineContext = service.createMutationContext();
   const offlineDestination = service.refundOutbidAuctionReserveToPlayer(
