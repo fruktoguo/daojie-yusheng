@@ -137,6 +137,7 @@ export const DEFAULT_HOSTILE_COMBAT_TARGETING_RULES = [
 
 export const DEFAULT_FRIENDLY_COMBAT_TARGETING_RULES = [
   'non_hostile_players',
+  'party',
 ] as const satisfies readonly CombatTargetingRuleKey[];
 
 function normalizeCombatTargetingRuleList(

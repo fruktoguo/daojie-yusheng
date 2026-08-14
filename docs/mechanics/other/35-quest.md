@@ -39,6 +39,8 @@ available → active → ready → completed
 | realm_stage | 境界等级 `realmLv` ≥ `targetRealmLv` → required |
 | realm_progress | 境界等级 `realmLv` > `targetRealmLv`（严格大于）→ required |
 
+怪物 `kill` 事件默认只由现有实际贡献参与者推进。队伍采用平均经验模式时，同实例、存活、距怪物不超过 20 格且有伤害或有效治疗/增益支援记录的合格成员也进入同一权威击杀进度入口；队伍贡献模式、跨图、死亡或无参与成员不额外共享任务进度。
+
 ## 完成条件
 
 ```typescript

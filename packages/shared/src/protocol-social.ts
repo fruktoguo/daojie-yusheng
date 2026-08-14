@@ -37,6 +37,7 @@ export type {
   TreasureVaultDetailView,
   TreasureVaultOperationResultView,
 } from './social-types';
+export type * from './party-types';
 
 /** 邮件详情同步包。 */
 export interface S2C_MailDetail extends MailDetailSyncView {}

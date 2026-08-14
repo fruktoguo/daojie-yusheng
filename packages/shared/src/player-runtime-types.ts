@@ -82,6 +82,10 @@ export interface PlayerState {
  */
 
   sectId?: string | null;
+  /** 当前所属队伍；null 表示未组队。 */
+  partyId?: string | null;
+  /** 队伍级友伤总开关的运行时投影；个人目标规则仍需允许 party 敌对。 */
+  partyFriendlyFireEnabled?: boolean;
   /**
  * isBot：启用开关或状态标识。
  */

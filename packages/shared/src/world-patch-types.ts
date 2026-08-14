@@ -124,6 +124,11 @@ export interface TickRenderEntityView {
 
   sectMark?: string | null;
   /**
+ * partyMark：玩家队伍 ID，仅用于客户端派生“与自己同队”名牌提示。
+ */
+
+  partyMark?: string | null;
+  /**
  * formationRadius：阵法影响半径。
  */
 
@@ -276,6 +281,8 @@ export interface WorldPlayerPatchView {
  */
 
   sm?: string | null;
+  /** 同队关系标记；只在新增或关系变化时发送。 */
+  pi?: string | null;
   /**
  * rm：rm相关字段。
  */
@@ -816,6 +823,8 @@ export interface SelfDeltaView {
  */
 
   sid?: string | null;
+  /** 当前所属队伍 ID；null 表示已退出队伍。 */
+  pid?: string | null;
   /**
  * x：x相关字段。
  */

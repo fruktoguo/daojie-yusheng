@@ -98,6 +98,7 @@ docs/mechanics/
 | [31-sect](./economy/31-sect.md) | 宗门系统 | 角色权限、护宗大阵、领地扩展 |
 | [32-leaderboard](./economy/32-leaderboard.md) | 排行榜 | 4 组二级榜单、10 分钟刷新、世界摘要 |
 | [33-daoist-social](./economy/33-daoist-social.md) | 道友系统 | 附近申请、道友/至交、私聊和通用权限关系事实 |
+| [34-party](./economy/34-party.md) | 组队系统 | 持久队伍、招募匹配、队伍聊天、奖励分配与友伤 |
 
 ---
 

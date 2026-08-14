@@ -604,7 +604,7 @@ export interface VisibleBuffState {
 /** 渲染用实体徽记。 */
 export interface RenderEntityBadge {
   text: string;
-  tone?: 'variant' | 'boss' | 'demonic' | 'sect';
+  tone?: 'variant' | 'boss' | 'demonic' | 'sect' | 'party';
 }
 
 /** 渲染用实体。 */

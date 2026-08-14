@@ -85,6 +85,7 @@ export * from './qi';
 export * from './formation-types';
 export * from './sect-types';
 export * from './social-types';
+export * from './party-types';
 export * from './age';
 export * from './mail-types';
 export * from './mail';

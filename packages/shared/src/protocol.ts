@@ -73,6 +73,30 @@ import type {
   TreasureVaultDetailView,
   TreasureVaultOperationResultView,
 } from './protocol-social';
+import type {
+  C2S_ApplyPartyRecruitmentView,
+  C2S_ClosePartyRecruitmentView,
+  C2S_CreatePartyView,
+  C2S_DisbandPartyView,
+  C2S_InvitePartyPlayerView,
+  C2S_JoinPartyMatchView,
+  C2S_LeavePartyMatchView,
+  C2S_LeavePartyView,
+  C2S_PublishPartyRecruitmentView,
+  C2S_RemovePartyMemberView,
+  C2S_RequestPartyChatHistoryView,
+  C2S_RequestPartyPanelView,
+  C2S_RequestPartyRecruitmentsView,
+  C2S_RespondPartyApplicationView,
+  C2S_RespondPartyInviteView,
+  C2S_SendPartyChatView,
+  C2S_TransferPartyLeaderView,
+  C2S_UpdatePartySettingsView,
+  PartyChatHistoryView,
+  PartyChatMessageView,
+  PartyOperationResultView,
+  PartyPanelView,
+} from './party-types';
 import type { C2S_RequestContentTemplates, S2C_ContentTemplates } from './content-resolver-types';
 import type {
   C2S_ActivateTimeChamberView,
@@ -206,6 +230,24 @@ export const C2S = {
   SendDaoistDirectMessage: 'n:c:sendDaoistDirectMessage',
   RequestDaoistDirectMessageHistory: 'n:c:requestDaoistDirectMessageHistory',
   MarkDaoistDirectMessagesRead: 'n:c:markDaoistDirectMessagesRead',
+  RequestPartyPanel: 'n:c:requestPartyPanel',
+  CreateParty: 'n:c:createParty',
+  InvitePartyPlayer: 'n:c:invitePartyPlayer',
+  RespondPartyInvite: 'n:c:respondPartyInvite',
+  LeaveParty: 'n:c:leaveParty',
+  RemovePartyMember: 'n:c:removePartyMember',
+  TransferPartyLeader: 'n:c:transferPartyLeader',
+  DisbandParty: 'n:c:disbandParty',
+  UpdatePartySettings: 'n:c:updatePartySettings',
+  PublishPartyRecruitment: 'n:c:publishPartyRecruitment',
+  ClosePartyRecruitment: 'n:c:closePartyRecruitment',
+  RequestPartyRecruitments: 'n:c:requestPartyRecruitments',
+  ApplyPartyRecruitment: 'n:c:applyPartyRecruitment',
+  RespondPartyApplication: 'n:c:respondPartyApplication',
+  JoinPartyMatch: 'n:c:joinPartyMatch',
+  LeavePartyMatch: 'n:c:leavePartyMatch',
+  SendPartyChat: 'n:c:sendPartyChat',
+  RequestPartyChatHistory: 'n:c:requestPartyChatHistory',
   RequestTreasureVault: 'n:c:requestTreasureVault',
   TreasureVaultDeposit: 'n:c:treasureVaultDeposit',
   TreasureVaultWithdraw: 'n:c:treasureVaultWithdraw',
@@ -255,6 +297,10 @@ export const S2C = {
   SocialOperationResult: 'n:s:socialOperationResult',
   DaoistDirectMessage: 'n:s:daoistDirectMessage',
   DaoistDirectMessageHistory: 'n:s:daoistDirectMessageHistory',
+  PartyPanel: 'n:s:partyPanel',
+  PartyOperationResult: 'n:s:partyOperationResult',
+  PartyChatMessage: 'n:s:partyChatMessage',
+  PartyChatHistory: 'n:s:partyChatHistory',
   TreasureVaultDetail: 'n:s:treasureVaultDetail',
   TreasureVaultOperationResult: 'n:s:treasureVaultOperationResult',
   TimeChamberOperationResult: 'n:s:timeChamberOperationResult',
@@ -432,6 +478,24 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.SendDaoistDirectMessage]: C2S_SendDaoistDirectMessageView;
   [C2S.RequestDaoistDirectMessageHistory]: C2S_RequestDaoistDirectMessageHistoryView;
   [C2S.MarkDaoistDirectMessagesRead]: C2S_MarkDaoistDirectMessagesReadView;
+  [C2S.RequestPartyPanel]: C2S_RequestPartyPanelView;
+  [C2S.CreateParty]: C2S_CreatePartyView;
+  [C2S.InvitePartyPlayer]: C2S_InvitePartyPlayerView;
+  [C2S.RespondPartyInvite]: C2S_RespondPartyInviteView;
+  [C2S.LeaveParty]: C2S_LeavePartyView;
+  [C2S.RemovePartyMember]: C2S_RemovePartyMemberView;
+  [C2S.TransferPartyLeader]: C2S_TransferPartyLeaderView;
+  [C2S.DisbandParty]: C2S_DisbandPartyView;
+  [C2S.UpdatePartySettings]: C2S_UpdatePartySettingsView;
+  [C2S.PublishPartyRecruitment]: C2S_PublishPartyRecruitmentView;
+  [C2S.ClosePartyRecruitment]: C2S_ClosePartyRecruitmentView;
+  [C2S.RequestPartyRecruitments]: C2S_RequestPartyRecruitmentsView;
+  [C2S.ApplyPartyRecruitment]: C2S_ApplyPartyRecruitmentView;
+  [C2S.RespondPartyApplication]: C2S_RespondPartyApplicationView;
+  [C2S.JoinPartyMatch]: C2S_JoinPartyMatchView;
+  [C2S.LeavePartyMatch]: C2S_LeavePartyMatchView;
+  [C2S.SendPartyChat]: C2S_SendPartyChatView;
+  [C2S.RequestPartyChatHistory]: C2S_RequestPartyChatHistoryView;
   [C2S.RequestTreasureVault]: C2S_RequestTreasureVaultView;
   [C2S.TreasureVaultDeposit]: C2S_TreasureVaultDepositView;
   [C2S.TreasureVaultWithdraw]: C2S_TreasureVaultWithdrawView;
@@ -481,6 +545,10 @@ export interface S2C_PayloadMap extends Record<S2C_EventName, unknown> {
   [S2C.SocialOperationResult]: SocialOperationResultView;
   [S2C.DaoistDirectMessage]: DaoistDirectMessageView;
   [S2C.DaoistDirectMessageHistory]: DaoistDirectMessageHistoryView;
+  [S2C.PartyPanel]: PartyPanelView;
+  [S2C.PartyOperationResult]: PartyOperationResultView;
+  [S2C.PartyChatMessage]: PartyChatMessageView;
+  [S2C.PartyChatHistory]: PartyChatHistoryView;
   [S2C.TreasureVaultDetail]: TreasureVaultDetailView;
   [S2C.TreasureVaultOperationResult]: TreasureVaultOperationResultView;
   [S2C.TimeChamberOperationResult]: TimeChamberOperationResultView;
