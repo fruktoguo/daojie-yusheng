@@ -51,6 +51,7 @@ const craftTransmissionView = read('src/ui/craft-transmission-view.ts');
 const npcShop = read('src/ui/npc-shop-modal.ts');
 const npcQuest = read('src/ui/npc-quest-modal.ts');
 const socialPanel = read('src/ui/panels/social-panel.ts');
+const socialFloatingPanel = read('src/ui/social-floating-panel.ts');
 const buildingStateSource = read('src/main-building-fengshui-state-source.ts');
 const timeChamberStateSource = read('src/main-time-chamber-state-source.ts');
 const timeChamberManagement = read('src/ui/time-chamber-console-modal.ts');
@@ -431,7 +432,7 @@ assertIncludes(npcQuest, /nextSignature === this\.renderedInventoryDetailSignatu
 const socialSelect = section(
   socialPanel,
   'private openConversation(playerId: string): void {',
-  'private replaceActiveTabContent(',
+  'private replaceTabContent(',
   'SocialPanel.openConversation',
 );
 assertIncludes(socialSelect, /patchSelectedRelation\(playerId\)/, '切换道友必须原位更新列表选中态');
@@ -440,11 +441,11 @@ assertMissing(socialSelect, /this\.render\(/, '切换道友不得重建私聊联
 
 const socialSwitchTab = section(
   socialPanel,
-  'private switchActiveTab(tab: SocialPanelTab, trigger: HTMLButtonElement | null = null): void {',
-  'private openConversation(playerId: string): void {',
+  'private switchActiveTab(tab: SocialPanelTab, _trigger: HTMLButtonElement | null = null): void {',
+  'private closeActiveMenu(): void {',
   'SocialPanel.switchActiveTab',
 );
-assertIncludes(socialSwitchTab, /replaceActiveTabContent\(inputSnapshot\)/, '道友子菜单切换只能替换当前内容区');
+assertIncludes(socialSwitchTab, /replaceTabContent\(tab, inputSnapshot\)/, '道友入口只能刷新目标独立浮窗');
 assertMissing(socialSwitchTab, /this\.render\(/, '道友子菜单切换不得重建面板标题和入口卡片');
 
 const socialAppendMessage = section(
@@ -459,12 +460,21 @@ assertIncludes(socialAppendMessage, /isConversationVisible\(peerId\)/, '私聊�
 assertIncludes(socialAppendMessage, /patchUnreadIndicators\(peerId\)/, '新私聊必须局部更新入口与道友未读角标');
 assertIncludes(socialPanel, /panel-section-head social-panel-head/, '道友面板标题必须复用现有面板头原语');
 assertIncludes(socialPanel, /data-social-menu-launcher="true"/, '道友面板必须提供独立功能入口卡片');
-assertIncludes(socialPanel, /data-social-menu-shell="true"/, '道友面板必须保留单一活动子菜单宿主');
+assertIncludes(socialPanel, /new SocialFloatingPanel\(/, '道友四个子功能必须创建独立浮窗');
+assertIncludes(socialPanel, /floating-social-\$\{tab\.id\}/, '道友入口必须指向对应独立浮窗');
+assertIncludes(socialPanel, /this\.floatingMenus\[tab\]\.open\(\)/, '道友入口必须打开对应独立浮窗');
+assertIncludes(socialPanel, /closeOtherMenusForNarrowViewport/, '窄屏多浮窗必须做互斥收敛');
 assertIncludes(socialPanel, /data-social-action="party"/, '道友面板必须提供独立队伍悬浮窗入口');
 assertIncludes(socialPanel, /data-social-tab-unread="true"/, '私聊入口必须提供未读角标节点');
+assertIncludes(socialPanel, /this\.captureMenuScroll\(tab\)/, '独立道友浮窗必须保存逐窗滚动位置');
+assertIncludes(socialPanel, /this\.focusMenuLauncherButton\(tab\)/, '独立道友浮窗关闭后必须恢复入口焦点');
+assertIncludes(socialFloatingPanel, /LARGE_FLOATING_PANEL_WIDTH/, '道友浮窗必须复用统一固定尺寸');
+assertIncludes(socialFloatingPanel, /setAttribute\('role', 'dialog'\)/, '道友浮窗必须提供 dialog 语义');
+assertMissing(socialPanel, /data-social-menu-shell="true"/, '道友子功能不得继续内嵌到单一菜单宿主');
 assertMissing(socialPanel, /panel-section-header/, '道友面板不得继续使用不存在的 panel-section-header 类');
 assertIncludes(panelsCss, /\.social-panel \.ui-list-row\s*\{/, '道友列表行必须有明确布局样式');
 assertIncludes(panelsCss, /\.social-menu-launcher\s*\{[\s\S]*?repeat\(2, minmax\(0, 1fr\)\)/, '道友面板入口必须使用双列按钮网格');
+assertIncludes(panelsCss, /\.floating-list-panel--workspace\s*\{[\s\S]*?800px[\s\S]*?450px/, '五个独立浮窗必须使用 800x450 固定桌面尺寸');
 assertIncludes(panelsCss, /\.social-conversation-workspace\s*\{/, '私聊联系人与对话必须有稳定工作区布局');
 assertIncludes(panelsCss, /\.social-panel-tab-unread\[hidden\]/, '私聊无未读时必须隐藏角标');
 assertIncludes(panelsCss, /@container social-panel \(max-width: 560px\)/, '道友面板必须保留窄容器响应式布局');

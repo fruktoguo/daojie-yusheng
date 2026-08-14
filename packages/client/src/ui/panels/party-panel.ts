@@ -20,7 +20,7 @@ function escapeHtml(value: unknown): string {
 }
 
 const PURPOSE_ORDER: readonly PartyPurpose[] = ['general', 'leveling', 'boss', 'tower', 'exploration'];
-type PartyPanelTab = 'members' | 'management';
+type PartyPanelTab = 'members' | 'invites' | 'management';
 type PartyFormControl = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 type PartyEditorSnapshot = {
   drafts: Array<{ key: string; value: string; checked: boolean | null }>;
@@ -65,11 +65,11 @@ export class PartyPanel {
   /** 面板结构未变化时只更新成员状态与未读数，避免重建正在编辑的表单。 */
   private canPatchOnly(previous: PartyPanelRenderState | null, next: PartyPanelRenderState): boolean {
     if (!previous || !this.host) return false;
-    if (!this.host.querySelector('[data-party-member-list="true"]')) return false;
     if (previous.playerId !== next.playerId) return false;
     if (previous.recruitingPurpose !== next.recruitingPurpose) return false;
     if (previous.recruitmentLoaded !== next.recruitmentLoaded) return false;
-    return hasSamePartyPanelStructure(previous.view, next.view);
+    if (!hasSamePartyPanelStructure(previous.view, next.view)) return false;
+    return this.activeTab === 'invites' || Boolean(this.host.querySelector('[data-party-member-list="true"]'));
   }
 
   patchMembers(state: PartyPanelRenderState): void {
@@ -187,7 +187,9 @@ export class PartyPanel {
     }
     const content = this.activeTab === 'management' && isLeader
       ? this.renderManagementTab(state)
-      : this.renderMembersTab(state);
+      : this.activeTab === 'invites'
+        ? this.renderInvitationsTab(state)
+        : this.renderMembersTab(state);
     return `
       <div class="party-panel" data-party-root="true">
         ${this.renderTabs(isLeader)}
@@ -208,13 +210,15 @@ export class PartyPanel {
     return `
       <div class="party-tabs" role="tablist" aria-label="队伍功能">
         ${this.renderTabButton('members', '成员')}
+        ${this.renderTabButton('invites', '邀请', this.getInvitationReminderCount())}
         ${isLeader ? this.renderTabButton('management', '管理') : ''}
       </div>
     `;
   }
 
-  private renderTabButton(tab: PartyPanelTab, label: string): string {
+  private renderTabButton(tab: PartyPanelTab, label: string, reminderCount = 0): string {
     const active = tab === this.activeTab;
+    const reminder = Math.max(0, Math.trunc(reminderCount));
     return `
       <button
         class="party-tab ${active ? 'active' : ''}"
@@ -226,15 +230,25 @@ export class PartyPanel {
         aria-selected="${active ? 'true' : 'false'}"
         aria-controls="party-panel-active-content"
         tabindex="${active ? '0' : '-1'}"
-      >${label}</button>
+      >${label}${reminder > 0 ? `<span class="party-tab-badge" aria-label="${reminder} 项待处理">${reminder > 99 ? '99+' : reminder}</span>` : ''}</button>
     `;
   }
 
   private renderMembersTab(state: PartyPanelRenderState): string {
+    return state.view.party
+      ? this.renderPartySection(state, false)
+      : this.renderNoPartySection();
+  }
+
+  private renderInvitationsTab(state: PartyPanelRenderState): string {
+    const party = state.view.party;
+    const isLeader = Boolean(party && party.leaderPlayerId === state.playerId);
     return `
       ${this.renderInvites(state.view)}
-      ${state.view.party ? this.renderPartySection(state, false) : this.renderNoPartySection(state)}
-      ${this.renderRecruitmentSection(state, false)}
+      ${!party || isLeader ? this.renderMatchSection(state) : ''}
+      ${isLeader ? this.renderInviteByPlayerNo() : party ? '<div class="party-hint">仅队长可以直接邀请玩家、发布招募、审批入队申请或为现有队伍发起匹配。</div>' : ''}
+      ${isLeader ? this.renderRecruitmentManagement(state) : ''}
+      ${this.renderRecruitmentHall(state)}
     `;
   }
 
@@ -242,10 +256,13 @@ export class PartyPanel {
     if (!state.view.party || state.view.party.leaderPlayerId !== state.playerId) {
       return '';
     }
-    return `
-      ${this.renderPartySection(state, true)}
-      ${this.renderRecruitmentSection(state, true)}
-    `;
+    return this.renderPartySection(state, true);
+  }
+
+  private getInvitationReminderCount(): number {
+    if (!this.state) return 0;
+    const isLeader = this.state.view.party?.leaderPlayerId === this.state.playerId;
+    return this.state.view.incomingInvites.length + (isLeader ? this.state.view.incomingApplications.length : 0);
   }
 
   private renderInvites(view: PartyPanelView): string {
@@ -271,19 +288,23 @@ export class PartyPanel {
     `;
   }
 
-  private renderNoPartySection(state: PartyPanelRenderState): string {
-    const queued = state.view.matchQueue.queued === true;
+  private renderNoPartySection(): string {
     return `
       <section class="party-section">
         <div class="social-panel-section-head"><div class="social-panel-section-title">我的队伍</div></div>
-        <div class="empty-hint compact">你还没有队伍。创建一个队伍邀请道友同行，或发布招募寻找同伴。</div>
+        <div class="empty-hint compact">你还没有队伍。可以先创建队伍，或前往「邀请」页接受邀请、查看招募与自动匹配。</div>
         <div class="party-actions-row">
           <button class="small-btn" type="button" data-party-action="create">创建队伍</button>
         </div>
-        <form class="party-inline-form" data-party-form="invite-no">
-          <input class="party-input" type="number" min="1" step="1" name="playerNo" inputmode="numeric" placeholder="输入玩家序号邀请" aria-label="按玩家序号邀请" />
-          <button class="small-btn ghost" type="submit">邀请</button>
-        </form>
+      </section>
+    `;
+  }
+
+  private renderMatchSection(state: PartyPanelRenderState): string {
+    const queued = state.view.matchQueue.queued === true;
+    return `
+      <section class="party-section">
+        <div class="social-panel-section-head"><div class="social-panel-section-title">自动匹配</div></div>
         <div class="party-actions-row">
           ${queued
             ? `<span class="party-match-waiting">正在等待匹配（${escapeHtml(PARTY_PURPOSE_LABELS[state.view.matchQueue.purpose ?? 'general'])}）</span>
@@ -295,6 +316,18 @@ export class PartyPanel {
               <button class="small-btn ghost" type="button" data-party-action="match-join">自动匹配</button>
             `}
         </div>
+      </section>
+    `;
+  }
+
+  private renderInviteByPlayerNo(): string {
+    return `
+      <section class="party-section">
+        <div class="social-panel-section-head"><div class="social-panel-section-title">直接邀请</div></div>
+        <form class="party-inline-form" data-party-form="invite-no">
+          <input class="party-input" type="number" min="1" step="1" name="playerNo" inputmode="numeric" placeholder="输入玩家序号邀请" aria-label="按玩家序号邀请" />
+          <button class="small-btn ghost" type="submit">邀请</button>
+        </form>
       </section>
     `;
   }
@@ -327,10 +360,6 @@ export class PartyPanel {
           </div>
           ${!isLeader ? `
             <div class="party-actions-row">
-              <form class="party-inline-form" data-party-form="invite-no">
-                <input class="party-input" type="number" min="1" step="1" name="playerNo" inputmode="numeric" placeholder="输入玩家序号邀请" aria-label="按玩家序号邀请" />
-                <button class="small-btn ghost" type="submit">邀请</button>
-              </form>
               <button class="small-btn ghost danger" type="button" data-party-action="leave">退出队伍</button>
             </div>
             ${leaderOffline ? '<div class="party-hint">队长离线期间无法执行移交、解散等管理操作，请等待队长归来。</div>' : ''}
@@ -365,10 +394,6 @@ export class PartyPanel {
           </label>
         </div>
         <div class="party-hint">友伤是双重门槛：队长在此开启全队友伤后，成员还需在自己的战斗设置里把「队伍」加入敌对目标，主动攻击或自动战斗才会对队友生效；默认互为友方，不会误伤。</div>
-        <form class="party-inline-form" data-party-form="invite-no">
-          <input class="party-input" type="number" min="1" step="1" name="playerNo" inputmode="numeric" placeholder="输入玩家序号邀请" aria-label="按玩家序号邀请" />
-          <button class="small-btn ghost" type="submit">邀请</button>
-        </form>
         <div class="party-actions-row">
           <button class="small-btn ghost danger" type="button" data-party-action="leave">退出队伍</button>
           <button class="small-btn ghost danger" type="button" data-party-action="disband">解散队伍</button>
@@ -377,42 +402,40 @@ export class PartyPanel {
     `;
   }
 
-  private renderRecruitmentSection(state: PartyPanelRenderState, management: boolean): string {
-    const view = state.view;
-    const party = view.party;
-    const isLeader = Boolean(party && party.leaderPlayerId === state.playerId);
-    const myRecruitment = party?.recruitment ?? null;
-    const applications = view.incomingApplications;
-    if (management) {
-      if (!party || !isLeader) return '';
-      return `
-        <section class="party-section">
-          <div class="social-panel-section-head">
-            <div class="social-panel-section-title">招募管理</div>
-          </div>
-          ${this.renderRecruitmentPublisher(party, myRecruitment)}
-          ${applications.length > 0 ? `
-            <div class="party-applications">
-              <div class="party-subheading">入队申请</div>
-              <div class="ui-list">
-                ${applications.map((entry) => `
-                  <div class="ui-list-row">
-                    <div class="ui-list-main">
-                      <div class="ui-list-title">${escapeHtml(entry.playerName)}</div>
-                      <div class="ui-list-subtitle">${entry.realmLv > 0 ? `境界 ${entry.realmLv} 层` : '境界未知'}</div>
-                    </div>
-                    <div class="social-row-actions">
-                      <button class="small-btn" type="button" data-party-action="application-accept" data-application-id="${escapeHtml(entry.applicationId)}">同意</button>
-                      <button class="small-btn ghost" type="button" data-party-action="application-reject" data-application-id="${escapeHtml(entry.applicationId)}">拒绝</button>
-                    </div>
+  private renderRecruitmentManagement(state: PartyPanelRenderState): string {
+    const party = state.view.party;
+    if (!party || party.leaderPlayerId !== state.playerId) return '';
+    const applications = state.view.incomingApplications;
+    return `
+      <section class="party-section">
+        <div class="social-panel-section-head">
+          <div class="social-panel-section-title">招募与入队审批</div>
+        </div>
+        ${this.renderRecruitmentPublisher(party, party.recruitment ?? null)}
+        ${applications.length > 0 ? `
+          <div class="party-applications">
+            <div class="party-subheading">入队申请</div>
+            <div class="ui-list">
+              ${applications.map((entry) => `
+                <div class="ui-list-row">
+                  <div class="ui-list-main">
+                    <div class="ui-list-title">${escapeHtml(entry.playerName)}</div>
+                    <div class="ui-list-subtitle">${entry.realmLv > 0 ? `境界 ${entry.realmLv} 层` : '境界未知'}</div>
                   </div>
-                `).join('')}
-              </div>
+                  <div class="social-row-actions">
+                    <button class="small-btn" type="button" data-party-action="application-accept" data-application-id="${escapeHtml(entry.applicationId)}">同意</button>
+                    <button class="small-btn ghost" type="button" data-party-action="application-reject" data-application-id="${escapeHtml(entry.applicationId)}">拒绝</button>
+                  </div>
+                </div>
+              `).join('')}
             </div>
-          ` : '<div class="empty-hint compact">暂无待审批的入队申请</div>'}
-        </section>
-      `;
-    }
+          </div>
+        ` : '<div class="empty-hint compact">暂无待审批的入队申请</div>'}
+      </section>
+    `;
+  }
+
+  private renderRecruitmentHall(state: PartyPanelRenderState): string {
     return `
       <section class="party-section">
         <div class="social-panel-section-head">
@@ -504,7 +527,7 @@ export class PartyPanel {
     switch (action) {
       case 'tab': {
         const tab = target.dataset.partyTab;
-        if (tab === 'members' || (tab === 'management' && this.state.view.party?.leaderPlayerId === this.state.playerId)) {
+        if (tab === 'members' || tab === 'invites' || (tab === 'management' && this.state.view.party?.leaderPlayerId === this.state.playerId)) {
           this.activeTab = tab;
           if (this.host) {
             this.host.innerHTML = this.renderAll(this.state);

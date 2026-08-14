@@ -19,8 +19,14 @@ export type FloatingListPanelOptions = {
   defaultTop: number;
   minWidth?: number;
   maxWidth?: number;
+  width?: number;
+  height?: number;
+  onBeforeClose?: () => void;
   onClose?: () => void;
 };
+
+export const LARGE_FLOATING_PANEL_WIDTH = 800;
+export const LARGE_FLOATING_PANEL_HEIGHT = 450;
 
 const DEFAULT_MIN_WIDTH = 240;
 const DEFAULT_MAX_WIDTH = 420;
@@ -66,6 +72,7 @@ export class FloatingListPanel {
   private readonly defaultTop: number;
   private readonly minWidth: number;
   private readonly maxWidth: number;
+  private readonly onBeforeClose: (() => void) | null;
   private readonly onClose: (() => void) | null;
   private readonly eventAbort = new AbortController();
   private transientHidden = false;
@@ -81,6 +88,7 @@ export class FloatingListPanel {
     this.defaultTop = options.defaultTop;
     this.minWidth = options.minWidth ?? DEFAULT_MIN_WIDTH;
     this.maxWidth = options.maxWidth ?? DEFAULT_MAX_WIDTH;
+    this.onBeforeClose = options.onBeforeClose ?? null;
     this.onClose = options.onClose ?? null;
     this.state = readStoredState(this.storageKey);
 
@@ -90,6 +98,12 @@ export class FloatingListPanel {
     this.root.setAttribute('aria-label', options.title);
     this.root.style.minWidth = `${this.minWidth}px`;
     this.root.style.maxWidth = `${this.maxWidth}px`;
+    if (options.width !== undefined) {
+      this.root.style.setProperty('--floating-list-panel-width', `${Math.max(1, Math.trunc(options.width))}px`);
+    }
+    if (options.height !== undefined) {
+      this.root.style.setProperty('--floating-list-panel-height', `${Math.max(1, Math.trunc(options.height))}px`);
+    }
     this.root.innerHTML = `
       <div class="floating-list-panel__bar" data-floating-list-drag-handle="true">
         <span class="floating-list-panel__title">${options.title}</span>
@@ -137,6 +151,10 @@ export class FloatingListPanel {
     return this.body.dataset.floatingListBodyKey ?? '';
   }
 
+  focusCloseButton(): void {
+    this.root.querySelector<HTMLButtonElement>('[data-floating-list-close="true"]')?.focus({ preventScroll: true });
+  }
+
   destroy(): void {
     this.eventAbort.abort();
     this.root.remove();
@@ -161,6 +179,16 @@ export class FloatingListPanel {
     const dragHandle = this.root.querySelector<HTMLElement>('[data-floating-list-drag-handle="true"]');
     const collapseButton = this.root.querySelector<HTMLButtonElement>('[data-floating-list-collapse="true"]');
     const closeButton = this.root.querySelector<HTMLButtonElement>('[data-floating-list-close="true"]');
+
+    const bringToFront = () => this.root.parentElement?.appendChild(this.root);
+    this.root.addEventListener('pointerdown', bringToFront, { signal });
+    this.root.addEventListener('focusin', bringToFront, { signal });
+    this.root.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || this.root.hidden) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this.close();
+    }, { signal });
 
     dragHandle?.addEventListener('pointerdown', (event) => {
       const target = event.target;
@@ -205,12 +233,16 @@ export class FloatingListPanel {
       this.applyState();
     }, { signal });
 
-    closeButton?.addEventListener('click', () => {
-      this.state.closed = true;
-      this.persist();
-      this.applyState();
-      this.onClose?.();
-    }, { signal });
+    closeButton?.addEventListener('click', () => this.close(), { signal });
+  }
+
+  private close(): void {
+    if (this.state.closed) return;
+    this.onBeforeClose?.();
+    this.state.closed = true;
+    this.persist();
+    this.applyState();
+    this.onClose?.();
   }
 
   private moveTo(left: number, top: number): void {

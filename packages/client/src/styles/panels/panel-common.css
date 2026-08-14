@@ -837,6 +837,29 @@
       width: min(300px, calc(100vw - 16px));
     }
 
+    .floating-list-panel--workspace {
+      width: var(--floating-list-panel-width, 800px);
+      height: var(--floating-list-panel-height, 450px);
+      max-height: calc(100dvh - 16px);
+    }
+
+    .floating-list-panel--workspace .floating-list-panel__body {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: auto;
+    }
+
+    .floating-list-panel--workspace.is-collapsed {
+      height: auto;
+    }
+
+    @media (max-width: 832px), (max-height: 482px) {
+      .floating-list-panel--workspace {
+        width: calc(100vw - 16px);
+        height: calc(100dvh - 16px);
+      }
+    }
+
     .floating-list-panel.is-dragging {
       user-select: none;
       cursor: grabbing;

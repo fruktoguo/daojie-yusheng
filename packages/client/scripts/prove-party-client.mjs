@@ -82,10 +82,11 @@ await withClientBrowserProof(
         return {
           hasFloatingWindow: host.classList.contains('floating-list-panel--party') && !host.hidden,
           hasMemberTab: !!host.querySelector('[data-party-tab="members"]'),
+          hasInviteTab: !!host.querySelector('[data-party-tab="invites"]'),
           hasManagementTab: !!host.querySelector('[data-party-tab="management"]'),
           hasMemberList: !!host.querySelector('[data-party-member-list="true"]'),
           memberCards: host.querySelectorAll('[data-party-member]').length,
-          hasRecruitment: !!host.querySelector('.party-recruit-filter'),
+          recruitmentOnMemberTab: !!host.querySelector('.party-recruit-filter'),
           hasFriendlyFireHint: host.textContent.includes('双重门槛') && host.textContent.includes('默认互为友方'),
           hasLeaderOfflineHintText: window.__partyProof.host.innerHTML.includes('移交队长') === false,
           hudMounted: !document.getElementById('party-hud')?.hidden,
@@ -95,13 +96,29 @@ await withClientBrowserProof(
     `);
     assert.equal(structure.hasFloatingWindow, true, '独立队伍悬浮窗未显示');
     assert.equal(structure.hasMemberTab, true, '队伍成员 Tab 缺失');
+    assert.equal(structure.hasInviteTab, true, '队伍邀请 Tab 缺失');
     assert.equal(structure.hasManagementTab, false, '普通成员不应看到管理 Tab');
     assert.equal(structure.hasMemberList, true, '队伍成员列表未挂载');
     assert.equal(structure.memberCards, 2, '成员卡片数量不符');
-    assert.equal(structure.hasRecruitment, true, '招募大厅未挂载');
+    assert.equal(structure.recruitmentOnMemberTab, false, '成员 Tab 不应混入招募大厅');
     assert.equal(structure.hasFriendlyFireHint, false, '非队长视图不应出现队长工具与友伤说明');
     assert.equal(structure.hudMounted, true, '队伍 HUD 未挂载');
     assert.equal(structure.hudMembers, 2, 'HUD 成员行数量不符');
+
+    const inviteTabResult = await cdp.evaluate(String.raw`
+      (() => {
+        const { host } = window.__partyProof;
+        host.querySelector('[data-party-tab="invites"]')?.click();
+        const result = {
+          recruitment: !!host.querySelector('.party-recruit-filter'),
+          match: host.textContent.includes('自动匹配'),
+          leaderOnlyHint: host.textContent.includes('仅队长可以直接邀请玩家'),
+        };
+        host.querySelector('[data-party-tab="members"]')?.click();
+        return result;
+      })()
+    `);
+    assert.deepEqual(inviteTabResult, { recruitment: true, match: false, leaderOnlyHint: true }, '普通成员邀请 Tab 权限提示或招募大厅不正确');
 
     const reopenResult = await cdp.evaluate(String.raw`
       (() => {
@@ -203,14 +220,16 @@ await withClientBrowserProof(
         });
         const managementTab = host.querySelector('[data-party-tab="management"]');
         managementTab?.click();
+        const hasSettings = !!host.querySelector('[data-party-setting="expMode"]') && !!host.querySelector('[data-party-setting="friendlyFireEnabled"]');
+        const hasFriendlyFireHint = host.textContent.includes('双重门槛') && host.textContent.includes('默认互为友方');
+        const hasKick = !!host.querySelector('[data-party-action="kick"]');
+        const hasTransfer = !!host.querySelector('[data-party-action="transfer"]');
+        const hasDisband = !!host.querySelector('[data-party-action="disband"]');
+        host.querySelector('[data-party-tab="invites"]')?.click();
         return {
           hasManagementTab: !!managementTab,
-          hasSettings: !!host.querySelector('[data-party-setting="expMode"]') && !!host.querySelector('[data-party-setting="friendlyFireEnabled"]'),
-          hasFriendlyFireHint: host.textContent.includes('双重门槛') && host.textContent.includes('默认互为友方'),
-          hasKick: !!host.querySelector('[data-party-action="kick"]'),
-          hasTransfer: !!host.querySelector('[data-party-action="transfer"]'),
+          hasSettings, hasFriendlyFireHint, hasKick, hasTransfer, hasDisband,
           hasApplication: !!host.querySelector('[data-party-action="application-accept"]'),
-          hasDisband: !!host.querySelector('[data-party-action="disband"]'),
           recruitNoteMaxLength: host.querySelector('input[name="note"]')?.maxLength ?? 0,
         };
       })()
@@ -239,7 +258,7 @@ await withClientBrowserProof(
           party: leaderParty, incomingInvites: [], incomingApplications: [], recruitments: [],
           matchQueue: { queued: false }, serverTime: Date.now(),
         });
-        host.querySelector('[data-party-tab="management"]')?.click();
+        host.querySelector('[data-party-tab="invites"]')?.click();
         const noteBefore = host.querySelector('input[name="note"]');
         if (!(noteBefore instanceof HTMLInputElement)) throw new Error('未找到招募说明输入框');
         noteBefore.value = '保留这段尚未发布的招募说明';
@@ -268,8 +287,7 @@ await withClientBrowserProof(
           && noteAfterHp?.value === '保留这段尚未发布的招募说明'
           && document.activeElement === noteAfterHp
           && noteAfterHp?.selectionStart === 2
-          && noteAfterHp?.selectionEnd === 8
-          && host.querySelector('[data-party-member="leader-1"]')?.textContent.includes('33/100');
+          && noteAfterHp?.selectionEnd === 8;
         source.handlePartyPanel({
           party: leaderParty,
           incomingInvites: [],
@@ -287,7 +305,7 @@ await withClientBrowserProof(
           && noteAfterApplication?.selectionEnd === 8;
         const applicationVisible = !!host.querySelector('[data-application-id="app-same-revision"]')
           || host.textContent.includes('同修乙');
-        host.querySelector('[data-party-tab="members"]')?.click();
+        host.querySelector('[data-party-tab="invites"]')?.click();
         source.handlePartyPanel({
           party: leaderParty, incomingInvites: [], incomingApplications: [],
           recruitments: [{
@@ -304,7 +322,7 @@ await withClientBrowserProof(
       })()
     `);
     assert.equal(continuityResult.chatPreserved, true, '聊天未读更新打断了招募表单输入');
-    assert.equal(continuityResult.hpPreserved, true, '成员 HP 更新打断了招募表单输入或未更新成员行');
+    assert.equal(continuityResult.hpPreserved, true, '成员 HP 更新打断了招募表单输入');
     assert.equal(continuityResult.structuralPreserved, true, '管理数据结构更新未恢复表单值、焦点与选区');
     assert.equal(continuityResult.applicationVisible, true, '同 revision 新申请未刷新到管理页');
     assert.equal(continuityResult.recruitmentVisible, true, '同 revision 招募列表变化未刷新');
@@ -317,6 +335,7 @@ await withClientBrowserProof(
           party: { ...party, members: party.members.map((m) => m.playerId === 'leader-1' ? { ...m, online: false } : m) },
           incomingInvites: [], incomingApplications: [], recruitments: [], matchQueue: { queued: false }, serverTime: Date.now(),
         });
+        host.querySelector('[data-party-tab="members"]')?.click();
         return { hint: host.textContent.includes('队长离线期间无法执行移交、解散等管理操作，请等待队长归来') };
       })()
     `);
@@ -345,6 +364,7 @@ await withClientBrowserProof(
         return import('/src/ui/panels/party-panel.ts').then(({ PartyPanel }) => {
           const panel = new PartyPanel();
           panel.mount(host);
+          panel.setCallbacks(new Proxy({}, { get: () => () => {} }));
           panel.render({
             view: {
               party: null,
@@ -360,6 +380,7 @@ await withClientBrowserProof(
             recruitingPurpose: 'general',
             recruitmentLoaded: true,
           });
+          host.querySelector('[data-party-tab="invites"]')?.click();
           const rect = host.getBoundingClientRect();
           const matchButton = host.querySelector('[data-party-action="match-leave"]');
           const matchRect = matchButton?.getBoundingClientRect();

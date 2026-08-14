@@ -642,6 +642,17 @@
       margin-bottom: 0;
     }
 
+    .floating-list-panel--social .floating-list-panel__body {
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .social-panel--floating {
+      grid-template-rows: minmax(0, 1fr);
+      gap: 0;
+      padding: 12px;
+    }
+
     .social-panel-head {
       flex-wrap: wrap;
       margin-bottom: 0;
@@ -1063,6 +1074,12 @@
         grid-template-rows: auto minmax(0, auto);
         height: auto;
         min-height: 100%;
+      }
+      .social-panel--floating {
+        grid-template-rows: minmax(0, 1fr);
+        height: 100%;
+        min-height: 0;
+        padding: 8px;
       }
       .social-menu-launcher {
         grid-template-columns: minmax(0, 1fr);
