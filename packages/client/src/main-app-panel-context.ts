@@ -20,6 +20,7 @@ import { createMainSettingsStateSource } from './main-settings-state-source';
 import { createMainSocialStateSource } from './main-social-state-source';
 import { createMainPartyStateSource } from './main-party-state-source';
 import { PartyPanel } from './ui/panels/party-panel';
+import { PartyFloatingPanel } from './ui/party-floating-panel';
 import { PartyHud } from './ui/party-hud';
 import { createMainTimeChamberStateSource } from './main-time-chamber-state-source';
 import { createMainTechniqueGenerationPanelSource } from './main-technique-generation-panel-source';
@@ -105,11 +106,16 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
   });
   const activityStateSource = createMainActivityStateSource({ socket: socialEconomySender, isSocketConnected: () => socket.connected });
   const socialStateSource = createMainSocialStateSource({ socialPanel, treasureVaultModal, accessPolicyClient, socket: socialEconomySender, getPlayer: () => rootRuntimeSource.getPlayer(), hydrateInventoryItem: (item, previous) => detailHydrationSource.hydrateSyncedItemStack(item, previous), showToast: (message, kind) => uiStateSource.showToast(message, kind) });
-  const partyPanel = new PartyPanel();
+  const partyPanel = new PartyPanel(); const partyFloatingPanel = new PartyFloatingPanel(partyPanel);
   const partyHud = new PartyHud(documentRef.getElementById('party-hud'));
-  const partyStateSource = createMainPartyStateSource({ partyPanel, partyHud, socialPanel, sidePanel, socket: socket.party, showToast: (message, kind) => uiStateSource.showToast(message, kind), getPlayerId: () => rootRuntimeSource.getPlayer()?.id ?? null });
+  const partyStateSource = createMainPartyStateSource({
+    partyPanel, partyHud, openPartyPanel: () => partyFloatingPanel.open(),
+    setPartyPanelAvailable: (available) => partyFloatingPanel.setAvailable(available),
+    setPartyUnread: (count) => { partyFloatingPanel.setUnreadCount(count); socialPanel.setPartyUnread(count); },
+    socket: socket.party, getPlayerId: () => rootRuntimeSource.getPlayer()?.id ?? null, showToast: (message, kind) => uiStateSource.showToast(message, kind),
+  });
   socialPanel.setPartyInviteHandler((targetPlayerId) => socket.party.sendInvitePartyPlayer({ targetPlayerId }));
-  socialPanel.setPartyTabMountHandler((host) => { partyPanel.mount(host); partyStateSource.refreshView(); });
+  socialPanel.setPartyOpenHandler(() => partyStateSource.openPanel());
   craftWorkbenchModal.setAccessPolicyClient(accessPolicyClient, (message, kind) => uiStateSource.showToast(message, kind));
   const timeChamberStateSource = createMainTimeChamberStateSource({ usageModal: timeChamberUsageModal, managementModal: timeChamberConsoleModal, socket: buildingSender, getPlayer: () => rootRuntimeSource.getPlayer(), showToast: (message, kind) => uiStateSource.showToast(message, kind) });
   let uiStateSource!: ReturnType<typeof createMainUiStateSource>;

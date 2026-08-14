@@ -104,12 +104,29 @@ export class FloatingListPanel {
     document.body.appendChild(this.root);
     this.bindEvents();
     this.applyState();
-    window.addEventListener('resize', () => this.repositionWithinViewport(), { signal: this.eventAbort.signal });
+    window.addEventListener('resize', () => this.refreshLayout(), { signal: this.eventAbort.signal });
   }
 
   updateContent(html: string): void {
     this.body.innerHTML = html.trim();
     this.applyState();
+  }
+
+  setTitle(title: string): void {
+    const normalized = title.trim() || '浮动列表';
+    const titleNode = this.root.querySelector<HTMLElement>('.floating-list-panel__title');
+    if (titleNode && titleNode.textContent !== normalized) {
+      titleNode.textContent = normalized;
+    }
+    this.root.setAttribute('aria-label', normalized);
+  }
+
+  /** 业务内容尺寸变化后重新把浮窗约束到当前视口。 */
+  refreshLayout(): void {
+    if (this.root.hidden) {
+      return;
+    }
+    this.repositionWithinViewport();
   }
 
   setBodyKey(value: string): void {

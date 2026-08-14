@@ -13,8 +13,6 @@ import type {
 } from '@mud/shared';
 import type { SocketPartySender } from './network/socket-send-party';
 import type { ToastKind } from './main-app-assembly-types';
-import type { SocialPanel } from './ui/panels/social-panel';
-import type { SidePanel } from './ui/side-panel';
 import { PartyPanel } from './ui/panels/party-panel';
 import { PartyHud } from './ui/party-hud';
 import { PARTY_REASON_LABELS } from './ui/panels/party-panel-view';
@@ -23,8 +21,9 @@ import { appendPartyMessages, loadRecentPartyMessages } from './ui/party-message
 type MainPartyStateSourceOptions = {
   partyPanel: PartyPanel;
   partyHud: PartyHud;
-  socialPanel: Pick<SocialPanel, 'setPartyTabUnread' | 'openPartyTab'>;
-  sidePanel: Pick<SidePanel, 'switchTab'>;
+  openPartyPanel(): void;
+  setPartyUnread(count: number): void;
+  setPartyPanelAvailable(available: boolean): void;
   socket: Pick<
   SocketPartySender,
   | 'sendRequestPartyPanel'
@@ -81,7 +80,7 @@ export function createMainPartyStateSource(options: MainPartyStateSourceOptions)
       recruitmentLoaded,
     });
     options.partyHud.render(view.party, currentPlayerId, chatUnreadCount);
-    options.socialPanel.setPartyTabUnread(chatUnreadCount);
+    options.setPartyUnread(chatUnreadCount);
   }
 
   function resetPartyScopedState(): void {
@@ -93,38 +92,15 @@ export function createMainPartyStateSource(options: MainPartyStateSourceOptions)
 
   function applyPanel(next: PartyPanelView): void {
     const nextPartyId = next.party?.partyId ?? null;
-    const previousParty = view.party;
     if (nextPartyId !== currentPartyId) {
       currentPartyId = nextPartyId;
       resetPartyScopedState();
       if (nextPartyId) {
         void syncPartyChatHistory(nextPartyId);
       }
-      view = next;
-      syncRender();
-      return;
     }
-    const nextParty = next.party;
-    const memberStructureChanged = !previousParty || !nextParty
-      || previousParty.leaderPlayerId !== nextParty.leaderPlayerId
-      || previousParty.revision !== nextParty.revision
-      || previousParty.members.length !== nextParty.members.length
-      || previousParty.members.some((member, index) => member.playerId !== nextParty.members[index]?.playerId || member.role !== nextParty.members[index]?.role);
     view = next;
-    if (memberStructureChanged) {
-      syncRender();
-      return;
-    }
-    options.partyPanel.patchMembers({
-      view,
-      playerId: currentPlayerId,
-      chatUnreadCount,
-      chatDraft: '',
-      recruitingPurpose: recruitingPurpose ?? 'general',
-      recruitmentLoaded,
-    });
-    options.partyHud.render(view.party, currentPlayerId, chatUnreadCount);
-    options.socialPanel.setPartyTabUnread(chatUnreadCount);
+    syncRender();
   }
 
   async function syncPartyChatHistory(partyId: string): Promise<void> {
@@ -173,16 +149,22 @@ export function createMainPartyStateSource(options: MainPartyStateSourceOptions)
     },
     onOpenChat: () => {
       chatUnreadCount = 0;
+      options.partyHud.openChat();
       syncRender();
     },
     onRequestRecruitmentCandidates: () => options.socket.sendRequestPartyRecruitments(recruitingPurpose),
   });
 
+  function openPartyPanel(): void {
+    chatUnreadCount = 0;
+    options.openPartyPanel();
+    syncRender();
+  }
+
   options.partyHud.setCallbacks({
-    onOpenParty: () => {
+    onOpenParty: openPartyPanel,
+    onOpenChat: () => {
       chatUnreadCount = 0;
-      options.sidePanel.switchTab('social');
-      options.socialPanel.openPartyTab();
       syncRender();
     },
     onSendChat: (text) => {
@@ -195,15 +177,18 @@ export function createMainPartyStateSource(options: MainPartyStateSourceOptions)
   return {
     init(): void {
       currentPlayerId = options.getPlayerId();
+      options.setPartyPanelAvailable(currentPlayerId !== null);
       options.socket.sendRequestPartyPanel();
     },
-    /** 队伍 Tab 宿主挂载后重绘当前视图。 */
+    /** 队伍悬浮窗重新打开后重绘当前视图。 */
     refreshView(): void {
       syncRender();
     },
+    openPanel: openPartyPanel,
     clear(): void {
       currentPlayerId = null;
       currentPartyId = null;
+      options.setPartyPanelAvailable(false);
       view = { ...EMPTY_PANEL, incomingInvites: [], incomingApplications: [], recruitments: [] };
       recruitmentLoaded = false;
       resetPartyScopedState();
@@ -275,6 +260,7 @@ export function createMainPartyStateSource(options: MainPartyStateSourceOptions)
     },
     /** 切换角色时重置代际，避免旧角色的晚包污染。 */
     syncPlayerContext(playerId: string | null): void {
+      options.setPartyPanelAvailable(playerId !== null);
       if (playerId !== currentPlayerId) {
         currentPlayerId = playerId;
         currentPartyId = null;

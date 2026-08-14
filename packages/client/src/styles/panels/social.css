@@ -635,7 +635,7 @@
       container-name: social-panel;
       container-type: inline-size;
       display: grid;
-      grid-template-rows: auto auto minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr);
       gap: 10px;
       height: 100%;
       min-height: 0;
@@ -657,19 +657,102 @@
       flex-wrap: wrap;
     }
 
-    .social-panel-tabs {
+    .social-menu-launcher {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 6px;
-      margin-bottom: 0;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-content: start;
+      gap: 8px;
       min-width: 0;
     }
 
-    .social-panel-tab {
+    .social-menu-launcher[hidden],
+    .social-menu-shell[hidden] {
+      display: none !important;
+    }
+
+    .social-menu-card {
       position: relative;
       min-width: 0;
-      min-height: 38px;
-      padding-inline: 6px;
+      min-height: 76px;
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 9px;
+      padding: 10px;
+      border: 1px solid var(--wash-ink);
+      border-radius: var(--radius-md);
+      background: var(--surface-gradient-pane);
+      color: var(--ink-strong);
+      text-align: left;
+      cursor: pointer;
+      box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.04);
+      transition: transform var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard);
+    }
+
+    .social-menu-card:hover,
+    .social-menu-card:focus-visible,
+    .social-menu-card.active {
+      border-color: color-mix(in srgb, var(--accent) 60%, var(--wash-ink));
+      transform: translateY(-1px);
+      outline: none;
+    }
+
+    .social-menu-card-glyph {
+      width: 34px;
+      height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: color-mix(in srgb, var(--accent) 14%, var(--surface-base));
+      color: var(--accent);
+      font-weight: 800;
+    }
+
+    .social-menu-card-copy {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .social-menu-card-copy strong {
+      font-size: var(--font-size-13);
+    }
+
+    .social-menu-card-copy small {
+      color: var(--ink-grey);
+      font-size: var(--font-size-11);
+      line-height: 1.35;
+    }
+
+    .social-menu-shell {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 8px;
+    }
+
+    .social-menu-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 10px;
+      border: 1px solid var(--wash-ink);
+      background: var(--surface-gradient-pane);
+    }
+
+    .social-menu-kicker {
+      color: var(--ink-grey);
+      font-size: var(--font-size-11);
+    }
+
+    .social-menu-title {
+      color: var(--ink-black);
+      font-size: var(--font-size-14);
+      font-weight: 800;
     }
 
     .social-panel-tab-count,
@@ -977,13 +1060,15 @@
 
     @container social-panel (max-width: 560px) {
       .social-panel {
-        grid-template-rows: auto auto minmax(0, auto);
+        grid-template-rows: auto minmax(0, auto);
         height: auto;
         min-height: 100%;
       }
-      .social-panel-tab {
-        min-height: 44px;
-        padding-inline: 4px;
+      .social-menu-launcher {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .social-menu-card {
+        min-height: 68px;
       }
       .social-panel-tab-content {
         overflow: visible;

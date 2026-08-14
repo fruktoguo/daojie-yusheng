@@ -1,6 +1,6 @@
 /**
- * 组队客户端 proof：验证队伍 Tab、状态隔离、late response 丢弃、成员 keyed patch、
- * 手机端基本结构与友伤双门槛说明文案。
+ * 组队客户端 proof：验证独立悬浮窗、成员/管理权限 Tab、状态隔离、late response 丢弃、
+ * 成员 keyed patch、手机端结构与友伤双门槛说明文案。
  */
 import assert from 'node:assert/strict';
 import { delay, withClientBrowserProof } from './browser-proof-runtime.mjs';
@@ -14,23 +14,29 @@ const fixtureExpression = String.raw`
     document.getElementById('login-overlay')?.classList.add('hidden');
 
     const { PartyPanel } = await import('/src/ui/panels/party-panel.ts');
+    const { PartyFloatingPanel } = await import('/src/ui/party-floating-panel.ts');
     const { PartyHud } = await import('/src/ui/party-hud.ts');
     const { createMainPartyStateSource } = await import('/src/main-party-state-source.ts');
     const { buildEntityNameplateBadges } = await import('/src/entity-nameplate-badges.ts');
 
-    const host = document.createElement('div');
-    document.body.appendChild(host);
     const partyPanel = new PartyPanel();
-    partyPanel.mount(host);
+    const partyFloatingPanel = new PartyFloatingPanel(partyPanel);
+    const host = partyFloatingPanel.root;
     const partyHud = new PartyHud(document.getElementById('party-hud'));
 
     const sent = [];
-    const socialPanelStub = { unread: -1, setPartyTabUnread(count) { this.unread = count; }, openPartyTab() {} };
+    const partyChromeStub = {
+      unread: -1,
+      available: false,
+      setUnread(count) { this.unread = count; },
+      setAvailable(available) { this.available = available; partyFloatingPanel.setAvailable(available); },
+    };
     const source = createMainPartyStateSource({
       partyPanel,
       partyHud,
-      socialPanel: socialPanelStub,
-      sidePanel: { switchTab() {} },
+      openPartyPanel: () => partyFloatingPanel.open(),
+      setPartyUnread: (count) => partyChromeStub.setUnread(count),
+      setPartyPanelAvailable: (available) => partyChromeStub.setAvailable(available),
       socket: Object.fromEntries([
         'sendRequestPartyPanel','sendCreateParty','sendInvitePartyPlayer','sendRespondPartyInvite','sendLeaveParty',
         'sendRemovePartyMember','sendTransferPartyLeader','sendDisbandParty','sendUpdatePartySettings',
@@ -59,7 +65,7 @@ const fixtureExpression = String.raw`
     const emptyRecruitments = [];
     source.handlePartyPanel({ party, incomingInvites: emptyInvites, incomingApplications: emptyApplications, recruitments: emptyRecruitments, matchQueue: { queued: false }, serverTime: Date.now() });
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    window.__partyProof = { source, partyPanel, partyHud, host, sent, socialPanelStub, party, emptyInvites, emptyApplications, emptyRecruitments, buildEntityNameplateBadges };
+    window.__partyProof = { source, partyPanel, partyFloatingPanel, partyHud, host, sent, partyChromeStub, party, emptyInvites, emptyApplications, emptyRecruitments, buildEntityNameplateBadges };
     return { ok: true };
   })()
 `;
@@ -74,6 +80,9 @@ await withClientBrowserProof(
       (() => {
         const { host } = window.__partyProof;
         return {
+          hasFloatingWindow: host.classList.contains('floating-list-panel--party') && !host.hidden,
+          hasMemberTab: !!host.querySelector('[data-party-tab="members"]'),
+          hasManagementTab: !!host.querySelector('[data-party-tab="management"]'),
           hasMemberList: !!host.querySelector('[data-party-member-list="true"]'),
           memberCards: host.querySelectorAll('[data-party-member]').length,
           hasRecruitment: !!host.querySelector('.party-recruit-filter'),
@@ -84,12 +93,27 @@ await withClientBrowserProof(
         };
       })()
     `);
+    assert.equal(structure.hasFloatingWindow, true, '独立队伍悬浮窗未显示');
+    assert.equal(structure.hasMemberTab, true, '队伍成员 Tab 缺失');
+    assert.equal(structure.hasManagementTab, false, '普通成员不应看到管理 Tab');
     assert.equal(structure.hasMemberList, true, '队伍成员列表未挂载');
     assert.equal(structure.memberCards, 2, '成员卡片数量不符');
     assert.equal(structure.hasRecruitment, true, '招募大厅未挂载');
     assert.equal(structure.hasFriendlyFireHint, false, '非队长视图不应出现队长工具与友伤说明');
     assert.equal(structure.hudMounted, true, '队伍 HUD 未挂载');
     assert.equal(structure.hudMembers, 2, 'HUD 成员行数量不符');
+
+    const reopenResult = await cdp.evaluate(String.raw`
+      (() => {
+        const { source, host } = window.__partyProof;
+        host.querySelector('[data-floating-list-close="true"]')?.click();
+        const closed = host.hidden;
+        source.openPanel();
+        return { closed, reopened: !host.hidden };
+      })()
+    `);
+    assert.equal(reopenResult.closed, true, '关闭按钮未隐藏队伍悬浮窗');
+    assert.equal(reopenResult.reopened, true, '队伍入口未能重新打开悬浮窗');
 
     // 成员 keyed patch：仅 HP 变化时行节点应被原位替换且其它成员节点保持。
     const patchResult = await cdp.evaluate(String.raw`
@@ -149,22 +173,24 @@ await withClientBrowserProof(
     // 队伍聊天未读角标与面板打开后的清零。
     const chatResult = await cdp.evaluate(String.raw`
       (() => {
-        const { source, sent, socialPanelStub, party } = window.__partyProof;
+        const { source, partyChromeStub } = window.__partyProof;
         source.handlePartyChatMessage({ messageId: 'm-1', partyId: 'party-a', fromPlayerId: 'leader-1', fromName: '队长甲', text: '集合了', sentAt: Date.now() });
         source.handlePartyChatHistory({ requestId: undefined, partyId: 'party-a', messages: [] });
-        const unreadBeforeOpen = socialPanelStub.unread;
+        const unreadBeforeOpen = partyChromeStub.unread;
         const hudBadgeBeforeOpen = document.querySelector('#party-hud [data-party-hud-unread]')?.textContent ?? '';
         window.__partyProof.host.querySelector('[data-party-action="open-chat"]')?.click();
         return {
           unreadBeforeOpen,
           hudBadgeBeforeOpen,
-          unreadAfterOpen: socialPanelStub.unread,
+          unreadAfterOpen: partyChromeStub.unread,
+          chatOpened: document.querySelector('#party-hud [data-party-hud-chat="true"]')?.hidden === false,
         };
       })()
     `);
-    assert.equal(chatResult.unreadBeforeOpen, 1, '队伍未读角标未同步到社交 Tab');
+    assert.equal(chatResult.unreadBeforeOpen, 1, '队伍未读角标未同步到悬浮窗标题状态');
     assert.equal(chatResult.hudBadgeBeforeOpen, '1', 'HUD 未读角标未更新');
     assert.equal(chatResult.unreadAfterOpen, 0, '打开队伍聊天后未清零未读角标');
+    assert.equal(chatResult.chatOpened, true, '队伍面板聊天按钮未展开 HUD 聊天区');
 
     // 队长视图：设置表单、友伤说明、移交/移出按钮。
     const leaderResult = await cdp.evaluate(String.raw`
@@ -175,7 +201,10 @@ await withClientBrowserProof(
           incomingInvites: [], incomingApplications: [{ applicationId: 'app-1', partyId: 'party-a', playerId: 'p-9', playerName: '申请者', realmLv: 2, createdAt: Date.now(), expiresAt: Date.now() + 60000 }],
           recruitments: [], matchQueue: { queued: false }, serverTime: Date.now(),
         });
+        const managementTab = host.querySelector('[data-party-tab="management"]');
+        managementTab?.click();
         return {
+          hasManagementTab: !!managementTab,
           hasSettings: !!host.querySelector('[data-party-setting="expMode"]') && !!host.querySelector('[data-party-setting="friendlyFireEnabled"]'),
           hasFriendlyFireHint: host.textContent.includes('双重门槛') && host.textContent.includes('默认互为友方'),
           hasKick: !!host.querySelector('[data-party-action="kick"]'),
@@ -186,6 +215,7 @@ await withClientBrowserProof(
         };
       })()
     `);
+    assert.equal(leaderResult.hasManagementTab, true, '队长管理 Tab 缺失');
     assert.equal(leaderResult.hasSettings, true, '队长设置表单缺失');
     assert.equal(leaderResult.hasFriendlyFireHint, true, '友伤双门槛说明缺失');
     assert.equal(leaderResult.hasKick, true, '移出成员操作缺失');
@@ -193,6 +223,91 @@ await withClientBrowserProof(
     assert.equal(leaderResult.hasApplication, true, '入队申请审批缺失');
     assert.equal(leaderResult.hasDisband, true, '解散队伍操作缺失');
     assert.equal(leaderResult.recruitNoteMaxLength, 200, '招募说明输入上限不是 200 字');
+
+    // 同 revision 的管理数据必须刷新；聊天/HP 更新不得打断招募表单输入。
+    const continuityResult = await cdp.evaluate(String.raw`
+      (() => {
+        const { source, host, party } = window.__partyProof;
+        const leaderParty = {
+          ...party,
+          leaderPlayerId: 'self-player',
+          members: party.members.map((member) => member.playerId === 'self-player'
+            ? { ...member, role: 'leader' }
+            : { ...member, role: 'member' }),
+        };
+        source.handlePartyPanel({
+          party: leaderParty, incomingInvites: [], incomingApplications: [], recruitments: [],
+          matchQueue: { queued: false }, serverTime: Date.now(),
+        });
+        host.querySelector('[data-party-tab="management"]')?.click();
+        const noteBefore = host.querySelector('input[name="note"]');
+        if (!(noteBefore instanceof HTMLInputElement)) throw new Error('未找到招募说明输入框');
+        noteBefore.value = '保留这段尚未发布的招募说明';
+        noteBefore.focus();
+        noteBefore.setSelectionRange(2, 8);
+        source.handlePartyChatMessage({
+          messageId: 'm-continuity', partyId: 'party-a', fromPlayerId: 'leader-1',
+          fromName: '队友甲', text: '不要打断输入', sentAt: Date.now(),
+        });
+        const noteAfterChat = host.querySelector('input[name="note"]');
+        const chatPreserved = noteAfterChat === noteBefore
+          && noteAfterChat?.value === '保留这段尚未发布的招募说明'
+          && document.activeElement === noteAfterChat
+          && noteAfterChat?.selectionStart === 2
+          && noteAfterChat?.selectionEnd === 8;
+        source.handlePartyPanel({
+          party: {
+            ...leaderParty,
+            members: leaderParty.members.map((member) => member.playerId === 'leader-1' ? { ...member, hp: 33 } : member),
+          },
+          incomingInvites: [], incomingApplications: [], recruitments: [],
+          matchQueue: { queued: false }, serverTime: Date.now(),
+        });
+        const noteAfterHp = host.querySelector('input[name="note"]');
+        const hpPreserved = noteAfterHp === noteBefore
+          && noteAfterHp?.value === '保留这段尚未发布的招募说明'
+          && document.activeElement === noteAfterHp
+          && noteAfterHp?.selectionStart === 2
+          && noteAfterHp?.selectionEnd === 8
+          && host.querySelector('[data-party-member="leader-1"]')?.textContent.includes('33/100');
+        source.handlePartyPanel({
+          party: leaderParty,
+          incomingInvites: [],
+          incomingApplications: [{
+            applicationId: 'app-same-revision', partyId: 'party-a', playerId: 'p-10',
+            playerName: '同修乙', realmLv: 4, createdAt: Date.now(), expiresAt: Date.now() + 60_000,
+          }],
+          recruitments: [], matchQueue: { queued: false }, serverTime: Date.now(),
+        });
+        const noteAfterApplication = host.querySelector('input[name="note"]');
+        const structuralPreserved = noteAfterApplication !== noteBefore
+          && noteAfterApplication?.value === '保留这段尚未发布的招募说明'
+          && document.activeElement === noteAfterApplication
+          && noteAfterApplication?.selectionStart === 2
+          && noteAfterApplication?.selectionEnd === 8;
+        const applicationVisible = !!host.querySelector('[data-application-id="app-same-revision"]')
+          || host.textContent.includes('同修乙');
+        host.querySelector('[data-party-tab="members"]')?.click();
+        source.handlePartyPanel({
+          party: leaderParty, incomingInvites: [], incomingApplications: [],
+          recruitments: [{
+            listingId: 'listing-same-revision', partyId: 'party-b', leaderPlayerId: 'p-20',
+            leaderName: '招募队长', purpose: 'boss', minRealmLv: 2, maxRealmLv: 8, note: '同 revision 新招募',
+            memberCount: 3, maxMembers: 5, createdAt: Date.now(), expiresAt: Date.now() + 60_000,
+          }],
+          matchQueue: { queued: false }, serverTime: Date.now(),
+        });
+        return {
+          chatPreserved, hpPreserved, structuralPreserved, applicationVisible,
+          recruitmentVisible: host.textContent.includes('同 revision 新招募'),
+        };
+      })()
+    `);
+    assert.equal(continuityResult.chatPreserved, true, '聊天未读更新打断了招募表单输入');
+    assert.equal(continuityResult.hpPreserved, true, '成员 HP 更新打断了招募表单输入或未更新成员行');
+    assert.equal(continuityResult.structuralPreserved, true, '管理数据结构更新未恢复表单值、焦点与选区');
+    assert.equal(continuityResult.applicationVisible, true, '同 revision 新申请未刷新到管理页');
+    assert.equal(continuityResult.recruitmentVisible, true, '同 revision 招募列表变化未刷新');
 
     // 队长离线提示（普通成员视角）。
     const offlineResult = await cdp.evaluate(String.raw`
@@ -261,6 +376,31 @@ await withClientBrowserProof(
     assert.equal(mobile.inviteVisible, true, '手机端邀请操作缺失');
     assert.equal(mobile.matchWaiting, true, '自动匹配等待状态缺失');
     assert.equal(mobile.matchHitOk, true, '手机端取消匹配按钮触控命中不足');
+
+    // 内容从短变长时 ResizeObserver 必须把底部浮窗重新约束到视口内。
+    const clampResult = await cdp.evaluate(String.raw`
+      (async () => {
+        const { partyFloatingPanel, host } = window.__partyProof;
+        partyFloatingPanel.open();
+        const body = host.querySelector('[data-floating-list-body="true"]');
+        if (!(body instanceof HTMLElement)) throw new Error('队伍浮窗 body 缺失');
+        host.style.top = (innerHeight - 20) + 'px';
+        const probe = document.createElement('div');
+        probe.style.height = '520px';
+        probe.dataset.partyResizeProbe = 'true';
+        body.appendChild(probe);
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        const rect = host.getBoundingClientRect();
+        probe.remove();
+        return {
+          top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right,
+          viewportWidth: innerWidth, viewportHeight: innerHeight,
+        };
+      })()
+    `);
+    assert(clampResult.top >= 7, '队伍浮窗内容增长后顶部越出视口');
+    assert(clampResult.bottom <= clampResult.viewportHeight - 7, '队伍浮窗内容增长后底部越出视口');
+    assert(clampResult.left >= 7 && clampResult.right <= clampResult.viewportWidth - 7, '队伍浮窗内容增长后横向越出视口');
   },
 );
 

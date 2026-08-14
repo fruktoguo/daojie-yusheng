@@ -6,6 +6,58 @@
   gap: 12px;
 }
 
+/* 独立队伍悬浮窗 */
+.floating-list-panel--party {
+  width: min(540px, calc(100vw - 16px));
+  max-height: min(76vh, 760px);
+}
+
+.floating-list-panel--party .floating-list-panel__body {
+  padding: 10px;
+}
+
+.party-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--border-subtle, rgba(96, 74, 52, 0.18));
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--surface-card, #fffaf0) 76%, transparent);
+}
+
+.party-tab {
+  flex: 1;
+  min-height: 36px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary, #6b5d4f);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.party-tab:hover,
+.party-tab:focus-visible {
+  background: color-mix(in srgb, var(--accent, #8a5a2b) 10%, transparent);
+  color: var(--text-primary, #2f251c);
+  outline: none;
+}
+
+.party-tab.active {
+  background: var(--surface-card, rgba(255, 252, 246, 0.92));
+  color: var(--accent, #8a5a2b);
+  box-shadow: 0 1px 4px rgba(47, 37, 28, 0.12);
+}
+
+.party-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
 .party-section {
   display: flex;
   flex-direction: column;
@@ -391,6 +443,15 @@
 
 /* 手机端：HUD 避让底部固定操作区与安全区 */
 @media (max-width: 720px) {
+  .floating-list-panel--party {
+    width: min(360px, calc(100vw - 16px));
+    max-height: min(68dvh, 620px);
+  }
+
+  .floating-list-panel--party .floating-list-panel__body {
+    padding: 8px;
+  }
+
   .party-hud {
     margin-top: 6px;
   }

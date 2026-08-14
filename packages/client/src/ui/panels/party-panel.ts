@@ -1,4 +1,4 @@
-/** 队伍面板：队伍 Tab 的整段渲染与局部更新。由 social-panel 挂载，不直接访问 socket。 */
+/** 队伍悬浮窗内容：成员、管理、招募与匹配。只提交意图，不直接访问 socket。 */
 import type { PartyPanelView, PartyPurpose } from '@mud/shared';
 import { PARTY_MAX_MEMBERS } from '@mud/shared';
 import {
@@ -20,17 +20,28 @@ function escapeHtml(value: unknown): string {
 }
 
 const PURPOSE_ORDER: readonly PartyPurpose[] = ['general', 'leveling', 'boss', 'tower', 'exploration'];
+type PartyPanelTab = 'members' | 'management';
+type PartyFormControl = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+type PartyEditorSnapshot = {
+  drafts: Array<{ key: string; value: string; checked: boolean | null }>;
+  activeKey: string | null;
+  selectionStart: number | null;
+  selectionEnd: number | null;
+  selectionDirection: 'forward' | 'backward' | 'none' | null;
+};
 
 export class PartyPanel {
   private host: HTMLElement | null = null;
   private callbacks: PartyStateSourceCallbacks | null = null;
   private state: PartyPanelRenderState | null = null;
+  private activeTab: PartyPanelTab = 'members';
 
   mount(host: HTMLElement): void {
     this.host = host;
     this.host.addEventListener('click', (event) => this.handleClick(event));
     this.host.addEventListener('submit', (event) => this.handleSubmit(event));
     this.host.addEventListener('change', (event) => this.handleChange(event));
+    this.host.addEventListener('keydown', (event) => this.handleKeyDown(event));
   }
 
   setCallbacks(callbacks: PartyStateSourceCallbacks): void {
@@ -43,28 +54,22 @@ export class PartyPanel {
     this.state = state;
     if (this.canPatchOnly(previous, state)) {
       this.patchMembers(state);
+      this.patchChatUnread(state.chatUnreadCount);
       return;
     }
+    const editorSnapshot = this.captureEditorState();
     this.host.innerHTML = this.renderAll(state);
+    this.restoreEditorState(editorSnapshot);
   }
 
-  /** 仅当成员字段变化且用户未在编辑表单时走 keyed 局部 patch，避免打断输入。 */
+  /** 面板结构未变化时只更新成员状态与未读数，避免重建正在编辑的表单。 */
   private canPatchOnly(previous: PartyPanelRenderState | null, next: PartyPanelRenderState): boolean {
     if (!previous || !this.host) return false;
     if (!this.host.querySelector('[data-party-member-list="true"]')) return false;
-    if (previous.view.party?.partyId !== next.view.party?.partyId) return false;
-    if (previous.view.party?.leaderPlayerId !== next.view.party?.leaderPlayerId) return false;
-    if (previous.view.party?.settings.revision !== next.view.party?.settings.revision) return false;
-    if (previous.view.party?.revision !== next.view.party?.revision) return false;
     if (previous.playerId !== next.playerId) return false;
-    if (previous.view.incomingInvites !== next.view.incomingInvites) return false;
-    if (previous.view.incomingApplications !== next.view.incomingApplications) return false;
-    if (previous.view.recruitments !== next.view.recruitments) return false;
-    const active = document.activeElement as HTMLElement | null;
-    if (active && this.host.contains(active) && (active.tagName === 'INPUT' || active.tagName === 'SELECT' || active.tagName === 'TEXTAREA')) {
-      return false;
-    }
-    return true;
+    if (previous.recruitingPurpose !== next.recruitingPurpose) return false;
+    if (previous.recruitmentLoaded !== next.recruitmentLoaded) return false;
+    return hasSamePartyPanelStructure(previous.view, next.view);
   }
 
   patchMembers(state: PartyPanelRenderState): void {
@@ -74,14 +79,15 @@ export class PartyPanel {
     if (!list) return;
     const playerId = state.playerId;
     const view = state.view;
-    const isLeaderView = Boolean(view.party && view.party.leaderPlayerId === playerId);
-    const active = document.activeElement as HTMLElement | null;
-    const editing = Boolean(active && this.host.contains(active) && (active.tagName === 'INPUT' || active.tagName === 'SELECT' || active.tagName === 'TEXTAREA'));
+    const isLeaderView = Boolean(
+      view.party
+      && view.party.leaderPlayerId === playerId
+      && this.activeTab === 'management',
+    );
     const next = new Map(view.party?.members.map((member) => [member.playerId, member]) ?? []);
     for (const existing of Array.from(list.querySelectorAll<HTMLElement>('[data-party-member]'))) {
       const memberId = existing.dataset.partyMember ?? '';
       if (!next.has(memberId)) {
-        if (editing) return;
         existing.remove();
       }
     }
@@ -90,14 +96,12 @@ export class PartyPanel {
       const signature = buildMemberSignature(member, isLeaderView);
       const current = list.querySelector<HTMLElement>(`[data-party-member="${CSS.escape(member.playerId)}"]`);
       if (!current) {
-        if (editing) return;
         list.insertAdjacentHTML('beforeend', html);
         const inserted = list.querySelector<HTMLElement>(`[data-party-member="${CSS.escape(member.playerId)}"]`);
         if (inserted) inserted.dataset.partyMemberSignature = signature;
         continue;
       }
       if (current.dataset.partyMemberSignature !== signature) {
-        if (editing) return;
         const template = document.createElement('template');
         template.innerHTML = html.trim();
         const nextNode = template.content.firstElementChild;
@@ -109,19 +113,138 @@ export class PartyPanel {
     }
   }
 
+  private patchChatUnread(count: number): void {
+    const unread = Math.max(0, Math.trunc(count));
+    const badge = this.host?.querySelector<HTMLElement>('[data-party-chat-unread="true"]');
+    if (!badge) return;
+    badge.hidden = unread <= 0;
+    badge.textContent = unread > 0 ? `（${unread} 条未读）` : '';
+  }
+
+  private captureEditorState(): PartyEditorSnapshot | null {
+    if (!this.host) return null;
+    const active = document.activeElement;
+    const drafts: PartyEditorSnapshot['drafts'] = [];
+    let activeKey: string | null = null;
+    let selectionStart: number | null = null;
+    let selectionEnd: number | null = null;
+    let selectionDirection: PartyEditorSnapshot['selectionDirection'] = null;
+    for (const control of this.host.querySelectorAll<PartyFormControl>('input, select, textarea')) {
+      const key = buildPartyControlKey(control);
+      if (!key) continue;
+      if (control.closest('[data-party-form]')) {
+        drafts.push({
+          key,
+          value: control.value,
+          checked: control instanceof HTMLInputElement ? control.checked : null,
+        });
+      }
+      if (active !== control) continue;
+      activeKey = key;
+      if (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) {
+        selectionStart = control.selectionStart;
+        selectionEnd = control.selectionEnd;
+        selectionDirection = control.selectionDirection;
+      }
+    }
+    return { drafts, activeKey, selectionStart, selectionEnd, selectionDirection };
+  }
+
+  private restoreEditorState(snapshot: PartyEditorSnapshot | null): void {
+    if (!this.host || !snapshot) return;
+    const controls = Array.from(this.host.querySelectorAll<PartyFormControl>('input, select, textarea'));
+    for (const draft of snapshot.drafts) {
+      const control = controls.find((entry) => buildPartyControlKey(entry) === draft.key);
+      if (!control) continue;
+      control.value = draft.value;
+      if (draft.checked !== null && control instanceof HTMLInputElement) {
+        control.checked = draft.checked;
+      }
+    }
+    const active = snapshot.activeKey
+      ? controls.find((entry) => buildPartyControlKey(entry) === snapshot.activeKey)
+      : null;
+    if (!active) return;
+    active.focus({ preventScroll: true });
+    if (!(active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement)) return;
+    if (snapshot.selectionStart === null || snapshot.selectionEnd === null) return;
+    try {
+      active.setSelectionRange(snapshot.selectionStart, snapshot.selectionEnd, snapshot.selectionDirection ?? 'none');
+    } catch {
+      // number/select 等控件不支持选区，恢复焦点即可。
+    }
+  }
+
   setRecruitingPurpose(purpose: PartyPurpose): void {
     if (!this.state) return;
     this.state = { ...this.state, recruitingPurpose: purpose };
   }
 
   private renderAll(state: PartyPanelRenderState): string {
-    const view = state.view;
+    const isLeader = Boolean(state.view.party && state.view.party.leaderPlayerId === state.playerId);
+    if (!isLeader && this.activeTab === 'management') {
+      this.activeTab = 'members';
+    }
+    const content = this.activeTab === 'management' && isLeader
+      ? this.renderManagementTab(state)
+      : this.renderMembersTab(state);
     return `
       <div class="party-panel" data-party-root="true">
-        ${this.renderInvites(view)}
-        ${view.party ? this.renderPartySection(state) : this.renderNoPartySection(state)}
-        ${this.renderRecruitmentSection(state)}
+        ${this.renderTabs(isLeader)}
+        <div
+          class="party-tab-content"
+          role="tabpanel"
+          id="party-panel-active-content"
+          aria-labelledby="party-panel-tab-${this.activeTab}"
+          data-party-tab-content="${this.activeTab}"
+        >
+          ${content}
+        </div>
       </div>
+    `;
+  }
+
+  private renderTabs(isLeader: boolean): string {
+    return `
+      <div class="party-tabs" role="tablist" aria-label="队伍功能">
+        ${this.renderTabButton('members', '成员')}
+        ${isLeader ? this.renderTabButton('management', '管理') : ''}
+      </div>
+    `;
+  }
+
+  private renderTabButton(tab: PartyPanelTab, label: string): string {
+    const active = tab === this.activeTab;
+    return `
+      <button
+        class="party-tab ${active ? 'active' : ''}"
+        type="button"
+        role="tab"
+        id="party-panel-tab-${tab}"
+        data-party-action="tab"
+        data-party-tab="${tab}"
+        aria-selected="${active ? 'true' : 'false'}"
+        aria-controls="party-panel-active-content"
+        tabindex="${active ? '0' : '-1'}"
+      >${label}</button>
+    `;
+  }
+
+  private renderMembersTab(state: PartyPanelRenderState): string {
+    return `
+      ${this.renderInvites(state.view)}
+      ${state.view.party ? this.renderPartySection(state, false) : this.renderNoPartySection(state)}
+      ${this.renderRecruitmentSection(state, false)}
+    `;
+  }
+
+  private renderManagementTab(state: PartyPanelRenderState): string {
+    if (!state.view.party || state.view.party.leaderPlayerId !== state.playerId) {
+      return '';
+    }
+    return `
+      ${this.renderPartySection(state, true)}
+      ${this.renderRecruitmentSection(state, true)}
     `;
   }
 
@@ -176,34 +299,42 @@ export class PartyPanel {
     `;
   }
 
-  private renderPartySection(state: PartyPanelRenderState): string {
-    const view = state.view;
-    const party = view.party!;
+  private renderPartySection(state: PartyPanelRenderState, management: boolean): string {
+    const party = state.view.party!;
     const playerId = state.playerId;
     const isLeader = party.leaderPlayerId === playerId;
     const leader = party.members.find((member) => member.playerId === party.leaderPlayerId);
     const leaderOffline = leader ? !leader.online : false;
+    const sectionTitle = management ? '成员管理' : '我的队伍';
     return `
       <section class="party-section">
         <div class="social-panel-section-head">
-          <div class="social-panel-section-title">我的队伍</div>
+          <div class="social-panel-section-title">${sectionTitle}</div>
           <div class="social-panel-section-meta"><span class="social-panel-count">${party.members.length}/${PARTY_MAX_MEMBERS}</span></div>
         </div>
         <div class="party-member-list" data-party-member-list="true">
-          ${party.members.map((member) => this.decorateMemberCard(renderPartyMemberCard(member, playerId, isLeader), member, isLeader)).join('')}
+          ${party.members.map((member) => this.decorateMemberCard(
+            renderPartyMemberCard(member, playerId, management && isLeader),
+            member,
+            management && isLeader,
+          )).join('')}
         </div>
-        <div class="party-actions-row">
-          <button class="small-btn" type="button" data-party-action="open-chat">队伍聊天${state.chatUnreadCount > 0 ? `（${state.chatUnreadCount} 条未读）` : ''}</button>
-        </div>
-        ${isLeader ? this.renderLeaderTools(party) : `
+        ${management ? this.renderLeaderTools(party) : `
           <div class="party-actions-row">
-            <form class="party-inline-form" data-party-form="invite-no">
-              <input class="party-input" type="number" min="1" step="1" name="playerNo" inputmode="numeric" placeholder="输入玩家序号邀请" aria-label="按玩家序号邀请" />
-              <button class="small-btn ghost" type="submit">邀请</button>
-            </form>
-            <button class="small-btn ghost danger" type="button" data-party-action="leave">退出队伍</button>
+            <button class="small-btn" type="button" data-party-action="open-chat">
+              队伍聊天<span data-party-chat-unread="true" ${state.chatUnreadCount > 0 ? '' : 'hidden'}>${state.chatUnreadCount > 0 ? `（${state.chatUnreadCount} 条未读）` : ''}</span>
+            </button>
           </div>
-          ${leaderOffline ? '<div class="party-hint">队长离线期间无法执行移交、解散等管理操作，请等待队长归来。</div>' : ''}
+          ${!isLeader ? `
+            <div class="party-actions-row">
+              <form class="party-inline-form" data-party-form="invite-no">
+                <input class="party-input" type="number" min="1" step="1" name="playerNo" inputmode="numeric" placeholder="输入玩家序号邀请" aria-label="按玩家序号邀请" />
+                <button class="small-btn ghost" type="submit">邀请</button>
+              </form>
+              <button class="small-btn ghost danger" type="button" data-party-action="leave">退出队伍</button>
+            </div>
+            ${leaderOffline ? '<div class="party-hint">队长离线期间无法执行移交、解散等管理操作，请等待队长归来。</div>' : ''}
+          ` : ''}
         `}
       </section>
     `;
@@ -246,12 +377,42 @@ export class PartyPanel {
     `;
   }
 
-  private renderRecruitmentSection(state: PartyPanelRenderState): string {
+  private renderRecruitmentSection(state: PartyPanelRenderState, management: boolean): string {
     const view = state.view;
     const party = view.party;
     const isLeader = Boolean(party && party.leaderPlayerId === state.playerId);
     const myRecruitment = party?.recruitment ?? null;
     const applications = view.incomingApplications;
+    if (management) {
+      if (!party || !isLeader) return '';
+      return `
+        <section class="party-section">
+          <div class="social-panel-section-head">
+            <div class="social-panel-section-title">招募管理</div>
+          </div>
+          ${this.renderRecruitmentPublisher(party, myRecruitment)}
+          ${applications.length > 0 ? `
+            <div class="party-applications">
+              <div class="party-subheading">入队申请</div>
+              <div class="ui-list">
+                ${applications.map((entry) => `
+                  <div class="ui-list-row">
+                    <div class="ui-list-main">
+                      <div class="ui-list-title">${escapeHtml(entry.playerName)}</div>
+                      <div class="ui-list-subtitle">${entry.realmLv > 0 ? `境界 ${entry.realmLv} 层` : '境界未知'}</div>
+                    </div>
+                    <div class="social-row-actions">
+                      <button class="small-btn" type="button" data-party-action="application-accept" data-application-id="${escapeHtml(entry.applicationId)}">同意</button>
+                      <button class="small-btn ghost" type="button" data-party-action="application-reject" data-application-id="${escapeHtml(entry.applicationId)}">拒绝</button>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : '<div class="empty-hint compact">暂无待审批的入队申请</div>'}
+        </section>
+      `;
+    }
     return `
       <section class="party-section">
         <div class="social-panel-section-head">
@@ -260,26 +421,6 @@ export class PartyPanel {
             <button class="small-btn ghost" type="button" data-party-action="recruit-refresh">刷新</button>
           </div>
         </div>
-        ${isLeader ? this.renderRecruitmentPublisher(party!, myRecruitment) : ''}
-        ${isLeader && applications.length > 0 ? `
-          <div class="party-applications">
-            <div class="party-subheading">入队申请</div>
-            <div class="ui-list">
-              ${applications.map((entry) => `
-                <div class="ui-list-row">
-                  <div class="ui-list-main">
-                    <div class="ui-list-title">${escapeHtml(entry.playerName)}</div>
-                    <div class="ui-list-subtitle">${entry.realmLv > 0 ? `境界 ${entry.realmLv} 层` : '境界未知'}</div>
-                  </div>
-                  <div class="social-row-actions">
-                    <button class="small-btn" type="button" data-party-action="application-accept" data-application-id="${escapeHtml(entry.applicationId)}">同意</button>
-                    <button class="small-btn ghost" type="button" data-party-action="application-reject" data-application-id="${escapeHtml(entry.applicationId)}">拒绝</button>
-                  </div>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        ` : ''}
         <div class="party-recruit-filter">
           <select class="party-select" data-party-field="recruit-purpose" aria-label="按目的筛选招募">
             <option value="">全部目的</option>
@@ -361,6 +502,16 @@ export class PartyPanel {
     }
     const action = target.dataset.partyAction;
     switch (action) {
+      case 'tab': {
+        const tab = target.dataset.partyTab;
+        if (tab === 'members' || (tab === 'management' && this.state.view.party?.leaderPlayerId === this.state.playerId)) {
+          this.activeTab = tab;
+          if (this.host) {
+            this.host.innerHTML = this.renderAll(this.state);
+          }
+        }
+        break;
+      }
       case 'create':
         this.callbacks.onCreate();
         break;
@@ -414,6 +565,26 @@ export class PartyPanel {
       default:
         break;
     }
+  }
+
+  private handleKeyDown(event: KeyboardEvent): void {
+    const target = (event.target as HTMLElement | null)?.closest<HTMLButtonElement>('[data-party-tab]');
+    if (!target || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+      return;
+    }
+    const tabs = Array.from(this.host?.querySelectorAll<HTMLButtonElement>('[data-party-tab]') ?? []);
+    const currentIndex = tabs.indexOf(target);
+    if (currentIndex < 0 || tabs.length === 0) {
+      return;
+    }
+    const nextIndex = event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? tabs.length - 1
+        : (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+    event.preventDefault();
+    tabs[nextIndex]?.click();
+    this.host?.querySelector<HTMLButtonElement>(`[data-party-tab="${this.activeTab}"]`)?.focus();
   }
 
   private handleSubmit(event: SubmitEvent): void {
@@ -490,9 +661,89 @@ function isPartyPurposeValue(value: string | undefined | null): value is PartyPu
   return value === 'general' || value === 'leveling' || value === 'boss' || value === 'tower' || value === 'exploration';
 }
 
+function buildPartyControlKey(control: PartyFormControl): string | null {
+  const form = control.closest<HTMLElement>('[data-party-form]')?.dataset.partyForm ?? '';
+  const name = control.getAttribute('name') ?? '';
+  const setting = control.dataset.partySetting ?? '';
+  const field = control.dataset.partyField ?? '';
+  if (!form && !name && !setting && !field) return null;
+  return [form, name, setting, field, control.tagName, control instanceof HTMLInputElement ? control.type : ''].join(':');
+}
+
+function hasSamePartyPanelStructure(previous: PartyPanelView, next: PartyPanelView): boolean {
+  return hasSamePartyStructure(previous.party, next.party)
+    && hasSameArray(previous.incomingInvites, next.incomingInvites, (left, right) => (
+      left.inviteId === right.inviteId
+      && left.partyId === right.partyId
+      && left.partyLabel === right.partyLabel
+      && left.fromPlayerId === right.fromPlayerId
+      && left.fromName === right.fromName
+      && left.memberCount === right.memberCount
+      && left.expiresAt === right.expiresAt
+    ))
+    && hasSameArray(previous.incomingApplications, next.incomingApplications, (left, right) => (
+      left.applicationId === right.applicationId
+      && left.partyId === right.partyId
+      && left.playerId === right.playerId
+      && left.playerNo === right.playerNo
+      && left.playerName === right.playerName
+      && left.realmLv === right.realmLv
+      && left.createdAt === right.createdAt
+      && left.expiresAt === right.expiresAt
+    ))
+    && hasSameArray(previous.recruitments, next.recruitments, hasSameRecruitment)
+    && previous.matchQueue.queued === next.matchQueue.queued
+    && previous.matchQueue.purpose === next.matchQueue.purpose
+    && previous.matchQueue.joinedAt === next.matchQueue.joinedAt
+    && previous.matchQueue.initialRealmTolerance === next.matchQueue.initialRealmTolerance
+    && previous.matchQueue.currentRealmTolerance === next.matchQueue.currentRealmTolerance;
+}
+
+function hasSamePartyStructure(previous: PartyPanelView['party'], next: PartyPanelView['party']): boolean {
+  if (previous === next) return true;
+  if (!previous || !next) return false;
+  return previous.partyId === next.partyId
+    && previous.leaderPlayerId === next.leaderPlayerId
+    && previous.revision === next.revision
+    && previous.settings.revision === next.settings.revision
+    && previous.settings.expMode === next.settings.expMode
+    && previous.settings.lootMode === next.settings.lootMode
+    && previous.settings.friendlyFireEnabled === next.settings.friendlyFireEnabled
+    && hasSameRecruitment(previous.recruitment ?? null, next.recruitment ?? null)
+    && hasSameArray(previous.members, next.members, (left, right) => (
+      left.playerId === right.playerId && left.role === right.role
+    ));
+}
+
+function hasSameRecruitment(
+  previous: PartyPanelView['recruitments'][number] | null,
+  next: PartyPanelView['recruitments'][number] | null,
+ ): boolean {
+  if (previous === next) return true;
+  if (!previous || !next) return false;
+  return previous.listingId === next.listingId
+    && previous.partyId === next.partyId
+    && previous.leaderPlayerId === next.leaderPlayerId
+    && previous.leaderName === next.leaderName
+    && previous.purpose === next.purpose
+    && previous.minRealmLv === next.minRealmLv
+    && previous.maxRealmLv === next.maxRealmLv
+    && previous.note === next.note
+    && previous.memberCount === next.memberCount
+    && previous.maxMembers === next.maxMembers
+    && previous.createdAt === next.createdAt
+    && previous.expiresAt === next.expiresAt;
+}
+
+function hasSameArray<T>(previous: readonly T[], next: readonly T[], equals: (left: T, right: T) => boolean): boolean {
+  return previous.length === next.length && previous.every((entry, index) => equals(entry, next[index]!));
+}
+
 function buildMemberSignature(member: NonNullable<PartyPanelView['party']>['members'][number], isLeaderView: boolean): string {
   return [
     member.playerId,
+    member.playerNo ?? '',
+    member.name,
     member.role,
     member.realmLv,
     member.online ? 1 : 0,

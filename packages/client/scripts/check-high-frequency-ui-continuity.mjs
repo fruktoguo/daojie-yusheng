@@ -440,12 +440,12 @@ assertMissing(socialSelect, /this\.render\(/, '切换道友不得重建私聊联
 
 const socialSwitchTab = section(
   socialPanel,
-  'private switchActiveTab(tab: SocialPanelTab): void {',
+  'private switchActiveTab(tab: SocialPanelTab, trigger: HTMLButtonElement | null = null): void {',
   'private openConversation(playerId: string): void {',
   'SocialPanel.switchActiveTab',
 );
-assertIncludes(socialSwitchTab, /replaceActiveTabContent\(inputSnapshot\)/, '道友子 Tab 切换只能替换当前内容区');
-assertMissing(socialSwitchTab, /this\.render\(/, '道友子 Tab 切换不得重建面板标题和四个 Tab');
+assertIncludes(socialSwitchTab, /replaceActiveTabContent\(inputSnapshot\)/, '道友子菜单切换只能替换当前内容区');
+assertMissing(socialSwitchTab, /this\.render\(/, '道友子菜单切换不得重建面板标题和入口卡片');
 
 const socialAppendMessage = section(
   socialPanel,
@@ -456,13 +456,15 @@ const socialAppendMessage = section(
 assertIncludes(socialAppendMessage, /patchCurrentConversation\(/, '新私聊消息必须优先追加稳定消息节点');
 assertIncludes(socialAppendMessage, /message\.toPlayerId === currentPlayerId/, '私聊未读只能统计对方发来的消息');
 assertIncludes(socialAppendMessage, /isConversationVisible\(peerId\)/, '私聊未读必须区分当前对话是否真实可见');
-assertIncludes(socialAppendMessage, /patchUnreadIndicators\(peerId\)/, '新私聊必须局部更新 Tab 与道友未读角标');
+assertIncludes(socialAppendMessage, /patchUnreadIndicators\(peerId\)/, '新私聊必须局部更新入口与道友未读角标');
 assertIncludes(socialPanel, /panel-section-head social-panel-head/, '道友面板标题必须复用现有面板头原语');
-assertIncludes(socialPanel, /data-social-tab-content="true"/, '道友面板必须保留单一活动子 Tab 内容宿主');
-assertIncludes(socialPanel, /data-social-tab-unread="true"/, '私聊子 Tab 必须提供未读角标节点');
+assertIncludes(socialPanel, /data-social-menu-launcher="true"/, '道友面板必须提供独立功能入口卡片');
+assertIncludes(socialPanel, /data-social-menu-shell="true"/, '道友面板必须保留单一活动子菜单宿主');
+assertIncludes(socialPanel, /data-social-action="party"/, '道友面板必须提供独立队伍悬浮窗入口');
+assertIncludes(socialPanel, /data-social-tab-unread="true"/, '私聊入口必须提供未读角标节点');
 assertMissing(socialPanel, /panel-section-header/, '道友面板不得继续使用不存在的 panel-section-header 类');
 assertIncludes(panelsCss, /\.social-panel \.ui-list-row\s*\{/, '道友列表行必须有明确布局样式');
-assertIncludes(panelsCss, /\.social-panel-tabs\s*\{[\s\S]*?repeat\(4, minmax\(0, 1fr\)\)/, '道友面板顶部必须保持四列子 Tab');
+assertIncludes(panelsCss, /\.social-menu-launcher\s*\{[\s\S]*?repeat\(2, minmax\(0, 1fr\)\)/, '道友面板入口必须使用双列按钮网格');
 assertIncludes(panelsCss, /\.social-conversation-workspace\s*\{/, '私聊联系人与对话必须有稳定工作区布局');
 assertIncludes(panelsCss, /\.social-panel-tab-unread\[hidden\]/, '私聊无未读时必须隐藏角标');
 assertIncludes(panelsCss, /@container social-panel \(max-width: 560px\)/, '道友面板必须保留窄容器响应式布局');

@@ -89,6 +89,23 @@ const resolveSocialEntryExpression = String.raw`
   })()
 `;
 
+const resolveRelationsMenuExpression = String.raw`
+  (() => {
+    const launcher = document.querySelector('[data-social-menu-launcher="true"]');
+    const button = document.querySelector('[data-social-menu="relations"]');
+    if (!(launcher instanceof HTMLElement) || !(button instanceof HTMLButtonElement)) {
+      throw new Error('道友功能入口卡片未渲染');
+    }
+    const rect = button.getBoundingClientRect();
+    return {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+      cardCount: launcher.querySelectorAll('[data-social-menu]').length,
+      partyEntry: !!launcher.querySelector('[data-social-menu="party"]'),
+    };
+  })()
+`;
+
 const mobileMeasureExpression = String.raw`
   (() => {
     const pane = document.getElementById('pane-social');
@@ -218,6 +235,23 @@ await withClientBrowserProof(
     await dispatchClick(cdp, socialEntry);
     await delay(100);
 
+    const relationsMenuEntry = await cdp.evaluate(resolveRelationsMenuExpression);
+    assert.equal(relationsMenuEntry.cardCount, 5, '道友面板未渲染五个独立功能入口');
+    assert.equal(relationsMenuEntry.partyEntry, true, '道友面板缺少队伍悬浮窗入口');
+    await dispatchClick(cdp, relationsMenuEntry);
+    await delay(100);
+
+    const focusAfterMenuOpen = await cdp.evaluate(String.raw`
+      (() => ({
+        closeFocused: document.activeElement?.getAttribute('data-social-action') === 'menu-close',
+        menuControls: document.querySelector('[data-social-menu="relations"]')?.getAttribute('aria-controls'),
+        closeControls: document.querySelector('[data-social-action="menu-close"]')?.getAttribute('aria-controls'),
+      }))()
+    `);
+    assert.equal(focusAfterMenuOpen.closeFocused, true, '打开道友子菜单后焦点未迁移到返回按钮');
+    assert.equal(focusAfterMenuOpen.menuControls, 'social-menu-shell', '道友入口缺少子菜单 aria-controls');
+    assert.equal(focusAfterMenuOpen.closeControls, 'social-menu-launcher', '返回按钮缺少入口 aria-controls');
+
     const initial = await cdp.evaluate(mobileMeasureExpression);
     assert.equal(initial.paneActive, true, '点击手机端道友入口后未激活正式面板');
     assert.equal(initial.rowCount, 12, '服务端视图未完整进入正式道友列表渲染');
@@ -258,6 +292,97 @@ await withClientBrowserProof(
     assert.equal(dark.last.visibleInBody, true, '深色模式下道友列表底部不可达');
 
     await cdp.evaluate(`document.documentElement.dataset.colorMode = 'light'`);
+
+    const menuContinuity = await cdp.evaluate(String.raw`
+      (async () => {
+        const panel = window.__socialMobileProofPanel;
+        const pane = document.getElementById('pane-social');
+        const body = pane?.closest('.section-body');
+        if (!(pane instanceof HTMLElement) || !(body instanceof HTMLElement)) {
+          throw new Error('道友菜单连续性 proof 缺少容器');
+        }
+        const mobilePane = pane.closest('.mobile-ui-pane');
+        if (mobilePane instanceof HTMLElement) {
+          for (const entry of mobilePane.parentElement?.querySelectorAll('.mobile-ui-pane.active') ?? []) {
+            entry.classList.remove('active');
+          }
+          mobilePane.classList.add('active');
+        }
+        const waitFrames = (count) => new Promise((resolve) => {
+          const next = () => count-- <= 0 ? resolve() : requestAnimationFrame(next);
+          requestAnimationFrame(next);
+        });
+        await waitFrames(2);
+        panel.closeActiveMenu();
+        await waitFrames(5);
+        const focusReturned = document.activeElement?.getAttribute('data-social-menu') === 'relations';
+        const launcherVisible = pane.querySelector('[data-social-menu-launcher="true"]')?.hidden === false;
+        const launcherScrollTop = body.scrollTop;
+        pane.querySelector('[data-social-menu="messages"]')?.click();
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        const peerId = 'social-mobile-proof-0';
+        for (let index = 0; index < 48; index += 1) {
+          panel.appendMessage({
+            messageId: 'continuity-' + index, fromPlayerId: peerId, toPlayerId: 'self-player',
+            text: '滚动连续性消息 ' + index, sentAt: Date.now() + index,
+          }, 'self-player');
+        }
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        const root = pane.querySelector('[data-social-conversation-peer="' + peerId + '"]');
+        const input = root?.querySelector('[data-social-message-input]');
+        if (!(root instanceof HTMLElement) || !(input instanceof HTMLInputElement)) {
+          throw new Error('私聊连续性 proof 缺少会话 DOM');
+        }
+        input.value = '尚未发送的私聊草稿';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        const scrollContainer = root.scrollHeight > root.clientHeight + 1 ? root : body;
+        const scrollContainerKind = scrollContainer === root ? 'messages' : 'pane';
+        const scrollRange = Math.max(0, scrollContainer.scrollHeight - scrollContainer.clientHeight);
+        scrollContainer.scrollTop = Math.max(1, Math.floor(scrollRange / 2));
+        const savedScrollTop = scrollContainer.scrollTop;
+        panel.closeActiveMenu();
+        await waitFrames(5);
+        const focusReturnedFromMessages = document.activeElement?.getAttribute('data-social-menu') === 'messages';
+        const hiddenRoot = pane.querySelector('[data-social-conversation-peer="' + peerId + '"]');
+        const hiddenRowCount = hiddenRoot?.querySelectorAll('[data-social-message-id]').length ?? -1;
+        panel.appendMessage({
+          messageId: 'continuity-hidden', fromPlayerId: peerId, toPlayerId: 'self-player',
+          text: '菜单隐藏期间收到的消息', sentAt: Date.now() + 1000,
+        }, 'self-player');
+        const hiddenDomUntouched = (hiddenRoot?.querySelectorAll('[data-social-message-id]').length ?? -2) === hiddenRowCount;
+        pane.querySelector('[data-social-menu="messages"]')?.click();
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        const restoredRoot = pane.querySelector('[data-social-conversation-peer="' + peerId + '"]');
+        const restoredInput = restoredRoot?.querySelector('[data-social-message-input]');
+        const restoredContainer = restoredRoot && restoredRoot.scrollHeight > restoredRoot.clientHeight + 1 ? restoredRoot : body;
+        const restoredContainerKind = restoredContainer === restoredRoot ? 'messages' : 'pane';
+        const restoredScrollTop = restoredContainer.scrollTop;
+        const focusOnReturn = document.activeElement?.getAttribute('data-social-action') === 'menu-close';
+        panel.closeActiveMenu();
+        pane.querySelector('[data-social-menu="relations"]')?.click();
+        return {
+          focusReturned, launcherVisible, launcherScrollTop, focusReturnedFromMessages, hiddenDomUntouched,
+          draftRestored: restoredInput?.value === '尚未发送的私聊草稿',
+          scrollRestored: savedScrollTop <= 1 || (scrollContainerKind === restoredContainerKind && Math.abs(restoredScrollTop - savedScrollTop) <= 8),
+          scrollDebug: {
+            savedScrollTop, restoredScrollTop, scrollRange, scrollContainerKind, restoredContainerKind,
+            restoredScrollRange: Math.max(0, restoredContainer.scrollHeight - restoredContainer.clientHeight),
+            mobilePaneActive: pane.closest('.mobile-ui-pane')?.classList.contains('active') ?? null,
+          },
+          focusOnReturn, hiddenMessageVisible: restoredRoot?.textContent.includes('菜单隐藏期间收到的消息') === true,
+        };
+      })()
+    `);
+    assert.equal(menuContinuity.focusReturned, true, '返回入口页后焦点未回到原入口卡片');
+    assert.equal(menuContinuity.launcherVisible, true, '返回后道友入口页未显示');
+    assert(menuContinuity.launcherScrollTop <= 1, '入口页继承了子菜单的深滚动位置');
+    assert.equal(menuContinuity.focusReturnedFromMessages, true, '关闭私聊后焦点未回到私聊入口');
+    assert.equal(menuContinuity.hiddenDomUntouched, true, '私聊菜单隐藏期间仍重建了隐藏 DOM');
+    assert.equal(menuContinuity.draftRestored, true, '私聊菜单重开后草稿丢失');
+    assert.equal(menuContinuity.scrollRestored, true, `私聊菜单重开后滚动位置丢失：${JSON.stringify(menuContinuity.scrollDebug)}`);
+    assert.equal(menuContinuity.focusOnReturn, true, '重开私聊后焦点未迁移到返回按钮');
+    assert.equal(menuContinuity.hiddenMessageVisible, true, '私聊菜单重开后未呈现隐藏期间收到的消息');
+
     await cdp.send('Emulation.setDeviceMetricsOverride', {
       width: DESKTOP_VIEWPORT.width,
       height: DESKTOP_VIEWPORT.height,

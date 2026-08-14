@@ -6,6 +6,7 @@ import type { PartyChatMessageView, PartyView } from '@mud/shared';
 
 export type PartyHudCallbacks = {
   onOpenParty(): void;
+  onOpenChat(): void;
   onSendChat(text: string): void;
 };
 
@@ -57,6 +58,18 @@ export class PartyHud {
 
   isChatVisible(): boolean {
     return this.chatOpen && !this.root.hidden;
+  }
+
+  openChat(): void {
+    if (!this.party) {
+      return;
+    }
+    this.chatOpen = true;
+    const chat = this.root.querySelector<HTMLElement>('[data-party-hud-chat="true"]');
+    if (chat) {
+      chat.hidden = false;
+    }
+    this.renderChatMessages();
   }
 
   setChatMessages(messages: readonly PartyChatMessageView[], playerId: string | null): void {
@@ -201,6 +214,7 @@ export class PartyHud {
       if (chat) chat.hidden = !this.chatOpen;
       if (this.chatOpen) {
         this.unreadCount = 0;
+        this.callbacks.onOpenChat();
         this.renderChatMessages();
       }
     }
