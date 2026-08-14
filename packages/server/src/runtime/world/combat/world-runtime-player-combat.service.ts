@@ -9,7 +9,7 @@ import { resolvePlayerFacingContentName } from '@mud/shared';
 import { ContentTemplateRepository } from '../../../content/content-template.repository';
 import { BLOOD_ESSENCE_ITEM_ID } from '../../../constants/gameplay/pvp';
 import {
-    REAL_WORLD_MONSTER_KILL_DROP_RATE_BONUS_BP,
+    REAL_WORLD_MONSTER_KILL_DROP_RATE_KILL_EQUIVALENT_MULTIPLIER,
     REAL_WORLD_MONSTER_KILL_EXP_MULTIPLIER,
 } from '../../../constants/gameplay/real-world';
 import { resolveHeavenlyDaoSuppressionStacksForKill } from '../../../constants/gameplay/virtual-world';
@@ -165,16 +165,16 @@ export class WorldRuntimePlayerCombatService {
             'combat.playerMonsterKill.progressMs',
             sectionStartedAt,
         );
-        const realWorldDropRateBonus = isRealPublicWorldInstance(instance)
-            ? REAL_WORLD_MONSTER_KILL_DROP_RATE_BONUS_BP
-            : 0;
-        const lootRate = (killer?.attrs.numericStats.lootRate ?? 0) + realWorldDropRateBonus;
+        const realWorldDropRateMultiplier = isRealPublicWorldInstance(instance)
+            ? REAL_WORLD_MONSTER_KILL_DROP_RATE_KILL_EQUIVALENT_MULTIPLIER
+            : 1;
+        const lootRate = killer?.attrs.numericStats.lootRate ?? 0;
         const rareLootRate = killer?.attrs.numericStats.rareLootRate ?? 0;
         const items = this.contentTemplateRepository.rollMonsterDrops(monster.monsterId, 1, lootRate, rareLootRate, {
             playerRealmLv: killer?.realm?.realmLv,
             monsterLevel: monster.level,
             monsterTier: monster.tier,
-        });
+        }, realWorldDropRateMultiplier);
         sectionStartedAt = recordPlayerMonsterKillPerf(
             deps,
             'combat.playerMonsterKill.dropRollMs',

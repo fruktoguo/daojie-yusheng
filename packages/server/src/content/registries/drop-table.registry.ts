@@ -103,7 +103,7 @@ export class DropTableRegistry {
     return result;
   }
 
-  rollMonsterDrops(monsterId: string, rolls = 1, lootRateBonus = 0, rareLootRateBonus = 0, context: any = {}): any[] {
+  rollMonsterDrops(monsterId: string, rolls = 1, lootRateBonus = 0, rareLootRateBonus = 0, context: any = {}, killEquivalentMultiplier = 1): any[] {
     const dropTable = this.monsterDropsByMonsterId.get(monsterId);
     if (!dropTable || dropTable.length === 0) {
       return [];
@@ -116,9 +116,12 @@ export class DropTableRegistry {
       for (const drop of dropTable) {
         const baseChance = typeof drop.chance === 'number' ? Math.max(0, Math.min(1, drop.chance)) : 1;
         const totalRateBonus = normalizedLootRateBonus + (baseChance <= 0.001 ? normalizedRareLootRateBonus : 0);
-        const killEquivalent = totalRateBonus >= 0
+        const baseKillEquivalent = totalRateBonus >= 0
           ? 1 + totalRateBonus / 10000
           : 1 / (1 + Math.abs(totalRateBonus) / 10000);
+        const killEquivalent = Number.isFinite(killEquivalentMultiplier) && killEquivalentMultiplier > 0
+          ? baseKillEquivalent * killEquivalentMultiplier
+          : baseKillEquivalent;
         const chance = baseChance <= 0 || killEquivalent <= 0
           ? 0
           : (1 - Math.pow(1 - baseChance, killEquivalent))

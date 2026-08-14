@@ -7,6 +7,8 @@
 
 import { DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEY_LABELS, MONSTER_TIER_LABELS, PLAYER_REALM_NUMERIC_TEMPLATES, cloneNumericRatioDivisors, cloneNumericStats, formatDisplayCurrentMax, formatDisplayInteger, resolvePlayerFacingContentName } from '@mud/shared';
 import { resolveCombatDamage } from '../../combat/combat-pipeline-compose';
+import { REAL_WORLD_MONSTER_KILL_DROP_RATE_KILL_EQUIVALENT_MULTIPLIER } from '../../../constants/gameplay/real-world';
+import { isRealPublicWorldInstance } from '../world-runtime.normalization.helpers';
 
 /** 观察失真阈值：低于该比例时使用模糊文案。 */
 const OBSERVATION_BLIND_RATIO = 0.2;
@@ -332,7 +334,7 @@ export function buildMonsterObservation(viewerSpirit, monster) {
     ]);
 }
 /** 生成妖兽战利品预览列表与命中概率。 */
-export function buildMonsterLootPreview(contentTemplateRepository, viewer, monster) {
+export function buildMonsterLootPreview(contentTemplateRepository, viewer, monster, instance = null) {
 
     const dropTable = contentTemplateRepository?.monsterDropsByMonsterId?.get(monster.monsterId) ?? [];
 
@@ -340,13 +342,17 @@ export function buildMonsterLootPreview(contentTemplateRepository, viewer, monst
 
     const rareLootRate = viewer?.attrs?.numericStats?.rareLootRate ?? 0;
 
+    const killEquivalentMultiplier = isRealPublicWorldInstance(instance)
+        ? REAL_WORLD_MONSTER_KILL_DROP_RATE_KILL_EQUIVALENT_MULTIPLIER
+        : 1;
+
     const entries = dropTable
         .map((drop) => ({
         itemId: drop.itemId,
         name: drop.name,
         type: drop.type,
         count: drop.count,
-        chance: resolveObservedDropChance(drop.chance, lootRate, rareLootRate),
+        chance: resolveObservedDropChance(drop.chance, lootRate, rareLootRate, killEquivalentMultiplier),
     }))
         .sort((left, right) => right.chance - left.chance || compareStableText(left.itemId, right.itemId));
     return {
@@ -355,7 +361,7 @@ export function buildMonsterLootPreview(contentTemplateRepository, viewer, monst
     };
 }
 /** 依据观看者掉率属性，调整可见掉落概率。 */
-export function resolveObservedDropChance(baseChanceInput, lootRateBonus, rareLootRateBonus) {
+export function resolveObservedDropChance(baseChanceInput, lootRateBonus, rareLootRateBonus, killEquivalentMultiplier = 1) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const baseChance = typeof baseChanceInput === 'number' ? Math.max(0, Math.min(1, baseChanceInput)) : 1;
@@ -366,9 +372,12 @@ export function resolveObservedDropChance(baseChanceInput, lootRateBonus, rareLo
     const totalRateBonus = (Number.isFinite(lootRateBonus) ? lootRateBonus : 0)
         + (baseChance <= 0.001 ? (Number.isFinite(rareLootRateBonus) ? rareLootRateBonus : 0) : 0);
 
-    const killEquivalent = totalRateBonus >= 0
+    const baseKillEquivalent = totalRateBonus >= 0
         ? 1 + totalRateBonus / 10000
         : 1 / (1 + Math.abs(totalRateBonus) / 10000);
+    const killEquivalent = Number.isFinite(killEquivalentMultiplier) && killEquivalentMultiplier > 0
+        ? baseKillEquivalent * killEquivalentMultiplier
+        : baseKillEquivalent;
     if (killEquivalent <= 0) {
         return 0;
     }

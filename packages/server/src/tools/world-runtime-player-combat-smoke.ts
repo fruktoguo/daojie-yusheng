@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 
 import { ContentTemplateRepository } from '../content/content-template.repository';
 import {
-  REAL_WORLD_MONSTER_KILL_DROP_RATE_BONUS_BP,
+  REAL_WORLD_MONSTER_KILL_DROP_RATE_KILL_EQUIVALENT_MULTIPLIER,
   REAL_WORLD_MONSTER_KILL_EXP_MULTIPLIER,
 } from '../constants/gameplay/real-world';
 import {
@@ -498,7 +498,7 @@ function testMonsterKillExpSettlementUsesTemplateMultiplier() {
 
 function testRealWorldMonsterKillRewardsOnlyApplyToPublicRealLine(): void {
   const grants: Array<{ instanceId: string; playerId: string; expMultiplier: number }> = [];
-  const dropQueries: Array<{ instanceId: string; lootRate: number; rareLootRate: number }> = [];
+  const dropQueries: Array<{ instanceId: string; lootRate: number; rareLootRate: number; killEquivalentMultiplier: number }> = [];
   const players = new Map([
     ['player:real:killer', {
       playerId: 'player:real:killer',
@@ -518,8 +518,8 @@ function testRealWorldMonsterKillRewardsOnlyApplyToPublicRealLine(): void {
     getMonsterCombatProfile() {
       return { expMultiplier: 5 };
     },
-    rollMonsterDrops(_monsterId: string, _rolls: number, lootRate: number, rareLootRate: number) {
-      dropQueries.push({ instanceId: activeInstanceId, lootRate, rareLootRate });
+    rollMonsterDrops(_monsterId: string, _rolls: number, lootRate: number, rareLootRate: number, _context: unknown, killEquivalentMultiplier = 1) {
+      dropQueries.push({ instanceId: activeInstanceId, lootRate, rareLootRate, killEquivalentMultiplier });
       return [];
     },
   };
@@ -583,11 +583,12 @@ function testRealWorldMonsterKillRewardsOnlyApplyToPublicRealLine(): void {
   assert.deepEqual(dropQueries, [
     {
       instanceId: 'real:test',
-      lootRate: 750 + REAL_WORLD_MONSTER_KILL_DROP_RATE_BONUS_BP,
+      lootRate: 750,
       rareLootRate: 250,
+      killEquivalentMultiplier: REAL_WORLD_MONSTER_KILL_DROP_RATE_KILL_EQUIVALENT_MULTIPLIER,
     },
-    { instanceId: 'public:test', lootRate: 750, rareLootRate: 250 },
-    { instanceId: 'sect:test', lootRate: 750, rareLootRate: 250 },
+    { instanceId: 'public:test', lootRate: 750, rareLootRate: 250, killEquivalentMultiplier: 1 },
+    { instanceId: 'sect:test', lootRate: 750, rareLootRate: 250, killEquivalentMultiplier: 1 },
   ]);
 }
 

@@ -378,7 +378,7 @@ export class WorldRuntimeDetailQueryService {
                 maxQi: monster.maxQi,
                 observation,
                 lootPreview: observation.clarity === 'complete'
-                    ? buildMonsterLootPreview(this.contentTemplateRepository, viewer, monster)
+                    ? buildMonsterLootPreview(this.contentTemplateRepository, viewer, monster, instance)
                     : undefined,
                 buffs: projectObservableMonsterBuffs(monster.buffs),
             });

@@ -171,8 +171,8 @@ export class ContentTemplateRepository {
         return this.techniqueRegistry.listTechniqueTemplates();
     }
     
-    rollMonsterDrops(monsterId, rolls = 1, lootRateBonus = 0, rareLootRateBonus = 0, context = {}) {
-        return this.dropTableRegistry.rollMonsterDrops(monsterId, rolls, lootRateBonus, rareLootRateBonus, context);
+    rollMonsterDrops(monsterId, rolls = 1, lootRateBonus = 0, rareLootRateBonus = 0, context = {}, killEquivalentMultiplier = 1) {
+        return this.dropTableRegistry.rollMonsterDrops(monsterId, rolls, lootRateBonus, rareLootRateBonus, context, killEquivalentMultiplier);
     }
     
     createRuntimeMonstersForMap(mapId) {
