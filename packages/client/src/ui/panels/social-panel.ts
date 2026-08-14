@@ -67,7 +67,7 @@ type SocialConversationScrollSnapshot = {
   anchorOffsetTop: number;
 };
 
-type SocialPanelTab = 'relations' | 'requests' | 'nearby' | 'messages';
+type SocialPanelTab = 'relations' | 'requests' | 'nearby' | 'messages' | 'party';
 type SocialRelationView = SocialPanelView['relations'][number];
 
 export type TreasureVaultModalTab = 'items' | 'permissions';
@@ -93,6 +93,7 @@ const TREASURE_VAULT_DEPOSIT_PAGE_SIZE = 30;
 const MAX_TREASURE_VAULT_DEPOSIT_SELECTION = 100;
 
 const SOCIAL_PANEL_TABS: ReadonlyArray<{ id: SocialPanelTab; label: string }> = [
+  { id: 'party', label: '队伍' },
   { id: 'relations', label: '道友' },
   { id: 'requests', label: '申请' },
   { id: 'nearby', label: '附近' },
@@ -116,6 +117,8 @@ const TREASURE_VAULT_ITEM_SORT_OPTIONS: Array<{ id: TreasureVaultItemSort; label
 export class SocialPanel {
   private readonly pane = document.getElementById('pane-social')!;
   private callbacks: SocialPanelCallbacks | null = null;
+  private partyInviteHandler: ((targetPlayerId: string) => void) | null = null;
+  private partyTabUnreadCount = 0;
   private view: SocialPanelView = { relations: [], incomingRequests: [], outgoingRequests: [], nearbyCandidates: [] };
   private activeTab: SocialPanelTab = 'relations';
   private selectedPlayerId: string | null = null;
@@ -131,6 +134,10 @@ export class SocialPanel {
 
   setCallbacks(callbacks: SocialPanelCallbacks): void {
     this.callbacks = callbacks;
+  }
+
+  setPartyInviteHandler(handler: ((targetPlayerId: string) => void) | null): void {
+    this.partyInviteHandler = handler;
   }
 
   update(view: SocialPanelView): void {
@@ -224,12 +231,13 @@ export class SocialPanel {
 
   clear(): void {
     this.view = { relations: [], incomingRequests: [], outgoingRequests: [], nearbyCandidates: [] };
-    this.activeTab = 'relations';
+    this.activeTab = 'party';
     this.selectedPlayerId = null;
     this.messagesByPlayerId.clear();
     this.unreadMessagesByPlayerId.clear();
     this.messageDraftsByPlayerId.clear();
     this.conversationScrollByPlayerId.clear();
+    this.partyTabUnreadCount = 0;
     this.render();
   }
 
@@ -262,6 +270,10 @@ export class SocialPanel {
       }
       if (action === 'select' && playerId) {
         this.openConversation(playerId);
+        return;
+      }
+      if (action === 'party_invite' && playerId) {
+        this.partyInviteHandler?.(playerId);
         return;
       }
       if (!this.callbacks) {
@@ -331,6 +343,9 @@ export class SocialPanel {
     if (this.activeTab === 'messages' && selected) {
       this.restoreConversationState(selected.playerId, inputSnapshot);
     }
+    if (this.activeTab === 'party') {
+      this.notifyPartyTabMounted();
+    }
   }
 
   private renderTabs(): string {
@@ -340,8 +355,8 @@ export class SocialPanel {
         ${SOCIAL_PANEL_TABS.map((tab) => {
           const active = tab.id === this.activeTab;
           const count = this.getTabCount(tab.id);
-          const unread = tab.id === 'messages' ? unreadCount : 0;
-          const ariaLabel = tab.id === 'messages' && unread > 0
+          const unread = tab.id === 'messages' ? unreadCount : (tab.id === 'party' ? this.getPartyTabUnreadCount() : 0);
+          const ariaLabel = (tab.id === 'messages' || tab.id === 'party') && unread > 0
             ? `${tab.label}，${unread} 条未读消息`
             : count === null
               ? tab.label
@@ -371,6 +386,9 @@ export class SocialPanel {
   }
 
   private renderActiveTabContent(selected: SocialRelationView | null): string {
+    if (this.activeTab === 'party') {
+      return this.renderPartyTabContent();
+    }
     if (this.activeTab === 'requests') {
       return `
         <section id="social-panel-active-content" class="social-panel-section social-panel-tab-pane social-panel-section--requests" role="tabpanel" aria-labelledby="social-panel-tab-requests" data-social-active-tab="requests">
@@ -400,6 +418,37 @@ export class SocialPanel {
         ${this.renderRelations()}
       </section>
     `;
+  }
+
+  private renderPartyTabContent(): string {
+    return `
+      <section id="social-panel-active-content" class="social-panel-section social-panel-tab-pane social-panel-section--party" role="tabpanel" aria-labelledby="social-panel-tab-party" data-social-active-tab="party">
+        <div class="party-panel-host" data-party-panel-host="true"></div>
+      </section>
+    `;
+  }
+
+  private mountPartyHost(): HTMLElement | null {
+    return this.pane.querySelector<HTMLElement>('[data-party-panel-host="true"]');
+  }
+
+  private notifyPartyTabMounted(): void {
+    const host = this.mountPartyHost();
+    if (host && !host.hasChildNodes()) {
+      this.onPartyTabMounted?.(host);
+    }
+  }
+
+  private onPartyTabMounted: ((host: HTMLElement) => void) | null = null;
+
+  /** 组队状态来源注册：队伍 Tab 首次出现空宿主时接管渲染。 */
+  setPartyTabMountHandler(handler: (host: HTMLElement) => void): void {
+    this.onPartyTabMounted = handler;
+  }
+
+  /** 打开队伍 Tab（供 HUD 跳转）。 */
+  openPartyTab(): void {
+    this.switchActiveTab('party');
   }
 
   private renderSectionHeader(title: string, count: number, actions = ''): string {
@@ -458,11 +507,12 @@ export class SocialPanel {
               <div class="ui-list-title">${escapeHtml(resolveSocialPlayerName(entry.playerId, entry.name))}</div>
               <div class="ui-list-subtitle">距离 ${entry.distance}${entry.relationLevel ? ` · ${RELATION_LABEL[entry.relationLevel]}` : entry.pendingRequest ? ' · 已有申请' : ''}</div>
             </div>
-            ${entry.relationLevel || entry.pendingRequest ? '' : `
-              <div class="social-row-actions">
+            <div class="social-row-actions">
+              ${entry.relationLevel || entry.pendingRequest ? '' : `
                 <button class="small-btn" type="button" data-social-action="request" data-player-id="${escapeHtml(entry.playerId)}">申请</button>
-              </div>
-            `}
+              `}
+              <button class="small-btn ghost" type="button" data-social-action="party_invite" data-player-id="${escapeHtml(entry.playerId)}">邀请组队</button>
+            </div>
           </div>
         `).join('')}
       </div>
@@ -484,6 +534,7 @@ export class SocialPanel {
               </div>
             </div>
             <div class="social-row-actions">
+              ${entry.online ? `<button class="small-btn ghost" type="button" data-social-action="party_invite" data-player-id="${escapeHtml(entry.playerId)}">邀请组队</button>` : ''}
               <button class="small-btn" type="button" data-social-action="chat" data-player-id="${escapeHtml(entry.playerId)}">私聊</button>
               <button class="small-btn ghost" type="button" data-social-action="${entry.level === 'close_friend' ? 'dao_friend' : 'close_friend'}" data-player-id="${escapeHtml(entry.playerId)}">${entry.level === 'close_friend' ? '降为道友' : '设为至交'}</button>
               <button class="small-btn ghost" type="button" data-social-action="remove" data-player-id="${escapeHtml(entry.playerId)}">解除</button>
@@ -705,6 +756,9 @@ export class SocialPanel {
     if (this.activeTab === 'messages' && selected) {
       this.restoreConversationState(selected.playerId, inputSnapshot);
     }
+    if (this.activeTab === 'party') {
+      this.notifyPartyTabMounted();
+    }
   }
 
   private resolveSelectedRelation(): SocialRelationView | null {
@@ -754,6 +808,18 @@ export class SocialPanel {
     return null;
   }
 
+  private getPartyTabUnreadCount(): number {
+    return this.partyTabUnreadCount;
+  }
+
+  /** 队伍 Tab 未读角标由组队状态来源驱动。 */
+  setPartyTabUnread(count: number): void {
+    const next = Math.max(0, Math.trunc(count));
+    if (next === this.partyTabUnreadCount) return;
+    this.partyTabUnreadCount = next;
+    this.patchTabState();
+  }
+
   private getTotalUnreadCount(): number {
     let total = 0;
     for (const count of this.unreadMessagesByPlayerId.values()) {
@@ -779,6 +845,20 @@ export class SocialPanel {
         countNode.textContent = String(count);
       }
       if (tab !== 'messages') {
+        if (tab === 'party') {
+          const partyUnread = this.getPartyTabUnreadCount();
+          const partyUnreadNode = button.querySelector<HTMLElement>('[data-social-tab-unread="true"]');
+          if (partyUnreadNode) {
+            partyUnreadNode.hidden = partyUnread <= 0;
+            const nextText = formatSocialUnreadCount(partyUnread);
+            if (partyUnreadNode.textContent !== nextText) {
+              partyUnreadNode.textContent = nextText;
+            }
+          }
+          button.classList.toggle('has-unread', partyUnread > 0);
+          button.setAttribute('aria-label', partyUnread > 0 ? `队伍，${partyUnread} 条未读消息` : '队伍');
+          continue;
+        }
         button.setAttribute('aria-label', `${SOCIAL_PANEL_TABS.find((entry) => entry.id === tab)?.label ?? tab}，${count ?? 0} 项`);
         continue;
       }

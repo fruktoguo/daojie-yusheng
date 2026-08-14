@@ -89,6 +89,10 @@ type MainLowFrequencySocketBindingsOptions = {
   onChatMessage: (data: ServerToClientEventPayload<typeof S2C.ChatMessage>) => void;
   onChatHistory: (data: ServerToClientEventPayload<typeof S2C.ChatHistory>) => void;
   onSocialPanel: (data: ServerToClientEventPayload<typeof S2C.SocialPanel>) => void;
+  onPartyPanel: (data: ServerToClientEventPayload<typeof S2C.PartyPanel>) => void;
+  onPartyOperationResult: (data: ServerToClientEventPayload<typeof S2C.PartyOperationResult>) => void;
+  onPartyChatMessage: (data: ServerToClientEventPayload<typeof S2C.PartyChatMessage>) => void;
+  onPartyChatHistory: (data: ServerToClientEventPayload<typeof S2C.PartyChatHistory>) => void;
   onSocialOperationResult: (data: ServerToClientEventPayload<typeof S2C.SocialOperationResult>) => void;
   onDaoistDirectMessage: (data: ServerToClientEventPayload<typeof S2C.DaoistDirectMessage>) => void;
   onDaoistDirectMessageHistory: (data: ServerToClientEventPayload<typeof S2C.DaoistDirectMessageHistory>) => void;
@@ -241,6 +245,10 @@ export function bindMainLowFrequencySocketEvents(options: MainLowFrequencySocket
   options.socket.on(S2C.ChatMessage, options.onChatMessage);
   options.socket.on(S2C.ChatHistory, options.onChatHistory);
   options.socket.on(S2C.SocialPanel, options.onSocialPanel);
+  options.socket.on(S2C.PartyPanel, options.onPartyPanel);
+  options.socket.on(S2C.PartyOperationResult, options.onPartyOperationResult);
+  options.socket.on(S2C.PartyChatMessage, options.onPartyChatMessage);
+  options.socket.on(S2C.PartyChatHistory, options.onPartyChatHistory);
   options.socket.on(S2C.SocialOperationResult, options.onSocialOperationResult);
   options.socket.on(S2C.DaoistDirectMessage, options.onDaoistDirectMessage);
   options.socket.on(S2C.DaoistDirectMessageHistory, options.onDaoistDirectMessageHistory);

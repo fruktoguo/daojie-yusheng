@@ -35,6 +35,7 @@ import './styles/panels/auction.css';
 import './styles/panels/skill.css';
 import './styles/panels/sect.css';
 import './styles/panels/social.css';
+import './styles/panels/party.css';
 import './styles/panels/world.css';
 import './styles/panels/tutorial.css';
 import './styles/panels/activity.css';

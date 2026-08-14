@@ -140,6 +140,7 @@ type MainResetStateSourceOptions = {
   clearActivityState: () => void;
   /** 清理道友面板和宝库弹层。 */
   clearSocialState: () => void;
+  clearPartyState?: () => void;
   /** 清理建造、房间和风水低频投影。 */
   clearBuildingFengShuiState: () => void;
   /** 清理与设置面板相关的跨 tick 请求。 */
@@ -218,6 +219,7 @@ export function createMainResetStateSource(options: MainResetStateSourceOptions)
       options.clearMailState();
       options.clearActivityState();
       options.clearSocialState();
+      options.clearPartyState?.();
       options.clearBuildingFengShuiState();
       options.clearSettingsState();
       resetOfflineGainBlockingConfirmation();

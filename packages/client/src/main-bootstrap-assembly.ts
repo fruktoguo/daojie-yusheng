@@ -35,6 +35,7 @@ import type { MainRuntimeStateSource } from './main-runtime-state-source';
 import type { MainSettingsStateSource } from './main-settings-state-source';
 import type { MainActivityStateSource } from './main-activity-state-source';
 import type { MainSocialStateSource } from './main-social-state-source';
+import type { MainPartyStateSource } from './main-party-state-source';
 import type { MainTimeChamberStateSource } from './main-time-chamber-state-source';
 import type { MainTargetingStateSource } from './main-targeting-state-source';
 import type { MainUiStateSource } from './main-ui-state-source';
@@ -317,6 +318,13 @@ type MainBootstrapAssemblyOptions = {
     | 'handleDaoistDirectMessageHistory'
     | 'handleTreasureVaultDetail'
     | 'handleTreasureVaultOperationResult'
+  >;
+  partyStateSource: Pick<
+    MainPartyStateSource,
+    | 'handlePartyPanel'
+    | 'handlePartyOperationResult'
+    | 'handlePartyChatMessage'
+    | 'handlePartyChatHistory'
   >;
   timeChamberStateSource: Pick<MainTimeChamberStateSource, 'handleOperationResult'>;
   /**
@@ -819,6 +827,10 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     onChatMessage: (data) => options.noticeStateSource.handleChatMessage(data),
     onChatHistory: (data) => options.noticeStateSource.handleChatHistory(data),
     onSocialPanel: (data) => options.socialStateSource.handleSocialPanel(data),
+    onPartyPanel: (data) => options.partyStateSource.handlePartyPanel(data),
+    onPartyOperationResult: (data) => options.partyStateSource.handlePartyOperationResult(data),
+    onPartyChatMessage: (data) => options.partyStateSource.handlePartyChatMessage(data),
+    onPartyChatHistory: (data) => options.partyStateSource.handlePartyChatHistory(data),
     onSocialOperationResult: (data) => options.socialStateSource.handleSocialOperationResult(data),
     onDaoistDirectMessage: (data) => options.socialStateSource.handleDaoistDirectMessage(data),
     onDaoistDirectMessageHistory: (data) => options.socialStateSource.handleDaoistDirectMessageHistory(data),

@@ -44,6 +44,8 @@ export type MainRuntimeObservedEntity = {
   badges?: RenderEntity['badges'];
   /** 玩家宗门单字印记。 */
   sectMark?: RenderEntity['sectMark'];
+  /** 同队关系标记，仅用于表现层的同队提示，不影响权威判定。 */
+  partyMark?: string | null;
   /**
  * name：名称名称或显示文本。
  */

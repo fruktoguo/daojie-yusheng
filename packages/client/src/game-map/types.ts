@@ -90,6 +90,8 @@ export interface ObservedMapEntity {
   badges?: RenderEntity['badges'];
   /** 玩家宗门单字印记。 */
   sectMark?: RenderEntity['sectMark'];
+  /** 同队关系标记，仅用于表现层同队提示。 */
+  partyMark?: string | null;
   /**
  * hostile：hostile相关字段。
  */
@@ -822,7 +824,9 @@ export interface MapSelfDeltaInput {
  * mapId：地图ID标识。
  */
 
-  mapId?: string;  
+  mapId?: string;
+  /** 当前玩家队伍 ID；null 表示退出队伍。 */
+  partyId?: string | null;
   /**
  * x：x相关字段。
  */

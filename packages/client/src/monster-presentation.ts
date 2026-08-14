@@ -79,5 +79,8 @@ export function getEntityBadgeClassName(badge: RenderEntity['badge'] | null | un
   if (badge.tone === 'sect') {
     return 'monster-badge monster-badge--sect';
   }
+  if (badge.tone === 'party') {
+    return 'monster-badge monster-badge--party';
+  }
   return 'monster-badge monster-badge--variant';
 }

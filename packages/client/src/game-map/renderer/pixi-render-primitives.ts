@@ -143,6 +143,13 @@ export function resolveEntityBadgePalette(badge: EntityNameplateBadge): {
       text: '#fff6eb',
     };
   }
+  if (badge.tone === 'party') {
+    return {
+      fill: 'rgba(24, 103, 91, 0.94)',
+      stroke: 'rgba(154, 255, 224, 0.88)',
+      text: '#f2fffb',
+    };
+  }
   const fill = badgeClassName?.includes('--boss') || badge.tone === 'demonic'
     ? 'rgba(120, 32, 24, 0.92)'
     : 'rgba(42, 54, 91, 0.92)';

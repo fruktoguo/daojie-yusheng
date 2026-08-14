@@ -280,6 +280,7 @@ type MainRuntimeStateSourceOptions = {
   initActivityState: () => void;
   /** 初始化道友面板。 */
   initSocialState: () => void;
+  initPartyState?: () => void;
   /**
  * hideObserveModal：hideObserve弹层相关字段。
  */
@@ -902,6 +903,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       options.initMailState(player.id);
       options.initActivityState();
       options.initSocialState();
+      options.initPartyState?.();
       flushPendingBootstrapEnvelope();
     },
   };

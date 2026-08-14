@@ -208,6 +208,8 @@ type MainRuntimeDeltaStateSourceOptions = {
     /** reset：应用前清空动态实体、地面物和威胁箭头。 */
     reset?: boolean;
   }) => void;
+  /** syncPartyContext：SelfDelta.pid 变化时同步组队展示层身份（可选注入）。 */
+  syncPartyContext?: (partyId: string | null) => void;
   /**
  * applySelfDeltaToRuntime：SelfDeltaTo运行态引用。
  */
@@ -223,6 +225,8 @@ type MainRuntimeDeltaStateSourceOptions = {
  */
 
     instanceId?: string;
+    /** 当前玩家队伍 ID；null 表示退出队伍。 */
+    partyId?: string | null;
     /**
  * x：x相关字段。
  */
@@ -482,6 +486,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       kind: previous?.kind === 'crowd' ? 'crowd' : 'player',
       monsterScale: patch.sc === null ? null : (patch.sc ?? previous?.monsterScale),
       sectMark: patch.sm === null ? null : (patch.sm ?? previous?.sectMark),
+      partyMark: patch.pi === null ? null : (patch.pi ?? previous?.partyMark),
       hp: isSelf ? (player?.hp ?? previous?.hp) : previous?.hp,
       maxHp: isSelf ? (player?.maxHp ?? previous?.maxHp) : previous?.maxHp,
       qi: isSelf ? (player?.qi ?? previous?.qi) : previous?.qi,
@@ -792,7 +797,8 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       || typeof data.maxHp === 'number'
       || typeof data.qi === 'number'
       || typeof data.maxQi === 'number'
-      || data.f !== undefined;
+      || data.f !== undefined
+      || data.pid !== undefined;
     if (!hasEntityVisibleDelta) {
       return null;
     }
@@ -805,6 +811,11 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       color: previous?.color ?? PLAYER_ENTITY_COLOR,
       name: previous?.name ?? player.name,
       kind: previous?.kind === 'crowd' ? 'crowd' : 'player',
+      partyMark: data.pid === undefined
+        ? previous?.partyMark
+        : typeof data.pid === 'string' && data.pid.trim()
+          ? data.pid.trim()
+          : null,
       hp: data.hp ?? player.hp,
       maxHp: data.maxHp ?? player.maxHp,
       qi: data.qi ?? player.qi,
@@ -1100,6 +1111,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
           options.applySelfDeltaToRuntime({
             instanceId: data.iid,
             mapId: data.mid,
+            partyId: data.pid,
             x: data.x,
             y: data.y,
             facing: selfFacing,
@@ -1122,6 +1134,16 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
         }
         if (sectChanged) {
           player.sectId = nextSectId;
+        }
+        const previousPartyId = typeof player.partyId === 'string' && player.partyId.trim() ? player.partyId.trim() : null;
+        const nextPartyId = data.pid === undefined
+          ? previousPartyId
+          : typeof data.pid === 'string' && data.pid.trim()
+            ? data.pid.trim()
+            : null;
+        if (nextPartyId !== previousPartyId) {
+          player.partyId = nextPartyId;
+          options.syncPartyContext?.(nextPartyId);
         }
         if (data.f !== undefined) {
           player.facing = selfFacing;

@@ -1950,6 +1950,7 @@ settings.ui.section.display,设置,界面显示,
 settings.ui.status.saved-local,设置,当前配置已自动保存到本机,
 entity.badge.boss,实体,王,boss怪物徽记
 entity.badge.demonic,实体,魔,入魔玩家徽记
+entity.badge.party,实体,队,同队玩家徽记
 entity.badge.variant,实体,异,变异怪物徽记
 entity.monster.elite-keyword,实体,精英,用于清理怪物名中的重复修饰词
 entity.monster.unknown,实体,未知妖兽,
@@ -2969,6 +2970,8 @@ action.combat-settings.targeting.friendly.all-players.summary,行动,把所有�
 action.combat-settings.targeting.friendly.copy,行动,勾选后，这些单位会被你视为友方目标，可多选组合。,
 action.combat-settings.targeting.friendly.non-hostile-players.label,行动,非敌修士,
 action.combat-settings.targeting.friendly.non-hostile-players.summary,行动,把当前不属于敌对范围的修士视为友方目标。,
+action.combat-settings.targeting.friendly.party.label,行动,队伍,
+action.combat-settings.targeting.friendly.party.summary,行动,把同队成员纳入治疗与友方增益的可选目标。,
 action.combat-settings.targeting.friendly.retaliators.label,行动,仇敌,
 action.combat-settings.targeting.friendly.retaliators.summary,行动,把主动攻击过你的玩家也纳入友方目标。,
 action.combat-settings.targeting.friendly.title,行动,友方判定,
@@ -2979,6 +2982,8 @@ action.combat-settings.targeting.hostile.demonized-players.label,行动,入魔�
 action.combat-settings.targeting.hostile.demonized-players.summary,行动,把煞气入体超过 20 层的入魔者纳入敌方目标。,
 action.combat-settings.targeting.hostile.monster.label,行动,妖兽,
 action.combat-settings.targeting.hostile.monster.summary,行动,把妖兽视为敌方目标。,
+action.combat-settings.targeting.hostile.party.label,行动,队伍,
+action.combat-settings.targeting.hostile.party.summary,行动,仅当队长已开启全队友伤时，把同队成员纳入你的主动攻击与自动战斗目标。,
 action.combat-settings.targeting.hostile.retaliators.label,行动,仇敌,
 action.combat-settings.targeting.hostile.retaliators.summary,行动,把主动攻击过你的玩家纳入敌方目标。,
 action.combat-settings.targeting.hostile.terrain.label,行动,地形,

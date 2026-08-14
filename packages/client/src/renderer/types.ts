@@ -176,6 +176,7 @@ export interface IRenderer {
       badges?: RenderEntity['badges'];
       /** 玩家宗门单字印记。 */
       sectMark?: RenderEntity['sectMark'];
+      partyMark?: string | null;
       /**
  * name：名称名称或显示文本。
  */

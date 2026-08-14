@@ -94,6 +94,13 @@ function resolveEntityNameplateBadgePalette(badge: EntityNameplateBadge): {
       text: '#fff6eb',
     };
   }
+  if (badge.tone === 'party') {
+    return {
+      fill: 'rgba(24, 103, 91, 0.94)',
+      stroke: 'rgba(154, 255, 224, 0.88)',
+      text: '#f2fffb',
+    };
+  }
   if (badgeClassName?.includes('--boss') || badge.tone === 'demonic') {
     return {
       fill: 'rgba(120, 32, 24, 0.92)',
@@ -443,6 +450,8 @@ interface AnimEntity {
   badges?: RenderEntity['badges'];
   /** 玩家宗门单字印记。 */
   sectMark?: RenderEntity['sectMark'];
+  /** 同队关系标记，仅用于表现层同队提示。 */
+  partyMark?: string | null;
   /**
  * name：名称名称或显示文本。
  */
@@ -1785,6 +1794,8 @@ export class TextRenderer implements IRenderer {
  badges?: RenderEntity['badges'];
  /** 玩家宗门单字印记。 */
  sectMark?: RenderEntity['sectMark'];
+ /** 同队关系标记，仅用于表现层同队提示。 */
+ partyMark?: string | null;
  /**
  * name：名称名称或显示文本。
  */
@@ -1917,6 +1928,7 @@ export class TextRenderer implements IRenderer {
         anim.badge = e.badge ?? undefined;
         anim.badges = e.badges ?? undefined;
         anim.sectMark = e.sectMark ?? undefined;
+        anim.partyMark = e.partyMark ?? null;
         anim.name = e.name;
         anim.kind = e.kind;
         anim.monsterId = e.monsterId;
@@ -1961,6 +1973,7 @@ export class TextRenderer implements IRenderer {
           badge: e.badge ?? undefined,
           badges: e.badges ?? undefined,
           sectMark: e.sectMark,
+          partyMark: e.partyMark ?? null,
           name: e.name,
           kind: e.kind,
           monsterId: e.monsterId,

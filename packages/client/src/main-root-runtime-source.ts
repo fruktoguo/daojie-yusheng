@@ -42,7 +42,7 @@ function decorateObservedEntity(entity: MainRuntimeObservedEntity, player: Playe
     ...entity,
     buffs,
   };
-  const badges = buildEntityNameplateBadges(nextEntity);
+  const badges = buildEntityNameplateBadges(nextEntity, player?.partyId);
   const hostile = nextEntity.kind === 'player'
     && player !== null
     && nextEntity.id !== player.id

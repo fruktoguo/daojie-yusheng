@@ -137,7 +137,7 @@ function decorateObservedEntity(entity: ObservedMapEntity, player: PlayerState |
   const buffs = isSelf && Array.isArray(player.temporaryBuffs)
     ? cloneJson(player.temporaryBuffs)
     : entity.buffs;
-  const badges = buildEntityNameplateBadges({ ...entity, buffs });
+  const badges = buildEntityNameplateBadges({ ...entity, buffs }, player?.partyId);
   const hostile = entity.kind === 'player'
     && player !== null
     && entity.id !== player.id
@@ -211,6 +211,7 @@ function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedMa
     badge: previous?.badge,
     badges: previous?.badges,
     sectMark: applyNullablePatch(patch.sectMark, previous?.sectMark),
+    partyMark: applyNullablePatch(patch.partyMark, previous?.partyMark),
     hostile: previous?.hostile,
     name: applyNullablePatch(patch.name, previous?.name),
     kind,
@@ -261,6 +262,7 @@ function buildLocalPlayerEntity(player: PlayerState, previous?: ObservedMapEntit
     badge: previous?.badge,
     badges: previous?.badges,
     sectMark: previous?.sectMark,
+    partyMark: player.partyId ?? previous?.partyMark,
     hostile: false,
     name: player.name,
     kind: 'player',
@@ -869,6 +871,11 @@ export class MapStore {
     }
     if (nextInstanceId) {
       this.player.instanceId = nextInstanceId;
+    }
+    if (data.partyId !== undefined) {
+      this.player.partyId = typeof data.partyId === 'string' && data.partyId.trim()
+        ? data.partyId.trim()
+        : null;
     }
 
     if (typeof data.hp === 'number') {

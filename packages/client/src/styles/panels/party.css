@@ -1,0 +1,408 @@
+/* 队伍面板与队伍 HUD。跟随社交面板视觉语言，深浅色由全局 token 驱动。 */
+
+.party-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.party-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.party-subheading {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary, #6b5d4f);
+  margin: 4px 0 2px;
+}
+
+.party-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.party-inline-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.party-inline-form .party-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.party-input,
+.party-select {
+  appearance: none;
+  border: 1px solid var(--border-strong, rgba(96, 74, 52, 0.4));
+  border-radius: 6px;
+  background: var(--surface-input, rgba(255, 252, 246, 0.92));
+  color: var(--text-primary, #2f251c);
+  font-size: 13px;
+  padding: 6px 10px;
+  min-height: 32px;
+}
+
+.party-input:focus-visible,
+.party-select:focus-visible {
+  outline: 2px solid var(--accent, #8a5a2b);
+  outline-offset: 1px;
+}
+
+.party-hint {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary, #6b5d4f);
+}
+
+.party-match-waiting {
+  font-size: 13px;
+  color: var(--text-secondary, #6b5d4f);
+}
+
+.party-member-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.party-member-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-subtle, rgba(96, 74, 52, 0.18));
+  border-radius: 8px;
+  background: var(--surface-card, rgba(255, 252, 246, 0.72));
+}
+
+.party-member-card.offline {
+  opacity: 0.68;
+}
+
+.party-member-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.party-member-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.party-member-badge {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle, rgba(96, 74, 52, 0.18));
+  color: var(--text-secondary, #6b5d4f);
+}
+
+.party-member-badge.leader {
+  color: var(--accent, #8a5a2b);
+  border-color: var(--accent, #8a5a2b);
+}
+
+.party-member-status {
+  font-size: 11px;
+  color: var(--text-secondary, #6b5d4f);
+}
+
+.party-member-status.online {
+  color: var(--success, #3d7a4a);
+}
+
+.party-member-meta {
+  font-size: 12px;
+  color: var(--text-secondary, #6b5d4f);
+}
+
+.party-member-bar {
+  position: relative;
+  height: 12px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--track, rgba(96, 74, 52, 0.14));
+  font-variant-numeric: tabular-nums;
+}
+
+.party-member-bar > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  transition: width 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.party-member-bar.hp > span {
+  background: var(--hp, #b34a3c);
+}
+
+.party-member-bar.qi > span {
+  background: var(--qi, #4a6f9e);
+}
+
+.party-member-bar > em {
+  position: relative;
+  z-index: 1;
+  display: block;
+  font-style: normal;
+  font-size: 10px;
+  line-height: 12px;
+  text-align: center;
+  color: var(--text-on-bar, #fff8ec);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+}
+
+.party-member-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.party-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.party-setting {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-secondary, #6b5d4f);
+}
+
+.party-setting-toggle {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding-top: 18px;
+}
+
+.party-leader-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--border-subtle, rgba(96, 74, 52, 0.18));
+  padding-top: 8px;
+}
+
+.party-recruit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.party-recruit-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+
+.party-recruit-filter {
+  display: flex;
+  gap: 8px;
+}
+
+.party-my-recruitment,
+.party-applications {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* 队伍 HUD */
+.party-hud {
+  position: relative;
+  margin: 0 0 6px;
+  width: auto;
+  max-width: 100%;
+  pointer-events: none;
+}
+
+.party-hud-frame {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid var(--border-subtle, rgba(96, 74, 52, 0.18));
+  border-radius: 10px;
+  background: var(--surface-card, rgba(255, 252, 246, 0.9));
+  box-shadow: 0 6px 18px rgba(47, 37, 28, 0.14);
+}
+
+.party-hud-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.party-hud-title {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #2f251c);
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.party-hud-chat-toggle {
+  position: relative;
+  appearance: none;
+  border: 1px solid var(--border-subtle, rgba(96, 74, 52, 0.18));
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary, #6b5d4f);
+  font-size: 12px;
+  min-width: 28px;
+  min-height: 24px;
+  cursor: pointer;
+}
+
+.party-hud-unread {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--danger, #b03a2e);
+  color: #fff8ec;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+}
+
+.party-hud-members {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.party-hud-member {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.party-hud-member.offline .party-hud-member-name {
+  opacity: 0.55;
+}
+
+.party-hud-member-name {
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 96px;
+}
+
+.party-hud-member-name i {
+  font-style: normal;
+  color: var(--accent, #8a5a2b);
+  margin-right: 2px;
+}
+
+.party-hud-member-hp {
+  flex: 1;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--track, rgba(96, 74, 52, 0.14));
+  overflow: hidden;
+}
+
+.party-hud-member-hp > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--hp, #b34a3c);
+  transition: width 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.party-hud-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid var(--border-subtle, rgba(96, 74, 52, 0.18));
+  padding-top: 6px;
+}
+
+.party-hud-chat-messages {
+  max-height: 180px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.party-hud-chat-message {
+  display: flex;
+  gap: 4px;
+  line-height: 1.5;
+}
+
+.party-hud-chat-from {
+  flex-shrink: 0;
+  color: var(--text-secondary, #6b5d4f);
+}
+
+.party-hud-chat-message.mine .party-hud-chat-from {
+  color: var(--accent, #8a5a2b);
+}
+
+.party-hud-chat-text {
+  word-break: break-word;
+}
+
+.party-hud-chat-form {
+  display: flex;
+  gap: 4px;
+}
+
+.party-hud-chat-form .party-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 28px;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+/* 手机端：HUD 避让底部固定操作区与安全区 */
+@media (max-width: 720px) {
+  .party-hud {
+    margin-top: 6px;
+  }
+
+  .party-hud-chat-messages {
+    max-height: 140px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .party-member-bar > span,
+  .party-hud-member-hp > span {
+    transition: none;
+  }
+}

@@ -28,6 +28,7 @@ import { createSocketBuildingSender } from './socket-send-building';
 import { createSocketPanelSender } from './socket-send-panel';
 import { createSocketRuntimeSender } from './socket-send-runtime';
 import { createSocketSocialEconomySender } from './socket-send-social-economy';
+import { createSocketPartySender } from './socket-send-party';
 import { createSocketContentSender } from './socket-send-content';
 import { createSocketTechniqueGenerationSender } from './socket-send-technique-generation';
 import { createSocketServerEventRegistry } from './socket-event-registry';
@@ -38,6 +39,7 @@ import type { SocketBuildingSender } from './socket-send-building';
 import type { SocketPanelSender } from './socket-send-panel';
 import type { SocketRuntimeSender } from './socket-send-runtime';
 import type { SocketSocialEconomySender } from './socket-send-social-economy';
+import type { SocketPartySender } from './socket-send-party';
 import type { SocketContentSender } from './socket-send-content';
 import type { SocketTechniqueGenerationSender } from './socket-send-technique-generation';
 import type { BoundServerEventName, ServerEventCallback } from './socket-server-events';
@@ -73,6 +75,10 @@ export class SocketManager {
   });
   /** 社交、邮件和市场发包 owner。 */
   private readonly socialEconomySender = createSocketSocialEconomySender({
+    emitEvent: (event, payload) => this.sendEvent(event, payload),
+  });
+  /** 组队相关请求发包 owner。 */
+  private readonly partySender = createSocketPartySender({
     emitEvent: (event, payload) => this.sendEvent(event, payload),
   });
   /** GM 与调试发包 owner。 */
@@ -331,6 +337,10 @@ export class SocketManager {
   get socialEconomy(): SocketSocialEconomySender {
     return this.socialEconomySender;
   }  
+  /** party：组队请求发包 owner。 */
+  get party(): SocketPartySender {
+    return this.partySender;
+  }
   /**
  * admin：读取admin。
  * @returns 返回admin。

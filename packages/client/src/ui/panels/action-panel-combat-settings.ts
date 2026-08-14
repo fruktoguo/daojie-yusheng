@@ -551,6 +551,7 @@ export class CombatSettingsSubpanel {
       { key: 'monster', scope: 'hostile', label: t('action.combat-settings.targeting.hostile.monster.label', undefined), summary: t('action.combat-settings.targeting.hostile.monster.summary', undefined), active: draft.hostile?.includes('monster') === true },
       { key: 'demonized_players', scope: 'hostile', label: t('action.combat-settings.targeting.hostile.demonized-players.label', undefined), summary: t('action.combat-settings.targeting.hostile.demonized-players.summary', undefined), active: draft.hostile?.includes('demonized_players') === true },
       { key: 'retaliators', scope: 'hostile', label: t('action.combat-settings.targeting.hostile.retaliators.label', undefined), summary: t('action.combat-settings.targeting.hostile.retaliators.summary', undefined), active: draft.hostile?.includes('retaliators') === true },
+      { key: 'party', scope: 'hostile', label: t('action.combat-settings.targeting.hostile.party.label', undefined), summary: t('action.combat-settings.targeting.hostile.party.summary', undefined), active: draft.hostile?.includes('party') === true },
       { key: 'all_players', scope: 'hostile', label: t('action.combat-settings.targeting.hostile.all-players.label', undefined), summary: t('action.combat-settings.targeting.hostile.all-players.summary', undefined), active: draft.hostile?.includes('all_players') === true },
       { key: 'terrain', scope: 'hostile', label: t('action.combat-settings.targeting.hostile.terrain.label', undefined), summary: t('action.combat-settings.targeting.hostile.terrain.summary', undefined), active: draft.hostile?.includes('terrain') === true },
     ];
@@ -558,6 +559,7 @@ export class CombatSettingsSubpanel {
       { key: 'non_hostile_players', scope: 'friendly', label: t('action.combat-settings.targeting.friendly.non-hostile-players.label', undefined), summary: t('action.combat-settings.targeting.friendly.non-hostile-players.summary', undefined), active: draft.friendly?.includes('non_hostile_players') === true },
       { key: 'all_players', scope: 'friendly', label: t('action.combat-settings.targeting.friendly.all-players.label', undefined), summary: t('action.combat-settings.targeting.friendly.all-players.summary', undefined), active: draft.friendly?.includes('all_players') === true },
       { key: 'retaliators', scope: 'friendly', label: t('action.combat-settings.targeting.friendly.retaliators.label', undefined), summary: t('action.combat-settings.targeting.friendly.retaliators.summary', undefined), active: draft.friendly?.includes('retaliators') === true },
+      { key: 'party', scope: 'friendly', label: t('action.combat-settings.targeting.friendly.party.label', undefined), summary: t('action.combat-settings.targeting.friendly.party.summary', undefined), active: draft.friendly?.includes('party') === true },
     ];
     return `
       <div class="combat-settings-targeting-shell">

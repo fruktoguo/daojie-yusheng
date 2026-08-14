@@ -16,6 +16,7 @@ export type NameplateBadgeCarrier = {
   badge?: RenderEntity['badge'] | null;
   badges?: RenderEntity['badges'] | null;
   sectMark?: string | null;
+  partyMark?: string | null;
   buffs?: readonly Pick<VisibleBuffState, 'buffId' | 'stacks'>[] | null;
 };
 
@@ -28,7 +29,10 @@ export function isDemonizedNameplateBuffCarrier(
   ));
 }
 
-export function buildEntityNameplateBadges(entity: NameplateBadgeCarrier): RenderEntity['badges'] | undefined {
+export function buildEntityNameplateBadges(
+  entity: NameplateBadgeCarrier,
+  viewerPartyId?: string | null,
+): RenderEntity['badges'] | undefined {
   const sourceBadges = Array.isArray(entity.badges)
     ? entity.badges
     : entity.badge
@@ -41,7 +45,7 @@ export function buildEntityNameplateBadges(entity: NameplateBadgeCarrier): Rende
         return false;
       }
       return entity.kind === 'player'
-        ? badge.tone !== 'demonic' && badge.tone !== 'sect'
+        ? badge.tone !== 'demonic' && badge.tone !== 'sect' && badge.tone !== 'party'
         : true;
     });
   if (entity.kind !== 'player') {
@@ -54,6 +58,10 @@ export function buildEntityNameplateBadges(entity: NameplateBadgeCarrier): Rende
   const sectMark = normalizeSectMark(entity.sectMark);
   if (sectMark) {
     badges.push({ text: sectMark, tone: 'sect' });
+  }
+  const normalizedPartyId = normalizePartyId(entity.partyMark);
+  if (normalizedPartyId && normalizedPartyId === normalizePartyId(viewerPartyId)) {
+    badges.push({ text: t('entity.badge.party'), tone: 'party' });
   }
   badges.push(...baseBadges);
   return badges.length > 0 ? badges : undefined;
@@ -69,6 +77,11 @@ function normalizeBadge(badge: RenderEntity['badge'] | null | undefined): Entity
     text,
     ...(tone ? { tone } : {}),
   };
+}
+
+function normalizePartyId(value: string | null | undefined): string | null {
+  const normalized = typeof value === 'string' ? value.trim() : '';
+  return normalized || null;
 }
 
 function normalizeSectMark(value: string | null | undefined): string | null {
