@@ -627,8 +627,48 @@
 
 
     /* ====== 道友 ====== */
-    #pane-social {
+    #pane-social,
+    #pane-party,
+    #pane-social-relations,
+    #pane-social-requests,
+    #pane-social-nearby,
+    #pane-social-messages {
       min-height: 0;
+    }
+
+    .section-tabs--right-features .tab-btn {
+      flex: 1 0 calc(16.666% - 2px);
+      padding-inline: 6px;
+    }
+
+    .social-fixed-panel-shell {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 10px;
+      height: 100%;
+      min-height: 0;
+    }
+
+    .social-fixed-panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--wash-ink);
+    }
+
+    .social-fixed-panel-title {
+      color: var(--ink-black);
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-16);
+      font-weight: 800;
+    }
+
+    .social-fixed-panel-body {
+      min-width: 0;
+      min-height: 0;
+      overflow: auto;
     }
 
     .social-panel {
@@ -642,15 +682,10 @@
       margin-bottom: 0;
     }
 
-    .floating-list-panel--social .floating-list-panel__body {
-      padding: 0;
-      overflow: hidden;
-    }
-
-    .social-panel--floating {
+    .social-panel--fixed {
       grid-template-rows: minmax(0, 1fr);
       gap: 0;
-      padding: 12px;
+      padding: 0;
     }
 
     .social-panel-head {
@@ -676,8 +711,7 @@
       min-width: 0;
     }
 
-    .social-menu-launcher[hidden],
-    .social-menu-shell[hidden] {
+    .social-menu-launcher[hidden] {
       display: none !important;
     }
 
@@ -1075,11 +1109,11 @@
         height: auto;
         min-height: 100%;
       }
-      .social-panel--floating {
+      .social-panel--fixed {
         grid-template-rows: minmax(0, 1fr);
         height: 100%;
         min-height: 0;
-        padding: 8px;
+        padding: 0;
       }
       .social-menu-launcher {
         grid-template-columns: minmax(0, 1fr);

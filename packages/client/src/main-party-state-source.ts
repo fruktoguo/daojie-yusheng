@@ -14,13 +14,13 @@ import type {
 import type { SocketPartySender } from './network/socket-send-party';
 import type { ToastKind } from './main-app-assembly-types';
 import { PartyPanel } from './ui/panels/party-panel';
-import { PartyHud } from './ui/party-hud';
+import { PartyFloatingPanel } from './ui/party-floating-panel';
 import { PARTY_REASON_LABELS } from './ui/panels/party-panel-view';
 import { appendPartyMessages, loadRecentPartyMessages } from './ui/party-message-storage';
 
 type MainPartyStateSourceOptions = {
   partyPanel: PartyPanel;
-  partyHud: PartyHud;
+  partyHud: PartyFloatingPanel;
   openPartyPanel(): void;
   setPartyUnread(count: number): void;
   setPartyPanelAvailable(available: boolean): void;

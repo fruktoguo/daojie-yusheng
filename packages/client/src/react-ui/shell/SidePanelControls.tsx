@@ -3,8 +3,9 @@
  *
  * 维护时应把它视为前端表现层：只组织视图和用户意图，不保存会与主运行态冲突的真源。
  */
-import { StrictMode, memo, useEffect, useState } from 'react';
+import { StrictMode, memo, useEffect, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { flushSync } from 'react-dom';
 import { DESKTOP_LAYOUT_DRAG_LIMITS } from '../../constants/ui/responsive';
 import { t } from '../../ui/i18n';
 import { getViewportScale } from '../../ui/responsive-viewport';
@@ -14,6 +15,7 @@ export interface ReactSidePanelTabButton {
   label: string;
   className: string;
   active: boolean;
+  disabled: boolean;
   i18nKey?: string;
 }
 
@@ -93,6 +95,8 @@ export function mountReactSidePanelTabGroup(
   state: ReactSidePanelTabGroupState,
   onSelect: (groupId: string, tabName: string) => void,
 ): void {
+  container.setAttribute('role', 'tablist');
+  if (!container.hasAttribute('aria-label')) container.setAttribute('aria-label', '面板切换');
   let entry = tabGroupRoots.get(container);
   if (!entry || !entry.host.isConnected) {
     entry?.root.unmount();
@@ -103,11 +107,13 @@ export function mountReactSidePanelTabGroup(
     entry = { root: createRoot(host), host };
     tabGroupRoots.set(container, entry);
   }
-  entry.root.render(
-    <StrictMode>
-      <SidePanelTabGroup state={state} onSelect={onSelect} />
-    </StrictMode>,
-  );
+  flushSync(() => {
+    entry.root.render(
+      <StrictMode>
+        <SidePanelTabGroup state={state} onSelect={onSelect} />
+      </StrictMode>,
+    );
+  });
 }
 
 export function mountReactSidePanelToggle(button: HTMLButtonElement, state: ReactSidePanelToggleState): void {
@@ -171,38 +177,65 @@ const SidePanelTabGroup = memo(function SidePanelTabGroup({
   state: ReactSidePanelTabGroupState;
   onSelect: (groupId: string, tabName: string) => void;
 }) {
-  const [activeTabName, setActiveTabName] = useState(state.activeTabName);
+  const activeTabName = state.activeTabName;
+  const enabledTabs = state.tabs.filter((tab) => !tab.disabled);
 
-  useEffect(() => {
-    setActiveTabName(state.activeTabName);
-  }, [state.activeTabName]);
-
-  useEffect(() => {
-    for (const pane of state.panes) {
-      pane.element.classList.toggle('active', pane.tabName === activeTabName);
+  const handleTabKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>, tabName: string): void => {
+    const currentIndex = enabledTabs.findIndex((tab) => tab.tabName === tabName);
+    if (currentIndex < 0) return;
+    let targetIndex: number | null = null;
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      targetIndex = (currentIndex - 1 + enabledTabs.length) % enabledTabs.length;
+    } else if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      targetIndex = (currentIndex + 1) % enabledTabs.length;
+    } else if (event.key === 'Home') {
+      targetIndex = 0;
+    } else if (event.key === 'End') {
+      targetIndex = enabledTabs.length - 1;
     }
-  }, [activeTabName, state.panes]);
+    if (targetIndex === null) return;
+    event.preventDefault();
+    const target = enabledTabs[targetIndex];
+    onSelect(state.groupId, target.tabName);
+    window.requestAnimationFrame(() => {
+      document.getElementById(buildSidePanelTabId(state.groupId, target.tabName))?.focus({ preventScroll: true });
+    });
+  };
 
   return (
     <>
-      {state.tabs.map((tab) => (
-        <button
-          key={tab.tabName}
-          className={`${tab.className}${tab.tabName === activeTabName ? ' active' : ''}`.trim()}
-          data-tab={tab.tabName}
-          data-i18n={tab.i18nKey}
-          type="button"
-          onClick={() => {
-            setActiveTabName(tab.tabName);
-            onSelect(state.groupId, tab.tabName);
-          }}
-        >
-          {tab.i18nKey ? t(tab.i18nKey, undefined) : tab.label}
-        </button>
-      ))}
+      {state.tabs.map((tab) => {
+        const active = tab.tabName === activeTabName;
+        const paneId = state.panes.find((pane) => pane.tabName === tab.tabName)?.element.id;
+        return (
+          <button
+            key={tab.tabName}
+            id={buildSidePanelTabId(state.groupId, tab.tabName)}
+            className={`${tab.className}${active ? ' active' : ''}`.trim()}
+            data-tab={tab.tabName}
+            data-i18n={tab.i18nKey}
+            type="button"
+            role="tab"
+            aria-selected={active ? 'true' : 'false'}
+            aria-controls={paneId || undefined}
+            tabIndex={active ? 0 : -1}
+            disabled={tab.disabled}
+            onKeyDown={(event) => handleTabKeyDown(event, tab.tabName)}
+            onClick={() => {
+              onSelect(state.groupId, tab.tabName);
+            }}
+          >
+            {tab.i18nKey ? t(tab.i18nKey, undefined) : tab.label}
+          </button>
+        );
+      })}
     </>
   );
 });
+
+export function buildSidePanelTabId(groupId: string, tabName: string): string {
+  return `side-panel-tab-${groupId}-${tabName}`.replace(/[^a-zA-Z0-9_-]/g, '-');
+}
 
 const SidePanelToggle = memo(function SidePanelToggle({
   button,

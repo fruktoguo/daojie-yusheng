@@ -25,7 +25,7 @@ import { renderTradeQuantityControl } from '../trade-control-renderers';
 import { normalizeTreasureVaultTransferCount } from '../treasure-vault-transfer-count';
 import { AccessPolicyResourceEditor } from '../access-policy-resource-editor';
 import type { AccessPolicySocketClient } from '../access-policy-socket-client';
-import { SocialFloatingPanel, type SocialFloatingPanelKind } from '../social-floating-panel';
+import { SocialFixedPanel, type SocialFixedPanelKind } from '../social-fixed-panel';
 
 type SocialPanelCallbacks = {
   onRefresh(): void;
@@ -73,7 +73,8 @@ type SocialMenuScrollSnapshot = {
   scrollLeft: number;
 };
 
-type SocialPanelTab = SocialFloatingPanelKind;
+type SocialPanelTab = SocialFixedPanelKind;
+export type SocialFixedPanelId = 'social' | `social-${SocialPanelTab}`;
 type SocialRelationView = SocialPanelView['relations'][number];
 
 export type TreasureVaultModalTab = 'items' | 'permissions';
@@ -124,30 +125,34 @@ export class SocialPanel {
   private callbacks: SocialPanelCallbacks | null = null;
   private partyInviteHandler: ((targetPlayerId: string) => void) | null = null;
   private partyOpenHandler: (() => void) | null = null;
+  private fixedPanelOpenHandler: ((panelId: SocialFixedPanelId) => void) | null = null;
   private partyTabUnreadCount = 0;
-  private readonly floatingMenus: Record<SocialPanelTab, SocialFloatingPanel>;
+  private partyAvailable = false;
+  private readonly fixedMenus: Record<SocialPanelTab, SocialFixedPanel>;
   private view: SocialPanelView = { relations: [], incomingRequests: [], outgoingRequests: [], nearbyCandidates: [] };
   private activeTab: SocialPanelTab = 'relations';
+  private activeFixedPanelName: string | null = null;
   private selectedPlayerId: string | null = null;
   private messagesByPlayerId = new Map<string, DaoistDirectMessageView[]>();
   private unreadMessagesByPlayerId = new Map<string, number>();
   private messageDraftsByPlayerId = new Map<string, string>();
+  private conversationInputByPlayerId = new Map<string, SocialMessageInputSnapshot>();
   private conversationScrollByPlayerId = new Map<string, SocialConversationScrollSnapshot>();
   private launcherScroll: SocialMenuScrollSnapshot = { scrollTop: 0, scrollLeft: 0 };
   private menuScrollByTab = new Map<SocialPanelTab, SocialMenuScrollSnapshot>();
 
   constructor() {
-    this.floatingMenus = Object.fromEntries(SOCIAL_PANEL_TABS.map((tab) => [
+    this.fixedMenus = Object.fromEntries(SOCIAL_PANEL_TABS.map((tab) => [
       tab.id,
-      new SocialFloatingPanel(
+      new SocialFixedPanel(
         tab.id,
-        () => this.prepareFloatingMenuClose(tab.id),
-        () => this.finishFloatingMenuClose(tab.id),
+        () => this.fixedPanelOpenHandler?.(`social-${tab.id}`),
+        () => this.fixedPanelOpenHandler?.('social'),
       ),
-    ])) as Record<SocialPanelTab, SocialFloatingPanel>;
+    ])) as Record<SocialPanelTab, SocialFixedPanel>;
     this.bindEvents(this.pane);
-    for (const panel of Object.values(this.floatingMenus)) {
-      this.bindEvents(panel.body);
+    for (const panel of Object.values(this.fixedMenus)) {
+      this.bindEvents(panel.root);
     }
     this.render();
   }
@@ -162,6 +167,37 @@ export class SocialPanel {
 
   setPartyOpenHandler(handler: (() => void) | null): void {
     this.partyOpenHandler = handler;
+  }
+
+  setFixedPanelOpenHandler(handler: ((panelId: SocialFixedPanelId) => void) | null): void {
+    this.fixedPanelOpenHandler = handler;
+  }
+
+  handleFixedPanelTabWillChange(previousTabName: string | null, tabName: string): void {
+    const previousTab = resolveFixedSocialTab(previousTabName);
+    const nextTab = resolveFixedSocialTab(tabName);
+    if (previousTab && previousTab !== nextTab) this.prepareFixedMenuClose(previousTab);
+    if (previousTabName === 'social') this.captureLauncherScroll();
+  }
+
+  handleFixedPanelTabDidChange(previousTabName: string | null, tabName: string, focusInitial = true): void {
+    this.activeFixedPanelName = tabName;
+    const tab = resolveFixedSocialTab(tabName);
+    if (tab) {
+      this.activateFixedMenu(tab, focusInitial);
+      return;
+    }
+    this.patchTabState();
+    if (tabName !== 'social') return;
+    this.restoreLauncherScroll();
+    const previousTab = resolveFixedSocialTab(previousTabName);
+    if (focusInitial && previousTab) this.focusMenuLauncherButton(previousTab);
+    if (focusInitial && previousTabName === 'party') this.focusPartyLauncher();
+  }
+
+  setPartyAvailable(available: boolean): void {
+    this.partyAvailable = available;
+    this.patchTabState();
   }
 
   update(view: SocialPanelView): void {
@@ -182,10 +218,14 @@ export class SocialPanel {
     } else {
       this.patchTabState();
     }
-    for (const tab of openTabs) {
-      this.replaceTabContent(tab, tab === 'messages' ? inputSnapshot : null);
-      this.restoreMenuScroll(tab);
-      this.scheduleVisibleMenuRestore(tab, tab === 'messages' ? inputSnapshot : null);
+    for (const tab of SOCIAL_PANEL_TABS.map((entry) => entry.id)) {
+      if (this.isMenuOpen(tab)) {
+        this.replaceTabContent(tab, tab === 'messages' ? inputSnapshot : null);
+        this.restoreMenuScroll(tab);
+        this.scheduleVisibleMenuRestore(tab, tab === 'messages' ? inputSnapshot : null);
+      } else {
+        this.replaceTabContent(tab, null);
+      }
     }
   }
 
@@ -268,12 +308,12 @@ export class SocialPanel {
     this.messagesByPlayerId.clear();
     this.unreadMessagesByPlayerId.clear();
     this.messageDraftsByPlayerId.clear();
+    this.conversationInputByPlayerId.clear();
     this.conversationScrollByPlayerId.clear();
     this.launcherScroll = { scrollTop: 0, scrollLeft: 0 };
     this.menuScrollByTab.clear();
     this.partyTabUnreadCount = 0;
-    for (const panel of Object.values(this.floatingMenus)) {
-      panel.hide();
+    for (const panel of Object.values(this.fixedMenus)) {
       panel.clearContent();
     }
     this.render();
@@ -307,7 +347,7 @@ export class SocialPanel {
         return;
       }
       if (action === 'party') {
-        this.partyOpenHandler?.();
+        if (this.partyAvailable) this.partyOpenHandler?.();
         return;
       }
       if (action === 'chat' && playerId) {
@@ -359,6 +399,7 @@ export class SocialPanel {
       </div>
     `;
     this.restoreLauncherScroll();
+    for (const tab of SOCIAL_PANEL_TABS.map((entry) => entry.id)) this.replaceTabContent(tab, null);
     this.patchTabState();
   }
 
@@ -372,11 +413,14 @@ export class SocialPanel {
           type="button"
           data-social-action="party"
           data-social-menu="party"
-          aria-controls="floating-party-panel"
+          aria-controls="pane-party"
           aria-label="${partyUnread > 0 ? `队伍，${partyUnread} 条未读消息` : '队伍'}"
+          aria-expanded="${document.getElementById('pane-party')?.classList.contains('active') === true ? 'true' : 'false'}"
+          aria-disabled="${this.partyAvailable ? 'false' : 'true'}"
+          ${this.partyAvailable ? '' : 'disabled'}
         >
           <span class="social-menu-card-glyph" aria-hidden="true">伍</span>
-          <span class="social-menu-card-copy"><strong>队伍</strong><small>打开独立悬浮窗，查看成员、招募与管理</small></span>
+          <span class="social-menu-card-copy"><strong>队伍</strong><small>打开固定队伍面板，查看成员、邀请与管理</small></span>
           <span class="social-panel-tab-unread" data-social-party-unread="true" aria-hidden="true" ${partyUnread > 0 ? '' : 'hidden'}>${formatSocialUnreadCount(partyUnread)}</span>
         </button>
         ${SOCIAL_PANEL_TABS.map((tab) => {
@@ -392,7 +436,7 @@ export class SocialPanel {
               data-social-action="menu"
               data-social-menu="${tab.id}"
               data-social-tab="${tab.id}"
-              aria-controls="floating-social-${tab.id}"
+              aria-controls="pane-social-${tab.id}"
               aria-label="${escapeHtml(ariaLabel)}"
               aria-expanded="${this.isMenuOpen(tab.id) ? 'true' : 'false'}"
             >
@@ -665,7 +709,7 @@ export class SocialPanel {
     if (currentRoot) {
       currentRoot.replaceWith(nextRoot);
     } else {
-      const host = this.floatingMenus.messages.body.querySelector<HTMLElement>('[data-social-conversation-host="true"]');
+      const host = this.fixedMenus.messages.body.querySelector<HTMLElement>('[data-social-conversation-host="true"]');
       host?.querySelector<HTMLElement>('.social-conversation-empty')?.remove();
       host?.append(nextRoot);
     }
@@ -677,50 +721,39 @@ export class SocialPanel {
     if (!selected) return;
     const fragment = createFragmentFromHtml(this.renderConversationSection(selected));
     const nextSection = fragment.firstElementChild;
-    const currentSection = this.floatingMenus.messages.body.querySelector<HTMLElement>('[data-social-conversation-host="true"]');
+    const currentSection = this.fixedMenus.messages.body.querySelector<HTMLElement>('[data-social-conversation-host="true"]');
     if (!(nextSection instanceof HTMLElement) || !currentSection) return;
     currentSection.replaceWith(nextSection);
     this.restoreConversationState(peerId, inputSnapshot);
   }
 
   private switchActiveTab(tab: SocialPanelTab, _trigger: HTMLButtonElement | null = null): void {
-    const inputSnapshot = tab === 'messages' && this.isMenuOpen('messages')
-      ? this.captureConversationState(this.selectedPlayerId)
-      : null;
-    this.captureMenuScroll(tab);
-    this.closeOtherMenusForNarrowViewport(tab);
     this.activeTab = tab;
-    this.floatingMenus[tab].open();
+    this.fixedMenus[tab].open();
+  }
+
+  private activateFixedMenu(tab: SocialPanelTab, focusInitial: boolean): void {
+    this.activeTab = tab;
     const selected = this.resolveSelectedRelation();
+    const restoreConversationFocus = tab === 'messages'
+      && selected !== null
+      && this.conversationInputByPlayerId.get(selected.playerId)?.focused === true;
     if (tab === 'messages' && selected) this.callbacks?.onOpenConversation(selected.playerId);
-    this.replaceTabContent(tab, inputSnapshot);
+    this.replaceTabContent(tab, null);
     this.restoreMenuScroll(tab);
-    this.scheduleVisibleMenuRestore(tab, inputSnapshot);
+    this.scheduleVisibleMenuRestore(tab, null);
     this.patchTabState();
-    this.floatingMenus[tab].focusCloseButton();
+    if (focusInitial && !restoreConversationFocus) this.fixedMenus[tab].focusCloseButton();
   }
 
   private closeActiveMenu(): void {
-    this.floatingMenus[this.activeTab].close();
+    const openTab = SOCIAL_PANEL_TABS.map((entry) => entry.id).find((entry) => this.isMenuOpen(entry));
+    this.fixedMenus[openTab ?? this.activeTab].close();
   }
 
-  private prepareFloatingMenuClose(tab: SocialPanelTab): void {
+  private prepareFixedMenuClose(tab: SocialPanelTab): void {
     if (tab === 'messages') this.captureConversationState(this.selectedPlayerId);
     this.captureMenuScroll(tab);
-  }
-
-  private finishFloatingMenuClose(tab: SocialPanelTab): void {
-    this.patchTabState();
-    this.focusMenuLauncherButton(tab);
-  }
-
-  private closeOtherMenusForNarrowViewport(activeTab: SocialPanelTab): void {
-    if (window.innerWidth > 720) return;
-    for (const tab of SOCIAL_PANEL_TABS.map((entry) => entry.id)) {
-      if (tab === activeTab || !this.isMenuOpen(tab)) continue;
-      this.prepareFloatingMenuClose(tab);
-      this.floatingMenus[tab].close(false);
-    }
   }
 
   private openConversation(playerId: string): void {
@@ -728,29 +761,27 @@ export class SocialPanel {
     const wasOpen = this.isMenuOpen('messages');
     const playerChanged = this.selectedPlayerId !== playerId;
     const inputSnapshot = wasOpen ? this.captureConversationState(this.selectedPlayerId) : null;
-    this.captureMenuScroll('messages');
-    this.closeOtherMenusForNarrowViewport('messages');
+    if (wasOpen) this.captureMenuScroll('messages');
     this.activeTab = 'messages';
     this.selectedPlayerId = playerId;
-    this.floatingMenus.messages.open();
-    this.callbacks?.onOpenConversation(playerId);
     if (!wasOpen) {
-      this.replaceTabContent('messages', null);
-    } else {
-      this.patchSelectedRelation(playerId);
-      this.patchUnreadIndicators(playerId);
-      if (playerChanged) this.replaceConversationSection(playerId, inputSnapshot);
+      this.fixedMenus.messages.open();
+      return;
     }
+    this.callbacks?.onOpenConversation(playerId);
+    this.patchSelectedRelation(playerId);
+    this.patchUnreadIndicators(playerId);
+    if (playerChanged) this.replaceConversationSection(playerId, inputSnapshot);
     this.restoreMenuScroll('messages');
     this.scheduleVisibleMenuRestore('messages', inputSnapshot);
     this.patchTabState();
-    this.floatingMenus.messages.focusCloseButton();
+    this.fixedMenus.messages.focusCloseButton();
   }
 
   private replaceTabContent(tab: SocialPanelTab, inputSnapshot: SocialMessageInputSnapshot | null): void {
     const selected = this.resolveSelectedRelation();
-    this.floatingMenus[tab].updateContent(`
-      <div class="social-panel social-panel--floating">
+    this.fixedMenus[tab].updateContent(`
+      <div class="social-panel social-panel--fixed">
         <div class="social-panel-tab-content" data-social-tab-content="${tab}">
           ${this.renderTabContent(tab, selected)}
         </div>
@@ -793,7 +824,7 @@ export class SocialPanel {
   }
 
   private getMenuScrollContainer(tab: SocialPanelTab): HTMLElement {
-    const body = this.floatingMenus[tab].body;
+    const body = this.fixedMenus[tab].body;
     if (tab === 'messages') return body;
     return body.querySelector<HTMLElement>('.social-panel-tab-pane > .ui-list') ?? body;
   }
@@ -812,7 +843,7 @@ export class SocialPanel {
   }
 
   private isMenuOpen(tab: SocialPanelTab): boolean {
-    return this.floatingMenus[tab].isOpen();
+    return this.activeFixedPanelName === `social-${tab}`;
   }
 
   private resolveSelectedRelation(): SocialRelationView | null {
@@ -833,6 +864,7 @@ export class SocialPanel {
       this.messagesByPlayerId,
       this.unreadMessagesByPlayerId,
       this.messageDraftsByPlayerId,
+      this.conversationInputByPlayerId,
       this.conversationScrollByPlayerId,
     ]) {
       for (const playerId of state.keys()) {
@@ -874,6 +906,12 @@ export class SocialPanel {
     this.patchTabState();
   }
 
+  focusPartyLauncher(): void {
+    window.requestAnimationFrame(() => {
+      this.pane.querySelector<HTMLButtonElement>('[data-social-menu="party"]')?.focus({ preventScroll: true });
+    });
+  }
+
   private getTotalUnreadCount(): number {
     let total = 0;
     for (const count of this.unreadMessagesByPlayerId.values()) {
@@ -887,7 +925,13 @@ export class SocialPanel {
     const partyButton = this.pane.querySelector<HTMLButtonElement>('[data-social-menu="party"]');
     const partyUnread = this.getPartyTabUnreadCount();
     if (partyButton) {
+      const partyTabButton = document.querySelector<HTMLButtonElement>('[data-tab="party"]');
+      const partyOpen = this.activeFixedPanelName === 'party';
+      partyButton.disabled = !this.partyAvailable;
+      if (partyTabButton) partyTabButton.disabled = !this.partyAvailable;
+      partyButton.classList.toggle('active', partyOpen);
       partyButton.classList.toggle('has-unread', partyUnread > 0);
+      partyButton.setAttribute('aria-expanded', partyOpen ? 'true' : 'false');
       partyButton.setAttribute('aria-label', partyUnread > 0 ? `队伍，${partyUnread} 条未读消息` : '队伍');
       const badge = partyButton.querySelector<HTMLElement>('[data-social-party-unread="true"]');
       if (badge) {
@@ -904,7 +948,7 @@ export class SocialPanel {
       button.setAttribute('aria-expanded', active ? 'true' : 'false');
       const count = this.getTabCount(tab);
       const label = SOCIAL_PANEL_TABS.find((entry) => entry.id === tab)?.label ?? tab;
-      this.floatingMenus[tab].setTitle(tab === 'messages' && unreadCount > 0 ? `${label} · ${unreadCount > 99 ? '99+' : unreadCount} 条未读` : label);
+      this.fixedMenus[tab].setTitle(tab === 'messages' && unreadCount > 0 ? `${label} · ${unreadCount > 99 ? '99+' : unreadCount} 条未读` : label);
       const countNode = button.querySelector<HTMLElement>('[data-social-tab-count="true"]');
       if (countNode && count !== null) countNode.textContent = String(count);
       if (tab !== 'messages') {
@@ -928,7 +972,7 @@ export class SocialPanel {
     const relation = this.view.relations.find((entry) => entry.playerId === playerId);
     const playerName = resolveSocialPlayerName(playerId, relation?.name);
     const ariaLabel = unreadCount > 0 ? `${playerName}，${unreadCount} 条未读消息` : playerName;
-    for (const badge of this.floatingMenus.messages.body.querySelectorAll<HTMLElement>('[data-social-peer-unread]')) {
+    for (const badge of this.fixedMenus.messages.body.querySelectorAll<HTMLElement>('[data-social-peer-unread]')) {
       if (badge.dataset.socialPeerUnread !== playerId) {
         continue;
       }
@@ -949,7 +993,7 @@ export class SocialPanel {
   }
 
   private patchSelectedRelation(playerId: string): void {
-    for (const root of [this.floatingMenus.relations.body, this.floatingMenus.messages.body]) {
+    for (const root of [this.fixedMenus.relations.body, this.fixedMenus.messages.body]) {
       for (const row of root.querySelectorAll<HTMLElement>('[data-social-relation-row]')) {
         const selected = row.dataset.socialRelationRow === playerId;
         row.classList.toggle('active', selected);
@@ -959,7 +1003,7 @@ export class SocialPanel {
   }
 
   private getConversationRoot(peerId: string): HTMLElement | null {
-    return Array.from(this.floatingMenus.messages.body.querySelectorAll<HTMLElement>('[data-social-conversation-peer]'))
+    return Array.from(this.fixedMenus.messages.body.querySelectorAll<HTMLElement>('[data-social-conversation-peer]'))
       .find((entry) => entry.dataset.socialConversationPeer === peerId) ?? null;
   }
 
@@ -988,13 +1032,15 @@ export class SocialPanel {
     if (scrollSnapshot) {
       this.conversationScrollByPlayerId.set(peerId, scrollSnapshot);
     }
-    return {
+    const snapshot: SocialMessageInputSnapshot = {
       peerId,
       focused: document.activeElement === input,
       selectionStart: input?.selectionStart ?? null,
       selectionEnd: input?.selectionEnd ?? null,
       selectionDirection: input?.selectionDirection ?? null,
     };
+    this.conversationInputByPlayerId.set(peerId, snapshot);
+    return snapshot;
   }
 
   private captureConversationScroll(
@@ -1036,20 +1082,21 @@ export class SocialPanel {
     if (!root) {
       return;
     }
+    const snapshot = inputSnapshot ?? this.conversationInputByPlayerId.get(peerId) ?? null;
     const input = root.querySelector<HTMLInputElement>('[data-social-message-input]');
     if (input) {
       input.value = this.messageDraftsByPlayerId.get(peerId) ?? '';
     }
     this.restoreConversationScroll(peerId);
-    if (!input || inputSnapshot?.peerId !== peerId || !inputSnapshot.focused) {
+    if (!input || snapshot?.peerId !== peerId) {
       return;
     }
-    input.focus({ preventScroll: true });
-    if (inputSnapshot.selectionStart !== null && inputSnapshot.selectionEnd !== null) {
+    if (snapshot.focused) input.focus({ preventScroll: true });
+    if (snapshot.selectionStart !== null && snapshot.selectionEnd !== null) {
       input.setSelectionRange(
-        inputSnapshot.selectionStart,
-        inputSnapshot.selectionEnd,
-        inputSnapshot.selectionDirection ?? 'none',
+        snapshot.selectionStart,
+        snapshot.selectionEnd,
+        snapshot.selectionDirection ?? 'none',
       );
     }
   }
@@ -2221,6 +2268,11 @@ export class TreasureVaultModal {
 
 function isSocialPanelTab(value: string | undefined): value is SocialPanelTab {
   return SOCIAL_PANEL_TABS.some((entry) => entry.id === value);
+}
+
+function resolveFixedSocialTab(tabName: string | null | undefined): SocialPanelTab | null {
+  const value = tabName?.startsWith('social-') ? tabName.slice('social-'.length) : '';
+  return isSocialPanelTab(value) ? value : null;
 }
 
 function formatSocialUnreadCount(count: number): string {

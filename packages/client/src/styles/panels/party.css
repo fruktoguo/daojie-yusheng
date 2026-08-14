@@ -6,9 +6,18 @@
   gap: 12px;
 }
 
-/* 独立队伍悬浮窗 */
-.floating-list-panel--party .floating-list-panel__body {
-  padding: 10px;
+/* 固定队伍主面板 */
+.party-fixed-panel-shell .party-panel {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* 紧凑队伍悬浮窗 */
+.floating-list-panel--party-hud .floating-list-panel__body {
+  max-height: min(420px, calc(100dvh - 96px));
+  padding: 0;
+  overflow: auto;
 }
 
 .party-tabs {
@@ -294,9 +303,7 @@
 /* 队伍 HUD */
 .party-hud {
   position: relative;
-  margin: 0 0 6px;
-  width: auto;
-  max-width: 100%;
+  width: 100%;
   pointer-events: none;
 }
 

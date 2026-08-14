@@ -4,7 +4,7 @@
  * 只保存本地显示偏好，服务端仍是行动与技艺任务状态的唯一权威来源。
  */
 
-export type FloatingPanelPreferenceKey = 'actionQueue' | 'interactionList';
+export type FloatingPanelPreferenceKey = 'actionQueue' | 'interactionList' | 'party';
 
 export type FloatingPanelPreferences = Record<FloatingPanelPreferenceKey, boolean>;
 
@@ -15,6 +15,7 @@ const FLOATING_PANEL_PREFERENCES_STORAGE_KEY = 'mud:floating-panel-preferences:v
 const DEFAULT_FLOATING_PANEL_PREFERENCES: FloatingPanelPreferences = {
   actionQueue: true,
   interactionList: true,
+  party: true,
 };
 
 let initialized = false;
@@ -66,6 +67,7 @@ function normalizePreferences(raw: Partial<FloatingPanelPreferences> | null | un
   return {
     actionQueue: raw?.actionQueue !== false,
     interactionList: raw?.interactionList !== false,
+    party: raw?.party !== false,
   };
 }
 
@@ -96,5 +98,6 @@ function clonePreferences(preferences: FloatingPanelPreferences): FloatingPanelP
   return {
     actionQueue: preferences.actionQueue,
     interactionList: preferences.interactionList,
+    party: preferences.party,
   };
 }

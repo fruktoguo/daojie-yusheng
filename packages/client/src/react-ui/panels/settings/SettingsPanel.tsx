@@ -111,6 +111,11 @@ const FLOATING_PANEL_TOGGLES: Array<{
     title: '交互列表',
     desc: '显示附近技艺、任务、传送和交互的快捷按钮。',
   },
+  {
+    key: 'party',
+    title: '队伍状态',
+    desc: '显示队伍成员状态与队伍聊天快捷入口。',
+  },
 ];
 
 // ─── Store ───────────────────────────────────────────────────────────────────
@@ -229,7 +234,9 @@ export const SettingsPanel = memo(function SettingsPanel() {
           <button
             key={tab.id}
             className={`settings-modal-tab ui-tabbed-modal-tab${activeTab === tab.id ? ' active' : ''}`}
+            data-settings-tab={tab.id}
             type="button"
+            role="tab"
             aria-selected={activeTab === tab.id ? 'true' : 'false'}
             onClick={() => setActiveTab(tab.id)}
           >
@@ -636,14 +643,14 @@ const UiTab = memo(function UiTab() {
         <div className="settings-ui-copy ui-form-copy">关闭后的悬浮窗不会自动显示，可在这里重新开启。</div>
         <div className="settings-performance-card ui-card-list">
           {FLOATING_PANEL_TOGGLES.map((item) => (
-            <div key={item.key} className="settings-performance-row ui-data-table-row">
+            <div key={item.key} className="settings-performance-row ui-data-table-row" data-floating-panel-key={item.key}>
               <div className="settings-performance-meta ui-data-table-meta">
                 <div className="settings-performance-name ui-data-table-name">{item.title}</div>
                 <div className="settings-performance-desc ui-data-table-desc">{item.desc}</div>
               </div>
               <div className="settings-performance-actions ui-inline-actions-end-wrap">
-                <button className={`small-btn ghost${!floatingPanels[item.key] ? ' active' : ''}`} type="button" aria-pressed={!floatingPanels[item.key] ? 'true' : 'false'} onClick={() => handleFloatingPanelToggle(item.key, false)}>关</button>
-                <button className={`small-btn ghost${floatingPanels[item.key] ? ' active' : ''}`} type="button" aria-pressed={floatingPanels[item.key] ? 'true' : 'false'} onClick={() => handleFloatingPanelToggle(item.key, true)}>开</button>
+                <button className={`small-btn ghost${!floatingPanels[item.key] ? ' active' : ''}`} type="button" aria-label={`${item.title}关闭`} aria-pressed={!floatingPanels[item.key] ? 'true' : 'false'} data-floating-panel-enabled="false" onClick={() => handleFloatingPanelToggle(item.key, false)}>关</button>
+                <button className={`small-btn ghost${floatingPanels[item.key] ? ' active' : ''}`} type="button" aria-label={`${item.title}开启`} aria-pressed={floatingPanels[item.key] ? 'true' : 'false'} data-floating-panel-enabled="true" onClick={() => handleFloatingPanelToggle(item.key, true)}>开</button>
               </div>
             </div>
           ))}

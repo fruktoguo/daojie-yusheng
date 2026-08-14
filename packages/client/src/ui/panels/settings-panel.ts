@@ -511,7 +511,7 @@ export class SettingsPanel {
     body.querySelectorAll<HTMLButtonElement>('[data-floating-panel-toggle]').forEach((button) => {
       button.addEventListener('click', () => {
         const key = button.dataset.floatingPanelToggle as FloatingPanelPreferenceKey | undefined;
-        if (key !== 'actionQueue' && key !== 'interactionList') {
+        if (key !== 'actionQueue' && key !== 'interactionList' && key !== 'party') {
           return;
         }
         const enabled = button.dataset.floatingPanelValue === 'on';
@@ -687,7 +687,7 @@ export class SettingsPanel {
   private syncFloatingPanelControls(body: HTMLElement, preferences: FloatingPanelPreferences): void {
     body.querySelectorAll<HTMLButtonElement>('[data-floating-panel-toggle]').forEach((button) => {
       const key = button.dataset.floatingPanelToggle as FloatingPanelPreferenceKey | undefined;
-      if (key !== 'actionQueue' && key !== 'interactionList') {
+      if (key !== 'actionQueue' && key !== 'interactionList' && key !== 'party') {
         return;
       }
       const active = (button.dataset.floatingPanelValue === 'on') === preferences[key];
@@ -875,6 +875,7 @@ export class SettingsPanel {
         <div class="settings-performance-card ui-card-list">
           ${this.renderFloatingPanelPreferenceRow('actionQueue', '行动队列', '显示技艺通用 jobs 的任务名、数量和当前进度。', floatingPreferences.actionQueue)}
           ${this.renderFloatingPanelPreferenceRow('interactionList', '交互列表', '显示附近技艺、任务、传送和交互的快捷按钮。', floatingPreferences.interactionList)}
+          ${this.renderFloatingPanelPreferenceRow('party', '队伍状态', '显示队伍成员状态与队伍迷你聊天。', floatingPreferences.party)}
         </div>
       </div>
     `;

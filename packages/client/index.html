@@ -91,7 +91,6 @@
     <aside id="layout-left" class="layout-column">
       <section class="layout-section" data-mobile-section="overview">
         <div id="hud" class="hidden">
-          <div id="party-hud"></div>
           <div class="hud-panel">
             <div class="hud-identity">
               <div class="hud-name" id="hud-name" data-i18n="shell.name">修行者</div>
@@ -463,13 +462,18 @@
               <div class="section-subtitle" data-i18n="shell.bag-subtitle">背包、装备、功法、炼体与任务</div>
             </div>
           </div>
-          <div class="section-tabs">
+          <div class="section-tabs section-tabs--right-features" role="tablist" aria-label="行囊录功能">
             <button class="tab-btn active" data-tab="inventory" type="button" data-i18n="shell.inventory">背包</button>
             <button class="tab-btn" data-tab="equipment" type="button" data-i18n="shell.equipment">装备</button>
             <button class="tab-btn" data-tab="technique" type="button" data-i18n="shell.technique">功法</button>
             <button class="tab-btn" data-tab="body-training" type="button" data-i18n="shell.body-training">炼体</button>
             <button class="tab-btn" data-tab="quest" type="button" data-i18n="shell.quest">任务</button>
             <button class="tab-btn" data-tab="social" type="button" data-i18n="shell.social">道友</button>
+            <button class="tab-btn social-feature-tab" data-tab="party" type="button">队伍</button>
+            <button class="tab-btn social-feature-tab" data-tab="social-relations" type="button">名录</button>
+            <button class="tab-btn social-feature-tab" data-tab="social-requests" type="button">申请</button>
+            <button class="tab-btn social-feature-tab" data-tab="social-nearby" type="button">附近</button>
+            <button class="tab-btn social-feature-tab" data-tab="social-messages" type="button">私聊</button>
             <button class="tab-btn" data-tab="market" type="button" data-i18n="shell.market">坊市</button>
           </div>
           <div class="section-body">
@@ -479,6 +483,19 @@
             <div class="tab-pane" id="pane-body-training" data-pane="body-training"></div>
             <div class="tab-pane" id="pane-quest" data-pane="quest"></div>
             <div class="tab-pane" id="pane-social" data-pane="social"></div>
+            <div class="tab-pane" id="pane-party" data-pane="party">
+              <div class="social-fixed-panel-shell party-fixed-panel-shell" role="region" aria-labelledby="party-fixed-panel-title">
+                <div class="social-fixed-panel-head">
+                  <div class="social-fixed-panel-title" id="party-fixed-panel-title">队伍</div>
+                  <button class="small-btn ghost" type="button" data-party-fixed-back="true">返回道友</button>
+                </div>
+                <div class="social-fixed-panel-body" id="party-panel-fixed-host"></div>
+              </div>
+            </div>
+            <div class="tab-pane" id="pane-social-relations" data-pane="social-relations"></div>
+            <div class="tab-pane" id="pane-social-requests" data-pane="social-requests"></div>
+            <div class="tab-pane" id="pane-social-nearby" data-pane="social-nearby"></div>
+            <div class="tab-pane" id="pane-social-messages" data-pane="social-messages"></div>
             <div class="tab-pane" id="pane-market" data-pane="market"></div>
           </div>
         </div>

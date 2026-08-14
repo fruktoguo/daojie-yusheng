@@ -8,6 +8,7 @@ import { DESKTOP_LAYOUT_DRAG_LIMITS } from '../constants/ui/responsive';
 import { shouldUseMobileUi } from './responsive-viewport';
 import { t } from './i18n';
 import {
+  buildSidePanelTabId,
   mountReactSidePanelTabGroup,
   mountReactSidePanelToggle,
   syncReactSidePanelLayoutState,
@@ -52,6 +53,20 @@ type SidePanelPersistedState = {
  */
 
   activeTabs?: Record<string, string>;
+};
+
+/** 固定面板 Tab 切换上下文。 */
+export type SidePanelTabTransition = {
+  groupId: string;
+  previousTabName: string | null;
+  tabName: string;
+  initializing: boolean;
+};
+
+/** 统一接收任意入口触发的固定面板切换生命周期。 */
+export type SidePanelTabTransitionListener = {
+  beforeTabChange?(transition: SidePanelTabTransition): void;
+  afterTabChange?(transition: SidePanelTabTransition): void;
 };
 
 /** SIDE_PANEL_STORAGE_KEY：SIDE面板存储KEY。 */
@@ -102,7 +117,11 @@ export class SidePanel {
   /** onLayoutChange：on布局变更。 */
   private onLayoutChange: (() => void) | null = null;
   /** onTabChange：on Tab变更。 */
-  private onTabChange: ((tabName: string) => void) | null = null;  
+  private onTabChange: ((tabName: string) => void) | null = null;
+  private readonly tabTransitionListeners = new Set<SidePanelTabTransitionListener>();
+  private readonly activeTabNames = new WeakMap<HTMLElement, string>();
+  private readonly preparedTabTransitions = new WeakMap<HTMLElement, SidePanelTabTransition>();
+  private tabsInitialized = false;
   /**
  * layoutState：layout状态状态或数据块。
  */
@@ -130,8 +149,8 @@ export class SidePanel {
     this.bindLayoutTransitionSync();
     this.bindResponsiveLayout();
     this.restorePersistedLayoutSizes();
+    this.initializeTabStates();
     this.syncLayoutState();
-    this.restorePersistedTabs();
     this.syncResponsiveLayout();
     this.mountReactTabGroups();
   }
@@ -241,6 +260,35 @@ export class SidePanel {
     this.onTabChange = callback;
   }
 
+  addTabTransitionListener(listener: SidePanelTabTransitionListener): () => void {
+    this.tabTransitionListeners.add(listener);
+    return () => this.tabTransitionListeners.delete(listener);
+  }
+
+  initializeTabs(): void {
+    if (this.tabsInitialized) return;
+    this.tabsInitialized = true;
+    const persistedTabs = this.persistedState?.activeTabs ?? {};
+    this.panel.querySelectorAll<HTMLElement>('[data-tab-group]').forEach((group) => {
+      const groupId = group.dataset.tabGroup;
+      const currentTabName = this.getGroupActiveTabName(group);
+      if (!groupId || !currentTabName) return;
+      const persistedTabName = persistedTabs[groupId];
+      const targetTabName = persistedTabName
+        && this.getGroupTabs(group).some((button) => button.dataset.tab === persistedTabName)
+        && this.getGroupPanes(group).some((pane) => pane.dataset.pane === persistedTabName)
+        ? persistedTabName
+        : currentTabName;
+      this.switchGroupTab(group, targetTabName, { forceLifecycle: true, initializing: true, persist: false });
+    });
+  }
+
+  getActiveTabName(groupId: string): string | null {
+    const group = [...this.panel.querySelectorAll<HTMLElement>('[data-tab-group]')]
+      .find((entry) => entry.dataset.tabGroup === groupId);
+    return group ? this.getGroupActiveTabName(group) : null;
+  }
+
   /** switchTab：处理switch Tab。 */
   switchTab(tabName: string): void {
     const groups = this.panel.querySelectorAll<HTMLElement>('[data-tab-group]');
@@ -257,6 +305,13 @@ export class SidePanel {
   private bindTabGroups(): void {
     const groups = this.panel.querySelectorAll<HTMLElement>('[data-tab-group]');
     groups.forEach(group => {
+      group.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0 || !(event.target instanceof Element)) return;
+        const button = event.target.closest<HTMLButtonElement>('[data-tab]');
+        if (!button || button.disabled || button.closest<HTMLElement>('[data-tab-group]') !== group) return;
+        const tabName = button.dataset.tab;
+        if (tabName) this.prepareGroupTabTransition(group, tabName);
+      }, true);
       this.getGroupTabs(group).forEach(button => {
         button.addEventListener('click', () => {
           const tabName = button.dataset.tab;
@@ -501,20 +556,79 @@ export class SidePanel {
   }
 
   /** switchGroupTab：处理switch分组Tab。 */
-  private switchGroupTab(group: HTMLElement, tabName: string): void {
+  private switchGroupTab(
+    group: HTMLElement,
+    tabName: string,
+    options: { forceLifecycle?: boolean; initializing?: boolean; persist?: boolean } = {},
+  ): void {
+    const tabs = this.getGroupTabs(group);
+    if (!tabs.some((button) => button.dataset.tab === tabName)) return;
+    const groupId = group.dataset.tabGroup ?? '';
+    const previousTabName = this.getGroupActiveTabName(group);
+    const transition = {
+      groupId,
+      previousTabName,
+      tabName,
+      initializing: options.initializing === true,
+    } satisfies SidePanelTabTransition;
+    const changed = previousTabName !== tabName;
+    const notifyLifecycle = (changed || options.forceLifecycle === true) && groupId.length > 0;
+    const prepared = changed && this.consumePreparedTabTransition(group, transition);
+    if (notifyLifecycle && !prepared) this.notifyBeforeTabChange(transition);
+    this.activeTabNames.set(group, tabName);
     this.applyGroupTabState(group, tabName);
-    this.persistGroupActiveTab(group, tabName);
+    if (options.persist !== false) this.persistGroupActiveTab(group, tabName);
     this.syncReactTabGroup(group);
     this.onTabChange?.(tabName);
+    if (notifyLifecycle) this.notifyAfterTabChange(transition);
+  }
+
+  private prepareGroupTabTransition(group: HTMLElement, tabName: string): void {
+    const groupId = group.dataset.tabGroup ?? '';
+    const previousTabName = this.getGroupActiveTabName(group);
+    if (!groupId || !previousTabName || previousTabName === tabName) return;
+    const transition = { groupId, previousTabName, tabName, initializing: false } satisfies SidePanelTabTransition;
+    this.preparedTabTransitions.set(group, transition);
+    this.notifyBeforeTabChange(transition);
+  }
+
+  private consumePreparedTabTransition(group: HTMLElement, transition: SidePanelTabTransition): boolean {
+    const prepared = this.preparedTabTransitions.get(group);
+    this.preparedTabTransitions.delete(group);
+    return prepared?.previousTabName === transition.previousTabName
+      && prepared.tabName === transition.tabName;
+  }
+
+  private notifyBeforeTabChange(transition: SidePanelTabTransition): void {
+    for (const listener of this.tabTransitionListeners) listener.beforeTabChange?.(transition);
+  }
+
+  private notifyAfterTabChange(transition: SidePanelTabTransition): void {
+    for (const listener of this.tabTransitionListeners) listener.afterTabChange?.(transition);
   }
 
   private applyGroupTabState(group: HTMLElement, tabName: string): void {
+    const groupId = group.dataset.tabGroup ?? '';
+    const panes = new Map(this.getGroupPanes(group).map((pane) => [pane.dataset.pane ?? '', pane] as const));
     this.getGroupTabs(group).forEach((button) => {
-      button.classList.toggle('active', button.dataset.tab === tabName);
+      const buttonTabName = button.dataset.tab ?? '';
+      const active = buttonTabName === tabName;
+      const pane = panes.get(buttonTabName);
+      button.classList.toggle('active', active);
+      button.setAttribute('role', 'tab');
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+      button.tabIndex = active ? 0 : -1;
+      if (groupId && buttonTabName) button.id = buildSidePanelTabId(groupId, buttonTabName);
+      if (pane?.id) button.setAttribute('aria-controls', pane.id);
+      else button.removeAttribute('aria-controls');
     });
-    this.getGroupPanes(group).forEach((pane) => {
-      pane.classList.toggle('active', pane.dataset.pane === tabName);
-    });
+    for (const [paneTabName, pane] of panes) {
+      const active = paneTabName === tabName;
+      pane.classList.toggle('active', active);
+      pane.setAttribute('role', 'tabpanel');
+      pane.setAttribute('aria-hidden', active ? 'false' : 'true');
+      if (groupId && paneTabName) pane.setAttribute('aria-labelledby', buildSidePanelTabId(groupId, paneTabName));
+    }
   }
 
   private mountReactTabGroups(): void {
@@ -536,14 +650,16 @@ export class SidePanel {
     if (!container || !tabs.every((tab) => this.resolveReactTabContainer(tab) === container)) {
       return;
     }
+    const activeTabName = this.getGroupActiveTabName(group) ?? tabs[0]?.dataset.tab ?? '';
     const state = {
       groupId,
-      activeTabName: this.resolveActiveTabName(group, tabs),
+      activeTabName,
       tabs: tabs.map((tab): ReactSidePanelTabButton => ({
         tabName: tab.dataset.tab ?? '',
         label: tab.textContent?.trim() || tab.dataset.tab || '',
         className: tab.className.replace(/\bactive\b/g, '').replace(/\s+/g, ' ').trim(),
-        active: tab.classList.contains('active'),
+        active: tab.dataset.tab === activeTabName,
+        disabled: tab instanceof HTMLButtonElement && tab.disabled,
         i18nKey: tab.dataset.i18n,
       })).filter((tab) => tab.tabName.length > 0),
       panes: this.getGroupPanes(group)
@@ -560,13 +676,24 @@ export class SidePanel {
       if (targetGroupId !== groupId) {
         return;
       }
-      this.applyGroupTabState(group, tabName);
-      this.persistGroupActiveTab(group, tabName);
-      this.onTabChange?.(tabName);
+      this.switchGroupTab(group, tabName);
     });
   }
 
-  private resolveActiveTabName(group: HTMLElement, tabs: HTMLElement[]): string {
+  private initializeTabStates(): void {
+    this.panel.querySelectorAll<HTMLElement>('[data-tab-group]').forEach((group) => {
+      const tabName = this.resolveInitialActiveTabName(group, this.getGroupTabs(group));
+      if (!tabName) return;
+      this.activeTabNames.set(group, tabName);
+      this.applyGroupTabState(group, tabName);
+    });
+  }
+
+  private getGroupActiveTabName(group: HTMLElement): string | null {
+    return this.activeTabNames.get(group) ?? null;
+  }
+
+  private resolveInitialActiveTabName(group: HTMLElement, tabs: HTMLElement[]): string {
     const activeTabName = tabs.find((tab) => tab.classList.contains('active'))?.dataset.tab;
     if (activeTabName) {
       return activeTabName;
@@ -630,32 +757,6 @@ export class SidePanel {
     if (bottomSize !== null) {
       this.panel.style.setProperty('--layout-bottom-size', `${bottomSize}px`);
     }
-  }
-
-  /** restorePersistedTabs：处理restore Persisted标签页。 */
-  private restorePersistedTabs(): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const activeTabs = this.persistedState?.activeTabs;
-    if (!activeTabs) {
-      return;
-    }
-    this.panel.querySelectorAll<HTMLElement>('[data-tab-group]').forEach((group) => {
-      const groupId = group.dataset.tabGroup;
-      if (!groupId) {
-        return;
-      }
-      const tabName = activeTabs[groupId];
-      if (!tabName) {
-        return;
-      }
-      const hasTarget = this.getGroupTabs(group).some((button) => button.dataset.tab === tabName)
-        && this.getGroupPanes(group).some((pane) => pane.dataset.pane === tabName);
-      if (!hasTarget) {
-        return;
-      }
-      this.switchGroupTab(group, tabName);
-    });
   }
 
   /** persistCurrentLayoutState：持久化当前布局状态。 */
