@@ -20,6 +20,10 @@ import type {
 } from '@mud/shared';
 
 import {
+  arePlayersInSameParty,
+  isPartyFriendlyFireEnabled,
+} from '../party/party-combat-registry';
+import {
   PVP_SHA_DEMONIZED_STACK_THRESHOLD,
   PVP_SHA_INFUSION_BUFF_ID,
 } from '../../constants/gameplay/pvp';
@@ -40,6 +44,7 @@ interface PlayerBuffLike {
 
 interface PlayerTargetLike {
   playerId: string;
+  partyId?: string | null;
   combat?: PlayerCombatLike | null;
   buffs?: PlayerBuffLike[] | null;
 }
@@ -349,8 +354,9 @@ function resolveRelationMatchesForPlayerTarget(
   if (attacker.playerId === target.playerId) {
     return buildBlockedResolution('self_target');
   }
+  const sameParty = flags?.sameParty === true || arePlayersInSameParty(attacker, target);
   const effectiveFlags: CombatRelationTargetFlags = {
-    sameParty: flags?.sameParty === true,
+    sameParty,
     sameSect: flags?.sameSect === true,
     passivelyHostile: flags?.passivelyHostile ?? isPlayerPassivelyHostileTarget(target),
     retaliator: flags?.retaliator ?? attacker.combat?.retaliatePlayerTargetId === target.playerId,
@@ -361,7 +367,7 @@ function resolveRelationMatchesForPlayerTarget(
   const playerExplicitlyHostile = effectiveFlags.retaliator === true
     || effectiveFlags.passivelyHostile === true
     || isPartyOrSectTarget === true;
-  if (rules.hostile.includes('all_players')) {
+  if (rules.hostile.includes('all_players') && !effectiveFlags.sameParty) {
     hostileMatches.push('all_players');
   }
   if (effectiveFlags.retaliator && rules.hostile.includes('retaliators')) {
@@ -438,7 +444,15 @@ export function resolveCombatRelation(
     if (!input.target) {
       return buildBlockedResolution('target_missing');
     }
-    return resolveRelationMatchesForPlayerTarget(rules, attacker, input.target, input.flags);
+    const sameParty = input.flags?.sameParty === true || arePlayersInSameParty(attacker, input.target);
+    if (sameParty && !isPartyFriendlyFireEnabled(attacker.partyId)) {
+      const friendlyRules = buildEffectiveCombatTargetingRules(attacker);
+      if (friendlyRules.friendly.includes('party') || friendlyRules.friendly.includes('all_players')) {
+        return { relation: 'friendly', matchedRules: ['party'] };
+      }
+      return buildNeutralResolution();
+    }
+    return resolveRelationMatchesForPlayerTarget(rules, attacker, input.target, { ...input.flags, sameParty });
   }
   if (input.kind === 'monster') {
     return resolveRelationMatchesForRuleOnlyTarget(rules, 'monster', 'monster');

@@ -32,6 +32,7 @@ interface RuntimePlayerLocation {
 
 interface ConnectedInstancePlayer {
   sessionId: string | null;
+  partyId?: string;
 }
 
 interface InstanceRuntimeLike {
@@ -57,6 +58,7 @@ interface InstanceRuntimeLike {
 }
 
 interface PlayerRuntimeLike {
+  readonly partyId?: string;
   readonly attrs: {
     numericStats: {
       moveSpeed: number;
@@ -285,6 +287,8 @@ export class WorldRuntimePlayerSessionService {
       preferredY: input.preferredY,
       relocateExisting: input.relocateExisting === true,
     });
+    if (typeof playerState.partyId === 'string' && playerState.partyId) runtimePlayer.partyId = playerState.partyId;
+    else delete runtimePlayer.partyId;
     targetInstance.setPlayerMoveSpeed(playerId, playerState.attrs.numericStats.moveSpeed);
     targetInstance.setPlayerMovementCapabilities?.(playerId, playerState.movementCapabilities);
     deps.setPlayerLocation(playerId, {

@@ -113,6 +113,8 @@ const smokeCases = [
     { name: 'runtime-realm-exp-boundary', scriptFile: 'runtime-realm-exp-boundary-smoke.js', standalone: true },
     { name: 'world-runtime-quest-realm-stage-ready', scriptFile: 'world-runtime-quest-realm-stage-ready-smoke.js', standalone: true },
     { name: 'combat', scriptFile: 'combat-smoke.js' },
+    { name: 'party-domain', scriptFile: 'party-domain-smoke.js', standalone: true },
+    { name: 'party-combat-reward', scriptFile: 'party-combat-reward-smoke.js', standalone: true },
     { name: 'combat-kill-performance-attribution', scriptFile: 'combat-kill-performance-attribution-smoke.js', standalone: true },
     { name: 'virtual-world-heavenly-dao-suppression', scriptFile: 'virtual-world-heavenly-dao-suppression-smoke.js', standalone: true },
     { name: 'combat-loot-statistics-hotpath', scriptFile: 'combat-loot-statistics-hotpath-smoke.js', standalone: true },

@@ -14,6 +14,7 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import type { PersistedPlayerSnapshot } from '../persistence/player-persistence.service';
 import { MailRuntimeService } from '../runtime/mail/mail-runtime.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
+import { PartyRuntimeService } from '../runtime/party/party-runtime.service';
 import { ActivityRuntimeService } from '../runtime/activity/activity-runtime.service';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { WorldClientEventService } from './world-client-event.service';
@@ -105,6 +106,9 @@ export class WorldSessionBootstrapService {
     worldGmAuthService;
     /** 玩家 runtime。 */
     playerRuntimeService;
+    /** 权威队伍 runtime，用数据库 membership 覆盖快照中的派生 partyId。 */
+    @Inject(PartyRuntimeService)
+    partyRuntimeService;
     /** 邮件 runtime。 */
     mailRuntimeService;
     /** 活动 runtime。 */
@@ -442,6 +446,7 @@ export class WorldSessionBootstrapService {
                 this.rememberBootstrapSnapshotContext(client, context.source, context.persistedSource);
             },
         });
+        await this.partyRuntimeService.restorePlayerMembership(binding.playerId, this.worldRuntimeService);
         const offlineGainBlocking = await this.playerRuntimeService.hasActiveOfflineGainSession?.(binding.playerId) === true;
         const bindingSessionEpoch = Number(this.playerRuntimeService.describePersistencePresence?.(binding.playerId)?.sessionEpoch ?? 0);
         if (Number.isFinite(bindingSessionEpoch) && bindingSessionEpoch > 0) {

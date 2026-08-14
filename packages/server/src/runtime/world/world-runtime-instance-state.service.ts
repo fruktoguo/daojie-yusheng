@@ -8,6 +8,7 @@
  * 以泛型 Map 存储所有活跃实例的运行时对象，提供增删查遍历接口
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
+import { clearAllPartySupport, clearPartyInstanceSupport } from '../party/party-reward-runtime';
 
 import {
   WorldRuntimeInstanceScheduleService,
@@ -39,6 +40,7 @@ export class WorldRuntimeInstanceStateService<TInstance = unknown> {
 
   deleteInstanceRuntime(instanceId: string): void {
     this.instances.delete(instanceId);
+    clearPartyInstanceSupport(instanceId);
     this.instanceScheduleService?.unregister(instanceId);
   }
 
@@ -56,6 +58,7 @@ export class WorldRuntimeInstanceStateService<TInstance = unknown> {
 
   resetState(): void {
     this.instances.clear();
+    clearAllPartySupport();
     this.instanceScheduleService?.rebuild([]);
   }
 }

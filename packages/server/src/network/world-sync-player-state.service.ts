@@ -127,6 +127,7 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds) {
     realmStage: player.realm?.shortName || undefined,
     realmReview: player.realm?.review,
     breakthroughReady: player.realm?.breakthroughReady,
+    partyId: typeof player.partyId === 'string' && player.partyId ? player.partyId : undefined,
     heavenGate: cloneHeavenGateState(player.heavenGate) ?? undefined,
     spiritualRoots: cloneHeavenGateRoots(player.spiritualRoots) ?? undefined,
     autoBattle: player.combat.autoBattle,

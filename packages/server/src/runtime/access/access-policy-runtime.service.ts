@@ -20,6 +20,7 @@ import {
 import { NativePlayerAuthStoreService } from '../../http/native/native-player-auth-store.service';
 import { PlayerIdentityPersistenceService } from '../../persistence/player-identity-persistence.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { PartyRuntimeService } from '../party/party-runtime.service';
 import { SocialRuntimeService } from '../social/social-runtime.service';
 import { WorldRuntimeService } from '../world/world-runtime.service';
 
@@ -78,6 +79,7 @@ export class AccessPolicyRuntimeService implements OnModuleDestroy {
     @Optional() @Inject(NativePlayerAuthStoreService) private readonly authStore: NativePlayerAuthStoreService | null = null,
     @Optional() @Inject(SocialRuntimeService) private readonly socialRuntimeService: SocialRuntimeService | null = null,
     @Optional() @Inject(forwardRef(() => WorldRuntimeService)) private readonly worldRuntimeService: WorldRuntimeService | null = null,
+    @Optional() @Inject(PartyRuntimeService) private readonly partyRuntimeService: PartyRuntimeService | null = null,
   ) {
     if (this.socialRuntimeService?.registerRelationChangeListener) {
       this.unregisterSocialRelationListener = this.socialRuntimeService.registerRelationChangeListener((left, right) => {
@@ -265,9 +267,18 @@ export class AccessPolicyRuntimeService implements OnModuleDestroy {
 
     let sameParty = false;
     if ((dependencies & ACCESS_POLICY_DEPENDENCY.party) !== 0 && ownerPlayerId) {
-      const owner = this.playerRuntimeService.getPlayer(ownerPlayerId);
-      const actorPartyId = normalizeText(actor?.partyId);
-      sameParty = Boolean(actorPartyId && actorPartyId === normalizeText(owner?.partyId));
+      try {
+        const owner = this.playerRuntimeService.getPlayer(ownerPlayerId);
+        const actorPartyId = normalizeText(actor?.partyId);
+        const ownerPartyId = normalizeText(owner?.partyId);
+        sameParty = Boolean(actorPartyId && actorPartyId === ownerPartyId);
+        if (!sameParty && this.partyRuntimeService) {
+          sameParty = await this.partyRuntimeService.arePlayersInSameParty(actorPlayerId, ownerPlayerId);
+        }
+      } catch (error) {
+        this.logger.warn(`通用权限队伍事实读取失败：${error instanceof Error ? error.message : String(error)}`);
+        return { ok: false, allowed: false, reason: 'access_policy_party_unavailable' };
+      }
     }
 
     let roleName = '';

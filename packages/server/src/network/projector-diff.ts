@@ -82,6 +82,7 @@ export function diffPlayerEntries(previous: Map<string, ProjectedPlayerEntry>, c
         if (prev.f !== entry.f) { delta.f = entry.f; changed = true; }
         if (prev.sc !== entry.sc) { delta.sc = entry.sc ?? null; changed = true; }
         if (prev.sm !== entry.sm) { delta.sm = entry.sm ?? null; changed = true; }
+        if (prev.pi !== entry.pi) { delta.pi = entry.pi ?? null; changed = true; }
         if (changed) { result.push(delta); }
     }
     for (const playerId of previous.keys()) {

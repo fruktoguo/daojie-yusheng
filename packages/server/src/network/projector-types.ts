@@ -118,6 +118,7 @@ export interface ProjectorVisiblePlayerLike {
   playerId: string;
   name: string;
   displayName?: string | null;
+  partyId?: string | null;
   sectMark?: string | null;
   x: number;
   y: number;
@@ -228,6 +229,7 @@ export interface ProjectorViewLike {
     facing: DirectionLike;
     name: string;
     displayName?: string | null;
+    partyId?: string | null;
     sectMark?: string | null;
     buffs?: { buffs?: unknown[] | null } | unknown[] | null;
   };
@@ -248,6 +250,7 @@ export interface ProjectedPlayerEntry {
   f: DirectionLike;
   sc?: number | null;
   sm?: string | null;
+  pi?: string | null;
 }
 export interface ProjectedNpcEntry {
   x: number;
@@ -334,6 +337,7 @@ export interface ProjectedSelfState {
   instanceId: string;
   templateId: string;
   sectId: string | null;
+  partyId: string | null;
   x: number;
   y: number;
   f: DirectionLike;
@@ -356,6 +360,7 @@ export interface ProjectorPlayerLike {
   instanceId: string;
   templateId: string;
   sectId?: string | null;
+  partyId?: string | null;
   x: number;
   y: number;
   facing: DirectionLike;

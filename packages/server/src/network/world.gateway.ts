@@ -22,6 +22,7 @@ import { ActivityRuntimeService } from '../runtime/activity/activity-runtime.ser
 import { TreasureVaultRuntimeService } from '../runtime/building/treasure-vault-runtime.service';
 import { TimeChamberRuntimeService } from '../runtime/building/time-chamber-runtime.service';
 import { SocialRuntimeService } from '../runtime/social/social-runtime.service';
+import { PartyRuntimeService } from '../runtime/party/party-runtime.service';
 import { AccessPolicyResourceService } from '../runtime/access/access-policy-resource.service';
 import { BuildingAccessPolicyService } from '../runtime/access/building-access-policy.service';
 import { AccessPolicyRuntimeService } from '../runtime/access/access-policy-runtime.service';
@@ -55,6 +56,7 @@ import { WorldGatewayTechniqueGenerationHelper } from './world-gateway-technique
 import { WorldGatewayTechniqueAggregationHelper } from './world-gateway-technique-aggregation.helper';
 import { WorldGatewayTechniqueHelper } from './world-gateway-technique.helper';
 import { WorldGatewayAccessPolicyHelper } from './world-gateway-access-policy.helper';
+import { WorldGatewayPartyHelper } from './world-gateway-party.helper';
 import { TechniqueGenerationService } from '../runtime/technique-generation/technique-generation.service';
 import type { WorldGatewayHelperContext } from './world-gateway-context.types';
 
@@ -103,6 +105,8 @@ class WorldGateway implements WorldGatewayHelperContext {
         gatewayAccessPolicyHelper: WorldGatewayAccessPolicyHelper;
         @WebSocketServer()
         server!: Server; logger: Logger = new Logger(WorldGateway.name);
+        @Inject(PartyRuntimeService) private partyRuntimeService!: PartyRuntimeService;
+        private gatewayPartyHelper: WorldGatewayPartyHelper | null = null;
         private draining = false;
     constructor(worldGmSocketService: WorldGmSocketService, worldProtocolProjectionService: WorldProtocolProjectionService, sessionBootstrapService: WorldSessionBootstrapService, healthReadinessService: HealthReadinessService, playerDomainPersistenceService: PlayerDomainPersistenceService, playerPersistenceFlushService: PlayerPersistenceFlushService, playerRuntimeService: PlayerRuntimeService, mailRuntimeService: MailRuntimeService, @Inject(MarketRuntimeService) marketRuntimeService: MarketRuntimeService, craftPanelRuntimeService: CraftPanelRuntimeService, activityRuntimeService: ActivityRuntimeService, leaderboardRuntimeService: LeaderboardRuntimeService, runtimeGmStateService: RuntimeGmStateService, @Inject(WorldRuntimeService) worldRuntimeService: WorldRuntimeService, worldClientEventService: WorldClientEventService, worldSessionService: WorldSessionService, playerSessionRouteService: PlayerSessionRouteService, worldSyncService: WorldSyncService, gatewayGuardHelper: WorldGatewayGuardHelper, gatewayClientEmitHelper: WorldGatewayClientEmitHelper, gatewaySessionStateHelper: WorldGatewaySessionStateHelper, gatewayBuildingHelper: WorldGatewayBuildingHelper, gatewayMovementHelper: WorldGatewayMovementHelper, gatewayNpcHelper: WorldGatewayNpcHelper, gatewayCraftHelper: WorldGatewayCraftHelper, gatewayActivityHelper: WorldGatewayActivityHelper, gatewayReadModelHelper: WorldGatewayReadModelHelper, gatewayPresenceHelper: WorldGatewayPresenceHelper, private readonly gatewayContentHelper: WorldGatewayContentHelper, private readonly techniqueGenerationService: TechniqueGenerationService, @Optional() @Inject(AccessPolicyRuntimeService) accessPolicyRuntimeService: AccessPolicyRuntimeService = undefined, @Optional() @Inject(AccessPolicyResourceService) accessPolicyResourceService: AccessPolicyResourceService = undefined, @Optional() @Inject(BuildingAccessPolicyService) buildingAccessPolicyService: BuildingAccessPolicyService = undefined, @Optional() @Inject(SocialRuntimeService) socialRuntimeService: SocialRuntimeService = undefined, @Optional() @Inject(TreasureVaultRuntimeService) treasureVaultRuntimeService: TreasureVaultRuntimeService = undefined, @Optional() @Inject(TimeChamberRuntimeService) timeChamberRuntimeService: TimeChamberRuntimeService = undefined) {
         this.worldGmSocketService = worldGmSocketService;
@@ -160,6 +164,16 @@ class WorldGateway implements WorldGatewayHelperContext {
         if (this.playerRuntimeService.techniqueAggregationService) {
             this.gatewayTechniqueAggregationHelper.setService(this.playerRuntimeService.techniqueAggregationService);
         }
+    }
+    private partyHelper(): WorldGatewayPartyHelper {
+        if (!this.gatewayPartyHelper) {
+            this.gatewayPartyHelper = new WorldGatewayPartyHelper(
+                this.partyRuntimeService,
+                this.worldSessionService,
+                this.worldRuntimeService,
+            );
+        }
+        return this.gatewayPartyHelper;
     }
     setDraining(draining: boolean): void {
         this.draining = draining;
@@ -259,6 +273,7 @@ class WorldGateway implements WorldGatewayHelperContext {
         if (!binding) {
             return;
         }
+        this.partyRuntimeService.handlePlayerDisconnected(binding.playerId);
         await this.drainDetachedBinding(binding);
         this.logger.debug(`套接字已脱离：${client.id} -> ${binding.playerId}, expiresAt=${binding.expireAt}`);
     }
@@ -391,6 +406,42 @@ class WorldGateway implements WorldGatewayHelperContext {
     handleMarkDaoistDirectMessagesRead(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayPlayerControlsHelper.handleMarkDaoistDirectMessagesRead(client, payload);
     }
+    @SubscribeMessage(C2S.RequestPartyPanel)
+    handleRequestPartyPanel(@ConnectedSocket() client: Socket) { return this.partyHelper().requestPanel(client); }
+    @SubscribeMessage(C2S.CreateParty)
+    handleCreateParty(@ConnectedSocket() client: Socket) { return this.partyHelper().create(client); }
+    @SubscribeMessage(C2S.InvitePartyPlayer)
+    handleInvitePartyPlayer(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.partyHelper().invite(client, payload); }
+    @SubscribeMessage(C2S.RespondPartyInvite)
+    handleRespondPartyInvite(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.partyHelper().respondInvite(client, payload); }
+    @SubscribeMessage(C2S.LeaveParty)
+    handleLeaveParty(@ConnectedSocket() client: Socket) { return this.partyHelper().leave(client); }
+    @SubscribeMessage(C2S.RemovePartyMember)
+    handleRemovePartyMember(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.partyHelper().removeMember(client, payload); }
+    @SubscribeMessage(C2S.TransferPartyLeader)
+    handleTransferPartyLeader(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.partyHelper().transferLeader(client, payload); }
+    @SubscribeMessage(C2S.DisbandParty)
+    handleDisbandParty(@ConnectedSocket() client: Socket) { return this.partyHelper().disband(client); }
+    @SubscribeMessage(C2S.UpdatePartySettings)
+    handleUpdatePartySettings(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.partyHelper().updateSettings(client, payload); }
+    @SubscribeMessage(C2S.PublishPartyRecruitment)
+    handlePublishPartyRecruitment(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.partyHelper().publishRecruitment(client, payload); }
+    @SubscribeMessage(C2S.ClosePartyRecruitment)
+    handleClosePartyRecruitment(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.partyHelper().closeRecruitment(client, payload); }
+    @SubscribeMessage(C2S.RequestPartyRecruitments)
+    handleRequestPartyRecruitments(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.partyHelper().requestRecruitments(client, payload); }
+    @SubscribeMessage(C2S.ApplyPartyRecruitment)
+    handleApplyPartyRecruitment(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.partyHelper().applyRecruitment(client, payload); }
+    @SubscribeMessage(C2S.RespondPartyApplication)
+    handleRespondPartyApplication(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.partyHelper().respondApplication(client, payload); }
+    @SubscribeMessage(C2S.JoinPartyMatch)
+    handleJoinPartyMatch(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.partyHelper().joinMatch(client, payload); }
+    @SubscribeMessage(C2S.LeavePartyMatch)
+    handleLeavePartyMatch(@ConnectedSocket() client: Socket) { return this.partyHelper().leaveMatch(client); }
+    @SubscribeMessage(C2S.SendPartyChat)
+    handleSendPartyChat(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.partyHelper().sendChat(client, payload); }
+    @SubscribeMessage(C2S.RequestPartyChatHistory)
+    handleRequestPartyChatHistory(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.partyHelper().requestChatHistory(client, payload); }
     @SubscribeMessage(C2S.RequestTreasureVault)
     handleRequestTreasureVault(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayPlayerControlsHelper.handleRequestTreasureVault(client, payload);

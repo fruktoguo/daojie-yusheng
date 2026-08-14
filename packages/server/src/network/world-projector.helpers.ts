@@ -521,6 +521,7 @@ function buildFullWorldDeltaFromState(
         f: entry.f,
         sc: entry.sc ?? undefined,
         sm: entry.sm ?? undefined,
+        pi: entry.pi ?? undefined,
     }));
     const monsters: WorldMonsterPatchView[] = Array.from(state.monsters, ([id, entry]) => {
         const patch: WorldMonsterPatchView = {
@@ -667,6 +668,7 @@ function buildFullSelfDeltaFromState(self: ProjectedSelfState, selfRevision: num
         iid: self.instanceId,
         mid: self.templateId,
         sid: self.sectId,
+        pid: self.partyId,
         x: self.x,
         y: self.y,
         f: self.f,
@@ -755,6 +757,7 @@ function captureWorldState(
         f: view.self.facing,
         sc: resolveBuffPresentationScale(view.self.buffs),
         sm: normalizeProjectedSectMark(view.self.sectMark),
+        pi: typeof view.self.partyId === 'string' && view.self.partyId ? view.self.partyId : null,
     });
     for (const entry of view.visiblePlayers) {
         players.set(entry.playerId, {
@@ -764,6 +767,7 @@ function captureWorldState(
             f: entry.facing,
             sc: resolveBuffPresentationScale(entry.buffs),
             sm: normalizeProjectedSectMark(entry.sectMark),
+            pi: typeof entry.partyId === 'string' && entry.partyId ? entry.partyId : null,
         });
     }
     return {
@@ -958,6 +962,7 @@ function captureSelfState(player: ProjectorPlayerLike): ProjectedSelfState {
         instanceId: player.instanceId,
         templateId: player.templateId,
         sectId: typeof player.sectId === 'string' && player.sectId.trim() ? player.sectId.trim() : null,
+        partyId: typeof player.partyId === 'string' && player.partyId.trim() ? player.partyId.trim() : null,
         x: player.x, y: player.y, f: player.facing,
         hp: player.hp, maxHp: player.maxHp, qi: player.qi, maxQi: player.maxQi,
         wallet: cloneWalletState(player.wallet),
@@ -1845,6 +1850,8 @@ function buildSelfDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike)
     if (previous.self.templateId !== player.templateId) { delta.mid = player.templateId; }
     const currentSectId = typeof player.sectId === 'string' && player.sectId.trim() ? player.sectId.trim() : null;
     if (previous.self.sectId !== currentSectId) { delta.sid = currentSectId; }
+    const currentPartyId = typeof player.partyId === 'string' && player.partyId.trim() ? player.partyId.trim() : null;
+    if (previous.self.partyId !== currentPartyId) { delta.pid = currentPartyId; }
     if (previous.self.f !== player.facing) { delta.f = player.facing; }
     if (previous.self.hp !== player.hp) { delta.hp = player.hp; }
     if (previous.self.maxHp !== player.maxHp) { delta.maxHp = player.maxHp; }

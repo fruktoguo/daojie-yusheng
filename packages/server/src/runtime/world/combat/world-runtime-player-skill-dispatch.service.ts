@@ -9,6 +9,8 @@ import { PlayerCombatService } from '../../combat/player-combat.service';
 import { createCombatOutcomeApplyAdapters, projectCombatOutcomeDeps } from '../../combat/combat-outcome-apply-adapters';
 import { resolveMonsterCombatExpEquivalentFallback } from '../../combat/monster-combat-exp-equivalent.helper';
 import { isHostileCombatRelationResolution, resolveCombatRelation } from '../../player/player-combat-config.helpers';
+import { arePlayersInSameParty } from '../../party/party-combat-registry';
+import { recordPartyMemberSupport } from '../../party/party-reward-runtime';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
 import { WorldRuntimeCombatActionService } from './world-runtime-combat-action.service';
 import { CombatActionPhase, CombatActorKind, CombatRejectReason, CombatTargetKind } from './combat-action.types';
@@ -1797,6 +1799,19 @@ export class WorldRuntimePlayerSkillDispatchService {
                 recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.combatResolveMs', combatResolveStartedAt);
                 castIndex += 1;
                 totalSkillHeal += Math.max(0, Math.round(Number(result.totalHeal) || 0));
+                const appliedFriendlySupport = (
+                    Math.max(0, Number(result.totalHeal) || 0) > 0
+                    || (Array.isArray(result.targetBuffs)
+                        && result.targetBuffs.some((entry) => entry?.category === 'buff'))
+                ) && arePlayersInSameParty(attacker, targetPlayer);
+                if (appliedFriendlySupport) {
+                    recordPartyMemberSupport(
+                        attacker.instanceId,
+                        attacker.playerId,
+                        targetPlayer.playerId,
+                        currentTick,
+                    );
+                }
                 if (selfBuffs.length === 0 && Array.isArray(result.selfBuffs) && result.selfBuffs.length > 0) {
                     selfBuffs = result.selfBuffs;
                 }

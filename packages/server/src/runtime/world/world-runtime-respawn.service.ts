@@ -9,6 +9,7 @@
  */
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { nextPlayerPersistenceVersion } from '../../persistence/player-domain-persistence.service';
+import { clearPartyPlayerSupport } from '../party/party-reward-runtime';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { buildStructuredNotice } from './structured-notice.helpers';
 import { buildPublicInstanceId } from './world-runtime.normalization.helpers';
@@ -74,6 +75,7 @@ export class WorldRuntimeRespawnService {
         }
         const previous = deps.getPlayerLocation(playerId);
         if (previous) {
+            clearPartyPlayerSupport(previous.instanceId, playerId);
             const previousInstance = deps.getInstanceRuntime(previous.instanceId);
             previousInstance?.disconnectPlayer(playerId);
         }
@@ -195,6 +197,7 @@ export class WorldRuntimeRespawnService {
             return;
         }
         const previous = deps.getPlayerLocation(playerId);
+        if (previous?.instanceId) clearPartyPlayerSupport(previous.instanceId, playerId);
         const previousInstance = previous ? deps.getInstanceRuntime(previous.instanceId) : null;
         const previousMapId = previousInstance?.template?.id ?? player.templateId ?? '';
         if (typeof deps.clearPendingCommand === 'function') {

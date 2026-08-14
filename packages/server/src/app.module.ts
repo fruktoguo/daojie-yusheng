@@ -85,6 +85,20 @@ import { TreasureVaultRuntimeService } from './runtime/building/treasure-vault-r
 import { TimeChamberAdmissionPolicy } from './runtime/building/time-chamber-admission.policy';
 import { TimeChamberRuntimeService } from './runtime/building/time-chamber-runtime.service';
 import { SocialRuntimeService } from './runtime/social/social-runtime.service';
+import { PartyDatabaseService } from './runtime/party/party-database.service';
+import { PartyMembershipRepository } from './runtime/party/party-membership.repository';
+import { PartyManagementRepository } from './runtime/party/party-management.repository';
+import { PartyRecruitmentRepository } from './runtime/party/party-recruitment.repository';
+import { PartyApplicationCommandRepository } from './runtime/party/party-application-command.repository';
+import { PartyInviteQueryRepository } from './runtime/party/party-invite-query.repository';
+import { PartyChatRepository } from './runtime/party/party-chat.repository';
+import { PartyChatService } from './runtime/party/party-chat.service';
+import { PartyMatchService } from './runtime/party/party-match.service';
+import { PartyMatchRunnerService } from './runtime/party/party-match-runner.service';
+import { PartyPanelService } from './runtime/party/party-panel.service';
+import { PartyCommandService } from './runtime/party/party-command.service';
+import { PartyRuntimeSyncService } from './runtime/party/party-runtime-sync.service';
+import { PartyRuntimeService } from './runtime/party/party-runtime.service';
 import { AccessPolicyRuntimeService } from './runtime/access/access-policy-runtime.service';
 import { AccessPolicyResourceService } from './runtime/access/access-policy-resource.service';
 import { BuildingAccessPolicyService } from './runtime/access/building-access-policy.service';
@@ -303,6 +317,20 @@ const WORLD_GATEWAY_PROVIDERS = shouldStartHttpServer()
     TimeChamberAdmissionPolicy,
     TimeChamberRuntimeService,
     SocialRuntimeService,
+    PartyDatabaseService,
+    PartyMembershipRepository,
+    PartyManagementRepository,
+    PartyRecruitmentRepository,
+    PartyApplicationCommandRepository,
+    PartyInviteQueryRepository,
+    PartyChatRepository,
+    PartyChatService,
+    PartyMatchService,
+    PartyMatchRunnerService,
+    PartyPanelService,
+    PartyCommandService,
+    PartyRuntimeSyncService,
+    PartyRuntimeService,
     AccessPolicyRuntimeService,
     AccessPolicyResourceService,
     BuildingAccessPolicyService,

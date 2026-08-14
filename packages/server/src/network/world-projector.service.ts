@@ -561,7 +561,9 @@ function hasPlayerPresentationEntryChange(playerId: string, entry: any, previous
     }
     const nextSectMark = normalizeProjectedSectMark(entry?.sectMark);
     const previousSectMark = previous.sm ?? null;
-    return nextSectMark !== previousSectMark;
+    if (nextSectMark !== previousSectMark) return true;
+    const nextPartyId = typeof entry?.partyId === 'string' && entry.partyId ? entry.partyId : null;
+    return nextPartyId !== (previous.pi ?? null);
 }
 
 function normalizeProjectedSectMark(value: unknown): string | null {

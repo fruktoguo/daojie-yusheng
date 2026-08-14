@@ -3686,6 +3686,7 @@ class MapInstanceRuntime {
             self: {
                 name: player.name,
                 displayName: player.displayName,
+                partyId: player.partyId,
                 x: player.x,
                 y: player.y,
                 facing: player.facing,
@@ -7481,6 +7482,7 @@ class MapInstanceRuntime {
         if (cached
             && cached.name === player.name
             && cached.displayName === player.displayName
+            && cached.partyId === player.partyId
             && cached.x === player.x
             && cached.y === player.y
             && cached.facing === player.facing
@@ -7491,6 +7493,7 @@ class MapInstanceRuntime {
             playerId: player.playerId,
             name: player.name,
             displayName: player.displayName,
+            partyId: player.partyId,
             x: player.x,
             y: player.y,
             facing: player.facing,

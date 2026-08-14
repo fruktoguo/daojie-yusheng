@@ -14,6 +14,11 @@ import {
 } from '../../../constants/gameplay/real-world';
 import { resolveHeavenlyDaoSuppressionStacksForKill } from '../../../constants/gameplay/virtual-world';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
+import {
+    clearPartyMonsterSupport,
+    resolvePartyExperienceParticipants,
+    resolvePartyLootRecipients,
+} from '../../party/party-reward-runtime';
 import { resolvePlayerDisplayName } from '../../player/player-display-name';
 import { PlayerCountersPersistenceService } from '../../../persistence/player-counters-persistence.service';
 import { buildStructuredNotice } from '../structured-notice.helpers';
@@ -56,6 +61,12 @@ function recordPlayerMonsterKillCount(deps: any, key: string, count: number): vo
     recorder(key, 0, count);
 }
 
+export function buildMonsterLootDeliverySourceRef(instance: any, monster: any, index: number): string {
+    const instanceId = instance?.meta?.instanceId ?? 'unknown';
+    const killTick = Math.max(0, Math.trunc(Number(instance?.tick) || 0));
+    return `monster:${instanceId}:${monster.runtimeId}:${killTick}:${index}`;
+}
+
 /** world-runtime player combat outcome：承接玩家战斗结果收口与击杀奖励分发。 */
 @Injectable()
 export class WorldRuntimePlayerCombatService {
@@ -71,6 +82,7 @@ export class WorldRuntimePlayerCombatService {
 
     playerRuntimeService;
     playerCountersPersistenceService;
+    private readonly deliveredMonsterLootSources = new Map<string, true>();
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param contentTemplateRepository 参数说明。
@@ -169,18 +181,28 @@ export class WorldRuntimePlayerCombatService {
             sectionStartedAt,
         );
         recordPlayerMonsterKillCount(deps, 'combat.playerMonsterKill.lootItems', items.length);
+        const rawLootParticipants = this.resolveMonsterExpParticipants(instance, monster.runtimeId, killerPlayerId);
+        const lootRecipients = resolvePartyLootRecipients(
+            killerPlayerId,
+            items.length,
+            rawLootParticipants,
+            instance,
+            monster,
+            (playerId) => this.playerRuntimeService.getPlayer(playerId),
+        );
         for (let index = 0; index < items.length; index += 1) {
             const item = items[index];
             this.deliverMonsterLootSynchronously(
-                killerPlayerId,
+                lootRecipients[index] ?? killerPlayerId,
                 instance,
                 monster.x,
                 monster.y,
                 item,
                 deps,
-                `monster:${monster.runtimeId}:${index}`,
+                buildMonsterLootDeliverySourceRef(instance, monster, index),
             );
         }
+        clearPartyMonsterSupport(instance?.meta?.instanceId ?? '', monster.runtimeId);
         recordPlayerMonsterKillPerf(
             deps,
             'combat.playerMonsterKill.lootDeliveryMs',
@@ -200,7 +222,13 @@ export class WorldRuntimePlayerCombatService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         let sectionStartedAt = beginPlayerMonsterKillPerf(deps);
-        const participants = this.resolveMonsterExpParticipants(instance, monster.runtimeId, killerPlayerId);
+        const rawParticipants = this.resolveMonsterExpParticipants(instance, monster.runtimeId, killerPlayerId);
+        const participants = resolvePartyExperienceParticipants(
+            rawParticipants,
+            instance,
+            monster,
+            (playerId) => this.playerRuntimeService.getPlayer(playerId),
+        );
         const topContributionRealmLv = this.resolveMonsterTopContributionRealmLv(participants);
         const killerRealmLv = this.resolvePlayerRealmLv(killerPlayerId);
         let totalContribution = 0;
@@ -383,8 +411,9 @@ export class WorldRuntimePlayerCombatService {
         y: number,
         item: any,
         deps: any,
-        _sourceRefId = '',
+        sourceRefId = '',
     ): void {
+        if (sourceRefId && this.deliveredMonsterLootSources.has(sourceRefId)) return;
         let sectionStartedAt = beginPlayerMonsterKillPerf(deps);
         const received = this.playerRuntimeService.tryReceiveInventoryItem(playerId, item, {
             inventoryOnlyStatistics: true,
@@ -397,6 +426,7 @@ export class WorldRuntimePlayerCombatService {
             sectionStartedAt,
         );
         if (received) {
+            this.rememberDeliveredMonsterLootSource(sourceRefId);
             const itemLabel = formatItemStackLabel(item);
             const lootNotice = buildStructuredNotice('loot', 'notice.loot.obtained', `获得 ${itemLabel}`, {
                 vars: { itemName: itemLabel },
@@ -411,6 +441,7 @@ export class WorldRuntimePlayerCombatService {
             return;
         }
         deps.spawnGroundItem(instance, x, y, item);
+        this.rememberDeliveredMonsterLootSource(sourceRefId);
         sectionStartedAt = recordPlayerMonsterKillPerf(
             deps,
             'combat.playerMonsterKill.lootGroundSpawnMs',
@@ -426,6 +457,16 @@ export class WorldRuntimePlayerCombatService {
             'combat.playerMonsterKill.lootNoticeMs',
             sectionStartedAt,
         );
+    }
+
+    private rememberDeliveredMonsterLootSource(sourceRefId: string): void {
+        if (!sourceRefId) return;
+        this.deliveredMonsterLootSources.set(sourceRefId, true);
+        while (this.deliveredMonsterLootSources.size > 65_536) {
+            const oldest = this.deliveredMonsterLootSources.keys().next().value;
+            if (typeof oldest !== 'string') break;
+            this.deliveredMonsterLootSources.delete(oldest);
+        }
     }
     /**
  * dispatchDamagePlayer：判断Damage玩家是否满足条件。
