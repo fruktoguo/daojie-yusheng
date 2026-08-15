@@ -6,10 +6,14 @@
   gap: 12px;
 }
 
-/* 固定尺寸队伍独立面板 */
-.floating-list-panel--party-workspace .floating-list-panel__body {
-  padding: 10px;
+/* 坊市式队伍完整功能窗口 */
+.party-workspace-content {
   overflow: auto;
+  padding: 10px;
+}
+
+.party-workspace-content .party-panel {
+  min-height: 100%;
 }
 
 /* 紧凑队伍悬浮窗 */

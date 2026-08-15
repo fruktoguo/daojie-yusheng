@@ -1,5 +1,5 @@
 /**
- * 组队客户端 proof：验证固定队伍主面板、紧凑队伍悬浮窗、成员/管理权限 Tab、状态隔离、late response 丢弃、
+ * 组队客户端 proof：验证坊市式队伍主面板、紧凑队伍悬浮窗、成员/管理权限 Tab、状态隔离、late response 丢弃、
  * 成员 keyed patch、手机端结构与友伤双门槛说明文案。
  */
 import assert from 'node:assert/strict';
@@ -13,7 +13,8 @@ const fixtureExpression = String.raw`
     document.getElementById('game-shell')?.classList.remove('hidden');
     document.getElementById('login-overlay')?.classList.add('hidden');
 
-    document.getElementById('floating-party-panel')?.remove();
+    const existingModal = document.getElementById('detail-modal');
+    if (existingModal && !existingModal.classList.contains('hidden')) existingModal.click();
     document.getElementById('floating-party-hud')?.remove();
     const { PartyPanel } = await import('/src/ui/panels/party-panel.ts');
     const { PartyFloatingPanel } = await import('/src/ui/party-floating-panel.ts');
@@ -25,8 +26,7 @@ const fixtureExpression = String.raw`
     updateFloatingPanelPreference('party', true);
     const partyPanel = new PartyPanel();
     const partyWorkspace = new PartyWorkspacePanel(partyPanel);
-    const host = partyWorkspace.root.querySelector('[data-floating-list-body="true"]');
-    if (!(host instanceof HTMLElement)) throw new Error('缺少队伍独立面板宿主');
+    const host = partyWorkspace.root;
     const partyHud = new PartyFloatingPanel();
     const hudRoot = partyHud.root;
     let workspaceOpenCount = 0;
@@ -90,13 +90,15 @@ await withClientBrowserProof(
     const structure = await cdp.evaluate(String.raw`
       (() => {
         const { host, hudRoot, partyWorkspace } = window.__partyProof;
-        const workspaceRoot = partyWorkspace.root;
-        const rect = workspaceRoot.getBoundingClientRect();
+        const modal = document.getElementById('detail-modal');
+        const card = document.getElementById('detail-modal-card');
+        const rect = card.getBoundingClientRect();
         return {
-          workspaceOpen: !workspaceRoot.hidden,
-          fixedSize: workspaceRoot.style.getPropertyValue('--floating-list-panel-width') === '800px'
-            && workspaceRoot.style.getPropertyValue('--floating-list-panel-height') === '450px',
+          workspaceOpen: partyWorkspace.isOpen(),
+          responsiveSize: Math.abs(rect.width - (innerWidth - 16)) <= 1
+            && Math.abs(rect.height - (innerHeight - 16)) <= 1,
           workspaceBounded: rect.left >= 0 && rect.top >= 0 && rect.right <= innerWidth + 1 && rect.bottom <= innerHeight + 1,
+          workspaceVariant: card.classList.contains('detail-modal--feature-workspace') && !modal.classList.contains('hidden'),
           hasMemberTab: !!host.querySelector('[data-party-tab="members"]'),
           hasInviteTab: !!host.querySelector('[data-party-tab="invites"]'),
           hasManagementTab: !!host.querySelector('[data-party-tab="management"]'),
@@ -110,8 +112,9 @@ await withClientBrowserProof(
       })()
     `);
     assert.equal(structure.workspaceOpen, true, '队伍按钮未展开独立面板');
-    assert.equal(structure.fixedSize, true, '队伍独立面板不是固定 800×450 尺寸');
+    assert.equal(structure.responsiveSize, true, '队伍独立面板未在手机端收敛到安全视口');
     assert.equal(structure.workspaceBounded, true, '队伍独立面板越出视口');
+    assert.equal(structure.workspaceVariant, true, '队伍独立面板未使用坊市式固定窗口');
     assert.equal(structure.hasMemberTab, true, '队伍成员 Tab 缺失');
     assert.equal(structure.hasInviteTab, true, '队伍邀请 Tab 缺失');
     assert.equal(structure.hasManagementTab, false, '普通成员不应看到管理 Tab');
@@ -160,9 +163,9 @@ await withClientBrowserProof(
         const before = workspaceOpenCount();
         hudOpener?.click();
         await new Promise((resolve) => requestAnimationFrame(resolve));
-        const workspaceOpened = workspaceOpenCount() === before + 1 && !partyWorkspace.root.hidden;
-        const workspaceFocused = document.activeElement === partyWorkspace.root.querySelector('[data-floating-list-close="true"]');
-        partyWorkspace.root.querySelector('[data-floating-list-close="true"]')?.click();
+        const workspaceOpened = workspaceOpenCount() === before + 1 && partyWorkspace.isOpen();
+        const workspaceFocused = partyWorkspace.root.contains(document.activeElement);
+        document.getElementById('detail-modal')?.click();
         await new Promise((resolve) => requestAnimationFrame(resolve));
         const hudFocusReturned = document.activeElement === hudOpener;
         hudOpener?.click();

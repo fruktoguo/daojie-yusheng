@@ -1,50 +1,26 @@
-/** 队伍完整功能独立面板：固定尺寸，与四个道友子面板互斥显示。 */
-import {
-  FloatingListPanel,
-  LARGE_FLOATING_PANEL_HEIGHT,
-  LARGE_FLOATING_PANEL_WIDTH,
-} from './floating-list-panel';
+/** 队伍完整功能窗口：复用坊市/拍卖行的 detail modal 骨架。 */
+import { WorkspaceModalPanel } from './workspace-modal-panel';
 import { PartyPanel } from './panels/party-panel';
-
-const PARTY_WORKSPACE_STORAGE_KEY = 'mud:floating-party:v1';
 
 export class PartyWorkspacePanel {
   readonly root: HTMLElement;
 
-  private readonly floatingPanel: FloatingListPanel;
-  private readonly resizeObserver: ResizeObserver | null;
-  private readonly mutationObserver: MutationObserver | null;
+  private readonly workspace: WorkspaceModalPanel;
   private available = false;
   private visibilityChangeHandler: (() => void) | null = null;
   private opener: HTMLElement | null = null;
 
   constructor(contentPanel: PartyPanel) {
-    this.floatingPanel = new FloatingListPanel({
-      id: 'floating-party-panel',
+    this.workspace = new WorkspaceModalPanel({
+      ownerId: 'party-workspace-panel',
+      contentId: 'party-workspace-panel',
       title: '队伍',
-      storageKey: PARTY_WORKSPACE_STORAGE_KEY,
-      className: 'floating-list-panel--workspace floating-list-panel--party-workspace',
-      defaultLeft: Math.max(8, Math.round((window.innerWidth - LARGE_FLOATING_PANEL_WIDTH) / 2)),
-      defaultTop: 72,
-      minWidth: 280,
-      maxWidth: LARGE_FLOATING_PANEL_WIDTH,
-      width: LARGE_FLOATING_PANEL_WIDTH,
-      height: LARGE_FLOATING_PANEL_HEIGHT,
+      subtitle: '成员协作、邀请招募与队伍管理',
+      className: 'party-workspace-content',
       onClose: () => this.handleNativeClose(),
     });
-    this.root = this.floatingPanel.root;
-    this.root.setAttribute('role', 'dialog');
-    this.root.setAttribute('aria-modal', 'false');
-    contentPanel.mount(this.floatingPanel.body);
-    this.resizeObserver = typeof ResizeObserver === 'function'
-      ? new ResizeObserver(() => this.floatingPanel.refreshLayout())
-      : null;
-    this.resizeObserver?.observe(this.floatingPanel.body);
-    this.mutationObserver = typeof MutationObserver === 'function'
-      ? new MutationObserver(() => this.floatingPanel.refreshLayout())
-      : null;
-    this.mutationObserver?.observe(this.floatingPanel.body, { childList: true, subtree: true });
-    this.floatingPanel.setTransientHidden(true);
+    this.root = this.workspace.root;
+    contentPanel.mount(this.workspace.body);
   }
 
   setVisibilityChangeHandler(handler: (() => void) | null): void {
@@ -54,37 +30,35 @@ export class PartyWorkspacePanel {
   open(opener: HTMLElement | null = null): void {
     if (!this.available) return;
     this.rememberOpener(opener);
-    this.floatingPanel.setTransientHidden(false);
-    this.floatingPanel.setClosed(false);
-    this.floatingPanel.refreshLayout();
+    this.workspace.open();
     this.visibilityChangeHandler?.();
     window.requestAnimationFrame(() => {
-      if (this.isOpen()) this.floatingPanel.focusCloseButton();
+      if (this.isOpen()) this.workspace.focusInitialControl();
     });
   }
 
   close(restoreFocus = true): void {
     if (!this.isOpen()) return;
-    this.floatingPanel.setClosed(true);
+    this.workspace.close(false);
     this.visibilityChangeHandler?.();
     if (restoreFocus) this.restoreOpenerFocus();
   }
 
   isOpen(): boolean {
-    return !this.root.hidden;
+    return this.workspace.isOpen();
   }
 
   setAvailable(available: boolean): void {
     this.available = available;
     const wasOpen = this.isOpen();
-    if (!available) this.floatingPanel.setTransientHidden(true);
+    if (!available) this.workspace.close(false);
     this.visibilityChangeHandler?.();
     if (!available && wasOpen) this.restoreOpenerFocus();
   }
 
   setUnreadCount(count: number): void {
     const unread = Math.max(0, Math.trunc(count));
-    this.floatingPanel.setTitle(unread > 0 ? `队伍 · ${unread > 99 ? '99+' : unread} 条未读` : '队伍');
+    this.workspace.setTitle(unread > 0 ? `队伍 · ${unread > 99 ? '99+' : unread} 条未读` : '队伍');
   }
 
   private handleNativeClose(): void {
@@ -120,8 +94,6 @@ export class PartyWorkspacePanel {
   }
 
   destroy(): void {
-    this.resizeObserver?.disconnect();
-    this.mutationObserver?.disconnect();
-    this.floatingPanel.destroy();
+    this.workspace.destroy();
   }
 }

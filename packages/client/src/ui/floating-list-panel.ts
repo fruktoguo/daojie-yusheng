@@ -19,18 +19,23 @@ export type FloatingListPanelOptions = {
   defaultTop: number;
   minWidth?: number;
   maxWidth?: number;
-  width?: number;
-  height?: number;
   onBeforeClose?: () => void;
   onClose?: () => void;
 };
 
-export const LARGE_FLOATING_PANEL_WIDTH = 800;
-export const LARGE_FLOATING_PANEL_HEIGHT = 450;
-
 const DEFAULT_MIN_WIDTH = 240;
 const DEFAULT_MAX_WIDTH = 420;
 const VIEWPORT_MARGIN = 8;
+const FLOATING_PANEL_BASE_Z_INDEX = 1800;
+const floatingPanelRoots = new Set<HTMLElement>();
+
+function bringFloatingPanelToFront(root: HTMLElement): void {
+  const ordered = [...floatingPanelRoots].filter((panel) => panel.isConnected && panel !== root);
+  ordered.push(root);
+  ordered.forEach((panel, index) => {
+    panel.style.zIndex = String(FLOATING_PANEL_BASE_Z_INDEX + index);
+  });
+}
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
@@ -98,12 +103,6 @@ export class FloatingListPanel {
     this.root.setAttribute('aria-label', options.title);
     this.root.style.minWidth = `${this.minWidth}px`;
     this.root.style.maxWidth = `${this.maxWidth}px`;
-    if (options.width !== undefined) {
-      this.root.style.setProperty('--floating-list-panel-width', `${Math.max(1, Math.trunc(options.width))}px`);
-    }
-    if (options.height !== undefined) {
-      this.root.style.setProperty('--floating-list-panel-height', `${Math.max(1, Math.trunc(options.height))}px`);
-    }
     this.root.innerHTML = `
       <div class="floating-list-panel__bar" data-floating-list-drag-handle="true">
         <span class="floating-list-panel__title">${options.title}</span>
@@ -116,6 +115,8 @@ export class FloatingListPanel {
     `;
     this.body = this.root.querySelector<HTMLElement>('[data-floating-list-body="true"]')!;
     document.body.appendChild(this.root);
+    floatingPanelRoots.add(this.root);
+    bringFloatingPanelToFront(this.root);
     this.bindEvents();
     this.applyState();
     window.addEventListener('resize', () => this.refreshLayout(), { signal: this.eventAbort.signal });
@@ -157,11 +158,13 @@ export class FloatingListPanel {
 
   destroy(): void {
     this.eventAbort.abort();
+    floatingPanelRoots.delete(this.root);
     this.root.remove();
   }
 
   setTransientHidden(hidden: boolean): void {
     this.transientHidden = hidden;
+    if (!hidden) bringFloatingPanelToFront(this.root);
     this.applyState();
   }
 
@@ -170,6 +173,7 @@ export class FloatingListPanel {
       return;
     }
     this.state.closed = closed;
+    if (!closed) bringFloatingPanelToFront(this.root);
     this.persist();
     this.applyState();
   }
@@ -180,9 +184,8 @@ export class FloatingListPanel {
     const collapseButton = this.root.querySelector<HTMLButtonElement>('[data-floating-list-collapse="true"]');
     const closeButton = this.root.querySelector<HTMLButtonElement>('[data-floating-list-close="true"]');
 
-    const bringToFront = () => this.root.parentElement?.appendChild(this.root);
-    this.root.addEventListener('pointerdown', bringToFront, { signal });
-    this.root.addEventListener('focusin', bringToFront, { signal });
+    this.root.addEventListener('pointerdown', () => bringFloatingPanelToFront(this.root), { signal });
+    this.root.addEventListener('focusin', () => bringFloatingPanelToFront(this.root), { signal });
     this.root.addEventListener('keydown', (event) => {
       if (event.key !== 'Escape' || this.root.hidden) return;
       event.preventDefault();

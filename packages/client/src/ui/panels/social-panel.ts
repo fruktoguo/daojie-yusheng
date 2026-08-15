@@ -25,7 +25,7 @@ import { renderTradeQuantityControl } from '../trade-control-renderers';
 import { normalizeTreasureVaultTransferCount } from '../treasure-vault-transfer-count';
 import { AccessPolicyResourceEditor } from '../access-policy-resource-editor';
 import type { AccessPolicySocketClient } from '../access-policy-socket-client';
-import { SocialFloatingPanel, type SocialFloatingPanelKind } from '../social-floating-panel';
+import { SocialWorkspacePanel, type SocialWorkspacePanelKind } from '../social-workspace-panel';
 
 type SocialPanelCallbacks = {
   onRefresh(): void;
@@ -73,7 +73,7 @@ type SocialMenuScrollSnapshot = {
   scrollLeft: number;
 };
 
-type SocialPanelTab = SocialFloatingPanelKind;
+type SocialPanelTab = SocialWorkspacePanelKind;
 type SocialFeatureDestination = SocialPanelTab | 'party';
 type PreparedMenuClose = {
   tab: SocialPanelTab;
@@ -133,7 +133,7 @@ export class SocialPanel {
   private partyPanelOpenStateReader: (() => boolean) | null = null;
   private partyTabUnreadCount = 0;
   private partyAvailable = false;
-  private readonly floatingMenus: Record<SocialPanelTab, SocialFloatingPanel>;
+  private readonly floatingMenus: Record<SocialPanelTab, SocialWorkspacePanel>;
   private view: SocialPanelView = { relations: [], incomingRequests: [], outgoingRequests: [], nearbyCandidates: [] };
   private activeTab: SocialPanelTab = 'relations';
   private selectedPlayerId: string | null = null;
@@ -150,12 +150,12 @@ export class SocialPanel {
   constructor() {
     this.floatingMenus = Object.fromEntries(SOCIAL_PANEL_TABS.map((tab) => [
       tab.id,
-      new SocialFloatingPanel(
+      new SocialWorkspacePanel(
         tab.id,
         () => this.prepareFloatingMenuClose(tab.id),
         () => this.finishFloatingMenuClose(tab.id),
       ),
-    ])) as Record<SocialPanelTab, SocialFloatingPanel>;
+    ])) as Record<SocialPanelTab, SocialWorkspacePanel>;
     this.bindEvents(this.pane);
     for (const panel of Object.values(this.floatingMenus)) {
       this.bindEvents(panel.body);
@@ -436,7 +436,7 @@ export class SocialPanel {
           type="button"
           data-social-action="party"
           data-social-menu="party"
-          aria-controls="floating-party-panel"
+          aria-controls="detail-modal"
           aria-label="${partyUnread > 0 ? `队伍，${partyUnread} 条未读消息` : '队伍'}"
           aria-expanded="${this.partyPanelOpenStateReader?.() === true ? 'true' : 'false'}"
           aria-disabled="${this.partyAvailable ? 'false' : 'true'}"
@@ -459,7 +459,7 @@ export class SocialPanel {
               data-social-action="menu"
               data-social-menu="${tab.id}"
               data-social-tab="${tab.id}"
-              aria-controls="floating-social-${tab.id}"
+              aria-controls="detail-modal"
               aria-label="${escapeHtml(ariaLabel)}"
               aria-expanded="${this.isMenuOpen(tab.id) ? 'true' : 'false'}"
             >
@@ -766,7 +766,7 @@ export class SocialPanel {
     this.scheduleVisibleMenuRestore(tab, inputSnapshot);
     this.patchTabState();
     this.preparedMenuClose = null;
-    this.floatingMenus[tab].focusCloseButton();
+    this.floatingMenus[tab].focusInitialControl();
   }
 
   closeFeaturePanels(destination: SocialFeatureDestination | null = null): void {
@@ -839,13 +839,13 @@ export class SocialPanel {
     this.scheduleVisibleMenuRestore('messages', inputSnapshot);
     this.patchTabState();
     this.preparedMenuClose = null;
-    this.floatingMenus.messages.focusCloseButton();
+    this.floatingMenus.messages.focusInitialControl();
   }
 
   private replaceTabContent(tab: SocialPanelTab, inputSnapshot: SocialMessageInputSnapshot | null): void {
     const selected = this.resolveSelectedRelation();
     this.floatingMenus[tab].updateContent(`
-      <div class="social-panel social-panel--floating">
+      <div class="social-panel social-panel--workspace">
         <div class="social-panel-tab-content" data-social-tab-content="${tab}">
           ${this.renderTabContent(tab, selected)}
         </div>
