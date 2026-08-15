@@ -32,6 +32,46 @@ const fixtureExpression = String.raw`
     let workspaceOpenCount = 0;
 
     const sent = [];
+    let openPartyChatCount = 0;
+    const chatStub = {
+      partyId: null,
+      messages: [],
+      unread: 0,
+      visible: false,
+      onSend: null,
+      onUnread: null,
+      setPartySendCallback(callback) { this.onSend = callback; },
+      setPartyUnreadCallback(callback) { this.onUnread = callback; callback(this.unread); },
+      syncPartyMessages(partyId, messages, playerId, incomingMessage = null) {
+        const previousIds = new Set(this.messages.map((message) => message.messageId));
+        const partyChanged = this.partyId !== partyId;
+        this.partyId = partyId;
+        this.messages = [...messages];
+        if (partyChanged || !partyId) {
+          this.unread = 0;
+          this.onUnread?.(0);
+        }
+        const notify = Boolean(
+          partyId
+          && incomingMessage
+          && incomingMessage.partyId === partyId
+          && incomingMessage.fromPlayerId !== playerId
+          && !previousIds.has(incomingMessage.messageId)
+          && !this.visible,
+        );
+        if (notify) {
+          this.unread += 1;
+          this.onUnread?.(this.unread);
+        }
+        return { stored: true, notify };
+      },
+      open() {
+        this.visible = true;
+        this.unread = 0;
+        this.onUnread?.(0);
+      },
+      send(text) { this.onSend?.(text); },
+    };
     const partyChromeStub = {
       unread: -1,
       available: false,
@@ -41,9 +81,14 @@ const fixtureExpression = String.raw`
     const source = createMainPartyStateSource({
       partyPanel,
       partyHud,
+      chatUI: chatStub,
       openPartyPanel: (opener) => {
         workspaceOpenCount += 1;
         partyWorkspace.open(opener);
+      },
+      openPartyChat: () => {
+        openPartyChatCount += 1;
+        chatStub.open();
       },
       setPartyUnread: (count) => { partyChromeStub.setUnread(count); partyWorkspace.setUnreadCount(count); },
       setPartyPanelAvailable: (available) => { partyChromeStub.setAvailable(available); partyWorkspace.setAvailable(available); },
@@ -76,7 +121,7 @@ const fixtureExpression = String.raw`
     source.handlePartyPanel({ party, incomingInvites: emptyInvites, incomingApplications: emptyApplications, recruitments: emptyRecruitments, matchQueue: { queued: false }, serverTime: Date.now() });
     source.openPanel();
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    window.__partyProof = { source, partyPanel, partyHud, partyWorkspace, host, hudRoot, workspaceOpenCount: () => workspaceOpenCount, sent, partyChromeStub, party, emptyInvites, emptyApplications, emptyRecruitments, buildEntityNameplateBadges, updateFloatingPanelPreference };
+    window.__partyProof = { source, partyPanel, partyHud, partyWorkspace, host, hudRoot, workspaceOpenCount: () => workspaceOpenCount, openPartyChatCount: () => openPartyChatCount, sent, chatStub, partyChromeStub, party, emptyInvites, emptyApplications, emptyRecruitments, buildEntityNameplateBadges, updateFloatingPanelPreference };
     return { ok: true };
   })()
 `;
@@ -216,18 +261,23 @@ await withClientBrowserProof(
     // late response：切换队伍后旧 partyId 的历史响应必须被丢弃。
     const lateResult = await cdp.evaluate(String.raw`
       (() => {
-        const { source, hudRoot } = window.__partyProof;
+        const { source, chatStub } = window.__partyProof;
         const staleRequestId = 'party-history:stale:1';
+        const beforeIds = chatStub.messages.map((message) => message.messageId);
         source.handlePartyChatHistory({
           requestId: staleRequestId,
           partyId: 'party-old',
           messages: [{ messageId: 'm-stale', partyId: 'party-old', fromPlayerId: 'x', fromName: '旧队友', text: '旧消息', sentAt: 1 }],
         });
         source.handlePartyChatMessage({ messageId: 'm-cross', partyId: 'party-old', fromPlayerId: 'x', fromName: '旧队友', text: '跨队消息', sentAt: 2 });
-        const hudText = hudRoot.textContent ?? '';
-        return { leaked: hudText.includes('旧消息') || hudText.includes('跨队消息') };
+        const afterIds = chatStub.messages.map((message) => message.messageId);
+        return {
+          unchanged: JSON.stringify(beforeIds) === JSON.stringify(afterIds),
+          leaked: afterIds.includes('m-stale') || afterIds.includes('m-cross'),
+        };
       })()
     `);
+    assert.equal(lateResult.unchanged, true, '旧队伍晚包改写了统一聊天状态');
     assert.equal(lateResult.leaked, false, '旧队伍/旧 requestId 的晚包未被隔离');
 
     // 同队名牌只对“自己当前队伍”派生，不泄露或误标其它队伍。
@@ -245,27 +295,36 @@ await withClientBrowserProof(
     assert.equal(badgeResult.ownPartyMarked, true, '同队玩家名牌未派生队伍徽记');
     assert.equal(badgeResult.otherPartyMarked, false, '其它队伍玩家被误标为同队');
 
-    // 队伍聊天未读角标与面板打开后的清零。
+    // 队伍聊天统一投影到日志与聊天：未读同步、入口清零、发送走 Party C2S，HUD 不再保留重复聊天区。
     const chatResult = await cdp.evaluate(String.raw`
       (() => {
-        const { source, partyChromeStub, hudRoot } = window.__partyProof;
+        const { source, partyChromeStub, chatStub, openPartyChatCount, hudRoot, host, sent } = window.__partyProof;
         source.handlePartyChatMessage({ messageId: 'm-1', partyId: 'party-a', fromPlayerId: 'leader-1', fromName: '队长甲', text: '集合了', sentAt: Date.now() });
         source.handlePartyChatHistory({ requestId: undefined, partyId: 'party-a', messages: [] });
         const unreadBeforeOpen = partyChromeStub.unread;
         const hudBadgeBeforeOpen = hudRoot.querySelector('[data-party-hud-unread]')?.textContent ?? '';
-        window.__partyProof.host.querySelector('[data-party-action="open-chat"]')?.click();
+        const beforeOpen = openPartyChatCount();
+        host.querySelector('[data-party-action="open-chat"]')?.click();
+        chatStub.send('统一队伍聊天');
+        const send = sent.findLast((entry) => entry.name === 'sendSendPartyChat');
         return {
           unreadBeforeOpen,
           hudBadgeBeforeOpen,
           unreadAfterOpen: partyChromeStub.unread,
-          chatOpened: hudRoot.querySelector('[data-party-hud-chat="true"]')?.hidden === false,
+          unifiedPanelOpened: openPartyChatCount() === beforeOpen + 1,
+          projectedMessages: chatStub.messages.map((message) => message.messageId),
+          duplicateHudChat: !!hudRoot.querySelector('[data-party-hud-chat="true"]'),
+          send,
         };
       })()
     `);
     assert.equal(chatResult.unreadBeforeOpen, 1, '队伍未读角标未同步到悬浮窗标题状态');
     assert.equal(chatResult.hudBadgeBeforeOpen, '1', 'HUD 未读角标未更新');
-    assert.equal(chatResult.unreadAfterOpen, 0, '打开队伍聊天后未清零未读角标');
-    assert.equal(chatResult.chatOpened, true, '队伍面板聊天按钮未展开 HUD 聊天区');
+    assert.equal(chatResult.unreadAfterOpen, 0, '打开统一队伍频道后未清零未读角标');
+    assert.equal(chatResult.unifiedPanelOpened, true, '队伍聊天入口未打开日志与聊天面板');
+    assert.deepEqual(chatResult.projectedMessages, ['m-1'], '队伍消息未投影到统一聊天状态');
+    assert.equal(chatResult.duplicateHudChat, false, '紧凑队伍 HUD 仍保留重复聊天区');
+    assert.deepEqual(chatResult.send, { name: 'sendSendPartyChat', payload: '统一队伍聊天' }, '统一输入未走 Party C2S 发送');
 
     // 队长视图：设置表单、友伤说明、移交/移出按钮。
     const leaderResult = await cdp.evaluate(String.raw`
@@ -443,7 +502,6 @@ await withClientBrowserProof(
             },
             playerId: 'self-player',
             chatUnreadCount: 0,
-            chatDraft: '',
             recruitingPurpose: 'general',
             recruitmentLoaded: true,
           });

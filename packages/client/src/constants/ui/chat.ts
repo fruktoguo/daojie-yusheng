@@ -17,9 +17,28 @@ export const CHAT_LOG_MAX_MEMORY_MESSAGES_PER_CHANNEL = 1_000;
 /** CHAT_LOG_SCROLL_TOP_LOAD_THRESHOLD_PX：聊天日志SCROLL TOP LOAD THRESHOLD PX。 */
 export const CHAT_LOG_SCROLL_TOP_LOAD_THRESHOLD_PX = 24;
 
-export const CHAT_CHANNELS = ['system', 'combat', 'grudge', 'nearby', 'world', 'sect'] as const;
+export const CHAT_FIXED_CHANNELS = ['system', 'combat'] as const;
+export type ChatFixedChannel = typeof CHAT_FIXED_CHANNELS[number];
+
+export const CHAT_SELECTABLE_CHANNELS = ['grudge', 'nearby', 'world', 'sect', 'party'] as const;
+export type ChatSelectableChannel = typeof CHAT_SELECTABLE_CHANNELS[number];
+
+export const CHAT_CHANNELS = [...CHAT_FIXED_CHANNELS, ...CHAT_SELECTABLE_CHANNELS] as const;
 /** ChatChannel：聊天频道标识。 */
 export type ChatChannel = typeof CHAT_CHANNELS[number];
+
+export const CHAT_CHANNEL_SLOT_IDS = ['channel-1', 'channel-2', 'channel-3'] as const;
+export type ChatChannelSlotId = typeof CHAT_CHANNEL_SLOT_IDS[number];
+export type ChatChannelSlotSelection = Record<ChatChannelSlotId, ChatSelectableChannel>;
+
+export const DEFAULT_CHAT_CHANNEL_SLOTS: ChatChannelSlotSelection = {
+  'channel-1': 'grudge',
+  'channel-2': 'nearby',
+  'channel-3': 'world',
+};
+
+export const DEFAULT_CHAT_CHANNEL_SLOT: ChatChannelSlotId = 'channel-1';
+export const CHAT_CHANNEL_SLOT_STORAGE_KEY = 'mud:chat-channel-slots:v1';
 
 export const CHAT_MESSAGE_KINDS = [
   'system',
@@ -89,5 +108,5 @@ export interface ChatStoredMessage {
   structuredGroup?: unknown[];
 }
 
-/** DEFAULT_CHAT_CHANNEL：聊天CHANNEL默认值。 */
-export const DEFAULT_CHAT_CHANNEL: ChatChannel = 'system';
+/** DEFAULT_CHAT_CHANNEL：初次打开日志与聊天时显示的频道。 */
+export const DEFAULT_CHAT_CHANNEL: ChatChannel = DEFAULT_CHAT_CHANNEL_SLOTS[DEFAULT_CHAT_CHANNEL_SLOT];

@@ -355,7 +355,7 @@ export class PartyPanel {
         ${management ? this.renderLeaderTools(party) : `
           <div class="party-actions-row">
             <button class="small-btn" type="button" data-party-action="open-chat">
-              队伍聊天<span data-party-chat-unread="true" ${state.chatUnreadCount > 0 ? '' : 'hidden'}>${state.chatUnreadCount > 0 ? `（${state.chatUnreadCount} 条未读）` : ''}</span>
+              打开队伍频道<span data-party-chat-unread="true" ${state.chatUnreadCount > 0 ? '' : 'hidden'}>${state.chatUnreadCount > 0 ? `（${state.chatUnreadCount} 条未读）` : ''}</span>
             </button>
           </div>
           ${!isLeader ? `

@@ -61,13 +61,28 @@ assert.ok(methodStart >= 0 && methodEnd > methodStart, '必须保留聊天作用
 const methodSource = chatSource.slice(methodStart, methodEnd);
 assert.match(
   methodSource,
-  /shouldPreserveCombatLogSession\(this\.currentScopeId, normalizedScope\)/,
-  '切换空间作用域前必须按角色身份判断战斗记录连续性',
+  /const preservesPlayerSession = shouldPreserveCombatLogSession\(this\.currentScopeId, normalizedScope\);/,
+  '切换空间作用域前必须按角色身份判断会话日志连续性',
 );
 assert.match(
   methodSource,
-  /channel === 'combat' && preservedCombatState \? preservedCombatState : createChannelState\(\)/,
-  '只有战斗频道允许跨图保留，其他实例频道必须重新初始化',
+  /const preservedCombatState = preservesPlayerSession\s*\? this\.channelStates\.get\('combat'\)/,
+  '同一角色跨图时必须保留战斗记录',
+);
+assert.match(
+  methodSource,
+  /const preservedPartyState = preservesPlayerSession && normalizedScope && this\.partyId\s*\? this\.channelStates\.get\('party'\)/,
+  '只有同一角色且仍有当前队伍时才允许跨图保留队伍消息',
+);
+assert.match(
+  methodSource,
+  /if \(hadPreviousScope && !preservesPlayerSession\) this\.partyId = null;/,
+  '切换角色或退出世界时必须立即清除旧队伍发送上下文',
+);
+assert.match(
+  methodSource,
+  /channel === 'combat' && preservedCombatState[\s\S]*channel === 'party' && preservedPartyState/,
+  '战斗与当前队伍频道允许同角色跨图保留，其他实例频道必须重新初始化',
 );
 assert.match(
   chatSource,

@@ -1,5 +1,5 @@
 /** 紧凑队伍悬浮窗：复用行动队列/交互列表的拖拽、折叠、关闭与本地偏好。 */
-import type { PartyChatMessageView, PartyView } from '@mud/shared';
+import type { PartyView } from '@mud/shared';
 import { FloatingListPanel } from './floating-list-panel';
 import {
   FLOATING_PANEL_PREFERENCES_CHANGED_EVENT,
@@ -38,22 +38,6 @@ export class PartyFloatingPanel {
 
   setCallbacks(callbacks: PartyHudCallbacks): void {
     this.hud.setCallbacks(callbacks);
-  }
-
-  isChatVisible(): boolean {
-    return !this.root.hidden && this.hud.isChatVisible();
-  }
-
-  openChat(): void {
-    if (!this.party) return;
-    if (!isFloatingPanelEnabled('party')) updateFloatingPanelPreference('party', true);
-    this.refreshVisibility();
-    this.floatingPanel.setClosed(false);
-    this.hud.openChat();
-  }
-
-  setChatMessages(messages: readonly PartyChatMessageView[], playerId: string | null): void {
-    this.hud.setChatMessages(messages, playerId);
   }
 
   render(party: PartyView | null, playerId: string | null, unreadCount: number): void {

@@ -109,7 +109,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
   const socialStateSource = createMainSocialStateSource({ socialPanel, treasureVaultModal, accessPolicyClient, socket: socialEconomySender, getPlayer: () => rootRuntimeSource.getPlayer(), hydrateInventoryItem: (item, previous) => detailHydrationSource.hydrateSyncedItemStack(item, previous), showToast: (message, kind) => uiStateSource.showToast(message, kind) });
   const partyPanel = new PartyPanel(); const partyWorkspace = new PartyWorkspacePanel(partyPanel); const partyHud = new PartyFloatingPanel(); const partyNavigation = bindMainSocialPanelNavigation({ socialPanel, partyPanel: partyWorkspace });
   const partyStateSource = createMainPartyStateSource({
-    partyPanel, partyHud, openPartyPanel: partyNavigation.openPartyPanel,
+    partyPanel, partyHud, chatUI, openPartyPanel: partyNavigation.openPartyPanel, openPartyChat: () => { partyWorkspace.close(false); sidePanel.switchTab('logbook'); chatUI.openChannel('party'); },
     setPartyPanelAvailable: (available) => { partyWorkspace.setAvailable(available); socialPanel.setPartyAvailable(available); },
     setPartyUnread: (count) => { partyWorkspace.setUnreadCount(count); socialPanel.setPartyUnread(count); },
     socket: socket.party, getPlayerId: () => rootRuntimeSource.getPlayer()?.id ?? null, showToast: (message, kind) => uiStateSource.showToast(message, kind),

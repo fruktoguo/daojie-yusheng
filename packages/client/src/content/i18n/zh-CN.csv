@@ -985,6 +985,7 @@ shell.chat-combat,静态HTML-主界面,战斗,静态 HTML：packages/client/inde
 shell.chat-grudge,静态HTML-主界面,情仇,静态 HTML：packages/client/index.html
 shell.chat-input.placeholder,静态HTML-主界面,输入聊天内容，回车发送,静态 HTML：packages/client/index.html
 shell.chat-nearby,静态HTML-主界面,附近,静态 HTML：packages/client/index.html
+shell.chat-party,静态HTML-主界面,组队,日志与聊天自定义频道
 shell.chat-sect,静态HTML-主界面,宗门,静态 HTML：packages/client/index.html
 shell.chat-system,静态HTML-主界面,系统,静态 HTML：packages/client/index.html
 shell.chat-world,静态HTML-主界面,世界,静态 HTML：packages/client/index.html
@@ -1021,7 +1022,7 @@ shell.layout-toggle-left.title,静态HTML-主界面,收起左侧区域,静态 HT
 shell.layout-toggle-right,静态HTML-主界面,&gt;,静态 HTML：packages/client/index.html
 shell.layout-toggle-right.aria-label,静态HTML-主界面,收起右侧区域,静态 HTML：packages/client/index.html
 shell.layout-toggle-right.title,静态HTML-主界面,收起右侧区域,静态 HTML：packages/client/index.html
-shell.logbook,静态HTML-主界面,见闻录,静态 HTML：packages/client/index.html
+shell.logbook,静态HTML-主界面,日志与聊天,静态 HTML：packages/client/index.html
 shell.login-logo-daojie-yusheng.alt,静态HTML-主界面,道劫余生,静态 HTML：packages/client/index.html
 shell.login-name-label,静态HTML-主界面,账号 / 角色名,静态 HTML：packages/client/index.html
 shell.login-name.placeholder,静态HTML-主界面,输入账号或角色名,静态 HTML：packages/client/index.html

@@ -388,7 +388,7 @@
         <div class="split-tabs-shell" data-tab-group="center-merged">
           <div class="split-tabs-rail">
             <button class="split-tab-btn active" data-tab="intel" type="button" data-i18n="shell.intel">情报</button>
-            <button class="split-tab-btn" data-tab="logbook" type="button" data-i18n="shell.logbook">见闻录</button>
+            <button class="split-tab-btn" data-tab="logbook" type="button" data-i18n="shell.logbook">日志与聊天</button>
           </div>
           <div class="split-tabs-content">
             <div class="split-tab-pane active" data-pane="intel">
@@ -406,21 +406,36 @@
 
             <div class="split-tab-pane" data-pane="logbook">
               <div id="chat-panel" class="hidden">
-                <div class="section-tabs chat-tabs">
-                  <button class="tab-btn active" data-chat-channel="system" type="button" data-i18n="shell.chat-system">系统</button>
-                  <button class="tab-btn" data-chat-channel="combat" type="button" data-i18n="shell.chat-combat">战斗</button>
-                  <button class="tab-btn" data-chat-channel="grudge" type="button" data-i18n="shell.chat-grudge">情仇</button>
-                  <button class="tab-btn" data-chat-channel="nearby" type="button" data-i18n="shell.chat-nearby">附近</button>
-                  <button class="tab-btn" data-chat-channel="world" type="button" data-i18n="shell.chat-world">世界</button>
-                  <button class="tab-btn" data-chat-channel="sect" type="button" data-i18n="shell.chat-sect">宗门</button>
+                <div class="section-tabs chat-tabs" aria-label="日志与聊天频道">
+                  <button class="tab-btn" data-chat-fixed-channel="system" data-chat-unread-host="system" type="button" data-i18n="shell.chat-system">系统</button>
+                  <button class="tab-btn" data-chat-fixed-channel="combat" data-chat-unread-host="combat" type="button" data-i18n="shell.chat-combat">战斗</button>
+                  <label class="chat-channel-slot active" data-chat-slot-host="channel-1" data-chat-unread-host="channel-1">
+                    <span class="sr-only">频道一</span>
+                    <select class="tab-btn chat-channel-select" data-chat-slot-select="channel-1" aria-label="频道一，切换频道">
+                      <option value="grudge" selected>情仇</option><option value="nearby">附近</option><option value="world">世界</option><option value="sect">宗门</option><option value="party">组队</option>
+                    </select>
+                  </label>
+                  <label class="chat-channel-slot" data-chat-slot-host="channel-2" data-chat-unread-host="channel-2">
+                    <span class="sr-only">频道二</span>
+                    <select class="tab-btn chat-channel-select" data-chat-slot-select="channel-2" aria-label="频道二，切换频道">
+                      <option value="grudge">情仇</option><option value="nearby" selected>附近</option><option value="world">世界</option><option value="sect">宗门</option><option value="party">组队</option>
+                    </select>
+                  </label>
+                  <label class="chat-channel-slot" data-chat-slot-host="channel-3" data-chat-unread-host="channel-3">
+                    <span class="sr-only">频道三</span>
+                    <select class="tab-btn chat-channel-select" data-chat-slot-select="channel-3" aria-label="频道三，切换频道">
+                      <option value="grudge">情仇</option><option value="nearby">附近</option><option value="world" selected>世界</option><option value="sect">宗门</option><option value="party">组队</option>
+                    </select>
+                  </label>
                 </div>
                 <div class="section-body flush chat-log-stack">
-                  <div class="chat-log-panel active" data-chat-pane="system"><div class="chat-log"></div></div>
+                  <div class="chat-log-panel" data-chat-pane="system"><div class="chat-log"></div></div>
                   <div class="chat-log-panel" data-chat-pane="combat"><div class="chat-log"></div></div>
-                  <div class="chat-log-panel" data-chat-pane="grudge"><div class="chat-log"></div></div>
+                  <div class="chat-log-panel active" data-chat-pane="grudge"><div class="chat-log"></div></div>
                   <div class="chat-log-panel" data-chat-pane="nearby"><div class="chat-log"></div></div>
                   <div class="chat-log-panel" data-chat-pane="world"><div class="chat-log"></div></div>
                   <div class="chat-log-panel" data-chat-pane="sect"><div class="chat-log"></div></div>
+                  <div class="chat-log-panel" data-chat-pane="party"><div class="chat-log"></div></div>
                 </div>
                 <div class="chat-compose">
                   <input id="chat-input" type="text" maxlength="200" data-i18n-placeholder="shell.chat-input.placeholder" placeholder="输入聊天内容，回车发送" />

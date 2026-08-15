@@ -73,7 +73,6 @@ export type PartyStateSourceCallbacks = {
   onRespondApplication(applicationId: string, accept: boolean): void;
   onJoinMatch(purpose: PartyPurpose): void;
   onLeaveMatch(): void;
-  onSendChat(text: string): void;
   onOpenChat(): void;
   onRequestRecruitmentCandidates(): void;
 };
@@ -82,7 +81,6 @@ export type PartyPanelRenderState = {
   view: PartyPanelView;
   playerId: string | null;
   chatUnreadCount: number;
-  chatDraft: string;
   recruitingPurpose: PartyPurpose;
   recruitmentLoaded: boolean;
 };

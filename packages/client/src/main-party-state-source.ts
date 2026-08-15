@@ -13,6 +13,7 @@ import type {
 } from '@mud/shared';
 import type { SocketPartySender } from './network/socket-send-party';
 import type { ToastKind } from './main-app-assembly-types';
+import type { ChatUI } from './ui/chat';
 import { PartyPanel } from './ui/panels/party-panel';
 import { PartyFloatingPanel } from './ui/party-floating-panel';
 import { PARTY_REASON_LABELS } from './ui/panels/party-panel-view';
@@ -21,7 +22,9 @@ import { appendPartyMessages, loadRecentPartyMessages } from './ui/party-message
 type MainPartyStateSourceOptions = {
   partyPanel: PartyPanel;
   partyHud: PartyFloatingPanel;
+  chatUI: Pick<ChatUI, 'setPartySendCallback' | 'setPartyUnreadCallback' | 'syncPartyMessages'>;
   openPartyPanel(opener?: HTMLElement | null): void;
+  openPartyChat(opener?: HTMLElement | null): void;
   setPartyUnread(count: number): void;
   setPartyPanelAvailable(available: boolean): void;
   socket: Pick<
@@ -75,7 +78,6 @@ export function createMainPartyStateSource(options: MainPartyStateSourceOptions)
       view,
       playerId: currentPlayerId,
       chatUnreadCount,
-      chatDraft: '',
       recruitingPurpose: recruitingPurpose ?? 'general',
       recruitmentLoaded,
     });
@@ -88,6 +90,7 @@ export function createMainPartyStateSource(options: MainPartyStateSourceOptions)
     chatMessages = [];
     chatHistoryRequestId = null;
     historySyncToken += 1;
+    options.chatUI.syncPartyMessages(currentPartyId, chatMessages, currentPlayerId);
   }
 
   function applyPanel(next: PartyPanelView): void {
@@ -112,7 +115,7 @@ export function createMainPartyStateSource(options: MainPartyStateSourceOptions)
       return;
     }
     chatMessages = local.slice();
-    options.partyHud.setChatMessages(chatMessages, playerId);
+    options.chatUI.syncPartyMessages(partyId, chatMessages, playerId);
     const requestId = `party-history:${token}:${Date.now()}`;
     chatHistoryRequestId = requestId;
     const latest = local[local.length - 1];
@@ -121,6 +124,14 @@ export function createMainPartyStateSource(options: MainPartyStateSourceOptions)
       ...(latest ? { cursor: { occurredAt: latest.sentAt, messageId: latest.messageId } } : {}),
     });
   }
+
+  options.chatUI.setPartySendCallback((text) => options.socket.sendSendPartyChat(text));
+  options.chatUI.setPartyUnreadCallback((count) => {
+    const next = Math.max(0, Math.trunc(count));
+    if (next === chatUnreadCount) return;
+    chatUnreadCount = next;
+    syncRender();
+  });
 
   options.partyPanel.setCallbacks({
     onCreate: () => options.socket.sendCreateParty(),
@@ -142,36 +153,18 @@ export function createMainPartyStateSource(options: MainPartyStateSourceOptions)
     onRespondApplication: (applicationId, accept) => options.socket.sendRespondPartyApplication(applicationId, accept),
     onJoinMatch: (purpose) => options.socket.sendJoinPartyMatch(purpose),
     onLeaveMatch: () => options.socket.sendLeavePartyMatch(),
-    onSendChat: (text) => {
-      const trimmed = text.trim();
-      if (!trimmed) return;
-      options.socket.sendSendPartyChat(trimmed);
-    },
-    onOpenChat: () => {
-      chatUnreadCount = 0;
-      options.partyHud.openChat();
-      syncRender();
-    },
+    onOpenChat: () => options.openPartyChat(),
     onRequestRecruitmentCandidates: () => options.socket.sendRequestPartyRecruitments(recruitingPurpose),
   });
 
   function openPartyPanel(opener: HTMLElement | null = null): void {
-    chatUnreadCount = 0;
     options.openPartyPanel(opener);
     syncRender();
   }
 
   options.partyHud.setCallbacks({
     onOpenParty: openPartyPanel,
-    onOpenChat: () => {
-      chatUnreadCount = 0;
-      syncRender();
-    },
-    onSendChat: (text) => {
-      const trimmed = text.trim();
-      if (!trimmed) return;
-      options.socket.sendSendPartyChat(trimmed);
-    },
+    onOpenChat: (opener) => options.openPartyChat(opener),
   });
 
   return {
@@ -216,13 +209,11 @@ export function createMainPartyStateSource(options: MainPartyStateSourceOptions)
       }
       chatMessages = [...chatMessages, message].slice(-100);
       const incoming = message.fromPlayerId !== playerId;
-      const chatVisible = options.partyHud.isChatVisible();
-      if (incoming && !chatVisible) {
-        chatUnreadCount += 1;
+      const result = options.chatUI.syncPartyMessages(currentPartyId, chatMessages, playerId, message);
+      if (incoming && result.notify) {
         options.showToast(`队伍消息 · ${message.fromName}：${message.text}`, 'chat');
       }
       void appendPartyMessages(playerId, currentPartyId, [message]);
-      options.partyHud.setChatMessages(chatMessages, playerId);
       syncRender();
     },
     handlePartyChatHistory(history: PartyChatHistoryView): void {
@@ -242,7 +233,7 @@ export function createMainPartyStateSource(options: MainPartyStateSourceOptions)
       }
       chatMessages = Array.from(merged.values()).sort((a, b) => a.sentAt - b.sentAt).slice(-100);
       void appendPartyMessages(playerId, currentPartyId, history.messages ?? []);
-      options.partyHud.setChatMessages(chatMessages, playerId);
+      options.chatUI.syncPartyMessages(currentPartyId, chatMessages, playerId);
       syncRender();
     },
     /** SelfDelta.pid 变化时同步展示层身份（权威状态仍以 PartyPanel 为准）。 */

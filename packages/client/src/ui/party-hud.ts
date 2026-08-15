@@ -1,13 +1,12 @@
 /**
- * 队伍 HUD：主界面紧凑队伍条 + 队伍聊天迷你窗口。
- * 仅在数据变化时重绘，成员行 keyed 局部 patch，不影响聊天输入与滚动。
+ * 队伍 HUD：主界面紧凑队伍状态与统一聊天面板快捷入口。
+ * 成员行按 playerId 局部 patch，队伍消息统一由中下方「日志与聊天」展示。
  */
-import type { PartyChatMessageView, PartyView } from '@mud/shared';
+import type { PartyView } from '@mud/shared';
 
 export type PartyHudCallbacks = {
   onOpenParty(opener: HTMLElement): void;
-  onOpenChat(): void;
-  onSendChat(text: string): void;
+  onOpenChat(opener: HTMLElement): void;
 };
 
 function escapeHtml(value: unknown): string {
@@ -35,10 +34,7 @@ export class PartyHud {
   private readonly root: HTMLElement;
   private callbacks: PartyHudCallbacks | null = null;
   private party: PartyView | null = null;
-  private playerId: string | null = null;
   private unreadCount = 0;
-  private messages: PartyChatMessageView[] = [];
-  private chatOpen = false;
 
   constructor(host?: HTMLElement | null) {
     this.root = host ?? document.createElement('aside');
@@ -49,53 +45,23 @@ export class PartyHud {
       document.body.appendChild(this.root);
     }
     this.root.addEventListener('click', (event) => this.handleClick(event));
-    this.root.addEventListener('submit', (event) => this.handleSubmit(event));
   }
 
   setCallbacks(callbacks: PartyHudCallbacks): void {
     this.callbacks = callbacks;
   }
 
-  isChatVisible(): boolean {
-    return this.chatOpen && !this.root.hidden;
-  }
-
-  openChat(): void {
-    if (!this.party) {
-      return;
-    }
-    this.chatOpen = true;
-    const chat = this.root.querySelector<HTMLElement>('[data-party-hud-chat="true"]');
-    if (chat) {
-      chat.hidden = false;
-    }
-    this.renderChatMessages();
-  }
-
-  setChatMessages(messages: readonly PartyChatMessageView[], playerId: string | null): void {
-    this.messages = messages.slice(-100);
-    this.playerId = playerId;
-    if (this.chatOpen) {
-      this.renderChatMessages();
-    }
-  }
-
-  render(party: PartyView | null, playerId: string | null, unreadCount: number): void {
+  render(party: PartyView | null, _playerId: string | null, unreadCount: number): void {
     this.party = party;
-    this.playerId = playerId;
     this.unreadCount = Math.max(0, Math.trunc(unreadCount));
     if (!party) {
       this.root.hidden = true;
       this.root.replaceChildren();
-      this.chatOpen = false;
       return;
     }
     this.root.hidden = false;
     this.renderFrame();
     this.patchMembers();
-    if (this.chatOpen) {
-      this.renderChatMessages();
-    }
   }
 
   private renderFrame(): void {
@@ -117,19 +83,12 @@ export class PartyHud {
           <button class="party-hud-title" type="button" data-party-hud-action="open-panel" aria-label="打开队伍面板">
             队伍 <span data-party-hud-count="true">${this.party?.members.length ?? 0}</span>
           </button>
-          <button class="party-hud-chat-toggle" type="button" data-party-hud-action="toggle-chat" aria-label="队伍聊天">
+          <button class="party-hud-chat-toggle" type="button" data-party-hud-action="toggle-chat" aria-label="在日志与聊天中打开队伍频道">
             <span aria-hidden="true">言</span>
             <span class="party-hud-unread" data-party-hud-unread="true" ${this.unreadCount > 0 ? '' : 'hidden'}>${this.unreadCount > 99 ? '99+' : this.unreadCount}</span>
           </button>
         </div>
         <div class="party-hud-members" data-party-hud-members="true"></div>
-        <div class="party-hud-chat" data-party-hud-chat="true" ${this.chatOpen ? '' : 'hidden'}>
-          <div class="party-hud-chat-messages" data-party-hud-chat-messages="true"></div>
-          <form class="party-hud-chat-form" data-party-hud-form="chat">
-            <input class="party-input" type="text" name="text" maxlength="200" placeholder="发送队伍消息" aria-label="队伍消息输入" autocomplete="off" />
-            <button class="small-btn" type="submit">发送</button>
-          </form>
-        </div>
       </div>
     `;
   }
@@ -181,53 +140,16 @@ export class PartyHud {
     `;
   }
 
-  private renderChatMessages(): void {
-    const host = this.root.querySelector<HTMLElement>('[data-party-hud-chat-messages="true"]');
-    if (!host) return;
-    const stickToBottom = host.scrollHeight - host.scrollTop - host.clientHeight < 24;
-    host.innerHTML = this.messages.map((message) => {
-      const mine = message.fromPlayerId === this.playerId;
-      return `
-        <div class="party-hud-chat-message ${mine ? 'mine' : ''}">
-          <span class="party-hud-chat-from">${mine ? '我' : escapeHtml(message.fromName)}</span>
-          <span class="party-hud-chat-text">${escapeHtml(message.text)}</span>
-        </div>
-      `;
-    }).join('') || '<div class="empty-hint compact">还没有队伍消息</div>';
-    if (stickToBottom) {
-      host.scrollTop = host.scrollHeight;
-    }
-  }
-
   private handleClick(event: MouseEvent): void {
     const target = (event.target as HTMLElement | null)?.closest<HTMLElement>('[data-party-hud-action]');
     if (!target || !this.callbacks) return;
     const action = target.dataset.partyHudAction;
     if (action === 'open-panel') {
-      this.unreadCount = 0;
       this.callbacks.onOpenParty(target);
       return;
     }
     if (action === 'toggle-chat') {
-      this.chatOpen = !this.chatOpen;
-      const chat = this.root.querySelector<HTMLElement>('[data-party-hud-chat="true"]');
-      if (chat) chat.hidden = !this.chatOpen;
-      if (this.chatOpen) {
-        this.unreadCount = 0;
-        this.callbacks.onOpenChat();
-        this.renderChatMessages();
-      }
+      this.callbacks.onOpenChat(target);
     }
-  }
-
-  private handleSubmit(event: SubmitEvent): void {
-    const form = (event.target as HTMLElement | null)?.closest<HTMLFormElement>('[data-party-hud-form="chat"]');
-    if (!form || !this.callbacks) return;
-    event.preventDefault();
-    const input = form.querySelector<HTMLInputElement>('input[name="text"]');
-    const text = (input?.value ?? '').trim();
-    if (!text) return;
-    this.callbacks.onSendChat(text);
-    if (input) input.value = '';
   }
 }

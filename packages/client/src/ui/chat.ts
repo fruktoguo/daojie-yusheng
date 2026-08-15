@@ -19,21 +19,28 @@ import {
   type CombatNoticePayload,
   type ElementKey,
   type NoticePillConfig,
+  type PartyChatMessageView,
   type ServerChatMessageView,
   type SkillDamageKind,
   type StructuredNoticePayload,
 } from '@mud/shared';
 import {
   CHAT_CHANNELS,
+  CHAT_CHANNEL_SLOT_IDS,
   CHAT_LOG_LOAD_BATCH_SIZE,
   CHAT_LOG_MAX_MEMORY_MESSAGES_PER_CHANNEL,
   CHAT_LOG_MAX_VISIBLE_MESSAGES,
   CHAT_LOG_SCROLL_TOP_LOAD_THRESHOLD_PX,
   CHAT_MESSAGE_KINDS,
   CHAT_MESSAGE_SCOPES,
+  CHAT_SELECTABLE_CHANNELS,
   DEFAULT_CHAT_CHANNEL,
+  DEFAULT_CHAT_CHANNEL_SLOT,
   type ChatChannel,
+  type ChatChannelSlotId,
+  type ChatChannelSlotSelection,
   type ChatMessageKind,
+  type ChatSelectableChannel,
   type ChatMessageScope,
   type ChatStoredMessage,
 } from '../constants/ui/chat';
@@ -51,6 +58,10 @@ import { getLocalBuffTemplate } from '../content/local-templates';
 import { describePreviewBonuses } from './stat-preview';
 import { normalizeStructuredNoticeVars, resolveClientDisplayToken } from './structured-notice-display';
 import { shouldPreserveCombatLogSession } from './chat-scope-continuity';
+import { loadChatChannelSlots, saveChatChannelSlots } from './chat-channel-preferences';
+
+/** 可由玩家自行映射的聊天槽，固定系统/战斗页不写入本地偏好。 */
+type ChatPanelView = 'system' | 'combat' | ChatChannelSlotId;
 
 /** 单个聊天频道的本地状态。 */
 interface ChatChannelState {
@@ -186,8 +197,10 @@ const COMBAT_RESULT_PATTERN = /^(?<before>.*?)(?:（(?<details>[^）]+)）)?，(
 const COMBAT_HEAL_PILL_COLOR = 'var(--chat-pill-buff)';
 /** 闪避结果胶囊的颜色。 */
 const COMBAT_RESULT_PILL_COLOR = 'var(--chat-pill-result)';
-/** 可主动发送聊天内容的频道。 */
-const CHAT_SENDABLE_CHANNELS = new Set<ChatChannel>(['nearby', 'world', 'sect']);
+/** 可主动发送公共聊天内容的频道。 */
+const PUBLIC_CHAT_SENDABLE_CHANNELS = new Set<ChatChannel>(['nearby', 'world', 'sect']);
+/** 包含队伍在内的客户端可发送频道；队伍仍走独立权威协议。 */
+const CHAT_SENDABLE_CHANNELS = new Set<ChatChannel>(['nearby', 'world', 'sect', 'party']);
 /** 仅保留当前内存窗口所需的落盘键，避免长时间在线时 Set 无界增长。 */
 const CHAT_PERSISTED_KEY_MEMORY_LIMIT = CHAT_LOG_MAX_MEMORY_MESSAGES_PER_CHANNEL * CHAT_CHANNELS.length * 2;
 
@@ -202,6 +215,14 @@ const COMBAT_DAMAGE_ELEMENT_LABEL_TO_KEY: Record<string, ElementKey> = {
 /** 判断值是否属于已知聊天频道。 */
 function isChatChannel(value: unknown): value is ChatChannel {
   return typeof value === 'string' && CHAT_CHANNELS.includes(value as ChatChannel);
+}
+
+function isSelectableChatChannel(value: unknown): value is ChatSelectableChannel {
+  return typeof value === 'string' && CHAT_SELECTABLE_CHANNELS.includes(value as ChatSelectableChannel);
+}
+
+function isChatChannelSlotId(value: unknown): value is ChatChannelSlotId {
+  return typeof value === 'string' && CHAT_CHANNEL_SLOT_IDS.includes(value as ChatChannelSlotId);
 }
 
 /** 判断值是否属于已知聊天消息类型。 */
@@ -221,7 +242,7 @@ function isServerChatMessage(value: unknown): value is ServerChatMessageView {
     && typeof candidate.text === 'string'
     && Number.isFinite(candidate.occurredAt)
     && isChatChannel(candidate.channel)
-    && CHAT_SENDABLE_CHANNELS.has(candidate.channel);
+    && PUBLIC_CHAT_SENDABLE_CHANNELS.has(candidate.channel);
 }
 
 /** 判断值是否属于已知聊天消息范围。 */
@@ -1100,20 +1121,34 @@ export class ChatUI {
   private input = document.getElementById('chat-input') as HTMLInputElement;
   /** 发送按钮。 */
   private sendBtn = document.getElementById('chat-send')!;
-  /** 频道标签页节点集合。 */
-  private tabs = [...this.panel.querySelectorAll<HTMLElement>('[data-chat-channel]')];
+  /** 固定系统/战斗标签。 */
+  private fixedTabs = [...this.panel.querySelectorAll<HTMLElement>('[data-chat-fixed-channel]')];
+  /** 三个自定义频道槽下拉框。 */
+  private slotSelects = [...this.panel.querySelectorAll<HTMLSelectElement>('[data-chat-slot-select]')];
+  /** 自定义频道槽标题宿主，负责激活态和未读角标。 */
+  private slotHosts = [...this.panel.querySelectorAll<HTMLElement>('[data-chat-slot-host]')];
+  /** 本机保存的三个频道槽选择。 */
+  private slotChannels: ChatChannelSlotSelection = loadChatChannelSlots();
   /** 各频道内容容器。 */
   private panes = [...this.panel.querySelectorAll<HTMLElement>('[data-chat-pane]')];
   /** 各频道消息列表。 */
   private logs = new Map<ChatChannel, HTMLElement>();
   /** 各频道的缓存与加载状态。 */
   private channelStates = new Map<ChatChannel, ChatChannelState>();
-  /** 发送消息的外部回调。 */
+  /** 发送公共消息的外部回调。 */
   private onSend: ((message: string, channel: ChatMessageScope) => void) | null = null;
+  /** 发送队伍消息仍走独立 Party C2S 协议。 */
+  private onPartySend: ((message: string) => void) | null = null;
+  /** 队伍频道未读变化回调，用于紧凑 HUD 与入口角标。 */
+  private onPartyUnreadChange: ((count: number) => void) | null = null;
   /** 本地水合完成后提交云端增量游标。 */
   private onHistorySync: ((payload: C2S_RequestChatHistoryView) => void) | null = null;
-  /** 当前激活的聊天频道。 */
+  /** 当前激活的固定页或自定义频道槽。 */
+  private activeView: ChatPanelView = DEFAULT_CHAT_CHANNEL_SLOT;
+  /** 当前激活槽位解析出的实际聊天频道。 */
   private activeChannel: ChatChannel = DEFAULT_CHAT_CHANNEL;
+  /** 当前权威队伍 ID；为空时队伍频道只读且清空。 */
+  private partyId: string | null = null;
   /** 当前聊天范围 ID。 */
   private currentScopeId: string | null = null;
   /** 用于避免重复消息 ID 的序列号。 */
@@ -1150,10 +1185,13 @@ export class ChatUI {
       mountReactChatPanel(this.panel);
       this.input = document.getElementById('chat-input') as HTMLInputElement;
       this.sendBtn = document.getElementById('chat-send')!;
-      this.tabs = [...this.panel.querySelectorAll<HTMLElement>('[data-chat-channel]')];
+      this.fixedTabs = [...this.panel.querySelectorAll<HTMLElement>('[data-chat-fixed-channel]')];
+      this.slotSelects = [...this.panel.querySelectorAll<HTMLSelectElement>('[data-chat-slot-select]')];
+      this.slotHosts = [...this.panel.querySelectorAll<HTMLElement>('[data-chat-slot-host]')];
       this.panes = [...this.panel.querySelectorAll<HTMLElement>('[data-chat-pane]')];
     }
     clearLegacyChatStorage();
+    this.applyChannelSlotPreferences();
     this.ensureUnreadBadges();
     this.sendBtn.addEventListener('click', () => this.submit());
     this.input.addEventListener('keydown', (event) => {
@@ -1165,13 +1203,28 @@ export class ChatUI {
       }
     });
 
-    this.tabs.forEach((tab) => {
+    this.fixedTabs.forEach((tab) => {
       tab.addEventListener('click', () => {
-        const channel = tab.dataset.chatChannel;
-        if (!isChatChannel(channel)) {
-          return;
-        }
-        this.switchChannel(channel);
+        const channel = tab.dataset.chatFixedChannel;
+        if (channel !== 'system' && channel !== 'combat') return;
+        this.switchView(channel);
+      });
+    });
+
+    this.slotSelects.forEach((select) => {
+      const activateSlot = (): void => {
+        const slotId = select.dataset.chatSlotSelect;
+        if (isChatChannelSlotId(slotId)) this.switchView(slotId);
+      };
+      select.addEventListener('pointerdown', activateSlot);
+      select.addEventListener('focus', activateSlot);
+      select.addEventListener('change', () => {
+        const slotId = select.dataset.chatSlotSelect;
+        if (!isChatChannelSlotId(slotId) || !isSelectableChatChannel(select.value)) return;
+        this.slotChannels[slotId] = select.value;
+        saveChatChannelSlots(this.slotChannels);
+        this.switchView(slotId, true);
+        this.patchAllUnreadBadges();
       });
     });
 
@@ -1187,7 +1240,7 @@ export class ChatUI {
       this.bindDamageTooltip(log);
     });
 
-    this.switchChannel(DEFAULT_CHAT_CHANNEL);
+    this.switchView(DEFAULT_CHAT_CHANNEL_SLOT);
     this.renderAllChannels();
   }  
   /**
@@ -1199,6 +1252,82 @@ export class ChatUI {
 
   setCallback(onSend: (message: string, channel: ChatMessageScope) => void): void {
     this.onSend = onSend;
+  }
+
+  setPartySendCallback(onSend: (message: string) => void): void {
+    this.onPartySend = onSend;
+  }
+
+  setPartyUnreadCallback(callback: (count: number) => void): void {
+    this.onPartyUnreadChange = callback;
+    callback(this.unreadByChannel.get('party') ?? 0);
+  }
+
+  /** 打开指定频道；未映射到三个槽位时复用当前自定义槽并保存选择。 */
+  openChannel(channel: ChatChannel): void {
+    if (channel === 'system' || channel === 'combat') {
+      this.switchView(channel);
+      return;
+    }
+    const mappedSlot = CHAT_CHANNEL_SLOT_IDS.find((slotId) => this.slotChannels[slotId] === channel);
+    const targetSlot = mappedSlot
+      ?? (isChatChannelSlotId(this.activeView) ? this.activeView : DEFAULT_CHAT_CHANNEL_SLOT);
+    if (this.slotChannels[targetSlot] !== channel) {
+      this.slotChannels[targetSlot] = channel;
+      saveChatChannelSlots(this.slotChannels);
+      this.applyChannelSlotPreferences();
+    }
+    this.switchView(targetSlot, true);
+  }
+
+  /** 将已通过 partyId/requestId 校验的队伍消息投影到统一聊天面板。 */
+  syncPartyMessages(
+    partyId: string | null,
+    messages: readonly PartyChatMessageView[],
+    currentPlayerId: string | null,
+    incomingMessage: PartyChatMessageView | null = null,
+  ): ChatRealtimeMessageResult {
+    const state = this.channelStates.get('party');
+    if (!state) return { stored: false, notify: false };
+    const partyChanged = partyId !== this.partyId;
+    const inserted = Boolean(
+      partyId
+      && incomingMessage
+      && incomingMessage.partyId === partyId
+      && !state.messageIds.has(incomingMessage.messageId),
+    );
+    this.partyId = partyId;
+    if (partyChanged) this.clearUnread('party');
+    if (!partyId) {
+      this.channelStates.set('party', createChannelState());
+      this.clearUnread('party');
+      this.clearChannel('party');
+      this.syncComposeAvailability();
+      return { stored: true, notify: false };
+    }
+    const entries: ChatStoredMessage[] = messages
+      .filter((message) => message.partyId === partyId)
+      .map((message) => ({
+        id: message.messageId,
+        at: message.sentAt,
+        text: message.text,
+        from: message.fromName,
+        kind: 'chat' as const,
+      }))
+      .sort((left, right) => left.at - right.at || left.id.localeCompare(right.id))
+      .slice(-CHAT_LOG_MAX_MEMORY_MESSAGES_PER_CHANNEL);
+    state.messages = entries;
+    state.messageIds = new Set(entries.map((entry) => entry.id));
+    state.loadedCount = Math.min(entries.length, Math.max(state.loadedCount, CHAT_LOG_MAX_VISIBLE_MESSAGES));
+    state.hasLoadedAll = true;
+    const incoming = Boolean(incomingMessage && currentPlayerId && incomingMessage.fromPlayerId !== currentPlayerId);
+    const notify = !partyChanged && inserted && incoming && this.shouldNotifyChannel('party');
+    if (notify) this.incrementUnread('party');
+    if (this.logbookVisible && this.activeChannel === 'party') {
+      this.renderChannel('party', { stickToBottom: true });
+    }
+    this.syncComposeAvailability();
+    return { stored: true, notify };
   }
 
   setHistorySyncCallback(
@@ -1221,9 +1350,16 @@ export class ChatUI {
       return;
     }
     this.scopeLoadToken += 1;
-    const preservedCombatState = shouldPreserveCombatLogSession(this.currentScopeId, normalizedScope)
+    const preservesPlayerSession = shouldPreserveCombatLogSession(this.currentScopeId, normalizedScope);
+    const hadPreviousScope = this.currentScopeId !== null;
+    const preservedCombatState = preservesPlayerSession
       ? this.channelStates.get('combat')
       : undefined;
+    const preservedPartyState = preservesPlayerSession && normalizedScope && this.partyId
+      ? this.channelStates.get('party')
+      : undefined;
+    const preservedPartyUnread = preservedPartyState ? this.unreadByChannel.get('party') : undefined;
+    if (hadPreviousScope && !preservesPlayerSession) this.partyId = null;
     this.currentScopeId = normalizedScope;
     this.input.value = '';
     this.persistedMessageKeys.clear();
@@ -1231,13 +1367,19 @@ export class ChatUI {
     this.pendingPersistence.clear();
     this.activeHistorySyncRequestId = null;
     this.unreadByChannel.clear();
+    if (preservedPartyUnread) this.unreadByChannel.set('party', preservedPartyUnread);
     this.patchAllUnreadBadges();
     for (const channel of CHAT_CHANNELS) {
       this.channelStates.set(
         channel,
-        channel === 'combat' && preservedCombatState ? preservedCombatState : createChannelState(),
+        channel === 'combat' && preservedCombatState
+          ? preservedCombatState
+          : channel === 'party' && preservedPartyState
+            ? preservedPartyState
+            : createChannelState(),
       );
     }
+    this.syncComposeAvailability();
     if (!normalizedScope) {
       this.renderAllChannels();
       return;
@@ -1403,7 +1545,7 @@ export class ChatUI {
     message: ServerChatMessageView,
     currentPlayerId: string | null,
   ): Promise<ChatRealtimeMessageResult> {
-    if (!this.currentScopeId || !isChatChannel(message.channel) || !CHAT_SENDABLE_CHANNELS.has(message.channel)) {
+    if (!this.currentScopeId || !isChatChannel(message.channel) || !PUBLIC_CHAT_SENDABLE_CHANNELS.has(message.channel)) {
       return { stored: false, notify: false };
     }
     const state = this.channelStates.get(message.channel);
@@ -1439,7 +1581,7 @@ export class ChatUI {
     const newMessageCounts: Partial<Record<ChatMessageScope, number>> = {};
     for (const channelPayload of payload.channels) {
       const channel = channelPayload?.channel;
-      if (!isChatChannel(channel) || !CHAT_SENDABLE_CHANNELS.has(channel) || !Array.isArray(channelPayload.messages)) {
+      if (!isChatChannel(channel) || !PUBLIC_CHAT_SENDABLE_CHANNELS.has(channel) || !Array.isArray(channelPayload.messages)) {
         continue;
       }
       const state = this.channelStates.get(channel);
@@ -1720,6 +1862,10 @@ export class ChatUI {
     if (!log || !state || log.scrollTop > CHAT_LOG_SCROLL_TOP_LOAD_THRESHOLD_PX || state.loadingOlder || state.hasLoadedAll) {
       return;
     }
+    if (channel === 'party') {
+      state.hasLoadedAll = true;
+      return;
+    }
     const oldestEntry = state.messages[0];
     if (!oldestEntry) {
       state.hasLoadedAll = true;
@@ -1770,19 +1916,49 @@ export class ChatUI {
     });
   }
 
-  /** 切换当前频道。 */
-  private switchChannel(channel: ChatChannel): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+  /** 将本地偏好同步到 DOM，不触发频道切换或消息重绘。 */
+  private applyChannelSlotPreferences(): void {
+    for (const select of this.slotSelects) {
+      const slotId = select.dataset.chatSlotSelect;
+      if (!isChatChannelSlotId(slotId)) continue;
+      select.value = this.slotChannels[slotId];
+      const slotNumber = CHAT_CHANNEL_SLOT_IDS.indexOf(slotId) + 1;
+      select.setAttribute('aria-label', `频道${slotNumber}，当前${this.getChannelLabel(this.slotChannels[slotId])}，切换频道`);
+    }
+  }
 
+  private getChannelLabel(channel: ChatChannel): string {
+    const keyByChannel: Record<ChatChannel, string> = {
+      system: 'shell.chat-system',
+      combat: 'shell.chat-combat',
+      grudge: 'shell.chat-grudge',
+      nearby: 'shell.chat-nearby',
+      world: 'shell.chat-world',
+      sect: 'shell.chat-sect',
+      party: 'shell.chat-party',
+    };
+    return t(keyByChannel[channel], undefined);
+  }
+
+  /** 切换固定日志页或自定义频道槽。 */
+  private switchView(view: ChatPanelView, forceRender = false): void {
+    const channel = isChatChannelSlotId(view) ? this.slotChannels[view] : view;
     const previousChannel = this.activeChannel;
+    this.activeView = view;
     this.activeChannel = channel;
-    this.tabs.forEach((tab) => {
-      tab.classList.toggle('active', tab.dataset.chatChannel === channel);
+    this.fixedTabs.forEach((tab) => {
+      tab.classList.toggle('active', tab.dataset.chatFixedChannel === view);
+    });
+    this.slotHosts.forEach((host) => {
+      host.classList.toggle('active', host.dataset.chatSlotHost === view);
+    });
+    this.slotSelects.forEach((select) => {
+      select.classList.toggle('active', select.dataset.chatSlotSelect === view);
     });
     this.panes.forEach((pane) => {
       pane.classList.toggle('active', pane.dataset.chatPane === channel);
     });
-    if (previousChannel !== channel) {
+    if (previousChannel !== channel || forceRender) {
       this.clearChannel(previousChannel);
     }
     this.clearUnread(channel);
@@ -1811,19 +1987,29 @@ export class ChatUI {
     if (!message || !CHAT_SENDABLE_CHANNELS.has(this.activeChannel)) {
       return;
     }
-    const targetChannel = this.activeChannel as ChatMessageScope;
-    this.onSend?.(message.slice(0, 200), targetChannel);
+    const payload = message.slice(0, 200);
+    if (this.activeChannel === 'party') {
+      if (!this.partyId) return;
+      this.onPartySend?.(payload);
+    } else if (PUBLIC_CHAT_SENDABLE_CHANNELS.has(this.activeChannel)) {
+      this.onSend?.(payload, this.activeChannel as ChatMessageScope);
+    }
     this.input.value = '';
   }
 
   /** 同步当前频道是否允许输入发送。 */
   private syncComposeAvailability(): void {
-    const sendable = CHAT_SENDABLE_CHANNELS.has(this.activeChannel);
+    const sendable = PUBLIC_CHAT_SENDABLE_CHANNELS.has(this.activeChannel)
+      || (this.activeChannel === 'party' && Boolean(this.partyId));
     this.input.disabled = !sendable;
     this.sendBtn.toggleAttribute('disabled', !sendable);
     this.input.setAttribute('aria-disabled', sendable ? 'false' : 'true');
     this.sendBtn.setAttribute('aria-disabled', sendable ? 'false' : 'true');
-    this.input.placeholder = sendable ? t('shell.chat-input.placeholder', undefined) : '当前频道仅接收消息';
+    this.input.placeholder = sendable
+      ? t('shell.chat-input.placeholder', undefined)
+      : this.activeChannel === 'party'
+        ? '加入队伍后可使用队伍频道'
+        : '当前频道仅接收消息';
     if (!sendable) {
       this.input.value = '';
     }
@@ -1841,6 +2027,9 @@ export class ChatUI {
     if (channel === 'combat' || channel === 'grudge' || channel === 'nearby') {
       return `${playerId}|${mapId}|${instanceId}|${channel}`;
     }
+    if (channel === 'party') {
+      return `${playerId}|party|${this.partyId ?? 'none'}`;
+    }
     return `${playerId}|system`;
   }
 
@@ -1854,7 +2043,7 @@ export class ChatUI {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const loadedByChannel = await Promise.all(
-      CHAT_CHANNELS.map(async (channel) => ({
+      CHAT_CHANNELS.filter((channel) => channel !== 'party').map(async (channel) => ({
         channel,
         entries: await loadRecentChannelMessages(this.buildChannelScopeId(scopeId, channel), channel, CHAT_LOG_MAX_VISIBLE_MESSAGES),
       })),
@@ -1951,18 +2140,14 @@ export class ChatUI {
   }
 
   private ensureUnreadBadges(): void {
-    for (const tab of this.tabs) {
-      const channel = tab.dataset.chatChannel;
-      if (!isChatChannel(channel) || tab.querySelector('[data-chat-unread]')) {
-        continue;
-      }
-      tab.dataset.chatLabel = tab.textContent?.trim() || channel;
+    for (const host of this.panel.querySelectorAll<HTMLElement>('[data-chat-unread-host]')) {
+      if (host.querySelector('[data-chat-unread]')) continue;
       const badge = document.createElement('span');
       badge.className = 'chat-tab-unread';
-      badge.dataset.chatUnread = channel;
+      badge.dataset.chatUnread = host.dataset.chatUnreadHost ?? '';
       badge.hidden = true;
       badge.setAttribute('aria-hidden', 'true');
-      tab.appendChild(badge);
+      host.appendChild(badge);
     }
   }
 
@@ -1993,22 +2178,35 @@ export class ChatUI {
 
   private patchUnreadBadge(channel: ChatChannel): void {
     const count = this.unreadByChannel.get(channel) ?? 0;
-    const tab = this.tabs.find((entry) => entry.dataset.chatChannel === channel);
-    const badge = tab?.querySelector<HTMLElement>('[data-chat-unread]');
-    if (!tab || !badge) {
-      return;
+    const hosts = Array.from(this.panel.querySelectorAll<HTMLElement>('[data-chat-unread-host]'))
+      .filter((host) => {
+        const target = host.dataset.chatUnreadHost;
+        return isChatChannelSlotId(target)
+          ? this.slotChannels[target] === channel
+          : target === channel;
+      });
+    for (const host of hosts) {
+      const badge = host.querySelector<HTMLElement>('[data-chat-unread]');
+      if (!badge) continue;
+      badge.hidden = count <= 0;
+      const nextText = count > 99 ? '99+' : String(count);
+      if (badge.textContent !== nextText) badge.textContent = nextText;
+      host.classList.toggle('has-unread', count > 0);
+      const slotId = host.dataset.chatSlotHost;
+      if (isChatChannelSlotId(slotId)) {
+        const select = host.querySelector<HTMLSelectElement>('[data-chat-slot-select]');
+        if (select) {
+          const slotNumber = CHAT_CHANNEL_SLOT_IDS.indexOf(slotId) + 1;
+          const suffix = count > 0 ? `，${count} 条未读消息` : '';
+          select.setAttribute('aria-label', `频道${slotNumber}，当前${this.getChannelLabel(channel)}${suffix}，切换频道`);
+        }
+      } else if (count > 0) {
+        host.setAttribute('aria-label', `${this.getChannelLabel(channel)}，${count} 条未读消息`);
+      } else {
+        host.removeAttribute('aria-label');
+      }
     }
-    badge.hidden = count <= 0;
-    const nextText = count > 99 ? '99+' : String(count);
-    if (badge.textContent !== nextText) {
-      badge.textContent = nextText;
-    }
-    tab.classList.toggle('has-unread', count > 0);
-    if (count > 0) {
-      tab.setAttribute('aria-label', `${tab.dataset.chatLabel ?? channel}，${count} 条未读消息`);
-    } else {
-      tab.removeAttribute('aria-label');
-    }
+    if (channel === 'party') this.onPartyUnreadChange?.(count);
   }
 
   /** 清空单个频道的消息缓存。 */
