@@ -643,7 +643,15 @@
     }
 
     .social-workspace-content {
+      overflow: hidden;
+    }
+
+    .social-workspace-content .feature-workspace-body {
+      min-height: 0;
       overflow: auto;
+      overscroll-behavior: contain;
+      touch-action: pan-y;
+      -webkit-overflow-scrolling: touch;
     }
 
     .social-panel--workspace {
@@ -1079,6 +1087,22 @@
         height: 100%;
         min-height: 0;
         padding: 8px;
+      }
+      .social-panel--workspace .small-btn,
+      .social-panel--workspace button.ui-list-main,
+      .social-panel--workspace .ui-input,
+      .social-panel--workspace select,
+      .social-panel--workspace textarea {
+        min-height: 44px;
+      }
+      .social-panel--workspace .ui-input,
+      .social-panel--workspace select,
+      .social-panel--workspace textarea {
+        font-size: 16px;
+      }
+      .social-panel--workspace .ui-list-row {
+        min-height: 48px;
+        padding: 10px;
       }
       .social-menu-launcher {
         grid-template-columns: minmax(0, 1fr);

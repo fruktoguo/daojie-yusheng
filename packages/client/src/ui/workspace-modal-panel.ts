@@ -25,7 +25,21 @@ export class WorkspaceModalPanel {
     this.root.className = `feature-workspace-content ${options.className ?? ''}`.trim();
     this.root.dataset.featureWorkspace = options.ownerId;
     this.root.tabIndex = -1;
-    this.body = this.root;
+
+    this.body = document.createElement('div');
+    this.body.className = 'feature-workspace-body';
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'feature-workspace-toolbar';
+    const closeButton = document.createElement('button');
+    closeButton.type = 'button';
+    closeButton.className = 'small-btn ghost feature-workspace-close';
+    closeButton.dataset.workspaceClose = 'true';
+    closeButton.setAttribute('aria-label', `关闭${options.title}`);
+    closeButton.textContent = '关闭';
+    closeButton.addEventListener('click', () => this.close());
+    toolbar.appendChild(closeButton);
+    this.root.append(this.body, toolbar);
   }
 
   open(): void {

@@ -8,8 +8,16 @@
 
 /* 坊市式队伍完整功能窗口 */
 .party-workspace-content {
+  overflow: hidden;
+}
+
+.party-workspace-content .feature-workspace-body {
+  min-height: 0;
   overflow: auto;
-  padding: 10px;
+  overscroll-behavior: contain;
+  padding: 12px;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
 }
 
 .party-workspace-content .party-panel {
@@ -464,10 +472,64 @@
   padding: 4px 8px;
 }
 
-/* 手机端：HUD 避让底部固定操作区与安全区 */
+/* 手机端：完整队伍页使用单列表单与 44px 触控目标，HUD 避让底部安全区 */
 @media (max-width: 720px) {
-  .floating-list-panel--party .floating-list-panel__body {
+  .floating-list-panel--party-hud .floating-list-panel__body {
     padding: 8px;
+  }
+
+  .party-workspace-content .feature-workspace-body {
+    padding: 8px;
+  }
+
+  .party-workspace-content .party-tab,
+  .party-workspace-content .small-btn,
+  .party-workspace-content .party-input,
+  .party-workspace-content .party-select {
+    min-height: 44px;
+  }
+
+  .party-workspace-content .party-input,
+  .party-workspace-content .party-select {
+    font-size: 16px;
+  }
+
+  .party-workspace-content .party-inline-form {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .party-workspace-content .party-inline-form .party-input {
+    flex: 1 1 180px;
+  }
+
+  .party-workspace-content .party-recruit-form-grid,
+  .party-workspace-content .party-settings-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .party-workspace-content .party-recruit-filter {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .party-workspace-content .party-member-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .party-workspace-content .party-member-actions {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .party-workspace-content .party-member-actions .small-btn {
+    flex: 1 1 132px;
+  }
+
+  .party-workspace-content .party-setting-toggle {
+    padding-top: 0;
   }
 
   .party-hud {

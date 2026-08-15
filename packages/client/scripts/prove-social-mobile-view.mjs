@@ -27,7 +27,23 @@ const fixtureExpression = String.raw`
       onRefresh() {}, onScanNearby() {}, onSendRequest() {}, onRespondRequest() {},
       onUpdateRelationLevel() {}, onRemoveRelation() {}, onSendMessage() {}, onOpenConversation() {},
     });
-    const partyWorkspace = new PartyWorkspacePanel(new PartyPanel());
+    const partyPanel = new PartyPanel();
+    const partyWorkspace = new PartyWorkspacePanel(partyPanel);
+    partyPanel.render({
+      view: {
+        party: null,
+        incomingInvites: [],
+        incomingApplications: [],
+        recruitments: [],
+        matchQueue: { queued: false },
+        serverTime: Date.now(),
+      },
+      playerId: 'self-player',
+      chatUnreadCount: 0,
+      chatDraft: '',
+      recruitingPurpose: 'general',
+      recruitmentLoaded: true,
+    });
     bindMainSocialPanelNavigation({ socialPanel, partyPanel: partyWorkspace });
     partyWorkspace.setAvailable(true);
     socialPanel.setPartyAvailable(true);
@@ -51,14 +67,14 @@ function assertWorkspaceState(state, expectedId, label) {
   assert.equal(state.open, true, `${label}未打开共享详情窗口`);
   assert.equal(state.ownerId, expectedId, `${label}内容宿主不正确`);
   assert.equal(state.ownerCount, 1, `${label}打开后共享宿主内不是单一功能页`);
-  assert.equal(Math.abs(state.width - 800) <= 1, true, `${label}桌面宽度不是 800px`);
-  assert.equal(Math.abs(state.height - 450) <= 1, true, `${label}桌面高度不是 450px`);
+  assert.equal(Math.abs(state.width - 960) <= 1, true, `${label}桌面宽度不是 960px`);
+  assert.equal(Math.abs(state.height - 640) <= 1, true, `${label}桌面高度不是 640px`);
   assert.equal(state.bounded, true, `${label}越出视口`);
   assert.equal(state.variant, true, `${label}未使用坊市式固定窗口变体`);
 }
 
 await withClientBrowserProof(
-  { viewport: { width: 1280, height: 900 }, profilePrefix: 'social-workspace-proof-' },
+  { viewport: { width: 1440, height: 960 }, profilePrefix: 'social-workspace-proof-' },
   async (cdp) => {
     await cdp.evaluate(fixtureExpression);
     await delay(60);
@@ -93,12 +109,14 @@ await withClientBrowserProof(
       return {
         relations: await open('[data-social-tab="relations"]'), requests: await open('[data-social-tab="requests"]'),
         party: await open('[data-social-action="party"]'), nearby: await open('[data-social-tab="nearby"]'),
+        messages: await open('[data-social-tab="messages"]'),
       };
     })()`);
     assertWorkspaceState(mutual.relations, 'social-workspace-relations', '道友名录');
     assertWorkspaceState(mutual.requests, 'social-workspace-requests', '道友申请');
     assertWorkspaceState(mutual.party, 'party-workspace-panel', '队伍');
     assertWorkspaceState(mutual.nearby, 'social-workspace-nearby', '附近修士');
+    assertWorkspaceState(mutual.messages, 'social-workspace-messages', '私聊');
 
     const continuity = await cdp.evaluate(String.raw`(async () => {
       const { pane } = window.__socialProof;
@@ -119,7 +137,7 @@ await withClientBrowserProof(
       root = document.getElementById('social-workspace-messages'); input = root?.querySelector('[data-social-message-input]'); list = root?.querySelector('.social-message-list');
       const result = { unread, draft: input?.value === '修订后的未发送草稿', selection: input?.selectionStart === 3 && input?.selectionEnd === 8,
         scroll: list instanceof HTMLElement && Math.abs(list.scrollTop - scrollTop) <= 2, partyFocused };
-      document.getElementById('detail-modal')?.click(); await new Promise((resolve) => requestAnimationFrame(resolve));
+      document.querySelector('[data-workspace-close="true"]')?.click(); await new Promise((resolve) => requestAnimationFrame(resolve));
       return { ...result, focusReturned: document.activeElement === messagesButton,
         closed: document.getElementById('detail-modal')?.classList.contains('hidden') === true };
     })()`);
@@ -135,16 +153,42 @@ await withClientBrowserProof(
     await delay(60);
     const mobile = await cdp.evaluate(String.raw`(async () => {
       const { pane } = window.__socialProof;
-      const read = async (selector) => { pane.querySelector(selector)?.click(); await new Promise(requestAnimationFrame);
-        const rect = document.getElementById('detail-modal-card')?.getBoundingClientRect();
-        return rect ? { width: rect.width, height: rect.height, bounded: rect.left >= 0 && rect.top >= 0 && rect.right <= innerWidth + 1 && rect.bottom <= innerHeight + 1 } : null; };
-      return { relations: await read('[data-social-tab="relations"]'), party: await read('[data-social-action="party"]') };
+      const read = async (selector) => {
+        pane.querySelector(selector)?.click();
+        await new Promise(requestAnimationFrame);
+        const card = document.getElementById('detail-modal-card');
+        const owner = document.querySelector('#detail-modal-body [data-feature-workspace]');
+        const rect = card?.getBoundingClientRect();
+        const closeRect = owner?.querySelector('[data-workspace-close="true"]')?.getBoundingClientRect();
+        const primaryRect = owner?.querySelector('button:not([data-workspace-close="true"]):not(:disabled), input:not(:disabled), select:not(:disabled)')?.getBoundingClientRect();
+        const messageList = owner?.querySelector('.social-message-list');
+        return rect ? {
+          width: rect.width,
+          height: rect.height,
+          bounded: rect.left >= 0 && rect.top >= 0 && rect.right <= innerWidth + 1 && rect.bottom <= innerHeight + 1,
+          horizontalSafe: !!owner && owner.scrollWidth <= owner.clientWidth + 1,
+          closeHitSafe: !!closeRect && closeRect.width >= 44 && closeRect.height >= 44,
+          primaryHitSafe: !!primaryRect && primaryRect.width >= 40 && primaryRect.height >= 40,
+          messageScrollable: messageList instanceof HTMLElement && messageList.scrollHeight > messageList.clientHeight,
+        } : null;
+      };
+      return {
+        relations: await read('[data-social-tab="relations"]'),
+        requests: await read('[data-social-tab="requests"]'),
+        nearby: await read('[data-social-tab="nearby"]'),
+        messages: await read('[data-social-tab="messages"]'),
+        party: await read('[data-social-action="party"]'),
+      };
     })()`);
-    for (const rect of [mobile.relations, mobile.party]) {
-      assert.equal(rect?.bounded, true, '窄屏固定窗口越出安全视口');
-      assert.equal((rect?.width ?? 800) < 800, true, '窄屏固定窗口未收敛宽度');
-      assert.equal((rect?.height ?? 450) <= 724, true, '窄屏固定窗口未收敛高度');
+    for (const [name, rect] of Object.entries(mobile)) {
+      assert.equal(rect?.bounded, true, `${name} 窄屏固定窗口越出安全视口`);
+      assert.equal((rect?.width ?? 960) < 960, true, `${name} 窄屏固定窗口未收敛宽度`);
+      assert.equal((rect?.height ?? 640) <= 724, true, `${name} 窄屏固定窗口未收敛高度`);
+      assert.equal(rect?.horizontalSafe, true, `${name} 窄屏内容发生横向溢出`);
+      assert.equal(rect?.closeHitSafe, true, `${name} 窄屏关闭按钮不足 44px`);
+      assert.equal(rect?.primaryHitSafe, true, `${name} 窄屏主要操作触控命中不足`);
     }
+    assert.equal(mobile.messages?.messageScrollable, true, '手机端私聊长消息列表不可独立滚动');
   },
 );
 

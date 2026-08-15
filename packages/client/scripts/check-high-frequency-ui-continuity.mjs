@@ -488,6 +488,8 @@ assertIncludes(socialPanel, /inputSnapshot \?\? this\.conversationInputByPlayerI
 assertIncludes(socialWorkspacePanel, /new WorkspaceModalPanel\(/, '道友独立窗口必须复用统一坊市式适配器');
 assertIncludes(workspaceModalPanel, /detailModalHost\.open\(/, '固定功能窗口必须复用全局 detail modal 宿主');
 assertIncludes(workspaceModalPanel, /variantClass: 'detail-modal--feature-workspace'/, '固定功能窗口必须使用统一坊市式视觉变体');
+assertIncludes(workspaceModalPanel, /closeButton\.dataset\.workspaceClose = 'true'/, '固定功能窗口必须提供手机端可直接触达的关闭按钮');
+assertIncludes(workspaceModalPanel, /this\.root\.append\(this\.body, toolbar\)/, '固定功能窗口必须保持可滚动内容与固定关闭栏分层');
 assertIncludes(sidePanel, /tabTransitionListeners/, 'SidePanel 必须集中管理固定面板切换生命周期');
 assertIncludes(sidePanel, /activeTabNames/, 'SidePanel 必须持有每个分组的明确 active Tab 真源');
 assertIncludes(sidePanel, /initializeTabs\(\): void/, 'SidePanel 必须在监听器注册后显式恢复持久化 Tab');
@@ -522,11 +524,16 @@ assertMissing(socialPanel, /data-social-menu-shell="true"/, '道友子功能不�
 assertMissing(socialPanel, /panel-section-header/, '道友面板不得继续使用不存在的 panel-section-header 类');
 assertIncludes(panelsCss, /\.social-panel \.ui-list-row\s*\{/, '道友列表行必须有明确布局样式');
 assertIncludes(panelsCss, /\.social-menu-launcher\s*\{[\s\S]*?repeat\(2, minmax\(0, 1fr\)\)/, '道友面板入口必须使用双列按钮网格');
-assertIncludes(panelsCss, /\.detail-modal-card\.detail-modal--feature-workspace\s*\{[\s\S]*?800px[\s\S]*?450px/, '五个完整功能页必须使用统一 800×450 坊市式窗口');
+assertIncludes(panelsCss, /\.detail-modal-card\.detail-modal--feature-workspace\s*\{[\s\S]*?960px[\s\S]*?640px/, '五个完整功能页必须使用统一 960×640 坊市式窗口');
+assertIncludes(panelsCss, /@media \(max-width: 992px\), \(max-height: 672px\)/, '五个完整功能页必须在空间不足时切换近全屏布局');
+assertIncludes(panelsCss, /\.feature-workspace-close\s*\{[\s\S]*?min-height:\s*44px/, '手机端固定功能窗口关闭按钮必须至少 44px');
 assertIncludes(panelsCss, /\.social-workspace-content\s*\{/, '道友独立窗口必须使用稳定滚动内容布局');
 assertIncludes(panelsCss, /\.social-conversation-workspace\s*\{/, '私聊联系人与对话必须有稳定工作区布局');
 assertIncludes(panelsCss, /\.social-panel-tab-unread\[hidden\]/, '私聊无未读时必须隐藏角标');
 assertIncludes(panelsCss, /@container social-panel \(max-width: 560px\)/, '道友面板必须保留窄容器响应式布局');
+assertIncludes(panelsCss, /\.social-panel--workspace \.small-btn,[\s\S]*?min-height:\s*44px/, '手机端道友功能操作必须提供 44px 触控目标');
+assertIncludes(panelsCss, /\.social-panel--workspace button\.ui-list-main,[\s\S]*?min-height:\s*44px/, '手机端私聊联系人按钮必须提供 44px 触控目标');
+assertIncludes(panelsCss, /\.party-workspace-content \.party-tab,[\s\S]*?min-height:\s*44px/, '手机端队伍 Tab 与操作必须提供 44px 触控目标');
 
 const floatingBringToFront = section(
   floatingListPanel,

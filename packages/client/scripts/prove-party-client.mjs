@@ -93,12 +93,17 @@ await withClientBrowserProof(
         const modal = document.getElementById('detail-modal');
         const card = document.getElementById('detail-modal-card');
         const rect = card.getBoundingClientRect();
+        const closeRect = host.querySelector('[data-workspace-close="true"]')?.getBoundingClientRect();
+        const activeTabRect = host.querySelector('[data-party-tab][aria-selected="true"]')?.getBoundingClientRect();
         return {
           workspaceOpen: partyWorkspace.isOpen(),
           responsiveSize: Math.abs(rect.width - (innerWidth - 16)) <= 1
             && Math.abs(rect.height - (innerHeight - 16)) <= 1,
           workspaceBounded: rect.left >= 0 && rect.top >= 0 && rect.right <= innerWidth + 1 && rect.bottom <= innerHeight + 1,
           workspaceVariant: card.classList.contains('detail-modal--feature-workspace') && !modal.classList.contains('hidden'),
+          workspaceHorizontalSafe: host.scrollWidth <= host.clientWidth + 1,
+          closeHitSafe: !!closeRect && closeRect.width >= 44 && closeRect.height >= 44,
+          tabHitSafe: !!activeTabRect && activeTabRect.height >= 44,
           hasMemberTab: !!host.querySelector('[data-party-tab="members"]'),
           hasInviteTab: !!host.querySelector('[data-party-tab="invites"]'),
           hasManagementTab: !!host.querySelector('[data-party-tab="management"]'),
@@ -115,6 +120,9 @@ await withClientBrowserProof(
     assert.equal(structure.responsiveSize, true, '队伍独立面板未在手机端收敛到安全视口');
     assert.equal(structure.workspaceBounded, true, '队伍独立面板越出视口');
     assert.equal(structure.workspaceVariant, true, '队伍独立面板未使用坊市式固定窗口');
+    assert.equal(structure.workspaceHorizontalSafe, true, '队伍独立面板在手机端发生横向溢出');
+    assert.equal(structure.closeHitSafe, true, '队伍独立面板手机端关闭按钮不足 44px');
+    assert.equal(structure.tabHitSafe, true, '队伍独立面板手机端 Tab 触控命中不足 44px');
     assert.equal(structure.hasMemberTab, true, '队伍成员 Tab 缺失');
     assert.equal(structure.hasInviteTab, true, '队伍邀请 Tab 缺失');
     assert.equal(structure.hasManagementTab, false, '普通成员不应看到管理 Tab');

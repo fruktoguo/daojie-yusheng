@@ -810,17 +810,22 @@
     }
 
     .detail-modal.detail-modal--feature-workspace {
-      --detail-modal-padding-top: 12px;
-      --detail-modal-padding-bottom: 12px;
+      --detail-modal-padding: 16px;
+      --detail-modal-padding-top: max(var(--detail-modal-padding), env(safe-area-inset-top, 0px));
+      --detail-modal-padding-bottom: max(var(--detail-modal-padding), env(safe-area-inset-bottom, 0px));
       z-index: 1900;
-      padding-inline: 12px;
+      padding:
+        var(--detail-modal-padding-top)
+        max(var(--detail-modal-padding), env(safe-area-inset-right, 0px))
+        var(--detail-modal-padding-bottom)
+        max(var(--detail-modal-padding), env(safe-area-inset-left, 0px));
     }
 
     .detail-modal-card.detail-modal--feature-workspace {
-      --ui-modal-width: min(800px, calc(100vw - 24px));
+      --ui-modal-width: min(960px, calc(100vw - 32px));
       width: var(--ui-modal-width);
-      height: min(450px, calc(100dvh - 24px));
-      max-height: calc(100dvh - 24px);
+      height: min(640px, calc(100dvh - 32px));
+      max-height: calc(100dvh - 32px);
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -839,20 +844,69 @@
     .feature-workspace-content {
       height: 100%;
       min-height: 0;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto;
       overflow: hidden;
     }
 
-    @media (max-width: 824px), (max-height: 474px) {
+    .feature-workspace-body {
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .feature-workspace-toolbar {
+      display: flex;
+      flex: 0 0 auto;
+      justify-content: flex-end;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--wash-ink);
+    }
+
+    .feature-workspace-close {
+      min-width: 88px;
+      min-height: 36px;
+    }
+
+    @media (max-width: 992px), (max-height: 672px) {
       .detail-modal.detail-modal--feature-workspace {
-        --detail-modal-padding-top: 8px;
-        --detail-modal-padding-bottom: 8px;
-        padding-inline: 8px;
+        --detail-modal-padding: 8px;
+        --detail-modal-padding-top: max(var(--detail-modal-padding), env(safe-area-inset-top, 0px));
+        --detail-modal-padding-bottom: max(var(--detail-modal-padding), env(safe-area-inset-bottom, 0px));
+        padding:
+          var(--detail-modal-padding-top)
+          max(var(--detail-modal-padding), env(safe-area-inset-right, 0px))
+          var(--detail-modal-padding-bottom)
+          max(var(--detail-modal-padding), env(safe-area-inset-left, 0px));
       }
 
       .detail-modal-card.detail-modal--feature-workspace {
-        --ui-modal-width: calc(100vw - 16px);
-        height: calc(100dvh - 16px);
-        max-height: calc(100dvh - 16px);
+        --ui-modal-width: 100%;
+        width: 100%;
+        height: calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom));
+        max-height: calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom));
+        padding: 12px 10px 10px;
+      }
+
+      .detail-modal-card.detail-modal--feature-workspace .detail-modal-head {
+        gap: 8px;
+        margin-bottom: 8px;
+        padding-bottom: 6px;
+      }
+
+      .detail-modal-card.detail-modal--feature-workspace .detail-modal-hint {
+        display: none;
+      }
+
+      .feature-workspace-toolbar {
+        margin-top: 8px;
+        padding-top: 8px;
+      }
+
+      .feature-workspace-close {
+        width: 100%;
+        min-height: 44px;
       }
     }
 
