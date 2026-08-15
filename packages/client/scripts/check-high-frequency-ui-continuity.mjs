@@ -51,7 +51,8 @@ const craftTransmissionView = read('src/ui/craft-transmission-view.ts');
 const npcShop = read('src/ui/npc-shop-modal.ts');
 const npcQuest = read('src/ui/npc-quest-modal.ts');
 const socialPanel = read('src/ui/panels/social-panel.ts');
-const socialFixedPanel = read('src/ui/social-fixed-panel.ts');
+const socialFloatingPanel = read('src/ui/social-floating-panel.ts');
+const partyWorkspacePanel = read('src/ui/party-workspace-panel.ts');
 const socialPanelNavigation = read('src/main-social-panel-navigation.ts');
 const mainAppPanelContext = read('src/main-app-panel-context.ts');
 const sidePanel = read('src/ui/side-panel.ts');
@@ -439,7 +440,7 @@ assertIncludes(npcQuest, /nextSignature === this\.renderedInventoryDetailSignatu
 
 const socialSelect = section(
   socialPanel,
-  'private openConversation(playerId: string): void {',
+  'private openConversation(playerId: string, trigger: HTMLElement | null = null): void {',
   'private replaceTabContent(',
   'SocialPanel.openConversation',
 );
@@ -447,15 +448,16 @@ assertIncludes(socialSelect, /patchSelectedRelation\(playerId\)/, '切换道友�
 assertIncludes(socialSelect, /replaceConversationSection\(playerId, inputSnapshot\)/, '切换道友只能替换私聊区域');
 assertMissing(socialSelect, /this\.render\(/, '切换道友不得重建私聊联系人和其他子 Tab');
 
-const socialActivateFixedMenu = section(
+const socialSwitchFeature = section(
   socialPanel,
-  'private activateFixedMenu(tab: SocialPanelTab, focusInitial: boolean): void {',
-  'private closeActiveMenu(): void {',
-  'SocialPanel.activateFixedMenu',
+  'private switchActiveTab(tab: SocialPanelTab, trigger: HTMLButtonElement | null = null): void {',
+  'closeFeaturePanels(destination: SocialFeatureDestination | null = null): void {',
+  'SocialPanel.switchActiveTab',
 );
-assertIncludes(socialActivateFixedMenu, /replaceTabContent\(tab, null\)/, '进入道友固定页只能刷新目标页面');
-assertIncludes(socialActivateFixedMenu, /scheduleVisibleMenuRestore\(tab, null\)/, '进入私聊固定页必须恢复持久化输入与滚动状态');
-assertMissing(socialActivateFixedMenu, /this\.render\(/, '道友固定页切换不得重建启动器');
+assertIncludes(socialSwitchFeature, /closeOtherFeaturePanels\(tab\)/, '打开道友子面板前必须关闭其它子面板');
+assertIncludes(socialSwitchFeature, /featurePanelOpenHandler\?\.\(trigger\)/, '打开道友子面板前必须通知关闭队伍面板并传递入口');
+assertIncludes(socialSwitchFeature, /floatingMenus\[tab\]\.open\(\)/, '道友按钮必须打开独立面板');
+assertMissing(socialSwitchFeature, /this\.render\(/, '道友独立面板切换不得重建启动器');
 
 const socialAppendMessage = section(
   socialPanel,
@@ -469,17 +471,21 @@ assertIncludes(socialAppendMessage, /isConversationVisible\(peerId\)/, '私聊�
 assertIncludes(socialAppendMessage, /patchUnreadIndicators\(peerId\)/, '新私聊必须局部更新入口与道友未读角标');
 assertIncludes(socialPanel, /panel-section-head social-panel-head/, '道友面板标题必须复用现有面板头原语');
 assertIncludes(socialPanel, /data-social-menu-launcher="true"/, '道友面板必须提供独立功能入口卡片');
-assertIncludes(socialPanel, /new SocialFixedPanel\(/, '道友四个子功能必须创建独立固定面板宿主');
-assertIncludes(socialPanel, /pane-social-\$\{tab\.id\}/, '道友入口必须指向对应固定面板');
-assertIncludes(socialPanel, /this\.fixedMenus\[tab\]\.open\(\)/, '道友入口必须打开对应固定面板');
-assertIncludes(socialPanel, /data-social-action="party"/, '道友面板必须提供固定队伍面板入口');
+assertIncludes(socialPanel, /new SocialFloatingPanel\(/, '道友四个子功能必须创建独立面板');
+assertIncludes(socialPanel, /floating-social-\$\{tab\.id\}/, '道友入口必须指向对应独立面板');
+assertIncludes(socialPanel, /this\.floatingMenus\[tab\]\.open\(\)/, '道友入口必须打开对应独立面板');
+assertIncludes(socialPanel, /data-social-action="party"/, '道友面板必须提供队伍独立面板入口');
 assertIncludes(socialPanel, /data-social-tab-unread="true"/, '私聊入口必须提供未读角标节点');
-assertIncludes(socialPanel, /this\.captureMenuScroll\(tab\)/, '独立道友固定面板必须保存逐窗滚动位置');
-assertIncludes(socialPanel, /this\.focusMenuLauncherButton\(previousTab\)/, '独立道友固定面板返回后必须恢复入口焦点');
-assertIncludes(socialPanel, /this\.conversationInputByPlayerId\.set\(peerId, snapshot\)/, '私聊离开固定页前必须持久保存焦点与选区');
+assertIncludes(socialPanel, /this\.captureMenuScroll\(tab\)/, '独立道友面板必须保存逐窗滚动位置');
+assertIncludes(socialPanel, /prepared\?\.tab === tab && prepared\.destination === destination/, 'pointerdown 快照必须按来源与目标单次消费');
+assertIncludes(socialPanel, /addEventListener\('pointercancel'[\s\S]*?this\.preparedMenuClose = null/, '取消 pointer 激活必须清理预备快照');
+assertIncludes(socialPanel, /this\.focusMenuLauncherButton\(tab, opener\)/, '独立道友面板关闭后必须恢复真实入口焦点');
+assertIncludes(socialPanel, /this\.focusFirstVisible\(\[opener, launcher, activeRightTab, socialTab\]\)/, '入口不可见时必须回退到当前可见固定面板入口');
+assertIncludes(socialPanel, /this\.conversationInputByPlayerId\.set\(peerId, snapshot\)/, '私聊离开面板前必须持久保存焦点与选区');
 assertIncludes(socialPanel, /inputSnapshot \?\? this\.conversationInputByPlayerId\.get\(peerId\)/, '私聊重建后必须回读焦点与选区快照');
-assertIncludes(socialFixedPanel, /setAttribute\('role', 'tabpanel'\)/, '道友固定面板必须提供 tabpanel 语义');
-assertIncludes(socialFixedPanel, /data-social-action="menu-close"/, '道友固定面板必须提供返回入口');
+assertIncludes(socialFloatingPanel, /setAttribute\('role', 'dialog'\)/, '道友独立面板必须提供 dialog 语义');
+assertIncludes(socialFloatingPanel, /width: LARGE_FLOATING_PANEL_WIDTH/, '道友独立面板必须使用统一固定宽度');
+assertIncludes(socialFloatingPanel, /height: LARGE_FLOATING_PANEL_HEIGHT/, '道友独立面板必须使用统一固定高度');
 assertIncludes(sidePanel, /tabTransitionListeners/, 'SidePanel 必须集中管理固定面板切换生命周期');
 assertIncludes(sidePanel, /activeTabNames/, 'SidePanel 必须持有每个分组的明确 active Tab 真源');
 assertIncludes(sidePanel, /initializeTabs\(\): void/, 'SidePanel 必须在监听器注册后显式恢复持久化 Tab');
@@ -488,12 +494,10 @@ assertIncludes(sidePanel, /addEventListener\('pointerdown',[\s\S]*?prepareGroupT
 assertIncludes(sidePanel, /listener\.beforeTabChange\?\./, '固定面板切换前必须通知状态保存钩子');
 assertIncludes(sidePanel, /listener\.afterTabChange\?\./, '固定面板切换后必须通知恢复与焦点钩子');
 assertIncludes(sidePanel, /this\.switchGroupTab\(group, tabName\)/, 'React 与 DOM 固定面板入口必须收敛到统一切换函数');
-assertIncludes(mainAppPanelContext, /bindMainSocialPanelNavigation\([\s\S]*?sidePanel\.initializeTabs\(\)/, '生产装配必须先注册固定面板生命周期再恢复持久化 Tab');
-assertIncludes(socialPanelNavigation, /handleFixedPanelTabWillChange/, '道友状态保存必须接入 SidePanel before 生命周期');
-assertIncludes(socialPanelNavigation, /handleFixedPanelTabDidChange/, '道友状态恢复必须接入 SidePanel after 生命周期');
-assertIncludes(socialPanelNavigation, /transition\.initializing/, '持久化初始化不得抢走登录或其它当前焦点');
-assertIncludes(socialPanelNavigation, /focusPartyInitialControl/, '进入队伍固定面板必须迁移焦点');
-assertIncludes(socialPanel, /activeFixedPanelName === `social-\$\{tab\}`/, '道友固定页可见性必须读取业务状态而不是 DOM class');
+assertIncludes(mainAppPanelContext, /bindMainSocialPanelNavigation\(\{ socialPanel, partyPanel: partyWorkspace \}\)/, '生产装配必须统一绑定五个独立面板互斥导航');
+assertIncludes(socialPanelNavigation, /socialPanel\.closeFeaturePanels\('party'\)/, '打开队伍面板前必须关闭道友子面板');
+assertIncludes(socialPanelNavigation, /socialPanel\.setFeaturePanelOpenHandler\(\(\) => partyPanel\.close\(false\)\)/, '打开道友子面板前必须无焦点抖动地关闭队伍面板');
+assertIncludes(socialPanelNavigation, /partyPanel\.open\(opener\)/, '队伍按钮必须携带真实入口打开队伍独立面板');
 assertIncludes(socialPanel, /if \(snapshot\.focused\) input\.focus/, '私聊恢复必须保留原始焦点意图');
 assertIncludes(socialPanel, /input\.setSelectionRange\(/, '私聊重建后即使不聚焦也必须恢复选区');
 assertIncludes(sidePanelControls, /role="tab"/, '公共固定面板按钮必须提供 tab 语义');
@@ -502,18 +506,23 @@ assertIncludes(sidePanelControls, /ArrowLeft[\s\S]*?ArrowRight[\s\S]*?Home[\s\S]
 assertMissing(sidePanelControls, /pane\.element\.classList\.toggle\('active'/, 'React 不得异步回写 SidePanel 管理的 pane active 状态');
 assertIncludes(sidePanel, /pane\.setAttribute\('role', 'tabpanel'\)/, '公共固定面板内容必须由 SidePanel 同步 tabpanel 语义');
 assertIncludes(reactSettingsPanel, /key: 'party'/, '默认 React 设置页必须提供队伍状态悬浮窗开关');
-assertIncludes(clientIndex, /data-pane="party"[\s\S]*?data-pane="social-relations"[\s\S]*?data-pane="social-messages"/, '队伍与四个道友功能必须进入同一固定面板分组');
-assertIncludes(clientIndex, /data-tab="party"[\s\S]*?data-tab="social-relations"[\s\S]*?data-tab="social-messages"/, '五个固定面板必须提供直接互斥入口');
+assertIncludes(clientIndex, /data-tab="social"/, '右侧必须只保留道友启动面板入口');
+assertMissing(clientIndex, /data-tab="party"|data-tab="social-(?:relations|requests|nearby|messages)"/, '五项功能不得再作为右侧固定 Tab');
+assertIncludes(partyWorkspacePanel, /new FloatingListPanel\(/, '完整队伍页必须使用独立面板宿主');
+assertIncludes(partyWorkspacePanel, /width: LARGE_FLOATING_PANEL_WIDTH/, '完整队伍页必须使用统一固定宽度');
+assertIncludes(partyWorkspacePanel, /height: LARGE_FLOATING_PANEL_HEIGHT/, '完整队伍页必须使用统一固定高度');
+assertIncludes(partyWorkspacePanel, /this\.rememberOpener\(opener\)/, '完整队伍页打开时必须记录真实入口');
+assertIncludes(partyWorkspacePanel, /if \(this\.isOpen\(\)\) this\.floatingPanel\.focusCloseButton\(\)/, '完整队伍页打开后必须迁移焦点');
+assertIncludes(partyWorkspacePanel, /\[opener, activeRightTab, partyLauncher, hudLauncher\]/, '完整队伍页关闭后必须按可见入口链恢复焦点');
 assertIncludes(partyFloatingPanel, /new FloatingListPanel\(/, '紧凑队伍状态必须复用通用悬浮面板');
 assertIncludes(partyFloatingPanel, /updateFloatingPanelPreference\('party', false\)/, '关闭队伍状态悬浮窗必须同步本地偏好');
 assertIncludes(floatingPanelPreferences, /'actionQueue' \| 'interactionList' \| 'party'/, '悬浮窗偏好必须包含队伍状态');
-assertIncludes(clientIndex, /section-tabs--right-features" role="tablist"/, '五入口固定面板组必须提供 tablist 语义');
-assertMissing(socialPanel, /bindFixedFeatureTabs/, '道友面板不得再用捕获阶段特判绕开 SidePanel');
+assertMissing(clientIndex, /social-feature-tab|section-tabs--right-features/, '右侧不得暴露五项独立面板 Tab');
 assertMissing(socialPanel, /data-social-menu-shell="true"/, '道友子功能不得继续内嵌到单一菜单宿主');
 assertMissing(socialPanel, /panel-section-header/, '道友面板不得继续使用不存在的 panel-section-header 类');
 assertIncludes(panelsCss, /\.social-panel \.ui-list-row\s*\{/, '道友列表行必须有明确布局样式');
 assertIncludes(panelsCss, /\.social-menu-launcher\s*\{[\s\S]*?repeat\(2, minmax\(0, 1fr\)\)/, '道友面板入口必须使用双列按钮网格');
-assertIncludes(panelsCss, /\.social-fixed-panel-shell\s*\{/, '固定社交面板必须使用稳定头部与滚动内容布局');
+assertIncludes(panelsCss, /\.floating-list-panel--social \.floating-list-panel__body\s*\{/, '道友独立面板必须使用稳定滚动内容布局');
 assertIncludes(panelsCss, /\.social-conversation-workspace\s*\{/, '私聊联系人与对话必须有稳定工作区布局');
 assertIncludes(panelsCss, /\.social-panel-tab-unread\[hidden\]/, '私聊无未读时必须隐藏角标');
 assertIncludes(panelsCss, /@container social-panel \(max-width: 560px\)/, '道友面板必须保留窄容器响应式布局');

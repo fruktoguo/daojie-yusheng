@@ -5,7 +5,7 @@
 import type { PartyChatMessageView, PartyView } from '@mud/shared';
 
 export type PartyHudCallbacks = {
-  onOpenParty(): void;
+  onOpenParty(opener: HTMLElement): void;
   onOpenChat(): void;
   onSendChat(text: string): void;
 };
@@ -205,7 +205,7 @@ export class PartyHud {
     const action = target.dataset.partyHudAction;
     if (action === 'open-panel') {
       this.unreadCount = 0;
-      this.callbacks.onOpenParty();
+      this.callbacks.onOpenParty(target);
       return;
     }
     if (action === 'toggle-chat') {

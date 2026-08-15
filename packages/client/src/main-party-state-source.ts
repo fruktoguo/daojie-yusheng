@@ -21,7 +21,7 @@ import { appendPartyMessages, loadRecentPartyMessages } from './ui/party-message
 type MainPartyStateSourceOptions = {
   partyPanel: PartyPanel;
   partyHud: PartyFloatingPanel;
-  openPartyPanel(): void;
+  openPartyPanel(opener?: HTMLElement | null): void;
   setPartyUnread(count: number): void;
   setPartyPanelAvailable(available: boolean): void;
   socket: Pick<
@@ -155,9 +155,9 @@ export function createMainPartyStateSource(options: MainPartyStateSourceOptions)
     onRequestRecruitmentCandidates: () => options.socket.sendRequestPartyRecruitments(recruitingPurpose),
   });
 
-  function openPartyPanel(): void {
+  function openPartyPanel(opener: HTMLElement | null = null): void {
     chatUnreadCount = 0;
-    options.openPartyPanel();
+    options.openPartyPanel(opener);
     syncRender();
   }
 

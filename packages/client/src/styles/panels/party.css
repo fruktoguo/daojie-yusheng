@@ -6,10 +6,9 @@
   gap: 12px;
 }
 
-/* 固定队伍主面板 */
-.party-fixed-panel-shell .party-panel {
-  height: 100%;
-  min-height: 0;
+/* 固定尺寸队伍独立面板 */
+.floating-list-panel--party-workspace .floating-list-panel__body {
+  padding: 10px;
   overflow: auto;
 }
 

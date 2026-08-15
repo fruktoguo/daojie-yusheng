@@ -13,39 +13,23 @@ const fixtureExpression = String.raw`
     document.getElementById('game-shell')?.classList.remove('hidden');
     document.getElementById('login-overlay')?.classList.add('hidden');
 
-    localStorage.removeItem('mud:side-panel-state:v1');
-    const currentGroup = document.querySelector('[data-tab-group="right-top"]');
-    if (!(currentGroup instanceof HTMLElement)) throw new Error('缺少 right-top 固定面板分组');
-    const groupClone = currentGroup.cloneNode(true);
-    if (!(groupClone instanceof HTMLElement)) throw new Error('无法重建 right-top 固定面板分组');
-    currentGroup.replaceWith(groupClone);
-    for (let node = groupClone; node && node !== document.body; node = node.parentElement) {
-      node.hidden = false;
-      if (getComputedStyle(node).display === 'none') node.style.display = 'block';
-    }
-
-    const { SidePanel } = await import('/src/ui/side-panel.ts');
+    document.getElementById('floating-party-panel')?.remove();
+    document.getElementById('floating-party-hud')?.remove();
     const { PartyPanel } = await import('/src/ui/panels/party-panel.ts');
     const { PartyFloatingPanel } = await import('/src/ui/party-floating-panel.ts');
+    const { PartyWorkspacePanel } = await import('/src/ui/party-workspace-panel.ts');
     const { updateFloatingPanelPreference } = await import('/src/ui/floating-panel-preferences.ts');
     const { createMainPartyStateSource } = await import('/src/main-party-state-source.ts');
     const { buildEntityNameplateBadges } = await import('/src/entity-nameplate-badges.ts');
 
-    const host = document.getElementById('party-panel-fixed-host');
-    if (!(host instanceof HTMLElement)) throw new Error('缺少固定队伍面板宿主');
-    host.replaceChildren();
-    const partyPane = document.getElementById('pane-party');
-    if (!(partyPane instanceof HTMLElement)) throw new Error('缺少固定队伍面板');
-    document.getElementById('floating-party-hud')?.remove();
-    const sidePanel = new SidePanel();
-    sidePanel.initializeTabs();
-    sidePanel.switchTab('mobile-bag');
     updateFloatingPanelPreference('party', true);
     const partyPanel = new PartyPanel();
-    partyPanel.mount(host);
+    const partyWorkspace = new PartyWorkspacePanel(partyPanel);
+    const host = partyWorkspace.root.querySelector('[data-floating-list-body="true"]');
+    if (!(host instanceof HTMLElement)) throw new Error('缺少队伍独立面板宿主');
     const partyHud = new PartyFloatingPanel();
     const hudRoot = partyHud.root;
-    let fixedOpenCount = 0;
+    let workspaceOpenCount = 0;
 
     const sent = [];
     const partyChromeStub = {
@@ -57,12 +41,12 @@ const fixtureExpression = String.raw`
     const source = createMainPartyStateSource({
       partyPanel,
       partyHud,
-      openPartyPanel: () => {
-        fixedOpenCount += 1;
-        sidePanel.switchTab('party');
+      openPartyPanel: (opener) => {
+        workspaceOpenCount += 1;
+        partyWorkspace.open(opener);
       },
-      setPartyUnread: (count) => partyChromeStub.setUnread(count),
-      setPartyPanelAvailable: (available) => partyChromeStub.setAvailable(available),
+      setPartyUnread: (count) => { partyChromeStub.setUnread(count); partyWorkspace.setUnreadCount(count); },
+      setPartyPanelAvailable: (available) => { partyChromeStub.setAvailable(available); partyWorkspace.setAvailable(available); },
       socket: Object.fromEntries([
         'sendRequestPartyPanel','sendCreateParty','sendInvitePartyPlayer','sendRespondPartyInvite','sendLeaveParty',
         'sendRemovePartyMember','sendTransferPartyLeader','sendDisbandParty','sendUpdatePartySettings',
@@ -92,7 +76,7 @@ const fixtureExpression = String.raw`
     source.handlePartyPanel({ party, incomingInvites: emptyInvites, incomingApplications: emptyApplications, recruitments: emptyRecruitments, matchQueue: { queued: false }, serverTime: Date.now() });
     source.openPanel();
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    window.__partyProof = { source, partyPanel, partyHud, sidePanel, host, hudRoot, fixedOpenCount: () => fixedOpenCount, sent, partyChromeStub, party, emptyInvites, emptyApplications, emptyRecruitments, buildEntityNameplateBadges, updateFloatingPanelPreference };
+    window.__partyProof = { source, partyPanel, partyHud, partyWorkspace, host, hudRoot, workspaceOpenCount: () => workspaceOpenCount, sent, partyChromeStub, party, emptyInvites, emptyApplications, emptyRecruitments, buildEntityNameplateBadges, updateFloatingPanelPreference };
     return { ok: true };
   })()
 `;
@@ -105,30 +89,34 @@ await withClientBrowserProof(
 
     const structure = await cdp.evaluate(String.raw`
       (() => {
-        const { host, hudRoot } = window.__partyProof;
+        const { host, hudRoot, partyWorkspace } = window.__partyProof;
+        const workspaceRoot = partyWorkspace.root;
+        const rect = workspaceRoot.getBoundingClientRect();
         return {
-          hasFixedPanel: host.closest('#pane-party') !== null && !host.closest('#pane-party')?.classList.contains('floating-list-panel'),
+          workspaceOpen: !workspaceRoot.hidden,
+          fixedSize: workspaceRoot.style.getPropertyValue('--floating-list-panel-width') === '800px'
+            && workspaceRoot.style.getPropertyValue('--floating-list-panel-height') === '450px',
+          workspaceBounded: rect.left >= 0 && rect.top >= 0 && rect.right <= innerWidth + 1 && rect.bottom <= innerHeight + 1,
           hasMemberTab: !!host.querySelector('[data-party-tab="members"]'),
           hasInviteTab: !!host.querySelector('[data-party-tab="invites"]'),
           hasManagementTab: !!host.querySelector('[data-party-tab="management"]'),
           hasMemberList: !!host.querySelector('[data-party-member-list="true"]'),
           memberCards: host.querySelectorAll('[data-party-member]').length,
-          activeCount: document.querySelector('[data-tab-group="right-top"]')?.querySelectorAll('[data-pane].active').length ?? 0,
           recruitmentOnMemberTab: !!host.querySelector('.party-recruit-filter'),
           hasFriendlyFireHint: host.textContent.includes('双重门槛') && host.textContent.includes('默认互为友方'),
-          hasLeaderOfflineHintText: window.__partyProof.host.innerHTML.includes('移交队长') === false,
           hudMounted: !hudRoot.hidden,
           hudMembers: hudRoot.querySelectorAll('[data-party-hud-member]').length,
         };
       })()
     `);
-    assert.equal(structure.hasFixedPanel, true, '完整队伍页面未挂载到固定面板');
+    assert.equal(structure.workspaceOpen, true, '队伍按钮未展开独立面板');
+    assert.equal(structure.fixedSize, true, '队伍独立面板不是固定 800×450 尺寸');
+    assert.equal(structure.workspaceBounded, true, '队伍独立面板越出视口');
     assert.equal(structure.hasMemberTab, true, '队伍成员 Tab 缺失');
     assert.equal(structure.hasInviteTab, true, '队伍邀请 Tab 缺失');
     assert.equal(structure.hasManagementTab, false, '普通成员不应看到管理 Tab');
     assert.equal(structure.hasMemberList, true, '队伍成员列表未挂载');
     assert.equal(structure.memberCards, 2, '成员卡片数量不符');
-    assert.equal(structure.activeCount, 1, '队伍固定面板未经过真实 SidePanel 互斥链路');
     assert.equal(structure.recruitmentOnMemberTab, false, '成员 Tab 不应混入招募大厅');
     assert.equal(structure.hasFriendlyFireHint, false, '非队长视图不应出现队长工具与友伤说明');
     assert.equal(structure.hudMounted, true, '队伍 HUD 未挂载');
@@ -151,7 +139,7 @@ await withClientBrowserProof(
 
     const reopenResult = await cdp.evaluate(String.raw`
       (async () => {
-        const { source, hudRoot, fixedOpenCount } = window.__partyProof;
+        const { source, hudRoot, workspaceOpenCount, partyWorkspace } = window.__partyProof;
         hudRoot.querySelector('[data-floating-list-close="true"]')?.click();
         const hudClosed = hudRoot.hidden;
         const settingsHost = document.createElement('div');
@@ -167,21 +155,29 @@ await withClientBrowserProof(
         partyToggle?.click();
         await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         const hudReopened = !hudRoot.hidden;
-        const before = fixedOpenCount();
-        source.openPanel();
+        partyWorkspace.close(false);
+        const hudOpener = hudRoot.querySelector('[data-party-hud-action="open-panel"]');
+        const before = workspaceOpenCount();
+        hudOpener?.click();
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        const workspaceOpened = workspaceOpenCount() === before + 1 && !partyWorkspace.root.hidden;
+        const workspaceFocused = document.activeElement === partyWorkspace.root.querySelector('[data-floating-list-close="true"]');
+        partyWorkspace.root.querySelector('[data-floating-list-close="true"]')?.click();
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        const hudFocusReturned = document.activeElement === hudOpener;
+        hudOpener?.click();
+        await new Promise((resolve) => requestAnimationFrame(resolve));
         return {
-          hudClosed, hudReopened, reactTogglePresent, fixedOpened: fixedOpenCount() === before + 1,
-          partyActive: document.getElementById('pane-party')?.classList.contains('active') ?? false,
-          activeCount: document.querySelector('[data-tab-group="right-top"]')?.querySelectorAll('[data-pane].active').length ?? 0,
+          hudClosed, hudReopened, reactTogglePresent, workspaceOpened, workspaceFocused, hudFocusReturned,
         };
       })()
     `);
     assert.equal(reopenResult.hudClosed, true, '关闭按钮未隐藏队伍状态悬浮窗');
     assert.equal(reopenResult.reactTogglePresent, true, '默认 React 设置页缺少队伍状态开关');
     assert.equal(reopenResult.hudReopened, true, 'React 设置偏好未能重新开启队伍状态悬浮窗');
-    assert.equal(reopenResult.fixedOpened, true, '队伍入口未打开固定队伍面板');
-    assert.equal(reopenResult.partyActive, true, '固定队伍面板未进入互斥槽位');
-    assert.equal(reopenResult.activeCount, 1, '队伍入口打开后同组出现多个 active 面板');
+    assert.equal(reopenResult.workspaceOpened, true, '队伍 HUD 入口未打开队伍独立面板');
+    assert.equal(reopenResult.workspaceFocused, true, '队伍独立面板打开后焦点未迁入关闭按钮');
+    assert.equal(reopenResult.hudFocusReturned, true, '关闭队伍独立面板后焦点未返回 HUD 入口');
 
     // 成员 keyed patch：仅 HP 变化时行节点应被原位替换且其它成员节点保持。
     const patchResult = await cdp.evaluate(String.raw`

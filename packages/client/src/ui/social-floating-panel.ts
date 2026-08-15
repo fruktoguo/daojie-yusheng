@@ -1,3 +1,102 @@
-/** @deprecated 道友子页已迁入固定面板；保留旧导出名供渐进迁移。 */
-export { SocialFixedPanel as SocialFloatingPanel } from './social-fixed-panel';
-export type { SocialFixedPanelKind as SocialFloatingPanelKind } from './social-fixed-panel';
+/** 道友子功能独立面板：固定尺寸，业务状态仍由 SocialPanel 统一维护。 */
+import {
+  FloatingListPanel,
+  LARGE_FLOATING_PANEL_HEIGHT,
+  LARGE_FLOATING_PANEL_WIDTH,
+} from './floating-list-panel';
+
+export type SocialFloatingPanelKind = 'relations' | 'requests' | 'nearby' | 'messages';
+
+type SocialFloatingPanelMeta = {
+  title: string;
+  storageKey: string;
+};
+
+const PANEL_META: Record<SocialFloatingPanelKind, SocialFloatingPanelMeta> = {
+  relations: { title: '道友名录', storageKey: 'mud:floating-social-relations:v1' },
+  requests: { title: '道友申请', storageKey: 'mud:floating-social-requests:v1' },
+  nearby: { title: '附近修士', storageKey: 'mud:floating-social-nearby:v1' },
+  messages: { title: '私聊', storageKey: 'mud:floating-social-messages:v1' },
+};
+
+export class SocialFloatingPanel {
+  readonly root: HTMLElement;
+  readonly body: HTMLElement;
+
+  private readonly floatingPanel: FloatingListPanel;
+  private readonly resizeObserver: ResizeObserver | null;
+
+  constructor(
+    kind: SocialFloatingPanelKind,
+    private readonly onBeforeClose: () => void,
+    private readonly onClose: () => void,
+  ) {
+    const meta = PANEL_META[kind];
+    this.floatingPanel = new FloatingListPanel({
+      id: `floating-social-${kind}`,
+      title: meta.title,
+      storageKey: meta.storageKey,
+      className: `floating-list-panel--workspace floating-list-panel--social floating-list-panel--social-${kind}`,
+      defaultLeft: Math.max(8, Math.round((window.innerWidth - LARGE_FLOATING_PANEL_WIDTH) / 2)),
+      defaultTop: 72,
+      minWidth: 280,
+      maxWidth: LARGE_FLOATING_PANEL_WIDTH,
+      width: LARGE_FLOATING_PANEL_WIDTH,
+      height: LARGE_FLOATING_PANEL_HEIGHT,
+      onBeforeClose: this.onBeforeClose,
+      onClose: this.onClose,
+    });
+    this.root = this.floatingPanel.root;
+    this.body = this.floatingPanel.body;
+    this.root.setAttribute('role', 'dialog');
+    this.root.setAttribute('aria-modal', 'false');
+    this.root.dataset.socialFloatingPanel = kind;
+    this.resizeObserver = typeof ResizeObserver === 'function'
+      ? new ResizeObserver(() => this.floatingPanel.refreshLayout())
+      : null;
+    this.resizeObserver?.observe(this.body);
+    this.floatingPanel.setTransientHidden(true);
+  }
+
+  open(): void {
+    this.floatingPanel.setTransientHidden(false);
+    this.floatingPanel.setClosed(false);
+    this.floatingPanel.refreshLayout();
+  }
+
+  close(notify = true): void {
+    if (this.root.hidden) return;
+    if (notify) this.onBeforeClose();
+    this.floatingPanel.setClosed(true);
+    if (notify) this.onClose();
+  }
+
+  hide(): void {
+    this.floatingPanel.setTransientHidden(true);
+  }
+
+  isOpen(): boolean {
+    return !this.root.hidden;
+  }
+
+  updateContent(html: string): void {
+    this.floatingPanel.updateContent(html);
+  }
+
+  clearContent(): void {
+    this.floatingPanel.updateContent('');
+  }
+
+  setTitle(title: string): void {
+    this.floatingPanel.setTitle(title);
+  }
+
+  focusCloseButton(): void {
+    this.floatingPanel.focusCloseButton();
+  }
+
+  destroy(): void {
+    this.resizeObserver?.disconnect();
+    this.floatingPanel.destroy();
+  }
+}
