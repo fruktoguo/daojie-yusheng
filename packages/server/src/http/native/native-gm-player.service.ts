@@ -28,6 +28,7 @@ import { MapTemplateRepository } from '../../runtime/map/map-template.repository
 import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
 import { GmAuditLogPersistenceService, type GmAuditLogEntry } from '../../persistence/gm-audit-log-persistence.service';
 import { repairMarketStorageItemIds } from '../../persistence/market-storage-item-id-repair';
+import { releasePlayerFlushStartupStall } from '../../persistence/player-flush-startup-stall-release';
 import { repairQuestProgressPayloads } from '../../persistence/quest-progress-payload-repair';
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { ActivityPersistenceService } from '../../persistence/activity-persistence.service';
@@ -1028,6 +1029,22 @@ export class NativeGmPlayerService {
       repairedMarketStorageSample: result.repairedSample,
       repairedAt: result.repairedAt,
     };
+  }
+
+  /**
+   * 解除指定玩家的 startup_deterministic_stall 启动隔离，并清理其
+   * player_market_storage_item 残留投影行（对齐内存快照）。
+   * 仅处理该隔离类别；资产归属冲突隔离（startup_asset_conflict）必须人工核对，不在此命令范围。
+   */
+  async releasePlayerFlushStartupStall(
+    playerIdInput: string,
+    options: { dryRun?: boolean } = {},
+  ) {
+    const pool = this.databasePoolProvider?.getPool('gm-release-flush-stall') ?? null;
+    if (!pool) {
+      throw new BadRequestException('数据库未启用，无法解除刷盘启动隔离');
+    }
+    return releasePlayerFlushStartupStall(pool, playerIdInput, { dryRun: options.dryRun === true });
   }
 
   async repairQuestProgressPayloads(mode: 'dry-run' | 'apply', actor?: GmActorContext | null) {

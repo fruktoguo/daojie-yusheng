@@ -165,6 +165,12 @@ interface GmPlayerScopeBody {
 
   targetPlayerIds?: string[];
 }
+
+/** 解除指定玩家启动期刷盘隔离的命令体。 */
+interface GmReleaseFlushStallBody {
+  playerId?: string;
+  dryRun?: boolean;
+}
 /**
  * DirectMailBody：定义接口结构约束，明确可交付字段含义。
  */
@@ -1149,6 +1155,18 @@ export class NativeGmController {
       targetType: 'maintenance',
       targetId: 'market_storage_item_ids',
     }, () => this.nextGmPlayerService.repairMarketStorageItemIds());
+  }
+
+  @Post('shortcuts/maintenance/release-player-flush-stall')
+  async releasePlayerFlushStartupStall(@Body() body: GmReleaseFlushStallBody, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.shortcuts.maintenance.release_player_flush_stall',
+      request,
+      targetType: 'player_flush_ledger',
+      targetId: body?.playerId ?? '',
+    }, () => this.nextGmPlayerService.releasePlayerFlushStartupStall(body?.playerId ?? '', {
+      dryRun: body?.dryRun === true,
+    }));
   }
 
   @Post('shortcuts/compat/quest-progress-payloads/dry-run')
