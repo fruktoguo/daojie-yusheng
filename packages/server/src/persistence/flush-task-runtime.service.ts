@@ -107,6 +107,12 @@ interface PlayerSnapshotProjectionPayload extends PlayerPayloadMetadata {
   projectedDomains: string[];
   runtimeOwnerId?: string | null;
   sessionEpoch?: number | null;
+  /**
+   * staging 时的 presence 记录快照。投影围栏裁定为 indeterminate（DB presence 落后于
+   * payload epoch）时，用它把 DB presence 推进到本会话（CAS 保护），避免投影刷盘
+   * 因 30s presence 合并延迟反复整组回滚。
+   */
+  presence?: PlayerPresenceUpsertInput | null;
 }
 
 type PlayerProjectionFenceDecision = 'current' | 'stale' | 'indeterminate';
@@ -832,6 +838,8 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       ...metadata,
       runtimeOwnerId: presence?.runtimeOwnerId ?? null,
       sessionEpoch: presence?.sessionEpoch ?? null,
+      // 投影组自洽推进 presence 围栏所需：indeterminate 时用该记录推进 DB presence。
+      presence: presence ?? null,
     };
   }
 
@@ -1375,9 +1383,19 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
           continue;
         }
         if (fenceDecision === 'indeterminate') {
-          throw new Error(
-            `player_snapshot_projection_incomplete_fence:${playerId}:expectedOwner=${effectiveRuntimeOwnerId ?? 'none'}:expectedEpoch=${payload.sessionEpoch ?? 'none'}`,
-          );
+          const reconciled = await this.reconcilePlayerProjectionFence(playerId, payload);
+          if (reconciled === 'stale') {
+            this.logger.debug(
+              `玩家刷盘丢弃已被新会话取代的投影：playerId=${playerId} domain=${task.domain} payloadEpoch=${payload.sessionEpoch ?? 'none'} effectiveOwner=${effectiveRuntimeOwnerId ?? 'none'}`,
+            );
+            if (await this.flushLedgerService.markFlushTaskFlushed(task)) processed += 1;
+            continue;
+          }
+          if (reconciled === 'indeterminate') {
+            throw new Error(
+              `player_snapshot_projection_incomplete_fence:${playerId}:expectedOwner=${effectiveRuntimeOwnerId ?? 'none'}:expectedEpoch=${payload.sessionEpoch ?? 'none'}`,
+            );
+          }
         }
         const domains = Array.from(new Set(payload.projectedDomains.length > 0
           ? payload.projectedDomains
@@ -1551,6 +1569,49 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     if (payloadOwner) return payloadOwner === persistedOwner ? 'current' : 'stale';
     // 历史 payload/payload_jsonb 可能缺 owner；仅在 ledger 也缺 owner 且 DB 已离线释放 owner 时兼容。
     return persistedOwner ? 'stale' : 'current';
+  }
+
+  /**
+   * 投影围栏裁定为 indeterminate（DB presence 落后于 payload epoch）时的自洽收敛：
+   * 用 payload 携带的 staging presence 记录把 DB presence 推进到该会话（CAS 保护），
+   * 然后重判围栏。这消除了 presence 任务 30s 合并延迟造成的投影刷盘整组回滚循环
+   * （每次重连 sessionEpoch +1 都会重新拉开差距），且不依赖刷盘进程的内存运行态，
+   * consumer 模式同样成立。
+   *
+   * 返回语义：
+   * - 'current'：presence 已推进，投影可按当前 payload 继续写入；
+   * - 'stale'：DB 已被更新会话接管（savePlayerPresence CAS 拒绝或重判为 stale），
+   *   本投影已过期，调用方按 stale 安全丢弃；
+   * - 'indeterminate'：无 presence 记录（历史 payload）或推进失败，保留原重试语义。
+   */
+  private async reconcilePlayerProjectionFence(
+    playerId: string,
+    payload: PlayerSnapshotProjectionPayload,
+  ): Promise<PlayerProjectionFenceDecision> {
+    const payloadEpoch = normalizeInt(payload.sessionEpoch, 0, 0, Number.MAX_SAFE_INTEGER);
+    const presence = payload.presence ?? null;
+    if (payloadEpoch <= 0 || !presence) {
+      return 'indeterminate';
+    }
+    try {
+      await this.playerDomainPersistenceService.savePlayerPresence(playerId, {
+        ...presence,
+        sessionEpoch: payloadEpoch,
+        versionSeed: payload.projectionVersion ?? 0,
+      });
+    } catch (error) {
+      // CAS 拒绝意味着 DB 已有更新会话/所有者接管，本投影已被取代，安全丢弃而非重试。
+      if (isConvergedPlayerPresenceFenceError(error)) {
+        return 'stale';
+      }
+      return 'indeterminate';
+    }
+    const rechecked = await this.resolvePlayerProjectionPayloadFence(
+      playerId,
+      payload.sessionEpoch,
+      payload.runtimeOwnerId,
+    );
+    return rechecked === 'current' || rechecked === 'stale' ? rechecked : 'indeterminate';
   }
 
   private async resolvePlayerPresencePayloadFence(
@@ -2622,6 +2683,23 @@ function normalizePlayerSnapshotProjectionPayload(value: unknown): PlayerSnapsho
   if (record.kind !== PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND || !record.snapshot || typeof record.snapshot !== 'object') {
     return null;
   }
+  const presenceRecord = record.presence && typeof record.presence === 'object'
+    ? record.presence as Record<string, unknown>
+    : null;
+  const presence = presenceRecord
+    && typeof presenceRecord.online === 'boolean'
+    && typeof presenceRecord.inWorld === 'boolean'
+    ? {
+        online: presenceRecord.online === true,
+        inWorld: presenceRecord.inWorld === true,
+        lastHeartbeatAt: normalizeNullableNumber(presenceRecord.lastHeartbeatAt),
+        offlineSinceAt: normalizeNullableNumber(presenceRecord.offlineSinceAt),
+        runtimeOwnerId: normalizeNullableString(presenceRecord.runtimeOwnerId),
+        sessionEpoch: normalizeNullableNumber(presenceRecord.sessionEpoch),
+        transferState: normalizeNullableString(presenceRecord.transferState),
+        transferTargetNodeId: normalizeNullableString(presenceRecord.transferTargetNodeId),
+      }
+    : null;
   return {
     kind: PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND,
     snapshot: record.snapshot as PersistedPlayerSnapshot,
@@ -2636,6 +2714,7 @@ function normalizePlayerSnapshotProjectionPayload(value: unknown): PlayerSnapsho
     hasExplicitProjectionVersion: record.projectionVersion !== undefined,
     runtimeOwnerId: normalizeNullableString(record.runtimeOwnerId),
     sessionEpoch: normalizeNullableNumber(record.sessionEpoch),
+    presence,
   };
 }
 

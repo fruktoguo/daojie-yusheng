@@ -241,6 +241,7 @@ async function main(): Promise<void> {
     await proveProjectionBatchFailureRetriesWholePlayer();
     await proveHistoricalOwnerlessProjectionFenceCompatibility();
     await proveHistoricalPresenceFenceConvergence();
+    await proveProjectionReconcilesIndeterminateFence();
     await proveStartupReplayDrainsPresenceBeforeProjection();
     await proveStartupReplayAdvancesDurableFutureFence();
     await proveStartupReplayAllowsExplicitEmptyWalletProjection();
@@ -741,6 +742,244 @@ async function proveHistoricalPresenceFenceConvergence(): Promise<void> {
     'presence-missing',
   ]));
   assert.deepEqual(retried, []);
+}
+
+async function proveProjectionReconcilesIndeterminateFence(): Promise<void> {
+  // 投影围栏裁定为 indeterminate（DB presence 落后于 payload epoch）时，
+  // 投影组必须用 payload 携带的 presence 记录推进 DB presence（CAS 保护）后继续写入，
+  // 而不是整组回滚并反复重试（presence 任务 30s 合并延迟造成的重连竞态）。
+  const reconcilePlayerId = 'projection-reconcile-player';
+  const reconcileTask: FlushTask = {
+    scope: 'player',
+    id: reconcilePlayerId,
+    domain: 'inventory',
+    priority: 'high',
+    latestRevision: 201,
+    payloadJson: {
+      kind: 'player_snapshot_projection',
+      projectedDomains: ['inventory'],
+      projectionVersion: 201,
+      runtimeOwnerId: 'rt-9',
+      sessionEpoch: 9,
+      presence: {
+        online: true,
+        inWorld: true,
+        lastHeartbeatAt: 12345,
+        offlineSinceAt: null,
+        runtimeOwnerId: 'rt-9',
+        sessionEpoch: 9,
+      },
+      snapshot: {
+        version: 1,
+        savedAt: 201,
+        placement: { templateId: 'map-1', x: 1, y: 2 },
+        inventory: { items: [{ itemId: 'pill-1', itemInstanceId: 'inv-reconcile-1' }] },
+      },
+    },
+  };
+  let dbPresence = { runtimeOwnerId: 'rt-8', sessionEpoch: 8 };
+  let presenceSaveCalls = 0;
+  let reconcileBatchWrites = 0;
+  let reconcileFlushed = 0;
+  let reconcileRetried = 0;
+  let reconcileClaimed = false;
+  const reconcileRuntime = new FlushTaskRuntimeService(
+    {} as never,
+    {} as never,
+    { flushPlayerDomains: async () => { throw new Error('indeterminate projection 不得回退 runtime flush'); } } as never,
+    {
+      isEnabled: () => true,
+      renewFlushTaskClaim: async () => true,
+      claimReadyFlushTasks: async () => {
+        if (reconcileClaimed) return [];
+        reconcileClaimed = true;
+        return [reconcileTask];
+      },
+      markFlushTaskFlushed: async () => {
+        reconcileFlushed += 1;
+        return true;
+      },
+      markFlushTaskRetry: async () => {
+        reconcileRetried += 1;
+        return true;
+      },
+      markFlushTasksRetry: async () => {
+        reconcileRetried += 1;
+        return 0;
+      },
+    } as never,
+    { signalPlayerFlush: () => undefined, signalInstanceFlush: () => undefined } as never,
+    undefined,
+    undefined,
+    {
+      isEnabled: () => true,
+      loadPlayerPresence: async () => dbPresence,
+      savePlayerPresence: async (_playerId: string, input: Record<string, unknown>) => {
+        presenceSaveCalls += 1;
+        assert.equal(input.runtimeOwnerId, 'rt-9');
+        assert.equal(input.sessionEpoch, 9);
+        dbPresence = { runtimeOwnerId: 'rt-9', sessionEpoch: 9 };
+      },
+      savePlayerSnapshotProjectionDomainBatch: async () => {
+        reconcileBatchWrites += 1;
+      },
+      savePlayerSnapshotProjectionDomains: async () => undefined,
+    } as never,
+  );
+  const reconcileProcessed = await reconcileRuntime.runOnce('projection-reconcile-smoke');
+  assert.equal(reconcileProcessed, 1, 'indeterminate 投影经 presence 推进后必须直接落库');
+  assert.equal(presenceSaveCalls, 1, '每个投影组只应推进一次 presence');
+  assert.equal(reconcileBatchWrites, 1, 'presence 推进后必须继续写投影 batch');
+  assert.equal(reconcileFlushed, 1);
+  assert.equal(reconcileRetried, 0, '可推进的 indeterminate 投影不得整组回滚重试');
+
+  // 推进被 CAS 拒绝（DB 已被更新会话接管）→ 投影按 stale 安全收敛丢弃，不重试、不写入。
+  const supersededPlayerId = 'projection-reconcile-superseded';
+  const supersededTask: FlushTask = {
+    scope: 'player',
+    id: supersededPlayerId,
+    domain: 'inventory',
+    priority: 'high',
+    latestRevision: 202,
+    payloadJson: {
+      kind: 'player_snapshot_projection',
+      projectedDomains: ['inventory'],
+      projectionVersion: 202,
+      runtimeOwnerId: 'rt-9',
+      sessionEpoch: 9,
+      presence: {
+        online: true,
+        inWorld: true,
+        runtimeOwnerId: 'rt-9',
+        sessionEpoch: 9,
+      },
+      snapshot: {
+        version: 1,
+        savedAt: 202,
+        placement: { templateId: 'map-1', x: 1, y: 2 },
+        inventory: { items: [{ itemId: 'pill-2', itemInstanceId: 'inv-reconcile-2' }] },
+      },
+    },
+  };
+  let supersededBatchWrites = 0;
+  let supersededFlushed = 0;
+  let supersededRetried = 0;
+  let supersededClaimed = false;
+  const supersededRuntime = new FlushTaskRuntimeService(
+    {} as never,
+    {} as never,
+    { flushPlayerDomains: async () => { throw new Error('superseded projection 不得回退 runtime flush'); } } as never,
+    {
+      isEnabled: () => true,
+      renewFlushTaskClaim: async () => true,
+      claimReadyFlushTasks: async () => {
+        if (supersededClaimed) return [];
+        supersededClaimed = true;
+        return [supersededTask];
+      },
+      markFlushTaskFlushed: async () => {
+        supersededFlushed += 1;
+        return true;
+      },
+      markFlushTaskRetry: async () => {
+        supersededRetried += 1;
+        return true;
+      },
+      markFlushTasksRetry: async () => {
+        supersededRetried += 1;
+        return 0;
+      },
+    } as never,
+    { signalPlayerFlush: () => undefined, signalInstanceFlush: () => undefined } as never,
+    undefined,
+    undefined,
+    {
+      isEnabled: () => true,
+      loadPlayerPresence: async () => ({ runtimeOwnerId: 'rt-8', sessionEpoch: 8 }),
+      savePlayerPresence: async () => {
+        throw new Error(`player_presence_stale_fence:${supersededPlayerId}`);
+      },
+      savePlayerSnapshotProjectionDomainBatch: async () => {
+        supersededBatchWrites += 1;
+      },
+      savePlayerSnapshotProjectionDomains: async () => undefined,
+    } as never,
+  );
+  const supersededProcessed = await supersededRuntime.runOnce('projection-reconcile-superseded-smoke');
+  assert.equal(supersededProcessed, 1, 'CAS 拒绝的投影必须按 stale 收敛计入已处理');
+  assert.equal(supersededBatchWrites, 0, '已被更新会话接管的投影不得写入');
+  assert.equal(supersededFlushed, 1);
+  assert.equal(supersededRetried, 0, 'CAS 拒绝意味着被取代，不得重试');
+
+  // 历史 payload 无 presence 记录 → 保留原 incomplete fence 重试语义，不得误写或误丢。
+  const legacyPlayerId = 'projection-reconcile-legacy';
+  const legacyTask: FlushTask = {
+    scope: 'player',
+    id: legacyPlayerId,
+    domain: 'inventory',
+    priority: 'high',
+    latestRevision: 203,
+    payloadJson: {
+      kind: 'player_snapshot_projection',
+      projectedDomains: ['inventory'],
+      projectionVersion: 203,
+      runtimeOwnerId: 'rt-9',
+      sessionEpoch: 9,
+      snapshot: {
+        version: 1,
+        savedAt: 203,
+        placement: { templateId: 'map-1', x: 1, y: 2 },
+        inventory: { items: [{ itemId: 'pill-3', itemInstanceId: 'inv-reconcile-3' }] },
+      },
+    },
+  };
+  let legacyBatchWrites = 0;
+  let legacyFlushed = 0;
+  let legacyRetried = 0;
+  let legacyClaimed = false;
+  const legacyRuntime = new FlushTaskRuntimeService(
+    {} as never,
+    {} as never,
+    { flushPlayerDomains: async () => { throw new Error('legacy projection 不得回退 runtime flush'); } } as never,
+    {
+      isEnabled: () => true,
+      renewFlushTaskClaim: async () => true,
+      claimReadyFlushTasks: async () => {
+        if (legacyClaimed) return [];
+        legacyClaimed = true;
+        return [legacyTask];
+      },
+      markFlushTaskFlushed: async () => {
+        legacyFlushed += 1;
+        return true;
+      },
+      markFlushTaskRetry: async () => {
+        legacyRetried += 1;
+        return true;
+      },
+      markFlushTasksRetry: async () => {
+        legacyRetried += 1;
+        return 0;
+      },
+    } as never,
+    { signalPlayerFlush: () => undefined, signalInstanceFlush: () => undefined } as never,
+    undefined,
+    undefined,
+    {
+      isEnabled: () => true,
+      loadPlayerPresence: async () => ({ runtimeOwnerId: 'rt-8', sessionEpoch: 8 }),
+      savePlayerPresence: async () => undefined,
+      savePlayerSnapshotProjectionDomainBatch: async () => {
+        legacyBatchWrites += 1;
+      },
+      savePlayerSnapshotProjectionDomains: async () => undefined,
+    } as never,
+  );
+  const legacyProcessed = await legacyRuntime.runOnce('projection-reconcile-legacy-smoke');
+  assert.equal(legacyProcessed, 0, '无 presence 记录的历史 payload 必须保持整组重试');
+  assert.equal(legacyBatchWrites, 0);
+  assert.equal(legacyFlushed, 0);
+  assert.equal(legacyRetried, 1, '历史 payload 缺少 presence 记录时不得被丢弃或写入');
 }
 
 async function proveStartupReplayAdvancesDurableFutureFence(): Promise<void> {
