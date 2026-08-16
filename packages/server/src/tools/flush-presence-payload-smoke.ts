@@ -242,6 +242,8 @@ async function main(): Promise<void> {
     await proveHistoricalOwnerlessProjectionFenceCompatibility();
     await proveHistoricalPresenceFenceConvergence();
     await proveProjectionReconcilesIndeterminateFence();
+    await provePresenceEpochCriticalStaging();
+    await proveRuntimeNonRecoverableQuietRetry();
     await proveStartupReplayDrainsPresenceBeforeProjection();
     await proveStartupReplayAdvancesDurableFutureFence();
     await proveStartupReplayAllowsExplicitEmptyWalletProjection();
@@ -980,6 +982,212 @@ async function proveProjectionReconcilesIndeterminateFence(): Promise<void> {
   assert.equal(legacyBatchWrites, 0);
   assert.equal(legacyFlushed, 0);
   assert.equal(legacyRetried, 1, '历史 payload 缺少 presence 记录时不得被丢弃或写入');
+}
+
+async function provePresenceEpochCriticalStaging(): Promise<void> {
+  // 根因修复：session epoch 变化（重连/转移）时 presence 必须立即可认领（绕过 30s 合并节流、
+  // nextAttemptAt=now），与投影任务同时就绪；心跳型 dirty（同 epoch）仍走合并窗口。
+  const previousRole = process.env.SERVER_RUNTIME_ROLE;
+  process.env.SERVER_RUNTIME_ROLE = 'api';
+  try {
+    interface StagedTaskView {
+      playerId: string;
+      domain: string;
+      nextAttemptAt: string;
+      sessionEpoch: unknown;
+    }
+    const stagedTasks: StagedTaskView[] = [];
+    let dirtyDomainsByPlayer = new Map<string, Map<string, number>>();
+    let presenceByPlayer = new Map<string, {
+      online: boolean;
+      inWorld: boolean;
+      runtimeOwnerId: string | null;
+      sessionEpoch: number | null;
+      lastHeartbeatAt: number | null;
+      offlineSinceAt: number | null;
+    }>();
+    const runtime = new FlushTaskRuntimeService(
+      {
+        listUnstagedPlayerDomainRevisions: () => dirtyDomainsByPlayer,
+        describePersistencePresence: (playerId: string) => presenceByPlayer.get(playerId) ?? null,
+        getPersistenceRevision: () => 10,
+        getUnstagedPersistenceDomainRevision: () => undefined,
+        markPersistenceDomainsStaged: () => undefined,
+      } as never,
+      {} as never,
+      {} as never,
+      {
+        isEnabled: () => true,
+        upsertFlushTasksDetailed: async (tasks: FlushTask[]) => {
+          for (const task of tasks) {
+            const payload = (task.payloadJson ?? {}) as { sessionEpoch?: unknown };
+            stagedTasks.push({
+              playerId: task.id,
+              domain: task.domain,
+              nextAttemptAt: task.nextAttemptAt ?? '',
+              sessionEpoch: payload.sessionEpoch ?? null,
+            });
+          }
+          return {
+            changed: tasks.length,
+            accepted: tasks.map((task) => ({
+              scope: 'player',
+              id: task.id,
+              domain: task.domain,
+              ownershipEpoch: null,
+            })),
+          };
+        },
+      } as never,
+      { signalPlayerFlush: () => undefined, signalInstanceFlush: () => undefined } as never,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    );
+    const now = () => Date.now();
+    const presenceRecord = (epoch: number, owner = 'rt-owner') => ({
+      online: true,
+      inWorld: true,
+      runtimeOwnerId: owner,
+      sessionEpoch: epoch,
+      lastHeartbeatAt: now(),
+      offlineSinceAt: null,
+    });
+
+    // 首次暂存：三个玩家 presence 均 dirty，epoch 均为 7 → 全部立即可认领（首暂存即关键）。
+    dirtyDomainsByPlayer = new Map([
+      ['staging-player-a', new Map([['presence', 5]])],
+      ['staging-player-b', new Map([['presence', 5]])],
+      ['staging-player-c', new Map([['presence', 5]])],
+    ]);
+    presenceByPlayer = new Map([
+      ['staging-player-a', presenceRecord(7)],
+      ['staging-player-b', presenceRecord(7)],
+      ['staging-player-c', presenceRecord(7)],
+    ]);
+    await runtime.stageDirtyTasksOnce();
+    assert.equal(stagedTasks.length, 3, '三个玩家首次 presence 暂存都应产生任务');
+    for (const task of stagedTasks) {
+      const delayMs = new Date(task.nextAttemptAt).getTime() - now();
+      assert.ok(delayMs < 5_000, `首次暂存必须立即可认领，实际 delay=${delayMs}ms`);
+    }
+    const stagedCountAfterFirst = stagedTasks.length;
+
+    // 心跳型 dirty：staging-player-b 保持 epoch 7 再标记 dirty → 合并节流生效，不产生新任务。
+    dirtyDomainsByPlayer = new Map([['staging-player-b', new Map([['presence', 6]])]]);
+    await runtime.stageDirtyTasksOnce();
+    assert.equal(stagedTasks.length, stagedCountAfterFirst, '同 epoch 心跳型 dirty 必须走 30s 合并窗口');
+
+    // 重连型 dirty：staging-player-c 升到 epoch 8 → 绕过节流立即暂存，payload 携带新 epoch。
+    presenceByPlayer.set('staging-player-c', presenceRecord(8));
+    dirtyDomainsByPlayer = new Map([['staging-player-c', new Map([['presence', 7]])]]);
+    await runtime.stageDirtyTasksOnce();
+    assert.equal(stagedTasks.length, stagedCountAfterFirst + 1, '新会话 presence 必须绕过合并节流立即暂存');
+    const rebindTask = stagedTasks[stagedTasks.length - 1];
+    assert.equal(rebindTask?.playerId, 'staging-player-c');
+    assert.equal(rebindTask?.sessionEpoch, 8, '重连暂存 payload 必须携带新 session epoch');
+    const rebindDelayMs = new Date(rebindTask?.nextAttemptAt ?? '').getTime() - now();
+    assert.ok(rebindDelayMs < 5_000, `新会话 presence 必须立即可认领，实际 delay=${rebindDelayMs}ms`);
+  } finally {
+    process.env.SERVER_RUNTIME_ROLE = previousRole;
+  }
+}
+
+async function proveRuntimeNonRecoverableQuietRetry(): Promise<void> {
+  // 运行期确定性不可恢复错误（历史 payload 缺 epoch 的 incomplete fence）重试永远无法成功：
+  // 前几次按普通退避重试，超过阈值后转为低频（300s）并停止刷屏，但绝不标记 flushed 丢数据，
+  // 等待玩家再次产生 dirty 由新 staging 以更新版本覆盖。
+  const legacyProjectionTask: FlushTask = {
+    scope: 'player',
+    id: 'quiet-legacy-project',
+    domain: 'inventory',
+    priority: 'high',
+    latestRevision: 301,
+    payloadJson: {
+      kind: 'player_snapshot_projection',
+      projectedDomains: ['inventory'],
+      projectionVersion: 301,
+      runtimeOwnerId: 'rt-old',
+      sessionEpoch: null,
+      snapshot: {
+        version: 1,
+        savedAt: 301,
+        placement: { templateId: 'map-1', x: 1, y: 2 },
+        inventory: { items: [{ itemId: 'pill-q', itemInstanceId: 'inv-quiet-1' }] },
+      },
+    },
+  };
+  const legacyPresenceTask: FlushTask = {
+    scope: 'player',
+    id: 'quiet-legacy-presence',
+    domain: 'presence',
+    priority: 'high',
+    latestRevision: 302,
+    payloadJson: {
+      online: true,
+      inWorld: true,
+      runtimeOwnerId: 'rt-old',
+      sessionEpoch: null,
+      versionSeed: 302,
+    },
+  };
+  const retryDelays = new Map<string, number[]>();
+  let flushedCount = 0;
+  const runtime = new FlushTaskRuntimeService(
+    {} as never,
+    {} as never,
+    { flushPlayerDomains: async () => { throw new Error('incomplete fence 不得回退 runtime flush'); } } as never,
+    {
+      isEnabled: () => true,
+      renewFlushTaskClaim: async () => true,
+      claimReadyFlushTasks: async (input?: { scope?: string; priority?: string }) => {
+        // 只在 player 域 high 优先级认领一次，避免同一任务被其它优先级/实例域重复认领干扰次数统计。
+        if (input?.scope !== 'player' || input?.priority !== 'high') return [];
+        return [legacyProjectionTask, legacyPresenceTask];
+      },
+      markFlushTaskFlushed: async () => {
+        flushedCount += 1;
+        return true;
+      },
+      markFlushTaskRetry: async () => true,
+      markFlushTasksRetry: async (tasks: FlushTask[], delayMs: number) => {
+        for (const task of tasks) {
+          const list = retryDelays.get(task.id) ?? [];
+          list.push(delayMs);
+          retryDelays.set(task.id, list);
+        }
+        return 0;
+      },
+    } as never,
+    { signalPlayerFlush: () => undefined, signalInstanceFlush: () => undefined } as never,
+    undefined,
+    undefined,
+    {
+      isEnabled: () => true,
+      loadPlayerPresence: async () => ({ runtimeOwnerId: null, sessionEpoch: 1 }),
+      savePlayerPresence: async () => undefined,
+      savePlayerSnapshotProjectionDomainBatch: async () => {
+        throw new Error('incomplete fence 不得写入投影');
+      },
+      savePlayerSnapshotProjectionDomains: async () => undefined,
+    } as never,
+  );
+  for (let round = 0; round < 4; round += 1) {
+    assert.equal(await runtime.runOnce('non-recoverable-quiet-retry-smoke'), 0);
+  }
+
+  assert.deepEqual(
+    retryDelays.get('quiet-legacy-project'),
+    [10_000, 20_000, 40_000, 300_000],
+    '投影 incomplete fence 前 3 次普通退避，之后转为 300s 低频',
+  );
+  assert.deepEqual(
+    retryDelays.get('quiet-legacy-presence'),
+    [10_000, 20_000, 40_000, 300_000],
+    'presence incomplete fence 前 3 次普通退避，之后转为 300s 低频',
+  );
+  assert.equal(flushedCount, 0, '确定性失败不得标记 flushed 丢弃数据');
 }
 
 async function proveStartupReplayAdvancesDurableFutureFence(): Promise<void> {

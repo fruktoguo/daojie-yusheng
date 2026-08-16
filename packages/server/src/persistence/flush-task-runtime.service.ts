@@ -57,6 +57,10 @@ const PLAYER_PRESENCE_COALESCE_MS = readInt('SERVER_PLAYER_PRESENCE_FLUSH_TASK_C
 const PLAYER_LOCATION_COALESCE_MS = readInt('SERVER_PLAYER_LOCATION_FLUSH_TASK_COALESCE_MS', 'PLAYER_LOCATION_FLUSH_TASK_COALESCE_MS', 5_000, 1_000, 60_000);
 const FLUSH_WAITING_LIMIT = readInt('SERVER_FLUSH_TASK_RUNTIME_POOL_WAITING_THRESHOLD', 'FLUSH_TASK_RUNTIME_POOL_WAITING_THRESHOLD', 8, 0, 100);
 const STALE_PAYLOAD_ABANDON_THRESHOLD = readInt('SERVER_FLUSH_TASK_STALE_PAYLOAD_ABANDON_THRESHOLD', 'FLUSH_TASK_STALE_PAYLOAD_ABANDON_THRESHOLD', 10, 2, 100);
+// 确定性不可恢复的玩家 payload（如历史 incomplete fence）在运行期重试永远无法成功，
+// 只能等玩家再次产生 dirty 由新 staging 覆盖；超过阈值后改为低频重试并停止 WARN 刷屏。
+const NON_RECOVERABLE_PLAYER_RETRY_DELAY_MS = readInt('SERVER_FLUSH_TASK_NON_RECOVERABLE_RETRY_DELAY_MS', 'FLUSH_TASK_NON_RECOVERABLE_RETRY_DELAY_MS', 300_000, 30_000, 3_600_000);
+const NON_RECOVERABLE_PLAYER_QUIET_AFTER = readInt('SERVER_FLUSH_TASK_NON_RECOVERABLE_QUIET_AFTER', 'FLUSH_TASK_NON_RECOVERABLE_QUIET_AFTER', 3, 1, 100);
 const STAGING_BATCH_SIZE = readInt('SERVER_FLUSH_TASK_STAGING_BATCH_SIZE', 'FLUSH_TASK_STAGING_BATCH_SIZE', 64, 1, 512);
 const PAYLOAD_CLAIM_RENEW_TTL_MS = readInt('SERVER_FLUSH_TASK_PAYLOAD_CLAIM_TTL_MS', 'FLUSH_TASK_PAYLOAD_CLAIM_TTL_MS', 30_000, 5_000, 300_000);
 const STARTUP_PAYLOAD_REPLAY_TIMEOUT_MS = readInt('SERVER_STARTUP_PAYLOAD_REPLAY_TIMEOUT_MS', 'STARTUP_PAYLOAD_REPLAY_TIMEOUT_MS', 60_000, 5_000, 300_000);
@@ -298,6 +302,9 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
   private shutdownDrainStarted = false;
   private readonly stagedContainerRevisionByInstanceId = new Map<string, number>();
   private readonly nextPlayerStageAtByKey = new Map<string, number>();
+  // 最近一次成功暂存的 presence session epoch：session epoch 变化时必须立即可认领，
+  // 与投影任务同时就绪，避免新会话投影先于 presence 落库造成 indeterminate 围栏回滚。
+  private readonly lastStagedPresenceEpochByPlayerId = new Map<string, number>();
   private readonly nextInstanceStageAtByKey = new Map<string, number>();
   private globalBackoffUntilAt = 0;
   private nextAssetConflictRepairAt = 0;
@@ -859,7 +866,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       await this.ensurePlayerProjectionFenceForStaging(playerId, domainRevisions.keys());
       const runtimeRevision = resolveRevision(this.playerRuntimeService.getPersistenceRevision?.(playerId));
       for (const domain of Array.from(domainRevisions.keys()).sort()) {
-        if (!force && !this.shouldStagePlayerDomainNow(playerId, domain)) {
+        const presenceEpochCritical = domain === 'presence'
+          && !force
+          && this.isPresenceEpochCriticalForStaging(playerId);
+        if (!force && !presenceEpochCritical && !this.shouldStagePlayerDomainNow(playerId, domain)) {
           continue;
         }
         let domainRevision = Math.max(0, Math.trunc(Number(domainRevisions.get(domain) ?? 0)));
@@ -879,7 +889,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
           : [domain];
         const transferTracker = { remaining: taskDomains.length };
         const capturedDomainRevisions = new Map([[domain, domainRevision]]);
-        const stageDelayMs = force ? 0 : resolvePlayerStageDelayMs(domain);
+        // presence 仅在 session epoch 变化时立即暂存（与投影同时就绪），心跳型 dirty 仍走合并窗口；
+        // 节流始终按合并窗口推进，避免新会话投影先于 presence 落库造成 indeterminate 围栏整组回滚。
+        const throttleDelayMs = force ? 0 : resolvePlayerStageDelayMs(domain);
+        const stageDelayMs = force || presenceEpochCritical ? 0 : throttleDelayMs;
         for (const taskDomain of taskDomains) {
           const projectionVersion = this.nextProjectionVersion();
           const metadata: PlayerPayloadMetadata = {
@@ -893,6 +906,9 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
           if (!payload) {
             throw new Error(`player_flush_staging_payload_missing:${playerId}:${taskDomain}:${domainRevision}`);
           }
+          const stagedPresenceEpoch = taskDomain === 'presence'
+            ? normalizeInt(payload.sessionEpoch, 0, 0, Number.MAX_SAFE_INTEGER)
+            : 0;
           await enqueue({
             task: {
               scope: 'player', id: playerId, domain: taskDomain,
@@ -908,13 +924,16 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
               if (transferTracker.remaining > 0) {
                 return;
               }
+              if (stagedPresenceEpoch > 0) {
+                this.lastStagedPresenceEpochByPlayerId.set(playerId, stagedPresenceEpoch);
+              }
               this.playerRuntimeService.markPersistenceDomainsStaged?.(
                 playerId,
                 capturedDomainRevisions,
                 runtimeRevision,
                 this.stagingGenerationId,
               );
-              this.markPlayerDomainStagedAt(playerId, domain, stageDelayMs);
+              this.markPlayerDomainStagedAt(playerId, domain, throttleDelayMs);
               this.flushWakeupService.signalPlayerFlush(playerId);
             },
           });
@@ -1145,6 +1164,20 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
 
   private shouldStagePlayerDomainNow(playerId: string, domain: string): boolean {
     return Date.now() >= (this.nextPlayerStageAtByKey.get(playerStageThrottleKey(playerId, domain)) ?? 0);
+  }
+
+  /**
+   * presence 是否处于"新会话"关键状态：当前运行态 session epoch 与最近一次成功暂存不一致
+   * （重连/转移/认领会 +1）。此时 presence 必须立即可认领（绕过合并节流、nextAttemptAt=now），
+   * 与投影任务同时就绪，从根本上消除投影围栏 indeterminate 竞态；心跳型 dirty 保持合并窗口。
+   */
+  private isPresenceEpochCriticalForStaging(playerId: string): boolean {
+    const presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+    const currentEpoch = normalizeInt(presence?.sessionEpoch, 0, 0, Number.MAX_SAFE_INTEGER);
+    if (currentEpoch <= 0) {
+      return false;
+    }
+    return currentEpoch !== (this.lastStagedPresenceEpochByPlayerId.get(playerId) ?? 0);
   }
 
   private markPlayerDomainStagedAt(playerId: string, domain: string, delayMs: number): void {
@@ -1677,6 +1710,22 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     const attempt = this.bumpFailureAttempt(attemptKey);
     const retryDelayMs = resolveFlushRetryDelayMs(failure, attempt);
     const domains = Array.from(new Set(tasks.map((task) => task.domain))).sort();
+    if (isNonRecoverableReplayPlayerPayloadError(error) && attempt > NON_RECOVERABLE_PLAYER_QUIET_AFTER) {
+      // 确定性不可恢复错误（历史 payload 缺 epoch 的 incomplete fence 等）在运行期重试永远无法成功，
+      // 只能等玩家再次产生 dirty 由新 staging 以更新版本覆盖；降频重试并停止刷屏，但绝不标记 flushed 丢数据。
+      if (attempt === NON_RECOVERABLE_PLAYER_QUIET_AFTER + 1) {
+        this.logger.warn(
+          `玩家刷盘确定性失败转为低频等待新 staging 取代：playerId=${tasks[0]?.id ?? 'unknown'} domains=${domains.join(',')} attempts=${attempt} retryDelayMs=${NON_RECOVERABLE_PLAYER_RETRY_DELAY_MS} error=${formatError(error)}`,
+        );
+      } else {
+        this.logger.debug(
+          `玩家刷盘确定性失败低频重试中：playerId=${tasks[0]?.id ?? 'unknown'} domains=${domains.join(',')} attempts=${attempt}`,
+        );
+      }
+      this.recordFlushFailure('player', tasks[0]?.id ?? 'unknown', domains.join(','), failure, attempt, NON_RECOVERABLE_PLAYER_RETRY_DELAY_MS);
+      await this.flushLedgerService.markFlushTasksRetry(tasks, NON_RECOVERABLE_PLAYER_RETRY_DELAY_MS);
+      return 0;
+    }
     this.recordFlushFailure('player', tasks[0]?.id ?? 'unknown', domains.join(','), failure, attempt, retryDelayMs);
     if (failure.globalBackoffMs > 0) {
       this.applyGlobalBackoff(failure.globalBackoffMs);
