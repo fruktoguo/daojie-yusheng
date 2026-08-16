@@ -1123,7 +1123,9 @@ export class ChatUI {
   private sendBtn = document.getElementById('chat-send')!;
   /** 固定系统/战斗标签。 */
   private fixedTabs = [...this.panel.querySelectorAll<HTMLElement>('[data-chat-fixed-channel]')];
-  /** 三个自定义频道槽下拉框。 */
+  /** 三个自定义频道槽的主按钮，只负责激活当前槽位。 */
+  private slotButtons = [...this.panel.querySelectorAll<HTMLButtonElement>('[data-chat-slot-activate]')];
+  /** 三个自定义频道槽的独立下拉选择器。 */
   private slotSelects = [...this.panel.querySelectorAll<HTMLSelectElement>('[data-chat-slot-select]')];
   /** 自定义频道槽标题宿主，负责激活态和未读角标。 */
   private slotHosts = [...this.panel.querySelectorAll<HTMLElement>('[data-chat-slot-host]')];
@@ -1186,6 +1188,7 @@ export class ChatUI {
       this.input = document.getElementById('chat-input') as HTMLInputElement;
       this.sendBtn = document.getElementById('chat-send')!;
       this.fixedTabs = [...this.panel.querySelectorAll<HTMLElement>('[data-chat-fixed-channel]')];
+      this.slotButtons = [...this.panel.querySelectorAll<HTMLButtonElement>('[data-chat-slot-activate]')];
       this.slotSelects = [...this.panel.querySelectorAll<HTMLSelectElement>('[data-chat-slot-select]')];
       this.slotHosts = [...this.panel.querySelectorAll<HTMLElement>('[data-chat-slot-host]')];
       this.panes = [...this.panel.querySelectorAll<HTMLElement>('[data-chat-pane]')];
@@ -1211,18 +1214,20 @@ export class ChatUI {
       });
     });
 
-    this.slotSelects.forEach((select) => {
-      const activateSlot = (): void => {
-        const slotId = select.dataset.chatSlotSelect;
+    this.slotButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const slotId = button.dataset.chatSlotActivate;
         if (isChatChannelSlotId(slotId)) this.switchView(slotId);
-      };
-      select.addEventListener('pointerdown', activateSlot);
-      select.addEventListener('focus', activateSlot);
+      });
+    });
+
+    this.slotSelects.forEach((select) => {
       select.addEventListener('change', () => {
         const slotId = select.dataset.chatSlotSelect;
         if (!isChatChannelSlotId(slotId) || !isSelectableChatChannel(select.value)) return;
         this.slotChannels[slotId] = select.value;
         saveChatChannelSlots(this.slotChannels);
+        this.applyChannelSlotPreferences();
         this.switchView(slotId, true);
         this.patchAllUnreadBadges();
       });
@@ -1922,8 +1927,13 @@ export class ChatUI {
       const slotId = select.dataset.chatSlotSelect;
       if (!isChatChannelSlotId(slotId)) continue;
       select.value = this.slotChannels[slotId];
-      const slotNumber = CHAT_CHANNEL_SLOT_IDS.indexOf(slotId) + 1;
-      select.setAttribute('aria-label', `频道${slotNumber}，当前${this.getChannelLabel(this.slotChannels[slotId])}，切换频道`);
+      const channelLabel = this.getChannelLabel(this.slotChannels[slotId]);
+      const button = this.slotButtons.find((entry) => entry.dataset.chatSlotActivate === slotId);
+      if (button) {
+        button.textContent = channelLabel;
+        button.setAttribute('aria-label', `打开${channelLabel}频道`);
+      }
+      select.setAttribute('aria-label', `选择频道，当前${channelLabel}`);
     }
   }
 
@@ -1952,8 +1962,9 @@ export class ChatUI {
     this.slotHosts.forEach((host) => {
       host.classList.toggle('active', host.dataset.chatSlotHost === view);
     });
-    this.slotSelects.forEach((select) => {
-      select.classList.toggle('active', select.dataset.chatSlotSelect === view);
+    this.slotButtons.forEach((button) => {
+      const active = button.dataset.chatSlotActivate === view;
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
     this.panes.forEach((pane) => {
       pane.classList.toggle('active', pane.dataset.chatPane === channel);
@@ -2195,11 +2206,11 @@ export class ChatUI {
       const slotId = host.dataset.chatSlotHost;
       if (isChatChannelSlotId(slotId)) {
         const select = host.querySelector<HTMLSelectElement>('[data-chat-slot-select]');
-        if (select) {
-          const slotNumber = CHAT_CHANNEL_SLOT_IDS.indexOf(slotId) + 1;
-          const suffix = count > 0 ? `，${count} 条未读消息` : '';
-          select.setAttribute('aria-label', `频道${slotNumber}，当前${this.getChannelLabel(channel)}${suffix}，切换频道`);
-        }
+        const button = host.querySelector<HTMLButtonElement>('[data-chat-slot-activate]');
+        const channelLabel = this.getChannelLabel(channel);
+        const suffix = count > 0 ? `，${count} 条未读消息` : '';
+        select?.setAttribute('aria-label', `选择频道，当前${channelLabel}${suffix}`);
+        button?.setAttribute('aria-label', `打开${channelLabel}频道${suffix}`);
       } else if (count > 0) {
         host.setAttribute('aria-label', `${this.getChannelLabel(channel)}，${count} 条未读消息`);
       } else {

@@ -56,26 +56,73 @@
     .chat-channel-slot {
       position: relative;
       display: flex;
+      min-width: 0;
       border-right: 1px solid var(--wash-ink);
+      background: transparent;
     }
 
     .chat-channel-slot:last-child {
       border-right: none;
     }
 
-    .chat-channel-slot .chat-channel-select {
-      width: 100%;
+    .chat-channel-slot .chat-channel-main {
+      flex: 1 1 auto;
+      width: auto;
       min-width: 0;
+      overflow: hidden;
       border-right: none;
-      padding-right: 20px;
-      text-align: center;
+      padding: 10px 4px 10px 8px;
       text-overflow: ellipsis;
     }
 
-    .chat-channel-slot.active .chat-channel-select {
+    .chat-channel-picker {
+      position: relative;
+      display: grid;
+      flex: 0 0 34px;
+      min-width: 34px;
+      place-items: center;
+      border-left: 1px solid var(--wash-ink);
+      color: var(--color-role-tab-idle);
+      cursor: pointer;
+    }
+
+    .chat-channel-select {
+      position: absolute;
+      z-index: 1;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .chat-channel-caret {
+      pointer-events: none;
+      font-size: var(--font-size-12);
+      line-height: 1;
+      transform: translateY(1px);
+    }
+
+    .chat-channel-slot:hover,
+    .chat-channel-slot:focus-within {
+      background: var(--panel-tab-hover-bg);
+    }
+
+    .chat-channel-slot.active {
       color: var(--color-role-tab-active);
       background: var(--panel-tab-active-bg);
       box-shadow: inset 0 -2px 0 var(--stamp-red);
+    }
+
+    .chat-channel-slot.active .chat-channel-main,
+    .chat-channel-slot.active .chat-channel-picker {
+      color: var(--color-role-tab-active);
+    }
+
+    .chat-channel-picker:focus-within {
+      outline: 2px solid var(--stamp-red);
+      outline-offset: -2px;
     }
 
     .chat-tabs .tab-btn {
@@ -101,7 +148,7 @@
     }
 
     .chat-channel-slot .chat-tab-unread {
-      right: 4px;
+      right: 36px;
       pointer-events: none;
     }
 
@@ -362,12 +409,22 @@
 
       .chat-channel-slot {
         flex: 1 1 76px;
+        min-height: 44px;
       }
 
-      .chat-channel-slot .chat-channel-select {
+      .chat-channel-slot .chat-channel-main {
         min-height: 44px;
-        padding: 8px 18px 8px 4px;
+        padding: 8px 3px;
         font-size: var(--font-size-12);
+      }
+
+      .chat-channel-picker {
+        flex-basis: 44px;
+        min-width: 44px;
+      }
+
+      .chat-channel-slot .chat-tab-unread {
+        right: 46px;
       }
 
       .chat-compose input,

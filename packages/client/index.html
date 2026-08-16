@@ -409,24 +409,33 @@
                 <div class="section-tabs chat-tabs" aria-label="日志与聊天频道">
                   <button class="tab-btn" data-chat-fixed-channel="system" data-chat-unread-host="system" type="button" data-i18n="shell.chat-system">系统</button>
                   <button class="tab-btn" data-chat-fixed-channel="combat" data-chat-unread-host="combat" type="button" data-i18n="shell.chat-combat">战斗</button>
-                  <label class="chat-channel-slot active" data-chat-slot-host="channel-1" data-chat-unread-host="channel-1">
-                    <span class="sr-only">频道一</span>
-                    <select class="tab-btn chat-channel-select" data-chat-slot-select="channel-1" aria-label="频道一，切换频道">
-                      <option value="grudge" selected>情仇</option><option value="nearby">附近</option><option value="world">世界</option><option value="sect">宗门</option><option value="party">组队</option>
-                    </select>
-                  </label>
-                  <label class="chat-channel-slot" data-chat-slot-host="channel-2" data-chat-unread-host="channel-2">
-                    <span class="sr-only">频道二</span>
-                    <select class="tab-btn chat-channel-select" data-chat-slot-select="channel-2" aria-label="频道二，切换频道">
-                      <option value="grudge">情仇</option><option value="nearby" selected>附近</option><option value="world">世界</option><option value="sect">宗门</option><option value="party">组队</option>
-                    </select>
-                  </label>
-                  <label class="chat-channel-slot" data-chat-slot-host="channel-3" data-chat-unread-host="channel-3">
-                    <span class="sr-only">频道三</span>
-                    <select class="tab-btn chat-channel-select" data-chat-slot-select="channel-3" aria-label="频道三，切换频道">
-                      <option value="grudge">情仇</option><option value="nearby">附近</option><option value="world" selected>世界</option><option value="sect">宗门</option><option value="party">组队</option>
-                    </select>
-                  </label>
+                  <div class="chat-channel-slot active" data-chat-slot-host="channel-1" data-chat-unread-host="channel-1">
+                    <button class="tab-btn chat-channel-main" data-chat-slot-activate="channel-1" type="button" aria-label="打开情仇频道">情仇</button>
+                    <span class="chat-channel-picker">
+                      <select class="chat-channel-select" data-chat-slot-select="channel-1" aria-label="选择频道，当前情仇">
+                        <option value="grudge" selected>情仇</option><option value="nearby">附近</option><option value="world">世界</option><option value="sect">宗门</option><option value="party">组队</option>
+                      </select>
+                      <span class="chat-channel-caret" aria-hidden="true">▾</span>
+                    </span>
+                  </div>
+                  <div class="chat-channel-slot" data-chat-slot-host="channel-2" data-chat-unread-host="channel-2">
+                    <button class="tab-btn chat-channel-main" data-chat-slot-activate="channel-2" type="button" aria-label="打开附近频道">附近</button>
+                    <span class="chat-channel-picker">
+                      <select class="chat-channel-select" data-chat-slot-select="channel-2" aria-label="选择频道，当前附近">
+                        <option value="grudge">情仇</option><option value="nearby" selected>附近</option><option value="world">世界</option><option value="sect">宗门</option><option value="party">组队</option>
+                      </select>
+                      <span class="chat-channel-caret" aria-hidden="true">▾</span>
+                    </span>
+                  </div>
+                  <div class="chat-channel-slot" data-chat-slot-host="channel-3" data-chat-unread-host="channel-3">
+                    <button class="tab-btn chat-channel-main" data-chat-slot-activate="channel-3" type="button" aria-label="打开世界频道">世界</button>
+                    <span class="chat-channel-picker">
+                      <select class="chat-channel-select" data-chat-slot-select="channel-3" aria-label="选择频道，当前世界">
+                        <option value="grudge">情仇</option><option value="nearby">附近</option><option value="world" selected>世界</option><option value="sect">宗门</option><option value="party">组队</option>
+                      </select>
+                      <span class="chat-channel-caret" aria-hidden="true">▾</span>
+                    </span>
+                  </div>
                 </div>
                 <div class="section-body flush chat-log-stack">
                   <div class="chat-log-panel" data-chat-pane="system"><div class="chat-log"></div></div>

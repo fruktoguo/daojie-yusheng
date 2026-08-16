@@ -26,8 +26,6 @@ const CHANNEL_LABEL_KEYS: Record<ChatChannel, string> = {
   party: 'shell.chat-party',
 };
 
-const SLOT_LABELS = ['频道一', '频道二', '频道三'] as const;
-
 export const ChatPanel = memo(function ChatPanel() {
   return (
     <>
@@ -43,28 +41,42 @@ export const ChatPanel = memo(function ChatPanel() {
             {t(CHANNEL_LABEL_KEYS[channel], undefined)}
           </button>
         ))}
-        {CHAT_CHANNEL_SLOT_IDS.map((slotId, index) => (
-          <label
-            key={slotId}
-            className={`chat-channel-slot${slotId === DEFAULT_CHAT_CHANNEL_SLOT ? ' active' : ''}`}
-            data-chat-slot-host={slotId}
-            data-chat-unread-host={slotId}
-          >
-            <span className="sr-only">{SLOT_LABELS[index]}</span>
-            <select
-              className="tab-btn chat-channel-select"
-              data-chat-slot-select={slotId}
-              defaultValue={DEFAULT_CHAT_CHANNEL_SLOTS[slotId]}
-              aria-label={`${SLOT_LABELS[index]}，切换频道`}
+        {CHAT_CHANNEL_SLOT_IDS.map((slotId) => {
+          const defaultChannel = DEFAULT_CHAT_CHANNEL_SLOTS[slotId];
+          const defaultLabel = t(CHANNEL_LABEL_KEYS[defaultChannel], undefined);
+          return (
+            <div
+              key={slotId}
+              className={`chat-channel-slot${slotId === DEFAULT_CHAT_CHANNEL_SLOT ? ' active' : ''}`}
+              data-chat-slot-host={slotId}
+              data-chat-unread-host={slotId}
             >
-              {CHAT_SELECTABLE_CHANNELS.map((channel) => (
-                <option key={channel} value={channel}>
-                  {t(CHANNEL_LABEL_KEYS[channel], undefined)}
-                </option>
-              ))}
-            </select>
-          </label>
-        ))}
+              <button
+                className="tab-btn chat-channel-main"
+                data-chat-slot-activate={slotId}
+                type="button"
+                aria-label={`打开${defaultLabel}频道`}
+              >
+                {defaultLabel}
+              </button>
+              <span className="chat-channel-picker">
+                <select
+                  className="chat-channel-select"
+                  data-chat-slot-select={slotId}
+                  defaultValue={defaultChannel}
+                  aria-label={`选择频道，当前${defaultLabel}`}
+                >
+                  {CHAT_SELECTABLE_CHANNELS.map((channel) => (
+                    <option key={channel} value={channel}>
+                      {t(CHANNEL_LABEL_KEYS[channel], undefined)}
+                    </option>
+                  ))}
+                </select>
+                <span className="chat-channel-caret" aria-hidden="true">▾</span>
+              </span>
+            </div>
+          );
+        })}
       </div>
       <div className="section-body flush chat-log-stack" data-react-chat-log-stack="true">
         {CHAT_CHANNELS.map((channel) => (
