@@ -26,6 +26,7 @@
     "smoke:outbox-dispatcher-backoff": "pnpm compile && node dist/tools/outbox-dispatcher-backoff-smoke.js",
     "smoke:flush-task-runtime": "pnpm compile && node dist/tools/flush-task-runtime-smoke.js",
     "smoke:flush-task-noop-retry": "pnpm compile && node dist/tools/flush-task-noop-retry-smoke.js",
+    "smoke:flush-task-startup-stall-quarantine": "pnpm compile && node dist/tools/flush-task-startup-stall-quarantine-smoke.js",
     "smoke:flush-task-worker-db": "pnpm compile && node dist/tools/flush-task-worker-db-smoke.js",
     "smoke:flush-ledger-retention": "pnpm compile && node dist/tools/flush-ledger-retention-smoke.js",
     "smoke:flush-staging-schema": "pnpm compile && node dist/tools/flush-staging-schema-smoke.js",

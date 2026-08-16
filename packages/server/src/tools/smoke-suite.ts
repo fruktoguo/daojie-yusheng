@@ -268,6 +268,7 @@ const smokeCases = [
   { name: 'outbox-dispatcher-worker', scriptFile: 'outbox-dispatcher-worker-smoke.js', standalone: true },
   { name: 'flush-task-runtime', scriptFile: 'flush-task-runtime-smoke.js', standalone: true },
   { name: 'flush-task-noop-retry', scriptFile: 'flush-task-noop-retry-smoke.js', standalone: true },
+  { name: 'flush-task-startup-stall-quarantine', scriptFile: 'flush-task-startup-stall-quarantine-smoke.js', standalone: true },
   { name: 'flush-pool-backpressure', scriptFile: 'flush-pool-backpressure-smoke.js', standalone: true },
   { name: 'flush-independent-persistence', scriptFile: 'flush-independent-persistence-smoke.js', standalone: true },
   { name: 'snapshot-retirement', scriptFile: 'snapshot-retirement-report-smoke.js', standalone: true },
@@ -394,6 +395,7 @@ const SMOKE_CASE_GROUPS = Object.freeze({
     'outbox-dispatcher-worker',
     'flush-task-runtime',
     'flush-task-noop-retry',
+    'flush-task-startup-stall-quarantine',
     'flush-pool-backpressure',
     'flush-independent-persistence',
     'durable-operation',
@@ -426,6 +428,7 @@ const DB_SMOKE_CASES = new Set([
     'tile-resource-use-durable',
     'gm-database',
     'shutdown-drain',
+    'flush-task-startup-stall-quarantine',
 ]);
 const PARALLEL_STANDALONE_CASES = new Set([
     'snapshot-retirement',

@@ -28,10 +28,29 @@ import {
 const PLAYER_FLUSH_LEDGER_TABLE = 'player_flush_ledger';
 const INSTANCE_FLUSH_LEDGER_TABLE = 'instance_flush_ledger';
 export const PLAYER_FLUSH_ASSET_CONFLICT_QUARANTINE = 'startup_asset_conflict';
+export const PLAYER_FLUSH_STARTUP_STALL_QUARANTINE = 'startup_deterministic_stall';
+/**
+ * 启动期隔离类别全集：隔离行不会被 claim/count 视为 pending，
+ * 等待人工核对数据后显式解除（failure_category 置 NULL）。
+ */
+const PLAYER_FLUSH_QUARANTINE_CATEGORIES = [
+  PLAYER_FLUSH_ASSET_CONFLICT_QUARANTINE,
+  PLAYER_FLUSH_STARTUP_STALL_QUARANTINE,
+] as const;
+const PLAYER_FLUSH_QUARANTINE_CATEGORIES_SQL = PLAYER_FLUSH_QUARANTINE_CATEGORIES
+  .map((category) => `'${category}'`)
+  .join(', ');
 const PLAYER_FLUSH_NOT_QUARANTINED_SQL = `(
   failure_category IS NULL
-  OR failure_category <> '${PLAYER_FLUSH_ASSET_CONFLICT_QUARANTINE}'
+  OR failure_category NOT IN (${PLAYER_FLUSH_QUARANTINE_CATEGORIES_SQL})
 )`;
+
+function buildNotQuarantinedFilterSql(alias: string): string {
+  return `(
+    ${alias}.failure_category IS NULL
+    OR ${alias}.failure_category NOT IN (${PLAYER_FLUSH_QUARANTINE_CATEGORIES_SQL})
+  )`;
+}
 const FLUSH_LEDGER_LOCK_NAMESPACE = 42871;
 const FLUSH_LEDGER_LOCK_KEY = 4001;
 const PLAYER_FLUSH_GROUP_CLAIM_LOCK_NAMESPACE = 42872;
@@ -270,10 +289,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     const candidateFilters = [
       'candidate.latest_version > candidate.flushed_version',
       '(candidate.claim_until IS NULL OR candidate.claim_until < now())',
-      `(
-        candidate.failure_category IS NULL
-        OR candidate.failure_category <> '${PLAYER_FLUSH_ASSET_CONFLICT_QUARANTINE}'
-      )`,
+      buildNotQuarantinedFilterSql('candidate'),
     ];
     if (input.includeDelayed !== true) {
       candidateFilters.push('(COALESCE(candidate.next_attempt_at, candidate.retry_after) IS NULL OR COALESCE(candidate.next_attempt_at, candidate.retry_after) <= now())');
@@ -358,10 +374,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
           INNER JOIN locked_players ON locked_players.player_id = ledger.player_id
           WHERE ledger.latest_version > ledger.flushed_version
             AND (ledger.claim_until IS NULL OR ledger.claim_until < now())
-            AND (
-              ledger.failure_category IS NULL
-              OR ledger.failure_category <> '${PLAYER_FLUSH_ASSET_CONFLICT_QUARANTINE}'
-            )
+            AND ${buildNotQuarantinedFilterSql('ledger')}
             ${claimedPayloadFilter}
             ${claimedDomainFilter}
           ORDER BY ledger.player_id ASC, ledger.domain ASC
@@ -650,12 +663,30 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * 隔离无法自动裁定归属的玩家资产 payload。
+   * 隔离无法自动裁定归属的玩家资产 payload（启动期资产冲突）。
    *
    * 这里只释放 claim 并记录失败分类，不推进 flushed_version、也不清除 payload；
    * 后续启动重放和普通 worker 会跳过这些行，等待 GM 核对资产归属后显式处理。
    */
   async quarantinePlayerFlushTasksForAssetConflict(tasks: FlushTask[]): Promise<number> {
+    return this.quarantinePlayerFlushTasks(tasks, PLAYER_FLUSH_ASSET_CONFLICT_QUARANTINE);
+  }
+
+  /**
+   * 隔离启动重放中确定性不可恢复的玩家 payload（数据不一致/非法载荷等）。
+   *
+   * 与资产冲突隔离共用同一套语义：释放 claim、标记 failure_category、不清 payload、
+   * 不再参与 pending 计数与认领，等待人工核对数据后解除隔离；
+   * 玩家在线产生更新版本 payload 时，upsert 会以新真源覆盖隔离标记自动放行。
+   */
+  async quarantinePlayerFlushTasksForStartupFailure(tasks: FlushTask[]): Promise<number> {
+    return this.quarantinePlayerFlushTasks(tasks, PLAYER_FLUSH_STARTUP_STALL_QUARANTINE);
+  }
+
+  private async quarantinePlayerFlushTasks(
+    tasks: FlushTask[],
+    failureCategory: string,
+  ): Promise<number> {
     if (!this.pool || !this.enabled || tasks.length === 0) {
       return 0;
     }
@@ -700,7 +731,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
           claim_owner_id: task.claimOwnerId,
           fencing_token: task.fencingToken ?? null,
         }))),
-        PLAYER_FLUSH_ASSET_CONFLICT_QUARANTINE,
+        failureCategory,
       ],
     );
     return result.rowCount ?? 0;

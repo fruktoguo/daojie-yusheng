@@ -100,6 +100,38 @@ export function resolveFlushRetryDelayMs(failure: ClassifiedFlushFailure, attemp
   return Math.min(failure.retryMaxDelayMs, exponential);
 }
 
+/**
+ * 启动期 durable payload 重放中判定"确定性不可恢复"的玩家数据错误。
+ *
+ * 这类错误重试永远无法成功（payload 与数据库投影/运行时 fence 不一致、payload 结构非法、
+ * 空覆盖守卫拒绝等），若在启动重放中按普通失败重试，会导致 pending 永不消减、
+ * durable_payload_replay_stalled 直接阻断整个服务端启动（单玩家数据坏 → 全服不可用）。
+ *
+ * 判定规则：
+ * - 既有三类 fence 不完整错误（payload 缺 owner/epoch 且无法裁定）→ 确定性不可恢复；
+ * - 失败分类为 invariantViolation 且属于数据类（空覆盖守卫 / 非法载荷 / 唯一约束冲突 /
+ *   不支持的领域）→ 确定性不可恢复；
+ * - 环境类错误（连接超时、死锁/序列化、租约失效、未知）→ 可重试，不算不可恢复。
+ */
+export function isNonRecoverableReplayPlayerPayloadError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const message = error.message;
+  if (message.startsWith('player_snapshot_projection_incomplete_fence:')
+    || message.startsWith('player_snapshot_projection_presence_loader_unavailable:')
+    || message.startsWith('player_presence_incomplete_fence:')) {
+    return true;
+  }
+  const failure = classifyFlushFailure(error);
+  return failure.invariantViolation === true && (
+    failure.category === 'empty_overwrite_guard'
+    || failure.category === 'invalid_payload'
+    || failure.category === 'unique_or_constraint_conflict'
+    || failure.category === 'unsupported_domain'
+  );
+}
+
 function buildFailure(
   category: FlushFailureCategory,
   message: string,

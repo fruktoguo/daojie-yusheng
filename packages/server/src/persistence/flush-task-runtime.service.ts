@@ -16,7 +16,7 @@ import { FlushLedgerService, type FlushTaskUpsertIdentity, type FlushTaskUpsertR
 import { FlushWakeupService } from './flush-wakeup.service';
 import { isFlushTaskConsumerMode, isInlineFlushTaskRuntimeMode } from './flush-task-runtime-mode';
 import type { FlushTask, FlushTaskPriority, FlushTaskScope } from './flush-task.types';
-import { classifyFlushFailure, resolveFlushRetryDelayMs } from './flush-failure-policy';
+import { classifyFlushFailure, isNonRecoverableReplayPlayerPayloadError, resolveFlushRetryDelayMs } from './flush-failure-policy';
 import { FlushDiagnosticsService } from './flush-diagnostics.service';
 import { InstanceCatalogService } from './instance-catalog.service';
 import type { BuildingRoomFengShuiPersistenceDomain } from './instance-domain-persistence.service';
@@ -1238,8 +1238,11 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
             results[index] = quarantined;
             return;
           }
-          if (options.failFastDeterministicPayload === true && isDeterministicReplayPlayerPayloadError(error)) {
-            throw error;
+          if (options.failFastDeterministicPayload === true && isNonRecoverableReplayPlayerPayloadError(error)) {
+            // 启动重放中的确定性数据错误重试永远无法成功；隔离该玩家整组 payload 并继续启动，
+            // 避免单玩家数据不一致导致 durable_payload_replay_stalled 阻断整个服务端启动。
+            results[index] = await this.quarantinePlayerStartupStall(group, error);
+            return;
           }
           results[index] = await this.retryPlayerTaskGroup(group, error);
         }
@@ -1661,6 +1664,34 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       `启动重放已隔离无法证明的功法领悟空删除 payload：playerId=${techniqueTask.id}，保留 player_technique_comprehension 数据库真源并继续启动`,
     );
     return 1;
+  }
+
+  /**
+   * 启动重放遇到确定性不可恢复的玩家数据错误时，隔离该玩家整组 durable payload 并继续启动。
+   *
+   * 隔离语义与资产冲突隔离一致：释放 claim、标记 failure_category=startup_deterministic_stall、
+   * 保留 payload 与数据库现状，后续启动重放与普通 worker 均跳过这些行；
+   * 玩家在线产生更新版本 payload 时由 upsert 以新真源覆盖隔离标记自动放行。
+   */
+  private async quarantinePlayerStartupStall(tasks: FlushTask[], error: unknown): Promise<number> {
+    if (tasks.length === 0) {
+      return 0;
+    }
+    const playerId = tasks[0]?.id ?? 'unknown';
+    const domains = Array.from(new Set(tasks.map((task) => task.domain))).sort();
+    const failure = classifyFlushFailure(error);
+    const quarantined = await this.flushLedgerService.quarantinePlayerFlushTasksForStartupFailure(tasks);
+    if (quarantined !== tasks.length) {
+      throw new Error(
+        `player_startup_stall_quarantine_incomplete:playerId=${playerId}:updated=${quarantined}:expected=${tasks.length}`,
+      );
+    }
+    this.recordFlushFailure('player', playerId, domains.join(','), failure, 1, 0);
+    this.failureAttempts.delete(playerGroupKey(tasks));
+    this.logger.error(
+      `启动重放已隔离确定性不可恢复的玩家 payload：playerId=${playerId} domains=${domains.join(',')} category=${failure.category} error=${formatError(error)}；保留 durable payload 与数据库现状，需人工核对数据后解除隔离（failure_category 置 NULL）`,
+    );
+    return tasks.length;
   }
 
   private async quarantineInventoryOwnershipConflict(
@@ -2375,15 +2406,6 @@ function isPayloadRevisionCurrent(
 
 function isStaleGroundItemStatePayloadError(error: unknown): boolean {
   return error instanceof Error && error.message.startsWith('stale_ground_item_state_payload:');
-}
-
-function isDeterministicReplayPlayerPayloadError(error: unknown): boolean {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-  return error.message.startsWith('player_snapshot_projection_incomplete_fence:')
-    || error.message.startsWith('player_snapshot_projection_presence_loader_unavailable:')
-    || error.message.startsWith('player_presence_incomplete_fence:');
 }
 
 function normalizeOptionalRevision(value: unknown): number | undefined {
