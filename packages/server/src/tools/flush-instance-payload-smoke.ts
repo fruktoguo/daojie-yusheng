@@ -67,13 +67,14 @@ async function main(): Promise<void> {
     assert.equal(savedWatermarks.length, 1);
     assert.equal(flushed.length, 1);
     await verifySupersededGroundPayloadStopsBeforeWatermark();
+    await verifyStartupReplayQuarantinesBadInstancePayload();
   } finally {
     restoreEnv('SERVER_RUNTIME_ROLE', previousRole);
     restoreEnv('SERVER_FLUSH_TASK_RUNTIME_MODE', previousMode);
   }
   console.log(JSON.stringify({
     ok: true,
-    answers: '实例 tile_damage/tile_resource 可从 staging delta payload 写入批量持久化 API；ground_item 会透传精确 ledger claim，writer 判定旧 payload 已被取代时不推进实例 watermark 或运行态 persisted 标记。',
+    answers: '实例 tile_damage/tile_resource 可从 staging delta payload 写入批量持久化 API；ground_item 会透传精确 ledger claim，writer 判定旧 payload 已被取代时不推进实例 watermark 或运行态 persisted 标记；启动回放遇到格式/领域不支持的实例 payload 会隔离并继续，不再让单条坏数据阻断服务启动。',
     excludes: '不证明 time/monster_runtime/fengshui/overlay/room/building，也不替代真实 DB ground/container 竞争证明。',
     completionMapping: 'flush-instance-delta-payload',
   }, null, 2));
@@ -151,6 +152,61 @@ async function verifySupersededGroundPayloadStopsBeforeWatermark(): Promise<void
   assert.equal(processed, 0);
   assert.equal(markAttempts, 1);
   assert.equal(watermarkWrites, 0);
+}
+
+async function verifyStartupReplayQuarantinesBadInstancePayload(): Promise<void> {
+  const badTask: FlushTask = {
+    scope: 'instance',
+    id: 'instance-bad-startup-payload',
+    domain: 'legacy_domain',
+    priority: 'high',
+    latestRevision: 31,
+    ownershipEpoch: 9,
+    claimOwnerId: 'startup-replay-worker:claim',
+    fencingToken: 'startup-replay-fence',
+    payloadJson: {
+      kind: 'instance_domain_state',
+      domain: 'legacy_domain',
+      payload: { legacy: true },
+      revision: 31,
+    },
+  };
+  let pending = 1;
+  let claimed = false;
+  const quarantined: FlushTask[] = [];
+  let retried = 0;
+  const runtime = new FlushTaskRuntimeService(
+    {} as never,
+    { instanceDomainPersistenceService: {} } as never,
+    { flushPlayerDomains: async () => false } as never,
+    {
+      isEnabled: () => true,
+      countPendingPayloadTasks: async (input?: { scope?: string | null }) => (
+        input?.scope === 'player' ? 0 : pending
+      ),
+      claimReadyPlayerFlushTaskGroups: async () => [],
+      claimReadyFlushTasks: async (input: { scope: string }) => {
+        if (input.scope !== 'instance' || claimed || pending <= 0) return [];
+        claimed = true;
+        return [badTask];
+      },
+      quarantineInstanceFlushTasksForStartupFailure: async (tasks: FlushTask[]) => {
+        quarantined.push(...tasks);
+        pending = 0;
+        return tasks.length;
+      },
+      markFlushTasksRetry: async () => { retried += 1; return 0; },
+      markFlushTaskRetry: async () => { retried += 1; return false; },
+    } as never,
+    { signalPlayerFlush: () => undefined, signalInstanceFlush: () => undefined } as never,
+  );
+
+  const processed = await runtime.replayDurablePayloadsBeforeRecovery({ timeoutMs: 5_000 });
+  assert.equal(processed, 1);
+  assert.equal(pending, 0);
+  assert.equal(quarantined.length, 1);
+  assert.equal(quarantined[0]?.id, badTask.id);
+  assert.equal(retried, 0);
 }
 
 function restoreEnv(name: string, value: string | undefined): void {

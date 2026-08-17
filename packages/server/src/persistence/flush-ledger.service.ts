@@ -29,6 +29,7 @@ const PLAYER_FLUSH_LEDGER_TABLE = 'player_flush_ledger';
 const INSTANCE_FLUSH_LEDGER_TABLE = 'instance_flush_ledger';
 export const PLAYER_FLUSH_ASSET_CONFLICT_QUARANTINE = 'startup_asset_conflict';
 export const PLAYER_FLUSH_STARTUP_STALL_QUARANTINE = 'startup_deterministic_stall';
+export const INSTANCE_FLUSH_STARTUP_STALL_QUARANTINE = 'startup_deterministic_stall';
 /**
  * 启动期隔离类别全集：隔离行不会被 claim/count 视为 pending，
  * 等待人工核对数据后显式解除（failure_category 置 NULL）。
@@ -37,12 +38,22 @@ const PLAYER_FLUSH_QUARANTINE_CATEGORIES = [
   PLAYER_FLUSH_ASSET_CONFLICT_QUARANTINE,
   PLAYER_FLUSH_STARTUP_STALL_QUARANTINE,
 ] as const;
+const INSTANCE_FLUSH_QUARANTINE_CATEGORIES = [
+  INSTANCE_FLUSH_STARTUP_STALL_QUARANTINE,
+] as const;
 const PLAYER_FLUSH_QUARANTINE_CATEGORIES_SQL = PLAYER_FLUSH_QUARANTINE_CATEGORIES
+  .map((category) => `'${category}'`)
+  .join(', ');
+const INSTANCE_FLUSH_QUARANTINE_CATEGORIES_SQL = INSTANCE_FLUSH_QUARANTINE_CATEGORIES
   .map((category) => `'${category}'`)
   .join(', ');
 const PLAYER_FLUSH_NOT_QUARANTINED_SQL = `(
   failure_category IS NULL
   OR failure_category NOT IN (${PLAYER_FLUSH_QUARANTINE_CATEGORIES_SQL})
+)`;
+const INSTANCE_FLUSH_NOT_QUARANTINED_SQL = `(
+  failure_category IS NULL
+  OR failure_category NOT IN (${INSTANCE_FLUSH_QUARANTINE_CATEGORIES_SQL})
 )`;
 
 function buildNotQuarantinedFilterSql(alias: string): string {
@@ -683,6 +694,65 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     return this.quarantinePlayerFlushTasks(tasks, PLAYER_FLUSH_STARTUP_STALL_QUARANTINE);
   }
 
+  /**
+   * 隔离启动重放中确定性不可恢复的实例 payload（格式/领域不一致等）。
+   *
+   * 只释放 claim 并记录失败分类，不推进 flushed_version、不清 payload；
+   * 后续启动重放和普通 worker 均跳过这些行，等待 GM 核对或新版本 payload 覆盖。
+   */
+  async quarantineInstanceFlushTasksForStartupFailure(tasks: FlushTask[]): Promise<number> {
+    if (!this.pool || !this.enabled || tasks.length === 0) {
+      return 0;
+    }
+    const instanceTasks = dedupeClaimedFlushTasks(tasks).filter((task) => task.scope === 'instance');
+    if (instanceTasks.length === 0) {
+      return 0;
+    }
+    const sql = [
+      'WITH input AS MATERIALIZED (',
+      '  SELECT * FROM jsonb_to_recordset($1::jsonb) AS claimed(',
+      '    instance_id varchar(100), domain varchar(64), ownership_epoch bigint,',
+      '    claim_owner_id varchar(120), fencing_token varchar(120)',
+      '  )',
+      '), locked AS MATERIALIZED (',
+      '  SELECT ledger.instance_id, ledger.domain, ledger.ownership_epoch',
+      '  FROM ' + INSTANCE_FLUSH_LEDGER_TABLE + ' ledger',
+      '  INNER JOIN input',
+      '    ON input.instance_id = ledger.instance_id',
+      '   AND input.domain = ledger.domain',
+      '   AND input.ownership_epoch = ledger.ownership_epoch',
+      '  WHERE ledger.claimed_by = input.claim_owner_id',
+      '    AND ledger.fencing_token IS NOT DISTINCT FROM input.fencing_token',
+      '    AND ledger.latest_version > ledger.flushed_version',
+      '    AND ledger.payload_jsonb IS NOT NULL',
+      '  ORDER BY ledger.instance_id ASC, ledger.domain ASC, ledger.ownership_epoch ASC',
+      '  FOR UPDATE OF ledger',
+      ')',
+      'UPDATE ' + INSTANCE_FLUSH_LEDGER_TABLE + ' ledger',
+      'SET failure_category = $2,',
+      '    claimed_by = NULL,',
+      '    claim_until = NULL,',
+      '    next_attempt_at = NULL,',
+      '    retry_after = NULL,',
+      '    updated_at = now()',
+      'FROM locked',
+      'WHERE ledger.instance_id = locked.instance_id',
+      '  AND ledger.domain = locked.domain',
+      '  AND ledger.ownership_epoch = locked.ownership_epoch',
+    ].join(String.fromCharCode(10));
+    const result = await this.pool.query(sql, [
+      JSON.stringify(instanceTasks.map((task) => ({
+        instance_id: task.id,
+        domain: task.domain,
+        ownership_epoch: normalizePositiveInteger(task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER),
+        claim_owner_id: task.claimOwnerId,
+        fencing_token: task.fencingToken ?? null,
+      }))),
+      INSTANCE_FLUSH_STARTUP_STALL_QUARANTINE,
+    ]);
+    return result.rowCount ?? 0;
+  }
+
   private async quarantinePlayerFlushTasks(
     tasks: FlushTask[],
     failureCategory: string,
@@ -1190,7 +1260,11 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
       `);
     }
     if (scope !== 'player') {
-      const filters = ['latest_version > flushed_version', 'payload_jsonb IS NOT NULL'];
+      const filters = [
+        'latest_version > flushed_version',
+        'payload_jsonb IS NOT NULL',
+        INSTANCE_FLUSH_NOT_QUARANTINED_SQL,
+      ];
       if (id) {
         params.push(id);
         filters.push(`instance_id = $${params.length}`);
@@ -1579,7 +1653,11 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     const claimTtlMs = resolveFlushTaskClaimTtlMs(input.claimTtlMs);
     const limit = normalizePositiveInteger(input.limit, 32, 1, 5_000);
     const queryParams: Array<string | number> = [claimOwnerId, claimTtlMs];
-    const filters = ['latest_version > flushed_version', '(claim_until IS NULL OR claim_until < now())'];
+    const filters = [
+      'latest_version > flushed_version',
+      '(claim_until IS NULL OR claim_until < now())',
+      INSTANCE_FLUSH_NOT_QUARANTINED_SQL,
+    ];
     if (input.includeDelayed !== true) {
       filters.push('(COALESCE(next_attempt_at, retry_after) IS NULL OR COALESCE(next_attempt_at, retry_after) <= now())');
     }

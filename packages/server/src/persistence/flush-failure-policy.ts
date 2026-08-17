@@ -78,17 +78,24 @@ export function classifyFlushFailure(error: unknown): ClassifiedFlushFailure {
   }
 
   if (
+    normalized.includes('unsupported')
+    || normalized.includes('player_domain_delta_required')
+  ) {
+    return buildFailure('unsupported_domain', message, code, 60_000, 600_000, 0, true);
+  }
+
+  if (
     normalized.includes('invalid')
+    || normalized.includes('unparseable')
+    || normalized.includes('domain_mismatch')
+    || normalized.includes('startup_player_payload')
+    || normalized.includes('startup_instance_payload')
     || normalized.includes('非法')
     || normalized.includes('拒绝写入')
     || normalized.includes('duplicate item_instance_id')
     || normalized.includes('duplicate slot')
   ) {
     return buildFailure('invalid_payload', message, code, 60_000, 900_000, 0, true);
-  }
-
-  if (normalized.includes('player_domain_delta_required')) {
-    return buildFailure('unsupported_domain', message, code, 60_000, 600_000, 0, true);
   }
 
   return buildFailure('unknown', message, code, 10_000, 300_000, 0, false);
@@ -127,6 +134,26 @@ export function isNonRecoverableReplayPlayerPayloadError(error: unknown): boolea
   return failure.invariantViolation === true && (
     failure.category === 'empty_overwrite_guard'
     || failure.category === 'invalid_payload'
+    || failure.category === 'unique_or_constraint_conflict'
+    || failure.category === 'unsupported_domain'
+  );
+}
+
+export function isNonRecoverableReplayInstancePayloadError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const message = error.message;
+  if (message.startsWith('startup_instance_payload_unparseable:')
+    || message.startsWith('startup_instance_payload_domain_mismatch:')
+    || message.startsWith('startup_instance_state_payload_unsupported:')
+    || message.startsWith('startup_instance_delta_payload_unsupported:')
+    || message.startsWith('unsupported_instance_state_payload:')) {
+    return true;
+  }
+  const failure = classifyFlushFailure(error);
+  return failure.invariantViolation === true && (
+    failure.category === 'invalid_payload'
     || failure.category === 'unique_or_constraint_conflict'
     || failure.category === 'unsupported_domain'
   );

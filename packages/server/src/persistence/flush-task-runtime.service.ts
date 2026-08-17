@@ -16,7 +16,7 @@ import { FlushLedgerService, type FlushTaskUpsertIdentity, type FlushTaskUpsertR
 import { FlushWakeupService } from './flush-wakeup.service';
 import { isFlushTaskConsumerMode, isInlineFlushTaskRuntimeMode } from './flush-task-runtime-mode';
 import type { FlushTask, FlushTaskPriority, FlushTaskScope } from './flush-task.types';
-import { classifyFlushFailure, isNonRecoverableReplayPlayerPayloadError, resolveFlushRetryDelayMs } from './flush-failure-policy';
+import { classifyFlushFailure, isNonRecoverableReplayInstancePayloadError, isNonRecoverableReplayPlayerPayloadError, resolveFlushRetryDelayMs } from './flush-failure-policy';
 import { FlushDiagnosticsService } from './flush-diagnostics.service';
 import { InstanceCatalogService } from './instance-catalog.service';
 import type { BuildingRoomFengShuiPersistenceDomain } from './instance-domain-persistence.service';
@@ -577,18 +577,21 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         payloadRequired: true,
         includeDelayed: true,
       });
-      assertReplayablePlayerPayloads(playerTasks);
-      assertReplayableInstancePayloads(instanceTasks);
+      const playerReplay = await this.quarantineNonReplayablePlayerStartupPayloads(playerTasks);
+      const instanceReplay = await this.quarantineNonReplayableInstanceStartupPayloads(instanceTasks);
+      const replayablePlayerTasks = playerReplay.tasks;
+      const replayableInstanceTasks = instanceReplay.tasks;
       const claimedCount = playerTasks.length + instanceTasks.length;
-      if (playerTasks.length > 0) {
-        processedTotal += await this.processPlayerTasks(playerTasks, {
+      processedTotal += playerReplay.quarantined + instanceReplay.quarantined;
+      if (replayablePlayerTasks.length > 0) {
+        processedTotal += await this.processPlayerTasks(replayablePlayerTasks, {
           failFastDeterministicPayload: true,
           preserveTechniqueComprehensionTruthOnEmptyOverwrite: true,
           allowOfflineAssetConflictFenceRebase: options.allowOfflineAssetConflictFenceRebase === true,
         });
       }
-      if (instanceTasks.length > 0) {
-        processedTotal += await this.processInstanceTasks(instanceTasks);
+      if (replayableInstanceTasks.length > 0) {
+        processedTotal += await this.processInstanceTasks(replayableInstanceTasks, { failFastDeterministicPayload: true });
       }
       if (!instanceId) {
         // 本轮可能刚把新的跨玩家实例冲突隔离；立即尝试一次安全换 ID，避免把它
@@ -642,9 +645,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         payloadRequired: true,
         includeDelayed: true,
       });
-      assertReplayablePlayerPayloads(tasks);
-      if (tasks.length > 0) {
-        processedTotal += await this.processPlayerTasks(tasks, { failFastDeterministicPayload: true });
+      const replay = await this.quarantineNonReplayablePlayerStartupPayloads(tasks);
+      processedTotal += replay.quarantined;
+      if (replay.tasks.length > 0) {
+        processedTotal += await this.processPlayerTasks(replay.tasks, { failFastDeterministicPayload: true });
       }
       const pendingAfter = await this.flushLedgerService.countPendingPayloadTasks(countFilter);
       if (pendingAfter <= 0) {
@@ -660,6 +664,54 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       }
       await waitForReplayPoll(STARTUP_PAYLOAD_REPLAY_POLL_MS);
     }
+  }
+
+
+  private async quarantineNonReplayablePlayerStartupPayloads(tasks: FlushTask[]): Promise<{
+    tasks: FlushTask[];
+    quarantined: number;
+  }> {
+    const replayable: FlushTask[] = [];
+    const invalidByPlayer = new Map<string, { tasks: FlushTask[]; error: Error }>();
+    for (const task of tasks) {
+      const error = findNonReplayablePlayerPayloadError(task);
+      if (!error) {
+        replayable.push(task);
+        continue;
+      }
+      const group = invalidByPlayer.get(task.id) ?? { tasks: [], error };
+      group.tasks.push(task);
+      invalidByPlayer.set(task.id, group);
+    }
+    let quarantined = 0;
+    for (const group of invalidByPlayer.values()) {
+      quarantined += await this.quarantinePlayerStartupStall(group.tasks, group.error);
+    }
+    return { tasks: replayable, quarantined };
+  }
+
+  private async quarantineNonReplayableInstanceStartupPayloads(tasks: FlushTask[]): Promise<{
+    tasks: FlushTask[];
+    quarantined: number;
+  }> {
+    const replayable: FlushTask[] = [];
+    const invalidByInstance = new Map<string, { tasks: FlushTask[]; error: Error }>();
+    for (const task of tasks) {
+      const error = findNonReplayableInstancePayloadError(task);
+      if (!error) {
+        replayable.push(task);
+        continue;
+      }
+      const key = task.id + ':' + String(task.ownershipEpoch ?? 0);
+      const group = invalidByInstance.get(key) ?? { tasks: [], error };
+      group.tasks.push(task);
+      invalidByInstance.set(key, group);
+    }
+    let quarantined = 0;
+    for (const group of invalidByInstance.values()) {
+      quarantined += await this.quarantineInstanceStartupStall(group.tasks, group.error);
+    }
+    return { tasks: replayable, quarantined };
   }
 
   private async runStagingCycle(options?: { bypassFlushBarrier?: boolean }): Promise<number> {
@@ -1685,7 +1737,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     return await loader.call(this.playerDomainPersistenceService, playerId);
   }
 
-  private async processInstanceTasks(tasks: FlushTask[]): Promise<number> {
+  private async processInstanceTasks(
+    tasks: FlushTask[],
+    options: { failFastDeterministicPayload?: boolean } = {},
+  ): Promise<number> {
     const remaining = new Map(tasks.map((task) => [instanceTaskKey(task), task]));
     const batchProcessed = await this.processBatchableInstanceTasks(tasks, remaining);
     const groups = Array.from(groupInstanceTasksByRuntime(remaining.values()).values());
@@ -1695,7 +1750,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       indexedGroups,
       INSTANCE_PARALLELISM,
       async ({ group, index }) => {
-        results[index] = await this.processInstanceTaskGroup(group);
+        results[index] = await this.processInstanceTaskGroup(group, options);
       },
     );
     return batchProcessed + sumProcessedCounts(results);
@@ -1804,6 +1859,42 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     return tasks.length;
   }
 
+
+  private async quarantineInstanceStartupStall(tasks: FlushTask[], error: unknown): Promise<number> {
+    if (tasks.length === 0) {
+      return 0;
+    }
+    const instanceId = tasks[0]?.id ?? 'unknown';
+    const domains = Array.from(new Set(tasks.map((task) => task.domain))).sort();
+    const failure = classifyFlushFailure(error);
+    const quarantine = (this.flushLedgerService as FlushLedgerService & {
+      quarantineInstanceFlushTasksForStartupFailure?: (targetTasks: FlushTask[]) => Promise<number>;
+    }).quarantineInstanceFlushTasksForStartupFailure;
+    if (typeof quarantine !== 'function') {
+      throw new Error('instance_startup_stall_quarantine_unavailable:instanceId=' + instanceId);
+    }
+    const quarantined = await quarantine.call(this.flushLedgerService, tasks);
+    if (quarantined !== tasks.length) {
+      throw new Error(
+        'instance_startup_stall_quarantine_incomplete:instanceId=' + instanceId
+        + ':updated=' + String(quarantined)
+        + ':expected=' + String(tasks.length),
+      );
+    }
+    this.recordFlushFailure('instance', instanceId, domains.join(','), failure, 1, 0);
+    for (const task of tasks) {
+      this.failureAttempts.delete(instanceTaskKey(task));
+    }
+    this.logger.error(
+      '启动重放已隔离确定性不可恢复的实例 payload：instanceId=' + instanceId
+      + ' domains=' + domains.join(',')
+      + ' category=' + failure.category
+      + ' error=' + formatError(error)
+      + '；保留 durable payload 与数据库现状，需人工核对数据后解除隔离（failure_category 置 NULL）',
+    );
+    return tasks.length;
+  }
+
   private async quarantineInventoryOwnershipConflict(
     tasks: FlushTask[],
     error: unknown,
@@ -1875,7 +1966,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async processInstanceStatePayloadTaskGroup(group: FlushTask[]): Promise<number | null> {
+  private async processInstanceStatePayloadTaskGroup(
+    group: FlushTask[],
+    options: { failFastDeterministicPayload?: boolean } = {},
+  ): Promise<number | null> {
     if (group.length === 0) {
       return null;
     }
@@ -1930,6 +2024,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         }
         this.failureAttempts.delete(instanceTaskKey(task));
       } catch (error) {
+        if (options.failFastDeterministicPayload === true && isNonRecoverableReplayInstancePayloadError(error)) {
+          processed += await this.quarantineInstanceStartupStall([task], error);
+          continue;
+        }
         await this.markTaskRetryWithDiagnostics(task, error);
       }
     }
@@ -1985,7 +2083,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async processInstanceTaskGroup(group: FlushTask[]): Promise<number> {
+  private async processInstanceTaskGroup(
+    group: FlushTask[],
+    options: { failFastDeterministicPayload?: boolean } = {},
+  ): Promise<number> {
     if (this.isGlobalBackoffActive()) {
       return 0;
     }
@@ -1993,7 +2094,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     if (!first) {
       return 0;
     }
-    const payloadProcessed = await this.processInstanceStatePayloadTaskGroup(group);
+    const payloadProcessed = await this.processInstanceStatePayloadTaskGroup(group, options);
     if (payloadProcessed !== null) {
       return payloadProcessed;
     }
@@ -2623,31 +2724,52 @@ function hasCompletePlayerRuntimeFence(value: PlayerPresenceUpsertInput | null |
 
 function assertReplayablePlayerPayloads(tasks: FlushTask[]): void {
   for (const task of tasks) {
-    if (task.domain === 'presence') {
-      if (!normalizePlayerPresencePayload(task.payloadJson)) {
-        throw new Error(`startup_player_payload_unparseable:${task.id}:${task.domain}`);
-      }
-      continue;
-    }
-    if ((!PLAYER_PROJECTABLE_DOMAIN_SET.has(task.domain) && task.domain !== PLAYER_FALLBACK_SNAPSHOT_DOMAIN)
-      || !normalizePlayerSnapshotProjectionPayload(task.payloadJson)) {
-      throw new Error(`startup_player_payload_unsupported:${task.id}:${task.domain}`);
+    const error = findNonReplayablePlayerPayloadError(task);
+    if (error) {
+      throw error;
     }
   }
 }
 
+function findNonReplayablePlayerPayloadError(task: FlushTask): Error | null {
+  if (task.domain === 'presence') {
+    return normalizePlayerPresencePayload(task.payloadJson)
+      ? null
+      : new Error('startup_player_payload_unparseable:' + task.id + ':' + task.domain);
+  }
+  if ((!PLAYER_PROJECTABLE_DOMAIN_SET.has(task.domain) && task.domain !== PLAYER_FALLBACK_SNAPSHOT_DOMAIN)
+    || !normalizePlayerSnapshotProjectionPayload(task.payloadJson)) {
+    return new Error('startup_player_payload_unsupported:' + task.id + ':' + task.domain);
+  }
+  return null;
+}
+
 function assertReplayableInstancePayloads(tasks: FlushTask[]): void {
   for (const task of tasks) {
-    const statePayload = normalizeInstanceDomainStatePayload(task.payloadJson);
-    const deltaPayload = normalizeInstanceDomainDeltaPayload(task.payloadJson);
-    if (!statePayload && !deltaPayload) {
-      throw new Error(`startup_instance_payload_unparseable:${task.id}:${task.domain}:${task.ownershipEpoch ?? 0}`);
-    }
-    const payloadDomain = statePayload?.domain ?? deltaPayload?.domain ?? '';
-    if (payloadDomain !== task.domain) {
-      throw new Error(`startup_instance_payload_domain_mismatch:${task.id}:${task.domain}:${payloadDomain}`);
+    const error = findNonReplayableInstancePayloadError(task);
+    if (error) {
+      throw error;
     }
   }
+}
+
+function findNonReplayableInstancePayloadError(task: FlushTask): Error | null {
+  const statePayload = normalizeInstanceDomainStatePayload(task.payloadJson);
+  const deltaPayload = normalizeInstanceDomainDeltaPayload(task.payloadJson);
+  if (!statePayload && !deltaPayload) {
+    return new Error('startup_instance_payload_unparseable:' + task.id + ':' + task.domain + ':' + String(task.ownershipEpoch ?? 0));
+  }
+  const payloadDomain = statePayload?.domain ?? deltaPayload?.domain ?? '';
+  if (payloadDomain !== task.domain) {
+    return new Error('startup_instance_payload_domain_mismatch:' + task.id + ':' + task.domain + ':' + payloadDomain);
+  }
+  if (statePayload && !INSTANCE_PAYLOAD_STATE_DOMAINS.has(payloadDomain)) {
+    return new Error('startup_instance_state_payload_unsupported:' + task.id + ':' + payloadDomain);
+  }
+  if (deltaPayload && !INSTANCE_PAYLOAD_BATCH_DOMAINS.has(payloadDomain)) {
+    return new Error('startup_instance_delta_payload_unsupported:' + task.id + ':' + payloadDomain);
+  }
+  return null;
 }
 
 function waitForReplayPoll(delayMs: number): Promise<void> {
