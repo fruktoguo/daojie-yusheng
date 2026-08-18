@@ -36,6 +36,7 @@ async function main(): Promise<void> {
   const flushPoolFromInstance = provider.getPool('instance-domain');
   const gmAuditPool = provider.getPool('gm-audit-log');
   const combatAuditPool = provider.getPool('combat-audit-outbox');
+  const playerCountersPool = provider.getPool('player_counters');
   const outboxPool = provider.getPool('outbox-dispatcher');
   const gmPool = provider.getPool('gm-diagnostics');
 
@@ -46,6 +47,7 @@ async function main(): Promise<void> {
   assert.strictEqual(flushPoolFromPlayer, flushPoolFromInstance, 'flush scopes should share the same flush pool');
   assert.strictEqual(gmAuditPool, flushPoolFromPlayer, 'GM audit persistence should share the flush pool');
   assert.strictEqual(combatAuditPool, flushPoolFromPlayer, 'combat audit outbox writes should share the flush pool, not the outbox dispatcher pool');
+  assert.strictEqual(playerCountersPool, flushPoolFromPlayer, 'player_counters writes should use the flush pool despite underscore scope naming');
   assert.notStrictEqual(criticalPool, flushPoolFromPlayer, 'critical pool should differ from flush pool');
   assert.notStrictEqual(outboxPool, flushPoolFromPlayer, 'outbox pool should differ from flush pool');
   assert.notStrictEqual(gmPool, flushPoolFromPlayer, 'gm pool should differ from flush pool');
@@ -81,6 +83,7 @@ async function main(): Promise<void> {
   assert.equal(resolveDatabasePoolGroup('gm-config'), 'flush');
   assert.equal(resolveDatabasePoolGroup('gm-runtime-flag'), 'flush');
   assert.equal(resolveDatabasePoolGroup('combat-audit-outbox'), 'flush');
+  assert.equal(resolveDatabasePoolGroup('player_counters'), 'flush');
 
   const stats = provider.getAllPoolStats();
   assert.deepEqual(Object.keys(stats).sort(), ['flush', 'gmDiagnostics', 'outbox', 'runtimeCritical']);
