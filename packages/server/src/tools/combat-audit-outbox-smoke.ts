@@ -9,7 +9,18 @@ installSmokeTimeout(__filename);
 
 const databaseUrl = resolveServerDatabaseUrl();
 
+
+interface FakeCombatAuditClient {
+  query(sql: string): Promise<void>;
+  release(): void;
+}
+
+interface FakeCombatAuditPool {
+  query(sql: string): Promise<{ rows: unknown[] }>;
+  connect(): Promise<FakeCombatAuditClient>;
+}
 async function main(): Promise<void> {
+  await assertShutdownDrainsAllQueuedBatches();
   if (!databaseUrl.trim()) {
     console.log(JSON.stringify({
       ok: true,
@@ -29,6 +40,8 @@ async function main(): Promise<void> {
   const instanceId = `instance:${playerId}`;
   const targetId = `monster:${playerId}`;
   const since = new Date(Date.now() - 60_000).toISOString();
+  const previousCombatAuditEnabled = process.env.SERVER_COMBAT_AUDIT_ENABLED;
+  process.env.SERVER_COMBAT_AUDIT_ENABLED = 'true';
 
   try {
     await service.onModuleInit();
@@ -195,6 +208,52 @@ async function main(): Promise<void> {
     await service.onModuleDestroy().catch(() => undefined);
     await provider.onModuleDestroy().catch(() => undefined);
     await pool.end().catch(() => undefined);
+    if (previousCombatAuditEnabled === undefined) delete process.env.SERVER_COMBAT_AUDIT_ENABLED;
+    else process.env.SERVER_COMBAT_AUDIT_ENABLED = previousCombatAuditEnabled;
+  }
+}
+
+async function assertShutdownDrainsAllQueuedBatches(): Promise<void> {
+  const previous = process.env.SERVER_COMBAT_AUDIT_ENABLED;
+  process.env.SERVER_COMBAT_AUDIT_ENABLED = 'true';
+  let auditInserts = 0;
+  let outboxInserts = 0;
+  const fakeClient: FakeCombatAuditClient = {
+    async query(sql: string): Promise<void> {
+      if (sql.includes('INSERT INTO asset_audit_log')) auditInserts += 1;
+      if (sql.includes('INSERT INTO outbox_event')) outboxInserts += 1;
+    },
+    release() {},
+  };
+  const fakePool: FakeCombatAuditPool = {
+    async query() { return { rows: [] }; },
+    async connect() { return fakeClient; },
+  };
+  const service = new CombatAuditOutboxService({ getPool: () => fakePool } as never);
+  try {
+    await service.onModuleInit();
+    const queued = 117;
+    for (let index = 0; index < queued; index += 1) {
+      const ok = service.enqueue({
+        type: 'combat_audit',
+        action: 'damage',
+        actor: { kind: 'player', id: `shutdown-drain-player-${index}` },
+        target: { kind: 'monster', id: `shutdown-drain-monster-${index}` },
+        result: { damage: index + 1 },
+        createdAt: new Date(1_720_000_000_000 + index).toISOString(),
+      });
+      if (!ok) throw new Error(`shutdown drain enqueue failed at ${index}`);
+    }
+    if (service.getQueueSize() !== queued) {
+      throw new Error(`shutdown drain queued size mismatch: ${service.getQueueSize()}`);
+    }
+    await service.onModuleDestroy();
+    if (service.getQueueSize() !== 0 || auditInserts !== queued || outboxInserts !== queued) {
+      throw new Error(`shutdown drain lost audit events queue=${service.getQueueSize()} audit=${auditInserts} outbox=${outboxInserts}`);
+    }
+  } finally {
+    if (previous === undefined) delete process.env.SERVER_COMBAT_AUDIT_ENABLED;
+    else process.env.SERVER_COMBAT_AUDIT_ENABLED = previous;
   }
 }
 

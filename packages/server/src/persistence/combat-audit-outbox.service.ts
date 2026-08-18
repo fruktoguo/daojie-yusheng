@@ -37,7 +37,7 @@ export class CombatAuditOutboxService implements OnModuleInit, OnModuleDestroy {
   private enabled = false;
   private queue: Array<QueuedCombatAuditEvent> = [];
   private flushScheduled = false;
-  private flushing = false;
+  private flushInFlight: Promise<number> | null = null;
   private sequence = 0;
   private droppedCount = 0;
   private lastDropWarnAt = 0;
@@ -78,9 +78,12 @@ export class CombatAuditOutboxService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
-    await this.flushOnce().catch((error: unknown) => {
+    await this.drainQueueForShutdown().catch((error: unknown) => {
       this.logger.warn(`战斗审计发件箱关闭前刷盘失败：${error instanceof Error ? error.message : String(error)}`);
     });
+    if (this.queue.length > 0) {
+      this.logger.warn(`战斗审计发件箱关闭时仍有 ${this.queue.length} 条事件未落库，进程退出后将丢失`);
+    }
     this.queue = [];
     this.enabled = false;
     this.pool = null;
@@ -118,27 +121,39 @@ export class CombatAuditOutboxService implements OnModuleInit, OnModuleDestroy {
   }
 
   async flushOnce(limit = FLUSH_BATCH_SIZE): Promise<number> {
-    if (!this.pool || !this.enabled || this.flushing) {
+    if (!this.pool || !this.enabled) {
       return 0;
     }
+    if (this.flushInFlight) {
+      return this.flushInFlight;
+    }
+    const flush = this.flushBatch(limit);
+    this.flushInFlight = flush;
+    try {
+      return await flush;
+    } finally {
+      if (this.flushInFlight === flush) {
+        this.flushInFlight = null;
+      }
+      if (this.queue.length > 0) {
+        this.scheduleFlush();
+      }
+    }
+  }
+
+  private async flushBatch(limit = FLUSH_BATCH_SIZE): Promise<number> {
     const batchSize = normalizePositiveInteger(limit, FLUSH_BATCH_SIZE, 1, 500);
     const batch = this.queue.splice(0, batchSize);
     if (batch.length <= 0) {
       return 0;
     }
-    this.flushing = true;
     try {
-      await insertCombatAuditBatch(this.pool, batch);
+      await insertCombatAuditBatch(this.pool as Pool, batch);
       return batch.length;
     } catch (error: unknown) {
       this.queue = batch.concat(this.queue).slice(0, MAX_QUEUE_SIZE);
       this.logger.warn(`战斗审计发件箱刷盘失败：${error instanceof Error ? error.message : String(error)}`);
       return 0;
-    } finally {
-      this.flushing = false;
-      if (this.queue.length > 0) {
-        this.scheduleFlush();
-      }
     }
   }
 
@@ -210,8 +225,18 @@ export class CombatAuditOutboxService implements OnModuleInit, OnModuleDestroy {
     await this.pool.query(`DELETE FROM ${ASSET_AUDIT_LOG_TABLE} WHERE operation_id = ANY($1::varchar[])`, [ids]);
   }
 
+  private async drainQueueForShutdown(): Promise<void> {
+    while (this.queue.length > 0 || this.flushInFlight) {
+      const pendingBefore = this.queue.length;
+      const flushed = await this.flushOnce(500);
+      if (flushed <= 0 && this.queue.length > 0 && this.queue.length >= pendingBefore) {
+        throw new Error(`combat_audit_shutdown_drain_stalled:pending=${this.queue.length}`);
+      }
+    }
+  }
+
   private scheduleFlush(): void {
-    if (this.flushScheduled || this.flushing) {
+    if (this.flushScheduled || this.flushInFlight) {
       return;
     }
     this.flushScheduled = true;
@@ -258,6 +283,28 @@ async function insertCombatAuditBatch(pool: Pool, batch: QueuedCombatAuditEvent[
         target: event.target ?? null,
       });
       const afterJson = JSON.stringify(payload);
+      await client.query(
+        `
+          INSERT INTO ${OUTBOX_EVENT_TABLE}(
+            event_id,
+            operation_id,
+            topic,
+            partition_key,
+            payload_jsonb,
+            status,
+            created_at
+          )
+          VALUES ($1, $2, $3, $4, $5::jsonb, 'ready', now())
+          ON CONFLICT (event_id) DO NOTHING
+        `,
+        [
+          `outbox:${entry.operationId}`,
+          entry.operationId,
+          COMBAT_AUDIT_TOPIC,
+          playerId || 'system:combat',
+          JSON.stringify(payload),
+        ],
+      );
       await client.query(
         `
           INSERT INTO ${ASSET_AUDIT_LOG_TABLE}(
