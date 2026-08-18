@@ -6,7 +6,7 @@
 /**
  * 启动期数据库配置加载器。
  * 在 NestFactory.create 之前执行，将 server_gm_config 表中的值写入 process.env。
- * 容错设计：DB 不可用时静默跳过，回退到 env 原有值或注册表默认值。
+ * 容错设计：DB 不可用时记录原因并跳过，回退到 env 原有值或注册表默认值。
  */
 import { Pool, type PoolConfig } from 'pg';
 
@@ -33,8 +33,8 @@ export function buildBootstrapDbConfigPoolOptions(databaseUrl: string): PoolConf
 
 /**
  * 从数据库加载游戏配置并注入 process.env。
- * 仅覆盖注册表中存在的 key；DB 不可用时静默跳过。
- * @returns 成功加载的配置项数量，-1 表示跳过。
+ * 仅覆盖注册表中存在的 key；DB 不可用时记录原因并跳过。
+ * @returns 成功加载的配置项数量，-1 表示跳过或加载失败。
  */
 export async function bootstrapLoadDbConfig(): Promise<number> {
   const databaseUrl = resolveServerDatabasePoolerUrl() || resolveServerDatabaseUrl();
@@ -74,8 +74,8 @@ export async function bootstrapLoadDbConfig(): Promise<number> {
       clearTimeout(timeoutHandle);
     }
 
-  } catch {
-    // DB 不可用（无连接、表不存在等）：静默跳过
+  } catch (error) {
+    console.warn(`[启动配置] 数据库配置加载失败，已回退到环境变量或默认值：${formatBootstrapDbConfigLoadError(error)}`);
     return -1;
   } finally {
     if (pool) {
@@ -102,4 +102,23 @@ export function resolveBootstrapGameConfigRow(row: unknown): BootstrapGameConfig
     value: record.value,
     validationError: validateGameConfigValue(descriptor, record.value),
   };
+}
+
+function formatBootstrapDbConfigLoadError(error: unknown): string {
+  if (!error || typeof error !== 'object') {
+    return String(error || 'unknown');
+  }
+  const record = error as { code?: unknown; message?: unknown; name?: unknown };
+  const parts: string[] = [];
+  const code = typeof record.code === 'string' ? record.code.trim() : '';
+  const name = typeof record.name === 'string' ? record.name.trim() : '';
+  const message = typeof record.message === 'string' ? redactBootstrapDbConfigErrorText(record.message.trim()) : '';
+  if (code) parts.push(`code=${code}`);
+  if (name && name !== 'Error') parts.push(`name=${name}`);
+  if (message) parts.push(`message=${message}`);
+  return parts.length > 0 ? parts.join(' ') : 'unknown';
+}
+
+function redactBootstrapDbConfigErrorText(value: string): string {
+  return value.replace(/\b(postgres(?:ql)?:\/\/)([^:@/\s]+)(?::([^@/\s]*))?@/giu, '$1***:***@');
 }

@@ -30,6 +30,7 @@ async function main(): Promise<void> {
   assertWorkerPoolConfigUsesBoundedIntegers();
   assertBootstrapDatabaseConfigRejectsInvalidRows();
   assertBootstrapDatabaseConfigUsesBoundedTimeouts();
+  await assertBootstrapDatabaseConfigWarnsOnLoadFailure();
   await assertOptionalOutboxSchemaFailuresDoNotBlockStartup();
   const root = await mkdtemp(join(tmpdir(), 'startup-config-resilience-'));
   try {
@@ -103,6 +104,47 @@ function assertBootstrapDatabaseConfigUsesBoundedTimeouts(): void {
   assert.equal(options.connectionTimeoutMillis, 3_000);
   assert.equal(options.statement_timeout, 5_000);
   assert.equal(options.query_timeout, 5_000);
+}
+
+async function assertBootstrapDatabaseConfigWarnsOnLoadFailure(): Promise<void> {
+  const loaderPath = resolve(__dirname, '..', 'config', 'bootstrap-load-db-config.js');
+  const packageRoot = resolve(__dirname, '..', '..');
+  const script = [
+    'const pg = require("pg");',
+    'class FakePool {',
+    '  async query() {',
+    '    const error = new Error("simulated_preload_failure postgres://smoke:secret@example.invalid/db");',
+    '    error.code = "ECONNRESET";',
+    '    throw error;',
+    '  }',
+    '  async end() {}',
+    '}',
+    'pg.Pool = FakePool;',
+    'const warnings = [];',
+    'const originalWarn = console.warn;',
+    'console.warn = (...args) => { warnings.push(args.join(" ")); };',
+    'process.env.SERVER_DATABASE_URL = "postgres://smoke:secret@example.invalid/db";',
+    'delete process.env.DATABASE_URL;',
+    'delete process.env.SERVER_DATABASE_POOLER_URL;',
+    'delete process.env.DATABASE_POOLER_URL;',
+    `const { bootstrapLoadDbConfig } = require(${JSON.stringify(loaderPath)});`,
+    'bootstrapLoadDbConfig().then((count) => {',
+    '  console.warn = originalWarn;',
+    '  console.log(JSON.stringify({ count, warnings }));',
+    '}).catch((error) => {',
+    '  console.warn = originalWarn;',
+    '  console.error(error instanceof Error ? error.stack : String(error));',
+    '  process.exit(1);',
+    '});',
+  ].join('\n');
+  const result = spawnSync(process.execPath, ['-e', script], { cwd: packageRoot, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const payload = JSON.parse(result.stdout.trim().split(/\r?\n/u).pop() || '{}') as { count?: unknown; warnings?: string[] };
+  const warnings = Array.isArray(payload.warnings) ? payload.warnings : [];
+  assert.equal(payload.count, -1);
+  assert.ok(warnings.some((entry) => /数据库配置加载失败.*code=ECONNRESET.*simulated_preload_failure/u.test(entry)), result.stderr || result.stdout);
+  assert.ok(!warnings.join('\n').includes('postgres://smoke'), '启动告警不能泄露数据库 URL 用户名');
+  assert.ok(!warnings.join('\n').includes('secret'), '启动告警不能泄露数据库 URL 凭据');
 }
 
 function assertWorkerPoolConfigUsesBoundedIntegers(): void {
