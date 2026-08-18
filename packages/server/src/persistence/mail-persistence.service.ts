@@ -527,7 +527,7 @@ export class MailPersistenceService implements OnModuleInit, OnModuleDestroy {
          deleted_at,
          updated_at
        )
-       VALUES ($1, $2, 'system', '司命台', NULL, 'system', $3, $4, 'activity_invitation_jade_reward', $5, $6::jsonb, 1, $7, NULL, NULL, NULL, NULL, NULL, to_timestamp($7::double precision / 1000.0))
+       VALUES ($1, $2, 'system', '司命台', NULL, 'system', $3, $4, 'activity_invitation_jade_reward', $5, $6::jsonb, 1, $7::bigint, NULL, NULL, NULL, NULL, NULL, to_timestamp(($7::bigint)::double precision / 1000.0))
        ON CONFLICT (mail_id) DO NOTHING
        RETURNING mail_id`,
       [

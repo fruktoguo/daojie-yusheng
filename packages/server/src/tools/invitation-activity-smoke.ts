@@ -325,6 +325,8 @@ async function assertInvitationJadeMailPersistenceShape(): Promise<void> {
   assert.equal(attachmentInsertCount, 1);
   assert.equal(counterRefreshCount, 1);
   assert.ok(mailInsert?.sql.includes('expire_at'));
+  assert.ok(mailInsert?.sql.includes('$7::bigint'));
+  assert.ok(mailInsert?.sql.includes('to_timestamp(($7::bigint)::double precision / 1000.0)'));
   assert.ok(mailInsert?.sql.includes('NULL'));
   assert.equal(metadata.activityInvitationJadeRewardKey, input.rewardKey);
   assert.equal(metadata.activityInvitationJadeCount, input.jadeCount);
