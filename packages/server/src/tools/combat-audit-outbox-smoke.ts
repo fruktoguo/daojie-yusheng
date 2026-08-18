@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { Pool } from 'pg';
 
 import { resolveServerDatabaseUrl } from '../config/env-alias';
@@ -21,6 +22,7 @@ interface FakeCombatAuditPool {
 }
 async function main(): Promise<void> {
   await assertShutdownDrainsAllQueuedBatches();
+  await assertShutdownFailureKeepsQueuedEvents();
   if (!databaseUrl.trim()) {
     console.log(JSON.stringify({
       ok: true,
@@ -250,6 +252,47 @@ async function assertShutdownDrainsAllQueuedBatches(): Promise<void> {
     await service.onModuleDestroy();
     if (service.getQueueSize() !== 0 || auditInserts !== queued || outboxInserts !== queued) {
       throw new Error(`shutdown drain lost audit events queue=${service.getQueueSize()} audit=${auditInserts} outbox=${outboxInserts}`);
+    }
+  } finally {
+    if (previous === undefined) delete process.env.SERVER_COMBAT_AUDIT_ENABLED;
+    else process.env.SERVER_COMBAT_AUDIT_ENABLED = previous;
+  }
+}
+
+async function assertShutdownFailureKeepsQueuedEvents(): Promise<void> {
+  const previous = process.env.SERVER_COMBAT_AUDIT_ENABLED;
+  process.env.SERVER_COMBAT_AUDIT_ENABLED = 'true';
+  const expectedError = new Error('simulated_shutdown_insert_failure');
+  const fakeClient: FakeCombatAuditClient = {
+    async query(sql: string): Promise<void> {
+      if (sql.includes('INSERT INTO asset_audit_log')) {
+        throw expectedError;
+      }
+    },
+    release() {},
+  };
+  const fakePool: FakeCombatAuditPool = {
+    async query() { return { rows: [] }; },
+    async connect() { return fakeClient; },
+  };
+  const service = new CombatAuditOutboxService({ getPool: () => fakePool } as never);
+  try {
+    await service.onModuleInit();
+    const ok = service.enqueue({
+      type: 'combat_audit',
+      action: 'damage',
+      actor: { kind: 'player', id: 'shutdown-failure-player' },
+      target: { kind: 'monster', id: 'shutdown-failure-monster' },
+      result: { damage: 1 },
+      createdAt: new Date(1_720_000_100_000).toISOString(),
+    });
+    if (!ok) throw new Error('shutdown failure enqueue failed');
+    await assert.rejects(
+      () => service.onModuleDestroy(),
+      /combat_audit_shutdown_drain_stalled|simulated_shutdown_insert_failure/,
+    );
+    if (service.getQueueSize() !== 1) {
+      throw new Error(`shutdown failure must keep queued audit event, queue=${service.getQueueSize()}`);
     }
   } finally {
     if (previous === undefined) delete process.env.SERVER_COMBAT_AUDIT_ENABLED;

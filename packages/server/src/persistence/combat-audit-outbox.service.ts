@@ -78,15 +78,24 @@ export class CombatAuditOutboxService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
-    await this.drainQueueForShutdown().catch((error: unknown) => {
+    let drainError: unknown = null;
+    try {
+      await this.drainQueueForShutdown();
+    } catch (error: unknown) {
+      drainError = error;
       this.logger.warn(`战斗审计发件箱关闭前刷盘失败：${error instanceof Error ? error.message : String(error)}`);
-    });
+    }
     if (this.queue.length > 0) {
       this.logger.warn(`战斗审计发件箱关闭时仍有 ${this.queue.length} 条事件未落库，进程退出后将丢失`);
     }
-    this.queue = [];
+    if (!drainError) {
+      this.queue = [];
+    }
     this.enabled = false;
     this.pool = null;
+    if (drainError) {
+      throw drainError;
+    }
   }
 
   isEnabled(): boolean {
