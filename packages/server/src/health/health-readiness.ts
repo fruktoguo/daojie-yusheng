@@ -322,11 +322,15 @@ function resolveRuntimeReadiness(service?: RuntimeServiceLike | null, startupRun
     const playerCount = readNonNegativeInt(summary.playerCount);
     const pendingCommandCount = readNonNegativeInt(summary.pendingCommandCount);
     const tickHealthy = resolveTickHealthy(tickService);
-    const ready = instanceCount > 0 && leaseDegradedInstanceCount === 0 && fencedInstanceCount === 0 && tickHealthy;
+    const ready = instanceCount > 0
+      && leaseDegradedInstanceCount === 0
+      && fencedInstanceCount === 0
+      && quarantineInstanceCount === 0
+      && tickHealthy;
 
     return {
       ready,
-      reason: ready ? 'ready' : instanceCount <= 0 ? 'no_instances' : !tickHealthy ? 'tick_unhealthy' : leaseDegradedInstanceCount > 0 ? 'lease_degraded' : 'lease_fenced',
+      reason: ready ? 'ready' : instanceCount <= 0 ? 'no_instances' : !tickHealthy ? 'tick_unhealthy' : leaseDegradedInstanceCount > 0 ? 'lease_degraded' : fencedInstanceCount > 0 ? 'lease_fenced' : quarantineInstanceCount > 0 ? 'runtime_quarantine' : 'not_ready',
       tick,
       instanceCount,
       leaseDegradedInstanceCount,

@@ -76,6 +76,38 @@ function main(): void {
     assert.equal(health.readiness.runtime.quarantineInstances[0]?.instanceId, 'tower:tongtian:layer:9');
     assert.equal(health.readiness.runtime.quarantineInstances[1]?.reason, 'lease_degraded');
 
+    const templateMissingSummary = summaryService.buildRuntimeSummary({
+      tick: 13,
+      lastTickDurationMs: 1,
+      lastSyncFlushDurationMs: 1,
+      mapTemplateCount: 1,
+      playerCount: 1,
+      pendingCommandCount: 0,
+      pendingSystemCommandCount: 0,
+      dirtyBacklog: { players: 0, playerDomains: 0, instances: 0 },
+      recoveryQueue: null,
+      flushWakeup: null,
+      tickDurationHistoryMs: [],
+      syncFlushDurationHistoryMs: [],
+      lastTickPhaseDurations: {},
+      tickPhaseDurationHistoryMs: {},
+      instances: [
+        { instanceId: 'real:yunlai_town', templateId: 'yunlai_town', kind: 'public', status: 'active', runtimeStatus: 'leased', playerCount: 1 },
+        { instanceId: 'missing:template', templateId: 'missing_template', kind: 'public', status: 'active', runtimeStatus: 'template_missing', playerCount: 0 },
+      ],
+    } as never);
+    const templateMissingHealth = buildHealthResponse({
+      playerPersistenceService: { enabled: true, pool: {} },
+      mailPersistenceService: { enabled: true, pool: {} },
+      marketPersistenceService: { enabled: true, pool: {} },
+      activityPersistenceService: { enabled: true, pool: {} },
+      authStoreService: { isEnabled: () => true },
+      worldRuntimeService: { getRuntimeSummary: () => templateMissingSummary },
+    });
+    assert.equal(templateMissingHealth.readiness.runtime.quarantineInstanceCount, 1);
+    assert.equal(templateMissingHealth.readiness.runtime.ready, false);
+    assert.equal(templateMissingHealth.readiness.runtime.reason, 'runtime_quarantine');
+
     const tickUnhealthyHealth = buildHealthResponse({
       playerPersistenceService: { enabled: true, pool: {} },
       mailPersistenceService: { enabled: true, pool: {} },
