@@ -2495,20 +2495,25 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         appliedRows = currentRows.filter((row) => appliedInstanceIdSet.has(row.task.id));
       }
     }
-    const appliedTaskKeys = new Set(appliedRows.map((row) => instanceTaskKey(row.task)));
+    const appliedRowSet = new Set(appliedRows);
+    const unappliedRows = currentRows.filter((row) => !appliedRowSet.has(row));
     const watermarks = appliedRows
       .filter((row) => row.payload.watermarkPayload)
       .map((row) => ({ instanceId: row.task.id, payload: row.payload.watermarkPayload }));
     if (watermarks.length > 0) await persistence!.saveInstanceRecoveryWatermarkBatch!(watermarks);
-    for (const { task, payload } of currentRows) {
+    for (const { task, payload } of appliedRows) {
       if (await this.flushLedgerService.markFlushTaskFlushed(task)) {
         processed += 1;
-        if (appliedTaskKeys.has(instanceTaskKey(task))) {
-          this.markInstancePayloadPersisted(task, payload);
-        }
+        this.markInstancePayloadPersisted(task, payload);
       }
       this.failureAttempts.delete(instanceTaskKey(task));
       remaining.delete(instanceTaskKey(task));
+    }
+    if (unappliedRows.length > 0) {
+      await this.flushLedgerService.markFlushTasksRetry(unappliedRows.map((row) => row.task), RETRY_DELAY_MS);
+      for (const { task } of unappliedRows) {
+        remaining.delete(instanceTaskKey(task));
+      }
     }
     return processed;
   }

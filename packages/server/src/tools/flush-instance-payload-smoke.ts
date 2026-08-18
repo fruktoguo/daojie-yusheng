@@ -66,6 +66,7 @@ async function main(): Promise<void> {
     assert.equal(savedDamage.length, 1);
     assert.equal(savedWatermarks.length, 1);
     assert.equal(flushed.length, 1);
+    await verifyTileResourcePartialApplyRetriesUnappliedPayload();
     await verifySupersededGroundPayloadStopsBeforeWatermark();
     await verifyStartupReplayQuarantinesBadInstancePayload();
   } finally {
@@ -152,6 +153,86 @@ async function verifySupersededGroundPayloadStopsBeforeWatermark(): Promise<void
   assert.equal(processed, 0);
   assert.equal(markAttempts, 1);
   assert.equal(watermarkWrites, 0);
+}
+
+async function verifyTileResourcePartialApplyRetriesUnappliedPayload(): Promise<void> {
+  let claimed = false;
+  const savedResourceRows: unknown[] = [];
+  const savedWatermarks: unknown[] = [];
+  const flushed: FlushTask[] = [];
+  const retried: FlushTask[] = [];
+  const appliedTask: FlushTask = {
+    scope: 'instance',
+    id: 'instance-resource-applied',
+    domain: 'tile_resource',
+    priority: 'low',
+    latestRevision: 41,
+    ownershipEpoch: 5,
+    claimOwnerId: 'resource-worker:claim',
+    fencingToken: 'resource-fence-applied',
+    payloadJson: {
+      kind: 'instance_domain_delta',
+      domain: 'tile_resource',
+      upserts: [{ resourceKey: 'ore', tileIndex: 1, value: 3 }],
+      deletes: [],
+      revision: 41,
+      watermarkPayload: { revision: 41, applied: true },
+    },
+  };
+  const skippedTask: FlushTask = {
+    ...appliedTask,
+    id: 'instance-resource-skipped',
+    fencingToken: 'resource-fence-skipped',
+    payloadJson: {
+      kind: 'instance_domain_delta',
+      domain: 'tile_resource',
+      upserts: [{ resourceKey: 'ore', tileIndex: 2, value: 7 }],
+      deletes: [],
+      revision: 41,
+      watermarkPayload: { revision: 41, applied: false },
+    },
+  };
+  const runtime = new FlushTaskRuntimeService(
+    {} as never,
+    {
+      instanceDomainPersistenceService: {
+        async saveTileResourceDeltaBatch(rows: unknown[]) {
+          savedResourceRows.push(...rows);
+          return [appliedTask.id];
+        },
+        async saveTileDamageDeltaBatch() {},
+        async saveInstanceRecoveryWatermarkBatch(rows: unknown[]) {
+          savedWatermarks.push(...rows);
+        },
+      },
+    } as never,
+    { flushPlayerDomains: async () => false } as never,
+    {
+      isEnabled: () => true,
+      claimReadyFlushTasks: async (input: { scope: string; domain?: string }) => {
+        if (input.scope !== 'instance' || input.domain !== 'tile_resource' || claimed) return [];
+        claimed = true;
+        return [appliedTask, skippedTask];
+      },
+      markFlushTaskFlushed: async (task: FlushTask) => {
+        flushed.push(task);
+        return true;
+      },
+      renewFlushTaskClaim: async () => true,
+      markFlushTaskRetry: async () => true,
+      markFlushTasksRetry: async (tasks: FlushTask[]) => {
+        retried.push(...tasks);
+        return tasks.length;
+      },
+    } as never,
+    { signalPlayerFlush: () => undefined, signalInstanceFlush: () => undefined } as never,
+  );
+  const processed = await runtime.runOnce('instance-resource-partial-apply-smoke', { instanceDomain: 'tile_resource' });
+  assert.equal(processed, 1);
+  assert.equal(savedResourceRows.length, 2);
+  assert.deepEqual(savedWatermarks, [{ instanceId: appliedTask.id, payload: { revision: 41, applied: true } }]);
+  assert.deepEqual(flushed.map((task) => task.id), [appliedTask.id]);
+  assert.deepEqual(retried.map((task) => task.id), [skippedTask.id]);
 }
 
 async function verifyStartupReplayQuarantinesBadInstancePayload(): Promise<void> {
