@@ -52,6 +52,10 @@ interface MaintenanceStateServiceLike {
   isRuntimeMaintenanceActive?: () => boolean;
 }
 
+interface TickHealthServiceLike {
+  isTickHealthy?: () => boolean;
+}
+
 /** readiness 检测所需的全部依赖注入 */
 export interface HealthReadinessDependencies {
   playerPersistenceService?: PersistenceServiceLike | null;
@@ -61,6 +65,7 @@ export interface HealthReadinessDependencies {
   authStoreService?: AuthStoreServiceLike | null;
   maintenanceStateService?: MaintenanceStateServiceLike | null;
   worldRuntimeService?: RuntimeServiceLike | null;
+  worldTickService?: TickHealthServiceLike | null;
   startupRunId?: string | null;
   shutdownStatus?: ShutdownResultSnapshot | null;
 }
@@ -96,6 +101,7 @@ interface RuntimeReadiness {
   quarantineInstances: RuntimeQuarantineInstance[];
   playerCount: number;
   pendingCommandCount: number;
+  tickHealthy: boolean;
 }
 
 /** 完整健康检查响应体 */
@@ -146,7 +152,7 @@ export function buildHealthResponse(dependencies: HealthReadinessDependencies): 
     activity: resolvePersistenceReadiness(database.configured, dependencies.activityPersistenceService),
   };
   const auth = resolveAuthReadiness(database.configured, dependencies.authStoreService);
-  const runtime = resolveRuntimeReadiness(dependencies.worldRuntimeService, dependencies.startupRunId);
+  const runtime = resolveRuntimeReadiness(dependencies.worldRuntimeService, dependencies.startupRunId, dependencies.worldTickService);
   const shutdown = dependencies.shutdownStatus ?? null;
 
   const readinessOk = !maintenance.active
@@ -270,7 +276,7 @@ function resolveAuthReadiness(databaseConfigured: boolean, service?: AuthStoreSe
 }
 
 /** 读取 world runtime 运行摘要并汇总 readiness 的运行指标。 */
-function resolveRuntimeReadiness(service?: RuntimeServiceLike | null, startupRunId?: string | null): RuntimeReadiness {
+function resolveRuntimeReadiness(service?: RuntimeServiceLike | null, startupRunId?: string | null, tickService?: TickHealthServiceLike | null): RuntimeReadiness {
 
   if (!service) {
     return {
@@ -284,6 +290,7 @@ function resolveRuntimeReadiness(service?: RuntimeServiceLike | null, startupRun
       quarantineInstances: [],
       playerCount: 0,
       pendingCommandCount: 0,
+      tickHealthy: false,
     };
   }
 
@@ -300,6 +307,7 @@ function resolveRuntimeReadiness(service?: RuntimeServiceLike | null, startupRun
       quarantineInstances: [],
       playerCount: 0,
       pendingCommandCount: 0,
+      tickHealthy: false,
     };
   }
 
@@ -313,11 +321,12 @@ function resolveRuntimeReadiness(service?: RuntimeServiceLike | null, startupRun
     const quarantineInstances = normalizeQuarantineInstances(summary.quarantineInstances, startupRunId);
     const playerCount = readNonNegativeInt(summary.playerCount);
     const pendingCommandCount = readNonNegativeInt(summary.pendingCommandCount);
-    const ready = instanceCount > 0 && leaseDegradedInstanceCount === 0 && fencedInstanceCount === 0;
+    const tickHealthy = resolveTickHealthy(tickService);
+    const ready = instanceCount > 0 && leaseDegradedInstanceCount === 0 && fencedInstanceCount === 0 && tickHealthy;
 
     return {
       ready,
-      reason: ready ? 'ready' : instanceCount <= 0 ? 'no_instances' : leaseDegradedInstanceCount > 0 ? 'lease_degraded' : 'lease_fenced',
+      reason: ready ? 'ready' : instanceCount <= 0 ? 'no_instances' : !tickHealthy ? 'tick_unhealthy' : leaseDegradedInstanceCount > 0 ? 'lease_degraded' : 'lease_fenced',
       tick,
       instanceCount,
       leaseDegradedInstanceCount,
@@ -326,6 +335,7 @@ function resolveRuntimeReadiness(service?: RuntimeServiceLike | null, startupRun
       quarantineInstances,
       playerCount,
       pendingCommandCount,
+      tickHealthy,
     };
   } catch {
     return {
@@ -339,7 +349,19 @@ function resolveRuntimeReadiness(service?: RuntimeServiceLike | null, startupRun
       quarantineInstances: [],
       playerCount: 0,
       pendingCommandCount: 0,
+      tickHealthy: false,
     };
+  }
+}
+
+function resolveTickHealthy(service?: TickHealthServiceLike | null): boolean {
+  if (!service || typeof service.isTickHealthy !== 'function') {
+    return true;
+  }
+  try {
+    return service.isTickHealthy() !== false;
+  } catch {
+    return false;
   }
 }
 

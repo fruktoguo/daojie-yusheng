@@ -18,6 +18,7 @@ import { StartupStatusService } from '../lifecycle/startup-status.service';
 import { ShutdownStatusService } from '../lifecycle/shutdown-status.service';
 import { shouldStartHttpServer } from '../config/runtime-role';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
+import { WorldTickService } from '../runtime/tick/world-tick.service';
 import { NativePlayerAuthStoreService } from '../http/native/native-player-auth-store.service';
 import { buildHealthResponse } from './health-readiness';
 import { ServerReadinessDependenciesService } from './server-readiness-dependencies.service';
@@ -31,6 +32,10 @@ interface PersistenceServiceLike {
 /** 世界运行时服务鸭子类型接口 */
 interface WorldRuntimeServiceLike {
   getRuntimeSummary?: () => unknown;
+}
+
+interface WorldTickServiceLike {
+  isTickHealthy?: () => boolean;
 }
 
 interface AuthStoreServiceLike {
@@ -71,6 +76,9 @@ export class HealthReadinessService {
     @Optional()
     @Inject(StartupBarrierService)
     private readonly startupBarrierService?: StartupBarrierService,
+    @Optional()
+    @Inject(WorldTickService)
+    private readonly worldTickService?: WorldTickServiceLike,
   ) {}
 
   /** 构建完整 readiness 响应体 */
@@ -86,6 +94,7 @@ export class HealthReadinessService {
       worldRuntimeService: this.worldRuntimeService,
       startupRunId: startup?.startupRunId ?? null,
       shutdownStatus: this.shutdownStatusService?.getSnapshot() ?? null,
+      worldTickService: this.worldTickService,
     });
     const barrier = this.startupBarrierService?.getSnapshot() ?? null;
     if (startup) {

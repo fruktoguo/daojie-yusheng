@@ -411,6 +411,27 @@ function testDeadlineWaitRemainderIsNotReportedAsSkippedFrame(): void {
   );
 }
 
+async function testConsecutiveFailuresMarkTickUnhealthy(): Promise<void> {
+  const service = new WorldTickService(
+    { flushTick(): void {} },
+    { isRuntimeMaintenanceActive(): boolean { return false; } },
+    { getMapTickSpeed(): number { return 1; }, isMapPaused(): boolean { return false; } },
+    {
+      async advanceFrame(): Promise<void> {
+        throw new Error('simulated_tick_failure');
+      },
+      recordSyncFlushDuration(): void {},
+    },
+    { flushConnectedPlayers(): void {} },
+  );
+
+  for (let index = 0; index < 5; index += 1) {
+    await runTickOnce(service);
+  }
+
+  assert.equal(service.isTickHealthy(), false, '连续 tick 失败达到阈值后 readiness 必须可降级');
+}
+
 Promise.resolve()
   .then(() => testAwaitsAdvanceFrameBeforeSyncFlush())
   .then(() => testTickInFlightPreventsReentry())
@@ -420,6 +441,7 @@ Promise.resolve()
   .then(() => testScheduleChangeImmediatelyReordersWakeTimer())
   .then(() => testDispatcherStartRateIsBoundedByMaxInstanceSpeed())
   .then(() => testDeadlineWaitRemainderIsNotReportedAsSkippedFrame())
+  .then(() => testConsecutiveFailuresMarkTickUnhealthy())
   .then(() => {
     console.log(JSON.stringify({ ok: true, case: 'world-tick' }, null, 2));
   });

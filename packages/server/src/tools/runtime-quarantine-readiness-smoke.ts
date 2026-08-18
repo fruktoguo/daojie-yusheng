@@ -76,6 +76,30 @@ function main(): void {
     assert.equal(health.readiness.runtime.quarantineInstances[0]?.instanceId, 'tower:tongtian:layer:9');
     assert.equal(health.readiness.runtime.quarantineInstances[1]?.reason, 'lease_degraded');
 
+    const tickUnhealthyHealth = buildHealthResponse({
+      playerPersistenceService: { enabled: true, pool: {} },
+      mailPersistenceService: { enabled: true, pool: {} },
+      marketPersistenceService: { enabled: true, pool: {} },
+      activityPersistenceService: { enabled: true, pool: {} },
+      authStoreService: { isEnabled: () => true },
+      worldRuntimeService: {
+        getRuntimeSummary: () => ({
+          tick: 20,
+          instanceCount: 1,
+          leaseDegradedInstanceCount: 0,
+          fencedInstanceCount: 0,
+          quarantineInstanceCount: 0,
+          playerCount: 1,
+          pendingCommandCount: 0,
+        }),
+      },
+      worldTickService: { isTickHealthy: () => false },
+    });
+    assert.equal(tickUnhealthyHealth.readiness.ok, false);
+    assert.equal(tickUnhealthyHealth.readiness.runtime.ready, false);
+    assert.equal(tickUnhealthyHealth.readiness.runtime.reason, 'tick_unhealthy');
+    assert.equal(tickUnhealthyHealth.readiness.runtime.tickHealthy, false);
+
     console.log(JSON.stringify({ ok: true, case: 'runtime-quarantine-readiness' }, null, 2));
   } finally {
     if (previousDatabaseUrl === undefined) {
