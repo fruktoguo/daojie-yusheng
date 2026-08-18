@@ -175,7 +175,9 @@ export class MapPersistenceFlushService {
             return;
         }
         this.timer = setInterval(() => {
-            void this.flushDirtyInstances();
+            void this.flushDirtyInstances().catch((error: unknown) => {
+                this.logger.error('地图持久化直接定时刷盘失败，保留 dirty 状态等待下轮重试', error instanceof Error ? error.stack : String(error));
+            });
         }, MAP_PERSISTENCE_FLUSH_INTERVAL_MS);
         this.timer.unref();
         this.logger.log(`地图持久化刷新已启动，间隔 ${MAP_PERSISTENCE_FLUSH_INTERVAL_MS}ms，妖兽运行态降频 ${MAP_PERSISTENCE_MONSTER_RUNTIME_INTERVAL_MS}ms`);

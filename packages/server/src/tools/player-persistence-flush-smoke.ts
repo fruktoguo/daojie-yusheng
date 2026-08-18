@@ -666,6 +666,68 @@ async function testWorkerPoolSubmitIsNotUsed(): Promise<void> {
   ]);
 }
 
+interface DirectTimerPlayerFlushHarness {
+  flushDirtyPlayers(): Promise<void>;
+  startForLifecycleCoordinator(): void;
+  logger: {
+    error(message: string): void;
+    log(message: string): void;
+  };
+}
+
+async function testDirectTimerHandlesRejectedFlush(): Promise<void> {
+  const previousRole = process.env.SERVER_RUNTIME_ROLE;
+  const previousMode = process.env.SERVER_FLUSH_TASK_RUNTIME_MODE;
+  const originalSetInterval = globalThis.setInterval;
+  const originalClearInterval = globalThis.clearInterval;
+  const unhandled: unknown[] = [];
+  const errors: string[] = [];
+  const onUnhandled = (reason: unknown) => {
+    unhandled.push(reason);
+  };
+  process.env.SERVER_RUNTIME_ROLE = 'api';
+  process.env.SERVER_FLUSH_TASK_RUNTIME_MODE = 'direct';
+  process.on('unhandledRejection', onUnhandled);
+  try {
+    const harness = createHarness();
+    const timerService = harness.service as unknown as DirectTimerPlayerFlushHarness;
+    timerService.flushDirtyPlayers = async () => {
+      throw new Error('simulated_direct_player_flush_timer_failure');
+    };
+    timerService.logger = {
+      error(message: string) {
+        errors.push(message);
+      },
+      log() {},
+    };
+    globalThis.setInterval = ((callback: (...args: unknown[]) => void) => {
+      callback();
+      return { unref() {} } as unknown as NodeJS.Timeout;
+    }) as typeof setInterval;
+    globalThis.clearInterval = (() => undefined) as typeof clearInterval;
+
+    timerService.startForLifecycleCoordinator();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    assert.deepEqual(unhandled, []);
+    assert.match(errors.join('\n'), /玩家持久化直接定时刷盘失败/);
+  } finally {
+    process.off('unhandledRejection', onUnhandled);
+    globalThis.setInterval = originalSetInterval;
+    globalThis.clearInterval = originalClearInterval;
+    restoreEnv('SERVER_RUNTIME_ROLE', previousRole);
+    restoreEnv('SERVER_FLUSH_TASK_RUNTIME_MODE', previousMode);
+  }
+}
+
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name];
+    return;
+  }
+  process.env[name] = value;
+}
+
 async function main(): Promise<void> {
   await testFlushUsesAssetCoordinator();
   await testPresenceOnlyFlush();
@@ -688,6 +750,7 @@ async function main(): Promise<void> {
   await testForcedDomainFlushSurvivesLedgerStagingAfterAssetLock();
   await testShutdownCycleReportsNestedWorkerFailure();
   await testShutdownCycleReportsUnresolvedFence();
+  await testDirectTimerHandlesRejectedFlush();
 
   console.log(
     JSON.stringify(

@@ -183,7 +183,9 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
         return;
       }
       this.timer = setInterval(() => {
-        void this.flushDirtyPlayers();
+        void this.flushDirtyPlayers().catch((error: unknown) => {
+          this.logger.error('玩家持久化直接定时刷盘失败，保留 dirty 状态等待下轮重试', error instanceof Error ? error.stack : String(error));
+        });
       }, PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS);
       this.timer.unref();
       this.logger.log(`玩家持久化刷新已启动，间隔 ${PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS}ms`);

@@ -6,6 +6,15 @@ import assert from 'node:assert/strict';
 
 import { MapPersistenceFlushService } from '../persistence/map-persistence-flush.service';
 
+interface DirectTimerMapFlushHarness {
+  flushDirtyInstances(): Promise<void>;
+  startForLifecycleCoordinator(): void;
+  logger: {
+    error(message: string): void;
+    log(message: string): void;
+  };
+}
+
 async function main(): Promise<void> {
   const batchCalls: Array<{ kind: string; payload: unknown }> = [];
   const deltaBatchCalls: Array<{ domain: string; instanceIds: string[] }> = [];
@@ -78,6 +87,8 @@ async function main(): Promise<void> {
     { instanceId: 'map:c', domains: ['building'] },
   ]);
 
+  await verifyDirectTimerHandlesRejectedFlush();
+
   console.log(
     JSON.stringify(
       {
@@ -91,6 +102,58 @@ async function main(): Promise<void> {
       2,
     ),
   );
+}
+
+async function verifyDirectTimerHandlesRejectedFlush(): Promise<void> {
+  const previousRole = process.env.SERVER_RUNTIME_ROLE;
+  const previousMode = process.env.SERVER_FLUSH_TASK_RUNTIME_MODE;
+  const originalSetInterval = globalThis.setInterval;
+  const originalClearInterval = globalThis.clearInterval;
+  const unhandled: unknown[] = [];
+  const errors: string[] = [];
+  const onUnhandled = (reason: unknown) => {
+    unhandled.push(reason);
+  };
+  process.env.SERVER_RUNTIME_ROLE = 'api';
+  process.env.SERVER_FLUSH_TASK_RUNTIME_MODE = 'direct';
+  process.on('unhandledRejection', onUnhandled);
+  try {
+    const service = new MapPersistenceFlushService({} as never) as unknown as DirectTimerMapFlushHarness;
+    service.flushDirtyInstances = async () => {
+      throw new Error('simulated_direct_map_flush_timer_failure');
+    };
+    service.logger = {
+      error(message: string) {
+        errors.push(message);
+      },
+      log() {},
+    };
+    globalThis.setInterval = ((callback: (...args: unknown[]) => void) => {
+      callback();
+      return { unref() {} } as unknown as NodeJS.Timeout;
+    }) as typeof setInterval;
+    globalThis.clearInterval = (() => undefined) as typeof clearInterval;
+
+    service.startForLifecycleCoordinator();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    assert.deepEqual(unhandled, []);
+    assert.match(errors.join('\n'), /地图持久化直接定时刷盘失败/);
+  } finally {
+    process.off('unhandledRejection', onUnhandled);
+    globalThis.setInterval = originalSetInterval;
+    globalThis.clearInterval = originalClearInterval;
+    restoreEnv('SERVER_RUNTIME_ROLE', previousRole);
+    restoreEnv('SERVER_FLUSH_TASK_RUNTIME_MODE', previousMode);
+  }
+}
+
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name];
+    return;
+  }
+  process.env[name] = value;
 }
 
 main().catch((error: unknown) => {
