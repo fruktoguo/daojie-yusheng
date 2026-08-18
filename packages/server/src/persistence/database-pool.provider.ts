@@ -208,6 +208,8 @@ export function resolveDatabasePoolGroup(name: string): DatabasePoolGroup {
     || normalized.includes('node-registry')
     || normalized.includes('durable-operation')
     || normalized.includes('tongtian')
+    || normalized.includes('map-dynamic-persistence')
+    || normalized.includes('import-legacy-persistence')
     || normalized.includes('player-identity')) {
     return 'flush';
   }

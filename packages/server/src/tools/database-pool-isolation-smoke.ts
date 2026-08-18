@@ -104,6 +104,8 @@ async function main(): Promise<void> {
   assert.equal(resolveDatabasePoolGroup('gm-quest-progress-payload-repair'), 'flush');
   assert.equal(resolveDatabasePoolGroup('gm-compat-delete-empty-custom-technique-books'), 'flush');
   assert.equal(resolveDatabasePoolGroup('gm-compat-orphan-sect-building-visuals'), 'flush');
+  assert.equal(resolveDatabasePoolGroup('map-dynamic-persistence-audit'), 'flush');
+  assert.equal(resolveDatabasePoolGroup('import-legacy-persistence-instance'), 'flush');
   assert.equal(resolveDatabasePoolGroup('combat-audit-outbox'), 'flush');
   assert.equal(resolveDatabasePoolGroup('player_counters'), 'flush');
   assert.equal(resolveDatabasePoolGroup('time-chamber-runtime'), 'flush');
