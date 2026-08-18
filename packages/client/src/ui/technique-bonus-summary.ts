@@ -44,6 +44,8 @@ const QI_ELEMENT_LABELS: Record<QiElementKey, string> = {
   water: '水',
   fire: '火',
   earth: '土',
+  yin: '阴',
+  yang: '阳',
 };
 
 type TechniqueSpecialStatKey = keyof typeof TECHNIQUE_SPECIAL_STAT_LABELS;

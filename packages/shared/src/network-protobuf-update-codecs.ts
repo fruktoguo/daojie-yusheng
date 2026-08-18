@@ -112,6 +112,7 @@ export function toWireActionEntry(entry: ActionUpdateEntry): Record<string, unkn
   setNullableWireValue(wire, 'autoBattleEnabled', 'clearAutoBattleEnabled', entry.autoBattleEnabled);
   setNullableWireValue(wire, 'autoBattleOrder', 'clearAutoBattleOrder', entry.autoBattleOrder);
   setNullableWireValue(wire, 'skillEnabled', 'clearSkillEnabled', entry.skillEnabled);
+  setNullableWireValue(wire, 'passiveOnly', 'clearPassiveOnly', entry.passiveOnly);
   setNullableWireValue(wire, 'name', 'clearName', entry.name);
   setNullableWireValue(wire, 'type', 'clearType', entry.type);
   setNullableWireValue(wire, 'desc', 'clearDesc', entry.desc);
@@ -141,6 +142,8 @@ export function fromWireActionEntry(wire: Record<string, unknown>): ActionUpdate
   if (autoBattleOrder !== undefined) patch.autoBattleOrder = autoBattleOrder === null ? null : Number(autoBattleOrder);
   const skillEnabled = readNullableWireValue<boolean>(wire, 'skillEnabled', 'clearSkillEnabled');
   if (skillEnabled !== undefined) patch.skillEnabled = skillEnabled;
+  const passiveOnly = readNullableWireValue<boolean>(wire, 'passiveOnly', 'clearPassiveOnly');
+  if (passiveOnly !== undefined) patch.passiveOnly = passiveOnly;
   const name = readNullableWireValue<string>(wire, 'name', 'clearName');
   if (name !== undefined) patch.name = name;
   const type = readNullableWireValue<ActionDef['type']>(wire, 'type', 'clearType');

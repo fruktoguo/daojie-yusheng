@@ -75,6 +75,8 @@ export interface ActionDef {
  */
 
   skillEnabled?: boolean;
+  /** passiveOnly=true 表示动作来自纯被动技能，只用于管理占格，不可释放。 */
+  passiveOnly?: boolean;
   /** 藏经台参悟目标功法 ID。 */
   scriptureTechniqueId?: string;
   /** 藏经台参悟目标功法名称。 */

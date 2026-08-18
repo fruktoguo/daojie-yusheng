@@ -192,6 +192,8 @@ export interface BootstrapActionView {
  */
 
   skillEnabled?: boolean | null;
+  /** passiveOnly=true 表示纯被动技能动作，不可主动释放。 */
+  passiveOnly?: boolean | null;
 }
 
 /** 首包玩家视图：保留运行态字段，面板静态描述由客户端模板补齐。 */

@@ -49,6 +49,8 @@ const ARTS_STRENGTH_SKILL_FORBIDDEN_FIELDS = [
   'value',
   'formula',
   'buff',
+  'active',
+  'passiveEffects',
   'buffId',
   'heal',
   'maxTargets',
@@ -177,6 +179,9 @@ function validateSemantics(candidate: Record<string, unknown>, expectedCategory:
     if (!Number.isFinite(maxLayer) || maxLayer < 3 || maxLayer > 49) {
       errors.push({ layer: 2, field: 'maxLayer', message: 'maxLayer 必须在 [3, 49]' });
     }
+  }
+  if (candidate.active !== undefined || candidate.passiveEffects !== undefined) {
+    errors.push({ layer: 2, field: 'passiveEffects', message: '自创功法不能提交被动技能字段' });
   }
 
   if (expectedCategory === 'arts') {

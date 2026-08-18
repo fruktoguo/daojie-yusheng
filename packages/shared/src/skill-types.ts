@@ -11,6 +11,7 @@ import type { QiProjectionModifier } from './qi';
 import type { BuffCategory, BuffModifierMode, BuffVisibility, VisibleBuffState } from './world-core-types';
 import type { TargetingShape } from './targeting';
 import type { CraftEffectSkillKind } from './craft-effect-stats';
+import type { CraftEffectStatsPatch } from './craft-effect-stats';
 
 /** 技能定义。 */
 export type SkillDamageKind = 'physical' | 'spell';
@@ -601,6 +602,54 @@ export interface SkillTemporaryTileEffectDef {
   excludeAnchor?: boolean;
 }
 
+
+/** 技能被动常驻 Buff 效果：技能启用且占用技能格时投影为虚拟 Buff。 */
+export interface SkillPassiveBuffEffectDef {
+  type: 'buff';
+  buffId?: string;
+  name?: string;
+  desc?: string;
+  shortMark?: string;
+  category?: BuffCategory;
+  visibility?: BuffVisibility;
+  color?: string;
+  attrs?: Partial<Attributes>;
+  attrMode?: BuffModifierMode;
+  stats?: PartialNumericStats;
+  statMode?: BuffModifierMode;
+  qiProjection?: QiProjectionModifier[];
+  craftEffectStats?: CraftEffectStatsPatch;
+  maxStacks?: number;
+  presentationScale?: number;
+}
+
+/** 技能被动修炼注灵效果：修炼 tick 时向周围地块注入指定气机。 */
+export interface SkillPassiveCultivationTileQiEffectDef {
+  type: 'cultivation_tile_qi';
+  resourceKey: string;
+  radius?: number;
+  amount?: number;
+  amountSource?: 'max_qi_output_squared';
+  multiplier?: number;
+}
+
+/** 技能被动效果联合类型。 */
+export type SkillPassiveEffectDef = SkillPassiveBuffEffectDef | SkillPassiveCultivationTileQiEffectDef;
+
+/** 技能是否具有主动释放部分；缺省保持旧技能可释放语义。 */
+export function isSkillActiveCastEnabled(skill: Pick<SkillDef, 'active'> | null | undefined): boolean {
+  return skill?.active !== false;
+}
+
+/** 纯被动技能：占用技能格但不进入手动施法或自动战斗选技。 */
+export function isPassiveOnlySkill(skill: Pick<SkillDef, 'active' | 'passiveEffects'> | null | undefined): boolean {
+  return skill?.active === false && Array.isArray(skill.passiveEffects) && skill.passiveEffects.length > 0;
+}
+
+/** 读取技能被动效果，运行时只消费启动期已归一化结果。 */
+export function getSkillPassiveEffects(skill: Pick<SkillDef, 'passiveEffects'> | null | undefined): readonly SkillPassiveEffectDef[] {
+  return Array.isArray(skill?.passiveEffects) ? skill.passiveEffects : [];
+}
 /** 技能效果联合类型。 */
 export type SkillEffectDef = SkillDamageEffectDef | SkillHealEffectDef | SkillBuffEffectDef | SkillCleanseEffectDef | SkillTemporaryTileEffectDef;
 
@@ -714,6 +763,10 @@ export interface SkillDef {
  */
 
   monsterCast?: SkillMonsterCastDef;
+  /** active=false 表示纯被动技能：占技能格但不能主动释放。 */
+  active?: boolean;
+  /** 技能启用后生效的被动效果。 */
+  passiveEffects?: SkillPassiveEffectDef[];
 }
 
 /** 读取玩家技能的权威吟唱息数；未配置或非法值统一视为瞬发。 */

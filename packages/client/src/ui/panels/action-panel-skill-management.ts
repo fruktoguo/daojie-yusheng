@@ -353,7 +353,7 @@ export class SkillManagementSubpanel {
       if (seen.has(action.id)) continue;
       normalized.push({
         skillId: action.id,
-        enabled: action.autoBattleEnabled !== false,
+        enabled: action.passiveOnly === true ? false : action.autoBattleEnabled !== false,
         skillEnabled: action.skillEnabled !== false,
       });
       seen.add(action.id);
@@ -371,9 +371,9 @@ export class SkillManagementSubpanel {
         .map((action) => {
           const draftEntry = draftMap.get(action.id);
           if (!draftEntry) {
-            return { ...action, autoBattleEnabled: action.autoBattleEnabled !== false, skillEnabled: action.skillEnabled !== false };
+            return { ...action, autoBattleEnabled: action.passiveOnly === true ? false : action.autoBattleEnabled !== false, skillEnabled: action.skillEnabled !== false };
           }
-          return { ...action, autoBattleEnabled: draftEntry.entry.enabled !== false, skillEnabled: draftEntry.entry.skillEnabled !== false, autoBattleOrder: draftEntry.index };
+          return { ...action, autoBattleEnabled: action.passiveOnly === true ? false : draftEntry.entry.enabled !== false, skillEnabled: draftEntry.entry.skillEnabled !== false, autoBattleOrder: draftEntry.index };
         })
         .sort((left, right) => (left.autoBattleOrder ?? Number.MAX_SAFE_INTEGER) - (right.autoBattleOrder ?? Number.MAX_SAFE_INTEGER)),
     );
@@ -544,15 +544,18 @@ export class SkillManagementSubpanel {
       disabled: t('action.skill.manage.bulk.disabled-label', undefined),
     } satisfies Record<SkillManagementBulkMode, string>)[mode];
     this.p.skillManagementStatus = { tone: 'success', text: t('action.skill.manage.bulk.done', { count: formatDisplayInteger(filteredSkillIds.size), label }) };
-    this.applySkillManagementDraftMutation((skills) => skills.map((action) => (
-      filteredSkillIds.has(action.id)
-        ? mode === 'enabled'
-          ? { ...action, skillEnabled: true }
-          : mode === 'disabled'
-            ? { ...action, skillEnabled: false }
-            : { ...action, autoBattleEnabled: mode === 'auto' }
-        : action
-    )));
+    this.applySkillManagementDraftMutation((skills) => skills.map((action) => {
+      if (!filteredSkillIds.has(action.id)) {
+        return action;
+      }
+      if (mode === 'enabled') {
+        return { ...action, skillEnabled: true };
+      }
+      if (mode === 'disabled') {
+        return { ...action, skillEnabled: false };
+      }
+      return { ...action, autoBattleEnabled: action.passiveOnly === true ? false : mode === 'auto' };
+    }));
   }
 
   applySkillManagementChanges(): void {
@@ -627,9 +630,9 @@ export class SkillManagementSubpanel {
     const previewActions = this.getSkillManagementPreviewActions();
     const skillEntries = this.getFilteredSkillManagementEntries(this.getSkillManagementEntries(previewActions));
     const visibleEntries = this.p.skillManagementTab === 'auto'
-      ? skillEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled !== false)
+      ? skillEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.passiveOnly !== true && entry.action.autoBattleEnabled !== false)
       : this.p.skillManagementTab === 'manual'
-        ? skillEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled === false)
+        ? skillEntries.filter((entry) => entry.action.skillEnabled !== false && (entry.action.passiveOnly === true || entry.action.autoBattleEnabled === false))
         : skillEntries.filter((entry) => entry.action.skillEnabled === false);
     return this.sortSkillManagementEntries(visibleEntries).map((entry) => entry.action.id);
   }
@@ -799,13 +802,15 @@ export class SkillManagementSubpanel {
     const next: AutoBattleSkillConfig[] = [];
     const seen = new Set<string>();
     for (const skill of preset.skills) {
-      if (seen.has(skill.skillId) || !currentMap.has(skill.skillId)) continue;
-      next.push({ skillId: skill.skillId, enabled: skill.enabled !== false, skillEnabled: true });
+      const action = currentMap.get(skill.skillId);
+      if (seen.has(skill.skillId) || !action) continue;
+      next.push({ skillId: skill.skillId, enabled: action.passiveOnly === true ? false : skill.enabled !== false, skillEnabled: true });
       seen.add(skill.skillId);
     }
     for (const action of currentSkillActions) {
       if (seen.has(action.id)) continue;
-      next.push({ skillId: action.id, enabled: action.autoBattleEnabled !== false, skillEnabled: false });
+      const enabled = action.passiveOnly === true ? false : action.autoBattleEnabled !== false;
+      next.push({ skillId: action.id, enabled, skillEnabled: false });
       seen.add(action.id);
     }
     return next;
@@ -832,7 +837,7 @@ export class SkillManagementSubpanel {
   private toggleSkillManagementAutoBattleSkill(actionId: string): void {
     this.applySkillManagementDraftMutation((skills) => skills.map((action) => (
       action.id === actionId
-        ? { ...action, autoBattleEnabled: action.autoBattleEnabled === false }
+        ? { ...action, autoBattleEnabled: action.passiveOnly === true ? false : action.autoBattleEnabled === false }
         : action
     )));
   }
@@ -878,7 +883,7 @@ export class SkillManagementSubpanel {
     const skillActions = this.p.getSkillActions(this.getSkillManagementPreviewActions())
       .map((action) => ({
         ...action,
-        autoBattleEnabled: action.autoBattleEnabled !== false,
+        autoBattleEnabled: action.passiveOnly === true ? false : action.autoBattleEnabled !== false,
         skillEnabled: action.skillEnabled !== false,
       }));
     const orderedSkillActions = orderedIds.length > 1
@@ -1288,8 +1293,8 @@ export class SkillManagementSubpanel {
     const skillEntries = this.getSkillManagementEntries(previewActions);
     const filteredEntries = this.getFilteredSkillManagementEntries(skillEntries);
     const autoBattleDisplayOrders = this.p.buildAutoBattleDisplayOrderMap(previewActions);
-    const autoEntries = filteredEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled !== false);
-    const manualEntries = filteredEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled === false);
+    const autoEntries = filteredEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.passiveOnly !== true && entry.action.autoBattleEnabled !== false);
+    const manualEntries = filteredEntries.filter((entry) => entry.action.skillEnabled !== false && (entry.action.passiveOnly === true || entry.action.autoBattleEnabled === false));
     const disabledEntries = filteredEntries.filter((entry) => entry.action.skillEnabled === false);
     const slotSummary = this.p.getSkillSlotSummary(previewActions);
     const visibleEntries = this.sortSkillManagementEntries(
@@ -1491,8 +1496,8 @@ export class SkillManagementSubpanel {
           this.p.skillManagementTab === 'disabled'
             ? entry.action.skillEnabled === false
             : this.p.skillManagementTab === 'auto'
-              ? entry.action.skillEnabled !== false && entry.action.autoBattleEnabled !== false
-              : entry.action.skillEnabled !== false && entry.action.autoBattleEnabled === false
+              ? entry.action.skillEnabled !== false && entry.action.passiveOnly !== true && entry.action.autoBattleEnabled !== false
+              : entry.action.skillEnabled !== false && (entry.action.passiveOnly === true || entry.action.autoBattleEnabled === false)
         ));
         const currentIndex = visibleEntries.findIndex((entry) => entry.action.id === actionId);
         if (currentIndex < 0) {
@@ -1618,6 +1623,7 @@ export class SkillManagementSubpanel {
       ? ` data-action-tooltip-title="${escapeHtml(skillContext.skill.name)}" data-action-tooltip-skill-id="${escapeHtml(skillContext.skill.id)}" data-action-tooltip-rich="1"`
       : '';
     const autoBattleEnabled = action.autoBattleEnabled !== false;
+    const passiveOnly = action.passiveOnly === true;
     const skillEnabled = action.skillEnabled !== false;
     const autoBattleOrder = typeof options?.autoBattleDisplayOrder === 'number'
       ? options.autoBattleDisplayOrder + 1
@@ -1634,6 +1640,7 @@ export class SkillManagementSubpanel {
           <span class="action-name">${escapeHtml(action.name)}</span>
           <span class="action-type">${t('action.card.skill-type', undefined)}</span>
           ${typeof action.range === 'number' ? `<span class="action-type">${t('action.range', { range: formatDisplayNumber(action.range) })}</span>` : ''}
+          ${passiveOnly ? `<span class="action-type">被动</span>` : ''}
           <span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${autoBattleEnabled ? t('action.skill.auto-state.enabled', undefined) : t('action.skill.auto-state.disabled', undefined)}</span>
           <span class="action-type ${skillEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${skillEnabled ? t('action.skill.manage.skill-enabled.enabled', undefined) : t('action.skill.manage.skill-enabled.disabled', undefined)}</span>
           ${autoBattleOrder ? `<span class="action-type">${t('action.skill.order', { order: formatDisplayInteger(autoBattleOrder) })}</span>` : ''}
@@ -1643,7 +1650,7 @@ export class SkillManagementSubpanel {
       </div>
       <div class="action-cta">
         ${metricReadout ? `<span class="skill-manage-metric-readout">${escapeHtml(metricReadout)}</span>` : ''}
-        <button class="small-btn ghost ${autoBattleEnabled ? 'active' : ''}" data-skill-manage-auto-toggle="${action.id}" type="button">${t('action.skill.manage.toggle.auto', { state: autoBattleEnabled ? t('common.state.on') : t('common.state.off') })}</button>
+        ${passiveOnly ? '' : `<button class="small-btn ghost ${autoBattleEnabled ? 'active' : ''}" data-skill-manage-auto-toggle="${action.id}" type="button">${t('action.skill.manage.toggle.auto', { state: autoBattleEnabled ? t('common.state.on') : t('common.state.off') })}</button>`}
         <button class="small-btn ghost ${skillEnabled ? 'active' : ''}" data-skill-manage-enabled-toggle="${action.id}" type="button">${t('action.skill.manage.toggle.enabled', { state: skillEnabled ? t('common.state.on') : t('common.state.off') })}</button>
         <button class="small-btn ghost" data-skill-manage-move-up="${action.id}" type="button"${canMoveUp ? '' : ' disabled'}>${t('action.skill.manage.move-up', undefined)}</button>
         <button class="small-btn ghost" data-skill-manage-move-down="${action.id}" type="button"${canMoveDown ? '' : ' disabled'}>${t('action.skill.manage.move-down', undefined)}</button>

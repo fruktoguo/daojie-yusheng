@@ -305,6 +305,8 @@ export function getQiResourceDisplayLabel(resourceKey: string): string {
       water: '水',
       fire: '火',
       earth: '土',
+      yin: '阴',
+      yang: '阳',
     }[parsed.element] ?? parsed.element);
   const formLabel = parsed.form === 'dispersed' ? '逸散' : '';
   const familyLabel = ({

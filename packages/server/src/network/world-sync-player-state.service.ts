@@ -443,6 +443,9 @@ function toActionDefinition(entry) {
   if (normalizedEntry.skillEnabled === false) {
     action.skillEnabled = false;
   }
+  if (normalizedEntry.passiveOnly === true) {
+    action.passiveOnly = true;
+  }
   if (normalizedEntry.type === 'skill') {
     return action;
   }

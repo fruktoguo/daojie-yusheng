@@ -877,6 +877,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       autoBattleEnabled: applyNullablePatch(patch.autoBattleEnabled, previousSameAction?.autoBattleEnabled),
       autoBattleOrder: applyNullablePatch(patch.autoBattleOrder, previousSameAction?.autoBattleOrder),
       skillEnabled: applyNullablePatch(patch.skillEnabled, previousSameAction?.skillEnabled),
+      passiveOnly: applyNullablePatch(patch.passiveOnly, previousSameAction?.passiveOnly),
       name: String(applyNullablePatch(patch.name, previousSameAction?.name ?? staticAction?.name) ?? skillTemplate?.name ?? '').trim() || '未知动作',
       type: nextType,
       desc: applyNullablePatch(patch.desc, previousSameAction?.desc ?? staticAction?.desc) ?? skillTemplate?.desc ?? '',
@@ -983,6 +984,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         || previous.type !== next.type
         || previous.autoBattleEnabled !== next.autoBattleEnabled
         || previous.skillEnabled !== next.skillEnabled
+        || previous.passiveOnly !== next.passiveOnly
       ) {
         return true;
       }

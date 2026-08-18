@@ -25,6 +25,7 @@ import {
 import { type RuntimeExternalSectionKey, WorldRuntimeMetricsService } from '../world/world-runtime-metrics.service';
 import { resolvePlayerDailySignInFortuneLuck } from './player-special-stat.helpers';
 import { markPlayerComprehensionSpeedRateProjectionDirty } from './player-comprehension-speed.helpers';
+import { addEnabledSkillPassiveCraftEffects, collectEnabledSkillPassiveBuffs } from './player-skill-passive.helpers';
 
 type AttributeRecalculationReason =
     | 'world_time'
@@ -328,6 +329,7 @@ export class PlayerAttributesService {
             addAttributes(finalAttrs, enhancedItem.equipAttrs);
             addCraftEffectStatsFromItem(craftEffectStats, enhancedItem);
         }
+        addEnabledSkillPassiveCraftEffects(craftEffectStats, player);
         this.recordAttributePerf('attribution.attributes.build.equipmentProjectionMs', performance.now() - equipmentProjectionStartedAt, 1);
         this.recordAttributePerf('attribution.attributes.build.equipmentEntries', 0, equipmentProjection.sourceEntryCount);
         const buffAttributeProjectionStartedAt = performance.now();
@@ -341,7 +343,10 @@ export class PlayerAttributesService {
         }
         accumulateAttributePercentBonus(attrPercentBonuses.techniqueMax, techniqueMaxAttrPercentBonus);
         const flatBuffAttrs = resetAttributes(this.flatBuffAttrsScratch);
-        const activeBuffs = Array.isArray(player.buffs?.buffs) ? player.buffs.buffs : [];
+        const activeBuffs = [
+            ...(Array.isArray(player.buffs?.buffs) ? player.buffs.buffs : []),
+            ...collectEnabledSkillPassiveBuffs(player),
+        ];
         for (const buff of activeBuffs) {
             if (!isActiveRuntimeBuff(buff)) {
                 continue;

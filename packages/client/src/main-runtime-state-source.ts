@@ -416,6 +416,7 @@ function hydrateBootstrapAction(
     autoBattleEnabled: action.autoBattleEnabled,
     autoBattleOrder: action.autoBattleOrder,
     skillEnabled: action.skillEnabled,
+    passiveOnly: action.passiveOnly,
     scriptureTechniqueId: action.scriptureTechniqueId,
     scriptureTechniqueName: action.scriptureTechniqueName,
     scriptureTechniqueRealmLv: action.scriptureTechniqueRealmLv,

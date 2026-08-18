@@ -277,6 +277,8 @@ message ActionUpdateEntryPayload {
   optional bool clearScriptureTechniqueGrade = 28;
   optional string scriptureTechniqueCategory = 29;
   optional bool clearScriptureTechniqueCategory = 30;
+  optional bool passiveOnly = 31;
+  optional bool clearPassiveOnly = 32;
 }
 
 message AttrUpdatePayload {

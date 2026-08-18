@@ -88,21 +88,20 @@ function getPlayerEnabledSkillSlotLimitByLevel(level: number | undefined): numbe
   let extraSlots = 0;
 
   const earlyLevels = Math.min(normalizedLevel, 6);
-  extraSlots += Math.max(0, earlyLevels - 1);
+  extraSlots += Math.floor(Math.max(0, earlyLevels - 1) / 2);
 
   if (normalizedLevel >= 7) {
-    extraSlots += Math.floor((Math.min(normalizedLevel, 18) - 6) / 3);
+    extraSlots += Math.floor((Math.min(normalizedLevel, 18) - 6) / 6);
   }
 
   if (normalizedLevel >= 19) {
-    extraSlots += Math.floor((Math.min(normalizedLevel, 30) - 18) / 5);
+    extraSlots += Math.floor((Math.min(normalizedLevel, 30) - 18) / 10);
   }
 
   if (normalizedLevel >= 31) {
-    extraSlots += Math.floor((normalizedLevel - 30) / 6);
+    extraSlots += Math.floor((normalizedLevel - 30) / 12);
   }
 
-  extraSlots += Math.floor(normalizedLevel / 6);
   extraSlots += Math.floor(normalizedLevel / 12);
 
   return 4 + extraSlots;
@@ -613,6 +612,7 @@ export class ActionPanel {
         this.isSwitchAction(action) ? 'switch' : '',
         this.isUtilityAction(action) ? 'utility' : '',
         action.skillEnabled === false ? 'skill-off' : '',
+        action.passiveOnly === true ? 'passive' : '',
         action.autoBattleEnabled === false ? 'manual' : 'auto',
       ].join('/'));
     }
@@ -1056,7 +1056,7 @@ export class ActionPanel {
     if (!actionId) return;
     const action = this.resolveShortcutAction(actionId);
     if (!action || action.cooldownLeft > 0) return;
-    if (action.type === 'skill' && action.skillEnabled === false) return;
+    if (action.type === 'skill' && (action.skillEnabled === false || action.passiveOnly === true)) return;
     event.preventDefault();
     this.onAction?.(action.id, action.requiresTarget, action.targetMode, action.range, action.name);
   }
@@ -1523,9 +1523,10 @@ export class ActionPanel {
           cooldownLeft: 0,
           range: skill.targeting?.range ?? skill.range,
           requiresTarget: resolveSkillRequiresTarget(skill),
-          autoBattleEnabled: config?.entry.enabled ?? true,
+          autoBattleEnabled: skill.active === false ? false : (config?.entry.enabled ?? true),
           autoBattleOrder: config?.index,
           skillEnabled: config?.entry.skillEnabled ?? true,
+          passiveOnly: skill.active === false ? true : undefined,
         });
       }
     }
@@ -1715,7 +1716,7 @@ export class ActionPanel {
       .filter((action) => action.type === 'skill')
       .map((action) => ({
         ...action,
-        autoBattleEnabled: action.autoBattleEnabled !== false,
+        autoBattleEnabled: action.passiveOnly === true ? false : action.autoBattleEnabled !== false,
       }));
     const mutated = this.normalizeSkillActions(mutator(skillActions));
     this.currentActions = this.replaceSkillActions(mutated);
@@ -1732,7 +1733,7 @@ export class ActionPanel {
   private withSequentialAutoBattleOrder(actions: ActionDef[]): ActionDef[] {
     return actions.map((action, index) => ({
       ...action,
-      autoBattleEnabled: action.autoBattleEnabled !== false,
+      autoBattleEnabled: action.passiveOnly === true ? false : action.autoBattleEnabled !== false,
       skillEnabled: action.skillEnabled !== false,
       autoBattleOrder: index,
     }));
@@ -1755,7 +1756,7 @@ export class ActionPanel {
       .filter((action) => action.type === 'skill')
       .map((action) => ({
         skillId: action.id,
-        enabled: action.autoBattleEnabled !== false,
+        enabled: action.passiveOnly === true ? false : action.autoBattleEnabled !== false,
         skillEnabled: action.skillEnabled !== false,
       }));
   }
@@ -1912,7 +1913,7 @@ export class ActionPanel {
         return ['quest', 'interact', 'travel', 'craft'].includes(action.type);
       case 'skill':
         if (action.type === 'skill') {
-          if (action.skillEnabled === false) {
+          if (action.skillEnabled === false || action.passiveOnly === true) {
             return false;
           }
           return this.activeSkillTab === 'auto'
@@ -1933,7 +1934,7 @@ export class ActionPanel {
   private renderSkillSection(actions: ActionDef[], autoBattleDisplayOrders: Map<string, number>): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const enabledSkills = actions.filter((action) => action.skillEnabled !== false);
+    const enabledSkills = actions.filter((action) => action.skillEnabled !== false && action.passiveOnly !== true);
     const autoSkills = enabledSkills.filter((action) => action.autoBattleEnabled !== false);
     const manualSkills = enabledSkills.filter((action) => action.autoBattleEnabled === false);
     const visibleSkills = this.activeSkillTab === 'auto' ? autoSkills : manualSkills;

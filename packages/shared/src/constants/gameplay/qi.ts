@@ -33,7 +33,7 @@ export const QI_FORM_KEYS = ['refined', 'dispersed'] as const;
  * - `neutral`：无属性气机。
  * - 其余五项对应五行属性气机。
  */
-export const QI_ELEMENT_KEYS = ['neutral', 'metal', 'wood', 'water', 'fire', 'earth'] as const;
+export const QI_ELEMENT_KEYS = ['neutral', 'metal', 'wood', 'water', 'fire', 'earth', 'yin', 'yang'] as const;
 
 /**
  * 气机可见性层级集合。

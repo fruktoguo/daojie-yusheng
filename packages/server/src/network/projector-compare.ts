@@ -541,7 +541,8 @@ export function isSameActionEntry(left: ProjectedActionEntry | null | undefined,
         && left.targetMode === right.targetMode
         && left.autoBattleEnabled === right.autoBattleEnabled
         && left.autoBattleOrder === right.autoBattleOrder
-        && left.skillEnabled === right.skillEnabled;
+        && left.skillEnabled === right.skillEnabled
+        && left.passiveOnly === right.passiveOnly;
 }
 
 export function isSameActionOrder(previous: ProjectedActionEntry[], current: ProjectedActionEntry[]): boolean {
@@ -738,7 +739,9 @@ export function isSameSkillDef(left: SkillDef | null | undefined, right: SkillDe
         && left.unlockPlayerRealm === right.unlockPlayerRealm
         && left.requiresTarget === right.requiresTarget
         && isSameSkillPlayerCastDef(left.playerCast, right.playerCast)
-        && isSameSkillMonsterCastDef(left.monsterCast, right.monsterCast);
+        && isSameSkillMonsterCastDef(left.monsterCast, right.monsterCast)
+        && left.active === right.active
+        && left.passiveEffects === right.passiveEffects;
 }
 
 export function isSameSkillTargetingDef(left: SkillTargetingDef | null | undefined, right: SkillTargetingDef | null | undefined) {

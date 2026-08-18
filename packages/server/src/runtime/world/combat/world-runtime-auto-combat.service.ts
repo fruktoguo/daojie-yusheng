@@ -1280,7 +1280,7 @@ export class WorldRuntimeAutoCombatService {
             if (action.type !== 'skill') {
                 continue;
             }
-            if (action.autoBattleEnabled === false || action.skillEnabled === false) {
+            if (action.autoBattleEnabled === false || action.skillEnabled === false || action.passiveOnly === true) {
                 continue;
             }
             if (resolveAutoBattleActionCooldownLeft(player, action, options?.currentTick) > 0) {
@@ -1288,6 +1288,9 @@ export class WorldRuntimeAutoCombatService {
             }
             const skill = findAutoBattlePlayerSkill(player, action.id, activeSkillLookup);
             if (!skill || excludedSkillIds?.has(skill.id)) {
+                continue;
+            }
+            if (skill.active === false) {
                 continue;
             }
             if (player.qi < resolveAutoBattleSkillQiCost(skill.cost, player.attrs.numericStats.maxQiOutputPerTick, player.combat?.combatAttackIntensity)) {

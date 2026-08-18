@@ -2160,6 +2160,7 @@ function buildActionEntryPatch(
     setActionPatchField(patch, 'autoBattleEnabled', previous.autoBattleEnabled, current.autoBattleEnabled);
     setActionPatchField(patch, 'autoBattleOrder', previous.autoBattleOrder, current.autoBattleOrder);
     setActionPatchField(patch, 'skillEnabled', previous.skillEnabled, current.skillEnabled);
+    setActionPatchField(patch, 'passiveOnly', previous.passiveOnly, current.passiveOnly);
     setActionPatchField(patch, 'name', previous.name, current.name);
     setActionPatchField(patch, 'type', previous.type, current.type);
     setActionPatchField(patch, 'desc', previous.desc, current.desc);

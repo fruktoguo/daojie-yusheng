@@ -17,6 +17,7 @@ import {
     resolveHeavenlyDaoSuppressionPercentModifier,
 } from '../constants/gameplay/virtual-world';
 import { resolvePlayerDailySignInFortuneLuck } from '../runtime/player/player-special-stat.helpers';
+import { collectEnabledSkillPassiveBuffs } from '../runtime/player/player-skill-passive.helpers';
 
 type TechniqueEffectFingerprint = {
     techId: unknown;
@@ -85,7 +86,7 @@ export function buildAttrDetailBonuses(player) {
             appendEquipmentProgressEffectBonus(bonuses, entry.slot, item, effect);
         }
     }
-    for (const buff of player.buffs?.buffs ?? []) {
+    for (const buff of [...(player.buffs?.buffs ?? []), ...collectEnabledSkillPassiveBuffs(player)]) {
         const heavenlyDaoSuppression = buff?.buffId === HEAVENLY_DAO_SUPPRESSION_BUFF_ID
             && Number(buff.remainingTicks) > 0
             && Number(buff.stacks) > 0;
@@ -338,7 +339,7 @@ export function buildAttrDetailNumericStatBreakdowns(player) {
     if (vitalBaselineBonus?.stats) {
         addPartialNumericStats(baseStats, vitalBaselineBonus.stats);
     }
-    for (const buff of getActiveBuffs(player.buffs?.buffs)) {
+    for (const buff of getActiveBuffs([...(player.buffs?.buffs ?? []), ...collectEnabledSkillPassiveBuffs(player)])) {
         if (!buff?.stats) {
             continue;
         }

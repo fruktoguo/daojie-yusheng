@@ -638,6 +638,9 @@ function ensurePlayerSkillActionEnabled(player, skillId) {
     if (action.skillEnabled === false) {
         throw new BadRequestException('技能未启用，无法释放');
     }
+    if (action.passiveOnly === true) {
+        throw new BadRequestException('被动技能不需要释放');
+    }
 }
 
 /** 玩家技能派发服务：承接 player skill dispatch 与 legacy target 解析。 */
@@ -719,6 +722,9 @@ export class WorldRuntimePlayerSkillDispatchService {
         const skill = findPlayerSkill(attacker, skillId);
         if (!skill) {
             throw new NotFoundException(`技能不存在：${skillId}`);
+        }
+        if (skill.active === false) {
+            throw new BadRequestException('被动技能不需要释放');
         }
         deps.ensureAttackAllowed(attacker, skill);
         if (isTemporaryTileSkill(skill)) {

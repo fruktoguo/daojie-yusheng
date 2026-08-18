@@ -80,6 +80,9 @@ export function resolveClientSkillCastAvailability(
   if (action.skillEnabled === false) {
     return { ok: false, reason: 'disabled', message: '技能已禁用，无法释放。', action };
   }
+  if (action.passiveOnly === true) {
+    return { ok: false, reason: 'disabled', message: '被动技能不需要释放。', action };
+  }
   if (player.dead === true || Math.max(0, Number(player.hp) || 0) <= 0) {
     return { ok: false, reason: 'dead', message: '角色已倒下，无法释放技能。', action };
   }

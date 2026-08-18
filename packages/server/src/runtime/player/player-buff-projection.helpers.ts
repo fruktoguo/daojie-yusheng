@@ -14,8 +14,10 @@ import {
   CULTIVATION_BUFF_ID,
   buildWorldDarknessBuffState,
   resolvePlayerFacingContentName,
+  type SkillDef,
   type VisibleBuffState,
 } from '@mud/shared';
+import { collectEnabledSkillPassiveBuffs } from './player-skill-passive.helpers';
 
 // 玩家 buff 投影：将运行时 buff 状态转换为客户端可见状态
 
@@ -23,12 +25,16 @@ import {
 type TechniqueLike = {
   techId?: string | null;
   name?: string | null;
+  level?: number | null;
+  realmLv?: number | null;
+  skills?: SkillDef[] | null;
 };
 
 /** 可投影的玩家 buff 状态字段集合。 */
 type ProjectablePlayerBuffState = {
   combat?: {
     cultivationActive?: boolean | null;
+    autoBattleSkills?: Array<{ skillId?: string | null; skillEnabled?: boolean | null }> | null;
   } | null;
   buildingJob?: {
     buildingName?: string | null;
@@ -36,9 +42,12 @@ type ProjectablePlayerBuffState = {
     totalTicks?: number | null;
     phase?: string | null;
   } | null;
+  realm?: { realmLv?: number | null } | null;
+  realmLv?: number | null;
   techniques?: {
     cultivatingTechId?: string | null;
     techniques?: TechniqueLike[] | null;
+    revision?: number | null;
   } | null;
   buffs?: {
     buffs?: VisibleBuffState[] | null;
@@ -68,8 +77,10 @@ export function projectVisiblePlayerBuffs(player: ProjectablePlayerBuffState): V
   const cultivationBuff = buildCultivationBuffProjection(player);
   const buildingBuff = buildBuildingBuffProjection(player);
   const darknessBuff = buildDarknessBuffProjection(player);
+  const passiveBuffs = collectEnabledSkillPassiveBuffs(player);
   const projected = [
     ...realBuffs,
+    ...passiveBuffs,
     ...(cultivationBuff ? [cultivationBuff] : []),
     ...(buildingBuff ? [buildingBuff] : []),
     ...(darknessBuff ? [darknessBuff] : []),

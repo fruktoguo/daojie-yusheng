@@ -1292,6 +1292,427 @@
       "expDifficulty": 1
     },
     {
+      "id": "passive_craft_speed_enhance_mortal",
+      "name": "凡人百工偏修诀",
+      "desc": "启用后提升多数技艺速度，但传法稳定性下降。",
+      "grade": "mortal",
+      "category": "arts",
+      "realmLv": 1,
+      "attrRatio": {
+        "constitution": 0.34,
+        "spirit": 0.33,
+        "strength": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 9,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill.passive_craft_speed_enhance_mortal",
+          "name": "百工偏修",
+          "desc": "纯被动。启用后占用技能格并投影为被动效果。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.craft_speed.mortal",
+              "name": "百工被动",
+              "shortMark": "百",
+              "desc": "启用后作为被动 Buff 投影生效。",
+              "craftEffectStats": {
+                "alchemy": {
+                  "speedRate": 0.08
+                },
+                "forging": {
+                  "speedRate": 0.08
+                },
+                "enhancement": {
+                  "speedRate": 0.08
+                },
+                "mining": {
+                  "speedRate": 0.08
+                },
+                "building": {
+                  "speedRate": 0.08
+                },
+                "formation": {
+                  "speedRate": 0.08
+                },
+                "transmission": {
+                  "speedRate": -0.015
+                },
+                "gather": {
+                  "speedRate": 0.08
+                }
+              }
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_fire_enhance_mortal",
+      "name": "凡人火行偏锋诀",
+      "desc": "启用后强化火行相关攻防，但牺牲部分相克短板。",
+      "grade": "mortal",
+      "category": "arts",
+      "realmLv": 1,
+      "attrRatio": {
+        "spirit": 0.34,
+        "strength": 0.33,
+        "meridians": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 9,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill.passive_fire_enhance_mortal",
+          "name": "火行偏锋",
+          "desc": "纯被动。启用后获得火行增伤/减伤与若干战斗属性，伴随对应短板。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.fire.mortal",
+              "name": "火行偏锋",
+              "shortMark": "火",
+              "desc": "启用后作为被动 Buff 投影生效。",
+              "stats": {
+                "spellAtk": 8,
+                "critDamage": 8,
+                "physDef": -3,
+                "antiCrit": -3,
+                "elementDamageBonus": {
+                  "fire": 8
+                },
+                "elementDamageReduce": {
+                  "fire": 4
+                }
+              },
+              "statMode": "percent"
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_metal_enhance_mortal",
+      "name": "凡人金行偏锋诀",
+      "desc": "启用后强化金行相关攻防，但牺牲部分相克短板。",
+      "grade": "mortal",
+      "category": "arts",
+      "realmLv": 1,
+      "attrRatio": {
+        "spirit": 0.34,
+        "strength": 0.33,
+        "meridians": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 9,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill.passive_metal_enhance_mortal",
+          "name": "金行偏锋",
+          "desc": "纯被动。启用后获得金行增伤/减伤与若干战斗属性，伴随对应短板。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.metal.mortal",
+              "name": "金行偏锋",
+              "shortMark": "金",
+              "desc": "启用后作为被动 Buff 投影生效。",
+              "stats": {
+                "physAtk": 8,
+                "crit": 8,
+                "spellDef": -3,
+                "maxQi": -3,
+                "elementDamageBonus": {
+                  "metal": 8
+                },
+                "elementDamageReduce": {
+                  "metal": 4
+                }
+              },
+              "statMode": "percent"
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_wood_enhance_mortal",
+      "name": "凡人木行偏锋诀",
+      "desc": "启用后强化木行相关攻防，但牺牲部分相克短板。",
+      "grade": "mortal",
+      "category": "arts",
+      "realmLv": 1,
+      "attrRatio": {
+        "spirit": 0.34,
+        "strength": 0.33,
+        "meridians": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 9,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill.passive_wood_enhance_mortal",
+          "name": "木行偏锋",
+          "desc": "纯被动。启用后获得木行增伤/减伤与若干战斗属性，伴随对应短板。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.wood.mortal",
+              "name": "木行偏锋",
+              "shortMark": "木",
+              "desc": "启用后作为被动 Buff 投影生效。",
+              "stats": {
+                "hpRegenRate": 8,
+                "dodge": 8,
+                "breakPower": -3,
+                "physAtk": -3,
+                "elementDamageBonus": {
+                  "wood": 8
+                },
+                "elementDamageReduce": {
+                  "wood": 4
+                }
+              },
+              "statMode": "percent"
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_spell_enhance_mortal",
+      "name": "凡人术心偏修诀",
+      "desc": "启用后强化术心方向的综合战斗属性，同时削弱另一侧资源或防护。",
+      "grade": "mortal",
+      "category": "arts",
+      "realmLv": 1,
+      "attrRatio": {
+        "constitution": 0.34,
+        "spirit": 0.33,
+        "strength": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 9,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill.passive_spell_enhance_mortal",
+          "name": "术心偏修",
+          "desc": "纯被动。启用后占用技能格并投影为被动效果。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.spell.mortal",
+              "name": "术心被动",
+              "shortMark": "术",
+              "desc": "启用后作为被动 Buff 投影生效。",
+              "stats": {
+                "spellAtk": 8,
+                "spellDef": 4.8,
+                "hit": 6.4,
+                "resolvePower": 4,
+                "physDef": -2.4000000000000004,
+                "maxHp": -1.5
+              },
+              "statMode": "percent"
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_water_enhance_mortal",
+      "name": "凡人水行偏锋诀",
+      "desc": "启用后强化水行相关攻防，但牺牲部分相克短板。",
+      "grade": "mortal",
+      "category": "arts",
+      "realmLv": 1,
+      "attrRatio": {
+        "spirit": 0.34,
+        "strength": 0.33,
+        "meridians": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 9,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill.passive_water_enhance_mortal",
+          "name": "水行偏锋",
+          "desc": "纯被动。启用后获得水行增伤/减伤与若干战斗属性，伴随对应短板。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.water.mortal",
+              "name": "水行偏锋",
+              "shortMark": "水",
+              "desc": "启用后作为被动 Buff 投影生效。",
+              "stats": {
+                "spellDef": 8,
+                "antiCrit": 8,
+                "crit": -3,
+                "physAtk": -3,
+                "elementDamageBonus": {
+                  "water": 8
+                },
+                "elementDamageReduce": {
+                  "water": 4
+                }
+              },
+              "statMode": "percent"
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_earth_enhance_mortal",
+      "name": "凡人土行偏锋诀",
+      "desc": "启用后强化土行相关攻防，但牺牲部分相克短板。",
+      "grade": "mortal",
+      "category": "arts",
+      "realmLv": 1,
+      "attrRatio": {
+        "spirit": 0.34,
+        "strength": 0.33,
+        "meridians": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 9,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill.passive_earth_enhance_mortal",
+          "name": "土行偏锋",
+          "desc": "纯被动。启用后获得土行增伤/减伤与若干战斗属性，伴随对应短板。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.earth.mortal",
+              "name": "土行偏锋",
+              "shortMark": "土",
+              "desc": "启用后作为被动 Buff 投影生效。",
+              "stats": {
+                "physDef": 8,
+                "resolvePower": 8,
+                "moveSpeed": -3,
+                "spellAtk": -3,
+                "elementDamageBonus": {
+                  "earth": 8
+                },
+                "elementDamageReduce": {
+                  "earth": 4
+                }
+              },
+              "statMode": "percent"
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_physical_enhance_mortal",
+      "name": "凡人武体偏修诀",
+      "desc": "启用后强化武体方向的综合战斗属性，同时削弱另一侧资源或防护。",
+      "grade": "mortal",
+      "category": "arts",
+      "realmLv": 1,
+      "attrRatio": {
+        "constitution": 0.34,
+        "spirit": 0.33,
+        "strength": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 9,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill.passive_physical_enhance_mortal",
+          "name": "武体偏修",
+          "desc": "纯被动。启用后占用技能格并投影为被动效果。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.physical.mortal",
+              "name": "武体被动",
+              "shortMark": "武",
+              "desc": "启用后作为被动 Buff 投影生效。",
+              "stats": {
+                "physAtk": 8,
+                "physDef": 4.8,
+                "breakPower": 6.4,
+                "crit": 4,
+                "spellAtk": -3,
+                "maxQi": -1.5
+              },
+              "statMode": "percent"
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
       "id": "cloudchase_steps",
       "name": "分光步",
       "desc": "步踏光影之间，身随念转而人已换位。",
@@ -3058,6 +3479,427 @@
       ]
     },
     {
+      "id": "passive_craft_speed_enhance_qi",
+      "name": "练气百工偏修诀",
+      "desc": "启用后提升多数技艺速度，但传法稳定性下降。",
+      "grade": "yellow",
+      "category": "arts",
+      "realmLv": 23,
+      "attrRatio": {
+        "constitution": 0.34,
+        "spirit": 0.33,
+        "strength": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 12,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill.passive_craft_speed_enhance_qi",
+          "name": "百工偏修",
+          "desc": "纯被动。启用后占用技能格并投影为被动效果。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.craft_speed.qi",
+              "name": "百工被动",
+              "shortMark": "百",
+              "desc": "启用后作为被动 Buff 投影生效。",
+              "craftEffectStats": {
+                "alchemy": {
+                  "speedRate": 0.12
+                },
+                "forging": {
+                  "speedRate": 0.12
+                },
+                "enhancement": {
+                  "speedRate": 0.12
+                },
+                "mining": {
+                  "speedRate": 0.12
+                },
+                "building": {
+                  "speedRate": 0.12
+                },
+                "formation": {
+                  "speedRate": 0.12
+                },
+                "transmission": {
+                  "speedRate": -0.02
+                },
+                "gather": {
+                  "speedRate": 0.12
+                }
+              }
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_fire_enhance_qi",
+      "name": "练气火行偏锋诀",
+      "desc": "启用后强化火行相关攻防，但牺牲部分相克短板。",
+      "grade": "yellow",
+      "category": "arts",
+      "realmLv": 23,
+      "attrRatio": {
+        "spirit": 0.34,
+        "strength": 0.33,
+        "meridians": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 12,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill.passive_fire_enhance_qi",
+          "name": "火行偏锋",
+          "desc": "纯被动。启用后获得火行增伤/减伤与若干战斗属性，伴随对应短板。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.fire.qi",
+              "name": "火行偏锋",
+              "shortMark": "火",
+              "desc": "启用后作为被动 Buff 投影生效。",
+              "stats": {
+                "spellAtk": 12,
+                "critDamage": 12,
+                "physDef": -4,
+                "antiCrit": -4,
+                "elementDamageBonus": {
+                  "fire": 12
+                },
+                "elementDamageReduce": {
+                  "fire": 6
+                }
+              },
+              "statMode": "percent"
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_metal_enhance_qi",
+      "name": "练气金行偏锋诀",
+      "desc": "启用后强化金行相关攻防，但牺牲部分相克短板。",
+      "grade": "yellow",
+      "category": "arts",
+      "realmLv": 23,
+      "attrRatio": {
+        "spirit": 0.34,
+        "strength": 0.33,
+        "meridians": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 12,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill.passive_metal_enhance_qi",
+          "name": "金行偏锋",
+          "desc": "纯被动。启用后获得金行增伤/减伤与若干战斗属性，伴随对应短板。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.metal.qi",
+              "name": "金行偏锋",
+              "shortMark": "金",
+              "desc": "启用后作为被动 Buff 投影生效。",
+              "stats": {
+                "physAtk": 12,
+                "crit": 12,
+                "spellDef": -4,
+                "maxQi": -4,
+                "elementDamageBonus": {
+                  "metal": 12
+                },
+                "elementDamageReduce": {
+                  "metal": 6
+                }
+              },
+              "statMode": "percent"
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_wood_enhance_qi",
+      "name": "练气木行偏锋诀",
+      "desc": "启用后强化木行相关攻防，但牺牲部分相克短板。",
+      "grade": "yellow",
+      "category": "arts",
+      "realmLv": 23,
+      "attrRatio": {
+        "spirit": 0.34,
+        "strength": 0.33,
+        "meridians": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 12,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill.passive_wood_enhance_qi",
+          "name": "木行偏锋",
+          "desc": "纯被动。启用后获得木行增伤/减伤与若干战斗属性，伴随对应短板。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.wood.qi",
+              "name": "木行偏锋",
+              "shortMark": "木",
+              "desc": "启用后作为被动 Buff 投影生效。",
+              "stats": {
+                "hpRegenRate": 12,
+                "dodge": 12,
+                "breakPower": -4,
+                "physAtk": -4,
+                "elementDamageBonus": {
+                  "wood": 12
+                },
+                "elementDamageReduce": {
+                  "wood": 6
+                }
+              },
+              "statMode": "percent"
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_spell_enhance_qi",
+      "name": "练气术心偏修诀",
+      "desc": "启用后强化术心方向的综合战斗属性，同时削弱另一侧资源或防护。",
+      "grade": "yellow",
+      "category": "arts",
+      "realmLv": 23,
+      "attrRatio": {
+        "constitution": 0.34,
+        "spirit": 0.33,
+        "strength": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 12,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill.passive_spell_enhance_qi",
+          "name": "术心偏修",
+          "desc": "纯被动。启用后占用技能格并投影为被动效果。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.spell.qi",
+              "name": "术心被动",
+              "shortMark": "术",
+              "desc": "启用后作为被动 Buff 投影生效。",
+              "stats": {
+                "spellAtk": 12,
+                "spellDef": 7.199999999999999,
+                "hit": 9.600000000000001,
+                "resolvePower": 6,
+                "physDef": -3.2,
+                "maxHp": -2
+              },
+              "statMode": "percent"
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_water_enhance_qi",
+      "name": "练气水行偏锋诀",
+      "desc": "启用后强化水行相关攻防，但牺牲部分相克短板。",
+      "grade": "yellow",
+      "category": "arts",
+      "realmLv": 23,
+      "attrRatio": {
+        "spirit": 0.34,
+        "strength": 0.33,
+        "meridians": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 12,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill.passive_water_enhance_qi",
+          "name": "水行偏锋",
+          "desc": "纯被动。启用后获得水行增伤/减伤与若干战斗属性，伴随对应短板。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.water.qi",
+              "name": "水行偏锋",
+              "shortMark": "水",
+              "desc": "启用后作为被动 Buff 投影生效。",
+              "stats": {
+                "spellDef": 12,
+                "antiCrit": 12,
+                "crit": -4,
+                "physAtk": -4,
+                "elementDamageBonus": {
+                  "water": 12
+                },
+                "elementDamageReduce": {
+                  "water": 6
+                }
+              },
+              "statMode": "percent"
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_earth_enhance_qi",
+      "name": "练气土行偏锋诀",
+      "desc": "启用后强化土行相关攻防，但牺牲部分相克短板。",
+      "grade": "yellow",
+      "category": "arts",
+      "realmLv": 23,
+      "attrRatio": {
+        "spirit": 0.34,
+        "strength": 0.33,
+        "meridians": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 12,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill.passive_earth_enhance_qi",
+          "name": "土行偏锋",
+          "desc": "纯被动。启用后获得土行增伤/减伤与若干战斗属性，伴随对应短板。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.earth.qi",
+              "name": "土行偏锋",
+              "shortMark": "土",
+              "desc": "启用后作为被动 Buff 投影生效。",
+              "stats": {
+                "physDef": 12,
+                "resolvePower": 12,
+                "moveSpeed": -4,
+                "spellAtk": -4,
+                "elementDamageBonus": {
+                  "earth": 12
+                },
+                "elementDamageReduce": {
+                  "earth": 6
+                }
+              },
+              "statMode": "percent"
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_physical_enhance_qi",
+      "name": "练气武体偏修诀",
+      "desc": "启用后强化武体方向的综合战斗属性，同时削弱另一侧资源或防护。",
+      "grade": "yellow",
+      "category": "arts",
+      "realmLv": 23,
+      "attrRatio": {
+        "constitution": 0.34,
+        "spirit": 0.33,
+        "strength": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 12,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill.passive_physical_enhance_qi",
+          "name": "武体偏修",
+          "desc": "纯被动。启用后占用技能格并投影为被动效果。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.physical.qi",
+              "name": "武体被动",
+              "shortMark": "武",
+              "desc": "启用后作为被动 Buff 投影生效。",
+              "stats": {
+                "physAtk": 12,
+                "physDef": 7.199999999999999,
+                "breakPower": 9.600000000000001,
+                "crit": 6,
+                "spellAtk": -4,
+                "maxQi": -2
+              },
+              "statMode": "percent"
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
       "id": "cloud_blade",
       "name": "流云刀谱",
       "desc": "身随刀走，刀随风掠，一线截开前路。",
@@ -4445,6 +5287,77 @@
       ]
     },
     {
+      "id": "yang_polar_dual_cultivation",
+      "name": "太阳双修诀",
+      "desc": "以太阳炼息导引阴阳，圆满后启用被动可偏向吸纳阴灵气，并在打坐时反哺阴性气机。",
+      "grade": "earth",
+      "category": "arts",
+      "realmLv": 23,
+      "attrRatio": {
+        "strength": 0.35,
+        "talent": 0.25,
+        "meridians": 0.4
+      },
+      "attrFloat": -0.05,
+      "maxLayer": 12,
+      "expDifficulty": 1.2,
+      "skills": [
+        {
+          "id": "skill.yang_polar_dual_cultivation.passive",
+          "name": "太阳引阴",
+          "desc": "纯被动。启用后阴灵气吸收效率+100bp、阳灵气吸收效率-100bp；打坐时向周围九宫格持续注入阴灵气，数值为最大灵力输出的平方。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 12,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.yang_polar_dual_cultivation.qi",
+              "name": "太阳引阴",
+              "shortMark": "阳",
+              "desc": "阴灵气吸收+100bp，阳灵气吸收-100bp。",
+              "qiProjection": [
+                {
+                  "selector": {
+                    "families": [
+                      "aura"
+                    ],
+                    "elements": [
+                      "yin"
+                    ]
+                  },
+                  "visibility": "absorbable",
+                  "efficiencyBpMultiplier": 10100
+                },
+                {
+                  "selector": {
+                    "families": [
+                      "aura"
+                    ],
+                    "elements": [
+                      "yang"
+                    ]
+                  },
+                  "visibility": "absorbable",
+                  "efficiencyBpMultiplier": 9900
+                }
+              ]
+            },
+            {
+              "type": "cultivation_tile_qi",
+              "resourceKey": "aura.refined.yin",
+              "radius": 1,
+              "amountSource": "max_qi_output_squared"
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
       "id": "taiyin_guichao",
       "name": "太阴归潮经",
       "desc": "归潮成线，借己身潮势层层叠加，如暗涌吞舟。",
@@ -4521,6 +5434,77 @@
             }
           ],
           "unlockLevel": 1
+        }
+      ]
+    },
+    {
+      "id": "yin_polar_dual_cultivation",
+      "name": "太阴双修诀",
+      "desc": "以太阴敛息导引阴阳，圆满后启用被动可偏向吸纳阳灵气，并在打坐时反哺阳性气机。",
+      "grade": "earth",
+      "category": "arts",
+      "realmLv": 23,
+      "attrRatio": {
+        "spirit": 0.4,
+        "talent": 0.3,
+        "meridians": 0.3
+      },
+      "attrFloat": -0.05,
+      "maxLayer": 12,
+      "expDifficulty": 1.2,
+      "skills": [
+        {
+          "id": "skill.yin_polar_dual_cultivation.passive",
+          "name": "太阴引阳",
+          "desc": "纯被动。启用后阳灵气吸收效率+100bp、阴灵气吸收效率-100bp；打坐时向周围九宫格持续注入阳灵气，数值为最大灵力输出的平方。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 12,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.yin_polar_dual_cultivation.qi",
+              "name": "太阴引阳",
+              "shortMark": "阴",
+              "desc": "阳灵气吸收+100bp，阴灵气吸收-100bp。",
+              "qiProjection": [
+                {
+                  "selector": {
+                    "families": [
+                      "aura"
+                    ],
+                    "elements": [
+                      "yang"
+                    ]
+                  },
+                  "visibility": "absorbable",
+                  "efficiencyBpMultiplier": 10100
+                },
+                {
+                  "selector": {
+                    "families": [
+                      "aura"
+                    ],
+                    "elements": [
+                      "yin"
+                    ]
+                  },
+                  "visibility": "absorbable",
+                  "efficiencyBpMultiplier": 9900
+                }
+              ]
+            },
+            {
+              "type": "cultivation_tile_qi",
+              "resourceKey": "aura.refined.yang",
+              "radius": 1,
+              "amountSource": "max_qi_output_squared"
+            }
+          ],
+          "cost": 0
         }
       ]
     },
@@ -7196,6 +8180,427 @@
             }
           ],
           "unlockLevel": 4
+        }
+      ]
+    },
+    {
+      "id": "passive_craft_speed_enhance_foundation",
+      "name": "筑基百工偏修诀",
+      "desc": "启用后提升多数技艺速度，但传法稳定性下降。",
+      "grade": "mystic",
+      "category": "arts",
+      "realmLv": 31,
+      "attrRatio": {
+        "constitution": 0.34,
+        "spirit": 0.33,
+        "strength": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 18,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill.passive_craft_speed_enhance_foundation",
+          "name": "百工偏修",
+          "desc": "纯被动。启用后占用技能格并投影为被动效果。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.craft_speed.foundation",
+              "name": "百工被动",
+              "shortMark": "百",
+              "desc": "启用后作为被动 Buff 投影生效。",
+              "craftEffectStats": {
+                "alchemy": {
+                  "speedRate": 0.16
+                },
+                "forging": {
+                  "speedRate": 0.16
+                },
+                "enhancement": {
+                  "speedRate": 0.16
+                },
+                "mining": {
+                  "speedRate": 0.16
+                },
+                "building": {
+                  "speedRate": 0.16
+                },
+                "formation": {
+                  "speedRate": 0.16
+                },
+                "transmission": {
+                  "speedRate": -0.025
+                },
+                "gather": {
+                  "speedRate": 0.16
+                }
+              }
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_fire_enhance_foundation",
+      "name": "筑基火行偏锋诀",
+      "desc": "启用后强化火行相关攻防，但牺牲部分相克短板。",
+      "grade": "mystic",
+      "category": "arts",
+      "realmLv": 31,
+      "attrRatio": {
+        "spirit": 0.34,
+        "strength": 0.33,
+        "meridians": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 18,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill.passive_fire_enhance_foundation",
+          "name": "火行偏锋",
+          "desc": "纯被动。启用后获得火行增伤/减伤与若干战斗属性，伴随对应短板。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.fire.foundation",
+              "name": "火行偏锋",
+              "shortMark": "火",
+              "desc": "启用后作为被动 Buff 投影生效。",
+              "stats": {
+                "spellAtk": 16,
+                "critDamage": 16,
+                "physDef": -5,
+                "antiCrit": -5,
+                "elementDamageBonus": {
+                  "fire": 16
+                },
+                "elementDamageReduce": {
+                  "fire": 8
+                }
+              },
+              "statMode": "percent"
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_metal_enhance_foundation",
+      "name": "筑基金行偏锋诀",
+      "desc": "启用后强化金行相关攻防，但牺牲部分相克短板。",
+      "grade": "mystic",
+      "category": "arts",
+      "realmLv": 31,
+      "attrRatio": {
+        "spirit": 0.34,
+        "strength": 0.33,
+        "meridians": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 18,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill.passive_metal_enhance_foundation",
+          "name": "金行偏锋",
+          "desc": "纯被动。启用后获得金行增伤/减伤与若干战斗属性，伴随对应短板。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.metal.foundation",
+              "name": "金行偏锋",
+              "shortMark": "金",
+              "desc": "启用后作为被动 Buff 投影生效。",
+              "stats": {
+                "physAtk": 16,
+                "crit": 16,
+                "spellDef": -5,
+                "maxQi": -5,
+                "elementDamageBonus": {
+                  "metal": 16
+                },
+                "elementDamageReduce": {
+                  "metal": 8
+                }
+              },
+              "statMode": "percent"
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_wood_enhance_foundation",
+      "name": "筑基木行偏锋诀",
+      "desc": "启用后强化木行相关攻防，但牺牲部分相克短板。",
+      "grade": "mystic",
+      "category": "arts",
+      "realmLv": 31,
+      "attrRatio": {
+        "spirit": 0.34,
+        "strength": 0.33,
+        "meridians": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 18,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill.passive_wood_enhance_foundation",
+          "name": "木行偏锋",
+          "desc": "纯被动。启用后获得木行增伤/减伤与若干战斗属性，伴随对应短板。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.wood.foundation",
+              "name": "木行偏锋",
+              "shortMark": "木",
+              "desc": "启用后作为被动 Buff 投影生效。",
+              "stats": {
+                "hpRegenRate": 16,
+                "dodge": 16,
+                "breakPower": -5,
+                "physAtk": -5,
+                "elementDamageBonus": {
+                  "wood": 16
+                },
+                "elementDamageReduce": {
+                  "wood": 8
+                }
+              },
+              "statMode": "percent"
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_spell_enhance_foundation",
+      "name": "筑基术心偏修诀",
+      "desc": "启用后强化术心方向的综合战斗属性，同时削弱另一侧资源或防护。",
+      "grade": "mystic",
+      "category": "arts",
+      "realmLv": 31,
+      "attrRatio": {
+        "constitution": 0.34,
+        "spirit": 0.33,
+        "strength": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 18,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill.passive_spell_enhance_foundation",
+          "name": "术心偏修",
+          "desc": "纯被动。启用后占用技能格并投影为被动效果。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.spell.foundation",
+              "name": "术心被动",
+              "shortMark": "术",
+              "desc": "启用后作为被动 Buff 投影生效。",
+              "stats": {
+                "spellAtk": 16,
+                "spellDef": 9.6,
+                "hit": 12.8,
+                "resolvePower": 8,
+                "physDef": -4,
+                "maxHp": -2.5
+              },
+              "statMode": "percent"
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_water_enhance_foundation",
+      "name": "筑基水行偏锋诀",
+      "desc": "启用后强化水行相关攻防，但牺牲部分相克短板。",
+      "grade": "mystic",
+      "category": "arts",
+      "realmLv": 31,
+      "attrRatio": {
+        "spirit": 0.34,
+        "strength": 0.33,
+        "meridians": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 18,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill.passive_water_enhance_foundation",
+          "name": "水行偏锋",
+          "desc": "纯被动。启用后获得水行增伤/减伤与若干战斗属性，伴随对应短板。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.water.foundation",
+              "name": "水行偏锋",
+              "shortMark": "水",
+              "desc": "启用后作为被动 Buff 投影生效。",
+              "stats": {
+                "spellDef": 16,
+                "antiCrit": 16,
+                "crit": -5,
+                "physAtk": -5,
+                "elementDamageBonus": {
+                  "water": 16
+                },
+                "elementDamageReduce": {
+                  "water": 8
+                }
+              },
+              "statMode": "percent"
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_earth_enhance_foundation",
+      "name": "筑基土行偏锋诀",
+      "desc": "启用后强化土行相关攻防，但牺牲部分相克短板。",
+      "grade": "mystic",
+      "category": "arts",
+      "realmLv": 31,
+      "attrRatio": {
+        "spirit": 0.34,
+        "strength": 0.33,
+        "meridians": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 18,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill.passive_earth_enhance_foundation",
+          "name": "土行偏锋",
+          "desc": "纯被动。启用后获得土行增伤/减伤与若干战斗属性，伴随对应短板。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.earth.foundation",
+              "name": "土行偏锋",
+              "shortMark": "土",
+              "desc": "启用后作为被动 Buff 投影生效。",
+              "stats": {
+                "physDef": 16,
+                "resolvePower": 16,
+                "moveSpeed": -5,
+                "spellAtk": -5,
+                "elementDamageBonus": {
+                  "earth": 16
+                },
+                "elementDamageReduce": {
+                  "earth": 8
+                }
+              },
+              "statMode": "percent"
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_physical_enhance_foundation",
+      "name": "筑基武体偏修诀",
+      "desc": "启用后强化武体方向的综合战斗属性，同时削弱另一侧资源或防护。",
+      "grade": "mystic",
+      "category": "arts",
+      "realmLv": 31,
+      "attrRatio": {
+        "constitution": 0.34,
+        "spirit": 0.33,
+        "strength": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 18,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill.passive_physical_enhance_foundation",
+          "name": "武体偏修",
+          "desc": "纯被动。启用后占用技能格并投影为被动效果。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.physical.foundation",
+              "name": "武体被动",
+              "shortMark": "武",
+              "desc": "启用后作为被动 Buff 投影生效。",
+              "stats": {
+                "physAtk": 16,
+                "physDef": 9.6,
+                "breakPower": 12.8,
+                "crit": 8,
+                "spellAtk": -5,
+                "maxQi": -2.5
+              },
+              "statMode": "percent"
+            }
+          ],
+          "cost": 0
         }
       ]
     },

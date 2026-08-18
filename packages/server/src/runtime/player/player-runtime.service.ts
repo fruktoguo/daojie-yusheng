@@ -36,6 +36,7 @@ import {
     refreshPlayerComprehensionSpeedRateProjectionIfDirty,
 } from './player-comprehension-speed.helpers';
 import { applyPlayerCraftExpRate, resolvePlayerCraftRealmLevel } from '../craft/craft-effect-runtime.helpers';
+import { collectEnabledCultivationTileQiPassives } from './player-skill-passive.helpers';
 import { cloneAutoUsePillList, cloneCombatTargetingRules, isSameAutoUsePillList, isSameCombatTargetingRules, normalizePersistedAutoUsePills, normalizePersistedCombatTargetingRules } from './player-combat-config.helpers';
 import { projectHeavenGateState, projectRealmState } from './player-realm-projection.helpers';
 import { createPlayerRuntimeStateStore } from './player-runtime.state';
@@ -4367,8 +4368,9 @@ export class PlayerRuntimeService {
             return player;
         }
         player.combat.autoBattleSkills = normalized;
+        this.playerAttributesService.recalculate(player, 'technique_mutation');
         this.rebuildActionState(player, resolvePlayerRuntimeTick(player, 0));
-        markPlayerDirtyDomains(player, ['technique', 'auto_battle_skill']);
+        markPlayerDirtyDomains(player, ['technique', 'auto_battle_skill', 'attr', 'buff']);
         this.bumpPersistentRevision(player);
         void this.persistAutoBattleSkills(player).catch((error) => {
             console.warn(`自动战斗技能直写失败：${error instanceof Error ? error.message : String(error)}`);
@@ -4489,8 +4491,9 @@ export class PlayerRuntimeService {
             return player;
         }
         player.combat.autoBattleSkills = limited;
+        this.playerAttributesService.recalculate(player, 'technique_mutation');
         this.rebuildActionState(player, resolvePlayerRuntimeTick(player, 0));
-        markPlayerDirtyDomains(player, ['auto_battle_skill']);
+        markPlayerDirtyDomains(player, ['auto_battle_skill', 'attr', 'buff']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -5275,6 +5278,9 @@ export class PlayerRuntimeService {
                         ? result.statisticTechniqueChangedIds
                         : undefined;
                 }
+                const passiveCultivationQiStartedAt = performance.now();
+                applyCultivationTileQiPassives(player, options);
+                recordPlayerTickPerf(options, 'playerTick.passiveCultivationQiMs', passiveCultivationQiStartedAt);
                 recordPlayerTickPerf(options, 'playerTick.cultivationAdvanceMs', cultivationAdvanceStartedAt);
             }
             if (player.hp > 0 && player.combat.autoRootFoundation === true) {
@@ -6999,7 +7005,9 @@ export class PlayerRuntimeService {
             markPlayerDirtyDomains(player, ['technique']);
         }
         if (nextActionResult.autoBattleSkillsChanged) {
-            markPlayerDirtyDomains(player, ['auto_battle_skill']);
+            this.playerAttributesService.recalculate(player, 'technique_mutation');
+            markPlayerDirtyDomains(player, ['attr']);
+            markPlayerDirtyDomains(player, ['auto_battle_skill', 'buff']);
         }
         this.actionCooldownProjectionScheduleByPlayer.set(
             player,
@@ -11856,9 +11864,10 @@ function buildActionEntries(player, currentTick) {
                 cooldownReadyTick: normalizedReadyTick > currentTick ? normalizedReadyTick : undefined,
                 range: skill.targeting?.range ?? skill.range,
                 requiresTarget: resolveSkillRequiresTarget(skill),
-                autoBattleEnabled: autoBattleSkill?.entry?.enabled ?? true,
+                autoBattleEnabled: skill.active === false ? false : (autoBattleSkill?.entry?.enabled ?? true),
                 autoBattleOrder: autoBattleSkill?.order,
                 skillEnabled: autoBattleSkill?.entry?.skillEnabled !== false,
+                passiveOnly: skill.active === false ? true : undefined,
             });
             if (nextAction.changed) {
                 changed = true;
@@ -11984,7 +11993,8 @@ function isSameActionList(previous, current) {
             || left.targetMode !== right.targetMode
             || left.autoBattleEnabled !== right.autoBattleEnabled
             || left.autoBattleOrder !== right.autoBattleOrder
-            || left.skillEnabled !== right.skillEnabled) {
+            || left.skillEnabled !== right.skillEnabled
+            || left.passiveOnly !== right.passiveOnly) {
             return false;
         }
     }
@@ -12014,7 +12024,8 @@ function isSameActionEntry(left, right) {
         && left.targetMode === right.targetMode
         && left.autoBattleEnabled === right.autoBattleEnabled
         && left.autoBattleOrder === right.autoBattleOrder
-        && left.skillEnabled === right.skillEnabled;
+        && left.skillEnabled === right.skillEnabled
+        && left.passiveOnly === right.passiveOnly;
 }
 /**
  * normalizePersistedAutoBattleSkills：判断PersistedAutoBattle技能是否满足条件。
@@ -12627,13 +12638,49 @@ function normalizeCultivationAuraMultiplier(value) {
     }
     return normalized;
 }
-/**
- * shouldResumeIdleCultivation：判断ResumeIdleCultivation是否满足条件。
- * @param player 玩家对象。
- * @param currentTick 参数说明。
- * @param blockedPlayerIds blockedPlayer ID 集合。
- * @returns 无返回值，完成ResumeIdleCultivation的条件判断。
- */
+
+function applyCultivationTileQiPassives(player, options) {
+    const passives = collectEnabledCultivationTileQiPassives(player);
+    if (passives.length === 0 || typeof options?.getInstanceRuntime !== 'function') {
+        return 0;
+    }
+    const instanceId = typeof player?.instanceId === 'string' ? player.instanceId : '';
+    const instance = instanceId ? options.getInstanceRuntime(instanceId) : null;
+    if (!instance || typeof instance.addTileResource !== 'function') {
+        return 0;
+    }
+    const centerX = Math.trunc(Number(player.x) || 0);
+    const centerY = Math.trunc(Number(player.y) || 0);
+    let affected = 0;
+    for (const entry of passives) {
+        const effect = entry.effect;
+        const amount = resolveCultivationPassiveTileQiAmount(player, effect);
+        if (amount === 0) {
+            continue;
+        }
+        const radius = Math.max(0, Math.trunc(Number(effect.radius ?? 1) || 0));
+        for (let dy = -radius; dy <= radius; dy += 1) {
+            for (let dx = -radius; dx <= radius; dx += 1) {
+                if (instance.addTileResource(effect.resourceKey, centerX + dx, centerY + dy, amount) !== null) {
+                    affected += 1;
+                }
+            }
+        }
+    }
+    return affected;
+}
+
+function resolveCultivationPassiveTileQiAmount(player, effect) {
+    const multiplier = Number.isFinite(Number(effect.multiplier)) ? Number(effect.multiplier) : 1;
+    if (effect.amountSource === 'max_qi_output_squared') {
+        const output = Math.max(0, Number(player?.attrs?.numericStats?.maxQiOutputPerTick) || 0);
+        return output * output * multiplier;
+    }
+    if (Number.isFinite(Number(effect.amount))) {
+        return Number(effect.amount) * multiplier;
+    }
+    return 0;
+}
 
 function isPlayerRuntimeOnline(player) {
     return typeof player?.sessionId === 'string' && player.sessionId.trim().length > 0;

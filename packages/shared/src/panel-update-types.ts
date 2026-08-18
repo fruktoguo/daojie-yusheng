@@ -243,6 +243,8 @@ export interface ActionUpdateEntryView {
  */
 
   skillEnabled?: boolean | null;  
+  /** passiveOnly=true 表示纯被动技能动作，不可主动释放。 */
+  passiveOnly?: boolean | null;
   /**
  * name：名称名称或显示文本。
  */

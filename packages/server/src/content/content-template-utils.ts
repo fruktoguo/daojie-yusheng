@@ -6,6 +6,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_PLAYER_REALM_STAGE, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, ELEMENT_KEYS, EQUIP_SLOTS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_NUMERIC_TEMPLATES, TECHNIQUE_EXP_BASE, TechniqueRealm, buildQiResourceKey, calculateTechniqueSkillQiCost, cloneNumericRatioDivisors, cloneNumericStats, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, createMonsterMainCombatStatModifierStats, deriveTechniqueRealm, expandTechniqueAttrRatio, expandTechniqueExpCurve, expandTechniqueLayerGains, getTechniqueExpToNext, getTileTypeFromMapChar, inferMonsterTierFromName, isTileTypeWalkable, normalizeCraftEffectStatsPatch, normalizeEditableMapDocument, normalizeMonsterTier as normalizeSharedMonsterTier, normalizeTargetingDefaultMaxTargets, normalizeTechniqueAggregationMetadata, normalizeTechniqueAttrRatio, normalizeTechniqueLearnMaxLevel, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveSkillUnlockLevel, resolveTechniqueStrengthPercent, scaleTechniqueExp, shouldExpandTechniqueAttrRatio } from '@mud/shared';
+import { parseQiResourceKey } from '@mud/shared';
 import { resolveProjectPath } from '../common/project-path';
 
 const ITEM_INSTANCE_FIELD_KEYS = new Set(['itemId', 'itemInstanceId', 'count', 'enhanceLevel', 'enhancementLevel', 'learnTechniqueId', 'learnTechniqueMaxLevel', 'grade', 'level']);
@@ -1515,6 +1516,8 @@ function normalizeSkill(raw, grade, realmLv, sharedTechniqueBuffs = new Map(), t
         range,
         targeting,
         effects: cloneSkillEffects(candidate.effects, sharedTechniqueBuffs, skillId, candidate.name),
+        active: candidate.active === false ? false : undefined,
+        passiveEffects: normalizeSkillPassiveEffects(candidate.passiveEffects, skillId, candidate.name),
         unlockLevel,
         unlockRealm,
         unlockPlayerRealm: candidate.unlockPlayerRealm,
@@ -1597,6 +1600,74 @@ function normalizeGeneratedTechniqueSkillEffect(raw, skillId, skillName, index) 
     return effect;
 }
 
+function normalizeSkillPassiveEffects(raw, skillId = 'skill', skillName = '技能') {
+    if (!Array.isArray(raw)) {
+        return undefined;
+    }
+    const effects = [];
+    for (let index = 0; index < raw.length; index += 1) {
+        const effect = normalizeSkillPassiveEffect(raw[index], skillId, skillName, index);
+        if (effect) {
+            effects.push(effect);
+        }
+    }
+    return effects.length > 0 ? effects : undefined;
+}
+
+function normalizeSkillPassiveEffect(raw, skillId, skillName, index) {
+    if (!isRecord(raw)) {
+        return null;
+    }
+    if (raw.type === 'buff') {
+        const buffId = typeof raw.buffId === 'string' && raw.buffId.trim()
+            ? raw.buffId.trim()
+            : `${skillId}_passive_${Math.max(1, index + 1)}`;
+        const effect = {
+            type: 'buff',
+            buffId,
+            name: typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : skillName,
+            desc: typeof raw.desc === 'string' ? raw.desc : undefined,
+            shortMark: typeof raw.shortMark === 'string' && raw.shortMark.trim() ? raw.shortMark.trim().slice(0, 2) : undefined,
+            category: raw.category === 'debuff' ? 'debuff' : 'buff',
+            visibility: raw.visibility === 'observe_only' || raw.visibility === 'hidden' ? raw.visibility : 'public',
+            color: typeof raw.color === 'string' && raw.color.trim() ? raw.color.trim() : undefined,
+            attrs: isRecord(raw.attrs) ? { ...raw.attrs } : undefined,
+            attrMode: raw.attrMode === 'flat' ? 'flat' : 'percent',
+            stats: normalizePartialNumericStats(raw.stats),
+            statMode: raw.statMode === 'flat' ? 'flat' : 'percent',
+            qiProjection: Array.isArray(raw.qiProjection) ? raw.qiProjection.map((entry) => ({ ...entry })) : undefined,
+            craftEffectStats: normalizeCraftEffectStatsPatch(raw.craftEffectStats),
+            maxStacks: Number.isFinite(Number(raw.maxStacks)) ? Math.max(1, Math.trunc(Number(raw.maxStacks))) : undefined,
+            presentationScale: Number.isFinite(Number(raw.presentationScale)) ? Number(raw.presentationScale) : undefined,
+        };
+        return compactPassiveEffect(effect);
+    }
+    if (raw.type === 'cultivation_tile_qi') {
+        const resourceKey = typeof raw.resourceKey === 'string' ? raw.resourceKey.trim() : '';
+        if (!parseQiResourceKey(resourceKey)) {
+            return null;
+        }
+        return compactPassiveEffect({
+            type: 'cultivation_tile_qi',
+            resourceKey,
+            radius: Number.isFinite(Number(raw.radius)) ? Math.max(0, Math.trunc(Number(raw.radius))) : 1,
+            amount: Number.isFinite(Number(raw.amount)) ? Number(raw.amount) : undefined,
+            amountSource: raw.amountSource === 'max_qi_output_squared' ? 'max_qi_output_squared' : undefined,
+            multiplier: Number.isFinite(Number(raw.multiplier)) ? Number(raw.multiplier) : undefined,
+        });
+    }
+    return null;
+}
+
+function compactPassiveEffect(effect) {
+    const result = {};
+    for (const [key, value] of Object.entries(effect)) {
+        if (value !== undefined) {
+            result[key] = value;
+        }
+    }
+    return result;
+}
 function normalizeGeneratedTechniqueSkillFormula(raw, effectType, damageKind) {
     if (raw && typeof raw === 'object') {
         return raw;
