@@ -24,7 +24,7 @@ const DEFAULT_INSTANCE_WORKERS = 4;
 const DEFAULT_FLUSH_DELAY_MS = 8;
 const DEFAULT_CONCURRENCY = 4;
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   const databaseUrl = resolveBenchmarkDatabaseUrl();
   if (!databaseUrl.trim()) {
     console.log(
@@ -273,11 +273,9 @@ async function seedBenchmarkRows(
   }
 }
 
-async function cleanupBenchmarkRows(pool: Pool, playerIds: string[], instanceIds: string[]): Promise<void> {
+export async function cleanupBenchmarkRows(pool: Pool, playerIds: string[], instanceIds: string[]): Promise<void> {
   await pool.query('DELETE FROM player_flush_ledger WHERE player_id = ANY($1::varchar[])', [playerIds]).catch(() => undefined);
   await pool.query('DELETE FROM instance_flush_ledger WHERE instance_id = ANY($1::varchar[])', [instanceIds]).catch(() => undefined);
-  await pool.query("DELETE FROM player_flush_ledger WHERE domain = 'snapshot'").catch(() => undefined);
-  await pool.query("DELETE FROM instance_flush_ledger WHERE domain = 'tile_resource'").catch(() => undefined);
 }
 
 function trackCall(counter: Map<string, number>, key: string): void {
@@ -338,7 +336,9 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.stack || error.message : String(error));
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.stack || error.message : String(error));
+    process.exitCode = 1;
+  });
+}
