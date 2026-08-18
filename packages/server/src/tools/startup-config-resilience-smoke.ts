@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -31,6 +31,7 @@ async function main(): Promise<void> {
   assertBootstrapDatabaseConfigRejectsInvalidRows();
   assertBootstrapDatabaseConfigUsesBoundedTimeouts();
   await assertBootstrapDatabaseConfigWarnsOnLoadFailure();
+  await assertServerApplicationLoadsDbConfigBeforeAppModule();
   await assertOptionalOutboxSchemaFailuresDoNotBlockStartup();
   const root = await mkdtemp(join(tmpdir(), 'startup-config-resilience-'));
   try {
@@ -421,6 +422,19 @@ async function assertMainEntryLoadsLocalEnvBeforeSupervisor(root: string): Promi
   assert.equal(output.supervisorEnabled, '0');
   assert.equal(output.runtimeRole, 'all');
   assert.equal(output.flushMode, 'inline');
+}
+
+async function assertServerApplicationLoadsDbConfigBeforeAppModule(): Promise<void> {
+  const serverApplicationPath = resolve(__dirname, '..', 'bootstrap', 'server-application.js');
+  const source = await readFile(serverApplicationPath, 'utf8');
+  const bootstrapFunctionIndex = source.indexOf('async function bootstrap');
+  assert.ok(bootstrapFunctionIndex >= 0, 'server application bootstrap function should exist');
+  const topLevelPrefix = source.slice(0, bootstrapFunctionIndex);
+  assert.equal(topLevelPrefix.includes('../app.module'), false, 'AppModule must not be imported before bootstrapLoadDbConfig runs');
+  const dbConfigCallIndex = source.indexOf('bootstrapLoadDbConfig)();', bootstrapFunctionIndex);
+  const appModuleImportIndex = source.indexOf('../app.module.js', bootstrapFunctionIndex);
+  assert.ok(dbConfigCallIndex >= 0, 'bootstrapLoadDbConfig call should exist inside bootstrap');
+  assert.ok(appModuleImportIndex > dbConfigCallIndex, 'AppModule import must happen after DB config load');
 }
 
 function captureEnv(names: string[]): Map<string, string | undefined> {

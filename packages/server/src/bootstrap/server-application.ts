@@ -14,7 +14,6 @@ import type { INestApplicationContext } from '@nestjs/common';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
-import { AppModule } from '../app.module';
 import { ServerLifecycleCoordinatorService } from '../lifecycle/server-lifecycle-coordinator.service';
 import { resolveServerCorsOptions } from '../config/server-cors';
 import { installConsoleLogCapture } from '../logging/console-log-buffer';
@@ -220,6 +219,8 @@ async function bootstrap(): Promise<void> {
   if (dbConfigCount >= 0) {
     logger.log(`已从数据库加载 ${dbConfigCount} 项游戏配置`);
   }
+
+  const { AppModule } = await import('../app.module.js');
 
   const role = resolveServerRuntimeRole();
   logger.log(`服务端运行角色：${describeServerRuntimeRole(role)}`);
