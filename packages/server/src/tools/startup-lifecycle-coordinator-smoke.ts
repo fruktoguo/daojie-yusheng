@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { ServerLifecycleCoordinatorService } from '../lifecycle/server-lifecycle-coordinator.service';
@@ -18,7 +18,7 @@ async function main(): Promise<void> {
 }
 
 function assertBootstrapEntryHandlesRejectedStartup(): void {
-  const source = readFileSync(resolve(process.cwd(), 'packages/server/src/bootstrap/server-application.ts'), 'utf8');
+  const source = readFileSync(resolveServerSourcePath('bootstrap/server-application.ts'), 'utf8');
   const helperStart = source.indexOf('async function drainAndCloseBootstrapApplication');
   const helperEnd = source.indexOf('// ─── 全局未捕获异常兜底', helperStart);
   const helperSource = source.slice(helperStart, helperEnd);
@@ -267,41 +267,63 @@ async function assertAllRoleStartupOrder(): Promise<void> {
 }
 
 async function assertWorkerRoleStartsFlushConsumer(): Promise<void> {
+  const previousRole = process.env.SERVER_RUNTIME_ROLE;
   process.env.SERVER_RUNTIME_ROLE = 'worker';
+  try {
+    const status = new StartupStatusService();
+    const barrier = new StartupBarrierService();
+    const order: string[] = [];
 
-  const status = new StartupStatusService();
-  const barrier = new StartupBarrierService();
-  const order: string[] = [];
+    const flushTaskRuntimeService = {
+      async drainForShutdown() {
+        order.push('durable-drain');
+        assert.equal(barrier.isFlushOpen(), false);
+      },
+    };
+    const backgroundWorkerRuntimeService = {
+      startForLifecycleCoordinator() {
+        order.push('worker');
+        assert.equal(barrier.isOutboxOpen(), true);
+        assert.equal(barrier.isWorkerOpen(), true);
+      },
+      async drainForShutdown() {
+        order.push('worker-drain');
+        assert.equal(barrier.isOutboxOpen(), false);
+        assert.equal(barrier.isWorkerOpen(), false);
+      },
+    };
 
-  const backgroundWorkerRuntimeService = {
-    startForLifecycleCoordinator() {
-      order.push('worker');
-      assert.equal(barrier.isOutboxOpen(), true);
-      assert.equal(barrier.isWorkerOpen(), true);
-    },
-  };
+    const coordinator = new ServerLifecycleCoordinatorService(
+      status,
+      barrier,
+      undefined,
+      undefined,
+      flushTaskRuntimeService as never,
+      undefined,
+      undefined,
+      backgroundWorkerRuntimeService as never,
+      undefined,
+    );
 
-  const coordinator = new ServerLifecycleCoordinatorService(
-    status,
-    barrier,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    backgroundWorkerRuntimeService as never,
-    undefined,
-  );
+    await coordinator.start();
+    assert.deepEqual(order, ['worker']);
 
-  await coordinator.start();
+    // worker 角色不调用 flushTaskRuntimeService.startForLifecycleCoordinator（它是 no-op），
+    // flush 消费由 BackgroundWorkerRuntimeService 的 timer 通过 schedulerManager.runTask 驱动。
+    assert.equal(barrier.isTrafficOpen(), false);
+    assert.equal(barrier.isWorkerOpen(), true);
+    assert.equal(status.getSnapshot().ready, true);
 
-  // worker 角色不调用 flushTaskRuntimeService.startForLifecycleCoordinator（它是 no-op），
-  // flush 消费由 BackgroundWorkerRuntimeService 的 timer 通过 schedulerManager.runTask 驱动。
-  assert.deepEqual(order, ['worker']);
-  assert.equal(barrier.isTrafficOpen(), false);
-  assert.equal(barrier.isWorkerOpen(), true);
-  assert.equal(status.getSnapshot().ready, true);
-  delete process.env.SERVER_RUNTIME_ROLE;
+    const drainSnapshot = await coordinator.drain('smoke_worker_shutdown');
+    assert.deepEqual(order, ['worker', 'worker-drain', 'durable-drain']);
+    assert.equal(drainSnapshot.completed, true);
+    assert.equal(drainSnapshot.phase, 'drain_completed');
+    assert.equal(barrier.isFlushOpen(), false);
+    assert.equal(barrier.isOutboxOpen(), false);
+    assert.equal(barrier.isWorkerOpen(), false);
+  } finally {
+    restoreEnv('SERVER_RUNTIME_ROLE', previousRole);
+  }
 }
 
 main().catch((error) => {
@@ -312,4 +334,12 @@ main().catch((error) => {
 function restoreEnv(name: string, value: string | undefined): void {
   if (typeof value === 'string') process.env[name] = value;
   else delete process.env[name];
+}
+
+function resolveServerSourcePath(relativePath: string): string {
+  const direct = resolve(process.cwd(), 'src', relativePath);
+  if (existsSync(direct)) {
+    return direct;
+  }
+  return resolve(process.cwd(), 'packages/server/src', relativePath);
 }

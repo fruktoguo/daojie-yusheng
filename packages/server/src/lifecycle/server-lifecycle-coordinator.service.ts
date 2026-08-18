@@ -9,7 +9,7 @@ import { readTrimmedEnv } from '../config/env-alias';
 import { shouldStartAuthoritativeRuntime, shouldStartBackgroundWorkers, shouldStartHttpServer } from '../config/runtime-role';
 import { StartupBarrierService } from './startup-barrier.service';
 import { StartupStatusService } from './startup-status.service';
-import { type ShutdownResultSnapshot } from './shutdown-status.service';
+import { ShutdownStatusService, type ShutdownResultSnapshot } from './shutdown-status.service';
 import { FlushTaskRuntimeService } from '../persistence/flush-task-runtime.service';
 import { MapPersistenceFlushService } from '../persistence/map-persistence-flush.service';
 import { PlayerPersistenceFlushService } from '../persistence/player-persistence-flush.service';
@@ -36,6 +36,7 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
   private startPromise: Promise<void> | null = null;
   private drainPromise: Promise<ShutdownResultSnapshot> | null = null;
   private stopped = false;
+  private localShutdownStatusService: ShutdownStatusService | null = null;
 
   constructor(
     private readonly startupStatusService: StartupStatusService,
@@ -57,6 +58,7 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
     @Optional() @Inject(PlayerDomainPersistenceService) private readonly playerDomainPersistenceService?: PlayerDomainPersistenceService,
     @Optional() @Inject(TimeChamberRuntimeService) private readonly timeChamberRuntimeService?: TimeChamberRuntimeService,
     @Optional() @Inject(OfflineHangingRuntimeCleanupService) private readonly offlineHangingRuntimeCleanupService?: OfflineHangingRuntimeCleanupService,
+    @Optional() @Inject(ShutdownStatusService) private readonly shutdownStatusService?: ShutdownStatusService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -106,16 +108,80 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
     this.schedulerManagerService?.refreshBarrierSnapshot();
     this.startupStatusService.markDraining(reason);
     this.drainPromise = (async () => {
-      if (!this.worldShutdownDrainService) {
-        throw new Error('world_shutdown_drain_service_unavailable');
+      if (this.worldShutdownDrainService) {
+        return await this.worldShutdownDrainService.drain(reason);
       }
-      return await this.worldShutdownDrainService.drain(reason);
+      return await this.drainWorkerRole(reason);
     })().catch((error) => {
       this.startupStatusService.markFailed(error, 'draining');
       this.logger.error(`关闭链路执行失败：${reason}`, error instanceof Error ? error.stack : String(error));
       throw error;
     });
     return this.drainPromise;
+  }
+
+  private async drainWorkerRole(reason: string): Promise<ShutdownResultSnapshot> {
+    const shutdownStatusService = this.resolveShutdownStatusService();
+    shutdownStatusService.begin(reason, null);
+    this.startupBarrierService.closeTraffic();
+    shutdownStatusService.beginPhase('traffic_closed', reason);
+    shutdownStatusService.completePhase('traffic_closed', {
+      trafficOpen: this.startupBarrierService.isTrafficOpen(),
+    });
+
+    this.startupBarrierService.closeOutbox();
+    this.startupBarrierService.closeWorker();
+    this.startupBarrierService.closeFlush();
+    this.schedulerManagerService?.stop('worker_role_drain');
+    shutdownStatusService.beginPhase('workers_stopping', reason);
+    let backgroundWorkerDrainFailed = false;
+    let durablePayloadDrainFailed = false;
+    try {
+      await this.backgroundWorkerRuntimeService?.drainForShutdown();
+    } catch (error) {
+      backgroundWorkerDrainFailed = true;
+      shutdownStatusService.recordInstanceFlushFailed('background_worker_drain');
+      this.logger.error('worker 角色后台任务关机 drain 失败', error instanceof Error ? error.stack : String(error));
+    }
+    try {
+      await this.flushTaskRuntimeService?.drainForShutdown();
+    } catch (error) {
+      durablePayloadDrainFailed = true;
+      shutdownStatusService.recordInstanceFlushFailed('durable_payload_drain');
+      this.logger.error('worker 角色 durable payload 关机 drain 失败', error instanceof Error ? error.stack : String(error));
+    }
+    shutdownStatusService.completePhase('workers_stopping', {
+      flushOpen: this.startupBarrierService.isFlushOpen(),
+      outboxOpen: this.startupBarrierService.isOutboxOpen(),
+      workerOpen: this.startupBarrierService.isWorkerOpen(),
+      backgroundWorkerDrainFailed,
+      durablePayloadDrainFailed,
+    });
+
+    const snapshot = shutdownStatusService.getSnapshot();
+    if (snapshot.instances.flushFailed.length > 0) {
+      shutdownStatusService.failPhase('drain_failed', new Error('worker_shutdown_degraded'), {
+        backgroundWorkerDrainFailed,
+        durablePayloadDrainFailed,
+      });
+      return shutdownStatusService.getSnapshot();
+    }
+    shutdownStatusService.markCompleted({
+      role: 'worker',
+      backgroundWorkerDrainFailed,
+      durablePayloadDrainFailed,
+    });
+    return shutdownStatusService.getSnapshot();
+  }
+
+  private resolveShutdownStatusService(): ShutdownStatusService {
+    if (this.shutdownStatusService) {
+      return this.shutdownStatusService;
+    }
+    if (!this.localShutdownStatusService) {
+      this.localShutdownStatusService = new ShutdownStatusService();
+    }
+    return this.localShutdownStatusService;
   }
 
   private async runStartup(): Promise<void> {
