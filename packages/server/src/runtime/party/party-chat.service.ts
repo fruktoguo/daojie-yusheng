@@ -15,6 +15,7 @@ export class PartyChatService implements OnModuleDestroy {
   private readonly globalBucket: Bucket = { tokens: 200, at: Date.now() };
   private readonly pendingPrunes = new Set<string>();
   private pruneTimer: ReturnType<typeof setTimeout> | null = null;
+  private pruneInFlight: Promise<void> | null = null;
 
   constructor(
     private readonly repository: PartyChatRepository,
@@ -22,8 +23,17 @@ export class PartyChatService implements OnModuleDestroy {
     private readonly sessions: WorldSessionService,
   ) {}
 
-  onModuleDestroy(): void {
-    if (this.pruneTimer) clearTimeout(this.pruneTimer);
+  async onModuleDestroy(): Promise<void> {
+    if (this.pruneTimer) {
+      clearTimeout(this.pruneTimer);
+      this.pruneTimer = null;
+    }
+    if (this.pruneInFlight) {
+      await this.pruneInFlight.catch(() => undefined);
+    }
+    while (this.pendingPrunes.size > 0) {
+      await this.flushPendingPrunes(false);
+    }
   }
 
   async send(profile: PartyMemberProfile, rawText: unknown): Promise<{ ok: boolean; reason?: string; message?: PartyChatMessageView }> {
@@ -76,14 +86,27 @@ export class PartyChatService implements OnModuleDestroy {
     if (this.pruneTimer) return;
     this.pruneTimer = setTimeout(() => {
       this.pruneTimer = null;
-      const partyIds = Array.from(this.pendingPrunes).slice(0, 100);
-      partyIds.forEach((id) => this.pendingPrunes.delete(id));
-      void Promise.all(partyIds.map((id) => this.repository.prune(id).catch((error) => {
-        this.logger.warn(`队伍聊天裁剪失败 party=${id}: ${error instanceof Error ? error.message : String(error)}`);
-      })));
-      if (this.pendingPrunes.size > 0) this.schedulePrune(this.pendingPrunes.values().next().value);
+      void this.flushPendingPrunes(true);
     }, 1_000);
     this.pruneTimer.unref();
+  }
+
+  private async flushPendingPrunes(reschedule: boolean): Promise<void> {
+    if (this.pruneInFlight || this.pendingPrunes.size === 0) return;
+    const run = this.runPruneBatch(reschedule).finally(() => {
+      if (this.pruneInFlight === run) this.pruneInFlight = null;
+    });
+    this.pruneInFlight = run;
+    await run;
+  }
+
+  private async runPruneBatch(reschedule: boolean): Promise<void> {
+    const partyIds = Array.from(this.pendingPrunes).slice(0, 100);
+    partyIds.forEach((id) => this.pendingPrunes.delete(id));
+    await Promise.all(partyIds.map((id) => this.repository.prune(id).catch((error) => {
+      this.logger.warn(`队伍聊天裁剪失败 party=${id}: ${error instanceof Error ? error.message : String(error)}`);
+    })));
+    if (reschedule && this.pendingPrunes.size > 0) this.schedulePrune(this.pendingPrunes.values().next().value);
   }
 }
 

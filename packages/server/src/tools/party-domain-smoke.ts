@@ -101,10 +101,11 @@ async function main(): Promise<void> {
     getParty: async (partyId: string) => currentChatParty.partyId === partyId ? currentChatParty : null,
   };
   let messageSequence = 0;
+  const prunedPartyIds: string[] = [];
   const chatRepository = {
     create: async (entry: PartyMemberProfile, text: string) => ({ ok: true, message: { messageId: `m${++messageSequence}`, partyId: 'chat-party', fromPlayerId: entry.playerId, fromName: entry.name, text, sentAt: messageSequence } }),
     history: async () => ({ ok: true, partyId: 'chat-party', messages: [] }),
-    prune: async () => undefined,
+    prune: async (partyId: string) => { prunedPartyIds.push(partyId); },
   };
   const chat = new PartyChatService(chatRepository as any, chatMembership as any, chatSessions as any);
   assert.equal((await chat.send(profile('chat-a', 1), 'hello')).ok, true);
@@ -114,7 +115,8 @@ async function main(): Promise<void> {
   currentChatParty = party('chat-party', 'chat-a', ['chat-a']);
   assert.equal((await chat.send(profile('chat-a', 1), 'after leave')).ok, true);
   assert.equal(emitted.get('chat-b')?.length, 1);
-  chat.onModuleDestroy();
+  await chat.onModuleDestroy();
+  assert.deepEqual(prunedPartyIds, ['chat-party']);
 
   const queuedSolo = new PartyMatchService();
   queuedSolo.join({ playerId: 'queued-solo', purpose: 'general', realmLv: 1, joinedAt: 1 });
@@ -160,7 +162,7 @@ async function main(): Promise<void> {
   await sync.restorePlayerMembership('recover');
   assert.equal(runtimePlayers.get('recover').partyId, undefined);
   await sync.onModuleDestroy();
-  console.log(JSON.stringify({ ok: true, case: 'party-domain', assertions: 25 }));
+  console.log(JSON.stringify({ ok: true, case: 'party-domain', assertions: 26 }));
 }
 
 function profile(playerId: string, realmLv: number): PartyMemberProfile { return { playerId, name: playerId, realmLv }; }
