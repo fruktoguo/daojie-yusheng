@@ -154,7 +154,82 @@ async function main(): Promise<void> {
   assert.equal(barrier.isOutboxOpen(), false);
   assert.equal(first.phase, 'drain_completed');
 
+  await proveDetachedBindingFailureDoesNotSkipFinalFlush();
+
   console.log('[shutdown-coordinator-order-smoke] ok');
+}
+
+async function proveDetachedBindingFailureDoesNotSkipFinalFlush(): Promise<void> {
+  const order: string[] = [];
+  const barrier = new StartupBarrierService();
+  const shutdownStatusService = new ShutdownStatusService();
+  const failedBinding = makeBinding('player:failed');
+  const okBinding = makeBinding('player:ok');
+  const worldGateway = {
+    setDraining(draining: boolean) {
+      order.push(`setDraining:${draining}`);
+    },
+    disconnectAllForShutdown(reason: string) {
+      order.push(`disconnectAll:${reason}`);
+      return [failedBinding, okBinding];
+    },
+    async drainDetachedBinding(binding: { playerId: string }) {
+      order.push(`drainBinding:${binding.playerId}`);
+      if (binding.playerId === failedBinding.playerId) {
+        throw new Error('simulated_session_drain_failure');
+      }
+      return { playerId: binding.playerId, presencePersisted: true, flushSucceeded: true, skipped: false };
+    },
+  };
+  const service = new WorldShutdownDrainService(
+    worldGateway as never,
+    { async flushAllNow() { order.push('flushPlayers'); } } as never,
+    { async flushAllNow() { order.push('flushMaps'); } } as never,
+    { beginShutdown() { order.push('beginDurableShutdown'); }, hasUnresolvedCommitOutcomes() { return false; } } as never,
+    { async drainForShutdown() { order.push('drainMarket'); } } as never,
+    { async flushAllProgress() { order.push('flushTower'); } } as never,
+    { async stopForShutdown() { order.push('stopTick'); } } as never,
+    {
+      listInstanceEntries() { return []; },
+      async releaseLocalInstanceLeasesForShutdown() {
+        order.push('releaseLeases');
+        return { released: 0, skipped: 0, releasedInstanceIds: [], skippedInstanceIds: [], failedInstanceIds: [] };
+      },
+      worldRuntimeFormationService: { async flushAllNow() { order.push('flushFormations'); } },
+      worldRuntimeSectService: { beginShutdown() { order.push('beginSectShutdown'); }, async flushAllNow() { order.push('flushSects'); } },
+      async closeForShutdown() { order.push('closeRuntime'); },
+    } as never,
+    { getNodeId() { return 'node-a'; }, async deregisterNode() { order.push('deregisterNode'); } } as never,
+    shutdownStatusService as never,
+    barrier as never,
+    { async drainForShutdown() { order.push('drainFlushTaskRuntime'); } } as never,
+    { async drainForShutdown() { order.push('drainBackgroundWorkers'); } } as never,
+  );
+
+  const snapshot = await service.drain('SIGTERM');
+  assert.equal(snapshot.phase, 'drain_failed');
+  assert.equal(snapshot.players.detached, 2);
+  assert.deepEqual(snapshot.players.presenceFailed, ['player:failed']);
+  assert.deepEqual(snapshot.players.flushFailed, ['player:failed']);
+  assert.ok(order.includes('drainBinding:player:ok'));
+  assert.ok(order.indexOf('drainBinding:player:failed') < order.indexOf('flushPlayers'));
+  assert.ok(order.indexOf('flushPlayers') < order.indexOf('releaseLeases'));
+  assert.equal(snapshot.node.deregistered, true);
+}
+
+function makeBinding(playerId: string) {
+  return {
+    playerId,
+    sessionId: `session:${playerId}`,
+    socketId: null,
+    instanceId: null,
+    sectId: null,
+    sessionEpoch: 1,
+    resumed: false,
+    connected: false,
+    detachedAt: Date.now(),
+    expireAt: Date.now() + 1_000,
+  };
 }
 
 main().catch((error) => {

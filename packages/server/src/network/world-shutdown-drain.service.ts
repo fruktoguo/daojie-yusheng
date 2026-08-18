@@ -22,6 +22,7 @@ import { WorldGateway } from './world.gateway';
 import { ShutdownStatusService, type ShutdownResultSnapshot } from '../lifecycle/shutdown-status.service';
 import { StartupBarrierService } from '../lifecycle/startup-barrier.service';
 import { BackgroundWorkerRuntimeService } from '../runtime/worker/background-worker-runtime.service';
+import type { WorldSessionBinding } from './world-session.service';
 
 const SHUTDOWN_SESSION_DRAIN_PARALLELISM = 32;
 const BACKGROUND_WORKER_SHUTDOWN_DRAIN_BUDGET_MS = 8_000;
@@ -77,16 +78,7 @@ export class WorldShutdownDrainService implements BeforeApplicationShutdown {
     await this.worldRuntimeService.stopInstanceLeaseSyncForShutdown?.();
     this.shutdownStatusService.beginPhase('sessions_draining', reason);
     const detachedBindings = this.worldGateway.disconnectAllForShutdown('server_shutdown');
-    await runConcurrent(detachedBindings, SHUTDOWN_SESSION_DRAIN_PARALLELISM, async (binding) => {
-      const result = await this.worldGateway.drainDetachedBinding(binding);
-      this.shutdownStatusService.recordPlayerDetached();
-      if (!result?.presencePersisted) {
-        this.shutdownStatusService.recordPlayerPresenceFailed(binding.playerId);
-      }
-      if (!result?.flushSucceeded) {
-        this.shutdownStatusService.recordPlayerFlushFailed(binding.playerId);
-      }
-    });
+    await runConcurrent(detachedBindings, SHUTDOWN_SESSION_DRAIN_PARALLELISM, (binding) => this.drainDetachedBindingForShutdown(binding));
     this.shutdownStatusService.completePhase('sessions_draining', {
       detached: detachedBindings.length,
       presenceFailed: this.shutdownStatusService.getSnapshot().players.presenceFailed.length,
@@ -254,6 +246,23 @@ export class WorldShutdownDrainService implements BeforeApplicationShutdown {
       this.shutdownStatusService.recordInstanceFlushFailed(failureKey);
       this.logger.error(`最终落盘${label}失败`, error instanceof Error ? error.stack : String(error));
       return false;
+    }
+  }
+
+  private async drainDetachedBindingForShutdown(binding: WorldSessionBinding): Promise<void> {
+    this.shutdownStatusService.recordPlayerDetached();
+    try {
+      const result = await this.worldGateway.drainDetachedBinding(binding);
+      if (!result?.presencePersisted) {
+        this.shutdownStatusService.recordPlayerPresenceFailed(binding.playerId);
+      }
+      if (!result?.flushSucceeded) {
+        this.shutdownStatusService.recordPlayerFlushFailed(binding.playerId);
+      }
+    } catch (error) {
+      this.shutdownStatusService.recordPlayerPresenceFailed(binding.playerId);
+      this.shutdownStatusService.recordPlayerFlushFailed(binding.playerId);
+      this.logger.error(`关机 drain 玩家会话失败：${binding.playerId}；继续处理其他会话并执行最终落盘`, error instanceof Error ? error.stack : String(error));
     }
   }
 }
