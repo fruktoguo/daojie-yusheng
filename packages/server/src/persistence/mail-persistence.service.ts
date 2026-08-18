@@ -11,7 +11,9 @@
  */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import { Pool } from 'pg';
+import { Pool, type PoolClient } from 'pg';
+
+import { WUDAO_YUJIAN_ITEM_ID } from '@mud/shared';
 
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { DatabasePoolProvider } from './database-pool.provider';
@@ -75,6 +77,14 @@ export interface BroadcastMailPersistenceResult {
 
 export interface UnclaimedMailItemCountSummary {
   countsByPlayerId: Map<string, number>;
+}
+
+export interface ActivityInvitationJadeRewardMailInput {
+  playerId: string;
+  batchId: string;
+  jadeCount: number;
+  rewardKey: string;
+  nowMs: number;
 }
 
 interface StructuredMailRow {
@@ -467,6 +477,7 @@ export class MailPersistenceService implements OnModuleInit, OnModuleDestroy {
         await client.query('ROLLBACK').catch(() => undefined);
         if (attempt < SAVE_MAILBOX_RETRY_LIMIT && isRetryableMailboxWriteError(error)) {
           await delay(SAVE_MAILBOX_RETRY_BASE_DELAY_MS * attempt);
+
           continue;
         }
         throw error;
@@ -476,6 +487,99 @@ export class MailPersistenceService implements OnModuleInit, OnModuleDestroy {
     }
 
     throw new Error('mail_broadcast_retry_exhausted');
+  }
+  async insertActivityInvitationJadeRewardMailWithClient(
+    client: PoolClient,
+    input: ActivityInvitationJadeRewardMailInput,
+  ): Promise<string> {
+    const playerId = normalizeRequiredString(input.playerId);
+    const batchId = normalizeRequiredString(input.batchId);
+    const rewardKey = normalizeRequiredString(input.rewardKey);
+    const jadeCount = Math.max(0, Math.trunc(Number(input.jadeCount) || 0));
+    if (!playerId || !batchId || !rewardKey || jadeCount <= 0) {
+      throw new Error('activity_invitation_jade_mail_invalid');
+    }
+    if (batchId.length > 180) {
+      throw new Error(`activity_invitation_jade_mail_batch_id_too_long:${batchId.length}`);
+    }
+    await acquirePlayerMailLock(client, playerId);
+    const mailId = buildBroadcastMailId(batchId, playerId);
+    const nowMs = Math.max(0, Math.trunc(Number(input.nowMs) || Date.now()));
+    const insertResult = await client.query<{ mail_id?: unknown }>(
+      `INSERT INTO ${PLAYER_MAIL_TABLE}(
+         mail_id,
+         player_id,
+         sender_type,
+         sender_label,
+         template_id,
+         mail_type,
+         title,
+         body,
+         source_type,
+         source_ref_id,
+         metadata_jsonb,
+         mail_version,
+         created_at,
+         expire_at,
+         first_seen_at,
+         read_at,
+         claimed_at,
+         deleted_at,
+         updated_at
+       )
+       VALUES ($1, $2, 'system', '司命台', NULL, 'system', $3, $4, 'activity_invitation_jade_reward', $5, $6::jsonb, 1, $7, NULL, NULL, NULL, NULL, NULL, to_timestamp($7::double precision / 1000.0))
+       ON CONFLICT (mail_id) DO NOTHING
+       RETURNING mail_id`,
+      [
+        mailId,
+        playerId,
+        '引渡奖励补发',
+        `你引渡的道友已达到新的修行阶段，司命台补发悟道玉简 ${jadeCount} 枚。此邮件永久有效，请在方便时领取附件。`,
+        batchId,
+        JSON.stringify({
+          args: [
+            { kind: 'item', itemId: WUDAO_YUJIAN_ITEM_ID, label: '悟道玉简', count: jadeCount },
+            { kind: 'number', value: jadeCount },
+          ],
+          activityInvitationJadeRewardKey: rewardKey,
+          activityInvitationJadeCount: jadeCount,
+        }),
+        nowMs,
+      ],
+    );
+    if ((insertResult.rowCount ?? 0) <= 0) {
+      await assertActivityInvitationJadeRewardMailReplayCompatible(client, playerId, mailId, batchId, rewardKey, jadeCount);
+      return mailId;
+    }
+    await client.query(
+      `INSERT INTO ${PLAYER_MAIL_ATTACHMENT_TABLE}(
+         attachment_id,
+         mail_id,
+         player_id,
+         attachment_kind,
+         item_id,
+         count,
+         currency_type,
+         amount,
+         item_payload_jsonb,
+         claim_operation_id,
+         claimed_at,
+         created_at
+       )
+       VALUES ($1, $2, $3, 'item', $4, $5, NULL, NULL, $6::jsonb, NULL, NULL, now())
+       ON CONFLICT (attachment_id) DO NOTHING`,
+      [
+        buildMailAttachmentId(mailId, 0),
+        mailId,
+        playerId,
+        WUDAO_YUJIAN_ITEM_ID,
+        jadeCount,
+        JSON.stringify({ itemId: WUDAO_YUJIAN_ITEM_ID, count: jadeCount }),
+      ],
+    );
+    const counterRows = await refreshBroadcastMailCounters(client, [playerId]);
+    await upsertBroadcastMailRecoveryWatermarks(client, counterRows);
+    return mailId;
   }
 
   async cleanupExpiredMails(limit = 64): Promise<number> {
@@ -830,6 +934,36 @@ async function assertBroadcastMailReplayCompatible(
   const compatibleCount = Math.max(0, normalizeRequiredInteger(result.rows[0]?.compatible_count, 0));
   if (compatibleCount !== playerIds.length) {
     throw new Error(`mail_broadcast_batch_payload_conflict:${batchId}`);
+  }
+}
+
+async function assertActivityInvitationJadeRewardMailReplayCompatible(
+  client: PoolClient,
+  playerId: string,
+  mailId: string,
+  batchId: string,
+  rewardKey: string,
+  jadeCount: number,
+): Promise<void> {
+  const result = await client.query<{ compatible_count?: unknown }>(
+    `SELECT COUNT(*)::bigint AS compatible_count
+       FROM ${PLAYER_MAIL_TABLE} mail
+       INNER JOIN ${PLAYER_MAIL_ATTACHMENT_TABLE} attachment
+          ON attachment.player_id = mail.player_id
+         AND attachment.mail_id = mail.mail_id
+      WHERE mail.player_id = $1
+        AND mail.mail_id = $2
+        AND mail.source_type = 'activity_invitation_jade_reward'
+        AND mail.source_ref_id = $3
+        AND mail.expire_at IS NULL
+        AND mail.metadata_jsonb->>'activityInvitationJadeRewardKey' = $4
+        AND (mail.metadata_jsonb->>'activityInvitationJadeCount')::integer = $5
+        AND attachment.item_id = $6
+        AND attachment.count = $5`,
+    [playerId, mailId, batchId, rewardKey, jadeCount, WUDAO_YUJIAN_ITEM_ID],
+  );
+  if (normalizeRequiredInteger(result.rows[0]?.compatible_count, 0) !== 1) {
+    throw new Error(`activity_invitation_jade_mail_conflict:${batchId}`);
   }
 }
 

@@ -13,7 +13,9 @@ import {
   INVITATION_INVITEE_MERIT_REWARD,
   INVITATION_INVITEE_SPIRIT_STONE_REWARD,
   INVITATION_INVITER_BASE_MERIT_REWARD,
+  INVITATION_INVITER_FOUNDATION_REALM_JADE_REWARD,
   INVITATION_INVITER_FOUNDATION_REALM_MERIT_REWARD,
+  INVITATION_INVITER_QI_REALM_JADE_REWARD,
   INVITATION_INVITER_QI_REALM_MERIT_REWARD,
   INVITATION_QI_REALM_MIN_LEVEL,
   MERIT_ITEM_ID,
@@ -222,6 +224,7 @@ export class ActivityRuntimeService {
   async getStatus(playerId: string, nowMs = Date.now()): Promise<ActivityStatusView> {
     const today = getChinaDateKey(nowMs);
     const invitationHasPendingReward = await this.processInvitationRewards(playerId);
+    const invitationHasPendingJadeReward = await this.processInvitationJadeRewardMails(playerId);
     const [monthCard, dailySignIn, invitation] = await Promise.all([
       this.activityPersistenceService.loadMonthCard(playerId),
       this.activityPersistenceService.loadDailySignIn(playerId),
@@ -284,7 +287,7 @@ export class ActivityRuntimeService {
         lastFortune,
       },
       invitation,
-      hasRedDot: monthCardCanClaim || dailyCanClaim || invitationHasPendingReward,
+      hasRedDot: monthCardCanClaim || dailyCanClaim || invitationHasPendingReward || invitationHasPendingJadeReward,
     };
   }
 
@@ -498,6 +501,13 @@ export class ActivityRuntimeService {
     });
   }
 
+  private async processInvitationJadeRewardMails(playerId: string): Promise<boolean> {
+    if (!this.activityPersistenceService.isEnabled()) {
+      return false;
+    }
+    return this.activityPersistenceService.deliverPendingInvitationJadeRewardMailsForPlayer(playerId);
+  }
+
   private async consumeActivityBenefitItemDurably(
     playerId: string,
     itemInstanceId: string,
@@ -709,18 +719,21 @@ export class ActivityRuntimeService {
           label: '注册成功',
           count: stats.totalInvitees,
           rewardMerit: INVITATION_INVITER_BASE_MERIT_REWARD,
+          rewardJade: 0,
         },
         {
           key: 'qi',
           label: `达到练气(${INVITATION_QI_REALM_MIN_LEVEL}级)`,
           count: stats.qiReachedCount,
           rewardMerit: INVITATION_INVITER_QI_REALM_MERIT_REWARD,
+          rewardJade: INVITATION_INVITER_QI_REALM_JADE_REWARD,
         },
         {
           key: 'foundation',
           label: `达到筑基(${INVITATION_FOUNDATION_REALM_MIN_LEVEL}级)`,
           count: stats.foundationReachedCount,
           rewardMerit: INVITATION_INVITER_FOUNDATION_REALM_MERIT_REWARD,
+          rewardJade: INVITATION_INVITER_FOUNDATION_REALM_JADE_REWARD,
         },
       ],
     };

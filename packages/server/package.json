@@ -166,6 +166,7 @@
     "smoke:recover-empty-custom-technique-books": "pnpm compile && node dist/tools/recover-empty-custom-technique-books-smoke.js",
     "smoke:month-card-pool": "pnpm compile && node dist/tools/run-stable-smoke-suite.js --case month-card-pool",
     "smoke:daily-sign-in-fortune": "pnpm compile && node dist/tools/run-stable-smoke-suite.js --case daily-sign-in-fortune",
+    "smoke:invitation-activity": "pnpm compile && SERVER_SKIP_LOCAL_ENV_AUTOLOAD=1 SERVER_DATABASE_URL= DATABASE_URL= node dist/tools/run-stable-smoke-suite.js --case invitation-activity",
     "cleanup:test-players": "pnpm compile && node dist/tools/cleanup-test-players.js",
     "smoke:readiness-gate": "pnpm compile && node dist/tools/run-stable-smoke-suite.js --case readiness-gate",
     "smoke:auth-bootstrap": "pnpm compile && node dist/tools/run-stable-smoke-suite.js --case auth-bootstrap",

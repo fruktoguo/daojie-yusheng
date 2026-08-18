@@ -3,14 +3,17 @@
  *
  * 月卡有效期、月卡每日领取和每日签到都要求跨会话存在，数据库是唯一真源。
  */
-import { Injectable, Logger, Inject } from '@nestjs/common';
-import type { Pool } from 'pg';
+import { Inject, Injectable, Logger, Optional, type OnApplicationBootstrap } from '@nestjs/common';
+import { createHash } from 'node:crypto';
+import type { Pool, PoolClient } from 'pg';
 import {
   INVITATION_FOUNDATION_REALM_MIN_LEVEL,
   INVITATION_INVITEE_MERIT_REWARD,
   INVITATION_INVITEE_SPIRIT_STONE_REWARD,
   INVITATION_INVITER_BASE_MERIT_REWARD,
+  INVITATION_INVITER_FOUNDATION_REALM_JADE_REWARD,
   INVITATION_INVITER_FOUNDATION_REALM_MERIT_REWARD,
+  INVITATION_INVITER_QI_REALM_JADE_REWARD,
   INVITATION_INVITER_QI_REALM_MERIT_REWARD,
   INVITATION_QI_REALM_MIN_LEVEL,
   MERIT_ITEM_ID,
@@ -21,6 +24,7 @@ import {
 } from '@mud/shared';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { DatabasePoolProvider } from './database-pool.provider';
+import { MailPersistenceService } from './mail-persistence.service';
 import type { ActivityInvitationRewardSnapshot } from './activity-asset-durable-persistence';
 
 const MONTH_CARD_TABLE = 'player_merit_month_card';
@@ -29,6 +33,7 @@ const DAILY_SIGN_IN_TABLE = 'player_daily_sign_in';
 const DAILY_SIGN_IN_CLAIM_TABLE = 'player_daily_sign_in_claim';
 const INVITATION_TABLE = 'player_invitation';
 const DAY_MS = 24 * 60 * 60 * 1000;
+const INVITATION_JADE_REWARD_BACKFILL_LIMIT = 128;
 
 export interface ActivityMonthCardRecord {
   playerId: string;
@@ -62,10 +67,26 @@ export interface ActivityInvitationRecord {
   inviteePlayerId: string;
   invitationCode: string;
   inviteeHighestRealmLv: number;
+  inviterQiJadeRewardClaimed: boolean;
+  inviterFoundationJadeRewardClaimed: boolean;
   inviteeRewardClaimed: boolean;
   inviterBaseRewardClaimed: boolean;
   inviterQiRewardClaimed: boolean;
   inviterFoundationRewardClaimed: boolean;
+}
+
+export interface ActivityInvitationJadeRewardMailResult {
+  processedInviters: number;
+  deliveredMails: number;
+  totalJade: number;
+}
+
+interface ActivityInvitationJadeRewardPlan {
+  inviterPlayerId: string;
+  qiInviteePlayerIds: string[];
+  foundationInviteePlayerIds: string[];
+  jadeCount: number;
+  rewardKey: string;
 }
 
 export interface ActivityInvitationStatusRecord {
@@ -94,12 +115,15 @@ export interface ActivityInvitationRewardClaimResult {
 }
 
 @Injectable()
-export class ActivityPersistenceService {
+export class ActivityPersistenceService implements OnApplicationBootstrap {
   private readonly logger = new Logger(ActivityPersistenceService.name);
   pool: Pool | null = null;
   enabled = false;
 
-  constructor(@Inject(DatabasePoolProvider) private readonly databasePoolProvider: DatabasePoolProvider) {}
+  constructor(
+    @Inject(DatabasePoolProvider) private readonly databasePoolProvider: DatabasePoolProvider,
+    @Optional() @Inject(MailPersistenceService) private readonly mailPersistenceService: MailPersistenceService | null = null,
+  ) {}
 
   async onModuleInit(): Promise<void> {
     const databaseUrl = resolveServerDatabaseUrl();
@@ -121,6 +145,20 @@ export class ActivityPersistenceService {
       this.logger.error('活动持久化初始化失败，已回退为禁用模式', error instanceof Error ? error.stack : String(error));
       this.pool = null;
       this.enabled = false;
+    }
+  }
+
+  async onApplicationBootstrap(): Promise<void> {
+    if (!this.isEnabled() || !this.mailPersistenceService?.isEnabled()) {
+      return;
+    }
+    try {
+      const result = await this.deliverPendingInvitationJadeRewardMails();
+      if (result.deliveredMails > 0) {
+        this.logger.log(`引渡悟道玉简历史补发完成：邮件=${result.deliveredMails} 玉简=${result.totalJade}`);
+      }
+    } catch (error) {
+      this.logger.error('引渡悟道玉简历史补发失败，后续玩家打开活动面板时会继续重试', error instanceof Error ? error.stack : String(error));
     }
   }
 
@@ -665,6 +703,162 @@ export class ActivityPersistenceService {
     );
   }
 
+  async deliverPendingInvitationJadeRewardMails(options: { limit?: number } = {}): Promise<ActivityInvitationJadeRewardMailResult> {
+    const summary: ActivityInvitationJadeRewardMailResult = { processedInviters: 0, deliveredMails: 0, totalJade: 0 };
+    if (!this.pool || !this.enabled || !this.mailPersistenceService?.isEnabled()) {
+      return summary;
+    }
+    const limit = normalizeBoundedInteger(options.limit, INVITATION_JADE_REWARD_BACKFILL_LIMIT, 1, 500);
+    for (;;) {
+      const inviterPlayerIds = await this.listPendingInvitationJadeRewardInviterIds(limit);
+      if (inviterPlayerIds.length === 0) {
+        return summary;
+      }
+      for (const inviterPlayerId of inviterPlayerIds) {
+        const jadeCount = await this.deliverInvitationJadeRewardMailForInviter(inviterPlayerId);
+        summary.processedInviters += 1;
+        if (jadeCount > 0) {
+          summary.deliveredMails += 1;
+          summary.totalJade += jadeCount;
+        }
+      }
+      if (inviterPlayerIds.length < limit) {
+        return summary;
+      }
+    }
+  }
+
+  async deliverPendingInvitationJadeRewardMailsForPlayer(inviterPlayerId: string): Promise<boolean> {
+    const normalizedPlayerId = normalizePlayerId(inviterPlayerId);
+    if (!this.pool || !this.enabled || !this.mailPersistenceService?.isEnabled() || !normalizedPlayerId) {
+      return false;
+    }
+    return (await this.deliverInvitationJadeRewardMailForInviter(normalizedPlayerId)) > 0;
+  }
+
+  private async listPendingInvitationJadeRewardInviterIds(limit: number): Promise<string[]> {
+    if (!this.pool || !this.enabled) {
+      return [];
+    }
+    const result = await this.pool.query(
+      `SELECT DISTINCT inviter_player_id
+         FROM ${INVITATION_TABLE}
+        WHERE (invitee_highest_realm_lv >= $1 AND inviter_qi_jade_reward_claimed = false)
+           OR (invitee_highest_realm_lv >= $2 AND inviter_foundation_jade_reward_claimed = false)
+        ORDER BY inviter_player_id ASC
+        LIMIT $3`,
+      [INVITATION_QI_REALM_MIN_LEVEL, INVITATION_FOUNDATION_REALM_MIN_LEVEL, limit],
+    );
+    return result.rows
+      .map((row) => normalizePlayerId(row?.inviter_player_id))
+      .filter((playerId) => playerId.length > 0);
+  }
+
+  private async deliverInvitationJadeRewardMailForInviter(inviterPlayerId: string): Promise<number> {
+    if (!this.pool || !this.enabled || !this.mailPersistenceService?.isEnabled()) {
+      return 0;
+    }
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const plan = await this.loadInvitationJadeRewardPlanForUpdate(client, inviterPlayerId);
+      if (!plan || plan.jadeCount <= 0) {
+        await client.query('COMMIT');
+        return 0;
+      }
+      await this.mailPersistenceService.insertActivityInvitationJadeRewardMailWithClient(client, {
+        playerId: plan.inviterPlayerId,
+        batchId: buildInvitationJadeRewardMailBatchId(plan),
+        jadeCount: plan.jadeCount,
+        rewardKey: plan.rewardKey,
+        nowMs: Date.now(),
+      });
+      await this.markInvitationJadeRewardMailsSentWithClient(client, plan);
+      await client.query('COMMIT');
+      return plan.jadeCount;
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  private async loadInvitationJadeRewardPlanForUpdate(
+    client: PoolClient,
+    inviterPlayerId: string,
+  ): Promise<ActivityInvitationJadeRewardPlan | null> {
+    const result = await client.query(
+      `SELECT invitee_player_id, invitee_highest_realm_lv,
+              inviter_qi_jade_reward_claimed, inviter_foundation_jade_reward_claimed
+         FROM ${INVITATION_TABLE}
+        WHERE inviter_player_id = $1
+          AND (
+            (invitee_highest_realm_lv >= $2 AND inviter_qi_jade_reward_claimed = false)
+            OR (invitee_highest_realm_lv >= $3 AND inviter_foundation_jade_reward_claimed = false)
+          )
+        ORDER BY invitee_player_id ASC
+        FOR UPDATE`,
+      [inviterPlayerId, INVITATION_QI_REALM_MIN_LEVEL, INVITATION_FOUNDATION_REALM_MIN_LEVEL],
+    );
+    const qiInviteePlayerIds: string[] = [];
+    const foundationInviteePlayerIds: string[] = [];
+    for (const row of result.rows) {
+      const inviteePlayerId = normalizePlayerId(row?.invitee_player_id);
+      const highestRealmLv = Math.max(1, Math.trunc(Number(row?.invitee_highest_realm_lv) || 1));
+      if (!inviteePlayerId) {
+        continue;
+      }
+      if (highestRealmLv >= INVITATION_QI_REALM_MIN_LEVEL && row?.inviter_qi_jade_reward_claimed !== true) {
+        qiInviteePlayerIds.push(inviteePlayerId);
+      }
+      if (highestRealmLv >= INVITATION_FOUNDATION_REALM_MIN_LEVEL && row?.inviter_foundation_jade_reward_claimed !== true) {
+        foundationInviteePlayerIds.push(inviteePlayerId);
+      }
+    }
+    return buildInvitationJadeRewardPlan(inviterPlayerId, qiInviteePlayerIds, foundationInviteePlayerIds);
+  }
+
+  private async markInvitationJadeRewardMailsSentWithClient(
+    client: PoolClient,
+    plan: ActivityInvitationJadeRewardPlan,
+  ): Promise<void> {
+    const qiResult = plan.qiInviteePlayerIds.length > 0
+      ? await client.query(
+        `UPDATE ${INVITATION_TABLE}
+            SET inviter_qi_jade_reward_claimed = true,
+                updated_at = now()
+          WHERE inviter_player_id = $1
+            AND invitee_player_id = ANY($2::varchar[])
+            AND invitee_highest_realm_lv >= $3
+            AND inviter_qi_jade_reward_claimed = false
+          RETURNING invitee_player_id`,
+        [plan.inviterPlayerId, plan.qiInviteePlayerIds, INVITATION_QI_REALM_MIN_LEVEL],
+      )
+      : { rows: [] };
+    const foundationResult = plan.foundationInviteePlayerIds.length > 0
+      ? await client.query(
+        `UPDATE ${INVITATION_TABLE}
+            SET inviter_foundation_jade_reward_claimed = true,
+                updated_at = now()
+          WHERE inviter_player_id = $1
+            AND invitee_player_id = ANY($2::varchar[])
+            AND invitee_highest_realm_lv >= $3
+            AND inviter_foundation_jade_reward_claimed = false
+          RETURNING invitee_player_id`,
+        [plan.inviterPlayerId, plan.foundationInviteePlayerIds, INVITATION_FOUNDATION_REALM_MIN_LEVEL],
+      )
+      : { rows: [] };
+    const actualPlan = buildInvitationJadeRewardPlan(
+      plan.inviterPlayerId,
+      qiResult.rows.map((row) => normalizePlayerId(row?.invitee_player_id)),
+      foundationResult.rows.map((row) => normalizePlayerId(row?.invitee_player_id)),
+    );
+    if (!actualPlan || actualPlan.rewardKey !== plan.rewardKey || actualPlan.jadeCount !== plan.jadeCount) {
+      throw new Error('activity_invitation_jade_reward_snapshot_changed');
+    }
+  }
+
   async listInvitationLeaderboardRows(excludedPlayerIds: Iterable<string> = []): Promise<ActivityInvitationLeaderboardRow[]> {
     if (!this.pool || !this.enabled) {
       return [];
@@ -894,6 +1088,8 @@ async function ensureActivityTables(pool: Pool): Promise<void> {
         inviter_base_reward_claimed boolean NOT NULL DEFAULT false,
         inviter_qi_reward_claimed boolean NOT NULL DEFAULT false,
         inviter_foundation_reward_claimed boolean NOT NULL DEFAULT false,
+        inviter_qi_jade_reward_claimed boolean NOT NULL DEFAULT false,
+        inviter_foundation_jade_reward_claimed boolean NOT NULL DEFAULT false,
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now()
       )
@@ -903,6 +1099,8 @@ async function ensureActivityTables(pool: Pool): Promise<void> {
     await client.query(`ALTER TABLE ${INVITATION_TABLE} ADD COLUMN IF NOT EXISTS inviter_base_reward_claimed boolean NOT NULL DEFAULT false`);
     await client.query(`ALTER TABLE ${INVITATION_TABLE} ADD COLUMN IF NOT EXISTS inviter_qi_reward_claimed boolean NOT NULL DEFAULT false`);
     await client.query(`ALTER TABLE ${INVITATION_TABLE} ADD COLUMN IF NOT EXISTS inviter_foundation_reward_claimed boolean NOT NULL DEFAULT false`);
+    await client.query(`ALTER TABLE ${INVITATION_TABLE} ADD COLUMN IF NOT EXISTS inviter_qi_jade_reward_claimed boolean NOT NULL DEFAULT false`);
+    await client.query(`ALTER TABLE ${INVITATION_TABLE} ADD COLUMN IF NOT EXISTS inviter_foundation_jade_reward_claimed boolean NOT NULL DEFAULT false`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_${MONTH_CARD_TABLE}_expire_at ON ${MONTH_CARD_TABLE}(expire_at_ms)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_${INVITATION_TABLE}_inviter_player ON ${INVITATION_TABLE}(inviter_player_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_${INVITATION_TABLE}_inviter_realm ON ${INVITATION_TABLE}(inviter_player_id, invitee_highest_realm_lv)`);
@@ -1014,6 +1212,8 @@ function normalizeInvitationRow(row: any): ActivityInvitationRecord | null {
     inviteePlayerId,
     invitationCode,
     inviteeHighestRealmLv: Math.max(1, Math.trunc(Number(row.invitee_highest_realm_lv) || 1)),
+    inviterQiJadeRewardClaimed: row.inviter_qi_jade_reward_claimed === true,
+    inviterFoundationJadeRewardClaimed: row.inviter_foundation_jade_reward_claimed === true,
     inviteeRewardClaimed: row.invitee_reward_claimed === true,
     inviterBaseRewardClaimed: row.inviter_base_reward_claimed === true,
     inviterQiRewardClaimed: row.inviter_qi_reward_claimed === true,
@@ -1033,6 +1233,44 @@ function normalizeInvitationCode(value: unknown): string {
 
 function normalizeCount(value: unknown): number {
   return Math.max(0, Math.trunc(Number(value) || 0));
+}
+
+function normalizeBoundedInteger(value: unknown, fallback: number, min: number, max: number): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.min(max, Math.max(min, Math.trunc(parsed)));
+}
+
+function buildInvitationJadeRewardPlan(
+  inviterPlayerId: string,
+  qiInviteePlayerIds: string[],
+  foundationInviteePlayerIds: string[],
+): ActivityInvitationJadeRewardPlan | null {
+  const normalizedInviterPlayerId = normalizePlayerId(inviterPlayerId);
+  const qiIds = Array.from(new Set(qiInviteePlayerIds.map(normalizePlayerId).filter(Boolean))).sort();
+  const foundationIds = Array.from(new Set(foundationInviteePlayerIds.map(normalizePlayerId).filter(Boolean))).sort();
+  const jadeCount = qiIds.length * INVITATION_INVITER_QI_REALM_JADE_REWARD
+    + foundationIds.length * INVITATION_INVITER_FOUNDATION_REALM_JADE_REWARD;
+  if (!normalizedInviterPlayerId || jadeCount <= 0) {
+    return null;
+  }
+  const rewardKey = createHash('sha256')
+    .update(JSON.stringify({ version: 1, inviterPlayerId: normalizedInviterPlayerId, qiIds, foundationIds }), 'utf8')
+    .digest('hex');
+  return {
+    inviterPlayerId: normalizedInviterPlayerId,
+    qiInviteePlayerIds: qiIds,
+    foundationInviteePlayerIds: foundationIds,
+    jadeCount,
+    rewardKey,
+  };
+}
+
+function buildInvitationJadeRewardMailBatchId(plan: ActivityInvitationJadeRewardPlan): string {
+  const rewardHash = createHash('sha256').update(plan.rewardKey, 'utf8').digest('hex').slice(0, 32);
+  return `activity:invitation-jade:v1:${rewardHash}`;
 }
 
 function normalizeDateKey(value: unknown): string {

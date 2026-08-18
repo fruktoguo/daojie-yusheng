@@ -272,7 +272,11 @@ export class ActivityPanel {
       const name = document.createElement('span');
       name.textContent = stage.label;
       const count = document.createElement('strong');
-      count.textContent = `${stage.count} 人 · ${stage.rewardMerit} 功德`;
+      const rewardParts = [`${stage.rewardMerit} 功德`];
+      if (stage.rewardJade > 0) {
+        rewardParts.push(`${stage.rewardJade} 枚悟道玉简`);
+      }
+      count.textContent = `${stage.count} 人 · ${rewardParts.join(' / ')}`;
       row.append(name, count);
       list.append(row);
     }

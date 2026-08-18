@@ -18,11 +18,14 @@ export const BASE_OFFLINE_MAX_HOURS = 48;
 export const DAILY_SIGN_IN_RANDOM_MIN_MERIT = 1;
 export const DAILY_SIGN_IN_RANDOM_BASE_MAX_MERIT = 40;
 export const SPIRIT_STONE_ITEM_ID = 'spirit_stone';
+export const WUDAO_YUJIAN_ITEM_ID = 'wudao_yujian';
 export const INVITATION_INVITEE_SPIRIT_STONE_REWARD = 666;
 export const INVITATION_INVITEE_MERIT_REWARD = 100;
 export const INVITATION_INVITER_BASE_MERIT_REWARD = 100;
 export const INVITATION_INVITER_QI_REALM_MERIT_REWARD = 300;
 export const INVITATION_INVITER_FOUNDATION_REALM_MERIT_REWARD = 600;
+export const INVITATION_INVITER_QI_REALM_JADE_REWARD = 1;
+export const INVITATION_INVITER_FOUNDATION_REALM_JADE_REWARD = 3;
 export const INVITATION_QI_REALM_MIN_LEVEL = 19;
 export const INVITATION_FOUNDATION_REALM_MIN_LEVEL = 31;
 
@@ -93,6 +96,7 @@ export interface InvitationStageStatusView {
   label: string;
   count: number;
   rewardMerit: number;
+  rewardJade: number;
 }
 
 export interface InvitationStatusView {
