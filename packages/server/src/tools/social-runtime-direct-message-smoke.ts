@@ -7,6 +7,7 @@ async function main(): Promise<void> {
   let readLookupParams: unknown[] | null = null;
   let readMarkerParams: unknown[] | null = null;
   let readMarkerSql = '';
+  const pruneParams: unknown[][] = [];
   const pool = {
     async connect() {
       throw new Error('本用例不应申请事务连接');
@@ -45,6 +46,10 @@ async function main(): Promise<void> {
       if (sql.includes('INSERT INTO player_daoist_message_read')) {
         readMarkerSql = sql;
         readMarkerParams = params;
+        return { rows: [], rowCount: 1 };
+      }
+      if (sql.includes('DELETE FROM player_daoist_message')) {
+        pruneParams.push(params);
         return { rows: [], rowCount: 1 };
       }
       throw new Error(`未覆盖 SQL：${sql.trim().slice(0, 80)}`);
@@ -107,7 +112,8 @@ async function main(): Promise<void> {
   const busy = await service.createDirectMessage('player:a', 'player:b', '超出突发预算');
   assert.equal(busy.ok, false);
   assert.equal(busy.reason, 'message_channel_busy');
-  service.onModuleDestroy();
+  await service.onModuleDestroy();
+  assert.deepEqual(pruneParams, [['player:a', 'player:b']]);
 
   console.log(JSON.stringify({ ok: true, case: 'social-runtime-direct-message' }, null, 2));
 }

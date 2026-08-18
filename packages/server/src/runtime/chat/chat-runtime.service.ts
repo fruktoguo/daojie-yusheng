@@ -118,6 +118,8 @@ export class ChatRuntimeService implements OnModuleDestroy {
   };
   private pruneTimer: ReturnType<typeof setTimeout> | null = null;
   private pruneFlushRunning = false;
+  private pruneFlushPromise: Promise<void> | null = null;
+  private destroying = false;
   private lastOccurredAt = 0;
 
   constructor(
@@ -150,10 +152,25 @@ export class ChatRuntimeService implements OnModuleDestroy {
     }
   }
 
-  onModuleDestroy(): void {
+  async onModuleDestroy(): Promise<void> {
+    this.destroying = true;
     if (this.pruneTimer) {
       clearTimeout(this.pruneTimer);
       this.pruneTimer = null;
+    }
+    if (this.pruneFlushPromise) {
+      await this.pruneFlushPromise.catch(() => undefined);
+    }
+    if (this.pruneTimer) {
+      clearTimeout(this.pruneTimer);
+      this.pruneTimer = null;
+    }
+    while (this.pendingPruneStreams.size > 0) {
+      const before = this.pendingPruneStreams.size;
+      await this.startPersistedStreamPruneFlush(false);
+      if (this.pendingPruneStreams.size >= before) {
+        break;
+      }
     }
   }
 
@@ -371,7 +388,7 @@ export class ChatRuntimeService implements OnModuleDestroy {
     }
     this.pruneTimer = setTimeout(() => {
       this.pruneTimer = null;
-      void this.flushPersistedStreamPrunes();
+      void this.startPersistedStreamPruneFlush(true);
     }, CHAT_PRUNE_DELAY_MS);
     this.pruneTimer.unref();
   }
@@ -393,7 +410,20 @@ export class ChatRuntimeService implements OnModuleDestroy {
     }
   }
 
-  private async flushPersistedStreamPrunes(): Promise<void> {
+  private startPersistedStreamPruneFlush(reschedule: boolean): Promise<void> {
+    if (this.pruneFlushPromise) {
+      return this.pruneFlushPromise;
+    }
+    const run = this.flushPersistedStreamPrunes(reschedule).finally(() => {
+      if (this.pruneFlushPromise === run) {
+        this.pruneFlushPromise = null;
+      }
+    });
+    this.pruneFlushPromise = run;
+    return run;
+  }
+
+  private async flushPersistedStreamPrunes(reschedule = true): Promise<void> {
     if (this.pruneFlushRunning || !this.pool || !this.enabled || this.pendingPruneStreams.size === 0) {
       return;
     }
@@ -411,7 +441,7 @@ export class ChatRuntimeService implements OnModuleDestroy {
       }
     } finally {
       this.pruneFlushRunning = false;
-      if (this.pendingPruneStreams.size > 0) {
+      if (reschedule && !this.destroying && this.pendingPruneStreams.size > 0) {
         this.schedulePersistedStreamPrune(this.pendingPruneStreams.values().next().value as ChatStreamRef);
       }
     }

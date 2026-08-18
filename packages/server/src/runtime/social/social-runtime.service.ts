@@ -72,6 +72,8 @@ export class SocialRuntimeService implements OnModuleDestroy {
   };
   private messagePruneTimer: ReturnType<typeof setTimeout> | null = null;
   private messagePruneFlushRunning = false;
+  private messagePruneFlushPromise: Promise<void> | null = null;
+  private destroying = false;
   private lastDirectMessageSentAt = 0;
   private readonly relationChangeListeners = new Set<(playerAId: string, playerBId: string) => void>();
 
@@ -106,10 +108,25 @@ export class SocialRuntimeService implements OnModuleDestroy {
     }
   }
 
-  onModuleDestroy(): void {
+  async onModuleDestroy(): Promise<void> {
+    this.destroying = true;
     if (this.messagePruneTimer) {
       clearTimeout(this.messagePruneTimer);
       this.messagePruneTimer = null;
+    }
+    if (this.messagePruneFlushPromise) {
+      await this.messagePruneFlushPromise.catch(() => undefined);
+    }
+    if (this.messagePruneTimer) {
+      clearTimeout(this.messagePruneTimer);
+      this.messagePruneTimer = null;
+    }
+    while (this.pendingMessagePrunePairs.size > 0) {
+      const before = this.pendingMessagePrunePairs.size;
+      await this.startMessagePruneFlush(false);
+      if (this.pendingMessagePrunePairs.size >= before) {
+        break;
+      }
     }
     this.relationChangeListeners.clear();
   }
@@ -696,7 +713,7 @@ export class SocialRuntimeService implements OnModuleDestroy {
     }
     this.messagePruneTimer = setTimeout(() => {
       this.messagePruneTimer = null;
-      void this.flushMessagePrunes();
+      void this.startMessagePruneFlush(true);
     }, DAOIST_MESSAGE_PRUNE_DELAY_MS);
     this.messagePruneTimer.unref();
   }
@@ -719,7 +736,20 @@ export class SocialRuntimeService implements OnModuleDestroy {
     }
   }
 
-  private async flushMessagePrunes(): Promise<void> {
+  private startMessagePruneFlush(reschedule: boolean): Promise<void> {
+    if (this.messagePruneFlushPromise) {
+      return this.messagePruneFlushPromise;
+    }
+    const run = this.flushMessagePrunes(reschedule).finally(() => {
+      if (this.messagePruneFlushPromise === run) {
+        this.messagePruneFlushPromise = null;
+      }
+    });
+    this.messagePruneFlushPromise = run;
+    return run;
+  }
+
+  private async flushMessagePrunes(reschedule = true): Promise<void> {
     if (this.messagePruneFlushRunning || !this.pool || !this.enabled || this.pendingMessagePrunePairs.size === 0) {
       return;
     }
@@ -749,7 +779,7 @@ export class SocialRuntimeService implements OnModuleDestroy {
       }
     } finally {
       this.messagePruneFlushRunning = false;
-      if (this.pendingMessagePrunePairs.size > 0) {
+      if (reschedule && !this.destroying && this.pendingMessagePrunePairs.size > 0) {
         const nextPair = this.pendingMessagePrunePairs.values().next().value as [string, string];
         this.scheduleMessagePrune(nextPair);
       }

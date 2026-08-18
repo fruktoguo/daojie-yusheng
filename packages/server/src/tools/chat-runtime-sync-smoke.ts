@@ -4,6 +4,12 @@ import { S2C, type ChatHistorySyncView, type ServerChatMessageView } from '@mud/
 import { buildSelfDelta, captureSelfState } from '../network/world-projector.helpers';
 import { ChatRuntimeService } from '../runtime/chat/chat-runtime.service';
 
+interface PersistentChatHarness {
+  pool: unknown;
+  enabled: boolean;
+  onModuleDestroy(): Promise<void>;
+}
+
 async function main(): Promise<void> {
   const players = new Map<string, Record<string, unknown>>([
     ['player:a', { playerId: 'player:a', name: '甲', instanceId: 'instance:a', sectId: 'sect:a', x: 10, y: 10 }],
@@ -171,6 +177,29 @@ async function main(): Promise<void> {
   await deliveryService.handlePlayerChat('player:a', { channel: 'world', message: maxLengthMessage });
   assert.equal(deliveryBroadcasts.length, 1, '5000 人世界频道必须受估算投递字节预算保护');
   assert.equal((deliveryErrors[0] as any)?.code, 'CHAT_CHANNEL_BUSY');
+
+  const pruneCalls: unknown[][] = [];
+  const persistentPool = {
+    async query(sql: string, params: unknown[] = []) {
+      if (sql.includes('INSERT INTO server_chat_message')) return { rows: [], rowCount: 1 };
+      if (sql.includes('DELETE FROM server_chat_message')) {
+        pruneCalls.push(params);
+        return { rows: [], rowCount: 1 };
+      }
+      throw new Error(`未覆盖 SQL：${sql.trim().slice(0, 80)}`);
+    },
+  };
+  const persistentChat = new ChatRuntimeService(
+    {} as never,
+    { getPlayer: () => players.get('player:a') ?? null } as never,
+    { getSocketByPlayerId: socketFor, getConnectedPlayerCount: () => 1, emitToAll: () => true, listBindings: () => [] } as never,
+  );
+  const persistentHarness = persistentChat as unknown as PersistentChatHarness;
+  persistentHarness.pool = persistentPool;
+  persistentHarness.enabled = true;
+  await persistentChat.handlePlayerChat('player:a', { channel: 'world', message: '关停裁剪' });
+  await persistentHarness.onModuleDestroy();
+  assert.deepEqual(pruneCalls, [['world']]);
 
   console.log(JSON.stringify({ ok: true, case: 'chat-runtime-sync' }, null, 2));
 }
