@@ -39,6 +39,7 @@ async function main(): Promise<void> {
   const gmGeneratedTechniquePool = provider.getPool('gm-generated-techniques');
   const gmReleaseFlushStallPool = provider.getPool('gm-release-flush-stall');
   const gmQuestProgressRepairPool = provider.getPool('gm-quest-progress-payload-repair');
+  const gmCompatPool = provider.getPool('gm-compat-delete-empty-custom-technique-books');
   const combatAuditPool = provider.getPool('combat-audit-outbox');
   const playerCountersPool = provider.getPool('player_counters');
   const timeChamberPool = provider.getPool('time-chamber-runtime');
@@ -57,6 +58,7 @@ async function main(): Promise<void> {
   assert.strictEqual(gmGeneratedTechniquePool, flushPoolFromPlayer, 'GM generated technique writes should share the flush pool, not gm diagnostics');
   assert.strictEqual(gmReleaseFlushStallPool, flushPoolFromPlayer, 'GM flush stall release writes should share the flush pool, not gm diagnostics');
   assert.strictEqual(gmQuestProgressRepairPool, flushPoolFromPlayer, 'GM quest progress repair writes should share the flush pool, not gm diagnostics');
+  assert.strictEqual(gmCompatPool, flushPoolFromPlayer, 'GM compat conversions should share the flush pool, not gm diagnostics');
   assert.strictEqual(combatAuditPool, flushPoolFromPlayer, 'combat audit outbox writes should share the flush pool, not the outbox dispatcher pool');
   assert.strictEqual(playerCountersPool, flushPoolFromPlayer, 'player_counters writes should use the flush pool despite underscore scope naming');
   assert.strictEqual(timeChamberPool, flushPoolFromPlayer, 'time chamber persistence should use the flush pool, not runtimeCritical');
@@ -100,6 +102,8 @@ async function main(): Promise<void> {
   assert.equal(resolveDatabasePoolGroup('gm-generated-techniques'), 'flush');
   assert.equal(resolveDatabasePoolGroup('gm-release-flush-stall'), 'flush');
   assert.equal(resolveDatabasePoolGroup('gm-quest-progress-payload-repair'), 'flush');
+  assert.equal(resolveDatabasePoolGroup('gm-compat-delete-empty-custom-technique-books'), 'flush');
+  assert.equal(resolveDatabasePoolGroup('gm-compat-orphan-sect-building-visuals'), 'flush');
   assert.equal(resolveDatabasePoolGroup('combat-audit-outbox'), 'flush');
   assert.equal(resolveDatabasePoolGroup('player_counters'), 'flush');
   assert.equal(resolveDatabasePoolGroup('time-chamber-runtime'), 'flush');
