@@ -87,11 +87,11 @@ export class InstanceOverlayFlushWorker {
       try {
         const result = await this.worldRuntimeService.flushInstanceDomains?.(instanceId, [INSTANCE_OVERLAY_WORKER_DOMAIN]);
         if (result?.skipped === true) {
-          await this.flushLedgerService.markInstanceFlushLedgerFlushed({
+          await this.flushLedgerService.markInstanceFlushLedgerRetry({
             instanceId,
             domain: INSTANCE_OVERLAY_WORKER_DOMAIN,
             ownershipEpoch,
-            flushedVersion: Number(entry.latest_version ?? 0),
+            retryDelayMs: 5_000,
             claimOwnerId: normalizeRequiredString(entry.claimed_by),
             fencingToken: normalizeOptionalString(entry.fencing_token),
           });

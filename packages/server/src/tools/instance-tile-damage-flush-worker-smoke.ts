@@ -10,7 +10,11 @@ import { InstanceTileDamageFlushWorker } from '../runtime/world/worker/instance-
 
 const databaseUrl = resolveServerDatabaseUrl();
 
+const SKIPPED_INSTANCE_ID = 'instance:tile-damage:skipped-retry-smoke';
+
 async function main(): Promise<void> {
+  await assertSkippedFlushKeepsLedgerPending();
+
   if (!databaseUrl.trim()) {
     console.log(
       JSON.stringify(
@@ -119,6 +123,63 @@ async function main(): Promise<void> {
     await instanceDomainPersistenceService.onModuleDestroy().catch(() => undefined);
     await pool.end().catch(() => undefined);
   }
+}
+
+async function assertSkippedFlushKeepsLedgerPending(): Promise<void> {
+  const retried: Array<Record<string, unknown>> = [];
+  const flushed: Array<Record<string, unknown>> = [];
+  const worker = new InstanceTileDamageFlushWorker(
+    {
+      listDirtyPersistentInstances() {
+        return [];
+      },
+      async flushInstanceDomains() {
+        return { skipped: true };
+      },
+      getInstanceRuntime(instanceId: string) {
+        assert.equal(instanceId, SKIPPED_INSTANCE_ID);
+        return {
+          meta: {
+            persistent: true,
+            ownershipEpoch: 3,
+          },
+          getPersistenceRevision() {
+            return 41;
+          },
+        };
+      },
+    } as never,
+    {
+      async claimInstanceFlushLedger() {
+        return [{
+          instance_id: SKIPPED_INSTANCE_ID,
+          domain: 'tile_damage',
+          ownership_epoch: 3,
+          latest_version: 41,
+          claimed_by: 'worker:skipped-smoke',
+          fencing_token: 'fence:skipped-smoke',
+        }];
+      },
+      async markInstanceFlushLedgerRetry(input: Record<string, unknown>) {
+        retried.push(input);
+        return true;
+      },
+      async markInstanceFlushLedgerFlushed(input: Record<string, unknown>) {
+        flushed.push(input);
+        return true;
+      },
+    } as never,
+    new FlushWakeupService(),
+  );
+
+  const processedCount = await worker.runOnce('instance-tile-damage-worker-skipped-smoke');
+  assert.equal(processedCount, 0);
+  assert.equal(flushed.length, 0);
+  assert.equal(retried.length, 1);
+  assert.equal(retried[0]?.instanceId, SKIPPED_INSTANCE_ID);
+  assert.equal(retried[0]?.domain, 'tile_damage');
+  assert.equal(retried[0]?.ownershipEpoch, 3);
+  assert.equal(retried[0]?.retryDelayMs, 5_000);
 }
 
 async function cleanupRows(pool: Pool, instanceIds: string[]): Promise<void> {
