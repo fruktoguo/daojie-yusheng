@@ -185,6 +185,7 @@ export function resolveDatabasePoolGroup(name: string): DatabasePoolGroup {
     || normalized.includes('player-counters')
     || normalized.includes('player_counters')
     || normalized.includes('time-chamber')
+    || normalized.includes('party-runtime')
     || normalized.includes('instance-catalog')
     || normalized.includes('mail')
     || normalized.includes('market')
