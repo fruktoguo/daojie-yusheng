@@ -171,6 +171,9 @@ export function resolveDatabasePoolGroup(name: string): DatabasePoolGroup {
   if (!normalized) {
     return 'runtimeCritical';
   }
+  if (normalized.includes('combat-audit')) {
+    return 'flush';
+  }
   if (normalized.includes('outbox')) {
     return 'outbox';
   }
@@ -188,7 +191,6 @@ export function resolveDatabasePoolGroup(name: string): DatabasePoolGroup {
     || normalized.includes('treasure-vault')
     || normalized.includes('activity')
     || normalized.includes('redeem-code')
-    || normalized.includes('combat-audit')
     || normalized.includes('gm-config')
     || normalized.includes('gm-runtime-flag')
     || normalized.includes('ai-provider-config')
