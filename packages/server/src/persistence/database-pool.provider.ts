@@ -174,9 +174,6 @@ export function resolveDatabasePoolGroup(name: string): DatabasePoolGroup {
   if (normalized.includes('outbox')) {
     return 'outbox';
   }
-  if (normalized.startsWith('gm-') || normalized.includes('gm-') || normalized.includes('gm_')) {
-    return 'gmDiagnostics';
-  }
   if (normalized.includes('player-domain')
     || normalized.includes('instance-domain')
     || normalized.includes('player-snapshot')
@@ -192,6 +189,7 @@ export function resolveDatabasePoolGroup(name: string): DatabasePoolGroup {
     || normalized.includes('activity')
     || normalized.includes('redeem-code')
     || normalized.includes('combat-audit')
+    || normalized.includes('gm-config')
     || normalized.includes('gm-runtime-flag')
     || normalized.includes('ai-provider-config')
     || normalized.includes('technique-generation')
@@ -201,6 +199,9 @@ export function resolveDatabasePoolGroup(name: string): DatabasePoolGroup {
     || normalized.includes('tongtian')
     || normalized.includes('player-identity')) {
     return 'flush';
+  }
+  if (normalized.startsWith('gm-') || normalized.includes('gm-') || normalized.includes('gm_')) {
+    return 'gmDiagnostics';
   }
   return 'runtimeCritical';
 }

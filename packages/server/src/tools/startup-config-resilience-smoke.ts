@@ -17,7 +17,7 @@ import {
   validateGameConfigValue,
 } from '../config/game-config-registry';
 import { resolveWorkerPoolSize } from '../config/worker-pool-config';
-import { resolveBootstrapGameConfigRow } from '../config/bootstrap-load-db-config';
+import { buildBootstrapDbConfigPoolOptions, resolveBootstrapGameConfigRow } from '../config/bootstrap-load-db-config';
 import { CombatAuditOutboxService } from '../persistence/combat-audit-outbox.service';
 import { OutboxDispatcherService } from '../persistence/outbox-dispatcher.service';
 import { installSmokeTimeout } from './smoke-timeout';
@@ -29,6 +29,7 @@ async function main(): Promise<void> {
   assertNodeRuntimeConfigUsesDatabaseSafeValues();
   assertWorkerPoolConfigUsesBoundedIntegers();
   assertBootstrapDatabaseConfigRejectsInvalidRows();
+  assertBootstrapDatabaseConfigUsesBoundedTimeouts();
   await assertOptionalOutboxSchemaFailuresDoNotBlockStartup();
   const root = await mkdtemp(join(tmpdir(), 'startup-config-resilience-'));
   try {
@@ -93,6 +94,14 @@ function assertBootstrapDatabaseConfigRejectsInvalidRows(): void {
   );
   assert.equal(resolveBootstrapGameConfigRow({ key: 'UNKNOWN_CONFIG', value: '1' }), null);
   assert.equal(resolveBootstrapGameConfigRow({ key: 'SERVER_INSTANCE_WORKER_COUNT', value: null }), null);
+}
+
+function assertBootstrapDatabaseConfigUsesBoundedTimeouts(): void {
+  const options = buildBootstrapDbConfigPoolOptions('postgres://example.invalid/db') as Record<string, unknown>;
+  assert.equal(options.max, 1);
+  assert.equal(options.connectionTimeoutMillis, 3_000);
+  assert.equal(options.statement_timeout, 5_000);
+  assert.equal(options.query_timeout, 5_000);
 }
 
 function assertWorkerPoolConfigUsesBoundedIntegers(): void {

@@ -8,7 +8,7 @@
  * 在 NestFactory.create 之前执行，将 server_gm_config 表中的值写入 process.env。
  * 容错设计：DB 不可用时静默跳过，回退到 env 原有值或注册表默认值。
  */
-import { Pool } from 'pg';
+import { Pool, type PoolConfig } from 'pg';
 
 import { resolveServerDatabasePoolerUrl, resolveServerDatabaseUrl } from './env-alias';
 import {
@@ -19,6 +19,17 @@ import {
 const CONNECT_TIMEOUT_MS = 3000;
 const QUERY_TIMEOUT_MS = 5000;
 const GM_CONFIG_TABLE = 'server_gm_config';
+
+export function buildBootstrapDbConfigPoolOptions(databaseUrl: string): PoolConfig {
+  return {
+    connectionString: databaseUrl,
+    max: 1,
+    connectionTimeoutMillis: CONNECT_TIMEOUT_MS,
+    idleTimeoutMillis: 1000,
+    statement_timeout: QUERY_TIMEOUT_MS,
+    query_timeout: QUERY_TIMEOUT_MS,
+  };
+}
 
 /**
  * 从数据库加载游戏配置并注入 process.env。
@@ -33,34 +44,36 @@ export async function bootstrapLoadDbConfig(): Promise<number> {
 
   let pool: Pool | null = null;
   try {
-    pool = new Pool({
-      connectionString: databaseUrl,
-      max: 1,
-      connectionTimeoutMillis: CONNECT_TIMEOUT_MS,
-      idleTimeoutMillis: 1000,
-    });
+    pool = new Pool(buildBootstrapDbConfigPoolOptions(databaseUrl));
 
-    const result = await Promise.race([
-      pool.query(`SELECT key, value FROM ${GM_CONFIG_TABLE}`),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('bootstrap config query timeout')), QUERY_TIMEOUT_MS),
-      ),
-    ]);
+    let timeoutHandle: NodeJS.Timeout | undefined;
+    try {
+      const result = await Promise.race([
+        pool.query(`SELECT key, value FROM ${GM_CONFIG_TABLE}`),
+        new Promise<never>((_, reject) => {
+          timeoutHandle = setTimeout(() => reject(new Error('bootstrap config query timeout')), QUERY_TIMEOUT_MS);
+          timeoutHandle.unref();
+        }),
+      ]);
 
-    let count = 0;
-    if (Array.isArray(result.rows)) {
-      for (const row of result.rows) {
-        const resolved = resolveBootstrapGameConfigRow(row);
-        if (!resolved) continue;
-        if (resolved.validationError) {
-          console.warn(`[启动配置] 已忽略数据库中的无效配置 ${resolved.key}：${resolved.validationError}`);
-          continue;
+      let count = 0;
+      if (Array.isArray(result.rows)) {
+        for (const row of result.rows) {
+          const resolved = resolveBootstrapGameConfigRow(row);
+          if (!resolved) continue;
+          if (resolved.validationError) {
+            console.warn(`[启动配置] 已忽略数据库中的无效配置 ${resolved.key}：${resolved.validationError}`);
+            continue;
+          }
+          process.env[resolved.key] = resolved.value;
+          count += 1;
         }
-        process.env[resolved.key] = resolved.value;
-        count += 1;
       }
+      return count;
+    } finally {
+      clearTimeout(timeoutHandle);
     }
-    return count;
+
   } catch {
     // DB 不可用（无连接、表不存在等）：静默跳过
     return -1;
