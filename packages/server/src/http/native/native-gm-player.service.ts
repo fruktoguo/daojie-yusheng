@@ -108,6 +108,8 @@ function safeDescribe<T>(fn: ((arg: T) => unknown) | undefined, arg: T): unknown
   }
 }
 
+const GM_GENERATED_TECHNIQUE_LEGACY_DRAFT_ERROR = '该自创术法仍含旧版草稿字段，请先执行“迁移旧版AI术法草稿”后再添加。';
+
 const GM_PLAYER_DATABASE_TABLES = [
   'player_presence',
   'player_world_anchor',
@@ -1835,11 +1837,19 @@ export class NativeGmPlayerService {
       return { ...entry, techId };
     }
     const normalized = { ...entry, techId };
-    const hydrated = this.contentTemplateRepository.hydrateTechniqueState(normalized);
-    if (hydrated && typeof hydrated === 'object') {
-      return hydrated;
+    try {
+      const hydrated = this.contentTemplateRepository.hydrateTechniqueState(normalized);
+      if (hydrated && typeof hydrated === 'object') {
+        return hydrated;
+      }
+    } catch (error) {
+      if (error instanceof Error && /含 artsStrength\/raw\* 旧草稿字段/.test(error.message)) {
+        throw new BadRequestException(`${GM_GENERATED_TECHNIQUE_LEGACY_DRAFT_ERROR}（${techId}）`);
+      }
+      throw error;
     }
     return normalized;
+
   }
 
   private buildStarterPersistenceSnapshot(playerId: string): any | null {

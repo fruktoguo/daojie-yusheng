@@ -1084,6 +1084,7 @@ function toGeneratedTechniqueSummary(row: GeneratedTechniqueGmRow): GmGeneratedT
   const grade = normalizeOptionalString(row.grade) ?? getStringField(templateRecord, 'grade');
   const category = normalizeOptionalString(row.category) ?? getStringField(templateRecord, 'category');
   const realmLv = normalizeNullableInteger(row.realm_lv) ?? normalizeNullableInteger(templateRecord?.realmLv);
+  const playerAddDisabledReason = getGeneratedTechniquePlayerAddDisabledReason(templateRecord);
   return {
     id: row.id,
     generationId: row.generation_id,
@@ -1097,7 +1098,31 @@ function toGeneratedTechniqueSummary(row: GeneratedTechniqueGmRow): GmGeneratedT
     status: row.status,
     isPublished: Boolean(row.is_published),
     createdByPlayerId: row.created_by_player_id,
+    ...(playerAddDisabledReason ? { playerAddDisabledReason } : {}),
   };
+}
+
+function getGeneratedTechniquePlayerAddDisabledReason(template: Record<string, unknown> | null): string | null {
+  if (!template) {
+    return '功法模板缺失，不能写入玩家功法。';
+  }
+  if (hasLegacyGeneratedTechniqueRuntimeDraftField(template)) {
+    return '该自创术法仍含旧版草稿字段，请先执行“迁移旧版AI术法草稿”后再添加。';
+  }
+  return null;
+}
+
+function hasLegacyGeneratedTechniqueRuntimeDraftField(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false;
+  if (Array.isArray(value)) return value.some((entry) => hasLegacyGeneratedTechniqueRuntimeDraftField(entry));
+  return Object.entries(value).some(([key, child]) => (
+    key === 'artsStrength'
+    || key === 'rawRange'
+    || key === 'rawTargeting'
+    || key === 'rawFormula'
+    || key === 'rawCandidate'
+    || hasLegacyGeneratedTechniqueRuntimeDraftField(child)
+  ));
 }
 
 function toGeneratedTechniqueRawJson(row: GeneratedTechniqueGmRow): Record<string, unknown> {

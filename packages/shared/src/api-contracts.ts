@@ -190,6 +190,9 @@ export interface GmGeneratedTechniqueSummary {
   status: string;
   isPublished: boolean;
   createdByPlayerId: string;
+  /** 玩家功法管理里禁止直接添加的原因；为空表示可添加。 */
+  playerAddDisabledReason?: string | null;
+
 }
 
 /** GM AI 生成功法分页信息。 */

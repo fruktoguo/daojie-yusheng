@@ -790,6 +790,7 @@ interface GmTechniqueCandidate {
   realmLv?: number | null;
   meta: string;
   learned: boolean;
+  disabledReason?: string | null;
 }
 
 const GM_TECHNIQUE_CATEGORY_FILTER_OPTIONS: readonly { value: GmTechniqueCategoryFilter; label: string }[] = [
@@ -1009,6 +1010,14 @@ async function loadGeneratedTechniqueCandidates(silent = true): Promise<void> {
     if (nonce !== generatedTechniqueCandidateRequestNonce) {
       return;
     }
+    const disabledTechniqueIds = new Set(result.techniques
+      .filter((entry) => typeof entry.playerAddDisabledReason === 'string' && entry.playerAddDisabledReason.trim().length > 0)
+      .map((entry) => entry.id));
+    for (const techId of disabledTechniqueIds) {
+      selectedTechniqueCandidateIds.delete(techId);
+      selectedGeneratedTechniqueCandidateById.delete(techId);
+    }
+
     generatedTechniqueCandidates = result.techniques;
     currentTechniqueCandidatePage = result.page.page;
     generatedTechniqueCandidatePageTotal = Math.max(1, result.page.totalPages);
@@ -7395,6 +7404,9 @@ function buildSystemTechniqueCandidates(learnedIds: Set<string>): GmTechniqueCan
 
 function buildGeneratedTechniqueCandidates(learnedIds: Set<string>): GmTechniqueCandidate[] {
   return generatedTechniqueCandidates.map((summary) => {
+    const disabledReason = typeof summary.playerAddDisabledReason === 'string' && summary.playerAddDisabledReason.trim().length > 0
+      ? summary.playerAddDisabledReason.trim()
+      : null;
     const candidate: GmTechniqueCandidate = {
       source: 'generated',
       techId: summary.id,
@@ -7404,8 +7416,9 @@ function buildGeneratedTechniqueCandidates(learnedIds: Set<string>): GmTechnique
       realmLv: summary.realmLv ?? null,
       meta: '',
       learned: learnedIds.has(summary.id),
+      ...(disabledReason ? { disabledReason } : {}),
     };
-    candidate.meta = buildTechniqueCandidateMeta(candidate);
+    candidate.meta = [buildTechniqueCandidateMeta(candidate), disabledReason].filter(Boolean).join(' · ');
     return candidate;
   });
 }
@@ -7666,8 +7679,10 @@ function renderTechniqueCandidateList(techniques: TechniqueState[]): string {
   const isGenerated = currentTechniqueCandidateSource === 'generated';
   const pageData = getTechniqueCandidatePageData(techniques);
   currentTechniqueCandidatePage = pageData.page;
-  const selectedOnPage = pageData.items.filter((entry) => selectedTechniqueCandidateIds.has(entry.techId)).length;
-  const allPageSelected = pageData.items.length > 0 && selectedOnPage === pageData.items.length;
+  const selectablePageItems = pageData.items.filter((entry) => !entry.disabledReason);
+  const selectedOnPage = selectablePageItems.filter((entry) => selectedTechniqueCandidateIds.has(entry.techId)).length;
+  const allPageSelected = selectablePageItems.length > 0 && selectedOnPage === selectablePageItems.length;
+
   const listMeta = isGenerated && generatedTechniqueCandidateLoading
     ? '正在加载玩家自创功法...'
     : `第 ${pageData.page} / ${Math.max(1, pageData.totalPages)} 页 · 共 ${pageData.total} 条 · 已选 ${selectedTechniqueCandidateIds.size} 条`;
@@ -7687,17 +7702,19 @@ function renderTechniqueCandidateList(techniques: TechniqueState[]): string {
     <div class="gm-technique-candidate-list">
       ${pageData.items.length > 0
         ? pageData.items.map((candidate) => `
-          <label class="gm-technique-row ${candidate.learned ? 'learned' : ''}">
+          <label class="gm-technique-row ${candidate.learned ? 'learned' : ''} ${candidate.disabledReason ? 'disabled' : ''}">
             <input
               type="checkbox"
               data-technique-candidate-id="${escapeHtml(candidate.techId)}"
-              ${selectedTechniqueCandidateIds.has(candidate.techId) ? 'checked' : ''}
+              ${candidate.disabledReason ? 'disabled' : ''}
+              ${!candidate.disabledReason && selectedTechniqueCandidateIds.has(candidate.techId) ? 'checked' : ''}
             />
             <div class="gm-technique-row-main">
               <div class="gm-technique-row-title">${escapeHtml(candidate.name || candidate.techId)}</div>
               <div class="gm-technique-row-meta">${escapeHtml(candidate.meta)}</div>
             </div>
-            <span class="pill ${candidate.learned ? 'online' : ''}">${candidate.learned ? '已学' : '未学'}</span>
+            <span class="pill ${candidate.learned ? 'online' : ''}">${candidate.disabledReason ? '需迁移' : candidate.learned ? '已学' : '未学'}</span>
+
           </label>
         `).join('')
         : `<div class="editor-note">${isGenerated && generatedTechniqueCandidateLoading ? '正在加载...' : '没有匹配的功法。'}</div>`}
@@ -11329,8 +11346,9 @@ function selectCurrentTechniqueCandidatePage(): void {
     return;
   }
   const pageData = getTechniqueCandidatePageData(ensureArray(draftSnapshot.techniques));
-  const allSelected = pageData.items.length > 0 && pageData.items.every((entry) => selectedTechniqueCandidateIds.has(entry.techId));
-  for (const candidate of pageData.items) {
+  const selectablePageItems = pageData.items.filter((entry) => !entry.disabledReason);
+  const allSelected = selectablePageItems.length > 0 && selectablePageItems.every((entry) => selectedTechniqueCandidateIds.has(entry.techId));
+  for (const candidate of selectablePageItems) {
     toggleTechniqueCandidateSelection(candidate.techId, !allSelected);
   }
   patchTechniqueManagerListsFromDraft();
@@ -11370,6 +11388,7 @@ function addSelectedTechniqueCandidatesToDraft(): void {
   }
   const learnedIds = getLearnedTechniqueIdSet(ensureArray(draftSnapshot.techniques));
   let added = 0;
+  let disabledSkipped = 0;
   mutateDraft((draft) => {
     for (const techId of selectedIds) {
       if (!techId || learnedIds.has(techId)) {
@@ -11379,6 +11398,10 @@ function addSelectedTechniqueCandidatesToDraft(): void {
         const summary = selectedGeneratedTechniqueCandidateById.get(techId)
           ?? generatedTechniqueCandidates.find((entry) => entry.id === techId);
         if (!summary) {
+          continue;
+        }
+        if (typeof summary.playerAddDisabledReason === 'string' && summary.playerAddDisabledReason.trim().length > 0) {
+          disabledSkipped += 1;
           continue;
         }
         draft.techniques.push(createTechniqueFromGeneratedSummary(summary));
@@ -11397,7 +11420,12 @@ function addSelectedTechniqueCandidatesToDraft(): void {
   });
   clearTechniqueCandidateSelection();
   patchTechniqueManagerListsFromDraft();
-  setStatus(added > 0 ? `已加入 ${added} 个功法到草稿，保存功法标签后生效。` : '选中功法都已经学会或不在当前候选源中。', added === 0);
+  setStatus(added > 0
+    ? `已加入 ${added} 个功法到草稿，保存功法标签后生效。`
+    : disabledSkipped > 0
+      ? '选中的自创功法需要先迁移旧版AI术法草稿，暂未加入。'
+      : '选中功法都已经学会或不在当前候选源中。',
+  added === 0);
 }
 
 function removeTechniqueIdsFromDraft(techIds: Set<string>): number {

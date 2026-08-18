@@ -1,5 +1,7 @@
 /** GM 手工功法构建、预算水合和幂等发布烟测。 */
 import assert from 'node:assert/strict';
+import { BadRequestException } from '@nestjs/common';
+
 import {
   TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_KEYS,
   TECHNIQUE_ARTS_STRENGTH_SCALAR_PERCENT_BONUS_SOURCE_BY_KEY,
@@ -17,6 +19,19 @@ import {
   publishGmCustomTechnique,
   type PublishGmCustomTechniqueInput,
 } from '../persistence/gm-custom-technique-persistence';
+import type {
+  ContentTemplateRepositoryLike,
+  MapTemplateRepositoryLike,
+  MarketRuntimeServiceLike,
+  NativeManagedAccountServiceLike,
+  PlayerDomainPersistenceServiceLike,
+  PlayerProgressionServiceLike,
+  PlayerRuntimeServiceLike,
+  WorldRuntimeServiceLike,
+} from '../http/native/native-gm-player.ports';
+
+import { NativeGmPlayerService } from '../http/native/native-gm-player.service';
+
 import { buildGmCustomTechnique } from '../runtime/technique-generation/gm-custom-technique-builder';
 
 const internalInput: GmCustomTechniqueInput = {
@@ -43,6 +58,8 @@ async function main(): Promise<void> {
   testNegativeChantExpansion();
   testStrictValidation();
   testIdempotentPreviewUsesStoredTruth();
+  await testLegacyGeneratedTechniqueRejectsReadableGmPlayerSave();
+
   await testIdempotentPublish();
   console.log(JSON.stringify({
     ok: true,
@@ -57,6 +74,8 @@ async function main(): Promise<void> {
       '未知字段和字符串数值被拒绝',
       '幂等重放返回数据库已发布模板而非重新计算预览',
       '发布支持同请求重放并拒绝同键异请求和同名功法',
+      '旧版自创术法写入玩家功法时返回可读 400 而不是未知错误',
+
     ],
   }, null, 2));
 }
@@ -447,6 +466,99 @@ async function testIdempotentPublish(): Promise<void> {
   assert.deepEqual(nameConflict, { ok: false, errorCode: 'NAME_CONFLICT' });
   assert.ok(database.queries.filter((query) => query.includes('pg_advisory_xact_lock')).length >= 5);
 }
+
+async function testLegacyGeneratedTechniqueRejectsReadableGmPlayerSave(): Promise<void> {
+  const persistence: PlayerDomainPersistenceServiceLike = {
+    loadProjectedSnapshot: async () => ({
+      techniques: {
+        revision: 1,
+        cultivatingTechId: null,
+        techniques: [],
+      },
+      combat: {
+        autoBattleSkills: [],
+      },
+    }),
+    savePlayerSnapshotProjectionDomains: async () => {
+      throw new Error('旧版自创术法拒绝路径不应落库');
+    },
+    listProjectedSnapshots: async () => [],
+  };
+  const contentTemplateRepository: ContentTemplateRepositoryLike = {
+    createItem: () => null,
+    getItemName: () => null,
+    normalizeItem: (input: unknown) => input,
+    hydrateTechniqueState: () => {
+      throw new Error('生成功法模板 gen_legacy_raw 含 artsStrength/raw* 旧草稿字段，请先执行显式兼容转换');
+    },
+  };
+  const mapTemplateRepository: MapTemplateRepositoryLike = {
+    getOrThrow: () => ({}),
+  };
+  const playerProgressionService: PlayerProgressionServiceLike = {
+    createRealmStateFromLevel: (realmLv: number, progress: number) => ({ realmLv, progress }),
+    initializePlayer: () => undefined,
+  };
+  const playerRuntimeService: PlayerRuntimeServiceLike = {
+    snapshot: () => null,
+    buildStarterPersistenceSnapshot: () => null,
+    buildPersistenceSnapshot: () => null,
+    restoreSnapshot: () => undefined,
+    listPlayerSnapshots: () => [],
+    rebuildActionState: () => undefined,
+    refreshOnlineTechniqueTemplates: () => ({}),
+    getPersistenceRevision: () => null,
+    markPersisted: () => undefined,
+    setManagedBodyTrainingLevel: () => ({}),
+  };
+  const marketRuntimeService: MarketRuntimeServiceLike = {
+    getStorage: () => ({ items: [] }),
+    runExclusiveMarketMutation: async (_playerId, action) => action({}),
+    setStorage: () => undefined,
+  };
+  const worldRuntimeService: WorldRuntimeServiceLike = {
+    worldRuntimeCommandIntakeFacadeService: {
+      enqueueGmUpdatePlayer: () => undefined,
+      enqueueGmResetPlayer: () => undefined,
+      enqueueGmSpawnBots: () => undefined,
+      enqueueGmRemoveBots: () => undefined,
+    },
+  };
+  const managedAccountService: NativeManagedAccountServiceLike = {
+    getManagedAccountIndex: async () => new Map(),
+  };
+  const service = new NativeGmPlayerService(
+    contentTemplateRepository,
+    mapTemplateRepository,
+    persistence,
+    playerProgressionService,
+    playerRuntimeService,
+    marketRuntimeService,
+    worldRuntimeService,
+    managedAccountService,
+    null,
+    null,
+    null,
+  );
+
+  await assert.rejects(
+    () => service.updatePlayer('gm-smoke-player', {
+      section: 'techniques',
+      snapshot: {
+        techniques: [{ techId: 'gen_legacy_raw', level: 1, exp: 0, expToNext: 0, realmLv: 31 }],
+        autoBattleSkills: [],
+        cultivatingTechId: null,
+      },
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof BadRequestException);
+      assert.match(error.message, /迁移旧版AI术法草稿/);
+      assert.match(error.message, /gen_legacy_raw/);
+      return true;
+    },
+  );
+}
+
 
 function requireBuilt(result: ReturnType<typeof buildGmCustomTechnique>) {
   if (result.ok === false) {
