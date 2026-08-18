@@ -11,6 +11,12 @@ async function main(): Promise<void> {
   const shutdownStatusService = new ShutdownStatusService();
   const startupBarrierService = new StartupBarrierService();
   startupBarrierService.openTraffic();
+  const initialSnapshot = shutdownStatusService.getSnapshot();
+  const initialDrainPhase = initialSnapshot.phases.find((phase) => phase.phase === 'drain_requested');
+  assert.equal(initialSnapshot.blocking, false);
+  assert.equal(initialDrainPhase?.status, 'pending');
+  assert.equal(initialDrainPhase?.startedAt, null);
+
   shutdownStatusService.begin('SIGTERM', 'SIGTERM');
   const service = new HealthReadinessService(
     { enabled: true, pool: {} } as never,

@@ -302,10 +302,10 @@ export class ShutdownStatusService {
   private createPhaseSnapshot(phase: ShutdownPhase): ShutdownPhaseSnapshot {
     return {
       phase,
-      status: phase === 'drain_requested' ? 'running' : 'pending',
-      startedAt: phase === 'drain_requested' ? this.startedAt.toISOString() : null,
+      status: 'pending',
+      startedAt: null,
       finishedAt: null,
-      durationMs: phase === 'drain_requested' ? 0 : null,
+      durationMs: null,
       errorCode: null,
       errorMessage: null,
       metrics: {},
