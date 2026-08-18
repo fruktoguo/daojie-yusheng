@@ -1126,13 +1126,14 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       respawnLeft?: number | null;
       modifiedAt?: number | null;
     }>,
-  ): Promise<void> {
+    ledgerClaim: InstanceFlushLedgerClaim | null = null,
+  ): Promise<boolean> {
     if (!this.pool || !this.enabled) {
-      return;
+      return false;
     }
     const normalizedInstanceId = normalizeRequiredString(instanceId);
     if (!normalizedInstanceId) {
-      return;
+      return false;
     }
     const normalizedEntries = Array.isArray(entries)
       ? entries
@@ -1152,6 +1153,15 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     try {
       await client.query('BEGIN');
       await acquireInstanceDomainLock(client, normalizedInstanceId);
+      if (ledgerClaim && !await isCurrentClaimedInstanceFlushPayload(
+        client,
+        normalizedInstanceId,
+        'tile_damage',
+        ledgerClaim,
+      )) {
+        await client.query('COMMIT');
+        return false;
+      }
       if (normalizedEntries.length > 0) {
         await client.query(
           `
@@ -1238,6 +1248,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
         ],
       );
       await client.query('COMMIT');
+      return true;
     } catch (error: unknown) {
       await rollbackQuietly(client);
       throw error;
@@ -1756,10 +1767,11 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
         modifiedAt?: number | null;
       }>;
       deletes: number[];
+      ledgerClaim?: InstanceFlushLedgerClaim | null;
     }>,
-  ): Promise<void> {
+  ): Promise<string[]> {
     if (!this.pool || !this.enabled || !Array.isArray(batch) || batch.length === 0) {
-      return;
+      return [];
     }
     // 归一化并过滤空条目
     const entries = batch
@@ -1782,10 +1794,14 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
           .filter((t) => Number.isFinite(Number(t)))
           .map((t) => Math.max(0, Math.trunc(Number(t))));
         if (upserts.length === 0 && deletes.length === 0) return null;
-        return { instanceId, upserts, deletes };
+        const ledgerClaim = normalizeInstanceFlushLedgerClaim(item.ledgerClaim);
+        if (item.ledgerClaim && !ledgerClaim) {
+          return null;
+        }
+        return { instanceId, upserts, deletes, ledgerClaim };
       })
-      .filter(Boolean) as Array<{ instanceId: string; upserts: any[]; deletes: number[] }>;
-    if (entries.length === 0) return;
+      .filter(Boolean) as Array<{ instanceId: string; upserts: any[]; deletes: number[]; ledgerClaim: InstanceFlushLedgerClaim | null }>;
+    if (entries.length === 0) return [];
     // 按 instanceId 排序获取锁，避免死锁
     entries.sort((a, b) => a.instanceId < b.instanceId ? -1 : a.instanceId > b.instanceId ? 1 : 0);
     const client = await this.pool.connect();
@@ -1794,7 +1810,16 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       for (const entry of entries) {
         await acquireInstanceDomainLock(client, entry.instanceId);
       }
+      const appliedInstanceIds: string[] = [];
       for (const entry of entries) {
+        if (entry.ledgerClaim && !await isCurrentClaimedInstanceFlushPayload(
+          client,
+          entry.instanceId,
+          'tile_damage',
+          entry.ledgerClaim,
+        )) {
+          continue;
+        }
         if (entry.deletes.length > 0) {
           await client.query(
             `DELETE FROM ${INSTANCE_TILE_DAMAGE_STATE_TABLE} WHERE instance_id = $1 AND tile_index = ANY($2::bigint[])`,
@@ -1828,8 +1853,10 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
             })))],
           );
         }
+        appliedInstanceIds.push(entry.instanceId);
       }
       await client.query('COMMIT');
+      return appliedInstanceIds;
     } catch (error: unknown) {
       await rollbackQuietly(client);
       throw error;

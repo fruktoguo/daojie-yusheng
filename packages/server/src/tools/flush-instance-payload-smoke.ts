@@ -66,6 +66,7 @@ async function main(): Promise<void> {
     assert.equal(savedDamage.length, 1);
     assert.equal(savedWatermarks.length, 1);
     assert.equal(flushed.length, 1);
+    await verifyTileDamagePartialApplyRetriesUnappliedPayload();
     await verifyTileResourcePartialApplyRetriesUnappliedPayload();
     await verifySupersededGroundPayloadStopsBeforeWatermark();
     await verifyStartupReplayQuarantinesBadInstancePayload();
@@ -153,6 +154,89 @@ async function verifySupersededGroundPayloadStopsBeforeWatermark(): Promise<void
   assert.equal(processed, 0);
   assert.equal(markAttempts, 1);
   assert.equal(watermarkWrites, 0);
+}
+
+async function verifyTileDamagePartialApplyRetriesUnappliedPayload(): Promise<void> {
+  let claimed = false;
+  const savedDamageRows: Array<{ ledgerClaim?: Record<string, unknown> | null }> = [];
+  const savedWatermarks: unknown[] = [];
+  const flushed: FlushTask[] = [];
+  const retried: FlushTask[] = [];
+  const appliedTask: FlushTask = {
+    scope: 'instance',
+    id: 'instance-damage-applied',
+    domain: 'tile_damage',
+    priority: 'low',
+    latestRevision: 51,
+    ownershipEpoch: 8,
+    claimOwnerId: 'damage-worker:claim',
+    fencingToken: 'damage-fence-applied',
+    payloadJson: {
+      kind: 'instance_domain_delta',
+      domain: 'tile_damage',
+      upserts: [{ tileIndex: 1, hp: 3, maxHp: 10, destroyed: false }],
+      deletes: [],
+      revision: 51,
+      watermarkPayload: { revision: 51, applied: true },
+    },
+  };
+  const skippedTask: FlushTask = {
+    ...appliedTask,
+    id: 'instance-damage-skipped',
+    fencingToken: 'damage-fence-skipped',
+    payloadJson: {
+      kind: 'instance_domain_delta',
+      domain: 'tile_damage',
+      upserts: [{ tileIndex: 2, hp: 7, maxHp: 10, destroyed: false }],
+      deletes: [],
+      revision: 51,
+      watermarkPayload: { revision: 51, applied: false },
+    },
+  };
+  const runtime = new FlushTaskRuntimeService(
+    {} as never,
+    {
+      instanceDomainPersistenceService: {
+        async saveTileDamageDeltaBatch(rows: Array<{ ledgerClaim?: Record<string, unknown> | null }>) {
+          savedDamageRows.push(...rows);
+          return [appliedTask.id];
+        },
+        async saveTileResourceDeltaBatch() {},
+        async saveInstanceRecoveryWatermarkBatch(rows: unknown[]) {
+          savedWatermarks.push(...rows);
+        },
+      },
+    } as never,
+    { flushPlayerDomains: async () => false } as never,
+    {
+      isEnabled: () => true,
+      claimReadyFlushTasks: async (input: { scope: string; domain?: string }) => {
+        if (input.scope !== 'instance' || input.domain !== 'tile_damage' || claimed) return [];
+        claimed = true;
+        return [appliedTask, skippedTask];
+      },
+      markFlushTaskFlushed: async (task: FlushTask) => {
+        flushed.push(task);
+        return true;
+      },
+      renewFlushTaskClaim: async () => true,
+      markFlushTaskRetry: async () => true,
+      markFlushTasksRetry: async (tasks: FlushTask[]) => {
+        retried.push(...tasks);
+        return tasks.length;
+      },
+    } as never,
+    { signalPlayerFlush: () => undefined, signalInstanceFlush: () => undefined } as never,
+  );
+  const processed = await runtime.runOnce('instance-damage-partial-apply-smoke', { instanceDomain: 'tile_damage' });
+  assert.equal(processed, 1);
+  assert.deepEqual(savedDamageRows.map((row) => row.ledgerClaim), [
+    { ownershipEpoch: 8, latestVersion: 51, claimOwnerId: 'damage-worker:claim', fencingToken: 'damage-fence-applied' },
+    { ownershipEpoch: 8, latestVersion: 51, claimOwnerId: 'damage-worker:claim', fencingToken: 'damage-fence-skipped' },
+  ]);
+  assert.deepEqual(savedWatermarks, [{ instanceId: appliedTask.id, payload: { revision: 51, applied: true } }]);
+  assert.deepEqual(flushed.map((task) => task.id), [appliedTask.id]);
+  assert.deepEqual(retried.map((task) => task.id), [skippedTask.id]);
 }
 
 async function verifyTileResourcePartialApplyRetriesUnappliedPayload(): Promise<void> {

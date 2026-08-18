@@ -218,8 +218,8 @@ interface InstanceRuntimeView {
 }
 
 interface BatchPersistencePort {
-  saveTileDamageStates?(instanceId: string, entries: unknown[]): Promise<void>;
-  saveTileDamageDeltaBatch?(deltas: Array<{ instanceId: string; upserts: unknown[]; deletes: unknown[] }>): Promise<void>;
+  saveTileDamageStates?(instanceId: string, entries: unknown[], ledgerClaim?: InstanceFlushLedgerClaim | null): Promise<void | boolean>;
+  saveTileDamageDeltaBatch?(deltas: Array<{ instanceId: string; upserts: unknown[]; deletes: unknown[]; ledgerClaim?: InstanceFlushLedgerClaim | null }>): Promise<void | string[]>;
   saveTileResourceDeltaBatch?(deltas: Array<{
     instanceId: string;
     upserts: unknown[];
@@ -2467,28 +2467,39 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       if (fullReplaceRows.length > 0 && typeof persistence?.saveTileDamageStates !== 'function') {
         throw new Error('instance_domain_persistence_missing:tile_damage_full_replace');
       }
+      const appliedDamageRows: typeof currentRows = [];
       for (const row of fullReplaceRows) {
-        await persistence.saveTileDamageStates!(row.task.id, row.payload.entries ?? []);
+        const applied = await persistence.saveTileDamageStates!(
+          row.task.id,
+          row.payload.entries ?? [],
+          buildInstanceTaskLedgerClaim(row.task),
+        );
+        if (applied !== false) {
+          appliedDamageRows.push(row);
+        }
       }
       const deltaRows = currentRows.filter((row) => row.payload.fullReplace !== true);
       if (deltaRows.length > 0) {
-        await persistence!.saveTileDamageDeltaBatch!(deltaRows.map((row) => ({
+        const appliedInstanceIds = await persistence!.saveTileDamageDeltaBatch!(deltaRows.map((row) => ({
           instanceId: row.task.id,
           upserts: row.payload.upserts,
           deletes: row.payload.deletes,
+          ledgerClaim: buildInstanceTaskLedgerClaim(row.task),
         })));
+        if (Array.isArray(appliedInstanceIds)) {
+          const appliedInstanceIdSet = new Set(appliedInstanceIds);
+          appliedDamageRows.push(...deltaRows.filter((row) => appliedInstanceIdSet.has(row.task.id)));
+        } else {
+          appliedDamageRows.push(...deltaRows);
+        }
       }
+      appliedRows = appliedDamageRows;
     } else if (domain === 'tile_resource') {
       const appliedInstanceIds = await persistence!.saveTileResourceDeltaBatch!(currentRows.map((row) => ({
         instanceId: row.task.id,
         upserts: row.payload.upserts,
         deletes: row.payload.deletes,
-        ledgerClaim: row.task.claimOwnerId ? {
-          ownershipEpoch: normalizeInt(row.task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER),
-          latestVersion: normalizeInt(row.task.latestRevision, 0, 0, Number.MAX_SAFE_INTEGER),
-          claimOwnerId: row.task.claimOwnerId,
-          fencingToken: row.task.fencingToken ?? null,
-        } : undefined,
+        ledgerClaim: buildInstanceTaskLedgerClaim(row.task) ?? undefined,
       })));
       if (Array.isArray(appliedInstanceIds)) {
         const appliedInstanceIdSet = new Set(appliedInstanceIds);
@@ -3003,6 +3014,19 @@ function playerGroupKey(tasks: FlushTask[]): string {
 
 function instanceTaskKey(task: FlushTask): string {
   return `${task.id}\u0000${task.domain}\u0000${task.ownershipEpoch ?? 0}`;
+}
+
+function buildInstanceTaskLedgerClaim(task: FlushTask): InstanceFlushLedgerClaim | null {
+  const claimOwnerId = normalizeString(task.claimOwnerId);
+  if (!claimOwnerId) {
+    return null;
+  }
+  return {
+    ownershipEpoch: normalizeInt(task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER),
+    latestVersion: normalizeInt(task.latestRevision, 0, 0, Number.MAX_SAFE_INTEGER),
+    claimOwnerId,
+    fencingToken: normalizeNullableString(task.fencingToken),
+  };
 }
 
 function instanceGroupKey(tasks: FlushTask[]): string {
