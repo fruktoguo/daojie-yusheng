@@ -82,6 +82,7 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
     this.startupBarrierService.closeForDrain();
     this.schedulerManagerService?.stop('module_destroy');
     this.startupStatusService.markDraining('module_destroy');
+    await this.drain('module_destroy');
   }
 
   async start(): Promise<void> {

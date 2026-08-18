@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 
 import { StartupBarrierService } from '../lifecycle/startup-barrier.service';
+import { ServerLifecycleCoordinatorService } from '../lifecycle/server-lifecycle-coordinator.service';
+import { StartupStatusService } from '../lifecycle/startup-status.service';
 import { ShutdownStatusService } from '../lifecycle/shutdown-status.service';
 import { WorldShutdownDrainService } from '../network/world-shutdown-drain.service';
 import { installSmokeTimeout } from './smoke-timeout';
@@ -155,6 +157,8 @@ async function main(): Promise<void> {
   assert.equal(first.phase, 'drain_completed');
 
   await proveDetachedBindingFailureDoesNotSkipFinalFlush();
+  await proveModuleDestroyRunsDrain();
+
 
   console.log('[shutdown-coordinator-order-smoke] ok');
 }
@@ -215,6 +219,61 @@ async function proveDetachedBindingFailureDoesNotSkipFinalFlush(): Promise<void>
   assert.ok(order.indexOf('drainBinding:player:failed') < order.indexOf('flushPlayers'));
   assert.ok(order.indexOf('flushPlayers') < order.indexOf('releaseLeases'));
   assert.equal(snapshot.node.deregistered, true);
+}
+
+async function proveModuleDestroyRunsDrain(): Promise<void> {
+  const order: string[] = [];
+  const barrier = new StartupBarrierService();
+  const startupStatus = new StartupStatusService();
+  const shutdownStatus = new ShutdownStatusService();
+  barrier.openTraffic();
+  barrier.openTick();
+  barrier.openFlush();
+  const worldShutdownDrainService = {
+    async drain(reason: string) {
+      order.push(`drain:${reason}`);
+      shutdownStatus.begin(reason, null);
+      shutdownStatus.markCompleted({ role: 'smoke' });
+      return shutdownStatus.getSnapshot();
+    },
+  };
+  const scheduler = {
+    stop(reason: string) {
+      order.push(`stop:${reason}`);
+    },
+    refreshBarrierSnapshot() {
+      order.push('refreshBarrier');
+    },
+  };
+  const service = new ServerLifecycleCoordinatorService(
+    startupStatus,
+    barrier,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    worldShutdownDrainService as never,
+    scheduler as never,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    shutdownStatus,
+  );
+
+  await service.onModuleDestroy();
+  assert.deepEqual(order, ['stop:module_destroy', 'refreshBarrier', 'drain:module_destroy']);
+  assert.equal(barrier.isTrafficOpen(), false);
+  assert.equal(barrier.isTickOpen(), false);
+  assert.equal(barrier.isFlushOpen(), false);
+  assert.equal(shutdownStatus.getSnapshot().phase, 'drain_completed');
 }
 
 function makeBinding(playerId: string) {
