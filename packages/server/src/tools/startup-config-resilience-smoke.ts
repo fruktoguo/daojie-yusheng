@@ -33,6 +33,7 @@ async function main(): Promise<void> {
   await assertOptionalOutboxSchemaFailuresDoNotBlockStartup();
   const root = await mkdtemp(join(tmpdir(), 'startup-config-resilience-'));
   try {
+    await assertMainEntryLoadsLocalEnvBeforeSupervisor(root);
     await assertServerEnvLoaderSkipsUnreadableFiles(root);
     await assertRuntimeEnvManagementSkipsUnreadableOverlay(root);
     await assertRepositoryEnvLoaderSkipsUnreadableFiles(root);
@@ -275,15 +276,21 @@ async function assertServerEnvLoaderSkipsUnreadableFiles(root: string): Promise<
 
 async function assertRepositoryEnvLoaderSkipsUnreadableFiles(root: string): Promise<void> {
   const unreadablePath = join(root, 'repository-loader-directory');
-  await mkdir(unreadablePath);
-  const loaderPath = resolve(process.cwd(), 'scripts', 'load-local-runtime-env.js');
+  const loaderPath = resolve(__dirname, '..', '..', '..', '..', 'scripts', 'load-local-runtime-env.js');
   const script = [
+    'const fs = require("node:fs");',
+    'const warnings = [];',
+    'const originalWarn = console.warn;',
+    'console.warn = (...args) => { warnings.push(args.join(" ")); originalWarn(...args); };',
+    `fs.mkdirSync(${JSON.stringify(unreadablePath)}, { recursive: true });`,
     `const loader = require(${JSON.stringify(loaderPath)});`,
     `loader.loadEntriesFromFile(${JSON.stringify(unreadablePath)}, false);`,
-  ].join('');
+    'console.log(JSON.stringify(warnings));',
+  ].join('\n');
   const result = spawnSync(process.execPath, ['-e', script], { encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr || result.stdout);
-  assert.match(result.stderr, /\[启动配置\].*repository-loader-directory.*code=EISDIR/u);
+  const warnings = JSON.parse(result.stdout.trim().split(/\r?\n/u).pop() || '[]') as string[];
+  assert.ok(warnings.some((entry) => /\[启动配置\].*repository-loader-directory.*code=EISDIR/u.test(entry)), result.stderr || result.stdout);
 }
 
 async function assertUnavailableBackupDirectoryDoesNotBlockModuleInit(root: string): Promise<void> {
@@ -314,6 +321,64 @@ async function assertUnavailableBackupDirectoryDoesNotBlockModuleInit(root: stri
   } finally {
     restoreEnv(previous);
   }
+}
+
+async function assertMainEntryLoadsLocalEnvBeforeSupervisor(root: string): Promise<void> {
+  const fakeRepoRoot = join(root, 'main-entry-env-order');
+  const fakePackageRoot = join(fakeRepoRoot, 'packages', 'server');
+  await mkdir(fakePackageRoot, { recursive: true });
+  await writeFile(
+    join(fakeRepoRoot, '.env'),
+    [
+      'SERVER_RUNTIME_ENV=development',
+      'SERVER_PROCESS_SUPERVISOR_ENABLED=0',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  const mainPath = resolve(__dirname, '..', 'main.js');
+  const supervisorPath = resolve(__dirname, '..', 'bootstrap', 'process-supervisor.js');
+  const serverApplicationPath = resolve(__dirname, '..', 'bootstrap', 'server-application.js');
+  const script = [
+    'const calls = [];',
+    `const supervisorPath = ${JSON.stringify(supervisorPath)};`,
+    `const serverApplicationPath = ${JSON.stringify(serverApplicationPath)};`,
+    'require.cache[supervisorPath] = {',
+    '  id: supervisorPath, filename: supervisorPath, loaded: true,',
+    '  exports: {',
+    '    notifyServerProcessSupervisorReady() { calls.push("ready"); },',
+    '    startServerProcessSupervisorHeartbeat() { calls.push("heartbeat"); return () => calls.push("heartbeat-stopped"); },',
+    '    shouldRunServerProcessSupervisor() { calls.push(`should:${process.env.SERVER_PROCESS_SUPERVISOR_ENABLED ?? ""}:${process.env.SERVER_RUNTIME_ROLE ?? ""}`); return process.env.SERVER_PROCESS_SUPERVISOR_ENABLED !== "0"; },',
+    '    async runServerProcessSupervisor() { calls.push("supervisor"); },',
+    '  },',
+    '};',
+    'require.cache[serverApplicationPath] = {',
+    '  id: serverApplicationPath, filename: serverApplicationPath, loaded: true,',
+    '  exports: { async startServerApplication() { calls.push("server-app"); } },',
+    '};',
+    `require(${JSON.stringify(mainPath)});`,
+    'setImmediate(() => {',
+    '  console.log(JSON.stringify({ calls, supervisorEnabled: process.env.SERVER_PROCESS_SUPERVISOR_ENABLED ?? null, runtimeRole: process.env.SERVER_RUNTIME_ROLE ?? null, flushMode: process.env.SERVER_FLUSH_TASK_RUNTIME_MODE ?? null }));',
+    '});',
+  ].join('\n');
+  const result = spawnSync(process.execPath, ['-e', script], {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      SERVER_PACKAGE_ROOT: fakePackageRoot,
+      SERVER_SKIP_LOCAL_ENV_AUTOLOAD: '',
+      SERVER_PROCESS_SUPERVISOR_ENABLED: '',
+      SERVER_RUNTIME_ENV: '',
+      SERVER_RUNTIME_ROLE: '',
+      SERVER_FLUSH_TASK_RUNTIME_MODE: '',
+    },
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const output = JSON.parse(result.stdout.trim()) as { calls: string[]; supervisorEnabled: string | null; runtimeRole: string | null; flushMode: string | null };
+  assert.deepEqual(output.calls, ['should:0:all', 'heartbeat', 'server-app', 'ready']);
+  assert.equal(output.supervisorEnabled, '0');
+  assert.equal(output.runtimeRole, 'all');
+  assert.equal(output.flushMode, 'inline');
 }
 
 function captureEnv(names: string[]): Map<string, string | undefined> {

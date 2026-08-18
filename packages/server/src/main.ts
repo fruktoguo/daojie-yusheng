@@ -4,6 +4,8 @@
  * 生产环境由轻量监督进程拉起 Nest 子进程；开发和测试环境默认直接启动应用。
  * 源码入口是 main.ts，镜像实际执行 TypeScript 编译后的 dist/main.js。
  */
+import './config/bootstrap-local-development-runtime-defaults';
+
 import {
   notifyServerProcessSupervisorReady,
   runServerProcessSupervisor,
