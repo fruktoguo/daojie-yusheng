@@ -36,6 +36,7 @@ async function main(): Promise<void> {
   const flushPoolFromInstance = provider.getPool('instance-domain');
   const gmAuditPool = provider.getPool('gm-audit-log');
   const gmSecretStorePool = provider.getPool('gm-secret-store');
+  const gmGeneratedTechniquePool = provider.getPool('gm-generated-techniques');
   const combatAuditPool = provider.getPool('combat-audit-outbox');
   const playerCountersPool = provider.getPool('player_counters');
   const timeChamberPool = provider.getPool('time-chamber-runtime');
@@ -51,6 +52,7 @@ async function main(): Promise<void> {
   assert.strictEqual(flushPoolFromPlayer, flushPoolFromInstance, 'flush scopes should share the same flush pool');
   assert.strictEqual(gmAuditPool, flushPoolFromPlayer, 'GM audit persistence should share the flush pool');
   assert.strictEqual(gmSecretStorePool, flushPoolFromPlayer, 'GM secret store writes should share the flush pool, not gm diagnostics');
+  assert.strictEqual(gmGeneratedTechniquePool, flushPoolFromPlayer, 'GM generated technique writes should share the flush pool, not gm diagnostics');
   assert.strictEqual(combatAuditPool, flushPoolFromPlayer, 'combat audit outbox writes should share the flush pool, not the outbox dispatcher pool');
   assert.strictEqual(playerCountersPool, flushPoolFromPlayer, 'player_counters writes should use the flush pool despite underscore scope naming');
   assert.strictEqual(timeChamberPool, flushPoolFromPlayer, 'time chamber persistence should use the flush pool, not runtimeCritical');
@@ -91,6 +93,7 @@ async function main(): Promise<void> {
   assert.equal(resolveDatabasePoolGroup('gm-config'), 'flush');
   assert.equal(resolveDatabasePoolGroup('gm-runtime-flag'), 'flush');
   assert.equal(resolveDatabasePoolGroup('gm-secret-store'), 'flush');
+  assert.equal(resolveDatabasePoolGroup('gm-generated-techniques'), 'flush');
   assert.equal(resolveDatabasePoolGroup('combat-audit-outbox'), 'flush');
   assert.equal(resolveDatabasePoolGroup('player_counters'), 'flush');
   assert.equal(resolveDatabasePoolGroup('time-chamber-runtime'), 'flush');

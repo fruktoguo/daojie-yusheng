@@ -200,6 +200,7 @@ export function resolveDatabasePoolGroup(name: string): DatabasePoolGroup {
     || normalized.includes('ai-provider-config')
     || normalized.includes('technique-generation')
     || normalized.includes('gm-audit-log')
+    || normalized.includes('generated-technique')
     || normalized.includes('gm-secret-store')
     || normalized.includes('node-registry')
     || normalized.includes('durable-operation')
