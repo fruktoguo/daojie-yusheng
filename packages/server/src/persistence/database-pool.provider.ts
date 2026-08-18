@@ -202,6 +202,8 @@ export function resolveDatabasePoolGroup(name: string): DatabasePoolGroup {
     || normalized.includes('gm-audit-log')
     || normalized.includes('generated-technique')
     || normalized.includes('gm-secret-store')
+    || normalized.includes('release-flush-stall')
+    || normalized.includes('quest-progress-payload-repair')
     || normalized.includes('node-registry')
     || normalized.includes('durable-operation')
     || normalized.includes('tongtian')
