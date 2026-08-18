@@ -3,10 +3,6 @@
  *
  * 维护时要关注批量大小、重试幂等和中断恢复，不能让后台任务破坏服务端权威状态。
  */
-import { installSmokeTimeout } from './smoke-timeout';
-
-installSmokeTimeout(__filename);
-
 import { randomUUID } from 'node:crypto';
 
 import { NestFactory } from '@nestjs/core';

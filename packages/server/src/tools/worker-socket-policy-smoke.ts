@@ -24,12 +24,23 @@ async function main(): Promise<void> {
     const outboxTool = fs.readFileSync(path.join(process.cwd(), 'src/tools/outbox-dispatcher-worker.ts'), 'utf8');
     assert.ok(flushTool.includes("process.env.SERVER_RUNTIME_ROLE = process.env.SERVER_RUNTIME_ROLE?.trim() || 'worker'"));
     assert.ok(outboxTool.includes("process.env.SERVER_RUNTIME_ROLE = process.env.SERVER_RUNTIME_ROLE?.trim() || 'worker'"));
+
+    const toolsDir = path.join(process.cwd(), 'src/tools');
+    const formalWorkerEntries = fs.readdirSync(toolsDir)
+      .filter((fileName) => fileName.endsWith('worker.ts') && !fileName.endsWith('-smoke.ts'))
+      .sort();
+    assert.ok(formalWorkerEntries.length > 0, '必须能发现正式 worker 入口');
+    for (const fileName of formalWorkerEntries) {
+      const source = fs.readFileSync(path.join(toolsDir, fileName), 'utf8');
+      assert.ok(!source.includes('smoke-timeout'), `${fileName} 不得导入 smoke-timeout`);
+      assert.ok(!source.includes('installSmokeTimeout'), `${fileName} 不得安装 smoke 超时`);
+    }
   } finally {
     restoreEnv('SERVER_RUNTIME_ROLE', previousRole);
   }
   console.log(JSON.stringify({
     ok: true,
-    answers: 'worker role 下 shouldStartHttpServer=false，AppModule 通过 WORLD_GATEWAY_PROVIDERS 条件注册 Socket.IO gateway 与 shutdown drain；正式 flush/outbox worker tool 默认强制 worker role。',
+    answers: 'worker role 下 shouldStartHttpServer=false，AppModule 通过 WORLD_GATEWAY_PROVIDERS 条件注册 Socket.IO gateway 与 shutdown drain；正式 flush/outbox/后台 worker tool 默认强制 worker role，且正式长期 worker 入口不安装 smoke-timeout。',
     excludes: '不启动真实 Nest application context，不证明所有历史诊断 tool 入口已删除。',
     completionMapping: 'worker-socket-policy',
   }, null, 2));

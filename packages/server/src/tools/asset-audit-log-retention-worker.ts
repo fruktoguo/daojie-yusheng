@@ -1,7 +1,3 @@
-import { installSmokeTimeout } from './smoke-timeout';
-
-installSmokeTimeout(__filename);
-
 import { randomUUID } from 'node:crypto';
 
 import { NestFactory } from '@nestjs/core';
