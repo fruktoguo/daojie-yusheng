@@ -88,7 +88,7 @@ async function main(): Promise<void> {
     assert.deepEqual(recoveredResult.result, expected);
     assert.ok(metrics.getMetrics('persistence').activeWorkers > 0);
   } finally {
-    pool.shutdown();
+    await pool.shutdown();
   }
 
   console.log(

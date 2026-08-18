@@ -91,7 +91,7 @@ async function testPhase1AoiEncoderUsesWorkerPool(): Promise<void> {
     assert(snapshot.totalCompleted === 0, 'AOI encoder leaves encoding pool metrics unchanged');
     assert(encoded.worldDelta === null && encoded.selfDelta === null, 'AOI encoder returns null placeholders for JSON direct-send');
   } finally {
-    pool.shutdown();
+    await pool.shutdown();
   }
 }
 
@@ -194,7 +194,7 @@ async function testPhase4InstanceWorkerPoolEquivalence(): Promise<void> {
     assert(result.ok === true, 'instance worker task ok');
     assert(JSON.stringify(result.result) === JSON.stringify(expected), 'instance worker output equals fallback intent proposal');
   } finally {
-    pool.shutdown();
+    await pool.shutdown();
   }
 }
 
@@ -279,7 +279,7 @@ async function testPhase5PersistenceWorkerPoolEquivalence(): Promise<void> {
     assert(result.ok === true && result.result !== undefined, 'persistence worker task ok');
     assert(JSON.stringify(result.result) === JSON.stringify(expected), 'persistence worker output equals fallback write plan');
   } finally {
-    pool.shutdown();
+    await pool.shutdown();
   }
 }
 

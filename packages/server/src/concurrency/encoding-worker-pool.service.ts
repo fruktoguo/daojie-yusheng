@@ -121,16 +121,14 @@ export class EncodingWorkerPoolService {
   }
 
   /** 关闭所有 worker（进程退出时调用） */
-  shutdown(): void {
+  shutdown(): Promise<void> {
     this.shuttingDown = true;
-    this.shutdownWorkers();
+    return this.shutdownWorkers();
   }
 
   /** 关闭 worker 线程（进程退出或显式重启时调用） */
-  private shutdownWorkers(): void {
-    for (const worker of this.workers) {
-      worker.terminate();
-    }
+  private async shutdownWorkers(): Promise<void> {
+    const workers = this.workers;
     this.workers = [];
     this.activeWorkerCount = 0;
     for (const [taskId, pending] of this.pendingTasks) {
@@ -144,6 +142,11 @@ export class EncodingWorkerPoolService {
     }
     this.pendingTasks.clear();
     this.metricsService.setActiveWorkers('encoding', 0);
+    await Promise.all(workers.map(async (worker) => {
+      await worker.terminate().catch((error: unknown) => {
+        this.logger.warn(`编码工作线程关闭失败：${error instanceof Error ? error.message : String(error)}`);
+      });
+    }));
   }
 
   /** 是否启用 */
@@ -309,6 +312,7 @@ export class EncodingWorkerPoolService {
   }
 
   private spawnSingleWorker(workerPath: string, index: number): void {
+    if (this.shuttingDown) return;
     try {
       const worker = new Worker(workerPath);
       worker.on('message', (msg: WorkerTaskResult) => {
@@ -383,7 +387,7 @@ export class EncodingWorkerPoolService {
     }
     // 延迟重启（避免快速循环崩溃）
     setTimeout(() => {
-      if (this.workers[index] === deadWorker || !this.workers[index]) {
+      if (!this.shuttingDown && (this.workers[index] === deadWorker || !this.workers[index])) {
         this.spawnSingleWorker(workerPath, index);
       }
     }, 1000);

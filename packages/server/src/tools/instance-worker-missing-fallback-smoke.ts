@@ -41,7 +41,7 @@ async function main(): Promise<void> {
     const snapshot = metrics.getMetrics('instance');
     assert.equal(snapshot.activeWorkers, 0);
     assert.equal(snapshot.totalFallback, 1);
-    pool.shutdown();
+    await pool.shutdown();
   } finally {
     renameSync(hiddenPath, workerPath);
   }

@@ -83,17 +83,17 @@ export class PersistenceWorkerPoolService {
     }
   }
 
-  shutdown(): void {
+  shutdown(): Promise<void> {
     this.shuttingDown = true;
-    this.shutdownWorkers();
+    return this.shutdownWorkers();
   }
 
-  private shutdownWorkers(): void {
+  private async shutdownWorkers(): Promise<void> {
     if (this.missingWorkerRecoveryTimer) {
       clearTimeout(this.missingWorkerRecoveryTimer);
       this.missingWorkerRecoveryTimer = null;
     }
-    for (const worker of this.workers) worker?.terminate();
+    const workers = this.workers.filter((worker): worker is Worker => worker !== null);
     this.workers = [];
     this.activeWorkerCount = 0;
     for (const [taskId, pending] of this.pendingTasks) {
@@ -102,6 +102,11 @@ export class PersistenceWorkerPoolService {
     }
     this.pendingTasks.clear();
     this.metricsService.setActiveWorkers('persistence', 0);
+    await Promise.all(workers.map(async (worker) => {
+      await worker.terminate().catch((error: unknown) => {
+        this.logger.warn(`持久化工作线程关闭失败：${error instanceof Error ? error.message : String(error)}`);
+      });
+    }));
   }
 
   isEnabled(): boolean {

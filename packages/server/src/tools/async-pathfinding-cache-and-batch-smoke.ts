@@ -170,7 +170,7 @@ async function verifyCompiledWorkerExecutesBatchProtocol(): Promise<void> {
     assert.equal(service.getBatchDiagnostics().submittedBatchCount, 1, '真实 Worker 协议也应合并为单个实例批任务');
   }
   finally {
-    pool.shutdown();
+    await pool.shutdown();
   }
 }
 

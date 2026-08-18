@@ -87,13 +87,13 @@ export class InstanceWorkerPoolService {
     }
   }
 
-  shutdown(): void {
+  shutdown(): Promise<void> {
     this.shuttingDown = true;
-    this.shutdownWorkers();
+    return this.shutdownWorkers();
   }
 
-  private shutdownWorkers(): void {
-    for (const worker of this.workers) worker?.terminate();
+  private async shutdownWorkers(): Promise<void> {
+    const workers = this.workers.filter((worker): worker is Worker => worker !== null);
     this.workers = [];
     this.activeWorkerCount = 0;
     for (const [taskId, pending] of this.pendingTasks) {
@@ -102,6 +102,11 @@ export class InstanceWorkerPoolService {
     }
     this.pendingTasks.clear();
     this.metricsService.setActiveWorkers('instance', 0);
+    await Promise.all(workers.map(async (worker) => {
+      await worker.terminate().catch((error: unknown) => {
+        this.logger.warn(`实例工作线程关闭失败：${error instanceof Error ? error.message : String(error)}`);
+      });
+    }));
   }
 
   isEnabled(): boolean {

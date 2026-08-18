@@ -47,10 +47,12 @@ export class WorkerPoolModule implements OnModuleInit, OnModuleDestroy {
     this.leaderboardPool.initialize();
   }
 
-  onModuleDestroy(): void {
-    this.encodingPool.shutdown();
-    this.instancePool.shutdown();
-    this.persistencePool.shutdown();
-    this.leaderboardPool.shutdown();
+  async onModuleDestroy(): Promise<void> {
+    await Promise.all([
+      this.encodingPool.shutdown(),
+      this.instancePool.shutdown(),
+      this.persistencePool.shutdown(),
+      this.leaderboardPool.shutdown(),
+    ]);
   }
 }

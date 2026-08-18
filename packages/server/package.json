@@ -43,6 +43,7 @@
     "smoke:process-supervisor": "pnpm compile && node dist/tools/process-supervisor-smoke.js",
     "smoke:worker-socket-policy": "pnpm compile && node dist/tools/worker-socket-policy-smoke.js",
     "smoke:background-worker-runtime": "pnpm compile && node dist/tools/background-worker-runtime-smoke.js",
+    "smoke:worker-pool-shutdown-await": "pnpm compile && node dist/tools/worker-pool-shutdown-await-smoke.js",
     "smoke:scheduler-manager": "pnpm compile && node dist/tools/scheduler-manager-smoke.js",
     "smoke:startup-lifecycle-coordinator": "pnpm compile && node dist/tools/startup-lifecycle-coordinator-smoke.js",
     "smoke:startup-config-resilience": "pnpm compile && node dist/tools/startup-config-resilience-smoke.js",

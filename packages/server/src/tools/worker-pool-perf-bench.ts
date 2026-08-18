@@ -56,15 +56,15 @@ function push(label: string, sync: BenchSample, worker: BenchSample): void {
     passed: true,
   });
 }
-function withEncodingPool(): { pool: EncodingWorkerPoolService; restore: () => void } {
+function withEncodingPool(): { pool: EncodingWorkerPoolService; restore: () => Promise<void> } {
   const pool = new EncodingWorkerPoolService(new WorkerPoolMetricsService());
   pool.initialize();
-  return { pool, restore: () => { pool.shutdown(); } };
+  return { pool, restore: () => pool.shutdown() };
 }
-function withPersistencePool(): { pool: PersistenceWorkerPoolService; restore: () => void } {
+function withPersistencePool(): { pool: PersistenceWorkerPoolService; restore: () => Promise<void> } {
   const pool = new PersistenceWorkerPoolService(new WorkerPoolMetricsService());
   pool.initialize();
-  return { pool, restore: () => { pool.shutdown(); } };
+  return { pool, restore: () => pool.shutdown() };
 }
 
 async function benchPhase1(): Promise<void> {
@@ -79,7 +79,7 @@ async function benchPhase1(): Promise<void> {
   try {
     const worker = await benchAsync(iterations, 64, () => pool.submit('envelope-encode', payload, (p) => Buffer.from(JSON.stringify(p), 'utf-8'), 1000));
     push(`Phase 1: AOI envelope encode (${iterations} iterations, real worker)`, sync, worker);
-  } finally { restore(); }
+  } finally { await restore(); }
 }
 
 async function benchPhase2(): Promise<void> {
@@ -94,7 +94,7 @@ async function benchPhase2(): Promise<void> {
   try {
     const worker = await benchAsync(iterations, 32, () => pool.submit('pathfind', input, () => findBoundedPath(grid, blocked, 10, 32, [{ x: 50, y: 32 }], { maxExpandedNodes: total, maxPathLength: total }), 1000));
     push(`Phase 2: A* pathfinding 64x64 (${iterations} iterations, real worker)`, sync, worker);
-  } finally { restore(); }
+  } finally { await restore(); }
 }
 
 function buildPlanSnapshot() {
@@ -122,7 +122,7 @@ async function benchPhase5(): Promise<void> {
       options: Record<string, unknown>;
     }, PlayerDomainWritePlan>('persistence-build', { playerId, snapshot, domains, options: {} }, null, 1000));
     push(`Phase 5: Persistence write plan ${iterations} iterations (real worker)`, sync, worker);
-  } finally { restore(); }
+  } finally { await restore(); }
 }
 
 async function main(): Promise<void> {

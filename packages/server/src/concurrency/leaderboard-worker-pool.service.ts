@@ -78,9 +78,9 @@ export class LeaderboardWorkerPoolService {
     this.logger.log(`排行榜工作池已启动：${this.activeWorkerCount} 个工作线程`);
   }
 
-  shutdown(): void {
+  shutdown(): Promise<void> {
     this.shuttingDown = true;
-    this.shutdownWorkers();
+    return this.shutdownWorkers();
   }
 
   isEnabled(): boolean {
@@ -91,8 +91,8 @@ export class LeaderboardWorkerPoolService {
     return this.metricsService.getMetrics('leaderboard');
   }
 
-  private shutdownWorkers(): void {
-    for (const worker of this.workers) worker?.terminate();
+  private async shutdownWorkers(): Promise<void> {
+    const workers = this.workers.filter((worker): worker is Worker => worker !== null);
     this.workers = [];
     this.activeWorkerCount = 0;
     for (const [taskId, pending] of this.pendingTasks) {
@@ -106,6 +106,11 @@ export class LeaderboardWorkerPoolService {
     }
     this.pendingTasks.clear();
     this.metricsService.setActiveWorkers('leaderboard', 0);
+    await Promise.all(workers.map(async (worker) => {
+      await worker.terminate().catch((error: unknown) => {
+        this.logger.warn(`排行榜工作线程关闭失败：${error instanceof Error ? error.message : String(error)}`);
+      });
+    }));
   }
 
   private ensureWorkersStarted(): void {
