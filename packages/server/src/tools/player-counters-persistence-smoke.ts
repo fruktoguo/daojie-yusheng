@@ -67,12 +67,14 @@ async function main(): Promise<void> {
   await proveFailureRetry();
   await proveInFlightRevisionProtection();
   await proveShutdownDrain();
+  await proveShutdownFailureRejectsWithDirtyWrites();
+
   const postgresRoundTrip = await provePostgresBatchRoundTrip();
 
   console.log(JSON.stringify({
     ok: true,
     case: 'player-counters-persistence',
-    answers: '玩家计数器会合并高频脏值、失败后保留并退避重试、以 revision 防止旧批次确认新值，并在关机时刷完待写批次。',
+    answers: '玩家计数器会合并高频脏值、失败后保留并退避重试、以 revision 防止旧批次确认新值；关机成功路径会刷完待写批次，重试耗尽会拒绝关停并保留 pending。',
     postgresRoundTrip,
     excludes: postgresRoundTrip
       ? '真实 PostgreSQL 用例在回滚事务内验证批量 SQL，不模拟物理断网或数据库进程崩溃。'
@@ -138,6 +140,20 @@ async function proveShutdownDrain(): Promise<void> {
   assert.equal(service.getPendingWriteCount(), 0);
   assert.equal(pool.batchAttempts, 2);
   assert.deepEqual(pool.batches[0]?.values, [7, 2]);
+}
+
+async function proveShutdownFailureRejectsWithDirtyWrites(): Promise<void> {
+  const pool = new FakeCounterPool();
+  pool.failuresRemaining = 10;
+  const service = await createService(pool);
+  service.set('player:shutdown-failure', 'monsterKillCount', 9);
+
+  await assert.rejects(
+    () => service.onModuleDestroy(),
+    /player_counters_shutdown_flush_failed:pending=1:attempt=2/,
+  );
+  assert.equal(service.getPendingWriteCount(), 1);
+  assert.equal(pool.batchAttempts, 2);
 }
 
 async function provePostgresBatchRoundTrip(): Promise<boolean> {

@@ -94,10 +94,9 @@ export class PlayerCountersPersistenceService implements OnModuleInit, OnModuleD
           await sleep(PLAYER_COUNTERS_SHUTDOWN_RETRY_DELAY_MS);
           continue;
         }
-        this.logger.error(
-          `player_counters 关机刷盘失败，仍有 ${this.dirtyWriteCount} 项脏值保留在内存：${formatError(error)}`,
-        );
-        break;
+        const message = `player_counters_shutdown_flush_failed:pending=${this.dirtyWriteCount}:attempt=${shutdownFailureAttempt}`;
+        this.logger.error(`${message} ${formatError(error)}`);
+        throw new Error(message);
       }
     }
   }
