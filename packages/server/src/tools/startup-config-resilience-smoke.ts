@@ -431,6 +431,7 @@ async function assertServerApplicationLoadsDbConfigBeforeAppModule(): Promise<vo
   assert.ok(bootstrapFunctionIndex >= 0, 'server application bootstrap function should exist');
   const topLevelPrefix = source.slice(0, bootstrapFunctionIndex);
   assert.equal(topLevelPrefix.includes('../app.module'), false, 'AppModule must not be imported before bootstrapLoadDbConfig runs');
+  assert.equal(topLevelPrefix.includes('../lifecycle/server-lifecycle-coordinator'), false, 'Lifecycle coordinator must not preload flush runtime before bootstrapLoadDbConfig runs');
   const dbConfigCallIndex = source.indexOf('bootstrapLoadDbConfig)();', bootstrapFunctionIndex);
   const appModuleImportIndex = source.indexOf('../app.module.js', bootstrapFunctionIndex);
   assert.ok(dbConfigCallIndex >= 0, 'bootstrapLoadDbConfig call should exist inside bootstrap');

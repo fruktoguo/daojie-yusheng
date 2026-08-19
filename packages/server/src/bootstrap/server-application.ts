@@ -14,7 +14,6 @@ import type { INestApplicationContext } from '@nestjs/common';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
-import { ServerLifecycleCoordinatorService } from '../lifecycle/server-lifecycle-coordinator.service';
 import { resolveServerCorsOptions } from '../config/server-cors';
 import { installConsoleLogCapture } from '../logging/console-log-buffer';
 import { DateConsoleLogger } from '../logging/date-console-logger';
@@ -290,6 +289,7 @@ async function drainAndCloseBootstrapApplication(reason: string): Promise<void> 
     return;
   }
   bootstrapClosePromise = (async () => {
+    const { ServerLifecycleCoordinatorService } = await import('../lifecycle/server-lifecycle-coordinator.service.js');
     const failures: unknown[] = [];
     try {
       const lifecycleCoordinator = app.get(ServerLifecycleCoordinatorService, { strict: false });
