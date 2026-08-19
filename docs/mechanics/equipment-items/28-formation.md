@@ -61,12 +61,13 @@ totalAuraBudget = round(baseAuraBudget × diskMultiplier)
 totalQiBudget = totalAuraBudget
 totalSpiritStoneBudget = spiritStoneCount
 effectAura = floor(totalAuraBudget × effectPercent / 100)
+baseEffectAura = floor(baseAuraBudget × effectPercent / 100)
 rangeAura = floor(totalAuraBudget × rangePercent / 100)
 skillStrengthMultiplier = 1.05 ^ 阵法技艺等级
 effectValue = floor(effectAura × conversionRatio × skillStrengthMultiplier)
 durationScale = max(0.01, durationPercent / 33.33)
 dailyQiDecayEstimate = totalQiBudget × (1 - 0.5^(86400 / 259200))
-dailySpiritStoneCost = effectAura × diskMultiplier × skillStrengthMultiplier / durationScale
+dailySpiritStoneCost = baseEffectAura / durationScale
 tickQiCost = currentQiBudget × (1 - 0.5^(1 / 259200))
 tickSpiritStoneCost = dailySpiritStoneCost / 86400
 ```
@@ -87,7 +88,8 @@ radius = max(minRadius, trunc(baseRadius + steps))
 rangeMultiplier = rangeCostRatio ^ (radius - defaultRadius)
 durationMultiplier = 短时间用指数插值, 长时间用线性
 actualStrength = baseStrength × diskMultiplier × (1.05 ^ 阵法技艺等级)
-requiredAuraBudget = ceil(actualStrength × effectCostRatio × rangeMultiplier × durationMultiplier)
+effectValue = floor(actualStrength × conversionRatio)
+requiredAuraBudget = ceil(baseStrength × effectCostRatio × rangeMultiplier × durationMultiplier)
 dailySpiritStoneCost = requiredAuraBudget
 spiritStoneCount = ceil(dailySpiritStoneCost × durationTicks / 86400)
 qiCost = ceil(spiritStoneCount × qiPerSpiritStone)
@@ -97,7 +99,7 @@ tickQiCost = currentQiBudget × (1 - 0.5^(1 / 259200))
 tickSpiritStoneCost = dailySpiritStoneCost / 86400
 ```
 
-Setup 模式中，输入框显示为“基础强度”，协议字段仍沿用 `effectValue`。实际效果再吃阵盘倍率和阵法技艺等级增幅。预览中的消耗按每日灵力半衰期估算和每日灵石固定衰减展示。
+Setup 模式中，输入框显示为“基础强度”，协议字段仍沿用 `effectValue`。实际效果再吃阵盘倍率和阵法技艺等级增幅；灵石消耗、布阵灵力消耗和每日灵石衰减只按基础强度、范围、持续时间计算，不随阵盘品阶或阵法技艺等级提升。预览中的消耗按每日灵力半衰期估算和每日灵石固定衰减展示。
 
 ## 内置阵法模板
 
