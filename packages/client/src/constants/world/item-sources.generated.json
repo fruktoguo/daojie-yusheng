@@ -263,7 +263,7 @@
       "mapId": "black_iron_mine",
       "mapName": "玄铁矿洞",
       "questId": "q_mine_signal_core",
-      "questTitle": "夺回信标核",
+      "questTitle": "淬火砺兵",
       "line": "main",
       "chapter": "第三章·矿洞遗火"
     }
@@ -283,7 +283,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_wildlands_bone_forging",
-      "questTitle": "锻骨破境",
+      "questTitle": "锻骨凝元",
       "line": "main",
       "chapter": "第一章·粮路讨生"
     }
@@ -341,7 +341,7 @@
       "mapId": "bamboo_forest",
       "mapName": "青竹林",
       "questId": "q_bamboo_broken_cart",
-      "questTitle": "覆车验痕",
+      "questTitle": "坊市通商",
       "line": "main",
       "chapter": "第二章·青竹追线"
     }
@@ -528,7 +528,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_valley_patrol_talk",
-      "questTitle": "兽谷寻伤者",
+      "questTitle": "兽谷试炼",
       "line": "main",
       "chapter": "第四章·兽谷问门"
     }
@@ -589,7 +589,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_intro_body_tempering",
-      "questTitle": "炼皮立根基",
+      "questTitle": "炼皮立基",
       "line": "main",
       "chapter": "序章·断道入镇"
     }
@@ -660,7 +660,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_ruin_keeper_talk",
-      "questTitle": "断碑问残念",
+      "questTitle": "驿馆来鸿",
       "line": "main",
       "chapter": "第三章·矿洞遗火"
     }
@@ -740,7 +740,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_wildlands_bone_forging",
-      "questTitle": "锻骨破境",
+      "questTitle": "锻骨凝元",
       "line": "main",
       "chapter": "第一章·粮路讨生"
     }
@@ -779,7 +779,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_wildlands_old_gate_words",
-      "questTitle": "旧关问往事",
+      "questTitle": "气血铸体",
       "line": "main",
       "chapter": "第一章·粮路讨生"
     }
@@ -1001,7 +1001,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_wildlands_swamp_medicine",
-      "questTitle": "阴沼取蛛丝",
+      "questTitle": "凝神辨气",
       "line": "main",
       "chapter": "第一章·粮路讨生"
     }
@@ -1180,7 +1180,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_mine_signal_talk",
-      "questTitle": "矿洞问余火",
+      "questTitle": "矿洞破障",
       "line": "main",
       "chapter": "第三章·矿洞遗火"
     }
@@ -1218,7 +1218,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_ruin_keeper_talk",
-      "questTitle": "断碑问残念",
+      "questTitle": "驿馆来鸿",
       "line": "main",
       "chapter": "第三章·矿洞遗火"
     }
@@ -1265,7 +1265,7 @@
       "mapId": "sky_ruins",
       "mapName": "天穹残宫",
       "questId": "q_sky_seal_core_main",
-      "questTitle": "取天封核心",
+      "questTitle": "探阵破障",
       "line": "main",
       "chapter": "第五章·残宫封天"
     }
@@ -2507,7 +2507,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_intro_old_road_witness",
-      "questTitle": "断道旧事",
+      "questTitle": "认路识途",
       "line": "main",
       "chapter": "序章·断道入镇"
     },
@@ -2648,7 +2648,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_intro_old_road_witness",
-      "questTitle": "断道旧事",
+      "questTitle": "认路识途",
       "line": "main",
       "chapter": "序章·断道入镇"
     },
@@ -3083,7 +3083,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_intro_old_road_witness",
-      "questTitle": "断道旧事",
+      "questTitle": "认路识途",
       "line": "main",
       "chapter": "序章·断道入镇"
     },
@@ -3451,7 +3451,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_wildlands_swamp_medicine",
-      "questTitle": "阴沼取蛛丝",
+      "questTitle": "凝神辨气",
       "line": "main",
       "chapter": "第一章·粮路讨生"
     },
@@ -3612,7 +3612,7 @@
       "mapId": "black_iron_mine",
       "mapName": "玄铁矿洞",
       "questId": "q_mine_embers",
-      "questTitle": "炉心续火",
+      "questTitle": "修筑营地",
       "line": "side"
     },
     {
@@ -3620,7 +3620,7 @@
       "mapId": "black_iron_mine",
       "mapName": "玄铁矿洞",
       "questId": "q_mine_signal_core",
-      "questTitle": "夺回信标核",
+      "questTitle": "淬火砺兵",
       "line": "main",
       "chapter": "第三章·矿洞遗火"
     },
@@ -3629,7 +3629,7 @@
       "mapId": "guizang_vein_cavern",
       "mapName": "归藏脉窟",
       "questId": "q_guizang_gate_warning",
-      "questTitle": "归藏旧录言",
+      "questTitle": "归藏立派",
       "line": "side",
       "chapter": "终章·归藏压基"
     },
@@ -3654,7 +3654,7 @@
       "mapId": "wildlands",
       "mapName": "荒野",
       "questId": "q_wildlands_boar_meat",
-      "questTitle": "猎彘换粮",
+      "questTitle": "止血备药",
       "line": "main",
       "chapter": "第一章·粮路讨生"
     },
@@ -3672,7 +3672,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_intro_body_tempering",
-      "questTitle": "炼皮立根基",
+      "questTitle": "炼皮立基",
       "line": "main",
       "chapter": "序章·断道入镇"
     },
@@ -3681,7 +3681,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_valley_patrol_talk",
-      "questTitle": "兽谷寻伤者",
+      "questTitle": "兽谷试炼",
       "line": "main",
       "chapter": "第四章·兽谷问门"
     },
@@ -3742,7 +3742,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_wildlands_bone_forging",
-      "questTitle": "锻骨破境",
+      "questTitle": "锻骨凝元",
       "line": "main",
       "chapter": "第一章·粮路讨生"
     }
@@ -3920,7 +3920,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_intro_manual",
-      "questTitle": "授诀护此身",
+      "questTitle": "授诀护身",
       "line": "main",
       "chapter": "序章·断道入镇"
     }
@@ -5036,7 +5036,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_intro_manual",
-      "questTitle": "授诀护此身",
+      "questTitle": "授诀护身",
       "line": "main",
       "chapter": "序章·断道入镇"
     },
@@ -5045,7 +5045,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_intro_medicine_fee",
-      "questTitle": "刀口换药汤",
+      "questTitle": "整备行装",
       "line": "main",
       "chapter": "序章·断道入镇"
     },
@@ -5221,7 +5221,7 @@
       "mapId": "black_iron_mine",
       "mapName": "玄铁矿洞",
       "questId": "q_mine_embers",
-      "questTitle": "炉心续火",
+      "questTitle": "修筑营地",
       "line": "side"
     },
     {
@@ -5279,7 +5279,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_wildlands_bandit_toll",
-      "questTitle": "荒野平匪",
+      "questTitle": "探查灵泉",
       "line": "main",
       "chapter": "第一章·粮路讨生"
     },
@@ -5509,7 +5509,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_intro_wounded_words",
-      "questTitle": "片语惊玄机",
+      "questTitle": "翻箱搜药",
       "line": "main",
       "chapter": "序章·断道入镇"
     },
@@ -5526,7 +5526,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_ruin_keeper_talk",
-      "questTitle": "断碑问残念",
+      "questTitle": "驿馆来鸿",
       "line": "main",
       "chapter": "第三章·矿洞遗火"
     },
@@ -5535,7 +5535,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_wildlands_swamp_medicine",
-      "questTitle": "阴沼取蛛丝",
+      "questTitle": "凝神辨气",
       "line": "main",
       "chapter": "第一章·粮路讨生"
     },
@@ -5585,7 +5585,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_intro_medicine_fee",
-      "questTitle": "刀口换药汤",
+      "questTitle": "整备行装",
       "line": "main",
       "chapter": "序章·断道入镇"
     },
@@ -5689,7 +5689,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_bamboo_scouting",
-      "questTitle": "青竹林初探",
+      "questTitle": "炉前试手",
       "line": "main",
       "chapter": "第二章·青竹追线"
     },
@@ -5698,7 +5698,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_intro_clear_south_gate",
-      "questTitle": "南门驱鼠患",
+      "questTitle": "南门驱鼠",
       "line": "main",
       "chapter": "序章·断道入镇"
     },
@@ -5716,7 +5716,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_mine_signal_talk",
-      "questTitle": "矿洞问余火",
+      "questTitle": "矿洞破障",
       "line": "main",
       "chapter": "第三章·矿洞遗火"
     },
@@ -5733,7 +5733,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_wildlands_roadhouse",
-      "questTitle": "荒野问路",
+      "questTitle": "荒野备战",
       "line": "main",
       "chapter": "第一章·粮路讨生"
     },
@@ -5820,7 +5820,7 @@
       "mapId": "bamboo_forest",
       "mapName": "青竹林",
       "questId": "q_bamboo_wolf_fangs",
-      "questTitle": "林道驱狼",
+      "questTitle": "百炼成钢",
       "line": "main",
       "chapter": "第二章·青竹追线"
     },
@@ -5853,7 +5853,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_intro_body_tempering",
-      "questTitle": "炼皮立根基",
+      "questTitle": "炼皮立基",
       "line": "main",
       "chapter": "序章·断道入镇"
     },
@@ -5862,7 +5862,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_wildlands_bone_forging",
-      "questTitle": "锻骨破境",
+      "questTitle": "锻骨凝元",
       "line": "main",
       "chapter": "第一章·粮路讨生"
     },
@@ -5917,7 +5917,7 @@
       "mapId": "sky_ruins",
       "mapName": "天穹残宫",
       "questId": "q_sky_seal_core_main",
-      "questTitle": "取天封核心",
+      "questTitle": "探阵破障",
       "line": "main",
       "chapter": "第五章·残宫封天"
     },
@@ -5944,7 +5944,7 @@
       "mapId": "yunlai_town",
       "mapName": "云来镇",
       "questId": "q_sky_observer_talk",
-      "questTitle": "残宫问真相",
+      "questTitle": "残宫御空",
       "line": "main",
       "chapter": "第五章·残宫封天"
     },

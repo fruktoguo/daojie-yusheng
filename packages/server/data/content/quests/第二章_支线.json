@@ -2,10 +2,10 @@
   "quests": [
     {
       "id": "q_mine_embers",
-      "title": "炉心续火",
-      "guideFlowId": "mining-guide",
-      "desc": "锻炉余火尚存一息，命人深入矿区再取一批玄铁矿块，试看旧炉能否将最后一口炉火续燃。",
-      "story": "矿洞里剩下的不只是矿，也有一群不肯散干净的旧念头。",
+      "title": "修筑营地",
+      "guideFlowId": "building-guide",
+      "desc": "矿区风雨飘摇，宜立支点。在技艺「建造」台中选择结构设施，于合适地块放置半成品并施工建造。",
+      "story": "锻炉余火渐微，四下常有阴煞游荡。余火残魂嘱你以技艺建造法门，在空地安放木墙地台并亲手施工，筑起容身营地。",
       "objectiveText": "斩杀矿洞活尸，带回玄铁矿块",
       "targetMonsterId": "m_mine_ghoul",
       "targetCount": 6,

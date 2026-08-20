@@ -2,11 +2,11 @@
   "quests": [
     {
       "id": "q_sky_observer_talk",
-      "title": "残宫问真相",
+      "title": "残宫御空",
       "line": "main",
       "chapter": "第五章·残宫封天",
-      "story": "破境练气后，清玄方许入天穹残宫。此地较矿洞、遗迹、兽谷更近真相核心，亦为凡人篇中最凶险之所。需先见观星残影，问明封柱崩塌之由。",
-      "desc": "前往天穹残宫，与观星残影对话，探问封柱真相。",
+      "story": "天穹残宫浮于九霄云外，下临万丈深渊。唯有佩戴本命法宝并充盈灵力，方可唤出巡天飞剑破空穿行，渡过虚空断桥。",
+      "desc": "天穹残宫断桥悬空。在行囊中装备本命法宝并注入灵力，激活「巡天飞剑」无视地表断壑凌空穿行，面见观星残影。",
       "objectiveType": "talk",
       "objectiveText": "前往天穹残宫，与观星残影对话",
       "targetNpcId": "npc_sky_observer",
@@ -60,11 +60,11 @@
     },
     {
       "id": "q_sky_seal_core_main",
-      "title": "取天封核心",
+      "title": "探阵破障",
       "line": "main",
       "chapter": "第五章·残宫封天",
-      "story": "星陨金既得，观星残影让开最后一路。言残宫深处非藏宝之地，实为卡于天门与人间之碎骨。须深入击败噬星兽，取回天封核心，为云来镇争得存续之机。",
-      "desc": "深入残宫，击败噬星兽，取回天封核心。",
+      "story": "残宫腹地噬星巨兽吞吐星芒，气势骇人。需勘破首领狂暴阶段与破招机制，沉着应对，彻底夺取天封核心！",
+      "desc": "深入残宫击败噬星兽。洞悉首领阶段技能、利用仇恨与破招机制通关，夺回天封核心。",
       "objectiveText": "击败噬星兽，取回天封核心",
       "targetMonsterId": "m_star_devourer",
       "targetCount": 2,
@@ -91,7 +91,8 @@
       "giverMapId": "sky_ruins",
       "giverNpcId": "npc_sky_observer",
       "submitMapId": "yunlai_town",
-      "submitNpcId": "npc_qingxuan"
+      "submitNpcId": "npc_qingxuan",
+      "guideFlowId": "dungeon-instance-guide"
     }
   ]
 }
