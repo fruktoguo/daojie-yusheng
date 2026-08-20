@@ -1,6 +1,6 @@
 /**
  * 本文件负责 教程与引导 面板的主要 React 视图入口，
- * 统一展示 4 大分类新手引导（核心操作、战斗引导、技艺引导、玩法引导）、机制百科与境界表。
+ * 左侧展示 4 大引导分类与机制百科 Tab，右侧展示多条引导标题、步数、说明与开始引导按钮。
  */
 import { type ReactNode, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -12,7 +12,6 @@ import {
   GUIDED_TOUR_CATEGORY_METAS,
   type GuidedTourCategory,
   type GuidedTourFlow,
-  type GuidedTourStep,
 } from "../../../constants/ui/guided-tour";
 import { getTutorialRealmLevelTableRows } from "../../../constants/ui/realm-level-table";
 import { t } from "../../../ui/i18n";
@@ -33,72 +32,41 @@ type MainCategoryTabId = GuidedTourCategory | "mechanics";
 interface CategoryTabItem {
   id: MainCategoryTabId;
   label: string;
-  badge?: string;
+  count: number;
 }
 
 const CATEGORY_TABS: CategoryTabItem[] = [
-  { id: "core", label: "核心操作", badge: "11" },
-  { id: "combat", label: "战斗引导", badge: "3" },
-  { id: "craft", label: "技艺引导", badge: "5" },
-  { id: "gameplay", label: "玩法引导", badge: "6" },
-  { id: "mechanics", label: "机制百科", badge: "8" },
+  { id: "core", label: "核心操作", count: GUIDED_TOUR_FLOWS.filter((f) => f.category === "core").length },
+  { id: "combat", label: "战斗引导", count: GUIDED_TOUR_FLOWS.filter((f) => f.category === "combat").length },
+  { id: "craft", label: "技艺引导", count: GUIDED_TOUR_FLOWS.filter((f) => f.category === "craft").length },
+  { id: "gameplay", label: "玩法引导", count: GUIDED_TOUR_FLOWS.filter((f) => f.category === "gameplay").length },
+  { id: "mechanics", label: "机制百科", count: TUTORIAL_MECHANIC_TOPICS.length },
 ];
+
+function resolveFlowTitle(flow: GuidedTourFlow): string {
+  return t(flow.titleKey, undefined, flow.titleFallback);
+}
+
+function resolveFlowSummary(flow: GuidedTourFlow): string {
+  return flow.summaryKey ? t(flow.summaryKey, undefined, flow.summaryFallback ?? "") : (flow.summaryFallback ?? "");
+}
 
 // ─── 静态数据 ─────────────────────────────────────────────────────────────────
 
 const TUTORIAL_OPERATION_HINTS: TutorialOperationHint[] = [
-  { label: t("tutorial.hint.attr.label"), path: t("tutorial.hint.attr.path") },
-  { label: t("tutorial.hint.bag-scroll.label"), path: t("tutorial.hint.bag-scroll.path") },
-  { label: t("tutorial.hint.body-training.label"), path: t("tutorial.hint.body-training.path") },
-  { label: t("tutorial.hint.map-info.label"), path: t("tutorial.hint.map-info.path") },
-  { label: t("tutorial.hint.leaderboard.label"), path: t("tutorial.hint.leaderboard.path") },
-  { label: t("tutorial.hint.world-info.label"), path: t("tutorial.hint.world-info.path") },
-  { label: t("tutorial.hint.log.label"), path: t("tutorial.hint.log.path") },
-  { label: t("tutorial.hint.mail.label"), path: t("tutorial.hint.mail.path") },
-  { label: t("tutorial.hint.auction.label"), path: t("tutorial.hint.auction.path") },
-  { label: t("tutorial.hint.system-shop.label"), path: t("tutorial.hint.system-shop.path") },
-  { label: t("tutorial.hint.interaction.label"), path: t("tutorial.hint.interaction.path") },
-  { label: t("tutorial.hint.skill-management.label"), path: t("tutorial.hint.skill-management.path") },
-  { label: t("tutorial.hint.combat-settings.label"), path: t("tutorial.hint.combat-settings.path") },
-  { label: t("tutorial.hint.skill-preset.label"), path: t("tutorial.hint.skill-preset.path") },
-  { label: t("tutorial.hint.target-lock-preset.label"), path: t("tutorial.hint.target-lock-preset.path") },
-  { label: t("tutorial.hint.retreat.label"), path: t("tutorial.hint.retreat.path") },
-  { label: t("tutorial.hint.click-map-tile.label"), path: t("tutorial.hint.click-map-tile.path") },
-  { label: t("tutorial.hint.simple-tutorial.label"), path: t("tutorial.hint.simple-tutorial.path") },
-  { label: t("tutorial.hint.breakthrough-button.label"), path: t("tutorial.hint.breakthrough-button.path") },
-  { label: t("tutorial.hint.auto-idle-cultivation.label"), path: t("tutorial.hint.auto-idle-cultivation.path") },
-  { label: t("tutorial.hint.auto-switch-cultivation.label"), path: t("tutorial.hint.auto-switch-cultivation.path") },
-  { label: t("tutorial.hint.current-cultivation.label"), path: t("tutorial.hint.current-cultivation.path") },
-  { label: t("tutorial.hint.force-attack.label"), path: t("tutorial.hint.force-attack.path") },
-  { label: t("tutorial.hint.auto-battle.label"), path: t("tutorial.hint.auto-battle.path") },
-  { label: t("tutorial.hint.auto-retaliate.label"), path: t("tutorial.hint.auto-retaliate.path") },
-  { label: t("tutorial.hint.stationary-battle.label"), path: t("tutorial.hint.stationary-battle.path") },
-  { label: t("tutorial.hint.allow-aoe-hit.label"), path: t("tutorial.hint.allow-aoe-hit.path") },
-  { label: t("tutorial.hint.sense-qi.label"), path: t("tutorial.hint.sense-qi.path") },
-  { label: t("tutorial.hint.open-market.label"), path: t("tutorial.hint.open-market.path") },
-  { label: t("tutorial.hint.go-target.label"), path: t("tutorial.hint.go-target.path") },
-  { label: t("tutorial.hint.go-submit.label"), path: t("tutorial.hint.go-submit.path") },
-  { label: t("tutorial.hint.take-all.label"), path: t("tutorial.hint.take-all.path") },
-  { label: t("tutorial.hint.set-cultivate.label"), path: t("tutorial.hint.set-cultivate.path") },
-  { label: "GitHub", path: t("tutorial.hint.github.path") },
-  { label: t("tutorial.hint.cancel-key.label"), path: t("tutorial.hint.cancel-key.path") },
-  { label: t("tutorial.hint.observe.label"), path: t("tutorial.hint.observe.path") },
-  { label: t("tutorial.hint.take.label"), path: t("tutorial.hint.take.path") },
-  { label: t("tutorial.hint.execute.label"), path: t("tutorial.hint.execute.path") },
-  { label: t("tutorial.hint.technique.label"), path: t("tutorial.hint.technique.path") },
-  { label: t("tutorial.hint.inventory.label"), path: t("tutorial.hint.inventory.path") },
-  { label: t("tutorial.hint.equipment.label"), path: t("tutorial.hint.equipment.path") },
-  { label: t("tutorial.hint.quest.label"), path: t("tutorial.hint.quest.path") },
-  { label: t("tutorial.hint.market.label"), path: t("tutorial.hint.market.path") },
-  { label: t("tutorial.hint.skill.label"), path: t("tutorial.hint.skill.path") },
-  { label: t("tutorial.hint.dialog.label"), path: t("tutorial.hint.dialog.path") },
-  { label: t("tutorial.hint.action.label"), path: t("tutorial.hint.action.path") },
-  { label: t("tutorial.hint.toggle.label"), path: t("tutorial.hint.toggle.path") },
-  { label: t("tutorial.hint.breakthrough.label"), path: t("tutorial.hint.breakthrough.path") },
-  { label: t("tutorial.hint.settings.label"), path: t("tutorial.hint.settings.path") },
-  { label: t("tutorial.hint.activity.label"), path: t("tutorial.hint.activity.path") },
-  { label: t("tutorial.hint.changelog.label"), path: t("tutorial.hint.changelog.path") },
-  { label: "QQ", path: t("tutorial.hint.qq.path") },
+  { label: t("tutorial.hint.attr.label", undefined, "属性"), path: t("tutorial.hint.attr.path", undefined, "左下角") },
+  { label: t("tutorial.hint.bag-scroll.label", undefined, "行囊"), path: t("tutorial.hint.bag-scroll.path", undefined, "右侧卷轴") },
+  { label: t("tutorial.hint.body-training.label", undefined, "炼体"), path: t("tutorial.hint.body-training.path", undefined, "右侧卷轴->炼体") },
+  { label: t("tutorial.hint.map-info.label", undefined, "地图"), path: t("tutorial.hint.map-info.path", undefined, "地图区域") },
+  { label: t("tutorial.hint.mail.label", undefined, "邮件"), path: t("tutorial.hint.mail.path", undefined, "左上角->邮件") },
+  { label: t("tutorial.hint.skill-management.label", undefined, "技能管理"), path: t("tutorial.hint.skill-management.path", undefined, "右下角->技能->技能管理") },
+  { label: t("tutorial.hint.combat-settings.label", undefined, "战斗设置"), path: t("tutorial.hint.combat-settings.path", undefined, "右下角->技能->战斗设置") },
+  { label: t("tutorial.hint.force-attack.label", undefined, "强制攻击"), path: t("tutorial.hint.force-attack.path", undefined, "右下角行动栏->通用->强制攻击") },
+  { label: t("tutorial.hint.auto-battle.label", undefined, "自动战斗"), path: t("tutorial.hint.auto-battle.path", undefined, "右下角行动栏->开关->自动战斗") },
+  { label: t("tutorial.hint.sense-qi.label", undefined, "感气"), path: t("tutorial.hint.sense-qi.path", undefined, "右下角行动栏->开关->感气") },
+  { label: t("tutorial.hint.open-market.label", undefined, "坊市"), path: t("tutorial.hint.open-market.path", undefined, "左上角->坊市") },
+  { label: t("tutorial.hint.observe.label", undefined, "观察"), path: t("tutorial.hint.observe.path", undefined, "右下角行动栏->通用->观察") },
+  { label: t("tutorial.hint.take.label", undefined, "拿取"), path: t("tutorial.hint.take.path", undefined, "右下角行动栏->通用->拿取") },
 ];
 
 const SORTED_HINTS = [...TUTORIAL_OPERATION_HINTS].sort((a, b) => b.label.length - a.label.length);
@@ -230,10 +198,10 @@ function getSearchMatches(topics: TutorialTopic[], flows: GuidedTourFlow[], quer
 
   // 搜索 GuidedTourFlows
   for (const flow of flows) {
-    const title = (t(flow.titleKey) || flow.titleFallback).toLowerCase();
-    const summary = (flow.summaryKey ? t(flow.summaryKey) : flow.summaryFallback ?? "").toLowerCase();
+    const title = resolveFlowTitle(flow).toLowerCase();
+    const summary = resolveFlowSummary(flow).toLowerCase();
     const stepHit = flow.steps.some(
-      (s) => (t(s.titleKey) || s.titleFallback).toLowerCase().includes(q) || (t(s.bodyKey) || s.bodyFallback).toLowerCase().includes(q)
+      (s) => t(s.titleKey, undefined, s.titleFallback).toLowerCase().includes(q) || t(s.bodyKey, undefined, s.bodyFallback).toLowerCase().includes(q)
     );
     if (title.includes(q) || summary.includes(q) || stepHit) {
       results.push({ type: "guided-tour", flow });
@@ -294,28 +262,34 @@ function SearchResults({ query, topics, flows, onStartFlow }: {
       {matches.map((match, idx) => {
         if (match.type === "guided-tour") {
           const flow = match.flow;
-          const title = t(flow.titleKey) || flow.titleFallback;
-          const summary = flow.summaryKey ? t(flow.summaryKey) : flow.summaryFallback;
+          const title = resolveFlowTitle(flow);
+          const summary = resolveFlowSummary(flow);
+          const catMeta = GUIDED_TOUR_CATEGORY_METAS.find((m) => m.id === flow.category);
           return (
-            <div key={`flow-${flow.id}-${idx}`} className="tutorial-search-group">
-              <div className="guided-tour-hero-header">
-                <div className="guided-tour-hero-title-group">
+            <div key={`flow-${flow.id}-${idx}`} className="guided-tour-flow-card">
+              <div className="guided-tour-flow-card-main">
+                <div className="guided-tour-flow-card-title-row">
                   <span className={`guided-tour-category-tag guided-tour-category-tag--${flow.category}`}>
-                    {GUIDED_TOUR_CATEGORY_METAS.find((m) => m.id === flow.category)?.label ?? flow.category}
+                    {catMeta?.label ?? flow.category}
                   </span>
-                  <div className="tutorial-search-group-label">
+                  <div className="guided-tour-flow-card-title">
                     <Highlight text={title} query={query} />
                   </div>
+                  <span className="guided-tour-flow-card-steps">共 {flow.steps.length} 步</span>
                 </div>
-                <button
-                  type="button"
-                  className="guided-tour-start-action-btn"
-                  onClick={() => onStartFlow(flow.id)}
-                >
-                  ▶ 开始引导
-                </button>
+                {summary && (
+                  <div className="guided-tour-flow-card-summary">
+                    <Highlight text={summary} query={query} />
+                  </div>
+                )}
               </div>
-              {summary && <div className="tutorial-flow-step-summary"><Highlight text={summary} query={query} /></div>}
+              <button
+                type="button"
+                className="guided-tour-start-action-btn"
+                onClick={() => onStartFlow(flow.id)}
+              >
+                ▶ 开始引导
+              </button>
             </div>
           );
         }
@@ -334,7 +308,7 @@ function SearchResults({ query, topics, flows, onStartFlow }: {
             ))}
             {tips.length > 0 && (
               <div className="tutorial-tip-card tutorial-search-section">
-                <div className="tutorial-section-title">{t("tutorial.panel.tip-title")}</div>
+                <div className="tutorial-section-title">{t("tutorial.panel.tip-title", undefined, "要诀提示")}</div>
                 <ul className="tutorial-section-list tutorial-section-list--tips">
                   {tips.map((tip, i) => <li key={i}><RichText text={tip} /></li>)}
                 </ul>
@@ -351,13 +325,7 @@ function SearchResults({ query, topics, flows, onStartFlow }: {
 
 export function TutorialPanelContent() {
   const [mainTab, setMainTab] = useState<MainCategoryTabId>("core");
-  const [activeFlowIdByCategory, setActiveFlowIdByCategory] = useState<Record<GuidedTourCategory, string>>({
-    core: GUIDED_TOUR_FLOWS.find((f) => f.category === "core")?.id ?? "starter-basics",
-    combat: GUIDED_TOUR_FLOWS.find((f) => f.category === "combat")?.id ?? "force-attack-guide",
-    craft: GUIDED_TOUR_FLOWS.find((f) => f.category === "craft")?.id ?? "mining-guide",
-    gameplay: GUIDED_TOUR_FLOWS.find((f) => f.category === "gameplay")?.id ?? "tower-guide",
-  });
-  const [mechanicId, setMechanicId] = useState(TUTORIAL_MECHANIC_TOPICS[0]?.id ?? "operations");
+  const [mechanicId, setMechanicId] = useState(TUTORIAL_MECHANIC_TOPICS[0]?.id ?? "growth");
   const [searchQuery, setSearchQuery] = useState("");
   const panelRef = useRef<HTMLDivElement | null>(null);
 
@@ -372,8 +340,14 @@ export function TutorialPanelContent() {
     requestGuidedTour(flowId);
   }, []);
 
+  const currentCategoryFlows = useMemo(() => {
+    if (mainTab === "mechanics") return [];
+    return GUIDED_TOUR_FLOWS.filter((f) => f.category === mainTab);
+  }, [mainTab]);
+
   return (
     <div className="tutorial-modal-body" ref={panelRef}>
+      {/* 顶部搜索栏 */}
       <div className="tutorial-search-bar">
         <input
           className="tutorial-search-input"
@@ -395,98 +369,48 @@ export function TutorialPanelContent() {
           onStartFlow={handleStartFlow}
         />
       ) : (
-        <div className="tutorial-modal-shell ui-split-panel-shell" style={{ gridTemplateColumns: "190px minmax(0, 1fr)" }}>
-          {/* 左侧一级主分类列表 + 选中的二级条目 */}
+        <div className="tutorial-modal-shell ui-split-panel-shell" style={{ gridTemplateColumns: "160px minmax(0, 1fr)" }}>
+          {/* 左侧只有一级分类 Tab */}
           <div className="tutorial-modal-tabs ui-split-panel-tabs" role="tablist" aria-orientation="vertical">
             {CATEGORY_TABS.map((cat) => {
               const active = mainTab === cat.id;
-              const isMechanics = cat.id === "mechanics";
-              const catFlows = isMechanics ? [] : GUIDED_TOUR_FLOWS.filter((f) => f.category === cat.id);
-              const currentActiveFlowId = !isMechanics ? (activeFlowIdByCategory[cat.id as GuidedTourCategory] ?? catFlows[0]?.id ?? "") : "";
-
               return (
-                <div key={cat.id} className="tutorial-modal-tab-group" style={{ marginBottom: 4 }}>
-                  {/* 一级分类 Tab */}
-                  <button
-                    className={`tutorial-modal-tab ui-split-panel-tab${active ? " active" : ""}`}
-                    style={{
-                      fontWeight: "bold",
-                      fontSize: "14px",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      background: active ? "linear-gradient(180deg, rgba(214, 188, 142, 0.28), rgba(197, 60, 60, 0.12))" : undefined
-                    }}
-                    type="button"
-                    role="tab"
-                    aria-selected={active ? "true" : "false"}
-                    onClick={() => {
-                      hidePinnedTooltips();
-                      setMainTab(cat.id);
-                    }}
-                  >
-                    <span className="tutorial-modal-tab-label ui-split-panel-tab-label">{cat.label}</span>
-                    <span style={{ fontSize: "11px", opacity: 0.7, padding: "1px 5px", borderRadius: 4, background: "rgba(0,0,0,0.06)" }}>
-                      {cat.badge}
-                    </span>
-                  </button>
-
-                  {/* 二级引导条目列表（展开当前选中分类） */}
-                  {active && !isMechanics && catFlows.length > 0 && (
-                    <div className="tutorial-modal-subtabs" role="tablist" style={{ paddingLeft: 8, marginTop: 4, display: "flex", flexDirection: "column", gap: 3 }}>
-                      {catFlows.map((flow) => {
-                        const flowActive = currentActiveFlowId === flow.id;
-                        const title = t(flow.titleKey) || flow.titleFallback;
-                        return (
-                          <button
-                            key={flow.id}
-                            className={`tutorial-modal-tab tutorial-modal-tab--child ui-split-panel-tab${flowActive ? " active" : ""}`}
-                            style={{ padding: "6px 8px", fontSize: "12px", minHeight: 30 }}
-                            type="button"
-                            role="tab"
-                            aria-selected={flowActive ? "true" : "false"}
-                            onClick={() => {
-                              hidePinnedTooltips();
-                              setActiveFlowIdByCategory((prev) => ({ ...prev, [cat.id as GuidedTourCategory]: flow.id }));
-                            }}
-                          >
-                            <span className="tutorial-modal-tab-label ui-split-panel-tab-label">{title}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* 机制百科子章节 */}
-                  {active && isMechanics && (
-                    <div className="tutorial-modal-subtabs" role="tablist" style={{ paddingLeft: 8, marginTop: 4, display: "flex", flexDirection: "column", gap: 3 }}>
-                      {TUTORIAL_MECHANIC_TOPICS.map((topic) => {
-                        const topicActive = mechanicId === topic.id;
-                        return (
-                          <button
-                            key={topic.id}
-                            className={`tutorial-modal-tab tutorial-modal-tab--child ui-split-panel-tab${topicActive ? " active" : ""}`}
-                            style={{ padding: "6px 8px", fontSize: "12px", minHeight: 30 }}
-                            type="button"
-                            role="tab"
-                            aria-selected={topicActive ? "true" : "false"}
-                            onClick={() => {
-                              hidePinnedTooltips();
-                              setMechanicId(topic.id);
-                            }}
-                          >
-                            <span className="tutorial-modal-tab-label ui-split-panel-tab-label">{topic.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                <button
+                  key={cat.id}
+                  className={`tutorial-modal-tab ui-split-panel-tab${active ? " active" : ""}`}
+                  style={{
+                    minHeight: "46px",
+                    padding: "10px 12px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                  type="button"
+                  role="tab"
+                  aria-selected={active ? "true" : "false"}
+                  onClick={() => {
+                    hidePinnedTooltips();
+                    setMainTab(cat.id);
+                  }}
+                >
+                  <span className="tutorial-modal-tab-label ui-split-panel-tab-label" style={{ fontWeight: active ? "bold" : "normal" }}>
+                    {cat.label}
+                  </span>
+                  <span style={{
+                    fontSize: "11px",
+                    padding: "1px 6px",
+                    borderRadius: "10px",
+                    background: active ? "rgba(197, 60, 60, 0.15)" : "rgba(0,0,0,0.06)",
+                    color: active ? "var(--stamp-red)" : "inherit"
+                  }}>
+                    {cat.count}
+                  </span>
+                </button>
               );
             })}
           </div>
 
-          {/* 右侧内容详情 */}
+          {/* 右侧内容 */}
           <div className="tutorial-modal-content ui-split-panel-content">
             {mainTab === "mechanics" ? (
               <MechanicPaneContainer
@@ -496,11 +420,30 @@ export function TutorialPanelContent() {
                 onNestedSelect={hidePinnedTooltips}
               />
             ) : (
-              <GuidedTourCategoryPane
-                category={mainTab}
-                activeFlowId={activeFlowIdByCategory[mainTab]}
-                onStartFlow={handleStartFlow}
-              />
+              <div className="guided-tour-flow-list-container">
+                {currentCategoryFlows.map((flow) => {
+                  const title = resolveFlowTitle(flow);
+                  const summary = resolveFlowSummary(flow);
+                  return (
+                    <div key={flow.id} className="guided-tour-flow-card">
+                      <div className="guided-tour-flow-card-main">
+                        <div className="guided-tour-flow-card-title-row">
+                          <div className="guided-tour-flow-card-title">{title}</div>
+                          <span className="guided-tour-flow-card-steps">共 {flow.steps.length} 步</span>
+                        </div>
+                        {summary && <div className="guided-tour-flow-card-summary">{summary}</div>}
+                      </div>
+                      <button
+                        type="button"
+                        className="guided-tour-start-action-btn"
+                        onClick={() => handleStartFlow(flow.id)}
+                      >
+                        ▶ 开始引导
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
@@ -512,83 +455,12 @@ export function TutorialPanelContent() {
 /** 获取教程弹层 meta */
 export function getTutorialModalMeta() {
   return {
-    title: t("tutorial.panel.title"),
-    hint: t("tutorial.panel.close-hint"),
+    title: t("tutorial.panel.title", undefined, "仙途指引与百科"),
+    hint: t("tutorial.panel.close-hint", undefined, "点击空白处关闭"),
     size: "wide" as const,
     variantClass: "detail-modal--tutorial",
   };
 }
-
-// ─── 引导流视图面板 ──────────────────────────────────────────────────────────
-
-const GuidedTourCategoryPane = memo(function GuidedTourCategoryPane({
-  category,
-  activeFlowId,
-  onStartFlow,
-}: {
-  category: GuidedTourCategory;
-  activeFlowId?: string;
-  onStartFlow: (flowId: string) => void;
-}) {
-  const catFlows = useMemo(() => GUIDED_TOUR_FLOWS.filter((f) => f.category === category), [category]);
-  const flow = catFlows.find((f) => f.id === activeFlowId) ?? catFlows[0];
-
-  if (!flow) {
-    return <div className="tutorial-pane-summary">该分类下暂无引导条目</div>;
-  }
-
-  const title = t(flow.titleKey) || flow.titleFallback;
-  const summary = flow.summaryKey ? t(flow.summaryKey) : flow.summaryFallback;
-  const categoryMeta = GUIDED_TOUR_CATEGORY_METAS.find((m) => m.id === flow.category);
-
-  return (
-    <section className="tutorial-modal-pane active">
-      {/* 头部 Hero 卡片 */}
-      <div className="guided-tour-flow-hero">
-        <div className="guided-tour-hero-header">
-          <div className="guided-tour-hero-title-group">
-            <span className={`guided-tour-category-tag guided-tour-category-tag--${flow.category}`}>
-              {categoryMeta?.label ?? flow.category}
-            </span>
-            <div className="tutorial-section-title" style={{ margin: 0 }}>
-              {title}
-            </div>
-          </div>
-          <button
-            type="button"
-            className="guided-tour-start-action-btn"
-            onClick={() => onStartFlow(flow.id)}
-          >
-            ▶ 开始操作引导
-          </button>
-        </div>
-        {summary && <div className="tutorial-pane-summary">{summary}</div>}
-      </div>
-
-      {/* 步骤列表 */}
-      <div className="guided-tour-steps-container">
-        <div className="tutorial-section-title" style={{ marginTop: 8 }}>
-          引导步骤清单（共 {flow.steps.length} 步）
-        </div>
-        {flow.steps.map((step: GuidedTourStep, idx: number) => {
-          const stepTitle = t(step.titleKey) || step.titleFallback;
-          const stepBody = t(step.bodyKey) || step.bodyFallback;
-          return (
-            <div key={step.id} className="guided-tour-step-card">
-              <div className="guided-tour-step-index">{idx + 1}</div>
-              <div className="guided-tour-step-content">
-                <div className="guided-tour-step-title">{stepTitle}</div>
-                <div className="guided-tour-step-desc">
-                  <RichText text={stepBody} />
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-});
 
 // ─── 机制百科容器 ────────────────────────────────────────────────────────────
 
@@ -607,7 +479,7 @@ function MechanicPaneContainer({
   const topic = topics.find((t) => t.id === activeId) ?? topics[0];
 
   if (!topic) {
-    return <div className="tutorial-pane-summary">{t("tutorial.panel.empty")}</div>;
+    return <div className="tutorial-pane-summary">{t("tutorial.panel.empty", undefined, "暂无百科内容")}</div>;
   }
 
   const resolveActiveSectionTitle = (top: TutorialTopic) =>
@@ -618,6 +490,33 @@ function MechanicPaneContainer({
 
   return (
     <section className="tutorial-modal-pane active">
+      {/* 顶部百科主题横向切 Tab */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+        {topics.map((tItem) => {
+          const tActive = tItem.id === activeId;
+          return (
+            <button
+              key={tItem.id}
+              type="button"
+              className={`tutorial-modal-tab tutorial-modal-tab--child ui-split-panel-tab${tActive ? " active" : ""}`}
+              style={{
+                flex: "0 0 auto",
+                minHeight: "34px",
+                padding: "6px 12px",
+                fontSize: "13px",
+                fontWeight: tActive ? "bold" : "normal"
+              }}
+              onClick={() => {
+                onNestedSelect?.();
+                onSelect(tItem.id);
+              }}
+            >
+              {tItem.label}
+            </button>
+          );
+        })}
+      </div>
+
       {topic.id === "realm-table" ? (
         <RealmTablePane />
       ) : (
@@ -632,7 +531,7 @@ function MechanicPaneContainer({
                     key={sec.title}
                     type="button"
                     className={`tutorial-modal-tab tutorial-modal-tab--child ui-split-panel-tab${secActive ? " active" : ""}`}
-                    style={{ flex: "0 0 auto", minHeight: 32, padding: "4px 10px" }}
+                    style={{ flex: "0 0 auto", minHeight: 30, padding: "4px 10px", fontSize: "12px" }}
                     onClick={() => {
                       onNestedSelect?.();
                       setActiveSectionByTopic((prev) => ({ ...prev, [topic.id]: sec.title }));
@@ -658,7 +557,7 @@ function MechanicPaneContainer({
 
           {topic.tips && topic.tips.length > 0 && (
             <section className="tutorial-tip-card">
-              <div className="tutorial-section-title">{t("tutorial.panel.tip-title")}</div>
+              <div className="tutorial-section-title">{t("tutorial.panel.tip-title", undefined, "要诀提示")}</div>
               <ul className="tutorial-section-list tutorial-section-list--tips">
                 {topic.tips.map((tip, ti) => (
                   <li key={ti}><RichText text={tip} /></li>

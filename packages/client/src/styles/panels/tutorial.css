@@ -697,3 +697,68 @@
       font-size: var(--font-size-role-body-13);
       line-height: 1.6;
     }
+
+    /* 引导流卡片列表样式 (单层简洁列表) */
+    .guided-tour-flow-list-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-right: 4px;
+    }
+
+    .guided-tour-flow-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 12px 16px;
+      border: 1px solid var(--wash-ink);
+      border-radius: 6px;
+      background: linear-gradient(180deg, var(--surface-elevated), var(--surface-muted));
+      box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.05);
+      transition: transform 0.16s ease, border-color 0.16s ease;
+    }
+
+    .guided-tour-flow-card:hover {
+      border-color: rgba(133, 68, 45, 0.38);
+      transform: translateX(2px);
+    }
+
+    .guided-tour-flow-card-main {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .guided-tour-flow-card-title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .guided-tour-flow-card-title {
+      color: var(--ink-black);
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-15, 15px);
+      font-weight: var(--font-weight-semibold);
+    }
+
+    .guided-tour-flow-card-steps {
+      display: inline-flex;
+      align-items: center;
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: rgba(133, 68, 45, 0.1);
+      color: var(--stamp-red);
+      font-weight: 500;
+    }
+
+    .guided-tour-flow-card-summary {
+      color: var(--ink-grey);
+      font-size: var(--font-size-role-body-13, 13px);
+      line-height: 1.5;
+    }

@@ -22,6 +22,14 @@ import {
 } from '../react-ui/panels/tutorial/mount-tutorial-panel';
 
 /** TutorialOperationHint：教程操作提示。 */
+function resolveFlowTitle(flow: any): string {
+  return t(flow.titleKey, undefined, flow.titleFallback);
+}
+
+function resolveFlowSummary(flow: any): string {
+  return flow.summaryKey ? t(flow.summaryKey, undefined, flow.summaryFallback || "") : (flow.summaryFallback || "");
+}
+
 interface TutorialOperationHint {
 /**
  * label：label名称或显示文本。
