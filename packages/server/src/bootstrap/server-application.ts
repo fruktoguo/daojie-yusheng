@@ -12,7 +12,6 @@ import '../config/bootstrap-local-development-runtime-defaults';
 import { NestFactory } from '@nestjs/core';
 import type { INestApplicationContext } from '@nestjs/common';
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 
 import { resolveServerCorsOptions } from '../config/server-cors';
 import { installConsoleLogCapture } from '../logging/console-log-buffer';
@@ -28,21 +27,13 @@ import {
   DEFAULT_SERVER_LISTEN_PORT,
   resolveServerListenEndpoint,
 } from '../config/server-listen-endpoint';
+import { resolveWindowsExcludedPortHint } from '../config/local-development-listen-endpoint';
 
 /** 端口冲突诊断最多采样次数。 */
 const PORT_CONFLICT_SAMPLE_ATTEMPTS = 12;
 
 /** 端口冲突诊断采样间隔。 */
 const PORT_CONFLICT_SAMPLE_INTERVAL_MS = 100;
-/** Windows TCP 端口排除段描述。 */
-interface PortRange {
-  /** 排除段起始端口。 */
-  start: number;
-  /** 排除段结束端口。 */
-  end: number;
-  /** 是否为系统管理的保留段。 */
-  managed: boolean;
-}
 /** 单次端口冲突诊断采样结果。 */
 interface PortConflictSample {
   lsofOutput: string;
@@ -86,64 +77,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** 判定当前进程是否运行在 WSL 环境（用于排除 Windows 端口保留误报）。 */
-function isLikelyWsl(): boolean {
-
-  if (process.platform !== 'linux') {
-    return false;
-  }
-
-  if (process.env.WSL_INTEROP || process.env.WSL_DISTRO_NAME) {
-    return true;
-  }
-
-  try {
-    const version = readFileSync('/proc/version', 'utf8');
-    return /microsoft/i.test(version);
-  } catch {
-    return false;
-  }
-}
-
-/** 读取 Windows 下被系统排除的 TCP 端口段，支持 WSL 场景提示。 */
-function readWindowsExcludedPortRanges(): PortRange[] {
-
-  if (!isLikelyWsl()) {
-    return [];
-  }
-
-  const output = readCommandOutput('cmd.exe', ['/c', 'netsh interface ipv4 show excludedportrange protocol=tcp']);
-  if (!output || output.startsWith('[failed]')) {
-    return [];
-  }
-
-  const ranges: PortRange[] = [];
-  for (const line of output.split(/\r?\n/)) {
-    const match = line.match(/^\s*(\d+)\s+(\d+)\s*(\*)?\s*$/);
-    if (!match) {
-      continue;
-    }
-
-    ranges.push({
-      start: Number(match[1]),
-      end: Number(match[2]),
-      managed: Boolean(match[3]),
-    });
-  }
-
-  return ranges;
-}
-
-/** 根据端口和已知保留段，输出人类可读的端口排除提示。 */
-function resolveExcludedPortHint(port: number): string {
-
-  const range = readWindowsExcludedPortRanges().find((entry) => port >= entry.start && port <= entry.end);
-  if (!range) {
-    return '';
-  }
-
-  return `Detected Windows excluded TCP port range ${range.start}-${range.end}${range.managed ? ' (managed)' : ''} covering ${port}. If you are running inside WSL, choose another port such as SERVER_PORT=13020.`;
-}
 
 /** 采集一次端口监听冲突快照，用于 EADDRINUSE 附加诊断。 */
 function capturePortConflictSample(port: number): PortConflictSample {
@@ -264,7 +197,7 @@ async function bootstrap(): Promise<void> {
   } catch (error) {
     if (hasErrorCode(error, 'EADDRINUSE')) {
       const diagnostics = await collectPortConflictDiagnostics(port);
-      const excludedPortHint = resolveExcludedPortHint(port);
+      const excludedPortHint = resolveWindowsExcludedPortHint(port);
       logger.error(`服务端绑定 ${host}:${port} 时发生端口冲突${excludedPortHint ? `\n${excludedPortHint}` : ''}\n${diagnostics}`);
     }
 

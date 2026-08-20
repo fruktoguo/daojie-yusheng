@@ -5,6 +5,10 @@
 import './load-local-runtime-env';
 
 import { applyLocalDevelopmentRuntimeDefaults } from './local-development-runtime-defaults';
+import {
+  applyLocalDevelopmentListenEndpointRepair,
+  formatLocalDevelopmentListenEndpointRepair,
+} from './local-development-listen-endpoint';
 
 const runtimeEnvironment = firstTrimmed(
   process.env.SERVER_RUNTIME_ENV,
@@ -14,6 +18,11 @@ const runtimeEnvironment = firstTrimmed(
 
 if (runtimeEnvironment === 'development' || runtimeEnvironment === 'dev' || runtimeEnvironment === 'local') {
   applyLocalDevelopmentRuntimeDefaults();
+}
+
+const listenEndpointRepair = applyLocalDevelopmentListenEndpointRepair();
+if (listenEndpointRepair) {
+  console.warn(`[启动配置] ${formatLocalDevelopmentListenEndpointRepair(listenEndpointRepair)}`);
 }
 
 function firstTrimmed(...values: Array<string | undefined>): string {

@@ -11,6 +11,14 @@ import {
   resolveServerListenEndpoint,
   resolveServerPublicPort,
 } from '../config/server-listen-endpoint';
+import {
+  applyLocalDevelopmentListenEndpointRepair,
+  formatLocalDevelopmentListenEndpointRepair,
+  LOCAL_DEVELOPMENT_STARTUP_ENV,
+  LOCAL_DEVELOPMENT_WINDOWS_EXCLUDED_PORT_FALLBACK,
+  parseWindowsExcludedPortRanges,
+  resolveWindowsExcludedPortHint,
+} from '../config/local-development-listen-endpoint';
 import { resolveNodeId, resolveNodeRuntimeConfig } from '../config/node-runtime-config';
 import {
   getGameConfigDescriptor,
@@ -26,6 +34,7 @@ installSmokeTimeout(__filename);
 
 async function main(): Promise<void> {
   assertListenEndpointUsesProductionFallbacks();
+  assertLocalDevelopmentListenEndpointRepairAvoidsWindowsExcludedPorts();
   assertNodeRuntimeConfigUsesDatabaseSafeValues();
   assertWorkerPoolConfigUsesBoundedIntegers();
   assertBootstrapDatabaseConfigRejectsInvalidRows();
@@ -202,6 +211,54 @@ function assertListenEndpointUsesProductionFallbacks(): void {
     invalidPortValue: '65536',
     invalidPortKey: 'SERVER_PUBLIC_PORT',
   });
+}
+
+function assertLocalDevelopmentListenEndpointRepairAvoidsWindowsExcludedPorts(): void {
+  const excludedPortRanges = parseWindowsExcludedPortRanges([
+    'Start Port    End Port',
+    '----------    --------',
+    '      2915        3014',
+    '     50000       50010     *',
+  ].join('\n'));
+  assert.deepEqual(excludedPortRanges, [
+    { start: 2915, end: 3014, managed: false },
+    { start: 50000, end: 50010, managed: true },
+  ]);
+
+  const repairedEnv: NodeJS.ProcessEnv = {
+    [LOCAL_DEVELOPMENT_STARTUP_ENV]: '1',
+    SERVER_PORT: '3000',
+  };
+  const repair = applyLocalDevelopmentListenEndpointRepair(repairedEnv, excludedPortRanges);
+  assert.ok(repair);
+  assert.deepEqual(repair, {
+    originalPort: 3000,
+    repairedPort: LOCAL_DEVELOPMENT_WINDOWS_EXCLUDED_PORT_FALLBACK,
+    range: { start: 2915, end: 3014, managed: false },
+    updatedKeys: ['SERVER_PORT', 'SERVER_PUBLIC_PORT'],
+  });
+  assert.equal(repairedEnv.SERVER_PORT, String(LOCAL_DEVELOPMENT_WINDOWS_EXCLUDED_PORT_FALLBACK));
+  assert.equal(repairedEnv.SERVER_PUBLIC_PORT, String(LOCAL_DEVELOPMENT_WINDOWS_EXCLUDED_PORT_FALLBACK));
+  assert.match(formatLocalDevelopmentListenEndpointRepair(repair), /已改用 SERVER_PORT=13020/u);
+  assert.match(resolveWindowsExcludedPortHint(3000, excludedPortRanges), /2915-3014.*SERVER_PORT=13020/u);
+
+  const explicitPublicEnv: NodeJS.ProcessEnv = {
+    SERVER_RUNTIME_ENV: 'development',
+    SERVER_PORT: '3000',
+    SERVER_PUBLIC_PORT: '14000',
+  };
+  const explicitPublicRepair = applyLocalDevelopmentListenEndpointRepair(explicitPublicEnv, excludedPortRanges);
+  assert.equal(explicitPublicRepair?.repairedPort, LOCAL_DEVELOPMENT_WINDOWS_EXCLUDED_PORT_FALLBACK);
+  assert.deepEqual(explicitPublicRepair?.updatedKeys, ['SERVER_PORT']);
+  assert.equal(explicitPublicEnv.SERVER_PUBLIC_PORT, '14000');
+
+  const allowedEnv: NodeJS.ProcessEnv = {
+    [LOCAL_DEVELOPMENT_STARTUP_ENV]: '1',
+    SERVER_DEV_ALLOW_WINDOWS_EXCLUDED_PORT: '1',
+    SERVER_PORT: '3000',
+  };
+  assert.equal(applyLocalDevelopmentListenEndpointRepair(allowedEnv, excludedPortRanges), null);
+  assert.equal(allowedEnv.SERVER_PORT, '3000');
 }
 
 function assertNodeRuntimeConfigUsesDatabaseSafeValues(): void {
