@@ -250,7 +250,7 @@ export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
       },
       {
         id: 'quest-nav-btn',
-        targetSelector: '[data-quest-navigate="true"]',
+        targetSelector: '[data-quest-navigate="true"], .quest-detail-nav-btn, .quest-item, [data-quest-id], #pane-quest',
         titleKey: 'guided-tour.step.quest-nav-btn.title',
         titleFallback: '一键自动寻路',
         bodyKey: 'guided-tour.step.quest-nav-btn.body',
@@ -260,7 +260,7 @@ export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
       },
       {
         id: 'quest-interact',
-        targetSelector: '#pane-action [data-action-tab="interaction"]',
+        targetSelector: '#pane-action [data-action-tab="interaction"], [data-action-tab="interaction"], #pane-action, #game-stage',
         titleKey: 'guided-tour.step.quest-interact.title',
         titleFallback: '靠近 NPC 交付',
         bodyKey: 'guided-tour.step.quest-interact.body',

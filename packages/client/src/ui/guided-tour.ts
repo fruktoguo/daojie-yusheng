@@ -67,7 +67,7 @@ const STORAGE_KEY = 'mud:guided-tour:v1';
 const TARGET_PADDING = 8;
 const VIEWPORT_MARGIN = 12;
 const CARD_GAP = 16;
-const TARGET_WAIT_TIMEOUT_MS = 3200;
+const TARGET_WAIT_TIMEOUT_MS = 240;
 const TARGET_WAIT_INTERVAL_MS = 80;
 const MODAL_OWNER = 'guided-tour-list';
 
@@ -378,19 +378,18 @@ export class GuidedTour {
     this.targetAdvanceQueued = false;
     await this.applyPrepareActions(step.prepare ?? []);
     const target = await this.resolveTarget(step);
-    if (!target) {
-      this.activeStepIndex += 1;
-      await this.showActiveStep();
-      return;
-    }
     this.activeTarget = target;
     this.setHostVisible(true);
     this.recordAutoStartedFlowSeen(flow);
     this.renderCard(flow, step);
-    this.positionMask(target);
-    this.positionCard(target, step.placement ?? 'auto');
-    target.element.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
-    await sleep(140);
+    if (target) {
+      this.positionMask(target);
+      this.positionCard(target, step.placement ?? 'auto');
+      target.element.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
+    } else {
+      this.positionFallbackCard();
+    }
+    await sleep(60);
     this.queueReposition();
     this.card?.focus({ preventScroll: true });
   }
@@ -626,7 +625,39 @@ export class GuidedTour {
     this.card.style.left = `${left}px`;
     this.card.style.top = `${top}px`;
     this.card.style.width = `${cardWidth}px`;
+    this.arrow.classList.remove('hidden');
     this.positionArrow(placement, rect, left, top, cardWidth, cardHeight);
+  }
+
+  private positionFallbackCard(): void {
+    if (!this.card || !this.arrow) {
+      return;
+    }
+    this.clearMask();
+    this.arrow.classList.add('hidden');
+    const viewport = getViewportSize(this.windowRef);
+    const cardRect = this.card.getBoundingClientRect();
+    const cardWidth = Math.min(Math.max(cardRect.width, 320), Math.max(320, viewport.width - VIEWPORT_MARGIN * 2));
+    const cardHeight = Math.max(cardRect.height, 160);
+    const left = clamp((viewport.width - cardWidth) / 2, VIEWPORT_MARGIN, Math.max(VIEWPORT_MARGIN, viewport.width - cardWidth - VIEWPORT_MARGIN));
+    const top = clamp((viewport.height - cardHeight) / 2, VIEWPORT_MARGIN, Math.max(VIEWPORT_MARGIN, viewport.height - cardHeight - VIEWPORT_MARGIN));
+    this.card.classList.remove('guided-tour-card--top', 'guided-tour-card--right', 'guided-tour-card--bottom', 'guided-tour-card--left');
+    this.card.classList.add('guided-tour-card--fallback');
+    this.card.style.left = `${left}px`;
+    this.card.style.top = `${top}px`;
+    this.card.style.width = `${cardWidth}px`;
+  }
+
+  private clearMask(): void {
+    if (!this.masks || !this.highlight) {
+      return;
+    }
+    const viewport = getViewportSize(this.windowRef);
+    this.setRect(this.masks.top, 0, 0, viewport.width, viewport.height);
+    this.setRect(this.masks.left, 0, 0, 0, 0);
+    this.setRect(this.masks.right, 0, 0, 0, 0);
+    this.setRect(this.masks.bottom, 0, 0, 0, 0);
+    this.setRect(this.highlight, 0, 0, 0, 0);
   }
 
   private resolvePlacement(
