@@ -451,7 +451,7 @@ export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
     steps: [
       {
         id: 'breakthrough-hud-btn',
-        targetSelector: '#hud-breakthrough-btn, [data-hud-breakthrough]',
+        targetSelector: '#hud-breakthrough, #hud-breakthrough-btn, [data-hud-breakthrough]',
         titleKey: 'guided-tour.step.breakthrough-hud-btn.title',
         titleFallback: '点击突破按钮',
         bodyKey: 'guided-tour.step.breakthrough-hud-btn.body',
@@ -461,7 +461,7 @@ export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
       },
       {
         id: 'breakthrough-detail-modal',
-        targetSelector: '.breakthrough-modal, [data-breakthrough-modal="true"]',
+        targetSelector: '.breakthrough-modal-grid, .breakthrough-requirements-panel, .breakthrough-modal',
         titleKey: 'guided-tour.step.breakthrough-detail-modal.title',
         titleFallback: '查看突破条件与底蕴',
         bodyKey: 'guided-tour.step.breakthrough-detail-modal.body',
@@ -470,7 +470,7 @@ export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
       },
       {
         id: 'breakthrough-confirm-btn',
-        targetSelector: '[data-breakthrough-confirm="true"]',
+        targetSelector: '[data-breakthrough-confirm], .breakthrough-confirm-btn',
         titleKey: 'guided-tour.step.breakthrough-confirm-btn.title',
         titleFallback: '确认突破升阶',
         bodyKey: 'guided-tour.step.breakthrough-confirm-btn.body',
@@ -512,7 +512,7 @@ export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
       },
       {
         id: 'body-training-upgrade',
-        targetSelector: '[data-body-training-btn="upgrade"]',
+        targetSelector: '[data-body-infuse="true"], .body-training-infuse-btn, [data-body-training-btn="upgrade"]',
         titleKey: 'guided-tour.step.body-training-upgrade.title',
         titleFallback: '注入修为提升',
         bodyKey: 'guided-tour.step.body-training-upgrade.body',
@@ -646,7 +646,7 @@ export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
       },
       {
         id: 'mail-claim-all',
-        targetSelector: '[data-mail-claim-all="true"]',
+        targetSelector: '.mail-batch-row button, .mail-batch-row, [data-mail-claim-all="true"]',
         titleKey: 'guided-tour.step.mail-claim-all.title',
         titleFallback: '一键领取附件',
         bodyKey: 'guided-tour.step.mail-claim-all.body',
@@ -667,7 +667,7 @@ export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
     steps: [
       {
         id: 'market-entrance',
-        targetSelector: '#hud-open-market, [data-action-exec="client:market"]',
+        targetSelector: '[data-tab="market"], [data-pane="market"], #pane-market',
         titleKey: 'guided-tour.step.market-entrance.title',
         titleFallback: '进入坊市',
         bodyKey: 'guided-tour.step.market-entrance.body',
@@ -677,7 +677,7 @@ export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
       },
       {
         id: 'market-browse',
-        targetSelector: '[data-market-tab="sell-orders"], .market-list',
+        targetSelector: '#pane-market, [data-pane="market"], .market-tab-bar',
         titleKey: 'guided-tour.step.market-browse.title',
         titleFallback: '浏览市场挂售',
         bodyKey: 'guided-tour.step.market-browse.body',
@@ -686,7 +686,7 @@ export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
       },
       {
         id: 'market-sell-btn',
-        targetSelector: '[data-market-action="create-sell"]',
+        targetSelector: '#pane-market button, #pane-market',
         titleKey: 'guided-tour.step.market-sell-btn.title',
         titleFallback: '挂售背包闲置道具',
         bodyKey: 'guided-tour.step.market-sell-btn.body',
@@ -695,7 +695,7 @@ export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
       },
       {
         id: 'market-buy-order',
-        targetSelector: '[data-market-tab="buy-orders"]',
+        targetSelector: '#pane-market, [data-pane="market"]',
         titleKey: 'guided-tour.step.market-buy-order.title',
         titleFallback: '发布求购单',
         bodyKey: 'guided-tour.step.market-buy-order.body',
@@ -770,7 +770,7 @@ export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
       },
       {
         id: 'open-skill-mgr',
-        targetSelector: '[data-action-exec="client:skill_management"]',
+        targetSelector: '[data-action-skill-manage-open], [data-action-exec="client:skill_management"]',
         titleKey: 'guided-tour.step.open-skill-mgr.title',
         titleFallback: '打开技能管理',
         bodyKey: 'guided-tour.step.open-skill-mgr.body',
@@ -811,7 +811,7 @@ export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
     steps: [
       {
         id: 'open-combat-settings',
-        targetSelector: '[data-action-exec="client:combat_settings"]',
+        targetSelector: '[data-action-combat-settings-open], [data-action-exec="client:combat_settings"]',
         titleKey: 'guided-tour.step.open-combat-settings.title',
         titleFallback: '打开战斗设置',
         bodyKey: 'guided-tour.step.open-combat-settings.body',
@@ -822,7 +822,7 @@ export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
       },
       {
         id: 'equip-heal-potion',
-        targetSelector: '[data-potion-slot="hp"]',
+        targetSelector: '[data-auto-pill-slot="0"], .auto-pill-slot, [data-potion-slot="hp"]',
         titleKey: 'guided-tour.step.equip-heal-potion.title',
         titleFallback: '配置气血回复药槽',
         bodyKey: 'guided-tour.step.equip-heal-potion.body',
@@ -831,7 +831,7 @@ export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
       },
       {
         id: 'equip-qi-potion',
-        targetSelector: '[data-potion-slot="mp"]',
+        targetSelector: '[data-auto-pill-slot="1"], .auto-pill-slot, [data-potion-slot="mp"]',
         titleKey: 'guided-tour.step.equip-qi-potion.title',
         titleFallback: '配置灵力回复药槽',
         bodyKey: 'guided-tour.step.equip-qi-potion.body',
@@ -1234,7 +1234,7 @@ export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
     steps: [
       {
         id: 'mortal-climax',
-        targetSelector: '#hud-breakthrough-btn',
+        targetSelector: '#hud-breakthrough, #hud-breakthrough-btn',
         titleKey: 'guided-tour.step.mortal-climax.title',
         titleFallback: '凡人期终结',
         bodyKey: 'guided-tour.step.mortal-climax.body',
@@ -1284,7 +1284,7 @@ export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
       },
       {
         id: 'foundation-oath-select',
-        targetSelector: '.foundation-oath-modal, [data-foundation-oath], #hud',
+        targetSelector: '#hud-breakthrough, #hud',
         titleKey: 'guided-tour.step.foundation-oath-select.title',
         titleFallback: '立下大道初誓',
         bodyKey: 'guided-tour.step.foundation-oath-select.body',
@@ -1293,7 +1293,7 @@ export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
       },
       {
         id: 'unlock-advanced-systems',
-        targetSelector: '#hud-open-sect, [data-hud-sect]',
+        targetSelector: '[data-action-card="sect:manage"], [data-action-exec="sect:manage"], #pane-action',
         titleKey: 'guided-tour.step.unlock-advanced-systems.title',
         titleFallback: '开启宗门与高阶玩法',
         bodyKey: 'guided-tour.step.unlock-advanced-systems.body',
@@ -1365,7 +1365,7 @@ export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
       },
       {
         id: 'sect-list-or-create',
-        targetSelector: '[data-sect-action="create"], [data-sect-tab="list"], .sect-modal',
+        targetSelector: '[data-action-card="sect:manage"], #pane-action',
         titleKey: 'guided-tour.step.sect-list-or-create.title',
         titleFallback: '申请入宗或创建宗门',
         bodyKey: 'guided-tour.step.sect-list-or-create.body',
@@ -1383,7 +1383,7 @@ export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
       },
       {
         id: 'sect-defense-array',
-        targetSelector: '[data-sect-array-mgr="true"], .sect-modal',
+        targetSelector: '#pane-action',
         titleKey: 'guided-tour.step.sect-defense-array.title',
         titleFallback: '护宗大阵灵力维护',
         bodyKey: 'guided-tour.step.sect-defense-array.body',
