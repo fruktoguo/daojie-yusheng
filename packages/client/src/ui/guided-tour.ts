@@ -225,7 +225,12 @@ export class GuidedTour {
         return;
       }
       event.preventDefault();
-      this.openFlowList();
+      const tutorialBtn = this.documentRef.getElementById("hud-open-tutorial");
+      if (tutorialBtn) {
+        tutorialBtn.click();
+      } else {
+        this.openFlowList();
+      }
     });
   }
 

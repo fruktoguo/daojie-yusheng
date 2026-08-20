@@ -16448,7 +16448,8 @@
       "submitMapId": "sky_ruins",
       "submitMapName": "天穹残宫",
       "submitX": 24,
-      "submitY": 25
+      "submitY": 25,
+      "guideFlowId": "artifact-fly-guide"
     },
     {
       "id": "q_han_gate_steel",
@@ -16760,7 +16761,8 @@
       "submitMapId": "yunlai_town",
       "submitMapName": "云来镇",
       "submitX": 16,
-      "submitY": 34
+      "submitY": 34,
+      "guideFlowId": "equipment-guide"
     },
     {
       "id": "q_foundation_oath",
@@ -16846,7 +16848,8 @@
       "submitMapId": "yunlai_town",
       "submitMapName": "云来镇",
       "submitX": 31,
-      "submitY": 24
+      "submitY": 24,
+      "guideFlowId": "foundation-oath-guide"
     },
     {
       "id": "q_ruin_keeper_talk",
@@ -16932,7 +16935,8 @@
       "submitMapId": "ancient_ruins",
       "submitMapName": "断碑遗迹",
       "submitX": 19,
-      "submitY": 21
+      "submitY": 21,
+      "guideFlowId": "mail-system-guide"
     },
     {
       "id": "q_intro_old_road_witness",
@@ -17041,7 +17045,8 @@
       "submitMapId": "yunlai_town",
       "submitMapName": "云来镇",
       "submitX": 16,
-      "submitY": 34
+      "submitY": 34,
+      "guideFlowId": "quest-navigation-guide"
     },
     {
       "id": "q_wildlands_bone_forging",
@@ -17134,7 +17139,8 @@
       "submitMapId": "yunlai_town",
       "submitMapName": "云来镇",
       "submitX": 31,
-      "submitY": 24
+      "submitY": 24,
+      "guideFlowId": "breakthrough-guide"
     },
     {
       "id": "q_mine_signal_core",
@@ -17208,7 +17214,7 @@
       "submitMapName": "云来镇",
       "submitX": 31,
       "submitY": 24,
-      "guideFlowId": "mining-guide"
+      "guideFlowId": "craft-forge-guide"
     },
     {
       "id": "q_sky_star_metal_main",
@@ -17376,7 +17382,8 @@
       "submitMapId": "bamboo_forest",
       "submitMapName": "青竹林",
       "submitX": 6,
-      "submitY": 9
+      "submitY": 9,
+      "guideFlowId": "market-guide"
     },
     {
       "id": "q_valley_bone_heap",
@@ -17504,7 +17511,8 @@
       "submitMapId": "guizang_vein_cavern",
       "submitMapName": "归藏脉窟",
       "submitX": 41,
-      "submitY": 33
+      "submitY": 33,
+      "guideFlowId": "sect-guide"
     },
     {
       "id": "q_recluse_first_meet",
@@ -17637,7 +17645,8 @@
       "submitMapId": "yunlai_town",
       "submitMapName": "云来镇",
       "submitX": 47,
-      "submitY": 26
+      "submitY": 26,
+      "guideFlowId": "observe-guide"
     },
     {
       "id": "q_wildlands_roadhouse",
@@ -17705,7 +17714,8 @@
       "submitMapId": "wildlands",
       "submitMapName": "荒野",
       "submitX": 20,
-      "submitY": 41
+      "submitY": 41,
+      "guideFlowId": "combat-settings-guide"
     },
     {
       "id": "q_guizang_beast_test",
@@ -17930,7 +17940,8 @@
       "submitMapId": "yunlai_town",
       "submitMapName": "云来镇",
       "submitX": 31,
-      "submitY": 24
+      "submitY": 24,
+      "guideFlowId": "body-training-guide"
     },
     {
       "id": "q_ruin_shard_trace",
@@ -18236,7 +18247,8 @@
       "submitMapId": "yunlai_town",
       "submitMapName": "云来镇",
       "submitX": 31,
-      "submitY": 24
+      "submitY": 24,
+      "guideFlowId": "open-gate-spirit-root-guide"
     },
     {
       "id": "q_intro_body_tempering",
@@ -18336,7 +18348,7 @@
       "submitMapName": "云来镇",
       "submitX": 31,
       "submitY": 24,
-      "guideFlowId": "cultivation-guide"
+      "guideFlowId": "breakthrough-guide"
     },
     {
       "id": "q_wildlands_boar_meat",
@@ -18399,7 +18411,8 @@
       "submitMapId": "yunlai_town",
       "submitMapName": "云来镇",
       "submitX": 16,
-      "submitY": 34
+      "submitY": 34,
+      "guideFlowId": "auto-potion-guide"
     },
     {
       "id": "q_bamboo_wolf_fangs",
@@ -18465,7 +18478,8 @@
       "submitMapId": "bamboo_forest",
       "submitMapName": "青竹林",
       "submitX": 6,
-      "submitY": 9
+      "submitY": 9,
+      "guideFlowId": "refine-equipment-guide"
     },
     {
       "id": "q_mine_embers",
@@ -18689,7 +18703,8 @@
       "submitMapId": "yunlai_town",
       "submitMapName": "云来镇",
       "submitX": 31,
-      "submitY": 24
+      "submitY": 24,
+      "guideFlowId": "take-interaction-guide"
     },
     {
       "id": "q_bamboo_scouting",
@@ -18757,7 +18772,8 @@
       "submitMapId": "bamboo_forest",
       "submitMapName": "青竹林",
       "submitX": 6,
-      "submitY": 9
+      "submitY": 9,
+      "guideFlowId": "alchemy-guide"
     },
     {
       "id": "q_valley_blood_feather_main",
@@ -19453,7 +19469,8 @@
       "submitMapId": "beast_valley",
       "submitMapName": "噬魂兽谷",
       "submitX": 8,
-      "submitY": 8
+      "submitY": 8,
+      "guideFlowId": "tower-guide"
     },
     {
       "id": "q_intro_manual",
@@ -20344,7 +20361,8 @@
       "submitMapId": "yunlai_town",
       "submitMapName": "云来镇",
       "submitX": 39,
-      "submitY": 34
+      "submitY": 34,
+      "guideFlowId": "sense-qi-guide"
     },
     {
       "id": "q_mine_colossus_side",

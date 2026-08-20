@@ -98,22 +98,18 @@ const TUTORIAL_OPERATION_HINTS: TutorialOperationHint[] = [
 const SORTED_TUTORIAL_OPERATION_HINTS = [...TUTORIAL_OPERATION_HINTS].sort((left, right) => right.label.length - left.label.length);
 
 /** TutorialMainTabId：教程主分类页签。 */
-type TutorialMainTabId = 'operations' | 'mechanics' | 'flow';
+type TutorialMainTabId = 'operations' | 'mechanics' | 'flow' | 'core' | 'combat' | 'craft' | 'gameplay';
 /** TutorialFlowTopicId：流程指导主题 ID。 */
 type TutorialFlowTopicId = string;
 
-const TUTORIAL_MAIN_TABS: Array<{
-/**
- * id：ID标识。
- */
- id: TutorialMainTabId;
- /**
- * label：label名称或显示文本。
- */
- label: string }> = [
-  { id: 'operations', label: t('tutorial.main-tab.operations', undefined) },
-  { id: 'mechanics', label: t('tutorial.main-tab.mechanics', undefined) },
-  { id: 'flow', label: t('tutorial.main-tab.flow', undefined) },
+type MainCategoryTabId = "core" | "combat" | "craft" | "gameplay" | "mechanics";
+
+const TUTORIAL_MAIN_TABS: Array<{ id: MainCategoryTabId; label: string; badge?: string }> = [
+  { id: "core", label: "核心操作", badge: "11" },
+  { id: "combat", label: "战斗引导", badge: "3" },
+  { id: "craft", label: "技艺引导", badge: "5" },
+  { id: "gameplay", label: "玩法引导", badge: "6" },
+  { id: "mechanics", label: "机制百科", badge: "8" },
 ];
 
 /** escapeHtml：转义 HTML 文本中的危险字符。 */

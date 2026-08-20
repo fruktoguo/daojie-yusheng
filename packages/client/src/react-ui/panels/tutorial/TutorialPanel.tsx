@@ -30,6 +30,20 @@ interface TutorialOperationHint {
 
 type MainCategoryTabId = GuidedTourCategory | "mechanics";
 
+interface CategoryTabItem {
+  id: MainCategoryTabId;
+  label: string;
+  badge?: string;
+}
+
+const CATEGORY_TABS: CategoryTabItem[] = [
+  { id: "core", label: "核心操作", badge: "11" },
+  { id: "combat", label: "战斗引导", badge: "3" },
+  { id: "craft", label: "技艺引导", badge: "5" },
+  { id: "gameplay", label: "玩法引导", badge: "6" },
+  { id: "mechanics", label: "机制百科", badge: "8" },
+];
+
 // ─── 静态数据 ─────────────────────────────────────────────────────────────────
 
 const TUTORIAL_OPERATION_HINTS: TutorialOperationHint[] = [
@@ -381,18 +395,28 @@ export function TutorialPanelContent() {
           onStartFlow={handleStartFlow}
         />
       ) : (
-        <div className="tutorial-modal-shell ui-split-panel-shell">
-          {/* 左侧一级分类 + 二级引导/专题列表 */}
+        <div className="tutorial-modal-shell ui-split-panel-shell" style={{ gridTemplateColumns: "190px minmax(0, 1fr)" }}>
+          {/* 左侧一级主分类列表 + 选中的二级条目 */}
           <div className="tutorial-modal-tabs ui-split-panel-tabs" role="tablist" aria-orientation="vertical">
-            {/* 4 大引导分类 */}
-            {GUIDED_TOUR_CATEGORY_METAS.map((cat) => {
+            {CATEGORY_TABS.map((cat) => {
               const active = mainTab === cat.id;
-              const catFlows = GUIDED_TOUR_FLOWS.filter((f) => f.category === cat.id);
-              const currentActiveFlowId = activeFlowIdByCategory[cat.id] ?? catFlows[0]?.id ?? "";
+              const isMechanics = cat.id === "mechanics";
+              const catFlows = isMechanics ? [] : GUIDED_TOUR_FLOWS.filter((f) => f.category === cat.id);
+              const currentActiveFlowId = !isMechanics ? (activeFlowIdByCategory[cat.id as GuidedTourCategory] ?? catFlows[0]?.id ?? "") : "";
+
               return (
-                <div key={cat.id} className="tutorial-modal-tab-group">
+                <div key={cat.id} className="tutorial-modal-tab-group" style={{ marginBottom: 4 }}>
+                  {/* 一级分类 Tab */}
                   <button
                     className={`tutorial-modal-tab ui-split-panel-tab${active ? " active" : ""}`}
+                    style={{
+                      fontWeight: "bold",
+                      fontSize: "14px",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      background: active ? "linear-gradient(180deg, rgba(214, 188, 142, 0.28), rgba(197, 60, 60, 0.12))" : undefined
+                    }}
                     type="button"
                     role="tab"
                     aria-selected={active ? "true" : "false"}
@@ -402,9 +426,14 @@ export function TutorialPanelContent() {
                     }}
                   >
                     <span className="tutorial-modal-tab-label ui-split-panel-tab-label">{cat.label}</span>
+                    <span style={{ fontSize: "11px", opacity: 0.7, padding: "1px 5px", borderRadius: 4, background: "rgba(0,0,0,0.06)" }}>
+                      {cat.badge}
+                    </span>
                   </button>
-                  {active && catFlows.length > 0 && (
-                    <div className="tutorial-modal-subtabs" role="tablist">
+
+                  {/* 二级引导条目列表（展开当前选中分类） */}
+                  {active && !isMechanics && catFlows.length > 0 && (
+                    <div className="tutorial-modal-subtabs" role="tablist" style={{ paddingLeft: 8, marginTop: 4, display: "flex", flexDirection: "column", gap: 3 }}>
                       {catFlows.map((flow) => {
                         const flowActive = currentActiveFlowId === flow.id;
                         const title = t(flow.titleKey) || flow.titleFallback;
@@ -412,12 +441,13 @@ export function TutorialPanelContent() {
                           <button
                             key={flow.id}
                             className={`tutorial-modal-tab tutorial-modal-tab--child ui-split-panel-tab${flowActive ? " active" : ""}`}
+                            style={{ padding: "6px 8px", fontSize: "12px", minHeight: 30 }}
                             type="button"
                             role="tab"
                             aria-selected={flowActive ? "true" : "false"}
                             onClick={() => {
                               hidePinnedTooltips();
-                              setActiveFlowIdByCategory((prev) => ({ ...prev, [cat.id]: flow.id }));
+                              setActiveFlowIdByCategory((prev) => ({ ...prev, [cat.id as GuidedTourCategory]: flow.id }));
                             }}
                           >
                             <span className="tutorial-modal-tab-label ui-split-panel-tab-label">{title}</span>
@@ -426,47 +456,34 @@ export function TutorialPanelContent() {
                       })}
                     </div>
                   )}
+
+                  {/* 机制百科子章节 */}
+                  {active && isMechanics && (
+                    <div className="tutorial-modal-subtabs" role="tablist" style={{ paddingLeft: 8, marginTop: 4, display: "flex", flexDirection: "column", gap: 3 }}>
+                      {TUTORIAL_MECHANIC_TOPICS.map((topic) => {
+                        const topicActive = mechanicId === topic.id;
+                        return (
+                          <button
+                            key={topic.id}
+                            className={`tutorial-modal-tab tutorial-modal-tab--child ui-split-panel-tab${topicActive ? " active" : ""}`}
+                            style={{ padding: "6px 8px", fontSize: "12px", minHeight: 30 }}
+                            type="button"
+                            role="tab"
+                            aria-selected={topicActive ? "true" : "false"}
+                            onClick={() => {
+                              hidePinnedTooltips();
+                              setMechanicId(topic.id);
+                            }}
+                          >
+                            <span className="tutorial-modal-tab-label ui-split-panel-tab-label">{topic.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })}
-
-            {/* 机制百科 */}
-            <div className="tutorial-modal-tab-group">
-              <button
-                className={`tutorial-modal-tab ui-split-panel-tab${mainTab === "mechanics" ? " active" : ""}`}
-                type="button"
-                role="tab"
-                aria-selected={mainTab === "mechanics" ? "true" : "false"}
-                onClick={() => {
-                  hidePinnedTooltips();
-                  setMainTab("mechanics");
-                }}
-              >
-                <span className="tutorial-modal-tab-label ui-split-panel-tab-label">机制百科</span>
-              </button>
-              {mainTab === "mechanics" && (
-                <div className="tutorial-modal-subtabs" role="tablist">
-                  {TUTORIAL_MECHANIC_TOPICS.map((topic) => {
-                    const topicActive = mechanicId === topic.id;
-                    return (
-                      <button
-                        key={topic.id}
-                        className={`tutorial-modal-tab tutorial-modal-tab--child ui-split-panel-tab${topicActive ? " active" : ""}`}
-                        type="button"
-                        role="tab"
-                        aria-selected={topicActive ? "true" : "false"}
-                        onClick={() => {
-                          hidePinnedTooltips();
-                          setMechanicId(topic.id);
-                        }}
-                      >
-                        <span className="tutorial-modal-tab-label ui-split-panel-tab-label">{topic.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
           </div>
 
           {/* 右侧内容详情 */}
