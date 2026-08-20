@@ -5287,77 +5287,6 @@
       ]
     },
     {
-      "id": "yang_polar_dual_cultivation",
-      "name": "太阳双修诀",
-      "desc": "以太阳炼息导引阴阳，圆满后启用被动可偏向吸纳阴灵气，并在打坐时反哺阴性气机。",
-      "grade": "earth",
-      "category": "arts",
-      "realmLv": 23,
-      "attrRatio": {
-        "strength": 0.35,
-        "talent": 0.25,
-        "meridians": 0.4
-      },
-      "attrFloat": -0.05,
-      "maxLayer": 12,
-      "expDifficulty": 1.2,
-      "skills": [
-        {
-          "id": "skill.yang_polar_dual_cultivation.passive",
-          "name": "太阳引阴",
-          "desc": "纯被动。启用后阴灵气吸收效率+100bp、阳灵气吸收效率-100bp；打坐时向周围九宫格持续注入阴灵气，数值为最大灵力输出的平方。",
-          "cooldown": 0,
-          "costMultiplier": 0,
-          "range": 0,
-          "effects": [],
-          "unlockLevel": 12,
-          "active": false,
-          "passiveEffects": [
-            {
-              "type": "buff",
-              "buffId": "passive.yang_polar_dual_cultivation.qi",
-              "name": "太阳引阴",
-              "shortMark": "阳",
-              "desc": "阴灵气吸收+100bp，阳灵气吸收-100bp。",
-              "qiProjection": [
-                {
-                  "selector": {
-                    "families": [
-                      "aura"
-                    ],
-                    "elements": [
-                      "yin"
-                    ]
-                  },
-                  "visibility": "absorbable",
-                  "efficiencyBpMultiplier": 10100
-                },
-                {
-                  "selector": {
-                    "families": [
-                      "aura"
-                    ],
-                    "elements": [
-                      "yang"
-                    ]
-                  },
-                  "visibility": "absorbable",
-                  "efficiencyBpMultiplier": 9900
-                }
-              ]
-            },
-            {
-              "type": "cultivation_tile_qi",
-              "resourceKey": "aura.refined.yin",
-              "radius": 1,
-              "amountSource": "max_qi_output_squared"
-            }
-          ],
-          "cost": 0
-        }
-      ]
-    },
-    {
       "id": "taiyin_guichao",
       "name": "太阴归潮经",
       "desc": "归潮成线，借己身潮势层层叠加，如暗涌吞舟。",
@@ -5434,77 +5363,6 @@
             }
           ],
           "unlockLevel": 1
-        }
-      ]
-    },
-    {
-      "id": "yin_polar_dual_cultivation",
-      "name": "太阴双修诀",
-      "desc": "以太阴敛息导引阴阳，圆满后启用被动可偏向吸纳阳灵气，并在打坐时反哺阳性气机。",
-      "grade": "earth",
-      "category": "arts",
-      "realmLv": 23,
-      "attrRatio": {
-        "spirit": 0.4,
-        "talent": 0.3,
-        "meridians": 0.3
-      },
-      "attrFloat": -0.05,
-      "maxLayer": 12,
-      "expDifficulty": 1.2,
-      "skills": [
-        {
-          "id": "skill.yin_polar_dual_cultivation.passive",
-          "name": "太阴引阳",
-          "desc": "纯被动。启用后阳灵气吸收效率+100bp、阴灵气吸收效率-100bp；打坐时向周围九宫格持续注入阳灵气，数值为最大灵力输出的平方。",
-          "cooldown": 0,
-          "costMultiplier": 0,
-          "range": 0,
-          "effects": [],
-          "unlockLevel": 12,
-          "active": false,
-          "passiveEffects": [
-            {
-              "type": "buff",
-              "buffId": "passive.yin_polar_dual_cultivation.qi",
-              "name": "太阴引阳",
-              "shortMark": "阴",
-              "desc": "阳灵气吸收+100bp，阴灵气吸收-100bp。",
-              "qiProjection": [
-                {
-                  "selector": {
-                    "families": [
-                      "aura"
-                    ],
-                    "elements": [
-                      "yang"
-                    ]
-                  },
-                  "visibility": "absorbable",
-                  "efficiencyBpMultiplier": 10100
-                },
-                {
-                  "selector": {
-                    "families": [
-                      "aura"
-                    ],
-                    "elements": [
-                      "yin"
-                    ]
-                  },
-                  "visibility": "absorbable",
-                  "efficiencyBpMultiplier": 9900
-                }
-              ]
-            },
-            {
-              "type": "cultivation_tile_qi",
-              "resourceKey": "aura.refined.yang",
-              "radius": 1,
-              "amountSource": "max_qi_output_squared"
-            }
-          ],
-          "cost": 0
         }
       ]
     },
@@ -6984,6 +6842,77 @@
       ]
     },
     {
+      "id": "yang_polar_dual_cultivation",
+      "name": "阳极化阴诀",
+      "desc": "阳极而阴化，以阳息转化阴机；圆满后启用被动可偏向吸纳阴灵气，并在打坐时反哺阴性气机。",
+      "grade": "earth",
+      "category": "arts",
+      "realmLv": 23,
+      "attrRatio": {
+        "strength": 0.35,
+        "talent": 0.25,
+        "meridians": 0.4
+      },
+      "attrFloat": -0.05,
+      "maxLayer": 12,
+      "expDifficulty": 1.2,
+      "skills": [
+        {
+          "id": "skill.yang_polar_dual_cultivation.passive",
+          "name": "阳极化阴",
+          "desc": "纯被动。启用后阴灵气吸收效率+100bp、阳灵气吸收效率-100bp；打坐时向周围九宫格持续注入阴灵气，数值为最大灵力输出的平方。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 12,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.yang_polar_dual_cultivation.qi",
+              "name": "阳极化阴",
+              "shortMark": "阳",
+              "desc": "阴灵气吸收+100bp，阳灵气吸收-100bp。",
+              "qiProjection": [
+                {
+                  "selector": {
+                    "families": [
+                      "aura"
+                    ],
+                    "elements": [
+                      "yin"
+                    ]
+                  },
+                  "visibility": "absorbable",
+                  "efficiencyBpMultiplier": 10100
+                },
+                {
+                  "selector": {
+                    "families": [
+                      "aura"
+                    ],
+                    "elements": [
+                      "yang"
+                    ]
+                  },
+                  "visibility": "absorbable",
+                  "efficiencyBpMultiplier": 9900
+                }
+              ]
+            },
+            {
+              "type": "cultivation_tile_qi",
+              "resourceKey": "aura.refined.yin",
+              "radius": 1,
+              "amountSource": "max_qi_output_squared"
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
       "id": "nourishing_qi_art",
       "name": "养气诀",
       "desc": "养气如养珠，绵绵若存，渐成气候。",
@@ -7656,6 +7585,77 @@
             }
           ],
           "unlockLevel": 6
+        }
+      ]
+    },
+    {
+      "id": "yin_polar_dual_cultivation",
+      "name": "阴极生阳诀",
+      "desc": "阴极而阳生，以阴息敛藏阳机；圆满后启用被动可偏向吸纳阳灵气，并在打坐时反哺阳性气机。",
+      "grade": "earth",
+      "category": "arts",
+      "realmLv": 23,
+      "attrRatio": {
+        "spirit": 0.4,
+        "talent": 0.3,
+        "meridians": 0.3
+      },
+      "attrFloat": -0.05,
+      "maxLayer": 12,
+      "expDifficulty": 1.2,
+      "skills": [
+        {
+          "id": "skill.yin_polar_dual_cultivation.passive",
+          "name": "阴极生阳",
+          "desc": "纯被动。启用后阳灵气吸收效率+100bp、阴灵气吸收效率-100bp；打坐时向周围九宫格持续注入阳灵气，数值为最大灵力输出的平方。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 12,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive.yin_polar_dual_cultivation.qi",
+              "name": "阴极生阳",
+              "shortMark": "阴",
+              "desc": "阳灵气吸收+100bp，阴灵气吸收-100bp。",
+              "qiProjection": [
+                {
+                  "selector": {
+                    "families": [
+                      "aura"
+                    ],
+                    "elements": [
+                      "yang"
+                    ]
+                  },
+                  "visibility": "absorbable",
+                  "efficiencyBpMultiplier": 10100
+                },
+                {
+                  "selector": {
+                    "families": [
+                      "aura"
+                    ],
+                    "elements": [
+                      "yin"
+                    ]
+                  },
+                  "visibility": "absorbable",
+                  "efficiencyBpMultiplier": 9900
+                }
+              ]
+            },
+            {
+              "type": "cultivation_tile_qi",
+              "resourceKey": "aura.refined.yang",
+              "radius": 1,
+              "amountSource": "max_qi_output_squared"
+            }
+          ],
+          "cost": 0
         }
       ]
     },

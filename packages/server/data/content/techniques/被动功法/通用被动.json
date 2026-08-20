@@ -1,8 +1,8 @@
 [
   {
     "id": "yin_polar_dual_cultivation",
-    "name": "太阴双修诀",
-    "desc": "以太阴敛息导引阴阳，圆满后启用被动可偏向吸纳阳灵气，并在打坐时反哺阳性气机。",
+    "name": "阴极生阳诀",
+    "desc": "阴极而阳生，以阴息敛藏阳机；圆满后启用被动可偏向吸纳阳灵气，并在打坐时反哺阳性气机。",
     "grade": "earth",
     "category": "arts",
     "realmLv": 23,
@@ -17,7 +17,7 @@
     "skills": [
       {
         "id": "skill.yin_polar_dual_cultivation.passive",
-        "name": "太阴引阳",
+        "name": "阴极生阳",
         "desc": "纯被动。启用后阳灵气吸收效率+100bp、阴灵气吸收效率-100bp；打坐时向周围九宫格持续注入阳灵气，数值为最大灵力输出的平方。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -29,7 +29,7 @@
           {
             "type": "buff",
             "buffId": "passive.yin_polar_dual_cultivation.qi",
-            "name": "太阴引阳",
+            "name": "阴极生阳",
             "shortMark": "阴",
             "desc": "阳灵气吸收+100bp，阴灵气吸收-100bp。",
             "qiProjection": [
@@ -71,8 +71,8 @@
   },
   {
     "id": "yang_polar_dual_cultivation",
-    "name": "太阳双修诀",
-    "desc": "以太阳炼息导引阴阳，圆满后启用被动可偏向吸纳阴灵气，并在打坐时反哺阴性气机。",
+    "name": "阳极化阴诀",
+    "desc": "阳极而阴化，以阳息转化阴机；圆满后启用被动可偏向吸纳阴灵气，并在打坐时反哺阴性气机。",
     "grade": "earth",
     "category": "arts",
     "realmLv": 23,
@@ -87,7 +87,7 @@
     "skills": [
       {
         "id": "skill.yang_polar_dual_cultivation.passive",
-        "name": "太阳引阴",
+        "name": "阳极化阴",
         "desc": "纯被动。启用后阴灵气吸收效率+100bp、阳灵气吸收效率-100bp；打坐时向周围九宫格持续注入阴灵气，数值为最大灵力输出的平方。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -99,7 +99,7 @@
           {
             "type": "buff",
             "buffId": "passive.yang_polar_dual_cultivation.qi",
-            "name": "太阳引阴",
+            "name": "阳极化阴",
             "shortMark": "阳",
             "desc": "阴灵气吸收+100bp，阳灵气吸收-100bp。",
             "qiProjection": [
