@@ -1,3 +1,4 @@
+import { unlockGuidedTourFlow } from "./guided-tour-unlock";
 /**
  * 运行时新手导览层：遮罩、高亮、箭头和步骤推进。
  *
@@ -354,6 +355,7 @@ export class GuidedTour {
   }
 
   private async startFlow(flow: GuidedTourFlow): Promise<void> {
+    unlockGuidedTourFlow(flow.id);
     this.activeFlow = flow;
     this.activeStepIndex = 0;
     this.ensureDom();

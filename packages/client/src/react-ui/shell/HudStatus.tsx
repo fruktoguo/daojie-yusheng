@@ -279,17 +279,9 @@ const HudLinkActions = memo(function HudLinkActions() {
         id="hud-open-tutorial"
         className="hud-corner-btn hud-link-btn hud-link-btn--tutorial"
         type="button"
-        aria-label={t('shell.open-tutorial.aria-label', undefined)}
+        aria-label={t('shell.open-guided-tour.aria-label', undefined, "打开仙途引导与百科")}
       >
-        <span className="hud-link-btn-text">{t('shell.hud-link-btn-text-simple-tutorial', undefined)}</span>
-      </button>
-      <button
-        id="hud-open-guided-tour"
-        className="hud-corner-btn hud-link-btn hud-link-btn--tutorial"
-        type="button"
-        aria-label={t('shell.open-guided-tour.aria-label', undefined)}
-      >
-        <span className="hud-link-btn-text">{t('shell.hud-link-btn-text-guided-tour', undefined)}</span>
+        <span className="hud-link-btn-text">{t('shell.hud-link-btn-text-guided-tour', undefined, "引导")}</span>
       </button>
     </>
   );

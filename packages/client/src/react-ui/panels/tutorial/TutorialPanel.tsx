@@ -1,6 +1,6 @@
 /**
  * 本文件负责 教程与引导 面板的主要 React 视图入口，
- * 左侧展示 4 大引导分类与机制百科 Tab，右侧展示多条引导标题、步数、说明与开始引导按钮。
+ * 左侧展示 4 大引导分类与机制百科 Tab，右侧展示已解锁引导与未解锁折叠引导列表。
  */
 import { type ReactNode, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -13,6 +13,7 @@ import {
   type GuidedTourCategory,
   type GuidedTourFlow,
 } from "../../../constants/ui/guided-tour";
+import { isGuidedTourFlowUnlocked } from "../../../ui/guided-tour-unlock";
 import { getTutorialRealmLevelTableRows } from "../../../constants/ui/realm-level-table";
 import { t } from "../../../ui/i18n";
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from "../../../ui/floating-tooltip";
@@ -196,7 +197,6 @@ function getSearchMatches(topics: TutorialTopic[], flows: GuidedTourFlow[], quer
   const q = query.toLowerCase();
   const results: SearchMatch[] = [];
 
-  // 搜索 GuidedTourFlows
   for (const flow of flows) {
     const title = resolveFlowTitle(flow).toLowerCase();
     const summary = resolveFlowSummary(flow).toLowerCase();
@@ -208,7 +208,6 @@ function getSearchMatches(topics: TutorialTopic[], flows: GuidedTourFlow[], quer
     }
   }
 
-  // 搜索机制百科
   for (const topic of topics) {
     const topicHit = topic.label.toLowerCase().includes(q) || topic.summary.toLowerCase().includes(q);
     if (topic.id === "realm-table") {
@@ -265,13 +264,15 @@ function SearchResults({ query, topics, flows, onStartFlow }: {
           const title = resolveFlowTitle(flow);
           const summary = resolveFlowSummary(flow);
           const catMeta = GUIDED_TOUR_CATEGORY_METAS.find((m) => m.id === flow.category);
+          const unlocked = isGuidedTourFlowUnlocked(flow.id);
           return (
-            <div key={`flow-${flow.id}-${idx}`} className="guided-tour-flow-card">
+            <div key={`flow-${flow.id}-${idx}`} className={`guided-tour-flow-card${unlocked ? "" : " guided-tour-flow-card--locked"}`}>
               <div className="guided-tour-flow-card-main">
                 <div className="guided-tour-flow-card-title-row">
                   <span className={`guided-tour-category-tag guided-tour-category-tag--${flow.category}`}>
                     {catMeta?.label ?? flow.category}
                   </span>
+                  {!unlocked && <span className="guided-tour-locked-tag">任务解锁</span>}
                   <div className="guided-tour-flow-card-title">
                     <Highlight text={title} query={query} />
                   </div>
@@ -327,6 +328,7 @@ export function TutorialPanelContent() {
   const [mainTab, setMainTab] = useState<MainCategoryTabId>("core");
   const [mechanicId, setMechanicId] = useState(TUTORIAL_MECHANIC_TOPICS[0]?.id ?? "growth");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showLockedByCategory, setShowLockedByCategory] = useState<Record<string, boolean>>({});
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   const hidePinnedTooltips = useCallback(() => {
@@ -344,6 +346,21 @@ export function TutorialPanelContent() {
     if (mainTab === "mechanics") return [];
     return GUIDED_TOUR_FLOWS.filter((f) => f.category === mainTab);
   }, [mainTab]);
+
+  const { unlockedFlows, lockedFlows } = useMemo(() => {
+    const unlocked: GuidedTourFlow[] = [];
+    const locked: GuidedTourFlow[] = [];
+    for (const flow of currentCategoryFlows) {
+      if (isGuidedTourFlowUnlocked(flow.id)) {
+        unlocked.push(flow);
+      } else {
+        locked.push(flow);
+      }
+    }
+    return { unlockedFlows: unlocked, lockedFlows: locked };
+  }, [currentCategoryFlows]);
+
+  const showLocked = showLockedByCategory[mainTab] ?? false;
 
   return (
     <div className="tutorial-modal-body" ref={panelRef}>
@@ -370,7 +387,7 @@ export function TutorialPanelContent() {
         />
       ) : (
         <div className="tutorial-modal-shell ui-split-panel-shell" style={{ gridTemplateColumns: "160px minmax(0, 1fr)" }}>
-          {/* 左侧只有一级分类 Tab */}
+          {/* 左侧一级分类 Tab */}
           <div className="tutorial-modal-tabs ui-split-panel-tabs" role="tablist" aria-orientation="vertical">
             {CATEGORY_TABS.map((cat) => {
               const active = mainTab === cat.id;
@@ -421,33 +438,66 @@ export function TutorialPanelContent() {
               />
             ) : (
               <div className="guided-tour-flow-list-container">
-                {currentCategoryFlows.map((flow) => {
-                  const title = resolveFlowTitle(flow);
-                  const summary = resolveFlowSummary(flow);
-                  return (
-                    <div key={flow.id} className="guided-tour-flow-card">
-                      <div className="guided-tour-flow-card-main">
-                        <div className="guided-tour-flow-card-title-row">
-                          <div className="guided-tour-flow-card-title">{title}</div>
-                          <span className="guided-tour-flow-card-steps">共 {flow.steps.length} 步</span>
-                        </div>
-                        {summary && <div className="guided-tour-flow-card-summary">{summary}</div>}
+                {/* 已解锁列表 */}
+                {unlockedFlows.length > 0 ? (
+                  unlockedFlows.map((flow) => (
+                    <FlowCard key={flow.id} flow={flow} unlocked={true} onStart={handleStartFlow} />
+                  ))
+                ) : (
+                  <div className="tutorial-pane-summary" style={{ padding: "12px 0", color: "var(--ink-muted)" }}>
+                    该分类暂无已解锁引导，随着主线任务推进将逐步解锁。
+                  </div>
+                )}
+
+                {/* 未解锁折叠区 */}
+                {lockedFlows.length > 0 && (
+                  <div className="guided-tour-locked-section" style={{ marginTop: 8 }}>
+                    <button
+                      type="button"
+                      className="guided-tour-collapse-toggle-btn"
+                      onClick={() => setShowLockedByCategory((prev) => ({ ...prev, [mainTab]: !showLocked }))}
+                    >
+                      <span>{showLocked ? "▼" : "▶"} 未解锁引导 ({lockedFlows.length})</span>
+                      <span className="guided-tour-collapse-hint">{showLocked ? "收起" : "展开查看"}</span>
+                    </button>
+                    {showLocked && (
+                      <div className="guided-tour-locked-list" style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
+                        {lockedFlows.map((flow) => (
+                          <FlowCard key={flow.id} flow={flow} unlocked={false} onStart={handleStartFlow} />
+                        ))}
                       </div>
-                      <button
-                        type="button"
-                        className="guided-tour-start-action-btn"
-                        onClick={() => handleStartFlow(flow.id)}
-                      >
-                        ▶ 开始引导
-                      </button>
-                    </div>
-                  );
-                })}
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function FlowCard({ flow, unlocked, onStart }: { flow: GuidedTourFlow; unlocked: boolean; onStart: (id: string) => void }) {
+  const title = resolveFlowTitle(flow);
+  const summary = resolveFlowSummary(flow);
+  return (
+    <div className={`guided-tour-flow-card${unlocked ? "" : " guided-tour-flow-card--locked"}`}>
+      <div className="guided-tour-flow-card-main">
+        <div className="guided-tour-flow-card-title-row">
+          {!unlocked && <span className="guided-tour-locked-tag">任务解锁</span>}
+          <div className="guided-tour-flow-card-title">{title}</div>
+          <span className="guided-tour-flow-card-steps">共 {flow.steps.length} 步</span>
+        </div>
+        {summary && <div className="guided-tour-flow-card-summary">{summary}</div>}
+      </div>
+      <button
+        type="button"
+        className="guided-tour-start-action-btn"
+        onClick={() => onStart(flow.id)}
+      >
+        ▶ 开始引导
+      </button>
     </div>
   );
 }
@@ -521,7 +571,6 @@ function MechanicPaneContainer({
         <RealmTablePane />
       ) : (
         <>
-          {/* 子章节 Tab 切换（若有多个子节） */}
           {topic.sections.length > 1 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
               {topic.sections.map((sec) => {
