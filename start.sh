@@ -292,7 +292,7 @@ cleanup_existing_local_dev_processes() {
     kill_process_tree_if_running "$pid"
   done
 
-  kill_port_listener_if_needed "${SERVER_PORT:-3000}"
+  kill_port_listener_if_needed "${SERVER_PORT:-13001}"
   kill_port_listener_if_needed "${CLIENT_PORT:-15173}"
 }
 
@@ -463,6 +463,18 @@ NODE
   )
 }
 
+# 在父启动脚本内确定最终端口，保证 server、就绪探针和 Vite 代理使用同一值。
+resolve_local_server_port() {
+  local configured_port="${SERVER_PORT:-13001}"
+  local configured_public_port="${SERVER_PUBLIC_PORT:-}"
+  local resolved_port=""
+  resolved_port="$(node scripts/resolve-local-server-port.mjs "$configured_port")"
+  export SERVER_PORT="$resolved_port"
+  if [[ -z "$configured_public_port" || "$configured_public_port" == "$configured_port" ]]; then
+    export SERVER_PUBLIC_PORT="$resolved_port"
+  fi
+}
+
 # 准备与线上部署一致的主线基础环境变量，宿主机或容器网络差异由调用方补充。
 prepare_server_base_env() {
   load_server_local_env
@@ -472,7 +484,10 @@ prepare_server_base_env() {
   derive_db_env_from_database_url "${SERVER_DATABASE_URL:-${DATABASE_URL:-}}"
 
   export SERVER_HOST="${SERVER_HOST:-0.0.0.0}"
-  export SERVER_PORT="${SERVER_PORT:-3000}"
+  export SERVER_PORT="${SERVER_PORT:-13001}"
+  if [[ "$MODE" == "local" ]]; then
+    resolve_local_server_port
+  fi
   export CLIENT_PORT="${CLIENT_PORT:-15173}"
   export SERVER_ALLOW_LEGACY_HTTP_COMPAT="${SERVER_ALLOW_LEGACY_HTTP_COMPAT:-0}"
   export DB_USERNAME="${DB_USERNAME:-mud}"
@@ -527,7 +542,7 @@ wait_for_server_port_ready() {
 # 记录主机。
   local host="${1:-127.0.0.1}"
 # 记录端口。
-  local port="${2:-${SERVER_PORT:-3000}}"
+  local port="${2:-${SERVER_PORT:-13001}}"
 # 记录超时时间seconds。
   local timeout_seconds="${3:-${SERVER_STARTUP_TIMEOUT_SECONDS:-120}}"
 # 记录elapsed。
@@ -925,7 +940,7 @@ EOF
     echo ""
     echo "可选环境变量:"
     echo "  SKIP_LOCAL_INFRA=1         跳过本地 PostgreSQL / Redis 自动拉起"
-    echo "  SERVER_PORT=3000           指定主线服务端端口"
+    echo "  SERVER_PORT=13001          指定主线服务端端口；WSL 保留端口会自动避让"
     echo "  CLIENT_PORT=15173          指定主线客户端端口"
     echo "  DB_USERNAME=mud           指定主线 PostgreSQL 用户名"
     echo "  DB_PASSWORD=...           指定主线 PostgreSQL 密码"

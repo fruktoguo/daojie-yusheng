@@ -27,6 +27,12 @@ const status = runVerificationSteps({
   shadowEnabled: Boolean(process.env.SERVER_SHADOW_URL || process.env.SERVER_URL),
   steps: [
     { label: 'server compile', args: ['--filter', '@mud/server', 'compile'] },
+    {
+      label: 'local server port resolution',
+      command: process.execPath,
+      args: ['scripts/resolve-local-server-port-smoke.mjs'],
+      shell: false,
+    },
     { label: 'player-facing name boundaries', args: ['proof:player-facing-names'] },
     { label: 'runtime realm exp boundary', command: process.execPath, args: ['scripts/check-runtime-realm-exp-boundary.cjs'], shell: false },
     { label: 'production boundaries', args: ['--filter', '@mud/server', 'proof:production-boundaries'] },

@@ -376,7 +376,10 @@ async function assertServerEnvLoaderSkipsUnreadableFiles(root: string): Promise<
 
 async function assertRepositoryEnvLoaderSkipsUnreadableFiles(root: string): Promise<void> {
   const unreadablePath = join(root, 'repository-loader-directory');
-  const loaderPath = resolve(__dirname, '..', '..', '..', '..', 'scripts', 'load-local-runtime-env.js');
+  const packageRoot = process.env.SERVER_PACKAGE_ROOT?.trim()
+    ? resolve(process.env.SERVER_PACKAGE_ROOT)
+    : resolve(__dirname, '..', '..');
+  const loaderPath = resolve(packageRoot, '..', '..', 'scripts', 'load-local-runtime-env.js');
   const script = [
     'const fs = require("node:fs");',
     'const warnings = [];',
