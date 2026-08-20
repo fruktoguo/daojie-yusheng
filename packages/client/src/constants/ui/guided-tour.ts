@@ -420,7 +420,7 @@ export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
       },
       {
         id: 'take-button',
-        targetSelector: '[data-action-exec="client:take"]',
+        targetSelector: '[data-action-exec="loot:open"], [data-action-card="loot:open"], [data-action-row="loot:open"]',
         titleKey: 'guided-tour.step.take-button.title',
         titleFallback: '点击拿取',
         bodyKey: 'guided-tour.step.take-button.body',
@@ -554,7 +554,7 @@ export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
       },
       {
         id: 'observe-button',
-        targetSelector: '[data-action-exec="client:observe"]',
+        targetSelector: '[data-action-exec="client:observe"], [data-action-card="client:observe"], [data-action-row="client:observe"]',
         titleKey: 'guided-tour.step.observe-button.title',
         titleFallback: '点击观察',
         bodyKey: 'guided-tour.step.observe-button.body',
@@ -728,7 +728,7 @@ export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
       },
       {
         id: 'force-attack-button',
-        targetSelector: '[data-action-exec="battle:force_attack"]',
+        targetSelector: '[data-action-exec="battle:force_attack"], [data-action-card="battle:force_attack"], [data-action-row="battle:force_attack"]',
         titleKey: 'guided-tour.step.force-attack-button.title',
         titleFallback: '点击强制攻击',
         bodyKey: 'guided-tour.step.force-attack-button.body',
@@ -912,7 +912,7 @@ export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
       },
       {
         id: 'mining-button',
-        targetSelector: '[data-action-exec="mining:start"], [data-action-card="mining:start"]',
+        targetSelector: '[data-action-exec="mining:start"], [data-action-card="mining:start"], [data-action-row="mining:start"]',
         titleKey: 'guided-tour.step.mining-button.title',
         titleFallback: '点击采矿',
         bodyKey: 'guided-tour.step.mining-button.body',

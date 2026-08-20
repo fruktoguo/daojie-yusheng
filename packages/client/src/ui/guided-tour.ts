@@ -496,9 +496,7 @@ export class GuidedTour {
       <div class="guided-tour-actions">
         <button class="small-btn ghost" type="button" data-guided-tour-skip>${this.escapeHtml(t('guided-tour.action.skip', undefined, '跳过'))}</button>
         <button class="small-btn ghost" type="button" data-guided-tour-prev${this.activeStepIndex <= 0 ? ' disabled' : ''}>${this.escapeHtml(t('guided-tour.action.prev', undefined, '上一步'))}</button>
-        <button class="small-btn" type="button" data-guided-tour-next>${this.escapeHtml(targetClick
-          ? t('guided-tour.action.wait-target', undefined, '点击高亮处')
-          : (stepCurrent >= stepTotal ? t('guided-tour.action.finish', undefined, '完成') : t('guided-tour.action.next', undefined, '下一步')))}</button>
+        <button class="small-btn" type="button" data-guided-tour-next>${this.escapeHtml(stepCurrent >= stepTotal ? t('guided-tour.action.finish', undefined, '完成') : t('guided-tour.action.next', undefined, '下一步'))}</button>
       </div>
     `;
     this.card.scrollTop = 0;
@@ -510,10 +508,6 @@ export class GuidedTour {
       }
     });
     this.card.querySelector<HTMLElement>('[data-guided-tour-next]')?.addEventListener('click', () => {
-      if (targetClick) {
-        this.flashTarget();
-        return;
-      }
       void this.goNext();
     });
   }
@@ -697,12 +691,17 @@ export class GuidedTour {
       return;
     }
     const step = flow.steps[this.activeStepIndex];
-    if (!step || !target.element.contains(event.target)) {
+    if (!step) {
+      return;
+    }
+    const isTargetHit = target.element.contains(event.target)
+      || (event.target instanceof Element && Boolean(event.target.closest(step.targetSelector)));
+    if (!isTargetHit) {
       return;
     }
 
     if (step.advanceMode === 'target-click') {
-      this.queueTargetAdvance(80);
+      this.queueTargetAdvance(60);
       return;
     }
 
