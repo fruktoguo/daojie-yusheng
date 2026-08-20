@@ -30,7 +30,8 @@
       "giverMapId": "yunlai_town",
       "giverNpcId": "npc_qingxuan",
       "submitMapId": "yunlai_town",
-      "submitNpcId": "npc_qingxuan"
+      "submitNpcId": "npc_qingxuan",
+      "guideFlowId": "foundation-oath-guide"
     }
   ]
 }

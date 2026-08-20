@@ -26,7 +26,6 @@ import {
   expandTechniqueAttrRatio,
   shouldExpandTechniqueAttrRatio,
 } from '@mud/shared';
-
 import { executeAiTask, type AiTaskRequest, type AiTaskResult } from '../../ai/ai-task-execution.service';
 import { sanitizePlayerContext } from '../../ai/ai-prompt-sanitizer';
 import type { AiTextModelConfig } from '../../ai/ai-model-config';
@@ -41,6 +40,7 @@ import {
   adoptDurableTechniqueDraftBatch,
   beginDurableTechniqueGeneration,
   beginDurableTechniqueGenerationBatch,
+  cancelDurableIncompleteTechniqueGeneration,
   claimTechniqueGenerationBatchExecution,
   claimTechniqueGenerationExecution,
   discardDurableTechniqueDraft,
@@ -73,6 +73,9 @@ import {
 import {
   TECHNIQUE_GENERATION_UNLOCK_REALM_LV,
   TECHNIQUE_GENERATION_DRAFT_EXPIRE_HOURS,
+  TECHNIQUE_GENERATION_AUTO_CANCEL_AFTER_MS,
+  TECHNIQUE_GENERATION_MANUAL_CANCEL_AFTER_MS,
+  TECHNIQUE_GENERATION_ITEM_ID,
   TECHNIQUE_GENERATION_SCHEMA_VERSION,
 } from './technique-generation-constants';
 import {
@@ -712,6 +715,56 @@ export class TechniqueGenerationService {
     return buildTechniquePreview(template, row?.model_name);
   }
 
+  async getJobOutcomeForPlayer(
+    playerId: string,
+    jobId: string,
+  ): Promise<{ status: string | null; errorMessage?: string | null }> {
+    const pool = this.pool;
+    if (!pool) return { status: null };
+    const result = await pool.query(
+      `SELECT status, error_message
+         FROM technique_generation_job
+        WHERE player_id = $1 AND id = $2
+        LIMIT 1`,
+      [playerId, jobId],
+    );
+    const row = result.rows[0] as { status?: unknown; error_message?: unknown } | undefined;
+    return {
+      status: typeof row?.status === 'string' ? row.status : null,
+      errorMessage: typeof row?.error_message === 'string' ? row.error_message : null,
+    };
+  }
+
+  async getBatchOutcomeForPlayer(
+    playerId: string,
+    batchId: string,
+  ): Promise<{ status: string | null; errorMessage?: string | null }> {
+    const pool = this.pool;
+    if (!pool) return { status: null };
+    const result = await pool.query(
+      `SELECT status, error_message
+         FROM technique_generation_job
+        WHERE player_id = $1
+          AND LEFT(id, CHAR_LENGTH($2) + 1) = $2 || '_'
+        ORDER BY id ASC`,
+      [playerId, batchId],
+    );
+    const rows = result.rows as Array<{ status?: unknown; error_message?: unknown }>;
+    if (rows.length === 0) return { status: null };
+    const statuses = rows.map((row) => typeof row.status === 'string' ? row.status : '');
+    const failed = rows.find((row) => row.status === 'failed');
+    if (failed) {
+      return {
+        status: 'failed',
+        errorMessage: typeof failed.error_message === 'string' ? failed.error_message : null,
+      };
+    }
+    if (statuses.some((status) => status === 'cancelled')) return { status: 'cancelled' };
+    if (statuses.every((status) => status === 'generated_draft')) return { status: 'generated_draft' };
+    if (statuses.some((status) => status === 'running')) return { status: 'running' };
+    if (statuses.every((status) => status === 'pending')) return { status: 'pending' };
+    return { status: statuses[0] ?? null };
+  }
   async getBatchPreviews(playerId: string, batchId: string): Promise<TechniqueBatchPreview[]> {
     const pool = this.pool;
     if (!pool) return [];
@@ -982,6 +1035,137 @@ export class TechniqueGenerationService {
     };
   }
 
+  async cancelGeneration(params: {
+    playerId: string;
+    jobId: string;
+    expectedRuntimeOwnerId?: string | null;
+    expectedSessionEpoch?: number | null;
+    applyInventorySnapshot?: (items: TechniqueGenerationRuntimeInventoryItem[]) => Promise<void> | void;
+  }): Promise<DiscardResult> {
+    return this.cancelIncompleteGenerationJobs({
+      playerId: params.playerId,
+      operationRefId: params.jobId,
+      operationKind: 'cancel',
+      jobIds: [params.jobId],
+      minAgeMs: TECHNIQUE_GENERATION_MANUAL_CANCEL_AFTER_MS,
+      errorCode: 'PLAYER_CANCELLED',
+      errorMessage: '玩家手动取消功法推演',
+      expectedRuntimeOwnerId: params.expectedRuntimeOwnerId,
+      expectedSessionEpoch: params.expectedSessionEpoch,
+      applyInventorySnapshot: params.applyInventorySnapshot,
+    });
+  }
+
+  async cancelBatchGeneration(params: {
+    playerId: string;
+    batchId: string;
+    expectedRuntimeOwnerId?: string | null;
+    expectedSessionEpoch?: number | null;
+    applyInventorySnapshot?: (items: TechniqueGenerationRuntimeInventoryItem[]) => Promise<void> | void;
+  }): Promise<DiscardResult> {
+    const jobs = (await this.loadCurrentGenerationJobsForPlayer(params.playerId))
+      .filter((job) => resolveTechniqueGenerationBatchId(job.id) === params.batchId)
+      .sort(compareLoadedGenerationJobs);
+    return this.cancelIncompleteGenerationJobs({
+      playerId: params.playerId,
+      operationRefId: params.batchId,
+      operationKind: 'cancel_batch',
+      jobIds: jobs.map((job) => job.id),
+      minAgeMs: TECHNIQUE_GENERATION_MANUAL_CANCEL_AFTER_MS,
+      errorCode: 'PLAYER_CANCELLED',
+      errorMessage: '玩家手动取消批量功法推演',
+      expectedRuntimeOwnerId: params.expectedRuntimeOwnerId,
+      expectedSessionEpoch: params.expectedSessionEpoch,
+      applyInventorySnapshot: params.applyInventorySnapshot,
+    });
+  }
+
+  async cancelTimedOutIncompleteGenerationForPlayer(params: {
+    playerId: string;
+    expectedRuntimeOwnerId?: string | null;
+    expectedSessionEpoch?: number | null;
+    applyInventorySnapshot?: (items: TechniqueGenerationRuntimeInventoryItem[]) => Promise<void> | void;
+  }): Promise<DiscardResult> {
+    const jobs = (await this.loadCurrentGenerationJobsForPlayer(params.playerId))
+      .filter((job) => job.status === 'pending' || job.status === 'running')
+      .sort(compareLoadedGenerationJobs);
+    if (jobs.length === 0) {
+      return { success: false, error: '无可取消的推演任务', errorCode: 'JOB_STATE_INVALID' };
+    }
+    const batchId = resolveTechniqueGenerationBatchId(jobs[0].id);
+    const targetJobs = batchId
+      ? jobs.filter((job) => resolveTechniqueGenerationBatchId(job.id) === batchId)
+      : [jobs[0]];
+    return this.cancelIncompleteGenerationJobs({
+      playerId: params.playerId,
+      operationRefId: batchId ?? targetJobs[0]!.id,
+      operationKind: batchId ? 'auto_cancel_batch' : 'auto_cancel',
+      jobIds: targetJobs.map((job) => job.id),
+      minAgeMs: TECHNIQUE_GENERATION_AUTO_CANCEL_AFTER_MS,
+      errorCode: 'AUTO_TIMEOUT',
+      errorMessage: '功法推演超过30分钟未完成，已自动取消',
+      expectedRuntimeOwnerId: params.expectedRuntimeOwnerId,
+      expectedSessionEpoch: params.expectedSessionEpoch,
+      applyInventorySnapshot: params.applyInventorySnapshot,
+    });
+  }
+
+  private async cancelIncompleteGenerationJobs(params: {
+    playerId: string;
+    operationRefId: string;
+    operationKind: 'cancel' | 'cancel_batch' | 'auto_cancel' | 'auto_cancel_batch';
+    jobIds: string[];
+    minAgeMs: number;
+    errorCode: string;
+    errorMessage: string;
+    expectedRuntimeOwnerId?: string | null;
+    expectedSessionEpoch?: number | null;
+    applyInventorySnapshot?: (items: TechniqueGenerationRuntimeInventoryItem[]) => Promise<void> | void;
+  }): Promise<DiscardResult> {
+    const pool = this.pool;
+    if (!pool) return { success: false, error: '功法领悟系统未就绪', errorCode: 'SERVICE_UNAVAILABLE' };
+    const expectedRuntimeOwnerId = normalizeTechniqueGenerationOwnerId(params.expectedRuntimeOwnerId);
+    const expectedSessionEpoch = normalizeTechniqueGenerationSessionEpoch(params.expectedSessionEpoch);
+    if (!expectedRuntimeOwnerId || expectedSessionEpoch === null || typeof params.applyInventorySnapshot !== 'function') {
+      return { success: false, error: '玩家资产持久化上下文不可用', errorCode: 'PERSISTENCE_CONTEXT_UNAVAILABLE' };
+    }
+    const cancelled = await cancelDurableIncompleteTechniqueGeneration(pool, {
+      playerId: params.playerId,
+      operationRefId: params.operationRefId,
+      operationKind: params.operationKind,
+      jobIds: params.jobIds,
+      minAgeMs: params.minAgeMs,
+      errorCode: params.errorCode,
+      errorMessage: params.errorMessage,
+      expectedRuntimeOwnerId,
+      expectedSessionEpoch,
+    });
+    if (!cancelled.ok) {
+      const error = cancelled.errorCode === 'CANCEL_TOO_EARLY'
+        ? '推演开始未满一分钟，暂不可取消'
+        : '无可取消的推演任务';
+      return { success: false, error, errorCode: cancelled.errorCode ?? 'JOB_STATE_INVALID' };
+    }
+    try {
+      await params.applyInventorySnapshot(cancelled.inventoryItems);
+    } catch (error: unknown) {
+      this.logger.error(
+        `自创功法取消返还已提交但运行态同步失败 playerId=${params.playerId} ref=${params.operationRefId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+    const itemSpend = normalizeRefundItemSpend(cancelled.itemSpend);
+    return {
+      success: true,
+      refund: {
+        itemSpend,
+        refundRatio: 1,
+        refundAmount: itemSpend,
+        refundCurrencyItemId: TECHNIQUE_GENERATION_ITEM_ID,
+      },
+    };
+  }
+
   /** 过期清理 */
   async expireStaleJobs(): Promise<number> {
     if (!this.pool) return 0;
@@ -993,6 +1177,7 @@ export class TechniqueGenerationService {
     if (!pool) {
       return 0;
     }
+    await this.expireStaleJobs();
     const modelConfig = await this.modelConfigResolver?.();
     if (!modelConfig) {
       return 0;

@@ -26,7 +26,8 @@
       "giverMapId": "yunlai_town",
       "giverNpcId": "npc_qingxuan",
       "submitMapId": "bamboo_forest",
-      "submitNpcId": "npc_bamboo_scout"
+      "submitNpcId": "npc_bamboo_scout",
+      "guideFlowId": "alchemy-guide"
     },
     {
       "id": "q_bamboo_wolf_fangs",
@@ -55,7 +56,8 @@
       "giverMapId": "bamboo_forest",
       "giverNpcId": "npc_bamboo_scout",
       "submitMapId": "bamboo_forest",
-      "submitNpcId": "npc_bamboo_scout"
+      "submitNpcId": "npc_bamboo_scout",
+      "guideFlowId": "refine-equipment-guide"
     },
     {
       "id": "q_bamboo_broken_cart",
@@ -83,7 +85,8 @@
       "giverMapId": "bamboo_forest",
       "giverNpcId": "npc_bamboo_scout",
       "submitMapId": "bamboo_forest",
-      "submitNpcId": "npc_bamboo_scout"
+      "submitNpcId": "npc_bamboo_scout",
+      "guideFlowId": "market-guide"
     },
     {
       "id": "q_bamboo_serpent_gall",

@@ -942,6 +942,28 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
         }
         return;
       }
+      if (data.result === 'cancelled') {
+        const refund = data.discardRefund;
+        const refundJade = refund?.refundCurrencyItemId === 'wudao_yujian' ? refund.refundAmount : 0;
+        options.showToast(
+          refundJade > 0 ? `已取消推演，返还 ${refundJade} 枚悟道玉简` : '已取消推演',
+          'system',
+        );
+        syncTechniqueGenerationState({
+          generating: false,
+          currentDraft: null,
+          currentJob: null,
+          currentBatch: null,
+          error: '',
+        });
+        if (techniqueGenerationStore.getState().visible) {
+          options.techniqueGenerationSender.sendGetStatus(
+            getTechniqueGenerationSelectedItemSpend(),
+            getTechniqueGenerationSelectedMode(),
+          );
+        }
+        return;
+      }
       if (data.result === 'success' && data.preview && grade && category) {
         syncTechniqueGenerationState({
           generating: false,

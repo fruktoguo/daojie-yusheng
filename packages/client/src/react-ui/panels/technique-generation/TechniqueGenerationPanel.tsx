@@ -5,7 +5,7 @@
  */
 import { memo, useCallback, useEffect, useState, type CSSProperties, type PointerEvent, type ReactElement } from 'react';
 import type { AttrKey, Attributes, SkillDef, TechniqueCategory, TechniqueGrade } from '@mud/shared';
-import { ATTR_KEYS, CUSTOM_TECHNIQUE_NAME_MAX_LENGTH, CUSTOM_TECHNIQUE_NAME_MIN_LENGTH, CUSTOM_TECHNIQUE_PROMPT_MAX_LENGTH, resolveSkillPlayerWindupTicks, resolveSkillUnlockLevel } from '@mud/shared';
+import { ATTR_KEYS, CUSTOM_TECHNIQUE_NAME_MAX_LENGTH, CUSTOM_TECHNIQUE_NAME_MIN_LENGTH, CUSTOM_TECHNIQUE_PROMPT_MAX_LENGTH, TECHNIQUE_GENERATION_AUTO_CANCEL_AFTER_MS, TECHNIQUE_GENERATION_MANUAL_CANCEL_AFTER_MS, resolveSkillPlayerWindupTicks, resolveSkillUnlockLevel } from '@mud/shared';
 import { createPanelStore } from '../../stores/create-panel-store';
 import { ATTR_KEY_LABELS, getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../../../domain-labels';
 import { ATTR_COLORS, ATTR_ICON_ATLAS_CELLS } from '../../../constants/ui/attr-panel';
@@ -47,6 +47,7 @@ export interface TechniqueGenerationPanelState {
     category: string;
     rolledGrade: TechniqueGrade;
     rolledRealmLv: number;
+    createdAt: string;
     draftExpireAt?: string;
   } | null;
   currentDraft: {
@@ -114,6 +115,7 @@ interface TechniqueGenerationCallbacks {
   onDiscard: ((jobId: string) => void) | null;
   onAdoptBatch: ((batchId: string) => void) | null;
   onDiscardBatch: ((batchId: string) => void) | null;
+  onCancel: ((jobId: string | null, batchId: string | null) => void) | null;
   onClose: (() => void) | null;
 }
 
@@ -124,6 +126,7 @@ const callbacks: TechniqueGenerationCallbacks = {
   onDiscard: null,
   onAdoptBatch: null,
   onDiscardBatch: null,
+  onCancel: null,
   onClose: null,
 };
 
@@ -221,6 +224,19 @@ function showTechniqueGenerationSkillTooltipFromAnchor(skill: SkillDef, anchor: 
   }, true);
 }
 
+
+function parseTechniqueGenerationStartedAt(value: string | undefined): number | null {
+  if (!value) return null;
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function formatTechniqueGenerationDuration(ms: number): string {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes > 0 ? `${minutes}分${seconds.toString().padStart(2, '0')}秒` : `${seconds}秒`;
+}
 function formatTechniqueGenerationRealmLabel(realmLv: number): string {
   return getLocalRealmLevelEntry(realmLv)?.displayName ?? `Lv.${formatDisplayInteger(realmLv)}`;
 }
@@ -232,10 +248,28 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
   const [customName, setCustomName] = useState('');
   const [batchPage, setBatchPage] = useState(1);
   const [batchConfirmation, setBatchConfirmation] = useState<BatchConfirmation | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const itemSpend = state.selectedItemSpend;
   const selectedMode = state.selectedMode;
+  const activeGeneration = state.currentBatch && (state.currentBatch.status === 'pending' || state.currentBatch.status === 'running')
+    ? { jobId: null, batchId: state.currentBatch.batchId, startedAt: state.currentBatch.createdAt }
+    : state.currentJob && (state.currentJob.status === 'pending' || state.currentJob.status === 'running')
+      ? { jobId: state.currentJob.jobId, batchId: null, startedAt: state.currentJob.createdAt }
+      : null;
+  const activeGenerationStartedAt = parseTechniqueGenerationStartedAt(activeGeneration?.startedAt);
+  const activeGenerationElapsedMs = activeGenerationStartedAt === null ? 0 : Math.max(0, nowMs - activeGenerationStartedAt);
+  const manualCancelRemainingMs = Math.max(0, TECHNIQUE_GENERATION_MANUAL_CANCEL_AFTER_MS - activeGenerationElapsedMs);
+  const autoCancelRemainingMs = Math.max(0, TECHNIQUE_GENERATION_AUTO_CANCEL_AFTER_MS - activeGenerationElapsedMs);
+  const canCancelActiveGeneration = Boolean(activeGeneration && activeGenerationStartedAt !== null && manualCancelRemainingMs <= 0);
 
   useEffect(() => () => hideTechniqueGenerationTooltip(), []);
+
+  useEffect(() => {
+    if (!state.generating || !activeGeneration) return undefined;
+    setNowMs(Date.now());
+    const timer = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [state.generating, activeGeneration?.jobId, activeGeneration?.batchId]);
 
   useEffect(() => {
     if (!state.currentDraft) return;
@@ -314,6 +348,11 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
       batchId: state.currentBatch.batchId,
     });
   }, [state.currentBatch]);
+
+  const handleCancelGeneration = useCallback(() => {
+    if (!activeGeneration || !canCancelActiveGeneration) return;
+    callbacks.onCancel?.(activeGeneration.jobId, activeGeneration.batchId);
+  }, [activeGeneration, canCancelActiveGeneration]);
 
   const handleConfirmBatchAction = useCallback(() => {
     if (!batchConfirmation) return;
@@ -430,7 +469,26 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
         <div className="technique-generation-panel__state technique-generation-panel__state--loading">
           <span className="technique-generation-panel__spinner" aria-hidden="true" />
           <strong>正在推演功法</strong>
-          <span>请稍候，结果生成后会自动显示。</span>
+          <span>
+            {activeGenerationStartedAt === null
+              ? '请稍候，结果生成后会自动显示。'
+              : `已等待 ${formatTechniqueGenerationDuration(activeGenerationElapsedMs)}，超过30分钟未完成会自动取消。`}
+          </span>
+          {activeGenerationStartedAt !== null && (
+            <span className="technique-generation-panel__cancel-hint">
+              {canCancelActiveGeneration
+                ? `可手动取消；自动取消剩余 ${formatTechniqueGenerationDuration(autoCancelRemainingMs)}`
+                : `还需 ${formatTechniqueGenerationDuration(manualCancelRemainingMs)} 后可取消`}
+            </span>
+          )}
+          <button
+            type="button"
+            className="small-btn ghost technique-generation-panel__cancel-btn"
+            disabled={!canCancelActiveGeneration}
+            onClick={handleCancelGeneration}
+          >
+            取消推演
+          </button>
         </div>
       )}
 

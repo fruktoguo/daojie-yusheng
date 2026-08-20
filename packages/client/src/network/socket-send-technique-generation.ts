@@ -10,7 +10,18 @@ type TechniqueGenerationSenderDeps = {
   emitEvent: SocketEmitEvent;
 };
 
-export function createSocketTechniqueGenerationSender(deps: TechniqueGenerationSenderDeps) {
+export interface SocketTechniqueGenerationSender {
+  sendGetStatus(itemSpend?: number, mode?: 'single' | 'batch'): void;
+  sendGenerate(category: 'internal' | 'arts', playerContext?: string, itemSpend?: number, mode?: 'single' | 'batch'): void;
+  sendAdopt(jobId: string, customName: string): void;
+  sendDiscard(jobId: string): void;
+  sendAdoptBatch(batchId: string): void;
+  sendDiscardBatch(batchId: string): void;
+  sendCancel(jobId: string): void;
+  sendCancelBatch(batchId: string): void;
+}
+
+export function createSocketTechniqueGenerationSender(deps: TechniqueGenerationSenderDeps): SocketTechniqueGenerationSender {
   return {
     sendGetStatus(itemSpend?: number, mode: 'single' | 'batch' = 'single'): void {
       deps.emitEvent(C2S.TechniqueGeneration, { action: 'getStatus', itemSpend, mode });
@@ -50,7 +61,16 @@ export function createSocketTechniqueGenerationSender(deps: TechniqueGenerationS
     sendDiscardBatch(batchId: string): void {
       deps.emitEvent(C2S.TechniqueGeneration, { action: 'discardBatch', batchId });
     },
+
+    sendCancel(jobId: string): void {
+      deps.emitEvent(C2S.TechniqueGeneration, { action: 'cancel', jobId });
+    },
+
+    sendCancelBatch(batchId: string): void {
+      deps.emitEvent(C2S.TechniqueGeneration, { action: 'cancel', batchId });
+    },
+
+
   };
 }
 
-export type SocketTechniqueGenerationSender = ReturnType<typeof createSocketTechniqueGenerationSender>;

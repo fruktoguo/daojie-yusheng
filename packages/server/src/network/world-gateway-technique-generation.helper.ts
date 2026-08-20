@@ -13,11 +13,17 @@ import { S2C } from '@mud/shared';
 import type { Socket } from 'socket.io';
 import type { TechniqueGenerationService } from '../runtime/technique-generation/technique-generation.service';
 import type { TechniqueCategory } from '@mud/shared';
+import type { AdoptResult, BatchAdoptResult, DiscardResult, GenerationJobResult } from '../runtime/technique-generation/technique-generation.types';
 import {
   buildTechniqueGenerationRollRange,
   normalizeTechniqueGenerationItemSpend,
 } from '../runtime/technique-generation/technique-generation-roll';
-import { TECHNIQUE_GENERATION_UNLOCK_REALM_LV } from '../runtime/technique-generation/technique-generation-constants';
+import { TECHNIQUE_GENERATION_AUTO_CANCEL_AFTER_MS, TECHNIQUE_GENERATION_UNLOCK_REALM_LV } from '../runtime/technique-generation/technique-generation-constants';
+
+const TECHNIQUE_GENERATION_RESULT_WAIT_INTERVAL_MS = 1000;
+const TECHNIQUE_GENERATION_RESULT_MAX_ATTEMPTS = Math.ceil(
+  TECHNIQUE_GENERATION_AUTO_CANCEL_AFTER_MS / TECHNIQUE_GENERATION_RESULT_WAIT_INTERVAL_MS,
+);
 
 interface TechniqueGenerationHelperDeps {
   gatewayGuardHelper: {
@@ -92,6 +98,9 @@ export class WorldGatewayTechniqueGenerationHelper {
       case 'discardBatch':
         return this.handleDiscardBatch(client, playerId, request);
 
+      case 'cancel':
+        return this.handleCancel(client, playerId, request);
+
       default:
         this.deps.worldClientEventService.emitGatewayError(client, 'UNKNOWN_ACTION', new Error('未知操作'));
         return undefined;
@@ -99,6 +108,9 @@ export class WorldGatewayTechniqueGenerationHelper {
   }
 
   private async handleGetStatus(client: Socket, playerId: string, request: Record<string, unknown>): Promise<unknown> {
+    if (typeof this.techniqueGenerationService?.expireStaleJobs === 'function') {
+      await this.techniqueGenerationService.expireStaleJobs();
+    }
     await this.refundNoModelFailedJobs(client, playerId);
     const realmLv = this.deps.playerRuntimeService.getPlayerRealmLv(playerId);
     const highestRealmLv = this.deps.playerRuntimeService.getPlayerHighestRealmLv(playerId) ?? realmLv;
@@ -167,7 +179,7 @@ export class WorldGatewayTechniqueGenerationHelper {
       return { success: false, error: '批量领悟当前仅支持内功', errorCode: 'CATEGORY_LOCKED' };
     }
 
-    let result: Awaited<ReturnType<TechniqueGenerationService['requestGeneration']>>;
+    let result: GenerationJobResult;
     try {
       result = await this.runExclusivePlayerAssetMutation(playerId, async () => {
         await this.prepareInventoryForDurableMutation(playerId);
@@ -198,9 +210,7 @@ export class WorldGatewayTechniqueGenerationHelper {
     }
 
     if (result.success && result.jobId) {
-      setImmediate(() => {
-        this.emitGenerationResultWhenReady(client, playerId, result.jobId!, 0, result.batchId).catch(() => undefined);
-      });
+      await this.handleGetStatus(client, playerId, { itemSpend, mode });
       return {
         success: true,
         jobId: result.jobId,
@@ -229,46 +239,66 @@ export class WorldGatewayTechniqueGenerationHelper {
   ): Promise<void> {
     if (batchId) {
       const previews = await this.techniqueGenerationService!.getBatchPreviews(playerId, batchId);
-      if (previews.length === 0 && attempt < 120) {
-        setTimeout(() => {
-          this.emitGenerationResultWhenReady(client, playerId, jobId, attempt + 1, batchId).catch(() => undefined);
-        }, 1000);
+      if (previews.length === 0) {
+        const outcome = await this.techniqueGenerationService!.getBatchOutcomeForPlayer(playerId, batchId);
+        if (outcome.status === 'failed') {
+          client.emit(S2C.TechniqueGenerationResult, {
+            jobId,
+            batchId,
+            result: 'failed',
+            errorMessage: outcome.errorMessage ?? '批量领悟失败',
+          });
+          return;
+        }
+        if (outcome.status === 'cancelled') return;
+        if (attempt < TECHNIQUE_GENERATION_RESULT_MAX_ATTEMPTS) {
+          setTimeout(() => {
+            this.emitGenerationResultWhenReady(client, playerId, jobId, attempt + 1, batchId).catch(() => undefined);
+          }, TECHNIQUE_GENERATION_RESULT_WAIT_INTERVAL_MS);
+          return;
+        }
+        await this.emitAutoCancelResult(client, playerId, jobId, batchId);
         return;
       }
-      client.emit(S2C.TechniqueGenerationResult, previews.length > 0 ? {
+      client.emit(S2C.TechniqueGenerationResult, {
         jobId,
         batchId,
         result: 'success',
         previews,
-      } : {
-        jobId,
-        batchId,
-        result: 'failed',
-        errorMessage: '批量领悟超时，请稍后重试',
       });
       return;
     }
     const result = await this.techniqueGenerationService!.getPreview(playerId, jobId);
-    if (!result && attempt < 120) {
-      setTimeout(() => {
-        this.emitGenerationResultWhenReady(client, playerId, jobId, attempt + 1).catch(() => undefined);
-      }, 1000);
+    if (!result) {
+      const outcome = await this.techniqueGenerationService!.getJobOutcomeForPlayer(playerId, jobId);
+      if (outcome.status === 'failed') {
+        client.emit(S2C.TechniqueGenerationResult, {
+          jobId,
+          result: 'failed',
+          errorMessage: outcome.errorMessage ?? '功法领悟失败',
+        });
+        return;
+      }
+      if (outcome.status === 'cancelled') return;
+      if (attempt < TECHNIQUE_GENERATION_RESULT_MAX_ATTEMPTS) {
+        setTimeout(() => {
+          this.emitGenerationResultWhenReady(client, playerId, jobId, attempt + 1).catch(() => undefined);
+        }, TECHNIQUE_GENERATION_RESULT_WAIT_INTERVAL_MS);
+        return;
+      }
+      await this.emitAutoCancelResult(client, playerId, jobId);
       return;
     }
-    client.emit(S2C.TechniqueGenerationResult, result ? {
+    client.emit(S2C.TechniqueGenerationResult, {
       jobId,
       result: 'success',
       preview: result,
-    } : {
-      jobId,
-      result: 'failed',
-      errorMessage: '功法领悟超时，请稍后重试',
     });
   }
 
   private async handleAdoptBatch(client: Socket, playerId: string, request: Record<string, unknown>): Promise<unknown> {
     const batchId = String(request.batchId ?? '');
-    let result: Awaited<ReturnType<TechniqueGenerationService['adoptBatchDraft']>>;
+    let result: BatchAdoptResult;
     try {
       result = await this.runExclusivePlayerAssetMutation(playerId, async () => {
         await this.prepareTechniqueForDurableMutation(playerId);
@@ -312,7 +342,7 @@ export class WorldGatewayTechniqueGenerationHelper {
 
   private async handleDiscardBatch(client: Socket, playerId: string, request: Record<string, unknown>): Promise<unknown> {
     const batchId = String(request.batchId ?? '');
-    let result: Awaited<ReturnType<TechniqueGenerationService['discardBatchDraft']>>;
+    let result: DiscardResult;
     try {
       result = await this.runExclusivePlayerAssetMutation(playerId, async () => {
         await this.prepareInventoryForDurableMutation(playerId);
@@ -340,6 +370,80 @@ export class WorldGatewayTechniqueGenerationHelper {
     return result;
   }
 
+  private async handleCancel(client: Socket, playerId: string, request: Record<string, unknown>): Promise<unknown> {
+    const batchId = typeof request.batchId === 'string' ? request.batchId.trim() : '';
+    const jobId = typeof request.jobId === 'string' ? request.jobId.trim() : '';
+    let result: DiscardResult;
+    try {
+      result = await this.runExclusivePlayerAssetMutation(playerId, async () => {
+        await this.prepareInventoryForDurableMutation(playerId);
+        const fence = this.requireTechniqueGenerationSessionFence(playerId);
+        return batchId
+          ? this.techniqueGenerationService!.cancelBatchGeneration({
+              playerId,
+              batchId,
+              ...fence,
+              applyInventorySnapshot: async (items) => this.applyCommittedInventorySnapshot(playerId, items),
+            })
+          : this.techniqueGenerationService!.cancelGeneration({
+              playerId,
+              jobId,
+              ...fence,
+              applyInventorySnapshot: async (items) => this.applyCommittedInventorySnapshot(playerId, items),
+            });
+      });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '功法推演取消失败';
+      client.emit(S2C.TechniqueGenerationResult, { jobId, batchId: batchId || undefined, result: 'failed', errorMessage });
+      return { success: false, error: errorMessage };
+    }
+    client.emit(S2C.TechniqueGenerationResult, {
+      jobId,
+      batchId: batchId || undefined,
+      result: result.success ? 'cancelled' : 'failed',
+      errorMessage: result.success ? undefined : result.error ?? '功法推演取消失败',
+      discardRefund: result.success ? result.refund : undefined,
+    });
+    if (result.success) this.deps.worldSyncService?.emitDeltaSync(playerId, client);
+    return result;
+  }
+
+  private async emitAutoCancelResult(
+    client: Socket,
+    playerId: string,
+    jobId: string,
+    batchId?: string,
+  ): Promise<void> {
+    let result: DiscardResult;
+    try {
+      result = await this.runExclusivePlayerAssetMutation(playerId, async () => {
+        await this.prepareInventoryForDurableMutation(playerId);
+        const fence = this.requireTechniqueGenerationSessionFence(playerId);
+        return this.techniqueGenerationService!.cancelTimedOutIncompleteGenerationForPlayer({
+          playerId,
+          ...fence,
+          applyInventorySnapshot: async (items) => this.applyCommittedInventorySnapshot(playerId, items),
+        });
+      });
+    } catch (error: unknown) {
+      client.emit(S2C.TechniqueGenerationResult, {
+        jobId,
+        batchId,
+        result: 'failed',
+        errorMessage: error instanceof Error ? error.message : '功法推演自动取消失败',
+      });
+      return;
+    }
+    client.emit(S2C.TechniqueGenerationResult, {
+      jobId,
+      batchId,
+      result: result.success ? 'cancelled' : 'failed',
+      errorMessage: result.success ? undefined : result.error ?? '功法推演自动取消失败',
+      discardRefund: result.success ? result.refund : undefined,
+    });
+    if (result.success) this.deps.worldSyncService?.emitDeltaSync(playerId, client);
+  }
+
   private async refundNoModelFailedJobs(client: Socket, playerId: string): Promise<void> {
     if (!this.techniqueGenerationService || typeof this.techniqueGenerationService.refundFailedConsumedJobsForPlayer !== 'function') {
       return;
@@ -352,7 +456,7 @@ export class WorldGatewayTechniqueGenerationHelper {
     const jobId = String(request.jobId ?? '');
     const customName = String(request.customName ?? '');
 
-    let result: Awaited<ReturnType<TechniqueGenerationService['adoptDraft']>>;
+    let result: AdoptResult;
     try {
       result = await this.runExclusivePlayerAssetMutation(playerId, async () => {
         await this.prepareTechniqueForDurableMutation(playerId);
@@ -403,7 +507,7 @@ export class WorldGatewayTechniqueGenerationHelper {
 
   private async handleDiscard(client: Socket, playerId: string, request: Record<string, unknown>): Promise<unknown> {
     const jobId = String(request.jobId ?? '');
-    let result: Awaited<ReturnType<TechniqueGenerationService['discardDraft']>>;
+    let result: DiscardResult;
     try {
       result = await this.runExclusivePlayerAssetMutation(playerId, async () => {
         await this.prepareInventoryForDurableMutation(playerId);

@@ -104,6 +104,12 @@ export const CUSTOM_TECHNIQUE_NAME_MAX_LENGTH = 20;
 /** 自创功法玩家提示词最大字符数。 */
 export const CUSTOM_TECHNIQUE_PROMPT_MAX_LENGTH = 4000;
 
+/** 自创功法推演开始后，允许玩家手动取消的等待时间。 */
+export const TECHNIQUE_GENERATION_MANUAL_CANCEL_AFTER_MS = 60_000;
+
+/** 自创功法推演超过该时间仍未生成草稿时自动取消。 */
+export const TECHNIQUE_GENERATION_AUTO_CANCEL_AFTER_MS = 30 * 60 * 1000;
+
 /** 分解功法书获得残页的公式倍率。 */
 export const TECHNIQUE_BOOK_DECOMPOSE_FRAGMENT_BASE = 1;
 

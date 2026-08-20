@@ -343,4 +343,5 @@ export type C2S_TechniqueGeneration =
   | { action: 'adopt'; jobId: string; customName: string }
   | { action: 'discard'; jobId: string }
   | { action: 'adoptBatch'; batchId: string }
-  | { action: 'discardBatch'; batchId: string };
+  | { action: 'discardBatch'; batchId: string }
+  | { action: 'cancel'; jobId?: string; batchId?: string };

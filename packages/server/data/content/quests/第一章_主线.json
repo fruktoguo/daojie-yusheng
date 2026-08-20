@@ -26,7 +26,8 @@
       "giverMapId": "yunlai_town",
       "giverNpcId": "npc_shen_qiniang",
       "submitMapId": "wildlands",
-      "submitNpcId": "npc_hunter_luo"
+      "submitNpcId": "npc_hunter_luo",
+      "guideFlowId": "combat-settings-guide"
     },
     {
       "id": "q_wildlands_boar_meat",
@@ -55,7 +56,8 @@
       "giverMapId": "wildlands",
       "giverNpcId": "npc_hunter_luo",
       "submitMapId": "yunlai_town",
-      "submitNpcId": "npc_shen_qiniang"
+      "submitNpcId": "npc_shen_qiniang",
+      "guideFlowId": "auto-potion-guide"
     },
     {
       "id": "q_wildlands_bandit_toll",
@@ -84,7 +86,8 @@
       "giverMapId": "yunlai_town",
       "giverNpcId": "npc_ma_huitou",
       "submitMapId": "yunlai_town",
-      "submitNpcId": "npc_blacksmith_han"
+      "submitNpcId": "npc_blacksmith_han",
+      "guideFlowId": "observe-guide"
     },
     {
       "id": "q_wildlands_swamp_medicine",
@@ -125,7 +128,8 @@
       "giverMapId": "yunlai_town",
       "giverNpcId": "npc_herbalist_lan",
       "submitMapId": "yunlai_town",
-      "submitNpcId": "npc_herbalist_lan"
+      "submitNpcId": "npc_herbalist_lan",
+      "guideFlowId": "sense-qi-guide"
     },
     {
       "id": "q_wildlands_old_gate_words",
@@ -153,7 +157,8 @@
       "giverMapId": "yunlai_town",
       "giverNpcId": "npc_wenji",
       "submitMapId": "yunlai_town",
-      "submitNpcId": "npc_qingxuan"
+      "submitNpcId": "npc_qingxuan",
+      "guideFlowId": "body-training-guide"
     },
     {
       "id": "q_wildlands_bone_forging",
@@ -198,7 +203,8 @@
       "giverMapId": "yunlai_town",
       "giverNpcId": "npc_qingxuan",
       "submitMapId": "yunlai_town",
-      "submitNpcId": "npc_qingxuan"
+      "submitNpcId": "npc_qingxuan",
+      "guideFlowId": "breakthrough-guide"
     }
   ]
 }

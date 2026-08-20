@@ -5,16 +5,15 @@
  */
 import { randomUUID } from 'node:crypto';
 
-import { NestFactory } from '@nestjs/core';
 
-import { AppModule } from '../app.module';
-import { MailExpirationCleanupWorker } from '../runtime/world/worker/mail-expiration-cleanup.worker';
-
+import { createServerApplicationContextAfterBootstrapConfig, loadServerBootstrapConfigForContext } from '../bootstrap/server-application-context';
 const DEFAULT_IDLE_MS = 5_000;
 
 async function main(): Promise<void> {
+  await loadServerBootstrapConfigForContext();
   const { once, idleMs } = parseArgs(process.argv.slice(2));
-  const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
+  const app = await createServerApplicationContextAfterBootstrapConfig({ logger: false });
+  const { MailExpirationCleanupWorker } = await import('../runtime/world/worker/mail-expiration-cleanup.worker.js');
   const worker = app.get(MailExpirationCleanupWorker);
 
   try {

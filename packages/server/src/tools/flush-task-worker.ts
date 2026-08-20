@@ -5,15 +5,13 @@
  */
 import { randomUUID } from 'node:crypto';
 
-import { NestFactory } from '@nestjs/core';
-
-import { AppModule } from '../app.module';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
-import { FlushTaskRuntimeService } from '../persistence/flush-task-runtime.service';
 
+import { createServerApplicationContextAfterBootstrapConfig, loadServerBootstrapConfigForContext } from '../bootstrap/server-application-context';
 const DEFAULT_IDLE_MS = 1_500;
 
 async function main(): Promise<void> {
+  await loadServerBootstrapConfigForContext();
   const databaseUrl = resolveServerDatabaseUrl();
   if (!databaseUrl.trim()) {
     console.log(JSON.stringify({
@@ -30,7 +28,8 @@ async function main(): Promise<void> {
   process.env.SERVER_RUNTIME_ROLE = process.env.SERVER_RUNTIME_ROLE?.trim() || 'worker';
   process.env.SERVER_FLUSH_TASK_RUNTIME_MODE = 'worker';
   const { once, idleMs } = parseArgs(process.argv.slice(2));
-  const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
+  const app = await createServerApplicationContextAfterBootstrapConfig({ logger: false });
+  const { FlushTaskRuntimeService } = await import('../persistence/flush-task-runtime.service.js');
   const runtime = app.get(FlushTaskRuntimeService);
   const workerId = process.env.SERVER_FLUSH_TASK_WORKER_ID?.trim() || `flush-task-worker:${process.pid}:${randomUUID()}`;
 

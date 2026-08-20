@@ -1262,6 +1262,165 @@ export async function discardDurableTechniqueDraftBatch(
   });
 }
 
+export interface CancelDurableIncompleteTechniqueGenerationInput extends TechniqueGenerationSessionFence {
+  playerId: string;
+  operationRefId: string;
+  operationKind: 'cancel' | 'cancel_batch' | 'auto_cancel' | 'auto_cancel_batch';
+  jobIds: string[];
+  minAgeMs: number;
+  errorCode: string;
+  errorMessage: string;
+}
+
+export interface CancelDurableIncompleteTechniqueGenerationResult {
+  ok: boolean;
+  alreadyCommitted: boolean;
+  inventoryItems: TechniqueGenerationRuntimeInventoryItem[];
+  itemSpend?: number;
+  errorCode?: 'JOB_STATE_INVALID' | 'CANCEL_TOO_EARLY';
+}
+
+/** 手动/自动取消仍在 pending/running 的推演任务，并原路返还悟道玉简。 */
+export async function cancelDurableIncompleteTechniqueGeneration(
+  pool: Pool,
+  input: CancelDurableIncompleteTechniqueGenerationInput,
+): Promise<CancelDurableIncompleteTechniqueGenerationResult> {
+  return withPlayerTechniqueGenerationTransaction(pool, input.playerId, async (client) => {
+    await assertTechniqueGenerationSessionFence(client, input.playerId, input);
+    const operationId = buildTechniqueGenerationOperationId(input.operationKind, input.operationRefId);
+    const operationType = `technique_generation_${input.operationKind}`;
+    const existingOperation = await loadCommittedTechniqueGenerationOperation(client, operationId, {
+      playerId: input.playerId,
+      operationType,
+      aggregateType: TECHNIQUE_GENERATION_JOB_TABLE,
+      jobId: input.operationRefId,
+    });
+    if (existingOperation) {
+      return {
+        ok: true,
+        alreadyCommitted: true,
+        inventoryItems: await loadTechniqueGenerationRuntimeInventory(client, input.playerId),
+        itemSpend: normalizePositiveInteger(existingOperation.itemSpend, input.jobIds.length || 1),
+      };
+    }
+    const jobIds = normalizeStringArray(input.jobIds);
+    if (jobIds.length === 0) {
+      return { ok: false, alreadyCommitted: false, inventoryItems: [], errorCode: 'JOB_STATE_INVALID' };
+    }
+    const jobsResult = await client.query<{
+      id?: unknown;
+      status?: unknown;
+      draft_technique_id?: unknown;
+      item_spend?: unknown;
+      item_consumed?: unknown;
+      item_refunded?: unknown;
+      created_at?: unknown;
+    }>(
+      `SELECT id, status, draft_technique_id, item_spend, item_consumed, item_refunded, created_at
+         FROM ${TECHNIQUE_GENERATION_JOB_TABLE}
+        WHERE player_id = $1 AND id = ANY($2::text[])
+        ORDER BY id ASC
+        FOR UPDATE`,
+      [input.playerId, jobIds],
+    );
+    if ((jobsResult.rowCount ?? 0) !== jobIds.length
+      || jobsResult.rows.some((row) => row.status !== 'pending' && row.status !== 'running')
+      || jobsResult.rows.some((row) => normalizeOptionalString(row.draft_technique_id))) {
+      return { ok: false, alreadyCommitted: false, inventoryItems: [], errorCode: 'JOB_STATE_INVALID' };
+    }
+    const now = Date.now();
+    const minAgeMs = Math.max(0, Math.trunc(Number(input.minAgeMs) || 0));
+    if (jobsResult.rows.some((row) => {
+      const createdAt = normalizeTimestamp(row.created_at);
+      return createdAt === null || now - createdAt < minAgeMs;
+    })) {
+      return { ok: false, alreadyCommitted: false, inventoryItems: [], errorCode: 'CANCEL_TOO_EARLY' };
+    }
+    const itemSpend = jobsResult.rows.reduce(
+      (sum, row) => sum + normalizePositiveInteger(row.item_spend, 1),
+      0,
+    );
+    const shouldRefund = jobsResult.rows.some((row) => row.item_consumed === true && row.item_refunded !== true);
+    const beforeAfter = shouldRefund
+      ? await grantTechniqueGenerationInventoryItem(
+          client,
+          input.playerId,
+          TECHNIQUE_GENERATION_ITEM_ID,
+          itemSpend,
+          operationId,
+        )
+      : { beforeCount: 0, afterCount: 0 };
+    const updated = await client.query(
+      `UPDATE ${TECHNIQUE_GENERATION_JOB_TABLE}
+          SET status = 'cancelled',
+              error_code = $3,
+              error_message = $4,
+              item_refunded = CASE WHEN item_consumed = true THEN true ELSE item_refunded END,
+              refunded_at = CASE WHEN item_consumed = true THEN COALESCE(refunded_at, NOW()) ELSE refunded_at END,
+              finished_at = COALESCE(finished_at, NOW()),
+              updated_at = NOW()
+        WHERE player_id = $1
+          AND id = ANY($2::text[])
+          AND status IN ('pending', 'running')
+          AND draft_technique_id IS NULL`,
+      [input.playerId, jobIds, input.errorCode, input.errorMessage],
+    );
+    if ((updated.rowCount ?? 0) !== jobIds.length) {
+      throw new Error(`technique_generation_cancel_state_conflict:${input.operationRefId}`);
+    }
+    if (shouldRefund) {
+      await touchTechniqueGenerationRecoveryWatermark(client, input.playerId, 'inventory_version');
+    }
+    const operationPayload = {
+      jobId: input.operationRefId,
+      jobIds,
+      itemId: TECHNIQUE_GENERATION_ITEM_ID,
+      itemSpend,
+    };
+    await insertCommittedTechniqueGenerationOperation(client, {
+      operationId,
+      playerId: input.playerId,
+      operationType,
+      aggregateType: TECHNIQUE_GENERATION_JOB_TABLE,
+      aggregateId: input.operationRefId,
+      fence: input,
+      payload: operationPayload,
+    });
+    if (shouldRefund) {
+      await insertTechniqueGenerationOutbox(client, {
+        operationId,
+        topic: 'player.inventory.granted',
+        playerId: input.playerId,
+        payload: {
+          playerId: input.playerId,
+          sourceType: operationType,
+          sourceRefId: input.operationRefId,
+          grantedItems: [{ itemId: TECHNIQUE_GENERATION_ITEM_ID, count: itemSpend }],
+        },
+      });
+      await insertTechniqueGenerationAssetAudit(client, {
+        operationId,
+        playerId: input.playerId,
+        assetRefId: input.operationRefId,
+        action: 'grant',
+        delta: {
+          sourceType: operationType,
+          itemId: TECHNIQUE_GENERATION_ITEM_ID,
+          count: itemSpend,
+        },
+        before: { itemId: TECHNIQUE_GENERATION_ITEM_ID, count: beforeAfter.beforeCount },
+        after: { itemId: TECHNIQUE_GENERATION_ITEM_ID, count: beforeAfter.afterCount },
+      });
+    }
+    return {
+      ok: true,
+      alreadyCommitted: false,
+      inventoryItems: await loadTechniqueGenerationRuntimeInventory(client, input.playerId),
+      itemSpend,
+    };
+  });
+}
+
 /** 批量生成失败时统一标记所有仍在执行中的子任务。 */
 export async function failDurableTechniqueGenerationBatch(
   pool: Pool,
@@ -1309,7 +1468,7 @@ export async function refundDurableFailedTechniqueGenerationJobs(
       `SELECT id, item_spend
          FROM ${TECHNIQUE_GENERATION_JOB_TABLE}
         WHERE player_id = $1
-          AND status = 'failed'
+          AND status IN ('failed', 'cancelled')
           AND item_consumed = true
           AND item_refunded = false
         ORDER BY created_at ASC, id ASC
@@ -1357,7 +1516,7 @@ export async function refundDurableFailedTechniqueGenerationJobs(
                 updated_at = NOW()
           WHERE id = $1
             AND player_id = $2
-            AND status = 'failed'
+            AND status IN ('failed', 'cancelled')
             AND item_consumed = true
             AND item_refunded = false`,
         [job.id, input.playerId],

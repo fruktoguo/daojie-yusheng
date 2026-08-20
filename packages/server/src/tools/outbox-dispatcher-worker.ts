@@ -5,17 +5,14 @@
  */
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { dirname, isAbsolute, resolve as resolvePath } from 'node:path';
-import { NestFactory } from '@nestjs/core';
-
-import { AppModule } from '../app.module';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
-import { OutboxEventConsumerRegistryService } from '../persistence/outbox-event-consumer-registry.service';
-import { OutboxDispatcherRuntimeService } from '../persistence/outbox-dispatcher-runtime.service';
-import { OutboxDispatcherService } from '../persistence/outbox-dispatcher.service';
 
+import { createServerApplicationContextAfterBootstrapConfig, loadServerBootstrapConfigForContext } from '../bootstrap/server-application-context';
+import type { OutboxEventConsumerRegistryService } from '../persistence/outbox-event-consumer-registry.service';
 const DEFAULT_OUTBOX_WORKER_IDLE_MS = 1_000;
 
 async function main(): Promise<void> {
+  await loadServerBootstrapConfigForContext();
   const databaseUrl = resolveServerDatabaseUrl();
   if (!databaseUrl.trim()) {
     console.log(
@@ -37,7 +34,10 @@ async function main(): Promise<void> {
 
   process.env.SERVER_RUNTIME_ROLE = process.env.SERVER_RUNTIME_ROLE?.trim() || 'worker';
   const { once, idleMs, topicPrefixes } = parseArgs(process.argv.slice(2));
-  const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
+  const app = await createServerApplicationContextAfterBootstrapConfig({ logger: false });
+  const { OutboxEventConsumerRegistryService } = await import('../persistence/outbox-event-consumer-registry.service.js');
+  const { OutboxDispatcherRuntimeService } = await import('../persistence/outbox-dispatcher-runtime.service.js');
+  const { OutboxDispatcherService } = await import('../persistence/outbox-dispatcher.service.js');
   const dispatcher = app.get(OutboxDispatcherService);
   const registry = app.get(OutboxEventConsumerRegistryService);
   const runtimeService = new OutboxDispatcherRuntimeService(dispatcher, registry);

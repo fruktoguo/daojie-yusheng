@@ -26,7 +26,8 @@
       "giverMapId": "yunlai_town",
       "giverNpcId": "npc_qingxuan",
       "submitMapId": "sky_ruins",
-      "submitNpcId": "npc_sky_observer"
+      "submitNpcId": "npc_sky_observer",
+      "guideFlowId": "artifact-fly-guide"
     },
     {
       "id": "q_sky_star_metal_main",

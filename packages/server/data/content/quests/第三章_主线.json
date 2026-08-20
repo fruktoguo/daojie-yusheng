@@ -39,7 +39,7 @@
       "id": "q_mine_signal_core",
       "title": "夺回信标核",
       "line": "main",
-      "guideFlowId": "mining-guide",
+      "guideFlowId": "craft-forge-guide",
       "chapter": "第三章·矿洞遗火",
       "story": "锻炉余火说矿路不是自己死的，是有人让它死的。若想知道当年矿道和镇里到底断在什么地方，就先去把那枚失落信标核心抢回来。矿路若还能亮一回，很多旧事都会自己浮出来。",
       "desc": "击退矿洞活尸，夺回失落信标核心。矿路之断非出天意，真相隐于那枚核心之中。",
@@ -110,7 +110,8 @@
       "giverMapId": "yunlai_town",
       "giverNpcId": "npc_qingxuan",
       "submitMapId": "ancient_ruins",
-      "submitNpcId": "npc_rune_keeper"
+      "submitNpcId": "npc_rune_keeper",
+      "guideFlowId": "mail-system-guide"
     },
     {
       "id": "q_ruin_keystone_main",

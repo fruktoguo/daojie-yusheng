@@ -67,7 +67,8 @@
       "giverMapId": "yunlai_town",
       "giverNpcId": "npc_shen_qiniang",
       "submitMapId": "yunlai_town",
-      "submitNpcId": "npc_shen_qiniang"
+      "submitNpcId": "npc_shen_qiniang",
+      "guideFlowId": "quest-navigation-guide"
     },
     {
       "id": "q_intro_manual",
@@ -163,7 +164,8 @@
       "giverMapId": "yunlai_town",
       "giverNpcId": "npc_shen_qiniang",
       "submitMapId": "yunlai_town",
-      "submitNpcId": "npc_shen_qiniang"
+      "submitNpcId": "npc_shen_qiniang",
+      "guideFlowId": "equipment-guide"
     },
     {
       "id": "q_intro_wounded_words",
@@ -191,7 +193,8 @@
       "giverMapId": "yunlai_town",
       "giverNpcId": "npc_shen_qiniang",
       "submitMapId": "yunlai_town",
-      "submitNpcId": "npc_qingxuan"
+      "submitNpcId": "npc_qingxuan",
+      "guideFlowId": "take-interaction-guide"
     },
     {
       "id": "q_intro_old_well_watch",
@@ -237,7 +240,7 @@
       "id": "q_intro_body_tempering",
       "title": "炼皮立根基",
       "line": "main",
-      "guideFlowId": "cultivation-guide",
+      "guideFlowId": "breakthrough-guide",
       "chapter": "序章·断道入镇",
       "story": "清玄不打算现在就替你掀开北井那层盖子。他给你的要求更现实: 先把境界练到能在云来镇外活着回来。等你真正撑住第一口内息，这镇子里的话你才有资格继续往下听。",
       "desc": "镇外苦修，习《站桩功》，备足鼠尾，强健体魄，突破炼皮境，奠定武道根基。",

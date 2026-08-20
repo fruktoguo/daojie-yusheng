@@ -16,6 +16,7 @@ export type TechniqueGenerationJobStatus =
   | 'generated_draft'
   | 'learned'
   | 'discarded'
+  | 'cancelled'
   | 'expired'
   | 'failed';
 

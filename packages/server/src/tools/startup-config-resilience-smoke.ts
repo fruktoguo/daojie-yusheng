@@ -41,6 +41,7 @@ async function main(): Promise<void> {
   assertBootstrapDatabaseConfigUsesBoundedTimeouts();
   await assertBootstrapDatabaseConfigWarnsOnLoadFailure();
   await assertServerApplicationLoadsDbConfigBeforeAppModule();
+  await assertProductionWorkersDeferBootstrapImports();
   await assertOptionalOutboxSchemaFailuresDoNotBlockStartup();
   const root = await mkdtemp(join(tmpdir(), 'startup-config-resilience-'));
   try {
@@ -496,6 +497,36 @@ async function assertServerApplicationLoadsDbConfigBeforeAppModule(): Promise<vo
   const appModuleImportIndex = source.indexOf('../app.module.js', bootstrapFunctionIndex);
   assert.ok(dbConfigCallIndex >= 0, 'bootstrapLoadDbConfig call should exist inside bootstrap');
   assert.ok(appModuleImportIndex > dbConfigCallIndex, 'AppModule import must happen after DB config load');
+}
+
+async function assertProductionWorkersDeferBootstrapImports(): Promise<void> {
+  const workerFiles = [
+    'asset-audit-log-retention-worker.js',
+    'checkpoint-compaction-worker.js',
+    'flush-task-worker.js',
+    'instance-container-flush-worker.js',
+    'instance-ground-item-flush-worker.js',
+    'instance-monster-runtime-flush-worker.js',
+    'instance-overlay-flush-worker.js',
+    'instance-resource-flush-worker.js',
+    'instance-tile-damage-flush-worker.js',
+    'mail-expiration-archive-worker.js',
+    'mail-expiration-cleanup-worker.js',
+    'mail-soft-delete-purge-worker.js',
+    'outbox-dispatcher-worker.js',
+    'player-anchor-checkpoint-flush-worker.js',
+    'player-state-flush-worker.js',
+  ];
+  for (const fileName of workerFiles) {
+    const source = await readFile(resolve(__dirname, fileName), 'utf8');
+    const mainIndex = source.indexOf('async function main');
+    assert.ok(mainIndex >= 0, `${fileName} should expose an async main function`);
+    const topLevelPrefix = source.slice(0, mainIndex);
+    assert.equal(topLevelPrefix.includes('../app.module'), false, `${fileName} must not preload AppModule before DB config`);
+    assert.equal(topLevelPrefix.includes('../runtime/world/worker/'), false, `${fileName} must not preload worker providers before DB config`);
+    assert.equal(topLevelPrefix.includes('../persistence/flush-task-runtime.service'), false, `${fileName} must not preload flush runtime before DB config`);
+    assert.ok(source.includes('../bootstrap/server-application-context'), `${fileName} should use shared server application context bootstrap`);
+  }
 }
 
 function captureEnv(names: string[]): Map<string, string | undefined> {

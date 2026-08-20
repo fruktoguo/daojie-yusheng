@@ -29,6 +29,12 @@ export const TECHNIQUE_GENERATION_HIGH_DIRECTION_RATIO = 0.25;
 /** 单次领悟最多投入的悟道玉简数量 */
 export const TECHNIQUE_GENERATION_MAX_ITEM_SPEND = 100;
 
+/** 推演开始后允许玩家手动取消的等待时间。 */
+export const TECHNIQUE_GENERATION_MANUAL_CANCEL_AFTER_MS = 60_000;
+
+/** 推演超过该时间仍未生成草稿时自动取消。 */
+export const TECHNIQUE_GENERATION_AUTO_CANCEL_AFTER_MS = 30 * 60 * 1000;
+
 /** 生成时随机的总预算百分比下限。 */
 export const TECHNIQUE_GENERATION_BUDGET_PERCENT_MIN = 0.8;
 

@@ -15,6 +15,10 @@ assert.match(panelSource, /批量领悟/);
 assert.match(panelSource, /确认批量领悟/);
 assert.match(panelSource, /全部采纳并学习/);
 assert.match(panelSource, /放弃本批功法/);
+assert.match(panelSource, /取消推演/);
+assert.match(panelSource, /TECHNIQUE_GENERATION_MANUAL_CANCEL_AFTER_MS/);
+assert.match(panelSource, /TECHNIQUE_GENERATION_AUTO_CANCEL_AFTER_MS/);
+assert.match(panelSource, /callbacks\.onCancel/);
 assert.match(panelSource, /六维权重均衡/);
 assert.match(panelSource, /const pageSize = 6/);
 assert.match(
@@ -30,6 +34,8 @@ assert.doesNotMatch(
 
 assert.match(senderSource, /action: 'adoptBatch'/);
 assert.match(senderSource, /action: 'discardBatch'/);
+assert.match(senderSource, /action: 'cancel'/);
+assert.match(senderSource, /sendCancelBatch/);
 assert.match(senderSource, /mode: 'single' \| 'batch'/);
 
 const mobileMediaIndex = styleSource.indexOf('@media (max-width: 720px)');
@@ -42,5 +48,5 @@ assert.match(mobileSource, /\.technique-generation-panel__confirm[\s\S]*max-heig
 console.log(JSON.stringify({
   ok: true,
   case: 'technique-generation-batch',
-  assertions: 17,
+  assertions: 23,
 }));

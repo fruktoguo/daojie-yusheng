@@ -5,18 +5,17 @@
  */
 import { randomUUID } from 'node:crypto';
 
-import { NestFactory } from '@nestjs/core';
-
-import { AppModule } from '../app.module';
-import { InstanceGroundItemFlushWorker } from '../runtime/world/worker/instance-ground-item-flush.worker';
 import { assertFullAppFlushWorkerAllowed } from './runtime-flush-worker-guard';
 
+import { createServerApplicationContextAfterBootstrapConfig, loadServerBootstrapConfigForContext } from '../bootstrap/server-application-context';
 const DEFAULT_IDLE_MS = 1_500;
 
 async function main(): Promise<void> {
+  await loadServerBootstrapConfigForContext();
   assertFullAppFlushWorkerAllowed('instance-ground-item-flush-worker');
   const { once, idleMs } = parseArgs(process.argv.slice(2));
-  const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
+  const app = await createServerApplicationContextAfterBootstrapConfig({ logger: false });
+  const { InstanceGroundItemFlushWorker } = await import('../runtime/world/worker/instance-ground-item-flush.worker.js');
   const worker = app.get(InstanceGroundItemFlushWorker);
 
   try {

@@ -26,7 +26,8 @@
       "giverMapId": "guizang_vein_cavern",
       "giverNpcId": "npc_guizang_gate_watcher",
       "submitMapId": "guizang_vein_cavern",
-      "submitNpcId": "npc_guizang_broken_recorder"
+      "submitNpcId": "npc_guizang_broken_recorder",
+      "guideFlowId": "sect-guide"
     },
     {
       "id": "q_guizang_dust_record",

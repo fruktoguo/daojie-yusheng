@@ -381,7 +381,7 @@ export interface S2C_MinimapLibraryDelta {
 /** AI 功法生成结果推送。 */
 export interface S2C_TechniqueGenerationResult {
   jobId: string;
-  result: 'success' | 'failed' | 'learned' | 'discarded';
+  result: 'success' | 'failed' | 'learned' | 'discarded' | 'cancelled';
   preview?: {
     techniqueId: string;
     suggestedName: string;

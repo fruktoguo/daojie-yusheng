@@ -670,6 +670,7 @@ export async function loadRecoverableGenerationJobs(pool: Pool, limit = 20): Pro
             AND updated_at <= NOW() - INTERVAL '10 minutes'
           )
         )
+        AND created_at > NOW() - INTERVAL '30 minutes'
         AND item_consumed = true
         AND draft_technique_id IS NULL
       ORDER BY created_at ASC, id ASC
@@ -700,7 +701,7 @@ export async function loadRefundableFailedGenerationJobsForPlayer(
     `SELECT id, player_id, item_spend
       FROM ${TECHNIQUE_GENERATION_JOB_TABLE}
      WHERE player_id = $1
-       AND status = 'failed'
+       AND status IN ('failed', 'cancelled')
        AND item_consumed = true
        AND item_refunded = false
       ORDER BY created_at ASC, id ASC
@@ -1303,14 +1304,25 @@ export async function updateGenerationJobStatus(
 }
 
 export async function expireStaleGenerationJobs(pool: Pool): Promise<number> {
-  const result = await pool.query(
+  const expiredDrafts = await pool.query(
     `UPDATE ${TECHNIQUE_GENERATION_JOB_TABLE}
      SET status = 'expired', updated_at = NOW()
      WHERE status = 'generated_draft'
        AND draft_expire_at IS NOT NULL
        AND draft_expire_at <= NOW()`,
   );
-  return result.rowCount ?? 0;
+  const cancelledIncomplete = await pool.query(
+    `UPDATE ${TECHNIQUE_GENERATION_JOB_TABLE}
+     SET status = 'cancelled',
+         error_code = COALESCE(error_code, 'AUTO_TIMEOUT'),
+         error_message = COALESCE(error_message, '功法推演超过30分钟未完成，已自动取消'),
+         finished_at = COALESCE(finished_at, NOW()),
+         updated_at = NOW()
+     WHERE status IN ('pending', 'running')
+       AND draft_technique_id IS NULL
+       AND created_at <= NOW() - INTERVAL '30 minutes'`,
+  );
+  return (expiredDrafts.rowCount ?? 0) + (cancelledIncomplete.rowCount ?? 0);
 }
 
 function clampInteger(value: unknown, min: number, max: number, fallback: number): number {

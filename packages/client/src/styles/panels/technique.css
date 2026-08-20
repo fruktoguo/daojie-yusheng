@@ -846,6 +846,20 @@
       line-height: 1.6;
     }
 
+    .technique-generation-panel__cancel-hint {
+      color: var(--ink-light);
+    }
+
+    .technique-generation-panel__cancel-btn {
+      min-width: 128px;
+      margin-top: 6px;
+    }
+
+    .technique-generation-panel__cancel-btn:disabled {
+      opacity: 0.52;
+      cursor: not-allowed;
+    }
+
     .technique-generation-panel__spinner {
       width: 36px;
       height: 36px;

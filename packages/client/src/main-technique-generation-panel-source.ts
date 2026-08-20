@@ -33,6 +33,13 @@ export function createMainTechniqueGenerationPanelSource(
     onDiscard: (jobId) => sender.sendDiscard(jobId),
     onAdoptBatch: (batchId) => sender.sendAdoptBatch(batchId),
     onDiscardBatch: (batchId) => sender.sendDiscardBatch(batchId),
+    onCancel: (jobId, batchId) => {
+      if (batchId) {
+        sender.sendCancelBatch(batchId);
+        return;
+      }
+      if (jobId) sender.sendCancel(jobId);
+    },
     onClose: () => detailModalHost.close('technique-generation-panel'),
   });
 

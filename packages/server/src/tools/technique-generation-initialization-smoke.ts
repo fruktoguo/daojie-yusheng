@@ -33,6 +33,7 @@ import {
 import {
   adoptDurableTechniqueDraft,
   beginDurableTechniqueGeneration,
+  cancelDurableIncompleteTechniqueGeneration,
   discardDurableTechniqueDraft,
 } from '../persistence/technique-generation-durable-persistence';
 import { TechniqueTemplateRegistry } from '../content/registries/technique-template.registry';
@@ -425,7 +426,7 @@ async function testFailedConsumedJobRefundsOnce(): Promise<void> {
     if (sql.includes('FROM player_presence')) {
       return { rows: [{ runtime_owner_id: 'runtime:refund', session_epoch: 11 }], rowCount: 1 };
     }
-    if (sql.includes('FROM technique_generation_job') && sql.includes("status = 'failed'")) {
+    if (sql.includes('FROM technique_generation_job') && sql.includes("status IN ('failed', 'cancelled')")) {
       return { rows: [{ id: 'job_refund_smoke', item_spend: 10 }], rowCount: 1 };
     }
     if (sql.includes('FROM player_inventory_item') && sql.includes('item_id = $2') && sql.includes('LIMIT 1')) {
@@ -612,7 +613,7 @@ async function testRefundCommitReplayAlwaysHydratesRuntimeInventory(): Promise<v
           if (text.includes('FROM player_presence')) {
             return { rows: [{ runtime_owner_id: 'runtime:refund-replay', session_epoch: 19 }], rowCount: 1 };
           }
-          if (text.includes('FROM technique_generation_job') && text.includes("status = 'failed'") && text.includes('FOR UPDATE')) {
+          if (text.includes('FROM technique_generation_job') && text.includes("status IN ('failed', 'cancelled')") && text.includes('FOR UPDATE')) {
             return refunded
               ? { rows: [], rowCount: 0 }
               : { rows: [{ id: 'job:refund-replay', item_spend: 10 }], rowCount: 1 };
@@ -889,6 +890,116 @@ async function testDurableDiscardPersistsFirstRefundRollAndDoesNotGrantTwice(): 
   assert.equal(retried.refundRatio, 0.5);
   assert.equal(retried.refundAmount, 1000);
   assert.ok(!retryQueries.some((entry) => entry.sql.includes('UPDATE player_inventory_item')));
+}
+
+async function testDurableCancelIncompleteGenerationRequiresOneMinuteAndRefundsJade(): Promise<void> {
+  const earlyQueries: QueryRecord[] = [];
+  const earlyPool = createFakeConnectedPool(earlyQueries, (sql) => {
+    if (sql.includes('FROM player_presence')) {
+      return { rows: [{ runtime_owner_id: 'runtime:cancel-durable', session_epoch: 14 }], rowCount: 1 };
+    }
+    if (sql.includes('FROM durable_operation_log')) {
+      return { rows: [], rowCount: 0 };
+    }
+    if (sql.includes('SELECT id, status, draft_technique_id')) {
+      return {
+        rows: [{
+          id: 'job:cancel-durable',
+          status: 'running',
+          draft_technique_id: null,
+          item_spend: 3,
+          item_consumed: true,
+          item_refunded: false,
+          created_at: new Date(Date.now() - 30_000).toISOString(),
+        }],
+        rowCount: 1,
+      };
+    }
+    return { rows: [], rowCount: 0 };
+  });
+  const early = await cancelDurableIncompleteTechniqueGeneration(earlyPool, {
+    playerId: 'player:cancel-durable',
+    operationRefId: 'job:cancel-durable',
+    operationKind: 'cancel',
+    jobIds: ['job:cancel-durable'],
+    minAgeMs: 60_000,
+    errorCode: 'PLAYER_CANCELLED',
+    errorMessage: 'manual cancel',
+    expectedRuntimeOwnerId: 'runtime:cancel-durable',
+    expectedSessionEpoch: 14,
+  });
+  assert.equal(early.ok, false);
+  assert.equal(early.errorCode, 'CANCEL_TOO_EARLY');
+  assert.ok(!earlyQueries.some((entry) => entry.sql.includes("SET status = 'cancelled'")));
+
+  const queries: QueryRecord[] = [];
+  const pool = createFakeConnectedPool(queries, (sql) => {
+    if (sql.includes('FROM player_presence')) {
+      return { rows: [{ runtime_owner_id: 'runtime:cancel-durable', session_epoch: 14 }], rowCount: 1 };
+    }
+    if (sql.includes('FROM durable_operation_log')) {
+      return { rows: [], rowCount: 0 };
+    }
+    if (sql.includes('SELECT id, status, draft_technique_id')) {
+      return {
+        rows: [{
+          id: 'job:cancel-durable',
+          status: 'running',
+          draft_technique_id: null,
+          item_spend: 3,
+          item_consumed: true,
+          item_refunded: false,
+          created_at: new Date(Date.now() - 61_000).toISOString(),
+        }],
+        rowCount: 1,
+      };
+    }
+    if (sql.includes('FROM player_inventory_item') && sql.includes('item_id = $2') && sql.includes('LIMIT 1')) {
+      return { rows: [{ item_instance_id: 'item:wudao-cancel', count: 2 }], rowCount: 1 };
+    }
+    if (sql.includes('COALESCE(SUM(count)')) {
+      return { rows: [{ total: 2 }], rowCount: 1 };
+    }
+    if (sql.includes("SET status = 'cancelled'")) {
+      return { rows: [], rowCount: 1 };
+    }
+    if (sql.includes('FROM player_inventory_item') && sql.includes('raw_payload') && !sql.includes('FOR UPDATE')) {
+      return {
+        rows: [{ item_instance_id: 'item:wudao-cancel', item_id: 'wudao_yujian', count: 5, slot_index: 0, raw_payload: { count: 5 } }],
+        rowCount: 1,
+      };
+    }
+    return { rows: [], rowCount: 0 };
+  });
+  const result = await cancelDurableIncompleteTechniqueGeneration(pool, {
+    playerId: 'player:cancel-durable',
+    operationRefId: 'job:cancel-durable',
+    operationKind: 'cancel',
+    jobIds: ['job:cancel-durable'],
+    minAgeMs: 60_000,
+    errorCode: 'PLAYER_CANCELLED',
+    errorMessage: 'manual cancel',
+    expectedRuntimeOwnerId: 'runtime:cancel-durable',
+    expectedSessionEpoch: 14,
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.itemSpend, 3);
+  assert.equal(result.inventoryItems.find((entry) => entry.itemId === 'wudao_yujian')?.count, 5);
+  assert.ok(queries.some((entry) => entry.params?.[2] === 'player.inventory.granted'));
+  assert.ok(queries.some((entry) => entry.sql.includes('INSERT INTO durable_operation_log')));
+}
+
+async function testExpireStaleJobsAutoCancelsIncompleteGeneration(): Promise<void> {
+  const queries: QueryRecord[] = [];
+  const service = new TechniqueGenerationService();
+  service.initialize({
+    pool: createFakePool(queries),
+    generatedStore: { refreshAfterPublish: async () => undefined } as unknown as GeneratedTechniqueStoreService,
+    modelConfigResolver: async () => createFakeTextModelConfig(),
+  });
+  await service.expireStaleJobs();
+  assert.ok(queries.some((entry) => entry.sql.includes("SET status = 'cancelled'")));
+  assert.ok(queries.some((entry) => entry.sql.includes("created_at <= NOW() - INTERVAL '30 minutes'")));
 }
 
 async function testCommittedTechniqueReplayRejectsCrossPlayerAndWrongOperationType(): Promise<void> {
@@ -2027,6 +2138,8 @@ async function main(): Promise<void> {
   await testDurableGenerationRejectsSecondActiveJobUnderPlayerLock();
   await testDurableAdoptCommitsComprehensionBeforeLearnedMarkerAndRetriesIdempotently();
   await testDurableDiscardPersistsFirstRefundRollAndDoesNotGrantTwice();
+  await testDurableCancelIncompleteGenerationRequiresOneMinuteAndRefundsJade();
+  await testExpireStaleJobsAutoCancelsIncompleteGeneration();
   await testCommittedTechniqueReplayRejectsCrossPlayerAndWrongOperationType();
   await testPreviewFailedTechniqueGenerationItemRefunds();
   await testRefundFailedTechniqueGenerationItemsWritesInventoryAuditAndMarkers();

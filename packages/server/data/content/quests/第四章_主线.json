@@ -32,7 +32,8 @@
       "giverMapId": "yunlai_town",
       "giverNpcId": "npc_qingxuan",
       "submitMapId": "beast_valley",
-      "submitNpcId": "npc_wounded_patrol"
+      "submitNpcId": "npc_wounded_patrol",
+      "guideFlowId": "tower-guide"
     },
     {
       "id": "q_valley_core_main",
@@ -201,7 +202,8 @@
       "giverMapId": "yunlai_town",
       "giverNpcId": "npc_qingxuan",
       "submitMapId": "yunlai_town",
-      "submitNpcId": "npc_qingxuan"
+      "submitNpcId": "npc_qingxuan",
+      "guideFlowId": "open-gate-spirit-root-guide"
     }
   ]
 }
