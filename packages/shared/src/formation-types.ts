@@ -668,13 +668,16 @@ export function resolveFormationSetupStats(
     : resolveShortDurationCostMultiplier(cost, setup.durationHours);
   const actualBaseStrength = Math.max(0, setup.effectValue * effectStrengthMultiplier);
   const effectValue = Math.max(0, Math.floor(actualBaseStrength * effectConversionRatio));
-  const requiredAuraBudget = Math.max(1, Math.ceil(setup.effectValue * cost.effectCostRatio * rangeMultiplier * durationMultiplier));
-  const dailySpiritStoneCost = requiredAuraBudget;
+  const requiredAuraBudget = Math.max(1, Math.ceil(setup.effectValue * effectStrengthMultiplier * cost.effectCostRatio * rangeMultiplier * durationMultiplier));
+  const dailySpiritStoneCost = Math.max(
+    0,
+    setup.effectValue * cost.effectCostRatio * rangeMultiplier / Math.max(Number.EPSILON, durationMultiplier),
+  );
   const spiritStoneCount = Math.max(
     FORMATION_DEFAULT_MIN_SPIRIT_STONE_COUNT,
     Math.ceil(dailySpiritStoneCost * Math.max(1, Math.round(setup.durationHours * 3_600)) / FORMATION_TICKS_PER_DAY),
   );
-  const baseAuraBudget = requiredAuraBudget;
+  const baseAuraBudget = Math.ceil(requiredAuraBudget / normalizedMultiplier);
   const totalAuraBudget = requiredAuraBudget;
   const dailyActiveCost = resolveFormationDailyQiDecayEstimate(totalAuraBudget);
   const dailyInactiveCost = dailyActiveCost;

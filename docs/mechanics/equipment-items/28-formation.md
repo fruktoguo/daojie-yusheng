@@ -89,17 +89,17 @@ rangeMultiplier = rangeCostRatio ^ (radius - defaultRadius)
 durationMultiplier = 短时间用指数插值, 长时间用线性
 actualStrength = baseStrength × diskMultiplier × (1.05 ^ 阵法技艺等级)
 effectValue = floor(actualStrength × conversionRatio)
-requiredAuraBudget = ceil(baseStrength × effectCostRatio × rangeMultiplier × durationMultiplier)
-dailySpiritStoneCost = requiredAuraBudget
+strengthAuraBudget = ceil(actualStrength × effectCostRatio × rangeMultiplier × durationMultiplier)
+dailySpiritStoneCost = baseStrength × effectCostRatio × rangeMultiplier / durationMultiplier
 spiritStoneCount = ceil(dailySpiritStoneCost × durationTicks / 86400)
 qiCost = ceil(spiritStoneCount × qiPerSpiritStone)
-totalQiBudget = requiredAuraBudget
+totalQiBudget = strengthAuraBudget
 totalSpiritStoneBudget = spiritStoneCount
 tickQiCost = currentQiBudget × (1 - 0.5^(1 / 259200))
 tickSpiritStoneCost = dailySpiritStoneCost / 86400
 ```
 
-Setup 模式中，输入框显示为“基础强度”，协议字段仍沿用 `effectValue`。实际效果再吃阵盘倍率和阵法技艺等级增幅；灵石消耗、布阵灵力消耗和每日灵石衰减只按基础强度、范围、持续时间计算，不随阵盘品阶或阵法技艺等级提升。预览中的消耗按每日灵力半衰期估算和每日灵石固定衰减展示。
+Setup 模式中，输入框显示为“基础强度”，协议字段仍沿用 `effectValue`。实际效果、强度预算和阵法灵力耐久继续吃阵盘倍率与阵法技艺等级增幅；灵石消耗和每日灵石衰减只按基础强度、范围、持续时间计算，不随阵盘品阶或阵法技艺等级提升。持续时间越短，每日灵石衰减越高；预览中的灵力消耗仍按每日灵力半衰期估算展示。
 
 ## 内置阵法模板
 
