@@ -39,35 +39,8 @@ export class PixiCombatEffectRuntime {
   private readonly floatingTexts: FloatingTextEffect[] = [];
   private readonly attackTrails: AttackTrailEffect[] = [];
   private readonly warningZones: WarningZoneEffect[] = [];
-  private readonly graphicsPool: Graphics[] = [];
 
   constructor(private readonly effectLayer: Container) {}
-
-  private acquireGraphics(): Graphics {
-    const pooled = this.graphicsPool.pop();
-    if (pooled) {
-      pooled.clear();
-      pooled.visible = true;
-      if (!pooled.parent) {
-        this.effectLayer.addChild(pooled);
-      }
-      return pooled;
-    }
-    const graphics = new Graphics();
-    this.effectLayer.addChild(graphics);
-    return graphics;
-  }
-
-  private releaseGraphics(graphics: Graphics): void {
-    graphics.clear();
-    graphics.visible = false;
-    if (this.graphicsPool.length < 96) {
-      this.graphicsPool.push(graphics);
-    } else {
-      graphics.parent?.removeChild(graphics);
-      graphics.destroy();
-    }
-  }
 
   enqueue(effect: CombatEffect): void {
     if (effect.type === 'attack') {
@@ -177,7 +150,8 @@ export class PixiCombatEffectRuntime {
   }
 
   private addAttackTrail(fromX: number, fromY: number, toX: number, toY: number, color = '#ffd27a'): void {
-    const graphics = this.acquireGraphics();
+    const graphics = new Graphics();
+    this.effectLayer.addChild(graphics);
     this.attackTrails.push({
       fromX,
       fromY,
@@ -219,8 +193,9 @@ export class PixiCombatEffectRuntime {
       zoneCells.push({ x: cell.x, y: cell.y, expandDistance });
       maxExpandDistance = Math.max(maxExpandDistance, expandDistance);
     }
-    const graphics = this.acquireGraphics();
+    const graphics = new Graphics();
     const normalizedBaseColor = baseColor ?? color;
+    this.effectLayer.addChild(graphics);
     this.warningZones.push({
       cells: zoneCells,
       color: parseColor(color),
@@ -373,11 +348,13 @@ export class PixiCombatEffectRuntime {
   }
 
   private destroyAttackTrailEffect(entry: AttackTrailEffect): void {
-    this.releaseGraphics(entry.graphics);
+    entry.graphics.parent?.removeChild(entry.graphics);
+    entry.graphics.destroy();
   }
 
   private destroyWarningZoneEffect(zone: WarningZoneEffect): void {
-    this.releaseGraphics(zone.graphics);
+    zone.graphics.parent?.removeChild(zone.graphics);
+    zone.graphics.destroy();
   }
 
   private drawAttackTrailEffect(entry: AttackTrailEffect, cellSize: number, elapsed: number): void {
