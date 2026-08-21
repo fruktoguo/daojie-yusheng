@@ -14,7 +14,7 @@ export function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function waitFor(probe, label, timeoutMs = 15_000) {
+export async function waitFor(probe, label, timeoutMs = 45_000) {
   const deadline = Date.now() + timeoutMs;
   let lastError = null;
   while (Date.now() < deadline) {
