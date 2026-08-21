@@ -271,24 +271,26 @@ export class TileSpriteCache {
     return this.cache.size;
   }
 
-  /** 超量后清理最旧访问条目。 */
+  /** 超量后批量清理最旧访问条目。 */
   private evictIfNeeded(): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
     if (this.cache.size <= this.maxEntries) {
       return;
     }
 
-    let oldestKey: string | null = null;
-    let oldestAccess = Number.POSITIVE_INFINITY;
-    for (const [key, entry] of this.cache) {
-      if (entry.lastAccess < oldestAccess) {
-        oldestAccess = entry.lastAccess;
-        oldestKey = key;
-      }
+    const targetRemovals = Math.max(32, this.cache.size - this.maxEntries);
+    const removableCount = Math.min(targetRemovals, this.cache.size);
+    if (removableCount <= 0) {
+      return;
     }
-    if (oldestKey) {
-      this.cache.delete(oldestKey);
+
+    const sorted = [...this.cache.entries()]
+      .sort((left, right) => left[1].lastAccess - right[1].lastAccess);
+    for (let index = 0; index < removableCount; index += 1) {
+      const key = sorted[index]?.[0];
+      if (!key) {
+        break;
+      }
+      this.cache.delete(key);
     }
   }
 }

@@ -347,6 +347,7 @@ export class GmWorldViewer {
   unmount(): void {
     this.stopPolling();
     this.stopRaf();
+    this.unbindEvents();
     window.removeEventListener('resize', this.handleResize);
     this.mounted = false;
   }
@@ -769,12 +770,24 @@ export class GmWorldViewer {
 
   // ===== 交互 =====
 
+  private handleContextMenu = (e: MouseEvent): void => {
+    e.preventDefault();
+  };
+
   private bindEvents(): void {
     this.canvas.addEventListener('pointerdown', this.handlePointerDown);
     this.canvas.addEventListener('pointermove', this.handlePointerMove);
     this.canvas.addEventListener('pointerup', this.handlePointerUp);
     this.canvas.addEventListener('wheel', this.handleWheel, { passive: false });
-    this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    this.canvas.addEventListener('contextmenu', this.handleContextMenu);
+  }
+
+  private unbindEvents(): void {
+    this.canvas.removeEventListener('pointerdown', this.handlePointerDown);
+    this.canvas.removeEventListener('pointermove', this.handlePointerMove);
+    this.canvas.removeEventListener('pointerup', this.handlePointerUp);
+    this.canvas.removeEventListener('wheel', this.handleWheel);
+    this.canvas.removeEventListener('contextmenu', this.handleContextMenu);
   }  
   /**
  * handlePointerDown：handlePointerDown相关字段。

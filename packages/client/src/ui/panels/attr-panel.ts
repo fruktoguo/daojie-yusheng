@@ -1007,6 +1007,7 @@ export class AttrPanel {
   /** detailRequested：是否已发出详情请求。 */
   private detailRequested = false;
   private renderPendingWhileHidden = false;
+  private paneVisibilityObserver: MutationObserver | null = null;
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @returns 无返回值，完成实例初始化。
@@ -1955,12 +1956,12 @@ export class AttrPanel {
   }
 
   private bindPaneVisibilityObserver(): void {
-    const observer = new MutationObserver(() => {
+    this.paneVisibilityObserver = new MutationObserver(() => {
       if (this.renderPendingWhileHidden && this.isPaneVisible()) {
         this.flushHiddenRender();
       }
     });
-    observer.observe(this.pane, { attributes: true, attributeFilter: ['class'] });
+    this.paneVisibilityObserver.observe(this.pane, { attributes: true, attributeFilter: ['class'] });
   }
 
   private flushHiddenRender(): void {

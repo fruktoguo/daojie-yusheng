@@ -362,6 +362,7 @@ export class PixiMapRendererAdapter {
   private destroyApplicationResources(): void {
     if (this.applicationDestroyed) return;
     this.applicationDestroyed = true;
+    this.combatEffectRuntime.destroy();
     this.app.destroy(false, { children: true, texture: true, textureSource: true, context: true });
   }
 

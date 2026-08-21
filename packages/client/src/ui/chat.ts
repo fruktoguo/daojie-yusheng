@@ -1752,13 +1752,15 @@ export class ChatUI {
           // 追加尾部新消息
           const newEntries = visible.slice(lastRenderedIndex + 1);
           if (newEntries.length > 0) {
+            const fragment = document.createDocumentFragment();
             for (const entry of newEntries) {
               const line = document.createElement('div');
               line.className = `chat-line chat-kind-${entry.kind}`;
               line.dataset.chatMessageId = entry.id;
               line.replaceChildren(buildLineFragment(entry));
-              log.appendChild(line);
+              fragment.appendChild(line);
             }
+            log.appendChild(fragment);
           }
           if (options?.stickToBottom) {
             log.scrollTop = log.scrollHeight;
@@ -1777,7 +1779,7 @@ export class ChatUI {
       line.replaceChildren(buildLineFragment(entry));
       fragment.appendChild(line);
     }
-    log.replaceChildren(...Array.from(fragment.childNodes));
+    log.replaceChildren(fragment);
 
     if (options?.preserveScrollFromLoadMore) {
       const previousScrollHeight = options.previousScrollHeight ?? 0;

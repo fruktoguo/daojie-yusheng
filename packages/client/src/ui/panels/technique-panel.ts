@@ -432,6 +432,7 @@ export class TechniquePanel {
   private pendingRequestId: string | null = null;
   private searchDebounceTimer: number | null = null;
   private pagedSnapshot: TechniquePagedSnapshot | null = null;
+  private paneVisibilityObserver: MutationObserver | null = null;
   /** lastState：last状态。 */
   private lastState: TechniquePanelState = { techniques: [] };
   /** lastVisibleTechniqueIds：last可见Technique ID 列表。 */
@@ -775,12 +776,12 @@ export class TechniquePanel {
   }
 
   private bindPaneVisibilityObserver(): void {
-    const observer = new MutationObserver(() => {
+    this.paneVisibilityObserver = new MutationObserver(() => {
       if (this.renderPendingWhileHidden && this.isPaneVisible()) {
         this.flushHiddenRender();
       }
     });
-    observer.observe(this.pane, { attributes: true, attributeFilter: ['class'] });
+    this.paneVisibilityObserver.observe(this.pane, { attributes: true, attributeFilter: ['class'] });
   }
 
   private flushHiddenRender(): void {

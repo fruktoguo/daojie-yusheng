@@ -194,6 +194,12 @@ function hideTechniqueGenerationTooltip(): void {
   getTechniqueGenerationTooltip()?.hide();
 }
 
+function disposeTechniqueGenerationTooltip(): void {
+  const tooltip = techniqueGenerationTooltip;
+  techniqueGenerationTooltip = null;
+  tooltip?.destroy();
+}
+
 function showTechniqueGenerationSkillTooltip(
   skill: SkillDef,
   event: TechniqueGenerationTooltipEvent,
@@ -262,7 +268,7 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
   const autoCancelRemainingMs = Math.max(0, TECHNIQUE_GENERATION_AUTO_CANCEL_AFTER_MS - activeGenerationElapsedMs);
   const canCancelActiveGeneration = Boolean(activeGeneration && activeGenerationStartedAt !== null && manualCancelRemainingMs <= 0);
 
-  useEffect(() => () => hideTechniqueGenerationTooltip(), []);
+  useEffect(() => () => disposeTechniqueGenerationTooltip(), []);
 
   useEffect(() => {
     if (!state.generating || !activeGeneration) return undefined;

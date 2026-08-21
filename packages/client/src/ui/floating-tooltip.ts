@@ -258,8 +258,6 @@ export class FloatingTooltip {
     const point = clientToViewportPoint(window, clientX, clientY);
     const viewportWidth = metrics.viewportWidth;
     const viewportHeight = metrics.viewportHeight;
-    this.el.style.left = '0px';
-    this.el.style.top = '0px';
     const rect = this.el.getBoundingClientRect();
     const renderedWidth = metrics.locked ? rect.width / metrics.scale : rect.width;
     const renderedHeight = metrics.locked ? rect.height / metrics.scale : rect.height;

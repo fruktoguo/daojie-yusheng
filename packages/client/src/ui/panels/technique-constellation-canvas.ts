@@ -363,8 +363,9 @@ export class TechniqueConstellationCanvas {
       return;
     }
     this.mounted = false;
-    this.canvas.removeEventListener('mousemove', this.handleMouseMove);
-    this.canvas.removeEventListener('mouseleave', this.handleMouseLeave);
+    this.canvas.removeEventListener('pointermove', this.handlePointerMove);
+    this.canvas.removeEventListener('pointerleave', this.handlePointerLeave);
+    this.canvas.removeEventListener('pointerdown', this.handlePointerDown);
     this.canvas.removeEventListener('click', this.handleClick);
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
@@ -380,8 +381,9 @@ export class TechniqueConstellationCanvas {
     this.mounted = true;
     this.openedAt = performance.now();
     this.collectSkillAnchors();
-    this.canvas.addEventListener('mousemove', this.handleMouseMove);
-    this.canvas.addEventListener('mouseleave', this.handleMouseLeave);
+    this.canvas.addEventListener('pointermove', this.handlePointerMove);
+    this.canvas.addEventListener('pointerleave', this.handlePointerLeave);
+    this.canvas.addEventListener('pointerdown', this.handlePointerDown);
     this.canvas.addEventListener('click', this.handleClick);
     this.resizeObserver = new ResizeObserver(() => {
       this.resizeAndRebuild();
@@ -418,7 +420,7 @@ export class TechniqueConstellationCanvas {
   }
 
   /** resolvePointer：解析Pointer。 */
-  private resolvePointer(event: MouseEvent): {  
+  private resolvePointer(event: MouseEvent | PointerEvent): {  
   /**
  * x：x相关字段。
  */
@@ -911,12 +913,7 @@ export class TechniqueConstellationCanvas {
     ctx.stroke();
     ctx.restore();
   }  
-  /**
- * handleMouseMove：handleMouseMove相关字段。
- */
-
-
-  private handleMouseMove = (event: MouseEvent): void => {
+  private handlePointerMove = (event: PointerEvent): void => {
     const pointer = this.resolvePointer(event);
     const mouseX = pointer.x;
     const mouseY = pointer.y;
@@ -940,12 +937,8 @@ export class TechniqueConstellationCanvas {
     }
     this.onNodeMove(event.clientX, event.clientY);
   };  
-  /**
- * handleMouseLeave：handleMouseLeave相关字段。
- */
 
-
-  private handleMouseLeave = (): void => {
+  private handlePointerLeave = (): void => {
     const hadHover = this.hoveredLevel !== null;
     this.hoveredLevel = null;
     this.updateCursor();
@@ -953,10 +946,23 @@ export class TechniqueConstellationCanvas {
       this.onNodeLeave();
     }
   };  
-  /**
- * handleClick：handleClick相关字段。
- */
 
+  private handlePointerDown = (event: PointerEvent): void => {
+    const pointer = this.resolvePointer(event);
+    const mouseX = pointer.x;
+    const mouseY = pointer.y;
+    const hitNode = this.findNodeAt(mouseX, mouseY);
+    if (!hitNode) {
+      return;
+    }
+    this.hoveredLevel = hitNode.level;
+    this.onNodeHover({
+      level: hitNode.level,
+      title: hitNode.hoverTitle,
+      lines: hitNode.hoverLines,
+    }, event.clientX, event.clientY);
+    this.onSelectLevel(hitNode.level);
+  };
 
   private handleClick = (event: MouseEvent): void => {
     const pointer = this.resolvePointer(event);

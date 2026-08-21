@@ -109,10 +109,11 @@ export class TextMeasureCache {
       return;
     }
 
-    const removableCount = Math.min(
+    const targetRemovals = Math.max(
       this.pruneBatchSize,
       this.entries.size - this.maxEntries,
     );
+    const removableCount = Math.min(targetRemovals, this.entries.size);
     if (removableCount <= 0) {
       return;
     }

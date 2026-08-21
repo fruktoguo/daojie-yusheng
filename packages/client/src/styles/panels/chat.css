@@ -140,7 +140,7 @@
       box-sizing: border-box;
       border-radius: 8px;
       background: var(--stamp-red);
-      color: #fff;
+      color: var(--accent-contrast, #fffaf3);
       font-size: 10px;
       line-height: 16px;
       text-align: center;

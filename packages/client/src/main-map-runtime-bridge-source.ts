@@ -393,6 +393,7 @@ export type MainMapRuntimeBridgeSource = ReturnType<typeof createMainMapRuntimeB
 
 
 export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSourceOptions) {
+  let activeKeyboardInput: KeyboardInput | null = null;
   return {  
   /**
  * resizeCanvas：判断resizeCanva是否满足条件。
@@ -816,12 +817,18 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
 
 
     bindKeyboardInput(): void {
-      new KeyboardInput((dirs: Direction[]) => {
+      activeKeyboardInput?.destroy();
+      activeKeyboardInput = new KeyboardInput((dirs: Direction[]) => {
         options.navigation.clearCurrentPath();
         if (dirs.length > 0) {
           options.navigation.sendMoveCommand(dirs[0]);
         }
       });
+    },
+
+    destroyKeyboardInput(): void {
+      activeKeyboardInput?.destroy();
+      activeKeyboardInput = null;
     },
   };
 }

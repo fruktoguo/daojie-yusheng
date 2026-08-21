@@ -1041,7 +1041,7 @@ export class TextRenderer implements IRenderer {
   private lastGroundPileSignature = '';
   private readonly renderedEntitiesScratch: RenderedAnimEntity[] = [];
   private readonly renderedEntityByIdScratch = new Map<string, RenderedAnimEntity>();
-  private readonly crowdedTileKeysScratch = new Set<string>();
+  private readonly crowdedTileKeysScratch = new Set<number>();
   private readonly seenEntityIdsScratch = new Set<string>();
   private readonly terrainTileKeysScratch: string[] = [];
   private readonly terrainTilesScratch: Array<Tile | null> = [];
@@ -2075,7 +2075,7 @@ export class TextRenderer implements IRenderer {
         visualCellSize,
       });
       if (anim.kind === 'crowd') {
-        crowdedTileKeys.add(`${anim.gridX},${anim.gridY}`);
+        crowdedTileKeys.add(((anim.gridX & 0xffff) << 16) | (anim.gridY & 0xffff));
       }
       if (anim.id === localPlayerId) {
         localPlayerInRenderedEntities = true;
@@ -2123,7 +2123,7 @@ export class TextRenderer implements IRenderer {
       const { anim, presentation: monsterPresentation, sx, sy, cellSize: renderedCellSize, visualSx, visualSy, visualCellSize } = rendered;
       const isCrowd = anim.kind === 'crowd';
 
-      if (!isCrowd && anim.kind === 'player' && crowdedTileKeys.has(`${anim.gridX},${anim.gridY}`)) {
+      if (!isCrowd && anim.kind === 'player' && crowdedTileKeys.has(((anim.gridX & 0xffff) << 16) | (anim.gridY & 0xffff))) {
         continue;
       }
 

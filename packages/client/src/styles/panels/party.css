@@ -79,7 +79,7 @@
   padding: 0 5px;
   border-radius: 999px;
   background: var(--danger, #b84a3a);
-  color: #fff;
+  color: var(--accent-contrast, #fffaf3);
   font-size: 10px;
   line-height: 1;
 }
@@ -370,7 +370,7 @@
   padding: 0 4px;
   border-radius: 999px;
   background: var(--danger, #b03a2e);
-  color: #fff8ec;
+  color: var(--accent-contrast, #fffaf3);
   font-size: 10px;
   line-height: 16px;
   text-align: center;

@@ -253,6 +253,8 @@ export class InventoryPanel {
   private onCreateFormation: ((payload: FormationCreatePayload) => void) | null = null;
   /** onPreviewFormationRange：on预览阵法范围。 */
   private onPreviewFormationRange: ((payload: FormationRangePreviewPayload) => void) | null = null;
+  /** paneVisibilityObserver：面板可见性观察器。 */
+  private paneVisibilityObserver: MutationObserver | null = null;
   /** tooltip：提示。 */
   private tooltip = new FloatingTooltip('floating-tooltip inventory-tooltip');
   /** activeFilter：活跃筛选。 */
@@ -390,10 +392,10 @@ export class InventoryPanel {
     });
     this.bindPaneEvents();
     this.bindTooltipEvents();
-    const paneVisibilityObserver = new MutationObserver(() => this.flushPendingVisibleRefresh());
-    paneVisibilityObserver.observe(this.pane, { attributes: true, attributeFilter: ['class'] });
+    this.paneVisibilityObserver = new MutationObserver(() => this.flushPendingVisibleRefresh());
+    this.paneVisibilityObserver.observe(this.pane, { attributes: true, attributeFilter: ['class'] });
     for (const mobilePane of document.querySelectorAll<HTMLElement>('#mobile-ui-shell .mobile-ui-pane')) {
-      paneVisibilityObserver.observe(mobilePane, { attributes: true, attributeFilter: ['class'] });
+      this.paneVisibilityObserver.observe(mobilePane, { attributes: true, attributeFilter: ['class'] });
     }
     document.addEventListener('scroll', this.handleScrollCapture, { capture: true, passive: true });
   }
