@@ -365,7 +365,7 @@ async function main() {
     await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
     await cdp.send('Page.navigate', { url: pageUrl });
     await waitFor(
-      () => cdp.evaluate(`document.readyState === 'complete' && Boolean(document.getElementById('detail-modal-body'))`),
+      () => cdp.evaluate(`document.readyState !== 'loading' && Boolean(document.getElementById('detail-modal-body'))`),
       '正式客户端页面加载',
     );
 
