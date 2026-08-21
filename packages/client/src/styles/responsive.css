@@ -1088,31 +1088,104 @@
     height: min(88dvh, calc(100dvh - 8px));
   }
   .market-modal-shell--wide {
-    grid-template-columns: 42px minmax(0, 1fr);
+    grid-template-columns: 38px minmax(0, 1fr);
     gap: 6px;
   }
   .market-side-tabs {
+    flex: 0 0 38px;
+    width: 38px;
+    min-width: 0;
+    max-width: 38px;
     flex-direction: column;
     flex-wrap: nowrap;
     justify-content: flex-start;
     gap: 4px;
     align-items: stretch;
-    padding: 4px 3px;
+    padding: 4px 2px;
+    overflow: hidden;
   }
   .market-side-tabs-title {
     display: none;
   }
+  .market-side-tabs .ui-workspace-rail-tabs {
+    display: flex;
+    flex-direction: column;
+    grid-template-columns: none;
+    gap: 4px;
+    width: 100%;
+    min-width: 0;
+  }
   .market-side-tab {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
     justify-content: center;
+    align-items: center;
     flex: 0 0 auto;
-    min-height: 74px;
-    padding: 6px 0;
+    min-height: 72px;
+    padding: 6px 2px;
+    box-sizing: border-box;
     text-align: center;
-    line-height: 1.1;
+    line-height: 1;
     font-size: var(--font-size-11);
     writing-mode: vertical-rl;
-    text-orientation: upright;
-    letter-spacing: 0.5px;
+    text-orientation: mixed;
+    letter-spacing: 0.02em;
+  }
+  .market-side-tab.active {
+    box-shadow:
+      inset 3px 0 0 var(--stamp-red),
+      inset 0 0 0 1px rgba(139, 48, 35, 0.12);
+  }
+  .tutorial-modal-shell {
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 8px;
+  }
+  .tutorial-modal-tabs {
+    gap: 6px;
+    padding-right: 0;
+    min-width: 0;
+    width: 38px;
+  }
+  .tutorial-modal-subtabs {
+    gap: 5px;
+    padding-left: 6px;
+  }
+  .tutorial-modal-tab {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 72px;
+    padding: 6px 2px 5px;
+    box-sizing: border-box;
+    text-align: center;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--font-size-role-body-12);
+  }
+  .tutorial-modal-tab.active {
+    box-shadow:
+      inset 3px 0 0 var(--stamp-red),
+      inset 0 0 0 1px rgba(139, 48, 35, 0.12);
+  }
+  .tutorial-modal-tab-label {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    font-size: 11px;
+    font-weight: var(--font-weight-semibold);
+  }
+  .tutorial-modal-tab-count {
+    min-width: 14px;
+    min-height: 14px;
+    padding: 0 3px;
+    font-size: 9px;
+    line-height: 14px;
+    border-radius: 999px;
+    text-align: center;
   }
   .market-modal-content {
     min-height: 0;

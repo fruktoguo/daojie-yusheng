@@ -386,7 +386,7 @@ export function TutorialPanelContent() {
           onStartFlow={handleStartFlow}
         />
       ) : (
-        <div className="tutorial-modal-shell ui-split-panel-shell" style={{ gridTemplateColumns: "160px minmax(0, 1fr)" }}>
+        <div className="tutorial-modal-shell ui-split-panel-shell">
           {/* 左侧一级分类 Tab */}
           <div className="tutorial-modal-tabs ui-split-panel-tabs" role="tablist" aria-orientation="vertical">
             {CATEGORY_TABS.map((cat) => {
@@ -395,13 +395,6 @@ export function TutorialPanelContent() {
                 <button
                   key={cat.id}
                   className={`tutorial-modal-tab ui-split-panel-tab${active ? " active" : ""}`}
-                  style={{
-                    minHeight: "46px",
-                    padding: "10px 12px",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
                   type="button"
                   role="tab"
                   aria-selected={active ? "true" : "false"}
@@ -410,16 +403,10 @@ export function TutorialPanelContent() {
                     setMainTab(cat.id);
                   }}
                 >
-                  <span className="tutorial-modal-tab-label ui-split-panel-tab-label" style={{ fontWeight: active ? "bold" : "normal" }}>
+                  <span className="tutorial-modal-tab-label ui-split-panel-tab-label">
                     {cat.label}
                   </span>
-                  <span style={{
-                    fontSize: "11px",
-                    padding: "1px 6px",
-                    borderRadius: "10px",
-                    background: active ? "rgba(197, 60, 60, 0.15)" : "rgba(0,0,0,0.06)",
-                    color: active ? "var(--stamp-red)" : "inherit"
-                  }}>
+                  <span className="tutorial-modal-tab-count">
                     {cat.count}
                   </span>
                 </button>

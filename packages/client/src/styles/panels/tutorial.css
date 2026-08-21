@@ -115,22 +115,87 @@
       padding-right: 4px;
     }
 
-    .tutorial-modal-shell,
-
-    .tutorial-flow-shell {
+    .tutorial-modal-shell {
       display: grid;
-      grid-template-columns: 188px minmax(0, 1fr);
+      grid-template-columns: 160px minmax(0, 1fr);
       grid-template-rows: minmax(0, 1fr);
-      gap: 16px;
+      gap: 14px;
       flex: 1;
       min-height: 0;
       overflow: hidden;
     }
 
+    .tutorial-modal-tabs {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 0;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .tutorial-modal-tab {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 44px;
+      padding: 10px 12px;
+      border: 1px solid var(--wash-ink);
+      border-radius: var(--radius-sm);
+      background: linear-gradient(180deg, var(--surface-elevated), var(--surface-muted));
+      color: var(--ink-grey);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-14);
+      text-align: left;
+      cursor: pointer;
+      transition: border-color var(--motion-base) var(--ease-standard), background var(--motion-base) var(--ease-standard), color var(--motion-base) var(--ease-standard);
+    }
+
+    .tutorial-modal-tab:hover {
+      color: var(--ink-black);
+      border-color: rgba(133, 68, 45, 0.34);
+    }
+
+    .tutorial-modal-tab.active {
+      color: var(--ink-black);
+      border-color: rgba(133, 68, 45, 0.42);
+      background:
+        linear-gradient(180deg, rgba(214, 188, 142, 0.24), rgba(197, 60, 60, 0.08)),
+        var(--surface-elevated);
+      box-shadow: inset 3px 0 0 rgba(197, 60, 60, 0.72);
+    }
+
+    .tutorial-modal-tab-label {
+      font-weight: var(--font-weight-medium);
+      line-height: 1.35;
+    }
+
+    .tutorial-modal-tab.active .tutorial-modal-tab-label {
+      font-weight: var(--font-weight-bold);
+    }
+
+    .tutorial-modal-tab-count {
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.06);
+      color: inherit;
+    }
+
+    .tutorial-modal-tab.active .tutorial-modal-tab-count {
+      background: rgba(197, 60, 60, 0.15);
+      color: var(--stamp-red);
+    }
+
     .tutorial-flow-shell {
-      --ui-split-panel-rail-size: 178px;
+      display: grid;
+      grid-template-columns: 188px minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
       gap: 14px;
       flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      --ui-split-panel-rail-size: 178px;
     }
 
     .tutorial-flow-tab {
@@ -483,21 +548,54 @@
         font-size: var(--font-size-role-body-12);
       }
       .tutorial-modal-shell {
-        grid-template-columns: 104px minmax(0, 1fr);
-        gap: 10px;
+        grid-template-columns: 38px minmax(0, 1fr);
+        gap: 8px;
       }
       .tutorial-modal-tabs {
         gap: 6px;
         padding-right: 0;
+        min-width: 0;
+        width: 38px;
       }
       .tutorial-modal-subtabs {
         gap: 5px;
-        padding-left: 8px;
+        padding-left: 6px;
       }
       .tutorial-modal-tab {
-        min-height: 42px;
-        padding: 8px 10px;
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        min-height: 72px;
+        padding: 6px 2px 5px;
+        box-sizing: border-box;
+        text-align: center;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 4px;
         font-size: var(--font-size-role-body-12);
+      }
+      .tutorial-modal-tab.active {
+        box-shadow:
+          inset 3px 0 0 var(--stamp-red),
+          inset 0 0 0 1px rgba(139, 48, 35, 0.12);
+      }
+      .tutorial-modal-tab-label {
+        writing-mode: vertical-rl;
+        text-orientation: mixed;
+        letter-spacing: 0.02em;
+        line-height: 1;
+        font-size: 11px;
+        font-weight: var(--font-weight-semibold);
+      }
+      .tutorial-modal-tab-count {
+        min-width: 14px;
+        min-height: 14px;
+        padding: 0 3px;
+        font-size: 9px;
+        line-height: 14px;
+        border-radius: 999px;
+        text-align: center;
       }
       .tutorial-modal-tab--child {
         min-height: 34px;

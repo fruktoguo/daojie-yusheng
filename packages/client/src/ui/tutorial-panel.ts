@@ -169,21 +169,20 @@ export class TutorialPanel {
 
     body.innerHTML = `
       <div class="tutorial-modal-body">
-        <div class="tutorial-modal-shell ui-split-panel-shell" style="grid-template-columns: 160px minmax(0, 1fr)">
+        <div class="tutorial-modal-shell ui-split-panel-shell">
           <div class="tutorial-modal-tabs ui-split-panel-tabs" role="tablist" aria-orientation="vertical">
             ${CATEGORY_TABS.map((cat) => {
               const active = mainTab === cat.id;
               return `
                 <button
                   class="tutorial-modal-tab ui-split-panel-tab${active ? " active" : ""}"
-                  style="min-height: 46px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center;"
                   type="button"
                   role="tab"
                   data-tutorial-cat-tab="${cat.id}"
                   aria-selected="${active ? "true" : "false"}"
                 >
-                  <span class="tutorial-modal-tab-label ui-split-panel-tab-label" style="font-weight: ${active ? "bold" : "normal"}">${escapeHtml(cat.label)}</span>
-                  <span style="font-size: 11px; padding: 1px 6px; border-radius: 10px; background: ${active ? "rgba(197, 60, 60, 0.15)" : "rgba(0,0,0,0.06)"}; color: ${active ? "var(--stamp-red)" : "inherit"};">${cat.count}</span>
+                  <span class="tutorial-modal-tab-label ui-split-panel-tab-label">${escapeHtml(cat.label)}</span>
+                  <span class="tutorial-modal-tab-count">${cat.count}</span>
                 </button>
               `;
             }).join("")}

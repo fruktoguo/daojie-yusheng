@@ -908,3 +908,56 @@
     .market-storage-card {
       flex: 0 0 auto;
     }
+
+    @media (max-width: 720px) {
+      .market-modal-shell--wide {
+        grid-template-columns: 38px minmax(0, 1fr);
+        gap: 6px;
+      }
+      .market-side-tabs {
+        flex: 0 0 38px;
+        width: 38px;
+        min-width: 0;
+        max-width: 38px;
+        flex-direction: column;
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        gap: 4px;
+        align-items: stretch;
+        padding: 4px 2px;
+        overflow: hidden;
+      }
+      .market-side-tabs-title {
+        display: none;
+      }
+      .market-side-tabs .ui-workspace-rail-tabs {
+        display: flex;
+        flex-direction: column;
+        grid-template-columns: none;
+        gap: 4px;
+        width: 100%;
+        min-width: 0;
+      }
+      .market-side-tab {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        justify-content: center;
+        align-items: center;
+        flex: 0 0 auto;
+        min-height: 72px;
+        padding: 6px 2px;
+        box-sizing: border-box;
+        text-align: center;
+        line-height: 1;
+        font-size: var(--font-size-11);
+        writing-mode: vertical-rl;
+        text-orientation: mixed;
+        letter-spacing: 0.02em;
+      }
+      .market-side-tab.active {
+        box-shadow:
+          inset 3px 0 0 var(--stamp-red),
+          inset 0 0 0 1px rgba(139, 48, 35, 0.12);
+      }
+    }
