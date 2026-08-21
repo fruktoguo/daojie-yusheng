@@ -10,11 +10,11 @@ type SkillEnabledEntry = {
 };
 
 export const PLAYER_BASE_ENABLED_SKILL_SLOTS = 4;
-export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_EARLY = 2;
-export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_MID = 6;
-export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_LATE = 10;
-export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_ENDGAME = 12;
-export const PLAYER_ENABLED_SKILL_SLOT_BONUS_EVERY_SIX_LEVELS = 0;
+export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_EARLY = 1;
+export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_MID = 3;
+export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_LATE = 5;
+export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_ENDGAME = 6;
+export const PLAYER_ENABLED_SKILL_SLOT_BONUS_EVERY_SIX_LEVELS = 1;
 export const PLAYER_ENABLED_SKILL_SLOT_BONUS_EVERY_TWELVE_LEVELS = 1;
 export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP = PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_MID;
 
@@ -29,7 +29,7 @@ export function getPlayerEnabledSkillSlotLimitByLevel(level: number | undefined)
   let extraSlots = 0;
 
   const earlyLevels = Math.min(normalizedLevel, 6);
-  extraSlots += Math.floor(Math.max(0, earlyLevels - 1) / PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_EARLY);
+  extraSlots += Math.max(0, earlyLevels - 1);
 
   if (normalizedLevel >= 7) {
     extraSlots += Math.floor((Math.min(normalizedLevel, 18) - 6) / PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_MID);
@@ -43,6 +43,7 @@ export function getPlayerEnabledSkillSlotLimitByLevel(level: number | undefined)
     extraSlots += Math.floor((normalizedLevel - 30) / PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_ENDGAME);
   }
 
+  extraSlots += Math.floor(normalizedLevel / 6) * PLAYER_ENABLED_SKILL_SLOT_BONUS_EVERY_SIX_LEVELS;
   extraSlots += Math.floor(normalizedLevel / 12) * PLAYER_ENABLED_SKILL_SLOT_BONUS_EVERY_TWELVE_LEVELS;
 
   return PLAYER_BASE_ENABLED_SKILL_SLOTS + extraSlots;

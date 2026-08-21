@@ -88,20 +88,21 @@ function getPlayerEnabledSkillSlotLimitByLevel(level: number | undefined): numbe
   let extraSlots = 0;
 
   const earlyLevels = Math.min(normalizedLevel, 6);
-  extraSlots += Math.floor(Math.max(0, earlyLevels - 1) / 2);
+  extraSlots += Math.max(0, earlyLevels - 1);
 
   if (normalizedLevel >= 7) {
-    extraSlots += Math.floor((Math.min(normalizedLevel, 18) - 6) / 6);
+    extraSlots += Math.floor((Math.min(normalizedLevel, 18) - 6) / 3);
   }
 
   if (normalizedLevel >= 19) {
-    extraSlots += Math.floor((Math.min(normalizedLevel, 30) - 18) / 10);
+    extraSlots += Math.floor((Math.min(normalizedLevel, 30) - 18) / 5);
   }
 
   if (normalizedLevel >= 31) {
-    extraSlots += Math.floor((normalizedLevel - 30) / 12);
+    extraSlots += Math.floor((normalizedLevel - 30) / 6);
   }
 
+  extraSlots += Math.floor(normalizedLevel / 6);
   extraSlots += Math.floor(normalizedLevel / 12);
 
   return 4 + extraSlots;

@@ -127,9 +127,9 @@ function testPurePassiveAndSlotFormula(): void {
   assert.equal(isPassiveOnlySkill(createPassiveSkill()), true);
   assert.equal(isPassiveOnlySkill(createPassiveSkill({ active: true })), false);
   assert.equal(getPlayerEnabledSkillSlotLimitByLevel(1), 4);
-  assert.equal(getPlayerEnabledSkillSlotLimitByLevel(12), 8);
-  assert.equal(getPlayerEnabledSkillSlotLimitByLevel(23), 9);
-  assert.equal(getPlayerEnabledSkillSlotLimitByLevel(60), 16);
+  assert.equal(getPlayerEnabledSkillSlotLimitByLevel(12), 14);
+  assert.equal(getPlayerEnabledSkillSlotLimitByLevel(23), 18);
+  assert.equal(getPlayerEnabledSkillSlotLimitByLevel(60), 35);
 }
 
 function main(): void {
