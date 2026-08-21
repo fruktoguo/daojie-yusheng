@@ -335,11 +335,6 @@ export class PixiCombatEffectRuntime {
 
   destroy(): void {
     this.reset();
-    for (const graphics of this.graphicsPool) {
-      graphics.parent?.removeChild(graphics);
-      graphics.destroy();
-    }
-    this.graphicsPool.length = 0;
   }
 
   private destroyFloatingTextEffect(entry: FloatingTextEffect): void {
