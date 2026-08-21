@@ -19,6 +19,7 @@ import {
   publishGmCustomTechnique,
   type PublishGmCustomTechniqueInput,
 } from '../persistence/gm-custom-technique-persistence';
+import { listGeneratedTechniquesForGm } from '../persistence/generated-technique-persistence.service';
 import type {
   ContentTemplateRepositoryLike,
   MapTemplateRepositoryLike,
@@ -59,6 +60,7 @@ async function main(): Promise<void> {
   testStrictValidation();
   testIdempotentPreviewUsesStoredTruth();
   await testLegacyGeneratedTechniqueRejectsReadableGmPlayerSave();
+  await testLegacyGeneratedTechniqueSummaryFlagsDisabledReason();
 
   await testIdempotentPublish();
   console.log(JSON.stringify({
@@ -75,7 +77,7 @@ async function main(): Promise<void> {
       '幂等重放返回数据库已发布模板而非重新计算预览',
       '发布支持同请求重放并拒绝同键异请求和同名功法',
       '旧版自创术法写入玩家功法时返回可读 400 而不是未知错误',
-
+      '生成功法列表对旧版自创术法标记禁用原因',
     ],
   }, null, 2));
 }
@@ -556,6 +558,73 @@ async function testLegacyGeneratedTechniqueRejectsReadableGmPlayerSave(): Promis
       assert.match(error.message, /gen_legacy_raw/);
       return true;
     },
+  );
+}
+
+async function testLegacyGeneratedTechniqueSummaryFlagsDisabledReason(): Promise<void> {
+  const fakePool = {
+    connect: async () => ({
+      query: async (sql: string) => {
+        if (sql.includes('SELECT COUNT(*)')) {
+          return { rows: [{ total: 1 }], rowCount: 1 };
+        }
+        return {
+          rows: [{
+            id: 'gen_legacy_raw_1',
+            generation_id: 'job_1',
+            template: {
+              name: '旧版术法',
+              artsStrength: { damage: 1 },
+            },
+            status: 'draft',
+            is_published: true,
+            published_at: new Date(),
+            display_name: '旧版术法',
+            created_by_player_id: 'player-1',
+            grade: 'spirit',
+            category: 'arts',
+            realm_lv: 31,
+            created_at: new Date(),
+            updated_at: new Date(),
+          }],
+          rowCount: 1,
+        };
+      },
+      release: () => undefined,
+    }),
+    query: async (sql: string) => {
+      if (sql.includes('SELECT COUNT(*)')) {
+        return { rows: [{ total: 1 }], rowCount: 1 };
+      }
+      return {
+        rows: [{
+          id: 'gen_legacy_raw_1',
+          generation_id: 'job_1',
+          template: {
+            name: '旧版术法',
+            artsStrength: { damage: 1 },
+          },
+          status: 'draft',
+          is_published: true,
+          published_at: new Date(),
+          display_name: '旧版术法',
+          created_by_player_id: 'player-1',
+          grade: 'spirit',
+          category: 'arts',
+          realm_lv: 31,
+          created_at: new Date(),
+          updated_at: new Date(),
+        }],
+        rowCount: 1,
+      };
+    },
+  } as unknown as Pool;
+
+  const result = await listGeneratedTechniquesForGm(fakePool, { page: 1, pageSize: 10 });
+  assert.equal(result.techniques.length, 1);
+  assert.match(
+    result.techniques[0]?.playerAddDisabledReason ?? '',
+    /该自创术法仍含旧版草稿字段，请先执行“迁移旧版AI术法草稿”后再添加。/,
   );
 }
 

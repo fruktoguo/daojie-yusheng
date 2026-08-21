@@ -11,8 +11,6 @@ const html = fs.readFileSync(path.join(clientRoot, 'gm.html'), 'utf8');
 const editorSource = fs.readFileSync(path.join(clientRoot, 'src/gm/custom-technique-editor.ts'), 'utf8');
 const gmSource = fs.readFileSync(path.join(clientRoot, 'src/gm.ts'), 'utf8');
 const sharedApiContractsSource = fs.readFileSync(path.resolve(clientRoot, '../shared/src/api-contracts.ts'), 'utf8');
-const generatedTechniquePersistenceSource = fs.readFileSync(path.resolve(clientRoot, '../server/src/persistence/generated-technique-persistence.service.ts'), 'utf8');
-const gmPlayerServiceSource = fs.readFileSync(path.resolve(clientRoot, '../server/src/http/native/native-gm-player.service.ts'), 'utf8');
 
 
 for (const id of [
@@ -88,9 +86,6 @@ assert.doesNotMatch(editorSource, /\.innerHTML\s*=/u, '手工功法表单不得�
 assert.match(gmSource, /'techniques' \| 'jobs' \| 'manual'/u, 'GM 功法子标签状态缺少手工创建');
 assert.match(gmSource, /generatedTechniqueEditor\.activate\(\)/u, '切入手工创建时没有恢复编辑器状态');
 assert.match(sharedApiContractsSource, /playerAddDisabledReason\?: string \| null/u, '生成功法摘要缺少玩家添加禁用原因字段');
-assert.match(generatedTechniquePersistenceSource, /playerAddDisabledReason/u, '生成功法列表没有返回玩家添加禁用原因');
-assert.match(generatedTechniquePersistenceSource, /hasLegacyGeneratedTechniqueRuntimeDraftField/u, '生成功法列表没有识别旧版术法草稿字段');
-assert.match(gmPlayerServiceSource, /BadRequestException\(`\$\{GM_GENERATED_TECHNIQUE_LEGACY_DRAFT_ERROR\}/u, 'GM 保存旧版自创术法时没有返回可读 400 错误');
 assert.match(gmSource, /summary\.playerAddDisabledReason/u, 'GM 功法候选没有消费自创功法禁用原因');
 assert.match(gmSource, /candidate\.disabledReason \? 'disabled'/u, 'GM 功法候选没有禁用旧版自创术法');
 assert.match(gmSource, /disabledTechniqueIds/u, 'GM 自创功法候选加载后没有清理禁用项选择');
