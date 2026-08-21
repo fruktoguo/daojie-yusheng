@@ -16,7 +16,12 @@ import {
   type CraftElementMatchSnapshot,
 } from './craft-elements';
 import type { TechniqueGrade } from './cultivation-types';
-import { computeAdjustedCraftTicks } from './craft-duration';
+import {
+  computeAdjustedCraftTicks,
+  computeRawCraftTicks,
+  computeTotalCraftTicks,
+  resolveStochasticCraftTicks,
+} from './craft-duration';
 import { computeCraftAdjustedSuccessRate } from './craft-success';
 
 import {
@@ -63,9 +68,7 @@ export function computeAlchemyTotalJobTicks(
   quantity: number | undefined,
   preparationTicks = 0,
 ): number {
-  const normalizedBatchTicks = Math.max(1, Math.floor(Number(batchBrewTicks) || 1));
-  const normalizedPreparationTicks = Math.max(0, Math.floor(Number(preparationTicks) || 0));
-  return normalizedPreparationTicks + (normalizedBatchTicks * normalizeAlchemyQuantity(quantity));
+  return computeTotalCraftTicks(batchBrewTicks, quantity, preparationTicks);
 }
 
 export function resolveAlchemyGradeValue(grade: TechniqueGrade | undefined): number {
@@ -254,7 +257,7 @@ export function computeAlchemySpeedRate(
   return speedRate;
 }
 
-export function computeAlchemyAdjustedBrewTicks(
+export function computeAlchemyRawBrewTicks(
   baseBrewTicks: number,
   recipe: Pick<AlchemyRecipeCatalogEntry, 'fullPower' | 'ingredients' | 'mainIngredients' | 'requiredAuxElements'>,
   submitted: readonly AlchemyIngredientSelection[] | undefined,
@@ -265,7 +268,29 @@ export function computeAlchemyAdjustedBrewTicks(
 ): number {
   const baseTicks = computeAlchemyBrewTicks(baseBrewTicks, recipe, submitted, furnaceOutputCount);
   const speedRate = computeAlchemySpeedRate(recipeLevel, alchemyLevel, furnaceSpeedRate);
-  return computeAdjustedCraftTicks(baseTicks, speedRate);
+  return computeRawCraftTicks(baseTicks, speedRate);
+}
+
+export function computeAlchemyAdjustedBrewTicks(
+  baseBrewTicks: number,
+  recipe: Pick<AlchemyRecipeCatalogEntry, 'fullPower' | 'ingredients' | 'mainIngredients' | 'requiredAuxElements'>,
+  submitted: readonly AlchemyIngredientSelection[] | undefined,
+  recipeLevel: number | undefined,
+  alchemyLevel: number | undefined,
+  furnaceSpeedRate = 0,
+  furnaceOutputCount = ALCHEMY_FURNACE_OUTPUT_COUNT,
+  randomRoll?: number,
+): number {
+  const rawTicks = computeAlchemyRawBrewTicks(
+    baseBrewTicks,
+    recipe,
+    submitted,
+    recipeLevel,
+    alchemyLevel,
+    furnaceSpeedRate,
+    furnaceOutputCount,
+  );
+  return resolveStochasticCraftTicks(rawTicks, randomRoll);
 }
 
 export function normalizeAlchemyIngredientSelections(

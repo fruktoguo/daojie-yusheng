@@ -288,6 +288,10 @@ export interface PlayerAlchemyJob {
 
   batchBrewTicks: number;  
   /**
+ * rawBrewTicks：单批未取整理论耗时（浮点数），用于支持小数概率判定与小于1息批量生产。
+ */
+  rawBrewTicks?: number;
+  /**
  * currentBatchRemainingTicks：currentBatchRemainingtick相关字段。
  */
 

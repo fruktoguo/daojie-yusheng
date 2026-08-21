@@ -45,6 +45,7 @@ import {
   compactCraftElementVector,
   computeAlchemyAdjustedBrewTicks,
   computeAlchemyBatchOutputCountWithSize,
+  computeAlchemyRawBrewTicks,
   computeAlchemyTotalJobTicks,
   createEmptyCraftElementVector,
   getAlchemySpiritStoneCost,
@@ -2717,6 +2718,22 @@ export class CraftWorkbenchModal {
     return this.alchemySkillLevel;
   }
 
+  private getAlchemyRawBrewTicks(
+    recipe: AlchemyRecipeCatalogEntry,
+    ingredients: readonly AlchemyIngredientSelection[],
+  ): number {
+    const furnaceBonuses = this.getAlchemyFurnaceBonuses();
+    return computeAlchemyRawBrewTicks(
+      recipe.baseBrewTicks,
+      recipe,
+      ingredients,
+      recipe.outputLevel,
+      this.getCraftSkillLevelForActiveMode(),
+      furnaceBonuses.speedRate,
+      this.getAlchemyBatchOutputSize(recipe),
+    );
+  }
+
   private getAlchemyAdjustedBrewTicks(
     recipe: AlchemyRecipeCatalogEntry,
     ingredients: readonly AlchemyIngredientSelection[],
@@ -2838,10 +2855,11 @@ export class CraftWorkbenchModal {
   } {
     const quantity = this.parseAlchemyConfirmQuantity();
     const maxQuantity = this.getAlchemyMaxCraftQuantity(recipe, ingredients);
+    const rawBrewTicks = this.getAlchemyRawBrewTicks(recipe, ingredients);
     const batchBrewTicks = this.getAlchemyAdjustedBrewTicks(recipe, ingredients);
     const totalTicks = quantity === null
       ? null
-      : computeAlchemyTotalJobTicks(batchBrewTicks, quantity, 0);
+      : computeAlchemyTotalJobTicks(rawBrewTicks, quantity, 0);
     const spiritStoneCost = quantity === null
       ? null
       : this.getAlchemySpiritStoneCost(recipe, quantity);

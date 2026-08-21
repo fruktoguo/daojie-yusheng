@@ -60,13 +60,16 @@ adjustedRate = applyAsymptoticSuccessModifier(baseRate, levelModifier + toolModi
 
 基础成功率为 100% 且总等级/工具修正仍为负时，炼器不会免疫低等级强行制作惩罚，而是按 `e^(levelModifier + toolModifier)` 下调。例如炼器等级 10 制作目标等级 20 且无工具/幸运抵消时，`100% → 0.9^10 ≈ 34.87%`。
 
-## 耗时公式
+## 耗时与批量生产公式
 
 与炼丹相同：
 ```ts
 baseTicks = 按自定义投料材料总数相对标准配方材料总数修正 baseBrewTicks
 speedRate = levelSpeedRate + toolSpeedRate
-totalTicks = max(1, ceil(baseTicks × durationFactor(speedRate)))
+rawTicks = baseTicks × durationFactor(speedRate)
+// 小数部分按百分比概率判定少一息；若 rawTicks < 1 则按批量生产规则每息结算多批
+adjustedTicks = resolveStochasticCraftTicks(rawTicks)
+totalTicks = (rawTicks < 1) ? max(1, ceil(quantity × rawTicks)) : adjustedTicks × quantity
 ```
 
 材料数量修正规则详见 `docs/mechanics/technique/16a-fivephase-craft-formula.md`。

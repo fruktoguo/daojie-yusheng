@@ -172,8 +172,9 @@ export function computeEnhancementToolSpeedRate(
 export function computeEnhancementJobTicks(
   itemLevel: number | undefined,
   speedRate: number | undefined,
+  randomRoll?: number,
 ): number {
-  return computeAdjustedCraftTicks(computeEnhancementJobBaseTicks(itemLevel), speedRate);
+  return computeAdjustedCraftTicks(computeEnhancementJobBaseTicks(itemLevel), speedRate, randomRoll);
 }
 
 /**

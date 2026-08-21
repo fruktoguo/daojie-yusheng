@@ -3,7 +3,11 @@
  *
  * 维护时要保持 active job、背包、技艺经验和队列启动的服务端真源一致。
  */
-import type { TechniqueActivityResolveResult } from '@mud/shared';
+import {
+  type TechniqueActivityResolveResult,
+  resolveStochasticBatchesPerTick,
+  resolveStochasticCraftTicks,
+} from '@mud/shared';
 import {
   applyTechniqueActivityResolveInventory,
   applyTechniqueActivityResolveExperience,
@@ -54,8 +58,47 @@ export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKi
     );
   }
 
-  const batchConsume = craftService.consumeAlchemyLikeBatchResources(player, job);
-  if (!batchConsume.ok) {
+  const rawBrewTicks = typeof job.rawBrewTicks === 'number' && Number.isFinite(job.rawBrewTicks)
+    ? job.rawBrewTicks
+    : job.batchBrewTicks;
+
+  const batchesToProcess = rawBrewTicks < 1
+    ? Math.min(Math.max(1, job.quantity - job.completedCount), resolveStochasticBatchesPerTick(rawBrewTicks))
+    : 1;
+
+  let totalSuccessCount = 0;
+  let totalFailureCount = 0;
+  let batchesCompletedThisTick = 0;
+  let anyInventoryChanged = Boolean(compatibility.inventoryChanged);
+  let resourceMissingMessage: any = null;
+
+  for (let b = 0; b < batchesToProcess; b++) {
+    const batchConsume = craftService.consumeAlchemyLikeBatchResources(player, job);
+    if (!batchConsume.ok) {
+      resourceMissingMessage = {
+        kind: 'system',
+        key: jobKind === 'forging'
+          ? 'notice.craft.forging.batch-resources-missing'
+          : 'notice.craft.alchemy.batch-resources-missing',
+      };
+      break;
+    }
+    if (batchConsume.inventoryChanged) {
+      anyInventoryChanged = true;
+    }
+    const currentSuccessRate = craftService.resolveAlchemyLikeCurrentSuccessRate(player, jobKind, job);
+    job.successRate = currentSuccessRate;
+    const successCount = craftService.resolveAlchemyLikeBatchSuccess(job, currentSuccessRate);
+    const failureCount = Math.max(0, Number(job.outputCount) - successCount);
+    job.completedCount += 1;
+    job.successCount += successCount;
+    job.failureCount += failureCount;
+    totalSuccessCount += successCount;
+    totalFailureCount += failureCount;
+    batchesCompletedThisTick += 1;
+  }
+
+  if (batchesCompletedThisTick === 0) {
     craftService.setAlchemyLikeActiveJob(player, jobKind, null);
     craftService.finalizeMutation(player, {
       persistentOnly: true,
@@ -64,39 +107,30 @@ export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKi
     return {
       ok: true,
       panelChanged: true,
-      inventoryChanged: Boolean(compatibility.inventoryChanged),
+      inventoryChanged: anyInventoryChanged,
       equipmentChanged: false,
       attrChanged: false,
-      messages: [{
-        kind: 'system',
-        key: jobKind === 'forging'
-          ? 'notice.craft.forging.batch-resources-missing'
-          : 'notice.craft.alchemy.batch-resources-missing',
-      }],
+      messages: resourceMissingMessage ? [resourceMissingMessage] : [],
       groundDrops: [],
       craftRealmExpGain: 0,
     };
   }
 
-  const currentSuccessRate = craftService.resolveAlchemyLikeCurrentSuccessRate(player, jobKind, job);
-  job.successRate = currentSuccessRate;
-  const successCount = craftService.resolveAlchemyLikeBatchSuccess(job, currentSuccessRate);
-  const failureCount = Math.max(0, Number(job.outputCount) - successCount);
-  job.completedCount += 1;
-  job.successCount += successCount;
-  job.failureCount += failureCount;
-
-  const jobCompleted = job.completedCount >= job.quantity || job.remainingTicks <= 0;
+  const jobCompleted = job.completedCount >= job.quantity || job.remainingTicks <= 0 || Boolean(resourceMissingMessage);
+  const extraMessages: any[] = [];
+  if (resourceMissingMessage) {
+    extraMessages.push(resourceMissingMessage);
+  }
   const resolved = craftService.buildAlchemyLikeBatchResolveResult(
     player,
     jobKind,
     job,
-    successCount,
-    failureCount,
+    totalSuccessCount,
+    totalFailureCount,
     jobCompleted,
     jobCompleted
-      ? [craftService.buildAlchemyLikeCompletionMessage(jobKind, job)]
-      : [craftService.buildAlchemyLikeBatchMessage(jobKind, job, successCount)],
+      ? [craftService.buildAlchemyLikeCompletionMessage(jobKind, job), ...extraMessages]
+      : [craftService.buildAlchemyLikeBatchMessage(jobKind, job, totalSuccessCount), ...extraMessages],
   ) as TechniqueActivityResolveResult;
   const inventoryResult = applyTechniqueActivityResolveInventory(player, resolved, ctx);
   const expResult = applyTechniqueActivityResolveExperience(
@@ -108,7 +142,7 @@ export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKi
   resolved.craftRealmExpGain = expResult.finalGain / 2;
 
   craftService.finalizeMutation(player, {
-    inventoryChanged: inventoryResult.inventoryChanged || Boolean(batchConsume.inventoryChanged) || Boolean(compatibility.inventoryChanged),
+    inventoryChanged: inventoryResult.inventoryChanged || anyInventoryChanged,
     attrChanged: expResult.attrChanged,
     persistentOnly: true,
     dirtyDomains: [
@@ -125,17 +159,16 @@ export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKi
     ];
     return materializeTechniqueActivityResolveResult(resolved, {
       inventoryChanged: Boolean(nextStartResult.inventoryChanged)
-        || Boolean(batchConsume.inventoryChanged)
-        || Boolean(compatibility.inventoryChanged),
+        || anyInventoryChanged,
       equipmentChanged: Boolean(nextStartResult.equipmentChanged),
       attrChanged: expResult.attrChanged || Boolean(nextStartResult.attrChanged),
       additionalGroundDrops: nextStartResult.groundDrops ?? [],
     });
   }
 
-  job.currentBatchRemainingTicks = job.batchBrewTicks;
+  job.currentBatchRemainingTicks = resolveStochasticCraftTicks(rawBrewTicks);
   return materializeTechniqueActivityResolveResult(resolved, {
-    inventoryChanged: Boolean(batchConsume.inventoryChanged) || Boolean(compatibility.inventoryChanged),
+    inventoryChanged: anyInventoryChanged,
     attrChanged: expResult.attrChanged,
   });
 }

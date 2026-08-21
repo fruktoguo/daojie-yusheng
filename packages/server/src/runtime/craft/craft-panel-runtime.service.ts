@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { ALCHEMY_FURNACE_OUTPUT_COUNT, ARTIFACT_CRAFT_BASE_SUCCESS_RATE, ELEMENT_KEYS, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TECHNIQUE_GRADE_ORDER, addCraftElementVector, applyCraftOutputRate, canMergeItemStack, cloneCraftEffectStats, compactCraftElementVector, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemyTotalJobTicks, computeEnhancementAdjustedSuccessRate, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeFivePhaseElementMatch, computeLuckSuccessRateBonus, createEmptyCraftElementVector, createItemStackSignature, getAlchemySpiritStoneCost, getItemDisplayName, isLegacyItemInstanceId, normalizeCraftEffectStatsPatch, normalizeCraftElementVector, resolvePlayerFacingContentName } from '@mud/shared';
+import { ALCHEMY_FURNACE_OUTPUT_COUNT, ARTIFACT_CRAFT_BASE_SUCCESS_RATE, ELEMENT_KEYS, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TECHNIQUE_GRADE_ORDER, addCraftElementVector, applyCraftOutputRate, canMergeItemStack, cloneCraftEffectStats, compactCraftElementVector, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemyRawBrewTicks, computeAlchemyTotalJobTicks, computeEnhancementAdjustedSuccessRate, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeFivePhaseElementMatch, computeLuckSuccessRateBonus, createEmptyCraftElementVector, createItemStackSignature, getAlchemySpiritStoneCost, getItemDisplayName, isLegacyItemInstanceId, normalizeCraftEffectStatsPatch, normalizeCraftElementVector, resolvePlayerFacingContentName } from '@mud/shared';
 import type { ItemStack } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { lockItem, unlockItem, getLockedItem, lockedItemToItemStack } from '../player/inventory-lock.helpers';
@@ -1163,6 +1163,15 @@ export class CraftPanelRuntimeService {
         );
         const baseSuccessRate = resolveAlchemyLikeBaseSuccessRate(recipe, elementMatchSnapshot.baseElementSuccessRate);
         const craftSkillLevel = (jobKind === 'forging' ? player.forgingSkill?.level : player.alchemySkill?.level) ?? 1;
+        const rawBrewTicks = computeAlchemyRawBrewTicks(
+            recipe.baseBrewTicks,
+            recipe,
+            normalizedSelection.ingredients,
+            recipe.outputLevel,
+            craftSkillLevel,
+            this.getAlchemyLikeToolSpeedRate(player, jobKind),
+            furnaceOutputCount
+        );
         const batchBrewTicks = computeAlchemyAdjustedBrewTicks(
             recipe.baseBrewTicks,
             recipe,
@@ -1172,7 +1181,7 @@ export class CraftPanelRuntimeService {
             this.getAlchemyLikeToolSpeedRate(player, jobKind),
             furnaceOutputCount
         );
-        const totalTicks = computeAlchemyTotalJobTicks(batchBrewTicks, quantity, 0);
+        const totalTicks = computeAlchemyTotalJobTicks(rawBrewTicks, quantity, 0);
         const exactRecipe = elementMatchSnapshot.baseElementSuccessRate >= 1;
         const successRate = computeAlchemyAdjustedSuccessRate(
             baseSuccessRate,
@@ -1197,6 +1206,7 @@ export class CraftPanelRuntimeService {
                 ingredients: normalizedSelection.ingredients,
                 quantity,
                 spiritStoneCost,
+                rawBrewTicks,
                 batchBrewTicks,
                 totalTicks,
                 exactRecipe,
@@ -1362,6 +1372,7 @@ export class CraftPanelRuntimeService {
             phase: 'brewing',
             preparationTicks: 0,
             batchBrewTicks: validated.batchBrewTicks,
+            rawBrewTicks: validated.rawBrewTicks ?? validated.batchBrewTicks,
             currentBatchRemainingTicks: validated.batchBrewTicks,
             pausedTicks: 0,
             workTotalTicks: validated.totalTicks,

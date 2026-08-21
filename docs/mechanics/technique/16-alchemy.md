@@ -42,7 +42,7 @@ adjustedRate = applyAsymptoticSuccessModifier(baseRate, levelModifier + toolSucc
 //   result = (rate × e^modifier × cap) / ((cap - rate) + rate × e^modifier)
 ```
 
-## 炼丹耗时公式
+## 炼丹耗时与批量生产公式
 
 源文件: `packages/shared/src/alchemy.ts`, `packages/shared/src/craft-duration.ts`
 
@@ -59,11 +59,24 @@ speedRate += toolSpeedRate  // 工具/设施加速
 // 3. 耗时因子
 durationFactor = (speedRate >= 0) ? 1/(1+speedRate) : 1+|speedRate|
 
-// 4. 最终单批耗时
-adjustedBrewTicks = max(1, ceil(brewTicks × durationFactor))
+// 4. 理论单批耗时（浮点数）
+rawBrewTicks = brewTicks × durationFactor
 
-// 5. 总耗时
-totalTicks = adjustedBrewTicks × quantity
+// 5. 实际单批耗时（小数概率判定少一息）
+// - 若 rawBrewTicks <= 1，单批保底 1 息；
+// - 若 rawBrewTicks > 1：
+//     floorTicks = floor(rawBrewTicks)
+//     fraction = rawBrewTicks - floorTicks
+//     Math.random() < fraction ? floorTicks + 1 : floorTicks （即有 1 - fraction 概率随机减少一息）
+
+// 6. 批量生产（当 rawBrewTicks < 1 时）
+// - 每息理论完成批数 rate = 1 / rawBrewTicks
+// - 基础完成 floor(rate) 批，剩余小数部分有相应概率额外完成 1 批，实现每息多批结算。
+
+// 7. 总耗时
+totalTicks = (rawBrewTicks < 1)
+  ? max(1, ceil(quantity × rawBrewTicks))
+  : adjustedBrewTicks × quantity
 ```
 
 材料数量修正规则详见 `docs/mechanics/technique/16a-fivephase-craft-formula.md`。
