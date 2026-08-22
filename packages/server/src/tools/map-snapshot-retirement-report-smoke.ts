@@ -7,18 +7,16 @@ import assert from 'node:assert/strict';
 import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from '../app.module';
-import { MapPersistenceService } from '../persistence/map-persistence.service';
 import { WorldRuntimeLifecycleService } from '../runtime/world/world-runtime-lifecycle.service';
 
 async function main(): Promise<void> {
   const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
-  const mapPersistenceService = app.get(MapPersistenceService);
   const worldRuntimeLifecycleService = app.get(WorldRuntimeLifecycleService);
 
   try {
     const report = {
       ok: true,
-      mapSnapshotMainlineEnabled: mapPersistenceService.isEnabled(),
+      mapSnapshotMainlineEnabled: false,
       mapSnapshotRecoveryFallbackRetained: false,
       instanceRecoveryPreferDomain: Boolean(worldRuntimeLifecycleService?.restorePublicInstancePersistence),
       legacySourceScopeObserved: true,

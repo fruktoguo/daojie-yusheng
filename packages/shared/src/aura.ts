@@ -90,7 +90,3 @@ export function normalizeConfiguredAuraValue(value: unknown, baseValue = DEFAULT
   return normalizedValue;
 }
 
-/** @deprecated 使用 isAuraLevelInput 代替。 */
-export const isLegacyAuraLevelValue = isAuraLevelInput;
-/** @deprecated 使用 getAuraLevelThreshold 代替。 */
-export const convertLegacyAuraLevelToValue = getAuraLevelThreshold;

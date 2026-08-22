@@ -24,7 +24,7 @@ export interface TileRecoveryProvider {
   getRecoveryConfig(instanceId: string): TileRecoveryConfig;
 }
 
-/** 模板地图地块恢复提供者：从 template.legacyTileRows / terrainRows 读取原始地块。 */
+/** 模板地图地块恢复提供者：从 template.terrainRows / 分层结构读取原始地块。 */
 export class TemplateTileRecoveryProvider implements TileRecoveryProvider {
   getOriginalTileType(instanceId: string, x: number, y: number): number | null {
     // 模板地图的原始地块类型由 MapInstanceRuntime.getBaseTileType 提供，

@@ -40,29 +40,13 @@ export interface WorkerTaskResult<TResult = unknown> {
 
 /** 任务类型枚举 */
 export type WorkerTaskKind =
-  | 'envelope-encode'
   | 'pathfind'
   | 'pathfind-batch'
-  | 'fov'
   | 'instance-advance'
   | 'persistence-build'
   | 'leaderboard-build';
 
 // ─── Encoding Worker 载荷类型 ──────────────────────────────────
-
-/** AOI envelope 编码任务载荷 */
-export interface EnvelopeEncodePayload {
-  /** 玩家 ID */
-  playerId: string;
-  /** envelope spec（POJO，由主线程从权威态投影） */
-  envelopeSpec: unknown;
-}
-
-/** AOI envelope 编码结果 */
-export interface EnvelopeEncodeResult {
-  /** 编码后的 envelope bytes */
-  envelopeBytes: Uint8Array;
-}
 
 /** A* 寻路任务载荷 */
 export interface PathfindPayload {
@@ -95,27 +79,6 @@ export interface PathfindResult {
   path: Array<{ x: number; y: number }>;
   /** 搜索步数 */
   stepsUsed: number;
-}
-
-/** FOV 计算任务载荷 */
-export interface FovPayload {
-  /** 遮挡视线的 tile mask */
-  blocksSightMask: Uint8Array;
-  /** 地图宽度 */
-  width: number;
-  /** 地图高度 */
-  height: number;
-  /** 观察者位置 */
-  originX: number;
-  originY: number;
-  /** 视野半径 */
-  radius: number;
-}
-
-/** FOV 计算结果 */
-export interface FovResult {
-  /** 可见 tile index 列表（Transferable） */
-  visibleIndices: Uint32Array;
 }
 
 /** 实例 tick 推进任务载荷 */

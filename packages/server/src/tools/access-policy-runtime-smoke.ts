@@ -15,7 +15,7 @@ import {
 
 import { AccessPolicyResourceService } from '../runtime/access/access-policy-resource.service';
 import { AccessPolicyRuntimeService } from '../runtime/access/access-policy-runtime.service';
-import { normalizePersistedBuildingAccessPolicies } from '../runtime/access/building-access-policy-legacy';
+import { normalizePersistedBuildingAccessPolicies } from '../gm/compat-conversions/conversions/building/building-access-policy';
 import { BuildingAccessPolicyService } from '../runtime/access/building-access-policy.service';
 import { WorldGatewayAccessPolicyHelper } from '../network/world-gateway-access-policy.helper';
 

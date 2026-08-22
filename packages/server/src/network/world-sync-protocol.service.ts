@@ -12,7 +12,6 @@
 
 import { Injectable } from '@nestjs/common';
 import { S2C } from '@mud/shared';
-import type { EncodedEnvelope } from './aoi-envelope-encoder.service';
 
 /** 同步协议下发服务：统一封装 socket emit 出口 */
 @Injectable()
@@ -34,27 +33,6 @@ export class WorldSyncProtocolService {
       if (hasWorld) merged.w = envelope.worldDelta;
       if (hasSelf) merged.s = envelope.selfDelta;
       if (hasPanel) merged.p = envelope.panelDelta;
-      socket.emit(S2C.SyncEnvelope, merged);
-    }
-  }
-
-  /** 按 envelope 结构发送预编码占位；当前 encoded 始终为空，实际回退为 JSON 对象直发。 */
-  sendEncodedEnvelope(socket: any, envelope: any, encoded: EncodedEnvelope): void {
-    if (envelope?.initSession) {
-      socket.emit(S2C.InitSession, envelope.initSession);
-    }
-    if (envelope?.mapEnter) {
-      socket.emit(S2C.MapEnter, encoded.mapEnter ?? this.maybeEncodeBinary(envelope.mapEnter));
-    }
-    // T-07: 合并 worldDelta/selfDelta/panelDelta 为单次 emit
-    const hasWorld = !!envelope?.worldDelta;
-    const hasSelf = !!envelope?.selfDelta;
-    const hasPanel = !!envelope?.panelDelta;
-    if (hasWorld || hasSelf || hasPanel) {
-      const merged: Record<string, unknown> = {};
-      if (hasWorld) merged.w = encoded.worldDelta ?? envelope.worldDelta;
-      if (hasSelf) merged.s = encoded.selfDelta ?? envelope.selfDelta;
-      if (hasPanel) merged.p = encoded.panelDelta ?? envelope.panelDelta;
       socket.emit(S2C.SyncEnvelope, merged);
     }
   }

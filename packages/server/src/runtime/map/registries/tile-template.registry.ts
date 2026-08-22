@@ -42,10 +42,10 @@ export class TileTemplateRegistry {
         legacyTileType,
       };
     }
-    const type = getTileTypeFromMapChar(template.legacyTileRows?.[y]?.[x] ?? template.terrainRows?.[y]?.[x] ?? template.source?.tiles?.[y]?.[x] ?? '#');
+    const type = getTileTypeFromMapChar(template.terrainRows?.[y]?.[x] ?? template.source?.tiles?.[y]?.[x] ?? '#');
     return resolveTileLayerSeedFromTemplateContext(type, x, y, (lookupX, lookupY) => (
       this.isInTemplateBounds(template, lookupX, lookupY)
-        ? getTileTypeFromMapChar(template.legacyTileRows?.[lookupY]?.[lookupX] ?? template.terrainRows?.[lookupY]?.[lookupX] ?? template.source?.tiles?.[lookupY]?.[lookupX] ?? '#')
+        ? getTileTypeFromMapChar(template.terrainRows?.[lookupY]?.[lookupX] ?? template.source?.tiles?.[lookupY]?.[lookupX] ?? '#')
         : null
     ));
   }

@@ -53,7 +53,7 @@ type TransmissionDepsPort = {
     playerAttributesService?: { recalculate?(player: any, reason?: any): boolean };
     playerProgressionService?: { refreshPreview?(player: any): void };
     rebuildActionState?(player: any, tick: number): void;
-    queuePlayerStructuredNotice?(player: any, notice: TechniqueActivityNoticeMessage & { text?: string }): void;
+    queuePlayerStructuredNotice?(player: any, notice: TechniqueActivityNoticeMessage): void;
     resolveTechniqueLearningConflict?(player: any, techniqueId: string): {
       conflictAggregateIds?: string[];
       conflictSourceTechniqueIds?: string[];
@@ -814,7 +814,6 @@ function queueTeacherTransmissionStartNotice(validated: TransmissionValidatedPay
   }
   runtime.queuePlayerStructuredNotice(teacher, {
     kind: 'transmission',
-    text: 'notice.craft.transmission.teacher-start',
     structured: {
       key: 'notice.craft.transmission.teacher-start',
       vars: {

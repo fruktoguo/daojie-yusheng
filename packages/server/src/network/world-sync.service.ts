@@ -7,7 +7,6 @@ import { WorldSyncProtocolService } from './world-sync-protocol.service';
 import { WorldSyncAuxStateService } from './world-sync-aux-state.service';
 import { WorldSyncEnvelopeService } from './world-sync-envelope.service';
 import { WorldSessionService } from './world-session.service';
-import { WorldSyncWorkerEncodeService, type PendingEnvelopeEmit } from './world-sync-worker-encode.service';
 import { NativePlayerAuthStoreService } from '../http/native/native-player-auth-store.service';
 import { type SyncFlushBreakdownSample, createSyncFlushBreakdownSample, addSyncFlushDuration, recordSyncEnvelopeDetail, runMeasuredAuxSync, runMeasuredSyncFlushStep } from './world-sync-flush-breakdown';
 import { emitPendingPlayerStatisticRecords } from './world-sync-player-statistic-records';
@@ -24,7 +23,6 @@ export class WorldSyncService {
         @Inject(WorldSyncAuxStateService) private readonly worldSyncAuxStateService: any,
         @Inject(WorldSyncEnvelopeService) private readonly worldSyncEnvelopeService: any,
         @Inject(RuntimeGmStateService) private readonly runtimeGmStateService: any,
-        @Optional() @Inject(WorldSyncWorkerEncodeService) private readonly workerEncodeService?: WorldSyncWorkerEncodeService,
         @Optional() @Inject(NativePlayerAuthStoreService) private readonly nativePlayerAuthStoreService?: any,
     ) {}
     emitInitialSync(playerId: string, socketOverride = undefined) {
@@ -73,9 +71,6 @@ export class WorldSyncService {
 
             breakdown.playerCount = Array.isArray(bindings) ? bindings.length : 0;
 
-            const pendingEmits: PendingEnvelopeEmit[] = [];
-            const useWorkerEncode = this.workerEncodeService?.shouldUseWorkerEncode?.() === true;
-
             for (const binding of bindings) {
                 if (this.isOfflineGainBlocking(binding.playerId)) {
                     breakdown.skippedPlayerCount += 1;
@@ -98,19 +93,7 @@ export class WorldSyncService {
                 breakdown.processedPlayerCount += 1;
 
                 const { envelope, player, auxDeferred } = this.prepareDeltaForPlayer(binding.playerId, binding.sessionId, socket, view, breakdown, true);
-                if (useWorkerEncode && envelope) {
-                    const playerId = binding.playerId;
-                    pendingEmits.push({
-                        socket, envelope, playerId, player,
-                        postEmitFn: () => this.emitDeltaPostSync(playerId, socket, view, player, envelope, auxDeferred, breakdown),
-                    });
-                    continue;
-                }
                 this.emitPreparedDelta(binding.playerId, socket, view, player, envelope, auxDeferred, breakdown);
-            }
-
-            if (useWorkerEncode && pendingEmits.length > 0) {
-                await this.workerEncodeService?.flushPendingEmitsViaWorker(pendingEmits);
             }
         } finally {
             this.runtimeGmStateService?.recordSyncFlushBreakdown?.(breakdown);

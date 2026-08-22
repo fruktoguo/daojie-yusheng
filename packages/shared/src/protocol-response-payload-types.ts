@@ -3,7 +3,7 @@
  *
  * 维护时应保持无副作用、可在浏览器与 Node 环境同时使用，不引入单端专属依赖。
  */
-import type { LeaderboardPlayerLocationsView, LeaderboardView, RealmUpdateView, WorldSummaryView } from './protocol-envelope-types';
+import type { LeaderboardPlayerLocationsView, LeaderboardView, WorldSummaryView } from './protocol-envelope-types';
 import type { MapMinimapArchiveEntry, MinimapLibraryManifestEntry } from './world-view-types';
 import type {
   ContainerDetailView,
@@ -19,24 +19,17 @@ import type { NoticeItemView, NoticeView, SystemMessageView } from './notice-typ
 import type { OfflineGainReportsView } from './offline-gain-types';
 import type {
   BootstrapView,
-  EnterView,
   ErrorView,
   InitSessionView,
-  InitView,
-  LeaveView,
   MapEnterView,
-  MapStaticSyncView,
   PongView,
   QuestNavigateResultView,
   RealmView,
 } from './session-sync-types';
 import type {
-  EquipmentUpdateView,
-  ArtifactUpdateView,
   InventoryPageView,
   TechniquePageView,
   TechniqueTransmissionStatusesView,
-  InventoryUpdateView,
   LootWindowUpdateView,
   MailOpResultView,
   MailPageSyncView,
@@ -250,22 +243,10 @@ export interface S2C_Tick extends TickView {
 
   g?: GroundItemPilePatch[];
 }
-/** 地图静态同步：低频重同步地图元数据、小地图与静态标记。 */
-export interface S2C_MapStaticSync extends MapStaticSyncView {}
-/** 实体进入视野的单条事件。 */
-export interface S2C_Enter extends EnterView {}
-/** 实体离开视野的单条事件。 */
-export interface S2C_Leave extends LeaveView {}
-/** 连接成功后的首屏初始化数据。 */
-export interface S2C_Init extends InitView {}
 /** 错误响应。 */
 export interface S2C_Error extends ErrorView {}
 /** 属性面板低频更新。 */
 export interface S2C_AttrUpdate extends AttrUpdateView {}
-/** 境界低频同步：完整下发当前境界展示、突破与开天门详情。 */
-export interface S2C_RealmUpdate extends RealmUpdateView {}
-/** 背包面板更新。 */
-export interface S2C_InventoryUpdate extends InventoryUpdateView {}
 /** 背包面板分页响应。 */
 export interface S2C_InventoryPage extends InventoryPageView {}
 /** 宗门待审批申请分页响应。 */
@@ -275,10 +256,6 @@ export interface S2C_TechniquePage extends TechniquePageView {}
 
 /** 目标玩家对当前可传功法的已学状态。 */
 export interface S2C_TechniqueTransmissionStatuses extends TechniqueTransmissionStatusesView {}
-/** 装备面板更新。 */
-export interface S2C_EquipmentUpdate extends EquipmentUpdateView {}
-/** 法宝面板更新。 */
-export interface S2C_ArtifactUpdate extends ArtifactUpdateView {}
 /** 功法面板局部更新项。 */
 export interface TechniqueUpdateEntry extends TechniqueUpdateEntryView {}
 /** 功法面板更新。 */

@@ -198,7 +198,7 @@ function resolveOverlayParentSightBlocked(instance, x, y, deps) {
             overlay.template.structureRows?.[overlay.y]?.[overlay.x] ?? null,
             overlay.template.interactableRows?.[overlay.y]?.[overlay.x] ?? [],
         )
-        : getTileTypeFromMapChar(overlay.template.legacyTileRows?.[overlay.y]?.[overlay.x] ?? overlay.template.terrainRows?.[overlay.y]?.[overlay.x] ?? overlay.template.source?.tiles?.[overlay.y]?.[overlay.x] ?? '#');
+        : getTileTypeFromMapChar(overlay.template.terrainRows?.[overlay.y]?.[overlay.x] ?? overlay.template.source?.tiles?.[overlay.y]?.[overlay.x] ?? '#');
     return doesTileTypeBlockSight(tileType);
 }
 

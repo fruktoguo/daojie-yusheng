@@ -422,7 +422,7 @@ function assignOptional(target, key, value) {
  * 把编辑器态怪物模板整理回可持久化的服务端格式。
  */
 function serializeMonsterTemplate(existing, monster) {
-  const next = existing && typeof existing === 'object' && !Array.isArray(existing) ? { ...existing } : {};
+  const next = {};
   next.id = monster.id;
   next.name = monster.name;
   next.char = monster.char;
@@ -441,25 +441,10 @@ function serializeMonsterTemplate(existing, monster) {
   assignOptional(next, 'expMultiplier', shouldPersistMonsterExpMultiplier(monster.expMultiplier, monster.tier) ? monster.expMultiplier : undefined);
   assignOptional(next, 'attrTendency', monster.attrTendency && Object.keys(monster.attrTendency).length > 0 ? monster.attrTendency : undefined);
   assignOptional(next, 'statTendency', monster.statTendency && Object.keys(monster.statTendency).length > 0 ? monster.statTendency : undefined);
-  delete next.valueStats;
-  delete next.attrs;
-  delete next.statPercents;
   assignOptional(next, 'equipment', monster.equipment && Object.keys(monster.equipment).length > 0 ? monster.equipment : undefined);
   assignOptional(next, 'skills', Array.isArray(monster.skills) && monster.skills.length > 0 ? monster.skills : undefined);
   assignOptional(next, 'initialBuffs', Array.isArray(monster.initialBuffs) && monster.initialBuffs.length > 0 ? monster.initialBuffs : undefined);
   next.drops = Array.isArray(monster.drops) ? monster.drops.map((drop) => normalizeMonsterDrop(drop)) : [];
-
-  delete next.computedStats;
-  delete next.combatModel;
-  delete next.sourceMode;
-  delete next.resolvedAttrs;
-  delete next.resolvedAttrTendency;
-  delete next.resolvedStatPercents;
-  delete next.resolvedStatTendency;
-
-  delete next.hp;
-  delete next.maxHp;
-  delete next.attack;
 
   return next;
 }
@@ -761,8 +746,6 @@ function hydrateMonsterSpawnRecord(raw, monsterTemplates) {
   if (!template) {
     return raw;
   }
-  const radius = Number.isInteger(raw.radius) ? Math.max(0, Number(raw.radius)) : template.radius;
-  const maxAlive = Number.isInteger(raw.maxAlive) ? Math.max(1, Number(raw.maxAlive)) : template.maxAlive;
   return {
     ...template,
     id: typeof raw.id === 'string' && raw.id.trim() ? raw.id : template.id,
@@ -770,9 +753,9 @@ function hydrateMonsterSpawnRecord(raw, monsterTemplates) {
     y: Number.isInteger(raw.y) ? Number(raw.y) : 0,
     grade: raw.grade ?? template.grade,
     count: Number.isInteger(raw.count) ? Math.max(1, Number(raw.count)) : template.count,
-    radius,
-    maxAlive,
-    wanderRadius: Number.isInteger(raw.wanderRadius) ? Math.max(0, Number(raw.wanderRadius)) : radius,
+    radius: Number.isInteger(raw.radius) ? Math.max(0, Number(raw.radius)) : template.radius,
+    maxAlive: Number.isInteger(raw.maxAlive) ? Math.max(1, Number(raw.maxAlive)) : template.maxAlive,
+    wanderRadius: Number.isInteger(raw.wanderRadius) ? Math.max(0, Number(raw.wanderRadius)) : template.wanderRadius,
     respawnTicks: Number.isInteger(raw.respawnTicks)
       ? Math.max(1, Number(raw.respawnTicks))
       : undefined,
@@ -819,11 +802,10 @@ function dehydrateMonsterSpawnRecord(spawn, monsterTemplates) {
   };
   if (templateId !== spawn.id) persisted.templateId = templateId;
   if (spawn.grade !== template.grade) persisted.grade = spawn.grade;
-  if ((spawn.count ?? spawn.maxAlive ?? 1) !== template.count) persisted.count = spawn.count;
-  if ((spawn.radius ?? 3) !== template.radius) persisted.radius = spawn.radius;
-  if ((spawn.maxAlive ?? spawn.count ?? 1) !== (template.maxAlive ?? template.count ?? 1)) persisted.maxAlive = spawn.maxAlive;
-  const defaultWanderRadius = spawn.radius ?? template.radius;
-  if ((spawn.wanderRadius ?? defaultWanderRadius) !== defaultWanderRadius) persisted.wanderRadius = spawn.wanderRadius;
+  if (spawn.count !== template.count) persisted.count = spawn.count;
+  if (spawn.radius !== template.radius) persisted.radius = spawn.radius;
+  if (spawn.maxAlive !== template.maxAlive) persisted.maxAlive = spawn.maxAlive;
+  if (spawn.wanderRadius !== template.wanderRadius) persisted.wanderRadius = spawn.wanderRadius;
   const effectiveRespawnTicks = Number.isInteger(spawn.respawnTicks)
     ? Math.max(1, Number(spawn.respawnTicks))
     : Number.isInteger(spawn.respawnSec)

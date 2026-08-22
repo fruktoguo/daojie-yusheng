@@ -45,8 +45,6 @@ import {
 export const ENHANCEMENT_EXTRA_SUCCESS_RATE_PER_LEVEL = 0.01;
 /** 强化技能低于物品等级时，每差 1 级让"减益 factor"乘以多少（乘算合并、几何衰减）。 */
 export const ENHANCEMENT_LOWER_LEVEL_DECAY_PER_LEVEL = 0.9;
-/** 历史命名兼容：旧 log-odds 单位的"低等级惩罚"系数；新公式不再使用，仅为外部 import 不破坏而保留。 */
-export const ENHANCEMENT_LOWER_LEVEL_SUCCESS_PENALTY = 0.1;
 export const EQUIPMENT_REALM_EFFECTIVENESS_PENALTY_PER_LEVEL = 0.05;
 export const EQUIPMENT_REALM_EFFECTIVENESS_FACTOR_PER_LEVEL = 1 - EQUIPMENT_REALM_EFFECTIVENESS_PENALTY_PER_LEVEL;
 
@@ -178,18 +176,6 @@ export function computeEnhancementJobTicks(
 }
 
 /**
- * 兼容旧调用方的赔率域成功率修正包装。新公式（严格分段乘除）由
- * `applyMultiplicativeSuccessFactor` / `computeEnhancementAdjustedSuccessRate` 走。
- */
-export function applyEnhancementSuccessModifier(
-  baseRate: number | undefined,
-  modifier: number | undefined,
-  maxRate: number = 1,
-): number {
-  return applyAsymptoticSuccessModifier(baseRate, modifier, maxRate);
-}
-
-/**
  * 用"严格分段乘除"应用强化成功率修正。
  *
  * - `factor = 1` 不变；`> 1` 增益；`< 1` 削弱；
@@ -244,18 +230,6 @@ export function computeEnhancementLevelSuccessFactorContribution(
     return { increment: 0, decay: Math.pow(ENHANCEMENT_LOWER_LEVEL_DECAY_PER_LEVEL, -levelDelta) };
   }
   return { increment: 0, decay: 1 };
-}
-
-/**
- * 历史导出：返回单一数值的"等级修正"。在新公式（严格分段乘除）下没有等价语义；
- * 仅保留兼容已有外部导出，内部不再使用。
- */
-export function computeEnhancementLevelSuccessModifier(
-  targetItemLevel: number | undefined,
-  roleEnhancementLevel: number | undefined,
-): number {
-  const contribution = computeEnhancementLevelSuccessFactorContribution(targetItemLevel, roleEnhancementLevel);
-  return contribution.increment - (1 - contribution.decay);
 }
 
 export function computeEnhancementAdjustedSuccessRate(

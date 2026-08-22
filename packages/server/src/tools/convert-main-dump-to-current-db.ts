@@ -436,14 +436,84 @@ async function convertPlayers(pool, services, limit) {
         playerId: normalizeString(entry.player?.id) || null,
         error: error instanceof Error ? error.message : String(error),
       });
-      if (failures.length >= 20) break;
     }
   }
   return { sourceRows: entries.length, converted, skipped, failures };
 }
 
+function toPlayerSnapshotFromMigrationRow(row) {
+  const currentMapId = typeof row.mapId === 'string' && row.mapId.trim() ? row.mapId.trim() : 'town';
+  return {
+    version: 1,
+    savedAt: Date.now(),
+    placement: {
+      instanceId: `public:${currentMapId}`,
+      templateId: currentMapId,
+      x: Math.trunc(Number(row.x) || 0),
+      y: Math.trunc(Number(row.y) || 0),
+      facing: normalizeString(row.facing) || 'south',
+    },
+    worldPreference: {
+      linePreset: 'peaceful',
+    },
+    vitals: {
+      hp: Math.max(0, Math.trunc(Number(row.hp) || 100)),
+      maxHp: Math.max(1, Math.trunc(Number(row.maxHp) || 100)),
+      qi: Math.max(0, Math.trunc(Number(row.qi) || 0)),
+      maxQi: 0,
+    },
+    progression: {
+      foundation: Math.max(0, Math.trunc(Number(row.foundation) || 0)),
+      rootFoundation: Math.max(0, Math.trunc(Number(row.rootFoundation) || 0)),
+      combatExp: Math.max(0, Math.trunc(Number(row.combatExp) || 0)),
+      comprehension: Math.max(0, Math.trunc(Number(row.comprehension) || 0)),
+      luck: Math.max(0, Math.trunc(Number(row.luck) || 0)),
+      bodyTraining: typeof row.bodyTraining === 'object' && row.bodyTraining ? row.bodyTraining : null,
+      boneAgeBaseYears: Math.max(1, Math.trunc(Number(row.boneAgeBaseYears) || 16)),
+      lifeElapsedTicks: Math.max(0, Number(row.lifeElapsedTicks) || 0),
+      lifespanYears: row.lifespanYears != null ? Math.max(1, Math.trunc(Number(row.lifespanYears) || 1)) : null,
+      realm: typeof row.bonuses === 'object' && row.bonuses?.realm ? row.bonuses.realm : { realmId: 'mortal', subStage: 0, currentExp: 0 },
+      heavenGate: row.heavenGate ?? null,
+      spiritualRoots: row.spiritualRoots ?? null,
+    },
+    unlockedMapIds: Array.isArray(row.unlockedMinimapIds) ? row.unlockedMinimapIds : [],
+    inventory: row.inventory && typeof row.inventory === 'object' ? row.inventory : { revision: 1, capacity: 48, items: [] },
+    equipment: row.equipment && typeof row.equipment === 'object' ? row.equipment : { revision: 1, slots: {} },
+    techniques: {
+      revision: 1,
+      techniques: Array.isArray(row.techniques) ? row.techniques : [],
+      cultivatingTechId: typeof row.cultivatingTechId === 'string' && row.cultivatingTechId.trim() ? row.cultivatingTechId.trim() : null,
+      pendingComprehensions: [],
+    },
+    buffs: {
+      revision: 1,
+      buffs: Array.isArray(row.temporaryBuffs) ? row.temporaryBuffs : [],
+    },
+    runtimeBonuses: row.bonuses && typeof row.bonuses === 'object' ? row.bonuses : {},
+    pendingLogbookMessages: Array.isArray(row.pendingLogbookMessages) ? row.pendingLogbookMessages : [],
+    quests: {
+      revision: 1,
+      entries: Array.isArray(row.quests) ? row.quests : [],
+    },
+    combat: {
+      autoBattle: row.autoBattle === true,
+      combatTargetId: typeof row.combatTargetId === 'string' && row.combatTargetId.trim() ? row.combatTargetId.trim() : null,
+      combatTargetLocked: row.combatTargetLocked === true && typeof row.combatTargetId === 'string' && row.combatTargetId.trim().length > 0,
+      autoRetaliate: row.autoRetaliate !== false,
+      autoBattleStationary: row.autoBattleStationary === true,
+      allowAoePlayerHit: row.allowAoePlayerHit === true,
+      autoIdleCultivation: row.autoIdleCultivation !== false,
+      autoSwitchCultivation: row.autoSwitchCultivation === true,
+      autoRootFoundation: row.autoRootFoundation === true,
+      combatAttackIntensity: 1,
+      senseQiActive: false,
+      wangQiActive: false,
+      autoBattleSkills: Array.isArray(row.autoBattleSkills) ? row.autoBattleSkills : [],
+    },
+  };
+}
+
 function buildPlayerSnapshot(row, savedAt) {
-  const { toPlayerSnapshotFromMigrationRow } = require('../network/world-player-source.service');
   const normalizedRow = {
     ...row,
     unlockedMinimapIds: Array.isArray(row.unlockedMinimapIds) ? row.unlockedMinimapIds : [],

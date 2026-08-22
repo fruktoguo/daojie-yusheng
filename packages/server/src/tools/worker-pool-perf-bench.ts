@@ -67,20 +67,7 @@ function withPersistencePool(): { pool: PersistenceWorkerPoolService; restore: (
   return { pool, restore: () => pool.shutdown() };
 }
 
-async function benchPhase1(): Promise<void> {
-  const iterations = 1000;
-  const payload = {
-    t: 42, wr: 100, sr: 5,
-    p: Array.from({ length: 20 }, (_, i) => ({ id: `p${i}`, x: i * 3, y: i * 2, name: `玩家${i}`, facing: 1 })),
-    m: Array.from({ length: 30 }, (_, i) => ({ id: `m${i}`, x: i, y: i, hp: 100, maxHp: 200, name: `怪物${i}` })),
-  };
-  const sync = bench(iterations, () => { encodeServerEventPayload('n:s:worldDelta', payload); });
-  const { pool, restore } = withEncodingPool();
-  try {
-    const worker = await benchAsync(iterations, 64, () => pool.submit('envelope-encode', payload, (p) => Buffer.from(JSON.stringify(p), 'utf-8'), 1000));
-    push(`Phase 1: AOI envelope encode (${iterations} iterations, real worker)`, sync, worker);
-  } finally { await restore(); }
-}
+
 
 async function benchPhase2(): Promise<void> {
   const width = 64, height = 64, total = width * height, iterations = 300;
@@ -127,7 +114,6 @@ async function benchPhase5(): Promise<void> {
 
 async function main(): Promise<void> {
   console.log('=== Worker Pool Performance Bench ===\n');
-  await benchPhase1();
   await benchPhase2();
   await benchPhase5();
   console.log('Results:');

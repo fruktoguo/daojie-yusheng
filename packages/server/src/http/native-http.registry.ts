@@ -42,8 +42,12 @@ import { AiArtsStrengthV1ToV2Conversion } from '../gm/compat-conversions/convers
 import { ZeroPublishedGeneratedTechniqueChantConversion } from '../gm/compat-conversions/conversions/technique/zero-published-generated-technique-chant';
 import { DeleteEmptyCustomTechniqueBooksConversion } from '../gm/compat-conversions/conversions/technique/delete-empty-custom-technique-books';
 import { RecoverEmptyCustomTechniqueBooksConversion } from '../gm/compat-conversions/conversions/technique/recover-empty-custom-technique-books';
+import { PlayerTechniqueJobsConversion } from '../gm/compat-conversions/conversions/technique/player-technique-jobs';
 import { OrphanSectBuildingVisualsConversion } from '../gm/compat-conversions/conversions/building/orphan-sect-building-visuals';
+import { BuildingAccessPolicyConversion } from '../gm/compat-conversions/conversions/building/building-access-policy';
 import { TongtianTowerCatalogInstanceTypeConversion } from '../gm/compat-conversions/conversions/world/tongtian-tower-catalog-instance-type';
+import { MarketStorageItemIdConversion } from '../gm/compat-conversions/conversions/market/market-storage-item-id';
+import { QuestProgressPayloadConversion } from '../gm/compat-conversions/conversions/quest/quest-progress-payload';
 
 /** 原生主线 HTTP 路由与依赖注册清单（控制器 + 服务）。 */
 export const NATIVE_HTTP_CONTRACT = Object.freeze({
@@ -90,8 +94,12 @@ export const NATIVE_HTTP_PROVIDERS = [
   ZeroPublishedGeneratedTechniqueChantConversion,
   RecoverEmptyCustomTechniqueBooksConversion,
   DeleteEmptyCustomTechniqueBooksConversion,
+  PlayerTechniqueJobsConversion,
   OrphanSectBuildingVisualsConversion,
+  BuildingAccessPolicyConversion,
   TongtianTowerCatalogInstanceTypeConversion,
+  MarketStorageItemIdConversion,
+  QuestProgressPayloadConversion,
   ...NATIVE_GM_AI_PROVIDER_CONTROLLER_PROVIDERS,
   RuntimeEnvManagementService,
   BotTokenService,

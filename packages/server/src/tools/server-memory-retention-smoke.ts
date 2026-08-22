@@ -22,7 +22,6 @@ import { WorldSyncMapSnapshotService } from '../network/world-sync-map-snapshot.
 import { WorldSyncMapStaticAuxService } from '../network/world-sync-map-static-aux.service';
 import { WorldSyncMinimapService } from '../network/world-sync-minimap.service';
 import { WorldSyncPlayerStateService } from '../network/world-sync-player-state.service';
-import { toPlayerSnapshotFromMigrationRow } from '../network/world-player-source.service';
 import { WorldSessionRecoveryQueueService } from '../network/world-session-recovery-queue.service';
 import { FlushWakeupService } from '../persistence/flush-wakeup.service';
 import { OutboxDispatcherRuntimeService } from '../persistence/outbox-dispatcher-runtime.service';
@@ -52,7 +51,6 @@ async function main(): Promise<void> {
   const renderEntityRefProof = proveRenderEntitiesReuseStableRefs();
   const envelopeContainerRespawnProof = proveEnvelopeContainerRespawnAvoidsNoopArrayClone();
   const envelopeThreatHotpathProof = proveEnvelopeThreatHotpathOptimizationsPresent();
-  const playerSourceMigrationRefProof = provePlayerSourceMigrationRefsReused();
   const mapStaticAuxTilePatchProof = proveMapStaticAuxTilePatchResourceCachePresent();
   const panelSliceRefProof = provePanelCursorCacheReusedOnNoopDelta();
   const combatEffectRefProof = proveCombatEffectRefsPassThroughEventBus();
@@ -83,7 +81,6 @@ async function main(): Promise<void> {
     renderEntityRefProof,
     envelopeContainerRespawnProof,
     envelopeThreatHotpathProof,
-    playerSourceMigrationRefProof,
     mapStaticAuxTilePatchProof,
     panelSliceRefProof,
     combatEffectRefProof,
@@ -1211,73 +1208,6 @@ function proveEnvelopeThreatHotpathOptimizationsPresent(): {
     eventBusMutatesWorldDelta,
     threatArrowsPassThrough,
     threatVisibleSetsAvoidIntermediateArrays,
-  };
-}
-
-function provePlayerSourceMigrationRefsReused(): {
-  techniqueSkillsRefShared: boolean;
-  techniqueLayerAttrsRefShared: boolean;
-  questRewardsRefShared: boolean;
-} {
-  const skill = {
-    id: 'skill:memory-proof',
-    name: 'memory proof skill',
-    description: '',
-    type: 'active',
-    effects: [],
-  };
-  const layerAttrs = {
-    constitution: 1,
-    spirit: 0,
-    perception: 0,
-    talent: 0,
-    strength: 0,
-    meridians: 0,
-  };
-  const reward = {
-    itemId: 'item:memory-proof',
-    count: 1,
-  };
-  const row = {
-    mapId: 'map:memory-proof',
-    unlockedMinimapIds: [],
-    techniques: [{
-      techId: 'tech:memory-proof',
-      level: 1,
-      exp: 0,
-      expToNext: 10,
-      skills: [skill],
-      layers: [{
-        level: 1,
-        expToNext: 10,
-        attrs: layerAttrs,
-      }],
-    }],
-    quests: [{
-      id: 'quest:memory-proof',
-      questId: 'quest:memory-proof',
-      status: 'active',
-      rewardItemIds: ['item:memory-proof'],
-      rewards: [reward],
-    }],
-  };
-
-  const snapshot = toPlayerSnapshotFromMigrationRow(row as any) as any;
-  const technique = snapshot.techniques.techniques[0];
-  const quest = snapshot.quests.entries[0];
-  const techniqueSkillsRefShared = technique.skills === row.techniques[0].skills
-    && technique.skills[0] === skill;
-  const techniqueLayerAttrsRefShared = technique.layers[0].attrs === layerAttrs;
-  const questRewardsRefShared = quest.rewards === row.quests[0].rewards
-    && quest.rewards[0] === reward;
-
-  assert.equal(techniqueSkillsRefShared, true);
-  assert.equal(techniqueLayerAttrsRefShared, true);
-  assert.equal(questRewardsRefShared, true);
-  return {
-    techniqueSkillsRefShared,
-    techniqueLayerAttrsRefShared,
-    questRewardsRefShared,
   };
 }
 

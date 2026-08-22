@@ -38,8 +38,12 @@ import { AiArtsStrengthV1ToV2Conversion } from '../../gm/compat-conversions/conv
 import { ZeroPublishedGeneratedTechniqueChantConversion } from '../../gm/compat-conversions/conversions/technique/zero-published-generated-technique-chant';
 import { DeleteEmptyCustomTechniqueBooksConversion } from '../../gm/compat-conversions/conversions/technique/delete-empty-custom-technique-books';
 import { RecoverEmptyCustomTechniqueBooksConversion } from '../../gm/compat-conversions/conversions/technique/recover-empty-custom-technique-books';
+import { PlayerTechniqueJobsConversion } from '../../gm/compat-conversions/conversions/technique/player-technique-jobs';
 import { OrphanSectBuildingVisualsConversion } from '../../gm/compat-conversions/conversions/building/orphan-sect-building-visuals';
+import { BuildingAccessPolicyConversion } from '../../gm/compat-conversions/conversions/building/building-access-policy';
 import { TongtianTowerCatalogInstanceTypeConversion } from '../../gm/compat-conversions/conversions/world/tongtian-tower-catalog-instance-type';
+import { MarketStorageItemIdConversion } from '../../gm/compat-conversions/conversions/market/market-storage-item-id';
+import { QuestProgressPayloadConversion } from '../../gm/compat-conversions/conversions/quest/quest-progress-payload';
 /**
  * UpdatePlayerPasswordBody：定义接口结构约束，明确可交付字段含义。
  */
@@ -294,8 +298,12 @@ export class NativeGmController {
     @Inject(ZeroPublishedGeneratedTechniqueChantConversion) private readonly zeroPublishedGeneratedTechniqueChantConversion: ZeroPublishedGeneratedTechniqueChantConversion,
     @Inject(RecoverEmptyCustomTechniqueBooksConversion) private readonly recoverEmptyCustomTechniqueBooksConversion: RecoverEmptyCustomTechniqueBooksConversion,
     @Inject(DeleteEmptyCustomTechniqueBooksConversion) private readonly deleteEmptyCustomTechniqueBooksConversion: DeleteEmptyCustomTechniqueBooksConversion,
+    @Inject(PlayerTechniqueJobsConversion) private readonly playerTechniqueJobsConversion: PlayerTechniqueJobsConversion,
     @Inject(OrphanSectBuildingVisualsConversion) private readonly orphanSectBuildingVisualsConversion: OrphanSectBuildingVisualsConversion,
+    @Inject(BuildingAccessPolicyConversion) private readonly buildingAccessPolicyConversion: BuildingAccessPolicyConversion,
     @Inject(TongtianTowerCatalogInstanceTypeConversion) private readonly tongtianTowerCatalogInstanceTypeConversion: TongtianTowerCatalogInstanceTypeConversion,
+    @Inject(MarketStorageItemIdConversion) private readonly marketStorageItemIdConversion: MarketStorageItemIdConversion,
+    @Inject(QuestProgressPayloadConversion) private readonly questProgressPayloadConversion: QuestProgressPayloadConversion,
     @Optional()
     @Inject(GmAuditLogPersistenceService)
     private readonly gmAuditLogPersistenceService: GmAuditLogPersistenceService | null = null,
@@ -1169,21 +1177,6 @@ export class NativeGmController {
     }));
   }
 
-  @Post('shortcuts/compat/quest-progress-payloads/dry-run')
-  async dryRunRepairQuestProgressPayloads(@Req() request: unknown) {
-    return this.nextGmPlayerService.repairQuestProgressPayloads('dry-run', extractGmActor(request));
-  }
-
-  @Post('shortcuts/compat/quest-progress-payloads/apply')
-  async applyRepairQuestProgressPayloads(@Req() request: unknown) {
-    return this.executeAuditedGmWrite({
-      op: 'gm.shortcuts.compat.quest_progress_payloads.apply',
-      request,
-      targetType: 'compat_conversion',
-      targetId: 'quest_progress_payloads',
-    }, (actor) => this.nextGmPlayerService.repairQuestProgressPayloads('apply', actor));
-  }
-
   @Post('shortcuts/players/refresh-online-technique-templates')
   async refreshOnlinePlayerTechniqueTemplates(@Req() request: unknown) {
     return this.executeAuditedGmWrite({
@@ -1320,6 +1313,90 @@ export class NativeGmController {
       targetType: 'compat_conversion',
       targetId: 'tongtian_tower_catalog_instance_type',
     }, (actor) => this.tongtianTowerCatalogInstanceTypeConversion.run({
+      mode: 'apply',
+      actor,
+    }));
+  }
+
+  @Post('shortcuts/compat/market-storage-item-id/dry-run')
+  async dryRunMarketStorageItemId(@Req() request: unknown) {
+    return this.marketStorageItemIdConversion.run({
+      mode: 'dry-run',
+      actor: extractGmActor(request),
+    });
+  }
+
+  @Post('shortcuts/compat/market-storage-item-id/apply')
+  async applyMarketStorageItemId(@Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.shortcuts.compat.market_storage_item_id.apply',
+      request,
+      targetType: 'compat_conversion',
+      targetId: 'market_storage_item_id',
+    }, (actor) => this.marketStorageItemIdConversion.run({
+      mode: 'apply',
+      actor,
+    }));
+  }
+
+  @Post('shortcuts/compat/quest-progress-payloads/dry-run')
+  async dryRunRepairQuestProgressPayloads(@Req() request: unknown) {
+    return this.questProgressPayloadConversion.run({
+      mode: 'dry-run',
+      actor: extractGmActor(request),
+    });
+  }
+
+  @Post('shortcuts/compat/quest-progress-payloads/apply')
+  async applyRepairQuestProgressPayloads(@Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.shortcuts.compat.quest_progress_payloads.apply',
+      request,
+      targetType: 'compat_conversion',
+      targetId: 'quest_progress_payloads',
+    }, (actor) => this.questProgressPayloadConversion.run({
+      mode: 'apply',
+      actor,
+    }));
+  }
+
+  @Post('shortcuts/compat/building-access-policy/dry-run')
+  async dryRunBuildingAccessPolicy(@Req() request: unknown) {
+    return this.buildingAccessPolicyConversion.run({
+      mode: 'dry-run',
+      actor: extractGmActor(request),
+    });
+  }
+
+  @Post('shortcuts/compat/building-access-policy/apply')
+  async applyBuildingAccessPolicy(@Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.shortcuts.compat.building_access_policy.apply',
+      request,
+      targetType: 'compat_conversion',
+      targetId: 'building_access_policy',
+    }, (actor) => this.buildingAccessPolicyConversion.run({
+      mode: 'apply',
+      actor,
+    }));
+  }
+
+  @Post('shortcuts/compat/player-technique-jobs/dry-run')
+  async dryRunPlayerTechniqueJobs(@Req() request: unknown) {
+    return this.playerTechniqueJobsConversion.run({
+      mode: 'dry-run',
+      actor: extractGmActor(request),
+    });
+  }
+
+  @Post('shortcuts/compat/player-technique-jobs/apply')
+  async applyPlayerTechniqueJobs(@Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.shortcuts.compat.player_technique_jobs.apply',
+      request,
+      targetType: 'compat_conversion',
+      targetId: 'player_technique_jobs',
+    }, (actor) => this.playerTechniqueJobsConversion.run({
       mode: 'apply',
       actor,
     }));

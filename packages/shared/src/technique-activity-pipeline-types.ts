@@ -41,8 +41,6 @@ export interface TechniqueActivityOutputItem {
 /** 通知消息。 */
 export interface TechniqueActivityNoticeMessage {
   kind: NoticeKind;
-  /** 旧字段：兼容现有服务端文本通知。新链路应优先使用 structured。 */
-  text?: string;
   /** 结构化通知载荷；服务端传 key/vars，客户端负责拼接和渲染。 */
   structured?: StructuredNoticePayload;
   /** 结构化消息 key。 */

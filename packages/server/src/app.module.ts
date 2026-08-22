@@ -182,7 +182,6 @@ import { TechniqueAggregationService } from './runtime/technique-generation/tech
 import { TechniqueGenerationService } from './runtime/technique-generation/technique-generation.service';
 import { MapPersistenceFlushService } from './persistence/map-persistence-flush.service';
 import { DurableOperationService } from './persistence/durable-operation.service';
-import { MapPersistenceService } from './persistence/map-persistence.service';
 import { DatabasePoolProvider } from './persistence/database-pool.provider';
 import { FlushDiagnosticsService } from './persistence/flush-diagnostics.service';
 import { CombatAuditOutboxService } from './persistence/combat-audit-outbox.service';
@@ -245,9 +244,6 @@ import { SchedulerRegistryService } from './scheduler/scheduler-registry.service
 import { SchedulerStatePersistenceService } from './scheduler/scheduler-state-persistence.service';
 import { SchedulerStateService } from './scheduler/scheduler-state.service';
 import { AsyncPathfindingService } from './runtime/world/async-pathfinding.service';
-import { AsyncFovService } from './runtime/world/async-fov.service';
-import { WorldSyncWorkerEncodeService } from './network/world-sync-worker-encode.service';
-import { AoiEnvelopeEncoderService } from './network/aoi-envelope-encoder.service';
 
 const WORLD_GATEWAY_PROVIDERS = shouldStartHttpServer()
   ? [
@@ -404,7 +400,6 @@ const WORLD_GATEWAY_PROVIDERS = shouldStartHttpServer()
     WorldRuntimeTongtianTowerService,
     RuntimeMapConfigService,
     PlayerCombatService,
-    MapPersistenceService,
     DatabasePoolProvider,
     FlushDiagnosticsService,
     CombatAuditOutboxService,
@@ -496,9 +491,6 @@ const WORLD_GATEWAY_PROVIDERS = shouldStartHttpServer()
     { provide: 'WORLD_RUNTIME_SERVICE', useExisting: WorldRuntimeService },
     WorldRuntimeService,
     AsyncPathfindingService,
-    AsyncFovService,
-    AoiEnvelopeEncoderService,
-    WorldSyncWorkerEncodeService,
     RuntimeEventBusMetricsService,
     RuntimeEventBusService,
     WorldTickService,

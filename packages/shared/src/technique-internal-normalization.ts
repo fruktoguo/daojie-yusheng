@@ -292,9 +292,6 @@ export function shouldExpandTechniqueAttrRatio(template: Pick<TechniqueTemplate,
   return sumAttrRatioWeights(template.attrRatio) > 0;
 }
 
-/** @deprecated 使用 shouldExpandTechniqueAttrRatio；保留给历史迁移工具兼容。 */
-export const shouldExpandInternalTechnique = shouldExpandTechniqueAttrRatio;
-
 /** `attrRatio` 功法展开结果（仅包含运行时需要的 layers 与诊断性统计）。 */
 export interface InternalTechniqueExpansion {
   /** 展开后的完整 layers，可直接挂到 TechniqueState.layers。 */
@@ -395,9 +392,6 @@ export function expandTechniqueAttrRatio(template: TechniqueTemplate): InternalT
     stageLayers,
   };
 }
-
-/** @deprecated 使用 expandTechniqueAttrRatio；保留给历史迁移工具兼容。 */
-export const expandInternalTechnique = expandTechniqueAttrRatio;
 
 /**
  * 通用功法经验曲线展开：产出每一层已缩放的 `expToNext`，并把末层强制置 0。

@@ -126,13 +126,6 @@ const CHECKS = [
     pattern: "legacy:vitals_baseline",
   },
   {
-    id: "runtime.legacy_snapshot_adapter",
-    category: "P1 runtime/persistence compat",
-    description: "WorldPlayerSource 仍保留 migration-only snapshot 占位入口",
-    file: "packages/server/src/network/world-player-source.service.ts",
-    pattern: "loadPlayerSnapshotForMigration(",
-  },
-  {
     id: "perf.full_capture",
     category: "目标差距: 性能/扩展",
     description: "WorldProjector 每轮仍做整份 capture 后再 diff",

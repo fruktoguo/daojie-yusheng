@@ -473,13 +473,13 @@ function resolveTemplateLayerSeed(template, width, height, x, y) {
             legacyTileType: legacyType,
         };
     }
-    const row = template?.legacyTileRows?.[y] ?? template?.terrainRows?.[y] ?? template?.source?.tiles?.[y] ?? '';
+    const row = template?.terrainRows?.[y] ?? template?.source?.tiles?.[y] ?? '';
     const tileType = getTileTypeFromMapChar(row[x] ?? '#');
     return resolveTileLayerSeedFromTemplateContext(tileType, x, y, (lookupX, lookupY) => {
         if (lookupX < 0 || lookupY < 0 || lookupX >= width || lookupY >= height) {
             return null;
         }
-        const lookupRow = template?.legacyTileRows?.[lookupY] ?? template?.terrainRows?.[lookupY] ?? template?.source?.tiles?.[lookupY] ?? '';
+        const lookupRow = template?.terrainRows?.[lookupY] ?? template?.source?.tiles?.[lookupY] ?? '';
         return getTileTypeFromMapChar(lookupRow[lookupX] ?? '#');
     });
 }

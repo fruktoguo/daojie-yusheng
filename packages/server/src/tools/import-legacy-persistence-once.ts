@@ -11,7 +11,6 @@ const { Pool } = require('pg');
 const { AppModule } = require('../app.module');
 const { DatabasePoolProvider } = require('../persistence/database-pool.provider');
 const { resolveServerDatabaseUrl } = require('../config/env-alias');
-const { MapPersistenceService } = require('../persistence/map-persistence.service');
 const { PlayerPersistenceService } = require('../persistence/player-persistence.service');
 const { PlayerDomainPersistenceService } = require('../persistence/player-domain-persistence.service');
 const { InstanceDomainPersistenceService } = require('../persistence/instance-domain-persistence.service');

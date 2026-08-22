@@ -253,12 +253,20 @@ export class WorldRuntimeInstanceTickOrchestrationService {
   private async precomputeInstanceWorkerIntents(instanceStepPlans, worldTick, deps = null): Promise<Map<string, Array<{ monsterId: string; action: string; targetId?: string }>>> {
     const proposals = new Map<string, Array<{ monsterId: string; action: string; targetId?: string }>>();
     if (!this.instanceWorkerPool) return proposals;
-    const activeAiPlans = instanceStepPlans.filter(({ sleepMonsterAi }) => sleepMonsterAi !== true);
+    const activeAiPlans = instanceStepPlans.filter(({ instance, sleepMonsterAi }) => {
+      if (sleepMonsterAi === true) return false;
+      const playerCount = resolveInstancePlayerCount(instance);
+      return playerCount > 0;
+    });
     if (activeAiPlans.length <= 0) {
       return proposals;
     }
     const results = await Promise.all(activeAiPlans.map(async ({ instance }) => {
       try {
+        const playerCount = resolveInstancePlayerCount(instance);
+        if (playerCount <= 0) {
+          return null;
+        }
         const mirror = this.buildInstanceWorkerMirror(instance, worldTick);
         if (!Array.isArray(mirror.monsters) || mirror.monsters.length <= 0) {
           return null;

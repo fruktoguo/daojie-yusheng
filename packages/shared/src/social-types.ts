@@ -209,10 +209,7 @@ export interface C2S_TreasureVaultDepositView {
   instanceId?: string;
   buildingId: string;
   /** 批量存入条目；同一请求内的物品实例 ID 不得重复。 */
-  items?: TreasureVaultDepositEntryView[];
-  /** 兼容批量协议上线前的单件存入客户端。 */
-  itemInstanceId?: string;
-  count?: number;
+  items: TreasureVaultDepositEntryView[];
 }
 
 export interface C2S_TreasureVaultWithdrawView {

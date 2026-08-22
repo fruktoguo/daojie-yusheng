@@ -217,7 +217,8 @@ function startAuditServer(requestedPort, gmPassword) {
       cwd: lib.repoRoot,
       env: buildAuditChildEnv({
         SERVER_SKIP_LOCAL_ENV_AUTOLOAD: "1",
-        SERVER_RUNTIME_ENV: process.env.SERVER_RUNTIME_ENV || process.env.APP_ENV || process.env.NODE_ENV || "test",
+        SERVER_RUNTIME_ENV: "test",
+        NODE_ENV: "test",
         SERVER_PORT: String(requestedPort),
         SERVER_RUNTIME_HTTP: "1",
         SERVER_ALLOW_UNREADY_TRAFFIC: "1",

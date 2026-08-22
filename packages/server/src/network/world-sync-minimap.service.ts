@@ -64,12 +64,6 @@ export class WorldSyncMinimapService {
 };
 
 function buildLegacyTileRows(template) {
-    if (!hasTemplateLayerRows(template)
-        && !Array.isArray(template?.surfaceRows)
-        && !Array.isArray(template?.structureRows)
-        && !Array.isArray(template?.interactableRows)) {
-        return Array.isArray(template?.legacyTileRows) ? template.legacyTileRows.slice() : Array.isArray(template?.terrainRows) ? template.terrainRows.slice() : [];
-    }
     const rows = [];
     const width = Math.max(0, Math.trunc(Number(template.width) || 0));
     const height = Math.max(0, Math.trunc(Number(template.height) || 0));
@@ -86,10 +80,6 @@ function buildLegacyTileRows(template) {
         rows.push(rowChars.join(''));
     }
     return rows;
-}
-
-function hasTemplateLayerRows(template) {
-    return Array.isArray(template?.terrainRows?.[0]);
 }
 /**
  * buildMinimapMarkers：构建并返回目标对象。

@@ -635,12 +635,7 @@ export interface RenderEntity {
 
   color: string;
   /**
- * badge：badge相关字段。
- */
-
-  badge?: RenderEntityBadge;
-  /**
- * badges：有序前置徽记列表，旧客户端仍可读取 badge。
+ * badges：有序前置徽记列表。
  */
 
   badges?: RenderEntityBadge[];

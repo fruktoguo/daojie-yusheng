@@ -11,7 +11,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
-import { DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, ELEMENT_KEYS, EQUIP_SLOTS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_NUMERIC_TEMPLATES, TECHNIQUE_EXP_BASE, TechniqueRealm, assertRuntimeMapDocumentV2, buildQiResourceKey, calculateTechniqueSkillQiCost, cloneNumericRatioDivisors, cloneNumericStats, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, createMonsterMainCombatStatModifierStats, deriveTechniqueRealm, expandTechniqueAttrRatio, expandTechniqueExpCurve, expandTechniqueLayerGains, getTechniqueExpToNext, getTileTypeFromMapChar, inferMonsterTierFromName, isTileTypeWalkable, normalizeCraftEffectStatsPatch, normalizeEditableMapDocument, normalizeMonsterTier as normalizeSharedMonsterTier, normalizeTargetingDefaultMaxTargets, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveSkillUnlockLevel, scaleTechniqueExp, shouldExpandTechniqueAttrRatio, type TerrainEffectDef } from '@mud/shared';
+import { DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, ELEMENT_KEYS, EQUIP_SLOTS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_NUMERIC_TEMPLATES, TechniqueRealm, assertRuntimeMapDocumentV2, buildQiResourceKey, calculateTechniqueSkillQiCost, cloneNumericRatioDivisors, cloneNumericStats, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, createMonsterMainCombatStatModifierStats, deriveTechniqueRealm, expandTechniqueAttrRatio, expandTechniqueExpCurve, expandTechniqueLayerGains, getTechniqueExpToNext, getTileTypeFromMapChar, inferMonsterTierFromName, isTileTypeWalkable, normalizeCraftEffectStatsPatch, normalizeEditableMapDocument, normalizeMonsterTier as normalizeSharedMonsterTier, normalizeTargetingDefaultMaxTargets, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveSkillUnlockLevel, shouldExpandTechniqueAttrRatio, type TerrainEffectDef } from '@mud/shared';
 import { parseQiResourceKey } from '@mud/shared';
 import { resolveProjectPath } from '../common/project-path';
 import { assignItemInstanceIdIfNeeded } from '../runtime/world/item-instance-id.helpers';
@@ -1272,11 +1272,11 @@ function normalizeMaterialScalarValues(raw) {
     return Object.keys(result).length > 0 ? result : undefined;
 }
 
-function normalizeMaterialValues(raw, legacyElements) {
+function normalizeMaterialValues(raw) {
   // 当前只启用 elements，容器结构为后续其他材料属性预留同层扩展口。
 
     const candidate: any = raw && typeof raw === 'object' ? raw : {};
-    const elements = normalizeMaterialElementValues(candidate.elements ?? legacyElements);
+    const elements = normalizeMaterialElementValues(candidate.elements);
     const scalars = normalizeMaterialScalarValues(candidate.scalars);
     const result: any = {};
     if (elements) {
@@ -1370,7 +1370,7 @@ function normalizeItemTemplate(raw) {
         grade: candidate.grade,
         level: Number.isFinite(candidate.level) ? Math.trunc(candidate.level ?? 0) : undefined,
         materialCategory,
-        materialValues: normalizeMaterialValues(candidate.materialValues, candidate.materialElementValues),
+        materialValues: normalizeMaterialValues(candidate.materialValues),
 
         equipSlot: typeof candidate.equipSlot === 'string' && EQUIP_SLOTS.includes(candidate.equipSlot)
             ? candidate.equipSlot
@@ -1836,7 +1836,7 @@ function normalizeTechniqueTemplate(raw, sharedTechniqueBuffs = new Map()) {
 
     const sparseLayers = Array.isArray(candidate.layers)
         ? candidate.layers
-            .map((layer) => normalizeTechniqueLayer(layer, realmLv))
+            .map((layer) => normalizeTechniqueLayer(layer))
             .filter((entry) => Boolean(entry))
             .sort((left, right) => left.level - right.level)
         : [];
@@ -1880,7 +1880,7 @@ function normalizeTechniqueTemplate(raw, sharedTechniqueBuffs = new Map()) {
     };
 }
 
-function normalizeTechniqueLayer(raw, realmLv) {
+function normalizeTechniqueLayer(raw) {
 
     if (!raw || typeof raw !== 'object') {
         return null;
@@ -1892,9 +1892,7 @@ function normalizeTechniqueLayer(raw, realmLv) {
     }
     return {
         level: Math.max(1, Math.trunc(Number(candidate.level))),
-        expToNext: Number.isFinite(candidate.expFactor)
-            ? scaleTechniqueExpCompat(Number(candidate.expFactor), realmLv)
-            : Math.max(0, Math.trunc(Number(candidate.expToNext ?? 0))),
+        expToNext: Math.max(0, Math.trunc(Number(candidate.expToNext ?? 0))),
         attrs: normalizeTechniqueLayerAttrs(candidate.attrs),
         specialStats: normalizeTechniqueLayerSpecialStats(candidate.specialStats),
         qiProjection: cloneQiProjectionModifiers(candidate.qiProjection),
@@ -2004,18 +2002,6 @@ function cloneQiProjectionModifiers(source) {
         : undefined;
 }
 
-function scaleTechniqueExpCompat(expFactor, realmLv) {
-  if (typeof scaleTechniqueExp === 'function') {
-    return scaleTechniqueExp(expFactor, realmLv);
-  }
-  if (expFactor <= 0) {
-    return 0;
-  }
-  const normalizedRealmLv = Number.isFinite(realmLv) ? Math.max(1, Math.floor(Number(realmLv))) : 1;
-  const expBase = Number.isFinite(TECHNIQUE_EXP_BASE) ? Number(TECHNIQUE_EXP_BASE) : 100;
-  return Math.max(0, Math.round(expFactor * expBase * normalizedRealmLv));
-}
-
 function normalizeTechniqueLayerAttrs(raw) {
 
     if (!raw || typeof raw !== 'object') {
@@ -2083,10 +2069,6 @@ function resolveTechniqueLayerSpecialStats(entry, templateLayer) {
     const explicit = normalizeTechniqueLayerSpecialStats(entry?.specialStats);
     if (explicit) {
         return explicit;
-    }
-    const legacy = normalizeTechniqueLayerSpecialStats(entry?.attrs);
-    if (legacy) {
-        return legacy;
     }
     return templateLayer?.specialStats ? { ...templateLayer.specialStats } : undefined;
 }

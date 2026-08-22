@@ -87,18 +87,6 @@ function clampUnitRate(value: number | undefined): number {
 }
 
 /**
- * applyEnhancementSuccessModifier：兼容旧赔率域调用（按 log-odds modifier 处理）。
- * 当前期望推演已迁移到 `applyEnhancementSuccessFactor`，此函数仅为向后兼容保留。
- */
-function applyEnhancementSuccessModifier(
-  rate: number | undefined,
-  modifier: number | undefined,
-  maxRate: number = 1,
-): number {
-  return applyAsymptoticSuccessModifier(clampUnitRate(rate), modifier, maxRate);
-}
-
-/**
  * applyEnhancementSuccessFactor：用"严格分段乘除"应用强化成功率修正。
  * 与 `enhancement.ts` 的 `applyMultiplicativeSuccessFactor` 同公式，
  * 期望成本推演必须使用相同语义，否则与运行时实际概率不一致。

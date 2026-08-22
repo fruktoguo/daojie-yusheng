@@ -21,7 +21,6 @@ const ALLOWED_RUNTIME_TO_HTTP = new Set([
 ]);
 
 const FORBIDDEN_NETWORK_RUNTIME_BYPASSES = [
-  `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-player-source.service.ts`,
   `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-player-snapshot.service.ts`,
   `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-player-auth.service.ts`,
   `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-auth.registry.ts`,

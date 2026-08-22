@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 
 import { resolveServerDatabasePoolerUrl, resolveServerDatabaseUrl } from '../config/env-alias';
-import { repairMarketStorageItemIds } from '../persistence/market-storage-item-id-repair';
+import { MarketStorageItemIdConversion } from '../gm/compat-conversions/conversions/market/market-storage-item-id';
 import { installSmokeTimeout } from './smoke-timeout';
 
 installSmokeTimeout(__filename);
@@ -17,8 +17,12 @@ async function main(): Promise<void> {
     idleTimeoutMillis: 5_000,
     connectionTimeoutMillis: 5_000,
   });
+  const mockPoolProvider = {
+    getPool: () => pool,
+  };
   try {
-    const result = await repairMarketStorageItemIds(pool);
+    const conversion = new MarketStorageItemIdConversion(mockPoolProvider as never);
+    const result = await conversion.run({ mode: 'apply' });
     console.log(JSON.stringify({
       ok: true,
       answers: '已执行 GM 一次性坊市托管仓 storage_item_id 迁移修复，修复后 mismatchedRows 和 invalidSlotRows 必须为 0。',

@@ -149,6 +149,8 @@ async function startIsolatedServer(port) {
         DATABASE_POOLER_URL: '',
         SERVER_DATABASE_POOLER_URL: '',
         SERVER_SKIP_LOCAL_ENV_AUTOLOAD: '1',
+        SERVER_RUNTIME_ENV: 'test',
+        NODE_ENV: 'test',
         SERVER_PORT: String(port),
         SERVER_RUNTIME_HTTP: '1',
         SERVER_ALLOW_UNREADY_TRAFFIC: '1',

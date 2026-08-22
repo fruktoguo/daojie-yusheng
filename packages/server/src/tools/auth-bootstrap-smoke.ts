@@ -13,7 +13,6 @@ import * as world_gateway_1 from '../network/world.gateway';
 import * as world_player_auth_service_1 from '../network/world-player-auth.service';
 import * as world_client_event_service_1 from '../network/world-client-event.service';
 import * as world_player_snapshot_service_1 from '../network/world-player-snapshot.service';
-import * as world_player_source_service_1 from '../network/world-player-source.service';
 import * as world_player_token_service_1 from '../network/world-player-token.service';
 import * as world_session_bootstrap_service_1 from '../network/world-session-bootstrap.service';
 import * as world_sync_protocol_service_1 from '../network/world-sync-protocol.service';

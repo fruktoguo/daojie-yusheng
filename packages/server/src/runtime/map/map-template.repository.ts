@@ -472,7 +472,6 @@ export class MapTemplateRepository {
             width,
             height,
             routeDomain: normalizeRouteDomain(document.routeDomain),
-            legacyTileRows: document.tiles.slice(),
             terrainRows: document.terrainRows?.map((row) => row.slice()) ?? [],
             surfaceRows: document.surfaceRows?.map((row) => row.slice()) ?? [],
             structureRows: document.structureRows?.map((row) => row.slice()) ?? [],

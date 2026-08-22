@@ -7,7 +7,6 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { resolveToolPackageRoot } from './stable-dist';
-import { MapPersistenceService } from '../persistence/map-persistence.service';
 import { WorldSessionBootstrapSnapshotService } from '../network/world-session-bootstrap-snapshot.service';
 import { WorldPlayerSnapshotService } from '../network/world-player-snapshot.service';
 import { WorldRuntimeLifecycleService } from '../runtime/world/world-runtime-lifecycle.service';
@@ -47,7 +46,7 @@ async function main(): Promise<void> {
   const report = {
     ok: true,
     playerSnapshotMainlineProviderRetired: !appModuleSource.includes('PlayerPersistenceService'),
-    mapSnapshotRuntimeDisabled: new MapPersistenceService().isEnabled() === false,
+    mapSnapshotRuntimeDisabled: !appModuleSource.includes('MapPersistenceService'),
     playerSnapshotRecoveryPreferDomain:
       worldPlayerSnapshotService.isPersistenceEnabled()
       && loadPlayerSnapshotResultBody.includes('loadProjectedSnapshot('),

@@ -8,11 +8,10 @@
  * 单张地图的全部运行态：地块平面、占位、妖兽 AI、战斗、建筑、
  * 资源刷新、灵气流动、AOI 广播和持久化脏域追踪。
  */
-import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, DEFAULT_QI_RUNTIME_FLOW_CONFIGS, DISPERSED_AURA_RESOURCE_KEY, Direction, GROUND_ITEM_EXPIRE_TICKS, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_INSTANCE_TICK_SPEED, MAX_THREAT_VALUE, MOVE_POINT_UNIT, QI_HALF_LIFE_RATE_SCALE, StructureType, TECHNIQUE_UNIFICATION_PLATFORM_DEF_ID, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateDispersedAuraGainPerTile, calculateTerrainDurability, cloneAccessPolicy, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, horizontalFacingFromDelta, horizontalFacingFromTo, isGroundInteractableCellLayerTarget, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeHorizontalFacing, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolvePlayerFacingContentName, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType, validateAccessPolicy } from '@mud/shared';
+import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, DEFAULT_QI_RUNTIME_FLOW_CONFIGS, DISPERSED_AURA_RESOURCE_KEY, Direction, GROUND_ITEM_EXPIRE_TICKS, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_INSTANCE_TICK_SPEED, MAX_THREAT_VALUE, MOVE_POINT_UNIT, OWNER_ONLY_ACCESS_POLICY, QI_HALF_LIFE_RATE_SCALE, StructureType, TECHNIQUE_UNIFICATION_PLATFORM_DEF_ID, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateDispersedAuraGainPerTile, calculateTerrainDurability, cloneAccessPolicy, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, horizontalFacingFromDelta, horizontalFacingFromTo, isGroundInteractableCellLayerTarget, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeHorizontalFacing, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolvePlayerFacingContentName, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType, validateAccessPolicy } from '@mud/shared';
 import { readTrimmedEnv } from '../../config/env-alias';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import '../map/map-template.repository';
-import { normalizePersistedBuildingAccessPolicies } from '../access/building-access-policy-legacy';
 import { RuntimeTilePlane } from '../map/runtime-tile-plane';
 import { BuildingTopologyIndex } from '../building/building-topology-index.service';
 import { createRuntimeTilePlaneRoomCellProvider, detectRooms, isRoomTopologyTileType, isStaticRoomBoundaryTile } from '../building/room-detection.service';
@@ -1972,10 +1971,7 @@ class MapInstanceRuntime {
         }
         const techniqueName = normalizeBuildingId(input?.techniqueName);
         const nextName = techniqueName ? `统法台：${techniqueName}` : building.name;
-        const seededPolicies = normalizePersistedBuildingAccessPolicies(
-            { accessPolicies: input?.accessPolicies },
-            TECHNIQUE_UNIFICATION_PLATFORM_DEF_ID,
-        );
+        const seededPolicies = normalizeExplicitBuildingAccessPolicies(input?.accessPolicies);
         const missingSeedEntries = seededPolicies
             ? Object.entries(seededPolicies).filter(([slot]) => !building.accessPolicies?.[slot])
             : [];
@@ -3239,7 +3235,7 @@ class MapInstanceRuntime {
                 continue;
             }
             const defHandle = Math.max(0, Math.trunc(Number(compiled?.handle) || 0));
-            const accessPolicies = normalizePersistedBuildingAccessPolicies(entry, defId);
+            const accessPolicies = normalizeExplicitBuildingAccessPolicies(entry?.accessPolicies);
             const building = {
                 id,
                 name: typeof entry?.name === 'string' && entry.name.trim() ? entry.name.trim() : undefined,
@@ -10334,6 +10330,21 @@ function resolveMonsterRespawnTicksWithBonus(respawnTicks, bonusPercent) {
         ),
     );
 }
+function normalizeExplicitBuildingAccessPolicies(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return undefined;
+    }
+    const result = {};
+    for (const [slotInput, policyInput] of Object.entries(value)) {
+        const slot = typeof slotInput === 'string' ? slotInput.trim() : '';
+        if (!slot) continue;
+        const validated = validateAccessPolicy(policyInput, { requireResolvedPlayers: true });
+        result[slot] = validated.ok && validated.policy
+            ? cloneAccessPolicy(validated.policy)
+            : cloneAccessPolicy(OWNER_ONLY_ACCESS_POLICY);
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+}
 function normalizeBuildingRotation(value) {
     const normalized = Math.trunc(Number(value) || 0);
     if (normalized === 90 || normalized === 180 || normalized === 270) {
@@ -10859,12 +10870,12 @@ function resolveTemplateLayerSeed(template, x, y) {
             legacyTileType,
         };
     }
-    const staticType = getTileTypeFromMapChar(template.legacyTileRows?.[y]?.[x] ?? template.terrainRows?.[y]?.[x] ?? template.source?.tiles?.[y]?.[x] ?? '#');
+    const staticType = getTileTypeFromMapChar(template.terrainRows?.[y]?.[x] ?? template.source?.tiles?.[y]?.[x] ?? '#');
     return resolveTileLayerSeedFromTemplateContext(staticType, x, y, (lookupX, lookupY) => {
         if (lookupX < 0 || lookupY < 0 || lookupX >= template.width || lookupY >= template.height) {
             return null;
         }
-        return getTileTypeFromMapChar(template.legacyTileRows?.[lookupY]?.[lookupX] ?? template.terrainRows?.[lookupY]?.[lookupX] ?? template.source?.tiles?.[lookupY]?.[lookupX] ?? '#');
+        return getTileTypeFromMapChar(template.terrainRows?.[lookupY]?.[lookupX] ?? template.source?.tiles?.[lookupY]?.[lookupX] ?? '#');
     });
 }
 

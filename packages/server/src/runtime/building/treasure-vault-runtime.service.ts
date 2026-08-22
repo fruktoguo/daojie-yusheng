@@ -159,11 +159,7 @@ export class TreasureVaultRuntimeService {
     if (!(await this.buildingAccessPolicyService.evaluateTreasureVault(playerId, resolved.building)).viewDeposit) {
       return { ok: false, operation: 'deposit', reason: 'treasure_vault_permission_denied' };
     }
-    const requests = normalizeDepositRequests(
-      Array.isArray(payload.items)
-        ? payload.items
-        : [{ itemInstanceId: payload.itemInstanceId, count: payload.count }],
-    );
+    const requests = normalizeDepositRequests(payload.items);
     if (!requests) {
       return { ok: false, operation: 'deposit', reason: 'invalid_item' };
     }

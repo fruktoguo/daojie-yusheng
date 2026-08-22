@@ -20,7 +20,6 @@ import {
   nextPlayerPersistenceVersion,
 } from './player-domain-persistence.service';
 import { type PersistedPlayerSnapshot } from './player-persistence.service';
-import { PersistenceWorkerPoolService } from '../concurrency/persistence-worker-pool.service';
 import { DatabasePoolProvider } from './database-pool.provider';
 import { FlushDiagnosticsService, type PlayerFlushDiagnostics } from './flush-diagnostics.service';
 import { shouldRunLegacyFlushIntervals } from './flush-task-runtime-mode';
@@ -157,8 +156,6 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     @Inject(PlayerRuntimeService)
     private readonly playerRuntimeService: PlayerRuntimeFlushPort,
     private readonly playerDomainPersistenceService: PlayerDomainPersistenceService,
-    @Optional() @Inject(PersistenceWorkerPoolService)
-    private readonly persistenceWorkerPool?: PersistenceWorkerPoolService,
     @Optional() @Inject(DatabasePoolProvider)
     private readonly databasePoolProvider?: DatabasePoolProvider,
     @Optional() @Inject(FlushDiagnosticsService)

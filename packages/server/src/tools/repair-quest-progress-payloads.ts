@@ -4,7 +4,7 @@
 import { Pool } from 'pg';
 
 import { resolveServerDatabaseUrl } from '../config/env-alias';
-import { repairQuestProgressPayloads } from '../persistence/quest-progress-payload-repair';
+import { QuestProgressPayloadConversion } from '../gm/compat-conversions/conversions/quest/quest-progress-payload';
 
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
@@ -21,8 +21,12 @@ async function main(): Promise<void> {
   }
 
   const pool = new Pool({ connectionString: databaseUrl });
+  const mockPoolProvider = {
+    getPool: () => pool,
+  };
   try {
-    const result = await repairQuestProgressPayloads(pool, options);
+    const conversion = new QuestProgressPayloadConversion(mockPoolProvider as never);
+    const result = await conversion.run({ mode: options.mode });
     console.log(JSON.stringify({
       ...result,
       answers: result.mode === 'apply'

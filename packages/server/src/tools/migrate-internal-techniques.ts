@@ -476,7 +476,7 @@ function migrateInternalEntry(entry, reports) {
   const { newTemplate, clamped, rawFloat, grandTotal, totalAttrs } = buildQuantizedInternalTemplate(entry);
 
   // 展开一次，比对新旧总量 & 分布 & 经验
-  const expansion = shared.expandInternalTechnique(newTemplate);
+  const expansion = shared.expandTechniqueAttrRatio(newTemplate);
   const newTotalAttrs = {};
   for (const layer of expansion.layers) {
     if (!layer.attrs) continue;

@@ -209,8 +209,6 @@ function createHarness(durableOperationService: Record<string, unknown> | null =
   const service = new PlayerPersistenceFlushService(
     playerRuntimeService as never,
     playerDomainPersistenceService as never,
-    persistenceWorkerPool as never,
-    undefined,
     undefined,
     undefined,
     durableOperationService as never,

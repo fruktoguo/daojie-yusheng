@@ -228,7 +228,6 @@ function main(): void {
   assert.equal(interruptResult.messages?.[0]?.vars?.activityLabel, '挖矿');
   assert.equal(interruptResult.messages?.[0]?.vars?.reasonLabel, '出手');
   assert.equal(interruptResult.messages?.[0]?.vars?.ticks, 10);
-  assert.equal(interruptResult.messages?.[0]?.text, undefined);
   const interruptedTask = buildTechniqueActivityTaskListView(visiblePlayer).tasks.find((task) => task.kind === 'mining');
   assert.equal(interruptedTask?.state, 'interrupt_wait');
   assert.equal(interruptedTask?.workRemainingTicks, beforeInterruptRemaining);

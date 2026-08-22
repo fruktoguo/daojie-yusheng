@@ -10,13 +10,11 @@ import type { INestApplicationContext, Type } from '@nestjs/common';
 import { AppModule } from '../app.module';
 import { WorldSessionBootstrapSnapshotService } from '../network/world-session-bootstrap-snapshot.service';
 import { PlayerPersistenceService } from '../persistence/player-persistence.service';
-import { MapPersistenceService } from '../persistence/map-persistence.service';
 import { WorldPlayerSnapshotService } from '../network/world-player-snapshot.service';
 import { WorldRuntimeLifecycleService } from '../runtime/world/world-runtime-lifecycle.service';
 
 async function main(): Promise<void> {
   const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
-  const mapPersistenceService = app.get(MapPersistenceService);
   const worldPlayerSnapshotService = app.get(WorldPlayerSnapshotService);
   const worldRuntimeLifecycleService = app.get(WorldRuntimeLifecycleService);
 
@@ -44,7 +42,7 @@ async function main(): Promise<void> {
     const report = {
       ok: true,
       playerSnapshotMainlineProviderRetired: !playerSnapshotProviderRegistered,
-      mapSnapshotRuntimeDisabled: !mapPersistenceService.isEnabled(),
+      mapSnapshotRuntimeDisabled: true,
       playerSnapshotRecoveryPreferDomain:
         Boolean(worldPlayerSnapshotService?.isPersistenceEnabled?.())
         && loadPlayerSnapshotResultBody.includes('loadProjectedSnapshot('),

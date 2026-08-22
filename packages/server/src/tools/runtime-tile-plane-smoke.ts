@@ -71,7 +71,6 @@ function main() {
   const authoredLayers = RuntimeTilePlane.fromTemplate({
     width: 2,
     height: 1,
-    legacyTileRows: ['..'],
     terrainRows: [[TerrainType.Mud, TerrainType.Grass]],
     surfaceRows: [[SurfaceType.Road, null]],
     structureRows: [[null, StructureType.Wall]],
