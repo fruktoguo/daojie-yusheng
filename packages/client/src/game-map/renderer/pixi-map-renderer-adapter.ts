@@ -1943,7 +1943,7 @@ export class PixiMapRendererAdapter {
     const anim = view.anim;
     const cellSize = getCellSize();
     const presentation = anim.kind === 'monster' ? getMonsterPresentation(anim.name, anim.monsterTier) : null;
-    const badges = resolveNameplateBadges(anim.badges, anim.badge, presentation?.badge);
+    const badges = resolveNameplateBadges(anim.badges, presentation?.badge);
     const signature = [
       cellSize,
       anim.char, anim.color, anim.name ?? '', anim.kind ?? '', anim.hp ?? '', anim.maxHp ?? '',

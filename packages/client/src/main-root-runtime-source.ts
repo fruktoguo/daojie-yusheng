@@ -49,7 +49,6 @@ function decorateObservedEntity(entity: MainRuntimeObservedEntity, player: Playe
     && (player.allowAoePlayerHit === true || player.retaliatePlayerTargetId === nextEntity.id);
   return {
     ...nextEntity,
-    badge: badges?.[0],
     badges,
     hostile,
     artifactActive: isSelf ? hasPlayerActiveArtifact(player) : false,
@@ -123,7 +122,6 @@ export function createMainRootRuntimeSource(options: MainRootRuntimeSourceOption
   function syncObservedSnapshot(): MainRuntimeObservedEntity[] {
     const entities = options.getLatestObservedEntitiesSnapshot().map<MainRuntimeObservedEntity>((entity) => ({
       ...entity,
-      badge: entity.badge ?? undefined,
       badges: entity.badges ?? undefined,
       sectMark: entity.sectMark ?? undefined,
       hostile: entity.hostile === true,

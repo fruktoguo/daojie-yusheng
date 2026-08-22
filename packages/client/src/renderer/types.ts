@@ -167,11 +167,6 @@ export interface IRenderer {
  */
 
       color: string;      
-      /**
- * badge：badge相关字段。
- */
-
-      badge?: RenderEntity['badge'];      
       /** 有序名牌徽记列表。 */
       badges?: RenderEntity['badges'];
       /** 玩家宗门单字印记。 */

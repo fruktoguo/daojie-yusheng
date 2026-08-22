@@ -338,9 +338,6 @@ export class ContentResolver {
   /** 注入完整 Buff 模板到 L2 缓存。 */
   injectBuffs(buffs: GmEditorBuffOption[]): void {
     for (const b of buffs) {
-      const legacyValueStats = 'valueStats' in b
-        ? (b as { valueStats?: Record<string, number> }).valueStats
-        : undefined;
       this.dynamicBuffs.set(b.buffId, {
         data: {
           buffId: b.buffId,
@@ -350,7 +347,6 @@ export class ContentResolver {
           desc: b.desc,
           duration: b.duration,
           maxStacks: b.maxStacks,
-          valueStats: legacyValueStats,
           stats: b.stats as Record<string, number> | undefined,
           attrs: b.attrs as Record<string, number> | undefined,
           attrMode: b.attrMode,

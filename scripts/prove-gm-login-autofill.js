@@ -41,20 +41,20 @@ assertIncludes(
   /<input\s+id="gm-password"[^>]*type="password"[^>]*name="password"[^>]*autocomplete="current-password"[^>]*>/,
   'GM 登录密码框必须保留 current-password 自动填充语义。',
 );
-assertIncludes(
+assertMissing(
   gmTs,
-  /const persistedPassword = readPersistedGmPassword\(\);\s*if \(!persistedPassword\) return;\s*passwordInput\.value = persistedPassword;/,
-  'GM 登录显示时不能用空的旧持久化值覆盖浏览器已自动填充的密码。',
-);
-assertIncludes(
-  gmPureTs,
-  /storage\.removeItem\(storageKey\)/,
-  'GM 明文密码旧 localStorage 键必须继续被清理。',
+  /localStorage\.getItem\(['"]mud:gm-password/,
+  'GM 登录模块不得从 localStorage 读取明文密码。',
 );
 assertMissing(
   gmPureTs,
-  /\.setItem\(\s*storageKey/,
-  'GM 密码不能重新写入 localStorage 明文持久化。',
+  /readPersistedGmPassword/,
+  'GM 纯函数助手不得保留废弃的 readPersistedGmPassword 残留。',
+);
+assertMissing(
+  gmPureTs,
+  /persistGmPassword/,
+  'GM 纯函数助手不得保留废弃的 persistGmPassword 残留。',
 );
 
 console.log('[proof:gm-login-autofill] ok');

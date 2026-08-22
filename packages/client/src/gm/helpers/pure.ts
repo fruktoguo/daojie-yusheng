@@ -4,7 +4,6 @@
  * 维护时要把 GM 能力限定在受控入口，并避免普通玩家客户端路径依赖管理端状态。
  */
 import {
-  GM_PASSWORD_STORAGE_KEY,
   type GmManagedPlayerRecord,
   type GmManagedPlayerSummary,
   type RedeemCodeGroupRewardItem,
@@ -12,7 +11,7 @@ import {
 import { t } from '../../ui/i18n';
 
 /** GM 邮件草稿里单条附件的最小输入结构。 */
-interface GmMailAttachmentDraft {
+export interface GmMailAttachmentDraft {
 /**
  * itemId：道具ID标识。
  */
@@ -26,7 +25,7 @@ interface GmMailAttachmentDraft {
 }
 
 /** GM 邮件编辑器中整份草稿的输入结构。 */
-interface GmMailComposerDraft {
+export interface GmMailComposerDraft {
 /**
  * templateId：templateID标识。
  */
@@ -62,54 +61,6 @@ interface GmMailComposerDraft {
  */
 
   attachments: GmMailAttachmentDraft[];
-}
-
-/** 读取浏览器 LocalStorage；当前环境不可用时返回 null。 */
-export function getBrowserLocalStorage(): Storage | null {
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * 读取已保存的 GM 登录口令。
- *
- * N51 安全收口：本函数永远返回空字符串，并在调用时清理 localStorage 上可能残留的明文
- * 密码（一次性迁移）。原本"localStorage 持久化 GM 密码 + 自动回填"的设计在玩家域 XSS
- * 场景下会一并暴露 GM 凭证；安全收益远大于"刷新页面要重新输入"的体验损失。
- */
-export function readPersistedGmPassword(storageKey = GM_PASSWORD_STORAGE_KEY): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  const storage = getBrowserLocalStorage();
-  if (!storage) return '';
-  try {
-    // 一次性清理：旧版本可能已经把明文密码写入 localStorage；这里强制移除避免泄漏面持久存在。
-    storage.removeItem(storageKey);
-  } catch {
-    // ignore
-  }
-  return '';
-}
-
-/**
- * 保存或清理 GM 登录口令。
- *
- * N51 安全收口：本函数不再写入 localStorage，无论传入什么都强制清理；
- * 旧调用点保留以避免上层 diff 噪音，调用语义等价于"确保 GM 密码不在 localStorage 中"。
- */
-export function persistGmPassword(_password: string, storageKey = GM_PASSWORD_STORAGE_KEY): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  const storage = getBrowserLocalStorage();
-  if (!storage) return;
-  try {
-    storage.removeItem(storageKey);
-  } catch {
-    // 本地存储不可用时直接跳过，不影响 GM 主流程。
-  }
 }
 
 /** 创建空的邮件附件草稿，供编辑面板新增一行使用。 */

@@ -1281,9 +1281,6 @@ export class CraftEnhancementView {
     this.parent.localEnhancementHistoryRecords = result.totals;
     this.parent.localEnhancementHistorySessions = result.sessions;
     this.parent.lastServerEnhancementSessionRecord = result.sessionRecord;
-    if (result.migratedFromV1) {
-      this.persistLocalEnhancementHistory();
-    }
   }
 
   private persistLocalEnhancementHistory(): void {

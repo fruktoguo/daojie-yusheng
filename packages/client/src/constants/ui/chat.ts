@@ -7,7 +7,6 @@
  * 聊天面板的本地缓存、频道与滚动加载常量。
  */
 
-export const CHAT_LOG_STORAGE_KEY = 'mud:chat-log:v1';
 /** CHAT_LOG_MAX_VISIBLE_MESSAGES：聊天日志最大可见MESSAGES。 */
 export const CHAT_LOG_MAX_VISIBLE_MESSAGES = 100;
 /** CHAT_LOG_LOAD_BATCH_SIZE：聊天日志LOAD BATCH SIZE。 */

@@ -6,13 +6,13 @@
 import {
   type ActionDef,
   type ActionUpdateEntry,
+  type ArtifactUpdateView,
   type Attributes,
+  type EquipmentUpdateView,
   type Inventory,
+  type InventoryUpdateView,
   type S2C_ActionsUpdate,
-  type S2C_ArtifactUpdate,
   type S2C_AttrUpdate,
-  type S2C_EquipmentUpdate,
-  type S2C_InventoryUpdate,
   type S2C_PanelActionDelta,
   type S2C_PanelTechniqueDelta,
   type S2C_TechniqueUpdate,
@@ -650,12 +650,12 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
   /**
  * mergeInventoryUpdate：处理背包Update并更新相关状态。
  * @param previous Inventory | undefined 参数说明。
- * @param patch S2C_InventoryUpdate 参数说明。
+ * @param patch InventoryUpdateView 参数说明。
  * @returns 返回背包Update。
  */
 
 
-  function mergeInventoryUpdate(previous: Inventory | undefined, patch: S2C_InventoryUpdate): Inventory {
+  function mergeInventoryUpdate(previous: Inventory | undefined, patch: InventoryUpdateView): Inventory {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const patchRevision = Math.max(1, Math.trunc(Number(
@@ -724,12 +724,12 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
   /**
  * mergeEquipmentUpdate：处理装备Update并更新相关状态。
  * @param previous PlayerState['equipment'] | undefined 参数说明。
- * @param patch S2C_EquipmentUpdate 参数说明。
+ * @param patch EquipmentUpdateView 参数说明。
  * @returns 返回装备Update。
  */
 
 
-  function mergeEquipmentUpdate(previous: PlayerState['equipment'] | undefined, patch: S2C_EquipmentUpdate): PlayerState['equipment'] {
+  function mergeEquipmentUpdate(previous: PlayerState['equipment'] | undefined, patch: EquipmentUpdateView): PlayerState['equipment'] {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const next = previous
@@ -753,12 +753,12 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
   /**
  * mergeArtifactUpdate：处理法宝Update并更新相关状态。
  * @param previous PlayerState['artifacts'] | undefined 参数说明。
- * @param patch S2C_ArtifactUpdate 参数说明。
+ * @param patch ArtifactUpdateView 参数说明。
  * @returns 返回法宝状态。
  */
 
 
-  function mergeArtifactUpdate(previous: PlayerState['artifacts'] | undefined, patch: S2C_ArtifactUpdate): PlayerState['artifacts'] {
+  function mergeArtifactUpdate(previous: PlayerState['artifacts'] | undefined, patch: ArtifactUpdateView): PlayerState['artifacts'] {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const previousSlots = Array.isArray(previous?.slots) ? previous.slots : [];
@@ -1197,12 +1197,12 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
     },
     /**
  * handleInventoryUpdate：处理背包Update并更新相关状态。
- * @param data S2C_InventoryUpdate 原始数据。
+ * @param data InventoryUpdateView 原始数据。
  * @returns 无返回值，直接更新背包Update相关状态。
  */
 
 
-    handleInventoryUpdate(data: S2C_InventoryUpdate): void {
+    handleInventoryUpdate(data: InventoryUpdateView): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       const player = options.getPlayer();
@@ -1221,12 +1221,12 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
     },
     /**
  * handleEquipmentUpdate：处理装备Update并更新相关状态。
- * @param data S2C_EquipmentUpdate 原始数据。
+ * @param data EquipmentUpdateView 原始数据。
  * @returns 无返回值，直接更新装备Update相关状态。
  */
 
 
-    handleEquipmentUpdate(data: S2C_EquipmentUpdate): void {
+    handleEquipmentUpdate(data: EquipmentUpdateView): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       const player = options.getPlayer();
@@ -1243,12 +1243,12 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
     },
     /**
  * handleArtifactUpdate：处理法宝Update并更新相关状态。
- * @param data S2C_ArtifactUpdate 原始数据。
+ * @param data ArtifactUpdateView 原始数据。
  * @returns 无返回值，直接更新法宝Update相关状态。
  */
 
 
-    handleArtifactUpdate(data: S2C_ArtifactUpdate): void {
+    handleArtifactUpdate(data: ArtifactUpdateView): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       const player = options.getPlayer();

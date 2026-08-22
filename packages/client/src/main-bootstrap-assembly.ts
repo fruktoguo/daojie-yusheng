@@ -16,7 +16,6 @@ import type { LootPanel } from './ui/panels/loot-panel';
 import type { EquipmentPanel } from './ui/panels/equipment-panel';
 import type { NpcShopModal } from './ui/npc-shop-modal';
 import type { CraftWorkbenchModal } from './ui/craft-workbench-modal';
-import type { DebugPanel } from './ui/debug-panel';
 import type { MainAttrDetailStateSource } from './main-attr-detail-state-source';
 import type { MainActionStateSource } from './main-action-state-source';
 import type { MainBreakthroughStateSource } from './main-breakthrough-state-source';
@@ -433,11 +432,6 @@ type MainBootstrapAssemblyOptions = {
 
   craftWorkbenchModal: Pick<CraftWorkbenchModal, 'setCallbacks' | 'setTransmissionCallbacks' | 'handleTransmissionStatuses' | 'handleTechniqueAggregationPanel' | 'handleTechniqueAggregationResult' | 'handleTechniqueAggregationCatalogChanged' | 'openAlchemy' | 'openForging' | 'openEnhancement' | 'openTransmission' | 'openTechniqueRefining' | 'openTechniqueAggregation'>;
   /**
- * debugPanel：debug面板相关字段。
- */
-
-  debugPanel: Pick<DebugPanel, 'setCallbacks'>;
-  /**
  * mapRuntime：地图运行态引用。
  */
 
@@ -661,7 +655,6 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     equipmentPanel: options.equipmentPanel,
     npcShopModal: options.npcShopModal,
     craftWorkbenchModal: options.craftWorkbenchModal,
-    debugPanel: options.debugPanel,
     chatUI: options.chatUI,
     zoom: {
       zoomSlider: options.documentRef.getElementById('zoom-slider') as HTMLInputElement | null,

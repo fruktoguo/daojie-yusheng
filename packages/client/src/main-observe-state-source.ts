@@ -93,10 +93,10 @@ type ObserveEntity = {
 
   color: string;  
   /**
- * badge：badge相关字段。
+ * badges：徽记列表。
  */
 
-  badge?: RenderEntity['badge'];  
+  badges?: RenderEntity['badges'];  
   /**
  * name：名称名称或显示文本。
  */
@@ -155,7 +155,7 @@ type ObserveEntity = {
 
 type ObserveEntityCardData = Pick<
   ObserveEntity,
-  'id' | 'name' | 'kind' | 'monsterTier' | 'badge' | 'hp' | 'maxHp' | 'qi' | 'maxQi' | 'npcQuestMarker' | 'observation' | 'buffs'
+  'id' | 'name' | 'kind' | 'monsterTier' | 'badges' | 'hp' | 'maxHp' | 'qi' | 'maxQi' | 'npcQuestMarker' | 'observation' | 'buffs'
 > & {
   lootPreview?: NonNullable<NonNullable<S2C_TileDetail['entities']>[number]['lootPreview']>;
 };
@@ -833,6 +833,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
         name: entity.name,
         kind: entity.kind,
         monsterTier: entity.monsterTier,
+        badges: entity.badges,
       };
     }
     return {
@@ -840,6 +841,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       name: entity.name,
       kind: entity.kind,
       monsterTier: entity.monsterTier,
+      badges: entity.badges,
       hp: entity.hp,
       maxHp: entity.maxHp,
       qi: entity.qi,
@@ -866,6 +868,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
         name: entity.name,
         kind: entity.kind ?? undefined,
         monsterTier: entity.monsterTier ?? undefined,
+        badges: undefined,
       };
     }
     return {
@@ -873,6 +876,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       name: entity.name,
       kind: entity.kind ?? undefined,
       monsterTier: entity.monsterTier ?? undefined,
+      badges: undefined,
       hp: entity.hp,
       maxHp: entity.maxHp,
       qi: entity.qi,
@@ -970,11 +974,17 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       ? getMonsterPresentation(entity.name, entity.monsterTier)
       : null;
     const title = monsterPresentation?.label ?? entity.name ?? t('observe.entity.target', undefined);
-    const badge = entity.badge ?? monsterPresentation?.badge;
-    const badgeClassName = getEntityBadgeClassName(badge);
-    const badgeHtml = badge && badgeClassName
-      ? `<span class="${badgeClassName}">${escapeHtml(badge.text)}</span>`
-      : '';
+    const badges = Array.isArray(entity.badges) && entity.badges.length > 0
+      ? entity.badges
+      : monsterPresentation?.badge
+        ? [monsterPresentation.badge]
+        : [];
+    const badgeHtml = badges
+      .map((badge) => {
+        const badgeClassName = getEntityBadgeClassName(badge);
+        return badgeClassName ? `<span class="${badgeClassName}">${escapeHtml(badge.text)}</span>` : '';
+      })
+      .join('');
     const vitalRows = buildObservePrimaryRows(entity);
     const fallbackVitalRows = (entity.kind === 'monster' || entity.kind === 'npc' || entity.kind === 'player') && detailRows.length === 0
       ? vitalRows

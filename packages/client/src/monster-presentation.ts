@@ -3,7 +3,7 @@
  *
  * 维护时要把用户意图、显示派生和服务端权威数据分清，避免为了展示便利复制业务规则。
  */
-import type { MonsterTier, RenderEntity } from '@mud/shared';
+import type { MonsterTier, RenderEntityBadge } from '@mud/shared';
 import { t } from './ui/i18n';
 
 /** 怪物在界面中的展示信息。 */
@@ -17,7 +17,7 @@ export interface MonsterPresentation {
  * badge：badge相关字段。
  */
 
-  badge?: RenderEntity['badge'];  
+  badge?: RenderEntityBadge;  
   /**
  * scale：scale相关字段。
  */
@@ -66,7 +66,7 @@ export function getMonsterPresentation(
 }
 
 /** 将实体徽记映射为现有 UI 徽记类名。 */
-export function getEntityBadgeClassName(badge: RenderEntity['badge'] | null | undefined): string | null {
+export function getEntityBadgeClassName(badge: RenderEntityBadge | null | undefined): string | null {
   if (!badge) {
     return null;
   }

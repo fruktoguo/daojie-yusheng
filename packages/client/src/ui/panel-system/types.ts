@@ -22,8 +22,7 @@ export type PanelId =
   | 'settings'
   | 'mail'
   | 'changelog'
-  | 'minimap'
-  | 'debug';
+  | 'minimap';
 
 /** 面板适配的视口类型。 */
 export type PanelViewport = 'desktop' | 'mobile';

@@ -187,15 +187,6 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
       defaultPlacement: { desktop: 'floating', mobile: 'floating' },
       supports: ['desktop', 'mobile'],
     },
-    {
-      id: 'debug',
-      title: t('panel.registry.debug'),
-      templateKind: 'modal',
-      rootSelector: '#debug-panel',
-      defaultPlacement: { desktop: 'overlay', mobile: 'overlay' },
-      supports: ['desktop', 'mobile'],
-      preservesInteractionState: true,
-    },
   ];
 
   for (const definition of definitions) {

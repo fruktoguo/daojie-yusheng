@@ -54,7 +54,6 @@ export function runMainAppBootstrap(context: ReturnType<typeof import('./main-ap
     equipmentPanel: context.equipmentPanel,
     npcShopModal: context.npcShopModal,
     craftWorkbenchModal: context.craftWorkbenchModal,
-    debugPanel: context.debugPanel,
     mapRuntime: context.mapRuntime,
     socket: context.socket,
     runtimeSender: context.runtimeSender,

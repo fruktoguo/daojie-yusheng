@@ -163,16 +163,13 @@ export function resolveEntityBadgePalette(badge: EntityNameplateBadge): {
 
 export function resolveNameplateBadges(
   badges: ObservedMapEntity['badges'] | null | undefined,
-  badge: ObservedMapEntity['badge'] | null | undefined,
-  fallbackBadge: ObservedMapEntity['badge'] | null | undefined,
+  fallbackBadge?: EntityNameplateBadge | null | undefined,
 ): EntityNameplateBadge[] {
   const source = Array.isArray(badges) && badges.length > 0
     ? badges
-    : badge
-      ? [badge]
-      : fallbackBadge
-        ? [fallbackBadge]
-        : [];
+    : fallbackBadge
+      ? [fallbackBadge]
+      : [];
   return source.filter((entry): entry is EntityNameplateBadge => (
     typeof entry?.text === 'string' && entry.text.trim().length > 0
   ));

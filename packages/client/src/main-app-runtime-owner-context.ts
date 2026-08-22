@@ -404,7 +404,6 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     hideSidePanel: () => panelContext.panelDeps.sidePanel.hide(),
     hideChat: () => panelContext.panelDeps.chatUI.hide(),
     clearChatPersistenceScope: () => panelContext.panelDeps.chatUI.setPersistenceScope(null),
-    hideDebugPanel: () => panelContext.panelDeps.debugPanel.hide(),
     clearAttrPanel: () => panelContext.panelDeps.attrPanel.clear(),
     clearInventoryState: () => panelContext.inventoryStateSource.clear(),
     clearEquipmentPanel: () => panelContext.panelDeps.equipmentPanel.clear(),

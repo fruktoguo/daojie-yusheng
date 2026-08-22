@@ -35,22 +35,6 @@ function loadUnlockedFromStorage(): Set<string> {
     // ignore
   }
 
-  // 兼容从 guided-tour:v1 读取已完成/已关闭的记录
-  try {
-    const tourRaw = localStorage.getItem("mud:guided-tour:v1");
-    if (tourRaw) {
-      const parsed = JSON.parse(tourRaw) as { completed?: Record<string, number>; dismissed?: Record<string, number> };
-      if (parsed?.completed) {
-        for (const id of Object.keys(parsed.completed)) result.add(id);
-      }
-      if (parsed?.dismissed) {
-        for (const id of Object.keys(parsed.dismissed)) result.add(id);
-      }
-    }
-  } catch {
-    // ignore
-  }
-
   return result;
 }
 

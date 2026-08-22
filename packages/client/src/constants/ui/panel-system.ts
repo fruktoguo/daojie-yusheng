@@ -47,7 +47,7 @@ export const DESKTOP_PANEL_LAYOUT: PanelLayoutProfile = {
       panelIds: ['minimap', 'chat'],
     },
   ],
-  overlayPanelIds: ['loot', 'settings', 'changelog', 'debug'],
+  overlayPanelIds: ['loot', 'settings', 'changelog'],
 };
 
 /** 移动端默认面板布局。 */
@@ -78,5 +78,5 @@ export const MOBILE_PANEL_LAYOUT: PanelLayoutProfile = {
       ],
     },
   ],
-  overlayPanelIds: ['loot', 'settings', 'changelog', 'debug'],
+  overlayPanelIds: ['loot', 'settings', 'changelog'],
 };

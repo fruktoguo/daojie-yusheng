@@ -540,7 +540,6 @@ function resolvePreviewTechniqueLayers(
   return baseLayers.map((layer) => {
     const templateLayer = templateByLevel.get(layer.level);
     const sourceLayer = sourceByLevel.get(layer.level);
-    const legacySpecialStats = resolveLegacyLayerSpecialStats(layer.attrs);
     return {
       ...layer,
       expToNext: templateLayer?.expToNext ?? sourceLayer?.expToNext ?? layer.expToNext,
@@ -551,7 +550,7 @@ function resolvePreviewTechniqueLayers(
         ? { ...sourceLayer.specialStats }
         : layer.specialStats
           ? { ...layer.specialStats }
-          : legacySpecialStats ?? (templateLayer?.specialStats ? { ...templateLayer.specialStats } : undefined),
+          : templateLayer?.specialStats ? { ...templateLayer.specialStats } : undefined,
       qiProjection: sourceLayer?.qiProjection
         ? sourceLayer.qiProjection.map((entry) => ({ ...entry }))
         : templateLayer?.qiProjection
@@ -621,21 +620,6 @@ function cloneLayerAttrsWithoutSpecialStats(attrs: TechniqueLayerDef['attrs'] | 
     luck?: number;
   };
   return Object.keys(rest).length > 0 ? rest : undefined;
-}
-
-function resolveLegacyLayerSpecialStats(attrs: TechniqueLayerDef['attrs'] | undefined): TechniqueLayerDef['specialStats'] | undefined {
-  const source = attrs as (TechniqueLayerDef['attrs'] & { comprehension?: number; luck?: number }) | undefined;
-  if (!source) {
-    return undefined;
-  }
-  const specialStats: TechniqueLayerDef['specialStats'] = {};
-  if (typeof source.comprehension === 'number' && Number.isFinite(source.comprehension) && source.comprehension > 0) {
-    specialStats.comprehension = source.comprehension;
-  }
-  if (typeof source.luck === 'number' && Number.isFinite(source.luck) && source.luck > 0) {
-    specialStats.luck = source.luck;
-  }
-  return Object.keys(specialStats).length > 0 ? specialStats : undefined;
 }
 
 /** 批量补齐功法预览数据。 */

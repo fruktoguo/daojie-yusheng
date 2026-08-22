@@ -36,8 +36,6 @@ type SerializedMapMemoryEntry = {
 
   markers?: SerializedMapMarkerMemory;
 };
-/** 兼容旧版仅地块记忆的反序列化形状。 */
-type SerializedMapMemoryTilesOnlyShape = Record<string, SerializedMapTileMemory>;
 /** 全量记忆序列化容器。 */
 type SerializedMapMemory = Record<string, SerializedMapMemoryEntry>;
 /** 持久化文件外层结构（含版本）。 */
@@ -192,7 +190,7 @@ function getStorage(): Storage | null {
   }
 }
 
-/** 读取并兼容旧版结构的地图记忆封装。 */
+/** 读取地图记忆封装结构。 */
 function getStoredEnvelope(parsed: unknown): SerializedMapMemoryEnvelope | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -205,21 +203,6 @@ function getStoredEnvelope(parsed: unknown): SerializedMapMemoryEnvelope | null 
     return {
       version: MAP_MEMORY_FORMAT_VERSION,
       maps: candidate.maps as SerializedMapMemory,
-    };
-  }
-
-  const candidateVersion = Number(candidate.version);
-  if (candidateVersion === 2 || candidate.version === undefined) {
-    const tileOnlyMaps = (candidateVersion === 2 && candidate.maps && typeof candidate.maps === 'object'
-      ? candidate.maps
-      : candidate) as SerializedMapMemoryTilesOnlyShape;
-    const maps: SerializedMapMemory = {};
-    for (const [mapId, tiles] of Object.entries(tileOnlyMaps)) {
-      maps[mapId] = { tiles };
-    }
-    return {
-      version: MAP_MEMORY_FORMAT_VERSION,
-      maps,
     };
   }
 

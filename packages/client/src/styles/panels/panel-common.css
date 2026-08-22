@@ -194,42 +194,6 @@
     }
 
 
-    #debug-panel {
-      position: fixed;
-      right: 18px;
-      bottom: 18px;
-      width: 220px;
-      z-index: 56;
-      pointer-events: auto;
-    }
-
-    #debug-panel.hidden { display: none; }
-
-    .debug-panel-inner {
-      background: var(--surface-card-strong);
-      border: 1.5px solid var(--ink-black);
-      border-radius: var(--radius-md);
-      box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.12);
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .debug-title {
-      font-family: var(--font-role-title);
-      font-size: var(--font-size-role-title-16);
-      color: var(--ink-black);
-      border-bottom: 1px solid var(--wash-ink);
-      padding-bottom: 4px;
-    }
-
-    .debug-text {
-      font-size: var(--font-size-12);
-      color: var(--ink-grey);
-      line-height: 1.5;
-    }
-
     .item-card-chip {
       position: absolute;
       z-index: 3;

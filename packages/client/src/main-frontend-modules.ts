@@ -8,7 +8,6 @@ import { LoginUI } from './ui/login';
 import { HUD } from './ui/hud';
 import { ChatUI } from './ui/chat';
 import { SidePanel } from './ui/side-panel';
-import { DebugPanel } from './ui/debug-panel';
 import { AttrPanel } from './ui/panels/attr-panel';
 import { InventoryPanel } from './ui/panels/inventory-panel';
 import { EquipmentPanel } from './ui/panels/equipment-panel';
@@ -54,7 +53,6 @@ export function createMainFrontendModules(windowRef: Window) {
     loginUI: new LoginUI(socket),
     hud: new HUD(),
     chatUI: new ChatUI(),
-    debugPanel: new DebugPanel(),
     sidePanel: new SidePanel(),
     attrPanel: new AttrPanel(),
     inventoryPanel: new InventoryPanel(),

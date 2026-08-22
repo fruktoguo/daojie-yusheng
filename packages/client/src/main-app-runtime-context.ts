@@ -167,7 +167,6 @@ export function createMainAppRuntimeContext(options: InitializeMainAppOptions) {
     equipmentPanel: panelContext.panelDeps.equipmentPanel,
     npcShopModal: panelContext.panelDeps.npcShopModal,
     craftWorkbenchModal: panelContext.panelDeps.craftWorkbenchModal,
-    debugPanel: panelContext.panelDeps.debugPanel,
     mapRuntime: modules.mapRuntime,
     socket: modules.socket,
     runtimeSender: modules.runtimeSender,

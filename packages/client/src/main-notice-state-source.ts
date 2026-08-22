@@ -179,8 +179,9 @@ function toSystemMsgFromNotice(item: S2C_NoticeItem): S2C_SystemMsg {
     occurredAt: item.occurredAt ?? Date.now(),
     persistUntilAck: Boolean(item.persistUntilAck),
     structured: item.structured,
-    structuredGroup: (item as any).structuredGroup,
-  } as any;
+    structuredGroup: item.structuredGroup,
+    scope: item.scope,
+  };
 }
 /**
  * MainNoticeStateSource：统一结构类型，保证协议与运行时一致性。
@@ -308,22 +309,22 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
       }
       if (data.kind === 'chat') {
         void persistNotice(data, rawText, data.from, data.kind, {
-          scope: (data as any).scope,
+          scope: data.scope,
         });
         return;
       }
       if (data.kind === 'grudge') {
-        const text = resolveClientNoticeText(rawText, data.structured, (data as any).structuredGroup);
+        const text = resolveClientNoticeText(rawText, data.structured, data.structuredGroup);
         void persistNotice(data, text, data.from ?? t('notice.channel.grudge', undefined), data.kind, {
           ...(data.structured ? { structured: data.structured } : undefined),
-          ...((data as any).structuredGroup ? { structuredGroup: (data as any).structuredGroup } : undefined),
+          ...(data.structuredGroup ? { structuredGroup: data.structuredGroup } : undefined),
         });
         options.showToast(text, data.kind);
         return;
       }
       if (isDisplayNoticeKind(data.kind)) {
         const label = data.from ?? resolveNoticeChannelLabel(data.kind);
-        const structuredGroup = (data as any).structuredGroup as unknown[] | undefined;
+        const structuredGroup = data.structuredGroup;
         const text = resolveClientNoticeText(rawText, data.structured, structuredGroup);
         void persistNotice(data, text, label, data.kind, data.structured || structuredGroup ? {
           ...(data.structured ? { structured: data.structured } : undefined),
@@ -342,7 +343,7 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
               ? t('notice.channel.warn', undefined)
               : t('notice.channel.travel', undefined)
         );
-        const structuredGroup = (data as any).structuredGroup as unknown[] | undefined;
+        const structuredGroup = data.structuredGroup;
         const text = resolveClientNoticeText(rawText, data.structured, structuredGroup);
         void persistNotice(data, text, label, data.kind, data.structured || structuredGroup ? {
           ...(data.structured ? { structured: data.structured } : undefined),
@@ -352,7 +353,7 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
         return;
       }
       const fallbackKind = data.kind === 'info' ? 'system' : data.kind ?? 'system';
-      const structuredGroup = (data as any).structuredGroup as unknown[] | undefined;
+      const structuredGroup = data.structuredGroup;
       const text = resolveClientNoticeText(rawText, data.structured, structuredGroup);
       void persistNotice(data, text, data.from ?? t('notice.channel.system', undefined), fallbackKind, data.structured || structuredGroup ? {
         ...(data.structured ? { structured: data.structured } : undefined),
@@ -374,7 +375,7 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
     handleNotice(payload: S2C_Notice): void {
       const merged = mergeCombatSkillNotices(payload.items);
       for (const item of merged) {
-        const combatGroup = ((item as any).combatGroup ?? (item as any)._combatGroup) as unknown[] | undefined;
+        const combatGroup = item.combatGroup;
         if (item.kind === 'combat' && (item.combat || combatGroup)) {
           const label = item.from ?? t('notice.channel.combat', undefined);
           const combat = item.combat ?? combatGroup?.[0];
@@ -491,8 +492,8 @@ function mergeCastGroup(group: S2C_NoticeItem[]): S2C_NoticeItem {
   }
 
   // 多目标：合并combat数组到第一条消息
-  const combatGroup = Array.isArray((baseItem as any).combatGroup) && (baseItem as any).combatGroup.length > 0
-    ? (baseItem as any).combatGroup
+  const combatGroup = Array.isArray(baseItem.combatGroup) && baseItem.combatGroup.length > 0
+    ? baseItem.combatGroup
     : combatItems.map(i => i.combat!).filter(Boolean);
-  return { ...baseItem, combat: baseItem.combat, combatGroup, _combatGroup: combatGroup } as any;
+  return { ...baseItem, combat: baseItem.combat, combatGroup };
 }

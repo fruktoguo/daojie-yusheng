@@ -4,7 +4,6 @@
  * 维护时优先保持局部更新和原有交互状态，不在 UI 层裁定资产、战斗或移动合法性。
  */
 import {
-  CHAT_LOG_STORAGE_KEY,
   type ChatChannel,
   type ChatMessageKind,
   type ChatMessageScope,
@@ -43,8 +42,6 @@ const CHAT_PERSIST_BATCH_SIZE = 200;
 
 /** databasePromise：数据库异步结果。 */
 let databasePromise: Promise<IDBDatabase | null> | null = null;
-/** legacyStorageCleared：旧 localStorage 缓存是否已清理。 */
-let legacyStorageCleared = false;
 /** indexedDbUnavailableWarned：indexed Db Unavailable Warned。 */
 let indexedDbUnavailableWarned = false;
 /** persistLifecycleBound：页面生命周期 flush 是否已绑定。 */
@@ -75,34 +72,6 @@ function warnIndexedDbUnavailable(error: unknown): void {
   /** indexedDbUnavailableWarned：indexed Db Unavailable Warned。 */
   indexedDbUnavailableWarned = true;
   console.warn('[chat] IndexedDB 不可用，本次会话将退回仅内存聊天记录。', error);
-}
-
-function getLegacyStorage(): Storage | null {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
-
-/** 清理旧版 localStorage 聊天缓存，避免 IndexedDB 切换后遗留旧记录。 */
-export function clearLegacyChatStorage(): void {
-  if (legacyStorageCleared) {
-    return;
-  }
-  legacyStorageCleared = true;
-  const storage = getLegacyStorage();
-  if (!storage) {
-    return;
-  }
-  try {
-    storage.removeItem(CHAT_LOG_STORAGE_KEY);
-  } catch (error) {
-    console.warn('[chat] 清理旧版 localStorage 聊天缓存失败。', error);
-  }
 }
 
 function bindPersistLifecycle(): void {

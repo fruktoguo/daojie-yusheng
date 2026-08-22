@@ -221,17 +221,6 @@ type MainStartupBindingsOptions = {
     }) => void;
   };
   /**
- * debugPanel：debug面板相关字段。
- */
-
-  debugPanel: {
-  /**
- * setCallbacks：Callback相关字段。
- */
-
-    setCallbacks: (onResetSpawn: () => void) => void;
-  };
-  /**
  * chatUI：chatUI相关字段。
  */
 
@@ -485,11 +474,6 @@ export function bindMainStartup(options: MainStartupBindingsOptions): void {
     onCloseTechniqueAggregation: () => options.panelSender.sendCloseTechniqueAggregation(),
     onPublishTechniqueAggregation: (payload) => options.panelSender.sendPublishTechniqueAggregation(payload),
     onLearnTechniqueAggregation: (payload) => options.panelSender.sendLearnTechniqueAggregation(payload),
-  });
-
-  options.debugPanel.setCallbacks(() => {
-    options.showToast(t('startup.toast.returning-spawn'));
-    options.adminSender.sendDebugResetSpawn();
   });
 
   options.chatUI.setCallback((message, channel) => {

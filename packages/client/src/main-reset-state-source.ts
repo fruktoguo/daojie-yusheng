@@ -74,11 +74,6 @@ type MainResetStateSourceOptions = {
 
   clearChatPersistenceScope: () => void;  
   /**
- * hideDebugPanel：hideDebug面板相关字段。
- */
-
-  hideDebugPanel: () => void;  
-  /**
  * clearAttrPanel：clearAttr面板相关字段。
  */
 
@@ -205,7 +200,6 @@ export function createMainResetStateSource(options: MainResetStateSourceOptions)
       options.hideSidePanel();
       options.hideChat();
       options.clearChatPersistenceScope();
-      options.hideDebugPanel();
       options.clearAttrPanel();
       options.clearInventoryState();
       options.clearEquipmentPanel();

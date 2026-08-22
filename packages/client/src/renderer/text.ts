@@ -29,6 +29,7 @@ import {
   normalizeAuraLevelBaseValue,
   resolveSenseQiOverlaySignal,
   RenderEntity,
+  type RenderEntityBadge,
   SENSE_QI_OVERLAY_STYLE,
   Tile,
   type FormationRangeShape,
@@ -79,7 +80,7 @@ const ENTITY_FACING_FLIP_TRANSITION_MS = 160;
 const ATTACK_MOTION_DURATION_MS = 180;
 const ARTIFACT_AURA_COLOR = '#a8fbff';
 
-type EntityNameplateBadge = NonNullable<RenderEntity['badge']>;
+type EntityNameplateBadge = RenderEntityBadge;
 
 function resolveEntityNameplateBadgePalette(badge: EntityNameplateBadge): {
   fill: string;
@@ -117,16 +118,13 @@ function resolveEntityNameplateBadgePalette(badge: EntityNameplateBadge): {
 
 function resolveNameplateBadges(
   badges: RenderEntity['badges'] | null | undefined,
-  badge: RenderEntity['badge'] | null | undefined,
-  fallbackBadge: RenderEntity['badge'] | null | undefined,
+  fallbackBadge?: RenderEntityBadge | null | undefined,
 ): EntityNameplateBadge[] {
   const source = Array.isArray(badges) && badges.length > 0
     ? badges
-    : badge
-      ? [badge]
-      : fallbackBadge
-        ? [fallbackBadge]
-        : [];
+    : fallbackBadge
+      ? [fallbackBadge]
+      : [];
   return source.filter((entry): entry is EntityNameplateBadge => (
     typeof entry?.text === 'string' && entry.text.trim().length > 0
   ));
@@ -441,11 +439,6 @@ interface AnimEntity {
  */
 
   color: string;  
-  /**
- * badge：badge相关字段。
- */
-
-  badge?: RenderEntity['badge'];  
   /** 有序名牌徽记列表。 */
   badges?: RenderEntity['badges'];
   /** 玩家宗门单字印记。 */
@@ -1786,10 +1779,6 @@ export class TextRenderer implements IRenderer {
  * color：color相关字段。
  */
  color: string;    
- /**
- * badge：badge相关字段。
- */
- badge?: RenderEntity['badge'] | null;    
  /** 有序名牌徽记列表。 */
  badges?: RenderEntity['badges'];
  /** 玩家宗门单字印记。 */
@@ -1925,7 +1914,6 @@ export class TextRenderer implements IRenderer {
         anim.gridY = e.wy;
         anim.char = e.char;
         anim.color = e.color;
-        anim.badge = e.badge ?? undefined;
         anim.badges = e.badges ?? undefined;
         anim.sectMark = e.sectMark ?? undefined;
         anim.partyMark = e.partyMark ?? null;
@@ -1970,7 +1958,6 @@ export class TextRenderer implements IRenderer {
           facingFlipStartedAt: 0,
           char: e.char,
           color: e.color,
-          badge: e.badge ?? undefined,
           badges: e.badges ?? undefined,
           sectMark: e.sectMark,
           partyMark: e.partyMark ?? null,
@@ -2217,7 +2204,7 @@ export class TextRenderer implements IRenderer {
         ctx.font = buildCanvasFont('label', renderedCellSize * (isCrowd ? 0.24 : 0.3));
         const labelY = visualSy - Math.max(6, renderedCellSize * 0.18);
         const labelColor = resolveEntityLabelColor(anim.kind);
-        const badges = resolveNameplateBadges(anim.badges, anim.badge, monsterPresentation?.badge);
+        const badges = resolveNameplateBadges(anim.badges, monsterPresentation?.badge);
         if (!isFormation || anim.formationShowText !== false) {
           if (badges.length > 0) {
             this.drawEntityBadgeLabels(

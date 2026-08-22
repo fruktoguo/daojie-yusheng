@@ -1204,29 +1204,6 @@ let activeSearchableItemField: HTMLElement | null = null;
 /** editorRenderRefreshBlocked：编辑器渲染Refresh Blocked。 */
 let editorRenderRefreshBlocked = false;
 
-/** getBrowserLocalStorage：读取Browser本地存储。 */
-function getBrowserLocalStorage(): Storage | null {
-  return gmPureHelpers.getBrowserLocalStorage();
-}
-
-/** readPersistedGmPassword：处理read Persisted GM密码。 */
-function readPersistedGmPassword(): string {
-  return gmPureHelpers.readPersistedGmPassword();
-}
-
-/** persistGmPassword：持久化GM密码。 */
-function persistGmPassword(password: string): void {
-  gmPureHelpers.persistGmPassword(password);
-}
-
-/** syncPersistedGmPasswordToInputs：同步Persisted GM密码To Inputs。 */
-function syncPersistedGmPasswordToInputs(): void {
-  const persistedPassword = readPersistedGmPassword();
-  if (!persistedPassword) return;
-  passwordInput.value = persistedPassword;
-  gmPasswordCurrentInput.value = persistedPassword;
-}
-
 /** createDefaultMailAttachmentDraft：创建默认邮件Attachment Draft。 */
 function createDefaultMailAttachmentDraft(): GmMailAttachmentDraft {
   return gmPureHelpers.createDefaultMailAttachmentDraft();
@@ -9297,7 +9274,6 @@ function showShell(): void {
 function showLogin(): void {
   loginOverlay.classList.remove('hidden');
   gmShell.classList.add('hidden');
-  syncPersistedGmPasswordToInputs();
 }
 
 /** logout：处理logout。 */
@@ -9438,13 +9414,11 @@ async function login(): Promise<void> {
     /** token：令牌。 */
     token = result.accessToken;
     sessionStorage.setItem(GM_ACCESS_TOKEN_STORAGE_KEY, token);
-    persistGmPassword(password);
     showShell();
     await loadEditorCatalog();
     await loadState();
     startPolling();
     passwordInput.value = '';
-    gmPasswordCurrentInput.value = readPersistedGmPassword();
     setStatus(t('gm.login.token-issued', { hours: Math.round(result.expiresInSec / 3600) }));
   } catch (error) {
     loginErrorEl.textContent = error instanceof Error ? error.message : t('gm.login.failed');
@@ -10829,10 +10803,8 @@ async function changeGmPassword(): Promise<void> {
         newPassword,
       } satisfies GmChangePasswordReq),
     });
-    persistGmPassword(newPassword);
-    const persistedPassword = readPersistedGmPassword();
-    passwordInput.value = persistedPassword;
-    gmPasswordCurrentInput.value = persistedPassword;
+    passwordInput.value = '';
+    gmPasswordCurrentInput.value = '';
     gmPasswordNextInput.value = '';
     setStatus(t('gm.password.updated'));
   } catch (error) {
@@ -14197,8 +14169,6 @@ resetHeavenGateBtn.addEventListener('click', () => {
 removeBotBtn.addEventListener('click', () => {
   removeSelectedBot().catch((e) => console.error('[GM]', e));
 });
-
-syncPersistedGmPasswordToInputs();
 
 if (token) {
   showShell();

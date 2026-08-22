@@ -1,6 +1,6 @@
 /** Pixi 主世界渲染器内部场景状态类型，不包含运行时行为。 */
 import type { Container, Graphics, Sprite, Text } from 'pixi.js';
-import type { GridPoint } from '@mud/shared';
+import type { GridPoint, RenderEntityBadge } from '@mud/shared';
 import type { ObservedMapEntity } from '../types';
 
 export type FloatingActionTextStyle = 'default' | 'divine' | 'chant';
@@ -53,7 +53,7 @@ export interface AnimEntity extends ObservedMapEntity {
   targetWY: number;
 }
 
-export type EntityNameplateBadge = NonNullable<ObservedMapEntity['badge']>;
+export type EntityNameplateBadge = RenderEntityBadge;
 
 export interface EntityView {
   anim: AnimEntity;

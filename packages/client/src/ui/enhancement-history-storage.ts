@@ -10,13 +10,7 @@
 import type { PlayerEnhancementRecord } from '@mud/shared';
 import { normalizeEnhanceLevel, resolvePlayerFacingContentName } from '@mud/shared';
 
-type StoredEnhancementHistoryStateV1 = {
-  version: 1;
-  totals: PlayerEnhancementRecord[];
-  sessionRecord: PlayerEnhancementRecord | null;
-};
-
-type StoredEnhancementHistoryState = {
+export type StoredEnhancementHistoryState = {
   version: 2;
   totals: PlayerEnhancementRecord[];
   sessions: PlayerEnhancementRecord[];
@@ -24,7 +18,6 @@ type StoredEnhancementHistoryState = {
 };
 
 export const ENHANCEMENT_HISTORY_STORAGE_KEY = 'mud:enhancement-history:v2';
-const LEGACY_ENHANCEMENT_HISTORY_KEY = 'mud:enhancement-history:v1';
 const UNKNOWN_ENHANCEMENT_ITEM_NAME = '未知物品';
 
 /** 仅在目标记录缺少有效名称时，从同一物品的较新记录继承历史显示名。 */
@@ -102,27 +95,14 @@ export interface EnhancementHistoryParseResult {
   totals: Map<string, PlayerEnhancementRecord>;
   sessions: PlayerEnhancementRecord[];
   sessionRecord: PlayerEnhancementRecord | null;
-  migratedFromV1: boolean;
 }
 
-/** 从 localStorage 读取并解析强化历史，兼容 v1 旧格式。 */
+/** 从 localStorage 读取并解析强化历史。 */
 export function readEnhancementHistoryFromStorage(): EnhancementHistoryParseResult | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = window.localStorage.getItem(ENHANCEMENT_HISTORY_STORAGE_KEY);
-    if (!raw) {
-      const legacyRaw = window.localStorage.getItem(LEGACY_ENHANCEMENT_HISTORY_KEY);
-      if (!legacyRaw) return null;
-      const parsedLegacy = JSON.parse(legacyRaw) as Partial<StoredEnhancementHistoryStateV1>;
-      return {
-        totals: new Map(
-          normalizeEnhancementRecordList(parsedLegacy.totals).map((entry) => [entry.itemId, entry] as const),
-        ),
-        sessions: [],
-        sessionRecord: parsedLegacy.sessionRecord ? cloneEnhancementRecord(parsedLegacy.sessionRecord) : null,
-        migratedFromV1: true,
-      };
-    }
+    if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<StoredEnhancementHistoryState>;
     return {
       totals: new Map(
@@ -132,9 +112,8 @@ export function readEnhancementHistoryFromStorage(): EnhancementHistoryParseResu
         .filter((entry) => isEnhancementHistorySessionRecord(entry))
         .sort((left, right) => (right.actionStartedAt ?? 0) - (left.actionStartedAt ?? 0)),
       sessionRecord: parsed.sessionRecord ? cloneEnhancementRecord(parsed.sessionRecord) : null,
-      migratedFromV1: false,
     };
   } catch {
-    return { totals: new Map(), sessions: [], sessionRecord: null, migratedFromV1: false };
+    return { totals: new Map(), sessions: [], sessionRecord: null };
   }
 }

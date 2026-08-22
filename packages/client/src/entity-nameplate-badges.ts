@@ -3,17 +3,16 @@
  *
  * 维护时只处理表现字段组合，不改变服务端权威状态。
  */
-import { getFirstGrapheme, type RenderEntity, type VisibleBuffState } from '@mud/shared';
+import { getFirstGrapheme, type RenderEntity, type RenderEntityBadge, type VisibleBuffState } from '@mud/shared';
 import { t } from './ui/i18n';
 
 const PVP_SHA_INFUSION_BUFF_ID = 'pvp.sha_infusion';
 const PVP_SHA_DEMONIZED_STACK_THRESHOLD = 20;
 
-type EntityBadge = NonNullable<RenderEntity['badge']>;
+type EntityBadge = RenderEntityBadge;
 
 export type NameplateBadgeCarrier = {
   kind?: RenderEntity['kind'];
-  badge?: RenderEntity['badge'] | null;
   badges?: RenderEntity['badges'] | null;
   sectMark?: string | null;
   partyMark?: string | null;
@@ -35,9 +34,7 @@ export function buildEntityNameplateBadges(
 ): RenderEntity['badges'] | undefined {
   const sourceBadges = Array.isArray(entity.badges)
     ? entity.badges
-    : entity.badge
-      ? [entity.badge]
-      : [];
+    : [];
   const baseBadges = sourceBadges
     .map(normalizeBadge)
     .filter((badge): badge is EntityBadge => {
@@ -67,7 +64,7 @@ export function buildEntityNameplateBadges(
   return badges.length > 0 ? badges : undefined;
 }
 
-function normalizeBadge(badge: RenderEntity['badge'] | null | undefined): EntityBadge | null {
+function normalizeBadge(badge: RenderEntityBadge | null | undefined): EntityBadge | null {
   const text = typeof badge?.text === 'string' ? badge.text.trim().normalize('NFC') : '';
   if (!text) {
     return null;

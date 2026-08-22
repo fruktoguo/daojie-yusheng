@@ -48,7 +48,6 @@ import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-too
 import {
   appendChannelMessages,
   appendChannelMessageBatch,
-  clearLegacyChatStorage,
   loadOlderChannelMessages,
   loadRecentChannelMessages,
 } from './chat-storage';
@@ -1193,7 +1192,6 @@ export class ChatUI {
       this.slotHosts = [...this.panel.querySelectorAll<HTMLElement>('[data-chat-slot-host]')];
       this.panes = [...this.panel.querySelectorAll<HTMLElement>('[data-chat-pane]')];
     }
-    clearLegacyChatStorage();
     this.applyChannelSlotPreferences();
     this.ensureUnreadBadges();
     this.sendBtn.addEventListener('click', () => this.submit());
