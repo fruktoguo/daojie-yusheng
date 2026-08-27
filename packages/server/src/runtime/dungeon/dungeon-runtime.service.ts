@@ -76,6 +76,10 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
 
   buildCatalog(playerId: string) {
     const activeRun = [...this.runs.values()].find((run) => run.members.some((member) => member.playerId === playerId) && ['created', 'activating', 'active', 'completing', 'completed'].includes(run.status));
+    if (!activeRun) {
+      const location = this.world.getPlayerLocation(playerId);
+      if (location?.instanceId?.startsWith('dungeon:')) void this.recoverOrphanDungeonPlayer(playerId, location.instanceId);
+    }
     return { dungeons: this.listDefinitions(), stamina: this.players.refreshDungeonStamina(playerId) as DungeonStaminaView, ...(activeRun ? { activeRun } : {}) };
   }
 
@@ -162,7 +166,11 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     const location = this.world.getPlayerLocation(player);
     const runId = String(runIdInput ?? (location?.instanceId?.startsWith('dungeon:') ? location.instanceId.slice('dungeon:'.length) : '')).trim();
     const run = this.runs.get(runId);
-    if (!run || run.status === 'failed' || run.status === 'aborted' || run.status === 'expired') return { ok: false, reason: 'run_not_active' };
+    if (!run) {
+      const recovered = await this.recoverOrphanDungeonPlayer(player, location?.instanceId);
+      return recovered ? { ok: true, reason: 'orphan_dungeon_recovered' } : { ok: false, reason: 'run_not_active' };
+    }
+    if (run.status === 'failed' || run.status === 'aborted' || run.status === 'expired') return { ok: false, reason: 'run_not_active' };
     if (!run.members.some((member) => member.playerId === player)) return { ok: false, reason: 'not_run_member' };
     const instance = this.world.getInstanceRuntime(run.mapInstanceId) as any;
     const entry = this.content.getDungeonDefinition(run.dungeonId);
@@ -274,6 +282,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
     try {
       (instance.meta as any).dungeonRunId = run.runId;
+      (instance.meta as any).dungeonId = run.dungeonId;
       this.activateRoom(instance, definition, run, run.currentRoomId ?? definition.rooms?.[0]?.roomId);
       run.status = 'active'; run.activatedAt = Date.now();
       this.runPersistence.save(run);
@@ -452,6 +461,34 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   private emit(playerId: string, event: string, payload: unknown): void {
     const socket = this.sessions.getSocketByPlayerId(playerId);
     socket?.emit(event, payload);
+  }
+
+  /** 更新重启后遗留在临时副本实例中的玩家，避免 run 内存态丢失后无法撤离。 */
+  private async recoverOrphanDungeonPlayer(playerId: string, instanceId?: string): Promise<boolean> {
+    if (!instanceId?.startsWith('dungeon:')) return false;
+    const instance = this.world.getInstanceRuntime(instanceId) as any;
+    if (!instance || instance.meta?.kind !== 'dungeon') return false;
+    const definitions = this.listDefinitions();
+    const definition = definitions.find((entry) => entry.id === instance.meta?.dungeonId)
+      ?? definitions.find((entry) => entry.mapTemplateId === instance.template?.id)
+      ?? (definitions.length === 1 ? definitions[0] : undefined);
+    if (!definition) return false;
+    try {
+      await this.world.worldRuntimePlayerSessionService.connectPlayerWhenReady({
+        playerId,
+        sessionId: this.sessions.getBinding(playerId)?.sessionId ?? null,
+        instanceId: this.world.getOrCreatePublicInstance(definition.entryMapTemplateId).meta.instanceId,
+        mapId: definition.entryMapTemplateId,
+        preferredX: definition.entryX,
+        preferredY: definition.entryY,
+        allowCreateFallback: false,
+        relocateExisting: true,
+      }, this.world as any);
+    } catch {
+      return false;
+    }
+    await this.world.destroyEmptyManagedInstance(instanceId, 'dungeon_orphan_recovered').catch(() => undefined);
+    return true;
   }
 
   private emitPreparation(pending: PendingEntry, phase: 'preparing' | 'countdown', enterAt?: number): void {
