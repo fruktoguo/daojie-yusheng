@@ -78,6 +78,7 @@ import type { SocketRuntimeSender } from './network/socket-send-runtime';
 import type { SocketSocialEconomySender } from './network/socket-send-social-economy';
 import type { SocketTechniqueGenerationSender } from './network/socket-send-technique-generation';
 import type { ClientTechniqueActivityKind } from './technique-activity-client.helpers';
+import { DungeonFloatingPanel } from './ui/dungeon-floating-panel';
 /**
  * ToastKind：统一结构类型，保证协议与运行时一致性。
  */
@@ -605,6 +606,7 @@ type MainBootstrapAssemblyOptions = {
 
 
 export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
+  new DungeonFloatingPanel(options.documentRef, options.socket);
   const techniqueActivityPanelHandlers: {
     [K in ClientTechniqueActivityKind]:
       K extends 'enhancement' ? MainDetailStateSource['handleEnhancementPanel'] : MainDetailStateSource['handleAlchemyPanel'];

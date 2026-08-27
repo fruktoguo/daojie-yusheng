@@ -12,6 +12,7 @@ import './styles/tokens.css';
 import './styles/base.css';
 import './styles/layout.css';
 import './styles/hud.css';
+import './styles/dungeon.css';
 import './styles/overlays.css';
 import './styles/ui-primitives.css';
 import './styles/ui-modal.css';
