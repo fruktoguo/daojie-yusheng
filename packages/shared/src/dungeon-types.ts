@@ -153,6 +153,9 @@ export interface DungeonRunState {
   completedAt?: number;
   destroyedAt?: number;
   failureReason?: string;
+  /** 当前流程的轻量显示投影，供副本 HUD 使用，不参与权威结算。 */
+  progressPercent?: number;
+  bossProgress?: { name: string; hp: number; maxHp: number };
 }
 
 export type DungeonFlowEvent =

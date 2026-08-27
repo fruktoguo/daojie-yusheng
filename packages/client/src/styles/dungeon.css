@@ -22,6 +22,9 @@
   padding: 8px 11px;
   border-bottom: 1px solid color-mix(in srgb, var(--panel-border, #cbd5e1) 70%, transparent);
   font-size: 13px;
+  cursor: move;
+  user-select: none;
+  touch-action: none;
 }
 
 .dungeon-floating-panel__head button {
@@ -40,10 +43,15 @@
 .dungeon-floating-panel__head button:focus-visible { background: color-mix(in srgb, currentColor 10%, transparent); }
 
 .dungeon-floating-panel__body { display: grid; gap: 5px; padding: 10px 11px 11px; font-size: 12px; }
-.dungeon-floating-panel__phase { color: var(--accent, #2563eb); font-weight: 700; }
-.dungeon-floating-panel__objective { font-weight: 600; }
-.dungeon-floating-panel__progress { color: color-mix(in srgb, currentColor 78%, transparent); }
+.dungeon-floating-panel__target { font-weight: 600; }
+.dungeon-floating-panel__progress-row { display: grid; gap: 4px; color: color-mix(in srgb, currentColor 78%, transparent); }
+.dungeon-floating-panel__bar { height: 6px; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, currentColor 14%, transparent); }
+.dungeon-floating-panel__bar i { display: block; height: 100%; width: 0; border-radius: inherit; background: #3b82f6; transition: width 160ms ease-out; }
+.dungeon-floating-panel__boss { display: grid; gap: 4px; padding-top: 3px; }
+.dungeon-floating-panel__boss-line { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; }
+.dungeon-floating-panel__bar--boss i { background: #dc2626; }
 .dungeon-floating-panel__countdown { color: #b45309; font-variant-numeric: tabular-nums; }
+.dungeon-floating-panel.is-collapsed .dungeon-floating-panel__body { display: none; }
 
 :root[data-color-mode="dark"] #dungeon-floating-panel {
   border-color: color-mix(in srgb, #94a3b8 50%, transparent);

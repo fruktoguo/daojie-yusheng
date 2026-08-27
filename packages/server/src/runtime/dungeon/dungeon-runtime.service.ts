@@ -184,6 +184,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     const definition = this.content.getDungeonDefinition(run.dungeonId);
     const controller = definition ? this.controllers.get(definition.flowType) : null;
     controller?.onTick?.(run, definition!, this.buildFlowContext());
+    if (run.status === 'active') this.emitRunState(run);
   }
 
   private async activate(runId: string) {
@@ -434,7 +435,30 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   }
 
   private emitRunState(run: DungeonRunState): void {
+    this.updateProgressProjection(run);
     for (const member of run.members) this.emit(member.playerId, S2C.DungeonState, { run });
+  }
+
+  private updateProgressProjection(run: DungeonRunState): void {
+    const definition = this.content.getDungeonDefinition(run.dungeonId);
+    const instance = this.world.getInstanceRuntime(run.mapInstanceId) as any;
+    if (!definition || !instance) return;
+    const rooms = definition.rooms ?? [];
+    const waves = definition.waves ?? [];
+    const roomIndex = Math.max(0, rooms.findIndex((room) => room.roomId === run.currentRoomId));
+    const boss = [...(instance.monstersByRuntimeId?.values?.() ?? [])].find((monster: any) => {
+      const room = rooms[roomIndex];
+      return Boolean(room?.bossId && monster.monsterId === room.bossId);
+    });
+    const roomProgress = rooms.length > 0
+      ? ((roomIndex + (boss && Number(boss.maxHp) > 0 ? 1 - Math.max(0, Number(boss.hp)) / Number(boss.maxHp) : 0)) / rooms.length) * 100
+      : (waves.length > 0 ? (Math.min(waves.length, Number(run.currentWaveIndex ?? 0)) / waves.length) * 100 : 0);
+    run.progressPercent = Math.max(0, Math.min(100, Math.round(roomProgress)));
+    if (boss) {
+      run.bossProgress = { name: String(boss.name ?? boss.monsterId ?? '守关者'), hp: Math.max(0, Number(boss.hp) || 0), maxHp: Math.max(1, Number(boss.maxHp) || 1) };
+    } else {
+      delete run.bossProgress;
+    }
   }
 }
 
