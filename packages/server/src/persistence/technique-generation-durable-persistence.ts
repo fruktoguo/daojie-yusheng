@@ -21,6 +21,10 @@ import {
   type InsertGeneratedTechniqueParams,
   type InsertGenerationJobParams,
 } from './generated-technique-persistence.service';
+import {
+  normalizeTechniqueNameKey,
+  resolveBatchUniqueTechniqueNames,
+} from '../runtime/technique-generation/technique-generation-batch';
 
 const PLAYER_PRESENCE_TABLE = 'player_presence';
 const PLAYER_INVENTORY_ITEM_TABLE = 'player_inventory_item';
@@ -834,27 +838,36 @@ export async function adoptDurableTechniqueDraftBatch(
         techniqueId: techniqueId ?? '',
         template,
         displayName: displayName ?? '',
-        normalizedName: displayName?.toLowerCase().replace(/\s+/g, '') ?? '',
+        normalizedName: normalizeTechniqueNameKey(displayName ?? ''),
       };
     });
     if (drafts.some((draft) => !draft.jobId || !draft.techniqueId || !draft.template || !draft.displayName || !draft.normalizedName)) {
       return { ok: false, alreadyCommitted: false, techniqueIds: [], techniqueNames: [], errorCode: 'JOB_STATE_INVALID' };
     }
-    if (new Set(drafts.map((draft) => draft.normalizedName)).size !== drafts.length) {
-      return { ok: false, alreadyCommitted: false, techniqueIds: [], techniqueNames: [], errorCode: 'NAME_CONFLICT' };
-    }
 
-    const nameConflict = await client.query(
-      `SELECT id
+    const namePatterns = drafts
+      .map((draft) => draft.normalizedName)
+      .filter(Boolean)
+      .flatMap((name) => [name, `${name}%`]);
+    const publishedResult = await client.query<{ normalized_name?: unknown }>(
+      `SELECT normalized_name
          FROM ${GENERATED_TECHNIQUE_TABLE}
-        WHERE normalized_name = ANY($1::text[])
-          AND is_published = true
-          AND NOT (id = ANY($2::text[]))
-        LIMIT 1`,
-      [drafts.map((draft) => draft.normalizedName), drafts.map((draft) => draft.techniqueId)],
+        WHERE is_published = true
+          AND normalized_name IS NOT NULL
+          AND NOT (id = ANY($1::text[]))
+          AND normalized_name LIKE ANY($2::text[])`,
+      [drafts.map((draft) => draft.techniqueId), namePatterns],
     );
-    if ((nameConflict.rowCount ?? 0) > 0) {
-      return { ok: false, alreadyCommitted: false, techniqueIds: [], techniqueNames: [], errorCode: 'NAME_CONFLICT' };
+    const existingPublished = new Set(
+      publishedResult.rows.map((row) => String(row.normalized_name ?? '').trim()).filter(Boolean),
+    );
+    const uniqueNames = resolveBatchUniqueTechniqueNames(
+      drafts.map((draft) => draft.displayName),
+      existingPublished,
+    );
+    for (let i = 0; i < drafts.length; i += 1) {
+      drafts[i].displayName = uniqueNames[i];
+      drafts[i].normalizedName = normalizeTechniqueNameKey(uniqueNames[i]);
     }
     const learnedResult = await client.query(
       `SELECT tech_id

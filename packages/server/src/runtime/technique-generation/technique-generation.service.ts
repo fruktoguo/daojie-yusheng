@@ -81,6 +81,8 @@ import {
 import {
   buildBalancedInternalTechniqueCandidate,
   createTechniqueGenerationBatchIdentity,
+  normalizeTechniqueNameKey,
+  resolveBatchUniqueTechniqueNames,
   resolveTechniqueGenerationBatchId,
   resolveTechniqueGenerationBatchIndex,
 } from './technique-generation-batch';
@@ -611,13 +613,18 @@ export class TechniqueGenerationService {
           lastFailureCode = 'VALIDATION_FAILED';
           continue;
         }
-        const conflicts = await this.findPublishedTechniqueNameConflicts(normalized.value.map((entry) => entry.normalizedName));
-        if (conflicts.length > 0) {
-          lastFailureReason = `以下名称已存在，请全部更换：${conflicts.join('、')}`;
-          lastFailureCode = 'VALIDATION_FAILED';
-          continue;
-        }
-        namingEntries = normalized.value;
+        const existingPublished = await this.findPublishedTechniqueNormalizedNames(
+          normalized.value.map((entry) => entry.normalizedName),
+        );
+        const uniqueNames = resolveBatchUniqueTechniqueNames(
+          normalized.value.map((entry) => entry.name),
+          existingPublished,
+        );
+        namingEntries = normalized.value.map((entry, index) => ({
+          name: uniqueNames[index],
+          desc: entry.desc,
+          normalizedName: normalizeTechniqueNameKey(uniqueNames[index]),
+        }));
         successfulAiResult = { ...aiResult, attemptCount: attempt };
         break;
       }
@@ -1326,20 +1333,23 @@ export class TechniqueGenerationService {
     }
   }
 
-  private async findPublishedTechniqueNameConflicts(normalizedNames: readonly string[]): Promise<string[]> {
+  private async findPublishedTechniqueNormalizedNames(normalizedNames: readonly string[]): Promise<Set<string>> {
     const pool = this.pool;
-    if (!pool || normalizedNames.length === 0) return [];
-    const result = await pool.query(
-      `SELECT COALESCE(display_name, template->>'name', normalized_name) AS name
+    if (!pool || normalizedNames.length === 0) return new Set();
+    const patterns = normalizedNames.filter(Boolean).flatMap((name) => [name, `${name}%`]);
+    const result = await pool.query<{ normalized_name?: unknown }>(
+      `SELECT normalized_name
          FROM generated_technique
         WHERE is_published = true
-          AND normalized_name = ANY($1::text[])
-        ORDER BY name ASC`,
-      [[...normalizedNames]],
+          AND normalized_name IS NOT NULL
+          AND normalized_name LIKE ANY($1::text[])`,
+      [patterns],
     );
-    return (result.rows as Array<{ name?: unknown }>)
-      .map((row) => typeof row.name === 'string' ? row.name.trim() : '')
-      .filter(Boolean);
+    return new Set(
+      (result.rows as Array<{ normalized_name?: unknown }>)
+        .map((row) => (typeof row.normalized_name === 'string' ? row.normalized_name.trim() : ''))
+        .filter(Boolean),
+    );
   }
 
   private async loadCurrentGenerationJobsForPlayer(playerId: string): Promise<LoadedCurrentGenerationJob[]> {
@@ -1583,11 +1593,8 @@ function normalizeBatchTechniqueNamingResponse(
     entries.push({
       name,
       desc,
-      normalizedName: name.toLowerCase().replace(/\s+/g, ''),
+      normalizedName: normalizeTechniqueNameKey(name),
     });
-  }
-  if (new Set(entries.map((entry) => entry.normalizedName)).size !== entries.length) {
-    return { ok: false, error: '同批功法名称不得重复' };
   }
   return { ok: true, value: entries };
 }

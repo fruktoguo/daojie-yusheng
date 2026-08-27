@@ -32,6 +32,7 @@ import {
 } from '../persistence/generated-technique-persistence.service';
 import {
   adoptDurableTechniqueDraft,
+  adoptDurableTechniqueDraftBatch,
   beginDurableTechniqueGeneration,
   cancelDurableIncompleteTechniqueGeneration,
   discardDurableTechniqueDraft,
@@ -46,6 +47,8 @@ import {
 import {
   buildBalancedInternalTechniqueCandidate,
   createTechniqueGenerationBatchIdentity,
+  normalizeTechniqueNameKey,
+  resolveBatchUniqueTechniqueNames,
   resolveTechniqueGenerationBatchId,
   resolveTechniqueGenerationBatchIndex,
 } from '../runtime/technique-generation/technique-generation-batch';
@@ -2122,11 +2125,100 @@ async function testArtsCandidateRejectsLegacyEffectsShape(): Promise<void> {
   assert.ok(result.errors.some((entry) => entry.field.includes('effects')));
 }
 
+function testBatchTechniqueNameAutoNumbering(): void {
+  // 同批重名自动加序号
+  const names1 = ['太虚诀', '太虚诀', '太虚诀'];
+  const res1 = resolveBatchUniqueTechniqueNames(names1);
+  assert.deepEqual(res1, ['太虚诀', '太虚诀1', '太虚诀2']);
+
+  // 与已有已发布功法比对
+  const published = new Set(['太虚诀', '太虚诀1']);
+  const names2 = ['太虚诀', '太虚诀'];
+  const res2 = resolveBatchUniqueTechniqueNames(names2, published);
+  assert.deepEqual(res2, ['太虚诀2', '太虚诀3']);
+
+  // 混合名称去重
+  const names3 = ['纯阳功', '纯阴功', '纯阳功', '纯阳功'];
+  const res3 = resolveBatchUniqueTechniqueNames(names3);
+  assert.deepEqual(res3, ['纯阳功', '纯阴功', '纯阳功1', '纯阳功2']);
+
+  // 满20字超长名称截断加序号
+  const longName = '一二三四五六七八九十一二三四五六七八九十';
+  const names4 = [longName, longName];
+  const res4 = resolveBatchUniqueTechniqueNames(names4);
+  assert.equal(res4[0], longName);
+  assert.equal(res4[1], '一二三四五六七八九十一二三四五六七八九1');
+  assert.equal([...res4[0]].length, 20);
+  assert.equal([...res4[1]].length, 20);
+}
+
+async function testAdoptBatchDraftWithDuplicateNamesAutoNumbers(): Promise<void> {
+  const queries: QueryRecord[] = [];
+  const pool = createFakeConnectedPool(queries, (sql) => {
+    if (sql.includes('SELECT runtime_owner_id, session_epoch')) {
+      return { rows: [{ runtime_owner_id: 'runtime:batch-adopt-smoke', session_epoch: 3 }], rowCount: 1 };
+    }
+    if (sql.includes('FROM durable_operation_log')) {
+      return { rows: [], rowCount: 0 };
+    }
+    if (sql.includes('FROM technique_generation_job j')) {
+      return {
+        rows: [
+          {
+            id: 'batch_123_001',
+            status: 'generated_draft',
+            draft_expire_at: new Date(Date.now() + 3600_000),
+            technique_id: 'gen_smoke_001',
+            template: { name: '纯阳神功', grade: 'mystic', category: 'internal', realmLv: 31 },
+          },
+          {
+            id: 'batch_123_002',
+            status: 'generated_draft',
+            draft_expire_at: new Date(Date.now() + 3600_000),
+            technique_id: 'gen_smoke_002',
+            template: { name: '纯阳神功', grade: 'mystic', category: 'internal', realmLv: 31 },
+          },
+        ],
+        rowCount: 2,
+      };
+    }
+    if (sql.includes('FROM generated_technique') && sql.includes('is_published = true')) {
+      return {
+        rows: [{ normalized_name: '纯阳神功' }],
+        rowCount: 1,
+      };
+    }
+    if (sql.includes('FROM player_technique_state')) {
+      return { rows: [], rowCount: 0 };
+    }
+    if (sql.includes('UPDATE technique_generation_job')) {
+      return { rows: [], rowCount: 2 };
+    }
+    return { rows: [], rowCount: 1 };
+  });
+
+  const result = await adoptDurableTechniqueDraftBatch(pool, {
+    playerId: 'p_batch_adopt_smoke',
+    batchId: 'batch_123',
+    jobIds: ['batch_123_001', 'batch_123_002'],
+    learnerRealmLv: 35,
+    currentTick: 1000,
+    expectedRuntimeOwnerId: 'runtime:batch-adopt-smoke',
+    expectedSessionEpoch: 3,
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.techniqueNames, ['纯阳神功1', '纯阳神功2']);
+  assert.equal(result.techniqueIds.length, 2);
+}
+
 async function main(): Promise<void> {
   await testUninitializedServiceDoesNotConsumeItem();
   await testNoModelFailsWithoutConsumingItem();
   await testGenerationUnlockUsesHighestRealm();
   testBatchGenerationUsesNamingOnlyPromptAndBalancedAttributes();
+  testBatchTechniqueNameAutoNumbering();
+  await testAdoptBatchDraftWithDuplicateNamesAutoNumbers();
   await testBatchGenerationConsumesOneJadePerTechnique();
   await testInitializedServiceConsumesRequestedItemSpend();
   await testItemShortageMarksJobFailedAfterAudit();

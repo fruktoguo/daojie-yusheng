@@ -1,5 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { ATTR_KEYS } from '@mud/shared';
+import {
+  ATTR_KEYS,
+  CUSTOM_TECHNIQUE_NAME_MAX_LENGTH,
+  CUSTOM_TECHNIQUE_NAME_MIN_LENGTH,
+} from '@mud/shared';
 
 const BATCH_ID_PREFIX = 'batch_';
 const BATCH_INDEX_WIDTH = 3;
@@ -62,3 +66,65 @@ export function buildBalancedInternalTechniqueCandidate(input: {
     attrRatio: Object.fromEntries(ATTR_KEYS.map((key) => [key, 1])) as BalancedInternalTechniqueCandidate['attrRatio'],
   };
 }
+
+/** 归一化功法名称（用于唯一性索引与重名比对）。 */
+export function normalizeTechniqueNameKey(name: string): string {
+  return name.toLowerCase().replace(/\s+/g, '');
+}
+
+/** 为功法基础名追加序号后缀，并严格限制总长度不超过 CUSTOM_TECHNIQUE_NAME_MAX_LENGTH (20字)。 */
+export function buildNumberedTechniqueName(baseName: string, suffixNumber: number): string {
+  const suffix = String(suffixNumber);
+  const chars = [...baseName];
+  const maxBaseLength = Math.max(1, CUSTOM_TECHNIQUE_NAME_MAX_LENGTH - suffix.length);
+  const truncatedBase = chars.slice(0, maxBaseLength).join('');
+  return `${truncatedBase}${suffix}`;
+}
+
+/**
+ * 批量功法名称去重与序号分配：
+ * 遍历每部功法的名称，若在已有已发布占用集或本批已分配集合中存在重名，自动递增追加序号（1, 2, 3...）直至名称唯一。
+ */
+export function resolveBatchUniqueTechniqueNames(
+  names: readonly string[],
+  existingNormalizedNames?: ReadonlySet<string> | readonly string[],
+): string[] {
+  const usedNormalized = new Set<string>(
+    existingNormalizedNames instanceof Set
+      ? existingNormalizedNames
+      : Array.isArray(existingNormalizedNames)
+        ? existingNormalizedNames.map((item) => normalizeTechniqueNameKey(item))
+        : [],
+  );
+
+  const result: string[] = [];
+
+  for (const rawName of names) {
+    const trimmed = (typeof rawName === 'string' ? rawName : '').trim();
+    const chars = [...trimmed];
+    const boundedName = chars.slice(0, CUSTOM_TECHNIQUE_NAME_MAX_LENGTH).join('');
+    const baseNormalized = normalizeTechniqueNameKey(boundedName);
+
+    if (baseNormalized && !usedNormalized.has(baseNormalized)) {
+      usedNormalized.add(baseNormalized);
+      result.push(boundedName);
+      continue;
+    }
+
+    let suffixNumber = 1;
+    let candidateName = buildNumberedTechniqueName(boundedName || '自创内功', suffixNumber);
+    let candidateNormalized = normalizeTechniqueNameKey(candidateName);
+
+    while (usedNormalized.has(candidateNormalized)) {
+      suffixNumber += 1;
+      candidateName = buildNumberedTechniqueName(boundedName || '自创内功', suffixNumber);
+      candidateNormalized = normalizeTechniqueNameKey(candidateName);
+    }
+
+    usedNormalized.add(candidateNormalized);
+    result.push(candidateName);
+  }
+
+  return result;
+}
+
