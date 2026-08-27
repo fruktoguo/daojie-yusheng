@@ -30,6 +30,8 @@ interface PendingEntry {
   expiresAt: number;
   confirmations: Map<string, boolean>;
   timer: ReturnType<typeof setTimeout>;
+  countdownTimer?: ReturnType<typeof setTimeout>;
+  countdownStartedAt?: number;
 }
 
 @Injectable()
@@ -61,7 +63,10 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleDestroy(): void {
-    for (const entry of this.pending.values()) clearTimeout(entry.timer);
+    for (const entry of this.pending.values()) {
+      clearTimeout(entry.timer);
+      if (entry.countdownTimer) clearTimeout(entry.countdownTimer);
+    }
     this.pending.clear();
     for (const timer of this.runTimers.values()) clearTimeout(timer);
     this.runTimers.clear();
@@ -91,7 +96,13 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     const locations = memberIds.map((playerId) => ({ playerId, location: this.world.getPlayerLocation(playerId) }));
     if (locations.some((entry) => entry.location?.instanceId?.startsWith('dungeon:'))) return { ok: false, reason: 'member_already_in_dungeon' };
     if (locations.some((entry) => !entry.location || this.world.getInstanceRuntime(entry.location.instanceId)?.template?.id !== definition.entryMapTemplateId)) return { ok: false, reason: 'members_not_at_entry_map' };
-    const cost = resolveDungeonStaminaCost(difficulty, definition.difficulty);
+    const leaderState = this.players.getPlayer(leader);
+    const entryX = Number(definition.entryX ?? 0);
+    const entryY = Number(definition.entryY ?? 0);
+    if (!leaderState || leaderState.mapId !== definition.entryMapTemplateId
+      || Math.max(Math.abs(Number(leaderState.x) - entryX), Math.abs(Number(leaderState.y) - entryY)) > Math.max(1, Number(definition.entryExitRadius ?? 1))) {
+      return { ok: false, reason: 'not_near_memory_stone' };
+    }
     const runId = randomUUID();
     const selection = { difficulty, ...(difficulty === 'present' ? { presentRank: presentRank! } : {}) } as any;
     const effectiveStep = resolveDungeonEffectiveStep(selection, definition.difficulty.maxPresentRank);
@@ -110,17 +121,11 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     const timeout = Math.max(1_000, Math.trunc(definition.confirmationTimeoutMs ?? 60_000));
     const timer = setTimeout(() => this.abortPending(runId, 'confirmation_timeout'), timeout);
     timer.unref?.();
-    const pending: PendingEntry = { run, definition, expiresAt: Date.now() + timeout, confirmations: new Map([[leader, true]]), timer };
+    const pending: PendingEntry = { run, definition, expiresAt: Date.now() + timeout, confirmations: new Map(memberIds.map((playerId) => [playerId, false])), timer };
     this.pending.set(runId, pending);
     this.runs.set(runId, run);
     this.runPersistence.save(run);
-    for (const memberId of memberIds) {
-      this.emit(memberId, S2C.DungeonEntryPrompt, {
-        runId, dungeonId: definition.id, dungeonName: definition.name, difficulty, presentRank: presentRank ?? '凡', staminaCost: cost,
-        expiresAt: pending.expiresAt, leaderPlayerId: leader,
-      });
-    }
-    if (memberIds.length === 1) return this.activate(runId);
+    this.emitPreparation(pending, 'preparing');
     return { ok: true, run, expiresAt: pending.expiresAt };
   }
 
@@ -130,9 +135,24 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     if (!pending) return { ok: false, reason: 'entry_not_pending' };
     if (!pending.run.members.some((member) => member.playerId === playerId.trim())) return { ok: false, reason: 'not_run_member' };
     pending.confirmations.set(playerId.trim(), confirm === true);
-    if (confirm !== true) { this.abortPending(runId, 'member_rejected'); return { ok: true, run: pending.run }; }
-    if (pending.run.members.some((member) => pending.confirmations.get(member.playerId) !== true)) return { ok: true, run: pending.run };
-    return this.activate(runId);
+    if (confirm !== true && pending.countdownTimer) {
+      clearTimeout(pending.countdownTimer);
+      pending.countdownTimer = undefined;
+      pending.countdownStartedAt = undefined;
+    }
+    const allReady = pending.run.members.every((member) => pending.confirmations.get(member.playerId) === true);
+    if (!allReady) {
+      this.emitPreparation(pending, 'preparing');
+      return { ok: true, run: pending.run };
+    }
+    if (!pending.countdownTimer) {
+      pending.countdownStartedAt = Date.now();
+      const enterAt = pending.countdownStartedAt + 5_000;
+      pending.countdownTimer = setTimeout(() => { void this.activate(runId); }, 5_000);
+      pending.countdownTimer.unref?.();
+      this.emitPreparation(pending, 'countdown', enterAt);
+    }
+    return { ok: true, run: pending.run, enterAt: pending.countdownStartedAt + 5_000 };
   }
 
   getRun(runId: string): DungeonRunState | null { return this.runs.get(runId) ?? null; }
@@ -189,7 +209,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
 
   private async activate(runId: string) {
     const pending = this.pending.get(runId); if (!pending) return { ok: false, reason: 'entry_not_pending' };
-    clearTimeout(pending.timer); this.pending.delete(runId);
+    clearTimeout(pending.timer); if (pending.countdownTimer) clearTimeout(pending.countdownTimer); this.pending.delete(runId);
     const { run, definition } = pending;
     run.status = 'activating';
     this.runPersistence.save(run);
@@ -415,7 +435,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
 
   private abortPending(runId: string, reason: string): void {
     const pending = this.pending.get(runId); if (!pending) return;
-    clearTimeout(pending.timer); this.pending.delete(runId); pending.run.status = 'aborted'; pending.run.failureReason = reason;
+    clearTimeout(pending.timer); if (pending.countdownTimer) clearTimeout(pending.countdownTimer); this.pending.delete(runId); pending.run.status = 'aborted'; pending.run.failureReason = reason;
     this.controllers.get(pending.definition.flowType)?.onAbort?.(pending.run, pending.definition, reason, this.buildFlowContext());
     for (const member of pending.run.members) this.emit(member.playerId, S2C.DungeonEntryResult, { ok: false, reason, run: pending.run });
   }
@@ -432,6 +452,36 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   private emit(playerId: string, event: string, payload: unknown): void {
     const socket = this.sessions.getSocketByPlayerId(playerId);
     socket?.emit(event, payload);
+  }
+
+  private emitPreparation(pending: PendingEntry, phase: 'preparing' | 'countdown', enterAt?: number): void {
+    const { run, definition } = pending;
+    const members = run.members.map((member) => {
+      const player = this.players.getPlayer(member.playerId);
+      return {
+        playerId: member.playerId,
+        ...(member.playerNo === undefined ? {} : { playerNo: member.playerNo }),
+        name: Array.from(String(player?.name ?? member.name ?? member.playerId))[0] ?? '无',
+        ...(player?.realmName ? { realmName: player.realmName } : {}),
+        ...(player?.realmStage ? { realmStage: player.realmStage } : {}),
+        ready: pending.confirmations.get(member.playerId) === true,
+      };
+    });
+    for (const member of run.members) {
+      this.emit(member.playerId, S2C.DungeonEntryPrompt, {
+        runId: run.runId,
+        dungeonId: definition.id,
+        dungeonName: definition.name,
+        difficulty: run.difficulty.difficulty,
+        presentRank: run.difficulty.presentRank ?? 'mortal',
+        staminaCost: resolveDungeonStaminaCost(run.difficulty.difficulty, definition.difficulty),
+        expiresAt: pending.expiresAt,
+        leaderPlayerId: run.members[0]?.playerId ?? '',
+        phase,
+        members,
+        ...(enterAt ? { enterAt } : {}),
+      });
+    }
   }
 
   private emitRunState(run: DungeonRunState): void {

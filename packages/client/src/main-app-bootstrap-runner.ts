@@ -31,6 +31,7 @@ export function runMainAppBootstrap(context: ReturnType<typeof import('./main-ap
     attrDetailStateSource: context.attrDetailStateSource,
     targetingStateSource: context.targetingStateSource,
     getPlayer: () => context.rootRuntimeSource.getPlayer(),
+    openDungeonPanel: context.openDungeonPanel,
     runtimeStateSource: context.runtimeStateSource,
     detailStateSource: context.detailStateSource,
     buildingFengShuiStateSource: context.buildingFengShuiStateSource,

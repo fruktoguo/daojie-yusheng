@@ -1,6 +1,6 @@
-import { S2C, type DungeonRunState, type DungeonSettlementView, type S2C_DungeonCatalog } from '@mud/shared';
+import { C2S, S2C, type DungeonRunState, type DungeonSettlementView, type S2C_DungeonCatalog } from '@mud/shared';
 
-type DungeonSocket = { on(event: string, listener: (payload: any) => void): unknown };
+type DungeonSocket = { on(event: string, listener: (payload: any) => void): unknown; emitEvent?: (event: any, payload: any) => unknown };
 
 /** 副本 HUD：只展示服务端状态，支持收起和拖拽，不提供关闭入口。 */
 export class DungeonFloatingPanel {
@@ -15,6 +15,7 @@ export class DungeonFloatingPanel {
   private readonly bossFill: HTMLElement;
   private readonly countdown: HTMLElement;
   private readonly collapseButton: HTMLButtonElement;
+  private readonly exitButton: HTMLButtonElement;
   private readonly dungeonNames = new Map<string, string>();
   private timer: number | null = null;
   private collapsed = false;
@@ -26,7 +27,7 @@ export class DungeonFloatingPanel {
     this.root = (existing as HTMLDivElement | null) ?? documentRef.createElement('div');
     this.root.id = 'dungeon-floating-panel';
     this.root.className = 'dungeon-floating-panel';
-    this.root.innerHTML = '<div class="dungeon-floating-panel__head"><strong data-dungeon-title>副本</strong><button type="button" aria-expanded="true" aria-label="收起副本进度">−</button></div><div class="dungeon-floating-panel__body"><div class="dungeon-floating-panel__target" data-dungeon-target></div><div class="dungeon-floating-panel__progress-row"><span data-dungeon-progress-text>进度 0%</span><div class="dungeon-floating-panel__bar"><i data-dungeon-progress-fill></i></div></div><div class="dungeon-floating-panel__boss" data-dungeon-boss><div class="dungeon-floating-panel__boss-line"><span data-dungeon-boss-name></span><span data-dungeon-boss-hp></span></div><div class="dungeon-floating-panel__bar dungeon-floating-panel__bar--boss"><i data-dungeon-boss-fill></i></div></div><div class="dungeon-floating-panel__countdown" data-dungeon-countdown></div></div>';
+    this.root.innerHTML = '<div class="dungeon-floating-panel__head"><strong data-dungeon-title>副本</strong><button type="button" aria-expanded="true" aria-label="收起副本进度">−</button></div><div class="dungeon-floating-panel__body"><div class="dungeon-floating-panel__target" data-dungeon-target></div><div class="dungeon-floating-panel__progress-row"><span data-dungeon-progress-text>进度 0%</span><div class="dungeon-floating-panel__bar"><i data-dungeon-progress-fill></i></div></div><div class="dungeon-floating-panel__boss" data-dungeon-boss><div class="dungeon-floating-panel__boss-line"><span data-dungeon-boss-name></span><span data-dungeon-boss-hp></span></div><div class="dungeon-floating-panel__bar dungeon-floating-panel__bar--boss"><i data-dungeon-boss-fill></i></div></div><div class="dungeon-floating-panel__countdown" data-dungeon-countdown></div><button type="button" class="small-btn dungeon-floating-panel__exit" data-dungeon-exit>到入口退出</button></div>';
     if (!existing) documentRef.body.appendChild(this.root);
     this.title = this.root.querySelector('[data-dungeon-title]')!;
     this.target = this.root.querySelector('[data-dungeon-target]')!;
@@ -38,6 +39,11 @@ export class DungeonFloatingPanel {
     this.bossFill = this.root.querySelector('[data-dungeon-boss-fill]')!;
     this.countdown = this.root.querySelector('[data-dungeon-countdown]')!;
     this.collapseButton = this.root.querySelector('button')!;
+    this.exitButton = this.root.querySelector('[data-dungeon-exit]')!;
+    this.exitButton.addEventListener('click', () => {
+      const runId = this.root.dataset.runId;
+      if (runId) socket.emitEvent?.(C2S.ExitDungeon, { runId });
+    });
     this.collapseButton.addEventListener('click', () => this.toggleCollapsed());
     const head = this.root.querySelector('.dungeon-floating-panel__head') as HTMLElement;
     head.addEventListener('pointerdown', (event) => this.beginDrag(event));
@@ -51,11 +57,14 @@ export class DungeonFloatingPanel {
     socket.on(S2C.DungeonState, ({ run }: { run: DungeonRunState }) => this.updateRun(run));
     socket.on(S2C.DungeonSettlement, ({ settlement }: { settlement: DungeonSettlementView }) => this.showSettlement(settlement));
     this.root.hidden = true;
+    this.exitButton.hidden = true;
   }
 
   private updateRun(run: DungeonRunState): void {
     if (!run || ['failed', 'aborted', 'expired'].includes(run.status)) { this.stop(); return; }
     this.root.hidden = false;
+    this.root.dataset.runId = run.runId;
+    this.exitButton.hidden = false;
     this.title.textContent = this.dungeonNames.get(run.dungeonId) ?? run.dungeonId;
     this.target.textContent = run.status === 'completed' ? '目标：已击破，前往入口退出' : `目标：${run.bossProgress?.name ?? (run.currentRoomId ? `清理 ${run.currentRoomId}` : '进入战场')}`;
     this.updateProgress(run.progressPercent ?? 0);
@@ -66,6 +75,8 @@ export class DungeonFloatingPanel {
 
   private showSettlement(settlement: DungeonSettlementView): void {
     this.root.hidden = false;
+    this.root.dataset.runId = settlement.runId;
+    this.exitButton.hidden = false;
     this.title.textContent = this.dungeonNames.get(settlement.dungeonId) ?? settlement.dungeonId;
     this.target.textContent = settlement.status === 'completed' ? '目标：通关' : '目标：副本结束';
     this.updateProgress(settlement.status === 'completed' ? 100 : 0);

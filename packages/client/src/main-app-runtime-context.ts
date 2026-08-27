@@ -177,6 +177,7 @@ export function createMainAppRuntimeContext(options: InitializeMainAppOptions) {
     techniqueGenerationSender: modules.techniqueGenerationSender,
     loginUI: modules.loginUI,
     rootRuntimeSource,
+    openDungeonPanel: panelContext.openDungeonPanel,
     showToast,
     syncTargetingOverlay: runtimeOwnerContext.syncTargetingOverlay,
   };

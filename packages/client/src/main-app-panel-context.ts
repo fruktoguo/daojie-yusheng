@@ -343,6 +343,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     actionStateSource, techniqueStateSource, attrDetailStateSource, questStateSource, marketStateSource, breakthroughStateSource,
     detailHydrationSource, worldSummaryStateSource, detailStateSource, noticeStateSource, inventoryStateSource, settingsStateSource,
     panelRuntimeSource, uiStateSource,
+    openDungeonPanel,
     panelDeps: {
       sidePanel,
       chatUI,

@@ -51,7 +51,18 @@
 .dungeon-floating-panel__boss-line { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; }
 .dungeon-floating-panel__bar--boss i { background: #dc2626; }
 .dungeon-floating-panel__countdown { color: #b45309; font-variant-numeric: tabular-nums; }
+.dungeon-floating-panel__exit { width: 100%; margin-top: 4px; }
 .dungeon-floating-panel.is-collapsed .dungeon-floating-panel__body { display: none; }
+
+.dungeon-entry-members { display: grid; gap: 6px; margin-top: 10px; }
+.dungeon-entry-member { display: grid; grid-template-columns: 18px 28px 1fr auto; align-items: center; gap: 7px; padding: 7px 8px; border: 1px solid color-mix(in srgb, var(--panel-border, #cbd5e1) 65%, transparent); border-radius: 7px; }
+.dungeon-entry-member input { margin: 0; }
+.dungeon-entry-member__name { font-size: 16px; font-weight: 700; }
+.dungeon-entry-member__realm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: color-mix(in srgb, currentColor 72%, transparent); }
+.dungeon-entry-member__status { font-size: 11px; color: #64748b; }
+.dungeon-entry-member:has(input:checked) .dungeon-entry-member__status { color: #15803d; }
+.dungeon-entry-preparation__status { margin-top: 10px; font-weight: 700; color: #b45309; }
+.dungeon-entry-preparation__hint { margin-top: 4px; color: color-mix(in srgb, currentColor 62%, transparent); font-size: 11px; }
 
 :root[data-color-mode="dark"] #dungeon-floating-panel {
   border-color: color-mix(in srgb, #94a3b8 50%, transparent);

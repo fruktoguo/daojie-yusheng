@@ -4,7 +4,7 @@
   "description": "进入独立洞府，击败唤灵真人后结算。",
   "flowType": "suppress_demon",
   "controllerId": "dungeon_huanling_zhenren",
-  "mapTemplateId": "dungeon_huanling_zhenren",
+  "mapTemplateId": "dungeon_huanling_zhenren_instance",
   "maxPartyMembers": 5,
   "entryMapTemplateId": "ruined_cavern_manor",
   "entryX": 2,
@@ -29,8 +29,8 @@
   "rooms": [
     {
       "roomId": "room_01",
-      "mapTemplateId": "dungeon_huanling_zhenren",
-      "bossId": "m_huanling_zhenren_dungeon",
+      "mapTemplateId": "dungeon_huanling_zhenren_instance",
+      "bossId": "m_huanling_zhenren_instance",
       "clearCondition": "boss_defeated",
       "mechanismFormation": {
         "kind": "room_seal",

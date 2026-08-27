@@ -372,6 +372,7 @@ type MainMapInteractionBindingsOptions = {
  */
 
   setHoveredMapTile: (value: HoveredMapTile) => void;
+  openDungeonPanel?: () => void;
 };
 /**
  * bindMainMapInteractions：执行bindMain地图Interaction相关逻辑。
@@ -511,6 +512,10 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
       const knownTile = options.getKnownTileAt(target.x, target.y);
       if (!knownTile) {
         options.showToast(t('map-interaction.toast.unknown-tile'));
+        return;
+      }
+      if (player?.mapId === 'ruined_cavern_manor' && target.x === 2 && target.y === 9) {
+        options.openDungeonPanel?.();
         return;
       }
       if (clickedNpc && options.handleNpcClickTarget(clickedNpc)) {

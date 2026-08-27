@@ -198,6 +198,14 @@ export interface C2S_RespondDungeonEntry {
   runId: string;
   confirm: boolean;
 }
+export interface DungeonEntryPreparationMember {
+  playerId: string;
+  playerNo?: number;
+  name: string;
+  realmName?: string;
+  realmStage?: string;
+  ready: boolean;
+}
 export interface C2S_ExitDungeon { runId?: string; }
 export interface S2C_DungeonCatalog { dungeons: DungeonDefinition[]; stamina: DungeonStaminaView; activeRun?: DungeonRunState; }
 export interface S2C_DungeonEntryPrompt {
@@ -209,6 +217,9 @@ export interface S2C_DungeonEntryPrompt {
   staminaCost: number;
   expiresAt: number;
   leaderPlayerId: string;
+  phase: 'preparing' | 'countdown';
+  members: DungeonEntryPreparationMember[];
+  enterAt?: number;
 }
 export interface S2C_DungeonEntryResult {
   ok: boolean;

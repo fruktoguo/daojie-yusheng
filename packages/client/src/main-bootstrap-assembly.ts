@@ -258,6 +258,7 @@ type MainBootstrapAssemblyOptions = {
  */
 
   getPlayer: () => PlayerState | null;
+  openDungeonPanel: () => void;
   /**
  * runtimeStateSource：运行态状态来源相关字段。
  */
@@ -629,19 +630,55 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
 
   options.socket.on(S2C.DungeonEntryPrompt, (prompt) => {
     const ownerId = `dungeon-entry:${prompt.runId}`;
-    confirmModalHost.open({
+    const escape = (value: unknown): string => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    const currentPlayerId = options.getPlayer()?.id ?? '';
+    const renderPreparation = (body: HTMLElement, signal: AbortSignal): void => {
+      const members = prompt.members ?? [];
+      body.innerHTML = `<div class="dungeon-entry-preparation"><div class="confirm-summary-list"><div><span>难度</span><strong>${escape(prompt.difficulty === 'present' ? `现世 · ${prompt.presentRank}` : prompt.difficulty)}</strong></div><div><span>精力消耗</span><strong>${prompt.staminaCost}</strong></div></div><div class="dungeon-entry-members">${members.map((member) => {
+        const singleName = Array.from(member.name || '无名')[0] ?? '无';
+        const realm = [member.realmName, member.realmStage].filter(Boolean).join(' · ') || '境界未知';
+        const self = member.playerId === currentPlayerId;
+        return `<label class="dungeon-entry-member"><input type="checkbox" data-dungeon-ready="${escape(member.playerId)}" ${member.ready ? 'checked' : ''} ${self ? '' : 'disabled'} /><span class="dungeon-entry-member__name">${escape(singleName)}</span><span class="dungeon-entry-member__realm">${escape(realm)}</span><span class="dungeon-entry-member__status">${member.ready ? '已准备' : '未准备'}</span></label>`;
+      }).join('')}</div><div class="dungeon-entry-preparation__status">${prompt.phase === 'countdown' && prompt.enterAt ? `全员准备，${Math.max(0, Math.ceil((prompt.enterAt - Date.now()) / 1000))} 秒后进入` : '请确认是否准备'}</div><div class="dungeon-entry-preparation__hint">准备截止：${new Date(prompt.expiresAt).toLocaleTimeString()}</div></div>`;
+      body.querySelectorAll<HTMLInputElement>('input[data-dungeon-ready]').forEach((input) => {
+        input.addEventListener('change', () => options.socket.emitEvent(C2S.RespondDungeonEntry, { runId: prompt.runId, confirm: input.checked }), { signal });
+      });
+      if (prompt.phase === 'countdown' && prompt.enterAt) {
+        const status = body.querySelector<HTMLElement>('.dungeon-entry-preparation__status');
+        const updateCountdown = (): void => {
+          if (!status) return;
+          const remain = Math.max(0, Math.ceil((prompt.enterAt! - Date.now()) / 1000));
+          status.textContent = remain > 0 ? `全员准备，${remain} 秒后进入` : '正在进入副本……';
+        };
+        const timer = window.setInterval(updateCountdown, 250);
+        signal.addEventListener('abort', () => window.clearInterval(timer), { once: true });
+        updateCountdown();
+      }
+    };
+    const modalOptions = {
       ownerId,
       title: `进入副本：${prompt.dungeonName}`,
-      subtitle: '队伍副本确认',
-      bodyHtml: `<div class="confirm-summary-list"><div><span>难度</span><strong>${prompt.difficulty}${prompt.difficulty === 'present' ? ` · ${prompt.presentRank}` : ''}</strong></div><div><span>精力消耗</span><strong>${prompt.staminaCost}</strong></div><div><span>确认截止</span><strong>${new Date(prompt.expiresAt).toLocaleTimeString()}</strong></div></div>`,
-      confirmLabel: '确认进入',
-      cancelLabel: '拒绝',
-      onConfirm: () => options.socket.emitEvent(C2S.RespondDungeonEntry, { runId: prompt.runId, confirm: true }),
-      onClose: () => options.socket.emitEvent(C2S.RespondDungeonEntry, { runId: prompt.runId, confirm: false }),
-    });
+      subtitle: '队伍准备',
+      size: 'sm' as const,
+      bodyHtml: '',
+      onRequestClose: () => true,
+      onAfterRender: (body: HTMLElement, signal: AbortSignal) => renderPreparation(body, signal),
+    };
+    if (detailModalHost.isOpenFor(ownerId)) {
+      detailModalHost.patch({ ownerId, bodyHtml: '', onAfterRender: modalOptions.onAfterRender });
+    } else {
+      detailModalHost.open(modalOptions);
+    }
+  });
+  options.socket.on(S2C.DungeonState, ({ run }) => {
+    if (run.status === 'active' || run.status === 'activating') detailModalHost.close(`dungeon-entry:${run.runId}`);
   });
   options.socket.on(S2C.DungeonEntryResult, (result) => {
-    if (result.ok) return;
+    if (result.ok) {
+      if (result.run?.status === 'active' || result.run?.status === 'activating') detailModalHost.close(`dungeon-entry:${result.run.runId}`);
+      return;
+    }
+    if (result.run?.runId) detailModalHost.close(`dungeon-entry:${result.run.runId}`);
     const labels: Record<string, string> = {
       dungeon_not_found: '副本不存在',
       invalid_difficulty: '副本难度无效',
@@ -656,6 +693,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
       instance_activation_failed: '副本实例创建失败，请稍后重试',
       confirmation_timeout: '副本确认已超时',
       member_rejected: '有队员拒绝进入副本',
+      not_near_memory_stone: '需要靠近忆梦石才能发起副本',
       not_at_exit: '需要到副本入口附近才能退出',
       run_not_active: '副本已结束或不存在',
     };
@@ -668,21 +706,6 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
       subtitle: settlement.dungeonId,
       size: 'sm',
       bodyHtml: `<div class="confirm-summary-list"><div><span>结果</span><strong>通关</strong></div><div><span>完成编号</span><strong>${settlement.completionId}</strong></div><div><span>奖励</span><strong>${settlement.rewardTableId ?? '暂无'}</strong></div></div>`,
-    });
-  });
-  options.socket.on(S2C.DungeonState, ({ run }) => {
-    if (!run || !['active', 'completed'].includes(run.status)) return;
-    detailModalHost.open({
-      ownerId: `dungeon-state:${run.runId}`,
-      title: run.status === 'completed' ? '副本已通关' : '副本进行中',
-      subtitle: run.dungeonId,
-      size: 'sm',
-      bodyHtml: `<div class="confirm-summary-list"><div><span>当前房间</span><strong>${run.currentRoomId ?? '—'}</strong></div><div><span>难度</span><strong>${run.difficulty.difficulty}${run.difficulty.presentRank ? ` · ${run.difficulty.presentRank}` : ''}</strong></div><button type="button" data-dungeon-exit="${run.runId}" class="small-btn">到入口附近退出</button></div>`,
-      onAfterRender: (body) => {
-        body.querySelector<HTMLButtonElement>('[data-dungeon-exit]')?.addEventListener('click', () => {
-          options.socket.emitEvent(C2S.ExitDungeon, { runId: run.runId });
-        });
-      },
     });
   });
   options.socket.on(S2C.DungeonCatalog, (catalog) => {
@@ -820,6 +843,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
       options.mapRuntimeBridgeSource.cancelTargeting();
     },
     getPlayer: () => options.getPlayer(),
+    openDungeonPanel: options.openDungeonPanel,
     sendAction: (actionId, target) => options.runtimeSender.sendAction(actionId, target),
     resetLootPanelManualCloseSuppression: () => options.lootPanel.resetManualCloseSuppression(),
     sendCastSkill: (actionId, target) => options.runtimeSender.sendCastSkill(actionId, target),
