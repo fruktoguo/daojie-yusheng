@@ -395,6 +395,7 @@ export class PartyPanel {
         </div>
         <div class="party-hint">友伤是双重门槛：队长在此开启全队友伤后，成员还需在自己的战斗设置里把「队伍」加入敌对目标，主动攻击或自动战斗才会对队友生效；默认互为友方，不会误伤。</div>
         <div class="party-actions-row">
+          <button class="small-btn" type="button" data-party-action="open-dungeon">发起副本</button>
           <button class="small-btn ghost danger" type="button" data-party-action="leave">退出队伍</button>
           <button class="small-btn ghost danger" type="button" data-party-action="disband">解散队伍</button>
         </div>
@@ -540,6 +541,9 @@ export class PartyPanel {
         break;
       case 'open-chat':
         this.callbacks.onOpenChat();
+        break;
+      case 'open-dungeon':
+        this.callbacks.onOpenDungeon();
         break;
       case 'invite-accept':
         if (target.dataset.inviteId) this.callbacks.onRespondInvite(target.dataset.inviteId, true);

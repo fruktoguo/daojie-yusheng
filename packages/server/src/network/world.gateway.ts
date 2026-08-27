@@ -5,7 +5,7 @@
  */
 import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Inject, Logger, Optional } from '@nestjs/common';
-import { C2S } from '@mud/shared';
+import { C2S, S2C } from '@mud/shared';
 import { Server, Socket } from 'socket.io';
 import * as msgpackParser from 'socket.io-msgpack-parser';
 import { resolveServerCorsOptions } from '../config/server-cors';
@@ -23,6 +23,7 @@ import { TreasureVaultRuntimeService } from '../runtime/building/treasure-vault-
 import { TimeChamberRuntimeService } from '../runtime/building/time-chamber-runtime.service';
 import { SocialRuntimeService } from '../runtime/social/social-runtime.service';
 import { PartyRuntimeService } from '../runtime/party/party-runtime.service';
+import { DungeonRuntimeService } from '../runtime/dungeon/dungeon-runtime.service';
 import { AccessPolicyResourceService } from '../runtime/access/access-policy-resource.service';
 import { BuildingAccessPolicyService } from '../runtime/access/building-access-policy.service';
 import { AccessPolicyRuntimeService } from '../runtime/access/access-policy-runtime.service';
@@ -103,12 +104,13 @@ class WorldGateway implements WorldGatewayHelperContext {
         gatewayTechniqueGenerationHelper: WorldGatewayTechniqueGenerationHelper;
         gatewayTechniqueAggregationHelper: WorldGatewayTechniqueAggregationHelper;
         gatewayAccessPolicyHelper: WorldGatewayAccessPolicyHelper;
+        dungeonRuntimeService?: DungeonRuntimeService;
         @WebSocketServer()
         server!: Server; logger: Logger = new Logger(WorldGateway.name);
         @Inject(PartyRuntimeService) private partyRuntimeService!: PartyRuntimeService;
         private gatewayPartyHelper: WorldGatewayPartyHelper | null = null;
         private draining = false;
-    constructor(worldGmSocketService: WorldGmSocketService, worldProtocolProjectionService: WorldProtocolProjectionService, sessionBootstrapService: WorldSessionBootstrapService, healthReadinessService: HealthReadinessService, playerDomainPersistenceService: PlayerDomainPersistenceService, playerPersistenceFlushService: PlayerPersistenceFlushService, playerRuntimeService: PlayerRuntimeService, mailRuntimeService: MailRuntimeService, @Inject(MarketRuntimeService) marketRuntimeService: MarketRuntimeService, craftPanelRuntimeService: CraftPanelRuntimeService, activityRuntimeService: ActivityRuntimeService, leaderboardRuntimeService: LeaderboardRuntimeService, runtimeGmStateService: RuntimeGmStateService, @Inject(WorldRuntimeService) worldRuntimeService: WorldRuntimeService, worldClientEventService: WorldClientEventService, worldSessionService: WorldSessionService, playerSessionRouteService: PlayerSessionRouteService, worldSyncService: WorldSyncService, gatewayGuardHelper: WorldGatewayGuardHelper, gatewayClientEmitHelper: WorldGatewayClientEmitHelper, gatewaySessionStateHelper: WorldGatewaySessionStateHelper, gatewayBuildingHelper: WorldGatewayBuildingHelper, gatewayMovementHelper: WorldGatewayMovementHelper, gatewayNpcHelper: WorldGatewayNpcHelper, gatewayCraftHelper: WorldGatewayCraftHelper, gatewayActivityHelper: WorldGatewayActivityHelper, gatewayReadModelHelper: WorldGatewayReadModelHelper, gatewayPresenceHelper: WorldGatewayPresenceHelper, private readonly gatewayContentHelper: WorldGatewayContentHelper, private readonly techniqueGenerationService: TechniqueGenerationService, @Optional() @Inject(AccessPolicyRuntimeService) accessPolicyRuntimeService: AccessPolicyRuntimeService = undefined, @Optional() @Inject(AccessPolicyResourceService) accessPolicyResourceService: AccessPolicyResourceService = undefined, @Optional() @Inject(BuildingAccessPolicyService) buildingAccessPolicyService: BuildingAccessPolicyService = undefined, @Optional() @Inject(SocialRuntimeService) socialRuntimeService: SocialRuntimeService = undefined, @Optional() @Inject(TreasureVaultRuntimeService) treasureVaultRuntimeService: TreasureVaultRuntimeService = undefined, @Optional() @Inject(TimeChamberRuntimeService) timeChamberRuntimeService: TimeChamberRuntimeService = undefined) {
+    constructor(worldGmSocketService: WorldGmSocketService, worldProtocolProjectionService: WorldProtocolProjectionService, sessionBootstrapService: WorldSessionBootstrapService, healthReadinessService: HealthReadinessService, playerDomainPersistenceService: PlayerDomainPersistenceService, playerPersistenceFlushService: PlayerPersistenceFlushService, playerRuntimeService: PlayerRuntimeService, mailRuntimeService: MailRuntimeService, @Inject(MarketRuntimeService) marketRuntimeService: MarketRuntimeService, craftPanelRuntimeService: CraftPanelRuntimeService, activityRuntimeService: ActivityRuntimeService, leaderboardRuntimeService: LeaderboardRuntimeService, runtimeGmStateService: RuntimeGmStateService, @Inject(WorldRuntimeService) worldRuntimeService: WorldRuntimeService, worldClientEventService: WorldClientEventService, worldSessionService: WorldSessionService, playerSessionRouteService: PlayerSessionRouteService, worldSyncService: WorldSyncService, gatewayGuardHelper: WorldGatewayGuardHelper, gatewayClientEmitHelper: WorldGatewayClientEmitHelper, gatewaySessionStateHelper: WorldGatewaySessionStateHelper, gatewayBuildingHelper: WorldGatewayBuildingHelper, gatewayMovementHelper: WorldGatewayMovementHelper, gatewayNpcHelper: WorldGatewayNpcHelper, gatewayCraftHelper: WorldGatewayCraftHelper, gatewayActivityHelper: WorldGatewayActivityHelper, gatewayReadModelHelper: WorldGatewayReadModelHelper, gatewayPresenceHelper: WorldGatewayPresenceHelper, private readonly gatewayContentHelper: WorldGatewayContentHelper, private readonly techniqueGenerationService: TechniqueGenerationService, @Optional() @Inject(AccessPolicyRuntimeService) accessPolicyRuntimeService: AccessPolicyRuntimeService = undefined, @Optional() @Inject(AccessPolicyResourceService) accessPolicyResourceService: AccessPolicyResourceService = undefined, @Optional() @Inject(BuildingAccessPolicyService) buildingAccessPolicyService: BuildingAccessPolicyService = undefined, @Optional() @Inject(SocialRuntimeService) socialRuntimeService: SocialRuntimeService = undefined, @Optional() @Inject(TreasureVaultRuntimeService) treasureVaultRuntimeService: TreasureVaultRuntimeService = undefined, @Optional() @Inject(TimeChamberRuntimeService) timeChamberRuntimeService: TimeChamberRuntimeService = undefined, @Optional() @Inject(DungeonRuntimeService) dungeonRuntimeService: DungeonRuntimeService = undefined) {
         this.worldGmSocketService = worldGmSocketService;
         this.worldProtocolProjectionService = worldProtocolProjectionService;
         this.sessionBootstrapService = sessionBootstrapService;
@@ -123,6 +125,7 @@ class WorldGateway implements WorldGatewayHelperContext {
         this.socialRuntimeService = socialRuntimeService;
         this.treasureVaultRuntimeService = treasureVaultRuntimeService;
         this.timeChamberRuntimeService = timeChamberRuntimeService;
+        this.dungeonRuntimeService = dungeonRuntimeService;
         this.accessPolicyRuntimeService = accessPolicyRuntimeService;
         this.accessPolicyResourceService = accessPolicyResourceService;
         this.buildingAccessPolicyService = buildingAccessPolicyService;
@@ -442,6 +445,34 @@ class WorldGateway implements WorldGatewayHelperContext {
     handleSendPartyChat(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.partyHelper().sendChat(client, payload); }
     @SubscribeMessage(C2S.RequestPartyChatHistory)
     handleRequestPartyChatHistory(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.partyHelper().requestChatHistory(client, payload); }
+    @SubscribeMessage(C2S.RequestDungeonCatalog)
+    handleRequestDungeonCatalog(@ConnectedSocket() client: Socket) {
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
+        const catalog = this.dungeonRuntimeService?.buildCatalog(playerId) ?? { dungeons: [], stamina: { current: 0, maximum: 240, updatedAt: Date.now() } };
+        client.emit(S2C.DungeonCatalog, catalog);
+        return catalog;
+    }
+    @SubscribeMessage(C2S.StartDungeonEntry)
+    async handleStartDungeonEntry(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
+        const result = await this.dungeonRuntimeService?.startEntry(playerId, payload ?? {}) ?? { ok: false, reason: 'dungeon_unavailable' };
+        client.emit(S2C.DungeonEntryResult, result);
+        return result;
+    }
+    @SubscribeMessage(C2S.RespondDungeonEntry)
+    async handleRespondDungeonEntry(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
+        const result = await this.dungeonRuntimeService?.respondEntry(playerId, payload?.runId, payload?.confirm === true) ?? { ok: false, reason: 'dungeon_unavailable' };
+        client.emit(S2C.DungeonEntryResult, result);
+        return result;
+    }
+    @SubscribeMessage(C2S.ExitDungeon)
+    async handleExitDungeon(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
+        const result = await this.dungeonRuntimeService?.exit(playerId, payload?.runId) ?? { ok: false, reason: 'dungeon_unavailable' };
+        client.emit(S2C.DungeonEntryResult, result);
+        return result;
+    }
     @SubscribeMessage(C2S.RequestTreasureVault)
     handleRequestTreasureVault(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayPlayerControlsHelper.handleRequestTreasureVault(client, payload);

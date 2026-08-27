@@ -13,7 +13,7 @@
  * 按域独立读写，支持增量刷盘、恢复水位和旧快照兼容水合。
  */
 import { Inject, Injectable, Logger, Optional, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
-import { ARTIFACT_SLOTS, createItemStackSignature, DEFAULT_COMBAT_ATTACK_INTENSITY, EQUIP_SLOTS, isCreatedTechniqueId, isLegacyItemInstanceId, normalizeCombatAttackIntensity, PLAYER_HEARTBEAT_TIMEOUT_MS, resolvePlayerFacingContentName, TechniqueRealm } from '@mud/shared';
+import { ARTIFACT_SLOTS, createItemStackSignature, DEFAULT_COMBAT_ATTACK_INTENSITY, DUNGEON_MAX_STAMINA, EQUIP_SLOTS, isCreatedTechniqueId, isLegacyItemInstanceId, normalizeCombatAttackIntensity, PLAYER_HEARTBEAT_TIMEOUT_MS, resolvePlayerFacingContentName, TechniqueRealm } from '@mud/shared';
 import type { OfflineGainReportView, PlayerStatisticPeriodTotalView } from '@mud/shared';
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
@@ -81,7 +81,7 @@ const PLAYER_RECOVERY_WATERMARK_TABLE = 'player_recovery_watermark';
 const PLAYER_DOMAIN_BIGINT_COLUMNS_BY_TABLE = {
   [PLAYER_WORLD_ANCHOR_TABLE]: ['respawn_x', 'respawn_y', 'last_safe_x', 'last_safe_y'],
   [PLAYER_POSITION_CHECKPOINT_TABLE]: ['x', 'y', 'facing'],
-  [PLAYER_PROGRESSION_CORE_TABLE]: ['bone_age_base_years', 'lifespan_years'],
+  [PLAYER_PROGRESSION_CORE_TABLE]: ['bone_age_base_years', 'lifespan_years', 'stamina', 'stamina_updated_at'],
   [PLAYER_BODY_TRAINING_STATE_TABLE]: ['level'],
   [PLAYER_MARKET_STORAGE_ITEM_TABLE]: ['slot_index', 'count', 'enhance_level'],
   [PLAYER_TECHNIQUE_STATE_TABLE]: ['level', 'realm_lv'],
@@ -397,6 +397,8 @@ export interface PlayerProgressionCoreUpsertInput {
   boneAgeBaseYears: number;
   lifeElapsedTicks: number;
   lifespanYears?: number | null;
+  stamina?: number;
+  staminaUpdatedAt?: number;
 }
 
 export interface PlayerBodyTrainingStateUpsertInput {
@@ -682,6 +684,8 @@ interface PlayerProgressionCoreLoadRow {
   bone_age_base_years?: unknown;
   life_elapsed_ticks?: unknown;
   lifespan_years?: unknown;
+  stamina?: unknown;
+  stamina_updated_at?: unknown;
 }
 
 interface PlayerAttrStateLoadRow {
@@ -2560,7 +2564,9 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
             combat_exp,
             bone_age_base_years,
             life_elapsed_ticks,
-            lifespan_years
+            lifespan_years,
+            stamina,
+            stamina_updated_at
           FROM ${PLAYER_PROGRESSION_CORE_TABLE}
           WHERE player_id = $1
         `,
@@ -3486,9 +3492,11 @@ export async function savePlayerSnapshotProjectionWithClient(
         bone_age_base_years,
         life_elapsed_ticks,
         lifespan_years,
+        stamina,
+        stamina_updated_at,
         updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
       ON CONFLICT (player_id)
       DO UPDATE SET
         foundation = EXCLUDED.foundation,
@@ -3497,6 +3505,8 @@ export async function savePlayerSnapshotProjectionWithClient(
         bone_age_base_years = EXCLUDED.bone_age_base_years,
         life_elapsed_ticks = EXCLUDED.life_elapsed_ticks,
         lifespan_years = EXCLUDED.lifespan_years,
+        stamina = EXCLUDED.stamina,
+        stamina_updated_at = EXCLUDED.stamina_updated_at,
         updated_at = now()
     `,
     [
@@ -3507,6 +3517,8 @@ export async function savePlayerSnapshotProjectionWithClient(
       boneAgeBaseYears,
       lifeElapsedTicks,
       normalizeOptionalInteger(progression?.lifespanYears),
+      normalizeMinimumInteger(progression?.stamina, DUNGEON_MAX_STAMINA, 0),
+      normalizeMinimumInteger(progression?.staminaUpdatedAt, Date.now(), 0),
     ],
   );
 
@@ -3729,6 +3741,9 @@ export async function savePlayerSnapshotProjectionDomainsWithClient(
       boneAgeBaseYears: normalizeMinimumInteger(progression?.boneAgeBaseYears, 18, 0),
       lifeElapsedTicks: normalizeMinimumInteger(progression?.lifeElapsedTicks, 0, 0),
       lifespanYears: normalizeOptionalInteger(progression?.lifespanYears),
+      stamina: normalizeMinimumInteger(progression?.stamina, DUNGEON_MAX_STAMINA, 0),
+      // 旧快照未携带精力时间基准时使用当前时间，不能把持久化版本号误当成毫秒时间戳。
+      staminaUpdatedAt: normalizeMinimumInteger(progression?.staminaUpdatedAt, Date.now(), 0),
     });
     watermarkPatch.progression_version = versionSeed;
   }
@@ -4174,9 +4189,11 @@ async function replacePlayerProgressionCore(
         bone_age_base_years,
         life_elapsed_ticks,
         lifespan_years,
+        stamina,
+        stamina_updated_at,
         updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
       ON CONFLICT (player_id)
       DO UPDATE SET
         foundation = EXCLUDED.foundation,
@@ -4185,6 +4202,8 @@ async function replacePlayerProgressionCore(
         bone_age_base_years = EXCLUDED.bone_age_base_years,
         life_elapsed_ticks = EXCLUDED.life_elapsed_ticks,
         lifespan_years = EXCLUDED.lifespan_years,
+        stamina = EXCLUDED.stamina,
+        stamina_updated_at = EXCLUDED.stamina_updated_at,
         updated_at = now()
     `,
     [
@@ -4195,6 +4214,8 @@ async function replacePlayerProgressionCore(
       normalizeMinimumInteger(row.boneAgeBaseYears, 18, 0),
       normalizeMinimumInteger(row.lifeElapsedTicks, 0, 0),
       normalizeOptionalInteger(row.lifespanYears),
+      normalizeMinimumInteger(row.stamina, DUNGEON_MAX_STAMINA, 0),
+      normalizeMinimumInteger(row.staminaUpdatedAt, Date.now(), 0),
     ],
   );
 }
@@ -4296,12 +4317,22 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
       bone_age_base_years bigint NOT NULL DEFAULT 18,
       life_elapsed_ticks bigint NOT NULL DEFAULT 0,
       lifespan_years bigint,
+      stamina bigint NOT NULL DEFAULT 240,
+      stamina_updated_at bigint NOT NULL DEFAULT 0,
       updated_at timestamptz NOT NULL DEFAULT now()
     )
   `);
   await client.query(`
     ALTER TABLE ${PLAYER_PROGRESSION_CORE_TABLE}
     ADD COLUMN IF NOT EXISTS root_foundation double precision NOT NULL DEFAULT 0
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_PROGRESSION_CORE_TABLE}
+    ADD COLUMN IF NOT EXISTS stamina bigint NOT NULL DEFAULT 240
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_PROGRESSION_CORE_TABLE}
+    ADD COLUMN IF NOT EXISTS stamina_updated_at bigint NOT NULL DEFAULT 0
   `);
   await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_ATTR_STATE_TABLE} (
@@ -8628,6 +8659,16 @@ function applyProjectedProgressionCore(
     0,
   );
   snapshot.progression.lifespanYears = normalizeOptionalInteger(row.lifespan_years) ?? snapshot.progression.lifespanYears;
+  snapshot.progression.stamina = normalizeMinimumInteger(
+    row.stamina,
+    snapshot.progression.stamina ?? DUNGEON_MAX_STAMINA,
+    0,
+  );
+  snapshot.progression.staminaUpdatedAt = normalizeMinimumInteger(
+    row.stamina_updated_at,
+    snapshot.progression.staminaUpdatedAt ?? Date.now(),
+    0,
+  );
 }
 
 function applyProjectedAttrState(

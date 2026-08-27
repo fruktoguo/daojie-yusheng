@@ -54,6 +54,7 @@ import {
   techniqueGenerationStore,
 } from './react-ui/panels/technique-generation/mount-technique-generation-panel';
 import { confirmModalHost } from './ui/confirm-modal-host';
+import { detailModalHost } from './ui/detail-modal-host';
 import { cacheUnlockedMinimapLibrary, getCachedMinimapVersions } from './map-static-cache';
 import { bindMainMapInteractions } from './main-map-interaction-bindings';
 import { bindMainShellInteractions } from './main-shell-bindings';
@@ -623,6 +624,61 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
   options.mapRuntime.setRenderFrameObserver((frameAtMs) => {
     options.runtimeMonitorSource.recordFpsMonitorFrame(frameAtMs);
   });
+
+  options.socket.on(S2C.DungeonEntryPrompt, (prompt) => {
+    const ownerId = `dungeon-entry:${prompt.runId}`;
+    confirmModalHost.open({
+      ownerId,
+      title: `进入副本：${prompt.dungeonName}`,
+      subtitle: '队伍副本确认',
+      bodyHtml: `<div class="confirm-summary-list"><div><span>难度</span><strong>${prompt.difficulty}${prompt.difficulty === 'present' ? ` · ${prompt.presentRank}` : ''}</strong></div><div><span>精力消耗</span><strong>${prompt.staminaCost}</strong></div><div><span>确认截止</span><strong>${new Date(prompt.expiresAt).toLocaleTimeString()}</strong></div></div>`,
+      confirmLabel: '确认进入',
+      cancelLabel: '拒绝',
+      onConfirm: () => options.socket.emitEvent(C2S.RespondDungeonEntry, { runId: prompt.runId, confirm: true }),
+      onClose: () => options.socket.emitEvent(C2S.RespondDungeonEntry, { runId: prompt.runId, confirm: false }),
+    });
+  });
+  options.socket.on(S2C.DungeonEntryResult, (result) => {
+    if (result.ok) return;
+    const labels: Record<string, string> = {
+      dungeon_not_found: '副本不存在',
+      invalid_difficulty: '副本难度无效',
+      invalid_present_rank: '现世阶位无效',
+      leader_required: '只有队长可以发起副本',
+      party_dungeon_in_progress: '队伍已有进行中的副本',
+      members_not_at_entry_map: '队伍成员必须都在副本入口地图',
+      stamina_insufficient: '队伍中有成员精力不足',
+      party_changed: '确认期间队伍成员发生变化',
+      entry_membership_changed: '确认期间有成员离开入口地图',
+      player_attach_failed: '副本进入失败，请稍后重试',
+      instance_activation_failed: '副本实例创建失败，请稍后重试',
+      confirmation_timeout: '副本确认已超时',
+      member_rejected: '有队员拒绝进入副本',
+      not_at_exit: '需要到副本入口附近才能退出',
+      run_not_active: '副本已结束或不存在',
+    };
+    options.showToast(labels[result.reason ?? ''] ?? '副本操作失败', 'warn');
+  });
+  options.socket.on(S2C.DungeonSettlement, ({ settlement }) => {
+    detailModalHost.open({
+      ownerId: `dungeon-settlement:${settlement.runId}`,
+      title: '副本结算',
+      subtitle: settlement.dungeonId,
+      size: 'sm',
+      bodyHtml: `<div class="confirm-summary-list"><div><span>结果</span><strong>通关</strong></div><div><span>完成编号</span><strong>${settlement.completionId}</strong></div><div><span>奖励</span><strong>${settlement.rewardTableId ?? '暂无'}</strong></div></div>`,
+    });
+  });
+  options.socket.on(S2C.DungeonCatalog, (catalog) => {
+    if (catalog.activeRun?.status === 'completed' && catalog.activeRun.completionId) {
+      detailModalHost.open({
+        ownerId: `dungeon-settlement:${catalog.activeRun.runId}`,
+        title: '副本结算',
+        subtitle: catalog.activeRun.dungeonId,
+        size: 'sm',
+        bodyHtml: `<div class="confirm-summary-list"><div><span>结果</span><strong>通关</strong></div><div><span>完成编号</span><strong>${catalog.activeRun.completionId}</strong></div></div>`,
+      });
+    }
+  });
   options.mapRuntime.setTargetFps(options.initialMapPerformanceConfig.targetFps);
   options.mapRuntime.setPerformanceConfig(options.initialMapPerformanceConfig);
   options.windowRef.addEventListener(MAP_PERFORMANCE_CONFIG_CHANGE_EVENT, (event) => {
@@ -771,6 +827,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
       options.runtimeStateSource.handleBootstrap(data);
       options.connectionStateSource.handleBootstrapReady();
       options.loginUI.hide();
+      options.socket.emitEvent(C2S.RequestDungeonCatalog, {});
       completeOfflineGainBlockingConfirmation();
     },
     onInitSession: (data) => options.runtimeStateSource.handleInitSession(data),

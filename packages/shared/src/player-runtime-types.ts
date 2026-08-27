@@ -228,6 +228,10 @@ export interface PlayerState {
  */
 
   lifespanYears?: number | null;
+  /** 副本精力当前值；持久化真源位于 progression 域。 */
+  stamina?: number;
+  /** 副本精力上次恢复计算时间（Unix 毫秒）。 */
+  staminaUpdatedAt?: number;
   /**
  * instanceId：实例ID标识。
  */

@@ -29,6 +29,7 @@ import { createSocketPanelSender } from './socket-send-panel';
 import { createSocketRuntimeSender } from './socket-send-runtime';
 import { createSocketSocialEconomySender } from './socket-send-social-economy';
 import { createSocketPartySender } from './socket-send-party';
+import { createSocketDungeonSender } from './socket-send-dungeon';
 import { createSocketContentSender } from './socket-send-content';
 import { createSocketTechniqueGenerationSender } from './socket-send-technique-generation';
 import { createSocketServerEventRegistry } from './socket-event-registry';
@@ -40,6 +41,7 @@ import type { SocketPanelSender } from './socket-send-panel';
 import type { SocketRuntimeSender } from './socket-send-runtime';
 import type { SocketSocialEconomySender } from './socket-send-social-economy';
 import type { SocketPartySender } from './socket-send-party';
+import type { SocketDungeonSender } from './socket-send-dungeon';
 import type { SocketContentSender } from './socket-send-content';
 import type { SocketTechniqueGenerationSender } from './socket-send-technique-generation';
 import type { BoundServerEventName, ServerEventCallback } from './socket-server-events';
@@ -81,6 +83,7 @@ export class SocketManager {
   private readonly partySender = createSocketPartySender({
     emitEvent: (event, payload) => this.sendEvent(event, payload),
   });
+  private readonly dungeonSender = createSocketDungeonSender({ emitEvent: (event, payload) => this.sendEvent(event, payload) });
   /** GM 与调试发包 owner。 */
   private readonly adminSender = createSocketAdminSender({
     emitEvent: (event, payload) => this.sendEvent(event, payload),
@@ -341,6 +344,7 @@ export class SocketManager {
   get party(): SocketPartySender {
     return this.partySender;
   }
+  get dungeon(): SocketDungeonSender { return this.dungeonSender; }
   /**
  * admin：读取admin。
  * @returns 返回admin。

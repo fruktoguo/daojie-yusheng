@@ -11,7 +11,7 @@
 import { Inject, BadRequestException, Injectable, Logger, NotFoundException, Optional, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { ARTIFACT_SLOTS, ARTIFACT_UNLOCK_REALM_LV, ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_COMBAT_ATTACK_INTENSITY, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, addItemStackMergeCount, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, cloneCraftEffectStats, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, findMergeableItemStackIndex, getBodyTrainingExpToNext, getTechniqueMaxLevel, isCreatedTechniqueId, isTechniqueAggregationId, isTechniqueFullyMastered, mergeItemStackInto, normalizeBodyTrainingState, normalizeCombatAttackIntensity, normalizeHorizontalFacing, normalizeTechniqueStrengthPercent, percentModifierToMultiplier, resolveArtifactMaxQi, resolvePlayerFacingContentName, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, resolveTechniqueStandardMaxHpRecoveryAmount, resolveTechniqueStandardMaxQiRecoveryAmount, signedRatioValue } from '@mud/shared';
+import { ARTIFACT_SLOTS, ARTIFACT_UNLOCK_REALM_LV, ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_COMBAT_ATTACK_INTENSITY, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, DUNGEON_MAX_STAMINA, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, addItemStackMergeCount, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, cloneCraftEffectStats, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, findMergeableItemStackIndex, getBodyTrainingExpToNext, getTechniqueMaxLevel, isCreatedTechniqueId, isTechniqueAggregationId, isTechniqueFullyMastered, mergeItemStackInto, normalizeBodyTrainingState, normalizeCombatAttackIntensity, normalizeHorizontalFacing, normalizeTechniqueStrengthPercent, percentModifierToMultiplier, resolveArtifactMaxQi, resolvePlayerFacingContentName, resolvePlayerSkillSlotLimit, resolveRecoveredStamina, resolveSkillRequiresTarget, resolveTechniqueStandardMaxHpRecoveryAmount, resolveTechniqueStandardMaxQiRecoveryAmount, signedRatioValue } from '@mud/shared';
 import type { TechniqueTransmissionStatusView } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
@@ -506,6 +506,8 @@ export class PlayerRuntimeService {
             boneAgeBaseYears: DEFAULT_BONE_AGE_YEARS,
             lifeElapsedTicks: 0,
             lifespanYears: null,
+            stamina: DUNGEON_MAX_STAMINA,
+            staminaUpdatedAt: Date.now(),
             realm: createDefaultRealmState(),
             heavenGate: null,
             spiritualRoots: null,
@@ -1222,6 +1224,59 @@ export class PlayerRuntimeService {
 
     getPlayer(playerId) {
         return this.players.get(playerId) ?? null;
+    }
+    /** 结算玩家精力的自然恢复，并返回权威精力视图。 */
+    refreshDungeonStamina(playerId, now = Date.now()) {
+        const player = this.getPlayerOrThrow(playerId);
+        const recovered = resolveRecoveredStamina(
+            Number.isFinite(player.stamina) ? player.stamina : DUNGEON_MAX_STAMINA,
+            Number.isFinite(player.staminaUpdatedAt) ? player.staminaUpdatedAt : now,
+            now,
+        );
+        if (player.stamina !== recovered.current || player.staminaUpdatedAt !== recovered.updatedAt) {
+            player.stamina = recovered.current;
+            player.staminaUpdatedAt = recovered.updatedAt;
+            markPlayerDirtyDomains(player, ['progression']);
+            this.bumpPersistentRevision(player);
+        }
+        return {
+            current: recovered.current,
+            maximum: DUNGEON_MAX_STAMINA,
+            updatedAt: recovered.updatedAt,
+            nextRecoveryAt: recovered.current >= DUNGEON_MAX_STAMINA
+                ? null
+                : recovered.updatedAt + 60 * 60 * 1000,
+        };
+    }
+    /** 在进入副本的唯一提交点扣除精力；不足时不产生任何写入。 */
+    consumeDungeonStamina(playerId, costInput, now = Date.now()) {
+        const cost = Math.max(0, Math.trunc(Number(costInput) || 0));
+        const view = this.refreshDungeonStamina(playerId, now);
+        if (view.current < cost) {
+            return { ok: false, ...view };
+        }
+        const player = this.getPlayerOrThrow(playerId);
+        player.stamina = view.current - cost;
+        player.staminaUpdatedAt = now;
+        markPlayerDirtyDomains(player, ['progression']);
+        this.bumpPersistentRevision(player);
+        return {
+            ok: true,
+            current: player.stamina,
+            maximum: DUNGEON_MAX_STAMINA,
+            updatedAt: now,
+            nextRecoveryAt: player.stamina >= DUNGEON_MAX_STAMINA ? null : now + 60 * 60 * 1000,
+        };
+    }
+    refundDungeonStamina(playerId, amountInput, now = Date.now()) {
+        const amount = Math.max(0, Math.trunc(Number(amountInput) || 0));
+        const player = this.getPlayerOrThrow(playerId);
+        this.refreshDungeonStamina(playerId, now);
+        player.stamina = Math.min(DUNGEON_MAX_STAMINA, Math.max(0, Number(player.stamina) || 0) + amount);
+        player.staminaUpdatedAt = now;
+        markPlayerDirtyDomains(player, ['progression']);
+        this.bumpPersistentRevision(player);
+        return this.refreshDungeonStamina(playerId, now);
     }
     /** 构建目标玩家对传授者当前可传功法的已学状态。 */
     buildTechniqueTransmissionStatuses(
@@ -6416,6 +6471,8 @@ export class PlayerRuntimeService {
             boneAgeBaseYears: normalizeBoneAgeBaseYears(snapshot.progression?.boneAgeBaseYears),
             lifeElapsedTicks: normalizeLifeElapsedTicks(snapshot.progression?.lifeElapsedTicks),
             lifespanYears: normalizeLifespanYears(snapshot.progression?.lifespanYears),
+            stamina: Math.max(0, Math.min(DUNGEON_MAX_STAMINA, Math.trunc(Number(snapshot.progression?.stamina) || DUNGEON_MAX_STAMINA))),
+            staminaUpdatedAt: Math.max(0, Math.trunc(Number(snapshot.progression?.staminaUpdatedAt) || Date.now())),
             realm: snapshotRealm,
             heavenGate: normalizeHeavenGateState(snapshot.progression?.heavenGate),
             spiritualRoots: normalizeHeavenGateRoots(snapshot.progression?.spiritualRoots),
@@ -9917,6 +9974,8 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
             boneAgeBaseYears: player.boneAgeBaseYears,
             lifeElapsedTicks: player.lifeElapsedTicks,
             lifespanYears: player.lifespanYears,
+            stamina: Math.max(0, Math.min(DUNGEON_MAX_STAMINA, Math.trunc(Number(player.stamina) || 0))),
+            staminaUpdatedAt: Math.max(0, Math.trunc(Number(player.staminaUpdatedAt) || 0)),
             realm: cloneRealmState(player.realm),
             heavenGate: cloneHeavenGateState(player.heavenGate),
             spiritualRoots: cloneHeavenGateRoots(player.spiritualRoots),

@@ -18,6 +18,7 @@ import { assignItemInstanceIdIfNeeded } from '../runtime/world/item-instance-id.
 import { BuffTemplateRegistry } from './registries/buff-template.registry';
 import { DropTableRegistry } from './registries/drop-table.registry';
 import { FormationTemplateRegistry } from './registries/formation-template.registry';
+import { DungeonTemplateRegistry } from './registries/dungeon-template.registry';
 import { ItemTemplateRegistry } from './registries/item-template.registry';
 import { MonsterTemplateRegistry } from './registries/monster-template.registry';
 import { SkillTemplateRegistry } from './registries/skill-template.registry';
@@ -36,6 +37,7 @@ export class ContentTemplateRepository {
         readonly skillRegistry: SkillTemplateRegistry = new SkillTemplateRegistry(),
         readonly buffRegistry: BuffTemplateRegistry = new BuffTemplateRegistry(),
         readonly formationRegistry: FormationTemplateRegistry = new FormationTemplateRegistry(),
+        readonly dungeonRegistry: DungeonTemplateRegistry = new DungeonTemplateRegistry(),
         readonly monsterTemplateRegistry: MonsterTemplateRegistry = new MonsterTemplateRegistry(),
         readonly dropTableRegistry: DropTableRegistry = new DropTableRegistry(),
     ) {
@@ -45,6 +47,7 @@ export class ContentTemplateRepository {
         this.skillTemplatesById = this.skillRegistry.skillTemplatesById;
         this.sharedTechniqueBuffs = this.buffRegistry.sharedTechniqueBuffs;
         this.formationTemplates = this.formationRegistry.formationTemplates;
+        this.dungeonDefinitions = this.dungeonRegistry.dungeonDefinitions;
         this.monsterDropsByMonsterId = this.dropTableRegistry.monsterDropsByMonsterId;
         this.monsterRuntimeTemplates = this.monsterTemplateRegistry.monsterRuntimeTemplates;
         this.monsterRuntimeStatesByMapId = this.monsterTemplateRegistry.monsterRuntimeStatesByMapId;
@@ -61,6 +64,8 @@ export class ContentTemplateRepository {
     sharedTechniqueBuffs = new Map();
     /** 阵法模板表，按 formationId 查找。 */
     formationTemplates = new Map();
+    /** 副本定义表，启动期读取并冻结。 */
+    dungeonDefinitions = new Map();
     /** 妖兽掉落表，按 monsterId 聚合。 */
     monsterDropsByMonsterId = new Map();
     /** 妖兽运行时模板表，用于生成世界刷怪数据。 */
@@ -121,6 +126,14 @@ export class ContentTemplateRepository {
     /** 列出阵法模板。 */
     listFormationTemplates() {
         return this.formationRegistry.listFormationTemplates();
+    }
+
+    getDungeonDefinition(dungeonId) {
+        return this.dungeonRegistry.tryGetRef(dungeonId) ?? null;
+    }
+
+    listDungeonDefinitions() {
+        return this.dungeonRegistry.listDefinitions();
     }
     
     rollLootPoolItems(query) {
@@ -316,6 +329,7 @@ export class ContentTemplateRepository {
         this.terrainEffectsByTerrainType.clear();
         this.buffRegistry.loadAll();
         this.formationRegistry.loadAll();
+        this.dungeonRegistry.loadAll();
         this.monsterRealmBaselines = undefined;
         this.starterInventoryEntries = [];
         resetMapDocumentFileIndex();

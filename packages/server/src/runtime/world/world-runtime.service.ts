@@ -327,6 +327,7 @@ export class WorldRuntimeService {
     worldRuntimeSystemCommandEnqueueService;
 
     worldRuntimeTongtianTowerService;
+    dungeonRuntimeService = null;
 
     nodeRegistryService;
 
@@ -611,6 +612,9 @@ export class WorldRuntimeService {
 
     getPlayerLocation(playerId) {
         return this.worldRuntimeStateFacadeService.getPlayerLocation(playerId, this);
+    }
+    attachDungeonRuntime(service) {
+        this.dungeonRuntimeService = service;
     }
 
     setPlayerLocation(playerId, location) {

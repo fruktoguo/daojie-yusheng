@@ -203,6 +203,7 @@ export class WorldRuntimePlayerCombatService {
             );
         }
         clearPartyMonsterSupport(instance?.meta?.instanceId ?? '', monster.runtimeId);
+        deps.dungeonRuntimeService?.onMonsterDefeated?.(instance?.meta?.instanceId ?? '', monster?.monsterId ?? monster?.runtimeId ?? '');
         recordPlayerMonsterKillPerf(
             deps,
             'combat.playerMonsterKill.lootDeliveryMs',

@@ -1,0 +1,52 @@
+[
+  {
+    "id": "m_huanling_zhenren_dungeon",
+    "name": "唤灵真人",
+    "char": "真",
+    "color": "#f0d2a4",
+    "grade": "spirit",
+    "tier": "demon_king",
+    "level": 43,
+    "expMultiplier": 10,
+    "count": 1,
+    "maxAlive": 1,
+    "radius": 2,
+    "aggroRange": 10,
+    "respawnSec": 120,
+    "skills": [
+      "skill.huanling_difu_chenyin",
+      "skill.huanling_liefu_waihuan",
+      "skill.huanling_suogong_neihuan",
+      "skill.huanling_xingluo_canpan",
+      "skill.huanling_ronghe_guanmai",
+      "skill.huanling_lieqi_zhixian",
+      "skill.huanling_candan_faxiang",
+      "skill.huanling_duanhun_ding",
+      "skill.huanling_canpo_zhang"
+    ],
+    "drops": [
+      {
+        "itemId": "pill.ningxiang",
+        "name": "凝相丹",
+        "type": "consumable",
+        "count": 1
+      },
+      {
+        "itemId": "book.xuesha_huanling_jue",
+        "name": "《血煞唤灵决》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.02
+      }
+    ],
+    "aggroMode": "always",
+    "attrTendency": {
+      "constitution": 100,
+      "spirit": 30,
+      "perception": 100,
+      "talent": 100,
+      "strength": 30,
+      "meridians": 100
+    }
+  }
+]

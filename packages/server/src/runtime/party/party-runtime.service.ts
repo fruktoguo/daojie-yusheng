@@ -66,10 +66,14 @@ export class PartyRuntimeService implements OnModuleInit, OnModuleDestroy {
   create(playerId: string, runtime?: any) { return this.finish('create', playerId, this.commands.create(playerId), runtime); }
   invite(playerId: string, payload: any, runtime?: any) { return this.finish('invite', playerId, this.commands.invite(playerId, payload?.targetPlayerId, payload?.targetPlayerNo), runtime); }
   respondInvite(playerId: string, payload: any, runtime?: any) { return this.finish('invite_response', playerId, this.commands.respondInvite(playerId, payload?.inviteId, payload?.accept), runtime); }
-  leave(playerId: string, runtime?: any) { return this.finish('leave', playerId, this.commands.leave(playerId), runtime); }
-  removeMember(playerId: string, payload: any, runtime?: any) { return this.finish('remove_member', playerId, this.commands.removeMember(playerId, payload?.targetPlayerId), runtime); }
-  transferLeader(playerId: string, payload: any, runtime?: any) { return this.finish('transfer_leader', playerId, this.commands.transferLeader(playerId, payload?.targetPlayerId), runtime); }
-  disband(playerId: string, runtime?: any) { return this.finish('disband', playerId, this.commands.disband(playerId), runtime); }
+  leave(playerId: string, runtime?: any) { return this.mutateOutsideDungeon('leave', playerId, runtime, () => this.commands.leave(playerId)); }
+  removeMember(playerId: string, payload: any, runtime?: any) {
+    const targetInstanceId = runtime?.getPlayerLocation?.(payload?.targetPlayerId)?.instanceId;
+    if (typeof targetInstanceId === 'string' && targetInstanceId.startsWith('dungeon:')) return Promise.resolve(this.result('remove_member', false, 'dungeon_party_locked'));
+    return this.mutateOutsideDungeon('remove_member', playerId, runtime, () => this.commands.removeMember(playerId, payload?.targetPlayerId));
+  }
+  transferLeader(playerId: string, payload: any, runtime?: any) { return this.mutateOutsideDungeon('transfer_leader', playerId, runtime, () => this.commands.transferLeader(playerId, payload?.targetPlayerId)); }
+  disband(playerId: string, runtime?: any) { return this.mutateOutsideDungeon('disband', playerId, runtime, () => this.commands.disband(playerId)); }
   updateSettings(playerId: string, payload: any, runtime?: any) { return this.finish('settings', playerId, this.commands.updateSettings(playerId, payload), runtime); }
   publishRecruitment(playerId: string, payload: any, runtime?: any) { return this.finish('recruit_publish', playerId, this.commands.publishRecruitment(playerId, payload), runtime); }
   closeRecruitment(playerId: string, payload: any, runtime?: any) { return this.finish('recruit_close', playerId, this.commands.closeRecruitment(playerId, payload?.expectedRevision), runtime); }
@@ -102,6 +106,14 @@ export class PartyRuntimeService implements OnModuleInit, OnModuleDestroy {
 
   requestChatHistory(playerId: string, payload: any) {
     return this.chat.history(playerId, payload?.cursor, payload?.requestId);
+  }
+
+  private mutateOutsideDungeon(operation: any, playerId: string, runtime: any, mutation: () => Promise<PartyMutationResult>) {
+    const instanceId = runtime?.getPlayerLocation?.(playerId)?.instanceId;
+    if (typeof instanceId === 'string' && instanceId.startsWith('dungeon:')) {
+      return Promise.resolve(this.result(operation, false, 'dungeon_party_locked'));
+    }
+    return this.finish(operation, playerId, mutation(), runtime);
   }
 
   async requestRecruitments(playerId: string, purpose: unknown, runtime?: any) {

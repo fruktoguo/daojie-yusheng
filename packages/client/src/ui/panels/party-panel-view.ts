@@ -54,6 +54,7 @@ export const PARTY_REASON_LABELS: Record<string, string> = {
   invalid_message: '消息为空或过长',
   message_channel_busy: '队伍消息较多，请稍后再试',
   party_persistence_disabled: '组队系统暂不可用',
+  dungeon_party_locked: '副本进行中，请先退出副本后再操作队伍',
 };
 
 export type PartyStateSourceCallbacks = {
@@ -74,6 +75,7 @@ export type PartyStateSourceCallbacks = {
   onJoinMatch(purpose: PartyPurpose): void;
   onLeaveMatch(): void;
   onOpenChat(): void;
+  onOpenDungeon(): void;
   onRequestRecruitmentCandidates(): void;
 };
 

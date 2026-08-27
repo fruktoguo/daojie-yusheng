@@ -106,6 +106,8 @@ interface PlayerSnapshotProgression {
   boneAgeBaseYears: number;
   lifeElapsedTicks: number;
   lifespanYears: number | null;
+  stamina?: number;
+  staminaUpdatedAt?: number;
   realm: Record<string, unknown> | null;
   heavenGate: Record<string, unknown> | null;
   spiritualRoots: Record<string, unknown> | null;
@@ -643,6 +645,12 @@ function normalizePlayerSnapshotPayload(raw: unknown): PersistedPlayerSnapshot |
       lifespanYears: isFiniteNumber(progression?.lifespanYears)
         ? Math.trunc(progression.lifespanYears)
         : null,
+      stamina: isFiniteNumber(progression?.stamina)
+        ? Math.max(0, Math.min(240, Math.trunc(progression.stamina)))
+        : 240,
+      staminaUpdatedAt: isFiniteNumber(progression?.staminaUpdatedAt)
+        ? Math.max(0, Math.trunc(progression.staminaUpdatedAt))
+        : Date.now(),
       realm: asRecordOrNull(progression?.realm),
       heavenGate: asRecordOrNull(progression?.heavenGate),
       spiritualRoots: asRecordOrNull(progression?.spiritualRoots),

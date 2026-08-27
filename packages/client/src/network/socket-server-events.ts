@@ -102,4 +102,9 @@ export const GAMEPLAY_SERVER_EVENTS = [
   S2C.AccessPolicyResourceResult,
   S2C.AccessPolicyResourceSetResult,
   S2C.AccessPolicyPlayerResult,
+  S2C.DungeonCatalog,
+  S2C.DungeonEntryPrompt,
+  S2C.DungeonEntryResult,
+  S2C.DungeonState,
+  S2C.DungeonSettlement,
 ] as const satisfies BoundServerEventName[];

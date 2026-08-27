@@ -124,3 +124,4 @@ export * from './name-visibility';
 export * from './tutorial-mechanics.generated';
 export * from './actor';
 export * from './procgen';
+export * from './dungeon-types';

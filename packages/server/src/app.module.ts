@@ -56,6 +56,7 @@ import { ContentTemplateRepository } from './content/content-template.repository
 import { BuffTemplateRegistry } from './content/registries/buff-template.registry';
 import { DropTableRegistry } from './content/registries/drop-table.registry';
 import { FormationTemplateRegistry } from './content/registries/formation-template.registry';
+import { DungeonTemplateRegistry } from './content/registries/dungeon-template.registry';
 import { ItemTemplateRegistry } from './content/registries/item-template.registry';
 import { MonsterTemplateRegistry } from './content/registries/monster-template.registry';
 import { SkillTemplateRegistry } from './content/registries/skill-template.registry';
@@ -99,6 +100,7 @@ import { PartyPanelService } from './runtime/party/party-panel.service';
 import { PartyCommandService } from './runtime/party/party-command.service';
 import { PartyRuntimeSyncService } from './runtime/party/party-runtime-sync.service';
 import { PartyRuntimeService } from './runtime/party/party-runtime.service';
+import { DungeonRuntimeService } from './runtime/dungeon/dungeon-runtime.service';
 import { AccessPolicyRuntimeService } from './runtime/access/access-policy-runtime.service';
 import { AccessPolicyResourceService } from './runtime/access/access-policy-resource.service';
 import { BuildingAccessPolicyService } from './runtime/access/building-access-policy.service';
@@ -282,6 +284,7 @@ const WORLD_GATEWAY_PROVIDERS = shouldStartHttpServer()
     SkillTemplateRegistry,
     BuffTemplateRegistry,
     FormationTemplateRegistry,
+    DungeonTemplateRegistry,
     MonsterTemplateRegistry,
     DropTableRegistry,
     NpcTemplateRegistry,
@@ -327,6 +330,7 @@ const WORLD_GATEWAY_PROVIDERS = shouldStartHttpServer()
     PartyCommandService,
     PartyRuntimeSyncService,
     PartyRuntimeService,
+    DungeonRuntimeService,
     AccessPolicyRuntimeService,
     AccessPolicyResourceService,
     BuildingAccessPolicyService,

@@ -471,6 +471,14 @@
     "mapLv": 43,
     "totalMaps": 1
   },
+  "m_huanling_zhenren_dungeon": {
+    "monsterId": "m_huanling_zhenren_dungeon",
+    "monsterName": "唤灵真人",
+    "mapId": "dungeon_huanling_zhenren",
+    "mapName": "唤灵真人·独立洞府",
+    "mapLv": 43,
+    "totalMaps": 1
+  },
   "m_ice_crystal_spider": {
     "monsterId": "m_ice_crystal_spider",
     "monsterName": "冰晶蜘蛛",

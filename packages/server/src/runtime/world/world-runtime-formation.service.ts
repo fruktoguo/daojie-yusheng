@@ -1347,6 +1347,10 @@ class WorldRuntimeFormationService {
                 if (!formation || resolveFormationRemainingQiBudget(formation) <= 0) {
                     continue;
                 }
+                // 机制阵法没有可供玩家操作的阵眼，只能通过边界攻击削减阵法灵力。
+                if ((formation as any).arrayEyeMode === 'none' || (formation as any).controlMode === 'controller_only') {
+                    continue;
+                }
                 const eyeInstanceId = normalizeInstanceId(formation.eyeInstanceId ?? formation.instanceId);
                 const eyeX = Number.isFinite(Number(formation.eyeX)) ? Math.trunc(Number(formation.eyeX)) : formation.x;
                 const eyeY = Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y;
@@ -1392,19 +1396,22 @@ class WorldRuntimeFormationService {
         if (destroyed) {
             setFormationRemainingQiBudget(formation, 0);
             formation.active = false;
-            this.enqueueFormationNotice(
-                formation.ownerPlayerId,
-                'warning',
-                'notice.formation.eye-qi-depleted',
-                `${formation.name}阵眼灵力耗尽，阵势关闭。`,
-                { formationName: formation.name },
-            );
+            if (formation.ownerPlayerId) {
+                this.enqueueFormationNotice(
+                    formation.ownerPlayerId,
+                    'warning',
+                    'notice.formation.eye-qi-depleted',
+                    `${formation.name}阵眼灵力耗尽，阵势关闭。`,
+                    { formationName: formation.name },
+                );
+            }
             if (typeof deps?.refreshPlayerContextActions === 'function') {
-                deps.refreshPlayerContextActions(formation.ownerPlayerId);
+                if (formation.ownerPlayerId) deps.refreshPlayerContextActions(formation.ownerPlayerId);
                 if (attackerPlayerId && attackerPlayerId !== formation.ownerPlayerId) {
                     deps.refreshPlayerContextActions(attackerPlayerId);
                 }
             }
+            deps?.dungeonRuntimeService?.onFormationDestroyed?.(formation.instanceId, formation.id);
         }
         touchRuntimeInstanceRevision(deps, formation.instanceId);
         if (normalizeInstanceId(formation.eyeInstanceId) && normalizeInstanceId(formation.eyeInstanceId) !== formation.instanceId) {
@@ -1691,6 +1698,8 @@ class WorldRuntimeFormationService {
             allocation,
             stats,
             active: remainingQiBudget <= 0 ? false : entry.active !== false,
+            ...(entry.controlMode === 'controller_only' ? { controlMode: 'controller_only' } : {}),
+            ...(entry.arrayEyeMode === 'none' ? { arrayEyeMode: 'none' } : {}),
             remainingQiBudget,
             remainingSpiritStoneBudget,
             remainingAuraBudget: remainingQiBudget,
@@ -1723,6 +1732,10 @@ class WorldRuntimeFormationService {
     }
 
     persistFormationSnapshotSoon(formation, persistenceFence = null) {
+        // 副本机制阵法属于实例内临时状态，实例销毁即失效，不写入全局阵法持久化表。
+        if (typeof formation?.instanceId === 'string' && formation.instanceId.startsWith('dungeon:')) {
+            return;
+        }
         const instanceId = this.markFormationInstanceDirty(formation?.instanceId, persistenceFence);
         void this.saveFormationSnapshot(formation, persistenceFence).catch((error) => {
             if (instanceId) this.dirtyFormationInstanceIds.add(instanceId);

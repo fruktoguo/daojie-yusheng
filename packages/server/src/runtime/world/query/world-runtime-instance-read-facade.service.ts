@@ -129,7 +129,9 @@ export class WorldRuntimeInstanceReadFacadeService {
             instanceId: input.instanceId,
             template,
             buffRegistry: deps.contentTemplateRepository.buffRegistry,
-            monsterSpawns: deps.contentTemplateRepository.createRuntimeMonstersForMap(template.id),
+            monsterSpawns: Array.isArray(input.monsterSpawns)
+                ? input.monsterSpawns
+                : deps.contentTemplateRepository.createRuntimeMonstersForMap(template.id),
             kind: input.kind,
             persistent: input.persistent,
             createdAt: Date.now(),

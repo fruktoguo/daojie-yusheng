@@ -4,7 +4,7 @@
     "monstersDir": "packages/server/data/content/monsters",
     "baselines": "packages/server/data/content/realm-attr-baselines.json"
   },
-  "count": 97,
+  "count": 98,
   "records": {
     "m_ember_moth": {
       "id": "m_ember_moth",
@@ -1057,6 +1057,69 @@
         "rareLootRate": 0,
         "viewRange": 8,
         "moveSpeed": 3419,
+        "extraAggroRate": 0,
+        "extraRange": 0,
+        "extraArea": 0,
+        "actionsPerTurn": 1,
+        "elementDamageBonus": {
+          "metal": 0,
+          "wood": 0,
+          "water": 0,
+          "fire": 0,
+          "earth": 0
+        },
+        "elementDamageReduce": {
+          "metal": 0,
+          "wood": 0,
+          "water": 0,
+          "fire": 0,
+          "earth": 0
+        }
+      }
+    },
+    "m_huanling_zhenren_dungeon": {
+      "id": "m_huanling_zhenren_dungeon",
+      "name": "唤灵真人",
+      "sourceFile": "packages/server/data/content/monsters/副本_唤灵真人.json",
+      "level": 43,
+      "grade": "spirit",
+      "tier": "demon_king",
+      "attrs": {
+        "constitution": 31521,
+        "spirit": 9456,
+        "perception": 31521,
+        "talent": 31521,
+        "strength": 9456,
+        "meridians": 31521
+      },
+      "numericStats": {
+        "maxHp": 3243347522,
+        "maxQi": 216223168,
+        "physAtk": 17582985,
+        "spellAtk": 17582985,
+        "physDef": 13535351,
+        "spellDef": 4090440,
+        "hit": 4090440,
+        "dodge": 3383838,
+        "crit": 4090440,
+        "antiCrit": 3383838,
+        "critDamage": 0,
+        "breakPower": 4090440,
+        "resolvePower": 13535351,
+        "maxQiOutputPerTick": 13535351,
+        "qiRegenRate": 1109455,
+        "hpRegenRate": 277364,
+        "cooldownSpeed": 0,
+        "auraCostReduce": 0,
+        "auraPowerRate": 0,
+        "playerExpRate": 0,
+        "techniqueExpRate": 0,
+        "realmExpPerTick": 14034,
+        "techniqueExpPerTick": 14034,
+        "lootRate": 0,
+        "rareLootRate": 0,
+        "viewRange": 8,
+        "moveSpeed": 4136,
         "extraAggroRate": 0,
         "extraRange": 0,
         "extraArea": 0,

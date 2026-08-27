@@ -215,6 +215,23 @@ function validateTongtianTower(value: unknown): ContentConfigValidationIssue[] {
   return issues;
 }
 
+function validateDungeon(value: unknown): ContentConfigValidationIssue[] {
+  const issues: ContentConfigValidationIssue[] = [];
+  if (!isRecord(value)) return [{ path: '$', message: '副本配置必须是对象' }];
+  for (const key of ['id', 'name', 'controllerId', 'mapTemplateId', 'entryMapTemplateId'] as const) {
+    if (typeof value[key] !== 'string' || !value[key].trim()) push(issues, `$.${key}`, `${key} 必须是非空字符串`);
+  }
+  if (!['defense', 'suppress_demon', 'expedition'].includes(String(value.flowType))) push(issues, '$.flowType', 'flowType 不是合法副本流程');
+  if (!isPositiveInteger(value.maxPartyMembers) || value.maxPartyMembers > 5) push(issues, '$.maxPartyMembers', 'maxPartyMembers 必须是 1 到 5 的整数');
+  if (!isRecord(value.difficulty)) { push(issues, '$.difficulty', 'difficulty 必须是对象'); return issues; }
+  const difficulty = value.difficulty;
+  if (!['mortal', 'yellow', 'mystic', 'earth', 'heaven', 'spirit', 'saint', 'emperor'].includes(String(difficulty.maxPresentRank))) push(issues, '$.difficulty.maxPresentRank', 'maxPresentRank 不是合法阶位');
+  if (!isRecord(difficulty.energyCost)) push(issues, '$.difficulty.energyCost', 'energyCost 必须是对象');
+  else for (const key of ['trial', 'hard', 'nightmare', 'present'] as const) if (!isNonNegativeInteger(difficulty.energyCost[key])) push(issues, `$.difficulty.energyCost.${key}`, `${key} 必须是非负整数`);
+  if (!isRecord(value.rewards) || typeof value.rewards.rewardTableId !== 'string' || !value.rewards.rewardTableId.trim()) push(issues, '$.rewards.rewardTableId', 'rewardTableId 必须是非空字符串');
+  return issues;
+}
+
 /** 校验编辑器可直接保存的关键正式配置；其他路径交给已有领域校验器。 */
 export function validateContentConfigDocument(relativePath: string, value: unknown): ContentConfigValidationIssue[] {
   const normalizedPath = String(relativePath || '').replaceAll('\\', '/').replace(/^\/+/, '');
@@ -222,6 +239,7 @@ export function validateContentConfigDocument(relativePath: string, value: unkno
   if (normalizedPath === 'breakthroughs.json') return validateBreakthroughs(value);
   if (normalizedPath === 'realm-attr-baselines.json') return validateRealmAttrBaselines(value);
   if (normalizedPath === 'tongtian-tower.json') return validateTongtianTower(value);
+  if (normalizedPath.startsWith('dungeons/') && normalizedPath.endsWith('.json')) return validateDungeon(value);
   return [];
 }
 

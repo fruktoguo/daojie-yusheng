@@ -106,6 +106,17 @@ import type {
   C2S_UpdateTimeChamberSettingsView,
   TimeChamberOperationResultView,
 } from './time-chamber-types';
+import type {
+  C2S_ExitDungeon,
+  C2S_RequestDungeonCatalog,
+  C2S_RespondDungeonEntry,
+  C2S_StartDungeonEntry,
+  S2C_DungeonCatalog,
+  S2C_DungeonEntryPrompt,
+  S2C_DungeonEntryResult,
+  S2C_DungeonSettlement,
+  S2C_DungeonState,
+} from './dungeon-types';
 
 // ===== 本地 shadowing 接口（与 export type * 同名，必须留在本文件以避免 TS2308） =====
 
@@ -274,6 +285,10 @@ export const C2S = {
   RequestAccessPolicySet: 'n:c:requestAccessPolicySet',
   ResolveAccessPolicyPlayer: 'n:c:resolveAccessPolicyPlayer',
   SaveAccessPolicy: 'n:c:saveAccessPolicy',
+  RequestDungeonCatalog: 'n:c:requestDungeonCatalog',
+  StartDungeonEntry: 'n:c:startDungeonEntry',
+  RespondDungeonEntry: 'n:c:respondDungeonEntry',
+  ExitDungeon: 'n:c:exitDungeon',
 } as const;
 
 /** 服务端发往客户端的事件名集合。 */
@@ -355,6 +370,11 @@ export const S2C = {
   AccessPolicyResourceResult: 'n:s:accessPolicyResourceResult',
   AccessPolicyResourceSetResult: 'n:s:accessPolicyResourceSetResult',
   AccessPolicyPlayerResult: 'n:s:accessPolicyPlayerResult',
+  DungeonCatalog: 'n:s:dungeonCatalog',
+  DungeonEntryPrompt: 'n:s:dungeonEntryPrompt',
+  DungeonEntryResult: 'n:s:dungeonEntryResult',
+  DungeonState: 'n:s:dungeonState',
+  DungeonSettlement: 'n:s:dungeonSettlement',
 } as const;
 
 /** 客户端事件名联合。 */
@@ -522,6 +542,10 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.RequestAccessPolicySet]: C2S_RequestAccessPolicySetView;
   [C2S.ResolveAccessPolicyPlayer]: C2S_ResolveAccessPolicyPlayerView;
   [C2S.SaveAccessPolicy]: C2S_SaveAccessPolicyView;
+  [C2S.RequestDungeonCatalog]: C2S_RequestDungeonCatalog;
+  [C2S.StartDungeonEntry]: C2S_StartDungeonEntry;
+  [C2S.RespondDungeonEntry]: C2S_RespondDungeonEntry;
+  [C2S.ExitDungeon]: C2S_ExitDungeon;
 }
 
 /** 服务端事件与载荷映射，作为 bootstrap/panel/delta 的共享护栏。 */
@@ -603,6 +627,11 @@ export interface S2C_PayloadMap extends Record<S2C_EventName, unknown> {
   [S2C.AccessPolicyResourceResult]: AccessPolicyResourceResultView;
   [S2C.AccessPolicyResourceSetResult]: AccessPolicyResourceSetResultView;
   [S2C.AccessPolicyPlayerResult]: AccessPolicyPlayerResultView;
+  [S2C.DungeonCatalog]: S2C_DungeonCatalog;
+  [S2C.DungeonEntryPrompt]: S2C_DungeonEntryPrompt;
+  [S2C.DungeonEntryResult]: S2C_DungeonEntryResult;
+  [S2C.DungeonState]: S2C_DungeonState;
+  [S2C.DungeonSettlement]: S2C_DungeonSettlement;
 }
 
 /** 根据客户端事件名读取对应载荷类型。 */

@@ -1,6 +1,6 @@
 /** 本文件负责主面板上下文装配；维护时要区分前端显示派生、用户意图和服务端权威数据，避免把业务真源复制到 UI 层。 */
 import { getCurrentAccountName } from './ui/auth-api';
-import { DEFAULT_AURA_LEVEL_BASE_VALUE, type ActionDef, type Inventory, type S2C_TileDetail, type SyncedItemStack } from '@mud/shared';
+import { DEFAULT_AURA_LEVEL_BASE_VALUE, DUNGEON_PRESENT_RANK_ORDER, S2C, type ActionDef, type DungeonDifficulty, type Inventory, type S2C_DungeonCatalog, type S2C_TileDetail, type SyncedItemStack, type TechniqueGrade } from '@mud/shared';
 import { reactUiBridge } from './react-ui/bridge/react-ui-bridge';
 import { createMainActionStateSource } from './main-action-state-source';
 import { createMainAttrDetailStateSource } from './main-attr-detail-state-source';
@@ -36,6 +36,7 @@ import { resolveNearbyTransmissionTargets } from './main-transmission-targets';
 import type { MainDomElements } from './main-dom-elements';
 import type { MainFrontendModules } from './main-frontend-modules';
 import type { ToastKind } from './main-app-assembly-types';
+import { detailModalHost } from './ui/detail-modal-host';
 /** CreateMainPanelContextOptions：统一结构类型，保证协议与运行时一致性。 */
 type CreateMainPanelContextOptions = {
   /** documentRef：注入浏览器 document，便于测试或宿主环境替换。 */
@@ -107,8 +108,52 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
   const activityStateSource = createMainActivityStateSource({ socket: socialEconomySender, isSocketConnected: () => socket.connected });
   const socialStateSource = createMainSocialStateSource({ socialPanel, treasureVaultModal, accessPolicyClient, socket: socialEconomySender, getPlayer: () => rootRuntimeSource.getPlayer(), hydrateInventoryItem: (item, previous) => detailHydrationSource.hydrateSyncedItemStack(item, previous), showToast: (message, kind) => uiStateSource.showToast(message, kind) });
   const partyPanel = new PartyPanel(); const partyWorkspace = new PartyWorkspacePanel(partyPanel); const partyHud = new PartyFloatingPanel(); const partyNavigation = bindMainSocialPanelNavigation({ socialPanel, partyPanel: partyWorkspace });
+  let dungeonCatalog: S2C_DungeonCatalog | null = null;
+  const dungeonModalOwner = 'dungeon-entry-panel';
+  const dungeonDifficultyLabels: Record<DungeonDifficulty, string> = { trial: '试炼', hard: '困难', nightmare: '噩梦', present: '现世' };
+  const dungeonRankLabels: Record<TechniqueGrade, string> = { mortal: '凡阶', yellow: '黄阶', mystic: '玄阶', earth: '地阶', heaven: '天阶', spirit: '灵阶', saint: '圣阶', emperor: '帝阶' };
+  const escapeDungeonHtml = (value: unknown): string => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  const renderDungeonEntryPanel = (): void => {
+    const catalog = dungeonCatalog;
+    if (!catalog) return;
+    const bodyHtml = catalog.dungeons.length === 0
+      ? '<div class="empty-hint compact">当前没有可进入的副本。</div>'
+      : `<form data-dungeon-form="true" class="party-inline-form"><label class="party-setting"><span>副本</span><select name="dungeonId" class="party-select">${catalog.dungeons.map((entry) => `<option value="${escapeDungeonHtml(entry.id)}">${escapeDungeonHtml(entry.name)}</option>`).join('')}</select></label><label class="party-setting"><span>难度</span><select name="difficulty" class="party-select">${Object.entries(dungeonDifficultyLabels).map(([key, label]) => `<option value="${key}">${label}</option>`).join('')}</select></label><label class="party-setting"><span>现世阶位</span><select name="presentRank" class="party-select">${DUNGEON_PRESENT_RANK_ORDER.map((rank) => `<option value="${rank}">${dungeonRankLabels[rank]}</option>`).join('')}</select></label><div class="party-hint">当前精力：${catalog.stamina.current}/${catalog.stamina.maximum}。现世各阶均消耗 24 点。</div><button class="small-btn" type="submit">发起并邀请队员确认</button></form>`;
+    detailModalHost.patch({ ownerId: dungeonModalOwner, bodyHtml, onAfterRender: (body) => {
+      const form = body.querySelector<HTMLFormElement>('[data-dungeon-form="true"]');
+      if (!form) return;
+      const dungeon = form.elements.namedItem('dungeonId') as HTMLSelectElement | null;
+      const difficulty = form.elements.namedItem('difficulty') as HTMLSelectElement | null;
+      const rank = form.elements.namedItem('presentRank') as HTMLSelectElement | null;
+      const syncRank = (): void => {
+        const selected = catalog.dungeons.find((entry) => entry.id === dungeon?.value);
+        const maxRankStep = selected ? DUNGEON_PRESENT_RANK_ORDER.indexOf(selected.difficulty.maxPresentRank) : -1;
+        if (rank) {
+          Array.from(rank.options).forEach((option, index) => { option.disabled = index > maxRankStep; });
+          if (rank.selectedIndex > maxRankStep && maxRankStep >= 0) rank.selectedIndex = maxRankStep;
+          rank.disabled = difficulty?.value !== 'present';
+        }
+      };
+      dungeon?.addEventListener('change', syncRank); difficulty?.addEventListener('change', syncRank); syncRank();
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const dungeonId = (form.elements.namedItem('dungeonId') as HTMLSelectElement | null)?.value ?? '';
+        const selectedDifficulty = ((difficulty?.value ?? 'trial') as DungeonDifficulty);
+        const presentRank = selectedDifficulty === 'present' ? ((rank?.value ?? 'mortal') as TechniqueGrade) : undefined;
+        socket.dungeon.startEntry({ dungeonId, difficulty: selectedDifficulty, ...(presentRank ? { presentRank } : {}) });
+        detailModalHost.close(dungeonModalOwner);
+      });
+    } });
+  };
+  socket.on(S2C.DungeonCatalog, (catalog) => { dungeonCatalog = catalog; if (detailModalHost.isOpenFor(dungeonModalOwner)) renderDungeonEntryPanel(); });
+  const openDungeonPanel = (): void => {
+    dungeonCatalog = null;
+    detailModalHost.open({ ownerId: dungeonModalOwner, title: '发起副本', subtitle: '队伍全员确认后才会扣除精力并进入实例', size: 'sm', bodyHtml: '<div class="empty-hint compact">正在读取副本列表……</div>' });
+    socket.dungeon.requestCatalog();
+  };
   const partyStateSource = createMainPartyStateSource({
     partyPanel, partyHud, chatUI, openPartyPanel: partyNavigation.openPartyPanel, openPartyChat: () => { partyWorkspace.close(false); sidePanel.switchTab('logbook'); chatUI.openChannel('party'); },
+    openDungeonPanel,
     setPartyPanelAvailable: (available) => { partyWorkspace.setAvailable(available); socialPanel.setPartyAvailable(available); },
     setPartyUnread: (count) => { partyWorkspace.setUnreadCount(count); socialPanel.setPartyUnread(count); },
     socket: socket.party, getPlayerId: () => rootRuntimeSource.getPlayer()?.id ?? null, showToast: (message, kind) => uiStateSource.showToast(message, kind),

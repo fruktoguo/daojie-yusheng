@@ -1421,6 +1421,15 @@
   "book.xuesha_huanling_jue": [
     {
       "kind": "monster_drop",
+      "mapId": "dungeon_huanling_zhenren",
+      "mapName": "唤灵真人·独立洞府",
+      "monsterId": "m_huanling_zhenren_dungeon",
+      "monsterName": "唤灵真人",
+      "chance": 0.02,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
       "mapId": "ruined_cavern_manor",
       "mapName": "破败洞府",
       "monsterId": "m_huanling_zhenren",
@@ -5746,6 +5755,14 @@
     }
   ],
   "pill.ningxiang": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_huanling_zhenren",
+      "mapName": "唤灵真人·独立洞府",
+      "monsterId": "m_huanling_zhenren_dungeon",
+      "monsterName": "唤灵真人",
+      "count": 1
+    },
     {
       "kind": "monster_drop",
       "mapId": "ruined_cavern_manor",
