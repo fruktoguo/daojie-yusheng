@@ -118,6 +118,8 @@ function normalizeRooms(raw: unknown): DungeonMapRoomDefinition[] | undefined {
     return {
       roomId,
       ...(entry.mapTemplateId !== undefined ? { mapTemplateId: requiredString(entry.mapTemplateId, `rooms[${index}].mapTemplateId`) } : {}),
+      ...(entry.spawnX === undefined ? {} : { spawnX: nonNegativeInteger(entry.spawnX, `rooms[${index}].spawnX`) }),
+      ...(entry.spawnY === undefined ? {} : { spawnY: nonNegativeInteger(entry.spawnY, `rooms[${index}].spawnY`) }),
       ...(entry.nextRoomId !== undefined ? { nextRoomId: requiredString(entry.nextRoomId, `rooms[${index}].nextRoomId`) } : {}),
       ...(Array.isArray(entry.spawnGroupIds) ? { spawnGroupIds: entry.spawnGroupIds.map((value: unknown) => requiredString(value, `rooms[${index}].spawnGroupIds`)) } : {}),
       ...(entry.bossId !== undefined ? { bossId: requiredString(entry.bossId, `rooms[${index}].bossId`) } : {}),
@@ -177,6 +179,7 @@ function normalizeDefinition(raw: unknown, source: string): DungeonDefinition {
       rewardTableId: requiredString(rewards.rewardTableId, `${source}.rewards.rewardTableId`),
       ...(rewards.firstClearOnly === undefined ? {} : { firstClearOnly: rewards.firstClearOnly === true }),
       ...(rewards.ratingEnabled === undefined ? {} : { ratingEnabled: rewards.ratingEnabled === true }),
+      ...(Array.isArray(rewards.itemRewards) ? { itemRewards: rewards.itemRewards.map((entry: any, index: number) => ({ itemId: requiredString(entry?.itemId, `${source}.rewards.itemRewards[${index}].itemId`), count: positiveInteger(entry?.count, `${source}.rewards.itemRewards[${index}].count`) })) } : {}),
     },
     ...(isRecord(raw.metadata) ? { metadata: { ...raw.metadata } } : {}),
   };

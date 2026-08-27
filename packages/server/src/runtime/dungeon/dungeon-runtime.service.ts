@@ -20,6 +20,9 @@ import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { WorldRuntimeService } from '../world/world-runtime.service';
 import { WorldSessionService } from '../../network/world-session.service';
 import { DefenseDungeonFlowController, ExpeditionDungeonFlowController, SuppressDemonDungeonFlowController, type DungeonFlowController } from './dungeon-flow-controller';
+import { DungeonMechanismFormationService } from './dungeon-mechanism-formation.service';
+import { DungeonRewardService } from './dungeon-reward.service';
+import { DungeonRunPersistenceService } from './dungeon-run-persistence.service';
 
 interface PendingEntry {
   run: DungeonRunState;
@@ -48,6 +51,9 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     private readonly players: PlayerRuntimeService,
     private readonly world: WorldRuntimeService,
     private readonly sessions: WorldSessionService,
+    private readonly mechanismFormations: DungeonMechanismFormationService,
+    private readonly rewards: DungeonRewardService,
+    private readonly runPersistence: DungeonRunPersistenceService,
   ) {}
 
   onModuleInit(): void {
@@ -107,6 +113,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     const pending: PendingEntry = { run, definition, expiresAt: Date.now() + timeout, confirmations: new Map([[leader, true]]), timer };
     this.pending.set(runId, pending);
     this.runs.set(runId, run);
+    this.runPersistence.save(run);
     for (const memberId of memberIds) {
       this.emit(memberId, S2C.DungeonEntryPrompt, {
         runId, dungeonId: definition.id, dungeonName: definition.name, difficulty, presentRank: presentRank ?? '凡', staminaCost: cost,
@@ -147,6 +154,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     await this.world.worldRuntimePlayerSessionService.connectPlayerWhenReady({ playerId: player, sessionId: this.sessions.getBinding(player)?.sessionId ?? null, instanceId: this.world.getOrCreatePublicInstance(entry.entryMapTemplateId).meta.instanceId, mapId: entry.entryMapTemplateId, preferredX: entry.entryX, preferredY: entry.entryY, allowCreateFallback: false, relocateExisting: true }, this.world as any);
     const exited = this.exitedPlayers.get(runId) ?? new Set<string>();
     exited.add(player); this.exitedPlayers.set(runId, exited);
+    this.controllers.get(entry.flowType)?.onPlayerLeave?.(run, entry, player, this.buildFlowContext());
     if (exited.size >= run.members.length) await this.destroyRun(run);
     return { ok: true, run };
   }
@@ -156,7 +164,9 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     if (!run) return;
     const definition = this.content.getDungeonDefinition(run.dungeonId);
     const controller = definition ? this.controllers.get(definition.flowType) : null;
-    controller?.onMonsterDefeated?.(run, definition!, monsterId, { complete: (target, reason) => this.completeRun(target, reason), advanceRoom: (target, roomId) => { target.currentRoomId = roomId; this.emitRunState(target); } });
+    const context = this.buildFlowContext();
+    if (controller?.onEntityDeath) controller.onEntityDeath(run, definition!, monsterId, 'monster', context);
+    else controller?.onMonsterDefeated?.(run, definition!, monsterId, context);
   }
 
   onFormationDestroyed(instanceId: string, _formationId: string): void {
@@ -164,7 +174,16 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     if (!run) return;
     const definition = this.content.getDungeonDefinition(run.dungeonId);
     const controller = definition ? this.controllers.get(definition.flowType) : null;
-    controller?.onFormationDestroyed?.(run, definition!, _formationId, { complete: (target, reason) => this.completeRun(target, reason), advanceRoom: (target, roomId) => { target.currentRoomId = roomId; this.emitRunState(target); } });
+    controller?.onFormationDestroyed?.(run, definition!, _formationId, this.buildFlowContext());
+  }
+
+  /** 每个逻辑实例 tick 一次；流程控制器只消费内存态，不在 tick 内访问数据库。 */
+  onInstanceTick(instanceId: string, _instanceTick: number): void {
+    const run = [...this.runs.values()].find((entry) => entry.mapInstanceId === instanceId && entry.status === 'active');
+    if (!run) return;
+    const definition = this.content.getDungeonDefinition(run.dungeonId);
+    const controller = definition ? this.controllers.get(definition.flowType) : null;
+    controller?.onTick?.(run, definition!, this.buildFlowContext());
   }
 
   private async activate(runId: string) {
@@ -172,6 +191,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     clearTimeout(pending.timer); this.pending.delete(runId);
     const { run, definition } = pending;
     run.status = 'activating';
+    this.runPersistence.save(run);
     const currentParty = await this.parties.getParty(run.partyId);
     const expectedMembers = run.members.map((member) => member.playerId).sort();
     const actualMembers = currentParty?.members.map((member) => member.playerId).sort() ?? [];
@@ -187,6 +207,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     });
     if (partyChanged || !membersStillAtEntry) {
       run.status = 'aborted'; run.failureReason = partyChanged ? 'party_changed' : 'members_not_at_entry_map';
+      this.runPersistence.save(run);
       for (const member of run.members) this.emit(member.playerId, S2C.DungeonEntryResult, { ok: false, reason: run.failureReason, run });
       return { ok: false, reason: run.failureReason, run };
     }
@@ -195,24 +216,24 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     const staminaViews = staminaMembers.map((playerId) => this.players.refreshDungeonStamina(playerId));
     if (staminaViews.some((view) => view.current < staminaCost)) {
       run.status = 'aborted'; run.failureReason = 'stamina_insufficient';
+      this.runPersistence.save(run);
       for (const member of run.members) this.emit(member.playerId, S2C.DungeonEntryResult, { ok: false, reason: 'stamina_insufficient', run });
       return { ok: false, reason: 'stamina_insufficient', run };
     }
     const consumed: string[] = [];
     try {
-      for (const playerId of staminaMembers) {
-        const result = this.players.consumeDungeonStamina(playerId, staminaCost);
-        if (!result.ok) throw new Error('stamina_insufficient');
-        consumed.push(playerId);
-      }
+      const result = await this.players.consumeDungeonStaminaForPlayersDurably(staminaMembers, staminaCost);
+      if (!result.ok) throw new Error(result.reason ?? 'stamina_insufficient');
+      consumed.push(...staminaMembers);
     } catch (error) {
-      for (const playerId of consumed) this.players.refundDungeonStamina(playerId, staminaCost);
+      for (const playerId of consumed) await this.players.refundDungeonStaminaDurably(playerId, staminaCost);
       run.status = 'aborted'; run.failureReason = error instanceof Error ? error.message : String(error);
+      this.runPersistence.save(run);
       for (const member of run.members) this.emit(member.playerId, S2C.DungeonEntryResult, { ok: false, reason: run.failureReason, run });
       return { ok: false, reason: run.failureReason, run };
     }
     const multipliers = resolveDungeonAttributeMultipliers(run.difficulty, definition.difficulty.maxPresentRank, definition.difficulty.attributeRule);
-    const baseSpawns = this.content.createRuntimeMonstersForMap(definition.mapTemplateId);
+    const baseSpawns = definition.flowType === 'defense' ? [] : (definition.rooms?.length ? [] : this.content.createRuntimeMonstersForMap(definition.mapTemplateId));
     const override = run.difficulty.difficulty === 'present'
       ? { ...(definition.difficulty.overrides?.[run.difficulty.difficulty] ?? {}), ...(definition.difficulty.presentRankOverrides?.[run.difficulty.presentRank!] ?? {}) }
       : (definition.difficulty.overrides?.[run.difficulty.difficulty] ?? {});
@@ -223,22 +244,26 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     try {
       instance = this.world.createInstance({ instanceId: run.mapInstanceId, templateId: definition.mapTemplateId, kind: 'dungeon', persistent: false, persistentPolicy: 'ephemeral', partyId: run.partyId, instanceOrigin: 'dungeon', defaultEntry: false, monsterSpawns });
     } catch (error) {
-      for (const playerId of consumed) this.players.refundDungeonStamina(playerId, staminaCost);
+      for (const playerId of consumed) await this.players.refundDungeonStaminaDurably(playerId, staminaCost);
       run.status = 'aborted'; run.failureReason = 'instance_activation_failed';
+      this.runPersistence.save(run);
       for (const member of run.members) this.emit(member.playerId, S2C.DungeonEntryResult, { ok: false, reason: run.failureReason, run });
       return { ok: false, reason: run.failureReason, run };
     }
     let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
     try {
       (instance.meta as any).dungeonRunId = run.runId;
-      this.installRoomMechanism(instance, definition, run);
+      this.activateRoom(instance, definition, run, run.currentRoomId ?? definition.rooms?.[0]?.roomId);
       run.status = 'active'; run.activatedAt = Date.now();
+      this.runPersistence.save(run);
       timeoutTimer = setTimeout(() => this.expireRun(run.runId), Math.max(1, Math.trunc(definition.timeoutSeconds ?? 3600)) * 1000);
       timeoutTimer.unref?.();
       this.runTimers.set(run.runId, timeoutTimer);
+      this.controllers.get(definition.flowType)?.onRunCreated?.(run, definition, this.buildFlowContext());
     } catch (_error) {
-      for (const playerId of consumed) this.players.refundDungeonStamina(playerId, staminaCost);
+      for (const playerId of consumed) await this.players.refundDungeonStaminaDurably(playerId, staminaCost);
       run.status = 'aborted'; run.failureReason = 'instance_activation_failed';
+      this.runPersistence.save(run);
       await this.world.destroyEmptyManagedInstance(run.mapInstanceId, 'dungeon_activation_failed').catch(() => undefined);
       for (const member of run.members) this.emit(member.playerId, S2C.DungeonEntryResult, { ok: false, reason: run.failureReason, run });
       return { ok: false, reason: run.failureReason, run };
@@ -248,6 +273,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
         await this.world.worldRuntimePlayerSessionService.connectPlayerWhenReady({ playerId: member.playerId, sessionId: this.sessions.getBinding(member.playerId)?.sessionId ?? null, instanceId: run.mapInstanceId, mapId: definition.mapTemplateId, allowCreateFallback: false, relocateExisting: true }, this.world as any);
         this.emit(member.playerId, S2C.DungeonState, { run });
         this.emit(member.playerId, S2C.DungeonCatalog, this.buildCatalog(member.playerId));
+        this.controllers.get(definition.flowType)?.onPlayerEnter?.(run, definition, member.playerId, this.buildFlowContext());
       }
     } catch (_error) {
       if (timeoutTimer) clearTimeout(timeoutTimer);
@@ -258,8 +284,9 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
           this.world.worldRuntimePlayerSessionService.disconnectPlayer(member.playerId, this.world as any);
         }
       }
-      for (const playerId of consumed) this.players.refundDungeonStamina(playerId, staminaCost);
+      for (const playerId of consumed) await this.players.refundDungeonStaminaDurably(playerId, staminaCost);
       run.status = 'aborted'; run.failureReason = 'player_attach_failed';
+      this.runPersistence.save(run);
       await this.world.destroyEmptyManagedInstance(run.mapInstanceId, 'dungeon_activation_failed').catch(() => undefined);
       for (const member of run.members) this.emit(member.playerId, S2C.DungeonEntryResult, { ok: false, reason: run.failureReason, run });
       return { ok: false, reason: run.failureReason, run };
@@ -267,25 +294,75 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     return { ok: true, run };
   }
 
-  private installRoomMechanism(instance: any, definition: DungeonDefinition, run: DungeonRunState): void {
-    const config = definition.rooms?.[0]?.mechanismFormation;
-    const boss = [...(instance.monstersByRuntimeId?.values?.() ?? [])].find((entry: any) => entry.monsterId === definition.rooms?.[0]?.bossId);
-    if (!config || !boss) return;
-    const formation = this.world.worldRuntimeFormationService.restoreFormationEntry(instance.meta.instanceId, {
-      id: `formation:dungeon:${run.runId}:room:${run.currentRoomId}`,
-      formationId: config.formationId,
-      lifecycle: 'deployed', controlMode: 'controller_only', arrayEyeMode: 'none', ownerPlayerId: '',
-      x: boss.x, y: boss.y, eyeX: boss.x, eyeY: boss.y, spiritStoneCount: 1,
-      allocation: {
-        // 机制阵法仍复用普通阵法的范围计算；副本房间用地图尺寸覆盖整个固定房间。
-        radius: Math.max(1, Number(instance.template?.width) || 1, Number(instance.template?.height) || 1),
-        durationHours: 24,
-        effectValue: Math.max(1, Math.trunc(Number(config.effectValue) || 1)),
+  private buildFlowContext() {
+    return {
+      complete: (target: DungeonRunState, reason: string) => this.completeRun(target, reason),
+      advanceRoom: (target: DungeonRunState, roomId: string) => {
+        const definition = this.content.getDungeonDefinition(target.dungeonId);
+        const instance = this.world.getInstanceRuntime(target.mapInstanceId) as any;
+        if (definition && instance) this.activateRoom(instance, definition, target, roomId);
       },
-      remainingQiBudget: Math.max(1, Math.ceil(boss.maxHp * (config.powerMultiplierByBossMaxHp ?? 100))),
-      remainingSpiritStoneBudget: 1, active: true,
-    });
-    if (formation) this.world.worldRuntimeFormationService.getFormationList(instance.meta.instanceId).push(formation);
+      spawnWave: (target: DungeonRunState, waveIndex: number) => this.spawnWave(target, waveIndex),
+      countAliveHostiles: (target: DungeonRunState) => {
+        const instance = this.world.getInstanceRuntime(target.mapInstanceId) as any;
+        return [...(instance?.monstersByRuntimeId?.values?.() ?? [])].filter((monster: any) => monster.alive === true && Number(monster.hp) > 0).length;
+      },
+      now: () => Date.now(),
+    };
+  }
+
+  private activateRoom(instance: any, definition: DungeonDefinition, run: DungeonRunState, roomId?: string): void {
+    const room = definition.rooms?.find((entry) => entry.roomId === roomId) ?? definition.rooms?.[0];
+    if (!room) return;
+    for (const monster of [...(instance.monstersByRuntimeId?.values?.() ?? [])]) instance.removeRuntimeMonster?.(monster.runtimeId);
+    for (const formation of this.world.worldRuntimeFormationService.getFormationList(instance.meta.instanceId).filter((entry: any) => entry?.source === 'dungeon_controller' || entry?.controlMode === 'controller_only')) {
+      this.mechanismFormations.destroy(instance.meta.instanceId, formation.id);
+    }
+    const spawnX = Number.isFinite(Number(room.spawnX)) ? Number(room.spawnX) : Number(definition.entryX ?? 0);
+    const spawnY = Number.isFinite(Number(room.spawnY)) ? Number(room.spawnY) : Number(definition.entryY ?? 0);
+    const monsterIds = room.bossId ? [room.bossId] : [...(room.spawnGroupIds ?? []), ...(room.eliteGroupIds ?? [])];
+    for (const monsterId of monsterIds) this.addScaledMonster(instance, run, monsterId, spawnX, spawnY);
+    run.currentRoomId = room.roomId;
+    this.runPersistence.save(run);
+    const boss = room.bossId ? [...(instance.monstersByRuntimeId?.values?.() ?? [])].find((entry: any) => entry.monsterId === room.bossId) : null;
+    if (room.mechanismFormation && boss) {
+      this.mechanismFormations.create({
+        instanceId: instance.meta.instanceId, runId: run.runId, controllerId: definition.controllerId,
+        roomId: room.roomId, config: room.mechanismFormation, x: boss.x, y: boss.y, bossMaxHp: boss.maxHp,
+        radius: Math.max(1, Number(instance.template?.width) || 1, Number(instance.template?.height) || 1),
+      });
+    }
+    this.emitRunState(run);
+  }
+
+  private spawnWave(run: DungeonRunState, waveIndex: number): void {
+    const definition = this.content.getDungeonDefinition(run.dungeonId);
+    const instance = this.world.getInstanceRuntime(run.mapInstanceId) as any;
+    const wave = definition?.waves?.find((entry) => entry.waveIndex === waveIndex);
+    if (!definition || !instance || !wave) return;
+    const room = definition.rooms?.find((entry) => entry.roomId === run.currentRoomId);
+    const spawnX = Number(room?.spawnX ?? definition.entryX ?? 0);
+    const spawnY = Number(room?.spawnY ?? definition.entryY ?? 0);
+    const count = Math.max(1, Math.trunc(Number(wave.count) || 1));
+    for (let i = 0; i < count; i++) {
+      const monsterId = wave.spawnGroupIds[i % wave.spawnGroupIds.length];
+      if (monsterId) this.addScaledMonster(instance, run, monsterId, spawnX + (i % 3), spawnY + Math.trunc(i / 3));
+    }
+    run.currentWaveIndex = waveIndex;
+    this.runPersistence.save(run);
+    this.emitRunState(run);
+  }
+
+  private addScaledMonster(instance: any, run: DungeonRunState, monsterId: string, x: number, y: number): void {
+    const spawn = this.content.createRuntimeMonsterSpawn(monsterId, { x, y });
+    if (!spawn) return;
+    const definition = this.content.getDungeonDefinition(run.dungeonId);
+    const override = run.difficulty.difficulty === 'present'
+      ? { ...(definition?.difficulty.overrides?.present ?? {}), ...(definition?.difficulty.presentRankOverrides?.[run.difficulty.presentRank!] ?? {}) }
+      : (definition?.difficulty.overrides?.[run.difficulty.difficulty] ?? {});
+    if (!definition) return;
+    const multipliers = resolveDungeonAttributeMultipliers(run.difficulty, definition.difficulty.maxPresentRank, definition.difficulty.attributeRule);
+    instance.addRuntimeMonster?.(scaleMonsterSpawn(spawn, multipliers.allAttributeMultiplier * (Number(override.allAttributeMultiplier) || 1), multipliers.hpMultiplier * (Number(override.hpMultiplier) || 1), override.additionalSkillIds));
   }
 
   private completeRun(run: DungeonRunState, _reason: string): void {
@@ -294,14 +371,20 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     if (timeoutTimer) clearTimeout(timeoutTimer);
     this.runTimers.delete(run.runId);
     run.status = 'completing'; run.completedAt = Date.now(); run.completionId = randomUUID(); run.settlementId = randomUUID();
+    this.runPersistence.save(run);
     const definition = this.content.getDungeonDefinition(run.dungeonId);
-    // 首版奖励沿用 Boss 击杀掉落链路，击杀处理已在进入此处前完成；结算快照因此记录为已发放。
-    const settlement: DungeonSettlementView = { runId: run.runId, dungeonId: run.dungeonId, status: 'completed', completionId: run.completionId, rewardTableId: definition?.rewards.rewardTableId, rewardClaimed: true, difficulty: run.difficulty, effectiveStep: run.effectiveStep, completedAt: run.completedAt };
+    const rewardClaimed = definition ? this.rewards.claim(run, definition) : false;
+    const settlement: DungeonSettlementView = { runId: run.runId, dungeonId: run.dungeonId, status: 'completed', completionId: run.completionId, rewardTableId: definition?.rewards.rewardTableId, rewardClaimed, difficulty: run.difficulty, effectiveStep: run.effectiveStep, completedAt: run.completedAt };
     for (const member of run.members) this.emit(member.playerId, S2C.DungeonSettlement, { settlement });
     const instance = this.world.getInstanceRuntime(run.mapInstanceId) as any;
+    for (const monster of [...(instance?.monstersByRuntimeId?.values?.() ?? [])]) instance.removeRuntimeMonster?.(monster.runtimeId);
+    for (const formation of this.world.worldRuntimeFormationService.getFormationList(run.mapInstanceId).filter((entry: any) => entry?.source === 'dungeon_controller' || entry?.controlMode === 'controller_only')) {
+      this.mechanismFormations.destroy(run.mapInstanceId, formation.id);
+    }
     // 结算后仍需允许玩家走到入口撤离；实例保持可附着状态，真正销毁时再停止运行态。
     if (instance) instance.meta.status = 'completed';
     run.status = 'completed';
+    this.runPersistence.save(run);
     const cleanupTimer = setTimeout(() => void this.forceCleanupCompletedRun(run), 30_000);
     cleanupTimer.unref?.();
   }
@@ -310,6 +393,9 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     const run = this.runs.get(runId);
     if (!run || !['active', 'activating'].includes(run.status)) return;
     run.status = 'expired'; run.failureReason = 'timeout';
+    const definition = this.content.getDungeonDefinition(run.dungeonId);
+    if (definition) this.controllers.get(definition.flowType)?.onAbort?.(run, definition, 'timeout', this.buildFlowContext());
+    this.runPersistence.save(run);
     for (const member of run.members) this.emit(member.playerId, S2C.DungeonEntryResult, { ok: false, reason: 'timeout', run });
     void this.forceCleanupCompletedRun(run);
   }
@@ -329,11 +415,13 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   private abortPending(runId: string, reason: string): void {
     const pending = this.pending.get(runId); if (!pending) return;
     clearTimeout(pending.timer); this.pending.delete(runId); pending.run.status = 'aborted'; pending.run.failureReason = reason;
+    this.controllers.get(pending.definition.flowType)?.onAbort?.(pending.run, pending.definition, reason, this.buildFlowContext());
     for (const member of pending.run.members) this.emit(member.playerId, S2C.DungeonEntryResult, { ok: false, reason, run: pending.run });
   }
 
   private async destroyRun(run: DungeonRunState): Promise<void> {
     run.destroyedAt = Date.now();
+    this.runPersistence.save(run);
     await this.world.destroyEmptyManagedInstance(run.mapInstanceId, 'dungeon_completed').catch((error) => this.logger.warn(`副本实例销毁失败 ${run.mapInstanceId}: ${error instanceof Error ? error.message : String(error)}`));
     this.runs.delete(run.runId);
     this.exitedPlayers.delete(run.runId);

@@ -101,6 +101,9 @@ import { PartyCommandService } from './runtime/party/party-command.service';
 import { PartyRuntimeSyncService } from './runtime/party/party-runtime-sync.service';
 import { PartyRuntimeService } from './runtime/party/party-runtime.service';
 import { DungeonRuntimeService } from './runtime/dungeon/dungeon-runtime.service';
+import { DungeonMechanismFormationService } from './runtime/dungeon/dungeon-mechanism-formation.service';
+import { DungeonRewardService } from './runtime/dungeon/dungeon-reward.service';
+import { DungeonRunPersistenceService } from './runtime/dungeon/dungeon-run-persistence.service';
 import { AccessPolicyRuntimeService } from './runtime/access/access-policy-runtime.service';
 import { AccessPolicyResourceService } from './runtime/access/access-policy-resource.service';
 import { BuildingAccessPolicyService } from './runtime/access/building-access-policy.service';
@@ -331,6 +334,9 @@ const WORLD_GATEWAY_PROVIDERS = shouldStartHttpServer()
     PartyRuntimeSyncService,
     PartyRuntimeService,
     DungeonRuntimeService,
+    DungeonMechanismFormationService,
+    DungeonRewardService,
+    DungeonRunPersistenceService,
     AccessPolicyRuntimeService,
     AccessPolicyResourceService,
     BuildingAccessPolicyService,

@@ -1268,6 +1268,64 @@ export class PlayerRuntimeService {
             nextRecoveryAt: player.stamina >= DUNGEON_MAX_STAMINA ? null : now + 60 * 60 * 1000,
         };
     }
+
+    /** 副本入口优先调用持久化层原子扣除；数据库不可用时保留本地 smoke/开发回退。 */
+    async consumeDungeonStaminaDurably(playerId, costInput, now = Date.now()) {
+        if (this.playerDomainPersistenceService?.isEnabled?.() && typeof this.playerDomainPersistenceService.consumeDungeonStaminaAtomic === 'function') {
+            const result = await this.playerDomainPersistenceService.consumeDungeonStaminaAtomic(playerId, costInput, now);
+            const player = this.getPlayer(playerId);
+            if (player) {
+                player.stamina = result.current;
+                player.staminaUpdatedAt = result.updatedAt;
+                markPlayerDirtyDomains(player, ['progression']);
+                this.bumpPersistentRevision(player);
+            }
+            return result;
+        }
+        return this.consumeDungeonStamina(playerId, costInput, now);
+    }
+    async refundDungeonStaminaDurably(playerId, amountInput, now = Date.now()) {
+        if (this.playerDomainPersistenceService?.isEnabled?.() && typeof this.playerDomainPersistenceService.refundDungeonStaminaAtomic === 'function') {
+            const result = await this.playerDomainPersistenceService.refundDungeonStaminaAtomic(playerId, amountInput, now);
+            const player = this.getPlayer(playerId);
+            if (player) {
+                player.stamina = result.current;
+                player.staminaUpdatedAt = result.updatedAt;
+                markPlayerDirtyDomains(player, ['progression']);
+                this.bumpPersistentRevision(player);
+            }
+            return result;
+        }
+        return this.refundDungeonStamina(playerId, amountInput, now);
+    }
+    async consumeDungeonStaminaForPlayersDurably(playerIds, costInput, now = Date.now()) {
+        const normalizedPlayerIds = Array.from(new Set((Array.isArray(playerIds) ? playerIds : []).map((value) => String(value ?? '').trim()).filter(Boolean)));
+        if (this.playerDomainPersistenceService?.isEnabled?.() && typeof this.playerDomainPersistenceService.consumeDungeonStaminaForPlayersAtomic === 'function') {
+            const result = await this.playerDomainPersistenceService.consumeDungeonStaminaForPlayersAtomic(normalizedPlayerIds, costInput, now);
+            for (const playerId of normalizedPlayerIds) {
+                const view = result.views[playerId];
+                const player = this.getPlayer(playerId);
+                if (!view || !player) continue;
+                player.stamina = view.current;
+                player.staminaUpdatedAt = view.updatedAt;
+                markPlayerDirtyDomains(player, ['progression']);
+                this.bumpPersistentRevision(player);
+            }
+            return result;
+        }
+        const views = {};
+        const consumed = [];
+        for (const playerId of normalizedPlayerIds) {
+            const result = this.consumeDungeonStamina(playerId, costInput, now);
+            if (!result.ok) {
+                for (const consumedPlayerId of consumed) this.refundDungeonStamina(consumedPlayerId, costInput, now);
+                return { ok: false, reason: 'stamina_insufficient', views };
+            }
+            consumed.push(playerId);
+            views[playerId] = result;
+        }
+        return { ok: true, views };
+    }
     refundDungeonStamina(playerId, amountInput, now = Date.now()) {
         const amount = Math.max(0, Math.trunc(Number(amountInput) || 0));
         const player = this.getPlayerOrThrow(playerId);

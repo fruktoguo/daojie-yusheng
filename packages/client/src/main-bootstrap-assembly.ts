@@ -668,6 +668,21 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
       bodyHtml: `<div class="confirm-summary-list"><div><span>结果</span><strong>通关</strong></div><div><span>完成编号</span><strong>${settlement.completionId}</strong></div><div><span>奖励</span><strong>${settlement.rewardTableId ?? '暂无'}</strong></div></div>`,
     });
   });
+  options.socket.on(S2C.DungeonState, ({ run }) => {
+    if (!run || !['active', 'completed'].includes(run.status)) return;
+    detailModalHost.open({
+      ownerId: `dungeon-state:${run.runId}`,
+      title: run.status === 'completed' ? '副本已通关' : '副本进行中',
+      subtitle: run.dungeonId,
+      size: 'sm',
+      bodyHtml: `<div class="confirm-summary-list"><div><span>当前房间</span><strong>${run.currentRoomId ?? '—'}</strong></div><div><span>难度</span><strong>${run.difficulty.difficulty}${run.difficulty.presentRank ? ` · ${run.difficulty.presentRank}` : ''}</strong></div><button type="button" data-dungeon-exit="${run.runId}" class="small-btn">到入口附近退出</button></div>`,
+      onAfterRender: (body) => {
+        body.querySelector<HTMLButtonElement>('[data-dungeon-exit]')?.addEventListener('click', () => {
+          options.socket.emitEvent(C2S.ExitDungeon, { runId: run.runId });
+        });
+      },
+    });
+  });
   options.socket.on(S2C.DungeonCatalog, (catalog) => {
     if (catalog.activeRun?.status === 'completed' && catalog.activeRun.completionId) {
       detailModalHost.open({

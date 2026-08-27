@@ -1700,6 +1700,8 @@ class WorldRuntimeFormationService {
             active: remainingQiBudget <= 0 ? false : entry.active !== false,
             ...(entry.controlMode === 'controller_only' ? { controlMode: 'controller_only' } : {}),
             ...(entry.arrayEyeMode === 'none' ? { arrayEyeMode: 'none' } : {}),
+            ...(entry.source === 'dungeon_controller' ? { source: 'dungeon_controller' } : {}),
+            ...(typeof entry.controllerId === 'string' && entry.controllerId.trim() ? { controllerId: entry.controllerId.trim() } : {}),
             remainingQiBudget,
             remainingSpiritStoneBudget,
             remainingAuraBudget: remainingQiBudget,

@@ -13,7 +13,7 @@
  * 按域独立读写，支持增量刷盘、恢复水位和旧快照兼容水合。
  */
 import { Inject, Injectable, Logger, Optional, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
-import { ARTIFACT_SLOTS, createItemStackSignature, DEFAULT_COMBAT_ATTACK_INTENSITY, DUNGEON_MAX_STAMINA, EQUIP_SLOTS, isCreatedTechniqueId, isLegacyItemInstanceId, normalizeCombatAttackIntensity, PLAYER_HEARTBEAT_TIMEOUT_MS, resolvePlayerFacingContentName, TechniqueRealm } from '@mud/shared';
+import { ARTIFACT_SLOTS, createItemStackSignature, DEFAULT_COMBAT_ATTACK_INTENSITY, DUNGEON_MAX_STAMINA, EQUIP_SLOTS, isCreatedTechniqueId, isLegacyItemInstanceId, normalizeCombatAttackIntensity, PLAYER_HEARTBEAT_TIMEOUT_MS, resolvePlayerFacingContentName, resolveRecoveredStamina, TechniqueRealm } from '@mud/shared';
 import type { OfflineGainReportView, PlayerStatisticPeriodTotalView } from '@mud/shared';
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
@@ -2088,6 +2088,142 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     await this.saveProjectedDomain(playerId, options.versionSeed, ['progression_version'], (client, normalizedPlayerId) =>
       replacePlayerProgressionCore(client, normalizedPlayerId, input),
     );
+  }
+
+  /** 在 progression 行锁内结算恢复并扣除副本精力，避免并发进入覆盖彼此的余额。 */
+  async consumeDungeonStaminaAtomic(
+    playerIdInput: string,
+    costInput: number,
+    now = Date.now(),
+  ): Promise<{ ok: boolean; current: number; maximum: number; updatedAt: number; nextRecoveryAt?: number }> {
+    const playerId = normalizeRequiredString(playerIdInput);
+    const cost = Math.max(0, Math.trunc(Number(costInput) || 0));
+    if (!playerId) throw new Error('player_id_required');
+    return this.withTransaction(async (client) => {
+      let result = await client.query(
+        `SELECT stamina, stamina_updated_at FROM ${PLAYER_PROGRESSION_CORE_TABLE} WHERE player_id = $1 FOR UPDATE`,
+        [playerId],
+      );
+      if (!result.rows?.[0]) {
+        await client.query(
+          `INSERT INTO ${PLAYER_PROGRESSION_CORE_TABLE}(player_id, stamina, stamina_updated_at) VALUES ($1, $2, $3) ON CONFLICT (player_id) DO NOTHING`,
+          [playerId, DUNGEON_MAX_STAMINA, now],
+        );
+        result = await client.query(
+          `SELECT stamina, stamina_updated_at FROM ${PLAYER_PROGRESSION_CORE_TABLE} WHERE player_id = $1 FOR UPDATE`,
+          [playerId],
+        );
+      }
+      const row = result.rows?.[0] ?? {};
+      const recovered = resolveRecoveredStamina(
+        Number(row.stamina ?? DUNGEON_MAX_STAMINA),
+        Number(row.stamina_updated_at ?? now),
+        now,
+      );
+      if (recovered.current < cost) {
+        if (recovered.current !== Number(row.stamina) || recovered.updatedAt !== Number(row.stamina_updated_at)) {
+          await client.query(
+            `UPDATE ${PLAYER_PROGRESSION_CORE_TABLE} SET stamina = $2, stamina_updated_at = $3, updated_at = now() WHERE player_id = $1`,
+            [playerId, recovered.current, recovered.updatedAt],
+          );
+        }
+        return { ok: false, current: recovered.current, maximum: DUNGEON_MAX_STAMINA, updatedAt: recovered.updatedAt, ...(recovered.nextRecoveryAt ? { nextRecoveryAt: recovered.nextRecoveryAt } : {}) };
+      }
+      const nextCurrent = recovered.current - cost;
+      await client.query(
+        `UPDATE ${PLAYER_PROGRESSION_CORE_TABLE} SET stamina = $2, stamina_updated_at = $3, updated_at = now() WHERE player_id = $1`,
+        [playerId, nextCurrent, now],
+      );
+      return { ok: true, current: nextCurrent, maximum: DUNGEON_MAX_STAMINA, updatedAt: now, ...(nextCurrent < DUNGEON_MAX_STAMINA ? { nextRecoveryAt: now + 60 * 60 * 1000 } : {}) };
+    });
+  }
+
+  /** 激活基础设施失败时，在同一 progression 行锁内补回已扣精力。 */
+  async refundDungeonStaminaAtomic(
+    playerIdInput: string,
+    amountInput: number,
+    now = Date.now(),
+  ): Promise<{ current: number; maximum: number; updatedAt: number; nextRecoveryAt?: number }> {
+    const playerId = normalizeRequiredString(playerIdInput);
+    const amount = Math.max(0, Math.trunc(Number(amountInput) || 0));
+    if (!playerId) throw new Error('player_id_required');
+    return this.withTransaction(async (client) => {
+      const result = await client.query(
+        `SELECT stamina, stamina_updated_at FROM ${PLAYER_PROGRESSION_CORE_TABLE} WHERE player_id = $1 FOR UPDATE`,
+        [playerId],
+      );
+      const row = result.rows?.[0] ?? {};
+      const recovered = resolveRecoveredStamina(Number(row.stamina ?? DUNGEON_MAX_STAMINA), Number(row.stamina_updated_at ?? now), now);
+      const nextCurrent = Math.min(DUNGEON_MAX_STAMINA, recovered.current + amount);
+      await client.query(
+        `INSERT INTO ${PLAYER_PROGRESSION_CORE_TABLE}(player_id, stamina, stamina_updated_at) VALUES ($1, $2, $3)
+         ON CONFLICT (player_id) DO UPDATE SET stamina = EXCLUDED.stamina, stamina_updated_at = EXCLUDED.stamina_updated_at, updated_at = now()`,
+        [playerId, nextCurrent, now],
+      );
+      return { current: nextCurrent, maximum: DUNGEON_MAX_STAMINA, updatedAt: now, ...(nextCurrent < DUNGEON_MAX_STAMINA ? { nextRecoveryAt: now + 60 * 60 * 1000 } : {}) };
+    });
+  }
+
+  /** 一次事务锁定全队精力行，确保“全员足够才统一扣除”，不会出现部分扣除。 */
+  async consumeDungeonStaminaForPlayersAtomic(
+    playerIdsInput: readonly string[],
+    costInput: number,
+    now = Date.now(),
+  ): Promise<{ ok: boolean; reason?: string; views: Record<string, { current: number; maximum: number; updatedAt: number; nextRecoveryAt?: number }> }> {
+    const playerIds = [...new Set(playerIdsInput.map((value) => normalizeRequiredString(value)).filter(Boolean))].sort();
+    const cost = Math.max(0, Math.trunc(Number(costInput) || 0));
+    if (playerIds.length === 0) throw new Error('player_ids_required');
+    return this.withTransaction(async (client) => {
+      const rows = new Map<string, any>();
+      for (const playerId of playerIds) {
+        const result = await client.query(
+          `SELECT stamina, stamina_updated_at FROM ${PLAYER_PROGRESSION_CORE_TABLE} WHERE player_id = $1 FOR UPDATE`,
+          [playerId],
+        );
+        if (result.rows?.[0]) rows.set(playerId, result.rows[0]);
+        else {
+          await client.query(
+            `INSERT INTO ${PLAYER_PROGRESSION_CORE_TABLE}(player_id, stamina, stamina_updated_at) VALUES ($1, $2, $3) ON CONFLICT (player_id) DO NOTHING`,
+            [playerId, DUNGEON_MAX_STAMINA, now],
+          );
+          const inserted = await client.query(
+            `SELECT stamina, stamina_updated_at FROM ${PLAYER_PROGRESSION_CORE_TABLE} WHERE player_id = $1 FOR UPDATE`,
+            [playerId],
+          );
+          rows.set(playerId, inserted.rows?.[0] ?? { stamina: DUNGEON_MAX_STAMINA, stamina_updated_at: now });
+        }
+      }
+      const views: Record<string, { current: number; maximum: number; updatedAt: number; nextRecoveryAt?: number }> = {};
+      let insufficient = false;
+      for (const playerId of playerIds) {
+        const row = rows.get(playerId) ?? {};
+        const recovered = resolveRecoveredStamina(Number(row.stamina ?? DUNGEON_MAX_STAMINA), Number(row.stamina_updated_at ?? now), now);
+        views[playerId] = { current: recovered.current, maximum: DUNGEON_MAX_STAMINA, updatedAt: recovered.updatedAt, ...(recovered.nextRecoveryAt ? { nextRecoveryAt: recovered.nextRecoveryAt } : {}) };
+        if (recovered.current < cost) insufficient = true;
+      }
+      if (insufficient) {
+        for (const playerId of playerIds) {
+          const view = views[playerId]!;
+          const row = rows.get(playerId) ?? {};
+          if (view.current !== Number(row.stamina) || view.updatedAt !== Number(row.stamina_updated_at)) {
+            await client.query(
+              `UPDATE ${PLAYER_PROGRESSION_CORE_TABLE} SET stamina = $2, stamina_updated_at = $3, updated_at = now() WHERE player_id = $1`,
+              [playerId, view.current, view.updatedAt],
+            );
+          }
+        }
+        return { ok: false, reason: 'stamina_insufficient', views };
+      }
+      for (const playerId of playerIds) {
+        const nextCurrent = views[playerId]!.current - cost;
+        views[playerId] = { current: nextCurrent, maximum: DUNGEON_MAX_STAMINA, updatedAt: now, ...(nextCurrent < DUNGEON_MAX_STAMINA ? { nextRecoveryAt: now + 60 * 60 * 1000 } : {}) };
+        await client.query(
+          `UPDATE ${PLAYER_PROGRESSION_CORE_TABLE} SET stamina = $2, stamina_updated_at = $3, updated_at = now() WHERE player_id = $1`,
+          [playerId, nextCurrent, now],
+        );
+      }
+      return { ok: true, views };
+    });
   }
 
   async savePlayerAttrState(

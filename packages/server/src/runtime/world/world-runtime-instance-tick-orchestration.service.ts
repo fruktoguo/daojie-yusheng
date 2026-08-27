@@ -685,6 +685,13 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                 }
                 totalLogicalTicks += 1;
                 executedSteps += 1;
+                if (typeof deps.dungeonRuntimeService?.onInstanceTick === 'function') {
+                    this.runIsolatedSyncOperation(deps, 'instance_dungeon_flow', {
+                        instanceId: instance.meta.instanceId,
+                        instanceTick: instance.tick,
+                        worldTick: deps.tick,
+                    }, () => deps.dungeonRuntimeService.onInstanceTick(instance.meta.instanceId, instance.tick));
+                }
                 const fuelConsumed = scheduledPlans === null
                     || typeof deps.timeChamberRuntimeService?.consumeScheduledStep !== 'function'
                     || deps.timeChamberRuntimeService.consumeScheduledStep(

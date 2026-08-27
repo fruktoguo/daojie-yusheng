@@ -69,6 +69,8 @@ export interface DungeonDifficultyConfig {
 export interface DungeonMapRoomDefinition {
   roomId: string;
   mapTemplateId?: string;
+  spawnX?: number;
+  spawnY?: number;
   nextRoomId?: string;
   spawnGroupIds?: string[];
   bossId?: string;
@@ -102,6 +104,7 @@ export interface DungeonRewardConfig {
   rewardTableId: string;
   firstClearOnly?: boolean;
   ratingEnabled?: boolean;
+  itemRewards?: Array<{ itemId: string; count: number }>;
 }
 
 export interface DungeonDefinition {
