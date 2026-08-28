@@ -1,5 +1,7 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import { resolveProjectPath } from '../../common/project-path';
 import {
   DUNGEON_MAX_PARTY_MEMBERS,
   S2C,
@@ -278,7 +280,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
       : (definition.difficulty.overrides?.[run.difficulty.difficulty] ?? {});
     const overrideAll = Number.isFinite(Number(override.allAttributeMultiplier)) && Number(override.allAttributeMultiplier) > 0 ? Number(override.allAttributeMultiplier) : 1;
     const overrideHp = Number.isFinite(Number(override.hpMultiplier)) && Number(override.hpMultiplier) > 0 ? Number(override.hpMultiplier) : 1;
-    const monsterSpawns = baseSpawns.map((spawn: any) => scaleMonsterSpawn(spawn, multipliers.allAttributeMultiplier * overrideAll, multipliers.hpMultiplier * overrideHp, override.additionalSkillIds));
+    const monsterSpawns = baseSpawns.map((spawn: any) => scaleMonsterSpawn(spawn, run.difficulty, multipliers, overrideAll, overrideHp, override.additionalSkillIds));
     let instance;
     try {
       instance = this.world.createInstance({ instanceId: run.mapInstanceId, templateId: definition.mapTemplateId, kind: 'dungeon', persistent: false, persistentPolicy: 'ephemeral', partyId: run.partyId, instanceOrigin: 'dungeon', defaultEntry: false, monsterSpawns });
@@ -402,7 +404,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
       : (definition?.difficulty.overrides?.[run.difficulty.difficulty] ?? {});
     if (!definition) return;
     const multipliers = resolveDungeonAttributeMultipliers(run.difficulty, definition.difficulty.maxPresentRank, definition.difficulty.attributeRule);
-    instance.addRuntimeMonster?.(scaleMonsterSpawn(spawn, multipliers.allAttributeMultiplier * (Number(override.allAttributeMultiplier) || 1), multipliers.hpMultiplier * (Number(override.hpMultiplier) || 1), override.additionalSkillIds));
+    instance.addRuntimeMonster?.(scaleMonsterSpawn(spawn, run.difficulty, multipliers, Number(override.allAttributeMultiplier) || 1, Number(override.hpMultiplier) || 1, override.additionalSkillIds));
   }
 
   private completeRun(run: DungeonRunState, _reason: string): void {
@@ -571,18 +573,60 @@ function isDungeonInstanceCandidate(instanceId: string | undefined, instance: an
     && /^(public|real|line):/.test(instanceId);
 }
 
-function scaleMonsterSpawn(spawn: any, allMultiplier: number, hpMultiplier: number, additionalSkillIds: readonly string[] = []): any {
+const standardBaselinesMap = new Map<number, number>();
+const peakBaselinesMap = new Map<number, number>();
+
+function getPeakToStandardScaleRatio(level: number): number {
+  if (standardBaselinesMap.size === 0) {
+    try {
+      const stdPath = resolveProjectPath('packages', 'server', 'data', 'content', 'realm-attr-baselines.json');
+      if (fs.existsSync(stdPath)) {
+        const parsed = JSON.parse(fs.readFileSync(stdPath, 'utf8'));
+        for (const entry of parsed.levels || []) standardBaselinesMap.set(entry.realmLv, entry.singleAttr);
+      }
+    } catch {}
+  }
+  if (peakBaselinesMap.size === 0) {
+    try {
+      const peakPath = resolveProjectPath('packages', 'server', 'data', 'content', 'realm-attr-peak-baselines.json');
+      if (fs.existsSync(peakPath)) {
+        const parsed = JSON.parse(fs.readFileSync(peakPath, 'utf8'));
+        for (const entry of parsed.levels || []) peakBaselinesMap.set(entry.realmLv, entry.singleAttr);
+      }
+    } catch {}
+  }
+  const std = standardBaselinesMap.get(level) || 10;
+  const peak = peakBaselinesMap.get(level) || 10;
+  return Math.max(1, peak / std);
+}
+
+function scaleMonsterSpawn(
+  spawn: any,
+  runDifficulty: { difficulty: DungeonDifficulty; presentRank?: TechniqueGrade },
+  multipliers: { allAttributeMultiplier: number; hpMultiplier: number; baselineSource?: string },
+  overrideAll = 1,
+  overrideHp = 1,
+  additionalSkillIds: readonly string[] = [],
+): any {
+  const isPresent = runDifficulty.difficulty === 'present';
+  const monsterLevel = Number(spawn.level) || 1;
+  const peakRatio = isPresent ? getPeakToStandardScaleRatio(monsterLevel) : 1;
+
+  const finalAllMult = multipliers.allAttributeMultiplier * overrideAll * peakRatio;
+  const finalHpMult = multipliers.hpMultiplier * overrideHp * peakRatio;
+
   const cloneNumbers = (value: any, multiplier: number): any => {
     if (!value || typeof value !== 'object') return value;
     const output: any = Array.isArray(value) ? [...value] : { ...value };
     for (const key of Object.keys(output)) if (typeof output[key] === 'number' && Number.isFinite(output[key])) output[key] *= multiplier;
     return output;
   };
-  const scaled = { ...spawn, baseAttrs: cloneNumbers(spawn.baseAttrs, allMultiplier), baseNumericStats: cloneNumbers(spawn.baseNumericStats, allMultiplier) };
+  const scaled = { ...spawn, baseAttrs: cloneNumbers(spawn.baseAttrs, finalAllMult), baseNumericStats: cloneNumbers(spawn.baseNumericStats, finalAllMult) };
   if (scaled.baseNumericStats && typeof scaled.baseNumericStats === 'object') {
-    for (const key of ['maxHp', 'hp'] as const) if (typeof scaled.baseNumericStats[key] === 'number') scaled.baseNumericStats[key] = Number(spawn.baseNumericStats[key]) * (hpMultiplier / Math.max(1, allMultiplier));
+    for (const key of ['maxHp', 'hp'] as const) if (typeof scaled.baseNumericStats[key] === 'number') scaled.baseNumericStats[key] = Number(spawn.baseNumericStats[key]) * (finalHpMult / Math.max(1, finalAllMult));
   }
   scaled.skills = [...new Set([...(Array.isArray(spawn.skills) ? spawn.skills : []), ...additionalSkillIds.filter((id) => typeof id === 'string' && id.trim())])];
-  scaled.maxHp = Math.max(1, Math.round(Number(spawn.maxHp) * hpMultiplier)); scaled.hp = scaled.maxHp;
+  scaled.maxHp = Math.max(1, Math.round(Number(spawn.maxHp) * finalHpMult));
+  scaled.hp = scaled.maxHp;
   return scaled;
 }
