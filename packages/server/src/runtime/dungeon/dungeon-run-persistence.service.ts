@@ -33,6 +33,21 @@ export class DungeonRunPersistenceService implements OnModuleInit {
     ).catch((error) => this.logger.warn(`副本流程快照写入失败 ${run.runId}：${error instanceof Error ? error.message : String(error)}`));
   }
 
+  async loadRecoverableRuns(): Promise<DungeonRunState[]> {
+    if (!this.pool) return [];
+    try {
+      const result = await this.pool.query(
+        `SELECT run_payload FROM ${TABLE} WHERE status IN ('created','activating','active','completing') OR (status = 'completed' AND COALESCE(run_payload->>'destroyedAt', '') = '') ORDER BY updated_at ASC`,
+      );
+      return result.rows
+        .map((row) => row?.run_payload)
+        .filter((payload): payload is DungeonRunState => Boolean(payload && typeof payload.runId === 'string' && typeof payload.mapInstanceId === 'string'));
+    } catch (error) {
+      this.logger.warn(`副本流程快照读取失败：${error instanceof Error ? error.message : String(error)}`);
+      return [];
+    }
+  }
+
   remove(runId: string): void {
     if (!this.pool) return;
     void this.pool.query(`DELETE FROM ${TABLE} WHERE run_id=$1`, [runId]).catch((error) => this.logger.warn(`副本流程快照删除失败 ${runId}：${error instanceof Error ? error.message : String(error)}`));

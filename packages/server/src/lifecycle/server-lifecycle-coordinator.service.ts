@@ -29,6 +29,7 @@ import { ensureGeneratedTechniqueTables } from '../persistence/generated-techniq
 import { PlayerDomainPersistenceService } from '../persistence/player-domain-persistence.service';
 import { TimeChamberRuntimeService } from '../runtime/building/time-chamber-runtime.service';
 import { OfflineHangingRuntimeCleanupService } from '../runtime/world/world-runtime-offline-hanging-cleanup.service';
+import { DungeonRuntimeService } from '../runtime/dungeon/dungeon-runtime.service';
 
 @Injectable()
 export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap, OnModuleDestroy {
@@ -59,6 +60,7 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
     @Optional() @Inject(TimeChamberRuntimeService) private readonly timeChamberRuntimeService?: TimeChamberRuntimeService,
     @Optional() @Inject(OfflineHangingRuntimeCleanupService) private readonly offlineHangingRuntimeCleanupService?: OfflineHangingRuntimeCleanupService,
     @Optional() @Inject(ShutdownStatusService) private readonly shutdownStatusService?: ShutdownStatusService,
+    @Optional() @Inject(DungeonRuntimeService) private readonly dungeonRuntimeService?: DungeonRuntimeService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -216,6 +218,7 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
       await this.playerDomainPersistenceService?.runPostReplayStartupMaintenance();
       await this.timeChamberRuntimeService?.prepareForWorldRecovery();
       const worldRecovery = await this.recoverWorld();
+      await this.dungeonRuntimeService?.restorePersistedRuns?.();
       await this.timeChamberRuntimeService?.applyRecoveredRuntimeState(this.worldRuntimeService, worldRecovery);
       await this.recoverPlayers();
     }

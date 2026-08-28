@@ -85,6 +85,83 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
 
   listDefinitions(): DungeonDefinition[] { return this.content.listDungeonDefinitions(); }
 
+  /** 启动时先恢复副本流程，再恢复玩家挂接，避免玩家快照指向尚未注册的 dungeon 实例。 */
+  async restorePersistedRuns(): Promise<number> {
+    const payloads = await this.runPersistence.loadRecoverableRuns();
+    let restored = 0;
+    for (const payload of payloads) {
+      const run = normalizeRecoveredDungeonRun(payload);
+      const definition = run ? this.content.getDungeonDefinition(run.dungeonId) : null;
+      if (!run || !definition || this.runs.has(run.runId)) continue;
+      if (run.status === 'created') {
+        run.status = 'aborted';
+        run.failureReason = 'server_restart_before_activation';
+        this.runPersistence.save(run);
+        continue;
+      }
+      let instance = this.world.getInstanceRuntime(run.mapInstanceId) as any;
+      let createdInstance = false;
+      if (run.status === 'activating' && !instance) {
+        run.status = 'aborted';
+        run.failureReason = 'server_restart_during_activation';
+        this.runPersistence.save(run);
+        continue;
+      }
+      if (!instance) {
+        try {
+          const baseSpawns = definition.flowType === 'defense' ? [] : (definition.rooms?.length ? [] : this.content.createRuntimeMonstersForMap(definition.mapTemplateId));
+          instance = this.world.createInstance({
+            instanceId: run.mapInstanceId,
+            templateId: definition.mapTemplateId,
+            kind: 'dungeon',
+            persistent: true,
+            persistentPolicy: 'persistent',
+            partyId: run.partyId,
+            instanceOrigin: 'dungeon_recovery',
+            defaultEntry: false,
+            monsterSpawns: baseSpawns,
+          });
+          createdInstance = true;
+        } catch (error) {
+          this.logger.warn(`副本实例恢复失败 ${run.runId}：${error instanceof Error ? error.message : String(error)}`);
+          continue;
+        }
+      }
+      instance.meta.dungeonRunId = run.runId;
+      instance.meta.dungeonId = run.dungeonId;
+      if (run.status === 'activating' || (run.status === 'active' && createdInstance)) {
+        run.status = 'active';
+        run.activatedAt = run.activatedAt ?? Date.now();
+        this.activateRoom(instance, definition, run, run.currentRoomId ?? definition.rooms?.[0]?.roomId);
+      } else if (run.status === 'completed' || run.status === 'completing') {
+        instance.meta.status = 'completed';
+      }
+      this.runs.set(run.runId, run);
+      this.combatStatsByRunId.set(run.runId, new Map(run.members.map((member) => [member.playerId, { damageDealt: 0, damageTaken: 0, healingDone: 0 }])));
+      this.scheduleRecoveredRun(run, definition);
+      this.runPersistence.save(run);
+      restored++;
+    }
+    if (restored > 0) this.logger.log(`已恢复 ${restored} 个副本流程实例`);
+    return restored;
+  }
+
+  private scheduleRecoveredRun(run: DungeonRunState, definition: DungeonDefinition): void {
+    if (run.status === 'active') {
+      const deadline = Number(run.activatedAt ?? run.createdAt) + Math.max(1, Math.trunc(definition.timeoutSeconds ?? 3600)) * 1000;
+      const timer = setTimeout(() => this.expireRun(run.runId), Math.max(0, deadline - Date.now()));
+      timer.unref?.();
+      this.runTimers.set(run.runId, timer);
+      return;
+    }
+    if (run.status === 'completed' || run.status === 'completing') {
+      const deadline = Number(run.completedAt ?? Date.now()) + 30_000;
+      const timer = setTimeout(() => void this.forceCleanupCompletedRun(run), Math.max(0, deadline - Date.now()));
+      timer.unref?.();
+      this.runTimers.set(run.runId, timer);
+    }
+  }
+
   buildCatalog(playerId: string) {
     const activeRun = [...this.runs.values()].find((run) => run.members.some((member) => member.playerId === playerId) && ['created', 'activating', 'active', 'completing', 'completed'].includes(run.status));
     if (!activeRun) {
@@ -296,7 +373,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     const monsterSpawns = baseSpawns.map((spawn: any) => scaleMonsterSpawn(spawn, run.difficulty, multipliers, overrideAll, overrideHp, override.additionalSkillIds));
     let instance;
     try {
-      instance = this.world.createInstance({ instanceId: run.mapInstanceId, templateId: definition.mapTemplateId, kind: 'dungeon', persistent: false, persistentPolicy: 'ephemeral', partyId: run.partyId, instanceOrigin: 'dungeon', defaultEntry: false, monsterSpawns });
+      instance = this.world.createInstance({ instanceId: run.mapInstanceId, templateId: definition.mapTemplateId, kind: 'dungeon', persistent: true, persistentPolicy: 'persistent', partyId: run.partyId, instanceOrigin: 'dungeon', defaultEntry: false, monsterSpawns });
     } catch (error) {
       for (const playerId of consumed) await this.players.refundDungeonStaminaDurably(playerId, staminaCost);
       run.status = 'aborted'; run.failureReason = 'instance_activation_failed';
@@ -629,6 +706,27 @@ function resolvePlayerImageUrl(player: any): string | undefined {
   if (!candidate) return undefined;
   const value = candidate.trim();
   return /^(https?:\/\/|\/|data:image\/)/i.test(value) ? value : undefined;
+}
+
+function normalizeRecoveredDungeonRun(payload: any): DungeonRunState | null {
+  if (!payload || typeof payload.runId !== 'string' || typeof payload.dungeonId !== 'string' || typeof payload.mapInstanceId !== 'string') return null;
+  if (!Array.isArray(payload.members) || payload.members.length === 0) return null;
+  const allowedStatuses = new Set(['created', 'activating', 'active', 'completing', 'completed']);
+  if (!allowedStatuses.has(payload.status)) return null;
+  const members = payload.members.filter((member: any) => typeof member?.playerId === 'string' && member.playerId.trim()).map((member: any) => ({
+    playerId: member.playerId.trim(),
+    ...(member.playerNo === undefined ? {} : { playerNo: Number(member.playerNo) }),
+    ...(member.name ? { name: String(member.name) } : {}),
+    joinedAt: Number.isFinite(Number(member.joinedAt)) ? Number(member.joinedAt) : Date.now(),
+  }));
+  if (members.length === 0) return null;
+  return {
+    ...payload,
+    runId: payload.runId.trim(),
+    dungeonId: payload.dungeonId.trim(),
+    mapInstanceId: payload.mapInstanceId.trim(),
+    members,
+  } as DungeonRunState;
 }
 
 function isDungeonInstanceCandidate(instanceId: string | undefined, instance: any): boolean {
