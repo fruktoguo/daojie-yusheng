@@ -617,6 +617,17 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
     return npc.id === 'npc_ruined_cavern_memory_stone' || npc.id === 'npc_dungeon_memory_stone' ? 2 : 1;
   }
 
+  function isNpcInInteractionRange(
+    player: { x: number; y: number },
+    npc: Pick<MainNavigationObservedEntity, 'id' | 'wx' | 'wy'>,
+  ): boolean {
+    const radius = getNpcInteractionRadius(npc);
+    if (radius > 1) {
+      return gridDistance({ x: player.x, y: player.y }, { x: npc.wx, y: npc.wy }, 'chebyshev') <= radius;
+    }
+    return isPointInRange({ x: player.x, y: player.y }, { x: npc.wx, y: npc.wy }, radius);
+  }
+
   /**
  * resolveNpcApproachTarget：读取NPCApproach目标并返回结果。
  * @param npc MainNavigationObservedEntity 参数说明。
@@ -1080,7 +1091,7 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
         pendingAutoInteraction = null;
         return false;
       }
-      if (!isPointInRange({ x: player.x, y: player.y }, { x: npc.wx, y: npc.wy }, getNpcInteractionRadius(npc))) {
+      if (!isNpcInInteractionRange(player, npc)) {
         return false;
       }
       const actionId = resolveNpcInteractionActionId(npc);
@@ -1117,7 +1128,7 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       if (!player || npc.kind !== 'npc') {
         return false;
       }
-      if (isPointInRange({ x: player.x, y: player.y }, { x: npc.wx, y: npc.wy }, getNpcInteractionRadius(npc))) {
+      if (isNpcInInteractionRange(player, npc)) {
         this.clearCurrentPath();
         const actionId = resolveNpcInteractionActionId(npc);
         if (actionId) {
