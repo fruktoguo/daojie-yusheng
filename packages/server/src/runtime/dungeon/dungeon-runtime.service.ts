@@ -472,8 +472,10 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     const instance = this.world.getInstanceRuntime(instanceId) as any;
     if (!isDungeonInstanceCandidate(instanceId, instance)) return false;
     const definitions = this.listDefinitions();
-    const definition = definitions.find((entry) => entry.id === instance.meta?.dungeonId)
-      ?? definitions.find((entry) => entry.mapTemplateId === instance.template?.id)
+    const instanceTemplateId = String(instance?.template?.id ?? '').trim()
+      || instanceId.replace(/^(public|real|line):/, '').trim();
+    const definition = definitions.find((entry) => entry.id === instance?.meta?.dungeonId)
+      ?? definitions.find((entry) => entry.mapTemplateId === instanceTemplateId || entry.id === instanceTemplateId)
       ?? (definitions.length === 1 ? definitions[0] : undefined);
     if (!definition) return false;
     try {
@@ -553,9 +555,10 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
 }
 
 function isDungeonInstanceCandidate(instanceId: string | undefined, instance: any): boolean {
-  if (!instanceId || !instance) return false;
-  if (instance.meta?.kind === 'dungeon') return true;
-  if (instance.meta?.kind !== 'public') return false;
+  if (!instanceId) return false;
+  if (instance?.meta?.kind === 'dungeon') return true;
+  if (!instance && /^(public|real|line):dungeon_/.test(instanceId)) return true;
+  if (instance?.meta?.kind !== 'public') return false;
   const templateId = String(instance.template?.id ?? '').trim();
   return templateId.startsWith('dungeon_')
     && /^(public|real|line):/.test(instanceId);
