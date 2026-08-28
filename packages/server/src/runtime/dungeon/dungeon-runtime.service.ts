@@ -104,10 +104,17 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     if (locations.some((entry) => entry.location?.instanceId?.startsWith('dungeon:'))) return { ok: false, reason: 'member_already_in_dungeon' };
     if (locations.some((entry) => !entry.location || this.world.getInstanceRuntime(entry.location.instanceId)?.template?.id !== definition.entryMapTemplateId)) return { ok: false, reason: 'members_not_at_entry_map' };
     const leaderState = this.players.getPlayer(leader);
+    const leaderLocation = locations.find((entry) => entry.playerId === leader)?.location ?? null;
+    const leaderInstance = leaderLocation?.instanceId ? this.world.getInstanceRuntime(leaderLocation.instanceId) as any : null;
+    const leaderRuntime = leaderInstance?.getPlayer?.(leader) as { x?: number; y?: number } | null;
     const entryX = Number(definition.entryX ?? 0);
     const entryY = Number(definition.entryY ?? 0);
-    if (!leaderState || leaderState.mapId !== definition.entryMapTemplateId
-      || Math.max(Math.abs(Number(leaderState.x) - entryX), Math.abs(Number(leaderState.y) - entryY)) > Math.max(1, Number(definition.entryExitRadius ?? 1))) {
+    const leaderX = Number(leaderRuntime?.x ?? leaderState?.x);
+    const leaderY = Number(leaderRuntime?.y ?? leaderState?.y);
+    if (!leaderState || !leaderInstance
+      || leaderInstance.template?.id !== definition.entryMapTemplateId
+      || !Number.isFinite(leaderX) || !Number.isFinite(leaderY)
+      || Math.max(Math.abs(leaderX - entryX), Math.abs(leaderY - entryY)) > Math.max(1, Number(definition.entryExitRadius ?? 1))) {
       return { ok: false, reason: 'not_near_memory_stone' };
     }
     const runId = randomUUID();
