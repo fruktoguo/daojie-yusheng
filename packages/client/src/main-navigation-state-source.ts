@@ -587,6 +587,7 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
     const questActionId = `npc_quests:${npc.id}`;
     const shopActionId = `npc_shop:${npc.id}`;
     const talkActionId = `npc:${npc.id}`;
+    const dungeonExitActionId = 'dungeon:exit';
 
     if (npc.npcQuestMarker && actionIds.has(questActionId)) {
       return questActionId;
@@ -599,6 +600,9 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
     }
     if (actionIds.has(talkActionId)) {
       return talkActionId;
+    }
+    if (actionIds.has(dungeonExitActionId)) {
+      return dungeonExitActionId;
     }
     return null;
   }  

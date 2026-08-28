@@ -391,6 +391,16 @@ export class WorldRuntimeContextActionQueryService {
         }
         for (const npc of view.localNpcs) {
             if (chebyshevDistance(view.self.x, view.self.y, npc.x, npc.y) <= 1) {
+                if (view.instance.kind === 'dungeon' && npc.npcId === 'npc_dungeon_memory_stone') {
+                    actions.push({
+                        id: 'dungeon:exit',
+                        name: '退出副本',
+                        type: 'travel',
+                        desc: '返回副本入口地图；离开后不可再次进入本次副本。',
+                        cooldownLeft: 0,
+                    });
+                    continue;
+                }
                 actions.push({
                     id: `npc:${npc.npcId}`,
                     name: `交谈：${npc.name}`,

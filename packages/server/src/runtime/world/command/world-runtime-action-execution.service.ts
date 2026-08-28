@@ -81,6 +81,19 @@ export class WorldRuntimeActionExecutionService {
                 view: deps.usePortal(playerId),
             };
         }
+        if (actionId === 'dungeon:exit') {
+            const exitPromise = deps.dungeonRuntimeService?.exit(playerId);
+            if (!exitPromise) throw new ServiceUnavailableException('副本服务不可用');
+            return exitPromise.then((result) => {
+                if (!result?.ok) {
+                    throw new BadRequestException(result?.reason === 'not_at_exit' ? '需要靠近忆梦石才能退出副本' : '当前不在可退出的副本中');
+                }
+                return {
+                    kind: 'queued',
+                    view: deps.getPlayerViewOrThrow(playerId),
+                };
+            });
+        }
         if (actionId.startsWith('tower:tongtian:')) {
             const finalizeTowerAction = (view) => {
                 if (!view) {

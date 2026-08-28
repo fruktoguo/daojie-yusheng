@@ -60,6 +60,20 @@
     "板板板板板板板板板板板板板板板板板板板板",
     "板板板板板板板板板板板板板板板板板板板板"
   ],
+  "npcs": [
+    {
+      "id": "npc_dungeon_memory_stone",
+      "name": "忆梦石",
+      "x": 2,
+      "y": 11,
+      "char": "石",
+      "color": "#d7b875",
+      "dialogue": "靠近忆梦石，选择“退出副本”即可离开当前副本。",
+      "role": "guide",
+      "shopItems": [],
+      "quests": []
+    }
+  ],
   "spawnPoint": { "x": 2, "y": 11 },
   "time": {
     "offsetTicks": 0,
