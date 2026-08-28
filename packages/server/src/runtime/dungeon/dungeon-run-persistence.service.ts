@@ -48,6 +48,59 @@ export class DungeonRunPersistenceService implements OnModuleInit {
     }
   }
 
+  /** 查询指定副本实例对应的流程状态，用于判断缺失实例是可恢复还是应当撤离。 */
+  async loadRunStatusByInstanceId(instanceId: string): Promise<DungeonRunState | null> {
+    const normalizedInstanceId = typeof instanceId === 'string' ? instanceId.trim() : '';
+    if (!this.pool || !normalizedInstanceId) return null;
+    try {
+      const result = await this.pool.query(
+        `SELECT run_payload FROM ${TABLE} WHERE run_payload->>'mapInstanceId' = $1 ORDER BY updated_at DESC LIMIT 1`,
+        [normalizedInstanceId],
+      );
+      const payload = result.rows[0]?.run_payload;
+      return payload && typeof payload.runId === 'string' && typeof payload.mapInstanceId === 'string'
+        ? payload as DungeonRunState
+        : null;
+    } catch (error) {
+      this.logger.warn(`副本实例状态读取失败 ${normalizedInstanceId}：${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
+  }
+
+  /** 清理流程已结束但因运行态缺失未能落库销毁的副本目录记录。 */
+  async reconcileTerminalCatalogInstances(): Promise<number> {
+    if (!this.pool) return 0;
+    try {
+      const result = await this.pool.query(
+        `UPDATE instance_catalog AS catalog
+            SET status = 'destroyed',
+                runtime_status = 'stopped',
+                assigned_node_id = NULL,
+                lease_token = NULL,
+                lease_expire_at = NULL,
+                ownership_epoch = COALESCE(catalog.ownership_epoch, 0) + 1,
+                metadata_version = COALESCE(catalog.metadata_version, 0) + 1,
+                destroy_at = COALESCE(catalog.destroy_at, now())
+          WHERE catalog.instance_type = 'dungeon'
+            AND catalog.status <> 'destroyed'
+            AND NOT EXISTS (
+              SELECT 1
+                FROM ${TABLE} AS run
+               WHERE run.run_payload->>'mapInstanceId' = catalog.instance_id
+                 AND (
+                   run.status IN ('created', 'activating', 'active', 'completing')
+                   OR (run.status = 'completed' AND COALESCE(run.run_payload->>'destroyedAt', '') = '')
+                 )
+            )
+        RETURNING catalog.instance_id`,
+      );
+      return result.rowCount ?? 0;
+    } catch (error) {
+      this.logger.warn(`副本实例目录终态对账失败：${error instanceof Error ? error.message : String(error)}`);
+      return 0;
+    }
+  }
+
   remove(runId: string): void {
     if (!this.pool) return;
     void this.pool.query(`DELETE FROM ${TABLE} WHERE run_id=$1`, [runId]).catch((error) => this.logger.warn(`副本流程快照删除失败 ${runId}：${error instanceof Error ? error.message : String(error)}`));

@@ -142,6 +142,7 @@ interface WorldRuntimePlayerSessionDeps {
   };
   dungeonRuntimeService?: {
     restorePersistedRuns?(): Promise<number>;
+    getRunByInstanceId?(instanceId: string): Promise<{ status?: string; destroyedAt?: number } | null>;
   };
 }
 
@@ -187,6 +188,15 @@ export class WorldRuntimePlayerSessionService {
     if (targetRequest.requestedInstanceId.startsWith('dungeon:')
       && !deps.getInstanceRuntime(targetRequest.requestedInstanceId)) {
       await deps.dungeonRuntimeService?.restorePersistedRuns?.();
+      if (!deps.getInstanceRuntime(targetRequest.requestedInstanceId)) {
+        const run = await deps.dungeonRuntimeService?.getRunByInstanceId?.(targetRequest.requestedInstanceId);
+        const status = typeof run?.status === 'string' ? run.status : '';
+        const isRecoverable = ['created', 'activating', 'active', 'completing'].includes(status)
+          || (status === 'completed' && !Number.isFinite(Number(run?.destroyedAt)));
+        if (!isRecoverable && typeof deps.playerRuntimeService.getPlayer === 'function') {
+          return this.connectPlayerToBoundRespawnFallback(input, deps, targetRequest.requestedInstanceId);
+        }
+      }
     }
     const towerTemplateId = resolveTowerTemplateIdFromSessionRequest(targetRequest, deps);
     if (towerTemplateId
@@ -213,7 +223,7 @@ export class WorldRuntimePlayerSessionService {
       }
       if (!towerInstance) {
         if (input.allowUnavailableTowerRespawnFallback === true) {
-          return this.connectPlayerToRespawnFallback(input, deps, targetRequest.requestedInstanceId);
+          return this.connectPlayerToBoundRespawnFallback(input, deps, targetRequest.requestedInstanceId);
         }
         throw new ServiceUnavailableException('通天塔实例暂不可用');
       }
@@ -520,20 +530,26 @@ export class WorldRuntimePlayerSessionService {
     );
   }
 
-  private connectPlayerToRespawnFallback(
+  private connectPlayerToBoundRespawnFallback(
     input: ConnectPlayerInput,
     deps: WorldRuntimePlayerSessionDeps,
-    unavailableTowerInstanceId: string,
+    unavailableInstanceId: string,
   ): Promise<unknown> {
     const player = deps.playerRuntimeService.getPlayer(input.playerId) as PlayerRuntimeLike | null;
     const respawnTemplateId = normalizeMapId(player?.respawnTemplateId);
     const respawnInstanceId = normalizeInstanceId(player?.respawnInstanceId);
-    const safeRespawnTemplateId = respawnTemplateId.startsWith('tongtian_tower_layer_') ? '' : respawnTemplateId;
-    const safeRespawnInstanceId = respawnInstanceId.startsWith('tower:tongtian:layer:') ? '' : respawnInstanceId;
+    const safeRespawnTemplateId = respawnTemplateId.startsWith('tongtian_tower_layer_')
+      || respawnTemplateId.startsWith('dungeon_')
+      ? ''
+      : respawnTemplateId;
+    const safeRespawnInstanceId = respawnInstanceId.startsWith('tower:tongtian:layer:')
+      || respawnInstanceId.startsWith('dungeon:')
+      ? ''
+      : respawnInstanceId;
     const targetMapId = safeRespawnTemplateId
       || this.worldRuntimeWorldAccessService.resolveDefaultRespawnMapId(deps);
     deps.logger.warn(
-      `玩家 ${input.playerId} 的通天塔实例不可用，已改从绑定复活点恢复：instanceId=${unavailableTowerInstanceId || 'unknown'} respawnInstanceId=${safeRespawnInstanceId || 'default'} respawnTemplateId=${targetMapId || 'default'}`,
+      `玩家 ${input.playerId} 的副本实例不可用，已从绑定复活点恢复：instanceId=${unavailableInstanceId || 'unknown'} respawnInstanceId=${safeRespawnInstanceId || 'default'} respawnTemplateId=${targetMapId || 'default'}`,
     );
     return this.connectPlayerWhenReady({
       ...input,

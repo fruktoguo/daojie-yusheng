@@ -564,7 +564,10 @@ export class WorldRuntimeLifecycleService {
                         : { ok: true, reason: 'ready' };
                     const shouldEvacuateUnavailableTower = !attachReady.ok
                         && isExpectedMissingOfflineRuntimeInstance(entry.instanceId);
-                    if (!attachReady.ok && !shouldEvacuateUnavailableTower) {
+                    const shouldEvacuateUnavailableDungeon = !attachReady.ok
+                        && typeof entry.instanceId === 'string'
+                        && entry.instanceId.startsWith('dungeon:');
+                    if (!attachReady.ok && !shouldEvacuateUnavailableTower && !shouldEvacuateUnavailableDungeon) {
                         const reason = typeof attachReady.reason === 'string' && attachReady.reason.trim() ? attachReady.reason.trim() : 'attach_not_ready';
                         markSkipped(reason, entry);
                         if (reason === 'instance_missing') {
@@ -579,12 +582,12 @@ export class WorldRuntimeLifecycleService {
                         return;
                     }
                     const instance = attachReady.instance ?? deps.getInstanceRuntime(entry.instanceId);
-                    if (!instance && !shouldEvacuateUnavailableTower) {
+                    if (!instance && !shouldEvacuateUnavailableTower && !shouldEvacuateUnavailableDungeon) {
                         markSkipped('instance_missing', entry);
                         logOfflineRestoreMissingInstance(deps, entry.instanceId, entry.playerId);
                         return;
                     }
-                    const hasSessionConnect = shouldEvacuateUnavailableTower
+                    const hasSessionConnect = shouldEvacuateUnavailableTower || shouldEvacuateUnavailableDungeon
                         ? typeof deps.worldRuntimePlayerSessionService?.connectPlayerWhenReady === 'function'
                         : typeof deps.worldRuntimePlayerSessionService?.connectPlayer === 'function';
                     if (!hasSessionConnect) {
@@ -624,7 +627,7 @@ export class WorldRuntimeLifecycleService {
                     const requestedMapId = typeof player?.templateId === 'string' && player.templateId.trim()
                         ? player.templateId.trim()
                         : undefined;
-                    if (shouldEvacuateUnavailableTower) {
+                    if (shouldEvacuateUnavailableTower || shouldEvacuateUnavailableDungeon) {
                         await deps.worldRuntimePlayerSessionService.connectPlayerWhenReady({
                             playerId: entry.playerId,
                             sessionId: null,

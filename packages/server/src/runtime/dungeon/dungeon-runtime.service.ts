@@ -86,6 +86,15 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
 
   listDefinitions(): DungeonDefinition[] { return this.content.listDungeonDefinitions(); }
 
+  /** 返回副本实例对应的持久化流程，供玩家恢复链裁定缺失实例。 */
+  async getRunByInstanceId(instanceId: string): Promise<DungeonRunState | null> {
+    const normalizedInstanceId = typeof instanceId === 'string' ? instanceId.trim() : '';
+    if (!normalizedInstanceId) return null;
+    const inMemory = [...this.runs.values()]
+      .find((run) => run.mapInstanceId === normalizedInstanceId);
+    return inMemory ?? this.runPersistence.loadRunStatusByInstanceId(normalizedInstanceId);
+  }
+
   /** 启动时先恢复副本流程，再恢复玩家挂接，避免玩家快照指向尚未注册的 dungeon 实例。 */
   async restorePersistedRuns(): Promise<number> {
     if (this.restorePromise) return this.restorePromise;
@@ -98,6 +107,10 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async restorePersistedRunsInternal(): Promise<number> {
+    const reconciledCatalogCount = await this.runPersistence.reconcileTerminalCatalogInstances();
+    if (reconciledCatalogCount > 0) {
+      this.logger.log(`已对账并销毁 ${reconciledCatalogCount} 条终态副本实例目录记录`);
+    }
     const payloads = await this.runPersistence.loadRecoverableRuns();
     let restored = 0;
     for (const payload of payloads) {
