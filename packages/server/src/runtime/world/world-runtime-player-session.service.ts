@@ -140,6 +140,9 @@ interface WorldRuntimePlayerSessionDeps {
     instanceReadyForPlayerAttach?(instanceId: string): { ok: boolean; reason: string; instance?: InstanceRuntimeLike | null };
     waitForInstanceLeaseReady?(instanceId: string): Promise<void>;
   };
+  dungeonRuntimeService?: {
+    restorePersistedRuns?(): Promise<number>;
+  };
 }
 
 interface ResolveTargetInstanceInput {
@@ -181,6 +184,10 @@ export class WorldRuntimePlayerSessionService {
       requestedInstanceId: normalizeInstanceId(input.instanceId),
       requestedMapId: normalizeMapId(input.mapId),
     };
+    if (targetRequest.requestedInstanceId.startsWith('dungeon:')
+      && !deps.getInstanceRuntime(targetRequest.requestedInstanceId)) {
+      await deps.dungeonRuntimeService?.restorePersistedRuns?.();
+    }
     const towerTemplateId = resolveTowerTemplateIdFromSessionRequest(targetRequest, deps);
     if (towerTemplateId
       && typeof deps.worldRuntimeTongtianTowerService?.materializeLayerInstanceForRestore === 'function') {
@@ -471,6 +478,10 @@ export class WorldRuntimePlayerSessionService {
         );
       }
       return requestedInstance;
+    }
+    if (input.requestedInstanceId.startsWith('dungeon:')) {
+      // 副本实例缺失时不能把副本地图模板降级成 real/public 默认线路。
+      return null;
     }
 
     const missingTowerInstance = deps.worldRuntimeTongtianTowerService?.ensureLayerInstanceForRestore?.(

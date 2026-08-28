@@ -145,6 +145,9 @@ export class WorldRuntimeWorldAccessService {
  */
 
     getOrCreateDefaultLineInstance(templateId, linePreset, deps) {
+        if (String(templateId ?? '').startsWith('dungeon_')) {
+            throw new ServiceUnavailableException(`副本实例暂不可用：${templateId}`);
+        }
         const towerInstance = resolveTongtianTowerInstance(templateId, deps);
         if (towerInstance) {
             return towerInstance;

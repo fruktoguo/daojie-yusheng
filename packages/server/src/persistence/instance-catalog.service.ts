@@ -487,6 +487,28 @@ export class InstanceCatalogService implements OnModuleInit {
     return Array.isArray(result.rows) ? (result.rows as Record<string, unknown>[]) : [];
   }
 
+  /** 清理历史版本误注册的 dungeon 公共线路，避免其旧 ownership epoch 阻塞启动恢复。 */
+  async quarantinePublicDungeonCatalogEntries(): Promise<number> {
+    if (!this.pool || !this.enabled) return 0;
+    const result = await this.pool.query(
+      `UPDATE ${INSTANCE_CATALOG_TABLE}
+          SET status = 'destroyed',
+              runtime_status = 'stopped',
+              assigned_node_id = NULL,
+              lease_token = NULL,
+              lease_expire_at = NULL,
+              ownership_epoch = ownership_epoch + 1,
+              metadata_version = GREATEST(metadata_version, ownership_epoch + 1),
+              destroy_at = COALESCE(destroy_at, now()),
+              last_active_at = now()
+        WHERE instance_type <> 'dungeon'
+          AND template_id LIKE 'dungeon\\_%' ESCAPE '\\'
+          AND instance_id ~ '^(public|real|line):'
+          AND (status <> 'destroyed' OR runtime_status <> 'stopped')`,
+    );
+    return result.rowCount ?? 0;
+  }
+
   /** 按稳定游标分页读取需要清理子表状态的 tombstone 实例。 */
   async listPurgeableInstanceCatalogEntries(input: {
     afterInstanceId?: string | null;

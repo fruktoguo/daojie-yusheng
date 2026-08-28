@@ -181,6 +181,9 @@ export class WorldRuntimeLifecycleService {
             ? deps.templateRepository.listBootstrapTemplates()
             : deps.templateRepository.list();
         for (const template of bootstrapTemplates) {
+            if (String(template?.id ?? '').startsWith('dungeon_')) {
+                continue;
+            }
             if (template?.source?.sectMap === true || String(template?.id ?? '').startsWith('sect_domain:')) {
                 continue;
             }
@@ -366,6 +369,10 @@ export class WorldRuntimeLifecycleService {
             ? await deps.instanceCatalogService.listInstanceCatalogEntries?.()
             : [];
         if (deps.instanceCatalogService?.isEnabled?.() && restoreCatalogInstances) {
+            const quarantinedPublicDungeons = await deps.instanceCatalogService.quarantinePublicDungeonCatalogEntries?.() ?? 0;
+            if (quarantinedPublicDungeons > 0) {
+                deps.logger.warn(`已隔离 ${quarantinedPublicDungeons} 个历史错误注册的 dungeon 公共线路`);
+            }
             if (typeof deps.worldRuntimeSectService?.restoreSectTemplates === 'function') {
                 await deps.worldRuntimeSectService.restoreSectTemplates(deps);
             }

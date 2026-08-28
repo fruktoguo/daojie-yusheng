@@ -51,6 +51,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   private readonly exitedPlayers = new Map<string, Set<string>>();
   private readonly runTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly combatStatsByRunId = new Map<string, Map<string, DungeonCombatMemberStats>>();
+  private restorePromise: Promise<number> | null = null;
   private readonly controllers = new Map<string, DungeonFlowController>([
     ['defense', new DefenseDungeonFlowController()],
     ['suppress_demon', new SuppressDemonDungeonFlowController()],
@@ -87,6 +88,16 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
 
   /** 启动时先恢复副本流程，再恢复玩家挂接，避免玩家快照指向尚未注册的 dungeon 实例。 */
   async restorePersistedRuns(): Promise<number> {
+    if (this.restorePromise) return this.restorePromise;
+    this.restorePromise = this.restorePersistedRunsInternal();
+    try {
+      return await this.restorePromise;
+    } finally {
+      this.restorePromise = null;
+    }
+  }
+
+  private async restorePersistedRunsInternal(): Promise<number> {
     const payloads = await this.runPersistence.loadRecoverableRuns();
     let restored = 0;
     for (const payload of payloads) {
