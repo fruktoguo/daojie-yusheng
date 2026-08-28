@@ -12,13 +12,18 @@
   "mapLv": 43,
   "spaceVisionMode": "isolated",
   "description": "归藏阵核旁裂开的暗缝后面，藏着一座早就塌空的旧洞府。洞里没有陈设，只剩几块被压裂的残石和一口还未完全散尽的金丹余威。",
-  "landmarks": [
+  "npcs": [
     {
-      "id": "lm_ruined_cavern_memory_stone",
+      "id": "npc_ruined_cavern_memory_stone",
       "name": "忆梦石",
       "x": 2,
       "y": 9,
-      "desc": "靠近忆梦石后，由队长发起副本。"
+      "char": "石",
+      "color": "#d7b875",
+      "dialogue": "靠近忆梦石后，由队长发起副本。",
+      "role": "guide",
+      "shopItems": [],
+      "quests": []
     }
   ],
   "terrain": [
