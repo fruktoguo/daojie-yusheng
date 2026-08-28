@@ -97,7 +97,11 @@ export class MapTemplateRepository {
     }
     /** 仅列出启动期静态内容地图，运行时独占模板不得生成公共/真实默认线。 */
     listBootstrapTemplates() {
-        return Array.from(this.templates.values()).filter((template) => !this.runtimeTemplateIds.has(template.id));
+        return Array.from(this.templates.values()).filter((template) => (
+            !this.runtimeTemplateIds.has(template.id)
+            // dungeon_* 是副本专用地图模板，只能由副本实例按 runId 创建，不能物化为公共/现世线路。
+            && !String(template.id ?? '').startsWith('dungeon_')
+        ));
     }
     /**
  * getOrThrow：读取OrThrow。

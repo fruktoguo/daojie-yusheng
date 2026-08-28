@@ -694,6 +694,9 @@ function isOfflinePlayerAlreadyAttached(deps, playerId) {
 }
 
 function shouldRestoreCatalogEntry(entry) {
+    if (isPublicDungeonCatalogEntry(entry)) {
+        return false;
+    }
     if (entry?.status === 'destroyed'
         || entry?.runtime_status === 'stopped'
         || entry?.runtime_status === 'creating') {
@@ -715,6 +718,15 @@ function shouldRestoreCatalogEntry(entry) {
         return false;
     }
     return Date.now() - lastActiveAt <= LONG_LIVED_INSTANCE_TTL_MS;
+}
+
+function isPublicDungeonCatalogEntry(entry) {
+    const instanceId = typeof entry?.instance_id === 'string' ? entry.instance_id.trim() : '';
+    const templateId = typeof entry?.template_id === 'string' ? entry.template_id.trim() : '';
+    const instanceType = typeof entry?.instance_type === 'string' ? entry.instance_type.trim() : '';
+    return instanceType !== 'dungeon'
+        && /^(public|real|line):/.test(instanceId)
+        && templateId.startsWith('dungeon_');
 }
 
 async function markMissingTemplateCatalogEntry(deps, entry, instanceId, templateId, phase) {

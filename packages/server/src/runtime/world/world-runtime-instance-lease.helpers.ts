@@ -2361,6 +2361,9 @@ async function restorePersistentInstanceFormations(runtime, instanceId) {
 }
 
 function shouldRestoreCatalogEntry(entry) {
+  if (isPublicDungeonCatalogEntry(entry)) {
+    return false;
+  }
   if (isCatalogTombstone(entry) || entry?.runtime_status === 'creating') {
     return false;
   }
@@ -2376,6 +2379,15 @@ function shouldRestoreCatalogEntry(entry) {
     return false;
   }
   return Date.now() - lastActiveAt <= LONG_LIVED_INSTANCE_TTL_MS;
+}
+
+function isPublicDungeonCatalogEntry(entry) {
+  const instanceId = typeof entry?.instance_id === 'string' ? entry.instance_id.trim() : '';
+  const templateId = typeof entry?.template_id === 'string' ? entry.template_id.trim() : '';
+  const instanceType = typeof entry?.instance_type === 'string' ? entry.instance_type.trim() : '';
+  return instanceType !== 'dungeon'
+    && /^(public|real|line):/.test(instanceId)
+    && templateId.startsWith('dungeon_');
 }
 
 async function markMissingTemplateCatalogEntry(runtime, entry, instanceId, templateId, phase) {

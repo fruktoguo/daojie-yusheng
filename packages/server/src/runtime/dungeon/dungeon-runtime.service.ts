@@ -78,7 +78,10 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     const activeRun = [...this.runs.values()].find((run) => run.members.some((member) => member.playerId === playerId) && ['created', 'activating', 'active', 'completing', 'completed'].includes(run.status));
     if (!activeRun) {
       const location = this.world.getPlayerLocation(playerId);
-      if (location?.instanceId?.startsWith('dungeon:')) void this.recoverOrphanDungeonPlayer(playerId, location.instanceId);
+      const instance = location?.instanceId ? this.world.getInstanceRuntime(location.instanceId) as any : null;
+      if (isDungeonInstanceCandidate(location?.instanceId, instance)) {
+        void this.recoverOrphanDungeonPlayer(playerId, location.instanceId);
+      }
     }
     return { dungeons: this.listDefinitions(), stamina: this.players.refreshDungeonStamina(playerId) as DungeonStaminaView, ...(activeRun ? { activeRun } : {}) };
   }
@@ -465,9 +468,9 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
 
   /** 更新重启后遗留在临时副本实例中的玩家，避免 run 内存态丢失后无法撤离。 */
   private async recoverOrphanDungeonPlayer(playerId: string, instanceId?: string): Promise<boolean> {
-    if (!instanceId?.startsWith('dungeon:')) return false;
+    if (!instanceId) return false;
     const instance = this.world.getInstanceRuntime(instanceId) as any;
-    if (!instance || instance.meta?.kind !== 'dungeon') return false;
+    if (!isDungeonInstanceCandidate(instanceId, instance)) return false;
     const definitions = this.listDefinitions();
     const definition = definitions.find((entry) => entry.id === instance.meta?.dungeonId)
       ?? definitions.find((entry) => entry.mapTemplateId === instance.template?.id)
@@ -547,6 +550,15 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
       delete run.bossProgress;
     }
   }
+}
+
+function isDungeonInstanceCandidate(instanceId: string | undefined, instance: any): boolean {
+  if (!instanceId || !instance) return false;
+  if (instance.meta?.kind === 'dungeon') return true;
+  if (instance.meta?.kind !== 'public') return false;
+  const templateId = String(instance.template?.id ?? '').trim();
+  return templateId.startsWith('dungeon_')
+    && /^(public|real|line):/.test(instanceId);
 }
 
 function scaleMonsterSpawn(spawn: any, allMultiplier: number, hpMultiplier: number, additionalSkillIds: readonly string[] = []): any {
