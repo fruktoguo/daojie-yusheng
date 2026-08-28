@@ -113,6 +113,8 @@ type MainActionStateSourceOptions = {
  */
 
   openWorldMigrationModal: () => void;  
+  /** 打开副本入口面板。 */
+  openDungeonPanel: () => void;
   /**
  * getInfoRadius：InfoRadiu相关字段。
  */
@@ -190,6 +192,12 @@ export function createMainActionStateSource(options: MainActionStateSourceOption
         options.cancelTargeting();
         options.hideObserveModal();
         options.openBuildingPanel();
+        return;
+      }
+      if (actionId === 'dungeon:open') {
+        options.cancelTargeting();
+        options.hideObserveModal();
+        options.openDungeonPanel();
         return;
       }
       if (actionId === 'transmission:open') {

@@ -189,6 +189,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
       sendAction: (actionId, target) => runtimeSender.sendAction(actionId, target),
       showToast: (message, kind) => callbacks.showToast(message, kind),
     }),
+    openDungeonPanel,
     getInfoRadius: callbacks.getInfoRadius,
     getPlayer: () => rootRuntimeSource.getPlayer(),
     showToast: callbacks.showToast,

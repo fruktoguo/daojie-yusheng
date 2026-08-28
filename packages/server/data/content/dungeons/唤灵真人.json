@@ -9,7 +9,7 @@
   "entryMapTemplateId": "ruined_cavern_manor",
   "entryX": 2,
   "entryY": 9,
-  "entryExitRadius": 1,
+  "entryExitRadius": 2,
   "confirmationTimeoutMs": 60000,
   "timeoutSeconds": 3600,
   "difficulty": {

@@ -202,6 +202,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     sendAction: (actionId) => runtimeSender.sendAction(actionId),
     openNpcShop: (npcId) => npcShopModal.open(npcId),
     openNpcQuestPending: (npcId) => npcQuestModal.openPending(npcId),
+    openDungeonPanel: panelContext.openDungeonPanel,
     showToast: helpers.showToast,
   });
   const senseQiTooltip = new FloatingTooltip();

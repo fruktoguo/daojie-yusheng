@@ -265,6 +265,8 @@ type MainNavigationStateSourceOptions = {
  */
 
   openNpcQuestPending: (npcId: string) => void;  
+  /** 打开副本入口面板。 */
+  openDungeonPanel: () => void;
   /**
  * showToast：showToast相关字段。
  */
@@ -587,6 +589,7 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
     const questActionId = `npc_quests:${npc.id}`;
     const shopActionId = `npc_shop:${npc.id}`;
     const talkActionId = `npc:${npc.id}`;
+    const dungeonOpenActionId = 'dungeon:open';
     const dungeonExitActionId = 'dungeon:exit';
 
     if (npc.npcQuestMarker && actionIds.has(questActionId)) {
@@ -598,6 +601,9 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
     if (actionIds.has(questActionId)) {
       return questActionId;
     }
+    if (actionIds.has(dungeonOpenActionId)) {
+      return dungeonOpenActionId;
+    }
     if (actionIds.has(talkActionId)) {
       return talkActionId;
     }
@@ -606,6 +612,11 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
     }
     return null;
   }  
+
+  function getNpcInteractionRadius(npc: Pick<MainNavigationObservedEntity, 'id'>): number {
+    return npc.id === 'npc_ruined_cavern_memory_stone' || npc.id === 'npc_dungeon_memory_stone' ? 2 : 1;
+  }
+
   /**
  * resolveNpcApproachTarget：读取NPCApproach目标并返回结果。
  * @param npc MainNavigationObservedEntity 参数说明。
@@ -1069,7 +1080,7 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
         pendingAutoInteraction = null;
         return false;
       }
-      if (!isPointInRange({ x: player.x, y: player.y }, { x: npc.wx, y: npc.wy }, 1)) {
+      if (!isPointInRange({ x: player.x, y: player.y }, { x: npc.wx, y: npc.wy }, getNpcInteractionRadius(npc))) {
         return false;
       }
       const actionId = resolveNpcInteractionActionId(npc);
@@ -1083,6 +1094,10 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       }
       if (actionId.startsWith('npc_quests:')) {
         options.sendAction(actionId);
+        return true;
+      }
+      if (actionId === 'dungeon:open') {
+        options.openDungeonPanel?.();
         return true;
       }
       options.sendAction(actionId);
@@ -1102,7 +1117,7 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       if (!player || npc.kind !== 'npc') {
         return false;
       }
-      if (isPointInRange({ x: player.x, y: player.y }, { x: npc.wx, y: npc.wy }, 1)) {
+      if (isPointInRange({ x: player.x, y: player.y }, { x: npc.wx, y: npc.wy }, getNpcInteractionRadius(npc))) {
         this.clearCurrentPath();
         const actionId = resolveNpcInteractionActionId(npc);
         if (actionId) {
@@ -1112,6 +1127,10 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
           }
           if (actionId.startsWith('npc_quests:')) {
             options.sendAction(actionId);
+            return true;
+          }
+          if (actionId === 'dungeon:open') {
+            options.openDungeonPanel?.();
             return true;
           }
           options.sendAction(actionId);

@@ -514,14 +514,6 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
         options.showToast(t('map-interaction.toast.unknown-tile'));
         return;
       }
-      if (clickedNpc?.id === 'npc_ruined_cavern_memory_stone') {
-        options.openDungeonPanel?.();
-        return;
-      }
-      if (player?.mapId === 'ruined_cavern_manor' && target.x === 2 && target.y === 9) {
-        options.openDungeonPanel?.();
-        return;
-      }
       if (clickedNpc && options.handleNpcClickTarget(clickedNpc)) {
         return;
       }

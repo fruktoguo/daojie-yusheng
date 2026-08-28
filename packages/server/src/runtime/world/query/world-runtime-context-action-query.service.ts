@@ -390,7 +390,20 @@ export class WorldRuntimeContextActionQueryService {
             }
         }
         for (const npc of view.localNpcs) {
-            if (chebyshevDistance(view.self.x, view.self.y, npc.x, npc.y) <= 1) {
+            const isDungeonEntryStone = npc.npcId === 'npc_ruined_cavern_memory_stone';
+            const isDungeonExitStone = view.instance.kind === 'dungeon' && npc.npcId === 'npc_dungeon_memory_stone';
+            const interactionRadius = isDungeonEntryStone || isDungeonExitStone ? 2 : 1;
+            if (chebyshevDistance(view.self.x, view.self.y, npc.x, npc.y) <= interactionRadius) {
+                if (isDungeonEntryStone) {
+                    actions.push({
+                        id: 'dungeon:open',
+                        name: '发起副本',
+                        type: 'interact',
+                        desc: '与忆梦石共鸣，打开副本选择界面。',
+                        cooldownLeft: 0,
+                    });
+                    continue;
+                }
                 if (view.instance.kind === 'dungeon' && npc.npcId === 'npc_dungeon_memory_stone') {
                     actions.push({
                         id: 'dungeon:exit',
