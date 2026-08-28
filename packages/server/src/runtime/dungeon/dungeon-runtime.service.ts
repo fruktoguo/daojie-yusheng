@@ -8,6 +8,7 @@ import {
   type DungeonDefinition,
   type DungeonDifficulty,
   type DungeonRunState,
+  type DungeonSettlementMember,
   type DungeonSettlementView,
   type DungeonStaminaView,
   isDungeonPresentRankAllowed,
@@ -36,6 +37,12 @@ interface PendingEntry {
   countdownStartedAt?: number;
 }
 
+interface DungeonCombatMemberStats {
+  damageDealt: number;
+  damageTaken: number;
+  healingDone: number;
+}
+
 @Injectable()
 export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DungeonRuntimeService.name);
@@ -43,6 +50,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   private readonly pending = new Map<string, PendingEntry>();
   private readonly exitedPlayers = new Map<string, Set<string>>();
   private readonly runTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly combatStatsByRunId = new Map<string, Map<string, DungeonCombatMemberStats>>();
   private readonly controllers = new Map<string, DungeonFlowController>([
     ['defense', new DefenseDungeonFlowController()],
     ['suppress_demon', new SuppressDemonDungeonFlowController()],
@@ -72,6 +80,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     this.pending.clear();
     for (const timer of this.runTimers.values()) clearTimeout(timer);
     this.runTimers.clear();
+    this.combatStatsByRunId.clear();
   }
 
   listDefinitions(): DungeonDefinition[] { return this.content.listDungeonDefinitions(); }
@@ -188,8 +197,11 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     const entry = this.content.getDungeonDefinition(run.dungeonId);
     if (!instance || !entry) return { ok: false, reason: 'instance_not_found' };
     const runtimePlayer = instance.getPlayer?.(player);
-    const dx = Number(runtimePlayer?.x ?? 9999) - Number(entry.entryX ?? 0);
-    const dy = Number(runtimePlayer?.y ?? 9999) - Number(entry.entryY ?? 0);
+    const exitStone = [...(instance.template?.npcs ?? [])].find((npc: any) => (npc?.npcId ?? npc?.id) === 'npc_dungeon_memory_stone');
+    const exitX = Number(exitStone?.x ?? entry.entryX ?? 0);
+    const exitY = Number(exitStone?.y ?? entry.entryY ?? 0);
+    const dx = Number(runtimePlayer?.x ?? 9999) - exitX;
+    const dy = Number(runtimePlayer?.y ?? 9999) - exitY;
     if (Math.max(Math.abs(dx), Math.abs(dy)) > Math.max(1, entry.entryExitRadius ?? 1)) return { ok: false, reason: 'not_at_exit' };
     await this.world.worldRuntimePlayerSessionService.connectPlayerWhenReady({ playerId: player, sessionId: this.sessions.getBinding(player)?.sessionId ?? null, instanceId: this.world.getOrCreatePublicInstance(entry.entryMapTemplateId).meta.instanceId, mapId: entry.entryMapTemplateId, preferredX: entry.entryX, preferredY: entry.entryY, allowCreateFallback: false, relocateExisting: true }, this.world as any);
     const exited = this.exitedPlayers.get(runId) ?? new Set<string>();
@@ -205,6 +217,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     const definition = this.content.getDungeonDefinition(run.dungeonId);
     const controller = definition ? this.controllers.get(definition.flowType) : null;
     const context = this.buildFlowContext();
+    this.emitRunState(run);
     if (controller?.onEntityDeath) controller.onEntityDeath(run, definition!, monsterId, 'monster', context);
     else controller?.onMonsterDefeated?.(run, definition!, monsterId, context);
   }
@@ -297,6 +310,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
       (instance.meta as any).dungeonId = run.dungeonId;
       this.activateRoom(instance, definition, run, run.currentRoomId ?? definition.rooms?.[0]?.roomId);
       run.status = 'active'; run.activatedAt = Date.now();
+      this.combatStatsByRunId.set(run.runId, new Map(run.members.map((member) => [member.playerId, { damageDealt: 0, damageTaken: 0, healingDone: 0 }])));
       this.runPersistence.save(run);
       timeoutTimer = setTimeout(() => this.expireRun(run.runId), Math.max(1, Math.trunc(definition.timeoutSeconds ?? 3600)) * 1000);
       timeoutTimer.unref?.();
@@ -415,8 +429,26 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     run.status = 'completing'; run.completedAt = Date.now(); run.completionId = randomUUID(); run.settlementId = randomUUID();
     this.runPersistence.save(run);
     const definition = this.content.getDungeonDefinition(run.dungeonId);
-    const rewardClaimed = definition ? this.rewards.claim(run, definition) : false;
-    const settlement: DungeonSettlementView = { runId: run.runId, dungeonId: run.dungeonId, status: 'completed', completionId: run.completionId, rewardTableId: definition?.rewards.rewardTableId, rewardClaimed, difficulty: run.difficulty, effectiveStep: run.effectiveStep, completedAt: run.completedAt };
+    const rewardResult = definition ? this.rewards.claim(run, definition) : { claimed: false, rewardsByPlayer: new Map<string, Array<{ itemId: string; count: number }>>() };
+    const stats = this.combatStatsByRunId.get(run.runId) ?? new Map();
+    const settlementMembers: DungeonSettlementMember[] = run.members.map((member) => {
+      const player = this.players.getPlayer(member.playerId) as any;
+      const current = stats.get(member.playerId) ?? { damageDealt: 0, damageTaken: 0, healingDone: 0 };
+      return {
+        playerId: member.playerId,
+        ...(member.playerNo === undefined ? {} : { playerNo: member.playerNo }),
+        name: String(player?.name ?? member.name ?? member.playerId),
+        ...(player?.displayName ? { displayName: String(player.displayName) } : {}),
+        ...(player?.realmName ? { realmName: String(player.realmName) } : {}),
+        ...(player?.realmStage ? { realmStage: String(player.realmStage) } : {}),
+        damageDealt: Math.max(0, Math.round(current.damageDealt)),
+        damageTaken: Math.max(0, Math.round(current.damageTaken)),
+        healingDone: Math.max(0, Math.round(current.healingDone)),
+        rewards: rewardResult.rewardsByPlayer.get(member.playerId) ?? [],
+      };
+    });
+    const rewardClaimed = rewardResult.claimed;
+    const settlement: DungeonSettlementView = { runId: run.runId, dungeonId: run.dungeonId, dungeonName: definition?.name, status: 'completed', completionId: run.completionId, rewardTableId: definition?.rewards.rewardTableId, rewardClaimed, difficulty: run.difficulty, effectiveStep: run.effectiveStep, completedAt: run.completedAt, members: settlementMembers };
     for (const member of run.members) this.emit(member.playerId, S2C.DungeonSettlement, { settlement });
     const instance = this.world.getInstanceRuntime(run.mapInstanceId) as any;
     for (const monster of [...(instance?.monstersByRuntimeId?.values?.() ?? [])]) instance.removeRuntimeMonster?.(monster.runtimeId);
@@ -466,6 +498,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     this.runPersistence.save(run);
     await this.world.destroyEmptyManagedInstance(run.mapInstanceId, 'dungeon_completed').catch((error) => this.logger.warn(`副本实例销毁失败 ${run.mapInstanceId}: ${error instanceof Error ? error.message : String(error)}`));
     this.runs.delete(run.runId);
+    this.combatStatsByRunId.delete(run.runId);
     this.exitedPlayers.delete(run.runId);
     this.runTimers.delete(run.runId);
   }
@@ -512,7 +545,9 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
       return {
         playerId: member.playerId,
         ...(member.playerNo === undefined ? {} : { playerNo: member.playerNo }),
-        name: Array.from(String(player?.name ?? member.name ?? member.playerId))[0] ?? '无',
+        name: String(player?.name ?? member.name ?? member.playerId),
+        ...(player?.displayName ? { displayName: String(player.displayName) } : {}),
+        ...(resolvePlayerImageUrl(player) ? { imageUrl: resolvePlayerImageUrl(player) } : {}),
         ...(player?.realmName ? { realmName: player.realmName } : {}),
         ...(player?.realmStage ? { realmStage: player.realmStage } : {}),
         ready: pending.confirmations.get(member.playerId) === true,
@@ -552,15 +587,48 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
       return Boolean(room?.bossId && monster.monsterId === room.bossId);
     });
     const roomProgress = rooms.length > 0
-      ? ((roomIndex + (boss && Number(boss.maxHp) > 0 ? 1 - Math.max(0, Number(boss.hp)) / Number(boss.maxHp) : 0)) / rooms.length) * 100
+      ? ((roomIndex + (boss && Number(boss.maxHp) > 0
+        ? 1 - Math.max(0, Number(boss.hp)) / Number(boss.maxHp)
+        : (run.bossProgress && rooms[roomIndex]?.bossId ? 1 : 0))) / rooms.length) * 100
       : (waves.length > 0 ? (Math.min(waves.length, Number(run.currentWaveIndex ?? 0)) / waves.length) * 100 : 0);
     run.progressPercent = Math.max(0, Math.min(100, Math.round(roomProgress)));
     if (boss) {
       run.bossProgress = { name: String(boss.name ?? boss.monsterId ?? '守关者'), hp: Math.max(0, Number(boss.hp) || 0), maxHp: Math.max(1, Number(boss.maxHp) || 1) };
+    } else if (run.bossProgress && rooms[roomIndex]?.bossId) {
+      run.bossProgress = { ...run.bossProgress, hp: 0 };
     } else {
       delete run.bossProgress;
     }
   }
+
+  recordCombatOutcome(outcome: any): void {
+    const instanceId = String(outcome?.instanceId ?? '').trim();
+    if (!instanceId.startsWith('dungeon:')) return;
+    const run = [...this.runs.values()].find((entry) => entry.mapInstanceId === instanceId && ['active', 'completing'].includes(entry.status));
+    if (!run) return;
+    const stats = this.combatStatsByRunId.get(run.runId);
+    if (!stats) return;
+    const actor = outcome?.actor;
+    const target = outcome?.target;
+    const result = outcome?.result ?? {};
+    const amount = Math.max(0, Math.round(Number(result.appliedDamage ?? result.damage ?? result.totalDamage) || 0));
+    const heal = Math.max(0, Math.round(Number(result.appliedHealing ?? result.heal ?? result.healing ?? result.totalHeal) || 0));
+    if (actor?.kind === 'player' && stats.has(actor.id)) {
+      const current = stats.get(actor.id)!;
+      if (target?.kind === 'monster' && amount > 0) current.damageDealt += amount;
+      if (heal > 0) current.healingDone += heal;
+    }
+    if (target?.kind === 'player' && stats.has(target.id) && actor?.kind === 'monster' && amount > 0) {
+      stats.get(target.id)!.damageTaken += amount;
+    }
+  }
+}
+
+function resolvePlayerImageUrl(player: any): string | undefined {
+  const candidate = [player?.imageUrl, player?.avatarUrl, player?.portraitUrl].find((value) => typeof value === 'string' && value.trim().length > 0);
+  if (!candidate) return undefined;
+  const value = candidate.trim();
+  return /^(https?:\/\/|\/|data:image\/)/i.test(value) ? value : undefined;
 }
 
 function isDungeonInstanceCandidate(instanceId: string | undefined, instance: any): boolean {

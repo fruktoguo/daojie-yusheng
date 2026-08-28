@@ -183,6 +183,7 @@ export type DungeonFlowEvent =
 export interface DungeonSettlementView {
   runId: string;
   dungeonId: string;
+  dungeonName?: string;
   status: 'completed' | 'failed' | 'aborted' | 'expired';
   completionId: string;
   rewardTableId?: string;
@@ -190,6 +191,21 @@ export interface DungeonSettlementView {
   difficulty: DungeonDifficultySelection;
   effectiveStep: number;
   completedAt: number;
+  members: DungeonSettlementMember[];
+}
+
+export interface DungeonSettlementMember {
+  playerId: string;
+  playerNo?: number;
+  name: string;
+  displayName?: string;
+  imageUrl?: string;
+  realmName?: string;
+  realmStage?: string;
+  damageDealt: number;
+  damageTaken: number;
+  healingDone: number;
+  rewards: Array<{ itemId: string; count: number }>;
 }
 
 export interface DungeonStaminaView {
@@ -215,6 +231,8 @@ export interface DungeonEntryPreparationMember {
   name: string;
   realmName?: string;
   realmStage?: string;
+  displayName?: string;
+  imageUrl?: string;
   ready: boolean;
 }
 export interface C2S_ExitDungeon { runId?: string; }

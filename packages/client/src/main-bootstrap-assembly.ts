@@ -71,6 +71,8 @@ import {
   RESPONSIVE_VIEWPORT_CHANGE_EVENT,
   bindResponsiveViewportCss,
 } from './ui/responsive-viewport';
+import { formatDisplayInteger } from './utils/number';
+import { resolveClientItemBaseName } from './content/item-display-name';
 import type { SocketAdminSender } from './network/socket-send-admin';
 import type { SocketBuildingSender } from './network/socket-send-building';
 import type { SocketPanelSender } from './network/socket-send-panel';
@@ -631,14 +633,18 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
   options.socket.on(S2C.DungeonEntryPrompt, (prompt) => {
     const ownerId = `dungeon-entry:${prompt.runId}`;
     const escape = (value: unknown): string => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    const difficultyLabels: Record<string, string> = { trial: '试炼', hard: '困难', nightmare: '噩梦', present: '现世' };
+    const rankLabels: Record<string, string> = { mortal: '凡阶', yellow: '黄阶', mystic: '玄阶', earth: '地阶', heaven: '天阶', spirit: '灵阶', saint: '圣阶', emperor: '帝阶' };
     const currentPlayerId = options.getPlayer()?.id ?? '';
     const renderPreparation = (body: HTMLElement, signal: AbortSignal): void => {
       const members = prompt.members ?? [];
-      body.innerHTML = `<div class="dungeon-entry-preparation"><div class="confirm-summary-list"><div><span>难度</span><strong>${escape(prompt.difficulty === 'present' ? `现世 · ${prompt.presentRank}` : prompt.difficulty)}</strong></div><div><span>精力消耗</span><strong>${prompt.staminaCost}</strong></div></div><div class="dungeon-entry-members">${members.map((member) => {
-        const singleName = Array.from(member.name || '无名')[0] ?? '无';
+      body.innerHTML = `<div class="dungeon-entry-preparation"><div class="confirm-summary-list"><div><span>难度</span><strong>${escape(prompt.difficulty === 'present' ? `${difficultyLabels.present} · ${rankLabels[prompt.presentRank] ?? prompt.presentRank}` : (difficultyLabels[prompt.difficulty] ?? prompt.difficulty))}</strong></div><div><span>精力消耗</span><strong>${formatDisplayInteger(prompt.staminaCost)}</strong></div></div><div class="dungeon-entry-members">${members.map((member) => {
+        const avatarText = Array.from(member.displayName || member.name || '无名')[0] ?? '无';
         const realm = [member.realmName, member.realmStage].filter(Boolean).join(' · ') || '境界未知';
         const self = member.playerId === currentPlayerId;
-        return `<label class="dungeon-entry-member"><input type="checkbox" data-dungeon-ready="${escape(member.playerId)}" ${member.ready ? 'checked' : ''} ${self ? '' : 'disabled'} /><span class="dungeon-entry-member__name">${escape(singleName)}</span><span class="dungeon-entry-member__realm">${escape(realm)}</span><span class="dungeon-entry-member__status">${member.ready ? '已准备' : '未准备'}</span></label>`;
+        const imageUrl = typeof member.imageUrl === 'string' && /^(https?:\/\/|\/|data:image\/)/i.test(member.imageUrl) ? member.imageUrl : '';
+        const avatar = imageUrl ? `<img src="${escape(imageUrl)}" alt="${escape(member.name)}" loading="lazy" />` : `<span>${escape(avatarText)}</span>`;
+        return `<label class="dungeon-entry-member"><div class="dungeon-entry-member__avatar">${avatar}</div><div class="dungeon-entry-member__name">${escape(member.name || '无名')}</div><div class="dungeon-entry-member__realm">${escape(realm)}</div><div class="dungeon-entry-member__ready"><input type="checkbox" data-dungeon-ready="${escape(member.playerId)}" ${member.ready ? 'checked' : ''} ${self ? '' : 'disabled'} /><span class="dungeon-entry-member__status">${member.ready ? '已准备' : '未准备'}</span></div></label>`;
       }).join('')}</div><div class="dungeon-entry-preparation__status">${prompt.phase === 'countdown' && prompt.enterAt ? `全员准备，${Math.max(0, Math.ceil((prompt.enterAt - Date.now()) / 1000))} 秒后进入` : '请确认是否准备'}</div><div class="dungeon-entry-preparation__hint">准备截止：${new Date(prompt.expiresAt).toLocaleTimeString()}</div></div>`;
       body.querySelectorAll<HTMLInputElement>('input[data-dungeon-ready]').forEach((input) => {
         input.addEventListener('change', () => options.socket.emitEvent(C2S.RespondDungeonEntry, { runId: prompt.runId, confirm: input.checked }), { signal });
@@ -700,12 +706,23 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     options.showToast(labels[result.reason ?? ''] ?? '副本操作失败', 'warn');
   });
   options.socket.on(S2C.DungeonSettlement, ({ settlement }) => {
+    const escape = (value: unknown): string => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    const members = (settlement.members ?? []).map((member) => {
+      const avatarText = Array.from(member.displayName || member.name || '无名')[0] ?? '无';
+      const imageUrl = typeof member.imageUrl === 'string' && /^(https?:\/\/|\/|data:image\/)/i.test(member.imageUrl) ? member.imageUrl : '';
+      const avatar = imageUrl ? `<img src="${escape(imageUrl)}" alt="${escape(member.name)}" loading="lazy" />` : `<span>${escape(avatarText)}</span>`;
+      const realm = [member.realmName, member.realmStage].filter(Boolean).join(' · ') || '境界未知';
+      const rewards = (member.rewards ?? []).length > 0
+        ? member.rewards.map((reward) => `<li>${escape(resolveClientItemBaseName(reward.itemId))} ×${formatDisplayInteger(reward.count)}</li>`).join('')
+        : '<li>无</li>';
+      return `<article class="dungeon-settlement-member"><div class="dungeon-settlement-member__head"><div class="dungeon-settlement-member__avatar">${avatar}</div><div><strong>${escape(member.name)}</strong><span>${escape(realm)}</span></div></div><div class="dungeon-settlement-member__stats"><div><span>造成伤害</span><b>${formatDisplayInteger(member.damageDealt)}</b></div><div><span>承受伤害</span><b>${formatDisplayInteger(member.damageTaken)}</b></div><div><span>总造成回复</span><b>${formatDisplayInteger(member.healingDone)}</b></div></div><div class="dungeon-settlement-member__rewards"><span>获得物品</span><ul>${rewards}</ul></div></article>`;
+    }).join('');
     detailModalHost.open({
       ownerId: `dungeon-settlement:${settlement.runId}`,
       title: '副本结算',
-      subtitle: settlement.dungeonId,
-      size: 'sm',
-      bodyHtml: `<div class="confirm-summary-list"><div><span>结果</span><strong>通关</strong></div><div><span>完成编号</span><strong>${settlement.completionId}</strong></div><div><span>奖励</span><strong>${settlement.rewardTableId ?? '暂无'}</strong></div></div>`,
+      subtitle: settlement.dungeonName ?? '副本',
+      size: 'lg',
+      bodyHtml: `<div class="confirm-summary-list"><div><span>结果</span><strong>通关</strong></div><div><span>完成编号</span><strong>${escape(settlement.completionId)}</strong></div></div><div class="dungeon-settlement-members">${members || '<div class="dungeon-settlement-empty">暂无队伍统计</div>'}</div>`,
     });
   });
   options.socket.on(S2C.DungeonCatalog, (catalog) => {

@@ -676,6 +676,11 @@ export class WorldRuntimeService {
         this.combatDiagnostics.push(entry);
         if (this.combatDiagnostics.length > 200) this.combatDiagnostics.splice(0, this.combatDiagnostics.length - 200);
     }
+    recordCombatOutcome(entry) {
+        if (!entry) return;
+        this.dungeonRuntimeService?.recordCombatOutcome?.(entry);
+        this.recordCombatDiagnostic(entry);
+    }
     listCombatDiagnostics(limit = 50) {
         const safeLimit = Math.max(1, Math.min(200, Math.trunc(Number(limit) || 50)));
         return this.combatDiagnostics.slice(-safeLimit);

@@ -1,4 +1,5 @@
 import { C2S, S2C, type DungeonRunState, type DungeonSettlementView, type S2C_DungeonCatalog } from '@mud/shared';
+import { formatDisplayInteger } from '../utils/number';
 
 type DungeonSocket = { on(event: string, listener: (payload: any) => void): unknown; emitEvent?: (event: any, payload: any) => unknown };
 
@@ -77,7 +78,7 @@ export class DungeonFloatingPanel {
     this.root.hidden = false;
     this.root.dataset.runId = settlement.runId;
     this.exitButton.hidden = false;
-    this.title.textContent = this.dungeonNames.get(settlement.dungeonId) ?? settlement.dungeonId;
+    this.title.textContent = settlement.dungeonName ?? this.dungeonNames.get(settlement.dungeonId) ?? settlement.dungeonId;
     this.target.textContent = settlement.status === 'completed' ? '目标：通关' : '目标：副本结束';
     this.updateProgress(settlement.status === 'completed' ? 100 : 0);
     this.updateBoss(undefined);
@@ -96,7 +97,7 @@ export class DungeonFloatingPanel {
     this.boss.hidden = !value;
     if (!value) return;
     this.bossName.textContent = value.name;
-    this.bossHp.textContent = `${Math.ceil(hp)} / ${Math.ceil(maxHp)}`;
+    this.bossHp.textContent = `${formatDisplayInteger(Math.ceil(hp))} / ${formatDisplayInteger(Math.ceil(maxHp))}`;
     this.bossFill.style.width = `${Math.round((hp / maxHp) * 100)}%`;
   }
 
