@@ -37,9 +37,20 @@ export interface DungeonDifficultySelection {
 }
 
 export interface DungeonDifficultyAttributeRule {
-  allAttributeMultiplierBase: number;
-  hpMultiplierBase: number;
-  difficultyStep: number;
+  /** 普通难度全属性步进底数，默认 1.4 (试炼 1.0, 困难 1.4, 噩梦 1.96) */
+  standardAllAttributeMultiplierBase?: number;
+  /** 普通难度生命额外翻倍底数，默认 2.0 (试炼 1.0, 困难 2.0, 噩梦 4.0) */
+  standardHpMultiplierBase?: number;
+  /** 现世难度全属性步进底数，默认 1.2 (凡 1.0, 黄 1.2, 玄 1.44, 地 1.728, 天 2.0736, 灵 2.48832) */
+  presentAllAttributeMultiplierBase?: number;
+  /** 现世难度凡阶基础生命额外倍率，默认 10.0 */
+  presentHpBaseMultiplier?: number;
+  /** 现世难度每阶生命翻倍底数，默认 2.0 (凡 10, 黄 20, 玄 40, 地 80, 天 160, 灵 320) */
+  presentHpRankStepMultiplierBase?: number;
+  /** 向后兼容字段 */
+  allAttributeMultiplierBase?: number;
+  hpMultiplierBase?: number;
+  difficultyStep?: number;
   presentRankStep?: Partial<Record<TechniqueGrade, number>>;
 }
 
@@ -261,19 +272,54 @@ export function resolveDungeonEffectiveStep(
       : 0);
 }
 
+export interface DungeonAttributeMultipliersResult {
+  baselineSource: 'standard' | 'peak';
+  effectiveStep: number;
+  allAttributeMultiplier: number;
+  hpMultiplier: number;
+  difficultyStep: number;
+  rankStep?: number;
+}
+
 export function resolveDungeonAttributeMultipliers(
   selection: DungeonDifficultySelection,
   maxPresentRank: TechniqueGrade,
-  rule: DungeonDifficultyAttributeRule = {
-    allAttributeMultiplierBase: 1.2,
-    hpMultiplierBase: 2,
-    difficultyStep: 0,
-  },
-): { effectiveStep: number; allAttributeMultiplier: number; hpMultiplier: number } {
+  rule: DungeonDifficultyAttributeRule = {},
+): DungeonAttributeMultipliersResult {
   const effectiveStep = resolveDungeonEffectiveStep(selection, maxPresentRank);
-  const allAttributeMultiplier = Math.pow(rule.allAttributeMultiplierBase, effectiveStep);
-  const hpMultiplier = allAttributeMultiplier * Math.pow(rule.hpMultiplierBase, effectiveStep);
-  return { effectiveStep, allAttributeMultiplier, hpMultiplier };
+  const diffStep = getDungeonDifficultyStep(selection.difficulty);
+
+  if (selection.difficulty !== 'present') {
+    const allBase = rule.standardAllAttributeMultiplierBase ?? 1.4;
+    const hpBase = rule.standardHpMultiplierBase ?? 2.0;
+    const allAttributeMultiplier = Math.pow(allBase, diffStep);
+    const hpMultiplier = allAttributeMultiplier * Math.pow(hpBase, diffStep);
+    return {
+      baselineSource: 'standard',
+      effectiveStep,
+      difficultyStep: diffStep,
+      allAttributeMultiplier,
+      hpMultiplier,
+    };
+  }
+
+  const rank = selection.presentRank ?? 'mortal';
+  const rankStep = getDungeonPresentRankStep(rank);
+  const allBase = rule.presentAllAttributeMultiplierBase ?? 1.2;
+  const hpBaseExtra = rule.presentHpBaseMultiplier ?? 10.0;
+  const hpRankBase = rule.presentHpRankStepMultiplierBase ?? 2.0;
+
+  const allAttributeMultiplier = Math.pow(allBase, rankStep);
+  const hpMultiplier = allAttributeMultiplier * (hpBaseExtra * Math.pow(hpRankBase, rankStep));
+
+  return {
+    baselineSource: 'peak',
+    effectiveStep,
+    difficultyStep: diffStep,
+    rankStep,
+    allAttributeMultiplier,
+    hpMultiplier,
+  };
 }
 
 export function resolveDungeonStaminaCost(

@@ -21,9 +21,11 @@
       "present": 24
     },
     "attributeRule": {
-      "allAttributeMultiplierBase": 1.2,
-      "hpMultiplierBase": 2,
-      "difficultyStep": 0
+      "standardAllAttributeMultiplierBase": 1.4,
+      "standardHpMultiplierBase": 2,
+      "presentAllAttributeMultiplierBase": 1.2,
+      "presentHpBaseMultiplier": 10,
+      "presentHpRankStepMultiplierBase": 2
     }
   },
   "rooms": [

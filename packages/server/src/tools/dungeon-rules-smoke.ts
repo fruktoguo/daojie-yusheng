@@ -13,8 +13,14 @@ assert.equal(resolveDungeonStaminaCost('trial', { maxPresentRank: maxRank, energ
 assert.deepEqual(resolveRecoveredStamina(0, 0, 3 * 60 * 60 * 1000), { current: 3, updatedAt: 3 * 60 * 60 * 1000, recovered: 3, nextRecoveryAt: 4 * 60 * 60 * 1000 });
 assert.equal(resolveDungeonEffectiveStep({ difficulty: 'present', presentRank: 'spirit' as any }, maxRank), 8);
 const multipliers = resolveDungeonAttributeMultipliers({ difficulty: 'nightmare' }, maxRank);
-assert.equal(Number(multipliers.allAttributeMultiplier.toFixed(8)), Number((1.2 ** 2).toFixed(8)));
-assert.equal(Number(multipliers.hpMultiplier.toFixed(8)), Number((1.2 ** 2 * 2 ** 2).toFixed(8)));
+assert.equal(multipliers.baselineSource, 'standard');
+assert.equal(Number(multipliers.allAttributeMultiplier.toFixed(8)), Number((1.4 ** 2).toFixed(8)));
+assert.equal(Number(multipliers.hpMultiplier.toFixed(8)), Number((1.4 ** 2 * 2 ** 2).toFixed(8)));
+
+const presentMultipliers = resolveDungeonAttributeMultipliers({ difficulty: 'present', presentRank: 'spirit' as any }, maxRank);
+assert.equal(presentMultipliers.baselineSource, 'peak');
+assert.equal(Number(presentMultipliers.allAttributeMultiplier.toFixed(8)), Number((1.2 ** 5).toFixed(8)));
+assert.equal(Number(presentMultipliers.hpMultiplier.toFixed(8)), Number((1.2 ** 5 * (10 * 2 ** 5)).toFixed(8)));
 
 const registry = new DungeonTemplateRegistry();
 registry.loadAll();
