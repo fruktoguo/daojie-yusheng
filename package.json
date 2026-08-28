@@ -59,6 +59,7 @@
     "audit:boundaries": "pnpm --filter @mud/server audit:boundaries",
     "report:alchemy-material-power": "node scripts/report-alchemy-material-power.mjs",
     "report:realm-baseline-attrs": "node scripts/generate-realm-baseline-attrs.mjs",
+    "report:realm-peak-baseline-attrs": "node scripts/generate-realm-peak-baseline-attrs.mjs",
     "report:player-final-attr-baselines": "node scripts/generate-player-final-attr-baselines.mjs"
   },
   "engines": {

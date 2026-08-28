@@ -1,0 +1,786 @@
+{
+  "version": 1,
+  "description": "各个境界等级的极限数值基准配置 (含万法归元独立乘区与极限强化)",
+  "levels": [
+    {
+      "realmLv": 1,
+      "realmName": "凡胎",
+      "singleAttr": 517.65,
+      "singleBaseStatValue": 11.22,
+      "maxHp": 1326,
+      "attack": 243,
+      "enhanceLevel": 1,
+      "wanfaPercent": 20
+    },
+    {
+      "realmLv": 2,
+      "realmName": "炼皮",
+      "singleAttr": 644.37,
+      "singleBaseStatValue": 13.07,
+      "maxHp": 1827,
+      "attack": 359,
+      "enhanceLevel": 2,
+      "wanfaPercent": 24.71
+    },
+    {
+      "realmLv": 3,
+      "realmName": "锻骨",
+      "singleAttr": 791.15,
+      "singleBaseStatValue": 13.79,
+      "maxHp": 2457,
+      "attack": 496,
+      "enhanceLevel": 2,
+      "wanfaPercent": 29.42
+    },
+    {
+      "realmLv": 4,
+      "realmName": "易筋",
+      "singleAttr": 961.57,
+      "singleBaseStatValue": 15.97,
+      "maxHp": 3338,
+      "attack": 723,
+      "enhanceLevel": 3,
+      "wanfaPercent": 34.13
+    },
+    {
+      "realmLv": 5,
+      "realmName": "洗髓",
+      "singleAttr": 1159.72,
+      "singleBaseStatValue": 18.45,
+      "maxHp": 4523,
+      "attack": 1053,
+      "enhanceLevel": 4,
+      "wanfaPercent": 38.84
+    },
+    {
+      "realmLv": 6,
+      "realmName": "养气",
+      "singleAttr": 1399.74,
+      "singleBaseStatValue": 19.33,
+      "maxHp": 6957,
+      "attack": 1505,
+      "enhanceLevel": 4,
+      "wanfaPercent": 43.55
+    },
+    {
+      "realmLv": 7,
+      "realmName": "通脉",
+      "singleAttr": 1668.71,
+      "singleBaseStatValue": 22.23,
+      "maxHp": 9338,
+      "attack": 2165,
+      "enhanceLevel": 5,
+      "wanfaPercent": 48.26
+    },
+    {
+      "realmLv": 8,
+      "realmName": "瑶光",
+      "singleAttr": 1981.11,
+      "singleBaseStatValue": 25.51,
+      "maxHp": 12528,
+      "attack": 3114,
+      "enhanceLevel": 6,
+      "wanfaPercent": 52.97
+    },
+    {
+      "realmLv": 9,
+      "realmName": "开阳",
+      "singleAttr": 2912.53,
+      "singleBaseStatValue": 44.29,
+      "maxHp": 26219,
+      "attack": 7929,
+      "enhanceLevel": 6,
+      "wanfaPercent": 57.68
+    },
+    {
+      "realmLv": 10,
+      "realmName": "玉衡",
+      "singleAttr": 4005.28,
+      "singleBaseStatValue": 50.67,
+      "maxHp": 41308,
+      "attack": 13342,
+      "enhanceLevel": 7,
+      "wanfaPercent": 62.4
+    },
+    {
+      "realmLv": 11,
+      "realmName": "天权",
+      "singleAttr": 5298.57,
+      "singleBaseStatValue": 52.62,
+      "maxHp": 60742,
+      "attack": 19979,
+      "enhanceLevel": 7,
+      "wanfaPercent": 67.11
+    },
+    {
+      "realmLv": 12,
+      "realmName": "天玑",
+      "singleAttr": 6852.79,
+      "singleBaseStatValue": 60.02,
+      "maxHp": 98484,
+      "attack": 32308,
+      "enhanceLevel": 8,
+      "wanfaPercent": 71.82
+    },
+    {
+      "realmLv": 13,
+      "realmName": "天璇",
+      "singleAttr": 8645.4,
+      "singleBaseStatValue": 68.38,
+      "maxHp": 143311,
+      "attack": 50016,
+      "enhanceLevel": 9,
+      "wanfaPercent": 76.53
+    },
+    {
+      "realmLv": 14,
+      "realmName": "天枢",
+      "singleAttr": 10740.37,
+      "singleBaseStatValue": 70.74,
+      "maxHp": 198257,
+      "attack": 70293,
+      "enhanceLevel": 9,
+      "wanfaPercent": 81.24
+    },
+    {
+      "realmLv": 15,
+      "realmName": "宗师",
+      "singleAttr": 13178.14,
+      "singleBaseStatValue": 80.41,
+      "maxHp": 281921,
+      "attack": 105960,
+      "enhanceLevel": 10,
+      "wanfaPercent": 85.95
+    },
+    {
+      "realmLv": 16,
+      "realmName": "大宗师",
+      "singleAttr": 16060.82,
+      "singleBaseStatValue": 91.3,
+      "maxHp": 426607,
+      "attack": 161510,
+      "enhanceLevel": 11,
+      "wanfaPercent": 90.66
+    },
+    {
+      "realmLv": 17,
+      "realmName": "临渊",
+      "singleAttr": 19325.99,
+      "singleBaseStatValue": 94.15,
+      "maxHp": 571995,
+      "attack": 219510,
+      "enhanceLevel": 11,
+      "wanfaPercent": 95.37
+    },
+    {
+      "realmLv": 18,
+      "realmName": "叩仙门",
+      "singleAttr": 23077.79,
+      "singleBaseStatValue": 106.71,
+      "maxHp": 795051,
+      "attack": 321968,
+      "enhanceLevel": 12,
+      "wanfaPercent": 100.08
+    },
+    {
+      "realmLv": 19,
+      "realmName": "练气一层",
+      "singleAttr": 27876.92,
+      "singleBaseStatValue": 157.08,
+      "maxHp": 1414887,
+      "attack": 621520,
+      "enhanceLevel": 13,
+      "wanfaPercent": 107.49
+    },
+    {
+      "realmLv": 20,
+      "realmName": "练气二层",
+      "singleAttr": 33300.5,
+      "singleBaseStatValue": 161.57,
+      "maxHp": 1886095,
+      "attack": 837500,
+      "enhanceLevel": 13,
+      "wanfaPercent": 114.9
+    },
+    {
+      "realmLv": 21,
+      "realmName": "练气三层",
+      "singleAttr": 39528.38,
+      "singleBaseStatValue": 182.66,
+      "maxHp": 2630628,
+      "attack": 1222462,
+      "enhanceLevel": 14,
+      "wanfaPercent": 122.31
+    },
+    {
+      "realmLv": 22,
+      "realmName": "练气四层",
+      "singleAttr": 46650.02,
+      "singleBaseStatValue": 187.6,
+      "maxHp": 3465558,
+      "attack": 1625912,
+      "enhanceLevel": 14,
+      "wanfaPercent": 129.72
+    },
+    {
+      "realmLv": 23,
+      "realmName": "练气五层",
+      "singleAttr": 55018.65,
+      "singleBaseStatValue": 211.79,
+      "maxHp": 5268830,
+      "attack": 2403237,
+      "enhanceLevel": 15,
+      "wanfaPercent": 137.13
+    },
+    {
+      "realmLv": 24,
+      "realmName": "练气六层",
+      "singleAttr": 64250.03,
+      "singleBaseStatValue": 217.22,
+      "maxHp": 6861071,
+      "attack": 3158623,
+      "enhanceLevel": 15,
+      "wanfaPercent": 144.54
+    },
+    {
+      "realmLv": 25,
+      "realmName": "练气七层",
+      "singleAttr": 74686.17,
+      "singleBaseStatValue": 244.91,
+      "maxHp": 9383732,
+      "attack": 4507315,
+      "enhanceLevel": 16,
+      "wanfaPercent": 151.95
+    },
+    {
+      "realmLv": 26,
+      "realmName": "练气八层",
+      "singleAttr": 86444.33,
+      "singleBaseStatValue": 250.89,
+      "maxHp": 12114009,
+      "attack": 5866844,
+      "enhanceLevel": 16,
+      "wanfaPercent": 159.36
+    },
+    {
+      "realmLv": 27,
+      "realmName": "练气九层",
+      "singleAttr": 100127.87,
+      "singleBaseStatValue": 282.54,
+      "maxHp": 17761429,
+      "attack": 8463265,
+      "enhanceLevel": 17,
+      "wanfaPercent": 166.77
+    },
+    {
+      "realmLv": 28,
+      "realmName": "练气巅峰",
+      "singleAttr": 114959.12,
+      "singleBaseStatValue": 289.12,
+      "maxHp": 22727311,
+      "attack": 10915736,
+      "enhanceLevel": 17,
+      "wanfaPercent": 174.18
+    },
+    {
+      "realmLv": 29,
+      "realmName": "练气大圆满",
+      "singleAttr": 131513.63,
+      "singleBaseStatValue": 325.26,
+      "maxHp": 30655566,
+      "attack": 15312683,
+      "enhanceLevel": 18,
+      "wanfaPercent": 181.59
+    },
+    {
+      "realmLv": 30,
+      "realmName": "半步筑基",
+      "singleAttr": 149940.16,
+      "singleBaseStatValue": 332.48,
+      "maxHp": 38959955,
+      "attack": 19598621,
+      "enhanceLevel": 18,
+      "wanfaPercent": 189
+    },
+    {
+      "realmLv": 31,
+      "realmName": "筑基一层",
+      "singleAttr": 179598.9,
+      "singleBaseStatValue": 444.24,
+      "maxHp": 66855535,
+      "attack": 34411768,
+      "enhanceLevel": 18,
+      "wanfaPercent": 200.03
+    },
+    {
+      "realmLv": 32,
+      "realmName": "筑基二层",
+      "singleAttr": 212788.14,
+      "singleBaseStatValue": 499.06,
+      "maxHp": 93846198,
+      "attack": 49997137,
+      "enhanceLevel": 19,
+      "wanfaPercent": 211.06
+    },
+    {
+      "realmLv": 33,
+      "realmName": "筑基三层",
+      "singleAttr": 250368.26,
+      "singleBaseStatValue": 509.46,
+      "maxHp": 123107103,
+      "attack": 65971820,
+      "enhanceLevel": 19,
+      "wanfaPercent": 222.09
+    },
+    {
+      "realmLv": 34,
+      "realmName": "筑基四层",
+      "singleAttr": 292748.14,
+      "singleBaseStatValue": 571.84,
+      "maxHp": 171061944,
+      "attack": 94607308,
+      "enhanceLevel": 20,
+      "wanfaPercent": 233.12
+    },
+    {
+      "realmLv": 35,
+      "realmName": "筑基五层",
+      "singleAttr": 341445.71,
+      "singleBaseStatValue": 583.27,
+      "maxHp": 236416311,
+      "attack": 125067242,
+      "enhanceLevel": 20,
+      "wanfaPercent": 244.15
+    },
+    {
+      "realmLv": 36,
+      "realmName": "筑基六层",
+      "singleAttr": 394852.12,
+      "singleBaseStatValue": 654.18,
+      "maxHp": 324335765,
+      "attack": 177188155,
+      "enhanceLevel": 21,
+      "wanfaPercent": 255.18
+    },
+    {
+      "realmLv": 37,
+      "realmName": "筑基七层",
+      "singleAttr": 454440.73,
+      "singleBaseStatValue": 666.76,
+      "maxHp": 415906389,
+      "attack": 228382613,
+      "enhanceLevel": 21,
+      "wanfaPercent": 266.21
+    },
+    {
+      "realmLv": 38,
+      "realmName": "筑基八层",
+      "singleAttr": 520722.12,
+      "singleBaseStatValue": 679.34,
+      "maxHp": 530900187,
+      "attack": 292981971,
+      "enhanceLevel": 21,
+      "wanfaPercent": 277.24
+    },
+    {
+      "realmLv": 39,
+      "realmName": "筑基九层",
+      "singleAttr": 596387.47,
+      "singleBaseStatValue": 761.12,
+      "maxHp": 768188423,
+      "attack": 414857149,
+      "enhanceLevel": 22,
+      "wanfaPercent": 288.27
+    },
+    {
+      "realmLv": 40,
+      "realmName": "筑基巅峰",
+      "singleAttr": 677881.73,
+      "singleBaseStatValue": 774.95,
+      "maxHp": 972044910,
+      "attack": 527573321,
+      "enhanceLevel": 22,
+      "wanfaPercent": 299.3
+    },
+    {
+      "realmLv": 41,
+      "realmName": "筑基大圆满",
+      "singleAttr": 767777.64,
+      "singleBaseStatValue": 867.67,
+      "maxHp": 1307697155,
+      "attack": 731391784,
+      "enhanceLevel": 23,
+      "wanfaPercent": 310.33
+    },
+    {
+      "realmLv": 42,
+      "realmName": "半步金丹",
+      "singleAttr": 866698.62,
+      "singleBaseStatValue": 882.89,
+      "maxHp": 1643493679,
+      "attack": 923288335,
+      "enhanceLevel": 23,
+      "wanfaPercent": 321.36
+    },
+    {
+      "realmLv": 43,
+      "realmName": "金丹一层",
+      "singleAttr": 1029465.72,
+      "singleBaseStatValue": 1188.68,
+      "maxHp": 2822415986,
+      "attack": 1615837789,
+      "enhanceLevel": 23,
+      "wanfaPercent": 337.91
+    },
+    {
+      "realmLv": 44,
+      "realmName": "金丹二层",
+      "singleAttr": 1209035.7,
+      "singleBaseStatValue": 1208.83,
+      "maxHp": 3690200376,
+      "attack": 2121193474,
+      "enhanceLevel": 23,
+      "wanfaPercent": 354.47
+    },
+    {
+      "realmLv": 45,
+      "realmName": "金丹三层",
+      "singleAttr": 1410118.32,
+      "singleBaseStatValue": 1351.88,
+      "maxHp": 5135306670,
+      "attack": 3028797617,
+      "enhanceLevel": 24,
+      "wanfaPercent": 371.02
+    },
+    {
+      "realmLv": 46,
+      "realmName": "金丹四层",
+      "singleAttr": 1634452.82,
+      "singleBaseStatValue": 1374.04,
+      "maxHp": 6626684965,
+      "attack": 3922420576,
+      "enhanceLevel": 24,
+      "wanfaPercent": 387.57
+    },
+    {
+      "realmLv": 47,
+      "realmName": "金丹五层",
+      "singleAttr": 1890000.3,
+      "singleBaseStatValue": 1396.2,
+      "maxHp": 9014705845,
+      "attack": 5108918923,
+      "enhanceLevel": 24,
+      "wanfaPercent": 404.13
+    },
+    {
+      "realmLv": 48,
+      "realmName": "金丹六层",
+      "singleAttr": 2166925.89,
+      "singleBaseStatValue": 1418.36,
+      "maxHp": 11496139240,
+      "attack": 6540631191,
+      "enhanceLevel": 24,
+      "wanfaPercent": 420.68
+    },
+    {
+      "realmLv": 49,
+      "realmName": "金丹七层",
+      "singleAttr": 2472884.78,
+      "singleBaseStatValue": 1440.52,
+      "maxHp": 14590738521,
+      "attack": 8332816548,
+      "enhanceLevel": 24,
+      "wanfaPercent": 437.23
+    },
+    {
+      "realmLv": 50,
+      "realmName": "金丹八层",
+      "singleAttr": 2809979.17,
+      "singleBaseStatValue": 1462.69,
+      "maxHp": 18436998042,
+      "attack": 10568418797,
+      "enhanceLevel": 24,
+      "wanfaPercent": 453.79
+    },
+    {
+      "realmLv": 51,
+      "realmName": "金丹九层",
+      "singleAttr": 3190745.39,
+      "singleBaseStatValue": 1633.33,
+      "maxHp": 26444639723,
+      "attack": 14801753275,
+      "enhanceLevel": 25,
+      "wanfaPercent": 470.34
+    },
+    {
+      "realmLv": 52,
+      "realmName": "金丹巅峰",
+      "singleAttr": 3597603.04,
+      "singleBaseStatValue": 1657.71,
+      "maxHp": 33138005126,
+      "attack": 18618513456,
+      "enhanceLevel": 25,
+      "wanfaPercent": 486.89
+    },
+    {
+      "realmLv": 53,
+      "realmName": "金丹大圆满",
+      "singleAttr": 4042529.32,
+      "singleBaseStatValue": 1682.09,
+      "maxHp": 41379797769,
+      "attack": 23335160070,
+      "enhanceLevel": 25,
+      "wanfaPercent": 503.45
+    },
+    {
+      "realmLv": 54,
+      "realmName": "半步元婴",
+      "singleAttr": 4528022.69,
+      "singleBaseStatValue": 1706.47,
+      "maxHp": 51501656961,
+      "attack": 29148046300,
+      "enhanceLevel": 25,
+      "wanfaPercent": 520
+    },
+    {
+      "realmLv": 55,
+      "realmName": "元婴一层",
+      "singleAttr": 5034416.16,
+      "singleBaseStatValue": 2307.79,
+      "maxHp": 82404211106,
+      "attack": 48005257734,
+      "enhanceLevel": 25,
+      "wanfaPercent": 533.75
+    },
+    {
+      "realmLv": 56,
+      "realmName": "元婴二层",
+      "singleAttr": 5582883.76,
+      "singleBaseStatValue": 2340.3,
+      "maxHp": 101548937323,
+      "attack": 59347670091,
+      "enhanceLevel": 25,
+      "wanfaPercent": 547.5
+    },
+    {
+      "realmLv": 57,
+      "realmName": "元婴三层",
+      "singleAttr": 6175912.03,
+      "singleBaseStatValue": 2610.08,
+      "maxHp": 133964389814,
+      "attack": 80186494248,
+      "enhanceLevel": 26,
+      "wanfaPercent": 561.25
+    },
+    {
+      "realmLv": 58,
+      "realmName": "元婴四层",
+      "singleAttr": 6816081.45,
+      "singleBaseStatValue": 2645.84,
+      "maxHp": 164308045047,
+      "attack": 98630320190,
+      "enhanceLevel": 26,
+      "wanfaPercent": 575
+    },
+    {
+      "realmLv": 59,
+      "realmName": "元婴五层",
+      "singleAttr": 7506068.12,
+      "singleBaseStatValue": 2681.59,
+      "maxHp": 201060788625,
+      "attack": 121029251166,
+      "enhanceLevel": 26,
+      "wanfaPercent": 588.75
+    },
+    {
+      "realmLv": 60,
+      "realmName": "元婴六层",
+      "singleAttr": 8248645.5,
+      "singleBaseStatValue": 2717.34,
+      "maxHp": 245495917699,
+      "attack": 148180532387,
+      "enhanceLevel": 26,
+      "wanfaPercent": 602.5
+    },
+    {
+      "realmLv": 61,
+      "realmName": "元婴七层",
+      "singleAttr": 9046686.05,
+      "singleBaseStatValue": 2753.1,
+      "maxHp": 299126378950,
+      "attack": 181033517092,
+      "enhanceLevel": 26,
+      "wanfaPercent": 616.25
+    },
+    {
+      "realmLv": 62,
+      "realmName": "元婴八层",
+      "singleAttr": 9903163,
+      "singleBaseStatValue": 3067.74,
+      "maxHp": 391498647946,
+      "attack": 241992980013,
+      "enhanceLevel": 27,
+      "wanfaPercent": 630
+    },
+    {
+      "realmLv": 63,
+      "realmName": "元婴九层",
+      "singleAttr": 10821152,
+      "singleBaseStatValue": 3107.07,
+      "maxHp": 475271937158,
+      "attack": 294473655371,
+      "enhanceLevel": 27,
+      "wanfaPercent": 643.75
+    },
+    {
+      "realmLv": 64,
+      "realmName": "元婴巅峰",
+      "singleAttr": 11803832.84,
+      "singleBaseStatValue": 3146.4,
+      "maxHp": 575919168731,
+      "attack": 357663799627,
+      "enhanceLevel": 27,
+      "wanfaPercent": 657.5
+    },
+    {
+      "realmLv": 65,
+      "realmName": "元婴大圆满",
+      "singleAttr": 12854491.18,
+      "singleBaseStatValue": 3185.73,
+      "maxHp": 696660974672,
+      "attack": 433632926047,
+      "enhanceLevel": 27,
+      "wanfaPercent": 671.25
+    },
+    {
+      "realmLv": 66,
+      "realmName": "半步化神",
+      "singleAttr": 13976520.2,
+      "singleBaseStatValue": 3547.56,
+      "maxHp": 907614584408,
+      "attack": 575669626185,
+      "enhanceLevel": 28,
+      "wanfaPercent": 685
+    },
+    {
+      "realmLv": 67,
+      "realmName": "化神一层",
+      "singleAttr": 15173422.33,
+      "singleBaseStatValue": 3590.83,
+      "maxHp": 1094496121282,
+      "attack": 695608807349,
+      "enhanceLevel": 28,
+      "wanfaPercent": 698.75
+    },
+    {
+      "realmLv": 68,
+      "realmName": "化神二层",
+      "singleAttr": 16448810.95,
+      "singleBaseStatValue": 3634.09,
+      "maxHp": 1317809277806,
+      "attack": 839196721671,
+      "enhanceLevel": 28,
+      "wanfaPercent": 712.5
+    },
+    {
+      "realmLv": 69,
+      "realmName": "化神三层",
+      "singleAttr": 17806412.11,
+      "singleBaseStatValue": 3677.35,
+      "maxHp": 1584315689531,
+      "attack": 1010869929184,
+      "enhanceLevel": 28,
+      "wanfaPercent": 726.25
+    },
+    {
+      "realmLv": 70,
+      "realmName": "化神四层",
+      "singleAttr": 19250066.17,
+      "singleBaseStatValue": 3720.62,
+      "maxHp": 1901977700175,
+      "attack": 1215860749828,
+      "enhanceLevel": 28,
+      "wanfaPercent": 740
+    },
+    {
+      "realmLv": 71,
+      "realmName": "化神五层",
+      "singleAttr": 20783729.6,
+      "singleBaseStatValue": 4140.27,
+      "maxHp": 2465503394753,
+      "attack": 1602428421396,
+      "enhanceLevel": 29,
+      "wanfaPercent": 753.75
+    },
+    {
+      "realmLv": 72,
+      "realmName": "化神六层",
+      "singleAttr": 22411476.57,
+      "singleBaseStatValue": 4187.86,
+      "maxHp": 2952252750857,
+      "attack": 1922030674384,
+      "enhanceLevel": 29,
+      "wanfaPercent": 767.5
+    },
+    {
+      "realmLv": 73,
+      "realmName": "化神七层",
+      "singleAttr": 24137500.76,
+      "singleBaseStatValue": 4235.45,
+      "maxHp": 3530513006548,
+      "attack": 2302308131957,
+      "enhanceLevel": 29,
+      "wanfaPercent": 781.25
+    },
+    {
+      "realmLv": 74,
+      "realmName": "化神八层",
+      "singleAttr": 25966116.97,
+      "singleBaseStatValue": 4283.04,
+      "maxHp": 4216743609926,
+      "attack": 2754274612557,
+      "enhanceLevel": 29,
+      "wanfaPercent": 795
+    },
+    {
+      "realmLv": 75,
+      "realmName": "化神九层",
+      "singleAttr": 27901762.88,
+      "singleBaseStatValue": 4330.62,
+      "maxHp": 5030248222695,
+      "attack": 3290863450042,
+      "enhanceLevel": 29,
+      "wanfaPercent": 808.75
+    },
+    {
+      "realmLv": 76,
+      "realmName": "化神巅峰",
+      "singleAttr": 29949000.74,
+      "singleBaseStatValue": 4816.04,
+      "maxHp": 6493974246913,
+      "attack": 4310832821296,
+      "enhanceLevel": 30,
+      "wanfaPercent": 822.5
+    },
+    {
+      "realmLv": 77,
+      "realmName": "化神大圆满",
+      "singleAttr": 32112519.04,
+      "singleBaseStatValue": 4868.38,
+      "maxHp": 7729965911843,
+      "attack": 5138565904419,
+      "enhanceLevel": 30,
+      "wanfaPercent": 836.25
+    },
+    {
+      "realmLv": 78,
+      "realmName": "半步炼虚",
+      "singleAttr": 34397134.27,
+      "singleBaseStatValue": 4920.73,
+      "maxHp": 9191031673653,
+      "attack": 6118294856357,
+      "enhanceLevel": 30,
+      "wanfaPercent": 850
+    }
+  ]
+}

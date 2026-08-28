@@ -1,0 +1,165 @@
+{
+  "reportDate": "2026-08-28",
+  "outputPath": "docs/design/balance/境界等级极限基准期望六维公式.md",
+  "baselineOutputPath": "packages/server/data/content/realm-attr-peak-baselines.json",
+  "maxRealmLevel": 78,
+  "baseAttrPerKey": 10,
+  "realmBaseAttrs": {
+    "enabled": true,
+    "mode": "average",
+    "description": "按当前运行时境界基础六维口径累计 attrBonus。基准配置里的 singleAttr 保存六维单项值，这里把累计六维加成折算为六维平均单项值。",
+    "stages": [
+      {
+        "stage": "Mortal",
+        "label": "凡俗境",
+        "levelFrom": 1,
+        "levelTo": 5,
+        "attrBonus": {}
+      },
+      {
+        "stage": "BodyTempering",
+        "label": "淬体境",
+        "levelFrom": 6,
+        "levelTo": 8,
+        "attrBonus": { "constitution": 12, "spirit": 2, "perception": 4, "talent": 4, "strength": 8 }
+      },
+      {
+        "stage": "BoneForging",
+        "label": "锻骨境",
+        "levelFrom": 9,
+        "levelTo": 11,
+        "attrBonus": { "constitution": 8, "spirit": 2, "perception": 4, "talent": 8, "strength": 8 }
+      },
+      {
+        "stage": "Meridian",
+        "label": "通脉境",
+        "levelFrom": 12,
+        "levelTo": 15,
+        "attrBonus": { "constitution": 4, "spirit": 8, "perception": 10, "talent": 6, "strength": 6, "meridians": 18 }
+      },
+      {
+        "stage": "Innate",
+        "label": "先天境",
+        "levelFrom": 16,
+        "levelTo": 18,
+        "attrBonus": { "constitution": 6, "spirit": 18, "perception": 12, "talent": 12, "strength": 8, "meridians": 12 }
+      },
+      {
+        "stage": "QiRefining",
+        "label": "练气前期",
+        "levelFrom": 19,
+        "levelTo": 22,
+        "attrBonus": { "constitution": 10, "spirit": 25, "perception": 8, "talent": 15, "strength": 5, "meridians": 30 }
+      },
+      {
+        "stage": "QiRefiningMiddle",
+        "label": "练气中期",
+        "levelFrom": 23,
+        "levelTo": 26,
+        "attrBonus": { "constitution": 25, "spirit": 25, "perception": 22, "talent": 25, "strength": 23, "meridians": 25 }
+      },
+      {
+        "stage": "QiRefiningLate",
+        "label": "练气后期",
+        "levelFrom": 27,
+        "levelTo": 30,
+        "attrBonus": { "constitution": 35, "spirit": 20, "perception": 40, "talent": 30, "strength": 42, "meridians": 15 }
+      },
+      {
+        "stage": "Foundation",
+        "label": "筑基前期",
+        "levelFrom": 31,
+        "levelTo": 34,
+        "attrBonus": { "constitution": 25, "spirit": 20, "perception": 12, "talent": 35, "strength": 15, "meridians": 30 }
+      },
+      {
+        "stage": "FoundationMiddle",
+        "label": "筑基中期",
+        "levelFrom": 35,
+        "levelTo": 38,
+        "attrBonus": { "constitution": 35, "spirit": 30, "perception": 28, "talent": 35, "strength": 30, "meridians": 35 }
+      },
+      {
+        "stage": "FoundationLate",
+        "label": "筑基后期",
+        "levelFrom": 39,
+        "levelTo": 42,
+        "attrBonus": { "constitution": 40, "spirit": 50, "perception": 60, "talent": 30, "strength": 55, "meridians": 35 }
+      },
+      {
+        "stage": "GoldenCore",
+        "label": "金丹前期",
+        "levelFrom": 43,
+        "levelTo": 46,
+        "attrBonus": { "constitution": 50, "spirit": 60, "perception": 40, "talent": 50, "strength": 45, "meridians": 55 }
+      },
+      {
+        "stage": "GoldenCoreMiddle",
+        "label": "金丹中期",
+        "levelFrom": 47,
+        "levelTo": 50,
+        "attrBonus": { "constitution": 65, "spirit": 70, "perception": 60, "talent": 65, "strength": 60, "meridians": 70 }
+      },
+      {
+        "stage": "GoldenCoreLate",
+        "label": "金丹后期",
+        "levelFrom": 51,
+        "levelTo": 54,
+        "attrBonus": { "constitution": 80, "spirit": 85, "perception": 80, "talent": 80, "strength": 75, "meridians": 80 }
+      }
+    ]
+  },
+  "roundDigits": 2,
+  "techniqueDecay": {
+    "marginalDecayRate": 0.9998,
+    "description": "极限功法在各品阶均修习至 99.98% 边际衰减深度"
+  },
+  "rootFoundation": {
+    "enabled": true,
+    "capFormula": "triangular",
+    "capMultiplier": 1,
+    "expectationRatio": 1.0,
+    "percentPerPoint": 0.6,
+    "description": "极限根基按当前境界 100% 满额达成，每点提供 +0.6% 全六维"
+  },
+  "bodyTraining": {
+    "enabled": true,
+    "levelMultiplier": 3.0,
+    "percentPerLevel": 1,
+    "description": "极限炼体层数按 3 * 等级 层满额达成，每层提供 +1% 全六维"
+  },
+  "wanfaGuiyuan": {
+    "enabled": true,
+    "description": "万法归元独立乘区：按当前境界自创专精功法满层单项六维 / 10 % 计入乘区",
+    "anchors": [
+      { "level": 1, "grade": "yellow", "g": 2, "wanfaPct": 20.0 },
+      { "level": 18, "grade": "earth", "g": 4, "wanfaPct": 100.08 },
+      { "level": 30, "grade": "heaven", "g": 5, "wanfaPct": 189.0 },
+      { "level": 42, "grade": "spirit", "g": 6, "wanfaPct": 321.36 },
+      { "level": 54, "grade": "saint", "g": 7, "wanfaPct": 520.0 },
+      { "level": 78, "grade": "emperor", "g": 8, "wanfaPct": 850.0 }
+    ]
+  },
+  "equipmentEnhancement": {
+    "enabled": true,
+    "description": "极限装备强化梯度",
+    "anchors": [
+      { "level": 1, "enhanceLevel": 1 },
+      { "level": 18, "enhanceLevel": 12 },
+      { "level": 30, "enhanceLevel": 18 },
+      { "level": 42, "enhanceLevel": 23 },
+      { "level": 54, "enhanceLevel": 25 },
+      { "level": 78, "enhanceLevel": 30 }
+    ]
+  },
+  "gradeBands": [
+    { "grade": "mortal", "label": "凡阶", "freeLimit": 44, "decaySpan": 35.2 },
+    { "grade": "yellow", "label": "黄阶", "freeLimit": 64, "decaySpan": 51.2 },
+    { "grade": "mystic", "label": "玄阶", "freeLimit": 140, "decaySpan": 112 },
+    { "grade": "earth", "label": "地阶", "freeLimit": 220, "decaySpan": 176 },
+    { "grade": "heaven", "label": "天阶", "freeLimit": 440, "decaySpan": 352 },
+    { "grade": "spirit", "label": "灵阶", "freeLimit": 880, "decaySpan": 704 },
+    { "grade": "saint", "label": "圣阶", "freeLimit": 1760, "decaySpan": 1408 },
+    { "grade": "emperor", "label": "帝阶", "freeLimit": 3520, "decaySpan": 2816 }
+  ]
+}
