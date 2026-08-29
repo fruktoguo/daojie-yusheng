@@ -1020,7 +1020,11 @@ function scaleMonsterSpawn(
   };
   const scaled = { ...spawn, baseAttrs: cloneNumbers(spawn.baseAttrs, finalAllMult), baseNumericStats: cloneNumbers(spawn.baseNumericStats, finalAllMult) };
   if (scaled.baseNumericStats && typeof scaled.baseNumericStats === 'object') {
-    for (const key of ['maxHp', 'hp'] as const) if (typeof scaled.baseNumericStats[key] === 'number') scaled.baseNumericStats[key] = Number(spawn.baseNumericStats[key]) * (finalHpMult / Math.max(1, finalAllMult));
+    for (const key of ['maxHp', 'hp'] as const) {
+      if (typeof scaled.baseNumericStats[key] === 'number') {
+        scaled.baseNumericStats[key] = Math.max(1, Math.round(Number(spawn.baseNumericStats[key]) * finalHpMult));
+      }
+    }
   }
   scaled.skills = [...new Set([...(Array.isArray(spawn.skills) ? spawn.skills : []), ...additionalSkillIds.filter((id) => typeof id === 'string' && id.trim())])];
   scaled.maxHp = Math.max(1, Math.round(Number(spawn.maxHp) * finalHpMult));
