@@ -1307,6 +1307,13 @@ function scaleMonsterSpawn(
         scaled.baseNumericStats[key] = Math.max(1, Math.round(Number(spawn.baseNumericStats[key]) * finalHpMult));
       }
     }
+    if (isPresent) {
+      for (const key of ['dodge', 'crit', 'antiCrit', 'resolvePower'] as const) {
+        if (typeof scaled.baseNumericStats[key] === 'number') {
+          scaled.baseNumericStats[key] = Math.max(0, Math.round(Number(scaled.baseNumericStats[key]) * 0.5));
+        }
+      }
+    }
   }
   scaled.skills = [...new Set([...(Array.isArray(spawn.skills) ? spawn.skills : []), ...additionalSkillIds.filter((id) => typeof id === 'string' && id.trim())])];
   scaled.maxHp = Math.max(1, Math.round(Number(spawn.maxHp) * finalHpMult));

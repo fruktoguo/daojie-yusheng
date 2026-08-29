@@ -311,7 +311,7 @@ export function resolveDungeonAttributeMultipliers(
   const diffStep = getDungeonDifficultyStep(selection.difficulty);
 
   if (selection.difficulty !== 'present') {
-    const allBase = rule.standardAllAttributeMultiplierBase ?? 1.4;
+    const allBase = rule.standardAllAttributeMultiplierBase ?? 2.0;
     const hpBase = rule.standardHpMultiplierBase ?? 2.0;
     const allAttributeMultiplier = Math.pow(allBase, diffStep);
     const hpMultiplier = allAttributeMultiplier * Math.pow(hpBase, diffStep);
