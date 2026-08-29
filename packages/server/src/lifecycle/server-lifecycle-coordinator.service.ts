@@ -30,6 +30,7 @@ import { PlayerDomainPersistenceService } from '../persistence/player-domain-per
 import { TimeChamberRuntimeService } from '../runtime/building/time-chamber-runtime.service';
 import { OfflineHangingRuntimeCleanupService } from '../runtime/world/world-runtime-offline-hanging-cleanup.service';
 import { DungeonRuntimeService } from '../runtime/dungeon/dungeon-runtime.service';
+import { DungeonRunPersistenceService } from '../runtime/dungeon/dungeon-run-persistence.service';
 
 @Injectable()
 export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap, OnModuleDestroy {
@@ -61,6 +62,7 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
     @Optional() @Inject(OfflineHangingRuntimeCleanupService) private readonly offlineHangingRuntimeCleanupService?: OfflineHangingRuntimeCleanupService,
     @Optional() @Inject(ShutdownStatusService) private readonly shutdownStatusService?: ShutdownStatusService,
     @Optional() @Inject(DungeonRuntimeService) private readonly dungeonRuntimeService?: DungeonRuntimeService,
+    @Optional() @Inject(DungeonRunPersistenceService) private readonly dungeonRunPersistenceService?: DungeonRunPersistenceService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -152,6 +154,12 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
       durablePayloadDrainFailed = true;
       shutdownStatusService.recordInstanceFlushFailed('durable_payload_drain');
       this.logger.error('worker 角色 durable payload 关机 drain 失败', error instanceof Error ? error.stack : String(error));
+    }
+    try {
+      await this.dungeonRunPersistenceService?.flushAllNow?.();
+    } catch (error) {
+      shutdownStatusService.recordInstanceFlushFailed('dungeon_run_flush');
+      this.logger.error('worker 角色副本流程快照关机刷盘失败', error instanceof Error ? error.stack : String(error));
     }
     shutdownStatusService.completePhase('workers_stopping', {
       flushOpen: this.startupBarrierService.isFlushOpen(),

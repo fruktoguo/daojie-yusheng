@@ -5005,7 +5005,7 @@ class MapInstanceRuntime {
         const monster = this.monstersByRuntimeId.get(runtimeId);
         return monster?.alive ? monster : null;
     }
-    /** addRuntimeMonster：添加运行时动态妖兽，不绑定普通地图刷新点持久化。 */
+    /** addRuntimeMonster：添加运行时动态妖兽，并把高价值运行态纳入实例分域持久化。 */
     addRuntimeMonster(monster) {
         if (!monster || typeof monster.runtimeId !== 'string' || !monster.runtimeId.trim()) {
             return null;
@@ -5083,6 +5083,11 @@ class MapInstanceRuntime {
         }
         this.markAoiViewChangedAt(state.x, state.y);
         this.worldRevision += 1;
+        // 副本 Boss、波次妖兽等都是运行时动态加入的；如果不在加入时标脏，
+        // 实例刷盘链永远看不到这条记录，进程重启后只能恢复出空壳实例。
+        if (this.meta.persistent === true) {
+            this.markMonsterRuntimePersistenceDirty(runtimeId);
+        }
         return snapshotMonster(state);
     }
     /** removeRuntimeMonster：移除运行时动态妖兽，不触发死亡、经验、掉落或击杀。 */
@@ -5101,6 +5106,7 @@ class MapInstanceRuntime {
         this.monsterThreatByRuntimeId.delete(runtimeId);
         this.monsterSpawnKeyByRuntimeId.delete(runtimeId);
         this.localMonsterViewCacheByRuntimeId.delete(runtimeId);
+        // 删除也必须留下行级删除标记，否则数据库中的旧 Boss/波次记录会在下次恢复时复活。
         this.dirtyMonsterRuntimeIds?.delete?.(runtimeId);
         const group = this.monsterSpawnGroupsByKey.get(monster.spawnKey);
         if (group) {
@@ -5114,6 +5120,9 @@ class MapInstanceRuntime {
             }
         }
         this.worldRevision += 1;
+        if (this.meta.persistent === true) {
+            this.markMonsterRuntimePersistenceDirty(runtimeId);
+        }
         return true;
     }
     /** getMonster：按运行时 ID 读取妖兽。 */
@@ -5803,7 +5812,7 @@ class MapInstanceRuntime {
         this.advanceGroundItemExpiry(this.tick);
     }
     /** hydrateMonsterRuntimeStates：用持久化数据回填高价值妖兽运行态。 */
-    hydrateMonsterRuntimeStates(entries) {
+    hydrateMonsterRuntimeStates(entries, options = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (!Array.isArray(entries) || entries.length === 0) {
@@ -5813,7 +5822,11 @@ class MapInstanceRuntime {
             if (!entry) {
                 continue;
             }
-            const runtimeId = typeof entry.runtimeId === 'string' ? entry.runtimeId.trim() : '';
+            // 分域表使用 monsterRuntimeId 字段名，运行时对象使用 runtimeId；恢复时两种契约都要识别，
+            // 否则只能按 monsterId 模糊匹配，多个同类波次会串写 HP/位置。
+            const runtimeId = typeof entry.runtimeId === 'string'
+                ? entry.runtimeId.trim()
+                : (typeof entry.monsterRuntimeId === 'string' ? entry.monsterRuntimeId.trim() : '');
             const monsterId = typeof entry.monsterId === 'string' ? entry.monsterId.trim() : '';
             const monster = (runtimeId ? this.monstersByRuntimeId.get(runtimeId) : null)
                 ?? Array.from(this.monstersByRuntimeId.values()).find((candidate) => candidate.monsterId === monsterId && candidate.tier !== 'mortal_blood');
@@ -5882,7 +5895,12 @@ class MapInstanceRuntime {
             if (monster.alive) {
                 ensureMonsterInitialBuffs(monster, this.buffRegistry);
             }
-            if (!recalculateMonsterBaseStatsFromFormula(monster)) {
+            // 副本恢复前已经按难度应用了运行时倍率；此处只重算 Buff 派生值，
+            // 避免通用模板公式把副本倍率覆盖回普通地图基准。
+            if (options?.preserveScaledBaseStats === true) {
+                recalculateMonsterDerivedState(monster);
+            }
+            else if (!recalculateMonsterBaseStatsFromFormula(monster)) {
                 recalculateMonsterDerivedState(monster);
             }
             if (monster.alive) {

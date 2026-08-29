@@ -142,7 +142,8 @@ interface WorldRuntimePlayerSessionDeps {
   };
   dungeonRuntimeService?: {
     restorePersistedRuns?(): Promise<number>;
-    getRunByInstanceId?(instanceId: string): Promise<{ status?: string; destroyedAt?: number } | null>;
+    getRunByInstanceId?(instanceId: string): Promise<{ runId?: string; status?: string; destroyedAt?: number } | null>;
+    getRun?(runId: string): { runId?: string; status?: string; destroyedAt?: number } | null;
   };
 }
 
@@ -186,22 +187,63 @@ export class WorldRuntimePlayerSessionService {
       requestedMapId: normalizeMapId(input.mapId),
     };
     if (targetRequest.requestedInstanceId.startsWith('dungeon:')) {
+      let dungeonRecoveryFailed = false;
+      const restoreDungeonRuns = async (): Promise<boolean> => {
+        try {
+          await deps.dungeonRuntimeService?.restorePersistedRuns?.();
+          return true;
+        } catch (error) {
+          dungeonRecoveryFailed = true;
+          deps.logger.warn(
+            `副本流程恢复失败，暂不接入副本实例：instanceId=${targetRequest.requestedInstanceId} error=${error instanceof Error ? error.message : String(error)}`,
+          );
+          return false;
+        }
+      };
       if (!deps.getInstanceRuntime(targetRequest.requestedInstanceId)) {
-        await deps.dungeonRuntimeService?.restorePersistedRuns?.();
+        await restoreDungeonRuns();
       }
-      let run: { status?: string; destroyedAt?: number } | null = null;
+      let run: { runId?: string; status?: string; destroyedAt?: number } | null = null;
+      let dungeonRunLookupFailed = false;
       try {
         run = await deps.dungeonRuntimeService?.getRunByInstanceId?.(targetRequest.requestedInstanceId) ?? null;
       } catch (error) {
+        dungeonRunLookupFailed = true;
         deps.logger.warn(
           `副本流程状态读取失败，保留现有实例恢复链：instanceId=${targetRequest.requestedInstanceId} error=${error instanceof Error ? error.message : String(error)}`,
         );
       }
+      const runRegisteredInMemory = run?.runId && typeof deps.dungeonRuntimeService?.getRun === 'function'
+        ? Boolean(deps.dungeonRuntimeService.getRun(run.runId))
+        : true;
+      if (!run || !runRegisteredInMemory) {
+        // 实例目录可能已经恢复，但 DungeonRuntimeService 的内存注册表仍为空；
+        // 仅读取快照不会把流程控制器、房间和 Boss 重新挂回运行态，因此必须再走一次完整恢复。
+        await restoreDungeonRuns();
+        try {
+          run = await deps.dungeonRuntimeService?.getRunByInstanceId?.(targetRequest.requestedInstanceId) ?? null;
+        } catch (error) {
+          dungeonRunLookupFailed = true;
+          deps.logger.warn(
+            `副本流程恢复后状态读取失败：instanceId=${targetRequest.requestedInstanceId} error=${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      }
       const status = typeof run?.status === 'string' ? run.status : '';
       const isTerminal = ['failed', 'aborted', 'expired'].includes(status)
         || (status === 'completed' && Number.isFinite(Number(run?.destroyedAt)));
+      if ((dungeonRecoveryFailed || dungeonRunLookupFailed) && !isTerminal) {
+        // 数据库/流程恢复失败时禁止把现有实例壳当作可进入副本，避免玩家被接入空壳后继续产生不可恢复状态。
+        throw new ServiceUnavailableException('副本流程恢复暂不可用，请稍后重试');
+      }
       if (isTerminal && typeof deps.playerRuntimeService.getPlayer === 'function') {
         return this.connectPlayerToBoundRespawnFallback(input, deps, targetRequest.requestedInstanceId);
+      }
+      const finalRunRegisteredInMemory = run?.runId && typeof deps.dungeonRuntimeService?.getRun === 'function'
+        ? Boolean(deps.dungeonRuntimeService.getRun(run.runId))
+        : true;
+      if (run && !finalRunRegisteredInMemory) {
+        throw new ServiceUnavailableException('副本流程恢复暂不可用，请稍后重试');
       }
       if (!deps.getInstanceRuntime(targetRequest.requestedInstanceId) && run && !isDungeonRunRecoverable(run)) {
         return this.connectPlayerToBoundRespawnFallback(input, deps, targetRequest.requestedInstanceId);

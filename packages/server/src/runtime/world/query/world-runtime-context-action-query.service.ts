@@ -391,9 +391,10 @@ export class WorldRuntimeContextActionQueryService {
         }
         for (const npc of view.localNpcs) {
             const isDungeonEntryStone = npc.npcId === 'npc_ruined_cavern_memory_stone';
-            const isDungeonExitStone = view.instance.kind === 'dungeon' && npc.npcId === 'npc_dungeon_memory_stone';
+            const isDungeonExitStone = view?.instance?.kind === 'dungeon' && npc.npcId === 'npc_dungeon_memory_stone';
             const interactionRadius = isDungeonEntryStone || isDungeonExitStone ? 2 : 1;
-            if (chebyshevDistance(view.self.x, view.self.y, npc.x, npc.y) <= interactionRadius) {
+            const nearDungeonExitAnchor = isDungeonExitStone && isNearDungeonExitAnchor(view, deps);
+            if (chebyshevDistance(view.self.x, view.self.y, npc.x, npc.y) <= interactionRadius || nearDungeonExitAnchor) {
                 if (isDungeonEntryStone) {
                     actions.push({
                         id: 'dungeon:open',
@@ -404,7 +405,7 @@ export class WorldRuntimeContextActionQueryService {
                     });
                     continue;
                 }
-                if (view.instance.kind === 'dungeon' && npc.npcId === 'npc_dungeon_memory_stone') {
+                if (view?.instance?.kind === 'dungeon' && npc.npcId === 'npc_dungeon_memory_stone') {
                     actions.push({
                         id: 'dungeon:exit',
                         name: '退出副本',
@@ -479,6 +480,19 @@ function buildScripturePlatformActions(player, building) {
         desc: '打开藏经台录入界面，选择自身已经练满的自创功法写入藏经台。',
         cooldownLeft: 0,
     }];
+}
+
+function isNearDungeonExitAnchor(view: any, deps: any): boolean {
+    const instanceId = typeof view?.instance?.instanceId === 'string' ? view.instance.instanceId.trim() : '';
+    const instance = instanceId && typeof deps?.getInstanceRuntime === 'function'
+        ? deps.getInstanceRuntime(instanceId)
+        : null;
+    const x = Number(instance?.meta?.dungeonEntryX);
+    const y = Number(instance?.meta?.dungeonEntryY);
+    const radiusValue = Number(instance?.meta?.dungeonEntryExitRadius);
+    const radius = Math.max(1, Number.isFinite(radiusValue) ? radiusValue : 1);
+    return Number.isFinite(x) && Number.isFinite(y)
+        && chebyshevDistance(view.self.x, view.self.y, x, y) <= radius;
 }
 
 function normalizeText(value) {

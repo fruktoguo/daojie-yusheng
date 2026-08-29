@@ -147,14 +147,15 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
         run.status = 'aborted';
         run.failureReason = 'server_restart_before_activation';
         this.runPersistence.save(run);
+        await this.runPersistence.waitForSave?.(run.runId);
         continue;
       }
       let instance = this.world.getInstanceRuntime(run.mapInstanceId) as any;
-      let createdInstance = false;
       if (run.status === 'activating' && !instance) {
         run.status = 'aborted';
         run.failureReason = 'server_restart_during_activation';
         this.runPersistence.save(run);
+        await this.runPersistence.waitForSave?.(run.runId);
         continue;
       }
       if (!instance) {
@@ -178,7 +179,6 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
             defaultEntry: false,
             monsterSpawns: baseSpawns,
           });
-          createdInstance = true;
         } catch (error) {
           this.logger.warn(`副本实例恢复失败 ${run.runId}：${error instanceof Error ? error.message : String(error)}`);
           continue;
@@ -186,10 +186,13 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
       }
       instance.meta.dungeonRunId = run.runId;
       instance.meta.dungeonId = run.dungeonId;
-      if (run.status === 'activating' || (run.status === 'active' && createdInstance)) {
+      this.applyDungeonEntryMetadata(instance, definition);
+      if (run.status === 'activating' || run.status === 'active') {
         run.status = 'active';
         run.activatedAt = run.activatedAt ?? Date.now();
-        this.activateRoom(instance, definition, run, run.currentRoomId ?? definition.rooms?.[0]?.roomId);
+        // catalog 恢复会先创建没有动态妖兽的实例壳；这里必须重新物化当前房间，
+        // 再回填已落盘的 runtimeId/HP，否则重启后流程还在但 Boss 直接消失。
+        await this.restoreActiveDungeonRuntime(instance, definition, run);
       } else if (run.status === 'completed' || run.status === 'completing' || run.status === 'failed') {
         instance.meta.status = 'completed';
         instance.meta.dungeonRunStatus = run.status;
@@ -200,6 +203,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
       this.combatStatsByRunId.set(run.runId, new Map(run.members.map((member) => [member.playerId, { damageDealt: 0, damageTaken: 0, healingDone: 0 }])));
       this.scheduleRecoveredRun(run, definition);
       this.runPersistence.save(run);
+      await this.runPersistence.waitForSave?.(run.runId);
       restored++;
     }
     if (terminalCatalogReconcileNeeded) {
@@ -210,6 +214,83 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     }
     if (restored > 0) this.logger.log(`已恢复 ${restored} 个副本流程实例`);
     return restored;
+  }
+
+  /**
+   * 恢复 active 副本的动态实体。
+   *
+   * 实例目录恢复只负责创建通用实例壳，且通用实例水合发生在副本流程恢复之前；
+   * 因而 dungeon 房间中的动态 Boss/实体必须在这里按当前流程重新建立，再用实例域真源回填。
+   */
+  private async restoreActiveDungeonRuntime(
+    instance: any,
+    definition: DungeonDefinition,
+    run: DungeonRunState,
+  ): Promise<void> {
+    const loadedStates = await this.world.loadPersistedMonsterRuntimeStates?.(run.mapInstanceId);
+    const persistedStates = Array.isArray(loadedStates) ? loadedStates : [];
+    const room = definition.rooms?.find((entry) => entry.roomId === run.currentRoomId) ?? definition.rooms?.[0];
+    const expectedMonsterIds = resolveDungeonRoomMonsterIds(room);
+    const currentMonsters = Array.from((instance.monstersByRuntimeId?.values?.() ?? []) as Iterable<any>);
+    if (room && expectedMonsterIds.length > 0 && !hasMonsterIdMultiplicity(currentMonsters, expectedMonsterIds)) {
+      this.activateRoom(instance, definition, run, room.roomId, persistedStates);
+      return;
+    }
+
+    if (expectedMonsterIds.length > 0) {
+      this.materializePersistedDungeonMonsters(instance, run, definition, persistedStates, expectedMonsterIds);
+    }
+    instance.hydrateMonsterRuntimeStates?.(persistedStates, { preserveScaledBaseStats: true });
+    this.ensureDungeonRoomFormation(instance, definition, run, room);
+  }
+
+  /** 将已落盘但尚未出现在实例壳中的当前房间实体补回，并保留原 runtimeId。 */
+  private materializePersistedDungeonMonsters(
+    instance: any,
+    run: DungeonRunState,
+    definition: DungeonDefinition,
+    persistedStates: readonly any[],
+    expectedMonsterIds: readonly string[],
+  ): void {
+    const expectedCounts = countStringValues(expectedMonsterIds);
+    const currentByMonsterId = new Map<string, any[]>();
+    for (const monster of Array.from((instance.monstersByRuntimeId?.values?.() ?? []) as Iterable<any>)) {
+      const monsterId = normalizeOptionalDungeonString(monster?.monsterId);
+      if (!monsterId) continue;
+      const list = currentByMonsterId.get(monsterId) ?? [];
+      list.push(monster);
+      currentByMonsterId.set(monsterId, list);
+    }
+    const usedCurrentIds = new Set<string>();
+    for (const state of persistedStates) {
+      const monsterId = normalizeOptionalDungeonString(state?.monsterId);
+      const runtimeId = normalizeOptionalDungeonString(state?.monsterRuntimeId ?? state?.runtimeId);
+      if (!monsterId || !runtimeId || !expectedCounts.has(monsterId) || (expectedCounts.get(monsterId) ?? 0) <= 0) {
+        continue;
+      }
+      expectedCounts.set(monsterId, (expectedCounts.get(monsterId) ?? 1) - 1);
+      const exact = instance.getMonsterRuntimeRef?.(runtimeId)
+        ?? instance.monstersByRuntimeId?.get?.(runtimeId);
+      if (exact) {
+        usedCurrentIds.add(runtimeId);
+        continue;
+      }
+      const candidates = currentByMonsterId.get(monsterId) ?? [];
+      const replacement = candidates.find((candidate) => {
+        const candidateId = normalizeOptionalDungeonString(candidate?.runtimeId);
+        return candidateId && !usedCurrentIds.has(candidateId);
+      });
+      if (replacement?.runtimeId) {
+        instance.removeRuntimeMonster?.(replacement.runtimeId);
+        usedCurrentIds.add(replacement.runtimeId);
+      }
+      const x = Number.isFinite(Number(state?.x)) ? Math.trunc(Number(state.x)) : Number(definition.entryX ?? 0);
+      const y = Number.isFinite(Number(state?.y)) ? Math.trunc(Number(state.y)) : Number(definition.entryY ?? 0);
+      this.addScaledMonster(instance, run, monsterId, x, y, {
+        runtimeId,
+        alive: state?.alive !== false,
+      });
+    }
   }
 
   private scheduleRecoveredRun(run: DungeonRunState, definition: DungeonDefinition): void {
@@ -232,7 +313,20 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
       const location = this.world.getPlayerLocation(playerId);
       const instance = location?.instanceId ? this.world.getInstanceRuntime(location.instanceId) as any : null;
       if (isDungeonInstanceCandidate(location?.instanceId, instance)) {
-        void this.recoverOrphanDungeonPlayer(playerId, location.instanceId);
+        // 查询目录时可能恰好处于“实例目录已恢复、流程注册表尚未恢复”的窗口；
+        // 先完成一次快照恢复，再确认仍无流程，避免把可恢复玩家误判为孤儿并立即传送。
+        void this.restorePersistedRuns()
+          .then(() => {
+            const recoveredRun = [...this.runs.values()].find((run) => run.members.some((member) => member.playerId === playerId) && ['created', 'activating', 'active', 'completing', 'completed'].includes(run.status));
+            const currentLocation = this.world.getPlayerLocation(playerId);
+            if (!recoveredRun && currentLocation?.instanceId === location.instanceId) {
+              void this.recoverOrphanDungeonPlayer(playerId, location.instanceId);
+            }
+          })
+          .catch((error) => {
+            // 持久化查询失败时不能把“暂时未知”降级成孤儿副本，否则会误撤离仍在进行中的队伍。
+            this.logger.warn(`副本目录查询触发恢复失败 ${location.instanceId}：${error instanceof Error ? error.message : String(error)}`);
+          });
       }
     }
     return { dungeons: this.listDefinitions(), stamina: this.players.refreshDungeonStamina(playerId) as DungeonStaminaView, ...(activeRun ? { activeRun } : {}) };
@@ -291,6 +385,13 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     this.pending.set(runId, pending);
     this.runs.set(runId, run);
     this.runPersistence.save(run);
+    if (!await this.waitForRunPersistence(run)) {
+      clearTimeout(timer);
+      this.pending.delete(runId);
+      this.runs.delete(runId);
+      this.runPersistence.remove(runId);
+      return { ok: false, reason: 'dungeon_persistence_unavailable' };
+    }
     this.emitPreparation(pending, 'preparing');
     return { ok: true, run, expiresAt: pending.expiresAt };
   }
@@ -393,11 +494,43 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
 
   async exit(playerId: string, runIdInput?: unknown) {
     const player = playerId.trim();
-    const location = this.world.getPlayerLocation(player);
-    const runId = String(runIdInput ?? (location?.instanceId?.startsWith('dungeon:') ? location.instanceId.slice('dungeon:'.length) : '')).trim();
-    const run = this.runs.get(runId);
+    const playerState = this.players.getPlayer(player) as any;
+    let location = this.world.getPlayerLocation(player);
+    const requestedRunId = normalizeDungeonRunId(runIdInput);
+    const locationInstanceId = typeof location?.instanceId === 'string' ? location.instanceId.trim() : '';
+    const playerInstanceId = typeof playerState?.instanceId === 'string' ? playerState.instanceId.trim() : '';
+    const inferredInstanceId = locationInstanceId.startsWith('dungeon:')
+      ? locationInstanceId
+      : (playerInstanceId.startsWith('dungeon:') ? playerInstanceId : '');
+    let runId = requestedRunId
+      || (inferredInstanceId.startsWith('dungeon:') ? inferredInstanceId.slice('dungeon:'.length) : '');
+    let run = this.runs.get(runId);
+    let restoreFailed = false;
+    if (!run && runId) {
+      // 进程重启/热更新可能先恢复了实例目录，流程注册表却尚未恢复；
+      // 退出动作必须先尝试重建流程，不能立即把仍可恢复的玩家当作孤儿撤离。
+      try {
+        await this.restorePersistedRuns();
+      } catch (error) {
+        restoreFailed = true;
+        this.logger.warn(`副本退出前恢复流程失败 ${runId}：${error instanceof Error ? error.message : String(error)}`);
+      }
+      run = this.runs.get(runId);
+      location = this.world.getPlayerLocation(player) ?? location;
+      if (!run && !requestedRunId) {
+        const refreshedInstanceId = typeof location?.instanceId === 'string' ? location.instanceId.trim() : '';
+        if (refreshedInstanceId.startsWith('dungeon:')) {
+          runId = refreshedInstanceId.slice('dungeon:'.length);
+          run = this.runs.get(runId);
+        }
+      }
+    }
     if (!run) {
-      const recovered = await this.recoverOrphanDungeonPlayer(player, location?.instanceId);
+      if (restoreFailed) return { ok: false, reason: 'dungeon_persistence_unavailable' };
+      const orphanInstanceId = typeof location?.instanceId === 'string' && location.instanceId.trim()
+        ? location.instanceId.trim()
+        : (runId ? `dungeon:${runId}` : '');
+      const recovered = await this.recoverOrphanDungeonPlayer(player, orphanInstanceId);
       return recovered ? { ok: true, reason: 'orphan_dungeon_recovered' } : { ok: false, reason: 'run_not_active' };
     }
     if (run.status === 'failed' || run.status === 'aborted' || run.status === 'expired') return { ok: false, reason: 'run_not_active' };
@@ -405,13 +538,27 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     const instance = this.world.getInstanceRuntime(run.mapInstanceId) as any;
     const entry = this.content.getDungeonDefinition(run.dungeonId);
     if (!instance || !entry) return { ok: false, reason: 'instance_not_found' };
+    const currentInstanceId = typeof location?.instanceId === 'string' && location.instanceId.trim()
+      ? location.instanceId.trim()
+      : (typeof playerState?.instanceId === 'string' ? playerState.instanceId.trim() : '');
+    if (currentInstanceId && currentInstanceId !== run.mapInstanceId) return { ok: false, reason: 'not_run_member' };
     const runtimePlayer = instance.getPlayer?.(player);
+    const runtimePosition = instance.getPlayerPosition?.(player) ?? runtimePlayer;
     const exitStone = [...(instance.template?.npcs ?? [])].find((npc: any) => (npc?.npcId ?? npc?.id) === 'npc_dungeon_memory_stone');
-    const exitX = Number(exitStone?.x ?? entry.entryX ?? 0);
-    const exitY = Number(exitStone?.y ?? entry.entryY ?? 0);
-    const dx = Number(runtimePlayer?.x ?? 9999) - exitX;
-    const dy = Number(runtimePlayer?.y ?? 9999) - exitY;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) > Math.max(1, entry.entryExitRadius ?? 1)) return { ok: false, reason: 'not_at_exit' };
+    const playerX = firstFiniteDungeonCoordinate(runtimePosition?.x, playerState?.x);
+    const playerY = firstFiniteDungeonCoordinate(runtimePosition?.y, playerState?.y);
+    const configuredExitRadius = Number(entry.entryExitRadius ?? 1);
+    const exitRadius = Math.max(1, Number.isFinite(configuredExitRadius) ? configuredExitRadius : 1);
+    const exitAnchors = [
+      { x: Number(exitStone?.x), y: Number(exitStone?.y) },
+      { x: Number(entry.entryX), y: Number(entry.entryY) },
+    ].filter((anchor) => Number.isFinite(anchor.x) && Number.isFinite(anchor.y));
+    // entryX/entryY 是副本入口锚点。重启恢复时若入口格被 Boss 占用，
+    // 玩家会被服务端移到相邻空格；该锚点仍属于忆梦石入口区域，不能因此误报“不在附近”。
+    if (!Number.isFinite(playerX) || !Number.isFinite(playerY)
+      || !exitAnchors.some((anchor) => Math.max(Math.abs(playerX - anchor.x), Math.abs(playerY - anchor.y)) <= exitRadius)) {
+      return { ok: false, reason: 'not_at_exit' };
+    }
     await this.world.worldRuntimePlayerSessionService.connectPlayerWhenReady({ playerId: player, sessionId: this.sessions.getBinding(player)?.sessionId ?? null, instanceId: this.world.getOrCreatePublicInstance(entry.entryMapTemplateId).meta.instanceId, mapId: entry.entryMapTemplateId, preferredX: entry.entryX, preferredY: entry.entryY, allowCreateFallback: false, relocateExisting: true }, this.world as any);
     const exited = this.exitedPlayers.get(runId) ?? new Set<string>();
     exited.add(player); this.exitedPlayers.set(runId, exited);
@@ -461,6 +608,13 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     const { run, definition } = pending;
     run.status = 'activating';
     this.runPersistence.save(run);
+    if (!await this.waitForRunPersistence(run)) {
+      run.status = 'aborted';
+      run.failureReason = 'dungeon_persistence_unavailable';
+      this.runPersistence.save(run);
+      for (const member of run.members) this.emit(member.playerId, S2C.DungeonEntryResult, { ok: false, reason: run.failureReason, run });
+      return { ok: false, reason: run.failureReason, run };
+    }
     const currentParty = await this.parties.getParty(run.partyId);
     const expectedMembers = run.members.map((member) => member.playerId).sort();
     const actualMembers = currentParty?.members.map((member) => member.playerId).sort() ?? [];
@@ -523,17 +677,24 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     try {
       (instance.meta as any).dungeonRunId = run.runId;
       (instance.meta as any).dungeonId = run.dungeonId;
+      this.applyDungeonEntryMetadata(instance, definition);
       this.activateRoom(instance, definition, run, run.currentRoomId ?? definition.rooms?.[0]?.roomId);
       run.status = 'active'; run.activatedAt = Date.now();
       this.combatStatsByRunId.set(run.runId, new Map(run.members.map((member) => [member.playerId, { damageDealt: 0, damageTaken: 0, healingDone: 0 }])));
       this.runPersistence.save(run);
+      if (!await this.waitForRunPersistence(run)) {
+        throw new Error('dungeon_persistence_unavailable');
+      }
       timeoutTimer = setTimeout(() => this.expireRun(run.runId), Math.max(1, Math.trunc(definition.timeoutSeconds ?? 3600)) * 1000);
       timeoutTimer.unref?.();
       this.runTimers.set(run.runId, timeoutTimer);
       this.controllers.get(definition.flowType)?.onRunCreated?.(run, definition, this.buildFlowContext());
     } catch (_error) {
       for (const playerId of consumed) await this.players.refundDungeonStaminaDurably(playerId, staminaCost);
-      run.status = 'aborted'; run.failureReason = 'instance_activation_failed';
+      run.status = 'aborted';
+      run.failureReason = _error instanceof Error && _error.message === 'dungeon_persistence_unavailable'
+        ? 'dungeon_persistence_unavailable'
+        : 'instance_activation_failed';
       this.runPersistence.save(run);
       await this.world.destroyEmptyManagedInstance(run.mapInstanceId, 'dungeon_activation_failed').catch(() => undefined);
       for (const member of run.members) this.emit(member.playerId, S2C.DungeonEntryResult, { ok: false, reason: run.failureReason, run });
@@ -582,7 +743,13 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  private activateRoom(instance: any, definition: DungeonDefinition, run: DungeonRunState, roomId?: string): void {
+  private activateRoom(
+    instance: any,
+    definition: DungeonDefinition,
+    run: DungeonRunState,
+    roomId?: string,
+    persistedStates: readonly any[] = [],
+  ): void {
     const room = definition.rooms?.find((entry) => entry.roomId === roomId) ?? definition.rooms?.[0];
     if (!room) return;
     for (const monster of [...(instance.monstersByRuntimeId?.values?.() ?? [])]) instance.removeRuntimeMonster?.(monster.runtimeId);
@@ -592,18 +759,48 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     const spawnX = Number.isFinite(Number(room.spawnX)) ? Number(room.spawnX) : Number(definition.entryX ?? 0);
     const spawnY = Number.isFinite(Number(room.spawnY)) ? Number(room.spawnY) : Number(definition.entryY ?? 0);
     const monsterIds = room.bossId ? [room.bossId] : [...(room.spawnGroupIds ?? []), ...(room.eliteGroupIds ?? [])];
-    for (const monsterId of monsterIds) this.addScaledMonster(instance, run, monsterId, spawnX, spawnY);
-    run.currentRoomId = room.roomId;
-    this.runPersistence.save(run);
-    const boss = room.bossId ? [...(instance.monstersByRuntimeId?.values?.() ?? [])].find((entry: any) => entry.monsterId === room.bossId) : null;
-    if (room.mechanismFormation && boss) {
-      this.mechanismFormations.create({
-        instanceId: instance.meta.instanceId, runId: run.runId, controllerId: definition.controllerId,
-        roomId: room.roomId, config: room.mechanismFormation, x: boss.x, y: boss.y, bossMaxHp: boss.maxHp,
-        radius: Math.max(1, Number(instance.template?.width) || 1, Number(instance.template?.height) || 1),
+    const persistedByMonsterId = new Map<string, any[]>();
+    for (const state of persistedStates) {
+      const monsterId = normalizeOptionalDungeonString(state?.monsterId);
+      if (!monsterId || !monsterIds.includes(monsterId)) continue;
+      const states = persistedByMonsterId.get(monsterId) ?? [];
+      states.push(state);
+      persistedByMonsterId.set(monsterId, states);
+    }
+    for (const monsterId of monsterIds) {
+      const persisted = persistedByMonsterId.get(monsterId)?.shift();
+      const x = Number.isFinite(Number(persisted?.x)) ? Math.trunc(Number(persisted.x)) : spawnX;
+      const y = Number.isFinite(Number(persisted?.y)) ? Math.trunc(Number(persisted.y)) : spawnY;
+      this.addScaledMonster(instance, run, monsterId, x, y, {
+        runtimeId: normalizeOptionalDungeonString(persisted?.monsterRuntimeId ?? persisted?.runtimeId) || undefined,
+        alive: persisted?.alive !== false,
       });
     }
+    run.currentRoomId = room.roomId;
+    this.runPersistence.save(run);
+    if (persistedStates.length > 0) {
+      instance.hydrateMonsterRuntimeStates?.(persistedStates, { preserveScaledBaseStats: true });
+    }
+    this.ensureDungeonRoomFormation(instance, definition, run, room);
     this.emitRunState(run);
+  }
+
+  /** 副本机制阵法不进入通用持久化表，重启时按当前房间重新建立。 */
+  private ensureDungeonRoomFormation(instance: any, definition: DungeonDefinition, run: DungeonRunState, room: any): void {
+    if (!room?.mechanismFormation) return;
+    const boss = room.bossId ? [...(instance.monstersByRuntimeId?.values?.() ?? [])].find((entry: any) => entry.monsterId === room.bossId) : null;
+    if (!boss) return;
+    const formations = this.world.worldRuntimeFormationService?.getFormationList?.(instance.meta.instanceId) ?? [];
+    const expectedFormationId = `formation:dungeon:${run.runId}:room:${room.roomId}`;
+    if (formations.some((entry: any) => entry?.id === expectedFormationId
+      || (entry?.source === 'dungeon_controller' && entry?.controllerId === definition.controllerId))) {
+      return;
+    }
+    this.mechanismFormations.create({
+      instanceId: instance.meta.instanceId, runId: run.runId, controllerId: definition.controllerId,
+      roomId: room.roomId, config: room.mechanismFormation, x: boss.x, y: boss.y, bossMaxHp: boss.maxHp,
+      radius: Math.max(1, Number(instance.template?.width) || 1, Number(instance.template?.height) || 1),
+    });
   }
 
   private spawnWave(run: DungeonRunState, waveIndex: number): void {
@@ -624,8 +821,20 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     this.emitRunState(run);
   }
 
-  private addScaledMonster(instance: any, run: DungeonRunState, monsterId: string, x: number, y: number): void {
-    const spawn = this.content.createRuntimeMonsterSpawn(monsterId, { x, y });
+  private addScaledMonster(
+    instance: any,
+    run: DungeonRunState,
+    monsterId: string,
+    x: number,
+    y: number,
+    options: { runtimeId?: string; alive?: boolean } = {},
+  ): void {
+    const spawn = this.content.createRuntimeMonsterSpawn(monsterId, {
+      x,
+      y,
+      ...(options.runtimeId ? { runtimeId: options.runtimeId } : {}),
+      ...(options.alive === false ? { alive: false } : {}),
+    });
     if (!spawn) return;
     const definition = this.content.getDungeonDefinition(run.dungeonId);
     const override = run.difficulty.difficulty === 'present'
@@ -807,11 +1016,39 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     socket?.emit(event, payload);
   }
 
+  private applyDungeonEntryMetadata(instance: any, definition: DungeonDefinition): void {
+    if (!instance?.meta || !definition) return;
+    const entryX = Number(definition.entryX);
+    const entryY = Number(definition.entryY);
+    const exitRadius = Number(definition.entryExitRadius);
+    instance.meta.dungeonEntryX = Number.isFinite(entryX) ? Math.trunc(entryX) : null;
+    instance.meta.dungeonEntryY = Number.isFinite(entryY) ? Math.trunc(entryY) : null;
+    instance.meta.dungeonEntryExitRadius = Number.isFinite(exitRadius) ? Math.max(1, exitRadius) : 1;
+  }
+
+  /** 用户可见的副本创建/激活前必须确认快照已落库；未接入持久化的本地 smoke 保持兼容。 */
+  private async waitForRunPersistence(run: DungeonRunState): Promise<boolean> {
+    if (typeof this.runPersistence.waitForSave !== 'function') return true;
+    try {
+      await this.runPersistence.waitForSave(run.runId);
+      return true;
+    } catch (error) {
+      this.logger.error(`副本流程快照未能确认落库 ${run.runId}：${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+  }
+
   /** 更新重启后遗留在临时副本实例中的玩家，避免 run 内存态丢失后无法撤离。 */
   private async recoverOrphanDungeonPlayer(playerId: string, instanceId?: string): Promise<boolean> {
     if (!instanceId) return false;
     const instance = this.world.getInstanceRuntime(instanceId) as any;
     if (!isDungeonInstanceCandidate(instanceId, instance)) return false;
+    const player = this.players.getPlayer(playerId) as any;
+    const location = this.world.getPlayerLocation(playerId);
+    const isAttached = instance?.getPlayer?.(playerId)
+      || location?.instanceId === instanceId
+      || player?.instanceId === instanceId;
+    if (!isAttached) return false;
     const definitions = this.listDefinitions();
     const instanceTemplateId = String(instance?.template?.id ?? '').trim()
       || instanceId.replace(/^(public|real|line):/, '').trim();
@@ -968,6 +1205,51 @@ function isDungeonInstanceCandidate(instanceId: string | undefined, instance: an
   const templateId = String(instance.template?.id ?? '').trim();
   return templateId.startsWith('dungeon_')
     && /^(public|real|line):/.test(instanceId);
+}
+
+function normalizeOptionalDungeonString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeDungeonRunId(value: unknown): string {
+  const raw = typeof value === 'string' ? value.trim() : String(value ?? '').trim();
+  return raw.startsWith('dungeon:') ? raw.slice('dungeon:'.length).trim() : raw;
+}
+
+function resolveDungeonRoomMonsterIds(room: any): string[] {
+  if (!room || typeof room !== 'object') return [];
+  return [
+    ...(room.bossId ? [normalizeOptionalDungeonString(room.bossId)] : []),
+    ...(Array.isArray(room.spawnGroupIds) ? room.spawnGroupIds.map(normalizeOptionalDungeonString) : []),
+    ...(Array.isArray(room.eliteGroupIds) ? room.eliteGroupIds.map(normalizeOptionalDungeonString) : []),
+  ].filter(Boolean);
+}
+
+function countStringValues(values: readonly string[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const value of values) {
+    const normalized = normalizeOptionalDungeonString(value);
+    if (!normalized) continue;
+    counts.set(normalized, (counts.get(normalized) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function hasMonsterIdMultiplicity(monsters: readonly any[], expectedMonsterIds: readonly string[]): boolean {
+  const actualCounts = countStringValues(monsters.map((monster) => normalizeOptionalDungeonString(monster?.monsterId)));
+  for (const [monsterId, expectedCount] of countStringValues(expectedMonsterIds)) {
+    if ((actualCounts.get(monsterId) ?? 0) < expectedCount) return false;
+  }
+  return true;
+}
+
+function firstFiniteDungeonCoordinate(...values: unknown[]): number {
+  for (const value of values) {
+    if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) continue;
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) return Math.trunc(numeric);
+  }
+  return Number.NaN;
 }
 
 const standardBaselinesMap = new Map<number, number>();

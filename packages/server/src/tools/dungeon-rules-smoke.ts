@@ -60,7 +60,12 @@ assert.ok(events.includes('wave:0'));
 events.length = 0;
 new ExpeditionDungeonFlowController().onTick(makeRun('expedition'), { ...dungeon, flowType: 'expedition', rooms: [] } as any, context);
 assert.ok(events.includes('complete:all_rooms_cleared'));
-console.log(JSON.stringify({ ok: true, case: 'dungeon-rules', checks: 23 }));
+void testDungeonRestartRecovery().then(() => {
+  console.log(JSON.stringify({ ok: true, case: 'dungeon-rules', checks: 29 }));
+}).catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
 
 function testPartyDefeatTransitions(): void {
   const playerId = 'player:dungeon:solo';
@@ -111,4 +116,174 @@ function testPartyDefeatTransitions(): void {
   assert.equal(events.find((entry) => entry.event === 'n:s:dungeonSettlement')?.status, 'failed');
   service.onPlayerDefeated(playerId, run.mapInstanceId);
   assert.equal(events.filter((entry) => entry.event === 'n:s:dungeonSettlement').length, 1);
+}
+
+async function testDungeonRestartRecovery(): Promise<void> {
+  const runId = 'smoke-restart-recovery';
+  const instanceId = `dungeon:${runId}`;
+  const playerId = 'player:dungeon:recovery';
+  const persistedRuntimeId = 'monster:dungeon:boss:stable';
+  const persistedState = {
+    monsterRuntimeId: persistedRuntimeId,
+    instanceId,
+    monsterId: 'm_huanling_zhenren_instance',
+    monsterName: '唤灵真人',
+    monsterTier: 'heaven',
+    monsterLevel: 43,
+    tileIndex: 182,
+    x: 2,
+    y: 9,
+    hp: 123,
+    maxHp: 1000,
+    alive: true,
+    respawnLeft: 0,
+    respawnTicks: 30,
+    aggroTargetPlayerId: null,
+    statePayload: { qi: 17, maxQi: 20 },
+  };
+  const run = {
+    runId,
+    dungeonId: dungeon.id,
+    partyId: 'party:recovery',
+    status: 'active',
+    difficulty: { difficulty: 'trial' },
+    effectiveStep: 0,
+    mapInstanceId: instanceId,
+    members: [
+      { playerId, name: '恢复测试者', joinedAt: 0 },
+      { playerId: 'player:dungeon:other', name: '队友', joinedAt: 0 },
+    ],
+    currentRoomId: 'room_01',
+    createdAt: 0,
+    activatedAt: 1,
+  } as any;
+  const definition = {
+    ...dungeon,
+    rooms: [{
+      roomId: 'room_01',
+      bossId: 'm_huanling_zhenren_instance',
+      clearCondition: 'boss_defeated',
+      spawnX: 2,
+      spawnY: 9,
+      mechanismFormation: dungeon.rooms?.[0]?.mechanismFormation,
+    }],
+  } as any;
+  const formationCreates: any[] = [];
+  const connected: any[] = [];
+  const monsters = new Map<string, any>();
+  const instance = {
+    meta: { instanceId, kind: 'dungeon', persistent: true },
+    template: {
+      id: definition.mapTemplateId,
+      width: 20,
+      height: 14,
+      npcs: [{ id: 'npc_dungeon_memory_stone', x: 2, y: 11 }],
+    },
+    monstersByRuntimeId: monsters,
+    addRuntimeMonster(spawn: any) {
+      const monster = {
+        ...spawn,
+        hp: Number(spawn.hp),
+        maxHp: Number(spawn.maxHp),
+        alive: spawn.alive !== false,
+      };
+      monsters.set(monster.runtimeId, monster);
+      return monster;
+    },
+    removeRuntimeMonster(runtimeId: string) {
+      return monsters.delete(runtimeId);
+    },
+    getMonsterRuntimeRef(runtimeId: string) {
+      return monsters.get(runtimeId) ?? null;
+    },
+    hydrateMonsterRuntimeStates(entries: any[]) {
+      for (const entry of entries) {
+        const runtimeId = entry.runtimeId ?? entry.monsterRuntimeId;
+        const monster = monsters.get(runtimeId);
+        if (!monster) continue;
+        Object.assign(monster, {
+          hp: entry.hp,
+          maxHp: entry.maxHp,
+          x: entry.x,
+          y: entry.y,
+          alive: entry.alive,
+        });
+      }
+    },
+    getPlayerPosition() {
+      return { x: 1, y: 8 };
+    },
+    getPlayer() {
+      return { x: 1, y: 8 };
+    },
+    listPlayerIds() {
+      return [playerId];
+    },
+  };
+  const runPersistence = {
+    saves: [] as any[],
+    async reconcileTerminalCatalogInstances() { return 0; },
+    async loadRecoverableRuns() { return [run]; },
+    async loadRunStatusByInstanceId() { return run; },
+    async waitForSave() {},
+    save(next: any) { this.saves.push({ ...next }); },
+    remove() {},
+  };
+  const service = new DungeonRuntimeService(
+    {
+      getDungeonDefinition: () => definition,
+      listDungeonDefinitions: () => [definition],
+      createRuntimeMonsterSpawn: (monsterId: string, options: any) => ({
+        runtimeId: options.runtimeId ?? `generated:${monsterId}`,
+        monsterId,
+        x: options.x,
+        y: options.y,
+        hp: 1000,
+        maxHp: 1000,
+        alive: options.alive !== false,
+        level: 43,
+        tier: 'heaven',
+        name: '唤灵真人',
+        baseAttrs: {},
+        baseNumericStats: { maxHp: 1000, maxQi: 20 },
+        skills: [],
+        respawnTicks: 30,
+      }),
+    } as any,
+    {} as any,
+    { getPlayer: () => ({ playerId, x: 1, y: 8, hp: 100 }) } as any,
+    {
+      getInstanceRuntime: () => instance,
+      loadPersistedMonsterRuntimeStates: async () => [persistedState],
+      getPlayerLocation: () => ({ instanceId }),
+      getOrCreatePublicInstance: () => ({ meta: { instanceId: 'public:ruined_cavern_manor' } }),
+      worldRuntimeFormationService: {
+        getFormationList: () => formationCreates.map((entry) => ({
+          id: `formation:dungeon:${entry.runId}:room:${entry.roomId}`,
+          source: 'dungeon_controller',
+          controllerId: entry.controllerId,
+        })),
+      },
+      worldRuntimePlayerSessionService: {
+        async connectPlayerWhenReady(input: any) { connected.push(input); },
+      },
+      destroyEmptyManagedInstance: async () => undefined,
+    } as any,
+    { getSocketByPlayerId: () => null, getBinding: () => null } as any,
+    { create: (input: any) => formationCreates.push(input), destroy: () => undefined } as any,
+    {} as any,
+    runPersistence as any,
+  ) as any;
+
+  const restored = await service.restorePersistedRuns();
+  assert.equal(restored, 1, 'active dungeon run should be restored');
+  assert.equal(monsters.has(persistedRuntimeId), true, 'persisted Boss runtimeId should be materialized');
+  assert.equal(monsters.get(persistedRuntimeId)?.hp, 123, 'persisted Boss HP should be hydrated');
+  assert.equal(formationCreates.length, 1, 'controller formation should be recreated after restart');
+
+  // 模拟热更新/重启后流程注册表短暂为空：退出动作应先自愈恢复，而不是直接按孤儿副本处理。
+  service.runs.clear();
+  const exitResult = await service.exit(playerId, runId);
+  assert.equal(exitResult.ok, true, 'player on recovered entry anchor should be allowed to exit');
+  assert.equal(connected.length, 1, 'exit should reconnect player to public entry map');
 }

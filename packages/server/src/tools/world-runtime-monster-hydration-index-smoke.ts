@@ -20,6 +20,89 @@ function createBlazewoodInstance() {
   });
 }
 
+function assertDynamicMonsterPersistenceDirtyLifecycle() {
+  const contentRepository = new ContentTemplateRepository();
+  contentRepository.loadAll();
+  const mapTemplateRepository = new MapTemplateRepository();
+  mapTemplateRepository.loadAll();
+  const mapId = 'blazewood_waste';
+  const instance = new MapInstanceRuntime({
+    instanceId: `smoke:persistent:${mapId}:${Date.now()}`,
+    template: mapTemplateRepository.getOrThrow(mapId),
+    monsterSpawns: contentRepository.createRuntimeMonstersForMap(mapId),
+    kind: 'dungeon',
+    persistent: true,
+    createdAt: Date.now(),
+  });
+  const runtimeId = 'monster:smoke:persistent-boss';
+  const spawn = contentRepository.createRuntimeMonsterSpawn('m_blazewood_king', {
+    runtimeId,
+    x: 1,
+    y: 1,
+  });
+  assert.ok(spawn, 'dynamic monster spawn should be created');
+  instance.addRuntimeMonster(spawn! as any);
+  assert.equal(instance.getDirtyDomains().has('monster_runtime'), true, 'dynamic monster add should dirty monster domain');
+  assert.equal(instance.dirtyMonsterRuntimeIds.has(runtimeId), true, 'dynamic monster add should retain row key');
+  const upsertDelta = instance.buildMonsterRuntimePersistenceDelta();
+  assert.equal(upsertDelta.upserts.some((entry) => entry.monsterRuntimeId === runtimeId), true, 'dynamic monster add should produce upsert delta');
+
+  instance.markPersistenceDomainsPersisted(['monster_runtime']);
+  assert.equal(instance.dirtyMonsterRuntimeIds.has(runtimeId), false, 'successful flush should clear dynamic row key');
+  assert.equal(instance.removeRuntimeMonster(runtimeId), true, 'dynamic monster should be removable');
+  assert.equal(instance.getDirtyDomains().has('monster_runtime'), true, 'dynamic monster removal should dirty monster domain');
+  assert.equal(instance.dirtyMonsterRuntimeIds.has(runtimeId), true, 'dynamic monster removal should retain delete row key');
+  const deleteDelta = instance.buildMonsterRuntimePersistenceDelta();
+  assert.equal(deleteDelta.deletes.includes(runtimeId), true, 'dynamic monster removal should produce delete delta');
+}
+
+function assertDungeonHydrationPreservesScaledStats() {
+  const contentRepository = new ContentTemplateRepository();
+  contentRepository.loadAll();
+  const mapTemplateRepository = new MapTemplateRepository();
+  mapTemplateRepository.loadAll();
+  const runtimeId = 'monster:smoke:scaled-boss';
+  const source = contentRepository.createRuntimeMonsterSpawn('m_huanling_zhenren_instance', {
+    runtimeId,
+    x: 2,
+    y: 2,
+  });
+  assert.ok(source, 'dungeon boss spawn should be created');
+  const scale = 10;
+  const scaled = {
+    ...source,
+    baseAttrs: Object.fromEntries(Object.entries(source!.baseAttrs as Record<string, unknown>).map(([key, value]) => [key, Number(value) * scale])),
+    baseNumericStats: Object.fromEntries(Object.entries(source!.baseNumericStats as Record<string, unknown>).map(([key, value]) => [key, typeof value === 'number' ? value * scale : value])),
+    maxHp: Number(source!.maxHp) * scale,
+    hp: Number(source!.maxHp) * scale,
+  };
+  const instance = new MapInstanceRuntime({
+    instanceId: 'smoke:dungeon:scaled-stats',
+    template: mapTemplateRepository.getOrThrow('dungeon_huanling_zhenren_instance'),
+    monsterSpawns: [scaled],
+    kind: 'dungeon',
+    persistent: true,
+    createdAt: Date.now(),
+  });
+  const persistedMaxHp = Number(scaled.maxHp);
+  instance.hydrateMonsterRuntimeStates([{
+    monsterRuntimeId: runtimeId,
+    monsterId: source!.monsterId,
+    monsterLevel: source!.level,
+    x: 2,
+    y: 2,
+    hp: 123,
+    maxHp: persistedMaxHp,
+    alive: true,
+    statePayload: {},
+  }], { preserveScaledBaseStats: true });
+  const hydrated = instance.getMonster(runtimeId);
+  assert.ok(hydrated, 'scaled dungeon boss should remain after hydration');
+  assert.equal(hydrated!.maxHp, persistedMaxHp, 'dungeon hydration should preserve difficulty-scaled maxHp');
+  assert.equal(hydrated!.baseNumericStats.maxHp, persistedMaxHp, 'dungeon hydration should preserve scaled base maxHp');
+  assert.equal(hydrated!.hp, 123, 'dungeon hydration should preserve persisted current HP');
+}
+
 function findBlazewoodKing(instance: MapInstanceRuntime) {
   const monster = instance.listMonsters().find((entry) => entry.monsterId === 'm_blazewood_king');
   assert.ok(monster, 'blazewood king should exist in smoke instance');
@@ -96,6 +179,8 @@ function assertHydratedDeadMonsterDoesNotOccupyTiles() {
 function main() {
   assertHydratedAliveMonsterReindexesFinalTile();
   assertHydratedDeadMonsterDoesNotOccupyTiles();
+  assertDynamicMonsterPersistenceDirtyLifecycle();
+  assertDungeonHydrationPreservesScaledStats();
   process.stdout.write(JSON.stringify({
     ok: true,
     case: 'world-runtime-monster-hydration-index',

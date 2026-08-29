@@ -890,6 +890,14 @@ export class WorldRuntimeService {
     async hydratePersistentInstanceSnapshot(instanceId, instance) {
         return hydratePersistentInstanceSnapshot(this, instanceId, instance);
     }
+    /** 读取副本恢复所需的妖兽运行态；由世界门面隔离副本与实例持久化实现。 */
+    async loadPersistedMonsterRuntimeStates(instanceId: string) {
+        const persistence = this.instanceDomainPersistenceService;
+        if (!persistence?.isEnabled?.() || typeof persistence.loadMonsterRuntimeStates !== 'function') {
+            return [];
+        }
+        return persistence.loadMonsterRuntimeStates(instanceId);
+    }
         createInstance(input) {
         return this.worldRuntimeInstanceReadFacadeService.createInstance(input, this);
     }

@@ -22,6 +22,7 @@ import { WorldGateway } from './world.gateway';
 import { ShutdownStatusService, type ShutdownResultSnapshot } from '../lifecycle/shutdown-status.service';
 import { StartupBarrierService } from '../lifecycle/startup-barrier.service';
 import { BackgroundWorkerRuntimeService } from '../runtime/worker/background-worker-runtime.service';
+import { DungeonRunPersistenceService } from '../runtime/dungeon/dungeon-run-persistence.service';
 import type { WorldSessionBinding } from './world-session.service';
 
 const SHUTDOWN_SESSION_DRAIN_PARALLELISM = 32;
@@ -47,6 +48,8 @@ export class WorldShutdownDrainService implements BeforeApplicationShutdown {
     @Inject(FlushTaskRuntimeService) private readonly flushTaskRuntimeService: FlushTaskRuntimeService,
     @Optional() @Inject(BackgroundWorkerRuntimeService)
     private readonly backgroundWorkerRuntimeService?: BackgroundWorkerRuntimeService,
+    @Optional() @Inject(DungeonRunPersistenceService)
+    private readonly dungeonRunPersistenceService?: DungeonRunPersistenceService,
   ) {}
 
   async beforeApplicationShutdown(signal?: string): Promise<void> {
@@ -152,6 +155,7 @@ export class WorldShutdownDrainService implements BeforeApplicationShutdown {
       this.runFinalFlush('player_flush', '玩家数据', () => this.playerPersistenceFlushService.flushAllNow()),
       this.runFinalFlush('map_flush', '地图数据', () => this.mapPersistenceFlushService.flushAllNow()),
       this.runFinalFlush('tongtian_tower_flush', '通天塔数据', () => this.tongtianTowerPersistenceService.flushAllProgress()),
+      this.runFinalFlush('dungeon_run_flush', '副本流程快照', () => this.dungeonRunPersistenceService?.flushAllNow?.() ?? Promise.resolve()),
     ];
     const finalFlushResults = await Promise.all(finalFlushTasks);
     finalFlushFailed ||= finalFlushResults.some((succeeded) => !succeeded);
