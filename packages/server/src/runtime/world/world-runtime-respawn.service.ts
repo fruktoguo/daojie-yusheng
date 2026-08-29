@@ -261,6 +261,14 @@ export class WorldRuntimeRespawnService {
             currentTick: targetInstance.tick,
             buffClearMode: options?.buffClearMode ?? 'death',
         });
+        // 副本只记录“当前待复生”的战败成员；成功复生后立即清除标记，避免后续队员死亡时误判团灭。
+        try {
+            deps.dungeonRuntimeService?.onPlayerRevived?.(playerId, previous?.instanceId ?? null);
+        } catch (error) {
+            this.logger.warn(
+                `副本复生状态同步失败，已完成通用复生：playerId=${playerId} instanceId=${previous?.instanceId ?? 'unknown'} error=${error instanceof Error ? error.message : String(error)}`,
+            );
+        }
         const mapName = targetInstance.template.name;
         const n = buildStructuredNotice('travel', 'notice.respawn.revived', `已在 ${mapName} 复生`, {
             vars: { mapName },

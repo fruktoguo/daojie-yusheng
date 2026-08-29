@@ -43,6 +43,28 @@ interface DungeonCombatMemberStats {
   healingDone: number;
 }
 
+interface DungeonRewardResult {
+  claimed: boolean;
+  rewardsByPlayer: Map<string, Array<{ itemId: string; count: number }>>;
+}
+
+function emptyDungeonRewardResult(): DungeonRewardResult {
+  return { claimed: false, rewardsByPlayer: new Map() };
+}
+
+/** 只有全部队员都处于当前战败集合时，副本才进入团灭失败终态。 */
+export function isDungeonPartyDefeated(
+  run: Readonly<Pick<DungeonRunState, 'members' | 'defeatedMemberIds'>>,
+): boolean {
+  const members = Array.isArray(run.members) ? run.members : [];
+  if (members.length === 0) return false;
+  const defeated = new Set(
+    (Array.isArray(run.defeatedMemberIds) ? run.defeatedMemberIds : [])
+      .filter((playerId): playerId is string => typeof playerId === 'string' && playerId.trim().length > 0),
+  );
+  return members.every((member) => defeated.has(member.playerId));
+}
+
 @Injectable()
 export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DungeonRuntimeService.name);
@@ -50,6 +72,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   private readonly pending = new Map<string, PendingEntry>();
   private readonly exitedPlayers = new Map<string, Set<string>>();
   private readonly runTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly terminalCleanupTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly combatStatsByRunId = new Map<string, Map<string, DungeonCombatMemberStats>>();
   private restorePromise: Promise<number> | null = null;
   private readonly controllers = new Map<string, DungeonFlowController>([
@@ -81,6 +104,8 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     this.pending.clear();
     for (const timer of this.runTimers.values()) clearTimeout(timer);
     this.runTimers.clear();
+    for (const timer of this.terminalCleanupTimers.values()) clearTimeout(timer);
+    this.terminalCleanupTimers.clear();
     this.combatStatsByRunId.clear();
   }
 
@@ -113,6 +138,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     }
     const payloads = await this.runPersistence.loadRecoverableRuns();
     let restored = 0;
+    let terminalCatalogReconcileNeeded = false;
     for (const payload of payloads) {
       const run = normalizeRecoveredDungeonRun(payload);
       const definition = run ? this.content.getDungeonDefinition(run.dungeonId) : null;
@@ -132,6 +158,13 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
         continue;
       }
       if (!instance) {
+        if (run.status === 'failed') {
+          run.destroyedAt = run.destroyedAt ?? Date.now();
+          this.runPersistence.save(run);
+          await this.runPersistence.waitForSave(run.runId);
+          terminalCatalogReconcileNeeded = true;
+          continue;
+        }
         try {
           const baseSpawns = definition.flowType === 'defense' ? [] : (definition.rooms?.length ? [] : this.content.createRuntimeMonstersForMap(definition.mapTemplateId));
           instance = this.world.createInstance({
@@ -157,14 +190,23 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
         run.status = 'active';
         run.activatedAt = run.activatedAt ?? Date.now();
         this.activateRoom(instance, definition, run, run.currentRoomId ?? definition.rooms?.[0]?.roomId);
-      } else if (run.status === 'completed' || run.status === 'completing') {
+      } else if (run.status === 'completed' || run.status === 'completing' || run.status === 'failed') {
         instance.meta.status = 'completed';
+        instance.meta.dungeonRunStatus = run.status;
+        // 崩溃可能发生在终态写入与实例清理之间，恢复时再次收敛实体，避免终态副本继续产生战斗。
+        this.clearTerminalInstance(run, run.status);
       }
       this.runs.set(run.runId, run);
       this.combatStatsByRunId.set(run.runId, new Map(run.members.map((member) => [member.playerId, { damageDealt: 0, damageTaken: 0, healingDone: 0 }])));
       this.scheduleRecoveredRun(run, definition);
       this.runPersistence.save(run);
       restored++;
+    }
+    if (terminalCatalogReconcileNeeded) {
+      const reconciledAfterRestore = await this.runPersistence.reconcileTerminalCatalogInstances();
+      if (reconciledAfterRestore > 0) {
+        this.logger.log(`恢复阶段已对账并销毁 ${reconciledAfterRestore} 条缺失实例的终态副本目录记录`);
+      }
     }
     if (restored > 0) this.logger.log(`已恢复 ${restored} 个副本流程实例`);
     return restored;
@@ -178,11 +220,9 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
       this.runTimers.set(run.runId, timer);
       return;
     }
-    if (run.status === 'completed' || run.status === 'completing') {
+    if (run.status === 'completed' || run.status === 'completing' || run.status === 'failed') {
       const deadline = Number(run.completedAt ?? Date.now()) + 30_000;
-      const timer = setTimeout(() => void this.forceCleanupCompletedRun(run), Math.max(0, deadline - Date.now()));
-      timer.unref?.();
-      this.runTimers.set(run.runId, timer);
+      this.scheduleTerminalCleanup(run, Math.max(0, deadline - Date.now()));
     }
   }
 
@@ -283,6 +323,74 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
 
   getRun(runId: string): DungeonRunState | null { return this.runs.get(runId) ?? null; }
 
+  /**
+   * 玩家在副本内被权威战斗链击败时调用。死亡先记入副本快照，再由通用规则裁定是否团灭。
+   * 单人副本天然满足“全员战败”，多人副本则允许剩余队员继续挑战。
+   */
+  onPlayerDefeated(playerIdInput: string, instanceIdInput?: string | null): void {
+    const playerId = typeof playerIdInput === 'string' ? playerIdInput.trim() : '';
+    const instanceId = typeof instanceIdInput === 'string' ? instanceIdInput.trim() : '';
+    if (!playerId) return;
+    const run = [...this.runs.values()].find((entry) => {
+      if (!['active', 'activating'].includes(entry.status)) return false;
+      if (!entry.members.some((member) => member.playerId === playerId)) return false;
+      if (instanceId && entry.mapInstanceId === instanceId) return true;
+      return this.world.getPlayerLocation(playerId)?.instanceId === entry.mapInstanceId;
+    });
+    if (!run) return;
+
+    this.reconcileDefeatedMembers(run);
+    const defeated = new Set(run.defeatedMemberIds ?? []);
+    if (defeated.has(playerId)) return;
+    defeated.add(playerId);
+    run.defeatedMemberIds = [...defeated];
+    this.runPersistence.save(run);
+    this.emitRunState(run);
+    if (isDungeonPartyDefeated(run)) this.failRun(run, 'party_defeated');
+  }
+
+  /** 玩家复生或被外部恢复生命后清除当前战败标记，避免旧死亡状态污染后续团灭判定。 */
+  onPlayerRevived(playerIdInput: string, instanceIdInput?: string | null): void {
+    const playerId = typeof playerIdInput === 'string' ? playerIdInput.trim() : '';
+    const instanceId = typeof instanceIdInput === 'string' ? instanceIdInput.trim() : '';
+    if (!playerId) return;
+    const run = [...this.runs.values()].find((entry) => {
+      if (entry.status !== 'active' || !entry.defeatedMemberIds?.includes(playerId)) return false;
+      return !instanceId || entry.mapInstanceId === instanceId;
+    });
+    if (!run || !this.clearDefeatedMember(run, playerId)) return;
+    this.runPersistence.save(run);
+    this.emitRunState(run);
+  }
+
+  private clearDefeatedMember(run: DungeonRunState, playerId: string): boolean {
+    const previous = Array.isArray(run.defeatedMemberIds) ? run.defeatedMemberIds : [];
+    if (!previous.includes(playerId)) return false;
+    const remaining = previous.filter((entry) => entry !== playerId);
+    if (remaining.length > 0) run.defeatedMemberIds = remaining;
+    else delete run.defeatedMemberIds;
+    return true;
+  }
+
+  /** 清除已完成复生的成员标记，并过滤快照中已不存在的成员。 */
+  private reconcileDefeatedMembers(run: DungeonRunState): boolean {
+    const previous = Array.isArray(run.defeatedMemberIds) ? run.defeatedMemberIds : [];
+    if (previous.length === 0) return false;
+    const memberIds = new Set(run.members.map((member) => member.playerId));
+    const next: string[] = [];
+    for (const playerId of previous) {
+      if (!memberIds.has(playerId)) continue;
+      const player = this.players.getPlayer(playerId) as any;
+      if (player && Number(player.hp) > 0) continue;
+      if (!next.includes(playerId)) next.push(playerId);
+    }
+    const changed = previous.length !== next.length || previous.some((playerId, index) => playerId !== next[index]);
+    if (!changed) return false;
+    if (next.length > 0) run.defeatedMemberIds = next;
+    else delete run.defeatedMemberIds;
+    return true;
+  }
+
   async exit(playerId: string, runIdInput?: unknown) {
     const player = playerId.trim();
     const location = this.world.getPlayerLocation(player);
@@ -335,6 +443,12 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   onInstanceTick(instanceId: string, _instanceTick: number): void {
     const run = [...this.runs.values()].find((entry) => entry.mapInstanceId === instanceId && entry.status === 'active');
     if (!run) return;
+    const defeatedChanged = this.reconcileDefeatedMembers(run);
+    if (defeatedChanged) this.runPersistence.save(run);
+    if (isDungeonPartyDefeated(run)) {
+      this.failRun(run, 'party_defeated');
+      return;
+    }
     const definition = this.content.getDungeonDefinition(run.dungeonId);
     const controller = definition ? this.controllers.get(definition.flowType) : null;
     controller?.onTick?.(run, definition!, this.buildFlowContext());
@@ -524,22 +638,69 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
 
   private completeRun(run: DungeonRunState, _reason: string): void {
     if (run.status !== 'active') return;
-    const timeoutTimer = this.runTimers.get(run.runId);
-    if (timeoutTimer) clearTimeout(timeoutTimer);
-    this.runTimers.delete(run.runId);
-    run.status = 'completing'; run.completedAt = Date.now(); run.completionId = randomUUID(); run.settlementId = randomUUID();
+    this.clearRunTimeout(run.runId);
+    run.status = 'completing';
+    run.completedAt = Date.now();
+    run.completionId = randomUUID();
+    run.settlementId = randomUUID();
+    delete run.defeatedMemberIds;
     this.runPersistence.save(run);
     const definition = this.content.getDungeonDefinition(run.dungeonId);
-    const rewardResult = definition ? this.rewards.claim(run, definition) : { claimed: false, rewardsByPlayer: new Map<string, Array<{ itemId: string; count: number }>>() };
+    const rewardResult = definition
+      ? this.rewards.claim(run, definition)
+      : emptyDungeonRewardResult();
+    const settlement = this.buildSettlement(run, 'completed', rewardResult);
+    for (const member of run.members) this.emit(member.playerId, S2C.DungeonSettlement, { settlement });
+    this.clearTerminalInstance(run, 'completed');
+    // 结算后仍需允许玩家走到入口撤离；实例保持可附着状态，真正销毁时再停止运行态。
+    run.status = 'completed';
+    this.runPersistence.save(run);
+    this.scheduleTerminalCleanup(run);
+  }
+
+  /** 全员战败时进入失败终态；失败不发放通关奖励，但保留队伍统计和失败结算。 */
+  private failRun(run: DungeonRunState, reason: string): void {
+    if (!['active', 'activating'].includes(run.status)) return;
+    this.clearRunTimeout(run.runId);
+    run.status = 'failed';
+    run.failureReason = reason;
+    run.completedAt = Date.now();
+    run.completionId = randomUUID();
+    run.settlementId = randomUUID();
+    this.logger.log(`副本进入战败终态：runId=${run.runId} dungeonId=${run.dungeonId} reason=${reason}`);
+    try {
+      const definition = this.content.getDungeonDefinition(run.dungeonId);
+      if (definition) this.controllers.get(definition.flowType)?.onAbort?.(run, definition, reason, this.buildFlowContext());
+    } catch (error) {
+      this.logger.warn(`副本战败流程收尾失败 ${run.runId}：${error instanceof Error ? error.message : String(error)}`);
+    }
+    this.runPersistence.save(run);
+    // 先同步终态，关闭进行中的 HUD，再发送失败结算弹窗。
+    this.emitRunState(run);
+    const settlement = this.buildSettlement(run, 'failed', emptyDungeonRewardResult());
+    for (const member of run.members) this.emit(member.playerId, S2C.DungeonSettlement, { settlement });
+    this.clearTerminalInstance(run, 'failed');
+    this.runPersistence.save(run);
+    this.scheduleTerminalCleanup(run);
+  }
+
+  private buildSettlement(
+    run: DungeonRunState,
+    status: DungeonSettlementView['status'],
+    rewardResult: DungeonRewardResult,
+  ): DungeonSettlementView {
+    const definition = this.content.getDungeonDefinition(run.dungeonId);
     const stats = this.combatStatsByRunId.get(run.runId) ?? new Map();
     const settlementMembers: DungeonSettlementMember[] = run.members.map((member) => {
       const player = this.players.getPlayer(member.playerId) as any;
       const current = stats.get(member.playerId) ?? { damageDealt: 0, damageTaken: 0, healingDone: 0 };
+      const imageUrl = resolvePlayerImageUrl(player);
       return {
         playerId: member.playerId,
         ...(member.playerNo === undefined ? {} : { playerNo: member.playerNo }),
         name: String(player?.name ?? member.name ?? member.playerId),
         ...(player?.displayName ? { displayName: String(player.displayName) } : {}),
+        ...(imageUrl ? { imageUrl } : {}),
         ...(player?.realmName ? { realmName: String(player.realmName) } : {}),
         ...(player?.realmStage ? { realmStage: String(player.realmStage) } : {}),
         damageDealt: Math.max(0, Math.round(current.damageDealt)),
@@ -548,20 +709,49 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
         rewards: rewardResult.rewardsByPlayer.get(member.playerId) ?? [],
       };
     });
-    const rewardClaimed = rewardResult.claimed;
-    const settlement: DungeonSettlementView = { runId: run.runId, dungeonId: run.dungeonId, dungeonName: definition?.name, status: 'completed', completionId: run.completionId, rewardTableId: definition?.rewards.rewardTableId, rewardClaimed, difficulty: run.difficulty, effectiveStep: run.effectiveStep, completedAt: run.completedAt, members: settlementMembers };
-    for (const member of run.members) this.emit(member.playerId, S2C.DungeonSettlement, { settlement });
+    return {
+      runId: run.runId,
+      dungeonId: run.dungeonId,
+      ...(definition?.name ? { dungeonName: definition.name } : {}),
+      status,
+      completionId: run.completionId ?? run.settlementId ?? run.runId,
+      ...(definition?.rewards.rewardTableId ? { rewardTableId: definition.rewards.rewardTableId } : {}),
+      rewardClaimed: rewardResult.claimed,
+      difficulty: run.difficulty,
+      effectiveStep: run.effectiveStep,
+      completedAt: run.completedAt ?? Date.now(),
+      ...(run.failureReason ? { failureReason: run.failureReason } : {}),
+      members: settlementMembers,
+    };
+  }
+
+  private clearTerminalInstance(run: DungeonRunState, terminalStatus: DungeonRunState['status']): void {
     const instance = this.world.getInstanceRuntime(run.mapInstanceId) as any;
     for (const monster of [...(instance?.monstersByRuntimeId?.values?.() ?? [])]) instance.removeRuntimeMonster?.(monster.runtimeId);
     for (const formation of this.world.worldRuntimeFormationService.getFormationList(run.mapInstanceId).filter((entry: any) => entry?.source === 'dungeon_controller' || entry?.controlMode === 'controller_only')) {
       this.mechanismFormations.destroy(run.mapInstanceId, formation.id);
     }
-    // 结算后仍需允许玩家走到入口撤离；实例保持可附着状态，真正销毁时再停止运行态。
-    if (instance) instance.meta.status = 'completed';
-    run.status = 'completed';
-    this.runPersistence.save(run);
-    const cleanupTimer = setTimeout(() => void this.forceCleanupCompletedRun(run), 30_000);
-    cleanupTimer.unref?.();
+    if (instance) {
+      instance.meta.status = 'completed';
+      instance.meta.dungeonRunStatus = terminalStatus;
+    }
+  }
+
+  private clearRunTimeout(runId: string): void {
+    const timeoutTimer = this.runTimers.get(runId);
+    if (timeoutTimer) clearTimeout(timeoutTimer);
+    this.runTimers.delete(runId);
+  }
+
+  private scheduleTerminalCleanup(run: DungeonRunState, delayMs = 30_000): void {
+    const previous = this.terminalCleanupTimers.get(run.runId);
+    if (previous) clearTimeout(previous);
+    const timer = setTimeout(() => {
+      this.terminalCleanupTimers.delete(run.runId);
+      void this.forceCleanupTerminalRun(run);
+    }, Math.max(0, Math.trunc(delayMs)));
+    timer.unref?.();
+    this.terminalCleanupTimers.set(run.runId, timer);
   }
 
   private expireRun(runId: string): void {
@@ -572,10 +762,10 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     if (definition) this.controllers.get(definition.flowType)?.onAbort?.(run, definition, 'timeout', this.buildFlowContext());
     this.runPersistence.save(run);
     for (const member of run.members) this.emit(member.playerId, S2C.DungeonEntryResult, { ok: false, reason: 'timeout', run });
-    void this.forceCleanupCompletedRun(run);
+    void this.forceCleanupTerminalRun(run);
   }
 
-  private async forceCleanupCompletedRun(run: DungeonRunState): Promise<void> {
+  private async forceCleanupTerminalRun(run: DungeonRunState): Promise<void> {
     const definition = this.content.getDungeonDefinition(run.dungeonId);
     if (!definition) return;
     const instance = this.world.getInstanceRuntime(run.mapInstanceId) as any;
@@ -583,6 +773,11 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
       for (const playerId of instance.listPlayerIds()) {
         await this.world.worldRuntimePlayerSessionService.connectPlayerWhenReady({ playerId, sessionId: this.sessions.getBinding(playerId)?.sessionId ?? null, instanceId: this.world.getOrCreatePublicInstance(definition.entryMapTemplateId).meta.instanceId, mapId: definition.entryMapTemplateId, preferredX: definition.entryX, preferredY: definition.entryY, allowCreateFallback: false, relocateExisting: true }, this.world as any).catch(() => undefined);
       }
+    }
+    if (instance?.listPlayerIds?.().length > 0) {
+      this.logger.warn(`副本终态清理暂缓，仍有玩家未撤离：runId=${run.runId}`);
+      this.scheduleTerminalCleanup(run, 5_000);
+      return;
     }
     await this.destroyRun(run);
   }
@@ -595,6 +790,9 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async destroyRun(run: DungeonRunState): Promise<void> {
+    const terminalCleanupTimer = this.terminalCleanupTimers.get(run.runId);
+    if (terminalCleanupTimer) clearTimeout(terminalCleanupTimer);
+    this.terminalCleanupTimers.delete(run.runId);
     run.destroyedAt = Date.now();
     this.runPersistence.save(run);
     await this.world.destroyEmptyManagedInstance(run.mapInstanceId, 'dungeon_completed').catch((error) => this.logger.warn(`副本实例销毁失败 ${run.mapInstanceId}: ${error instanceof Error ? error.message : String(error)}`));
@@ -735,7 +933,7 @@ function resolvePlayerImageUrl(player: any): string | undefined {
 function normalizeRecoveredDungeonRun(payload: any): DungeonRunState | null {
   if (!payload || typeof payload.runId !== 'string' || typeof payload.dungeonId !== 'string' || typeof payload.mapInstanceId !== 'string') return null;
   if (!Array.isArray(payload.members) || payload.members.length === 0) return null;
-  const allowedStatuses = new Set(['created', 'activating', 'active', 'completing', 'completed']);
+  const allowedStatuses = new Set(['created', 'activating', 'active', 'completing', 'completed', 'failed']);
   if (!allowedStatuses.has(payload.status)) return null;
   const members = payload.members.filter((member: any) => typeof member?.playerId === 'string' && member.playerId.trim()).map((member: any) => ({
     playerId: member.playerId.trim(),
@@ -744,13 +942,22 @@ function normalizeRecoveredDungeonRun(payload: any): DungeonRunState | null {
     joinedAt: Number.isFinite(Number(member.joinedAt)) ? Number(member.joinedAt) : Date.now(),
   }));
   if (members.length === 0) return null;
-  return {
+  const memberIds = new Set(members.map((member) => member.playerId));
+  const defeatedMemberIds: string[] = Array.isArray(payload.defeatedMemberIds)
+    ? Array.from(new Set<string>(payload.defeatedMemberIds
+      .filter((playerId: unknown): playerId is string => typeof playerId === 'string' && memberIds.has(playerId.trim()))
+      .map((playerId: string) => playerId.trim())))
+    : [];
+  const normalized: DungeonRunState = {
     ...payload,
     runId: payload.runId.trim(),
     dungeonId: payload.dungeonId.trim(),
     mapInstanceId: payload.mapInstanceId.trim(),
     members,
   } as DungeonRunState;
+  if (defeatedMemberIds.length > 0) normalized.defeatedMemberIds = defeatedMemberIds;
+  else delete normalized.defeatedMemberIds;
+  return normalized;
 }
 
 function isDungeonInstanceCandidate(instanceId: string | undefined, instance: any): boolean {

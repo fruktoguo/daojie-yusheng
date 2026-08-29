@@ -195,6 +195,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
           }
           const instanceId = player.instanceId;
           const instance = instanceId ? deps.getInstanceRuntime?.(instanceId) : null;
+          notifyDungeonPlayerDefeated(deps, playerId, instanceId, instance);
           if (instance) {
             if (typeof instance.clearMonsterAggroForPlayer === 'function') {
               instance.clearMonsterAggroForPlayer(playerId);
@@ -233,6 +234,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
         if (typeof instance.clearMonsterAggroForPlayer === 'function') {
           instance.clearMonsterAggroForPlayer(playerId);
         }
+        notifyDungeonPlayerDefeated(deps, playerId, instance.meta?.instanceId, instance);
         if (typeof instance.cancelPendingCommand === 'function') {
           instance.cancelPendingCommand(playerId);
         }
@@ -1072,6 +1074,23 @@ export class WorldRuntimeInstanceTickOrchestrationService {
 
 function createTickSectionDurations(): TickSectionDurations {
     return Object.create(null) as TickSectionDurations;
+}
+
+/**
+ * 死亡安全网也必须经过副本流程；某些恢复/跨 tick 路径只会把玩家加入待复生队列，
+ * 不会再次调用通用 handlePlayerDefeat。副本回调不能反向阻断世界 tick。
+ */
+function notifyDungeonPlayerDefeated(deps: any, playerId: string, instanceIdInput?: unknown, instance?: any): void {
+  const instanceId = typeof instanceIdInput === 'string' ? instanceIdInput.trim() : '';
+  const isDungeon = instance?.meta?.kind === 'dungeon' || instanceId.startsWith('dungeon:');
+  if (!isDungeon || typeof deps?.dungeonRuntimeService?.onPlayerDefeated !== 'function') return;
+  try {
+    deps.dungeonRuntimeService.onPlayerDefeated(playerId, instanceId);
+  } catch (error) {
+    deps.logger?.warn?.(
+      `副本死亡状态同步失败，继续执行通用复生：playerId=${playerId} instanceId=${instanceId || 'unknown'} error=${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
 }
 
 function addMeasuredTickSection(sections: TickSectionDurations, key: string, startedAt: number, count = 1): void {

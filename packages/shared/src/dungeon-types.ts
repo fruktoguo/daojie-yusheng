@@ -164,6 +164,8 @@ export interface DungeonRunState {
   completedAt?: number;
   destroyedAt?: number;
   failureReason?: string;
+  /** 当前仍处于战败待复生状态的队员，持久化用于重启后继续裁定团灭。 */
+  defeatedMemberIds?: string[];
   /** 当前流程的轻量显示投影，供副本 HUD 使用，不参与权威结算。 */
   progressPercent?: number;
   bossProgress?: { name: string; hp: number; maxHp: number };
@@ -191,6 +193,7 @@ export interface DungeonSettlementView {
   difficulty: DungeonDifficultySelection;
   effectiveStep: number;
   completedAt: number;
+  failureReason?: string;
   members: DungeonSettlementMember[];
 }
 

@@ -10,6 +10,8 @@ const TABLE = 'dungeon_run';
 export class DungeonRunPersistenceService implements OnModuleInit {
   private readonly logger = new Logger(DungeonRunPersistenceService.name);
   private pool: Pool | null = null;
+  /** 同一副本的快照必须按调用顺序落库，避免“战败”被较早的 active 快照覆盖。 */
+  private readonly saveChains = new Map<string, Promise<void>>();
 
   constructor(@Inject(DatabasePoolProvider) private readonly provider: DatabasePoolProvider | null = null) {}
 
@@ -27,17 +29,39 @@ export class DungeonRunPersistenceService implements OnModuleInit {
 
   save(run: DungeonRunState): void {
     if (!this.pool) return;
-    void this.pool.query(
-      `INSERT INTO ${TABLE}(run_id, party_id, dungeon_id, status, run_payload, updated_at) VALUES($1,$2,$3,$4,$5::jsonb,now()) ON CONFLICT(run_id) DO UPDATE SET party_id=EXCLUDED.party_id,dungeon_id=EXCLUDED.dungeon_id,status=EXCLUDED.status,run_payload=EXCLUDED.run_payload,updated_at=now()`,
-      [run.runId, run.partyId, run.dungeonId, run.status, JSON.stringify(run)],
-    ).catch((error) => this.logger.warn(`副本流程快照写入失败 ${run.runId}：${error instanceof Error ? error.message : String(error)}`));
+    const payload = JSON.stringify(run);
+    const previous = this.saveChains.get(run.runId) ?? Promise.resolve();
+    const current = previous
+      .catch(() => undefined)
+      .then(async () => {
+        if (!this.pool) return;
+        await this.pool.query(
+          `INSERT INTO ${TABLE}(run_id, party_id, dungeon_id, status, run_payload, updated_at) VALUES($1,$2,$3,$4,$5::jsonb,now()) ON CONFLICT(run_id) DO UPDATE SET party_id=EXCLUDED.party_id,dungeon_id=EXCLUDED.dungeon_id,status=EXCLUDED.status,run_payload=EXCLUDED.run_payload,updated_at=now()`,
+          [run.runId, run.partyId, run.dungeonId, run.status, payload],
+        );
+      })
+      .catch((error) => {
+        this.logger.warn(`副本流程快照写入失败 ${run.runId}：${error instanceof Error ? error.message : String(error)}`);
+      });
+    this.saveChains.set(run.runId, current);
+    void current.finally(() => {
+      if (this.saveChains.get(run.runId) === current) this.saveChains.delete(run.runId);
+    });
+  }
+
+  /** 等待指定副本已经排队的快照写入完成，用于启动恢复后的目录对账。 */
+  async waitForSave(runId: string): Promise<void> {
+    await (this.saveChains.get(runId) ?? Promise.resolve());
   }
 
   async loadRecoverableRuns(): Promise<DungeonRunState[]> {
     if (!this.pool) return [];
     try {
       const result = await this.pool.query(
-        `SELECT run_payload FROM ${TABLE} WHERE status IN ('created','activating','active','completing') OR (status = 'completed' AND COALESCE(run_payload->>'destroyedAt', '') = '') ORDER BY updated_at ASC`,
+        `SELECT run_payload FROM ${TABLE}
+          WHERE status IN ('created','activating','active','completing')
+             OR (status IN ('completed','failed') AND COALESCE(run_payload->>'destroyedAt', '') = '')
+          ORDER BY updated_at ASC`,
       );
       return result.rows
         .map((row) => row?.run_payload)
@@ -89,7 +113,7 @@ export class DungeonRunPersistenceService implements OnModuleInit {
                WHERE run.run_payload->>'mapInstanceId' = catalog.instance_id
                  AND (
                    run.status IN ('created', 'activating', 'active', 'completing')
-                   OR (run.status = 'completed' AND COALESCE(run.run_payload->>'destroyedAt', '') = '')
+                   OR (run.status IN ('completed', 'failed') AND COALESCE(run.run_payload->>'destroyedAt', '') = '')
                  )
             )
         RETURNING catalog.instance_id`,

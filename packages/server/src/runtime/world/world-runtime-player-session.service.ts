@@ -185,17 +185,26 @@ export class WorldRuntimePlayerSessionService {
       requestedInstanceId: normalizeInstanceId(input.instanceId),
       requestedMapId: normalizeMapId(input.mapId),
     };
-    if (targetRequest.requestedInstanceId.startsWith('dungeon:')
-      && !deps.getInstanceRuntime(targetRequest.requestedInstanceId)) {
-      await deps.dungeonRuntimeService?.restorePersistedRuns?.();
+    if (targetRequest.requestedInstanceId.startsWith('dungeon:')) {
       if (!deps.getInstanceRuntime(targetRequest.requestedInstanceId)) {
-        const run = await deps.dungeonRuntimeService?.getRunByInstanceId?.(targetRequest.requestedInstanceId);
-        const status = typeof run?.status === 'string' ? run.status : '';
-        const isRecoverable = ['created', 'activating', 'active', 'completing'].includes(status)
-          || (status === 'completed' && !Number.isFinite(Number(run?.destroyedAt)));
-        if (!isRecoverable && typeof deps.playerRuntimeService.getPlayer === 'function') {
-          return this.connectPlayerToBoundRespawnFallback(input, deps, targetRequest.requestedInstanceId);
-        }
+        await deps.dungeonRuntimeService?.restorePersistedRuns?.();
+      }
+      let run: { status?: string; destroyedAt?: number } | null = null;
+      try {
+        run = await deps.dungeonRuntimeService?.getRunByInstanceId?.(targetRequest.requestedInstanceId) ?? null;
+      } catch (error) {
+        deps.logger.warn(
+          `副本流程状态读取失败，保留现有实例恢复链：instanceId=${targetRequest.requestedInstanceId} error=${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+      const status = typeof run?.status === 'string' ? run.status : '';
+      const isTerminal = ['failed', 'aborted', 'expired'].includes(status)
+        || (status === 'completed' && Number.isFinite(Number(run?.destroyedAt)));
+      if (isTerminal && typeof deps.playerRuntimeService.getPlayer === 'function') {
+        return this.connectPlayerToBoundRespawnFallback(input, deps, targetRequest.requestedInstanceId);
+      }
+      if (!deps.getInstanceRuntime(targetRequest.requestedInstanceId) && run && !isDungeonRunRecoverable(run)) {
+        return this.connectPlayerToBoundRespawnFallback(input, deps, targetRequest.requestedInstanceId);
       }
     }
     const towerTemplateId = resolveTowerTemplateIdFromSessionRequest(targetRequest, deps);
@@ -566,6 +575,12 @@ export class WorldRuntimePlayerSessionService {
 
 function isDeadPlayerRuntime(player: PlayerRuntimeLike | null | undefined): boolean {
   return Number.isFinite(player?.hp) && Number(player?.hp) <= 0;
+}
+
+function isDungeonRunRecoverable(run: { status?: string; destroyedAt?: number } | null | undefined): boolean {
+  const status = typeof run?.status === 'string' ? run.status.trim() : '';
+  return ['created', 'activating', 'active', 'completing'].includes(status)
+    || (status === 'completed' && !Number.isFinite(Number(run?.destroyedAt)));
 }
 
 function normalizeInstanceId(value: string | null | undefined): string {

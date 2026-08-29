@@ -519,6 +519,17 @@ export class WorldRuntimePlayerCombatService {
         }
         const deathSite = resolvePlayerDeathSite(victim, deps);
         deps.worldRuntimeGmQueueService?.markPendingRespawn?.(playerId);
+        // 副本流程必须在通用复生前收到死亡事件；否则玩家被移出实例后，副本无法判断团灭。
+        const dungeonInstanceId = typeof deathSite?.instance?.meta?.instanceId === 'string'
+            ? deathSite.instance.meta.instanceId
+            : typeof victim.instanceId === 'string' ? victim.instanceId : '';
+        try {
+            deps.dungeonRuntimeService?.onPlayerDefeated?.(playerId, dungeonInstanceId);
+        } catch (error) {
+            deps.logger?.warn?.(
+                `副本死亡状态同步失败，继续执行通用复生：playerId=${playerId} instanceId=${dungeonInstanceId || 'unknown'} error=${error instanceof Error ? error.message : String(error)}`,
+            );
+        }
         interruptTechniqueActivitiesForDefeat(playerId, victim, deps);
         // 玩家死亡时立即清除所有以该玩家为仇恨目标的妖兽仇恨，
         // 避免下一个 tick 产生无效攻击 intent。

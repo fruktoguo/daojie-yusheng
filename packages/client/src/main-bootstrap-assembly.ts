@@ -677,7 +677,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     }
   });
   options.socket.on(S2C.DungeonState, ({ run }) => {
-    if (run.status === 'active' || run.status === 'activating') detailModalHost.close(`dungeon-entry:${run.runId}`);
+    if (run.status !== 'created') detailModalHost.close(`dungeon-entry:${run.runId}`);
   });
   options.socket.on(S2C.DungeonEntryResult, (result) => {
     if (result.ok) {
@@ -701,6 +701,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
       member_rejected: '有队员拒绝进入副本',
       not_near_memory_stone: '需要靠近忆梦石才能发起副本',
       not_at_exit: '需要到副本入口附近才能退出',
+      party_defeated: '队伍已全员战败',
       run_not_active: '副本已结束或不存在',
     };
     options.showToast(labels[result.reason ?? ''] ?? '副本操作失败', 'warn');
@@ -717,12 +718,18 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
         : '<li>无</li>';
       return `<article class="dungeon-settlement-member"><div class="dungeon-settlement-member__head"><div class="dungeon-settlement-member__avatar">${avatar}</div><div><strong>${escape(member.name)}</strong><span>${escape(realm)}</span></div></div><div class="dungeon-settlement-member__stats"><div><span>造成伤害</span><b>${formatDisplayInteger(member.damageDealt)}</b></div><div><span>承受伤害</span><b>${formatDisplayInteger(member.damageTaken)}</b></div><div><span>总造成回复</span><b>${formatDisplayInteger(member.healingDone)}</b></div></div><div class="dungeon-settlement-member__rewards"><span>获得物品</span><ul>${rewards}</ul></div></article>`;
     }).join('');
+    const resultLabel = settlement.status === 'completed'
+      ? '通关'
+      : settlement.status === 'failed'
+        ? (settlement.failureReason === 'party_defeated' ? '全员战败' : '挑战失败')
+        : settlement.status === 'expired' ? '超时' : '未完成';
+    const idLabel = settlement.status === 'completed' ? '完成编号' : '结算编号';
     detailModalHost.open({
       ownerId: `dungeon-settlement:${settlement.runId}`,
       title: '副本结算',
       subtitle: settlement.dungeonName ?? '副本',
       size: 'lg',
-      bodyHtml: `<div class="confirm-summary-list"><div><span>结果</span><strong>通关</strong></div><div><span>完成编号</span><strong>${escape(settlement.completionId)}</strong></div></div><div class="dungeon-settlement-members">${members || '<div class="dungeon-settlement-empty">暂无队伍统计</div>'}</div>`,
+      bodyHtml: `<div class="confirm-summary-list"><div><span>结果</span><strong>${resultLabel}</strong></div><div><span>${idLabel}</span><strong>${escape(settlement.completionId)}</strong></div></div><div class="dungeon-settlement-members">${members || '<div class="dungeon-settlement-empty">暂无队伍统计</div>'}</div>`,
     });
   });
   options.socket.on(S2C.DungeonCatalog, (catalog) => {

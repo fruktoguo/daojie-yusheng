@@ -75,12 +75,16 @@ export class DungeonFloatingPanel {
   }
 
   private showSettlement(settlement: DungeonSettlementView): void {
+    if (settlement.status !== 'completed') {
+      this.stop();
+      return;
+    }
     this.root.hidden = false;
     this.root.dataset.runId = settlement.runId;
     this.exitButton.hidden = false;
     this.title.textContent = settlement.dungeonName ?? this.dungeonNames.get(settlement.dungeonId) ?? settlement.dungeonId;
-    this.target.textContent = settlement.status === 'completed' ? '目标：通关' : '目标：副本结束';
-    this.updateProgress(settlement.status === 'completed' ? 100 : 0);
+    this.target.textContent = '目标：通关';
+    this.updateProgress(100);
     this.updateBoss(undefined);
     this.startCountdown(settlement.completedAt + 30_000);
   }
