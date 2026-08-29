@@ -1300,7 +1300,11 @@ function scaleMonsterSpawn(
     for (const key of Object.keys(output)) if (typeof output[key] === 'number' && Number.isFinite(output[key])) output[key] *= multiplier;
     return output;
   };
-  const scaled = { ...spawn, baseAttrs: cloneNumbers(spawn.baseAttrs, finalAllMult), baseNumericStats: cloneNumbers(spawn.baseNumericStats, finalAllMult) };
+  const scaled = {
+    ...spawn,
+    baseAttrs: spawn.baseAttrs && typeof spawn.baseAttrs === 'object' ? { ...spawn.baseAttrs } : spawn.baseAttrs,
+    baseNumericStats: cloneNumbers(spawn.baseNumericStats, finalAllMult),
+  };
   if (scaled.baseNumericStats && typeof scaled.baseNumericStats === 'object') {
     for (const key of ['maxHp', 'hp'] as const) {
       if (typeof scaled.baseNumericStats[key] === 'number') {
