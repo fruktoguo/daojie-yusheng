@@ -9,6 +9,8 @@
 
 /** CHAT_LOG_MAX_VISIBLE_MESSAGES：聊天日志最大可见MESSAGES。 */
 export const CHAT_LOG_MAX_VISIBLE_MESSAGES = 100;
+/** 战斗频道的内存、DOM 与本地快照统一只保留最近 100 条。 */
+export const CHAT_COMBAT_LOG_MAX_MESSAGES = CHAT_LOG_MAX_VISIBLE_MESSAGES;
 /** CHAT_LOG_LOAD_BATCH_SIZE：聊天日志LOAD BATCH SIZE。 */
 export const CHAT_LOG_LOAD_BATCH_SIZE = 100;
 /** 单频道内存窗口上限；IndexedDB 本地历史不主动按条数裁剪。 */

@@ -25,6 +25,7 @@ import {
   type StructuredNoticePayload,
 } from '@mud/shared';
 import {
+  CHAT_COMBAT_LOG_MAX_MESSAGES,
   CHAT_CHANNELS,
   CHAT_CHANNEL_SLOT_IDS,
   CHAT_LOG_LOAD_BATCH_SIZE,
@@ -56,8 +57,13 @@ import { mountReactChatPanel, shouldUseReactChatPanel } from '../react-ui/panels
 import { getLocalBuffTemplate } from '../content/local-templates';
 import { describePreviewBonuses } from './stat-preview';
 import { normalizeStructuredNoticeVars, resolveClientDisplayToken } from './structured-notice-display';
-import { shouldPreserveCombatLogSession } from './chat-scope-continuity';
+import { resolveChatScopePlayerId, shouldPreserveCombatLogSession } from './chat-scope-continuity';
 import { loadChatChannelSlots, saveChatChannelSlots } from './chat-channel-preferences';
+import {
+  CHAT_COMBAT_LOG_PERSIST_DELAY_MS,
+  loadCombatLogMessages,
+  saveCombatLogMessages,
+} from './combat-log-storage';
 
 /** 可由玩家自行映射的聊天槽，固定系统/战斗页不写入本地偏好。 */
 type ChatPanelView = 'system' | 'combat' | ChatChannelSlotId;
@@ -290,6 +296,7 @@ function sortMessagesByTime(messages: ChatStoredMessage[]): ChatStoredMessage[] 
 function mergeMessages(
   current: ChatStoredMessage[],
   incoming: ChatStoredMessage[],
+  maxMessages = CHAT_LOG_MAX_MEMORY_MESSAGES_PER_CHANNEL,
 ): {
 /**
  * messages：message相关字段。
@@ -311,7 +318,7 @@ function mergeMessages(
     }
     merged.set(entry.id, entry);
   }
-  const messages = sortMessagesByTime([...merged.values()]).slice(-CHAT_LOG_MAX_MEMORY_MESSAGES_PER_CHANNEL);
+  const messages = sortMessagesByTime([...merged.values()]).slice(-maxMessages);
   return {
     messages,
     ids: new Set(messages.map((entry) => entry.id)),
@@ -324,12 +331,12 @@ function shouldPersistChatEntry(entry: ChatStoredMessage): boolean {
 }
 
 /** 追加单条实时消息。正常服务端消息按时间递增，避免每条消息重排整个频道。 */
-function appendRealtimeMessage(state: ChatChannelState, entry: ChatStoredMessage): void {
+function appendRealtimeMessage(state: ChatChannelState, entry: ChatStoredMessage, maxMessages: number): void {
   const last = state.messages[state.messages.length - 1];
   if (!last || last.at < entry.at || (last.at === entry.at && last.id.localeCompare(entry.id) <= 0)) {
     state.messages.push(entry);
     state.messageIds.add(entry.id);
-    const overflow = state.messages.length - CHAT_LOG_MAX_MEMORY_MESSAGES_PER_CHANNEL;
+    const overflow = state.messages.length - maxMessages;
     if (overflow > 0) {
       const removed = state.messages.splice(0, overflow);
       for (const oldEntry of removed) state.messageIds.delete(oldEntry.id);
@@ -337,9 +344,15 @@ function appendRealtimeMessage(state: ChatChannelState, entry: ChatStoredMessage
     }
     return;
   }
-  const merged = mergeMessages(state.messages, [entry]);
+  const merged = mergeMessages(state.messages, [entry], maxMessages);
   state.messages = merged.messages;
   state.messageIds = merged.ids;
+}
+
+function resolveChannelMemoryLimit(channel: ChatChannel): number {
+  return channel === 'combat'
+    ? CHAT_COMBAT_LOG_MAX_MESSAGES
+    : CHAT_LOG_MAX_MEMORY_MESSAGES_PER_CHANNEL;
 }
 
 /** 格式化消息时间戳。 */
@@ -1175,6 +1188,12 @@ export class ChatUI {
   private readonly damageTooltipTapMode = prefersPinnedTooltipInteraction();
   /** 当前悬停的伤害提示目标。 */
   private hoveredDamageTooltipTarget: HTMLElement | null = null;  
+  /** 战斗日志低频快照定时器。 */
+  private combatLogPersistTimer: number | null = null;
+  /** 当前等待落盘的角色 ID。 */
+  private pendingCombatLogPlayerId: string | null = null;
+  /** 最近 100 条战斗日志是否有未落盘变化。 */
+  private combatLogPersistDirty = false;
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @returns 无返回值，完成实例初始化。
@@ -1245,6 +1264,7 @@ export class ChatUI {
 
     this.switchView(DEFAULT_CHAT_CHANNEL_SLOT);
     this.renderAllChannels();
+    this.bindCombatLogPersistenceLifecycle();
   }  
   /**
  * setCallback：写入Callback。
@@ -1355,6 +1375,9 @@ export class ChatUI {
     this.scopeLoadToken += 1;
     const preservesPlayerSession = shouldPreserveCombatLogSession(this.currentScopeId, normalizedScope);
     const hadPreviousScope = this.currentScopeId !== null;
+    if (hadPreviousScope && !preservesPlayerSession) {
+      this.flushCombatLogPersistence();
+    }
     const preservedCombatState = preservesPlayerSession
       ? this.channelStates.get('combat')
       : undefined;
@@ -1517,7 +1540,10 @@ export class ChatUI {
         continue;
       }
       if (!state.messageIds.has(entry.id)) {
-        appendRealtimeMessage(state, entry);
+        appendRealtimeMessage(state, entry, resolveChannelMemoryLimit(channel));
+      }
+      if (channel === 'combat') {
+        state.hasLoadedAll = true;
       }
       if (!this.logbookVisible) {
         this.trimChannelState(state, CHAT_LOG_MAX_VISIBLE_MESSAGES);
@@ -1525,15 +1551,23 @@ export class ChatUI {
       }
       const total = state.messages.length;
       if (channel !== this.activeChannel) {
-        state.loadedCount = Math.min(total, Math.max(state.loadedCount, CHAT_LOG_MAX_VISIBLE_MESSAGES));
+        state.loadedCount = Math.min(
+          total,
+          resolveChannelMemoryLimit(channel),
+          Math.max(state.loadedCount, CHAT_LOG_MAX_VISIBLE_MESSAGES),
+        );
         continue;
       }
       const log = this.logs.get(channel);
       const stickToBottom = this.isLogNearBottom(log);
       if (stickToBottom || state.loadedCount < CHAT_LOG_MAX_VISIBLE_MESSAGES) {
-        state.loadedCount = Math.min(total, state.loadedCount + 1);
+        state.loadedCount = Math.min(total, resolveChannelMemoryLimit(channel), state.loadedCount + 1);
       }
       this.renderChannel(channel, { stickToBottom });
+    }
+
+    if (channels.includes('combat')) {
+      this.scheduleCombatLogPersistence(scopeId);
     }
 
     if (!shouldPersist) {
@@ -1729,7 +1763,11 @@ export class ChatUI {
       return;
     }
     const entries = state.messages;
-    state.loadedCount = Math.min(entries.length, Math.max(0, state.loadedCount));
+    state.loadedCount = Math.min(
+      entries.length,
+      resolveChannelMemoryLimit(channel),
+      Math.max(0, state.loadedCount),
+    );
     const visible = entries.slice(Math.max(0, entries.length - state.loadedCount));
 
     // 增量追加：如果已有消息且不是 loadMore 场景，尝试只追加尾部新消息
@@ -1740,7 +1778,6 @@ export class ChatUI {
         if (lastRenderedIndex >= 0) {
           // 移除头部多余的旧消息（trim 后可能比当前渲染的少）
           const renderedCount = log.childElementCount;
-          const expectedStart = 0;
           const excessAtStart = renderedCount - (lastRenderedIndex + 1);
           if (excessAtStart > 0) {
             for (let i = 0; i < excessAtStart; i++) {
@@ -1865,6 +1902,10 @@ export class ChatUI {
     const log = this.logs.get(channel);
     const state = this.channelStates.get(channel);
     if (!log || !state || log.scrollTop > CHAT_LOG_SCROLL_TOP_LOAD_THRESHOLD_PX || state.loadingOlder || state.hasLoadedAll) {
+      return;
+    }
+    if (channel === 'combat') {
+      state.hasLoadedAll = true;
       return;
     }
     if (channel === 'party') {
@@ -2053,11 +2094,23 @@ export class ChatUI {
   private async hydrateRecentMessages(scopeId: string, loadToken: number): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    const playerId = resolveChatScopePlayerId(scopeId);
     const loadedByChannel = await Promise.all(
-      CHAT_CHANNELS.filter((channel) => channel !== 'party').map(async (channel) => ({
-        channel,
-        entries: await loadRecentChannelMessages(this.buildChannelScopeId(scopeId, channel), channel, CHAT_LOG_MAX_VISIBLE_MESSAGES),
-      })),
+      CHAT_CHANNELS.filter((channel) => channel !== 'party').map(async (channel) => {
+        const indexedEntries = await loadRecentChannelMessages(
+          this.buildChannelScopeId(scopeId, channel),
+          channel,
+          CHAT_LOG_MAX_VISIBLE_MESSAGES,
+        );
+        const entries = channel === 'combat' && playerId
+          ? mergeMessages(
+            indexedEntries,
+            loadCombatLogMessages(playerId),
+            CHAT_COMBAT_LOG_MAX_MESSAGES,
+          ).messages
+          : indexedEntries;
+        return { channel, entries };
+      }),
     );
     if (loadToken !== this.scopeLoadToken || scopeId !== this.currentScopeId) {
       return;
@@ -2069,11 +2122,11 @@ export class ChatUI {
       if (!state) {
         continue;
       }
-      const merged = mergeMessages(state.messages, entries);
+      const merged = mergeMessages(state.messages, entries, resolveChannelMemoryLimit(channel));
       state.messages = merged.messages;
       state.messageIds = merged.ids;
       state.loadedCount = Math.min(state.messages.length, Math.max(state.loadedCount, entries.length));
-      state.hasLoadedAll = entries.length < CHAT_LOG_LOAD_BATCH_SIZE;
+      state.hasLoadedAll = channel === 'combat' || entries.length < CHAT_LOG_LOAD_BATCH_SIZE;
       for (const entry of entries) {
         this.rememberPersistedMessageKey(this.buildMessageKey(channelScopeId, entry.id));
       }
@@ -2136,6 +2189,57 @@ export class ChatUI {
     for (const expiredKey of this.persistedMessageKeyOrder.splice(0, overflow)) {
       this.persistedMessageKeys.delete(expiredKey);
     }
+  }
+
+  /** 标记战斗日志脏状态，并把高频新增合并成一次延迟快照。 */
+  private scheduleCombatLogPersistence(scopeId: string): void {
+    const playerId = resolveChatScopePlayerId(scopeId);
+    if (!playerId) {
+      return;
+    }
+    if (this.pendingCombatLogPlayerId && this.pendingCombatLogPlayerId !== playerId) {
+      this.flushCombatLogPersistence();
+    }
+    this.pendingCombatLogPlayerId = playerId;
+    this.combatLogPersistDirty = true;
+    if (this.combatLogPersistTimer !== null) {
+      return;
+    }
+    this.combatLogPersistTimer = window.setTimeout(() => {
+      this.flushCombatLogPersistence();
+    }, CHAT_COMBAT_LOG_PERSIST_DELAY_MS);
+  }
+
+  /** 同步写入最近 100 条；只在低频定时器或页面生命周期边界执行。 */
+  private flushCombatLogPersistence(): void {
+    if (this.combatLogPersistTimer !== null) {
+      window.clearTimeout(this.combatLogPersistTimer);
+      this.combatLogPersistTimer = null;
+    }
+    if (!this.combatLogPersistDirty || !this.pendingCombatLogPlayerId) {
+      return;
+    }
+    const playerId = this.pendingCombatLogPlayerId;
+    this.combatLogPersistDirty = false;
+    this.pendingCombatLogPlayerId = null;
+    if (resolveChatScopePlayerId(this.currentScopeId) !== playerId) {
+      return;
+    }
+    const state = this.channelStates.get('combat');
+    if (state) {
+      saveCombatLogMessages(playerId, state.messages);
+    }
+  }
+
+  private bindCombatLogPersistenceLifecycle(): void {
+    window.addEventListener('pagehide', () => {
+      this.flushCombatLogPersistence();
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        this.flushCombatLogPersistence();
+      }
+    });
   }
 
   /** 裁剪频道缓存，保持消息数量上限。 */

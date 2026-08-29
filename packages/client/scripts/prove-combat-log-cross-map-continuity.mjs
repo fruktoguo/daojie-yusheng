@@ -1,4 +1,4 @@
-/** 战斗记录在同角色跨图时保留、切换角色时清空的证明。 */
+/** 战斗记录跨图连续、100 条有界窗口与刷新恢复的证明。 */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -8,9 +8,14 @@ import { fileURLToPath } from 'node:url';
 const require = createRequire(import.meta.url);
 const ts = require('typescript');
 const clientRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const typescriptModuleCache = new Map();
 
-function loadScopeContinuityModule() {
-  const sourcePath = path.join(clientRoot, 'src/ui/chat-scope-continuity.ts');
+function loadTypescriptModule(relativePath) {
+  const sourcePath = path.join(clientRoot, relativePath);
+  const cached = typescriptModuleCache.get(sourcePath);
+  if (cached) {
+    return cached.exports;
+  }
   const source = fs.readFileSync(sourcePath, 'utf8');
   const output = ts.transpileModule(source, {
     compilerOptions: {
@@ -20,15 +25,64 @@ function loadScopeContinuityModule() {
     fileName: sourcePath,
   }).outputText;
   const module = { exports: {} };
+  typescriptModuleCache.set(sourcePath, module);
+  const localRequire = (specifier) => {
+    if (!specifier.startsWith('.')) {
+      return require(specifier);
+    }
+    const resolvedBase = path.resolve(path.dirname(sourcePath), specifier);
+    const sourceCandidate = fs.existsSync(`${resolvedBase}.ts`)
+      ? `${resolvedBase}.ts`
+      : path.join(resolvedBase, 'index.ts');
+    if (!fs.existsSync(sourceCandidate)) {
+      return require(specifier);
+    }
+    return loadTypescriptModule(path.relative(clientRoot, sourceCandidate));
+  };
   const execute = new Function('exports', 'module', 'require', output);
-  execute(module.exports, module, require);
+  execute(module.exports, module, localRequire);
   return module.exports;
 }
 
 const {
   resolveChatScopePlayerId,
   shouldPreserveCombatLogSession,
-} = loadScopeContinuityModule();
+} = loadTypescriptModule('src/ui/chat-scope-continuity.ts');
+const {
+  loadCombatLogMessages,
+  normalizeCombatLogMessages,
+  saveCombatLogMessages,
+} = loadTypescriptModule('src/ui/combat-log-storage.ts');
+
+class MemoryStorage {
+  constructor() {
+    this.data = new Map();
+  }
+
+  get length() {
+    return this.data.size;
+  }
+
+  clear() {
+    this.data.clear();
+  }
+
+  getItem(key) {
+    return this.data.get(key) ?? null;
+  }
+
+  key(index) {
+    return Array.from(this.data.keys())[index] ?? null;
+  }
+
+  removeItem(key) {
+    this.data.delete(key);
+  }
+
+  setItem(key, value) {
+    this.data.set(key, String(value));
+  }
+}
 
 assert.equal(resolveChatScopePlayerId('player:one|map:a|instance:a'), 'player:one');
 assert.equal(resolveChatScopePlayerId(null), null);
@@ -40,6 +94,36 @@ assert.equal(
   true,
   '同一角色跨地图和实例必须保留会话内战斗记录',
 );
+
+const combatMessages = Array.from({ length: 150 }, (_, index) => ({
+  id: `combat:${String(index).padStart(3, '0')}`,
+  at: index,
+  text: `第 ${index} 条战斗记录`,
+  kind: 'combat',
+  combat: { damage: index },
+}));
+const normalizedCombatMessages = normalizeCombatLogMessages([
+  { id: 'invalid', at: 999, text: '非战斗消息', kind: 'system' },
+  ...combatMessages,
+]);
+assert.equal(normalizedCombatMessages.length, 100, '战斗日志内存与本地快照必须只保留最近 100 条');
+assert.equal(normalizedCombatMessages[0]?.id, 'combat:050');
+assert.equal(normalizedCombatMessages.at(-1)?.id, 'combat:149');
+
+const storage = new MemoryStorage();
+assert.equal(saveCombatLogMessages('player:one', combatMessages, storage), true, '有界战斗快照必须可写入 localStorage');
+assert.deepEqual(
+  loadCombatLogMessages('player:one', storage).map((entry) => entry.id),
+  normalizedCombatMessages.map((entry) => entry.id),
+  '刷新后必须按角色恢复最近 100 条战斗记录',
+);
+assert.equal(saveCombatLogMessages('player:one', combatMessages.slice(0, 80), storage), true);
+assert.equal(
+  loadCombatLogMessages('player:one', storage).at(-1)?.id,
+  'combat:149',
+  '旧页面的晚到刷盘不得覆盖同一角色已经保存的更新记录',
+);
+assert.deepEqual(loadCombatLogMessages('player:two', storage), [], '不同角色的战斗快照不得串读');
 assert.equal(
   shouldPreserveCombatLogSession(
     'player:one|map:a|instance:a',
@@ -91,8 +175,23 @@ assert.match(
 );
 assert.match(
   chatSource,
-  /slice\(-CHAT_LOG_MAX_MEMORY_MESSAGES_PER_CHANNEL\)/,
-  '会话内战斗记录必须继续受频道容量上限约束',
+  /appendRealtimeMessage\(state, entry, resolveChannelMemoryLimit\(channel\)\)/,
+  '实时追加必须按战斗频道专属容量裁切内存窗口',
+);
+assert.match(
+  chatSource,
+  /state\.loadedCount = Math\.min\(\s*entries\.length,\s*resolveChannelMemoryLimit\(channel\),/,
+  '战斗频道 DOM 可见计数必须受 100 条硬上限约束',
+);
+assert.match(
+  chatSource,
+  /window\.setTimeout\([\s\S]*CHAT_COMBAT_LOG_PERSIST_DELAY_MS/,
+  '战斗日志必须通过低频定时器合并写入 localStorage',
+);
+assert.match(
+  chatSource,
+  /window\.addEventListener\('pagehide'[\s\S]*flushCombatLogPersistence/,
+  '刷新或离开页面前必须刷盘最新战斗日志快照',
 );
 
 console.log('PROOF:COMBAT_LOG_CROSS_MAP_CONTINUITY:PASS');
