@@ -167,6 +167,8 @@ function testPassiveTechniqueProgressionRule(): void {
   assert.equal(isTechniqueFullyMastered(technique), false);
   assert.equal(getTechniquePassiveExpToNext(2, technique.layers), 140);
   assert.equal(getTechniquePassiveExpToNext(21, technique.layers), 83_668);
+  assert.equal(getTechniquePassiveExpToNext(100, [{ level: 1, expToNext: 115 }]), 33_680_100_015_552_810);
+  assert.equal(getTechniquePassiveExpToNext(3_000, [{ level: 1, expToNext: 115 }]), Number.MAX_VALUE);
 }
 
 function main(): void {

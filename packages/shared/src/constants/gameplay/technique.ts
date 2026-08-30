@@ -68,8 +68,8 @@ export const TECHNIQUE_PASSIVE_EXP_GROWTH_RATE = 1.4;
 /** 被动技能每层强度增长比例；第 1 层为模板基准强度。 */
 export const TECHNIQUE_PASSIVE_SKILL_STRENGTH_PER_LEVEL = 0.05;
 
-/** 被动功法无限层数使用的经验上限，避免浮点溢出后破坏持久化。 */
-export const TECHNIQUE_PASSIVE_EXP_MAX = Number.MAX_SAFE_INTEGER;
+/** 被动功法经验计算的数值溢出保护；不是玩法层数或经验上限。 */
+export const TECHNIQUE_PASSIVE_EXP_OVERFLOW_MAX = Number.MAX_VALUE;
 
 /** 各品阶功法默认经验倍率基线 */
 export const TECHNIQUE_GRADE_EXP_BASE_FACTORS: Record<TechniqueGrade, number> = {

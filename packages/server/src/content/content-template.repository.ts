@@ -11,7 +11,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
-import { DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, ELEMENT_KEYS, EQUIP_SLOTS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_NUMERIC_TEMPLATES, TECHNIQUE_PASSIVE_EXP_MAX, TechniqueRealm, assertRuntimeMapDocumentV2, buildQiResourceKey, calculateTechniqueSkillQiCost, cloneNumericRatioDivisors, cloneNumericStats, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, createMonsterMainCombatStatModifierStats, deriveTechniqueRealm, expandTechniqueAttrRatio, expandTechniqueExpCurve, expandTechniqueLayerGains, getTechniqueExpToNext, getTechniquePassiveExpToNext, getTileTypeFromMapChar, inferMonsterTierFromName, isPassiveTechnique, isTileTypeWalkable, normalizeCraftEffectStatsPatch, normalizeEditableMapDocument, normalizeMonsterTier as normalizeSharedMonsterTier, normalizeTargetingDefaultMaxTargets, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveSkillUnlockLevel, shouldExpandTechniqueAttrRatio, type TerrainEffectDef } from '@mud/shared';
+import { DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, ELEMENT_KEYS, EQUIP_SLOTS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_NUMERIC_TEMPLATES, TECHNIQUE_PASSIVE_EXP_OVERFLOW_MAX, TechniqueRealm, assertRuntimeMapDocumentV2, buildQiResourceKey, calculateTechniqueSkillQiCost, cloneNumericRatioDivisors, cloneNumericStats, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, createMonsterMainCombatStatModifierStats, deriveTechniqueRealm, expandTechniqueAttrRatio, expandTechniqueExpCurve, expandTechniqueLayerGains, getTechniqueExpToNext, getTechniquePassiveExpToNext, getTileTypeFromMapChar, inferMonsterTierFromName, isPassiveTechnique, isTileTypeWalkable, normalizeCraftEffectStatsPatch, normalizeEditableMapDocument, normalizeMonsterTier as normalizeSharedMonsterTier, normalizeTargetingDefaultMaxTargets, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveSkillUnlockLevel, shouldExpandTechniqueAttrRatio, type TerrainEffectDef } from '@mud/shared';
 import { parseQiResourceKey } from '@mud/shared';
 import { resolveProjectPath } from '../common/project-path';
 import { assignItemInstanceIdIfNeeded } from '../runtime/world/item-instance-id.helpers';
@@ -981,7 +981,7 @@ function buildTechniqueRuntimeStateFromTemplate(template: any, input: any = {}) 
     const passive = isPassiveTechnique(template);
     const exp = Number.isFinite(input?.exp)
         ? passive
-            ? Math.min(TECHNIQUE_PASSIVE_EXP_MAX, Math.max(0, Math.trunc(Number(input.exp))))
+            ? Math.min(TECHNIQUE_PASSIVE_EXP_OVERFLOW_MAX, Math.max(0, Math.trunc(Number(input.exp))))
             : Math.max(0, Math.trunc(Number(input.exp)))
         : 0;
     const expToNext = passive

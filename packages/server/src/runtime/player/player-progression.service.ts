@@ -5,7 +5,7 @@
  */
 import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import * as fs from 'fs';
-import { DEFAULT_PLAYER_REALM_STAGE, MONSTER_KILL_EXP_LEVEL_DELTA_CAP, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, PLAYER_REALM_STAGE_LEVEL_RANGES, PlayerRealmStage, SHATTER_SPIRIT_PILL_COST_RATIO as SHARED_SHATTER_SPIRIT_PILL_COST_RATIO, TECHNIQUE_PASSIVE_EXP_MAX, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, computeCraftSkillExpGain, deriveTechniqueRealm, getBodyTrainingExpToNext, getMonsterKillExpLevelAdjustment, getMonsterLevelExpDecayMultiplier, getTechniqueExpLevelAdjustment, getTechniqueExpToNext, getTechniquePassiveExpToNext, getTechniqueTrainingMaxLevel, isCreatedTechniqueId, isPassiveTechnique, isTechniqueFullyMastered, normalizeBodyTrainingState, normalizeMonsterTier, normalizeTechniqueLearnMaxLevel, normalizeTechniqueStrengthPercent, resolvePlayerFacingContentName } from '@mud/shared';
+import { DEFAULT_PLAYER_REALM_STAGE, MONSTER_KILL_EXP_LEVEL_DELTA_CAP, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, PLAYER_REALM_STAGE_LEVEL_RANGES, PlayerRealmStage, SHATTER_SPIRIT_PILL_COST_RATIO as SHARED_SHATTER_SPIRIT_PILL_COST_RATIO, TECHNIQUE_PASSIVE_EXP_OVERFLOW_MAX, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, computeCraftSkillExpGain, deriveTechniqueRealm, getBodyTrainingExpToNext, getMonsterKillExpLevelAdjustment, getMonsterLevelExpDecayMultiplier, getTechniqueExpLevelAdjustment, getTechniqueExpToNext, getTechniquePassiveExpToNext, getTechniqueTrainingMaxLevel, isCreatedTechniqueId, isPassiveTechnique, isTechniqueFullyMastered, normalizeBodyTrainingState, normalizeMonsterTier, normalizeTechniqueLearnMaxLevel, normalizeTechniqueStrengthPercent, resolvePlayerFacingContentName } from '@mud/shared';
 import { resolveProjectPath } from '../../common/project-path';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { getMonsterCombatExpGradeFactor, resolveMonsterCombatExpTierFactor } from '../combat/monster-combat-exp-equivalent.helper';
@@ -2269,9 +2269,14 @@ export class PlayerProgressionService {
             return resolved;
         }
         technique.level = previousLevel;
-        technique.exp = passiveTechnique
-            ? Math.min(TECHNIQUE_PASSIVE_EXP_MAX, previousExp + normalized)
-            : previousExp + normalized;
+        if (passiveTechnique) {
+            const nextExp = previousExp + normalized;
+            technique.exp = Number.isFinite(nextExp)
+                ? nextExp
+                : TECHNIQUE_PASSIVE_EXP_OVERFLOW_MAX;
+        } else {
+            technique.exp = previousExp + normalized;
+        }
         if (passiveTechnique && (technique.expToNext ?? 0) <= 0) {
             technique.expToNext = getTechniquePassiveExpToNext(previousLevel, technique.layers ?? undefined);
         }

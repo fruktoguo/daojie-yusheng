@@ -47,7 +47,7 @@ import {
   TECHNIQUE_GRADE_ATTR_FREE_LIMITS,
   TECHNIQUE_EXP_LEVEL_DELTA_MULTIPLIER_STEP,
   TECHNIQUE_PASSIVE_EXP_GROWTH_RATE,
-  TECHNIQUE_PASSIVE_EXP_MAX,
+  TECHNIQUE_PASSIVE_EXP_OVERFLOW_MAX,
   TECHNIQUE_PASSIVE_SKILL_STRENGTH_PER_LEVEL,
   TECHNIQUE_LEARNING_HEAVY_DECAY_WARNING_DELTA,
   TECHNIQUE_SKILL_QI_COST_BASELINE_RATIO,
@@ -94,8 +94,8 @@ export function getTechniquePassiveExpToNext(level: number, layers?: TechniqueLa
     ),
   );
   const raw = baseExp * (TECHNIQUE_PASSIVE_EXP_GROWTH_RATE ** (normalizedLevel - 1));
-  if (!Number.isFinite(raw) || raw >= TECHNIQUE_PASSIVE_EXP_MAX) {
-    return TECHNIQUE_PASSIVE_EXP_MAX;
+  if (!Number.isFinite(raw)) {
+    return TECHNIQUE_PASSIVE_EXP_OVERFLOW_MAX;
   }
   return Math.max(1, Math.round(raw));
 }
