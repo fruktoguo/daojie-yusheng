@@ -29,6 +29,13 @@ import { createRuntimeTemporaryBuff, refreshRuntimeTemporaryBuffPrototype } from
 import { canPlayerIgnoreStaticObstacle as canPlayerIgnoreStaticObstacleFromState } from '../player/player-movement-capability.helpers';
 import { resolveTileDamageDropMultiplier } from '../world/combat/tile-drop.helpers';
 import { findBuildingProtectedPlacementConflict } from '../world/building-protected-placement.helpers';
+import {
+    DUNGEON_PRESSURE_BUFF_ID,
+    DUNGEON_PRESSURE_COMBAT_STAT_KEYS,
+    DUNGEON_PRESSURE_ELEMENT_KEYS,
+    resolveDungeonPressureCombatMultiplier,
+    resolveDungeonPressureMoveSpeedMultiplier,
+} from '@mud/shared';
 
 const DEFAULT_TILE_AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR);
 const TILE_AURA_FLOW_RATE_SCALE = TILE_AURA_HALF_LIFE_RATE_SCALE ?? QI_HALF_LIFE_RATE_SCALE ?? 1_000_000_000;
@@ -5324,6 +5331,40 @@ class MapInstanceRuntime {
         this.worldRevision += 1;
         return options?.skipSnapshot === true ? monster : snapshotMonster(monster);
     }
+    /** 精确替换妖兽的指定临时 Buff，供每息重算型行动效果使用。 */
+    replaceTemporaryBuffOnMonster(runtimeId, buff, options = undefined) {
+        const monster = this.monstersByRuntimeId.get(runtimeId);
+        if (!monster || !monster.alive) {
+            return null;
+        }
+        const existingIndex = monster.buffs.findIndex((entry) => entry.buffId === buff.buffId);
+        const existing = existingIndex >= 0 ? monster.buffs[existingIndex] : null;
+        const activeBefore = existing ? isRuntimeBuffActive(existing) : false;
+        const stacksBefore = existing?.stacks ?? 0;
+        const samePayload = existing ? isSameTemporaryBuffPrototypePayload(existing, buff) : false;
+        if (buff.remainingTicks <= 0 || buff.stacks <= 0) {
+            if (existingIndex >= 0) monster.buffs.splice(existingIndex, 1);
+        }
+        else if (existing) {
+            refreshRuntimeTemporaryBuffPrototype(existing, buff);
+            existing.remainingTicks = Math.max(0, Math.trunc(Number(buff.remainingTicks) || 0));
+            existing.duration = Math.max(0, Math.trunc(Number(buff.duration) || existing.remainingTicks));
+            existing.stacks = Math.max(0, Math.min(existing.maxStacks, Math.trunc(Number(buff.stacks) || 0)));
+            existing.infiniteDuration = buff.infiniteDuration === true;
+        }
+        else {
+            monster.buffs.push(createRuntimeTemporaryBuff(buff));
+            monster.buffs.sort((left, right) => String(left.buffId ?? '').localeCompare(String(right.buffId ?? ''), 'zh-Hans-CN'));
+        }
+        const next = monster.buffs.find((entry) => entry.buffId === buff.buffId);
+        const activeAfter = next ? isRuntimeBuffActive(next) : false;
+        if (!samePayload || activeBefore !== activeAfter || stacksBefore !== (next?.stacks ?? 0)) {
+            recalculateMonsterDerivedState(monster);
+        }
+        this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
+        this.worldRevision += 1;
+        return options?.skipSnapshot === true ? monster : snapshotMonster(monster);
+    }
     /** defeatMonster：直接结算一只妖兽被击败后的占用释放。 */
     defeatMonster(runtimeId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -9677,7 +9718,7 @@ function isRuntimeBuffActive(buff) {
 }
 
 function doesTemporaryBuffAffectAttributes(buff) {
-    return Boolean(buff && (buff.attrs || buff.stats));
+    return Boolean(buff && (buff.attrs || buff.stats || buff.buffId === DUNGEON_PRESSURE_BUFF_ID));
 }
 
 function isSameTemporaryBuffAttributePayload(left, right) {
@@ -9856,6 +9897,7 @@ function recalculateMonsterDerivedState(monster) {
     }
     applyAttributePercentModifiers(nextAttrs, attrPercentModifiers);
     applyNumericStatPercentModifiers(nextStats, statPercentModifiers);
+    applyDungeonPressureToMonsterStats(nextAttrs, nextStats, monster.buffs);
     nextStats.maxHp = Math.max(1, Math.round(nextStats.maxHp));
     nextStats.maxQi = Math.max(0, Math.round(nextStats.maxQi));
     nextStats.moveSpeed = Math.max(0, Math.round(getEffectiveMoveSpeed(nextStats.moveSpeed)));
@@ -9898,6 +9940,23 @@ function recalculateMonsterDerivedState(monster) {
         || previousHp !== monster.hp
         || previousMaxQi !== monster.maxQi
         || previousQi !== monster.qi;
+}
+
+function applyDungeonPressureToMonsterStats(finalAttrs, numericStats, buffs) {
+    const pressure = buffs.find((buff) => buff?.buffId === DUNGEON_PRESSURE_BUFF_ID && isRuntimeBuffActive(buff));
+    if (!pressure) return;
+    const multiplier = resolveDungeonPressureCombatMultiplier(pressure.stacks);
+    for (const key of ['constitution', 'spirit', 'perception', 'talent', 'strength', 'meridians']) {
+        finalAttrs[key] = Math.max(0, finalAttrs[key] * multiplier);
+    }
+    for (const key of DUNGEON_PRESSURE_COMBAT_STAT_KEYS) {
+        numericStats[key] = Math.round(numericStats[key] * multiplier);
+    }
+    numericStats.moveSpeed = Math.max(0, Math.round(numericStats.moveSpeed * resolveDungeonPressureMoveSpeedMultiplier(pressure.stacks)));
+    for (const element of DUNGEON_PRESSURE_ELEMENT_KEYS) {
+        numericStats.elementDamageBonus[element] = Math.round(numericStats.elementDamageBonus[element] * multiplier);
+        numericStats.elementDamageReduce[element] = Math.max(0, Math.round(numericStats.elementDamageReduce[element] * multiplier));
+    }
 }
 /** isSameAttributes：判断属性是否一致。 */
 function isSameAttributes(left, right) {

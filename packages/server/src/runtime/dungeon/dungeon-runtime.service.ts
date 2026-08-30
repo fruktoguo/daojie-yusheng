@@ -6,6 +6,7 @@ import {
   DUNGEON_MAX_PARTY_MEMBERS,
   S2C,
   type DungeonDefinition,
+  type DungeonPresentationActiveAction,
   type DungeonDifficulty,
   type DungeonRunState,
   type DungeonSettlementMember,
@@ -16,6 +17,11 @@ import {
   resolveDungeonEffectiveStep,
   resolveDungeonStaminaCost,
   type TechniqueGrade,
+  DUNGEON_PRESSURE_BUFF_ID,
+  DUNGEON_PRESSURE_DURATION_TICKS,
+  DUNGEON_PRESSURE_QI_DRAIN_PERCENT,
+  DUNGEON_PRESSURE_SOURCE_ID,
+  resolveDungeonPressureStacks,
 } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { PartyMembershipRepository } from '../party/party-membership.repository';
@@ -26,6 +32,7 @@ import { DefenseDungeonFlowController, ExpeditionDungeonFlowController, Suppress
 import { DungeonMechanismFormationService } from './dungeon-mechanism-formation.service';
 import { DungeonRewardService } from './dungeon-reward.service';
 import { DungeonRunPersistenceService } from './dungeon-run-persistence.service';
+import { DungeonPresentationController, type DungeonPresentationControllerContext } from './dungeon-presentation-controller';
 
 interface PendingEntry {
   run: DungeonRunState;
@@ -80,6 +87,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     ['suppress_demon', new SuppressDemonDungeonFlowController()],
     ['expedition', new ExpeditionDungeonFlowController()],
   ]);
+  private readonly presentationController = new DungeonPresentationController();
 
   constructor(
     private readonly content: ContentTemplateRepository,
@@ -599,6 +607,9 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     const definition = this.content.getDungeonDefinition(run.dungeonId);
     const controller = definition ? this.controllers.get(definition.flowType) : null;
     controller?.onTick?.(run, definition!, this.buildFlowContext());
+    if (definition && run.status === 'active') {
+      this.presentationController.onTick(run, definition, this.buildPresentationContext());
+    }
     if (run.status === 'active') this.emitRunState(run);
   }
 
@@ -689,6 +700,8 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
       timeoutTimer.unref?.();
       this.runTimers.set(run.runId, timeoutTimer);
       this.controllers.get(definition.flowType)?.onRunCreated?.(run, definition, this.buildFlowContext());
+      this.presentationController.onRunCreated(run, definition, this.buildPresentationContext());
+      this.runPersistence.save(run);
     } catch (_error) {
       for (const playerId of consumed) await this.players.refundDungeonStaminaDurably(playerId, staminaCost);
       run.status = 'aborted';
@@ -741,6 +754,135 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
       },
       now: () => Date.now(),
     };
+  }
+
+  private buildPresentationContext(): DungeonPresentationControllerContext {
+    return {
+      getInstance: (run) => this.world.getInstanceRuntime(run.mapInstanceId) as any,
+      getPlayer: (playerId) => this.players.getPlayer(playerId),
+      resolveActorPosition: (run, actor) => {
+        const instance = this.world.getInstanceRuntime(run.mapInstanceId) as any;
+        if (!instance) return null;
+        if (actor.kind === 'monster') {
+          const monster = [...(instance.monstersByRuntimeId?.values?.() ?? [])]
+            .find((entry: any) => entry?.alive === true && entry?.monsterId === actor.id);
+          return monster && Number.isFinite(Number(monster.x)) && Number.isFinite(Number(monster.y))
+            ? { x: Math.trunc(monster.x), y: Math.trunc(monster.y) }
+            : null;
+        }
+        const npc = [...(instance.npcsById?.values?.() ?? [])]
+          .find((entry: any) => entry?.npcId === actor.id || entry?.id === actor.id);
+        return npc && Number.isFinite(Number(npc.x)) && Number.isFinite(Number(npc.y))
+          ? { x: Math.trunc(npc.x), y: Math.trunc(npc.y) }
+          : null;
+      },
+      pushDialogueBubble: (run, position, text, durationMs) => {
+        this.world.pushCombatEffect(run.mapInstanceId, {
+          type: 'float',
+          x: position.x,
+          y: position.y,
+          text,
+          color: '#f6d58b',
+          variant: 'action',
+          bubble: true,
+          durationMs,
+        });
+      },
+      applyActions: (run, actions) => this.applyDungeonPresentationActions(run, actions),
+    };
+  }
+
+  /** 每息按所有有效来源汇总威压层数，再一次性精确覆盖目标 Buff。 */
+  private applyDungeonPressure(
+    run: DungeonRunState,
+    actions: readonly DungeonPresentationActiveAction[],
+  ): Set<string> {
+    const instance = this.world.getInstanceRuntime(run.mapInstanceId) as any;
+    if (!instance) return new Set();
+    const pressureSources: any[] = [];
+    const validActionIds = new Set<string>();
+    const seenSourceRuntimeIds = new Set<string>();
+    for (const action of actions) {
+      if (action.actor.kind !== 'monster') continue;
+      const source = [...(instance.monstersByRuntimeId?.values?.() ?? [])]
+        .find((entry: any) => entry?.alive === true && entry?.monsterId === action.actor.id);
+      if (!source || Number(source.hp) <= 0 || Number(source.qi) <= 0) continue;
+      validActionIds.add(action.stepId);
+      if (seenSourceRuntimeIds.has(String(source.runtimeId))) continue;
+      seenSourceRuntimeIds.add(String(source.runtimeId));
+      const drain = Math.max(1, Math.ceil(Math.max(0, Number(source.maxQi) || 0) * DUNGEON_PRESSURE_QI_DRAIN_PERCENT));
+      source.qi = Math.max(0, Math.round(Number(source.qi) || 0) - drain);
+      instance.markMonsterRuntimePersistenceDirty?.(source.runtimeId);
+      instance.markAoiViewChangedAt?.(source.x, source.y);
+      instance.worldRevision = Math.max(0, Math.trunc(Number(instance.worldRevision) || 0)) + 1;
+      pressureSources.push(source);
+    }
+
+    const desiredStacksByPlayerId = new Map<string, number>();
+    for (const source of pressureSources) {
+      const viewRange = Math.max(0, Math.trunc(Number(source.numericStats?.viewRange ?? source.aggroRange ?? 10) || 0));
+      const visibleIndices = instance.collectVisibleTileIndices?.(source.x, source.y, viewRange) ?? new Set();
+      const visiblePlayers = instance.collectPlayersByTileIndices?.(visibleIndices) ?? [];
+      for (const player of visiblePlayers) {
+        if (!player?.playerId || Number(player.hp) <= 0) continue;
+        if (chebyshevDistance(source.x, source.y, player.x, player.y) > viewRange) continue;
+        const member = run.members.find((entry) => entry.playerId === player.playerId);
+        if (!member) continue;
+        const stacks = resolveDungeonPressureStacks(source.level, player.realm?.realmLv ?? player.realmLv);
+        if (stacks > 0) desiredStacksByPlayerId.set(player.playerId, (desiredStacksByPlayerId.get(player.playerId) ?? 0) + stacks);
+      }
+    }
+
+    for (const member of run.members) {
+      if (!this.players.getPlayer(member.playerId)) continue;
+      const stacks = desiredStacksByPlayerId.get(member.playerId) ?? 0;
+      this.players.replaceTemporaryBuff(member.playerId, {
+        buffId: DUNGEON_PRESSURE_BUFF_ID,
+        name: '威压',
+        desc: '境界威压压制了战斗属性与移动速度。',
+        shortMark: '压',
+        category: 'debuff',
+        visibility: 'public',
+        remainingTicks: stacks > 0 ? DUNGEON_PRESSURE_DURATION_TICKS + 1 : 0,
+        duration: DUNGEON_PRESSURE_DURATION_TICKS,
+        stacks,
+        maxStacks: 999,
+        sourceSkillId: DUNGEON_PRESSURE_SOURCE_ID,
+        sourceSkillName: '威压',
+        realmLv: Math.max(1, ...pressureSources.map((source) => Math.trunc(Number(source.level) || 1))),
+        color: '#805ad5',
+      });
+    }
+    return validActionIds;
+  }
+
+  private applyDungeonPresentationActions(
+    run: DungeonRunState,
+    actions: readonly DungeonPresentationActiveAction[],
+  ): Set<string> {
+    const pressureActions = actions.filter((action) => action.actionId.trim().toLowerCase() === DUNGEON_PRESSURE_BUFF_ID
+      || action.actionId.trim().toLowerCase() === 'pressure'
+      || action.actionId === '威压');
+    return pressureActions.length > 0 ? this.applyDungeonPressure(run, pressureActions) : new Set<string>();
+  }
+
+  private clearDungeonPressure(run: DungeonRunState): void {
+    for (const member of run.members) {
+      if (!this.players.getPlayer(member.playerId)) continue;
+      this.players.replaceTemporaryBuff(member.playerId, {
+        buffId: DUNGEON_PRESSURE_BUFF_ID,
+        name: '威压',
+        shortMark: '压',
+        category: 'debuff',
+        visibility: 'public',
+        remainingTicks: 0,
+        duration: DUNGEON_PRESSURE_DURATION_TICKS,
+        stacks: 0,
+        maxStacks: 999,
+        sourceSkillId: DUNGEON_PRESSURE_SOURCE_ID,
+        sourceSkillName: '威压',
+      });
+    }
   }
 
   private activateRoom(
@@ -848,6 +990,8 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   private completeRun(run: DungeonRunState, _reason: string): void {
     if (run.status !== 'active') return;
     this.clearRunTimeout(run.runId);
+    this.clearDungeonPressure(run);
+    this.presentationController.onAbort(run);
     run.status = 'completing';
     run.completedAt = Date.now();
     run.completionId = randomUUID();
@@ -871,6 +1015,8 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   private failRun(run: DungeonRunState, reason: string): void {
     if (!['active', 'activating'].includes(run.status)) return;
     this.clearRunTimeout(run.runId);
+    this.clearDungeonPressure(run);
+    this.presentationController.onAbort(run);
     run.status = 'failed';
     run.failureReason = reason;
     run.completedAt = Date.now();
@@ -967,6 +1113,8 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     const run = this.runs.get(runId);
     if (!run || !['active', 'activating'].includes(run.status)) return;
     run.status = 'expired'; run.failureReason = 'timeout';
+    this.clearDungeonPressure(run);
+    this.presentationController.onAbort(run);
     const definition = this.content.getDungeonDefinition(run.dungeonId);
     if (definition) this.controllers.get(definition.flowType)?.onAbort?.(run, definition, 'timeout', this.buildFlowContext());
     this.runPersistence.save(run);
@@ -994,6 +1142,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   private abortPending(runId: string, reason: string): void {
     const pending = this.pending.get(runId); if (!pending) return;
     clearTimeout(pending.timer); if (pending.countdownTimer) clearTimeout(pending.countdownTimer); this.pending.delete(runId); pending.run.status = 'aborted'; pending.run.failureReason = reason;
+    this.presentationController.onAbort(pending.run);
     this.controllers.get(pending.definition.flowType)?.onAbort?.(pending.run, pending.definition, reason, this.buildFlowContext());
     for (const member of pending.run.members) this.emit(member.playerId, S2C.DungeonEntryResult, { ok: false, reason, run: pending.run });
   }
@@ -1323,4 +1472,11 @@ function scaleMonsterSpawn(
   scaled.maxHp = Math.max(1, Math.round(Number(spawn.maxHp) * finalHpMult));
   scaled.hp = scaled.maxHp;
   return scaled;
+}
+
+function chebyshevDistance(fromX: unknown, fromY: unknown, toX: unknown, toY: unknown): number {
+  return Math.max(
+    Math.abs(Math.trunc(Number(fromX) || 0) - Math.trunc(Number(toX) || 0)),
+    Math.abs(Math.trunc(Number(fromY) || 0) - Math.trunc(Number(toY) || 0)),
+  );
 }

@@ -111,6 +111,69 @@ export interface DungeonMechanismFormationConfig {
   metadata?: Record<string, unknown>;
 }
 
+/** 副本剧情演出的实体引用。演出只驱动表现与行动效果，不参与副本结算。 */
+export interface DungeonPresentationActorRef {
+  kind: 'monster' | 'npc';
+  id: string;
+}
+
+export interface DungeonPresentationCondition {
+  /** 队伍最高境界等级不高于该值时才执行。 */
+  maxPartyRealmLv?: number;
+  /** 队伍最高境界等级不低于该值时才执行。 */
+  minPartyRealmLv?: number;
+}
+
+export interface DungeonPresentationDialogueStep {
+  stepId: string;
+  type: 'dialogue';
+  actor: DungeonPresentationActorRef;
+  text: string;
+  /** 气泡持续时间；默认 3 秒。 */
+  durationMs?: number;
+  condition?: DungeonPresentationCondition;
+}
+
+export interface DungeonPresentationActionStep {
+  stepId: string;
+  type: 'action';
+  actor: DungeonPresentationActorRef;
+  /** 行动效果 ID，由服务端行动效果处理器解释。 */
+  actionId: string;
+  /** 延迟若干逻辑息后启动，便于对白先行。 */
+  delayTicks?: number;
+  /** 不填表示持续到行动自身结束（例如 Boss 灵力耗尽）。 */
+  durationTicks?: number;
+  condition?: DungeonPresentationCondition;
+  params?: Record<string, unknown>;
+}
+
+export type DungeonPresentationStep = DungeonPresentationDialogueStep | DungeonPresentationActionStep;
+
+export interface DungeonPresentationDefinition {
+  onRunCreated?: DungeonPresentationStep[];
+}
+
+export interface DungeonPresentationPendingStep {
+  stepId: string;
+  remainingTicks: number;
+}
+
+export interface DungeonPresentationActiveAction {
+  stepId: string;
+  actionId: string;
+  actor: DungeonPresentationActorRef;
+  remainingTicks?: number;
+  startedAtTick: number;
+  params?: Record<string, unknown>;
+}
+
+export interface DungeonPresentationRunState {
+  completedStepIds: string[];
+  pendingSteps: DungeonPresentationPendingStep[];
+  activeActions: DungeonPresentationActiveAction[];
+}
+
 export interface DungeonRewardConfig {
   rewardTableId: string;
   firstClearOnly?: boolean;
@@ -135,6 +198,7 @@ export interface DungeonDefinition {
   difficulty: DungeonDifficultyConfig;
   rooms?: DungeonMapRoomDefinition[];
   waves?: DungeonWaveDefinition[];
+  presentation?: DungeonPresentationDefinition;
   rewards: DungeonRewardConfig;
   metadata?: Record<string, unknown>;
 }
@@ -169,6 +233,8 @@ export interface DungeonRunState {
   /** 当前流程的轻量显示投影，供副本 HUD 使用，不参与权威结算。 */
   progressPercent?: number;
   bossProgress?: { name: string; hp: number; maxHp: number };
+  /** 当前剧情演出状态；只影响表现/行动效果，不参与副本结算。 */
+  presentation?: DungeonPresentationRunState;
 }
 
 export type DungeonFlowEvent =

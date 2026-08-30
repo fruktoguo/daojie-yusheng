@@ -9,7 +9,7 @@
  * 并在属性变化时同步更新生命/灵力上限和当前值比例。
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CRAFT_EFFECT_KINDS, CRAFT_EFFECT_SKILL_KINDS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_BASE_ATTRS, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, NUMERIC_STAT_MULTIPLIER_FLOORS, addCraftEffectStatsFromItem, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcBodyTrainingAttrPercentBonus, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, cloneCraftEffectStats, cloneNumericRatioDivisors, cloneNumericStats, compileValueStatsToActualStats, createEmptyCraftEffectStats, createNumericStats, getEffectivePlayerMoveSpeed, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, percentModifierToMultiplier, readCraftEffectStat, resolvePlayerFacingContentName, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } from '@mud/shared';
+import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CRAFT_EFFECT_KINDS, CRAFT_EFFECT_SKILL_KINDS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_BASE_ATTRS, DEFAULT_PLAYER_REALM_STAGE, DUNGEON_PRESSURE_BUFF_ID, DUNGEON_PRESSURE_COMBAT_STAT_KEYS, DUNGEON_PRESSURE_ELEMENT_KEYS, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, NUMERIC_STAT_MULTIPLIER_FLOORS, addCraftEffectStatsFromItem, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcBodyTrainingAttrPercentBonus, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, cloneCraftEffectStats, cloneNumericRatioDivisors, cloneNumericStats, compileValueStatsToActualStats, createEmptyCraftEffectStats, createNumericStats, getEffectivePlayerMoveSpeed, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, percentModifierToMultiplier, readCraftEffectStat, resolveDungeonPressureCombatMultiplier, resolveDungeonPressureMoveSpeedMultiplier, resolvePlayerFacingContentName, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } from '@mud/shared';
 import {
     PVP_SHA_INFUSION_ATTACK_CAP_PERCENT,
     PVP_SHA_INFUSION_BUFF_ID,
@@ -444,6 +444,7 @@ export class PlayerAttributesService {
         applyWorldTimeVisionModifier(numericStats, player);
         roundNumericStats(numericStats);
         applyHeavenlyDaoSuppression(finalAttrs, numericStats, activeBuffs);
+        applyDungeonPressure(finalAttrs, numericStats, activeBuffs);
         this.recordAttributePerf('attribution.attributes.build.finalModifiersMs', performance.now() - finalModifiersStartedAt, 1);
         return {
             stage,
@@ -942,6 +943,30 @@ function applyHeavenlyDaoSuppression(finalAttrs, numericStats, activeBuffs) {
         numericStats.elementDamageReduce[element] = Math.max(0, Math.round(numericStats.elementDamageReduce[element] * multiplier));
     }
     clampAttributes(finalAttrs);
+}
+
+/** 威压是按当前来源汇总后的精确层数，不通过普通 Buff 的累加语义叠加。 */
+function applyDungeonPressure(finalAttrs, numericStats, activeBuffs) {
+    const pressure = activeBuffs.find((buff) => (
+        buff?.buffId === DUNGEON_PRESSURE_BUFF_ID && isActiveRuntimeBuff(buff)
+    ));
+    if (!pressure) {
+        return;
+    }
+    const multiplier = resolveDungeonPressureCombatMultiplier(pressure.stacks);
+    for (const key of ATTR_KEYS) {
+        finalAttrs[key] *= multiplier;
+    }
+    clampAttributes(finalAttrs);
+    for (const key of DUNGEON_PRESSURE_COMBAT_STAT_KEYS) {
+        const reducedValue = Math.round(numericStats[key] * multiplier);
+        numericStats[key] = SIGNED_NUMERIC_STAT_KEYS.has(key) ? reducedValue : Math.max(0, reducedValue);
+    }
+    numericStats.moveSpeed = Math.max(0, Math.round(numericStats.moveSpeed * resolveDungeonPressureMoveSpeedMultiplier(pressure.stacks)));
+    for (const element of DUNGEON_PRESSURE_ELEMENT_KEYS) {
+        numericStats.elementDamageBonus[element] = Math.round(numericStats.elementDamageBonus[element] * multiplier);
+        numericStats.elementDamageReduce[element] = Math.max(0, Math.round(numericStats.elementDamageReduce[element] * multiplier));
+    }
 }
 
 function getBuffEffectFactor(buff, targetRealmLv) {

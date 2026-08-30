@@ -21,6 +21,7 @@ import type {
   AttackTrailEffect,
   FloatingActionTextStyle,
   FloatingTextEffect,
+  SpeechBubbleEffect,
   WarningZoneEffect,
 } from './pixi-render-state';
 import { formatCombatDamageSummaryEffect } from './combat-damage-summary-text';
@@ -32,6 +33,7 @@ const ATTACK_TRAIL_HOLD_MS = 200;
 const ATTACK_TRAIL_FADE_MS = 170;
 const ATTACK_TRAIL_DURATION_MS = ATTACK_TRAIL_REACH_MS + ATTACK_TRAIL_HOLD_MS + ATTACK_TRAIL_FADE_MS;
 const MAX_WARNING_ZONES = 64;
+const MAX_SPEECH_BUBBLES = 32;
 const DEFAULT_WARNING_ZONE_DURATION_MS = 1240;
 
 export class PixiCombatEffectRuntime {
@@ -39,6 +41,7 @@ export class PixiCombatEffectRuntime {
   private readonly floatingTexts: FloatingTextEffect[] = [];
   private readonly attackTrails: AttackTrailEffect[] = [];
   private readonly warningZones: WarningZoneEffect[] = [];
+  private readonly speechBubbles: SpeechBubbleEffect[] = [];
 
   constructor(private readonly effectLayer: Container) {}
 
@@ -58,6 +61,10 @@ export class PixiCombatEffectRuntime {
       }
       return;
     }
+    if (effect.bubble) {
+      this.addSpeechBubble(effect.x, effect.y, effect.text, effect.color, effect.durationMs);
+      return;
+    }
     const actionStyle = this.resolveActionTextStyle(effect);
     this.addFloatingText(
       effect.x,
@@ -71,21 +78,24 @@ export class PixiCombatEffectRuntime {
   }
 
   update(): void {
-    if (this.floatingTexts.length === 0 && this.attackTrails.length === 0 && this.warningZones.length === 0) return;
+    if (this.floatingTexts.length === 0 && this.attackTrails.length === 0 && this.warningZones.length === 0 && this.speechBubbles.length === 0) return;
     const now = performance.now();
     const cellSize = getCellSize();
     this.updateFloatingTexts(now, cellSize);
     this.updateAttackTrails(now, cellSize);
     this.updateWarningZones(now, cellSize);
+    this.updateSpeechBubbles(now, cellSize);
   }
 
   reset(): void {
     for (const entry of this.floatingTexts) this.destroyFloatingTextEffect(entry);
     for (const entry of this.attackTrails) this.destroyAttackTrailEffect(entry);
     for (const zone of this.warningZones) this.destroyWarningZoneEffect(zone);
+    for (const bubble of this.speechBubbles) this.destroySpeechBubbleEffect(bubble);
     this.floatingTexts.length = 0;
     this.attackTrails.length = 0;
     this.warningZones.length = 0;
+    this.speechBubbles.length = 0;
     this.floatingTextBurstLayout.reset();
   }
 
@@ -99,6 +109,10 @@ export class PixiCombatEffectRuntime {
 
   get warningZoneCount(): number {
     return this.warningZones.length;
+  }
+
+  get speechBubbleCount(): number {
+    return this.speechBubbles.length;
   }
 
   private addFloatingText(
@@ -210,6 +224,57 @@ export class PixiCombatEffectRuntime {
     this.trimWarningZoneEffects();
   }
 
+  private addSpeechBubble(
+    x: number,
+    y: number,
+    content: string,
+    color = '#f6d58b',
+    durationMs = 3_000,
+  ): void {
+    const cellSize = getCellSize();
+    const maxWidth = Math.max(180, Math.min(340, cellSize * 9));
+    const padding = Math.max(8, cellSize * 0.22);
+    const style = textStyle(
+      'floatingAction',
+      Math.max(12, Math.min(18, cellSize * 0.36)),
+      '#342313',
+      'rgba(255,255,255,0.28)',
+      1.5,
+    );
+    style.wordWrap = true;
+    style.wordWrapWidth = maxWidth - padding * 2;
+    style.lineHeight = Math.max(16, cellSize * 0.48);
+    const label = new Text({ text: content, style, anchor: { x: 0.5, y: 1 } });
+    const width = Math.min(maxWidth, Math.max(cellSize * 2.5, label.width + padding * 2));
+    const height = Math.max(cellSize * 0.9, label.height + padding * 2);
+    const background = new Graphics();
+    background
+      .roundRect(-width / 2, -height, width, height, Math.max(6, cellSize * 0.18))
+      .fill({ color: parseColor('#fff8e7'), alpha: 0.96 })
+      .stroke({ color: parseColor(color), alpha: parseAlpha(color, 1), width: Math.max(1, cellSize * 0.045) });
+    const tailWidth = Math.max(8, cellSize * 0.28);
+    background
+      .moveTo(-tailWidth, -1)
+      .lineTo(0, Math.max(6, cellSize * 0.22))
+      .lineTo(tailWidth, -1)
+      .closePath()
+      .fill({ color: parseColor('#fff8e7'), alpha: 0.96 });
+    label.position.set(0, -padding);
+    const root = new Container();
+    root.addChild(background, label);
+    this.effectLayer.addChild(root);
+    this.speechBubbles.push({
+      x,
+      y,
+      root,
+      background,
+      text: label,
+      createdAt: performance.now(),
+      duration: normalizeTimedEffectDuration(durationMs, 3_000),
+    });
+    this.trimSpeechBubbleEffects();
+  }
+
   private updateFloatingTexts(now: number, cellSize: number): void {
     let writeIndex = 0;
     for (let readIndex = 0; readIndex < this.floatingTexts.length; readIndex += 1) {
@@ -309,6 +374,26 @@ export class PixiCombatEffectRuntime {
     this.warningZones.length = writeIndex;
   }
 
+  private updateSpeechBubbles(now: number, cellSize: number): void {
+    let writeIndex = 0;
+    for (let readIndex = 0; readIndex < this.speechBubbles.length; readIndex += 1) {
+      const bubble = this.speechBubbles[readIndex];
+      const progress = (now - bubble.createdAt) / bubble.duration;
+      if (progress >= 1) {
+        this.destroySpeechBubbleEffect(bubble);
+        continue;
+      }
+      bubble.root.position.set(
+        bubble.x * cellSize + cellSize / 2,
+        bubble.y * cellSize - cellSize * 0.08,
+      );
+      bubble.root.alpha = progress > 0.82 ? 1 - (progress - 0.82) / 0.18 : 1;
+      this.speechBubbles[writeIndex] = bubble;
+      writeIndex += 1;
+    }
+    this.speechBubbles.length = writeIndex;
+  }
+
   private trimFloatingTextEffects(): void {
     const overflow = this.floatingTexts.length - MAX_FLOATING_TEXTS;
     if (overflow <= 0) return;
@@ -333,6 +418,14 @@ export class PixiCombatEffectRuntime {
     this.warningZones.length -= overflow;
   }
 
+  private trimSpeechBubbleEffects(): void {
+    const overflow = this.speechBubbles.length - MAX_SPEECH_BUBBLES;
+    if (overflow <= 0) return;
+    for (let index = 0; index < overflow; index += 1) this.destroySpeechBubbleEffect(this.speechBubbles[index]);
+    this.speechBubbles.copyWithin(0, overflow);
+    this.speechBubbles.length -= overflow;
+  }
+
   destroy(): void {
     this.reset();
   }
@@ -350,6 +443,11 @@ export class PixiCombatEffectRuntime {
   private destroyWarningZoneEffect(zone: WarningZoneEffect): void {
     zone.graphics.parent?.removeChild(zone.graphics);
     zone.graphics.destroy();
+  }
+
+  private destroySpeechBubbleEffect(bubble: SpeechBubbleEffect): void {
+    bubble.root.parent?.removeChild(bubble.root);
+    bubble.root.destroy({ children: true });
   }
 
   private drawAttackTrailEffect(entry: AttackTrailEffect, cellSize: number, elapsed: number): void {

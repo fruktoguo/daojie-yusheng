@@ -11,7 +11,7 @@
 import { Inject, BadRequestException, Injectable, Logger, NotFoundException, Optional, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { ARTIFACT_SLOTS, ARTIFACT_UNLOCK_REALM_LV, ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_COMBAT_ATTACK_INTENSITY, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, DUNGEON_MAX_STAMINA, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, addItemStackMergeCount, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, cloneCraftEffectStats, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, findMergeableItemStackIndex, getBodyTrainingExpToNext, getTechniqueMaxLevel, isCreatedTechniqueId, isTechniqueAggregationId, isTechniqueFullyMastered, mergeItemStackInto, normalizeBodyTrainingState, normalizeCombatAttackIntensity, normalizeHorizontalFacing, normalizeTechniqueStrengthPercent, percentModifierToMultiplier, resolveArtifactMaxQi, resolvePlayerFacingContentName, resolvePlayerSkillSlotLimit, resolveRecoveredStamina, resolveSkillRequiresTarget, resolveTechniqueStandardMaxHpRecoveryAmount, resolveTechniqueStandardMaxQiRecoveryAmount, signedRatioValue } from '@mud/shared';
+import { ARTIFACT_SLOTS, ARTIFACT_UNLOCK_REALM_LV, ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_COMBAT_ATTACK_INTENSITY, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, DUNGEON_MAX_STAMINA, DUNGEON_PRESSURE_BUFF_ID, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, addItemStackMergeCount, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, cloneCraftEffectStats, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, findMergeableItemStackIndex, getBodyTrainingExpToNext, getTechniqueMaxLevel, isCreatedTechniqueId, isTechniqueAggregationId, isTechniqueFullyMastered, mergeItemStackInto, normalizeBodyTrainingState, normalizeCombatAttackIntensity, normalizeHorizontalFacing, normalizeTechniqueStrengthPercent, percentModifierToMultiplier, resolveArtifactMaxQi, resolvePlayerFacingContentName, resolvePlayerSkillSlotLimit, resolveRecoveredStamina, resolveSkillRequiresTarget, resolveTechniqueStandardMaxHpRecoveryAmount, resolveTechniqueStandardMaxQiRecoveryAmount, signedRatioValue } from '@mud/shared';
 import type { TechniqueTransmissionStatusView } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
@@ -5024,6 +5024,57 @@ export class PlayerRuntimeService {
         return player;
     }
 
+    /** 精确替换一个临时 Buff 的层数与持续时间，供“每息重算”的场景使用。 */
+    replaceTemporaryBuff(playerId, buff) {
+        const player = this.getPlayerOrThrow(playerId);
+        const buffId = typeof buff?.buffId === 'string' ? buff.buffId.trim() : '';
+        if (!buffId) return player;
+        const index = player.buffs.buffs.findIndex((entry) => entry.buffId === buffId);
+        const stacks = Math.max(0, Math.trunc(Number(buff.stacks) || 0));
+        const remainingTicks = Math.max(0, Math.trunc(Number(buff.remainingTicks) || 0));
+        const existing = index >= 0 ? player.buffs.buffs[index] : null;
+        if (stacks <= 0 || remainingTicks <= 0) {
+            if (index < 0) return player;
+            const affectsAttributes = doesBuffAffectAttributeProjection(player, existing);
+            const affectsVitalCapacity = doesBuffAffectVitalCapacityProjection(player, existing);
+            player.buffs.buffs.splice(index, 1);
+            player.buffs.revision += 1;
+            if (affectsAttributes) {
+                this.playerAttributesService.recalculate(player, 'buff');
+                if (affectsVitalCapacity) this.playerAttributesService.ensureFresh?.(player);
+            }
+            markPlayerDirtyDomains(player, affectsAttributes ? ['buff', 'attr', ...(affectsVitalCapacity ? ['vitals'] : [])] : ['buff']);
+            this.bumpPersistentRevision(player);
+            return player;
+        }
+        const next = createRuntimeTemporaryBuff({ ...buff, buffId, stacks, remainingTicks });
+        const same = existing
+            && existing.remainingTicks === next.remainingTicks
+            && existing.duration === next.duration
+            && existing.stacks === next.stacks
+            && existing.maxStacks === next.maxStacks
+            && existing.realmLv === next.realmLv
+            && isSameTemporaryBuffReferencePayload(existing, next);
+        if (same) return player;
+        const affectsAttributes = doesBuffAffectAttributeProjection(player, existing) || doesBuffAffectAttributeProjection(player, next);
+        const affectsVitalCapacity = doesBuffAffectVitalCapacityProjection(player, existing) || doesBuffAffectVitalCapacityProjection(player, next);
+        if (existing) {
+            refreshRuntimeTemporaryBuffPrototype(existing, next);
+            Object.assign(existing, next);
+        } else {
+            player.buffs.buffs.push(next);
+            player.buffs.buffs.sort((left, right) => String(left.buffId ?? '').localeCompare(String(right.buffId ?? ''), 'zh-Hans-CN'));
+        }
+        player.buffs.revision += 1;
+        if (affectsAttributes) {
+            this.playerAttributesService.recalculate(player, 'buff');
+            if (affectsVitalCapacity) this.playerAttributesService.ensureFresh?.(player);
+        }
+        markPlayerDirtyDomains(player, affectsAttributes ? ['buff', 'attr', ...(affectsVitalCapacity ? ['vitals'] : [])] : ['buff']);
+        this.bumpPersistentRevision(player);
+        return player;
+    }
+
     /** 按内容模板施加 Buff，供地形、系统效果等配置驱动来源复用。 */
     applyConfiguredBuff(playerId, buffId, options: any = {}) {
         const normalizedBuffId = typeof buffId === 'string' ? buffId.trim() : '';
@@ -7374,6 +7425,7 @@ function doesTemporaryBuffAffectAttributes(buff) {
         || buff.stats
         || buff.buffId === HEAVENLY_DAO_SUPPRESSION_BUFF_ID
         || buff.buffId === PVP_SOUL_INJURY_BUFF_ID
+        || buff.buffId === DUNGEON_PRESSURE_BUFF_ID
     ));
 }
 
@@ -7390,7 +7442,7 @@ function doesTemporaryBuffAffectVitalCapacity(buff) {
     if (!buff) {
         return false;
     }
-    if (buff.buffId === HEAVENLY_DAO_SUPPRESSION_BUFF_ID || buff.buffId === PVP_SOUL_INJURY_BUFF_ID) {
+    if (buff.buffId === HEAVENLY_DAO_SUPPRESSION_BUFF_ID || buff.buffId === PVP_SOUL_INJURY_BUFF_ID || buff.buffId === DUNGEON_PRESSURE_BUFF_ID) {
         return true;
     }
     if (hasNonZeroNumericValue(buff.stats?.maxHp) || hasNonZeroNumericValue(buff.stats?.maxQi)) {

@@ -119,6 +119,7 @@ message CombatEffectPayload {
   optional sint32 originY = 16;
   optional CombatDamageSummaryGroupPayload enemy = 17;
   optional CombatDamageSummaryGroupPayload tile = 18;
+  optional bool bubble = 19;
 }
 
 message CombatDamageSummaryGroupPayload {

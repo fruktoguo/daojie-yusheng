@@ -14,6 +14,10 @@ import {
   type DungeonFlowType,
   type DungeonMechanismFormationConfig,
   type DungeonMapRoomDefinition,
+  type DungeonPresentationActionStep,
+  type DungeonPresentationCondition,
+  type DungeonPresentationDefinition,
+  type DungeonPresentationDialogueStep,
   type DungeonWaveDefinition,
 } from '@mud/shared';
 import { resolveProjectPath } from '../../common/project-path';
@@ -149,6 +153,66 @@ function normalizeWaves(raw: unknown): DungeonWaveDefinition[] | undefined {
   });
 }
 
+function normalizePresentationCondition(raw: unknown, basePath: string): DungeonPresentationCondition | undefined {
+  if (raw === undefined) return undefined;
+  if (!isRecord(raw)) throw new Error(`${basePath} 必须是对象`);
+  const maxPartyRealmLv = raw.maxPartyRealmLv === undefined ? undefined : nonNegativeInteger(raw.maxPartyRealmLv, `${basePath}.maxPartyRealmLv`);
+  const minPartyRealmLv = raw.minPartyRealmLv === undefined ? undefined : nonNegativeInteger(raw.minPartyRealmLv, `${basePath}.minPartyRealmLv`);
+  if (maxPartyRealmLv !== undefined && minPartyRealmLv !== undefined && minPartyRealmLv > maxPartyRealmLv) {
+    throw new Error(`${basePath}.minPartyRealmLv 不能大于 maxPartyRealmLv`);
+  }
+  if (maxPartyRealmLv === undefined && minPartyRealmLv === undefined) return undefined;
+  return {
+    ...(maxPartyRealmLv === undefined ? {} : { maxPartyRealmLv }),
+    ...(minPartyRealmLv === undefined ? {} : { minPartyRealmLv }),
+  };
+}
+
+function normalizePresentation(raw: unknown, basePath: string): DungeonPresentationDefinition | undefined {
+  if (raw === undefined) return undefined;
+  if (!isRecord(raw)) throw new Error(`${basePath} 必须是对象`);
+  if (raw.onRunCreated === undefined) return undefined;
+  if (!Array.isArray(raw.onRunCreated)) throw new Error(`${basePath}.onRunCreated 必须是数组`);
+  const onRunCreated = raw.onRunCreated.map((entry: unknown, index: number) => {
+    const itemPath = `${basePath}.onRunCreated[${index}]`;
+    if (!isRecord(entry)) throw new Error(`${itemPath} 必须是对象`);
+    const stepId = requiredString(entry.stepId ?? entry.id, `${itemPath}.stepId`);
+    const type = requiredString(entry.type, `${itemPath}.type`);
+    const actor = isRecord(entry.actor) ? entry.actor : null;
+    if (!actor) throw new Error(`${itemPath}.actor 必须是对象`);
+    const actorKind = requiredString(actor.kind, `${itemPath}.actor.kind`);
+    if (actorKind !== 'monster' && actorKind !== 'npc') throw new Error(`${itemPath}.actor.kind 不受支持`);
+    const actorRef = { kind: actorKind, id: requiredString(actor.id, `${itemPath}.actor.id`) } as const;
+    const condition = normalizePresentationCondition(entry.condition, `${itemPath}.condition`);
+    if (type === 'dialogue') {
+      const result: DungeonPresentationDialogueStep = {
+        stepId,
+        type: 'dialogue',
+        actor: actorRef,
+        text: requiredString(entry.text, `${itemPath}.text`),
+        ...(entry.durationMs === undefined ? {} : { durationMs: positiveInteger(entry.durationMs, `${itemPath}.durationMs`) }),
+        ...(condition ? { condition } : {}),
+      };
+      return result;
+    }
+    if (type === 'action') {
+      const result: DungeonPresentationActionStep = {
+        stepId,
+        type: 'action',
+        actor: actorRef,
+        actionId: requiredString(entry.actionId, `${itemPath}.actionId`),
+        ...(entry.delayTicks === undefined ? {} : { delayTicks: nonNegativeInteger(entry.delayTicks, `${itemPath}.delayTicks`) }),
+        ...(entry.durationTicks === undefined ? {} : { durationTicks: positiveInteger(entry.durationTicks, `${itemPath}.durationTicks`) }),
+        ...(condition ? { condition } : {}),
+        ...(isRecord(entry.params) ? { params: { ...entry.params } } : {}),
+      };
+      return result;
+    }
+    throw new Error(`${itemPath}.type 仅支持 dialogue/action`);
+  });
+  return { onRunCreated };
+}
+
 function normalizeDefinition(raw: unknown, source: string): DungeonDefinition {
   if (!isRecord(raw)) throw new Error(`${source} 顶层必须是对象`);
   const id = requiredString(raw.id, `${source}.id`);
@@ -158,6 +222,7 @@ function normalizeDefinition(raw: unknown, source: string): DungeonDefinition {
   if (maxPartyMembers > DUNGEON_MAX_PARTY_MEMBERS) throw new Error(`${source}.maxPartyMembers 不能超过 ${DUNGEON_MAX_PARTY_MEMBERS}`);
   const rewards = isRecord(raw.rewards) ? raw.rewards : null;
   if (!rewards) throw new Error(`${source}.rewards 必须是对象`);
+  const presentation = normalizePresentation(raw.presentation, `${source}.presentation`);
   return {
     id,
     name: requiredString(raw.name, `${source}.name`),
@@ -175,6 +240,7 @@ function normalizeDefinition(raw: unknown, source: string): DungeonDefinition {
     difficulty: normalizeDifficultyConfig(raw.difficulty ?? { maxPresentRank: 'mortal', energyCost: { trial: 4, hard: 8, nightmare: 12, present: 24 } }, `${source}.difficulty`),
     ...(normalizeRooms(raw.rooms) ? { rooms: normalizeRooms(raw.rooms) } : {}),
     ...(normalizeWaves(raw.waves) ? { waves: normalizeWaves(raw.waves) } : {}),
+    ...(presentation ? { presentation } : {}),
     rewards: {
       rewardTableId: requiredString(rewards.rewardTableId, `${source}.rewards.rewardTableId`),
       ...(rewards.firstClearOnly === undefined ? {} : { firstClearOnly: rewards.firstClearOnly === true }),

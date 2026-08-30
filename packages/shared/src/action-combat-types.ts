@@ -165,6 +165,8 @@ export interface CombatEffectFloat {
  */
 
   durationMs?: number;
+  /** 为 true 时按地图对话气泡渲染，而不是普通战斗飘字。 */
+  bubble?: boolean;
 }
 
 /** 战斗地块警戒特效。 */

@@ -33,6 +33,8 @@
       "roomId": "room_01",
       "mapTemplateId": "dungeon_huanling_zhenren_instance",
       "bossId": "m_huanling_zhenren_instance",
+      "spawnX": 10,
+      "spawnY": 7,
       "clearCondition": "boss_defeated",
       "mechanismFormation": {
         "kind": "room_seal",
@@ -43,6 +45,34 @@
       }
     }
   ],
+  "presentation": {
+    "onRunCreated": [
+      {
+        "stepId": "intro_rebuke_foundation",
+        "type": "dialogue",
+        "actor": {
+          "kind": "monster",
+          "id": "m_huanling_zhenren_instance"
+        },
+        "text": "尔等筑基小辈, 安敢逆伐金丹!",
+        "durationMs": 4000,
+        "condition": {
+          "minPartyRealmLv": 31,
+          "maxPartyRealmLv": 42
+        }
+      },
+      {
+        "stepId": "intro_pressure",
+        "type": "action",
+        "actor": {
+          "kind": "monster",
+          "id": "m_huanling_zhenren_instance"
+        },
+        "actionId": "dungeon.pressure",
+        "delayTicks": 4
+      }
+    ]
+  },
   "rewards": {
     "rewardTableId": "dungeon_huanling_zhenren_clear",
     "ratingEnabled": false

@@ -98,6 +98,16 @@ export interface FloatingTextEffect {
   duration: number;
 }
 
+export interface SpeechBubbleEffect {
+  x: number;
+  y: number;
+  root: Container;
+  background: Graphics;
+  text: Text;
+  createdAt: number;
+  duration: number;
+}
+
 export interface AttackTrailEffect {
   fromX: number;
   fromY: number;
