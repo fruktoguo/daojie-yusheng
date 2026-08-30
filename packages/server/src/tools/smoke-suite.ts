@@ -172,6 +172,7 @@ const smokeCases = [
     { name: 'monster-combat', scriptFile: 'monster-combat-smoke.js' },
     { name: 'monster-combat-lease-matrix', scriptFile: 'monster-combat-lease-matrix-smoke.js', standalone: true },
     { name: 'monster-ai', scriptFile: 'monster-ai-smoke.js' },
+    { name: 'monster-ai-strategy', scriptFile: 'monster-ai-strategy-smoke.js', standalone: true },
     { name: 'monster-skill', scriptFile: 'monster-skill-smoke.js' },
     { name: 'monster-reset', scriptFile: 'monster-reset-smoke.js' },
     { name: 'monster-loot', scriptFile: 'monster-loot-smoke.js' },

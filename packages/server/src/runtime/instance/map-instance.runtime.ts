@@ -36,6 +36,7 @@ import {
     resolveDungeonPressureCombatMultiplier,
     resolveDungeonPressureMoveSpeedMultiplier,
 } from '@mud/shared';
+import { chooseMonsterSkill as chooseMonsterSkillFromAiRegistry } from '../monster-ai/index';
 
 const DEFAULT_TILE_AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR);
 const TILE_AURA_FLOW_RATE_SCALE = TILE_AURA_HALF_LIFE_RATE_SCALE ?? QI_HALF_LIFE_RATE_SCALE ?? 1_000_000_000;
@@ -107,13 +108,6 @@ const MONSTER_LOST_SIGHT_CHASE_TICKS = 3;
 const MONSTER_RESPAWN_ACCELERATION_BASE_PERCENT = 100;
 const MONSTER_RESPAWN_ACCELERATION_STEP_PERCENT = 100;
 const MONSTER_RESPAWN_ACCELERATION_MAX_PERCENT = 1000;
-const HUANLING_ZHENREN_MONSTER_ID = 'm_huanling_zhenren';
-const HUANLING_FAXIANG_SKILL_ID = 'skill.huanling_candan_faxiang';
-const HUANLING_LIEFU_WAIHUAN_SKILL_ID = 'skill.huanling_liefu_waihuan';
-const HUANLING_XINGLUO_CANPAN_SKILL_ID = 'skill.huanling_xingluo_canpan';
-const HUANLING_RONGHE_GUANMAI_SKILL_ID = 'skill.huanling_ronghe_guanmai';
-const HUANLING_LIEQI_ZHIXIAN_SKILL_ID = 'skill.huanling_lieqi_zhixian';
-const HUANLING_SUOGONG_NEIHUAN_SKILL_ID = 'skill.huanling_suogong_neihuan';
 
 function resolveTickScaledChantDurationMs(ticks, tickSpeed = 1) {
     const normalizedTicks = Math.max(0, Math.trunc(Number(ticks) || 0));
@@ -170,13 +164,6 @@ function compareRuntimeThreatEntry(left, right) {
         || right.lastUpdatedAt - left.lastUpdatedAt
         || left.targetId.localeCompare(right.targetId, 'zh-Hans-CN');
 }
-const HUANLING_DIFU_CHENYIN_SKILL_ID = 'skill.huanling_difu_chenyin';
-const HUANLING_DUANHUN_DING_SKILL_ID = 'skill.huanling_duanhun_ding';
-const HUANLING_CANPO_ZHANG_SKILL_ID = 'skill.huanling_canpo_zhang';
-const HUANLING_FAXIANG_BUFF_ID = 'buff.huanling_candan_faxiang';
-const HUANLING_RONGMAI_YIN_BUFF_ID = 'buff.huanling_rongmai_yin';
-const HUANLING_CANMAI_SUOBU_BUFF_ID = 'buff.huanling_canmai_suobu';
-const TERRAIN_MOLTEN_POOL_BURN_BUFF_ID = 'terrain_molten_pool_burn';
 
 /** MAP_TIME_PERSISTENCE_DOMAIN：实例当前时间的持久化脏域。 */
 const MAP_TIME_PERSISTENCE_DOMAIN = 'time';
@@ -8024,7 +8011,7 @@ class MapInstanceRuntime {
                                 kind: 'qi',
                                 spent: committedSkillCast.qiCost,
                             },
-                            configRevision: skill.version ?? skill.revision,
+                            configRevision: (skill as any).version ?? (skill as any).revision,
                         });
                         monsterActions.push({
                             instanceId: this.meta.instanceId,
@@ -10084,155 +10071,9 @@ function commitMonsterSkillCast(monster, skill, currentTick) {
         cooldownReadyTick,
     };
 }
-/** chooseMonsterSkill：选择妖兽技能。 */
+/** chooseMonsterSkill：委托怪物 AI 策略注册中心选择当前 tick 技能。 */
 function chooseMonsterSkill(monster, target, distance, currentTick) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (monster.monsterId === HUANLING_ZHENREN_MONSTER_ID) {
-        return selectHuanlingZhenrenSkill(monster, target, distance, currentTick);
-    }
-
-    let selected = null;
-
-    let selectedRange = 0;
-    for (const skill of monster.skills) {
-        if (!canMonsterCastSkill(monster, skill, target, distance, currentTick)) {
-            continue;
-        }
-        const skillRange = buildEffectiveMonsterSkillGeometry(monster, skill).range;
-        if (!selected) {
-            selected = skill;
-            selectedRange = skillRange;
-            continue;
-        }
-        if (skillRange > selectedRange || (skillRange === selectedRange && skill.id < selected.id)) {
-            selected = skill;
-            selectedRange = skillRange;
-        }
-    }
-    return selected;
-}
-function selectHuanlingZhenrenSkill(monster, target, distance, currentTick) {
-    const maxHp = Math.max(1, Math.round(monster.maxHp));
-    const hpRatio = maxHp > 0 ? monster.hp / maxHp : 1;
-    const hasFaxiang = entityHasActiveBuff(monster.buffs, HUANLING_FAXIANG_BUFF_ID);
-    const targetBuffs = target?.buffs?.buffs ?? target?.buffs ?? target?.temporaryBuffs ?? [];
-    const targetYinStacks = getEntityBuffStacks(targetBuffs, HUANLING_RONGMAI_YIN_BUFF_ID);
-    const targetBurnStacks = getEntityBuffStacks(targetBuffs, TERRAIN_MOLTEN_POOL_BURN_BUFF_ID);
-    const targetLocked = entityHasActiveBuff(targetBuffs, HUANLING_CANMAI_SUOBU_BUFF_ID);
-    const targetPrimed = targetYinStacks + targetBurnStacks;
-
-    if (!hasFaxiang && hpRatio <= 0.75) {
-        const phaseAwaken = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
-            HUANLING_FAXIANG_SKILL_ID,
-            HUANLING_LIEQI_ZHIXIAN_SKILL_ID,
-            HUANLING_CANPO_ZHANG_SKILL_ID,
-        ]);
-        if (phaseAwaken) {
-            return phaseAwaken;
-        }
-    }
-
-    if (hpRatio <= 0.25) {
-        const desperation = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
-            HUANLING_DIFU_CHENYIN_SKILL_ID,
-            HUANLING_LIEFU_WAIHUAN_SKILL_ID,
-            HUANLING_SUOGONG_NEIHUAN_SKILL_ID,
-        ]);
-        if (desperation) {
-            return desperation;
-        }
-    }
-
-    if (hpRatio <= 0.5) {
-        const collapse = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
-            HUANLING_XINGLUO_CANPAN_SKILL_ID,
-            HUANLING_RONGHE_GUANMAI_SKILL_ID,
-        ]);
-        if (collapse) {
-            return collapse;
-        }
-    }
-
-    if (!hasFaxiang) {
-        return pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
-            HUANLING_DUANHUN_DING_SKILL_ID,
-            HUANLING_CANPO_ZHANG_SKILL_ID,
-        ]);
-    }
-
-    if (targetLocked || targetPrimed >= 4) {
-        const finisher = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
-            HUANLING_DIFU_CHENYIN_SKILL_ID,
-            HUANLING_LIEFU_WAIHUAN_SKILL_ID,
-            HUANLING_DUANHUN_DING_SKILL_ID,
-            HUANLING_CANPO_ZHANG_SKILL_ID,
-        ]);
-        if (finisher) {
-            return finisher;
-        }
-    }
-
-    if (distance <= 2) {
-        const closeControl = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
-            HUANLING_SUOGONG_NEIHUAN_SKILL_ID,
-            HUANLING_DIFU_CHENYIN_SKILL_ID,
-            HUANLING_XINGLUO_CANPAN_SKILL_ID,
-            HUANLING_CANPO_ZHANG_SKILL_ID,
-        ]);
-        if (closeControl) {
-            return closeControl;
-        }
-    }
-
-    if (distance >= 4) {
-        const longRangePressure = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
-            HUANLING_LIEFU_WAIHUAN_SKILL_ID,
-            HUANLING_RONGHE_GUANMAI_SKILL_ID,
-            HUANLING_XINGLUO_CANPAN_SKILL_ID,
-            HUANLING_CANPO_ZHANG_SKILL_ID,
-        ]);
-        if (longRangePressure) {
-            return longRangePressure;
-        }
-    }
-
-    if (!targetLocked) {
-        const setup = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
-            HUANLING_LIEQI_ZHIXIAN_SKILL_ID,
-            HUANLING_XINGLUO_CANPAN_SKILL_ID,
-            HUANLING_RONGHE_GUANMAI_SKILL_ID,
-            HUANLING_SUOGONG_NEIHUAN_SKILL_ID,
-            HUANLING_CANPO_ZHANG_SKILL_ID,
-        ]);
-        if (setup) {
-            return setup;
-        }
-    }
-
-    if (targetPrimed >= 2) {
-        const cashOut = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
-            HUANLING_DIFU_CHENYIN_SKILL_ID,
-            HUANLING_LIEFU_WAIHUAN_SKILL_ID,
-            HUANLING_SUOGONG_NEIHUAN_SKILL_ID,
-            HUANLING_DUANHUN_DING_SKILL_ID,
-            HUANLING_CANPO_ZHANG_SKILL_ID,
-        ]);
-        if (cashOut) {
-            return cashOut;
-        }
-    }
-
-    return pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
-        HUANLING_DIFU_CHENYIN_SKILL_ID,
-        HUANLING_LIEFU_WAIHUAN_SKILL_ID,
-        HUANLING_SUOGONG_NEIHUAN_SKILL_ID,
-        HUANLING_XINGLUO_CANPAN_SKILL_ID,
-        HUANLING_RONGHE_GUANMAI_SKILL_ID,
-        HUANLING_LIEQI_ZHIXIAN_SKILL_ID,
-        HUANLING_DUANHUN_DING_SKILL_ID,
-        HUANLING_CANPO_ZHANG_SKILL_ID,
-    ]);
+    return chooseMonsterSkillFromAiRegistry(monster, target, distance, currentTick);
 }
 function pickFirstCastableMonsterSkill(monster, target, distance, currentTick, skillIds) {
     for (const skillId of skillIds) {
