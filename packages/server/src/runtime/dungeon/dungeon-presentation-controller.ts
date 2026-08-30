@@ -18,6 +18,12 @@ export interface DungeonPresentationControllerContext {
   applyActions(run: DungeonRunState, actions: readonly DungeonPresentationActiveAction[]): Set<string>;
 }
 
+interface DungeonPresentationMonsterAction {
+  kind?: unknown;
+  skillId?: unknown;
+  actionId?: unknown;
+}
+
 /**
  * 通用剧情演出控制器：只推进对白和行动表现，不参与副本房间、伤害或结算裁定。
  */
@@ -30,28 +36,36 @@ export class DungeonPresentationController {
       return;
     }
     const maxPartyRealmLv = resolveMaxPartyRealmLv(run, context);
-    for (const step of steps) {
-      if (presentation.completedStepIds.includes(step.stepId)) continue;
-      if (!matchesCondition(step.condition, maxPartyRealmLv)) {
-        presentation.completedStepIds.push(step.stepId);
-        continue;
+    this.processSteps(run, steps, presentation, maxPartyRealmLv, context);
+  }
+
+  /** 在怪物行动已经由 AI 排入当前 tick、但尚未应用战斗效果时触发剧情表现。 */
+  onMonsterActions(
+    run: DungeonRunState,
+    definition: DungeonDefinition,
+    actions: readonly DungeonPresentationMonsterAction[],
+    context: DungeonPresentationControllerContext,
+  ): void {
+    const triggers = definition.presentation?.onMonsterAction ?? [];
+    if (triggers.length === 0 || actions.length === 0) return;
+    const actionIds = new Set<string>();
+    for (const action of actions) {
+      for (const candidate of [action.skillId, action.actionId]) {
+        if (typeof candidate !== 'string' || candidate.trim().length === 0) continue;
+        actionIds.add(candidate.trim().toLowerCase());
       }
-      if (step.type === 'dialogue') {
-        if (this.emitDialogue(run, step, context)) presentation.completedStepIds.push(step.stepId);
-        continue;
-      }
-      const delayTicks = Math.max(0, Math.trunc(Number(step.delayTicks) || 0));
-      if (delayTicks > 0) {
-        presentation.completedStepIds.push(step.stepId);
-        presentation.pendingSteps.push({ stepId: step.stepId, remainingTicks: delayTicks });
-      } else {
-        if (this.activateAction(run, step, presentation, context)) presentation.completedStepIds.push(step.stepId);
-      }
+    }
+    if (actionIds.size === 0) return;
+    const presentation = ensurePresentationState(run);
+    const maxPartyRealmLv = resolveMaxPartyRealmLv(run, context);
+    for (const trigger of triggers) {
+      if (!actionIds.has(trigger.actionId.trim().toLowerCase())) continue;
+      this.processSteps(run, trigger.steps, presentation, maxPartyRealmLv, context);
     }
   }
 
   onTick(run: DungeonRunState, definition: DungeonDefinition, context: DungeonPresentationControllerContext): void {
-    const steps = definition.presentation?.onRunCreated ?? [];
+    const steps = collectPresentationSteps(definition);
     const presentation = run.presentation;
     if (!presentation) return;
     const stepById = new Map(steps.map((step) => [step.stepId, step]));
@@ -106,6 +120,35 @@ export class DungeonPresentationController {
     return true;
   }
 
+  private processSteps(
+    run: DungeonRunState,
+    steps: readonly DungeonPresentationStep[],
+    presentation: DungeonPresentationRunState,
+    maxPartyRealmLv: number,
+    context: DungeonPresentationControllerContext,
+  ): void {
+    for (const step of steps) {
+      if (presentation.completedStepIds.includes(step.stepId)) continue;
+      if (!matchesCondition(step.condition, maxPartyRealmLv)) {
+        presentation.completedStepIds.push(step.stepId);
+        continue;
+      }
+      if (step.type === 'dialogue') {
+        if (this.emitDialogue(run, step, context)) presentation.completedStepIds.push(step.stepId);
+        continue;
+      }
+      const delayTicks = Math.max(0, Math.trunc(Number(step.delayTicks) || 0));
+      if (delayTicks > 0) {
+        presentation.completedStepIds.push(step.stepId);
+        if (!presentation.pendingSteps.some((entry) => entry.stepId === step.stepId)) {
+          presentation.pendingSteps.push({ stepId: step.stepId, remainingTicks: delayTicks });
+        }
+        continue;
+      }
+      if (this.activateAction(run, step, presentation, context)) presentation.completedStepIds.push(step.stepId);
+    }
+  }
+
   private activateAction(
     run: DungeonRunState,
     step: DungeonPresentationActionStep,
@@ -157,4 +200,10 @@ function matchesCondition(condition: DungeonPresentationCondition | undefined, m
 function isPressureAction(action: DungeonPresentationActiveAction): boolean {
   const actionId = action.actionId.trim().toLowerCase();
   return actionId === DUNGEON_PRESSURE_BUFF_ID || actionId === 'pressure' || action.actionId === '威压';
+}
+
+function collectPresentationSteps(definition: DungeonDefinition): DungeonPresentationStep[] {
+  const steps = [...(definition.presentation?.onRunCreated ?? [])];
+  for (const trigger of definition.presentation?.onMonsterAction ?? []) steps.push(...trigger.steps);
+  return steps;
 }

@@ -150,8 +150,15 @@ export interface DungeonPresentationActionStep {
 
 export type DungeonPresentationStep = DungeonPresentationDialogueStep | DungeonPresentationActionStep;
 
+/** 当指定怪物行动被排入当前副本 tick 时触发的剧情步骤。 */
+export interface DungeonPresentationActionTrigger {
+  actionId: string;
+  steps: DungeonPresentationStep[];
+}
+
 export interface DungeonPresentationDefinition {
   onRunCreated?: DungeonPresentationStep[];
+  onMonsterAction?: DungeonPresentationActionTrigger[];
 }
 
 export interface DungeonPresentationPendingStep {

@@ -8,6 +8,7 @@ import {
 import { DungeonTemplateRegistry } from '../content/registries/dungeon-template.registry';
 import { DefenseDungeonFlowController, ExpeditionDungeonFlowController, SuppressDemonDungeonFlowController } from '../runtime/dungeon/dungeon-flow-controller';
 import { DungeonRuntimeService, isDungeonPartyDefeated } from '../runtime/dungeon/dungeon-runtime.service';
+import { DungeonPresentationController } from '../runtime/dungeon/dungeon-presentation-controller';
 
 const maxRank = 'spirit' as any;
 assert.equal(resolveDungeonStaminaCost('trial', { maxPresentRank: maxRank, energyCost: { trial: 4, hard: 8, nightmare: 12, present: 24 } }), 4);
@@ -44,6 +45,7 @@ assert.equal(dungeon.difficulty.maxPresentRank, 'spirit');
 assert.equal(dungeon.rooms?.length, 1);
 
 testPartyDefeatTransitions();
+testDungeonPresentationMonsterTrigger();
 
 const makeRun = (flowType: any) => ({ runId: `smoke-${flowType}`, dungeonId: dungeon.id, partyId: 'party', status: 'active', difficulty: { difficulty: 'trial' }, effectiveStep: 0, mapInstanceId: 'dungeon:smoke', members: [], currentRoomId: 'room_01', createdAt: Date.now() } as any);
 const events: string[] = [];
@@ -61,7 +63,7 @@ events.length = 0;
 new ExpeditionDungeonFlowController().onTick(makeRun('expedition'), { ...dungeon, flowType: 'expedition', rooms: [] } as any, context);
 assert.ok(events.includes('complete:all_rooms_cleared'));
 void testDungeonRestartRecovery().then(() => {
-  console.log(JSON.stringify({ ok: true, case: 'dungeon-rules', checks: 29 }));
+  console.log(JSON.stringify({ ok: true, case: 'dungeon-rules', checks: 31 }));
 }).catch((error) => {
   console.error(error);
   process.exitCode = 1;
@@ -95,7 +97,7 @@ function testPartyDefeatTransitions(): void {
   const service = new DungeonRuntimeService(
     { getDungeonDefinition: () => definition, listDungeonDefinitions: () => [definition] } as any,
     {} as any,
-    { getPlayer: () => ({ playerId, name: '测试者', hp: 0 }) } as any,
+    { getPlayer: () => ({ playerId, name: '测试者', hp: 0 }), replaceTemporaryBuff: () => undefined } as any,
     {
       getPlayerLocation: () => ({ instanceId: run.mapInstanceId }),
       getInstanceRuntime: () => instance,
@@ -116,6 +118,34 @@ function testPartyDefeatTransitions(): void {
   assert.equal(events.find((entry) => entry.event === 'n:s:dungeonSettlement')?.status, 'failed');
   service.onPlayerDefeated(playerId, run.mapInstanceId);
   assert.equal(events.filter((entry) => entry.event === 'n:s:dungeonSettlement').length, 1);
+}
+
+function testDungeonPresentationMonsterTrigger(): void {
+  const playerId = 'player:dungeon:presentation';
+  const run = {
+    runId: 'smoke-presentation-trigger',
+    dungeonId: dungeon.id,
+    partyId: 'party:smoke',
+    status: 'active',
+    difficulty: { difficulty: 'trial' },
+    effectiveStep: 0,
+    mapInstanceId: 'dungeon:smoke-presentation-trigger',
+    members: [{ playerId, joinedAt: 0 }],
+    createdAt: 0,
+  } as any;
+  const bubbles: Array<{ text: string; durationMs: number }> = [];
+  const context = {
+    getInstance: () => ({ tick: 12 }),
+    getPlayer: () => ({ realm: { realmLv: 31 } }),
+    resolveActorPosition: () => ({ x: 10, y: 7 }),
+    pushDialogueBubble: (_run: any, _position: any, text: string, durationMs: number) => bubbles.push({ text, durationMs }),
+    applyActions: () => new Set<string>(),
+  } as any;
+  const controller = new DungeonPresentationController();
+  controller.onMonsterActions(run, dungeon, [{ skillId: 'skill.huanling_candan_faxiang' }], context);
+  controller.onMonsterActions(run, dungeon, [{ kind: 'skill_chant', skillId: 'skill.huanling_candan_faxiang' }], context);
+  assert.deepEqual(bubbles, [{ text: '既然逼我至此，便让尔等见识残丹法相！', durationMs: 3000 }]);
+  assert.ok(run.presentation.completedStepIds.includes('faxiang_awaken_dialogue'));
 }
 
 async function testDungeonRestartRecovery(): Promise<void> {

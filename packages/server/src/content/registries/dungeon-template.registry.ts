@@ -15,9 +15,11 @@ import {
   type DungeonMechanismFormationConfig,
   type DungeonMapRoomDefinition,
   type DungeonPresentationActionStep,
+  type DungeonPresentationActionTrigger,
   type DungeonPresentationCondition,
   type DungeonPresentationDefinition,
   type DungeonPresentationDialogueStep,
+  type DungeonPresentationStep,
   type DungeonWaveDefinition,
 } from '@mud/shared';
 import { resolveProjectPath } from '../../common/project-path';
@@ -171,46 +173,67 @@ function normalizePresentationCondition(raw: unknown, basePath: string): Dungeon
 function normalizePresentation(raw: unknown, basePath: string): DungeonPresentationDefinition | undefined {
   if (raw === undefined) return undefined;
   if (!isRecord(raw)) throw new Error(`${basePath} 必须是对象`);
-  if (raw.onRunCreated === undefined) return undefined;
-  if (!Array.isArray(raw.onRunCreated)) throw new Error(`${basePath}.onRunCreated 必须是数组`);
-  const onRunCreated = raw.onRunCreated.map((entry: unknown, index: number) => {
-    const itemPath = `${basePath}.onRunCreated[${index}]`;
-    if (!isRecord(entry)) throw new Error(`${itemPath} 必须是对象`);
-    const stepId = requiredString(entry.stepId ?? entry.id, `${itemPath}.stepId`);
-    const type = requiredString(entry.type, `${itemPath}.type`);
-    const actor = isRecord(entry.actor) ? entry.actor : null;
-    if (!actor) throw new Error(`${itemPath}.actor 必须是对象`);
-    const actorKind = requiredString(actor.kind, `${itemPath}.actor.kind`);
-    if (actorKind !== 'monster' && actorKind !== 'npc') throw new Error(`${itemPath}.actor.kind 不受支持`);
-    const actorRef = { kind: actorKind, id: requiredString(actor.id, `${itemPath}.actor.id`) } as const;
-    const condition = normalizePresentationCondition(entry.condition, `${itemPath}.condition`);
-    if (type === 'dialogue') {
-      const result: DungeonPresentationDialogueStep = {
-        stepId,
-        type: 'dialogue',
-        actor: actorRef,
-        text: requiredString(entry.text, `${itemPath}.text`),
-        ...(entry.durationMs === undefined ? {} : { durationMs: positiveInteger(entry.durationMs, `${itemPath}.durationMs`) }),
-        ...(condition ? { condition } : {}),
+  const normalizeSteps = (value: unknown, stepsPath: string): DungeonPresentationStep[] | undefined => {
+    if (value === undefined) return undefined;
+    if (!Array.isArray(value)) throw new Error(`${stepsPath} 必须是数组`);
+    return value.map((entry: unknown, index: number) => {
+      const itemPath = `${stepsPath}[${index}]`;
+      if (!isRecord(entry)) throw new Error(`${itemPath} 必须是对象`);
+      const stepId = requiredString(entry.stepId ?? entry.id, `${itemPath}.stepId`);
+      const type = requiredString(entry.type, `${itemPath}.type`);
+      const actor = isRecord(entry.actor) ? entry.actor : null;
+      if (!actor) throw new Error(`${itemPath}.actor 必须是对象`);
+      const actorKind = requiredString(actor.kind, `${itemPath}.actor.kind`);
+      if (actorKind !== 'monster' && actorKind !== 'npc') throw new Error(`${itemPath}.actor.kind 不受支持`);
+      const actorRef = { kind: actorKind, id: requiredString(actor.id, `${itemPath}.actor.id`) } as const;
+      const condition = normalizePresentationCondition(entry.condition, `${itemPath}.condition`);
+      if (type === 'dialogue') {
+        const result: DungeonPresentationDialogueStep = {
+          stepId,
+          type: 'dialogue',
+          actor: actorRef,
+          text: requiredString(entry.text, `${itemPath}.text`),
+          ...(entry.durationMs === undefined ? {} : { durationMs: positiveInteger(entry.durationMs, `${itemPath}.durationMs`) }),
+          ...(condition ? { condition } : {}),
+        };
+        return result;
+      }
+      if (type === 'action') {
+        const result: DungeonPresentationActionStep = {
+          stepId,
+          type: 'action',
+          actor: actorRef,
+          actionId: requiredString(entry.actionId, `${itemPath}.actionId`),
+          ...(entry.delayTicks === undefined ? {} : { delayTicks: nonNegativeInteger(entry.delayTicks, `${itemPath}.delayTicks`) }),
+          ...(entry.durationTicks === undefined ? {} : { durationTicks: positiveInteger(entry.durationTicks, `${itemPath}.durationTicks`) }),
+          ...(condition ? { condition } : {}),
+          ...(isRecord(entry.params) ? { params: { ...entry.params } } : {}),
+        };
+        return result;
+      }
+      throw new Error(`${itemPath}.type 仅支持 dialogue/action`);
+    });
+  };
+  const onRunCreated = normalizeSteps(raw.onRunCreated, `${basePath}.onRunCreated`);
+  let onMonsterAction: DungeonPresentationActionTrigger[] | undefined;
+  if (raw.onMonsterAction !== undefined) {
+    if (!Array.isArray(raw.onMonsterAction)) throw new Error(`${basePath}.onMonsterAction 必须是数组`);
+    onMonsterAction = raw.onMonsterAction.map((entry: unknown, index: number) => {
+      const triggerPath = `${basePath}.onMonsterAction[${index}]`;
+      if (!isRecord(entry)) throw new Error(`${triggerPath} 必须是对象`);
+      const steps = normalizeSteps(entry.steps, `${triggerPath}.steps`);
+      if (!steps || steps.length === 0) throw new Error(`${triggerPath}.steps 不能为空`);
+      return {
+        actionId: requiredString(entry.actionId, `${triggerPath}.actionId`),
+        steps,
       };
-      return result;
-    }
-    if (type === 'action') {
-      const result: DungeonPresentationActionStep = {
-        stepId,
-        type: 'action',
-        actor: actorRef,
-        actionId: requiredString(entry.actionId, `${itemPath}.actionId`),
-        ...(entry.delayTicks === undefined ? {} : { delayTicks: nonNegativeInteger(entry.delayTicks, `${itemPath}.delayTicks`) }),
-        ...(entry.durationTicks === undefined ? {} : { durationTicks: positiveInteger(entry.durationTicks, `${itemPath}.durationTicks`) }),
-        ...(condition ? { condition } : {}),
-        ...(isRecord(entry.params) ? { params: { ...entry.params } } : {}),
-      };
-      return result;
-    }
-    throw new Error(`${itemPath}.type 仅支持 dialogue/action`);
-  });
-  return { onRunCreated };
+    });
+  }
+  if (!onRunCreated && !onMonsterAction) return undefined;
+  return {
+    ...(onRunCreated ? { onRunCreated } : {}),
+    ...(onMonsterAction ? { onMonsterAction } : {}),
+  };
 }
 
 function normalizeDefinition(raw: unknown, source: string): DungeonDefinition {

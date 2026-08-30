@@ -55,6 +55,14 @@ interface DungeonRewardResult {
   rewardsByPlayer: Map<string, Array<{ itemId: string; count: number }>>;
 }
 
+interface DungeonInstanceTickResult {
+  monsterActions?: ReadonlyArray<{
+    kind?: unknown;
+    skillId?: unknown;
+    actionId?: unknown;
+  }>;
+}
+
 function emptyDungeonRewardResult(): DungeonRewardResult {
   return { claimed: false, rewardsByPlayer: new Map() };
 }
@@ -595,7 +603,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   }
 
   /** 每个逻辑实例 tick 一次；流程控制器只消费内存态，不在 tick 内访问数据库。 */
-  onInstanceTick(instanceId: string, _instanceTick: number): void {
+  onInstanceTick(instanceId: string, _instanceTick: number, tickResult?: DungeonInstanceTickResult): void {
     const run = [...this.runs.values()].find((entry) => entry.mapInstanceId === instanceId && entry.status === 'active');
     if (!run) return;
     const defeatedChanged = this.reconcileDefeatedMembers(run);
@@ -606,6 +614,14 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     }
     const definition = this.content.getDungeonDefinition(run.dungeonId);
     const controller = definition ? this.controllers.get(definition.flowType) : null;
+    if (definition && run.status === 'active') {
+      this.presentationController.onMonsterActions(
+        run,
+        definition,
+        tickResult?.monsterActions ?? [],
+        this.buildPresentationContext(),
+      );
+    }
     controller?.onTick?.(run, definition!, this.buildFlowContext());
     if (definition && run.status === 'active') {
       this.presentationController.onTick(run, definition, this.buildPresentationContext());

@@ -692,7 +692,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                         instanceId: instance.meta.instanceId,
                         instanceTick: instance.tick,
                         worldTick: deps.tick,
-                    }, () => deps.dungeonRuntimeService.onInstanceTick(instance.meta.instanceId, instance.tick));
+                    }, () => deps.dungeonRuntimeService.onInstanceTick(instance.meta.instanceId, instance.tick, result));
                 }
                 const fuelConsumed = scheduledPlans === null
                     || typeof deps.timeChamberRuntimeService?.consumeScheduledStep !== 'function'

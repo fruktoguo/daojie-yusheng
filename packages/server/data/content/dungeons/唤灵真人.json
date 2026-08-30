@@ -71,6 +71,23 @@
         "actionId": "dungeon.pressure",
         "delayTicks": 4
       }
+    ],
+    "onMonsterAction": [
+      {
+        "actionId": "skill.huanling_candan_faxiang",
+        "steps": [
+          {
+            "stepId": "faxiang_awaken_dialogue",
+            "type": "dialogue",
+            "actor": {
+              "kind": "monster",
+              "id": "m_huanling_zhenren_instance"
+            },
+            "text": "既然逼我至此，便让尔等见识残丹法相！",
+            "durationMs": 3000
+          }
+        ]
+      }
     ]
   },
   "rewards": {
