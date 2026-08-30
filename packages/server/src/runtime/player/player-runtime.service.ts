@@ -7341,6 +7341,7 @@ function hasTechniqueTemplateProjectionChanged(current, hydrated) {
         || current?.category !== hydrated?.category
         || current?.realmLv !== hydrated?.realmLv
         || current?.strengthPercent !== hydrated?.strengthPercent
+        || current?.expToNext !== hydrated?.expToNext
         || current?.learnTechniqueMaxLevel !== hydrated?.learnTechniqueMaxLevel
         || current?.skills !== hydrated?.skills
         || current?.layers !== hydrated?.layers;

@@ -2,8 +2,13 @@ import assert from 'node:assert/strict';
 
 import {
   createEmptyCraftEffectStats,
+  getTechniquePassiveExpToNext,
+  getTechniquePassiveSkillStrengthMultiplier,
+  getTechniqueTrainingMaxLevel,
   getPlayerEnabledSkillSlotLimitByLevel,
   isPassiveOnlySkill,
+  isPassiveTechnique,
+  isTechniqueFullyMastered,
   type SkillDef,
 } from '@mud/shared';
 import {
@@ -12,6 +17,7 @@ import {
   collectEnabledSkillPassiveBuffs,
 } from '../runtime/player/player-skill-passive.helpers';
 import { projectVisiblePlayerBuffs } from '../runtime/player/player-buff-projection.helpers';
+import { resolvePlayerQiResourceProjection } from '../runtime/world/world-runtime-qi-projection.helpers';
 
 function createPassiveSkill(overrides: Partial<SkillDef> = {}): SkillDef {
   return {
@@ -55,7 +61,7 @@ function createPassiveSkill(overrides: Partial<SkillDef> = {}): SkillDef {
   };
 }
 
-function createPlayer() {
+function createPlayer(level = 1) {
   return {
     playerId: 'player:passive-smoke',
     realmLv: 23,
@@ -72,7 +78,7 @@ function createPlayer() {
         {
           techId: 'passive_test_technique',
           name: '测试被动功法',
-          level: 3,
+          level,
           realmLv: 23,
           skills: [
             createPassiveSkill(),
@@ -116,6 +122,24 @@ function testPassiveCraftAndCultivationEffects(): void {
   assert.equal(tileEffects[0]?.effect.amountSource, 'max_qi_output_squared');
 }
 
+function testPassiveStrengthScalesWithLevel(): void {
+  const player = createPlayer(21);
+  const passiveBuff = collectEnabledSkillPassiveBuffs(player as never)[0];
+  assert.equal(getTechniquePassiveSkillStrengthMultiplier(21), 2);
+  assert.deepEqual(passiveBuff?.stats, { physAtk: 24, spellAtk: -8 });
+  assert.equal(passiveBuff?.qiProjection?.[0]?.efficiencyBpMultiplier, 10200);
+
+  const craftStats = createEmptyCraftEffectStats();
+  addEnabledSkillPassiveCraftEffects(craftStats, player as never);
+  assert.equal(craftStats.alchemy.speedRate, 0.24);
+  assert.equal(craftStats.gather.speedRate, 0.16);
+
+  const tileEffect = collectEnabledCultivationTileQiPassives(player as never)[0]?.effect;
+  assert.equal(tileEffect?.multiplier, 2);
+  const qiProjection = resolvePlayerQiResourceProjection(player as never, 'aura.refined.yang');
+  assert.equal(qiProjection?.efficiencyBp, 200);
+}
+
 function testDisableInvalidatesPassiveProfile(): void {
   const player = createPlayer();
   assert.equal(collectEnabledSkillPassiveBuffs(player as never).length, 1);
@@ -132,19 +156,36 @@ function testPurePassiveAndSlotFormula(): void {
   assert.equal(getPlayerEnabledSkillSlotLimitByLevel(60), 35);
 }
 
+function testPassiveTechniqueProgressionRule(): void {
+  const technique = {
+    level: 21,
+    layers: [{ level: 1, expToNext: 100 }],
+    skills: [createPassiveSkill()],
+  };
+  assert.equal(isPassiveTechnique(technique), true);
+  assert.equal(getTechniqueTrainingMaxLevel(technique), Number.MAX_SAFE_INTEGER);
+  assert.equal(isTechniqueFullyMastered(technique), false);
+  assert.equal(getTechniquePassiveExpToNext(2, technique.layers), 140);
+  assert.equal(getTechniquePassiveExpToNext(21, technique.layers), 83_668);
+}
+
 function main(): void {
   testEnabledPassiveBuffProjection();
   testPassiveCraftAndCultivationEffects();
+  testPassiveStrengthScalesWithLevel();
   testDisableInvalidatesPassiveProfile();
   testPurePassiveAndSlotFormula();
+  testPassiveTechniqueProgressionRule();
   console.log(JSON.stringify({
     ok: true,
     case: 'player-skill-passive',
     cases: [
       'enabled_passive_buff_projection',
       'passive_craft_and_cultivation_effects',
+      'passive_strength_scales_with_level',
       'disable_invalidates_passive_profile',
       'pure_passive_slot_formula',
+      'passive_technique_progression_rule',
     ],
   }, null, 2));
 }

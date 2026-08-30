@@ -5,7 +5,7 @@
  */
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import type { PlayerState, TechniqueCategory, TechniqueState } from '@mud/shared';
-import { getTechniqueMaxLevel, isTechniqueFullyMastered, isTechniqueLearnLimitReached } from '@mud/shared';
+import { getTechniqueMaxLevel, isPassiveTechnique, isTechniqueFullyMastered, isTechniqueLearnLimitReached } from '@mud/shared';
 import { createPanelStore } from '../../stores/create-panel-store';
 import { getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../../../domain-labels';
 import { getLocalRealmLevelEntry } from '../../../content/local-templates';
@@ -89,6 +89,10 @@ function areSkillsEnabled(tech: TechniqueState, _player: PlayerState | null): bo
 }
 
 function getProgressRatio(tech: TechniqueState): number {
+  if (isPassiveTechnique(tech)) {
+    const required = tech.expToNext ?? 1;
+    return required > 0 ? Math.min(1, (tech.exp ?? 0) / required) : 0;
+  }
   const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level);
   if (tech.level >= maxLevel) return 1;
   const required = tech.expToNext ?? 1;
@@ -102,6 +106,7 @@ function isTechniqueCappedBeforeMastery(tech: TechniqueState): boolean {
 
 function formatProgressText(tech: TechniqueState): string {
   if (isTechniqueCappedBeforeMastery(tech)) return t('technique.progress.fragment-limit', undefined);
+  if (isPassiveTechnique(tech)) return `${tech.exp ?? 0} / ${tech.expToNext ?? 0}`;
   const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level);
   if (tech.level >= maxLevel) return t('technique.progress.max-level', undefined);
   return `${tech.exp ?? 0} / ${tech.expToNext ?? 0}`;
@@ -313,6 +318,7 @@ const TechniqueCard = memo(function TechniqueCard({ tech, isCultivating, preview
   isCultivating: boolean;
   previewPlayer: PlayerState | null;
 }) {
+  const passiveTechnique = isPassiveTechnique(tech);
   const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level);
   const showSkillToggle = shouldShowSkillToggle(tech);
   const skillsEnabled = showSkillToggle ? areSkillsEnabled(tech, previewPlayer) : false;
@@ -344,7 +350,7 @@ const TechniqueCard = memo(function TechniqueCard({ tech, isCultivating, preview
           <span className="tech-badge tech-realm-level">
             {(() => { const d = getTechniqueRealmLevelData(tech.realmLv); return <>{d.displayName}<small className="realm-lv-suffix"> lv{d.lv}</small></>; })()}
           </span>
-          <span className="tech-layer">{t('technique.card.layer', { level: tech.level, maxLevel })}</span>
+          <span className="tech-layer">{passiveTechnique ? `第 ${formatDisplayInteger(tech.level)} 层 / 无限` : t('technique.card.layer', { level: tech.level, maxLevel })}</span>
         </span>
         <span className="tech-progress-meta">
           <span className="tech-progress-text">{progressText}</span>

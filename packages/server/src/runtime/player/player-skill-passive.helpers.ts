@@ -7,7 +7,9 @@
 import {
   addCraftEffectStatsPatch,
   getSkillPassiveEffects,
+  isPassiveTechnique,
   resolvePlayerFacingContentName,
+  scaleTechniquePassiveEffect,
   type CraftEffectStats,
   type SkillDef,
   type SkillPassiveBuffEffectDef,
@@ -136,6 +138,7 @@ function collectEnabledSkillPassiveEffects(player: PassivePlayerLike | null): En
   const enabledSkillIds = buildEnabledSkillIdSet(player);
   const result: EnabledSkillPassiveEffect[] = [];
   for (const technique of techniques) {
+    const passiveTechnique = isPassiveTechnique(technique);
     const techniqueLevel = Math.max(1, Math.trunc(Number(technique?.level ?? 1) || 1));
     for (const skill of technique?.skills ?? []) {
       const skillId = typeof skill?.id === 'string' ? skill.id.trim() : '';
@@ -148,7 +151,12 @@ function collectEnabledSkillPassiveEffects(player: PassivePlayerLike | null): En
       }
       const effects = getSkillPassiveEffects(skill);
       for (let index = 0; index < effects.length; index += 1) {
-        result.push({ technique, skill, effect: effects[index], effectIndex: index });
+        result.push({
+          technique,
+          skill,
+          effect: passiveTechnique ? scaleTechniquePassiveEffect(effects[index], techniqueLevel) : effects[index],
+          effectIndex: index,
+        });
       }
     }
   }

@@ -5,7 +5,7 @@
  */
 import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import * as fs from 'fs';
-import { DEFAULT_PLAYER_REALM_STAGE, MONSTER_KILL_EXP_LEVEL_DELTA_CAP, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, PLAYER_REALM_STAGE_LEVEL_RANGES, PlayerRealmStage, SHATTER_SPIRIT_PILL_COST_RATIO as SHARED_SHATTER_SPIRIT_PILL_COST_RATIO, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, computeCraftSkillExpGain, deriveTechniqueRealm, getBodyTrainingExpToNext, getMonsterKillExpLevelAdjustment, getMonsterLevelExpDecayMultiplier, getTechniqueExpLevelAdjustment, getTechniqueExpToNext, getTechniqueTrainingMaxLevel, isCreatedTechniqueId, isTechniqueFullyMastered, normalizeBodyTrainingState, normalizeMonsterTier, normalizeTechniqueLearnMaxLevel, normalizeTechniqueStrengthPercent, resolvePlayerFacingContentName } from '@mud/shared';
+import { DEFAULT_PLAYER_REALM_STAGE, MONSTER_KILL_EXP_LEVEL_DELTA_CAP, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, PLAYER_REALM_STAGE_LEVEL_RANGES, PlayerRealmStage, SHATTER_SPIRIT_PILL_COST_RATIO as SHARED_SHATTER_SPIRIT_PILL_COST_RATIO, TECHNIQUE_PASSIVE_EXP_MAX, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, computeCraftSkillExpGain, deriveTechniqueRealm, getBodyTrainingExpToNext, getMonsterKillExpLevelAdjustment, getMonsterLevelExpDecayMultiplier, getTechniqueExpLevelAdjustment, getTechniqueExpToNext, getTechniquePassiveExpToNext, getTechniqueTrainingMaxLevel, isCreatedTechniqueId, isPassiveTechnique, isTechniqueFullyMastered, normalizeBodyTrainingState, normalizeMonsterTier, normalizeTechniqueLearnMaxLevel, normalizeTechniqueStrengthPercent, resolvePlayerFacingContentName } from '@mud/shared';
 import { resolveProjectPath } from '../../common/project-path';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { getMonsterCombatExpGradeFactor, resolveMonsterCombatExpTierFactor } from '../combat/monster-combat-exp-equivalent.helper';
@@ -2198,6 +2198,9 @@ export class PlayerProgressionService {
 
         const level = Math.max(1, Math.floor(technique.level ?? 1));
 
+        if (isPassiveTechnique(technique)) {
+            return false;
+        }
         const maxLevel = getTechniqueTrainingMaxLevel(technique);
         return level >= maxLevel || (technique.expToNext ?? 0) <= 0;
     }
@@ -2250,8 +2253,9 @@ export class PlayerProgressionService {
 
         const previousExp = Math.max(0, Math.floor(technique.exp ?? 0));
 
+        const passiveTechnique = isPassiveTechnique(technique);
         const maxLevel = getTechniqueTrainingMaxLevel(technique);
-        if (previousLevel >= maxLevel || (technique.expToNext ?? 0) <= 0) {
+        if ((!passiveTechnique && previousLevel >= maxLevel) || (!passiveTechnique && (technique.expToNext ?? 0) <= 0)) {
             if (this.areAllTechniquesMaxed(player)) {
                 return this.advanceBodyTrainingProgressInternal(player, applyTechniqueRateBonus(amount, 1, options), resolved);
             }
@@ -2265,7 +2269,12 @@ export class PlayerProgressionService {
             return resolved;
         }
         technique.level = previousLevel;
-        technique.exp = previousExp + normalized;
+        technique.exp = passiveTechnique
+            ? Math.min(TECHNIQUE_PASSIVE_EXP_MAX, previousExp + normalized)
+            : previousExp + normalized;
+        if (passiveTechnique && (technique.expToNext ?? 0) <= 0) {
+            technique.expToNext = getTechniquePassiveExpToNext(previousLevel, technique.layers ?? undefined);
+        }
 
         const notices = [...resolved.notices];
 
@@ -2276,10 +2285,14 @@ export class PlayerProgressionService {
             technique.exp -= technique.expToNext ?? 0;
             technique.level += 1;
             const reachedTrainingMaxLevel = technique.level >= maxLevel;
-            technique.expToNext = reachedTrainingMaxLevel
-                ? 0
-                : getTechniqueExpToNext(technique.level, technique.layers ?? undefined);
-            technique.realm = deriveTechniqueRealm(technique.level, technique.layers ?? undefined);
+            technique.expToNext = passiveTechnique
+                ? getTechniquePassiveExpToNext(technique.level, technique.layers ?? undefined)
+                : reachedTrainingMaxLevel
+                    ? 0
+                    : getTechniqueExpToNext(technique.level, technique.layers ?? undefined);
+            technique.realm = passiveTechnique
+                ? TechniqueRealm.Entry
+                : deriveTechniqueRealm(technique.level, technique.layers ?? undefined);
             const fullyMastered = isTechniqueFullyMastered(technique);
             const techniqueName = resolvePlayerFacingContentName(technique.techId, '未知功法', technique.name);
             notices.push({
@@ -2293,7 +2306,7 @@ export class PlayerProgressionService {
             });
             actionsDirty = true;
         }
-        if (technique.level >= maxLevel && (technique.expToNext ?? 0) <= 0) {
+        if (!passiveTechnique && technique.level >= maxLevel && (technique.expToNext ?? 0) <= 0) {
             technique.exp = 0;
             technique.realm = deriveTechniqueRealm(technique.level, technique.layers ?? undefined);
         }
@@ -2314,7 +2327,7 @@ export class PlayerProgressionService {
             actionsDirty,
             notices,
         };
-        if (technique.level >= maxLevel && player.combat.autoSwitchCultivation === true) {
+        if (!passiveTechnique && technique.level >= maxLevel && player.combat.autoSwitchCultivation === true) {
 
             const switched = this.resolveActiveCultivatingTechnique(player);
             if (switched.technique?.techId !== technique.techId) {
@@ -3128,20 +3141,28 @@ function snapshotCultivatingTechniqueStatisticState(player, resolvedTechnique = 
 
 function toTechniqueUpdateEntryLocal(technique, maxLevelInput = undefined) {
     const layers = Array.isArray(technique.layers) ? technique.layers : [];
-    const learnTechniqueMaxLevel = normalizeTechniqueLearnMaxLevel(maxLevelInput, layers, technique.level);
+    const passiveTechnique = isPassiveTechnique(technique);
+    const learnTechniqueMaxLevel = passiveTechnique
+        ? undefined
+        : normalizeTechniqueLearnMaxLevel(maxLevelInput, layers, technique.level);
     const trainingMaxLevel = learnTechniqueMaxLevel ?? getTechniqueTrainingMaxLevel({
         level: technique.level,
         layers,
+        skills: technique.skills,
     });
-    const level = Math.min(Math.max(1, Math.floor(Number(technique.level) || 1)), trainingMaxLevel);
+    const level = passiveTechnique
+        ? Math.max(1, Math.floor(Number(technique.level) || 1))
+        : Math.min(Math.max(1, Math.floor(Number(technique.level) || 1)), trainingMaxLevel);
     return {
         techId: technique.techId,
         level,
         exp: technique.exp,
-        expToNext: learnTechniqueMaxLevel !== undefined && level >= learnTechniqueMaxLevel ? 0 : technique.expToNext,
+        expToNext: passiveTechnique
+            ? getTechniquePassiveExpToNext(level, layers)
+            : learnTechniqueMaxLevel !== undefined && level >= learnTechniqueMaxLevel ? 0 : technique.expToNext,
         realmLv: technique.realmLv,
         strengthPercent: normalizeTechniqueStrengthPercent(technique.strengthPercent),
-        realm: deriveTechniqueRealm(level, layers),
+        realm: passiveTechnique ? TechniqueRealm.Entry : deriveTechniqueRealm(level, layers),
         skillsEnabled: technique.skillsEnabled !== false,
         name: technique.name,
         grade: technique.grade ?? null,

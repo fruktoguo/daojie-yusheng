@@ -17,9 +17,12 @@ import {
   compareTechniqueDisplayOrder,
   deriveTechniqueRealm,
   getTechniqueExpLevelAdjustment,
+  getTechniquePassiveSkillStrengthMultiplier,
   getTechniqueMaxLevel,
+  getSkillPassiveEffects,
   isTechniqueFullyMastered,
   isTechniqueLearnLimitReached,
+  isPassiveTechnique,
   isCreatedTechniqueId,
   isTechniqueAggregationId,
   PlayerState,
@@ -57,6 +60,7 @@ import {
 } from '../technique-bonus-summary';
 import { TechniqueConstellationCanvas, TechniqueConstellationCanvasData, TechniqueConstellationHoverPayload } from './technique-constellation-canvas';
 import { formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
+import { describePreviewBonuses } from '../stat-preview';
 import { t } from '../i18n';
 import {
   buildTechniqueListEntries,
@@ -257,6 +261,15 @@ function getTechniqueProgressRatio(tech: TechniqueState): number {
   return Math.max(0, Math.min(1, tech.exp / tech.expToNext));
 }
 
+function formatTechniqueLayerText(tech: TechniqueState): string {
+  return isPassiveTechnique(tech)
+    ? `第 ${formatDisplayInteger(tech.level)} 层 / 无限`
+    : t('technique.card.layer', {
+      level: tech.level,
+      maxLevel: getTechniqueMaxLevel(tech.layers, tech.level),
+    });
+}
+
 function isTechniqueCappedBeforeMastery(tech: TechniqueState): boolean {
   return !isTechniqueFullyMastered(tech)
     && (isTechniqueLearnLimitReached(tech) || tech.expToNext <= 0);
@@ -311,7 +324,7 @@ function calcTechniqueTotalExp(tech: TechniqueState): number {
 
 /** getResolvedTechniqueRealm：读取Resolved Technique境界。 */
 function getResolvedTechniqueRealm(tech: TechniqueState): TechniqueRealm {
-  return deriveTechniqueRealm(tech.level, tech.layers);
+  return isPassiveTechnique(tech) ? TechniqueRealm.Entry : deriveTechniqueRealm(tech.level, tech.layers);
 }
 
 /** getTechniqueRealmLevelLabel：读取Technique境界等级标签。 */
@@ -1023,7 +1036,6 @@ export class TechniquePanel {
 
   /** renderTechniqueCard：渲染Technique卡片。 */
   private renderTechniqueCard(tech: TechniqueState): string {
-    const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level);
     const isCultivating = this.lastState.cultivatingTechId === tech.techId;
     const showSkillToggle = shouldShowTechniqueSkillToggle(tech);
     const skillsEnabled = showSkillToggle ? areTechniqueSkillsEnabled(tech, this.lastState.previewPlayer) : false;
@@ -1041,7 +1053,7 @@ export class TechniquePanel {
           <span class="tech-badge tech-category">${escapeHtml(categoryLabel)}</span>
           <span class="tech-badge tech-realm-level" data-tech-realm-level="${tech.techId}">${escapeHtml(realmLevelLabel)}</span>
           <span class="tech-badge tech-realm" data-tech-realm="${tech.techId}">${escapeHtml(realmLabel)}</span>
-          <span class="tech-layer" data-tech-layer="${tech.techId}">${escapeHtml(t('technique.card.layer', { level: tech.level, maxLevel }))}</span>
+          <span class="tech-layer" data-tech-layer="${tech.techId}">${escapeHtml(formatTechniqueLayerText(tech))}</span>
         </span>
         <span class="tech-progress-meta">
           <span class="tech-progress-text" data-tech-progress-text="${tech.techId}">${progressText}</span>
@@ -1206,11 +1218,8 @@ export class TechniquePanel {
     if (filter === 'all') {
       return true;
     }
-    const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level);
-    if (filter === 'in_progress') {
-      return tech.level < maxLevel;
-    }
-    return tech.level >= maxLevel;
+    const mastered = isTechniqueFullyMastered(tech);
+    return filter === 'in_progress' ? !mastered : mastered;
   }
 
   /** getFilteredEmptyHint：读取Filtered Empty Hint。 */
@@ -1388,14 +1397,15 @@ export class TechniquePanel {
       return;
     }
 
-    const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level);
+    const passiveTechnique = isPassiveTechnique(tech);
+    const maxLevel = passiveTechnique ? Math.max(1, tech.level) : getTechniqueMaxLevel(tech.layers, tech.level);
     const previewTechniques = resolvePreviewTechniques(this.lastState.techniques);
     const currentAttrs = calcTechniqueAttrValues(tech.level, tech.layers);
     const effectiveAttrs = calcTechniqueEffectiveContribution(previewTechniques, tech.techId);
     const currentSpecialStats = calcTechniqueSpecialStatContribution(tech.level, tech.layers);
     const currentQiProjection = calcTechniqueQiProjectionModifiers(tech.level, tech.layers);
     const skillsByLevel = new Map<number, TechniqueState['skills']>();
-    const milestones = buildTechniqueMilestones(tech, maxLevel);
+    const milestones = passiveTechnique ? new Map<number, TechniqueRealm>() : buildTechniqueMilestones(tech, maxLevel);
     for (const skill of tech.skills) {
       const unlockLevel = resolveSkillUnlockLevel(skill);
       const current = skillsByLevel.get(unlockLevel) ?? [];
@@ -1403,13 +1413,25 @@ export class TechniquePanel {
       skillsByLevel.set(unlockLevel, current);
     }
 
-    const layers = tech.layers && tech.layers.length > 0
+    const layers = passiveTechnique ? [] : tech.layers && tech.layers.length > 0
       ? [...tech.layers].sort((left, right) => left.level - right.level)
       : this.buildFallbackLayers(tech, maxLevel);
-    const selectedLevel = this.resolveOpenLayerLevel(layers, tech.level);
-    const constellationHtml = this.renderConstellation(tech, layers, tech.level, selectedLevel, skillsByLevel, milestones);
-    const focusHtml = this.renderLayerFocus(tech, layers, selectedLevel, skillsByLevel, milestones);
-    const constellationSignature = this.buildConstellationStructureSignature(layers, skillsByLevel);
+    const selectedLevel = passiveTechnique ? tech.level : this.resolveOpenLayerLevel(layers, tech.level);
+    const constellationHtml = passiveTechnique ? '' : this.renderConstellation(tech, layers, tech.level, selectedLevel, skillsByLevel, milestones);
+    const focusHtml = passiveTechnique
+      ? this.renderPassiveTechniqueOverview(tech)
+      : this.renderLayerFocus(tech, layers, selectedLevel, skillsByLevel, milestones);
+    const constellationSignature = passiveTechnique ? '' : this.buildConstellationStructureSignature(layers, skillsByLevel);
+    const detailHtml = passiveTechnique
+      ? focusHtml
+      : `<section class="tech-modal-pane tech-modal-pane--constellation">
+          <div class="tech-modal-section-title">${t('technique.modal.section.constellation', undefined)}</div>
+          <div class="tech-modal-pane-body" data-tech-modal-constellation-shell="true" data-tech-modal-constellation-signature="${escapeHtml(constellationSignature)}">${constellationHtml}</div>
+        </section>
+        <section class="tech-modal-pane tech-modal-pane--focus">
+          <div class="tech-modal-section-title">${t('technique.modal.section.focus', undefined)}</div>
+          <div class="tech-modal-pane-body" data-tech-modal-focus-shell="true">${focusHtml}</div>
+        </section>`;
     const totalExp = calcTechniqueTotalExp(tech);
     const showsCreatedTechniqueStrength = isCreatedTechniqueId(tech.techId)
       && !isTechniqueAggregationId(tech.techId);
@@ -1432,7 +1454,7 @@ export class TechniquePanel {
         grade: getTechniqueGradeLabel(tech.grade),
         realm: getTechniqueRealmLabel(getResolvedTechniqueRealm(tech)),
         level: formatDisplayInteger(tech.level),
-        maxLevel: formatDisplayInteger(maxLevel),
+        maxLevel: passiveTechnique ? '无限' : formatDisplayInteger(maxLevel),
       }),
       bodyHtml: `
       <div class="tech-modal-stack${showsCreatedTechniqueStrength ? ' tech-modal-stack--with-strength' : ''}">
@@ -1451,14 +1473,7 @@ export class TechniquePanel {
             <span data-tech-modal-current-attrs="true">${escapeHtml(formatTechniqueContributionSummary(effectiveAttrs, currentAttrs, currentSpecialStats, currentSpecialStats, currentQiProjection))}</span>
           </div>
         </section>
-        <section class="tech-modal-pane tech-modal-pane--constellation">
-          <div class="tech-modal-section-title">${t('technique.modal.section.constellation', undefined)}</div>
-          <div class="tech-modal-pane-body" data-tech-modal-constellation-shell="true" data-tech-modal-constellation-signature="${escapeHtml(constellationSignature)}">${constellationHtml}</div>
-        </section>
-        <section class="tech-modal-pane tech-modal-pane--focus">
-          <div class="tech-modal-section-title">${t('technique.modal.section.focus', undefined)}</div>
-          <div class="tech-modal-pane-body" data-tech-modal-focus-shell="true">${focusHtml}</div>
-        </section>
+        ${detailHtml}
         <section class="ui-modal-footer-actions">
           <button class="small-btn danger" data-tech-forget="${escapeHtml(tech.techId)}" type="button">${escapeHtml(t('technique.forget.action', undefined))}</button>
         </section>
@@ -1471,7 +1486,9 @@ export class TechniquePanel {
         this.tooltip.hide(true);
       },
       onAfterRender: (body, signal) => {
-        this.mountConstellation(body, tech, layers, selectedLevel, skillsByLevel, milestones);
+        if (!passiveTechnique) {
+          this.mountConstellation(body, tech, layers, selectedLevel, skillsByLevel, milestones);
+        }
         this.bindSkillTooltips(body, signal);
         this.bindTechniqueExpTooltip(body, signal);
         this.bindForgetButton(body, signal);
@@ -1527,6 +1544,47 @@ export class TechniquePanel {
       }).join('')}
     </div>`;
   }  
+
+  /** 渲染无限层被动功法详情；被动功法不创建星图节点。 */
+  private renderPassiveTechniqueOverview(tech: TechniqueState): string {
+    const multiplier = getTechniquePassiveSkillStrengthMultiplier(tech.level);
+    const skills = tech.skills.filter((skill) => skill.active === false && getSkillPassiveEffects(skill).length > 0);
+    const rows = skills.map((skill) => {
+      const unlockLevel = resolveSkillUnlockLevel(skill);
+      const unlocked = tech.level >= unlockLevel;
+      const effects = unlocked ? getSkillPassiveEffects(skill).map((effect) => {
+        if (effect.type === 'buff') {
+          const lines = describePreviewBonuses(
+            effect.attrs,
+            effect.stats,
+            undefined,
+            effect.attrMode ?? 'percent',
+            effect.statMode ?? 'percent',
+          );
+          const qi = formatTechniqueQiProjectionSummary(effect.qiProjection);
+          return [...lines, qi].filter(Boolean).join(' / ') || '常驻被动效果';
+        }
+        const amount = effect.amount !== undefined
+          ? `注入 ${formatDisplayNumber(effect.amount)}`
+          : `注入倍率 ${formatDisplayNumber(effect.multiplier ?? 1)}`;
+        return `${amount} ${effect.resourceKey}`;
+      }) : ['未解锁'];
+      return `<div class="tech-skill-overview-item ${unlocked ? 'unlocked' : 'locked'}">
+        <div class="tech-skill-overview-head">
+          <span class="tech-skill-tag" data-skill-tooltip-title="${escapeHtml(skill.name)}" data-skill-tooltip-skill-id="${escapeHtml(skill.id)}" data-skill-tooltip-unlock-level="${unlockLevel}" data-skill-tooltip-rich="1">${escapeHtml(skill.name)}</span>
+          <span class="tech-skill-overview-meta">${escapeHtml(unlocked ? effects.join(' / ') || '常驻被动效果' : `第 ${formatDisplayInteger(unlockLevel)} 层解锁`)}</span>
+        </div>
+        <div class="tech-skill-overview-desc">${escapeHtml(skill.desc)}</div>
+      </div>`;
+    }).join('');
+    return `<section class="tech-modal-pane tech-modal-pane--focus tech-modal-pane--passive" data-tech-modal-passive-shell="true" data-tech-modal-passive-level="${tech.level}">
+      <div class="tech-modal-section-title">被动效果</div>
+      <div class="tech-modal-pane-body" data-tech-modal-passive-content="true">
+        <div class="tech-passive-strength">当前强度倍率 ×${formatDisplayNumber(multiplier)}（每层 +5%，无限层）</div>
+        <div class="tech-skill-overview-list">${rows || '<div class="tech-skill-overview-empty">暂无被动效果</div>'}</div>
+      </div>
+    </section>`;
+  }
   /**
  * renderLayerFocus：执行层Focu相关逻辑。
  * @param tech TechniqueState 参数说明。
@@ -2140,7 +2198,6 @@ export class TechniquePanel {
         continue;
       }
 
-      const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level);
       const isCultivating = cultivatingTechId === tech.techId;
       const skillsEnabled = showSkillToggle ? areTechniqueSkillsEnabled(tech, this.lastState.previewPlayer) : false;
       const progressRatio = getTechniqueProgressRatio(tech);
@@ -2152,7 +2209,7 @@ export class TechniquePanel {
       card.classList.toggle('cultivating', isCultivating);
       realmLevelNode.textContent = realmLevelLabel;
       realmNode.textContent = realmLabel;
-      layerNode.textContent = t('technique.card.layer', { level: tech.level, maxLevel });
+      layerNode.textContent = formatTechniqueLayerText(tech);
       progressTextNode.textContent = progressText;
       progressFillNode.style.width = `${(progressRatio * 100).toFixed(2)}%`;
       remainNode.textContent = remainText;
@@ -2185,6 +2242,52 @@ export class TechniquePanel {
     const tech = this.findPreviewTechnique(this.openTechId);
     if (!tech) {
       return false;
+    }
+
+    const passiveTechnique = isPassiveTechnique(tech);
+    if (passiveTechnique) {
+      const expNode = document.querySelector<HTMLElement>('[data-tech-modal-current-exp="true"]');
+      const totalExpNode = document.querySelector<HTMLElement>('[data-tech-modal-total-exp="true"]');
+      const currentAttrsNode = document.querySelector<HTMLElement>('[data-tech-modal-current-attrs="true"]');
+      const passiveShell = document.querySelector<HTMLElement>('[data-tech-modal-passive-shell="true"]');
+      const titleNode = document.getElementById('detail-modal-title');
+      const subtitleNode = document.getElementById('detail-modal-subtitle');
+      if (!expNode || !totalExpNode || !currentAttrsNode || !passiveShell || !titleNode || !subtitleNode) {
+        return false;
+      }
+      const previewTechniques = resolvePreviewTechniques(this.lastState.techniques);
+      const currentAttrs = calcTechniqueAttrValues(tech.level, tech.layers);
+      const effectiveAttrs = calcTechniqueEffectiveContribution(previewTechniques, tech.techId);
+      const currentSpecialStats = calcTechniqueSpecialStatContribution(tech.level, tech.layers);
+      const currentQiProjection = calcTechniqueQiProjectionModifiers(tech.level, tech.layers);
+      titleNode.textContent = tech.name;
+      subtitleNode.textContent = t('technique.modal.subtitle', {
+        realmLevel: getTechniqueRealmLevelLabel(tech),
+        grade: getTechniqueGradeLabel(tech.grade),
+        realm: getTechniqueRealmLabel(getResolvedTechniqueRealm(tech)),
+        level: formatDisplayInteger(tech.level),
+        maxLevel: '无限',
+      });
+      expNode.textContent = formatTechniqueProgressText(tech);
+      totalExpNode.textContent = formatDisplayInteger(calcTechniqueTotalExp(tech));
+      currentAttrsNode.textContent = formatTechniqueContributionSummary(
+        effectiveAttrs,
+        currentAttrs,
+        currentSpecialStats,
+        currentSpecialStats,
+        currentQiProjection,
+      );
+      if (passiveShell.dataset.techModalPassiveLevel !== String(tech.level)) {
+        const template = document.createElement('template');
+        template.innerHTML = this.renderPassiveTechniqueOverview(tech).trim();
+        const nextShell = template.content.firstElementChild;
+        if (!(nextShell instanceof HTMLElement)) {
+          return false;
+        }
+        passiveShell.replaceWith(nextShell);
+        this.bindSkillTooltips(nextShell, new AbortController().signal);
+      }
+      return true;
     }
 
     const expNode = document.querySelector<HTMLElement>('[data-tech-modal-current-exp="true"]');

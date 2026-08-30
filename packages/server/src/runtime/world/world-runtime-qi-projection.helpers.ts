@@ -18,8 +18,10 @@ import {
   type QiProjectionModifier,
   type QiResourceDescriptor,
   type QiVisibilityLevel,
+  type SkillDef,
   type TechniqueLayerDef,
 } from '@mud/shared';
+import { collectEnabledSkillPassiveBuffs } from '../player/player-skill-passive.helpers';
 
 const QI_VISIBILITY_RANK: Record<QiVisibilityLevel, number> = {
   hidden: 0,
@@ -30,6 +32,7 @@ const QI_VISIBILITY_RANK: Record<QiVisibilityLevel, number> = {
 interface QiProjectionTechniqueState {
   level?: number;
   layers?: TechniqueLayerDef[];
+  skills?: SkillDef[];
 }
 
 interface QiProjectionBuffState {
@@ -53,6 +56,9 @@ interface QiProjectionPlayerView {
   };
   attrBonuses?: QiProjectionBonusState[] | null;
   runtimeBonuses?: QiProjectionBonusState[] | null;
+  combat?: {
+    autoBattleSkills?: Array<{ skillId?: string; skillEnabled?: boolean }>;
+  } | null;
 }
 
 interface QiProjectionTechniqueInputSnapshot {
@@ -81,6 +87,7 @@ interface PlayerQiProjectionCacheSignature {
   buffsRef: QiProjectionBuffState[] | null | undefined;
   attrBonusesRef: QiProjectionBonusState[] | null | undefined;
   runtimeBonusesRef: QiProjectionBonusState[] | null | undefined;
+  autoBattleSkillsRef: Array<{ skillId?: string; skillEnabled?: boolean }> | null | undefined;
 }
 
 interface PlayerQiProjectionCacheEntry {
@@ -150,6 +157,11 @@ function collectPlayerQiProjectionModifiers(player: QiProjectionPlayerView | nul
   for (const technique of player?.techniques?.techniques ?? []) {
     modifiers.push(...calcTechniqueQiProjectionModifiers(technique.level ?? 1, technique.layers ?? undefined));
   }
+  for (const buff of collectEnabledSkillPassiveBuffs(player)) {
+    if (Array.isArray(buff.qiProjection)) {
+      modifiers.push(...buff.qiProjection);
+    }
+  }
   for (const buff of player?.buffs?.buffs ?? []) {
     if ((buff.remainingTicks ?? 0) <= 0 || (buff.stacks ?? 0) <= 0 || !Array.isArray(buff.qiProjection)) {
       continue;
@@ -183,6 +195,7 @@ function getPlayerQiProjectionCache(
   if (cached
     && cached.signature.attrBonusesRef === signature.attrBonusesRef
     && cached.signature.runtimeBonusesRef === signature.runtimeBonusesRef
+    && cached.signature.autoBattleSkillsRef === signature.autoBattleSkillsRef
     && hasSameTechniqueProjectionInputs(signature.techniquesRef, cached.techniqueInputs)
     && hasSameBuffProjectionInputs(signature.buffsRef, cached.buffInputs)) {
     cached.signature = signature;
@@ -207,6 +220,7 @@ function buildPlayerQiProjectionCacheSignature(player: QiProjectionPlayerView): 
     buffsRef: player.buffs?.buffs,
     attrBonusesRef: player.attrBonuses,
     runtimeBonusesRef: player.runtimeBonuses,
+    autoBattleSkillsRef: player.combat?.autoBattleSkills,
   };
 }
 
@@ -219,7 +233,8 @@ function isSamePlayerQiProjectionCacheSignature(
     && left.buffsRevision === right.buffsRevision
     && left.buffsRef === right.buffsRef
     && left.attrBonusesRef === right.attrBonusesRef
-    && left.runtimeBonusesRef === right.runtimeBonusesRef;
+    && left.runtimeBonusesRef === right.runtimeBonusesRef
+    && left.autoBattleSkillsRef === right.autoBattleSkillsRef;
 }
 
 function snapshotTechniqueProjectionInputs(

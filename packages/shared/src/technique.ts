@@ -17,10 +17,19 @@ import type {
   TechniqueLayerDef,
   TechniqueLayerGains,
   TechniqueLayerGainsDelta,
+  TechniqueTemplate,
   TechniqueRealm,
   TechniqueState,
 } from './cultivation-types';
-import type { SkillDef } from './skill-types';
+import {
+  isPassiveOnlySkill,
+  type SkillDef,
+  type SkillPassiveBuffEffectDef,
+  type SkillPassiveCultivationTileQiEffectDef,
+  type SkillPassiveEffectDef,
+} from './skill-types';
+import type { PartialNumericStats } from './numeric';
+import { scaleCraftEffectStatsPatch } from './craft-effect-stats';
 import { TechniqueRealm as TechniqueRealmEnum } from './cultivation-types';
 import type { QiProjectionModifier } from './qi';
 import { getRealmAttributeMultiplier } from './combat';
@@ -37,6 +46,9 @@ import {
   TECHNIQUE_GRADE_ATTR_DECAY_SPANS,
   TECHNIQUE_GRADE_ATTR_FREE_LIMITS,
   TECHNIQUE_EXP_LEVEL_DELTA_MULTIPLIER_STEP,
+  TECHNIQUE_PASSIVE_EXP_GROWTH_RATE,
+  TECHNIQUE_PASSIVE_EXP_MAX,
+  TECHNIQUE_PASSIVE_SKILL_STRENGTH_PER_LEVEL,
   TECHNIQUE_LEARNING_HEAVY_DECAY_WARNING_DELTA,
   TECHNIQUE_SKILL_QI_COST_BASELINE_RATIO,
   TECHNIQUE_SKILL_QI_COST_GRADE_POWER_BASE,
@@ -47,6 +59,124 @@ import { normalizeTechniqueStrengthPercent } from './technique-internal-normaliz
 
 const BODY_TRAINING_FINITE_NUMBER_MAX = Number.MAX_VALUE;
 export const TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE = 'attr-multiplier:technique-max';
+
+type PassiveTechniqueLike = Pick<TechniqueTemplate, 'skills'> | Pick<TechniqueState, 'skills'> | {
+  skills?: readonly Pick<SkillDef, 'active' | 'passiveEffects'>[] | null;
+};
+
+type TechniqueProgressionLike = {
+  level: number;
+  layers?: TechniqueLayerDef[];
+  learnTechniqueMaxLevel?: number;
+  skills?: readonly Pick<SkillDef, 'active' | 'passiveEffects'>[] | null;
+};
+
+/** 判断一门功法是否为纯被动功法；混合主动/被动功法仍按普通功法处理。 */
+export function isPassiveTechnique(technique: PassiveTechniqueLike | null | undefined): boolean {
+  const skills = Array.isArray(technique?.skills) ? technique.skills : [];
+  return skills.length > 0 && skills.every((skill) => isPassiveOnlySkill(skill));
+}
+
+/** 被动功法每层的强度倍率；第 1 层为 1 倍，第 21 层为 2 倍。 */
+export function getTechniquePassiveSkillStrengthMultiplier(level: number): number {
+  const normalizedLevel = Math.max(1, Math.trunc(Number(level) || 1));
+  return 1 + (normalizedLevel - 1) * TECHNIQUE_PASSIVE_SKILL_STRENGTH_PER_LEVEL;
+}
+
+/** 按被动功法等级计算下一层经验，使用模板第 1 层经验作为基准。 */
+export function getTechniquePassiveExpToNext(level: number, layers?: TechniqueLayerDef[]): number {
+  const normalizedLevel = Math.max(1, Math.trunc(Number(level) || 1));
+  const baseExp = Math.max(
+    1,
+    Math.round(
+      normalizeLayers(layers).find((layer) => Number.isFinite(layer.expToNext) && layer.expToNext > 0)?.expToNext
+      ?? TECHNIQUE_EXP_BASE,
+    ),
+  );
+  const raw = baseExp * (TECHNIQUE_PASSIVE_EXP_GROWTH_RATE ** (normalizedLevel - 1));
+  if (!Number.isFinite(raw) || raw >= TECHNIQUE_PASSIVE_EXP_MAX) {
+    return TECHNIQUE_PASSIVE_EXP_MAX;
+  }
+  return Math.max(1, Math.round(raw));
+}
+
+/** 根据功法层数缩放纯被动技能的所有强度数值。 */
+export function scaleTechniquePassiveEffect(
+  effect: SkillPassiveEffectDef,
+  level: number,
+): SkillPassiveEffectDef {
+  const multiplier = getTechniquePassiveSkillStrengthMultiplier(level);
+  if (effect.type === 'buff') {
+    const scaled: SkillPassiveBuffEffectDef = {
+      ...effect,
+      attrs: scaleNumericRecord(effect.attrs, multiplier),
+      stats: scalePartialNumericStats(effect.stats, multiplier),
+      qiProjection: effect.qiProjection?.map((modifier) => ({
+        ...modifier,
+        ...(Number.isFinite(Number(modifier.efficiencyBpMultiplier))
+          ? {
+              efficiencyBpMultiplier: DEFAULT_QI_EFFICIENCY_BP
+                + (Number(modifier.efficiencyBpMultiplier) - DEFAULT_QI_EFFICIENCY_BP) * multiplier,
+            }
+          : {}),
+      })),
+      craftEffectStats: scaleCraftEffectStatsPatch(effect.craftEffectStats, (value) => value * multiplier),
+    };
+    return scaled;
+  }
+
+  const scaled: SkillPassiveCultivationTileQiEffectDef = {
+    ...effect,
+    amount: Number.isFinite(Number(effect.amount)) ? Number(effect.amount) * multiplier : effect.amount,
+    multiplier: effect.amount === undefined
+      ? (Number.isFinite(Number(effect.multiplier)) ? Number(effect.multiplier) : 1) * multiplier
+      : effect.multiplier,
+  };
+  return scaled;
+}
+
+/** 根据功法层数返回带被动强度投影的技能副本；非被动技能保持原引用。 */
+export function scaleTechniquePassiveSkill(skill: SkillDef, level: number): SkillDef {
+  if (!isPassiveOnlySkill(skill)) {
+    return skill;
+  }
+  return {
+    ...skill,
+    passiveEffects: skill.passiveEffects?.map((effect) => scaleTechniquePassiveEffect(effect, level)),
+  };
+}
+
+function scaleNumericRecord<T extends Record<string, unknown> | undefined>(
+  source: T,
+  multiplier: number,
+): T {
+  if (!source || typeof source !== 'object') {
+    return source;
+  }
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(source)) {
+    result[key] = Number.isFinite(Number(value)) ? Number(value) * multiplier : value;
+  }
+  return result as T;
+}
+
+function scalePartialNumericStats(
+  source: PartialNumericStats | undefined,
+  multiplier: number,
+): PartialNumericStats | undefined {
+  if (!source) {
+    return undefined;
+  }
+  const result: PartialNumericStats = {};
+  for (const [key, value] of Object.entries(source)) {
+    if (key === 'elementDamageBonus' || key === 'elementDamageReduce') {
+      (result as Record<string, unknown>)[key] = scaleNumericRecord(value as Record<string, unknown>, multiplier);
+    } else if (Number.isFinite(Number(value))) {
+      (result as Record<string, unknown>)[key] = Number(value) * multiplier;
+    }
+  }
+  return result;
+}
 
 /** 功法列表展示排序所需的最小字段。 */
 export interface TechniqueDisplayOrderEntry {
@@ -216,8 +346,11 @@ function normalizeTechniqueLearnMaxLevelAgainstTemplate(
 
 /** 获取当前玩家实际可修炼到的最高层数，残卷限制不会改变模板满层语义。 */
 export function getTechniqueTrainingMaxLevel(
-  technique: Pick<TechniqueState, 'level' | 'layers' | 'learnTechniqueMaxLevel'>,
+  technique: TechniqueProgressionLike,
 ): number {
+  if (isPassiveTechnique(technique)) {
+    return Number.MAX_SAFE_INTEGER;
+  }
   const templateMaxLevel = getTechniqueMaxLevel(technique.layers, technique.level);
   return normalizeTechniqueLearnMaxLevelAgainstTemplate(
     technique.learnTechniqueMaxLevel,
@@ -227,16 +360,22 @@ export function getTechniqueTrainingMaxLevel(
 
 /** 是否真正达到功法模板满层；残卷上限和 expToNext=0 都不能冒充圆满。 */
 export function isTechniqueFullyMastered(
-  technique: Pick<TechniqueState, 'level' | 'layers'>,
+  technique: TechniqueProgressionLike,
 ): boolean {
+  if (isPassiveTechnique(technique)) {
+    return false;
+  }
   const level = Math.max(1, Math.trunc(Number(technique.level) || 1));
   return level >= getTechniqueMaxLevel(technique.layers, level);
 }
 
 /** 是否已达到残卷学习上限但尚未达到功法模板满层。 */
 export function isTechniqueLearnLimitReached(
-  technique: Pick<TechniqueState, 'level' | 'layers' | 'learnTechniqueMaxLevel'>,
+  technique: TechniqueProgressionLike,
 ): boolean {
+  if (isPassiveTechnique(technique)) {
+    return false;
+  }
   const level = Math.max(1, Math.trunc(Number(technique.level) || 1));
   const templateMaxLevel = getTechniqueMaxLevel(technique.layers, level);
   const trainingMaxLevel = getTechniqueTrainingMaxLevel(technique);

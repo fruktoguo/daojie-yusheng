@@ -9,8 +9,10 @@ import {
   expandTechniqueAttrRatio,
   expandTechniqueExpCurve,
   expandTechniqueLayerGains,
+  getTechniquePassiveExpToNext,
   isCreatedTechniqueId,
   isTechniqueAggregationId,
+  isPassiveTechnique,
   resolveTechniqueStrengthPercent,
   type GmEditorItemOption,
   type GmEditorRealmOption,
@@ -21,10 +23,12 @@ import {
   type TechniqueCategory,
   type TechniqueGrade,
   type TechniqueLayerDef,
+  TechniqueRealm,
   type TechniqueState,
   resolveItemTemplateAliasId,
   resolvePlayerFacingContentName,
   resolveSkillRequiresTarget,
+  scaleTechniquePassiveSkill,
 } from '@mud/shared';
 import { LOCAL_EDITOR_CATALOG } from './editor-catalog';
 import { contentResolver, type LocalBuffTemplate } from './content-resolver';
@@ -466,18 +470,20 @@ export function resolvePreviewTechnique(technique: TechniqueState): TechniqueSta
   const template = getLocalTechniqueTemplate(technique.techId);
   const resolvedName = resolveClientTechniqueName(technique.techId, technique.name, template?.name);
   if (!template) {
+    const passive = isPassiveTechnique(technique);
     return {
       ...technique,
       name: resolvedName,
       realmLv: resolveTechniqueRealmLevel(technique.realmLv, technique.grade),
-      realm: deriveTechniqueRealm(technique.level, technique.layers),
-      skills: resolvePreviewSkills(technique.skills),
+      realm: passive ? TechniqueRealm.Entry : deriveTechniqueRealm(technique.level, technique.layers),
+      skills: resolvePreviewSkills(technique.skills).map((skill) => passive ? scaleTechniquePassiveSkill(skill, technique.level) : skill),
       category: technique.category ?? (technique.skills.length > 0 ? 'arts' : 'internal'),
     };
   }
   const resolvedLayers = resolvePreviewTechniqueLayers(technique.layers, template);
   const templateSkills = clone(template.skills ?? []);
   const sourceSkills = technique.skills.length > 0 ? technique.skills : templateSkills;
+  const passive = isPassiveTechnique({ skills: sourceSkills });
   const realmLv = resolveTechniqueRealmLevel(template.realmLv, technique.grade ?? template.grade);
   return {
     ...technique,
@@ -486,15 +492,16 @@ export function resolvePreviewTechnique(technique: TechniqueState): TechniqueSta
     category: technique.category ?? template.category ?? (sourceSkills.length > 0 ? 'arts' : 'internal'),
     realmLv,
     strengthPercent: technique.strengthPercent ?? resolveTechniqueStrengthPercent(template.budgetPercent),
-    realm: deriveTechniqueRealm(technique.level, resolvedLayers),
-    skills: sourceSkills.map((skill) => (
-      resolvePreviewTechniqueSkill(
+    realm: passive ? TechniqueRealm.Entry : deriveTechniqueRealm(technique.level, resolvedLayers),
+    skills: sourceSkills.map((skill) => {
+      const resolvedSkill = resolvePreviewTechniqueSkill(
         skill,
         technique.grade ?? template.grade,
         realmLv,
         templateSkills.find((entry) => entry.id === skill.id),
-      )
-    )),
+      );
+      return passive ? scaleTechniquePassiveSkill(resolvedSkill, technique.level) : resolvedSkill;
+    }),
     layers: resolvedLayers,
   };
 }
@@ -506,7 +513,10 @@ export function resolvePreviewTechniqueTemplateState(
 ): TechniqueState {
   const layers = resolvePreviewTechniqueTemplateLayers(template);
   const maxLevel = getPreviewTechniqueMaxLevel(template);
-  const previewLevel = Math.max(1, Math.min(maxLevel, Math.floor(Number(level) || 1)));
+  const passive = isPassiveTechnique(template);
+  const previewLevel = passive
+    ? Math.max(1, Math.floor(Number(level) || 1))
+    : Math.max(1, Math.min(maxLevel, Math.floor(Number(level) || 1)));
   const realmLv = resolveTechniqueRealmLevel(template.realmLv, template.grade);
   const category = template.category ?? ((template.skills?.length ?? 0) > 0 ? 'arts' : 'internal');
   return resolvePreviewTechnique({
@@ -514,9 +524,11 @@ export function resolvePreviewTechniqueTemplateState(
     name: template.name,
     level: previewLevel,
     exp: 0,
-    expToNext: layers.find((layer) => layer.level === previewLevel)?.expToNext ?? 0,
+    expToNext: passive
+      ? getTechniquePassiveExpToNext(previewLevel, layers)
+      : layers.find((layer) => layer.level === previewLevel)?.expToNext ?? 0,
     realmLv,
-    realm: deriveTechniqueRealm(previewLevel, layers),
+    realm: passive ? TechniqueRealm.Entry : deriveTechniqueRealm(previewLevel, layers),
     skills: clone(template.skills ?? []),
     grade: template.grade,
     category,

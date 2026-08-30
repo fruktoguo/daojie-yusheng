@@ -62,6 +62,15 @@ export const BODY_TRAINING_ATTR_PERCENT_PER_LEVEL = 1;
 /** 功法层级经验基准值 */
 export const TECHNIQUE_EXP_BASE = 100;
 
+/** 被动功法每层升级经验增长公比。 */
+export const TECHNIQUE_PASSIVE_EXP_GROWTH_RATE = 1.4;
+
+/** 被动技能每层强度增长比例；第 1 层为模板基准强度。 */
+export const TECHNIQUE_PASSIVE_SKILL_STRENGTH_PER_LEVEL = 0.05;
+
+/** 被动功法无限层数使用的经验上限，避免浮点溢出后破坏持久化。 */
+export const TECHNIQUE_PASSIVE_EXP_MAX = Number.MAX_SAFE_INTEGER;
+
 /** 各品阶功法默认经验倍率基线 */
 export const TECHNIQUE_GRADE_EXP_BASE_FACTORS: Record<TechniqueGrade, number> = {
   mortal: 10,

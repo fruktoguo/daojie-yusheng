@@ -11,7 +11,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
-import { DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, ELEMENT_KEYS, EQUIP_SLOTS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_NUMERIC_TEMPLATES, TechniqueRealm, assertRuntimeMapDocumentV2, buildQiResourceKey, calculateTechniqueSkillQiCost, cloneNumericRatioDivisors, cloneNumericStats, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, createMonsterMainCombatStatModifierStats, deriveTechniqueRealm, expandTechniqueAttrRatio, expandTechniqueExpCurve, expandTechniqueLayerGains, getTechniqueExpToNext, getTileTypeFromMapChar, inferMonsterTierFromName, isTileTypeWalkable, normalizeCraftEffectStatsPatch, normalizeEditableMapDocument, normalizeMonsterTier as normalizeSharedMonsterTier, normalizeTargetingDefaultMaxTargets, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveSkillUnlockLevel, shouldExpandTechniqueAttrRatio, type TerrainEffectDef } from '@mud/shared';
+import { DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, ELEMENT_KEYS, EQUIP_SLOTS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_NUMERIC_TEMPLATES, TECHNIQUE_PASSIVE_EXP_MAX, TechniqueRealm, assertRuntimeMapDocumentV2, buildQiResourceKey, calculateTechniqueSkillQiCost, cloneNumericRatioDivisors, cloneNumericStats, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, createMonsterMainCombatStatModifierStats, deriveTechniqueRealm, expandTechniqueAttrRatio, expandTechniqueExpCurve, expandTechniqueLayerGains, getTechniqueExpToNext, getTechniquePassiveExpToNext, getTileTypeFromMapChar, inferMonsterTierFromName, isPassiveTechnique, isTileTypeWalkable, normalizeCraftEffectStatsPatch, normalizeEditableMapDocument, normalizeMonsterTier as normalizeSharedMonsterTier, normalizeTargetingDefaultMaxTargets, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveSkillUnlockLevel, shouldExpandTechniqueAttrRatio, type TerrainEffectDef } from '@mud/shared';
 import { parseQiResourceKey } from '@mud/shared';
 import { resolveProjectPath } from '../common/project-path';
 import { assignItemInstanceIdIfNeeded } from '../runtime/world/item-instance-id.helpers';
@@ -978,10 +978,17 @@ function normalizeTechniqueGrade(raw) {
 
 function buildTechniqueRuntimeStateFromTemplate(template: any, input: any = {}) {
     const level = Number.isFinite(input?.level) ? Math.max(1, Math.trunc(Number(input.level))) : 1;
-    const exp = Number.isFinite(input?.exp) ? Math.max(0, Math.trunc(Number(input.exp))) : 0;
-    const expToNext = Number.isFinite(input?.expToNext)
-        ? Math.max(0, Math.trunc(Number(input.expToNext)))
-        : (getTechniqueExpToNext(level, template.layers) ?? 0);
+    const passive = isPassiveTechnique(template);
+    const exp = Number.isFinite(input?.exp)
+        ? passive
+            ? Math.min(TECHNIQUE_PASSIVE_EXP_MAX, Math.max(0, Math.trunc(Number(input.exp))))
+            : Math.max(0, Math.trunc(Number(input.exp)))
+        : 0;
+    const expToNext = passive
+        ? getTechniquePassiveExpToNext(level, template.layers)
+        : Number.isFinite(input?.expToNext)
+            ? Math.max(0, Math.trunc(Number(input.expToNext)))
+            : (getTechniqueExpToNext(level, template.layers) ?? 0);
     return {
         techId: template.id,
         name: template.name,
@@ -989,9 +996,11 @@ function buildTechniqueRuntimeStateFromTemplate(template: any, input: any = {}) 
         exp,
         expToNext,
         realmLv: template.realmLv,
-        realm: Number.isFinite(input?.realm)
-            ? Math.max(0, Math.trunc(Number(input.realm)))
-            : deriveTechniqueRealm(level, template.layers),
+        realm: passive
+            ? TechniqueRealm.Entry
+            : Number.isFinite(input?.realm)
+                ? Math.max(0, Math.trunc(Number(input.realm)))
+                : deriveTechniqueRealm(level, template.layers),
         skillsEnabled: input?.skillsEnabled !== false,
         // skills/layers 是启动期内容模板，运行态只读共享；玩家态只保留等级/经验等动态字段。
         skills: template.skills,

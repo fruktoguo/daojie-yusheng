@@ -6,8 +6,10 @@
 import {
   compareTechniqueDisplayOrder,
   S2C,
+  TechniqueRealm,
   deriveTechniqueRealm,
-  getTechniqueMaxLevel,
+  isPassiveTechnique,
+  isTechniqueFullyMastered,
   normalizeTechniqueStrengthPercent,
   resolvePlayerFacingContentName,
   type TechniqueCategory,
@@ -121,8 +123,12 @@ function matchesTechniquePageStatus(entry: any, status: TechniquePageStatusFilte
     return true;
   }
   const level = normalizeTechniqueLevel(entry?.level);
-  const maxLevel = getTechniqueMaxLevel(Array.isArray(entry?.layers) ? entry.layers : undefined, level);
-  return status === 'in_progress' ? level < maxLevel : level >= maxLevel;
+  const mastered = isTechniqueFullyMastered({
+    level,
+    layers: Array.isArray(entry?.layers) ? entry.layers : undefined,
+    skills: Array.isArray(entry?.skills) ? entry.skills : undefined,
+  });
+  return status === 'in_progress' ? !mastered : mastered;
 }
 
 function matchesTechniquePageSearch(entry: any, search: string): boolean {
@@ -150,7 +156,9 @@ function projectTechniquePageItem(entry: any) {
       : {}),
     realmLv: Number.isFinite(Number(entry?.realmLv)) ? Math.max(1, Math.trunc(Number(entry.realmLv))) : undefined,
     strengthPercent: normalizeTechniqueStrengthPercent(entry?.strengthPercent),
-    realm: Number.isFinite(Number(entry?.realm)) ? Math.trunc(Number(entry.realm)) : deriveTechniqueRealm(level, layers),
+    realm: isPassiveTechnique(entry)
+      ? TechniqueRealm.Entry
+      : Number.isFinite(Number(entry?.realm)) ? Math.trunc(Number(entry.realm)) : deriveTechniqueRealm(level, layers),
     skillsEnabled: entry?.skillsEnabled !== false,
     grade: normalizeTechniqueGrade(entry?.grade),
     category: resolveTechniqueCategory(entry),
