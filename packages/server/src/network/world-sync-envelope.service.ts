@@ -94,7 +94,7 @@ export class WorldSyncEnvelopeService {
             this.worldProjectorService.createInitialEnvelope(binding, projectedView, player),
             projectedView,
             player,
-            { drainPlayer: false },
+            { drainPlayer: false, replayActiveCombatEffects: true },
         );
         this.logMovementEnvelope(playerId, 'initial', envelope);
         return envelope;
@@ -185,7 +185,12 @@ export class WorldSyncEnvelopeService {
         const playerDrain = options?.drainPlayer
             ? this.runtimeEventBusService?.drainPlayerEventBusPayload?.(playerId)
             : null;
-        const { effects, aoiEffects } = this.collectVisibleEventBusEffects(view, player);
+        const { effects, aoiEffects } = this.collectVisibleEventBusEffects(
+            view,
+            player,
+            playerId,
+            options?.replayActiveCombatEffects === true,
+        );
         if (!playerDrain?.payload && effects.length === 0 && aoiEffects.length === 0) {
             return envelope;
         }
@@ -215,18 +220,30 @@ export class WorldSyncEnvelopeService {
         return nextEnvelope;
     }
     /** 只在实例确实有表现事件时构建一次玩家 AOI 可见集合。 */
-    collectVisibleEventBusEffects(view, player) {
+    collectVisibleEventBusEffects(view, player, playerId, replayActiveCombatEffects = false) {
         const instanceCombatEffects = this.worldRuntimeService.getCombatEffects(view.instance.instanceId);
         const instanceAoiEffects = this.runtimeEventBusService?.getAoiPresentations?.(view.instance.instanceId) ?? [];
         const hasCombatEffects = Array.isArray(instanceCombatEffects) && instanceCombatEffects.length > 0;
         const hasAoiEffects = Array.isArray(instanceAoiEffects) && instanceAoiEffects.length > 0;
-        if (!hasCombatEffects && !hasAoiEffects) {
+        const hasActiveCombatEffects = this.runtimeEventBusService?.hasActiveCombatEffects?.(view.instance.instanceId) === true;
+        if (!hasCombatEffects && !hasAoiEffects && !hasActiveCombatEffects) {
             return { effects: [], aoiEffects: [] };
         }
         const template = this.templateRepository.getOrThrow(view.instance.templateId);
         const visibleTileKeys = this.worldSyncMapSnapshotService.buildVisibleTileKeySet(view, player, template);
+        const activeCombatEffects = hasActiveCombatEffects
+            ? this.runtimeEventBusService?.getActiveCombatEffectsForPlayer?.(
+                view.instance.instanceId,
+                playerId,
+                visibleTileKeys,
+                replayActiveCombatEffects,
+            ) ?? []
+            : [];
         return {
-            effects: hasCombatEffects ? filterCombatEffects(instanceCombatEffects, visibleTileKeys) : [],
+            effects: [
+                ...(hasCombatEffects ? filterCombatEffects(instanceCombatEffects, visibleTileKeys) : []),
+                ...activeCombatEffects,
+            ],
             aoiEffects: hasAoiEffects ? filterAoiPresentations(instanceAoiEffects, visibleTileKeys) : [],
         };
     }

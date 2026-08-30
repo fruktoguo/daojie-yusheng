@@ -11,6 +11,7 @@ import { RuntimeEventBusService } from '../runtime/event-bus/runtime-event-bus.s
 import { RuntimeEventBusMetricsService } from '../runtime/event-bus/runtime-event-bus-metrics.service';
 import {
   MAX_AOI_EFFECTS_PER_INSTANCE,
+  MAX_ACTIVE_COMBAT_EFFECTS_PER_INSTANCE,
   MAX_COMBAT_EFFECTS_PER_INSTANCE,
   MAX_FEEDBACK_PER_PLAYER,
   MAX_NOTICES_PER_PLAYER,
@@ -313,6 +314,34 @@ function testQueueCombatEffectExceedsLimit(): void {
   assert.equal(snapshot.droppedByDetail['combatEffect:inst1'], 20);
 }
 
+function testActiveCombatEffectReplaysForAoiAndReconnect(): void {
+  const svc = createService();
+  svc.queueCombatEffect('inst1', {
+    type: 'float',
+    x: 2,
+    y: 3,
+    text: '唤灵真人：法相既开',
+    bubble: true,
+    durationMs: 3000,
+  });
+  assert.equal(MAX_ACTIVE_COMBAT_EFFECTS_PER_INSTANCE, 32);
+  svc.flushTick();
+  assert.equal(svc.hasActiveCombatEffects('inst1'), true);
+
+  const hidden = svc.getActiveCombatEffectsForPlayer('inst1', 'p1', new Set(['0,0']));
+  assert.equal(hidden.length, 0);
+  const entered = svc.getActiveCombatEffectsForPlayer('inst1', 'p1', new Set(['2,3']));
+  assert.equal(entered.length, 1);
+  assert.ok(entered[0]?.type === 'float' && Number(entered[0].durationMs) > 0 && Number(entered[0].durationMs) <= 3000);
+  const duplicate = svc.getActiveCombatEffectsForPlayer('inst1', 'p1', new Set(['2,3']));
+  assert.equal(duplicate.length, 0);
+
+  const reconnect = svc.getActiveCombatEffectsForPlayer('inst1', 'p1', new Set(['2,3']), true);
+  assert.equal(reconnect.length, 1);
+  svc.discardInstance('inst1');
+  assert.equal(svc.hasActiveCombatEffects('inst1'), false);
+}
+
 function testQueueCombatEffectLimitAppliesToAllInstances(): void {
   const svc = createService();
   const instanceId = 'inst1';
@@ -498,6 +527,7 @@ async function main(): Promise<void> {
     testQueueGmStatePushDedup,
     testQueueCombatEffectAppendMode,
     testQueueCombatEffectExceedsLimit,
+    testActiveCombatEffectReplaysForAoiAndReconnect,
     testQueueCombatEffectLimitAppliesToAllInstances,
     testQueueAoiPresentationMergesEntityType,
     testQueueAoiPresentationExceedsLimit,

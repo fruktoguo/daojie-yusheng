@@ -37,6 +37,9 @@ export function resolveCombatEffectsLimit(_instanceId: string): number {
   return MAX_COMBAT_EFFECTS_PER_INSTANCE;
 }
 
+/** 单实例同时保留的可回放气泡上限；只存在于内存，不进入持久化。 */
+export const MAX_ACTIVE_COMBAT_EFFECTS_PER_INSTANCE = 32;
+
 /** 单实例单 tick AOI 表现上限。 */
 export const MAX_AOI_EFFECTS_PER_INSTANCE = 128;
 

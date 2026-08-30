@@ -13,6 +13,7 @@ async function main(): Promise<void> {
   const hiddenAttackEndpointProof = runHiddenAttackEndpointProof();
   const clearCacheProof = runClearCacheProof();
   const visibleTileKeyReuseProof = runVisibleTileKeyReuseProof();
+  const activeReplayProof = runActiveReplayProof();
 
   console.log(JSON.stringify({
     ok: true,
@@ -21,11 +22,25 @@ async function main(): Promise<void> {
     hiddenAttackEndpointProof,
     clearCacheProof,
     visibleTileKeyReuseProof,
+    activeReplayProof,
     answers:
-      'WorldDelta 组包在没有实例表现事件时不再构造玩家可见 tile Set；战斗特效和 AOI 表现同时存在时只构造一次可见 Set；攻击线必须起点和终点都可见才下发；玩家同步缓存清理会同步丢弃 EventBus 玩家队列。',
+      'WorldDelta 组包在没有实例表现事件时不再构造玩家可见 tile Set；战斗特效和 AOI 表现同时存在时只构造一次可见 Set；攻击线必须起点和终点都可见才下发；可回放气泡在首包使用 replay 标记；玩家同步缓存清理会同步丢弃 EventBus 玩家队列。',
     excludes:
       '不证明正式服真实 RSS 曲线，只证明 envelope 热路径避免了无事件时的可见格子 Set 分配和双重构造。',
   }, null, 2));
+}
+
+function runActiveReplayProof(): { initialReplay: boolean; deltaReplay: boolean; effectCount: number } {
+  const counters = { visibleSetBuilds: 0, templateReads: 0 };
+  const replayFlags: boolean[] = [];
+  const activeEffects = [{ type: 'float', x: 1, y: 1, text: '气泡', bubble: true, durationMs: 1200 }];
+  const service = createService(counters, [], [], [], activeEffects, replayFlags);
+  const initial = service.createInitialEnvelope('player_1', {}, createView(), createPlayer());
+  const delta = service.createDeltaEnvelope('player_1', createView(), createPlayer());
+  assert.deepEqual(replayFlags, [true, false]);
+  assert.equal(initial?.worldDelta?.fx?.length, 1);
+  assert.equal(delta?.worldDelta?.fx?.length, 1);
+  return { initialReplay: replayFlags[0] === true, deltaReplay: replayFlags[1] === false, effectCount: 1 };
 }
 
 function runVisibleTileKeyReuseProof(): { fastPathKeys: string[]; fallbackLookups: number } {
@@ -142,6 +157,8 @@ function createService(
   combatEffects: unknown[],
   aoiEffects: unknown[],
   eventBusDiscards: string[] = [],
+  activeEffects: unknown[] = [],
+  replayFlags: boolean[] = [],
 ): WorldSyncEnvelopeService {
   return new WorldSyncEnvelopeService(
     {
@@ -169,6 +186,11 @@ function createService(
     {
       drainPlayerEventBusPayload: () => ({ payload: null, gmStatePush: false }),
       getAoiPresentations: () => aoiEffects,
+      hasActiveCombatEffects: () => activeEffects.length > 0,
+      getActiveCombatEffectsForPlayer: (_instanceId: string, _playerId: string, _visibleTileKeys: ReadonlySet<string>, replay: boolean) => {
+        replayFlags.push(replay);
+        return activeEffects;
+      },
       discardPlayer: (playerId: string) => {
         eventBusDiscards.push(playerId);
       },

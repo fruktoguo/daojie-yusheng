@@ -34,6 +34,7 @@ import {
   NON_AGGREGATED_NOTICE_KINDS,
   NOTICE_KIND_PRIORITY,
   STRUCTURED_NOTICE_AGGREGATION_RULES,
+  MAX_ACTIVE_COMBAT_EFFECTS_PER_INSTANCE,
   type StructuredNoticeAggregationRule,
   findLowestPriorityNoticeIndex,
   resolveCombatEffectsLimit,
@@ -41,6 +42,13 @@ import {
 import { RuntimeEventBusMetricsService } from './runtime-event-bus-metrics.service';
 
 const STRUCTURED_COMBAT_NOTICE_WIRE_TEXT = 'combat';
+const DEFAULT_ACTIVE_COMBAT_EFFECT_DURATION_MS = 3_000;
+
+interface ActiveCombatEffectEntry {
+  effect: CombatEffect;
+  expiresAt: number;
+  deliveredPlayerIds: Set<string>;
+}
 
 /** 创建空的玩家事件队列。 */
 function createPlayerQueue(): PlayerEventQueue {
@@ -80,6 +88,9 @@ export class RuntimeEventBusService {
 
   /** 实例维度队列，懒创建。 */
   private readonly instanceQueues = new Map<string, InstanceEventQueue>();
+
+  /** 需要在 AOI 进入和重连时补发的临时表现；只保存在内存中。 */
+  private readonly activeCombatEffectsByInstanceId = new Map<string, ActiveCombatEffectEntry[]>();
 
   /** 通知自增 ID（全局递增，不需要持久化）。 */
   private noticeIdCounter = 0;
@@ -278,10 +289,12 @@ export class RuntimeEventBusService {
   // 实例维度 queue 方法
   // ═══════════════════════════════════════════════════════════════
 
-  /**
-   * 追加实例战斗表现事件。超上限丢弃最早。
-   */
+  /** 追加实例战斗表现；普通表现进入当前 tick 队列，气泡进入可回放内存态。 */
   queueCombatEffect(instanceId: string, effect: CombatEffect): void {
+    if (effect.type === 'float' && effect.bubble === true) {
+      this.queueActiveCombatEffect(instanceId, effect);
+      return;
+    }
     const queue = this.getOrCreateInstanceQueue(instanceId);
     const limit = resolveCombatEffectsLimit(instanceId);
     if (queue.combatEffects.length >= limit) {
@@ -290,6 +303,59 @@ export class RuntimeEventBusService {
     }
     queue.combatEffects.push(freezeEventBusProjection(effect));
     this.metrics?.recordQueued('combatEffect');
+  }
+
+  /** 保存可回放的临时战斗表现，直到其展示时长结束。 */
+  queueActiveCombatEffect(instanceId: string, effect: CombatEffect): void {
+    if (effect.type !== 'float' || effect.bubble !== true) {
+      this.queueCombatEffect(instanceId, effect);
+      return;
+    }
+    const now = Date.now();
+    this.pruneActiveCombatEffects(instanceId, now);
+    let entries = this.activeCombatEffectsByInstanceId.get(instanceId);
+    if (!entries) {
+      entries = [];
+      this.activeCombatEffectsByInstanceId.set(instanceId, entries);
+    }
+    if (entries.length >= MAX_ACTIVE_COMBAT_EFFECTS_PER_INSTANCE) entries.shift();
+    const durationMs = resolveActiveCombatEffectDuration(effect);
+    entries.push({
+      effect: freezeEventBusProjection({ ...effect, durationMs }),
+      expiresAt: now + durationMs,
+      deliveredPlayerIds: new Set<string>(),
+    });
+  }
+
+  /** 当前实例是否存在尚未过期的可回放表现。 */
+  hasActiveCombatEffects(instanceId: string): boolean {
+    this.pruneActiveCombatEffects(instanceId, Date.now());
+    return (this.activeCombatEffectsByInstanceId.get(instanceId)?.length ?? 0) > 0;
+  }
+
+  /** 返回当前玩家 AOI 内尚未补发的表现；replay=true 用于首包/重连。 */
+  getActiveCombatEffectsForPlayer(
+    instanceId: string,
+    playerId: string,
+    visibleTileKeys: ReadonlySet<string>,
+    replay = false,
+  ): CombatEffect[] {
+    const now = Date.now();
+    this.pruneActiveCombatEffects(instanceId, now);
+    const entries = this.activeCombatEffectsByInstanceId.get(instanceId);
+    if (!entries || visibleTileKeys.size === 0) return [];
+    const effects: CombatEffect[] = [];
+    for (const entry of entries) {
+      const effect = entry.effect;
+      if (!isCombatEffectVisible(effect, visibleTileKeys)) continue;
+      if (!replay && entry.deliveredPlayerIds.has(playerId)) continue;
+      const remainingMs = Math.max(1, entry.expiresAt - now);
+      entry.deliveredPlayerIds.add(playerId);
+      effects.push(effect.type === 'float' && effect.durationMs !== remainingMs
+        ? { ...effect, durationMs: remainingMs }
+        : effect);
+    }
+    return effects;
   }
 
   /**
@@ -457,6 +523,7 @@ export class RuntimeEventBusService {
    * 清空指定实例队列并返回计数摘要。
    */
   flushInstance(instanceId: string): FlushResult {
+    this.pruneActiveCombatEffects(instanceId, Date.now());
     const result = this.drainInstance(instanceId);
     return {
       playerCount: 0,
@@ -497,6 +564,7 @@ export class RuntimeEventBusService {
    */
   flushTick(): FlushResult {
     const flushStart = performance.now();
+    const now = Date.now();
 
     let totalNotices = 0;
     let totalCombatEffects = 0;
@@ -553,6 +621,9 @@ export class RuntimeEventBusService {
       }
       this.instanceQueues.delete(instanceId);
     }
+    for (const instanceId of this.activeCombatEffectsByInstanceId.keys()) {
+      this.pruneActiveCombatEffects(instanceId, now);
+    }
 
     const flushedTotal =
       totalNotices +
@@ -603,6 +674,7 @@ export class RuntimeEventBusService {
   /** 实例销毁时清空其队列。 */
   discardInstance(instanceId: string): void {
     this.instanceQueues.delete(instanceId);
+    this.activeCombatEffectsByInstanceId.delete(instanceId);
   }
 
   /** 获取最近一次 flush 指标。 */
@@ -617,7 +689,8 @@ export class RuntimeEventBusService {
 
   /** 获取当前活跃实例队列数。 */
   getInstanceQueueCount(): number {
-    return this.instanceQueues.size;
+    if (this.activeCombatEffectsByInstanceId.size === 0) return this.instanceQueues.size;
+    return new Set([...this.instanceQueues.keys(), ...this.activeCombatEffectsByInstanceId.keys()]).size;
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -641,6 +714,35 @@ export class RuntimeEventBusService {
     }
     return queue;
   }
+
+  private pruneActiveCombatEffects(instanceId: string, now: number): void {
+    const entries = this.activeCombatEffectsByInstanceId.get(instanceId);
+    if (!entries) return;
+    let writeIndex = 0;
+    for (let readIndex = 0; readIndex < entries.length; readIndex += 1) {
+      const entry = entries[readIndex];
+      if (entry.expiresAt <= now) continue;
+      entries[writeIndex] = entry;
+      writeIndex += 1;
+    }
+    entries.length = writeIndex;
+    if (entries.length === 0) this.activeCombatEffectsByInstanceId.delete(instanceId);
+  }
+}
+
+function resolveActiveCombatEffectDuration(effect: CombatEffect): number {
+  const durationMs = effect.type === 'float' ? Number(effect.durationMs) : Number.NaN;
+  return Number.isFinite(durationMs) ? Math.max(1, Math.trunc(durationMs)) : DEFAULT_ACTIVE_COMBAT_EFFECT_DURATION_MS;
+}
+
+function isCombatEffectVisible(effect: CombatEffect, visibleTileKeys: ReadonlySet<string>): boolean {
+  if (effect.type === 'float' || effect.type === 'damage_summary') {
+    return visibleTileKeys.has(`${effect.x},${effect.y}`);
+  }
+  if (effect.type === 'attack') {
+    return visibleTileKeys.has(`${effect.fromX},${effect.fromY}`) && visibleTileKeys.has(`${effect.toX},${effect.toY}`);
+  }
+  return effect.cells.some((cell) => visibleTileKeys.has(`${cell.x},${cell.y}`));
 }
 
 function hasPlayerQueueContent(queue: PlayerEventQueue): boolean {
