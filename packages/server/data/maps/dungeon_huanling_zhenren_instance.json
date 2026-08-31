@@ -64,7 +64,7 @@
     {
       "id": "npc_dungeon_memory_stone",
       "name": "忆梦石",
-      "x": 2,
+      "x": 8,
       "y": 11,
       "char": "石",
       "color": "#d7b875",
@@ -74,11 +74,11 @@
       "quests": []
     }
   ],
-  "spawnPoint": { "x": 2, "y": 11 },
+  "spawnPoint": { "x": 10, "y": 11 },
   "time": {
     "offsetTicks": 0,
-    "scale": 1,
-    "light": { "base": 0, "timeInfluence": 100 },
+    "scale": 0,
+    "light": { "base": 100, "timeInfluence": 0 },
     "palette": {}
   }
 }

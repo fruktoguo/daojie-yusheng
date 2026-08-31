@@ -62,15 +62,15 @@
     ]
   ],
   "spawnPoint": {
-    "x": 3,
+    "x": 9,
     "y": 9
   },
   "time": {
     "offsetTicks": 0,
-    "scale": 1,
+    "scale": 0,
     "light": {
-      "base": 0,
-      "timeInfluence": 100
+      "base": 100,
+      "timeInfluence": 0
     },
     "palette": {}
   }
