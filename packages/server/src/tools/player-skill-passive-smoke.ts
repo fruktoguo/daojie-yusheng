@@ -16,6 +16,7 @@ import {
   collectEnabledCultivationTileQiPassives,
   collectEnabledSkillPassiveBuffs,
 } from '../runtime/player/player-skill-passive.helpers';
+import { resolveCultivationPassiveTileQiAmount } from '../runtime/player/player-cultivation-passive.helpers';
 import { projectVisiblePlayerBuffs } from '../runtime/player/player-buff-projection.helpers';
 import { resolvePlayerQiResourceProjection } from '../runtime/world/world-runtime-qi-projection.helpers';
 
@@ -54,7 +55,7 @@ function createPassiveSkill(overrides: Partial<SkillDef> = {}): SkillDef {
         type: 'cultivation_tile_qi',
         resourceKey: 'aura.refined.yang',
         radius: 1,
-        amountSource: 'max_qi_output_squared',
+        amountSource: 'max_qi_output_sqrt',
       },
     ],
     ...overrides,
@@ -89,7 +90,7 @@ function createPlayer(level = 1) {
       ],
     },
     buffs: { buffs: [] },
-    attrs: { numericStats: { viewRange: 5 } },
+    attrs: { numericStats: { viewRange: 5, maxQiOutputPerTick: 100 } },
   };
 }
 
@@ -119,7 +120,8 @@ function testPassiveCraftAndCultivationEffects(): void {
   assert.equal(tileEffects.length, 1, '只收集已启用且已解锁的修炼地块被动');
   assert.equal(tileEffects[0]?.effect.resourceKey, 'aura.refined.yang');
   assert.equal(tileEffects[0]?.effect.radius, 1);
-  assert.equal(tileEffects[0]?.effect.amountSource, 'max_qi_output_squared');
+  assert.equal(tileEffects[0]?.effect.amountSource, 'max_qi_output_sqrt');
+  assert.equal(resolveCultivationPassiveTileQiAmount(player as never, tileEffects[0]!.effect), 10, '每格注入量使用灵力输出的平方根');
 }
 
 function testPassiveStrengthScalesWithLevel(): void {
@@ -136,6 +138,7 @@ function testPassiveStrengthScalesWithLevel(): void {
 
   const tileEffect = collectEnabledCultivationTileQiPassives(player as never)[0]?.effect;
   assert.equal(tileEffect?.multiplier, 2);
+  assert.equal(resolveCultivationPassiveTileQiAmount(player as never, tileEffect!), 20);
   const qiProjection = resolvePlayerQiResourceProjection(player as never, 'aura.refined.yang');
   assert.equal(qiProjection?.efficiencyBp, 200);
 }

@@ -37,6 +37,7 @@ import {
 } from './player-comprehension-speed.helpers';
 import { applyPlayerCraftExpRate, resolvePlayerCraftRealmLevel } from '../craft/craft-effect-runtime.helpers';
 import { collectEnabledCultivationTileQiPassives } from './player-skill-passive.helpers';
+import { resolveCultivationPassiveTileQiAmount } from './player-cultivation-passive.helpers';
 import { cloneAutoUsePillList, cloneCombatTargetingRules, isSameAutoUsePillList, isSameCombatTargetingRules, normalizePersistedAutoUsePills, normalizePersistedCombatTargetingRules } from './player-combat-config.helpers';
 import { projectHeavenGateState, projectRealmState } from './player-realm-projection.helpers';
 import { createPlayerRuntimeStateStore } from './player-runtime.state';
@@ -12838,18 +12839,6 @@ function applyCultivationTileQiPassives(player, options) {
         }
     }
     return affected;
-}
-
-function resolveCultivationPassiveTileQiAmount(player, effect) {
-    const multiplier = Number.isFinite(Number(effect.multiplier)) ? Number(effect.multiplier) : 1;
-    if (effect.amountSource === 'max_qi_output_squared') {
-        const output = Math.max(0, Number(player?.attrs?.numericStats?.maxQiOutputPerTick) || 0);
-        return output * output * multiplier;
-    }
-    if (Number.isFinite(Number(effect.amount))) {
-        return Number(effect.amount) * multiplier;
-    }
-    return 0;
 }
 
 function isPlayerRuntimeOnline(player) {

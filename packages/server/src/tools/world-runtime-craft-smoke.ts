@@ -1358,7 +1358,10 @@ function testFormationMaintenanceTickUsesStrategyHelper(): void {
   const player = {
     playerId: 'player:formation-tick',
     qi: 50,
-    attrs: { numericStats: { maxQiOutputPerTick: 16 } },
+    attrs: {
+      numericStats: { maxQiOutputPerTick: 16 },
+      craftEffectStats: { formation: { speedRate: 0.25 } },
+    },
     formationSkill: { level: 2, exp: 0 },
     dirtyDomains: new Set<string>(),
     persistentRevision: 1,
@@ -1438,14 +1441,14 @@ function testFormationMaintenanceTickUsesStrategyHelper(): void {
   const result = pipeline.tick(player, 'formation', ctx);
 
   assert.equal(result.ok, true);
-  assert.equal(player.qi, 34);
-  assert.equal(formation.remainingQiBudget, 42);
-  assert.equal(formation.remainingAuraBudget, 42);
+  assert.equal(player.qi, 30);
+  assert.equal(formation.remainingQiBudget, 50);
+  assert.equal(formation.remainingAuraBudget, 50);
   assert.equal(formation.active, true);
   assert.equal(instance.worldRevision, 2);
   assert.equal(player.formationJob.remainingTicks, 1);
   assert.equal(player.formationJob.workRemainingTicks, 1);
-  assert.equal(player.formationJob.maintenanceRate, 16);
+  assert.equal(player.formationJob.maintenanceRate, 20);
   assert.equal(player.formationJob.jobVersion, 2);
   assert.equal(player.dirtyDomains.has('active_job'), true);
   assert.deepEqual(dirtyDomains, [['active_job'], ['profession']]);

@@ -629,7 +629,7 @@ export interface SkillPassiveCultivationTileQiEffectDef {
   resourceKey: string;
   radius?: number;
   amount?: number;
-  amountSource?: 'max_qi_output_squared';
+  amountSource?: 'max_qi_output_sqrt';
   multiplier?: number;
 }
 

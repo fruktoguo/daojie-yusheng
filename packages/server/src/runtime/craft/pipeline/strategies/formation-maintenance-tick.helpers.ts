@@ -4,7 +4,7 @@ import type {
   TechniqueActivityResolveResult,
 } from '@mud/shared';
 import type { PipelineContext } from '../technique-activity-strategy';
-import { resolvePlayerCraftRealmLevel } from '../../craft-effect-runtime.helpers';
+import { resolvePlayerCraftEffectStat, resolvePlayerCraftRealmLevel } from '../../craft-effect-runtime.helpers';
 
 export function resolveFormationMaintenanceTick(
   player: unknown,
@@ -117,7 +117,8 @@ function resolveFormationMaintenanceRate(player: unknown): number {
       ?? (player as { numericStats?: { maxQiOutputPerTick?: unknown } } | null)?.numericStats?.maxQiOutputPerTick,
     ) || 0,
   );
-  return Math.max(1, Math.floor(output));
+  const speedRate = Math.max(0, resolvePlayerCraftEffectStat(player, 'formation', 'speedRate'));
+  return Math.max(1, Math.floor(output * (1 + speedRate)));
 }
 
 function resolveFormationMaintenanceLevelMultiplier(player: unknown): number {

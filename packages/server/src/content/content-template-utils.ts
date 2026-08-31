@@ -1645,7 +1645,7 @@ function normalizeSkillPassiveEffect(raw, skillId, skillName, index) {
             resourceKey,
             radius: Number.isFinite(Number(raw.radius)) ? Math.max(0, Math.trunc(Number(raw.radius))) : 1,
             amount: Number.isFinite(Number(raw.amount)) ? Number(raw.amount) : undefined,
-            amountSource: raw.amountSource === 'max_qi_output_squared' ? 'max_qi_output_squared' : undefined,
+            amountSource: raw.amountSource === 'max_qi_output_sqrt' ? 'max_qi_output_sqrt' : undefined,
             multiplier: Number.isFinite(Number(raw.multiplier)) ? Number(raw.multiplier) : undefined,
         });
     }

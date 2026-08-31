@@ -186,8 +186,10 @@ function main(): void {
       const rawSkills = Array.isArray(template.skills) ? template.skills.length : 0;
       const runtimeSkills = Array.isArray(runtime.skills) ? runtime.skills.length : 0;
       assert.equal(runtimeSkills, rawSkills, `${id}: arts skills count mismatch (raw=${rawSkills}, runtime=${runtimeSkills})`);
-      // arts 一般没有逐层 attrs/specialStats；若 JSON 里 layers 不存在，runtime 每层 attrs 应为 undefined
-      if (!Array.isArray(template.layers) || template.layers.length === 0) {
+      // 未配置 attrRatio/layerGains/layers 的术法不应凭空生成逐层属性；被动术法可显式使用 attrRatio。
+      if ((!Array.isArray(template.layers) || template.layers.length === 0)
+        && !shouldExpandTechniqueAttrRatio({ attrRatio: template.attrRatio as never })
+        && !template.layerGains) {
         for (const layer of runtimeLayers) {
           assert.equal(layer.attrs, undefined, `${id}: arts without layers should not have attrs on runtime layers`);
           assert.equal(layer.specialStats, undefined, `${id}: arts without layers should not have specialStats on runtime layers`);
