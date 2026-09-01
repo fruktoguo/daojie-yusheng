@@ -104,7 +104,8 @@ export class DropTableRegistry {
   }
 
   rollMonsterDrops(monsterId: string, rolls = 1, lootRateBonus = 0, rareLootRateBonus = 0, context: any = {}, killEquivalentMultiplier = 1): any[] {
-    const dropTable = this.monsterDropsByMonsterId.get(monsterId);
+    const customDropTable = Array.isArray(context?.dropTableOverride) ? context.dropTableOverride : null;
+    const dropTable = customDropTable ?? this.monsterDropsByMonsterId.get(monsterId);
     if (!dropTable || dropTable.length === 0) {
       return [];
     }
@@ -119,8 +120,11 @@ export class DropTableRegistry {
         const baseKillEquivalent = totalRateBonus >= 0
           ? 1 + totalRateBonus / 10000
           : 1 / (1 + Math.abs(totalRateBonus) / 10000);
+        const dungeonDropRateMultiplier = Number.isFinite(Number(context?.dungeonDropRateMultiplier)) && Number(context.dungeonDropRateMultiplier) > 0
+          ? Number(context.dungeonDropRateMultiplier)
+          : 1;
         const killEquivalent = Number.isFinite(killEquivalentMultiplier) && killEquivalentMultiplier > 0
-          ? baseKillEquivalent * killEquivalentMultiplier
+          ? baseKillEquivalent * killEquivalentMultiplier * dungeonDropRateMultiplier
           : baseKillEquivalent;
         const chance = baseChance <= 0 || killEquivalent <= 0
           ? 0
@@ -129,16 +133,22 @@ export class DropTableRegistry {
         if (chance <= 0 || Math.random() > chance) {
           continue;
         }
+        const countMultiplier = drop.itemId === SPIRIT_STONE_ITEM_ID || drop.itemId === MERIT_ITEM_ID
+          ? (Number.isFinite(Number(context?.dungeonCurrencyCountMultiplier)) && Number(context.dungeonCurrencyCountMultiplier) > 0
+            ? Number(context.dungeonCurrencyCountMultiplier)
+            : 1)
+          : 1;
+        const count = Math.max(1, Math.round(Number(drop.count) * countMultiplier));
         const existing = result.get(drop.itemId);
         if (existing) {
-          existing.count += drop.count;
+          existing.count += count;
           continue;
         }
-        const item = this.itemRegistry.createItem(drop.itemId, drop.count) ?? {
+        const item = this.itemRegistry.createItem(drop.itemId, count) ?? {
           itemId: drop.itemId,
           name: drop.name,
           type: drop.type,
-          count: drop.count,
+          count,
         };
         result.set(drop.itemId, item);
       }

@@ -10,6 +10,7 @@ import {
   DUNGEON_PRESENT_RANK_ORDER,
   assertContentConfigDocument,
   type DungeonDefinition,
+  type DungeonBossDropRecord,
   type DungeonDifficulty,
   type DungeonFlowType,
   type DungeonMechanismFormationConfig,
@@ -21,11 +22,13 @@ import {
   type DungeonPresentationDialogueStep,
   type DungeonPresentationStep,
   type DungeonWaveDefinition,
+  type ItemType,
 } from '@mud/shared';
 import { resolveProjectPath } from '../../common/project-path';
 import { freezeTemplateMap } from './template-freeze';
 
 const DIFFICULTIES = ['trial', 'hard', 'nightmare', 'present'] as const;
+const DUNGEON_DROP_ITEM_TYPES = new Set<ItemType>(['consumable', 'equipment', 'artifact', 'material', 'quest_item', 'skill_book']);
 
 function isRecord(value: unknown): value is Record<string, any> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -121,6 +124,32 @@ function normalizeRooms(raw: unknown): DungeonMapRoomDefinition[] | undefined {
         ...(isRecord(formation.metadata) ? { metadata: { ...formation.metadata } } : {}),
       };
     }
+    let bossDropTable: DungeonBossDropRecord[] | undefined;
+    if (entry.bossDropTable !== undefined) {
+      if (!Array.isArray(entry.bossDropTable)) {
+        throw new Error(`副本 rooms[${index}].bossDropTable 必须是数组`);
+      }
+      bossDropTable = entry.bossDropTable.map((drop: unknown, dropIndex: number) => {
+        if (!isRecord(drop)) throw new Error(`副本 rooms[${index}].bossDropTable[${dropIndex}] 必须是对象`);
+        const itemId = requiredString(drop.itemId, `rooms[${index}].bossDropTable[${dropIndex}].itemId`);
+        const name = requiredString(drop.name, `rooms[${index}].bossDropTable[${dropIndex}].name`);
+        const type = requiredString(drop.type, `rooms[${index}].bossDropTable[${dropIndex}].type`) as ItemType;
+        if (!DUNGEON_DROP_ITEM_TYPES.has(type)) {
+          throw new Error(`副本 rooms[${index}].bossDropTable[${dropIndex}].type 不受支持`);
+        }
+        const count = positiveInteger(drop.count, `rooms[${index}].bossDropTable[${dropIndex}].count`);
+        if (drop.chance !== undefined && (!Number.isFinite(Number(drop.chance)) || Number(drop.chance) < 0 || Number(drop.chance) > 1)) {
+          throw new Error(`副本 rooms[${index}].bossDropTable[${dropIndex}].chance 必须在 0 到 1 之间`);
+        }
+        return {
+          itemId,
+          name,
+          type,
+          count,
+          ...(drop.chance === undefined ? {} : { chance: Number(drop.chance) }),
+        };
+      });
+    }
     return {
       roomId,
       ...(entry.mapTemplateId !== undefined ? { mapTemplateId: requiredString(entry.mapTemplateId, `rooms[${index}].mapTemplateId`) } : {}),
@@ -130,6 +159,7 @@ function normalizeRooms(raw: unknown): DungeonMapRoomDefinition[] | undefined {
       ...(Array.isArray(entry.spawnGroupIds) ? { spawnGroupIds: entry.spawnGroupIds.map((value: unknown) => requiredString(value, `rooms[${index}].spawnGroupIds`)) } : {}),
       ...(entry.bossId !== undefined ? { bossId: requiredString(entry.bossId, `rooms[${index}].bossId`) } : {}),
       ...(Array.isArray(entry.bossSkillIds) ? { bossSkillIds: entry.bossSkillIds.map((value: unknown) => requiredString(value, `rooms[${index}].bossSkillIds`)) } : {}),
+      ...(bossDropTable ? { bossDropTable } : {}),
       ...(Array.isArray(entry.eliteGroupIds) ? { eliteGroupIds: entry.eliteGroupIds.map((value: unknown) => requiredString(value, `rooms[${index}].eliteGroupIds`)) } : {}),
       ...(clearCondition ? { clearCondition } : {}),
       ...(mechanismFormation ? { mechanismFormation } : {}),

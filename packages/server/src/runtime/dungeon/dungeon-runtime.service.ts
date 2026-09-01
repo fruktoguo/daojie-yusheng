@@ -15,6 +15,7 @@ import {
   isDungeonPresentRankAllowed,
   resolveDungeonAttributeMultipliers,
   resolveDungeonEffectiveStep,
+  resolveDungeonLootMultipliers,
   resolveDungeonStaminaCost,
   type TechniqueGrade,
   DUNGEON_PRESSURE_BUFF_ID,
@@ -933,6 +934,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
         runtimeId: normalizeOptionalDungeonString(persisted?.monsterRuntimeId ?? persisted?.runtimeId) || undefined,
         alive: persisted?.alive !== false,
         ...(room.bossId === monsterId && Array.isArray(room.bossSkillIds) ? { skillIds: room.bossSkillIds } : {}),
+        ...(room.bossId === monsterId && Array.isArray(room.bossDropTable) ? { dropTable: room.bossDropTable } : {}),
       });
     }
     run.currentRoomId = room.roomId;
@@ -986,7 +988,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     monsterId: string,
     x: number,
     y: number,
-    options: { runtimeId?: string; alive?: boolean; skillIds?: readonly string[] } = {},
+    options: { runtimeId?: string; alive?: boolean; skillIds?: readonly string[]; dropTable?: readonly any[] } = {},
   ): void {
     const spawn = this.content.createRuntimeMonsterSpawn(monsterId, {
       x,
@@ -1001,6 +1003,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
       : (definition?.difficulty.overrides?.[run.difficulty.difficulty] ?? {});
     if (!definition) return;
     const multipliers = resolveDungeonAttributeMultipliers(run.difficulty, definition.difficulty.maxPresentRank, definition.difficulty.attributeRule);
+    const lootMultipliers = resolveDungeonLootMultipliers(run.difficulty, definition.difficulty.maxPresentRank);
     instance.addRuntimeMonster?.(scaleMonsterSpawn(
       spawn,
       run.difficulty,
@@ -1009,6 +1012,8 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
       Number(override.hpMultiplier) || 1,
       override.additionalSkillIds,
       options.skillIds,
+      options.dropTable,
+      lootMultipliers,
     ));
   }
 
@@ -1461,6 +1466,8 @@ function scaleMonsterSpawn(
   overrideHp = 1,
   additionalSkillIds: readonly string[] = [],
   replacementSkillIds: readonly string[] = [],
+  dungeonDropTable?: readonly any[],
+  dungeonLootMultipliers?: { currencyCountMultiplier: number; dropRateMultiplier: number },
 ): any {
   const isPresent = runDifficulty.difficulty === 'present';
   const monsterLevel = Number(spawn.level) || 1;
@@ -1500,6 +1507,11 @@ function scaleMonsterSpawn(
   scaled.skills = normalizedReplacementSkillIds.length > 0
     ? [...new Set(normalizedReplacementSkillIds)]
     : [...new Set([...(Array.isArray(spawn.skills) ? spawn.skills : []), ...additionalSkillIds.filter((id) => typeof id === 'string' && id.trim())])];
+  if (Array.isArray(dungeonDropTable)) {
+    scaled.dungeonDropTable = dungeonDropTable;
+    scaled.dungeonDropRateMultiplier = Math.max(0, Number(dungeonLootMultipliers?.dropRateMultiplier) || 1);
+    scaled.dungeonCurrencyCountMultiplier = Math.max(0, Number(dungeonLootMultipliers?.currencyCountMultiplier) || 1);
+  }
   scaled.maxHp = Math.max(1, Math.round(Number(spawn.maxHp) * finalHpMult));
   scaled.hp = scaled.maxHp;
   return scaled;

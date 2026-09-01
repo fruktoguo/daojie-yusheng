@@ -174,6 +174,9 @@ export class WorldRuntimePlayerCombatService {
             playerRealmLv: killer?.realm?.realmLv,
             monsterLevel: monster.level,
             monsterTier: monster.tier,
+            ...(Array.isArray(monster.dungeonDropTable) ? { dropTableOverride: monster.dungeonDropTable } : {}),
+            ...(Number.isFinite(Number(monster.dungeonDropRateMultiplier)) ? { dungeonDropRateMultiplier: Number(monster.dungeonDropRateMultiplier) } : {}),
+            ...(Number.isFinite(Number(monster.dungeonCurrencyCountMultiplier)) ? { dungeonCurrencyCountMultiplier: Number(monster.dungeonCurrencyCountMultiplier) } : {}),
         }, realWorldDropRateMultiplier);
         sectionStartedAt = recordPlayerMonsterKillPerf(
             deps,

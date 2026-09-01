@@ -5084,6 +5084,9 @@ class MapInstanceRuntime {
             attackRange: monster.attackRange,
             attackCooldownTicks: monster.attackCooldownTicks,
             attackReadyTick: 0,
+            ...(Array.isArray(monster.dungeonDropTable) ? { dungeonDropTable: monster.dungeonDropTable } : {}),
+            ...(Number.isFinite(Number(monster.dungeonDropRateMultiplier)) ? { dungeonDropRateMultiplier: Number(monster.dungeonDropRateMultiplier) } : {}),
+            ...(Number.isFinite(Number(monster.dungeonCurrencyCountMultiplier)) ? { dungeonCurrencyCountMultiplier: Number(monster.dungeonCurrencyCountMultiplier) } : {}),
         };
         if (state.alive) {
             applyMonsterInitialBuffs(state, this.buffRegistry);

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   resolveDungeonAttributeMultipliers,
+  resolveDungeonLootMultipliers,
   resolveDungeonStaminaCost,
   resolveDungeonEffectiveStep,
   resolveRecoveredStamina,
@@ -23,6 +24,10 @@ const presentMultipliers = resolveDungeonAttributeMultipliers({ difficulty: 'pre
 assert.equal(presentMultipliers.baselineSource, 'peak');
 assert.equal(Number(presentMultipliers.allAttributeMultiplier.toFixed(8)), Number((1.2 ** 5).toFixed(8)));
 assert.equal(Number(presentMultipliers.hpMultiplier.toFixed(8)), Number((1.2 ** 5 * (10 * 2 ** 5)).toFixed(8)));
+assert.deepEqual(resolveDungeonLootMultipliers({ difficulty: 'trial' }, maxRank), { currencyCountMultiplier: 1, dropRateMultiplier: 1 });
+assert.deepEqual(resolveDungeonLootMultipliers({ difficulty: 'hard' }, maxRank), { currencyCountMultiplier: 1.5, dropRateMultiplier: 2 });
+assert.deepEqual(resolveDungeonLootMultipliers({ difficulty: 'nightmare' }, maxRank), { currencyCountMultiplier: 2.5, dropRateMultiplier: 3 });
+assert.deepEqual(resolveDungeonLootMultipliers({ difficulty: 'present', presentRank: 'mystic' as any }, maxRank), { currencyCountMultiplier: 5.6, dropRateMultiplier: 10, presentRankStep: 2 });
 
 assert.equal(isDungeonPartyDefeated({
   members: [{ playerId: 'player:solo', joinedAt: 0 }],
@@ -43,6 +48,8 @@ const dungeon = registry.getRef('dungeon_huanling_zhenren');
 assert.equal(dungeon.flowType, 'suppress_demon');
 assert.equal(dungeon.difficulty.maxPresentRank, 'spirit');
 assert.equal(dungeon.rooms?.length, 1);
+assert.equal(dungeon.rooms?.[0]?.bossDropTable?.length, 11);
+assert.equal(dungeon.rooms?.[0]?.bossDropTable?.filter((entry) => entry.type === 'skill_book').length, 9);
 
 testPartyDefeatTransitions();
 testDungeonPresentationMonsterTrigger();

@@ -35,6 +35,17 @@
         "skill.dungeon_fallen_palace_enemy_debuff",
         "skill.dungeon_fallen_palace_void_boundary"
       ],
+      "bossDropTable": [
+        { "itemId": "spirit_stone", "name": "灵石", "type": "consumable", "count": 50, "chance": 1 },
+        { "itemId": "merit", "name": "功德", "type": "consumable", "count": 10, "chance": 1 },
+        { "itemId": "book.passive_combat_mortal_mortal_metal", "name": "《折铁断锋篇》", "type": "skill_book", "count": 1, "chance": 0.01 },
+        { "itemId": "book.passive_combat_mortal_mortal_wood", "name": "《问木折青篇》", "type": "skill_book", "count": 1, "chance": 0.01 },
+        { "itemId": "book.passive_combat_mortal_mortal_water", "name": "《溯流引泉篇》", "type": "skill_book", "count": 1, "chance": 0.01 },
+        { "itemId": "book.passive_combat_mortal_mortal_fire", "name": "《燃薪淬息篇》", "type": "skill_book", "count": 1, "chance": 0.01 },
+        { "itemId": "book.passive_combat_mortal_mortal_earth", "name": "《盘根立地篇》", "type": "skill_book", "count": 1, "chance": 0.01 },
+        { "itemId": "book.passive_combat_mortal_mortal_physical", "name": "《磨筋铸骨谱》", "type": "skill_book", "count": 1, "chance": 0.01 },
+        { "itemId": "book.passive_combat_mortal_mortal_spell", "name": "《识微明眸篇》", "type": "skill_book", "count": 1, "chance": 0.01 }
+      ],
       "clearCondition": "boss_defeated"
     }
   ],

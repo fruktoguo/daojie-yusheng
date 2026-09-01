@@ -62,7 +62,7 @@ export class WorldRuntimeMonsterSystemCommandService {
         if (!monster) {
             throw new NotFoundException(`妖兽不存在或已经死亡：${runtimeId}`);
         }
-        this.spawnRolledMonsterLoot(instance, monster.monsterId, 1, monster.x, monster.y, deps);
+        this.spawnRolledMonsterLoot(instance, monster.monsterId, 1, monster.x, monster.y, deps, monster);
     }
     /**
  * dispatchDamageMonster：判断Damage怪物是否满足条件。
@@ -85,7 +85,7 @@ export class WorldRuntimeMonsterSystemCommandService {
         if (!outcome?.defeated) {
             return;
         }
-        this.spawnRolledMonsterLoot(instance, target.monsterId, 1, target.x, target.y, deps);
+        this.spawnRolledMonsterLoot(instance, target.monsterId, 1, target.x, target.y, deps, target);
     }
     /**
  * spawnRolledMonsterLoot：执行spawnRolled怪物掉落相关逻辑。
@@ -98,8 +98,12 @@ export class WorldRuntimeMonsterSystemCommandService {
  * @returns 无返回值，直接更新spawnRolled怪物掉落相关状态。
  */
 
-    spawnRolledMonsterLoot(instance, monsterId, rolls, x, y, deps) {
-        const items = this.contentTemplateRepository.rollMonsterDrops(monsterId, rolls);
+    spawnRolledMonsterLoot(instance, monsterId, rolls, x, y, deps, monster = undefined) {
+        const items = this.contentTemplateRepository.rollMonsterDrops(monsterId, rolls, 0, 0, {
+            ...(Array.isArray(monster?.dungeonDropTable) ? { dropTableOverride: monster.dungeonDropTable } : {}),
+            ...(Number.isFinite(Number(monster?.dungeonDropRateMultiplier)) ? { dungeonDropRateMultiplier: Number(monster.dungeonDropRateMultiplier) } : {}),
+            ...(Number.isFinite(Number(monster?.dungeonCurrencyCountMultiplier)) ? { dungeonCurrencyCountMultiplier: Number(monster.dungeonCurrencyCountMultiplier) } : {}),
+        });
         this.spawnItems(instance, x, y, items, deps);
     }
     /**

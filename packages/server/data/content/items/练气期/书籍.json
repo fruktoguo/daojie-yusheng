@@ -292,5 +292,166 @@
     "type": "skill_book",
     "desc": "记载太初抱元章的修行法门，使用后学会太初抱元章。",
     "learnTechniqueId": "taichu_baoyuan"
+  },
+  {
+    "itemId": "book.passive_combat_mortal_mortal_metal",
+    "name": "《折铁断锋篇》",
+    "type": "skill_book",
+    "desc": "记载折铁断锋篇的修行法门，使用后可开始参悟。",
+    "learnTechniqueId": "passive_combat_mortal_mortal_metal"
+  },
+  {
+    "itemId": "book.passive_combat_mortal_mortal_wood",
+    "name": "《问木折青篇》",
+    "type": "skill_book",
+    "desc": "记载问木折青篇的修行法门，使用后可开始参悟。",
+    "learnTechniqueId": "passive_combat_mortal_mortal_wood"
+  },
+  {
+    "itemId": "book.passive_combat_mortal_mortal_water",
+    "name": "《溯流引泉篇》",
+    "type": "skill_book",
+    "desc": "记载溯流引泉篇的修行法门，使用后可开始参悟。",
+    "learnTechniqueId": "passive_combat_mortal_mortal_water"
+  },
+  {
+    "itemId": "book.passive_combat_mortal_mortal_fire",
+    "name": "《燃薪淬息篇》",
+    "type": "skill_book",
+    "desc": "记载燃薪淬息篇的修行法门，使用后可开始参悟。",
+    "learnTechniqueId": "passive_combat_mortal_mortal_fire"
+  },
+  {
+    "itemId": "book.passive_combat_mortal_mortal_earth",
+    "name": "《盘根立地篇》",
+    "type": "skill_book",
+    "desc": "记载盘根立地篇的修行法门，使用后可开始参悟。",
+    "learnTechniqueId": "passive_combat_mortal_mortal_earth"
+  },
+  {
+    "itemId": "book.passive_combat_mortal_mortal_physical",
+    "name": "《磨筋铸骨谱》",
+    "type": "skill_book",
+    "desc": "记载磨筋铸骨谱的修行法门，使用后可开始参悟。",
+    "learnTechniqueId": "passive_combat_mortal_mortal_physical"
+  },
+  {
+    "itemId": "book.passive_combat_mortal_mortal_spell",
+    "name": "《识微明眸篇》",
+    "type": "skill_book",
+    "desc": "记载识微明眸篇的修行法门，使用后可开始参悟。",
+    "learnTechniqueId": "passive_combat_mortal_mortal_spell"
+  },
+  {
+    "itemId": "book.passive_combat_qi_yellow_metal",
+    "name": "《庚金煞灵引》",
+    "type": "skill_book",
+    "desc": "记载庚金煞灵引的修行法门，使用后可开始参悟。",
+    "learnTechniqueId": "passive_combat_qi_yellow_metal"
+  },
+  {
+    "itemId": "book.passive_combat_qi_yellow_wood",
+    "name": "《乙木岁荣诀》",
+    "type": "skill_book",
+    "desc": "记载乙木岁荣诀的修行法门，使用后可开始参悟。",
+    "learnTechniqueId": "passive_combat_qi_yellow_wood"
+  },
+  {
+    "itemId": "book.passive_combat_qi_yellow_water",
+    "name": "《沧浪叠韵诀》",
+    "type": "skill_book",
+    "desc": "记载沧浪叠韵诀的修行法门，使用后可开始参悟。",
+    "learnTechniqueId": "passive_combat_qi_yellow_water"
+  },
+  {
+    "itemId": "book.passive_combat_qi_yellow_fire",
+    "name": "《朱雀焚炎引》",
+    "type": "skill_book",
+    "desc": "记载朱雀焚炎引的修行法门，使用后可开始参悟。",
+    "learnTechniqueId": "passive_combat_qi_yellow_fire"
+  },
+  {
+    "itemId": "book.passive_combat_qi_yellow_earth",
+    "name": "《玄黄镇岳诀》",
+    "type": "skill_book",
+    "desc": "记载玄黄镇岳诀的修行法门，使用后可开始参悟。",
+    "learnTechniqueId": "passive_combat_qi_yellow_earth"
+  },
+  {
+    "itemId": "book.passive_combat_qi_yellow_physical",
+    "name": "《龙象摧岳劲》",
+    "type": "skill_book",
+    "desc": "记载龙象摧岳劲的修行法门，使用后可开始参悟。",
+    "learnTechniqueId": "passive_combat_qi_yellow_physical"
+  },
+  {
+    "itemId": "book.passive_combat_qi_yellow_spell",
+    "name": "《灵犀澈照引》",
+    "type": "skill_book",
+    "desc": "记载灵犀澈照引的修行法门，使用后可开始参悟。",
+    "learnTechniqueId": "passive_combat_qi_yellow_spell"
+  },
+  {
+    "itemId": "book.passive_combat_foundation_mystic_metal",
+    "name": "《庚金凝罡录》",
+    "type": "skill_book",
+    "desc": "记载庚金凝罡录的修行法门，使用后可开始参悟。",
+    "learnTechniqueId": "passive_combat_foundation_mystic_metal"
+  },
+  {
+    "itemId": "book.passive_combat_foundation_mystic_wood",
+    "name": "《长春固脉录》",
+    "type": "skill_book",
+    "desc": "记载长春固脉录的修行法门，使用后可开始参悟。",
+    "learnTechniqueId": "passive_combat_foundation_mystic_wood"
+  },
+  {
+    "itemId": "book.passive_combat_foundation_mystic_water",
+    "name": "《玄潮凝波录》",
+    "type": "skill_book",
+    "desc": "记载玄潮凝波录的修行法门，使用后可开始参悟。",
+    "learnTechniqueId": "passive_combat_foundation_mystic_water"
+  },
+  {
+    "itemId": "book.passive_combat_foundation_mystic_fire",
+    "name": "《离火淬元录》",
+    "type": "skill_book",
+    "desc": "记载离火淬元录的修行法门，使用后可开始参悟。",
+    "learnTechniqueId": "passive_combat_foundation_mystic_fire"
+  },
+  {
+    "itemId": "book.passive_combat_foundation_mystic_earth",
+    "name": "《厚土镇基录》",
+    "type": "skill_book",
+    "desc": "记载厚土镇基录的修行法门，使用后可开始参悟。",
+    "learnTechniqueId": "passive_combat_foundation_mystic_earth"
+  },
+  {
+    "itemId": "book.passive_combat_foundation_mystic_physical",
+    "name": "《煞血铁骨功》",
+    "type": "skill_book",
+    "desc": "记载煞血铁骨功的修行法门，使用后可开始参悟。",
+    "learnTechniqueId": "passive_combat_foundation_mystic_physical"
+  },
+  {
+    "itemId": "book.passive_combat_foundation_mystic_spell",
+    "name": "《明心拓神录》",
+    "type": "skill_book",
+    "desc": "记载明心拓神录的修行法门，使用后可开始参悟。",
+    "learnTechniqueId": "passive_combat_foundation_mystic_spell"
+  },
+  {
+    "itemId": "book.passive_yinyang_qi_earth_pure_yin",
+    "name": "《九阳化阴真经》",
+    "type": "skill_book",
+    "desc": "记载九阳化阴真经的修行法门，使用后可开始参悟。",
+    "learnTechniqueId": "passive_yinyang_qi_earth_pure_yin"
+  },
+  {
+    "itemId": "book.passive_yinyang_qi_earth_pure_yang",
+    "name": "《玄牝生阳宝典》",
+    "type": "skill_book",
+    "desc": "记载玄牝生阳宝典的修行法门，使用后可开始参悟。",
+    "learnTechniqueId": "passive_yinyang_qi_earth_pure_yang"
   }
 ]

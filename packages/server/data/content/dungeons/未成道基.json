@@ -37,6 +37,17 @@
         "skill.dungeon_failed_foundation_basic",
         "skill.dungeon_failed_foundation_hunyuan_ultimate"
       ],
+      "bossDropTable": [
+        { "itemId": "spirit_stone", "name": "灵石", "type": "consumable", "count": 100, "chance": 1 },
+        { "itemId": "merit", "name": "功德", "type": "consumable", "count": 20, "chance": 1 },
+        { "itemId": "book.passive_combat_qi_yellow_metal", "name": "《庚金煞灵引》", "type": "skill_book", "count": 1, "chance": 0.01 },
+        { "itemId": "book.passive_combat_qi_yellow_wood", "name": "《乙木岁荣诀》", "type": "skill_book", "count": 1, "chance": 0.01 },
+        { "itemId": "book.passive_combat_qi_yellow_water", "name": "《沧浪叠韵诀》", "type": "skill_book", "count": 1, "chance": 0.01 },
+        { "itemId": "book.passive_combat_qi_yellow_fire", "name": "《朱雀焚炎引》", "type": "skill_book", "count": 1, "chance": 0.01 },
+        { "itemId": "book.passive_combat_qi_yellow_earth", "name": "《玄黄镇岳诀》", "type": "skill_book", "count": 1, "chance": 0.01 },
+        { "itemId": "book.passive_combat_qi_yellow_physical", "name": "《龙象摧岳劲》", "type": "skill_book", "count": 1, "chance": 0.01 },
+        { "itemId": "book.passive_combat_qi_yellow_spell", "name": "《灵犀澈照引》", "type": "skill_book", "count": 1, "chance": 0.01 }
+      ],
       "clearCondition": "boss_defeated"
     }
   ],

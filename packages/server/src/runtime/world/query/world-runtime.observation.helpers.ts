@@ -336,7 +336,9 @@ export function buildMonsterObservation(viewerSpirit, monster) {
 /** 生成妖兽战利品预览列表与命中概率。 */
 export function buildMonsterLootPreview(contentTemplateRepository, viewer, monster, instance = null) {
 
-    const dropTable = contentTemplateRepository?.monsterDropsByMonsterId?.get(monster.monsterId) ?? [];
+    const dropTable = Array.isArray(monster?.dungeonDropTable)
+        ? monster.dungeonDropTable
+        : (contentTemplateRepository?.monsterDropsByMonsterId?.get(monster.monsterId) ?? []);
 
     const lootRate = viewer?.attrs?.numericStats?.lootRate ?? 0;
 
@@ -346,13 +348,21 @@ export function buildMonsterLootPreview(contentTemplateRepository, viewer, monst
         ? REAL_WORLD_MONSTER_KILL_DROP_RATE_KILL_EQUIVALENT_MULTIPLIER
         : 1;
 
+    const dungeonDropRateMultiplier = Number.isFinite(Number(monster?.dungeonDropRateMultiplier)) && Number(monster.dungeonDropRateMultiplier) > 0
+        ? Number(monster.dungeonDropRateMultiplier)
+        : 1;
+    const dungeonCurrencyCountMultiplier = Number.isFinite(Number(monster?.dungeonCurrencyCountMultiplier)) && Number(monster.dungeonCurrencyCountMultiplier) > 0
+        ? Number(monster.dungeonCurrencyCountMultiplier)
+        : 1;
     const entries = dropTable
         .map((drop) => ({
         itemId: drop.itemId,
         name: drop.name,
         type: drop.type,
-        count: drop.count,
-        chance: resolveObservedDropChance(drop.chance, lootRate, rareLootRate, killEquivalentMultiplier),
+        count: (drop.itemId === 'spirit_stone' || drop.itemId === 'merit')
+            ? Math.max(1, Math.round(Number(drop.count) * dungeonCurrencyCountMultiplier))
+            : drop.count,
+        chance: resolveObservedDropChance(drop.chance, lootRate, rareLootRate, killEquivalentMultiplier * dungeonDropRateMultiplier),
     }))
         .sort((left, right) => right.chance - left.chance || compareStableText(left.itemId, right.itemId));
     return {

@@ -5,6 +5,7 @@
  * 配置结构和可在客户端复用的数值计算。
  */
 import type { TechniqueGrade } from './cultivation-types';
+import type { ItemType } from './item-runtime-types';
 import { TECHNIQUE_GRADE_ORDER } from './constants/gameplay/technique';
 
 export const DUNGEON_MAX_PARTY_MEMBERS = 5;
@@ -54,6 +55,15 @@ export interface DungeonDifficultyAttributeRule {
   presentRankStep?: Partial<Record<TechniqueGrade, number>>;
 }
 
+/** 副本房间 Boss 的专用掉落项；不改动现世/普通地图的怪物掉落表。 */
+export interface DungeonBossDropRecord {
+  itemId: string;
+  name: string;
+  type: ItemType;
+  count: number;
+  chance?: number;
+}
+
 export interface DungeonDifficultyOverride {
   allAttributeMultiplier?: number;
   hpMultiplier?: number;
@@ -87,6 +97,8 @@ export interface DungeonMapRoomDefinition {
   bossId?: string;
   /** 房间 Boss 的副本专用技能列表；配置后替换妖兽模板默认技能。 */
   bossSkillIds?: string[];
+  /** 房间 Boss 的副本专用掉落列表；配置后替换妖兽模板默认掉落。 */
+  bossDropTable?: DungeonBossDropRecord[];
   eliteGroupIds?: string[];
   clearCondition?: 'boss_defeated' | 'all_hostiles_defeated' | 'controller';
   mechanismFormation?: DungeonMechanismFormationConfig;
@@ -415,6 +427,37 @@ export function resolveDungeonAttributeMultipliers(
     rankStep,
     allAttributeMultiplier,
     hpMultiplier,
+  };
+}
+
+export interface DungeonLootMultipliersResult {
+  /** 灵石/功德数量倍率：试炼 100%，困难 150%，噩梦 250%，现世凡阶 400%。 */
+  currencyCountMultiplier: number;
+  /** 功法等掉落的等效概率倍率：试炼 100%，困难 200%，噩梦 300%，现世凡阶 500%。 */
+  dropRateMultiplier: number;
+  presentRankStep?: number;
+}
+
+/** 按副本难度统一计算 Boss 掉落倍率，避免把倍率散落在击杀热路径。 */
+export function resolveDungeonLootMultipliers(
+  selection: DungeonDifficultySelection,
+  maxPresentRank: TechniqueGrade,
+): DungeonLootMultipliersResult {
+  const effectiveStep = resolveDungeonEffectiveStep(selection, maxPresentRank);
+  if (selection.difficulty === 'trial') {
+    return { currencyCountMultiplier: 1, dropRateMultiplier: 1 };
+  }
+  if (selection.difficulty === 'hard') {
+    return { currencyCountMultiplier: 1.5, dropRateMultiplier: 2 };
+  }
+  if (selection.difficulty === 'nightmare') {
+    return { currencyCountMultiplier: 2.5, dropRateMultiplier: 3 };
+  }
+  const rankStep = Math.max(0, effectiveStep - getDungeonDifficultyStep('present'));
+  return {
+    currencyCountMultiplier: 4 * (1 + rankStep * 0.2),
+    dropRateMultiplier: 5 * (1 + rankStep * 0.5),
+    presentRankStep: rankStep,
   };
 }
 
