@@ -260,7 +260,7 @@ type MainBootstrapAssemblyOptions = {
  */
 
   getPlayer: () => PlayerState | null;
-  openDungeonPanel: (dungeonId?: string) => void;
+  openDungeonPanel: (dungeonId: string) => void;
   /**
  * runtimeStateSource：运行态状态来源相关字段。
  */

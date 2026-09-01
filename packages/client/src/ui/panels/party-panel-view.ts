@@ -75,7 +75,6 @@ export type PartyStateSourceCallbacks = {
   onJoinMatch(purpose: PartyPurpose): void;
   onLeaveMatch(): void;
   onOpenChat(): void;
-  onOpenDungeon(): void;
   onRequestRecruitmentCandidates(): void;
 };
 

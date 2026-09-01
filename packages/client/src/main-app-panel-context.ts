@@ -112,25 +112,12 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
   const dungeonModalOwner = 'dungeon-entry-panel';
   const dungeonDifficultyLabels: Record<DungeonDifficulty, string> = { trial: '试炼', hard: '困难', nightmare: '噩梦', present: '现世' };
   const dungeonRankLabels: Record<TechniqueGrade, string> = { mortal: '凡阶', yellow: '黄阶', mystic: '玄阶', earth: '地阶', heaven: '天阶', spirit: '灵阶', saint: '圣阶', emperor: '帝阶' };
-  const escapeDungeonHtml = (value: unknown): string => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   let requestedDungeonId: string | undefined;
   const formatDungeonRecovery = (remainingMs: number): string => {
     const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
     const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
     const seconds = (totalSeconds % 60).toString().padStart(2, '0');
     return `${minutes}:${seconds}`;
-  };
-  const renderDungeonChooserPanel = (): void => {
-    const catalog = dungeonCatalog;
-    if (!catalog) return;
-    const bodyHtml = catalog.dungeons.length === 0
-      ? '<div class="empty-hint compact">当前没有可进入的副本。</div>'
-      : `<div class="dungeon-entry-chooser"><div class="dungeon-entry-chooser__hint">选择要发起的副本</div><div class="dungeon-entry-choices">${catalog.dungeons.map((entry) => `<button type="button" class="dungeon-entry-choice" data-dungeon-choice="${escapeDungeonHtml(entry.id)}"><strong>${escapeDungeonHtml(entry.name)}</strong><span>${escapeDungeonHtml(entry.description || '进入独立副本，完成挑战后结算。')}</span></button>`).join('')}</div></div>`;
-    detailModalHost.patch({ ownerId: dungeonModalOwner, title: '选择副本', subtitle: '选择后进入发起设置', variantClass: 'detail-modal--dungeon-chooser', size: 'sm', bodyHtml, onAfterRender: (body, signal) => {
-      body.querySelectorAll<HTMLButtonElement>('[data-dungeon-choice]').forEach((button) => {
-        button.addEventListener('click', () => renderDungeonLaunchPanel(button.dataset.dungeonChoice ?? ''), { signal });
-      });
-    } });
   };
   const renderDungeonUnavailablePanel = (dungeonId: string): void => {
     detailModalHost.patch({
@@ -153,7 +140,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
       return;
     }
     requestedDungeonId = dungeon.id;
-    const bodyHtml = `<form data-dungeon-launch-form="true" class="dungeon-entry-launch"><div class="dungeon-entry-launch__controls"><label class="dungeon-entry-control"><span>难度</span><select name="difficulty" class="party-select">${Object.entries(dungeonDifficultyLabels).map(([key, label]) => `<option value="${key}">${label}</option>`).join('')}</select></label><label class="dungeon-entry-control"><span>现世阶位</span><select name="presentRank" class="party-select">${DUNGEON_PRESENT_RANK_ORDER.map((rank) => `<option value="${rank}">${dungeonRankLabels[rank]}</option>`).join('')}</select></label></div><div class="dungeon-entry-stamina"><span class="dungeon-entry-stamina__label">消耗体力</span><strong data-dungeon-stamina-value></strong><span data-dungeon-stamina-recovery></span></div><div class="dungeon-entry-launch__hint">确认发起后，将邀请队友逐一确认；全员确认后才会扣除体力并进入副本。</div><div class="dungeon-entry-launch__actions"><button type="button" class="small-btn ghost" data-dungeon-back>返回副本列表</button><button type="submit" class="small-btn primary" data-dungeon-submit>确认发起并邀请队友确认</button></div></form>`;
+    const bodyHtml = `<form data-dungeon-launch-form="true" class="dungeon-entry-launch"><div class="dungeon-entry-launch__controls"><label class="dungeon-entry-control"><span>难度</span><select name="difficulty" class="party-select">${Object.entries(dungeonDifficultyLabels).map(([key, label]) => `<option value="${key}">${label}</option>`).join('')}</select></label><label class="dungeon-entry-control"><span>现世阶位</span><select name="presentRank" class="party-select">${DUNGEON_PRESENT_RANK_ORDER.map((rank) => `<option value="${rank}">${dungeonRankLabels[rank]}</option>`).join('')}</select></label></div><div class="dungeon-entry-stamina"><span class="dungeon-entry-stamina__label">消耗体力</span><strong data-dungeon-stamina-value></strong><span data-dungeon-stamina-recovery></span></div><div class="dungeon-entry-launch__hint">确认发起后，将邀请队友逐一确认；全员确认后才会扣除体力并进入副本。</div><div class="dungeon-entry-launch__actions"><button type="submit" class="small-btn primary" data-dungeon-submit>确认发起并邀请队友确认</button></div></form>`;
     detailModalHost.patch({ ownerId: dungeonModalOwner, title: `副本·${dungeon.name}`, subtitle: '调整难度和阶位', variantClass: 'detail-modal--dungeon-entry', size: 'sm', bodyHtml, onAfterRender: (body, signal) => {
       const form = body.querySelector<HTMLFormElement>('[data-dungeon-launch-form="true"]');
       const difficulty = form?.elements.namedItem('difficulty') as HTMLSelectElement | null;
@@ -186,7 +173,6 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
       difficulty.addEventListener('change', syncStamina, { signal });
       const timer = window.setInterval(syncStamina, 1000);
       signal.addEventListener('abort', () => window.clearInterval(timer), { once: true });
-      body.querySelector<HTMLButtonElement>('[data-dungeon-back]')?.addEventListener('click', () => renderDungeonChooserPanel(), { signal });
       form.addEventListener('submit', (event) => {
         event.preventDefault();
         const selectedDifficulty = difficulty.value as DungeonDifficulty;
@@ -199,31 +185,31 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
   const renderDungeonEntryPanel = (): void => {
     const catalog = dungeonCatalog;
     if (!catalog) return;
-    if (requestedDungeonId) {
-      const selected = catalog.dungeons.find((entry) => entry.id === requestedDungeonId);
-      if (selected) {
-        renderDungeonLaunchPanel(selected.id);
-      } else {
-        renderDungeonUnavailablePanel(requestedDungeonId);
-      }
+    if (!requestedDungeonId) {
+      renderDungeonUnavailablePanel('');
       return;
     }
-    if (catalog.dungeons.length === 1) {
-      renderDungeonLaunchPanel(catalog.dungeons[0].id);
-      return;
+    const selected = catalog.dungeons.find((entry) => entry.id === requestedDungeonId);
+    if (selected) {
+      renderDungeonLaunchPanel(selected.id);
+    } else {
+      renderDungeonUnavailablePanel(requestedDungeonId);
     }
-    renderDungeonChooserPanel();
   };
   socket.on(S2C.DungeonCatalog, (catalog) => { dungeonCatalog = catalog; if (detailModalHost.isOpenFor(dungeonModalOwner)) renderDungeonEntryPanel(); });
-  const openDungeonPanel = (dungeonId?: string): void => {
-    requestedDungeonId = dungeonId?.trim() || undefined;
+  const openDungeonPanel = (dungeonId: string): void => {
+    const normalizedDungeonId = dungeonId.trim();
+    if (!normalizedDungeonId) {
+      callbacks.showToast('当前忆梦石未绑定副本', 'warn');
+      return;
+    }
+    requestedDungeonId = normalizedDungeonId;
     dungeonCatalog = null;
-    detailModalHost.open({ ownerId: dungeonModalOwner, title: requestedDungeonId ? '发起副本' : '选择副本', subtitle: '正在读取副本列表……', size: 'sm', variantClass: 'detail-modal--dungeon-chooser', bodyHtml: '<div class="empty-hint compact">正在读取副本列表……</div>' });
+    detailModalHost.open({ ownerId: dungeonModalOwner, title: `副本·${normalizedDungeonId}`, subtitle: '正在读取副本信息……', size: 'sm', variantClass: 'detail-modal--dungeon-entry', bodyHtml: '<div class="empty-hint compact">正在读取副本信息……</div>' });
     socket.dungeon.requestCatalog();
   };
   const partyStateSource = createMainPartyStateSource({
     partyPanel, partyHud, chatUI, openPartyPanel: partyNavigation.openPartyPanel, openPartyChat: () => { partyWorkspace.close(false); sidePanel.switchTab('logbook'); chatUI.openChannel('party'); },
-    openDungeonPanel,
     setPartyPanelAvailable: (available) => { partyWorkspace.setAvailable(available); socialPanel.setPartyAvailable(available); },
     setPartyUnread: (count) => { partyWorkspace.setUnreadCount(count); socialPanel.setPartyUnread(count); },
     socket: socket.party, getPlayerId: () => rootRuntimeSource.getPlayer()?.id ?? null, showToast: (message, kind) => uiStateSource.showToast(message, kind),

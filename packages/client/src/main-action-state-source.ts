@@ -114,7 +114,7 @@ type MainActionStateSourceOptions = {
 
   openWorldMigrationModal: () => void;  
   /** 打开副本入口面板。 */
-  openDungeonPanel: (dungeonId?: string) => void;
+  openDungeonPanel: (dungeonId: string) => void;
   /**
  * getInfoRadius：InfoRadiu相关字段。
  */
@@ -200,7 +200,12 @@ export function createMainActionStateSource(options: MainActionStateSourceOption
         const dungeonId = actionId.startsWith('dungeon:open:')
           ? actionId.slice('dungeon:open:'.length)
           : actionDungeonId?.trim() || options.getCurrentActionDef(actionId)?.dungeonId;
-        options.openDungeonPanel(dungeonId?.trim() || undefined);
+        const normalizedDungeonId = dungeonId?.trim();
+        if (!normalizedDungeonId) {
+          options.showToast('当前忆梦石未绑定副本', 'warn');
+          return;
+        }
+        options.openDungeonPanel(normalizedDungeonId);
         return;
       }
       if (actionId === 'transmission:open') {

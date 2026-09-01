@@ -264,7 +264,7 @@ type MainNavigationStateSourceOptions = {
 
   openNpcQuestPending: (npcId: string) => void;  
   /** 打开副本入口面板。 */
-  openDungeonPanel: (dungeonId?: string) => void;
+  openDungeonPanel: (dungeonId: string) => void;
   /**
  * showToast：showToast相关字段。
  */
@@ -1123,7 +1123,12 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
         const dungeonId = actionId.startsWith('dungeon:open:')
           ? actionId.slice('dungeon:open:'.length)
           : resolveDungeonOpenTargetId();
-        options.openDungeonPanel?.(dungeonId?.trim() || undefined);
+        const normalizedDungeonId = dungeonId?.trim();
+        if (!normalizedDungeonId) {
+          options.showToast('当前忆梦石未绑定副本');
+          return true;
+        }
+        options.openDungeonPanel(normalizedDungeonId);
         return true;
       }
       options.sendAction(actionId);
@@ -1159,7 +1164,12 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
             const dungeonId = actionId.startsWith('dungeon:open:')
               ? actionId.slice('dungeon:open:'.length)
               : resolveDungeonOpenTargetId();
-            options.openDungeonPanel?.(dungeonId?.trim() || undefined);
+            const normalizedDungeonId = dungeonId?.trim();
+            if (!normalizedDungeonId) {
+              options.showToast('当前忆梦石未绑定副本');
+              return true;
+            }
+            options.openDungeonPanel(normalizedDungeonId);
             return true;
           }
           options.sendAction(actionId);

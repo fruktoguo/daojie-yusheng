@@ -541,9 +541,6 @@ export class PartyPanel {
       case 'open-chat':
         this.callbacks.onOpenChat();
         break;
-      case 'open-dungeon':
-        this.callbacks.onOpenDungeon();
-        break;
       case 'invite-accept':
         if (target.dataset.inviteId) this.callbacks.onRespondInvite(target.dataset.inviteId, true);
         break;

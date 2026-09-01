@@ -25,7 +25,6 @@ type MainPartyStateSourceOptions = {
   chatUI: Pick<ChatUI, 'setPartySendCallback' | 'setPartyUnreadCallback' | 'syncPartyMessages'>;
   openPartyPanel(opener?: HTMLElement | null): void;
   openPartyChat(opener?: HTMLElement | null): void;
-  openDungeonPanel(dungeonId?: string): void;
   setPartyUnread(count: number): void;
   setPartyPanelAvailable(available: boolean): void;
   socket: Pick<
@@ -155,7 +154,6 @@ export function createMainPartyStateSource(options: MainPartyStateSourceOptions)
     onJoinMatch: (purpose) => options.socket.sendJoinPartyMatch(purpose),
     onLeaveMatch: () => options.socket.sendLeavePartyMatch(),
     onOpenChat: () => options.openPartyChat(),
-    onOpenDungeon: () => options.openDungeonPanel(),
     onRequestRecruitmentCandidates: () => options.socket.sendRequestPartyRecruitments(recruitingPurpose),
   });
 

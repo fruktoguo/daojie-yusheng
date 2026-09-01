@@ -412,7 +412,7 @@ export class WorldRuntimeContextActionQueryService {
                             id: 'dungeon:open',
                             name: '发起副本',
                             type: 'interact',
-                            desc: '与忆梦石共鸣，打开副本选择界面。',
+                            desc: '与忆梦石共鸣，打开对应副本发起界面。',
                             cooldownLeft: 0,
                         });
                     } else {
