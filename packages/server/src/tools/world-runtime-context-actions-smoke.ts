@@ -414,6 +414,35 @@ function testScripturePlatformActionsAreSingleEntrypoints() {
     ]);
 }
 
+function testDungeonEntryStoneUsesOneCompatibleAction() {
+    const log = [];
+    const service = createService({
+        attrs: { numericStats: { viewRange: 3 } },
+        realm: { breakthroughReady: false },
+        equipment: { slots: [] },
+    }, log);
+    const actions = service.buildContextActions({
+        playerId: 'player:dungeon-entry',
+        self: { x: 2, y: 9 },
+        instance: { templateId: 'ruined_cavern_manor' },
+        localPortals: [],
+        localNpcs: [{ npcId: 'npc_ruined_cavern_memory_stone', name: '忆梦石', x: 2, y: 9 }],
+    }, {
+        dungeonRuntimeService: {
+            listDefinitions() {
+                return [
+                    { id: 'dungeon_huanling_zhenren', name: '唤灵真人', entryMapTemplateId: 'ruined_cavern_manor' },
+                    { id: 'dungeon_failed_foundation', name: '未成道基', entryMapTemplateId: 'ruined_cavern_manor' },
+                ];
+            },
+        },
+    });
+    const dungeonActions = actions.filter((entry) => entry.name?.startsWith('副本·'));
+    assert.deepEqual(dungeonActions.map((entry) => entry.id), ['dungeon:open']);
+    assert.equal(dungeonActions[0]?.name, '副本·唤灵真人');
+    assert.equal(dungeonActions[0]?.dungeonId, 'dungeon_huanling_zhenren');
+}
+
 testBuildContextActions();
 testSectEntrancePortalTravelIsNotMemberGated();
 testTimeChamberOmitsUnavailableForceAttack();
@@ -422,5 +451,6 @@ testReturnActionShowsBoundRespawnTarget();
 testReturnActionShowsCooldownLeft();
 testDepletedFormationKeepsRecoveryActions();
 testScripturePlatformActionsAreSingleEntrypoints();
+testDungeonEntryStoneUsesOneCompatibleAction();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-context-actions' }, null, 2));

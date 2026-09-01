@@ -4,6 +4,7 @@
  * 维护时要把用户意图、显示派生和服务端权威数据分清，避免为了展示便利复制业务规则。
  */
 import {
+  type ActionDef,
   type Direction,
   doesStructureTypeBlockMove,
   directionToDelta,
@@ -156,11 +157,8 @@ type MainNavigationStateSourceOptions = {
  /**
  * actions：action相关字段。
  */
- actions?: Array<{  
- /**
- * id：ID标识。
- */
- id: string }> } | null;  
+ actions?: Array<Pick<ActionDef, 'id' | 'dungeonId'>>;
+  } | null;
  /**
  * setPlayerFacing：玩家Facing相关字段。
  */
@@ -620,6 +618,12 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
     }
     return null;
   }  
+
+  function resolveDungeonOpenTargetId(): string | undefined {
+    const dungeonAction = options.getPlayer()?.actions?.find((action) => action.id === 'dungeon:open');
+    const dungeonId = dungeonAction?.dungeonId?.trim();
+    return dungeonId || undefined;
+  }
 
   function getNpcInteractionRadius(npc: Pick<MainNavigationObservedEntity, 'id'>): number {
     return npc.id === 'npc_ruined_cavern_memory_stone' || npc.id === 'npc_dungeon_memory_stone' ? 2 : 1;
@@ -1116,7 +1120,10 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
         return true;
       }
       if (actionId === 'dungeon:open' || actionId.startsWith('dungeon:open:')) {
-        options.openDungeonPanel?.(actionId.slice('dungeon:open:'.length) || undefined);
+        const dungeonId = actionId.startsWith('dungeon:open:')
+          ? actionId.slice('dungeon:open:'.length)
+          : resolveDungeonOpenTargetId();
+        options.openDungeonPanel?.(dungeonId?.trim() || undefined);
         return true;
       }
       options.sendAction(actionId);
@@ -1149,7 +1156,10 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
             return true;
           }
           if (actionId === 'dungeon:open' || actionId.startsWith('dungeon:open:')) {
-            options.openDungeonPanel?.(actionId.slice('dungeon:open:'.length) || undefined);
+            const dungeonId = actionId.startsWith('dungeon:open:')
+              ? actionId.slice('dungeon:open:'.length)
+              : resolveDungeonOpenTargetId();
+            options.openDungeonPanel?.(dungeonId?.trim() || undefined);
             return true;
           }
           options.sendAction(actionId);

@@ -446,6 +446,9 @@ function toActionDefinition(entry) {
   if (normalizedEntry.passiveOnly === true) {
     action.passiveOnly = true;
   }
+  if (typeof normalizedEntry.dungeonId === 'string' && normalizedEntry.dungeonId.trim()) {
+    action.dungeonId = normalizedEntry.dungeonId.trim();
+  }
   if (normalizedEntry.type === 'skill') {
     return action;
   }

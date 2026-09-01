@@ -418,11 +418,12 @@ export class WorldRuntimeContextActionQueryService {
                     } else {
                         const dungeonName = typeof dungeon.name === 'string' && dungeon.name.trim() ? dungeon.name.trim() : dungeonId;
                         actions.push({
-                            id: `dungeon:open:${dungeonId}`,
+                            id: 'dungeon:open',
                             name: `副本·${dungeonName}`,
                             type: 'interact',
                             desc: `与忆梦石共鸣，发起「${dungeonName}」并邀请队员确认。`,
                             cooldownLeft: 0,
+                            dungeonId,
                         });
                     }
                     continue;

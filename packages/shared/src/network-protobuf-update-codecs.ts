@@ -124,6 +124,7 @@ export function toWireActionEntry(entry: ActionUpdateEntry): Record<string, unkn
   setNullableWireValue(wire, 'scriptureTechniqueRealmLv', 'clearScriptureTechniqueRealmLv', entry.scriptureTechniqueRealmLv);
   setNullableWireValue(wire, 'scriptureTechniqueGrade', 'clearScriptureTechniqueGrade', entry.scriptureTechniqueGrade);
   setNullableWireValue(wire, 'scriptureTechniqueCategory', 'clearScriptureTechniqueCategory', entry.scriptureTechniqueCategory);
+  setNullableWireValue(wire, 'dungeonId', 'clearDungeonId', entry.dungeonId);
   return wire;
 }
 
@@ -166,6 +167,8 @@ export function fromWireActionEntry(wire: Record<string, unknown>): ActionUpdate
   if (scriptureTechniqueGrade !== undefined) patch.scriptureTechniqueGrade = scriptureTechniqueGrade;
   const scriptureTechniqueCategory = readNullableWireValue<ActionDef['scriptureTechniqueCategory']>(wire, 'scriptureTechniqueCategory', 'clearScriptureTechniqueCategory');
   if (scriptureTechniqueCategory !== undefined) patch.scriptureTechniqueCategory = scriptureTechniqueCategory;
+  const dungeonId = readNullableWireValue<string>(wire, 'dungeonId', 'clearDungeonId');
+  if (dungeonId !== undefined) patch.dungeonId = dungeonId;
   return patch;
 }
 

@@ -197,7 +197,10 @@ export function createMainActionStateSource(options: MainActionStateSourceOption
       if (actionId === 'dungeon:open' || actionId.startsWith('dungeon:open:')) {
         options.cancelTargeting();
         options.hideObserveModal();
-        options.openDungeonPanel(actionId.slice('dungeon:open:'.length) || undefined);
+        const dungeonId = actionId.startsWith('dungeon:open:')
+          ? actionId.slice('dungeon:open:'.length)
+          : options.getCurrentActionDef(actionId)?.dungeonId;
+        options.openDungeonPanel(dungeonId?.trim() || undefined);
         return;
       }
       if (actionId === 'transmission:open') {

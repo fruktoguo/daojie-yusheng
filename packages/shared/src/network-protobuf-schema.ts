@@ -280,6 +280,8 @@ message ActionUpdateEntryPayload {
   optional bool clearScriptureTechniqueCategory = 30;
   optional bool passiveOnly = 31;
   optional bool clearPassiveOnly = 32;
+  optional string dungeonId = 33;
+  optional bool clearDungeonId = 34;
 }
 
 message AttrUpdatePayload {

@@ -245,6 +245,8 @@ export interface ActionUpdateEntryView {
   skillEnabled?: boolean | null;  
   /** passiveOnly=true 表示纯被动技能动作，不可主动释放。 */
   passiveOnly?: boolean | null;
+  /** 副本入口动作对应的副本定义 ID。 */
+  dungeonId?: string | null;
   /**
  * name：名称名称或显示文本。
  */
