@@ -399,7 +399,15 @@ export class WorldRuntimeContextActionQueryService {
                     const dungeonDefinitions = (typeof deps?.dungeonRuntimeService?.listDefinitions === 'function'
                         ? deps.dungeonRuntimeService.listDefinitions()
                         : []) ?? [];
-                    if (dungeonDefinitions.length === 0) {
+                    const entryMapId = typeof view?.instance?.templateId === 'string' ? view.instance.templateId.trim() : '';
+                    const entryMapDungeons = dungeonDefinitions.filter((dungeon) => dungeon?.entryMapTemplateId === entryMapId);
+                    const dungeon = (entryMapDungeons.length === 1
+                        ? entryMapDungeons[0]
+                        : entryMapDungeons.find((entry) => entry?.id === 'dungeon_huanling_zhenren'))
+                        ?? dungeonDefinitions.find((entry) => entry?.id === 'dungeon_huanling_zhenren')
+                        ?? dungeonDefinitions[0];
+                    const dungeonId = typeof dungeon?.id === 'string' ? dungeon.id.trim() : '';
+                    if (!dungeon || !dungeonId) {
                         actions.push({
                             id: 'dungeon:open',
                             name: '发起副本',
@@ -408,18 +416,14 @@ export class WorldRuntimeContextActionQueryService {
                             cooldownLeft: 0,
                         });
                     } else {
-                        for (const dungeon of dungeonDefinitions) {
-                            const dungeonId = typeof dungeon?.id === 'string' ? dungeon.id.trim() : '';
-                            if (!dungeonId) continue;
-                            const dungeonName = typeof dungeon?.name === 'string' && dungeon.name.trim() ? dungeon.name.trim() : dungeonId;
-                            actions.push({
-                                id: `dungeon:open:${dungeonId}`,
-                                name: `发起：${dungeonName}`,
-                                type: 'interact',
-                                desc: `与忆梦石共鸣，发起「${dungeonName}」并邀请队员确认。`,
-                                cooldownLeft: 0,
-                            });
-                        }
+                        const dungeonName = typeof dungeon.name === 'string' && dungeon.name.trim() ? dungeon.name.trim() : dungeonId;
+                        actions.push({
+                            id: `dungeon:open:${dungeonId}`,
+                            name: `副本·${dungeonName}`,
+                            type: 'interact',
+                            desc: `与忆梦石共鸣，发起「${dungeonName}」并邀请队员确认。`,
+                            cooldownLeft: 0,
+                        });
                     }
                     continue;
                 }
