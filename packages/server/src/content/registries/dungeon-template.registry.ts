@@ -129,6 +129,7 @@ function normalizeRooms(raw: unknown): DungeonMapRoomDefinition[] | undefined {
       ...(entry.nextRoomId !== undefined ? { nextRoomId: requiredString(entry.nextRoomId, `rooms[${index}].nextRoomId`) } : {}),
       ...(Array.isArray(entry.spawnGroupIds) ? { spawnGroupIds: entry.spawnGroupIds.map((value: unknown) => requiredString(value, `rooms[${index}].spawnGroupIds`)) } : {}),
       ...(entry.bossId !== undefined ? { bossId: requiredString(entry.bossId, `rooms[${index}].bossId`) } : {}),
+      ...(Array.isArray(entry.bossSkillIds) ? { bossSkillIds: entry.bossSkillIds.map((value: unknown) => requiredString(value, `rooms[${index}].bossSkillIds`)) } : {}),
       ...(Array.isArray(entry.eliteGroupIds) ? { eliteGroupIds: entry.eliteGroupIds.map((value: unknown) => requiredString(value, `rooms[${index}].eliteGroupIds`)) } : {}),
       ...(clearCondition ? { clearCondition } : {}),
       ...(mechanismFormation ? { mechanismFormation } : {}),

@@ -153,6 +153,9 @@ export function canMonsterCastSkill(
   distance: number,
   currentTick: number,
 ): boolean {
+  if (skill?.active === false) {
+    return false;
+  }
   if (!matchesMonsterSkillConditions(monster, skill)) {
     return false;
   }

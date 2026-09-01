@@ -85,6 +85,8 @@ export interface DungeonMapRoomDefinition {
   nextRoomId?: string;
   spawnGroupIds?: string[];
   bossId?: string;
+  /** 房间 Boss 的副本专用技能列表；配置后替换妖兽模板默认技能。 */
+  bossSkillIds?: string[];
   eliteGroupIds?: string[];
   clearCondition?: 'boss_defeated' | 'all_hostiles_defeated' | 'controller';
   mechanismFormation?: DungeonMechanismFormationConfig;

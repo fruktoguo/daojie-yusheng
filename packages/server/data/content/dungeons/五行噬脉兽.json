@@ -28,6 +28,14 @@
       "spawnX": 10,
       "spawnY": 10,
       "bossId": "m_fivephase_devourer",
+      "bossSkillIds": [
+        "skill.dungeon_fivephase_devour_passive",
+        "skill.dungeon_fivephase_origin_passive",
+        "skill.dungeon_fivephase_devour",
+        "skill.dungeon_fivephase_shift",
+        "skill.dungeon_fivephase_storm",
+        "skill.dungeon_fivephase_drain"
+      ],
       "clearCondition": "boss_defeated"
     }
   ],

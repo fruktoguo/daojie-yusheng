@@ -826,6 +826,16 @@ export function isSameSkillEffectDef(left: SkillEffectDef | null | undefined, ri
                 && left.durationTicks === right.durationTicks
                 && left.excludeAnchor === right.excludeAnchor
                 && isSameSkillFormula(left.hpFormula, right.hpFormula);
+        case 'instance_terrain':
+            return right.type === 'instance_terrain'
+                && left.tileType === right.tileType
+                && left.durationTicks === right.durationTicks
+                && left.scope === right.scope;
+        case 'random_buff':
+            return right.type === 'random_buff'
+                && left.target === right.target
+                && left.buffs.length === right.buffs.length
+                && left.buffs.every((buff, index) => isSameSkillEffectDef(buff, right.buffs[index]));
     }
 }
 

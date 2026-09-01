@@ -395,6 +395,33 @@ export class PlayerCombatService {
                 continue;
             }
 
+            // 随机五行减益：每次命中只选一个候选效果，仍沿用普通 buff 的目标语义。
+            if (effect.type === 'random_buff') {
+                if (options?.skipTargetEffects === true && effect.target === 'target') {
+                    continue;
+                }
+                if (options?.skipSelfEffects === true && (effect.target === 'self' || effect.target === 'allies')) {
+                    continue;
+                }
+                const candidates = Array.isArray(effect.buffs) ? effect.buffs.filter((entry) => entry?.type === 'buff') : [];
+                const candidate = candidates.length > 0
+                    ? candidates[Math.floor(Math.random() * candidates.length)]
+                    : null;
+                if (!candidate) {
+                    continue;
+                }
+                const buff = toTemporaryBuff({ ...candidate, target: effect.target }, resolved.skill);
+                if (effect.target === 'self' || effect.target === 'allies') {
+                    handlers.applySelfBuff?.(buff);
+                    selfBuffs.push({ buffId: buff.buffId, name: buff.name, category: buff.category, duration: buff.duration });
+                }
+                else {
+                    handlers.applyTargetBuff?.(buff);
+                    targetBuffs.push({ buffId: buff.buffId, name: buff.name, category: buff.category, duration: buff.duration });
+                }
+                continue;
+            }
+
             // 仅 buff 类型才走 buff 应用分支；
             // heal / cleanse / temporary_tile 等其他 effect 类型在此处不应被当作 buff 处理，
             // 否则 toTemporaryBuff 会生成 buffId=undefined 的条目，进入 buff 集合后排序时
@@ -690,7 +717,10 @@ function toTemporaryBuff(effect, skill) {
         visibility: effect.visibility ?? 'public',
         remainingTicks: Math.max(1, Math.round(effect.duration)),
         duration: Math.max(1, Math.round(effect.duration)),
-        stacks: 1,
+        stacks: Math.max(1, Math.min(
+            Math.max(1, Math.round(effect.maxStacks ?? 1)),
+            Math.round(effect.stacks ?? 1),
+        )),
         maxStacks: Math.max(1, Math.round(effect.maxStacks ?? 1)),
         sourceSkillId: skill.id,
         sourceSkillName: resolvePlayerFacingContentName(skill.id, '未知技能', skill.name),
@@ -869,6 +899,9 @@ function mergeReusableSkillFormulaDependencies(dependencies) {
 function resolveReusableSkillFormulaVariableDependency(variable) {
     if (variable === 'techLevel') return SKILL_FORMULA_DEPENDENCY.TECH_LEVEL;
     if (variable === 'targetCount') return SKILL_FORMULA_DEPENDENCY.TARGET_COUNT;
+    if (variable === 'target.debuffCount' || variable === 'target.debuffStacks' || variable === 'target.debuffKindsMultiplier') {
+        return UNREUSABLE_SKILL_FORMULA_DEPENDENCY;
+    }
     if (typeof variable !== 'string') {
         return UNREUSABLE_SKILL_FORMULA_DEPENDENCY;
     }
@@ -1079,6 +1112,15 @@ function compileSkillFormulaVarResolver(variable) {
     if (variable === 'target.maxQi') {
         return (context) => context.target.maxQi;
     }
+    if (variable === 'target.debuffCount') {
+        return (context) => resolveDebuffCount(context.target.buffs);
+    }
+    if (variable === 'target.debuffStacks') {
+        return (context) => resolveDebuffStacks(context.target.buffs);
+    }
+    if (variable === 'target.debuffKindsMultiplier') {
+        return (context) => 2 ** resolveDebuffCount(context.target.buffs);
+    }
     if (typeof variable === 'string' && variable.startsWith('caster.attr.')) {
         const key = variable.slice('caster.attr.'.length);
         return (context) => context.attacker.attrs.finalAttrs[key] ?? 0;
@@ -1149,6 +1191,15 @@ function resolveSkillFormulaVar(variable, context) {
     if (variable === 'target.maxQi') {
         return context.target.maxQi;
     }
+    if (variable === 'target.debuffCount') {
+        return resolveDebuffCount(context.target.buffs);
+    }
+    if (variable === 'target.debuffStacks') {
+        return resolveDebuffStacks(context.target.buffs);
+    }
+    if (variable === 'target.debuffKindsMultiplier') {
+        return 2 ** resolveDebuffCount(context.target.buffs);
+    }
     if (variable.startsWith('caster.attr.')) {
         const key = variable.slice('caster.attr.'.length);
         return Object.hasOwn(context.attacker.attrs.finalAttrs, key) ? context.attacker.attrs.finalAttrs[key] : 0;
@@ -1183,4 +1234,23 @@ function resolveBuffStacks(buffs, buffId) {
     }
     const target = buffs.find((entry) => entry.buffId === buffId);
     return target ? Math.max(0, target.stacks) : 0;
+}
+
+function resolveDebuffCount(buffs) {
+    return (Array.isArray(buffs) ? buffs : []).filter((entry) => (
+        entry?.category === 'debuff'
+        && (entry.remainingTicks === undefined || entry.remainingTicks > 0)
+        && Math.max(0, Math.round(Number(entry.stacks) || 0)) > 0
+    )).length;
+}
+
+function resolveDebuffStacks(buffs) {
+    let total = 0;
+    for (const entry of Array.isArray(buffs) ? buffs : []) {
+        if (entry?.category !== 'debuff' || (entry.remainingTicks !== undefined && entry.remainingTicks <= 0)) {
+            continue;
+        }
+        total += Math.max(0, Math.round(Number(entry.stacks) || 0));
+    }
+    return total;
 }

@@ -26,6 +26,8 @@ export type SkillFormulaVar =
   | 'caster.qi'
   | 'caster.maxQi'
   | 'target.debuffCount'
+  | 'target.debuffStacks'
+  | 'target.debuffKindsMultiplier'
   | 'target.distance'
   | 'target.hp'
   | 'target.maxHp'
@@ -602,6 +604,21 @@ export interface SkillTemporaryTileEffectDef {
   excludeAnchor?: boolean;
 }
 
+/** 技能实例地形效果：由服务端把整张实例地图覆盖为指定临时地形。 */
+export interface SkillInstanceTerrainEffectDef {
+  type: 'instance_terrain';
+  tileType: string;
+  durationTicks: number;
+  scope?: 'instance';
+}
+
+/** 技能随机 Buff 效果：从候选 Buff 中随机选择一个施加。 */
+export interface SkillRandomBuffEffectDef {
+  type: 'random_buff';
+  target: 'self' | 'target' | 'allies';
+  buffs: SkillBuffEffectDef[];
+}
+
 
 /** 技能被动常驻 Buff 效果：技能启用且占用技能格时投影为虚拟 Buff。 */
 export interface SkillPassiveBuffEffectDef {
@@ -651,7 +668,7 @@ export function getSkillPassiveEffects(skill: Pick<SkillDef, 'passiveEffects'> |
   return Array.isArray(skill?.passiveEffects) ? skill.passiveEffects : [];
 }
 /** 技能效果联合类型。 */
-export type SkillEffectDef = SkillDamageEffectDef | SkillHealEffectDef | SkillBuffEffectDef | SkillCleanseEffectDef | SkillTemporaryTileEffectDef;
+export type SkillEffectDef = SkillDamageEffectDef | SkillHealEffectDef | SkillBuffEffectDef | SkillCleanseEffectDef | SkillTemporaryTileEffectDef | SkillInstanceTerrainEffectDef | SkillRandomBuffEffectDef;
 
 /** 怪物技能前摇定义。 */
 export interface SkillMonsterCastDef {

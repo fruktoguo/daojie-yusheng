@@ -28,6 +28,15 @@
       "spawnX": 10,
       "spawnY": 10,
       "bossId": "m_guizang_failed_foundation",
+      "bossSkillIds": [
+        "skill.dungeon_failed_foundation_metal",
+        "skill.dungeon_failed_foundation_wood",
+        "skill.dungeon_failed_foundation_water",
+        "skill.dungeon_failed_foundation_fire",
+        "skill.dungeon_failed_foundation_earth",
+        "skill.dungeon_failed_foundation_basic",
+        "skill.dungeon_failed_foundation_hunyuan_ultimate"
+      ],
       "clearCondition": "boss_defeated"
     }
   ],

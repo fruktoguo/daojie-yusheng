@@ -28,6 +28,13 @@
       "spawnX": 10,
       "spawnY": 10,
       "bossId": "m_fallen_palace_lord",
+      "bossSkillIds": [
+        "skill.dungeon_fallen_palace_single",
+        "skill.dungeon_fallen_palace_line_pierce",
+        "skill.dungeon_fallen_palace_self_buff",
+        "skill.dungeon_fallen_palace_enemy_debuff",
+        "skill.dungeon_fallen_palace_void_boundary"
+      ],
       "clearCondition": "boss_defeated"
     }
   ],

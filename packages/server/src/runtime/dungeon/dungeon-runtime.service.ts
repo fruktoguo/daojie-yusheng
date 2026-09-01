@@ -932,6 +932,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
       this.addScaledMonster(instance, run, monsterId, x, y, {
         runtimeId: normalizeOptionalDungeonString(persisted?.monsterRuntimeId ?? persisted?.runtimeId) || undefined,
         alive: persisted?.alive !== false,
+        ...(room.bossId === monsterId && Array.isArray(room.bossSkillIds) ? { skillIds: room.bossSkillIds } : {}),
       });
     }
     run.currentRoomId = room.roomId;
@@ -985,7 +986,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     monsterId: string,
     x: number,
     y: number,
-    options: { runtimeId?: string; alive?: boolean } = {},
+    options: { runtimeId?: string; alive?: boolean; skillIds?: readonly string[] } = {},
   ): void {
     const spawn = this.content.createRuntimeMonsterSpawn(monsterId, {
       x,
@@ -1000,7 +1001,15 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
       : (definition?.difficulty.overrides?.[run.difficulty.difficulty] ?? {});
     if (!definition) return;
     const multipliers = resolveDungeonAttributeMultipliers(run.difficulty, definition.difficulty.maxPresentRank, definition.difficulty.attributeRule);
-    instance.addRuntimeMonster?.(scaleMonsterSpawn(spawn, run.difficulty, multipliers, Number(override.allAttributeMultiplier) || 1, Number(override.hpMultiplier) || 1, override.additionalSkillIds));
+    instance.addRuntimeMonster?.(scaleMonsterSpawn(
+      spawn,
+      run.difficulty,
+      multipliers,
+      Number(override.allAttributeMultiplier) || 1,
+      Number(override.hpMultiplier) || 1,
+      override.additionalSkillIds,
+      options.skillIds,
+    ));
   }
 
   private completeRun(run: DungeonRunState, _reason: string): void {
@@ -1451,6 +1460,7 @@ function scaleMonsterSpawn(
   overrideAll = 1,
   overrideHp = 1,
   additionalSkillIds: readonly string[] = [],
+  replacementSkillIds: readonly string[] = [],
 ): any {
   const isPresent = runDifficulty.difficulty === 'present';
   const monsterLevel = Number(spawn.level) || 1;
@@ -1484,7 +1494,12 @@ function scaleMonsterSpawn(
       }
     }
   }
-  scaled.skills = [...new Set([...(Array.isArray(spawn.skills) ? spawn.skills : []), ...additionalSkillIds.filter((id) => typeof id === 'string' && id.trim())])];
+  const normalizedReplacementSkillIds = replacementSkillIds
+    .filter((id) => typeof id === 'string' && id.trim())
+    .map((id) => id.trim());
+  scaled.skills = normalizedReplacementSkillIds.length > 0
+    ? [...new Set(normalizedReplacementSkillIds)]
+    : [...new Set([...(Array.isArray(spawn.skills) ? spawn.skills : []), ...additionalSkillIds.filter((id) => typeof id === 'string' && id.trim())])];
   scaled.maxHp = Math.max(1, Math.round(Number(spawn.maxHp) * finalHpMult));
   scaled.hp = scaled.maxHp;
   return scaled;

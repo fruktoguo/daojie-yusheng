@@ -365,6 +365,17 @@ export class WorldRuntimeMonsterActionApplyService {
             const resolvedSkill = typeof this.playerCombatService.resolveMonsterSkillForCast === 'function'
                 ? this.playerCombatService.resolveMonsterSkillForCast(monster, action.skillId)
                 : undefined;
+            for (const effect of Array.isArray(skill?.effects) ? skill.effects : []) {
+                if (effect?.type !== 'instance_terrain') {
+                    continue;
+                }
+                instance.applyRuntimeTerrainArea?.(
+                    effect.tileType,
+                    effect.durationTicks,
+                    currentTick,
+                    { sourceSkillId: skill.id },
+                );
+            }
             for (let index = 0; index < targetEntries.length; index += 1) {
                 const entry = targetEntries[index];
                 const targetApplyStartedAt = performance.now();

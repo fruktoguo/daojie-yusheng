@@ -8,7 +8,7 @@
  * 单张地图的全部运行态：地块平面、占位、妖兽 AI、战斗、建筑、
  * 资源刷新、灵气流动、AOI 广播和持久化脏域追踪。
  */
-import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, DEFAULT_QI_RUNTIME_FLOW_CONFIGS, DISPERSED_AURA_RESOURCE_KEY, Direction, GROUND_ITEM_EXPIRE_TICKS, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_INSTANCE_TICK_SPEED, MAX_THREAT_VALUE, MOVE_POINT_UNIT, OWNER_ONLY_ACCESS_POLICY, QI_HALF_LIFE_RATE_SCALE, StructureType, TECHNIQUE_UNIFICATION_PLATFORM_DEF_ID, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateDispersedAuraGainPerTile, calculateTerrainDurability, cloneAccessPolicy, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, horizontalFacingFromDelta, horizontalFacingFromTo, isGroundInteractableCellLayerTarget, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeHorizontalFacing, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolvePlayerFacingContentName, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType, validateAccessPolicy } from '@mud/shared';
+import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, DEFAULT_QI_RUNTIME_FLOW_CONFIGS, DISPERSED_AURA_RESOURCE_KEY, Direction, ELEMENT_KEYS, GROUND_ITEM_EXPIRE_TICKS, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_INSTANCE_TICK_SPEED, MAX_THREAT_VALUE, MOVE_POINT_UNIT, OWNER_ONLY_ACCESS_POLICY, QI_HALF_LIFE_RATE_SCALE, StructureType, TECHNIQUE_UNIFICATION_PLATFORM_DEF_ID, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateDispersedAuraGainPerTile, calculateTerrainDurability, cloneAccessPolicy, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, horizontalFacingFromDelta, horizontalFacingFromTo, isGroundInteractableCellLayerTarget, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeHorizontalFacing, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolvePlayerFacingContentName, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType, validateAccessPolicy } from '@mud/shared';
 import { readTrimmedEnv } from '../../config/env-alias';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import '../map/map-template.repository';
@@ -50,6 +50,16 @@ const DISPERSED_AURA_MIN_DECAY_PER_TICK = Math.max(0, Math.trunc(Number(DISPERSE
 const TILE_RESOURCE_EPSILON = 1e-9;
 const DEFAULT_TILE_LAYER_FALLBACK_SEED = resolveDefaultTileLayerFallback();
 const BASE_CHANT_TICK_DURATION_MS = 1000;
+const FIVE_PHASE_ELEMENTS = new Set(ELEMENT_KEYS);
+const FIVE_PHASE_DAMAGE_REDUCTION_BUFF_IDS = Object.freeze({
+    metal: 'buff.dungeon_fivephase_devour_resist_metal',
+    wood: 'buff.dungeon_fivephase_devour_resist_wood',
+    water: 'buff.dungeon_fivephase_devour_resist_water',
+    fire: 'buff.dungeon_fivephase_devour_resist_fire',
+    earth: 'buff.dungeon_fivephase_devour_resist_earth',
+});
+const FIVE_PHASE_ORIGIN_BUFF_ID = 'buff.dungeon_fivephase_origin';
+const FIVE_PHASE_YUKONG_BUFF_ID = 'buff.dungeon_fallen_palace_yukong';
 /** 宗门模板不会原生生成门窗；这两类结构只能来自建筑投影。 */
 const SECT_BUILDING_VISUAL_STRUCTURE_TYPES = new Set([
     StructureType.Door,
@@ -4308,10 +4318,10 @@ class MapInstanceRuntime {
         const normalizedX = Math.trunc(Number(x));
         const normalizedY = Math.trunc(Number(y));
         const availability = this.resolveTemporaryTileAvailability(normalizedX, normalizedY);
-        if (availability.allowed !== true) {
+        if (availability.allowed !== true && !(options?.allowOccupied === true && availability.reason === 'blocked')) {
             return { created: false, reason: availability.reason };
         }
-        const tileIndex = availability.tileIndex;
+        const tileIndex = availability.tileIndex >= 0 ? availability.tileIndex : this.toTileIndex(normalizedX, normalizedY);
         const existingTemporary = this.temporaryTileByTile.get(tileIndex);
         const hp = Math.max(1, Math.min(Number.MAX_SAFE_INTEGER, Math.round(Number(maxHp) || 1)));
         const nowTick = Math.max(0, Math.trunc(Number(currentTick) || this.tick || 0));
@@ -4340,6 +4350,22 @@ class MapInstanceRuntime {
         }
         this.persistentRevision += 1;
         return { created: true, refreshed: Boolean(existingTemporary), tileIndex };
+    }
+    /** applyRuntimeTerrainArea：将实例范围覆盖为临时地形，供副本 Boss 的全图地形技能使用。 */
+    applyRuntimeTerrainArea(tileType, durationTicks, currentTick = this.tick, options: any = {}) {
+        const createdCells = [];
+        for (let y = 0; y < this.template.height; y += 1) {
+            for (let x = 0; x < this.template.width; x += 1) {
+                const result = this.createTemporaryTile(x, y, tileType, Number.MAX_SAFE_INTEGER, durationTicks, currentTick, {
+                    ...options,
+                    allowOccupied: true,
+                });
+                if (result.created) {
+                    createdCells.push({ x, y });
+                }
+            }
+        }
+        return { created: createdCells.length, cells: createdCells };
     }
     /** canCreateTemporaryTile：判断指定坐标是否允许生成临时地块。 */
     canCreateTemporaryTile(x, y) {
@@ -5229,7 +5255,7 @@ class MapInstanceRuntime {
         return snapshotNpc(npc);
     }
     /** applyDamageToMonster：对妖兽应用伤害并检查击败结果。 */
-    applyDamageToMonster(runtimeId, amount, attackerPlayerId) {
+    applyDamageToMonster(runtimeId, amount, attackerPlayerId, damageElement = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const monster = this.monstersByRuntimeId.get(runtimeId);
@@ -5257,6 +5283,7 @@ class MapInstanceRuntime {
             }
         }
         monster.hp = Math.max(0, monster.hp - appliedDamage);
+        this.applyFivePhaseDamageReaction(monster, damageElement);
 
         const defeated = monster.hp <= 0;
         if (defeated) {
@@ -5271,6 +5298,90 @@ class MapInstanceRuntime {
             appliedDamage,
             defeated,
         };
+    }
+    /** applyFivePhaseDamageReaction：处理副本脉兽的五行噬脉与低血量五行归元。 */
+    applyFivePhaseDamageReaction(monster, damageElement) {
+        if (!monster) {
+            return;
+        }
+        if (FIVE_PHASE_ELEMENTS.has(damageElement)) {
+            const buffId = FIVE_PHASE_DAMAGE_REDUCTION_BUFF_IDS[damageElement];
+            const existing = monster.buffs.find((entry) => entry.buffId === buffId);
+            if (existing) {
+                existing.stacks = Math.min(Number.MAX_SAFE_INTEGER, Math.max(0, Math.round(Number(existing.stacks) || 0)) + 1);
+                existing.maxStacks = Number.MAX_SAFE_INTEGER;
+                existing.remainingTicks = 30;
+                existing.duration = 30;
+            }
+            else {
+                monster.buffs.push(createRuntimeTemporaryBuff({
+                    buffId,
+                    name: `${damageElement}行噬脉减伤`,
+                    desc: '五行噬脉：受到对应五行伤害时叠加，持续三十息。',
+                    shortMark: '御',
+                    category: 'buff',
+                    visibility: 'public',
+                    remainingTicks: 30,
+                    duration: 30,
+                    stacks: 1,
+                    maxStacks: Number.MAX_SAFE_INTEGER,
+                    sourceSkillId: 'skill.dungeon_fivephase_devour_passive',
+                    sourceSkillName: '五行噬脉',
+                    stats: { elementDamageReduce: { [damageElement]: 1 } },
+                    statMode: 'flat',
+                }));
+                monster.buffs.sort((left, right) => String(left.buffId ?? '').localeCompare(String(right.buffId ?? ''), 'zh-Hans-CN'));
+            }
+            recalculateMonsterDerivedState(monster);
+        }
+        this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
+        this.worldRevision += 1;
+
+        const hpRatio = monster.maxHp > 0 ? monster.hp / monster.maxHp : 0;
+        const hasOriginBuff = monster.buffs.some((entry) => entry.buffId === FIVE_PHASE_ORIGIN_BUFF_ID && isRuntimeBuffActive(entry));
+        if (hpRatio > 0.3 || hasOriginBuff) {
+            return;
+        }
+        const totalReductionStacks = ELEMENT_KEYS.reduce((sum, element) => {
+            const reductionBuff = monster.buffs.find((entry) => entry.buffId === FIVE_PHASE_DAMAGE_REDUCTION_BUFF_IDS[element]);
+            return sum + Math.max(0, Math.round(Number(reductionBuff?.stacks) || 0));
+        }, 0);
+        const originStacks = 1 + totalReductionStacks;
+        const allCombatStats = {
+            maxHp: 1,
+            maxQi: 1,
+            maxQiOutputPerTick: 1,
+            physAtk: 1,
+            spellAtk: 1,
+            physDef: 1,
+            spellDef: 1,
+            hit: 1,
+            dodge: 1,
+            crit: 1,
+            antiCrit: 1,
+            breakPower: 1,
+            resolvePower: 1,
+        };
+        monster.buffs.push(createRuntimeTemporaryBuff({
+            buffId: FIVE_PHASE_ORIGIN_BUFF_ID,
+            name: '五行归元',
+            desc: '生命低于百分之三十时触发；每层提升全战斗属性百分之一，持续九百九十九息。',
+            shortMark: '元',
+            category: 'buff',
+            visibility: 'public',
+            remainingTicks: 1000,
+            duration: 999,
+            stacks: originStacks,
+            maxStacks: Number.MAX_SAFE_INTEGER,
+            sourceSkillId: 'skill.dungeon_fivephase_origin_passive',
+            sourceSkillName: '五行归元',
+            stats: allCombatStats,
+            statMode: 'percent',
+        }));
+        monster.buffs.sort((left, right) => String(left.buffId ?? '').localeCompare(String(right.buffId ?? ''), 'zh-Hans-CN'));
+        recalculateMonsterDerivedState(monster);
+        this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
+        this.worldRevision += 1;
     }
     /** applyTemporaryBuffToMonster：给妖兽应用临时 Buff。 */
     applyTemporaryBuffToMonster(runtimeId, buff, options = undefined) {
@@ -8952,7 +9063,7 @@ class MapInstanceRuntime {
             if (!this.isMonsterWithinWanderRange(monster, nextX, nextY)) {
                 continue;
             }
-            if (!this.isOpenTile(nextX, nextY)) {
+            if (!this.isMonsterOpenTile(monster, nextX, nextY)) {
                 continue;
             }
             const previousX = monster.x;
@@ -8974,7 +9085,7 @@ class MapInstanceRuntime {
 
         const next = chooseMonsterStep(monster.x, monster.y, targetX, targetY);
         for (const candidate of next) {
-            if (!this.isOpenTile(candidate.x, candidate.y)) {
+            if (!this.isMonsterOpenTile(monster, candidate.x, candidate.y)) {
                 continue;
             }
             const nextFacing = horizontalFacingFromTo(monster.x, monster.y, candidate.x, candidate.y, monster.facing);
@@ -8990,6 +9101,24 @@ class MapInstanceRuntime {
             return true;
         }
         return false;
+    }
+    /** isMonsterOpenTile：御空期间允许妖兽穿越静态不可行走地形，但仍遵守边界、动态阻挡和占位。 */
+    isMonsterOpenTile(monster, x, y) {
+        if (!this.isInBounds(x, y) || this.isDynamicallyBlockedTile(x, y)) {
+            return false;
+        }
+        const tileIndex = this.toTileIndex(x, y);
+        if (this.npcIdByTile.has(tileIndex) || this.monsterRuntimeIdByTile.has(tileIndex)) {
+            return false;
+        }
+        if (this.occupancy[tileIndex] !== INVALID_OCCUPANCY) {
+            return false;
+        }
+        if (this.isCellIndexWalkable(tileIndex)) {
+            return true;
+        }
+        return Array.isArray(monster?.buffs)
+            && monster.buffs.some((buff) => buff?.buffId === FIVE_PHASE_YUKONG_BUFF_ID && isRuntimeBuffActive(buff));
     }
 }
 export { MapInstanceRuntime };
@@ -10089,6 +10218,9 @@ function pickFirstCastableMonsterSkill(monster, target, distance, currentTick, s
     return null;
 }
 function canMonsterCastSkill(monster, skill, target, distance, currentTick) {
+    if (skill?.active === false) {
+        return false;
+    }
     if (!matchesMonsterSkillConditions(monster, skill)) {
         return false;
     }

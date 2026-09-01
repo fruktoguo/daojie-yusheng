@@ -135,7 +135,7 @@ export function createMonsterOutcomeApplyAdapter(handlers: OutcomeHandlers = {})
     if (targetMonsterId && damage >= 0) {
       applied = handlers.applyMonsterDamage?.({ runtimeId: targetMonsterId, damage, attackerId: outcome?.actor?.id, outcome, result, application, deps, instance });
       if (applied === null || applied === undefined) {
-        applied = instance?.applyDamageToMonster?.(targetMonsterId, damage, outcome?.actor?.id);
+        applied = instance?.applyDamageToMonster?.(targetMonsterId, damage, outcome?.actor?.id, result?.element ?? result?.damageElement);
       }
     }
     // 应用 buff 到怪物
