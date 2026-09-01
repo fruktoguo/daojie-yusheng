@@ -924,8 +924,8 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
       options.runtimeStateSource.handleBootstrap(data);
       options.connectionStateSource.handleBootstrapReady();
       options.loginUI.hide();
-      options.socket.emitEvent(C2S.RequestDungeonCatalog, {});
       completeOfflineGainBlockingConfirmation();
+      options.socket.emitEvent(C2S.RequestDungeonCatalog, {});
     },
     onInitSession: (data) => options.runtimeStateSource.handleInitSession(data),
     onMapEnter: (data) => options.runtimeStateSource.handleMapEnter(data),

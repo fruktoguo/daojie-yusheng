@@ -9,9 +9,9 @@
  */
 
 import { AttrKey, NumericScalarStatKey, SkillDef, SkillFormula, SkillFormulaVar, TemporaryBuffState, calcQiCostWithOutputLimit, formatBuffMaxStacks, resolveSkillPlayerWindupTicks } from '@mud/shared';
-import type { PlayerState } from '@mud/shared';
+import type { PlayerState, TileType } from '@mud/shared';
 import { FORMULA_VAR_LABELS, FORMULA_VAR_META, type SkillScalingMeta } from '../constants/ui/skill-tooltip';
-import { getElementKeyLabel } from '../domain-labels';
+import { getElementKeyLabel, getTileTypeLabel } from '../domain-labels';
 import { getLocalBuffTemplate, resolvePreviewSkill, resolvePreviewSkills } from '../content/local-templates';
 import { describePreviewBonuses } from './stat-preview';
 import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../utils/number';
@@ -1129,6 +1129,31 @@ export function buildSkillTooltipContent(skill: SkillDef, context: SkillTooltipP
     if (effect.type === 'temporary_tile') {
       lines.push(renderLabelLine(t('skill-tooltip.label.temporary-tile', undefined), t('skill-tooltip.temporary-tile.stone', { duration: formatDisplayInteger(effect.durationTicks) })));
       lines.push(renderLabelLine(t('skill-tooltip.label.tile-hp', undefined), formatDamageFormula(effect.hpFormula, context, 'spell')));
+      continue;
+    }
+    if (effect.type === 'instance_terrain') {
+      const tileLabel = getTileTypeLabel(effect.tileType as TileType, effect.tileType);
+      lines.push(renderPlainLine(t('skill-tooltip.label.instance-terrain', undefined), t('skill-tooltip.instance-terrain.value', {
+        tileType: tileLabel,
+        duration: formatDisplayInteger(effect.durationTicks),
+      })));
+      continue;
+    }
+    if (effect.type === 'random_buff') {
+      const targetLabel = effect.target === 'target'
+        ? t('skill-tooltip.target.enemy', undefined)
+        : effect.target === 'allies'
+          ? t('skill-tooltip.target.allies', undefined)
+          : t('skill-tooltip.target.self', undefined);
+      const candidateNames = effect.buffs.map((buff) => buff.name).join('、');
+      lines.push(renderPlainLine(t('skill-tooltip.label.random-buff', undefined), t('skill-tooltip.random-buff.value', {
+        target: targetLabel,
+        count: formatDisplayInteger(effect.buffs.length),
+        candidates: candidateNames,
+      })));
+      continue;
+    }
+    if (effect.type !== 'cleanse') {
       continue;
     }
     const targetLabel = effect.target === 'target' ? t('skill-tooltip.target.enemy', undefined) : t('skill-tooltip.target.self', undefined);

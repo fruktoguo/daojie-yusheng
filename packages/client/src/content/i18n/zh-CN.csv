@@ -792,18 +792,22 @@ skill-tooltip.formula.clamp,技能提示,限制({parts}),范围D固定前端可�
 skill-tooltip.heal.allies,技能提示,友方治疗,范围D固定前端可见文本
 skill-tooltip.heal.self,技能提示,自身治疗,范围D固定前端可见文本
 skill-tooltip.heal.target,技能提示,目标治疗,范围D固定前端可见文本
+skill-tooltip.instance-terrain.value,技能提示,覆盖为{tileType}，持续 {duration} 息,范围D固定前端可见文本
 skill-tooltip.label-line.effect,技能提示,效果：{value},范围D固定前端可见文本
 skill-tooltip.label.chant,技能提示,吟唱,范围D固定前端可见文本
 skill-tooltip.label.cleanse,技能提示,净化,范围D固定前端可见文本
 skill-tooltip.label.cooldown,技能提示,冷却,范围D固定前端可见文本
 skill-tooltip.label.effect,技能提示,效果,范围D固定前端可见文本
+skill-tooltip.label.instance-terrain,技能提示,实例地形,范围D固定前端可见文本
 skill-tooltip.label.qi-cost,技能提示,灵力消耗,范围D固定前端可见文本
+skill-tooltip.label.random-buff,技能提示,随机状态,范围D固定前端可见文本
 skill-tooltip.label.range,技能提示,施法距离,范围D固定前端可见文本
 skill-tooltip.label.targeting,技能提示,作用方式,范围D固定前端可见文本
 skill-tooltip.label.temporary-tile,技能提示,临时地块,范围D固定前端可见文本
 skill-tooltip.label.tile-hp,技能提示,地块生命,范围D固定前端可见文本
 skill-tooltip.label.unlock-level,技能提示,解锁层数,范围D固定前端可见文本
 skill-tooltip.note.combat-resolution,技能提示,实际结算仍会受命中、闪避、破招、化解、暴击与目标防御影响。,范围D固定前端可见文本
+skill-tooltip.random-buff.value,技能提示,对{target}随机施加 1 个状态（候选 {count} 个：{candidates}）,范围D固定前端可见文本
 skill-tooltip.target.allies,技能提示,友方,范围D固定前端可见文本
 skill-tooltip.target.enemy,技能提示,目标,范围D固定前端可见文本
 skill-tooltip.target.self,技能提示,自身,范围D固定前端可见文本
