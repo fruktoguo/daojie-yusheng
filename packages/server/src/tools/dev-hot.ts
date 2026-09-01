@@ -372,6 +372,7 @@ const handleWatcherText = (text: string) => {
         restartDebounceMs > 0 ? `（防抖 ${restartDebounceMs}ms）` : ""
       }`,
     );
+    startServer();
     return;
   }
   scheduleDebouncedRestart("检测到源码编译完成");
@@ -397,4 +398,4 @@ tscWatcher.on("exit", (code, signal) => {
 process.on("SIGINT", () => shutdown(tscWatcher));
 process.on("SIGTERM", () => shutdown(tscWatcher));
 
-startServer();
+log("等待 TypeScript 首轮编译完成后启动 server...");
