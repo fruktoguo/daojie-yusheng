@@ -1,5 +1,61 @@
 [
   {
+    "itemId": "book.passive_craft_qi_yellow_alchemy",
+    "name": "《灵火调药诀》",
+    "type": "skill_book",
+    "desc": "记载灵火调药诀的修行法门，使用后学会灵火调药诀。",
+    "learnTechniqueId": "passive_craft_qi_yellow_alchemy"
+  },
+  {
+    "itemId": "book.passive_craft_qi_yellow_forging",
+    "name": "《火精锻金诀》",
+    "type": "skill_book",
+    "desc": "记载火精锻金诀的修行法门，使用后学会火精锻金诀。",
+    "learnTechniqueId": "passive_craft_qi_yellow_forging"
+  },
+  {
+    "itemId": "book.passive_craft_qi_yellow_enhancement",
+    "name": "《淬灵附煞诀》",
+    "type": "skill_book",
+    "desc": "记载淬灵附煞诀的修行法门，使用后学会淬灵附煞诀。",
+    "learnTechniqueId": "passive_craft_qi_yellow_enhancement"
+  },
+  {
+    "itemId": "book.passive_craft_qi_yellow_mining",
+    "name": "《地脉寻金诀》",
+    "type": "skill_book",
+    "desc": "记载地脉寻金诀的修行法门，使用后学会地脉寻金诀。",
+    "learnTechniqueId": "passive_craft_qi_yellow_mining"
+  },
+  {
+    "itemId": "book.passive_craft_qi_yellow_gather",
+    "name": "《青灵采撷诀》",
+    "type": "skill_book",
+    "desc": "记载青灵采撷诀的修行法门，使用后学会青灵采撷诀。",
+    "learnTechniqueId": "passive_craft_qi_yellow_gather"
+  },
+  {
+    "itemId": "book.passive_craft_qi_yellow_building",
+    "name": "《理气筑基诀》",
+    "type": "skill_book",
+    "desc": "记载理气筑基诀的修行法门，使用后学会理气筑基诀。",
+    "learnTechniqueId": "passive_craft_qi_yellow_building"
+  },
+  {
+    "itemId": "book.passive_craft_qi_yellow_formation",
+    "name": "《走盘引阵诀》",
+    "type": "skill_book",
+    "desc": "记载走盘引阵诀的修行法门，使用后学会走盘引阵诀。",
+    "learnTechniqueId": "passive_craft_qi_yellow_formation"
+  },
+  {
+    "itemId": "book.passive_craft_qi_yellow_transmission",
+    "name": "《口传心授诀》",
+    "type": "skill_book",
+    "desc": "记载口传心授诀的修行法门，使用后学会口传心授诀。",
+    "learnTechniqueId": "passive_craft_qi_yellow_transmission"
+  },
+  {
     "itemId": "book.genghua_ningfeng",
     "name": "《庚华凝锋诀》",
     "type": "skill_book",

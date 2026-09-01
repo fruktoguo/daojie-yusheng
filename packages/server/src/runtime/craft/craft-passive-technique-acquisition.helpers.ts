@@ -2,12 +2,11 @@
  * 技艺行动完成时的被动功法获取规则。
  *
  * 被动功法模板在启动期已由 ContentTemplateRepository 解析；这里仅建立一次按技艺和品阶
- * 的索引，tick 中使用原始行动时长反推概率，并把命中的功法作为可交易的通用功法书入包。
+ * 的索引，tick 中使用原始行动时长反推概率，并把命中的标准功法书入包。
  */
 import {
   CRAFT_SKILL_EXP_TICK_DIVISOR,
   computeLuckSuccessRateBonus,
-  CUSTOM_TECHNIQUE_BOOK_ITEM_ID,
   TECHNIQUE_GRADE_ORDER,
   type CraftEffectSkillKind,
   type TechniqueActivityNoticeMessage,
@@ -26,9 +25,9 @@ type CraftPassiveGrade = typeof CRAFT_PASSIVE_GRADES[number];
 
 type CraftPassiveCandidate = {
   id: string;
+  bookItemId: string;
   name: string;
   grade: CraftPassiveGrade;
-  realmLv: number;
 };
 
 type TechniqueTemplateRepositoryPort = {
@@ -171,7 +170,6 @@ function getCraftPassiveIndex(
     const id = normalizeText(template?.id);
     const name = normalizeText(template?.name);
     if (!grade || !id || !name) continue;
-    const realmLv = Math.max(1, Math.floor(Number(template?.realmLv) || 1));
     for (const skill of asRecordArray(template?.skills)) {
       if (skill.active !== false) continue;
       for (const passiveEffect of asRecordArray(skill.passiveEffects)) {
@@ -184,7 +182,12 @@ function getCraftPassiveIndex(
             index.set(activityKind, byGrade);
           }
           if (!byGrade.has(grade)) {
-            byGrade.set(grade, { id, name, grade, realmLv });
+            byGrade.set(grade, {
+              id,
+              bookItemId: `book.${id}`,
+              name,
+              grade,
+            });
           }
         }
       }
@@ -201,18 +204,16 @@ function createCraftPassiveTechniqueBook(
   candidate: CraftPassiveCandidate,
 ): Record<string, unknown> {
   const template = typeof repository.createItem === 'function'
-    ? repository.createItem(CUSTOM_TECHNIQUE_BOOK_ITEM_ID, 1)
+    ? repository.createItem(candidate.bookItemId, 1)
     : null;
   const book: Record<string, unknown> = {
     ...(template ?? {}),
-    itemId: CUSTOM_TECHNIQUE_BOOK_ITEM_ID,
+    itemId: candidate.bookItemId,
     count: 1,
     type: 'skill_book',
     name: candidate.name,
     desc: `记载${candidate.name}，使用后可开始参悟。`,
     learnTechniqueId: candidate.id,
-    grade: candidate.grade,
-    level: candidate.realmLv,
   };
   const normalized = typeof repository.normalizeItem === 'function' ? repository.normalizeItem(book) : book;
   return normalized && typeof normalized === 'object' ? normalized as Record<string, unknown> : book;

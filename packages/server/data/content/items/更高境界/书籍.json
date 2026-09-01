@@ -1,5 +1,61 @@
 [
   {
+    "itemId": "book.passive_craft_foundation_mystic_alchemy",
+    "name": "《真元凝丹录》",
+    "type": "skill_book",
+    "desc": "记载真元凝丹录的修行法门，使用后学会真元凝丹录。",
+    "learnTechniqueId": "passive_craft_foundation_mystic_alchemy"
+  },
+  {
+    "itemId": "book.passive_craft_foundation_mystic_forging",
+    "name": "《千锤融灵录》",
+    "type": "skill_book",
+    "desc": "记载千锤融灵录的修行法门，使用后学会千锤融灵录。",
+    "learnTechniqueId": "passive_craft_foundation_mystic_forging"
+  },
+  {
+    "itemId": "book.passive_craft_foundation_mystic_enhancement",
+    "name": "《注灵凝纹录》",
+    "type": "skill_book",
+    "desc": "记载注灵凝纹录的修行法门，使用后学会注灵凝纹录。",
+    "learnTechniqueId": "passive_craft_foundation_mystic_enhancement"
+  },
+  {
+    "itemId": "book.passive_craft_foundation_mystic_mining",
+    "name": "《分岳探脉录》",
+    "type": "skill_book",
+    "desc": "记载分岳探脉录的修行法门，使用后学会分岳探脉录。",
+    "learnTechniqueId": "passive_craft_foundation_mystic_mining"
+  },
+  {
+    "itemId": "book.passive_craft_foundation_mystic_gather",
+    "name": "《灵植引脉录》",
+    "type": "skill_book",
+    "desc": "记载灵植引脉录的修行法门，使用后学会灵植引脉录。",
+    "learnTechniqueId": "passive_craft_foundation_mystic_gather"
+  },
+  {
+    "itemId": "book.passive_craft_foundation_mystic_building",
+    "name": "《移山架阁录》",
+    "type": "skill_book",
+    "desc": "记载移山架阁录的修行法门，使用后学会移山架阁录。",
+    "learnTechniqueId": "passive_craft_foundation_mystic_building"
+  },
+  {
+    "itemId": "book.passive_craft_foundation_mystic_formation",
+    "name": "《锁灵定脉录》",
+    "type": "skill_book",
+    "desc": "记载锁灵定脉录的修行法门，使用后学会锁灵定脉录。",
+    "learnTechniqueId": "passive_craft_foundation_mystic_formation"
+  },
+  {
+    "itemId": "book.passive_craft_foundation_mystic_transmission",
+    "name": "《神念化法录》",
+    "type": "skill_book",
+    "desc": "记载神念化法录的修行法门，使用后学会神念化法录。",
+    "learnTechniqueId": "passive_craft_foundation_mystic_transmission"
+  },
+  {
     "itemId": "book.ningqi_chengji",
     "name": "《凝气成基法》",
     "type": "skill_book",
