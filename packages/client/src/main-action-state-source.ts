@@ -157,7 +157,7 @@ const TECHNIQUE_ACTIVITY_ACTIONS = {
 
 export function createMainActionStateSource(options: MainActionStateSourceOptions) {
   options.actionPanel.setCallbacks(
-    (actionId, requiresTarget, targetMode, range, actionName) => {
+    (actionId, requiresTarget, targetMode, range, actionName, actionDungeonId) => {
       const displayActionName = actionName?.trim() || '未知行动';
       if (actionId === 'loot:open') {
         options.beginTargeting(actionId, displayActionName, targetMode, range ?? 1);
@@ -199,7 +199,7 @@ export function createMainActionStateSource(options: MainActionStateSourceOption
         options.hideObserveModal();
         const dungeonId = actionId.startsWith('dungeon:open:')
           ? actionId.slice('dungeon:open:'.length)
-          : options.getCurrentActionDef(actionId)?.dungeonId;
+          : actionDungeonId?.trim() || options.getCurrentActionDef(actionId)?.dungeonId;
         options.openDungeonPanel(dungeonId?.trim() || undefined);
         return;
       }

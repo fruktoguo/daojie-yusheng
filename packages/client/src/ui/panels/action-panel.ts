@@ -221,7 +221,7 @@ export class ActionPanel {
   /** 缓存出手力度控制条 DOM，避免频繁全量 re-render 破坏 SVG 及 CSS 关键帧动画的连贯性 */
   private cachedAttackIntensityEl: HTMLElement | null = null;
   /** 执行动作的外部回调，由战斗/交互层接手真正执行。 */
-  private onAction: ((actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string) => void) | null = null;
+  private onAction: ((actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string, dungeonId?: string) => void) | null = null;
   /** 同步自动战斗技能配置的外部回调，保存顺位和开关状态。 */
   private onUpdateAutoBattleSkills: ((skills: AutoBattleSkillConfig[]) => void) | null = null;
   /** 同步自动吃药配置。 */
@@ -400,14 +400,14 @@ export class ActionPanel {
   }  
   /**
  * setCallbacks：写入Callback。
- * @param onAction (actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string) => void 参数说明。
+ * @param onAction (actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string, dungeonId?: string) => void 参数说明。
  * @param onUpdateAutoBattleSkills (skills: AutoBattleSkillConfig[]) => void 参数说明。
  * @returns 无返回值，直接更新Callback相关状态。
  */
 
 
   setCallbacks(
-    onAction: (actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string) => void,
+    onAction: (actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string, dungeonId?: string) => void,
     onUpdateAutoBattleSkills?: (skills: AutoBattleSkillConfig[]) => void,
     onUpdateAutoUsePills?: (pills: AutoUsePillConfig[]) => void,
     onUpdateCombatTargetingRules?: (rules: CombatTargetingRules) => void,
@@ -1059,7 +1059,7 @@ export class ActionPanel {
     if (!action || action.cooldownLeft > 0) return;
     if (action.type === 'skill' && (action.skillEnabled === false || action.passiveOnly === true)) return;
     event.preventDefault();
-    this.onAction?.(action.id, action.requiresTarget, action.targetMode, action.range, action.name);
+    this.onAction?.(action.id, action.requiresTarget, action.targetMode, action.range, action.name, action.dungeonId);
   }
 
   /** 快捷键允许命中当前动作列表，也允许命中客户端稳定静态入口。 */
@@ -2019,7 +2019,7 @@ export class ActionPanel {
         if (action && action.cooldownLeft > 0) {
           return;
         }
-        this.onAction?.(actionId, action?.requiresTarget, action?.targetMode, action?.range, action?.name?.trim() || '未知行动');
+        this.onAction?.(actionId, action?.requiresTarget, action?.targetMode, action?.range, action?.name?.trim() || '未知行动', action?.dungeonId);
       }, { signal });
     });
   }
@@ -2040,7 +2040,8 @@ export class ActionPanel {
         const targetMode = button.dataset.actionTargetMode || undefined;
         const rangeText = button.dataset.actionRange;
         const range = rangeText ? Number(rangeText) : undefined;
-        this.onAction?.(actionId, requiresTarget, targetMode, Number.isFinite(range) ? range : undefined, actionName);
+        const action = this.currentActions.find((entry) => entry.id === actionId);
+        this.onAction?.(actionId, requiresTarget, targetMode, Number.isFinite(range) ? range : undefined, actionName, action?.dungeonId);
       }, { signal });
     });
   }

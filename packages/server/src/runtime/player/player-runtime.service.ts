@@ -12203,7 +12203,8 @@ function isSameActionEntry(left, right) {
         && left.autoBattleEnabled === right.autoBattleEnabled
         && left.autoBattleOrder === right.autoBattleOrder
         && left.skillEnabled === right.skillEnabled
-        && left.passiveOnly === right.passiveOnly;
+        && left.passiveOnly === right.passiveOnly
+        && left.dungeonId === right.dungeonId;
 }
 /**
  * normalizePersistedAutoBattleSkills：判断PersistedAutoBattle技能是否满足条件。

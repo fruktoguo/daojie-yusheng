@@ -542,7 +542,8 @@ export function isSameActionEntry(left: ProjectedActionEntry | null | undefined,
         && left.autoBattleEnabled === right.autoBattleEnabled
         && left.autoBattleOrder === right.autoBattleOrder
         && left.skillEnabled === right.skillEnabled
-        && left.passiveOnly === right.passiveOnly;
+        && left.passiveOnly === right.passiveOnly
+        && left.dungeonId === right.dungeonId;
 }
 
 export function isSameActionOrder(previous: ProjectedActionEntry[], current: ProjectedActionEntry[]): boolean {
