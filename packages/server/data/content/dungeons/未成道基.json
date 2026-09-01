@@ -1,0 +1,38 @@
+{
+  "id": "dungeon_failed_foundation",
+  "name": "未成道基",
+  "description": "进入独立道基试炼场，击败未成道基后结算。",
+  "flowType": "suppress_demon",
+  "controllerId": "dungeon_failed_foundation",
+  "mapTemplateId": "dungeon_failed_foundation_instance",
+  "maxPartyMembers": 5,
+  "entryMapTemplateId": "ruined_cavern_manor",
+  "entryX": 2,
+  "entryY": 9,
+  "entryExitRadius": 2,
+  "confirmationTimeoutMs": 60000,
+  "timeoutSeconds": 3600,
+  "difficulty": {
+    "maxPresentRank": "earth",
+    "energyCost": {
+      "trial": 4,
+      "hard": 8,
+      "nightmare": 12,
+      "present": 24
+    }
+  },
+  "rooms": [
+    {
+      "roomId": "room_01",
+      "mapTemplateId": "dungeon_failed_foundation_instance",
+      "spawnX": 10,
+      "spawnY": 10,
+      "bossId": "m_guizang_failed_foundation",
+      "clearCondition": "boss_defeated"
+    }
+  ],
+  "rewards": {
+    "rewardTableId": "dungeon_failed_foundation_clear",
+    "ratingEnabled": false
+  }
+}

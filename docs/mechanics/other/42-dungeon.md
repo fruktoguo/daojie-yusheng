@@ -67,3 +67,13 @@
 - 所有难度和阶位只做属性增幅，不追加技能、特性或词缀。
 - 房间生成机制封界阵，阵法灵力为 Boss 有效最大生命值的 100 倍。
 - Boss 被击杀或封界阵被拆毁均立即通关，弹出结算菜单；结算后玩家走到入口附近撤离，实例随后销毁。
+
+## 新增单房间副本
+
+以下副本沿用 `suppress_demon` 单房间流程，技能和掉落直接读取对应公开世界 Boss 模板的默认配置，不额外追加副本专属技能或奖励：
+
+- `dungeon_fallen_palace_lord`：18 级天穹残宫 Boss「坠星宫主」，副本地图 `dungeon_fallen_palace_lord_instance`。
+- `dungeon_failed_foundation`：30 级归藏脉窟 Boss「未成道基」，副本地图 `dungeon_failed_foundation_instance`。
+- `dungeon_fivephase_devourer`：42 级玄壤深渊 Boss「五行噬脉兽」，副本地图 `dungeon_fivephase_devourer_instance`。
+
+三个副本地图均为 20×20 全部空地，Boss 固定生成在 `(10,10)`，玩家出生点为 `(10,18)`（Boss 正下方 8 格、距下边界约 2 格），副本内忆梦石位于 `(8,18)`，用于通关后的撤离。
