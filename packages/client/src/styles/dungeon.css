@@ -64,6 +64,7 @@
 .dungeon-entry-member__ready { display: flex; align-items: center; gap: 5px; margin-top: auto; }
 .dungeon-entry-member__status { font-size: 11px; color: #64748b; }
 .dungeon-entry-member:has(input:checked) .dungeon-entry-member__status { color: #15803d; }
+.dungeon-entry-member__status.is-rejected { color: var(--danger, #b84a3a); font-size: 20px; font-weight: 800; line-height: 1; }
 .dungeon-entry-preparation__status { margin-top: 10px; font-weight: 700; color: #b45309; }
 .dungeon-entry-preparation__hint { margin-top: 4px; color: color-mix(in srgb, currentColor 62%, transparent); font-size: 11px; }
 

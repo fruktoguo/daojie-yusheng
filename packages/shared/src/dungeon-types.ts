@@ -314,6 +314,8 @@ export interface C2S_StartDungeonEntry {
 export interface C2S_RespondDungeonEntry {
   runId: string;
   confirm: boolean;
+  /** 仅关闭准备弹窗确认拒绝时传入；普通取消准备仍只更新 ready 状态。 */
+  reject?: boolean;
 }
 export interface DungeonEntryPreparationMember {
   playerId: string;
@@ -324,6 +326,8 @@ export interface DungeonEntryPreparationMember {
   displayName?: string;
   imageUrl?: string;
   ready: boolean;
+  /** 已明确拒绝进入；该状态会在准备界面展示为 ×，直到本次准备结束。 */
+  rejected?: boolean;
 }
 export interface C2S_ExitDungeon { runId?: string; }
 export interface S2C_DungeonCatalog { dungeons: DungeonDefinition[]; stamina: DungeonStaminaView; activeRun?: DungeonRunState; }
@@ -339,6 +343,8 @@ export interface S2C_DungeonEntryPrompt {
   phase: 'preparing' | 'countdown';
   members: DungeonEntryPreparationMember[];
   enterAt?: number;
+  /** 有成员拒绝时，准备弹窗在该时间点自动关闭。 */
+  rejectAt?: number;
 }
 export interface S2C_DungeonEntryResult {
   ok: boolean;

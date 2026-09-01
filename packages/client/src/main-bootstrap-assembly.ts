@@ -4,7 +4,7 @@
  * 维护时要把用户意图、显示派生和服务端权威数据分清，避免为了展示便利复制业务规则。
  */
 import { MAX_ZOOM, MIN_ZOOM } from './display';
-import { C2S, S2C, TECHNIQUE_GRADE_ORDER } from '@mud/shared';
+import { C2S, DUNGEON_ENTRY_REJECTION_DELAY_MS, S2C, TECHNIQUE_GRADE_ORDER } from '@mud/shared';
 import type { ActionDef, PlayerState, TechniqueCategory, TechniqueGrade } from '@mud/shared';
 import type { SocketManager } from './network/socket';
 import type { LoginUI } from './ui/login';
@@ -632,10 +632,26 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
 
   options.socket.on(S2C.DungeonEntryPrompt, (prompt) => {
     const ownerId = `dungeon-entry:${prompt.runId}`;
+    const rejectConfirmOwnerId = `dungeon-entry-reject:${prompt.runId}`;
     const escape = (value: unknown): string => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     const difficultyLabels: Record<string, string> = { trial: '试炼', hard: '困难', nightmare: '噩梦', present: '现世' };
     const rankLabels: Record<string, string> = { mortal: '凡阶', yellow: '黄阶', mystic: '玄阶', earth: '地阶', heaven: '天阶', spirit: '灵阶', saint: '圣阶', emperor: '帝阶' };
     const currentPlayerId = options.getPlayer()?.id ?? '';
+    const requestPreparationClose = (): boolean => {
+      if (prompt.rejectAt || prompt.members?.some((member) => member.rejected)) return false;
+      if (confirmModalHost.isOpenFor(rejectConfirmOwnerId)) return false;
+      confirmModalHost.open({
+        ownerId: rejectConfirmOwnerId,
+        title: '拒绝进入副本？',
+        subtitle: `副本·${prompt.dungeonName}`,
+        bodyHtml: `<div class="empty-hint compact">确认拒绝后，本次准备将在 ${DUNGEON_ENTRY_REJECTION_DELAY_MS / 1000} 秒后结束，队伍需要重新发起。</div>`,
+        cancelLabel: '继续准备',
+        confirmLabel: '确认拒绝',
+        confirmButtonClass: 'danger',
+        onConfirm: () => options.socket.emitEvent(C2S.RespondDungeonEntry, { runId: prompt.runId, confirm: false, reject: true }),
+      });
+      return false;
+    };
     const renderPreparation = (body: HTMLElement, signal: AbortSignal): void => {
       const members = prompt.members ?? [];
       body.innerHTML = `<div class="dungeon-entry-preparation"><div class="confirm-summary-list"><div><span>难度</span><strong>${escape(prompt.difficulty === 'present' ? `${difficultyLabels.present} · ${rankLabels[prompt.presentRank] ?? prompt.presentRank}` : (difficultyLabels[prompt.difficulty] ?? prompt.difficulty))}</strong></div><div><span>精力消耗</span><strong>${formatDisplayInteger(prompt.staminaCost)}</strong></div></div><div class="dungeon-entry-members">${members.map((member) => {
@@ -644,7 +660,10 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
         const self = member.playerId === currentPlayerId;
         const imageUrl = typeof member.imageUrl === 'string' && /^(https?:\/\/|\/|data:image\/)/i.test(member.imageUrl) ? member.imageUrl : '';
         const avatar = imageUrl ? `<img src="${escape(imageUrl)}" alt="${escape(member.name)}" loading="lazy" />` : `<span>${escape(avatarText)}</span>`;
-        return `<label class="dungeon-entry-member"><div class="dungeon-entry-member__avatar">${avatar}</div><div class="dungeon-entry-member__name">${escape(member.name || '无名')}</div><div class="dungeon-entry-member__realm">${escape(realm)}</div><div class="dungeon-entry-member__ready"><input type="checkbox" data-dungeon-ready="${escape(member.playerId)}" ${member.ready ? 'checked' : ''} ${self ? '' : 'disabled'} /><span class="dungeon-entry-member__status">${member.ready ? '已准备' : '未准备'}</span></div></label>`;
+        const status = member.rejected ? '×' : member.ready ? '已准备' : '未准备';
+        const statusClass = member.rejected ? ' is-rejected' : '';
+        const disabled = self && !member.rejected ? '' : 'disabled';
+        return `<label class="dungeon-entry-member"><div class="dungeon-entry-member__avatar">${avatar}</div><div class="dungeon-entry-member__name">${escape(member.name || '无名')}</div><div class="dungeon-entry-member__realm">${escape(realm)}</div><div class="dungeon-entry-member__ready"><input type="checkbox" data-dungeon-ready="${escape(member.playerId)}" ${member.ready ? 'checked' : ''} ${disabled} /><span class="dungeon-entry-member__status${statusClass}">${status}</span></div></label>`;
       }).join('')}</div><div class="dungeon-entry-preparation__status">${prompt.phase === 'countdown' && prompt.enterAt ? `全员准备，${Math.max(0, Math.ceil((prompt.enterAt - Date.now()) / 1000))} 秒后进入` : '请确认是否准备'}</div><div class="dungeon-entry-preparation__hint">准备截止：${new Date(prompt.expiresAt).toLocaleTimeString()}</div></div>`;
       body.querySelectorAll<HTMLInputElement>('input[data-dungeon-ready]').forEach((input) => {
         input.addEventListener('change', () => options.socket.emitEvent(C2S.RespondDungeonEntry, { runId: prompt.runId, confirm: input.checked }), { signal });
@@ -660,6 +679,10 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
         signal.addEventListener('abort', () => window.clearInterval(timer), { once: true });
         updateCountdown();
       }
+      if (prompt.rejectAt) {
+        const timer = window.setTimeout(() => detailModalHost.close(ownerId), Math.max(0, prompt.rejectAt - Date.now()));
+        signal.addEventListener('abort', () => window.clearTimeout(timer), { once: true });
+      }
     };
     const modalOptions = {
       ownerId,
@@ -667,24 +690,33 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
       subtitle: '队伍准备',
       size: 'sm' as const,
       bodyHtml: '',
-      onRequestClose: () => true,
+      onRequestClose: requestPreparationClose,
       onAfterRender: (body: HTMLElement, signal: AbortSignal) => renderPreparation(body, signal),
     };
     if (detailModalHost.isOpenFor(ownerId)) {
-      detailModalHost.patch({ ownerId, bodyHtml: '', onAfterRender: modalOptions.onAfterRender });
+      detailModalHost.patch({ ownerId, bodyHtml: '', onRequestClose: modalOptions.onRequestClose, onAfterRender: modalOptions.onAfterRender });
     } else {
       detailModalHost.open(modalOptions);
     }
   });
   options.socket.on(S2C.DungeonState, ({ run }) => {
-    if (run.status !== 'created') detailModalHost.close(`dungeon-entry:${run.runId}`);
+    if (run.status !== 'created') {
+      confirmModalHost.close(`dungeon-entry-reject:${run.runId}`);
+      detailModalHost.close(`dungeon-entry:${run.runId}`);
+    }
   });
   options.socket.on(S2C.DungeonEntryResult, (result) => {
     if (result.ok) {
-      if (result.run?.status === 'active' || result.run?.status === 'activating') detailModalHost.close(`dungeon-entry:${result.run.runId}`);
+      if (result.run?.status === 'active' || result.run?.status === 'activating') {
+        confirmModalHost.close(`dungeon-entry-reject:${result.run.runId}`);
+        detailModalHost.close(`dungeon-entry:${result.run.runId}`);
+      }
       return;
     }
-    if (result.run?.runId) detailModalHost.close(`dungeon-entry:${result.run.runId}`);
+    if (result.run?.runId) {
+      confirmModalHost.close(`dungeon-entry-reject:${result.run.runId}`);
+      detailModalHost.close(`dungeon-entry:${result.run.runId}`);
+    }
     const labels: Record<string, string> = {
       dungeon_not_found: '副本不存在',
       invalid_difficulty: '副本难度无效',

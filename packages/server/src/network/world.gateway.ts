@@ -462,7 +462,7 @@ class WorldGateway implements WorldGatewayHelperContext {
     @SubscribeMessage(C2S.RespondDungeonEntry)
     async handleRespondDungeonEntry(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         const playerId = this.gatewayGuardHelper.requirePlayerId(client);
-        const result = await this.dungeonRuntimeService?.respondEntry(playerId, payload?.runId, payload?.confirm === true) ?? { ok: false, reason: 'dungeon_unavailable' };
+        const result = await this.dungeonRuntimeService?.respondEntry(playerId, payload?.runId, payload?.confirm === true, payload?.reject === true) ?? { ok: false, reason: 'dungeon_unavailable' };
         client.emit(S2C.DungeonEntryResult, result);
         return result;
     }

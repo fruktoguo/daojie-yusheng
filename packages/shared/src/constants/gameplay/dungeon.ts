@@ -7,6 +7,7 @@ export const DUNGEON_PRESSURE_SOURCE_ID = 'dungeon.presentation.pressure';
 export const DUNGEON_PRESSURE_DURATION_TICKS = 1;
 export const DUNGEON_PRESSURE_QI_DRAIN_PERCENT = 0.01;
 export const DUNGEON_PRESSURE_MOVE_SPEED_MULTIPLIER = 0.5;
+export const DUNGEON_ENTRY_REJECTION_DELAY_MS = 3_000;
 
 /** 威压每层影响的战斗数值；移速按每层减半单独处理。 */
 export const DUNGEON_PRESSURE_COMBAT_STAT_KEYS = [

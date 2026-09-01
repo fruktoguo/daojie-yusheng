@@ -62,7 +62,7 @@ export class DungeonFloatingPanel {
   }
 
   private updateRun(run: DungeonRunState): void {
-    if (!run || ['failed', 'aborted', 'expired'].includes(run.status)) { this.stop(); return; }
+    if (!run || !['activating', 'active', 'completing', 'completed'].includes(run.status)) { this.stop(); return; }
     this.root.hidden = false;
     this.root.dataset.runId = run.runId;
     this.exitButton.hidden = false;
