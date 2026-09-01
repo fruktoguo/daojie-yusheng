@@ -396,13 +396,31 @@ export class WorldRuntimeContextActionQueryService {
             const nearDungeonExitAnchor = isDungeonExitStone && isNearDungeonExitAnchor(view, deps);
             if (chebyshevDistance(view.self.x, view.self.y, npc.x, npc.y) <= interactionRadius || nearDungeonExitAnchor) {
                 if (isDungeonEntryStone) {
-                    actions.push({
-                        id: 'dungeon:open',
-                        name: '发起副本',
-                        type: 'interact',
-                        desc: '与忆梦石共鸣，打开副本选择界面。',
-                        cooldownLeft: 0,
-                    });
+                    const dungeonDefinitions = (typeof deps?.dungeonRuntimeService?.listDefinitions === 'function'
+                        ? deps.dungeonRuntimeService.listDefinitions()
+                        : []) ?? [];
+                    if (dungeonDefinitions.length === 0) {
+                        actions.push({
+                            id: 'dungeon:open',
+                            name: '发起副本',
+                            type: 'interact',
+                            desc: '与忆梦石共鸣，打开副本选择界面。',
+                            cooldownLeft: 0,
+                        });
+                    } else {
+                        for (const dungeon of dungeonDefinitions) {
+                            const dungeonId = typeof dungeon?.id === 'string' ? dungeon.id.trim() : '';
+                            if (!dungeonId) continue;
+                            const dungeonName = typeof dungeon?.name === 'string' && dungeon.name.trim() ? dungeon.name.trim() : dungeonId;
+                            actions.push({
+                                id: `dungeon:open:${dungeonId}`,
+                                name: `发起：${dungeonName}`,
+                                type: 'interact',
+                                desc: `与忆梦石共鸣，发起「${dungeonName}」并邀请队员确认。`,
+                                cooldownLeft: 0,
+                            });
+                        }
+                    }
                     continue;
                 }
                 if (view?.instance?.kind === 'dungeon' && npc.npcId === 'npc_dungeon_memory_stone') {

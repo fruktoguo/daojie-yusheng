@@ -1,6 +1,6 @@
 /** 本文件负责主面板上下文装配；维护时要区分前端显示派生、用户意图和服务端权威数据，避免把业务真源复制到 UI 层。 */
 import { getCurrentAccountName } from './ui/auth-api';
-import { DEFAULT_AURA_LEVEL_BASE_VALUE, DUNGEON_PRESENT_RANK_ORDER, S2C, type ActionDef, type DungeonDifficulty, type Inventory, type S2C_DungeonCatalog, type S2C_TileDetail, type SyncedItemStack, type TechniqueGrade } from '@mud/shared';
+import { DEFAULT_AURA_LEVEL_BASE_VALUE, DUNGEON_PRESENT_RANK_ORDER, S2C, formatDisplayInteger, resolveDungeonStaminaCost, resolveRecoveredStamina, type ActionDef, type DungeonDifficulty, type Inventory, type S2C_DungeonCatalog, type S2C_TileDetail, type SyncedItemStack, type TechniqueGrade } from '@mud/shared';
 import { reactUiBridge } from './react-ui/bridge/react-ui-bridge';
 import { createMainActionStateSource } from './main-action-state-source';
 import { createMainAttrDetailStateSource } from './main-attr-detail-state-source';
@@ -113,42 +113,95 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
   const dungeonDifficultyLabels: Record<DungeonDifficulty, string> = { trial: '试炼', hard: '困难', nightmare: '噩梦', present: '现世' };
   const dungeonRankLabels: Record<TechniqueGrade, string> = { mortal: '凡阶', yellow: '黄阶', mystic: '玄阶', earth: '地阶', heaven: '天阶', spirit: '灵阶', saint: '圣阶', emperor: '帝阶' };
   const escapeDungeonHtml = (value: unknown): string => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-  const renderDungeonEntryPanel = (): void => {
+  let requestedDungeonId: string | undefined;
+  const formatDungeonRecovery = (remainingMs: number): string => {
+    const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+    const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+    const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+    return `${minutes}:${seconds}`;
+  };
+  const renderDungeonChooserPanel = (): void => {
     const catalog = dungeonCatalog;
     if (!catalog) return;
     const bodyHtml = catalog.dungeons.length === 0
       ? '<div class="empty-hint compact">当前没有可进入的副本。</div>'
-      : `<form data-dungeon-form="true" class="party-inline-form"><label class="party-setting"><span>副本</span><select name="dungeonId" class="party-select">${catalog.dungeons.map((entry) => `<option value="${escapeDungeonHtml(entry.id)}">${escapeDungeonHtml(entry.name)}</option>`).join('')}</select></label><label class="party-setting"><span>难度</span><select name="difficulty" class="party-select">${Object.entries(dungeonDifficultyLabels).map(([key, label]) => `<option value="${key}">${label}</option>`).join('')}</select></label><label class="party-setting"><span>现世阶位</span><select name="presentRank" class="party-select">${DUNGEON_PRESENT_RANK_ORDER.map((rank) => `<option value="${rank}">${dungeonRankLabels[rank]}</option>`).join('')}</select></label><div class="party-hint">当前精力：${catalog.stamina.current}/${catalog.stamina.maximum}。现世各阶均消耗 24 点。</div><button class="small-btn" type="submit">发起并邀请队员确认</button></form>`;
-    detailModalHost.patch({ ownerId: dungeonModalOwner, bodyHtml, onAfterRender: (body) => {
-      const form = body.querySelector<HTMLFormElement>('[data-dungeon-form="true"]');
-      if (!form) return;
-      const dungeon = form.elements.namedItem('dungeonId') as HTMLSelectElement | null;
-      const difficulty = form.elements.namedItem('difficulty') as HTMLSelectElement | null;
-      const rank = form.elements.namedItem('presentRank') as HTMLSelectElement | null;
-      const syncRank = (): void => {
-        const selected = catalog.dungeons.find((entry) => entry.id === dungeon?.value);
-        const maxRankStep = selected ? DUNGEON_PRESENT_RANK_ORDER.indexOf(selected.difficulty.maxPresentRank) : -1;
-        if (rank) {
-          Array.from(rank.options).forEach((option, index) => { option.disabled = index > maxRankStep; });
-          if (rank.selectedIndex > maxRankStep && maxRankStep >= 0) rank.selectedIndex = maxRankStep;
-          rank.disabled = difficulty?.value !== 'present';
-        }
-      };
-      dungeon?.addEventListener('change', syncRank); difficulty?.addEventListener('change', syncRank); syncRank();
-      form.addEventListener('submit', (event) => {
-        event.preventDefault();
-        const dungeonId = (form.elements.namedItem('dungeonId') as HTMLSelectElement | null)?.value ?? '';
-        const selectedDifficulty = ((difficulty?.value ?? 'trial') as DungeonDifficulty);
-        const presentRank = selectedDifficulty === 'present' ? ((rank?.value ?? 'mortal') as TechniqueGrade) : undefined;
-        socket.dungeon.startEntry({ dungeonId, difficulty: selectedDifficulty, ...(presentRank ? { presentRank } : {}) });
-        detailModalHost.close(dungeonModalOwner);
+      : `<div class="dungeon-entry-chooser"><div class="dungeon-entry-chooser__hint">选择要发起的副本</div><div class="dungeon-entry-choices">${catalog.dungeons.map((entry) => `<button type="button" class="dungeon-entry-choice" data-dungeon-choice="${escapeDungeonHtml(entry.id)}"><strong>${escapeDungeonHtml(entry.name)}</strong><span>${escapeDungeonHtml(entry.description || '进入独立副本，完成挑战后结算。')}</span></button>`).join('')}</div></div>`;
+    detailModalHost.patch({ ownerId: dungeonModalOwner, title: '选择副本', subtitle: '选择后进入发起设置', variantClass: 'detail-modal--dungeon-chooser', size: 'sm', bodyHtml, onAfterRender: (body, signal) => {
+      body.querySelectorAll<HTMLButtonElement>('[data-dungeon-choice]').forEach((button) => {
+        button.addEventListener('click', () => renderDungeonLaunchPanel(button.dataset.dungeonChoice ?? ''), { signal });
       });
     } });
   };
+  const renderDungeonLaunchPanel = (dungeonId: string): void => {
+    const catalog = dungeonCatalog;
+    const dungeon = catalog?.dungeons.find((entry) => entry.id === dungeonId) ?? catalog?.dungeons[0];
+    if (!catalog || !dungeon) {
+      renderDungeonChooserPanel();
+      return;
+    }
+    requestedDungeonId = dungeon.id;
+    const bodyHtml = `<form data-dungeon-launch-form="true" class="dungeon-entry-launch"><div class="dungeon-entry-launch__controls"><label class="dungeon-entry-control"><span>难度</span><select name="difficulty" class="party-select">${Object.entries(dungeonDifficultyLabels).map(([key, label]) => `<option value="${key}">${label}</option>`).join('')}</select></label><label class="dungeon-entry-control"><span>现世阶位</span><select name="presentRank" class="party-select">${DUNGEON_PRESENT_RANK_ORDER.map((rank) => `<option value="${rank}">${dungeonRankLabels[rank]}</option>`).join('')}</select></label></div><div class="dungeon-entry-stamina"><span class="dungeon-entry-stamina__label">消耗体力</span><strong data-dungeon-stamina-value></strong><span data-dungeon-stamina-recovery></span></div><div class="dungeon-entry-launch__hint">确认发起后，将邀请队友逐一确认；全员确认后才会扣除体力并进入副本。</div><div class="dungeon-entry-launch__actions"><button type="button" class="small-btn ghost" data-dungeon-back>返回副本列表</button><button type="submit" class="small-btn primary" data-dungeon-submit>确认发起并邀请队友确认</button></div></form>`;
+    detailModalHost.patch({ ownerId: dungeonModalOwner, title: dungeon.name, subtitle: '调整难度和阶位', variantClass: 'detail-modal--dungeon-entry', size: 'sm', bodyHtml, onAfterRender: (body, signal) => {
+      const form = body.querySelector<HTMLFormElement>('[data-dungeon-launch-form="true"]');
+      const difficulty = form?.elements.namedItem('difficulty') as HTMLSelectElement | null;
+      const rank = form?.elements.namedItem('presentRank') as HTMLSelectElement | null;
+      const staminaValue = body.querySelector<HTMLElement>('[data-dungeon-stamina-value]');
+      const staminaRecovery = body.querySelector<HTMLElement>('[data-dungeon-stamina-recovery]');
+      const submit = body.querySelector<HTMLButtonElement>('[data-dungeon-submit]');
+      if (!form || !difficulty || !rank || !staminaValue || !staminaRecovery || !submit) return;
+      const syncRank = (): void => {
+        const maxRankStep = DUNGEON_PRESENT_RANK_ORDER.indexOf(dungeon.difficulty.maxPresentRank);
+        Array.from(rank.options).forEach((option, index) => { option.disabled = index > maxRankStep; });
+        if (rank.selectedIndex > maxRankStep && maxRankStep >= 0) rank.selectedIndex = maxRankStep;
+        rank.disabled = difficulty.value !== 'present';
+      };
+      const syncStamina = (): void => {
+        const stamina = resolveRecoveredStamina(catalog.stamina.current, catalog.stamina.updatedAt, Date.now(), catalog.stamina.maximum);
+        const selectedDifficulty = difficulty.value as DungeonDifficulty;
+        const cost = resolveDungeonStaminaCost(selectedDifficulty, dungeon.difficulty);
+        const afterCost = Math.max(0, stamina.current - cost);
+        staminaValue.textContent = `${formatDisplayInteger(stamina.current)} → ${formatDisplayInteger(afterCost)} / ${formatDisplayInteger(catalog.stamina.maximum)}`;
+        staminaValue.classList.toggle('is-insufficient', stamina.current < cost);
+        const recoveryRemain = stamina.nextRecoveryAt ? Math.max(0, stamina.nextRecoveryAt - Date.now()) : 0;
+        staminaRecovery.textContent = stamina.current >= catalog.stamina.maximum ? '恢复倒计时：已满' : `恢复倒计时：${formatDungeonRecovery(recoveryRemain)} 后恢复 1 点`;
+        submit.disabled = stamina.current < cost;
+        submit.textContent = stamina.current < cost ? '体力不足' : '确认发起并邀请队友确认';
+      };
+      syncRank();
+      syncStamina();
+      difficulty.addEventListener('change', syncRank, { signal });
+      difficulty.addEventListener('change', syncStamina, { signal });
+      const timer = window.setInterval(syncStamina, 1000);
+      signal.addEventListener('abort', () => window.clearInterval(timer), { once: true });
+      body.querySelector<HTMLButtonElement>('[data-dungeon-back]')?.addEventListener('click', () => renderDungeonChooserPanel(), { signal });
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const selectedDifficulty = difficulty.value as DungeonDifficulty;
+        const presentRank = selectedDifficulty === 'present' ? (rank.value as TechniqueGrade) : undefined;
+        socket.dungeon.startEntry({ dungeonId: dungeon.id, difficulty: selectedDifficulty, ...(presentRank ? { presentRank } : {}) });
+        detailModalHost.close(dungeonModalOwner);
+      }, { signal });
+    } });
+  };
+  const renderDungeonEntryPanel = (): void => {
+    const catalog = dungeonCatalog;
+    if (!catalog) return;
+    const selected = requestedDungeonId ? catalog.dungeons.find((entry) => entry.id === requestedDungeonId) : undefined;
+    if (selected) {
+      renderDungeonLaunchPanel(selected.id);
+      return;
+    }
+    if (catalog.dungeons.length === 1) {
+      renderDungeonLaunchPanel(catalog.dungeons[0].id);
+      return;
+    }
+    renderDungeonChooserPanel();
+  };
   socket.on(S2C.DungeonCatalog, (catalog) => { dungeonCatalog = catalog; if (detailModalHost.isOpenFor(dungeonModalOwner)) renderDungeonEntryPanel(); });
-  const openDungeonPanel = (): void => {
+  const openDungeonPanel = (dungeonId?: string): void => {
+    requestedDungeonId = dungeonId?.trim() || undefined;
     dungeonCatalog = null;
-    detailModalHost.open({ ownerId: dungeonModalOwner, title: '发起副本', subtitle: '队伍全员确认后才会扣除精力并进入实例', size: 'sm', bodyHtml: '<div class="empty-hint compact">正在读取副本列表……</div>' });
+    detailModalHost.open({ ownerId: dungeonModalOwner, title: requestedDungeonId ? '发起副本' : '选择副本', subtitle: '正在读取副本列表……', size: 'sm', variantClass: 'detail-modal--dungeon-chooser', bodyHtml: '<div class="empty-hint compact">正在读取副本列表……</div>' });
     socket.dungeon.requestCatalog();
   };
   const partyStateSource = createMainPartyStateSource({

@@ -266,7 +266,7 @@ type MainNavigationStateSourceOptions = {
 
   openNpcQuestPending: (npcId: string) => void;  
   /** 打开副本入口面板。 */
-  openDungeonPanel: () => void;
+  openDungeonPanel: (dungeonId?: string) => void;
   /**
  * showToast：showToast相关字段。
  */
@@ -590,6 +590,7 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
     const shopActionId = `npc_shop:${npc.id}`;
     const talkActionId = `npc:${npc.id}`;
     const dungeonOpenActionId = 'dungeon:open';
+    const dungeonOpenActionPrefix = `${dungeonOpenActionId}:`;
     const dungeonExitActionId = 'dungeon:exit';
 
     if (npc.npcQuestMarker && actionIds.has(questActionId)) {
@@ -600,6 +601,13 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
     }
     if (actionIds.has(questActionId)) {
       return questActionId;
+    }
+    const specificDungeonOpenActionIds = Array.from(actionIds).filter((actionId) => actionId.startsWith(dungeonOpenActionPrefix));
+    if (specificDungeonOpenActionIds.length === 1) {
+      return specificDungeonOpenActionIds[0];
+    }
+    if (specificDungeonOpenActionIds.length > 1) {
+      return dungeonOpenActionId;
     }
     if (actionIds.has(dungeonOpenActionId)) {
       return dungeonOpenActionId;
@@ -1107,8 +1115,8 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
         options.sendAction(actionId);
         return true;
       }
-      if (actionId === 'dungeon:open') {
-        options.openDungeonPanel?.();
+      if (actionId === 'dungeon:open' || actionId.startsWith('dungeon:open:')) {
+        options.openDungeonPanel?.(actionId.slice('dungeon:open:'.length) || undefined);
         return true;
       }
       options.sendAction(actionId);
@@ -1140,8 +1148,8 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
             options.sendAction(actionId);
             return true;
           }
-          if (actionId === 'dungeon:open') {
-            options.openDungeonPanel?.();
+          if (actionId === 'dungeon:open' || actionId.startsWith('dungeon:open:')) {
+            options.openDungeonPanel?.(actionId.slice('dungeon:open:'.length) || undefined);
             return true;
           }
           options.sendAction(actionId);

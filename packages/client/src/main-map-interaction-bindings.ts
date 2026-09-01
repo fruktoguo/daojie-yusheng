@@ -372,7 +372,7 @@ type MainMapInteractionBindingsOptions = {
  */
 
   setHoveredMapTile: (value: HoveredMapTile) => void;
-  openDungeonPanel?: () => void;
+  openDungeonPanel?: (dungeonId?: string) => void;
 };
 /**
  * bindMainMapInteractions：执行bindMain地图Interaction相关逻辑。

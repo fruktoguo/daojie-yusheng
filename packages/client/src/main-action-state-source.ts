@@ -114,7 +114,7 @@ type MainActionStateSourceOptions = {
 
   openWorldMigrationModal: () => void;  
   /** 打开副本入口面板。 */
-  openDungeonPanel: () => void;
+  openDungeonPanel: (dungeonId?: string) => void;
   /**
  * getInfoRadius：InfoRadiu相关字段。
  */
@@ -194,10 +194,10 @@ export function createMainActionStateSource(options: MainActionStateSourceOption
         options.openBuildingPanel();
         return;
       }
-      if (actionId === 'dungeon:open') {
+      if (actionId === 'dungeon:open' || actionId.startsWith('dungeon:open:')) {
         options.cancelTargeting();
         options.hideObserveModal();
-        options.openDungeonPanel();
+        options.openDungeonPanel(actionId.slice('dungeon:open:'.length) || undefined);
         return;
       }
       if (actionId === 'transmission:open') {
