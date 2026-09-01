@@ -26,6 +26,7 @@ import { applyPlayerCraftExpRate, resolvePlayerCraftRealmLevel } from '../../cra
 import { advanceTechniqueActivityPause } from '../../technique-activity-runtime.helpers';
 import { resolvePlayerComprehensionSpeedRate } from '../../../player/player-comprehension-speed.helpers';
 import { resolvePlayerDisplayName as resolveRuntimePlayerDisplayName } from '../../../player/player-display-name';
+import { tryAcquireCraftPassiveTechnique } from '../../craft-passive-technique-acquisition.helpers';
 
 type TransmissionValidatedPayload = {
   mode?: 'transmission' | 'scripture_recording' | 'scripture_contemplation';
@@ -48,12 +49,13 @@ type TransmissionDepsPort = {
   playerRuntimeService?: {
     getPlayer?(playerId: string): any | null;
     getPlayerOrThrow?(playerId: string): any;
+    receiveInventoryItem?(playerId: string, item: Record<string, unknown>, options?: Record<string, unknown>): unknown;
     markPersistenceDirtyDomains?(player: any, domains: string[]): void;
     bumpPersistentRevision?(player: any): void;
     playerAttributesService?: { recalculate?(player: any, reason?: any): boolean };
     playerProgressionService?: { refreshPreview?(player: any): void };
     rebuildActionState?(player: any, tick: number): void;
-    queuePlayerStructuredNotice?(player: any, notice: TechniqueActivityNoticeMessage): void;
+    queuePlayerStructuredNotice?(player: any, notice: any): void;
     resolveTechniqueLearningConflict?(player: any, techniqueId: string): {
       conflictAggregateIds?: string[];
       conflictSourceTechniqueIds?: string[];
@@ -317,25 +319,55 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
     pending.progress = Math.min(requiredProgress, previousProgress + progressGain);
     pending.updatedAtTick = resolvePlayerRuntimeTick(learner);
     updateJobProgress(job, requiredProgress, pending.progress, progressBreakdown);
+    const learnerSkillLevelBeforeExp = Math.max(1, Math.floor(Number(learner.transmissionSkill?.level) || 1));
     const learnerProfessionChanged = applyTransmissionSkillExpFromTicks(
       learner,
       1,
       pending.realmLv,
       ctx.resolveExpToNextByLevel,
     );
+    const learnerPassiveAcquisition = tryAcquireCraftPassiveTechnique({
+      player: learner,
+      activityKind: 'transmission',
+      actionLevel: pending.realmLv,
+      skillLevel: learnerSkillLevelBeforeExp,
+      baseActionTicks: 1,
+      actionCount: 1,
+      contentTemplateRepository: ctx.contentTemplateRepository,
+      playerRuntimeService: deps?.playerRuntimeService ?? ctx.playerRuntimeService as any,
+    });
+    const teacherSkillLevelBeforeExp = Math.max(1, Math.floor(Number(teacher.transmissionSkill?.level) || 1));
     const teacherProfessionChanged = applyTransmissionSkillExpFromTicks(
       teacher,
       1,
       pending.realmLv,
       ctx.resolveExpToNextByLevel,
     );
+    const teacherPassiveAcquisition = tryAcquireCraftPassiveTechnique({
+      player: teacher,
+      activityKind: 'transmission',
+      actionLevel: pending.realmLv,
+      skillLevel: teacherSkillLevelBeforeExp,
+      baseActionTicks: 1,
+      actionCount: 1,
+      contentTemplateRepository: ctx.contentTemplateRepository,
+      playerRuntimeService: deps?.playerRuntimeService ?? ctx.playerRuntimeService as any,
+    });
+    queueTransmissionPassiveAcquisitionNotices(deps?.playerRuntimeService, teacher, teacherPassiveAcquisition.messages);
+    const learnerPassiveMessages = learnerPassiveAcquisition.messages;
     if (teacherProfessionChanged) {
       markTransmissionDirty(teacher, ctx, ['profession']);
     }
     if (pending.progress < requiredProgress) {
       learner.techniques.revision += 1;
       markTransmissionDirty(learner, ctx, ['active_job', 'technique', ...(learnerProfessionChanged ? ['profession'] : [])]);
-      return { ...emptyTransmissionTickResult(), panelChanged: true, attrChanged: learnerProfessionChanged };
+      return {
+        ...emptyTransmissionTickResult(),
+        panelChanged: true,
+        attrChanged: learnerProfessionChanged,
+        messages: learnerPassiveMessages,
+        inventoryChanged: learnerPassiveAcquisition.inventoryChanged,
+      };
     }
     const completionConflict = deps?.playerRuntimeService?.resolveTechniqueLearningConflict?.(learner, pending.techId);
     if (completionConflict) {
@@ -346,13 +378,17 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
       return {
         ...emptyTransmissionTickResult(),
         panelChanged: true,
-        messages: [{
+        inventoryChanged: learnerPassiveAcquisition.inventoryChanged,
+        messages: [
+          ...learnerPassiveMessages,
+          {
           kind: 'transmission',
           key: 'notice.technique-aggregation.overlap',
           vars: {
             sourceTechniqueNames: resolveAggregationConflictSourceNames(completionConflict),
           },
-        }],
+          },
+        ],
       };
     }
     completeTransmission(learner, pending, job, ctx, learnerProfessionChanged);
@@ -361,12 +397,16 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
       ...emptyTransmissionTickResult(),
       panelChanged: true,
       attrChanged: true,
-      messages: [{
+      inventoryChanged: learnerPassiveAcquisition.inventoryChanged,
+      messages: [
+        ...learnerPassiveMessages,
+        {
         kind: 'transmission',
         key: 'notice.progression.technique-comprehension-complete',
         vars: { techName: resolvePlayerFacingContentName(pending.techId, '未知功法', pending.name) },
         pills: [{ key: 'techName', style: 'skill' }],
-      }],
+        },
+      ],
     };
   }
 
@@ -907,16 +947,33 @@ function executeScriptureRecordingTick(recorder: any, job: PlayerTransmissionJob
   building.updatedAtTick = currentTick;
   building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1) + 1);
   updateJobProgress(job, requiredProgress, nextProgress, progressBreakdown);
+  const skillLevelBeforeExp = Math.max(1, Math.floor(Number(recorder.transmissionSkill?.level) || 1));
   const professionChanged = applyTransmissionSkillExpFromTicks(
     recorder,
     1,
     building.scriptureRealmLv,
     ctx.resolveExpToNextByLevel,
   );
+  const passiveAcquisition = tryAcquireCraftPassiveTechnique({
+    player: recorder,
+    activityKind: 'transmission',
+    actionLevel: building.scriptureRealmLv,
+    skillLevel: skillLevelBeforeExp,
+    baseActionTicks: 1,
+    actionCount: 1,
+    contentTemplateRepository: ctx.contentTemplateRepository,
+    playerRuntimeService: resolveTransmissionDeps(ctx)?.playerRuntimeService ?? ctx.playerRuntimeService as any,
+  });
   markScriptureBuildingDirty(instance, building);
   if (nextProgress < requiredProgress) {
     markTransmissionDirty(recorder, ctx, ['active_job', ...(professionChanged ? ['profession'] : [])]);
-    return { ...emptyTransmissionTickResult(), panelChanged: true, attrChanged: professionChanged };
+    return {
+      ...emptyTransmissionTickResult(),
+      panelChanged: true,
+      attrChanged: professionChanged,
+      inventoryChanged: passiveAcquisition.inventoryChanged,
+      messages: passiveAcquisition.messages,
+    };
   }
   building.scriptureProgress = requiredProgress;
   building.scriptureRecordingJobRunId = null;
@@ -930,12 +987,16 @@ function executeScriptureRecordingTick(recorder: any, job: PlayerTransmissionJob
     ...emptyTransmissionTickResult(),
     panelChanged: true,
     attrChanged: professionChanged,
-    messages: [{
+    inventoryChanged: passiveAcquisition.inventoryChanged,
+    messages: [
+      ...passiveAcquisition.messages,
+      {
       kind: 'transmission',
       key: 'notice.craft.scripture-recording.complete',
       vars: { techniqueName: job.techniqueName },
       pills: [{ key: 'techniqueName', style: 'skill' }],
-    }],
+      },
+    ],
   };
 }
 
@@ -1025,16 +1086,33 @@ function executeScriptureContemplationTick(learner: any, job: PlayerTransmission
   job.grade = pending.grade;
   job.category = pending.category;
   updateJobProgress(job, requiredProgress, pending.progress, progressBreakdown);
+  const skillLevelBeforeExp = Math.max(1, Math.floor(Number(learner.transmissionSkill?.level) || 1));
   const professionChanged = applyTransmissionSkillExpFromTicks(
     learner,
     1,
     pending.realmLv,
     ctx.resolveExpToNextByLevel,
   );
+  const passiveAcquisition = tryAcquireCraftPassiveTechnique({
+    player: learner,
+    activityKind: 'transmission',
+    actionLevel: pending.realmLv,
+    skillLevel: skillLevelBeforeExp,
+    baseActionTicks: 1,
+    actionCount: 1,
+    contentTemplateRepository: ctx.contentTemplateRepository,
+    playerRuntimeService: resolveTransmissionDeps(ctx)?.playerRuntimeService ?? ctx.playerRuntimeService as any,
+  });
   if (pending.progress < requiredProgress) {
     learner.techniques.revision += 1;
     markTransmissionDirty(learner, ctx, ['active_job', 'technique', ...(professionChanged ? ['profession'] : [])]);
-    return { ...emptyTransmissionTickResult(), panelChanged: true, attrChanged: professionChanged };
+    return {
+      ...emptyTransmissionTickResult(),
+      panelChanged: true,
+      attrChanged: professionChanged,
+      inventoryChanged: passiveAcquisition.inventoryChanged,
+      messages: passiveAcquisition.messages,
+    };
   }
   const completionConflict = resolveTransmissionDeps(ctx)?.playerRuntimeService
     ?.resolveTechniqueLearningConflict?.(learner, pending.techId);
@@ -1050,12 +1128,16 @@ function executeScriptureContemplationTick(learner: any, job: PlayerTransmission
     ...emptyTransmissionTickResult(),
     panelChanged: true,
     attrChanged: true,
-    messages: [{
+    inventoryChanged: passiveAcquisition.inventoryChanged,
+    messages: [
+      ...passiveAcquisition.messages,
+      {
       kind: 'transmission',
       key: 'notice.progression.technique-comprehension-complete',
       vars: { techName: resolvePlayerFacingContentName(pending.techId, '未知功法', pending.name) },
       pills: [{ key: 'techName', style: 'skill' }],
-    }],
+      },
+    ],
   };
 }
 
@@ -1276,6 +1358,29 @@ function applyTransmissionSkillExpFromTicks(player: any, elapsedTicks: number, t
   }).finalGain;
   const gain = applyPlayerCraftExpRate(player, 'transmission', baseGain);
   return applyCraftSkillExpLocal(skill, gain, getExpToNextByLevel);
+}
+
+function queueTransmissionPassiveAcquisitionNotices(
+  runtime: TransmissionDepsPort['playerRuntimeService'] | null | undefined,
+  player: any,
+  messages: TechniqueActivityNoticeMessage[],
+): void {
+  if (!player || typeof runtime?.queuePlayerStructuredNotice !== 'function') {
+    return;
+  }
+  for (const message of messages) {
+    const itemName = typeof message.vars?.itemName === 'string' ? message.vars.itemName : '功法书';
+    runtime.queuePlayerStructuredNotice(player, {
+      kind: message.kind,
+      text: `获得 ${itemName}`,
+      structured: {
+        key: message.key ?? 'notice.loot.obtained',
+        vars: message.vars,
+        pills: message.pills,
+        badges: message.badges,
+      },
+    });
+  }
 }
 
 function applyCraftSkillExpLocal(skill: any, amount: number, getExpToNextByLevel: (level: number) => number): boolean {

@@ -11,6 +11,7 @@ import {
 } from '../../craft-effect-runtime.helpers';
 import { resolveBuildingDeconstructionProgressPerTick } from '../../../building/building-deconstruction.helpers';
 import { isVirtualPublicWorldInstance } from '../../../world/world-runtime.normalization.helpers';
+import { tryAcquireCraftPassiveTechnique } from '../../craft-passive-technique-acquisition.helpers';
 
 export function executeBuildingTick(
   playerId: string,
@@ -83,7 +84,13 @@ export function executeBuildingTick(
   instance.persistentRevision = Math.max(0, Math.trunc(Number(instance.persistentRevision) || 0)) + 1;
   instance.markPersistenceDirtyDomainsHighPriority?.(['building']);
 
-  const gainedExp = applyBuildingConstructionProgress(playerRuntimeService, player, appliedProgress);
+  const constructionResult = applyBuildingConstructionProgress(
+    playerRuntimeService,
+    player,
+    appliedProgress,
+    ctx,
+  );
+  const gainedExp = constructionResult.gainedExp;
   const skillChanged = gainedExp > 0;
 
   if (nextRemainingTicks <= 0) {
@@ -99,8 +106,11 @@ export function executeBuildingTick(
     runtime.refreshPlayerContextActions?.(playerId);
     return buildBuildingTickResult(
       true,
-      [buildBuildingCompletionNotice(runtime, building)],
-      false,
+      [
+        buildBuildingCompletionNotice(runtime, building),
+        ...constructionResult.passiveAcquisitionMessages,
+      ],
+      constructionResult.inventoryChanged,
       skillChanged,
       gainedExp / 2,
     );
@@ -131,7 +141,13 @@ export function executeBuildingTick(
 
   playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job', ...(skillChanged ? ['profession'] : [])]);
   playerRuntimeService.bumpPersistentRevision?.(player);
-  return buildBuildingTickResult(true, [], false, skillChanged, gainedExp / 2);
+  return buildBuildingTickResult(
+    true,
+    constructionResult.passiveAcquisitionMessages,
+    constructionResult.inventoryChanged,
+    skillChanged,
+    gainedExp / 2,
+  );
 }
 
 async function executeBuildingDeconstructionTick(
@@ -237,15 +253,31 @@ function applyBuildingConstructionProgress(
   playerRuntimeService: BuildingPlayerRuntimeServicePort,
   player: Record<string, any>,
   progressTicks: number,
-): number {
+  ctx: PipelineContext,
+): { gainedExp: number; inventoryChanged: boolean; passiveAcquisitionMessages: TechniqueActivityNoticeMessage[] } {
+  const skillLevelBeforeExp = Math.max(1, Math.floor(Number(player?.buildingSkill?.level) || 1));
   const gainedExp = applyBuildingSkillExp(playerRuntimeService, player, progressTicks);
+  const passiveAcquisitionResult = tryAcquireCraftPassiveTechnique({
+    player,
+    activityKind: 'building',
+    actionLevel: skillLevelBeforeExp,
+    skillLevel: skillLevelBeforeExp,
+    baseActionTicks: normalizeBuildStrength(progressTicks),
+    actionCount: progressTicks > 0 ? 1 : 0,
+    contentTemplateRepository: ctx.contentTemplateRepository as any,
+    playerRuntimeService: playerRuntimeService as any,
+  });
   if (gainedExp > 0) {
     if (!(player.dirtyDomains instanceof Set)) {
       player.dirtyDomains = new Set();
     }
     player.dirtyDomains.add('profession');
   }
-  return gainedExp;
+  return {
+    gainedExp,
+    inventoryChanged: passiveAcquisitionResult.inventoryChanged,
+    passiveAcquisitionMessages: passiveAcquisitionResult.messages,
+  };
 }
 
 function applyBuildingSkillExp(source: unknown, player: Record<string, any>, buildStrength: number): number {

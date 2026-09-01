@@ -27,6 +27,8 @@ export interface PipelineContext {
   };
   resolveExpToNextByLevel: (level: number) => number;
   getInstanceRuntime: (instanceId: string) => unknown | null;
+  /** 玩家运行时服务；即使由面板兼容入口直接 tick，也必须能完成背包持久化。 */
+  playerRuntimeService?: unknown;
   /** 额外的运行时依赖（各策略按需向下转型）。 */
   deps: unknown;
 }

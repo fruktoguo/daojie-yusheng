@@ -10422,9 +10422,16 @@ function createTransmissionCompatPipeline(playerRuntimeService) {
                 createTechniqueState: typeof playerRuntimeService.contentTemplateRepository?.createTechniqueState === 'function'
                     ? playerRuntimeService.contentTemplateRepository.createTechniqueState.bind(playerRuntimeService.contentTemplateRepository)
                     : () => null,
+                listTechniqueTemplates: typeof playerRuntimeService.contentTemplateRepository?.listTechniqueTemplates === 'function'
+                    ? playerRuntimeService.contentTemplateRepository.listTechniqueTemplates.bind(playerRuntimeService.contentTemplateRepository)
+                    : () => [],
+                createItem: typeof playerRuntimeService.contentTemplateRepository?.createItem === 'function'
+                    ? playerRuntimeService.contentTemplateRepository.createItem.bind(playerRuntimeService.contentTemplateRepository)
+                    : () => null,
             },
             resolveExpToNextByLevel: (level) => resolveCraftSkillExpToNextByLevel(playerRuntimeService.playerProgressionService, level),
             getInstanceRuntime: () => null,
+            playerRuntimeService,
             deps: { playerRuntimeService },
         },
     };

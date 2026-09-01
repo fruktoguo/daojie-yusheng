@@ -14,6 +14,7 @@ import {
   materializeTechniqueActivityResolveResult,
 } from '../technique-activity-pipeline.service';
 import type { PipelineContext } from '../technique-activity-strategy';
+import { tryAcquireCraftPassiveTechnique } from '../../craft-passive-technique-acquisition.helpers';
 
 export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKindInput: 'alchemy' | 'forging', ctx: PipelineContext): unknown {
   const jobKind = jobKindInput === 'forging' ? 'forging' : 'alchemy';
@@ -140,9 +141,23 @@ export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKi
     ctx,
   );
   resolved.craftRealmExpGain = expResult.finalGain / 2;
+  const passiveAcquisitionResult = tryAcquireCraftPassiveTechnique({
+    player,
+    activityKind: jobKind,
+    actionLevel: resolved.expParams?.targetLevel ?? 1,
+    skillLevel: resolved.expParams?.skillLevel ?? 1,
+    baseActionTicks: resolved.expParams?.baseActionTicks ?? 0,
+    actionCount: batchesCompletedThisTick,
+    contentTemplateRepository: ctx.contentTemplateRepository as any,
+    playerRuntimeService: (ctx.deps as { playerRuntimeService?: any } | null)?.playerRuntimeService
+      ?? ctx.playerRuntimeService as any,
+  });
+  if (passiveAcquisitionResult.messages.length > 0) {
+    resolved.messages = [...(resolved.messages ?? []), ...passiveAcquisitionResult.messages];
+  }
 
   craftService.finalizeMutation(player, {
-    inventoryChanged: inventoryResult.inventoryChanged || anyInventoryChanged,
+    inventoryChanged: inventoryResult.inventoryChanged || passiveAcquisitionResult.inventoryChanged || anyInventoryChanged,
     attrChanged: expResult.attrChanged,
     persistentOnly: true,
     dirtyDomains: [
@@ -159,6 +174,7 @@ export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKi
     ];
     return materializeTechniqueActivityResolveResult(resolved, {
       inventoryChanged: Boolean(nextStartResult.inventoryChanged)
+        || passiveAcquisitionResult.inventoryChanged
         || anyInventoryChanged,
       equipmentChanged: Boolean(nextStartResult.equipmentChanged),
       attrChanged: expResult.attrChanged || Boolean(nextStartResult.attrChanged),
@@ -168,7 +184,7 @@ export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKi
 
   job.currentBatchRemainingTicks = resolveStochasticCraftTicks(rawBrewTicks);
   return materializeTechniqueActivityResolveResult(resolved, {
-    inventoryChanged: anyInventoryChanged,
+    inventoryChanged: passiveAcquisitionResult.inventoryChanged || anyInventoryChanged,
     attrChanged: expResult.attrChanged,
   });
 }

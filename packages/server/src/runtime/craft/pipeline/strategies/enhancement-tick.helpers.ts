@@ -12,6 +12,7 @@ import { getLockedItem } from '../../../player/inventory-lock.helpers';
 import { advanceTechniqueActivityPause } from '../../technique-activity-runtime.helpers';
 import type { PipelineContext } from '../technique-activity-strategy';
 import { applyPlayerCraftExpRate, resolvePlayerCraftRealmLevel } from '../../craft-effect-runtime.helpers';
+import { tryAcquireCraftPassiveTechnique } from '../../craft-passive-technique-acquisition.helpers';
 
 const CONFLICTING_TECHNIQUE_JOB_SLOTS = [
   'formationJob',
@@ -153,8 +154,20 @@ export function executeEnhancementTick(craftService: any, player: any, ctx: Pipe
     'enhancement',
     resolveEnhancementSkillExpGain(player, player.enhancementSkill, job.targetItemLevel, success, ctx),
   );
+  const skillLevelBeforeExp = Math.max(1, Math.floor(Number(player.enhancementSkill?.level) || 1));
   const skillChanged = applyEnhancementSkillExp(player.enhancementSkill, skillGain, ctx);
   player.enhancementSkillLevel = player.enhancementSkill.level;
+  const passiveAcquisitionResult = tryAcquireCraftPassiveTechnique({
+    player,
+    activityKind: 'enhancement',
+    actionLevel: job.targetItemLevel,
+    skillLevel: skillLevelBeforeExp,
+    baseActionTicks: computeEnhancementJobBaseTicks(job.targetItemLevel),
+    actionCount: 1,
+    contentTemplateRepository: ctx.contentTemplateRepository as any,
+    playerRuntimeService: craftService.playerRuntimeService
+      ?? (ctx.deps as { playerRuntimeService?: any } | null)?.playerRuntimeService,
+  });
   if (skillChanged) {
     craftService.finalizeMutation(player, {
       attrChanged: true,
@@ -168,8 +181,8 @@ export function executeEnhancementTick(craftService: any, player: any, ctx: Pipe
     if (continueResult) {
       return buildEnhancementTickResult(
         true,
-        continueResult.messages,
-        continueResult.inventoryChanged,
+        [...passiveAcquisitionResult.messages, ...(continueResult.messages ?? [])],
+        continueResult.inventoryChanged || passiveAcquisitionResult.inventoryChanged,
         continueResult.equipmentChanged,
         skillChanged || continueResult.attrChanged,
         continueResult.groundDrops,
@@ -180,7 +193,9 @@ export function executeEnhancementTick(craftService: any, player: any, ctx: Pipe
 
   craftService.migrateLegacyCraftQueueToUnifiedQueue?.(player, job.queuedJobs);
   const finishResult = craftService.finishEnhancementJob(player, resultingLevel, 'completed');
-  return buildEnhancementTickResult(true, [{
+  return buildEnhancementTickResult(true, [
+  ...passiveAcquisitionResult.messages,
+  {
     kind: success ? 'enhancement' : 'system',
     key: success
       ? 'notice.craft.enhancement.success'
@@ -193,7 +208,7 @@ export function executeEnhancementTick(craftService: any, player: any, ctx: Pipe
     },
     pills: [{ key: 'itemName', style: 'target' }],
   }],
-  finishResult.inventoryChanged,
+  finishResult.inventoryChanged || passiveAcquisitionResult.inventoryChanged,
   finishResult.equipmentChanged,
   finishResult.attrChanged || skillChanged,
   finishResult.groundDrops ?? [],

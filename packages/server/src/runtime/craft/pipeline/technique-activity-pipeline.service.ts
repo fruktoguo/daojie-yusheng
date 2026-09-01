@@ -31,6 +31,7 @@ import {
   setStrategyActiveJob,
 } from './technique-activity-strategy';
 import { applyPlayerCraftExpRate } from '../craft-effect-runtime.helpers';
+import { tryAcquireCraftPassiveTechnique } from '../craft-passive-technique-acquisition.helpers';
 
 const CRAFT_EFFECT_SKILL_BY_SKILL_SLOT: Record<string, RuntimeTechniqueActivityKind> = {
   alchemySkill: 'alchemy',
@@ -350,6 +351,26 @@ export class TechniqueActivityPipelineService {
 
     // Stage 8: Output（公共）
     const inventoryResult = applyTechniqueActivityResolveInventory(player, resolved, ctx);
+    const passiveAcquisitionResult = resolved.expParams
+      ? tryAcquireCraftPassiveTechnique({
+        player,
+        activityKind: kind,
+        actionLevel: resolved.expParams.targetLevel,
+        skillLevel: resolved.expParams.skillLevel,
+        baseActionTicks: resolved.expParams.baseActionTicks,
+        actionCount: Math.max(
+          0,
+          Math.floor(Number(resolved.expParams.successCount) || 0)
+            + Math.floor(Number(resolved.expParams.failureCount) || 0),
+        ),
+        contentTemplateRepository: ctx.contentTemplateRepository as any,
+        playerRuntimeService: (ctx.deps as { playerRuntimeService?: any } | null)?.playerRuntimeService
+          ?? ctx.playerRuntimeService as any,
+      })
+      : { inventoryChanged: false, messages: [] };
+    if (passiveAcquisitionResult.messages.length > 0) {
+      resolved.messages = [...(resolved.messages ?? []), ...passiveAcquisitionResult.messages];
+    }
 
     // Stage 9: Completion
     if (resolved.completed) {
@@ -358,7 +379,7 @@ export class TechniqueActivityPipelineService {
 
     // Stage 10: 返回结果
     return tickLifecycleResultFromCraftTick(kind, materializeTechniqueActivityResolveResult(resolved, {
-      inventoryChanged: inventoryResult.inventoryChanged,
+      inventoryChanged: inventoryResult.inventoryChanged || passiveAcquisitionResult.inventoryChanged,
       attrChanged: expResult.attrChanged,
     }));
   }

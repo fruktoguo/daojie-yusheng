@@ -1062,6 +1062,7 @@ export class CraftPanelRuntimeService {
             contentTemplateRepository: this.contentTemplateRepository,
             resolveExpToNextByLevel: (level) => resolveCraftSkillExpToNextByLevel(this.playerRuntimeService, level),
             getInstanceRuntime: (instanceId) => typeof deps?.getInstanceRuntime === 'function' ? deps.getInstanceRuntime(instanceId) : null,
+            playerRuntimeService: this.playerRuntimeService,
             deps,
         };
     }

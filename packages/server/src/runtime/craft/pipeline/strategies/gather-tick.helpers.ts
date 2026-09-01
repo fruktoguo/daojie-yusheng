@@ -18,6 +18,7 @@ import {
   buildContainerSourceId,
   groupContainerLootRows,
 } from '../../../world/world-runtime.normalization.helpers';
+import { tryAcquireCraftPassiveTechnique } from '../../craft-passive-technique-acquisition.helpers';
 
 const HERB_GATHER_TIME_RATE = 0.5;
 const GATHER_SPEED_PER_LEVEL = 0.02;
@@ -149,6 +150,16 @@ export async function executeGatherTick(
     harvestedItem.level,
     computeHerbNativeGatherTicks(container, harvestedRow),
   );
+  const passiveAcquisitionResult = tryAcquireCraftPassiveTechnique({
+    player,
+    activityKind: 'gather',
+    actionLevel: harvestedItem.level,
+    skillLevel: skillExpResult.skillLevel,
+    baseActionTicks: skillExpResult.baseActionTicks,
+    actionCount: 1,
+    contentTemplateRepository: ctx.contentTemplateRepository as any,
+    playerRuntimeService,
+  });
   const skillChanged = skillExpResult.changed;
   const craftRealmChanged = grantCraftRealmProgress(playerRuntimeService, player, skillExpResult.gain / 2);
   deps.refreshQuestStates?.(playerId);
@@ -200,12 +211,15 @@ export async function executeGatherTick(
   playerRuntimeService.bumpPersistentRevision?.(player);
   return buildGatherTickResult(
     false,
-    [buildGatherNotice(
+    [
+      buildGatherNotice(
       'gather',
       'notice.craft.gather.obtained',
       { itemLabel: service.formatLootItemStackLabel(harvestedItem) },
       [{ key: 'itemLabel', style: 'target' }],
-    )],
+      ),
+      ...(passiveAcquisitionResult.messages ?? []),
+    ],
     true,
     false,
     Boolean(skillChanged || craftRealmChanged),
@@ -254,13 +268,14 @@ function applyGatherSkillExp(
   skill: { level: number; exp: number; expToNext: number } | null | undefined,
   targetLevel: unknown,
   baseActionTicks: number,
-): { changed: boolean; gain: number } {
+): { changed: boolean; gain: number; skillLevel: number; baseActionTicks: number } {
   if (!skill) {
-    return { changed: false, gain: 0 };
+    return { changed: false, gain: 0, skillLevel: 1, baseActionTicks };
   }
+  const skillLevel = Math.max(1, Math.floor(Number(skill.level) || 1));
   const baseGain = computeCraftSkillExpGain({
     playerRealmLevel: resolvePlayerCraftRealmLevel(player),
-    skillLevel: skill.level,
+    skillLevel,
     targetLevel: Math.max(1, Math.floor(Number(targetLevel) || 1)),
     baseActionTicks,
     getExpToNextByLevel: (level) => resolveCraftSkillExpToNextByLevel(source, level),
@@ -272,6 +287,8 @@ function applyGatherSkillExp(
   return {
     changed: applyCraftSkillExp(source, skill, gain),
     gain,
+    skillLevel,
+    baseActionTicks,
   };
 }
 

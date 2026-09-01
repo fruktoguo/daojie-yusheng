@@ -22,6 +22,7 @@ import {
 import { buildStructuredNotice } from '../structured-notice.helpers';
 import * as worldRuntimeNormalizationHelpers from '../world-runtime.normalization.helpers';
 import { resolvePlayerEffectiveLuck } from '../../player/player-special-stat.helpers';
+import { tryAcquireCraftPassiveTechnique } from '../../craft/craft-passive-technique-acquisition.helpers';
 
 const { formatItemStackLabel } = worldRuntimeNormalizationHelpers;
 
@@ -95,6 +96,17 @@ export function applyMiningExpForTileDamage(input: {
     successMultiplier: 1,
   }).finalGain;
   const gain = applyPlayerCraftExpRate(input.attacker, 'mining', baseGain);
+  const passiveAcquisition = tryAcquireCraftPassiveTechnique({
+    player: input.attacker,
+    activityKind: 'mining',
+    actionLevel: oreTileLevel,
+    skillLevel: miningLevel,
+    baseActionTicks: MINING_EXP_BASE_ACTION_TICKS,
+    actionCount: 1,
+    contentTemplateRepository: input.playerRuntimeService.contentTemplateRepository,
+    playerRuntimeService: input.playerRuntimeService,
+  });
+  queueMiningPassiveAcquisitionNotices(input.playerRuntimeService, input.attacker, passiveAcquisition.messages);
 
   if (gain <= 0) {
     return { gained: 0, changed: false };
@@ -150,6 +162,17 @@ export function applyMiningExpForTileDamageBatch(input: {
       continue;
     }
     const oreTileLevel = getOreMiningLevel(entry.tileType as string | undefined) ?? 1;
+    const passiveAcquisition = tryAcquireCraftPassiveTechnique({
+      player: input.attacker,
+      activityKind: 'mining',
+      actionLevel: oreTileLevel,
+      skillLevel: miningLevel,
+      baseActionTicks: MINING_EXP_BASE_ACTION_TICKS,
+      actionCount: 1,
+      contentTemplateRepository: input.playerRuntimeService.contentTemplateRepository,
+      playerRuntimeService: input.playerRuntimeService,
+    });
+    queueMiningPassiveAcquisitionNotices(input.playerRuntimeService, input.attacker, passiveAcquisition.messages);
     let gainByTargetLevel = gainBySkillLevel.get(miningLevel);
     if (!gainByTargetLevel) {
       gainByTargetLevel = new Map<number, number>();
@@ -216,6 +239,29 @@ export function resolveTileDamageDropMultiplier(appliedDamage: unknown): number 
     threshold *= 3;
   }
   return multiplier;
+}
+
+function queueMiningPassiveAcquisitionNotices(
+  playerRuntimeService: any,
+  player: any,
+  messages: Array<{ kind: any; key?: string; vars?: Record<string, string | number>; pills?: any; badges?: string[] }>,
+): void {
+  if (!player || typeof playerRuntimeService?.queuePlayerStructuredNotice !== 'function') {
+    return;
+  }
+  for (const message of messages) {
+    const itemName = typeof message.vars?.itemName === 'string' ? message.vars.itemName : '功法书';
+    playerRuntimeService.queuePlayerStructuredNotice(player, {
+      kind: message.kind,
+      text: `获得 ${itemName}`,
+      structured: {
+        key: message.key ?? 'notice.loot.obtained',
+        vars: message.vars,
+        pills: message.pills,
+        badges: message.badges,
+      },
+    });
+  }
 }
 
 export function spawnTileDrops(input: {
