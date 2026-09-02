@@ -106,10 +106,12 @@ function isTechniqueCappedBeforeMastery(tech: TechniqueState): boolean {
 
 function formatProgressText(tech: TechniqueState): string {
   if (isTechniqueCappedBeforeMastery(tech)) return t('technique.progress.fragment-limit', undefined);
-  if (isPassiveTechnique(tech)) return `${tech.exp ?? 0} / ${tech.expToNext ?? 0}`;
+  if (isPassiveTechnique(tech)) {
+    return `${formatDisplayInteger(tech.exp ?? 0)} / ${formatDisplayInteger(tech.expToNext ?? 0)}`;
+  }
   const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level);
   if (tech.level >= maxLevel) return t('technique.progress.max-level', undefined);
-  return `${tech.exp ?? 0} / ${tech.expToNext ?? 0}`;
+  return `${formatDisplayInteger(tech.exp ?? 0)} / ${formatDisplayInteger(tech.expToNext ?? 0)}`;
 }
 
 function getTechniqueRealmLevelLabel(realmLv: number): string {
@@ -274,7 +276,7 @@ const PendingTechniqueCard = memo(function PendingTechniqueCard({ pending, isCul
           {!selfComprehensionAllowed && <span className="tech-badge tech-grade">需传法</span>}
         </span>
         <span className="tech-progress-meta">
-          <span className="tech-progress-text">{Math.floor(pending.progress)} / {Math.floor(pending.requiredProgress)}</span>
+          <span className="tech-progress-text">{formatDisplayInteger(Math.floor(pending.progress))} / {formatDisplayInteger(Math.floor(pending.requiredProgress))}</span>
         </span>
         <span className="tech-progress-bar">
           <span className="tech-progress-fill" style={{ width: `${(ratio * 100).toFixed(2)}%` }} />

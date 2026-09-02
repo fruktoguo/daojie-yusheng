@@ -169,7 +169,7 @@ export interface ActionPanelInternal {
   currentActions: ActionDef[];
   activeSkillTab: SkillViewTab;
   previewPlayer?: PlayerState;
-  skillLookup: Map<string, { skill: SkillDef; techLevel: number; knownSkills: SkillDef[] }>;
+  skillLookup: Map<string, { skill: SkillDef; techLevel: number; knownSkills: SkillDef[]; passiveTechnique: boolean }>;
   onAction: ((actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string, dungeonId?: string) => void) | null;
   onUpdateAutoBattleSkills: ((skills: AutoBattleSkillConfig[]) => void) | null;
   onUpdateAutoUsePills: ((pills: AutoUsePillConfig[]) => void) | null;

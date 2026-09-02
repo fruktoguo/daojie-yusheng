@@ -3,7 +3,7 @@
  *
  * 悬浮提示和背包详情必须复用同一份功法属性、技能效果、消耗与冷却口径。
  */
-import type { ItemStack } from '@mud/shared';
+import { isPassiveTechnique, type ItemStack } from '@mud/shared';
 import { getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../domain-labels';
 import {
   getLocalRealmLevelEntry,
@@ -71,6 +71,7 @@ export function buildTechniqueBookDetailContent(item: ItemStack): TechniqueBookD
       const content = buildSkillTooltipContent(skill, {
         techLevel: learnMaxLevel,
         unlockLevel: Math.max(1, Math.floor(Number(skill.unlockLevel) || 1)),
+        passiveTechnique: isPassiveTechnique(previewTechnique),
       });
       return {
         skillId: skill.id,

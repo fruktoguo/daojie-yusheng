@@ -8,7 +8,7 @@ import type {
   AutoBattleSkillConfig,
 } from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
-import { type SkillPreviewMetrics, summarizeSkillPreviewMetrics } from '../skill-tooltip';
+import { type SkillPreviewMetrics, summarizeResidentSkillEffects, summarizeSkillPreviewMetrics } from '../skill-tooltip';
 import { t } from '../i18n';
 import { formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
 import { ACTION_SKILL_PRESETS_KEY } from '../../constants/ui/action';
@@ -1635,13 +1635,20 @@ export class SkillManagementSubpanel {
       <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''} ${affinityChip ? 'action-copy--with-affinity' : ''}"${tooltipAttrs}>
         <div>
           <span class="action-name">${escapeHtml(action.name)}</span>
-          <span class="action-type">${t('action.card.skill-type', undefined)}</span>
-          ${typeof action.range === 'number' ? `<span class="action-type">${t('action.range', { range: formatDisplayNumber(action.range) })}</span>` : ''}
-          ${passiveOnly ? `<span class="action-type">${t('action.skill.tab.resident', undefined)}</span>` : `<span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${autoBattleEnabled ? t('action.skill.auto-state.enabled', undefined) : t('action.skill.auto-state.disabled', undefined)}</span>`}
+          <span class="action-type">${passiveOnly ? `[${t('action.skill.tab.resident', undefined)}]` : t('action.card.skill-type', undefined)}</span>
+          ${passiveOnly || typeof action.range !== 'number' ? '' : `<span class="action-type">${t('action.range', { range: formatDisplayNumber(action.range) })}</span>`}
+          ${passiveOnly ? '' : `<span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${autoBattleEnabled ? t('action.skill.auto-state.enabled', undefined) : t('action.skill.auto-state.disabled', undefined)}</span>`}
           <span class="action-type ${skillEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${skillEnabled ? t('action.skill.manage.skill-enabled.enabled', undefined) : t('action.skill.manage.skill-enabled.disabled', undefined)}</span>
           ${autoBattleOrder ? `<span class="action-type">${t('action.skill.order', { order: formatDisplayInteger(autoBattleOrder) })}</span>` : ''}
         </div>
-        <div class="action-desc">${escapeHtml(stripSectManagementData(action.desc))}</div>
+        <div class="action-desc">${escapeHtml(passiveOnly
+            ? (skillContext
+              ? summarizeResidentSkillEffects(skillContext.skill, {
+                techLevel: skillContext.techLevel,
+                passiveTechnique: skillContext.passiveTechnique,
+              })
+              : '')
+            : stripSectManagementData(action.desc))}</div>
         ${affinityChip}
       </div>
       <div class="action-cta">

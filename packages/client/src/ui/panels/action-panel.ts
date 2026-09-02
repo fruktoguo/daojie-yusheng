@@ -15,6 +15,7 @@ import {
   PlayerState,
   SkillDef,
   getTechniqueMaxLevel,
+  isPassiveTechnique,
   normalizeCombatAttackIntensity,
   resolveSkillRequiresTarget,
   resolveSkillUnlockLevel,
@@ -30,7 +31,7 @@ import {
   isFloatingPanelEnabled,
   updateFloatingPanelPreference,
 } from '../floating-panel-preferences';
-import { buildSkillTooltipContent } from '../skill-tooltip';
+import { buildSkillTooltipContent, summarizeResidentSkillEffects } from '../skill-tooltip';
 import { preserveSelection } from '../selection-preserver';
 import { getLocalRealmLevelEntry, resolveClientTechniqueName } from '../../content/local-templates';
 import { getActionTypeLabel, getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../../domain-labels';
@@ -333,7 +334,9 @@ export class ActionPanel {
  /**
  * knownSkills：known技能相关字段。
  */
- knownSkills: SkillDef[] }>();
+ knownSkills: SkillDef[];
+  passiveTechnique: boolean;
+}>();
   /** 面板内统一复用的悬浮提示。 */
   private tooltip = new FloatingTooltip();
   /** 战斗设置中的丹药提示。 */
@@ -535,7 +538,7 @@ export class ActionPanel {
     this.skillLookup = new Map(
       player.techniques.flatMap((technique) => technique.skills.map((skill) => [
         skill.id,
-        { skill, techLevel: technique.level, knownSkills },
+        { skill, techLevel: technique.level, knownSkills, passiveTechnique: isPassiveTechnique(technique) },
       ] as const)),
     );
   }
@@ -945,6 +948,7 @@ export class ActionPanel {
           techLevel: skillContext.techLevel,
           player: this.previewPlayer,
           knownSkills: skillContext.knownSkills,
+          passiveTechnique: skillContext.passiveTechnique,
         }) : { lines: [], asideCards: [] };
         this.tooltip.showPinned(node, title, tooltip.lines, event.clientX, event.clientY, {
           allowHtml: rich,
@@ -961,6 +965,7 @@ export class ActionPanel {
           techLevel: skillContext.techLevel,
           player: this.previewPlayer,
           knownSkills: skillContext.knownSkills,
+          passiveTechnique: skillContext.passiveTechnique,
         }) : { lines: [], asideCards: [] };
         this.tooltip.show(title, tooltip.lines, event.clientX, event.clientY, {
           allowHtml: rich,
@@ -1550,6 +1555,16 @@ export class ActionPanel {
   }
 
   private renderActionDescription(action: ActionDef): string {
+    if (action.passiveOnly === true) {
+      const skillContext = this.skillLookup.get(action.id);
+      const summary = skillContext
+        ? summarizeResidentSkillEffects(skillContext.skill, {
+          techLevel: skillContext.techLevel,
+          passiveTechnique: skillContext.passiveTechnique,
+        })
+        : '';
+      return escapeHtml(summary);
+    }
     if (!action.id.startsWith('scripture:contemplate:')) {
       return escapeHtml(stripSectManagementData(action.desc));
     }
@@ -1646,10 +1661,10 @@ export class ActionPanel {
       <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''} ${affinityChip ? 'action-copy--with-affinity' : ''}"${tooltipAttrs}>
         <div>
           <span class="action-name" data-action-name-node="${action.id}">${escapeHtml(skillContext?.skill.name || action.name)}</span>
-          <span class="action-type">[${getActionTypeLabel(action.type)}]</span>
-          <span class="action-type" data-action-range-node="${action.id}"${typeof action.range === 'number' ? '' : ' hidden'}>${typeof action.range === 'number' ? t('action.range', { range: formatDisplayNumber(action.range) }) : ''}</span>
+          <span class="action-type">[${isResidentSkill ? t('action.skill.tab.resident', undefined) : getActionTypeLabel(action.type)}]</span>
+          ${isResidentSkill ? '' : `<span class="action-type" data-action-range-node="${action.id}"${typeof action.range === 'number' ? '' : ' hidden'}>${typeof action.range === 'number' ? t('action.range', { range: formatDisplayNumber(action.range) }) : ''}</span>`}
           ${isResidentSkill
-            ? `<span class="action-type">${t('action.skill.tab.resident', undefined)}</span>`
+            ? ''
             : isAutoBattleSkill
               ? `<span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}" data-action-auto-state="${action.id}">${autoBattleEnabled ? t('action.skill.auto-state.enabled', undefined) : t('action.skill.auto-state.disabled', undefined)}</span>
                <span class="action-type" data-action-auto-order="${action.id}"${autoBattleOrder ? '' : ' hidden'}>${autoBattleOrder ? t('action.skill.order', { order: formatDisplayInteger(autoBattleOrder) }) : ''}</span>`
@@ -1897,9 +1912,9 @@ export class ActionPanel {
     }
     if (refs.rangeNode) {
       const range = typeof action.range === 'number' ? action.range : null;
-      const hasRange = range !== null;
+      const hasRange = action.passiveOnly !== true && range !== null;
       refs.rangeNode.hidden = !hasRange;
-      refs.rangeNode.textContent = range === null ? '' : t('action.range', { range: formatDisplayNumber(range) });
+      refs.rangeNode.textContent = hasRange && range !== null ? t('action.range', { range: formatDisplayNumber(range) }) : '';
     }
     if (refs.bindNode) {
       refs.bindNode.textContent = this.getBindButtonLabel(action.id);

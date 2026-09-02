@@ -523,6 +523,12 @@ try {
   assert.match(yinTooltipText, /注入倍率 2\.35 aura\.refined\.yin/u, '常驻注灵技能 hover 必须显示高层注入倍率');
   assert.match(yinTooltipText, /吸收效率\+2\.35%/u, '常驻注灵技能 hover 必须显示高层气机吸收效率');
 
+  const fireCardSummary = skillTooltip.summarizeResidentSkillEffects(fireSkill, { techLevel: fireLevel, passiveTechnique: true });
+  assert.match(fireCardSummary, /法术攻击 \+37\.6%/u, '技能页常驻描述必须显示当前层真实加成');
+  assert.doesNotMatch(fireCardSummary, /离火焚天/u, '技能页常驻描述不得再展示固定文案');
+  const fireUnscaledSummary = skillTooltip.summarizeResidentSkillEffects(fireSkill, { techLevel: fireLevel, passiveTechnique: false });
+  assert.match(fireUnscaledSummary, /法术攻击 \+16%/u, '非纯被动功法不得按无限层倍率缩放常驻效果');
+
   let coveredTechniqueCount = 0;
   for (const technique of editorCatalog.LOCAL_EDITOR_CATALOG.techniques) {
     const layers = localTemplates.resolvePreviewTechniqueTemplateLayers(technique);

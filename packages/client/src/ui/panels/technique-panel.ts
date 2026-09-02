@@ -1123,7 +1123,7 @@ export class TechniquePanel {
           ${transferLocked ? `<span class="tech-badge tech-grade">${pending.activeTransferJob?.status === 'blocked' ? '等待传授' : '传授中'}</span>` : ''}
           ${!selfComprehensionAllowed ? '<span class="tech-badge tech-grade">需传法</span>' : ''}
         </span>
-        <span class="tech-progress-meta"><span class="tech-progress-text">${Math.floor(pending.progress)} / ${Math.floor(pending.requiredProgress)}</span></span>
+        <span class="tech-progress-meta"><span class="tech-progress-text">${formatDisplayInteger(Math.floor(pending.progress))} / ${formatDisplayInteger(Math.floor(pending.requiredProgress))}</span></span>
         <span class="tech-progress-bar"><span class="tech-progress-fill" style="width:${(ratio * 100).toFixed(2)}%"></span></span>
       </button>
       <div class="tech-card-actions">
@@ -1922,6 +1922,7 @@ export class TechniquePanel {
         techLevel: technique?.level,
         player: this.lastState.previewPlayer,
         knownSkills: techniques.flatMap((entry) => entry.skills),
+        passiveTechnique: technique ? isPassiveTechnique(technique) : undefined,
       }) : { lines: [], asideCards: [] };
       return { title, rich, tooltip };
     };

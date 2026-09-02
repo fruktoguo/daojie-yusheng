@@ -79,6 +79,8 @@ export interface SkillTooltipPreviewContext {
  */
 
   knownSkills?: SkillDef[];
+  /** 所属功法是否为纯被动功法；仅此时按层数缩放常驻效果。 */
+  passiveTechnique?: boolean;
 }
 
 /** PreviewPlayer：技能提示预览玩家类型。 */
@@ -1091,7 +1093,7 @@ function formatTargeting(skill: SkillDef): string {
 /** 常驻技能从模板底稿按当前功法层数投影被动强度，避免把已缩放结果再乘一遍。 */
 function resolveTooltipPreviewSkill(skill: SkillDef, context: SkillTooltipPreviewContext): SkillDef {
   const previewSkill = resolvePreviewSkill(skill);
-  if (!isPassiveOnlySkill(previewSkill)) {
+  if (!isPassiveOnlySkill(previewSkill) || context.passiveTechnique === false) {
     return previewSkill;
   }
   const template = getLocalSkillTemplate(skill.id);
@@ -1280,4 +1282,24 @@ export function buildSkillTooltipContent(skill: SkillDef, context: SkillTooltipP
 /** 仅返回提示文本行（不含侧栏卡片） */
 export function buildSkillTooltipLines(skill: SkillDef, context: SkillTooltipPreviewContext = {}): string[] {
   return buildSkillTooltipContent(skill, context).lines;
+}
+
+/** 常驻技能卡片摘要：只返回当前层投影后的效果文本。 */
+export function summarizeResidentSkillEffects(skill: SkillDef, context: SkillTooltipPreviewContext = {}): string {
+  const previewSkill = resolveTooltipPreviewSkill(skill, context);
+  if (!isPassiveOnlySkill(previewSkill)) {
+    return '';
+  }
+  const parts: string[] = [];
+  for (const effect of getSkillPassiveEffects(previewSkill)) {
+    if (effect.type === 'cultivation_tile_qi') {
+      parts.push(describeCultivationTileQiLine(effect));
+      continue;
+    }
+    if (effect.type !== 'buff') {
+      continue;
+    }
+    parts.push(...describePassiveBuffEffectLines(effect));
+  }
+  return parts.join('，');
 }
