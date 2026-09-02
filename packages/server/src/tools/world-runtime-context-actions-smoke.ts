@@ -423,10 +423,10 @@ function testDungeonEntryStoneUsesOneCompatibleAction() {
     }, log);
     const actions = service.buildContextActions({
         playerId: 'player:dungeon-entry',
-        self: { x: 2, y: 9 },
+        self: { x: 3, y: 9 },
         instance: { templateId: 'ruined_cavern_manor' },
         localPortals: [],
-        localNpcs: [{ npcId: 'npc_ruined_cavern_memory_stone', name: '忆梦石', x: 2, y: 9 }],
+        localNpcs: [{ npcId: 'npc_ruined_cavern_memory_stone', name: '忆梦石', x: 4, y: 8 }],
     }, {
         dungeonRuntimeService: {
             listDefinitions() {

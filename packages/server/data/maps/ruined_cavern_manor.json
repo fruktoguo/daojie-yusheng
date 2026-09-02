@@ -16,8 +16,8 @@
     {
       "id": "npc_ruined_cavern_memory_stone",
       "name": "忆梦石",
-      "x": 2,
-      "y": 9,
+      "x": 4,
+      "y": 8,
       "char": "石",
       "color": "#d7b875",
       "dialogue": "靠近忆梦石后，由队长发起副本。",
