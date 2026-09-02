@@ -822,6 +822,8 @@ skill-tooltip.targeting.single-tile,技能提示,单体地块,范围D固定前�
 skill-tooltip.tech-level.value,技能提示,{level}层,范围D固定前端可见文本
 skill-tooltip.temporary-tile.stone,技能提示,生成石头，持续 {duration} 息,范围D固定前端可见文本
 skill-tooltip.unlock-level.value,技能提示,第 {level} 层,范围D固定前端可见文本
+skill-tooltip.cultivation-tile-qi.amount,技能提示,注入 {amount} {resource},范围D固定前端可见文本
+skill-tooltip.cultivation-tile-qi.multiplier,技能提示,注入倍率 {multiplier} {resource},范围D固定前端可见文本
 tutorial.hint.action.label,教程,行动,
 tutorial.hint.action.path,教程,右下角行动栏->行动,
 tutorial.hint.activity.label,教程,活动,

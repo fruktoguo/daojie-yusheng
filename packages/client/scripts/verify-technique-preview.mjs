@@ -278,15 +278,15 @@ try {
   }
   const projectionStateSource = panelDeltaStateSource.createMainPanelDeltaStateSource({
     getPlayer: () => levelScalingPlayer,
-    refreshObservedDecorations() {},
-    attrPanel: { update() {}, invalidateDetail() {} },
-    equipmentPanel: { update() {}, syncPlayerContext() {} },
-    bodyTrainingPanel: { syncFoundation() {}, syncDynamic() {} },
-    craftWorkbenchModal: { syncAttrUpdate() {}, syncEquipment() {} },
-    inventoryStateSource: { syncInventory() {}, syncPlayerContext() {} },
-    refreshHeavenGateModal() {},
-    refreshUiChrome() {},
-    syncAttrBridgeState() {},
+    refreshObservedDecorations() { },
+    attrPanel: { update() { }, invalidateDetail() { } },
+    equipmentPanel: { update() { }, syncPlayerContext() { } },
+    bodyTrainingPanel: { syncFoundation() { }, syncDynamic() { } },
+    craftWorkbenchModal: { syncAttrUpdate() { }, syncEquipment() { } },
+    inventoryStateSource: { syncInventory() { }, syncPlayerContext() { } },
+    refreshHeavenGateModal() { },
+    refreshUiChrome() { },
+    syncAttrBridgeState() { },
   });
   projectionStateSource.handleAttrUpdate({
     forgingSkill: { level: 12, exp: 0, expToNext: 100 },
@@ -490,6 +490,38 @@ try {
     expectedFireSpellAtk,
     '已污染的缩放数值必须从模板底稿重新投影',
   );
+
+  const fireSkill = fireTemplate.skills[0];
+  const fireTooltipText = stripHtml(
+    skillTooltip.buildSkillTooltipContent(fireSkill, { techLevel: fireLevel }).lines.join('\n'),
+  );
+  assert.match(fireTooltipText, /法术攻击 \+37\.6%/u, '常驻技能 hover 必须显示当前高层投影后的效果');
+  assert.doesNotMatch(fireTooltipText, /法术攻击 \+16%/u, '常驻技能 hover 不得回退到第 1 层底稿数值');
+  assert.doesNotMatch(fireTooltipText, /施法距离/u, '常驻技能 hover 不得显示施法距离');
+  assert.doesNotMatch(fireTooltipText, /离火焚天/u, '常驻技能 hover 不得展示带底层数值的描述文案');
+  assert.doesNotMatch(fireTooltipText, /作用方式/u, '常驻技能 hover 不得显示作用方式');
+  assert.doesNotMatch(fireTooltipText, /灵力消耗/u, '常驻技能 hover 不得显示灵力消耗');
+  assert.doesNotMatch(fireTooltipText, /冷却/u, '常驻技能 hover 不得显示冷却');
+  assert.doesNotMatch(fireTooltipText, /实际结算仍会受命中/u, '常驻技能 hover 不得显示主动技能结算说明');
+  const pollutedFireTooltipText = stripHtml(
+    skillTooltip.buildSkillTooltipContent(pollutedFire.skills[0], { techLevel: fireLevel }).lines.join('\n'),
+  );
+  assert.match(pollutedFireTooltipText, /法术攻击 \+37\.6%/u, '已污染的常驻技能 hover 必须从模板底稿重新投影高层效果');
+
+  const gatherTemplate = localTemplates.getLocalTechniqueTemplate('passive_craft_mortal_mortal_gather');
+  assert.ok(gatherTemplate, '缺少凡人采集专修模板');
+  const gatherTooltipText = stripHtml(
+    skillTooltip.buildSkillTooltipContent(gatherTemplate.skills[0], { techLevel: fireLevel }).lines.join('\n'),
+  );
+  assert.match(gatherTooltipText, /采集速度 \+18\.8%/u, '常驻技艺技能 hover 必须按当前层数缩放速度加成');
+
+  const yinTemplate = localTemplates.getLocalTechniqueTemplate('passive_yinyang_qi_earth_pure_yin');
+  assert.ok(yinTemplate, '缺少九阳化阴真经模板');
+  const yinTooltipText = stripHtml(
+    skillTooltip.buildSkillTooltipContent(yinTemplate.skills[0], { techLevel: fireLevel }).lines.join('\n'),
+  );
+  assert.match(yinTooltipText, /注入倍率 2\.35 aura\.refined\.yin/u, '常驻注灵技能 hover 必须显示高层注入倍率');
+  assert.match(yinTooltipText, /吸收效率\+2\.35%/u, '常驻注灵技能 hover 必须显示高层气机吸收效率');
 
   let coveredTechniqueCount = 0;
   for (const technique of editorCatalog.LOCAL_EDITOR_CATALOG.techniques) {

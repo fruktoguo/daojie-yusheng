@@ -790,6 +790,8 @@ export const CLIENT_I18N_MESSAGES = {
   "skill-tooltip.cleanse.value": "{target}，移除 {count} 个{category}",
   "skill-tooltip.cooldown.value": "{cooldown} 息",
   "skill-tooltip.cost.actual-html": "{baseCost}<span class=\"skill-tooltip-cost-actual-separator\"> · </span><span class=\"{className}\">实际 {actualText}</span>",
+  "skill-tooltip.cultivation-tile-qi.amount": "注入 {amount} {resource}",
+  "skill-tooltip.cultivation-tile-qi.multiplier": "注入倍率 {multiplier} {resource}",
   "skill-tooltip.damage.physical": "物理伤害",
   "skill-tooltip.damage.physical-element": "{element}行物理伤害",
   "skill-tooltip.damage.spell": "法术伤害",
