@@ -119,6 +119,7 @@ export function cloneVisibleBuffProjection(source: VisibleBuffState): VisibleBuf
     statMode: source.statMode,
     qiProjection: source.qiProjection,
     infiniteDuration: source.infiniteDuration,
+    ignoreRealmEffectiveness: source.ignoreRealmEffectiveness === true ? true : undefined,
     presentationScale: source.presentationScale,
   });
   visibleBuffProjectionCache.set(source, { signature, projection: projected });

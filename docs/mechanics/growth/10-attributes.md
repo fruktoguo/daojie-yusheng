@@ -123,7 +123,10 @@ getRealmLinearGrowthMultiplier(realmLv, rate) = 1 + rate × (realmLv - 1)
 
 ```typescript
 getBuffEffectFactor(buff, targetRealmLv) = stacks × realmEffectiveness
-realmEffectiveness = buffRealmLv >= targetRealmLv ? 1 : 0.9^(targetRealmLv - buffRealmLv)
+realmEffectiveness =
+  buff.ignoreRealmEffectiveness ? 1
+  : buffRealmLv >= targetRealmLv ? 1
+  : 0.9^(targetRealmLv - buffRealmLv)
 ```
 
 ## 装备属性有效性折算

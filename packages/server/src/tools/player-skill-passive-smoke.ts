@@ -305,6 +305,15 @@ function testFiveElementPassiveDoesNotMutateSpiritualRoots(): void {
   assert.ok(rootBonus);
   assert.equal(rootBonus.stats?.elementDamageBonus?.metal, 80);
 }
+function testResidentPassiveIgnoresRealmAttenuation(): void {
+  const player = createPlayer();
+  player.realmLv = 42;
+  player.techniques.techniques[0].realmLv = 31;
+  const passiveBuff = collectEnabledSkillPassiveBuffs(player as never)[0];
+  assert.equal(passiveBuff?.ignoreRealmEffectiveness, true);
+  assert.equal(passiveBuff?.stats?.physAtk, 12);
+}
+
 function main(): void {
   testEnabledPassiveBuffProjection();
   testPassiveCraftAndCultivationEffects();
@@ -313,6 +322,7 @@ function main(): void {
   testPurePassiveAndSlotFormula();
   testPassiveTechniqueProgressionRule();
   testYinYangMeridiansFixedAndDualCultivateCancel();
+  testResidentPassiveIgnoresRealmAttenuation();
   testFiveElementPassiveDoesNotMutateSpiritualRoots();
   console.log(JSON.stringify({
     ok: true,
@@ -325,6 +335,7 @@ function main(): void {
       'pure_passive_slot_formula',
       'passive_technique_progression_rule',
       'yin_yang_meridians_fixed_and_dual_cultivate_cancel',
+      'resident_passive_ignores_realm_attenuation',
       'five_element_passive_does_not_mutate_spiritual_roots',
     ],
   }, null, 2));

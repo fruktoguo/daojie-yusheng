@@ -202,6 +202,7 @@ getRealmLinearGrowthMultiplier(realmLv, rate) = 1 + rate * (realmLv - 1)
 ```text
 effectFactor = stacks * realmEffectiveness
 
+ignoreRealmEffectiveness = true -> realmEffectiveness = 1
 buffRealmLv >= targetRealmLv -> realmEffectiveness = 1
 buffRealmLv < targetRealmLv  -> realmEffectiveness = 0.9 ^ (targetRealmLv - buffRealmLv)
 ```

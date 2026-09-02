@@ -51,6 +51,7 @@ export type LocalTechniqueBuffTemplate = {
   statMode?: LocalBuffModifierMode;
   valueStats?: PartialNumericStats;
   buffRef?: string;
+  ignoreRealmEffectiveness?: boolean;
   type?: string;
 };
 

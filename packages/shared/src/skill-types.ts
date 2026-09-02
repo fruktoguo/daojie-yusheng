@@ -386,6 +386,10 @@ export interface SkillBuffEffectDef {
 
   infiniteDuration?: boolean;
   /**
+   * 为 true 时不参与境界有效性折算：低境界不衰减，高境界也不增益。缺省 false。
+   */
+  ignoreRealmEffectiveness?: boolean;
+  /**
  * sustainCost：sustain消耗数值。
  */
 
@@ -549,6 +553,7 @@ export interface MonsterInitialBuffDef {
  */
 
   persistOnReturnToSpawn?: boolean;
+  ignoreRealmEffectiveness?: boolean;
 }
 
 /** 技能净化效果定义。 */
@@ -638,6 +643,7 @@ export interface SkillPassiveBuffEffectDef {
   craftEffectStats?: CraftEffectStatsPatch;
   maxStacks?: number;
   presentationScale?: number;
+  ignoreRealmEffectiveness?: boolean;
 }
 
 /** 技能被动修炼注灵效果：修炼 tick 时向周围地块注入指定气机。 */

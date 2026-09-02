@@ -214,6 +214,7 @@ function toPassiveVisibleBuff(entry: EnabledSkillPassiveEffect, playerRealmLv: n
     statMode: effect.statMode,
     qiProjection: effect.qiProjection,
     infiniteDuration: true,
+    ignoreRealmEffectiveness: effect.ignoreRealmEffectiveness !== false,
     presentationScale: effect.presentationScale,
   };
 }

@@ -732,6 +732,7 @@ function toTemporaryBuff(effect, skill) {
         qiProjection: effect.qiProjection || undefined,
         persistOnDeath: effect.persistOnDeath === true,
         persistOnReturnToSpawn: effect.persistOnReturnToSpawn === true,
+        ignoreRealmEffectiveness: effect.ignoreRealmEffectiveness === true ? true : undefined,
     };
 }
 

@@ -848,6 +848,62 @@ function testBuffStatModePercentUsesMultiplierBreakdown() {
     assert.equal(breakdowns.spellAtk?.buffMultiplierPct, 10);
 }
 
+function testIgnoreRealmEffectivenessSkipsAttenuation() {
+    const service = new PlayerAttributesService();
+    const createPlayer = (realmLv, buffs) => ({
+        realm: { stage: 0, realmLv },
+        attrs: service.createInitialState(),
+        maxHp: 10,
+        maxQi: 10,
+        hp: 10,
+        qi: 10,
+        selfRevision: 1,
+        runtimeBonuses: [],
+        techniques: { techniques: [] },
+        bodyTraining: { level: 0 },
+        equipment: { slots: [] },
+        buffs: { buffs },
+        spiritualRoots: null,
+    });
+    const base = createPlayer(42, []);
+    const ignored = createPlayer(42, [{
+        buffId: 'buff.ignore_realm',
+        name: '无视境界',
+        shortMark: '无',
+        category: 'buff',
+        visibility: 'public',
+        remainingTicks: 10,
+        duration: 10,
+        stacks: 1,
+        maxStacks: 1,
+        realmLv: 31,
+        ignoreRealmEffectiveness: true,
+        stats: { spellAtk: 46.4 },
+        statMode: 'percent',
+    }]);
+    const attenuated = createPlayer(42, [{
+        buffId: 'buff.lower_realm',
+        name: '低境界状态',
+        shortMark: '低',
+        category: 'buff',
+        visibility: 'public',
+        remainingTicks: 10,
+        duration: 10,
+        stacks: 1,
+        maxStacks: 1,
+        realmLv: 31,
+        stats: { spellAtk: 46.4 },
+        statMode: 'percent',
+    }]);
+    service.recalculate(base);
+    service.recalculate(ignored);
+    service.recalculate(attenuated);
+    const ignoredBreakdowns = buildAttrDetailNumericStatBreakdowns(ignored);
+    const attenuatedBreakdowns = buildAttrDetailNumericStatBreakdowns(attenuated);
+    assert.equal(ignoredBreakdowns.spellAtk?.buffMultiplierPct, 46.4);
+    assert.ok(Math.abs((attenuatedBreakdowns.spellAtk?.buffMultiplierPct ?? 0) - (46.4 * (0.9 ** 11))) < 1e-9);
+}
+
 function testBuffRealmFactorAndShaCapMatchMain() {
     const service = new PlayerAttributesService();
     const createPlayer = (realmLv, buffs) => ({
@@ -1222,6 +1278,7 @@ testBodyTrainingScalesAllAttributesLikeRootFoundation();
 testEnhancedEquipmentScalesLiveAndDetailStats();
 testAttrDetailSkipsEmptyEquipmentSlots();
 testBuffStatModePercentUsesMultiplierBreakdown();
+testIgnoreRealmEffectivenessSkipsAttenuation();
 testBuffRealmFactorAndShaCapMatchMain();
 testTieguPercentBuffDoesNotCompileRateStats();
 testSpecialStatsAffectOnlyConfiguredRates();

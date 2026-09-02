@@ -9,7 +9,7 @@
  * 并在属性变化时同步更新生命/灵力上限和当前值比例。
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CRAFT_EFFECT_KINDS, CRAFT_EFFECT_SKILL_KINDS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_BASE_ATTRS, DEFAULT_PLAYER_REALM_STAGE, DUNGEON_PRESSURE_BUFF_ID, DUNGEON_PRESSURE_COMBAT_STAT_KEYS, DUNGEON_PRESSURE_ELEMENT_KEYS, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, NUMERIC_STAT_MULTIPLIER_FLOORS, addCraftEffectStatsFromItem, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcBodyTrainingAttrPercentBonus, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, cloneCraftEffectStats, cloneNumericRatioDivisors, cloneNumericStats, compileValueStatsToActualStats, createEmptyCraftEffectStats, createNumericStats, getEffectivePlayerMoveSpeed, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, percentModifierToMultiplier, readCraftEffectStat, resolveDungeonPressureCombatMultiplier, resolveDungeonPressureMoveSpeedMultiplier, resolvePlayerFacingContentName, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } from '@mud/shared';
+import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CRAFT_EFFECT_KINDS, CRAFT_EFFECT_SKILL_KINDS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_BASE_ATTRS, DEFAULT_PLAYER_REALM_STAGE, DUNGEON_PRESSURE_BUFF_ID, DUNGEON_PRESSURE_COMBAT_STAT_KEYS, DUNGEON_PRESSURE_ELEMENT_KEYS, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, NUMERIC_STAT_MULTIPLIER_FLOORS, addCraftEffectStatsFromItem, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcBodyTrainingAttrPercentBonus, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, cloneCraftEffectStats, cloneNumericRatioDivisors, cloneNumericStats, compileValueStatsToActualStats, createEmptyCraftEffectStats, createNumericStats, getBuffEffectFactor, getEffectivePlayerMoveSpeed, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, percentModifierToMultiplier, readCraftEffectStat, resolveDungeonPressureCombatMultiplier, resolveDungeonPressureMoveSpeedMultiplier, resolvePlayerFacingContentName, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } from '@mud/shared';
 import {
     PVP_SHA_INFUSION_ATTACK_CAP_PERCENT,
     PVP_SHA_INFUSION_BUFF_ID,
@@ -967,20 +967,6 @@ function applyDungeonPressure(finalAttrs, numericStats, activeBuffs) {
         numericStats.elementDamageBonus[element] = Math.round(numericStats.elementDamageBonus[element] * multiplier);
         numericStats.elementDamageReduce[element] = Math.max(0, Math.round(numericStats.elementDamageReduce[element] * multiplier));
     }
-}
-
-function getBuffEffectFactor(buff, targetRealmLv) {
-    const stackFactor = Math.max(1, Number(buff.stacks ?? 1) || 1);
-    return stackFactor * getBuffRealmEffectivenessMultiplier(buff.realmLv, targetRealmLv);
-}
-
-function getBuffRealmEffectivenessMultiplier(buffRealmLv, targetRealmLv) {
-    const normalizedBuffRealmLv = Math.max(1, Math.floor(Number(buffRealmLv ?? targetRealmLv) || 1));
-    const normalizedTargetRealmLv = Math.max(1, Math.floor(Number(targetRealmLv ?? 1) || 1));
-    if (normalizedBuffRealmLv >= normalizedTargetRealmLv) {
-        return 1;
-    }
-    return Math.pow(0.9, normalizedTargetRealmLv - normalizedBuffRealmLv);
 }
 
 function roundNumericStats(target) {

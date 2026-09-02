@@ -83,3 +83,44 @@ export function getBasicAttackCombatExperienceDamageMultiplier(attackerExp: numb
     Math.max(BASIC_ATTACK_COMBAT_EXPERIENCE_DAMAGE_MULTIPLIER_MIN, ratio),
   );
 }
+
+/** Buff 境界有效性计算输入。 */
+export type BuffRealmEffectivenessSource = {
+  stacks?: number;
+  realmLv?: number;
+  ignoreRealmEffectiveness?: boolean;
+};
+
+/**
+ * Buff 境界有效性乘区。
+ * 默认：来源境界不低于目标时为 1，否则按 0.9^境界差衰减。
+ * `ignoreRealmEffectiveness=true` 时固定为 1，低境界不衰减、高境界也不增益。
+ */
+export function getBuffRealmEffectivenessMultiplier(
+  buffRealmLv: number | undefined,
+  targetRealmLv: number,
+  ignoreRealmEffectiveness = false,
+): number {
+  if (ignoreRealmEffectiveness === true) {
+    return 1;
+  }
+  const normalizedBuffRealmLv = Math.max(1, Math.floor(Number(buffRealmLv ?? targetRealmLv) || 1));
+  const normalizedTargetRealmLv = Math.max(1, Math.floor(Number(targetRealmLv ?? 1) || 1));
+  if (normalizedBuffRealmLv >= normalizedTargetRealmLv) {
+    return 1;
+  }
+  return Math.pow(0.9, normalizedTargetRealmLv - normalizedBuffRealmLv);
+}
+
+/** Buff 生效因子 = 层数 × 境界有效性。 */
+export function getBuffEffectFactor(
+  buff: BuffRealmEffectivenessSource | null | undefined,
+  targetRealmLv: number,
+): number {
+  const stackFactor = Math.max(1, Number(buff?.stacks ?? 1) || 1);
+  return stackFactor * getBuffRealmEffectivenessMultiplier(
+    buff?.realmLv,
+    targetRealmLv,
+    buff?.ignoreRealmEffectiveness === true,
+  );
+}

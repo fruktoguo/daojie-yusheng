@@ -258,6 +258,7 @@ export interface EquipmentBuffDef {
  */
 
   persistOnReturnToSpawn?: boolean;
+  ignoreRealmEffectiveness?: boolean;
 }
 
 /** Buff 维持代价定义。 */
@@ -396,6 +397,7 @@ export interface ConsumableBuffDef {
  */
 
   persistOnReturnToSpawn?: boolean;
+  ignoreRealmEffectiveness?: boolean;
 }
 
 /** 装备常驻数值效果。 */

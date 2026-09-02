@@ -7411,6 +7411,7 @@ const TEMPORARY_BUFF_PROTOTYPE_COMPARE_KEYS = [
     'sourceSkillName',
     'color',
     'presentationScale',
+    'ignoreRealmEffectiveness',
     'sustainCost',
     'expireWithBuffId',
     'sourceCasterId',
@@ -7524,6 +7525,7 @@ function isSameTemporaryBuffAttributePayload(left, right) {
         && (left?.attrMode ?? undefined) === (right?.attrMode ?? undefined)
         && (left?.statMode ?? undefined) === (right?.statMode ?? undefined)
         && (left?.realmLv ?? undefined) === (right?.realmLv ?? undefined)
+        && (left?.ignoreRealmEffectiveness === true) === (right?.ignoreRealmEffectiveness === true)
         && isSamePlainObjectValue(left?.attrs, right?.attrs)
         && isSamePlainObjectValue(left?.stats, right?.stats);
 }
@@ -13177,6 +13179,7 @@ function toConsumableTemporaryBuff(item, buff, sourceRealmLv = 1) {
         expireWithBuffId: buff.expireWithBuffId,
         persistOnDeath: buff.persistOnDeath === true,
         persistOnReturnToSpawn: buff.persistOnReturnToSpawn === true,
+        ignoreRealmEffectiveness: buff.ignoreRealmEffectiveness === true ? true : undefined,
     };
 }
 

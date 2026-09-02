@@ -239,6 +239,7 @@ export function cloneVisibleBuff(source) {
         statMode: source.statMode,
         qiProjection: source.qiProjection ? source.qiProjection.map((entry) => ({ ...entry })) : undefined,
         infiniteDuration: source.infiniteDuration,
+        ignoreRealmEffectiveness: source.ignoreRealmEffectiveness === true ? true : undefined,
         presentationScale: source.presentationScale,
     };
 }

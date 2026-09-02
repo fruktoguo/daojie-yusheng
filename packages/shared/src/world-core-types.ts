@@ -560,6 +560,10 @@ export interface VisibleBuffState {
 
   realmLv?: number;
   /**
+   * 为 true 时不参与境界有效性折算：低境界不衰减，高境界也不增益。缺省 false。
+   */
+  ignoreRealmEffectiveness?: boolean;
+  /**
  * color：color相关字段。
  */
 

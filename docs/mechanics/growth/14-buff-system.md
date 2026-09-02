@@ -36,7 +36,7 @@
 
 ### 模板字段（走 prototype 链）
 
-buffId, name, desc, shortMark, category, visibility, sourceSkillId, sourceSkillName, color, attrs, attrMode, stats, statMode, qiProjection, presentationScale, sustainCost, expireWithBuffId, sourceCasterId
+buffId, name, desc, shortMark, category, visibility, sourceSkillId, sourceSkillName, color, attrs, attrMode, stats, statMode, qiProjection, presentationScale, ignoreRealmEffectiveness, sustainCost, expireWithBuffId, sourceCasterId
 
 ## Buff 叠加规则
 
@@ -50,8 +50,13 @@ remainingTicks > 0 && stacks > 0
 
 ```typescript
 effectFactor = stacks × realmEffectiveness
-realmEffectiveness = buffRealmLv >= targetRealmLv ? 1 : 0.9^(targetRealmLv - buffRealmLv)
+realmEffectiveness =
+  ignoreRealmEffectiveness ? 1
+  : buffRealmLv >= targetRealmLv ? 1
+  : 0.9^(targetRealmLv - buffRealmLv)
 ```
+
+`ignoreRealmEffectiveness` 默认 false。为 true 时不参与境界有效性折算：低境界不衰减，高境界也不增益。常驻被动技能投影的 Buff 默认开启该选项。
 
 ### 属性叠加方式
 

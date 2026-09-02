@@ -62,7 +62,8 @@
             "buffId": "passive_yinyang_qi_earth_pure_yin_qi",
             "name": "九阳化阴真经",
             "shortMark": "阴",
-            "desc": "逆转九阳，化育纯阳。打坐修炼时向周围九宫格地脉注入阳灵气。"
+            "desc": "逆转九阳，化育纯阳。打坐修炼时向周围九宫格地脉注入阳灵气。",
+            "ignoreRealmEffectiveness": true
           },
           {
             "type": "cultivation_tile_qi",
@@ -137,7 +138,8 @@
             "buffId": "passive_yinyang_qi_earth_pure_yang_qi",
             "name": "玄牝生阳宝典",
             "shortMark": "阳",
-            "desc": "玄牝生阳，化育玄阴。打坐修炼时向周围九宫格地脉注入阴灵气。"
+            "desc": "玄牝生阳，化育玄阴。打坐修炼时向周围九宫格地脉注入阴灵气。",
+            "ignoreRealmEffectiveness": true
           },
           {
             "type": "cultivation_tile_qi",
@@ -194,7 +196,8 @@
                 "metal": 4
               }
             },
-            "statMode": "percent"
+            "statMode": "percent",
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -245,7 +248,8 @@
                 "metal": 6
               }
             },
-            "statMode": "percent"
+            "statMode": "percent",
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -296,7 +300,8 @@
                 "metal": 8
               }
             },
-            "statMode": "percent"
+            "statMode": "percent",
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -347,7 +352,8 @@
                 "wood": 4
               }
             },
-            "statMode": "percent"
+            "statMode": "percent",
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -398,7 +404,8 @@
                 "wood": 6
               }
             },
-            "statMode": "percent"
+            "statMode": "percent",
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -449,7 +456,8 @@
                 "wood": 8
               }
             },
-            "statMode": "percent"
+            "statMode": "percent",
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -500,7 +508,8 @@
                 "water": 4
               }
             },
-            "statMode": "percent"
+            "statMode": "percent",
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -551,7 +560,8 @@
                 "water": 6
               }
             },
-            "statMode": "percent"
+            "statMode": "percent",
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -602,7 +612,8 @@
                 "water": 8
               }
             },
-            "statMode": "percent"
+            "statMode": "percent",
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -653,7 +664,8 @@
                 "fire": 4
               }
             },
-            "statMode": "percent"
+            "statMode": "percent",
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -704,7 +716,8 @@
                 "fire": 6
               }
             },
-            "statMode": "percent"
+            "statMode": "percent",
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -755,7 +768,8 @@
                 "fire": 8
               }
             },
-            "statMode": "percent"
+            "statMode": "percent",
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -806,7 +820,8 @@
                 "earth": 4
               }
             },
-            "statMode": "percent"
+            "statMode": "percent",
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -857,7 +872,8 @@
                 "earth": 6
               }
             },
-            "statMode": "percent"
+            "statMode": "percent",
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -908,7 +924,8 @@
                 "earth": 8
               }
             },
-            "statMode": "percent"
+            "statMode": "percent",
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -955,7 +972,8 @@
               "spellAtk": -3,
               "maxQi": -1.5
             },
-            "statMode": "percent"
+            "statMode": "percent",
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -1002,7 +1020,8 @@
               "spellAtk": -4,
               "maxQi": -2
             },
-            "statMode": "percent"
+            "statMode": "percent",
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -1049,7 +1068,8 @@
               "spellAtk": -5,
               "maxQi": -2.5
             },
-            "statMode": "percent"
+            "statMode": "percent",
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -1096,7 +1116,8 @@
               "physDef": -2.4,
               "maxHp": -1.5
             },
-            "statMode": "percent"
+            "statMode": "percent",
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -1143,7 +1164,8 @@
               "physDef": -3.2,
               "maxHp": -2
             },
-            "statMode": "percent"
+            "statMode": "percent",
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -1190,7 +1212,8 @@
               "physDef": -4,
               "maxHp": -2.5
             },
-            "statMode": "percent"
+            "statMode": "percent",
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -1233,7 +1256,8 @@
               "alchemy": {
                 "speedRate": 0.08
               }
-            }
+            },
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -1276,7 +1300,8 @@
               "alchemy": {
                 "speedRate": 0.12
               }
-            }
+            },
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -1319,7 +1344,8 @@
               "alchemy": {
                 "speedRate": 0.16
               }
-            }
+            },
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -1362,7 +1388,8 @@
               "forging": {
                 "speedRate": 0.08
               }
-            }
+            },
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -1405,7 +1432,8 @@
               "forging": {
                 "speedRate": 0.12
               }
-            }
+            },
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -1448,7 +1476,8 @@
               "forging": {
                 "speedRate": 0.16
               }
-            }
+            },
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -1491,7 +1520,8 @@
               "enhancement": {
                 "speedRate": 0.08
               }
-            }
+            },
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -1534,7 +1564,8 @@
               "enhancement": {
                 "speedRate": 0.12
               }
-            }
+            },
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -1577,7 +1608,8 @@
               "enhancement": {
                 "speedRate": 0.16
               }
-            }
+            },
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -1620,7 +1652,8 @@
               "mining": {
                 "speedRate": 0.08
               }
-            }
+            },
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -1663,7 +1696,8 @@
               "mining": {
                 "speedRate": 0.12
               }
-            }
+            },
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -1706,7 +1740,8 @@
               "mining": {
                 "speedRate": 0.16
               }
-            }
+            },
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -1749,7 +1784,8 @@
               "gather": {
                 "speedRate": 0.08
               }
-            }
+            },
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -1792,7 +1828,8 @@
               "gather": {
                 "speedRate": 0.12
               }
-            }
+            },
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -1835,7 +1872,8 @@
               "gather": {
                 "speedRate": 0.16
               }
-            }
+            },
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -1878,7 +1916,8 @@
               "building": {
                 "speedRate": 0.08
               }
-            }
+            },
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -1921,7 +1960,8 @@
               "building": {
                 "speedRate": 0.12
               }
-            }
+            },
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -1964,7 +2004,8 @@
               "building": {
                 "speedRate": 0.16
               }
-            }
+            },
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -2007,7 +2048,8 @@
               "formation": {
                 "speedRate": 0.08
               }
-            }
+            },
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -2050,7 +2092,8 @@
               "formation": {
                 "speedRate": 0.12
               }
-            }
+            },
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -2093,7 +2136,8 @@
               "formation": {
                 "speedRate": 0.16
               }
-            }
+            },
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -2136,7 +2180,8 @@
               "transmission": {
                 "speedRate": 0.08
               }
-            }
+            },
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -2179,7 +2224,8 @@
               "transmission": {
                 "speedRate": 0.12
               }
-            }
+            },
+            "ignoreRealmEffectiveness": true
           }
         ]
       }
@@ -2222,7 +2268,8 @@
               "transmission": {
                 "speedRate": 0.16
               }
-            }
+            },
+            "ignoreRealmEffectiveness": true
           }
         ]
       }

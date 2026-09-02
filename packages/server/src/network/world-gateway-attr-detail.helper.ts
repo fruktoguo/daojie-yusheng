@@ -3,7 +3,7 @@
  *
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_CONFIG, TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE, TechniqueRealm, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, calcTechniqueQiProjectionModifiers, cloneNumericStats, compileValueStatsToActualStats, createNumericStats, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, percentModifierToMultiplier, resolvePlayerFacingContentName, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate, type AttrBonus, type PartialNumericStats } from '@mud/shared';
+import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_CONFIG, TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE, TechniqueRealm, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, calcTechniqueQiProjectionModifiers, cloneNumericStats, compileValueStatsToActualStats, createNumericStats, getBuffEffectFactor, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, percentModifierToMultiplier, resolvePlayerFacingContentName, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate, type AttrBonus, type PartialNumericStats } from '@mud/shared';
 import {
     PVP_SHA_INFUSION_ATTACK_CAP_PERCENT,
     PVP_SHA_INFUSION_BUFF_ID,
@@ -581,20 +581,6 @@ function getActiveBuffs(buffs) {
     return Array.isArray(buffs)
         ? buffs.filter((buff) => buff && buff.remainingTicks > 0 && buff.stacks > 0)
         : [];
-}
-
-function getBuffEffectFactor(buff, targetRealmLv) {
-    const stackFactor = Math.max(1, Number(buff.stacks ?? 1) || 1);
-    return stackFactor * getBuffRealmEffectivenessMultiplier(buff.realmLv, targetRealmLv);
-}
-
-function getBuffRealmEffectivenessMultiplier(buffRealmLv, targetRealmLv) {
-    const normalizedBuffRealmLv = Math.max(1, Math.floor(Number(buffRealmLv ?? targetRealmLv) || 1));
-    const normalizedTargetRealmLv = Math.max(1, Math.floor(Number(targetRealmLv ?? 1) || 1));
-    if (normalizedBuffRealmLv >= normalizedTargetRealmLv) {
-        return 1;
-    }
-    return Math.pow(0.9, normalizedTargetRealmLv - normalizedBuffRealmLv);
 }
 
 function scaleBuffNumericStats(buff, factor) {
