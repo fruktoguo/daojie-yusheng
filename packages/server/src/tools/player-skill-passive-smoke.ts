@@ -21,6 +21,8 @@ import { resolveCultivationPassiveTileQiAmount } from '../runtime/player/player-
 import { projectVisiblePlayerBuffs } from '../runtime/player/player-buff-projection.helpers';
 import { resolvePlayerQiResourceProjection } from '../runtime/world/world-runtime-qi-projection.helpers';
 import { ContentTemplateRepository } from '../content/content-template.repository';
+import { PlayerAttributesService } from '../runtime/player/player-attributes.service';
+import { buildAttrDetailBonuses } from '../network/world-gateway-attr-detail.helper';
 
 function createPassiveSkill(overrides: Partial<SkillDef> = {}): SkillDef {
   return {
@@ -238,6 +240,71 @@ function testYinYangMeridiansFixedAndDualCultivateCancel(): void {
   );
 }
 
+function testFiveElementPassiveDoesNotMutateSpiritualRoots(): void {
+  const service = new PlayerAttributesService();
+  const roots = { metal: 80, wood: 0, water: 0, fire: 0, earth: 0 };
+  const createPlayerWithRoots = (enablePassive: boolean) => ({
+    realm: { stage: 0, realmLv: 1 },
+    attrs: service.createInitialState(),
+    maxHp: 10,
+    maxQi: 10,
+    hp: 10,
+    qi: 10,
+    selfRevision: 1,
+    runtimeBonuses: [],
+    techniques: {
+      revision: 1,
+      techniques: enablePassive
+        ? [{
+            techId: 'passive_combat_mortal_mortal_metal',
+            name: '《折铁断锋篇》',
+            level: 1,
+            realmLv: 1,
+            skills: [{
+              id: 'skill_passive_combat_mortal_mortal_metal',
+              name: '折铁断锋',
+              unlockLevel: 1,
+              active: false,
+              passiveEffects: [{
+                type: 'buff' as const,
+                buffId: 'passive_combat_mortal_mortal_metal_buff',
+                name: '折铁断锋',
+                stats: {
+                  physAtk: 8,
+                  crit: 8,
+                  spellDef: -3,
+                  maxQi: -3,
+                  elementDamageBonus: { metal: 8 },
+                  elementDamageReduce: { metal: 4 },
+                },
+                statMode: 'percent' as const,
+              }],
+            }],
+          }]
+        : [],
+    },
+    combat: {
+      autoBattleSkills: enablePassive
+        ? [{ skillId: 'skill_passive_combat_mortal_mortal_metal', skillEnabled: true }]
+        : [],
+    },
+    bodyTraining: { level: 0 },
+    equipment: { slots: [] },
+    buffs: { buffs: [] },
+    spiritualRoots: { ...roots },
+  });
+  const basePlayer = createPlayerWithRoots(false);
+  const passivePlayer = createPlayerWithRoots(true);
+  service.recalculate(basePlayer as never);
+  service.recalculate(passivePlayer as never);
+  assert.deepEqual(passivePlayer.spiritualRoots, roots);
+  assert.equal(basePlayer.attrs.numericStats.elementDamageBonus.metal, 80);
+  assert.equal(passivePlayer.attrs.numericStats.elementDamageBonus.metal, 88);
+  assert.equal(passivePlayer.attrs.numericStats.elementDamageReduce.metal, 84);
+  const rootBonus = buildAttrDetailBonuses(passivePlayer).find((bonus) => bonus.source === 'heaven_gate:roots');
+  assert.ok(rootBonus);
+  assert.equal(rootBonus.stats?.elementDamageBonus?.metal, 80);
+}
 function main(): void {
   testEnabledPassiveBuffProjection();
   testPassiveCraftAndCultivationEffects();
@@ -246,6 +313,7 @@ function main(): void {
   testPurePassiveAndSlotFormula();
   testPassiveTechniqueProgressionRule();
   testYinYangMeridiansFixedAndDualCultivateCancel();
+  testFiveElementPassiveDoesNotMutateSpiritualRoots();
   console.log(JSON.stringify({
     ok: true,
     case: 'player-skill-passive',
@@ -257,6 +325,7 @@ function main(): void {
       'pure_passive_slot_formula',
       'passive_technique_progression_rule',
       'yin_yang_meridians_fixed_and_dual_cultivate_cancel',
+      'five_element_passive_does_not_mutate_spiritual_roots',
     ],
   }, null, 2));
 }

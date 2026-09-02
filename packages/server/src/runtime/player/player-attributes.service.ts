@@ -435,12 +435,12 @@ export class PlayerAttributesService {
         applyCultivationBaselineStats(numericStats);
         applyPercentBonuses(numericStats, percentBonuses);
         applyRealmNumericScaling(numericStats, realmLv);
-        applySpiritualRoots(numericStats, player.spiritualRoots);
         if (vitalBaselineBonus?.stats) {
             addPartialNumericStats(numericStats, vitalBaselineBonus.stats);
         }
         applyPercentBonuses(numericStats, buffStatPercentBonuses.buff);
         applyPercentBonuses(numericStats, buffStatPercentBonuses.pill);
+        applySpiritualRoots(numericStats, player.spiritualRoots);
         applyWorldTimeVisionModifier(numericStats, player);
         roundNumericStats(numericStats);
         applyHeavenlyDaoSuppression(finalAttrs, numericStats, activeBuffs);

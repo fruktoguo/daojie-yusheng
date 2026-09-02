@@ -63,6 +63,10 @@ export function buildAttrDetailBonuses(player) {
             attrs: clonePartialAttributes(realmAttrBonus),
         });
     }
+    const spiritualRootBonus = buildSpiritualRootAttrBonus(player.spiritualRoots);
+    if (spiritualRootBonus) {
+        bonuses.push(spiritualRootBonus);
+    }
     bonuses.push(...resolveTechniqueDetailBonuses(player));
     for (const entry of player.equipment?.slots ?? []) {
         const item = entry.item ? applyEquipmentAttributeEffectivenessToItemStack(entry.item, playerRealmLv) : null;
@@ -702,6 +706,33 @@ function matchesEquipmentCondition(player, condition) {
  * @param attrs 参数说明。
  * @returns 无返回值，完成NonZeroAttribute的条件判断。
  */
+
+function buildSpiritualRootAttrBonus(roots) {
+    if (!roots) {
+        return null;
+    }
+    const elementDamageBonus = {};
+    let hasRoot = false;
+    for (const key of ELEMENT_KEYS) {
+        const value = Math.max(0, Math.min(100, Math.trunc(Number(roots[key]) || 0)));
+        elementDamageBonus[key] = value;
+        if (value > 0) {
+            hasRoot = true;
+        }
+    }
+    if (!hasRoot) {
+        return null;
+    }
+    return {
+        source: 'heaven_gate:roots',
+        label: '灵根',
+        attrs: {},
+        stats: {
+            elementDamageBonus,
+            elementDamageReduce: { ...elementDamageBonus },
+        },
+    };
+}
 
 function hasNonZeroAttributes(attrs) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
