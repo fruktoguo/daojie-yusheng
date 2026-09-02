@@ -13,56 +13,56 @@
     "itemId": "book.passive_craft_mortal_mortal_alchemy",
     "name": "《草木还丹篇》",
     "type": "skill_book",
-    "desc": "记载草木还丹篇的修行法门，使用后学会草木还丹篇。",
+    "desc": "记载辨识药草性味、粗炼成丹法门的炼丹心得。研读后掌握凡阶心法《草木还丹篇》，使炼丹速度提升 8%。",
     "learnTechniqueId": "passive_craft_mortal_mortal_alchemy"
   },
   {
     "itemId": "book.passive_craft_mortal_mortal_forging",
     "name": "《淬铁百锤篇》",
     "type": "skill_book",
-    "desc": "记载淬铁百锤篇的修行法门，使用后学会淬铁百锤篇。",
+    "desc": "记载凡间名匠百炼成钢、淬火去杂经验的锻造图录。研读后掌握凡阶心法《淬铁百锤篇》，使锻造速度提升 8%。",
     "learnTechniqueId": "passive_craft_mortal_mortal_forging"
   },
   {
     "itemId": "book.passive_craft_mortal_mortal_enhancement",
     "name": "《温玉养器篇》",
     "type": "skill_book",
-    "desc": "记载温玉养器篇的修行法门，使用后学会温玉养器篇。",
+    "desc": "记载以温润玉质与精纯油料擦拭养护器物经验的古册。研读后掌握凡阶心法《温玉养器篇》，使装备强化速度提升 8%。",
     "learnTechniqueId": "passive_craft_mortal_mortal_enhancement"
   },
   {
     "itemId": "book.passive_craft_mortal_mortal_mining",
     "name": "《探矿辨石篇》",
     "type": "skill_book",
-    "desc": "记载探矿辨石篇的修行法门，使用后学会探矿辨石篇。",
+    "desc": "记载采矿老匠辨识岩质风化、探寻矿脉苗头经验的手记。研读后掌握凡阶心法《探矿辨石篇》，使采矿速度提升 8%。",
     "learnTechniqueId": "passive_craft_mortal_mortal_mining"
   },
   {
     "itemId": "book.passive_craft_mortal_mortal_gather",
     "name": "《百草识辨篇》",
     "type": "skill_book",
-    "desc": "记载百草识辨篇的修行法门，使用后学会百草识辨篇。",
+    "desc": "记载老药农踏遍群山辨识百草形态、保留根茎药性经验的书谱。研读后掌握凡阶心法《百草识辨篇》，使采集速度提升 8%。",
     "learnTechniqueId": "passive_craft_mortal_mortal_gather"
   },
   {
     "itemId": "book.passive_craft_mortal_mortal_building",
     "name": "《引绳规矩篇》",
     "type": "skill_book",
-    "desc": "记载引绳规矩篇的修行法门，使用后学会引绳规矩篇。",
+    "desc": "记载大匠拉绳画线、立柱定梁、规矩营造法度的营建图册。研读后掌握凡阶心法《引绳规矩篇》，使营造筑造速度提升 8%。",
     "learnTechniqueId": "passive_craft_mortal_mortal_building"
   },
   {
     "itemId": "book.passive_craft_mortal_mortal_formation",
     "name": "《布子定元篇》",
     "type": "skill_book",
-    "desc": "记载布子定元篇的修行法门，使用后学会布子定元篇。",
+    "desc": "记载凡间棋阵推演、布子定元借势成局要诀的棋谱残卷。研读后掌握凡阶心法《布子定元篇》，使布阵速度提升 8%。",
     "learnTechniqueId": "passive_craft_mortal_mortal_formation"
   },
   {
     "itemId": "book.passive_craft_mortal_mortal_transmission",
     "name": "《启蒙明道篇》",
     "type": "skill_book",
-    "desc": "记载启蒙明道篇的修行法门，使用后学会启蒙明道篇。",
+    "desc": "记载凡俗夫子手抄墨拓、循循善诱传授经义法门的劝学册。研读后掌握凡阶心法《启蒙明道篇》，使传法授道速度提升 8%。",
     "learnTechniqueId": "passive_craft_mortal_mortal_transmission"
   },
   {

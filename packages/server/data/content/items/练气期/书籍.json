@@ -3,56 +3,56 @@
     "itemId": "book.passive_craft_qi_yellow_alchemy",
     "name": "《灵火调药诀》",
     "type": "skill_book",
-    "desc": "记载灵火调药诀的修行法门，使用后学会灵火调药诀。",
+    "desc": "记载操控地火灵焰、温养药性之法的控火丹诀。研读后掌握黄阶心法《灵火调药诀》，使炼丹速度提升 12%。",
     "learnTechniqueId": "passive_craft_qi_yellow_alchemy"
   },
   {
     "itemId": "book.passive_craft_qi_yellow_forging",
     "name": "《火精锻金诀》",
     "type": "skill_book",
-    "desc": "记载火精锻金诀的修行法门，使用后学会火精锻金诀。",
+    "desc": "记载引聚炉火精气软化顽铁、塑形神兵法门的心法书卷。研读后掌握黄阶心法《火精锻金诀》，使锻造速度提升 12%。",
     "learnTechniqueId": "passive_craft_qi_yellow_forging"
   },
   {
     "itemId": "book.passive_craft_qi_yellow_enhancement",
     "name": "《淬灵附煞诀》",
     "type": "skill_book",
-    "desc": "记载淬灵附煞诀的修行法门，使用后学会淬灵附煞诀。",
+    "desc": "记载引聚灵煞淬入器胎、稳固器纹法门的强化秘诀。研读后掌握黄阶心法《淬灵附煞诀》，使装备强化速度提升 12%。",
     "learnTechniqueId": "passive_craft_qi_yellow_enhancement"
   },
   {
     "itemId": "book.passive_craft_qi_yellow_mining",
     "name": "《地脉寻金诀》",
     "type": "skill_book",
-    "desc": "记载地脉寻金诀的修行法门，使用后学会地脉寻金诀。",
+    "desc": "记载借微弱灵气感知地下金玉之气走向法门的寻脉诀。研读后掌握黄阶心法《地脉寻金诀》，使采矿速度提升 12%。",
     "learnTechniqueId": "passive_craft_qi_yellow_mining"
   },
   {
     "itemId": "book.passive_craft_qi_yellow_gather",
     "name": "《青灵采撷诀》",
     "type": "skill_book",
-    "desc": "记载青灵采撷诀的修行法门，使用后学会青灵采撷诀。",
+    "desc": "记载以木行灵气包裹草木、避免灵气流失采摘法门的采药诀。研读后掌握黄阶心法《青灵采撷诀》，使采集速度提升 12%。",
     "learnTechniqueId": "passive_craft_qi_yellow_gather"
   },
   {
     "itemId": "book.passive_craft_qi_yellow_building",
     "name": "《理气筑基诀》",
     "type": "skill_book",
-    "desc": "记载理气筑基诀的修行法门，使用后学会理气筑基诀。",
+    "desc": "记载引地脉风水灵气夯实地基、稳固梁柱法门的营造秘卷。研读后掌握黄阶心法《理气筑基诀》，使营造筑造速度提升 12%。",
     "learnTechniqueId": "passive_craft_qi_yellow_building"
   },
   {
     "itemId": "book.passive_craft_qi_yellow_formation",
     "name": "《走盘引阵诀》",
     "type": "skill_book",
-    "desc": "记载走盘引阵诀的修行法门，使用后学会走盘引阵诀。",
+    "desc": "记载御使阵盘引动八卦方位、瞬息连通阵纹法门的阵道要诀。研读后掌握黄阶心法《走盘引阵诀》，使布阵速度提升 12%。",
     "learnTechniqueId": "passive_craft_qi_yellow_formation"
   },
   {
     "itemId": "book.passive_craft_qi_yellow_transmission",
     "name": "《口传心授诀》",
     "type": "skill_book",
-    "desc": "记载口传心授诀的修行法门，使用后学会口传心授诀。",
+    "desc": "记载以气机共鸣辅助口诀讲授、助人破障明理之法的心印诀。研读后掌握黄阶心法《口传心授诀》，使传法授道速度提升 12%。",
     "learnTechniqueId": "passive_craft_qi_yellow_transmission"
   },
   {
@@ -297,161 +297,161 @@
     "itemId": "book.passive_combat_mortal_mortal_metal",
     "name": "《折铁断锋篇》",
     "type": "skill_book",
-    "desc": "记载折铁断锋篇的修行法门，使用后可开始参悟。",
+    "desc": "记载凡俗铁匠感悟金气所创的折铁刀谱。研读后掌握凡阶被动心法《折铁断锋篇》，提升金系攻势与暴击。",
     "learnTechniqueId": "passive_combat_mortal_mortal_metal"
   },
   {
     "itemId": "book.passive_combat_mortal_mortal_wood",
     "name": "《问木折青篇》",
     "type": "skill_book",
-    "desc": "记载问木折青篇的修行法门，使用后可开始参悟。",
+    "desc": "记载草木逢春、折枝生青之理的草木残篇。研读后掌握凡阶被动心法《问木折青篇》，提升气血自愈与闪避。",
     "learnTechniqueId": "passive_combat_mortal_mortal_wood"
   },
   {
     "itemId": "book.passive_combat_mortal_mortal_water",
     "name": "《溯流引泉篇》",
     "type": "skill_book",
-    "desc": "记载溯流引泉篇的修行法门，使用后可开始参悟。",
+    "desc": "记载观溪流曲折、溯水寻源之理的羊皮卷。研读后掌握凡阶被动心法《溯流引泉篇》，提升法防与抗暴。",
     "learnTechniqueId": "passive_combat_mortal_mortal_water"
   },
   {
     "itemId": "book.passive_combat_mortal_mortal_fire",
     "name": "《燃薪淬息篇》",
     "type": "skill_book",
-    "desc": "记载燃薪淬息篇的修行法门，使用后可开始参悟。",
+    "desc": "记载樵夫引火燃薪、聚热淬息经验的古拙薄册。研读后掌握凡阶被动心法《燃薪淬息篇》，提升法术攻击与暴伤。",
     "learnTechniqueId": "passive_combat_mortal_mortal_fire"
   },
   {
     "itemId": "book.passive_combat_mortal_mortal_earth",
     "name": "《盘根立地篇》",
     "type": "skill_book",
-    "desc": "记载盘根立地篇的修行法门，使用后可开始参悟。",
+    "desc": "记载如老树盘根、稳立大地之理的石刻拓本。研读后掌握凡阶被动心法《盘根立地篇》，提升物理防御与化劲。",
     "learnTechniqueId": "passive_combat_mortal_mortal_earth"
   },
   {
     "itemId": "book.passive_combat_mortal_mortal_physical",
     "name": "《磨筋铸骨谱》",
     "type": "skill_book",
-    "desc": "记载磨筋铸骨谱的修行法门，使用后可开始参悟。",
+    "desc": "记载凡俗武者打熬筋骨、易筋锻骨之法的皮卷。研读后掌握凡阶被动心法《磨筋铸骨谱》，提升物理攻击、防御与破劲。",
     "learnTechniqueId": "passive_combat_mortal_mortal_physical"
   },
   {
     "itemId": "book.passive_combat_mortal_mortal_spell",
     "name": "《识微明眸篇》",
     "type": "skill_book",
-    "desc": "记载识微明眸篇的修行法门，使用后可开始参悟。",
+    "desc": "记载平心静气、观察入微、见微知著经验的清心经册。研读后掌握凡阶被动心法《识微明眸篇》，提升法术攻击、法防、命中与化劲。",
     "learnTechniqueId": "passive_combat_mortal_mortal_spell"
   },
   {
     "itemId": "book.passive_combat_qi_yellow_metal",
     "name": "《庚金煞灵引》",
     "type": "skill_book",
-    "desc": "记载庚金煞灵引的修行法门，使用后可开始参悟。",
+    "desc": "记载引聚庚金地煞凝练锋芒之法的道诀。研读后掌握黄阶被动心法《庚金煞灵引》，提升金系攻势与暴击。",
     "learnTechniqueId": "passive_combat_qi_yellow_metal"
   },
   {
     "itemId": "book.passive_combat_qi_yellow_wood",
     "name": "《乙木岁荣诀》",
     "type": "skill_book",
-    "desc": "记载乙木岁荣诀的修行法门，使用后可开始参悟。",
+    "desc": "记载乙木荣枯流转、向阳而生之意的青玉书册。研读后掌握黄阶被动心法《乙木岁荣诀》，提升气血自愈与闪避。",
     "learnTechniqueId": "passive_combat_qi_yellow_wood"
   },
   {
     "itemId": "book.passive_combat_qi_yellow_water",
     "name": "《沧浪叠韵诀》",
     "type": "skill_book",
-    "desc": "记载沧浪叠韵诀的修行法门，使用后可开始参悟。",
+    "desc": "记载水势叠浪、绵延不绝之妙的水纹锦绢。研读后掌握黄阶被动心法《沧浪叠韵诀》，提升法防与抗暴。",
     "learnTechniqueId": "passive_combat_qi_yellow_water"
   },
   {
     "itemId": "book.passive_combat_qi_yellow_fire",
     "name": "《朱雀焚炎引》",
     "type": "skill_book",
-    "desc": "记载朱雀焚炎引的修行法门，使用后可开始参悟。",
+    "desc": "记载引聚朱雀地火精煞助燃法力之法的赤色竹简。研读后掌握黄阶被动心法《朱雀焚炎引》，提升法术攻击与暴伤。",
     "learnTechniqueId": "passive_combat_qi_yellow_fire"
   },
   {
     "itemId": "book.passive_combat_qi_yellow_earth",
     "name": "《玄黄镇岳诀》",
     "type": "skill_book",
-    "desc": "记载玄黄镇岳诀的修行法门，使用后可开始参悟。",
+    "desc": "记载借地脉玄黄厚重之气镇守周身的心法书册。研读后掌握黄阶被动心法《玄黄镇岳诀》，提升物理防御与化劲。",
     "learnTechniqueId": "passive_combat_qi_yellow_earth"
   },
   {
     "itemId": "book.passive_combat_qi_yellow_physical",
     "name": "《龙象摧岳劲》",
     "type": "skill_book",
-    "desc": "记载龙象摧岳劲的修行法门，使用后可开始参悟。",
+    "desc": "记载运转气血化为龙象巨力、崩山摧岳法门的拳谱。研读后掌握黄阶被动心法《龙象摧岳劲》，提升物理攻击、防御与破劲。",
     "learnTechniqueId": "passive_combat_qi_yellow_physical"
   },
   {
     "itemId": "book.passive_combat_qi_yellow_spell",
     "name": "《灵犀澈照引》",
     "type": "skill_book",
-    "desc": "记载灵犀澈照引的修行法门，使用后可开始参悟。",
+    "desc": "记载心生灵犀、通照灵台玄奥之理的心法图册。研读后掌握黄阶被动心法《灵犀澈照引》，提升法术攻击、法防、命中与化劲。",
     "learnTechniqueId": "passive_combat_qi_yellow_spell"
   },
   {
     "itemId": "book.passive_combat_foundation_mystic_metal",
     "name": "《庚金凝罡录》",
     "type": "skill_book",
-    "desc": "记载庚金凝罡录的修行法门，使用后可开始参悟。",
+    "desc": "记载庚金煞气凝罡法门的白金书卷。研读后掌握玄阶被动心法《庚金凝罡录》，大幅强化金系杀伐与暴击。",
     "learnTechniqueId": "passive_combat_foundation_mystic_metal"
   },
   {
     "itemId": "book.passive_combat_foundation_mystic_wood",
     "name": "《长春固脉录》",
     "type": "skill_book",
-    "desc": "记载长春固脉录的修行法门，使用后可开始参悟。",
+    "desc": "记载长春不老、固脉延年奥义的长春青简。研读后掌握玄阶被动心法《长春固脉录》，大幅强化气血生机与闪避身法。",
     "learnTechniqueId": "passive_combat_foundation_mystic_wood"
   },
   {
     "itemId": "book.passive_combat_foundation_mystic_water",
     "name": "《玄潮凝波录》",
     "type": "skill_book",
-    "desc": "记载玄潮凝波录的修行法门，使用后可开始参悟。",
+    "desc": "记载北方玄武真水化潮御法之道的碧水玉简。研读后掌握玄阶被动心法《玄潮凝波录》，大幅强化法防与抗暴御煞能力。",
     "learnTechniqueId": "passive_combat_foundation_mystic_water"
   },
   {
     "itemId": "book.passive_combat_foundation_mystic_fire",
     "name": "《离火淬元录》",
     "type": "skill_book",
-    "desc": "记载离火淬元录的修行法门，使用后可开始参悟。",
+    "desc": "记载南方纯阳离火淬炼真元神妙之法的朱玉灵简。研读后掌握玄阶被动心法《离火淬元录》，大幅强化法攻与暴击杀伤。",
     "learnTechniqueId": "passive_combat_foundation_mystic_fire"
   },
   {
     "itemId": "book.passive_combat_foundation_mystic_earth",
     "name": "《厚土镇基录》",
     "type": "skill_book",
-    "desc": "记载厚土镇基录的修行法门，使用后可开始参悟。",
+    "desc": "记载引皇天厚土之力铸就万劫不移道基的黄玉简册。研读后掌握玄阶被动心法《厚土镇基录》，大幅强化物防与化劲御力。",
     "learnTechniqueId": "passive_combat_foundation_mystic_earth"
   },
   {
     "itemId": "book.passive_combat_foundation_mystic_physical",
     "name": "《煞血铁骨功》",
     "type": "skill_book",
-    "desc": "记载煞血铁骨功的修行法门，使用后可开始参悟。",
+    "desc": "记载以煞血淬骨、铸就金刚铁骨霸体法门的赤血兽皮卷。研读后掌握玄阶被动心法《煞血铁骨功》，大幅强化肉身攻防与破劲暴击。",
     "learnTechniqueId": "passive_combat_foundation_mystic_physical"
   },
   {
     "itemId": "book.passive_combat_foundation_mystic_spell",
     "name": "《明心拓神录》",
     "type": "skill_book",
-    "desc": "记载明心拓神录的修行法门，使用后可开始参悟。",
+    "desc": "记载开辟神识识海、明心见性、拓阔神念法门的灵晶宝卷。研读后掌握玄阶被动心法《明心拓神录》，大幅强化法术攻防、命中与化劲。",
     "learnTechniqueId": "passive_combat_foundation_mystic_spell"
   },
   {
     "itemId": "book.passive_yinyang_qi_earth_pure_yin",
     "name": "《九阳化阴真经》",
     "type": "skill_book",
-    "desc": "记载九阳化阴真经的修行法门，使用后可开始参悟。",
+    "desc": "记载阳极生阴、反哺天地之理的玄奥玉册。研读后参悟《九阳化阴真经》，提升阴灵脉吸收效率，并掌握打坐玄阴注灵之术。",
     "learnTechniqueId": "passive_yinyang_qi_earth_pure_yin"
   },
   {
     "itemId": "book.passive_yinyang_qi_earth_pure_yang",
     "name": "《玄牝生阳宝典》",
     "type": "skill_book",
-    "desc": "记载玄牝生阳宝典的修行法门，使用后可开始参悟。",
+    "desc": "记载阴极生阳、反哺天地之理的温润金册。研读后参悟《玄牝生阳宝典》，提升阳灵脉吸收效率，并掌握打坐纯阳注灵之术。",
     "learnTechniqueId": "passive_yinyang_qi_earth_pure_yang"
   }
 ]

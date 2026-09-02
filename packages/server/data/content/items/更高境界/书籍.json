@@ -3,56 +3,56 @@
     "itemId": "book.passive_craft_foundation_mystic_alchemy",
     "name": "《真元凝丹录》",
     "type": "skill_book",
-    "desc": "记载真元凝丹录的修行法门，使用后学会真元凝丹录。",
+    "desc": "记载以筑基真元淬药凝丹、一气呵成妙谛的丹道真经。研读后掌握玄阶心法《真元凝丹录》，使炼丹速度提升 16%。",
     "learnTechniqueId": "passive_craft_foundation_mystic_alchemy"
   },
   {
     "itemId": "book.passive_craft_foundation_mystic_forging",
     "name": "《千锤融灵录》",
     "type": "skill_book",
-    "desc": "记载千锤融灵录的修行法门，使用后学会千锤融灵录。",
+    "desc": "记载将天地灵矿融灵合一、铸炼法器神妙要旨的宝铁玉简。研读后掌握玄阶心法《千锤融灵录》，使锻造速度提升 16%。",
     "learnTechniqueId": "passive_craft_foundation_mystic_forging"
   },
   {
     "itemId": "book.passive_craft_foundation_mystic_enhancement",
     "name": "《注灵凝纹录》",
     "type": "skill_book",
-    "desc": "记载注灵凝纹录的修行法门，使用后学会注灵凝纹录。",
+    "desc": "记载以神念真元凌空刻画符纹、注入天地灵性的宝纹录。研读后掌握玄阶心法《注灵凝纹录》，使装备强化速度提升 16%。",
     "learnTechniqueId": "passive_craft_foundation_mystic_enhancement"
   },
   {
     "itemId": "book.passive_craft_foundation_mystic_mining",
     "name": "《分岳探脉录》",
     "type": "skill_book",
-    "desc": "记载分岳探脉录的修行法门，使用后学会分岳探脉录。",
+    "desc": "记载以神识穿透重岩厚土、直接锁定宝矿脉眼奥义的青岩简。研读后掌握玄阶心法《分岳探脉录》，使采矿速度提升 16%。",
     "learnTechniqueId": "passive_craft_foundation_mystic_mining"
   },
   {
     "itemId": "book.passive_craft_foundation_mystic_gather",
     "name": "《灵植引脉录》",
     "type": "skill_book",
-    "desc": "记载灵植引脉录的修行法门，使用后学会灵植引脉录。",
+    "desc": "记载以神念沟通天地灵根、顺应草木脉络采收珍奇宝药奥秘的苍玉简。研读后掌握玄阶心法《灵植引脉录》，使采集速度提升 16%。",
     "learnTechniqueId": "passive_craft_foundation_mystic_gather"
   },
   {
     "itemId": "book.passive_craft_foundation_mystic_building",
     "name": "《移山架阁录》",
     "type": "skill_book",
-    "desc": "记载移山架阁录的修行法门，使用后学会移山架阁录。",
+    "desc": "记载借五行灵力移石搬木、凌空架阁建造洞天楼宇法门的鲁班天书。研读后掌握玄阶心法《移山架阁录》，使营造筑造速度提升 16%。",
     "learnTechniqueId": "passive_craft_foundation_mystic_building"
   },
   {
     "itemId": "book.passive_craft_foundation_mystic_formation",
     "name": "《锁灵定脉录》",
     "type": "skill_book",
-    "desc": "记载锁灵定脉录的修行法门，使用后学会锁灵定脉录。",
+    "desc": "记载以神念刻画大衍阵印、直接锁固天地地脉之气成阵妙法的阵道真传。研读后掌握玄阶心法《锁灵定脉录》，使布阵速度提升 16%。",
     "learnTechniqueId": "passive_craft_foundation_mystic_formation"
   },
   {
     "itemId": "book.passive_craft_foundation_mystic_transmission",
     "name": "《神念化法录》",
     "type": "skill_book",
-    "desc": "记载神念化法录的修行法门，使用后学会神念化法录。",
+    "desc": "记载筑基期神识传道法门的青玉简。研读后掌握玄阶心法《神念化法录》，使传法授道速度提升 16%。",
     "learnTechniqueId": "passive_craft_foundation_mystic_transmission"
   },
   {
