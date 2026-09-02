@@ -16,6 +16,7 @@ import {
   resolveDungeonAttributeMultipliers,
   resolveDungeonEffectiveStep,
   resolveDungeonLootMultipliers,
+  resolveDungeonPartyDropRateMultiplier,
   resolveDungeonStaminaCost,
   type TechniqueGrade,
   DUNGEON_PRESSURE_BUFF_ID,
@@ -1036,6 +1037,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     if (!definition) return;
     const multipliers = resolveDungeonAttributeMultipliers(run.difficulty, definition.difficulty.maxPresentRank, definition.difficulty.attributeRule);
     const lootMultipliers = resolveDungeonLootMultipliers(run.difficulty, definition.difficulty.maxPresentRank);
+    lootMultipliers.dropRateMultiplier *= resolveDungeonPartyDropRateMultiplier(run.members.length);
     instance.addRuntimeMonster?.(scaleMonsterSpawn(
       spawn,
       run.difficulty,

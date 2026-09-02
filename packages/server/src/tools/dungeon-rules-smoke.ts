@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
   resolveDungeonAttributeMultipliers,
   resolveDungeonLootMultipliers,
+  resolveDungeonPartyDropRateMultiplier,
   resolveDungeonStaminaCost,
   resolveDungeonEffectiveStep,
   resolveRecoveredStamina,
@@ -28,6 +29,18 @@ assert.deepEqual(resolveDungeonLootMultipliers({ difficulty: 'trial' }, maxRank)
 assert.deepEqual(resolveDungeonLootMultipliers({ difficulty: 'hard' }, maxRank), { currencyCountMultiplier: 1.5, dropRateMultiplier: 2 });
 assert.deepEqual(resolveDungeonLootMultipliers({ difficulty: 'nightmare' }, maxRank), { currencyCountMultiplier: 2.5, dropRateMultiplier: 3 });
 assert.deepEqual(resolveDungeonLootMultipliers({ difficulty: 'present', presentRank: 'mystic' as any }, maxRank), { currencyCountMultiplier: 5.6, dropRateMultiplier: 10, presentRankStep: 2 });
+assert.equal(resolveDungeonPartyDropRateMultiplier(1), 1);
+assert.equal(resolveDungeonPartyDropRateMultiplier(2), 1.5);
+assert.equal(resolveDungeonPartyDropRateMultiplier(3), 2);
+assert.equal(resolveDungeonPartyDropRateMultiplier(4), 2.5);
+assert.equal(resolveDungeonPartyDropRateMultiplier(5), 3);
+assert.equal(resolveDungeonPartyDropRateMultiplier(0), 1);
+assert.equal(resolveDungeonPartyDropRateMultiplier(99), 3);
+assert.equal(
+  resolveDungeonLootMultipliers({ difficulty: 'hard' }, maxRank).dropRateMultiplier
+  * resolveDungeonPartyDropRateMultiplier(3),
+  4,
+);
 
 assert.equal(isDungeonPartyDefeated({
   members: [{ playerId: 'player:solo', joinedAt: 0 }],
@@ -70,7 +83,7 @@ events.length = 0;
 new ExpeditionDungeonFlowController().onTick(makeRun('expedition'), { ...dungeon, flowType: 'expedition', rooms: [] } as any, context);
 assert.ok(events.includes('complete:all_rooms_cleared'));
 void testDungeonRestartRecovery().then(() => {
-  console.log(JSON.stringify({ ok: true, case: 'dungeon-rules', checks: 31 }));
+  console.log(JSON.stringify({ ok: true, case: 'dungeon-rules', checks: 39 }));
 }).catch((error) => {
   console.error(error);
   process.exitCode = 1;
@@ -94,7 +107,7 @@ function testPartyDefeatTransitions(): void {
   const instance = {
     meta: { instanceId: run.mapInstanceId, kind: 'dungeon' },
     monstersByRuntimeId: new Map(),
-    removeRuntimeMonster() {},
+    removeRuntimeMonster() { },
     listPlayerIds() { return [playerId]; },
   };
   const definition = {
@@ -262,9 +275,9 @@ async function testDungeonRestartRecovery(): Promise<void> {
     async reconcileTerminalCatalogInstances() { return 0; },
     async loadRecoverableRuns() { return [run]; },
     async loadRunStatusByInstanceId() { return run; },
-    async waitForSave() {},
+    async waitForSave() { },
     save(next: any) { this.saves.push({ ...next }); },
-    remove() {},
+    remove() { },
   };
   const service = new DungeonRuntimeService(
     {

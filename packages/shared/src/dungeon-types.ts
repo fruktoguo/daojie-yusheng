@@ -9,6 +9,7 @@ import type { ItemType } from './item-runtime-types';
 import { TECHNIQUE_GRADE_ORDER } from './constants/gameplay/technique';
 
 export const DUNGEON_MAX_PARTY_MEMBERS = 5;
+export const DUNGEON_PARTY_DROP_RATE_BONUS_PER_EXTRA_MEMBER = 0.5;
 export const DUNGEON_MAX_STAMINA = 240;
 export const DUNGEON_STAMINA_REGEN_INTERVAL_MS = 60 * 60 * 1000;
 
@@ -465,6 +466,16 @@ export function resolveDungeonLootMultipliers(
     dropRateMultiplier: 5 * (1 + rankStep * 0.5),
     presentRankStep: rankStep,
   };
+}
+
+
+/** 副本组队爆率：激活快照每多 1 人总掉率 +50%，仍只掷一次。1~5 人分别为 1.0/1.5/2.0/2.5/3.0。 */
+export function resolveDungeonPartyDropRateMultiplier(memberCount: number): number {
+  const count = Math.max(
+    1,
+    Math.min(DUNGEON_MAX_PARTY_MEMBERS, Math.trunc(Number(memberCount) || 1)),
+  );
+  return 1 + DUNGEON_PARTY_DROP_RATE_BONUS_PER_EXTRA_MEMBER * (count - 1);
 }
 
 export function resolveDungeonStaminaCost(
