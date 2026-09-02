@@ -476,7 +476,7 @@ export function resolvePreviewTechnique(technique: TechniqueState): TechniqueSta
       name: resolvedName,
       realmLv: resolveTechniqueRealmLevel(technique.realmLv, technique.grade),
       realm: passive ? TechniqueRealm.Entry : deriveTechniqueRealm(technique.level, technique.layers),
-      skills: resolvePreviewSkills(technique.skills).map((skill) => passive ? scaleTechniquePassiveSkill(skill, technique.level) : skill),
+      skills: resolvePreviewSkills(technique.skills),
       category: technique.category ?? (technique.skills.length > 0 ? 'arts' : 'internal'),
     };
   }
@@ -494,13 +494,21 @@ export function resolvePreviewTechnique(technique: TechniqueState): TechniqueSta
     strengthPercent: technique.strengthPercent ?? resolveTechniqueStrengthPercent(template.budgetPercent),
     realm: passive ? TechniqueRealm.Entry : deriveTechniqueRealm(technique.level, resolvedLayers),
     skills: sourceSkills.map((skill) => {
+      const templateSkill = templateSkills.find((entry) => entry.id === skill.id);
       const resolvedSkill = resolvePreviewTechniqueSkill(
         skill,
         technique.grade ?? template.grade,
         realmLv,
-        templateSkills.find((entry) => entry.id === skill.id),
+        templateSkill,
       );
-      return passive ? scaleTechniquePassiveSkill(resolvedSkill, technique.level) : resolvedSkill;
+      // 被动强度永远从模板底稿投影，禁止把已缩放预览结果再次乘层数倍率。
+      return passive && templateSkill
+        ? scaleTechniquePassiveSkill({
+          ...resolvedSkill,
+          active: templateSkill.active ?? resolvedSkill.active,
+          passiveEffects: clone(templateSkill.passiveEffects ?? resolvedSkill.passiveEffects ?? []),
+        }, technique.level)
+        : resolvedSkill;
     }),
     layers: resolvedLayers,
   };

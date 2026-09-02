@@ -429,6 +429,68 @@ try {
     '自创内功书预览不得回退到默认 100% 预算',
   );
 
+  const readPassiveBuffStats = (technique) => {
+    const effect = technique.skills
+      ?.flatMap((skill) => skill.passiveEffects ?? [])
+      .find((entry) => entry?.type === 'buff');
+    return effect?.stats ?? {};
+  };
+  const fireTechId = 'passive_combat_foundation_mystic_fire';
+  const fireTemplate = localTemplates.getLocalTechniqueTemplate(fireTechId);
+  assert.ok(fireTemplate, '缺少筑基火行专修模板');
+  const fireLevel = 28;
+  const firePreviewInput = {
+    techId: fireTechId,
+    name: fireTemplate.name,
+    level: fireLevel,
+    exp: 0,
+    expToNext: 100,
+    realmLv: fireTemplate.realmLv,
+    realm: 0,
+    skills: fireTemplate.skills,
+    grade: fireTemplate.grade,
+    category: fireTemplate.category,
+    layers: fireTemplate.layers,
+  };
+  const fireOnce = localTemplates.resolvePreviewTechnique(firePreviewInput);
+  const fireTwice = localTemplates.resolvePreviewTechnique(fireOnce);
+  let fireRepeated = fireOnce;
+  for (let index = 0; index < 20; index += 1) {
+    fireRepeated = localTemplates.resolvePreviewTechnique(fireRepeated);
+  }
+  const expectedFireSpellAtk = 16 * (1 + (fireLevel - 1) * 0.05);
+  assert.equal(
+    readPassiveBuffStats(fireOnce).spellAtk,
+    expectedFireSpellAtk,
+    '第 28 层火行专修法术攻击应按 16% × 2.35 投影',
+  );
+  assert.equal(
+    readPassiveBuffStats(fireTwice).spellAtk,
+    expectedFireSpellAtk,
+    '重复 resolvePreviewTechnique 不得叠加被动强度',
+  );
+  assert.equal(
+    readPassiveBuffStats(fireRepeated).spellAtk,
+    expectedFireSpellAtk,
+    '多次功法预览投影必须保持幂等',
+  );
+  const pollutedFire = {
+    ...fireOnce,
+    skills: fireOnce.skills.map((skill) => ({
+      ...skill,
+      passiveEffects: (skill.passiveEffects ?? []).map((effect) => (
+        effect.type === 'buff'
+          ? { ...effect, stats: { ...effect.stats, spellAtk: effect.stats.spellAtk * 1000 } }
+          : effect
+      )),
+    })),
+  };
+  assert.equal(
+    readPassiveBuffStats(localTemplates.resolvePreviewTechnique(pollutedFire)).spellAtk,
+    expectedFireSpellAtk,
+    '已污染的缩放数值必须从模板底稿重新投影',
+  );
+
   let coveredTechniqueCount = 0;
   for (const technique of editorCatalog.LOCAL_EDITOR_CATALOG.techniques) {
     const layers = localTemplates.resolvePreviewTechniqueTemplateLayers(technique);
