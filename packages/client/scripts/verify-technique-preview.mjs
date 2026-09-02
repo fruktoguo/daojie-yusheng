@@ -493,7 +493,7 @@ try {
 
   const fireSkill = fireTemplate.skills[0];
   const fireTooltipText = stripHtml(
-    skillTooltip.buildSkillTooltipContent(fireSkill, { techLevel: fireLevel }).lines.join('\n'),
+    skillTooltip.buildSkillTooltipContent(fireSkill, { techLevel: fireLevel, passiveTechnique: true }).lines.join('\n'),
   );
   assert.match(fireTooltipText, /法术攻击 \+37\.6%/u, '常驻技能 hover 必须显示当前高层投影后的效果');
   assert.doesNotMatch(fireTooltipText, /法术攻击 \+16%/u, '常驻技能 hover 不得回退到第 1 层底稿数值');
@@ -504,28 +504,31 @@ try {
   assert.doesNotMatch(fireTooltipText, /冷却/u, '常驻技能 hover 不得显示冷却');
   assert.doesNotMatch(fireTooltipText, /实际结算仍会受命中/u, '常驻技能 hover 不得显示主动技能结算说明');
   const pollutedFireTooltipText = stripHtml(
-    skillTooltip.buildSkillTooltipContent(pollutedFire.skills[0], { techLevel: fireLevel }).lines.join('\n'),
+    skillTooltip.buildSkillTooltipContent(pollutedFire.skills[0], { techLevel: fireLevel, passiveTechnique: true }).lines.join('\n'),
   );
   assert.match(pollutedFireTooltipText, /法术攻击 \+37\.6%/u, '已污染的常驻技能 hover 必须从模板底稿重新投影高层效果');
 
   const gatherTemplate = localTemplates.getLocalTechniqueTemplate('passive_craft_mortal_mortal_gather');
   assert.ok(gatherTemplate, '缺少凡人采集专修模板');
   const gatherTooltipText = stripHtml(
-    skillTooltip.buildSkillTooltipContent(gatherTemplate.skills[0], { techLevel: fireLevel }).lines.join('\n'),
+    skillTooltip.buildSkillTooltipContent(gatherTemplate.skills[0], { techLevel: fireLevel, passiveTechnique: true }).lines.join('\n'),
   );
   assert.match(gatherTooltipText, /采集速度 \+18\.8%/u, '常驻技艺技能 hover 必须按当前层数缩放速度加成');
 
   const yinTemplate = localTemplates.getLocalTechniqueTemplate('passive_yinyang_qi_earth_pure_yin');
   assert.ok(yinTemplate, '缺少九阳化阴真经模板');
   const yinTooltipText = stripHtml(
-    skillTooltip.buildSkillTooltipContent(yinTemplate.skills[0], { techLevel: fireLevel }).lines.join('\n'),
+    skillTooltip.buildSkillTooltipContent(yinTemplate.skills[0], { techLevel: fireLevel, passiveTechnique: true }).lines.join('\n'),
   );
   assert.match(yinTooltipText, /注入倍率 2\.35 aura\.refined\.yin/u, '常驻注灵技能 hover 必须显示高层注入倍率');
   assert.match(yinTooltipText, /吸收效率\+2\.35%/u, '常驻注灵技能 hover 必须显示高层气机吸收效率');
 
   const fireCardSummary = skillTooltip.summarizeResidentSkillEffects(fireSkill, { techLevel: fireLevel, passiveTechnique: true });
+  assert.match(fireCardSummary, /skill-scaling-spell-atk/u, '常驻加成必须使用技能公式同款彩色胶囊');
   assert.match(fireCardSummary, /法术攻击 \+37\.6%/u, '技能页常驻描述必须显示当前层真实加成');
   assert.doesNotMatch(fireCardSummary, /离火焚天/u, '技能页常驻描述不得再展示固定文案');
+  const firePlain = fireCardSummary.replace(/<[^>]+>/gu, '');
+  assert.ok(firePlain.indexOf('法术攻击') < firePlain.indexOf('物理防御'), '增加的加成必须排在减少的加成前面');
   const fireUnscaledSummary = skillTooltip.summarizeResidentSkillEffects(fireSkill, { techLevel: fireLevel, passiveTechnique: false });
   assert.match(fireUnscaledSummary, /法术攻击 \+16%/u, '非纯被动功法不得按无限层倍率缩放常驻效果');
 

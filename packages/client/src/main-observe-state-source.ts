@@ -33,7 +33,7 @@ import { FloatingTooltip, prefersPinnedTooltipInteraction } from './ui/floating-
 import { createObserveModalController, type ObserveAsideCard } from './main-ui-helpers';
 import { detailModalHost } from './ui/detail-modal-host';
 import { bindInlineItemTooltips, renderInlineItemChip } from './ui/item-inline-tooltip';
-import { describePreviewBonuses } from './ui/stat-preview';
+import { collectPreviewBonuses, renderPreviewBonusCapsules } from './ui/stat-preview';
 import { formatDisplayCountBadge, formatDisplayCurrentMax, formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from './utils/number';
 import type { BuildingSenseQiRoomInfo } from './main-building-fengshui-state-source';
 import { t } from './ui/i18n';
@@ -545,15 +545,15 @@ function scaleBuffStats(
  */
 
 
-function buildBuffEffectLines(buff: VisibleBuffState): string[] {
+function buildBuffEffectHtml(buff: VisibleBuffState): string {
   const stackFactor = Math.max(1, Math.floor(buff.stacks || 1));
-  return describePreviewBonuses(
+  return renderPreviewBonusCapsules(collectPreviewBonuses(
     scaleBuffAttrs(buff.attrs, stackFactor),
     scaleBuffStats(buff.stats, stackFactor),
     undefined,
     buff.attrMode ?? 'percent',
     buff.statMode ?? 'percent',
-  );
+  ));
 }
 /**
  * buildBuffTooltipLines：构建并返回目标对象。
@@ -566,25 +566,25 @@ function buildBuffTooltipLines(buff: VisibleBuffState): string[] {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const lines = [
-    t('observe.buff.tooltip.category', { category: buff.category === 'debuff' ? t('observe.buff.category.debuff', undefined) : t('observe.buff.category.buff', undefined) }),
-    t('observe.buff.tooltip.remaining', { duration: formatBuffDuration(buff) }),
+    escapeHtml(t('observe.buff.tooltip.category', { category: buff.category === 'debuff' ? t('observe.buff.category.debuff', undefined) : t('observe.buff.category.buff', undefined) })),
+    escapeHtml(t('observe.buff.tooltip.remaining', { duration: formatBuffDuration(buff) })),
   ];
   const stackLimit = formatBuffMaxStacks(buff.maxStacks);
   if (stackLimit) {
-    lines.push(t('observe.buff.tooltip.stacks', { stacks: formatDisplayInteger(buff.stacks), max: stackLimit }));
+    lines.push(escapeHtml(t('observe.buff.tooltip.stacks', { stacks: formatDisplayInteger(buff.stacks), max: stackLimit })));
   }
   if (buff.sourceSkillName || buff.sourceSkillId) {
     const sourceName = (buff.sourceSkillId ? getLocalSkillTemplate(buff.sourceSkillId)?.name : undefined)
       || buff.sourceSkillName
       || t('observe.value.unknown', undefined);
-    lines.push(t('observe.buff.tooltip.source', { source: sourceName }));
+    lines.push(escapeHtml(t('observe.buff.tooltip.source', { source: sourceName })));
   }
-  const effectLines = buildBuffEffectLines(buff);
-  if (effectLines.length > 0) {
-    lines.push(t('observe.buff.tooltip.effect', { effect: effectLines.join('，') }));
+  const effectHtml = buildBuffEffectHtml(buff);
+  if (effectHtml) {
+    lines.push(effectHtml);
   }
   if (buff.desc) {
-    lines.push(buff.desc);
+    lines.push(escapeHtml(buff.desc));
   }
   return lines;
 }
@@ -1138,7 +1138,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       const title = tooltipNode.dataset.buffTooltipTitle ?? '';
       const detail = tooltipNode.dataset.buffTooltipDetail ?? '';
       observeBuffTooltipTarget = tooltipNode;
-      observeBuffTooltip.showPinned(tooltipNode, title, splitObserveBuffTooltipLines(detail), event.clientX, event.clientY);
+      observeBuffTooltip.showPinned(tooltipNode, title, splitObserveBuffTooltipLines(detail), event.clientX, event.clientY, { allowHtml: true });
       event.preventDefault();
       event.stopPropagation();
     }, true);
@@ -1161,7 +1161,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
         const title = tooltipNode.dataset.buffTooltipTitle ?? '';
         const detail = tooltipNode.dataset.buffTooltipDetail ?? '';
         observeBuffTooltipTarget = tooltipNode;
-        observeBuffTooltip.show(title, splitObserveBuffTooltipLines(detail), event.clientX, event.clientY);
+        observeBuffTooltip.show(title, splitObserveBuffTooltipLines(detail), event.clientX, event.clientY, { allowHtml: true });
         return;
       }
       observeBuffTooltip.move(event.clientX, event.clientY);

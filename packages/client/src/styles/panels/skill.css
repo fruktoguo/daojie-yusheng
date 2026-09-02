@@ -515,6 +515,27 @@
       color: var(--skill-formula-resolve);
     }
 
+    .skill-scaling-attr {
+      background: var(--skill-scaling-tech-bg);
+      color: var(--skill-formula-tech);
+    }
+
+    .skill-scaling-loss {
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--stamp-red) 34%, transparent);
+    }
+
+    .preview-bonus-capsules {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      align-items: center;
+      vertical-align: middle;
+    }
+
+    .preview-bonus-capsules .skill-scaling {
+      margin-left: 0;
+    }
+
     .action-skill-affinity-chip {
       left: 0;
       bottom: -2px;

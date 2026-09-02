@@ -127,6 +127,10 @@
       color: var(--ink-grey);
     }
 
+    .action-desc .preview-bonus-capsules {
+      display: flex;
+    }
+
     .action-technique-chip {
       display: inline-flex;
       align-items: center;
@@ -1116,6 +1120,12 @@
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
+    }
+
+    .floating-list-panel .action-desc:has(.preview-bonus-capsules) {
+      display: flex;
+      -webkit-line-clamp: unset;
+      overflow: visible;
     }
 
     .floating-list-panel .action-cta {

@@ -13,7 +13,7 @@ import type { PlayerState, TileType } from '@mud/shared';
 import { FORMULA_VAR_LABELS, FORMULA_VAR_META, type SkillScalingMeta } from '../constants/ui/skill-tooltip';
 import { getElementKeyLabel, getTileTypeLabel } from '../domain-labels';
 import { getLocalBuffTemplate, getLocalSkillTemplate, resolvePreviewSkill, resolvePreviewSkills } from '../content/local-templates';
-import { describePreviewBonuses } from './stat-preview';
+import { collectPreviewBonuses, makePreviewBonusItem, renderPreviewBonusCapsules, type PreviewBonusItem } from './stat-preview';
 import { formatTechniqueQiProjectionSummary } from './technique-bonus-summary';
 import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../utils/number';
 import { t } from './i18n';
@@ -357,12 +357,8 @@ function buildQiCostValue(cost: number, context: SkillTooltipPreviewContext): st
 }
 
 /** describeBuffEffect：处理describe Buff效果。 */
-function describeBuffEffect(effect: Extract<SkillDef['effects'][number], {
-/**
- * type：type相关字段。
- */
- type: 'buff' }>): string[] {
-  return describePreviewBonuses(effect.attrs, effect.stats, effect.valueStats, effect.attrMode ?? 'percent', effect.statMode ?? 'percent');
+function describeBuffEffectHtml(effect: Extract<SkillDef['effects'][number], { type: 'buff' }>): string {
+  return renderPreviewBonusCapsules(collectPreviewBonuses(effect.attrs, effect.stats, effect.valueStats, effect.attrMode ?? 'percent', effect.statMode ?? 'percent'));
 }
 
 /** buildBuffInlineBadge：构建Buff Inline Badge。 */
@@ -392,11 +388,9 @@ function buildBuffAsideCard(effect: Extract<SkillDef['effects'][number], {
     : effect.target === 'allies'
       ? t('skill-tooltip.target.allies', undefined)
       : t('skill-tooltip.target.self', undefined);
-  const effectLines = describeBuffEffect(effect);
   const stackLimit = formatBuffMaxStacks(effect.maxStacks);
   const lines = [
     t('skill-tooltip.buff.aside.meta', { target: targetLabel, duration: formatDisplayInteger(effect.duration), stack: stackLimit ? t('skill-tooltip.buff.stack-limit.suffix', { stackLimit }) : '' }),
-    ...(effectLines.length > 0 ? [t('skill-tooltip.label-line.effect', { value: effectLines.join('，') })] : []),
     ...(effect.desc ? [effect.desc] : []),
   ];
   return {
@@ -1093,7 +1087,7 @@ function formatTargeting(skill: SkillDef): string {
 /** 常驻技能从模板底稿按当前功法层数投影被动强度，避免把已缩放结果再乘一遍。 */
 function resolveTooltipPreviewSkill(skill: SkillDef, context: SkillTooltipPreviewContext): SkillDef {
   const previewSkill = resolvePreviewSkill(skill);
-  if (!isPassiveOnlySkill(previewSkill) || context.passiveTechnique === false) {
+  if (!isPassiveOnlySkill(previewSkill) || context.passiveTechnique !== true) {
     return previewSkill;
   }
   const template = getLocalSkillTemplate(skill.id);
@@ -1103,8 +1097,8 @@ function resolveTooltipPreviewSkill(skill: SkillDef, context: SkillTooltipPrevie
   }, context.techLevel ?? 1);
 }
 
-function describeCraftEffectStats(stats: SkillPassiveBuffEffectDef['craftEffectStats']): string[] {
-  const lines: string[] = [];
+function collectCraftEffectBonusItems(stats: SkillPassiveBuffEffectDef['craftEffectStats']): PreviewBonusItem[] {
+  const items: PreviewBonusItem[] = [];
   const formatSignedRate = (value: number): string => `${value > 0 ? '+' : ''}${formatDisplayPercent(value * 100)}`;
   const craftLabels: Record<string, string> = {
     alchemy: t('equipment-tooltip.craft.alchemy', undefined),
@@ -1121,48 +1115,80 @@ function describeCraftEffectStats(stats: SkillPassiveBuffEffectDef['craftEffectS
       continue;
     }
     const craft = craftLabels[skillKind] ?? skillKind;
-    const successRate = Number(block.successRate);
-    const speedRate = Number(block.speedRate);
-    const outputRate = Number(block.outputRate);
-    const expRate = Number(block.expRate);
-    if (Number.isFinite(speedRate) && speedRate !== 0) {
-      lines.push(t('equipment-tooltip.utility.speed', { craft, value: formatSignedRate(speedRate) }));
-    }
-    if (Number.isFinite(successRate) && successRate !== 0) {
-      lines.push(t('equipment-tooltip.utility.success', { craft, value: formatSignedRate(successRate) }));
-    }
-    if (Number.isFinite(outputRate) && outputRate !== 0) {
-      lines.push(t('equipment-tooltip.utility.output', { craft, value: formatSignedRate(outputRate) }));
-    }
-    if (Number.isFinite(expRate) && expRate !== 0) {
-      lines.push(t('equipment-tooltip.utility.exp', { craft, value: formatSignedRate(expRate) }));
+    const entries: Array<[string, number, string]> = [
+      ['speedRate', Number(block.speedRate), `${craft}速度`],
+      ['successRate', Number(block.successRate), `${craft}成功`],
+      ['outputRate', Number(block.outputRate), `${craft}产出`],
+      ['expRate', Number(block.expRate), `${craft}经验`],
+    ];
+    for (const [rateKey, value, label] of entries) {
+      if (!Number.isFinite(value) || value === 0) {
+        continue;
+      }
+      items.push(makePreviewBonusItem({
+        key: `${skillKind}-${rateKey}`,
+        label,
+        value,
+        valueText: formatSignedRate(value),
+        badgeClassName: 'skill-scaling-speed',
+        icon: '➜',
+      }));
     }
   }
-  return lines;
+  return items;
 }
 
-function describePassiveBuffEffectLines(effect: SkillPassiveBuffEffectDef): string[] {
-  const lines = describePreviewBonuses(effect.attrs, effect.stats, undefined, effect.attrMode ?? 'percent', effect.statMode ?? 'percent');
+function collectPassiveBuffBonusItems(effect: SkillPassiveBuffEffectDef): PreviewBonusItem[] {
+  const items = collectPreviewBonuses(effect.attrs, effect.stats, undefined, effect.attrMode ?? 'percent', effect.statMode ?? 'percent');
   const qi = formatTechniqueQiProjectionSummary(effect.qiProjection);
   if (qi) {
-    lines.push(qi);
+    const match = qi.match(/([+-]?\d+(?:\.\d+)?)%/u);
+    const value = match ? Number(match[1]) : 1;
+    items.push(makePreviewBonusItem({
+      key: 'qi-projection',
+      label: '气机',
+      value: Number.isFinite(value) ? value : 1,
+      valueText: qi,
+      badgeClassName: 'skill-scaling-qi',
+      icon: '◌',
+    }));
   }
-  lines.push(...describeCraftEffectStats(effect.craftEffectStats));
-  return lines;
+  items.push(...collectCraftEffectBonusItems(effect.craftEffectStats));
+  return items;
 }
 
-function describeCultivationTileQiLine(effect: Extract<SkillPassiveEffectDef, { type: 'cultivation_tile_qi' }>): string {
-  return effect.amount !== undefined
+function collectCultivationBonusItems(effect: Extract<SkillPassiveEffectDef, { type: 'cultivation_tile_qi' }>): PreviewBonusItem[] {
+  const label = effect.amount !== undefined
     ? t('skill-tooltip.cultivation-tile-qi.amount', { amount: formatDisplayNumber(effect.amount), resource: effect.resourceKey })
     : t('skill-tooltip.cultivation-tile-qi.multiplier', { multiplier: formatDisplayNumber(effect.multiplier ?? 1), resource: effect.resourceKey });
+  const value = effect.amount !== undefined ? Number(effect.amount) : Number(effect.multiplier ?? 1);
+  return [makePreviewBonusItem({
+    key: `cultivation-${effect.resourceKey}`,
+    label: '注灵',
+    value: Number.isFinite(value) ? value : 1,
+    valueText: label,
+    badgeClassName: 'skill-scaling-qi',
+    icon: '◌',
+  })];
+}
+
+function collectResidentSkillBonusItems(skill: SkillDef): PreviewBonusItem[] {
+  const items: PreviewBonusItem[] = [];
+  for (const effect of getSkillPassiveEffects(skill)) {
+    if (effect.type === 'cultivation_tile_qi') {
+      items.push(...collectCultivationBonusItems(effect));
+      continue;
+    }
+    if (effect.type === 'buff') {
+      items.push(...collectPassiveBuffBonusItems(effect));
+    }
+  }
+  return items;
 }
 
 function appendPassiveEffects(skill: SkillDef, lines: string[], asideCards: SkillTooltipAsideCard[]): void {
+  const capsules = renderPreviewBonusCapsules(collectResidentSkillBonusItems(skill));
   for (const effect of getSkillPassiveEffects(skill)) {
-    if (effect.type === 'cultivation_tile_qi') {
-      lines.push(renderPlainLine(t('skill-tooltip.label.effect', undefined), describeCultivationTileQiLine(effect)));
-      continue;
-    }
     if (effect.type !== 'buff') {
       continue;
     }
@@ -1174,20 +1200,18 @@ function appendPassiveEffects(skill: SkillDef, lines: string[], asideCards: Skil
     const badge = `<span class="skill-tooltip-buff-entry ${toneClass}"><span class="skill-tooltip-buff-mark">${escapeHtml(normalizeBuffMark(name, effect.shortMark))}</span><span>${escapeHtml(name)}</span></span>`;
     const residentMeta = `${t('skill-tooltip.target.self', undefined)} · ${t('action.skill.tab.resident', undefined)}`;
     lines.push(renderLabelLine(categoryLabel, `${badge}<span class="skill-tooltip-buff-meta">${escapeHtml(` ${residentMeta}`)}</span>`));
-    const effectLines = describePassiveBuffEffectLines(effect);
-    if (effectLines.length > 0) {
-      lines.push(renderPlainLine(t('skill-tooltip.label.effect', undefined), effectLines.join('，')));
-    }
     asideCards.push({
       mark: normalizeBuffMark(name, effect.shortMark),
       title: name,
       lines: [
         residentMeta,
-        ...(effectLines.length > 0 ? [t('skill-tooltip.label-line.effect', { value: effectLines.join('，') })] : []),
         ...(effect.desc ? [effect.desc] : []),
       ],
       tone: effect.category === 'debuff' ? 'debuff' : 'buff',
     });
+  }
+  if (capsules) {
+    lines.push(renderLabelLine(t('skill-tooltip.label.effect', undefined), capsules));
   }
 }
 
@@ -1222,9 +1246,9 @@ export function buildSkillTooltipContent(skill: SkillDef, context: SkillTooltipP
       const targetLabel = effect.target === 'target' ? t('skill-tooltip.target.enemy', undefined) : effect.target === 'allies' ? t('skill-tooltip.target.allies', undefined) : t('skill-tooltip.target.self', undefined);
       const badge = buildBuffInlineBadge(effect);
       lines.push(renderLabelLine(categoryLabel, `${badge}<span class="skill-tooltip-buff-meta">${escapeHtml(` ${targetLabel} · ${formatDisplayInteger(effect.duration)} 息${stackText}`)}</span>`));
-      const effectLines = describeBuffEffect(effect);
-      if (effectLines.length > 0) {
-        lines.push(renderPlainLine(t('skill-tooltip.label.effect', undefined), effectLines.join('，')));
+      const effectHtml = describeBuffEffectHtml(effect);
+      if (effectHtml) {
+        lines.push(renderLabelLine(t('skill-tooltip.label.effect', undefined), effectHtml));
       }
       asideCards.push(buildBuffAsideCard(effect));
       continue;
@@ -1284,22 +1308,11 @@ export function buildSkillTooltipLines(skill: SkillDef, context: SkillTooltipPre
   return buildSkillTooltipContent(skill, context).lines;
 }
 
-/** 常驻技能卡片摘要：只返回当前层投影后的效果文本。 */
+/** 常驻技能卡片摘要：只返回当前层投影后的效果胶囊。 */
 export function summarizeResidentSkillEffects(skill: SkillDef, context: SkillTooltipPreviewContext = {}): string {
   const previewSkill = resolveTooltipPreviewSkill(skill, context);
   if (!isPassiveOnlySkill(previewSkill)) {
     return '';
   }
-  const parts: string[] = [];
-  for (const effect of getSkillPassiveEffects(previewSkill)) {
-    if (effect.type === 'cultivation_tile_qi') {
-      parts.push(describeCultivationTileQiLine(effect));
-      continue;
-    }
-    if (effect.type !== 'buff') {
-      continue;
-    }
-    parts.push(...describePassiveBuffEffectLines(effect));
-  }
-  return parts.join('，');
+  return renderPreviewBonusCapsules(collectResidentSkillBonusItems(previewSkill));
 }

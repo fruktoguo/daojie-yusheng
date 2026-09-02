@@ -1641,14 +1641,14 @@ export class SkillManagementSubpanel {
           <span class="action-type ${skillEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${skillEnabled ? t('action.skill.manage.skill-enabled.enabled', undefined) : t('action.skill.manage.skill-enabled.disabled', undefined)}</span>
           ${autoBattleOrder ? `<span class="action-type">${t('action.skill.order', { order: formatDisplayInteger(autoBattleOrder) })}</span>` : ''}
         </div>
-        <div class="action-desc">${escapeHtml(passiveOnly
+        <div class="action-desc">${passiveOnly
             ? (skillContext
               ? summarizeResidentSkillEffects(skillContext.skill, {
                 techLevel: skillContext.techLevel,
                 passiveTechnique: skillContext.passiveTechnique,
               })
               : '')
-            : stripSectManagementData(action.desc))}</div>
+            : escapeHtml(stripSectManagementData(action.desc))}</div>
         ${affinityChip}
       </div>
       <div class="action-cta">

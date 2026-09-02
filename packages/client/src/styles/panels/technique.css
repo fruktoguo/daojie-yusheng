@@ -1362,6 +1362,19 @@
       color: var(--ink-grey);
     }
 
+    .tech-modal-stat .preview-bonus-capsules,
+    .tech-skill-overview-meta .preview-bonus-capsules {
+      display: flex;
+    }
+
+    .tech-bonus-raw {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      align-items: center;
+      color: var(--ink-light);
+    }
+
     .tech-modal-label {
       font-family: var(--font-role-body);
       font-size: var(--font-size-role-body-12);

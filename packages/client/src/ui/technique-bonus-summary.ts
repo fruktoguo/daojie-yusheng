@@ -20,6 +20,7 @@ import {
 } from '@mud/shared';
 import { ATTR_KEY_LABELS } from '../domain-labels';
 import { formatDisplayNumber, formatDisplaySignedNumber } from '../utils/number';
+import { makePreviewBonusItem, renderPreviewBonusCapsules, type PreviewBonusItem } from './stat-preview';
 
 const TECHNIQUE_SPECIAL_STAT_LABELS = {
   comprehension: '悟性',
@@ -61,6 +62,104 @@ export function formatTechniqueBonusSummary(
     ...formatTechniqueSpecialStatEntries(specialStats),
   ], fallback);
 }
+
+function collectTechniqueAttrItems(attrs?: Partial<Attributes> | null): PreviewBonusItem[] {
+  if (!attrs) {
+    return [];
+  }
+  const items: PreviewBonusItem[] = [];
+  for (const key of TECHNIQUE_ATTR_KEYS) {
+    const value = attrs[key] ?? 0;
+    if (value === 0) {
+      continue;
+    }
+    items.push(makePreviewBonusItem({
+      key,
+      label: ATTR_KEY_LABELS[key],
+      value,
+      valueText: `${value > 0 ? '+' : ''}${formatDisplayNumber(value)}`,
+      badgeClassName: 'skill-scaling-attr',
+      icon: '◎',
+    }));
+  }
+  return items;
+}
+
+function collectTechniqueSpecialItems(specialStats?: TechniqueSpecialStats | null): PreviewBonusItem[] {
+  if (!specialStats) {
+    return [];
+  }
+  const items: PreviewBonusItem[] = [];
+  for (const key of Object.keys(TECHNIQUE_SPECIAL_STAT_LABELS) as TechniqueSpecialStatKey[]) {
+    const value = specialStats[key] ?? 0;
+    if (value === 0) {
+      continue;
+    }
+    items.push(makePreviewBonusItem({
+      key,
+      label: TECHNIQUE_SPECIAL_STAT_LABELS[key],
+      value,
+      valueText: `${value > 0 ? '+' : ''}${formatDisplayNumber(value)}`,
+      badgeClassName: 'skill-scaling-tech',
+      icon: '◎',
+    }));
+  }
+  return items;
+}
+
+function collectTechniqueQiItems(modifiers?: readonly QiProjectionModifier[] | null): PreviewBonusItem[] {
+  return formatTechniqueQiProjectionEntries(modifiers).map((entry, index) => {
+    const match = entry.match(/([+-]?\d+(?:\.\d+)?)%/u);
+    const value = match ? Number(match[1]) : 1;
+    return makePreviewBonusItem({
+      key: `qi-${index}`,
+      label: '气机',
+      value: Number.isFinite(value) ? value : 1,
+      valueText: entry,
+      badgeClassName: 'skill-scaling-qi',
+      icon: '◌',
+    });
+  });
+}
+
+export function formatTechniqueBonusSummaryHtml(
+  attrs?: Partial<Attributes> | null,
+  specialStats?: TechniqueSpecialStats | null,
+  fallback = '无增益',
+): string {
+  return renderPreviewBonusCapsules([
+    ...collectTechniqueAttrItems(attrs),
+    ...collectTechniqueSpecialItems(specialStats),
+  ]) || fallback;
+}
+
+export function formatTechniqueLayerBonusSummaryHtml(layer: TechniqueLayerDef, fallback = '无增益'): string {
+  return renderPreviewBonusCapsules([
+    ...collectTechniqueAttrItems(layer.attrs),
+    ...collectTechniqueSpecialItems(layer.specialStats),
+    ...collectTechniqueQiItems(layer.qiProjection),
+  ]) || fallback;
+}
+
+export function formatTechniqueCumulativeBonusSummaryHtml(
+  level: number,
+  layers?: TechniqueLayerDef[],
+  fallback = '无增益',
+): string {
+  return renderPreviewBonusCapsules([
+    ...collectTechniqueAttrItems(calcTechniqueAttrValues(level, layers)),
+    ...collectTechniqueSpecialItems(calcTechniqueSpecialStatValues(level, layers)),
+    ...collectTechniqueQiItems(calcTechniqueQiProjectionModifiers(level, layers)),
+  ]) || fallback;
+}
+
+export function formatTechniqueQiProjectionSummaryHtml(
+  modifiers?: readonly QiProjectionModifier[] | null,
+  fallback = '',
+): string {
+  return renderPreviewBonusCapsules(collectTechniqueQiItems(modifiers)) || fallback;
+}
+
 
 export function formatTechniqueLayerBonusSummary(layer: TechniqueLayerDef, fallback = '无增益'): string {
   return joinTechniqueBonusEntries([

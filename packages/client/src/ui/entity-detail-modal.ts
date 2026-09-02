@@ -21,7 +21,7 @@ import { getLocalSkillTemplate, resolveClientBuffName } from '../content/local-t
 import { detailModalHost } from './detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 import { bindInlineItemTooltips, renderInlineItemChip } from './item-inline-tooltip';
-import { describePreviewBonuses } from './stat-preview';
+import { collectPreviewBonuses, renderPreviewBonusCapsules } from './stat-preview';
 import { t } from './i18n';
 import { formatDisplayCurrentMax, formatDisplayInteger } from '../utils/number';
 
@@ -602,7 +602,7 @@ export class EntityDetailModal {
         return;
       }
       const tooltip = resolveTooltip(node);
-      this.buffTooltip.showPinned(node, tooltip.title, tooltip.lines, event.clientX, event.clientY);
+      this.buffTooltip.showPinned(node, tooltip.title, tooltip.lines, event.clientX, event.clientY, { allowHtml: true });
       event.preventDefault();
       event.stopPropagation();
     }, { capture: true, signal });
@@ -623,7 +623,7 @@ export class EntityDetailModal {
         return;
       }
       const tooltip = resolveTooltip(node);
-      this.buffTooltip.show(tooltip.title, tooltip.lines, event.clientX, event.clientY);
+      this.buffTooltip.show(tooltip.title, tooltip.lines, event.clientX, event.clientY, { allowHtml: true });
     }, { signal });
 
     root.addEventListener('mousemove', (event) => {
@@ -712,34 +712,34 @@ export class EntityDetailModal {
   /** buildBuffTooltipLines：组装 Buff tooltip 文案。 */
   private buildBuffTooltipLines(buff: VisibleBuffState): string[] {
     const lines = [
-      t('entity-detail.buff.tooltip.category', { category: buff.category === 'debuff' ? t('entity-detail.buff.category.debuff', undefined) : t('entity-detail.buff.category.buff', undefined) }),
-      t('entity-detail.buff.tooltip.remaining', { duration: this.formatBuffDuration(buff) }),
+      escapeHtml(t('entity-detail.buff.tooltip.category', { category: buff.category === 'debuff' ? t('entity-detail.buff.category.debuff', undefined) : t('entity-detail.buff.category.buff', undefined) })),
+      escapeHtml(t('entity-detail.buff.tooltip.remaining', { duration: this.formatBuffDuration(buff) })),
     ];
     if (buff.maxStacks > 1) {
-      lines.push(t('entity-detail.buff.tooltip.stacks', {
+      lines.push(escapeHtml(t('entity-detail.buff.tooltip.stacks', {
         stacks: formatDisplayInteger(Math.max(0, Math.round(buff.stacks))),
         max: formatDisplayInteger(Math.max(1, Math.round(buff.maxStacks))),
-      }));
+      })));
     }
     if (buff.sourceSkillName || buff.sourceSkillId) {
       const sourceName = (buff.sourceSkillId ? getLocalSkillTemplate(buff.sourceSkillId)?.name : undefined)
         || buff.sourceSkillName
         || t('entity-detail.value.unknown', undefined);
-      lines.push(t('entity-detail.buff.tooltip.source', { source: sourceName }));
+      lines.push(escapeHtml(t('entity-detail.buff.tooltip.source', { source: sourceName })));
     }
     const stackFactor = Math.max(1, Math.floor(buff.stacks || 1));
-    const effectLines = describePreviewBonuses(
+    const effectHtml = renderPreviewBonusCapsules(collectPreviewBonuses(
       this.scaleBuffAttrs(buff.attrs, stackFactor),
       this.scaleBuffStats(buff.stats, stackFactor),
       undefined,
       buff.attrMode ?? 'percent',
       buff.statMode ?? 'percent',
-    );
-    if (effectLines.length > 0) {
-      lines.push(t('entity-detail.buff.tooltip.effect', { effect: effectLines.join('，') }));
+    ));
+    if (effectHtml) {
+      lines.push(effectHtml);
     }
     if (buff.desc) {
-      lines.push(buff.desc);
+      lines.push(escapeHtml(buff.desc));
     }
     return lines;
   }

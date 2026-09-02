@@ -1563,7 +1563,7 @@ export class ActionPanel {
           passiveTechnique: skillContext.passiveTechnique,
         })
         : '';
-      return escapeHtml(summary);
+      return summary;
     }
     if (!action.id.startsWith('scripture:contemplate:')) {
       return escapeHtml(stripSectManagementData(action.desc));

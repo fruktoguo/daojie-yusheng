@@ -48,19 +48,18 @@ import {
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { confirmModalHost } from '../confirm-modal-host';
 import { detailModalHost } from '../detail-modal-host';
-import { buildSkillTooltipContent } from '../skill-tooltip';
+import { buildSkillTooltipContent, summarizeResidentSkillEffects } from '../skill-tooltip';
 import { preserveSelection } from '../selection-preserver';
 import { createEmptyHint } from '../ui-primitives';
 import {
   calcTechniqueSpecialStatContribution,
-  formatTechniqueBonusSummary,
+  formatTechniqueBonusSummaryHtml,
   formatTechniqueCumulativeBonusSummary,
   formatTechniqueLayerBonusSummary,
-  formatTechniqueQiProjectionSummary,
+  formatTechniqueQiProjectionSummaryHtml,
 } from '../technique-bonus-summary';
 import { TechniqueConstellationCanvas, TechniqueConstellationCanvasData, TechniqueConstellationHoverPayload } from './technique-constellation-canvas';
 import { formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
-import { describePreviewBonuses } from '../stat-preview';
 import { t } from '../i18n';
 import {
   buildTechniqueListEntries,
@@ -203,12 +202,9 @@ function formatTechniqueContributionSummary(
   rawSpecialStats?: ReturnType<typeof calcTechniqueSpecialStatContribution>,
   qiProjection?: ReturnType<typeof calcTechniqueQiProjectionModifiers>,
 ): string {
-  const attrSummary = t('technique.contribution.with-raw', {
-    total: formatTechniqueBonusSummary(totalAttrs, totalSpecialStats),
-    raw: formatTechniqueBonusSummary(rawAttrs, rawSpecialStats),
-  });
-  const qiProjectionSummary = formatTechniqueQiProjectionSummary(qiProjection);
-  return qiProjectionSummary ? `${attrSummary} / ${qiProjectionSummary}` : attrSummary;
+  const attrSummary = `${formatTechniqueBonusSummaryHtml(totalAttrs, totalSpecialStats)}<span class="tech-bonus-raw">（原始：${formatTechniqueBonusSummaryHtml(rawAttrs, rawSpecialStats)}）</span>`;
+  const qiProjectionSummary = formatTechniqueQiProjectionSummaryHtml(qiProjection);
+  return qiProjectionSummary ? `${attrSummary}${qiProjectionSummary}` : attrSummary;
 }
 
 /** resolveTechniqueCategory：解析Technique Category。 */
@@ -1470,7 +1466,7 @@ export class TechniquePanel {
           </div>
           <div class="tech-modal-stat">
             <span class="tech-modal-label">${t('technique.modal.label.current-bonus', undefined)}</span>
-            <span data-tech-modal-current-attrs="true">${escapeHtml(formatTechniqueContributionSummary(effectiveAttrs, currentAttrs, currentSpecialStats, currentSpecialStats, currentQiProjection))}</span>
+            <span data-tech-modal-current-attrs="true">${formatTechniqueContributionSummary(effectiveAttrs, currentAttrs, currentSpecialStats, currentSpecialStats, currentQiProjection)}</span>
           </div>
         </section>
         ${detailHtml}
@@ -1552,27 +1548,13 @@ export class TechniquePanel {
     const rows = skills.map((skill) => {
       const unlockLevel = resolveSkillUnlockLevel(skill);
       const unlocked = tech.level >= unlockLevel;
-      const effects = unlocked ? getSkillPassiveEffects(skill).map((effect) => {
-        if (effect.type === 'buff') {
-          const lines = describePreviewBonuses(
-            effect.attrs,
-            effect.stats,
-            undefined,
-            effect.attrMode ?? 'percent',
-            effect.statMode ?? 'percent',
-          );
-          const qi = formatTechniqueQiProjectionSummary(effect.qiProjection);
-          return [...lines, qi].filter(Boolean).join(' / ') || '常驻被动效果';
-        }
-        const amount = effect.amount !== undefined
-          ? `注入 ${formatDisplayNumber(effect.amount)}`
-          : `注入倍率 ${formatDisplayNumber(effect.multiplier ?? 1)}`;
-        return `${amount} ${effect.resourceKey}`;
-      }) : ['未解锁'];
+      const effectHtml = unlocked
+        ? (summarizeResidentSkillEffects(skill, { techLevel: tech.level, passiveTechnique: true }) || '常驻被动效果')
+        : `第 ${formatDisplayInteger(unlockLevel)} 层解锁`;
       return `<div class="tech-skill-overview-item ${unlocked ? 'unlocked' : 'locked'}">
         <div class="tech-skill-overview-head">
           <span class="tech-skill-tag" data-skill-tooltip-title="${escapeHtml(skill.name)}" data-skill-tooltip-skill-id="${escapeHtml(skill.id)}" data-skill-tooltip-unlock-level="${unlockLevel}" data-skill-tooltip-rich="1">${escapeHtml(skill.name)}</span>
-          <span class="tech-skill-overview-meta">${escapeHtml(unlocked ? effects.join(' / ') || '常驻被动效果' : `第 ${formatDisplayInteger(unlockLevel)} 层解锁`)}</span>
+          <span class="tech-skill-overview-meta">${unlocked ? effectHtml : escapeHtml(effectHtml)}</span>
         </div>
         <div class="tech-skill-overview-desc">${escapeHtml(skill.desc)}</div>
       </div>`;
@@ -2271,7 +2253,7 @@ export class TechniquePanel {
       });
       expNode.textContent = formatTechniqueProgressText(tech);
       totalExpNode.textContent = formatDisplayInteger(calcTechniqueTotalExp(tech));
-      currentAttrsNode.textContent = formatTechniqueContributionSummary(
+      currentAttrsNode.innerHTML = formatTechniqueContributionSummary(
         effectiveAttrs,
         currentAttrs,
         currentSpecialStats,
@@ -2330,7 +2312,7 @@ export class TechniquePanel {
     });
     expNode.textContent = formatTechniqueProgressText(tech);
     totalExpNode.textContent = formatDisplayInteger(calcTechniqueTotalExp(tech));
-    currentAttrsNode.textContent = formatTechniqueContributionSummary(
+    currentAttrsNode.innerHTML = formatTechniqueContributionSummary(
       effectiveAttrs,
       currentAttrs,
       currentSpecialStats,
