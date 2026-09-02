@@ -772,7 +772,13 @@ export class WorldRuntimeLootContainerService {
         if (ownerPlayerId) {
             const owner = this.playerRuntimeService.getPlayer(ownerPlayerId);
             if (!owner) {
-                return { blocked: true };
+                const residents = collectHydratedInstanceResidentPlayers(instance, this.playerRuntimeService);
+                if (!residents.complete || !isInstancePlayerHydrationConfirmed(instanceId, deps)) {
+                    return { blocked: true };
+                }
+                state.activeSearch = undefined;
+                this.markContainerVisibleStateDirty(instanceId, deps, container);
+                return { blocked: false };
             }
             const ownerJob = owner.gatherJob;
             if (!isActiveGatherJobForTarget(owner, ownerJob, instanceId, container.id)) {

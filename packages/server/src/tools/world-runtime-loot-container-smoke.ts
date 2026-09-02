@@ -33,6 +33,7 @@ async function main(): Promise<void> {
   await testGatherReclaimsOwnedStaleSearch();
   await testGatherKeepsOwnedSearchWhenOwnerRuntimeUnavailable();
   await testGatherReconcilesOfflineHangingOwner();
+  await testGatherReclaimsAbandonedOwnedSearchAfterOwnerLeftInstance();
   await testGatherKeepsOwnerlessSearchWithMultipleMatchingJobs();
   await testGatherReconciliationIgnoresNonHerbContainer();
   await testHydrateContainerStatesCanonicalizesLegacySource();
@@ -52,7 +53,7 @@ async function main(): Promise<void> {
   console.log(JSON.stringify({
     ok: true,
     case: 'world-runtime-loot-container',
-    answers: '地面 pile 与容器 source 的单个拿取/全部拿取仍走 grantInventoryItems durable 主链；采集 activeSearch 与 gatherJob 通过 jobRunId 做实例内恢复对账，唯一 legacy 任务可回填，水合未知/多匹配/owner runtime 缺失时 fail closed，owned 跨域进度偏差会保守收敛并继续 tick；草药采集完成不再在 tick 内调用 durable grant 或 presence fence，而是只更新运行态背包、标记 inventory/active_job/profession 脏域并交由 flush 链路落盘；库存按生长时间持续补充',
+    answers: '地面 pile 与容器 source 的单个拿取/全部拿取仍走 grantInventoryItems durable 主链；采集 activeSearch 与 gatherJob 通过 jobRunId 做实例内恢复对账，唯一 legacy 任务可回填，水合未知/多匹配/owner 仍是居民但 runtime 缺失时 fail closed，owner 已离开实例且水合完成后回收占用，owned 跨域进度偏差会保守收敛并继续 tick；草药采集完成不再在 tick 内调用 durable grant 或 presence fence，而是只更新运行态背包、标记 inventory/active_job/profession 脏域并交由 flush 链路落盘；库存按生长时间持续补充',
     excludes: '本 smoke 只覆盖 loot container facade 行为；采集 tick 迁出旧 service 的结构性 proof 在 world-runtime-craft-smoke，也不证明更泛化的 tick 资产 intent 编排',
   }, null, 2));
 }
@@ -94,8 +95,8 @@ async function testGroundTakeFailsClosedWithoutRuntimeOwner(): Promise<void> {
           durableGrantCount += 1;
         },
       },
-      refreshQuestStates() {},
-      queuePlayerNotice() {},
+      refreshQuestStates() { },
+      queuePlayerNotice() { },
     } as never),
     /事务围栏暂不可用/,
   );
@@ -110,7 +111,7 @@ async function testGroundTakeFailsClosedWithoutRuntimeOwner(): Promise<void> {
 async function testLootSourceMutationSerialization(): Promise<void> {
   const service = new WorldRuntimeLootContainerService({} as never, {} as never);
   const log: string[] = [];
-  let releaseFirst = () => {};
+  let releaseFirst = () => { };
   const first = service.runExclusiveLootSourceMutation('instance:shared', 'g:7', async () => {
     log.push('first:start');
     await new Promise<void>((resolve) => {
@@ -297,7 +298,7 @@ async function testGroundTakeDurableGrantSyncsPresenceFence() {
 async function testGroundTakeDurableGrant() {
   const log: Array<unknown[]> = [];
   const durableCalls: Array<Record<string, unknown>> = [];
-  let resolveDurable = () => {};
+  let resolveDurable = () => { };
   const takenItems: Array<string> = [];
   const restoredItems: Array<string> = [];
   const player = buildPlayer('player:ground:one', 'instance:ground:1', 'runtime:ground:1', 15);
@@ -476,7 +477,7 @@ async function testGroundTakeUsesStackSignatureForCapacity() {
 async function testGroundTakeAllDurableGrant() {
   const log: Array<unknown[]> = [];
   const durableCalls: Array<Record<string, unknown>> = [];
-  let resolveDurable = () => {};
+  let resolveDurable = () => { };
   const player = buildPlayer('player:ground:all', 'instance:ground:2', 'runtime:ground:2', 16);
   player.x = 6;
   player.y = 7;
@@ -785,8 +786,8 @@ async function testGroundTakeLongHammerOperationIdFitsOutboxLimit() {
     getInstanceRuntimeOrThrow() {
       return instance;
     },
-    refreshQuestStates() {},
-    queuePlayerNotice() {},
+    refreshQuestStates() { },
+    queuePlayerNotice() { },
     durableOperationService: {
       isEnabled() {
         return true;
@@ -864,7 +865,7 @@ async function testDurableContainerFailureNoticeIsStructured(): Promise<void> {
 async function testContainerTakeDurableGrant() {
   const log: Array<unknown[]> = [];
   const durableCalls: Array<Record<string, unknown>> = [];
-  let resolveDurable = () => {};
+  let resolveDurable = () => { };
   const player = buildPlayer('player:container:one', 'inst1', 'runtime:container:1', 21);
   player.x = 9;
   player.y = 10;
@@ -1020,7 +1021,7 @@ async function testContainerLootPoolUsesViewerLuck() {
 async function testContainerTakeAllDurableGrant() {
   const log: Array<unknown[]> = [];
   const durableCalls: Array<Record<string, unknown>> = [];
-  let resolveDurable = () => {};
+  let resolveDurable = () => { };
   const player = buildPlayer('player:container:all', 'inst2', 'runtime:container:2', 22);
   player.x = 11;
   player.y = 12;
@@ -1425,6 +1426,20 @@ async function testGatherKeepsOwnedSearchWhenOwnerRuntimeUnavailable() {
   assert.equal(fixture.service.getContainerPersistenceRevision(fixture.instanceId), 0);
 }
 
+async function testGatherReclaimsAbandonedOwnedSearchAfterOwnerLeftInstance() {
+  const fixture = buildGatherReconciliationFixture({ suffix: 'owner-left', activeOwner: true });
+  fixture.instance.listPlayerIds = () => [fixture.requester.playerId];
+  fixture.removeRuntimePlayer(fixture.owner.playerId);
+  const result = fixture.start();
+
+  assert.equal(result.ok, true);
+  assert.equal(fixture.persistedActiveSearch()?.playerId, fixture.requester.playerId);
+  assert.equal(typeof fixture.requester.gatherJob?.jobRunId, 'string');
+  assert.equal(fixture.service.getDirtyInstanceIds().has(fixture.instanceId), true);
+  assert.equal(fixture.service.getContainerPersistenceRevision(fixture.instanceId), 2);
+  assert.equal(fixture.instance.worldRevision, 12);
+}
+
 async function testGatherReconcilesOfflineHangingOwner() {
   const fixture = buildGatherReconciliationFixture({ suffix: 'offline-hanging' });
   (fixture.owner as any).online = false;
@@ -1527,7 +1542,7 @@ function buildGatherReconciliationFixture(options: {
     getContainerById(id: string) {
       return id === containerId ? container : null;
     },
-    markAoiViewChangedAt() {},
+    markAoiViewChangedAt() { },
   };
   const playerRuntimeService = {
     getPlayer(playerId: string) {
@@ -1541,7 +1556,7 @@ function buildGatherReconciliationFixture(options: {
     getLootWindowTarget(playerId: string) {
       return lootWindowTargetsByPlayerId.get(playerId) ?? null;
     },
-    clearLootWindow() {},
+    clearLootWindow() { },
     bumpPersistentRevision(player: ReturnType<typeof buildPlayer>) {
       player.persistentRevision += 1;
       player.selfRevision += 1;
@@ -2059,7 +2074,7 @@ async function testGatherCompletionAvoidsDurableGrantInTick() {
         },
       };
     },
-    refreshQuestStates() {},
+    refreshQuestStates() { },
     durableOperationService: {
       isEnabled() {
         return true;
@@ -2169,7 +2184,7 @@ async function testGatherCompletionFormatsTemplateNameAndConsumesOneStock() {
         },
       };
     },
-    refreshQuestStates() {},
+    refreshQuestStates() { },
   };
 
   const result = await service.tickGather(player.playerId, deps as never);
@@ -2258,7 +2273,7 @@ async function testGatherCompletionKeepsExpiredGrowthAvailable() {
         },
       };
     },
-    refreshQuestStates() {},
+    refreshQuestStates() { },
   };
 
   const result = await service.tickGather(player.playerId, deps as never);
@@ -2481,7 +2496,7 @@ async function testGatherCompletionIgnoresDurableFailureBecauseTickDoesNotCallIt
         },
       };
     },
-    refreshQuestStates() {},
+    refreshQuestStates() { },
     durableOperationService: {
       isEnabled() {
         return true;
@@ -2595,7 +2610,7 @@ async function testGatherCompletionConsumesSingleAccumulatedStock() {
         },
       };
     },
-    refreshQuestStates() {},
+    refreshQuestStates() { },
   };
 
   const result = await service.tickGather(player.playerId, deps as never);
@@ -2744,7 +2759,7 @@ async function testGatherCompletionDirtyDomains() {
         },
       };
     },
-    refreshQuestStates() {},
+    refreshQuestStates() { },
   };
 
   const result = await service.tickGather(player.playerId, deps as never);
@@ -2887,7 +2902,7 @@ function buildPlayerRuntimeService(
         sessionEpoch: player.sessionEpoch,
       };
     },
-    clearLootWindow() {},
+    clearLootWindow() { },
     receiveInventoryItem(playerId: string, item: { itemId: string; count: number }) {
       assert.equal(playerId, player.playerId);
       player.inventory.items.push({ ...item });
@@ -2907,7 +2922,7 @@ function buildPlayerRuntimeService(
       targetPlayer.selfRevision += 1;
     },
     playerProgressionService: {
-      refreshPreview() {},
+      refreshPreview() { },
       getRealmRuntimeExpToNext(level: number) {
         return Math.max(1, Math.floor(Number(level) || 1)) > 0 ? TEST_REALM_EXP_TO_NEXT : 0;
       },
