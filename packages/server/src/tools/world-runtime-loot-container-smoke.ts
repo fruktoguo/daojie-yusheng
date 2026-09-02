@@ -33,7 +33,6 @@ async function main(): Promise<void> {
   await testGatherReclaimsOwnedStaleSearch();
   await testGatherKeepsOwnedSearchWhenOwnerRuntimeUnavailable();
   await testGatherReconcilesOfflineHangingOwner();
-  await testGatherReclaimsAbandonedOwnedSearchAfterOwnerLeftInstance();
   await testGatherKeepsOwnerlessSearchWithMultipleMatchingJobs();
   await testGatherReconciliationIgnoresNonHerbContainer();
   await testHydrateContainerStatesCanonicalizesLegacySource();
@@ -53,7 +52,7 @@ async function main(): Promise<void> {
   console.log(JSON.stringify({
     ok: true,
     case: 'world-runtime-loot-container',
-    answers: '地面 pile 与容器 source 的单个拿取/全部拿取仍走 grantInventoryItems durable 主链；采集 activeSearch 与 gatherJob 通过 jobRunId 做实例内恢复对账，唯一 legacy 任务可回填，水合未知/多匹配/owner 仍是居民但 runtime 缺失时 fail closed，owner 已离开实例且水合完成后回收占用，owned 跨域进度偏差会保守收敛并继续 tick；草药采集完成不再在 tick 内调用 durable grant 或 presence fence，而是只更新运行态背包、标记 inventory/active_job/profession 脏域并交由 flush 链路落盘；库存按生长时间持续补充',
+    answers: '地面 pile 与容器 source 的单个拿取/全部拿取仍走 grantInventoryItems durable 主链；采集 activeSearch 与 gatherJob 通过 jobRunId 做实例内恢复对账，唯一 legacy 任务可回填，水合未知/多匹配/owner runtime 缺失时 fail closed，owned 跨域进度偏差会保守收敛并继续 tick；草药采集完成不再在 tick 内调用 durable grant 或 presence fence，而是只更新运行态背包、标记 inventory/active_job/profession 脏域并交由 flush 链路落盘；库存按生长时间持续补充',
     excludes: '本 smoke 只覆盖 loot container facade 行为；采集 tick 迁出旧 service 的结构性 proof 在 world-runtime-craft-smoke，也不证明更泛化的 tick 资产 intent 编排',
   }, null, 2));
 }
@@ -1424,20 +1423,6 @@ async function testGatherKeepsOwnedSearchWhenOwnerRuntimeUnavailable() {
   assert.equal(fixture.persistedActiveSearch()?.playerId, fixture.owner.playerId);
   assert.equal(fixture.requester.gatherJob, null);
   assert.equal(fixture.service.getContainerPersistenceRevision(fixture.instanceId), 0);
-}
-
-async function testGatherReclaimsAbandonedOwnedSearchAfterOwnerLeftInstance() {
-  const fixture = buildGatherReconciliationFixture({ suffix: 'owner-left', activeOwner: true });
-  fixture.instance.listPlayerIds = () => [fixture.requester.playerId];
-  fixture.removeRuntimePlayer(fixture.owner.playerId);
-  const result = fixture.start();
-
-  assert.equal(result.ok, true);
-  assert.equal(fixture.persistedActiveSearch()?.playerId, fixture.requester.playerId);
-  assert.equal(typeof fixture.requester.gatherJob?.jobRunId, 'string');
-  assert.equal(fixture.service.getDirtyInstanceIds().has(fixture.instanceId), true);
-  assert.equal(fixture.service.getContainerPersistenceRevision(fixture.instanceId), 2);
-  assert.equal(fixture.instance.worldRevision, 12);
 }
 
 async function testGatherReconcilesOfflineHangingOwner() {

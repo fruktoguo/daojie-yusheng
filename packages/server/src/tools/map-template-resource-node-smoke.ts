@@ -73,23 +73,22 @@ function collectWalkableComponent(
     if (!current) {
       break;
     }
-    for (let dy = -1; dy <= 1; dy += 1) {
-      for (let dx = -1; dx <= 1; dx += 1) {
-        if (dx === 0 && dy === 0) {
-          continue;
-        }
-        const x = current.x + dx;
-        const y = current.y + dy;
-        if (x < 0 || y < 0 || x >= template.width || y >= template.height) {
-          continue;
-        }
-        const key = tileKey(x, y);
-        if (seen.has(key) || template.walkableMask[y * width + x] !== 1) {
-          continue;
-        }
-        seen.add(key);
-        queue.push({ x, y });
+    const neighbors = [
+      { x: current.x + 1, y: current.y },
+      { x: current.x - 1, y: current.y },
+      { x: current.x, y: current.y + 1 },
+      { x: current.x, y: current.y - 1 },
+    ];
+    for (const next of neighbors) {
+      if (next.x < 0 || next.y < 0 || next.x >= template.width || next.y >= template.height) {
+        continue;
       }
+      const key = tileKey(next.x, next.y);
+      if (seen.has(key) || template.walkableMask[next.y * width + next.x] !== 1) {
+        continue;
+      }
+      seen.add(key);
+      queue.push(next);
     }
   }
   return seen;
