@@ -3,7 +3,7 @@
     {
       "id": "passive_craft_mortal_mortal_gather",
       "name": "《百草识辨篇》",
-      "desc": "凡人采集专修心法，专门提升采集速度，不附加负面效果。",
+      "desc": "凡人采集专修心法。谙熟百草习性灵机，采集速度提升 8%。",
       "grade": "mortal",
       "category": "arts",
       "realmLv": 1,
@@ -19,7 +19,7 @@
         {
           "id": "skill_passive_craft_mortal_mortal_gather",
           "name": "百草识辨",
-          "desc": "纯被动。采集速度+8%，无额外负面效果。",
+          "desc": "【被动】百草识辨，采折得法。采集速度提升 8%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -32,7 +32,7 @@
               "buffId": "passive_craft_mortal_mortal_gather_buff",
               "name": "百草识辨",
               "shortMark": "集",
-              "desc": "采集速度+8%，无额外负面效果。",
+              "desc": "采摘利落药性无损。采集速度+8%。",
               "craftEffectStats": {
                 "gather": {
                   "speedRate": 0.08
@@ -47,7 +47,7 @@
     {
       "id": "passive_craft_mortal_mortal_formation",
       "name": "《布子定元篇》",
-      "desc": "凡人布阵专修心法，专门提升布阵速度，不附加负面效果。",
+      "desc": "凡人布阵专修心法。以棋道推演阵位阵眼，布阵速度提升 8%。",
       "grade": "mortal",
       "category": "arts",
       "realmLv": 1,
@@ -63,7 +63,7 @@
         {
           "id": "skill_passive_craft_mortal_mortal_formation",
           "name": "布子定元",
-          "desc": "纯被动。布阵速度+8%，无额外负面效果。",
+          "desc": "【被动】弈道推阵，布子定局。布阵速度提升 8%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -76,7 +76,7 @@
               "buffId": "passive_craft_mortal_mortal_formation_buff",
               "name": "布子定元",
               "shortMark": "阵",
-              "desc": "布阵速度+8%，无额外负面效果。",
+              "desc": "阵眼明晰布子从容。布阵速度+8%。",
               "craftEffectStats": {
                 "formation": {
                   "speedRate": 0.08
@@ -91,7 +91,7 @@
     {
       "id": "passive_combat_qi_yellow_water",
       "name": "《沧浪叠韵诀》",
-      "desc": "练气水行专修，提升水行相关攻防能力，同时保留对应战斗取舍。",
+      "desc": "练气水行专修心法。引癸水真意如沧浪叠涌以御外煞，法术防御+12%、抗暴率+12%、水系增伤+12%、水系减伤+6%；暴击率-4%、物理攻击-4%。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 23,
@@ -107,7 +107,7 @@
         {
           "id": "skill_passive_combat_qi_yellow_water",
           "name": "沧浪叠韵",
-          "desc": "纯被动。水行增伤/减伤与专属战斗属性按12%生效；对应短板按现有规则生效。",
+          "desc": "【被动】沧浪叠涌，绵柔卸力。法术防御+12%、抗暴率+12%、水系增伤+12%、水系减伤+6%；暴击率-4%、物理攻击-4%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -120,7 +120,7 @@
               "buffId": "passive_combat_qi_yellow_water_buff",
               "name": "沧浪叠韵",
               "shortMark": "水",
-              "desc": "水行增伤/减伤与专属战斗属性按12%生效；对应短板按现有规则生效。",
+              "desc": "沧浪重波护身。法防+12%、抗暴+12%、水系增伤+12%、水系减伤+6%；暴击-4%、物攻-4%。",
               "stats": {
                 "spellDef": 12,
                 "antiCrit": 12,
@@ -143,7 +143,7 @@
     {
       "id": "passive_craft_mortal_mortal_alchemy",
       "name": "《草木还丹篇》",
-      "desc": "凡人炼丹专修心法，专门提升炼丹速度，不附加负面效果。",
+      "desc": "凡人炼丹专修心法。通悉凡俗药草性理，炼丹速度提升 8%。",
       "grade": "mortal",
       "category": "arts",
       "realmLv": 1,
@@ -159,7 +159,7 @@
         {
           "id": "skill_passive_craft_mortal_mortal_alchemy",
           "name": "草木还丹",
-          "desc": "纯被动。炼丹速度+8%，无额外负面效果。",
+          "desc": "【被动】草木还丹，药理精通。炼丹速度提升 8%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -172,7 +172,7 @@
               "buffId": "passive_craft_mortal_mortal_alchemy_buff",
               "name": "草木还丹",
               "shortMark": "丹",
-              "desc": "炼丹速度+8%，无额外负面效果。",
+              "desc": "药性融通。炼丹速度+8%。",
               "craftEffectStats": {
                 "alchemy": {
                   "speedRate": 0.08
@@ -187,7 +187,7 @@
     {
       "id": "passive_craft_qi_yellow_enhancement",
       "name": "《淬灵附煞诀》",
-      "desc": "练气强化专修心法，专门提升强化速度，不附加负面效果。",
+      "desc": "练气强化专修心法。引灵煞入器胎加快器灵觉醒，强化速度提升 12%。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 23,
@@ -203,7 +203,7 @@
         {
           "id": "skill_passive_craft_qi_yellow_enhancement",
           "name": "淬灵附煞",
-          "desc": "纯被动。强化速度+12%，无额外负面效果。",
+          "desc": "【被动】淬灵附煞，锋芒渐盛。强化速度提升 12%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -216,7 +216,7 @@
               "buffId": "passive_craft_qi_yellow_enhancement_buff",
               "name": "淬灵附煞",
               "shortMark": "强",
-              "desc": "强化速度+12%，无额外负面效果。",
+              "desc": "灵煞淬器神妙。强化速度+12%。",
               "craftEffectStats": {
                 "enhancement": {
                   "speedRate": 0.12
@@ -231,7 +231,7 @@
     {
       "id": "passive_craft_mortal_mortal_forging",
       "name": "《淬铁百锤篇》",
-      "desc": "凡人锻造专修心法，专门提升锻造速度，不附加负面效果。",
+      "desc": "凡人锻造专修心法。百锻千锤去尽精铁杂质，锻造速度提升 8%。",
       "grade": "mortal",
       "category": "arts",
       "realmLv": 1,
@@ -247,7 +247,7 @@
         {
           "id": "skill_passive_craft_mortal_mortal_forging",
           "name": "淬铁百锤",
-          "desc": "纯被动。锻造速度+8%，无额外负面效果。",
+          "desc": "【被动】百炼淬火，手熟成巧。锻造速度提升 8%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -260,7 +260,7 @@
               "buffId": "passive_craft_mortal_mortal_forging_buff",
               "name": "淬铁百锤",
               "shortMark": "器",
-              "desc": "锻造速度+8%，无额外负面效果。",
+              "desc": "锤法娴熟利落。锻造速度+8%。",
               "craftEffectStats": {
                 "forging": {
                   "speedRate": 0.08
@@ -275,7 +275,7 @@
     {
       "id": "passive_craft_qi_yellow_mining",
       "name": "《地脉寻金诀》",
-      "desc": "练气采矿专修心法，专门提升采矿速度，不附加负面效果。",
+      "desc": "练气采矿专修心法。循地脉金行灵气精准采掘，采矿速度提升 12%。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 23,
@@ -291,7 +291,7 @@
         {
           "id": "skill_passive_craft_qi_yellow_mining",
           "name": "地脉寻金",
-          "desc": "纯被动。采矿速度+12%，无额外负面效果。",
+          "desc": "【被动】地脉寻金，如臂使指。采矿速度提升 12%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -304,7 +304,7 @@
               "buffId": "passive_craft_qi_yellow_mining_buff",
               "name": "地脉寻金",
               "shortMark": "矿",
-              "desc": "采矿速度+12%，无额外负面效果。",
+              "desc": "金气感应采掘如飞。采矿速度+12%。",
               "craftEffectStats": {
                 "mining": {
                   "speedRate": 0.12
@@ -319,7 +319,7 @@
     {
       "id": "passive_craft_foundation_mystic_mining",
       "name": "《分岳探脉录》",
-      "desc": "筑基采矿专修心法，专门提升采矿速度，不附加负面效果。",
+      "desc": "筑基采矿专修心法。以神念分剖群岳地脉直达矿心，采矿速度提升 16%。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 31,
@@ -335,7 +335,7 @@
         {
           "id": "skill_passive_craft_foundation_mystic_mining",
           "name": "分岳探脉",
-          "desc": "纯被动。采矿速度+16%，无额外负面效果。",
+          "desc": "【被动】分岳探脉，神念穿岩。采矿速度提升 16%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -348,7 +348,7 @@
               "buffId": "passive_craft_foundation_mystic_mining_buff",
               "name": "分岳探脉",
               "shortMark": "矿",
-              "desc": "采矿速度+16%，无额外负面效果。",
+              "desc": "神识引镐碎岩破矿。采矿速度+16%。",
               "craftEffectStats": {
                 "mining": {
                   "speedRate": 0.16
@@ -363,7 +363,7 @@
     {
       "id": "passive_combat_foundation_mystic_metal",
       "name": "《庚金凝罡录》",
-      "desc": "筑基金行专修，提升金行相关攻防能力，同时保留对应战斗取舍。",
+      "desc": "筑基金行专修心法。纳西方白虎庚金煞气淬炼锋芒，物理攻击+16%、暴击率+16%、金系增伤+16%、金系减伤+8%；法术防御-5%、最大灵力-5%。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 31,
@@ -379,7 +379,7 @@
         {
           "id": "skill_passive_combat_foundation_mystic_metal",
           "name": "庚金凝罡",
-          "desc": "纯被动。金行增伤/减伤与专属战斗属性按16%生效；对应短板按现有规则生效。",
+          "desc": "【被动】万物折锋，唯金独锐。物理攻击+16%、暴击率+16%、金系增伤+16%、金系减伤+8%；法术防御-5%、最大灵力-5%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -392,7 +392,7 @@
               "buffId": "passive_combat_foundation_mystic_metal_buff",
               "name": "庚金凝罡",
               "shortMark": "金",
-              "desc": "金行增伤/减伤与专属战斗属性按16%生效；对应短板按现有规则生效。",
+              "desc": "庚金煞气化为护体锋罡。物攻+16%、暴击+16%、金系增伤+16%、金系减伤+8%；法防-5%、最大灵力-5%。",
               "stats": {
                 "physAtk": 16,
                 "crit": 16,
@@ -415,7 +415,7 @@
     {
       "id": "passive_combat_qi_yellow_metal",
       "name": "《庚金煞灵引》",
-      "desc": "练气金行专修，提升金行相关攻防能力，同时保留对应战斗取舍。",
+      "desc": "练气金行专修心法。引聚地脉庚金地煞化作锋锐杀芒，物理攻击+12%、暴击率+12%、金系增伤+12%、金系减伤+6%；法术防御-4%、最大灵力-4%。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 23,
@@ -431,7 +431,7 @@
         {
           "id": "skill_passive_combat_qi_yellow_metal",
           "name": "庚金煞灵",
-          "desc": "纯被动。金行增伤/减伤与专属战斗属性按12%生效；对应短板按现有规则生效。",
+          "desc": "【被动】引煞凝锋，庚金破敌。物理攻击+12%、暴击率+12%、金系增伤+12%、金系减伤+6%；法术防御-4%、最大灵力-4%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -444,7 +444,7 @@
               "buffId": "passive_combat_qi_yellow_metal_buff",
               "name": "庚金煞灵",
               "shortMark": "金",
-              "desc": "金行增伤/减伤与专属战斗属性按12%生效；对应短板按现有规则生效。",
+              "desc": "庚金煞气流转。物攻+12%、暴击+12%、金系增伤+12%、金系减伤+6%；法防-4%、最大灵力-4%。",
               "stats": {
                 "physAtk": 12,
                 "crit": 12,
@@ -467,7 +467,7 @@
     {
       "id": "passive_combat_foundation_mystic_earth",
       "name": "《厚土镇基录》",
-      "desc": "筑基土行专修，提升土行相关攻防能力，同时保留对应战斗取舍。",
+      "desc": "筑基土行专修心法。纳大地深处厚土精粹铸就金刚磐石之躯，物理防御+16%、化劲+16%、土系增伤+16%、土系减伤+8%；移动速度-5%、法术攻击-5%。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 31,
@@ -483,7 +483,7 @@
         {
           "id": "skill_passive_combat_foundation_mystic_earth",
           "name": "厚土镇基",
-          "desc": "纯被动。土行增伤/减伤与专属战斗属性按16%生效；对应短板按现有规则生效。",
+          "desc": "【被动】厚德载物，不动如山。物理防御+16%、化劲+16%、土系增伤+16%、土系减伤+8%；移动速度-5%、法术攻击-5%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -496,7 +496,7 @@
               "buffId": "passive_combat_foundation_mystic_earth_buff",
               "name": "厚土镇基",
               "shortMark": "土",
-              "desc": "土行增伤/减伤与专属战斗属性按16%生效；对应短板按现有规则生效。",
+              "desc": "厚土精粹化铠护身。物防+16%、化劲+16%、土系增伤+16%、土系减伤+8%；移速-5%、法攻-5%。",
               "stats": {
                 "physDef": 16,
                 "resolvePower": 16,
@@ -519,7 +519,7 @@
     {
       "id": "passive_craft_qi_yellow_forging",
       "name": "《火精锻金诀》",
-      "desc": "练气锻造专修心法，专门提升锻造速度，不附加负面效果。",
+      "desc": "练气锻造专修心法。以火精灵气贯通炉台锤砧，锻造速度提升 12%。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 23,
@@ -535,7 +535,7 @@
         {
           "id": "skill_passive_craft_qi_yellow_forging",
           "name": "火精锻金",
-          "desc": "纯被动。锻造速度+12%，无额外负面效果。",
+          "desc": "【被动】火精锻金，器形自成。锻造速度提升 12%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -548,7 +548,7 @@
               "buffId": "passive_craft_qi_yellow_forging_buff",
               "name": "火精锻金",
               "shortMark": "器",
-              "desc": "锻造速度+12%，无额外负面效果。",
+              "desc": "炉火纯青金铁自化。锻造速度+12%。",
               "craftEffectStats": {
                 "forging": {
                   "speedRate": 0.12
@@ -563,7 +563,7 @@
     {
       "id": "passive_yinyang_qi_earth_pure_yin",
       "name": "《九阳化阴真经》",
-      "desc": "玄阴反哺：阴灵气吸收效率+1%，阳灵气吸收效率-1%；打坐时向周围九宫格每格注入√(最大灵力输出)的玄阴灵气。",
+      "desc": "夺天地造化的玄阴反哺真诀。【掌握属性】体内玄阴灵脉增强，阴灵气吸收效率+1.0%、阳灵气吸收效率-1.0%；【启用被动】打坐修炼时向周围九宫格地脉注入玄阴灵气。",
       "grade": "earth",
       "category": "arts",
       "realmLv": 23,
@@ -579,7 +579,7 @@
         {
           "id": "skill_passive_yinyang_qi_earth_pure_yin",
           "name": "九阳化阴真经",
-          "desc": "玄阴反哺：阴灵气吸收效率+1%，阳灵气吸收效率-1%；打坐时向周围九宫格每格注入√(最大灵力输出)的玄阴灵气。",
+          "desc": "【被动】气机逆转，九阳化阴。启用此心法打坐修炼时，持续向周围九宫格地脉每格注入√(最大灵力输出)点玄阴灵气。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -592,7 +592,7 @@
               "buffId": "passive_yinyang_qi_earth_pure_yin_qi",
               "name": "九阳化阴真经",
               "shortMark": "阴",
-              "desc": "吸收阴灵气+100bp，阳灵气-100bp。",
+              "desc": "逆转九阳，化育玄阴。打坐修炼时向周围九宫格地脉注入玄阴灵气。",
               "qiProjection": [
                 {
                   "selector": {
@@ -634,7 +634,7 @@
     {
       "id": "passive_craft_qi_yellow_transmission",
       "name": "《口传心授诀》",
-      "desc": "练气传法专修心法，专门提升传法速度，不附加负面效果。",
+      "desc": "练气传法专修心法。以气机相牵加速同道神会理解，传法速度提升 12%。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 23,
@@ -650,7 +650,7 @@
         {
           "id": "skill_passive_craft_qi_yellow_transmission",
           "name": "口传心授",
-          "desc": "纯被动。传法速度+12%，无额外负面效果。",
+          "desc": "【被动】气机相契，口传心印。传法速度提升 12%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -663,7 +663,7 @@
               "buffId": "passive_craft_qi_yellow_transmission_buff",
               "name": "口传心授",
               "shortMark": "法",
-              "desc": "传法速度+12%，无额外负面效果。",
+              "desc": "心印共鸣传法通达。传法速度+12%。",
               "craftEffectStats": {
                 "transmission": {
                   "speedRate": 0.12
@@ -678,7 +678,7 @@
     {
       "id": "passive_combat_foundation_mystic_fire",
       "name": "《离火淬元录》",
-      "desc": "筑基火行专修，提升火行相关攻防能力，同时保留对应战斗取舍。",
+      "desc": "筑基火行专修心法。以九天离火精萃淬炼真元，法术攻击+16%、暴击伤害+16%、火系增伤+16%、火系减伤+8%；物理防御-5%、抗暴率-5%。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 31,
@@ -694,7 +694,7 @@
         {
           "id": "skill_passive_combat_foundation_mystic_fire",
           "name": "离火淬元",
-          "desc": "纯被动。火行增伤/减伤与专属战斗属性按16%生效；对应短板按现有规则生效。",
+          "desc": "【被动】离火焚天，真元极炽。法术攻击+16%、暴击伤害+16%、火系增伤+16%、火系减伤+8%；物理防御-5%、抗暴率-5%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -707,7 +707,7 @@
               "buffId": "passive_combat_foundation_mystic_fire_buff",
               "name": "离火淬元",
               "shortMark": "火",
-              "desc": "火行增伤/减伤与专属战斗属性按16%生效；对应短板按现有规则生效。",
+              "desc": "纯阳离火淬炼法力。法攻+16%、暴伤+16%、火系增伤+16%、火系减伤+8%；物防-5%、抗暴-5%。",
               "stats": {
                 "spellAtk": 16,
                 "critDamage": 16,
@@ -730,7 +730,7 @@
     {
       "id": "passive_craft_qi_yellow_building",
       "name": "《理气筑基诀》",
-      "desc": "练气营造专修心法，专门提升营造速度，不附加负面效果。",
+      "desc": "练气营造专修心法。梳理地脉风水气机助长筑造之势，营造速度提升 12%。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 23,
@@ -746,7 +746,7 @@
         {
           "id": "skill_passive_craft_qi_yellow_building",
           "name": "理气筑基",
-          "desc": "纯被动。营造速度+12%，无额外负面效果。",
+          "desc": "【被动】理顺风水，根基永固。营造速度提升 12%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -759,7 +759,7 @@
               "buffId": "passive_craft_qi_yellow_building_buff",
               "name": "理气筑基",
               "shortMark": "造",
-              "desc": "营造速度+12%，无额外负面效果。",
+              "desc": "地气承托筑造如飞。营造速度+12%。",
               "craftEffectStats": {
                 "building": {
                   "speedRate": 0.12
@@ -774,7 +774,7 @@
     {
       "id": "passive_craft_qi_yellow_alchemy",
       "name": "《灵火调药诀》",
-      "desc": "练气炼丹专修心法，专门提升炼丹速度，不附加负面效果。",
+      "desc": "练气炼丹专修心法。以灵气御火调和阴阳药性，炼丹速度提升 12%。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 23,
@@ -790,7 +790,7 @@
         {
           "id": "skill_passive_craft_qi_yellow_alchemy",
           "name": "灵火调药",
-          "desc": "纯被动。炼丹速度+12%，无额外负面效果。",
+          "desc": "【被动】灵火调药，火候纯青。炼丹速度提升 12%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -803,7 +803,7 @@
               "buffId": "passive_craft_qi_yellow_alchemy_buff",
               "name": "灵火调药",
               "shortMark": "丹",
-              "desc": "炼丹速度+12%，无额外负面效果。",
+              "desc": "火候精微入化。炼丹速度+12%。",
               "craftEffectStats": {
                 "alchemy": {
                   "speedRate": 0.12
@@ -818,7 +818,7 @@
     {
       "id": "passive_combat_qi_yellow_spell",
       "name": "《灵犀澈照引》",
-      "desc": "练气术心专修，强化术心方向的战斗属性，并保留对应取舍。",
+      "desc": "练气术心专修心法。心神与天地灵机相照相生，法术攻击+12%、法术防御+7.2%、命中率+9.6%、化劲+6%；物理防御-3.2%、气血上限-2%。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 23,
@@ -834,7 +834,7 @@
         {
           "id": "skill_passive_combat_qi_yellow_spell",
           "name": "灵犀澈照",
-          "desc": "纯被动。强化术心方向，核心增益按12%生效；对应短板按现有规则生效。",
+          "desc": "【被动】心有灵犀，神台澈照。法术攻击+12%、法术防御+7.2%、命中率+9.6%、化劲+6%；物理防御-3.2%、气血上限-2%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -847,7 +847,7 @@
               "buffId": "passive_combat_qi_yellow_spell_buff",
               "name": "灵犀澈照",
               "shortMark": "术",
-              "desc": "强化术心方向，核心增益按12%生效；对应短板按现有规则生效。",
+              "desc": "灵台神光澈照。法攻+12%、法防+7.2%、命中+9.6%、化劲+6%；物防-3.2%、气血-2%。",
               "stats": {
                 "spellAtk": 12,
                 "spellDef": 7.2,
@@ -866,7 +866,7 @@
     {
       "id": "passive_craft_foundation_mystic_gather",
       "name": "《灵植引脉录》",
-      "desc": "筑基采集专修心法，专门提升采集速度，不附加负面效果。",
+      "desc": "筑基采集专修心法。神识与灵植经络相融一念采收，采集速度提升 16%。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 31,
@@ -882,7 +882,7 @@
         {
           "id": "skill_passive_craft_foundation_mystic_gather",
           "name": "灵植引脉",
-          "desc": "纯被动。采集速度+16%，无额外负面效果。",
+          "desc": "【被动】灵植引脉，瞬息收摄。采集速度提升 16%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -895,7 +895,7 @@
               "buffId": "passive_craft_foundation_mystic_gather_buff",
               "name": "灵植引脉",
               "shortMark": "集",
-              "desc": "采集速度+16%，无额外负面效果。",
+              "desc": "神念通灵采药如风。采集速度+16%。",
               "craftEffectStats": {
                 "gather": {
                   "speedRate": 0.16
@@ -910,7 +910,7 @@
     {
       "id": "passive_combat_qi_yellow_physical",
       "name": "《龙象摧岳劲》",
-      "desc": "练气武体专修，强化武体方向的战斗属性，并保留对应取舍。",
+      "desc": "练气武体专修心法。引灵气灌注周身经脉激发龙象巨力，物理攻击+12%、物理防御+7.2%、破劲+9.6%、暴击率+6%；法术攻击-4%、最大灵力-2%。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 23,
@@ -926,7 +926,7 @@
         {
           "id": "skill_passive_combat_qi_yellow_physical",
           "name": "龙象摧岳",
-          "desc": "纯被动。强化武体方向，核心增益按12%生效；对应短板按现有规则生效。",
+          "desc": "【被动】龙象奔腾，力摧雄岳。物理攻击+12%、物理防御+7.2%、破劲+9.6%、暴击率+6%；法术攻击-4%、最大灵力-2%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -939,7 +939,7 @@
               "buffId": "passive_combat_qi_yellow_physical_buff",
               "name": "龙象摧岳",
               "shortMark": "武",
-              "desc": "强化武体方向，核心增益按12%生效；对应短板按现有规则生效。",
+              "desc": "龙象巨力充盈周身。物攻+12%、物防+7.2%、破劲+9.6%、暴击+6%；法攻-4%、最大灵力-2%。",
               "stats": {
                 "physAtk": 12,
                 "physDef": 7.2,
@@ -958,7 +958,7 @@
     {
       "id": "passive_combat_foundation_mystic_spell",
       "name": "《明心拓神录》",
-      "desc": "筑基术心专修，强化术心方向的战斗属性，并保留对应取舍。",
+      "desc": "筑基术心专修心法。开辟浩瀚识海明晰天道妙理，法术攻击+16%、法术防御+9.6%、命中率+12.8%、化劲+8%；物理防御-4%、气血上限-2.5%。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 31,
@@ -974,7 +974,7 @@
         {
           "id": "skill_passive_combat_foundation_mystic_spell",
           "name": "明心拓神",
-          "desc": "纯被动。强化术心方向，核心增益按16%生效；对应短板按现有规则生效。",
+          "desc": "【被动】明心见性，神念万方。法术攻击+16%、法术防御+9.6%、命中率+12.8%、化劲+8%；物理防御-4%、气血上限-2.5%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -987,7 +987,7 @@
               "buffId": "passive_combat_foundation_mystic_spell_buff",
               "name": "明心拓神",
               "shortMark": "术",
-              "desc": "强化术心方向，核心增益按16%生效；对应短板按现有规则生效。",
+              "desc": "识海广阔神念通达。法攻+16%、法防+9.6%、命中+12.8%、化劲+8%；物防-4%、气血-2.5%。",
               "stats": {
                 "spellAtk": 16,
                 "spellDef": 9.6,
@@ -1006,7 +1006,7 @@
     {
       "id": "passive_combat_mortal_mortal_physical",
       "name": "《磨筋铸骨谱》",
-      "desc": "凡人武体专修，强化武体方向的战斗属性，并保留对应取舍。",
+      "desc": "凡人武体专修心法。千锤百炼打熬肉身筋骨，物理攻击+8%、物理防御+4.8%、破劲+6.4%、暴击率+4%；法术攻击-3%、最大灵力-1.5%。",
       "grade": "mortal",
       "category": "arts",
       "realmLv": 1,
@@ -1022,7 +1022,7 @@
         {
           "id": "skill_passive_combat_mortal_mortal_physical",
           "name": "磨筋铸骨",
-          "desc": "纯被动。强化武体方向，核心增益按8%生效；对应短板按现有规则生效。",
+          "desc": "【被动】筋骨如钢，力透千钧。物理攻击+8%、物理防御+4.8%、破劲+6.4%、暴击率+4%；法术攻击-3%、最大灵力-1.5%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1035,7 +1035,7 @@
               "buffId": "passive_combat_mortal_mortal_physical_buff",
               "name": "磨筋铸骨",
               "shortMark": "武",
-              "desc": "强化武体方向，核心增益按8%生效；对应短板按现有规则生效。",
+              "desc": "筋骨精健强悍。物攻+8%、物防+4.8%、破劲+6.4%、暴击+4%；法攻-3%、最大灵力-1.5%。",
               "stats": {
                 "physAtk": 8,
                 "physDef": 4.8,
@@ -1054,7 +1054,7 @@
     {
       "id": "passive_combat_mortal_mortal_earth",
       "name": "《盘根立地篇》",
-      "desc": "凡人土行专修，提升土行相关攻防能力，同时保留对应战斗取舍。",
+      "desc": "凡人土行专修心法。意借大地之厚重沉稳立身，物理防御+8%、化劲+8%、土系增伤+8%、土系减伤+4%；移动速度-3%、法术攻击-3%。",
       "grade": "mortal",
       "category": "arts",
       "realmLv": 1,
@@ -1070,7 +1070,7 @@
         {
           "id": "skill_passive_combat_mortal_mortal_earth",
           "name": "盘根立地",
-          "desc": "纯被动。土行增伤/减伤与专属战斗属性按8%生效；对应短板按现有规则生效。",
+          "desc": "【被动】盘根立地，磐石无转移。物理防御+8%、化劲+8%、土系增伤+8%、土系减伤+4%；移动速度-3%、法术攻击-3%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1083,7 +1083,7 @@
               "buffId": "passive_combat_mortal_mortal_earth_buff",
               "name": "盘根立地",
               "shortMark": "土",
-              "desc": "土行增伤/减伤与专属战斗属性按8%生效；对应短板按现有规则生效。",
+              "desc": "沉稳如石立地。物防+8%、化劲+8%、土系增伤+8%、土系减伤+4%；移速-3%、法攻-3%。",
               "stats": {
                 "physDef": 8,
                 "resolvePower": 8,
@@ -1106,7 +1106,7 @@
     {
       "id": "passive_craft_mortal_mortal_transmission",
       "name": "《启蒙明道篇》",
-      "desc": "凡人传法专修心法，专门提升传法速度，不附加负面效果。",
+      "desc": "凡人传法专修心法。言传身教启蒙同道，传法速度提升 8%。",
       "grade": "mortal",
       "category": "arts",
       "realmLv": 1,
@@ -1122,7 +1122,7 @@
         {
           "id": "skill_passive_craft_mortal_mortal_transmission",
           "name": "启蒙明道",
-          "desc": "纯被动。传法速度+8%，无额外负面效果。",
+          "desc": "【被动】启蒙明理，言传身教。传法速度提升 8%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1135,7 +1135,7 @@
               "buffId": "passive_craft_mortal_mortal_transmission_buff",
               "name": "启蒙明道",
               "shortMark": "法",
-              "desc": "传法速度+8%，无额外负面效果。",
+              "desc": "讲经解惑循循善诱。传法速度+8%。",
               "craftEffectStats": {
                 "transmission": {
                   "speedRate": 0.08
@@ -1150,7 +1150,7 @@
     {
       "id": "passive_craft_foundation_mystic_forging",
       "name": "《千锤融灵录》",
-      "desc": "筑基锻造专修心法，专门提升锻造速度，不附加负面效果。",
+      "desc": "筑基锻造专修心法。以神识与真元将万物灵性融于胚材，锻造速度提升 16%。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 31,
@@ -1166,7 +1166,7 @@
         {
           "id": "skill_passive_craft_foundation_mystic_forging",
           "name": "千锤融灵",
-          "desc": "纯被动。锻造速度+16%，无额外负面效果。",
+          "desc": "【被动】千锤融灵，神兵显耀。锻造速度提升 16%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1179,7 +1179,7 @@
               "buffId": "passive_craft_foundation_mystic_forging_buff",
               "name": "千锤融灵",
               "shortMark": "器",
-              "desc": "锻造速度+16%，无额外负面效果。",
+              "desc": "神念融灵铸器如风。锻造速度+16%。",
               "craftEffectStats": {
                 "forging": {
                   "speedRate": 0.16
@@ -1194,7 +1194,7 @@
     {
       "id": "passive_craft_qi_yellow_gather",
       "name": "《青灵采撷诀》",
-      "desc": "练气采集专修心法，专门提升采集速度，不附加负面效果。",
+      "desc": "练气采集专修心法。引青木灵气化解灵草天然防护，采集速度提升 12%。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 23,
@@ -1210,7 +1210,7 @@
         {
           "id": "skill_passive_craft_qi_yellow_gather",
           "name": "青灵采撷",
-          "desc": "纯被动。采集速度+12%，无额外负面效果。",
+          "desc": "【被动】青灵化护，采撷无碍。采集速度提升 12%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1223,7 +1223,7 @@
               "buffId": "passive_craft_qi_yellow_gather_buff",
               "name": "青灵采撷",
               "shortMark": "集",
-              "desc": "采集速度+12%，无额外负面效果。",
+              "desc": "青灵引气采草神速。采集速度+12%。",
               "craftEffectStats": {
                 "gather": {
                   "speedRate": 0.12
@@ -1238,7 +1238,7 @@
     {
       "id": "passive_combat_mortal_mortal_fire",
       "name": "《燃薪淬息篇》",
-      "desc": "凡人火行专修，提升火行相关攻防能力，同时保留对应战斗取舍。",
+      "desc": "凡人火行专修心法。引烈火燃薪之势助长法力炽烈，法术攻击+8%、暴击伤害+8%、火系增伤+8%、火系减伤+4%；物理防御-3%、抗暴率-3%。",
       "grade": "mortal",
       "category": "arts",
       "realmLv": 1,
@@ -1254,7 +1254,7 @@
         {
           "id": "skill_passive_combat_mortal_mortal_fire",
           "name": "燃薪淬息",
-          "desc": "纯被动。火行增伤/减伤与专属战斗属性按8%生效；对应短板按现有规则生效。",
+          "desc": "【被动】燃薪化焰，气息炽烈。法术攻击+8%、暴击伤害+8%、火系增伤+8%、火系减伤+4%；物理防御-3%、抗暴率-3%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1267,7 +1267,7 @@
               "buffId": "passive_combat_mortal_mortal_fire_buff",
               "name": "燃薪淬息",
               "shortMark": "火",
-              "desc": "火行增伤/减伤与专属战斗属性按8%生效；对应短板按现有规则生效。",
+              "desc": "烈焰热息流转。法攻+8%、暴伤+8%、火系增伤+8%、火系减伤+4%；物防-3%、抗暴-3%。",
               "stats": {
                 "spellAtk": 8,
                 "critDamage": 8,
@@ -1290,7 +1290,7 @@
     {
       "id": "passive_combat_foundation_mystic_physical",
       "name": "《煞血铁骨功》",
-      "desc": "筑基武体专修，强化武体方向的战斗属性，并保留对应取舍。",
+      "desc": "筑基武体专修心法。融合地煞血气重塑肉身体魄，物理攻击+16%、物理防御+9.6%、破劲+12.8%、暴击率+8%；法术攻击-5%、最大灵力-2.5%。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 31,
@@ -1306,7 +1306,7 @@
         {
           "id": "skill_passive_combat_foundation_mystic_physical",
           "name": "煞血铁骨",
-          "desc": "纯被动。强化武体方向，核心增益按16%生效；对应短板按现有规则生效。",
+          "desc": "【被动】煞血淬骨，肉身称雄。物理攻击+16%、物理防御+9.6%、破劲+12.8%、暴击率+8%；法术攻击-5%、最大灵力-2.5%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1319,7 +1319,7 @@
               "buffId": "passive_combat_foundation_mystic_physical_buff",
               "name": "煞血铁骨",
               "shortMark": "武",
-              "desc": "强化武体方向，核心增益按16%生效；对应短板按现有规则生效。",
+              "desc": "煞血铸就金刚体魄。物攻+16%、物防+9.6%、破劲+12.8%、暴击+8%；法攻-5%、最大灵力-2.5%。",
               "stats": {
                 "physAtk": 16,
                 "physDef": 9.6,
@@ -1338,7 +1338,7 @@
     {
       "id": "passive_craft_foundation_mystic_transmission",
       "name": "《神念化法录》",
-      "desc": "筑基传法专修心法，专门提升传法速度，不附加负面效果。",
+      "desc": "筑基修士专修的神识传道心法。以神念为引直接拓印道法真意，传法速度提升 16%。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 31,
@@ -1354,7 +1354,7 @@
         {
           "id": "skill_passive_craft_foundation_mystic_transmission",
           "name": "神念化法",
-          "desc": "纯被动。传法速度+16%，无额外负面效果。",
+          "desc": "【被动】念起法随，以神识印照受法者灵台。传法速度提升 16%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1367,7 +1367,7 @@
               "buffId": "passive_craft_foundation_mystic_transmission_buff",
               "name": "神念化法",
               "shortMark": "法",
-              "desc": "传法速度+16%，无额外负面效果。",
+              "desc": "神念显化醍醐灌顶。传法速度+16%。",
               "craftEffectStats": {
                 "transmission": {
                   "speedRate": 0.16
@@ -1382,7 +1382,7 @@
     {
       "id": "passive_combat_mortal_mortal_spell",
       "name": "《识微明眸篇》",
-      "desc": "凡人术心专修，强化术心方向的战斗属性，并保留对应取舍。",
+      "desc": "凡人术心专修心法。清心宁神洞察灵机微茫，法术攻击+8%、法术防御+4.8%、命中率+6.4%、化劲+4%；物理防御-2.4%、气血上限-1.5%。",
       "grade": "mortal",
       "category": "arts",
       "realmLv": 1,
@@ -1398,7 +1398,7 @@
         {
           "id": "skill_passive_combat_mortal_mortal_spell",
           "name": "识微明眸",
-          "desc": "纯被动。强化术心方向，核心增益按8%生效；对应短板按现有规则生效。",
+          "desc": "【被动】目力清明，洞察秋毫。法术攻击+8%、法术防御+4.8%、命中率+6.4%、化劲+4%；物理防御-2.4%、气血上限-1.5%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1411,7 +1411,7 @@
               "buffId": "passive_combat_mortal_mortal_spell_buff",
               "name": "识微明眸",
               "shortMark": "术",
-              "desc": "强化术心方向，核心增益按8%生效；对应短板按现有规则生效。",
+              "desc": "术心专注明澈。法攻+8%、法防+4.8%、命中+6.4%、化劲+4%；物防-2.4%、气血-1.5%。",
               "stats": {
                 "spellAtk": 8,
                 "spellDef": 4.8,
@@ -1430,7 +1430,7 @@
     {
       "id": "passive_combat_mortal_mortal_water",
       "name": "《溯流引泉篇》",
-      "desc": "凡人水行专修，提升水行相关攻防能力，同时保留对应战斗取舍。",
+      "desc": "凡人水行专修心法。意存静水深流之态化解刚劲，法术防御+8%、抗暴率+8%、水系增伤+8%、水系减伤+4%；暴击率-3%、物理攻击-3%。",
       "grade": "mortal",
       "category": "arts",
       "realmLv": 1,
@@ -1446,7 +1446,7 @@
         {
           "id": "skill_passive_combat_mortal_mortal_water",
           "name": "溯流引泉",
-          "desc": "纯被动。水行增伤/减伤与专属战斗属性按8%生效；对应短板按现有规则生效。",
+          "desc": "【被动】溯流寻源，静水流深。法术防御+8%、抗暴率+8%、水系增伤+8%、水系减伤+4%；暴击率-3%、物理攻击-3%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1459,7 +1459,7 @@
               "buffId": "passive_combat_mortal_mortal_water_buff",
               "name": "溯流引泉",
               "shortMark": "水",
-              "desc": "水行增伤/减伤与专属战斗属性按8%生效；对应短板按现有规则生效。",
+              "desc": "静水微澜护持。法防+8%、抗暴+8%、水系增伤+8%、水系减伤+4%；暴击-3%、物攻-3%。",
               "stats": {
                 "spellDef": 8,
                 "antiCrit": 8,
@@ -1482,7 +1482,7 @@
     {
       "id": "passive_craft_foundation_mystic_formation",
       "name": "《锁灵定脉录》",
-      "desc": "筑基布阵专修心法，专门提升布阵速度，不附加负面效果。",
+      "desc": "筑基布阵专修心法。神识勾勒大阵枢纽直接拘锁地脉灵机，布阵速度提升 16%。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 31,
@@ -1498,7 +1498,7 @@
         {
           "id": "skill_passive_craft_foundation_mystic_formation",
           "name": "锁灵定脉",
-          "desc": "纯被动。布阵速度+16%，无额外负面效果。",
+          "desc": "【被动】锁灵定脉，天罗自成。布阵速度提升 16%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1511,7 +1511,7 @@
               "buffId": "passive_craft_foundation_mystic_formation_buff",
               "name": "锁灵定脉",
               "shortMark": "阵",
-              "desc": "布阵速度+16%，无额外负面效果。",
+              "desc": "神识布阵勾锁地脉。布阵速度+16%。",
               "craftEffectStats": {
                 "formation": {
                   "speedRate": 0.16
@@ -1526,7 +1526,7 @@
     {
       "id": "passive_craft_mortal_mortal_mining",
       "name": "《探矿辨石篇》",
-      "desc": "凡人采矿专修心法，专门提升采矿速度，不附加负面效果。",
+      "desc": "凡人采矿专修心法。见石知矿、顺理下镐，采矿速度提升 8%。",
       "grade": "mortal",
       "category": "arts",
       "realmLv": 1,
@@ -1542,7 +1542,7 @@
         {
           "id": "skill_passive_craft_mortal_mortal_mining",
           "name": "探矿辨石",
-          "desc": "纯被动。采矿速度+8%，无额外负面效果。",
+          "desc": "【被动】探矿辨石，了然于胸。采矿速度提升 8%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1555,7 +1555,7 @@
               "buffId": "passive_craft_mortal_mortal_mining_buff",
               "name": "探矿辨石",
               "shortMark": "矿",
-              "desc": "采矿速度+8%，无额外负面效果。",
+              "desc": "辨石如神开采利落。采矿速度+8%。",
               "craftEffectStats": {
                 "mining": {
                   "speedRate": 0.08
@@ -1570,7 +1570,7 @@
     {
       "id": "passive_craft_mortal_mortal_enhancement",
       "name": "《温玉养器篇》",
-      "desc": "凡人强化专修心法，专门提升强化速度，不附加负面效果。",
+      "desc": "凡人强化专修心法。细致温养器物肌理，强化速度提升 8%。",
       "grade": "mortal",
       "category": "arts",
       "realmLv": 1,
@@ -1586,7 +1586,7 @@
         {
           "id": "skill_passive_craft_mortal_mortal_enhancement",
           "name": "温玉养器",
-          "desc": "纯被动。强化速度+8%，无额外负面效果。",
+          "desc": "【被动】温玉养器，抚平瑕疵。强化速度提升 8%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1599,7 +1599,7 @@
               "buffId": "passive_craft_mortal_mortal_enhancement_buff",
               "name": "温玉养器",
               "shortMark": "强",
-              "desc": "强化速度+8%，无额外负面效果。",
+              "desc": "器胚温润易淬。强化速度+8%。",
               "craftEffectStats": {
                 "enhancement": {
                   "speedRate": 0.08
@@ -1614,7 +1614,7 @@
     {
       "id": "passive_combat_mortal_mortal_wood",
       "name": "《问木折青篇》",
-      "desc": "凡人木行专修，提升木行相关攻防能力，同时保留对应战斗取舍。",
+      "desc": "凡人木行专修心法。效法草木吐纳生气，气血恢复速度+8%、闪避+8%、木系增伤+8%、木系减伤+4%；破劲-3%、物理攻击-3%。",
       "grade": "mortal",
       "category": "arts",
       "realmLv": 1,
@@ -1630,7 +1630,7 @@
         {
           "id": "skill_passive_combat_mortal_mortal_wood",
           "name": "问木折青",
-          "desc": "纯被动。木行增伤/减伤与专属战斗属性按8%生效；对应短板按现有规则生效。",
+          "desc": "【被动】问木探青，枝生不息。气血恢复速度+8%、闪避+8%、木系增伤+8%、木系减伤+4%；破劲-3%、物理攻击-3%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1643,7 +1643,7 @@
               "buffId": "passive_combat_mortal_mortal_wood_buff",
               "name": "问木折青",
               "shortMark": "木",
-              "desc": "木行增伤/减伤与专属战斗属性按8%生效；对应短板按现有规则生效。",
+              "desc": "草木生机流转。回血+8%、闪避+8%、木系增伤+8%、木系减伤+4%；破劲-3%、物攻-3%。",
               "stats": {
                 "hpRegenRate": 8,
                 "dodge": 8,
@@ -1666,7 +1666,7 @@
     {
       "id": "passive_combat_foundation_mystic_water",
       "name": "《玄潮凝波录》",
-      "desc": "筑基水行专修，提升水行相关攻防能力，同时保留对应战斗取舍。",
+      "desc": "筑基水行专修心法。凝聚北冥玄潮波纹化为御法屏障，法术防御+16%、抗暴率+16%、水系增伤+16%、水系减伤+8%；暴击率-5%、物理攻击-5%。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 31,
@@ -1682,7 +1682,7 @@
         {
           "id": "skill_passive_combat_foundation_mystic_water",
           "name": "玄潮凝波",
-          "desc": "纯被动。水行增伤/减伤与专属战斗属性按16%生效；对应短板按现有规则生效。",
+          "desc": "【被动】玄潮凝波，万法不侵。法术防御+16%、抗暴率+16%、水系增伤+16%、水系减伤+8%；暴击率-5%、物理攻击-5%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1695,7 +1695,7 @@
               "buffId": "passive_combat_foundation_mystic_water_buff",
               "name": "玄潮凝波",
               "shortMark": "水",
-              "desc": "水行增伤/减伤与专属战斗属性按16%生效；对应短板按现有规则生效。",
+              "desc": "玄潮真水凝波护体。法防+16%、抗暴+16%、水系增伤+16%、水系减伤+8%；暴击-5%、物攻-5%。",
               "stats": {
                 "spellDef": 16,
                 "antiCrit": 16,
@@ -1718,7 +1718,7 @@
     {
       "id": "passive_combat_qi_yellow_earth",
       "name": "《玄黄镇岳诀》",
-      "desc": "练气土行专修，提升土行相关攻防能力，同时保留对应战斗取舍。",
+      "desc": "练气土行专修心法。引聚戊土玄黄之气护持体魄，物理防御+12%、化劲+12%、土系增伤+12%、土系减伤+6%；移动速度-4%、法术攻击-4%。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 23,
@@ -1734,7 +1734,7 @@
         {
           "id": "skill_passive_combat_qi_yellow_earth",
           "name": "玄黄镇岳",
-          "desc": "纯被动。土行增伤/减伤与专属战斗属性按12%生效；对应短板按现有规则生效。",
+          "desc": "【被动】玄黄镇岳，重若泰山。物理防御+12%、化劲+12%、土系增伤+12%、土系减伤+6%；移动速度-4%、法术攻击-4%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1747,7 +1747,7 @@
               "buffId": "passive_combat_qi_yellow_earth_buff",
               "name": "玄黄镇岳",
               "shortMark": "土",
-              "desc": "土行增伤/减伤与专属战斗属性按12%生效；对应短板按现有规则生效。",
+              "desc": "玄黄地气覆体。物防+12%、化劲+12%、土系增伤+12%、土系减伤+6%；移速-4%、法攻-4%。",
               "stats": {
                 "physDef": 12,
                 "resolvePower": 12,
@@ -1770,7 +1770,7 @@
     {
       "id": "passive_yinyang_qi_earth_pure_yang",
       "name": "《玄牝生阳宝典》",
-      "desc": "纯阳反哺：阳灵气吸收效率+1%，阴灵气吸收效率-1%；打坐时向周围九宫格每格注入√(最大灵力输出)的纯阳灵气。",
+      "desc": "生生不息的纯阳反哺宝典。【掌握属性】体内纯阳灵脉增强，阳灵气吸收效率+1.0%、阴灵气吸收效率-1.0%；【启用被动】打坐修炼时向周围九宫格地脉注入纯阳灵气。",
       "grade": "earth",
       "category": "arts",
       "realmLv": 23,
@@ -1786,7 +1786,7 @@
         {
           "id": "skill_passive_yinyang_qi_earth_pure_yang",
           "name": "玄牝生阳宝典",
-          "desc": "纯阳反哺：阳灵气吸收效率+1%，阴灵气吸收效率-1%；打坐时向周围九宫格每格注入√(最大灵力输出)的纯阳灵气。",
+          "desc": "【被动】玄牝长存，阴尽阳生。启用此心法打坐修炼时，持续向周围九宫格地脉每格注入√(最大灵力输出)点纯阳灵气。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1799,7 +1799,7 @@
               "buffId": "passive_yinyang_qi_earth_pure_yang_qi",
               "name": "玄牝生阳宝典",
               "shortMark": "阳",
-              "desc": "吸收阳灵气+100bp，阴灵气-100bp。",
+              "desc": "玄牝生阳，化育纯阳。打坐修炼时向周围九宫格地脉注入纯阳灵气。",
               "qiProjection": [
                 {
                   "selector": {
@@ -1841,7 +1841,7 @@
     {
       "id": "passive_craft_foundation_mystic_building",
       "name": "《移山架阁录》",
-      "desc": "筑基营造专修心法，专门提升营造速度，不附加负面效果。",
+      "desc": "筑基营造专修心法。运化五行法力御物飞檐立阁，营造速度提升 16%。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 31,
@@ -1857,7 +1857,7 @@
         {
           "id": "skill_passive_craft_foundation_mystic_building",
           "name": "移山架阁",
-          "desc": "纯被动。营造速度+16%，无额外负面效果。",
+          "desc": "【被动】移山架阁，起楼如飞。营造速度提升 16%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1870,7 +1870,7 @@
               "buffId": "passive_craft_foundation_mystic_building_buff",
               "name": "移山架阁",
               "shortMark": "造",
-              "desc": "营造速度+16%，无额外负面效果。",
+              "desc": "法力御材架阁凌空。营造速度+16%。",
               "craftEffectStats": {
                 "building": {
                   "speedRate": 0.16
@@ -1885,7 +1885,7 @@
     {
       "id": "passive_combat_qi_yellow_wood",
       "name": "《乙木岁荣诀》",
-      "desc": "练气木行专修，提升木行相关攻防能力，同时保留对应战斗取舍。",
+      "desc": "练气木行专修心法。引东方青龙乙木灵机蕴养体魄，气血恢复速度+12%、闪避+12%、木系增伤+12%、木系减伤+6%；破劲-4%、物理攻击-4%。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 23,
@@ -1901,7 +1901,7 @@
         {
           "id": "skill_passive_combat_qi_yellow_wood",
           "name": "乙木岁荣",
-          "desc": "纯被动。木行增伤/减伤与专属战斗属性按12%生效；对应短板按现有规则生效。",
+          "desc": "【被动】岁岁荣枯，生生不息。气血恢复速度+12%、闪避+12%、木系增伤+12%、木系减伤+6%；破劲-4%、物理攻击-4%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1914,7 +1914,7 @@
               "buffId": "passive_combat_qi_yellow_wood_buff",
               "name": "乙木岁荣",
               "shortMark": "木",
-              "desc": "木行增伤/减伤与专属战斗属性按12%生效；对应短板按现有规则生效。",
+              "desc": "乙木灵机护脉。回血+12%、闪避+12%、木系增伤+12%、木系减伤+6%；破劲-4%、物攻-4%。",
               "stats": {
                 "hpRegenRate": 12,
                 "dodge": 12,
@@ -1937,7 +1937,7 @@
     {
       "id": "passive_craft_mortal_mortal_building",
       "name": "《引绳规矩篇》",
-      "desc": "凡人营造专修心法，专门提升营造速度，不附加负面效果。",
+      "desc": "凡人营造专修心法。恪守方圆规矩行营造之事，营造速度提升 8%。",
       "grade": "mortal",
       "category": "arts",
       "realmLv": 1,
@@ -1953,7 +1953,7 @@
         {
           "id": "skill_passive_craft_mortal_mortal_building",
           "name": "引绳规矩",
-          "desc": "纯被动。营造速度+8%，无额外负面效果。",
+          "desc": "【被动】引绳定准，工巧自成。营造速度提升 8%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1966,7 +1966,7 @@
               "buffId": "passive_craft_mortal_mortal_building_buff",
               "name": "引绳规矩",
               "shortMark": "造",
-              "desc": "营造速度+8%，无额外负面效果。",
+              "desc": "规矩明晰营建有序。营造速度+8%。",
               "craftEffectStats": {
                 "building": {
                   "speedRate": 0.08
@@ -1981,7 +1981,7 @@
     {
       "id": "passive_combat_foundation_mystic_wood",
       "name": "《长春固脉录》",
-      "desc": "筑基木行专修，提升木行相关攻防能力，同时保留对应战斗取舍。",
+      "desc": "筑基木行专修心法。纳纯阳长春木髓巩固周身经脉，气血恢复速度+16%、闪避+16%、木系增伤+16%、木系减伤+8%；破劲-5%、物理攻击-5%。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 31,
@@ -1997,7 +1997,7 @@
         {
           "id": "skill_passive_combat_foundation_mystic_wood",
           "name": "长春固脉",
-          "desc": "纯被动。木行增伤/减伤与专属战斗属性按16%生效；对应短板按现有规则生效。",
+          "desc": "【被动】长春固脉，万木回春。气血恢复速度+16%、闪避+16%、木系增伤+16%、木系减伤+8%；破劲-5%、物理攻击-5%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -2010,7 +2010,7 @@
               "buffId": "passive_combat_foundation_mystic_wood_buff",
               "name": "长春固脉",
               "shortMark": "木",
-              "desc": "木行增伤/减伤与专属战斗属性按16%生效；对应短板按现有规则生效。",
+              "desc": "长春生机滋养经脉。回血+16%、闪避+16%、木系增伤+16%、木系减伤+8%；破劲-5%、物攻-5%。",
               "stats": {
                 "hpRegenRate": 16,
                 "dodge": 16,
@@ -2033,7 +2033,7 @@
     {
       "id": "passive_combat_mortal_mortal_metal",
       "name": "《折铁断锋篇》",
-      "desc": "凡人金行专修，提升金行相关攻防能力，同时保留对应战斗取舍。",
+      "desc": "凡人金行专修心法。引凡铁肃杀之气淬砺周身，物理攻击+8%、暴击率+8%、金系增伤+8%、金系减伤+4%；法术防御-3%、最大灵力-3%。",
       "grade": "mortal",
       "category": "arts",
       "realmLv": 1,
@@ -2049,7 +2049,7 @@
         {
           "id": "skill_passive_combat_mortal_mortal_metal",
           "name": "折铁断锋",
-          "desc": "纯被动。金行增伤/减伤与专属战斗属性按8%生效；对应短板按现有规则生效。",
+          "desc": "【被动】凡铁折锋，金气砺骨。物理攻击+8%、暴击率+8%、金系增伤+8%、金系减伤+4%；法术防御-3%、最大灵力-3%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -2062,7 +2062,7 @@
               "buffId": "passive_combat_mortal_mortal_metal_buff",
               "name": "折铁断锋",
               "shortMark": "金",
-              "desc": "金行增伤/减伤与专属战斗属性按8%生效；对应短板按现有规则生效。",
+              "desc": "凡铁金气护体。物攻+8%、暴击+8%、金系增伤+8%、金系减伤+4%；法防-3%、最大灵力-3%。",
               "stats": {
                 "physAtk": 8,
                 "crit": 8,
@@ -2085,7 +2085,7 @@
     {
       "id": "passive_craft_foundation_mystic_alchemy",
       "name": "《真元凝丹录》",
-      "desc": "筑基炼丹专修心法，专门提升炼丹速度，不附加负面效果。",
+      "desc": "筑基炼丹专修心法。以自身精纯真元护鼎凝丹，炼丹速度提升 16%。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 31,
@@ -2101,7 +2101,7 @@
         {
           "id": "skill_passive_craft_foundation_mystic_alchemy",
           "name": "真元凝丹",
-          "desc": "纯被动。炼丹速度+16%，无额外负面效果。",
+          "desc": "【被动】真元成丹，丹道大成。炼丹速度提升 16%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -2114,7 +2114,7 @@
               "buffId": "passive_craft_foundation_mystic_alchemy_buff",
               "name": "真元凝丹",
               "shortMark": "丹",
-              "desc": "炼丹速度+16%，无额外负面效果。",
+              "desc": "真元蕴丹神速。炼丹速度+16%。",
               "craftEffectStats": {
                 "alchemy": {
                   "speedRate": 0.16
@@ -2129,7 +2129,7 @@
     {
       "id": "passive_combat_qi_yellow_fire",
       "name": "《朱雀焚炎引》",
-      "desc": "练气火行专修，提升火行相关攻防能力，同时保留对应战斗取舍。",
+      "desc": "练气火行专修心法。引朱雀灵火入经脉焚淬法力，法术攻击+12%、暴击伤害+12%、火系增伤+12%、火系减伤+6%；物理防御-4%、抗暴率-4%。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 23,
@@ -2145,7 +2145,7 @@
         {
           "id": "skill_passive_combat_qi_yellow_fire",
           "name": "朱雀焚炎",
-          "desc": "纯被动。火行增伤/减伤与专属战斗属性按12%生效；对应短板按现有规则生效。",
+          "desc": "【被动】朱雀引火，焚尽八荒。法术攻击+12%、暴击伤害+12%、火系增伤+12%、火系减伤+6%；物理防御-4%、抗暴率-4%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -2158,7 +2158,7 @@
               "buffId": "passive_combat_qi_yellow_fire_buff",
               "name": "朱雀焚炎",
               "shortMark": "火",
-              "desc": "火行增伤/减伤与专属战斗属性按12%生效；对应短板按现有规则生效。",
+              "desc": "朱雀烈火环身。法攻+12%、暴伤+12%、火系增伤+12%、火系减伤+6%；物防-4%、抗暴-4%。",
               "stats": {
                 "spellAtk": 12,
                 "critDamage": 12,
@@ -2181,7 +2181,7 @@
     {
       "id": "passive_craft_foundation_mystic_enhancement",
       "name": "《注灵凝纹录》",
-      "desc": "筑基强化专修心法，专门提升强化速度，不附加负面效果。",
+      "desc": "筑基强化专修心法。以神识刻印灵纹助长器物蜕变，强化速度提升 16%。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 31,
@@ -2197,7 +2197,7 @@
         {
           "id": "skill_passive_craft_foundation_mystic_enhancement",
           "name": "注灵凝纹",
-          "desc": "纯被动。强化速度+16%，无额外负面效果。",
+          "desc": "【被动】注灵凝纹，夺造化功。强化速度提升 16%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -2210,7 +2210,7 @@
               "buffId": "passive_craft_foundation_mystic_enhancement_buff",
               "name": "注灵凝纹",
               "shortMark": "强",
-              "desc": "强化速度+16%，无额外负面效果。",
+              "desc": "灵纹天成强化神速。强化速度+16%。",
               "craftEffectStats": {
                 "enhancement": {
                   "speedRate": 0.16
@@ -2225,7 +2225,7 @@
     {
       "id": "passive_craft_qi_yellow_formation",
       "name": "《走盘引阵诀》",
-      "desc": "练气布阵专修心法，专门提升布阵速度，不附加负面效果。",
+      "desc": "练气布阵专修心法。以灵气运化阵盘贯通阵纹脉络，布阵速度提升 12%。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 23,
@@ -2241,7 +2241,7 @@
         {
           "id": "skill_passive_craft_qi_yellow_formation",
           "name": "走盘引阵",
-          "desc": "纯被动。布阵速度+12%，无额外负面效果。",
+          "desc": "【被动】走盘通脉，阵纹瞬结。布阵速度提升 12%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -2254,7 +2254,7 @@
               "buffId": "passive_craft_qi_yellow_formation_buff",
               "name": "走盘引阵",
               "shortMark": "阵",
-              "desc": "布阵速度+12%，无额外负面效果。",
+              "desc": "阵盘通灵结印神速。布阵速度+12%。",
               "craftEffectStats": {
                 "formation": {
                   "speedRate": 0.12
@@ -10810,21 +10810,21 @@
       "itemId": "book.passive_craft_mortal_mortal_gather",
       "name": "《百草识辨篇》",
       "type": "skill_book",
-      "desc": "记载百草识辨篇的修行法门，使用后学会百草识辨篇。",
+      "desc": "记载老药农踏遍群山辨识百草形态、保留根茎药性经验的书谱。研读后掌握凡阶心法《百草识辨篇》，使采集速度提升 8%。",
       "learnTechniqueId": "passive_craft_mortal_mortal_gather"
     },
     {
       "itemId": "book.passive_craft_mortal_mortal_formation",
       "name": "《布子定元篇》",
       "type": "skill_book",
-      "desc": "记载布子定元篇的修行法门，使用后学会布子定元篇。",
+      "desc": "记载凡间棋阵推演、布子定元借势成局要诀的棋谱残卷。研读后掌握凡阶心法《布子定元篇》，使布阵速度提升 8%。",
       "learnTechniqueId": "passive_craft_mortal_mortal_formation"
     },
     {
       "itemId": "book.passive_combat_qi_yellow_water",
       "name": "《沧浪叠韵诀》",
       "type": "skill_book",
-      "desc": "记载沧浪叠韵诀的修行法门，使用后可开始参悟。",
+      "desc": "记载水势叠浪、绵延不绝之妙的水纹锦绢。研读后掌握黄阶被动心法《沧浪叠韵诀》，提升法防与抗暴。",
       "learnTechniqueId": "passive_combat_qi_yellow_water"
     },
     {
@@ -10838,7 +10838,7 @@
       "itemId": "book.passive_craft_mortal_mortal_alchemy",
       "name": "《草木还丹篇》",
       "type": "skill_book",
-      "desc": "记载草木还丹篇的修行法门，使用后学会草木还丹篇。",
+      "desc": "记载辨识药草性味、粗炼成丹法门的炼丹心得。研读后掌握凡阶心法《草木还丹篇》，使炼丹速度提升 8%。",
       "learnTechniqueId": "passive_craft_mortal_mortal_alchemy"
     },
     {
@@ -10866,14 +10866,14 @@
       "itemId": "book.passive_craft_qi_yellow_enhancement",
       "name": "《淬灵附煞诀》",
       "type": "skill_book",
-      "desc": "记载淬灵附煞诀的修行法门，使用后学会淬灵附煞诀。",
+      "desc": "记载引聚灵煞淬入器胎、稳固器纹法门的强化秘诀。研读后掌握黄阶心法《淬灵附煞诀》，使装备强化速度提升 12%。",
       "learnTechniqueId": "passive_craft_qi_yellow_enhancement"
     },
     {
       "itemId": "book.passive_craft_mortal_mortal_forging",
       "name": "《淬铁百锤篇》",
       "type": "skill_book",
-      "desc": "记载淬铁百锤篇的修行法门，使用后学会淬铁百锤篇。",
+      "desc": "记载凡间名匠百炼成钢、淬火去杂经验的锻造图录。研读后掌握凡阶心法《淬铁百锤篇》，使锻造速度提升 8%。",
       "learnTechniqueId": "passive_craft_mortal_mortal_forging"
     },
     {
@@ -10894,7 +10894,7 @@
       "itemId": "book.passive_craft_qi_yellow_mining",
       "name": "《地脉寻金诀》",
       "type": "skill_book",
-      "desc": "记载地脉寻金诀的修行法门，使用后学会地脉寻金诀。",
+      "desc": "记载借微弱灵气感知地下金玉之气走向法门的寻脉诀。研读后掌握黄阶心法《地脉寻金诀》，使采矿速度提升 12%。",
       "learnTechniqueId": "passive_craft_qi_yellow_mining"
     },
     {
@@ -10922,7 +10922,7 @@
       "itemId": "book.passive_craft_foundation_mystic_mining",
       "name": "《分岳探脉录》",
       "type": "skill_book",
-      "desc": "记载分岳探脉录的修行法门，使用后学会分岳探脉录。",
+      "desc": "记载以神识穿透重岩厚土、直接锁定宝矿脉眼奥义的青岩简。研读后掌握玄阶心法《分岳探脉录》，使采矿速度提升 16%。",
       "learnTechniqueId": "passive_craft_foundation_mystic_mining"
     },
     {
@@ -10936,14 +10936,14 @@
       "itemId": "book.passive_combat_foundation_mystic_metal",
       "name": "《庚金凝罡录》",
       "type": "skill_book",
-      "desc": "记载庚金凝罡录的修行法门，使用后可开始参悟。",
+      "desc": "记载庚金煞气凝罡法门的白金书卷。研读后掌握玄阶被动心法《庚金凝罡录》，大幅强化金系杀伐与暴击。",
       "learnTechniqueId": "passive_combat_foundation_mystic_metal"
     },
     {
       "itemId": "book.passive_combat_qi_yellow_metal",
       "name": "《庚金煞灵引》",
       "type": "skill_book",
-      "desc": "记载庚金煞灵引的修行法门，使用后可开始参悟。",
+      "desc": "记载引聚庚金地煞凝练锋芒之法的道诀。研读后掌握黄阶被动心法《庚金煞灵引》，提升金系攻势与暴击。",
       "learnTechniqueId": "passive_combat_qi_yellow_metal"
     },
     {
@@ -10985,7 +10985,7 @@
       "itemId": "book.passive_combat_foundation_mystic_earth",
       "name": "《厚土镇基录》",
       "type": "skill_book",
-      "desc": "记载厚土镇基录的修行法门，使用后可开始参悟。",
+      "desc": "记载引皇天厚土之力铸就万劫不移道基的黄玉简册。研读后掌握玄阶被动心法《厚土镇基录》，大幅强化物防与化劲御力。",
       "learnTechniqueId": "passive_combat_foundation_mystic_earth"
     },
     {
@@ -11006,7 +11006,7 @@
       "itemId": "book.passive_craft_qi_yellow_forging",
       "name": "《火精锻金诀》",
       "type": "skill_book",
-      "desc": "记载火精锻金诀的修行法门，使用后学会火精锻金诀。",
+      "desc": "记载引聚炉火精气软化顽铁、塑形神兵法门的心法书卷。研读后掌握黄阶心法《火精锻金诀》，使锻造速度提升 12%。",
       "learnTechniqueId": "passive_craft_qi_yellow_forging"
     },
     {
@@ -11027,14 +11027,14 @@
       "itemId": "book.passive_yinyang_qi_earth_pure_yin",
       "name": "《九阳化阴真经》",
       "type": "skill_book",
-      "desc": "记载九阳化阴真经的修行法门，使用后可开始参悟。",
+      "desc": "记载阳极生阴、反哺天地之理的玄奥玉册。研读后参悟《九阳化阴真经》，提升阴灵脉吸收效率，并掌握打坐玄阴注灵之术。",
       "learnTechniqueId": "passive_yinyang_qi_earth_pure_yin"
     },
     {
       "itemId": "book.passive_craft_qi_yellow_transmission",
       "name": "《口传心授诀》",
       "type": "skill_book",
-      "desc": "记载口传心授诀的修行法门，使用后学会口传心授诀。",
+      "desc": "记载以气机共鸣辅助口诀讲授、助人破障明理之法的心印诀。研读后掌握黄阶心法《口传心授诀》，使传法授道速度提升 12%。",
       "learnTechniqueId": "passive_craft_qi_yellow_transmission"
     },
     {
@@ -11048,7 +11048,7 @@
       "itemId": "book.passive_combat_foundation_mystic_fire",
       "name": "《离火淬元录》",
       "type": "skill_book",
-      "desc": "记载离火淬元录的修行法门，使用后可开始参悟。",
+      "desc": "记载南方纯阳离火淬炼真元神妙之法的朱玉灵简。研读后掌握玄阶被动心法《离火淬元录》，大幅强化法攻与暴击杀伤。",
       "learnTechniqueId": "passive_combat_foundation_mystic_fire"
     },
     {
@@ -11062,28 +11062,28 @@
       "itemId": "book.passive_craft_qi_yellow_building",
       "name": "《理气筑基诀》",
       "type": "skill_book",
-      "desc": "记载理气筑基诀的修行法门，使用后学会理气筑基诀。",
+      "desc": "记载引地脉风水灵气夯实地基、稳固梁柱法门的营造秘卷。研读后掌握黄阶心法《理气筑基诀》，使营造筑造速度提升 12%。",
       "learnTechniqueId": "passive_craft_qi_yellow_building"
     },
     {
       "itemId": "book.passive_craft_qi_yellow_alchemy",
       "name": "《灵火调药诀》",
       "type": "skill_book",
-      "desc": "记载灵火调药诀的修行法门，使用后学会灵火调药诀。",
+      "desc": "记载操控地火灵焰、温养药性之法的控火丹诀。研读后掌握黄阶心法《灵火调药诀》，使炼丹速度提升 12%。",
       "learnTechniqueId": "passive_craft_qi_yellow_alchemy"
     },
     {
       "itemId": "book.passive_combat_qi_yellow_spell",
       "name": "《灵犀澈照引》",
       "type": "skill_book",
-      "desc": "记载灵犀澈照引的修行法门，使用后可开始参悟。",
+      "desc": "记载心生灵犀、通照灵台玄奥之理的心法图册。研读后掌握黄阶被动心法《灵犀澈照引》，提升法术攻击、法防、命中与化劲。",
       "learnTechniqueId": "passive_combat_qi_yellow_spell"
     },
     {
       "itemId": "book.passive_craft_foundation_mystic_gather",
       "name": "《灵植引脉录》",
       "type": "skill_book",
-      "desc": "记载灵植引脉录的修行法门，使用后学会灵植引脉录。",
+      "desc": "记载以神念沟通天地灵根、顺应草木脉络采收珍奇宝药奥秘的苍玉简。研读后掌握玄阶心法《灵植引脉录》，使采集速度提升 16%。",
       "learnTechniqueId": "passive_craft_foundation_mystic_gather"
     },
     {
@@ -11097,7 +11097,7 @@
       "itemId": "book.passive_combat_qi_yellow_physical",
       "name": "《龙象摧岳劲》",
       "type": "skill_book",
-      "desc": "记载龙象摧岳劲的修行法门，使用后可开始参悟。",
+      "desc": "记载运转气血化为龙象巨力、崩山摧岳法门的拳谱。研读后掌握黄阶被动心法《龙象摧岳劲》，提升物理攻击、防御与破劲。",
       "learnTechniqueId": "passive_combat_qi_yellow_physical"
     },
     {
@@ -11118,14 +11118,14 @@
       "itemId": "book.passive_combat_foundation_mystic_spell",
       "name": "《明心拓神录》",
       "type": "skill_book",
-      "desc": "记载明心拓神录的修行法门，使用后可开始参悟。",
+      "desc": "记载开辟神识识海、明心见性、拓阔神念法门的灵晶宝卷。研读后掌握玄阶被动心法《明心拓神录》，大幅强化法术攻防、命中与化劲。",
       "learnTechniqueId": "passive_combat_foundation_mystic_spell"
     },
     {
       "itemId": "book.passive_combat_mortal_mortal_physical",
       "name": "《磨筋铸骨谱》",
       "type": "skill_book",
-      "desc": "记载磨筋铸骨谱的修行法门，使用后可开始参悟。",
+      "desc": "记载凡俗武者打熬筋骨、易筋锻骨之法的皮卷。研读后掌握凡阶被动心法《磨筋铸骨谱》，提升物理攻击、防御与破劲。",
       "learnTechniqueId": "passive_combat_mortal_mortal_physical"
     },
     {
@@ -11146,28 +11146,28 @@
       "itemId": "book.passive_combat_mortal_mortal_earth",
       "name": "《盘根立地篇》",
       "type": "skill_book",
-      "desc": "记载盘根立地篇的修行法门，使用后可开始参悟。",
+      "desc": "记载如老树盘根、稳立大地之理的石刻拓本。研读后掌握凡阶被动心法《盘根立地篇》，提升物理防御与化劲。",
       "learnTechniqueId": "passive_combat_mortal_mortal_earth"
     },
     {
       "itemId": "book.passive_craft_mortal_mortal_transmission",
       "name": "《启蒙明道篇》",
       "type": "skill_book",
-      "desc": "记载启蒙明道篇的修行法门，使用后学会启蒙明道篇。",
+      "desc": "记载凡俗夫子手抄墨拓、循循善诱传授经义法门的劝学册。研读后掌握凡阶心法《启蒙明道篇》，使传法授道速度提升 8%。",
       "learnTechniqueId": "passive_craft_mortal_mortal_transmission"
     },
     {
       "itemId": "book.passive_craft_foundation_mystic_forging",
       "name": "《千锤融灵录》",
       "type": "skill_book",
-      "desc": "记载千锤融灵录的修行法门，使用后学会千锤融灵录。",
+      "desc": "记载将天地灵矿融灵合一、铸炼法器神妙要旨的宝铁玉简。研读后掌握玄阶心法《千锤融灵录》，使锻造速度提升 16%。",
       "learnTechniqueId": "passive_craft_foundation_mystic_forging"
     },
     {
       "itemId": "book.passive_craft_qi_yellow_gather",
       "name": "《青灵采撷诀》",
       "type": "skill_book",
-      "desc": "记载青灵采撷诀的修行法门，使用后学会青灵采撷诀。",
+      "desc": "记载以木行灵气包裹草木、避免灵气流失采摘法门的采药诀。研读后掌握黄阶心法《青灵采撷诀》，使采集速度提升 12%。",
       "learnTechniqueId": "passive_craft_qi_yellow_gather"
     },
     {
@@ -11195,42 +11195,42 @@
       "itemId": "book.passive_combat_mortal_mortal_fire",
       "name": "《燃薪淬息篇》",
       "type": "skill_book",
-      "desc": "记载燃薪淬息篇的修行法门，使用后可开始参悟。",
+      "desc": "记载樵夫引火燃薪、聚热淬息经验的古拙薄册。研读后掌握凡阶被动心法《燃薪淬息篇》，提升法术攻击与暴伤。",
       "learnTechniqueId": "passive_combat_mortal_mortal_fire"
     },
     {
       "itemId": "book.passive_combat_foundation_mystic_physical",
       "name": "《煞血铁骨功》",
       "type": "skill_book",
-      "desc": "记载煞血铁骨功的修行法门，使用后可开始参悟。",
+      "desc": "记载以煞血淬骨、铸就金刚铁骨霸体法门的赤血兽皮卷。研读后掌握玄阶被动心法《煞血铁骨功》，大幅强化肉身攻防与破劲暴击。",
       "learnTechniqueId": "passive_combat_foundation_mystic_physical"
     },
     {
       "itemId": "book.passive_craft_foundation_mystic_transmission",
       "name": "《神念化法录》",
       "type": "skill_book",
-      "desc": "记载神念化法录的修行法门，使用后学会神念化法录。",
+      "desc": "记载筑基期神识传道法门的青玉简。研读后掌握玄阶心法《神念化法录》，使传法授道速度提升 16%。",
       "learnTechniqueId": "passive_craft_foundation_mystic_transmission"
     },
     {
       "itemId": "book.passive_combat_mortal_mortal_spell",
       "name": "《识微明眸篇》",
       "type": "skill_book",
-      "desc": "记载识微明眸篇的修行法门，使用后可开始参悟。",
+      "desc": "记载平心静气、观察入微、见微知著经验的清心经册。研读后掌握凡阶被动心法《识微明眸篇》，提升法术攻击、法防、命中与化劲。",
       "learnTechniqueId": "passive_combat_mortal_mortal_spell"
     },
     {
       "itemId": "book.passive_combat_mortal_mortal_water",
       "name": "《溯流引泉篇》",
       "type": "skill_book",
-      "desc": "记载溯流引泉篇的修行法门，使用后可开始参悟。",
+      "desc": "记载观溪流曲折、溯水寻源之理的羊皮卷。研读后掌握凡阶被动心法《溯流引泉篇》，提升法防与抗暴。",
       "learnTechniqueId": "passive_combat_mortal_mortal_water"
     },
     {
       "itemId": "book.passive_craft_foundation_mystic_formation",
       "name": "《锁灵定脉录》",
       "type": "skill_book",
-      "desc": "记载锁灵定脉录的修行法门，使用后学会锁灵定脉录。",
+      "desc": "记载以神念刻画大衍阵印、直接锁固天地地脉之气成阵妙法的阵道真传。研读后掌握玄阶心法《锁灵定脉录》，使布阵速度提升 16%。",
       "learnTechniqueId": "passive_craft_foundation_mystic_formation"
     },
     {
@@ -11272,7 +11272,7 @@
       "itemId": "book.passive_craft_mortal_mortal_mining",
       "name": "《探矿辨石篇》",
       "type": "skill_book",
-      "desc": "记载探矿辨石篇的修行法门，使用后学会探矿辨石篇。",
+      "desc": "记载采矿老匠辨识岩质风化、探寻矿脉苗头经验的手记。研读后掌握凡阶心法《探矿辨石篇》，使采矿速度提升 8%。",
       "learnTechniqueId": "passive_craft_mortal_mortal_mining"
     },
     {
@@ -11300,14 +11300,14 @@
       "itemId": "book.passive_craft_mortal_mortal_enhancement",
       "name": "《温玉养器篇》",
       "type": "skill_book",
-      "desc": "记载温玉养器篇的修行法门，使用后学会温玉养器篇。",
+      "desc": "记载以温润玉质与精纯油料擦拭养护器物经验的古册。研读后掌握凡阶心法《温玉养器篇》，使装备强化速度提升 8%。",
       "learnTechniqueId": "passive_craft_mortal_mortal_enhancement"
     },
     {
       "itemId": "book.passive_combat_mortal_mortal_wood",
       "name": "《问木折青篇》",
       "type": "skill_book",
-      "desc": "记载问木折青篇的修行法门，使用后可开始参悟。",
+      "desc": "记载草木逢春、折枝生青之理的草木残篇。研读后掌握凡阶被动心法《问木折青篇》，提升气血自愈与闪避。",
       "learnTechniqueId": "passive_combat_mortal_mortal_wood"
     },
     {
@@ -11321,14 +11321,14 @@
       "itemId": "book.passive_combat_foundation_mystic_water",
       "name": "《玄潮凝波录》",
       "type": "skill_book",
-      "desc": "记载玄潮凝波录的修行法门，使用后可开始参悟。",
+      "desc": "记载北方玄武真水化潮御法之道的碧水玉简。研读后掌握玄阶被动心法《玄潮凝波录》，大幅强化法防与抗暴御煞能力。",
       "learnTechniqueId": "passive_combat_foundation_mystic_water"
     },
     {
       "itemId": "book.passive_combat_qi_yellow_earth",
       "name": "《玄黄镇岳诀》",
       "type": "skill_book",
-      "desc": "记载玄黄镇岳诀的修行法门，使用后可开始参悟。",
+      "desc": "记载借地脉玄黄厚重之气镇守周身的心法书册。研读后掌握黄阶被动心法《玄黄镇岳诀》，提升物理防御与化劲。",
       "learnTechniqueId": "passive_combat_qi_yellow_earth"
     },
     {
@@ -11349,7 +11349,7 @@
       "itemId": "book.passive_yinyang_qi_earth_pure_yang",
       "name": "《玄牝生阳宝典》",
       "type": "skill_book",
-      "desc": "记载玄牝生阳宝典的修行法门，使用后可开始参悟。",
+      "desc": "记载阴极生阳、反哺天地之理的温润金册。研读后参悟《玄牝生阳宝典》，提升阳灵脉吸收效率，并掌握打坐纯阳注灵之术。",
       "learnTechniqueId": "passive_yinyang_qi_earth_pure_yang"
     },
     {
@@ -11391,21 +11391,21 @@
       "itemId": "book.passive_craft_foundation_mystic_building",
       "name": "《移山架阁录》",
       "type": "skill_book",
-      "desc": "记载移山架阁录的修行法门，使用后学会移山架阁录。",
+      "desc": "记载借五行灵力移石搬木、凌空架阁建造洞天楼宇法门的鲁班天书。研读后掌握玄阶心法《移山架阁录》，使营造筑造速度提升 16%。",
       "learnTechniqueId": "passive_craft_foundation_mystic_building"
     },
     {
       "itemId": "book.passive_combat_qi_yellow_wood",
       "name": "《乙木岁荣诀》",
       "type": "skill_book",
-      "desc": "记载乙木岁荣诀的修行法门，使用后可开始参悟。",
+      "desc": "记载乙木荣枯流转、向阳而生之意的青玉书册。研读后掌握黄阶被动心法《乙木岁荣诀》，提升气血自愈与闪避。",
       "learnTechniqueId": "passive_combat_qi_yellow_wood"
     },
     {
       "itemId": "book.passive_craft_mortal_mortal_building",
       "name": "《引绳规矩篇》",
       "type": "skill_book",
-      "desc": "记载引绳规矩篇的修行法门，使用后学会引绳规矩篇。",
+      "desc": "记载大匠拉绳画线、立柱定梁、规矩营造法度的营建图册。研读后掌握凡阶心法《引绳规矩篇》，使营造筑造速度提升 8%。",
       "learnTechniqueId": "passive_craft_mortal_mortal_building"
     },
     {
@@ -11426,7 +11426,7 @@
       "itemId": "book.passive_combat_foundation_mystic_wood",
       "name": "《长春固脉录》",
       "type": "skill_book",
-      "desc": "记载长春固脉录的修行法门，使用后可开始参悟。",
+      "desc": "记载长春不老、固脉延年奥义的长春青简。研读后掌握玄阶被动心法《长春固脉录》，大幅强化气血生机与闪避身法。",
       "learnTechniqueId": "passive_combat_foundation_mystic_wood"
     },
     {
@@ -11440,7 +11440,7 @@
       "itemId": "book.passive_combat_mortal_mortal_metal",
       "name": "《折铁断锋篇》",
       "type": "skill_book",
-      "desc": "记载折铁断锋篇的修行法门，使用后可开始参悟。",
+      "desc": "记载凡俗铁匠感悟金气所创的折铁刀谱。研读后掌握凡阶被动心法《折铁断锋篇》，提升金系攻势与暴击。",
       "learnTechniqueId": "passive_combat_mortal_mortal_metal"
     },
     {
@@ -11454,7 +11454,7 @@
       "itemId": "book.passive_craft_foundation_mystic_alchemy",
       "name": "《真元凝丹录》",
       "type": "skill_book",
-      "desc": "记载真元凝丹录的修行法门，使用后学会真元凝丹录。",
+      "desc": "记载以筑基真元淬药凝丹、一气呵成妙谛的丹道真经。研读后掌握玄阶心法《真元凝丹录》，使炼丹速度提升 16%。",
       "learnTechniqueId": "passive_craft_foundation_mystic_alchemy"
     },
     {
@@ -11503,14 +11503,14 @@
       "itemId": "book.passive_combat_qi_yellow_fire",
       "name": "《朱雀焚炎引》",
       "type": "skill_book",
-      "desc": "记载朱雀焚炎引的修行法门，使用后可开始参悟。",
+      "desc": "记载引聚朱雀地火精煞助燃法力之法的赤色竹简。研读后掌握黄阶被动心法《朱雀焚炎引》，提升法术攻击与暴伤。",
       "learnTechniqueId": "passive_combat_qi_yellow_fire"
     },
     {
       "itemId": "book.passive_craft_foundation_mystic_enhancement",
       "name": "《注灵凝纹录》",
       "type": "skill_book",
-      "desc": "记载注灵凝纹录的修行法门，使用后学会注灵凝纹录。",
+      "desc": "记载以神念真元凌空刻画符纹、注入天地灵性的宝纹录。研读后掌握玄阶心法《注灵凝纹录》，使装备强化速度提升 16%。",
       "learnTechniqueId": "passive_craft_foundation_mystic_enhancement"
     },
     {
@@ -11524,7 +11524,7 @@
       "itemId": "book.passive_craft_qi_yellow_formation",
       "name": "《走盘引阵诀》",
       "type": "skill_book",
-      "desc": "记载走盘引阵诀的修行法门，使用后学会走盘引阵诀。",
+      "desc": "记载御使阵盘引动八卦方位、瞬息连通阵纹法门的阵道要诀。研读后掌握黄阶心法《走盘引阵诀》，使布阵速度提升 12%。",
       "learnTechniqueId": "passive_craft_qi_yellow_formation"
     },
     {
@@ -17168,6 +17168,22 @@
   ],
   "buffs": [
     {
+      "buffId": "passive_craft_mortal_mortal_gather_buff",
+      "name": "百草识辨",
+      "desc": "采摘利落药性无损。采集速度+8%。",
+      "shortMark": "集",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_craft_mortal_mortal_gather",
+      "sourceSkillName": "百草识辨",
+      "realmLv": 1,
+      "infiniteDuration": true
+    },
+    {
       "buffId": "buff.baoyuan_guard",
       "name": "抱元",
       "desc": "抱元守一，双抗短时暴涨。",
@@ -17234,6 +17250,22 @@
       "statMode": "percent"
     },
     {
+      "buffId": "passive_craft_mortal_mortal_formation_buff",
+      "name": "布子定元",
+      "desc": "阵眼明晰布子从容。布阵速度+8%。",
+      "shortMark": "阵",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_craft_mortal_mortal_formation",
+      "sourceSkillName": "布子定元",
+      "realmLv": 1,
+      "infiniteDuration": true
+    },
+    {
       "buffId": "buff.huanling_candan_faxiang",
       "name": "残丹法相虚影",
       "desc": "重伤之下强撑残丹法相虚影，术势外翻，后续所有熔脉杀招都会跟着整座洞府一并扩开。",
@@ -17275,6 +17307,51 @@
         "dodge": -200
       },
       "statMode": "percent"
+    },
+    {
+      "buffId": "passive_combat_qi_yellow_water_buff",
+      "name": "沧浪叠韵",
+      "desc": "沧浪重波护身。法防+12%、抗暴+12%、水系增伤+12%、水系减伤+6%；暴击-4%、物攻-4%。",
+      "shortMark": "水",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_qi_yellow_water",
+      "sourceSkillName": "沧浪叠韵",
+      "realmLv": 1,
+      "stats": {
+        "spellDef": 12,
+        "antiCrit": 12,
+        "crit": -4,
+        "physAtk": -4,
+        "elementDamageBonus": {
+          "water": 12
+        },
+        "elementDamageReduce": {
+          "water": 6
+        }
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_craft_mortal_mortal_alchemy_buff",
+      "name": "草木还丹",
+      "desc": "药性融通。炼丹速度+8%。",
+      "shortMark": "丹",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_craft_mortal_mortal_alchemy",
+      "sourceSkillName": "草木还丹",
+      "realmLv": 1,
+      "infiniteDuration": true
     },
     {
       "buffId": "buff.water_glide",
@@ -17393,6 +17470,38 @@
       "statMode": "percent"
     },
     {
+      "buffId": "passive_craft_qi_yellow_enhancement_buff",
+      "name": "淬灵附煞",
+      "desc": "灵煞淬器神妙。强化速度+12%。",
+      "shortMark": "强",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_craft_qi_yellow_enhancement",
+      "sourceSkillName": "淬灵附煞",
+      "realmLv": 1,
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_craft_mortal_mortal_forging_buff",
+      "name": "淬铁百锤",
+      "desc": "锤法娴熟利落。锻造速度+8%。",
+      "shortMark": "器",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_craft_mortal_mortal_forging",
+      "sourceSkillName": "淬铁百锤",
+      "realmLv": 1,
+      "infiniteDuration": true
+    },
+    {
       "buffId": "item_buff.major_qi_pill",
       "name": "大还灵丹·回灵",
       "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
@@ -17444,6 +17553,22 @@
       "realmLv": 1,
       "color": "#7b5235",
       "statMode": "percent"
+    },
+    {
+      "buffId": "passive_craft_qi_yellow_mining_buff",
+      "name": "地脉寻金",
+      "desc": "金气感应采掘如飞。采矿速度+12%。",
+      "shortMark": "矿",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_craft_qi_yellow_mining",
+      "sourceSkillName": "地脉寻金",
+      "realmLv": 1,
+      "infiniteDuration": true
     },
     {
       "buffId": "buff.monster_tectonic_pressure",
@@ -17511,6 +17636,22 @@
       "color": "#d0b36e"
     },
     {
+      "buffId": "passive_craft_foundation_mystic_mining_buff",
+      "name": "分岳探脉",
+      "desc": "神识引镐碎岩破矿。采矿速度+16%。",
+      "shortMark": "矿",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_craft_foundation_mystic_mining",
+      "sourceSkillName": "分岳探脉",
+      "realmLv": 1,
+      "infiniteDuration": true
+    },
+    {
       "buffId": "buff.monster_inferno_fear",
       "name": "焚惧",
       "desc": "焚王威压迫心，命中与输出下降。",
@@ -17543,6 +17684,64 @@
       "realmLv": 1,
       "color": "#7a6b3f",
       "statMode": "percent"
+    },
+    {
+      "buffId": "passive_combat_foundation_mystic_metal_buff",
+      "name": "庚金凝罡",
+      "desc": "庚金煞气化为护体锋罡。物攻+16%、暴击+16%、金系增伤+16%、金系减伤+8%；法防-5%、最大灵力-5%。",
+      "shortMark": "金",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_foundation_mystic_metal",
+      "sourceSkillName": "庚金凝罡",
+      "realmLv": 1,
+      "stats": {
+        "physAtk": 16,
+        "crit": 16,
+        "spellDef": -5,
+        "maxQi": -5,
+        "elementDamageBonus": {
+          "metal": 16
+        },
+        "elementDamageReduce": {
+          "metal": 8
+        }
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_combat_qi_yellow_metal_buff",
+      "name": "庚金煞灵",
+      "desc": "庚金煞气流转。物攻+12%、暴击+12%、金系增伤+12%、金系减伤+6%；法防-4%、最大灵力-4%。",
+      "shortMark": "金",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_qi_yellow_metal",
+      "sourceSkillName": "庚金煞灵",
+      "realmLv": 1,
+      "stats": {
+        "physAtk": 12,
+        "crit": 12,
+        "spellDef": -4,
+        "maxQi": -4,
+        "elementDamageBonus": {
+          "metal": 12
+        },
+        "elementDamageReduce": {
+          "metal": 6
+        }
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
     },
     {
       "buffId": "item_buff.pill_foundation_coldmarrow_heal",
@@ -17598,6 +17797,35 @@
         "hpRegenRate": 130
       },
       "statMode": "percent"
+    },
+    {
+      "buffId": "passive_combat_foundation_mystic_earth_buff",
+      "name": "厚土镇基",
+      "desc": "厚土精粹化铠护身。物防+16%、化劲+16%、土系增伤+16%、土系减伤+8%；移速-5%、法攻-5%。",
+      "shortMark": "土",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_foundation_mystic_earth",
+      "sourceSkillName": "厚土镇基",
+      "realmLv": 1,
+      "stats": {
+        "physDef": 16,
+        "resolvePower": 16,
+        "moveSpeed": -5,
+        "spellAtk": -5,
+        "elementDamageBonus": {
+          "earth": 16
+        },
+        "elementDamageReduce": {
+          "earth": 8
+        }
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
     },
     {
       "buffId": "buff.wood_bloom",
@@ -17764,6 +17992,22 @@
       "statMode": "percent"
     },
     {
+      "buffId": "passive_craft_qi_yellow_forging_buff",
+      "name": "火精锻金",
+      "desc": "炉火纯青金铁自化。锻造速度+12%。",
+      "shortMark": "器",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_craft_qi_yellow_forging",
+      "sourceSkillName": "火精锻金",
+      "realmLv": 1,
+      "infiniteDuration": true
+    },
+    {
       "buffId": "buff.dungeon_foundation_fire_guard",
       "name": "火行护体",
       "desc": "火行鼓动战意，自身双攻与暴击提升。",
@@ -17871,6 +18115,64 @@
       "statMode": "percent"
     },
     {
+      "buffId": "passive_yinyang_qi_earth_pure_yin_qi",
+      "name": "九阳化阴真经",
+      "desc": "逆转九阳，化育玄阴。打坐修炼时向周围九宫格地脉注入玄阴灵气。",
+      "shortMark": "阴",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_yinyang_qi_earth_pure_yin",
+      "sourceSkillName": "九阳化阴真经",
+      "realmLv": 1,
+      "qiProjection": [
+        {
+          "selector": {
+            "families": [
+              "aura"
+            ],
+            "elements": [
+              "yin"
+            ]
+          },
+          "visibility": "absorbable",
+          "efficiencyBpMultiplier": 10100
+        },
+        {
+          "selector": {
+            "families": [
+              "aura"
+            ],
+            "elements": [
+              "yang"
+            ]
+          },
+          "visibility": "absorbable",
+          "efficiencyBpMultiplier": 9900
+        }
+      ],
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_craft_qi_yellow_transmission_buff",
+      "name": "口传心授",
+      "desc": "心印共鸣传法通达。传法速度+12%。",
+      "shortMark": "法",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_craft_qi_yellow_transmission",
+      "sourceSkillName": "口传心授",
+      "realmLv": 1,
+      "infiniteDuration": true
+    },
+    {
       "buffId": "item_buff.bitter_cultivation",
       "name": "苦修",
       "desc": "境界修为与功法经验获取效率提高，但经脉始终带着涩滞感；3000 息内移动速度 -12%。",
@@ -17909,6 +18211,51 @@
       "statMode": "percent"
     },
     {
+      "buffId": "passive_combat_foundation_mystic_fire_buff",
+      "name": "离火淬元",
+      "desc": "纯阳离火淬炼法力。法攻+16%、暴伤+16%、火系增伤+16%、火系减伤+8%；物防-5%、抗暴-5%。",
+      "shortMark": "火",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_foundation_mystic_fire",
+      "sourceSkillName": "离火淬元",
+      "realmLv": 1,
+      "stats": {
+        "spellAtk": 16,
+        "critDamage": 16,
+        "physDef": -5,
+        "antiCrit": -5,
+        "elementDamageBonus": {
+          "fire": 16
+        },
+        "elementDamageReduce": {
+          "fire": 8
+        }
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_craft_qi_yellow_building_buff",
+      "name": "理气筑基",
+      "desc": "地气承托筑造如飞。营造速度+12%。",
+      "shortMark": "造",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_craft_qi_yellow_building",
+      "sourceSkillName": "理气筑基",
+      "realmLv": 1,
+      "infiniteDuration": true
+    },
+    {
       "buffId": "buff.monster_earth_rend",
       "name": "裂地失衡",
       "desc": "地脉震裂，闪避与防御下降。",
@@ -17941,6 +18288,63 @@
       "color": "#a86e47"
     },
     {
+      "buffId": "passive_craft_qi_yellow_alchemy_buff",
+      "name": "灵火调药",
+      "desc": "火候精微入化。炼丹速度+12%。",
+      "shortMark": "丹",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_craft_qi_yellow_alchemy",
+      "sourceSkillName": "灵火调药",
+      "realmLv": 1,
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_combat_qi_yellow_spell_buff",
+      "name": "灵犀澈照",
+      "desc": "灵台神光澈照。法攻+12%、法防+7.2%、命中+9.6%、化劲+6%；物防-3.2%、气血-2%。",
+      "shortMark": "术",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_qi_yellow_spell",
+      "sourceSkillName": "灵犀澈照",
+      "realmLv": 1,
+      "stats": {
+        "spellAtk": 12,
+        "spellDef": 7.2,
+        "hit": 9.6,
+        "resolvePower": 6,
+        "physDef": -3.2,
+        "maxHp": -2
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_craft_foundation_mystic_gather_buff",
+      "name": "灵植引脉",
+      "desc": "神念通灵采药如风。采集速度+16%。",
+      "shortMark": "集",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_craft_foundation_mystic_gather",
+      "sourceSkillName": "灵植引脉",
+      "realmLv": 1,
+      "infiniteDuration": true
+    },
+    {
       "buffId": "buff.monster_skyline",
       "name": "凌空",
       "desc": "尖啸过后气机更稳，命中与闪避都随之走高。",
@@ -17955,6 +18359,110 @@
       "sourceSkillName": "裂羽攒射",
       "realmLv": 1,
       "color": "#9bb7d4"
+    },
+    {
+      "buffId": "passive_combat_qi_yellow_physical_buff",
+      "name": "龙象摧岳",
+      "desc": "龙象巨力充盈周身。物攻+12%、物防+7.2%、破劲+9.6%、暴击+6%；法攻-4%、最大灵力-2%。",
+      "shortMark": "武",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_qi_yellow_physical",
+      "sourceSkillName": "龙象摧岳",
+      "realmLv": 1,
+      "stats": {
+        "physAtk": 12,
+        "physDef": 7.2,
+        "breakPower": 9.6,
+        "crit": 6,
+        "spellAtk": -4,
+        "maxQi": -2
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_combat_foundation_mystic_spell_buff",
+      "name": "明心拓神",
+      "desc": "识海广阔神念通达。法攻+16%、法防+9.6%、命中+12.8%、化劲+8%；物防-4%、气血-2.5%。",
+      "shortMark": "术",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_foundation_mystic_spell",
+      "sourceSkillName": "明心拓神",
+      "realmLv": 1,
+      "stats": {
+        "spellAtk": 16,
+        "spellDef": 9.6,
+        "hit": 12.8,
+        "resolvePower": 8,
+        "physDef": -4,
+        "maxHp": -2.5
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_combat_mortal_mortal_physical_buff",
+      "name": "磨筋铸骨",
+      "desc": "筋骨精健强悍。物攻+8%、物防+4.8%、破劲+6.4%、暴击+4%；法攻-3%、最大灵力-1.5%。",
+      "shortMark": "武",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_mortal_mortal_physical",
+      "sourceSkillName": "磨筋铸骨",
+      "realmLv": 1,
+      "stats": {
+        "physAtk": 8,
+        "physDef": 4.8,
+        "breakPower": 6.4,
+        "crit": 4,
+        "spellAtk": -3,
+        "maxQi": -1.5
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_combat_mortal_mortal_earth_buff",
+      "name": "盘根立地",
+      "desc": "沉稳如石立地。物防+8%、化劲+8%、土系增伤+8%、土系减伤+4%；移速-3%、法攻-3%。",
+      "shortMark": "土",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_mortal_mortal_earth",
+      "sourceSkillName": "盘根立地",
+      "realmLv": 1,
+      "stats": {
+        "physDef": 8,
+        "resolvePower": 8,
+        "moveSpeed": -3,
+        "spellAtk": -3,
+        "elementDamageBonus": {
+          "earth": 8
+        },
+        "elementDamageReduce": {
+          "earth": 4
+        }
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
     },
     {
       "buffId": "equip.cleft_cloak_shift",
@@ -18053,6 +18561,38 @@
       "statMode": "percent"
     },
     {
+      "buffId": "passive_craft_mortal_mortal_transmission_buff",
+      "name": "启蒙明道",
+      "desc": "讲经解惑循循善诱。传法速度+8%。",
+      "shortMark": "法",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_craft_mortal_mortal_transmission",
+      "sourceSkillName": "启蒙明道",
+      "realmLv": 1,
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_craft_foundation_mystic_forging_buff",
+      "name": "千锤融灵",
+      "desc": "神念融灵铸器如风。锻造速度+16%。",
+      "shortMark": "器",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_craft_foundation_mystic_forging",
+      "sourceSkillName": "千锤融灵",
+      "realmLv": 1,
+      "infiniteDuration": true
+    },
+    {
       "buffId": "buff.monster_bamboo_bind",
       "name": "青缠",
       "desc": "草木灵气缠身，闪避和法抗一并走低。",
@@ -18067,6 +18607,51 @@
       "sourceSkillName": "竹影抽",
       "realmLv": 1,
       "color": "#79b56b"
+    },
+    {
+      "buffId": "passive_craft_qi_yellow_gather_buff",
+      "name": "青灵采撷",
+      "desc": "青灵引气采草神速。采集速度+12%。",
+      "shortMark": "集",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_craft_qi_yellow_gather",
+      "sourceSkillName": "青灵采撷",
+      "realmLv": 1,
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_combat_mortal_mortal_fire_buff",
+      "name": "燃薪淬息",
+      "desc": "烈焰热息流转。法攻+8%、暴伤+8%、火系增伤+8%、火系减伤+4%；物防-3%、抗暴-3%。",
+      "shortMark": "火",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_mortal_mortal_fire",
+      "sourceSkillName": "燃薪淬息",
+      "realmLv": 1,
+      "stats": {
+        "spellAtk": 8,
+        "critDamage": 8,
+        "physDef": -3,
+        "antiCrit": -3,
+        "elementDamageBonus": {
+          "fire": 8
+        },
+        "elementDamageReduce": {
+          "fire": 4
+        }
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
     },
     {
       "buffId": "buff.monster_blade_limb",
@@ -18141,6 +18726,47 @@
       "statMode": "percent"
     },
     {
+      "buffId": "passive_combat_foundation_mystic_physical_buff",
+      "name": "煞血铁骨",
+      "desc": "煞血铸就金刚体魄。物攻+16%、物防+9.6%、破劲+12.8%、暴击+8%；法攻-5%、最大灵力-2.5%。",
+      "shortMark": "武",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_foundation_mystic_physical",
+      "sourceSkillName": "煞血铁骨",
+      "realmLv": 1,
+      "stats": {
+        "physAtk": 16,
+        "physDef": 9.6,
+        "breakPower": 12.8,
+        "crit": 8,
+        "spellAtk": -5,
+        "maxQi": -2.5
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_craft_foundation_mystic_transmission_buff",
+      "name": "神念化法",
+      "desc": "神念显化醍醐灌顶。传法速度+16%。",
+      "shortMark": "法",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_craft_foundation_mystic_transmission",
+      "sourceSkillName": "神念化法",
+      "realmLv": 1,
+      "infiniteDuration": true
+    },
+    {
       "buffId": "buff.monster_stone_skin",
       "name": "石皮",
       "desc": "石皮覆体，双防与化解提升。",
@@ -18156,6 +18782,31 @@
       "realmLv": 1,
       "color": "#78906a",
       "statMode": "percent"
+    },
+    {
+      "buffId": "passive_combat_mortal_mortal_spell_buff",
+      "name": "识微明眸",
+      "desc": "术心专注明澈。法攻+8%、法防+4.8%、命中+6.4%、化劲+4%；物防-2.4%、气血-1.5%。",
+      "shortMark": "术",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_mortal_mortal_spell",
+      "sourceSkillName": "识微明眸",
+      "realmLv": 1,
+      "stats": {
+        "spellAtk": 8,
+        "spellDef": 4.8,
+        "hit": 6.4,
+        "resolvePower": 4,
+        "physDef": -2.4,
+        "maxHp": -1.5
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
     },
     {
       "buffId": "buff.dungeon_fivephase_devour",
@@ -18280,6 +18931,51 @@
       "statMode": "percent"
     },
     {
+      "buffId": "passive_combat_mortal_mortal_water_buff",
+      "name": "溯流引泉",
+      "desc": "静水微澜护持。法防+8%、抗暴+8%、水系增伤+8%、水系减伤+4%；暴击-3%、物攻-3%。",
+      "shortMark": "水",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_mortal_mortal_water",
+      "sourceSkillName": "溯流引泉",
+      "realmLv": 1,
+      "stats": {
+        "spellDef": 8,
+        "antiCrit": 8,
+        "crit": -3,
+        "physAtk": -3,
+        "elementDamageBonus": {
+          "water": 8
+        },
+        "elementDamageReduce": {
+          "water": 4
+        }
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_craft_foundation_mystic_formation_buff",
+      "name": "锁灵定脉",
+      "desc": "神识布阵勾锁地脉。布阵速度+16%。",
+      "shortMark": "阵",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_craft_foundation_mystic_formation",
+      "sourceSkillName": "锁灵定脉",
+      "realmLv": 1,
+      "infiniteDuration": true
+    },
+    {
       "buffId": "buff.water_frost_mark",
       "name": "锁流",
       "desc": "寒流锁身，双攻被逐层压低。",
@@ -18332,6 +19028,22 @@
         "dodge": 7
       },
       "statMode": "percent"
+    },
+    {
+      "buffId": "passive_craft_mortal_mortal_mining_buff",
+      "name": "探矿辨石",
+      "desc": "辨石如神开采利落。采矿速度+8%。",
+      "shortMark": "矿",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_craft_mortal_mortal_mining",
+      "sourceSkillName": "探矿辨石",
+      "realmLv": 1,
+      "infiniteDuration": true
     },
     {
       "buffId": "buff.monster_vine_constrict",
@@ -18406,6 +19118,51 @@
       "statMode": "percent"
     },
     {
+      "buffId": "passive_craft_mortal_mortal_enhancement_buff",
+      "name": "温玉养器",
+      "desc": "器胚温润易淬。强化速度+8%。",
+      "shortMark": "强",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_craft_mortal_mortal_enhancement",
+      "sourceSkillName": "温玉养器",
+      "realmLv": 1,
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_combat_mortal_mortal_wood_buff",
+      "name": "问木折青",
+      "desc": "草木生机流转。回血+8%、闪避+8%、木系增伤+8%、木系减伤+4%；破劲-3%、物攻-3%。",
+      "shortMark": "木",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_mortal_mortal_wood",
+      "sourceSkillName": "问木折青",
+      "realmLv": 1,
+      "stats": {
+        "hpRegenRate": 8,
+        "dodge": 8,
+        "breakPower": -3,
+        "physAtk": -3,
+        "elementDamageBonus": {
+          "wood": 8
+        },
+        "elementDamageReduce": {
+          "wood": 4
+        }
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
       "buffId": "item_buff.fivephase_harmony_pellet",
       "name": "五和",
       "desc": "五行不再互相顶撞，4800 息内法术防御 +18%、境界修为与功法经验获取效率各提高 36%。",
@@ -18425,6 +19182,38 @@
         "techniqueExpRate": 36
       },
       "statMode": "percent"
+    },
+    {
+      "buffId": "buff.dungeon_fivephase_origin_passive",
+      "name": "五行归元",
+      "desc": "低血量时按五行减伤层数获得全战斗属性增幅。",
+      "shortMark": "元",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill.dungeon_fivephase_origin_passive",
+      "sourceSkillName": "五行归元",
+      "realmLv": 1,
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "buff.dungeon_fivephase_devour_passive",
+      "name": "五行噬脉",
+      "desc": "受到五行伤害时获得对应减伤层数。",
+      "shortMark": "噬",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill.dungeon_fivephase_devour_passive",
+      "sourceSkillName": "五行噬脉",
+      "realmLv": 1,
+      "infiniteDuration": true
     },
     {
       "buffId": "item_buff.minor_qi_pill",
@@ -18537,6 +19326,106 @@
       "statMode": "flat"
     },
     {
+      "buffId": "passive_combat_foundation_mystic_water_buff",
+      "name": "玄潮凝波",
+      "desc": "玄潮真水凝波护体。法防+16%、抗暴+16%、水系增伤+16%、水系减伤+8%；暴击-5%、物攻-5%。",
+      "shortMark": "水",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_foundation_mystic_water",
+      "sourceSkillName": "玄潮凝波",
+      "realmLv": 1,
+      "stats": {
+        "spellDef": 16,
+        "antiCrit": 16,
+        "crit": -5,
+        "physAtk": -5,
+        "elementDamageBonus": {
+          "water": 16
+        },
+        "elementDamageReduce": {
+          "water": 8
+        }
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_combat_qi_yellow_earth_buff",
+      "name": "玄黄镇岳",
+      "desc": "玄黄地气覆体。物防+12%、化劲+12%、土系增伤+12%、土系减伤+6%；移速-4%、法攻-4%。",
+      "shortMark": "土",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_qi_yellow_earth",
+      "sourceSkillName": "玄黄镇岳",
+      "realmLv": 1,
+      "stats": {
+        "physDef": 12,
+        "resolvePower": 12,
+        "moveSpeed": -4,
+        "spellAtk": -4,
+        "elementDamageBonus": {
+          "earth": 12
+        },
+        "elementDamageReduce": {
+          "earth": 6
+        }
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_yinyang_qi_earth_pure_yang_qi",
+      "name": "玄牝生阳宝典",
+      "desc": "玄牝生阳，化育纯阳。打坐修炼时向周围九宫格地脉注入纯阳灵气。",
+      "shortMark": "阳",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_yinyang_qi_earth_pure_yang",
+      "sourceSkillName": "玄牝生阳宝典",
+      "realmLv": 1,
+      "qiProjection": [
+        {
+          "selector": {
+            "families": [
+              "aura"
+            ],
+            "elements": [
+              "yang"
+            ]
+          },
+          "visibility": "absorbable",
+          "efficiencyBpMultiplier": 10100
+        },
+        {
+          "selector": {
+            "families": [
+              "aura"
+            ],
+            "elements": [
+              "yin"
+            ]
+          },
+          "visibility": "absorbable",
+          "efficiencyBpMultiplier": 9900
+        }
+      ],
+      "infiniteDuration": true
+    },
+    {
       "buffId": "buff.monster_darksoil_shell",
       "name": "玄土甲",
       "desc": "玄土覆甲，防御与化解提高。",
@@ -18602,6 +19491,51 @@
       "color": "#7fbc63"
     },
     {
+      "buffId": "passive_craft_foundation_mystic_building_buff",
+      "name": "移山架阁",
+      "desc": "法力御材架阁凌空。营造速度+16%。",
+      "shortMark": "造",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_craft_foundation_mystic_building",
+      "sourceSkillName": "移山架阁",
+      "realmLv": 1,
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_combat_qi_yellow_wood_buff",
+      "name": "乙木岁荣",
+      "desc": "乙木灵机护脉。回血+12%、闪避+12%、木系增伤+12%、木系减伤+6%；破劲-4%、物攻-4%。",
+      "shortMark": "木",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_qi_yellow_wood",
+      "sourceSkillName": "乙木岁荣",
+      "realmLv": 1,
+      "stats": {
+        "hpRegenRate": 12,
+        "dodge": 12,
+        "breakPower": -4,
+        "physAtk": -4,
+        "elementDamageBonus": {
+          "wood": 12
+        },
+        "elementDamageReduce": {
+          "wood": 6
+        }
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
       "buffId": "item_buff.guiding_powder",
       "name": "引基",
       "desc": "气机被药势往下拢住，3600 息内境界修为与功法经验获取效率各提高 30%。",
@@ -18620,6 +19554,22 @@
         "techniqueExpRate": 30
       },
       "statMode": "percent"
+    },
+    {
+      "buffId": "passive_craft_mortal_mortal_building_buff",
+      "name": "引绳规矩",
+      "desc": "规矩明晰营建有序。营造速度+8%。",
+      "shortMark": "造",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_craft_mortal_mortal_building",
+      "sourceSkillName": "引绳规矩",
+      "realmLv": 1,
+      "infiniteDuration": true
     },
     {
       "buffId": "buff.monster_phoenix_ember",
@@ -18652,6 +19602,80 @@
       "sourceSkillId": "skill.dungeon_fallen_palace_void_boundary",
       "sourceSkillName": "虚空天幕",
       "realmLv": 1
+    },
+    {
+      "buffId": "passive_combat_foundation_mystic_wood_buff",
+      "name": "长春固脉",
+      "desc": "长春生机滋养经脉。回血+16%、闪避+16%、木系增伤+16%、木系减伤+8%；破劲-5%、物攻-5%。",
+      "shortMark": "木",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_foundation_mystic_wood",
+      "sourceSkillName": "长春固脉",
+      "realmLv": 1,
+      "stats": {
+        "hpRegenRate": 16,
+        "dodge": 16,
+        "breakPower": -5,
+        "physAtk": -5,
+        "elementDamageBonus": {
+          "wood": 16
+        },
+        "elementDamageReduce": {
+          "wood": 8
+        }
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_combat_mortal_mortal_metal_buff",
+      "name": "折铁断锋",
+      "desc": "凡铁金气护体。物攻+8%、暴击+8%、金系增伤+8%、金系减伤+4%；法防-3%、最大灵力-3%。",
+      "shortMark": "金",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_mortal_mortal_metal",
+      "sourceSkillName": "折铁断锋",
+      "realmLv": 1,
+      "stats": {
+        "physAtk": 8,
+        "crit": 8,
+        "spellDef": -3,
+        "maxQi": -3,
+        "elementDamageBonus": {
+          "metal": 8
+        },
+        "elementDamageReduce": {
+          "metal": 4
+        }
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_craft_foundation_mystic_alchemy_buff",
+      "name": "真元凝丹",
+      "desc": "真元蕴丹神速。炼丹速度+16%。",
+      "shortMark": "丹",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_craft_foundation_mystic_alchemy",
+      "sourceSkillName": "真元凝丹",
+      "realmLv": 1,
+      "infiniteDuration": true
     },
     {
       "buffId": "buff.anchor_suppression",
@@ -18707,6 +19731,35 @@
       "statMode": "percent"
     },
     {
+      "buffId": "passive_combat_qi_yellow_fire_buff",
+      "name": "朱雀焚炎",
+      "desc": "朱雀烈火环身。法攻+12%、暴伤+12%、火系增伤+12%、火系减伤+6%；物防-4%、抗暴-4%。",
+      "shortMark": "火",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_qi_yellow_fire",
+      "sourceSkillName": "朱雀焚炎",
+      "realmLv": 1,
+      "stats": {
+        "spellAtk": 12,
+        "critDamage": 12,
+        "physDef": -4,
+        "antiCrit": -4,
+        "elementDamageBonus": {
+          "fire": 12
+        },
+        "elementDamageReduce": {
+          "fire": 6
+        }
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
       "buffId": "equip.chasing_edge_rush",
       "name": "逐锋",
       "shortMark": "逐",
@@ -18720,6 +19773,22 @@
       "sourceSkillName": "逐锋履",
       "realmLv": 1,
       "color": "#d8c07e"
+    },
+    {
+      "buffId": "passive_craft_foundation_mystic_enhancement_buff",
+      "name": "注灵凝纹",
+      "desc": "灵纹天成强化神速。强化速度+16%。",
+      "shortMark": "强",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_craft_foundation_mystic_enhancement",
+      "sourceSkillName": "注灵凝纹",
+      "realmLv": 1,
+      "infiniteDuration": true
     },
     {
       "buffId": "buff.dungeon_fivephase_shift",
@@ -18794,6 +19863,22 @@
       "realmLv": 1,
       "color": "#ef6b3b",
       "statMode": "percent"
+    },
+    {
+      "buffId": "passive_craft_qi_yellow_formation_buff",
+      "name": "走盘引阵",
+      "desc": "阵盘通灵结印神速。布阵速度+12%。",
+      "shortMark": "阵",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_craft_qi_yellow_formation",
+      "sourceSkillName": "走盘引阵",
+      "realmLv": 1,
+      "infiniteDuration": true
     }
   ],
   "quests": [

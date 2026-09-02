@@ -803,19 +803,19 @@ function buildBuffCatalog(techniques, items) {/**
 
   for (const technique of techniques) {
     for (const skill of technique.skills ?? []) {
-      for (const effect of skill.effects ?? []) {
+      const registerSkillBuff = (effect, { infinite = false } = {}) => {
         if (effect?.type !== 'buff') {
-          continue;
+          return;
         }
         register({
           buffId: effect.buffId,
           name: effect.name,
           desc: effect.desc,
           shortMark: effect.shortMark,
-          category: effect.category ?? (effect.target === 'self' ? 'buff' : 'debuff'),
+          category: effect.category ?? (effect.target === 'self' || infinite ? 'buff' : 'debuff'),
           visibility: effect.visibility ?? 'public',
-          remainingTicks: Math.max(1, Math.floor(Number(effect.duration ?? 1))),
-          duration: Math.max(1, Math.floor(Number(effect.duration ?? 1))),
+          remainingTicks: infinite ? 1 : Math.max(1, Math.floor(Number(effect.duration ?? 1))),
+          duration: infinite ? 1 : Math.max(1, Math.floor(Number(effect.duration ?? 1))),
           stacks: 1,
           maxStacks: Math.max(1, Math.floor(Number(effect.maxStacks ?? 1))),
           sourceSkillId: skill.id,
@@ -827,7 +827,14 @@ function buildBuffCatalog(techniques, items) {/**
           stats: isPlainObject(effect.stats) ? { ...effect.stats } : undefined,
           statMode: effect.statMode,
           qiProjection: effect.qiProjection,
+          infiniteDuration: infinite || undefined,
         });
+      };
+      for (const effect of skill.effects ?? []) {
+        registerSkillBuff(effect);
+      }
+      for (const effect of skill.passiveEffects ?? []) {
+        registerSkillBuff(effect, { infinite: true });
       }
     }
   }

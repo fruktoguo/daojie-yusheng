@@ -192,8 +192,8 @@ export function resolveClientBuffName(buffId: string, ...candidates: Array<strin
   return resolvePlayerFacingContentName(
     buffId,
     '未知增益',
-    ...candidates,
     getLocalBuffTemplate(buffId)?.name,
+    ...candidates,
   );
 }
 
@@ -411,14 +411,15 @@ export function resolvePreviewSkill(skill: SkillDef): SkillDef {
   }
   const resolved = {
     ...skill,
-    name: skill.name || template.name,
-    desc: skill.desc || template.desc,
+    name: template.name || skill.name,
+    desc: template.desc || skill.desc,
     cooldown: skill.cooldown ?? template.cooldown,
     cost: skill.cost ?? template.cost,
     costMultiplier: skill.costMultiplier ?? template.costMultiplier,
     range: skill.range ?? template.range,
     targeting: skill.targeting ?? template.targeting,
     effects: skill.effects?.length ? skill.effects : template.effects,
+    passiveEffects: template.passiveEffects ?? skill.passiveEffects,
     unlockLevel: skill.unlockLevel ?? template.unlockLevel,
     unlockRealm: skill.unlockRealm ?? template.unlockRealm,
     unlockPlayerRealm: skill.unlockPlayerRealm ?? template.unlockPlayerRealm,

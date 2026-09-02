@@ -17,6 +17,7 @@ import {
 } from '@mud/shared';
 import { getEntityKindLabel, getQuestLineLabel } from '../domain-labels';
 import { resolveClientItemDisplayName } from '../content/item-display-name';
+import { getLocalSkillTemplate, resolveClientBuffName } from '../content/local-templates';
 import { detailModalHost } from './detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 import { bindInlineItemTooltips, renderInlineItemChip } from './item-inline-tooltip';
@@ -562,13 +563,14 @@ export class EntityDetailModal {
 
   /** renderBuffBadge：渲染单个 Buff 徽记。 */
   private renderBuffBadge(buff: VisibleBuffState): string {
-    const title = escapeHtml(buff.name);
+    const buffName = resolveClientBuffName(buff.buffId, buff.name);
+    const title = escapeHtml(buffName);
     const detail = escapeHtml(this.buildBuffTooltipLines(buff).join('\n'));
     const stackText = buff.maxStacks > 1 ? `<span class="observe-buff-stack">${Math.max(0, Math.round(buff.stacks))}</span>` : '';
     const className = buff.category === 'debuff' ? 'observe-buff-chip debuff' : 'observe-buff-chip buff';
     return `<button class="${className}" type="button" data-entity-buff-tooltip-title="${title}" data-entity-buff-tooltip-detail="${detail}">
       <span class="observe-buff-mark">${escapeHtml(buff.shortMark)}</span>
-      <span class="observe-buff-name">${escapeHtml(buff.name)}</span>
+      <span class="observe-buff-name">${escapeHtml(buffName)}</span>
       <span class="observe-buff-duration">${escapeHtml(this.formatBuffDuration(buff))}</span>
       ${stackText}
     </button>`;
@@ -720,7 +722,10 @@ export class EntityDetailModal {
       }));
     }
     if (buff.sourceSkillName || buff.sourceSkillId) {
-      lines.push(t('entity-detail.buff.tooltip.source', { source: buff.sourceSkillName ?? t('entity-detail.value.unknown', undefined) }));
+      const sourceName = (buff.sourceSkillId ? getLocalSkillTemplate(buff.sourceSkillId)?.name : undefined)
+        || buff.sourceSkillName
+        || t('entity-detail.value.unknown', undefined);
+      lines.push(t('entity-detail.buff.tooltip.source', { source: sourceName }));
     }
     const stackFactor = Math.max(1, Math.floor(buff.stacks || 1));
     const effectLines = describePreviewBonuses(

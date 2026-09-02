@@ -20,6 +20,7 @@ import {
 } from '@mud/shared';
 import { getEntityBadgeClassName, getMonsterPresentation } from './monster-presentation';
 import { resolveClientItemDisplayName } from './content/item-display-name';
+import { getLocalSkillTemplate, resolveClientBuffName } from './content/local-templates';
 import {
   getEntityKindLabel,
   getInteractableKindLabel,
@@ -573,7 +574,10 @@ function buildBuffTooltipLines(buff: VisibleBuffState): string[] {
     lines.push(t('observe.buff.tooltip.stacks', { stacks: formatDisplayInteger(buff.stacks), max: stackLimit }));
   }
   if (buff.sourceSkillName || buff.sourceSkillId) {
-    lines.push(t('observe.buff.tooltip.source', { source: buff.sourceSkillName ?? t('observe.value.unknown', undefined) }));
+    const sourceName = (buff.sourceSkillId ? getLocalSkillTemplate(buff.sourceSkillId)?.name : undefined)
+      || buff.sourceSkillName
+      || t('observe.value.unknown', undefined);
+    lines.push(t('observe.buff.tooltip.source', { source: sourceName }));
   }
   const effectLines = buildBuffEffectLines(buff);
   if (effectLines.length > 0) {
@@ -592,13 +596,14 @@ function buildBuffTooltipLines(buff: VisibleBuffState): string[] {
 
 
 function buildBuffBadgeHtml(buff: VisibleBuffState): string {
-  const title = escapeHtml(buff.name);
+  const buffName = resolveClientBuffName(buff.buffId, buff.name);
+  const title = escapeHtml(buffName);
   const detail = escapeHtml(buildBuffTooltipLines(buff).join('\n'));
   const stackText = buff.maxStacks > 1 ? `<span class="observe-buff-stack">${formatDisplayInteger(buff.stacks)}</span>` : '';
   const className = buff.category === 'debuff' ? 'observe-buff-chip debuff' : 'observe-buff-chip buff';
   return `<button class="${className}" type="button" data-buff-tooltip-title="${title}" data-buff-tooltip-detail="${detail}">
     <span class="observe-buff-mark">${escapeHtml(buff.shortMark)}</span>
-    <span class="observe-buff-name">${escapeHtml(buff.name)}</span>
+    <span class="observe-buff-name">${escapeHtml(buffName)}</span>
     <span class="observe-buff-duration">${escapeHtml(formatBuffDuration(buff))}</span>
     ${stackText}
   </button>`;

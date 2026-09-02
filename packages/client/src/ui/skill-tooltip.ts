@@ -8,7 +8,7 @@
  * 根据 SkillDef 和玩家上下文生成带公式预览的富文本提示内容
  */
 
-import { AttrKey, NumericScalarStatKey, SkillDef, SkillFormula, SkillFormulaVar, TemporaryBuffState, calcQiCostWithOutputLimit, formatBuffMaxStacks, resolveSkillPlayerWindupTicks } from '@mud/shared';
+import { AttrKey, NumericScalarStatKey, SkillDef, SkillFormula, SkillFormulaVar, TemporaryBuffState, calcQiCostWithOutputLimit, formatBuffMaxStacks, getSkillPassiveEffects, resolveSkillPlayerWindupTicks } from '@mud/shared';
 import type { PlayerState, TileType } from '@mud/shared';
 import { FORMULA_VAR_LABELS, FORMULA_VAR_META, type SkillScalingMeta } from '../constants/ui/skill-tooltip';
 import { getElementKeyLabel, getTileTypeLabel } from '../domain-labels';
@@ -1159,6 +1159,33 @@ export function buildSkillTooltipContent(skill: SkillDef, context: SkillTooltipP
     const targetLabel = effect.target === 'target' ? t('skill-tooltip.target.enemy', undefined) : t('skill-tooltip.target.self', undefined);
     const categoryLabel = effect.category === 'buff' ? t('skill-tooltip.buff.category.buff', undefined) : t('skill-tooltip.buff.category.debuff', undefined);
     lines.push(renderPlainLine(t('skill-tooltip.label.cleanse', undefined), t('skill-tooltip.cleanse.value', { target: targetLabel, count: formatDisplayInteger(effect.removeCount ?? 1), category: categoryLabel })));
+  }
+  for (const effect of getSkillPassiveEffects(previewSkill)) {
+    if (effect.type !== 'buff') {
+      continue;
+    }
+    const name = effect.name?.trim() || previewSkill.name;
+    const toneClass = effect.category === 'debuff' ? 'debuff' : 'buff';
+    const categoryLabel = effect.category === 'debuff'
+      ? t('skill-tooltip.buff.category.debuff', undefined)
+      : t('skill-tooltip.buff.category.buff', undefined);
+    const badge = `<span class="skill-tooltip-buff-entry ${toneClass}"><span class="skill-tooltip-buff-mark">${escapeHtml(normalizeBuffMark(name, effect.shortMark))}</span><span>${escapeHtml(name)}</span></span>`;
+    const residentMeta = `${t('skill-tooltip.target.self', undefined)} · ${t('action.skill.tab.resident', undefined)}`;
+    lines.push(renderLabelLine(categoryLabel, `${badge}<span class="skill-tooltip-buff-meta">${escapeHtml(` ${residentMeta}`)}</span>`));
+    const effectLines = describePreviewBonuses(effect.attrs, effect.stats, undefined, effect.attrMode ?? 'percent', effect.statMode ?? 'percent');
+    if (effectLines.length > 0) {
+      lines.push(renderPlainLine(t('skill-tooltip.label.effect', undefined), effectLines.join('，')));
+    }
+    asideCards.push({
+      mark: normalizeBuffMark(name, effect.shortMark),
+      title: name,
+      lines: [
+        residentMeta,
+        ...(effectLines.length > 0 ? [t('skill-tooltip.label-line.effect', { value: effectLines.join('，') })] : []),
+        ...(effect.desc ? [effect.desc] : []),
+      ],
+      tone: effect.category === 'debuff' ? 'debuff' : 'buff',
+    });
   }
   lines.push(renderLabelLine(t('skill-tooltip.label.qi-cost', undefined), buildQiCostValue(previewSkill.cost, context)));
   const windupTicks = resolveSkillPlayerWindupTicks(previewSkill);

@@ -1645,7 +1645,7 @@ export class ActionPanel {
     return `<div class="action-item ${onCd ? 'cooldown' : ''} ${isAutoBattleSkill ? 'action-item-draggable' : ''}" data-action-row="${action.id}" data-action-card="${action.id}" role="button" tabindex="0"${rowAttrs}>
       <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''} ${affinityChip ? 'action-copy--with-affinity' : ''}"${tooltipAttrs}>
         <div>
-          <span class="action-name" data-action-name-node="${action.id}">${escapeHtml(action.name)}</span>
+          <span class="action-name" data-action-name-node="${action.id}">${escapeHtml(skillContext?.skill.name || action.name)}</span>
           <span class="action-type">[${getActionTypeLabel(action.type)}]</span>
           <span class="action-type" data-action-range-node="${action.id}"${typeof action.range === 'number' ? '' : ' hidden'}>${typeof action.range === 'number' ? t('action.range', { range: formatDisplayNumber(action.range) }) : ''}</span>
           ${isResidentSkill
@@ -1887,7 +1887,7 @@ export class ActionPanel {
   /** 动作行中允许每息变化的展示字段只改节点内容，不重建整行。 */
   private patchActionRowStaticText(action: ActionDef, refs: ActionRowRefs): void {
     if (refs.nameNode) {
-      refs.nameNode.textContent = action.name;
+      refs.nameNode.textContent = this.skillLookup.get(action.id)?.skill.name || action.name;
     }
     if (refs.descNode) {
       const nextDesc = this.renderActionDescription(action);
@@ -2032,7 +2032,7 @@ export class ActionPanel {
           return;
         }
         const action = this.currentActions.find((entry) => entry.id === actionId);
-        if (action && action.cooldownLeft > 0) {
+        if (action && (action.cooldownLeft > 0 || action.skillEnabled === false || action.passiveOnly === true)) {
           return;
         }
         this.onAction?.(actionId, action?.requiresTarget, action?.targetMode, action?.range, action?.name?.trim() || '未知行动', action?.dungeonId);
@@ -2057,6 +2057,9 @@ export class ActionPanel {
         const rangeText = button.dataset.actionRange;
         const range = rangeText ? Number(rangeText) : undefined;
         const action = this.currentActions.find((entry) => entry.id === actionId);
+        if (action && (action.skillEnabled === false || action.passiveOnly === true)) {
+          return;
+        }
         this.onAction?.(actionId, requiresTarget, targetMode, Number.isFinite(range) ? range : undefined, actionName, action?.dungeonId);
       }, { signal });
     });

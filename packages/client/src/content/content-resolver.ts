@@ -159,26 +159,7 @@ export class ContentResolver {
     );
     this.staticBuffs = new Map(
       LOCAL_EDITOR_CATALOG.techniques.flatMap((t) =>
-        (t.skills ?? []).flatMap((s) =>
-          s.effects.flatMap((e) =>
-            e.type === 'buff'
-              ? [[e.buffId, {
-                  buffId: e.buffId,
-                  name: e.name,
-                  shortMark: e.shortMark,
-                  category: e.category,
-                  desc: e.desc,
-                  duration: e.duration,
-                  maxStacks: e.maxStacks,
-                  valueStats: e.valueStats as Record<string, number> | undefined,
-                  stats: e.stats as Record<string, number> | undefined,
-                  attrs: e.attrs as Record<string, number> | undefined,
-                  attrMode: e.attrMode,
-                  statMode: e.statMode,
-                } satisfies LocalBuffTemplate] as const]
-              : [],
-          ),
-        ),
+        (t.skills ?? []).flatMap((s) => collectBuffTemplatesFromSkill(s)),
       ),
     );
     this.staticQuests = new Map(
@@ -673,6 +654,40 @@ function normalizeDelay(value: number | undefined, fallback: number, minimum: nu
     return fallback;
   }
   return Math.max(minimum, Math.trunc(Number(value)));
+}
+
+function collectBuffTemplatesFromSkill(skill: SkillDef): Array<readonly [string, LocalBuffTemplate]> {
+  const entries: Array<readonly [string, LocalBuffTemplate]> = [];
+  const register = (effect: unknown): void => {
+    if (!effect || typeof effect !== 'object') {
+      return;
+    }
+    const rec = effect as Record<string, unknown>;
+    if (rec.type !== 'buff' || typeof rec.buffId !== 'string' || !rec.buffId.trim()) {
+      return;
+    }
+    entries.push([rec.buffId, {
+      buffId: rec.buffId,
+      name: typeof rec.name === 'string' ? rec.name : '',
+      shortMark: typeof rec.shortMark === 'string' ? rec.shortMark : undefined,
+      category: rec.category === 'debuff' ? 'debuff' : rec.category === 'buff' ? 'buff' : undefined,
+      desc: typeof rec.desc === 'string' ? rec.desc : undefined,
+      duration: typeof rec.duration === 'number' ? rec.duration : undefined,
+      maxStacks: typeof rec.maxStacks === 'number' ? rec.maxStacks : undefined,
+      valueStats: rec.valueStats as Record<string, number> | undefined,
+      stats: rec.stats as Record<string, number> | undefined,
+      attrs: rec.attrs as Record<string, number> | undefined,
+      attrMode: typeof rec.attrMode === 'string' ? rec.attrMode : undefined,
+      statMode: typeof rec.statMode === 'string' ? rec.statMode : undefined,
+    }]);
+  };
+  for (const effect of skill.effects ?? []) {
+    register(effect);
+  }
+  for (const effect of skill.passiveEffects ?? []) {
+    register(effect);
+  }
+  return entries;
 }
 
 // ─── 模块级单例 ──────────────────────────────────────────────────────────────
