@@ -21,10 +21,11 @@ import type {
 } from '@mud/shared';
 import type { SkillPreviewMetrics } from '../skill-tooltip';
 import type { FloatingTooltip } from '../floating-tooltip';
+import type { SkillViewTab } from './action-panel-helpers';
 
 // ─── 共享内部类型 ───
 
-export type SkillManagementTab = 'auto' | 'manual' | 'disabled';
+export type SkillManagementTab = SkillViewTab | 'disabled';
 export type SkillManagementBulkMode = 'auto' | 'manual' | 'enabled' | 'disabled';
 export type SkillManagementSortField = 'custom' | 'actualDamage' | 'qiCost' | 'range' | 'targetCount' | 'cooldown';
 export type SkillManagementSortDirection = 'asc' | 'desc';
@@ -166,7 +167,7 @@ export interface ActionPanelInternal {
 
   // ─── 状态字段 ───
   currentActions: ActionDef[];
-  activeSkillTab: 'auto' | 'manual';
+  activeSkillTab: SkillViewTab;
   previewPlayer?: PlayerState;
   skillLookup: Map<string, { skill: SkillDef; techLevel: number; knownSkills: SkillDef[] }>;
   onAction: ((actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string, dungeonId?: string) => void) | null;

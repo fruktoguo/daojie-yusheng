@@ -196,6 +196,36 @@ export function getSkillEnabledTechniques(player: PlayerState): PlayerState['tec
   return player.techniques.filter((technique) => technique.skillsEnabled !== false);
 }
 
+/** 主技能页子标签：自动、手动、常驻被动。 */
+export type SkillViewTab = 'auto' | 'manual' | 'resident';
+
+export function matchesSkillViewTab(
+  action: Pick<ActionDef, 'skillEnabled' | 'passiveOnly' | 'autoBattleEnabled'>,
+  tab: SkillViewTab,
+): boolean {
+  if (action.skillEnabled === false) {
+    return false;
+  }
+  if (action.passiveOnly === true) {
+    return tab === 'resident';
+  }
+  if (action.autoBattleEnabled === false) {
+    return tab === 'manual';
+  }
+  return tab === 'auto';
+}
+
+export function matchesSkillManagementTab(
+  action: Pick<ActionDef, 'skillEnabled' | 'passiveOnly' | 'autoBattleEnabled'>,
+  tab: SkillViewTab | 'disabled',
+): boolean {
+  if (tab === 'disabled') {
+    return action.skillEnabled === false;
+  }
+  return matchesSkillViewTab(action, tab);
+}
+
+
 /** ActionPanelAction：动作面板的技能快捷项定义。 */
 export type ActionPanelAction = ActionDef;
 /** ActionPanelSkillDraft：动作面板里的自动战斗技能草稿。 */

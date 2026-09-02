@@ -46,7 +46,9 @@ import {
   escapeHtml,
   getSkillAffinityBadge,
   getSkillEnabledTechniques,
+  matchesSkillViewTab,
   normalizeShortcutKey,
+  type SkillViewTab,
 } from './action-panel-helpers';
 import { SkillManagementSubpanel } from './action-panel-skill-management';
 import { CombatSettingsSubpanel } from './action-panel-combat-settings';
@@ -147,8 +149,8 @@ function enforceSkillEnabledLimitLocal<T extends SkillEnabledEntry>(
 
 /** 行动面板的主标签页：交互、技能、开关和通用动作。 */
 type ActionMainTab = 'dialogue' | 'skill' | 'toggle' | 'utility';
-/** 技能区的子标签页：自动技能和手动技能。 */
-type SkillSubTab = 'auto' | 'manual';
+/** 技能区的子标签页：自动、手动和常驻被动。 */
+type SkillSubTab = SkillViewTab;
 
 const SECT_MANAGEMENT_DATA_PATTERN = /\n?@@sect:([^@\n]+)@@/;
 
@@ -889,8 +891,8 @@ export class ActionPanel {
     });
     this.pane.querySelectorAll<HTMLElement>('[data-action-skill-tab]').forEach((button) => {
       button.addEventListener('click', () => {
-        const tab = button.dataset.actionSkillTab as SkillSubTab | undefined;
-        if (!tab) return;
+        const tab = button.dataset.actionSkillTab;
+        if (tab !== 'auto' && tab !== 'manual' && tab !== 'resident') return;
         this.activeSkillTab = tab;
         this.render(actions);
       }, { signal });
@@ -1612,7 +1614,8 @@ export class ActionPanel {
     },
   ): string {
     const onCd = action.cooldownLeft > 0;
-    const isAutoBattleSkill = action.type === 'skill';
+    const isResidentSkill = action.type === 'skill' && action.passiveOnly === true;
+    const isAutoBattleSkill = action.type === 'skill' && !isResidentSkill;
     const skillContext = this.skillLookup.get(action.id);
     const tooltipAttrs = skillContext
       ? ` data-action-tooltip-title="${escapeHtml(skillContext.skill.name)}" data-action-tooltip-skill-id="${escapeHtml(skillContext.skill.id)}" data-action-tooltip-rich="1"`
@@ -1645,10 +1648,12 @@ export class ActionPanel {
           <span class="action-name" data-action-name-node="${action.id}">${escapeHtml(action.name)}</span>
           <span class="action-type">[${getActionTypeLabel(action.type)}]</span>
           <span class="action-type" data-action-range-node="${action.id}"${typeof action.range === 'number' ? '' : ' hidden'}>${typeof action.range === 'number' ? t('action.range', { range: formatDisplayNumber(action.range) }) : ''}</span>
-          ${isAutoBattleSkill
-            ? `<span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}" data-action-auto-state="${action.id}">${autoBattleEnabled ? t('action.skill.auto-state.enabled', undefined) : t('action.skill.auto-state.disabled', undefined)}</span>
+          ${isResidentSkill
+            ? `<span class="action-type">${t('action.skill.tab.resident', undefined)}</span>`
+            : isAutoBattleSkill
+              ? `<span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}" data-action-auto-state="${action.id}">${autoBattleEnabled ? t('action.skill.auto-state.enabled', undefined) : t('action.skill.auto-state.disabled', undefined)}</span>
                <span class="action-type" data-action-auto-order="${action.id}"${autoBattleOrder ? '' : ' hidden'}>${autoBattleOrder ? t('action.skill.order', { order: formatDisplayInteger(autoBattleOrder) }) : ''}</span>`
-            : autoBattleMeta}
+              : autoBattleMeta}
           ${this.renderShortcutBadge(action.id)}
         </div>
         <div class="action-desc" data-action-desc-node="${action.id}">${this.renderActionDescription(action)}</div>
@@ -1656,9 +1661,9 @@ export class ActionPanel {
       </div>
       <div class="action-cta ui-action-row ui-action-row--end">
         ${autoBattleControls}
-        <button class="small-btn ghost" data-bind-action="${action.id}" type="button">${this.getBindButtonLabel(action.id)}</button>
+        ${isResidentSkill ? '' : `<button class="small-btn ghost" data-bind-action="${action.id}" type="button">${this.getBindButtonLabel(action.id)}</button>`}
         <span class="action-cd" data-action-cd="${action.id}"${onCd ? '' : ' hidden'}>${onCd ? t('action.cooldown', { ticks: formatDisplayInteger(action.cooldownLeft) }) : ''}</span>
-        <button class="small-btn" data-action="${action.id}" data-action-exec="${action.id}" data-action-name="${escapeHtml(action.name)}" data-action-range="${action.range ?? ''}" data-action-target="${action.requiresTarget ? '1' : '0'}" data-action-target-mode="${action.targetMode ?? ''}"${onCd ? ' hidden' : ''}>${executeLabel}</button>
+        <button class="small-btn" data-action="${action.id}" data-action-exec="${action.id}" data-action-name="${escapeHtml(action.name)}" data-action-range="${action.range ?? ''}" data-action-target="${action.requiresTarget ? '1' : '0'}" data-action-target-mode="${action.targetMode ?? ''}"${onCd || isResidentSkill ? ' hidden' : ''}>${executeLabel}</button>
       </div>
     </div>`;
   }
@@ -1849,14 +1854,14 @@ export class ActionPanel {
       this.patchActionRowStaticText(action, refs);
       cdNode.textContent = onCd ? t('action.cooldown.left', { ticks: formatDisplayInteger(action.cooldownLeft) }) : '';
       cdNode.hidden = !onCd;
-      execNode.hidden = onCd;
-      execNode.disabled = onCd;
+      execNode.hidden = onCd || action.passiveOnly === true;
+      execNode.disabled = onCd || action.passiveOnly === true;
       execNode.dataset.actionName = action.name;
       execNode.dataset.actionRange = action.range == null ? '' : String(action.range);
       execNode.dataset.actionTarget = action.requiresTarget ? '1' : '0';
       execNode.dataset.actionTargetMode = action.targetMode ?? '';
 
-      if (action.type === 'skill') {
+      if (action.type === 'skill' && action.passiveOnly !== true) {
         const stateNode = refs.stateNode;
         const orderNode = refs.orderNode;
         const toggleNode = refs.toggleNode;
@@ -1914,12 +1919,7 @@ export class ActionPanel {
         return ['quest', 'interact', 'travel', 'craft'].includes(action.type);
       case 'skill':
         if (action.type === 'skill') {
-          if (action.skillEnabled === false || action.passiveOnly === true) {
-            return false;
-          }
-          return this.activeSkillTab === 'auto'
-            ? action.autoBattleEnabled !== false
-            : action.autoBattleEnabled === false;
+          return matchesSkillViewTab(action, this.activeSkillTab);
         }
         return action.type === 'battle' || action.type === 'gather';
       case 'toggle':
@@ -1931,18 +1931,30 @@ export class ActionPanel {
     }
   }
 
-  /** 渲染技能区主体，并按自动/手动给出不同说明。 */
+  /** 渲染技能区主体，并按自动/手动/常驻给出不同说明。 */
   private renderSkillSection(actions: ActionDef[], autoBattleDisplayOrders: Map<string, number>): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const enabledSkills = actions.filter((action) => action.skillEnabled !== false && action.passiveOnly !== true);
-    const autoSkills = enabledSkills.filter((action) => action.autoBattleEnabled !== false);
-    const manualSkills = enabledSkills.filter((action) => action.autoBattleEnabled === false);
-    const visibleSkills = this.activeSkillTab === 'auto' ? autoSkills : manualSkills;
+    const skillActions = actions.filter((action) => action.type === 'skill');
+    const autoSkills = skillActions.filter((action) => matchesSkillViewTab(action, 'auto'));
+    const manualSkills = skillActions.filter((action) => matchesSkillViewTab(action, 'manual'));
+    const residentSkills = skillActions.filter((action) => matchesSkillViewTab(action, 'resident'));
+    const visibleSkills = this.activeSkillTab === 'auto'
+      ? autoSkills
+      : this.activeSkillTab === 'manual'
+        ? manualSkills
+        : residentSkills;
     const slotSummary = this.getSkillSlotSummary(actions);
     const hint = this.activeSkillTab === 'auto'
       ? t('action.skill.hint.auto', { slotSummary })
-      : t('action.skill.hint.manual', { slotSummary });
+      : this.activeSkillTab === 'manual'
+        ? t('action.skill.hint.manual', { slotSummary })
+        : t('action.skill.hint.resident', { slotSummary });
+    const emptyText = this.activeSkillTab === 'auto'
+      ? t('action.skill.empty.auto', undefined)
+      : this.activeSkillTab === 'manual'
+        ? t('action.skill.empty.manual', undefined)
+        : t('action.skill.empty.resident', undefined);
 
     let html = `<div class="panel-section action-skill-section">
       <div class="panel-section-head">
@@ -1963,11 +1975,15 @@ export class ActionPanel {
           ${t('action.skill.tab.manual', undefined)}
           <span class="action-skill-subtab-count">${manualSkills.length}</span>
         </button>
+        <button class="action-skill-subtab-btn ${this.activeSkillTab === 'resident' ? 'active' : ''}" data-action-skill-tab="resident" type="button">
+          ${t('action.skill.tab.resident', undefined)}
+          <span class="action-skill-subtab-count">${residentSkills.length}</span>
+        </button>
       </div>
       <div class="action-section-hint">${hint}</div>`;
 
     if (visibleSkills.length === 0) {
-      html += `<div class="empty-hint">${this.activeSkillTab === 'auto' ? t('action.skill.empty.auto', undefined) : t('action.skill.empty.manual', undefined)}</div>`;
+      html += `<div class="empty-hint">${emptyText}</div>`;
     } else {
       html += '<div class="action-skill-list">';
       for (const action of visibleSkills) {

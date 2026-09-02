@@ -157,7 +157,7 @@
     "skills": [
       {
         "id": "skill_passive_combat_mortal_mortal_metal",
-        "name": "金行专修",
+        "name": "折铁断锋",
         "desc": "纯被动。金行增伤/减伤与专属战斗属性按8%生效；对应短板按现有规则生效。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -169,7 +169,7 @@
           {
             "type": "buff",
             "buffId": "passive_combat_mortal_mortal_metal_buff",
-            "name": "金行专修",
+            "name": "折铁断锋",
             "shortMark": "金",
             "desc": "金行增伤/减伤与专属战斗属性按8%生效；对应短板按现有规则生效。",
             "stats": {
@@ -208,7 +208,7 @@
     "skills": [
       {
         "id": "skill_passive_combat_qi_yellow_metal",
-        "name": "金行专修",
+        "name": "庚金煞灵",
         "desc": "纯被动。金行增伤/减伤与专属战斗属性按12%生效；对应短板按现有规则生效。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -220,7 +220,7 @@
           {
             "type": "buff",
             "buffId": "passive_combat_qi_yellow_metal_buff",
-            "name": "金行专修",
+            "name": "庚金煞灵",
             "shortMark": "金",
             "desc": "金行增伤/减伤与专属战斗属性按12%生效；对应短板按现有规则生效。",
             "stats": {
@@ -259,7 +259,7 @@
     "skills": [
       {
         "id": "skill_passive_combat_foundation_mystic_metal",
-        "name": "金行专修",
+        "name": "庚金凝罡",
         "desc": "纯被动。金行增伤/减伤与专属战斗属性按16%生效；对应短板按现有规则生效。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -271,7 +271,7 @@
           {
             "type": "buff",
             "buffId": "passive_combat_foundation_mystic_metal_buff",
-            "name": "金行专修",
+            "name": "庚金凝罡",
             "shortMark": "金",
             "desc": "金行增伤/减伤与专属战斗属性按16%生效；对应短板按现有规则生效。",
             "stats": {
@@ -310,7 +310,7 @@
     "skills": [
       {
         "id": "skill_passive_combat_mortal_mortal_wood",
-        "name": "木行专修",
+        "name": "问木折青",
         "desc": "纯被动。木行增伤/减伤与专属战斗属性按8%生效；对应短板按现有规则生效。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -322,7 +322,7 @@
           {
             "type": "buff",
             "buffId": "passive_combat_mortal_mortal_wood_buff",
-            "name": "木行专修",
+            "name": "问木折青",
             "shortMark": "木",
             "desc": "木行增伤/减伤与专属战斗属性按8%生效；对应短板按现有规则生效。",
             "stats": {
@@ -361,7 +361,7 @@
     "skills": [
       {
         "id": "skill_passive_combat_qi_yellow_wood",
-        "name": "木行专修",
+        "name": "乙木岁荣",
         "desc": "纯被动。木行增伤/减伤与专属战斗属性按12%生效；对应短板按现有规则生效。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -373,7 +373,7 @@
           {
             "type": "buff",
             "buffId": "passive_combat_qi_yellow_wood_buff",
-            "name": "木行专修",
+            "name": "乙木岁荣",
             "shortMark": "木",
             "desc": "木行增伤/减伤与专属战斗属性按12%生效；对应短板按现有规则生效。",
             "stats": {
@@ -412,7 +412,7 @@
     "skills": [
       {
         "id": "skill_passive_combat_foundation_mystic_wood",
-        "name": "木行专修",
+        "name": "长春固脉",
         "desc": "纯被动。木行增伤/减伤与专属战斗属性按16%生效；对应短板按现有规则生效。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -424,7 +424,7 @@
           {
             "type": "buff",
             "buffId": "passive_combat_foundation_mystic_wood_buff",
-            "name": "木行专修",
+            "name": "长春固脉",
             "shortMark": "木",
             "desc": "木行增伤/减伤与专属战斗属性按16%生效；对应短板按现有规则生效。",
             "stats": {
@@ -463,7 +463,7 @@
     "skills": [
       {
         "id": "skill_passive_combat_mortal_mortal_water",
-        "name": "水行专修",
+        "name": "溯流引泉",
         "desc": "纯被动。水行增伤/减伤与专属战斗属性按8%生效；对应短板按现有规则生效。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -475,7 +475,7 @@
           {
             "type": "buff",
             "buffId": "passive_combat_mortal_mortal_water_buff",
-            "name": "水行专修",
+            "name": "溯流引泉",
             "shortMark": "水",
             "desc": "水行增伤/减伤与专属战斗属性按8%生效；对应短板按现有规则生效。",
             "stats": {
@@ -514,7 +514,7 @@
     "skills": [
       {
         "id": "skill_passive_combat_qi_yellow_water",
-        "name": "水行专修",
+        "name": "沧浪叠韵",
         "desc": "纯被动。水行增伤/减伤与专属战斗属性按12%生效；对应短板按现有规则生效。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -526,7 +526,7 @@
           {
             "type": "buff",
             "buffId": "passive_combat_qi_yellow_water_buff",
-            "name": "水行专修",
+            "name": "沧浪叠韵",
             "shortMark": "水",
             "desc": "水行增伤/减伤与专属战斗属性按12%生效；对应短板按现有规则生效。",
             "stats": {
@@ -565,7 +565,7 @@
     "skills": [
       {
         "id": "skill_passive_combat_foundation_mystic_water",
-        "name": "水行专修",
+        "name": "玄潮凝波",
         "desc": "纯被动。水行增伤/减伤与专属战斗属性按16%生效；对应短板按现有规则生效。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -577,7 +577,7 @@
           {
             "type": "buff",
             "buffId": "passive_combat_foundation_mystic_water_buff",
-            "name": "水行专修",
+            "name": "玄潮凝波",
             "shortMark": "水",
             "desc": "水行增伤/减伤与专属战斗属性按16%生效；对应短板按现有规则生效。",
             "stats": {
@@ -616,7 +616,7 @@
     "skills": [
       {
         "id": "skill_passive_combat_mortal_mortal_fire",
-        "name": "火行专修",
+        "name": "燃薪淬息",
         "desc": "纯被动。火行增伤/减伤与专属战斗属性按8%生效；对应短板按现有规则生效。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -628,7 +628,7 @@
           {
             "type": "buff",
             "buffId": "passive_combat_mortal_mortal_fire_buff",
-            "name": "火行专修",
+            "name": "燃薪淬息",
             "shortMark": "火",
             "desc": "火行增伤/减伤与专属战斗属性按8%生效；对应短板按现有规则生效。",
             "stats": {
@@ -667,7 +667,7 @@
     "skills": [
       {
         "id": "skill_passive_combat_qi_yellow_fire",
-        "name": "火行专修",
+        "name": "朱雀焚炎",
         "desc": "纯被动。火行增伤/减伤与专属战斗属性按12%生效；对应短板按现有规则生效。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -679,7 +679,7 @@
           {
             "type": "buff",
             "buffId": "passive_combat_qi_yellow_fire_buff",
-            "name": "火行专修",
+            "name": "朱雀焚炎",
             "shortMark": "火",
             "desc": "火行增伤/减伤与专属战斗属性按12%生效；对应短板按现有规则生效。",
             "stats": {
@@ -718,7 +718,7 @@
     "skills": [
       {
         "id": "skill_passive_combat_foundation_mystic_fire",
-        "name": "火行专修",
+        "name": "离火淬元",
         "desc": "纯被动。火行增伤/减伤与专属战斗属性按16%生效；对应短板按现有规则生效。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -730,7 +730,7 @@
           {
             "type": "buff",
             "buffId": "passive_combat_foundation_mystic_fire_buff",
-            "name": "火行专修",
+            "name": "离火淬元",
             "shortMark": "火",
             "desc": "火行增伤/减伤与专属战斗属性按16%生效；对应短板按现有规则生效。",
             "stats": {
@@ -769,7 +769,7 @@
     "skills": [
       {
         "id": "skill_passive_combat_mortal_mortal_earth",
-        "name": "土行专修",
+        "name": "盘根立地",
         "desc": "纯被动。土行增伤/减伤与专属战斗属性按8%生效；对应短板按现有规则生效。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -781,7 +781,7 @@
           {
             "type": "buff",
             "buffId": "passive_combat_mortal_mortal_earth_buff",
-            "name": "土行专修",
+            "name": "盘根立地",
             "shortMark": "土",
             "desc": "土行增伤/减伤与专属战斗属性按8%生效；对应短板按现有规则生效。",
             "stats": {
@@ -820,7 +820,7 @@
     "skills": [
       {
         "id": "skill_passive_combat_qi_yellow_earth",
-        "name": "土行专修",
+        "name": "玄黄镇岳",
         "desc": "纯被动。土行增伤/减伤与专属战斗属性按12%生效；对应短板按现有规则生效。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -832,7 +832,7 @@
           {
             "type": "buff",
             "buffId": "passive_combat_qi_yellow_earth_buff",
-            "name": "土行专修",
+            "name": "玄黄镇岳",
             "shortMark": "土",
             "desc": "土行增伤/减伤与专属战斗属性按12%生效；对应短板按现有规则生效。",
             "stats": {
@@ -871,7 +871,7 @@
     "skills": [
       {
         "id": "skill_passive_combat_foundation_mystic_earth",
-        "name": "土行专修",
+        "name": "厚土镇基",
         "desc": "纯被动。土行增伤/减伤与专属战斗属性按16%生效；对应短板按现有规则生效。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -883,7 +883,7 @@
           {
             "type": "buff",
             "buffId": "passive_combat_foundation_mystic_earth_buff",
-            "name": "土行专修",
+            "name": "厚土镇基",
             "shortMark": "土",
             "desc": "土行增伤/减伤与专属战斗属性按16%生效；对应短板按现有规则生效。",
             "stats": {
@@ -922,7 +922,7 @@
     "skills": [
       {
         "id": "skill_passive_combat_mortal_mortal_physical",
-        "name": "武体专修",
+        "name": "磨筋铸骨",
         "desc": "纯被动。强化武体方向，核心增益按8%生效；对应短板按现有规则生效。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -934,7 +934,7 @@
           {
             "type": "buff",
             "buffId": "passive_combat_mortal_mortal_physical_buff",
-            "name": "武体专修",
+            "name": "磨筋铸骨",
             "shortMark": "武",
             "desc": "强化武体方向，核心增益按8%生效；对应短板按现有规则生效。",
             "stats": {
@@ -969,7 +969,7 @@
     "skills": [
       {
         "id": "skill_passive_combat_qi_yellow_physical",
-        "name": "武体专修",
+        "name": "龙象摧岳",
         "desc": "纯被动。强化武体方向，核心增益按12%生效；对应短板按现有规则生效。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -981,7 +981,7 @@
           {
             "type": "buff",
             "buffId": "passive_combat_qi_yellow_physical_buff",
-            "name": "武体专修",
+            "name": "龙象摧岳",
             "shortMark": "武",
             "desc": "强化武体方向，核心增益按12%生效；对应短板按现有规则生效。",
             "stats": {
@@ -1016,7 +1016,7 @@
     "skills": [
       {
         "id": "skill_passive_combat_foundation_mystic_physical",
-        "name": "武体专修",
+        "name": "煞血铁骨",
         "desc": "纯被动。强化武体方向，核心增益按16%生效；对应短板按现有规则生效。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -1028,7 +1028,7 @@
           {
             "type": "buff",
             "buffId": "passive_combat_foundation_mystic_physical_buff",
-            "name": "武体专修",
+            "name": "煞血铁骨",
             "shortMark": "武",
             "desc": "强化武体方向，核心增益按16%生效；对应短板按现有规则生效。",
             "stats": {
@@ -1063,7 +1063,7 @@
     "skills": [
       {
         "id": "skill_passive_combat_mortal_mortal_spell",
-        "name": "术心专修",
+        "name": "识微明眸",
         "desc": "纯被动。强化术心方向，核心增益按8%生效；对应短板按现有规则生效。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -1075,7 +1075,7 @@
           {
             "type": "buff",
             "buffId": "passive_combat_mortal_mortal_spell_buff",
-            "name": "术心专修",
+            "name": "识微明眸",
             "shortMark": "术",
             "desc": "强化术心方向，核心增益按8%生效；对应短板按现有规则生效。",
             "stats": {
@@ -1110,7 +1110,7 @@
     "skills": [
       {
         "id": "skill_passive_combat_qi_yellow_spell",
-        "name": "术心专修",
+        "name": "灵犀澈照",
         "desc": "纯被动。强化术心方向，核心增益按12%生效；对应短板按现有规则生效。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -1122,7 +1122,7 @@
           {
             "type": "buff",
             "buffId": "passive_combat_qi_yellow_spell_buff",
-            "name": "术心专修",
+            "name": "灵犀澈照",
             "shortMark": "术",
             "desc": "强化术心方向，核心增益按12%生效；对应短板按现有规则生效。",
             "stats": {
@@ -1157,7 +1157,7 @@
     "skills": [
       {
         "id": "skill_passive_combat_foundation_mystic_spell",
-        "name": "术心专修",
+        "name": "明心拓神",
         "desc": "纯被动。强化术心方向，核心增益按16%生效；对应短板按现有规则生效。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -1169,7 +1169,7 @@
           {
             "type": "buff",
             "buffId": "passive_combat_foundation_mystic_spell_buff",
-            "name": "术心专修",
+            "name": "明心拓神",
             "shortMark": "术",
             "desc": "强化术心方向，核心增益按16%生效；对应短板按现有规则生效。",
             "stats": {
@@ -1204,7 +1204,7 @@
     "skills": [
       {
         "id": "skill_passive_craft_mortal_mortal_alchemy",
-        "name": "炼丹专修",
+        "name": "草木还丹",
         "desc": "纯被动。炼丹速度+8%，无额外负面效果。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -1216,7 +1216,7 @@
           {
             "type": "buff",
             "buffId": "passive_craft_mortal_mortal_alchemy_buff",
-            "name": "炼丹专修",
+            "name": "草木还丹",
             "shortMark": "丹",
             "desc": "炼丹速度+8%，无额外负面效果。",
             "craftEffectStats": {
@@ -1247,7 +1247,7 @@
     "skills": [
       {
         "id": "skill_passive_craft_qi_yellow_alchemy",
-        "name": "炼丹专修",
+        "name": "灵火调药",
         "desc": "纯被动。炼丹速度+12%，无额外负面效果。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -1259,7 +1259,7 @@
           {
             "type": "buff",
             "buffId": "passive_craft_qi_yellow_alchemy_buff",
-            "name": "炼丹专修",
+            "name": "灵火调药",
             "shortMark": "丹",
             "desc": "炼丹速度+12%，无额外负面效果。",
             "craftEffectStats": {
@@ -1290,7 +1290,7 @@
     "skills": [
       {
         "id": "skill_passive_craft_foundation_mystic_alchemy",
-        "name": "炼丹专修",
+        "name": "真元凝丹",
         "desc": "纯被动。炼丹速度+16%，无额外负面效果。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -1302,7 +1302,7 @@
           {
             "type": "buff",
             "buffId": "passive_craft_foundation_mystic_alchemy_buff",
-            "name": "炼丹专修",
+            "name": "真元凝丹",
             "shortMark": "丹",
             "desc": "炼丹速度+16%，无额外负面效果。",
             "craftEffectStats": {
@@ -1333,7 +1333,7 @@
     "skills": [
       {
         "id": "skill_passive_craft_mortal_mortal_forging",
-        "name": "锻造专修",
+        "name": "淬铁百锤",
         "desc": "纯被动。锻造速度+8%，无额外负面效果。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -1345,7 +1345,7 @@
           {
             "type": "buff",
             "buffId": "passive_craft_mortal_mortal_forging_buff",
-            "name": "锻造专修",
+            "name": "淬铁百锤",
             "shortMark": "器",
             "desc": "锻造速度+8%，无额外负面效果。",
             "craftEffectStats": {
@@ -1376,7 +1376,7 @@
     "skills": [
       {
         "id": "skill_passive_craft_qi_yellow_forging",
-        "name": "锻造专修",
+        "name": "火精锻金",
         "desc": "纯被动。锻造速度+12%，无额外负面效果。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -1388,7 +1388,7 @@
           {
             "type": "buff",
             "buffId": "passive_craft_qi_yellow_forging_buff",
-            "name": "锻造专修",
+            "name": "火精锻金",
             "shortMark": "器",
             "desc": "锻造速度+12%，无额外负面效果。",
             "craftEffectStats": {
@@ -1419,7 +1419,7 @@
     "skills": [
       {
         "id": "skill_passive_craft_foundation_mystic_forging",
-        "name": "锻造专修",
+        "name": "千锤融灵",
         "desc": "纯被动。锻造速度+16%，无额外负面效果。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -1431,7 +1431,7 @@
           {
             "type": "buff",
             "buffId": "passive_craft_foundation_mystic_forging_buff",
-            "name": "锻造专修",
+            "name": "千锤融灵",
             "shortMark": "器",
             "desc": "锻造速度+16%，无额外负面效果。",
             "craftEffectStats": {
@@ -1462,7 +1462,7 @@
     "skills": [
       {
         "id": "skill_passive_craft_mortal_mortal_enhancement",
-        "name": "强化专修",
+        "name": "温玉养器",
         "desc": "纯被动。强化速度+8%，无额外负面效果。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -1474,7 +1474,7 @@
           {
             "type": "buff",
             "buffId": "passive_craft_mortal_mortal_enhancement_buff",
-            "name": "强化专修",
+            "name": "温玉养器",
             "shortMark": "强",
             "desc": "强化速度+8%，无额外负面效果。",
             "craftEffectStats": {
@@ -1505,7 +1505,7 @@
     "skills": [
       {
         "id": "skill_passive_craft_qi_yellow_enhancement",
-        "name": "强化专修",
+        "name": "淬灵附煞",
         "desc": "纯被动。强化速度+12%，无额外负面效果。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -1517,7 +1517,7 @@
           {
             "type": "buff",
             "buffId": "passive_craft_qi_yellow_enhancement_buff",
-            "name": "强化专修",
+            "name": "淬灵附煞",
             "shortMark": "强",
             "desc": "强化速度+12%，无额外负面效果。",
             "craftEffectStats": {
@@ -1548,7 +1548,7 @@
     "skills": [
       {
         "id": "skill_passive_craft_foundation_mystic_enhancement",
-        "name": "强化专修",
+        "name": "注灵凝纹",
         "desc": "纯被动。强化速度+16%，无额外负面效果。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -1560,7 +1560,7 @@
           {
             "type": "buff",
             "buffId": "passive_craft_foundation_mystic_enhancement_buff",
-            "name": "强化专修",
+            "name": "注灵凝纹",
             "shortMark": "强",
             "desc": "强化速度+16%，无额外负面效果。",
             "craftEffectStats": {
@@ -1591,7 +1591,7 @@
     "skills": [
       {
         "id": "skill_passive_craft_mortal_mortal_mining",
-        "name": "采矿专修",
+        "name": "探矿辨石",
         "desc": "纯被动。采矿速度+8%，无额外负面效果。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -1603,7 +1603,7 @@
           {
             "type": "buff",
             "buffId": "passive_craft_mortal_mortal_mining_buff",
-            "name": "采矿专修",
+            "name": "探矿辨石",
             "shortMark": "矿",
             "desc": "采矿速度+8%，无额外负面效果。",
             "craftEffectStats": {
@@ -1634,7 +1634,7 @@
     "skills": [
       {
         "id": "skill_passive_craft_qi_yellow_mining",
-        "name": "采矿专修",
+        "name": "地脉寻金",
         "desc": "纯被动。采矿速度+12%，无额外负面效果。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -1646,7 +1646,7 @@
           {
             "type": "buff",
             "buffId": "passive_craft_qi_yellow_mining_buff",
-            "name": "采矿专修",
+            "name": "地脉寻金",
             "shortMark": "矿",
             "desc": "采矿速度+12%，无额外负面效果。",
             "craftEffectStats": {
@@ -1677,7 +1677,7 @@
     "skills": [
       {
         "id": "skill_passive_craft_foundation_mystic_mining",
-        "name": "采矿专修",
+        "name": "分岳探脉",
         "desc": "纯被动。采矿速度+16%，无额外负面效果。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -1689,7 +1689,7 @@
           {
             "type": "buff",
             "buffId": "passive_craft_foundation_mystic_mining_buff",
-            "name": "采矿专修",
+            "name": "分岳探脉",
             "shortMark": "矿",
             "desc": "采矿速度+16%，无额外负面效果。",
             "craftEffectStats": {
@@ -1720,7 +1720,7 @@
     "skills": [
       {
         "id": "skill_passive_craft_mortal_mortal_gather",
-        "name": "采集专修",
+        "name": "百草识辨",
         "desc": "纯被动。采集速度+8%，无额外负面效果。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -1732,7 +1732,7 @@
           {
             "type": "buff",
             "buffId": "passive_craft_mortal_mortal_gather_buff",
-            "name": "采集专修",
+            "name": "百草识辨",
             "shortMark": "集",
             "desc": "采集速度+8%，无额外负面效果。",
             "craftEffectStats": {
@@ -1763,7 +1763,7 @@
     "skills": [
       {
         "id": "skill_passive_craft_qi_yellow_gather",
-        "name": "采集专修",
+        "name": "青灵采撷",
         "desc": "纯被动。采集速度+12%，无额外负面效果。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -1775,7 +1775,7 @@
           {
             "type": "buff",
             "buffId": "passive_craft_qi_yellow_gather_buff",
-            "name": "采集专修",
+            "name": "青灵采撷",
             "shortMark": "集",
             "desc": "采集速度+12%，无额外负面效果。",
             "craftEffectStats": {
@@ -1806,7 +1806,7 @@
     "skills": [
       {
         "id": "skill_passive_craft_foundation_mystic_gather",
-        "name": "采集专修",
+        "name": "灵植引脉",
         "desc": "纯被动。采集速度+16%，无额外负面效果。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -1818,7 +1818,7 @@
           {
             "type": "buff",
             "buffId": "passive_craft_foundation_mystic_gather_buff",
-            "name": "采集专修",
+            "name": "灵植引脉",
             "shortMark": "集",
             "desc": "采集速度+16%，无额外负面效果。",
             "craftEffectStats": {
@@ -1849,7 +1849,7 @@
     "skills": [
       {
         "id": "skill_passive_craft_mortal_mortal_building",
-        "name": "营造专修",
+        "name": "引绳规矩",
         "desc": "纯被动。营造速度+8%，无额外负面效果。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -1861,7 +1861,7 @@
           {
             "type": "buff",
             "buffId": "passive_craft_mortal_mortal_building_buff",
-            "name": "营造专修",
+            "name": "引绳规矩",
             "shortMark": "造",
             "desc": "营造速度+8%，无额外负面效果。",
             "craftEffectStats": {
@@ -1892,7 +1892,7 @@
     "skills": [
       {
         "id": "skill_passive_craft_qi_yellow_building",
-        "name": "营造专修",
+        "name": "理气筑基",
         "desc": "纯被动。营造速度+12%，无额外负面效果。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -1904,7 +1904,7 @@
           {
             "type": "buff",
             "buffId": "passive_craft_qi_yellow_building_buff",
-            "name": "营造专修",
+            "name": "理气筑基",
             "shortMark": "造",
             "desc": "营造速度+12%，无额外负面效果。",
             "craftEffectStats": {
@@ -1935,7 +1935,7 @@
     "skills": [
       {
         "id": "skill_passive_craft_foundation_mystic_building",
-        "name": "营造专修",
+        "name": "移山架阁",
         "desc": "纯被动。营造速度+16%，无额外负面效果。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -1947,7 +1947,7 @@
           {
             "type": "buff",
             "buffId": "passive_craft_foundation_mystic_building_buff",
-            "name": "营造专修",
+            "name": "移山架阁",
             "shortMark": "造",
             "desc": "营造速度+16%，无额外负面效果。",
             "craftEffectStats": {
@@ -1978,7 +1978,7 @@
     "skills": [
       {
         "id": "skill_passive_craft_mortal_mortal_formation",
-        "name": "布阵专修",
+        "name": "布子定元",
         "desc": "纯被动。布阵速度+8%，无额外负面效果。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -1990,7 +1990,7 @@
           {
             "type": "buff",
             "buffId": "passive_craft_mortal_mortal_formation_buff",
-            "name": "布阵专修",
+            "name": "布子定元",
             "shortMark": "阵",
             "desc": "布阵速度+8%，无额外负面效果。",
             "craftEffectStats": {
@@ -2021,7 +2021,7 @@
     "skills": [
       {
         "id": "skill_passive_craft_qi_yellow_formation",
-        "name": "布阵专修",
+        "name": "走盘引阵",
         "desc": "纯被动。布阵速度+12%，无额外负面效果。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -2033,7 +2033,7 @@
           {
             "type": "buff",
             "buffId": "passive_craft_qi_yellow_formation_buff",
-            "name": "布阵专修",
+            "name": "走盘引阵",
             "shortMark": "阵",
             "desc": "布阵速度+12%，无额外负面效果。",
             "craftEffectStats": {
@@ -2064,7 +2064,7 @@
     "skills": [
       {
         "id": "skill_passive_craft_foundation_mystic_formation",
-        "name": "布阵专修",
+        "name": "锁灵定脉",
         "desc": "纯被动。布阵速度+16%，无额外负面效果。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -2076,7 +2076,7 @@
           {
             "type": "buff",
             "buffId": "passive_craft_foundation_mystic_formation_buff",
-            "name": "布阵专修",
+            "name": "锁灵定脉",
             "shortMark": "阵",
             "desc": "布阵速度+16%，无额外负面效果。",
             "craftEffectStats": {
@@ -2107,7 +2107,7 @@
     "skills": [
       {
         "id": "skill_passive_craft_mortal_mortal_transmission",
-        "name": "传法专修",
+        "name": "启蒙明道",
         "desc": "纯被动。传法速度+8%，无额外负面效果。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -2119,7 +2119,7 @@
           {
             "type": "buff",
             "buffId": "passive_craft_mortal_mortal_transmission_buff",
-            "name": "传法专修",
+            "name": "启蒙明道",
             "shortMark": "法",
             "desc": "传法速度+8%，无额外负面效果。",
             "craftEffectStats": {
@@ -2150,7 +2150,7 @@
     "skills": [
       {
         "id": "skill_passive_craft_qi_yellow_transmission",
-        "name": "传法专修",
+        "name": "口传心授",
         "desc": "纯被动。传法速度+12%，无额外负面效果。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -2162,7 +2162,7 @@
           {
             "type": "buff",
             "buffId": "passive_craft_qi_yellow_transmission_buff",
-            "name": "传法专修",
+            "name": "口传心授",
             "shortMark": "法",
             "desc": "传法速度+12%，无额外负面效果。",
             "craftEffectStats": {
@@ -2193,7 +2193,7 @@
     "skills": [
       {
         "id": "skill_passive_craft_foundation_mystic_transmission",
-        "name": "传法专修",
+        "name": "神念化法",
         "desc": "纯被动。传法速度+16%，无额外负面效果。",
         "cooldown": 0,
         "costMultiplier": 0,
@@ -2205,7 +2205,7 @@
           {
             "type": "buff",
             "buffId": "passive_craft_foundation_mystic_transmission_buff",
-            "name": "传法专修",
+            "name": "神念化法",
             "shortMark": "法",
             "desc": "传法速度+16%，无额外负面效果。",
             "craftEffectStats": {

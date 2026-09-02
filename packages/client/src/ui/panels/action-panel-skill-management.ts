@@ -16,6 +16,7 @@ import {
   decodePresetTextValue,
   escapeHtml,
   isRecord,
+  matchesSkillManagementTab,
   readBoolean,
 } from './action-panel-helpers';
 import type { ActionPanel } from './action-panel';
@@ -26,7 +27,6 @@ import type {
   SkillManagementFilterToggle,
   SkillManagementSortDirection,
   SkillManagementSortField,
-  SkillManagementTab,
   SkillPresetLibrary,
   SkillPresetRecord,
   SkillPresetSkillState,
@@ -629,11 +629,7 @@ export class SkillManagementSubpanel {
   private getSortedSkillManagementActionIds(): string[] {
     const previewActions = this.getSkillManagementPreviewActions();
     const skillEntries = this.getFilteredSkillManagementEntries(this.getSkillManagementEntries(previewActions));
-    const visibleEntries = this.p.skillManagementTab === 'auto'
-      ? skillEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.passiveOnly !== true && entry.action.autoBattleEnabled !== false)
-      : this.p.skillManagementTab === 'manual'
-        ? skillEntries.filter((entry) => entry.action.skillEnabled !== false && (entry.action.passiveOnly === true || entry.action.autoBattleEnabled === false))
-        : skillEntries.filter((entry) => entry.action.skillEnabled === false);
+    const visibleEntries = skillEntries.filter((entry) => matchesSkillManagementTab(entry.action, this.p.skillManagementTab));
     return this.sortSkillManagementEntries(visibleEntries).map((entry) => entry.action.id);
   }
 
@@ -989,11 +985,13 @@ export class SkillManagementSubpanel {
 
   /** 生成技能管理空态文案。 */
   private getSkillManagementEmptyStateText(): string {
-    const base = this.p.skillManagementTab === 'auto'
-      ? t('action.skill.manage.empty.auto', undefined)
-      : this.p.skillManagementTab === 'manual'
-        ? t('action.skill.manage.empty.manual', undefined)
-        : t('action.skill.manage.empty.disabled', undefined);
+    const emptyKey = {
+      auto: 'action.skill.manage.empty.auto',
+      manual: 'action.skill.manage.empty.manual',
+      resident: 'action.skill.manage.empty.resident',
+      disabled: 'action.skill.manage.empty.disabled',
+    } as const;
+    const base = t(emptyKey[this.p.skillManagementTab], undefined);
     if (this.p.skillManagementFilterToggles.size === 0) {
       return base;
     }
@@ -1293,16 +1291,13 @@ export class SkillManagementSubpanel {
     const skillEntries = this.getSkillManagementEntries(previewActions);
     const filteredEntries = this.getFilteredSkillManagementEntries(skillEntries);
     const autoBattleDisplayOrders = this.p.buildAutoBattleDisplayOrderMap(previewActions);
-    const autoEntries = filteredEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.passiveOnly !== true && entry.action.autoBattleEnabled !== false);
-    const manualEntries = filteredEntries.filter((entry) => entry.action.skillEnabled !== false && (entry.action.passiveOnly === true || entry.action.autoBattleEnabled === false));
-    const disabledEntries = filteredEntries.filter((entry) => entry.action.skillEnabled === false);
+    const autoEntries = filteredEntries.filter((entry) => matchesSkillManagementTab(entry.action, 'auto'));
+    const manualEntries = filteredEntries.filter((entry) => matchesSkillManagementTab(entry.action, 'manual'));
+    const residentEntries = filteredEntries.filter((entry) => matchesSkillManagementTab(entry.action, 'resident'));
+    const disabledEntries = filteredEntries.filter((entry) => matchesSkillManagementTab(entry.action, 'disabled'));
     const slotSummary = this.p.getSkillSlotSummary(previewActions);
     const visibleEntries = this.sortSkillManagementEntries(
-      this.p.skillManagementTab === 'auto'
-        ? autoEntries
-        : this.p.skillManagementTab === 'manual'
-          ? manualEntries
-          : disabledEntries,
+      filteredEntries.filter((entry) => matchesSkillManagementTab(entry.action, this.p.skillManagementTab)),
     );
     const dragSortEnabled = this.p.skillManagementTab === 'auto'
       && this.p.skillManagementSortField === 'custom'
@@ -1331,6 +1326,10 @@ export class SkillManagementSubpanel {
                 ${t('action.skill.tab.manual', undefined)}
                 <span class="action-skill-subtab-count">${manualEntries.length}</span>
               </button>
+              <button class="action-skill-subtab-btn ${this.p.skillManagementTab === 'resident' ? 'active' : ''}" data-skill-manage-tab="resident" type="button">
+                ${t('action.skill.tab.resident', undefined)}
+                <span class="action-skill-subtab-count">${residentEntries.length}</span>
+              </button>
               <button class="action-skill-subtab-btn ${this.p.skillManagementTab === 'disabled' ? 'active' : ''}" data-skill-manage-tab="disabled" type="button">
                 ${t('action.skill.manage.tab.disabled', undefined)}
                 <span class="action-skill-subtab-count">${disabledEntries.length}</span>
@@ -1352,6 +1351,7 @@ export class SkillManagementSubpanel {
             <span>${t('action.skill.manage.summary.filtered', { count: formatDisplayInteger(filteredEntries.length) })}</span>
             <span>${t('action.skill.manage.summary.auto', { count: formatDisplayInteger(autoEntries.length) })}</span>
             <span>${t('action.skill.manage.summary.manual', { count: formatDisplayInteger(manualEntries.length) })}</span>
+            <span>${t('action.skill.manage.summary.resident', { count: formatDisplayInteger(residentEntries.length) })}</span>
             <span>${t('action.skill.manage.summary.disabled', { count: formatDisplayInteger(disabledEntries.length) })}</span>
           </div>
           ${this.p.skillManagementSortOpen ? this.renderSkillManagementSortPanel() : ''}
@@ -1425,8 +1425,8 @@ export class SkillManagementSubpanel {
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-tab]').forEach((button) => {
       button.addEventListener('click', () => {
-        const tab = button.dataset.skillManageTab as SkillManagementTab | undefined;
-        if (!tab) return;
+        const tab = button.dataset.skillManageTab;
+        if (tab !== 'auto' && tab !== 'manual' && tab !== 'resident' && tab !== 'disabled') return;
         this.p.skillManagementTab = tab;
         this.renderSkillManagementModal();
       }, { signal });
@@ -1492,13 +1492,7 @@ export class SkillManagementSubpanel {
         const position = button.dataset.skillManageMoveUp ? 'before' : 'after';
         const visibleEntries = this.sortSkillManagementEntries(
           this.getFilteredSkillManagementEntries(this.getSkillManagementEntries(this.getSkillManagementPreviewActions())),
-        ).filter((entry) => (
-          this.p.skillManagementTab === 'disabled'
-            ? entry.action.skillEnabled === false
-            : this.p.skillManagementTab === 'auto'
-              ? entry.action.skillEnabled !== false && entry.action.passiveOnly !== true && entry.action.autoBattleEnabled !== false
-              : entry.action.skillEnabled !== false && (entry.action.passiveOnly === true || entry.action.autoBattleEnabled === false)
-        ));
+        ).filter((entry) => matchesSkillManagementTab(entry.action, this.p.skillManagementTab));
         const currentIndex = visibleEntries.findIndex((entry) => entry.action.id === actionId);
         if (currentIndex < 0) {
           return;
@@ -1574,6 +1568,9 @@ export class SkillManagementSubpanel {
     if (this.p.skillManagementTab === 'disabled') {
       return t('action.skill.manage.hint.disabled', { slotSummary });
     }
+    if (this.p.skillManagementTab === 'resident') {
+      return t('action.skill.manage.hint.resident', { slotSummary });
+    }
     if (this.p.skillManagementSortField !== 'custom') {
       return t('action.skill.manage.hint.sorted', { slotSummary });
     }
@@ -1640,8 +1637,7 @@ export class SkillManagementSubpanel {
           <span class="action-name">${escapeHtml(action.name)}</span>
           <span class="action-type">${t('action.card.skill-type', undefined)}</span>
           ${typeof action.range === 'number' ? `<span class="action-type">${t('action.range', { range: formatDisplayNumber(action.range) })}</span>` : ''}
-          ${passiveOnly ? `<span class="action-type">被动</span>` : ''}
-          <span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${autoBattleEnabled ? t('action.skill.auto-state.enabled', undefined) : t('action.skill.auto-state.disabled', undefined)}</span>
+          ${passiveOnly ? `<span class="action-type">${t('action.skill.tab.resident', undefined)}</span>` : `<span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${autoBattleEnabled ? t('action.skill.auto-state.enabled', undefined) : t('action.skill.auto-state.disabled', undefined)}</span>`}
           <span class="action-type ${skillEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${skillEnabled ? t('action.skill.manage.skill-enabled.enabled', undefined) : t('action.skill.manage.skill-enabled.disabled', undefined)}</span>
           ${autoBattleOrder ? `<span class="action-type">${t('action.skill.order', { order: formatDisplayInteger(autoBattleOrder) })}</span>` : ''}
         </div>

@@ -533,7 +533,7 @@
 
     .action-skill-subtabs {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 6px;
       margin-bottom: 10px;
     }
@@ -591,7 +591,7 @@
     .skill-manage-subtabs {
       flex: 1 1 auto;
       margin-bottom: 0;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 
     .skill-manage-toolbar,
@@ -953,6 +953,16 @@
     }
 
     @media (max-width: 900px) {
+      .action-skill-subtabs {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+      .skill-manage-topbar {
+        flex-wrap: wrap;
+      }
+      .skill-manage-subtabs {
+        min-width: 0;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
       .skill-preset-hero,
       .skill-preset-layout {
         grid-template-columns: 1fr;
