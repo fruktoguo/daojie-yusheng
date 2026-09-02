@@ -8,7 +8,7 @@
  * 根据 SkillDef 和玩家上下文生成带公式预览的富文本提示内容
  */
 
-import { AttrKey, NumericScalarStatKey, SkillDef, SkillFormula, SkillFormulaVar, TemporaryBuffState, calcQiCostWithOutputLimit, formatBuffMaxStacks, getSkillPassiveEffects, isPassiveOnlySkill, resolveSkillPlayerWindupTicks, scaleTechniquePassiveSkill, type SkillPassiveBuffEffectDef, type SkillPassiveEffectDef } from '@mud/shared';
+import { AttrKey, NumericScalarStatKey, SkillDef, SkillFormula, SkillFormulaVar, TemporaryBuffState, calcQiCostWithOutputLimit, formatBuffMaxStacks, getQiResourceDisplayLabel, getSkillPassiveEffects, isPassiveOnlySkill, resolveSkillPlayerWindupTicks, scaleTechniquePassiveSkill, type SkillPassiveBuffEffectDef, type SkillPassiveEffectDef } from '@mud/shared';
 import type { PlayerState, TileType } from '@mud/shared';
 import { FORMULA_VAR_LABELS, FORMULA_VAR_META, type SkillScalingMeta } from '../constants/ui/skill-tooltip';
 import { getElementKeyLabel, getTileTypeLabel } from '../domain-labels';
@@ -1158,9 +1158,10 @@ function collectPassiveBuffBonusItems(effect: SkillPassiveBuffEffectDef): Previe
 }
 
 function collectCultivationBonusItems(effect: Extract<SkillPassiveEffectDef, { type: 'cultivation_tile_qi' }>): PreviewBonusItem[] {
+  const resourceLabel = getQiResourceDisplayLabel(effect.resourceKey);
   const label = effect.amount !== undefined
-    ? t('skill-tooltip.cultivation-tile-qi.amount', { amount: formatDisplayNumber(effect.amount), resource: effect.resourceKey })
-    : t('skill-tooltip.cultivation-tile-qi.multiplier', { multiplier: formatDisplayNumber(effect.multiplier ?? 1), resource: effect.resourceKey });
+    ? t('skill-tooltip.cultivation-tile-qi.amount', { amount: formatDisplayNumber(effect.amount), resource: resourceLabel })
+    : t('skill-tooltip.cultivation-tile-qi.multiplier', { multiplier: formatDisplayNumber(effect.multiplier ?? 1), resource: resourceLabel });
   const value = effect.amount !== undefined ? Number(effect.amount) : Number(effect.multiplier ?? 1);
   return [makePreviewBonusItem({
     key: `cultivation-${effect.resourceKey}`,

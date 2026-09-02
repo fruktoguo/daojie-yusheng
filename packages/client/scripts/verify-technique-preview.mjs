@@ -520,7 +520,7 @@ try {
   const yinTooltipText = stripHtml(
     skillTooltip.buildSkillTooltipContent(yinTemplate.skills[0], { techLevel: fireLevel, passiveTechnique: true }).lines.join('\n'),
   );
-  assert.match(yinTooltipText, /注入倍率 2\.35 aura\.refined\.yang/u, '阴功法常驻注灵必须灌注阳灵气并按层数缩放');
+  assert.match(yinTooltipText, /注入倍率 2\.35 阳灵气/u, '阴功法常驻注灵必须灌注阳灵气并按层数缩放');
   assert.doesNotMatch(yinTooltipText, /吸收效率/u, '阴阳灵脉不得随常驻技能层数缩放');
 
   const yangTemplate = localTemplates.getLocalTechniqueTemplate('passive_yinyang_qi_earth_pure_yang');
@@ -528,7 +528,7 @@ try {
   const yangTooltipText = stripHtml(
     skillTooltip.buildSkillTooltipContent(yangTemplate.skills[0], { techLevel: fireLevel, passiveTechnique: true }).lines.join('\n'),
   );
-  assert.match(yangTooltipText, /注入倍率 2\.35 aura\.refined\.yin/u, '阳功法常驻注灵必须灌注阴灵气并按层数缩放');
+  assert.match(yangTooltipText, /注入倍率 2\.35 阴灵气/u, '阳功法常驻注灵必须灌注阴灵气并按层数缩放');
   assert.doesNotMatch(yangTooltipText, /吸收效率/u, '阳功法灵脉不得出现在常驻技能 hover');
 
   const yinPreview = resolveTemplatePreview('passive_yinyang_qi_earth_pure_yin');

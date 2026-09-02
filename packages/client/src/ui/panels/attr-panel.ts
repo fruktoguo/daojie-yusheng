@@ -43,7 +43,7 @@ import {
   S2C_AttrUpdate,
   TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE,
   TileType,
-  stackQiEfficiencyBp,
+  getQiResourceDisplayLabel,
   getMovePointsPerTick,
   getTileTraversalCost,
 } from '@mud/shared';
@@ -174,7 +174,9 @@ function resolveQiProjectionDisplay(
   defaultVisibility: DisplayQiProjection['visibility'],
 ): DisplayQiProjection {
   let visibility = defaultVisibility;
-  let efficiencyBp = defaultVisibility === 'hidden' ? 0 : DEFAULT_QI_EFFICIENCY_BP;
+  const baselineBp = defaultVisibility === 'hidden' ? 0 : DEFAULT_QI_EFFICIENCY_BP;
+  let efficiencyDelta = 0;
+  let hasEfficiencyModifier = false;
   const sources = new Set<string>();
   for (const bonus of bonuses) {
     for (const modifier of bonus.qiProjection ?? []) {
@@ -185,14 +187,17 @@ function resolveQiProjectionDisplay(
         visibility = modifier.visibility;
       }
       if (modifier.efficiencyBpMultiplier !== undefined) {
-        efficiencyBp = defaultVisibility === 'hidden'
-          ? Math.max(0, efficiencyBp + modifier.efficiencyBpMultiplier - DEFAULT_QI_EFFICIENCY_BP)
-          : stackQiEfficiencyBp(efficiencyBp, modifier.efficiencyBpMultiplier);
+        hasEfficiencyModifier = true;
+        efficiencyDelta += modifier.efficiencyBpMultiplier - DEFAULT_QI_EFFICIENCY_BP;
       }
       sources.add(bonus.label ?? bonus.source);
     }
   }
-  return { visibility, efficiencyBp, sources: [...sources] };
+  return {
+    visibility,
+    efficiencyBp: hasEfficiencyModifier ? Math.max(0, baselineBp + efficiencyDelta) : baselineBp,
+    sources: [...sources],
+  };
 }
 
 function matchesQiProjectionModifier(descriptor: DisplayQiDescriptor, modifier: QiProjectionModifier): boolean {
@@ -1458,6 +1463,32 @@ export class AttrPanel {
             ? `对煞气吸收效率为 ${formatQiEfficiencyBp(neutralShaProjection.efficiencyBp)}。`
             : '可感知煞气。',
           ...buildQiProjectionSourceLines(neutralShaProjection),
+        ].join('\n'),
+      });
+    }
+
+    for (const element of ['yin', 'yang'] as const) {
+      const projection = resolveQiProjectionDisplay(
+        { family: 'aura', form: 'refined', element },
+        bonuses,
+        'hidden',
+      );
+      if (projection.visibility === 'hidden') {
+        continue;
+      }
+      const label = getQiResourceDisplayLabel(`aura.refined.${element}`);
+      cards.push({
+        key: `${element}-aura`,
+        label,
+        value: projection.visibility === 'absorbable'
+          ? formatQiEfficiencyBp(projection.efficiencyBp)
+          : '可感知',
+        tooltipTitle: label,
+        tooltipDetail: [
+          projection.visibility === 'absorbable'
+            ? `对${label}吸收效率为 ${formatQiEfficiencyBp(projection.efficiencyBp)}。`
+            : `可感知${label}。`,
+          ...buildQiProjectionSourceLines(projection),
         ].join('\n'),
       });
     }
