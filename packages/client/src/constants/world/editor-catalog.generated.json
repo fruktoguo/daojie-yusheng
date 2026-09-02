@@ -563,7 +563,7 @@
     {
       "id": "passive_yinyang_qi_earth_pure_yin",
       "name": "《九阳化阴真经》",
-      "desc": "夺天地造化的玄阴反哺真诀。【掌握属性】体内玄阴灵脉增强，阴灵气吸收效率+1.0%、阳灵气吸收效率-1.0%；【启用被动】打坐修炼时向周围九宫格地脉注入玄阴灵气。",
+      "desc": "夺天地造化的玄阴反哺真诀。【掌握属性】阴灵脉+100、阳灵脉-100；【启用被动】打坐修炼时向周围九宫格地脉注入阳灵气。与阳功法同修时灵脉相互抵消。",
       "grade": "earth",
       "category": "arts",
       "realmLv": 23,
@@ -579,7 +579,7 @@
         {
           "id": "skill_passive_yinyang_qi_earth_pure_yin",
           "name": "九阳化阴真经",
-          "desc": "【被动】气机逆转，九阳化阴。启用此心法打坐修炼时，持续向周围九宫格地脉每格注入√(最大灵力输出)点玄阴灵气。",
+          "desc": "【被动】气机逆转，九阳化阴。启用此心法打坐修炼时，持续向周围九宫格地脉每格注入√(最大灵力输出)点纯阳灵气。灌注效率随功法层数每层提升5%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -592,42 +592,48 @@
               "buffId": "passive_yinyang_qi_earth_pure_yin_qi",
               "name": "九阳化阴真经",
               "shortMark": "阴",
-              "desc": "逆转九阳，化育玄阴。打坐修炼时向周围九宫格地脉注入玄阴灵气。",
-              "qiProjection": [
-                {
-                  "selector": {
-                    "families": [
-                      "aura"
-                    ],
-                    "elements": [
-                      "yin"
-                    ]
-                  },
-                  "visibility": "absorbable",
-                  "efficiencyBpMultiplier": 10100
-                },
-                {
-                  "selector": {
-                    "families": [
-                      "aura"
-                    ],
-                    "elements": [
-                      "yang"
-                    ]
-                  },
-                  "visibility": "absorbable",
-                  "efficiencyBpMultiplier": 9900
-                }
-              ]
+              "desc": "逆转九阳，化育纯阳。打坐修炼时向周围九宫格地脉注入阳灵气。"
             },
             {
               "type": "cultivation_tile_qi",
-              "resourceKey": "aura.refined.yin",
+              "resourceKey": "aura.refined.yang",
               "radius": 1,
               "amountSource": "max_qi_output_sqrt"
             }
           ],
           "cost": 0
+        }
+      ],
+      "layers": [
+        {
+          "level": 1,
+          "expToNext": 0,
+          "qiProjection": [
+            {
+              "selector": {
+                "families": [
+                  "aura"
+                ],
+                "elements": [
+                  "yin"
+                ]
+              },
+              "visibility": "absorbable",
+              "efficiencyBpMultiplier": 20000
+            },
+            {
+              "selector": {
+                "families": [
+                  "aura"
+                ],
+                "elements": [
+                  "yang"
+                ]
+              },
+              "visibility": "absorbable",
+              "efficiencyBpMultiplier": 0
+            }
+          ]
         }
       ]
     },
@@ -1770,7 +1776,7 @@
     {
       "id": "passive_yinyang_qi_earth_pure_yang",
       "name": "《玄牝生阳宝典》",
-      "desc": "生生不息的纯阳反哺宝典。【掌握属性】体内纯阳灵脉增强，阳灵气吸收效率+1.0%、阴灵气吸收效率-1.0%；【启用被动】打坐修炼时向周围九宫格地脉注入纯阳灵气。",
+      "desc": "生生不息的纯阳反哺宝典。【掌握属性】阳灵脉+100、阴灵脉-100；【启用被动】打坐修炼时向周围九宫格地脉注入阴灵气。与阴功法同修时灵脉相互抵消。",
       "grade": "earth",
       "category": "arts",
       "realmLv": 23,
@@ -1786,7 +1792,7 @@
         {
           "id": "skill_passive_yinyang_qi_earth_pure_yang",
           "name": "玄牝生阳宝典",
-          "desc": "【被动】玄牝长存，阴尽阳生。启用此心法打坐修炼时，持续向周围九宫格地脉每格注入√(最大灵力输出)点纯阳灵气。",
+          "desc": "【被动】玄牝长存，阴尽阳生。启用此心法打坐修炼时，持续向周围九宫格地脉每格注入√(最大灵力输出)点玄阴灵气。灌注效率随功法层数每层提升5%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1799,42 +1805,48 @@
               "buffId": "passive_yinyang_qi_earth_pure_yang_qi",
               "name": "玄牝生阳宝典",
               "shortMark": "阳",
-              "desc": "玄牝生阳，化育纯阳。打坐修炼时向周围九宫格地脉注入纯阳灵气。",
-              "qiProjection": [
-                {
-                  "selector": {
-                    "families": [
-                      "aura"
-                    ],
-                    "elements": [
-                      "yang"
-                    ]
-                  },
-                  "visibility": "absorbable",
-                  "efficiencyBpMultiplier": 10100
-                },
-                {
-                  "selector": {
-                    "families": [
-                      "aura"
-                    ],
-                    "elements": [
-                      "yin"
-                    ]
-                  },
-                  "visibility": "absorbable",
-                  "efficiencyBpMultiplier": 9900
-                }
-              ]
+              "desc": "玄牝生阳，化育玄阴。打坐修炼时向周围九宫格地脉注入阴灵气。"
             },
             {
               "type": "cultivation_tile_qi",
-              "resourceKey": "aura.refined.yang",
+              "resourceKey": "aura.refined.yin",
               "radius": 1,
               "amountSource": "max_qi_output_sqrt"
             }
           ],
           "cost": 0
+        }
+      ],
+      "layers": [
+        {
+          "level": 1,
+          "expToNext": 0,
+          "qiProjection": [
+            {
+              "selector": {
+                "families": [
+                  "aura"
+                ],
+                "elements": [
+                  "yang"
+                ]
+              },
+              "visibility": "absorbable",
+              "efficiencyBpMultiplier": 20000
+            },
+            {
+              "selector": {
+                "families": [
+                  "aura"
+                ],
+                "elements": [
+                  "yin"
+                ]
+              },
+              "visibility": "absorbable",
+              "efficiencyBpMultiplier": 0
+            }
+          ]
         }
       ]
     },
@@ -11027,7 +11039,7 @@
       "itemId": "book.passive_yinyang_qi_earth_pure_yin",
       "name": "《九阳化阴真经》",
       "type": "skill_book",
-      "desc": "记载阳极生阴、反哺天地之理的玄奥玉册。研读后参悟《九阳化阴真经》，提升阴灵脉吸收效率，并掌握打坐玄阴注灵之术。",
+      "desc": "记载阳极生阴、反哺天地之理的玄奥玉册。研读后参悟《九阳化阴真经》，阴灵脉+100、阳灵脉-100，并掌握打坐灌注阳灵气之术。",
       "learnTechniqueId": "passive_yinyang_qi_earth_pure_yin"
     },
     {
@@ -11349,7 +11361,7 @@
       "itemId": "book.passive_yinyang_qi_earth_pure_yang",
       "name": "《玄牝生阳宝典》",
       "type": "skill_book",
-      "desc": "记载阴极生阳、反哺天地之理的温润金册。研读后参悟《玄牝生阳宝典》，提升阳灵脉吸收效率，并掌握打坐纯阳注灵之术。",
+      "desc": "记载阴极生阳、反哺天地之理的温润金册。研读后参悟《玄牝生阳宝典》，阳灵脉+100、阴灵脉-100，并掌握打坐灌注阴灵气之术。",
       "learnTechniqueId": "passive_yinyang_qi_earth_pure_yang"
     },
     {
@@ -18117,7 +18129,7 @@
     {
       "buffId": "passive_yinyang_qi_earth_pure_yin_qi",
       "name": "九阳化阴真经",
-      "desc": "逆转九阳，化育玄阴。打坐修炼时向周围九宫格地脉注入玄阴灵气。",
+      "desc": "逆转九阳，化育纯阳。打坐修炼时向周围九宫格地脉注入阳灵气。",
       "shortMark": "阴",
       "category": "buff",
       "visibility": "public",
@@ -18128,32 +18140,6 @@
       "sourceSkillId": "skill_passive_yinyang_qi_earth_pure_yin",
       "sourceSkillName": "九阳化阴真经",
       "realmLv": 1,
-      "qiProjection": [
-        {
-          "selector": {
-            "families": [
-              "aura"
-            ],
-            "elements": [
-              "yin"
-            ]
-          },
-          "visibility": "absorbable",
-          "efficiencyBpMultiplier": 10100
-        },
-        {
-          "selector": {
-            "families": [
-              "aura"
-            ],
-            "elements": [
-              "yang"
-            ]
-          },
-          "visibility": "absorbable",
-          "efficiencyBpMultiplier": 9900
-        }
-      ],
       "infiniteDuration": true
     },
     {
@@ -19386,7 +19372,7 @@
     {
       "buffId": "passive_yinyang_qi_earth_pure_yang_qi",
       "name": "玄牝生阳宝典",
-      "desc": "玄牝生阳，化育纯阳。打坐修炼时向周围九宫格地脉注入纯阳灵气。",
+      "desc": "玄牝生阳，化育玄阴。打坐修炼时向周围九宫格地脉注入阴灵气。",
       "shortMark": "阳",
       "category": "buff",
       "visibility": "public",
@@ -19397,32 +19383,6 @@
       "sourceSkillId": "skill_passive_yinyang_qi_earth_pure_yang",
       "sourceSkillName": "玄牝生阳宝典",
       "realmLv": 1,
-      "qiProjection": [
-        {
-          "selector": {
-            "families": [
-              "aura"
-            ],
-            "elements": [
-              "yang"
-            ]
-          },
-          "visibility": "absorbable",
-          "efficiencyBpMultiplier": 10100
-        },
-        {
-          "selector": {
-            "families": [
-              "aura"
-            ],
-            "elements": [
-              "yin"
-            ]
-          },
-          "visibility": "absorbable",
-          "efficiencyBpMultiplier": 9900
-        }
-      ],
       "infiniteDuration": true
     },
     {

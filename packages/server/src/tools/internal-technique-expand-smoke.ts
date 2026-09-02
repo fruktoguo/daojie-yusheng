@@ -312,6 +312,27 @@ function main(): void {
     'xuesha_huanling_jue level 1 should keep aura 9000 and sha 12000 qiProjection multipliers',
   );
 
+  const pureYin = byId.get('passive_yinyang_qi_earth_pure_yin');
+  const pureYang = byId.get('passive_yinyang_qi_earth_pure_yang');
+  assert.ok(pureYin, 'passive_yinyang_qi_earth_pure_yin runtime template missing');
+  assert.ok(pureYang, 'passive_yinyang_qi_earth_pure_yang runtime template missing');
+  const yinLayerOneQi = (pureYin.layers ?? []).find((layer) => Number(layer.level) === 1)?.qiProjection ?? [];
+  const yangLayerOneQi = (pureYang.layers ?? []).find((layer) => Number(layer.level) === 1)?.qiProjection ?? [];
+  assert.ok(
+    yinLayerOneQi.some((entry) => entry.selector?.elements?.includes('yin') && Number(entry.efficiencyBpMultiplier) === 20000)
+      && yinLayerOneQi.some((entry) => entry.selector?.elements?.includes('yang') && Number(entry.efficiencyBpMultiplier) === 0),
+    '阴功法第 1 层必须固定阴+100 / 阳-100',
+  );
+  assert.ok(
+    yangLayerOneQi.some((entry) => entry.selector?.elements?.includes('yang') && Number(entry.efficiencyBpMultiplier) === 20000)
+      && yangLayerOneQi.some((entry) => entry.selector?.elements?.includes('yin') && Number(entry.efficiencyBpMultiplier) === 0),
+    '阳功法第 1 层必须固定阳+100 / 阴-100',
+  );
+  const laterYinQi = (pureYin.layers ?? []).filter((layer) => Number(layer.level) > 1).some((layer) => Array.isArray(layer.qiProjection) && layer.qiProjection.length > 0);
+  const laterYangQi = (pureYang.layers ?? []).filter((layer) => Number(layer.level) > 1).some((layer) => Array.isArray(layer.qiProjection) && layer.qiProjection.length > 0);
+  assert.equal(laterYinQi, false, '阴功法灵脉不得出现在第 1 层之后');
+  assert.equal(laterYangQi, false, '阳功法灵脉不得出现在第 1 层之后');
+
   console.log(
     JSON.stringify(
       {

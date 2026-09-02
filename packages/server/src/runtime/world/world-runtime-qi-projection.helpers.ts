@@ -10,7 +10,7 @@
 import {
   DEFAULT_PLAYER_QI_RESOURCE_KEYS,
   DEFAULT_QI_EFFICIENCY_BP,
-  calcTechniqueQiProjectionModifiers,
+  calcTechniqueFinalQiProjection,
   matchesQiProjectionSelector,
   parseQiResourceKey,
   projectQiValue,
@@ -154,9 +154,7 @@ export function resolvePlayerQiResourceProjection(
 
 function collectPlayerQiProjectionModifiers(player: QiProjectionPlayerView | null | undefined): QiProjectionModifier[] {
   const modifiers: QiProjectionModifier[] = [];
-  for (const technique of player?.techniques?.techniques ?? []) {
-    modifiers.push(...calcTechniqueQiProjectionModifiers(technique.level ?? 1, technique.layers ?? undefined));
-  }
+  modifiers.push(...calcTechniqueFinalQiProjection((player?.techniques?.techniques ?? []) as never));
   for (const buff of collectEnabledSkillPassiveBuffs(player)) {
     if (Array.isArray(buff.qiProjection)) {
       modifiers.push(...buff.qiProjection);

@@ -444,14 +444,14 @@
     "itemId": "book.passive_yinyang_qi_earth_pure_yin",
     "name": "《九阳化阴真经》",
     "type": "skill_book",
-    "desc": "记载阳极生阴、反哺天地之理的玄奥玉册。研读后参悟《九阳化阴真经》，提升阴灵脉吸收效率，并掌握打坐玄阴注灵之术。",
+    "desc": "记载阳极生阴、反哺天地之理的玄奥玉册。研读后参悟《九阳化阴真经》，阴灵脉+100、阳灵脉-100，并掌握打坐灌注阳灵气之术。",
     "learnTechniqueId": "passive_yinyang_qi_earth_pure_yin"
   },
   {
     "itemId": "book.passive_yinyang_qi_earth_pure_yang",
     "name": "《玄牝生阳宝典》",
     "type": "skill_book",
-    "desc": "记载阴极生阳、反哺天地之理的温润金册。研读后参悟《玄牝生阳宝典》，提升阳灵脉吸收效率，并掌握打坐纯阳注灵之术。",
+    "desc": "记载阴极生阳、反哺天地之理的温润金册。研读后参悟《玄牝生阳宝典》，阳灵脉+100、阴灵脉-100，并掌握打坐灌注阴灵气之术。",
     "learnTechniqueId": "passive_yinyang_qi_earth_pure_yang"
   }
 ]

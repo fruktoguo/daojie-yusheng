@@ -10,6 +10,7 @@ import {
   isPassiveTechnique,
   isTechniqueFullyMastered,
   type SkillDef,
+  getSkillPassiveEffects,
 } from '@mud/shared';
 import {
   addEnabledSkillPassiveCraftEffects,
@@ -19,6 +20,7 @@ import {
 import { resolveCultivationPassiveTileQiAmount } from '../runtime/player/player-cultivation-passive.helpers';
 import { projectVisiblePlayerBuffs } from '../runtime/player/player-buff-projection.helpers';
 import { resolvePlayerQiResourceProjection } from '../runtime/world/world-runtime-qi-projection.helpers';
+import { ContentTemplateRepository } from '../content/content-template.repository';
 
 function createPassiveSkill(overrides: Partial<SkillDef> = {}): SkillDef {
   return {
@@ -174,6 +176,68 @@ function testPassiveTechniqueProgressionRule(): void {
   assert.equal(getTechniquePassiveExpToNext(3_000, [{ level: 1, expToNext: 115 }]), Number.MAX_VALUE);
 }
 
+function testYinYangMeridiansFixedAndDualCultivateCancel(): void {
+  const repository = new ContentTemplateRepository();
+  repository.loadAll();
+  const yin = repository.hydrateTechniqueState({
+    techId: 'passive_yinyang_qi_earth_pure_yin',
+    level: 21,
+  }) as { skills?: SkillDef[] } | null;
+  const yang = repository.hydrateTechniqueState({
+    techId: 'passive_yinyang_qi_earth_pure_yang',
+    level: 21,
+  }) as { skills?: SkillDef[] } | null;
+  assert.ok(yin, '缺少九阳化阴真经');
+  assert.ok(yang, '缺少玄牝生阳宝典');
+
+  const yinSkill = yin.skills?.[0];
+  const yangSkill = yang.skills?.[0];
+  assert.ok(yinSkill && yangSkill, '阴阳功法缺少常驻技能');
+  const yinTile = getSkillPassiveEffects(yinSkill).find((effect) => effect.type === 'cultivation_tile_qi');
+  const yangTile = getSkillPassiveEffects(yangSkill).find((effect) => effect.type === 'cultivation_tile_qi');
+  assert.equal(yinTile?.resourceKey, 'aura.refined.yang', '阴功法常驻技能必须灌注阳灵气');
+  assert.equal(yangTile?.resourceKey, 'aura.refined.yin', '阳功法常驻技能必须灌注阴灵气');
+
+  const createPlayerWithTechniques = (techniques: unknown[]) => ({
+    techniques: { techniques },
+    buffs: { buffs: [] },
+    attrBonuses: [],
+    runtimeBonuses: [],
+  });
+
+  const yangOnly = createPlayerWithTechniques([yang]);
+  assert.equal(resolvePlayerQiResourceProjection(yangOnly as never, 'aura.refined.yang')?.efficiencyBp, 10_000);
+  assert.equal(resolvePlayerQiResourceProjection(yangOnly as never, 'aura.refined.yin')?.efficiencyBp, 0);
+
+  const yinOnly = createPlayerWithTechniques([yin]);
+  assert.equal(resolvePlayerQiResourceProjection(yinOnly as never, 'aura.refined.yin')?.efficiencyBp, 10_000);
+  assert.equal(resolvePlayerQiResourceProjection(yinOnly as never, 'aura.refined.yang')?.efficiencyBp, 0);
+
+  for (const techniques of [[yang, yin], [yin, yang]]) {
+    const both = createPlayerWithTechniques(techniques);
+    assert.equal(
+      resolvePlayerQiResourceProjection(both as never, 'aura.refined.yang')?.efficiencyBp,
+      0,
+      '两本同修时阳灵脉必须归零',
+    );
+    assert.equal(
+      resolvePlayerQiResourceProjection(both as never, 'aura.refined.yin')?.efficiencyBp,
+      0,
+      '两本同修时阴灵脉必须归零',
+    );
+  }
+
+  const yangLevelOne = repository.hydrateTechniqueState({
+    techId: 'passive_yinyang_qi_earth_pure_yang',
+    level: 1,
+  });
+  assert.equal(
+    resolvePlayerQiResourceProjection(createPlayerWithTechniques([yangLevelOne]) as never, 'aura.refined.yang')?.efficiencyBp,
+    10_000,
+    '阳灵脉学会即为 +100，不随层数变化',
+  );
+}
+
 function main(): void {
   testEnabledPassiveBuffProjection();
   testPassiveCraftAndCultivationEffects();
@@ -181,6 +245,7 @@ function main(): void {
   testDisableInvalidatesPassiveProfile();
   testPurePassiveAndSlotFormula();
   testPassiveTechniqueProgressionRule();
+  testYinYangMeridiansFixedAndDualCultivateCancel();
   console.log(JSON.stringify({
     ok: true,
     case: 'player-skill-passive',
@@ -191,6 +256,7 @@ function main(): void {
       'disable_invalidates_passive_profile',
       'pure_passive_slot_formula',
       'passive_technique_progression_rule',
+      'yin_yang_meridians_fixed_and_dual_cultivate_cancel',
     ],
   }, null, 2));
 }

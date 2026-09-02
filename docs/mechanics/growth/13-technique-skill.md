@@ -40,6 +40,15 @@ scaleTechniqueExp(expFactor, realmLv) = round(expFactor × 100 × realmLv)
 - 该倍率同时作用于被动 Buff 的属性/数值/气机投影和技艺加成，以及修炼地块注灵效果；不改变技能解锁、范围、层数上限元数据等非强度字段。
 - 被动功法始终按“未圆满”处理，详情只展示当前层数、经验和被动效果，不展示有限层数星图。
 
+### 阴阳功法
+
+《玄牝生阳宝典》（`passive_yinyang_qi_earth_pure_yang`）与《九阳化阴真经》（`passive_yinyang_qi_earth_pure_yin`）成对，迫使两人双修：
+
+- 学会即获得固定灵脉投影，不随功法层数缩放：阳功法阳灵气 `efficiencyBpMultiplier=20000`、阴灵气 `0`；阴功法相反。阴阳气机默认从 0 起算，因此 +100% 生效为可吸收 100%，-100% 为 0%。
+- 两本同学会按投影 delta 合并：`20000` 与 `0` 抵消后归零，无法再靠自己吸收阴阳灵气。
+- 启用常驻技能并打坐时，向周围九宫格灌注**对侧**灵气：阳灌注 `aura.refined.yin`，阴灌注 `aura.refined.yang`。
+- 每格灌注量 `√(maxQiOutputPerTick) × 层数强度倍率`；倍率每层 +5%（第 21 层为 `2.0`）。该倍率只作用于注灵，不作用于灵脉。
+
 ## 功法经验等级差修正
 
 ```typescript
