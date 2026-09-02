@@ -17,6 +17,7 @@ export const MERIT_MONTH_CARD_OFFLINE_MAX_HOURS = 72;
 export const BASE_OFFLINE_MAX_HOURS = 48;
 export const DAILY_SIGN_IN_RANDOM_MIN_MERIT = 1;
 export const DAILY_SIGN_IN_RANDOM_BASE_MAX_MERIT = 40;
+export const DAILY_SIGN_IN_FORTUNE_DURATION_MS = 24 * 60 * 60 * 1000;
 export const SPIRIT_STONE_ITEM_ID = 'spirit_stone';
 export const WUDAO_YUJIAN_ITEM_ID = 'wudao_yujian';
 export const INVITATION_INVITEE_SPIRIT_STONE_REWARD = 666;
@@ -48,6 +49,45 @@ export interface DailySignInFortuneView {
   randomMerit: number;
   baseRandomMaxMerit: number;
   randomMaxMerit: number;
+}
+
+export function normalizeDailySignInFortuneTier(value: unknown): DailySignInFortuneTierKey | null {
+  switch (value) {
+    case 'very_bad':
+    case 'bad':
+    case 'neutral':
+    case 'good':
+    case 'great':
+    case 'transcendent_1':
+    case 'transcendent_2':
+    case 'transcendent_3':
+    case 'transcendent_4':
+    case 'perfect':
+      return value;
+    default:
+      return null;
+  }
+}
+
+export function normalizeDailySignInFortuneView(payload: unknown): DailySignInFortuneView | null {
+  const source = payload && typeof payload === 'object'
+    ? (payload as { fortune?: Partial<DailySignInFortuneView> }).fortune
+    : null;
+  if (!source || typeof source !== 'object') {
+    return null;
+  }
+  const tier = normalizeDailySignInFortuneTier(source.tier);
+  if (!tier) {
+    return null;
+  }
+  return {
+    tier,
+    ratioPercent: Math.max(0, Number(source.ratioPercent) || 0),
+    luckDelta: Math.trunc(Number(source.luckDelta) || 0),
+    randomMerit: Math.max(0, Math.trunc(Number(source.randomMerit) || 0)),
+    baseRandomMaxMerit: Math.max(0, Math.trunc(Number(source.baseRandomMaxMerit) || 0)),
+    randomMaxMerit: Math.max(0, Math.trunc(Number(source.randomMaxMerit) || 0)),
+  };
 }
 
 export interface MeritMonthCardStatusView {
@@ -87,6 +127,7 @@ export interface DailySignInStatusView {
   };
   lastRewardMerit: number | null;
   lastFortune: DailySignInFortuneView | null;
+  fortuneExpireAt?: number | null;
 }
 
 export type InvitationStageKey = 'registered' | 'qi' | 'foundation';

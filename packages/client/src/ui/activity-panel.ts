@@ -204,7 +204,7 @@ export class ActivityPanel {
       this.createMetricGrid([
         ['签到奖励', rewardText],
         ['上次获得', status.lastRewardMerit === null ? '无' : `${status.lastRewardMerit} 功德`],
-        ['上次签运', lastFortune ? formatDailySignInFortune(lastFortune) : '无'],
+        ['上次签运', lastFortune ? formatDailySignInFortune(lastFortune, status.fortuneExpireAt) : '无'],
         ['连续签到', `${status.streakDays} 天`],
         ['累计签到', `${status.totalDays} 天`],
         ['今日日期', status.today],
@@ -360,9 +360,12 @@ export class ActivityPanel {
   }
 }
 
-function formatDailySignInFortune(fortune: DailySignInFortune): string {
+function formatDailySignInFortune(fortune: DailySignInFortune, expireAt?: number | null): string {
   const label = DAILY_SIGN_IN_FORTUNE_LABELS[fortune.tier] ?? '中签 · 气数平平';
   const luck = fortune.luckDelta > 0 ? `+${fortune.luckDelta}` : String(fortune.luckDelta);
+  if (expireAt && expireAt > Date.now()) {
+    return `${label}（幸运 ${luck} · 至 ${formatTime(expireAt)}）`;
+  }
   return `${label}（幸运 ${luck}）`;
 }
 

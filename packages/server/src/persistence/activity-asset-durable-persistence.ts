@@ -10,6 +10,7 @@ import {
   MERIT_ETERNAL_POOL_GRANT,
   MERIT_MONTH_CARD_DURATION_DAYS,
   MERIT_MONTH_CARD_POOL_GRANT,
+  DAILY_SIGN_IN_FORTUNE_DURATION_MS,
 } from '@mud/shared';
 import type { PoolClient } from 'pg';
 
@@ -267,6 +268,9 @@ async function persistDailySignInClaim(
     ? (normalizeNonNegativeInteger(row?.streak_days) ?? 0) + 1
     : 1;
   const totalDays = (normalizeNonNegativeInteger(row?.total_days) ?? 0) + 1;
+  const occurredAtMs = normalizeNonNegativeInteger(mutation.occurredAtMs) ?? Date.now();
+  const fortuneExpireAtMs = occurredAtMs + DAILY_SIGN_IN_FORTUNE_DURATION_MS;
+  const lastClaimedAtMs = occurredAtMs;
   await client.query(
     `INSERT INTO ${ACTIVITY_DAILY_SIGN_IN_CLAIM_TABLE}(player_id, claim_date, reward_payload, created_at)
      VALUES ($1, $2, $3::jsonb, now())`,
@@ -274,17 +278,20 @@ async function persistDailySignInClaim(
   );
   await client.query(
     `INSERT INTO ${ACTIVITY_DAILY_SIGN_IN_TABLE}(
-       player_id, last_claim_date, streak_days, total_days, last_reward_merit, created_at, updated_at
+       player_id, last_claim_date, streak_days, total_days, last_reward_merit,
+       last_claimed_at_ms, fortune_expire_at_ms, created_at, updated_at
      )
-     VALUES ($1, $2, $3, $4, $5, now(), now())
+     VALUES ($1, $2, $3, $4, $5, $6, $7, now(), now())
      ON CONFLICT (player_id)
      DO UPDATE SET
        last_claim_date = EXCLUDED.last_claim_date,
        streak_days = EXCLUDED.streak_days,
        total_days = EXCLUDED.total_days,
        last_reward_merit = EXCLUDED.last_reward_merit,
+       last_claimed_at_ms = EXCLUDED.last_claimed_at_ms,
+       fortune_expire_at_ms = EXCLUDED.fortune_expire_at_ms,
        updated_at = now()`,
-    [mutation.playerId, mutation.claimDate, streakDays, totalDays, rewardMerit],
+    [mutation.playerId, mutation.claimDate, streakDays, totalDays, rewardMerit, lastClaimedAtMs, fortuneExpireAtMs],
   );
 }
 

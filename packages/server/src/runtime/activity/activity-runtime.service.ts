@@ -6,6 +6,7 @@
 import { BadRequestException, Inject, Injectable, Optional } from '@nestjs/common';
 import {
   BASE_OFFLINE_MAX_HOURS,
+  DAILY_SIGN_IN_FORTUNE_DURATION_MS,
   DAILY_SIGN_IN_RANDOM_BASE_MAX_MERIT,
   DAILY_SIGN_IN_RANDOM_MIN_MERIT,
   HEAVENLY_DAO_SHOP_ETERNAL_DISCOUNT_PERCENT,
@@ -227,7 +228,7 @@ export class ActivityRuntimeService {
     const invitationHasPendingJadeReward = await this.processInvitationJadeRewardMails(playerId);
     const [monthCard, dailySignIn, invitation] = await Promise.all([
       this.activityPersistenceService.loadMonthCard(playerId),
-      this.activityPersistenceService.loadDailySignIn(playerId),
+      this.activityPersistenceService.loadDailySignIn(playerId, nowMs),
       this.buildInvitationStatus(playerId),
     ]);
     const inventory = this.resolveMonthCardInventory(playerId);
@@ -243,10 +244,11 @@ export class ActivityRuntimeService {
       monthCard?.dailySignInFixedMeritBonus ?? 0,
       resolveEffectiveDailySignInStreakDays(dailySignIn, today),
     );
-    const lastFortune = dailySignIn?.lastClaimDate === today
-      ? normalizeDailySignInFortuneView(dailySignIn?.lastRewardPayload)
-      : null;
-    this.syncDailySignInFortuneLuck(playerId, lastFortune, nowMs);
+    const fortuneExpireAtMs = dailySignIn?.fortuneExpireAtMs ?? null;
+    const fortuneActive = Boolean(fortuneExpireAtMs && fortuneExpireAtMs > nowMs);
+    const rawFortune = normalizeDailySignInFortuneView(dailySignIn?.lastRewardPayload);
+    const lastFortune = fortuneActive ? rawFortune : null;
+    this.syncDailySignInFortuneLuck(playerId, lastFortune, fortuneExpireAtMs ?? 0);
     return {
       serverNow: nowMs,
       monthCard: {
@@ -285,6 +287,7 @@ export class ActivityRuntimeService {
         },
         lastRewardMerit: dailySignIn?.lastRewardMerit ?? null,
         lastFortune,
+        fortuneExpireAt: fortuneActive ? fortuneExpireAtMs : null,
       },
       invitation,
       hasRedDot: monthCardCanClaim || dailyCanClaim || invitationHasPendingReward || invitationHasPendingJadeReward,
@@ -428,7 +431,7 @@ export class ActivityRuntimeService {
       this.playerRuntimeService.setDailySignInFortuneLuck?.(
         playerId,
         reward.fortune.luckDelta,
-        getNextChinaMidnightMs(nowMs),
+        nowMs + DAILY_SIGN_IN_FORTUNE_DURATION_MS,
       );
     });
   }
@@ -769,11 +772,11 @@ export class ActivityRuntimeService {
     this.eternalBenefitPlayerIds.delete(playerId);
   }
 
-  private syncDailySignInFortuneLuck(playerId: string, fortune: DailySignInFortuneView | null, nowMs: number): void {
+  private syncDailySignInFortuneLuck(playerId: string, fortune: DailySignInFortuneView | null, expireAtMs: number): void {
     this.playerRuntimeService.setDailySignInFortuneLuck?.(
       playerId,
       fortune?.luckDelta ?? 0,
-      fortune ? getNextChinaMidnightMs(nowMs) : 0,
+      fortune ? expireAtMs : 0,
     );
   }
 }
@@ -833,11 +836,6 @@ function shiftChinaDateKey(dateKey: string, offsetDays: number): string {
     return normalizedDateKey;
   }
   return new Date(time + Math.trunc(Number(offsetDays) || 0) * DAY_MS).toISOString().slice(0, 10);
-}
-
-function getNextChinaMidnightMs(nowMs = Date.now()): number {
-  const nextDateKey = shiftChinaDateKey(getChinaDateKey(nowMs), 1);
-  return Date.parse(`${nextDateKey}T00:00:00.000Z`) - CHINA_TIME_OFFSET_MS;
 }
 
 export function normalizeActivityError(error: unknown): BadRequestException {

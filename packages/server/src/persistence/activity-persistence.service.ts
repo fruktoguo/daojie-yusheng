@@ -21,6 +21,8 @@ import {
   MERIT_MONTH_CARD_POOL_GRANT,
   MERIT_ETERNAL_DAILY_SIGN_IN_FIXED_BONUS,
   MERIT_ETERNAL_POOL_GRANT,
+  DAILY_SIGN_IN_FORTUNE_DURATION_MS,
+  normalizeDailySignInFortuneView,
 } from '@mud/shared';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { DatabasePoolProvider } from './database-pool.provider';
@@ -33,6 +35,7 @@ const DAILY_SIGN_IN_TABLE = 'player_daily_sign_in';
 const DAILY_SIGN_IN_CLAIM_TABLE = 'player_daily_sign_in_claim';
 const INVITATION_TABLE = 'player_invitation';
 const DAY_MS = 24 * 60 * 60 * 1000;
+const CHINA_TIME_OFFSET_MS = 8 * 60 * 60 * 1000;
 const INVITATION_JADE_REWARD_BACKFILL_LIMIT = 128;
 
 export interface ActivityMonthCardRecord {
@@ -58,6 +61,8 @@ export interface ActivityDailySignInRecord {
   totalDays: number;
   lastRewardMerit: number | null;
   lastRewardPayload: unknown | null;
+  lastClaimedAtMs: number | null;
+  fortuneExpireAtMs: number | null;
 }
 
 export interface ActivityInvitationRecord {
@@ -186,14 +191,16 @@ export class ActivityPersistenceService implements OnApplicationBootstrap {
     return normalizeMonthCardRow(result.rows[0], normalizedPlayerId);
   }
 
-  async loadDailySignIn(playerId: string): Promise<ActivityDailySignInRecord | null> {
+  async loadDailySignIn(playerId: string, nowMs = Date.now()): Promise<ActivityDailySignInRecord | null> {
     const normalizedPlayerId = normalizePlayerId(playerId);
     if (!this.pool || !this.enabled || !normalizedPlayerId) {
       return null;
     }
     const result = await this.pool.query(
       `SELECT s.player_id, s.last_claim_date, s.streak_days, s.total_days, s.last_reward_merit,
-              c.reward_payload AS last_reward_payload
+              s.last_claimed_at_ms, s.fortune_expire_at_ms,
+              c.reward_payload AS last_reward_payload,
+              c.created_at AS claim_created_at
          FROM ${DAILY_SIGN_IN_TABLE} s
           LEFT JOIN ${DAILY_SIGN_IN_CLAIM_TABLE} c
             ON c.player_id = s.player_id
@@ -201,7 +208,44 @@ export class ActivityPersistenceService implements OnApplicationBootstrap {
         WHERE s.player_id = $1`,
       [normalizedPlayerId],
     );
-    return normalizeDailySignInRow(result.rows[0], normalizedPlayerId);
+    const row = result.rows[0];
+    const record = normalizeDailySignInRow(row, normalizedPlayerId);
+    if (!record) {
+      return null;
+    }
+    if (record.fortuneExpireAtMs === null && record.lastRewardPayload) {
+      const fortune = normalizeDailySignInFortuneView(record.lastRewardPayload);
+      if (fortune) {
+        const claimCreatedAtMs = row?.claim_created_at instanceof Date
+          ? row.claim_created_at.getTime()
+          : (typeof row?.claim_created_at === 'string' ? Date.parse(row.claim_created_at) : NaN);
+        const validClaimTime = Number.isFinite(claimCreatedAtMs) ? claimCreatedAtMs : 0;
+        const today = getChinaDateKey(nowMs);
+        const isLegacyActiveFortune = record.lastClaimDate === today
+          || (validClaimTime > 0 && validClaimTime + DAILY_SIGN_IN_FORTUNE_DURATION_MS > nowMs);
+        if (isLegacyActiveFortune) {
+          const upgradedExpireAtMs = Math.max(
+            nowMs + DAILY_SIGN_IN_FORTUNE_DURATION_MS,
+            validClaimTime > 0 ? validClaimTime + DAILY_SIGN_IN_FORTUNE_DURATION_MS : 0,
+          );
+          const upgradedClaimedAtMs = record.lastClaimedAtMs ?? (validClaimTime > 0 ? validClaimTime : nowMs);
+          record.fortuneExpireAtMs = upgradedExpireAtMs;
+          record.lastClaimedAtMs = upgradedClaimedAtMs;
+          this.pool.query(
+            `UPDATE ${DAILY_SIGN_IN_TABLE}
+                SET fortune_expire_at_ms = $2,
+                    last_claimed_at_ms = COALESCE(last_claimed_at_ms, $3),
+                    updated_at = now()
+              WHERE player_id = $1
+                AND fortune_expire_at_ms IS NULL`,
+            [record.playerId, upgradedExpireAtMs, upgradedClaimedAtMs],
+          ).catch((error) => {
+            this.logger.warn(`升级历史每日签到气运过期时间失败: ${record.playerId}`, error instanceof Error ? error.stack : String(error));
+          });
+        }
+      }
+    }
+    return record;
   }
 
   async activateMonthCard(
@@ -478,7 +522,7 @@ export class ActivityPersistenceService implements OnApplicationBootstrap {
     }
   }
 
-  async claimDailySignIn(playerId: string, claimDate: string, rewardPayload: unknown): Promise<ActivityDailySignInRecord> {
+  async claimDailySignIn(playerId: string, claimDate: string, rewardPayload: unknown, nowMs = Date.now()): Promise<ActivityDailySignInRecord> {
     const normalizedPlayerId = normalizePlayerId(playerId);
     const normalizedClaimDate = normalizeDateKey(claimDate);
     if (!this.pool || !this.enabled || !normalizedPlayerId || !normalizedClaimDate) {
@@ -489,7 +533,7 @@ export class ActivityPersistenceService implements OnApplicationBootstrap {
     try {
       await client.query('BEGIN');
       const current = await client.query(
-        `SELECT player_id, last_claim_date, streak_days, total_days, last_reward_merit
+        `SELECT player_id, last_claim_date, streak_days, total_days, last_reward_merit, last_claimed_at_ms, fortune_expire_at_ms
            FROM ${DAILY_SIGN_IN_TABLE}
           WHERE player_id = $1
           FOR UPDATE`,
@@ -502,22 +546,29 @@ export class ActivityPersistenceService implements OnApplicationBootstrap {
       const rewardMerit = Math.max(1, Math.trunc(Number((rewardPayload as { count?: unknown } | null)?.count) || 1));
       const streakDays = existing?.lastClaimDate === previousDate ? existing.streakDays + 1 : 1;
       const totalDays = (existing?.totalDays ?? 0) + 1;
+      const fortuneExpireAtMs = nowMs + DAILY_SIGN_IN_FORTUNE_DURATION_MS;
+      const lastClaimedAtMs = nowMs;
       await client.query(
         `INSERT INTO ${DAILY_SIGN_IN_CLAIM_TABLE}(player_id, claim_date, reward_payload, created_at)
          VALUES ($1, $2, $3::jsonb, now())`,
         [normalizedPlayerId, normalizedClaimDate, JSON.stringify(rewardPayload ?? { itemId: MERIT_ITEM_ID, count: rewardMerit })],
       );
       await client.query(
-        `INSERT INTO ${DAILY_SIGN_IN_TABLE}(player_id, last_claim_date, streak_days, total_days, last_reward_merit, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, now(), now())
+        `INSERT INTO ${DAILY_SIGN_IN_TABLE}(
+           player_id, last_claim_date, streak_days, total_days, last_reward_merit,
+           last_claimed_at_ms, fortune_expire_at_ms, created_at, updated_at
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, now(), now())
          ON CONFLICT (player_id)
          DO UPDATE SET
            last_claim_date = EXCLUDED.last_claim_date,
            streak_days = EXCLUDED.streak_days,
            total_days = EXCLUDED.total_days,
            last_reward_merit = EXCLUDED.last_reward_merit,
+           last_claimed_at_ms = EXCLUDED.last_claimed_at_ms,
+           fortune_expire_at_ms = EXCLUDED.fortune_expire_at_ms,
            updated_at = now()`,
-        [normalizedPlayerId, normalizedClaimDate, streakDays, totalDays, rewardMerit],
+        [normalizedPlayerId, normalizedClaimDate, streakDays, totalDays, rewardMerit, lastClaimedAtMs, fortuneExpireAtMs],
       );
       await client.query('COMMIT');
       return {
@@ -527,6 +578,8 @@ export class ActivityPersistenceService implements OnApplicationBootstrap {
         totalDays,
         lastRewardMerit: rewardMerit,
         lastRewardPayload: rewardPayload ?? { itemId: MERIT_ITEM_ID, count: rewardMerit },
+        lastClaimedAtMs,
+        fortuneExpireAtMs,
       };
     } catch (error) {
       await client.query('ROLLBACK').catch(() => undefined);
@@ -1067,6 +1120,21 @@ async function ensureActivityTables(pool: Pool): Promise<void> {
       )
     `);
     await client.query(`ALTER TABLE ${DAILY_SIGN_IN_TABLE} ADD COLUMN IF NOT EXISTS last_reward_merit integer`);
+    await client.query(`ALTER TABLE ${DAILY_SIGN_IN_TABLE} ADD COLUMN IF NOT EXISTS last_claimed_at_ms bigint`);
+    await client.query(`ALTER TABLE ${DAILY_SIGN_IN_TABLE} ADD COLUMN IF NOT EXISTS fortune_expire_at_ms bigint`);
+    await client.query(`
+      UPDATE ${DAILY_SIGN_IN_TABLE} s
+         SET fortune_expire_at_ms = (EXTRACT(EPOCH FROM now())::bigint + 86400) * 1000,
+             last_claimed_at_ms = COALESCE(s.last_claimed_at_ms, (EXTRACT(EPOCH FROM COALESCE(c.created_at, s.updated_at, now()))::bigint) * 1000)
+        FROM ${DAILY_SIGN_IN_CLAIM_TABLE} c
+       WHERE s.player_id = c.player_id
+         AND s.last_claim_date = c.claim_date
+         AND s.fortune_expire_at_ms IS NULL
+         AND (
+           s.last_claim_date = TO_CHAR(now() AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD')
+           OR c.created_at >= now() - interval '24 hours'
+         )
+    `);
     await client.query(`
       CREATE TABLE IF NOT EXISTS ${DAILY_SIGN_IN_CLAIM_TABLE} (
         player_id varchar(128) NOT NULL,
@@ -1172,6 +1240,12 @@ function normalizeDailySignInRow(row: any, fallbackPlayerId: string): ActivityDa
       ? Math.max(0, Math.trunc(Number(row.last_reward_merit)))
       : null,
     lastRewardPayload: normalizeJsonObject(row.last_reward_payload),
+    lastClaimedAtMs: Number.isFinite(Number(row.last_claimed_at_ms))
+      ? Math.max(0, Math.trunc(Number(row.last_claimed_at_ms)))
+      : null,
+    fortuneExpireAtMs: Number.isFinite(Number(row.fortune_expire_at_ms))
+      ? Math.max(0, Math.trunc(Number(row.fortune_expire_at_ms)))
+      : null,
   };
 }
 
@@ -1286,4 +1360,9 @@ function shiftDateKey(dateKey: string, deltaDays: number): string {
 
 function isUniqueViolation(error: unknown): boolean {
   return Boolean(error && typeof error === 'object' && (error as { code?: unknown }).code === '23505');
+}
+
+export function getChinaDateKey(nowMs = Date.now()): string {
+  const shifted = new Date(nowMs + CHINA_TIME_OFFSET_MS);
+  return shifted.toISOString().slice(0, 10);
 }

@@ -212,7 +212,7 @@ async function main(): Promise<void> {
          FROM player_merit_month_card WHERE player_id = $1`,
       [playerId]);
     const dailySignIn = await fetchSingle(pool,
-      'SELECT last_claim_date, last_reward_merit FROM player_daily_sign_in WHERE player_id = $1',
+      'SELECT last_claim_date, last_reward_merit, last_claimed_at_ms, fortune_expire_at_ms FROM player_daily_sign_in WHERE player_id = $1',
       [playerId]);
     const invitation = await fetchSingle(pool,
       'SELECT invitee_reward_claimed FROM player_invitation WHERE invitee_player_id = $1',
@@ -230,7 +230,12 @@ async function main(): Promise<void> {
     ) {
       throw new Error(`unexpected month card state: ${JSON.stringify(monthCard)}`);
     }
-    if (dailySignIn?.last_claim_date !== '2026-07-13' || Number(dailySignIn?.last_reward_merit) !== signInReward) {
+    if (
+      dailySignIn?.last_claim_date !== '2026-07-13'
+      || Number(dailySignIn?.last_reward_merit) !== signInReward
+      || Number(dailySignIn?.last_claimed_at_ms) !== now
+      || Number(dailySignIn?.fortune_expire_at_ms) !== now + 24 * 60 * 60 * 1000
+    ) {
       throw new Error(`unexpected daily sign-in state: ${JSON.stringify(dailySignIn)}`);
     }
     if (invitation?.invitee_reward_claimed !== true) {
