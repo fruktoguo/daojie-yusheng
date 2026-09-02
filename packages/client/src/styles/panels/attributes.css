@@ -275,6 +275,21 @@
       min-width: 0;
     }
 
+    .attr-mini-mark {
+      width: 22px;
+      height: 22px;
+      justify-self: center;
+      align-self: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: var(--font-size-role-body-16);
+      font-weight: var(--font-weight-strong);
+      line-height: 22px;
+      color: var(--ink-black);
+      pointer-events: none;
+    }
+
     .attr-mini-icon {
       width: 22px;
       height: 22px;

@@ -22,7 +22,6 @@ import {
   cloneCraftEffectStats,
   DEFAULT_QI_EFFICIENCY_BP,
   ELEMENT_KEYS,
-  HeavenGateRootValues,
   HEAVENLY_DAO_SUPPRESSION_BUFF_ID,
   NumericStatBreakdownMap,
   NumericRatioDivisors,
@@ -71,7 +70,6 @@ import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent, format
 import {
   describeSpiritualRoots,
   getSpiritualRootAbsorptionRate,
-  normalizeSpiritualRoots,
   resolveSpiritualRootsFromBonuses,
 } from '../../utils/spiritual-roots';
 import { t } from '../i18n';
@@ -619,7 +617,10 @@ function renderAttrMiniCard(
     subAttr: string;
   },
 ): string {
-  const iconHtml = renderAtlasIcon(card.key, 'attr-mini-icon');
+  const mark = card.mark?.trim();
+  const iconHtml = mark
+    ? `<span class="attr-mini-mark" aria-hidden="true">${escapeHtml(mark)}</span>`
+    : renderAtlasIcon(card.key, 'attr-mini-icon');
   return `<div class="attr-mini ${iconHtml ? 'attr-mini--with-icon' : ''}" ${options.cardAttr}="${escapeHtml(card.key)}" data-tooltip-key="${escapeHtml(card.key)}" data-tooltip-title="${escapeHtml(card.tooltipTitle)}" data-tooltip-detail="${escapeHtml(card.tooltipDetail)}">
     <div class="attr-mini-main">
       ${iconHtml}
@@ -829,7 +830,9 @@ export interface AttrNumericCardSnapshot {
  * sub：sub相关字段。
  */
 
-  sub?: string;  
+  sub?: string;
+  /** 灵脉等卡片用单字标记替代图集图标。 */
+  mark?: string;
   /**
  * tooltipTitle：提示Title名称或显示文本。
  */
@@ -1309,7 +1312,7 @@ export class AttrPanel {
           ? this.buildRootRadarSnapshot(stats, ratioDivisors, bonuses)
         : { kind: 'placeholder', message: '灵根未明' },
         vein: stats
-          ? this.buildVeinPaneSnapshot(stats, bonuses)
+          ? this.buildVeinPaneSnapshot(bonuses)
           : { kind: 'placeholder', message: '灵脉未察' },
         combat: this.buildNumericPaneSnapshot('斗法数值', stats, ratioDivisors, {
           keys: ['maxHp', 'physAtk', 'spellAtk', 'physDef', 'spellDef', 'hit', 'dodge', 'crit', 'antiCrit', 'critDamage', 'breakPower', 'resolvePower', 'actionsPerTurn'],
@@ -1390,22 +1393,24 @@ export class AttrPanel {
     ratioDivisors: NumericRatioDivisors,
     bonuses: AttrBonus[],
   ): AttrRadarPaneSnapshot {
-    const roots = this.resolveDisplaySpiritualRoots(stats, bonuses);
+    const roots = resolveSpiritualRootsFromBonuses(bonuses);
     const entries: RadarEntry[] = ELEMENT_KEYS.map((key, index) => {
+      const rootValue = roots?.[key] ?? 0;
       const damageBonus = stats.elementDamageBonus[key];
       const reductionDivisor = ratioDivisors.elementDamageReduce[key] || 100;
+      const roundedRoot = Math.round(rootValue);
       const roundedBonus = Math.round(damageBonus);
       return {
         label: `${ELEMENT_KEY_LABELS[key]}灵根`,
         key: `root-${key}`,
-        value: damageBonus,
-        valueLabel: formatDisplayInteger(roundedBonus),
+        value: rootValue,
+        valueLabel: formatDisplayInteger(roundedRoot),
         tooltipTitle: `${ELEMENT_KEY_LABELS[key]}灵根`,
         tooltipDetail: [
-          `当前：${formatDisplayInteger(roundedBonus)} 点`,
+          `当前：${formatDisplayInteger(roundedRoot)} 点`,
           `${ELEMENT_KEY_LABELS[key]}属性伤害增幅：${formatDisplayPercent(roundedBonus)}`,
           `${ELEMENT_KEY_LABELS[key]}属性实际减伤：${formatRatioPercent(stats.elementDamageReduce[key], reductionDivisor)}`,
-          `${ELEMENT_KEY_LABELS[key]}属性灵气吸收效率：${formatDisplayPercent(getSpiritualRootAbsorptionRate(roundedBonus), { maximumFractionDigits: 2 })}`,
+          `${ELEMENT_KEY_LABELS[key]}属性灵气吸收效率：${formatDisplayPercent(getSpiritualRootAbsorptionRate(roundedRoot), { maximumFractionDigits: 2 })}`,
         ].join('\n'),
         color: ELEMENT_COLORS[index % ELEMENT_COLORS.length],
       };
@@ -1423,12 +1428,11 @@ export class AttrPanel {
 
 
   private buildVeinPaneSnapshot(
-    stats: NumericStats,
     bonuses: AttrBonus[],
   ): AttrNumericPaneSnapshot {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const roots = this.resolveDisplaySpiritualRoots(stats, bonuses);
+    const roots = resolveSpiritualRootsFromBonuses(bonuses);
     const neutralAuraProjection = resolveQiProjectionDisplay(
       { family: 'aura', form: 'refined', element: 'neutral' },
       bonuses,
@@ -1441,6 +1445,7 @@ export class AttrPanel {
     );
     const cards: AttrNumericCardSnapshot[] = [{
       key: 'neutral-aura',
+      mark: '灵',
       label: '无属性灵气',
       value: formatQiEfficiencyBp(neutralAuraProjection.efficiencyBp),
       tooltipTitle: '无属性灵气',
@@ -1453,6 +1458,7 @@ export class AttrPanel {
     if (neutralShaProjection.visibility !== 'hidden') {
       cards.push({
         key: 'sha',
+        mark: '煞',
         label: '煞气',
         value: neutralShaProjection.visibility === 'absorbable'
           ? formatQiEfficiencyBp(neutralShaProjection.efficiencyBp)
@@ -1479,6 +1485,7 @@ export class AttrPanel {
       const label = getQiResourceDisplayLabel(`aura.refined.${element}`);
       cards.push({
         key: `${element}-aura`,
+        mark: element === 'yin' ? '阴' : '阳',
         label,
         value: projection.visibility === 'absorbable'
           ? formatQiEfficiencyBp(projection.efficiencyBp)
@@ -1502,6 +1509,7 @@ export class AttrPanel {
       const label = `${ELEMENT_KEY_LABELS[key]}灵气`;
       cards.push({
         key: `${key}-aura`,
+        mark: ELEMENT_KEY_LABELS[key],
         label,
         value: formatAuraAbsorptionRate(rate),
         tooltipTitle: label,
@@ -1517,20 +1525,6 @@ export class AttrPanel {
       title: t('attr.numeric.title.qi-flow', undefined),
       cards,
     };
-  }
-
-  /** buildHeavenGateRootsFromStats：构建Heaven关卡Roots From属性。 */
-  private buildHeavenGateRootsFromStats(stats: NumericStats): HeavenGateRootValues {
-    return ELEMENT_KEYS.reduce((roots, key) => {
-      roots[key] = Math.max(0, Math.min(100, Math.round(stats.elementDamageBonus[key])));
-      return roots;
-    }, {} as HeavenGateRootValues);
-  }
-
-  /** resolveDisplaySpiritualRoots：解析显示Spiritual Roots。 */
-  private resolveDisplaySpiritualRoots(stats: NumericStats, bonuses: AttrBonus[]): HeavenGateRootValues | null {
-    return resolveSpiritualRootsFromBonuses(bonuses)
-      ?? normalizeSpiritualRoots(this.buildHeavenGateRootsFromStats(stats));
   }
 
   /** buildRadarPaneSnapshot：构建Radar Pane快照。 */

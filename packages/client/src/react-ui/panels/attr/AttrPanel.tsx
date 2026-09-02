@@ -271,15 +271,18 @@ const NumericPane = memo(function NumericPane({ pane }: { pane: AttrNumericPaneS
 // ─── Numeric Card ────────────────────────────────────────────────────────────
 
 const NumericCard = memo(function NumericCard({ card }: { card: AttrNumericCardSnapshot }) {
+  const mark = card.mark?.trim();
   return (
     <div
-      className={`attr-mini${ATTR_ICON_ATLAS_CELLS[card.key] ? ' attr-mini--with-icon' : ''}`}
+      className={`attr-mini${mark || ATTR_ICON_ATLAS_CELLS[card.key] ? ' attr-mini--with-icon' : ''}`}
       data-tooltip-key={card.key}
       data-tooltip-title={card.tooltipTitle}
       data-tooltip-detail={card.tooltipDetail}
     >
       <div className="attr-mini-main">
-        <AttrAtlasIcon iconKey={card.key} className="attr-mini-icon" />
+        {mark
+          ? <span className="attr-mini-mark" aria-hidden="true">{mark}</span>
+          : <AttrAtlasIcon iconKey={card.key} className="attr-mini-icon" />}
         <div className="attr-mini-value">{card.value}</div>
       </div>
       <div className="attr-mini-label">{card.label}</div>
