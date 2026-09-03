@@ -63,10 +63,20 @@ export function createPlayerOutcomeApplyAdapter(handlers: OutcomeHandlers = {}) 
   if (targetPlayerId && damage > 0) {
    appliedDamageResult = handlers.applyPlayerDamage?.({ playerId: targetPlayerId, damage, outcome, result, application, deps });
    if (appliedDamageResult === null || appliedDamageResult === undefined) {
+    const damageElement = result?.element
+     ?? result?.damageElement
+     ?? outcome?.skill?.element
+     ?? outcome?.element;
+    const currentTick = Number(
+     deps?.resolveCurrentTickForPlayerId?.(targetPlayerId)
+     ?? deps?.currentTick
+     ?? deps?.tick
+     ?? 0,
+    );
     appliedDamageResult = deps?.playerRuntimeService?.applyDamage?.(targetPlayerId, damage, outcome?.actor?.id, {
-     damageElement: result?.element ?? result?.damageElement,
-     damageKind: result?.damageKind,
-     currentTick: deps?.currentTick ?? deps?.tick ?? 0,
+     damageElement,
+     damageKind: result?.damageKind ?? outcome?.skill?.damageKind ?? outcome?.damageKind,
+     currentTick,
     });
    }
    if (appliedDamageResult === null || appliedDamageResult === undefined) {

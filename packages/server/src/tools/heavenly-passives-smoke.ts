@@ -197,10 +197,34 @@ function testAvatarAwakening(): void {
   // 冷却记录应为 10 + 300 = 310
   assert.equal(player.combat.cooldownReadyTickBySkillId[SKILL_HEAVEN_AVATAR_AWAKENING], 310);
 }
+function testHeavenlyTechniquesHaveNoNegativeStats(): void {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const jsonPath = path.resolve(__dirname, '../../data/content/techniques/被动功法/通用被动.json');
+  const techniques = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+  const heavenIds = [
+    'passive_heaven_devour_vein',
+    'passive_heaven_origin_return',
+    'passive_heaven_death_immunity',
+    'passive_heaven_avatar_awakening',
+  ];
+  for (const id of heavenIds) {
+    const tech = techniques.find((t: any) => t.id === id);
+    assert.ok(tech, `Technique ${id} should exist`);
+    assert.equal(tech.attrFloat, 0, `${id} attrFloat should be 0`);
+    const stats = tech.skills?.[0]?.passiveEffects?.[0]?.stats ?? {};
+    for (const [key, value] of Object.entries(stats)) {
+      if (typeof value === 'number') {
+        assert.ok(value >= 0, `${id} stat ${key} should not be negative, got ${value}`);
+      }
+    }
+  }
+}
 
 testDevourVein();
 testOriginReturn();
 testDeathImmunity();
 testAvatarAwakening();
+testHeavenlyTechniquesHaveNoNegativeStats();
 
-console.log(JSON.stringify({ ok: true, case: 'heavenly-passives', checks: 24 }));
+console.log(JSON.stringify({ ok: true, case: 'heavenly-passives', checks: 28 }));

@@ -2646,8 +2646,7 @@
       "bone": 0.35,
       "meridians": 0.3
     },
-    "attrFloat": -0.1,
-    "maxLayer": 30,
+    "attrFloat": 0,
     "expDifficulty": 1.2,
     "skills": [
       {
@@ -2666,12 +2665,11 @@
             "buffId": "passive_heaven_devour_vein_buff",
             "name": "噬脉引",
             "shortMark": "噬",
-            "desc": "纳天地五气化为己用。气血+25%、物防+15%、法防+15%、移速-6%；受到五行伤害获得对应五行噬脉减伤（最多叠100层）。",
+            "desc": "纳天地五气化为己用。气血+25%、物防+15%、法防+15%；受到五行伤害获得对应五行噬脉减伤（最多叠100层）。",
             "stats": {
               "maxHp": 25,
               "physDef": 15,
-              "spellDef": 15,
-              "moveSpeed": -6
+              "spellDef": 15
             },
             "statMode": "percent",
             "ignoreRealmEffectiveness": true
@@ -2692,8 +2690,7 @@
       "spirit": 0.3,
       "physique": 0.3
     },
-    "attrFloat": -0.1,
-    "maxLayer": 30,
+    "attrFloat": 0,
     "expDifficulty": 1.2,
     "skills": [
       {
@@ -2712,14 +2709,12 @@
             "buffId": "passive_heaven_origin_return_buff",
             "name": "五炁归元",
             "shortMark": "归",
-            "desc": "五气归元，返本还真。气血恢复+25%、抗暴+25%、化劲+20%、暴击-8%；生命低于30%时消耗全部噬脉转化为五行归元。",
+            "desc": "五气归元，返本还真。气血恢复+25%、抗暴+25%、化劲+20%；生命低于30%时消耗全部噬脉转化为五行归元。",
             "stats": {
               "hpRegenRate": 25,
               "antiCrit": 25,
-              "resolvePower": 20,
-              "crit": -8
+              "resolvePower": 20
             },
-            "statMode": "percent",
             "ignoreRealmEffectiveness": true
           }
         ]
@@ -2738,8 +2733,7 @@
       "physique": 0.3,
       "bone": 0.3
     },
-    "attrFloat": -0.1,
-    "maxLayer": 30,
+    "attrFloat": 0,
     "expDifficulty": 1.2,
     "skills": [
       {
@@ -2783,8 +2777,7 @@
       "meridians": 0.4,
       "talent": 0.2
     },
-    "attrFloat": -0.1,
-    "maxLayer": 30,
+    "attrFloat": 0,
     "expDifficulty": 1.2,
     "skills": [
       {
@@ -2803,14 +2796,12 @@
             "buffId": "passive_heaven_avatar_awakening_buff",
             "name": "在天成象",
             "shortMark": "象",
-            "desc": "在天成象，刚柔相摩。法攻+25%、最大灵力+25%、灵力输出+25%、物防-8%；生命低于30%自动开启法相（冷却300息）。",
+            "desc": "在天成象，刚柔相摩。法攻+25%、最大灵力+25%、灵力输出+25%；生命低于30%自动开启法相（冷却300息）。",
             "stats": {
               "spellAtk": 25,
               "maxQi": 25,
-              "maxQiOutputPerTick": 25,
-              "physDef": -8
+              "maxQiOutputPerTick": 25
             },
-            "statMode": "percent",
             "ignoreRealmEffectiveness": true
           }
         ]
