@@ -33,6 +33,7 @@ import {
  DUNGEON_PRESSURE_BUFF_ID,
  DUNGEON_PRESSURE_COMBAT_STAT_KEYS,
  DUNGEON_PRESSURE_ELEMENT_KEYS,
+ getLineCells,
  resolveDungeonPressureCombatMultiplier,
  resolveDungeonPressureMoveSpeedMultiplier,
 } from '@mud/shared';
@@ -610,7 +611,141 @@ class MapInstanceRuntime {
   }
   monster.speechTicksLeft = Math.max(0, Math.trunc(Number(ticks) || 0));
   this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
-  this.worldRevision += 1;
+ }
+
+ /** 副本开战后天人视野半径：覆盖整张地图。 */
+ resolveDungeonCombatVisionRange(): number {
+  const minX = Number.isFinite(Number(this.tilePlane?.minX)) ? Math.trunc(Number(this.tilePlane.minX)) : 0;
+  const maxX = Number.isFinite(Number(this.tilePlane?.maxX))
+   ? Math.trunc(Number(this.tilePlane.maxX))
+   : Math.max(0, Math.trunc(Number(this.template?.width) || 1) - 1);
+  const minY = Number.isFinite(Number(this.tilePlane?.minY)) ? Math.trunc(Number(this.tilePlane.minY)) : 0;
+  const maxY = Number.isFinite(Number(this.tilePlane?.maxY))
+   ? Math.trunc(Number(this.tilePlane.maxY))
+   : Math.max(0, Math.trunc(Number(this.template?.height) || 1) - 1);
+  return Math.max(0, maxX - minX, maxY - minY);
+ }
+
+ /** 解析妖兽当前寻敌半径：未开怪副本怪 5 格，开战副本怪全图，其余用配置 aggroRange。 */
+ resolveMonsterCombatAggroRange(monster: { aggroRange?: unknown; engaged?: boolean }): number {
+  const baseAggroRange = Math.max(0, Math.trunc(Number(monster.aggroRange) || 0));
+  if (!this.isDungeonInstance()) {
+   return baseAggroRange;
+  }
+  if (monster.engaged === true) {
+   return Math.max(baseAggroRange, this.resolveDungeonCombatVisionRange());
+  }
+  return Math.min(baseAggroRange, DUNGEON_MONSTER_ENGAGE_DISTANCE);
+ }
+
+ /** 当前可出手的最大攻击/技能距离。 */
+ resolveMonsterMaxAttackReach(monster: { attackRange?: unknown; skills?: unknown; numericStats?: unknown }): number {
+  let maxReach = Math.max(0, Math.trunc(Number(monster.attackRange) || 0));
+  const skills = Array.isArray(monster.skills) ? monster.skills : [];
+  for (const skill of skills) {
+   const range = Math.max(0, Math.trunc(Number(buildEffectiveMonsterSkillGeometry(monster, skill).range) || 0));
+   if (range > maxReach) {
+    maxReach = range;
+   }
+  }
+  return maxReach;
+ }
+
+ /** 解析攻击者瞄准点：当前锁定玩家、最后目击点。 */
+ resolveMonsterAimPosition(
+  monster: { aggroTargetPlayerId?: string | null; lastSeenTargetX?: number; lastSeenTargetY?: number },
+  liveTarget: { playerId?: string; x: number; y: number } | null,
+ ): { playerId?: string; x: number; y: number } | null {
+  if (liveTarget && Number.isFinite(Number(liveTarget.x)) && Number.isFinite(Number(liveTarget.y))) {
+   return {
+    playerId: typeof liveTarget.playerId === 'string' ? liveTarget.playerId : undefined,
+    x: Math.trunc(Number(liveTarget.x)),
+    y: Math.trunc(Number(liveTarget.y)),
+   };
+  }
+  if (typeof monster.aggroTargetPlayerId === 'string') {
+   const locked = this.playersById.get(monster.aggroTargetPlayerId);
+   if (locked) {
+    return { playerId: locked.playerId, x: Math.trunc(locked.x), y: Math.trunc(locked.y) };
+   }
+  }
+  if (Number.isInteger(monster.lastSeenTargetX) && Number.isInteger(monster.lastSeenTargetY)) {
+   return {
+    playerId: typeof monster.aggroTargetPlayerId === 'string' ? monster.aggroTargetPlayerId : undefined,
+    x: Math.trunc(Number(monster.lastSeenTargetX)),
+    y: Math.trunc(Number(monster.lastSeenTargetY)),
+   };
+  }
+  return null;
+ }
+
+ /** 沿怪物到攻击者的 Bresenham 连线，取当前够得着的第一格。 */
+ pickFirstAttackableLineTile(
+  monster: { x: number; y: number; attackRange?: unknown; skills?: unknown; numericStats?: unknown },
+  aim: { x: number; y: number },
+ ): { x: number; y: number } | null {
+  const maxReach = this.resolveMonsterMaxAttackReach(monster);
+  if (maxReach <= 0) {
+   return null;
+  }
+  const cells = getLineCells(
+   { x: Math.trunc(Number(monster.x) || 0), y: Math.trunc(Number(monster.y) || 0) },
+   { x: Math.trunc(Number(aim.x) || 0), y: Math.trunc(Number(aim.y) || 0) },
+  );
+  for (let index = 1; index < cells.length; index += 1) {
+   const cell = cells[index];
+   if (!cell || !this.isInBounds(cell.x, cell.y)) {
+    continue;
+   }
+   const distance = chebyshevDistance(monster.x, monster.y, cell.x, cell.y);
+   if (distance > maxReach) {
+    continue;
+   }
+   return { x: cell.x, y: cell.y };
+  }
+  return null;
+ }
+
+ canMonsterStepToward(monster: { x: number; y: number; facing?: unknown; buffs?: unknown }, targetX: number, targetY: number): boolean {
+  const next = chooseMonsterStep(monster.x, monster.y, targetX, targetY);
+  for (const candidate of next) {
+   if (this.isMonsterOpenTile(monster, candidate.x, candidate.y)) {
+    return true;
+   }
+  }
+  return false;
+ }
+
+ canMonsterActOnTarget(
+  monster: { x: number; y: number; attackRange?: unknown; attackReadyTick?: unknown; skills?: unknown; numericStats?: unknown; cooldownReadyTickBySkillId?: unknown; qi?: unknown; buffs?: unknown },
+  target: { playerId?: string; x: number; y: number },
+ ): boolean {
+  const distance = chebyshevDistance(monster.x, monster.y, target.x, target.y);
+  if (chooseMonsterSkill(monster, target, distance, this.tick)) {
+   return true;
+  }
+  const targetPlayerId = typeof target.playerId === 'string' ? target.playerId : '';
+  return distance <= Math.max(0, Math.trunc(Number(monster.attackRange) || 0))
+   && Math.trunc(Number(monster.attackReadyTick) || 0) <= this.tick
+   && targetPlayerId.length > 0
+   && this.playersById.has(targetPlayerId);
+ }
+
+ /** 攻击者不可达时，改打连线上第一格的占用者或该地块本身。 */
+ resolveLineAttackTarget(
+  monster: { x: number; y: number; attackRange?: unknown; skills?: unknown; numericStats?: unknown },
+  aim: { playerId?: string; x: number; y: number },
+ ): { playerId: string; x: number; y: number } | null {
+  const tile = this.pickFirstAttackableLineTile(monster, aim);
+  if (!tile) {
+   return null;
+  }
+  const occupants = this.getPlayerRuntimeRefsAtTile(tile.x, tile.y);
+  const occupant = occupants[0];
+  if (occupant && typeof occupant.playerId === 'string') {
+   return occupant;
+  }
+  return { playerId: '', x: tile.x, y: tile.y };
  }
  /**
 * 构造器：初始化 当前 实例并建立基础状态。
@@ -5048,8 +5183,10 @@ class MapInstanceRuntime {
     maxHp: Math.trunc(Number(monster.maxHp) || 0),
     alive: true,
     aggroTargetId: typeof monster.aggroTargetPlayerId === 'string' ? monster.aggroTargetPlayerId : null,
-    aggroRange: Math.max(0, Math.trunc(Number(monster.aggroRange) || 0)),
-    leashRange: Math.max(0, Math.trunc(Number(monster.leashRange) || 0)),
+    aggroRange: this.resolveMonsterCombatAggroRange(monster),
+    leashRange: this.isDungeonInstance() && monster.engaged === true
+     ? this.resolveDungeonCombatVisionRange()
+     : Math.max(0, Math.trunc(Number(monster.leashRange) || 0)),
     spawnX: Math.trunc(Number(monster.spawnX) || 0),
     spawnY: Math.trunc(Number(monster.spawnY) || 0),
    });
@@ -8141,7 +8278,38 @@ class MapInstanceRuntime {
 
    // Phase 4: 使用 worker 预计算 intent 作为 target hint 加速解析
    const preIntent = intentByMonsterId?.get(String(monster.runtimeId ?? monster.monsterId ?? ''));
-   const target = this.resolveMonsterTargetWithHint(monster, preIntent);
+   const liveTarget = this.resolveMonsterTargetWithHint(monster, preIntent);
+   const aim = this.resolveMonsterAimPosition(monster, liveTarget);
+   let target = liveTarget;
+   if (target && !this.canMonsterActOnTarget(monster, target) && !this.canMonsterStepToward(monster, target.x, target.y)) {
+    const lineTarget = this.resolveLineAttackTarget(monster, aim ?? target);
+    if (lineTarget) {
+     target = lineTarget;
+    }
+   } else if (!target && aim) {
+    const lineTarget = this.resolveLineAttackTarget(monster, aim);
+    if (lineTarget) {
+     target = lineTarget;
+    }
+   }
+
+   const face = target ?? aim;
+   if (face) {
+    const targetFacing = horizontalFacingFromTo(monster.x, monster.y, face.x, face.y, monster.facing);
+    if (monster.facing !== targetFacing) {
+     monster.facing = targetFacing;
+     this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
+     changed = true;
+    }
+   }
+
+   if (monster.speechTicksLeft && monster.speechTicksLeft > 0) {
+    monster.speechTicksLeft -= 1;
+    this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
+    changed = true;
+    continue;
+   }
+
    if (!target) {
     const lostSightTarget = this.resolveMonsterLostSightChaseTarget(monster);
     if (lostSightTarget) {
@@ -8159,19 +8327,6 @@ class MapInstanceRuntime {
    }
 
    const distance = chebyshevDistance(monster.x, monster.y, target.x, target.y);
-   const targetFacing = horizontalFacingFromTo(monster.x, monster.y, target.x, target.y, monster.facing);
-   if (monster.facing !== targetFacing) {
-    monster.facing = targetFacing;
-    this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
-    changed = true;
-   }
-
-   if (monster.speechTicksLeft && monster.speechTicksLeft > 0) {
-    monster.speechTicksLeft -= 1;
-    this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
-    changed = true;
-    continue;
-   }
 
    const skill = chooseMonsterSkill(monster, target, distance, this.tick);
    if (skill) {
@@ -8243,17 +8398,19 @@ class MapInstanceRuntime {
     continue;
    }
    if (distance <= monster.attackRange && monster.attackReadyTick <= this.tick) {
-
-    const damage = buildMonsterAttackDamage(monster);
-    if (damage > 0) {
-     monster.attackReadyTick = this.tick + monster.attackCooldownTicks;
-     monsterActions.push({
-      instanceId: this.meta.instanceId,
-      runtimeId: monster.runtimeId,
-      targetPlayerId: target.playerId,
-      kind: 'basic',
-      damage,
-     });
+    const targetPlayerId = typeof target.playerId === 'string' ? target.playerId : '';
+    if (targetPlayerId && this.playersById.has(targetPlayerId)) {
+     const damage = buildMonsterAttackDamage(monster);
+     if (damage > 0) {
+      monster.attackReadyTick = this.tick + monster.attackCooldownTicks;
+      monsterActions.push({
+       instanceId: this.meta.instanceId,
+       runtimeId: monster.runtimeId,
+       targetPlayerId,
+       kind: 'basic',
+       damage,
+      });
+     }
     }
     continue;
    }
@@ -8973,22 +9130,45 @@ class MapInstanceRuntime {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const isDungeon = this.isDungeonInstance();
-  const baseAggroRange = Math.max(0, Math.trunc(Number(monster.aggroRange) || 0));
-  const aggroRange = (!monster.engaged && isDungeon)
-   ? Math.min(baseAggroRange, DUNGEON_MONSTER_ENGAGE_DISTANCE)
-   : baseAggroRange;
+  const engagedDungeon = isDungeon && monster.engaged === true;
+  const aggroRange = this.resolveMonsterCombatAggroRange(monster);
+  const leashRange = engagedDungeon
+   ? Number.POSITIVE_INFINITY
+   : Math.max(0, Math.trunc(Number(monster.leashRange) || 0));
+  if (engagedDungeon) {
+   if (this.playersById.size === 0) {
+    this.decayMonsterThreats(monster, new Set());
+    return null;
+   }
+   const extraAggroRate = Number(monster?.numericStats?.extraAggroRate ?? 0) || 0;
+   const activePlayerIds = new Set();
+   for (const player of this.playersById.values()) {
+    activePlayerIds.add(player.playerId);
+    this.addMonsterThreat(monster.runtimeId, player.playerId, DEFAULT_PASSIVE_THREAT_PER_TICK, 1, extraAggroRate);
+   }
+   this.decayMonsterThreats(monster, activePlayerIds);
+   const bestThreat = this.getHighestMonsterThreatTarget(monster, (playerId) => this.playersById.has(playerId));
+   if (!bestThreat) {
+    return null;
+   }
+   const best = this.playersById.get(bestThreat.targetId);
+   if (best) {
+    this.rememberMonsterTargetSight(monster, best);
+   }
+   return best ?? null;
+  }
   const nearbyCandidates = this.collectPlayersByChunkRange(monster.x, monster.y, aggroRange);
   let hasNearbyPlayer = false;
   if (monster.aggroTargetPlayerId) {
    const locked = this.playersById.get(monster.aggroTargetPlayerId);
    hasNearbyPlayer = !!locked
     && chebyshevDistance(monster.x, monster.y, locked.x, locked.y) <= aggroRange
-    && chebyshevDistance(monster.spawnX, monster.spawnY, locked.x, locked.y) <= monster.leashRange;
+    && chebyshevDistance(monster.spawnX, monster.spawnY, locked.x, locked.y) <= leashRange;
   }
   if (!hasNearbyPlayer) {
    for (const player of nearbyCandidates) {
     if (chebyshevDistance(monster.x, monster.y, player.x, player.y) <= aggroRange
-     && chebyshevDistance(monster.spawnX, monster.spawnY, player.x, player.y) <= monster.leashRange) {
+     && chebyshevDistance(monster.spawnX, monster.spawnY, player.x, player.y) <= leashRange) {
      hasNearbyPlayer = true;
      break;
     }
@@ -9003,7 +9183,7 @@ class MapInstanceRuntime {
   const activePlayerIds = new Set();
   const extraAggroRate = Number(monster?.numericStats?.extraAggroRate ?? 0) || 0;
   for (const player of visibleCandidates) {
-   if (chebyshevDistance(monster.spawnX, monster.spawnY, player.x, player.y) > monster.leashRange) {
+   if (chebyshevDistance(monster.spawnX, monster.spawnY, player.x, player.y) > leashRange) {
     continue;
    }
    const distance = chebyshevDistance(monster.x, monster.y, player.x, player.y);
@@ -9017,7 +9197,7 @@ class MapInstanceRuntime {
   const bestThreat = this.getHighestMonsterThreatTarget(monster, (playerId) => {
    const player = this.playersById.get(playerId);
    return !!player
-    && chebyshevDistance(monster.spawnX, monster.spawnY, player.x, player.y) <= monster.leashRange
+    && chebyshevDistance(monster.spawnX, monster.spawnY, player.x, player.y) <= leashRange
     && chebyshevDistance(monster.x, monster.y, player.x, player.y) <= aggroRange
     && visibleTileIndices.has(this.toTileIndex(player.x, player.y));
   });
@@ -9044,11 +9224,10 @@ class MapInstanceRuntime {
   if (!preIntent) {
    return this.resolveMonsterTarget(monster);
   }
-  const isDungeon = this.isDungeonInstance();
-  const baseAggroRange = Math.max(0, Math.trunc(Number(monster.aggroRange) || 0));
-  const aggroRange = (!monster.engaged && isDungeon)
-   ? Math.min(baseAggroRange, DUNGEON_MONSTER_ENGAGE_DISTANCE)
-   : baseAggroRange;
+  if (this.isDungeonInstance() && monster.engaged === true) {
+   return this.resolveMonsterTarget(monster);
+  }
+  const aggroRange = this.resolveMonsterCombatAggroRange(monster);
 
   // idle hint 快速路径：无 aggroTarget 且候选 chunk 内无玩家 → 只 decay
   if (preIntent.action === 'idle' && !monster.aggroTargetPlayerId) {

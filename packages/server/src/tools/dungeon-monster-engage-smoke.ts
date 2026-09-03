@@ -3,35 +3,24 @@ import fs from 'node:fs';
 import { DUNGEON_MONSTER_ENGAGE_DISTANCE, MapInstanceRuntime } from '../runtime/instance/map-instance.runtime.js';
 import { DungeonPresentationController } from '../runtime/dungeon/dungeon-presentation-controller.js';
 import { DungeonTemplateRegistry } from '../content/registries/dungeon-template.registry.js';
-import type { DungeonDefinition, DungeonRunState } from '@mud/shared';
+import { MapTemplateRepository } from '../runtime/map/map-template.repository.js';
+import type { DungeonRunState } from '@mud/shared';
 
+let cachedDungeonMapTemplate: ReturnType<MapTemplateRepository['getOrThrow']> | null = null;
 function loadRealDungeonMapTemplate() {
-  const mapPath = '/home/yuohira/mud-mmo-next/packages/server/data/maps/dungeon_huanling_zhenren_instance.json';
-  const raw = JSON.parse(fs.readFileSync(mapPath, 'utf8'));
-  const width = raw.width;
-  const height = raw.height;
-  return {
-    ...raw,
-    terrainRows: raw.terrain,
-    structureRows: raw.structure,
-    baseAuraByTile: new Float64Array(width * height),
-    baseTerrainByTile: new Uint8Array(width * height),
-    npcs: raw.npcs ?? [],
-    landmarks: raw.landmarks ?? [],
-    containers: raw.containers ?? [],
-    auras: raw.auras ?? [],
-    portals: raw.portals ?? [],
-    safeZones: raw.safeZones ?? [],
-    spawnX: 4,
-    spawnY: 8,
-  } as any;
+  if (!cachedDungeonMapTemplate) {
+    const maps = new MapTemplateRepository();
+    maps.loadAll();
+    cachedDungeonMapTemplate = maps.getOrThrow('dungeon_huanling_zhenren_instance');
+  }
+  return cachedDungeonMapTemplate;
 }
 const huanlingTechPath = '/home/yuohira/mud-mmo-next/packages/server/data/content/techniques/凡人期/术法/地阶.json';
 const huanlingTechData = JSON.parse(fs.readFileSync(huanlingTechPath, 'utf8'));
 const huanlingTech = huanlingTechData.find((t: any) => t.id === 'monster_huanling_arts');
 
 
-function createHuanlingMonsterSpawn(x: number, y: number) {
+function createHuanlingMonsterSpawn(x: number, y: number, openingTicks = 3) {
   return {
     runtimeId: 'm_boss_huanling',
     monsterId: 'm_huanling_zhenren_instance',
@@ -52,7 +41,7 @@ function createHuanlingMonsterSpawn(x: number, y: number) {
     attackRange: 2,
     attackCooldownTicks: 2,
     wanderRadius: 0,
-    combatOpeningTicks: 3,
+    combatOpeningTicks: openingTicks,
     skills: huanlingTech?.skills ?? [],
     baseAttrs: { constitution: 100, spirit: 100, strength: 100 },
     baseNumericStats: { maxHp: 1000000, maxQi: 500, attack: 100, defense: 50, speed: 10 },
@@ -92,6 +81,27 @@ function createNormalMonsterSpawn(x: number, y: number) {
     baseAttrs: { constitution: 50, strength: 50 },
     baseNumericStats: { maxHp: 10000, maxQi: 100, attack: 50, defense: 20, speed: 10 },
   };
+}
+
+function forcePlacePlayer(instance: MapInstanceRuntime, playerId: string, x: number, y: number): void {
+  const player = instance.playersById.get(playerId);
+  assert.ok(player, `forcePlacePlayer 需要玩家 ${playerId}`);
+  instance.setOccupied(player.x, player.y, 0);
+  instance.removePlayerFromTileIndex(playerId, player.x, player.y);
+  player.x = x;
+  player.y = y;
+  instance.addPlayerToTileIndex(player);
+  instance.setOccupied(x, y, player.handle);
+}
+
+function createDungeonInstance(instanceId: string, monsterSpawns: unknown[]): MapInstanceRuntime {
+  return new MapInstanceRuntime({
+    instanceId,
+    template: loadRealDungeonMapTemplate(),
+    kind: 'dungeon',
+    persistent: false,
+    monsterSpawns,
+  } as any);
 }
 
 async function runDungeonMonsterEngageSmoke(): Promise<void> {
@@ -329,7 +339,83 @@ async function runDungeonMonsterEngageSmoke(): Promise<void> {
     console.log('✓ 场景 5 通过：无对白怪物进入 5 格后直接开打');
   }
 
-  console.log('=== 所有 5 个核心场景全部通过！===');
+  console.log('=== 开怪基础 5 个场景通过，继续验证全图真视与连线攻击 ===');
+
+  // ─────────────────────────────────────────────────────────────
+  // 场景 6：开战后天人全图真视，LOS 被石柱挡住仍锁定玩家
+  // ─────────────────────────────────────────────────────────────
+  {
+    console.log('[Case 6] 验证开战后天人全图真视穿透石柱...');
+    const bossSpawn = createHuanlingMonsterSpawn(10, 7, 0);
+    const instance = createDungeonInstance('dungeon:smoke_case_6', [bossSpawn]);
+    const playerId = 'p_tester_los';
+    instance.connectPlayer({ playerId, sessionId: 'sess_6', preferredX: 4, preferredY: 8 });
+    instance.applyDamageToMonster(bossSpawn.runtimeId, 100, playerId);
+    assert.equal(instance.getMonster(bossSpawn.runtimeId)?.engaged, true);
+    // (10,5) 为石柱，(10,3) 在石柱北侧，切比雪夫距离 4，常规 shadowcast 不可见
+    forcePlacePlayer(instance, playerId, 10, 3);
+    assert.equal(instance.canSeeTileFrom(10, 7, 10, 3, 10), false, '石柱必须挡住常规视线');
+    const result = instance.tickOnce();
+    const monster = instance.getMonster(bossSpawn.runtimeId);
+    assert.equal(monster?.aggroTargetPlayerId, playerId, '开战后天人真视必须锁定 LOS 外的玩家');
+    assert.ok(result.monsterActions.length > 0, '真视锁定后必须对 LOS 外玩家出手');
+    console.log('✓ 场景 6 通过：开战后天人全图真视，石柱后玩家仍被锁定并攻击');
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 场景 7：围堵后攻击者不可达，改打连线上第一格
+  // ─────────────────────────────────────────────────────────────
+  {
+    console.log('[Case 7] 验证围堵后沿连线攻击第一可打格...');
+    const bossSpawn = createHuanlingMonsterSpawn(10, 7, 0);
+    const instance = createDungeonInstance('dungeon:smoke_case_7', [bossSpawn]);
+    const playerId = 'p_tester_surround';
+    instance.connectPlayer({ playerId, sessionId: 'sess_7', preferredX: 2, preferredY: 7 });
+    instance.applyDamageToMonster(bossSpawn.runtimeId, 100, playerId);
+    forcePlacePlayer(instance, playerId, 2, 7);
+    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) {
+      instance.setOccupied(10 + dx, 7 + dy, 99);
+    }
+    const result = instance.tickOnce();
+    assert.ok(result.monsterActions.length > 0, '围堵后必须对连线第一格出手，而不是空过');
+    const action = result.monsterActions[0];
+    const aimedX = Number(action?.targetX ?? action?.warningOriginX);
+    const aimedY = Number(action?.targetY ?? action?.warningOriginY);
+    const warning = Array.isArray(action?.warningCells) ? action.warningCells : [];
+    const hitsLineTile = warning.some((cell: { x: number; y: number }) => cell.x === 9 && cell.y === 7)
+      || (aimedX === 9 && aimedY === 7);
+    assert.equal(hitsLineTile, true, '围堵后必须瞄准怪物到攻击者连线上的第一格 (9,7)');
+    assert.equal(instance.getMonster(bossSpawn.runtimeId)?.x, 10, '围堵后怪物不得移动');
+    console.log('✓ 场景 7 通过：围堵后改打连线第一格，怪物不空过');
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 场景 8：玩家站在边缘墙格内，开战后天人真视可指向并攻击
+  // ─────────────────────────────────────────────────────────────
+  {
+    console.log('[Case 8] 验证边缘墙内玩家可被指向并攻击...');
+    const bossSpawn = createHuanlingMonsterSpawn(10, 3, 0);
+    const instance = createDungeonInstance('dungeon:smoke_case_8', [bossSpawn]);
+    const playerId = 'p_tester_wall';
+    instance.connectPlayer({ playerId, sessionId: 'sess_8', preferredX: 4, preferredY: 8 });
+    instance.applyDamageToMonster(bossSpawn.runtimeId, 100, playerId);
+    // 上边缘整行是墙；(10,0) 距 Boss (10,3) 为 3 格，在断魂灵钉 6 格射程内
+    forcePlacePlayer(instance, playerId, 10, 0);
+    assert.equal(instance.isWalkable(10, 0), false, '边缘墙格本身不可行走');
+    const result = instance.tickOnce();
+    const monster = instance.getMonster(bossSpawn.runtimeId);
+    assert.equal(monster?.aggroTargetPlayerId, playerId, '真视必须锁定墙内玩家');
+    assert.ok(result.monsterActions.length > 0, '墙内玩家必须能被技能或普攻命中规划');
+    const action = result.monsterActions[0];
+    const warning = Array.isArray(action?.warningCells) ? action.warningCells : [];
+    const aimsWall = action?.targetPlayerId === playerId
+      || warning.some((cell: { x: number; y: number }) => cell.x === 10 && cell.y === 0)
+      || (Number(action?.targetX) === 10 && Number(action?.targetY) === 0);
+    assert.equal(aimsWall, true, '出手必须指向墙内玩家坐标');
+    console.log('✓ 场景 8 通过：边缘墙内玩家可被正确锁定并攻击');
+  }
+
+  console.log('=== 所有 8 个核心场景全部通过！===');
 }
 
 runDungeonMonsterEngageSmoke().catch((error) => {
