@@ -261,10 +261,10 @@ async function testDungeonRestartRecovery(): Promise<void> {
       }
     },
     getPlayerPosition() {
-      return { x: 1, y: 8 };
+      return { x: 3, y: 8 };
     },
     getPlayer() {
-      return { x: 1, y: 8 };
+      return { x: 3, y: 8 };
     },
     listPlayerIds() {
       return [playerId];
@@ -301,7 +301,7 @@ async function testDungeonRestartRecovery(): Promise<void> {
       }),
     } as any,
     {} as any,
-    { getPlayer: () => ({ playerId, x: 1, y: 8, hp: 100 }) } as any,
+    { getPlayer: () => ({ playerId, x: 3, y: 8, hp: 100 }) } as any,
     {
       getInstanceRuntime: () => instance,
       loadPersistedMonsterRuntimeStates: async () => [persistedState],
