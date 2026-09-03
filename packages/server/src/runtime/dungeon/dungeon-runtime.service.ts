@@ -12,6 +12,7 @@ import {
  type DungeonSettlementMember,
  type DungeonSettlementView,
  type DungeonStaminaView,
+ filterDungeonBossDropTable,
  isDungeonPresentRankAllowed,
  resolveDungeonAttributeMultipliers,
  resolveDungeonEffectiveStep,
@@ -1077,6 +1078,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   const multipliers = resolveDungeonAttributeMultipliers(run.difficulty, definition.difficulty.maxPresentRank, definition.difficulty.attributeRule);
   const lootMultipliers = resolveDungeonLootMultipliers(run.difficulty, definition.difficulty.maxPresentRank);
   lootMultipliers.dropRateMultiplier *= resolveDungeonPartyDropRateMultiplier(run.members.length);
+  const effectiveDropTable = filterDungeonBossDropTable(options.dropTable, run.difficulty);
   const scaledSpawn = scaleMonsterSpawn(
    spawn,
    run.difficulty,
@@ -1085,7 +1087,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
    Number(override.hpMultiplier) || 1,
    override.additionalSkillIds,
    options.skillIds,
-   options.dropTable,
+   effectiveDropTable,
    lootMultipliers,
   );
   const openingStep = (definition.presentation?.onCombatEngaged ?? definition.presentation?.onRunCreated ?? [])

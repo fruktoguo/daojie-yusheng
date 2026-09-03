@@ -68,5 +68,82 @@
     "type": "skill_book",
     "desc": "记载血煞唤灵决的修行法门，使用后学会血煞唤灵决。",
     "learnTechniqueId": "xuesha_huanling_jue"
+  },
+  {
+    "itemId": "book.passive_combat_core_earth_metal",
+    "name": "《白商经》",
+    "type": "skill_book",
+    "desc": "孟秋之月，其帝少皞，其神蓐收，其音商，律中夷则，天地始肃。",
+    "learnTechniqueId": "passive_combat_core_earth_metal"
+  },
+  {
+    "itemId": "book.passive_combat_core_earth_wood",
+    "name": "《大椿荣枯》",
+    "type": "skill_book",
+    "desc": "上古有大椿者，以八千岁为春，八千岁为秋。此大年也。",
+    "learnTechniqueId": "passive_combat_core_earth_wood"
+  },
+  {
+    "itemId": "book.passive_combat_core_earth_water",
+    "name": "《潜渊化生玄冥录》",
+    "type": "skill_book",
+    "desc": "北冥有鱼，其名为鲲。鲲之大，不知其几千里也；化而为鸟，其名为鹏。",
+    "learnTechniqueId": "passive_combat_core_earth_water"
+  },
+  {
+    "itemId": "book.passive_combat_core_earth_fire",
+    "name": "《朱明赫曦篇》",
+    "type": "skill_book",
+    "desc": "朱明盛遝，赫曦煌煌。炎帝掌节，太昊御方。",
+    "learnTechniqueId": "passive_combat_core_earth_fire"
+  },
+  {
+    "itemId": "book.passive_combat_core_earth_earth",
+    "name": "《含弘镇岳》",
+    "type": "skill_book",
+    "desc": "地势坤，君子以厚德载物。含弘光大，品物咸亨。",
+    "learnTechniqueId": "passive_combat_core_earth_earth"
+  },
+  {
+    "itemId": "book.passive_combat_core_earth_physical",
+    "name": "《千钧拔山换血古卷》",
+    "type": "skill_book",
+    "desc": "力拔山兮气盖世，时不利兮骓不逝。",
+    "learnTechniqueId": "passive_combat_core_earth_physical"
+  },
+  {
+    "itemId": "book.passive_combat_core_earth_spell",
+    "name": "《虚室生白》",
+    "type": "skill_book",
+    "desc": "瞻彼阕者，虚室生白，吉祥止止。夫绚绚思之，此谓神游。",
+    "learnTechniqueId": "passive_combat_core_earth_spell"
+  },
+  {
+    "itemId": "book.passive_heaven_devour_vein",
+    "name": "《噬脉引》",
+    "type": "skill_book",
+    "desc": "纳天地之气以为己有，化五行之变以养神精，寒暑不能损，百疾不能侵。",
+    "learnTechniqueId": "passive_heaven_devour_vein"
+  },
+  {
+    "itemId": "book.passive_heaven_origin_return",
+    "name": "《五炁归元》",
+    "type": "skill_book",
+    "desc": "散则成气，聚则成形，五气归元，返本还朴，与道合真。",
+    "learnTechniqueId": "passive_heaven_origin_return"
+  },
+  {
+    "itemId": "book.passive_heaven_death_immunity",
+    "name": "《谷神不死》",
+    "type": "skill_book",
+    "desc": "谷神不死，是谓玄牝。玄牝之门，是谓天地根。绵绵若存，用之不勤。",
+    "learnTechniqueId": "passive_heaven_death_immunity"
+  },
+  {
+    "itemId": "book.passive_heaven_avatar_awakening",
+    "name": "《在天成象》",
+    "type": "skill_book",
+    "desc": "在天成象，在地成形，变化见矣。是故刚柔相摩，八卦相荡。",
+    "learnTechniqueId": "passive_heaven_avatar_awakening"
   }
 ]

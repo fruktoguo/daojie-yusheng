@@ -6,6 +6,8 @@ import {
   resolveDungeonStaminaCost,
   resolveDungeonEffectiveStep,
   resolveRecoveredStamina,
+  filterDungeonBossDropTable,
+  type DungeonBossDropRecord,
 } from '@mud/shared';
 import { DungeonTemplateRegistry } from '../content/registries/dungeon-template.registry';
 import { DefenseDungeonFlowController, ExpeditionDungeonFlowController, SuppressDemonDungeonFlowController } from '../runtime/dungeon/dungeon-flow-controller';
@@ -55,15 +57,38 @@ assert.equal(isDungeonPartyDefeated({
   defeatedMemberIds: ['player:one'],
 }), false);
 
+const sampleDropTable: DungeonBossDropRecord[] = [
+  { itemId: 'spirit_stone', name: '灵石', type: 'consumable', count: 300 },
+  { itemId: 'book.earth_sample', name: '地阶心法', type: 'skill_book', count: 1, difficulty: 'present' },
+  { itemId: 'book.heaven_sample', name: '天阶心法', type: 'skill_book', count: 1, difficulty: 'present', minPresentRank: 'spirit' },
+];
+// 试炼难度：只有通用灵石，地阶和天阶均过滤掉
+assert.deepEqual(
+  filterDungeonBossDropTable(sampleDropTable, { difficulty: 'trial' })?.map((entry) => entry.itemId),
+  ['spirit_stone'],
+);
+// 现世凡阶：通用灵石 + 地阶，天阶因未达灵阶被过滤掉
+assert.deepEqual(
+  filterDungeonBossDropTable(sampleDropTable, { difficulty: 'present', presentRank: 'mortal' })?.map((entry) => entry.itemId),
+  ['spirit_stone', 'book.earth_sample'],
+);
+// 现世灵阶：通用灵石 + 地阶 + 天阶全部通过
+assert.deepEqual(
+  filterDungeonBossDropTable(sampleDropTable, { difficulty: 'present', presentRank: 'spirit' })?.map((entry) => entry.itemId),
+  ['spirit_stone', 'book.earth_sample', 'book.heaven_sample'],
+);
+
 const registry = new DungeonTemplateRegistry();
 registry.loadAll();
 const dungeon = registry.getRef('dungeon_huanling_zhenren');
 assert.equal(dungeon.flowType, 'suppress_demon');
 assert.equal(dungeon.difficulty.maxPresentRank, 'spirit');
 assert.equal(dungeon.rooms?.length, 1);
-assert.equal(dungeon.rooms?.[0]?.bossDropTable?.length, 11);
-assert.equal(dungeon.rooms?.[0]?.bossDropTable?.filter((entry) => entry.type === 'skill_book').length, 9);
-
+assert.equal(dungeon.rooms?.[0]?.bossDropTable?.length, 22);
+assert.equal(dungeon.rooms?.[0]?.bossDropTable?.filter((entry) => entry.type === 'skill_book').length, 20);
+assert.equal(filterDungeonBossDropTable(dungeon.rooms?.[0]?.bossDropTable, { difficulty: 'trial' })?.length, 11);
+assert.equal(filterDungeonBossDropTable(dungeon.rooms?.[0]?.bossDropTable, { difficulty: 'present', presentRank: 'mortal' })?.length, 18);
+assert.equal(filterDungeonBossDropTable(dungeon.rooms?.[0]?.bossDropTable, { difficulty: 'present', presentRank: 'spirit' })?.length, 22);
 testPartyDefeatTransitions();
 testDungeonPresentationMonsterTrigger();
 
@@ -301,7 +326,7 @@ async function testDungeonRestartRecovery(): Promise<void> {
       }),
     } as any,
     {} as any,
-    { getPlayer: () => ({ playerId, x: 3, y: 8, hp: 100 }) } as any,
+    { getPlayer: () => ({ playerId, x: 3, y: 8, hp: 100 }), replaceTemporaryBuff: () => { } } as any,
     {
       getInstanceRuntime: () => instance,
       loadPersistedMonsterRuntimeStates: async () => [persistedState],

@@ -63,6 +63,12 @@ export interface DungeonBossDropRecord {
  type: ItemType;
  count: number;
  chance?: number;
+ /** 限定掉落的副本难度（如 'present' 仅现世掉落；未配置则所有难度通用）。 */
+ difficulty?: DungeonDifficulty;
+ /** 限定现世最低阶位（如 'spirit' 表示仅现世·灵阶及以上掉落）。 */
+ minPresentRank?: TechniqueGrade;
+ /** 显式允许的现世阶位列表；若配置则只在这些阶位掉落。 */
+ allowedPresentRanks?: TechniqueGrade[];
 }
 
 export interface DungeonDifficultyOverride {
@@ -373,6 +379,36 @@ export function isDungeonPresentRankAllowed(
  if (difficulty !== 'present') return presentRank === undefined;
  if (!presentRank) return false;
  return getDungeonPresentRankStep(presentRank) <= getDungeonPresentRankStep(maxPresentRank);
+}
+
+/** 按当前副本难度与现世阶位过滤 Boss 专用掉落列表。 */
+export function filterDungeonBossDropTable(
+ dropTable: readonly DungeonBossDropRecord[] | undefined,
+ selection: { difficulty: DungeonDifficulty; presentRank?: TechniqueGrade },
+): DungeonBossDropRecord[] | undefined {
+ if (!Array.isArray(dropTable)) return undefined;
+ return dropTable.filter((drop) => {
+  if (drop.difficulty && drop.difficulty !== selection.difficulty) {
+   return false;
+  }
+  if (drop.minPresentRank) {
+   if (selection.difficulty !== 'present' || !selection.presentRank) {
+    return false;
+   }
+   if (getDungeonPresentRankStep(selection.presentRank) < getDungeonPresentRankStep(drop.minPresentRank)) {
+    return false;
+   }
+  }
+  if (Array.isArray(drop.allowedPresentRanks) && drop.allowedPresentRanks.length > 0) {
+   if (selection.difficulty !== 'present' || !selection.presentRank) {
+    return false;
+   }
+   if (!drop.allowedPresentRanks.includes(selection.presentRank)) {
+    return false;
+   }
+  }
+  return true;
+ });
 }
 
 export function resolveDungeonEffectiveStep(

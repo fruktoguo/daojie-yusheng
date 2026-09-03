@@ -110,6 +110,98 @@
           "type": "skill_book",
           "count": 1,
           "chance": 0.005
+        },
+        {
+          "itemId": "book.passive_combat_core_earth_metal",
+          "name": "《白商经》",
+          "type": "skill_book",
+          "count": 1,
+          "chance": 0.008,
+          "difficulty": "present"
+        },
+        {
+          "itemId": "book.passive_combat_core_earth_wood",
+          "name": "《大椿荣枯》",
+          "type": "skill_book",
+          "count": 1,
+          "chance": 0.008,
+          "difficulty": "present"
+        },
+        {
+          "itemId": "book.passive_combat_core_earth_water",
+          "name": "《潜渊化生玄冥录》",
+          "type": "skill_book",
+          "count": 1,
+          "chance": 0.008,
+          "difficulty": "present"
+        },
+        {
+          "itemId": "book.passive_combat_core_earth_fire",
+          "name": "《朱明赫曦篇》",
+          "type": "skill_book",
+          "count": 1,
+          "chance": 0.008,
+          "difficulty": "present"
+        },
+        {
+          "itemId": "book.passive_combat_core_earth_earth",
+          "name": "《含弘镇岳》",
+          "type": "skill_book",
+          "count": 1,
+          "chance": 0.008,
+          "difficulty": "present"
+        },
+        {
+          "itemId": "book.passive_combat_core_earth_physical",
+          "name": "《千钧拔山换血古卷》",
+          "type": "skill_book",
+          "count": 1,
+          "chance": 0.008,
+          "difficulty": "present"
+        },
+        {
+          "itemId": "book.passive_combat_core_earth_spell",
+          "name": "《虚室生白》",
+          "type": "skill_book",
+          "count": 1,
+          "chance": 0.008,
+          "difficulty": "present"
+        },
+        {
+          "itemId": "book.passive_heaven_devour_vein",
+          "name": "《噬脉引》",
+          "type": "skill_book",
+          "count": 1,
+          "chance": 0.004,
+          "difficulty": "present",
+          "minPresentRank": "spirit"
+        },
+        {
+          "itemId": "book.passive_heaven_origin_return",
+          "name": "《五炁归元》",
+          "type": "skill_book",
+          "count": 1,
+          "chance": 0.004,
+          "difficulty": "present",
+          "minPresentRank": "spirit"
+        },
+        {
+          "itemId": "book.passive_heaven_death_immunity",
+          "name": "《谷神不死》",
+          "type": "skill_book",
+          "count": 1,
+          "chance": 0.004,
+          "difficulty": "present",
+          "minPresentRank": "spirit"
+        },
+        {
+          "itemId": "book.passive_heaven_avatar_awakening",
+          "name": "《在天成象》",
+          "type": "skill_book",
+          "count": 1,
+          "chance": 0.004,
+          "difficulty": "present",
+          "minPresentRank": "spirit"
         }
       ],
       "spawnX": 10,

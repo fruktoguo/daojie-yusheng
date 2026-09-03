@@ -23,6 +23,7 @@ import {
  type DungeonPresentationStep,
  type DungeonWaveDefinition,
  type ItemType,
+ type TechniqueGrade,
 } from '@mud/shared';
 import { resolveProjectPath } from '../../common/project-path';
 import { freezeTemplateMap } from './template-freeze';
@@ -141,12 +142,44 @@ function normalizeRooms(raw: unknown): DungeonMapRoomDefinition[] | undefined {
     if (drop.chance !== undefined && (!Number.isFinite(Number(drop.chance)) || Number(drop.chance) < 0 || Number(drop.chance) > 1)) {
      throw new Error(`副本 rooms[${index}].bossDropTable[${dropIndex}].chance 必须在 0 到 1 之间`);
     }
+    let dropDifficulty: DungeonDifficulty | undefined;
+    if (drop.difficulty !== undefined) {
+     const diff = requiredString(drop.difficulty, `rooms[${index}].bossDropTable[${dropIndex}].difficulty`) as DungeonDifficulty;
+     if (!DIFFICULTIES.includes(diff)) {
+      throw new Error(`副本 rooms[${index}].bossDropTable[${dropIndex}].difficulty 不受支持`);
+     }
+     dropDifficulty = diff;
+    }
+    let minPresentRank: TechniqueGrade | undefined;
+    if (drop.minPresentRank !== undefined) {
+     const rank = requiredString(drop.minPresentRank, `rooms[${index}].bossDropTable[${dropIndex}].minPresentRank`) as TechniqueGrade;
+     if (!DUNGEON_PRESENT_RANK_ORDER.includes(rank)) {
+      throw new Error(`副本 rooms[${index}].bossDropTable[${dropIndex}].minPresentRank 不受支持`);
+     }
+     minPresentRank = rank;
+    }
+    let allowedPresentRanks: TechniqueGrade[] | undefined;
+    if (drop.allowedPresentRanks !== undefined) {
+     if (!Array.isArray(drop.allowedPresentRanks)) {
+      throw new Error(`副本 rooms[${index}].bossDropTable[${dropIndex}].allowedPresentRanks 必须是数组`);
+     }
+     allowedPresentRanks = drop.allowedPresentRanks.map((rank: unknown) => {
+      const norm = requiredString(rank, `rooms[${index}].bossDropTable[${dropIndex}].allowedPresentRanks`) as TechniqueGrade;
+      if (!DUNGEON_PRESENT_RANK_ORDER.includes(norm)) {
+       throw new Error(`副本 rooms[${index}].bossDropTable[${dropIndex}].allowedPresentRanks 包含无效阶位: ${norm}`);
+      }
+      return norm;
+     });
+    }
     return {
      itemId,
      name,
      type,
      count,
      ...(drop.chance === undefined ? {} : { chance: Number(drop.chance) }),
+     ...(dropDifficulty ? { difficulty: dropDifficulty } : {}),
+     ...(minPresentRank ? { minPresentRank } : {}),
+     ...(allowedPresentRanks ? { allowedPresentRanks } : {}),
     };
    });
   }
