@@ -1,6 +1,59 @@
 {
   "techniques": [
     {
+      "id": "passive_combat_core_earth_metal",
+      "name": "《白商经》",
+      "desc": "孟秋之月，其帝少皞，其神蓐收，其音商，律中夷则，天地始肃。",
+      "grade": "earth",
+      "category": "arts",
+      "realmLv": 43,
+      "attrRatio": {
+        "spirit": 0.34,
+        "strength": 0.33,
+        "meridians": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 24,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill_passive_combat_core_earth_metal",
+          "name": "白商",
+          "desc": "孟秋之月，其帝少皞，其神蓐收，其音商，律中夷则，天地始肃。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive_combat_core_earth_metal_buff",
+              "name": "白商",
+              "shortMark": "商",
+              "desc": "孟秋之月，天地始肃。物理攻击+28%、暴击+28%、金系增伤+28%、金系减伤+14%；法术防御-8%、最大灵力-8%。",
+              "stats": {
+                "physAtk": 28,
+                "crit": 28,
+                "spellDef": -8,
+                "maxQi": -8,
+                "elementDamageBonus": {
+                  "metal": 28
+                },
+                "elementDamageReduce": {
+                  "metal": 14
+                }
+              },
+              "statMode": "percent",
+              "ignoreRealmEffectiveness": true
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
       "id": "passive_craft_mortal_mortal_gather",
       "name": "《百草识辨篇》",
       "desc": "凡人采集专修心法。谙熟百草习性灵机，采摘有 8% 线性保株概率不扣地块存量，但采摘速度降低 16%。",
@@ -280,6 +333,59 @@
       ]
     },
     {
+      "id": "passive_combat_core_earth_wood",
+      "name": "《大椿荣枯》",
+      "desc": "上古有大椿者，以八千岁为春，八千岁为秋。此大年也。",
+      "grade": "earth",
+      "category": "arts",
+      "realmLv": 43,
+      "attrRatio": {
+        "spirit": 0.34,
+        "agility": 0.33,
+        "physique": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 24,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill_passive_combat_core_earth_wood",
+          "name": "大椿荣枯",
+          "desc": "上古有大椿者，以八千岁为春，八千岁为秋。此大年也。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive_combat_core_earth_wood_buff",
+              "name": "大椿荣枯",
+              "shortMark": "椿",
+              "desc": "大椿长青，岁荣不绝。气血恢复+28%、闪避+28%、木系增伤+28%、木系减伤+14%；破劲-8%、物理攻击-8%。",
+              "stats": {
+                "hpRegenRate": 28,
+                "dodge": 28,
+                "breakPower": -8,
+                "physAtk": -8,
+                "elementDamageBonus": {
+                  "wood": 28
+                },
+                "elementDamageReduce": {
+                  "wood": 14
+                }
+              },
+              "statMode": "percent",
+              "ignoreRealmEffectiveness": true
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
       "id": "passive_craft_qi_yellow_mining",
       "name": "《地脉寻金诀》",
       "desc": "练气采矿专修心法。循地脉金行灵气精准采掘，采矿速度提升 12%。",
@@ -465,6 +571,104 @@
                 },
                 "elementDamageReduce": {
                   "metal": 6
+                }
+              },
+              "statMode": "percent",
+              "ignoreRealmEffectiveness": true
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_heaven_death_immunity",
+      "name": "《谷神不死》",
+      "desc": "谷神不死，是谓玄牝。玄牝之门，是谓天地根。绵绵若存，用之不勤。",
+      "grade": "heaven",
+      "category": "arts",
+      "realmLv": 55,
+      "attrRatio": {
+        "strength": 0.4,
+        "physique": 0.3,
+        "bone": 0.3
+      },
+      "attrFloat": 0,
+      "expDifficulty": 1.2,
+      "skills": [
+        {
+          "id": "skill_passive_heaven_death_immunity",
+          "name": "谷神不死",
+          "desc": "谷神不死，是谓玄牝。玄牝之门，是谓天地根。绵绵若存，用之不勤。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive_heaven_death_immunity_buff",
+              "name": "谷神不死",
+              "shortMark": "谷",
+              "desc": "玄牝之门，绵绵若存。物攻+25%、暴伤+30%、破劲+20%；受到致命伤害时激活真元护体锁定1血持续1息（冷却1800息）。",
+              "stats": {
+                "physAtk": 25,
+                "critDamage": 30,
+                "breakPower": 20
+              },
+              "statMode": "percent",
+              "ignoreRealmEffectiveness": true
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_combat_core_earth_earth",
+      "name": "《含弘镇岳》",
+      "desc": "地势坤，君子以厚德载物。含弘光大，品物咸亨。",
+      "grade": "earth",
+      "category": "arts",
+      "realmLv": 43,
+      "attrRatio": {
+        "physique": 0.34,
+        "bone": 0.33,
+        "spirit": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 24,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill_passive_combat_core_earth_earth",
+          "name": "含弘镇岳",
+          "desc": "地势坤，君子以厚德载物。含弘光大，品物咸亨。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive_combat_core_earth_earth_buff",
+              "name": "含弘镇岳",
+              "shortMark": "弘",
+              "desc": "坤元敦厚，镇岳不拔。物理防御+28%、化劲+28%、土系增伤+28%、土系减伤+14%；移速-8%、法术攻击-8%。",
+              "stats": {
+                "physDef": 28,
+                "resolvePower": 28,
+                "moveSpeed": -8,
+                "spellAtk": -8,
+                "elementDamageBonus": {
+                  "earth": 28
+                },
+                "elementDamageReduce": {
+                  "earth": 14
                 }
               },
               "statMode": "percent",
@@ -1225,6 +1429,108 @@
       ]
     },
     {
+      "id": "passive_combat_core_earth_physical",
+      "name": "《千钧拔山换血古卷》",
+      "desc": "力拔山兮气盖世，时不利兮骓不逝。",
+      "grade": "earth",
+      "category": "arts",
+      "realmLv": 43,
+      "attrRatio": {
+        "physique": 0.4,
+        "strength": 0.4,
+        "bone": 0.2
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 24,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill_passive_combat_core_earth_physical",
+          "name": "千钧拔山",
+          "desc": "力拔山兮气盖世，时不利兮骓不逝。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive_combat_core_earth_physical_buff",
+              "name": "千钧拔山",
+              "shortMark": "拔",
+              "desc": "霸王拔山，气血如龙。物攻+28%、物防+16.8%、破劲+22.4%、暴击+14%；法攻-8%、最大灵力-4%。",
+              "stats": {
+                "physAtk": 28,
+                "physDef": 16.8,
+                "breakPower": 22.4,
+                "crit": 14,
+                "spellAtk": -8,
+                "maxQi": -4
+              },
+              "statMode": "percent",
+              "ignoreRealmEffectiveness": true
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_combat_core_earth_water",
+      "name": "《潜渊化生玄冥录》",
+      "desc": "北冥有鱼，其名为鲲。鲲之大，不知其几千里也；化而为鸟，其名为鹏。",
+      "grade": "earth",
+      "category": "arts",
+      "realmLv": 43,
+      "attrRatio": {
+        "spirit": 0.34,
+        "bone": 0.33,
+        "meridians": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 24,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill_passive_combat_core_earth_water",
+          "name": "潜渊玄冥",
+          "desc": "北冥有鱼，其名为鲲。鲲之大，不知其几千里也；化而为鸟，其名为鹏。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive_combat_core_earth_water_buff",
+              "name": "潜渊玄冥",
+              "shortMark": "冥",
+              "desc": "潜龙九渊，溟海纳川。法术防御+28%、抗暴+28%、水系增伤+28%、水系减伤+14%；暴击-8%、物理攻击-8%。",
+              "stats": {
+                "spellDef": 28,
+                "antiCrit": 28,
+                "crit": -8,
+                "physAtk": -8,
+                "elementDamageBonus": {
+                  "water": 28
+                },
+                "elementDamageReduce": {
+                  "water": 14
+                }
+              },
+              "statMode": "percent",
+              "ignoreRealmEffectiveness": true
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
       "id": "passive_craft_qi_yellow_gather",
       "name": "《青灵采撷诀》",
       "desc": "练气采集专修心法。引青木灵气化解灵草天然防护，采摘有 12% 线性保株概率不扣地块存量，但采摘速度降低 24%。",
@@ -1467,6 +1773,51 @@
       ]
     },
     {
+      "id": "passive_heaven_devour_vein",
+      "name": "《噬脉引》",
+      "desc": "纳天地之气以为己有，化五行之变以养神精，寒暑不能损，百疾不能侵。",
+      "grade": "heaven",
+      "category": "arts",
+      "realmLv": 55,
+      "attrRatio": {
+        "physique": 0.35,
+        "bone": 0.35,
+        "meridians": 0.3
+      },
+      "attrFloat": 0,
+      "expDifficulty": 1.2,
+      "skills": [
+        {
+          "id": "skill_passive_heaven_devour_vein",
+          "name": "噬脉引",
+          "desc": "纳天地之气以为己有，化五行之变以养神精，寒暑不能损，百疾不能侵。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive_heaven_devour_vein_buff",
+              "name": "噬脉引",
+              "shortMark": "噬",
+              "desc": "纳天地五气化为己用。气血+25%、物防+15%、法防+15%；受到五行伤害获得对应五行噬脉减伤（最多叠100层）。",
+              "stats": {
+                "maxHp": 25,
+                "physDef": 15,
+                "spellDef": 15
+              },
+              "statMode": "percent",
+              "ignoreRealmEffectiveness": true
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
       "id": "passive_combat_mortal_mortal_water",
       "name": "《溯流引泉篇》",
       "desc": "凡人水行专修心法。意存静水深流之态化解刚劲，法术防御+8%、抗暴率+8%、水系增伤+8%、水系减伤+4%；暴击率-3%、物理攻击-3%。",
@@ -1698,6 +2049,99 @@
                 "elementDamageReduce": {
                   "wood": 4
                 }
+              },
+              "statMode": "percent",
+              "ignoreRealmEffectiveness": true
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_heaven_origin_return",
+      "name": "《五炁归元》",
+      "desc": "散则成气，聚则成形，五气归元，返本还朴，与道合真。",
+      "grade": "heaven",
+      "category": "arts",
+      "realmLv": 55,
+      "attrRatio": {
+        "meridians": 0.4,
+        "spirit": 0.3,
+        "physique": 0.3
+      },
+      "attrFloat": 0,
+      "expDifficulty": 1.2,
+      "skills": [
+        {
+          "id": "skill_passive_heaven_origin_return",
+          "name": "五炁归元",
+          "desc": "散则成气，聚则成形，五气归元，返本还朴，与道合真。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive_heaven_origin_return_buff",
+              "name": "五炁归元",
+              "shortMark": "归",
+              "desc": "五气归元，返本还真。气血恢复+25%、抗暴+25%、化劲+20%；生命低于30%时消耗全部噬脉转化为五行归元。",
+              "stats": {
+                "hpRegenRate": 25,
+                "antiCrit": 25,
+                "resolvePower": 20
+              },
+              "ignoreRealmEffectiveness": true
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_combat_core_earth_spell",
+      "name": "《虚室生白》",
+      "desc": "瞻彼阕者，虚室生白，吉祥止止。夫绚绚思之，此谓神游。",
+      "grade": "earth",
+      "category": "arts",
+      "realmLv": 43,
+      "attrRatio": {
+        "spirit": 0.4,
+        "meridians": 0.4,
+        "agility": 0.2
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 24,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill_passive_combat_core_earth_spell",
+          "name": "虚室生白",
+          "desc": "瞻彼阕者，虚室生白，吉祥止止。夫绚绚思之，此谓神游。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive_combat_core_earth_spell_buff",
+              "name": "虚室生白",
+              "shortMark": "白",
+              "desc": "虚室生白，神光澈照。法攻+28%、法防+16.8%、命中+22.4%、化劲+14%；物防-7%、最大生命-4%。",
+              "stats": {
+                "spellAtk": 28,
+                "spellDef": 16.8,
+                "hit": 22.4,
+                "resolvePower": 14,
+                "physDef": -7,
+                "maxHp": -4
               },
               "statMode": "percent",
               "ignoreRealmEffectiveness": true
@@ -2035,6 +2479,50 @@
       ]
     },
     {
+      "id": "passive_heaven_avatar_awakening",
+      "name": "《在天成象》",
+      "desc": "在天成象，在地成形，变化见矣。是故刚柔相摩，八卦相荡。",
+      "grade": "heaven",
+      "category": "arts",
+      "realmLv": 55,
+      "attrRatio": {
+        "spirit": 0.4,
+        "meridians": 0.4,
+        "talent": 0.2
+      },
+      "attrFloat": 0,
+      "expDifficulty": 1.2,
+      "skills": [
+        {
+          "id": "skill_passive_heaven_avatar_awakening",
+          "name": "在天成象",
+          "desc": "在天成象，在地成形，变化见矣。是故刚柔相摩，八卦相荡。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive_heaven_avatar_awakening_buff",
+              "name": "在天成象",
+              "shortMark": "象",
+              "desc": "在天成象，刚柔相摩。法攻+25%、最大灵力+25%、灵力输出+25%；生命低于30%自动开启法相（冷却300息）。",
+              "stats": {
+                "spellAtk": 25,
+                "maxQi": 25,
+                "maxQiOutputPerTick": 25
+              },
+              "ignoreRealmEffectiveness": true
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
       "id": "passive_combat_foundation_mystic_wood",
       "name": "《长春固脉录》",
       "desc": "筑基木行专修心法。纳纯阳长春木髓巩固周身经脉，气血恢复速度+16%、闪避+16%、木系增伤+16%、木系减伤+8%；破劲-5%、物理攻击-5%。",
@@ -2178,6 +2666,59 @@
                   "speedRate": 0.16
                 }
               },
+              "ignoreRealmEffectiveness": true
+            }
+          ],
+          "cost": 0
+        }
+      ]
+    },
+    {
+      "id": "passive_combat_core_earth_fire",
+      "name": "《朱明赫曦篇》",
+      "desc": "朱明盛遝，赫曦煌煌。炎帝掌节，太昊御方。",
+      "grade": "earth",
+      "category": "arts",
+      "realmLv": 43,
+      "attrRatio": {
+        "spirit": 0.34,
+        "strength": 0.33,
+        "agility": 0.33
+      },
+      "attrFloat": -0.08,
+      "maxLayer": 24,
+      "expDifficulty": 1,
+      "skills": [
+        {
+          "id": "skill_passive_combat_core_earth_fire",
+          "name": "朱明赫曦",
+          "desc": "朱明盛遝，赫曦煌煌。炎帝掌节，太昊御方。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 0,
+          "effects": [],
+          "unlockLevel": 1,
+          "active": false,
+          "passiveEffects": [
+            {
+              "type": "buff",
+              "buffId": "passive_combat_core_earth_fire_buff",
+              "name": "朱明赫曦",
+              "shortMark": "明",
+              "desc": "朱明曜灵，烈焰焚虚。法术攻击+28%、暴伤+28%、火系增伤+28%、火系减伤+14%；物理防御-8%、抗暴-8%。",
+              "stats": {
+                "spellAtk": 28,
+                "critDamage": 28,
+                "physDef": -8,
+                "antiCrit": -8,
+                "elementDamageBonus": {
+                  "fire": 28
+                },
+                "elementDamageReduce": {
+                  "fire": 14
+                }
+              },
+              "statMode": "percent",
               "ignoreRealmEffectiveness": true
             }
           ],
@@ -10871,6 +11412,13 @@
       "learnTechniqueId": "baihong_duanyue"
     },
     {
+      "itemId": "book.passive_combat_core_earth_metal",
+      "name": "《白商经》",
+      "type": "skill_book",
+      "desc": "孟秋之月，其帝少皞，其神蓐收，其音商，律中夷则，天地始肃。",
+      "learnTechniqueId": "passive_combat_core_earth_metal"
+    },
+    {
       "itemId": "book.passive_craft_mortal_mortal_gather",
       "name": "《百草识辨篇》",
       "type": "skill_book",
@@ -10939,6 +11487,13 @@
       "type": "skill_book",
       "desc": "记载凡间名匠百炼成钢、淬火去杂经验的锻造图录。研读后掌握凡阶心法《淬铁百锤篇》，使锻造速度提升 8%。",
       "learnTechniqueId": "passive_craft_mortal_mortal_forging"
+    },
+    {
+      "itemId": "book.passive_combat_core_earth_wood",
+      "name": "《大椿荣枯》",
+      "type": "skill_book",
+      "desc": "上古有大椿者，以八千岁为春，八千岁为秋。此大年也。",
+      "learnTechniqueId": "passive_combat_core_earth_wood"
     },
     {
       "itemId": "book.bear_cauldron_art",
@@ -11011,6 +11566,13 @@
       "learnTechniqueId": "passive_combat_qi_yellow_metal"
     },
     {
+      "itemId": "book.passive_heaven_death_immunity",
+      "name": "《谷神不死》",
+      "type": "skill_book",
+      "desc": "谷神不死，是谓玄牝。玄牝之门，是谓天地根。绵绵若存，用之不勤。",
+      "learnTechniqueId": "passive_heaven_death_immunity"
+    },
+    {
       "itemId": "book.golden_lock_body",
       "name": "《固元功》",
       "type": "skill_book",
@@ -11023,6 +11585,13 @@
       "type": "skill_book",
       "desc": "记载归藏合脉经的修行法门，使用后学会归藏合脉经。",
       "learnTechniqueId": "guicang_hemai"
+    },
+    {
+      "itemId": "book.passive_combat_core_earth_earth",
+      "name": "《含弘镇岳》",
+      "type": "skill_book",
+      "desc": "地势坤，君子以厚德载物。含弘光大，品物咸亨。",
+      "learnTechniqueId": "passive_combat_core_earth_earth"
     },
     {
       "itemId": "book.frost_sutra",
@@ -11228,6 +11797,20 @@
       "learnTechniqueId": "passive_craft_foundation_mystic_forging"
     },
     {
+      "itemId": "book.passive_combat_core_earth_physical",
+      "name": "《千钧拔山换血古卷》",
+      "type": "skill_book",
+      "desc": "力拔山兮气盖世，时不利兮骓不逝。",
+      "learnTechniqueId": "passive_combat_core_earth_physical"
+    },
+    {
+      "itemId": "book.passive_combat_core_earth_water",
+      "name": "《潜渊化生玄冥录》",
+      "type": "skill_book",
+      "desc": "北冥有鱼，其名为鲲。鲲之大，不知其几千里也；化而为鸟，其名为鹏。",
+      "learnTechniqueId": "passive_combat_core_earth_water"
+    },
+    {
       "itemId": "book.passive_craft_qi_yellow_gather",
       "name": "《青灵采撷诀》",
       "type": "skill_book",
@@ -11282,6 +11865,13 @@
       "type": "skill_book",
       "desc": "记载平心静气、观察入微、见微知著经验的清心经册。研读后掌握凡阶被动心法《识微明眸篇》，提升法术攻击、法防、命中与化劲。",
       "learnTechniqueId": "passive_combat_mortal_mortal_spell"
+    },
+    {
+      "itemId": "book.passive_heaven_devour_vein",
+      "name": "《噬脉引》",
+      "type": "skill_book",
+      "desc": "纳天地之气以为己有，化五行之变以养神精，寒暑不能损，百疾不能侵。",
+      "learnTechniqueId": "passive_heaven_devour_vein"
     },
     {
       "itemId": "book.passive_combat_mortal_mortal_water",
@@ -11382,6 +11972,20 @@
       "learnTechniqueId": "wuqi_guiliu"
     },
     {
+      "itemId": "book.passive_heaven_origin_return",
+      "name": "《五炁归元》",
+      "type": "skill_book",
+      "desc": "散则成气，聚则成形，五气归元，返本还朴，与道合真。",
+      "learnTechniqueId": "passive_heaven_origin_return"
+    },
+    {
+      "itemId": "book.passive_combat_core_earth_spell",
+      "name": "《虚室生白》",
+      "type": "skill_book",
+      "desc": "瞻彼阕者，虚室生白，吉祥止止。夫绚绚思之，此谓神游。",
+      "learnTechniqueId": "passive_combat_core_earth_spell"
+    },
+    {
       "itemId": "book.passive_combat_foundation_mystic_water",
       "name": "《玄潮凝波录》",
       "type": "skill_book",
@@ -11480,6 +12084,13 @@
       "learnTechniqueId": "starfall_spear"
     },
     {
+      "itemId": "book.passive_heaven_avatar_awakening",
+      "name": "《在天成象》",
+      "type": "skill_book",
+      "desc": "在天成象，在地成形，变化见矣。是故刚柔相摩，八卦相荡。",
+      "learnTechniqueId": "passive_heaven_avatar_awakening"
+    },
+    {
       "itemId": "book.standing_stake_art",
       "name": "《站桩功》",
       "type": "skill_book",
@@ -11555,6 +12166,13 @@
       "type": "skill_book",
       "desc": "记载周天息海篇的修行法门，使用后学会周天息海篇。",
       "learnTechniqueId": "zhoutian_xihai"
+    },
+    {
+      "itemId": "book.passive_combat_core_earth_fire",
+      "name": "《朱明赫曦篇》",
+      "type": "skill_book",
+      "desc": "朱明盛遝，赫曦煌煌。炎帝掌节，太昊御方。",
+      "learnTechniqueId": "passive_combat_core_earth_fire"
     },
     {
       "itemId": "book.zhuming_jintian",
@@ -17232,6 +17850,35 @@
   ],
   "buffs": [
     {
+      "buffId": "passive_combat_core_earth_metal_buff",
+      "name": "白商",
+      "desc": "孟秋之月，天地始肃。物理攻击+28%、暴击+28%、金系增伤+28%、金系减伤+14%；法术防御-8%、最大灵力-8%。",
+      "shortMark": "商",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_core_earth_metal",
+      "sourceSkillName": "白商",
+      "realmLv": 1,
+      "stats": {
+        "physAtk": 28,
+        "crit": 28,
+        "spellDef": -8,
+        "maxQi": -8,
+        "elementDamageBonus": {
+          "metal": 28
+        },
+        "elementDamageReduce": {
+          "metal": 14
+        }
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
       "buffId": "passive_craft_mortal_mortal_gather_buff",
       "name": "百草识辨",
       "desc": "采摘利落药根无损。保株产出+8%，采摘速度-16%。",
@@ -17566,6 +18213,35 @@
       "infiniteDuration": true
     },
     {
+      "buffId": "passive_combat_core_earth_wood_buff",
+      "name": "大椿荣枯",
+      "desc": "大椿长青，岁荣不绝。气血恢复+28%、闪避+28%、木系增伤+28%、木系减伤+14%；破劲-8%、物理攻击-8%。",
+      "shortMark": "椿",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_core_earth_wood",
+      "sourceSkillName": "大椿荣枯",
+      "realmLv": 1,
+      "stats": {
+        "hpRegenRate": 28,
+        "dodge": 28,
+        "breakPower": -8,
+        "physAtk": -8,
+        "elementDamageBonus": {
+          "wood": 28
+        },
+        "elementDamageReduce": {
+          "wood": 14
+        }
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
       "buffId": "item_buff.major_qi_pill",
       "name": "大还灵丹·回灵",
       "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
@@ -17802,6 +18478,57 @@
         },
         "elementDamageReduce": {
           "metal": 6
+        }
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_heaven_death_immunity_buff",
+      "name": "谷神不死",
+      "desc": "玄牝之门，绵绵若存。物攻+25%、暴伤+30%、破劲+20%；受到致命伤害时激活真元护体锁定1血持续1息（冷却1800息）。",
+      "shortMark": "谷",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_heaven_death_immunity",
+      "sourceSkillName": "谷神不死",
+      "realmLv": 1,
+      "stats": {
+        "physAtk": 25,
+        "critDamage": 30,
+        "breakPower": 20
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_combat_core_earth_earth_buff",
+      "name": "含弘镇岳",
+      "desc": "坤元敦厚，镇岳不拔。物理防御+28%、化劲+28%、土系增伤+28%、土系减伤+14%；移速-8%、法术攻击-8%。",
+      "shortMark": "弘",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_core_earth_earth",
+      "sourceSkillName": "含弘镇岳",
+      "realmLv": 1,
+      "stats": {
+        "physDef": 28,
+        "resolvePower": 28,
+        "moveSpeed": -8,
+        "spellAtk": -8,
+        "elementDamageBonus": {
+          "earth": 28
+        },
+        "elementDamageReduce": {
+          "earth": 14
         }
       },
       "statMode": "percent",
@@ -18631,6 +19358,60 @@
       "infiniteDuration": true
     },
     {
+      "buffId": "passive_combat_core_earth_physical_buff",
+      "name": "千钧拔山",
+      "desc": "霸王拔山，气血如龙。物攻+28%、物防+16.8%、破劲+22.4%、暴击+14%；法攻-8%、最大灵力-4%。",
+      "shortMark": "拔",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_core_earth_physical",
+      "sourceSkillName": "千钧拔山",
+      "realmLv": 1,
+      "stats": {
+        "physAtk": 28,
+        "physDef": 16.8,
+        "breakPower": 22.4,
+        "crit": 14,
+        "spellAtk": -8,
+        "maxQi": -4
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_combat_core_earth_water_buff",
+      "name": "潜渊玄冥",
+      "desc": "潜龙九渊，溟海纳川。法术防御+28%、抗暴+28%、水系增伤+28%、水系减伤+14%；暴击-8%、物理攻击-8%。",
+      "shortMark": "冥",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_core_earth_water",
+      "sourceSkillName": "潜渊玄冥",
+      "realmLv": 1,
+      "stats": {
+        "spellDef": 28,
+        "antiCrit": 28,
+        "crit": -8,
+        "physAtk": -8,
+        "elementDamageBonus": {
+          "water": 28
+        },
+        "elementDamageReduce": {
+          "water": 14
+        }
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
       "buffId": "buff.monster_bamboo_bind",
       "name": "青缠",
       "desc": "草木灵气缠身，闪避和法抗一并走低。",
@@ -18883,6 +19664,28 @@
       "realmLv": 1,
       "color": "#8060a0",
       "statMode": "percent"
+    },
+    {
+      "buffId": "passive_heaven_devour_vein_buff",
+      "name": "噬脉引",
+      "desc": "纳天地五气化为己用。气血+25%、物防+15%、法防+15%；受到五行伤害获得对应五行噬脉减伤（最多叠100层）。",
+      "shortMark": "噬",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_heaven_devour_vein",
+      "sourceSkillName": "噬脉引",
+      "realmLv": 1,
+      "stats": {
+        "maxHp": 25,
+        "physDef": 15,
+        "spellDef": 15
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
     },
     {
       "buffId": "buff.monster_star_hunger",
@@ -19222,6 +20025,27 @@
       "statMode": "percent"
     },
     {
+      "buffId": "passive_heaven_origin_return_buff",
+      "name": "五炁归元",
+      "desc": "五气归元，返本还真。气血恢复+25%、抗暴+25%、化劲+20%；生命低于30%时消耗全部噬脉转化为五行归元。",
+      "shortMark": "归",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_heaven_origin_return",
+      "sourceSkillName": "五炁归元",
+      "realmLv": 1,
+      "stats": {
+        "hpRegenRate": 25,
+        "antiCrit": 25,
+        "resolvePower": 20
+      },
+      "infiniteDuration": true
+    },
+    {
       "buffId": "buff.dungeon_fivephase_origin_passive",
       "name": "五行归元",
       "desc": "低血量时按五行减伤层数获得全战斗属性增幅。",
@@ -19342,6 +20166,31 @@
       "sourceSkillName": "裂喉扑杀",
       "realmLv": 1,
       "color": "#c96d56"
+    },
+    {
+      "buffId": "passive_combat_core_earth_spell_buff",
+      "name": "虚室生白",
+      "desc": "虚室生白，神光澈照。法攻+28%、法防+16.8%、命中+22.4%、化劲+14%；物防-7%、最大生命-4%。",
+      "shortMark": "白",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_core_earth_spell",
+      "sourceSkillName": "虚室生白",
+      "realmLv": 1,
+      "stats": {
+        "spellAtk": 28,
+        "spellDef": 16.8,
+        "hit": 22.4,
+        "resolvePower": 14,
+        "physDef": -7,
+        "maxHp": -4
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
     },
     {
       "buffId": "buff.huanling_candan_kuoyu",
@@ -19616,6 +20465,27 @@
       "realmLv": 1
     },
     {
+      "buffId": "passive_heaven_avatar_awakening_buff",
+      "name": "在天成象",
+      "desc": "在天成象，刚柔相摩。法攻+25%、最大灵力+25%、灵力输出+25%；生命低于30%自动开启法相（冷却300息）。",
+      "shortMark": "象",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_heaven_avatar_awakening",
+      "sourceSkillName": "在天成象",
+      "realmLv": 1,
+      "stats": {
+        "spellAtk": 25,
+        "maxQi": 25,
+        "maxQiOutputPerTick": 25
+      },
+      "infiniteDuration": true
+    },
+    {
       "buffId": "passive_combat_foundation_mystic_wood_buff",
       "name": "长春固脉",
       "desc": "长春生机滋养经脉。回血+16%、闪避+16%、木系增伤+16%、木系减伤+8%；破劲-5%、物攻-5%。",
@@ -19741,6 +20611,35 @@
       "realmLv": 1,
       "color": "#9d7b55",
       "statMode": "percent"
+    },
+    {
+      "buffId": "passive_combat_core_earth_fire_buff",
+      "name": "朱明赫曦",
+      "desc": "朱明曜灵，烈焰焚虚。法术攻击+28%、暴伤+28%、火系增伤+28%、火系减伤+14%；物理防御-8%、抗暴-8%。",
+      "shortMark": "明",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_core_earth_fire",
+      "sourceSkillName": "朱明赫曦",
+      "realmLv": 1,
+      "stats": {
+        "spellAtk": 28,
+        "critDamage": 28,
+        "physDef": -8,
+        "antiCrit": -8,
+        "elementDamageBonus": {
+          "fire": 28
+        },
+        "elementDamageReduce": {
+          "fire": 14
+        }
+      },
+      "statMode": "percent",
+      "infiniteDuration": true
     },
     {
       "buffId": "passive_combat_qi_yellow_fire_buff",

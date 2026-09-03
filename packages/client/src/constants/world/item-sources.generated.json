@@ -1006,27 +1006,377 @@
       "chapter": "第一章·粮路讨生"
     }
   ],
-  "book.passive_combat_foundation_mystic_earth": [],
-  "book.passive_combat_foundation_mystic_fire": [],
-  "book.passive_combat_foundation_mystic_metal": [],
-  "book.passive_combat_foundation_mystic_physical": [],
-  "book.passive_combat_foundation_mystic_spell": [],
-  "book.passive_combat_foundation_mystic_water": [],
-  "book.passive_combat_foundation_mystic_wood": [],
-  "book.passive_combat_mortal_mortal_earth": [],
-  "book.passive_combat_mortal_mortal_fire": [],
-  "book.passive_combat_mortal_mortal_metal": [],
-  "book.passive_combat_mortal_mortal_physical": [],
-  "book.passive_combat_mortal_mortal_spell": [],
-  "book.passive_combat_mortal_mortal_water": [],
-  "book.passive_combat_mortal_mortal_wood": [],
-  "book.passive_combat_qi_yellow_earth": [],
-  "book.passive_combat_qi_yellow_fire": [],
-  "book.passive_combat_qi_yellow_metal": [],
-  "book.passive_combat_qi_yellow_physical": [],
-  "book.passive_combat_qi_yellow_spell": [],
-  "book.passive_combat_qi_yellow_water": [],
-  "book.passive_combat_qi_yellow_wood": [],
+  "book.passive_combat_core_earth_earth": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_huanling_zhenren_instance",
+      "mapName": "唤灵真人·梦境试炼场",
+      "monsterId": "m_huanling_zhenren_instance",
+      "monsterName": "唤灵真人",
+      "chance": 0.008,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_core_earth_fire": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_huanling_zhenren_instance",
+      "mapName": "唤灵真人·梦境试炼场",
+      "monsterId": "m_huanling_zhenren_instance",
+      "monsterName": "唤灵真人",
+      "chance": 0.008,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_core_earth_metal": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_huanling_zhenren_instance",
+      "mapName": "唤灵真人·梦境试炼场",
+      "monsterId": "m_huanling_zhenren_instance",
+      "monsterName": "唤灵真人",
+      "chance": 0.008,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_core_earth_physical": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_huanling_zhenren_instance",
+      "mapName": "唤灵真人·梦境试炼场",
+      "monsterId": "m_huanling_zhenren_instance",
+      "monsterName": "唤灵真人",
+      "chance": 0.008,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_core_earth_spell": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_huanling_zhenren_instance",
+      "mapName": "唤灵真人·梦境试炼场",
+      "monsterId": "m_huanling_zhenren_instance",
+      "monsterName": "唤灵真人",
+      "chance": 0.008,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_core_earth_water": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_huanling_zhenren_instance",
+      "mapName": "唤灵真人·梦境试炼场",
+      "monsterId": "m_huanling_zhenren_instance",
+      "monsterName": "唤灵真人",
+      "chance": 0.008,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_core_earth_wood": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_huanling_zhenren_instance",
+      "mapName": "唤灵真人·梦境试炼场",
+      "monsterId": "m_huanling_zhenren_instance",
+      "monsterName": "唤灵真人",
+      "chance": 0.008,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_foundation_mystic_earth": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_huanling_zhenren_instance",
+      "mapName": "唤灵真人·梦境试炼场",
+      "monsterId": "m_huanling_zhenren_instance",
+      "monsterName": "唤灵真人",
+      "chance": 0.013,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_fivephase_devourer_instance",
+      "mapName": "五行噬脉兽·独立试炼场",
+      "monsterId": "m_fivephase_devourer",
+      "monsterName": "五行噬脉兽",
+      "chance": 0.01,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_foundation_mystic_fire": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_huanling_zhenren_instance",
+      "mapName": "唤灵真人·梦境试炼场",
+      "monsterId": "m_huanling_zhenren_instance",
+      "monsterName": "唤灵真人",
+      "chance": 0.013,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_fivephase_devourer_instance",
+      "mapName": "五行噬脉兽·独立试炼场",
+      "monsterId": "m_fivephase_devourer",
+      "monsterName": "五行噬脉兽",
+      "chance": 0.01,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_foundation_mystic_metal": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_huanling_zhenren_instance",
+      "mapName": "唤灵真人·梦境试炼场",
+      "monsterId": "m_huanling_zhenren_instance",
+      "monsterName": "唤灵真人",
+      "chance": 0.013,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_fivephase_devourer_instance",
+      "mapName": "五行噬脉兽·独立试炼场",
+      "monsterId": "m_fivephase_devourer",
+      "monsterName": "五行噬脉兽",
+      "chance": 0.01,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_foundation_mystic_physical": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_huanling_zhenren_instance",
+      "mapName": "唤灵真人·梦境试炼场",
+      "monsterId": "m_huanling_zhenren_instance",
+      "monsterName": "唤灵真人",
+      "chance": 0.013,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_fivephase_devourer_instance",
+      "mapName": "五行噬脉兽·独立试炼场",
+      "monsterId": "m_fivephase_devourer",
+      "monsterName": "五行噬脉兽",
+      "chance": 0.01,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_foundation_mystic_spell": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_huanling_zhenren_instance",
+      "mapName": "唤灵真人·梦境试炼场",
+      "monsterId": "m_huanling_zhenren_instance",
+      "monsterName": "唤灵真人",
+      "chance": 0.013,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_fivephase_devourer_instance",
+      "mapName": "五行噬脉兽·独立试炼场",
+      "monsterId": "m_fivephase_devourer",
+      "monsterName": "五行噬脉兽",
+      "chance": 0.01,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_foundation_mystic_water": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_huanling_zhenren_instance",
+      "mapName": "唤灵真人·梦境试炼场",
+      "monsterId": "m_huanling_zhenren_instance",
+      "monsterName": "唤灵真人",
+      "chance": 0.013,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_fivephase_devourer_instance",
+      "mapName": "五行噬脉兽·独立试炼场",
+      "monsterId": "m_fivephase_devourer",
+      "monsterName": "五行噬脉兽",
+      "chance": 0.01,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_foundation_mystic_wood": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_huanling_zhenren_instance",
+      "mapName": "唤灵真人·梦境试炼场",
+      "monsterId": "m_huanling_zhenren_instance",
+      "monsterName": "唤灵真人",
+      "chance": 0.013,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_fivephase_devourer_instance",
+      "mapName": "五行噬脉兽·独立试炼场",
+      "monsterId": "m_fivephase_devourer",
+      "monsterName": "五行噬脉兽",
+      "chance": 0.01,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_mortal_mortal_earth": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_fallen_palace_lord_instance",
+      "mapName": "坠星宫主·独立试炼场",
+      "monsterId": "m_fallen_palace_lord",
+      "monsterName": "坠星宫主",
+      "chance": 0.01,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_mortal_mortal_fire": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_fallen_palace_lord_instance",
+      "mapName": "坠星宫主·独立试炼场",
+      "monsterId": "m_fallen_palace_lord",
+      "monsterName": "坠星宫主",
+      "chance": 0.01,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_mortal_mortal_metal": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_fallen_palace_lord_instance",
+      "mapName": "坠星宫主·独立试炼场",
+      "monsterId": "m_fallen_palace_lord",
+      "monsterName": "坠星宫主",
+      "chance": 0.01,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_mortal_mortal_physical": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_fallen_palace_lord_instance",
+      "mapName": "坠星宫主·独立试炼场",
+      "monsterId": "m_fallen_palace_lord",
+      "monsterName": "坠星宫主",
+      "chance": 0.01,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_mortal_mortal_spell": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_fallen_palace_lord_instance",
+      "mapName": "坠星宫主·独立试炼场",
+      "monsterId": "m_fallen_palace_lord",
+      "monsterName": "坠星宫主",
+      "chance": 0.01,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_mortal_mortal_water": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_fallen_palace_lord_instance",
+      "mapName": "坠星宫主·独立试炼场",
+      "monsterId": "m_fallen_palace_lord",
+      "monsterName": "坠星宫主",
+      "chance": 0.01,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_mortal_mortal_wood": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_fallen_palace_lord_instance",
+      "mapName": "坠星宫主·独立试炼场",
+      "monsterId": "m_fallen_palace_lord",
+      "monsterName": "坠星宫主",
+      "chance": 0.01,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_qi_yellow_earth": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_failed_foundation_instance",
+      "mapName": "未成道基·独立试炼场",
+      "monsterId": "m_guizang_failed_foundation",
+      "monsterName": "未成道基",
+      "chance": 0.01,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_qi_yellow_fire": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_failed_foundation_instance",
+      "mapName": "未成道基·独立试炼场",
+      "monsterId": "m_guizang_failed_foundation",
+      "monsterName": "未成道基",
+      "chance": 0.01,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_qi_yellow_metal": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_failed_foundation_instance",
+      "mapName": "未成道基·独立试炼场",
+      "monsterId": "m_guizang_failed_foundation",
+      "monsterName": "未成道基",
+      "chance": 0.01,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_qi_yellow_physical": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_failed_foundation_instance",
+      "mapName": "未成道基·独立试炼场",
+      "monsterId": "m_guizang_failed_foundation",
+      "monsterName": "未成道基",
+      "chance": 0.01,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_qi_yellow_spell": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_failed_foundation_instance",
+      "mapName": "未成道基·独立试炼场",
+      "monsterId": "m_guizang_failed_foundation",
+      "monsterName": "未成道基",
+      "chance": 0.01,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_qi_yellow_water": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_failed_foundation_instance",
+      "mapName": "未成道基·独立试炼场",
+      "monsterId": "m_guizang_failed_foundation",
+      "monsterName": "未成道基",
+      "chance": 0.01,
+      "count": 1
+    }
+  ],
+  "book.passive_combat_qi_yellow_wood": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_failed_foundation_instance",
+      "mapName": "未成道基·独立试炼场",
+      "monsterId": "m_guizang_failed_foundation",
+      "monsterName": "未成道基",
+      "chance": 0.01,
+      "count": 1
+    }
+  ],
   "book.passive_craft_foundation_mystic_alchemy": [],
   "book.passive_craft_foundation_mystic_building": [],
   "book.passive_craft_foundation_mystic_enhancement": [],
@@ -1051,8 +1401,72 @@
   "book.passive_craft_qi_yellow_gather": [],
   "book.passive_craft_qi_yellow_mining": [],
   "book.passive_craft_qi_yellow_transmission": [],
-  "book.passive_yinyang_qi_earth_pure_yang": [],
-  "book.passive_yinyang_qi_earth_pure_yin": [],
+  "book.passive_heaven_avatar_awakening": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_huanling_zhenren_instance",
+      "mapName": "唤灵真人·梦境试炼场",
+      "monsterId": "m_huanling_zhenren_instance",
+      "monsterName": "唤灵真人",
+      "chance": 0.004,
+      "count": 1
+    }
+  ],
+  "book.passive_heaven_death_immunity": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_huanling_zhenren_instance",
+      "mapName": "唤灵真人·梦境试炼场",
+      "monsterId": "m_huanling_zhenren_instance",
+      "monsterName": "唤灵真人",
+      "chance": 0.004,
+      "count": 1
+    }
+  ],
+  "book.passive_heaven_devour_vein": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_huanling_zhenren_instance",
+      "mapName": "唤灵真人·梦境试炼场",
+      "monsterId": "m_huanling_zhenren_instance",
+      "monsterName": "唤灵真人",
+      "chance": 0.004,
+      "count": 1
+    }
+  ],
+  "book.passive_heaven_origin_return": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_huanling_zhenren_instance",
+      "mapName": "唤灵真人·梦境试炼场",
+      "monsterId": "m_huanling_zhenren_instance",
+      "monsterName": "唤灵真人",
+      "chance": 0.004,
+      "count": 1
+    }
+  ],
+  "book.passive_yinyang_qi_earth_pure_yang": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_huanling_zhenren_instance",
+      "mapName": "唤灵真人·梦境试炼场",
+      "monsterId": "m_huanling_zhenren_instance",
+      "monsterName": "唤灵真人",
+      "chance": 0.005,
+      "count": 1
+    }
+  ],
+  "book.passive_yinyang_qi_earth_pure_yin": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_huanling_zhenren_instance",
+      "mapName": "唤灵真人·梦境试炼场",
+      "monsterId": "m_huanling_zhenren_instance",
+      "monsterName": "唤灵真人",
+      "chance": 0.005,
+      "count": 1
+    }
+  ],
   "book.qingmu_sword": [
     {
       "kind": "monster_drop",
@@ -5046,7 +5460,44 @@
       "count": 1
     }
   ],
-  "merit": [],
+  "merit": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_failed_foundation_instance",
+      "mapName": "未成道基·独立试炼场",
+      "monsterId": "m_guizang_failed_foundation",
+      "monsterName": "未成道基",
+      "chance": 1,
+      "count": 20
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_fallen_palace_lord_instance",
+      "mapName": "坠星宫主·独立试炼场",
+      "monsterId": "m_fallen_palace_lord",
+      "monsterName": "坠星宫主",
+      "chance": 1,
+      "count": 10
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_fivephase_devourer_instance",
+      "mapName": "五行噬脉兽·独立试炼场",
+      "monsterId": "m_fivephase_devourer",
+      "monsterName": "五行噬脉兽",
+      "chance": 1,
+      "count": 50
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_huanling_zhenren_instance",
+      "mapName": "唤灵真人·梦境试炼场",
+      "monsterId": "m_huanling_zhenren_instance",
+      "monsterName": "唤灵真人",
+      "chance": 1,
+      "count": 50
+    }
+  ],
   "merit_eternal": [],
   "merit_month_card": [],
   "mine_crystal_core": [
@@ -6265,6 +6716,42 @@
     }
   ],
   "spirit_stone": [
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_failed_foundation_instance",
+      "mapName": "未成道基·独立试炼场",
+      "monsterId": "m_guizang_failed_foundation",
+      "monsterName": "未成道基",
+      "chance": 1,
+      "count": 100
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_fallen_palace_lord_instance",
+      "mapName": "坠星宫主·独立试炼场",
+      "monsterId": "m_fallen_palace_lord",
+      "monsterName": "坠星宫主",
+      "chance": 1,
+      "count": 50
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_fivephase_devourer_instance",
+      "mapName": "五行噬脉兽·独立试炼场",
+      "monsterId": "m_fivephase_devourer",
+      "monsterName": "五行噬脉兽",
+      "chance": 1,
+      "count": 300
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "dungeon_huanling_zhenren_instance",
+      "mapName": "唤灵真人·梦境试炼场",
+      "monsterId": "m_huanling_zhenren_instance",
+      "monsterName": "唤灵真人",
+      "chance": 1,
+      "count": 300
+    },
     {
       "kind": "mining",
       "mapId": "yunlai_town_ore_basement",
