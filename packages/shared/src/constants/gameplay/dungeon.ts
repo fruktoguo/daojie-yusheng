@@ -8,6 +8,15 @@ export const DUNGEON_PRESSURE_DURATION_TICKS = 1;
 export const DUNGEON_PRESSURE_QI_DRAIN_PERCENT = 0.01;
 export const DUNGEON_PRESSURE_MOVE_SPEED_MULTIPLIER = 0.5;
 export const DUNGEON_ENTRY_REJECTION_DELAY_MS = 3_000;
+export const DUNGEON_MEMORY_STONE_NPC_ID_SUFFIX = '_memory_stone';
+export const DUNGEON_EXIT_MEMORY_STONE_NPC_ID = 'npc_dungeon_memory_stone';
+export const DUNGEON_MEMORY_STONE_INTERACTION_RADIUS = 2;
+
+/** 入口/撤离忆梦石均使用 `_memory_stone` 后缀，避免再硬编码单图 NPC id。 */
+export function isDungeonMemoryStoneNpcId(npcId: unknown): boolean {
+  return typeof npcId === 'string' && npcId.endsWith(DUNGEON_MEMORY_STONE_NPC_ID_SUFFIX);
+}
+
 
 /** 威压每层影响的战斗数值；移速按每层减半单独处理。 */
 export const DUNGEON_PRESSURE_COMBAT_STAT_KEYS = [

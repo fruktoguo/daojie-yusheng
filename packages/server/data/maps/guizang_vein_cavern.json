@@ -515,6 +515,18 @@
       "role": "lore",
       "shopItems": [],
       "quests": []
+    },
+    {
+      "id": "npc_guizang_vein_cavern_memory_stone",
+      "name": "忆梦石",
+      "x": 30,
+      "y": 39,
+      "char": "石",
+      "color": "#d7b875",
+      "dialogue": "靠近忆梦石后，由队长发起副本。",
+      "role": "guide",
+      "shopItems": [],
+      "quests": []
     }
   ]
 }

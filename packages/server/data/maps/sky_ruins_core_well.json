@@ -121,5 +121,19 @@
       "y": 5,
       "desc": "环廊最深处还保留着一圈压井的旧座痕，坠星宫主正借这里残存的封天力把整口核心井拖向更深的坠落。"
     }
+  ],
+  "npcs": [
+    {
+      "id": "npc_sky_ruins_core_well_memory_stone",
+      "name": "忆梦石",
+      "x": 8,
+      "y": 6,
+      "char": "石",
+      "color": "#d7b875",
+      "dialogue": "靠近忆梦石后，由队长发起副本。",
+      "role": "guide",
+      "shopItems": [],
+      "quests": []
+    }
   ]
 }

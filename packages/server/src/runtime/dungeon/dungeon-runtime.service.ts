@@ -23,6 +23,7 @@ import {
  DUNGEON_PRESSURE_BUFF_ID,
  DUNGEON_PRESSURE_DURATION_TICKS,
  DUNGEON_ENTRY_REJECTION_DELAY_MS,
+ DUNGEON_EXIT_MEMORY_STONE_NPC_ID,
  DUNGEON_PRESSURE_QI_DRAIN_PERCENT,
  DUNGEON_PRESSURE_SOURCE_ID,
  resolveDungeonPressureStacks,
@@ -609,7 +610,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   if (currentInstanceId && currentInstanceId !== run.mapInstanceId) return { ok: false, reason: 'not_run_member' };
   const runtimePlayer = instance.getPlayer?.(player);
   const runtimePosition = instance.getPlayerPosition?.(player) ?? runtimePlayer;
-  const exitStone = [...(instance.template?.npcs ?? [])].find((npc: any) => (npc?.npcId ?? npc?.id) === 'npc_dungeon_memory_stone');
+  const exitStone = [...(instance.template?.npcs ?? [])].find((npc: any) => (npc?.npcId ?? npc?.id) === DUNGEON_EXIT_MEMORY_STONE_NPC_ID);
   const playerX = firstFiniteDungeonCoordinate(runtimePosition?.x, playerState?.x);
   const playerY = firstFiniteDungeonCoordinate(runtimePosition?.y, playerState?.y);
   const configuredExitRadius = Number(entry.entryExitRadius ?? 1);

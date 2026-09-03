@@ -4,7 +4,7 @@
  * 维护时应避免查询路径产生副作用，并控制返回字段，防止高频同步带出完整大对象。
  */
 import { Injectable } from '@nestjs/common';
-import { RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, formatDisplayInteger, resolvePlayerFacingContentName } from '@mud/shared';
+import { RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, DUNGEON_EXIT_MEMORY_STONE_NPC_ID, DUNGEON_MEMORY_STONE_INTERACTION_RADIUS, formatDisplayInteger, isDungeonMemoryStoneNpcId, resolvePlayerFacingContentName } from '@mud/shared';
 import { MapTemplateRepository } from '../../map/map-template.repository';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
 import { resolveCompiledBuildingDefinition } from '../../building/building-definition-resolution.helpers';
@@ -390,9 +390,9 @@ export class WorldRuntimeContextActionQueryService {
             }
         }
         for (const npc of view.localNpcs) {
-            const isDungeonEntryStone = npc.npcId === 'npc_ruined_cavern_memory_stone';
-            const isDungeonExitStone = view?.instance?.kind === 'dungeon' && npc.npcId === 'npc_dungeon_memory_stone';
-            const interactionRadius = isDungeonEntryStone || isDungeonExitStone ? 2 : 1;
+            const isDungeonEntryStone = view?.instance?.kind !== 'dungeon' && isDungeonMemoryStoneNpcId(npc.npcId);
+            const isDungeonExitStone = view?.instance?.kind === 'dungeon' && npc.npcId === DUNGEON_EXIT_MEMORY_STONE_NPC_ID;
+            const interactionRadius = isDungeonEntryStone || isDungeonExitStone ? DUNGEON_MEMORY_STONE_INTERACTION_RADIUS : 1;
             const nearDungeonExitAnchor = isDungeonExitStone && isNearDungeonExitAnchor(view, deps);
             if (chebyshevDistance(view.self.x, view.self.y, npc.x, npc.y) <= interactionRadius || nearDungeonExitAnchor) {
                 if (isDungeonEntryStone) {
@@ -400,12 +400,7 @@ export class WorldRuntimeContextActionQueryService {
                         ? deps.dungeonRuntimeService.listDefinitions()
                         : []) ?? [];
                     const entryMapId = typeof view?.instance?.templateId === 'string' ? view.instance.templateId.trim() : '';
-                    const entryMapDungeons = dungeonDefinitions.filter((dungeon) => dungeon?.entryMapTemplateId === entryMapId);
-                    const dungeon = (entryMapDungeons.length === 1
-                        ? entryMapDungeons[0]
-                        : entryMapDungeons.find((entry) => entry?.id === 'dungeon_huanling_zhenren'))
-                        ?? dungeonDefinitions.find((entry) => entry?.id === 'dungeon_huanling_zhenren')
-                        ?? dungeonDefinitions[0];
+                    const dungeon = resolveDungeonDefinitionForEntryStone(dungeonDefinitions, entryMapId, npc);
                     const dungeonId = typeof dungeon?.id === 'string' ? dungeon.id.trim() : '';
                     if (!dungeon || !dungeonId) {
                         actions.push({
@@ -428,7 +423,7 @@ export class WorldRuntimeContextActionQueryService {
                     }
                     continue;
                 }
-                if (view?.instance?.kind === 'dungeon' && npc.npcId === 'npc_dungeon_memory_stone') {
+                if (view?.instance?.kind === 'dungeon' && npc.npcId === DUNGEON_EXIT_MEMORY_STONE_NPC_ID) {
                     actions.push({
                         id: 'dungeon:exit',
                         name: '退出副本',
@@ -516,6 +511,26 @@ function isNearDungeonExitAnchor(view: any, deps: any): boolean {
     const radius = Math.max(1, Number.isFinite(radiusValue) ? radiusValue : 1);
     return Number.isFinite(x) && Number.isFinite(y)
         && chebyshevDistance(view.self.x, view.self.y, x, y) <= radius;
+}
+
+
+function resolveDungeonDefinitionForEntryStone(dungeonDefinitions, entryMapId, npc) {
+    const onMap = dungeonDefinitions.filter((dungeon) => dungeon?.entryMapTemplateId === entryMapId);
+    if (onMap.length <= 1) {
+        return onMap[0] ?? null;
+    }
+    const npcX = Number(npc?.x);
+    const npcY = Number(npc?.y);
+    let best = onMap[0];
+    let bestDist = Number.POSITIVE_INFINITY;
+    for (const dungeon of onMap) {
+        const dist = Math.max(Math.abs(Number(dungeon?.entryX) - npcX), Math.abs(Number(dungeon?.entryY) - npcY));
+        if (Number.isFinite(dist) && dist < bestDist) {
+            best = dungeon;
+            bestDist = dist;
+        }
+    }
+    return best;
 }
 
 function normalizeText(value) {

@@ -73,11 +73,11 @@
 
 以下副本沿用 `suppress_demon` 单房间流程，房间运行时会把 Boss 技能和掉落替换为副本专用配置，公开世界 Boss 不受影响：
 
-- `dungeon_fallen_palace_lord`：18 级天穹残宫 Boss「坠星宫主」，副本地图 `dungeon_fallen_palace_lord_instance`。
-- `dungeon_failed_foundation`：30 级归藏脉窟 Boss「未成道基」，副本地图 `dungeon_failed_foundation_instance`。
-- `dungeon_fivephase_devourer`：42 级玄壤深渊 Boss「五行噬脉兽」，副本地图 `dungeon_fivephase_devourer_instance`。
+- `dungeon_fallen_palace_lord`：18 级天穹残宫 Boss「坠星宫主」，入口地图 `sky_ruins_core_well` 中心 `(8, 6)`，副本地图 `dungeon_fallen_palace_lord_instance`。
+- `dungeon_failed_foundation`：30 级归藏脉窟 Boss「未成道基」，入口地图 `guizang_vein_cavern` 压基古阵核空地底部 `(30, 39)`，副本地图 `dungeon_failed_foundation_instance`。
+- `dungeon_fivephase_devourer`：42 级玄壤深渊 Boss「五行噬脉兽」，入口地图 `darksoil_abyss` 封印石室混元脉石下两格 `(48, 46)`，副本地图 `dungeon_fivephase_devourer_instance`。
 
-三个副本地图均为 20×20 全部空地，Boss 固定生成在 `(10,10)`，玩家出生点为 `(10,18)`（Boss 正下方 8 格、距下边界约 2 格），副本内忆梦石位于 `(8,18)`，用于通关后的撤离。
+三个副本地图均为 20×20 全部空地，Boss 固定生成在 `(10,10)`，玩家出生点为 `(10,18)`（Boss 正下方 8 格、距下边界约 2 格），副本内忆梦石位于 `(8,18)`，用于通关后的撤离。唤灵真人入口仍在破败洞府 `(4, 8)`。
 
 ### 副本 Boss 掉落
 

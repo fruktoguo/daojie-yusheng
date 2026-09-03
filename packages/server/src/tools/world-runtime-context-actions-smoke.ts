@@ -443,6 +443,40 @@ function testDungeonEntryStoneUsesOneCompatibleAction() {
     assert.equal(dungeonActions[0]?.dungeonId, 'dungeon_huanling_zhenren');
 }
 
+function testDungeonEntryStonesResolveByEntryMap() {
+    const log = [];
+    const service = createService({
+        attrs: { numericStats: { viewRange: 3 } },
+        realm: { breakthroughReady: false },
+        equipment: { slots: [] },
+    }, log);
+    const definitions = [
+        { id: 'dungeon_huanling_zhenren', name: '唤灵真人', entryMapTemplateId: 'ruined_cavern_manor', entryX: 4, entryY: 8 },
+        { id: 'dungeon_fallen_palace_lord', name: '坠星宫主', entryMapTemplateId: 'sky_ruins_core_well', entryX: 8, entryY: 6 },
+        { id: 'dungeon_failed_foundation', name: '未成道基', entryMapTemplateId: 'guizang_vein_cavern', entryX: 30, entryY: 39 },
+        { id: 'dungeon_fivephase_devourer', name: '五行噬脉兽', entryMapTemplateId: 'darksoil_abyss', entryX: 48, entryY: 46 },
+    ];
+    const cases = [
+        { npcId: 'npc_sky_ruins_core_well_memory_stone', templateId: 'sky_ruins_core_well', x: 8, y: 6, dungeonId: 'dungeon_fallen_palace_lord', name: '坠星宫主' },
+        { npcId: 'npc_guizang_vein_cavern_memory_stone', templateId: 'guizang_vein_cavern', x: 30, y: 39, dungeonId: 'dungeon_failed_foundation', name: '未成道基' },
+        { npcId: 'npc_darksoil_abyss_memory_stone', templateId: 'darksoil_abyss', x: 48, y: 46, dungeonId: 'dungeon_fivephase_devourer', name: '五行噬脉兽' },
+    ];
+    for (const testCase of cases) {
+        const actions = service.buildContextActions({
+            playerId: `player:${testCase.dungeonId}`,
+            self: { x: testCase.x, y: testCase.y },
+            instance: { templateId: testCase.templateId },
+            localPortals: [],
+            localNpcs: [{ npcId: testCase.npcId, name: '忆梦石', x: testCase.x, y: testCase.y }],
+        }, {
+            dungeonRuntimeService: { listDefinitions: () => definitions },
+        }).filter((entry) => entry.name?.startsWith('副本·'));
+        assert.deepEqual(actions.map((entry) => entry.id), ['dungeon:open']);
+        assert.equal(actions[0]?.name, `副本·${testCase.name}`);
+        assert.equal(actions[0]?.dungeonId, testCase.dungeonId);
+    }
+}
+
 testBuildContextActions();
 testSectEntrancePortalTravelIsNotMemberGated();
 testTimeChamberOmitsUnavailableForceAttack();
@@ -452,5 +486,6 @@ testReturnActionShowsCooldownLeft();
 testDepletedFormationKeepsRecoveryActions();
 testScripturePlatformActionsAreSingleEntrypoints();
 testDungeonEntryStoneUsesOneCompatibleAction();
+testDungeonEntryStonesResolveByEntryMap();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-context-actions' }, null, 2));

@@ -8,7 +8,9 @@ import {
   type Direction,
   doesStructureTypeBlockMove,
   directionToDelta,
+  DUNGEON_MEMORY_STONE_INTERACTION_RADIUS,
   gridDistance,
+  isDungeonMemoryStoneNpcId,
   isPointInRange,
   isTerrainTypeWalkable,
   isTileTypeWalkable,
@@ -626,7 +628,7 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
   }
 
   function getNpcInteractionRadius(npc: Pick<MainNavigationObservedEntity, 'id'>): number {
-    return npc.id === 'npc_ruined_cavern_memory_stone' || npc.id === 'npc_dungeon_memory_stone' ? 2 : 1;
+    return isDungeonMemoryStoneNpcId(npc.id) ? DUNGEON_MEMORY_STONE_INTERACTION_RADIUS : 1;
   }
 
   function isNpcInInteractionRange(
