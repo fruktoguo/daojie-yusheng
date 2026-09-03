@@ -18,6 +18,7 @@ import {
  resolveDungeonEffectiveStep,
  resolveDungeonLootMultipliers,
  resolveDungeonPartyDropRateMultiplier,
+ isDungeonSimulationRun,
  resolveDungeonStaminaCost,
  type TechniqueGrade,
  DUNGEON_PRESSURE_BUFF_ID,
@@ -223,9 +224,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
      continue;
     }
    }
-   instance.meta.dungeonRunId = run.runId;
-   instance.meta.dungeonId = run.dungeonId;
-   this.applyDungeonEntryMetadata(instance, definition);
+   this.applyDungeonEntryMetadata(instance, definition, run);
    if (run.status === 'activating' || run.status === 'active') {
     run.status = 'active';
     run.activatedAt = run.activatedAt ?? Date.now();
@@ -371,7 +370,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   return { dungeons: this.listDefinitions(), stamina: this.players.refreshDungeonStamina(playerId) as DungeonStaminaView, ...(activeRun ? { activeRun } : {}) };
  }
 
- async startEntry(leaderPlayerId: string, input: { dungeonId?: unknown; difficulty?: unknown; presentRank?: unknown }) {
+ async startEntry(leaderPlayerId: string, input: { dungeonId?: unknown; difficulty?: unknown; presentRank?: unknown; simulation?: unknown }) {
   const leader = leaderPlayerId.trim();
   const definition = this.content.getDungeonDefinition(String(input.dungeonId ?? '').trim());
   if (!definition) return { ok: false, reason: 'dungeon_not_found' };
@@ -403,6 +402,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
    return { ok: false, reason: 'not_near_memory_stone' };
   }
   const runId = randomUUID();
+  const simulation = input.simulation === true;
   const selection = { difficulty, ...(difficulty === 'present' ? { presentRank: presentRank! } : {}) } as any;
   const effectiveStep = resolveDungeonEffectiveStep(selection, definition.difficulty.maxPresentRank);
   const run: DungeonRunState = {
@@ -416,6 +416,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
    members: party.members.map((member) => ({ playerId: member.playerId, playerNo: member.playerNo ?? undefined, name: member.name, joinedAt: Date.now() })),
    currentRoomId: definition.rooms?.[0]?.roomId,
    createdAt: Date.now(),
+   ...(simulation ? { simulation: true } : {}),
   };
   const timeout = Math.max(1_000, Math.trunc(definition.confirmationTimeoutMs ?? 60_000));
   const timer = setTimeout(() => this.abortPending(runId, 'confirmation_timeout'), timeout);
@@ -725,26 +726,29 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
    for (const member of run.members) this.emit(member.playerId, S2C.DungeonEntryResult, { ok: false, reason: run.failureReason, run });
    return { ok: false, reason: run.failureReason, run };
   }
-  const staminaCost = resolveDungeonStaminaCost(run.difficulty.difficulty, definition.difficulty);
+  const simulation = isDungeonSimulationRun(run);
+  const staminaCost = simulation ? 0 : resolveDungeonStaminaCost(run.difficulty.difficulty, definition.difficulty);
   const staminaMembers = run.members.map((member) => member.playerId);
-  const staminaViews = staminaMembers.map((playerId) => this.players.refreshDungeonStamina(playerId));
-  if (staminaViews.some((view) => view.current < staminaCost)) {
-   run.status = 'aborted'; run.failureReason = 'stamina_insufficient';
-   this.runPersistence.save(run);
-   for (const member of run.members) this.emit(member.playerId, S2C.DungeonEntryResult, { ok: false, reason: 'stamina_insufficient', run });
-   return { ok: false, reason: 'stamina_insufficient', run };
-  }
   const consumed: string[] = [];
-  try {
-   const result = await this.players.consumeDungeonStaminaForPlayersDurably(staminaMembers, staminaCost);
-   if (!result.ok) throw new Error(result.reason ?? 'stamina_insufficient');
-   consumed.push(...staminaMembers);
-  } catch (error) {
-   for (const playerId of consumed) await this.players.refundDungeonStaminaDurably(playerId, staminaCost);
-   run.status = 'aborted'; run.failureReason = error instanceof Error ? error.message : String(error);
-   this.runPersistence.save(run);
-   for (const member of run.members) this.emit(member.playerId, S2C.DungeonEntryResult, { ok: false, reason: run.failureReason, run });
-   return { ok: false, reason: run.failureReason, run };
+  if (!simulation) {
+   const staminaViews = staminaMembers.map((playerId) => this.players.refreshDungeonStamina(playerId));
+   if (staminaViews.some((view) => view.current < staminaCost)) {
+    run.status = 'aborted'; run.failureReason = 'stamina_insufficient';
+    this.runPersistence.save(run);
+    for (const member of run.members) this.emit(member.playerId, S2C.DungeonEntryResult, { ok: false, reason: 'stamina_insufficient', run });
+    return { ok: false, reason: 'stamina_insufficient', run };
+   }
+   try {
+    const result = await this.players.consumeDungeonStaminaForPlayersDurably(staminaMembers, staminaCost);
+    if (!result.ok) throw new Error(result.reason ?? 'stamina_insufficient');
+    consumed.push(...staminaMembers);
+   } catch (error) {
+    for (const playerId of consumed) await this.players.refundDungeonStaminaDurably(playerId, staminaCost);
+    run.status = 'aborted'; run.failureReason = error instanceof Error ? error.message : String(error);
+    this.runPersistence.save(run);
+    for (const member of run.members) this.emit(member.playerId, S2C.DungeonEntryResult, { ok: false, reason: run.failureReason, run });
+    return { ok: false, reason: run.failureReason, run };
+   }
   }
   const multipliers = resolveDungeonAttributeMultipliers(run.difficulty, definition.difficulty.maxPresentRank, definition.difficulty.attributeRule);
   const baseSpawns = definition.flowType === 'defense' ? [] : (definition.rooms?.length ? [] : this.content.createRuntimeMonstersForMap(definition.mapTemplateId));
@@ -754,7 +758,17 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   const overrideAll = Number.isFinite(Number(override.allAttributeMultiplier)) && Number(override.allAttributeMultiplier) > 0 ? Number(override.allAttributeMultiplier) : 1;
   const overrideHp = Number.isFinite(Number(override.hpMultiplier)) && Number(override.hpMultiplier) > 0 ? Number(override.hpMultiplier) : 1;
   const monsterSpawns = baseSpawns.map((spawn: any) => {
-   const scaled = scaleMonsterSpawn(spawn, run.difficulty, multipliers, overrideAll, overrideHp, override.additionalSkillIds);
+   const scaled = scaleMonsterSpawn(
+    spawn,
+    run.difficulty,
+    multipliers,
+    overrideAll,
+    overrideHp,
+    override.additionalSkillIds,
+    [],
+    simulation ? [] : undefined,
+    simulation ? { currencyCountMultiplier: 0, dropRateMultiplier: 0 } : undefined,
+   );
    const openingStep = (definition.presentation?.onCombatEngaged ?? definition.presentation?.onRunCreated ?? [])
     .find((step) => step.actor?.kind === 'monster' && step.actor?.id === spawn.monsterId && step.type === 'dialogue');
    const combatOpeningTicks = openingStep?.type === 'dialogue'
@@ -777,9 +791,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   }
   let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
   try {
-   (instance.meta as any).dungeonRunId = run.runId;
-   (instance.meta as any).dungeonId = run.dungeonId;
-   this.applyDungeonEntryMetadata(instance, definition);
+   this.applyDungeonEntryMetadata(instance, definition, run);
    this.activateRoom(instance, definition, run, run.currentRoomId ?? definition.rooms?.[0]?.roomId);
    run.status = 'active'; run.activatedAt = Date.now();
    this.combatStatsByRunId.set(run.runId, new Map(run.members.map((member) => [member.playerId, { damageDealt: 0, damageTaken: 0, healingDone: 0 }])));
@@ -1077,9 +1089,12 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
    : (definition?.difficulty.overrides?.[run.difficulty.difficulty] ?? {});
   if (!definition) return;
   const multipliers = resolveDungeonAttributeMultipliers(run.difficulty, definition.difficulty.maxPresentRank, definition.difficulty.attributeRule);
-  const lootMultipliers = resolveDungeonLootMultipliers(run.difficulty, definition.difficulty.maxPresentRank);
-  lootMultipliers.dropRateMultiplier *= resolveDungeonPartyDropRateMultiplier(run.members.length);
-  const effectiveDropTable = filterDungeonBossDropTable(options.dropTable, run.difficulty);
+  const simulation = isDungeonSimulationRun(run);
+  const lootMultipliers = simulation
+   ? { currencyCountMultiplier: 0, dropRateMultiplier: 0 }
+   : resolveDungeonLootMultipliers(run.difficulty, definition.difficulty.maxPresentRank);
+  if (!simulation) lootMultipliers.dropRateMultiplier *= resolveDungeonPartyDropRateMultiplier(run.members.length);
+  const effectiveDropTable = simulation ? [] : filterDungeonBossDropTable(options.dropTable, run.difficulty);
   const scaledSpawn = scaleMonsterSpawn(
    spawn,
    run.difficulty,
@@ -1114,7 +1129,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   delete run.defeatedMemberIds;
   this.runPersistence.save(run);
   const definition = this.content.getDungeonDefinition(run.dungeonId);
-  const rewardResult = definition
+  const rewardResult = definition && !isDungeonSimulationRun(run)
    ? this.rewards.claim(run, definition)
    : emptyDungeonRewardResult();
   const settlement = this.buildSettlement(run, 'completed', rewardResult);
@@ -1192,6 +1207,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
    completedAt: run.completedAt ?? Date.now(),
    ...(run.failureReason ? { failureReason: run.failureReason } : {}),
    members: settlementMembers,
+   ...(isDungeonSimulationRun(run) ? { simulation: true } : {}),
   };
  }
 
@@ -1281,7 +1297,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   socket?.emit(event, payload);
  }
 
- private applyDungeonEntryMetadata(instance: any, definition: DungeonDefinition): void {
+ private applyDungeonEntryMetadata(instance: any, definition: DungeonDefinition, run?: DungeonRunState): void {
   if (!instance?.meta || !definition) return;
   const entryX = Number(definition.entryX);
   const entryY = Number(definition.entryY);
@@ -1289,6 +1305,11 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   instance.meta.dungeonEntryX = Number.isFinite(entryX) ? Math.trunc(entryX) : null;
   instance.meta.dungeonEntryY = Number.isFinite(entryY) ? Math.trunc(entryY) : null;
   instance.meta.dungeonEntryExitRadius = Number.isFinite(exitRadius) ? Math.max(1, exitRadius) : 1;
+  if (!run) return;
+  instance.meta.dungeonRunId = run.runId;
+  instance.meta.dungeonId = run.dungeonId;
+  if (isDungeonSimulationRun(run)) instance.meta.dungeonSimulation = true;
+  else delete instance.meta.dungeonSimulation;
  }
 
  /** 用户可见的副本创建/激活前必须确认快照已落库；未接入持久化的本地 smoke 保持兼容。 */
@@ -1362,13 +1383,14 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
     dungeonName: definition.name,
     difficulty: run.difficulty.difficulty,
     presentRank: run.difficulty.presentRank ?? 'mortal',
-    staminaCost: resolveDungeonStaminaCost(run.difficulty.difficulty, definition.difficulty),
+    staminaCost: isDungeonSimulationRun(run) ? 0 : resolveDungeonStaminaCost(run.difficulty.difficulty, definition.difficulty),
     expiresAt: pending.expiresAt,
     leaderPlayerId: run.members[0]?.playerId ?? '',
     phase,
     members,
     ...(enterAt ? { enterAt } : {}),
     ...(rejectAt ? { rejectAt } : {}),
+    ...(isDungeonSimulationRun(run) ? { simulation: true } : {}),
    });
   }
  }
@@ -1461,6 +1483,8 @@ function normalizeRecoveredDungeonRun(payload: any): DungeonRunState | null {
  } as DungeonRunState;
  if (defeatedMemberIds.length > 0) normalized.defeatedMemberIds = defeatedMemberIds;
  else delete normalized.defeatedMemberIds;
+ if (payload.simulation === true) normalized.simulation = true;
+ else delete normalized.simulation;
  return normalized;
 }
 

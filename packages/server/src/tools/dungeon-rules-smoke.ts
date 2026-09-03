@@ -7,12 +7,17 @@ import {
   resolveDungeonEffectiveStep,
   resolveRecoveredStamina,
   filterDungeonBossDropTable,
+  isDungeonSimulationInstance,
+  isDungeonSimulationRun,
   type DungeonBossDropRecord,
 } from '@mud/shared';
 import { DungeonTemplateRegistry } from '../content/registries/dungeon-template.registry';
 import { DefenseDungeonFlowController, ExpeditionDungeonFlowController, SuppressDemonDungeonFlowController } from '../runtime/dungeon/dungeon-flow-controller';
 import { DungeonRuntimeService, isDungeonPartyDefeated } from '../runtime/dungeon/dungeon-runtime.service';
 import { DungeonPresentationController } from '../runtime/dungeon/dungeon-presentation-controller';
+import { DungeonRewardService } from '../runtime/dungeon/dungeon-reward.service';
+import { WorldRuntimeMonsterSystemCommandService } from '../runtime/world/command/world-runtime-monster-system-command.service';
+
 
 const maxRank = 'spirit' as any;
 assert.equal(resolveDungeonStaminaCost('trial', { maxPresentRank: maxRank, energyCost: { trial: 4, hard: 8, nightmare: 12, present: 24 } }), 4);
@@ -43,6 +48,51 @@ assert.equal(
   * resolveDungeonPartyDropRateMultiplier(3),
   4,
 );
+
+assert.equal(isDungeonSimulationRun({ simulation: true }), true);
+assert.equal(isDungeonSimulationRun({}), false);
+assert.equal(isDungeonSimulationRun({ simulation: 'true' as any }), false);
+assert.equal(isDungeonSimulationInstance({ meta: { dungeonSimulation: true } }), true);
+assert.equal(isDungeonSimulationInstance({ meta: { dungeonSimulation: false } }), false);
+assert.equal(isDungeonSimulationInstance({ meta: {} }), false);
+assert.equal(isDungeonSimulationInstance(null), false);
+
+{
+  const granted: Array<[string, string, number]> = [];
+  const rewards = new DungeonRewardService({
+    grantItem(playerId: string, itemId: string, count: number) { granted.push([playerId, itemId, count]); },
+  } as any);
+  const simulationClaim = rewards.claim({
+    runId: 'sim-run',
+    completionId: 'sim-complete',
+    simulation: true,
+    members: [{ playerId: 'player:sim', joinedAt: 0 }],
+  } as any, { rewards: { itemRewards: [{ itemId: 'spirit_stone', count: 50 }] } } as any);
+  assert.equal(simulationClaim.claimed, false);
+  assert.equal(granted.length, 0);
+}
+
+{
+  let rolled = 0;
+  const spawned: unknown[] = [];
+  const lootService = new WorldRuntimeMonsterSystemCommandService({
+    rollMonsterDrops() {
+      rolled += 1;
+      return [{ itemId: 'spirit_stone', count: 1 }];
+    },
+  } as any);
+  lootService.spawnRolledMonsterLoot({ meta: { kind: 'dungeon', dungeonSimulation: true } }, 'm_test', 1, 1, 1, {
+    spawnGroundItem() { spawned.push(1); },
+  });
+  assert.equal(rolled, 0);
+  assert.equal(spawned.length, 0);
+  lootService.spawnRolledMonsterLoot({ meta: { kind: 'dungeon' } }, 'm_test', 1, 1, 1, {
+    spawnGroundItem() { spawned.push(1); },
+  });
+  assert.equal(rolled, 1);
+  assert.equal(spawned.length, 1);
+}
+
 
 assert.equal(isDungeonPartyDefeated({
   members: [{ playerId: 'player:solo', joinedAt: 0 }],
@@ -108,7 +158,7 @@ events.length = 0;
 new ExpeditionDungeonFlowController().onTick(makeRun('expedition'), { ...dungeon, flowType: 'expedition', rooms: [] } as any, context);
 assert.ok(events.includes('complete:all_rooms_cleared'));
 void testDungeonRestartRecovery().then(() => {
-  console.log(JSON.stringify({ ok: true, case: 'dungeon-rules', checks: 39 }));
+  console.log(JSON.stringify({ ok: true, case: 'dungeon-rules', checks: 52 }));
 }).catch((error) => {
   console.error(error);
   process.exitCode = 1;
@@ -231,6 +281,7 @@ async function testDungeonRestartRecovery(): Promise<void> {
     currentRoomId: 'room_01',
     createdAt: 0,
     activatedAt: 1,
+    simulation: true,
   } as any;
   const definition = {
     ...dungeon,
@@ -247,7 +298,7 @@ async function testDungeonRestartRecovery(): Promise<void> {
   const connected: any[] = [];
   const monsters = new Map<string, any>();
   const instance = {
-    meta: { instanceId, kind: 'dungeon', persistent: true },
+    meta: { instanceId, kind: 'dungeon', persistent: true } as Record<string, unknown>,
     template: {
       id: definition.mapTemplateId,
       width: 20,
@@ -355,6 +406,9 @@ async function testDungeonRestartRecovery(): Promise<void> {
   assert.equal(monsters.has(persistedRuntimeId), true, 'persisted Boss runtimeId should be materialized');
   assert.equal(monsters.get(persistedRuntimeId)?.hp, 123, 'persisted Boss HP should be hydrated');
   assert.equal(formationCreates.length, 1, 'controller formation should be recreated after restart');
+  assert.equal(instance.meta.dungeonSimulation, true, 'recovered simulation run must restore instance.meta.dungeonSimulation');
+  assert.equal(instance.meta.dungeonRunId, runId);
+  assert.equal(instance.meta.dungeonId, dungeon.id);
 
   // 模拟热更新/重启后流程注册表短暂为空：退出动作应先自愈恢复，而不是直接按孤儿副本处理。
   service.runs.clear();

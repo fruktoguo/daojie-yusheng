@@ -27,10 +27,12 @@ async function main(): Promise<void> {
   await testPvPKillClearsMatchedRetaliateTarget();
   await testOfflineDefeatRemovesRuntimeImmediately();
   await testCombatSideEffectsWhenSemanticAuditIsDisabled();
+  await testDungeonSimulationKillSkipsExpAndDrops();
+  await testDungeonKillWithoutSimulationStillGrants();
   console.log(JSON.stringify({
     ok: true,
     case: 'world-runtime-player-combat',
-    answers: '怪物掉落会在击杀热路径同步完成容量校验与运行态入包，并通过 inventory 脏域刷盘；背包满时原物落地；PvP 血精奖励保持同步入包与满包落地；PvP 击杀时若击杀者当前仇敌正是死者，会立即清掉该仇敌 ID；语义审计关闭时，真实怪物击杀、经验、掉落和玩家死亡副作用仍正常执行',
+    answers: '怪物掉落会在击杀热路径同步完成容量校验与运行态入包，并通过 inventory 脏域刷盘；背包满时原物落地；PvP 血精奖励保持同步入包与满包落地；PvP 击杀时若击杀者当前仇敌正是死者，会立即清掉该仇敌 ID；语义审计关闭时，真实怪物击杀、经验、掉落和玩家死亡副作用仍正常执行；副本模拟局 fail-closed 拦截经验与掉落但仍推进 onMonsterDefeated',
     excludes: '不证明地面拾取/容器拿取、库存已满落地拾取物的一致性、当前关闭的 combat audit 事件，也不证明更泛化的 tick 资产 intent 编排',
   }, null, 2));
 }
@@ -74,8 +76,8 @@ async function testVirtualWorldLowLevelKillAddsHeavenlyDaoSuppression(): Promise
     },
   } as never, playerRuntimeService as never);
   const deps = {
-    queuePlayerNotice() {},
-    advanceKillQuestProgress() {},
+    queuePlayerNotice() { },
+    advanceKillQuestProgress() { },
     resolveCurrentTickForPlayerId() {
       return 1;
     },
@@ -195,7 +197,7 @@ async function testOfflineDefeatRemovesRuntimeImmediately() {
         log.push(['removeOfflineDefeatedPlayer', playerId]);
       },
     },
-    queuePlayerNotice() {},
+    queuePlayerNotice() { },
   };
 
   await service.handlePlayerDefeat(victim.playerId, deps as never, 'monster:offline:killer');
@@ -255,8 +257,8 @@ async function testMonsterKillCountersUseTierBuckets() {
     },
   };
   const deps = {
-    queuePlayerNotice() {},
-    advanceKillQuestProgress() {},
+    queuePlayerNotice() { },
+    advanceKillQuestProgress() { },
     resolveCurrentTickForPlayerId() {
       return 1;
     },
@@ -286,6 +288,129 @@ async function testMonsterKillCountersUseTierBuckets() {
     [killer.playerId, 'bossMonsterKillCount'],
   ]);
 }
+
+async function testDungeonSimulationKillSkipsExpAndDrops() {
+  const log: string[] = [];
+  const killer = {
+    playerId: 'player:dungeon:sim:killer',
+    instanceId: 'dungeon:sim',
+    realm: { realmLv: 8 },
+    attrs: { numericStats: { lootRate: 0, rareLootRate: 0 } },
+  };
+  const service = new WorldRuntimePlayerCombatService({
+    rollMonsterDrops() {
+      log.push('rollMonsterDrops');
+      return [{ itemId: 'spirit_stone', count: 50 }];
+    },
+    getMonsterCombatProfile() {
+      return { expMultiplier: 3 };
+    },
+  } as never, {
+    getPlayer(playerId: string) {
+      return playerId === killer.playerId ? killer : null;
+    },
+    grantMonsterKillProgress() {
+      log.push('grantMonsterKillProgress');
+      return { changed: true };
+    },
+  } as never, {
+    increment() {
+      log.push('incrementKillCounter');
+    },
+  } as never);
+  const instance = {
+    meta: { instanceId: 'dungeon:sim', kind: 'dungeon', dungeonRunId: 'run:sim', dungeonSimulation: true },
+    getMonsterDamageContributionEntries() {
+      return [{ playerId: killer.playerId, damage: 9 }];
+    },
+  };
+  await service.handlePlayerMonsterKill(instance as never, {
+    runtimeId: 'monster:sim:boss',
+    monsterId: 'm_sim_boss',
+    name: '模拟 Boss',
+    level: 18,
+    tier: 'demon_king',
+    x: 10,
+    y: 10,
+    dungeonDropTable: [{ itemId: 'spirit_stone', count: 50, chance: 1 }],
+  } as never, killer.playerId, {
+    queuePlayerNotice() { log.push('notice'); },
+    advanceKillQuestProgress() { log.push('quest'); },
+    resolveCurrentTickForPlayerId() { return 1; },
+    spawnGroundItem() { log.push('spawnGroundItem'); },
+    dungeonRuntimeService: {
+      onMonsterDefeated() { log.push('onMonsterDefeated'); },
+      getRun() { return { simulation: true }; },
+    },
+  } as never);
+  assert.equal(log.includes('notice'), true);
+  assert.equal(log.includes('onMonsterDefeated'), true);
+  assert.equal(log.includes('grantMonsterKillProgress'), false);
+  assert.equal(log.includes('rollMonsterDrops'), false);
+  assert.equal(log.includes('spawnGroundItem'), false);
+  assert.equal(log.includes('quest'), false);
+  assert.equal(log.includes('incrementKillCounter'), false);
+}
+
+async function testDungeonKillWithoutSimulationStillGrants() {
+  const log: string[] = [];
+  const killer = {
+    playerId: 'player:dungeon:real:killer',
+    instanceId: 'dungeon:real',
+    realm: { realmLv: 8 },
+    attrs: { numericStats: { lootRate: 0, rareLootRate: 0 } },
+  };
+  const service = new WorldRuntimePlayerCombatService({
+    rollMonsterDrops() {
+      log.push('rollMonsterDrops');
+      return [{ itemId: 'spirit_stone', count: 50 }];
+    },
+    getMonsterCombatProfile() {
+      return { expMultiplier: 3 };
+    },
+  } as never, {
+    getPlayer(playerId: string) {
+      return playerId === killer.playerId ? killer : null;
+    },
+    grantMonsterKillProgress() {
+      log.push('grantMonsterKillProgress');
+      return { changed: true };
+    },
+    tryReceiveInventoryItem() {
+      log.push('tryReceiveInventoryItem');
+      return true;
+    },
+  } as never);
+  const instance = {
+    meta: { instanceId: 'dungeon:real', kind: 'dungeon', dungeonRunId: 'run:real' },
+    getMonsterDamageContributionEntries() {
+      return [{ playerId: killer.playerId, damage: 9 }];
+    },
+  };
+  await service.handlePlayerMonsterKill(instance as never, {
+    runtimeId: 'monster:real:boss',
+    monsterId: 'm_real_boss',
+    name: '实战 Boss',
+    level: 18,
+    tier: 'demon_king',
+    x: 10,
+    y: 10,
+  } as never, killer.playerId, {
+    queuePlayerNotice() { },
+    advanceKillQuestProgress() { log.push('quest'); },
+    resolveCurrentTickForPlayerId() { return 1; },
+    spawnGroundItem() { log.push('spawnGroundItem'); },
+    dungeonRuntimeService: {
+      onMonsterDefeated() { log.push('onMonsterDefeated'); },
+      getRun() { return { simulation: false }; },
+    },
+  } as never);
+  assert.equal(log.includes('grantMonsterKillProgress'), true);
+  assert.equal(log.includes('rollMonsterDrops'), true);
+  assert.equal(log.includes('onMonsterDefeated'), true);
+  assert.equal(log.includes('quest'), true);
+}
+
 
 async function testCombatSideEffectsWhenSemanticAuditIsDisabled() {
   const auditEvents: Array<Record<string, unknown>> = [];
@@ -552,8 +677,8 @@ function testRealWorldMonsterKillRewardsOnlyApplyToPublicRealLine(): void {
     y: 1,
   };
   const deps = {
-    queuePlayerNotice() {},
-    advanceKillQuestProgress() {},
+    queuePlayerNotice() { },
+    advanceKillQuestProgress() { },
     resolveCurrentTickForPlayerId() {
       return 1;
     },
@@ -730,7 +855,7 @@ async function testMonsterLootFallsBackToGroundWhenInventoryIsFull() {
 async function testPvPLootUsesSynchronousInventoryReceipt() {
   const log: Array<unknown[]> = [];
   const durableCalls: Array<Record<string, unknown>> = [];
-  let resolveDurable = () => {};
+  let resolveDurable = () => { };
 
   const killer = {
     playerId: 'player:combat:killer',
@@ -800,7 +925,7 @@ async function testPvPLootUsesSynchronousInventoryReceipt() {
       return 1;
     },
     playerProgressionService: {
-      refreshPreview() {},
+      refreshPreview() { },
     },
   };
   const service = new WorldRuntimePlayerCombatService(contentTemplateRepository as never, playerRuntimeService as never);
@@ -987,7 +1112,7 @@ async function testPvPKillClearsMatchedRetaliateTarget() {
         log.push(['markPendingRespawn', playerId]);
       },
     },
-    queuePlayerNotice() {},
+    queuePlayerNotice() { },
   };
 
   await service.handlePlayerDefeat(victim.playerId, deps as never, killer.playerId);

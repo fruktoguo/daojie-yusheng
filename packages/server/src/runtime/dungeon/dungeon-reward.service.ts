@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { DungeonDefinition, DungeonRunState } from '@mud/shared';
+import { isDungeonSimulationRun, type DungeonDefinition, type DungeonRunState } from '@mud/shared';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 
 /** 副本通关奖励的幂等边界；具体掉落仍由战斗掉落链路负责。 */
@@ -7,11 +7,13 @@ import { PlayerRuntimeService } from '../player/player-runtime.service';
 export class DungeonRewardService {
   private readonly claimed = new Set<string>();
 
-  constructor(private readonly players: PlayerRuntimeService) {}
+  constructor(private readonly players: PlayerRuntimeService) { }
 
   claim(run: DungeonRunState, definition: DungeonDefinition): { claimed: boolean; rewardsByPlayer: Map<string, Array<{ itemId: string; count: number }>> } {
     const rewardKey = run.completionId ?? run.runId;
     const rewardsByPlayer = new Map<string, Array<{ itemId: string; count: number }>>();
+    if (isDungeonSimulationRun(run)) return { claimed: false, rewardsByPlayer };
+
     if (this.claimed.has(rewardKey)) return { claimed: false, rewardsByPlayer };
     for (const member of run.members) {
       const rewards: Array<{ itemId: string; count: number }> = [];

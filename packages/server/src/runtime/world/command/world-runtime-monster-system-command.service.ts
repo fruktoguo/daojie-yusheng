@@ -5,6 +5,7 @@
  */
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { ContentTemplateRepository } from '../../../content/content-template.repository';
+import { isDungeonSimulationInstance } from '@mud/shared';
 
 /** world-runtime monster system-command leaf：承接妖兽掉落/击败/受伤这组三件套系统命令执行。 */
 @Injectable()
@@ -40,6 +41,9 @@ export class WorldRuntimeMonsterSystemCommandService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const instance = deps.getInstanceRuntimeOrThrow(instanceId);
+        if (isDungeonSimulationInstance(instance)) {
+            return;
+        }
         const items = this.contentTemplateRepository.rollMonsterDrops(monsterId, rolls);
         if (items.length === 0) {
             throw new NotFoundException('该妖兽没有产出掉落');
@@ -99,6 +103,9 @@ export class WorldRuntimeMonsterSystemCommandService {
  */
 
     spawnRolledMonsterLoot(instance, monsterId, rolls, x, y, deps, monster = undefined) {
+        if (isDungeonSimulationInstance(instance)) {
+            return;
+        }
         const items = this.contentTemplateRepository.rollMonsterDrops(monsterId, rolls, 0, 0, {
             ...(Array.isArray(monster?.dungeonDropTable) ? { dropTableOverride: monster.dungeonDropTable } : {}),
             ...(Number.isFinite(Number(monster?.dungeonDropRateMultiplier)) ? { dungeonDropRateMultiplier: Number(monster.dungeonDropRateMultiplier) } : {}),

@@ -88,6 +88,15 @@
 .dungeon-entry-stamina strong.is-insufficient { color: var(--danger, #b84a3a); }
 .dungeon-entry-stamina [data-dungeon-stamina-recovery] { color: var(--text-secondary, #6b5d4f); font-size: 11px; font-variant-numeric: tabular-nums; }
 .dungeon-entry-launch__hint { color: var(--text-secondary, #6b5d4f); font-size: 12px; line-height: 1.6; }
+.dungeon-entry-simulation { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--accent, #8a5a2b) 28%, var(--wash-ink, rgba(96, 74, 52, .18))); border-radius: 10px; background: color-mix(in srgb, var(--surface-muted, #f7f3eb) 88%, transparent); }
+.dungeon-entry-simulation input { flex: 0 0 18px; width: 18px; height: 18px; margin: 2px 0 0; }
+.dungeon-entry-simulation span { display: grid; gap: 2px; min-width: 0; }
+.dungeon-entry-simulation strong { color: var(--text-primary, #2f251c); font-size: 13px; }
+.dungeon-entry-simulation small { color: var(--text-secondary, #6b5d4f); font-size: 11px; line-height: 1.45; }
+.dungeon-entry-stamina.is-simulation { border-color: color-mix(in srgb, #2563eb 35%, var(--wash-ink, rgba(96, 74, 52, .18))); }
+:root[data-color-mode="dark"] .dungeon-entry-simulation { border-color: color-mix(in srgb, #94a3b8 42%, transparent); background: color-mix(in srgb, #1f2937 82%, transparent); }
+:root[data-color-mode="dark"] .dungeon-entry-simulation strong { color: #e5e7eb; }
+:root[data-color-mode="dark"] .dungeon-entry-simulation small { color: #94a3b8; }
 .dungeon-entry-launch__actions { display: flex; justify-content: flex-end; gap: 10px; align-items: stretch; }
 .dungeon-entry-launch__actions .small-btn { min-height: 42px; }
 

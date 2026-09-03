@@ -264,6 +264,8 @@ export interface DungeonRunState {
  bossProgress?: { name: string; hp: number; maxHp: number };
  /** 当前剧情演出状态；只影响表现/行动效果，不参与副本结算。 */
  presentation?: DungeonPresentationRunState;
+ /** 模拟挑战：不扣精力，击杀与通关均无经验、掉落与任何收益；须随流程快照持久化。 */
+ simulation?: boolean;
 }
 
 export type DungeonFlowEvent =
@@ -290,6 +292,8 @@ export interface DungeonSettlementView {
  completedAt: number;
  failureReason?: string;
  members: DungeonSettlementMember[];
+ simulation?: boolean;
+
 }
 
 export interface DungeonSettlementMember {
@@ -318,6 +322,9 @@ export interface C2S_StartDungeonEntry {
  dungeonId: string;
  difficulty: DungeonDifficulty;
  presentRank?: TechniqueGrade;
+ /** 勾选模拟后进入练习局；仅 `true` 生效。 */
+ simulation?: boolean;
+
 }
 export interface C2S_RespondDungeonEntry {
  runId: string;
@@ -353,6 +360,8 @@ export interface S2C_DungeonEntryPrompt {
  enterAt?: number;
  /** 有成员拒绝时，准备弹窗在该时间点自动关闭。 */
  rejectAt?: number;
+ simulation?: boolean;
+
 }
 export interface S2C_DungeonEntryResult {
  ok: boolean;
@@ -525,6 +534,19 @@ export function resolveDungeonStaminaCost(
  }
  return value;
 }
+
+/** 仅在明确标记模拟时拦截奖励；普通实例和未标记副本保持原奖励链。 */
+export function isDungeonSimulationRun(run: { simulation?: unknown } | null | undefined): boolean {
+ return run?.simulation === true;
+}
+
+/** 仅在实例明确标记 `dungeonSimulation === true` 时拦截；缺失字段不得视为模拟。 */
+export function isDungeonSimulationInstance(
+ instance: { meta?: { dungeonSimulation?: unknown } | null } | null | undefined,
+): boolean {
+ return instance?.meta?.dungeonSimulation === true;
+}
+
 
 export function resolveRecoveredStamina(
  current: number,

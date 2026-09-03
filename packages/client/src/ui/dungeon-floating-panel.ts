@@ -66,7 +66,8 @@ export class DungeonFloatingPanel {
     this.root.hidden = false;
     this.root.dataset.runId = run.runId;
     this.exitButton.hidden = false;
-    this.title.textContent = this.dungeonNames.get(run.dungeonId) ?? run.dungeonId;
+    const dungeonName = this.dungeonNames.get(run.dungeonId) ?? run.dungeonId;
+    this.title.textContent = run.simulation ? `${dungeonName} · 模拟` : dungeonName;
     this.target.textContent = run.status === 'completed' ? '目标：已击破，前往入口退出' : `目标：${run.bossProgress?.name ?? (run.currentRoomId ? `清理 ${run.currentRoomId}` : '进入战场')}`;
     this.updateProgress(run.progressPercent ?? 0);
     this.updateBoss(run.bossProgress);
@@ -82,7 +83,8 @@ export class DungeonFloatingPanel {
     this.root.hidden = false;
     this.root.dataset.runId = settlement.runId;
     this.exitButton.hidden = false;
-    this.title.textContent = settlement.dungeonName ?? this.dungeonNames.get(settlement.dungeonId) ?? settlement.dungeonId;
+    const dungeonName = settlement.dungeonName ?? this.dungeonNames.get(settlement.dungeonId) ?? settlement.dungeonId;
+    this.title.textContent = settlement.simulation ? `${dungeonName} · 模拟` : dungeonName;
     this.target.textContent = '目标：通关';
     this.updateProgress(100);
     this.updateBoss(undefined);

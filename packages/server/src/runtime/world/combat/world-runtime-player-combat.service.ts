@@ -5,7 +5,7 @@
  */
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { resolvePlayerFacingContentName } from '@mud/shared';
+import { isDungeonSimulationInstance, isDungeonSimulationRun, resolvePlayerFacingContentName } from '@mud/shared';
 import { ContentTemplateRepository } from '../../../content/content-template.repository';
 import { BLOOD_ESSENCE_ITEM_ID } from '../../../constants/gameplay/pvp';
 import {
@@ -124,7 +124,10 @@ export class WorldRuntimePlayerCombatService {
    badges: ['击杀'],
   });
   deps.queuePlayerNotice(killerPlayerId, killNotice.text, killNotice.kind, undefined, undefined, killNotice.structured);
-  deps.advanceKillQuestProgress(killerPlayerId, monster.monsterId, monster.name);
+  const suppressRewards = shouldSuppressDungeonKillRewards(instance, deps);
+  if (!suppressRewards) {
+   deps.advanceKillQuestProgress(killerPlayerId, monster.monsterId, monster.name);
+  }
   if (this.isCombatSemanticAuditEnabled()) {
    this.recordCombatSemanticAudit('kill', {
     instanceId: instance?.meta?.instanceId ?? null,
@@ -137,73 +140,78 @@ export class WorldRuntimePlayerCombatService {
      monsterName: monster?.name ?? null,
      level: monster?.level ?? null,
      tier: monster?.tier ?? null,
+     ...(suppressRewards ? { simulation: true } : {}),
     },
     application: {
-     dirtyDomains: ['instance:monster_runtime', 'player:progression'],
+     dirtyDomains: ['instance:monster_runtime', ...(suppressRewards ? [] : ['player:progression'])],
      persistenceTransfer: 'dirty_domain_flush',
      writesDatabaseInTick: false,
     },
-    tags: ['semantic', 'monster_defeat'],
+    tags: suppressRewards ? ['semantic', 'monster_defeat', 'dungeon_simulation'] : ['semantic', 'monster_defeat'],
    });
   }
-  this.incrementMonsterKillCounter(killerPlayerId, monster.tier);
+  if (!suppressRewards) {
+   this.incrementMonsterKillCounter(killerPlayerId, monster.tier);
+  }
   sectionStartedAt = recordPlayerMonsterKillPerf(
    deps,
    'combat.playerMonsterKill.preparationMs',
    sectionStartedAt,
   );
   const killer = this.playerRuntimeService.getPlayer(killerPlayerId);
-  const heavenlyDaoSuppressionStacks = isVirtualPublicWorldInstance(instance)
-   ? resolveHeavenlyDaoSuppressionStacksForKill(killer?.realm?.realmLv, monster?.level)
-   : 0;
-  if (heavenlyDaoSuppressionStacks > 0) {
-   this.playerRuntimeService.addHeavenlyDaoSuppressionStacks(killerPlayerId, heavenlyDaoSuppressionStacks);
-  }
-  this.distributeMonsterKillProgress(instance, monster, killerPlayerId, deps);
-  sectionStartedAt = recordPlayerMonsterKillPerf(
-   deps,
-   'combat.playerMonsterKill.progressMs',
-   sectionStartedAt,
-  );
-  const realWorldDropRateMultiplier = isRealPublicWorldInstance(instance)
-   ? REAL_WORLD_MONSTER_KILL_DROP_RATE_KILL_EQUIVALENT_MULTIPLIER
-   : 1;
-  const lootRate = killer?.attrs.numericStats.lootRate ?? 0;
-  const rareLootRate = killer?.attrs.numericStats.rareLootRate ?? 0;
-  const items = this.contentTemplateRepository.rollMonsterDrops(monster.monsterId, 1, lootRate, rareLootRate, {
-   playerRealmLv: killer?.realm?.realmLv,
-   monsterLevel: monster.level,
-   monsterTier: monster.tier,
-   ...(Array.isArray(monster.dungeonDropTable) ? { dropTableOverride: monster.dungeonDropTable } : {}),
-   ...(Number.isFinite(Number(monster.dungeonDropRateMultiplier)) ? { dungeonDropRateMultiplier: Number(monster.dungeonDropRateMultiplier) } : {}),
-   ...(Number.isFinite(Number(monster.dungeonCurrencyCountMultiplier)) ? { dungeonCurrencyCountMultiplier: Number(monster.dungeonCurrencyCountMultiplier) } : {}),
-  }, realWorldDropRateMultiplier);
-  sectionStartedAt = recordPlayerMonsterKillPerf(
-   deps,
-   'combat.playerMonsterKill.dropRollMs',
-   sectionStartedAt,
-  );
-  recordPlayerMonsterKillCount(deps, 'combat.playerMonsterKill.lootItems', items.length);
-  const rawLootParticipants = this.resolveMonsterExpParticipants(instance, monster.runtimeId, killerPlayerId);
-  const lootRecipients = resolvePartyLootRecipients(
-   killerPlayerId,
-   items.length,
-   rawLootParticipants,
-   instance,
-   monster,
-   (playerId) => this.playerRuntimeService.getPlayer(playerId),
-  );
-  for (let index = 0; index < items.length; index += 1) {
-   const item = items[index];
-   this.deliverMonsterLootSynchronously(
-    lootRecipients[index] ?? killerPlayerId,
-    instance,
-    monster.x,
-    monster.y,
-    item,
+  if (!suppressRewards) {
+   const heavenlyDaoSuppressionStacks = isVirtualPublicWorldInstance(instance)
+    ? resolveHeavenlyDaoSuppressionStacksForKill(killer?.realm?.realmLv, monster?.level)
+    : 0;
+   if (heavenlyDaoSuppressionStacks > 0) {
+    this.playerRuntimeService.addHeavenlyDaoSuppressionStacks(killerPlayerId, heavenlyDaoSuppressionStacks);
+   }
+   this.distributeMonsterKillProgress(instance, monster, killerPlayerId, deps);
+   sectionStartedAt = recordPlayerMonsterKillPerf(
     deps,
-    buildMonsterLootDeliverySourceRef(instance, monster, index),
+    'combat.playerMonsterKill.progressMs',
+    sectionStartedAt,
    );
+   const realWorldDropRateMultiplier = isRealPublicWorldInstance(instance)
+    ? REAL_WORLD_MONSTER_KILL_DROP_RATE_KILL_EQUIVALENT_MULTIPLIER
+    : 1;
+   const lootRate = killer?.attrs.numericStats.lootRate ?? 0;
+   const rareLootRate = killer?.attrs.numericStats.rareLootRate ?? 0;
+   const items = this.contentTemplateRepository.rollMonsterDrops(monster.monsterId, 1, lootRate, rareLootRate, {
+    playerRealmLv: killer?.realm?.realmLv,
+    monsterLevel: monster.level,
+    monsterTier: monster.tier,
+    ...(Array.isArray(monster.dungeonDropTable) ? { dropTableOverride: monster.dungeonDropTable } : {}),
+    ...(Number.isFinite(Number(monster.dungeonDropRateMultiplier)) ? { dungeonDropRateMultiplier: Number(monster.dungeonDropRateMultiplier) } : {}),
+    ...(Number.isFinite(Number(monster.dungeonCurrencyCountMultiplier)) ? { dungeonCurrencyCountMultiplier: Number(monster.dungeonCurrencyCountMultiplier) } : {}),
+   }, realWorldDropRateMultiplier);
+   sectionStartedAt = recordPlayerMonsterKillPerf(
+    deps,
+    'combat.playerMonsterKill.dropRollMs',
+    sectionStartedAt,
+   );
+   recordPlayerMonsterKillCount(deps, 'combat.playerMonsterKill.lootItems', items.length);
+   const rawLootParticipants = this.resolveMonsterExpParticipants(instance, monster.runtimeId, killerPlayerId);
+   const lootRecipients = resolvePartyLootRecipients(
+    killerPlayerId,
+    items.length,
+    rawLootParticipants,
+    instance,
+    monster,
+    (playerId) => this.playerRuntimeService.getPlayer(playerId),
+   );
+   for (let index = 0; index < items.length; index += 1) {
+    const item = items[index];
+    this.deliverMonsterLootSynchronously(
+     lootRecipients[index] ?? killerPlayerId,
+     instance,
+     monster.x,
+     monster.y,
+     item,
+     deps,
+     buildMonsterLootDeliverySourceRef(instance, monster, index),
+    );
+   }
   }
   clearPartyMonsterSupport(instance?.meta?.instanceId ?? '', monster.runtimeId);
   deps.dungeonRuntimeService?.onMonsterDefeated?.(instance?.meta?.instanceId ?? '', monster?.monsterId ?? monster?.runtimeId ?? '');
@@ -817,6 +825,14 @@ function interruptTechniqueActivitiesForDefeat(playerId: string, victim: any, de
 function isOfflineRuntimePlayer(player: any) {
  return !player?.sessionId || (typeof player.sessionId === 'string' && !player.sessionId.trim());
 }
+
+function shouldSuppressDungeonKillRewards(instance: any, deps: any): boolean {
+ if (isDungeonSimulationInstance(instance)) return true;
+ const runId = typeof instance?.meta?.dungeonRunId === 'string' ? instance.meta.dungeonRunId.trim() : '';
+ if (!runId) return false;
+ return isDungeonSimulationRun(deps?.dungeonRuntimeService?.getRun?.(runId) ?? null);
+}
+
 
 function pushShaDeathPenaltyMessages(deps: any, playerId: string, deathPenalty: any) {
  if ((deathPenalty.consumedProgress ?? 0) > 0 || (deathPenalty.consumedFoundation ?? 0) > 0) {

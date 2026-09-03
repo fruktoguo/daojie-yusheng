@@ -5,7 +5,7 @@
  */
 /** 观察构建工具：生成可见度、结论与实体观察详情。 */
 
-import { DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEY_LABELS, MONSTER_TIER_LABELS, PLAYER_REALM_NUMERIC_TEMPLATES, cloneNumericRatioDivisors, cloneNumericStats, formatDisplayCurrentMax, formatDisplayInteger, resolvePlayerFacingContentName } from '@mud/shared';
+import { DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEY_LABELS, MONSTER_TIER_LABELS, PLAYER_REALM_NUMERIC_TEMPLATES, cloneNumericRatioDivisors, cloneNumericStats, formatDisplayCurrentMax, formatDisplayInteger, isDungeonSimulationInstance, resolvePlayerFacingContentName } from '@mud/shared';
 import { resolveCombatDamage } from '../../combat/combat-pipeline-compose';
 import { REAL_WORLD_MONSTER_KILL_DROP_RATE_KILL_EQUIVALENT_MULTIPLIER } from '../../../constants/gameplay/real-world';
 import { isRealPublicWorldInstance } from '../world-runtime.normalization.helpers';
@@ -336,6 +336,9 @@ export function buildMonsterObservation(viewerSpirit, monster) {
 }
 /** 生成妖兽战利品预览列表与命中概率。 */
 export function buildMonsterLootPreview(contentTemplateRepository, viewer, monster, instance = null) {
+    if (isDungeonSimulationInstance(instance)) {
+        return { entries: [], emptyText: '模拟副本不产生掉落。' };
+    }
 
     const dropTable = Array.isArray(monster?.dungeonDropTable)
         ? monster.dungeonDropTable

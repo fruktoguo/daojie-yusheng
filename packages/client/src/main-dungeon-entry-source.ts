@@ -75,7 +75,7 @@ export function createMainDungeonEntrySource(options: MainDungeonEntrySourceOpti
       return;
     }
     requestedDungeonId = dungeon.id;
-    const bodyHtml = `<form data-dungeon-launch-form="true" class="dungeon-entry-launch"><div class="dungeon-entry-launch__controls"><label class="dungeon-entry-control"><span>难度</span><select name="difficulty" class="party-select">${Object.entries(DUNGEON_DIFFICULTY_LABELS).map(([key, label]) => `<option value="${key}">${label}</option>`).join('')}</select></label><label class="dungeon-entry-control"><span>现世阶位</span><select name="presentRank" class="party-select">${DUNGEON_PRESENT_RANK_ORDER.map((rank) => `<option value="${rank}">${DUNGEON_RANK_LABELS[rank]}</option>`).join('')}</select></label></div><div class="dungeon-entry-stamina"><span class="dungeon-entry-stamina__label">消耗体力</span><strong data-dungeon-stamina-value></strong><span data-dungeon-stamina-recovery></span></div><div class="dungeon-entry-launch__hint">确认发起后，将邀请队友逐一确认；全员确认后才会扣除体力并进入副本。</div><div class="dungeon-entry-launch__actions"><button type="submit" class="small-btn primary" data-dungeon-submit>确认发起并邀请队友确认</button></div></form>`;
+    const bodyHtml = `<form data-dungeon-launch-form="true" class="dungeon-entry-launch"><div class="dungeon-entry-launch__controls"><label class="dungeon-entry-control"><span>难度</span><select name="difficulty" class="party-select">${Object.entries(DUNGEON_DIFFICULTY_LABELS).map(([key, label]) => `<option value="${key}">${label}</option>`).join('')}</select></label><label class="dungeon-entry-control"><span>现世阶位</span><select name="presentRank" class="party-select">${DUNGEON_PRESENT_RANK_ORDER.map((rank) => `<option value="${rank}">${DUNGEON_RANK_LABELS[rank]}</option>`).join('')}</select></label></div><label class="dungeon-entry-simulation"><input type="checkbox" name="simulation" /><span><strong>模拟</strong><small>不消耗精力，无经验、掉落与任何收益</small></span></label><div class="dungeon-entry-stamina"><span class="dungeon-entry-stamina__label">消耗体力</span><strong data-dungeon-stamina-value></strong><span data-dungeon-stamina-recovery></span></div><div class="dungeon-entry-launch__hint">确认发起后，将邀请队友逐一确认；全员确认后才会扣除体力并进入副本。勾选模拟后不扣精力，也没有任何收益。</div><div class="dungeon-entry-launch__actions"><button type="submit" class="small-btn primary" data-dungeon-submit>确认发起并邀请队友确认</button></div></form>`;
     detailModalHost.patch({
       ownerId: DUNGEON_MODAL_OWNER,
       title: `副本·${dungeon.name}`,
@@ -87,10 +87,13 @@ export function createMainDungeonEntrySource(options: MainDungeonEntrySourceOpti
         const form = body.querySelector<HTMLFormElement>('[data-dungeon-launch-form="true"]');
         const difficulty = form?.elements.namedItem('difficulty') as HTMLSelectElement | null;
         const rank = form?.elements.namedItem('presentRank') as HTMLSelectElement | null;
+        const simulation = form?.elements.namedItem('simulation') as HTMLInputElement | null;
         const staminaValue = body.querySelector<HTMLElement>('[data-dungeon-stamina-value]');
         const staminaRecovery = body.querySelector<HTMLElement>('[data-dungeon-stamina-recovery]');
+        const staminaBox = body.querySelector<HTMLElement>('.dungeon-entry-stamina');
+        const hint = body.querySelector<HTMLElement>('.dungeon-entry-launch__hint');
         const submit = body.querySelector<HTMLButtonElement>('[data-dungeon-submit]');
-        if (!form || !difficulty || !rank || !staminaValue || !staminaRecovery || !submit) return;
+        if (!form || !difficulty || !rank || !simulation || !staminaValue || !staminaRecovery || !submit) return;
         const syncRank = (): void => {
           const maxRankStep = DUNGEON_PRESENT_RANK_ORDER.indexOf(dungeon.difficulty.maxPresentRank);
           Array.from(rank.options).forEach((option, index) => { option.disabled = index > maxRankStep; });
@@ -100,26 +103,41 @@ export function createMainDungeonEntrySource(options: MainDungeonEntrySourceOpti
         const syncStamina = (): void => {
           const stamina = resolveRecoveredStamina(catalog.stamina.current, catalog.stamina.updatedAt, Date.now(), catalog.stamina.maximum);
           const selectedDifficulty = difficulty.value as DungeonDifficulty;
-          const cost = resolveDungeonStaminaCost(selectedDifficulty, dungeon.difficulty);
+          const simulated = simulation.checked;
+          const cost = simulated ? 0 : resolveDungeonStaminaCost(selectedDifficulty, dungeon.difficulty);
           const afterCost = Math.max(0, stamina.current - cost);
           staminaValue.textContent = `${formatDisplayInteger(stamina.current)} → ${formatDisplayInteger(afterCost)} / ${formatDisplayInteger(catalog.stamina.maximum)}`;
-          staminaValue.classList.toggle('is-insufficient', stamina.current < cost);
+          staminaValue.classList.toggle('is-insufficient', !simulated && stamina.current < cost);
+          staminaBox?.classList.toggle('is-simulation', simulated);
           const recoveryRemain = stamina.nextRecoveryAt ? Math.max(0, stamina.nextRecoveryAt - Date.now()) : 0;
-          staminaRecovery.textContent = stamina.current >= catalog.stamina.maximum ? '恢复倒计时：已满' : `恢复倒计时：${formatDungeonRecovery(recoveryRemain)} 后恢复 1 点`;
-          submit.disabled = stamina.current < cost;
-          submit.textContent = stamina.current < cost ? '体力不足' : '确认发起并邀请队友确认';
+          staminaRecovery.textContent = simulated
+            ? '模拟挑战不消耗精力'
+            : stamina.current >= catalog.stamina.maximum ? '恢复倒计时：已满' : `恢复倒计时：${formatDungeonRecovery(recoveryRemain)} 后恢复 1 点`;
+          if (hint) {
+            hint.textContent = simulated
+              ? '模拟挑战不消耗精力，通关与击杀均无经验、掉落与任何收益。'
+              : '确认发起后，将邀请队友逐一确认；全员确认后才会扣除体力并进入副本。勾选模拟后不扣精力，也没有任何收益。';
+          }
+          submit.disabled = !simulated && stamina.current < cost;
+          submit.textContent = !simulated && stamina.current < cost ? '体力不足' : '确认发起并邀请队友确认';
         };
         syncRank();
         syncStamina();
         difficulty.addEventListener('change', syncRank, { signal });
         difficulty.addEventListener('change', syncStamina, { signal });
+        simulation.addEventListener('change', syncStamina, { signal });
         const timer = window.setInterval(syncStamina, 1000);
         signal.addEventListener('abort', () => window.clearInterval(timer), { once: true });
         form.addEventListener('submit', (event) => {
           event.preventDefault();
           const selectedDifficulty = difficulty.value as DungeonDifficulty;
           const presentRank = selectedDifficulty === 'present' ? (rank.value as TechniqueGrade) : undefined;
-          options.socket.dungeon.startEntry({ dungeonId: dungeon.id, difficulty: selectedDifficulty, ...(presentRank ? { presentRank } : {}) });
+          options.socket.dungeon.startEntry({
+            dungeonId: dungeon.id,
+            difficulty: selectedDifficulty,
+            ...(presentRank ? { presentRank } : {}),
+            ...(simulation.checked ? { simulation: true } : {}),
+          });
           detailModalHost.close(DUNGEON_MODAL_OWNER);
         }, { signal });
       },

@@ -654,7 +654,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     };
     const renderPreparation = (body: HTMLElement, signal: AbortSignal): void => {
       const members = prompt.members ?? [];
-      body.innerHTML = `<div class="dungeon-entry-preparation"><div class="confirm-summary-list"><div><span>难度</span><strong>${escape(prompt.difficulty === 'present' ? `${difficultyLabels.present} · ${rankLabels[prompt.presentRank] ?? prompt.presentRank}` : (difficultyLabels[prompt.difficulty] ?? prompt.difficulty))}</strong></div><div><span>精力消耗</span><strong>${formatDisplayInteger(prompt.staminaCost)}</strong></div></div><div class="dungeon-entry-members">${members.map((member) => {
+      body.innerHTML = `<div class="dungeon-entry-preparation"><div class="confirm-summary-list"><div><span>难度</span><strong>${escape(prompt.difficulty === 'present' ? `${difficultyLabels.present} · ${rankLabels[prompt.presentRank] ?? prompt.presentRank}` : (difficultyLabels[prompt.difficulty] ?? prompt.difficulty))}</strong></div>${prompt.simulation ? '<div><span>模式</span><strong>模拟</strong></div>' : ''}<div><span>精力消耗</span><strong>${formatDisplayInteger(prompt.staminaCost)}</strong></div></div><div class="dungeon-entry-members">${members.map((member) => {
         const avatarText = Array.from(member.displayName || member.name || '无名')[0] ?? '无';
         const realm = [member.realmName, member.realmStage].filter(Boolean).join(' · ') || '境界未知';
         const self = member.playerId === currentPlayerId;
@@ -664,7 +664,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
         const statusClass = member.rejected ? ' is-rejected' : '';
         const disabled = self && !member.rejected ? '' : 'disabled';
         return `<label class="dungeon-entry-member"><div class="dungeon-entry-member__avatar">${avatar}</div><div class="dungeon-entry-member__name">${escape(member.name || '无名')}</div><div class="dungeon-entry-member__realm">${escape(realm)}</div><div class="dungeon-entry-member__ready"><input type="checkbox" data-dungeon-ready="${escape(member.playerId)}" ${member.ready ? 'checked' : ''} ${disabled} /><span class="dungeon-entry-member__status${statusClass}">${status}</span></div></label>`;
-      }).join('')}</div><div class="dungeon-entry-preparation__status">${prompt.phase === 'countdown' && prompt.enterAt ? `全员准备，${Math.max(0, Math.ceil((prompt.enterAt - Date.now()) / 1000))} 秒后进入` : '请确认是否准备'}</div><div class="dungeon-entry-preparation__hint">准备截止：${new Date(prompt.expiresAt).toLocaleTimeString()}</div></div>`;
+      }).join('')}</div><div class="dungeon-entry-preparation__status">${prompt.phase === 'countdown' && prompt.enterAt ? `全员准备，${Math.max(0, Math.ceil((prompt.enterAt - Date.now()) / 1000))} 秒后进入` : '请确认是否准备'}</div><div class="dungeon-entry-preparation__hint">${prompt.simulation ? '模拟挑战不消耗精力，无经验、掉落与任何收益。' : ''}准备截止：${new Date(prompt.expiresAt).toLocaleTimeString()}</div></div>`;
       body.querySelectorAll<HTMLInputElement>('input[data-dungeon-ready]').forEach((input) => {
         input.addEventListener('change', () => options.socket.emitEvent(C2S.RespondDungeonEntry, { runId: prompt.runId, confirm: input.checked }), { signal });
       });
@@ -761,7 +761,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
       title: '副本结算',
       subtitle: settlement.dungeonName ?? '副本',
       size: 'lg',
-      bodyHtml: `<div class="confirm-summary-list"><div><span>结果</span><strong>${resultLabel}</strong></div><div><span>${idLabel}</span><strong>${escape(settlement.completionId)}</strong></div></div><div class="dungeon-settlement-members">${members || '<div class="dungeon-settlement-empty">暂无队伍统计</div>'}</div>`,
+      bodyHtml: `<div class="confirm-summary-list"><div><span>结果</span><strong>${resultLabel}</strong></div>${settlement.simulation ? '<div><span>模式</span><strong>模拟（无收益）</strong></div>' : ''}<div><span>${idLabel}</span><strong>${escape(settlement.completionId)}</strong></div></div><div class="dungeon-settlement-members">${members || '<div class="dungeon-settlement-empty">暂无队伍统计</div>'}</div>`,
     });
   });
   options.socket.on(S2C.DungeonCatalog, (catalog) => {
