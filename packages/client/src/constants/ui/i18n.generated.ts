@@ -2565,6 +2565,7 @@ export const CLIENT_I18N_MESSAGES = {
   "notice.craft.gather.interrupted": "{resourceNodeName} 的采集被{reasonLabel}打断。",
   "notice.craft.gather.left-range": "你已离开草药采集范围。",
   "notice.craft.gather.obtained": "获得 {itemLabel}",
+  "notice.craft.gather.preserved": "采得灵植且药根未损，{resourceNodeName} 剩余数量未减少。",
   "notice.craft.gather.start": "你开始采集 {resourceNodeName}，预计 {totalTicks} 息。",
   "notice.craft.gather.target-missing": "采集目标已经不存在。",
   "notice.craft.overflow-ground": "背包放不下，{itemLabel} 落在脚边",

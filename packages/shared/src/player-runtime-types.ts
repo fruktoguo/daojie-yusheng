@@ -8,17 +8,17 @@ import type { ActionDef } from './action-combat-types';
 import type { AutoBattleSkillConfig, AutoBattleTargetingMode, AutoUsePillConfig, CombatAttackIntensity, CombatTargetingRules } from './automation-types';
 import type { BodyTrainingState, HeavenGateRootValues, HeavenGateState, PendingTechniqueComprehensionState, PlayerRealmState, TechniqueState } from './cultivation-types';
 import type {
-  AlchemySkillState,
-  PlayerAlchemyJob,
-  PlayerAlchemyPreset,
-  PlayerBuildingJob,
-  PlayerEnhancementJob,
-  PlayerEnhancementRecord,
-  PlayerFormationJob,
-  PlayerForgingJob,
-  PlayerGatherJob,
-  PlayerMiningJob,
-  PlayerTransmissionJob,
+ AlchemySkillState,
+ PlayerAlchemyJob,
+ PlayerAlchemyPreset,
+ PlayerBuildingJob,
+ PlayerEnhancementJob,
+ PlayerEnhancementRecord,
+ PlayerFormationJob,
+ PlayerForgingJob,
+ PlayerGatherJob,
+ PlayerMiningJob,
+ PlayerTransmissionJob,
 } from './crafting-types';
 import type { EquipmentSlots, Inventory, PlayerArtifactState } from './item-runtime-types';
 import type { TechniqueActivityQueueItem } from './technique-activity-pipeline-types';
@@ -27,545 +27,548 @@ import type { PendingLogbookMessage, QuestNavigationState, QuestState } from './
 import type { TemporaryBuffState } from './skill-types';
 import type { AttrBonus, Attributes } from './attribute-types';
 import type { Direction } from './world-core-types';
+import type { CraftEffectStatsPatch } from './craft-effect-stats';
 
 /** 钱包单个币种余额。 */
 export interface PlayerWalletBalance {
-  /**
-   * walletType：钱包类型。
-   */
-  walletType: string;
-  /**
-   * balance：可用余额。
-   */
-  balance: number;
-  /**
-   * frozenBalance：冻结余额。
-   */
-  frozenBalance?: number;
-  /**
-   * version：版本号。
-   */
-  version?: number;
+ /**
+  * walletType：钱包类型。
+  */
+ walletType: string;
+ /**
+  * balance：可用余额。
+  */
+ balance: number;
+ /**
+  * frozenBalance：冻结余额。
+  */
+ frozenBalance?: number;
+ /**
+  * version：版本号。
+  */
+ version?: number;
 }
 
 /** 玩家钱包状态。 */
 export interface PlayerWalletState {
-  /**
-   * balances：余额集合。
-   */
-  balances: PlayerWalletBalance[];
+ /**
+  * balances：余额集合。
+  */
+ balances: PlayerWalletBalance[];
 }
 
 /** 玩家移动能力投影，来源可以是法宝、buff、技能或其他运行态效果。 */
 export interface PlayerMovementCapabilitiesState {
-  /**
-   * staticObstacleIgnore：是否忽略静态地形障碍。
-   */
-  staticObstacleIgnore?: boolean;
+ /**
+  * staticObstacleIgnore：是否忽略静态地形障碍。
+  */
+ staticObstacleIgnore?: boolean;
 }
 
 /** 玩家状态。 */
 export interface PlayerState {
-/**
- * id：ID标识。
- */
-
-  id: string;
-  /** 角色名，用于名称标签、社交列表等需要识别玩家的场景。 */
-
-  name: string;
-  /** 玩家自定义显示图标；地图渲染取完整的首个 grapheme，缺失时回退角色名。 */
-
-  displayName?: string;
-  /**
- * sectId：所属宗门 ID，用于护宗大阵等宗门权限判定。
- */
-
-  sectId?: string | null;
-  /** 当前所属队伍；null 表示未组队。 */
-  partyId?: string | null;
-  /** 队伍级友伤总开关的运行时投影；个人目标规则仍需允许 party 敌对。 */
-  partyFriendlyFireEnabled?: boolean;
-  /**
- * isBot：启用开关或状态标识。
- */
-
-  isBot?: boolean;
-  /**
- * online：online相关字段。
- */
-
-  online?: boolean;
-  /**
- * inWorld：in世界相关字段。
- */
-
-  inWorld?: boolean;
-  /**
- * lastHeartbeatAt：lastHeartbeatAt相关字段。
- */
-
-  lastHeartbeatAt?: number;
-  /**
- * offlineSinceAt：offlineSinceAt相关字段。
- */
-
-  offlineSinceAt?: number;
-  /**
- * respawnMapId：绑定复活地图模板。
- */
-
-  respawnMapId?: string;
-  /**
- * senseQiActive：senseQi激活状态相关字段。
- */
-
-  senseQiActive?: boolean;
-  /**
- * wangQiActive：望气视角激活状态。
- */
-
-  wangQiActive?: boolean;
-  /**
- * fengShuiLuck：当前所在房间风水折算的临时幸运修正，不落持久真源。
- */
-
-  fengShuiLuck?: number;
-  /**
- * autoRetaliate：autoRetaliate相关字段。
- */
-
-  autoRetaliate?: boolean;
-  /**
- * autoBattleStationary：autoBattleStationary相关字段。
- */
-
-  autoBattleStationary?: boolean;
-  /**
- * allowAoePlayerHit：allowAoe玩家Hit相关字段。
- */
-
-  allowAoePlayerHit?: boolean;
-  /**
- * retaliatePlayerTargetId：当前反击锁定的玩家目标。
- */
-
-  retaliatePlayerTargetId?: string | null;
-  /**
- * retaliatePlayerTargetLastAttackTick：当前反击目标最近一次主动攻击你的 tick。
- */
-
-  retaliatePlayerTargetLastAttackTick?: number | null;
-  /**
- * autoIdleCultivation：autoIdleCultivation相关字段。
- */
-
-  autoIdleCultivation?: boolean;
-  /**
- * autoSwitchCultivation：autoSwitchCultivation相关字段。
- */
-
-  autoSwitchCultivation?: boolean;
-  /**
- * autoRootFoundation：自动凝练根基开关。
- */
-
-  autoRootFoundation?: boolean;
-  /** 出手力度档位，单位为“成”。 */
-  combatAttackIntensity?: CombatAttackIntensity;
-  /**
- * cultivationActive：cultivation激活状态相关字段。
- */
-
-  cultivationActive?: boolean;
-  /**
- * realmLv：realmLv相关字段。
- */
-
-  realmLv?: number;
-  /**
- * realmName：realm名称名称或显示文本。
- */
-
-  realmName?: string;
-  /**
- * realmStage：realmStage相关字段。
- */
-
-  realmStage?: string;
-  /**
- * realmReview：realmReview相关字段。
- */
-
-  realmReview?: string;
-  /**
- * breakthroughReady：breakthroughReady相关字段。
- */
-
-  breakthroughReady?: boolean;
-  /**
- * heavenGate：heavenGate相关字段。
- */
-
-  heavenGate?: HeavenGateState | null;
-  /**
- * spiritualRoots：spiritual根容器相关字段。
- */
-
-  spiritualRoots?: HeavenGateRootValues | null;
-  /**
- * boneAgeBaseYears：boneAgeBaseYear相关字段。
- */
-
-  boneAgeBaseYears?: number;
-  /**
- * lifeElapsedTicks：lifeElapsedtick相关字段。
- */
-
-  lifeElapsedTicks?: number;
-  /**
- * lifespanYears：lifespanYear相关字段。
- */
-
-  lifespanYears?: number | null;
-  /** 副本精力当前值；持久化真源位于 progression 域。 */
-  stamina?: number;
-  /** 副本精力上次恢复计算时间（Unix 毫秒）。 */
-  staminaUpdatedAt?: number;
-  /**
- * instanceId：实例ID标识。
- */
-
-  instanceId?: string;
-  /**
- * mapId：地图ID标识。
- */
-
-  mapId: string;
-  /**
- * x：x相关字段。
- */
-
-  x: number;
-  /**
- * y：y相关字段。
- */
-
-  y: number;
-  /**
- * facing：facing相关字段。
- */
-
-  facing: Direction;
-  /**
- * viewRange：视图范围相关字段。
- */
-
-  viewRange: number;
-  /**
- * hp：hp相关字段。
- */
-
-  hp: number;
-  /**
- * maxHp：maxHp相关字段。
- */
-
-  maxHp: number;
-  /**
- * qi：qi相关字段。
- */
-
-  qi: number;
-  /**
- * dead：dead相关字段。
- */
-
-  dead: boolean;
-  /**
- * foundation：foundation相关字段。
- */
-
-  foundation?: number;
-  /**
- * rootFoundation：根基点数，用于六维境界乘区。
- */
-
-  rootFoundation?: number;
-  /**
- * combatExp：战斗Exp相关字段。
- */
-
-  combatExp?: number;
-  /**
- * comprehension：悟性，特殊属性。
- */
-
-  comprehension?: number;
-  /** 当前个人功法领悟速度贡献；1 表示额外 +100%。 */
-  comprehensionSpeedRate?: number;
-  /**
- * luck：幸运，特殊属性。
- */
-
-  luck?: number;
-  /**
- * baseAttrs：baseAttr相关字段。
- */
-
-  baseAttrs: Attributes;
-  /**
- * bonuses：bonuse相关字段。
- */
-
-  bonuses: AttrBonus[];
-  /**
- * temporaryBuffs：temporaryBuff相关字段。
- */
-
-  temporaryBuffs?: TemporaryBuffState[];
-  /**
- * finalAttrs：finalAttr相关字段。
- */
-
-  finalAttrs?: Attributes;
-  /**
- * numericStats：numericStat相关字段。
- */
-
-  numericStats?: NumericStats;
-  /**
- * ratioDivisors：ratioDivisor相关字段。
- */
-
-  ratioDivisors?: NumericRatioDivisors;
-  /**
- * inventory：背包相关字段。
- */
-
-  inventory: Inventory;
-  /**
- * wallet：钱包相关字段。
- */
-
-  wallet?: PlayerWalletState;
-  /**
- * marketStorage：坊市Storage相关字段。
- */
-  marketStorage?: MarketStorage;
-  /**
- * equipment：装备相关字段。
- */
-
-  equipment: EquipmentSlots;
-  /**
- * artifacts：法宝槽位与灵气状态。
- */
-
-  artifacts: PlayerArtifactState;
-  /**
- * movementCapabilities：玩家移动能力投影。
- */
-
-  movementCapabilities?: PlayerMovementCapabilitiesState;
-  /**
- * techniques：功法相关字段。
- */
-
-  techniques: TechniqueState[];
-  /**
- * pendingTechniqueComprehensions：未领悟功法状态。
- */
-
-  pendingTechniqueComprehensions?: PendingTechniqueComprehensionState[];
-  /**
- * bodyTraining：bodyTraining相关字段。
- */
-
-  bodyTraining?: BodyTrainingState;
-  /**
- * actions：action相关字段。
- */
-
-  actions: ActionDef[];
-  /**
- * quests：集合字段。
- */
-
-  quests: QuestState[];
-  /**
- * autoBattle：autoBattle相关字段。
- */
-
-  autoBattle: boolean;
-  /**
- * autoBattleSkills：autoBattle技能相关字段。
- */
-
-  autoBattleSkills: AutoBattleSkillConfig[];
-  /**
- * autoUsePills：autoUsePill相关字段。
- */
-
-  autoUsePills: AutoUsePillConfig[];
-  /**
- * combatTargetingRules：战斗TargetingRule相关字段。
- */
-
-  combatTargetingRules?: CombatTargetingRules;
-  /**
- * autoBattleTargetingMode：autoBattleTargetingMode相关字段。
- */
-
-  autoBattleTargetingMode: AutoBattleTargetingMode;
-  /**
- * combatTargetId：战斗目标ID标识。
- */
-
-  combatTargetId?: string;
-  /**
- * combatTargetLocked：战斗目标Locked相关字段。
- */
-
-  combatTargetLocked?: boolean;
-  /**
- * cultivatingTechId：cultivatingTechID标识。
- */
-
-  cultivatingTechId?: string;
-  /**
- * pendingLogbookMessages：pendingLogbookMessage相关字段。
- */
-
-  pendingLogbookMessages?: PendingLogbookMessage[];
-  /**
- * idleTicks：idletick相关字段。
- */
-
-  idleTicks?: number;
-  /**
- * revealedBreakthroughRequirementIds：revealedBreakthroughRequirementID相关字段。
- */
-
-  revealedBreakthroughRequirementIds?: string[];
-  /**
- * unlockedMinimapIds：unlockedMinimapID相关字段。
- */
-
-  unlockedMinimapIds?: string[];
-  /**
- * realm：realm相关字段。
- */
-
-  realm?: PlayerRealmState;
-  /**
- * questNavigation：任务导航相关字段。
- */
-
-  questNavigation?: QuestNavigationState;
-  /**
- * questCrossMapNavCooldownUntilLifeTicks：任务Cross地图Nav冷却UntilLifetick相关字段。
- */
-
-  questCrossMapNavCooldownUntilLifeTicks?: number;
-  /**
- * alchemySkill：炼丹技能相关字段。
- */
-
-  alchemySkill?: AlchemySkillState;
-  /**
- * forgingSkill：炼器技能相关字段。
- */
-
-  forgingSkill?: AlchemySkillState;
-  /**
- * gatherSkill：gather技能相关字段。
- */
-
-  gatherSkill?: AlchemySkillState;
-  /**
- * gatherJob：gather Job 相关字段。
- */
-
-  gatherJob?: PlayerGatherJob | null;
-  /**
- * alchemyPresets：炼丹Preset相关字段。
- */
-
-  alchemyPresets?: PlayerAlchemyPreset[];
-  /**
- * alchemyJob：炼丹Job相关字段。
- */
-
-  alchemyJob?: PlayerAlchemyJob | null;
-  /**
- * forgingJob：锻造 Job 相关字段。
- */
-
-  forgingJob?: PlayerForgingJob | null;
-  /**
- * enhancementSkill：强化技能相关字段。
- */
-
-  enhancementSkill?: AlchemySkillState;
-  /**
- * buildingSkill：营造技能相关字段。
- */
-
-  buildingSkill?: AlchemySkillState;
-  /**
- * miningSkill：挖矿技能相关字段。
- */
-
-  miningSkill?: AlchemySkillState;
-  /**
- * miningJob：挖矿 Job 相关字段。
- */
-
-  miningJob?: PlayerMiningJob | null;
-  /**
- * formationSkill：阵法技能相关字段。
- */
-
-  formationSkill?: AlchemySkillState;
-  /**
- * transmissionSkill：传法技艺状态。
- */
-
-  transmissionSkill?: AlchemySkillState;
-  /**
-   * transmissionJob：传法 Job 相关字段。
-   */
-
-  transmissionJob?: PlayerTransmissionJob | null;
-  /**
-   * buildingJob：building Job 相关字段。
-   */
-
-  buildingJob?: PlayerBuildingJob | null;
-  /**
- * formationJob：阵法维护 Job 相关字段。
- */
-
-  formationJob?: PlayerFormationJob | null;
-  /**
- * techniqueActivityQueue：统一技艺活动队列。
- */
-
-  techniqueActivityQueue?: TechniqueActivityQueueItem[];
-  /**
- * enhancementSkillLevel：强化技能等级数值。
- */
-
-  enhancementSkillLevel?: number;
-  /**
- * enhancementJob：强化Job相关字段。
- */
-
-  enhancementJob?: PlayerEnhancementJob | null;
-  /**
- * enhancementRecords：强化Record相关字段。
- */
-
-  enhancementRecords?: PlayerEnhancementRecord[];
+ /**
+  * id：ID标识。
+  */
+
+ id: string;
+ /** 角色名，用于名称标签、社交列表等需要识别玩家的场景。 */
+
+ name: string;
+ /** 玩家自定义显示图标；地图渲染取完整的首个 grapheme，缺失时回退角色名。 */
+
+ displayName?: string;
+ /**
+* sectId：所属宗门 ID，用于护宗大阵等宗门权限判定。
+*/
+
+ sectId?: string | null;
+ /** 当前所属队伍；null 表示未组队。 */
+ partyId?: string | null;
+ /** 队伍级友伤总开关的运行时投影；个人目标规则仍需允许 party 敌对。 */
+ partyFriendlyFireEnabled?: boolean;
+ /**
+* isBot：启用开关或状态标识。
+*/
+
+ isBot?: boolean;
+ /**
+* online：online相关字段。
+*/
+
+ online?: boolean;
+ /**
+* inWorld：in世界相关字段。
+*/
+
+ inWorld?: boolean;
+ /**
+* lastHeartbeatAt：lastHeartbeatAt相关字段。
+*/
+
+ lastHeartbeatAt?: number;
+ /**
+* offlineSinceAt：offlineSinceAt相关字段。
+*/
+
+ offlineSinceAt?: number;
+ /**
+* respawnMapId：绑定复活地图模板。
+*/
+
+ respawnMapId?: string;
+ /**
+* senseQiActive：senseQi激活状态相关字段。
+*/
+
+ senseQiActive?: boolean;
+ /**
+* wangQiActive：望气视角激活状态。
+*/
+
+ wangQiActive?: boolean;
+ /**
+* fengShuiLuck：当前所在房间风水折算的临时幸运修正，不落持久真源。
+*/
+
+ fengShuiLuck?: number;
+ /**
+* autoRetaliate：autoRetaliate相关字段。
+*/
+
+ autoRetaliate?: boolean;
+ /**
+* autoBattleStationary：autoBattleStationary相关字段。
+*/
+
+ autoBattleStationary?: boolean;
+ /**
+* allowAoePlayerHit：allowAoe玩家Hit相关字段。
+*/
+
+ allowAoePlayerHit?: boolean;
+ /**
+* retaliatePlayerTargetId：当前反击锁定的玩家目标。
+*/
+
+ retaliatePlayerTargetId?: string | null;
+ /** craftEffectStats：技艺效果属性。 */
+ craftEffectStats?: CraftEffectStatsPatch;
+ /**
+* retaliatePlayerTargetLastAttackTick：当前反击目标最近一次主动攻击你的 tick。
+*/
+
+ retaliatePlayerTargetLastAttackTick?: number | null;
+ /**
+* autoIdleCultivation：autoIdleCultivation相关字段。
+*/
+
+ autoIdleCultivation?: boolean;
+ /**
+* autoSwitchCultivation：autoSwitchCultivation相关字段。
+*/
+
+ autoSwitchCultivation?: boolean;
+ /**
+* autoRootFoundation：自动凝练根基开关。
+*/
+
+ autoRootFoundation?: boolean;
+ /** 出手力度档位，单位为“成”。 */
+ combatAttackIntensity?: CombatAttackIntensity;
+ /**
+* cultivationActive：cultivation激活状态相关字段。
+*/
+
+ cultivationActive?: boolean;
+ /**
+* realmLv：realmLv相关字段。
+*/
+
+ realmLv?: number;
+ /**
+* realmName：realm名称名称或显示文本。
+*/
+
+ realmName?: string;
+ /**
+* realmStage：realmStage相关字段。
+*/
+
+ realmStage?: string;
+ /**
+* realmReview：realmReview相关字段。
+*/
+
+ realmReview?: string;
+ /**
+* breakthroughReady：breakthroughReady相关字段。
+*/
+
+ breakthroughReady?: boolean;
+ /**
+* heavenGate：heavenGate相关字段。
+*/
+
+ heavenGate?: HeavenGateState | null;
+ /**
+* spiritualRoots：spiritual根容器相关字段。
+*/
+
+ spiritualRoots?: HeavenGateRootValues | null;
+ /**
+* boneAgeBaseYears：boneAgeBaseYear相关字段。
+*/
+
+ boneAgeBaseYears?: number;
+ /**
+* lifeElapsedTicks：lifeElapsedtick相关字段。
+*/
+
+ lifeElapsedTicks?: number;
+ /**
+* lifespanYears：lifespanYear相关字段。
+*/
+
+ lifespanYears?: number | null;
+ /** 副本精力当前值；持久化真源位于 progression 域。 */
+ stamina?: number;
+ /** 副本精力上次恢复计算时间（Unix 毫秒）。 */
+ staminaUpdatedAt?: number;
+ /**
+* instanceId：实例ID标识。
+*/
+
+ instanceId?: string;
+ /**
+* mapId：地图ID标识。
+*/
+
+ mapId: string;
+ /**
+* x：x相关字段。
+*/
+
+ x: number;
+ /**
+* y：y相关字段。
+*/
+
+ y: number;
+ /**
+* facing：facing相关字段。
+*/
+
+ facing: Direction;
+ /**
+* viewRange：视图范围相关字段。
+*/
+
+ viewRange: number;
+ /**
+* hp：hp相关字段。
+*/
+
+ hp: number;
+ /**
+* maxHp：maxHp相关字段。
+*/
+
+ maxHp: number;
+ /**
+* qi：qi相关字段。
+*/
+
+ qi: number;
+ /**
+* dead：dead相关字段。
+*/
+
+ dead: boolean;
+ /**
+* foundation：foundation相关字段。
+*/
+
+ foundation?: number;
+ /**
+* rootFoundation：根基点数，用于六维境界乘区。
+*/
+
+ rootFoundation?: number;
+ /**
+* combatExp：战斗Exp相关字段。
+*/
+
+ combatExp?: number;
+ /**
+* comprehension：悟性，特殊属性。
+*/
+
+ comprehension?: number;
+ /** 当前个人功法领悟速度贡献；1 表示额外 +100%。 */
+ comprehensionSpeedRate?: number;
+ /**
+* luck：幸运，特殊属性。
+*/
+
+ luck?: number;
+ /**
+* baseAttrs：baseAttr相关字段。
+*/
+
+ baseAttrs: Attributes;
+ /**
+* bonuses：bonuse相关字段。
+*/
+
+ bonuses: AttrBonus[];
+ /**
+* temporaryBuffs：temporaryBuff相关字段。
+*/
+
+ temporaryBuffs?: TemporaryBuffState[];
+ /**
+* finalAttrs：finalAttr相关字段。
+*/
+
+ finalAttrs?: Attributes;
+ /**
+* numericStats：numericStat相关字段。
+*/
+
+ numericStats?: NumericStats;
+ /**
+* ratioDivisors：ratioDivisor相关字段。
+*/
+
+ ratioDivisors?: NumericRatioDivisors;
+ /**
+* inventory：背包相关字段。
+*/
+
+ inventory: Inventory;
+ /**
+* wallet：钱包相关字段。
+*/
+
+ wallet?: PlayerWalletState;
+ /**
+* marketStorage：坊市Storage相关字段。
+*/
+ marketStorage?: MarketStorage;
+ /**
+* equipment：装备相关字段。
+*/
+
+ equipment: EquipmentSlots;
+ /**
+* artifacts：法宝槽位与灵气状态。
+*/
+
+ artifacts: PlayerArtifactState;
+ /**
+* movementCapabilities：玩家移动能力投影。
+*/
+
+ movementCapabilities?: PlayerMovementCapabilitiesState;
+ /**
+* techniques：功法相关字段。
+*/
+
+ techniques: TechniqueState[];
+ /**
+* pendingTechniqueComprehensions：未领悟功法状态。
+*/
+
+ pendingTechniqueComprehensions?: PendingTechniqueComprehensionState[];
+ /**
+* bodyTraining：bodyTraining相关字段。
+*/
+
+ bodyTraining?: BodyTrainingState;
+ /**
+* actions：action相关字段。
+*/
+
+ actions: ActionDef[];
+ /**
+* quests：集合字段。
+*/
+
+ quests: QuestState[];
+ /**
+* autoBattle：autoBattle相关字段。
+*/
+
+ autoBattle: boolean;
+ /**
+* autoBattleSkills：autoBattle技能相关字段。
+*/
+
+ autoBattleSkills: AutoBattleSkillConfig[];
+ /**
+* autoUsePills：autoUsePill相关字段。
+*/
+
+ autoUsePills: AutoUsePillConfig[];
+ /**
+* combatTargetingRules：战斗TargetingRule相关字段。
+*/
+
+ combatTargetingRules?: CombatTargetingRules;
+ /**
+* autoBattleTargetingMode：autoBattleTargetingMode相关字段。
+*/
+
+ autoBattleTargetingMode: AutoBattleTargetingMode;
+ /**
+* combatTargetId：战斗目标ID标识。
+*/
+
+ combatTargetId?: string;
+ /**
+* combatTargetLocked：战斗目标Locked相关字段。
+*/
+
+ combatTargetLocked?: boolean;
+ /**
+* cultivatingTechId：cultivatingTechID标识。
+*/
+
+ cultivatingTechId?: string;
+ /**
+* pendingLogbookMessages：pendingLogbookMessage相关字段。
+*/
+
+ pendingLogbookMessages?: PendingLogbookMessage[];
+ /**
+* idleTicks：idletick相关字段。
+*/
+
+ idleTicks?: number;
+ /**
+* revealedBreakthroughRequirementIds：revealedBreakthroughRequirementID相关字段。
+*/
+
+ revealedBreakthroughRequirementIds?: string[];
+ /**
+* unlockedMinimapIds：unlockedMinimapID相关字段。
+*/
+
+ unlockedMinimapIds?: string[];
+ /**
+* realm：realm相关字段。
+*/
+
+ realm?: PlayerRealmState;
+ /**
+* questNavigation：任务导航相关字段。
+*/
+
+ questNavigation?: QuestNavigationState;
+ /**
+* questCrossMapNavCooldownUntilLifeTicks：任务Cross地图Nav冷却UntilLifetick相关字段。
+*/
+
+ questCrossMapNavCooldownUntilLifeTicks?: number;
+ /**
+* alchemySkill：炼丹技能相关字段。
+*/
+
+ alchemySkill?: AlchemySkillState;
+ /**
+* forgingSkill：炼器技能相关字段。
+*/
+
+ forgingSkill?: AlchemySkillState;
+ /**
+* gatherSkill：gather技能相关字段。
+*/
+
+ gatherSkill?: AlchemySkillState;
+ /**
+* gatherJob：gather Job 相关字段。
+*/
+
+ gatherJob?: PlayerGatherJob | null;
+ /**
+* alchemyPresets：炼丹Preset相关字段。
+*/
+
+ alchemyPresets?: PlayerAlchemyPreset[];
+ /**
+* alchemyJob：炼丹Job相关字段。
+*/
+
+ alchemyJob?: PlayerAlchemyJob | null;
+ /**
+* forgingJob：锻造 Job 相关字段。
+*/
+
+ forgingJob?: PlayerForgingJob | null;
+ /**
+* enhancementSkill：强化技能相关字段。
+*/
+
+ enhancementSkill?: AlchemySkillState;
+ /**
+* buildingSkill：营造技能相关字段。
+*/
+
+ buildingSkill?: AlchemySkillState;
+ /**
+* miningSkill：挖矿技能相关字段。
+*/
+
+ miningSkill?: AlchemySkillState;
+ /**
+* miningJob：挖矿 Job 相关字段。
+*/
+
+ miningJob?: PlayerMiningJob | null;
+ /**
+* formationSkill：阵法技能相关字段。
+*/
+
+ formationSkill?: AlchemySkillState;
+ /**
+* transmissionSkill：传法技艺状态。
+*/
+
+ transmissionSkill?: AlchemySkillState;
+ /**
+  * transmissionJob：传法 Job 相关字段。
+  */
+
+ transmissionJob?: PlayerTransmissionJob | null;
+ /**
+  * buildingJob：building Job 相关字段。
+  */
+
+ buildingJob?: PlayerBuildingJob | null;
+ /**
+* formationJob：阵法维护 Job 相关字段。
+*/
+
+ formationJob?: PlayerFormationJob | null;
+ /**
+* techniqueActivityQueue：统一技艺活动队列。
+*/
+
+ techniqueActivityQueue?: TechniqueActivityQueueItem[];
+ /**
+* enhancementSkillLevel：强化技能等级数值。
+*/
+
+ enhancementSkillLevel?: number;
+ /**
+* enhancementJob：强化Job相关字段。
+*/
+
+ enhancementJob?: PlayerEnhancementJob | null;
+ /**
+* enhancementRecords：强化Record相关字段。
+*/
+
+ enhancementRecords?: PlayerEnhancementRecord[];
 }

@@ -13,888 +13,918 @@ export type FormationDiskTier = 'mortal' | 'yellow' | 'mystic' | 'earth';
 export type FormationLifecycle = 'deployed' | 'persistent';
 
 export type FormationEffectKind =
-  | 'tile_aura_source'
-  | 'terrain_stabilizer'
-  | 'boundary_barrier'
-  | 'monster_suppression'
-  | 'vision_suppression';
+ | 'tile_aura_source'
+ | 'terrain_stabilizer'
+ | 'boundary_barrier'
+ | 'monster_suppression'
+ | 'vision_suppression';
 
 export type FormationRangeShape = 'circle' | 'square' | 'checkerboard';
 
 export interface FormationVisualConfig {
-  char?: string;
-  color?: string;
-  showText?: boolean;
-  rangeHighlightColor?: string;
-  boundaryChar?: string;
-  boundaryColor?: string;
-  boundaryRangeHighlightColor?: string;
-  eyeVisibleWithoutSenseQi?: boolean;
-  rangeVisibleWithoutSenseQi?: boolean;
-  boundaryVisibleWithoutSenseQi?: boolean;
+ char?: string;
+ color?: string;
+ showText?: boolean;
+ rangeHighlightColor?: string;
+ boundaryChar?: string;
+ boundaryColor?: string;
+ boundaryRangeHighlightColor?: string;
+ eyeVisibleWithoutSenseQi?: boolean;
+ rangeVisibleWithoutSenseQi?: boolean;
+ boundaryVisibleWithoutSenseQi?: boolean;
 }
 
 export type FormationRangeGrowth =
-  | {
-      type: 'geometric_radius';
-      baseAura: number;
-      baseRadius: number;
-      ratioPerStep: number;
-      stepDivisor?: number;
-    };
+ | {
+  type: 'geometric_radius';
+  baseAura: number;
+  baseRadius: number;
+  ratioPerStep: number;
+  stepDivisor?: number;
+ };
 
 export interface FormationRangeConfig {
-  shape: FormationRangeShape;
-  minRadius: number;
-  growth: FormationRangeGrowth;
+ shape: FormationRangeShape;
+ minRadius: number;
+ growth: FormationRangeGrowth;
 }
 
 export interface FormationCostConfig {
-  defaultRadius?: number;
-  defaultDurationHours?: number;
-  durationStepHours?: number;
-  minDurationMinutes?: number;
-  minDurationCostMultiplier?: number;
-  shortDurationReferenceMinutes?: number;
-  shortDurationReferenceCostMultiplier?: number;
-  rangeCostRatio?: number;
-  durationCostRatio?: number;
-  minEffectValue?: number;
-  effectCostRatio?: number;
-  auraPerSpiritStone?: number;
-  qiPerSpiritStone?: number;
+ defaultRadius?: number;
+ defaultDurationHours?: number;
+ durationStepHours?: number;
+ minDurationMinutes?: number;
+ minDurationCostMultiplier?: number;
+ shortDurationReferenceMinutes?: number;
+ shortDurationReferenceCostMultiplier?: number;
+ rangeCostRatio?: number;
+ durationCostRatio?: number;
+ minEffectValue?: number;
+ effectCostRatio?: number;
+ auraPerSpiritStone?: number;
+ qiPerSpiritStone?: number;
 }
 
 export interface FormationEffectConfig {
-  kind: FormationEffectKind;
-  conversionRatio: number;
-  resourceKey?: string;
-  convergenceHalfLifeTicks?: number;
-  damageReductionDenominator?: number;
-  expPenaltyFromSuppression?: boolean;
-  visionReductionPercentPerStrength?: number;
+ kind: FormationEffectKind;
+ conversionRatio: number;
+ resourceKey?: string;
+ convergenceHalfLifeTicks?: number;
+ damageReductionDenominator?: number;
+ expPenaltyFromSuppression?: boolean;
+ visionReductionPercentPerStrength?: number;
 }
 
 export interface FormationAccessConfig {
-  kind: 'sect_members';
-  sectId?: string;
+ kind: 'sect_members';
+ sectId?: string;
 }
 
 export interface FormationTemplate {
-  id: FormationId;
-  name: string;
-  desc?: string;
-  lifecycle?: FormationLifecycle;
-  placeableByDisk?: boolean;
-  access?: FormationAccessConfig;
-  minSpiritStoneCount?: number;
-  damagePerAura?: number;
-  cost?: FormationCostConfig;
-  range: FormationRangeConfig;
-  effect: FormationEffectConfig;
-  visual?: FormationVisualConfig;
+ id: FormationId;
+ name: string;
+ desc?: string;
+ lifecycle?: FormationLifecycle;
+ placeableByDisk?: boolean;
+ access?: FormationAccessConfig;
+ minSpiritStoneCount?: number;
+ damagePerAura?: number;
+ cost?: FormationCostConfig;
+ range: FormationRangeConfig;
+ effect: FormationEffectConfig;
+ visual?: FormationVisualConfig;
 }
 
 export interface FormationAllocation {
-  effectPercent: number;
-  rangePercent: number;
-  durationPercent: number;
-  formationSkillLevel?: number;
+ effectPercent: number;
+ rangePercent: number;
+ durationPercent: number;
+ formationSkillLevel?: number;
+ formationStrengthBonusRate?: number;
 }
 
 export interface FormationSetup {
-  radius: number;
-  durationHours: number;
-  effectValue: number;
-  formationSkillLevel?: number;
+ radius: number;
+ durationHours: number;
+ effectValue: number;
+ formationSkillLevel?: number;
+ formationStrengthBonusRate?: number;
 }
 
 export interface FormationCreatePayload {
-  itemRef: InventoryItemRefView;
-  formationId: FormationId;
-  setup?: Partial<FormationSetup>;
-  spiritStoneCount?: number;
-  qiCost?: number;
-  allocation?: Partial<FormationAllocation> | Partial<FormationSetup>;
+ itemRef: InventoryItemRefView;
+ formationId: FormationId;
+ setup?: Partial<FormationSetup>;
+ spiritStoneCount?: number;
+ qiCost?: number;
+ allocation?: Partial<FormationAllocation> | Partial<FormationSetup>;
 }
 
 export interface FormationControlPayload {
-  formationInstanceId: string;
+ formationInstanceId: string;
 }
 
 export interface FormationRefillPayload {
-  formationInstanceId: string;
-  spiritStoneCount?: number;
-  qiAmount?: number;
-  qiCost?: number;
+ formationInstanceId: string;
+ spiritStoneCount?: number;
+ qiAmount?: number;
+ qiCost?: number;
 }
 
 export interface FormationResolvedStats {
-  setup?: FormationSetup;
-  requiredAuraBudget?: number;
-  durationHours?: number;
-  requiredQiBudget?: number;
-  requiredSpiritStoneBudget?: number;
-  baseAuraBudget: number;
-  totalAuraBudget: number;
-  baseQiBudget: number;
-  totalQiBudget: number;
-  totalSpiritStoneBudget: number;
-  effectAura: number;
-  rangeAura: number;
-  effectValue: number;
-  radius: number;
-  dailyActiveCost: number;
-  dailyInactiveCost: number;
-  tickActiveCost: number;
-  tickInactiveCost: number;
-  dailyActiveQiCost: number;
-  dailyInactiveQiCost: number;
-  tickActiveQiCost: number;
-  tickInactiveQiCost: number;
-  dailyActiveSpiritStoneCost: number;
-  dailyInactiveSpiritStoneCost: number;
-  tickActiveSpiritStoneCost: number;
-  tickInactiveSpiritStoneCost: number;
+ setup?: FormationSetup;
+ requiredAuraBudget?: number;
+ durationHours?: number;
+ requiredQiBudget?: number;
+ requiredSpiritStoneBudget?: number;
+ baseAuraBudget: number;
+ totalAuraBudget: number;
+ baseQiBudget: number;
+ totalQiBudget: number;
+ totalSpiritStoneBudget: number;
+ effectAura: number;
+ rangeAura: number;
+ effectValue: number;
+ radius: number;
+ dailyActiveCost: number;
+ dailyInactiveCost: number;
+ tickActiveCost: number;
+ tickInactiveCost: number;
+ dailyActiveQiCost: number;
+ dailyInactiveQiCost: number;
+ tickActiveQiCost: number;
+ tickInactiveQiCost: number;
+ dailyActiveSpiritStoneCost: number;
+ dailyInactiveSpiritStoneCost: number;
+ tickActiveSpiritStoneCost: number;
+ tickInactiveSpiritStoneCost: number;
 }
 
 export interface FormationAffectedCell {
-  x: number;
-  y: number;
+ x: number;
+ y: number;
 }
 
 import {
-  FORMATION_SPIRIT_STONE_ITEM_ID,
-  FORMATION_DEFAULT_MIN_SPIRIT_STONE_COUNT,
-  FORMATION_AURA_PER_SPIRIT_STONE,
-  FORMATION_DEFAULT_QI_COST_PER_SPIRIT_STONE,
-  FORMATION_DEFAULT_DURATION_HOURS,
-  FORMATION_DEFAULT_DURATION_STEP_HOURS,
-  FORMATION_DEFAULT_MIN_DURATION_MINUTES,
-  FORMATION_DEFAULT_MIN_DURATION_COST_MULTIPLIER,
-  FORMATION_DEFAULT_SHORT_DURATION_REFERENCE_MINUTES,
-  FORMATION_DEFAULT_SHORT_DURATION_REFERENCE_COST_MULTIPLIER,
-  FORMATION_DEFAULT_GROWTH_COST_RATIO,
-  FORMATION_DEFAULT_MIN_EFFECT_VALUE,
-  FORMATION_DEFAULT_EFFECT_COST_RATIO,
-  FORMATION_ALLOCATION_MIN_PERCENT,
-  FORMATION_ALLOCATION_MAX_PERCENT,
-  FORMATION_ALLOCATION_TOTAL_PERCENT,
-  FORMATION_DEFAULT_ALLOCATION_PERCENT,
-  FORMATION_DAILY_DURATION_BASE_PERCENT,
-  FORMATION_TICKS_PER_DAY,
-  FORMATION_QI_HALF_LIFE_TICKS,
-  DEFAULT_FORMATION_VISUAL_CHAR,
-  DEFAULT_FORMATION_VISUAL_COLOR,
-  DEFAULT_FORMATION_RANGE_HIGHLIGHT_COLOR,
-  FORMATION_DEFAULT_DAMAGE_PER_AURA,
-  FORMATION_DEFAULT_DAMAGE_REDUCTION_DENOMINATOR,
-  FORMATION_GUARDIAN_DAMAGE_REDUCTION_DENOMINATOR,
-  FORMATION_SKILL_STRENGTH_BONUS_PER_LEVEL,
+ FORMATION_SPIRIT_STONE_ITEM_ID,
+ FORMATION_DEFAULT_MIN_SPIRIT_STONE_COUNT,
+ FORMATION_AURA_PER_SPIRIT_STONE,
+ FORMATION_DEFAULT_QI_COST_PER_SPIRIT_STONE,
+ FORMATION_DEFAULT_DURATION_HOURS,
+ FORMATION_DEFAULT_DURATION_STEP_HOURS,
+ FORMATION_DEFAULT_MIN_DURATION_MINUTES,
+ FORMATION_DEFAULT_MIN_DURATION_COST_MULTIPLIER,
+ FORMATION_DEFAULT_SHORT_DURATION_REFERENCE_MINUTES,
+ FORMATION_DEFAULT_SHORT_DURATION_REFERENCE_COST_MULTIPLIER,
+ FORMATION_DEFAULT_GROWTH_COST_RATIO,
+ FORMATION_DEFAULT_MIN_EFFECT_VALUE,
+ FORMATION_DEFAULT_EFFECT_COST_RATIO,
+ FORMATION_ALLOCATION_MIN_PERCENT,
+ FORMATION_ALLOCATION_MAX_PERCENT,
+ FORMATION_ALLOCATION_TOTAL_PERCENT,
+ FORMATION_DEFAULT_ALLOCATION_PERCENT,
+ FORMATION_DAILY_DURATION_BASE_PERCENT,
+ FORMATION_TICKS_PER_DAY,
+ FORMATION_QI_HALF_LIFE_TICKS,
+ DEFAULT_FORMATION_VISUAL_CHAR,
+ DEFAULT_FORMATION_VISUAL_COLOR,
+ DEFAULT_FORMATION_RANGE_HIGHLIGHT_COLOR,
+ FORMATION_DEFAULT_DAMAGE_PER_AURA,
+ FORMATION_DEFAULT_DAMAGE_REDUCTION_DENOMINATOR,
+ FORMATION_GUARDIAN_DAMAGE_REDUCTION_DENOMINATOR,
+ FORMATION_SKILL_STRENGTH_BONUS_PER_LEVEL,
 } from './constants/gameplay/formation';
 
 export const DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR);
 
 export const FORMATION_DISK_TIER_MULTIPLIERS: Record<FormationDiskTier, number> = {
-  mortal: 1,
-  yellow: 2,
-  mystic: 4,
-  earth: 8,
+ mortal: 1,
+ yellow: 2,
+ mystic: 4,
+ earth: 8,
 };
 
 export const FORMATION_DISK_TIER_LABELS: Record<FormationDiskTier, string> = {
-  mortal: '凡品',
-  yellow: '黄阶',
-  mystic: '玄阶',
-  earth: '地阶',
+ mortal: '凡品',
+ yellow: '黄阶',
+ mystic: '玄阶',
+ earth: '地阶',
 };
 
 export const BUILTIN_FORMATION_TEMPLATES: FormationTemplate[] = [
-  {
-    id: 'spirit_gathering',
-    name: '聚灵阵',
-    desc: '持续抬升范围内地块的炼化中性灵气。',
-    minSpiritStoneCount: 100,
-    damagePerAura: FORMATION_DEFAULT_DAMAGE_PER_AURA,
-    cost: {
-      defaultRadius: 1,
-      defaultDurationHours: 24,
-      durationStepHours: 2,
-      minDurationMinutes: 1,
-      minDurationCostMultiplier: 1 / 8,
-      shortDurationReferenceMinutes: 10,
-      shortDurationReferenceCostMultiplier: 1 / 6,
-      rangeCostRatio: 1.5,
-      durationCostRatio: 1,
-      minEffectValue: 1,
-      effectCostRatio: 1,
-      auraPerSpiritStone: 100,
-      qiPerSpiritStone: 100,
-    },
-    range: {
-      shape: 'circle',
-      minRadius: 1,
-      growth: {
-        type: 'geometric_radius',
-        baseAura: 1000,
-        baseRadius: 0,
-        ratioPerStep: 2,
-      },
-    },
-    effect: {
-      kind: 'tile_aura_source',
-      conversionRatio: 100,
-      resourceKey: DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY,
-      convergenceHalfLifeTicks: FORMATION_TICKS_PER_DAY,
-    },
-    visual: {
-      char: '◎',
-      color: '#4da3ff',
-      showText: true,
-      rangeHighlightColor: '#3b82f6',
-    },
+ {
+  id: 'spirit_gathering',
+  name: '聚灵阵',
+  desc: '持续抬升范围内地块的炼化中性灵气。',
+  minSpiritStoneCount: 100,
+  damagePerAura: FORMATION_DEFAULT_DAMAGE_PER_AURA,
+  cost: {
+   defaultRadius: 1,
+   defaultDurationHours: 24,
+   durationStepHours: 2,
+   minDurationMinutes: 1,
+   minDurationCostMultiplier: 1 / 8,
+   shortDurationReferenceMinutes: 10,
+   shortDurationReferenceCostMultiplier: 1 / 6,
+   rangeCostRatio: 1.5,
+   durationCostRatio: 1,
+   minEffectValue: 1,
+   effectCostRatio: 1,
+   auraPerSpiritStone: 100,
+   qiPerSpiritStone: 100,
   },
-  {
-    id: 'earth_stabilizing',
-    name: '固脉阵',
-    desc: '稳固范围内地脉，阻止可攻击地块复生和临时地块自然消散，按效果灵力降低可拆除地块受到的伤害，并使范围内受损地块每息额外恢复 1% 最大生命。',
-    minSpiritStoneCount: 1000,
-    damagePerAura: FORMATION_DEFAULT_DAMAGE_PER_AURA,
-    cost: {
-      defaultRadius: 1,
-      defaultDurationHours: 24,
-      durationStepHours: 2,
-      minDurationMinutes: 1,
-      minDurationCostMultiplier: 1 / 8,
-      shortDurationReferenceMinutes: 10,
-      shortDurationReferenceCostMultiplier: 1 / 6,
-      rangeCostRatio: 1.5,
-      durationCostRatio: 1,
-      minEffectValue: 1,
-      effectCostRatio: 1,
-      auraPerSpiritStone: 100,
-      qiPerSpiritStone: 100,
-    },
-    range: {
-      shape: 'square',
-      minRadius: 1,
-      growth: {
-        type: 'geometric_radius',
-        baseAura: 100,
-        baseRadius: 0,
-        ratioPerStep: 1.5,
-        stepDivisor: 2,
-      },
-    },
-    effect: {
-      kind: 'terrain_stabilizer',
-      conversionRatio: 1,
-      damageReductionDenominator: FORMATION_DEFAULT_DAMAGE_REDUCTION_DENOMINATOR,
-    },
-    visual: {
-      char: '◇',
-      color: '#b7791f',
-      showText: true,
-      rangeHighlightColor: '#a16207',
-    },
+  range: {
+   shape: 'circle',
+   minRadius: 1,
+   growth: {
+    type: 'geometric_radius',
+    baseAura: 1000,
+    baseRadius: 0,
+    ratioPerStep: 2,
+   },
   },
-  {
-    id: 'warding_barrier',
-    name: '太玄封界阵',
-    desc: '以太玄阵纹封锁四方，阵法边界等同墙体阻挡通行与视线，攻击任意边界都会消耗阵眼灵力。',
-    minSpiritStoneCount: 100,
-    damagePerAura: 100,
-    cost: {
-      defaultRadius: 1,
-      defaultDurationHours: 24,
-      durationStepHours: 2,
-      minDurationMinutes: 1,
-      minDurationCostMultiplier: 1 / 8,
-      shortDurationReferenceMinutes: 10,
-      shortDurationReferenceCostMultiplier: 1 / 6,
-      rangeCostRatio: 1.5,
-      durationCostRatio: 1,
-      minEffectValue: 1,
-      effectCostRatio: 1,
-      auraPerSpiritStone: 100,
-      qiPerSpiritStone: 100,
-    },
-    range: {
-      shape: 'square',
-      minRadius: 1,
-      growth: {
-        type: 'geometric_radius',
-        baseAura: 10000,
-        baseRadius: 1,
-        ratioPerStep: 2,
-      },
-    },
-    effect: {
-      kind: 'boundary_barrier',
-      conversionRatio: 1,
-      damageReductionDenominator: FORMATION_DEFAULT_DAMAGE_REDUCTION_DENOMINATOR,
-    },
-    visual: {
-      char: '玄',
-      color: '#c4b5fd',
-      showText: true,
-      rangeHighlightColor: '#7dd3fc',
-      boundaryChar: '封',
-      boundaryColor: '#67e8f9',
-      boundaryRangeHighlightColor: '#22d3ee',
-      eyeVisibleWithoutSenseQi: false,
-      rangeVisibleWithoutSenseQi: false,
-      boundaryVisibleWithoutSenseQi: true,
-    },
+  effect: {
+   kind: 'tile_aura_source',
+   conversionRatio: 100,
+   resourceKey: DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY,
+   convergenceHalfLifeTicks: FORMATION_TICKS_PER_DAY,
   },
-  {
-    id: 'demon_sealing',
-    name: '封魔阵',
-    desc: '压制范围内所有妖兽，每点强度提供一层压制；多座封魔阵重叠时只取最高层数，并按实际压制幅度同步降低击杀经验。',
-    minSpiritStoneCount: 100,
-    damagePerAura: FORMATION_DEFAULT_DAMAGE_PER_AURA,
-    cost: {
-      defaultRadius: 1,
-      defaultDurationHours: 24,
-      durationStepHours: 2,
-      minDurationMinutes: 1,
-      minDurationCostMultiplier: 1 / 8,
-      shortDurationReferenceMinutes: 10,
-      shortDurationReferenceCostMultiplier: 1 / 6,
-      rangeCostRatio: 1.5,
-      durationCostRatio: 1,
-      minEffectValue: 1,
-      effectCostRatio: 100,
-      auraPerSpiritStone: 100,
-      qiPerSpiritStone: 100,
-    },
-    range: {
-      shape: 'circle',
-      minRadius: 1,
-      growth: {
-        type: 'geometric_radius',
-        baseAura: 1000,
-        baseRadius: 0,
-        ratioPerStep: 2,
-      },
-    },
-    effect: {
-      kind: 'monster_suppression',
-      conversionRatio: 1,
-      expPenaltyFromSuppression: true,
-    },
-    visual: {
-      char: '魔',
-      color: '#ef4444',
-      showText: true,
-      rangeHighlightColor: '#b91c1c',
-    },
+  visual: {
+   char: '◎',
+   color: '#4da3ff',
+   showText: true,
+   rangeHighlightColor: '#3b82f6',
   },
-  {
-    id: 'sky_veil',
-    name: '遮天阵',
-    desc: '遮蔽范围内修士感知，每点强度降低 10% 视野；多座遮天阵重叠时只取最高强度。',
-    minSpiritStoneCount: 100,
-    damagePerAura: FORMATION_DEFAULT_DAMAGE_PER_AURA,
-    cost: {
-      defaultRadius: 1,
-      defaultDurationHours: 24,
-      durationStepHours: 2,
-      minDurationMinutes: 1,
-      minDurationCostMultiplier: 1 / 8,
-      shortDurationReferenceMinutes: 10,
-      shortDurationReferenceCostMultiplier: 1 / 6,
-      rangeCostRatio: 1.5,
-      durationCostRatio: 1,
-      minEffectValue: 1,
-      effectCostRatio: 100,
-      auraPerSpiritStone: 100,
-      qiPerSpiritStone: 100,
-    },
-    range: {
-      shape: 'circle',
-      minRadius: 1,
-      growth: {
-        type: 'geometric_radius',
-        baseAura: 1000,
-        baseRadius: 0,
-        ratioPerStep: 2,
-      },
-    },
-    effect: {
-      kind: 'vision_suppression',
-      conversionRatio: 1,
-      visionReductionPercentPerStrength: 10,
-    },
-    visual: {
-      char: '隐',
-      color: '#64748b',
-      showText: true,
-      rangeHighlightColor: '#475569',
-    },
+ },
+ {
+  id: 'earth_stabilizing',
+  name: '固脉阵',
+  desc: '稳固范围内地脉，阻止可攻击地块复生和临时地块自然消散，按效果灵力降低可拆除地块受到的伤害，并使范围内受损地块每息额外恢复 1% 最大生命。',
+  minSpiritStoneCount: 1000,
+  damagePerAura: FORMATION_DEFAULT_DAMAGE_PER_AURA,
+  cost: {
+   defaultRadius: 1,
+   defaultDurationHours: 24,
+   durationStepHours: 2,
+   minDurationMinutes: 1,
+   minDurationCostMultiplier: 1 / 8,
+   shortDurationReferenceMinutes: 10,
+   shortDurationReferenceCostMultiplier: 1 / 6,
+   rangeCostRatio: 1.5,
+   durationCostRatio: 1,
+   minEffectValue: 1,
+   effectCostRatio: 1,
+   auraPerSpiritStone: 100,
+   qiPerSpiritStone: 100,
   },
-  {
-    id: 'sect_guardian_barrier',
-    name: '护宗大阵',
-    desc: '护持宗门山门的特殊大阵，阵眼位于宗门内部，主世界入口处形成默认一格封界；本宗门修士可自由通行。',
-    lifecycle: 'persistent',
-    placeableByDisk: false,
-    access: {
-      kind: 'sect_members',
-    },
-    minSpiritStoneCount: 1,
-    damagePerAura: FORMATION_DEFAULT_DAMAGE_PER_AURA,
-    cost: {
-      defaultRadius: 1,
-      defaultDurationHours: 24,
-      durationStepHours: 2,
-      minDurationMinutes: 1,
-      minDurationCostMultiplier: 1 / 8,
-      shortDurationReferenceMinutes: 10,
-      shortDurationReferenceCostMultiplier: 1 / 6,
-      rangeCostRatio: 1.5,
-      durationCostRatio: 1,
-      minEffectValue: 1,
-      effectCostRatio: 1,
-      auraPerSpiritStone: 100,
-      qiPerSpiritStone: 100,
-    },
-    range: {
-      shape: 'square',
-      minRadius: 1,
-      growth: {
-        type: 'geometric_radius',
-        baseAura: 10000,
-        baseRadius: 1,
-        ratioPerStep: 2,
-      },
-    },
-    effect: {
-      kind: 'boundary_barrier',
-      conversionRatio: 1,
-      damageReductionDenominator: FORMATION_GUARDIAN_DAMAGE_REDUCTION_DENOMINATOR,
-    },
-    visual: {
-      char: '宗',
-      color: '#fde68a',
-      showText: false,
-      rangeHighlightColor: '#f59e0b',
-      boundaryChar: '护',
-      boundaryColor: '#e0f7ff',
-      boundaryRangeHighlightColor: '#67e8f9',
-      eyeVisibleWithoutSenseQi: false,
-      rangeVisibleWithoutSenseQi: false,
-      boundaryVisibleWithoutSenseQi: true,
-    },
+  range: {
+   shape: 'square',
+   minRadius: 1,
+   growth: {
+    type: 'geometric_radius',
+    baseAura: 100,
+    baseRadius: 0,
+    ratioPerStep: 1.5,
+    stepDivisor: 2,
+   },
   },
+  effect: {
+   kind: 'terrain_stabilizer',
+   conversionRatio: 1,
+   damageReductionDenominator: FORMATION_DEFAULT_DAMAGE_REDUCTION_DENOMINATOR,
+  },
+  visual: {
+   char: '◇',
+   color: '#b7791f',
+   showText: true,
+   rangeHighlightColor: '#a16207',
+  },
+ },
+ {
+  id: 'warding_barrier',
+  name: '太玄封界阵',
+  desc: '以太玄阵纹封锁四方，阵法边界等同墙体阻挡通行与视线，攻击任意边界都会消耗阵眼灵力。',
+  minSpiritStoneCount: 100,
+  damagePerAura: 100,
+  cost: {
+   defaultRadius: 1,
+   defaultDurationHours: 24,
+   durationStepHours: 2,
+   minDurationMinutes: 1,
+   minDurationCostMultiplier: 1 / 8,
+   shortDurationReferenceMinutes: 10,
+   shortDurationReferenceCostMultiplier: 1 / 6,
+   rangeCostRatio: 1.5,
+   durationCostRatio: 1,
+   minEffectValue: 1,
+   effectCostRatio: 1,
+   auraPerSpiritStone: 100,
+   qiPerSpiritStone: 100,
+  },
+  range: {
+   shape: 'square',
+   minRadius: 1,
+   growth: {
+    type: 'geometric_radius',
+    baseAura: 10000,
+    baseRadius: 1,
+    ratioPerStep: 2,
+   },
+  },
+  effect: {
+   kind: 'boundary_barrier',
+   conversionRatio: 1,
+   damageReductionDenominator: FORMATION_DEFAULT_DAMAGE_REDUCTION_DENOMINATOR,
+  },
+  visual: {
+   char: '玄',
+   color: '#c4b5fd',
+   showText: true,
+   rangeHighlightColor: '#7dd3fc',
+   boundaryChar: '封',
+   boundaryColor: '#67e8f9',
+   boundaryRangeHighlightColor: '#22d3ee',
+   eyeVisibleWithoutSenseQi: false,
+   rangeVisibleWithoutSenseQi: false,
+   boundaryVisibleWithoutSenseQi: true,
+  },
+ },
+ {
+  id: 'demon_sealing',
+  name: '封魔阵',
+  desc: '压制范围内所有妖兽，每点强度提供一层压制；多座封魔阵重叠时只取最高层数，并按实际压制幅度同步降低击杀经验。',
+  minSpiritStoneCount: 100,
+  damagePerAura: FORMATION_DEFAULT_DAMAGE_PER_AURA,
+  cost: {
+   defaultRadius: 1,
+   defaultDurationHours: 24,
+   durationStepHours: 2,
+   minDurationMinutes: 1,
+   minDurationCostMultiplier: 1 / 8,
+   shortDurationReferenceMinutes: 10,
+   shortDurationReferenceCostMultiplier: 1 / 6,
+   rangeCostRatio: 1.5,
+   durationCostRatio: 1,
+   minEffectValue: 1,
+   effectCostRatio: 100,
+   auraPerSpiritStone: 100,
+   qiPerSpiritStone: 100,
+  },
+  range: {
+   shape: 'circle',
+   minRadius: 1,
+   growth: {
+    type: 'geometric_radius',
+    baseAura: 1000,
+    baseRadius: 0,
+    ratioPerStep: 2,
+   },
+  },
+  effect: {
+   kind: 'monster_suppression',
+   conversionRatio: 1,
+   expPenaltyFromSuppression: true,
+  },
+  visual: {
+   char: '魔',
+   color: '#ef4444',
+   showText: true,
+   rangeHighlightColor: '#b91c1c',
+  },
+ },
+ {
+  id: 'sky_veil',
+  name: '遮天阵',
+  desc: '遮蔽范围内修士感知，每点强度降低 10% 视野；多座遮天阵重叠时只取最高强度。',
+  minSpiritStoneCount: 100,
+  damagePerAura: FORMATION_DEFAULT_DAMAGE_PER_AURA,
+  cost: {
+   defaultRadius: 1,
+   defaultDurationHours: 24,
+   durationStepHours: 2,
+   minDurationMinutes: 1,
+   minDurationCostMultiplier: 1 / 8,
+   shortDurationReferenceMinutes: 10,
+   shortDurationReferenceCostMultiplier: 1 / 6,
+   rangeCostRatio: 1.5,
+   durationCostRatio: 1,
+   minEffectValue: 1,
+   effectCostRatio: 100,
+   auraPerSpiritStone: 100,
+   qiPerSpiritStone: 100,
+  },
+  range: {
+   shape: 'circle',
+   minRadius: 1,
+   growth: {
+    type: 'geometric_radius',
+    baseAura: 1000,
+    baseRadius: 0,
+    ratioPerStep: 2,
+   },
+  },
+  effect: {
+   kind: 'vision_suppression',
+   conversionRatio: 1,
+   visionReductionPercentPerStrength: 10,
+  },
+  visual: {
+   char: '隐',
+   color: '#64748b',
+   showText: true,
+   rangeHighlightColor: '#475569',
+  },
+ },
+ {
+  id: 'sect_guardian_barrier',
+  name: '护宗大阵',
+  desc: '护持宗门山门的特殊大阵，阵眼位于宗门内部，主世界入口处形成默认一格封界；本宗门修士可自由通行。',
+  lifecycle: 'persistent',
+  placeableByDisk: false,
+  access: {
+   kind: 'sect_members',
+  },
+  minSpiritStoneCount: 1,
+  damagePerAura: FORMATION_DEFAULT_DAMAGE_PER_AURA,
+  cost: {
+   defaultRadius: 1,
+   defaultDurationHours: 24,
+   durationStepHours: 2,
+   minDurationMinutes: 1,
+   minDurationCostMultiplier: 1 / 8,
+   shortDurationReferenceMinutes: 10,
+   shortDurationReferenceCostMultiplier: 1 / 6,
+   rangeCostRatio: 1.5,
+   durationCostRatio: 1,
+   minEffectValue: 1,
+   effectCostRatio: 1,
+   auraPerSpiritStone: 100,
+   qiPerSpiritStone: 100,
+  },
+  range: {
+   shape: 'square',
+   minRadius: 1,
+   growth: {
+    type: 'geometric_radius',
+    baseAura: 10000,
+    baseRadius: 1,
+    ratioPerStep: 2,
+   },
+  },
+  effect: {
+   kind: 'boundary_barrier',
+   conversionRatio: 1,
+   damageReductionDenominator: FORMATION_GUARDIAN_DAMAGE_REDUCTION_DENOMINATOR,
+  },
+  visual: {
+   char: '宗',
+   color: '#fde68a',
+   showText: false,
+   rangeHighlightColor: '#f59e0b',
+   boundaryChar: '护',
+   boundaryColor: '#e0f7ff',
+   boundaryRangeHighlightColor: '#67e8f9',
+   eyeVisibleWithoutSenseQi: false,
+   rangeVisibleWithoutSenseQi: false,
+   boundaryVisibleWithoutSenseQi: true,
+  },
+ },
 ];
 
 export function resolveFormationVisual(template: FormationTemplate): Required<FormationVisualConfig> {
-  const visual = template.visual ?? {};
-  return {
-    char: normalizeFormationVisualString(visual.char, DEFAULT_FORMATION_VISUAL_CHAR),
-    color: normalizeFormationVisualString(visual.color, DEFAULT_FORMATION_VISUAL_COLOR),
-    showText: visual.showText !== false,
-    rangeHighlightColor: normalizeFormationVisualString(
-      visual.rangeHighlightColor,
-      visual.color ?? DEFAULT_FORMATION_RANGE_HIGHLIGHT_COLOR,
-    ),
-    boundaryChar: normalizeFormationVisualString(visual.boundaryChar, visual.char ?? DEFAULT_FORMATION_VISUAL_CHAR),
-    boundaryColor: normalizeFormationVisualString(visual.boundaryColor, visual.color ?? DEFAULT_FORMATION_VISUAL_COLOR),
-    boundaryRangeHighlightColor: normalizeFormationVisualString(
-      visual.boundaryRangeHighlightColor,
-      visual.rangeHighlightColor ?? visual.boundaryColor ?? visual.color ?? DEFAULT_FORMATION_RANGE_HIGHLIGHT_COLOR,
-    ),
-    eyeVisibleWithoutSenseQi: visual.eyeVisibleWithoutSenseQi === true,
-    rangeVisibleWithoutSenseQi: visual.rangeVisibleWithoutSenseQi === true,
-    boundaryVisibleWithoutSenseQi: visual.boundaryVisibleWithoutSenseQi === true,
-  };
+ const visual = template.visual ?? {};
+ return {
+  char: normalizeFormationVisualString(visual.char, DEFAULT_FORMATION_VISUAL_CHAR),
+  color: normalizeFormationVisualString(visual.color, DEFAULT_FORMATION_VISUAL_COLOR),
+  showText: visual.showText !== false,
+  rangeHighlightColor: normalizeFormationVisualString(
+   visual.rangeHighlightColor,
+   visual.color ?? DEFAULT_FORMATION_RANGE_HIGHLIGHT_COLOR,
+  ),
+  boundaryChar: normalizeFormationVisualString(visual.boundaryChar, visual.char ?? DEFAULT_FORMATION_VISUAL_CHAR),
+  boundaryColor: normalizeFormationVisualString(visual.boundaryColor, visual.color ?? DEFAULT_FORMATION_VISUAL_COLOR),
+  boundaryRangeHighlightColor: normalizeFormationVisualString(
+   visual.boundaryRangeHighlightColor,
+   visual.rangeHighlightColor ?? visual.boundaryColor ?? visual.color ?? DEFAULT_FORMATION_RANGE_HIGHLIGHT_COLOR,
+  ),
+  eyeVisibleWithoutSenseQi: visual.eyeVisibleWithoutSenseQi === true,
+  rangeVisibleWithoutSenseQi: visual.rangeVisibleWithoutSenseQi === true,
+  boundaryVisibleWithoutSenseQi: visual.boundaryVisibleWithoutSenseQi === true,
+ };
 }
 
 export function normalizeFormationAllocation(input: Partial<FormationAllocation> | null | undefined): FormationAllocation {
-  const effectPercent = clampFormationPercent(input?.effectPercent ?? FORMATION_DEFAULT_ALLOCATION_PERCENT);
-  const rangePercent = clampFormationPercent(input?.rangePercent ?? FORMATION_DEFAULT_ALLOCATION_PERCENT);
-  const durationPercent = clampFormationPercent(input?.durationPercent ?? FORMATION_DEFAULT_ALLOCATION_PERCENT);
-  const total = effectPercent + rangePercent + durationPercent;
-  if (total === FORMATION_ALLOCATION_TOTAL_PERCENT) {
-    return { effectPercent, rangePercent, durationPercent };
-  }
-  if (total <= 0) {
-    return {
-      effectPercent: FORMATION_DEFAULT_ALLOCATION_PERCENT,
-      rangePercent: FORMATION_DEFAULT_ALLOCATION_PERCENT,
-      durationPercent: FORMATION_DEFAULT_ALLOCATION_PERCENT,
-    };
-  }
+ const effectPercent = clampFormationPercent(input?.effectPercent ?? FORMATION_DEFAULT_ALLOCATION_PERCENT);
+ const rangePercent = clampFormationPercent(input?.rangePercent ?? FORMATION_DEFAULT_ALLOCATION_PERCENT);
+ const durationPercent = clampFormationPercent(input?.durationPercent ?? FORMATION_DEFAULT_ALLOCATION_PERCENT);
+ const total = effectPercent + rangePercent + durationPercent;
+ if (total === FORMATION_ALLOCATION_TOTAL_PERCENT) {
+  return { effectPercent, rangePercent, durationPercent };
+ }
+ if (total <= 0) {
   return {
-    effectPercent: effectPercent / total * FORMATION_ALLOCATION_TOTAL_PERCENT,
-    rangePercent: rangePercent / total * FORMATION_ALLOCATION_TOTAL_PERCENT,
-    durationPercent: durationPercent / total * FORMATION_ALLOCATION_TOTAL_PERCENT,
+   effectPercent: FORMATION_DEFAULT_ALLOCATION_PERCENT,
+   rangePercent: FORMATION_DEFAULT_ALLOCATION_PERCENT,
+   durationPercent: FORMATION_DEFAULT_ALLOCATION_PERCENT,
   };
+ }
+ return {
+  effectPercent: effectPercent / total * FORMATION_ALLOCATION_TOTAL_PERCENT,
+  rangePercent: rangePercent / total * FORMATION_ALLOCATION_TOTAL_PERCENT,
+  durationPercent: durationPercent / total * FORMATION_ALLOCATION_TOTAL_PERCENT,
+  ...(input?.formationSkillLevel !== undefined ? { formationSkillLevel: input.formationSkillLevel } : {}),
+  ...(input?.formationStrengthBonusRate !== undefined ? { formationStrengthBonusRate: input.formationStrengthBonusRate } : {}),
+ };
 }
 
 export function resolveFormationCostConfig(template: FormationTemplate): Required<FormationCostConfig> {
-  const configured = template.cost ?? {};
-  const defaultRadius = normalizePositiveInteger(
-    configured.defaultRadius,
-    Math.max(1, Math.trunc(Number(template.range?.minRadius) || 1)),
-  );
-  return {
-    defaultRadius,
-    defaultDurationHours: normalizePositiveNumber(configured.defaultDurationHours, FORMATION_DEFAULT_DURATION_HOURS),
-    durationStepHours: normalizePositiveNumber(configured.durationStepHours, FORMATION_DEFAULT_DURATION_STEP_HOURS),
-    minDurationMinutes: normalizePositiveNumber(configured.minDurationMinutes, FORMATION_DEFAULT_MIN_DURATION_MINUTES),
-    minDurationCostMultiplier: normalizePositiveNumber(
-      configured.minDurationCostMultiplier,
-      FORMATION_DEFAULT_MIN_DURATION_COST_MULTIPLIER,
-    ),
-    shortDurationReferenceMinutes: normalizePositiveNumber(
-      configured.shortDurationReferenceMinutes,
-      FORMATION_DEFAULT_SHORT_DURATION_REFERENCE_MINUTES,
-    ),
-    shortDurationReferenceCostMultiplier: normalizePositiveNumber(
-      configured.shortDurationReferenceCostMultiplier,
-      FORMATION_DEFAULT_SHORT_DURATION_REFERENCE_COST_MULTIPLIER,
-    ),
-    rangeCostRatio: normalizeRatio(configured.rangeCostRatio, FORMATION_DEFAULT_GROWTH_COST_RATIO),
-    durationCostRatio: normalizePositiveNumber(configured.durationCostRatio, 1),
-    minEffectValue: normalizePositiveInteger(configured.minEffectValue, FORMATION_DEFAULT_MIN_EFFECT_VALUE),
-    effectCostRatio: normalizePositiveNumber(configured.effectCostRatio, FORMATION_DEFAULT_EFFECT_COST_RATIO),
-    auraPerSpiritStone: normalizePositiveNumber(configured.auraPerSpiritStone, FORMATION_AURA_PER_SPIRIT_STONE),
-    qiPerSpiritStone: normalizePositiveNumber(configured.qiPerSpiritStone, FORMATION_DEFAULT_QI_COST_PER_SPIRIT_STONE),
-  };
+ const configured = template.cost ?? {};
+ const defaultRadius = normalizePositiveInteger(
+  configured.defaultRadius,
+  Math.max(1, Math.trunc(Number(template.range?.minRadius) || 1)),
+ );
+ return {
+  defaultRadius,
+  defaultDurationHours: normalizePositiveNumber(configured.defaultDurationHours, FORMATION_DEFAULT_DURATION_HOURS),
+  durationStepHours: normalizePositiveNumber(configured.durationStepHours, FORMATION_DEFAULT_DURATION_STEP_HOURS),
+  minDurationMinutes: normalizePositiveNumber(configured.minDurationMinutes, FORMATION_DEFAULT_MIN_DURATION_MINUTES),
+  minDurationCostMultiplier: normalizePositiveNumber(
+   configured.minDurationCostMultiplier,
+   FORMATION_DEFAULT_MIN_DURATION_COST_MULTIPLIER,
+  ),
+  shortDurationReferenceMinutes: normalizePositiveNumber(
+   configured.shortDurationReferenceMinutes,
+   FORMATION_DEFAULT_SHORT_DURATION_REFERENCE_MINUTES,
+  ),
+  shortDurationReferenceCostMultiplier: normalizePositiveNumber(
+   configured.shortDurationReferenceCostMultiplier,
+   FORMATION_DEFAULT_SHORT_DURATION_REFERENCE_COST_MULTIPLIER,
+  ),
+  rangeCostRatio: normalizeRatio(configured.rangeCostRatio, FORMATION_DEFAULT_GROWTH_COST_RATIO),
+  durationCostRatio: normalizePositiveNumber(configured.durationCostRatio, 1),
+  minEffectValue: normalizePositiveInteger(configured.minEffectValue, FORMATION_DEFAULT_MIN_EFFECT_VALUE),
+  effectCostRatio: normalizePositiveNumber(configured.effectCostRatio, FORMATION_DEFAULT_EFFECT_COST_RATIO),
+  auraPerSpiritStone: normalizePositiveNumber(configured.auraPerSpiritStone, FORMATION_AURA_PER_SPIRIT_STONE),
+  qiPerSpiritStone: normalizePositiveNumber(configured.qiPerSpiritStone, FORMATION_DEFAULT_QI_COST_PER_SPIRIT_STONE),
+ };
 }
 
 export function normalizeFormationSetup(
-  template: FormationTemplate,
-  input: Partial<FormationSetup> | null | undefined,
+ template: FormationTemplate,
+ input: Partial<FormationSetup> | null | undefined,
 ): FormationSetup {
-  const cost = resolveFormationCostConfig(template);
-  const rawRadius = Math.trunc(Number(input?.radius) || cost.defaultRadius);
-  const radius = Math.max(cost.defaultRadius, rawRadius);
-  const rawDurationHours = Number(input?.durationHours);
-  const requestedDurationHours = Number.isFinite(rawDurationHours) ? rawDurationHours : cost.defaultDurationHours;
-  const durationHours = Math.max(cost.minDurationMinutes / 60, requestedDurationHours);
-  const rawEffectValue = Math.trunc(Number(input?.effectValue) || cost.minEffectValue);
-  const effectValue = Math.max(cost.minEffectValue, rawEffectValue);
-  return { radius, durationHours, effectValue };
+ const cost = resolveFormationCostConfig(template);
+ const rawRadius = Math.trunc(Number(input?.radius) || cost.defaultRadius);
+ const radius = Math.max(cost.defaultRadius, rawRadius);
+ const rawDurationHours = Number(input?.durationHours);
+ const requestedDurationHours = Number.isFinite(rawDurationHours) ? rawDurationHours : cost.defaultDurationHours;
+ const durationHours = Math.max(cost.minDurationMinutes / 60, requestedDurationHours);
+ const rawEffectValue = Math.trunc(Number(input?.effectValue) || cost.minEffectValue);
+ const effectValue = Math.max(cost.minEffectValue, rawEffectValue);
+ return {
+  radius,
+  durationHours,
+  effectValue,
+  ...(input?.formationSkillLevel !== undefined ? { formationSkillLevel: input.formationSkillLevel } : {}),
+  ...(input?.formationStrengthBonusRate !== undefined ? { formationStrengthBonusRate: input.formationStrengthBonusRate } : {}),
+ };
 }
 
 export function isFormationSetupInput(
-  input: Partial<FormationAllocation> | Partial<FormationSetup> | null | undefined,
+ input: Partial<FormationAllocation> | Partial<FormationSetup> | null | undefined,
 ): input is Partial<FormationSetup> {
-  if (!input || typeof input !== 'object') {
-    return false;
-  }
-  return 'radius' in input || 'durationHours' in input || 'effectValue' in input;
+ if (!input || typeof input !== 'object') {
+  return false;
+ }
+ return 'radius' in input || 'durationHours' in input || 'effectValue' in input;
 }
 
 export function resolveFormationLifecycle(template: FormationTemplate | null | undefined): FormationLifecycle {
-  return template?.lifecycle === 'persistent' ? 'persistent' : 'deployed';
+ return template?.lifecycle === 'persistent' ? 'persistent' : 'deployed';
 }
 
 export function resolveFormationStats(
-  template: FormationTemplate,
-  spiritStoneCount: number,
-  diskMultiplier: number,
-  allocationInput: Partial<FormationAllocation> | Partial<FormationSetup> | null | undefined,
-  formationSkillLevel?: number,
+ template: FormationTemplate,
+ spiritStoneCount: number,
+ diskMultiplier: number,
+ allocationInput: Partial<FormationAllocation> | Partial<FormationSetup> | null | undefined,
+ formationSkillLevel?: number,
+ strengthBonusRate?: number,
 ): FormationResolvedStats {
-  const resolvedFormationSkillLevel = resolveFormationInputSkillLevel(formationSkillLevel, allocationInput);
-  if (isFormationSetupInput(allocationInput)) {
-    return resolveFormationSetupStats(template, diskMultiplier, allocationInput, resolvedFormationSkillLevel);
-  }
-  const allocation = normalizeFormationAllocation(allocationInput);
-  const normalizedStones = Math.max(1, Math.trunc(Number(spiritStoneCount) || 0));
-  const normalizedMultiplier = Number.isFinite(diskMultiplier) ? Math.max(1, Number(diskMultiplier)) : 1;
-  const strengthMultiplier = resolveFormationSkillStrengthMultiplier(resolvedFormationSkillLevel);
-  const baseAuraBudget = normalizedStones * FORMATION_AURA_PER_SPIRIT_STONE;
-  const totalAuraBudget = Math.round(baseAuraBudget * normalizedMultiplier);
-  const baseEffectAura = Math.floor(baseAuraBudget * allocation.effectPercent / FORMATION_ALLOCATION_TOTAL_PERCENT);
-  const effectAura = Math.floor(totalAuraBudget * allocation.effectPercent / FORMATION_ALLOCATION_TOTAL_PERCENT);
-  const rangeAura = Math.floor(totalAuraBudget * allocation.rangePercent / FORMATION_ALLOCATION_TOTAL_PERCENT);
-  const effectValue = Math.max(0, Math.floor(effectAura * Math.max(0, Number(template.effect.conversionRatio) || 0) * strengthMultiplier));
-  const radius = resolveFormationRadius(template.range, rangeAura);
-  const durationScale = Math.max(0.01, allocation.durationPercent / FORMATION_DAILY_DURATION_BASE_PERCENT);
-  const dailyActiveCost = resolveFormationDailyQiDecayEstimate(totalAuraBudget);
-  const dailyInactiveCost = dailyActiveCost;
-  const tickActiveCost = dailyActiveCost / FORMATION_TICKS_PER_DAY;
-  const tickInactiveCost = tickActiveCost;
-  const dailyActiveSpiritStoneCost = Math.max(0, baseEffectAura / Math.max(0.01, durationScale));
-  const dailyInactiveSpiritStoneCost = dailyActiveSpiritStoneCost;
-  return {
-    baseAuraBudget,
-    totalAuraBudget,
-    baseQiBudget: baseAuraBudget,
-    totalQiBudget: totalAuraBudget,
-    totalSpiritStoneBudget: normalizedStones,
-    effectAura,
-    rangeAura,
-    effectValue,
-    radius,
-    durationHours: 24 * durationScale,
-    dailyActiveCost,
-    dailyInactiveCost,
-    tickActiveCost,
-    tickInactiveCost,
-    dailyActiveQiCost: dailyActiveCost,
-    dailyInactiveQiCost: dailyInactiveCost,
-    tickActiveQiCost: tickActiveCost,
-    tickInactiveQiCost: tickInactiveCost,
-    dailyActiveSpiritStoneCost,
-    dailyInactiveSpiritStoneCost,
-    tickActiveSpiritStoneCost: dailyActiveSpiritStoneCost / FORMATION_TICKS_PER_DAY,
-    tickInactiveSpiritStoneCost: dailyInactiveSpiritStoneCost / FORMATION_TICKS_PER_DAY,
-  };
+ const resolvedFormationSkillLevel = resolveFormationInputSkillLevel(formationSkillLevel, allocationInput);
+ const resolvedStrengthBonusRate = resolveFormationInputStrengthBonusRate(strengthBonusRate, allocationInput);
+ if (isFormationSetupInput(allocationInput)) {
+  return resolveFormationSetupStats(template, diskMultiplier, allocationInput, resolvedFormationSkillLevel, resolvedStrengthBonusRate);
+ }
+ const allocation = normalizeFormationAllocation(allocationInput);
+ const normalizedStones = Math.max(1, Math.trunc(Number(spiritStoneCount) || 0));
+ const normalizedMultiplier = Number.isFinite(diskMultiplier) ? Math.max(1, Number(diskMultiplier)) : 1;
+ const strengthMultiplier = resolveFormationSkillStrengthMultiplier(resolvedFormationSkillLevel, resolvedStrengthBonusRate);
+ const baseAuraBudget = normalizedStones * FORMATION_AURA_PER_SPIRIT_STONE;
+ const totalAuraBudget = Math.round(baseAuraBudget * normalizedMultiplier);
+ const baseEffectAura = Math.floor(baseAuraBudget * allocation.effectPercent / FORMATION_ALLOCATION_TOTAL_PERCENT);
+ const effectAura = Math.floor(totalAuraBudget * allocation.effectPercent / FORMATION_ALLOCATION_TOTAL_PERCENT);
+ const rangeAura = Math.floor(totalAuraBudget * allocation.rangePercent / FORMATION_ALLOCATION_TOTAL_PERCENT);
+ const effectValue = Math.max(0, Math.floor(effectAura * Math.max(0, Number(template.effect.conversionRatio) || 0) * strengthMultiplier));
+ const radius = resolveFormationRadius(template.range, rangeAura);
+ const durationScale = Math.max(0.01, allocation.durationPercent / FORMATION_DAILY_DURATION_BASE_PERCENT);
+ const dailyActiveCost = resolveFormationDailyQiDecayEstimate(totalAuraBudget);
+ const dailyInactiveCost = dailyActiveCost;
+ const tickActiveCost = dailyActiveCost / FORMATION_TICKS_PER_DAY;
+ const tickInactiveCost = tickActiveCost;
+ const dailyActiveSpiritStoneCost = Math.max(0, baseEffectAura / Math.max(0.01, durationScale));
+ const dailyInactiveSpiritStoneCost = dailyActiveSpiritStoneCost;
+ return {
+  baseAuraBudget,
+  totalAuraBudget,
+  baseQiBudget: baseAuraBudget,
+  totalQiBudget: totalAuraBudget,
+  totalSpiritStoneBudget: normalizedStones,
+  effectAura,
+  rangeAura,
+  effectValue,
+  radius,
+  durationHours: 24 * durationScale,
+  dailyActiveCost,
+  dailyInactiveCost,
+  tickActiveCost,
+  tickInactiveCost,
+  dailyActiveQiCost: dailyActiveCost,
+  dailyInactiveQiCost: dailyInactiveCost,
+  tickActiveQiCost: tickActiveCost,
+  tickInactiveQiCost: tickInactiveCost,
+  dailyActiveSpiritStoneCost,
+  dailyInactiveSpiritStoneCost,
+  tickActiveSpiritStoneCost: dailyActiveSpiritStoneCost / FORMATION_TICKS_PER_DAY,
+  tickInactiveSpiritStoneCost: dailyInactiveSpiritStoneCost / FORMATION_TICKS_PER_DAY,
+ };
 }
 
 export function resolveFormationSetupStats(
-  template: FormationTemplate,
-  diskMultiplier: number,
-  setupInput: Partial<FormationSetup> | null | undefined,
-  formationSkillLevel?: number,
+ template: FormationTemplate,
+ diskMultiplier: number,
+ setupInput: Partial<FormationSetup> | null | undefined,
+ formationSkillLevel?: number,
+ strengthBonusRate?: number,
 ): FormationResolvedStats {
-  const cost = resolveFormationCostConfig(template);
-  const setup = normalizeFormationSetup(template, setupInput);
-  const normalizedMultiplier = Number.isFinite(diskMultiplier) ? Math.max(1, Number(diskMultiplier)) : 1;
-  const resolvedFormationSkillLevel = resolveFormationInputSkillLevel(formationSkillLevel, setupInput);
-  const effectStrengthMultiplier = normalizedMultiplier * resolveFormationSkillStrengthMultiplier(resolvedFormationSkillLevel);
-  const effectConversionRatio = Math.max(0, Number(template.effect.conversionRatio) || 0);
-  const rangeSteps = Math.max(0, setup.radius - cost.defaultRadius);
-  const rangeMultiplier = Math.pow(cost.rangeCostRatio, rangeSteps);
-  const linearDurationMultiplier = setup.durationHours / cost.defaultDurationHours;
-  const durationMultiplier = setup.durationHours >= cost.defaultDurationHours
-    ? 1 + (linearDurationMultiplier - 1) * cost.durationCostRatio
-    : resolveShortDurationCostMultiplier(cost, setup.durationHours);
-  const actualBaseStrength = Math.max(0, setup.effectValue * effectStrengthMultiplier);
-  const effectValue = Math.max(0, Math.floor(actualBaseStrength * effectConversionRatio));
-  const requiredAuraBudget = Math.max(1, Math.ceil(setup.effectValue * effectStrengthMultiplier * cost.effectCostRatio * rangeMultiplier * durationMultiplier));
-  const dailySpiritStoneCost = Math.max(
-    0,
-    setup.effectValue * cost.effectCostRatio * rangeMultiplier / Math.max(Number.EPSILON, durationMultiplier),
-  );
-  const spiritStoneCount = Math.max(
-    FORMATION_DEFAULT_MIN_SPIRIT_STONE_COUNT,
-    Math.ceil(dailySpiritStoneCost * Math.max(1, Math.round(setup.durationHours * 3_600)) / FORMATION_TICKS_PER_DAY),
-  );
-  const baseAuraBudget = Math.ceil(requiredAuraBudget / normalizedMultiplier);
-  const totalAuraBudget = requiredAuraBudget;
-  const dailyActiveCost = resolveFormationDailyQiDecayEstimate(totalAuraBudget);
-  const dailyInactiveCost = dailyActiveCost;
-  const tickActiveCost = dailyActiveCost / FORMATION_TICKS_PER_DAY;
-  const tickInactiveCost = tickActiveCost;
-  const tickActiveSpiritStoneCost = dailySpiritStoneCost / FORMATION_TICKS_PER_DAY;
-  const tickInactiveSpiritStoneCost = tickActiveSpiritStoneCost;
-  return {
-    setup,
-    requiredAuraBudget,
-    requiredQiBudget: requiredAuraBudget,
-    requiredSpiritStoneBudget: spiritStoneCount,
-    durationHours: setup.durationHours,
-    baseAuraBudget,
-    totalAuraBudget,
-    baseQiBudget: baseAuraBudget,
-    totalQiBudget: totalAuraBudget,
-    totalSpiritStoneBudget: spiritStoneCount,
-    effectAura: effectValue,
-    rangeAura: requiredAuraBudget,
-    effectValue,
-    radius: setup.radius,
-    dailyActiveCost,
-    dailyInactiveCost,
-    tickActiveCost,
-    tickInactiveCost,
-    dailyActiveQiCost: dailyActiveCost,
-    dailyInactiveQiCost: dailyInactiveCost,
-    tickActiveQiCost: tickActiveCost,
-    tickInactiveQiCost: tickInactiveCost,
-    dailyActiveSpiritStoneCost: tickActiveSpiritStoneCost * FORMATION_TICKS_PER_DAY,
-    dailyInactiveSpiritStoneCost: tickInactiveSpiritStoneCost * FORMATION_TICKS_PER_DAY,
-    tickActiveSpiritStoneCost,
-    tickInactiveSpiritStoneCost,
-  };
+ const cost = resolveFormationCostConfig(template);
+ const setup = normalizeFormationSetup(template, setupInput);
+ const normalizedMultiplier = Number.isFinite(diskMultiplier) ? Math.max(1, Number(diskMultiplier)) : 1;
+ const resolvedFormationSkillLevel = resolveFormationInputSkillLevel(formationSkillLevel, setupInput);
+ const resolvedStrengthBonusRate = resolveFormationInputStrengthBonusRate(strengthBonusRate, setupInput);
+ const effectStrengthMultiplier = normalizedMultiplier * resolveFormationSkillStrengthMultiplier(resolvedFormationSkillLevel, resolvedStrengthBonusRate);
+ const effectConversionRatio = Math.max(0, Number(template.effect.conversionRatio) || 0);
+ const rangeSteps = Math.max(0, setup.radius - cost.defaultRadius);
+ const rangeMultiplier = Math.pow(cost.rangeCostRatio, rangeSteps);
+ const linearDurationMultiplier = setup.durationHours / cost.defaultDurationHours;
+ const durationMultiplier = setup.durationHours >= cost.defaultDurationHours
+  ? 1 + (linearDurationMultiplier - 1) * cost.durationCostRatio
+  : resolveShortDurationCostMultiplier(cost, setup.durationHours);
+ const actualBaseStrength = Math.max(0, setup.effectValue * effectStrengthMultiplier);
+ const effectValue = Math.max(0, Math.floor(actualBaseStrength * effectConversionRatio));
+ const requiredAuraBudget = Math.max(1, Math.ceil(setup.effectValue * effectStrengthMultiplier * cost.effectCostRatio * rangeMultiplier * durationMultiplier));
+ const dailySpiritStoneCost = Math.max(
+  0,
+  setup.effectValue * cost.effectCostRatio * rangeMultiplier / Math.max(Number.EPSILON, durationMultiplier),
+ );
+ const spiritStoneCount = Math.max(
+  FORMATION_DEFAULT_MIN_SPIRIT_STONE_COUNT,
+  Math.ceil(dailySpiritStoneCost * Math.max(1, Math.round(setup.durationHours * 3_600)) / FORMATION_TICKS_PER_DAY),
+ );
+ const baseAuraBudget = Math.ceil(requiredAuraBudget / normalizedMultiplier);
+ const totalAuraBudget = requiredAuraBudget;
+ const dailyActiveCost = resolveFormationDailyQiDecayEstimate(totalAuraBudget);
+ const dailyInactiveCost = dailyActiveCost;
+ const tickActiveCost = dailyActiveCost / FORMATION_TICKS_PER_DAY;
+ const tickInactiveCost = tickActiveCost;
+ const tickActiveSpiritStoneCost = dailySpiritStoneCost / FORMATION_TICKS_PER_DAY;
+ const tickInactiveSpiritStoneCost = tickActiveSpiritStoneCost;
+ return {
+  setup,
+  requiredAuraBudget,
+  requiredQiBudget: requiredAuraBudget,
+  requiredSpiritStoneBudget: spiritStoneCount,
+  durationHours: setup.durationHours,
+  baseAuraBudget,
+  totalAuraBudget,
+  baseQiBudget: baseAuraBudget,
+  totalQiBudget: totalAuraBudget,
+  totalSpiritStoneBudget: spiritStoneCount,
+  effectAura: effectValue,
+  rangeAura: requiredAuraBudget,
+  effectValue,
+  radius: setup.radius,
+  dailyActiveCost,
+  dailyInactiveCost,
+  tickActiveCost,
+  tickInactiveCost,
+  dailyActiveQiCost: dailyActiveCost,
+  dailyInactiveQiCost: dailyInactiveCost,
+  tickActiveQiCost: tickActiveCost,
+  tickInactiveQiCost: tickInactiveCost,
+  dailyActiveSpiritStoneCost: tickActiveSpiritStoneCost * FORMATION_TICKS_PER_DAY,
+  dailyInactiveSpiritStoneCost: tickInactiveSpiritStoneCost * FORMATION_TICKS_PER_DAY,
+  tickActiveSpiritStoneCost,
+  tickInactiveSpiritStoneCost,
+ };
 }
 
 export function resolveFormationSetupPlan(
-  template: FormationTemplate,
-  diskMultiplier: number,
-  setupInput: Partial<FormationSetup> | null | undefined,
-  formationSkillLevel?: number,
+ template: FormationTemplate,
+ diskMultiplier: number,
+ setupInput: Partial<FormationSetup> | null | undefined,
+ formationSkillLevel?: number,
+ strengthBonusRate?: number,
 ): {
-  setup: FormationSetup;
-  stats: FormationResolvedStats;
-  spiritStoneCount: number;
-  qiCost: number;
+ setup: FormationSetup;
+ stats: FormationResolvedStats;
+ spiritStoneCount: number;
+ qiCost: number;
 } {
-  const stats = resolveFormationSetupStats(template, diskMultiplier, setupInput, formationSkillLevel);
-  const spiritStoneCount = Math.max(
-    FORMATION_DEFAULT_MIN_SPIRIT_STONE_COUNT,
-    Math.ceil(stats.requiredSpiritStoneBudget ?? stats.totalSpiritStoneBudget),
-  );
-  return {
-    setup: stats.setup ?? normalizeFormationSetup(template, setupInput),
-    stats,
-    spiritStoneCount,
-    qiCost: resolveFormationQiCost(spiritStoneCount, template),
-  };
+ const stats = resolveFormationSetupStats(template, diskMultiplier, setupInput, formationSkillLevel, strengthBonusRate);
+ const spiritStoneCount = Math.max(
+  FORMATION_DEFAULT_MIN_SPIRIT_STONE_COUNT,
+  Math.ceil(stats.requiredSpiritStoneBudget ?? stats.totalSpiritStoneBudget),
+ );
+ return {
+  setup: stats.setup ?? normalizeFormationSetup(template, setupInput),
+  stats,
+  spiritStoneCount,
+  qiCost: resolveFormationQiCost(spiritStoneCount, template),
+ };
 }
 
-export function resolveFormationSkillStrengthMultiplier(formationSkillLevel: number | undefined): number {
-  const normalizedLevel = Math.max(0, Math.floor(Number(formationSkillLevel) || 0));
-  return Math.pow(1 + FORMATION_SKILL_STRENGTH_BONUS_PER_LEVEL, normalizedLevel);
+export function resolveFormationSkillStrengthMultiplier(
+ formationSkillLevel: number | undefined,
+ strengthBonusRate?: number,
+): number {
+ const normalizedLevel = Math.max(0, Math.floor(Number(formationSkillLevel) || 0));
+ const levelMultiplier = Math.pow(1 + FORMATION_SKILL_STRENGTH_BONUS_PER_LEVEL, normalizedLevel);
+ const normalizedBonus = Math.max(0, Number(strengthBonusRate) || 0);
+ return levelMultiplier * (1 + normalizedBonus);
 }
 
 export function resolveFormationDamageReductionDenominator(template: FormationTemplate | null | undefined): number {
-  const configured = Number(template?.effect?.damageReductionDenominator);
-  if (Number.isFinite(configured) && configured > 0) {
-    return configured;
-  }
-  return template?.id === 'sect_guardian_barrier'
-    ? FORMATION_GUARDIAN_DAMAGE_REDUCTION_DENOMINATOR
-    : FORMATION_DEFAULT_DAMAGE_REDUCTION_DENOMINATOR;
+ const configured = Number(template?.effect?.damageReductionDenominator);
+ if (Number.isFinite(configured) && configured > 0) {
+  return configured;
+ }
+ return template?.id === 'sect_guardian_barrier'
+  ? FORMATION_GUARDIAN_DAMAGE_REDUCTION_DENOMINATOR
+  : FORMATION_DEFAULT_DAMAGE_REDUCTION_DENOMINATOR;
 }
 
 export function resolveFormationDamageReduction(template: FormationTemplate | null | undefined, effectValue: number): number {
-  const normalizedValue = Math.max(0, Number(effectValue) || 0);
-  if (normalizedValue <= 0) {
-    return 0;
-  }
-  const denominator = resolveFormationDamageReductionDenominator(template);
-  return Math.max(0, Math.min(0.999999, normalizedValue / (normalizedValue + denominator)));
+ const normalizedValue = Math.max(0, Number(effectValue) || 0);
+ if (normalizedValue <= 0) {
+  return 0;
+ }
+ const denominator = resolveFormationDamageReductionDenominator(template);
+ return Math.max(0, Math.min(0.999999, normalizedValue / (normalizedValue + denominator)));
 }
 
 export function resolveFormationDailyQiDecayEstimate(totalQiBudget: number): number {
-  const normalizedBudget = Math.max(0, Number(totalQiBudget) || 0);
-  if (normalizedBudget <= 0) {
-    return 0;
-  }
-  return normalizedBudget * (1 - Math.pow(0.5, FORMATION_TICKS_PER_DAY / FORMATION_QI_HALF_LIFE_TICKS));
+ const normalizedBudget = Math.max(0, Number(totalQiBudget) || 0);
+ if (normalizedBudget <= 0) {
+  return 0;
+ }
+ return normalizedBudget * (1 - Math.pow(0.5, FORMATION_TICKS_PER_DAY / FORMATION_QI_HALF_LIFE_TICKS));
 }
 
 function resolveFormationInputSkillLevel(
-  explicitLevel: number | undefined,
-  input: Partial<FormationAllocation> | Partial<FormationSetup> | null | undefined,
+ explicitLevel: number | undefined,
+ input: Partial<FormationAllocation> | Partial<FormationSetup> | null | undefined,
 ): number {
-  const embeddedLevel = input && typeof input === 'object'
-    ? (input as { formationSkillLevel?: number }).formationSkillLevel
-    : undefined;
-  return Math.max(0, Math.floor(Number(explicitLevel ?? embeddedLevel) || 0));
+ const embeddedLevel = input && typeof input === 'object' && 'formationSkillLevel' in input
+  ? input.formationSkillLevel
+  : undefined;
+ return Math.max(0, Math.floor(Number(explicitLevel ?? embeddedLevel) || 0));
+}
+
+function resolveFormationInputStrengthBonusRate(
+ explicitBonus: number | undefined,
+ input: Partial<FormationAllocation> | Partial<FormationSetup> | null | undefined,
+): number {
+ const embeddedBonus = input && typeof input === 'object' && 'formationStrengthBonusRate' in input
+  ? input.formationStrengthBonusRate
+  : undefined;
+ return Math.max(0, Number(explicitBonus ?? embeddedBonus) || 0);
 }
 
 export function resolveFormationDamagePerAura(template: FormationTemplate): number {
-  const configured = Number(template.damagePerAura);
-  return Number.isFinite(configured) && configured > 0
-    ? configured
-    : FORMATION_DEFAULT_DAMAGE_PER_AURA;
+ const configured = Number(template.damagePerAura);
+ return Number.isFinite(configured) && configured > 0
+  ? configured
+  : FORMATION_DEFAULT_DAMAGE_PER_AURA;
 }
 
 export function resolveFormationQiCost(spiritStoneCount: number, template?: FormationTemplate | null): number {
-  const normalizedStones = Math.max(1, Math.trunc(Number(spiritStoneCount) || 0));
-  const qiPerSpiritStone = template ? resolveFormationCostConfig(template).qiPerSpiritStone : FORMATION_DEFAULT_QI_COST_PER_SPIRIT_STONE;
-  return Math.ceil(normalizedStones * qiPerSpiritStone);
+ const normalizedStones = Math.max(1, Math.trunc(Number(spiritStoneCount) || 0));
+ const qiPerSpiritStone = template ? resolveFormationCostConfig(template).qiPerSpiritStone : FORMATION_DEFAULT_QI_COST_PER_SPIRIT_STONE;
+ return Math.ceil(normalizedStones * qiPerSpiritStone);
 }
 
 export function resolveFormationMinSpiritStoneCount(template: FormationTemplate): number {
-  const value = Math.trunc(Number(template.minSpiritStoneCount) || 0);
-  return Number.isFinite(value) ? Math.max(FORMATION_DEFAULT_MIN_SPIRIT_STONE_COUNT, value) : FORMATION_DEFAULT_MIN_SPIRIT_STONE_COUNT;
+ const value = Math.trunc(Number(template.minSpiritStoneCount) || 0);
+ return Number.isFinite(value) ? Math.max(FORMATION_DEFAULT_MIN_SPIRIT_STONE_COUNT, value) : FORMATION_DEFAULT_MIN_SPIRIT_STONE_COUNT;
 }
 
 export function resolveFormationRadius(range: FormationRangeConfig, rangeAura: number): number {
-  const growth = range.growth;
-  const normalizedAura = Math.max(0, Number(rangeAura) || 0);
-  let radius = range.minRadius;
-  if (growth.type === 'geometric_radius' && normalizedAura > 0 && growth.baseAura > 0 && growth.ratioPerStep > 1) {
-    const rawSteps = Math.log(normalizedAura / growth.baseAura) / Math.log(growth.ratioPerStep);
-    const steps = Math.max(0, Math.floor(rawSteps / Math.max(1, growth.stepDivisor ?? 1)));
-    radius = Math.max(range.minRadius, Math.trunc(growth.baseRadius + steps));
-  }
-  return Math.max(1, Math.trunc(radius));
+ const growth = range.growth;
+ const normalizedAura = Math.max(0, Number(rangeAura) || 0);
+ let radius = range.minRadius;
+ if (growth.type === 'geometric_radius' && normalizedAura > 0 && growth.baseAura > 0 && growth.ratioPerStep > 1) {
+  const rawSteps = Math.log(normalizedAura / growth.baseAura) / Math.log(growth.ratioPerStep);
+  const steps = Math.max(0, Math.floor(rawSteps / Math.max(1, growth.stepDivisor ?? 1)));
+  radius = Math.max(range.minRadius, Math.trunc(growth.baseRadius + steps));
+ }
+ return Math.max(1, Math.trunc(radius));
 }
 
 export function getFormationTemplateById(id: FormationId): FormationTemplate | null {
-  return BUILTIN_FORMATION_TEMPLATES.find((template) => template.id === id) ?? null;
+ return BUILTIN_FORMATION_TEMPLATES.find((template) => template.id === id) ?? null;
 }
 
 export function listFormationAffectedCells(
-  shape: FormationRangeShape,
-  centerX: number,
-  centerY: number,
-  radius: number,
-  width: number,
-  height: number,
+ shape: FormationRangeShape,
+ centerX: number,
+ centerY: number,
+ radius: number,
+ width: number,
+ height: number,
 ): FormationAffectedCell[] {
-  const cells: FormationAffectedCell[] = [];
-  const normalizedRadius = Math.max(1, Math.trunc(radius));
-  const minX = Math.max(0, Math.trunc(centerX) - normalizedRadius);
-  const maxX = Math.min(Math.max(0, width - 1), Math.trunc(centerX) + normalizedRadius);
-  const minY = Math.max(0, Math.trunc(centerY) - normalizedRadius);
-  const maxY = Math.min(Math.max(0, height - 1), Math.trunc(centerY) + normalizedRadius);
-  for (let y = minY; y <= maxY; y += 1) {
-    for (let x = minX; x <= maxX; x += 1) {
-      if (shape === 'circle') {
-        const dx = x - Math.trunc(centerX);
-        const dy = y - Math.trunc(centerY);
-        if ((dx * dx) + (dy * dy) > normalizedRadius * normalizedRadius) {
-          continue;
-        }
-      }
-      if (shape === 'checkerboard' && ((x + y) % 2 !== 0)) {
-        continue;
-      }
-      cells.push({ x, y });
+ const cells: FormationAffectedCell[] = [];
+ const normalizedRadius = Math.max(1, Math.trunc(radius));
+ const minX = Math.max(0, Math.trunc(centerX) - normalizedRadius);
+ const maxX = Math.min(Math.max(0, width - 1), Math.trunc(centerX) + normalizedRadius);
+ const minY = Math.max(0, Math.trunc(centerY) - normalizedRadius);
+ const maxY = Math.min(Math.max(0, height - 1), Math.trunc(centerY) + normalizedRadius);
+ for (let y = minY; y <= maxY; y += 1) {
+  for (let x = minX; x <= maxX; x += 1) {
+   if (shape === 'circle') {
+    const dx = x - Math.trunc(centerX);
+    const dy = y - Math.trunc(centerY);
+    if ((dx * dx) + (dy * dy) > normalizedRadius * normalizedRadius) {
+     continue;
     }
+   }
+   if (shape === 'checkerboard' && ((x + y) % 2 !== 0)) {
+    continue;
+   }
+   cells.push({ x, y });
   }
-  return cells;
+ }
+ return cells;
 }
 
 function clampFormationPercent(value: number): number {
-  if (!Number.isFinite(value)) {
-    return FORMATION_ALLOCATION_MIN_PERCENT;
-  }
-  return Math.max(
-    FORMATION_ALLOCATION_MIN_PERCENT,
-    Math.min(FORMATION_ALLOCATION_MAX_PERCENT, Math.trunc(value)),
-  );
+ if (!Number.isFinite(value)) {
+  return FORMATION_ALLOCATION_MIN_PERCENT;
+ }
+ return Math.max(
+  FORMATION_ALLOCATION_MIN_PERCENT,
+  Math.min(FORMATION_ALLOCATION_MAX_PERCENT, Math.trunc(value)),
+ );
 }
 
 function normalizeFormationVisualString(input: string | null | undefined, fallback: string): string {
-  const value = typeof input === 'string' ? input.trim() : '';
-  return value.length > 0 ? value : fallback;
+ const value = typeof input === 'string' ? input.trim() : '';
+ return value.length > 0 ? value : fallback;
 }
 
 function normalizePositiveInteger(value: unknown, fallback: number): number {
-  const parsed = Math.trunc(Number(value));
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : Math.max(1, Math.trunc(fallback));
+ const parsed = Math.trunc(Number(value));
+ return Number.isFinite(parsed) && parsed > 0 ? parsed : Math.max(1, Math.trunc(fallback));
 }
 
 function normalizePositiveNumber(value: unknown, fallback: number): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : Math.max(Number.EPSILON, Number(fallback) || Number.EPSILON);
+ const parsed = Number(value);
+ return Number.isFinite(parsed) && parsed > 0 ? parsed : Math.max(Number.EPSILON, Number(fallback) || Number.EPSILON);
 }
 
 function normalizeRatio(value: unknown, fallback: number): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 1 ? parsed : Math.max(1.000001, Number(fallback) || FORMATION_DEFAULT_GROWTH_COST_RATIO);
+ const parsed = Number(value);
+ return Number.isFinite(parsed) && parsed > 1 ? parsed : Math.max(1.000001, Number(fallback) || FORMATION_DEFAULT_GROWTH_COST_RATIO);
 }
 
 function resolveShortDurationCostMultiplier(cost: Required<FormationCostConfig>, durationHours: number): number {
-  const minDurationHours = Math.max(Number.EPSILON, cost.minDurationMinutes / 60);
-  const defaultDurationHours = Math.max(minDurationHours + Number.EPSILON, cost.defaultDurationHours);
-  const clampedDurationHours = Math.max(minDurationHours, Math.min(defaultDurationHours, durationHours));
-  const minMultiplier = Math.max(Number.EPSILON, Math.min(1, cost.minDurationCostMultiplier));
-  const referenceDurationHours = Math.max(
-    minDurationHours + Number.EPSILON,
-    Math.min(defaultDurationHours - Number.EPSILON, cost.shortDurationReferenceMinutes / 60),
-  );
-  const referenceMultiplier = Math.max(
-    minMultiplier + Number.EPSILON,
-    Math.min(1 - Number.EPSILON, cost.shortDurationReferenceCostMultiplier),
-  );
-  const progress = (clampedDurationHours - minDurationHours) / (defaultDurationHours - minDurationHours);
-  const referenceProgress = (referenceDurationHours - minDurationHours) / (defaultDurationHours - minDurationHours);
-  const referenceValue = (referenceMultiplier - minMultiplier) / (1 - minMultiplier);
-  const exponent = referenceProgress > 0 && referenceProgress < 1 && referenceValue > 0 && referenceValue < 1
-    ? Math.log(referenceValue) / Math.log(referenceProgress)
-    : 1;
-  return minMultiplier + (1 - minMultiplier) * Math.pow(Math.max(0, Math.min(1, progress)), Math.max(Number.EPSILON, exponent));
+ const minDurationHours = Math.max(Number.EPSILON, cost.minDurationMinutes / 60);
+ const defaultDurationHours = Math.max(minDurationHours + Number.EPSILON, cost.defaultDurationHours);
+ const clampedDurationHours = Math.max(minDurationHours, Math.min(defaultDurationHours, durationHours));
+ const minMultiplier = Math.max(Number.EPSILON, Math.min(1, cost.minDurationCostMultiplier));
+ const referenceDurationHours = Math.max(
+  minDurationHours + Number.EPSILON,
+  Math.min(defaultDurationHours - Number.EPSILON, cost.shortDurationReferenceMinutes / 60),
+ );
+ const referenceMultiplier = Math.max(
+  minMultiplier + Number.EPSILON,
+  Math.min(1 - Number.EPSILON, cost.shortDurationReferenceCostMultiplier),
+ );
+ const progress = (clampedDurationHours - minDurationHours) / (defaultDurationHours - minDurationHours);
+ const referenceProgress = (referenceDurationHours - minDurationHours) / (defaultDurationHours - minDurationHours);
+ const referenceValue = (referenceMultiplier - minMultiplier) / (1 - minMultiplier);
+ const exponent = referenceProgress > 0 && referenceProgress < 1 && referenceValue > 0 && referenceValue < 1
+  ? Math.log(referenceValue) / Math.log(referenceProgress)
+  : 1;
+ return minMultiplier + (1 - minMultiplier) * Math.pow(Math.max(0, Math.min(1, progress)), Math.max(Number.EPSILON, exponent));
 }

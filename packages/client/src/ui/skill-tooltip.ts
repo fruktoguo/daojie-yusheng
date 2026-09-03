@@ -20,67 +20,67 @@ import { t } from './i18n';
 
 /** SkillTooltipPreviewPlayer：技能提示预览玩家切片。 */
 type SkillTooltipPreviewPlayer = Pick<PlayerState,
-  | 'x'
-  | 'y'
-  | 'hp'
-  | 'maxHp'
-  | 'qi'
-  | 'numericStats'
-  | 'finalAttrs'
-  | 'temporaryBuffs'
-  | 'realmLv'
-  | 'realm'
-  | 'alchemySkill'
-  | 'forgingSkill'
-  | 'enhancementSkill'
-  | 'enhancementSkillLevel'
-  | 'transmissionSkill'
-  | 'gatherSkill'
-  | 'miningSkill'
-  | 'buildingSkill'
-  | 'formationSkill'
+ | 'x'
+ | 'y'
+ | 'hp'
+ | 'maxHp'
+ | 'qi'
+ | 'numericStats'
+ | 'finalAttrs'
+ | 'temporaryBuffs'
+ | 'realmLv'
+ | 'realm'
+ | 'alchemySkill'
+ | 'forgingSkill'
+ | 'enhancementSkill'
+ | 'enhancementSkillLevel'
+ | 'transmissionSkill'
+ | 'gatherSkill'
+ | 'miningSkill'
+ | 'buildingSkill'
+ | 'formationSkill'
 >;
 
 const CRAFT_SKILL_FIELD_BY_FORMULA_VAR = {
-  'caster.craft.alchemy.level': 'alchemySkill',
-  'caster.craft.forging.level': 'forgingSkill',
-  'caster.craft.enhancement.level': 'enhancementSkill',
-  'caster.craft.transmission.level': 'transmissionSkill',
-  'caster.craft.gather.level': 'gatherSkill',
-  'caster.craft.mining.level': 'miningSkill',
-  'caster.craft.building.level': 'buildingSkill',
-  'caster.craft.formation.level': 'formationSkill',
+ 'caster.craft.alchemy.level': 'alchemySkill',
+ 'caster.craft.forging.level': 'forgingSkill',
+ 'caster.craft.enhancement.level': 'enhancementSkill',
+ 'caster.craft.transmission.level': 'transmissionSkill',
+ 'caster.craft.gather.level': 'gatherSkill',
+ 'caster.craft.mining.level': 'miningSkill',
+ 'caster.craft.building.level': 'buildingSkill',
+ 'caster.craft.formation.level': 'formationSkill',
 } as const;
 
 /** SkillTooltipPreviewContext：技能提示预览上下文。 */
 export interface SkillTooltipPreviewContext {
-/**
- * techLevel：tech等级数值。
- */
+ /**
+  * techLevel：tech等级数值。
+  */
 
-  techLevel?: number;  
-  /**
- * unlockLevel：unlock等级数值。
- */
+ techLevel?: number;
+ /**
+* unlockLevel：unlock等级数值。
+*/
 
-  unlockLevel?: number;  
-  /**
- * player：玩家引用。
- */
+ unlockLevel?: number;
+ /**
+* player：玩家引用。
+*/
 
-  player?: SkillTooltipPreviewPlayer | null;  
-  /**
- * target：目标相关字段。
- */
+ player?: SkillTooltipPreviewPlayer | null;
+ /**
+* target：目标相关字段。
+*/
 
-  target?: SkillTooltipPreviewPlayer | null;  
-  /**
- * knownSkills：known技能相关字段。
- */
+ target?: SkillTooltipPreviewPlayer | null;
+ /**
+* knownSkills：known技能相关字段。
+*/
 
-  knownSkills?: SkillDef[];
-  /** 所属功法是否为纯被动功法；仅此时按层数缩放常驻效果。 */
-  passiveTechnique?: boolean;
+ knownSkills?: SkillDef[];
+ /** 所属功法是否为纯被动功法；仅此时按层数缩放常驻效果。 */
+ passiveTechnique?: boolean;
 }
 
 /** PreviewPlayer：技能提示预览玩家类型。 */
@@ -93,1227 +93,1238 @@ type SkillFormulaObject = Exclude<SkillFormula, number>;
 
 /** FormulaPreview：公式预览结果。 */
 type FormulaPreview = {
-/**
- * html：html相关字段。
- */
+ /**
+  * html：html相关字段。
+  */
 
-  html: string;  
-  /**
- * resolved：resolved相关字段。
- */
+ html: string;
+ /**
+* resolved：resolved相关字段。
+*/
 
-  resolved: number | null;
+ resolved: number | null;
 };
 
 /** StructuredDamagePreview：结构化伤害预览汇总。 */
 type StructuredDamagePreview = {
-/**
- * total：数量或计量字段。
- */
+ /**
+  * total：数量或计量字段。
+  */
 
-  total: number;  
-  /**
- * fixedTotal：数量或计量字段。
- */
+ total: number;
+ /**
+* fixedTotal：数量或计量字段。
+*/
 
-  fixedTotal: number;  
-  /**
- * percentTotal：数量或计量字段。
- */
+ fixedTotal: number;
+ /**
+* percentTotal：数量或计量字段。
+*/
 
-  percentTotal: number;  
-  /**
- * percentFactorCount：数量或计量字段。
- */
+ percentTotal: number;
+ /**
+* percentFactorCount：数量或计量字段。
+*/
 
-  percentFactorCount: number;  
-  /**
- * fixedHtml：fixedHtml相关字段。
- */
+ percentFactorCount: number;
+ /**
+* fixedHtml：fixedHtml相关字段。
+*/
 
-  fixedHtml: string;  
-  /**
- * percentHtml：percentHtml相关字段。
- */
+ fixedHtml: string;
+ /**
+* percentHtml：percentHtml相关字段。
+*/
 
-  percentHtml: string;
+ percentHtml: string;
 };
 
 /** PercentFactorPreview：百分比因子预览项。 */
 type PercentFactorPreview = {
-/**
- * multiplier：multiplier相关字段。
- */
+ /**
+  * multiplier：multiplier相关字段。
+  */
 
-  multiplier: number;  
-  /**
- * html：html相关字段。
- */
+ multiplier: number;
+ /**
+* html：html相关字段。
+*/
 
-  html: string;
+ html: string;
 };
 
 /** ResolvedPreviewValue：已解析预览数值。 */
 type ResolvedPreviewValue = {
-/**
- * value：值数值。
- */
+ /**
+  * value：值数值。
+  */
 
-  value: number;  
-  /**
- * known：known相关字段。
- */
+ value: number;
+ /**
+* known：known相关字段。
+*/
 
-  known: boolean;
+ known: boolean;
 };
 
 function resolveSkillDisplayMaxTargets(skill: SkillDef): number {
-  const configured = skill.targeting?.maxTargets;
-  return Number.isFinite(Number(configured)) ? Math.max(0, Math.floor(Number(configured))) : 0;
+ const configured = skill.targeting?.maxTargets;
+ return Number.isFinite(Number(configured)) ? Math.max(0, Math.floor(Number(configured))) : 0;
 }
 
 /** BuffFormulaMeta：Buff 公式变量元信息。 */
 type BuffFormulaMeta = {
-/**
- * side：side相关字段。
- */
+ /**
+  * side：side相关字段。
+  */
 
-  side: 'caster' | 'target';  
-  /**
- * buffId：buffID标识。
- */
+ side: 'caster' | 'target';
+ /**
+* buffId：buffID标识。
+*/
 
-  buffId: string;
+ buffId: string;
 };
 
 /** ResolvedBuffMeta：已解析 Buff 展示信息。 */
 type ResolvedBuffMeta = {
-/**
- * name：名称名称或显示文本。
- */
+ /**
+  * name：名称名称或显示文本。
+  */
 
-  name: string;  
-  /**
- * mark：mark相关字段。
- */
+ name: string;
+ /**
+* mark：mark相关字段。
+*/
 
-  mark: string;  
-  /**
- * tone：tone相关字段。
- */
+ mark: string;
+ /**
+* tone：tone相关字段。
+*/
 
-  tone: 'buff' | 'debuff';
+ tone: 'buff' | 'debuff';
 };
 
 /** SkillTooltipAsideCard：技能提示侧栏卡片。 */
 export interface SkillTooltipAsideCard {
-/**
- * mark：mark相关字段。
- */
+ /**
+  * mark：mark相关字段。
+  */
 
-  mark?: string;  
-  /**
- * title：title名称或显示文本。
- */
+ mark?: string;
+ /**
+* title：title名称或显示文本。
+*/
 
-  title: string;  
-  /**
- * lines：line相关字段。
- */
+ title: string;
+ /**
+* lines：line相关字段。
+*/
 
-  lines: string[];  
-  /**
- * tone：tone相关字段。
- */
+ lines: string[];
+ /**
+* tone：tone相关字段。
+*/
 
-  tone?: 'buff' | 'debuff';
+ tone?: 'buff' | 'debuff';
 }
 
 /** SkillTooltipContent：技能提示内容块。 */
 export interface SkillTooltipContent {
-/**
- * lines：line相关字段。
- */
+ /**
+  * lines：line相关字段。
+  */
 
-  lines: string[];  
-  /**
- * asideCards：asideCard相关字段。
- */
+ lines: string[];
+ /**
+* asideCards：asideCard相关字段。
+*/
 
-  asideCards: SkillTooltipAsideCard[];
+ asideCards: SkillTooltipAsideCard[];
 }
 
 /** SkillPreviewMetrics：技能预览统计指标。 */
 export interface SkillPreviewMetrics {
-/**
- * actualDamage：actualDamage相关字段。
- */
+ /**
+  * actualDamage：actualDamage相关字段。
+  */
 
-  actualDamage: number | null;  
-  /**
- * actualQiCost：actualQi消耗数值。
- */
+ actualDamage: number | null;
+ /**
+* actualQiCost：actualQi消耗数值。
+*/
 
-  actualQiCost: number;  
-  /**
- * range：范围相关字段。
- */
+ actualQiCost: number;
+ /**
+* range：范围相关字段。
+*/
 
-  range: number;  
-  /**
- * targetCount：数量或计量字段。
- */
+ range: number;
+ /**
+* targetCount：数量或计量字段。
+*/
 
-  targetCount: number;  
-  /**
- * cooldown：冷却相关字段。
- */
+ targetCount: number;
+ /**
+* cooldown：冷却相关字段。
+*/
 
-  cooldown: number;  
-  /**
- * hasPhysicalDamage：启用开关或状态标识。
- */
+ cooldown: number;
+ /**
+* hasPhysicalDamage：启用开关或状态标识。
+*/
 
-  hasPhysicalDamage: boolean;  
-  /**
- * hasSpellDamage：启用开关或状态标识。
- */
+ hasPhysicalDamage: boolean;
+ /**
+* hasSpellDamage：启用开关或状态标识。
+*/
 
-  hasSpellDamage: boolean;  
-  /**
- * isSingleTarget：启用开关或状态标识。
- */
+ hasSpellDamage: boolean;
+ /**
+* isSingleTarget：启用开关或状态标识。
+*/
 
-  isSingleTarget: boolean;  
-  /**
- * isAreaTarget：启用开关或状态标识。
- */
+ isSingleTarget: boolean;
+ /**
+* isAreaTarget：启用开关或状态标识。
+*/
 
-  isAreaTarget: boolean;  
-  /**
- * isMelee：启用开关或状态标识。
- */
+ isAreaTarget: boolean;
+ /**
+* isMelee：启用开关或状态标识。
+*/
 
-  isMelee: boolean;  
-  /**
- * isRanged：启用开关或状态标识。
- */
+ isMelee: boolean;
+ /**
+* isRanged：启用开关或状态标识。
+*/
 
-  isRanged: boolean;
+ isRanged: boolean;
 }
 
 /** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
+ return value
+  .replaceAll('&', '&amp;')
+  .replaceAll('<', '&lt;')
+  .replaceAll('>', '&gt;')
+  .replaceAll('"', '&quot;')
+  .replaceAll("'", '&#39;');
 }
 
 /** formatPercent：格式化Percent。 */
 function formatPercent(scale: number): string {
-  return formatDisplayPercent(scale * 100);
+ return formatDisplayPercent(scale * 100);
 }
 
 /** normalizeBuffMark：规范化Buff Mark。 */
 function normalizeBuffMark(name: string, shortMark?: string): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+ // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const value = shortMark?.trim();
-  if (value) return [...value][0] ?? value;
-  return [...name.trim()][0] ?? t('skill-tooltip.buff.default-mark', undefined);
+ const value = shortMark?.trim();
+ if (value) return [...value][0] ?? value;
+ return [...name.trim()][0] ?? t('skill-tooltip.buff.default-mark', undefined);
 }
 
 /** renderLabelLine：渲染标签Line。 */
 function renderLabelLine(label: string, value: string): string {
-  return `<span class="skill-tooltip-label">${escapeHtml(label)}：</span>${value}`;
+ return `<span class="skill-tooltip-label">${escapeHtml(label)}：</span>${value}`;
 }
 
 /** renderPlainLine：渲染Plain Line。 */
 function renderPlainLine(label: string, value: string): string {
-  return renderLabelLine(label, escapeHtml(value));
+ return renderLabelLine(label, escapeHtml(value));
 }
 
 /** buildQiCostValue：构建Qi Cost值。 */
 function buildQiCostValue(cost: number, context: SkillTooltipPreviewContext): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+ // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const baseCost = escapeHtml(formatDisplayNumber(cost));
-  const maxQiOutputPerTick = context.player?.numericStats?.maxQiOutputPerTick;
-  if (maxQiOutputPerTick === undefined) {
-    return baseCost;
-  }
+ const baseCost = escapeHtml(formatDisplayNumber(cost));
+ const maxQiOutputPerTick = context.player?.numericStats?.maxQiOutputPerTick;
+ if (maxQiOutputPerTick === undefined) {
+  return baseCost;
+ }
 
-  const actualCost = calcQiCostWithOutputLimit(cost, Math.max(0, maxQiOutputPerTick));
-  const actualText = Number.isFinite(actualCost)
-    ? formatDisplayNumber(Math.round(actualCost))
-    : t('skill-tooltip.cast.unstable', undefined);
-  const actualClassName = Number.isFinite(actualCost) && Math.round(actualCost) > Math.round(cost)
-    ? 'skill-tooltip-cost-actual is-overflow'
-    : 'skill-tooltip-cost-actual';
-  return t('skill-tooltip.cost.actual-html', { baseCost, actualText: escapeHtml(actualText), className: actualClassName });
+ const actualCost = calcQiCostWithOutputLimit(cost, Math.max(0, maxQiOutputPerTick));
+ const actualText = Number.isFinite(actualCost)
+  ? formatDisplayNumber(Math.round(actualCost))
+  : t('skill-tooltip.cast.unstable', undefined);
+ const actualClassName = Number.isFinite(actualCost) && Math.round(actualCost) > Math.round(cost)
+  ? 'skill-tooltip-cost-actual is-overflow'
+  : 'skill-tooltip-cost-actual';
+ return t('skill-tooltip.cost.actual-html', { baseCost, actualText: escapeHtml(actualText), className: actualClassName });
 }
 
 /** describeBuffEffect：处理describe Buff效果。 */
 function describeBuffEffectHtml(effect: Extract<SkillDef['effects'][number], { type: 'buff' }>): string {
-  return renderPreviewBonusCapsules(collectPreviewBonuses(effect.attrs, effect.stats, effect.valueStats, effect.attrMode ?? 'percent', effect.statMode ?? 'percent'));
+ return renderPreviewBonusCapsules(collectPreviewBonuses(effect.attrs, effect.stats, effect.valueStats, effect.attrMode ?? 'percent', effect.statMode ?? 'percent'));
 }
 
 /** buildBuffInlineBadge：构建Buff Inline Badge。 */
 function buildBuffInlineBadge(effect: Extract<SkillDef['effects'][number], {
-/**
- * type：type相关字段。
- */
- type: 'buff' }>): string {
-  const toneClass = effect.category === 'debuff' ? 'debuff' : 'buff';
-  const mark = normalizeBuffMark(effect.name, effect.shortMark);
-  return `<span class="skill-tooltip-buff-entry ${toneClass}"><span class="skill-tooltip-buff-mark">${escapeHtml(mark)}</span><span>${escapeHtml(effect.name)}</span></span>`;
+ /**
+  * type：type相关字段。
+  */
+ type: 'buff'
+}>): string {
+ const toneClass = effect.category === 'debuff' ? 'debuff' : 'buff';
+ const mark = normalizeBuffMark(effect.name, effect.shortMark);
+ return `<span class="skill-tooltip-buff-entry ${toneClass}"><span class="skill-tooltip-buff-mark">${escapeHtml(mark)}</span><span>${escapeHtml(effect.name)}</span></span>`;
 }
 
 /** buildBuffInlineBadgeFromMeta：构建Buff Inline Badge From元数据。 */
 function buildBuffInlineBadgeFromMeta(meta: ResolvedBuffMeta): string {
-  return `<span class="skill-tooltip-buff-entry ${meta.tone}"><span class="skill-tooltip-buff-mark">${escapeHtml(meta.mark)}</span><span>${escapeHtml(meta.name)}</span></span>`;
+ return `<span class="skill-tooltip-buff-entry ${meta.tone}"><span class="skill-tooltip-buff-mark">${escapeHtml(meta.mark)}</span><span>${escapeHtml(meta.name)}</span></span>`;
 }
 
 /** buildBuffAsideCard：构建Buff Aside卡片。 */
 function buildBuffAsideCard(effect: Extract<SkillDef['effects'][number], {
-/**
- * type：type相关字段。
- */
- type: 'buff' }>): SkillTooltipAsideCard {
-  const targetLabel = effect.target === 'target'
-    ? t('skill-tooltip.target.enemy', undefined)
-    : effect.target === 'allies'
-      ? t('skill-tooltip.target.allies', undefined)
-      : t('skill-tooltip.target.self', undefined);
-  const stackLimit = formatBuffMaxStacks(effect.maxStacks);
-  const lines = [
-    t('skill-tooltip.buff.aside.meta', { target: targetLabel, duration: formatDisplayInteger(effect.duration), stack: stackLimit ? t('skill-tooltip.buff.stack-limit.suffix', { stackLimit }) : '' }),
-    ...(effect.desc ? [effect.desc] : []),
-  ];
-  return {
-    mark: normalizeBuffMark(effect.name, effect.shortMark),
-    title: effect.name,
-    lines,
-    tone: effect.category === 'debuff' ? 'debuff' : 'buff',
-  };
+ /**
+  * type：type相关字段。
+  */
+ type: 'buff'
+}>): SkillTooltipAsideCard {
+ const targetLabel = effect.target === 'target'
+  ? t('skill-tooltip.target.enemy', undefined)
+  : effect.target === 'allies'
+   ? t('skill-tooltip.target.allies', undefined)
+   : t('skill-tooltip.target.self', undefined);
+ const stackLimit = formatBuffMaxStacks(effect.maxStacks);
+ const lines = [
+  t('skill-tooltip.buff.aside.meta', { target: targetLabel, duration: formatDisplayInteger(effect.duration), stack: stackLimit ? t('skill-tooltip.buff.stack-limit.suffix', { stackLimit }) : '' }),
+  ...(effect.desc ? [effect.desc] : []),
+ ];
+ return {
+  mark: normalizeBuffMark(effect.name, effect.shortMark),
+  title: effect.name,
+  lines,
+  tone: effect.category === 'debuff' ? 'debuff' : 'buff',
+ };
 }
 
 /** renderScalingBadge：渲染Scaling Badge。 */
 function renderScalingBadge(meta: ScalingMeta): string {
-  return `<span class="skill-scaling ${meta.badgeClassName}"><span class="skill-scaling-icon">${escapeHtml(meta.icon)}</span><span>${escapeHtml(meta.label)}</span></span>`;
+ return `<span class="skill-scaling ${meta.badgeClassName}"><span class="skill-scaling-icon">${escapeHtml(meta.icon)}</span><span>${escapeHtml(meta.label)}</span></span>`;
 }
 
 /** renderFormulaTerm：渲染Formula Term。 */
 function renderFormulaTerm(content: string, className: string): string {
-  return `<span class="skill-formula-term ${className}">${content}</span>`;
+ return `<span class="skill-formula-term ${className}">${content}</span>`;
 }
 
 /** parseBuffFormulaVar：解析Buff Formula Var。 */
 function parseBuffFormulaVar(varName: SkillFormulaVar): BuffFormulaMeta | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+ // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const matched = varName.match(/^(caster|target)\.buff\.(.+)\.stacks$/);
-  if (!matched) {
-    return null;
-  }
-  return {
-    side: matched[1] as 'caster' | 'target',
-    buffId: matched[2],
-  };
+ const matched = varName.match(/^(caster|target)\.buff\.(.+)\.stacks$/);
+ if (!matched) {
+  return null;
+ }
+ return {
+  side: matched[1] as 'caster' | 'target',
+  buffId: matched[2],
+ };
 }
 
 /** resolveBuffStacks：解析Buff Stacks。 */
 function resolveBuffStacks(buffs: TemporaryBuffState[] | undefined, buffId: string): number {
-  return buffs?.find((entry) => entry.buffId === buffId && entry.remainingTicks > 0)?.stacks ?? 0;
+ return buffs?.find((entry) => entry.buffId === buffId && entry.remainingTicks > 0)?.stacks ?? 0;
 }
 
 /** resolveBuffFormulaMeta：解析Buff Formula元数据。 */
 function resolveBuffFormulaMeta(varName: SkillFormulaVar, context: SkillTooltipPreviewContext): ResolvedBuffMeta | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+ // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const parsed = parseBuffFormulaVar(varName);
-  if (!parsed) {
-    return null;
-  }
-  const effect = resolvePreviewSkills(context.knownSkills)
-    ?.flatMap((skill) => skill.effects)
-    .find((entry): entry is Extract<SkillDef['effects'][number], {    
-    /**
- * type：type相关字段。
- */
- type: 'buff' }> => (
-      entry.type === 'buff' && entry.buffId === parsed.buffId
-    )) ?? getLocalBuffTemplate(parsed.buffId);
-  if (!effect) {
-    return null;
-  }
-  return {
-    name: effect.name,
-    mark: normalizeBuffMark(effect.name, effect.shortMark),
-    tone: effect.category === 'debuff' ? 'debuff' : 'buff',
-  };
+ const parsed = parseBuffFormulaVar(varName);
+ if (!parsed) {
+  return null;
+ }
+ const effect = resolvePreviewSkills(context.knownSkills)
+  ?.flatMap((skill) => skill.effects)
+  .find((entry): entry is Extract<SkillDef['effects'][number], {
+   /**
+* type：type相关字段。
+*/
+   type: 'buff'
+  }> => (
+   entry.type === 'buff' && entry.buffId === parsed.buffId
+  )) ?? getLocalBuffTemplate(parsed.buffId);
+ if (!effect) {
+  return null;
+ }
+ return {
+  name: effect.name,
+  mark: normalizeBuffMark(effect.name, effect.shortMark),
+  tone: effect.category === 'debuff' ? 'debuff' : 'buff',
+ };
 }
 
 /** buildBuffStackReference：构建Buff Stack Reference。 */
 function buildBuffStackReference(varName: SkillFormulaVar, context: SkillTooltipPreviewContext, stacks?: number | null): string | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+ // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const parsed = parseBuffFormulaVar(varName);
-  if (!parsed) {
-    return null;
-  }
-  const sideLabel = parsed.side === 'caster' ? t('skill-tooltip.target.self', undefined) : t('skill-tooltip.target.enemy', undefined);
-  const buffMeta = resolveBuffFormulaMeta(varName, context);
-  if (!buffMeta) {
-    return `<span class="skill-formula-buff-ref"><span class="skill-formula-buff-side">${escapeHtml(sideLabel)}</span><span class="skill-formula-buff-stacks">${stacks === null || stacks === undefined ? t('skill-tooltip.buff.stacks.unknown', undefined) : t('skill-tooltip.buff.stacks.value', { stacks: formatDisplayNumber(stacks) })}</span></span>`;
-  }
-  return `<span class="skill-formula-buff-ref"><span class="skill-formula-buff-side">${escapeHtml(sideLabel)}</span>${buildBuffInlineBadgeFromMeta(buffMeta)}<span class="skill-formula-buff-stacks">${stacks === null || stacks === undefined ? t('skill-tooltip.buff.stacks.label', undefined) : t('skill-tooltip.buff.stacks.value', { stacks: formatDisplayNumber(stacks) })}</span></span>`;
+ const parsed = parseBuffFormulaVar(varName);
+ if (!parsed) {
+  return null;
+ }
+ const sideLabel = parsed.side === 'caster' ? t('skill-tooltip.target.self', undefined) : t('skill-tooltip.target.enemy', undefined);
+ const buffMeta = resolveBuffFormulaMeta(varName, context);
+ if (!buffMeta) {
+  return `<span class="skill-formula-buff-ref"><span class="skill-formula-buff-side">${escapeHtml(sideLabel)}</span><span class="skill-formula-buff-stacks">${stacks === null || stacks === undefined ? t('skill-tooltip.buff.stacks.unknown', undefined) : t('skill-tooltip.buff.stacks.value', { stacks: formatDisplayNumber(stacks) })}</span></span>`;
+ }
+ return `<span class="skill-formula-buff-ref"><span class="skill-formula-buff-side">${escapeHtml(sideLabel)}</span>${buildBuffInlineBadgeFromMeta(buffMeta)}<span class="skill-formula-buff-stacks">${stacks === null || stacks === undefined ? t('skill-tooltip.buff.stacks.label', undefined) : t('skill-tooltip.buff.stacks.value', { stacks: formatDisplayNumber(stacks) })}</span></span>`;
 }
 
 /** resolveStatValue：解析Stat值。 */
 function resolveStatValue(player: PreviewPlayer | null | undefined, key: NumericScalarStatKey): ResolvedPreviewValue {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+ // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  if (!player?.numericStats) {
-    return { value: 0, known: false };
-  }
-  return { value: player.numericStats[key] ?? 0, known: true };
+ if (!player?.numericStats) {
+  return { value: 0, known: false };
+ }
+ return { value: player.numericStats[key] ?? 0, known: true };
 }
 
 /** resolveTargetPreview：解析目标Preview。 */
 function resolveTargetPreview(context: SkillTooltipPreviewContext): PreviewPlayer | null | undefined {
-  return context.target ?? null;
+ return context.target ?? null;
 }
 
 /** resolvePreviewValue：解析Preview值。 */
 function resolvePreviewValue(varName: SkillFormulaVar, context: SkillTooltipPreviewContext): ResolvedPreviewValue {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+ // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const player = context.player;
-  const target = resolveTargetPreview(context);
-  const parsedBuff = parseBuffFormulaVar(varName);
-  if (parsedBuff) {
-    if (parsedBuff.side === 'caster') {
-      return {
-        value: resolveBuffStacks(player?.temporaryBuffs, parsedBuff.buffId),
-        known: Boolean(player),
-      };
+ const player = context.player;
+ const target = resolveTargetPreview(context);
+ const parsedBuff = parseBuffFormulaVar(varName);
+ if (parsedBuff) {
+  if (parsedBuff.side === 'caster') {
+   return {
+    value: resolveBuffStacks(player?.temporaryBuffs, parsedBuff.buffId),
+    known: Boolean(player),
+   };
+  }
+  return target
+   ? { value: resolveBuffStacks(target.temporaryBuffs, parsedBuff.buffId), known: true }
+   : { value: 0, known: false };
+ }
+ switch (varName) {
+  case 'techLevel':
+   return { value: context.techLevel ?? 0, known: context.techLevel !== undefined };
+  case 'caster.realmLv':
+   return resolveRealmLevelPreview(player);
+  case 'caster.hp':
+   return { value: player?.hp ?? 0, known: Boolean(player) };
+  case 'caster.maxHp':
+   return { value: player?.maxHp ?? 0, known: Boolean(player) };
+  case 'caster.qi':
+   return { value: player?.qi ?? 0, known: Boolean(player) };
+  case 'caster.maxQi':
+   return player?.numericStats ? { value: player.numericStats.maxQi ?? 0, known: true } : { value: 0, known: false };
+  case 'target.debuffCount':
+   return target
+    ? { value: (target.temporaryBuffs ?? []).filter((entry) => entry.remainingTicks > 0 && entry.category === 'debuff').length, known: true }
+    : { value: 0, known: false };
+  case 'target.distance':
+   return player && target
+    ? { value: Math.abs(player.x - target.x) + Math.abs(player.y - target.y), known: true }
+    : { value: 0, known: false };
+  case 'target.maxHp':
+   return { value: target?.maxHp ?? 0, known: Boolean(target) };
+  case 'target.hp':
+   return { value: target?.hp ?? 0, known: Boolean(target) };
+  case 'target.qi':
+   return { value: target?.qi ?? 0, known: Boolean(target) };
+  case 'target.maxQi':
+   return target?.numericStats ? { value: target.numericStats.maxQi ?? 0, known: true } : { value: 0, known: false };
+  default:
+   {
+    const craftSkillLevel = resolveCraftSkillLevelPreview(varName, player);
+    if (craftSkillLevel) {
+     return craftSkillLevel;
     }
-    return target
-      ? { value: resolveBuffStacks(target.temporaryBuffs, parsedBuff.buffId), known: true }
-      : { value: 0, known: false };
-  }
-  switch (varName) {
-    case 'techLevel':
-      return { value: context.techLevel ?? 0, known: context.techLevel !== undefined };
-    case 'caster.realmLv':
-      return resolveRealmLevelPreview(player);
-    case 'caster.hp':
-      return { value: player?.hp ?? 0, known: Boolean(player) };
-    case 'caster.maxHp':
-      return { value: player?.maxHp ?? 0, known: Boolean(player) };
-    case 'caster.qi':
-      return { value: player?.qi ?? 0, known: Boolean(player) };
-    case 'caster.maxQi':
-      return player?.numericStats ? { value: player.numericStats.maxQi ?? 0, known: true } : { value: 0, known: false };
-    case 'target.debuffCount':
-      return target
-        ? { value: (target.temporaryBuffs ?? []).filter((entry) => entry.remainingTicks > 0 && entry.category === 'debuff').length, known: true }
-        : { value: 0, known: false };
-    case 'target.distance':
-      return player && target
-        ? { value: Math.abs(player.x - target.x) + Math.abs(player.y - target.y), known: true }
-        : { value: 0, known: false };
-    case 'target.maxHp':
-      return { value: target?.maxHp ?? 0, known: Boolean(target) };
-    case 'target.hp':
-      return { value: target?.hp ?? 0, known: Boolean(target) };
-    case 'target.qi':
-      return { value: target?.qi ?? 0, known: Boolean(target) };
-    case 'target.maxQi':
-      return target?.numericStats ? { value: target.numericStats.maxQi ?? 0, known: true } : { value: 0, known: false };
-    default:
-      {
-        const craftSkillLevel = resolveCraftSkillLevelPreview(varName, player);
-        if (craftSkillLevel) {
-          return craftSkillLevel;
-        }
-      }
-      if (varName.startsWith('caster.attr.')) {
-        return resolveAttrValue(player, varName.slice('caster.attr.'.length) as AttrKey);
-      }
-      if (varName.startsWith('target.attr.')) {
-        return resolveAttrValue(target, varName.slice('target.attr.'.length) as AttrKey);
-      }
-      if (varName.startsWith('caster.stat.')) {
-        return resolveStatValue(player, varName.slice('caster.stat.'.length) as NumericScalarStatKey);
-      }
-      if (varName.startsWith('target.stat.')) {
-        return resolveStatValue(target, varName.slice('target.stat.'.length) as NumericScalarStatKey);
-      }
-      return { value: 0, known: false };
-  }
+   }
+   if (varName.startsWith('caster.attr.')) {
+    return resolveAttrValue(player, varName.slice('caster.attr.'.length) as AttrKey);
+   }
+   if (varName.startsWith('target.attr.')) {
+    return resolveAttrValue(target, varName.slice('target.attr.'.length) as AttrKey);
+   }
+   if (varName.startsWith('caster.stat.')) {
+    return resolveStatValue(player, varName.slice('caster.stat.'.length) as NumericScalarStatKey);
+   }
+   if (varName.startsWith('target.stat.')) {
+    return resolveStatValue(target, varName.slice('target.stat.'.length) as NumericScalarStatKey);
+   }
+   return { value: 0, known: false };
+ }
 }
 
 function resolveRealmLevelPreview(
-  player: SkillTooltipPreviewPlayer | null | undefined,
+ player: SkillTooltipPreviewPlayer | null | undefined,
 ): ResolvedPreviewValue {
-  const value = Number(player?.realm?.realmLv ?? player?.realmLv);
-  return Number.isFinite(value)
-    ? { value: Math.max(1, Math.floor(value)), known: true }
-    : { value: 0, known: false };
+ const value = Number(player?.realm?.realmLv ?? player?.realmLv);
+ return Number.isFinite(value)
+  ? { value: Math.max(1, Math.floor(value)), known: true }
+  : { value: 0, known: false };
 }
 
 function resolveCraftSkillLevelPreview(
-  varName: SkillFormulaVar,
-  player: SkillTooltipPreviewPlayer | null | undefined,
+ varName: SkillFormulaVar,
+ player: SkillTooltipPreviewPlayer | null | undefined,
 ): ResolvedPreviewValue | null {
-  if (!Object.hasOwn(CRAFT_SKILL_FIELD_BY_FORMULA_VAR, varName)) {
-    return null;
-  }
-  if (!player) {
-    return { value: 0, known: false };
-  }
-  const field = CRAFT_SKILL_FIELD_BY_FORMULA_VAR[varName as keyof typeof CRAFT_SKILL_FIELD_BY_FORMULA_VAR];
-  const skill = player[field] as { level?: unknown } | null | undefined;
-  const level = Number(skill?.level);
-  if (Number.isFinite(level)) {
-    return { value: Math.max(0, Math.floor(level)), known: true };
-  }
-  if (varName === 'caster.craft.enhancement.level') {
-    const legacyLevel = Number(player.enhancementSkillLevel);
-    if (Number.isFinite(legacyLevel)) {
-      return { value: Math.max(0, Math.floor(legacyLevel)), known: true };
-    }
-  }
+ if (!Object.hasOwn(CRAFT_SKILL_FIELD_BY_FORMULA_VAR, varName)) {
+  return null;
+ }
+ if (!player) {
   return { value: 0, known: false };
+ }
+ const field = CRAFT_SKILL_FIELD_BY_FORMULA_VAR[varName as keyof typeof CRAFT_SKILL_FIELD_BY_FORMULA_VAR];
+ const skill = player[field] as { level?: unknown } | null | undefined;
+ const level = Number(skill?.level);
+ if (Number.isFinite(level)) {
+  return { value: Math.max(0, Math.floor(level)), known: true };
+ }
+ if (varName === 'caster.craft.enhancement.level') {
+  const legacyLevel = Number(player.enhancementSkillLevel);
+  if (Number.isFinite(legacyLevel)) {
+   return { value: Math.max(0, Math.floor(legacyLevel)), known: true };
+  }
+ }
+ return { value: 0, known: false };
 }
 
 /** resolveAttrValue：解析属性值。 */
 function resolveAttrValue(
-  player: SkillTooltipPreviewPlayer | null | undefined,
-  key: AttrKey,
+ player: SkillTooltipPreviewPlayer | null | undefined,
+ key: AttrKey,
 ): ResolvedPreviewValue {
-  return player?.finalAttrs
-    ? { value: player.finalAttrs[key] ?? 0, known: true }
-    : { value: 0, known: false };
+ return player?.finalAttrs
+  ? { value: player.finalAttrs[key] ?? 0, known: true }
+  : { value: 0, known: false };
 }
 
 /** resolvePreviewVar：解析Preview Var。 */
 function resolvePreviewVar(varName: SkillFormulaVar, context: SkillTooltipPreviewContext): number | null {
-  const resolved = resolvePreviewValue(varName, context);
-  return resolved.known ? resolved.value : null;
+ const resolved = resolvePreviewValue(varName, context);
+ return resolved.known ? resolved.value : null;
 }
 
 /** getFormulaVarLabel：读取公式变量展示名。 */
 function getFormulaVarLabel(varName: SkillFormulaVar): string {
-  return FORMULA_VAR_LABELS[varName] ?? '未知变量';
+ return FORMULA_VAR_LABELS[varName] ?? '未知变量';
 }
 
 /** renderVariableFormula：渲染Variable Formula。 */
 function renderVariableFormula(varName: SkillFormulaVar, scale: number, context: SkillTooltipPreviewContext): FormulaPreview {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+ // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  if (varName === 'techLevel') {
-    const techLevel = context.techLevel;
-    if (typeof techLevel === 'number') {
-      const contribution = techLevel * scale;
-      const detail = `<span class="skill-scaling skill-scaling-tech"><span class="skill-scaling-icon">◎</span><span>${escapeHtml(t('skill-tooltip.tech-level.value', { level: formatDisplayNumber(techLevel) }))}</span></span>`;
-      return {
-        html: renderFormulaTerm(`${formatDisplayNumber(contribution)}(${detail})`, 'skill-formula-term-tech'),
-        resolved: contribution,
-      };
-    }
+ if (varName === 'techLevel') {
+  const techLevel = context.techLevel;
+  if (typeof techLevel === 'number') {
+   const contribution = techLevel * scale;
+   const detail = `<span class="skill-scaling skill-scaling-tech"><span class="skill-scaling-icon">◎</span><span>${escapeHtml(t('skill-tooltip.tech-level.value', { level: formatDisplayNumber(techLevel) }))}</span></span>`;
+   return {
+    html: renderFormulaTerm(`${formatDisplayNumber(contribution)}(${detail})`, 'skill-formula-term-tech'),
+    resolved: contribution,
+   };
   }
+ }
 
-  const buffReference = buildBuffStackReference(varName, context);
-  if (buffReference) {
-    const resolved = resolvePreviewValue(varName, context);
-    const contribution = resolved.value * scale;
-    return {
-      html: resolved.known
-        ? renderFormulaTerm(`${formatDisplayNumber(contribution)}(${formatPercent(scale)} ${buildBuffStackReference(varName, context, resolved.value)})`, 'skill-formula-term-buff-stack')
-        : renderFormulaTerm(`${formatPercent(scale)} ${buffReference}`, 'skill-formula-term-buff-stack'),
-      resolved: resolved.known ? contribution : null,
-    };
-  }
-
-  const meta = FORMULA_VAR_META[varName];
-  const resolvedValue = resolvePreviewVar(varName, context);
-  if (meta) {
-    const badge = renderScalingBadge(meta);
-    if (resolvedValue !== null) {
-      const contribution = resolvedValue * scale;
-      return {
-        html: renderFormulaTerm(`${formatDisplayNumber(contribution)}(${formatPercent(scale)} ${badge})`, meta.termClassName),
-        resolved: contribution,
-      };
-    }
-    return {
-      html: renderFormulaTerm(`${formatPercent(scale)} ${badge}`, meta.termClassName),
-      resolved: null,
-    };
-  }
-
-  const label = getFormulaVarLabel(varName);
-  if (resolvedValue !== null) {
-    const contribution = resolvedValue * scale;
-    return {
-      html: renderFormulaTerm(`${formatDisplayNumber(contribution)}(${escapeHtml(label)})`, 'skill-formula-term-generic'),
-      resolved: contribution,
-    };
-  }
-
+ const buffReference = buildBuffStackReference(varName, context);
+ if (buffReference) {
+  const resolved = resolvePreviewValue(varName, context);
+  const contribution = resolved.value * scale;
   return {
-    html: renderFormulaTerm(
-      Math.abs(scale - 1) < 1e-6 ? escapeHtml(label) : `${formatDisplayNumber(scale)}*${escapeHtml(label)}`,
-      'skill-formula-term-generic',
-    ),
-    resolved: null,
+   html: resolved.known
+    ? renderFormulaTerm(`${formatDisplayNumber(contribution)}(${formatPercent(scale)} ${buildBuffStackReference(varName, context, resolved.value)})`, 'skill-formula-term-buff-stack')
+    : renderFormulaTerm(`${formatPercent(scale)} ${buffReference}`, 'skill-formula-term-buff-stack'),
+   resolved: resolved.known ? contribution : null,
   };
+ }
+
+ const meta = FORMULA_VAR_META[varName];
+ const resolvedValue = resolvePreviewVar(varName, context);
+ if (meta) {
+  const badge = renderScalingBadge(meta);
+  if (resolvedValue !== null) {
+   const contribution = resolvedValue * scale;
+   return {
+    html: renderFormulaTerm(`${formatDisplayNumber(contribution)}(${formatPercent(scale)} ${badge})`, meta.termClassName),
+    resolved: contribution,
+   };
+  }
+  return {
+   html: renderFormulaTerm(`${formatPercent(scale)} ${badge}`, meta.termClassName),
+   resolved: null,
+  };
+ }
+
+ const label = getFormulaVarLabel(varName);
+ if (resolvedValue !== null) {
+  const contribution = resolvedValue * scale;
+  return {
+   html: renderFormulaTerm(`${formatDisplayNumber(contribution)}(${escapeHtml(label)})`, 'skill-formula-term-generic'),
+   resolved: contribution,
+  };
+ }
+
+ return {
+  html: renderFormulaTerm(
+   Math.abs(scale - 1) < 1e-6 ? escapeHtml(label) : `${formatDisplayNumber(scale)}*${escapeHtml(label)}`,
+   'skill-formula-term-generic',
+  ),
+  resolved: null,
+ };
 }
 
 function isFormulaObject(formula: unknown): formula is SkillFormulaObject {
-  return typeof formula === 'object' && formula !== null;
+ return typeof formula === 'object' && formula !== null;
 }
 
 function isSkillFormula(formula: unknown): formula is SkillFormula {
-  if (typeof formula === 'number') {
-    return Number.isFinite(formula);
-  }
-  if (!isFormulaObject(formula)) {
-    return false;
-  }
-  if ('var' in formula) {
-    return typeof formula.var === 'string';
-  }
-  if (formula.op === 'clamp') {
-    return isSkillFormula(formula.value)
-      && (formula.min === undefined || isSkillFormula(formula.min))
-      && (formula.max === undefined || isSkillFormula(formula.max));
-  }
-  return ['add', 'sub', 'mul', 'div', 'min', 'max'].includes(String(formula.op))
-    && Array.isArray(formula.args)
-    && formula.args.every((entry) => isSkillFormula(entry));
+ if (typeof formula === 'number') {
+  return Number.isFinite(formula);
+ }
+ if (!isFormulaObject(formula)) {
+  return false;
+ }
+ if ('var' in formula) {
+  return typeof formula.var === 'string';
+ }
+ if (formula.op === 'clamp') {
+  return isSkillFormula(formula.value)
+   && (formula.min === undefined || isSkillFormula(formula.min))
+   && (formula.max === undefined || isSkillFormula(formula.max));
+ }
+ return ['add', 'sub', 'mul', 'div', 'min', 'max'].includes(String(formula.op))
+  && Array.isArray(formula.args)
+  && formula.args.every((entry) => isSkillFormula(entry));
 }
 
 function unknownFormulaPreview(): FormulaPreview {
-  return {
-    html: t('skill-tooltip.damage.unknown', undefined, '未知'),
-    resolved: null,
-  };
+ return {
+  html: t('skill-tooltip.damage.unknown', undefined, '未知'),
+  resolved: null,
+ };
 }
 
 /** isAddFormula：判断是否Add Formula。 */
 function isAddFormula(formula: SkillFormula): formula is {
-/**
- * op：op相关字段。
- */
+ /**
+  * op：op相关字段。
+  */
  op: 'add';
  /**
  * args：arg相关字段。
  */
- args: SkillFormula[] } {
-  return isFormulaObject(formula) && !('var' in formula) && formula.op === 'add';
+ args: SkillFormula[]
+} {
+ return isFormulaObject(formula) && !('var' in formula) && formula.op === 'add';
 }
 
 /** isMulFormula：判断是否Mul Formula。 */
 function isMulFormula(formula: SkillFormula): formula is {
-/**
- * op：op相关字段。
- */
+ /**
+  * op：op相关字段。
+  */
  op: 'mul';
  /**
  * args：arg相关字段。
  */
- args: SkillFormula[] } {
-  return isFormulaObject(formula) && !('var' in formula) && formula.op === 'mul';
+ args: SkillFormula[]
+} {
+ return isFormulaObject(formula) && !('var' in formula) && formula.op === 'mul';
 }
 
 /** isPercentFactorFormula：判断是否Percent Factor Formula。 */
 function isPercentFactorFormula(formula: SkillFormula): formula is {
-/**
- * op：op相关字段。
- */
+ /**
+  * op：op相关字段。
+  */
  op: 'add';
  /**
  * args：arg相关字段。
  */
- args: SkillFormula[] } {
-  return isAddFormula(formula)
-    && formula.args.length > 0
-    && typeof formula.args[0] === 'number'
-    && Math.abs((formula.args[0] as number) - 1) <= 1e-6;
+ args: SkillFormula[]
+} {
+ return isAddFormula(formula)
+  && formula.args.length > 0
+  && typeof formula.args[0] === 'number'
+  && Math.abs((formula.args[0] as number) - 1) <= 1e-6;
 }
 
 /** previewPercentFactor：处理preview Percent Factor。 */
 function previewPercentFactor(formula: SkillFormula, context: SkillTooltipPreviewContext): PercentFactorPreview | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+ // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  if (!isPercentFactorFormula(formula)) {
-    return null;
-  }
-  const percentParts = formula.args.slice(1).map((entry) => previewPercentPart(entry, context));
-  const percentBonus = percentParts.reduce((sum, entry) => sum + (entry.resolved ?? 0), 0);
-  const html = percentParts.length > 0
-    ? `${formatPercent(1 + percentBonus)}<span class="skill-formula-breakdown">（${percentParts.map((entry) => entry.html).join('<span class="skill-formula-operator"> + </span>')}）</span>`
-    : formatPercent(1);
-  return {
-    multiplier: 1 + percentBonus,
-    html,
-  };
+ if (!isPercentFactorFormula(formula)) {
+  return null;
+ }
+ const percentParts = formula.args.slice(1).map((entry) => previewPercentPart(entry, context));
+ const percentBonus = percentParts.reduce((sum, entry) => sum + (entry.resolved ?? 0), 0);
+ const html = percentParts.length > 0
+  ? `${formatPercent(1 + percentBonus)}<span class="skill-formula-breakdown">（${percentParts.map((entry) => entry.html).join('<span class="skill-formula-operator"> + </span>')}）</span>`
+  : formatPercent(1);
+ return {
+  multiplier: 1 + percentBonus,
+  html,
+ };
 }
 
 /** extractStructuredDamagePreview：处理extract Structured Damage Preview。 */
 function extractStructuredDamagePreview(formula: SkillFormula, context: SkillTooltipPreviewContext): StructuredDamagePreview | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+ // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  if (!isSkillFormula(formula)) {
-    return null;
-  }
-  if (!isMulFormula(formula) || formula.args.length < 2) {
-    return null;
-  }
-  const [fixedFormula, ...percentFactorFormulas] = formula.args;
-  if (!isAddFormula(fixedFormula)) {
-    return null;
-  }
-  const percentFactors = percentFactorFormulas.map((entry) => previewPercentFactor(entry, context));
-  if (percentFactors.some((entry) => entry === null)) {
-    return null;
-  }
+ if (!isSkillFormula(formula)) {
+  return null;
+ }
+ if (!isMulFormula(formula) || formula.args.length < 2) {
+  return null;
+ }
+ const [fixedFormula, ...percentFactorFormulas] = formula.args;
+ if (!isAddFormula(fixedFormula)) {
+  return null;
+ }
+ const percentFactors = percentFactorFormulas.map((entry) => previewPercentFactor(entry, context));
+ if (percentFactors.some((entry) => entry === null)) {
+  return null;
+ }
 
-  const fixedParts = fixedFormula.args.map((entry) => previewFormula(entry, context));
-  const fixedTotal = fixedParts.reduce((sum, entry) => sum + (entry.resolved ?? 0), 0);
-  const percentTotal = percentFactors.reduce((product, entry) => product * (entry?.multiplier ?? 1), 1);
-  const total = fixedTotal * percentTotal;
+ const fixedParts = fixedFormula.args.map((entry) => previewFormula(entry, context));
+ const fixedTotal = fixedParts.reduce((sum, entry) => sum + (entry.resolved ?? 0), 0);
+ const percentTotal = percentFactors.reduce((product, entry) => product * (entry?.multiplier ?? 1), 1);
+ const total = fixedTotal * percentTotal;
 
-  const fixedHtml = fixedParts
-    .map((entry) => entry.html)
-    .join('<span class="skill-formula-operator"> + </span>');
-  const percentHtml = percentFactors.length > 0
-    ? percentFactors
-      .map((entry) => entry?.html ?? '')
-      .join('<span class="skill-formula-operator"> × </span>')
-    : '<span class="skill-formula-empty">0%</span>';
+ const fixedHtml = fixedParts
+  .map((entry) => entry.html)
+  .join('<span class="skill-formula-operator"> + </span>');
+ const percentHtml = percentFactors.length > 0
+  ? percentFactors
+   .map((entry) => entry?.html ?? '')
+   .join('<span class="skill-formula-operator"> × </span>')
+  : '<span class="skill-formula-empty">0%</span>';
 
-  return {
-    total: Math.max(0, total),
-    fixedTotal,
-    percentTotal,
-    percentFactorCount: percentFactors.length,
-    fixedHtml,
-    percentHtml,
-  };
+ return {
+  total: Math.max(0, total),
+  fixedTotal,
+  percentTotal,
+  percentFactorCount: percentFactors.length,
+  fixedHtml,
+  percentHtml,
+ };
 }
 
 /** previewPercentPart：处理preview Percent部分。 */
 function previewPercentPart(formula: SkillFormula, context: SkillTooltipPreviewContext): FormulaPreview {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+ // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  if (!isSkillFormula(formula)) {
-    return unknownFormulaPreview();
+ if (!isSkillFormula(formula)) {
+  return unknownFormulaPreview();
+ }
+ if (typeof formula === 'number') {
+  return {
+   html: renderFormulaTerm(formatPercent(formula), 'skill-formula-term-percent'),
+   resolved: formula,
+  };
+ }
+ if ('var' in formula) {
+  const resolved = resolvePreviewValue(formula.var, context);
+  const resolvedPercent = resolved.value * (formula.scale ?? 1);
+  const buffReference = buildBuffStackReference(formula.var, context, resolved.known ? resolved.value : null);
+  if (buffReference) {
+   return {
+    html: renderFormulaTerm(
+     resolved.known ? `${formatPercent(resolvedPercent)}（${buffReference}×${formatPercent(formula.scale ?? 1)}）` : `${buffReference}×${formatPercent(formula.scale ?? 1)}`,
+     'skill-formula-term-percent',
+    ),
+    resolved: resolvedPercent,
+   };
   }
-  if (typeof formula === 'number') {
-    return {
-      html: renderFormulaTerm(formatPercent(formula), 'skill-formula-term-percent'),
-      resolved: formula,
-    };
+  if (formula.var === 'techLevel') {
+   const badge = `<span class="skill-scaling skill-scaling-tech"><span class="skill-scaling-icon">◎</span><span>${escapeHtml(`${formatDisplayNumber(resolved.value)}层`)}</span></span>`;
+   return {
+    html: renderFormulaTerm(
+     resolved.known ? `${formatPercent(resolvedPercent)}（${badge}×${formatPercent(formula.scale ?? 1)}）` : `${escapeHtml(getFormulaVarLabel(formula.var))}×${formatPercent(formula.scale ?? 1)}`,
+     'skill-formula-term-percent',
+    ),
+    resolved: resolvedPercent,
+   };
   }
-  if ('var' in formula) {
-    const resolved = resolvePreviewValue(formula.var, context);
-    const resolvedPercent = resolved.value * (formula.scale ?? 1);
-    const buffReference = buildBuffStackReference(formula.var, context, resolved.known ? resolved.value : null);
-    if (buffReference) {
-      return {
-        html: renderFormulaTerm(
-          resolved.known ? `${formatPercent(resolvedPercent)}（${buffReference}×${formatPercent(formula.scale ?? 1)}）` : `${buffReference}×${formatPercent(formula.scale ?? 1)}`,
-          'skill-formula-term-percent',
-        ),
-        resolved: resolvedPercent,
-      };
-    }
-    if (formula.var === 'techLevel') {
-      const badge = `<span class="skill-scaling skill-scaling-tech"><span class="skill-scaling-icon">◎</span><span>${escapeHtml(`${formatDisplayNumber(resolved.value)}层`)}</span></span>`;
-      return {
-        html: renderFormulaTerm(
-          resolved.known ? `${formatPercent(resolvedPercent)}（${badge}×${formatPercent(formula.scale ?? 1)}）` : `${escapeHtml(getFormulaVarLabel(formula.var))}×${formatPercent(formula.scale ?? 1)}`,
-          'skill-formula-term-percent',
-        ),
-        resolved: resolvedPercent,
-      };
-    }
-    const meta = FORMULA_VAR_META[formula.var];
-    if (meta) {
-      return {
-        html: renderFormulaTerm(
-          resolved.known ? `${formatPercent(resolvedPercent)}（${renderScalingBadge(meta)}×${formatPercent(formula.scale ?? 1)}）` : `${renderScalingBadge(meta)}×${formatPercent(formula.scale ?? 1)}`,
-          'skill-formula-term-percent',
-        ),
-        resolved: resolvedPercent,
-      };
-    }
-    const label = getFormulaVarLabel(formula.var);
-    return {
-      html: renderFormulaTerm(
-        resolved.known ? `${formatPercent(resolvedPercent)}（${escapeHtml(label)}×${formatPercent(formula.scale ?? 1)}）` : `${escapeHtml(label)}×${formatPercent(formula.scale ?? 1)}`,
-        'skill-formula-term-percent',
-      ),
-      resolved: resolvedPercent,
-    };
+  const meta = FORMULA_VAR_META[formula.var];
+  if (meta) {
+   return {
+    html: renderFormulaTerm(
+     resolved.known ? `${formatPercent(resolvedPercent)}（${renderScalingBadge(meta)}×${formatPercent(formula.scale ?? 1)}）` : `${renderScalingBadge(meta)}×${formatPercent(formula.scale ?? 1)}`,
+     'skill-formula-term-percent',
+    ),
+    resolved: resolvedPercent,
+   };
   }
-  return previewFormula(formula, context);
+  const label = getFormulaVarLabel(formula.var);
+  return {
+   html: renderFormulaTerm(
+    resolved.known ? `${formatPercent(resolvedPercent)}（${escapeHtml(label)}×${formatPercent(formula.scale ?? 1)}）` : `${escapeHtml(label)}×${formatPercent(formula.scale ?? 1)}`,
+    'skill-formula-term-percent',
+   ),
+   resolved: resolvedPercent,
+  };
+ }
+ return previewFormula(formula, context);
 }
 
 /** joinFormulaParts：处理join Formula部分。 */
 function joinFormulaParts(parts: string[], operator: string): string {
-  return parts.join(`<span class="skill-formula-operator"> ${operator} </span>`);
+ return parts.join(`<span class="skill-formula-operator"> ${operator} </span>`);
 }
 
 /** previewFormula：处理preview Formula。 */
 function previewFormula(formula: SkillFormula, context: SkillTooltipPreviewContext): FormulaPreview {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+ // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  if (!isSkillFormula(formula)) {
-    return unknownFormulaPreview();
+ if (!isSkillFormula(formula)) {
+  return unknownFormulaPreview();
+ }
+ if (typeof formula === 'number') {
+  return {
+   html: formatDisplayNumber(formula),
+   resolved: formula,
+  };
+ }
+ if ('var' in formula) {
+  return renderVariableFormula(formula.var, formula.scale ?? 1, context);
+ }
+ if (formula.op === 'clamp') {
+  const valuePreview = previewFormula(formula.value, context);
+  const minPreview = formula.min !== undefined ? previewFormula(formula.min, context) : null;
+  const maxPreview = formula.max !== undefined ? previewFormula(formula.max, context) : null;
+  const parts = [`值=${valuePreview.html}`];
+  if (minPreview) parts.push(`下限=${minPreview.html}`);
+  if (maxPreview) parts.push(`上限=${maxPreview.html}`);
+  let resolved = valuePreview.resolved;
+  if (minPreview) {
+   resolved = resolved === null || minPreview.resolved === null
+    ? null
+    : Math.max(resolved, minPreview.resolved);
   }
-  if (typeof formula === 'number') {
+  if (maxPreview) {
+   resolved = resolved === null || maxPreview.resolved === null
+    ? null
+    : Math.min(resolved, maxPreview.resolved);
+  }
+  return {
+   html: t('skill-tooltip.formula.clamp', { parts: parts.join('，') }),
+   resolved,
+  };
+ }
+ const args = formula.args.map((entry) => previewFormula(entry, context));
+ const parts = args.map((entry) => entry.html);
+ const allResolved = args.every((entry) => entry.resolved !== null);
+ switch (formula.op) {
+  case 'add':
+   return {
+    html: joinFormulaParts(parts, '+'),
+    resolved: allResolved ? args.reduce((sum, entry) => sum + (entry.resolved ?? 0), 0) : null,
+   };
+  case 'sub':
+   return {
+    html: joinFormulaParts(parts, '-'),
+    resolved: allResolved
+     ? args.slice(1).reduce((sum, entry) => sum - (entry.resolved ?? 0), args[0]?.resolved ?? 0)
+     : null,
+   };
+  case 'mul':
+   return {
+    html: parts.map((entry) => `(${entry})`).join('<span class="skill-formula-operator"> × </span>'),
+    resolved: allResolved ? args.reduce((product, entry) => product * (entry.resolved ?? 1), 1) : null,
+   };
+  case 'div':
+   if (!allResolved) {
     return {
-      html: formatDisplayNumber(formula),
-      resolved: formula,
+     html: parts.map((entry) => `(${entry})`).join('<span class="skill-formula-operator"> ÷ </span>'),
+     resolved: null,
     };
-  }
-  if ('var' in formula) {
-    return renderVariableFormula(formula.var, formula.scale ?? 1, context);
-  }
-  if (formula.op === 'clamp') {
-    const valuePreview = previewFormula(formula.value, context);
-    const minPreview = formula.min !== undefined ? previewFormula(formula.min, context) : null;
-    const maxPreview = formula.max !== undefined ? previewFormula(formula.max, context) : null;
-    const parts = [`值=${valuePreview.html}`];
-    if (minPreview) parts.push(`下限=${minPreview.html}`);
-    if (maxPreview) parts.push(`上限=${maxPreview.html}`);
-    let resolved = valuePreview.resolved;
-    if (minPreview) {
-      resolved = resolved === null || minPreview.resolved === null
-        ? null
-        : Math.max(resolved, minPreview.resolved);
-    }
-    if (maxPreview) {
-      resolved = resolved === null || maxPreview.resolved === null
-        ? null
-        : Math.min(resolved, maxPreview.resolved);
-    }
-    return {
-      html: t('skill-tooltip.formula.clamp', { parts: parts.join('，') }),
-      resolved,
-    };
-  }
-  const args = formula.args.map((entry) => previewFormula(entry, context));
-  const parts = args.map((entry) => entry.html);
-  const allResolved = args.every((entry) => entry.resolved !== null);
-  switch (formula.op) {
-    case 'add':
-      return {
-        html: joinFormulaParts(parts, '+'),
-        resolved: allResolved ? args.reduce((sum, entry) => sum + (entry.resolved ?? 0), 0) : null,
-      };
-    case 'sub':
-      return {
-        html: joinFormulaParts(parts, '-'),
-        resolved: allResolved
-          ? args.slice(1).reduce((sum, entry) => sum - (entry.resolved ?? 0), args[0]?.resolved ?? 0)
-          : null,
-      };
-    case 'mul':
-      return {
-        html: parts.map((entry) => `(${entry})`).join('<span class="skill-formula-operator"> × </span>'),
-        resolved: allResolved ? args.reduce((product, entry) => product * (entry.resolved ?? 1), 1) : null,
-      };
-    case 'div':
-      if (!allResolved) {
-        return {
-          html: parts.map((entry) => `(${entry})`).join('<span class="skill-formula-operator"> ÷ </span>'),
-          resolved: null,
-        };
-      }
-      return {
-        html: parts.map((entry) => `(${entry})`).join('<span class="skill-formula-operator"> ÷ </span>'),
-        resolved: args.slice(1).reduce<number | null>((quotient, entry) => {
-          if (quotient === null || (entry.resolved ?? 0) === 0) {
-            return null;
-          }
-          return quotient / (entry.resolved ?? 1);
-        }, args[0]?.resolved ?? 0),
-      };
-    case 'min':
-      return {
-        html: `min(${parts.join(', ')})`,
-        resolved: allResolved ? Math.min(...args.map((entry) => entry.resolved ?? 0)) : null,
-      };
-    case 'max':
-      return {
-        html: `max(${parts.join(', ')})`,
-        resolved: allResolved ? Math.max(...args.map((entry) => entry.resolved ?? 0)) : null,
-      };
-    default:
-      return {
-        html: parts.join(', '),
-        resolved: null,
-      };
-  }
+   }
+   return {
+    html: parts.map((entry) => `(${entry})`).join('<span class="skill-formula-operator"> ÷ </span>'),
+    resolved: args.slice(1).reduce<number | null>((quotient, entry) => {
+     if (quotient === null || (entry.resolved ?? 0) === 0) {
+      return null;
+     }
+     return quotient / (entry.resolved ?? 1);
+    }, args[0]?.resolved ?? 0),
+   };
+  case 'min':
+   return {
+    html: `min(${parts.join(', ')})`,
+    resolved: allResolved ? Math.min(...args.map((entry) => entry.resolved ?? 0)) : null,
+   };
+  case 'max':
+   return {
+    html: `max(${parts.join(', ')})`,
+    resolved: allResolved ? Math.max(...args.map((entry) => entry.resolved ?? 0)) : null,
+   };
+  default:
+   return {
+    html: parts.join(', '),
+    resolved: null,
+   };
+ }
 }
 
 /** formatDamageFormula：格式化Damage Formula。 */
 function formatDamageFormula(formula: SkillFormula, context: SkillTooltipPreviewContext, damageKind: 'physical' | 'spell'): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+ // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  if (!isSkillFormula(formula)) {
-    return `<span class="skill-formula-empty">${t('skill-tooltip.damage.unknown', undefined, '未知')}</span>`;
-  }
-  const structured = extractStructuredDamagePreview(formula, context);
-  if (structured) {
-    const fixedPart = `<span class="skill-formula-group">${formatDisplayNumber(structured.fixedTotal)}<span class="skill-formula-breakdown">（${structured.fixedHtml}）</span></span>`;
-    const percentPart = structured.percentFactorCount === 1
-      ? `<span class="skill-formula-group">${structured.percentHtml}</span>`
-      : structured.percentHtml.startsWith('<span class="skill-formula-empty">')
-      ? `<span class="skill-formula-group">${formatPercent(structured.percentTotal)}</span>`
-      : `<span class="skill-formula-group">${formatPercent(structured.percentTotal)}<span class="skill-formula-breakdown">（${structured.percentHtml}）</span></span>`;
-    return `<span class="skill-damage-total skill-damage-total-${damageKind}">${formatDisplayNumber(structured.total)}</span><span class="skill-formula-equals"> = </span>${fixedPart}<span class="skill-formula-operator"> × </span>${percentPart}`;
-  }
-  const preview = previewFormula(formula, context);
-  if (typeof formula === 'number' || 'var' in formula) {
-    return preview.html;
-  }
-  if (preview.resolved === null) {
-    return preview.html;
-  }
-  return `<span class="skill-damage-total skill-damage-total-${damageKind}">${formatDisplayNumber(preview.resolved)}</span><span class="skill-formula-breakdown">（${preview.html}）</span>`;
+ if (!isSkillFormula(formula)) {
+  return `<span class="skill-formula-empty">${t('skill-tooltip.damage.unknown', undefined, '未知')}</span>`;
+ }
+ const structured = extractStructuredDamagePreview(formula, context);
+ if (structured) {
+  const fixedPart = `<span class="skill-formula-group">${formatDisplayNumber(structured.fixedTotal)}<span class="skill-formula-breakdown">（${structured.fixedHtml}）</span></span>`;
+  const percentPart = structured.percentFactorCount === 1
+   ? `<span class="skill-formula-group">${structured.percentHtml}</span>`
+   : structured.percentHtml.startsWith('<span class="skill-formula-empty">')
+    ? `<span class="skill-formula-group">${formatPercent(structured.percentTotal)}</span>`
+    : `<span class="skill-formula-group">${formatPercent(structured.percentTotal)}<span class="skill-formula-breakdown">（${structured.percentHtml}）</span></span>`;
+  return `<span class="skill-damage-total skill-damage-total-${damageKind}">${formatDisplayNumber(structured.total)}</span><span class="skill-formula-equals"> = </span>${fixedPart}<span class="skill-formula-operator"> × </span>${percentPart}`;
+ }
+ const preview = previewFormula(formula, context);
+ if (typeof formula === 'number' || 'var' in formula) {
+  return preview.html;
+ }
+ if (preview.resolved === null) {
+  return preview.html;
+ }
+ return `<span class="skill-damage-total skill-damage-total-${damageKind}">${formatDisplayNumber(preview.resolved)}</span><span class="skill-formula-breakdown">（${preview.html}）</span>`;
 }
 
 /** summarizeSkillPreviewMetrics：处理summarize技能Preview指标。 */
 export function summarizeSkillPreviewMetrics(skill: SkillDef, context: SkillTooltipPreviewContext = {}): SkillPreviewMetrics {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+ // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const previewSkill = resolvePreviewSkill(skill);
-  let totalDamage = 0;
-  let hasDamageEffect = false;
-  let hasUnknownDamage = false;
-  let hasPhysicalDamage = false;
-  let hasSpellDamage = false;
+ const previewSkill = resolvePreviewSkill(skill);
+ let totalDamage = 0;
+ let hasDamageEffect = false;
+ let hasUnknownDamage = false;
+ let hasPhysicalDamage = false;
+ let hasSpellDamage = false;
 
-  for (const effect of previewSkill.effects) {
-    if (effect.type !== 'damage') {
-      continue;
-    }
-    /** hasDamageEffect：has Damage效果标记。 */
-    hasDamageEffect = true;
-    if (effect.damageKind === 'physical') {
-      hasPhysicalDamage = true;
-    } else {
-      hasSpellDamage = true;
-    }
-    const structured = extractStructuredDamagePreview(effect.formula, context);
-    const resolvedDamage = structured?.total ?? previewFormula(effect.formula, context).resolved;
-    if (resolvedDamage === null) {
-      hasUnknownDamage = true;
-      continue;
-    }
-    totalDamage += resolvedDamage;
+ for (const effect of previewSkill.effects) {
+  if (effect.type !== 'damage') {
+   continue;
   }
+  /** hasDamageEffect：has Damage效果标记。 */
+  hasDamageEffect = true;
+  if (effect.damageKind === 'physical') {
+   hasPhysicalDamage = true;
+  } else {
+   hasSpellDamage = true;
+  }
+  const structured = extractStructuredDamagePreview(effect.formula, context);
+  const resolvedDamage = structured?.total ?? previewFormula(effect.formula, context).resolved;
+  if (resolvedDamage === null) {
+   hasUnknownDamage = true;
+   continue;
+  }
+  totalDamage += resolvedDamage;
+ }
 
-  const shape = previewSkill.targeting?.shape ?? 'single';
-  const targetCount = resolveSkillDisplayMaxTargets(previewSkill);
-  const maxQiOutputPerTick = context.player?.numericStats?.maxQiOutputPerTick;
+ const shape = previewSkill.targeting?.shape ?? 'single';
+ const targetCount = resolveSkillDisplayMaxTargets(previewSkill);
+ const maxQiOutputPerTick = context.player?.numericStats?.maxQiOutputPerTick;
 
-  return {
-    actualDamage: hasDamageEffect && hasUnknownDamage ? null : totalDamage,
-    actualQiCost: maxQiOutputPerTick === undefined
-      ? previewSkill.cost
-      : calcQiCostWithOutputLimit(previewSkill.cost, Math.max(0, maxQiOutputPerTick)),
-    range: previewSkill.range,
-    targetCount,
-    cooldown: previewSkill.cooldown,
-    hasPhysicalDamage,
-    hasSpellDamage,
-    isSingleTarget: targetCount <= 1 && shape === 'single',
-    isAreaTarget: targetCount > 1 || shape !== 'single',
-    isMelee: previewSkill.range <= 1,
-    isRanged: previewSkill.range > 1,
-  };
+ return {
+  actualDamage: hasDamageEffect && hasUnknownDamage ? null : totalDamage,
+  actualQiCost: maxQiOutputPerTick === undefined
+   ? previewSkill.cost
+   : calcQiCostWithOutputLimit(previewSkill.cost, Math.max(0, maxQiOutputPerTick)),
+  range: previewSkill.range,
+  targetCount,
+  cooldown: previewSkill.cooldown,
+  hasPhysicalDamage,
+  hasSpellDamage,
+  isSingleTarget: targetCount <= 1 && shape === 'single',
+  isAreaTarget: targetCount > 1 || shape !== 'single',
+  isMelee: previewSkill.range <= 1,
+  isRanged: previewSkill.range > 1,
+ };
 }
 
 /** formatTargeting：格式化Targeting。 */
 function formatTargeting(skill: SkillDef): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+ // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const shape = skill.targeting?.shape ?? 'single';
-  const maxTargets = resolveSkillDisplayMaxTargets(skill);
-  if (shape === 'line') {
-    return t('skill-tooltip.targeting.line', { count: formatDisplayInteger(maxTargets) });
-  }
-  if (shape === 'ring') {
-    return t('skill-tooltip.targeting.ring', {
-      inner: formatDisplayNumber(skill.targeting?.innerRadius ?? Math.max((skill.targeting?.radius ?? 1) - 1, 0)),
-      outer: formatDisplayNumber(skill.targeting?.radius ?? 1),
-      count: formatDisplayInteger(maxTargets),
-    });
-  }
-  if (shape === 'checkerboard') {
-    const width = skill.targeting?.width ?? 1;
-    const height = skill.targeting?.height ?? width;
-    return t('skill-tooltip.targeting.checkerboard', { width: formatDisplayInteger(width), height: formatDisplayInteger(height), count: formatDisplayInteger(maxTargets) });
-  }
-  if (shape === 'area') {
-    return t('skill-tooltip.targeting.area', { radius: formatDisplayNumber(skill.targeting?.radius ?? 1), count: formatDisplayInteger(maxTargets) });
-  }
-  if (shape === 'box') {
-    const width = skill.targeting?.width ?? 1;
-    const height = skill.targeting?.height ?? width;
-    return t('skill-tooltip.targeting.box', { width: formatDisplayInteger(width), height: formatDisplayInteger(height), count: formatDisplayInteger(maxTargets) });
-  }
-  if (shape === 'orientedBox') {
-    const width = skill.targeting?.width ?? 1;
-    const height = skill.targeting?.height ?? width;
-    return t('skill-tooltip.targeting.oriented-box', { width: formatDisplayInteger(width), height: formatDisplayInteger(height), count: formatDisplayInteger(maxTargets) });
-  }
-  return t('skill-tooltip.targeting.single', undefined);
+ const shape = skill.targeting?.shape ?? 'single';
+ const maxTargets = resolveSkillDisplayMaxTargets(skill);
+ if (shape === 'line') {
+  return t('skill-tooltip.targeting.line', { count: formatDisplayInteger(maxTargets) });
+ }
+ if (shape === 'ring') {
+  return t('skill-tooltip.targeting.ring', {
+   inner: formatDisplayNumber(skill.targeting?.innerRadius ?? Math.max((skill.targeting?.radius ?? 1) - 1, 0)),
+   outer: formatDisplayNumber(skill.targeting?.radius ?? 1),
+   count: formatDisplayInteger(maxTargets),
+  });
+ }
+ if (shape === 'checkerboard') {
+  const width = skill.targeting?.width ?? 1;
+  const height = skill.targeting?.height ?? width;
+  return t('skill-tooltip.targeting.checkerboard', { width: formatDisplayInteger(width), height: formatDisplayInteger(height), count: formatDisplayInteger(maxTargets) });
+ }
+ if (shape === 'area') {
+  return t('skill-tooltip.targeting.area', { radius: formatDisplayNumber(skill.targeting?.radius ?? 1), count: formatDisplayInteger(maxTargets) });
+ }
+ if (shape === 'box') {
+  const width = skill.targeting?.width ?? 1;
+  const height = skill.targeting?.height ?? width;
+  return t('skill-tooltip.targeting.box', { width: formatDisplayInteger(width), height: formatDisplayInteger(height), count: formatDisplayInteger(maxTargets) });
+ }
+ if (shape === 'orientedBox') {
+  const width = skill.targeting?.width ?? 1;
+  const height = skill.targeting?.height ?? width;
+  return t('skill-tooltip.targeting.oriented-box', { width: formatDisplayInteger(width), height: formatDisplayInteger(height), count: formatDisplayInteger(maxTargets) });
+ }
+ return t('skill-tooltip.targeting.single', undefined);
 }
 
 
 /** 常驻技能从模板底稿按当前功法层数投影被动强度，避免把已缩放结果再乘一遍。 */
 function resolveTooltipPreviewSkill(skill: SkillDef, context: SkillTooltipPreviewContext): SkillDef {
-  const previewSkill = resolvePreviewSkill(skill);
-  if (!isPassiveOnlySkill(previewSkill) || context.passiveTechnique !== true) {
-    return previewSkill;
-  }
-  const template = getLocalSkillTemplate(skill.id);
-  return scaleTechniquePassiveSkill({
-    ...previewSkill,
-    passiveEffects: template?.passiveEffects ?? previewSkill.passiveEffects,
-  }, context.techLevel ?? 1);
+ const previewSkill = resolvePreviewSkill(skill);
+ if (!isPassiveOnlySkill(previewSkill) || context.passiveTechnique !== true) {
+  return previewSkill;
+ }
+ const template = getLocalSkillTemplate(skill.id);
+ return scaleTechniquePassiveSkill({
+  ...previewSkill,
+  passiveEffects: template?.passiveEffects ?? previewSkill.passiveEffects,
+ }, context.techLevel ?? 1);
 }
 
 function collectCraftEffectBonusItems(stats: SkillPassiveBuffEffectDef['craftEffectStats']): PreviewBonusItem[] {
-  const items: PreviewBonusItem[] = [];
-  const formatSignedRate = (value: number): string => `${value > 0 ? '+' : ''}${formatDisplayPercent(value * 100)}`;
-  const craftLabels: Record<string, string> = {
-    alchemy: t('equipment-tooltip.craft.alchemy', undefined),
-    forging: t('equipment-tooltip.craft.forging', undefined),
-    enhancement: t('equipment-tooltip.craft.enhancement', undefined),
-    transmission: t('equipment-tooltip.craft.transmission', undefined),
-    gather: t('equipment-tooltip.craft.gather', undefined),
-    mining: t('equipment-tooltip.craft.mining', undefined),
-    building: t('equipment-tooltip.craft.building', undefined),
-    formation: t('equipment-tooltip.craft.formation', undefined),
-  };
-  for (const [skillKind, block] of Object.entries(stats ?? {})) {
-    if (!block || typeof block !== 'object') {
-      continue;
-    }
-    const craft = craftLabels[skillKind] ?? skillKind;
-    const entries: Array<[string, number, string]> = [
-      ['speedRate', Number(block.speedRate), `${craft}速度`],
-      ['successRate', Number(block.successRate), `${craft}成功`],
-      ['outputRate', Number(block.outputRate), `${craft}产出`],
-      ['expRate', Number(block.expRate), `${craft}经验`],
-    ];
-    for (const [rateKey, value, label] of entries) {
-      if (!Number.isFinite(value) || value === 0) {
-        continue;
-      }
-      items.push(makePreviewBonusItem({
-        key: `${skillKind}-${rateKey}`,
-        label,
-        value,
-        valueText: formatSignedRate(value),
-        badgeClassName: 'skill-scaling-speed',
-        icon: '➜',
-      }));
-    }
+ const items: PreviewBonusItem[] = [];
+ const formatSignedRate = (value: number): string => `${value > 0 ? '+' : ''}${formatDisplayPercent(value * 100)}`;
+ const craftLabels: Record<string, string> = {
+  alchemy: t('equipment-tooltip.craft.alchemy', undefined),
+  forging: t('equipment-tooltip.craft.forging', undefined),
+  enhancement: t('equipment-tooltip.craft.enhancement', undefined),
+  transmission: t('equipment-tooltip.craft.transmission', undefined),
+  gather: t('equipment-tooltip.craft.gather', undefined),
+  mining: t('equipment-tooltip.craft.mining', undefined),
+  building: t('equipment-tooltip.craft.building', undefined),
+  formation: t('equipment-tooltip.craft.formation', undefined),
+ };
+ for (const [skillKind, block] of Object.entries(stats ?? {})) {
+  if (!block || typeof block !== 'object') {
+   continue;
   }
-  return items;
+  const craft = craftLabels[skillKind] ?? skillKind;
+  const getOutputLabel = (kind: string): string => {
+   if (kind === 'formation') return '阵法强度';
+   if (kind === 'gather') return '采集保株';
+   return `${craft}产出`;
+  };
+  const entries: Array<[string, number, string]> = [
+   ['speedRate', Number(block.speedRate), `${craft}速度`],
+   ['successRate', Number(block.successRate), `${craft}成功`],
+   ['outputRate', Number(block.outputRate), getOutputLabel(skillKind)],
+   ['expRate', Number(block.expRate), `${craft}经验`],
+  ];
+  for (const [rateKey, value, label] of entries) {
+   if (!Number.isFinite(value) || value === 0) {
+    continue;
+   }
+   items.push(makePreviewBonusItem({
+    key: `${skillKind}-${rateKey}`,
+    label,
+    value,
+    valueText: formatSignedRate(value),
+    badgeClassName: 'skill-scaling-speed',
+    icon: '➜',
+   }));
+  }
+ }
+ return items;
 }
 
 function collectPassiveBuffBonusItems(effect: SkillPassiveBuffEffectDef): PreviewBonusItem[] {
-  const items = collectPreviewBonuses(effect.attrs, effect.stats, undefined, effect.attrMode ?? 'percent', effect.statMode ?? 'percent');
-  const qi = formatTechniqueQiProjectionSummary(effect.qiProjection);
-  if (qi) {
-    const match = qi.match(/([+-]?\d+(?:\.\d+)?)%/u);
-    const value = match ? Number(match[1]) : 1;
-    items.push(makePreviewBonusItem({
-      key: 'qi-projection',
-      label: '气机',
-      value: Number.isFinite(value) ? value : 1,
-      valueText: qi,
-      badgeClassName: 'skill-scaling-qi',
-      icon: '◌',
-    }));
-  }
-  items.push(...collectCraftEffectBonusItems(effect.craftEffectStats));
-  return items;
+ const items = collectPreviewBonuses(effect.attrs, effect.stats, undefined, effect.attrMode ?? 'percent', effect.statMode ?? 'percent');
+ const qi = formatTechniqueQiProjectionSummary(effect.qiProjection);
+ if (qi) {
+  const match = qi.match(/([+-]?\d+(?:\.\d+)?)%/u);
+  const value = match ? Number(match[1]) : 1;
+  items.push(makePreviewBonusItem({
+   key: 'qi-projection',
+   label: '气机',
+   value: Number.isFinite(value) ? value : 1,
+   valueText: qi,
+   badgeClassName: 'skill-scaling-qi',
+   icon: '◌',
+  }));
+ }
+ items.push(...collectCraftEffectBonusItems(effect.craftEffectStats));
+ return items;
 }
 
 function collectCultivationBonusItems(effect: Extract<SkillPassiveEffectDef, { type: 'cultivation_tile_qi' }>): PreviewBonusItem[] {
-  const resourceLabel = getQiResourceDisplayLabel(effect.resourceKey);
-  const label = effect.amount !== undefined
-    ? t('skill-tooltip.cultivation-tile-qi.amount', { amount: formatDisplayNumber(effect.amount), resource: resourceLabel })
-    : t('skill-tooltip.cultivation-tile-qi.multiplier', { multiplier: formatDisplayNumber(effect.multiplier ?? 1), resource: resourceLabel });
-  const value = effect.amount !== undefined ? Number(effect.amount) : Number(effect.multiplier ?? 1);
-  return [makePreviewBonusItem({
-    key: `cultivation-${effect.resourceKey}`,
-    label: '注灵',
-    value: Number.isFinite(value) ? value : 1,
-    valueText: label,
-    badgeClassName: 'skill-scaling-qi',
-    icon: '◌',
-  })];
+ const resourceLabel = getQiResourceDisplayLabel(effect.resourceKey);
+ const label = effect.amount !== undefined
+  ? t('skill-tooltip.cultivation-tile-qi.amount', { amount: formatDisplayNumber(effect.amount), resource: resourceLabel })
+  : t('skill-tooltip.cultivation-tile-qi.multiplier', { multiplier: formatDisplayNumber(effect.multiplier ?? 1), resource: resourceLabel });
+ const value = effect.amount !== undefined ? Number(effect.amount) : Number(effect.multiplier ?? 1);
+ return [makePreviewBonusItem({
+  key: `cultivation-${effect.resourceKey}`,
+  label: '注灵',
+  value: Number.isFinite(value) ? value : 1,
+  valueText: label,
+  badgeClassName: 'skill-scaling-qi',
+  icon: '◌',
+ })];
 }
 
 function collectResidentSkillBonusItems(skill: SkillDef): PreviewBonusItem[] {
-  const items: PreviewBonusItem[] = [];
-  for (const effect of getSkillPassiveEffects(skill)) {
-    if (effect.type === 'cultivation_tile_qi') {
-      items.push(...collectCultivationBonusItems(effect));
-      continue;
-    }
-    if (effect.type === 'buff') {
-      items.push(...collectPassiveBuffBonusItems(effect));
-    }
+ const items: PreviewBonusItem[] = [];
+ for (const effect of getSkillPassiveEffects(skill)) {
+  if (effect.type === 'cultivation_tile_qi') {
+   items.push(...collectCultivationBonusItems(effect));
+   continue;
   }
-  return items;
+  if (effect.type === 'buff') {
+   items.push(...collectPassiveBuffBonusItems(effect));
+  }
+ }
+ return items;
 }
 
 function appendPassiveEffects(skill: SkillDef, lines: string[], asideCards: SkillTooltipAsideCard[]): void {
-  const capsules = renderPreviewBonusCapsules(collectResidentSkillBonusItems(skill));
-  for (const effect of getSkillPassiveEffects(skill)) {
-    if (effect.type !== 'buff') {
-      continue;
-    }
-    const name = effect.name?.trim() || skill.name;
-    const toneClass = effect.category === 'debuff' ? 'debuff' : 'buff';
-    const categoryLabel = effect.category === 'debuff'
-      ? t('skill-tooltip.buff.category.debuff', undefined)
-      : t('skill-tooltip.buff.category.buff', undefined);
-    const badge = `<span class="skill-tooltip-buff-entry ${toneClass}"><span class="skill-tooltip-buff-mark">${escapeHtml(normalizeBuffMark(name, effect.shortMark))}</span><span>${escapeHtml(name)}</span></span>`;
-    const residentMeta = `${t('skill-tooltip.target.self', undefined)} · ${t('action.skill.tab.resident', undefined)}`;
-    lines.push(renderLabelLine(categoryLabel, `${badge}<span class="skill-tooltip-buff-meta">${escapeHtml(` ${residentMeta}`)}</span>`));
-    asideCards.push({
-      mark: normalizeBuffMark(name, effect.shortMark),
-      title: name,
-      lines: [
-        residentMeta,
-        ...(effect.desc ? [effect.desc] : []),
-      ],
-      tone: effect.category === 'debuff' ? 'debuff' : 'buff',
-    });
+ const capsules = renderPreviewBonusCapsules(collectResidentSkillBonusItems(skill));
+ for (const effect of getSkillPassiveEffects(skill)) {
+  if (effect.type !== 'buff') {
+   continue;
   }
-  if (capsules) {
-    lines.push(renderLabelLine(t('skill-tooltip.label.effect', undefined), capsules));
-  }
+  const name = effect.name?.trim() || skill.name;
+  const toneClass = effect.category === 'debuff' ? 'debuff' : 'buff';
+  const categoryLabel = effect.category === 'debuff'
+   ? t('skill-tooltip.buff.category.debuff', undefined)
+   : t('skill-tooltip.buff.category.buff', undefined);
+  const badge = `<span class="skill-tooltip-buff-entry ${toneClass}"><span class="skill-tooltip-buff-mark">${escapeHtml(normalizeBuffMark(name, effect.shortMark))}</span><span>${escapeHtml(name)}</span></span>`;
+  const residentMeta = `${t('skill-tooltip.target.self', undefined)} · ${t('action.skill.tab.resident', undefined)}`;
+  lines.push(renderLabelLine(categoryLabel, `${badge}<span class="skill-tooltip-buff-meta">${escapeHtml(` ${residentMeta}`)}</span>`));
+  asideCards.push({
+   mark: normalizeBuffMark(name, effect.shortMark),
+   title: name,
+   lines: [
+    residentMeta,
+    ...(effect.desc ? [effect.desc] : []),
+   ],
+   tone: effect.category === 'debuff' ? 'debuff' : 'buff',
+  });
+ }
+ if (capsules) {
+  lines.push(renderLabelLine(t('skill-tooltip.label.effect', undefined), capsules));
+ }
 }
 
 /** 构建完整的技能提示内容（富文本行 + 侧栏 Buff 卡片） */
 export function buildSkillTooltipContent(skill: SkillDef, context: SkillTooltipPreviewContext = {}): SkillTooltipContent {
-  const previewSkill = resolveTooltipPreviewSkill(skill, context);
-  const asideCards: SkillTooltipAsideCard[] = [];
-  if (isPassiveOnlySkill(previewSkill)) {
-    const lines: string[] = [];
-    appendPassiveEffects(previewSkill, lines, asideCards);
-    return { lines, asideCards };
-  }
-  const lines: string[] = [`<span class="skill-tooltip-desc">${escapeHtml(previewSkill.desc)}</span>`];
-  if (context.unlockLevel !== undefined) {
-    lines.push(renderPlainLine(t('skill-tooltip.label.unlock-level', undefined), t('skill-tooltip.unlock-level.value', { level: formatDisplayInteger(context.unlockLevel) })));
-  }
-  lines.push(renderPlainLine(t('skill-tooltip.label.range', undefined), formatDisplayNumber(previewSkill.range)));
-  lines.push(renderPlainLine(t('skill-tooltip.label.targeting', undefined), formatTargeting(previewSkill)));
-  for (const effect of previewSkill.effects) {
-    if (effect.type === 'damage') {
-      const damageKind = effect.damageKind === 'physical' ? 'physical' : 'spell';
-      const damageLabel = damageKind === 'physical'
-        ? (effect.element ? t('skill-tooltip.damage.physical-element', { element: getElementKeyLabel(effect.element) }) : t('skill-tooltip.damage.physical', undefined))
-        : (effect.element ? t('skill-tooltip.damage.spell-element', { element: getElementKeyLabel(effect.element) }) : t('skill-tooltip.damage.spell', undefined));
-      lines.push(renderLabelLine(damageLabel, formatDamageFormula(effect.formula, context, damageKind)));
-      continue;
-    }
-    if (effect.type === 'buff') {
-      const stackLimit = formatBuffMaxStacks(effect.maxStacks);
-      const stackText = stackLimit ? t('skill-tooltip.buff.stack-limit.comma', { stackLimit }) : '';
-      const categoryLabel = effect.category === 'debuff' ? t('skill-tooltip.buff.category.debuff', undefined) : t('skill-tooltip.buff.category.buff', undefined);
-      const targetLabel = effect.target === 'target' ? t('skill-tooltip.target.enemy', undefined) : effect.target === 'allies' ? t('skill-tooltip.target.allies', undefined) : t('skill-tooltip.target.self', undefined);
-      const badge = buildBuffInlineBadge(effect);
-      lines.push(renderLabelLine(categoryLabel, `${badge}<span class="skill-tooltip-buff-meta">${escapeHtml(` ${targetLabel} · ${formatDisplayInteger(effect.duration)} 息${stackText}`)}</span>`));
-      const effectHtml = describeBuffEffectHtml(effect);
-      if (effectHtml) {
-        lines.push(renderLabelLine(t('skill-tooltip.label.effect', undefined), effectHtml));
-      }
-      asideCards.push(buildBuffAsideCard(effect));
-      continue;
-    }
-    if (effect.type === 'heal') {
-      const targetLabel = effect.target === 'allies' ? t('skill-tooltip.heal.allies', undefined) : effect.target === 'target' ? t('skill-tooltip.heal.target', undefined) : t('skill-tooltip.heal.self', undefined);
-      lines.push(renderLabelLine(targetLabel, formatDamageFormula(effect.formula, context, 'spell')));
-      continue;
-    }
-    if (effect.type === 'temporary_tile') {
-      lines.push(renderLabelLine(t('skill-tooltip.label.temporary-tile', undefined), t('skill-tooltip.temporary-tile.stone', { duration: formatDisplayInteger(effect.durationTicks) })));
-      lines.push(renderLabelLine(t('skill-tooltip.label.tile-hp', undefined), formatDamageFormula(effect.hpFormula, context, 'spell')));
-      continue;
-    }
-    if (effect.type === 'instance_terrain') {
-      const tileLabel = getTileTypeLabel(effect.tileType as TileType, effect.tileType);
-      lines.push(renderPlainLine(t('skill-tooltip.label.instance-terrain', undefined), t('skill-tooltip.instance-terrain.value', {
-        tileType: tileLabel,
-        duration: formatDisplayInteger(effect.durationTicks),
-      })));
-      continue;
-    }
-    if (effect.type === 'random_buff') {
-      const targetLabel = effect.target === 'target'
-        ? t('skill-tooltip.target.enemy', undefined)
-        : effect.target === 'allies'
-          ? t('skill-tooltip.target.allies', undefined)
-          : t('skill-tooltip.target.self', undefined);
-      const candidateNames = effect.buffs.map((buff) => buff.name).join('、');
-      lines.push(renderPlainLine(t('skill-tooltip.label.random-buff', undefined), t('skill-tooltip.random-buff.value', {
-        target: targetLabel,
-        count: formatDisplayInteger(effect.buffs.length),
-        candidates: candidateNames,
-      })));
-      continue;
-    }
-    if (effect.type !== 'cleanse') {
-      continue;
-    }
-    const targetLabel = effect.target === 'target' ? t('skill-tooltip.target.enemy', undefined) : t('skill-tooltip.target.self', undefined);
-    const categoryLabel = effect.category === 'buff' ? t('skill-tooltip.buff.category.buff', undefined) : t('skill-tooltip.buff.category.debuff', undefined);
-    lines.push(renderPlainLine(t('skill-tooltip.label.cleanse', undefined), t('skill-tooltip.cleanse.value', { target: targetLabel, count: formatDisplayInteger(effect.removeCount ?? 1), category: categoryLabel })));
-  }
+ const previewSkill = resolveTooltipPreviewSkill(skill, context);
+ const asideCards: SkillTooltipAsideCard[] = [];
+ if (isPassiveOnlySkill(previewSkill)) {
+  const lines: string[] = [];
   appendPassiveEffects(previewSkill, lines, asideCards);
-  lines.push(renderLabelLine(t('skill-tooltip.label.qi-cost', undefined), buildQiCostValue(previewSkill.cost, context)));
-  const windupTicks = resolveSkillPlayerWindupTicks(previewSkill);
-  if (windupTicks > 0) {
-    lines.push(renderPlainLine(t('skill-tooltip.label.chant', undefined), t('skill-tooltip.chant.value', { windupTicks: formatDisplayInteger(windupTicks) })));
-  }
-  lines.push(renderPlainLine(t('skill-tooltip.label.cooldown', undefined), t('skill-tooltip.cooldown.value', { cooldown: formatDisplayInteger(previewSkill.cooldown) })));
-  lines.push(`<span class="skill-tooltip-note">${t('skill-tooltip.note.combat-resolution', undefined)}</span>`);
   return { lines, asideCards };
+ }
+ const lines: string[] = [`<span class="skill-tooltip-desc">${escapeHtml(previewSkill.desc)}</span>`];
+ if (context.unlockLevel !== undefined) {
+  lines.push(renderPlainLine(t('skill-tooltip.label.unlock-level', undefined), t('skill-tooltip.unlock-level.value', { level: formatDisplayInteger(context.unlockLevel) })));
+ }
+ lines.push(renderPlainLine(t('skill-tooltip.label.range', undefined), formatDisplayNumber(previewSkill.range)));
+ lines.push(renderPlainLine(t('skill-tooltip.label.targeting', undefined), formatTargeting(previewSkill)));
+ for (const effect of previewSkill.effects) {
+  if (effect.type === 'damage') {
+   const damageKind = effect.damageKind === 'physical' ? 'physical' : 'spell';
+   const damageLabel = damageKind === 'physical'
+    ? (effect.element ? t('skill-tooltip.damage.physical-element', { element: getElementKeyLabel(effect.element) }) : t('skill-tooltip.damage.physical', undefined))
+    : (effect.element ? t('skill-tooltip.damage.spell-element', { element: getElementKeyLabel(effect.element) }) : t('skill-tooltip.damage.spell', undefined));
+   lines.push(renderLabelLine(damageLabel, formatDamageFormula(effect.formula, context, damageKind)));
+   continue;
+  }
+  if (effect.type === 'buff') {
+   const stackLimit = formatBuffMaxStacks(effect.maxStacks);
+   const stackText = stackLimit ? t('skill-tooltip.buff.stack-limit.comma', { stackLimit }) : '';
+   const categoryLabel = effect.category === 'debuff' ? t('skill-tooltip.buff.category.debuff', undefined) : t('skill-tooltip.buff.category.buff', undefined);
+   const targetLabel = effect.target === 'target' ? t('skill-tooltip.target.enemy', undefined) : effect.target === 'allies' ? t('skill-tooltip.target.allies', undefined) : t('skill-tooltip.target.self', undefined);
+   const badge = buildBuffInlineBadge(effect);
+   lines.push(renderLabelLine(categoryLabel, `${badge}<span class="skill-tooltip-buff-meta">${escapeHtml(` ${targetLabel} · ${formatDisplayInteger(effect.duration)} 息${stackText}`)}</span>`));
+   const effectHtml = describeBuffEffectHtml(effect);
+   if (effectHtml) {
+    lines.push(renderLabelLine(t('skill-tooltip.label.effect', undefined), effectHtml));
+   }
+   asideCards.push(buildBuffAsideCard(effect));
+   continue;
+  }
+  if (effect.type === 'heal') {
+   const targetLabel = effect.target === 'allies' ? t('skill-tooltip.heal.allies', undefined) : effect.target === 'target' ? t('skill-tooltip.heal.target', undefined) : t('skill-tooltip.heal.self', undefined);
+   lines.push(renderLabelLine(targetLabel, formatDamageFormula(effect.formula, context, 'spell')));
+   continue;
+  }
+  if (effect.type === 'temporary_tile') {
+   lines.push(renderLabelLine(t('skill-tooltip.label.temporary-tile', undefined), t('skill-tooltip.temporary-tile.stone', { duration: formatDisplayInteger(effect.durationTicks) })));
+   lines.push(renderLabelLine(t('skill-tooltip.label.tile-hp', undefined), formatDamageFormula(effect.hpFormula, context, 'spell')));
+   continue;
+  }
+  if (effect.type === 'instance_terrain') {
+   const tileLabel = getTileTypeLabel(effect.tileType as TileType, effect.tileType);
+   lines.push(renderPlainLine(t('skill-tooltip.label.instance-terrain', undefined), t('skill-tooltip.instance-terrain.value', {
+    tileType: tileLabel,
+    duration: formatDisplayInteger(effect.durationTicks),
+   })));
+   continue;
+  }
+  if (effect.type === 'random_buff') {
+   const targetLabel = effect.target === 'target'
+    ? t('skill-tooltip.target.enemy', undefined)
+    : effect.target === 'allies'
+     ? t('skill-tooltip.target.allies', undefined)
+     : t('skill-tooltip.target.self', undefined);
+   const candidateNames = effect.buffs.map((buff) => buff.name).join('、');
+   lines.push(renderPlainLine(t('skill-tooltip.label.random-buff', undefined), t('skill-tooltip.random-buff.value', {
+    target: targetLabel,
+    count: formatDisplayInteger(effect.buffs.length),
+    candidates: candidateNames,
+   })));
+   continue;
+  }
+  if (effect.type !== 'cleanse') {
+   continue;
+  }
+  const targetLabel = effect.target === 'target' ? t('skill-tooltip.target.enemy', undefined) : t('skill-tooltip.target.self', undefined);
+  const categoryLabel = effect.category === 'buff' ? t('skill-tooltip.buff.category.buff', undefined) : t('skill-tooltip.buff.category.debuff', undefined);
+  lines.push(renderPlainLine(t('skill-tooltip.label.cleanse', undefined), t('skill-tooltip.cleanse.value', { target: targetLabel, count: formatDisplayInteger(effect.removeCount ?? 1), category: categoryLabel })));
+ }
+ appendPassiveEffects(previewSkill, lines, asideCards);
+ lines.push(renderLabelLine(t('skill-tooltip.label.qi-cost', undefined), buildQiCostValue(previewSkill.cost, context)));
+ const windupTicks = resolveSkillPlayerWindupTicks(previewSkill);
+ if (windupTicks > 0) {
+  lines.push(renderPlainLine(t('skill-tooltip.label.chant', undefined), t('skill-tooltip.chant.value', { windupTicks: formatDisplayInteger(windupTicks) })));
+ }
+ lines.push(renderPlainLine(t('skill-tooltip.label.cooldown', undefined), t('skill-tooltip.cooldown.value', { cooldown: formatDisplayInteger(previewSkill.cooldown) })));
+ lines.push(`<span class="skill-tooltip-note">${t('skill-tooltip.note.combat-resolution', undefined)}</span>`);
+ return { lines, asideCards };
 }
 
 /** 仅返回提示文本行（不含侧栏卡片） */
 export function buildSkillTooltipLines(skill: SkillDef, context: SkillTooltipPreviewContext = {}): string[] {
-  return buildSkillTooltipContent(skill, context).lines;
+ return buildSkillTooltipContent(skill, context).lines;
 }
 
 /** 常驻技能卡片摘要：只返回当前层投影后的效果胶囊。 */
 export function summarizeResidentSkillEffects(skill: SkillDef, context: SkillTooltipPreviewContext = {}): string {
-  const previewSkill = resolveTooltipPreviewSkill(skill, context);
-  if (!isPassiveOnlySkill(previewSkill)) {
-    return '';
-  }
-  return renderPreviewBonusCapsules(collectResidentSkillBonusItems(previewSkill));
+ const previewSkill = resolveTooltipPreviewSkill(skill, context);
+ if (!isPassiveOnlySkill(previewSkill)) {
+  return '';
+ }
+ return renderPreviewBonusCapsules(collectResidentSkillBonusItems(previewSkill));
 }

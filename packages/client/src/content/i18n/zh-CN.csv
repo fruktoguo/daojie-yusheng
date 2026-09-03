@@ -2570,6 +2570,7 @@ notice.craft.gather.empty,通知,{resourceNodeName} 当前没有可收取的草�
 notice.craft.gather.interrupted,通知,{resourceNodeName} 的采集被{reasonLabel}打断。,
 notice.craft.gather.left-range,通知,你已离开草药采集范围。,
 notice.craft.gather.obtained,通知,获得 {itemLabel},
+notice.craft.gather.preserved,通知,采得灵植且药根未损，{resourceNodeName} 剩余数量未减少。,
 notice.craft.gather.start,通知,你开始采集 {resourceNodeName}，预计 {totalTicks} 息。,
 notice.craft.gather.target-missing,通知,采集目标已经不存在。,
 notice.craft.overflow-ground,通知,背包放不下，{itemLabel} 落在脚边,

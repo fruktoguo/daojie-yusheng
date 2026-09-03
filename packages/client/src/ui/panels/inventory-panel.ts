@@ -27,6 +27,7 @@ import {
   type C2S_RequestInventoryPage,
   type S2C_InventoryPage,
   type SyncedItemStack,
+  readCraftEffectStat,
 } from '@mud/shared';
 import {
   getEquipSlotLabel,
@@ -295,10 +296,12 @@ export class InventoryPanel {
   private playerQi = 0;
   /** playerFormationSkillLevel：阵法技艺等级。 */
   private playerFormationSkillLevel = 0;
+  private playerFormationStrengthBonusRate = 0;
   private readonly formationDialogController = new InventoryFormationDialogController({
     getInventory: () => this.lastInventory,
     getPlayerQi: () => this.playerQi,
     getFormationSkillLevel: () => this.playerFormationSkillLevel,
+    getFormationStrengthBonusRate: () => this.playerFormationStrengthBonusRate,
     resolveDiskMultiplier: (item) => this.resolveFormationDiskMultiplier(item),
     getItemInstanceId: (item) => this.getInventoryItemInstanceId(item),
     repairMissingItemInstanceIds: () => this.repairMissingInventoryItemInstanceIds(),
@@ -630,7 +633,7 @@ export class InventoryPanel {
 
 
   syncPlayerContext(
-    player?: Pick<PlayerState, 'techniques' | 'equipment' | 'unlockedMinimapIds' | 'realm' | 'heavenGate' | 'foundation' | 'qi' | 'formationSkill'>,
+    player?: Pick<PlayerState, 'techniques' | 'equipment' | 'unlockedMinimapIds' | 'realm' | 'heavenGate' | 'foundation' | 'qi' | 'formationSkill' | 'craftEffectStats'>,
   ): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -650,6 +653,7 @@ export class InventoryPanel {
       this.playerFoundation = 0;
       this.playerQi = 0;
       this.playerFormationSkillLevel = 0;
+      this.playerFormationStrengthBonusRate = 0;
     } else {
       this.learnedTechniqueIds = new Set(
         (player.techniques ?? [])
@@ -672,6 +676,7 @@ export class InventoryPanel {
       this.playerFoundation = Math.max(0, Math.floor(player.foundation ?? 0));
       this.playerQi = Math.max(0, Math.floor(player.qi ?? 0));
       this.playerFormationSkillLevel = Math.max(0, Math.floor(Number(player.formationSkill?.level) || 0));
+      this.playerFormationStrengthBonusRate = readCraftEffectStat(player.craftEffectStats, 'formation', 'outputRate');
     }
     if (this.lastInventory) {
       this.update(this.lastInventory);
@@ -680,7 +685,7 @@ export class InventoryPanel {
 
   /** buildPlayerContextKey：构建背包展示依赖的玩家上下文签名。 */
   private buildPlayerContextKey(
-    player?: Pick<PlayerState, 'techniques' | 'equipment' | 'unlockedMinimapIds' | 'realm' | 'heavenGate' | 'foundation' | 'qi' | 'formationSkill'>,
+    player?: Pick<PlayerState, 'techniques' | 'equipment' | 'unlockedMinimapIds' | 'realm' | 'heavenGate' | 'foundation' | 'qi' | 'formationSkill' | 'craftEffectStats'>,
   ): string {
     if (!player) {
       return 'none';
@@ -708,6 +713,7 @@ export class InventoryPanel {
       `foundation=${Math.max(0, Math.floor(player.foundation ?? 0))}`,
       `qi=${Math.max(0, Math.floor(player.qi ?? 0))}`,
       `formation=${Math.max(0, Math.floor(Number(player.formationSkill?.level) || 0))}`,
+      `formationStrength=${readCraftEffectStat(player?.craftEffectStats, 'formation', 'outputRate')}`,
     ].join('|');
   }
 

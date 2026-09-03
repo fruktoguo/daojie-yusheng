@@ -128,7 +128,11 @@ export async function executeGatherTick(
     return buildGatherTickResult(false, [buildGatherNodeNotice('warn', 'notice.craft.gather.empty', container.name)]);
   }
 
-  const harvestedItem = removeSingleContainerRowItem(state.entries, harvestedRow);
+  const gatherOutputRate = Math.max(0, resolvePlayerCraftEffectStat(player, 'gather', 'outputRate'));
+  const preserveProbability = gatherOutputRate > 0 ? gatherOutputRate / (1 + gatherOutputRate) : 0;
+  const isPreserved = preserveProbability > 0 && Math.random() < preserveProbability;
+
+  const harvestedItem = removeSingleContainerRowItem(state.entries, harvestedRow, { preserveRemaining: isPreserved });
   if (!harvestedItem) {
     state.activeSearch = undefined;
     player.gatherJob = null;
@@ -137,10 +141,7 @@ export async function executeGatherTick(
   }
 
   state.activeSearch = undefined;
-  harvestedItem.count = applyCraftOutputRate(
-    Math.max(1, Math.floor(Number(harvestedItem.count) || 1)),
-    resolvePlayerCraftEffectStat(player, 'gather', 'outputRate'),
-  );
+  harvestedItem.count = 1;
   prepareLootGrantItemsForReceiver([harvestedItem]);
   playerRuntimeService.receiveInventoryItem?.(playerId, harvestedItem);
   const skillExpResult = applyGatherSkillExp(
@@ -213,11 +214,19 @@ export async function executeGatherTick(
     false,
     [
       buildGatherNotice(
-      'gather',
-      'notice.craft.gather.obtained',
-      { itemLabel: service.formatLootItemStackLabel(harvestedItem) },
-      [{ key: 'itemLabel', style: 'target' }],
+        'gather',
+        'notice.craft.gather.obtained',
+        { itemLabel: service.formatLootItemStackLabel(harvestedItem) },
+        [{ key: 'itemLabel', style: 'target' }],
       ),
+      ...(isPreserved ? [
+        buildGatherNotice(
+          'gather',
+          'notice.craft.gather.preserved',
+          { resourceNodeName: container.name },
+          [{ key: 'resourceNodeName', style: 'target' }],
+        ),
+      ] : []),
       ...(passiveAcquisitionResult.messages ?? []),
     ],
     true,
@@ -252,7 +261,7 @@ function computeEffectiveHerbGatherTicks(player: Record<string, any>, container:
   const nativeGatherTicks = computeHerbNativeGatherTicks(container, row);
   const gatherLevel = Math.max(1, Math.floor(Number(player?.gatherSkill?.level) || 1));
   const skillSpeedRate = gatherLevel * GATHER_SPEED_PER_LEVEL;
-  const effectSpeedRate = Math.max(0, resolvePlayerCraftEffectStat(player, 'gather', 'speedRate'));
+  const effectSpeedRate = resolvePlayerCraftEffectStat(player, 'gather', 'speedRate');
   return computeAdjustedCraftTicks(nativeGatherTicks, skillSpeedRate + effectSpeedRate);
 }
 
@@ -417,7 +426,11 @@ function buildGatherSleepPayload(job: Record<string, any>, instanceId: string, c
   };
 }
 
-function removeSingleContainerRowItem(entries: Array<Record<string, any>>, row: Record<string, any>): Record<string, any> | null {
+function removeSingleContainerRowItem(
+  entries: Array<Record<string, any>>,
+  row: Record<string, any>,
+  options?: { preserveRemaining?: boolean },
+): Record<string, any> | null {
   const target = row.entries.find((entry: Record<string, any>) => Math.max(0, Math.trunc(Number(entry?.item?.count) || 0)) > 0) ?? null;
   if (!target) {
     return null;
@@ -426,11 +439,13 @@ function removeSingleContainerRowItem(entries: Array<Record<string, any>>, row: 
     ...target.item,
     count: 1,
   };
-  target.item.count = Math.max(0, Math.trunc(Number(target.item.count) || 0)) - 1;
-  if (target.item.count <= 0) {
-    const index = entries.indexOf(target);
-    if (index >= 0) {
-      entries.splice(index, 1);
+  if (!options?.preserveRemaining) {
+    target.item.count = Math.max(0, Math.trunc(Number(target.item.count) || 0)) - 1;
+    if (target.item.count <= 0) {
+      const index = entries.indexOf(target);
+      if (index >= 0) {
+        entries.splice(index, 1);
+      }
     }
   }
   return harvestedItem;

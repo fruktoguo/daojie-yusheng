@@ -9,8 +9,8 @@ import { createHash } from 'node:crypto';
 import { Pool, type PoolClient } from 'pg';
 import { readTrimmedEnv, resolveServerDatabaseUrl } from '../../config/env-alias';
 import {
-    assertInstanceLeaseWriteFence,
-    type InstanceLeaseWriteFence,
+ assertInstanceLeaseWriteFence,
+ type InstanceLeaseWriteFence,
 } from '../../persistence/instance-lease-write-fence';
 import { nextPlayerPersistenceVersion } from '../../persistence/player-domain-persistence.service';
 import { ensureBigintColumnType, ensureDoubleColumnType } from '../../persistence/schema-bigint-migration';
@@ -19,6 +19,7 @@ import { assignItemInstanceIdIfNeeded } from './item-instance-id.helpers';
 import { buildStructuredNotice } from './structured-notice.helpers';
 import { findProtectedPlacementConflict, formatProtectedPlacementConflictReason } from './protected-placement.helpers';
 import { isVirtualPublicWorldInstance } from './world-runtime.normalization.helpers';
+import { resolvePlayerCraftEffectStat } from '../craft/craft-effect-runtime.helpers';
 
 const TERRAIN_STABILIZER_EFFECT_KIND = 'terrain_stabilizer';
 const TILE_AURA_SOURCE_EFFECT_KIND = 'tile_aura_source';
@@ -30,31 +31,31 @@ const INSTANCE_FORMATION_STATE_TABLE = 'instance_formation_state';
 // 必须与 sect-durable-persistence.ts 一致，确保宗门跨域事务与普通阵法写盘互斥。
 const FORMATION_LOCK_NAMESPACE = 7105;
 const INSTANCE_FORMATION_STATE_BIGINT_COLUMNS = [
-    'spirit_stone_count',
-    'x',
-    'y',
-    'eye_x',
-    'eye_y',
-    'created_at_ms',
-    'updated_at_ms',
+ 'spirit_stone_count',
+ 'x',
+ 'y',
+ 'eye_x',
+ 'eye_y',
+ 'created_at_ms',
+ 'updated_at_ms',
 ];
 const INSTANCE_FORMATION_STATE_DOUBLE_COLUMNS = [
-    'qi_cost',
-    'remaining_qi_budget',
-    'remaining_spirit_stone_budget',
+ 'qi_cost',
+ 'remaining_qi_budget',
+ 'remaining_spirit_stone_budget',
 ];
 const FORMATION_LIFECYCLE_DEPLOYED = 'deployed';
 const FORMATION_LIFECYCLE_PERSISTENT = 'persistent';
 const FORMATION_MAINTENANCE_CONTROL_RADIUS = 1;
 const FORMATION_MAINTENANCE_PERSISTENCE_DOMAINS = ['vitals', 'profession', 'active_job'] as const;
 const FORMATION_MAINTENANCE_CHECKPOINT_INTERVAL_MS = normalizeBoundedRuntimeInteger(
-    readTrimmedEnv(
-        'SERVER_FORMATION_MAINTENANCE_CHECKPOINT_INTERVAL_MS',
-        'FORMATION_MAINTENANCE_CHECKPOINT_INTERVAL_MS',
-    ),
-    10_000,
-    1_000,
-    60_000,
+ readTrimmedEnv(
+  'SERVER_FORMATION_MAINTENANCE_CHECKPOINT_INTERVAL_MS',
+  'FORMATION_MAINTENANCE_CHECKPOINT_INTERVAL_MS',
+ ),
+ 10_000,
+ 1_000,
+ 60_000,
 );
 const FORMATION_MAINTENANCE_CHECKPOINT_RETRY_MS = 1_000;
 const FORMATION_QI_DECAY_RATE_SCALED = buildQiHalfLifeRateScaled(FORMATION_QI_HALF_LIFE_TICKS);
@@ -62,1958 +63,1959 @@ const runtimeFormationProjectionCache = new WeakMap();
 const formationBoundaryTileCache = new WeakMap();
 
 type FormationMaintenanceCheckpoint = {
-    playerId: string;
-    formationInstanceId: string;
-    instanceId: string;
-    expectedJobRunId: string;
-    durableInput: Record<string, any>;
-    snapshotRevision: number;
-    formationUpdatedAtMs: number;
-    createdAt: number;
-    dueAt: number;
-    timer: ReturnType<typeof setTimeout> | null;
-    commitFailed: boolean;
-    deps: any;
+ playerId: string;
+ formationInstanceId: string;
+ instanceId: string;
+ expectedJobRunId: string;
+ durableInput: Record<string, any>;
+ snapshotRevision: number;
+ formationUpdatedAtMs: number;
+ createdAt: number;
+ dueAt: number;
+ timer: ReturnType<typeof setTimeout> | null;
+ commitFailed: boolean;
+ deps: any;
 };
 
 /** world-runtime formation：阵法权威运行时，承接布阵、开关、补充与 tick 效果。 */
 class WorldRuntimeFormationService {
-    logger = new Logger(WorldRuntimeFormationService.name);
-    contentTemplateRepository;
-    playerRuntimeService;
-    formationsByInstanceId = new Map();
-    restoredFormationInstanceIds = new Set();
-    nextFormationSerial = 1;
-    persistencePool = null;
-    persistenceReady = false;
-    persistenceInitPromise = null;
-    databasePoolProvider = null;
-    durableOperationService = null;
-    formationPersistenceQueueById = new Map<string, Promise<void>>();
-    formationPersistenceFenceByInstanceId = new Map<string, InstanceLeaseWriteFence>();
-    formationMaintenanceCheckpointById = new Map<string, FormationMaintenanceCheckpoint>();
-    formationMaintenanceCheckpointIntervalMs = FORMATION_MAINTENANCE_CHECKPOINT_INTERVAL_MS;
-    unregisterBeforeManualPlayerFlushBarrier: (() => void) | null = null;
-
-    constructor(
-        contentTemplateRepository,
-        playerRuntimeService,
-        databasePoolProvider = null,
-        durableOperationService = null,
-        playerPersistenceFlushService = null,
-    ) {
-        this.contentTemplateRepository = contentTemplateRepository;
-        this.playerRuntimeService = playerRuntimeService;
-        this.databasePoolProvider = databasePoolProvider;
-        this.durableOperationService = durableOperationService;
-        if (typeof playerPersistenceFlushService?.registerBeforeManualPlayerFlushBarrier === 'function') {
-            this.unregisterBeforeManualPlayerFlushBarrier = playerPersistenceFlushService.registerBeforeManualPlayerFlushBarrier(
-                'formation-maintenance-checkpoint',
-                (playerId) => this.flushPendingFormationMaintenanceForPlayer(playerId),
-            );
-        }
-    }
-
-    async runExclusiveFormationPersistence(formationInstanceIds, action) {
-        const normalizedIds = Array.from(new Set((Array.isArray(formationInstanceIds) ? formationInstanceIds : [])
-            .map((formationId) => normalizeOptionalString(formationId))
-            .filter(Boolean))).sort();
-        const tickets = normalizedIds.map((formationId) => {
-            const previous = this.formationPersistenceQueueById.get(formationId) ?? Promise.resolve();
-            let release;
-            const gate = new Promise<void>((resolve) => {
-                release = resolve;
-            });
-            const tail = previous.catch(() => undefined).then(() => gate);
-            this.formationPersistenceQueueById.set(formationId, tail);
-            return { formationId, previous, release, tail };
-        });
-        await Promise.all(tickets.map((ticket) => ticket.previous.catch(() => undefined)));
-        try {
-            return await action();
-        } finally {
-            for (const ticket of tickets) {
-                ticket.release?.();
-            }
-            for (const ticket of tickets) {
-                void ticket.tail.finally(() => {
-                    if (this.formationPersistenceQueueById.get(ticket.formationId) === ticket.tail) {
-                        this.formationPersistenceQueueById.delete(ticket.formationId);
-                    }
-                });
-            }
-        }
-    }
-
-    isFormationPersistenceBlocked(instanceIds) {
-        return (Array.isArray(instanceIds) ? instanceIds : [])
-            .map((instanceId) => normalizeInstanceId(instanceId))
-            .filter(Boolean)
-            .some((instanceId) => this.durableOperationService?.isInstanceCommitOutcomeUnresolved?.(instanceId) === true);
-    }
-
-    captureFormationPersistenceFence(instance, deps = null) {
-        const instanceId = normalizeInstanceId(instance?.meta?.instanceId);
-        const assignedNodeId = normalizeOptionalString(instance?.meta?.assignedNodeId);
-        const leaseToken = normalizeOptionalString(instance?.meta?.leaseToken);
-        const ownershipEpoch = Number.isFinite(Number(instance?.meta?.ownershipEpoch))
-            ? Math.max(0, Math.trunc(Number(instance.meta.ownershipEpoch)))
-            : 0;
-        const leaseExpireAt = instance?.meta?.leaseExpireAt
-            ? new Date(instance.meta.leaseExpireAt).getTime()
-            : 0;
-        const runtimeIdentityCurrent = typeof deps?.getInstanceRuntime !== 'function'
-            || deps.getInstanceRuntime(instanceId) === instance;
-        const leaseWritable = typeof deps?.isInstanceLeaseWritable !== 'function'
-            ? Number.isFinite(leaseExpireAt) && leaseExpireAt > Date.now()
-            : deps.isInstanceLeaseWritable(instance) === true;
-        if (
-            !instanceId
-            || !assignedNodeId
-            || !leaseToken
-            || ownershipEpoch <= 0
-            || !runtimeIdentityCurrent
-            || !leaseWritable
-        ) {
-            if (this.requiresFormationPersistenceFence()) {
-                throw new ServiceUnavailableException(`地图实例 ${instanceId || 'unknown'} 阵法持久化租约不可写`);
-            }
-            return null;
-        }
-        return {
-            instanceId,
-            assignedNodeId,
-            leaseToken,
-            ownershipEpoch,
-        };
-    }
-
-    captureFormationPersistenceFences(instanceIds, deps = null) {
-        const fences = [];
-        for (const instanceId of Array.from(new Set((instanceIds ?? []).map(normalizeInstanceId).filter(Boolean))).sort()) {
-            const instance = deps?.getInstanceRuntime?.(instanceId) ?? null;
-            const fence = this.captureFormationPersistenceFence(instance, deps);
-            if (fence) {
-                fences.push(fence);
-            }
-        }
-        return fences;
-    }
-
-    captureFormationPersistenceFenceForFormation(formation, deps = null) {
-        const instanceId = normalizeInstanceId(formation?.instanceId);
-        const instance = instanceId && typeof deps?.getInstanceRuntime === 'function'
-            ? deps.getInstanceRuntime(instanceId)
-            : null;
-        return this.captureFormationPersistenceFence(instance, deps);
-    }
-
-    persistFormationMaintenanceSoon(formation, ctx = null) {
-        const deps = ctx?.deps ?? ctx;
-        const persistenceFence = this.captureFormationPersistenceFenceForFormation(formation, deps);
-        this.persistInstanceFormationsSoon(formation?.instanceId, persistenceFence);
-    }
-
-    requiresFormationPersistenceFence() {
-        return Boolean(resolveServerDatabaseUrl().trim())
-            && !isFormationVolatileFallbackAllowed();
-    }
-
-    rememberFormationPersistenceFence(instanceId, fence = null) {
-        const normalizedInstanceId = normalizeInstanceId(instanceId);
-        if (!normalizedInstanceId || !fence || normalizeInstanceId(fence.instanceId) !== normalizedInstanceId) {
-            return;
-        }
-        const current = this.formationPersistenceFenceByInstanceId.get(normalizedInstanceId) ?? null;
-        if (current && fence.ownershipEpoch === current.ownershipEpoch && (
-            fence.assignedNodeId !== current.assignedNodeId
-            || fence.leaseToken !== current.leaseToken
-        )) {
-            throw new Error(`formation_instance_lease_fence_identity_conflict:${normalizedInstanceId}:${fence.ownershipEpoch}`);
-        }
-        if (!current || fence.ownershipEpoch > current.ownershipEpoch) {
-            this.formationPersistenceFenceByInstanceId.set(normalizedInstanceId, { ...fence });
-        }
-    }
-
-    resolveFormationPersistenceFence(instanceId, fence = null) {
-        const normalizedInstanceId = normalizeInstanceId(instanceId);
-        const resolved = fence ?? this.formationPersistenceFenceByInstanceId.get(normalizedInstanceId) ?? null;
-        if (!resolved && this.requiresFormationPersistenceFence()) {
-            throw new Error(`formation_instance_lease_fence_missing:${normalizedInstanceId || 'unknown'}`);
-        }
-        return resolved;
-    }
-
-    resolveFormationMaintenanceCheckpointFence(
-        checkpoint: FormationMaintenanceCheckpoint,
-    ): InstanceLeaseWriteFence {
-        const checkpointInstanceId = normalizeInstanceId(checkpoint?.instanceId);
-        const expectedInstanceId = normalizeInstanceId(checkpoint?.durableInput?.expectedInstanceId);
-        const assignedNodeId = normalizeOptionalString(checkpoint?.durableInput?.expectedAssignedNodeId);
-        const leaseToken = normalizeOptionalString(checkpoint?.durableInput?.expectedLeaseToken);
-        const ownershipEpoch = Number.isFinite(Number(checkpoint?.durableInput?.expectedOwnershipEpoch))
-            ? Math.max(0, Math.trunc(Number(checkpoint.durableInput.expectedOwnershipEpoch)))
-            : 0;
-        if (
-            !checkpointInstanceId
-            || expectedInstanceId !== checkpointInstanceId
-            || !assignedNodeId
-            || !leaseToken
-            || ownershipEpoch <= 0
-        ) {
-            throw new Error(`formation_maintenance_checkpoint_lease_fence_invalid:${checkpointInstanceId || 'unknown'}`);
-        }
-        return {
-            instanceId: checkpointInstanceId,
-            assignedNodeId,
-            leaseToken,
-            ownershipEpoch,
-        };
-    }
-
-    enqueueFormationNotice(playerId, kind, key, fallbackText, vars = {}) {
-        const notice = buildStructuredNotice(kind, key, fallbackText, {
-            vars,
-            pills: [{ key: 'formationName', style: 'target' }],
-        });
-        this.playerRuntimeService.enqueueNotice(playerId, notice);
-    }
-
-    async onModuleInit() {
-        await this.ensurePersistencePool();
-    }
-
-    dispatchCreateFormation(playerId, payload, deps) {
-        const plan = this.buildCreateFormationPlan(playerId, payload, deps);
-        const durableContext = this.resolveFormationResourceDurableContext(plan.instance, deps);
-        if (durableContext) {
-            return this.runExclusivePlayerFormationResourceMutation(
-                playerId,
-                plan.formation.id,
-                () => this.commitCreateFormationPlan(plan, durableContext, deps),
-            );
-        }
-        if (resolveServerDatabaseUrl().trim() && !isFormationVolatileFallbackAllowed()) {
-            throw new ServiceUnavailableException('阵法资产事务暂不可用，请稍后重试');
-        }
-        this.applyFormationResourceFallback(playerId, plan.qiCost, plan.spiritStoneCount, plan.itemInstanceId, plan.instance, plan.placement);
-        return this.applyCreatedFormationRuntime(plan, deps, false);
-    }
-
-    buildCreateFormationPlan(playerId, payload, deps) {
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        const itemInstanceId = resolveInventoryItemInstanceId(payload, this.playerRuntimeService, playerId);
-        const diskItem = this.playerRuntimeService.peekInventoryItemByInstanceId(playerId, itemInstanceId);
-        const diskTier = resolveFormationDiskTier(diskItem);
-        if (!diskItem || !diskTier) {
-            throw new BadRequestException('需要使用阵盘布阵');
-        }
-        const template = this.resolveFormationTemplate(payload?.formationId);
-        if (resolveFormationLifecycle(template) === FORMATION_LIFECYCLE_PERSISTENT) {
-            throw new BadRequestException(`${template.name}是持续性阵法，不能通过阵盘布置`);
-        }
-        if (template.placeableByDisk === false) {
-            throw new BadRequestException(`${template.name}不能通过阵盘布置`);
-        }
-        const diskMultiplier = normalizeDiskMultiplier(diskItem);
-        const formationSkillLevel = resolveFormationSkillLevel(player);
-        const hasSetupPayload = payload?.setup && typeof payload.setup === 'object';
-        const plan = hasSetupPayload
-            ? resolveFormationSetupPlan(template, diskMultiplier, payload.setup, formationSkillLevel)
-            : null;
-        const spiritStoneCount = plan
-            ? plan.spiritStoneCount
-            : normalizePositiveInteger(payload?.spiritStoneCount, '灵石数量');
-        const minSpiritStoneCount = resolveFormationMinSpiritStoneCount(template);
-        if (!plan && spiritStoneCount < minSpiritStoneCount) {
-            throw new BadRequestException(`${template.name}至少需要投入 ${formatInteger(minSpiritStoneCount)} 灵石`);
-        }
-        const qiCost = plan ? plan.qiCost : resolveFormationQiCost(spiritStoneCount, template);
-        const allocation = plan
-            ? { ...plan.setup, formationSkillLevel }
-            : { ...normalizeFormationAllocation(payload?.allocation), formationSkillLevel };
-        const stats = plan ? plan.stats : resolveFormationStats(template, spiritStoneCount, diskMultiplier, allocation, formationSkillLevel);
-        const location = deps.getPlayerLocationOrThrow(playerId);
-        const instance = deps.getInstanceRuntime(location.instanceId);
-        if (!instance) {
-            throw new NotFoundException('当前地图实例不存在');
-        }
-        assertCanPlaceFormationInInstance(instance);
-        const placement = resolveFormationPlacement(playerId, player, location, instance);
-        assertFormationProtectedPlacementAllowed(instance, {
-            x: placement.x,
-            y: placement.y,
-            template,
-            stats,
-            name: template.name,
-        });
-        this.assertCanPay(playerId, qiCost, spiritStoneCount);
-        const now = Date.now();
-        const formation = {
-            instanceId: instance.meta.instanceId,
-            id: `formation:${instance.meta.instanceId}:${this.nextFormationSerial++}`,
-            ownerPlayerId: playerId,
-            ownerSectId: resolvePlayerSectId(player),
-            formationId: template.id,
-            lifecycle: FORMATION_LIFECYCLE_DEPLOYED,
-            name: template.name,
-            template,
-            diskItemId: diskItem.itemId,
-            diskTier,
-            diskMultiplier,
-            spiritStoneCount,
-            qiCost,
-            x: placement.x,
-            y: placement.y,
-            eyeInstanceId: instance.meta.instanceId,
-            eyeX: placement.x,
-            eyeY: placement.y,
-            allocation,
-            stats,
-            active: true,
-            remainingQiBudget: stats.totalQiBudget ?? stats.totalAuraBudget,
-            remainingSpiritStoneBudget: stats.totalSpiritStoneBudget ?? spiritStoneCount,
-            remainingAuraBudget: stats.totalAuraBudget,
-            createdAt: now,
-            updatedAt: now,
-        };
-        return {
-            playerId,
-            player,
-            itemInstanceId,
-            qiCost,
-            spiritStoneCount,
-            instance,
-            placement,
-            formation,
-        };
-    }
-
-    async commitCreateFormationPlan(plan, durableContext, deps) {
-        const player = this.playerRuntimeService.getPlayerOrThrow(plan.playerId);
-        const nextInventoryItems = buildFormationResourceInventoryPlan(
-            player.inventory?.items,
-            plan.spiritStoneCount,
-            plan.itemInstanceId,
-        );
-        const nextQi = Math.max(0, Math.trunc(Number(player.qi ?? 0)) - plan.qiCost);
-        await this.commitFormationResourcePlan({
-            playerId: plan.playerId,
-            player,
-            action: 'deploy',
-            formation: plan.formation,
-            expectedFormationUpdatedAtMs: null,
-            expectFormationAbsent: true,
-            nextInventoryItems,
-            nextQi,
-            spiritStoneCount: plan.spiritStoneCount,
-            qiAmount: plan.qiCost,
-            diskItemInstanceId: plan.itemInstanceId,
-            durableContext,
-        });
-        this.playerRuntimeService.replaceInventoryItems(plan.playerId, nextInventoryItems);
-        this.playerRuntimeService.setVitals(plan.playerId, { qi: nextQi });
-        plan.instance.disperseQiAt?.(plan.placement.x, plan.placement.y, plan.qiCost);
-        return this.applyCreatedFormationRuntime(plan, deps, true);
-    }
-
-    applyFormationResourceFallback(playerId, qiCost, spiritStoneCount, itemInstanceId, instance, placement) {
-        this.playerRuntimeService.spendQi(playerId, qiCost);
-        instance.disperseQiAt?.(placement.x, placement.y, qiCost);
-        this.playerRuntimeService.debitWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount);
-        this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, 1);
-    }
-
-    applyCreatedFormationRuntime(plan, deps, durableCommitted) {
-        const { formation, instance, playerId } = plan;
-        const { template, stats, spiritStoneCount } = formation;
-        this.getFormationList(instance.meta.instanceId).push(formation);
-        touchInstanceRevision(instance);
-        if (!durableCommitted) {
-            this.persistFormationSnapshotSoon(formation);
-        }
-        this.enqueueFormationNotice(
-            playerId,
-            'success',
-            'notice.formation.deployed',
-            `${template.name}已布下：半径 ${stats.radius}，强度 ${formatInteger(stats.effectValue)}，灵力 ${formatInteger(stats.totalQiBudget ?? stats.totalAuraBudget)}，灵石 ${formatInteger(stats.totalSpiritStoneBudget ?? spiritStoneCount)}。`,
-            {
-                formationName: template.name,
-                radius: stats.radius,
-                effectValue: formatInteger(stats.effectValue),
-                qiBudget: formatInteger(stats.totalQiBudget ?? stats.totalAuraBudget),
-                spiritStoneBudget: formatInteger(stats.totalSpiritStoneBudget ?? spiritStoneCount),
-            },
-        );
-        if (typeof deps.refreshPlayerContextActions === 'function') {
-            deps.refreshPlayerContextActions(playerId);
-        }
-        return formation;
-    }
-
-    upsertSectGuardianFormation(input, deps = null, options: { deferPersistence?: boolean } = {}) {
-        const template = this.resolveFormationTemplate(input?.formationId ?? 'sect_guardian_barrier');
-        if (template.effect?.kind !== BOUNDARY_BARRIER_EFFECT_KIND) {
-            throw new BadRequestException('护宗大阵模板必须是边界防护阵法');
-        }
-        const instanceId = normalizeInstanceId(input?.instanceId);
-        if (!instanceId) {
-            throw new BadRequestException('地图实例 ID 不能为空');
-        }
-        const persistenceFence = options.deferPersistence === true
-            ? null
-            : this.captureFormationPersistenceFence(deps?.getInstanceRuntime?.(instanceId) ?? null, deps);
-        const x = firstFiniteInteger(input?.x);
-        const y = firstFiniteInteger(input?.y);
-        if (!Number.isFinite(x) || !Number.isFinite(y)) {
-            throw new BadRequestException('护宗大阵入口坐标无效');
-        }
-        const ownerSectId = normalizeOptionalString(input?.ownerSectId ?? input?.sectId);
-        const eyeInstanceId = normalizeInstanceId(input?.eyeInstanceId) || instanceId;
-        const eyeX = firstFiniteInteger(input?.eyeX, x);
-        const eyeY = firstFiniteInteger(input?.eyeY, y);
-        const explicitRemainingQiBudget = Number.isFinite(Number(input?.remainingQiBudget ?? input?.remainingAuraBudget))
-            ? Math.max(0, Number(input.remainingQiBudget ?? input.remainingAuraBudget))
-            : null;
-        const explicitRemainingSpiritStoneBudget = Number.isFinite(Number(input?.remainingSpiritStoneBudget))
-            ? Math.max(0, Number(input.remainingSpiritStoneBudget))
-            : null;
-        const inputSpiritStoneCount = Math.trunc(Number(input?.spiritStoneCount) || 0);
-        const auraPerSpiritStone = resolveFormationAuraPerSpiritStone(template);
-        const fallbackSpiritStoneCount = explicitRemainingSpiritStoneBudget !== null
-            ? Math.ceil(explicitRemainingSpiritStoneBudget)
-            : explicitRemainingQiBudget !== null
-            ? Math.ceil(explicitRemainingQiBudget / auraPerSpiritStone)
-            : resolveFormationMinSpiritStoneCount(template);
-        const spiritStoneCount = Math.max(1, inputSpiritStoneCount > 0 ? inputSpiritStoneCount : fallbackSpiritStoneCount);
-        const diskMultiplier = Number.isFinite(Number(input?.diskMultiplier)) ? Math.max(1, Number(input.diskMultiplier)) : 1;
-        const list = this.getFormationList(instanceId);
-        const formationId = normalizeOptionalString(input?.id)
-            || `formation:sect_guardian:${ownerSectId || 'public'}:${instanceId}:${x}:${y}`;
-        const existing = list.find((entry) => entry.id === formationId);
-        const existingSetup = typeof isFormationSetupInput === 'function' && isFormationSetupInput(existing?.allocation)
-            ? existing.allocation
-            : null;
-        const allocationSeed = typeof isFormationSetupInput === 'function' && isFormationSetupInput(input?.allocation)
-            ? input.allocation
-            : {
-                radius: Math.max(1, Math.trunc(Number(input?.radius ?? existingSetup?.radius ?? 1) || 1)),
-                durationHours: Math.max(1 / 60, Number(existingSetup?.durationHours ?? 24) || 24),
-                effectValue: Math.max(1, Math.trunc(Number(existingSetup?.effectValue ?? 1) || 1)),
-            };
-        const allocation = normalizeFormationSetup(template, allocationSeed);
-        const stats = resolveFormationStats(template, spiritStoneCount, diskMultiplier, allocation);
-        if (Number.isFinite(Number(input?.radius))) {
-            stats.radius = Math.max(1, Math.trunc(Number(input.radius)));
-        }
-        const now = resolveNextFormationUpdatedAt(existing);
-        const remainingQiBudget = existing
-            ? resolveFormationRemainingQiBudget(existing)
-            : explicitRemainingQiBudget !== null ? explicitRemainingQiBudget : stats.totalQiBudget ?? stats.totalAuraBudget;
-        const remainingSpiritStoneBudget = existing
-            ? resolveFormationRemainingSpiritStoneBudget(existing)
-            : explicitRemainingSpiritStoneBudget !== null ? explicitRemainingSpiritStoneBudget : stats.totalSpiritStoneBudget ?? spiritStoneCount;
-        const active = input?.active !== false && remainingQiBudget > 0 && remainingSpiritStoneBudget > 0;
-        const patch = {
-            instanceId,
-            id: formationId,
-            ownerPlayerId: normalizeOptionalString(input?.ownerPlayerId) || '',
-            ownerSectId,
-            formationId: template.id,
-            lifecycle: FORMATION_LIFECYCLE_PERSISTENT,
-            name: template.name,
-            template,
-            diskItemId: '',
-            diskTier: 'mortal',
-            diskMultiplier,
-            spiritStoneCount,
-            qiCost: 0,
-            x,
-            y,
-            eyeInstanceId,
-            eyeX,
-            eyeY,
-            allocation,
-            stats,
-            active,
-            remainingQiBudget,
-            remainingSpiritStoneBudget,
-            remainingAuraBudget: remainingQiBudget,
-            createdAt: existing?.createdAt ?? now,
-            updatedAt: now,
-        };
-        if (existing) {
-            Object.assign(existing, patch);
-        }
-        else {
-            list.push(patch);
-        }
-        const formation = existing ?? patch;
-        touchRuntimeInstanceRevision(deps, instanceId);
-        if (options.deferPersistence !== true) {
-            this.persistFormationSnapshotSoon(formation, persistenceFence);
-        }
-        return formation;
-    }
-
-    /** 为宗门跨域事务导出护宗大阵持久化快照，不在调用处复制 formation 表结构。 */
-    serializeFormationForDurableMutation(formation) {
-        return formation ? serializeFormation(formation) : null;
-    }
-
-    dispatchSetFormationActive(playerId, payload, deps = null) {
-        const formation = this.findOwnedFormation(playerId, payload?.formationInstanceId);
-        if (isPersistentFormation(formation)) {
-            throw new BadRequestException('持续性阵法需要在阵法管理面板操作');
-        }
-        const persistenceFence = this.captureFormationPersistenceFenceForFormation(formation, deps);
-        formation.active = payload?.active !== false
-            && resolveFormationRemainingQiBudget(formation) > 0
-            && resolveFormationRemainingSpiritStoneBudget(formation) > 0;
-        formation.updatedAt = resolveNextFormationUpdatedAt(formation);
-        touchRuntimeInstanceRevision(deps, formation.instanceId);
-        this.persistFormationSnapshotSoon(formation, persistenceFence);
-        this.enqueueFormationNotice(
-            playerId,
-            'info',
-            'notice.formation.active-set',
-            `${formation.name}已${formation.active ? '开启' : '关闭'}。`,
-            { formationName: formation.name, stateLabel: formation.active ? '开启' : '关闭' },
-        );
-        return formation;
-    }
-
-    dispatchRefillFormation(playerId, payload, deps = null) {
-        const plan = this.buildRefillFormationPlan(playerId, payload, deps);
-        const instance = this.resolveFormationWriteInstance(plan.formation, deps);
-        const durableContext = this.resolveFormationResourceDurableContext(instance, deps);
-        if (durableContext) {
-            return this.runExclusivePlayerFormationResourceMutation(
-                playerId,
-                plan.formation.id,
-                () => this.commitRefillFormationPlan(
-                    this.buildRefillFormationPlan(playerId, payload, deps),
-                    durableContext,
-                    deps,
-                ),
-            );
-        }
-        if (resolveServerDatabaseUrl().trim() && !isFormationVolatileFallbackAllowed()) {
-            throw new ServiceUnavailableException('阵法资产事务暂不可用，请稍后重试');
-        }
-        this.applyRefillFormationPlayerResources(plan, deps);
-        return this.applyRefillFormationRuntime(plan, deps, false);
-    }
-
-    buildRefillFormationPlan(playerId, payload, deps = null) {
-        const formation = this.findOwnedFormation(playerId, payload?.formationInstanceId);
-        if (isPersistentFormation(formation)) {
-            throw new BadRequestException('持续性阵法需要在阵法管理面板注入灵石或灵力');
-        }
-        const defaultSpiritStoneCount = Math.max(1, Math.trunc(Number(formation.spiritStoneCount) || 1));
-        const spiritStoneCount = payload && 'spiritStoneCount' in payload
-            ? normalizeNonNegativeInteger(payload.spiritStoneCount ?? 0)
-            : defaultSpiritStoneCount;
-        const qiAmount = payload && ('qiAmount' in payload || 'qiCost' in payload)
-            ? normalizeNonNegativeInteger(payload.qiAmount ?? payload.qiCost ?? 0)
-            : resolveFormationQiCost(defaultSpiritStoneCount, formation.template);
-        if (spiritStoneCount <= 0 && qiAmount <= 0) {
-            throw new BadRequestException('至少需要补充灵石或灵力');
-        }
-        this.assertCanPay(playerId, qiAmount, spiritStoneCount);
-        const nextFormation = cloneFormationForResourceMutation(formation);
-        if (spiritStoneCount > 0) {
-            setFormationRemainingSpiritStoneBudget(nextFormation, resolveFormationRemainingSpiritStoneBudget(nextFormation) + spiritStoneCount);
-        }
-        if (qiAmount > 0) {
-            setFormationRemainingQiBudget(nextFormation, resolveFormationRemainingQiBudget(nextFormation) + qiAmount);
-        }
-        if (resolveFormationRemainingQiBudget(nextFormation) > 0 && resolveFormationRemainingSpiritStoneBudget(nextFormation) > 0) {
-            nextFormation.active = true;
-        }
-        nextFormation.updatedAt = resolveNextFormationUpdatedAt(formation);
-        return {
-            playerId,
-            formation,
-            nextFormation,
-            expectedFormationUpdatedAtMs: Math.max(0, Math.trunc(Number(formation.updatedAt) || 0)),
-            spiritStoneCount,
-            qiAmount,
-        };
-    }
-
-    async commitRefillFormationPlan(plan, durableContext, deps) {
-        const player = this.playerRuntimeService.getPlayerOrThrow(plan.playerId);
-        const nextInventoryItems = buildFormationResourceInventoryPlan(
-            player.inventory?.items,
-            plan.spiritStoneCount,
-        );
-        const nextQi = Math.max(0, Math.trunc(Number(player.qi ?? 0)) - plan.qiAmount);
-        await this.commitFormationResourcePlan({
-            playerId: plan.playerId,
-            player,
-            action: 'refill',
-            formation: plan.nextFormation,
-            expectedFormationUpdatedAtMs: plan.expectedFormationUpdatedAtMs,
-            expectFormationAbsent: false,
-            nextInventoryItems,
-            nextQi,
-            spiritStoneCount: plan.spiritStoneCount,
-            qiAmount: plan.qiAmount,
-            diskItemInstanceId: null,
-            durableContext,
-        });
-        this.playerRuntimeService.replaceInventoryItems(plan.playerId, nextInventoryItems);
-        this.playerRuntimeService.setVitals(plan.playerId, { qi: nextQi });
-        if (plan.qiAmount > 0) {
-            dispersePlayerQiSpend(deps, this.playerRuntimeService.getPlayerOrThrow(plan.playerId), plan.qiAmount);
-        }
-        return this.applyRefillFormationRuntime(plan, deps, true);
-    }
-
-    applyRefillFormationPlayerResources(plan, deps) {
-        const { playerId, qiAmount, spiritStoneCount } = plan;
-        if (qiAmount > 0) {
-            this.playerRuntimeService.spendQi(playerId, qiAmount);
-            dispersePlayerQiSpend(deps, this.playerRuntimeService.getPlayerOrThrow(playerId), qiAmount);
-        }
-        if (spiritStoneCount > 0) {
-            this.playerRuntimeService.debitWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount);
-        }
-    }
-
-    applyRefillFormationRuntime(plan, deps, durableCommitted) {
-        const { playerId, formation, nextFormation, spiritStoneCount, qiAmount } = plan;
-        Object.assign(formation, nextFormation);
-        touchRuntimeInstanceRevision(deps, formation.instanceId);
-        if (!durableCommitted) {
-            this.persistFormationSnapshotSoon(formation);
-        }
-        this.enqueueFormationNotice(
-            playerId,
-            'success',
-            'notice.formation.refilled',
-            `${formation.name}补充灵石 ${formatInteger(spiritStoneCount)}，灵力 ${formatInteger(qiAmount)}。`,
-            {
-                formationName: formation.name,
-                spiritStoneCount: formatInteger(spiritStoneCount),
-                qiAmount: formatInteger(qiAmount),
-            },
-        );
-        return formation;
-    }
-
-    createFormationMaintenanceJob(player, validated, ctx) {
-        const playerId = normalizePlayerId(player);
-        const formation = this.resolveMaintainableFormation(playerId, validated?.formationInstanceId, ctx);
-        const rate = resolveFormationMaintenanceRate(player);
-        return {
-            jobRunId: `job:${playerId}:formation:${Date.now()}`,
-            jobType: 'formation',
-            formationInstanceId: formation.id,
-            formationName: formation.name,
-            instanceId: formation.instanceId,
-            controlInstanceId: normalizeInstanceId(formation.eyeInstanceId) || formation.instanceId,
-            controlX: firstFiniteInteger(formation.eyeX, formation.x),
-            controlY: firstFiniteInteger(formation.eyeY, formation.y),
-            phase: 'maintaining',
-            startedAt: Date.now(),
-            totalTicks: 1,
-            remainingTicks: 1,
-            workTotalTicks: 1,
-            workRemainingTicks: 1,
-            interruptWaitRemainingTicks: 0,
-            interruptState: null,
-            pausedTicks: 0,
-            successRate: 1,
-            spiritStoneCost: 0,
-            maintenanceRate: rate,
-            jobVersion: 1,
-        };
-    }
-
-    checkFormationMaintenanceCondition(player, job, _ctx = null) {
-        const playerId = normalizePlayerId(player);
-        const formationInstanceId = normalizeOptionalString(job?.formationInstanceId);
-        if (!playerId || !formationInstanceId) {
-            return { satisfied: false, reason: '阵法维护目标无效。', shouldCancel: true };
-        }
-        let formation = null;
-        try {
-            formation = this.resolveMaintainableFormation(playerId, formationInstanceId, _ctx);
-        } catch (_error) {
-            return { satisfied: false, reason: '阵法已不存在或不属于你。', shouldCancel: true };
-        }
-        if (!formation || resolveFormationRemainingSpiritStoneBudget(formation) <= 0) {
-            return { satisfied: false, reason: '阵法灵石已耗尽。', shouldCancel: true };
-        }
-        const controlInstanceId = normalizeInstanceId(formation.eyeInstanceId) || formation.instanceId;
-        const controlX = firstFiniteInteger(formation.eyeX, formation.x);
-        const controlY = firstFiniteInteger(formation.eyeY, formation.y);
-        const playerInstanceId = normalizeInstanceId(player.instanceId);
-        if (playerInstanceId !== controlInstanceId
-            || !isWithinFormationMaintenanceControlRange(player.x, player.y, controlX, controlY)) {
-            return { satisfied: false, reason: '离开阵法控制点位。' };
-        }
-        return { satisfied: true };
-    }
-
-    resolveMaintainableFormation(playerId, formationInstanceId, ctx = null) {
-        try {
-            return this.findOwnedFormation(playerId, formationInstanceId);
-        }
-        catch (ownedError) {
-            const formation = this.findFormationByInstanceOrId(null, formationInstanceId);
-            const sectService = ctx?.deps?.worldRuntimeSectService ?? ctx?.worldRuntimeSectService ?? null;
-            if (formation
-                && isPersistentFormation(formation)
-                && typeof sectService?.canPlayerMaintainGuardianFormation === 'function'
-                && sectService.canPlayerMaintainGuardianFormation(playerId, formation)) {
-                return formation;
-            }
-            throw ownedError;
-        }
-    }
-
-    resolveFormationRemainingQiBudget(formation) {
-        return resolveFormationRemainingQiBudget(formation);
-    }
-
-    resolveFormationRemainingSpiritStoneBudget(formation) {
-        return resolveFormationRemainingSpiritStoneBudget(formation);
-    }
-
-    resolveFormationDailySpiritStoneCost(formation) {
-        return resolveFormationDailySpiritStoneCost(formation);
-    }
-
-    resolveFormationDamageReduction(formation) {
-        return resolveFormationDamageReduction(formation?.template, formation?.stats?.effectValue);
-    }
-
-    setFormationRemainingQiBudget(formation, value) {
-        setFormationRemainingQiBudget(formation, value);
-    }
-
-    dispatchSetPersistentFormationStrength(playerId, payload, deps = null) {
-        const formation = this.findFormationByInstanceOrId(payload?.instanceId, payload?.formationInstanceId);
-        if (!formation) {
-            throw new NotFoundException('阵法不存在');
-        }
-        if (!isPersistentFormation(formation)) {
-            throw new BadRequestException('该阵法不是持续性阵法');
-        }
-        const persistenceFence = this.captureFormationPersistenceFenceForFormation(formation, deps);
-        const strength = normalizePositiveInteger(payload?.strength ?? payload?.effectValue ?? 1, '阵法强度');
-        const setup = normalizeFormationSetup(formation.template, {
-            ...(typeof isFormationSetupInput === 'function' && isFormationSetupInput(formation.allocation) ? formation.allocation : {}),
-            radius: Math.max(1, Math.trunc(Number(formation.stats?.radius ?? formation.allocation?.radius ?? 1) || 1)),
-            durationHours: Math.max(1 / 60, Number(formation.allocation?.durationHours ?? 24) || 24),
-            effectValue: strength,
-        });
-        formation.allocation = {
-            ...setup,
-            formationSkillLevel: 0,
-        };
-        formation.stats = resolveFormationStats(
-            formation.template,
-            Math.max(1, Math.trunc(Number(formation.spiritStoneCount) || 1)),
-            Number.isFinite(Number(formation.diskMultiplier)) ? Math.max(1, Number(formation.diskMultiplier)) : 1,
-            formation.allocation,
-            0,
-        );
-        if (Number.isFinite(Number(setup.radius))) {
-            formation.stats.radius = Math.max(1, Math.trunc(Number(setup.radius)));
-        }
-        formation.updatedAt = resolveNextFormationUpdatedAt(formation);
-        touchRuntimeInstanceRevision(deps, formation.instanceId);
-        if (normalizeInstanceId(formation.eyeInstanceId) && normalizeInstanceId(formation.eyeInstanceId) !== formation.instanceId) {
-            touchRuntimeInstanceRevision(deps, formation.eyeInstanceId);
-        }
-        this.persistFormationSnapshotSoon(formation, persistenceFence);
-        this.enqueueFormationNotice(
-            playerId,
-            'success',
-            'notice.formation.strength-set',
-            `${formation.name}强度已调整为 ${formatInteger(strength)}。`,
-            { formationName: formation.name, strength: formatInteger(strength) },
-        );
-        return formation;
-    }
-
-    dispatchSetPersistentFormationActive(playerId, payload, deps = null) {
-        const formation = this.findFormationByInstanceOrId(payload?.instanceId, payload?.formationInstanceId);
-        if (!formation) {
-            throw new NotFoundException('阵法不存在');
-        }
-        if (!isPersistentFormation(formation)) {
-            throw new BadRequestException('该阵法不是持续性阵法');
-        }
-        const persistenceFence = this.captureFormationPersistenceFenceForFormation(formation, deps);
-        formation.active = payload?.active !== false
-            && resolveFormationRemainingQiBudget(formation) > 0
-            && resolveFormationRemainingSpiritStoneBudget(formation) > 0;
-        formation.updatedAt = resolveNextFormationUpdatedAt(formation);
-        touchRuntimeInstanceRevision(deps, formation.instanceId);
-        this.persistFormationSnapshotSoon(formation, persistenceFence);
-        this.enqueueFormationNotice(
-            playerId,
-            'info',
-            'notice.formation.active-set',
-            `${formation.name}已${formation.active ? '开启' : '关闭'}。`,
-            { formationName: formation.name, stateLabel: formation.active ? '开启' : '关闭' },
-        );
-        return formation;
-    }
-
-    dispatchInjectPersistentFormationEnergy(playerId, payload, deps = null) {
-        const plan = this.buildPersistentFormationInjectionPlan(playerId, payload);
-        const instance = this.resolveFormationWriteInstance(plan.formation, deps);
-        const durableContext = this.resolveFormationResourceDurableContext(instance, deps);
-        if (durableContext) {
-            return this.runExclusivePlayerFormationResourceMutation(
-                playerId,
-                plan.formation.id,
-                () => this.commitPersistentFormationInjectionPlan(
-                    this.buildPersistentFormationInjectionPlan(playerId, payload),
-                    durableContext,
-                    deps,
-                ),
-            );
-        }
-        if (resolveServerDatabaseUrl().trim() && !isFormationVolatileFallbackAllowed()) {
-            throw new ServiceUnavailableException('阵法资产事务暂不可用，请稍后重试');
-        }
-        this.applyPersistentFormationInjectionPlayerResources(plan, deps);
-        return this.applyPersistentFormationInjectionRuntime(plan, deps, false);
-    }
-
-    buildPersistentFormationInjectionPlan(playerId, payload) {
-        const formation = this.findFormationByInstanceOrId(payload?.instanceId, payload?.formationInstanceId);
-        if (!formation) {
-            throw new NotFoundException('阵法不存在');
-        }
-        if (!isPersistentFormation(formation)) {
-            throw new BadRequestException('该阵法不是持续性阵法');
-        }
-        const spiritStoneCount = normalizeNonNegativeInteger(payload?.spiritStoneCount ?? 0);
-        const qiAmount = normalizeNonNegativeInteger(payload?.qiAmount ?? payload?.qiCost ?? resolveFormationQiCost(spiritStoneCount, formation.template));
-        if (spiritStoneCount <= 0 && qiAmount <= 0) {
-            throw new BadRequestException('至少需要注入灵石或灵力');
-        }
-        this.assertCanInject(playerId, qiAmount, spiritStoneCount);
-        const nextFormation = cloneFormationForResourceMutation(formation);
-        if (spiritStoneCount > 0) {
-            setFormationRemainingSpiritStoneBudget(nextFormation, resolveFormationRemainingSpiritStoneBudget(nextFormation) + spiritStoneCount);
-        }
-        if (qiAmount > 0) {
-            setFormationRemainingQiBudget(nextFormation, resolveFormationRemainingQiBudget(nextFormation) + qiAmount);
-        }
-        if (resolveFormationRemainingQiBudget(nextFormation) > 0 && resolveFormationRemainingSpiritStoneBudget(nextFormation) > 0) {
-            nextFormation.active = true;
-        }
-        nextFormation.updatedAt = resolveNextFormationUpdatedAt(formation);
-        return {
-            playerId,
-            formation,
-            nextFormation,
-            expectedFormationUpdatedAtMs: Math.max(0, Math.trunc(Number(formation.updatedAt) || 0)),
-            spiritStoneCount,
-            qiAmount,
-        };
-    }
-
-    async commitPersistentFormationInjectionPlan(plan, durableContext, deps) {
-        const player = this.playerRuntimeService.getPlayerOrThrow(plan.playerId);
-        const nextInventoryItems = buildFormationResourceInventoryPlan(
-            player.inventory?.items,
-            plan.spiritStoneCount,
-        );
-        const nextQi = Math.max(0, Math.trunc(Number(player.qi ?? 0)) - plan.qiAmount);
-        await this.commitFormationResourcePlan({
-            playerId: plan.playerId,
-            player,
-            action: 'inject',
-            formation: plan.nextFormation,
-            expectedFormationUpdatedAtMs: plan.expectedFormationUpdatedAtMs,
-            expectFormationAbsent: false,
-            nextInventoryItems,
-            nextQi,
-            spiritStoneCount: plan.spiritStoneCount,
-            qiAmount: plan.qiAmount,
-            diskItemInstanceId: null,
-            durableContext,
-        });
-        this.playerRuntimeService.replaceInventoryItems(plan.playerId, nextInventoryItems);
-        this.playerRuntimeService.setVitals(plan.playerId, { qi: nextQi });
-        if (plan.qiAmount > 0) {
-            dispersePlayerQiSpend(deps, this.playerRuntimeService.getPlayerOrThrow(plan.playerId), plan.qiAmount);
-        }
-        return this.applyPersistentFormationInjectionRuntime(plan, deps, true);
-    }
-
-    applyPersistentFormationInjectionPlayerResources(plan, deps) {
-        const { playerId, qiAmount, spiritStoneCount } = plan;
-        if (qiAmount > 0) {
-            this.playerRuntimeService.spendQi(playerId, qiAmount);
-            dispersePlayerQiSpend(deps, this.playerRuntimeService.getPlayerOrThrow(playerId), qiAmount);
-        }
-        if (spiritStoneCount > 0) {
-            this.playerRuntimeService.debitWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount);
-        }
-    }
-
-    applyPersistentFormationInjectionRuntime(plan, deps, durableCommitted) {
-        const { playerId, formation, nextFormation, spiritStoneCount, qiAmount } = plan;
-        Object.assign(formation, nextFormation);
-        touchRuntimeInstanceRevision(deps, formation.instanceId);
-        if (!durableCommitted) {
-            this.persistFormationSnapshotSoon(formation);
-        }
-        this.enqueueFormationNotice(
-            playerId,
-            'success',
-            'notice.formation.injected',
-            `${formation.name}注入灵石 ${formatInteger(spiritStoneCount)}，灵力 ${formatInteger(qiAmount)}。`,
-            {
-                formationName: formation.name,
-                spiritStoneCount: formatInteger(spiritStoneCount),
-                qiAmount: formatInteger(qiAmount),
-            },
-        );
-        return formation;
-    }
-
-    advanceInstanceFormations(instance, _worldTick, deps) {
-        const formations = this.formationsByInstanceId.get(instance.meta.instanceId);
-        if (!formations || formations.length <= 0) {
-            return;
-        }
-        const persistenceFence = this.captureFormationPersistenceFence(instance, deps);
-        let persistenceDirty = false;
-        for (let index = formations.length - 1; index >= 0; index -= 1) {
-            const formation = formations[index];
-            const tickCost = resolveFormationTickCost(formation);
-            const spiritStoneBefore = resolveFormationRemainingSpiritStoneBudget(formation);
-            const qiBefore = resolveFormationRemainingQiBudget(formation);
-            const lacksSpiritStone = tickCost.spiritStoneCost > 0 && spiritStoneBefore < tickCost.spiritStoneCost;
-            setFormationRemainingSpiritStoneBudget(formation, Math.max(0, spiritStoneBefore - tickCost.spiritStoneCost));
-            if (lacksSpiritStone || resolveFormationRemainingSpiritStoneBudget(formation) <= 0) {
-                formations.splice(index, 1);
-                touchInstanceRevision(instance);
-                persistenceDirty = true;
-                this.persistFormationRemovalSoon(formation, persistenceFence);
-                this.enqueueFormationNotice(
-                    formation.ownerPlayerId,
-                    'warning',
-                    'notice.formation.spirit-stone-depleted',
-                    `${formation.name}灵石耗尽，阵势损毁。`,
-                    { formationName: formation.name },
-                );
-                continue;
-            }
-            const wasActive = formation.active !== false;
-            const lacksQi = tickCost.qiCost > 0 && qiBefore < tickCost.qiCost;
-            setFormationRemainingQiBudget(formation, Math.max(0, qiBefore - tickCost.qiCost));
-            if (tickCost.spiritStoneCost > 0 || tickCost.qiCost > 0) {
-                formation.updatedAt = resolveNextFormationUpdatedAt(formation);
-            }
-            if (lacksQi || resolveFormationRemainingQiBudget(formation) <= 0) {
-                if (formation.active !== false) {
-                    formation.active = false;
-                    formation.updatedAt = resolveNextFormationUpdatedAt(formation);
-                    touchInstanceRevision(instance);
-                    persistenceDirty = true;
-                    this.enqueueFormationNotice(
-                        formation.ownerPlayerId,
-                        'warning',
-                        'notice.formation.qi-depleted',
-                        `${formation.name}灵力不足，阵势关闭。`,
-                        { formationName: formation.name },
-                    );
-                }
-                if (Number.isFinite(Number(_worldTick)) && Number(_worldTick) % 60 === 0) {
-                    persistenceDirty = true;
-                }
-                continue;
-            }
-            if (Number.isFinite(Number(_worldTick)) && Number(_worldTick) % 60 === 0) {
-                persistenceDirty = true;
-            }
-            if (!wasActive || formation.active !== true) {
-                continue;
-            }
-            if (formation.template.effect.kind === TILE_AURA_SOURCE_EFFECT_KIND) {
-                this.advanceAuraFormation(instance, formation);
-            }
-        }
-        if (formations.length <= 0) {
-            this.formationsByInstanceId.delete(instance.meta.instanceId);
-        }
-        if (persistenceDirty) {
-            this.persistInstanceFormationsSoon(instance.meta.instanceId, persistenceFence);
-        }
-    }
-
-    isTerrainStabilized(instanceId, x, y) {
-        const formations = this.formationsByInstanceId.get(instanceId);
-        if (!formations || formations.length <= 0) {
-            return false;
-        }
-        for (const formation of formations) {
-            if (!isActiveTerrainStabilizerFormation(formation)) {
-                continue;
-            }
-            if (this.containsTile(formation, x, y)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    createTerrainStabilizationChecker(instanceId) {
-        const formations = this.formationsByInstanceId.get(instanceId);
-        if (!formations || formations.length <= 0) {
-            return buildTerrainStabilizationChecker(() => false, false);
-        }
-        const snapshots = [];
-        for (const formation of formations) {
-            if (!isActiveTerrainStabilizerFormation(formation)) {
-                continue;
-            }
-            snapshots.push({
-                shape: formation.template.range.shape,
-                x: Math.trunc(Number(formation.x)),
-                y: Math.trunc(Number(formation.y)),
-                radius: Math.max(1, Math.trunc(Number(formation.stats?.radius) || 1)),
-            });
-        }
-        if (snapshots.length <= 0) {
-            return buildTerrainStabilizationChecker(() => false, false);
-        }
-        return buildTerrainStabilizationChecker((x, y) => {
-            const tileX = Math.trunc(Number(x));
-            const tileY = Math.trunc(Number(y));
-            if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) {
-                return false;
-            }
-            for (const snapshot of snapshots) {
-                if (isFormationAffectedCell(snapshot.shape, snapshot.x, snapshot.y, tileX, tileY, snapshot.radius)) {
-                    return true;
-                }
-            }
-            return false;
-        }, true);
-    }
-
-    resolveTerrainDamageReduction(instanceId, x, y) {
-        const formations = this.formationsByInstanceId.get(instanceId);
-        if (!formations || formations.length <= 0) {
-            return 0;
-        }
-        let reduction = 0;
-        for (const formation of formations) {
-            if (!isActiveTerrainStabilizerFormation(formation)) {
-                continue;
-            }
-            if (!this.containsTile(formation, x, y)) {
-                continue;
-            }
-            const formationReduction = resolveFormationDamageReduction(formation.template, formation.stats?.effectValue);
-            if (formationReduction <= 0) {
-                continue;
-            }
-            reduction = Math.max(reduction, formationReduction);
-        }
-        return Math.max(0, Math.min(0.999999, reduction));
-    }
-
-    resolveMonsterSuppressionLayersAt(instanceId, x, y) {
-        const tileX = Math.trunc(Number(x));
-        const tileY = Math.trunc(Number(y));
-        if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) {
-            return 0;
-        }
-        const formations = this.formationsByInstanceId.get(instanceId);
-        if (!formations || formations.length <= 0) {
-            return 0;
-        }
-        let layers = 0;
-        for (const formation of formations) {
-            if (!isActiveFormationOfKind(formation, MONSTER_SUPPRESSION_EFFECT_KIND)) {
-                continue;
-            }
-            if (!this.containsTile(formation, tileX, tileY)) {
-                continue;
-            }
-            layers = Math.max(layers, Math.floor(Number(formation.stats?.effectValue) || 0));
-        }
-        return Math.max(0, layers);
-    }
-
-    resolveVisionSuppressionPercentAt(instanceId, x, y) {
-        const tileX = Math.trunc(Number(x));
-        const tileY = Math.trunc(Number(y));
-        if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) {
-            return 0;
-        }
-        const formations = this.formationsByInstanceId.get(instanceId);
-        if (!formations || formations.length <= 0) {
-            return 0;
-        }
-        let percent = 0;
-        for (const formation of formations) {
-            if (!isActiveFormationOfKind(formation, VISION_SUPPRESSION_EFFECT_KIND)) {
-                continue;
-            }
-            if (!this.containsTile(formation, tileX, tileY)) {
-                continue;
-            }
-            const strength = Math.floor(Number(formation.stats?.effectValue) || 0);
-            const percentPerStrength = Number.isFinite(Number(formation.template?.effect?.visionReductionPercentPerStrength))
-                ? Math.max(0, Number(formation.template.effect.visionReductionPercentPerStrength))
-                : DEFAULT_FORMATION_VISION_REDUCTION_PERCENT_PER_STRENGTH;
-            percent = Math.max(percent, strength * percentPerStrength);
-        }
-        return Math.max(0, percent);
-    }
-
-    mitigateTerrainDamage(instanceId, x, y, damage) {
-        const normalizedDamage = Math.max(0, Number(damage) || 0);
-        if (normalizedDamage <= 0) {
-            return 0;
-        }
-        const reduction = this.resolveTerrainDamageReduction(instanceId, x, y);
-        if (reduction <= 0) {
-            return normalizedDamage;
-        }
-        return Math.max(0, normalizedDamage * (1 - reduction));
-    }
-
-    resolveFormationSelfDamageReduction(formation) {
-        if (!formation
-            || formation.active !== true
-            || formation.template?.effect?.kind !== BOUNDARY_BARRIER_EFFECT_KIND) {
-            return 0;
-        }
-        return resolveFormationDamageReduction(formation.template, formation.stats?.effectValue);
-    }
-
-    isBoundaryBarrierBlocked(instanceId, x, y, playerId = null) {
-        return Boolean(this.findBoundaryBarrierFormation(instanceId, x, y, playerId));
-    }
-
-    /** 只枚举对指定玩家生效的阵法边界，供寻路任务构造逐请求动态阻挡掩码。 */
-    forEachBoundaryBarrierBlockedTile(instanceId, playerId, visitor) {
-        if (typeof visitor !== 'function') {
-            return;
-        }
-        const formations = this.formationsByInstanceId.get(instanceId);
-        if (!formations || formations.length <= 0) {
-            return;
-        }
-        for (const formation of formations) {
-            if (formation.active !== true
-                || formation.template?.effect?.kind !== BOUNDARY_BARRIER_EFFECT_KIND
-                || resolveFormationRemainingQiBudget(formation) <= 0
-                || this.canPlayerPassFormationBoundary(formation, playerId)) {
-                continue;
-            }
-            const radius = Math.max(1, Math.trunc(Number(formation.stats?.radius) || 1));
-            const shape = formation.template?.range?.shape ?? 'square';
-            let cached = formationBoundaryTileCache.get(formation);
-            if (!cached
-                || cached.x !== formation.x
-                || cached.y !== formation.y
-                || cached.radius !== radius
-                || cached.shape !== shape) {
-                const tiles = [];
-                for (let y = formation.y - radius; y <= formation.y + radius; y += 1) {
-                    for (let x = formation.x - radius; x <= formation.x + radius; x += 1) {
-                        if (this.containsBoundaryTile(formation, x, y)) {
-                            tiles.push({ x, y });
-                        }
-                    }
-                }
-                cached = { x: formation.x, y: formation.y, radius, shape, tiles };
-                formationBoundaryTileCache.set(formation, cached);
-            }
-            for (const tile of cached.tiles) {
-                visitor(tile.x, tile.y);
-            }
-        }
-    }
-
-    getBoundaryBarrierCombatState(instanceId, x, y) {
-        const formation = this.findBoundaryBarrierFormation(instanceId, x, y);
-        if (!formation) {
-            return null;
-        }
-        return {
-            formationId: formation.id,
-            id: formation.id,
-            name: formation.name,
-            x: Math.trunc(x),
-            y: Math.trunc(y),
-            centerX: formation.x,
-            centerY: formation.y,
-            remainingAuraBudget: resolveFormationRemainingQiBudget(formation),
-            damagePerAura: resolveFormationDamagePerAura(formation.template),
-        };
-    }
-
-    getAttackableTileCombatState(instanceId, x, y) {
-        const boundary = this.getBoundaryBarrierCombatState(instanceId, x, y);
-        if (!boundary) {
-            return null;
-        }
-        const hp = Math.max(1, Math.ceil(boundary.remainingAuraBudget * boundary.damagePerAura));
-        return {
-            kind: 'formation_boundary',
-            id: `formation-boundary:${boundary.formationId}:${boundary.x}:${boundary.y}`,
-            name: boundary.name,
-            x: boundary.x,
-            y: boundary.y,
-            hp,
-            remainingAuraBudget: boundary.remainingAuraBudget,
-            damagePerAura: boundary.damagePerAura,
-            supportsSkill: true,
-        };
-    }
-
-    applyDamageToBoundaryBarrier(instanceId, x, y, damage, attackerPlayerId = null, deps = null) {
-        const boundary = this.getBoundaryBarrierCombatState(instanceId, x, y);
-        if (!boundary) {
-            return null;
-        }
-        const outcome = this.applyDamageToFormation(instanceId, boundary.formationId, damage, attackerPlayerId, deps);
-        return outcome ? {
-            ...outcome,
-            boundary,
-        } : null;
-    }
-
-    getFormationCombatState(instanceId, formationInstanceId) {
-        const formation = this.findFormationInInstance(instanceId, formationInstanceId);
-        if (!formation || resolveFormationRemainingQiBudget(formation) <= 0) {
-            return null;
-        }
-        const normalizedInstanceId = normalizeInstanceId(instanceId);
-        if (isPersistentFormation(formation) && normalizeInstanceId(formation.eyeInstanceId) !== normalizedInstanceId) {
-            return null;
-        }
-        return {
-            id: formation.id,
-            name: formation.name,
-            x: Number.isFinite(Number(formation.eyeX)) ? Math.trunc(Number(formation.eyeX)) : formation.x,
-            y: Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y,
-            remainingAuraBudget: resolveFormationRemainingQiBudget(formation),
-            damagePerAura: resolveFormationDamagePerAura(formation.template),
-        };
-    }
-
-    getAttackableEntityCombatState(instanceId, targetId) {
-        const formation = this.getFormationCombatState(instanceId, targetId);
-        if (!formation) {
-            return null;
-        }
-        const hp = Math.max(1, Math.ceil(formation.remainingAuraBudget * formation.damagePerAura));
-        return {
-            kind: 'formation',
-            id: formation.id,
-            targetRef: formation.id,
-            targetMonsterId: formation.id,
-            name: formation.name,
-            x: formation.x,
-            y: formation.y,
-            hp,
-            remainingAuraBudget: formation.remainingAuraBudget,
-            damagePerAura: formation.damagePerAura,
-            supportsSkill: true,
-        };
-    }
-
-    getAttackableFormationEyeCombatStateAtTile(instanceId, x, y) {
-        const normalizedInstanceId = normalizeInstanceId(instanceId);
-        const targetX = Math.trunc(Number(x));
-        const targetY = Math.trunc(Number(y));
-        if (!normalizedInstanceId || !Number.isFinite(targetX) || !Number.isFinite(targetY)) {
-            return null;
-        }
-        const candidates = [];
-        for (const formations of this.formationsByInstanceId.values()) {
-            for (const formation of formations) {
-                if (!formation || resolveFormationRemainingQiBudget(formation) <= 0) {
-                    continue;
-                }
-                // 机制阵法没有可供玩家操作的阵眼，只能通过边界攻击削减阵法灵力。
-                if ((formation as any).arrayEyeMode === 'none' || (formation as any).controlMode === 'controller_only') {
-                    continue;
-                }
-                const eyeInstanceId = normalizeInstanceId(formation.eyeInstanceId ?? formation.instanceId);
-                const eyeX = Number.isFinite(Number(formation.eyeX)) ? Math.trunc(Number(formation.eyeX)) : formation.x;
-                const eyeY = Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y;
-                if (eyeInstanceId === normalizedInstanceId && eyeX === targetX && eyeY === targetY) {
-                    candidates.push(formation);
-                }
-            }
-        }
-        candidates.sort((left, right) => left.id.localeCompare(right.id, 'zh-Hans-CN'));
-        const formation = candidates[0] ?? null;
-        return formation ? this.getAttackableEntityCombatState(normalizedInstanceId, formation.id) : null;
-    }
-
-    applyDamageToFormation(instanceId, formationInstanceId, damage, attackerPlayerId = null, deps = null) {
-        const formation = this.findFormationInInstance(instanceId, formationInstanceId);
-        if (!formation || resolveFormationRemainingQiBudget(formation) <= 0) {
-            return null;
-        }
-        const persistenceFence = this.captureFormationPersistenceFenceForFormation(formation, deps);
-        const normalizedDamage = Math.max(0, Number(damage) || 0);
-        const selfDamageReduction = this.resolveFormationSelfDamageReduction(formation);
-        const mitigatedDamage = selfDamageReduction > 0
-            ? Math.max(0, normalizedDamage * (1 - selfDamageReduction))
-            : normalizedDamage;
-        const damagePerAura = resolveFormationDamagePerAura(formation.template);
-        const auraDamage = mitigatedDamage / damagePerAura;
-        if (auraDamage <= 0) {
-            return {
-                formation,
-                appliedDamage: 0,
-                auraDamage: 0,
-                destroyed: false,
-                remainingAuraBudget: resolveFormationRemainingQiBudget(formation),
-                damagePerAura,
-                selfDamageReduction,
-            };
-        }
-        const appliedAuraDamage = Math.min(resolveFormationRemainingQiBudget(formation), auraDamage);
-        const appliedDamage = appliedAuraDamage * damagePerAura;
-        setFormationRemainingQiBudget(formation, Math.max(0, resolveFormationRemainingQiBudget(formation) - appliedAuraDamage));
-        formation.updatedAt = resolveNextFormationUpdatedAt(formation);
-        const destroyed = resolveFormationRemainingQiBudget(formation) <= 0;
-        if (destroyed) {
-            setFormationRemainingQiBudget(formation, 0);
-            formation.active = false;
-            if (formation.ownerPlayerId) {
-                this.enqueueFormationNotice(
-                    formation.ownerPlayerId,
-                    'warning',
-                    'notice.formation.eye-qi-depleted',
-                    `${formation.name}阵眼灵力耗尽，阵势关闭。`,
-                    { formationName: formation.name },
-                );
-            }
-            if (typeof deps?.refreshPlayerContextActions === 'function') {
-                if (formation.ownerPlayerId) deps.refreshPlayerContextActions(formation.ownerPlayerId);
-                if (attackerPlayerId && attackerPlayerId !== formation.ownerPlayerId) {
-                    deps.refreshPlayerContextActions(attackerPlayerId);
-                }
-            }
-            deps?.dungeonRuntimeService?.onFormationDestroyed?.(formation.instanceId, formation.id);
-        }
-        touchRuntimeInstanceRevision(deps, formation.instanceId);
-        if (normalizeInstanceId(formation.eyeInstanceId) && normalizeInstanceId(formation.eyeInstanceId) !== formation.instanceId) {
-            touchRuntimeInstanceRevision(deps, formation.eyeInstanceId);
-        }
-        this.persistFormationSnapshotSoon(formation, persistenceFence);
-        return {
-            formation,
-            appliedDamage,
-            auraDamage: appliedAuraDamage,
-            destroyed,
-            remainingAuraBudget: resolveFormationRemainingQiBudget(formation),
-            damagePerAura,
-            selfDamageReduction,
-            attackerPlayerId,
-        };
-    }
-
-    listRuntimeFormations(instanceId) {
-        const normalizedInstanceId = normalizeInstanceId(instanceId);
-        const result = (this.formationsByInstanceId.get(normalizedInstanceId) ?? [])
-            .map((formation) => getRuntimeFormationProjection(formation, 'effect'));
-        for (const [sourceInstanceId, formations] of this.formationsByInstanceId.entries()) {
-            if (sourceInstanceId === normalizedInstanceId) {
-                continue;
-            }
-            for (const formation of formations) {
-                if (!isPersistentFormation(formation) || normalizeInstanceId(formation.eyeInstanceId) !== normalizedInstanceId) {
-                    continue;
-                }
-                result.push(getRuntimeFormationProjection(formation, 'eye'));
-            }
-        }
-        return result;
-    }
-
-    listOwnedFormationsAt(instanceId, ownerPlayerId, x, y) {
-        return (this.formationsByInstanceId.get(instanceId) ?? [])
-            .filter((formation) => formation.ownerPlayerId === ownerPlayerId
-            && !isPersistentFormation(formation)
-            && isWithinFormationMaintenanceControlRange(x, y, formation.eyeX ?? formation.x, formation.eyeY ?? formation.y))
-            .map((formation) => ({
-            id: formation.id,
-            name: formation.name,
-            active: formation.active,
-            remainingAuraBudget: Math.max(0, Math.floor(resolveFormationRemainingQiBudget(formation))),
-            remainingQiBudget: Math.max(0, Math.floor(resolveFormationRemainingQiBudget(formation))),
-            remainingSpiritStoneBudget: Math.max(0, Math.floor(resolveFormationRemainingSpiritStoneBudget(formation))),
-            radius: formation.stats.radius,
-            refillSpiritStoneCount: Math.max(1, Math.trunc(Number(formation.spiritStoneCount) || 1)),
-            refillQiCost: resolveFormationQiCost(Math.max(1, Math.trunc(Number(formation.spiritStoneCount) || 1)), formation.template),
-            refillQiBudget: resolveFormationQiCost(Math.max(1, Math.trunc(Number(formation.spiritStoneCount) || 1)), formation.template),
-        }));
-    }
-
-    advanceAuraFormation(instance, formation) {
-        const resourceKey = formation.template.effect.resourceKey || DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY;
-        const halfLifeTicks = Math.max(1, Math.trunc(formation.template.effect.convergenceHalfLifeTicks ?? FORMATION_TICKS_PER_DAY));
-        forEachFormationAffectedRuntimeCell(instance, formation, (x, y) => {
-            const current = instance.getTileResource(resourceKey, x, y) ?? 0;
-            const target = Math.max(0, formation.stats.effectValue);
-            if (current >= target) {
-                return;
-            }
-            const delta = Math.max(0, (target - current) / halfLifeTicks);
-            instance.addTileResource(resourceKey, x, y, Math.min(delta, target - current));
-        });
-    }
-
-    containsTile(formation, x, y) {
-        const dx = Math.trunc(x) - formation.x;
-        const dy = Math.trunc(y) - formation.y;
-        const radius = formation.stats.radius;
-        if (Math.abs(dx) > radius || Math.abs(dy) > radius) {
-            return false;
-        }
-        if (formation.template.range.shape === 'circle') {
-            return (dx * dx) + (dy * dy) <= radius * radius;
-        }
-        if (formation.template.range.shape === 'checkerboard') {
-            return ((Math.trunc(x) + Math.trunc(y)) % 2) === 0;
-        }
-        return true;
-    }
-
-    containsBoundaryTile(formation, x, y) {
-        if (!this.containsTile(formation, x, y)) {
-            return false;
-        }
-        const tileX = Math.trunc(x);
-        const tileY = Math.trunc(y);
-        const dx = tileX - formation.x;
-        const dy = tileY - formation.y;
-        const radius = Math.max(1, Math.trunc(Number(formation.stats?.radius) || 1));
-        if (formation.template.range.shape === 'circle') {
-            return (dx * dx) + (dy * dy) <= radius * radius
-                && (
-                    ((dx + 1) * (dx + 1)) + (dy * dy) > radius * radius
-                    || ((dx - 1) * (dx - 1)) + (dy * dy) > radius * radius
-                    || (dx * dx) + ((dy + 1) * (dy + 1)) > radius * radius
-                    || (dx * dx) + ((dy - 1) * (dy - 1)) > radius * radius
-                );
-        }
-        if (formation.template.range.shape === 'checkerboard') {
-            return Math.abs(dx) === radius || Math.abs(dy) === radius;
-        }
-        return Math.abs(dx) === radius || Math.abs(dy) === radius;
-    }
-
-    findBoundaryBarrierFormation(instanceId, x, y, playerId = null) {
-        const formations = this.formationsByInstanceId.get(instanceId);
-        if (!formations || formations.length <= 0) {
-            return null;
-        }
-        let selected = null;
-        for (const formation of formations) {
-            if (formation.active !== true
-                || formation.template.effect.kind !== BOUNDARY_BARRIER_EFFECT_KIND
-                || resolveFormationRemainingQiBudget(formation) <= 0) {
-                continue;
-            }
-            if (!this.containsBoundaryTile(formation, x, y)) {
-                continue;
-            }
-            if (this.canPlayerPassFormationBoundary(formation, playerId)) {
-                continue;
-            }
-            if (!selected || resolveFormationRemainingQiBudget(formation) > resolveFormationRemainingQiBudget(selected)) {
-                selected = formation;
-            }
-        }
-        return selected;
-    }
-
-    canPlayerPassFormationBoundary(formation, playerId) {
-        if (!formation || !playerId || formation.template?.access?.kind !== 'sect_members') {
-            return false;
-        }
-        const formationSectId = normalizeOptionalString(formation.ownerSectId ?? formation.template?.access?.sectId);
-        if (!formationSectId) {
-            return false;
-        }
-        const formationOwnerPlayerId = normalizeOptionalString(formation.ownerPlayerId);
-        if (formationOwnerPlayerId && formationOwnerPlayerId === normalizeOptionalString(playerId)) {
-            return true;
-        }
-        let player = null;
-        try {
-            player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        }
-        catch (_error) {
-            return false;
-        }
-        return resolvePlayerSectId(player) === formationSectId;
-    }
-
-    getFormationList(instanceId) {
-        let formations = this.formationsByInstanceId.get(instanceId);
-        if (!formations) {
-            formations = [];
-            this.formationsByInstanceId.set(instanceId, formations);
-        }
-        return formations;
-    }
-
-    async restoreInstanceFormations(instanceId, instance = null) {
-        const normalizedInstanceId = normalizeInstanceId(instanceId);
-        if (!normalizedInstanceId) {
-            return 0;
-        }
-        const persistenceFence = instance
-            ? this.captureFormationPersistenceFence(instance)
-            : null;
-        const document = await this.loadInstanceFormationDocument(normalizedInstanceId);
-        const entries = Array.isArray(document?.formations) ? document.formations : [];
-        const restored = [];
-        let maxSerial = this.nextFormationSerial - 1;
-        for (const entry of entries) {
-            const formation = this.restoreFormationEntry(normalizedInstanceId, entry);
-            if (!formation) {
-                continue;
-            }
-            if (instance && !isPersistentFormation(formation) && !isFormationProtectedPlacementAllowed(instance, formation)) {
-                this.logger.warn(`启动清理了违规阵法：${normalizedInstanceId} ${formation.id} ${formation.name}`);
-                await this.deleteFormationSnapshot(formation, persistenceFence).catch((error) => {
-                    this.logger.warn(`启动清理违规阵法持久态失败：${normalizedInstanceId} ${formation.id} ${error instanceof Error ? error.message : String(error)}`);
-                });
-                continue;
-            }
-            restored.push(formation);
-            maxSerial = Math.max(maxSerial, extractFormationSerial(formation.id));
-        }
-        if (restored.length > 0) {
-            this.formationsByInstanceId.set(normalizedInstanceId, restored);
-            this.nextFormationSerial = Math.max(this.nextFormationSerial, maxSerial + 1);
-        } else {
-            this.formationsByInstanceId.delete(normalizedInstanceId);
-        }
-        this.restoredFormationInstanceIds.add(normalizedInstanceId);
-        return restored.length;
-    }
-
-    restoreFormationEntry(instanceId, entry) {
-        if (!entry || typeof entry !== 'object') {
-            return null;
-        }
-        const formationId = typeof entry.formationId === 'string' ? entry.formationId.trim() : '';
-        if (!formationId) {
-            return null;
-        }
-        let template = null;
-        try {
-            template = this.resolveFormationTemplate(formationId);
-        } catch (_error) {
-            this.logger.warn(`恢复阵法条目模板解析失败 formationId=${formationId}: ${_error instanceof Error ? _error.message : String(_error)}`);
-            return null;
-        }
-        const diskTier = normalizeFormationDiskTier(entry.diskTier);
-        const diskMultiplier = Number.isFinite(Number(entry.diskMultiplier)) ? Math.max(1, Number(entry.diskMultiplier)) : 1;
-        const lifecycle = normalizeFormationLifecycle(entry.lifecycle ?? template.lifecycle);
-        const rawRemainingQiBudget = Number.isFinite(Number(entry.remainingQiBudget ?? entry.remainingAuraBudget))
-            ? Math.max(0, Number(entry.remainingQiBudget ?? entry.remainingAuraBudget))
-            : null;
-        const rawRemainingSpiritStoneBudget = Number.isFinite(Number(entry.remainingSpiritStoneBudget))
-            ? Math.max(0, Number(entry.remainingSpiritStoneBudget))
-            : null;
-        const rawSpiritStoneCount = Math.max(1, Math.trunc(Number(entry.spiritStoneCount) || 1));
-        const minSpiritStoneCount = resolveFormationMinSpiritStoneCount(template);
-        const spiritStoneCount = lifecycle === FORMATION_LIFECYCLE_PERSISTENT
-            && template.id === 'sect_guardian_barrier'
-            && rawSpiritStoneCount <= minSpiritStoneCount
-            && rawRemainingQiBudget !== null
-            && rawRemainingQiBudget > rawSpiritStoneCount * resolveFormationAuraPerSpiritStone(template)
-            ? Math.max(rawSpiritStoneCount, Math.ceil(rawRemainingQiBudget / resolveFormationAuraPerSpiritStone(template)))
-            : rawSpiritStoneCount;
-        const allocationPayload = entry.allocation && typeof entry.allocation === 'object' ? entry.allocation : {};
-        const formationSkillLevel = resolveFormationSkillLevel(entry);
-        const allocation = template.id === 'sect_guardian_barrier'
-            ? {
-                ...normalizeFormationSetup(template, typeof isFormationSetupInput === 'function' && isFormationSetupInput(allocationPayload)
-                    ? allocationPayload
-                    : { radius: Number(entry.radius) || 1, durationHours: 24, effectValue: 1 }),
-                formationSkillLevel: 0,
-            }
-            : typeof isFormationSetupInput === 'function' && isFormationSetupInput(allocationPayload)
-                ? { ...normalizeFormationSetup(template, allocationPayload), formationSkillLevel }
-                : { ...normalizeFormationAllocation(allocationPayload), formationSkillLevel };
-        const stats = resolveFormationStats(template, spiritStoneCount, diskMultiplier, allocation, formationSkillLevel);
-        if (template.id === 'sect_guardian_barrier') {
-            stats.radius = Math.max(1, Math.trunc(Number(entry.radius) || 1));
-        }
-        const remainingQiBudget = rawRemainingQiBudget !== null ? rawRemainingQiBudget : stats.totalQiBudget ?? stats.totalAuraBudget;
-        const remainingSpiritStoneBudget = rawRemainingSpiritStoneBudget !== null ? rawRemainingSpiritStoneBudget : stats.totalSpiritStoneBudget ?? spiritStoneCount;
-        if (remainingSpiritStoneBudget <= 0) {
-            return null;
-        }
-        const restoredId = typeof entry.id === 'string' && entry.id.trim()
-            ? entry.id.trim()
-            : `formation:${instanceId}:${this.nextFormationSerial++}`;
-        const x = firstFiniteInteger(entry.x);
-        const y = firstFiniteInteger(entry.y);
-        if (!Number.isFinite(x) || !Number.isFinite(y)) {
-            return null;
-        }
-        return {
-            instanceId,
-            id: restoredId,
-            ownerPlayerId: typeof entry.ownerPlayerId === 'string' ? entry.ownerPlayerId : '',
-            ownerSectId: normalizeOptionalString(entry.ownerSectId),
-            formationId: template.id,
-            lifecycle,
-            name: template.name,
-            template,
-            diskItemId: typeof entry.diskItemId === 'string' ? entry.diskItemId : '',
-            diskTier,
-            diskMultiplier,
-            spiritStoneCount,
-            qiCost: Math.max(0, Math.trunc(Number(entry.qiCost) || 0)),
-            x,
-            y,
-            eyeInstanceId: normalizeInstanceId(entry.eyeInstanceId) || instanceId,
-            eyeX: firstFiniteInteger(entry.eyeX, x),
-            eyeY: firstFiniteInteger(entry.eyeY, y),
-            allocation,
-            stats,
-            active: remainingQiBudget <= 0 ? false : entry.active !== false,
-            ...(entry.controlMode === 'controller_only' ? { controlMode: 'controller_only' } : {}),
-            ...(entry.arrayEyeMode === 'none' ? { arrayEyeMode: 'none' } : {}),
-            ...(entry.source === 'dungeon_controller' ? { source: 'dungeon_controller' } : {}),
-            ...(typeof entry.controllerId === 'string' && entry.controllerId.trim() ? { controllerId: entry.controllerId.trim() } : {}),
-            remainingQiBudget,
-            remainingSpiritStoneBudget,
-            remainingAuraBudget: remainingQiBudget,
-            createdAt: Number.isFinite(Number(entry.createdAt)) ? Number(entry.createdAt) : Date.now(),
-            updatedAt: Number.isFinite(Number(entry.updatedAt)) ? Number(entry.updatedAt) : Date.now(),
-        };
-    }
-
-    private _formationPersistTimers = new Map<string, ReturnType<typeof setTimeout>>();
-    private dirtyFormationInstanceIds = new Set<string>();
-    private removedFormationKeysByInstanceId = new Map<string, Map<string, number>>();
-
-    persistInstanceFormationsSoon(instanceId, persistenceFence = null) {
-        const normalizedInstanceId = this.markFormationInstanceDirty(instanceId, persistenceFence);
-        if (!normalizedInstanceId || this._formationPersistTimers.has(normalizedInstanceId)) return;
-        this._formationPersistTimers.set(normalizedInstanceId, setTimeout(() => {
-            this._formationPersistTimers.delete(normalizedInstanceId);
-            if (!this.persistenceReady || !this.persistencePool) {
-                this.logger.warn(`阵法持久化池未就绪，保留脏标记等待重试：${normalizedInstanceId}`);
-                return;
-            }
-            void this.saveInstanceFormations(
-                normalizedInstanceId,
-                this.formationPersistenceFenceByInstanceId.get(normalizedInstanceId) ?? null,
-            ).catch((error) => {
-                this.dirtyFormationInstanceIds.add(normalizedInstanceId);
-                this.logger.warn(`阵法持久化失败，已保留脏标记：${normalizedInstanceId} ${error instanceof Error ? error.message : String(error)}`);
-            });
-        }, 5000));
-    }
-
-    persistFormationSnapshotSoon(formation, persistenceFence = null) {
-        // 副本机制阵法属于实例内临时状态，实例销毁即失效，不写入全局阵法持久化表。
-        if (typeof formation?.instanceId === 'string' && formation.instanceId.startsWith('dungeon:')) {
-            return;
-        }
-        const instanceId = this.markFormationInstanceDirty(formation?.instanceId, persistenceFence);
-        void this.saveFormationSnapshot(formation, persistenceFence).catch((error) => {
-            if (instanceId) this.dirtyFormationInstanceIds.add(instanceId);
-            this.logger.warn(`阵法单体持久化失败，已保留脏标记：${formation?.instanceId ?? ''} ${error instanceof Error ? error.message : String(error)}`);
-        });
-    }
-
-    persistFormationRemovalSoon(formation, persistenceFence = null) {
-        this.markFormationRemovalDirty(formation, persistenceFence);
-        void this.deleteFormationSnapshot(formation, persistenceFence).catch((error) => {
-            this.markFormationRemovalDirty(formation, persistenceFence);
-            this.logger.warn(`阵法删除持久化失败，已保留删除重试：${formation?.instanceId ?? ''} ${error instanceof Error ? error.message : String(error)}`);
-        });
-    }
-
-    async flushAllNow() {
-        await this.flushAllPendingFormationMaintenance();
-        for (const [instanceId, timer] of this._formationPersistTimers) {
-            clearTimeout(timer);
-            this._formationPersistTimers.delete(instanceId);
-        }
-        const instanceIds = new Set([
-            ...this.formationsByInstanceId.keys(),
-            ...this.dirtyFormationInstanceIds,
-            ...this.removedFormationKeysByInstanceId.keys(),
-        ]);
-        for (const instanceId of instanceIds) {
-            await this.saveInstanceFormations(
-                instanceId,
-                this.formationPersistenceFenceByInstanceId.get(instanceId) ?? null,
-            );
-        }
-    }
-
-    markFormationInstanceDirty(instanceId, persistenceFence = null) {
-        const normalizedInstanceId = normalizeInstanceId(instanceId);
-        if (!normalizedInstanceId) {
-            return '';
-        }
-        this.rememberFormationPersistenceFence(normalizedInstanceId, persistenceFence);
-        this.dirtyFormationInstanceIds.add(normalizedInstanceId);
-        return normalizedInstanceId;
-    }
-
-    markFormationRemovalDirty(formation, persistenceFence = null) {
-        const normalizedInstanceId = this.markFormationInstanceDirty(formation?.instanceId, persistenceFence);
-        const formationInstanceId = normalizeOptionalString(formation?.id);
-        if (!normalizedInstanceId || !formationInstanceId) {
-            return;
-        }
-        let removedKeys = this.removedFormationKeysByInstanceId.get(normalizedInstanceId);
-        if (!removedKeys) {
-            removedKeys = new Map();
-            this.removedFormationKeysByInstanceId.set(normalizedInstanceId, removedKeys);
-        }
-        const removedAt = Math.max(0, Math.trunc(Number(formation?.updatedAt) || Date.now()));
-        removedKeys.set(formationInstanceId, Math.max(removedKeys.get(formationInstanceId) ?? 0, removedAt));
-    }
-
-    clearFormationRemovalDirty(instanceId, formationInstanceId) {
-        const normalizedInstanceId = normalizeInstanceId(instanceId);
-        const normalizedFormationId = normalizeOptionalString(formationInstanceId);
-        if (!normalizedInstanceId || !normalizedFormationId) {
-            return;
-        }
-        const removedKeys = this.removedFormationKeysByInstanceId.get(normalizedInstanceId);
-        if (!removedKeys) {
-            return;
-        }
-        removedKeys.delete(normalizedFormationId);
-        if (removedKeys.size === 0) {
-            this.removedFormationKeysByInstanceId.delete(normalizedInstanceId);
-        }
-    }
-
-    clearFormationInstanceDirty(instanceId) {
-        const normalizedInstanceId = normalizeInstanceId(instanceId);
-        if (!normalizedInstanceId) {
-            return;
-        }
-        this.dirtyFormationInstanceIds.delete(normalizedInstanceId);
-        this.removedFormationKeysByInstanceId.delete(normalizedInstanceId);
-        this.formationPersistenceFenceByInstanceId.delete(normalizedInstanceId);
-    }
-
-    isFormationSnapshotCurrent(snapshot) {
-        const instanceId = normalizeInstanceId(snapshot?.instanceId);
-        const formationId = normalizeOptionalString(snapshot?.id);
-        if (!instanceId || !formationId) {
-            return false;
-        }
-        const current = this.findFormationInInstance(instanceId, formationId);
-        return current !== null
-            && Math.trunc(Number(current.updatedAt) || 0) === Math.trunc(Number(snapshot.updatedAt) || 0);
-    }
-
-    /**
-     * releaseInstance：实例销毁/fencing 卸载收口，清理内存中按 instanceId 索引的阵法状态。
-     * 防止 destroyManagedInstance / fenceInstanceRuntime 卸载实例时遗留 formationsByInstanceId 与
-     * restoredFormationInstanceIds 条目，避免随实例流转无界增长。
-     * 仅在没有持续性阵法（持续性阵法以阵眼实例为准，不应跟随承载实例销毁丢失）时清理；持续性阵法
-     * 转入 active=false 的标记，等待持久化层在阵眼销毁路径上单独清理。
-     */
-    releaseInstance(instanceId) {
-        const normalizedInstanceId = normalizeInstanceId(instanceId);
-        if (!normalizedInstanceId) {
-            return;
-        }
-        // 清理 pending persist timer，避免实例销毁后悬挂 timer 持有闭包引用
-        const pendingTimer = this._formationPersistTimers.get(normalizedInstanceId);
-        if (pendingTimer !== undefined) {
-            clearTimeout(pendingTimer);
-            this._formationPersistTimers.delete(normalizedInstanceId);
-        }
-        const formations = this.formationsByInstanceId.get(normalizedInstanceId);
-        if (Array.isArray(formations) && formations.length > 0) {
-            // 实例已销毁，承载阵法对象再保留也无处广播；统一释放避免悬挂。
-            // 持续性阵法的真源在持久化层，此处不写盘，让阵眼路径或下次重启的 reloadInstance 决定恢复策略。
-            this.formationsByInstanceId.delete(normalizedInstanceId);
-        } else {
-            this.formationsByInstanceId.delete(normalizedInstanceId);
-        }
-        this.restoredFormationInstanceIds.delete(normalizedInstanceId);
-        this.formationPersistenceFenceByInstanceId.delete(normalizedInstanceId);
-    }
-
-    async saveFormationSnapshot(formation, persistenceFence = null) {
-        if (!formation) {
-            return;
-        }
-        const serialized = serializeFormation(formation);
-        const normalizedInstanceId = normalizeInstanceId(serialized.instanceId);
-        const formationInstanceId = normalizeOptionalString(serialized.id);
-        if (!normalizedInstanceId || !formationInstanceId) {
-            return;
-        }
-        this.rememberFormationPersistenceFence(normalizedInstanceId, persistenceFence);
-        await this.runExclusiveFormationPersistence([formationInstanceId], async () => {
-            if (this.formationMaintenanceCheckpointById.has(formationInstanceId)) {
-                this.dirtyFormationInstanceIds.add(normalizedInstanceId);
-                return;
-            }
-            if (this.isFormationPersistenceBlocked([serialized.instanceId, serialized.eyeInstanceId])) {
-                return;
-            }
-            const pool = await this.ensurePersistencePool();
-            if (!pool) {
-                return;
-            }
-            const effectivePersistenceFence = this.resolveFormationPersistenceFence(normalizedInstanceId, persistenceFence);
-            if (!this.isFormationSnapshotCurrent(serialized)) {
-                return;
-            }
-            const client = await pool.connect();
-            try {
-                await client.query('BEGIN');
-                await assertFormationInstanceLeaseFence(client, normalizedInstanceId, effectivePersistenceFence);
-                await lockFormationStateRow(client, serialized.id);
-                await upsertFormationStateRow(client, normalizedInstanceId, serialized);
-                await client.query('COMMIT');
-                this.clearFormationRemovalDirty(normalizedInstanceId, serialized.id);
-            } catch (error) {
-                await client.query('ROLLBACK').catch(() => undefined);
-                throw error;
-            } finally {
-                client.release();
-            }
-        });
-    }
-
-    async deleteFormationSnapshot(formation, persistenceFence = null) {
-        if (!formation) {
-            return;
-        }
-        const normalizedInstanceId = normalizeInstanceId(formation.instanceId);
-        const formationInstanceId = normalizeOptionalString(formation.id);
-        if (!normalizedInstanceId || !formationInstanceId) {
-            return;
-        }
-        this.rememberFormationPersistenceFence(normalizedInstanceId, persistenceFence);
-        const removedAt = Math.max(0, Math.trunc(Number(formation.updatedAt) || Date.now()));
-        await this.runExclusiveFormationPersistence([formationInstanceId], async () => {
-            if (this.formationMaintenanceCheckpointById.has(formationInstanceId)) {
-                this.markFormationRemovalDirty(formation, persistenceFence);
-                return;
-            }
-            if (this.isFormationPersistenceBlocked([formation?.instanceId, formation?.eyeInstanceId])) {
-                return;
-            }
-            const pool = await this.ensurePersistencePool();
-            if (!pool) {
-                return;
-            }
-            const effectivePersistenceFence = this.resolveFormationPersistenceFence(normalizedInstanceId, persistenceFence);
-            const client = await pool.connect();
-            try {
-                await client.query('BEGIN');
-                await assertFormationInstanceLeaseFence(client, normalizedInstanceId, effectivePersistenceFence);
-                await lockFormationStateRow(client, formationInstanceId);
-                await deleteFormationStateRow(client, normalizedInstanceId, formationInstanceId, removedAt);
-                await client.query('COMMIT');
-                this.clearFormationRemovalDirty(normalizedInstanceId, formationInstanceId);
-            } catch (error) {
-                await client.query('ROLLBACK').catch(() => undefined);
-                throw error;
-            } finally {
-                client.release();
-            }
-        });
-    }
-
-    async saveInstanceFormations(instanceId, persistenceFence = null) {
-        const normalizedInstanceId = normalizeInstanceId(instanceId);
-        if (!normalizedInstanceId) {
-            return;
-        }
-        this.rememberFormationPersistenceFence(normalizedInstanceId, persistenceFence);
-        const formations = (this.formationsByInstanceId.get(normalizedInstanceId) ?? [])
-            .map((formation) => serializeFormation(formation));
-        const removedKeys = new Map(this.removedFormationKeysByInstanceId.get(normalizedInstanceId) ?? []);
-        const queuedFormationIds = Array.from(new Set([
-            ...formations.map((formation) => normalizeOptionalString(formation.id)),
-            ...removedKeys.keys(),
-        ].filter(Boolean))).sort();
-        await this.runExclusiveFormationPersistence(queuedFormationIds, async () => {
-            if (formations.some((formation) => this.formationMaintenanceCheckpointById.has(formation.id))) {
-                this.dirtyFormationInstanceIds.add(normalizedInstanceId);
-                return;
-            }
-            if (this.isFormationPersistenceBlocked([normalizedInstanceId])) {
-                return;
-            }
-            const pool = await this.ensurePersistencePool();
-            if (!pool) {
-                return;
-            }
-            const effectivePersistenceFence = this.resolveFormationPersistenceFence(normalizedInstanceId, persistenceFence);
-            const currentFormations = formations.filter((formation) => this.isFormationSnapshotCurrent(formation));
-            const currentRemovedKeys = new Map(Array.from(removedKeys).filter(([formationInstanceId, removedAt]) => {
-                const current = this.findFormationInInstance(normalizedInstanceId, formationInstanceId);
-                return !current || Math.trunc(Number(current.updatedAt) || 0) <= removedAt;
-            }));
-            const formationIds = Array.from(new Set([
-                ...currentFormations.map((formation) => formation.id),
-                ...currentRemovedKeys.keys(),
-            ])).sort();
-            const client = await pool.connect();
-            try {
-                await client.query('BEGIN');
-                await assertFormationInstanceLeaseFence(client, normalizedInstanceId, effectivePersistenceFence);
-                for (const formationInstanceId of formationIds) {
-                    await lockFormationStateRow(client, formationInstanceId);
-                }
-                for (const [formationInstanceId, removedAt] of currentRemovedKeys) {
-                    await deleteFormationStateRow(client, normalizedInstanceId, formationInstanceId, removedAt);
-                }
-                for (const formation of currentFormations) {
-                    await upsertFormationStateRow(client, normalizedInstanceId, formation);
-                }
-                await client.query('COMMIT');
-                this.clearFormationInstanceDirty(normalizedInstanceId);
-            } catch (error) {
-                await client.query('ROLLBACK').catch(() => undefined);
-                throw error;
-            } finally {
-                client.release();
-            }
-        });
-    }
-
-    async loadInstanceFormationDocument(instanceId) {
-        const pool = await this.ensurePersistencePool();
-        if (!pool) {
-            return null;
-        }
-        const result = await pool.query(`
+ logger = new Logger(WorldRuntimeFormationService.name);
+ contentTemplateRepository;
+ playerRuntimeService;
+ formationsByInstanceId = new Map();
+ restoredFormationInstanceIds = new Set();
+ nextFormationSerial = 1;
+ persistencePool = null;
+ persistenceReady = false;
+ persistenceInitPromise = null;
+ databasePoolProvider = null;
+ durableOperationService = null;
+ formationPersistenceQueueById = new Map<string, Promise<void>>();
+ formationPersistenceFenceByInstanceId = new Map<string, InstanceLeaseWriteFence>();
+ formationMaintenanceCheckpointById = new Map<string, FormationMaintenanceCheckpoint>();
+ formationMaintenanceCheckpointIntervalMs = FORMATION_MAINTENANCE_CHECKPOINT_INTERVAL_MS;
+ unregisterBeforeManualPlayerFlushBarrier: (() => void) | null = null;
+
+ constructor(
+  contentTemplateRepository,
+  playerRuntimeService,
+  databasePoolProvider = null,
+  durableOperationService = null,
+  playerPersistenceFlushService = null,
+ ) {
+  this.contentTemplateRepository = contentTemplateRepository;
+  this.playerRuntimeService = playerRuntimeService;
+  this.databasePoolProvider = databasePoolProvider;
+  this.durableOperationService = durableOperationService;
+  if (typeof playerPersistenceFlushService?.registerBeforeManualPlayerFlushBarrier === 'function') {
+   this.unregisterBeforeManualPlayerFlushBarrier = playerPersistenceFlushService.registerBeforeManualPlayerFlushBarrier(
+    'formation-maintenance-checkpoint',
+    (playerId) => this.flushPendingFormationMaintenanceForPlayer(playerId),
+   );
+  }
+ }
+
+ async runExclusiveFormationPersistence(formationInstanceIds, action) {
+  const normalizedIds = Array.from(new Set((Array.isArray(formationInstanceIds) ? formationInstanceIds : [])
+   .map((formationId) => normalizeOptionalString(formationId))
+   .filter(Boolean))).sort();
+  const tickets = normalizedIds.map((formationId) => {
+   const previous = this.formationPersistenceQueueById.get(formationId) ?? Promise.resolve();
+   let release;
+   const gate = new Promise<void>((resolve) => {
+    release = resolve;
+   });
+   const tail = previous.catch(() => undefined).then(() => gate);
+   this.formationPersistenceQueueById.set(formationId, tail);
+   return { formationId, previous, release, tail };
+  });
+  await Promise.all(tickets.map((ticket) => ticket.previous.catch(() => undefined)));
+  try {
+   return await action();
+  } finally {
+   for (const ticket of tickets) {
+    ticket.release?.();
+   }
+   for (const ticket of tickets) {
+    void ticket.tail.finally(() => {
+     if (this.formationPersistenceQueueById.get(ticket.formationId) === ticket.tail) {
+      this.formationPersistenceQueueById.delete(ticket.formationId);
+     }
+    });
+   }
+  }
+ }
+
+ isFormationPersistenceBlocked(instanceIds) {
+  return (Array.isArray(instanceIds) ? instanceIds : [])
+   .map((instanceId) => normalizeInstanceId(instanceId))
+   .filter(Boolean)
+   .some((instanceId) => this.durableOperationService?.isInstanceCommitOutcomeUnresolved?.(instanceId) === true);
+ }
+
+ captureFormationPersistenceFence(instance, deps = null) {
+  const instanceId = normalizeInstanceId(instance?.meta?.instanceId);
+  const assignedNodeId = normalizeOptionalString(instance?.meta?.assignedNodeId);
+  const leaseToken = normalizeOptionalString(instance?.meta?.leaseToken);
+  const ownershipEpoch = Number.isFinite(Number(instance?.meta?.ownershipEpoch))
+   ? Math.max(0, Math.trunc(Number(instance.meta.ownershipEpoch)))
+   : 0;
+  const leaseExpireAt = instance?.meta?.leaseExpireAt
+   ? new Date(instance.meta.leaseExpireAt).getTime()
+   : 0;
+  const runtimeIdentityCurrent = typeof deps?.getInstanceRuntime !== 'function'
+   || deps.getInstanceRuntime(instanceId) === instance;
+  const leaseWritable = typeof deps?.isInstanceLeaseWritable !== 'function'
+   ? Number.isFinite(leaseExpireAt) && leaseExpireAt > Date.now()
+   : deps.isInstanceLeaseWritable(instance) === true;
+  if (
+   !instanceId
+   || !assignedNodeId
+   || !leaseToken
+   || ownershipEpoch <= 0
+   || !runtimeIdentityCurrent
+   || !leaseWritable
+  ) {
+   if (this.requiresFormationPersistenceFence()) {
+    throw new ServiceUnavailableException(`地图实例 ${instanceId || 'unknown'} 阵法持久化租约不可写`);
+   }
+   return null;
+  }
+  return {
+   instanceId,
+   assignedNodeId,
+   leaseToken,
+   ownershipEpoch,
+  };
+ }
+
+ captureFormationPersistenceFences(instanceIds, deps = null) {
+  const fences = [];
+  for (const instanceId of Array.from(new Set((instanceIds ?? []).map(normalizeInstanceId).filter(Boolean))).sort()) {
+   const instance = deps?.getInstanceRuntime?.(instanceId) ?? null;
+   const fence = this.captureFormationPersistenceFence(instance, deps);
+   if (fence) {
+    fences.push(fence);
+   }
+  }
+  return fences;
+ }
+
+ captureFormationPersistenceFenceForFormation(formation, deps = null) {
+  const instanceId = normalizeInstanceId(formation?.instanceId);
+  const instance = instanceId && typeof deps?.getInstanceRuntime === 'function'
+   ? deps.getInstanceRuntime(instanceId)
+   : null;
+  return this.captureFormationPersistenceFence(instance, deps);
+ }
+
+ persistFormationMaintenanceSoon(formation, ctx = null) {
+  const deps = ctx?.deps ?? ctx;
+  const persistenceFence = this.captureFormationPersistenceFenceForFormation(formation, deps);
+  this.persistInstanceFormationsSoon(formation?.instanceId, persistenceFence);
+ }
+
+ requiresFormationPersistenceFence() {
+  return Boolean(resolveServerDatabaseUrl().trim())
+   && !isFormationVolatileFallbackAllowed();
+ }
+
+ rememberFormationPersistenceFence(instanceId, fence = null) {
+  const normalizedInstanceId = normalizeInstanceId(instanceId);
+  if (!normalizedInstanceId || !fence || normalizeInstanceId(fence.instanceId) !== normalizedInstanceId) {
+   return;
+  }
+  const current = this.formationPersistenceFenceByInstanceId.get(normalizedInstanceId) ?? null;
+  if (current && fence.ownershipEpoch === current.ownershipEpoch && (
+   fence.assignedNodeId !== current.assignedNodeId
+   || fence.leaseToken !== current.leaseToken
+  )) {
+   throw new Error(`formation_instance_lease_fence_identity_conflict:${normalizedInstanceId}:${fence.ownershipEpoch}`);
+  }
+  if (!current || fence.ownershipEpoch > current.ownershipEpoch) {
+   this.formationPersistenceFenceByInstanceId.set(normalizedInstanceId, { ...fence });
+  }
+ }
+
+ resolveFormationPersistenceFence(instanceId, fence = null) {
+  const normalizedInstanceId = normalizeInstanceId(instanceId);
+  const resolved = fence ?? this.formationPersistenceFenceByInstanceId.get(normalizedInstanceId) ?? null;
+  if (!resolved && this.requiresFormationPersistenceFence()) {
+   throw new Error(`formation_instance_lease_fence_missing:${normalizedInstanceId || 'unknown'}`);
+  }
+  return resolved;
+ }
+
+ resolveFormationMaintenanceCheckpointFence(
+  checkpoint: FormationMaintenanceCheckpoint,
+ ): InstanceLeaseWriteFence {
+  const checkpointInstanceId = normalizeInstanceId(checkpoint?.instanceId);
+  const expectedInstanceId = normalizeInstanceId(checkpoint?.durableInput?.expectedInstanceId);
+  const assignedNodeId = normalizeOptionalString(checkpoint?.durableInput?.expectedAssignedNodeId);
+  const leaseToken = normalizeOptionalString(checkpoint?.durableInput?.expectedLeaseToken);
+  const ownershipEpoch = Number.isFinite(Number(checkpoint?.durableInput?.expectedOwnershipEpoch))
+   ? Math.max(0, Math.trunc(Number(checkpoint.durableInput.expectedOwnershipEpoch)))
+   : 0;
+  if (
+   !checkpointInstanceId
+   || expectedInstanceId !== checkpointInstanceId
+   || !assignedNodeId
+   || !leaseToken
+   || ownershipEpoch <= 0
+  ) {
+   throw new Error(`formation_maintenance_checkpoint_lease_fence_invalid:${checkpointInstanceId || 'unknown'}`);
+  }
+  return {
+   instanceId: checkpointInstanceId,
+   assignedNodeId,
+   leaseToken,
+   ownershipEpoch,
+  };
+ }
+
+ enqueueFormationNotice(playerId, kind, key, fallbackText, vars = {}) {
+  const notice = buildStructuredNotice(kind, key, fallbackText, {
+   vars,
+   pills: [{ key: 'formationName', style: 'target' }],
+  });
+  this.playerRuntimeService.enqueueNotice(playerId, notice);
+ }
+
+ async onModuleInit() {
+  await this.ensurePersistencePool();
+ }
+
+ dispatchCreateFormation(playerId, payload, deps) {
+  const plan = this.buildCreateFormationPlan(playerId, payload, deps);
+  const durableContext = this.resolveFormationResourceDurableContext(plan.instance, deps);
+  if (durableContext) {
+   return this.runExclusivePlayerFormationResourceMutation(
+    playerId,
+    plan.formation.id,
+    () => this.commitCreateFormationPlan(plan, durableContext, deps),
+   );
+  }
+  if (resolveServerDatabaseUrl().trim() && !isFormationVolatileFallbackAllowed()) {
+   throw new ServiceUnavailableException('阵法资产事务暂不可用，请稍后重试');
+  }
+  this.applyFormationResourceFallback(playerId, plan.qiCost, plan.spiritStoneCount, plan.itemInstanceId, plan.instance, plan.placement);
+  return this.applyCreatedFormationRuntime(plan, deps, false);
+ }
+
+ buildCreateFormationPlan(playerId, payload, deps) {
+  const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+  const itemInstanceId = resolveInventoryItemInstanceId(payload, this.playerRuntimeService, playerId);
+  const diskItem = this.playerRuntimeService.peekInventoryItemByInstanceId(playerId, itemInstanceId);
+  const diskTier = resolveFormationDiskTier(diskItem);
+  if (!diskItem || !diskTier) {
+   throw new BadRequestException('需要使用阵盘布阵');
+  }
+  const template = this.resolveFormationTemplate(payload?.formationId);
+  if (resolveFormationLifecycle(template) === FORMATION_LIFECYCLE_PERSISTENT) {
+   throw new BadRequestException(`${template.name}是持续性阵法，不能通过阵盘布置`);
+  }
+  if (template.placeableByDisk === false) {
+   throw new BadRequestException(`${template.name}不能通过阵盘布置`);
+  }
+  const diskMultiplier = normalizeDiskMultiplier(diskItem);
+  const formationSkillLevel = resolveFormationSkillLevel(player);
+  const formationStrengthBonusRate = Math.max(0, resolvePlayerCraftEffectStat(player, 'formation', 'outputRate'));
+  const hasSetupPayload = payload?.setup && typeof payload.setup === 'object';
+  const plan = hasSetupPayload
+   ? resolveFormationSetupPlan(template, diskMultiplier, payload.setup, formationSkillLevel, formationStrengthBonusRate)
+   : null;
+  const spiritStoneCount = plan
+   ? plan.spiritStoneCount
+   : normalizePositiveInteger(payload?.spiritStoneCount, '灵石数量');
+  const minSpiritStoneCount = resolveFormationMinSpiritStoneCount(template);
+  if (!plan && spiritStoneCount < minSpiritStoneCount) {
+   throw new BadRequestException(`${template.name}至少需要投入 ${formatInteger(minSpiritStoneCount)} 灵石`);
+  }
+  const qiCost = plan ? plan.qiCost : resolveFormationQiCost(spiritStoneCount, template);
+  const allocation = plan
+   ? { ...plan.setup, formationSkillLevel, formationStrengthBonusRate }
+   : { ...normalizeFormationAllocation(payload?.allocation), formationSkillLevel, formationStrengthBonusRate };
+  const stats = plan ? plan.stats : resolveFormationStats(template, spiritStoneCount, diskMultiplier, allocation, formationSkillLevel, formationStrengthBonusRate);
+  const location = deps.getPlayerLocationOrThrow(playerId);
+  const instance = deps.getInstanceRuntime(location.instanceId);
+  if (!instance) {
+   throw new NotFoundException('当前地图实例不存在');
+  }
+  assertCanPlaceFormationInInstance(instance);
+  const placement = resolveFormationPlacement(playerId, player, location, instance);
+  assertFormationProtectedPlacementAllowed(instance, {
+   x: placement.x,
+   y: placement.y,
+   template,
+   stats,
+   name: template.name,
+  });
+  this.assertCanPay(playerId, qiCost, spiritStoneCount);
+  const now = Date.now();
+  const formation = {
+   instanceId: instance.meta.instanceId,
+   id: `formation:${instance.meta.instanceId}:${this.nextFormationSerial++}`,
+   ownerPlayerId: playerId,
+   ownerSectId: resolvePlayerSectId(player),
+   formationId: template.id,
+   lifecycle: FORMATION_LIFECYCLE_DEPLOYED,
+   name: template.name,
+   template,
+   diskItemId: diskItem.itemId,
+   diskTier,
+   diskMultiplier,
+   spiritStoneCount,
+   qiCost,
+   x: placement.x,
+   y: placement.y,
+   eyeInstanceId: instance.meta.instanceId,
+   eyeX: placement.x,
+   eyeY: placement.y,
+   allocation,
+   stats,
+   active: true,
+   remainingQiBudget: stats.totalQiBudget ?? stats.totalAuraBudget,
+   remainingSpiritStoneBudget: stats.totalSpiritStoneBudget ?? spiritStoneCount,
+   remainingAuraBudget: stats.totalAuraBudget,
+   createdAt: now,
+   updatedAt: now,
+  };
+  return {
+   playerId,
+   player,
+   itemInstanceId,
+   qiCost,
+   spiritStoneCount,
+   instance,
+   placement,
+   formation,
+  };
+ }
+
+ async commitCreateFormationPlan(plan, durableContext, deps) {
+  const player = this.playerRuntimeService.getPlayerOrThrow(plan.playerId);
+  const nextInventoryItems = buildFormationResourceInventoryPlan(
+   player.inventory?.items,
+   plan.spiritStoneCount,
+   plan.itemInstanceId,
+  );
+  const nextQi = Math.max(0, Math.trunc(Number(player.qi ?? 0)) - plan.qiCost);
+  await this.commitFormationResourcePlan({
+   playerId: plan.playerId,
+   player,
+   action: 'deploy',
+   formation: plan.formation,
+   expectedFormationUpdatedAtMs: null,
+   expectFormationAbsent: true,
+   nextInventoryItems,
+   nextQi,
+   spiritStoneCount: plan.spiritStoneCount,
+   qiAmount: plan.qiCost,
+   diskItemInstanceId: plan.itemInstanceId,
+   durableContext,
+  });
+  this.playerRuntimeService.replaceInventoryItems(plan.playerId, nextInventoryItems);
+  this.playerRuntimeService.setVitals(plan.playerId, { qi: nextQi });
+  plan.instance.disperseQiAt?.(plan.placement.x, plan.placement.y, plan.qiCost);
+  return this.applyCreatedFormationRuntime(plan, deps, true);
+ }
+
+ applyFormationResourceFallback(playerId, qiCost, spiritStoneCount, itemInstanceId, instance, placement) {
+  this.playerRuntimeService.spendQi(playerId, qiCost);
+  instance.disperseQiAt?.(placement.x, placement.y, qiCost);
+  this.playerRuntimeService.debitWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount);
+  this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, 1);
+ }
+
+ applyCreatedFormationRuntime(plan, deps, durableCommitted) {
+  const { formation, instance, playerId } = plan;
+  const { template, stats, spiritStoneCount } = formation;
+  this.getFormationList(instance.meta.instanceId).push(formation);
+  touchInstanceRevision(instance);
+  if (!durableCommitted) {
+   this.persistFormationSnapshotSoon(formation);
+  }
+  this.enqueueFormationNotice(
+   playerId,
+   'success',
+   'notice.formation.deployed',
+   `${template.name}已布下：半径 ${stats.radius}，强度 ${formatInteger(stats.effectValue)}，灵力 ${formatInteger(stats.totalQiBudget ?? stats.totalAuraBudget)}，灵石 ${formatInteger(stats.totalSpiritStoneBudget ?? spiritStoneCount)}。`,
+   {
+    formationName: template.name,
+    radius: stats.radius,
+    effectValue: formatInteger(stats.effectValue),
+    qiBudget: formatInteger(stats.totalQiBudget ?? stats.totalAuraBudget),
+    spiritStoneBudget: formatInteger(stats.totalSpiritStoneBudget ?? spiritStoneCount),
+   },
+  );
+  if (typeof deps.refreshPlayerContextActions === 'function') {
+   deps.refreshPlayerContextActions(playerId);
+  }
+  return formation;
+ }
+
+ upsertSectGuardianFormation(input, deps = null, options: { deferPersistence?: boolean } = {}) {
+  const template = this.resolveFormationTemplate(input?.formationId ?? 'sect_guardian_barrier');
+  if (template.effect?.kind !== BOUNDARY_BARRIER_EFFECT_KIND) {
+   throw new BadRequestException('护宗大阵模板必须是边界防护阵法');
+  }
+  const instanceId = normalizeInstanceId(input?.instanceId);
+  if (!instanceId) {
+   throw new BadRequestException('地图实例 ID 不能为空');
+  }
+  const persistenceFence = options.deferPersistence === true
+   ? null
+   : this.captureFormationPersistenceFence(deps?.getInstanceRuntime?.(instanceId) ?? null, deps);
+  const x = firstFiniteInteger(input?.x);
+  const y = firstFiniteInteger(input?.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+   throw new BadRequestException('护宗大阵入口坐标无效');
+  }
+  const ownerSectId = normalizeOptionalString(input?.ownerSectId ?? input?.sectId);
+  const eyeInstanceId = normalizeInstanceId(input?.eyeInstanceId) || instanceId;
+  const eyeX = firstFiniteInteger(input?.eyeX, x);
+  const eyeY = firstFiniteInteger(input?.eyeY, y);
+  const explicitRemainingQiBudget = Number.isFinite(Number(input?.remainingQiBudget ?? input?.remainingAuraBudget))
+   ? Math.max(0, Number(input.remainingQiBudget ?? input.remainingAuraBudget))
+   : null;
+  const explicitRemainingSpiritStoneBudget = Number.isFinite(Number(input?.remainingSpiritStoneBudget))
+   ? Math.max(0, Number(input.remainingSpiritStoneBudget))
+   : null;
+  const inputSpiritStoneCount = Math.trunc(Number(input?.spiritStoneCount) || 0);
+  const auraPerSpiritStone = resolveFormationAuraPerSpiritStone(template);
+  const fallbackSpiritStoneCount = explicitRemainingSpiritStoneBudget !== null
+   ? Math.ceil(explicitRemainingSpiritStoneBudget)
+   : explicitRemainingQiBudget !== null
+    ? Math.ceil(explicitRemainingQiBudget / auraPerSpiritStone)
+    : resolveFormationMinSpiritStoneCount(template);
+  const spiritStoneCount = Math.max(1, inputSpiritStoneCount > 0 ? inputSpiritStoneCount : fallbackSpiritStoneCount);
+  const diskMultiplier = Number.isFinite(Number(input?.diskMultiplier)) ? Math.max(1, Number(input.diskMultiplier)) : 1;
+  const list = this.getFormationList(instanceId);
+  const formationId = normalizeOptionalString(input?.id)
+   || `formation:sect_guardian:${ownerSectId || 'public'}:${instanceId}:${x}:${y}`;
+  const existing = list.find((entry) => entry.id === formationId);
+  const existingSetup = typeof isFormationSetupInput === 'function' && isFormationSetupInput(existing?.allocation)
+   ? existing.allocation
+   : null;
+  const allocationSeed = typeof isFormationSetupInput === 'function' && isFormationSetupInput(input?.allocation)
+   ? input.allocation
+   : {
+    radius: Math.max(1, Math.trunc(Number(input?.radius ?? existingSetup?.radius ?? 1) || 1)),
+    durationHours: Math.max(1 / 60, Number(existingSetup?.durationHours ?? 24) || 24),
+    effectValue: Math.max(1, Math.trunc(Number(existingSetup?.effectValue ?? 1) || 1)),
+   };
+  const allocation = normalizeFormationSetup(template, allocationSeed);
+  const stats = resolveFormationStats(template, spiritStoneCount, diskMultiplier, allocation);
+  if (Number.isFinite(Number(input?.radius))) {
+   stats.radius = Math.max(1, Math.trunc(Number(input.radius)));
+  }
+  const now = resolveNextFormationUpdatedAt(existing);
+  const remainingQiBudget = existing
+   ? resolveFormationRemainingQiBudget(existing)
+   : explicitRemainingQiBudget !== null ? explicitRemainingQiBudget : stats.totalQiBudget ?? stats.totalAuraBudget;
+  const remainingSpiritStoneBudget = existing
+   ? resolveFormationRemainingSpiritStoneBudget(existing)
+   : explicitRemainingSpiritStoneBudget !== null ? explicitRemainingSpiritStoneBudget : stats.totalSpiritStoneBudget ?? spiritStoneCount;
+  const active = input?.active !== false && remainingQiBudget > 0 && remainingSpiritStoneBudget > 0;
+  const patch = {
+   instanceId,
+   id: formationId,
+   ownerPlayerId: normalizeOptionalString(input?.ownerPlayerId) || '',
+   ownerSectId,
+   formationId: template.id,
+   lifecycle: FORMATION_LIFECYCLE_PERSISTENT,
+   name: template.name,
+   template,
+   diskItemId: '',
+   diskTier: 'mortal',
+   diskMultiplier,
+   spiritStoneCount,
+   qiCost: 0,
+   x,
+   y,
+   eyeInstanceId,
+   eyeX,
+   eyeY,
+   allocation,
+   stats,
+   active,
+   remainingQiBudget,
+   remainingSpiritStoneBudget,
+   remainingAuraBudget: remainingQiBudget,
+   createdAt: existing?.createdAt ?? now,
+   updatedAt: now,
+  };
+  if (existing) {
+   Object.assign(existing, patch);
+  }
+  else {
+   list.push(patch);
+  }
+  const formation = existing ?? patch;
+  touchRuntimeInstanceRevision(deps, instanceId);
+  if (options.deferPersistence !== true) {
+   this.persistFormationSnapshotSoon(formation, persistenceFence);
+  }
+  return formation;
+ }
+
+ /** 为宗门跨域事务导出护宗大阵持久化快照，不在调用处复制 formation 表结构。 */
+ serializeFormationForDurableMutation(formation) {
+  return formation ? serializeFormation(formation) : null;
+ }
+
+ dispatchSetFormationActive(playerId, payload, deps = null) {
+  const formation = this.findOwnedFormation(playerId, payload?.formationInstanceId);
+  if (isPersistentFormation(formation)) {
+   throw new BadRequestException('持续性阵法需要在阵法管理面板操作');
+  }
+  const persistenceFence = this.captureFormationPersistenceFenceForFormation(formation, deps);
+  formation.active = payload?.active !== false
+   && resolveFormationRemainingQiBudget(formation) > 0
+   && resolveFormationRemainingSpiritStoneBudget(formation) > 0;
+  formation.updatedAt = resolveNextFormationUpdatedAt(formation);
+  touchRuntimeInstanceRevision(deps, formation.instanceId);
+  this.persistFormationSnapshotSoon(formation, persistenceFence);
+  this.enqueueFormationNotice(
+   playerId,
+   'info',
+   'notice.formation.active-set',
+   `${formation.name}已${formation.active ? '开启' : '关闭'}。`,
+   { formationName: formation.name, stateLabel: formation.active ? '开启' : '关闭' },
+  );
+  return formation;
+ }
+
+ dispatchRefillFormation(playerId, payload, deps = null) {
+  const plan = this.buildRefillFormationPlan(playerId, payload, deps);
+  const instance = this.resolveFormationWriteInstance(plan.formation, deps);
+  const durableContext = this.resolveFormationResourceDurableContext(instance, deps);
+  if (durableContext) {
+   return this.runExclusivePlayerFormationResourceMutation(
+    playerId,
+    plan.formation.id,
+    () => this.commitRefillFormationPlan(
+     this.buildRefillFormationPlan(playerId, payload, deps),
+     durableContext,
+     deps,
+    ),
+   );
+  }
+  if (resolveServerDatabaseUrl().trim() && !isFormationVolatileFallbackAllowed()) {
+   throw new ServiceUnavailableException('阵法资产事务暂不可用，请稍后重试');
+  }
+  this.applyRefillFormationPlayerResources(plan, deps);
+  return this.applyRefillFormationRuntime(plan, deps, false);
+ }
+
+ buildRefillFormationPlan(playerId, payload, deps = null) {
+  const formation = this.findOwnedFormation(playerId, payload?.formationInstanceId);
+  if (isPersistentFormation(formation)) {
+   throw new BadRequestException('持续性阵法需要在阵法管理面板注入灵石或灵力');
+  }
+  const defaultSpiritStoneCount = Math.max(1, Math.trunc(Number(formation.spiritStoneCount) || 1));
+  const spiritStoneCount = payload && 'spiritStoneCount' in payload
+   ? normalizeNonNegativeInteger(payload.spiritStoneCount ?? 0)
+   : defaultSpiritStoneCount;
+  const qiAmount = payload && ('qiAmount' in payload || 'qiCost' in payload)
+   ? normalizeNonNegativeInteger(payload.qiAmount ?? payload.qiCost ?? 0)
+   : resolveFormationQiCost(defaultSpiritStoneCount, formation.template);
+  if (spiritStoneCount <= 0 && qiAmount <= 0) {
+   throw new BadRequestException('至少需要补充灵石或灵力');
+  }
+  this.assertCanPay(playerId, qiAmount, spiritStoneCount);
+  const nextFormation = cloneFormationForResourceMutation(formation);
+  if (spiritStoneCount > 0) {
+   setFormationRemainingSpiritStoneBudget(nextFormation, resolveFormationRemainingSpiritStoneBudget(nextFormation) + spiritStoneCount);
+  }
+  if (qiAmount > 0) {
+   setFormationRemainingQiBudget(nextFormation, resolveFormationRemainingQiBudget(nextFormation) + qiAmount);
+  }
+  if (resolveFormationRemainingQiBudget(nextFormation) > 0 && resolveFormationRemainingSpiritStoneBudget(nextFormation) > 0) {
+   nextFormation.active = true;
+  }
+  nextFormation.updatedAt = resolveNextFormationUpdatedAt(formation);
+  return {
+   playerId,
+   formation,
+   nextFormation,
+   expectedFormationUpdatedAtMs: Math.max(0, Math.trunc(Number(formation.updatedAt) || 0)),
+   spiritStoneCount,
+   qiAmount,
+  };
+ }
+
+ async commitRefillFormationPlan(plan, durableContext, deps) {
+  const player = this.playerRuntimeService.getPlayerOrThrow(plan.playerId);
+  const nextInventoryItems = buildFormationResourceInventoryPlan(
+   player.inventory?.items,
+   plan.spiritStoneCount,
+  );
+  const nextQi = Math.max(0, Math.trunc(Number(player.qi ?? 0)) - plan.qiAmount);
+  await this.commitFormationResourcePlan({
+   playerId: plan.playerId,
+   player,
+   action: 'refill',
+   formation: plan.nextFormation,
+   expectedFormationUpdatedAtMs: plan.expectedFormationUpdatedAtMs,
+   expectFormationAbsent: false,
+   nextInventoryItems,
+   nextQi,
+   spiritStoneCount: plan.spiritStoneCount,
+   qiAmount: plan.qiAmount,
+   diskItemInstanceId: null,
+   durableContext,
+  });
+  this.playerRuntimeService.replaceInventoryItems(plan.playerId, nextInventoryItems);
+  this.playerRuntimeService.setVitals(plan.playerId, { qi: nextQi });
+  if (plan.qiAmount > 0) {
+   dispersePlayerQiSpend(deps, this.playerRuntimeService.getPlayerOrThrow(plan.playerId), plan.qiAmount);
+  }
+  return this.applyRefillFormationRuntime(plan, deps, true);
+ }
+
+ applyRefillFormationPlayerResources(plan, deps) {
+  const { playerId, qiAmount, spiritStoneCount } = plan;
+  if (qiAmount > 0) {
+   this.playerRuntimeService.spendQi(playerId, qiAmount);
+   dispersePlayerQiSpend(deps, this.playerRuntimeService.getPlayerOrThrow(playerId), qiAmount);
+  }
+  if (spiritStoneCount > 0) {
+   this.playerRuntimeService.debitWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount);
+  }
+ }
+
+ applyRefillFormationRuntime(plan, deps, durableCommitted) {
+  const { playerId, formation, nextFormation, spiritStoneCount, qiAmount } = plan;
+  Object.assign(formation, nextFormation);
+  touchRuntimeInstanceRevision(deps, formation.instanceId);
+  if (!durableCommitted) {
+   this.persistFormationSnapshotSoon(formation);
+  }
+  this.enqueueFormationNotice(
+   playerId,
+   'success',
+   'notice.formation.refilled',
+   `${formation.name}补充灵石 ${formatInteger(spiritStoneCount)}，灵力 ${formatInteger(qiAmount)}。`,
+   {
+    formationName: formation.name,
+    spiritStoneCount: formatInteger(spiritStoneCount),
+    qiAmount: formatInteger(qiAmount),
+   },
+  );
+  return formation;
+ }
+
+ createFormationMaintenanceJob(player, validated, ctx) {
+  const playerId = normalizePlayerId(player);
+  const formation = this.resolveMaintainableFormation(playerId, validated?.formationInstanceId, ctx);
+  const rate = resolveFormationMaintenanceRate(player);
+  return {
+   jobRunId: `job:${playerId}:formation:${Date.now()}`,
+   jobType: 'formation',
+   formationInstanceId: formation.id,
+   formationName: formation.name,
+   instanceId: formation.instanceId,
+   controlInstanceId: normalizeInstanceId(formation.eyeInstanceId) || formation.instanceId,
+   controlX: firstFiniteInteger(formation.eyeX, formation.x),
+   controlY: firstFiniteInteger(formation.eyeY, formation.y),
+   phase: 'maintaining',
+   startedAt: Date.now(),
+   totalTicks: 1,
+   remainingTicks: 1,
+   workTotalTicks: 1,
+   workRemainingTicks: 1,
+   interruptWaitRemainingTicks: 0,
+   interruptState: null,
+   pausedTicks: 0,
+   successRate: 1,
+   spiritStoneCost: 0,
+   maintenanceRate: rate,
+   jobVersion: 1,
+  };
+ }
+
+ checkFormationMaintenanceCondition(player, job, _ctx = null) {
+  const playerId = normalizePlayerId(player);
+  const formationInstanceId = normalizeOptionalString(job?.formationInstanceId);
+  if (!playerId || !formationInstanceId) {
+   return { satisfied: false, reason: '阵法维护目标无效。', shouldCancel: true };
+  }
+  let formation = null;
+  try {
+   formation = this.resolveMaintainableFormation(playerId, formationInstanceId, _ctx);
+  } catch (_error) {
+   return { satisfied: false, reason: '阵法已不存在或不属于你。', shouldCancel: true };
+  }
+  if (!formation || resolveFormationRemainingSpiritStoneBudget(formation) <= 0) {
+   return { satisfied: false, reason: '阵法灵石已耗尽。', shouldCancel: true };
+  }
+  const controlInstanceId = normalizeInstanceId(formation.eyeInstanceId) || formation.instanceId;
+  const controlX = firstFiniteInteger(formation.eyeX, formation.x);
+  const controlY = firstFiniteInteger(formation.eyeY, formation.y);
+  const playerInstanceId = normalizeInstanceId(player.instanceId);
+  if (playerInstanceId !== controlInstanceId
+   || !isWithinFormationMaintenanceControlRange(player.x, player.y, controlX, controlY)) {
+   return { satisfied: false, reason: '离开阵法控制点位。' };
+  }
+  return { satisfied: true };
+ }
+
+ resolveMaintainableFormation(playerId, formationInstanceId, ctx = null) {
+  try {
+   return this.findOwnedFormation(playerId, formationInstanceId);
+  }
+  catch (ownedError) {
+   const formation = this.findFormationByInstanceOrId(null, formationInstanceId);
+   const sectService = ctx?.deps?.worldRuntimeSectService ?? ctx?.worldRuntimeSectService ?? null;
+   if (formation
+    && isPersistentFormation(formation)
+    && typeof sectService?.canPlayerMaintainGuardianFormation === 'function'
+    && sectService.canPlayerMaintainGuardianFormation(playerId, formation)) {
+    return formation;
+   }
+   throw ownedError;
+  }
+ }
+
+ resolveFormationRemainingQiBudget(formation) {
+  return resolveFormationRemainingQiBudget(formation);
+ }
+
+ resolveFormationRemainingSpiritStoneBudget(formation) {
+  return resolveFormationRemainingSpiritStoneBudget(formation);
+ }
+
+ resolveFormationDailySpiritStoneCost(formation) {
+  return resolveFormationDailySpiritStoneCost(formation);
+ }
+
+ resolveFormationDamageReduction(formation) {
+  return resolveFormationDamageReduction(formation?.template, formation?.stats?.effectValue);
+ }
+
+ setFormationRemainingQiBudget(formation, value) {
+  setFormationRemainingQiBudget(formation, value);
+ }
+
+ dispatchSetPersistentFormationStrength(playerId, payload, deps = null) {
+  const formation = this.findFormationByInstanceOrId(payload?.instanceId, payload?.formationInstanceId);
+  if (!formation) {
+   throw new NotFoundException('阵法不存在');
+  }
+  if (!isPersistentFormation(formation)) {
+   throw new BadRequestException('该阵法不是持续性阵法');
+  }
+  const persistenceFence = this.captureFormationPersistenceFenceForFormation(formation, deps);
+  const strength = normalizePositiveInteger(payload?.strength ?? payload?.effectValue ?? 1, '阵法强度');
+  const setup = normalizeFormationSetup(formation.template, {
+   ...(typeof isFormationSetupInput === 'function' && isFormationSetupInput(formation.allocation) ? formation.allocation : {}),
+   radius: Math.max(1, Math.trunc(Number(formation.stats?.radius ?? formation.allocation?.radius ?? 1) || 1)),
+   durationHours: Math.max(1 / 60, Number(formation.allocation?.durationHours ?? 24) || 24),
+   effectValue: strength,
+  });
+  formation.allocation = {
+   ...setup,
+   formationSkillLevel: 0,
+  };
+  formation.stats = resolveFormationStats(
+   formation.template,
+   Math.max(1, Math.trunc(Number(formation.spiritStoneCount) || 1)),
+   Number.isFinite(Number(formation.diskMultiplier)) ? Math.max(1, Number(formation.diskMultiplier)) : 1,
+   formation.allocation,
+   0,
+  );
+  if (Number.isFinite(Number(setup.radius))) {
+   formation.stats.radius = Math.max(1, Math.trunc(Number(setup.radius)));
+  }
+  formation.updatedAt = resolveNextFormationUpdatedAt(formation);
+  touchRuntimeInstanceRevision(deps, formation.instanceId);
+  if (normalizeInstanceId(formation.eyeInstanceId) && normalizeInstanceId(formation.eyeInstanceId) !== formation.instanceId) {
+   touchRuntimeInstanceRevision(deps, formation.eyeInstanceId);
+  }
+  this.persistFormationSnapshotSoon(formation, persistenceFence);
+  this.enqueueFormationNotice(
+   playerId,
+   'success',
+   'notice.formation.strength-set',
+   `${formation.name}强度已调整为 ${formatInteger(strength)}。`,
+   { formationName: formation.name, strength: formatInteger(strength) },
+  );
+  return formation;
+ }
+
+ dispatchSetPersistentFormationActive(playerId, payload, deps = null) {
+  const formation = this.findFormationByInstanceOrId(payload?.instanceId, payload?.formationInstanceId);
+  if (!formation) {
+   throw new NotFoundException('阵法不存在');
+  }
+  if (!isPersistentFormation(formation)) {
+   throw new BadRequestException('该阵法不是持续性阵法');
+  }
+  const persistenceFence = this.captureFormationPersistenceFenceForFormation(formation, deps);
+  formation.active = payload?.active !== false
+   && resolveFormationRemainingQiBudget(formation) > 0
+   && resolveFormationRemainingSpiritStoneBudget(formation) > 0;
+  formation.updatedAt = resolveNextFormationUpdatedAt(formation);
+  touchRuntimeInstanceRevision(deps, formation.instanceId);
+  this.persistFormationSnapshotSoon(formation, persistenceFence);
+  this.enqueueFormationNotice(
+   playerId,
+   'info',
+   'notice.formation.active-set',
+   `${formation.name}已${formation.active ? '开启' : '关闭'}。`,
+   { formationName: formation.name, stateLabel: formation.active ? '开启' : '关闭' },
+  );
+  return formation;
+ }
+
+ dispatchInjectPersistentFormationEnergy(playerId, payload, deps = null) {
+  const plan = this.buildPersistentFormationInjectionPlan(playerId, payload);
+  const instance = this.resolveFormationWriteInstance(plan.formation, deps);
+  const durableContext = this.resolveFormationResourceDurableContext(instance, deps);
+  if (durableContext) {
+   return this.runExclusivePlayerFormationResourceMutation(
+    playerId,
+    plan.formation.id,
+    () => this.commitPersistentFormationInjectionPlan(
+     this.buildPersistentFormationInjectionPlan(playerId, payload),
+     durableContext,
+     deps,
+    ),
+   );
+  }
+  if (resolveServerDatabaseUrl().trim() && !isFormationVolatileFallbackAllowed()) {
+   throw new ServiceUnavailableException('阵法资产事务暂不可用，请稍后重试');
+  }
+  this.applyPersistentFormationInjectionPlayerResources(plan, deps);
+  return this.applyPersistentFormationInjectionRuntime(plan, deps, false);
+ }
+
+ buildPersistentFormationInjectionPlan(playerId, payload) {
+  const formation = this.findFormationByInstanceOrId(payload?.instanceId, payload?.formationInstanceId);
+  if (!formation) {
+   throw new NotFoundException('阵法不存在');
+  }
+  if (!isPersistentFormation(formation)) {
+   throw new BadRequestException('该阵法不是持续性阵法');
+  }
+  const spiritStoneCount = normalizeNonNegativeInteger(payload?.spiritStoneCount ?? 0);
+  const qiAmount = normalizeNonNegativeInteger(payload?.qiAmount ?? payload?.qiCost ?? resolveFormationQiCost(spiritStoneCount, formation.template));
+  if (spiritStoneCount <= 0 && qiAmount <= 0) {
+   throw new BadRequestException('至少需要注入灵石或灵力');
+  }
+  this.assertCanInject(playerId, qiAmount, spiritStoneCount);
+  const nextFormation = cloneFormationForResourceMutation(formation);
+  if (spiritStoneCount > 0) {
+   setFormationRemainingSpiritStoneBudget(nextFormation, resolveFormationRemainingSpiritStoneBudget(nextFormation) + spiritStoneCount);
+  }
+  if (qiAmount > 0) {
+   setFormationRemainingQiBudget(nextFormation, resolveFormationRemainingQiBudget(nextFormation) + qiAmount);
+  }
+  if (resolveFormationRemainingQiBudget(nextFormation) > 0 && resolveFormationRemainingSpiritStoneBudget(nextFormation) > 0) {
+   nextFormation.active = true;
+  }
+  nextFormation.updatedAt = resolveNextFormationUpdatedAt(formation);
+  return {
+   playerId,
+   formation,
+   nextFormation,
+   expectedFormationUpdatedAtMs: Math.max(0, Math.trunc(Number(formation.updatedAt) || 0)),
+   spiritStoneCount,
+   qiAmount,
+  };
+ }
+
+ async commitPersistentFormationInjectionPlan(plan, durableContext, deps) {
+  const player = this.playerRuntimeService.getPlayerOrThrow(plan.playerId);
+  const nextInventoryItems = buildFormationResourceInventoryPlan(
+   player.inventory?.items,
+   plan.spiritStoneCount,
+  );
+  const nextQi = Math.max(0, Math.trunc(Number(player.qi ?? 0)) - plan.qiAmount);
+  await this.commitFormationResourcePlan({
+   playerId: plan.playerId,
+   player,
+   action: 'inject',
+   formation: plan.nextFormation,
+   expectedFormationUpdatedAtMs: plan.expectedFormationUpdatedAtMs,
+   expectFormationAbsent: false,
+   nextInventoryItems,
+   nextQi,
+   spiritStoneCount: plan.spiritStoneCount,
+   qiAmount: plan.qiAmount,
+   diskItemInstanceId: null,
+   durableContext,
+  });
+  this.playerRuntimeService.replaceInventoryItems(plan.playerId, nextInventoryItems);
+  this.playerRuntimeService.setVitals(plan.playerId, { qi: nextQi });
+  if (plan.qiAmount > 0) {
+   dispersePlayerQiSpend(deps, this.playerRuntimeService.getPlayerOrThrow(plan.playerId), plan.qiAmount);
+  }
+  return this.applyPersistentFormationInjectionRuntime(plan, deps, true);
+ }
+
+ applyPersistentFormationInjectionPlayerResources(plan, deps) {
+  const { playerId, qiAmount, spiritStoneCount } = plan;
+  if (qiAmount > 0) {
+   this.playerRuntimeService.spendQi(playerId, qiAmount);
+   dispersePlayerQiSpend(deps, this.playerRuntimeService.getPlayerOrThrow(playerId), qiAmount);
+  }
+  if (spiritStoneCount > 0) {
+   this.playerRuntimeService.debitWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount);
+  }
+ }
+
+ applyPersistentFormationInjectionRuntime(plan, deps, durableCommitted) {
+  const { playerId, formation, nextFormation, spiritStoneCount, qiAmount } = plan;
+  Object.assign(formation, nextFormation);
+  touchRuntimeInstanceRevision(deps, formation.instanceId);
+  if (!durableCommitted) {
+   this.persistFormationSnapshotSoon(formation);
+  }
+  this.enqueueFormationNotice(
+   playerId,
+   'success',
+   'notice.formation.injected',
+   `${formation.name}注入灵石 ${formatInteger(spiritStoneCount)}，灵力 ${formatInteger(qiAmount)}。`,
+   {
+    formationName: formation.name,
+    spiritStoneCount: formatInteger(spiritStoneCount),
+    qiAmount: formatInteger(qiAmount),
+   },
+  );
+  return formation;
+ }
+
+ advanceInstanceFormations(instance, _worldTick, deps) {
+  const formations = this.formationsByInstanceId.get(instance.meta.instanceId);
+  if (!formations || formations.length <= 0) {
+   return;
+  }
+  const persistenceFence = this.captureFormationPersistenceFence(instance, deps);
+  let persistenceDirty = false;
+  for (let index = formations.length - 1; index >= 0; index -= 1) {
+   const formation = formations[index];
+   const tickCost = resolveFormationTickCost(formation);
+   const spiritStoneBefore = resolveFormationRemainingSpiritStoneBudget(formation);
+   const qiBefore = resolveFormationRemainingQiBudget(formation);
+   const lacksSpiritStone = tickCost.spiritStoneCost > 0 && spiritStoneBefore < tickCost.spiritStoneCost;
+   setFormationRemainingSpiritStoneBudget(formation, Math.max(0, spiritStoneBefore - tickCost.spiritStoneCost));
+   if (lacksSpiritStone || resolveFormationRemainingSpiritStoneBudget(formation) <= 0) {
+    formations.splice(index, 1);
+    touchInstanceRevision(instance);
+    persistenceDirty = true;
+    this.persistFormationRemovalSoon(formation, persistenceFence);
+    this.enqueueFormationNotice(
+     formation.ownerPlayerId,
+     'warning',
+     'notice.formation.spirit-stone-depleted',
+     `${formation.name}灵石耗尽，阵势损毁。`,
+     { formationName: formation.name },
+    );
+    continue;
+   }
+   const wasActive = formation.active !== false;
+   const lacksQi = tickCost.qiCost > 0 && qiBefore < tickCost.qiCost;
+   setFormationRemainingQiBudget(formation, Math.max(0, qiBefore - tickCost.qiCost));
+   if (tickCost.spiritStoneCost > 0 || tickCost.qiCost > 0) {
+    formation.updatedAt = resolveNextFormationUpdatedAt(formation);
+   }
+   if (lacksQi || resolveFormationRemainingQiBudget(formation) <= 0) {
+    if (formation.active !== false) {
+     formation.active = false;
+     formation.updatedAt = resolveNextFormationUpdatedAt(formation);
+     touchInstanceRevision(instance);
+     persistenceDirty = true;
+     this.enqueueFormationNotice(
+      formation.ownerPlayerId,
+      'warning',
+      'notice.formation.qi-depleted',
+      `${formation.name}灵力不足，阵势关闭。`,
+      { formationName: formation.name },
+     );
+    }
+    if (Number.isFinite(Number(_worldTick)) && Number(_worldTick) % 60 === 0) {
+     persistenceDirty = true;
+    }
+    continue;
+   }
+   if (Number.isFinite(Number(_worldTick)) && Number(_worldTick) % 60 === 0) {
+    persistenceDirty = true;
+   }
+   if (!wasActive || formation.active !== true) {
+    continue;
+   }
+   if (formation.template.effect.kind === TILE_AURA_SOURCE_EFFECT_KIND) {
+    this.advanceAuraFormation(instance, formation);
+   }
+  }
+  if (formations.length <= 0) {
+   this.formationsByInstanceId.delete(instance.meta.instanceId);
+  }
+  if (persistenceDirty) {
+   this.persistInstanceFormationsSoon(instance.meta.instanceId, persistenceFence);
+  }
+ }
+
+ isTerrainStabilized(instanceId, x, y) {
+  const formations = this.formationsByInstanceId.get(instanceId);
+  if (!formations || formations.length <= 0) {
+   return false;
+  }
+  for (const formation of formations) {
+   if (!isActiveTerrainStabilizerFormation(formation)) {
+    continue;
+   }
+   if (this.containsTile(formation, x, y)) {
+    return true;
+   }
+  }
+  return false;
+ }
+
+ createTerrainStabilizationChecker(instanceId) {
+  const formations = this.formationsByInstanceId.get(instanceId);
+  if (!formations || formations.length <= 0) {
+   return buildTerrainStabilizationChecker(() => false, false);
+  }
+  const snapshots = [];
+  for (const formation of formations) {
+   if (!isActiveTerrainStabilizerFormation(formation)) {
+    continue;
+   }
+   snapshots.push({
+    shape: formation.template.range.shape,
+    x: Math.trunc(Number(formation.x)),
+    y: Math.trunc(Number(formation.y)),
+    radius: Math.max(1, Math.trunc(Number(formation.stats?.radius) || 1)),
+   });
+  }
+  if (snapshots.length <= 0) {
+   return buildTerrainStabilizationChecker(() => false, false);
+  }
+  return buildTerrainStabilizationChecker((x, y) => {
+   const tileX = Math.trunc(Number(x));
+   const tileY = Math.trunc(Number(y));
+   if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) {
+    return false;
+   }
+   for (const snapshot of snapshots) {
+    if (isFormationAffectedCell(snapshot.shape, snapshot.x, snapshot.y, tileX, tileY, snapshot.radius)) {
+     return true;
+    }
+   }
+   return false;
+  }, true);
+ }
+
+ resolveTerrainDamageReduction(instanceId, x, y) {
+  const formations = this.formationsByInstanceId.get(instanceId);
+  if (!formations || formations.length <= 0) {
+   return 0;
+  }
+  let reduction = 0;
+  for (const formation of formations) {
+   if (!isActiveTerrainStabilizerFormation(formation)) {
+    continue;
+   }
+   if (!this.containsTile(formation, x, y)) {
+    continue;
+   }
+   const formationReduction = resolveFormationDamageReduction(formation.template, formation.stats?.effectValue);
+   if (formationReduction <= 0) {
+    continue;
+   }
+   reduction = Math.max(reduction, formationReduction);
+  }
+  return Math.max(0, Math.min(0.999999, reduction));
+ }
+
+ resolveMonsterSuppressionLayersAt(instanceId, x, y) {
+  const tileX = Math.trunc(Number(x));
+  const tileY = Math.trunc(Number(y));
+  if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) {
+   return 0;
+  }
+  const formations = this.formationsByInstanceId.get(instanceId);
+  if (!formations || formations.length <= 0) {
+   return 0;
+  }
+  let layers = 0;
+  for (const formation of formations) {
+   if (!isActiveFormationOfKind(formation, MONSTER_SUPPRESSION_EFFECT_KIND)) {
+    continue;
+   }
+   if (!this.containsTile(formation, tileX, tileY)) {
+    continue;
+   }
+   layers = Math.max(layers, Math.floor(Number(formation.stats?.effectValue) || 0));
+  }
+  return Math.max(0, layers);
+ }
+
+ resolveVisionSuppressionPercentAt(instanceId, x, y) {
+  const tileX = Math.trunc(Number(x));
+  const tileY = Math.trunc(Number(y));
+  if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) {
+   return 0;
+  }
+  const formations = this.formationsByInstanceId.get(instanceId);
+  if (!formations || formations.length <= 0) {
+   return 0;
+  }
+  let percent = 0;
+  for (const formation of formations) {
+   if (!isActiveFormationOfKind(formation, VISION_SUPPRESSION_EFFECT_KIND)) {
+    continue;
+   }
+   if (!this.containsTile(formation, tileX, tileY)) {
+    continue;
+   }
+   const strength = Math.floor(Number(formation.stats?.effectValue) || 0);
+   const percentPerStrength = Number.isFinite(Number(formation.template?.effect?.visionReductionPercentPerStrength))
+    ? Math.max(0, Number(formation.template.effect.visionReductionPercentPerStrength))
+    : DEFAULT_FORMATION_VISION_REDUCTION_PERCENT_PER_STRENGTH;
+   percent = Math.max(percent, strength * percentPerStrength);
+  }
+  return Math.max(0, percent);
+ }
+
+ mitigateTerrainDamage(instanceId, x, y, damage) {
+  const normalizedDamage = Math.max(0, Number(damage) || 0);
+  if (normalizedDamage <= 0) {
+   return 0;
+  }
+  const reduction = this.resolveTerrainDamageReduction(instanceId, x, y);
+  if (reduction <= 0) {
+   return normalizedDamage;
+  }
+  return Math.max(0, normalizedDamage * (1 - reduction));
+ }
+
+ resolveFormationSelfDamageReduction(formation) {
+  if (!formation
+   || formation.active !== true
+   || formation.template?.effect?.kind !== BOUNDARY_BARRIER_EFFECT_KIND) {
+   return 0;
+  }
+  return resolveFormationDamageReduction(formation.template, formation.stats?.effectValue);
+ }
+
+ isBoundaryBarrierBlocked(instanceId, x, y, playerId = null) {
+  return Boolean(this.findBoundaryBarrierFormation(instanceId, x, y, playerId));
+ }
+
+ /** 只枚举对指定玩家生效的阵法边界，供寻路任务构造逐请求动态阻挡掩码。 */
+ forEachBoundaryBarrierBlockedTile(instanceId, playerId, visitor) {
+  if (typeof visitor !== 'function') {
+   return;
+  }
+  const formations = this.formationsByInstanceId.get(instanceId);
+  if (!formations || formations.length <= 0) {
+   return;
+  }
+  for (const formation of formations) {
+   if (formation.active !== true
+    || formation.template?.effect?.kind !== BOUNDARY_BARRIER_EFFECT_KIND
+    || resolveFormationRemainingQiBudget(formation) <= 0
+    || this.canPlayerPassFormationBoundary(formation, playerId)) {
+    continue;
+   }
+   const radius = Math.max(1, Math.trunc(Number(formation.stats?.radius) || 1));
+   const shape = formation.template?.range?.shape ?? 'square';
+   let cached = formationBoundaryTileCache.get(formation);
+   if (!cached
+    || cached.x !== formation.x
+    || cached.y !== formation.y
+    || cached.radius !== radius
+    || cached.shape !== shape) {
+    const tiles = [];
+    for (let y = formation.y - radius; y <= formation.y + radius; y += 1) {
+     for (let x = formation.x - radius; x <= formation.x + radius; x += 1) {
+      if (this.containsBoundaryTile(formation, x, y)) {
+       tiles.push({ x, y });
+      }
+     }
+    }
+    cached = { x: formation.x, y: formation.y, radius, shape, tiles };
+    formationBoundaryTileCache.set(formation, cached);
+   }
+   for (const tile of cached.tiles) {
+    visitor(tile.x, tile.y);
+   }
+  }
+ }
+
+ getBoundaryBarrierCombatState(instanceId, x, y) {
+  const formation = this.findBoundaryBarrierFormation(instanceId, x, y);
+  if (!formation) {
+   return null;
+  }
+  return {
+   formationId: formation.id,
+   id: formation.id,
+   name: formation.name,
+   x: Math.trunc(x),
+   y: Math.trunc(y),
+   centerX: formation.x,
+   centerY: formation.y,
+   remainingAuraBudget: resolveFormationRemainingQiBudget(formation),
+   damagePerAura: resolveFormationDamagePerAura(formation.template),
+  };
+ }
+
+ getAttackableTileCombatState(instanceId, x, y) {
+  const boundary = this.getBoundaryBarrierCombatState(instanceId, x, y);
+  if (!boundary) {
+   return null;
+  }
+  const hp = Math.max(1, Math.ceil(boundary.remainingAuraBudget * boundary.damagePerAura));
+  return {
+   kind: 'formation_boundary',
+   id: `formation-boundary:${boundary.formationId}:${boundary.x}:${boundary.y}`,
+   name: boundary.name,
+   x: boundary.x,
+   y: boundary.y,
+   hp,
+   remainingAuraBudget: boundary.remainingAuraBudget,
+   damagePerAura: boundary.damagePerAura,
+   supportsSkill: true,
+  };
+ }
+
+ applyDamageToBoundaryBarrier(instanceId, x, y, damage, attackerPlayerId = null, deps = null) {
+  const boundary = this.getBoundaryBarrierCombatState(instanceId, x, y);
+  if (!boundary) {
+   return null;
+  }
+  const outcome = this.applyDamageToFormation(instanceId, boundary.formationId, damage, attackerPlayerId, deps);
+  return outcome ? {
+   ...outcome,
+   boundary,
+  } : null;
+ }
+
+ getFormationCombatState(instanceId, formationInstanceId) {
+  const formation = this.findFormationInInstance(instanceId, formationInstanceId);
+  if (!formation || resolveFormationRemainingQiBudget(formation) <= 0) {
+   return null;
+  }
+  const normalizedInstanceId = normalizeInstanceId(instanceId);
+  if (isPersistentFormation(formation) && normalizeInstanceId(formation.eyeInstanceId) !== normalizedInstanceId) {
+   return null;
+  }
+  return {
+   id: formation.id,
+   name: formation.name,
+   x: Number.isFinite(Number(formation.eyeX)) ? Math.trunc(Number(formation.eyeX)) : formation.x,
+   y: Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y,
+   remainingAuraBudget: resolveFormationRemainingQiBudget(formation),
+   damagePerAura: resolveFormationDamagePerAura(formation.template),
+  };
+ }
+
+ getAttackableEntityCombatState(instanceId, targetId) {
+  const formation = this.getFormationCombatState(instanceId, targetId);
+  if (!formation) {
+   return null;
+  }
+  const hp = Math.max(1, Math.ceil(formation.remainingAuraBudget * formation.damagePerAura));
+  return {
+   kind: 'formation',
+   id: formation.id,
+   targetRef: formation.id,
+   targetMonsterId: formation.id,
+   name: formation.name,
+   x: formation.x,
+   y: formation.y,
+   hp,
+   remainingAuraBudget: formation.remainingAuraBudget,
+   damagePerAura: formation.damagePerAura,
+   supportsSkill: true,
+  };
+ }
+
+ getAttackableFormationEyeCombatStateAtTile(instanceId, x, y) {
+  const normalizedInstanceId = normalizeInstanceId(instanceId);
+  const targetX = Math.trunc(Number(x));
+  const targetY = Math.trunc(Number(y));
+  if (!normalizedInstanceId || !Number.isFinite(targetX) || !Number.isFinite(targetY)) {
+   return null;
+  }
+  const candidates = [];
+  for (const formations of this.formationsByInstanceId.values()) {
+   for (const formation of formations) {
+    if (!formation || resolveFormationRemainingQiBudget(formation) <= 0) {
+     continue;
+    }
+    // 机制阵法没有可供玩家操作的阵眼，只能通过边界攻击削减阵法灵力。
+    if ((formation as any).arrayEyeMode === 'none' || (formation as any).controlMode === 'controller_only') {
+     continue;
+    }
+    const eyeInstanceId = normalizeInstanceId(formation.eyeInstanceId ?? formation.instanceId);
+    const eyeX = Number.isFinite(Number(formation.eyeX)) ? Math.trunc(Number(formation.eyeX)) : formation.x;
+    const eyeY = Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y;
+    if (eyeInstanceId === normalizedInstanceId && eyeX === targetX && eyeY === targetY) {
+     candidates.push(formation);
+    }
+   }
+  }
+  candidates.sort((left, right) => left.id.localeCompare(right.id, 'zh-Hans-CN'));
+  const formation = candidates[0] ?? null;
+  return formation ? this.getAttackableEntityCombatState(normalizedInstanceId, formation.id) : null;
+ }
+
+ applyDamageToFormation(instanceId, formationInstanceId, damage, attackerPlayerId = null, deps = null) {
+  const formation = this.findFormationInInstance(instanceId, formationInstanceId);
+  if (!formation || resolveFormationRemainingQiBudget(formation) <= 0) {
+   return null;
+  }
+  const persistenceFence = this.captureFormationPersistenceFenceForFormation(formation, deps);
+  const normalizedDamage = Math.max(0, Number(damage) || 0);
+  const selfDamageReduction = this.resolveFormationSelfDamageReduction(formation);
+  const mitigatedDamage = selfDamageReduction > 0
+   ? Math.max(0, normalizedDamage * (1 - selfDamageReduction))
+   : normalizedDamage;
+  const damagePerAura = resolveFormationDamagePerAura(formation.template);
+  const auraDamage = mitigatedDamage / damagePerAura;
+  if (auraDamage <= 0) {
+   return {
+    formation,
+    appliedDamage: 0,
+    auraDamage: 0,
+    destroyed: false,
+    remainingAuraBudget: resolveFormationRemainingQiBudget(formation),
+    damagePerAura,
+    selfDamageReduction,
+   };
+  }
+  const appliedAuraDamage = Math.min(resolveFormationRemainingQiBudget(formation), auraDamage);
+  const appliedDamage = appliedAuraDamage * damagePerAura;
+  setFormationRemainingQiBudget(formation, Math.max(0, resolveFormationRemainingQiBudget(formation) - appliedAuraDamage));
+  formation.updatedAt = resolveNextFormationUpdatedAt(formation);
+  const destroyed = resolveFormationRemainingQiBudget(formation) <= 0;
+  if (destroyed) {
+   setFormationRemainingQiBudget(formation, 0);
+   formation.active = false;
+   if (formation.ownerPlayerId) {
+    this.enqueueFormationNotice(
+     formation.ownerPlayerId,
+     'warning',
+     'notice.formation.eye-qi-depleted',
+     `${formation.name}阵眼灵力耗尽，阵势关闭。`,
+     { formationName: formation.name },
+    );
+   }
+   if (typeof deps?.refreshPlayerContextActions === 'function') {
+    if (formation.ownerPlayerId) deps.refreshPlayerContextActions(formation.ownerPlayerId);
+    if (attackerPlayerId && attackerPlayerId !== formation.ownerPlayerId) {
+     deps.refreshPlayerContextActions(attackerPlayerId);
+    }
+   }
+   deps?.dungeonRuntimeService?.onFormationDestroyed?.(formation.instanceId, formation.id);
+  }
+  touchRuntimeInstanceRevision(deps, formation.instanceId);
+  if (normalizeInstanceId(formation.eyeInstanceId) && normalizeInstanceId(formation.eyeInstanceId) !== formation.instanceId) {
+   touchRuntimeInstanceRevision(deps, formation.eyeInstanceId);
+  }
+  this.persistFormationSnapshotSoon(formation, persistenceFence);
+  return {
+   formation,
+   appliedDamage,
+   auraDamage: appliedAuraDamage,
+   destroyed,
+   remainingAuraBudget: resolveFormationRemainingQiBudget(formation),
+   damagePerAura,
+   selfDamageReduction,
+   attackerPlayerId,
+  };
+ }
+
+ listRuntimeFormations(instanceId) {
+  const normalizedInstanceId = normalizeInstanceId(instanceId);
+  const result = (this.formationsByInstanceId.get(normalizedInstanceId) ?? [])
+   .map((formation) => getRuntimeFormationProjection(formation, 'effect'));
+  for (const [sourceInstanceId, formations] of this.formationsByInstanceId.entries()) {
+   if (sourceInstanceId === normalizedInstanceId) {
+    continue;
+   }
+   for (const formation of formations) {
+    if (!isPersistentFormation(formation) || normalizeInstanceId(formation.eyeInstanceId) !== normalizedInstanceId) {
+     continue;
+    }
+    result.push(getRuntimeFormationProjection(formation, 'eye'));
+   }
+  }
+  return result;
+ }
+
+ listOwnedFormationsAt(instanceId, ownerPlayerId, x, y) {
+  return (this.formationsByInstanceId.get(instanceId) ?? [])
+   .filter((formation) => formation.ownerPlayerId === ownerPlayerId
+    && !isPersistentFormation(formation)
+    && isWithinFormationMaintenanceControlRange(x, y, formation.eyeX ?? formation.x, formation.eyeY ?? formation.y))
+   .map((formation) => ({
+    id: formation.id,
+    name: formation.name,
+    active: formation.active,
+    remainingAuraBudget: Math.max(0, Math.floor(resolveFormationRemainingQiBudget(formation))),
+    remainingQiBudget: Math.max(0, Math.floor(resolveFormationRemainingQiBudget(formation))),
+    remainingSpiritStoneBudget: Math.max(0, Math.floor(resolveFormationRemainingSpiritStoneBudget(formation))),
+    radius: formation.stats.radius,
+    refillSpiritStoneCount: Math.max(1, Math.trunc(Number(formation.spiritStoneCount) || 1)),
+    refillQiCost: resolveFormationQiCost(Math.max(1, Math.trunc(Number(formation.spiritStoneCount) || 1)), formation.template),
+    refillQiBudget: resolveFormationQiCost(Math.max(1, Math.trunc(Number(formation.spiritStoneCount) || 1)), formation.template),
+   }));
+ }
+
+ advanceAuraFormation(instance, formation) {
+  const resourceKey = formation.template.effect.resourceKey || DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY;
+  const halfLifeTicks = Math.max(1, Math.trunc(formation.template.effect.convergenceHalfLifeTicks ?? FORMATION_TICKS_PER_DAY));
+  forEachFormationAffectedRuntimeCell(instance, formation, (x, y) => {
+   const current = instance.getTileResource(resourceKey, x, y) ?? 0;
+   const target = Math.max(0, formation.stats.effectValue);
+   if (current >= target) {
+    return;
+   }
+   const delta = Math.max(0, (target - current) / halfLifeTicks);
+   instance.addTileResource(resourceKey, x, y, Math.min(delta, target - current));
+  });
+ }
+
+ containsTile(formation, x, y) {
+  const dx = Math.trunc(x) - formation.x;
+  const dy = Math.trunc(y) - formation.y;
+  const radius = formation.stats.radius;
+  if (Math.abs(dx) > radius || Math.abs(dy) > radius) {
+   return false;
+  }
+  if (formation.template.range.shape === 'circle') {
+   return (dx * dx) + (dy * dy) <= radius * radius;
+  }
+  if (formation.template.range.shape === 'checkerboard') {
+   return ((Math.trunc(x) + Math.trunc(y)) % 2) === 0;
+  }
+  return true;
+ }
+
+ containsBoundaryTile(formation, x, y) {
+  if (!this.containsTile(formation, x, y)) {
+   return false;
+  }
+  const tileX = Math.trunc(x);
+  const tileY = Math.trunc(y);
+  const dx = tileX - formation.x;
+  const dy = tileY - formation.y;
+  const radius = Math.max(1, Math.trunc(Number(formation.stats?.radius) || 1));
+  if (formation.template.range.shape === 'circle') {
+   return (dx * dx) + (dy * dy) <= radius * radius
+    && (
+     ((dx + 1) * (dx + 1)) + (dy * dy) > radius * radius
+     || ((dx - 1) * (dx - 1)) + (dy * dy) > radius * radius
+     || (dx * dx) + ((dy + 1) * (dy + 1)) > radius * radius
+     || (dx * dx) + ((dy - 1) * (dy - 1)) > radius * radius
+    );
+  }
+  if (formation.template.range.shape === 'checkerboard') {
+   return Math.abs(dx) === radius || Math.abs(dy) === radius;
+  }
+  return Math.abs(dx) === radius || Math.abs(dy) === radius;
+ }
+
+ findBoundaryBarrierFormation(instanceId, x, y, playerId = null) {
+  const formations = this.formationsByInstanceId.get(instanceId);
+  if (!formations || formations.length <= 0) {
+   return null;
+  }
+  let selected = null;
+  for (const formation of formations) {
+   if (formation.active !== true
+    || formation.template.effect.kind !== BOUNDARY_BARRIER_EFFECT_KIND
+    || resolveFormationRemainingQiBudget(formation) <= 0) {
+    continue;
+   }
+   if (!this.containsBoundaryTile(formation, x, y)) {
+    continue;
+   }
+   if (this.canPlayerPassFormationBoundary(formation, playerId)) {
+    continue;
+   }
+   if (!selected || resolveFormationRemainingQiBudget(formation) > resolveFormationRemainingQiBudget(selected)) {
+    selected = formation;
+   }
+  }
+  return selected;
+ }
+
+ canPlayerPassFormationBoundary(formation, playerId) {
+  if (!formation || !playerId || formation.template?.access?.kind !== 'sect_members') {
+   return false;
+  }
+  const formationSectId = normalizeOptionalString(formation.ownerSectId ?? formation.template?.access?.sectId);
+  if (!formationSectId) {
+   return false;
+  }
+  const formationOwnerPlayerId = normalizeOptionalString(formation.ownerPlayerId);
+  if (formationOwnerPlayerId && formationOwnerPlayerId === normalizeOptionalString(playerId)) {
+   return true;
+  }
+  let player = null;
+  try {
+   player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+  }
+  catch (_error) {
+   return false;
+  }
+  return resolvePlayerSectId(player) === formationSectId;
+ }
+
+ getFormationList(instanceId) {
+  let formations = this.formationsByInstanceId.get(instanceId);
+  if (!formations) {
+   formations = [];
+   this.formationsByInstanceId.set(instanceId, formations);
+  }
+  return formations;
+ }
+
+ async restoreInstanceFormations(instanceId, instance = null) {
+  const normalizedInstanceId = normalizeInstanceId(instanceId);
+  if (!normalizedInstanceId) {
+   return 0;
+  }
+  const persistenceFence = instance
+   ? this.captureFormationPersistenceFence(instance)
+   : null;
+  const document = await this.loadInstanceFormationDocument(normalizedInstanceId);
+  const entries = Array.isArray(document?.formations) ? document.formations : [];
+  const restored = [];
+  let maxSerial = this.nextFormationSerial - 1;
+  for (const entry of entries) {
+   const formation = this.restoreFormationEntry(normalizedInstanceId, entry);
+   if (!formation) {
+    continue;
+   }
+   if (instance && !isPersistentFormation(formation) && !isFormationProtectedPlacementAllowed(instance, formation)) {
+    this.logger.warn(`启动清理了违规阵法：${normalizedInstanceId} ${formation.id} ${formation.name}`);
+    await this.deleteFormationSnapshot(formation, persistenceFence).catch((error) => {
+     this.logger.warn(`启动清理违规阵法持久态失败：${normalizedInstanceId} ${formation.id} ${error instanceof Error ? error.message : String(error)}`);
+    });
+    continue;
+   }
+   restored.push(formation);
+   maxSerial = Math.max(maxSerial, extractFormationSerial(formation.id));
+  }
+  if (restored.length > 0) {
+   this.formationsByInstanceId.set(normalizedInstanceId, restored);
+   this.nextFormationSerial = Math.max(this.nextFormationSerial, maxSerial + 1);
+  } else {
+   this.formationsByInstanceId.delete(normalizedInstanceId);
+  }
+  this.restoredFormationInstanceIds.add(normalizedInstanceId);
+  return restored.length;
+ }
+
+ restoreFormationEntry(instanceId, entry) {
+  if (!entry || typeof entry !== 'object') {
+   return null;
+  }
+  const formationId = typeof entry.formationId === 'string' ? entry.formationId.trim() : '';
+  if (!formationId) {
+   return null;
+  }
+  let template = null;
+  try {
+   template = this.resolveFormationTemplate(formationId);
+  } catch (_error) {
+   this.logger.warn(`恢复阵法条目模板解析失败 formationId=${formationId}: ${_error instanceof Error ? _error.message : String(_error)}`);
+   return null;
+  }
+  const diskTier = normalizeFormationDiskTier(entry.diskTier);
+  const diskMultiplier = Number.isFinite(Number(entry.diskMultiplier)) ? Math.max(1, Number(entry.diskMultiplier)) : 1;
+  const lifecycle = normalizeFormationLifecycle(entry.lifecycle ?? template.lifecycle);
+  const rawRemainingQiBudget = Number.isFinite(Number(entry.remainingQiBudget ?? entry.remainingAuraBudget))
+   ? Math.max(0, Number(entry.remainingQiBudget ?? entry.remainingAuraBudget))
+   : null;
+  const rawRemainingSpiritStoneBudget = Number.isFinite(Number(entry.remainingSpiritStoneBudget))
+   ? Math.max(0, Number(entry.remainingSpiritStoneBudget))
+   : null;
+  const rawSpiritStoneCount = Math.max(1, Math.trunc(Number(entry.spiritStoneCount) || 1));
+  const minSpiritStoneCount = resolveFormationMinSpiritStoneCount(template);
+  const spiritStoneCount = lifecycle === FORMATION_LIFECYCLE_PERSISTENT
+   && template.id === 'sect_guardian_barrier'
+   && rawSpiritStoneCount <= minSpiritStoneCount
+   && rawRemainingQiBudget !== null
+   && rawRemainingQiBudget > rawSpiritStoneCount * resolveFormationAuraPerSpiritStone(template)
+   ? Math.max(rawSpiritStoneCount, Math.ceil(rawRemainingQiBudget / resolveFormationAuraPerSpiritStone(template)))
+   : rawSpiritStoneCount;
+  const allocationPayload = entry.allocation && typeof entry.allocation === 'object' ? entry.allocation : {};
+  const formationSkillLevel = resolveFormationSkillLevel(entry);
+  const allocation = template.id === 'sect_guardian_barrier'
+   ? {
+    ...normalizeFormationSetup(template, typeof isFormationSetupInput === 'function' && isFormationSetupInput(allocationPayload)
+     ? allocationPayload
+     : { radius: Number(entry.radius) || 1, durationHours: 24, effectValue: 1 }),
+    formationSkillLevel: 0,
+   }
+   : typeof isFormationSetupInput === 'function' && isFormationSetupInput(allocationPayload)
+    ? { ...normalizeFormationSetup(template, allocationPayload), formationSkillLevel }
+    : { ...normalizeFormationAllocation(allocationPayload), formationSkillLevel };
+  const stats = resolveFormationStats(template, spiritStoneCount, diskMultiplier, allocation, formationSkillLevel);
+  if (template.id === 'sect_guardian_barrier') {
+   stats.radius = Math.max(1, Math.trunc(Number(entry.radius) || 1));
+  }
+  const remainingQiBudget = rawRemainingQiBudget !== null ? rawRemainingQiBudget : stats.totalQiBudget ?? stats.totalAuraBudget;
+  const remainingSpiritStoneBudget = rawRemainingSpiritStoneBudget !== null ? rawRemainingSpiritStoneBudget : stats.totalSpiritStoneBudget ?? spiritStoneCount;
+  if (remainingSpiritStoneBudget <= 0) {
+   return null;
+  }
+  const restoredId = typeof entry.id === 'string' && entry.id.trim()
+   ? entry.id.trim()
+   : `formation:${instanceId}:${this.nextFormationSerial++}`;
+  const x = firstFiniteInteger(entry.x);
+  const y = firstFiniteInteger(entry.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+   return null;
+  }
+  return {
+   instanceId,
+   id: restoredId,
+   ownerPlayerId: typeof entry.ownerPlayerId === 'string' ? entry.ownerPlayerId : '',
+   ownerSectId: normalizeOptionalString(entry.ownerSectId),
+   formationId: template.id,
+   lifecycle,
+   name: template.name,
+   template,
+   diskItemId: typeof entry.diskItemId === 'string' ? entry.diskItemId : '',
+   diskTier,
+   diskMultiplier,
+   spiritStoneCount,
+   qiCost: Math.max(0, Math.trunc(Number(entry.qiCost) || 0)),
+   x,
+   y,
+   eyeInstanceId: normalizeInstanceId(entry.eyeInstanceId) || instanceId,
+   eyeX: firstFiniteInteger(entry.eyeX, x),
+   eyeY: firstFiniteInteger(entry.eyeY, y),
+   allocation,
+   stats,
+   active: remainingQiBudget <= 0 ? false : entry.active !== false,
+   ...(entry.controlMode === 'controller_only' ? { controlMode: 'controller_only' } : {}),
+   ...(entry.arrayEyeMode === 'none' ? { arrayEyeMode: 'none' } : {}),
+   ...(entry.source === 'dungeon_controller' ? { source: 'dungeon_controller' } : {}),
+   ...(typeof entry.controllerId === 'string' && entry.controllerId.trim() ? { controllerId: entry.controllerId.trim() } : {}),
+   remainingQiBudget,
+   remainingSpiritStoneBudget,
+   remainingAuraBudget: remainingQiBudget,
+   createdAt: Number.isFinite(Number(entry.createdAt)) ? Number(entry.createdAt) : Date.now(),
+   updatedAt: Number.isFinite(Number(entry.updatedAt)) ? Number(entry.updatedAt) : Date.now(),
+  };
+ }
+
+ private _formationPersistTimers = new Map<string, ReturnType<typeof setTimeout>>();
+ private dirtyFormationInstanceIds = new Set<string>();
+ private removedFormationKeysByInstanceId = new Map<string, Map<string, number>>();
+
+ persistInstanceFormationsSoon(instanceId, persistenceFence = null) {
+  const normalizedInstanceId = this.markFormationInstanceDirty(instanceId, persistenceFence);
+  if (!normalizedInstanceId || this._formationPersistTimers.has(normalizedInstanceId)) return;
+  this._formationPersistTimers.set(normalizedInstanceId, setTimeout(() => {
+   this._formationPersistTimers.delete(normalizedInstanceId);
+   if (!this.persistenceReady || !this.persistencePool) {
+    this.logger.warn(`阵法持久化池未就绪，保留脏标记等待重试：${normalizedInstanceId}`);
+    return;
+   }
+   void this.saveInstanceFormations(
+    normalizedInstanceId,
+    this.formationPersistenceFenceByInstanceId.get(normalizedInstanceId) ?? null,
+   ).catch((error) => {
+    this.dirtyFormationInstanceIds.add(normalizedInstanceId);
+    this.logger.warn(`阵法持久化失败，已保留脏标记：${normalizedInstanceId} ${error instanceof Error ? error.message : String(error)}`);
+   });
+  }, 5000));
+ }
+
+ persistFormationSnapshotSoon(formation, persistenceFence = null) {
+  // 副本机制阵法属于实例内临时状态，实例销毁即失效，不写入全局阵法持久化表。
+  if (typeof formation?.instanceId === 'string' && formation.instanceId.startsWith('dungeon:')) {
+   return;
+  }
+  const instanceId = this.markFormationInstanceDirty(formation?.instanceId, persistenceFence);
+  void this.saveFormationSnapshot(formation, persistenceFence).catch((error) => {
+   if (instanceId) this.dirtyFormationInstanceIds.add(instanceId);
+   this.logger.warn(`阵法单体持久化失败，已保留脏标记：${formation?.instanceId ?? ''} ${error instanceof Error ? error.message : String(error)}`);
+  });
+ }
+
+ persistFormationRemovalSoon(formation, persistenceFence = null) {
+  this.markFormationRemovalDirty(formation, persistenceFence);
+  void this.deleteFormationSnapshot(formation, persistenceFence).catch((error) => {
+   this.markFormationRemovalDirty(formation, persistenceFence);
+   this.logger.warn(`阵法删除持久化失败，已保留删除重试：${formation?.instanceId ?? ''} ${error instanceof Error ? error.message : String(error)}`);
+  });
+ }
+
+ async flushAllNow() {
+  await this.flushAllPendingFormationMaintenance();
+  for (const [instanceId, timer] of this._formationPersistTimers) {
+   clearTimeout(timer);
+   this._formationPersistTimers.delete(instanceId);
+  }
+  const instanceIds = new Set([
+   ...this.formationsByInstanceId.keys(),
+   ...this.dirtyFormationInstanceIds,
+   ...this.removedFormationKeysByInstanceId.keys(),
+  ]);
+  for (const instanceId of instanceIds) {
+   await this.saveInstanceFormations(
+    instanceId,
+    this.formationPersistenceFenceByInstanceId.get(instanceId) ?? null,
+   );
+  }
+ }
+
+ markFormationInstanceDirty(instanceId, persistenceFence = null) {
+  const normalizedInstanceId = normalizeInstanceId(instanceId);
+  if (!normalizedInstanceId) {
+   return '';
+  }
+  this.rememberFormationPersistenceFence(normalizedInstanceId, persistenceFence);
+  this.dirtyFormationInstanceIds.add(normalizedInstanceId);
+  return normalizedInstanceId;
+ }
+
+ markFormationRemovalDirty(formation, persistenceFence = null) {
+  const normalizedInstanceId = this.markFormationInstanceDirty(formation?.instanceId, persistenceFence);
+  const formationInstanceId = normalizeOptionalString(formation?.id);
+  if (!normalizedInstanceId || !formationInstanceId) {
+   return;
+  }
+  let removedKeys = this.removedFormationKeysByInstanceId.get(normalizedInstanceId);
+  if (!removedKeys) {
+   removedKeys = new Map();
+   this.removedFormationKeysByInstanceId.set(normalizedInstanceId, removedKeys);
+  }
+  const removedAt = Math.max(0, Math.trunc(Number(formation?.updatedAt) || Date.now()));
+  removedKeys.set(formationInstanceId, Math.max(removedKeys.get(formationInstanceId) ?? 0, removedAt));
+ }
+
+ clearFormationRemovalDirty(instanceId, formationInstanceId) {
+  const normalizedInstanceId = normalizeInstanceId(instanceId);
+  const normalizedFormationId = normalizeOptionalString(formationInstanceId);
+  if (!normalizedInstanceId || !normalizedFormationId) {
+   return;
+  }
+  const removedKeys = this.removedFormationKeysByInstanceId.get(normalizedInstanceId);
+  if (!removedKeys) {
+   return;
+  }
+  removedKeys.delete(normalizedFormationId);
+  if (removedKeys.size === 0) {
+   this.removedFormationKeysByInstanceId.delete(normalizedInstanceId);
+  }
+ }
+
+ clearFormationInstanceDirty(instanceId) {
+  const normalizedInstanceId = normalizeInstanceId(instanceId);
+  if (!normalizedInstanceId) {
+   return;
+  }
+  this.dirtyFormationInstanceIds.delete(normalizedInstanceId);
+  this.removedFormationKeysByInstanceId.delete(normalizedInstanceId);
+  this.formationPersistenceFenceByInstanceId.delete(normalizedInstanceId);
+ }
+
+ isFormationSnapshotCurrent(snapshot) {
+  const instanceId = normalizeInstanceId(snapshot?.instanceId);
+  const formationId = normalizeOptionalString(snapshot?.id);
+  if (!instanceId || !formationId) {
+   return false;
+  }
+  const current = this.findFormationInInstance(instanceId, formationId);
+  return current !== null
+   && Math.trunc(Number(current.updatedAt) || 0) === Math.trunc(Number(snapshot.updatedAt) || 0);
+ }
+
+ /**
+  * releaseInstance：实例销毁/fencing 卸载收口，清理内存中按 instanceId 索引的阵法状态。
+  * 防止 destroyManagedInstance / fenceInstanceRuntime 卸载实例时遗留 formationsByInstanceId 与
+  * restoredFormationInstanceIds 条目，避免随实例流转无界增长。
+  * 仅在没有持续性阵法（持续性阵法以阵眼实例为准，不应跟随承载实例销毁丢失）时清理；持续性阵法
+  * 转入 active=false 的标记，等待持久化层在阵眼销毁路径上单独清理。
+  */
+ releaseInstance(instanceId) {
+  const normalizedInstanceId = normalizeInstanceId(instanceId);
+  if (!normalizedInstanceId) {
+   return;
+  }
+  // 清理 pending persist timer，避免实例销毁后悬挂 timer 持有闭包引用
+  const pendingTimer = this._formationPersistTimers.get(normalizedInstanceId);
+  if (pendingTimer !== undefined) {
+   clearTimeout(pendingTimer);
+   this._formationPersistTimers.delete(normalizedInstanceId);
+  }
+  const formations = this.formationsByInstanceId.get(normalizedInstanceId);
+  if (Array.isArray(formations) && formations.length > 0) {
+   // 实例已销毁，承载阵法对象再保留也无处广播；统一释放避免悬挂。
+   // 持续性阵法的真源在持久化层，此处不写盘，让阵眼路径或下次重启的 reloadInstance 决定恢复策略。
+   this.formationsByInstanceId.delete(normalizedInstanceId);
+  } else {
+   this.formationsByInstanceId.delete(normalizedInstanceId);
+  }
+  this.restoredFormationInstanceIds.delete(normalizedInstanceId);
+  this.formationPersistenceFenceByInstanceId.delete(normalizedInstanceId);
+ }
+
+ async saveFormationSnapshot(formation, persistenceFence = null) {
+  if (!formation) {
+   return;
+  }
+  const serialized = serializeFormation(formation);
+  const normalizedInstanceId = normalizeInstanceId(serialized.instanceId);
+  const formationInstanceId = normalizeOptionalString(serialized.id);
+  if (!normalizedInstanceId || !formationInstanceId) {
+   return;
+  }
+  this.rememberFormationPersistenceFence(normalizedInstanceId, persistenceFence);
+  await this.runExclusiveFormationPersistence([formationInstanceId], async () => {
+   if (this.formationMaintenanceCheckpointById.has(formationInstanceId)) {
+    this.dirtyFormationInstanceIds.add(normalizedInstanceId);
+    return;
+   }
+   if (this.isFormationPersistenceBlocked([serialized.instanceId, serialized.eyeInstanceId])) {
+    return;
+   }
+   const pool = await this.ensurePersistencePool();
+   if (!pool) {
+    return;
+   }
+   const effectivePersistenceFence = this.resolveFormationPersistenceFence(normalizedInstanceId, persistenceFence);
+   if (!this.isFormationSnapshotCurrent(serialized)) {
+    return;
+   }
+   const client = await pool.connect();
+   try {
+    await client.query('BEGIN');
+    await assertFormationInstanceLeaseFence(client, normalizedInstanceId, effectivePersistenceFence);
+    await lockFormationStateRow(client, serialized.id);
+    await upsertFormationStateRow(client, normalizedInstanceId, serialized);
+    await client.query('COMMIT');
+    this.clearFormationRemovalDirty(normalizedInstanceId, serialized.id);
+   } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+   } finally {
+    client.release();
+   }
+  });
+ }
+
+ async deleteFormationSnapshot(formation, persistenceFence = null) {
+  if (!formation) {
+   return;
+  }
+  const normalizedInstanceId = normalizeInstanceId(formation.instanceId);
+  const formationInstanceId = normalizeOptionalString(formation.id);
+  if (!normalizedInstanceId || !formationInstanceId) {
+   return;
+  }
+  this.rememberFormationPersistenceFence(normalizedInstanceId, persistenceFence);
+  const removedAt = Math.max(0, Math.trunc(Number(formation.updatedAt) || Date.now()));
+  await this.runExclusiveFormationPersistence([formationInstanceId], async () => {
+   if (this.formationMaintenanceCheckpointById.has(formationInstanceId)) {
+    this.markFormationRemovalDirty(formation, persistenceFence);
+    return;
+   }
+   if (this.isFormationPersistenceBlocked([formation?.instanceId, formation?.eyeInstanceId])) {
+    return;
+   }
+   const pool = await this.ensurePersistencePool();
+   if (!pool) {
+    return;
+   }
+   const effectivePersistenceFence = this.resolveFormationPersistenceFence(normalizedInstanceId, persistenceFence);
+   const client = await pool.connect();
+   try {
+    await client.query('BEGIN');
+    await assertFormationInstanceLeaseFence(client, normalizedInstanceId, effectivePersistenceFence);
+    await lockFormationStateRow(client, formationInstanceId);
+    await deleteFormationStateRow(client, normalizedInstanceId, formationInstanceId, removedAt);
+    await client.query('COMMIT');
+    this.clearFormationRemovalDirty(normalizedInstanceId, formationInstanceId);
+   } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+   } finally {
+    client.release();
+   }
+  });
+ }
+
+ async saveInstanceFormations(instanceId, persistenceFence = null) {
+  const normalizedInstanceId = normalizeInstanceId(instanceId);
+  if (!normalizedInstanceId) {
+   return;
+  }
+  this.rememberFormationPersistenceFence(normalizedInstanceId, persistenceFence);
+  const formations = (this.formationsByInstanceId.get(normalizedInstanceId) ?? [])
+   .map((formation) => serializeFormation(formation));
+  const removedKeys = new Map(this.removedFormationKeysByInstanceId.get(normalizedInstanceId) ?? []);
+  const queuedFormationIds = Array.from(new Set([
+   ...formations.map((formation) => normalizeOptionalString(formation.id)),
+   ...removedKeys.keys(),
+  ].filter(Boolean))).sort();
+  await this.runExclusiveFormationPersistence(queuedFormationIds, async () => {
+   if (formations.some((formation) => this.formationMaintenanceCheckpointById.has(formation.id))) {
+    this.dirtyFormationInstanceIds.add(normalizedInstanceId);
+    return;
+   }
+   if (this.isFormationPersistenceBlocked([normalizedInstanceId])) {
+    return;
+   }
+   const pool = await this.ensurePersistencePool();
+   if (!pool) {
+    return;
+   }
+   const effectivePersistenceFence = this.resolveFormationPersistenceFence(normalizedInstanceId, persistenceFence);
+   const currentFormations = formations.filter((formation) => this.isFormationSnapshotCurrent(formation));
+   const currentRemovedKeys = new Map(Array.from(removedKeys).filter(([formationInstanceId, removedAt]) => {
+    const current = this.findFormationInInstance(normalizedInstanceId, formationInstanceId);
+    return !current || Math.trunc(Number(current.updatedAt) || 0) <= removedAt;
+   }));
+   const formationIds = Array.from(new Set([
+    ...currentFormations.map((formation) => formation.id),
+    ...currentRemovedKeys.keys(),
+   ])).sort();
+   const client = await pool.connect();
+   try {
+    await client.query('BEGIN');
+    await assertFormationInstanceLeaseFence(client, normalizedInstanceId, effectivePersistenceFence);
+    for (const formationInstanceId of formationIds) {
+     await lockFormationStateRow(client, formationInstanceId);
+    }
+    for (const [formationInstanceId, removedAt] of currentRemovedKeys) {
+     await deleteFormationStateRow(client, normalizedInstanceId, formationInstanceId, removedAt);
+    }
+    for (const formation of currentFormations) {
+     await upsertFormationStateRow(client, normalizedInstanceId, formation);
+    }
+    await client.query('COMMIT');
+    this.clearFormationInstanceDirty(normalizedInstanceId);
+   } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+   } finally {
+    client.release();
+   }
+  });
+ }
+
+ async loadInstanceFormationDocument(instanceId) {
+  const pool = await this.ensurePersistencePool();
+  if (!pool) {
+   return null;
+  }
+  const result = await pool.query(`
             SELECT
                 formation_instance_id,
                 owner_player_id,
@@ -2052,7 +2054,7 @@ class WorldRuntimeFormationService {
               )
             ORDER BY formation_instance_id ASC
         `, [instanceId]);
-        await pool.query(`
+  await pool.query(`
             DELETE FROM ${INSTANCE_FORMATION_STATE_TABLE}
             WHERE instance_id = $1
               AND formation_id = 'sect_guardian_barrier'
@@ -2065,789 +2067,789 @@ class WorldRuntimeFormationService {
                   AND server_sect.entrance_instance_id = $1
               )
         `, [instanceId]);
-        return {
-            formations: (result.rows ?? []).map((row) => {
-                const remainingAuraBudget = normalizeLoadedFormationBudget(row.remaining_aura_budget);
-                const remainingQiBudget = resolveLoadedRemainingQiBudget(row.remaining_qi_budget, remainingAuraBudget);
-                return {
-                    id: row.formation_instance_id,
-                    ownerPlayerId: row.owner_player_id,
-                    ownerSectId: row.owner_sect_id,
-                    formationId: row.formation_id,
-                    lifecycle: row.lifecycle,
-                    diskItemId: row.disk_item_id,
-                    diskTier: row.disk_tier,
-                    diskMultiplier: Number(row.disk_multiplier),
-                    spiritStoneCount: Number(row.spirit_stone_count),
-                    qiCost: Number(row.qi_cost),
-                    x: Number(row.x),
-                    y: Number(row.y),
-                    eyeInstanceId: row.eye_instance_id,
-                    eyeX: Number(row.eye_x),
-                    eyeY: Number(row.eye_y),
-                    allocation: row.allocation_payload ?? {},
-                    active: row.active !== false,
-                    remainingAuraBudget,
-                    remainingQiBudget,
-                    remainingSpiritStoneBudget: normalizeLoadedFormationBudget(row.remaining_spirit_stone_budget),
-                    createdAt: Number(row.created_at_ms),
-                    updatedAt: Number(row.updated_at_ms),
-                };
-            }),
-        };
+  return {
+   formations: (result.rows ?? []).map((row) => {
+    const remainingAuraBudget = normalizeLoadedFormationBudget(row.remaining_aura_budget);
+    const remainingQiBudget = resolveLoadedRemainingQiBudget(row.remaining_qi_budget, remainingAuraBudget);
+    return {
+     id: row.formation_instance_id,
+     ownerPlayerId: row.owner_player_id,
+     ownerSectId: row.owner_sect_id,
+     formationId: row.formation_id,
+     lifecycle: row.lifecycle,
+     diskItemId: row.disk_item_id,
+     diskTier: row.disk_tier,
+     diskMultiplier: Number(row.disk_multiplier),
+     spiritStoneCount: Number(row.spirit_stone_count),
+     qiCost: Number(row.qi_cost),
+     x: Number(row.x),
+     y: Number(row.y),
+     eyeInstanceId: row.eye_instance_id,
+     eyeX: Number(row.eye_x),
+     eyeY: Number(row.eye_y),
+     allocation: row.allocation_payload ?? {},
+     active: row.active !== false,
+     remainingAuraBudget,
+     remainingQiBudget,
+     remainingSpiritStoneBudget: normalizeLoadedFormationBudget(row.remaining_spirit_stone_budget),
+     createdAt: Number(row.created_at_ms),
+     updatedAt: Number(row.updated_at_ms),
+    };
+   }),
+  };
+ }
+
+ async ensurePersistencePool() {
+  if (this.persistenceReady && this.persistencePool) {
+   return this.persistencePool;
+  }
+  if (this.persistenceInitPromise) {
+   await this.persistenceInitPromise;
+   return this.persistenceReady ? this.persistencePool : null;
+  }
+  this.persistenceInitPromise = this.initializePersistencePool();
+  await this.persistenceInitPromise;
+  this.persistenceInitPromise = null;
+  return this.persistenceReady ? this.persistencePool : null;
+ }
+
+ async initializePersistencePool() {
+  const databaseUrl = resolveServerDatabaseUrl();
+  if (!databaseUrl.trim()) {
+   return;
+  }
+  const sharedPool = this.databasePoolProvider?.getPool?.('formation') ?? null;
+  if (!sharedPool) {
+   this.logger.warn('阵法持久化已禁用：数据库连接池提供者未提供连接池');
+   return;
+  }
+  try {
+   await ensureInstanceFormationStateTable(sharedPool);
+   this.persistencePool = sharedPool;
+   this.persistenceReady = true;
+  } catch (error) {
+   this.logger.warn(`阵法持久化初始化失败：${error instanceof Error ? error.message : String(error)}`);
+  }
+ }
+
+ async closePersistencePool() {
+  // 清理所有 pending persist timers，避免 pool 释放后 timer 触发错误。
+  for (const [instanceId, timer] of this._formationPersistTimers) {
+   clearTimeout(timer);
+  }
+  this._formationPersistTimers.clear();
+  for (const checkpoint of this.formationMaintenanceCheckpointById.values()) {
+   if (checkpoint.timer) {
+    clearTimeout(checkpoint.timer);
+   }
+   this.playerRuntimeService.releasePersistenceDomains?.(
+    checkpoint.playerId,
+    FORMATION_MAINTENANCE_PERSISTENCE_DOMAINS,
+   );
+  }
+  this.formationMaintenanceCheckpointById.clear();
+  this.unregisterBeforeManualPlayerFlushBarrier?.();
+  this.unregisterBeforeManualPlayerFlushBarrier = null;
+
+  // 共享连接池由 DatabasePoolProvider 统一关闭，此处只释放引用。
+  this.persistencePool = null;
+  this.persistenceReady = false;
+ }
+
+ findOwnedFormation(playerId, formationInstanceId) {
+  const normalizedId = typeof formationInstanceId === 'string' ? formationInstanceId.trim() : '';
+  if (!normalizedId) {
+   throw new BadRequestException('阵法实例 ID 不能为空');
+  }
+  for (const formations of this.formationsByInstanceId.values()) {
+   const formation = formations.find((entry) => entry.id === normalizedId);
+   if (!formation) {
+    continue;
+   }
+   if (formation.ownerPlayerId !== playerId) {
+    throw new ForbiddenException('不能操作他人的阵法');
+   }
+   return formation;
+  }
+  throw new NotFoundException('阵法不存在');
+ }
+
+ findFormationInInstance(instanceId, formationInstanceId) {
+  const normalizedInstanceId = normalizeInstanceId(instanceId);
+  const normalizedId = typeof formationInstanceId === 'string' ? formationInstanceId.trim() : '';
+  if (!normalizedInstanceId || !normalizedId) {
+   return null;
+  }
+  const direct = (this.formationsByInstanceId.get(normalizedInstanceId) ?? []).find((entry) => entry.id === normalizedId);
+  if (direct) {
+   return direct;
+  }
+  for (const formations of this.formationsByInstanceId.values()) {
+   const byEye = formations.find((entry) => entry.id === normalizedId
+    && isPersistentFormation(entry)
+    && normalizeInstanceId(entry.eyeInstanceId) === normalizedInstanceId);
+   if (byEye) {
+    return byEye;
+   }
+  }
+  return null;
+ }
+
+ removeFormationFromInstance(instanceId, formationInstanceId, deps = null, options: { deferPersistence?: boolean } = {}) {
+  const normalizedInstanceId = normalizeInstanceId(instanceId);
+  const normalizedId = typeof formationInstanceId === 'string' ? formationInstanceId.trim() : '';
+  if (!normalizedInstanceId || !normalizedId) {
+   return null;
+  }
+  const formations = this.formationsByInstanceId.get(normalizedInstanceId);
+  if (!Array.isArray(formations) || formations.length <= 0) {
+   return null;
+  }
+  const persistenceFence = options.deferPersistence === true
+   ? null
+   : this.captureFormationPersistenceFence(deps?.getInstanceRuntime?.(normalizedInstanceId) ?? null, deps);
+  const index = formations.findIndex((entry) => entry.id === normalizedId);
+  if (index < 0) {
+   return null;
+  }
+  const [formation] = formations.splice(index, 1);
+  if (formations.length <= 0) {
+   this.formationsByInstanceId.delete(normalizedInstanceId);
+  }
+  touchRuntimeInstanceRevision(deps, normalizedInstanceId);
+  if (options.deferPersistence !== true) {
+   this.persistFormationRemovalSoon(formation, persistenceFence);
+  }
+  return formation ?? null;
+ }
+
+ pruneInvalidPlacementsInInstance(instanceId, instance, options: { deps?: unknown } = {}) {
+  const normalizedInstanceId = normalizeInstanceId(instanceId);
+  if (!normalizedInstanceId || !instance) {
+   return { removedCount: 0, keptSectGuardianCount: 0 };
+  }
+  const formations = this.formationsByInstanceId.get(normalizedInstanceId);
+  if (!Array.isArray(formations) || formations.length <= 0) {
+   return { removedCount: 0, keptSectGuardianCount: 0 };
+  }
+  const persistenceFence = this.captureFormationPersistenceFence(instance, options?.deps);
+  const kept = [];
+  let removedCount = 0;
+  let keptSectGuardianCount = 0;
+  for (const formation of formations) {
+   if (isPersistentFormation(formation) || formation?.formationId === 'sect_guardian_barrier') {
+    if (!isFormationProtectedPlacementAllowed(instance, formation)) {
+     keptSectGuardianCount += 1;
+     this.logger.warn(`启动发现宗门护宗阵保护点位冲突，暂不清理：${normalizedInstanceId} ${formation?.id ?? ''}`);
     }
+    kept.push(formation);
+    continue;
+   }
+   if (!isFormationProtectedPlacementAllowed(instance, formation)) {
+    removedCount += 1;
+    this.persistFormationRemovalSoon(formation, persistenceFence);
+    continue;
+   }
+   kept.push(formation);
+  }
+  if (kept.length > 0) {
+   this.formationsByInstanceId.set(normalizedInstanceId, kept);
+  } else {
+   this.formationsByInstanceId.delete(normalizedInstanceId);
+  }
+  if (removedCount > 0) {
+   touchRuntimeInstanceRevision(options?.deps, normalizedInstanceId);
+  }
+  return { removedCount, keptSectGuardianCount };
+ }
 
-    async ensurePersistencePool() {
-        if (this.persistenceReady && this.persistencePool) {
-            return this.persistencePool;
-        }
-        if (this.persistenceInitPromise) {
-            await this.persistenceInitPromise;
-            return this.persistenceReady ? this.persistencePool : null;
-        }
-        this.persistenceInitPromise = this.initializePersistencePool();
-        await this.persistenceInitPromise;
-        this.persistenceInitPromise = null;
-        return this.persistenceReady ? this.persistencePool : null;
+ findFormationByInstanceOrId(instanceId, formationInstanceId) {
+  const normalizedId = typeof formationInstanceId === 'string' ? formationInstanceId.trim() : '';
+  if (!normalizedId) {
+   return null;
+  }
+  const normalizedInstanceId = normalizeInstanceId(instanceId);
+  if (normalizedInstanceId) {
+   return this.findFormationInInstance(normalizedInstanceId, normalizedId);
+  }
+  for (const formations of this.formationsByInstanceId.values()) {
+   const formation = formations.find((entry) => entry.id === normalizedId);
+   if (formation) {
+    return formation;
+   }
+  }
+  return null;
+ }
+
+ resolveFormationTemplate(formationId) {
+  const normalizedId = typeof formationId === 'string' ? formationId.trim() : '';
+  if (!normalizedId) {
+   throw new BadRequestException('阵法 ID 不能为空');
+  }
+  const configured = typeof this.contentTemplateRepository.getFormationTemplate === 'function'
+   ? this.contentTemplateRepository.getFormationTemplate(normalizedId)
+   : null;
+  const template = configured ?? getFormationTemplateById(normalizedId);
+  if (!template) {
+   throw new NotFoundException(`阵法不存在：${normalizedId}`);
+  }
+  return template;
+ }
+
+ resolveFormationWriteInstance(formation, deps) {
+  const instanceId = normalizeInstanceId(formation?.instanceId);
+  const instance = instanceId && typeof deps?.getInstanceRuntime === 'function'
+   ? deps.getInstanceRuntime(instanceId)
+   : null;
+  if (!instance || deps?.getInstanceRuntime?.(instanceId) !== instance) {
+   throw new ServiceUnavailableException('阵法所在实例暂不可用');
+  }
+  return instance;
+ }
+
+ resolveFormationResourceDurableContext(instance, deps, requiredMethod = 'commitFormationResourceMutation') {
+  const durable = this.durableOperationService;
+  if (!durable?.isEnabled?.() || typeof durable?.[requiredMethod] !== 'function') {
+   return null;
+  }
+  const instanceId = normalizeInstanceId(instance?.meta?.instanceId);
+  const assignedNodeId = normalizeOptionalString(instance?.meta?.assignedNodeId);
+  const leaseToken = normalizeOptionalString(instance?.meta?.leaseToken);
+  const ownershipEpoch = Number.isFinite(Number(instance?.meta?.ownershipEpoch))
+   ? Math.max(0, Math.trunc(Number(instance.meta.ownershipEpoch)))
+   : 0;
+  const leaseWritable = typeof deps?.isInstanceLeaseWritable !== 'function'
+   || deps.isInstanceLeaseWritable(instance) === true;
+  if (
+   !instanceId
+   || deps?.getInstanceRuntime?.(instanceId) !== instance
+   || !assignedNodeId
+   || !leaseToken
+   || ownershipEpoch <= 0
+   || !leaseWritable
+  ) {
+   throw new ServiceUnavailableException('阵法所在实例租约尚未就绪');
+  }
+  return {
+   durable,
+   instanceId,
+   assignedNodeId,
+   leaseToken,
+   ownershipEpoch,
+  };
+ }
+
+ runExclusivePlayerFormationResourceMutation(
+  playerId,
+  formationInstanceId,
+  action,
+  options: { flushPendingMaintenance?: boolean } = {},
+ ) {
+  const runFormationLocked = () => this.runExclusiveFormationPersistence([formationInstanceId], async () => {
+   if (options.flushPendingMaintenance !== false) {
+    await this.flushPendingFormationMaintenanceLocked(formationInstanceId);
+   }
+   return action();
+  });
+  const coordinator = this.playerRuntimeService?.runExclusiveAssetMutation;
+  if (typeof coordinator !== 'function') {
+   return runFormationLocked();
+  }
+  return coordinator.call(this.playerRuntimeService, [playerId], runFormationLocked, {
+   deferAssetStatisticsUntilSuccess: true,
+  });
+ }
+
+ /** 手动玩家刷盘、取消与迁移前强制收敛该玩家的阵法维护检查点。 */
+ async flushPendingFormationMaintenanceForPlayer(playerId) {
+  const normalizedPlayerId = normalizeOptionalString(playerId);
+  if (!normalizedPlayerId) {
+   return;
+  }
+  const formationInstanceIds = Array.from(this.formationMaintenanceCheckpointById.values())
+   .filter((checkpoint) => checkpoint.playerId === normalizedPlayerId)
+   .map((checkpoint) => checkpoint.formationInstanceId)
+   .sort();
+  for (const formationInstanceId of formationInstanceIds) {
+   await this.flushPendingFormationMaintenance(formationInstanceId);
+  }
+ }
+
+ /** 关闭前先提交所有跨玩家/阵法检查点，再进入普通玩家与阵法分域刷盘。 */
+ async flushAllPendingFormationMaintenance() {
+  const formationInstanceIds = Array.from(this.formationMaintenanceCheckpointById.keys()).sort();
+  for (const formationInstanceId of formationInstanceIds) {
+   await this.flushPendingFormationMaintenance(formationInstanceId);
+  }
+ }
+
+ async flushPendingFormationMaintenance(formationInstanceId) {
+  const normalizedFormationInstanceId = normalizeOptionalString(formationInstanceId);
+  const checkpoint = this.formationMaintenanceCheckpointById.get(normalizedFormationInstanceId);
+  if (!checkpoint) {
+   return false;
+  }
+  return this.runExclusivePlayerFormationResourceMutation(
+   checkpoint.playerId,
+   normalizedFormationInstanceId,
+   () => this.flushPendingFormationMaintenanceLocked(normalizedFormationInstanceId),
+   { flushPendingMaintenance: false },
+  );
+ }
+
+ async flushPendingFormationMaintenanceLocked(formationInstanceId) {
+  const normalizedFormationInstanceId = normalizeOptionalString(formationInstanceId);
+  const checkpoint = this.formationMaintenanceCheckpointById.get(normalizedFormationInstanceId);
+  if (!checkpoint) {
+   return false;
+  }
+  if (checkpoint.timer) {
+   clearTimeout(checkpoint.timer);
+   checkpoint.timer = null;
+  }
+  let persistenceFence: InstanceLeaseWriteFence;
+  try {
+   persistenceFence = this.resolveFormationMaintenanceCheckpointFence(checkpoint);
+   await this.commitFormationMaintenancePlan(checkpoint.playerId, checkpoint.durableInput);
+  }
+  catch (error) {
+   checkpoint.commitFailed = true;
+   this.scheduleFormationMaintenanceCheckpoint(checkpoint, FORMATION_MAINTENANCE_CHECKPOINT_RETRY_MS);
+   throw error;
+  }
+  if (this.formationMaintenanceCheckpointById.get(normalizedFormationInstanceId) !== checkpoint) {
+   return false;
+  }
+  this.formationMaintenanceCheckpointById.delete(normalizedFormationInstanceId);
+  this.playerRuntimeService.markPersisted?.(
+   checkpoint.playerId,
+   new Set(FORMATION_MAINTENANCE_PERSISTENCE_DOMAINS),
+   checkpoint.snapshotRevision,
+  );
+  this.playerRuntimeService.releasePersistenceDomains?.(
+   checkpoint.playerId,
+   FORMATION_MAINTENANCE_PERSISTENCE_DOMAINS,
+  );
+  const currentFormation = this.findFormationInInstance(
+   checkpoint.instanceId,
+   normalizedFormationInstanceId,
+  );
+  if (
+   !currentFormation
+   || Math.trunc(Number(currentFormation.updatedAt) || 0) !== checkpoint.formationUpdatedAtMs
+   || this.dirtyFormationInstanceIds.has(checkpoint.instanceId)
+   || this.removedFormationKeysByInstanceId.has(checkpoint.instanceId)
+  ) {
+   this.persistInstanceFormationsSoon(checkpoint.instanceId, persistenceFence);
+  }
+  return true;
+ }
+
+ scheduleFormationMaintenanceCheckpoint(checkpoint, delayMs = null) {
+  if (!checkpoint || this.formationMaintenanceCheckpointById.get(checkpoint.formationInstanceId) !== checkpoint) {
+   return;
+  }
+  if (checkpoint.timer) {
+   clearTimeout(checkpoint.timer);
+  }
+  const delay = Number.isFinite(Number(delayMs))
+   ? Math.max(1, Math.trunc(Number(delayMs)))
+   : Math.max(1, checkpoint.dueAt - Date.now());
+  checkpoint.timer = setTimeout(() => {
+   checkpoint.timer = null;
+   void this.flushPendingFormationMaintenance(checkpoint.formationInstanceId).catch((error) => {
+    this.logger.warn(
+     `阵法维护检查点提交失败，已保留并重试：${checkpoint.formationInstanceId} ${error instanceof Error ? error.message : String(error)}`,
+    );
+   });
+  }, delay);
+  checkpoint.timer.unref?.();
+ }
+
+ async tickFormationMaintenanceDurably(player, tickAction, deps = null) {
+  const playerId = normalizePlayerId(player);
+  const formationInstanceId = normalizeOptionalString(player?.formationJob?.formationInstanceId);
+  if (typeof tickAction !== 'function') {
+   throw new Error('formation_maintenance_tick_action_required');
+  }
+  if (!playerId || !formationInstanceId) {
+   return tickAction(deps);
+  }
+  let formation;
+  try {
+   formation = this.resolveMaintainableFormation(playerId, formationInstanceId, { deps });
+  }
+  catch (error) {
+   const condition = this.checkFormationMaintenanceCondition(player, player?.formationJob, { deps });
+   if (condition.satisfied === true || condition.shouldCancel !== true) {
+    throw error;
+   }
+   return this.runExclusivePlayerFormationResourceMutation(playerId, formationInstanceId, () => {
+    const currentPlayer = this.playerRuntimeService.getPlayerOrThrow(playerId);
+    const currentJob = currentPlayer?.formationJob;
+    if (!currentJob || currentJob.formationInstanceId !== formationInstanceId) {
+     return undefined;
     }
-
-    async initializePersistencePool() {
-        const databaseUrl = resolveServerDatabaseUrl();
-        if (!databaseUrl.trim()) {
-            return;
-        }
-        const sharedPool = this.databasePoolProvider?.getPool?.('formation') ?? null;
-        if (!sharedPool) {
-            this.logger.warn('阵法持久化已禁用：数据库连接池提供者未提供连接池');
-            return;
-        }
-        try {
-            await ensureInstanceFormationStateTable(sharedPool);
-            this.persistencePool = sharedPool;
-            this.persistenceReady = true;
-        } catch (error) {
-            this.logger.warn(`阵法持久化初始化失败：${error instanceof Error ? error.message : String(error)}`);
-        }
+    const currentCondition = this.checkFormationMaintenanceCondition(currentPlayer, currentJob, { deps });
+    if (currentCondition.satisfied === true || currentCondition.shouldCancel !== true) {
+     return undefined;
     }
+    // 锁内先由默认流程提交既有检查点，再让统一管线持久化清除永久失效的 job。
+    return tickAction(deps);
+   });
+  }
+  const instance = this.resolveFormationWriteInstance(formation, deps);
+  const durableContext = this.resolveFormationResourceDurableContext(
+   instance,
+   deps,
+   'commitFormationMaintenanceMutation',
+  );
+  if (!durableContext) {
+   if (resolveServerDatabaseUrl().trim() && !isFormationVolatileFallbackAllowed()) {
+    throw new ServiceUnavailableException('阵法维护资产事务暂不可用，请稍后重试');
+   }
+   return tickAction(deps);
+  }
 
-    async closePersistencePool() {
-        // 清理所有 pending persist timers，避免 pool 释放后 timer 触发错误。
-        for (const [instanceId, timer] of this._formationPersistTimers) {
-            clearTimeout(timer);
-        }
-        this._formationPersistTimers.clear();
-        for (const checkpoint of this.formationMaintenanceCheckpointById.values()) {
-            if (checkpoint.timer) {
-                clearTimeout(checkpoint.timer);
-            }
-            this.playerRuntimeService.releasePersistenceDomains?.(
-                checkpoint.playerId,
-                FORMATION_MAINTENANCE_PERSISTENCE_DOMAINS,
-            );
-        }
-        this.formationMaintenanceCheckpointById.clear();
-        this.unregisterBeforeManualPlayerFlushBarrier?.();
-        this.unregisterBeforeManualPlayerFlushBarrier = null;
-
-        // 共享连接池由 DatabasePoolProvider 统一关闭，此处只释放引用。
-        this.persistencePool = null;
-        this.persistenceReady = false;
+  return this.runExclusivePlayerFormationResourceMutation(playerId, formationInstanceId, async () => {
+   const currentPlayer = this.playerRuntimeService.getPlayerOrThrow(playerId);
+   let currentJob = currentPlayer?.formationJob;
+   const currentFormation = this.resolveMaintainableFormation(playerId, formationInstanceId, { deps });
+   let checkpoint = this.formationMaintenanceCheckpointById.get(formationInstanceId) ?? null;
+   if (checkpoint) {
+    const condition = currentJob
+     ? this.checkFormationMaintenanceCondition(currentPlayer, currentJob, { deps })
+     : { satisfied: false };
+    const mustFlushCheckpoint = checkpoint.playerId !== playerId
+     || checkpoint.expectedJobRunId !== normalizeOptionalString(currentJob?.jobRunId)
+     || checkpoint.commitFailed
+     || Date.now() >= checkpoint.dueAt
+     || Math.max(0, Number(currentPlayer?.qi) || 0) <= 0
+     || condition.satisfied !== true;
+    if (mustFlushCheckpoint) {
+     await this.flushPendingFormationMaintenanceLocked(formationInstanceId);
+     checkpoint = null;
+     currentJob = currentPlayer?.formationJob;
     }
-
-    findOwnedFormation(playerId, formationInstanceId) {
-        const normalizedId = typeof formationInstanceId === 'string' ? formationInstanceId.trim() : '';
-        if (!normalizedId) {
-            throw new BadRequestException('阵法实例 ID 不能为空');
-        }
-        for (const formations of this.formationsByInstanceId.values()) {
-            const formation = formations.find((entry) => entry.id === normalizedId);
-            if (!formation) {
-                continue;
-            }
-            if (formation.ownerPlayerId !== playerId) {
-                throw new ForbiddenException('不能操作他人的阵法');
-            }
-            return formation;
-        }
-        throw new NotFoundException('阵法不存在');
+   }
+   if (!currentJob || currentJob.formationInstanceId !== formationInstanceId) {
+    return tickAction(deps);
+   }
+   if (!checkpoint) {
+    await ensureFormationMaintenanceActiveJobReady(playerId, currentPlayer, deps);
+   }
+   this.playerRuntimeService.recordActivity?.(
+    playerId,
+    Number(deps?.tick) || 0,
+    { interruptCultivation: true },
+   );
+   const before = captureFormationMaintenanceRuntimeState(currentPlayer, currentFormation, instance);
+   const expectedJobRunId = normalizeOptionalString(currentJob.jobRunId);
+   const expectedJobVersion = Math.max(1, Math.trunc(Number(currentJob.jobVersion) || 1));
+   const expectedFormationUpdatedAtMs = Math.max(1, Math.trunc(Number(currentFormation.updatedAt) || 0));
+   if (!expectedJobRunId || expectedFormationUpdatedAtMs <= 0) {
+    throw new ServiceUnavailableException('阵法维护任务围栏暂不可用');
+   }
+   const previousSuppress = currentPlayer.suppressImmediateDomainPersistence;
+   currentPlayer.suppressImmediateDomainPersistence = true;
+   try {
+    const result = tickAction({
+     ...deps,
+     deferFormationMaintenancePersistence: true,
+     skipFormationMaintenanceActivityRecord: true,
+    });
+    if (result && typeof result.then === 'function') {
+     throw new Error('formation_maintenance_tick_action_must_be_synchronous');
     }
-
-    findFormationInInstance(instanceId, formationInstanceId) {
-        const normalizedInstanceId = normalizeInstanceId(instanceId);
-        const normalizedId = typeof formationInstanceId === 'string' ? formationInstanceId.trim() : '';
-        if (!normalizedInstanceId || !normalizedId) {
-            return null;
-        }
-        const direct = (this.formationsByInstanceId.get(normalizedInstanceId) ?? []).find((entry) => entry.id === normalizedId);
-        if (direct) {
-            return direct;
-        }
-        for (const formations of this.formationsByInstanceId.values()) {
-            const byEye = formations.find((entry) => entry.id === normalizedId
-                && isPersistentFormation(entry)
-                && normalizeInstanceId(entry.eyeInstanceId) === normalizedInstanceId);
-            if (byEye) {
-                return byEye;
-            }
-        }
-        return null;
+    const qiAmount = Math.max(0, Math.trunc(Number(before.player.qi) - Number(currentPlayer.qi)));
+    const formationQiAmount = Math.max(
+     0,
+     Number(resolveFormationRemainingQiBudget(currentFormation)) - Number(before.formation.remainingQiBudget),
+    );
+    if (qiAmount <= 0 || formationQiAmount <= 0) {
+     return result;
     }
-
-    removeFormationFromInstance(instanceId, formationInstanceId, deps = null, options: { deferPersistence?: boolean } = {}) {
-        const normalizedInstanceId = normalizeInstanceId(instanceId);
-        const normalizedId = typeof formationInstanceId === 'string' ? formationInstanceId.trim() : '';
-        if (!normalizedInstanceId || !normalizedId) {
-            return null;
-        }
-        const formations = this.formationsByInstanceId.get(normalizedInstanceId);
-        if (!Array.isArray(formations) || formations.length <= 0) {
-            return null;
-        }
-        const persistenceFence = options.deferPersistence === true
-            ? null
-            : this.captureFormationPersistenceFence(deps?.getInstanceRuntime?.(normalizedInstanceId) ?? null, deps);
-        const index = formations.findIndex((entry) => entry.id === normalizedId);
-        if (index < 0) {
-            return null;
-        }
-        const [formation] = formations.splice(index, 1);
-        if (formations.length <= 0) {
-            this.formationsByInstanceId.delete(normalizedInstanceId);
-        }
-        touchRuntimeInstanceRevision(deps, normalizedInstanceId);
-        if (options.deferPersistence !== true) {
-            this.persistFormationRemovalSoon(formation, persistenceFence);
-        }
-        return formation ?? null;
+    if (currentPlayer.formationJob?.jobRunId !== expectedJobRunId) {
+     throw new Error('formation_maintenance_runtime_job_identity_changed');
     }
-
-    pruneInvalidPlacementsInInstance(instanceId, instance, options: { deps?: unknown } = {}) {
-        const normalizedInstanceId = normalizeInstanceId(instanceId);
-        if (!normalizedInstanceId || !instance) {
-            return { removedCount: 0, keptSectGuardianCount: 0 };
-        }
-        const formations = this.formationsByInstanceId.get(normalizedInstanceId);
-        if (!Array.isArray(formations) || formations.length <= 0) {
-            return { removedCount: 0, keptSectGuardianCount: 0 };
-        }
-        const persistenceFence = this.captureFormationPersistenceFence(instance, options?.deps);
-        const kept = [];
-        let removedCount = 0;
-        let keptSectGuardianCount = 0;
-        for (const formation of formations) {
-            if (isPersistentFormation(formation) || formation?.formationId === 'sect_guardian_barrier') {
-                if (!isFormationProtectedPlacementAllowed(instance, formation)) {
-                    keptSectGuardianCount += 1;
-                    this.logger.warn(`启动发现宗门护宗阵保护点位冲突，暂不清理：${normalizedInstanceId} ${formation?.id ?? ''}`);
-                }
-                kept.push(formation);
-                continue;
-            }
-            if (!isFormationProtectedPlacementAllowed(instance, formation)) {
-                removedCount += 1;
-                this.persistFormationRemovalSoon(formation, persistenceFence);
-                continue;
-            }
-            kept.push(formation);
-        }
-        if (kept.length > 0) {
-            this.formationsByInstanceId.set(normalizedInstanceId, kept);
-        } else {
-            this.formationsByInstanceId.delete(normalizedInstanceId);
-        }
-        if (removedCount > 0) {
-            touchRuntimeInstanceRevision(options?.deps, normalizedInstanceId);
-        }
-        return { removedCount, keptSectGuardianCount };
+    const nextActiveJob = buildFormationMaintenanceActiveJobSnapshot(currentPlayer.formationJob);
+    const nextPlayerSnapshot = this.playerRuntimeService.buildPersistenceSnapshot?.(
+     playerId,
+     new Set(['vitals', 'profession', 'active_job']),
+    ) ?? null;
+    if (!nextPlayerSnapshot || !nextActiveJob || nextActiveJob.jobVersion <= expectedJobVersion) {
+     throw new ServiceUnavailableException('阵法维护后态快照暂不可用');
     }
-
-    findFormationByInstanceOrId(instanceId, formationInstanceId) {
-        const normalizedId = typeof formationInstanceId === 'string' ? formationInstanceId.trim() : '';
-        if (!normalizedId) {
-            return null;
-        }
-        const normalizedInstanceId = normalizeInstanceId(instanceId);
-        if (normalizedInstanceId) {
-            return this.findFormationInInstance(normalizedInstanceId, normalizedId);
-        }
-        for (const formations of this.formationsByInstanceId.values()) {
-            const formation = formations.find((entry) => entry.id === normalizedId);
-            if (formation) {
-                return formation;
-            }
-        }
-        return null;
+    const snapshotRevision = Math.max(0, Math.trunc(Number(currentPlayer.persistentRevision) || 0));
+    const formationSnapshot = serializeFormation(currentFormation);
+    const latestFormationUpdatedAtMs = Math.max(1, Math.trunc(Number(formationSnapshot.updatedAt) || 0));
+    if (checkpoint) {
+     checkpoint.durableInput = {
+      ...checkpoint.durableInput,
+      expectedAssignedNodeId: durableContext.assignedNodeId,
+      expectedLeaseToken: durableContext.leaseToken,
+      expectedOwnershipEpoch: durableContext.ownershipEpoch,
+      formationWrite: {
+       formationInstanceId,
+       instanceId: formationSnapshot.instanceId,
+       snapshot: formationSnapshot,
+      },
+      nextActiveJob,
+      nextPlayerSnapshot,
+      qiAmount: Math.max(1, Math.trunc(Number(checkpoint.durableInput.qiAmount) || 0)) + qiAmount,
+      formationQiAmount: Math.max(1, Math.trunc(Number(checkpoint.durableInput.formationQiAmount) || 0)) + formationQiAmount,
+     };
+     checkpoint.snapshotRevision = snapshotRevision;
+     checkpoint.formationUpdatedAtMs = latestFormationUpdatedAtMs;
+     checkpoint.deps = deps;
     }
-
-    resolveFormationTemplate(formationId) {
-        const normalizedId = typeof formationId === 'string' ? formationId.trim() : '';
-        if (!normalizedId) {
-            throw new BadRequestException('阵法 ID 不能为空');
-        }
-        const configured = typeof this.contentTemplateRepository.getFormationTemplate === 'function'
-            ? this.contentTemplateRepository.getFormationTemplate(normalizedId)
-            : null;
-        const template = configured ?? getFormationTemplateById(normalizedId);
-        if (!template) {
-            throw new NotFoundException(`阵法不存在：${normalizedId}`);
-        }
-        return template;
-    }
-
-    resolveFormationWriteInstance(formation, deps) {
-        const instanceId = normalizeInstanceId(formation?.instanceId);
-        const instance = instanceId && typeof deps?.getInstanceRuntime === 'function'
-            ? deps.getInstanceRuntime(instanceId)
-            : null;
-        if (!instance || deps?.getInstanceRuntime?.(instanceId) !== instance) {
-            throw new ServiceUnavailableException('阵法所在实例暂不可用');
-        }
-        return instance;
-    }
-
-    resolveFormationResourceDurableContext(instance, deps, requiredMethod = 'commitFormationResourceMutation') {
-        const durable = this.durableOperationService;
-        if (!durable?.isEnabled?.() || typeof durable?.[requiredMethod] !== 'function') {
-            return null;
-        }
-        const instanceId = normalizeInstanceId(instance?.meta?.instanceId);
-        const assignedNodeId = normalizeOptionalString(instance?.meta?.assignedNodeId);
-        const leaseToken = normalizeOptionalString(instance?.meta?.leaseToken);
-        const ownershipEpoch = Number.isFinite(Number(instance?.meta?.ownershipEpoch))
-            ? Math.max(0, Math.trunc(Number(instance.meta.ownershipEpoch)))
-            : 0;
-        const leaseWritable = typeof deps?.isInstanceLeaseWritable !== 'function'
-            || deps.isInstanceLeaseWritable(instance) === true;
-        if (
-            !instanceId
-            || deps?.getInstanceRuntime?.(instanceId) !== instance
-            || !assignedNodeId
-            || !leaseToken
-            || ownershipEpoch <= 0
-            || !leaseWritable
-        ) {
-            throw new ServiceUnavailableException('阵法所在实例租约尚未就绪');
-        }
-        return {
-            durable,
-            instanceId,
-            assignedNodeId,
-            leaseToken,
-            ownershipEpoch,
-        };
-    }
-
-    runExclusivePlayerFormationResourceMutation(
-        playerId,
+    else {
+     const operationSignatureHash = createHash('sha256');
+     for (const value of [
+      playerId,
+      formationInstanceId,
+      expectedJobRunId,
+      expectedJobVersion,
+      expectedFormationUpdatedAtMs,
+     ]) {
+      operationSignatureHash.update(String(value));
+      operationSignatureHash.update('\0');
+     }
+     const now = Date.now();
+     const operationSignature = operationSignatureHash.digest('hex').slice(0, 32);
+     checkpoint = {
+      playerId,
+      formationInstanceId,
+      instanceId: formationSnapshot.instanceId,
+      expectedJobRunId,
+      durableInput: {
+       operationId: `op:formation-maintenance:${operationSignature}`,
+       playerId,
+       expectedRuntimeOwnerId: '',
+       expectedSessionEpoch: 0,
+       expectedInstanceId: durableContext.instanceId,
+       expectedAssignedNodeId: durableContext.assignedNodeId,
+       expectedLeaseToken: durableContext.leaseToken,
+       expectedOwnershipEpoch: durableContext.ownershipEpoch,
+       formationWrite: {
         formationInstanceId,
-        action,
-        options: { flushPendingMaintenance?: boolean } = {},
-    ) {
-        const runFormationLocked = () => this.runExclusiveFormationPersistence([formationInstanceId], async () => {
-            if (options.flushPendingMaintenance !== false) {
-                await this.flushPendingFormationMaintenanceLocked(formationInstanceId);
-            }
-            return action();
-        });
-        const coordinator = this.playerRuntimeService?.runExclusiveAssetMutation;
-        if (typeof coordinator !== 'function') {
-            return runFormationLocked();
-        }
-        return coordinator.call(this.playerRuntimeService, [playerId], runFormationLocked, {
-            deferAssetStatisticsUntilSuccess: true,
-        });
+        instanceId: formationSnapshot.instanceId,
+        snapshot: formationSnapshot,
+       },
+       expectedFormationUpdatedAtMs,
+       expectedJobRunId,
+       expectedJobVersion,
+       nextActiveJob,
+       nextPlayerSnapshot,
+       qiAmount,
+       formationQiAmount,
+      },
+      snapshotRevision,
+      formationUpdatedAtMs: latestFormationUpdatedAtMs,
+      createdAt: now,
+      dueAt: now + this.formationMaintenanceCheckpointIntervalMs,
+      timer: null,
+      commitFailed: false,
+      deps,
+     };
+     this.formationMaintenanceCheckpointById.set(formationInstanceId, checkpoint);
+     this.playerRuntimeService.holdPersistenceDomains?.(
+      playerId,
+      FORMATION_MAINTENANCE_PERSISTENCE_DOMAINS,
+     );
+     this.scheduleFormationMaintenanceCheckpoint(checkpoint);
     }
+    return result;
+   }
+   catch (error) {
+    restoreFormationMaintenanceRuntimeState(currentPlayer, currentFormation, instance, before);
+    throw error;
+   }
+   finally {
+    currentPlayer.suppressImmediateDomainPersistence = previousSuppress;
+   }
+  }, { flushPendingMaintenance: false });
+ }
 
-    /** 手动玩家刷盘、取消与迁移前强制收敛该玩家的阵法维护检查点。 */
-    async flushPendingFormationMaintenanceForPlayer(playerId) {
-        const normalizedPlayerId = normalizeOptionalString(playerId);
-        if (!normalizedPlayerId) {
-            return;
-        }
-        const formationInstanceIds = Array.from(this.formationMaintenanceCheckpointById.values())
-            .filter((checkpoint) => checkpoint.playerId === normalizedPlayerId)
-            .map((checkpoint) => checkpoint.formationInstanceId)
-            .sort();
-        for (const formationInstanceId of formationInstanceIds) {
-            await this.flushPendingFormationMaintenance(formationInstanceId);
-        }
-    }
+ async commitFormationMaintenancePlan(playerId, durableInput) {
+  if (durableInput?.nextPlayerSnapshot) {
+   durableInput.nextPlayerSnapshot = {
+    ...durableInput.nextPlayerSnapshot,
+    savedAt: nextPlayerPersistenceVersion(),
+   };
+  }
+  const sessionFence = this.playerRuntimeService.getSessionFence?.(playerId) ?? null;
+  if (!sessionFence?.runtimeOwnerId || !sessionFence?.sessionEpoch) {
+   throw new ServiceUnavailableException('玩家资产事务围栏暂不可用');
+  }
+  durableInput.expectedRuntimeOwnerId = sessionFence.runtimeOwnerId;
+  durableInput.expectedSessionEpoch = sessionFence.sessionEpoch;
+  try {
+   await this.durableOperationService.commitFormationMaintenanceMutation(durableInput);
+  }
+  catch (error) {
+   if (!isFormationPlayerFenceConflict(error) || !(await this.syncCurrentFormationPlayerPresence(playerId))) {
+    throw error;
+   }
+   const refreshedFence = this.playerRuntimeService.getSessionFence?.(playerId) ?? null;
+   if (!refreshedFence?.runtimeOwnerId || !refreshedFence?.sessionEpoch) {
+    throw error;
+   }
+   durableInput.expectedRuntimeOwnerId = refreshedFence.runtimeOwnerId;
+   durableInput.expectedSessionEpoch = refreshedFence.sessionEpoch;
+   await this.durableOperationService.commitFormationMaintenanceMutation(durableInput);
+  }
+ }
 
-    /** 关闭前先提交所有跨玩家/阵法检查点，再进入普通玩家与阵法分域刷盘。 */
-    async flushAllPendingFormationMaintenance() {
-        const formationInstanceIds = Array.from(this.formationMaintenanceCheckpointById.keys()).sort();
-        for (const formationInstanceId of formationInstanceIds) {
-            await this.flushPendingFormationMaintenance(formationInstanceId);
-        }
-    }
+ async commitFormationResourcePlan(input) {
+  const currentPlayer = this.playerRuntimeService.getPlayerOrThrow(input.playerId);
+  if (Math.max(0, Math.trunc(Number(currentPlayer.qi ?? 0))) < input.qiAmount) {
+   throw new NotFoundException('灵力不足');
+  }
+  const currentSnapshot = this.playerRuntimeService.buildPersistenceSnapshot?.(input.playerId) ?? null;
+  const sessionFence = this.playerRuntimeService.getSessionFence?.(input.playerId) ?? null;
+  if (!currentSnapshot || !sessionFence?.runtimeOwnerId || !sessionFence?.sessionEpoch) {
+   throw new ServiceUnavailableException('玩家资产事务围栏暂不可用');
+  }
+  const nextInventoryItems = input.nextInventoryItems.map((entry) => ({ ...entry }));
+  const nextWalletBalances = buildWalletBalancesFromInventory(
+   currentSnapshot.wallet?.balances,
+   nextInventoryItems,
+  );
+  const savedAt = nextPlayerPersistenceVersion();
+  const nextPlayerSnapshot = {
+   ...currentSnapshot,
+   savedAt,
+   inventory: {
+    ...currentSnapshot.inventory,
+    revision: Math.max(1, Math.trunc(Number(currentSnapshot.inventory?.revision ?? 0)) + 1),
+    items: nextInventoryItems.map((entry) => ({ ...entry })),
+   },
+   wallet: {
+    ...currentSnapshot.wallet,
+    balances: nextWalletBalances,
+   },
+   vitals: {
+    ...currentSnapshot.vitals,
+    qi: input.nextQi,
+   },
+  };
+  const formationSnapshot = serializeFormation(input.formation);
+  const operationSignature = createHash('sha256')
+   .update(JSON.stringify({
+    playerId: input.playerId,
+    action: input.action,
+    formationInstanceId: formationSnapshot.id,
+    expectedFormationUpdatedAtMs: input.expectedFormationUpdatedAtMs,
+    nextFormationUpdatedAtMs: formationSnapshot.updatedAt,
+    spiritStoneCount: input.spiritStoneCount,
+    qiAmount: input.qiAmount,
+    diskItemInstanceId: input.diskItemInstanceId,
+   }))
+   .digest('hex')
+   .slice(0, 32);
+  const durableInput = {
+   operationId: `op:formation-resource:${operationSignature}`,
+   playerId: input.playerId,
+   expectedRuntimeOwnerId: sessionFence.runtimeOwnerId,
+   expectedSessionEpoch: sessionFence.sessionEpoch,
+   expectedInstanceId: input.durableContext.instanceId,
+   expectedAssignedNodeId: input.durableContext.assignedNodeId,
+   expectedLeaseToken: input.durableContext.leaseToken,
+   expectedOwnershipEpoch: input.durableContext.ownershipEpoch,
+   action: input.action,
+   formationWrite: {
+    formationInstanceId: formationSnapshot.id,
+    instanceId: formationSnapshot.instanceId,
+    snapshot: formationSnapshot,
+   },
+   expectedFormationUpdatedAtMs: input.expectedFormationUpdatedAtMs,
+   expectFormationAbsent: input.expectFormationAbsent === true,
+   nextPlayerSnapshot,
+   spiritStoneCount: input.spiritStoneCount,
+   qiAmount: input.qiAmount,
+   diskItemInstanceId: input.diskItemInstanceId,
+  };
+  try {
+   await input.durableContext.durable.commitFormationResourceMutation(durableInput);
+  }
+  catch (error) {
+   if (!isFormationPlayerFenceConflict(error) || !(await this.syncCurrentFormationPlayerPresence(input.playerId))) {
+    throw error;
+   }
+   const refreshedFence = this.playerRuntimeService.getSessionFence?.(input.playerId) ?? null;
+   if (!refreshedFence?.runtimeOwnerId || !refreshedFence?.sessionEpoch) {
+    throw error;
+   }
+   durableInput.expectedRuntimeOwnerId = refreshedFence.runtimeOwnerId;
+   durableInput.expectedSessionEpoch = refreshedFence.sessionEpoch;
+   await input.durableContext.durable.commitFormationResourceMutation(durableInput);
+  }
+ }
 
-    async flushPendingFormationMaintenance(formationInstanceId) {
-        const normalizedFormationInstanceId = normalizeOptionalString(formationInstanceId);
-        const checkpoint = this.formationMaintenanceCheckpointById.get(normalizedFormationInstanceId);
-        if (!checkpoint) {
-            return false;
-        }
-        return this.runExclusivePlayerFormationResourceMutation(
-            checkpoint.playerId,
-            normalizedFormationInstanceId,
-            () => this.flushPendingFormationMaintenanceLocked(normalizedFormationInstanceId),
-            { flushPendingMaintenance: false },
-        );
-    }
+ async syncCurrentFormationPlayerPresence(playerId) {
+  const persistence = this.playerRuntimeService?.playerDomainPersistenceService;
+  if (!persistence?.isEnabled?.()) {
+   return false;
+  }
+  const persistedPresence = typeof persistence.loadPlayerPresence === 'function'
+   ? await persistence.loadPlayerPresence(playerId)
+   : null;
+  let presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+  if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
+   return false;
+  }
+  const persistedSessionEpoch = Number.isFinite(Number(persistedPresence?.sessionEpoch))
+   ? Math.max(0, Math.trunc(Number(persistedPresence.sessionEpoch)))
+   : 0;
+  const persistedRuntimeOwnerId = normalizeOptionalString(persistedPresence?.runtimeOwnerId) ?? '';
+  const runtimeSessionEpoch = Math.max(0, Math.trunc(Number(presence.sessionEpoch ?? 0)));
+  const runtimeOwnerId = normalizeOptionalString(presence.runtimeOwnerId) ?? '';
+  if (
+   typeof this.playerRuntimeService.ensureRuntimeSessionFenceAtLeast === 'function'
+   && persistedSessionEpoch > 0
+   && (
+    runtimeSessionEpoch <= persistedSessionEpoch
+    || (persistedRuntimeOwnerId && persistedRuntimeOwnerId !== runtimeOwnerId)
+   )
+  ) {
+   this.playerRuntimeService.ensureRuntimeSessionFenceAtLeast(playerId, persistedSessionEpoch);
+   presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+  }
+  if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
+   return false;
+  }
+  await persistence.savePlayerPresence(playerId, {
+   ...presence,
+   versionSeed: nextPlayerPersistenceVersion(),
+  });
+  return true;
+ }
 
-    async flushPendingFormationMaintenanceLocked(formationInstanceId) {
-        const normalizedFormationInstanceId = normalizeOptionalString(formationInstanceId);
-        const checkpoint = this.formationMaintenanceCheckpointById.get(normalizedFormationInstanceId);
-        if (!checkpoint) {
-            return false;
-        }
-        if (checkpoint.timer) {
-            clearTimeout(checkpoint.timer);
-            checkpoint.timer = null;
-        }
-        let persistenceFence: InstanceLeaseWriteFence;
-        try {
-            persistenceFence = this.resolveFormationMaintenanceCheckpointFence(checkpoint);
-            await this.commitFormationMaintenancePlan(checkpoint.playerId, checkpoint.durableInput);
-        }
-        catch (error) {
-            checkpoint.commitFailed = true;
-            this.scheduleFormationMaintenanceCheckpoint(checkpoint, FORMATION_MAINTENANCE_CHECKPOINT_RETRY_MS);
-            throw error;
-        }
-        if (this.formationMaintenanceCheckpointById.get(normalizedFormationInstanceId) !== checkpoint) {
-            return false;
-        }
-        this.formationMaintenanceCheckpointById.delete(normalizedFormationInstanceId);
-        this.playerRuntimeService.markPersisted?.(
-            checkpoint.playerId,
-            new Set(FORMATION_MAINTENANCE_PERSISTENCE_DOMAINS),
-            checkpoint.snapshotRevision,
-        );
-        this.playerRuntimeService.releasePersistenceDomains?.(
-            checkpoint.playerId,
-            FORMATION_MAINTENANCE_PERSISTENCE_DOMAINS,
-        );
-        const currentFormation = this.findFormationInInstance(
-            checkpoint.instanceId,
-            normalizedFormationInstanceId,
-        );
-        if (
-            !currentFormation
-            || Math.trunc(Number(currentFormation.updatedAt) || 0) !== checkpoint.formationUpdatedAtMs
-            || this.dirtyFormationInstanceIds.has(checkpoint.instanceId)
-            || this.removedFormationKeysByInstanceId.has(checkpoint.instanceId)
-        ) {
-            this.persistInstanceFormationsSoon(checkpoint.instanceId, persistenceFence);
-        }
-        return true;
-    }
+ assertCanPay(playerId, qiCost, spiritStoneCount) {
+  const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+  if (player.qi < qiCost) {
+   throw new NotFoundException('灵力不足');
+  }
+  if (!this.playerRuntimeService.canAffordWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount)) {
+   throw new NotFoundException('灵石不足');
+  }
+ }
 
-    scheduleFormationMaintenanceCheckpoint(checkpoint, delayMs = null) {
-        if (!checkpoint || this.formationMaintenanceCheckpointById.get(checkpoint.formationInstanceId) !== checkpoint) {
-            return;
-        }
-        if (checkpoint.timer) {
-            clearTimeout(checkpoint.timer);
-        }
-        const delay = Number.isFinite(Number(delayMs))
-            ? Math.max(1, Math.trunc(Number(delayMs)))
-            : Math.max(1, checkpoint.dueAt - Date.now());
-        checkpoint.timer = setTimeout(() => {
-            checkpoint.timer = null;
-            void this.flushPendingFormationMaintenance(checkpoint.formationInstanceId).catch((error) => {
-                this.logger.warn(
-                    `阵法维护检查点提交失败，已保留并重试：${checkpoint.formationInstanceId} ${error instanceof Error ? error.message : String(error)}`,
-                );
-            });
-        }, delay);
-        checkpoint.timer.unref?.();
-    }
-
-    async tickFormationMaintenanceDurably(player, tickAction, deps = null) {
-        const playerId = normalizePlayerId(player);
-        const formationInstanceId = normalizeOptionalString(player?.formationJob?.formationInstanceId);
-        if (typeof tickAction !== 'function') {
-            throw new Error('formation_maintenance_tick_action_required');
-        }
-        if (!playerId || !formationInstanceId) {
-            return tickAction(deps);
-        }
-        let formation;
-        try {
-            formation = this.resolveMaintainableFormation(playerId, formationInstanceId, { deps });
-        }
-        catch (error) {
-            const condition = this.checkFormationMaintenanceCondition(player, player?.formationJob, { deps });
-            if (condition.satisfied === true || condition.shouldCancel !== true) {
-                throw error;
-            }
-            return this.runExclusivePlayerFormationResourceMutation(playerId, formationInstanceId, () => {
-                const currentPlayer = this.playerRuntimeService.getPlayerOrThrow(playerId);
-                const currentJob = currentPlayer?.formationJob;
-                if (!currentJob || currentJob.formationInstanceId !== formationInstanceId) {
-                    return undefined;
-                }
-                const currentCondition = this.checkFormationMaintenanceCondition(currentPlayer, currentJob, { deps });
-                if (currentCondition.satisfied === true || currentCondition.shouldCancel !== true) {
-                    return undefined;
-                }
-                // 锁内先由默认流程提交既有检查点，再让统一管线持久化清除永久失效的 job。
-                return tickAction(deps);
-            });
-        }
-        const instance = this.resolveFormationWriteInstance(formation, deps);
-        const durableContext = this.resolveFormationResourceDurableContext(
-            instance,
-            deps,
-            'commitFormationMaintenanceMutation',
-        );
-        if (!durableContext) {
-            if (resolveServerDatabaseUrl().trim() && !isFormationVolatileFallbackAllowed()) {
-                throw new ServiceUnavailableException('阵法维护资产事务暂不可用，请稍后重试');
-            }
-            return tickAction(deps);
-        }
-
-        return this.runExclusivePlayerFormationResourceMutation(playerId, formationInstanceId, async () => {
-            const currentPlayer = this.playerRuntimeService.getPlayerOrThrow(playerId);
-            let currentJob = currentPlayer?.formationJob;
-            const currentFormation = this.resolveMaintainableFormation(playerId, formationInstanceId, { deps });
-            let checkpoint = this.formationMaintenanceCheckpointById.get(formationInstanceId) ?? null;
-            if (checkpoint) {
-                const condition = currentJob
-                    ? this.checkFormationMaintenanceCondition(currentPlayer, currentJob, { deps })
-                    : { satisfied: false };
-                const mustFlushCheckpoint = checkpoint.playerId !== playerId
-                    || checkpoint.expectedJobRunId !== normalizeOptionalString(currentJob?.jobRunId)
-                    || checkpoint.commitFailed
-                    || Date.now() >= checkpoint.dueAt
-                    || Math.max(0, Number(currentPlayer?.qi) || 0) <= 0
-                    || condition.satisfied !== true;
-                if (mustFlushCheckpoint) {
-                    await this.flushPendingFormationMaintenanceLocked(formationInstanceId);
-                    checkpoint = null;
-                    currentJob = currentPlayer?.formationJob;
-                }
-            }
-            if (!currentJob || currentJob.formationInstanceId !== formationInstanceId) {
-                return tickAction(deps);
-            }
-            if (!checkpoint) {
-                await ensureFormationMaintenanceActiveJobReady(playerId, currentPlayer, deps);
-            }
-            this.playerRuntimeService.recordActivity?.(
-                playerId,
-                Number(deps?.tick) || 0,
-                { interruptCultivation: true },
-            );
-            const before = captureFormationMaintenanceRuntimeState(currentPlayer, currentFormation, instance);
-            const expectedJobRunId = normalizeOptionalString(currentJob.jobRunId);
-            const expectedJobVersion = Math.max(1, Math.trunc(Number(currentJob.jobVersion) || 1));
-            const expectedFormationUpdatedAtMs = Math.max(1, Math.trunc(Number(currentFormation.updatedAt) || 0));
-            if (!expectedJobRunId || expectedFormationUpdatedAtMs <= 0) {
-                throw new ServiceUnavailableException('阵法维护任务围栏暂不可用');
-            }
-            const previousSuppress = currentPlayer.suppressImmediateDomainPersistence;
-            currentPlayer.suppressImmediateDomainPersistence = true;
-            try {
-                const result = tickAction({
-                    ...deps,
-                    deferFormationMaintenancePersistence: true,
-                    skipFormationMaintenanceActivityRecord: true,
-                });
-                if (result && typeof result.then === 'function') {
-                    throw new Error('formation_maintenance_tick_action_must_be_synchronous');
-                }
-                const qiAmount = Math.max(0, Math.trunc(Number(before.player.qi) - Number(currentPlayer.qi)));
-                const formationQiAmount = Math.max(
-                    0,
-                    Number(resolveFormationRemainingQiBudget(currentFormation)) - Number(before.formation.remainingQiBudget),
-                );
-                if (qiAmount <= 0 || formationQiAmount <= 0) {
-                    return result;
-                }
-                if (currentPlayer.formationJob?.jobRunId !== expectedJobRunId) {
-                    throw new Error('formation_maintenance_runtime_job_identity_changed');
-                }
-                const nextActiveJob = buildFormationMaintenanceActiveJobSnapshot(currentPlayer.formationJob);
-                const nextPlayerSnapshot = this.playerRuntimeService.buildPersistenceSnapshot?.(
-                    playerId,
-                    new Set(['vitals', 'profession', 'active_job']),
-                ) ?? null;
-                if (!nextPlayerSnapshot || !nextActiveJob || nextActiveJob.jobVersion <= expectedJobVersion) {
-                    throw new ServiceUnavailableException('阵法维护后态快照暂不可用');
-                }
-                const snapshotRevision = Math.max(0, Math.trunc(Number(currentPlayer.persistentRevision) || 0));
-                const formationSnapshot = serializeFormation(currentFormation);
-                const latestFormationUpdatedAtMs = Math.max(1, Math.trunc(Number(formationSnapshot.updatedAt) || 0));
-                if (checkpoint) {
-                    checkpoint.durableInput = {
-                        ...checkpoint.durableInput,
-                        expectedAssignedNodeId: durableContext.assignedNodeId,
-                        expectedLeaseToken: durableContext.leaseToken,
-                        expectedOwnershipEpoch: durableContext.ownershipEpoch,
-                        formationWrite: {
-                            formationInstanceId,
-                            instanceId: formationSnapshot.instanceId,
-                            snapshot: formationSnapshot,
-                        },
-                        nextActiveJob,
-                        nextPlayerSnapshot,
-                        qiAmount: Math.max(1, Math.trunc(Number(checkpoint.durableInput.qiAmount) || 0)) + qiAmount,
-                        formationQiAmount: Math.max(1, Math.trunc(Number(checkpoint.durableInput.formationQiAmount) || 0)) + formationQiAmount,
-                    };
-                    checkpoint.snapshotRevision = snapshotRevision;
-                    checkpoint.formationUpdatedAtMs = latestFormationUpdatedAtMs;
-                    checkpoint.deps = deps;
-                }
-                else {
-                    const operationSignatureHash = createHash('sha256');
-                    for (const value of [
-                        playerId,
-                        formationInstanceId,
-                        expectedJobRunId,
-                        expectedJobVersion,
-                        expectedFormationUpdatedAtMs,
-                    ]) {
-                        operationSignatureHash.update(String(value));
-                        operationSignatureHash.update('\0');
-                    }
-                    const now = Date.now();
-                    const operationSignature = operationSignatureHash.digest('hex').slice(0, 32);
-                    checkpoint = {
-                        playerId,
-                        formationInstanceId,
-                        instanceId: formationSnapshot.instanceId,
-                        expectedJobRunId,
-                        durableInput: {
-                            operationId: `op:formation-maintenance:${operationSignature}`,
-                            playerId,
-                            expectedRuntimeOwnerId: '',
-                            expectedSessionEpoch: 0,
-                            expectedInstanceId: durableContext.instanceId,
-                            expectedAssignedNodeId: durableContext.assignedNodeId,
-                            expectedLeaseToken: durableContext.leaseToken,
-                            expectedOwnershipEpoch: durableContext.ownershipEpoch,
-                            formationWrite: {
-                                formationInstanceId,
-                                instanceId: formationSnapshot.instanceId,
-                                snapshot: formationSnapshot,
-                            },
-                            expectedFormationUpdatedAtMs,
-                            expectedJobRunId,
-                            expectedJobVersion,
-                            nextActiveJob,
-                            nextPlayerSnapshot,
-                            qiAmount,
-                            formationQiAmount,
-                        },
-                        snapshotRevision,
-                        formationUpdatedAtMs: latestFormationUpdatedAtMs,
-                        createdAt: now,
-                        dueAt: now + this.formationMaintenanceCheckpointIntervalMs,
-                        timer: null,
-                        commitFailed: false,
-                        deps,
-                    };
-                    this.formationMaintenanceCheckpointById.set(formationInstanceId, checkpoint);
-                    this.playerRuntimeService.holdPersistenceDomains?.(
-                        playerId,
-                        FORMATION_MAINTENANCE_PERSISTENCE_DOMAINS,
-                    );
-                    this.scheduleFormationMaintenanceCheckpoint(checkpoint);
-                }
-                return result;
-            }
-            catch (error) {
-                restoreFormationMaintenanceRuntimeState(currentPlayer, currentFormation, instance, before);
-                throw error;
-            }
-            finally {
-                currentPlayer.suppressImmediateDomainPersistence = previousSuppress;
-            }
-        }, { flushPendingMaintenance: false });
-    }
-
-    async commitFormationMaintenancePlan(playerId, durableInput) {
-        if (durableInput?.nextPlayerSnapshot) {
-            durableInput.nextPlayerSnapshot = {
-                ...durableInput.nextPlayerSnapshot,
-                savedAt: nextPlayerPersistenceVersion(),
-            };
-        }
-        const sessionFence = this.playerRuntimeService.getSessionFence?.(playerId) ?? null;
-        if (!sessionFence?.runtimeOwnerId || !sessionFence?.sessionEpoch) {
-            throw new ServiceUnavailableException('玩家资产事务围栏暂不可用');
-        }
-        durableInput.expectedRuntimeOwnerId = sessionFence.runtimeOwnerId;
-        durableInput.expectedSessionEpoch = sessionFence.sessionEpoch;
-        try {
-            await this.durableOperationService.commitFormationMaintenanceMutation(durableInput);
-        }
-        catch (error) {
-            if (!isFormationPlayerFenceConflict(error) || !(await this.syncCurrentFormationPlayerPresence(playerId))) {
-                throw error;
-            }
-            const refreshedFence = this.playerRuntimeService.getSessionFence?.(playerId) ?? null;
-            if (!refreshedFence?.runtimeOwnerId || !refreshedFence?.sessionEpoch) {
-                throw error;
-            }
-            durableInput.expectedRuntimeOwnerId = refreshedFence.runtimeOwnerId;
-            durableInput.expectedSessionEpoch = refreshedFence.sessionEpoch;
-            await this.durableOperationService.commitFormationMaintenanceMutation(durableInput);
-        }
-    }
-
-    async commitFormationResourcePlan(input) {
-        const currentPlayer = this.playerRuntimeService.getPlayerOrThrow(input.playerId);
-        if (Math.max(0, Math.trunc(Number(currentPlayer.qi ?? 0))) < input.qiAmount) {
-            throw new NotFoundException('灵力不足');
-        }
-        const currentSnapshot = this.playerRuntimeService.buildPersistenceSnapshot?.(input.playerId) ?? null;
-        const sessionFence = this.playerRuntimeService.getSessionFence?.(input.playerId) ?? null;
-        if (!currentSnapshot || !sessionFence?.runtimeOwnerId || !sessionFence?.sessionEpoch) {
-            throw new ServiceUnavailableException('玩家资产事务围栏暂不可用');
-        }
-        const nextInventoryItems = input.nextInventoryItems.map((entry) => ({ ...entry }));
-        const nextWalletBalances = buildWalletBalancesFromInventory(
-            currentSnapshot.wallet?.balances,
-            nextInventoryItems,
-        );
-        const savedAt = nextPlayerPersistenceVersion();
-        const nextPlayerSnapshot = {
-            ...currentSnapshot,
-            savedAt,
-            inventory: {
-                ...currentSnapshot.inventory,
-                revision: Math.max(1, Math.trunc(Number(currentSnapshot.inventory?.revision ?? 0)) + 1),
-                items: nextInventoryItems.map((entry) => ({ ...entry })),
-            },
-            wallet: {
-                ...currentSnapshot.wallet,
-                balances: nextWalletBalances,
-            },
-            vitals: {
-                ...currentSnapshot.vitals,
-                qi: input.nextQi,
-            },
-        };
-        const formationSnapshot = serializeFormation(input.formation);
-        const operationSignature = createHash('sha256')
-            .update(JSON.stringify({
-                playerId: input.playerId,
-                action: input.action,
-                formationInstanceId: formationSnapshot.id,
-                expectedFormationUpdatedAtMs: input.expectedFormationUpdatedAtMs,
-                nextFormationUpdatedAtMs: formationSnapshot.updatedAt,
-                spiritStoneCount: input.spiritStoneCount,
-                qiAmount: input.qiAmount,
-                diskItemInstanceId: input.diskItemInstanceId,
-            }))
-            .digest('hex')
-            .slice(0, 32);
-        const durableInput = {
-            operationId: `op:formation-resource:${operationSignature}`,
-            playerId: input.playerId,
-            expectedRuntimeOwnerId: sessionFence.runtimeOwnerId,
-            expectedSessionEpoch: sessionFence.sessionEpoch,
-            expectedInstanceId: input.durableContext.instanceId,
-            expectedAssignedNodeId: input.durableContext.assignedNodeId,
-            expectedLeaseToken: input.durableContext.leaseToken,
-            expectedOwnershipEpoch: input.durableContext.ownershipEpoch,
-            action: input.action,
-            formationWrite: {
-                formationInstanceId: formationSnapshot.id,
-                instanceId: formationSnapshot.instanceId,
-                snapshot: formationSnapshot,
-            },
-            expectedFormationUpdatedAtMs: input.expectedFormationUpdatedAtMs,
-            expectFormationAbsent: input.expectFormationAbsent === true,
-            nextPlayerSnapshot,
-            spiritStoneCount: input.spiritStoneCount,
-            qiAmount: input.qiAmount,
-            diskItemInstanceId: input.diskItemInstanceId,
-        };
-        try {
-            await input.durableContext.durable.commitFormationResourceMutation(durableInput);
-        }
-        catch (error) {
-            if (!isFormationPlayerFenceConflict(error) || !(await this.syncCurrentFormationPlayerPresence(input.playerId))) {
-                throw error;
-            }
-            const refreshedFence = this.playerRuntimeService.getSessionFence?.(input.playerId) ?? null;
-            if (!refreshedFence?.runtimeOwnerId || !refreshedFence?.sessionEpoch) {
-                throw error;
-            }
-            durableInput.expectedRuntimeOwnerId = refreshedFence.runtimeOwnerId;
-            durableInput.expectedSessionEpoch = refreshedFence.sessionEpoch;
-            await input.durableContext.durable.commitFormationResourceMutation(durableInput);
-        }
-    }
-
-    async syncCurrentFormationPlayerPresence(playerId) {
-        const persistence = this.playerRuntimeService?.playerDomainPersistenceService;
-        if (!persistence?.isEnabled?.()) {
-            return false;
-        }
-        const persistedPresence = typeof persistence.loadPlayerPresence === 'function'
-            ? await persistence.loadPlayerPresence(playerId)
-            : null;
-        let presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
-        if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
-            return false;
-        }
-        const persistedSessionEpoch = Number.isFinite(Number(persistedPresence?.sessionEpoch))
-            ? Math.max(0, Math.trunc(Number(persistedPresence.sessionEpoch)))
-            : 0;
-        const persistedRuntimeOwnerId = normalizeOptionalString(persistedPresence?.runtimeOwnerId) ?? '';
-        const runtimeSessionEpoch = Math.max(0, Math.trunc(Number(presence.sessionEpoch ?? 0)));
-        const runtimeOwnerId = normalizeOptionalString(presence.runtimeOwnerId) ?? '';
-        if (
-            typeof this.playerRuntimeService.ensureRuntimeSessionFenceAtLeast === 'function'
-            && persistedSessionEpoch > 0
-            && (
-                runtimeSessionEpoch <= persistedSessionEpoch
-                || (persistedRuntimeOwnerId && persistedRuntimeOwnerId !== runtimeOwnerId)
-            )
-        ) {
-            this.playerRuntimeService.ensureRuntimeSessionFenceAtLeast(playerId, persistedSessionEpoch);
-            presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
-        }
-        if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
-            return false;
-        }
-        await persistence.savePlayerPresence(playerId, {
-            ...presence,
-            versionSeed: nextPlayerPersistenceVersion(),
-        });
-        return true;
-    }
-
-    assertCanPay(playerId, qiCost, spiritStoneCount) {
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        if (player.qi < qiCost) {
-            throw new NotFoundException('灵力不足');
-        }
-        if (!this.playerRuntimeService.canAffordWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount)) {
-            throw new NotFoundException('灵石不足');
-        }
-    }
-
-    assertCanInject(playerId, qiAmount, spiritStoneCount) {
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        if (qiAmount > 0 && player.qi < qiAmount) {
-            throw new NotFoundException('灵力不足');
-        }
-        if (spiritStoneCount > 0 && !this.playerRuntimeService.canAffordWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount)) {
-            throw new NotFoundException('灵石不足');
-        }
-    }
+ assertCanInject(playerId, qiAmount, spiritStoneCount) {
+  const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+  if (qiAmount > 0 && player.qi < qiAmount) {
+   throw new NotFoundException('灵力不足');
+  }
+  if (spiritStoneCount > 0 && !this.playerRuntimeService.canAffordWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount)) {
+   throw new NotFoundException('灵石不足');
+  }
+ }
 }
 export { WorldRuntimeFormationService };
 
 async function ensureInstanceFormationStateTable(pool) {
-    await pool.query(`
+ await pool.query(`
         CREATE TABLE IF NOT EXISTS ${INSTANCE_FORMATION_STATE_TABLE} (
             instance_id varchar(100) NOT NULL,
             formation_instance_id varchar(180) NOT NULL,
@@ -2876,659 +2878,659 @@ async function ensureInstanceFormationStateTable(pool) {
             PRIMARY KEY (instance_id, formation_instance_id)
         )
     `);
-    await pool.query(`
+ await pool.query(`
         ALTER TABLE ${INSTANCE_FORMATION_STATE_TABLE}
         ADD COLUMN IF NOT EXISTS lifecycle varchar(32) NOT NULL DEFAULT 'deployed'
     `);
-    await pool.query(`
+ await pool.query(`
         ALTER TABLE ${INSTANCE_FORMATION_STATE_TABLE}
         ADD COLUMN IF NOT EXISTS remaining_qi_budget double precision NOT NULL DEFAULT 0
     `);
-    await pool.query(`
+ await pool.query(`
         ALTER TABLE ${INSTANCE_FORMATION_STATE_TABLE}
         ADD COLUMN IF NOT EXISTS remaining_spirit_stone_budget double precision NOT NULL DEFAULT 0
     `);
-    for (const column of INSTANCE_FORMATION_STATE_BIGINT_COLUMNS) {
-        await ensureBigintColumnType(pool, INSTANCE_FORMATION_STATE_TABLE, column);
-    }
-    for (const column of INSTANCE_FORMATION_STATE_DOUBLE_COLUMNS) {
-        await ensureDoubleColumnType(pool, INSTANCE_FORMATION_STATE_TABLE, column);
-    }
-    await pool.query(`
+ for (const column of INSTANCE_FORMATION_STATE_BIGINT_COLUMNS) {
+  await ensureBigintColumnType(pool, INSTANCE_FORMATION_STATE_TABLE, column);
+ }
+ for (const column of INSTANCE_FORMATION_STATE_DOUBLE_COLUMNS) {
+  await ensureDoubleColumnType(pool, INSTANCE_FORMATION_STATE_TABLE, column);
+ }
+ await pool.query(`
         CREATE INDEX IF NOT EXISTS instance_formation_state_instance_idx
         ON ${INSTANCE_FORMATION_STATE_TABLE}(instance_id, formation_id)
     `);
-    await pool.query(`
+ await pool.query(`
         CREATE INDEX IF NOT EXISTS instance_formation_state_owner_idx
         ON ${INSTANCE_FORMATION_STATE_TABLE}(owner_player_id, owner_sect_id)
     `);
 }
 
 function normalizeSlotIndex(input) {
-    const value = Math.trunc(Number(input));
-    if (!Number.isFinite(value) || value < 0) {
-        throw new BadRequestException('槽位索引无效');
-    }
-    return value;
+ const value = Math.trunc(Number(input));
+ if (!Number.isFinite(value) || value < 0) {
+  throw new BadRequestException('槽位索引无效');
+ }
+ return value;
 }
 
 function normalizePositiveInteger(input, label) {
-    const value = Math.trunc(Number(input));
-    if (!Number.isFinite(value) || value <= 0) {
-        throw new BadRequestException(`${label}必须大于 0`);
-    }
-    return value;
+ const value = Math.trunc(Number(input));
+ if (!Number.isFinite(value) || value <= 0) {
+  throw new BadRequestException(`${label}必须大于 0`);
+ }
+ return value;
 }
 
 function normalizeBoundedRuntimeInteger(input, fallback, minimum, maximum) {
-    const value = Math.trunc(Number(input));
-    if (!Number.isFinite(value)) {
-        return fallback;
-    }
-    return Math.min(maximum, Math.max(minimum, value));
+ const value = Math.trunc(Number(input));
+ if (!Number.isFinite(value)) {
+  return fallback;
+ }
+ return Math.min(maximum, Math.max(minimum, value));
 }
 
 function normalizeNonNegativeInteger(input) {
-    const value = Math.trunc(Number(input));
-    if (!Number.isFinite(value) || value < 0) {
-        throw new BadRequestException('灵力消耗不能为负');
-    }
-    return value;
+ const value = Math.trunc(Number(input));
+ if (!Number.isFinite(value) || value < 0) {
+  throw new BadRequestException('灵力消耗不能为负');
+ }
+ return value;
 }
 
 function normalizeLoadedFormationBudget(input) {
-    const value = Number(input);
-    return Number.isFinite(value) ? Math.max(0, value) : 0;
+ const value = Number(input);
+ return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
 
 function resolveLoadedRemainingQiBudget(input, remainingAuraBudget) {
-    const remainingQiBudget = normalizeLoadedFormationBudget(input);
-    if (remainingQiBudget > 0 || remainingAuraBudget <= 0) {
-        return remainingQiBudget;
-    }
-    return remainingAuraBudget;
+ const remainingQiBudget = normalizeLoadedFormationBudget(input);
+ if (remainingQiBudget > 0 || remainingAuraBudget <= 0) {
+  return remainingQiBudget;
+ }
+ return remainingAuraBudget;
 }
 
 function resolveFormationPlacement(playerId, player, location, instance) {
-    const runtimePosition = typeof instance?.getPlayerPosition === 'function'
-        ? instance.getPlayerPosition(playerId)
-        : null;
-    const x = firstFiniteInteger(runtimePosition?.x, player?.x, location?.x);
-    const y = firstFiniteInteger(runtimePosition?.y, player?.y, location?.y);
-    if (!Number.isFinite(x) || !Number.isFinite(y)) {
-        throw new BadRequestException('无法确认布阵坐标');
-    }
-    return { x, y };
+ const runtimePosition = typeof instance?.getPlayerPosition === 'function'
+  ? instance.getPlayerPosition(playerId)
+  : null;
+ const x = firstFiniteInteger(runtimePosition?.x, player?.x, location?.x);
+ const y = firstFiniteInteger(runtimePosition?.y, player?.y, location?.y);
+ if (!Number.isFinite(x) || !Number.isFinite(y)) {
+  throw new BadRequestException('无法确认布阵坐标');
+ }
+ return { x, y };
 }
 
 function firstFiniteInteger(...values) {
-    for (const value of values) {
-        if (value === null || value === undefined || value === '') {
-            continue;
-        }
-        const normalized = Math.trunc(Number(value));
-        if (Number.isFinite(normalized)) {
-            return normalized;
-        }
-    }
-    return Number.NaN;
+ for (const value of values) {
+  if (value === null || value === undefined || value === '') {
+   continue;
+  }
+  const normalized = Math.trunc(Number(value));
+  if (Number.isFinite(normalized)) {
+   return normalized;
+  }
+ }
+ return Number.NaN;
 }
 
 function isWithinFormationMaintenanceControlRange(ax, ay, bx, by) {
-    const leftX = firstFiniteInteger(ax);
-    const leftY = firstFiniteInteger(ay);
-    const rightX = firstFiniteInteger(bx);
-    const rightY = firstFiniteInteger(by);
-    if (!Number.isFinite(leftX) || !Number.isFinite(leftY) || !Number.isFinite(rightX) || !Number.isFinite(rightY)) {
-        return false;
-    }
-    return Math.max(Math.abs(leftX - rightX), Math.abs(leftY - rightY)) <= FORMATION_MAINTENANCE_CONTROL_RADIUS;
+ const leftX = firstFiniteInteger(ax);
+ const leftY = firstFiniteInteger(ay);
+ const rightX = firstFiniteInteger(bx);
+ const rightY = firstFiniteInteger(by);
+ if (!Number.isFinite(leftX) || !Number.isFinite(leftY) || !Number.isFinite(rightX) || !Number.isFinite(rightY)) {
+  return false;
+ }
+ return Math.max(Math.abs(leftX - rightX), Math.abs(leftY - rightY)) <= FORMATION_MAINTENANCE_CONTROL_RADIUS;
 }
 
 function normalizeInstanceId(input) {
-    return typeof input === 'string' ? input.trim() : '';
+ return typeof input === 'string' ? input.trim() : '';
 }
 
 function normalizeOptionalString(input) {
-    return typeof input === 'string' && input.trim() ? input.trim() : '';
+ return typeof input === 'string' && input.trim() ? input.trim() : '';
 }
 
 function resolvePlayerSectId(player) {
-    return normalizeOptionalString(player?.sectId)
-        || normalizeOptionalString(player?.sect?.id)
-        || normalizeOptionalString(player?.sect?.sectId)
-        || normalizeOptionalString(player?.ownerSectId)
-        || normalizeOptionalString(player?.guildId)
-        || normalizeOptionalString(player?.clanId);
+ return normalizeOptionalString(player?.sectId)
+  || normalizeOptionalString(player?.sect?.id)
+  || normalizeOptionalString(player?.sect?.sectId)
+  || normalizeOptionalString(player?.ownerSectId)
+  || normalizeOptionalString(player?.guildId)
+  || normalizeOptionalString(player?.clanId);
 }
 
 function resolveFormationSkillLevel(source) {
-    const allocation = source?.allocation && typeof source.allocation === 'object' ? source.allocation : null;
-    const value = source?.formationSkillLevel
-        ?? allocation?.formationSkillLevel
-        ?? source?.formationSkill?.level;
-    return Math.max(0, Math.floor(Number(value) || 0));
+ const allocation = source?.allocation && typeof source.allocation === 'object' ? source.allocation : null;
+ const value = source?.formationSkillLevel
+  ?? allocation?.formationSkillLevel
+  ?? source?.formationSkill?.level;
+ return Math.max(0, Math.floor(Number(value) || 0));
 }
 
 function assertCanPlaceFormationInInstance(instance) {
-    if (isVirtualPublicWorldInstance(instance)) {
-        throw new BadRequestException('虚境不能布置阵法，请前往现世。');
-    }
+ if (isVirtualPublicWorldInstance(instance)) {
+  throw new BadRequestException('虚境不能布置阵法，请前往现世。');
+ }
 }
 
 function normalizeFormationDiskTier(input) {
-    if (input === 'mortal' || input === 'yellow' || input === 'mystic' || input === 'earth') {
-        return input;
-    }
-    return 'mortal';
+ if (input === 'mortal' || input === 'yellow' || input === 'mystic' || input === 'earth') {
+  return input;
+ }
+ return 'mortal';
 }
 
 function normalizeFormationLifecycle(input) {
-    return input === FORMATION_LIFECYCLE_PERSISTENT ? FORMATION_LIFECYCLE_PERSISTENT : FORMATION_LIFECYCLE_DEPLOYED;
+ return input === FORMATION_LIFECYCLE_PERSISTENT ? FORMATION_LIFECYCLE_PERSISTENT : FORMATION_LIFECYCLE_DEPLOYED;
 }
 
 function resolveFormationLifecycle(template) {
-    return typeof resolveSharedFormationLifecycle === 'function'
-        ? resolveSharedFormationLifecycle(template)
-        : normalizeFormationLifecycle(template?.lifecycle);
+ return typeof resolveSharedFormationLifecycle === 'function'
+  ? resolveSharedFormationLifecycle(template)
+  : normalizeFormationLifecycle(template?.lifecycle);
 }
 
 function isPersistentFormation(formation) {
-    return normalizeFormationLifecycle(formation?.lifecycle ?? formation?.template?.lifecycle) === FORMATION_LIFECYCLE_PERSISTENT;
+ return normalizeFormationLifecycle(formation?.lifecycle ?? formation?.template?.lifecycle) === FORMATION_LIFECYCLE_PERSISTENT;
 }
 
 function isActiveTerrainStabilizerFormation(formation) {
-    return isActiveFormationOfKind(formation, TERRAIN_STABILIZER_EFFECT_KIND);
+ return isActiveFormationOfKind(formation, TERRAIN_STABILIZER_EFFECT_KIND);
 }
 
 function isActiveFormationOfKind(formation, kind) {
-    return formation?.active === true
-        && formation?.template?.effect?.kind === kind
-        && resolveFormationRemainingQiBudget(formation) > 0
-        && resolveFormationRemainingSpiritStoneBudget(formation) > 0;
+ return formation?.active === true
+  && formation?.template?.effect?.kind === kind
+  && resolveFormationRemainingQiBudget(formation) > 0
+  && resolveFormationRemainingSpiritStoneBudget(formation) > 0;
 }
 
 function buildTerrainStabilizationChecker(checker, hasTerrainStabilizer) {
-    Object.defineProperty(checker, 'hasTerrainStabilizer', {
-        value: hasTerrainStabilizer === true,
-        enumerable: false,
-        configurable: false,
-    });
-    return checker;
+ Object.defineProperty(checker, 'hasTerrainStabilizer', {
+  value: hasTerrainStabilizer === true,
+  enumerable: false,
+  configurable: false,
+ });
+ return checker;
 }
 
 function forEachFormationAffectedRuntimeCell(instance, formation, visitor) {
-    const shape = formation?.template?.range?.shape;
-    const centerX = Math.trunc(Number(formation?.x));
-    const centerY = Math.trunc(Number(formation?.y));
-    const radius = Math.max(1, Math.trunc(Number(formation?.stats?.radius) || 1));
-    if (!Number.isFinite(centerX) || !Number.isFinite(centerY) || typeof visitor !== 'function') {
-        return;
+ const shape = formation?.template?.range?.shape;
+ const centerX = Math.trunc(Number(formation?.x));
+ const centerY = Math.trunc(Number(formation?.y));
+ const radius = Math.max(1, Math.trunc(Number(formation?.stats?.radius) || 1));
+ if (!Number.isFinite(centerX) || !Number.isFinite(centerY) || typeof visitor !== 'function') {
+  return;
+ }
+ const hasRuntimeBounds = typeof instance?.isInBounds === 'function';
+ const width = Math.max(0, Math.trunc(Number(instance?.template?.width) || 0));
+ const height = Math.max(0, Math.trunc(Number(instance?.template?.height) || 0));
+ for (let y = centerY - radius; y <= centerY + radius; y += 1) {
+  for (let x = centerX - radius; x <= centerX + radius; x += 1) {
+   if (!isFormationAffectedCell(shape, centerX, centerY, x, y, radius)) {
+    continue;
+   }
+   if (hasRuntimeBounds) {
+    if (instance.isInBounds(x, y) !== true) {
+     continue;
     }
-    const hasRuntimeBounds = typeof instance?.isInBounds === 'function';
-    const width = Math.max(0, Math.trunc(Number(instance?.template?.width) || 0));
-    const height = Math.max(0, Math.trunc(Number(instance?.template?.height) || 0));
-    for (let y = centerY - radius; y <= centerY + radius; y += 1) {
-        for (let x = centerX - radius; x <= centerX + radius; x += 1) {
-            if (!isFormationAffectedCell(shape, centerX, centerY, x, y, radius)) {
-                continue;
-            }
-            if (hasRuntimeBounds) {
-                if (instance.isInBounds(x, y) !== true) {
-                    continue;
-                }
-            } else if (x < 0 || y < 0 || x >= width || y >= height) {
-                continue;
-            }
-            visitor(x, y);
-        }
-    }
+   } else if (x < 0 || y < 0 || x >= width || y >= height) {
+    continue;
+   }
+   visitor(x, y);
+  }
+ }
 }
 
 function assertFormationProtectedPlacementAllowed(instance, formation) {
-    const conflict = findFormationProtectedPlacementConflict(instance, formation);
-    if (conflict.ok !== true) {
-        const formationName = normalizeOptionalString(formation?.name) || '阵法';
-        throw new BadRequestException(`${formationName}范围内${formatProtectedPlacementConflictReason(conflict.reason)}`);
-    }
+ const conflict = findFormationProtectedPlacementConflict(instance, formation);
+ if (conflict.ok !== true) {
+  const formationName = normalizeOptionalString(formation?.name) || '阵法';
+  throw new BadRequestException(`${formationName}范围内${formatProtectedPlacementConflictReason(conflict.reason)}`);
+ }
 }
 
 function isFormationProtectedPlacementAllowed(instance, formation) {
-    return findFormationProtectedPlacementConflict(instance, formation).ok;
+ return findFormationProtectedPlacementConflict(instance, formation).ok;
 }
 
 function findFormationProtectedPlacementConflict(instance, formation) {
-    const points = [];
-    forEachFormationAffectedRuntimeCell(instance, formation, (x, y) => {
-        points.push({ x, y });
-    });
-    return findProtectedPlacementConflict(instance, points);
+ const points = [];
+ forEachFormationAffectedRuntimeCell(instance, formation, (x, y) => {
+  points.push({ x, y });
+ });
+ return findProtectedPlacementConflict(instance, points);
 }
 
 function isFormationAffectedCell(shape, centerX, centerY, x, y, radius) {
-    const dx = Math.trunc(Number(x)) - centerX;
-    const dy = Math.trunc(Number(y)) - centerY;
-    if (Math.abs(dx) > radius || Math.abs(dy) > radius) {
-        return false;
-    }
-    if (shape === 'circle') {
-        return (dx * dx) + (dy * dy) <= radius * radius;
-    }
-    if (shape === 'checkerboard') {
-        return ((Math.trunc(Number(x)) + Math.trunc(Number(y))) % 2) === 0;
-    }
-    return true;
+ const dx = Math.trunc(Number(x)) - centerX;
+ const dy = Math.trunc(Number(y)) - centerY;
+ if (Math.abs(dx) > radius || Math.abs(dy) > radius) {
+  return false;
+ }
+ if (shape === 'circle') {
+  return (dx * dx) + (dy * dy) <= radius * radius;
+ }
+ if (shape === 'checkerboard') {
+  return ((Math.trunc(Number(x)) + Math.trunc(Number(y))) % 2) === 0;
+ }
+ return true;
 }
 
 function resolveFormationTickCost(formation) {
-    const remainingQiBudget = resolveFormationRemainingQiBudget(formation);
-    const remainingSpiritStoneBudget = resolveFormationRemainingSpiritStoneBudget(formation);
-    const qiDecayRate = FORMATION_QI_DECAY_RATE_SCALED / QI_HALF_LIFE_RATE_SCALE;
-    const dailySpiritStoneCost = resolveFormationDailySpiritStoneCost(formation);
-    return {
-        qiCost: remainingQiBudget <= 0 ? 0 : Math.min(remainingQiBudget, remainingQiBudget * qiDecayRate),
-        spiritStoneCost: remainingSpiritStoneBudget <= 0 ? 0 : Math.min(remainingSpiritStoneBudget, dailySpiritStoneCost / FORMATION_TICKS_PER_DAY),
-    };
+ const remainingQiBudget = resolveFormationRemainingQiBudget(formation);
+ const remainingSpiritStoneBudget = resolveFormationRemainingSpiritStoneBudget(formation);
+ const qiDecayRate = FORMATION_QI_DECAY_RATE_SCALED / QI_HALF_LIFE_RATE_SCALE;
+ const dailySpiritStoneCost = resolveFormationDailySpiritStoneCost(formation);
+ return {
+  qiCost: remainingQiBudget <= 0 ? 0 : Math.min(remainingQiBudget, remainingQiBudget * qiDecayRate),
+  spiritStoneCost: remainingSpiritStoneBudget <= 0 ? 0 : Math.min(remainingSpiritStoneBudget, dailySpiritStoneCost / FORMATION_TICKS_PER_DAY),
+ };
 }
 
 function buildFormationResourceInventoryPlan(items, spiritStoneCount, diskItemInstanceId = null) {
-    const nextItems = Array.isArray(items) ? items.map((entry) => ({ ...entry })) : [];
-    for (const entry of nextItems) {
-        assignItemInstanceIdIfNeeded(entry);
-    }
-    let remainingSpiritStones = Math.max(0, Math.trunc(Number(spiritStoneCount) || 0));
-    for (let index = nextItems.length - 1; index >= 0 && remainingSpiritStones > 0; index -= 1) {
-        const entry = nextItems[index];
-        if (entry?.itemId !== FORMATION_SPIRIT_STONE_ITEM_ID) {
-            continue;
-        }
-        const currentCount = Math.max(0, Math.trunc(Number(entry.count ?? 0)));
-        const consumed = Math.min(currentCount, remainingSpiritStones);
-        entry.count = currentCount - consumed;
-        remainingSpiritStones -= consumed;
-        if (entry.count <= 0) {
-            nextItems.splice(index, 1);
-        }
-    }
-    if (remainingSpiritStones > 0) {
-        throw new NotFoundException('灵石不足');
-    }
+ const nextItems = Array.isArray(items) ? items.map((entry) => ({ ...entry })) : [];
+ for (const entry of nextItems) {
+  assignItemInstanceIdIfNeeded(entry);
+ }
+ let remainingSpiritStones = Math.max(0, Math.trunc(Number(spiritStoneCount) || 0));
+ for (let index = nextItems.length - 1; index >= 0 && remainingSpiritStones > 0; index -= 1) {
+  const entry = nextItems[index];
+  if (entry?.itemId !== FORMATION_SPIRIT_STONE_ITEM_ID) {
+   continue;
+  }
+  const currentCount = Math.max(0, Math.trunc(Number(entry.count ?? 0)));
+  const consumed = Math.min(currentCount, remainingSpiritStones);
+  entry.count = currentCount - consumed;
+  remainingSpiritStones -= consumed;
+  if (entry.count <= 0) {
+   nextItems.splice(index, 1);
+  }
+ }
+ if (remainingSpiritStones > 0) {
+  throw new NotFoundException('灵石不足');
+ }
 
-    const normalizedDiskItemInstanceId = normalizeOptionalString(diskItemInstanceId);
-    if (normalizedDiskItemInstanceId) {
-        const diskIndex = nextItems.findIndex((entry) => (
-            normalizeOptionalString(entry?.itemInstanceId) === normalizedDiskItemInstanceId
-        ));
-        if (diskIndex < 0) {
-            throw new NotFoundException('阵盘已不在背包中');
-        }
-        const disk = nextItems[diskIndex];
-        const diskCount = Math.max(0, Math.trunc(Number(disk?.count ?? 0)));
-        if (diskCount <= 0) {
-            throw new NotFoundException('阵盘数量不足');
-        }
-        if (diskCount === 1) {
-            nextItems.splice(diskIndex, 1);
-        }
-        else {
-            disk.count = diskCount - 1;
-        }
-    }
-    return nextItems;
+ const normalizedDiskItemInstanceId = normalizeOptionalString(diskItemInstanceId);
+ if (normalizedDiskItemInstanceId) {
+  const diskIndex = nextItems.findIndex((entry) => (
+   normalizeOptionalString(entry?.itemInstanceId) === normalizedDiskItemInstanceId
+  ));
+  if (diskIndex < 0) {
+   throw new NotFoundException('阵盘已不在背包中');
+  }
+  const disk = nextItems[diskIndex];
+  const diskCount = Math.max(0, Math.trunc(Number(disk?.count ?? 0)));
+  if (diskCount <= 0) {
+   throw new NotFoundException('阵盘数量不足');
+  }
+  if (diskCount === 1) {
+   nextItems.splice(diskIndex, 1);
+  }
+  else {
+   disk.count = diskCount - 1;
+  }
+ }
+ return nextItems;
 }
 
 function cloneFormationForResourceMutation(formation) {
-    return {
-        ...formation,
-        allocation: formation?.allocation && typeof formation.allocation === 'object'
-            ? { ...formation.allocation }
-            : formation?.allocation,
-        stats: formation?.stats && typeof formation.stats === 'object'
-            ? { ...formation.stats }
-            : formation?.stats,
-    };
+ return {
+  ...formation,
+  allocation: formation?.allocation && typeof formation.allocation === 'object'
+   ? { ...formation.allocation }
+   : formation?.allocation,
+  stats: formation?.stats && typeof formation.stats === 'object'
+   ? { ...formation.stats }
+   : formation?.stats,
+ };
 }
 
 function captureFormationMaintenanceRuntimeState(player, formation, instance) {
-    return {
-        player: {
-            qi: Number(player?.qi ?? 0),
-            selfRevision: Number(player?.selfRevision ?? 0),
-            persistentRevision: Number(player?.persistentRevision ?? 0),
-            persistedRevision: Number(player?.persistedRevision ?? 0),
-            stagedRevision: Number(player?.stagedRevision ?? 0),
-            formationJob: cloneFormationMaintenanceJob(player?.formationJob),
-            formationSkill: player?.formationSkill && typeof player.formationSkill === 'object'
-                ? { ...player.formationSkill }
-                : player?.formationSkill,
-            dirtyDomains: new Set(player?.dirtyDomains instanceof Set ? player.dirtyDomains : []),
-            persistenceDomainRevisionByDomain: cloneRuntimeMap(player?.persistenceDomainRevisionByDomain),
-            stagedPersistenceDomainRevisionByDomain: cloneRuntimeMap(player?.stagedPersistenceDomainRevisionByDomain),
-            persistenceStagingGenerationByDomain: cloneRuntimeMap(player?.persistenceStagingGenerationByDomain),
-            persistedDomainRevisionByDomain: cloneRuntimeMap(player?.persistedDomainRevisionByDomain),
-        },
-        formation: {
-            remainingQiBudget: resolveFormationRemainingQiBudget(formation),
-            remainingAuraBudget: resolveFormationRemainingQiBudget(formation),
-            remainingSpiritStoneBudget: resolveFormationRemainingSpiritStoneBudget(formation),
-            active: formation?.active !== false,
-            updatedAt: Number(formation?.updatedAt ?? 0),
-        },
-        instanceWorldRevision: Number(instance?.worldRevision ?? 0),
-    };
+ return {
+  player: {
+   qi: Number(player?.qi ?? 0),
+   selfRevision: Number(player?.selfRevision ?? 0),
+   persistentRevision: Number(player?.persistentRevision ?? 0),
+   persistedRevision: Number(player?.persistedRevision ?? 0),
+   stagedRevision: Number(player?.stagedRevision ?? 0),
+   formationJob: cloneFormationMaintenanceJob(player?.formationJob),
+   formationSkill: player?.formationSkill && typeof player.formationSkill === 'object'
+    ? { ...player.formationSkill }
+    : player?.formationSkill,
+   dirtyDomains: new Set(player?.dirtyDomains instanceof Set ? player.dirtyDomains : []),
+   persistenceDomainRevisionByDomain: cloneRuntimeMap(player?.persistenceDomainRevisionByDomain),
+   stagedPersistenceDomainRevisionByDomain: cloneRuntimeMap(player?.stagedPersistenceDomainRevisionByDomain),
+   persistenceStagingGenerationByDomain: cloneRuntimeMap(player?.persistenceStagingGenerationByDomain),
+   persistedDomainRevisionByDomain: cloneRuntimeMap(player?.persistedDomainRevisionByDomain),
+  },
+  formation: {
+   remainingQiBudget: resolveFormationRemainingQiBudget(formation),
+   remainingAuraBudget: resolveFormationRemainingQiBudget(formation),
+   remainingSpiritStoneBudget: resolveFormationRemainingSpiritStoneBudget(formation),
+   active: formation?.active !== false,
+   updatedAt: Number(formation?.updatedAt ?? 0),
+  },
+  instanceWorldRevision: Number(instance?.worldRevision ?? 0),
+ };
 }
 
 function restoreFormationMaintenanceRuntimeState(player, formation, instance, state) {
-    if (!state) {
-        return;
-    }
-    player.qi = state.player.qi;
-    player.selfRevision = state.player.selfRevision;
-    player.persistentRevision = state.player.persistentRevision;
-    player.persistedRevision = state.player.persistedRevision;
-    player.stagedRevision = state.player.stagedRevision;
-    player.formationJob = cloneFormationMaintenanceJob(state.player.formationJob);
-    player.formationSkill = state.player.formationSkill && typeof state.player.formationSkill === 'object'
-        ? { ...state.player.formationSkill }
-        : state.player.formationSkill;
-    restoreRuntimeSet(player, 'dirtyDomains', state.player.dirtyDomains);
-    restoreRuntimeMap(player, 'persistenceDomainRevisionByDomain', state.player.persistenceDomainRevisionByDomain);
-    restoreRuntimeMap(player, 'stagedPersistenceDomainRevisionByDomain', state.player.stagedPersistenceDomainRevisionByDomain);
-    restoreRuntimeMap(player, 'persistenceStagingGenerationByDomain', state.player.persistenceStagingGenerationByDomain);
-    restoreRuntimeMap(player, 'persistedDomainRevisionByDomain', state.player.persistedDomainRevisionByDomain);
-    setFormationRemainingQiBudget(formation, state.formation.remainingQiBudget);
-    setFormationRemainingSpiritStoneBudget(formation, state.formation.remainingSpiritStoneBudget);
-    formation.active = state.formation.active;
-    formation.updatedAt = state.formation.updatedAt;
-    if (instance && Number.isFinite(state.instanceWorldRevision)) {
-        instance.worldRevision = state.instanceWorldRevision;
-    }
+ if (!state) {
+  return;
+ }
+ player.qi = state.player.qi;
+ player.selfRevision = state.player.selfRevision;
+ player.persistentRevision = state.player.persistentRevision;
+ player.persistedRevision = state.player.persistedRevision;
+ player.stagedRevision = state.player.stagedRevision;
+ player.formationJob = cloneFormationMaintenanceJob(state.player.formationJob);
+ player.formationSkill = state.player.formationSkill && typeof state.player.formationSkill === 'object'
+  ? { ...state.player.formationSkill }
+  : state.player.formationSkill;
+ restoreRuntimeSet(player, 'dirtyDomains', state.player.dirtyDomains);
+ restoreRuntimeMap(player, 'persistenceDomainRevisionByDomain', state.player.persistenceDomainRevisionByDomain);
+ restoreRuntimeMap(player, 'stagedPersistenceDomainRevisionByDomain', state.player.stagedPersistenceDomainRevisionByDomain);
+ restoreRuntimeMap(player, 'persistenceStagingGenerationByDomain', state.player.persistenceStagingGenerationByDomain);
+ restoreRuntimeMap(player, 'persistedDomainRevisionByDomain', state.player.persistedDomainRevisionByDomain);
+ setFormationRemainingQiBudget(formation, state.formation.remainingQiBudget);
+ setFormationRemainingSpiritStoneBudget(formation, state.formation.remainingSpiritStoneBudget);
+ formation.active = state.formation.active;
+ formation.updatedAt = state.formation.updatedAt;
+ if (instance && Number.isFinite(state.instanceWorldRevision)) {
+  instance.worldRevision = state.instanceWorldRevision;
+ }
 }
 
 function cloneFormationMaintenanceJob(job) {
-    if (!job || typeof job !== 'object') {
-        return job ?? null;
-    }
-    return {
-        ...job,
-        interruptState: job.interruptState && typeof job.interruptState === 'object'
-            ? { ...job.interruptState }
-            : job.interruptState ?? null,
-    };
+ if (!job || typeof job !== 'object') {
+  return job ?? null;
+ }
+ return {
+  ...job,
+  interruptState: job.interruptState && typeof job.interruptState === 'object'
+   ? { ...job.interruptState }
+   : job.interruptState ?? null,
+ };
 }
 
 function buildFormationMaintenanceActiveJobSnapshot(job) {
-    const jobRunId = normalizeOptionalString(job?.jobRunId);
-    if (!jobRunId) {
-        return null;
-    }
-    const jobVersion = Math.max(1, Math.trunc(Number(job?.jobVersion) || 1));
-    return {
-        jobRunId,
-        jobType: 'formation',
-        status: normalizeOptionalString(job?.status) || 'running',
-        phase: normalizeOptionalString(job?.phase) || 'maintaining',
-        startedAt: Math.max(1, Math.trunc(Number(job?.startedAt) || Date.now())),
-        finishedAt: job?.finishedAt == null ? null : Math.max(1, Math.trunc(Number(job.finishedAt) || Date.now())),
-        pausedTicks: Math.max(0, Math.trunc(Number(job?.pausedTicks) || 0)),
-        totalTicks: Math.max(0, Math.trunc(Number(job?.totalTicks) || 0)),
-        remainingTicks: Math.max(0, Math.trunc(Number(job?.remainingTicks) || 0)),
-        successRate: Number.isFinite(Number(job?.successRate)) ? Number(job.successRate) : 1,
-        speedRate: Number.isFinite(Number(job?.maintenanceRate)) ? Number(job.maintenanceRate) : 1,
-        jobVersion,
-        detailJson: cloneFormationMaintenanceJob({ ...job, jobRunId, jobType: 'formation', jobVersion }),
-    };
+ const jobRunId = normalizeOptionalString(job?.jobRunId);
+ if (!jobRunId) {
+  return null;
+ }
+ const jobVersion = Math.max(1, Math.trunc(Number(job?.jobVersion) || 1));
+ return {
+  jobRunId,
+  jobType: 'formation',
+  status: normalizeOptionalString(job?.status) || 'running',
+  phase: normalizeOptionalString(job?.phase) || 'maintaining',
+  startedAt: Math.max(1, Math.trunc(Number(job?.startedAt) || Date.now())),
+  finishedAt: job?.finishedAt == null ? null : Math.max(1, Math.trunc(Number(job.finishedAt) || Date.now())),
+  pausedTicks: Math.max(0, Math.trunc(Number(job?.pausedTicks) || 0)),
+  totalTicks: Math.max(0, Math.trunc(Number(job?.totalTicks) || 0)),
+  remainingTicks: Math.max(0, Math.trunc(Number(job?.remainingTicks) || 0)),
+  successRate: Number.isFinite(Number(job?.successRate)) ? Number(job.successRate) : 1,
+  speedRate: Number.isFinite(Number(job?.maintenanceRate)) ? Number(job.maintenanceRate) : 1,
+  jobVersion,
+  detailJson: cloneFormationMaintenanceJob({ ...job, jobRunId, jobType: 'formation', jobVersion }),
+ };
 }
 
 function cloneRuntimeMap(value) {
-    return value instanceof Map ? new Map(value) : new Map();
+ return value instanceof Map ? new Map(value) : new Map();
 }
 
 function restoreRuntimeMap(target, key, snapshot) {
-    const current = target?.[key];
-    if (current instanceof Map) {
-        current.clear();
-        for (const [entryKey, entryValue] of snapshot ?? []) {
-            current.set(entryKey, entryValue);
-        }
-        return;
-    }
-    target[key] = new Map(snapshot ?? []);
+ const current = target?.[key];
+ if (current instanceof Map) {
+  current.clear();
+  for (const [entryKey, entryValue] of snapshot ?? []) {
+   current.set(entryKey, entryValue);
+  }
+  return;
+ }
+ target[key] = new Map(snapshot ?? []);
 }
 
 function restoreRuntimeSet(target, key, snapshot) {
-    const current = target?.[key];
-    if (current instanceof Set) {
-        current.clear();
-        for (const entry of snapshot ?? []) {
-            current.add(entry);
-        }
-        return;
-    }
-    target[key] = new Set(snapshot ?? []);
+ const current = target?.[key];
+ if (current instanceof Set) {
+  current.clear();
+  for (const entry of snapshot ?? []) {
+   current.add(entry);
+  }
+  return;
+ }
+ target[key] = new Set(snapshot ?? []);
 }
 
 function isFormationPlayerFenceConflict(error) {
-    const message = String(error instanceof Error ? error.message : error);
-    return message.startsWith('player_session_fencing_conflict');
+ const message = String(error instanceof Error ? error.message : error);
+ return message.startsWith('player_session_fencing_conflict');
 }
 
 function isFormationVolatileFallbackAllowed() {
-    const runtimeEnv = [process.env.SERVER_RUNTIME_ENV, process.env.APP_ENV, process.env.NODE_ENV]
-        .map((value) => typeof value === 'string' ? value.trim().toLowerCase() : '')
-        .find(Boolean) ?? '';
-    return runtimeEnv === 'test'
-        || runtimeEnv === 'verify'
-        || runtimeEnv === 'smoke'
-        || runtimeEnv === 'development'
-        || runtimeEnv === 'dev';
+ const runtimeEnv = [process.env.SERVER_RUNTIME_ENV, process.env.APP_ENV, process.env.NODE_ENV]
+  .map((value) => typeof value === 'string' ? value.trim().toLowerCase() : '')
+  .find(Boolean) ?? '';
+ return runtimeEnv === 'test'
+  || runtimeEnv === 'verify'
+  || runtimeEnv === 'smoke'
+  || runtimeEnv === 'development'
+  || runtimeEnv === 'dev';
 }
 
 function resolveFormationDailySpiritStoneCost(formation) {
-    const stats = formation?.stats ?? {};
-    const configured = Number(stats.dailyActiveSpiritStoneCost ?? stats.dailySpiritStoneCost);
-    if (Number.isFinite(configured) && configured > 0) {
-        return configured;
-    }
-    return Math.max(1, Math.floor(Number(stats.effectValue) || 0));
+ const stats = formation?.stats ?? {};
+ const configured = Number(stats.dailyActiveSpiritStoneCost ?? stats.dailySpiritStoneCost);
+ if (Number.isFinite(configured) && configured > 0) {
+  return configured;
+ }
+ return Math.max(1, Math.floor(Number(stats.effectValue) || 0));
 }
 
 function resolveFormationRemainingQiBudget(formation) {
-    return Math.max(0, Number(formation?.remainingQiBudget ?? formation?.remainingAuraBudget) || 0);
+ return Math.max(0, Number(formation?.remainingQiBudget ?? formation?.remainingAuraBudget) || 0);
 }
 
 function resolveFormationRemainingSpiritStoneBudget(formation) {
-    return Math.max(0, Number(formation?.remainingSpiritStoneBudget ?? formation?.spiritStoneCount) || 0);
+ return Math.max(0, Number(formation?.remainingSpiritStoneBudget ?? formation?.spiritStoneCount) || 0);
 }
 
 function resolveFormationCombatMaxHp(formation) {
-    const damagePerAura = resolveFormationDamagePerAura(formation?.template);
-    const configuredQiBudget = Math.max(0, Number(formation?.stats?.totalQiBudget ?? formation?.stats?.totalAuraBudget) || 0);
-    const fallbackQiBudget = resolveFormationRemainingQiBudget(formation);
-    return Math.max(1, Math.ceil((configuredQiBudget > 0 ? configuredQiBudget : fallbackQiBudget) * damagePerAura));
+ const damagePerAura = resolveFormationDamagePerAura(formation?.template);
+ const configuredQiBudget = Math.max(0, Number(formation?.stats?.totalQiBudget ?? formation?.stats?.totalAuraBudget) || 0);
+ const fallbackQiBudget = resolveFormationRemainingQiBudget(formation);
+ return Math.max(1, Math.ceil((configuredQiBudget > 0 ? configuredQiBudget : fallbackQiBudget) * damagePerAura));
 }
 
 function resolveFormationCombatHp(formation) {
-    const maxHp = resolveFormationCombatMaxHp(formation);
-    const currentHp = Math.max(0, Math.ceil(resolveFormationRemainingQiBudget(formation) * resolveFormationDamagePerAura(formation?.template)));
-    return Math.min(maxHp, currentHp);
+ const maxHp = resolveFormationCombatMaxHp(formation);
+ const currentHp = Math.max(0, Math.ceil(resolveFormationRemainingQiBudget(formation) * resolveFormationDamagePerAura(formation?.template)));
+ return Math.min(maxHp, currentHp);
 }
 
 function setFormationRemainingQiBudget(formation, value) {
-    const normalized = Math.max(0, Number(value) || 0);
-    formation.remainingQiBudget = normalized;
-    formation.remainingAuraBudget = normalized;
+ const normalized = Math.max(0, Number(value) || 0);
+ formation.remainingQiBudget = normalized;
+ formation.remainingAuraBudget = normalized;
 }
 
 function setFormationRemainingSpiritStoneBudget(formation, value) {
-    formation.remainingSpiritStoneBudget = Math.max(0, Number(value) || 0);
+ formation.remainingSpiritStoneBudget = Math.max(0, Number(value) || 0);
 }
 
 function buildRuntimeFormationProjection(formation, role = 'effect') {
-    const lifecycle = normalizeFormationLifecycle(formation.lifecycle ?? formation.template?.lifecycle);
-    const isEyeProjection = role === 'eye';
-    const visual = resolveFormationRuntimeVisual(formation.template);
-    return {
-        id: formation.id,
-        ownerPlayerId: formation.ownerPlayerId,
-        ownerSectId: formation.ownerSectId ?? null,
-        formationId: formation.formationId,
-        lifecycle,
-        name: isEyeProjection ? `${formation.name}阵眼` : formation.name,
-        x: isEyeProjection && Number.isFinite(Number(formation.eyeX)) ? Math.trunc(Number(formation.eyeX)) : formation.x,
-        y: isEyeProjection && Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y,
-        eyeInstanceId: formation.eyeInstanceId ?? formation.instanceId,
-        eyeX: Number.isFinite(Number(formation.eyeX)) ? Math.trunc(Number(formation.eyeX)) : formation.x,
-        eyeY: Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y,
-        radius: isEyeProjection ? 1 : formation.stats.radius,
-        rangeShape: formation.template.range.shape,
-        ...visual,
-        active: formation.active,
-        hp: resolveFormationCombatHp(formation),
-        maxHp: resolveFormationCombatMaxHp(formation),
-        blocksBoundary: !isEyeProjection && formation.template.effect.kind === BOUNDARY_BARRIER_EFFECT_KIND,
-        damagePerAura: resolveFormationDamagePerAura(formation.template),
-        remainingAuraBudget: Math.max(0, Math.floor(resolveFormationRemainingQiBudget(formation))),
-        remainingQiBudget: Math.max(0, Math.floor(resolveFormationRemainingQiBudget(formation))),
-        remainingSpiritStoneBudget: Math.max(0, Math.floor(resolveFormationRemainingSpiritStoneBudget(formation))),
-    };
+ const lifecycle = normalizeFormationLifecycle(formation.lifecycle ?? formation.template?.lifecycle);
+ const isEyeProjection = role === 'eye';
+ const visual = resolveFormationRuntimeVisual(formation.template);
+ return {
+  id: formation.id,
+  ownerPlayerId: formation.ownerPlayerId,
+  ownerSectId: formation.ownerSectId ?? null,
+  formationId: formation.formationId,
+  lifecycle,
+  name: isEyeProjection ? `${formation.name}阵眼` : formation.name,
+  x: isEyeProjection && Number.isFinite(Number(formation.eyeX)) ? Math.trunc(Number(formation.eyeX)) : formation.x,
+  y: isEyeProjection && Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y,
+  eyeInstanceId: formation.eyeInstanceId ?? formation.instanceId,
+  eyeX: Number.isFinite(Number(formation.eyeX)) ? Math.trunc(Number(formation.eyeX)) : formation.x,
+  eyeY: Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y,
+  radius: isEyeProjection ? 1 : formation.stats.radius,
+  rangeShape: formation.template.range.shape,
+  ...visual,
+  active: formation.active,
+  hp: resolveFormationCombatHp(formation),
+  maxHp: resolveFormationCombatMaxHp(formation),
+  blocksBoundary: !isEyeProjection && formation.template.effect.kind === BOUNDARY_BARRIER_EFFECT_KIND,
+  damagePerAura: resolveFormationDamagePerAura(formation.template),
+  remainingAuraBudget: Math.max(0, Math.floor(resolveFormationRemainingQiBudget(formation))),
+  remainingQiBudget: Math.max(0, Math.floor(resolveFormationRemainingQiBudget(formation))),
+  remainingSpiritStoneBudget: Math.max(0, Math.floor(resolveFormationRemainingSpiritStoneBudget(formation))),
+ };
 }
 
 function getRuntimeFormationProjection(formation, role = 'effect') {
-    const cacheKey = role === 'eye' ? 'eye' : 'effect';
-    const lifecycle = normalizeFormationLifecycle(formation.lifecycle ?? formation.template?.lifecycle);
-    const isEyeProjection = role === 'eye';
-    const x = isEyeProjection && Number.isFinite(Number(formation.eyeX)) ? Math.trunc(Number(formation.eyeX)) : formation.x;
-    const y = isEyeProjection && Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y;
-    const eyeX = Number.isFinite(Number(formation.eyeX)) ? Math.trunc(Number(formation.eyeX)) : formation.x;
-    const eyeY = Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y;
-    const remainingAuraBudget = Math.max(0, Math.floor(resolveFormationRemainingQiBudget(formation)));
-    const remainingSpiritStoneBudget = Math.max(0, Math.floor(resolveFormationRemainingSpiritStoneBudget(formation)));
-    const hp = resolveFormationCombatHp(formation);
-    const maxHp = resolveFormationCombatMaxHp(formation);
-    const cachedByRole = runtimeFormationProjectionCache.get(formation);
-    const cached = cachedByRole?.[cacheKey];
-    if (cached
-        && cached.lifecycle === lifecycle
-        && cached.name === formation.name
-        && cached.ownerPlayerId === formation.ownerPlayerId
-        && cached.ownerSectId === (formation.ownerSectId ?? null)
-        && cached.formationId === formation.formationId
-        && cached.x === x
-        && cached.y === y
-        && cached.eyeInstanceId === (formation.eyeInstanceId ?? formation.instanceId)
-        && cached.eyeX === eyeX
-        && cached.eyeY === eyeY
-        && cached.radius === (isEyeProjection ? 1 : formation.stats.radius)
-        && cached.rangeShape === formation.template.range.shape
-        && cached.active === formation.active
-        && cached.hp === hp
-        && cached.maxHp === maxHp
-        && cached.remainingAuraBudget === remainingAuraBudget
-        && cached.remainingSpiritStoneBudget === remainingSpiritStoneBudget) {
-        return cached.projection;
-    }
-    const projection = freezeRuntimeProjection(buildRuntimeFormationProjection(formation, role));
-    runtimeFormationProjectionCache.set(formation, {
-        ...(cachedByRole ?? {}),
-        [cacheKey]: {
-            lifecycle,
-            name: formation.name,
-            ownerPlayerId: formation.ownerPlayerId,
-            ownerSectId: formation.ownerSectId ?? null,
-            formationId: formation.formationId,
-            x,
-            y,
-            eyeInstanceId: formation.eyeInstanceId ?? formation.instanceId,
-            eyeX,
-            eyeY,
-            radius: isEyeProjection ? 1 : formation.stats.radius,
-            rangeShape: formation.template.range.shape,
-            active: formation.active,
-            hp,
-            maxHp,
-            remainingAuraBudget,
-            remainingSpiritStoneBudget,
-            projection,
-        },
-    });
-    return projection;
+ const cacheKey = role === 'eye' ? 'eye' : 'effect';
+ const lifecycle = normalizeFormationLifecycle(formation.lifecycle ?? formation.template?.lifecycle);
+ const isEyeProjection = role === 'eye';
+ const x = isEyeProjection && Number.isFinite(Number(formation.eyeX)) ? Math.trunc(Number(formation.eyeX)) : formation.x;
+ const y = isEyeProjection && Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y;
+ const eyeX = Number.isFinite(Number(formation.eyeX)) ? Math.trunc(Number(formation.eyeX)) : formation.x;
+ const eyeY = Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y;
+ const remainingAuraBudget = Math.max(0, Math.floor(resolveFormationRemainingQiBudget(formation)));
+ const remainingSpiritStoneBudget = Math.max(0, Math.floor(resolveFormationRemainingSpiritStoneBudget(formation)));
+ const hp = resolveFormationCombatHp(formation);
+ const maxHp = resolveFormationCombatMaxHp(formation);
+ const cachedByRole = runtimeFormationProjectionCache.get(formation);
+ const cached = cachedByRole?.[cacheKey];
+ if (cached
+  && cached.lifecycle === lifecycle
+  && cached.name === formation.name
+  && cached.ownerPlayerId === formation.ownerPlayerId
+  && cached.ownerSectId === (formation.ownerSectId ?? null)
+  && cached.formationId === formation.formationId
+  && cached.x === x
+  && cached.y === y
+  && cached.eyeInstanceId === (formation.eyeInstanceId ?? formation.instanceId)
+  && cached.eyeX === eyeX
+  && cached.eyeY === eyeY
+  && cached.radius === (isEyeProjection ? 1 : formation.stats.radius)
+  && cached.rangeShape === formation.template.range.shape
+  && cached.active === formation.active
+  && cached.hp === hp
+  && cached.maxHp === maxHp
+  && cached.remainingAuraBudget === remainingAuraBudget
+  && cached.remainingSpiritStoneBudget === remainingSpiritStoneBudget) {
+  return cached.projection;
+ }
+ const projection = freezeRuntimeProjection(buildRuntimeFormationProjection(formation, role));
+ runtimeFormationProjectionCache.set(formation, {
+  ...(cachedByRole ?? {}),
+  [cacheKey]: {
+   lifecycle,
+   name: formation.name,
+   ownerPlayerId: formation.ownerPlayerId,
+   ownerSectId: formation.ownerSectId ?? null,
+   formationId: formation.formationId,
+   x,
+   y,
+   eyeInstanceId: formation.eyeInstanceId ?? formation.instanceId,
+   eyeX,
+   eyeY,
+   radius: isEyeProjection ? 1 : formation.stats.radius,
+   rangeShape: formation.template.range.shape,
+   active: formation.active,
+   hp,
+   maxHp,
+   remainingAuraBudget,
+   remainingSpiritStoneBudget,
+   projection,
+  },
+ });
+ return projection;
 }
 
 function freezeRuntimeProjection(projection) {
-    if (process.env.NODE_ENV !== 'production') {
-        return Object.freeze(projection);
-    }
-    return projection;
+ if (process.env.NODE_ENV !== 'production') {
+  return Object.freeze(projection);
+ }
+ return projection;
 }
 
 function resolveFormationRuntimeVisual(template) {
-    const visual: any = typeof resolveFormationVisual === 'function'
-        ? resolveFormationVisual(template)
-        : { char: '◎', color: '#4da3ff', showText: true, rangeHighlightColor: '#3b82f6' };
-    return {
-        char: visual.char,
-        color: visual.color,
-        showText: visual.showText !== false,
-        rangeHighlightColor: visual.rangeHighlightColor,
-        boundaryChar: visual.boundaryChar,
-        boundaryColor: visual.boundaryColor,
-        boundaryRangeHighlightColor: visual.boundaryRangeHighlightColor,
-        eyeVisibleWithoutSenseQi: visual.eyeVisibleWithoutSenseQi === true,
-        rangeVisibleWithoutSenseQi: visual.rangeVisibleWithoutSenseQi === true,
-        boundaryVisibleWithoutSenseQi: visual.boundaryVisibleWithoutSenseQi === true,
-    };
+ const visual: any = typeof resolveFormationVisual === 'function'
+  ? resolveFormationVisual(template)
+  : { char: '◎', color: '#4da3ff', showText: true, rangeHighlightColor: '#3b82f6' };
+ return {
+  char: visual.char,
+  color: visual.color,
+  showText: visual.showText !== false,
+  rangeHighlightColor: visual.rangeHighlightColor,
+  boundaryChar: visual.boundaryChar,
+  boundaryColor: visual.boundaryColor,
+  boundaryRangeHighlightColor: visual.boundaryRangeHighlightColor,
+  eyeVisibleWithoutSenseQi: visual.eyeVisibleWithoutSenseQi === true,
+  rangeVisibleWithoutSenseQi: visual.rangeVisibleWithoutSenseQi === true,
+  boundaryVisibleWithoutSenseQi: visual.boundaryVisibleWithoutSenseQi === true,
+ };
 }
 
 function resolveFormationAuraPerSpiritStone(template) {
-    return typeof resolveFormationCostConfig === 'function'
-        ? resolveFormationCostConfig(template).auraPerSpiritStone
-        : FORMATION_AURA_PER_SPIRIT_STONE;
+ return typeof resolveFormationCostConfig === 'function'
+  ? resolveFormationCostConfig(template).auraPerSpiritStone
+  : FORMATION_AURA_PER_SPIRIT_STONE;
 }
 
 function resolveFormationRefillAuraBudget(formation, spiritStoneCount) {
-    if (typeof isFormationSetupInput === 'function' && isFormationSetupInput(formation?.allocation)) {
-        return Math.max(1, Math.round(Number(formation?.stats?.totalAuraBudget) || 1));
-    }
-    return Math.round(Math.max(1, Math.trunc(Number(spiritStoneCount) || 1)) * resolveFormationAuraPerSpiritStone(formation.template) * formation.diskMultiplier);
+ if (typeof isFormationSetupInput === 'function' && isFormationSetupInput(formation?.allocation)) {
+  return Math.max(1, Math.round(Number(formation?.stats?.totalAuraBudget) || 1));
+ }
+ return Math.round(Math.max(1, Math.trunc(Number(spiritStoneCount) || 1)) * resolveFormationAuraPerSpiritStone(formation.template) * formation.diskMultiplier);
 }
 
 function serializeFormation(formation) {
-    return {
-        instanceId: formation.instanceId,
-        id: formation.id,
-        ownerPlayerId: formation.ownerPlayerId,
-        ownerSectId: formation.ownerSectId ?? null,
-        formationId: formation.formationId,
-        lifecycle: normalizeFormationLifecycle(formation.lifecycle ?? formation.template?.lifecycle),
-        diskItemId: formation.diskItemId,
-        diskTier: formation.diskTier,
-        diskMultiplier: formation.diskMultiplier,
-        spiritStoneCount: formation.spiritStoneCount,
-        qiCost: formation.qiCost,
-        x: formation.x,
-        y: formation.y,
-        eyeInstanceId: formation.eyeInstanceId ?? formation.instanceId,
-        eyeX: Number.isFinite(Number(formation.eyeX)) ? Math.trunc(Number(formation.eyeX)) : formation.x,
-        eyeY: Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y,
-        allocation: { ...formation.allocation },
-        active: formation.active !== false,
-        remainingAuraBudget: resolveFormationRemainingQiBudget(formation),
-        remainingQiBudget: resolveFormationRemainingQiBudget(formation),
-        remainingSpiritStoneBudget: resolveFormationRemainingSpiritStoneBudget(formation),
-        radius: Math.max(1, Math.trunc(Number(formation.stats?.radius) || 1)),
-        createdAt: formation.createdAt,
-        updatedAt: formation.updatedAt,
-    };
+ return {
+  instanceId: formation.instanceId,
+  id: formation.id,
+  ownerPlayerId: formation.ownerPlayerId,
+  ownerSectId: formation.ownerSectId ?? null,
+  formationId: formation.formationId,
+  lifecycle: normalizeFormationLifecycle(formation.lifecycle ?? formation.template?.lifecycle),
+  diskItemId: formation.diskItemId,
+  diskTier: formation.diskTier,
+  diskMultiplier: formation.diskMultiplier,
+  spiritStoneCount: formation.spiritStoneCount,
+  qiCost: formation.qiCost,
+  x: formation.x,
+  y: formation.y,
+  eyeInstanceId: formation.eyeInstanceId ?? formation.instanceId,
+  eyeX: Number.isFinite(Number(formation.eyeX)) ? Math.trunc(Number(formation.eyeX)) : formation.x,
+  eyeY: Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y,
+  allocation: { ...formation.allocation },
+  active: formation.active !== false,
+  remainingAuraBudget: resolveFormationRemainingQiBudget(formation),
+  remainingQiBudget: resolveFormationRemainingQiBudget(formation),
+  remainingSpiritStoneBudget: resolveFormationRemainingSpiritStoneBudget(formation),
+  radius: Math.max(1, Math.trunc(Number(formation.stats?.radius) || 1)),
+  createdAt: formation.createdAt,
+  updatedAt: formation.updatedAt,
+ };
 }
 
 function resolveNextFormationUpdatedAt(formation) {
-    const previous = Math.max(0, Math.trunc(Number(formation?.updatedAt) || 0));
-    return Math.max(Date.now(), previous + 1);
+ const previous = Math.max(0, Math.trunc(Number(formation?.updatedAt) || 0));
+ return Math.max(Date.now(), previous + 1);
 }
 
 async function upsertFormationStateRow(client, instanceId, formation) {
-    await client.query(`
+ await client.query(`
         INSERT INTO ${INSTANCE_FORMATION_STATE_TABLE}(
             instance_id,
             formation_instance_id,
@@ -3587,176 +3589,176 @@ async function upsertFormationStateRow(client, instanceId, formation) {
             updated_at = now()
         WHERE ${INSTANCE_FORMATION_STATE_TABLE}.updated_at_ms <= EXCLUDED.updated_at_ms
     `, [
-        instanceId,
-        formation.id,
-        formation.ownerPlayerId,
-        formation.ownerSectId,
-        formation.formationId,
-        formation.lifecycle,
-        formation.diskItemId,
-        formation.diskTier,
-        formation.diskMultiplier,
-        formation.spiritStoneCount,
-        formation.qiCost,
-        formation.x,
-        formation.y,
-        formation.eyeInstanceId,
-        formation.eyeX,
-        formation.eyeY,
-        JSON.stringify(formation.allocation ?? {}),
-        formation.active !== false,
-        formation.remainingAuraBudget,
-        formation.remainingQiBudget,
-        formation.remainingSpiritStoneBudget,
-        formation.createdAt,
-        formation.updatedAt,
-    ]);
+  instanceId,
+  formation.id,
+  formation.ownerPlayerId,
+  formation.ownerSectId,
+  formation.formationId,
+  formation.lifecycle,
+  formation.diskItemId,
+  formation.diskTier,
+  formation.diskMultiplier,
+  formation.spiritStoneCount,
+  formation.qiCost,
+  formation.x,
+  formation.y,
+  formation.eyeInstanceId,
+  formation.eyeX,
+  formation.eyeY,
+  JSON.stringify(formation.allocation ?? {}),
+  formation.active !== false,
+  formation.remainingAuraBudget,
+  formation.remainingQiBudget,
+  formation.remainingSpiritStoneBudget,
+  formation.createdAt,
+  formation.updatedAt,
+ ]);
 }
 
 async function lockFormationStateRow(client, formationInstanceId) {
-    await client.query(
-        'SELECT pg_advisory_xact_lock($1::integer, hashtext($2))',
-        [FORMATION_LOCK_NAMESPACE, formationInstanceId],
-    );
+ await client.query(
+  'SELECT pg_advisory_xact_lock($1::integer, hashtext($2))',
+  [FORMATION_LOCK_NAMESPACE, formationInstanceId],
+ );
 }
 
 async function assertFormationInstanceLeaseFence(
-    client: PoolClient,
-    instanceId: string,
-    fence: InstanceLeaseWriteFence | null,
+ client: PoolClient,
+ instanceId: string,
+ fence: InstanceLeaseWriteFence | null,
 ): Promise<void> {
-    if (!fence) {
-        return;
-    }
-    if (normalizeInstanceId(fence.instanceId) !== instanceId) {
-        throw new Error(`formation_instance_lease_fence_instance_mismatch:${instanceId}`);
-    }
-    await assertInstanceLeaseWriteFence(client, {
-        instanceId,
-        expectedAssignedNodeId: fence.assignedNodeId,
-        expectedLeaseToken: fence.leaseToken,
-        expectedOwnershipEpoch: fence.ownershipEpoch,
-        conflictCode: 'formation_instance_lease_fencing_conflict',
-    });
+ if (!fence) {
+  return;
+ }
+ if (normalizeInstanceId(fence.instanceId) !== instanceId) {
+  throw new Error(`formation_instance_lease_fence_instance_mismatch:${instanceId}`);
+ }
+ await assertInstanceLeaseWriteFence(client, {
+  instanceId,
+  expectedAssignedNodeId: fence.assignedNodeId,
+  expectedLeaseToken: fence.leaseToken,
+  expectedOwnershipEpoch: fence.ownershipEpoch,
+  conflictCode: 'formation_instance_lease_fencing_conflict',
+ });
 }
 
 async function deleteFormationStateRow(client, instanceId, formationInstanceId, removedAt) {
-    await client.query(
-        `DELETE FROM ${INSTANCE_FORMATION_STATE_TABLE}
+ await client.query(
+  `DELETE FROM ${INSTANCE_FORMATION_STATE_TABLE}
          WHERE instance_id = $1
            AND formation_instance_id = $2
            AND updated_at_ms <= $3`,
-        [instanceId, formationInstanceId, Math.max(0, Math.trunc(Number(removedAt) || 0))],
-    );
+  [instanceId, formationInstanceId, Math.max(0, Math.trunc(Number(removedAt) || 0))],
+ );
 }
 
 function extractFormationSerial(formationId) {
-    const serial = Number.parseInt(String(formationId).split(':').pop() ?? '', 10);
-    return Number.isFinite(serial) ? Math.max(0, serial) : 0;
+ const serial = Number.parseInt(String(formationId).split(':').pop() ?? '', 10);
+ return Number.isFinite(serial) ? Math.max(0, serial) : 0;
 }
 
 function normalizeDiskMultiplier(item) {
-    if (Number.isFinite(item?.formationDiskMultiplier)) {
-        return Math.max(1, Number(item.formationDiskMultiplier));
-    }
-    const tier = resolveFormationDiskTier(item);
-    return FORMATION_DISK_TIER_MULTIPLIERS[tier] ?? 1;
+ if (Number.isFinite(item?.formationDiskMultiplier)) {
+  return Math.max(1, Number(item.formationDiskMultiplier));
+ }
+ const tier = resolveFormationDiskTier(item);
+ return FORMATION_DISK_TIER_MULTIPLIERS[tier] ?? 1;
 }
 
 function resolveInventoryItemInstanceId(payload, playerRuntimeService, playerId) {
-    const itemInstanceId = normalizeOptionalString(payload?.itemRef?.itemInstanceId)
-        || normalizeOptionalString(payload?.itemInstanceId)
-        || normalizeOptionalString(payload?.expectedItemInstanceId);
-    if (!itemInstanceId) {
-        playerRuntimeService.repairInventoryItemInstanceIds(playerId);
-        throw new BadRequestException('背包物品身份已修复，请重新选择。');
-    }
-    return itemInstanceId;
+ const itemInstanceId = normalizeOptionalString(payload?.itemRef?.itemInstanceId)
+  || normalizeOptionalString(payload?.itemInstanceId)
+  || normalizeOptionalString(payload?.expectedItemInstanceId);
+ if (!itemInstanceId) {
+  playerRuntimeService.repairInventoryItemInstanceIds(playerId);
+  throw new BadRequestException('背包物品身份已修复，请重新选择。');
+ }
+ return itemInstanceId;
 }
 
 function resolveFormationDiskTier(item) {
-    if (typeof item?.formationDiskTier === 'string' && item.formationDiskTier.length > 0) {
-        return item.formationDiskTier;
-    }
-    const itemId = typeof item?.itemId === 'string' ? item.itemId : '';
-    if (itemId === 'formation_disk.mortal') {
-        return 'mortal';
-    }
-    if (itemId === 'formation_disk.yellow') {
-        return 'yellow';
-    }
-    if (itemId === 'formation_disk.mystic') {
-        return 'mystic';
-    }
-    if (itemId === 'formation_disk.earth') {
-        return 'earth';
-    }
-    return null;
+ if (typeof item?.formationDiskTier === 'string' && item.formationDiskTier.length > 0) {
+  return item.formationDiskTier;
+ }
+ const itemId = typeof item?.itemId === 'string' ? item.itemId : '';
+ if (itemId === 'formation_disk.mortal') {
+  return 'mortal';
+ }
+ if (itemId === 'formation_disk.yellow') {
+  return 'yellow';
+ }
+ if (itemId === 'formation_disk.mystic') {
+  return 'mystic';
+ }
+ if (itemId === 'formation_disk.earth') {
+  return 'earth';
+ }
+ return null;
 }
 
 function touchRuntimeInstanceRevision(deps, instanceId) {
-    const instance = typeof deps?.getInstanceRuntime === 'function'
-        ? deps.getInstanceRuntime(instanceId)
-        : null;
-    touchInstanceRevision(instance);
+ const instance = typeof deps?.getInstanceRuntime === 'function'
+  ? deps.getInstanceRuntime(instanceId)
+  : null;
+ touchInstanceRevision(instance);
 }
 
 function dispersePlayerQiSpend(deps, player, qiAmount) {
-    const instance = typeof deps?.getInstanceRuntime === 'function'
-        ? deps.getInstanceRuntime(player?.instanceId)
-        : null;
-    instance?.disperseQiAt?.(player?.x, player?.y, qiAmount);
+ const instance = typeof deps?.getInstanceRuntime === 'function'
+  ? deps.getInstanceRuntime(player?.instanceId)
+  : null;
+ instance?.disperseQiAt?.(player?.x, player?.y, qiAmount);
 }
 
 function touchInstanceRevision(instance) {
-    if (!instance || !Number.isFinite(Number(instance.worldRevision))) {
-        return;
-    }
-    instance.worldRevision += 1;
+ if (!instance || !Number.isFinite(Number(instance.worldRevision))) {
+  return;
+ }
+ instance.worldRevision += 1;
 }
 
 function normalizePlayerId(player) {
-    return normalizeOptionalString(player?.playerId ?? player?.id);
+ return normalizeOptionalString(player?.playerId ?? player?.id);
 }
 
 function resolveFormationMaintenanceRate(player) {
-    const output = Math.max(0, Number(player?.attrs?.numericStats?.maxQiOutputPerTick ?? player?.numericStats?.maxQiOutputPerTick) || 0);
-    return Math.max(1, Math.floor(output));
+ const output = Math.max(0, Number(player?.attrs?.numericStats?.maxQiOutputPerTick ?? player?.numericStats?.maxQiOutputPerTick) || 0);
+ return Math.max(1, Math.floor(output));
 }
 
 function markPlayerRuntimeDirty(player, domains, playerRuntimeService) {
-    if (player?.dirtyDomains && typeof player.dirtyDomains.add === 'function') {
-        for (const domain of domains) {
-            player.dirtyDomains.add(domain);
-        }
-    }
-    if (typeof playerRuntimeService?.bumpPersistentRevision === 'function') {
-        playerRuntimeService.bumpPersistentRevision(player);
-    }
+ if (player?.dirtyDomains && typeof player.dirtyDomains.add === 'function') {
+  for (const domain of domains) {
+   player.dirtyDomains.add(domain);
+  }
+ }
+ if (typeof playerRuntimeService?.bumpPersistentRevision === 'function') {
+  playerRuntimeService.bumpPersistentRevision(player);
+ }
 }
 
 /** 首个阵法资产 tick 前必须先把 job 切换写入真源，不能放宽后续 CAS 栅栏。 */
 async function ensureFormationMaintenanceActiveJobReady(playerId, player, deps) {
-    const dirtyDomains = player?.dirtyDomains;
-    if (!dirtyDomains?.has?.('active_job')) {
-        return;
-    }
-    const flushPlayerDomains = deps?.playerPersistenceFlushService?.flushPlayerDomains;
-    if (typeof flushPlayerDomains !== 'function') {
-        throw new ServiceUnavailableException('formation_maintenance_active_job_sync_pending');
-    }
-    await flushPlayerDomains.call(
-        deps.playerPersistenceFlushService,
-        playerId,
-        ['active_job'],
-    );
-    if (dirtyDomains.has('active_job')) {
-        throw new ServiceUnavailableException('formation_maintenance_active_job_sync_pending');
-    }
+ const dirtyDomains = player?.dirtyDomains;
+ if (!dirtyDomains?.has?.('active_job')) {
+  return;
+ }
+ const flushPlayerDomains = deps?.playerPersistenceFlushService?.flushPlayerDomains;
+ if (typeof flushPlayerDomains !== 'function') {
+  throw new ServiceUnavailableException('formation_maintenance_active_job_sync_pending');
+ }
+ await flushPlayerDomains.call(
+  deps.playerPersistenceFlushService,
+  playerId,
+  ['active_job'],
+ );
+ if (dirtyDomains.has('active_job')) {
+  throw new ServiceUnavailableException('formation_maintenance_active_job_sync_pending');
+ }
 }
 
 function formatInteger(value) {
-    return formatDisplayInteger(Math.max(0, Math.floor(Number(value) || 0)));
+ return formatDisplayInteger(Math.max(0, Math.floor(Number(value) || 0)));
 }
 
 export { ensureFormationMaintenanceActiveJobReady };

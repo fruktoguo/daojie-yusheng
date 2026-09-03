@@ -8,8 +8,8 @@ import { createHash } from 'node:crypto';
 import { computeAdjustedCraftTicks, createItemStackSignature, mergeItemStackEntryInto, mergeItemStackInto, resolveAlchemyGradeValue } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import {
-    PlayerDomainPersistenceService,
-    nextPlayerPersistenceVersion,
+ PlayerDomainPersistenceService,
+ nextPlayerPersistenceVersion,
 } from '../../persistence/player-domain-persistence.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { resolveCraftSkillExpToNextByLevel } from '../craft/craft-skill-exp.helpers';
@@ -19,37 +19,37 @@ import { resolvePlayerEffectiveLuck } from '../player/player-special-stat.helper
 import { reassignItemInstanceId } from './item-instance-id.helpers';
 import { buildStructuredNotice } from './structured-notice.helpers';
 import {
-    isDurableCommitOutcomeUnknownError,
-    reconcileDurableInventoryCommitOutcome,
+ isDurableCommitOutcomeUnknownError,
+ reconcileDurableInventoryCommitOutcome,
 } from './durable-source-asset-reconciliation.helpers';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
 const {
-    buildContainerSourceId,
-    parseContainerSourceId,
-    groupContainerLootRows,
-    hasHiddenContainerEntries,
-    buildContainerWindowItems,
-    cloneInventorySimulation,
-    canReceiveContainerEntries,
-    applyContainerEntriesToInventorySimulation,
-    canReceiveContainerRow,
-    removeContainerRowEntries,
-    formatItemStackLabel,
-    formatItemListSummary,
-    compareStableStrings,
-    canReceiveItemStack,
+ buildContainerSourceId,
+ parseContainerSourceId,
+ groupContainerLootRows,
+ hasHiddenContainerEntries,
+ buildContainerWindowItems,
+ cloneInventorySimulation,
+ canReceiveContainerEntries,
+ applyContainerEntriesToInventorySimulation,
+ canReceiveContainerRow,
+ removeContainerRowEntries,
+ formatItemStackLabel,
+ formatItemListSummary,
+ compareStableStrings,
+ canReceiveItemStack,
 } = world_runtime_normalization_helpers_1;
 
 const CONTAINER_SEARCH_TICKS_BY_GRADE = {
-    mortal: 1,
-    yellow: 1,
-    mystic: 2,
-    earth: 2,
-    heaven: 3,
-    spirit: 3,
-    saint: 4,
-    emperor: 4,
+ mortal: 1,
+ yellow: 1,
+ mystic: 2,
+ earth: 2,
+ heaven: 3,
+ spirit: 3,
+ saint: 4,
+ emperor: 4,
 };
 
 const HERB_GATHER_TIME_RATE = 0.5;
@@ -61,2002 +61,2002 @@ const MAX_HERB_GROWTH_CATCH_UP_STEPS = 256;
 const HERB_STALE_FUTURE_SCHEDULE_GRACE_TICKS = 300;
 
 function normalizeHerbLevel(level) {
-    return Math.max(1, Math.floor(Number(level) || 1));
+ return Math.max(1, Math.floor(Number(level) || 1));
 }
 
 function computeHerbNativeGatherTicks(container, row) {
-    const item = row?.item ?? row;
-    const grade = item?.grade ?? container?.grade;
-    const level = normalizeHerbLevel(item?.level);
-    const baseTicks = level + resolveAlchemyGradeValue(grade) - 1;
-    return Math.max(1, Math.ceil(baseTicks * HERB_GATHER_TIME_RATE));
+ const item = row?.item ?? row;
+ const grade = item?.grade ?? container?.grade;
+ const level = normalizeHerbLevel(item?.level);
+ const baseTicks = level + resolveAlchemyGradeValue(grade) - 1;
+ return Math.max(1, Math.ceil(baseTicks * HERB_GATHER_TIME_RATE));
 }
 
 function computeEffectiveHerbGatherTicks(player, container, row) {
-    const nativeGatherTicks = computeHerbNativeGatherTicks(container, row);
-    const gatherLevel = Math.max(1, Math.floor(Number(player?.gatherSkill?.level) || 1));
-    return computeAdjustedCraftTicks(
-        nativeGatherTicks,
-        gatherLevel * GATHER_SPEED_PER_LEVEL + Math.max(0, resolvePlayerCraftEffectStat(player, 'gather', 'speedRate')),
-    );
+ const nativeGatherTicks = computeHerbNativeGatherTicks(container, row);
+ const gatherLevel = Math.max(1, Math.floor(Number(player?.gatherSkill?.level) || 1));
+ return computeAdjustedCraftTicks(
+  nativeGatherTicks,
+  gatherLevel * GATHER_SPEED_PER_LEVEL + resolvePlayerCraftEffectStat(player, 'gather', 'speedRate'),
+ );
 }
 
 function prepareLootGrantItemsForReceiver(sourceType, items) {
-    if (!Array.isArray(items)) {
-        return;
-    }
-    const normalizedSourceType = typeof sourceType === 'string' ? sourceType.trim() : '';
-    if (!normalizedSourceType) {
-        return;
-    }
-    for (const item of items) {
-        reassignItemInstanceId(item);
-    }
+ if (!Array.isArray(items)) {
+  return;
+ }
+ const normalizedSourceType = typeof sourceType === 'string' ? sourceType.trim() : '';
+ if (!normalizedSourceType) {
+  return;
+ }
+ for (const item of items) {
+  reassignItemInstanceId(item);
+ }
 }
 
 function shouldRetryLootSessionFence(error) {
-    const message = String(error instanceof Error ? error.message : error);
-    return message.startsWith('player_session_fencing_conflict');
+ const message = String(error instanceof Error ? error.message : error);
+ return message.startsWith('player_session_fencing_conflict');
 }
 
 /** loot/container 状态域服务：承接容器状态、翻找推进、持久化与容器拿取。 */
 @Injectable()
 export class WorldRuntimeLootContainerService {
-    /**
-     * 地面堆与容器是多人共享资产源。数据库实例锁只能保护落库顺序，不能保护锁前的运行态快照，
-     * 因此按实例与来源串行完整的“摘取来源 -> 写入背包 -> 提交事务”链路。
-     */
-    lootSourceMutationQueueByKey = new Map();
-    logger = new Logger(WorldRuntimeLootContainerService.name);
-/**
- * contentTemplateRepository：内容Template仓储引用。
- */
+ /**
+  * 地面堆与容器是多人共享资产源。数据库实例锁只能保护落库顺序，不能保护锁前的运行态快照，
+  * 因此按实例与来源串行完整的“摘取来源 -> 写入背包 -> 提交事务”链路。
+  */
+ lootSourceMutationQueueByKey = new Map();
+ logger = new Logger(WorldRuntimeLootContainerService.name);
+ /**
+  * contentTemplateRepository：内容Template仓储引用。
+  */
 
-    contentTemplateRepository;    
-    /**
- * playerRuntimeService：玩家运行态服务引用。
- */
+ contentTemplateRepository;
+ /**
+* playerRuntimeService：玩家运行态服务引用。
+*/
 
-    playerRuntimeService;    
-    playerDomainPersistenceService;
-    /**
- * containerStatesByInstanceId：container状态ByInstanceID标识。
- */
+ playerRuntimeService;
+ playerDomainPersistenceService;
+ /**
+* containerStatesByInstanceId：container状态ByInstanceID标识。
+*/
 
-    containerStatesByInstanceId = new Map();    
-    /**
- * dirtyContainerPersistenceInstanceIds：dirtyContainerPersistenceInstanceID相关字段。
- */
+ containerStatesByInstanceId = new Map();
+ /**
+* dirtyContainerPersistenceInstanceIds：dirtyContainerPersistenceInstanceID相关字段。
+*/
 
-    dirtyContainerPersistenceInstanceIds = new Set();    
-    /** 容器域每次重新标脏都推进，避免 IO 期间新状态被旧 flush 回标清除。 */
-    containerPersistenceRevisionByInstanceId = new Map();
-    /**
- * 构造器：初始化 当前 实例并建立基础状态。
- * @param contentTemplateRepository 参数说明。
- * @param playerRuntimeService 参数说明。
- * @returns 无返回值，完成实例初始化。
- */
+ dirtyContainerPersistenceInstanceIds = new Set();
+ /** 容器域每次重新标脏都推进，避免 IO 期间新状态被旧 flush 回标清除。 */
+ containerPersistenceRevisionByInstanceId = new Map();
+ /**
+* 构造器：初始化 当前 实例并建立基础状态。
+* @param contentTemplateRepository 参数说明。
+* @param playerRuntimeService 参数说明。
+* @returns 无返回值，完成实例初始化。
+*/
 
-    constructor(
-        @Inject(ContentTemplateRepository) contentTemplateRepository: any,
-        @Inject(PlayerRuntimeService) playerRuntimeService: any,
-        @Optional()
-        @Inject(PlayerDomainPersistenceService) playerDomainPersistenceService: PlayerDomainPersistenceService | null = null,
-    ) {
-        this.contentTemplateRepository = contentTemplateRepository;
-        this.playerRuntimeService = playerRuntimeService;
-        this.playerDomainPersistenceService = playerDomainPersistenceService;
-    }
-    /**
- * getDirtyInstanceIds：读取DirtyInstanceID。
- * @returns 无返回值，完成DirtyInstanceID的读取/组装。
- */
+ constructor(
+  @Inject(ContentTemplateRepository) contentTemplateRepository: any,
+  @Inject(PlayerRuntimeService) playerRuntimeService: any,
+  @Optional()
+  @Inject(PlayerDomainPersistenceService) playerDomainPersistenceService: PlayerDomainPersistenceService | null = null,
+ ) {
+  this.contentTemplateRepository = contentTemplateRepository;
+  this.playerRuntimeService = playerRuntimeService;
+  this.playerDomainPersistenceService = playerDomainPersistenceService;
+ }
+ /**
+* getDirtyInstanceIds：读取DirtyInstanceID。
+* @returns 无返回值，完成DirtyInstanceID的读取/组装。
+*/
 
-    getDirtyInstanceIds() {
-        return this.dirtyContainerPersistenceInstanceIds;
-    }    
-    /**
- * clearPersisted：判断clearPersisted是否满足条件。
- * @param instanceId instance ID。
- * @returns 无返回值，直接更新clearPersisted相关状态。
- */
+ getDirtyInstanceIds() {
+  return this.dirtyContainerPersistenceInstanceIds;
+ }
+ /**
+* clearPersisted：判断clearPersisted是否满足条件。
+* @param instanceId instance ID。
+* @returns 无返回值，直接更新clearPersisted相关状态。
+*/
 
-    clearPersisted(instanceId, expectedRevision = null) {
-        const currentRevision = this.getContainerPersistenceRevision(instanceId);
-        if (expectedRevision != null
-            && Number.isFinite(Number(expectedRevision))
-            && currentRevision !== Math.max(0, Math.trunc(Number(expectedRevision)))) {
-            return false;
-        }
-        this.dirtyContainerPersistenceInstanceIds.delete(instanceId);
-        return true;
-    }    
-    getContainerPersistenceRevision(instanceId) {
-        return Math.max(
-            0,
-            Math.trunc(Number(this.containerPersistenceRevisionByInstanceId.get(instanceId) ?? 0)),
-        );
-    }
-    /**
- * removeInstanceState：删除单个实例的容器状态与脏标记。
- * @param instanceId instance ID。
- * @returns 无返回值，直接更新单个实例容器状态相关状态。
- */
+ clearPersisted(instanceId, expectedRevision = null) {
+  const currentRevision = this.getContainerPersistenceRevision(instanceId);
+  if (expectedRevision != null
+   && Number.isFinite(Number(expectedRevision))
+   && currentRevision !== Math.max(0, Math.trunc(Number(expectedRevision)))) {
+   return false;
+  }
+  this.dirtyContainerPersistenceInstanceIds.delete(instanceId);
+  return true;
+ }
+ getContainerPersistenceRevision(instanceId) {
+  return Math.max(
+   0,
+   Math.trunc(Number(this.containerPersistenceRevisionByInstanceId.get(instanceId) ?? 0)),
+  );
+ }
+ /**
+* removeInstanceState：删除单个实例的容器状态与脏标记。
+* @param instanceId instance ID。
+* @returns 无返回值，直接更新单个实例容器状态相关状态。
+*/
 
-    removeInstanceState(instanceId) {
-        this.containerStatesByInstanceId.delete(instanceId);
-        this.dirtyContainerPersistenceInstanceIds.delete(instanceId);
-        this.containerPersistenceRevisionByInstanceId.delete(instanceId);
-    }    
-    /**
- * reset：执行reset相关逻辑。
- * @returns 无返回值，直接更新reset相关状态。
- */
+ removeInstanceState(instanceId) {
+  this.containerStatesByInstanceId.delete(instanceId);
+  this.dirtyContainerPersistenceInstanceIds.delete(instanceId);
+  this.containerPersistenceRevisionByInstanceId.delete(instanceId);
+ }
+ /**
+* reset：执行reset相关逻辑。
+* @returns 无返回值，直接更新reset相关状态。
+*/
 
-    reset() {
-        this.containerStatesByInstanceId.clear();
-        this.dirtyContainerPersistenceInstanceIds.clear();
-        this.containerPersistenceRevisionByInstanceId.clear();
-    }    
-    /**
- * buildContainerPersistenceStates：构建并返回目标对象。
- * @param instanceId instance ID。
- * @returns 无返回值，直接更新ContainerPersistence状态相关状态。
- */
+ reset() {
+  this.containerStatesByInstanceId.clear();
+  this.dirtyContainerPersistenceInstanceIds.clear();
+  this.containerPersistenceRevisionByInstanceId.clear();
+ }
+ /**
+* buildContainerPersistenceStates：构建并返回目标对象。
+* @param instanceId instance ID。
+* @returns 无返回值，直接更新ContainerPersistence状态相关状态。
+*/
 
-    buildContainerPersistenceStates(instanceId) {
+ buildContainerPersistenceStates(instanceId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const containerStates = this.containerStatesByInstanceId.get(instanceId);
-        if (!containerStates || containerStates.size === 0) {
-            return [];
-        }
-        return Array.from(containerStates.values(), (state: any) => ({
-            sourceId: state.sourceId,
-            containerId: state.containerId,
-            generatedAtTick: state.generatedAtTick,
-            refreshAtTick: state.refreshAtTick,
-            entries: state.entries.map((entry) => ({
-                item: { ...entry.item },
-                createdTick: entry.createdTick,
-                visible: entry.visible,
-            })),
-            activeSearch: state.activeSearch
-                ? {
-                    playerId: resolveActiveSearchPlayerId(state.activeSearch) || undefined,
-                    jobRunId: resolveActiveSearchJobRunId(state.activeSearch) || undefined,
-                    itemKey: state.activeSearch.itemKey,
-                    totalTicks: state.activeSearch.totalTicks,
-                    remainingTicks: state.activeSearch.remainingTicks,
-                }
-                : undefined,
-        })).sort((left, right) => compareStableStrings(left.sourceId, right.sourceId));
-    }    
-    /**
- * hydrateContainerStates：执行hydrateContainer状态相关逻辑。
- * @param instanceId instance ID。
- * @param entries 参数说明。
- * @returns 无返回值，直接更新hydrateContainer状态相关状态。
- */
+  const containerStates = this.containerStatesByInstanceId.get(instanceId);
+  if (!containerStates || containerStates.size === 0) {
+   return [];
+  }
+  return Array.from(containerStates.values(), (state: any) => ({
+   sourceId: state.sourceId,
+   containerId: state.containerId,
+   generatedAtTick: state.generatedAtTick,
+   refreshAtTick: state.refreshAtTick,
+   entries: state.entries.map((entry) => ({
+    item: { ...entry.item },
+    createdTick: entry.createdTick,
+    visible: entry.visible,
+   })),
+   activeSearch: state.activeSearch
+    ? {
+     playerId: resolveActiveSearchPlayerId(state.activeSearch) || undefined,
+     jobRunId: resolveActiveSearchJobRunId(state.activeSearch) || undefined,
+     itemKey: state.activeSearch.itemKey,
+     totalTicks: state.activeSearch.totalTicks,
+     remainingTicks: state.activeSearch.remainingTicks,
+    }
+    : undefined,
+  })).sort((left, right) => compareStableStrings(left.sourceId, right.sourceId));
+ }
+ /**
+* hydrateContainerStates：执行hydrateContainer状态相关逻辑。
+* @param instanceId instance ID。
+* @param entries 参数说明。
+* @returns 无返回值，直接更新hydrateContainer状态相关状态。
+*/
 
-    hydrateContainerStates(instanceId, entries) {
+ hydrateContainerStates(instanceId, entries) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (entries.length === 0) {
-            this.containerStatesByInstanceId.delete(instanceId);
-            this.dirtyContainerPersistenceInstanceIds.delete(instanceId);
-            return;
-        }
-        const next = new Map();
-        for (const entry of entries) {
-            const parsedSource = typeof entry?.sourceId === 'string' ? parseContainerSourceId(entry.sourceId) : null;
-            const containerId = typeof entry?.containerId === 'string' && entry.containerId.trim()
-                ? entry.containerId.trim()
-                : parsedSource?.containerId ?? '';
-            if (!containerId) {
-                continue;
-            }
-            const sourceId = buildContainerSourceId(instanceId, containerId);
-            next.set(sourceId, {
-                sourceId,
-                containerId,
-                generatedAtTick: entry.generatedAtTick,
-                refreshAtTick: entry.refreshAtTick,
-                entries: entry.entries.map((item) => ({
-                    item: { ...item.item },
-                    createdTick: item.createdTick,
-                    visible: item.visible,
-                })),
-                activeSearch: entry.activeSearch
-                    ? {
-                        playerId: resolveActiveSearchPlayerId(entry.activeSearch) || undefined,
-                        jobRunId: resolveActiveSearchJobRunId(entry.activeSearch) || undefined,
-                        itemKey: entry.activeSearch.itemKey,
-                        totalTicks: entry.activeSearch.totalTicks,
-                        remainingTicks: entry.activeSearch.remainingTicks,
-                    }
-                    : undefined,
-            });
-        }
-        this.containerStatesByInstanceId.set(instanceId, next);
-        this.dirtyContainerPersistenceInstanceIds.delete(instanceId);
-    }    
-    /**
- * prepareContainerLootSource：执行prepareContainer掉落来源相关逻辑。
- * @param instanceId instance ID。
- * @param container 参数说明。
- * @param currentTick 参数说明。
- * @returns 无返回值，直接更新prepareContainer掉落来源相关状态。
- */
+  if (entries.length === 0) {
+   this.containerStatesByInstanceId.delete(instanceId);
+   this.dirtyContainerPersistenceInstanceIds.delete(instanceId);
+   return;
+  }
+  const next = new Map();
+  for (const entry of entries) {
+   const parsedSource = typeof entry?.sourceId === 'string' ? parseContainerSourceId(entry.sourceId) : null;
+   const containerId = typeof entry?.containerId === 'string' && entry.containerId.trim()
+    ? entry.containerId.trim()
+    : parsedSource?.containerId ?? '';
+   if (!containerId) {
+    continue;
+   }
+   const sourceId = buildContainerSourceId(instanceId, containerId);
+   next.set(sourceId, {
+    sourceId,
+    containerId,
+    generatedAtTick: entry.generatedAtTick,
+    refreshAtTick: entry.refreshAtTick,
+    entries: entry.entries.map((item) => ({
+     item: { ...item.item },
+     createdTick: item.createdTick,
+     visible: item.visible,
+    })),
+    activeSearch: entry.activeSearch
+     ? {
+      playerId: resolveActiveSearchPlayerId(entry.activeSearch) || undefined,
+      jobRunId: resolveActiveSearchJobRunId(entry.activeSearch) || undefined,
+      itemKey: entry.activeSearch.itemKey,
+      totalTicks: entry.activeSearch.totalTicks,
+      remainingTicks: entry.activeSearch.remainingTicks,
+     }
+     : undefined,
+   });
+  }
+  this.containerStatesByInstanceId.set(instanceId, next);
+  this.dirtyContainerPersistenceInstanceIds.delete(instanceId);
+ }
+ /**
+* prepareContainerLootSource：执行prepareContainer掉落来源相关逻辑。
+* @param instanceId instance ID。
+* @param container 参数说明。
+* @param currentTick 参数说明。
+* @returns 无返回值，直接更新prepareContainer掉落来源相关状态。
+*/
 
-    prepareContainerLootSource(instanceId, container, currentTick, player = null) {
+ prepareContainerLootSource(instanceId, container, currentTick, player = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const containerState = this.ensureContainerState(instanceId, container, currentTick, player);
-        if (container.variant !== 'herb'
-            && !containerState.activeSearch
-            && hasHiddenContainerEntries(containerState.entries)) {
-            this.beginContainerSearch(containerState, container.grade);
-            this.markContainerPersistenceDirty(instanceId);
-        }
-        return containerState;
-    }    
-    /**
- * getPreparedContainerLootSource：读取PreparedContainer掉落来源。
- * @param instanceId instance ID。
- * @param container 参数说明。
- * @returns 无返回值，完成PreparedContainer掉落来源的读取/组装。
- */
+  const containerState = this.ensureContainerState(instanceId, container, currentTick, player);
+  if (container.variant !== 'herb'
+   && !containerState.activeSearch
+   && hasHiddenContainerEntries(containerState.entries)) {
+   this.beginContainerSearch(containerState, container.grade);
+   this.markContainerPersistenceDirty(instanceId);
+  }
+  return containerState;
+ }
+ /**
+* getPreparedContainerLootSource：读取PreparedContainer掉落来源。
+* @param instanceId instance ID。
+* @param container 参数说明。
+* @returns 无返回值，完成PreparedContainer掉落来源的读取/组装。
+*/
 
-    getPreparedContainerLootSource(instanceId, container, player = null, currentTick = undefined) {
+ getPreparedContainerLootSource(instanceId, container, player = null, currentTick = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const containerState = this.containerStatesByInstanceId.get(instanceId)?.get(buildContainerSourceId(instanceId, container.id));
-        if (!containerState) {
-            return null;
-        }
-        if (container.variant === 'herb') {
-            const herbRows = groupContainerLootRows(containerState.entries);
-            const primaryItem = herbRows[0]?.item ?? null;
-            const respawnRemainingTicks = getContainerRespawnRemainingTicks(containerState, currentTick);
-            return {
-                sourceId: containerState.sourceId,
-                kind: 'container',
-                title: container.name,
-                desc: container.desc,
-                grade: container.grade,
-                searchable: true,
-                search: containerState.activeSearch
-                    ? {
-                        totalTicks: containerState.activeSearch.totalTicks,
-                        remainingTicks: containerState.activeSearch.remainingTicks,
-                        elapsedTicks: containerState.activeSearch.totalTicks - containerState.activeSearch.remainingTicks,
-                    }
-                    : undefined,
-                items: herbRows.map((entry) => ({
-                    itemKey: entry.itemKey,
-                    item: { ...entry.item },
-                })),
-                emptyText: herbRows.length > 0
-                    ? '当前可继续采集此处草药。'
-                    : respawnRemainingTicks !== undefined
-                        ? `这处草药药性回生中，还需 ${Math.max(1, respawnRemainingTicks)} 息。`
-                        : '这处草药已经采尽，正在等待重新生长。',
-                variant: 'herb',
-                herb: {
-                    grade: container.grade,
-                    level: Math.max(1, Math.floor(Number(primaryItem?.level) || 1)),
-                    nativeGatherTicks: primaryItem ? computeHerbNativeGatherTicks(container, primaryItem) : undefined,
-                    gatherTicks: primaryItem ? computeEffectiveHerbGatherTicks(player, container, primaryItem) : undefined,
-                    respawnRemainingTicks: respawnRemainingTicks !== undefined
-                        ? Math.max(0, respawnRemainingTicks)
-                        : undefined,
-                },
-                destroyed: herbRows.length <= 0,
-            };
-        }
-        return {
-            sourceId: containerState.sourceId,
-            kind: 'container',
-            title: container.name,
-            desc: container.desc,
-            grade: container.grade,
-            searchable: true,
-            search: containerState.activeSearch
-                ? {
-                    totalTicks: containerState.activeSearch.totalTicks,
-                    remainingTicks: containerState.activeSearch.remainingTicks,
-                    elapsedTicks: containerState.activeSearch.totalTicks - containerState.activeSearch.remainingTicks,
-                }
-                : undefined,
-            items: buildContainerWindowItems(containerState.entries),
-            emptyText: hasHiddenContainerEntries(containerState.entries)
-                ? '正在翻找，每完成一轮搜索会显露一件物品。'
-                : '容器里已经空了。',
-        };
-    }    
-    /**
- * ensureContainerState：执行ensureContainer状态相关逻辑。
- * @param instanceId instance ID。
- * @param container 参数说明。
- * @param currentTick 参数说明。
- * @returns 无返回值，直接更新ensureContainer状态相关状态。
- */
+  const containerState = this.containerStatesByInstanceId.get(instanceId)?.get(buildContainerSourceId(instanceId, container.id));
+  if (!containerState) {
+   return null;
+  }
+  if (container.variant === 'herb') {
+   const herbRows = groupContainerLootRows(containerState.entries);
+   const primaryItem = herbRows[0]?.item ?? null;
+   const respawnRemainingTicks = getContainerRespawnRemainingTicks(containerState, currentTick);
+   return {
+    sourceId: containerState.sourceId,
+    kind: 'container',
+    title: container.name,
+    desc: container.desc,
+    grade: container.grade,
+    searchable: true,
+    search: containerState.activeSearch
+     ? {
+      totalTicks: containerState.activeSearch.totalTicks,
+      remainingTicks: containerState.activeSearch.remainingTicks,
+      elapsedTicks: containerState.activeSearch.totalTicks - containerState.activeSearch.remainingTicks,
+     }
+     : undefined,
+    items: herbRows.map((entry) => ({
+     itemKey: entry.itemKey,
+     item: { ...entry.item },
+    })),
+    emptyText: herbRows.length > 0
+     ? '当前可继续采集此处草药。'
+     : respawnRemainingTicks !== undefined
+      ? `这处草药药性回生中，还需 ${Math.max(1, respawnRemainingTicks)} 息。`
+      : '这处草药已经采尽，正在等待重新生长。',
+    variant: 'herb',
+    herb: {
+     grade: container.grade,
+     level: Math.max(1, Math.floor(Number(primaryItem?.level) || 1)),
+     nativeGatherTicks: primaryItem ? computeHerbNativeGatherTicks(container, primaryItem) : undefined,
+     gatherTicks: primaryItem ? computeEffectiveHerbGatherTicks(player, container, primaryItem) : undefined,
+     respawnRemainingTicks: respawnRemainingTicks !== undefined
+      ? Math.max(0, respawnRemainingTicks)
+      : undefined,
+    },
+    destroyed: herbRows.length <= 0,
+   };
+  }
+  return {
+   sourceId: containerState.sourceId,
+   kind: 'container',
+   title: container.name,
+   desc: container.desc,
+   grade: container.grade,
+   searchable: true,
+   search: containerState.activeSearch
+    ? {
+     totalTicks: containerState.activeSearch.totalTicks,
+     remainingTicks: containerState.activeSearch.remainingTicks,
+     elapsedTicks: containerState.activeSearch.totalTicks - containerState.activeSearch.remainingTicks,
+    }
+    : undefined,
+   items: buildContainerWindowItems(containerState.entries),
+   emptyText: hasHiddenContainerEntries(containerState.entries)
+    ? '正在翻找，每完成一轮搜索会显露一件物品。'
+    : '容器里已经空了。',
+  };
+ }
+ /**
+* ensureContainerState：执行ensureContainer状态相关逻辑。
+* @param instanceId instance ID。
+* @param container 参数说明。
+* @param currentTick 参数说明。
+* @returns 无返回值，直接更新ensureContainer状态相关状态。
+*/
 
-    ensureContainerState(instanceId, container, currentTick, player = null) {
+ ensureContainerState(instanceId, container, currentTick, player = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        let states = this.containerStatesByInstanceId.get(instanceId);
-        if (!states) {
-            states = new Map();
-            this.containerStatesByInstanceId.set(instanceId, states);
-        }
-        const sourceId = buildContainerSourceId(instanceId, container.id);
-        const existing = states.get(sourceId);
-        if (existing) {
-            if (container.variant === 'herb') {
-                const repaired = repairStaleHerbSchedule(container, existing, currentTick);
-                const advanced = this.advanceHerbGrowth(container, existing, currentTick, player);
-                if (repaired || advanced) {
-                    this.markContainerPersistenceDirty(instanceId);
-                }
-            }
-            else if (typeof existing.refreshAtTick === 'number' && existing.refreshAtTick <= currentTick && !existing.activeSearch) {
-                    const refreshedEntries = this.generateContainerEntries(container, currentTick, player);
-                    existing.entries = refreshedEntries;
-                    existing.generatedAtTick = currentTick;
-                    existing.refreshAtTick = resolveContainerRefreshAtTick(container, currentTick);
-                    this.markContainerPersistenceDirty(instanceId);
-            }
-            return existing;
-        }
-        const created = {
-            sourceId,
-            containerId: container.id,
-            entries: this.generateContainerEntries(container, currentTick, player),
-            generatedAtTick: currentTick,
-            refreshAtTick: resolveContainerRefreshAtTick(container, currentTick),
-            activeSearch: undefined,
-        };
-        states.set(sourceId, created);
-        this.markContainerPersistenceDirty(instanceId);
-        return created;
-    }    
-    advanceHerbGrowth(container, state, currentTick, player = null) {
-        if (container?.variant !== 'herb') {
-            return false;
-        }
-        if (typeof state?.refreshAtTick !== 'number' || !Number.isFinite(Number(currentTick))) {
-            return false;
-        }
-        let changed = false;
-        let nextRefreshAtTick = Math.trunc(Number(state.refreshAtTick));
-        const normalizedCurrentTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
-        let steps = 0;
-        while (nextRefreshAtTick <= normalizedCurrentTick && steps < MAX_HERB_GROWTH_CATCH_UP_STEPS) {
-            const refreshedEntries = this.generateContainerEntries(container, nextRefreshAtTick, player);
-            mergeContainerEntries(state.entries, refreshedEntries);
-            state.generatedAtTick = nextRefreshAtTick;
-            nextRefreshAtTick = resolveContainerRefreshAtTick(container, nextRefreshAtTick) ?? (nextRefreshAtTick + 1);
-            state.refreshAtTick = nextRefreshAtTick;
-            changed = true;
-            steps += 1;
-        }
-        if (steps >= MAX_HERB_GROWTH_CATCH_UP_STEPS && nextRefreshAtTick <= normalizedCurrentTick) {
-            state.refreshAtTick = resolveContainerRefreshAtTick(container, normalizedCurrentTick) ?? (normalizedCurrentTick + 1);
-        }
-        return changed;
+  let states = this.containerStatesByInstanceId.get(instanceId);
+  if (!states) {
+   states = new Map();
+   this.containerStatesByInstanceId.set(instanceId, states);
+  }
+  const sourceId = buildContainerSourceId(instanceId, container.id);
+  const existing = states.get(sourceId);
+  if (existing) {
+   if (container.variant === 'herb') {
+    const repaired = repairStaleHerbSchedule(container, existing, currentTick);
+    const advanced = this.advanceHerbGrowth(container, existing, currentTick, player);
+    if (repaired || advanced) {
+     this.markContainerPersistenceDirty(instanceId);
     }
-    /**
- * generateContainerEntries：执行generateContainer条目相关逻辑。
- * @param container 参数说明。
- * @param currentTick 参数说明。
- * @returns 无返回值，直接更新generateContainer条目相关状态。
- */
+   }
+   else if (typeof existing.refreshAtTick === 'number' && existing.refreshAtTick <= currentTick && !existing.activeSearch) {
+    const refreshedEntries = this.generateContainerEntries(container, currentTick, player);
+    existing.entries = refreshedEntries;
+    existing.generatedAtTick = currentTick;
+    existing.refreshAtTick = resolveContainerRefreshAtTick(container, currentTick);
+    this.markContainerPersistenceDirty(instanceId);
+   }
+   return existing;
+  }
+  const created = {
+   sourceId,
+   containerId: container.id,
+   entries: this.generateContainerEntries(container, currentTick, player),
+   generatedAtTick: currentTick,
+   refreshAtTick: resolveContainerRefreshAtTick(container, currentTick),
+   activeSearch: undefined,
+  };
+  states.set(sourceId, created);
+  this.markContainerPersistenceDirty(instanceId);
+  return created;
+ }
+ advanceHerbGrowth(container, state, currentTick, player = null) {
+  if (container?.variant !== 'herb') {
+   return false;
+  }
+  if (typeof state?.refreshAtTick !== 'number' || !Number.isFinite(Number(currentTick))) {
+   return false;
+  }
+  let changed = false;
+  let nextRefreshAtTick = Math.trunc(Number(state.refreshAtTick));
+  const normalizedCurrentTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+  let steps = 0;
+  while (nextRefreshAtTick <= normalizedCurrentTick && steps < MAX_HERB_GROWTH_CATCH_UP_STEPS) {
+   const refreshedEntries = this.generateContainerEntries(container, nextRefreshAtTick, player);
+   mergeContainerEntries(state.entries, refreshedEntries);
+   state.generatedAtTick = nextRefreshAtTick;
+   nextRefreshAtTick = resolveContainerRefreshAtTick(container, nextRefreshAtTick) ?? (nextRefreshAtTick + 1);
+   state.refreshAtTick = nextRefreshAtTick;
+   changed = true;
+   steps += 1;
+  }
+  if (steps >= MAX_HERB_GROWTH_CATCH_UP_STEPS && nextRefreshAtTick <= normalizedCurrentTick) {
+   state.refreshAtTick = resolveContainerRefreshAtTick(container, normalizedCurrentTick) ?? (normalizedCurrentTick + 1);
+  }
+  return changed;
+ }
+ /**
+* generateContainerEntries：执行generateContainer条目相关逻辑。
+* @param container 参数说明。
+* @param currentTick 参数说明。
+* @returns 无返回值，直接更新generateContainer条目相关状态。
+*/
 
-    generateContainerEntries(container, currentTick, player = null) {
+ generateContainerEntries(container, currentTick, player = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const entries = [];
-        for (const pool of container.lootPools) {
-            const items = this.contentTemplateRepository.rollLootPoolItems({
-                rolls: pool.rolls,
-                chance: pool.chance,
-                minLevel: pool.minLevel,
-                maxLevel: pool.maxLevel,
-                minGrade: pool.minGrade,
-                maxGrade: pool.maxGrade,
-                tagGroups: pool.tagGroups?.map((group) => group.slice()),
-                countMin: pool.countMin,
-                countMax: pool.countMax,
-                allowDuplicates: pool.allowDuplicates,
-                ...this.resolvePlayerLootRateBonuses(player),
-            });
-            for (const item of items) {
-                entries.push({ item, createdTick: currentTick, visible: false });
-            }
-        }
-        if (entries.length > 0 || container.lootPools.length > 0) {
-            return entries;
-        }
-        for (const drop of container.drops) {
-            const chance = this.applyPlayerLootChanceBonus(drop.chance, player);
-            if (chance <= 0 || Math.random() > chance) {
-                continue;
-            }
-            const item = this.contentTemplateRepository.createItem(drop.itemId, drop.count) ?? {
-                itemId: drop.itemId,
-                count: Math.max(1, Math.trunc(drop.count)),
-                name: drop.name,
-                type: drop.type,
-            };
-            entries.push({ item, createdTick: currentTick, visible: false });
-        }
-        return entries;
-    }    
+  const entries = [];
+  for (const pool of container.lootPools) {
+   const items = this.contentTemplateRepository.rollLootPoolItems({
+    rolls: pool.rolls,
+    chance: pool.chance,
+    minLevel: pool.minLevel,
+    maxLevel: pool.maxLevel,
+    minGrade: pool.minGrade,
+    maxGrade: pool.maxGrade,
+    tagGroups: pool.tagGroups?.map((group) => group.slice()),
+    countMin: pool.countMin,
+    countMax: pool.countMax,
+    allowDuplicates: pool.allowDuplicates,
+    ...this.resolvePlayerLootRateBonuses(player),
+   });
+   for (const item of items) {
+    entries.push({ item, createdTick: currentTick, visible: false });
+   }
+  }
+  if (entries.length > 0 || container.lootPools.length > 0) {
+   return entries;
+  }
+  for (const drop of container.drops) {
+   const chance = this.applyPlayerLootChanceBonus(drop.chance, player);
+   if (chance <= 0 || Math.random() > chance) {
+    continue;
+   }
+   const item = this.contentTemplateRepository.createItem(drop.itemId, drop.count) ?? {
+    itemId: drop.itemId,
+    count: Math.max(1, Math.trunc(drop.count)),
+    name: drop.name,
+    type: drop.type,
+   };
+   entries.push({ item, createdTick: currentTick, visible: false });
+  }
+  return entries;
+ }
 
-    resolvePlayerLootRateBonuses(player) {
-        const numericStats = player?.attrs?.numericStats;
-        const effectiveLuck = resolvePlayerEffectiveLuck(player);
-        const luckRateBonus = effectiveLuck * 100;
-        return {
-            lootRateBonus: (Number.isFinite(numericStats?.lootRate) ? Number(numericStats.lootRate) : 0) || luckRateBonus,
-            rareLootRateBonus: (Number.isFinite(numericStats?.rareLootRate) ? Number(numericStats.rareLootRate) : 0) || luckRateBonus,
-        };
-    }
+ resolvePlayerLootRateBonuses(player) {
+  const numericStats = player?.attrs?.numericStats;
+  const effectiveLuck = resolvePlayerEffectiveLuck(player);
+  const luckRateBonus = effectiveLuck * 100;
+  return {
+   lootRateBonus: (Number.isFinite(numericStats?.lootRate) ? Number(numericStats.lootRate) : 0) || luckRateBonus,
+   rareLootRateBonus: (Number.isFinite(numericStats?.rareLootRate) ? Number(numericStats.rareLootRate) : 0) || luckRateBonus,
+  };
+ }
 
-    applyPlayerLootChanceBonus(baseChanceInput, player) {
-        const baseChance = typeof baseChanceInput === 'number'
-            ? Math.max(0, Math.min(1, baseChanceInput))
-            : 1;
-        if (baseChance <= 0) {
-            return 0;
-        }
-        const bonuses = this.resolvePlayerLootRateBonuses(player);
-        const totalRateBonus = bonuses.lootRateBonus + (baseChance <= 0.001 ? bonuses.rareLootRateBonus : 0);
-        const rollEquivalent = totalRateBonus >= 0
-            ? 1 + totalRateBonus / 10000
-            : 1 / (1 + Math.abs(totalRateBonus) / 10000);
-        if (rollEquivalent <= 0) {
-            return 0;
-        }
-        return 1 - Math.pow(1 - baseChance, rollEquivalent);
-    }
+ applyPlayerLootChanceBonus(baseChanceInput, player) {
+  const baseChance = typeof baseChanceInput === 'number'
+   ? Math.max(0, Math.min(1, baseChanceInput))
+   : 1;
+  if (baseChance <= 0) {
+   return 0;
+  }
+  const bonuses = this.resolvePlayerLootRateBonuses(player);
+  const totalRateBonus = bonuses.lootRateBonus + (baseChance <= 0.001 ? bonuses.rareLootRateBonus : 0);
+  const rollEquivalent = totalRateBonus >= 0
+   ? 1 + totalRateBonus / 10000
+   : 1 / (1 + Math.abs(totalRateBonus) / 10000);
+  if (rollEquivalent <= 0) {
+   return 0;
+  }
+  return 1 - Math.pow(1 - baseChance, rollEquivalent);
+ }
 
-    /**
- * beginContainerSearch：执行开始ContainerSearch相关逻辑。
- * @param state 状态对象。
- * @param grade 参数说明。
- * @returns 无返回值，直接更新beginContainerSearch相关状态。
- */
+ /**
+* beginContainerSearch：执行开始ContainerSearch相关逻辑。
+* @param state 状态对象。
+* @param grade 参数说明。
+* @returns 无返回值，直接更新beginContainerSearch相关状态。
+*/
 
-    beginContainerSearch(state, grade) {
+ beginContainerSearch(state, grade) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (state.activeSearch) {
-            return;
-        }
-        const nextHidden = groupContainerLootRows(state.entries.filter((entry) => !entry.visible))[0];
-        if (!nextHidden) {
-            return;
-        }
-        const totalTicks = CONTAINER_SEARCH_TICKS_BY_GRADE[grade] ?? 1;
-        state.activeSearch = {
-            itemKey: nextHidden.itemKey,
-            totalTicks,
-            remainingTicks: totalTicks,
-        };
-    }    
-    /**
- * advanceContainerSearches：执行advanceContainerSearche相关逻辑。
- * @param instanceAccess 参数说明。
- * @param playerLocationIndex 参数说明。
- * @param currentTick 参数说明。
- * @returns 无返回值，直接更新advanceContainerSearche相关状态。
- */
+  if (state.activeSearch) {
+   return;
+  }
+  const nextHidden = groupContainerLootRows(state.entries.filter((entry) => !entry.visible))[0];
+  if (!nextHidden) {
+   return;
+  }
+  const totalTicks = CONTAINER_SEARCH_TICKS_BY_GRADE[grade] ?? 1;
+  state.activeSearch = {
+   itemKey: nextHidden.itemKey,
+   totalTicks,
+   remainingTicks: totalTicks,
+  };
+ }
+ /**
+* advanceContainerSearches：执行advanceContainerSearche相关逻辑。
+* @param instanceAccess 参数说明。
+* @param playerLocationIndex 参数说明。
+* @param currentTick 参数说明。
+* @returns 无返回值，直接更新advanceContainerSearche相关状态。
+*/
 
-    advanceContainerSearches(instanceAccess, playerLocationIndex, currentTick) {
-        for (const instanceId of this.containerStatesByInstanceId.keys()) {
-            this.advanceContainerSearchesForInstance(instanceId, instanceAccess, playerLocationIndex, currentTick);
-        }
+ advanceContainerSearches(instanceAccess, playerLocationIndex, currentTick) {
+  for (const instanceId of this.containerStatesByInstanceId.keys()) {
+   this.advanceContainerSearchesForInstance(instanceId, instanceAccess, playerLocationIndex, currentTick);
+  }
+ }
+
+ /** 只推进一个实际执行了逻辑息的实例，避免其他地图提频时误扣搜索息数。 */
+ advanceContainerSearchesForInstance(instanceId, instanceAccess, playerLocationIndex, currentTick) {
+  const states = this.containerStatesByInstanceId.get(instanceId);
+  const instance = states ? instanceAccess.getInstanceRuntime(instanceId) : null;
+  if (!states || !instance) {
+   return;
+  }
+  const instanceTick = Number.isFinite(Number(instance.tick))
+   ? Math.max(0, Math.trunc(Number(instance.tick) || 0))
+   : Math.max(0, Math.trunc(Number(currentTick) || 0));
+  let changed = false;
+  for (const state of states.values()) {
+   const runtimeContainer = instance.template.containers.find((entry) => entry.id === state.containerId) ?? null;
+   if (!runtimeContainer) {
+    continue;
+   }
+   const activeViewer = this.resolveActiveContainerViewer(instanceId, runtimeContainer.x, runtimeContainer.y, playerLocationIndex);
+   if (runtimeContainer.variant === 'herb') {
+    const repaired = repairStaleHerbSchedule(runtimeContainer, state, instanceTick);
+    const advanced = this.advanceHerbGrowth(runtimeContainer, state, instanceTick, activeViewer);
+    if (repaired || advanced) {
+     changed = true;
     }
-
-    /** 只推进一个实际执行了逻辑息的实例，避免其他地图提频时误扣搜索息数。 */
-    advanceContainerSearchesForInstance(instanceId, instanceAccess, playerLocationIndex, currentTick) {
-        const states = this.containerStatesByInstanceId.get(instanceId);
-        const instance = states ? instanceAccess.getInstanceRuntime(instanceId) : null;
-        if (!states || !instance) {
-            return;
-        }
-        const instanceTick = Number.isFinite(Number(instance.tick))
-            ? Math.max(0, Math.trunc(Number(instance.tick) || 0))
-            : Math.max(0, Math.trunc(Number(currentTick) || 0));
-        let changed = false;
-        for (const state of states.values()) {
-            const runtimeContainer = instance.template.containers.find((entry) => entry.id === state.containerId) ?? null;
-            if (!runtimeContainer) {
-                continue;
-            }
-            const activeViewer = this.resolveActiveContainerViewer(instanceId, runtimeContainer.x, runtimeContainer.y, playerLocationIndex);
-            if (runtimeContainer.variant === 'herb') {
-                const repaired = repairStaleHerbSchedule(runtimeContainer, state, instanceTick);
-                const advanced = this.advanceHerbGrowth(runtimeContainer, state, instanceTick, activeViewer);
-                if (repaired || advanced) {
-                    changed = true;
-                }
-                continue;
-            }
-            if (typeof state.refreshAtTick === 'number' && state.refreshAtTick <= instanceTick && !state.activeSearch) {
-                const refreshedEntries = this.generateContainerEntries(runtimeContainer, instanceTick, activeViewer);
-                state.entries = refreshedEntries;
-                state.generatedAtTick = instanceTick;
-                state.refreshAtTick = resolveContainerRefreshAtTick(runtimeContainer, instanceTick);
-                changed = true;
-            }
-            if (!state.activeSearch) {
-                if (hasHiddenContainerEntries(state.entries) && activeViewer) {
-                    this.beginContainerSearch(state, runtimeContainer.grade);
-                    changed = true;
-                }
-                continue;
-            }
-            state.activeSearch.remainingTicks -= 1;
-            changed = true;
-            if (state.activeSearch.remainingTicks > 0) {
-                continue;
-            }
-            const target = state.entries.find((entry) => !entry.visible && createItemStackSignature(entry.item) === state.activeSearch?.itemKey);
-            if (target) {
-                target.visible = true;
-            }
-            state.activeSearch = undefined;
-            if (hasHiddenContainerEntries(state.entries) && activeViewer) {
-                this.beginContainerSearch(state, runtimeContainer.grade);
-            }
-        }
-        if (changed) {
-            this.markContainerPersistenceDirty(instanceId);
-        }
+    continue;
+   }
+   if (typeof state.refreshAtTick === 'number' && state.refreshAtTick <= instanceTick && !state.activeSearch) {
+    const refreshedEntries = this.generateContainerEntries(runtimeContainer, instanceTick, activeViewer);
+    state.entries = refreshedEntries;
+    state.generatedAtTick = instanceTick;
+    state.refreshAtTick = resolveContainerRefreshAtTick(runtimeContainer, instanceTick);
+    changed = true;
+   }
+   if (!state.activeSearch) {
+    if (hasHiddenContainerEntries(state.entries) && activeViewer) {
+     this.beginContainerSearch(state, runtimeContainer.grade);
+     changed = true;
     }
-    /**
- * hasActiveContainerViewer：判断激活ContainerViewer是否满足条件。
- * @param instanceId instance ID。
- * @param tileX 参数说明。
- * @param tileY 参数说明。
- * @param playerLocationIndex 参数说明。
- * @returns 无返回值，完成激活ContainerViewer的条件判断。
- */
+    continue;
+   }
+   state.activeSearch.remainingTicks -= 1;
+   changed = true;
+   if (state.activeSearch.remainingTicks > 0) {
+    continue;
+   }
+   const target = state.entries.find((entry) => !entry.visible && createItemStackSignature(entry.item) === state.activeSearch?.itemKey);
+   if (target) {
+    target.visible = true;
+   }
+   state.activeSearch = undefined;
+   if (hasHiddenContainerEntries(state.entries) && activeViewer) {
+    this.beginContainerSearch(state, runtimeContainer.grade);
+   }
+  }
+  if (changed) {
+   this.markContainerPersistenceDirty(instanceId);
+  }
+ }
+ /**
+* hasActiveContainerViewer：判断激活ContainerViewer是否满足条件。
+* @param instanceId instance ID。
+* @param tileX 参数说明。
+* @param tileY 参数说明。
+* @param playerLocationIndex 参数说明。
+* @returns 无返回值，完成激活ContainerViewer的条件判断。
+*/
 
-    resolveActiveContainerViewer(instanceId, tileX, tileY, playerLocationIndex) {
+ resolveActiveContainerViewer(instanceId, tileX, tileY, playerLocationIndex) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        for (const playerId of playerLocationIndex.listConnectedPlayerIds()) {
-            const location = playerLocationIndex.getPlayerLocation(playerId);
-            if (!location) {
-                continue;
-            }
-            if (location.instanceId !== instanceId) {
-                continue;
-            }
-            const player = this.playerRuntimeService.getPlayer(playerId);
-            const lootWindowTarget = this.playerRuntimeService.getLootWindowTarget(playerId);
-            if (!player || !lootWindowTarget) {
-                continue;
-            }
-            if (Math.max(Math.abs(player.x - lootWindowTarget.tileX), Math.abs(player.y - lootWindowTarget.tileY)) > 1) {
-                continue;
-            }
-            if (lootWindowTarget.tileX === tileX && lootWindowTarget.tileY === tileY) {
-                return player;
-            }
-        }
-        return null;
-    }
+  for (const playerId of playerLocationIndex.listConnectedPlayerIds()) {
+   const location = playerLocationIndex.getPlayerLocation(playerId);
+   if (!location) {
+    continue;
+   }
+   if (location.instanceId !== instanceId) {
+    continue;
+   }
+   const player = this.playerRuntimeService.getPlayer(playerId);
+   const lootWindowTarget = this.playerRuntimeService.getLootWindowTarget(playerId);
+   if (!player || !lootWindowTarget) {
+    continue;
+   }
+   if (Math.max(Math.abs(player.x - lootWindowTarget.tileX), Math.abs(player.y - lootWindowTarget.tileY)) > 1) {
+    continue;
+   }
+   if (lootWindowTarget.tileX === tileX && lootWindowTarget.tileY === tileY) {
+    return player;
+   }
+  }
+  return null;
+ }
 
-    hasActiveContainerViewer(instanceId, tileX, tileY, playerLocationIndex) {
-        return this.resolveActiveContainerViewer(instanceId, tileX, tileY, playerLocationIndex) !== null;
-    }    
-    /**
- * markContainerPersistenceDirty：判断ContainerPersistenceDirty是否满足条件。
- * @param instanceId instance ID。
- * @returns 无返回值，直接更新ContainerPersistenceDirty相关状态。
- */
+ hasActiveContainerViewer(instanceId, tileX, tileY, playerLocationIndex) {
+  return this.resolveActiveContainerViewer(instanceId, tileX, tileY, playerLocationIndex) !== null;
+ }
+ /**
+* markContainerPersistenceDirty：判断ContainerPersistenceDirty是否满足条件。
+* @param instanceId instance ID。
+* @returns 无返回值，直接更新ContainerPersistenceDirty相关状态。
+*/
 
-    markContainerPersistenceDirty(instanceId) {
-        this.dirtyContainerPersistenceInstanceIds.add(instanceId);
-        const currentRevision = this.getContainerPersistenceRevision(instanceId);
-        this.containerPersistenceRevisionByInstanceId.set(
-            instanceId,
-            currentRevision >= Number.MAX_SAFE_INTEGER - 1 ? 1 : currentRevision + 1,
-        );
-    }
+ markContainerPersistenceDirty(instanceId) {
+  this.dirtyContainerPersistenceInstanceIds.add(instanceId);
+  const currentRevision = this.getContainerPersistenceRevision(instanceId);
+  this.containerPersistenceRevisionByInstanceId.set(
+   instanceId,
+   currentRevision >= Number.MAX_SAFE_INTEGER - 1 ? 1 : currentRevision + 1,
+  );
+ }
 
-    markContainerVisibleStateDirty(instanceId, deps = null, container = null) {
-        this.markContainerPersistenceDirty(instanceId);
-        touchRuntimeInstanceRevision(deps, instanceId, container?.x, container?.y);
-    }
-    /**
- * dispatchStartGather：开始草药采集。
- * @param playerId 玩家 ID。
- * @param payload 采集载荷。
- * @param deps 运行时依赖。
- * @returns 返回统一 mutation 结果。
- */
+ markContainerVisibleStateDirty(instanceId, deps = null, container = null) {
+  this.markContainerPersistenceDirty(instanceId);
+  touchRuntimeInstanceRevision(deps, instanceId, container?.x, container?.y);
+ }
+ /**
+* dispatchStartGather：开始草药采集。
+* @param playerId 玩家 ID。
+* @param payload 采集载荷。
+* @param deps 运行时依赖。
+* @returns 返回统一 mutation 结果。
+*/
 
-    dispatchStartGather(playerId, payload, deps) {
+ dispatchStartGather(playerId, payload, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const location = deps.getPlayerLocationOrThrow(playerId);
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        const hasActivePlayerGatherJob = Boolean(player.gatherJob && Number(player.gatherJob.remainingTicks) > 0);
-        const sourceId = typeof payload?.sourceId === 'string' ? payload.sourceId.trim() : '';
-        const itemKey = typeof payload?.itemKey === 'string' ? payload.itemKey.trim() : '';
-        const resolved = this.resolveHerbContainerStateForPlayer(location.instanceId, playerId, player, sourceId, deps);
-        const reconciliation = this.reconcileGatherActiveSearchForStart(
-            location.instanceId,
-            resolved.instance,
-            resolved.container,
-            resolved.state,
-            deps,
-        );
-        if (reconciliation.blocked) {
-            return buildContainerMutationResult('当前已有玩家正在采集该目标。');
-        }
-        if (hasActivePlayerGatherJob) {
-            return buildContainerMutationResult('当前已有采集任务在进行中。');
-        }
-        const herbRows = groupContainerLootRows(resolved.state.entries);
-        const nextRow = (itemKey
-            ? herbRows.find((entry) => entry.itemKey === itemKey)
-            : herbRows[0]) ?? null;
-        if (!nextRow) {
-            return buildContainerMutationResult('当前没有可采集的草药。');
-        }
-        const totalTicks = computeEffectiveHerbGatherTicks(player, resolved.container, nextRow);
-        const jobRunId = createGatherJobRunId();
-        resolved.state.activeSearch = {
-            playerId,
-            jobRunId,
-            itemKey: nextRow.itemKey,
-            totalTicks,
-            remainingTicks: totalTicks,
-        };
-        const normalizedSourceId = buildContainerSourceId(location.instanceId, resolved.container.id);
-        player.gatherJob = {
-            jobRunId,
-            jobType: 'gather',
-            jobVersion: 1,
-            resourceNodeId: resolved.container.id,
-            sourceId: normalizedSourceId,
-            instanceId: location.instanceId,
-            itemKey: nextRow.itemKey,
-            resourceNodeName: resolved.container.name,
-            startedAt: Date.now(),
-            totalTicks,
-            remainingTicks: totalTicks,
-            workTotalTicks: totalTicks,
-            workRemainingTicks: totalTicks,
-            interruptWaitRemainingTicks: 0,
-            interruptState: null,
-            pausedTicks: 0,
-            successRate: 1,
-            spiritStoneCost: 0,
-            phase: 'gathering',
-        };
-        this.playerRuntimeService.bumpPersistentRevision(player);
-        this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
-        this.markContainerVisibleStateDirty(location.instanceId, deps, resolved.container);
-        return buildContainerTickResult(false, [
-            buildGatherTechniqueNotice(
-                'gather',
-                'notice.craft.gather.start',
-                {
-                    resourceNodeName: resolved.container.name,
-                    totalTicks,
-                },
-                [{ key: 'resourceNodeName', style: 'target' }],
-            ),
-        ]);
-    }
+  const location = deps.getPlayerLocationOrThrow(playerId);
+  const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+  const hasActivePlayerGatherJob = Boolean(player.gatherJob && Number(player.gatherJob.remainingTicks) > 0);
+  const sourceId = typeof payload?.sourceId === 'string' ? payload.sourceId.trim() : '';
+  const itemKey = typeof payload?.itemKey === 'string' ? payload.itemKey.trim() : '';
+  const resolved = this.resolveHerbContainerStateForPlayer(location.instanceId, playerId, player, sourceId, deps);
+  const reconciliation = this.reconcileGatherActiveSearchForStart(
+   location.instanceId,
+   resolved.instance,
+   resolved.container,
+   resolved.state,
+   deps,
+  );
+  if (reconciliation.blocked) {
+   return buildContainerMutationResult('当前已有玩家正在采集该目标。');
+  }
+  if (hasActivePlayerGatherJob) {
+   return buildContainerMutationResult('当前已有采集任务在进行中。');
+  }
+  const herbRows = groupContainerLootRows(resolved.state.entries);
+  const nextRow = (itemKey
+   ? herbRows.find((entry) => entry.itemKey === itemKey)
+   : herbRows[0]) ?? null;
+  if (!nextRow) {
+   return buildContainerMutationResult('当前没有可采集的草药。');
+  }
+  const totalTicks = computeEffectiveHerbGatherTicks(player, resolved.container, nextRow);
+  const jobRunId = createGatherJobRunId();
+  resolved.state.activeSearch = {
+   playerId,
+   jobRunId,
+   itemKey: nextRow.itemKey,
+   totalTicks,
+   remainingTicks: totalTicks,
+  };
+  const normalizedSourceId = buildContainerSourceId(location.instanceId, resolved.container.id);
+  player.gatherJob = {
+   jobRunId,
+   jobType: 'gather',
+   jobVersion: 1,
+   resourceNodeId: resolved.container.id,
+   sourceId: normalizedSourceId,
+   instanceId: location.instanceId,
+   itemKey: nextRow.itemKey,
+   resourceNodeName: resolved.container.name,
+   startedAt: Date.now(),
+   totalTicks,
+   remainingTicks: totalTicks,
+   workTotalTicks: totalTicks,
+   workRemainingTicks: totalTicks,
+   interruptWaitRemainingTicks: 0,
+   interruptState: null,
+   pausedTicks: 0,
+   successRate: 1,
+   spiritStoneCost: 0,
+   phase: 'gathering',
+  };
+  this.playerRuntimeService.bumpPersistentRevision(player);
+  this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
+  this.markContainerVisibleStateDirty(location.instanceId, deps, resolved.container);
+  return buildContainerTickResult(false, [
+   buildGatherTechniqueNotice(
+    'gather',
+    'notice.craft.gather.start',
+    {
+     resourceNodeName: resolved.container.name,
+     totalTicks,
+    },
+    [{ key: 'resourceNodeName', style: 'target' }],
+   ),
+  ]);
+ }
 
-    /**
-     * 开始采集属于冷命令边界，可以按实例居民做一次有界恢复对账；tick 热路径不得执行该扫描。
-     */
-    reconcileGatherActiveSearchForStart(instanceId, instance, container, state, deps) {
-        const activeSearch = state?.activeSearch;
-        if (!activeSearch) {
-            return { blocked: false };
-        }
-        const ownerPlayerId = resolveActiveSearchPlayerId(activeSearch);
-        if (ownerPlayerId) {
-            const owner = this.playerRuntimeService.getPlayer(ownerPlayerId);
-            if (!owner) {
-                return { blocked: true };
-            }
-            const ownerJob = owner.gatherJob;
-            if (!isActiveGatherJobForTarget(owner, ownerJob, instanceId, container.id)) {
-                state.activeSearch = undefined;
-                this.markContainerVisibleStateDirty(instanceId, deps, container);
-                return { blocked: false };
-            }
-            if (hasGatherJobRunIdConflict(activeSearch, ownerJob)
-                || hasGatherItemKeyConflict(activeSearch, ownerJob)) {
-                return { blocked: true };
-            }
-            this.backfillGatherSearchIdentity(
-                ownerPlayerId,
-                owner,
-                ownerJob,
-                activeSearch,
-                instanceId,
-                container.id,
-                deps,
-                container,
-                { reconcileOwnedState: true },
-            );
-            return { blocked: true };
-        }
+ /**
+  * 开始采集属于冷命令边界，可以按实例居民做一次有界恢复对账；tick 热路径不得执行该扫描。
+  */
+ reconcileGatherActiveSearchForStart(instanceId, instance, container, state, deps) {
+  const activeSearch = state?.activeSearch;
+  if (!activeSearch) {
+   return { blocked: false };
+  }
+  const ownerPlayerId = resolveActiveSearchPlayerId(activeSearch);
+  if (ownerPlayerId) {
+   const owner = this.playerRuntimeService.getPlayer(ownerPlayerId);
+   if (!owner) {
+    return { blocked: true };
+   }
+   const ownerJob = owner.gatherJob;
+   if (!isActiveGatherJobForTarget(owner, ownerJob, instanceId, container.id)) {
+    state.activeSearch = undefined;
+    this.markContainerVisibleStateDirty(instanceId, deps, container);
+    return { blocked: false };
+   }
+   if (hasGatherJobRunIdConflict(activeSearch, ownerJob)
+    || hasGatherItemKeyConflict(activeSearch, ownerJob)) {
+    return { blocked: true };
+   }
+   this.backfillGatherSearchIdentity(
+    ownerPlayerId,
+    owner,
+    ownerJob,
+    activeSearch,
+    instanceId,
+    container.id,
+    deps,
+    container,
+    { reconcileOwnedState: true },
+   );
+   return { blocked: true };
+  }
 
-        const residents = collectHydratedInstanceResidentPlayers(instance, this.playerRuntimeService);
-        if (!residents.complete || !isInstancePlayerHydrationConfirmed(instanceId, deps)) {
-            return { blocked: true };
-        }
-        const targetPlayers = residents.players.filter((resident) => (
-            isActiveGatherJobForTarget(
-                resident,
-                resident.gatherJob,
-                instanceId,
-                container.id,
-            )
-        ));
-        if (targetPlayers.length === 0) {
-            state.activeSearch = undefined;
-            this.markContainerVisibleStateDirty(instanceId, deps, container);
-            return { blocked: false };
-        }
-        if (targetPlayers.length !== 1) {
-            return { blocked: true };
-        }
-        const matchedPlayer = targetPlayers[0];
-        if (hasGatherJobRunIdConflict(activeSearch, matchedPlayer.gatherJob)
-            || hasGatherItemKeyConflict(activeSearch, matchedPlayer.gatherJob)) {
-            return { blocked: true };
-        }
-        const exactMatch = isGatherJobExactSearchMatch(
-            matchedPlayer,
-            matchedPlayer.gatherJob,
-            instanceId,
-            container.id,
-            activeSearch,
-        );
-        this.backfillGatherSearchIdentity(
-            matchedPlayer.playerId,
-            matchedPlayer,
-            matchedPlayer.gatherJob,
-            activeSearch,
-            instanceId,
-            container.id,
-            deps,
-            container,
-            exactMatch ? {} : { reconcileOwnedState: true },
-        );
-        return { blocked: true };
-    }
+  const residents = collectHydratedInstanceResidentPlayers(instance, this.playerRuntimeService);
+  if (!residents.complete || !isInstancePlayerHydrationConfirmed(instanceId, deps)) {
+   return { blocked: true };
+  }
+  const targetPlayers = residents.players.filter((resident) => (
+   isActiveGatherJobForTarget(
+    resident,
+    resident.gatherJob,
+    instanceId,
+    container.id,
+   )
+  ));
+  if (targetPlayers.length === 0) {
+   state.activeSearch = undefined;
+   this.markContainerVisibleStateDirty(instanceId, deps, container);
+   return { blocked: false };
+  }
+  if (targetPlayers.length !== 1) {
+   return { blocked: true };
+  }
+  const matchedPlayer = targetPlayers[0];
+  if (hasGatherJobRunIdConflict(activeSearch, matchedPlayer.gatherJob)
+   || hasGatherItemKeyConflict(activeSearch, matchedPlayer.gatherJob)) {
+   return { blocked: true };
+  }
+  const exactMatch = isGatherJobExactSearchMatch(
+   matchedPlayer,
+   matchedPlayer.gatherJob,
+   instanceId,
+   container.id,
+   activeSearch,
+  );
+  this.backfillGatherSearchIdentity(
+   matchedPlayer.playerId,
+   matchedPlayer,
+   matchedPlayer.gatherJob,
+   activeSearch,
+   instanceId,
+   container.id,
+   deps,
+   container,
+   exactMatch ? {} : { reconcileOwnedState: true },
+  );
+  return { blocked: true };
+ }
 
-    backfillGatherSearchIdentity(
-        playerId,
-        player,
-        job,
-        activeSearch,
-        instanceId,
-        containerId,
-        deps,
-        container,
-        options: { reconcileOwnedState?: boolean } = {},
-    ) {
-        if (hasGatherJobRunIdConflict(activeSearch, job)) {
-            return false;
-        }
-        let containerChanged = false;
-        let playerChanged = false;
-        if (!resolveActiveSearchPlayerId(activeSearch)) {
-            activeSearch.playerId = playerId;
-            containerChanged = true;
-        }
-        const activeSearchJobRunId = resolveActiveSearchJobRunId(activeSearch);
-        const gatherJobRunId = resolveGatherJobRunId(job);
-        const jobRunId = (options.reconcileOwnedState ? gatherJobRunId : activeSearchJobRunId)
-            || activeSearchJobRunId
-            || gatherJobRunId
-            || createGatherJobRunId();
-        if (activeSearchJobRunId !== jobRunId) {
-            activeSearch.jobRunId = jobRunId;
-            containerChanged = true;
-        }
-        if (gatherJobRunId !== jobRunId) {
-            job.jobRunId = jobRunId;
-            playerChanged = true;
-        }
-        const normalizedSourceId = buildContainerSourceId(instanceId, containerId);
-        if (typeof job.sourceId !== 'string' || job.sourceId.trim() !== normalizedSourceId) {
-            job.sourceId = normalizedSourceId;
-            playerChanged = true;
-        }
-        if (typeof job.instanceId !== 'string' || job.instanceId.trim() !== instanceId) {
-            job.instanceId = instanceId;
-            playerChanged = true;
-        }
-        const activeSearchItemKey = typeof activeSearch.itemKey === 'string' ? activeSearch.itemKey.trim() : '';
-        const gatherJobItemKey = typeof job.itemKey === 'string' ? job.itemKey.trim() : '';
-        if (activeSearchItemKey && gatherJobItemKey !== activeSearchItemKey) {
-            job.itemKey = activeSearchItemKey;
-            playerChanged = true;
-        }
-        else if (!activeSearchItemKey && gatherJobItemKey) {
-            activeSearch.itemKey = gatherJobItemKey;
-            containerChanged = true;
-        }
-        if (options.reconcileOwnedState) {
-            const reconciledRemainingTicks = Math.max(
-                Math.max(0, Math.trunc(Number(activeSearch.remainingTicks) || 0)),
-                normalizeGatherJobRemainingTicks(job),
-            );
-            const reconciledTotalTicks = Math.max(
-                1,
-                reconciledRemainingTicks,
-                Math.trunc(Number(activeSearch.totalTicks) || 0),
-                Math.trunc(Number(job.workTotalTicks ?? job.totalTicks) || 0),
-            );
-            if (Math.max(0, Math.trunc(Number(activeSearch.remainingTicks) || 0)) !== reconciledRemainingTicks) {
-                activeSearch.remainingTicks = reconciledRemainingTicks;
-                containerChanged = true;
-            }
-            if (Math.max(1, Math.trunc(Number(activeSearch.totalTicks) || 1)) !== reconciledTotalTicks) {
-                activeSearch.totalTicks = reconciledTotalTicks;
-                containerChanged = true;
-            }
-            if (Math.max(0, Math.trunc(Number(job.remainingTicks) || 0)) !== reconciledRemainingTicks) {
-                job.remainingTicks = reconciledRemainingTicks;
-                playerChanged = true;
-            }
-            if (Math.max(0, Math.trunc(Number(job.workRemainingTicks ?? job.remainingTicks) || 0)) !== reconciledRemainingTicks) {
-                job.workRemainingTicks = reconciledRemainingTicks;
-                playerChanged = true;
-            }
-            if (Math.max(1, Math.trunc(Number(job.totalTicks) || 1)) !== reconciledTotalTicks) {
-                job.totalTicks = reconciledTotalTicks;
-                playerChanged = true;
-            }
-            if (Math.max(1, Math.trunc(Number(job.workTotalTicks ?? job.totalTicks) || 1)) !== reconciledTotalTicks) {
-                job.workTotalTicks = reconciledTotalTicks;
-                playerChanged = true;
-            }
-        }
-        if (job.jobType !== 'gather') {
-            job.jobType = 'gather';
-            playerChanged = true;
-        }
-        if (containerChanged) {
-            this.markContainerVisibleStateDirty(instanceId, deps, container);
-        }
-        if (playerChanged) {
-            job.jobVersion = Math.max(1, Math.trunc(Number(job.jobVersion) || 0) + 1);
-            this.playerRuntimeService.bumpPersistentRevision?.(player);
-            this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
-        }
-        return true;
-    }
-    /**
- * dispatchCancelGather：取消当前草药采集。
- * @param playerId 玩家 ID。
- * @param deps 运行时依赖。
- * @returns 返回统一 mutation 结果。
- */
+ backfillGatherSearchIdentity(
+  playerId,
+  player,
+  job,
+  activeSearch,
+  instanceId,
+  containerId,
+  deps,
+  container,
+  options: { reconcileOwnedState?: boolean } = {},
+ ) {
+  if (hasGatherJobRunIdConflict(activeSearch, job)) {
+   return false;
+  }
+  let containerChanged = false;
+  let playerChanged = false;
+  if (!resolveActiveSearchPlayerId(activeSearch)) {
+   activeSearch.playerId = playerId;
+   containerChanged = true;
+  }
+  const activeSearchJobRunId = resolveActiveSearchJobRunId(activeSearch);
+  const gatherJobRunId = resolveGatherJobRunId(job);
+  const jobRunId = (options.reconcileOwnedState ? gatherJobRunId : activeSearchJobRunId)
+   || activeSearchJobRunId
+   || gatherJobRunId
+   || createGatherJobRunId();
+  if (activeSearchJobRunId !== jobRunId) {
+   activeSearch.jobRunId = jobRunId;
+   containerChanged = true;
+  }
+  if (gatherJobRunId !== jobRunId) {
+   job.jobRunId = jobRunId;
+   playerChanged = true;
+  }
+  const normalizedSourceId = buildContainerSourceId(instanceId, containerId);
+  if (typeof job.sourceId !== 'string' || job.sourceId.trim() !== normalizedSourceId) {
+   job.sourceId = normalizedSourceId;
+   playerChanged = true;
+  }
+  if (typeof job.instanceId !== 'string' || job.instanceId.trim() !== instanceId) {
+   job.instanceId = instanceId;
+   playerChanged = true;
+  }
+  const activeSearchItemKey = typeof activeSearch.itemKey === 'string' ? activeSearch.itemKey.trim() : '';
+  const gatherJobItemKey = typeof job.itemKey === 'string' ? job.itemKey.trim() : '';
+  if (activeSearchItemKey && gatherJobItemKey !== activeSearchItemKey) {
+   job.itemKey = activeSearchItemKey;
+   playerChanged = true;
+  }
+  else if (!activeSearchItemKey && gatherJobItemKey) {
+   activeSearch.itemKey = gatherJobItemKey;
+   containerChanged = true;
+  }
+  if (options.reconcileOwnedState) {
+   const reconciledRemainingTicks = Math.max(
+    Math.max(0, Math.trunc(Number(activeSearch.remainingTicks) || 0)),
+    normalizeGatherJobRemainingTicks(job),
+   );
+   const reconciledTotalTicks = Math.max(
+    1,
+    reconciledRemainingTicks,
+    Math.trunc(Number(activeSearch.totalTicks) || 0),
+    Math.trunc(Number(job.workTotalTicks ?? job.totalTicks) || 0),
+   );
+   if (Math.max(0, Math.trunc(Number(activeSearch.remainingTicks) || 0)) !== reconciledRemainingTicks) {
+    activeSearch.remainingTicks = reconciledRemainingTicks;
+    containerChanged = true;
+   }
+   if (Math.max(1, Math.trunc(Number(activeSearch.totalTicks) || 1)) !== reconciledTotalTicks) {
+    activeSearch.totalTicks = reconciledTotalTicks;
+    containerChanged = true;
+   }
+   if (Math.max(0, Math.trunc(Number(job.remainingTicks) || 0)) !== reconciledRemainingTicks) {
+    job.remainingTicks = reconciledRemainingTicks;
+    playerChanged = true;
+   }
+   if (Math.max(0, Math.trunc(Number(job.workRemainingTicks ?? job.remainingTicks) || 0)) !== reconciledRemainingTicks) {
+    job.workRemainingTicks = reconciledRemainingTicks;
+    playerChanged = true;
+   }
+   if (Math.max(1, Math.trunc(Number(job.totalTicks) || 1)) !== reconciledTotalTicks) {
+    job.totalTicks = reconciledTotalTicks;
+    playerChanged = true;
+   }
+   if (Math.max(1, Math.trunc(Number(job.workTotalTicks ?? job.totalTicks) || 1)) !== reconciledTotalTicks) {
+    job.workTotalTicks = reconciledTotalTicks;
+    playerChanged = true;
+   }
+  }
+  if (job.jobType !== 'gather') {
+   job.jobType = 'gather';
+   playerChanged = true;
+  }
+  if (containerChanged) {
+   this.markContainerVisibleStateDirty(instanceId, deps, container);
+  }
+  if (playerChanged) {
+   job.jobVersion = Math.max(1, Math.trunc(Number(job.jobVersion) || 0) + 1);
+   this.playerRuntimeService.bumpPersistentRevision?.(player);
+   this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
+  }
+  return true;
+ }
+ /**
+* dispatchCancelGather：取消当前草药采集。
+* @param playerId 玩家 ID。
+* @param deps 运行时依赖。
+* @returns 返回统一 mutation 结果。
+*/
 
-    dispatchCancelGather(playerId, deps) {
+ dispatchCancelGather(playerId, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        const job = player.gatherJob;
-        if (!job || Number(job.remainingTicks) <= 0) {
-            return buildContainerMutationResult('当前没有可取消的采集任务。');
-        }
-        const location = deps.getPlayerLocationOrThrow(playerId);
-        const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
-        const container = instance.getContainerById(job.resourceNodeId);
-        if (container) {
-            const state = this.ensureContainerState(location.instanceId, container, instance.tick, player);
-            if (isActiveSearchOwnedByPlayer(state.activeSearch, playerId)) {
-                state.activeSearch = undefined;
-                this.markContainerVisibleStateDirty(location.instanceId, deps, container);
-            }
-        }
-        player.gatherJob = null;
-        this.playerRuntimeService.bumpPersistentRevision(player);
-        this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
-        return buildContainerTickResult(false, [
-            buildGatherTechniqueNotice(
-                'gather',
-                'notice.craft.gather.cancelled',
-                { resourceNodeName: normalizeGatherResourceNodeName(job.resourceNodeName) },
-                [{ key: 'resourceNodeName', style: 'target' }],
-            ),
-        ]);
-    }
+  const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+  const job = player.gatherJob;
+  if (!job || Number(job.remainingTicks) <= 0) {
+   return buildContainerMutationResult('当前没有可取消的采集任务。');
+  }
+  const location = deps.getPlayerLocationOrThrow(playerId);
+  const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
+  const container = instance.getContainerById(job.resourceNodeId);
+  if (container) {
+   const state = this.ensureContainerState(location.instanceId, container, instance.tick, player);
+   if (isActiveSearchOwnedByPlayer(state.activeSearch, playerId)) {
+    state.activeSearch = undefined;
+    this.markContainerVisibleStateDirty(location.instanceId, deps, container);
+   }
+  }
+  player.gatherJob = null;
+  this.playerRuntimeService.bumpPersistentRevision(player);
+  this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
+  return buildContainerTickResult(false, [
+   buildGatherTechniqueNotice(
+    'gather',
+    'notice.craft.gather.cancelled',
+    { resourceNodeName: normalizeGatherResourceNodeName(job.resourceNodeName) },
+    [{ key: 'resourceNodeName', style: 'target' }],
+   ),
+  ]);
+ }
 
-    checkGatherContinueCondition(playerId, player, job, deps) {
-        const sourceId = this.resolveGatherJobSourceId(playerId, player, job, deps);
-        if (!sourceId) {
-            return { satisfied: false, reason: '采集目标无效。', shouldCancel: true };
-        }
-        let location = null;
-        try {
-            location = deps.getPlayerLocationOrThrow(playerId);
-        }
-        catch (_error) {
-            return { satisfied: false, reason: '当前位置不可用。' };
-        }
-        const parsedSource = parseContainerSourceId(sourceId);
-        if (!parsedSource || parsedSource.instanceId !== location.instanceId) {
-            return { satisfied: false, reason: '采集目标不在当前地图。' };
-        }
-        const instance = deps.getInstanceRuntime?.(location.instanceId) ?? deps.getInstanceRuntimeOrThrow?.(location.instanceId);
-        const container = instance?.getContainerById?.(parsedSource.containerId);
-        if (!container || container.variant !== 'herb') {
-            return { satisfied: false, reason: '采集目标已经不存在。', shouldCancel: true };
-        }
-        if (Math.max(Math.abs(player.x - container.x), Math.abs(player.y - container.y)) > 1) {
-            return { satisfied: false, reason: '你已离开草药采集范围。' };
-        }
-        const lootWindowTarget = this.playerRuntimeService.getLootWindowTarget(playerId);
-        if (!lootWindowTarget || lootWindowTarget.tileX !== container.x || lootWindowTarget.tileY !== container.y) {
-            return { satisfied: false, reason: '请重新打开采集目标。' };
-        }
-        const state = this.ensureContainerState(location.instanceId, container, instance.tick, player);
-        const activeSearchPlayerId = resolveActiveSearchPlayerId(state.activeSearch);
-        if (activeSearchPlayerId && activeSearchPlayerId !== playerId) {
-            return { satisfied: false, reason: '采集目标正在由其他玩家采集。' };
-        }
-        const rows = groupContainerLootRows(state.entries);
-        if (rows.length <= 0) {
-            return { satisfied: false, reason: `${container.name} 已经采尽。`, shouldCancel: true };
-        }
-        return { satisfied: true };
-    }
+ checkGatherContinueCondition(playerId, player, job, deps) {
+  const sourceId = this.resolveGatherJobSourceId(playerId, player, job, deps);
+  if (!sourceId) {
+   return { satisfied: false, reason: '采集目标无效。', shouldCancel: true };
+  }
+  let location = null;
+  try {
+   location = deps.getPlayerLocationOrThrow(playerId);
+  }
+  catch (_error) {
+   return { satisfied: false, reason: '当前位置不可用。' };
+  }
+  const parsedSource = parseContainerSourceId(sourceId);
+  if (!parsedSource || parsedSource.instanceId !== location.instanceId) {
+   return { satisfied: false, reason: '采集目标不在当前地图。' };
+  }
+  const instance = deps.getInstanceRuntime?.(location.instanceId) ?? deps.getInstanceRuntimeOrThrow?.(location.instanceId);
+  const container = instance?.getContainerById?.(parsedSource.containerId);
+  if (!container || container.variant !== 'herb') {
+   return { satisfied: false, reason: '采集目标已经不存在。', shouldCancel: true };
+  }
+  if (Math.max(Math.abs(player.x - container.x), Math.abs(player.y - container.y)) > 1) {
+   return { satisfied: false, reason: '你已离开草药采集范围。' };
+  }
+  const lootWindowTarget = this.playerRuntimeService.getLootWindowTarget(playerId);
+  if (!lootWindowTarget || lootWindowTarget.tileX !== container.x || lootWindowTarget.tileY !== container.y) {
+   return { satisfied: false, reason: '请重新打开采集目标。' };
+  }
+  const state = this.ensureContainerState(location.instanceId, container, instance.tick, player);
+  const activeSearchPlayerId = resolveActiveSearchPlayerId(state.activeSearch);
+  if (activeSearchPlayerId && activeSearchPlayerId !== playerId) {
+   return { satisfied: false, reason: '采集目标正在由其他玩家采集。' };
+  }
+  const rows = groupContainerLootRows(state.entries);
+  if (rows.length <= 0) {
+   return { satisfied: false, reason: `${container.name} 已经采尽。`, shouldCancel: true };
+  }
+  return { satisfied: true };
+ }
 
-    releaseGatherActiveSearch(playerId, player, job, deps) {
-        const sourceId = this.resolveGatherJobSourceId(playerId, player, job, deps);
-        const parsedSource = sourceId ? parseContainerSourceId(sourceId) : null;
-        if (!parsedSource) {
-            return;
-        }
-        const instance = deps.getInstanceRuntime?.(parsedSource.instanceId) ?? deps.getInstanceRuntimeOrThrow?.(parsedSource.instanceId);
-        const container = instance?.getContainerById?.(parsedSource.containerId);
-        if (!container) {
-            this.clearGatherActiveSearchState(parsedSource.instanceId, parsedSource.containerId, playerId);
-            return;
-        }
-        const state = this.ensureContainerState(parsedSource.instanceId, container, instance.tick, player);
-        if (isActiveSearchOwnedByPlayer(state.activeSearch, playerId)) {
-            state.activeSearch = undefined;
-            this.markContainerVisibleStateDirty(parsedSource.instanceId, deps, container);
-        }
-    }
+ releaseGatherActiveSearch(playerId, player, job, deps) {
+  const sourceId = this.resolveGatherJobSourceId(playerId, player, job, deps);
+  const parsedSource = sourceId ? parseContainerSourceId(sourceId) : null;
+  if (!parsedSource) {
+   return;
+  }
+  const instance = deps.getInstanceRuntime?.(parsedSource.instanceId) ?? deps.getInstanceRuntimeOrThrow?.(parsedSource.instanceId);
+  const container = instance?.getContainerById?.(parsedSource.containerId);
+  if (!container) {
+   this.clearGatherActiveSearchState(parsedSource.instanceId, parsedSource.containerId, playerId);
+   return;
+  }
+  const state = this.ensureContainerState(parsedSource.instanceId, container, instance.tick, player);
+  if (isActiveSearchOwnedByPlayer(state.activeSearch, playerId)) {
+   state.activeSearch = undefined;
+   this.markContainerVisibleStateDirty(parsedSource.instanceId, deps, container);
+  }
+ }
 
-    clearGatherActiveSearchState(instanceId, containerId, playerId) {
-        const states = this.containerStatesByInstanceId.get(instanceId);
-        const state = states?.get?.(buildContainerSourceId(instanceId, containerId));
-        if (!state || !isActiveSearchOwnedByPlayer(state.activeSearch, playerId)) {
-            return;
-        }
-        state.activeSearch = undefined;
-        this.markContainerPersistenceDirty(instanceId);
-    }
+ clearGatherActiveSearchState(instanceId, containerId, playerId) {
+  const states = this.containerStatesByInstanceId.get(instanceId);
+  const state = states?.get?.(buildContainerSourceId(instanceId, containerId));
+  if (!state || !isActiveSearchOwnedByPlayer(state.activeSearch, playerId)) {
+   return;
+  }
+  state.activeSearch = undefined;
+  this.markContainerPersistenceDirty(instanceId);
+ }
 
-    resolveGatherJobSourceId(playerId, player, job, deps) {
-        const explicitSourceId = typeof job?.sourceId === 'string' && job.sourceId.trim() ? job.sourceId.trim() : '';
-        if (parseContainerSourceId(explicitSourceId)) {
-            return explicitSourceId;
-        }
-        const rawContainerId = typeof job?.resourceNodeId === 'string' && job.resourceNodeId.trim()
-            ? job.resourceNodeId.trim()
-            : typeof job?.sourceId === 'string' && job.sourceId.trim()
-                ? job.sourceId.trim()
-                : '';
-        if (!rawContainerId) {
-            return '';
-        }
-        const instanceId = typeof job?.instanceId === 'string' && job.instanceId.trim()
-            ? job.instanceId.trim()
-            : typeof player?.instanceId === 'string' && player.instanceId.trim()
-                ? player.instanceId.trim()
-                : (() => {
-                    try {
-                        return deps.getPlayerLocationOrThrow(playerId)?.instanceId ?? '';
-                    }
-                    catch (_error) {
-                        return '';
-                    }
-                })();
-        return instanceId ? buildContainerSourceId(instanceId, rawContainerId) : '';
-    }    
-    /**
- * damageHerbContainerAtTile：按地块攻击口径打落一朵草药。
- * @param instanceId instance ID。
- * @param container 容器记录。
- * @param currentTick 当前 tick。
- * @returns 返回草药攻击结果；非草药目标返回 null。
- */
+ resolveGatherJobSourceId(playerId, player, job, deps) {
+  const explicitSourceId = typeof job?.sourceId === 'string' && job.sourceId.trim() ? job.sourceId.trim() : '';
+  if (parseContainerSourceId(explicitSourceId)) {
+   return explicitSourceId;
+  }
+  const rawContainerId = typeof job?.resourceNodeId === 'string' && job.resourceNodeId.trim()
+   ? job.resourceNodeId.trim()
+   : typeof job?.sourceId === 'string' && job.sourceId.trim()
+    ? job.sourceId.trim()
+    : '';
+  if (!rawContainerId) {
+   return '';
+  }
+  const instanceId = typeof job?.instanceId === 'string' && job.instanceId.trim()
+   ? job.instanceId.trim()
+   : typeof player?.instanceId === 'string' && player.instanceId.trim()
+    ? player.instanceId.trim()
+    : (() => {
+     try {
+      return deps.getPlayerLocationOrThrow(playerId)?.instanceId ?? '';
+     }
+     catch (_error) {
+      return '';
+     }
+    })();
+  return instanceId ? buildContainerSourceId(instanceId, rawContainerId) : '';
+ }
+ /**
+* damageHerbContainerAtTile：按地块攻击口径打落一朵草药。
+* @param instanceId instance ID。
+* @param container 容器记录。
+* @param currentTick 当前 tick。
+* @returns 返回草药攻击结果；非草药目标返回 null。
+*/
 
-    damageHerbContainerAtTile(instanceId, container, currentTick, deps = null) {
+ damageHerbContainerAtTile(instanceId, container, currentTick, deps = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (!container || container.variant !== 'herb') {
-            return null;
-        }
-        const normalizedTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
-        const state = this.ensureContainerState(instanceId, container, normalizedTick);
-        const herbRows = groupContainerLootRows(state.entries);
-        const targetRow = herbRows.find((entry) => Math.max(0, Math.trunc(Number(entry.item?.count) || 0)) > 0) ?? null;
-        if (!targetRow) {
-            if (typeof state.refreshAtTick !== 'number') {
-                state.refreshAtTick = resolveContainerRefreshAtTick(container, normalizedTick);
-                this.markContainerVisibleStateDirty(instanceId, deps, container);
-            }
-            return {
-                title: container.name,
-                appliedDamage: 0,
-                remainingCount: 0,
-                respawnRemainingTicks: getContainerRespawnRemainingTicks(state, normalizedTick),
-            };
-        }
-        const removed = removeSingleContainerRowItem(state.entries, targetRow);
-        if (!removed) {
-            return {
-                title: container.name,
-                appliedDamage: 0,
-                remainingCount: countContainerEntryItems(state.entries),
-                respawnRemainingTicks: getContainerRespawnRemainingTicks(state, normalizedTick),
-            };
-        }
-        const remainingCount = countContainerEntryItems(state.entries);
-        if (remainingCount <= 0) {
-            state.activeSearch = undefined;
-            if (typeof state.refreshAtTick !== 'number') {
-                state.refreshAtTick = resolveContainerRefreshAtTick(container, normalizedTick);
-            }
-        }
-        this.markContainerVisibleStateDirty(instanceId, deps, container);
-        return {
-            title: container.name,
-            item: removed,
-            appliedDamage: 1,
-            remainingCount,
-            respawnRemainingTicks: remainingCount <= 0 ? getContainerRespawnRemainingTicks(state, normalizedTick) : undefined,
-        };
-    }
+  if (!container || container.variant !== 'herb') {
+   return null;
+  }
+  const normalizedTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+  const state = this.ensureContainerState(instanceId, container, normalizedTick);
+  const herbRows = groupContainerLootRows(state.entries);
+  const targetRow = herbRows.find((entry) => Math.max(0, Math.trunc(Number(entry.item?.count) || 0)) > 0) ?? null;
+  if (!targetRow) {
+   if (typeof state.refreshAtTick !== 'number') {
+    state.refreshAtTick = resolveContainerRefreshAtTick(container, normalizedTick);
+    this.markContainerVisibleStateDirty(instanceId, deps, container);
+   }
+   return {
+    title: container.name,
+    appliedDamage: 0,
+    remainingCount: 0,
+    respawnRemainingTicks: getContainerRespawnRemainingTicks(state, normalizedTick),
+   };
+  }
+  const removed = removeSingleContainerRowItem(state.entries, targetRow);
+  if (!removed) {
+   return {
+    title: container.name,
+    appliedDamage: 0,
+    remainingCount: countContainerEntryItems(state.entries),
+    respawnRemainingTicks: getContainerRespawnRemainingTicks(state, normalizedTick),
+   };
+  }
+  const remainingCount = countContainerEntryItems(state.entries);
+  if (remainingCount <= 0) {
+   state.activeSearch = undefined;
+   if (typeof state.refreshAtTick !== 'number') {
+    state.refreshAtTick = resolveContainerRefreshAtTick(container, normalizedTick);
+   }
+  }
+  this.markContainerVisibleStateDirty(instanceId, deps, container);
+  return {
+   title: container.name,
+   item: removed,
+   appliedDamage: 1,
+   remainingCount,
+   respawnRemainingTicks: remainingCount <= 0 ? getContainerRespawnRemainingTicks(state, normalizedTick) : undefined,
+  };
+ }
 
-    damageAttackableContainerAtTile(instanceId, container, currentTick, deps = null) {
-        return this.damageHerbContainerAtTile(instanceId, container, currentTick, deps);
-    }
+ damageAttackableContainerAtTile(instanceId, container, currentTick, deps = null) {
+  return this.damageHerbContainerAtTile(instanceId, container, currentTick, deps);
+ }
 
-    getHerbContainerWorldProjection(instanceId, container, currentTick) {
-        if (!container || container.variant !== 'herb') {
-            return null;
-        }
-        const normalizedTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
-        const state = this.ensureContainerState(instanceId, container, normalizedTick);
-        const remainingCount = countContainerEntryItems(state.entries);
-        if (remainingCount > 0) {
-            return { remainingCount, respawnRemainingTicks: undefined };
-        }
-        return {
-            remainingCount: 0,
-            respawnRemainingTicks: getContainerRespawnRemainingTicks(state, normalizedTick),
-        };
-    }
+ getHerbContainerWorldProjection(instanceId, container, currentTick) {
+  if (!container || container.variant !== 'herb') {
+   return null;
+  }
+  const normalizedTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+  const state = this.ensureContainerState(instanceId, container, normalizedTick);
+  const remainingCount = countContainerEntryItems(state.entries);
+  if (remainingCount > 0) {
+   return { remainingCount, respawnRemainingTicks: undefined };
+  }
+  return {
+   remainingCount: 0,
+   respawnRemainingTicks: getContainerRespawnRemainingTicks(state, normalizedTick),
+  };
+ }
 
-    getHerbContainerWorldProjectionReadOnly(instanceId, container, currentTick) {
-        if (!container || container.variant !== 'herb') {
-            return null;
-        }
-        const state = this.containerStatesByInstanceId.get(instanceId)?.get(buildContainerSourceId(instanceId, container.id));
-        if (!state) {
-            return null;
-        }
-        const normalizedTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
-        const remainingCount = countContainerEntryItems(state.entries);
-        const respawnRemainingTicks = getContainerRespawnRemainingTicks(state, normalizedTick);
-        if (remainingCount > 0 || respawnRemainingTicks === 0) {
-            return { remainingCount: Math.max(1, remainingCount), respawnRemainingTicks: undefined };
-        }
-        return {
-            remainingCount: 0,
-            respawnRemainingTicks,
-        };
-    }
+ getHerbContainerWorldProjectionReadOnly(instanceId, container, currentTick) {
+  if (!container || container.variant !== 'herb') {
+   return null;
+  }
+  const state = this.containerStatesByInstanceId.get(instanceId)?.get(buildContainerSourceId(instanceId, container.id));
+  if (!state) {
+   return null;
+  }
+  const normalizedTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+  const remainingCount = countContainerEntryItems(state.entries);
+  const respawnRemainingTicks = getContainerRespawnRemainingTicks(state, normalizedTick);
+  if (remainingCount > 0 || respawnRemainingTicks === 0) {
+   return { remainingCount: Math.max(1, remainingCount), respawnRemainingTicks: undefined };
+  }
+  return {
+   remainingCount: 0,
+   respawnRemainingTicks,
+  };
+ }
 
-    getAttackableContainerCombatStateAtTile(instanceId, container, currentTick) {
-        const projection = this.getHerbContainerWorldProjection(instanceId, container, currentTick);
-        if (!projection || Math.max(0, Math.trunc(Number(projection.remainingCount) || 0)) <= 0) {
-            return null;
-        }
-        return {
-            kind: 'container',
-            id: container.id,
-            name: container.name,
-            hp: Math.max(1, Math.trunc(Number(projection.remainingCount) || 0)),
-            remainingCount: projection.remainingCount,
-            supportsSkill: false,
-        };
-    }
-    /**
- * interruptGather：因移动或出手中断采集。
- * @param playerId 玩家 ID。
- * @param player 玩家对象。
- * @param reason 中断原因。
- * @param deps 运行时依赖。
- * @returns 返回统一 tick 结果。
- */
+ getAttackableContainerCombatStateAtTile(instanceId, container, currentTick) {
+  const projection = this.getHerbContainerWorldProjection(instanceId, container, currentTick);
+  if (!projection || Math.max(0, Math.trunc(Number(projection.remainingCount) || 0)) <= 0) {
+   return null;
+  }
+  return {
+   kind: 'container',
+   id: container.id,
+   name: container.name,
+   hp: Math.max(1, Math.trunc(Number(projection.remainingCount) || 0)),
+   remainingCount: projection.remainingCount,
+   supportsSkill: false,
+  };
+ }
+ /**
+* interruptGather：因移动或出手中断采集。
+* @param playerId 玩家 ID。
+* @param player 玩家对象。
+* @param reason 中断原因。
+* @param deps 运行时依赖。
+* @returns 返回统一 tick 结果。
+*/
 
-    interruptGather(playerId, player, reason, deps) {
+ interruptGather(playerId, player, reason, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const job = player.gatherJob;
-        if (!job || Number(job.remainingTicks) <= 0) {
-            return buildContainerTickResult();
-        }
-        const location = deps.getPlayerLocationOrThrow(playerId);
-        const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
-        const container = instance.getContainerById(job.resourceNodeId);
-        if (container) {
-            const state = this.ensureContainerState(location.instanceId, container, instance.tick, player);
-            if (isActiveSearchOwnedByPlayer(state.activeSearch, playerId)) {
-                state.activeSearch = undefined;
-                this.markContainerPersistenceDirty(location.instanceId);
-            }
-        }
-        player.gatherJob = null;
-        this.playerRuntimeService.bumpPersistentRevision(player);
-        this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
-        return buildContainerTickResult(false, [
-            buildGatherTechniqueNotice(
-                'gather',
-                'notice.craft.gather.interrupted',
-                {
-                    resourceNodeName: normalizeGatherResourceNodeName(job.resourceNodeName),
-                    reasonLabel: resolveGatherInterruptReasonLabel(reason),
-                },
-                [{ key: 'resourceNodeName', style: 'target' }, { key: 'reasonLabel', style: 'target' }],
-            ),
-        ]);
-    }    
-    /**
- * tickGather：推进当前草药采集。
- * @param playerId 玩家 ID。
- * @param deps 运行时依赖。
- * @returns 返回统一 tick 结果。
- */
+  const job = player.gatherJob;
+  if (!job || Number(job.remainingTicks) <= 0) {
+   return buildContainerTickResult();
+  }
+  const location = deps.getPlayerLocationOrThrow(playerId);
+  const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
+  const container = instance.getContainerById(job.resourceNodeId);
+  if (container) {
+   const state = this.ensureContainerState(location.instanceId, container, instance.tick, player);
+   if (isActiveSearchOwnedByPlayer(state.activeSearch, playerId)) {
+    state.activeSearch = undefined;
+    this.markContainerPersistenceDirty(location.instanceId);
+   }
+  }
+  player.gatherJob = null;
+  this.playerRuntimeService.bumpPersistentRevision(player);
+  this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
+  return buildContainerTickResult(false, [
+   buildGatherTechniqueNotice(
+    'gather',
+    'notice.craft.gather.interrupted',
+    {
+     resourceNodeName: normalizeGatherResourceNodeName(job.resourceNodeName),
+     reasonLabel: resolveGatherInterruptReasonLabel(reason),
+    },
+    [{ key: 'resourceNodeName', style: 'target' }, { key: 'reasonLabel', style: 'target' }],
+   ),
+  ]);
+ }
+ /**
+* tickGather：推进当前草药采集。
+* @param playerId 玩家 ID。
+* @param deps 运行时依赖。
+* @returns 返回统一 tick 结果。
+*/
 
-    async tickGather(playerId, deps) {
-        return executeGatherTick(playerId, {
-            contentTemplateRepository: this.contentTemplateRepository,
-            resolveExpToNextByLevel: (level) => resolveCraftSkillExpToNextByLevel(this.playerRuntimeService, level),
-            getInstanceRuntime: (instanceId) => deps.getInstanceRuntime?.(instanceId) ?? null,
-            deps: {
-                ...deps,
-                worldRuntimeLootContainerService: this,
-            },
-        }, this);
-    }    
-    /**
- * dispatchTakeGround：判断Take地面是否满足条件。
- * @param playerId 玩家 ID。
- * @param sourceId source ID。
- * @param itemKey 参数说明。
- * @param deps 运行时依赖。
- * @returns 无返回值，直接更新TakeGround相关状态。
- */
+ async tickGather(playerId, deps) {
+  return executeGatherTick(playerId, {
+   contentTemplateRepository: this.contentTemplateRepository,
+   resolveExpToNextByLevel: (level) => resolveCraftSkillExpToNextByLevel(this.playerRuntimeService, level),
+   getInstanceRuntime: (instanceId) => deps.getInstanceRuntime?.(instanceId) ?? null,
+   deps: {
+    ...deps,
+    worldRuntimeLootContainerService: this,
+   },
+  }, this);
+ }
+ /**
+* dispatchTakeGround：判断Take地面是否满足条件。
+* @param playerId 玩家 ID。
+* @param sourceId source ID。
+* @param itemKey 参数说明。
+* @param deps 运行时依赖。
+* @returns 无返回值，直接更新TakeGround相关状态。
+*/
 
-    async dispatchTakeGround(playerId, sourceId, itemKey, deps) {
-        return this.runExclusivePlayerLootAssetMutation(
-            playerId,
-            () => this.runWithLootSourcePersistenceHold(
-                playerId,
-                sourceId,
-                deps,
-                () => this.dispatchTakeGroundLocked(playerId, sourceId, itemKey, deps),
-            ),
-        );
-    }
+ async dispatchTakeGround(playerId, sourceId, itemKey, deps) {
+  return this.runExclusivePlayerLootAssetMutation(
+   playerId,
+   () => this.runWithLootSourcePersistenceHold(
+    playerId,
+    sourceId,
+    deps,
+    () => this.dispatchTakeGroundLocked(playerId, sourceId, itemKey, deps),
+   ),
+  );
+ }
 
-    async dispatchTakeGroundLocked(playerId, sourceId, itemKey, deps) {
+ async dispatchTakeGroundLocked(playerId, sourceId, itemKey, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const location = deps.getPlayerLocationOrThrow(playerId);
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        const durableGrantEnabled = this.canUseDurableInventoryGrant(player, deps);
-        if (!buildIsContainerSourceId(sourceId)) {
-            const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
-            const pile = instance.getGroundPileBySourceId(sourceId);
-            if (pile && Number.isFinite(pile.x) && Number.isFinite(pile.y)) {
-                const dist = Math.max(Math.abs(player.x - pile.x), Math.abs(player.y - pile.y));
-                if (dist > 1) {
-                    throw new BadRequestException('拾取距离过远，请靠近目标。');
-                }
-            }
-        }
-        if (buildIsContainerSourceId(sourceId)) {
-            if (durableGrantEnabled) {
-                const resolved = this.resolveContainerStateForPlayer(location.instanceId, playerId, player, sourceId, deps);
-                const sourceStateBefore = cloneContainerStateForRollback(resolved.state);
-                const visibleEntriesBeforeTake = resolved.state.entries.filter((entry) => entry.visible);
-                const item = this.takeContainerItem(location.instanceId, playerId, player, sourceId, itemKey, deps);
-                const sourceRevisionAfterMutation = this.getContainerPersistenceRevision(location.instanceId);
-                const removedEntries = visibleEntriesBeforeTake
-                    .filter((entry) => !resolved.state.entries.includes(entry))
-                    .map(cloneContainerEntryForRestore);
-                await this.grantLootItemsDurably({
-                    playerId,
-                    player,
-                    items: [item],
-                    deps,
-                    sourceType: 'container_take',
-                    sourceRefId: `${sourceId}:${itemKey}`,
-                    sourceMutation: this.buildDurableContainerSourceMutation(
-                        deps.getInstanceRuntimeOrThrow(location.instanceId),
-                        location.instanceId,
-                        sourceId,
-                    ),
-                    restoreOnFailure: () => {
-                        this.restoreContainerSourceAfterFailedTake(
-                            location.instanceId,
-                            resolved.state,
-                            sourceStateBefore,
-                            removedEntries,
-                            sourceRevisionAfterMutation,
-                            deps,
-                            resolved.container,
-                        );
-                    },
-                });
-                return;
-            }
-            const item = this.takeContainerItem(location.instanceId, playerId, player, sourceId, itemKey, deps);
-            this.playerRuntimeService.receiveInventoryItem(playerId, item);
-            deps.refreshQuestStates(playerId);
-            const itemLabel = this.formatLootItemStackLabel(item);
-            const n = buildStructuredNotice('loot', 'notice.loot.obtained', `获得 ${itemLabel}`, { vars: { itemName: itemLabel }, pills: [{ key: 'itemName', style: 'target' }] });
-            deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
-            return;
-        }
-        const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
-        const pile = instance.getGroundPileBySourceId(sourceId);
-        if (durableGrantEnabled && pile) {
-            const targetEntry = Array.isArray(pile.items) ? pile.items.find((entry) => entry?.itemKey === itemKey) : null;
-            const originalPosition = {
-                x: Number.isFinite(Number(pile.x)) ? Math.trunc(Number(pile.x)) : player.x,
-                y: Number.isFinite(Number(pile.y)) ? Math.trunc(Number(pile.y)) : player.y,
-            };
-            if (!targetEntry?.item) {
-                throw new NotFoundException(`地面物品不存在：${itemKey}，来源 ${sourceId}`);
-            }
-            if (!canReceiveItemStack(player, targetEntry.item)) {
-                throw new BadRequestException('背包空间不足，无法拿取该物品');
-            }
-            const tileIndex = parseGroundLootSourceTileIndex(sourceId);
-            const sourceItemsBefore = typeof instance.captureGroundTileItemsForAssetMutation === 'function'
-                ? instance.captureGroundTileItemsForAssetMutation(tileIndex)
-                : [];
-            const takenSourceItems = [{ ...targetEntry.item }];
-            const taken = instance.takeGroundItem(sourceId, itemKey, player.x, player.y);
-            if (!taken) {
-                throw new NotFoundException(`地面物品不存在：${itemKey}，来源 ${sourceId}`);
-            }
-            const sourceRevisionAfterMutation = readInstancePersistenceDomainRevision(instance, 'ground_item');
-            await this.grantLootItemsDurably({
-                playerId,
-                player,
-                items: [taken],
-                deps,
-                sourceType: 'ground_take',
-                sourceRefId: `${sourceId}:${itemKey}`,
-                sourceMutation: this.buildDurableGroundSourceMutation(instance, location.instanceId, sourceId),
-                restoreOnFailure: () => restoreGroundSourceAfterFailedTake(
-                    instance,
-                    tileIndex,
-                    sourceItemsBefore,
-                    takenSourceItems,
-                    sourceRevisionAfterMutation,
-                    originalPosition,
-                ),
-            });
-            return;
-        }
-        const targetEntry = Array.isArray(pile?.items) ? pile.items.find((entry) => entry?.itemKey === itemKey) : null;
-        if (targetEntry?.item && !canReceiveItemStack(player, targetEntry.item)) {
-            throw new BadRequestException('背包空间不足，无法拿取该物品');
-        }
-        const item = instance.takeGroundItem(sourceId, itemKey, player.x, player.y);
-        if (!item) {
-            throw new NotFoundException(`地面物品不存在：${itemKey}，来源 ${sourceId}`);
-        }
-        this.playerRuntimeService.receiveInventoryItem(playerId, item);
-        deps.refreshQuestStates(playerId);
-        const itemLabel = this.formatLootItemStackLabel(item);
-        const n2 = buildStructuredNotice('loot', 'notice.loot.obtained', `获得 ${itemLabel}`, { vars: { itemName: itemLabel }, pills: [{ key: 'itemName', style: 'target' }] });
-        deps.queuePlayerNotice(playerId, n2.text, n2.kind, undefined, undefined, n2.structured);
-    }    
-    /**
- * dispatchTakeGroundAll：判断Take地面All是否满足条件。
- * @param playerId 玩家 ID。
- * @param sourceId source ID。
- * @param deps 运行时依赖。
- * @returns 无返回值，直接更新TakeGroundAll相关状态。
- */
-
-    async dispatchTakeGroundAll(playerId, sourceId, deps) {
-        return this.runExclusivePlayerLootAssetMutation(
-            playerId,
-            () => this.runWithLootSourcePersistenceHold(
-                playerId,
-                sourceId,
-                deps,
-                () => this.dispatchTakeGroundAllLocked(playerId, sourceId, deps),
-            ),
-        );
+  const location = deps.getPlayerLocationOrThrow(playerId);
+  const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+  const durableGrantEnabled = this.canUseDurableInventoryGrant(player, deps);
+  if (!buildIsContainerSourceId(sourceId)) {
+   const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
+   const pile = instance.getGroundPileBySourceId(sourceId);
+   if (pile && Number.isFinite(pile.x) && Number.isFinite(pile.y)) {
+    const dist = Math.max(Math.abs(player.x - pile.x), Math.abs(player.y - pile.y));
+    if (dist > 1) {
+     throw new BadRequestException('拾取距离过远，请靠近目标。');
     }
+   }
+  }
+  if (buildIsContainerSourceId(sourceId)) {
+   if (durableGrantEnabled) {
+    const resolved = this.resolveContainerStateForPlayer(location.instanceId, playerId, player, sourceId, deps);
+    const sourceStateBefore = cloneContainerStateForRollback(resolved.state);
+    const visibleEntriesBeforeTake = resolved.state.entries.filter((entry) => entry.visible);
+    const item = this.takeContainerItem(location.instanceId, playerId, player, sourceId, itemKey, deps);
+    const sourceRevisionAfterMutation = this.getContainerPersistenceRevision(location.instanceId);
+    const removedEntries = visibleEntriesBeforeTake
+     .filter((entry) => !resolved.state.entries.includes(entry))
+     .map(cloneContainerEntryForRestore);
+    await this.grantLootItemsDurably({
+     playerId,
+     player,
+     items: [item],
+     deps,
+     sourceType: 'container_take',
+     sourceRefId: `${sourceId}:${itemKey}`,
+     sourceMutation: this.buildDurableContainerSourceMutation(
+      deps.getInstanceRuntimeOrThrow(location.instanceId),
+      location.instanceId,
+      sourceId,
+     ),
+     restoreOnFailure: () => {
+      this.restoreContainerSourceAfterFailedTake(
+       location.instanceId,
+       resolved.state,
+       sourceStateBefore,
+       removedEntries,
+       sourceRevisionAfterMutation,
+       deps,
+       resolved.container,
+      );
+     },
+    });
+    return;
+   }
+   const item = this.takeContainerItem(location.instanceId, playerId, player, sourceId, itemKey, deps);
+   this.playerRuntimeService.receiveInventoryItem(playerId, item);
+   deps.refreshQuestStates(playerId);
+   const itemLabel = this.formatLootItemStackLabel(item);
+   const n = buildStructuredNotice('loot', 'notice.loot.obtained', `获得 ${itemLabel}`, { vars: { itemName: itemLabel }, pills: [{ key: 'itemName', style: 'target' }] });
+   deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
+   return;
+  }
+  const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
+  const pile = instance.getGroundPileBySourceId(sourceId);
+  if (durableGrantEnabled && pile) {
+   const targetEntry = Array.isArray(pile.items) ? pile.items.find((entry) => entry?.itemKey === itemKey) : null;
+   const originalPosition = {
+    x: Number.isFinite(Number(pile.x)) ? Math.trunc(Number(pile.x)) : player.x,
+    y: Number.isFinite(Number(pile.y)) ? Math.trunc(Number(pile.y)) : player.y,
+   };
+   if (!targetEntry?.item) {
+    throw new NotFoundException(`地面物品不存在：${itemKey}，来源 ${sourceId}`);
+   }
+   if (!canReceiveItemStack(player, targetEntry.item)) {
+    throw new BadRequestException('背包空间不足，无法拿取该物品');
+   }
+   const tileIndex = parseGroundLootSourceTileIndex(sourceId);
+   const sourceItemsBefore = typeof instance.captureGroundTileItemsForAssetMutation === 'function'
+    ? instance.captureGroundTileItemsForAssetMutation(tileIndex)
+    : [];
+   const takenSourceItems = [{ ...targetEntry.item }];
+   const taken = instance.takeGroundItem(sourceId, itemKey, player.x, player.y);
+   if (!taken) {
+    throw new NotFoundException(`地面物品不存在：${itemKey}，来源 ${sourceId}`);
+   }
+   const sourceRevisionAfterMutation = readInstancePersistenceDomainRevision(instance, 'ground_item');
+   await this.grantLootItemsDurably({
+    playerId,
+    player,
+    items: [taken],
+    deps,
+    sourceType: 'ground_take',
+    sourceRefId: `${sourceId}:${itemKey}`,
+    sourceMutation: this.buildDurableGroundSourceMutation(instance, location.instanceId, sourceId),
+    restoreOnFailure: () => restoreGroundSourceAfterFailedTake(
+     instance,
+     tileIndex,
+     sourceItemsBefore,
+     takenSourceItems,
+     sourceRevisionAfterMutation,
+     originalPosition,
+    ),
+   });
+   return;
+  }
+  const targetEntry = Array.isArray(pile?.items) ? pile.items.find((entry) => entry?.itemKey === itemKey) : null;
+  if (targetEntry?.item && !canReceiveItemStack(player, targetEntry.item)) {
+   throw new BadRequestException('背包空间不足，无法拿取该物品');
+  }
+  const item = instance.takeGroundItem(sourceId, itemKey, player.x, player.y);
+  if (!item) {
+   throw new NotFoundException(`地面物品不存在：${itemKey}，来源 ${sourceId}`);
+  }
+  this.playerRuntimeService.receiveInventoryItem(playerId, item);
+  deps.refreshQuestStates(playerId);
+  const itemLabel = this.formatLootItemStackLabel(item);
+  const n2 = buildStructuredNotice('loot', 'notice.loot.obtained', `获得 ${itemLabel}`, { vars: { itemName: itemLabel }, pills: [{ key: 'itemName', style: 'target' }] });
+  deps.queuePlayerNotice(playerId, n2.text, n2.kind, undefined, undefined, n2.structured);
+ }
+ /**
+* dispatchTakeGroundAll：判断Take地面All是否满足条件。
+* @param playerId 玩家 ID。
+* @param sourceId source ID。
+* @param deps 运行时依赖。
+* @returns 无返回值，直接更新TakeGroundAll相关状态。
+*/
 
-    async dispatchTakeGroundAllLocked(playerId, sourceId, deps) {
+ async dispatchTakeGroundAll(playerId, sourceId, deps) {
+  return this.runExclusivePlayerLootAssetMutation(
+   playerId,
+   () => this.runWithLootSourcePersistenceHold(
+    playerId,
+    sourceId,
+    deps,
+    () => this.dispatchTakeGroundAllLocked(playerId, sourceId, deps),
+   ),
+  );
+ }
+
+ async dispatchTakeGroundAllLocked(playerId, sourceId, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const location = deps.getPlayerLocationOrThrow(playerId);
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        const durableGrantEnabled = this.canUseDurableInventoryGrant(player, deps);
-        if (buildIsContainerSourceId(sourceId)) {
-            const resolved = this.resolveContainerStateForPlayer(location.instanceId, playerId, player, sourceId, deps);
-            const sourceStateBefore = cloneContainerStateForRollback(resolved.state);
-            const visibleEntriesBeforeTake = resolved.state.entries.filter((entry) => entry.visible);
-            const takenItems = this.takeAllContainerItems(location.instanceId, playerId, player, sourceId, deps);
-            const sourceRevisionAfterMutation = this.getContainerPersistenceRevision(location.instanceId);
-            if (takenItems.length === 0) {
-                throw new BadRequestException('当前没有可拿取的物品');
-            }
-            if (durableGrantEnabled) {
-                const removedEntries = visibleEntriesBeforeTake
-                    .filter((entry) => !resolved.state.entries.includes(entry))
-                    .map(cloneContainerEntryForRestore);
-                await this.grantLootItemsDurably({
-                    playerId,
-                    player,
-                    items: takenItems,
-                    deps,
-                    sourceType: 'container_take_all',
-                    sourceRefId: sourceId,
-                    sourceMutation: this.buildDurableContainerSourceMutation(
-                        deps.getInstanceRuntimeOrThrow(location.instanceId),
-                        location.instanceId,
-                        sourceId,
-                    ),
-                    restoreOnFailure: () => {
-                        this.restoreContainerSourceAfterFailedTake(
-                            location.instanceId,
-                            resolved.state,
-                            sourceStateBefore,
-                            removedEntries,
-                            sourceRevisionAfterMutation,
-                            deps,
-                            resolved.container,
-                        );
-                    },
-                });
-                return;
-            }
-            for (const item of takenItems) {
-                this.playerRuntimeService.receiveInventoryItem(playerId, item);
-            }
-            deps.refreshQuestStates(playerId);
-            const itemList = this.formatLootItemListSummary(takenItems);
-            const n = buildStructuredNotice('loot', 'notice.loot.obtained-multi', `获得 ${itemList}`, { vars: { itemList }, pills: [{ key: 'itemList', style: 'target' }] });
-            deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
-            return;
-        }
-        const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
-        const pile = instance.getGroundPileBySourceId(sourceId);
-        if (!pile || pile.items.length === 0) {
-            throw new NotFoundException(`地面来源不存在：${sourceId}`);
-        }
-        const originalItemCount = pile.items.length;
-        const originalPosition = {
-            x: Number.isFinite(Number(pile.x)) ? Math.trunc(Number(pile.x)) : player.x,
-            y: Number.isFinite(Number(pile.y)) ? Math.trunc(Number(pile.y)) : player.y,
-        };
-        const candidateEntries = pile.items.slice();
-        const tileIndex = parseGroundLootSourceTileIndex(sourceId);
-        const sourceItemsBefore = typeof instance.captureGroundTileItemsForAssetMutation === 'function'
-            ? instance.captureGroundTileItemsForAssetMutation(tileIndex)
-            : [];
-        const takenSourceItems = [];
-        const simulatedInventory = cloneInventorySimulation(player.inventory.items);
-        const takenItems = [];
-        let stoppedByCapacity = false;
-        for (const entry of candidateEntries) {
-            const nextSimulation = cloneInventorySimulation(simulatedInventory);
-            mergeItemStackInto(nextSimulation, { ...entry.item });
-            if (nextSimulation.length > player.inventory.capacity) {
-                stoppedByCapacity = true;
-                if (takenItems.length === 0) {
-                    throw new BadRequestException('背包空间不足，无法继续拿取');
-                }
-                break;
-            }
-            simulatedInventory.length = 0;
-            simulatedInventory.push(...nextSimulation);
-            const taken = instance.takeGroundItem(sourceId, entry.itemKey, player.x, player.y);
-            if (!taken) {
-                continue;
-            }
-            takenSourceItems.push({ ...entry.item });
-            takenItems.push(taken);
-        }
-        if (takenItems.length === 0) {
-            throw new BadRequestException('当前没有可拿取的物品');
-        }
-        const sourceRevisionAfterMutation = readInstancePersistenceDomainRevision(instance, 'ground_item');
-        if (durableGrantEnabled) {
-            await this.grantLootItemsDurably({
-                playerId,
-                player,
-                items: takenItems,
-                deps,
-                sourceType: 'ground_take_all',
-                sourceRefId: sourceId,
-                sourceMutation: this.buildDurableGroundSourceMutation(instance, location.instanceId, sourceId),
-                partial: stoppedByCapacity || takenItems.length < originalItemCount,
-                restoreOnFailure: () => restoreGroundSourceAfterFailedTake(
-                    instance,
-                    tileIndex,
-                    sourceItemsBefore,
-                    takenSourceItems,
-                    sourceRevisionAfterMutation,
-                    originalPosition,
-                ),
-            });
-            return;
-        }
-        for (const item of takenItems) {
-            this.playerRuntimeService.receiveInventoryItem(playerId, item);
-        }
-        deps.refreshQuestStates(playerId);
-        const itemList = this.formatLootItemListSummary(takenItems);
-        const n3 = buildStructuredNotice('loot', 'notice.loot.obtained-multi', `获得 ${itemList}`, { vars: { itemList }, pills: [{ key: 'itemList', style: 'target' }] });
-        deps.queuePlayerNotice(playerId, n3.text, n3.kind, undefined, undefined, n3.structured);
-        if (stoppedByCapacity || takenItems.length < originalItemCount) {
-            const nBagFull = buildStructuredNotice('info', 'notice.loot.bag-full', '背包空间不足，剩余物品暂时拿不下。', {});
-            deps.queuePlayerNotice(playerId, nBagFull.text, nBagFull.kind, undefined, undefined, nBagFull.structured);
-        }
-    }    
-    /**
- * takeContainerItem：执行takeContainer道具相关逻辑。
- * @param instanceId instance ID。
- * @param playerId 玩家 ID。
- * @param player 玩家对象。
- * @param sourceId source ID。
- * @param itemKey 参数说明。
- * @param deps 运行时依赖。
- * @returns 无返回值，直接更新takeContainer道具相关状态。
- */
+  const location = deps.getPlayerLocationOrThrow(playerId);
+  const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+  const durableGrantEnabled = this.canUseDurableInventoryGrant(player, deps);
+  if (buildIsContainerSourceId(sourceId)) {
+   const resolved = this.resolveContainerStateForPlayer(location.instanceId, playerId, player, sourceId, deps);
+   const sourceStateBefore = cloneContainerStateForRollback(resolved.state);
+   const visibleEntriesBeforeTake = resolved.state.entries.filter((entry) => entry.visible);
+   const takenItems = this.takeAllContainerItems(location.instanceId, playerId, player, sourceId, deps);
+   const sourceRevisionAfterMutation = this.getContainerPersistenceRevision(location.instanceId);
+   if (takenItems.length === 0) {
+    throw new BadRequestException('当前没有可拿取的物品');
+   }
+   if (durableGrantEnabled) {
+    const removedEntries = visibleEntriesBeforeTake
+     .filter((entry) => !resolved.state.entries.includes(entry))
+     .map(cloneContainerEntryForRestore);
+    await this.grantLootItemsDurably({
+     playerId,
+     player,
+     items: takenItems,
+     deps,
+     sourceType: 'container_take_all',
+     sourceRefId: sourceId,
+     sourceMutation: this.buildDurableContainerSourceMutation(
+      deps.getInstanceRuntimeOrThrow(location.instanceId),
+      location.instanceId,
+      sourceId,
+     ),
+     restoreOnFailure: () => {
+      this.restoreContainerSourceAfterFailedTake(
+       location.instanceId,
+       resolved.state,
+       sourceStateBefore,
+       removedEntries,
+       sourceRevisionAfterMutation,
+       deps,
+       resolved.container,
+      );
+     },
+    });
+    return;
+   }
+   for (const item of takenItems) {
+    this.playerRuntimeService.receiveInventoryItem(playerId, item);
+   }
+   deps.refreshQuestStates(playerId);
+   const itemList = this.formatLootItemListSummary(takenItems);
+   const n = buildStructuredNotice('loot', 'notice.loot.obtained-multi', `获得 ${itemList}`, { vars: { itemList }, pills: [{ key: 'itemList', style: 'target' }] });
+   deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
+   return;
+  }
+  const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
+  const pile = instance.getGroundPileBySourceId(sourceId);
+  if (!pile || pile.items.length === 0) {
+   throw new NotFoundException(`地面来源不存在：${sourceId}`);
+  }
+  const originalItemCount = pile.items.length;
+  const originalPosition = {
+   x: Number.isFinite(Number(pile.x)) ? Math.trunc(Number(pile.x)) : player.x,
+   y: Number.isFinite(Number(pile.y)) ? Math.trunc(Number(pile.y)) : player.y,
+  };
+  const candidateEntries = pile.items.slice();
+  const tileIndex = parseGroundLootSourceTileIndex(sourceId);
+  const sourceItemsBefore = typeof instance.captureGroundTileItemsForAssetMutation === 'function'
+   ? instance.captureGroundTileItemsForAssetMutation(tileIndex)
+   : [];
+  const takenSourceItems = [];
+  const simulatedInventory = cloneInventorySimulation(player.inventory.items);
+  const takenItems = [];
+  let stoppedByCapacity = false;
+  for (const entry of candidateEntries) {
+   const nextSimulation = cloneInventorySimulation(simulatedInventory);
+   mergeItemStackInto(nextSimulation, { ...entry.item });
+   if (nextSimulation.length > player.inventory.capacity) {
+    stoppedByCapacity = true;
+    if (takenItems.length === 0) {
+     throw new BadRequestException('背包空间不足，无法继续拿取');
+    }
+    break;
+   }
+   simulatedInventory.length = 0;
+   simulatedInventory.push(...nextSimulation);
+   const taken = instance.takeGroundItem(sourceId, entry.itemKey, player.x, player.y);
+   if (!taken) {
+    continue;
+   }
+   takenSourceItems.push({ ...entry.item });
+   takenItems.push(taken);
+  }
+  if (takenItems.length === 0) {
+   throw new BadRequestException('当前没有可拿取的物品');
+  }
+  const sourceRevisionAfterMutation = readInstancePersistenceDomainRevision(instance, 'ground_item');
+  if (durableGrantEnabled) {
+   await this.grantLootItemsDurably({
+    playerId,
+    player,
+    items: takenItems,
+    deps,
+    sourceType: 'ground_take_all',
+    sourceRefId: sourceId,
+    sourceMutation: this.buildDurableGroundSourceMutation(instance, location.instanceId, sourceId),
+    partial: stoppedByCapacity || takenItems.length < originalItemCount,
+    restoreOnFailure: () => restoreGroundSourceAfterFailedTake(
+     instance,
+     tileIndex,
+     sourceItemsBefore,
+     takenSourceItems,
+     sourceRevisionAfterMutation,
+     originalPosition,
+    ),
+   });
+   return;
+  }
+  for (const item of takenItems) {
+   this.playerRuntimeService.receiveInventoryItem(playerId, item);
+  }
+  deps.refreshQuestStates(playerId);
+  const itemList = this.formatLootItemListSummary(takenItems);
+  const n3 = buildStructuredNotice('loot', 'notice.loot.obtained-multi', `获得 ${itemList}`, { vars: { itemList }, pills: [{ key: 'itemList', style: 'target' }] });
+  deps.queuePlayerNotice(playerId, n3.text, n3.kind, undefined, undefined, n3.structured);
+  if (stoppedByCapacity || takenItems.length < originalItemCount) {
+   const nBagFull = buildStructuredNotice('info', 'notice.loot.bag-full', '背包空间不足，剩余物品暂时拿不下。', {});
+   deps.queuePlayerNotice(playerId, nBagFull.text, nBagFull.kind, undefined, undefined, nBagFull.structured);
+  }
+ }
+ /**
+* takeContainerItem：执行takeContainer道具相关逻辑。
+* @param instanceId instance ID。
+* @param playerId 玩家 ID。
+* @param player 玩家对象。
+* @param sourceId source ID。
+* @param itemKey 参数说明。
+* @param deps 运行时依赖。
+* @returns 无返回值，直接更新takeContainer道具相关状态。
+*/
 
-    takeContainerItem(instanceId, playerId, player, sourceId, itemKey, deps) {
+ takeContainerItem(instanceId, playerId, player, sourceId, itemKey, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const resolved = this.resolveContainerStateForPlayer(instanceId, playerId, player, sourceId, deps);
-        if (resolved.container.variant === 'herb') {
-            throw new BadRequestException('草药采集请使用采集动作');
-        }
-        const row = groupContainerLootRows(resolved.state.entries.filter((entry) => entry.visible)).find((entry) => entry.itemKey === itemKey);
-        if (!row) {
-            throw new NotFoundException(`容器物品不存在：${itemKey}，来源 ${sourceId}`);
-        }
-        if (!canReceiveContainerRow(player, row.entries)) {
-            throw new BadRequestException('背包空间不足，无法拿取该物品');
-        }
-        removeContainerRowEntries(resolved.state.entries, row.entries);
-        if (!resolved.state.activeSearch && hasHiddenContainerEntries(resolved.state.entries)) {
-            this.beginContainerSearch(resolved.state, resolved.container.grade);
-        }
-        this.markContainerVisibleStateDirty(instanceId, deps, resolved.container);
-        return { ...row.item };
-    }    
-    /**
- * takeAllContainerItems：执行takeAllContainer道具相关逻辑。
- * @param instanceId instance ID。
- * @param playerId 玩家 ID。
- * @param player 玩家对象。
- * @param sourceId source ID。
- * @param deps 运行时依赖。
- * @returns 无返回值，直接更新takeAllContainer道具相关状态。
- */
+  const resolved = this.resolveContainerStateForPlayer(instanceId, playerId, player, sourceId, deps);
+  if (resolved.container.variant === 'herb') {
+   throw new BadRequestException('草药采集请使用采集动作');
+  }
+  const row = groupContainerLootRows(resolved.state.entries.filter((entry) => entry.visible)).find((entry) => entry.itemKey === itemKey);
+  if (!row) {
+   throw new NotFoundException(`容器物品不存在：${itemKey}，来源 ${sourceId}`);
+  }
+  if (!canReceiveContainerRow(player, row.entries)) {
+   throw new BadRequestException('背包空间不足，无法拿取该物品');
+  }
+  removeContainerRowEntries(resolved.state.entries, row.entries);
+  if (!resolved.state.activeSearch && hasHiddenContainerEntries(resolved.state.entries)) {
+   this.beginContainerSearch(resolved.state, resolved.container.grade);
+  }
+  this.markContainerVisibleStateDirty(instanceId, deps, resolved.container);
+  return { ...row.item };
+ }
+ /**
+* takeAllContainerItems：执行takeAllContainer道具相关逻辑。
+* @param instanceId instance ID。
+* @param playerId 玩家 ID。
+* @param player 玩家对象。
+* @param sourceId source ID。
+* @param deps 运行时依赖。
+* @returns 无返回值，直接更新takeAllContainer道具相关状态。
+*/
 
-    takeAllContainerItems(instanceId, playerId, player, sourceId, deps) {
+ takeAllContainerItems(instanceId, playerId, player, sourceId, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const resolved = this.resolveContainerStateForPlayer(instanceId, playerId, player, sourceId, deps);
-        if (resolved.container.variant === 'herb') {
-            throw new BadRequestException('草药采集请使用采集动作');
-        }
-        const rows = groupContainerLootRows(resolved.state.entries.filter((entry) => entry.visible));
-        if (rows.length === 0) {
-            return [];
-        }
-        const takenItems = [];
-        const simulatedInventory = cloneInventorySimulation(player.inventory.items);
-        for (const row of rows) {
-            if (!canReceiveContainerEntries(simulatedInventory, player.inventory.capacity, row.entries)) {
-                break;
-            }
-            applyContainerEntriesToInventorySimulation(simulatedInventory, row.entries);
-            removeContainerRowEntries(resolved.state.entries, row.entries);
-            takenItems.push({ ...row.item });
-        }
-        if (takenItems.length > 0) {
-            if (!resolved.state.activeSearch && hasHiddenContainerEntries(resolved.state.entries)) {
-                this.beginContainerSearch(resolved.state, resolved.container.grade);
-            }
-            this.markContainerVisibleStateDirty(instanceId, deps, resolved.container);
-        }
-        return takenItems;
-    }    
+  const resolved = this.resolveContainerStateForPlayer(instanceId, playerId, player, sourceId, deps);
+  if (resolved.container.variant === 'herb') {
+   throw new BadRequestException('草药采集请使用采集动作');
+  }
+  const rows = groupContainerLootRows(resolved.state.entries.filter((entry) => entry.visible));
+  if (rows.length === 0) {
+   return [];
+  }
+  const takenItems = [];
+  const simulatedInventory = cloneInventorySimulation(player.inventory.items);
+  for (const row of rows) {
+   if (!canReceiveContainerEntries(simulatedInventory, player.inventory.capacity, row.entries)) {
+    break;
+   }
+   applyContainerEntriesToInventorySimulation(simulatedInventory, row.entries);
+   removeContainerRowEntries(resolved.state.entries, row.entries);
+   takenItems.push({ ...row.item });
+  }
+  if (takenItems.length > 0) {
+   if (!resolved.state.activeSearch && hasHiddenContainerEntries(resolved.state.entries)) {
+    this.beginContainerSearch(resolved.state, resolved.container.grade);
+   }
+   this.markContainerVisibleStateDirty(instanceId, deps, resolved.container);
+  }
+  return takenItems;
+ }
 
-    formatLootItemStackLabel(item) {
-        return formatItemStackLabel(this.normalizeLootItemForNotice(item));
+ formatLootItemStackLabel(item) {
+  return formatItemStackLabel(this.normalizeLootItemForNotice(item));
+ }
+
+ formatLootItemListSummary(items) {
+  return formatItemListSummary(Array.isArray(items) ? items.map((item) => this.normalizeLootItemForNotice(item)) : []);
+ }
+
+ normalizeLootItemForNotice(item) {
+  const normalized = this.contentTemplateRepository?.normalizeItem?.(item);
+  return normalized && typeof normalized === 'object' ? normalized : item;
+ }
+
+ canUseDurableInventoryGrant(player, deps) {
+  const durableOperationService = deps?.durableOperationService ?? null;
+  if (durableOperationService?.isEnabled?.() !== true) {
+   return false;
+  }
+  if (typeof durableOperationService?.grantInventoryItems !== 'function') {
+   throw new BadRequestException('地面物品资产事务暂不可用，请稍后重试');
+  }
+  const runtimeOwnerId = typeof player?.runtimeOwnerId === 'string' ? player.runtimeOwnerId.trim() : '';
+  const sessionEpoch = Number.isFinite(player?.sessionEpoch) ? Math.max(0, Math.trunc(Number(player.sessionEpoch))) : 0;
+  if (!runtimeOwnerId || sessionEpoch <= 0) {
+   throw new BadRequestException('玩家资产事务围栏暂不可用，请稍后重试');
+  }
+  return true;
+ }
+
+ async runExclusivePlayerLootAssetMutation(playerId, action) {
+  const coordinator = this.playerRuntimeService?.runExclusiveAssetMutation;
+  if (typeof coordinator !== 'function') {
+   return action();
+  }
+  return coordinator.call(this.playerRuntimeService, [playerId], action);
+ }
+
+ async runWithLootSourcePersistenceHold(playerId, sourceId, deps, action) {
+  const location = deps.getPlayerLocationOrThrow(playerId);
+  return this.runExclusiveLootSourceMutation(location.instanceId, sourceId, async () => {
+   const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+   if (deps?.durableOperationService?.isEnabled?.() === true) {
+    await this.syncCurrentPresenceFence(playerId);
+   }
+   if (!this.canUseDurableInventoryGrant(player, deps)) {
+    return action();
+   }
+   const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
+   const domain = buildIsContainerSourceId(sourceId) ? 'container_state' : 'ground_item';
+   const runExclusiveDomain = typeof instance?.runExclusivePersistenceDomainMutation === 'function'
+    ? (domainAction) => instance.runExclusivePersistenceDomainMutation([domain], domainAction)
+    : (domainAction) => domainAction();
+   return runExclusiveDomain(async () => {
+    const release = typeof instance?.acquirePersistenceDomainHold === 'function'
+     ? instance.acquirePersistenceDomainHold(domain)
+     : () => undefined;
+    try {
+     return await action();
     }
-
-    formatLootItemListSummary(items) {
-        return formatItemListSummary(Array.isArray(items) ? items.map((item) => this.normalizeLootItemForNotice(item)) : []);
+    finally {
+     release();
     }
+   });
+  });
+ }
 
-    normalizeLootItemForNotice(item) {
-        const normalized = this.contentTemplateRepository?.normalizeItem?.(item);
-        return normalized && typeof normalized === 'object' ? normalized : item;
+ async runExclusiveLootSourceMutation(instanceId, sourceId, action) {
+  const normalizedInstanceId = typeof instanceId === 'string' ? instanceId.trim() : '';
+  const normalizedSourceId = typeof sourceId === 'string' ? sourceId.trim() : '';
+  if (!normalizedInstanceId || !normalizedSourceId) {
+   return action();
+  }
+  const key = `${normalizedInstanceId}\u0000${normalizedSourceId}`;
+  const previous = this.lootSourceMutationQueueByKey.get(key) ?? Promise.resolve();
+  let release;
+  const gate = new Promise((resolve) => {
+   release = resolve;
+  });
+  const tail = previous.catch(() => undefined).then(() => gate);
+  this.lootSourceMutationQueueByKey.set(key, tail);
+  await previous.catch(() => undefined);
+  try {
+   return await action();
+  }
+  finally {
+   release();
+   void tail.finally(() => {
+    if (this.lootSourceMutationQueueByKey.get(key) === tail) {
+     this.lootSourceMutationQueueByKey.delete(key);
     }
+   });
+  }
+ }
 
-    canUseDurableInventoryGrant(player, deps) {
-        const durableOperationService = deps?.durableOperationService ?? null;
-        if (durableOperationService?.isEnabled?.() !== true) {
-            return false;
-        }
-        if (typeof durableOperationService?.grantInventoryItems !== 'function') {
-            throw new BadRequestException('地面物品资产事务暂不可用，请稍后重试');
-        }
-        const runtimeOwnerId = typeof player?.runtimeOwnerId === 'string' ? player.runtimeOwnerId.trim() : '';
-        const sessionEpoch = Number.isFinite(player?.sessionEpoch) ? Math.max(0, Math.trunc(Number(player.sessionEpoch))) : 0;
-        if (!runtimeOwnerId || sessionEpoch <= 0) {
-            throw new BadRequestException('玩家资产事务围栏暂不可用，请稍后重试');
-        }
-        return true;
+ buildDurableGroundSourceMutation(instance, instanceId, sourceId) {
+  const tileIndex = parseGroundLootSourceTileIndex(sourceId);
+  if (tileIndex == null) {
+   throw new BadRequestException('非法地面物品来源');
+  }
+  const currentItems = typeof instance?.captureGroundTileItemsForAssetMutation === 'function'
+   ? instance.captureGroundTileItemsForAssetMutation(tileIndex)
+   : (() => {
+    const delta = instance?.buildGroundPersistenceDelta?.();
+    const entry = Array.isArray(delta?.entries)
+     ? delta.entries.find((candidate) => Number(candidate?.tileIndex) === tileIndex)
+     : null;
+    return Array.isArray(entry?.items) ? entry.items : [];
+   })();
+  const ownershipEpoch = resolveLootSourceOwnershipEpoch(instance);
+  const flushLedgerVersion = nextPlayerPersistenceVersion();
+  return {
+   kind: 'ground_tile',
+   instanceId,
+   ownershipEpoch,
+   flushLedgerVersion,
+   flushLedgerPayload: buildGroundSourceFlushLedgerPayload(
+    instance,
+    tileIndex,
+    currentItems,
+    flushLedgerVersion,
+   ),
+   tileIndex,
+   remainingItems: Array.isArray(currentItems) ? currentItems.map((item) => ({ ...item })) : [],
+  };
+ }
+
+ buildDurableContainerSourceMutation(instance, instanceId, sourceId) {
+  const states = this.buildContainerPersistenceStates(instanceId);
+  const state = states
+   .find((entry) => entry?.sourceId === sourceId);
+  if (!state?.containerId) {
+   throw new BadRequestException('容器持久化状态不存在');
+  }
+  const ownershipEpoch = resolveLootSourceOwnershipEpoch(instance);
+  const flushLedgerVersion = nextPlayerPersistenceVersion();
+  return {
+   kind: 'container_state',
+   instanceId,
+   ownershipEpoch,
+   flushLedgerVersion,
+   flushLedgerPayload: buildContainerSourceFlushLedgerPayload(
+    instance,
+    states,
+    this.getContainerPersistenceRevision(instanceId),
+    flushLedgerVersion,
+   ),
+   containerId: state.containerId,
+   sourceId,
+   statePayload: state,
+  };
+ }
+
+ restoreContainerSourceAfterFailedTake(
+  instanceId,
+  state,
+  sourceStateBefore,
+  removedEntries,
+  sourceRevisionAfterMutation,
+  deps,
+  container,
+ ) {
+  const currentRevision = this.getContainerPersistenceRevision(instanceId);
+  if (currentRevision === sourceRevisionAfterMutation) {
+   restoreContainerStateFromRollbackSnapshot(state, sourceStateBefore);
+  }
+  else {
+   mergeContainerEntries(
+    state.entries,
+    removedEntries.map(cloneContainerEntryForRestore),
+   );
+  }
+  this.markContainerVisibleStateDirty(instanceId, deps, container);
+ }
+
+ async grantLootItemsDurably(input) {
+  prepareLootGrantItemsForReceiver(input.sourceType, input.items);
+  const operationId = buildLootInventoryGrantOperationId(
+   input.playerId,
+   input.sourceType,
+   input.sourceRefId,
+   input.items,
+  );
+  let finalError = null;
+  let commitOutcomeUnknown = false;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+   const rollbackState = captureInventoryGrantRollbackState(input.player);
+   input.player.suppressImmediateDomainPersistence = true;
+   try {
+    for (const item of input.items) {
+     this.playerRuntimeService.receiveInventoryItem(input.playerId, item);
     }
-
-    async runExclusivePlayerLootAssetMutation(playerId, action) {
-        const coordinator = this.playerRuntimeService?.runExclusiveAssetMutation;
-        if (typeof coordinator !== 'function') {
-            return action();
-        }
-        return coordinator.call(this.playerRuntimeService, [playerId], action);
+    const leaseContext = await resolveLootInstanceLeaseContext(input.player.instanceId, input.deps);
+    const durableInput = {
+     operationId,
+     playerId: input.playerId,
+     expectedRuntimeOwnerId: input.player.runtimeOwnerId,
+     expectedSessionEpoch: Math.max(1, Math.trunc(Number(input.player.sessionEpoch ?? 1))),
+     expectedInstanceId: input.player.instanceId ?? null,
+     expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
+     expectedLeaseToken: leaseContext?.leaseToken ?? null,
+     expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
+     sourceType: input.sourceType,
+     sourceRefId: input.sourceRefId,
+     inventoryAction: 'transfer',
+     sourceMutation: input.sourceMutation,
+     grantedItems: buildGrantedInventorySnapshots(input.items),
+     nextInventoryItems: buildNextInventorySnapshots(input.player.inventory?.items ?? []),
+    };
+    try {
+     await input.deps.durableOperationService.grantInventoryItems(durableInput);
     }
-
-    async runWithLootSourcePersistenceHold(playerId, sourceId, deps, action) {
-        const location = deps.getPlayerLocationOrThrow(playerId);
-        return this.runExclusiveLootSourceMutation(location.instanceId, sourceId, async () => {
-            const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-            if (deps?.durableOperationService?.isEnabled?.() === true) {
-                await this.syncCurrentPresenceFence(playerId);
-            }
-            if (!this.canUseDurableInventoryGrant(player, deps)) {
-                return action();
-            }
-            const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
-            const domain = buildIsContainerSourceId(sourceId) ? 'container_state' : 'ground_item';
-            const runExclusiveDomain = typeof instance?.runExclusivePersistenceDomainMutation === 'function'
-                ? (domainAction) => instance.runExclusivePersistenceDomainMutation([domain], domainAction)
-                : (domainAction) => domainAction();
-            return runExclusiveDomain(async () => {
-                const release = typeof instance?.acquirePersistenceDomainHold === 'function'
-                    ? instance.acquirePersistenceDomainHold(domain)
-                    : () => undefined;
-                try {
-                    return await action();
-                }
-                finally {
-                    release();
-                }
-            });
-        });
+    catch (error) {
+     if (!isDurableCommitOutcomeUnknownError(error)) {
+      throw error;
+     }
+     const reconciliation = await reconcileDurableInventoryCommitOutcome(
+      input.deps.durableOperationService,
+      durableInput,
+     );
+     if (reconciliation.outcome === 'failed') {
+      throw reconciliation.error;
+     }
+     if (reconciliation.outcome === 'unknown') {
+      finalError = error;
+      commitOutcomeUnknown = true;
+     }
+     else {
+      this.playerRuntimeService.replaceInventoryItems(
+       input.playerId,
+       reconciliation.inventoryItems,
+      );
+      this.logger.warn(reconciliation.replayReadFailed
+       ? `地面/容器资产事务已确认提交，但 operation 明细暂不可读，已按同一请求后态收敛：operationId=${operationId}`
+       : `地面/容器资产事务 COMMIT 回包不确定，已按 operation 回读收敛：operationId=${operationId}`);
+     }
     }
-
-    async runExclusiveLootSourceMutation(instanceId, sourceId, action) {
-        const normalizedInstanceId = typeof instanceId === 'string' ? instanceId.trim() : '';
-        const normalizedSourceId = typeof sourceId === 'string' ? sourceId.trim() : '';
-        if (!normalizedInstanceId || !normalizedSourceId) {
-            return action();
-        }
-        const key = `${normalizedInstanceId}\u0000${normalizedSourceId}`;
-        const previous = this.lootSourceMutationQueueByKey.get(key) ?? Promise.resolve();
-        let release;
-        const gate = new Promise((resolve) => {
-            release = resolve;
-        });
-        const tail = previous.catch(() => undefined).then(() => gate);
-        this.lootSourceMutationQueueByKey.set(key, tail);
-        await previous.catch(() => undefined);
-        try {
-            return await action();
-        }
-        finally {
-            release();
-            void tail.finally(() => {
-                if (this.lootSourceMutationQueueByKey.get(key) === tail) {
-                    this.lootSourceMutationQueueByKey.delete(key);
-                }
-            });
-        }
+    if (commitOutcomeUnknown) {
+     input.player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
+     break;
     }
-
-    buildDurableGroundSourceMutation(instance, instanceId, sourceId) {
-        const tileIndex = parseGroundLootSourceTileIndex(sourceId);
-        if (tileIndex == null) {
-            throw new BadRequestException('非法地面物品来源');
-        }
-        const currentItems = typeof instance?.captureGroundTileItemsForAssetMutation === 'function'
-            ? instance.captureGroundTileItemsForAssetMutation(tileIndex)
-            : (() => {
-                const delta = instance?.buildGroundPersistenceDelta?.();
-                const entry = Array.isArray(delta?.entries)
-                    ? delta.entries.find((candidate) => Number(candidate?.tileIndex) === tileIndex)
-                    : null;
-                return Array.isArray(entry?.items) ? entry.items : [];
-            })();
-        const ownershipEpoch = resolveLootSourceOwnershipEpoch(instance);
-        const flushLedgerVersion = nextPlayerPersistenceVersion();
-        return {
-            kind: 'ground_tile',
-            instanceId,
-            ownershipEpoch,
-            flushLedgerVersion,
-            flushLedgerPayload: buildGroundSourceFlushLedgerPayload(
-                instance,
-                tileIndex,
-                currentItems,
-                flushLedgerVersion,
-            ),
-            tileIndex,
-            remainingItems: Array.isArray(currentItems) ? currentItems.map((item) => ({ ...item })) : [],
-        };
+    finalError = null;
+    input.player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
+    break;
+   }
+   catch (error) {
+    finalError = error;
+    restoreInventoryGrantRollbackState(input.player, rollbackState, this.playerRuntimeService);
+    input.player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
+    if (attempt === 0 && shouldRetryLootSessionFence(error) && await this.syncCurrentPresenceFence(input.playerId)) {
+     continue;
     }
-
-    buildDurableContainerSourceMutation(instance, instanceId, sourceId) {
-        const states = this.buildContainerPersistenceStates(instanceId);
-        const state = states
-            .find((entry) => entry?.sourceId === sourceId);
-        if (!state?.containerId) {
-            throw new BadRequestException('容器持久化状态不存在');
-        }
-        const ownershipEpoch = resolveLootSourceOwnershipEpoch(instance);
-        const flushLedgerVersion = nextPlayerPersistenceVersion();
-        return {
-            kind: 'container_state',
-            instanceId,
-            ownershipEpoch,
-            flushLedgerVersion,
-            flushLedgerPayload: buildContainerSourceFlushLedgerPayload(
-                instance,
-                states,
-                this.getContainerPersistenceRevision(instanceId),
-                flushLedgerVersion,
-            ),
-            containerId: state.containerId,
-            sourceId,
-            statePayload: state,
-        };
+    break;
+   }
+  }
+  if (finalError) {
+   if (commitOutcomeUnknown) {
+    this.logger.error(`地面/容器资产事务结果仍未确认，保留运行态与 dirty 等待后续 flush：playerId=${input.playerId} operationId=${operationId}`);
+    const pendingNotice = buildStructuredNotice(
+     'warn',
+     'notice.asset.reconciliation-pending',
+     '资产操作结果正在确认，请稍后刷新背包。',
+     {},
+    );
+    input.deps.queuePlayerNotice(
+     input.playerId,
+     pendingNotice.text,
+     pendingNotice.kind,
+     undefined,
+     undefined,
+     pendingNotice.structured,
+    );
+    return;
+   }
+   if (typeof input.restoreOnFailure === 'function') {
+    try {
+     input.restoreOnFailure();
     }
-
-    restoreContainerSourceAfterFailedTake(
-        instanceId,
-        state,
-        sourceStateBefore,
-        removedEntries,
-        sourceRevisionAfterMutation,
-        deps,
-        container,
-    ) {
-        const currentRevision = this.getContainerPersistenceRevision(instanceId);
-        if (currentRevision === sourceRevisionAfterMutation) {
-            restoreContainerStateFromRollbackSnapshot(state, sourceStateBefore);
-        }
-        else {
-            mergeContainerEntries(
-                state.entries,
-                removedEntries.map(cloneContainerEntryForRestore),
-            );
-        }
-        this.markContainerVisibleStateDirty(instanceId, deps, container);
+    catch (restoreError) {
+     this.logger.warn(`容器/地面物品持久化拿取回滚失败：${restoreError instanceof Error ? restoreError.message : String(restoreError)}`);
     }
-
-    async grantLootItemsDurably(input) {
-        prepareLootGrantItemsForReceiver(input.sourceType, input.items);
-        const operationId = buildLootInventoryGrantOperationId(
-            input.playerId,
-            input.sourceType,
-            input.sourceRefId,
-            input.items,
-        );
-        let finalError = null;
-        let commitOutcomeUnknown = false;
-        for (let attempt = 0; attempt < 2; attempt += 1) {
-            const rollbackState = captureInventoryGrantRollbackState(input.player);
-            input.player.suppressImmediateDomainPersistence = true;
-            try {
-                for (const item of input.items) {
-                    this.playerRuntimeService.receiveInventoryItem(input.playerId, item);
-                }
-                const leaseContext = await resolveLootInstanceLeaseContext(input.player.instanceId, input.deps);
-                const durableInput = {
-                    operationId,
-                    playerId: input.playerId,
-                    expectedRuntimeOwnerId: input.player.runtimeOwnerId,
-                    expectedSessionEpoch: Math.max(1, Math.trunc(Number(input.player.sessionEpoch ?? 1))),
-                    expectedInstanceId: input.player.instanceId ?? null,
-                    expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
-                    expectedLeaseToken: leaseContext?.leaseToken ?? null,
-                    expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
-                    sourceType: input.sourceType,
-                    sourceRefId: input.sourceRefId,
-                    inventoryAction: 'transfer',
-                    sourceMutation: input.sourceMutation,
-                    grantedItems: buildGrantedInventorySnapshots(input.items),
-                    nextInventoryItems: buildNextInventorySnapshots(input.player.inventory?.items ?? []),
-                };
-                try {
-                    await input.deps.durableOperationService.grantInventoryItems(durableInput);
-                }
-                catch (error) {
-                    if (!isDurableCommitOutcomeUnknownError(error)) {
-                        throw error;
-                    }
-                    const reconciliation = await reconcileDurableInventoryCommitOutcome(
-                        input.deps.durableOperationService,
-                        durableInput,
-                    );
-                    if (reconciliation.outcome === 'failed') {
-                        throw reconciliation.error;
-                    }
-                    if (reconciliation.outcome === 'unknown') {
-                        finalError = error;
-                        commitOutcomeUnknown = true;
-                    }
-                    else {
-                        this.playerRuntimeService.replaceInventoryItems(
-                            input.playerId,
-                            reconciliation.inventoryItems,
-                        );
-                        this.logger.warn(reconciliation.replayReadFailed
-                            ? `地面/容器资产事务已确认提交，但 operation 明细暂不可读，已按同一请求后态收敛：operationId=${operationId}`
-                            : `地面/容器资产事务 COMMIT 回包不确定，已按 operation 回读收敛：operationId=${operationId}`);
-                    }
-                }
-                if (commitOutcomeUnknown) {
-                    input.player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
-                    break;
-                }
-                finalError = null;
-                input.player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
-                break;
-            }
-            catch (error) {
-                finalError = error;
-                restoreInventoryGrantRollbackState(input.player, rollbackState, this.playerRuntimeService);
-                input.player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
-                if (attempt === 0 && shouldRetryLootSessionFence(error) && await this.syncCurrentPresenceFence(input.playerId)) {
-                    continue;
-                }
-                break;
-            }
-        }
-        if (finalError) {
-            if (commitOutcomeUnknown) {
-                this.logger.error(`地面/容器资产事务结果仍未确认，保留运行态与 dirty 等待后续 flush：playerId=${input.playerId} operationId=${operationId}`);
-                const pendingNotice = buildStructuredNotice(
-                    'warn',
-                    'notice.asset.reconciliation-pending',
-                    '资产操作结果正在确认，请稍后刷新背包。',
-                    {},
-                );
-                input.deps.queuePlayerNotice(
-                    input.playerId,
-                    pendingNotice.text,
-                    pendingNotice.kind,
-                    undefined,
-                    undefined,
-                    pendingNotice.structured,
-                );
-                return;
-            }
-            if (typeof input.restoreOnFailure === 'function') {
-                try {
-                    input.restoreOnFailure();
-                }
-                catch (restoreError) {
-                    this.logger.warn(`容器/地面物品持久化拿取回滚失败：${restoreError instanceof Error ? restoreError.message : String(restoreError)}`);
-                }
-            }
-            else if (input.instance && input.originalPosition) {
-                for (const item of input.items) {
-                    try {
-                        input.instance.dropGroundItem(input.originalPosition.x, input.originalPosition.y, item);
-                    }
-                    catch (restoreError) {
-                        this.logger.warn(`地面物品持久化拿取回滚失败：${restoreError instanceof Error ? restoreError.message : String(restoreError)}`);
-                    }
-                }
-            }
-            this.logger.warn(`地面/容器物品持久化拿取失败：playerId=${input.playerId} sourceType=${input.sourceType} sourceRefId=${input.sourceRefId} error=${finalError instanceof Error ? finalError.message : String(finalError)}`);
-            const sourceIsContainer = input.sourceType === 'container_take' || input.sourceType === 'container_take_all';
-            const failureNotice = buildStructuredNotice(
-                'warn',
-                sourceIsContainer ? 'notice.loot.take-failed-container' : 'notice.loot.take-failed-ground',
-                sourceIsContainer ? '拿取失败，物品已留在容器内。' : '拿取失败，物品已留在原地。',
-                {},
-            );
-            input.deps.queuePlayerNotice(
-                input.playerId,
-                failureNotice.text,
-                failureNotice.kind,
-                undefined,
-                undefined,
-                failureNotice.structured,
-            );
-            return;
-        }
-        input.deps.refreshQuestStates(input.playerId);
-        const isMultiTake = input.sourceType === 'ground_take_all' || input.sourceType === 'container_take_all';
-        const itemSummary = isMultiTake
-            ? this.formatLootItemListSummary(input.items)
-            : this.formatLootItemStackLabel(input.items[0]);
-        const successNotice = buildStructuredNotice(
-            'loot',
-            isMultiTake ? 'notice.loot.obtained-multi' : 'notice.loot.obtained',
-            `获得 ${itemSummary}`,
-            isMultiTake
-                ? { vars: { itemList: itemSummary }, pills: [{ key: 'itemList', style: 'target' }] }
-                : { vars: { itemName: itemSummary }, pills: [{ key: 'itemName', style: 'target' }] },
-        );
-        input.deps.queuePlayerNotice(
-            input.playerId,
-            successNotice.text,
-            successNotice.kind,
-            undefined,
-            undefined,
-            successNotice.structured,
-        );
-        if (input.partial === true) {
-            const partialNotice = buildStructuredNotice(
-                'info',
-                'notice.loot.bag-full',
-                '背包空间不足，剩余物品暂时拿不下。',
-                {},
-            );
-            input.deps.queuePlayerNotice(
-                input.playerId,
-                partialNotice.text,
-                partialNotice.kind,
-                undefined,
-                undefined,
-                partialNotice.structured,
-            );
-        }
+   }
+   else if (input.instance && input.originalPosition) {
+    for (const item of input.items) {
+     try {
+      input.instance.dropGroundItem(input.originalPosition.x, input.originalPosition.y, item);
+     }
+     catch (restoreError) {
+      this.logger.warn(`地面物品持久化拿取回滚失败：${restoreError instanceof Error ? restoreError.message : String(restoreError)}`);
+     }
     }
+   }
+   this.logger.warn(`地面/容器物品持久化拿取失败：playerId=${input.playerId} sourceType=${input.sourceType} sourceRefId=${input.sourceRefId} error=${finalError instanceof Error ? finalError.message : String(finalError)}`);
+   const sourceIsContainer = input.sourceType === 'container_take' || input.sourceType === 'container_take_all';
+   const failureNotice = buildStructuredNotice(
+    'warn',
+    sourceIsContainer ? 'notice.loot.take-failed-container' : 'notice.loot.take-failed-ground',
+    sourceIsContainer ? '拿取失败，物品已留在容器内。' : '拿取失败，物品已留在原地。',
+    {},
+   );
+   input.deps.queuePlayerNotice(
+    input.playerId,
+    failureNotice.text,
+    failureNotice.kind,
+    undefined,
+    undefined,
+    failureNotice.structured,
+   );
+   return;
+  }
+  input.deps.refreshQuestStates(input.playerId);
+  const isMultiTake = input.sourceType === 'ground_take_all' || input.sourceType === 'container_take_all';
+  const itemSummary = isMultiTake
+   ? this.formatLootItemListSummary(input.items)
+   : this.formatLootItemStackLabel(input.items[0]);
+  const successNotice = buildStructuredNotice(
+   'loot',
+   isMultiTake ? 'notice.loot.obtained-multi' : 'notice.loot.obtained',
+   `获得 ${itemSummary}`,
+   isMultiTake
+    ? { vars: { itemList: itemSummary }, pills: [{ key: 'itemList', style: 'target' }] }
+    : { vars: { itemName: itemSummary }, pills: [{ key: 'itemName', style: 'target' }] },
+  );
+  input.deps.queuePlayerNotice(
+   input.playerId,
+   successNotice.text,
+   successNotice.kind,
+   undefined,
+   undefined,
+   successNotice.structured,
+  );
+  if (input.partial === true) {
+   const partialNotice = buildStructuredNotice(
+    'info',
+    'notice.loot.bag-full',
+    '背包空间不足，剩余物品暂时拿不下。',
+    {},
+   );
+   input.deps.queuePlayerNotice(
+    input.playerId,
+    partialNotice.text,
+    partialNotice.kind,
+    undefined,
+    undefined,
+    partialNotice.structured,
+   );
+  }
+ }
 
-    async syncCurrentPresenceFence(playerId) {
-        if (!this.playerDomainPersistenceService?.isEnabled?.()) {
-            return false;
-        }
-        const persistedPresence = typeof this.playerDomainPersistenceService?.loadPlayerPresence === 'function'
-            ? await this.playerDomainPersistenceService.loadPlayerPresence(playerId)
-            : null;
-        let presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
-        if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
-            return false;
-        }
-        const persistedSessionEpoch = Number.isFinite(persistedPresence?.sessionEpoch)
-            ? Math.max(0, Math.trunc(Number(persistedPresence.sessionEpoch)))
-            : 0;
-        const persistedRuntimeOwnerId = typeof persistedPresence?.runtimeOwnerId === 'string'
-            ? persistedPresence.runtimeOwnerId.trim()
-            : '';
-        const runtimeSessionEpoch = Math.max(0, Math.trunc(Number(presence.sessionEpoch ?? 0)));
-        const runtimeOwnerId = typeof presence.runtimeOwnerId === 'string' ? presence.runtimeOwnerId.trim() : '';
-        if (
-            typeof this.playerRuntimeService.ensureRuntimeSessionFenceAtLeast === 'function'
-            && persistedSessionEpoch > 0
-            && (
-                runtimeSessionEpoch <= persistedSessionEpoch
-                || (persistedRuntimeOwnerId && persistedRuntimeOwnerId !== runtimeOwnerId)
-            )
-        ) {
-            this.playerRuntimeService.ensureRuntimeSessionFenceAtLeast(playerId, persistedSessionEpoch);
-            presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
-        }
-        if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
-            return false;
-        }
-        await this.playerDomainPersistenceService.savePlayerPresence(playerId, {
-            ...presence,
-            versionSeed: nextPlayerPersistenceVersion(),
-        });
-        return true;
-    }
+ async syncCurrentPresenceFence(playerId) {
+  if (!this.playerDomainPersistenceService?.isEnabled?.()) {
+   return false;
+  }
+  const persistedPresence = typeof this.playerDomainPersistenceService?.loadPlayerPresence === 'function'
+   ? await this.playerDomainPersistenceService.loadPlayerPresence(playerId)
+   : null;
+  let presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+  if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
+   return false;
+  }
+  const persistedSessionEpoch = Number.isFinite(persistedPresence?.sessionEpoch)
+   ? Math.max(0, Math.trunc(Number(persistedPresence.sessionEpoch)))
+   : 0;
+  const persistedRuntimeOwnerId = typeof persistedPresence?.runtimeOwnerId === 'string'
+   ? persistedPresence.runtimeOwnerId.trim()
+   : '';
+  const runtimeSessionEpoch = Math.max(0, Math.trunc(Number(presence.sessionEpoch ?? 0)));
+  const runtimeOwnerId = typeof presence.runtimeOwnerId === 'string' ? presence.runtimeOwnerId.trim() : '';
+  if (
+   typeof this.playerRuntimeService.ensureRuntimeSessionFenceAtLeast === 'function'
+   && persistedSessionEpoch > 0
+   && (
+    runtimeSessionEpoch <= persistedSessionEpoch
+    || (persistedRuntimeOwnerId && persistedRuntimeOwnerId !== runtimeOwnerId)
+   )
+  ) {
+   this.playerRuntimeService.ensureRuntimeSessionFenceAtLeast(playerId, persistedSessionEpoch);
+   presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+  }
+  if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
+   return false;
+  }
+  await this.playerDomainPersistenceService.savePlayerPresence(playerId, {
+   ...presence,
+   versionSeed: nextPlayerPersistenceVersion(),
+  });
+  return true;
+ }
 
-    /**
- * resolveContainerStateForPlayer：规范化或转换Container状态For玩家。
- * @param instanceId instance ID。
- * @param playerId 玩家 ID。
- * @param player 玩家对象。
- * @param sourceId source ID。
- * @param deps 运行时依赖。
- * @returns 无返回值，直接更新Container状态For玩家相关状态。
- */
+ /**
+* resolveContainerStateForPlayer：规范化或转换Container状态For玩家。
+* @param instanceId instance ID。
+* @param playerId 玩家 ID。
+* @param player 玩家对象。
+* @param sourceId source ID。
+* @param deps 运行时依赖。
+* @returns 无返回值，直接更新Container状态For玩家相关状态。
+*/
 
-    resolveContainerStateForPlayer(instanceId, playerId, player, sourceId, deps) {
+ resolveContainerStateForPlayer(instanceId, playerId, player, sourceId, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const lootWindowTarget = this.playerRuntimeService.getLootWindowTarget(playerId);
-        if (!lootWindowTarget) {
-            throw new BadRequestException('请先打开拿取界面');
-        }
-        if (Math.max(Math.abs(player.x - lootWindowTarget.tileX), Math.abs(player.y - lootWindowTarget.tileY)) > 1) {
-            this.playerRuntimeService.clearLootWindow(playerId);
-            throw new BadRequestException('你已离开拿取范围');
-        }
-        const parsedSource = parseContainerSourceId(sourceId);
-        if (!parsedSource) {
-            throw new BadRequestException('非法容器来源');
-        }
-        if (parsedSource.instanceId !== instanceId) {
-            throw new BadRequestException('目标容器不在当前实例中');
-        }
-        const instance = deps.getInstanceRuntimeOrThrow(instanceId);
-        const container = instance.getContainerById(parsedSource.containerId);
-        if (!container) {
-            this.playerRuntimeService.clearLootWindow(playerId);
-            throw new NotFoundException('目标容器不存在');
-        }
-        if (container.x !== lootWindowTarget.tileX || container.y !== lootWindowTarget.tileY) {
-            throw new BadRequestException('当前拿取界面与目标容器不一致');
-        }
-        const expectedSourceId = buildContainerSourceId(instanceId, container.id);
-        if (sourceId !== expectedSourceId) {
-            throw new BadRequestException('当前拿取界面与目标容器不一致');
-        }
-        return { instance, container, state: this.ensureContainerState(instanceId, container, instance.tick, player) };
-    }    
-    /**
- * resolveHerbContainerStateForPlayer：解析草药容器状态。
- * @param instanceId instance ID。
- * @param playerId 玩家 ID。
- * @param player 玩家对象。
- * @param sourceId source ID。
- * @param deps 运行时依赖。
- * @returns 返回草药容器与状态。
- */
+  const lootWindowTarget = this.playerRuntimeService.getLootWindowTarget(playerId);
+  if (!lootWindowTarget) {
+   throw new BadRequestException('请先打开拿取界面');
+  }
+  if (Math.max(Math.abs(player.x - lootWindowTarget.tileX), Math.abs(player.y - lootWindowTarget.tileY)) > 1) {
+   this.playerRuntimeService.clearLootWindow(playerId);
+   throw new BadRequestException('你已离开拿取范围');
+  }
+  const parsedSource = parseContainerSourceId(sourceId);
+  if (!parsedSource) {
+   throw new BadRequestException('非法容器来源');
+  }
+  if (parsedSource.instanceId !== instanceId) {
+   throw new BadRequestException('目标容器不在当前实例中');
+  }
+  const instance = deps.getInstanceRuntimeOrThrow(instanceId);
+  const container = instance.getContainerById(parsedSource.containerId);
+  if (!container) {
+   this.playerRuntimeService.clearLootWindow(playerId);
+   throw new NotFoundException('目标容器不存在');
+  }
+  if (container.x !== lootWindowTarget.tileX || container.y !== lootWindowTarget.tileY) {
+   throw new BadRequestException('当前拿取界面与目标容器不一致');
+  }
+  const expectedSourceId = buildContainerSourceId(instanceId, container.id);
+  if (sourceId !== expectedSourceId) {
+   throw new BadRequestException('当前拿取界面与目标容器不一致');
+  }
+  return { instance, container, state: this.ensureContainerState(instanceId, container, instance.tick, player) };
+ }
+ /**
+* resolveHerbContainerStateForPlayer：解析草药容器状态。
+* @param instanceId instance ID。
+* @param playerId 玩家 ID。
+* @param player 玩家对象。
+* @param sourceId source ID。
+* @param deps 运行时依赖。
+* @returns 返回草药容器与状态。
+*/
 
-    resolveHerbContainerStateForPlayer(instanceId, playerId, player, sourceId, deps) {
-        const resolved = this.resolveContainerStateForPlayer(instanceId, playerId, player, sourceId, deps);
-        if (resolved.container.variant !== 'herb') {
-            throw new BadRequestException('当前目标不是草药采集点');
-        }
-        return resolved;
-    }
+ resolveHerbContainerStateForPlayer(instanceId, playerId, player, sourceId, deps) {
+  const resolved = this.resolveContainerStateForPlayer(instanceId, playerId, player, sourceId, deps);
+  if (resolved.container.variant !== 'herb') {
+   throw new BadRequestException('当前目标不是草药采集点');
+  }
+  return resolved;
+ }
 };
 /**
  * buildIsContainerSourceId：构建并返回目标对象。
@@ -2065,622 +2065,622 @@ export class WorldRuntimeLootContainerService {
  */
 
 function buildIsContainerSourceId(sourceId) {
-    return typeof sourceId === 'string' && sourceId.startsWith('container:');
+ return typeof sourceId === 'string' && sourceId.startsWith('container:');
 }
 
 function resolveContainerRefreshAtTick(container, currentTick) {
-    const fixedRefreshTicks = Number.isInteger(container.refreshTicks) && Number(container.refreshTicks) > 0
-        ? Number(container.refreshTicks)
-        : undefined;
-    if (fixedRefreshTicks) {
-        return currentTick + fixedRefreshTicks;
-    }
-    const refreshTicksMin = Number.isInteger(container.refreshTicksMin) && Number(container.refreshTicksMin) > 0
-        ? Number(container.refreshTicksMin)
-        : undefined;
-    const refreshTicksMax = Number.isInteger(container.refreshTicksMax) && Number(container.refreshTicksMax) > 0
-        ? Number(container.refreshTicksMax)
-        : undefined;
-    if (!refreshTicksMin && !refreshTicksMax) {
-        return undefined;
-    }
-    const min = refreshTicksMin ?? refreshTicksMax ?? 1;
-    const max = Math.max(min, refreshTicksMax ?? min);
-    return currentTick + randomIntInclusive(min, max);
+ const fixedRefreshTicks = Number.isInteger(container.refreshTicks) && Number(container.refreshTicks) > 0
+  ? Number(container.refreshTicks)
+  : undefined;
+ if (fixedRefreshTicks) {
+  return currentTick + fixedRefreshTicks;
+ }
+ const refreshTicksMin = Number.isInteger(container.refreshTicksMin) && Number(container.refreshTicksMin) > 0
+  ? Number(container.refreshTicksMin)
+  : undefined;
+ const refreshTicksMax = Number.isInteger(container.refreshTicksMax) && Number(container.refreshTicksMax) > 0
+  ? Number(container.refreshTicksMax)
+  : undefined;
+ if (!refreshTicksMin && !refreshTicksMax) {
+  return undefined;
+ }
+ const min = refreshTicksMin ?? refreshTicksMax ?? 1;
+ const max = Math.max(min, refreshTicksMax ?? min);
+ return currentTick + randomIntInclusive(min, max);
 }
 
 function resolveContainerMaxRefreshTicks(container) {
-    const fixedRefreshTicks = Number.isInteger(container?.refreshTicks) && Number(container.refreshTicks) > 0
-        ? Number(container.refreshTicks)
-        : undefined;
-    if (fixedRefreshTicks) {
-        return fixedRefreshTicks;
-    }
-    const refreshTicksMin = Number.isInteger(container?.refreshTicksMin) && Number(container.refreshTicksMin) > 0
-        ? Number(container.refreshTicksMin)
-        : undefined;
-    const refreshTicksMax = Number.isInteger(container?.refreshTicksMax) && Number(container.refreshTicksMax) > 0
-        ? Number(container.refreshTicksMax)
-        : undefined;
-    return Math.max(1, refreshTicksMax ?? refreshTicksMin ?? 1);
+ const fixedRefreshTicks = Number.isInteger(container?.refreshTicks) && Number(container.refreshTicks) > 0
+  ? Number(container.refreshTicks)
+  : undefined;
+ if (fixedRefreshTicks) {
+  return fixedRefreshTicks;
+ }
+ const refreshTicksMin = Number.isInteger(container?.refreshTicksMin) && Number(container.refreshTicksMin) > 0
+  ? Number(container.refreshTicksMin)
+  : undefined;
+ const refreshTicksMax = Number.isInteger(container?.refreshTicksMax) && Number(container.refreshTicksMax) > 0
+  ? Number(container.refreshTicksMax)
+  : undefined;
+ return Math.max(1, refreshTicksMax ?? refreshTicksMin ?? 1);
 }
 
 function repairStaleHerbSchedule(container, state, currentTick) {
-    if (container?.variant !== 'herb' || !Number.isFinite(Number(currentTick))) {
-        return false;
-    }
-    if (typeof state?.refreshAtTick !== 'number' || !Number.isFinite(Number(state.refreshAtTick))) {
-        return false;
-    }
-    const normalizedCurrentTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
-    const refreshAtTick = Math.max(0, Math.trunc(Number(state.refreshAtTick) || 0));
-    const maxRefreshTicks = resolveContainerMaxRefreshTicks(container);
-    const staleFutureThreshold = Math.max(
-        maxRefreshTicks * 2,
-        maxRefreshTicks + HERB_STALE_FUTURE_SCHEDULE_GRACE_TICKS,
-    );
-    if (refreshAtTick - normalizedCurrentTick <= staleFutureThreshold) {
-        return false;
-    }
-    state.generatedAtTick = normalizedCurrentTick;
-    state.refreshAtTick = resolveContainerRefreshAtTick(container, normalizedCurrentTick) ?? (normalizedCurrentTick + maxRefreshTicks);
-    clampLegacyHerbStock(state.entries, MAX_HERB_GROWTH_CATCH_UP_STEPS);
-    return true;
+ if (container?.variant !== 'herb' || !Number.isFinite(Number(currentTick))) {
+  return false;
+ }
+ if (typeof state?.refreshAtTick !== 'number' || !Number.isFinite(Number(state.refreshAtTick))) {
+  return false;
+ }
+ const normalizedCurrentTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+ const refreshAtTick = Math.max(0, Math.trunc(Number(state.refreshAtTick) || 0));
+ const maxRefreshTicks = resolveContainerMaxRefreshTicks(container);
+ const staleFutureThreshold = Math.max(
+  maxRefreshTicks * 2,
+  maxRefreshTicks + HERB_STALE_FUTURE_SCHEDULE_GRACE_TICKS,
+ );
+ if (refreshAtTick - normalizedCurrentTick <= staleFutureThreshold) {
+  return false;
+ }
+ state.generatedAtTick = normalizedCurrentTick;
+ state.refreshAtTick = resolveContainerRefreshAtTick(container, normalizedCurrentTick) ?? (normalizedCurrentTick + maxRefreshTicks);
+ clampLegacyHerbStock(state.entries, MAX_HERB_GROWTH_CATCH_UP_STEPS);
+ return true;
 }
 
 function clampLegacyHerbStock(entries, limit) {
-    if (!Array.isArray(entries)) {
-        return false;
-    }
-    const normalizedLimit = Math.max(1, Math.trunc(Number(limit) || 1));
-    let remaining = normalizedLimit;
-    let changed = false;
-    for (let index = 0; index < entries.length; index += 1) {
-        const entry = entries[index];
-        const count = Math.max(0, Math.trunc(Number(entry?.item?.count) || 0));
-        if (remaining <= 0) {
-            if (count > 0) {
-                entry.item.count = 0;
-                changed = true;
-            }
-            continue;
-        }
-        if (count > remaining) {
-            entry.item.count = remaining;
-            changed = true;
-            remaining = 0;
-            continue;
-        }
-        remaining -= count;
-    }
-    for (let index = entries.length - 1; index >= 0; index -= 1) {
-        if (Math.max(0, Math.trunc(Number(entries[index]?.item?.count) || 0)) <= 0) {
-            entries.splice(index, 1);
-            changed = true;
-        }
-    }
-    return changed;
+ if (!Array.isArray(entries)) {
+  return false;
+ }
+ const normalizedLimit = Math.max(1, Math.trunc(Number(limit) || 1));
+ let remaining = normalizedLimit;
+ let changed = false;
+ for (let index = 0; index < entries.length; index += 1) {
+  const entry = entries[index];
+  const count = Math.max(0, Math.trunc(Number(entry?.item?.count) || 0));
+  if (remaining <= 0) {
+   if (count > 0) {
+    entry.item.count = 0;
+    changed = true;
+   }
+   continue;
+  }
+  if (count > remaining) {
+   entry.item.count = remaining;
+   changed = true;
+   remaining = 0;
+   continue;
+  }
+  remaining -= count;
+ }
+ for (let index = entries.length - 1; index >= 0; index -= 1) {
+  if (Math.max(0, Math.trunc(Number(entries[index]?.item?.count) || 0)) <= 0) {
+   entries.splice(index, 1);
+   changed = true;
+  }
+ }
+ return changed;
 }
 
 function randomIntInclusive(min, max) {
-    const normalizedMin = Math.max(1, Math.floor(Number(min) || 1));
-    const normalizedMax = Math.max(normalizedMin, Math.floor(Number(max) || normalizedMin));
-    return normalizedMin + Math.floor(Math.random() * ((normalizedMax - normalizedMin) + 1));
+ const normalizedMin = Math.max(1, Math.floor(Number(min) || 1));
+ const normalizedMax = Math.max(normalizedMin, Math.floor(Number(max) || normalizedMin));
+ return normalizedMin + Math.floor(Math.random() * ((normalizedMax - normalizedMin) + 1));
 }
 
 function buildContainerMutationResult(error) {
-    return {
-        ok: false,
-        error,
-        messages: [],
-        panelChanged: false,
-    };
+ return {
+  ok: false,
+  error,
+  messages: [],
+  panelChanged: false,
+ };
 }
 
 function resolveActiveSearchPlayerId(activeSearch) {
-    const playerId = typeof activeSearch?.playerId === 'string' ? activeSearch.playerId.trim() : '';
-    return playerId || '';
+ const playerId = typeof activeSearch?.playerId === 'string' ? activeSearch.playerId.trim() : '';
+ return playerId || '';
 }
 
 function resolveActiveSearchJobRunId(activeSearch) {
-    return typeof activeSearch?.jobRunId === 'string' ? activeSearch.jobRunId.trim() : '';
+ return typeof activeSearch?.jobRunId === 'string' ? activeSearch.jobRunId.trim() : '';
 }
 
 function resolveGatherJobRunId(job) {
-    return typeof job?.jobRunId === 'string' ? job.jobRunId.trim() : '';
+ return typeof job?.jobRunId === 'string' ? job.jobRunId.trim() : '';
 }
 
 function hasGatherJobRunIdConflict(activeSearch, job) {
-    const activeSearchJobRunId = resolveActiveSearchJobRunId(activeSearch);
-    const gatherJobRunId = resolveGatherJobRunId(job);
-    return Boolean(activeSearchJobRunId && gatherJobRunId && activeSearchJobRunId !== gatherJobRunId);
+ const activeSearchJobRunId = resolveActiveSearchJobRunId(activeSearch);
+ const gatherJobRunId = resolveGatherJobRunId(job);
+ return Boolean(activeSearchJobRunId && gatherJobRunId && activeSearchJobRunId !== gatherJobRunId);
 }
 
 function hasGatherItemKeyConflict(activeSearch, job) {
-    const activeSearchItemKey = typeof activeSearch?.itemKey === 'string' ? activeSearch.itemKey.trim() : '';
-    const gatherJobItemKey = typeof job?.itemKey === 'string' ? job.itemKey.trim() : '';
-    return Boolean(activeSearchItemKey && gatherJobItemKey && activeSearchItemKey !== gatherJobItemKey);
+ const activeSearchItemKey = typeof activeSearch?.itemKey === 'string' ? activeSearch.itemKey.trim() : '';
+ const gatherJobItemKey = typeof job?.itemKey === 'string' ? job.itemKey.trim() : '';
+ return Boolean(activeSearchItemKey && gatherJobItemKey && activeSearchItemKey !== gatherJobItemKey);
 }
 
 function createGatherJobRunId() {
-    return `job:gather:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+ return `job:gather:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function normalizeGatherJobRemainingTicks(job) {
-    return Math.max(0, Math.trunc(Number(job?.workRemainingTicks ?? job?.remainingTicks) || 0));
+ return Math.max(0, Math.trunc(Number(job?.workRemainingTicks ?? job?.remainingTicks) || 0));
 }
 
 function isActiveGatherJobForTarget(player, job, instanceId, containerId) {
-    if (!job || normalizeGatherJobRemainingTicks(job) <= 0) {
-        return false;
-    }
-    const playerInstanceId = typeof player?.instanceId === 'string' ? player.instanceId.trim() : '';
-    const jobInstanceId = typeof job?.instanceId === 'string' && job.instanceId.trim()
-        ? job.instanceId.trim()
-        : playerInstanceId;
-    if (playerInstanceId !== instanceId || jobInstanceId !== instanceId) {
-        return false;
-    }
-    const expectedSourceId = buildContainerSourceId(instanceId, containerId);
-    const jobSourceId = typeof job?.sourceId === 'string' ? job.sourceId.trim() : '';
-    const resourceNodeId = typeof job?.resourceNodeId === 'string' ? job.resourceNodeId.trim() : '';
-    return jobSourceId === expectedSourceId || resourceNodeId === containerId;
+ if (!job || normalizeGatherJobRemainingTicks(job) <= 0) {
+  return false;
+ }
+ const playerInstanceId = typeof player?.instanceId === 'string' ? player.instanceId.trim() : '';
+ const jobInstanceId = typeof job?.instanceId === 'string' && job.instanceId.trim()
+  ? job.instanceId.trim()
+  : playerInstanceId;
+ if (playerInstanceId !== instanceId || jobInstanceId !== instanceId) {
+  return false;
+ }
+ const expectedSourceId = buildContainerSourceId(instanceId, containerId);
+ const jobSourceId = typeof job?.sourceId === 'string' ? job.sourceId.trim() : '';
+ const resourceNodeId = typeof job?.resourceNodeId === 'string' ? job.resourceNodeId.trim() : '';
+ return jobSourceId === expectedSourceId || resourceNodeId === containerId;
 }
 
 function isGatherJobExactSearchMatch(player, job, instanceId, containerId, activeSearch) {
-    if (!isActiveGatherJobForTarget(player, job, instanceId, containerId)) {
-        return false;
-    }
-    const searchRemainingTicks = Math.max(0, Math.trunc(Number(activeSearch?.remainingTicks) || 0));
-    if (normalizeGatherJobRemainingTicks(job) !== searchRemainingTicks) {
-        return false;
-    }
-    const searchItemKey = typeof activeSearch?.itemKey === 'string' ? activeSearch.itemKey.trim() : '';
-    const jobItemKey = typeof job?.itemKey === 'string' ? job.itemKey.trim() : '';
-    if (searchItemKey && jobItemKey && searchItemKey !== jobItemKey) {
-        return false;
-    }
-    const searchJobRunId = resolveActiveSearchJobRunId(activeSearch);
-    const gatherJobRunId = resolveGatherJobRunId(job);
-    return !searchJobRunId || !gatherJobRunId || searchJobRunId === gatherJobRunId;
+ if (!isActiveGatherJobForTarget(player, job, instanceId, containerId)) {
+  return false;
+ }
+ const searchRemainingTicks = Math.max(0, Math.trunc(Number(activeSearch?.remainingTicks) || 0));
+ if (normalizeGatherJobRemainingTicks(job) !== searchRemainingTicks) {
+  return false;
+ }
+ const searchItemKey = typeof activeSearch?.itemKey === 'string' ? activeSearch.itemKey.trim() : '';
+ const jobItemKey = typeof job?.itemKey === 'string' ? job.itemKey.trim() : '';
+ if (searchItemKey && jobItemKey && searchItemKey !== jobItemKey) {
+  return false;
+ }
+ const searchJobRunId = resolveActiveSearchJobRunId(activeSearch);
+ const gatherJobRunId = resolveGatherJobRunId(job);
+ return !searchJobRunId || !gatherJobRunId || searchJobRunId === gatherJobRunId;
 }
 
 function collectHydratedInstanceResidentPlayers(instance, playerRuntimeService) {
-    if (typeof instance?.listPlayerIds !== 'function' || typeof playerRuntimeService?.getPlayer !== 'function') {
-        return { complete: false, players: [] };
-    }
-    let playerIds;
-    try {
-        playerIds = instance.listPlayerIds();
-    }
-    catch (_error) {
-        return { complete: false, players: [] };
-    }
-    if (!Array.isArray(playerIds)) {
-        return { complete: false, players: [] };
-    }
-    const players = [];
-    const seenPlayerIds = new Set();
-    for (const rawPlayerId of playerIds) {
-        const playerId = typeof rawPlayerId === 'string' ? rawPlayerId.trim() : '';
-        if (!playerId || seenPlayerIds.has(playerId)) {
-            continue;
-        }
-        seenPlayerIds.add(playerId);
-        const player = playerRuntimeService.getPlayer(playerId);
-        if (!player) {
-            return { complete: false, players: [] };
-        }
-        players.push(player);
-    }
-    return { complete: true, players };
+ if (typeof instance?.listPlayerIds !== 'function' || typeof playerRuntimeService?.getPlayer !== 'function') {
+  return { complete: false, players: [] };
+ }
+ let playerIds;
+ try {
+  playerIds = instance.listPlayerIds();
+ }
+ catch (_error) {
+  return { complete: false, players: [] };
+ }
+ if (!Array.isArray(playerIds)) {
+  return { complete: false, players: [] };
+ }
+ const players = [];
+ const seenPlayerIds = new Set();
+ for (const rawPlayerId of playerIds) {
+  const playerId = typeof rawPlayerId === 'string' ? rawPlayerId.trim() : '';
+  if (!playerId || seenPlayerIds.has(playerId)) {
+   continue;
+  }
+  seenPlayerIds.add(playerId);
+  const player = playerRuntimeService.getPlayer(playerId);
+  if (!player) {
+   return { complete: false, players: [] };
+  }
+  players.push(player);
+ }
+ return { complete: true, players };
 }
 
 function isInstancePlayerHydrationConfirmed(instanceId, deps) {
-    if (typeof deps?.areInstancePlayersHydrated === 'function') {
-        return deps.areInstancePlayersHydrated(instanceId) === true;
-    }
-    return deps?.startupBarrierService?.isTrafficOpen?.() === true;
+ if (typeof deps?.areInstancePlayersHydrated === 'function') {
+  return deps.areInstancePlayersHydrated(instanceId) === true;
+ }
+ return deps?.startupBarrierService?.isTrafficOpen?.() === true;
 }
 
 function isActiveSearchOwnedByPlayer(activeSearch, playerId) {
-    if (!activeSearch) {
-        return false;
-    }
-    const activeSearchPlayerId = resolveActiveSearchPlayerId(activeSearch);
-    return !activeSearchPlayerId || activeSearchPlayerId === playerId;
+ if (!activeSearch) {
+  return false;
+ }
+ const activeSearchPlayerId = resolveActiveSearchPlayerId(activeSearch);
+ return !activeSearchPlayerId || activeSearchPlayerId === playerId;
 }
 
 function buildContainerTickResult(panelChanged = false, messages = [], inventoryChanged = false, equipmentChanged = false, attrChanged = false, groundDrops = []) {
-    return {
-        ok: true,
-        panelChanged,
-        inventoryChanged,
-        equipmentChanged,
-        attrChanged,
-        messages,
-        groundDrops,
-    };
+ return {
+  ok: true,
+  panelChanged,
+  inventoryChanged,
+  equipmentChanged,
+  attrChanged,
+  messages,
+  groundDrops,
+ };
 }
 
 function buildGatherTechniqueNotice(kind, key, vars = undefined, pills = undefined) {
-    return {
-        kind,
-        key,
-        ...(vars ? { vars } : {}),
-        ...(pills ? { pills } : {}),
-    };
+ return {
+  kind,
+  key,
+  ...(vars ? { vars } : {}),
+  ...(pills ? { pills } : {}),
+ };
 }
 
 function normalizeGatherResourceNodeName(value) {
-    return typeof value === 'string' && value.trim() ? value.trim() : '采集目标';
+ return typeof value === 'string' && value.trim() ? value.trim() : '采集目标';
 }
 
 function resolveGatherInterruptReasonLabel(reason) {
-    switch (reason) {
-        case 'move':
-            return '移动';
-        case 'attack':
-            return '出手';
-        case 'cultivate':
-            return '打坐';
-        case 'defeat':
-            return '身陨';
-        default:
-            return '手动取消';
-    }
+ switch (reason) {
+  case 'move':
+   return '移动';
+  case 'attack':
+   return '出手';
+  case 'cultivate':
+   return '打坐';
+  case 'defeat':
+   return '身陨';
+  default:
+   return '手动取消';
+ }
 }
 
 function buildContainerTickSleepResult(sleepPayload, messages = []) {
-    return {
-        ...buildContainerTickResult(true, messages),
-        sleepPayload,
-    };
+ return {
+  ...buildContainerTickResult(true, messages),
+  sleepPayload,
+ };
 }
 
 function cloneContainerState(state) {
-    return {
-        sourceId: state.sourceId,
-        containerId: state.containerId,
-        generatedAtTick: state.generatedAtTick,
-        refreshAtTick: state.refreshAtTick,
-        entries: Array.isArray(state.entries)
-            ? state.entries.map((entry) => ({
-                item: entry?.item ? { ...entry.item } : entry.item,
-                createdTick: entry?.createdTick,
-                visible: entry?.visible,
-            }))
-            : [],
-        activeSearch: state.activeSearch
-            ? {
-                playerId: resolveActiveSearchPlayerId(state.activeSearch) || undefined,
-                jobRunId: resolveActiveSearchJobRunId(state.activeSearch) || undefined,
-                itemKey: state.activeSearch.itemKey,
-                totalTicks: state.activeSearch.totalTicks,
-                remainingTicks: state.activeSearch.remainingTicks,
-            }
-            : undefined,
-    };
+ return {
+  sourceId: state.sourceId,
+  containerId: state.containerId,
+  generatedAtTick: state.generatedAtTick,
+  refreshAtTick: state.refreshAtTick,
+  entries: Array.isArray(state.entries)
+   ? state.entries.map((entry) => ({
+    item: entry?.item ? { ...entry.item } : entry.item,
+    createdTick: entry?.createdTick,
+    visible: entry?.visible,
+   }))
+   : [],
+  activeSearch: state.activeSearch
+   ? {
+    playerId: resolveActiveSearchPlayerId(state.activeSearch) || undefined,
+    jobRunId: resolveActiveSearchJobRunId(state.activeSearch) || undefined,
+    itemKey: state.activeSearch.itemKey,
+    totalTicks: state.activeSearch.totalTicks,
+    remainingTicks: state.activeSearch.remainingTicks,
+   }
+   : undefined,
+ };
 }
 
 function removeSingleContainerRowItem(entries, row) {
-    const target = row.entries.find((entry) => Math.max(0, Math.trunc(Number(entry?.item?.count) || 0)) > 0) ?? null;
-    if (!target) {
-        return null;
-    }
-    const harvestedItem = {
-        ...target.item,
-        count: 1,
-    };
-    target.item.count = Math.max(0, Math.trunc(Number(target.item.count) || 0)) - 1;
-    if (target.item.count <= 0) {
-        const index = entries.indexOf(target);
-        if (index >= 0) {
-            entries.splice(index, 1);
-        }
-    }
-    return harvestedItem;
+ const target = row.entries.find((entry) => Math.max(0, Math.trunc(Number(entry?.item?.count) || 0)) > 0) ?? null;
+ if (!target) {
+  return null;
+ }
+ const harvestedItem = {
+  ...target.item,
+  count: 1,
+ };
+ target.item.count = Math.max(0, Math.trunc(Number(target.item.count) || 0)) - 1;
+ if (target.item.count <= 0) {
+  const index = entries.indexOf(target);
+  if (index >= 0) {
+   entries.splice(index, 1);
+  }
+ }
+ return harvestedItem;
 }
 
 function mergeContainerEntries(entries, nextEntries) {
-    for (const nextEntry of nextEntries) {
-        mergeItemStackEntryInto(entries, { ...nextEntry.item }, {
-            getItem: (entry: any) => entry.item,
-            createEntry: (item) => ({
-                item,
-                createdTick: nextEntry.createdTick,
-                visible: nextEntry.visible,
-            }),
-            onMerged: (entry: any) => {
-                entry.createdTick = Math.min(entry.createdTick, nextEntry.createdTick);
-            },
-            canMergeEntry: (entry: any) => entry.visible === nextEntry.visible,
-        });
-    }
+ for (const nextEntry of nextEntries) {
+  mergeItemStackEntryInto(entries, { ...nextEntry.item }, {
+   getItem: (entry: any) => entry.item,
+   createEntry: (item) => ({
+    item,
+    createdTick: nextEntry.createdTick,
+    visible: nextEntry.visible,
+   }),
+   onMerged: (entry: any) => {
+    entry.createdTick = Math.min(entry.createdTick, nextEntry.createdTick);
+   },
+   canMergeEntry: (entry: any) => entry.visible === nextEntry.visible,
+  });
+ }
 }
 
 function countContainerEntryItems(entries) {
-    return entries.reduce((sum, entry) => sum + Math.max(0, Math.trunc(Number(entry?.item?.count) || 0)), 0);
+ return entries.reduce((sum, entry) => sum + Math.max(0, Math.trunc(Number(entry?.item?.count) || 0)), 0);
 }
 
 function touchRuntimeInstanceRevision(deps, instanceId, x = null, y = null) {
-    const instance = typeof deps?.getInstanceRuntime === 'function'
-        ? deps.getInstanceRuntime(instanceId)
-        : null;
-    if (!instance || !Number.isFinite(Number(instance.worldRevision))) {
-        return;
-    }
-    if (Number.isFinite(Number(x)) && Number.isFinite(Number(y))) {
-        instance.markAoiViewChangedAt?.(Math.trunc(Number(x)), Math.trunc(Number(y)));
-    }
-    else {
-        instance.markAoiViewChangedGlobally?.();
-    }
-    instance.worldRevision += 1;
+ const instance = typeof deps?.getInstanceRuntime === 'function'
+  ? deps.getInstanceRuntime(instanceId)
+  : null;
+ if (!instance || !Number.isFinite(Number(instance.worldRevision))) {
+  return;
+ }
+ if (Number.isFinite(Number(x)) && Number.isFinite(Number(y))) {
+  instance.markAoiViewChangedAt?.(Math.trunc(Number(x)), Math.trunc(Number(y)));
+ }
+ else {
+  instance.markAoiViewChangedGlobally?.();
+ }
+ instance.worldRevision += 1;
 }
 
 function getContainerRespawnRemainingTicks(state, currentTick) {
-    if (typeof state?.refreshAtTick !== 'number' || !Number.isFinite(Number(currentTick))) {
-        return undefined;
-    }
-    return Math.max(0, Math.trunc(state.refreshAtTick) - Math.max(0, Math.trunc(Number(currentTick) || 0)));
+ if (typeof state?.refreshAtTick !== 'number' || !Number.isFinite(Number(currentTick))) {
+  return undefined;
+ }
+ return Math.max(0, Math.trunc(state.refreshAtTick) - Math.max(0, Math.trunc(Number(currentTick) || 0)));
 }
 
 function buildNextInventorySnapshots(items) {
-    return Array.isArray(items)
-        ? items.map((entry) => ({
-            itemId: typeof entry?.itemId === 'string' ? entry.itemId : '',
-            count: Math.max(1, Math.trunc(Number(entry?.count ?? 1))),
-            rawPayload: entry ? { ...entry } : {},
-        })).filter((entry) => entry.itemId)
-        : [];
+ return Array.isArray(items)
+  ? items.map((entry) => ({
+   itemId: typeof entry?.itemId === 'string' ? entry.itemId : '',
+   count: Math.max(1, Math.trunc(Number(entry?.count ?? 1))),
+   rawPayload: entry ? { ...entry } : {},
+  })).filter((entry) => entry.itemId)
+  : [];
 }
 
 function buildGrantedInventorySnapshots(items) {
-    return Array.isArray(items)
-        ? items.map((item) => ({
-            itemId: typeof item?.itemId === 'string' ? item.itemId : '',
-            count: Math.max(1, Math.trunc(Number(item?.count ?? 1))),
-            rawPayload: item ? { ...item } : {},
-        })).filter((entry) => entry.itemId)
-        : [];
+ return Array.isArray(items)
+  ? items.map((item) => ({
+   itemId: typeof item?.itemId === 'string' ? item.itemId : '',
+   count: Math.max(1, Math.trunc(Number(item?.count ?? 1))),
+   rawPayload: item ? { ...item } : {},
+  })).filter((entry) => entry.itemId)
+  : [];
 }
 
 function cloneContainerEntryForRestore(entry) {
-    return {
-        ...entry,
-        item: {
-            ...(entry?.item ?? {}),
-        },
-    };
+ return {
+  ...entry,
+  item: {
+   ...(entry?.item ?? {}),
+  },
+ };
 }
 
 function cloneContainerStateForRollback(state) {
-    return {
-        ...state,
-        entries: Array.isArray(state?.entries)
-            ? state.entries.map(cloneContainerEntryForRestore)
-            : [],
-        activeSearch: state?.activeSearch ? { ...state.activeSearch } : undefined,
-    };
+ return {
+  ...state,
+  entries: Array.isArray(state?.entries)
+   ? state.entries.map(cloneContainerEntryForRestore)
+   : [],
+  activeSearch: state?.activeSearch ? { ...state.activeSearch } : undefined,
+ };
 }
 
 function restoreContainerStateFromRollbackSnapshot(state, snapshot) {
-    const restored = cloneContainerStateForRollback(snapshot);
-    for (const key of Object.keys(state)) {
-        if (!(key in restored)) {
-            delete state[key];
-        }
-    }
-    Object.assign(state, restored);
+ const restored = cloneContainerStateForRollback(snapshot);
+ for (const key of Object.keys(state)) {
+  if (!(key in restored)) {
+   delete state[key];
+  }
+ }
+ Object.assign(state, restored);
 }
 
 function readInstancePersistenceDomainRevision(instance, domain) {
-    if (typeof instance?.getPersistenceDomainRevision !== 'function') {
-        return null;
-    }
-    const revision = Number(instance.getPersistenceDomainRevision(domain));
-    return Number.isFinite(revision) ? Math.max(0, Math.trunc(revision)) : null;
+ if (typeof instance?.getPersistenceDomainRevision !== 'function') {
+  return null;
+ }
+ const revision = Number(instance.getPersistenceDomainRevision(domain));
+ return Number.isFinite(revision) ? Math.max(0, Math.trunc(revision)) : null;
 }
 
 function restoreGroundSourceAfterFailedTake(
-    instance,
-    tileIndex,
-    sourceItemsBefore,
-    takenSourceItems,
-    sourceRevisionAfterMutation,
-    originalPosition,
+ instance,
+ tileIndex,
+ sourceItemsBefore,
+ takenSourceItems,
+ sourceRevisionAfterMutation,
+ originalPosition,
 ) {
-    const currentRevision = readInstancePersistenceDomainRevision(instance, 'ground_item');
-    const normalizedTick = Math.max(0, Math.trunc(Number(instance?.tick ?? 0)));
-    const hasExpiredTakenItem = (Array.isArray(takenSourceItems) ? takenSourceItems : []).some((item) => {
-        const expiresAtTick = Number(item?.expiresAtTick);
-        return Number.isFinite(expiresAtTick) && expiresAtTick > 0 && normalizedTick >= Math.trunc(expiresAtTick);
-    });
-    if (!hasExpiredTakenItem
-        && sourceRevisionAfterMutation != null
-        && currentRevision === sourceRevisionAfterMutation
-        && typeof instance?.restoreGroundTileItemsForAssetMutation === 'function') {
-        instance.restoreGroundTileItemsForAssetMutation(tileIndex, sourceItemsBefore);
-        return;
-    }
-    if (typeof instance?.restoreGroundItemsAfterFailedAssetTake === 'function') {
-        instance.restoreGroundItemsAfterFailedAssetTake(tileIndex, takenSourceItems);
-        return;
-    }
-    for (const item of Array.isArray(takenSourceItems) ? takenSourceItems : []) {
-        const x = Number.isFinite(Number(originalPosition?.x)) ? Math.trunc(Number(originalPosition.x)) : 0;
-        const y = Number.isFinite(Number(originalPosition?.y)) ? Math.trunc(Number(originalPosition.y)) : 0;
-        instance?.dropGroundItem?.(x, y, item);
-    }
+ const currentRevision = readInstancePersistenceDomainRevision(instance, 'ground_item');
+ const normalizedTick = Math.max(0, Math.trunc(Number(instance?.tick ?? 0)));
+ const hasExpiredTakenItem = (Array.isArray(takenSourceItems) ? takenSourceItems : []).some((item) => {
+  const expiresAtTick = Number(item?.expiresAtTick);
+  return Number.isFinite(expiresAtTick) && expiresAtTick > 0 && normalizedTick >= Math.trunc(expiresAtTick);
+ });
+ if (!hasExpiredTakenItem
+  && sourceRevisionAfterMutation != null
+  && currentRevision === sourceRevisionAfterMutation
+  && typeof instance?.restoreGroundTileItemsForAssetMutation === 'function') {
+  instance.restoreGroundTileItemsForAssetMutation(tileIndex, sourceItemsBefore);
+  return;
+ }
+ if (typeof instance?.restoreGroundItemsAfterFailedAssetTake === 'function') {
+  instance.restoreGroundItemsAfterFailedAssetTake(tileIndex, takenSourceItems);
+  return;
+ }
+ for (const item of Array.isArray(takenSourceItems) ? takenSourceItems : []) {
+  const x = Number.isFinite(Number(originalPosition?.x)) ? Math.trunc(Number(originalPosition.x)) : 0;
+  const y = Number.isFinite(Number(originalPosition?.y)) ? Math.trunc(Number(originalPosition.y)) : 0;
+  instance?.dropGroundItem?.(x, y, item);
+ }
 }
 
 function captureInventoryGrantRollbackState(player) {
-    return {
-        suppressImmediateDomainPersistence: player?.suppressImmediateDomainPersistence === true,
-        inventoryItems: buildNextInventorySnapshots(player.inventory?.items ?? []),
-        inventoryRevision: Math.max(0, Math.trunc(Number(player.inventory?.revision ?? 0))),
-        persistentRevision: Math.max(0, Math.trunc(Number(player?.persistentRevision ?? 0))),
-        selfRevision: Math.max(0, Math.trunc(Number(player?.selfRevision ?? 0))),
-        dirtyDomains: player?.dirtyDomains instanceof Set ? Array.from(player.dirtyDomains) : [],
-    };
+ return {
+  suppressImmediateDomainPersistence: player?.suppressImmediateDomainPersistence === true,
+  inventoryItems: buildNextInventorySnapshots(player.inventory?.items ?? []),
+  inventoryRevision: Math.max(0, Math.trunc(Number(player.inventory?.revision ?? 0))),
+  persistentRevision: Math.max(0, Math.trunc(Number(player?.persistentRevision ?? 0))),
+  selfRevision: Math.max(0, Math.trunc(Number(player?.selfRevision ?? 0))),
+  dirtyDomains: player?.dirtyDomains instanceof Set ? Array.from(player.dirtyDomains) : [],
+ };
 }
 
 function restoreInventoryGrantRollbackState(player, rollbackState, playerRuntimeService) {
-    player.inventory.items = Array.isArray(rollbackState.inventoryItems)
-        ? rollbackState.inventoryItems.map((entry) => ({ ...(entry.rawPayload ?? entry), itemId: entry.itemId, count: entry.count }))
-        : [];
-    player.inventory.revision = rollbackState.inventoryRevision;
-    player.persistentRevision = rollbackState.persistentRevision;
-    player.selfRevision = rollbackState.selfRevision;
-    player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
-    player.dirtyDomains = new Set(Array.isArray(rollbackState.dirtyDomains) ? rollbackState.dirtyDomains : []);
-    playerRuntimeService.playerProgressionService.refreshPreview(player);
+ player.inventory.items = Array.isArray(rollbackState.inventoryItems)
+  ? rollbackState.inventoryItems.map((entry) => ({ ...(entry.rawPayload ?? entry), itemId: entry.itemId, count: entry.count }))
+  : [];
+ player.inventory.revision = rollbackState.inventoryRevision;
+ player.persistentRevision = rollbackState.persistentRevision;
+ player.selfRevision = rollbackState.selfRevision;
+ player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
+ player.dirtyDomains = new Set(Array.isArray(rollbackState.dirtyDomains) ? rollbackState.dirtyDomains : []);
+ playerRuntimeService.playerProgressionService.refreshPreview(player);
 }
 
 function resolveLootSourceOwnershipEpoch(instance) {
-    const ownershipEpoch = Math.trunc(Number(instance?.meta?.ownershipEpoch));
-    if (!Number.isSafeInteger(ownershipEpoch) || ownershipEpoch <= 0) {
-        throw new BadRequestException('当前地图实例资产事务围栏暂不可用，请稍后重试');
-    }
-    return ownershipEpoch;
+ const ownershipEpoch = Math.trunc(Number(instance?.meta?.ownershipEpoch));
+ if (!Number.isSafeInteger(ownershipEpoch) || ownershipEpoch <= 0) {
+  throw new BadRequestException('当前地图实例资产事务围栏暂不可用，请稍后重试');
+ }
+ return ownershipEpoch;
 }
 
 function buildGroundSourceFlushLedgerPayload(instance, sourceTileIndex, sourceItems, flushLedgerVersion) {
-    const delta = typeof instance?.buildGroundPersistenceDelta === 'function'
-        ? instance.buildGroundPersistenceDelta()
-        : null;
-    let payload;
-    if (delta?.fullReplace === true) {
-        payload = {
-            fullReplace: true,
-            entries: typeof instance?.buildGroundPersistenceEntries === 'function'
-                ? instance.buildGroundPersistenceEntries()
-                : [],
-        };
-    }
-    else {
-        const tileIndices = new Set<number>(
-            (Array.isArray(delta?.tileIndices) ? delta.tileIndices : [])
-                .map((tileIndex) => Math.trunc(Number(tileIndex)))
-                .filter((tileIndex) => Number.isSafeInteger(tileIndex) && tileIndex >= 0),
-        );
-        tileIndices.add(sourceTileIndex);
-        const entriesByTileIndex = new Map<number, { tileIndex: number; items: any[] }>();
-        for (const entry of Array.isArray(delta?.entries) ? delta.entries : []) {
-            const tileIndex = Math.trunc(Number(entry?.tileIndex));
-            if (Number.isSafeInteger(tileIndex) && tileIndex >= 0) {
-                entriesByTileIndex.set(tileIndex, {
-                    tileIndex,
-                    items: Array.isArray(entry?.items) ? entry.items.map((item) => ({ ...item })) : [],
-                });
-            }
-        }
-        if (Array.isArray(sourceItems) && sourceItems.length > 0) {
-            entriesByTileIndex.set(sourceTileIndex, {
-                tileIndex: sourceTileIndex,
-                items: sourceItems.map((item) => ({ ...item })),
-            });
-        }
-        else {
-            entriesByTileIndex.delete(sourceTileIndex);
-        }
-        payload = {
-            fullReplace: false,
-            tileIndices: Array.from(tileIndices).sort((left, right) => left - right),
-            entries: Array.from(entriesByTileIndex.values()).sort((left, right) => left.tileIndex - right.tileIndex),
-        };
-    }
-    return buildLootSourceFlushLedgerPayload(
-        'ground_item',
-        payload,
-        flushLedgerVersion,
-        readInstancePersistenceDomainRevision(instance, 'ground_item'),
-    );
+ const delta = typeof instance?.buildGroundPersistenceDelta === 'function'
+  ? instance.buildGroundPersistenceDelta()
+  : null;
+ let payload;
+ if (delta?.fullReplace === true) {
+  payload = {
+   fullReplace: true,
+   entries: typeof instance?.buildGroundPersistenceEntries === 'function'
+    ? instance.buildGroundPersistenceEntries()
+    : [],
+  };
+ }
+ else {
+  const tileIndices = new Set<number>(
+   (Array.isArray(delta?.tileIndices) ? delta.tileIndices : [])
+    .map((tileIndex) => Math.trunc(Number(tileIndex)))
+    .filter((tileIndex) => Number.isSafeInteger(tileIndex) && tileIndex >= 0),
+  );
+  tileIndices.add(sourceTileIndex);
+  const entriesByTileIndex = new Map<number, { tileIndex: number; items: any[] }>();
+  for (const entry of Array.isArray(delta?.entries) ? delta.entries : []) {
+   const tileIndex = Math.trunc(Number(entry?.tileIndex));
+   if (Number.isSafeInteger(tileIndex) && tileIndex >= 0) {
+    entriesByTileIndex.set(tileIndex, {
+     tileIndex,
+     items: Array.isArray(entry?.items) ? entry.items.map((item) => ({ ...item })) : [],
+    });
+   }
+  }
+  if (Array.isArray(sourceItems) && sourceItems.length > 0) {
+   entriesByTileIndex.set(sourceTileIndex, {
+    tileIndex: sourceTileIndex,
+    items: sourceItems.map((item) => ({ ...item })),
+   });
+  }
+  else {
+   entriesByTileIndex.delete(sourceTileIndex);
+  }
+  payload = {
+   fullReplace: false,
+   tileIndices: Array.from(tileIndices).sort((left, right) => left - right),
+   entries: Array.from(entriesByTileIndex.values()).sort((left, right) => left.tileIndex - right.tileIndex),
+  };
+ }
+ return buildLootSourceFlushLedgerPayload(
+  'ground_item',
+  payload,
+  flushLedgerVersion,
+  readInstancePersistenceDomainRevision(instance, 'ground_item'),
+ );
 }
 
 function buildContainerSourceFlushLedgerPayload(
-    instance,
-    states,
-    containerRevision,
-    flushLedgerVersion,
+ instance,
+ states,
+ containerRevision,
+ flushLedgerVersion,
 ) {
-    return {
-        ...buildLootSourceFlushLedgerPayload(
-            'container_state',
-            Array.isArray(states) ? states.map((state) => ({ ...state })) : [],
-            flushLedgerVersion,
-            readInstancePersistenceDomainRevision(instance, 'container_state'),
-        ),
-        containerRevision: Math.max(0, Math.trunc(Number(containerRevision) || 0)),
-    };
+ return {
+  ...buildLootSourceFlushLedgerPayload(
+   'container_state',
+   Array.isArray(states) ? states.map((state) => ({ ...state })) : [],
+   flushLedgerVersion,
+   readInstancePersistenceDomainRevision(instance, 'container_state'),
+  ),
+  containerRevision: Math.max(0, Math.trunc(Number(containerRevision) || 0)),
+ };
 }
 
 function buildLootSourceFlushLedgerPayload(domain, payload, flushLedgerVersion, domainRevision) {
-    const normalizedDomainRevision = Math.max(0, Math.trunc(Number(domainRevision) || 0));
-    return {
-        kind: 'instance_domain_state',
-        domain,
-        payload,
-        revision: flushLedgerVersion,
-        domainRevisions: normalizedDomainRevision > 0 ? { [domain]: normalizedDomainRevision } : {},
-        stagedDomains: [domain],
-        stagingGenerationId: `durable-source:${domain}:${flushLedgerVersion}`,
-    };
+ const normalizedDomainRevision = Math.max(0, Math.trunc(Number(domainRevision) || 0));
+ return {
+  kind: 'instance_domain_state',
+  domain,
+  payload,
+  revision: flushLedgerVersion,
+  domainRevisions: normalizedDomainRevision > 0 ? { [domain]: normalizedDomainRevision } : {},
+  stagedDomains: [domain],
+  stagingGenerationId: `durable-source:${domain}:${flushLedgerVersion}`,
+ };
 }
 
 async function resolveLootInstanceLeaseContext(instanceId, deps) {
-    const normalizedInstanceId = typeof instanceId === 'string' ? instanceId.trim() : '';
-    if (!normalizedInstanceId || !deps?.instanceCatalogService?.isEnabled?.()) {
-        return null;
-    }
-    const row = await deps.instanceCatalogService.loadInstanceCatalog(normalizedInstanceId);
-    if (!row) {
-        return null;
-    }
-    const assignedNodeId = typeof row.assigned_node_id === 'string' ? row.assigned_node_id.trim() : '';
-    const leaseToken = typeof row.lease_token === 'string' ? row.lease_token.trim() : '';
-    const ownershipEpoch = Number.isFinite(Number(row.ownership_epoch)) ? Math.max(1, Math.trunc(Number(row.ownership_epoch))) : 0;
-    if (!assignedNodeId || !leaseToken || ownershipEpoch <= 0) {
-        return null;
-    }
-    return {
-        assignedNodeId,
-        leaseToken,
-        ownershipEpoch,
-    };
+ const normalizedInstanceId = typeof instanceId === 'string' ? instanceId.trim() : '';
+ if (!normalizedInstanceId || !deps?.instanceCatalogService?.isEnabled?.()) {
+  return null;
+ }
+ const row = await deps.instanceCatalogService.loadInstanceCatalog(normalizedInstanceId);
+ if (!row) {
+  return null;
+ }
+ const assignedNodeId = typeof row.assigned_node_id === 'string' ? row.assigned_node_id.trim() : '';
+ const leaseToken = typeof row.lease_token === 'string' ? row.lease_token.trim() : '';
+ const ownershipEpoch = Number.isFinite(Number(row.ownership_epoch)) ? Math.max(1, Math.trunc(Number(row.ownership_epoch))) : 0;
+ if (!assignedNodeId || !leaseToken || ownershipEpoch <= 0) {
+  return null;
+ }
+ return {
+  assignedNodeId,
+  leaseToken,
+  ownershipEpoch,
+ };
 }
 
 function buildLootInventoryGrantOperationId(playerId, sourceType, sourceRefId, items) {
-    const normalizedPlayerId = typeof playerId === 'string' && playerId.trim() ? playerId.trim() : 'player';
-    const normalizedSourceType = typeof sourceType === 'string' && sourceType.trim() ? sourceType.trim() : 'inventory';
-    const normalizedSourceRefId = typeof sourceRefId === 'string' && sourceRefId.trim() ? sourceRefId.trim() : 'source';
-    const normalizedItemSignature = Array.isArray(items)
-        ? items.map((item) => {
-            const itemId = typeof item?.itemId === 'string' && item.itemId.trim() ? item.itemId.trim() : 'item';
-            const count = Math.max(1, Math.trunc(Number(item?.count ?? 1)));
-            const itemInstanceId = typeof item?.itemInstanceId === 'string' && item.itemInstanceId.trim()
-                ? item.itemInstanceId.trim()
-                : 'no-instance';
-            return `${itemId}:x${count}:${itemInstanceId}`;
-        }).join('|')
-        : 'items';
-    return compactLootOperationId(`op:${normalizedPlayerId}:${normalizedSourceType}:${normalizedSourceRefId}:${normalizedItemSignature}`);
+ const normalizedPlayerId = typeof playerId === 'string' && playerId.trim() ? playerId.trim() : 'player';
+ const normalizedSourceType = typeof sourceType === 'string' && sourceType.trim() ? sourceType.trim() : 'inventory';
+ const normalizedSourceRefId = typeof sourceRefId === 'string' && sourceRefId.trim() ? sourceRefId.trim() : 'source';
+ const normalizedItemSignature = Array.isArray(items)
+  ? items.map((item) => {
+   const itemId = typeof item?.itemId === 'string' && item.itemId.trim() ? item.itemId.trim() : 'item';
+   const count = Math.max(1, Math.trunc(Number(item?.count ?? 1)));
+   const itemInstanceId = typeof item?.itemInstanceId === 'string' && item.itemInstanceId.trim()
+    ? item.itemInstanceId.trim()
+    : 'no-instance';
+   return `${itemId}:x${count}:${itemInstanceId}`;
+  }).join('|')
+  : 'items';
+ return compactLootOperationId(`op:${normalizedPlayerId}:${normalizedSourceType}:${normalizedSourceRefId}:${normalizedItemSignature}`);
 }
 
 function parseGroundLootSourceTileIndex(sourceId) {
-    if (typeof sourceId !== 'string' || !sourceId.startsWith('g:')) {
-        return null;
-    }
-    const tileIndex = Number(sourceId.slice(2));
-    return Number.isInteger(tileIndex) && tileIndex >= 0 ? tileIndex : null;
+ if (typeof sourceId !== 'string' || !sourceId.startsWith('g:')) {
+  return null;
+ }
+ const tileIndex = Number(sourceId.slice(2));
+ return Number.isInteger(tileIndex) && tileIndex >= 0 ? tileIndex : null;
 }
 
 function compactLootOperationId(operationId) {
-    if (operationId.length <= LOOT_OPERATION_ID_SAFE_LENGTH) {
-        return operationId;
-    }
-    const digest = createHash('sha256').update(operationId).digest('hex').slice(0, 24);
-    const suffix = `:h:${digest}`;
-    return `${operationId.slice(0, LOOT_OPERATION_ID_SAFE_LENGTH - suffix.length)}${suffix}`;
+ if (operationId.length <= LOOT_OPERATION_ID_SAFE_LENGTH) {
+  return operationId;
+ }
+ const digest = createHash('sha256').update(operationId).digest('hex').slice(0, 24);
+ const suffix = `:h:${digest}`;
+ return `${operationId.slice(0, LOOT_OPERATION_ID_SAFE_LENGTH - suffix.length)}${suffix}`;
 }

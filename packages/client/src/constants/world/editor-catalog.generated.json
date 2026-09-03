@@ -3,7 +3,7 @@
     {
       "id": "passive_craft_mortal_mortal_gather",
       "name": "《百草识辨篇》",
-      "desc": "凡人采集专修心法。谙熟百草习性灵机，采集速度提升 8%。",
+      "desc": "凡人采集专修心法。谙熟百草习性灵机，采摘有 8% 线性保株概率不扣地块存量，但采摘速度降低 16%。",
       "grade": "mortal",
       "category": "arts",
       "realmLv": 1,
@@ -19,7 +19,7 @@
         {
           "id": "skill_passive_craft_mortal_mortal_gather",
           "name": "百草识辨",
-          "desc": "【被动】百草识辨，采折得法。采集速度提升 8%。",
+          "desc": "【被动】百草识辨，采折留根。采摘有 8% 线性保株概率不扣地块存量，采摘速度降低 16%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -32,10 +32,11 @@
               "buffId": "passive_craft_mortal_mortal_gather_buff",
               "name": "百草识辨",
               "shortMark": "集",
-              "desc": "采摘利落药性无损。采集速度+8%。",
+              "desc": "采摘利落药根无损。保株产出+8%，采摘速度-16%。",
               "craftEffectStats": {
                 "gather": {
-                  "speedRate": 0.08
+                  "outputRate": 0.08,
+                  "speedRate": -0.16
                 }
               },
               "ignoreRealmEffectiveness": true
@@ -48,7 +49,7 @@
     {
       "id": "passive_craft_mortal_mortal_formation",
       "name": "《布子定元篇》",
-      "desc": "凡人布阵专修心法。以棋道推演阵位阵眼，布阵速度提升 8%。",
+      "desc": "凡人布阵专修心法。以棋道推演阵位阵眼，阵法强度提升 8%。",
       "grade": "mortal",
       "category": "arts",
       "realmLv": 1,
@@ -64,7 +65,7 @@
         {
           "id": "skill_passive_craft_mortal_mortal_formation",
           "name": "布子定元",
-          "desc": "【被动】弈道推阵，布子定局。布阵速度提升 8%。",
+          "desc": "【被动】弈道推阵，布子定局。阵法强度提升 8%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -77,10 +78,10 @@
               "buffId": "passive_craft_mortal_mortal_formation_buff",
               "name": "布子定元",
               "shortMark": "阵",
-              "desc": "阵眼明晰布子从容。布阵速度+8%。",
+              "desc": "阵眼明晰布子从容。阵法强度+8%。",
               "craftEffectStats": {
                 "formation": {
-                  "speedRate": 0.08
+                  "outputRate": 0.08
                 }
               },
               "ignoreRealmEffectiveness": true
@@ -890,7 +891,7 @@
     {
       "id": "passive_craft_foundation_mystic_gather",
       "name": "《灵植引脉录》",
-      "desc": "筑基采集专修心法。神识与灵植经络相融一念采收，采集速度提升 16%。",
+      "desc": "筑基采集专修心法。神识与灵植经络相融一念采收，采摘有 16% 线性保株概率不扣地块存量，但采摘速度降低 32%。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 31,
@@ -906,7 +907,7 @@
         {
           "id": "skill_passive_craft_foundation_mystic_gather",
           "name": "灵植引脉",
-          "desc": "【被动】灵植引脉，瞬息收摄。采集速度提升 16%。",
+          "desc": "【被动】灵植引脉，撷华留脉。采摘有 16% 线性保株概率不扣地块存量，采摘速度降低 32%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -919,10 +920,11 @@
               "buffId": "passive_craft_foundation_mystic_gather_buff",
               "name": "灵植引脉",
               "shortMark": "集",
-              "desc": "神念通灵采药如风。采集速度+16%。",
+              "desc": "神念通灵巧撷灵华。保株产出+16%，采摘速度-32%。",
               "craftEffectStats": {
                 "gather": {
-                  "speedRate": 0.16
+                  "outputRate": 0.16,
+                  "speedRate": -0.32
                 }
               },
               "ignoreRealmEffectiveness": true
@@ -1225,7 +1227,7 @@
     {
       "id": "passive_craft_qi_yellow_gather",
       "name": "《青灵采撷诀》",
-      "desc": "练气采集专修心法。引青木灵气化解灵草天然防护，采集速度提升 12%。",
+      "desc": "练气采集专修心法。引青木灵气化解灵草天然防护，采摘有 12% 线性保株概率不扣地块存量，但采摘速度降低 24%。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 23,
@@ -1241,7 +1243,7 @@
         {
           "id": "skill_passive_craft_qi_yellow_gather",
           "name": "青灵采撷",
-          "desc": "【被动】青灵化护，采撷无碍。采集速度提升 12%。",
+          "desc": "【被动】青灵化护，巧取留种。采摘有 12% 线性保株概率不扣地块存量，采摘速度降低 24%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1254,10 +1256,11 @@
               "buffId": "passive_craft_qi_yellow_gather_buff",
               "name": "青灵采撷",
               "shortMark": "集",
-              "desc": "青灵引气采草神速。采集速度+12%。",
+              "desc": "青灵引气温润护根。保株产出+12%，采摘速度-24%。",
               "craftEffectStats": {
                 "gather": {
-                  "speedRate": 0.12
+                  "outputRate": 0.12,
+                  "speedRate": -0.24
                 }
               },
               "ignoreRealmEffectiveness": true
@@ -1519,7 +1522,7 @@
     {
       "id": "passive_craft_foundation_mystic_formation",
       "name": "《锁灵定脉录》",
-      "desc": "筑基布阵专修心法。神识勾勒大阵枢纽直接拘锁地脉灵机，布阵速度提升 16%。",
+      "desc": "筑基布阵专修心法。神识勾勒大阵枢纽直接拘锁地脉灵机，阵法强度提升 16%。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 31,
@@ -1535,7 +1538,7 @@
         {
           "id": "skill_passive_craft_foundation_mystic_formation",
           "name": "锁灵定脉",
-          "desc": "【被动】锁灵定脉，天罗自成。布阵速度提升 16%。",
+          "desc": "【被动】锁灵定脉，天罗自成。阵法强度提升 16%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1548,10 +1551,10 @@
               "buffId": "passive_craft_foundation_mystic_formation_buff",
               "name": "锁灵定脉",
               "shortMark": "阵",
-              "desc": "神识布阵勾锁地脉。布阵速度+16%。",
+              "desc": "神识布阵勾锁地脉。阵法强度+16%。",
               "craftEffectStats": {
                 "formation": {
-                  "speedRate": 0.16
+                  "outputRate": 0.16
                 }
               },
               "ignoreRealmEffectiveness": true
@@ -2283,7 +2286,7 @@
     {
       "id": "passive_craft_qi_yellow_formation",
       "name": "《走盘引阵诀》",
-      "desc": "练气布阵专修心法。以灵气运化阵盘贯通阵纹脉络，布阵速度提升 12%。",
+      "desc": "练气布阵专修心法。以灵气运化阵盘贯通阵纹脉络，阵法强度提升 12%。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 23,
@@ -2299,7 +2302,7 @@
         {
           "id": "skill_passive_craft_qi_yellow_formation",
           "name": "走盘引阵",
-          "desc": "【被动】走盘通脉，阵纹瞬结。布阵速度提升 12%。",
+          "desc": "【被动】走盘通脉，阵纹瞬结。阵法强度提升 12%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -2312,10 +2315,10 @@
               "buffId": "passive_craft_qi_yellow_formation_buff",
               "name": "走盘引阵",
               "shortMark": "阵",
-              "desc": "阵盘通灵结印神速。布阵速度+12%。",
+              "desc": "阵盘通灵结印神妙。阵法强度+12%。",
               "craftEffectStats": {
                 "formation": {
-                  "speedRate": 0.12
+                  "outputRate": 0.12
                 }
               },
               "ignoreRealmEffectiveness": true
@@ -17231,7 +17234,7 @@
     {
       "buffId": "passive_craft_mortal_mortal_gather_buff",
       "name": "百草识辨",
-      "desc": "采摘利落药性无损。采集速度+8%。",
+      "desc": "采摘利落药根无损。保株产出+8%，采摘速度-16%。",
       "shortMark": "集",
       "category": "buff",
       "visibility": "public",
@@ -17313,7 +17316,7 @@
     {
       "buffId": "passive_craft_mortal_mortal_formation_buff",
       "name": "布子定元",
-      "desc": "阵眼明晰布子从容。布阵速度+8%。",
+      "desc": "阵眼明晰布子从容。阵法强度+8%。",
       "shortMark": "阵",
       "category": "buff",
       "visibility": "public",
@@ -18366,7 +18369,7 @@
     {
       "buffId": "passive_craft_foundation_mystic_gather_buff",
       "name": "灵植引脉",
-      "desc": "神念通灵采药如风。采集速度+16%。",
+      "desc": "神念通灵巧撷灵华。保株产出+16%，采摘速度-32%。",
       "shortMark": "集",
       "category": "buff",
       "visibility": "public",
@@ -18646,7 +18649,7 @@
     {
       "buffId": "passive_craft_qi_yellow_gather_buff",
       "name": "青灵采撷",
-      "desc": "青灵引气采草神速。采集速度+12%。",
+      "desc": "青灵引气温润护根。保株产出+12%，采摘速度-24%。",
       "shortMark": "集",
       "category": "buff",
       "visibility": "public",
@@ -18997,7 +19000,7 @@
     {
       "buffId": "passive_craft_foundation_mystic_formation_buff",
       "name": "锁灵定脉",
-      "desc": "神识布阵勾锁地脉。布阵速度+16%。",
+      "desc": "神识布阵勾锁地脉。阵法强度+16%。",
       "shortMark": "阵",
       "category": "buff",
       "visibility": "public",
@@ -19876,7 +19879,7 @@
     {
       "buffId": "passive_craft_qi_yellow_formation_buff",
       "name": "走盘引阵",
-      "desc": "阵盘通灵结印神速。布阵速度+12%。",
+      "desc": "阵盘通灵结印神妙。阵法强度+12%。",
       "shortMark": "阵",
       "category": "buff",
       "visibility": "public",
