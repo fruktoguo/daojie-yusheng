@@ -191,7 +191,7 @@ export class WorldRuntimeMonsterActionApplyService {
         const planStartedAt = performance.now();
         const instance = deps.getInstanceRuntime(action.instanceId);
         const monster = instance?.getMonster?.(action.runtimeId) ?? null;
-        const skill = monster?.skills?.find((entry) => entry.id === action.skillId) ?? null;
+        const skill = findMonsterRuntimeSkill(monster, action.skillId);
         const actionPlan = this.resolveMonsterSkillChantStartPlan(instance, action, skill, monster);
         recordMonsterActionPerf(deps, 'monsterActions.chantPlanMs', planStartedAt);
         if (!actionPlan.ok) {
@@ -332,7 +332,7 @@ export class WorldRuntimeMonsterActionApplyService {
         const planStartedAt = performance.now();
         const instance = deps.getInstanceRuntime(action.instanceId);
         const monster = instance?.getMonster?.(action.runtimeId) ?? null;
-        const skill = monster?.skills?.find((entry) => entry.id === action.skillId) ?? null;
+        const skill = findMonsterRuntimeSkill(monster, action.skillId);
         const actionPlan = this.resolveMonsterSkillActionPlan(instance, deps, action, skill, monster);
         const effectColor = skill ? getSkillEffectColor(skill) : getDamageTrailColor('spell');
         recordMonsterActionPerf(deps, 'monsterActions.skillPlanMs', planStartedAt);
@@ -840,6 +840,19 @@ function resolveMonsterCombatExpEquivalent(monster, playerRuntimeService) {
     return resolveMonsterCombatExpEquivalentFallback(monster);
 }
 
+
+function findMonsterRuntimeSkill(monster, skillId) {
+    if (!monster || typeof skillId !== 'string' || !skillId) {
+        return null;
+    }
+    const skills = Array.isArray(monster.skills) ? monster.skills : [];
+    for (const entry of skills) {
+        if (entry && typeof entry === 'object' && entry.id === skillId) {
+            return entry;
+        }
+    }
+    return null;
+}
 function isMonsterSelfOnlySkill(skill) {
     const effects = Array.isArray(skill?.effects) ? skill.effects : [];
     if (resolveSkillRequiresTarget(skill) !== false || effects.length === 0) {

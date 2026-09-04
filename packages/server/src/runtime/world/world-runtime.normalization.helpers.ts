@@ -771,14 +771,14 @@ export function findPlayerSkill(player, skillId) {
 }
 /** 判断技能是否包含伤害/对目标生效效果。 */
 export function isHostileSkill(skill) {
-    return skill.effects.some((effect) => effect.type === 'damage' || (effect.type === 'buff' && effect.target === 'target'));
+    const effects = Array.isArray(skill?.effects) ? skill.effects : [];
+    return effects.some((effect) => effect?.type === 'damage' || (effect?.type === 'buff' && effect.target === 'target'));
 }
 /** 读取技能首个伤害特效颜色，用于战斗表现。 */
 export function getSkillEffectColor(skill) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    for (const effect of skill.effects) {
-        if (effect.type === 'damage') {
+    const effects = Array.isArray(skill?.effects) ? skill.effects : [];
+    for (const effect of effects) {
+        if (effect?.type === 'damage') {
             return getDamageTrailColor(effect.damageKind ?? 'spell', effect.element);
         }
     }

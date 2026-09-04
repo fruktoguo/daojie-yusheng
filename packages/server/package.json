@@ -19,6 +19,7 @@
     "smoke:shadow": "pnpm compile && node dist/tools/run-compiled-tool.js -- shadow-smoke",
     "smoke:dungeon-monster-engage": "pnpm compile && node dist/tools/dungeon-monster-engage-smoke.js",
     "smoke:dungeon-rules": "pnpm compile && node dist/tools/dungeon-rules-smoke.js",
+    "smoke:dungeon-boss-skill-hydrate": "pnpm compile && node dist/tools/dungeon-boss-skill-hydrate-smoke.js",
     "smoke:heavenly-passives": "pnpm compile && node dist/tools/heavenly-passives-smoke.js",
     "smoke:player-runtime-persistence-roundtrip": "pnpm compile && node dist/tools/player-runtime-persistence-roundtrip-smoke.js",
     "smoke:map-persistence-flush-throttle": "SERVER_PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS=100 SERVER_PERSISTENCE_FLUSH_SLOW_BACKOFF_MS=5000 pnpm compile && SERVER_PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS=100 SERVER_PERSISTENCE_FLUSH_SLOW_BACKOFF_MS=5000 node dist/tools/map-persistence-flush-throttle-smoke.js",

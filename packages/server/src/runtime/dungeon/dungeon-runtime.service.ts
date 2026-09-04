@@ -777,6 +777,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
    if (combatOpeningTicks > 0) {
     (scaled as { combatOpeningTicks?: number }).combatOpeningTicks = combatOpeningTicks;
    }
+   scaled.skills = hydrateDungeonMonsterSkills(scaled.skills, (skillId) => this.content.getSkillRef(skillId));
    return scaled;
   });
   let instance;
@@ -1114,6 +1115,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   if (combatOpeningTicks > 0) {
    (scaledSpawn as { combatOpeningTicks?: number }).combatOpeningTicks = combatOpeningTicks;
   }
+  scaledSpawn.skills = hydrateDungeonMonsterSkills(scaledSpawn.skills, (skillId) => this.content.getSkillRef(skillId));
   instance.addRuntimeMonster?.(scaledSpawn);
  }
 
@@ -1627,6 +1629,34 @@ function scaleMonsterSpawn(
  scaled.maxHp = Math.max(1, Math.round(Number(spawn.maxHp) * finalHpMult));
  scaled.hp = scaled.maxHp;
  return scaled;
+}
+
+/** 把副本缩放后的技能 ID / 残缺对象解析成内容库技能真源，避免运行态 skills 变成字符串。 */
+export function hydrateDungeonMonsterSkills(
+ skills: readonly unknown[],
+ getSkillRef: (skillId: string) => unknown,
+): unknown[] {
+ if (!Array.isArray(skills) || skills.length === 0) {
+  return [];
+ }
+ const seen = new Set<string>();
+ const resolved: unknown[] = [];
+ for (const entry of skills) {
+  const skillId = typeof entry === 'string'
+   ? entry.trim()
+   : (entry && typeof entry === 'object' && typeof (entry as { id?: unknown }).id === 'string'
+    ? String((entry as { id: string }).id).trim()
+    : '');
+  if (!skillId || seen.has(skillId)) {
+   continue;
+  }
+  seen.add(skillId);
+  const skill = getSkillRef(skillId);
+  if (skill && typeof skill === 'object') {
+   resolved.push(skill);
+  }
+ }
+ return resolved;
 }
 
 function chebyshevDistance(fromX: unknown, fromY: unknown, toX: unknown, toY: unknown): number {
