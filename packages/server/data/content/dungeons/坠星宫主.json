@@ -13,7 +13,7 @@
   "confirmationTimeoutMs": 60000,
   "timeoutSeconds": 3600,
   "difficulty": {
-    "maxPresentRank": "mystic",
+    "maxPresentRank": "spirit",
     "energyCost": {
       "trial": 4,
       "hard": 8,

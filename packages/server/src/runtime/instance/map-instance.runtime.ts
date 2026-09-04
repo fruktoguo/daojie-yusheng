@@ -59,6 +59,13 @@ const FIVE_PHASE_DAMAGE_REDUCTION_BUFF_IDS = Object.freeze({
  fire: 'buff.dungeon_fivephase_devour_resist_fire',
  earth: 'buff.dungeon_fivephase_devour_resist_earth',
 });
+const FIVE_PHASE_ELEMENT_ZH = Object.freeze({
+ metal: '金',
+ wood: '木',
+ water: '水',
+ fire: '火',
+ earth: '土',
+});
 const FIVE_PHASE_ORIGIN_BUFF_ID = 'buff.dungeon_fivephase_origin';
 const FIVE_PHASE_YUKONG_BUFF_ID = 'buff.dungeon_fallen_palace_yukong';
 /** 宗门模板不会原生生成门窗；这两类结构只能来自建筑投影。 */
@@ -5509,19 +5516,23 @@ class MapInstanceRuntime {
   }
   if (FIVE_PHASE_ELEMENTS.has(damageElement)) {
    const buffId = FIVE_PHASE_DAMAGE_REDUCTION_BUFF_IDS[damageElement];
+   const zhName = FIVE_PHASE_ELEMENT_ZH[damageElement] ?? damageElement;
+   const buffName = `噬${zhName}`;
    const existing = monster.buffs.find((entry) => entry.buffId === buffId);
    if (existing) {
     existing.stacks = Math.min(Number.MAX_SAFE_INTEGER, Math.max(0, Math.round(Number(existing.stacks) || 0)) + 1);
     existing.maxStacks = Number.MAX_SAFE_INTEGER;
     existing.remainingTicks = 30;
     existing.duration = 30;
+    existing.name = buffName;
+    existing.shortMark = zhName;
    }
    else {
     monster.buffs.push(createRuntimeTemporaryBuff({
      buffId,
-     name: `${damageElement}行噬脉减伤`,
+     name: buffName,
      desc: '五行噬脉：受到对应五行伤害时叠加，持续三十息。',
-     shortMark: '御',
+     shortMark: zhName,
      category: 'buff',
      visibility: 'public',
      remainingTicks: 30,
@@ -10506,7 +10517,10 @@ function pickFirstCastableMonsterSkill(monster, target, distance, currentTick, s
  return null;
 }
 function canMonsterCastSkill(monster, skill, target, distance, currentTick) {
- if (skill?.active === false) {
+ if (!skill || typeof skill !== 'object' || typeof skill.id !== 'string' || !skill.id) {
+  return false;
+ }
+ if (skill.active === false) {
   return false;
  }
  if (!matchesMonsterSkillConditions(monster, skill)) {

@@ -133,6 +133,9 @@ registry.loadAll();
 const dungeon = registry.getRef('dungeon_huanling_zhenren');
 assert.equal(dungeon.flowType, 'suppress_demon');
 assert.equal(dungeon.difficulty.maxPresentRank, 'spirit');
+assert.equal(registry.getRef('dungeon_fallen_palace_lord').difficulty.maxPresentRank, 'spirit');
+assert.equal(registry.getRef('dungeon_failed_foundation').difficulty.maxPresentRank, 'spirit');
+assert.equal(registry.getRef('dungeon_fivephase_devourer').difficulty.maxPresentRank, 'spirit');
 assert.equal(dungeon.rooms?.length, 1);
 assert.equal(dungeon.rooms?.[0]?.bossDropTable?.length, 22);
 assert.equal(dungeon.rooms?.[0]?.bossDropTable?.filter((entry) => entry.type === 'skill_book').length, 20);
@@ -158,7 +161,7 @@ events.length = 0;
 new ExpeditionDungeonFlowController().onTick(makeRun('expedition'), { ...dungeon, flowType: 'expedition', rooms: [] } as any, context);
 assert.ok(events.includes('complete:all_rooms_cleared'));
 void testDungeonRestartRecovery().then(() => {
-  console.log(JSON.stringify({ ok: true, case: 'dungeon-rules', checks: 52 }));
+  console.log(JSON.stringify({ ok: true, case: 'dungeon-rules', checks: 55 }));
 }).catch((error) => {
   console.error(error);
   process.exitCode = 1;
