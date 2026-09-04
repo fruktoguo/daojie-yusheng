@@ -5511,9 +5511,10 @@ class MapInstanceRuntime {
  }
  /** applyFivePhaseDamageReaction：处理副本脉兽的五行噬脉与低血量五行归元。 */
  applyFivePhaseDamageReaction(monster, damageElement) {
-  if (!monster) {
+  if (!monsterHasFivePhaseDevourPassive(monster)) {
    return;
   }
+  let changed = false;
   if (FIVE_PHASE_ELEMENTS.has(damageElement)) {
    const buffId = FIVE_PHASE_DAMAGE_REDUCTION_BUFF_IDS[damageElement];
    const zhName = FIVE_PHASE_ELEMENT_ZH[damageElement] ?? damageElement;
@@ -5524,8 +5525,6 @@ class MapInstanceRuntime {
     existing.maxStacks = Number.MAX_SAFE_INTEGER;
     existing.remainingTicks = 30;
     existing.duration = 30;
-    existing.name = buffName;
-    existing.shortMark = zhName;
    }
    else {
     monster.buffs.push(createRuntimeTemporaryBuff({
@@ -5546,53 +5545,54 @@ class MapInstanceRuntime {
     }));
     monster.buffs.sort((left, right) => String(left.buffId ?? '').localeCompare(String(right.buffId ?? ''), 'zh-Hans-CN'));
    }
-   recalculateMonsterDerivedState(monster);
+   changed = true;
   }
-  this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
-  this.worldRevision += 1;
 
   const hpRatio = monster.maxHp > 0 ? monster.hp / monster.maxHp : 0;
   const hasOriginBuff = monster.buffs.some((entry) => entry.buffId === FIVE_PHASE_ORIGIN_BUFF_ID && isRuntimeBuffActive(entry));
-  if (hpRatio > 0.3 || hasOriginBuff) {
+  if (hpRatio <= 0.3 && !hasOriginBuff) {
+   const totalReductionStacks = ELEMENT_KEYS.reduce((sum, element) => {
+    const reductionBuff = monster.buffs.find((entry) => entry.buffId === FIVE_PHASE_DAMAGE_REDUCTION_BUFF_IDS[element]);
+    return sum + Math.max(0, Math.round(Number(reductionBuff?.stacks) || 0));
+   }, 0);
+   const originStacks = 1 + totalReductionStacks;
+   const allCombatStats = {
+    maxHp: 1,
+    maxQi: 1,
+    maxQiOutputPerTick: 1,
+    physAtk: 1,
+    spellAtk: 1,
+    physDef: 1,
+    spellDef: 1,
+    hit: 1,
+    dodge: 1,
+    crit: 1,
+    antiCrit: 1,
+    breakPower: 1,
+    resolvePower: 1,
+   };
+   monster.buffs.push(createRuntimeTemporaryBuff({
+    buffId: FIVE_PHASE_ORIGIN_BUFF_ID,
+    name: '五行归元',
+    desc: '生命低于百分之三十时触发；每层提升全战斗属性百分之一，持续九百九十九息。',
+    shortMark: '元',
+    category: 'buff',
+    visibility: 'public',
+    remainingTicks: 1000,
+    duration: 999,
+    stacks: originStacks,
+    maxStacks: Number.MAX_SAFE_INTEGER,
+    sourceSkillId: 'skill.dungeon_fivephase_origin_passive',
+    sourceSkillName: '五行归元',
+    stats: allCombatStats,
+    statMode: 'percent',
+   }));
+   monster.buffs.sort((left, right) => String(left.buffId ?? '').localeCompare(String(right.buffId ?? ''), 'zh-Hans-CN'));
+   changed = true;
+  }
+  if (!changed) {
    return;
   }
-  const totalReductionStacks = ELEMENT_KEYS.reduce((sum, element) => {
-   const reductionBuff = monster.buffs.find((entry) => entry.buffId === FIVE_PHASE_DAMAGE_REDUCTION_BUFF_IDS[element]);
-   return sum + Math.max(0, Math.round(Number(reductionBuff?.stacks) || 0));
-  }, 0);
-  const originStacks = 1 + totalReductionStacks;
-  const allCombatStats = {
-   maxHp: 1,
-   maxQi: 1,
-   maxQiOutputPerTick: 1,
-   physAtk: 1,
-   spellAtk: 1,
-   physDef: 1,
-   spellDef: 1,
-   hit: 1,
-   dodge: 1,
-   crit: 1,
-   antiCrit: 1,
-   breakPower: 1,
-   resolvePower: 1,
-  };
-  monster.buffs.push(createRuntimeTemporaryBuff({
-   buffId: FIVE_PHASE_ORIGIN_BUFF_ID,
-   name: '五行归元',
-   desc: '生命低于百分之三十时触发；每层提升全战斗属性百分之一，持续九百九十九息。',
-   shortMark: '元',
-   category: 'buff',
-   visibility: 'public',
-   remainingTicks: 1000,
-   duration: 999,
-   stacks: originStacks,
-   maxStacks: Number.MAX_SAFE_INTEGER,
-   sourceSkillId: 'skill.dungeon_fivephase_origin_passive',
-   sourceSkillName: '五行归元',
-   stats: allCombatStats,
-   statMode: 'percent',
-  }));
-  monster.buffs.sort((left, right) => String(left.buffId ?? '').localeCompare(String(right.buffId ?? ''), 'zh-Hans-CN'));
   recalculateMonsterDerivedState(monster);
   this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
   this.worldRevision += 1;
@@ -10038,6 +10038,21 @@ function recalculateMonsterBaseStatsFromFormula(monster) {
  monster.baseNumericStats = cloneNumericStats(resolved.computedStats);
  recalculateMonsterDerivedState(monster);
  return true;
+}
+function monsterHasFivePhaseDevourPassive(monster) {
+ if (!monster) {
+  return false;
+ }
+ const skills = Array.isArray(monster.skills) ? monster.skills : [];
+ for (const skill of skills) {
+  const skillId = typeof skill === 'string'
+   ? skill.trim()
+   : (typeof skill?.id === 'string' ? skill.id.trim() : '');
+  if (skillId === 'skill.dungeon_fivephase_devour_passive' || skillId === 'skill.dungeon_fivephase_origin_passive') {
+   return true;
+  }
+ }
+ return monster.monsterId === 'm_fivephase_devourer';
 }
 /** applyMonsterInitialBuffs：按模板给妖兽重建出生自带 Buff。 */
 function applyMonsterInitialBuffs(monster, buffRegistry = null) {
