@@ -144,11 +144,42 @@ export function createMainDungeonEntrySource(options: MainDungeonEntrySourceOpti
     });
   };
 
+  const renderDungeonRejoinPanel = (dungeonId: string): void => {
+    const catalog = dungeonCatalog;
+    const offer = catalog?.rejoinOffer;
+    const dungeon = catalog?.dungeons.find((entry) => entry.id === dungeonId);
+    if (!catalog || !offer || offer.dungeonId !== dungeonId) {
+      renderDungeonLaunchPanel(dungeonId);
+      return;
+    }
+    requestedDungeonId = dungeonId;
+    detailModalHost.patch({
+      ownerId: DUNGEON_MODAL_OWNER,
+      title: `副本·${offer.dungeonName || dungeon?.name || dungeonId}`,
+      subtitle: '队友仍在战斗',
+      variantClass: 'detail-modal--dungeon-entry',
+      size: 'sm',
+      bodyHtml: `<form data-dungeon-rejoin-form="true" class="dungeon-entry-launch"><p class="dungeon-entry-launch__hint">战败后已回到入口忆梦石。副本尚未全员战败，可再次加入战斗。</p><div class="dungeon-entry-launch__actions"><button type="submit" class="small-btn" data-dungeon-submit>继续加入战斗</button></div></form>`,
+      onAfterRender: (body, signal) => {
+        const form = body.querySelector<HTMLFormElement>('[data-dungeon-rejoin-form="true"]');
+        form?.addEventListener('submit', (event) => {
+          event.preventDefault();
+          options.socket.dungeon.rejoin({ dungeonId: offer.dungeonId, runId: offer.runId });
+          detailModalHost.close(DUNGEON_MODAL_OWNER);
+        }, { signal });
+      },
+    });
+  };
+
   const renderDungeonEntryPanel = (): void => {
     const catalog = dungeonCatalog;
     if (!catalog) return;
     if (!requestedDungeonId) {
       renderDungeonUnavailablePanel('');
+      return;
+    }
+    if (catalog.rejoinOffer?.dungeonId === requestedDungeonId) {
+      renderDungeonRejoinPanel(requestedDungeonId);
       return;
     }
     const selected = catalog.dungeons.find((entry) => entry.id === requestedDungeonId);

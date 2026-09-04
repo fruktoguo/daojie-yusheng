@@ -106,6 +106,10 @@ assert.equal(isDungeonPartyDefeated({
   members: [{ playerId: 'player:one', joinedAt: 0 }, { playerId: 'player:two', joinedAt: 0 }],
   defeatedMemberIds: ['player:one'],
 }), false);
+assert.equal(isDungeonPartyDefeated({
+  members: [{ playerId: 'player:one', joinedAt: 0 }, { playerId: 'player:two', joinedAt: 0 }],
+  defeatedMemberIds: ['player:one'],
+}, ['player:two']), true);
 
 const sampleDropTable: DungeonBossDropRecord[] = [
   { itemId: 'spirit_stone', name: '灵石', type: 'consumable', count: 300 },
@@ -160,8 +164,8 @@ assert.ok(events.includes('wave:0'));
 events.length = 0;
 new ExpeditionDungeonFlowController().onTick(makeRun('expedition'), { ...dungeon, flowType: 'expedition', rooms: [] } as any, context);
 assert.ok(events.includes('complete:all_rooms_cleared'));
-void testDungeonRestartRecovery().then(() => {
-  console.log(JSON.stringify({ ok: true, case: 'dungeon-rules', checks: 55 }));
+void Promise.all([testDungeonRestartRecovery(), testDungeonDefeatRejoin()]).then(() => {
+  console.log(JSON.stringify({ ok: true, case: 'dungeon-rules', checks: 68 }));
 }).catch((error) => {
   console.error(error);
   process.exitCode = 1;
@@ -217,6 +221,107 @@ function testPartyDefeatTransitions(): void {
   service.onPlayerDefeated(playerId, run.mapInstanceId);
   assert.equal(events.filter((entry) => entry.event === 'n:s:dungeonSettlement').length, 1);
 }
+
+async function testDungeonDefeatRejoin(): Promise<void> {
+  const playerA = 'player:dungeon:rejoin-a';
+  const playerB = 'player:dungeon:rejoin-b';
+  const run = {
+    runId: 'smoke-defeat-rejoin',
+    dungeonId: dungeon.id,
+    partyId: 'party:rejoin',
+    status: 'active',
+    difficulty: { difficulty: 'trial' },
+    effectiveStep: 0,
+    mapInstanceId: 'dungeon:smoke-defeat-rejoin',
+    members: [
+      { playerId: playerA, name: '甲', joinedAt: 0 },
+      { playerId: playerB, name: '乙', joinedAt: 0 },
+    ],
+    currentRoomId: 'room_01',
+    createdAt: 0,
+  } as any;
+  const locations = new Map<string, { instanceId: string }>([
+    [playerA, { instanceId: run.mapInstanceId }],
+    [playerB, { instanceId: run.mapInstanceId }],
+  ]);
+  const players = new Map<string, { playerId: string; name: string; hp: number; x: number; y: number }>([
+    [playerA, { playerId: playerA, name: '甲', hp: 0, x: dungeon.entryX, y: dungeon.entryY }],
+    [playerB, { playerId: playerB, name: '乙', hp: 100, x: 10, y: 18 }],
+  ]);
+  const dungeonInstance = {
+    meta: { instanceId: run.mapInstanceId, kind: 'dungeon' },
+    template: { id: dungeon.mapTemplateId },
+    monstersByRuntimeId: new Map(),
+    removeRuntimeMonster() { },
+    listPlayerIds() { return [playerB]; },
+    getPlayer(playerId: string) { return players.get(playerId); },
+  };
+  const entryInstance = {
+    meta: { instanceId: `public:${dungeon.entryMapTemplateId}` },
+    template: { id: dungeon.entryMapTemplateId },
+    getPlayer(playerId: string) { return players.get(playerId); },
+  };
+  const service = new DungeonRuntimeService(
+    { getDungeonDefinition: () => dungeon, listDungeonDefinitions: () => [dungeon] } as any,
+    {} as any,
+    {
+      getPlayer: (playerId: string) => players.get(playerId),
+      refreshDungeonStamina: () => ({ current: 240, maximum: 240, updatedAt: Date.now() }),
+      replaceTemporaryBuff: () => undefined,
+    } as any,
+    {
+      getPlayerLocation: (playerId: string) => locations.get(playerId),
+      getInstanceRuntime: (instanceId: string) => {
+        if (instanceId === run.mapInstanceId) return dungeonInstance;
+        if (instanceId === entryInstance.meta.instanceId) return entryInstance;
+        return null;
+      },
+      getOrCreatePublicInstance: () => entryInstance,
+      worldRuntimeFormationService: { getFormationList: () => [] },
+      worldRuntimePlayerSessionService: {
+        connectPlayerWhenReady: async (input: { playerId: string; instanceId: string }) => {
+          locations.set(input.playerId, { instanceId: input.instanceId });
+        },
+      },
+      destroyEmptyManagedInstance: async () => undefined,
+    } as any,
+    { getSocketByPlayerId: () => ({ emit: () => undefined }), getBinding: () => ({ sessionId: 'session:rejoin' }) } as any,
+    { destroy: () => undefined } as any,
+    { claim: () => { throw new Error('战败不得领取奖励'); } } as any,
+    { save: () => undefined } as any,
+  ) as any;
+  service.runs.set(run.runId, run);
+  service.onPlayerDefeated(playerA, run.mapInstanceId);
+  assert.equal(run.status, 'active');
+  assert.deepEqual(run.defeatedMemberIds, [playerA]);
+  locations.set(playerA, { instanceId: entryInstance.meta.instanceId });
+  players.get(playerA)!.hp = 100;
+  service.onPlayerRevived(playerA, run.mapInstanceId);
+  assert.equal(run.status, 'active');
+  assert.deepEqual(run.defeatedMemberIds, [playerA]);
+  const target = service.resolveDefeatRespawnTarget(playerA, run.mapInstanceId);
+  assert.equal(target?.templateId, dungeon.entryMapTemplateId);
+  assert.equal(target?.x, dungeon.entryX);
+  assert.equal(target?.y, dungeon.entryY);
+  const catalog = service.buildCatalog(playerA);
+  assert.equal(catalog.rejoinOffer?.dungeonId, dungeon.id);
+  assert.equal(catalog.rejoinOffer?.runId, run.runId);
+  const rejoined = await service.rejoin(playerA, { dungeonId: dungeon.id });
+  assert.equal(rejoined.ok, true);
+  assert.equal(run.defeatedMemberIds, undefined);
+  assert.equal(locations.get(playerA)?.instanceId, run.mapInstanceId);
+  players.get(playerA)!.hp = 0;
+  service.onPlayerDefeated(playerA, run.mapInstanceId);
+  locations.set(playerA, { instanceId: entryInstance.meta.instanceId });
+  players.get(playerA)!.hp = 100;
+  service.onPlayerRevived(playerA, run.mapInstanceId);
+  players.get(playerB)!.hp = 0;
+  service.onPlayerDefeated(playerB, run.mapInstanceId);
+  assert.equal(run.status, 'failed');
+  assert.equal(run.failureReason, 'party_defeated');
+  assert.equal(service.buildCatalog(playerA).rejoinOffer, undefined);
+}
+
 
 function testDungeonPresentationMonsterTrigger(): void {
   const playerId = 'player:dungeon:presentation';

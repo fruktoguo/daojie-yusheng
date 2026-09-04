@@ -203,16 +203,25 @@ export class WorldRuntimeRespawnService {
         if (typeof deps.clearPendingCommand === 'function') {
             deps.clearPendingCommand(playerId);
         }
+        const dungeonRespawn = deps.dungeonRuntimeService?.resolveDefeatRespawnTarget?.(playerId, previous?.instanceId ?? null);
         const boundRespawnMapId = typeof player.respawnTemplateId === 'string' && player.respawnTemplateId.trim()
             ? player.respawnTemplateId.trim()
             : '';
+        const dungeonRespawnMapId = typeof dungeonRespawn?.templateId === 'string' && dungeonRespawn.templateId.trim()
+            ? dungeonRespawn.templateId.trim()
+            : '';
         const targetMapId = previousMapId === PRISON_MAP_ID
             ? PRISON_MAP_ID
-            : boundRespawnMapId || deps.resolveDefaultRespawnMapId();
-        const boundRespawnInstanceId = targetMapId === boundRespawnMapId && typeof player.respawnInstanceId === 'string' && player.respawnInstanceId.trim()
+            : dungeonRespawnMapId || boundRespawnMapId || deps.resolveDefaultRespawnMapId();
+        const boundRespawnInstanceId = !dungeonRespawnMapId
+            && targetMapId === boundRespawnMapId
+            && typeof player.respawnInstanceId === 'string'
+            && player.respawnInstanceId.trim()
             ? player.respawnInstanceId.trim()
             : '';
-        let targetInstance = resolveRespawnTargetInstance(deps, targetMapId, boundRespawnInstanceId);
+        let targetInstance = dungeonRespawnMapId
+            ? deps.getOrCreatePublicInstance?.(dungeonRespawnMapId) ?? resolveRespawnTargetInstance(deps, targetMapId, '')
+            : resolveRespawnTargetInstance(deps, targetMapId, boundRespawnInstanceId);
         if (!targetInstance && targetMapId !== deps.resolveDefaultRespawnMapId()) {
             targetInstance = deps.getOrCreatePublicInstance(deps.resolveDefaultRespawnMapId());
         }
@@ -227,8 +236,8 @@ export class WorldRuntimeRespawnService {
         }
         const respawnPlacement = resolveRespawnPlacement(
             targetInstance.template,
-            targetMapId === boundRespawnMapId ? player.respawnX : undefined,
-            targetMapId === boundRespawnMapId ? player.respawnY : undefined,
+            dungeonRespawnMapId ? dungeonRespawn?.x : (targetMapId === boundRespawnMapId ? player.respawnX : undefined),
+            dungeonRespawnMapId ? dungeonRespawn?.y : (targetMapId === boundRespawnMapId ? player.respawnY : undefined),
         );
         let runtimePlayer;
         try {

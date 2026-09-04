@@ -257,7 +257,7 @@ export interface DungeonRunState {
  completedAt?: number;
  destroyedAt?: number;
  failureReason?: string;
- /** 当前仍处于战败待复生状态的队员，持久化用于重启后继续裁定团灭。 */
+ /** 当前仍处于战败待复生、或已在入口外等待再入的队员；持久化用于重启后继续裁定团灭。 */
  defeatedMemberIds?: string[];
  /** 当前流程的轻量显示投影，供副本 HUD 使用，不参与权威结算。 */
  progressPercent?: number;
@@ -345,7 +345,13 @@ export interface DungeonEntryPreparationMember {
  rejected?: boolean;
 }
 export interface C2S_ExitDungeon { runId?: string; }
-export interface S2C_DungeonCatalog { dungeons: DungeonDefinition[]; stamina: DungeonStaminaView; activeRun?: DungeonRunState; }
+export interface C2S_RejoinDungeon { dungeonId?: string; runId?: string; }
+export interface DungeonRejoinOffer {
+ runId: string;
+ dungeonId: string;
+ dungeonName: string;
+}
+export interface S2C_DungeonCatalog { dungeons: DungeonDefinition[]; stamina: DungeonStaminaView; activeRun?: DungeonRunState; rejoinOffer?: DungeonRejoinOffer; }
 export interface S2C_DungeonEntryPrompt {
  runId: string;
  dungeonId: string;

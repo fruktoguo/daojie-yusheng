@@ -735,6 +735,9 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
       not_at_exit: '需要到副本入口附近才能退出',
       party_defeated: '队伍已全员战败',
       run_not_active: '副本已结束或不存在',
+      not_rejoinable: '当前无法再次加入战斗',
+      already_exited: '已退出本次挑战，无法再次进入',
+      already_in_dungeon: '你已在副本中',
     };
     options.showToast(labels[result.reason ?? ''] ?? '副本操作失败', 'warn');
   });

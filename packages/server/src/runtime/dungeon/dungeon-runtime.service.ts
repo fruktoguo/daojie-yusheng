@@ -90,17 +90,21 @@ function emptyDungeonRewardResult(): DungeonRewardResult {
  return { claimed: false, rewardsByPlayer: new Map() };
 }
 
-/** 只有全部队员都处于当前战败集合时，副本才进入团灭失败终态。 */
+/** 全部队员都已战败待再入或已主动退出时，副本进入团灭失败终态。 */
 export function isDungeonPartyDefeated(
  run: Readonly<Pick<DungeonRunState, 'members' | 'defeatedMemberIds'>>,
+ additionalOutMemberIds: readonly string[] = [],
 ): boolean {
  const members = Array.isArray(run.members) ? run.members : [];
  if (members.length === 0) return false;
- const defeated = new Set(
-  (Array.isArray(run.defeatedMemberIds) ? run.defeatedMemberIds : [])
-   .filter((playerId): playerId is string => typeof playerId === 'string' && playerId.trim().length > 0),
- );
- return members.every((member) => defeated.has(member.playerId));
+ const out = new Set<string>();
+ for (const playerId of Array.isArray(run.defeatedMemberIds) ? run.defeatedMemberIds : []) {
+  if (typeof playerId === 'string' && playerId.trim()) out.add(playerId);
+ }
+ for (const playerId of additionalOutMemberIds) {
+  if (typeof playerId === 'string' && playerId.trim()) out.add(playerId);
+ }
+ return members.every((member) => out.has(member.playerId));
 }
 
 @Injectable()
@@ -367,7 +371,8 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
      });
    }
   }
-  return { dungeons: this.listDefinitions(), stamina: this.players.refreshDungeonStamina(playerId) as DungeonStaminaView, ...(activeRun ? { activeRun } : {}) };
+  const rejoinOffer = this.resolveRejoinOffer(playerId);
+  return { dungeons: this.listDefinitions(), stamina: this.players.refreshDungeonStamina(playerId) as DungeonStaminaView, ...(activeRun ? { activeRun } : {}), ...(rejoinOffer ? { rejoinOffer } : {}) };
  }
 
  async startEntry(leaderPlayerId: string, input: { dungeonId?: unknown; difficulty?: unknown; presentRank?: unknown; simulation?: unknown }) {
@@ -387,18 +392,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   const locations = memberIds.map((playerId) => ({ playerId, location: this.world.getPlayerLocation(playerId) }));
   if (locations.some((entry) => entry.location?.instanceId?.startsWith('dungeon:'))) return { ok: false, reason: 'member_already_in_dungeon' };
   if (locations.some((entry) => !entry.location || this.world.getInstanceRuntime(entry.location.instanceId)?.template?.id !== definition.entryMapTemplateId)) return { ok: false, reason: 'members_not_at_entry_map' };
-  const leaderState = this.players.getPlayer(leader);
-  const leaderLocation = locations.find((entry) => entry.playerId === leader)?.location ?? null;
-  const leaderInstance = leaderLocation?.instanceId ? this.world.getInstanceRuntime(leaderLocation.instanceId) as any : null;
-  const leaderRuntime = leaderInstance?.getPlayer?.(leader) as { x?: number; y?: number } | null;
-  const entryX = Number(definition.entryX ?? 0);
-  const entryY = Number(definition.entryY ?? 0);
-  const leaderX = Number(leaderRuntime?.x ?? leaderState?.x);
-  const leaderY = Number(leaderRuntime?.y ?? leaderState?.y);
-  if (!leaderState || !leaderInstance
-   || leaderInstance.template?.id !== definition.entryMapTemplateId
-   || !Number.isFinite(leaderX) || !Number.isFinite(leaderY)
-   || Math.max(Math.abs(leaderX - entryX), Math.abs(leaderY - entryY)) > Math.max(1, Number(definition.entryExitRadius ?? 1))) {
+  if (!this.isPlayerNearDungeonEntry(leader, definition)) {
    return { ok: false, reason: 'not_near_memory_stone' };
   }
   const runId = randomUUID();
@@ -514,10 +508,10 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   run.defeatedMemberIds = [...defeated];
   this.runPersistence.save(run);
   this.emitRunState(run);
-  if (isDungeonPartyDefeated(run)) this.failRun(run, 'party_defeated');
+  if (isDungeonPartyDefeated(run, this.listExitedMemberIds(run.runId))) this.failRun(run, 'party_defeated');
  }
 
- /** 玩家复生或被外部恢复生命后清除当前战败标记，避免旧死亡状态污染后续团灭判定。 */
+ /** 只有在副本地图内活着重生时才清战败标记；门外复生保持待再入，避免误判团灭。 */
  onPlayerRevived(playerIdInput: string, instanceIdInput?: string | null): void {
   const playerId = typeof playerIdInput === 'string' ? playerIdInput.trim() : '';
   const instanceId = typeof instanceIdInput === 'string' ? instanceIdInput.trim() : '';
@@ -526,7 +520,10 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
    if (entry.status !== 'active' || !entry.defeatedMemberIds?.includes(playerId)) return false;
    return !instanceId || entry.mapInstanceId === instanceId;
   });
-  if (!run || !this.clearDefeatedMember(run, playerId)) return;
+  if (!run) return;
+  const currentInstanceId = this.world.getPlayerLocation(playerId)?.instanceId;
+  if (currentInstanceId !== run.mapInstanceId) return;
+  if (!this.clearDefeatedMember(run, playerId)) return;
   this.runPersistence.save(run);
   this.emitRunState(run);
  }
@@ -540,7 +537,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   return true;
  }
 
- /** 清除已完成复生的成员标记，并过滤快照中已不存在的成员。 */
+ /** 只清已经回到副本地图且存活的成员；门外等待再入的战败标记必须保留。 */
  private reconcileDefeatedMembers(run: DungeonRunState): boolean {
   const previous = Array.isArray(run.defeatedMemberIds) ? run.defeatedMemberIds : [];
   if (previous.length === 0) return false;
@@ -548,8 +545,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   const next: string[] = [];
   for (const playerId of previous) {
    if (!memberIds.has(playerId)) continue;
-   const player = this.players.getPlayer(playerId) as any;
-   if (player && Number(player.hp) > 0) continue;
+   if (!this.isDefeatedMemberStillOut(run, playerId)) continue;
    if (!next.includes(playerId)) next.push(playerId);
   }
   const changed = previous.length !== next.length || previous.some((playerId, index) => playerId !== next[index]);
@@ -634,6 +630,69 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   return { ok: true, run };
  }
 
+ /** 战败后从入口忆梦石再次进入仍在进行的副本。全员战败后不可再入。 */
+ async rejoin(playerIdInput: string, input: { dungeonId?: unknown; runId?: unknown } = {}): Promise<{ ok: boolean; reason?: string; run?: DungeonRunState }> {
+  const playerId = playerIdInput.trim();
+  const requestedRunId = normalizeDungeonRunId(input.runId);
+  const requestedDungeonId = typeof input.dungeonId === 'string' ? input.dungeonId.trim() : '';
+  const run = requestedRunId
+   ? this.runs.get(requestedRunId) ?? null
+   : [...this.runs.values()].find((entry) => {
+    if (entry.status !== 'active') return false;
+    if (requestedDungeonId && entry.dungeonId !== requestedDungeonId) return false;
+    return entry.members.some((member) => member.playerId === playerId);
+   }) ?? null;
+  if (!run || run.status !== 'active') return { ok: false, reason: 'run_not_active' };
+  if (!run.members.some((member) => member.playerId === playerId)) return { ok: false, reason: 'not_run_member' };
+  if (this.exitedPlayers.get(run.runId)?.has(playerId)) return { ok: false, reason: 'already_exited' };
+  if (!run.defeatedMemberIds?.includes(playerId)) return { ok: false, reason: 'not_rejoinable' };
+  if (isDungeonPartyDefeated(run, this.listExitedMemberIds(run.runId))) return { ok: false, reason: 'party_defeated' };
+  const definition = this.content.getDungeonDefinition(run.dungeonId);
+  const instance = this.world.getInstanceRuntime(run.mapInstanceId) as any;
+  if (!definition || !instance) return { ok: false, reason: 'instance_not_found' };
+  if (this.world.getPlayerLocation(playerId)?.instanceId === run.mapInstanceId) return { ok: false, reason: 'already_in_dungeon' };
+  if (!this.isPlayerNearDungeonEntry(playerId, definition)) return { ok: false, reason: 'not_near_memory_stone' };
+  try {
+   await this.world.worldRuntimePlayerSessionService.connectPlayerWhenReady({
+    playerId,
+    sessionId: this.sessions.getBinding(playerId)?.sessionId ?? null,
+    instanceId: run.mapInstanceId,
+    mapId: definition.mapTemplateId,
+    allowCreateFallback: false,
+    relocateExisting: true,
+   }, this.world as any);
+  } catch {
+   return { ok: false, reason: 'player_attach_failed' };
+  }
+  this.clearDefeatedMember(run, playerId);
+  this.runPersistence.save(run);
+  this.emit(playerId, S2C.DungeonState, { run });
+  this.emit(playerId, S2C.DungeonCatalog, this.buildCatalog(playerId));
+  this.emitRunState(run);
+  this.controllers.get(definition.flowType)?.onPlayerEnter?.(run, definition, playerId, this.buildFlowContext());
+  return { ok: true, run };
+ }
+
+ /** 副本内死亡复生到对应入口忆梦石，而不是玩家自己绑定的复活点。 */
+ resolveDefeatRespawnTarget(playerIdInput: string, previousInstanceIdInput?: string | null): { templateId: string; x: number; y: number } | null {
+  const playerId = typeof playerIdInput === 'string' ? playerIdInput.trim() : '';
+  const previousInstanceId = typeof previousInstanceIdInput === 'string' ? previousInstanceIdInput.trim() : '';
+  if (!playerId) return null;
+  const run = [...this.runs.values()].find((entry) => {
+   if (!entry.members.some((member) => member.playerId === playerId)) return false;
+   if (previousInstanceId && entry.mapInstanceId === previousInstanceId) return true;
+   return entry.defeatedMemberIds?.includes(playerId) === true;
+  });
+  if (!run) return null;
+  const definition = this.content.getDungeonDefinition(run.dungeonId);
+  if (!definition?.entryMapTemplateId) return null;
+  return {
+   templateId: definition.entryMapTemplateId,
+   x: Number(definition.entryX ?? 0),
+   y: Number(definition.entryY ?? 0),
+  };
+ }
+
  onMonsterDefeated(instanceId: string, monsterId: string): void {
   const run = [...this.runs.values()].find((entry) => entry.mapInstanceId === instanceId && entry.status === 'active');
   if (!run) return;
@@ -659,7 +718,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   if (!run) return;
   const defeatedChanged = this.reconcileDefeatedMembers(run);
   if (defeatedChanged) this.runPersistence.save(run);
-  if (isDungeonPartyDefeated(run)) {
+  if (isDungeonPartyDefeated(run, this.listExitedMemberIds(run.runId))) {
    this.failRun(run, 'party_defeated');
    return;
   }
@@ -1324,6 +1383,49 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
    this.logger.error(`副本流程快照未能确认落库 ${run.runId}：${error instanceof Error ? error.message : String(error)}`);
    return false;
   }
+ }
+
+ private listExitedMemberIds(runId: string): string[] {
+  return [...(this.exitedPlayers.get(runId) ?? [])];
+ }
+
+ private isDefeatedMemberStillOut(run: DungeonRunState, playerId: string): boolean {
+  const location = this.world.getPlayerLocation(playerId);
+  if (location?.instanceId === run.mapInstanceId) {
+   const player = this.players.getPlayer(playerId) as any;
+   return !player || Number(player.hp) <= 0;
+  }
+  return true;
+ }
+
+ private isPlayerNearDungeonEntry(playerId: string, definition: DungeonDefinition): boolean {
+  const playerState = this.players.getPlayer(playerId) as any;
+  const location = this.world.getPlayerLocation(playerId);
+  const instance = location?.instanceId ? this.world.getInstanceRuntime(location.instanceId) as any : null;
+  if (!instance || instance.template?.id !== definition.entryMapTemplateId) return false;
+  const runtime = instance.getPlayer?.(playerId) as { x?: number; y?: number } | null;
+  const x = firstFiniteDungeonCoordinate(runtime?.x, playerState?.x);
+  const y = firstFiniteDungeonCoordinate(runtime?.y, playerState?.y);
+  const entryX = Number(definition.entryX ?? 0);
+  const entryY = Number(definition.entryY ?? 0);
+  const radius = Math.max(1, Number(definition.entryExitRadius ?? 1) || 1);
+  return Number.isFinite(x) && Number.isFinite(y)
+   && Math.max(Math.abs(x - entryX), Math.abs(y - entryY)) <= radius;
+ }
+
+ private resolveRejoinOffer(playerId: string): { runId: string; dungeonId: string; dungeonName: string } | undefined {
+  const run = [...this.runs.values()].find((entry) => {
+   if (entry.status !== 'active') return false;
+   if (!entry.members.some((member) => member.playerId === playerId)) return false;
+   if (!entry.defeatedMemberIds?.includes(playerId)) return false;
+   if (this.exitedPlayers.get(entry.runId)?.has(playerId)) return false;
+   if (this.world.getPlayerLocation(playerId)?.instanceId === entry.mapInstanceId) return false;
+   return !isDungeonPartyDefeated(entry, this.listExitedMemberIds(entry.runId));
+  });
+  if (!run) return undefined;
+  const definition = this.content.getDungeonDefinition(run.dungeonId);
+  if (!definition) return undefined;
+  return { runId: run.runId, dungeonId: run.dungeonId, dungeonName: definition.name };
  }
 
  /** 更新重启后遗留在临时副本实例中的玩家，避免 run 内存态丢失后无法撤离。 */

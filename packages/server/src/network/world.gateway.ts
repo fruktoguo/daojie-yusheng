@@ -473,6 +473,13 @@ class WorldGateway implements WorldGatewayHelperContext {
         client.emit(S2C.DungeonEntryResult, result);
         return result;
     }
+    @SubscribeMessage(C2S.RejoinDungeon)
+    async handleRejoinDungeon(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        const playerId = this.gatewayGuardHelper.requirePlayerId(client);
+        const result = await this.dungeonRuntimeService?.rejoin(playerId, payload ?? {}) ?? { ok: false, reason: 'dungeon_unavailable' };
+        client.emit(S2C.DungeonEntryResult, result);
+        return result;
+    }
     @SubscribeMessage(C2S.RequestTreasureVault)
     handleRequestTreasureVault(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayPlayerControlsHelper.handleRequestTreasureVault(client, payload);

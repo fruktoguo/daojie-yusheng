@@ -108,6 +108,7 @@ import type {
 } from './time-chamber-types';
 import type {
   C2S_ExitDungeon,
+  C2S_RejoinDungeon,
   C2S_RequestDungeonCatalog,
   C2S_RespondDungeonEntry,
   C2S_StartDungeonEntry,
@@ -289,6 +290,7 @@ export const C2S = {
   StartDungeonEntry: 'n:c:startDungeonEntry',
   RespondDungeonEntry: 'n:c:respondDungeonEntry',
   ExitDungeon: 'n:c:exitDungeon',
+  RejoinDungeon: 'n:c:rejoinDungeon',
 } as const;
 
 /** 服务端发往客户端的事件名集合。 */
@@ -546,6 +548,7 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.StartDungeonEntry]: C2S_StartDungeonEntry;
   [C2S.RespondDungeonEntry]: C2S_RespondDungeonEntry;
   [C2S.ExitDungeon]: C2S_ExitDungeon;
+  [C2S.RejoinDungeon]: C2S_RejoinDungeon;
 }
 
 /** 服务端事件与载荷映射，作为 bootstrap/panel/delta 的共享护栏。 */
