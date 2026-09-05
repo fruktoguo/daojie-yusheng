@@ -8,11 +8,13 @@ installSmokeTimeout(__filename);
 
 async function main(): Promise<void> {
   const day0 = buildDailySignInRewardPreview(40, 0, 0);
+  const day1 = buildDailySignInRewardPreview(40, 0, 1);
   const day100 = buildDailySignInRewardPreview(40, 0, 100);
   assert.equal(day0.baseRandomMaxMerit, 80);
   assert.equal(day0.randomMaxMerit, 800);
-  assert.equal(day0.targetRandomMeanMerit, 40.5);
-  assert.equal(Math.round(day100.targetRandomMeanMerit * 100) / 100, 60.25);
+  assert.equal(day0.targetRandomMeanMerit, 60.25);
+  assert.equal(Math.round(day1.targetRandomMeanMerit * 100) / 100, 60.35);
+  assert.equal(Math.round(day100.targetRandomMeanMerit * 100) / 100, 66.83);
   assert.ok(day100.targetRandomMeanMerit < 80);
 
   assert.deepEqual(buildDailySignInFortune(1, day0), {
@@ -182,6 +184,7 @@ async function main(): Promise<void> {
     ok: true,
     case: 'daily-sign-in-fortune',
     baseMean: day0.targetRandomMeanMerit,
+    firstClaimMean: day1.targetRandomMeanMerit,
     day100Mean: day100.targetRandomMeanMerit,
     perfectLuckDelta: buildDailySignInFortune(800, day0).luckDelta,
     fortuneDurationHours: 24,

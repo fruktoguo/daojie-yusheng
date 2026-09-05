@@ -46,6 +46,7 @@ import { rollExpandedMeanInteger } from '../random/bounded-random';
 const CHINA_TIME_OFFSET_MS = 8 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DAILY_SIGN_IN_RANDOM_MAX_MULTIPLIER = 10;
+const DAILY_SIGN_IN_BASE_MEAN_BONUS = 1;
 const DAILY_SIGN_IN_STREAK_MEAN_BONUS_PER_DAY = 0.01;
 const DAILY_SIGN_IN_PERFECT_FORTUNE_LUCK_DELTA = 666;
 const MAX_ITEM_COUNT = 2_147_483_647;
@@ -80,9 +81,9 @@ export function buildDailySignInRewardPreview(
   const randomMaxMerit = Math.max(randomMinMerit, baseRandomMaxMerit * DAILY_SIGN_IN_RANDOM_MAX_MULTIPLIER);
   const baseTargetMean = (randomMinMerit + baseRandomMaxMerit) / 2;
   const streakBonus = normalizedEffectiveStreakDays * DAILY_SIGN_IN_STREAK_MEAN_BONUS_PER_DAY;
-  const targetRandomMeanMerit = streakBonus > 0
-    ? baseTargetMean + (baseRandomMaxMerit - baseTargetMean) * streakBonus / (1 + streakBonus)
-    : baseTargetMean;
+  const totalMeanBonus = DAILY_SIGN_IN_BASE_MEAN_BONUS + streakBonus;
+  const targetRandomMeanMerit = baseTargetMean
+    + (baseRandomMaxMerit - baseTargetMean) * totalMeanBonus / (1 + totalMeanBonus);
   return {
     randomMinMerit,
     randomMaxMerit,
