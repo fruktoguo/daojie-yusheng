@@ -36,6 +36,7 @@ async function main(): Promise<void> {
   await testGatherKeepsOwnerlessSearchWithMultipleMatchingJobs();
   await testGatherReconciliationIgnoresNonHerbContainer();
   await testHydrateContainerStatesCanonicalizesLegacySource();
+  await testHydrateContainerStatesRestoresItemMetadata();
   await testHerbGrowthCreatesStockAndPersists();
   await testHerbGrowthAccumulatesStockAndPersists();
   await testHerbGrowthRepairsLegacyFutureSchedule();
@@ -1675,6 +1676,59 @@ async function testHydrateContainerStatesCanonicalizesLegacySource() {
   assert.equal(persisted[0]?.sourceId, `container:${instanceId}:${containerId}`);
   assert.equal(persisted[0]?.containerId, containerId);
   assert.equal(persisted[0]?.generatedAtTick, 7);
+}
+
+async function testHydrateContainerStatesRestoresItemMetadata() {
+  const instanceId = 'public:yunlai_town';
+  const containerId = 'lm_legacy_moondew';
+  const service = new WorldRuntimeLootContainerService(
+    {
+      normalizeItem(item: Record<string, unknown>) {
+        return {
+          ...item,
+          grade: item.grade ?? 'mortal',
+          level: item.level ?? 3,
+        };
+      },
+    } as never,
+    buildPlayerRuntimeService(buildPlayer('player:hydrate:item', instanceId, 'runtime:hydrate:item', 1)) as never,
+  );
+  service.hydrateContainerStates(instanceId, [{
+    sourceId: `container:${instanceId}:${containerId}`,
+    containerId,
+    generatedAtTick: 7,
+    refreshAtTick: 77,
+    entries: [
+      {
+        item: { itemId: 'mat.moondew_grass', count: 1, type: 'material' },
+        createdTick: 7,
+        visible: true,
+      },
+      {
+        item: { itemId: 'mat.moondew_grass', count: 1, type: 'material', grade: 'mortal', level: 3 },
+        createdTick: 8,
+        visible: true,
+      },
+    ],
+  }]);
+
+  const container = {
+    id: containerId,
+    name: '月露草',
+    desc: '可采集草药',
+    variant: 'herb',
+    grade: 'mortal',
+    x: 5,
+    y: 6,
+  };
+  const source = service.getPreparedContainerLootSource(instanceId, container as never, null, 10);
+  assert.equal(source?.items.length, 1);
+  assert.equal(source?.items[0]?.item.count, 2);
+  assert.equal(source?.items[0]?.item.level, 3);
+  assert.equal(source?.items[0]?.item.grade, 'mortal');
+  assert.equal(source?.herb?.nativeGatherTicks, 2);
+  assert.equal(source?.herb?.gatherTicks, 2);
+  assert.equal(service.getDirtyInstanceIds().has(instanceId), true);
 }
 
 async function testHerbGrowthCreatesStockAndPersists() {

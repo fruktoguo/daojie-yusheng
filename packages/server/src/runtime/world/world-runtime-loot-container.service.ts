@@ -250,6 +250,7 @@ export class WorldRuntimeLootContainerService {
    return;
   }
   const next = new Map();
+  let normalizedItemMetadata = false;
   for (const entry of entries) {
    const parsedSource = typeof entry?.sourceId === 'string' ? parseContainerSourceId(entry.sourceId) : null;
    const containerId = typeof entry?.containerId === 'string' && entry.containerId.trim()
@@ -264,11 +265,17 @@ export class WorldRuntimeLootContainerService {
     containerId,
     generatedAtTick: entry.generatedAtTick,
     refreshAtTick: entry.refreshAtTick,
-    entries: entry.entries.map((item) => ({
-     item: { ...item.item },
-     createdTick: item.createdTick,
-     visible: item.visible,
-    })),
+    entries: entry.entries.map((item) => {
+     const normalizedItem = this.normalizeHydratedContainerItem(item.item);
+     if (createItemStackSignature(item.item) !== createItemStackSignature(normalizedItem)) {
+      normalizedItemMetadata = true;
+     }
+     return {
+      item: normalizedItem,
+      createdTick: item.createdTick,
+      visible: item.visible,
+     };
+    }),
     activeSearch: entry.activeSearch
      ? {
       playerId: resolveActiveSearchPlayerId(entry.activeSearch) || undefined,
@@ -281,7 +288,18 @@ export class WorldRuntimeLootContainerService {
    });
   }
   this.containerStatesByInstanceId.set(instanceId, next);
-  this.dirtyContainerPersistenceInstanceIds.delete(instanceId);
+  if (normalizedItemMetadata) {
+   this.markContainerPersistenceDirty(instanceId);
+  } else {
+   this.dirtyContainerPersistenceInstanceIds.delete(instanceId);
+  }
+ }
+
+ normalizeHydratedContainerItem(item) {
+  const normalized = typeof this.contentTemplateRepository?.normalizeItem === 'function'
+   ? this.contentTemplateRepository.normalizeItem(item)
+   : null;
+  return cloneContainerItem(normalized && typeof normalized === 'object' ? normalized : item);
  }
  /**
 * prepareContainerLootSource：执行prepareContainer掉落来源相关逻辑。
