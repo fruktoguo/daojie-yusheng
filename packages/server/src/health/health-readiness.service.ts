@@ -121,6 +121,6 @@ export class HealthReadinessService {
       }
       return false;
     }
-    return this.build().readiness.ok;
+    return this.build().readiness.playerTrafficReady === true;
   }
 }

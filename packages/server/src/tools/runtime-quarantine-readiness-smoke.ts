@@ -55,6 +55,7 @@ function main(): void {
     } as never);
 
     assert.equal(summary.quarantineInstanceCount, 2);
+    assert.equal(summary.attachableInstanceCount, 1);
     assert.deepEqual(summary.quarantineInstances.map((entry: { instanceId: string; reason: string }) => [entry.instanceId, entry.reason]), [
       ['tower:tongtian:layer:9', 'lease_fenced'],
       ['sect:alpha:home', 'lease_degraded'],
@@ -70,6 +71,8 @@ function main(): void {
       startupRunId: 'startup:smoke:quarantine',
     });
     assert.equal(health.readiness.runtime.ready, false);
+    assert.equal(health.readiness.runtime.playerTrafficReady, true);
+    assert.equal(health.readiness.playerTrafficReady, true);
     assert.equal(health.readiness.runtime.reason, 'lease_degraded');
     assert.equal(health.readiness.runtime.quarantineInstanceCount, 2);
     assert.equal(health.readiness.runtime.quarantineInstances[0]?.startupRunId, 'startup:smoke:quarantine');
@@ -106,7 +109,29 @@ function main(): void {
     });
     assert.equal(templateMissingHealth.readiness.runtime.quarantineInstanceCount, 1);
     assert.equal(templateMissingHealth.readiness.runtime.ready, false);
+    assert.equal(templateMissingHealth.readiness.runtime.playerTrafficReady, true);
     assert.equal(templateMissingHealth.readiness.runtime.reason, 'runtime_quarantine');
+
+    const allQuarantinedHealth = buildHealthResponse({
+      playerPersistenceService: { enabled: true, pool: {} },
+      mailPersistenceService: { enabled: true, pool: {} },
+      marketPersistenceService: { enabled: true, pool: {} },
+      activityPersistenceService: { enabled: true, pool: {} },
+      authStoreService: { isEnabled: () => true },
+      worldRuntimeService: {
+        getRuntimeSummary: () => ({
+          instanceCount: 2,
+          attachableInstanceCount: 0,
+          leaseDegradedInstanceCount: 1,
+          fencedInstanceCount: 1,
+          quarantineInstanceCount: 2,
+          playerCount: 0,
+          pendingCommandCount: 0,
+        }),
+      },
+    });
+    assert.equal(allQuarantinedHealth.readiness.ok, false);
+    assert.equal(allQuarantinedHealth.readiness.playerTrafficReady, false);
 
     const tickUnhealthyHealth = buildHealthResponse({
       playerPersistenceService: { enabled: true, pool: {} },
@@ -131,6 +156,7 @@ function main(): void {
     assert.equal(tickUnhealthyHealth.readiness.runtime.ready, false);
     assert.equal(tickUnhealthyHealth.readiness.runtime.reason, 'tick_unhealthy');
     assert.equal(tickUnhealthyHealth.readiness.runtime.tickHealthy, false);
+    assert.equal(tickUnhealthyHealth.readiness.playerTrafficReady, false);
 
     console.log(JSON.stringify({ ok: true, case: 'runtime-quarantine-readiness' }, null, 2));
   } finally {

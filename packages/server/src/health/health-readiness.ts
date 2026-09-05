@@ -23,6 +23,7 @@ interface AuthStoreServiceLike {
 interface RuntimeSummaryLike {
   tick?: number;
   instanceCount?: number;
+  attachableInstanceCount?: number;
   leaseDegradedInstanceCount?: number;
   fencedInstanceCount?: number;
   quarantineInstanceCount?: number;
@@ -92,9 +93,11 @@ interface PersistenceReadiness {
 /** 运行时就绪状态及关键指标 */
 interface RuntimeReadiness {
   ready: boolean;
+  playerTrafficReady: boolean;
   reason: string;
   tick: number;
   instanceCount: number;
+  attachableInstanceCount: number;
   leaseDegradedInstanceCount: number;
   fencedInstanceCount: number;
   quarantineInstanceCount: number;
@@ -114,6 +117,7 @@ interface HealthResponse {
   };
   readiness: {
     ok: boolean;
+    playerTrafficReady: boolean;
     maintenance: {
       active: boolean;
       source: string | null;
@@ -174,6 +178,17 @@ export function buildHealthResponse(dependencies: HealthReadinessDependencies): 
     },
     readiness: {
       ok: readinessOk,
+      playerTrafficReady: readinessOk || (
+        !maintenance.active
+        && database.configured
+        && persistence.player.enabled
+        && persistence.mail.enabled
+        && persistence.market.enabled
+        && persistence.activity.enabled
+        && auth.ready
+        && runtime.playerTrafficReady
+        && !(shutdown?.blocking === true)
+      ),
       maintenance,
       database,
       persistence,
@@ -281,9 +296,11 @@ function resolveRuntimeReadiness(service?: RuntimeServiceLike | null, startupRun
   if (!service) {
     return {
       ready: false,
+      playerTrafficReady: false,
       reason: 'service_unavailable',
       tick: 0,
       instanceCount: 0,
+      attachableInstanceCount: 0,
       leaseDegradedInstanceCount: 0,
       fencedInstanceCount: 0,
       quarantineInstanceCount: 0,
@@ -298,9 +315,11 @@ function resolveRuntimeReadiness(service?: RuntimeServiceLike | null, startupRun
   if (typeof getRuntimeSummary !== 'function') {
     return {
       ready: false,
+      playerTrafficReady: false,
       reason: 'summary_unavailable',
       tick: 0,
       instanceCount: 0,
+      attachableInstanceCount: 0,
       leaseDegradedInstanceCount: 0,
       fencedInstanceCount: 0,
       quarantineInstanceCount: 0,
@@ -318,6 +337,9 @@ function resolveRuntimeReadiness(service?: RuntimeServiceLike | null, startupRun
     const leaseDegradedInstanceCount = readNonNegativeInt(summary.leaseDegradedInstanceCount);
     const fencedInstanceCount = readNonNegativeInt(summary.fencedInstanceCount);
     const quarantineInstanceCount = readNonNegativeInt(summary.quarantineInstanceCount);
+    const attachableInstanceCount = summary.attachableInstanceCount === undefined
+      ? Math.max(0, instanceCount - quarantineInstanceCount)
+      : readNonNegativeInt(summary.attachableInstanceCount);
     const quarantineInstances = normalizeQuarantineInstances(summary.quarantineInstances, startupRunId);
     const playerCount = readNonNegativeInt(summary.playerCount);
     const pendingCommandCount = readNonNegativeInt(summary.pendingCommandCount);
@@ -327,12 +349,15 @@ function resolveRuntimeReadiness(service?: RuntimeServiceLike | null, startupRun
       && fencedInstanceCount === 0
       && quarantineInstanceCount === 0
       && tickHealthy;
+    const playerTrafficReady = attachableInstanceCount > 0 && tickHealthy;
 
     return {
       ready,
+      playerTrafficReady,
       reason: ready ? 'ready' : instanceCount <= 0 ? 'no_instances' : !tickHealthy ? 'tick_unhealthy' : leaseDegradedInstanceCount > 0 ? 'lease_degraded' : fencedInstanceCount > 0 ? 'lease_fenced' : quarantineInstanceCount > 0 ? 'runtime_quarantine' : 'not_ready',
       tick,
       instanceCount,
+      attachableInstanceCount,
       leaseDegradedInstanceCount,
       fencedInstanceCount,
       quarantineInstanceCount,
@@ -344,9 +369,11 @@ function resolveRuntimeReadiness(service?: RuntimeServiceLike | null, startupRun
   } catch {
     return {
       ready: false,
+      playerTrafficReady: false,
       reason: 'summary_unavailable',
       tick: 0,
       instanceCount: 0,
+      attachableInstanceCount: 0,
       leaseDegradedInstanceCount: 0,
       fencedInstanceCount: 0,
       quarantineInstanceCount: 0,

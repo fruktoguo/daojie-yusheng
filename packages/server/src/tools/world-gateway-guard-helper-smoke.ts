@@ -111,6 +111,16 @@ function testGuardHelper() {
     const startupNotReadyHelper = new WorldGatewayGuardHelper(startupNotReadyHealthReadinessService, worldClientEventService, worldSessionService);
     const startupClient = makeClient();
     assert.equal(startupNotReadyHelper.rejectWhenNotReady(startupClient), true);
+    const isolatedInstanceHealthReadinessService = {
+        build() {
+            return { readiness: { ok: false, playerTrafficReady: true, maintenance: { active: false } } };
+        },
+        isReadyForPlayerTraffic() {
+            return true;
+        },
+    };
+    const isolatedInstanceHelper = new WorldGatewayGuardHelper(isolatedInstanceHealthReadinessService, worldClientEventService, worldSessionService);
+    assert.equal(isolatedInstanceHelper.rejectWhenNotReady(makeClient()), false);
     assert.deepEqual(log, [
         ['emitNotReady', 'socket:1'],
         ['emitError', 'socket:1', 'SESSION_EXPIRED', '当前会话已失效，请重新连接。'],

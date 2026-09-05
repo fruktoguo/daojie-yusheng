@@ -26,6 +26,7 @@ export class WorldRuntimeSummaryQueryService {
             lastSyncFlushDurationMs: input.lastSyncFlushDurationMs,
             mapTemplateCount: input.mapTemplateCount,
             instanceCount: input.instances.length,
+            attachableInstanceCount: countAttachableInstances(input.instances),
             leaseDegradedInstanceCount: countInstancesByRuntimeStatus(input.instances, 'lease_degraded'),
             fencedInstanceCount: countInstancesByRuntimeStatus(input.instances, 'fenced'),
             quarantineInstanceCount: countQuarantineInstances(input.instances),
@@ -184,6 +185,34 @@ function countInstancesByRuntimeStatus(instances, runtimeStatus) {
         }
     }
     return count;
+}
+
+function countAttachableInstances(instances) {
+    if (!Array.isArray(instances)) {
+        return 0;
+    }
+    let count = 0;
+    for (const instance of instances) {
+        const runtimeStatus = typeof instance?.runtimeStatus === 'string' ? instance.runtimeStatus.trim() : '';
+        const status = typeof instance?.status === 'string' ? instance.status.trim() : '';
+        if (status === 'destroyed' || isBlockedAttachRuntimeStatus(runtimeStatus)) {
+            continue;
+        }
+        count += 1;
+    }
+    return count;
+}
+
+function isBlockedAttachRuntimeStatus(runtimeStatus) {
+    return runtimeStatus === 'fenced'
+        || runtimeStatus === 'lease_degraded'
+        || runtimeStatus === 'template_missing'
+        || runtimeStatus === 'stopped'
+        || runtimeStatus === 'creating'
+        || runtimeStatus === 'ownership_transition'
+        || runtimeStatus === 'releasing'
+        || runtimeStatus === 'destroying'
+        || runtimeStatus === 'cleanup_pending';
 }
 
 function countQuarantineInstances(instances) {

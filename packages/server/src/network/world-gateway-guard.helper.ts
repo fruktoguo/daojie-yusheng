@@ -43,7 +43,10 @@ class WorldGatewayGuardHelper {
             return false;
         }
         const health = this.healthReadinessService.build();
-        if (health.readiness.ok) {
+        const playerTrafficReady = typeof this.healthReadinessService.isReadyForPlayerTraffic === 'function'
+            ? this.healthReadinessService.isReadyForPlayerTraffic()
+            : health.readiness.ok;
+        if (playerTrafficReady) {
             return false;
         }
         const isMaintenance = health.readiness.maintenance?.active === true;
