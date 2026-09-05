@@ -29,6 +29,7 @@ import { createRuntimeTemporaryBuff, refreshRuntimeTemporaryBuffPrototype } from
 import { canPlayerIgnoreStaticObstacle as canPlayerIgnoreStaticObstacleFromState } from '../player/player-movement-capability.helpers';
 import { resolveTileDamageDropMultiplier } from '../world/combat/tile-drop.helpers';
 import { findBuildingProtectedPlacementConflict } from '../world/building-protected-placement.helpers';
+import { CombatReactionRegistry } from '../combat/combat-reaction-registry';
 import {
  DUNGEON_PRESSURE_BUFF_ID,
  DUNGEON_PRESSURE_COMBAT_STAT_KEYS,
@@ -213,6 +214,7 @@ const SPECIAL_TILE_RESTORE_SPEED_MULTIPLIERS = {
 };
 /** MapInstanceRuntime：地图实例运行时实现。 */
 class MapInstanceRuntime {
+ readonly damageReactionRegistry = new CombatReactionRegistry();
  /**
   * meta：meta相关字段。
   */
@@ -761,6 +763,15 @@ class MapInstanceRuntime {
 */
 
  constructor(request) {
+  this.damageReactionRegistry.register({
+   id: 'monster.fivephase-devour.after-damage',
+   phase: 'afterDamage',
+   matches: (context) => context.targetKind === 'monster',
+   apply: (context) => {
+    this.applyFivePhaseDamageReaction(context.target, context.damageElement);
+    return { changed: true };
+   },
+  });
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   this.meta = {
@@ -5462,7 +5473,7 @@ class MapInstanceRuntime {
   return snapshotNpc(npc);
  }
  /** applyDamageToMonster：对妖兽应用伤害并检查击败结果。 */
- applyDamageToMonster(runtimeId, amount, attackerPlayerId, damageElement = undefined) {
+ applyDamageToMonster(runtimeId, amount, attackerPlayerId, damageElement = undefined, damageKind = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const monster = this.monstersByRuntimeId.get(runtimeId);
@@ -5493,8 +5504,17 @@ class MapInstanceRuntime {
    }
   }
   monster.hp = Math.max(0, monster.hp - appliedDamage);
-  this.applyFivePhaseDamageReaction(monster, damageElement);
-
+  this.damageReactionRegistry.dispatch({
+   phase: 'afterDamage',
+   targetKind: 'monster',
+   target: monster,
+   damage: Math.max(0, Math.trunc(amount)),
+   appliedDamage,
+   damageElement,
+   damageKind,
+   currentTick: this.tick,
+   attackerId: attackerPlayerId,
+  });
   const defeated = monster.hp <= 0;
   if (defeated) {
    this.markMonsterDefeated(monster);

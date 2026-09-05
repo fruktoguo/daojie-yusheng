@@ -62,6 +62,7 @@ import {
  interceptLethalDamageWithDeathImmunity,
  triggerLowHpHeavenlyPassives,
 } from './player-heavenly-passives.helpers';
+import { CombatReactionRegistry } from '../combat/combat-reaction-registry';
 
 /** 新角色默认出生地图。 */
 const DEFAULT_PLAYER_STARTER_MAP_ID = 'yunlai_town';
@@ -187,6 +188,7 @@ export class PlayerRuntimeService {
  blockingOfflineGainPreviewIdsByPlayerId = new Map();
  /** 仅在测试 harness fallback 路径首次触发时打印一次提示，避免刷屏。 */
  noticeFallbackWarned = false;
+ readonly damageReactionRegistry = new CombatReactionRegistry();
  /** 注入基础仓库与成长/属性结算器，供玩家在线态统一管理。 */
  constructor(
   @Inject(ContentTemplateRepository) contentTemplateRepository: any,
@@ -198,6 +200,24 @@ export class PlayerRuntimeService {
   @Optional() @Inject(FlushLedgerService) flushLedgerService: any = undefined,
   @Optional() @Inject(TechniqueAggregationService) techniqueAggregationService: TechniqueAggregationService | null = null,
  ) {
+  this.damageReactionRegistry.register({
+   id: 'player.heavenly-devour.before-damage',
+   phase: 'beforeDamage',
+   matches: (context) => context.targetKind === 'player',
+   apply: (context) => ({ changed: applyHeavenlyDevourVeinReaction(context.target, context.damageElement) }),
+  });
+  this.damageReactionRegistry.register({
+   id: 'player.heavenly-death-immunity.before-damage',
+   phase: 'beforeDamage',
+   matches: (context) => context.targetKind === 'player',
+   apply: (context) => interceptLethalDamageWithDeathImmunity(context.target, context.damage, context.currentTick),
+  });
+  this.damageReactionRegistry.register({
+   id: 'player.heavenly-low-hp.after-health-change',
+   phase: 'afterHealthChange',
+   matches: (context) => context.targetKind === 'player',
+   apply: (context) => ({ changed: triggerLowHpHeavenlyPassives(context.target, context.currentTick) }),
+  });
   this.contentTemplateRepository = contentTemplateRepository;
   this.mapTemplateRepository = mapTemplateRepository;
   this.playerAttributesService = playerAttributesService;
@@ -4436,40 +4456,42 @@ export class PlayerRuntimeService {
   }
 
   const currentTick = Number(options?.currentTick ?? 0);
-
-  // 1. 噬脉引：受到五行伤害时叠层
   const damageElement = options?.damageElement ?? options?.element;
-  if (damageElement) {
-   const devourChanged = applyHeavenlyDevourVeinReaction(player, damageElement);
-   if (devourChanged) {
-    markPlayerDirtyDomains(player, ['buff', 'attr']);
-    this.playerAttributesService?.recalculate?.(player, 'buff');
-   }
-  }
 
-  // 2. 谷神不死：致命伤害拦截并锁定 1 点生命（持续 1 息，CD 1800 息）
-  const immunityResult = interceptLethalDamageWithDeathImmunity(player, normalized, currentTick);
-  if (immunityResult.prevented) {
-   player.hp = 1;
+  const reactionContext = {
+   phase: 'beforeDamage' as const,
+   targetKind: 'player' as const,
+   target: player,
+   damage: normalized,
+   damageElement,
+   currentTick,
+   attackerId,
+  };
+  const beforeDamageReaction = this.damageReactionRegistry.dispatch(reactionContext);
+  if (beforeDamageReaction.changed) {
+   markPlayerDirtyDomains(player, ['buff', 'attr']);
+   this.playerAttributesService?.recalculate?.(player, 'buff');
+  }
+  if (beforeDamageReaction.prevented) {
+   player.hp = beforeDamageReaction.finalHp ?? 1;
    player.selfRevision += 1;
    markPlayerDirtyDomains(player, ['vitals', 'buff']);
    this.bumpPersistentRevision(player);
    return player;
   }
+  player.hp = Math.max(0, player.hp - normalized);
 
-  player.hp = immunityResult.finalHp;
+  const lowHpReaction = this.damageReactionRegistry.dispatch({
+   ...reactionContext,
+   phase: 'afterHealthChange',
+  });
+  if (lowHpReaction.changed) {
+   markPlayerDirtyDomains(player, ['buff', 'attr']);
+   this.playerAttributesService?.recalculate?.(player, 'buff');
+   this.bumpPersistentRevision(player);
+  }
   player.selfRevision += 1;
   markPlayerDirtyDomains(player, ['vitals']);
-
-  // 3. 低血量 30% 天阶机制触发（五炁归元 + 在天成象）
-  if (player.hp > 0) {
-   const lowHpChanged = triggerLowHpHeavenlyPassives(player, currentTick);
-   if (lowHpChanged) {
-    markPlayerDirtyDomains(player, ['buff', 'attr']);
-    this.playerAttributesService?.recalculate?.(player, 'buff');
-   }
-  }
-
   this.bumpPersistentRevision(player);
   return player;
  }
