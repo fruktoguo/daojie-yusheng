@@ -312,7 +312,7 @@ export function groupContainerLootRows(entries) {
     const rows = [];
     const sorted = entries.slice().sort((left, right) => left.createdTick - right.createdTick);
     for (const entry of sorted) {
-        mergeItemStackEntryInto(rows, { ...entry.item }, {
+        mergeItemStackEntryInto(rows, cloneContainerItem(entry.item), {
             getItem: (row) => row.item,
             createEntry: (item, itemKey) => ({
                 itemKey,
@@ -326,6 +326,25 @@ export function groupContainerLootRows(entries) {
     }
     return rows;
 }
+
+/**
+ * 复制容器物品时保留模板原型上的静态等级字段。
+ * 内容物品实例使用 Object.create(template)，直接展开只会复制 own keys，
+ * 会把采集经验和技艺被动判定所需的 level/grade 丢失。
+ */
+export function cloneContainerItem(item) {
+    if (!item || typeof item !== 'object') {
+        return item;
+    }
+    const clone = { ...item };
+    if (item.grade !== undefined) {
+        clone.grade = item.grade;
+    }
+    if (item.level !== undefined) {
+        clone.level = item.level;
+    }
+    return clone;
+}
 /** 检测容器内是否存在未公开条目。 */
 export function hasHiddenContainerEntries(entries) {
     return entries.some((entry) => !entry.visible);
@@ -334,7 +353,7 @@ export function hasHiddenContainerEntries(entries) {
 export function buildContainerWindowItems(entries) {
     return groupContainerLootRows(entries.filter((entry) => entry.visible)).map((entry) => ({
         itemKey: entry.itemKey,
-        item: { ...entry.item },
+        item: cloneContainerItem(entry.item),
     }));
 }
 /** 克隆背包快照用于容量模拟。 */
@@ -351,7 +370,7 @@ export function canReceiveContainerEntries(simulatedInventory, capacity, entries
 /** 将容器条目应用到背包模拟状态。 */
 export function applyContainerEntriesToInventorySimulation(simulatedInventory, entries) {
     for (const entry of entries) {
-        mergeItemStackInto(simulatedInventory, { ...entry.item });
+        mergeItemStackInto(simulatedInventory, cloneContainerItem(entry.item));
     }
 }
 /** 校验玩家背包是否可接收整行容器物品。 */

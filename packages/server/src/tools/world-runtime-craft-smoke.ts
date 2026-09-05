@@ -2129,19 +2129,17 @@ async function testCraftTickUsesUnifiedPipelineForCraftingKinds(): Promise<void>
 async function testGatherStrategyTickUsesStrategyHelper(): Promise<void> {
   const pipeline = new TechniqueActivityPipelineService();
   pipeline.register(new GatherStrategy());
-  const gatherItem = {
+  const gatherItem = Object.assign(Object.create({ level: 31, grade: 'mystic' }), {
     itemId: 'herb:test',
     itemInstanceId: 'herb:source',
     name: '灵草',
     type: 'material',
     count: 1,
     desc: '测试草药',
-    level: 1,
-    grade: 'mortal',
-  };
+  });
   const state = {
     entries: [{
-      item: { ...gatherItem },
+      item: gatherItem,
       createdTick: 1,
       visible: true,
     }],
@@ -2171,7 +2169,8 @@ async function testGatherStrategyTickUsesStrategyHelper(): Promise<void> {
     playerId: 'player:gather-strategy-tick',
     x: 1,
     y: 1,
-    gatherSkill: { level: 1, exp: 0, expToNext: 60 },
+    realm: { realmLv: 31 },
+    gatherSkill: { level: 31, exp: 0, expToNext: 100 },
     persistentRevision: 1,
     gatherJob: {
       sourceId: 'container:instance:gather-tick:herb-1',
@@ -2265,6 +2264,9 @@ async function testGatherStrategyTickUsesStrategyHelper(): Promise<void> {
   assert.equal(state.activeSearch, undefined);
   assert.equal((receivedItems[0] as { itemId?: string })?.itemId, 'herb:test');
   assert.equal(typeof (receivedItems[0] as { itemInstanceId?: string })?.itemInstanceId, 'string');
+  assert.equal((receivedItems[0] as { level?: number })?.level, 31);
+  assert.equal((receivedItems[0] as { grade?: string })?.grade, 'mystic');
+  assert.equal(player.gatherSkill.exp, 1);
   assert.deepEqual(containerDirty, ['instance:gather-tick']);
   assert.deepEqual(dirtyDomains, [['inventory', 'active_job', 'profession']]);
   assert.deepEqual(refreshedQuests, [player.playerId]);

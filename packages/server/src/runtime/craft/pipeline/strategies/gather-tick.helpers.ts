@@ -1,7 +1,7 @@
 import {
-  applyCraftOutputRate,
   computeAdjustedCraftTicks,
   computeCraftSkillExpGain,
+  createItemStackSignature,
   resolveAlchemyGradeValue,
   type ItemStack,
   type TechniqueActivityNoticeMessage,
@@ -16,6 +16,7 @@ import {
 import { reassignItemInstanceId } from '../../../world/item-instance-id.helpers';
 import {
   buildContainerSourceId,
+  cloneContainerItem,
   groupContainerLootRows,
 } from '../../../world/world-runtime.normalization.helpers';
 import { tryAcquireCraftPassiveTechnique } from '../../craft-passive-technique-acquisition.helpers';
@@ -119,8 +120,12 @@ export async function executeGatherTick(
     return buildGatherTickResult();
   }
 
+  const activeSearchItemKeyForLookup = state.activeSearch?.itemKey;
   const harvestedRow = groupContainerLootRows(state.entries)
-    .find((entry) => entry.itemKey === state.activeSearch?.itemKey) ?? null;
+    .find((entry) => entry.itemKey === activeSearchItemKeyForLookup
+      || entry.entries.some((sourceEntry: Record<string, any>) => (
+        createItemStackSignature(sourceEntry.item) === activeSearchItemKeyForLookup
+      ))) ?? null;
   if (!harvestedRow) {
     state.activeSearch = undefined;
     player.gatherJob = null;
@@ -436,7 +441,7 @@ function removeSingleContainerRowItem(
     return null;
   }
   const harvestedItem = {
-    ...target.item,
+    ...cloneContainerItem(target.item),
     count: 1,
   };
   if (!options?.preserveRemaining) {

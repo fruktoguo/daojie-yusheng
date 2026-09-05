@@ -26,6 +26,7 @@ import * as world_runtime_normalization_helpers_1 from './world-runtime.normaliz
 
 const {
  buildContainerSourceId,
+ cloneContainerItem,
  parseContainerSourceId,
  groupContainerLootRows,
  hasHiddenContainerEntries,
@@ -218,7 +219,7 @@ export class WorldRuntimeLootContainerService {
    generatedAtTick: state.generatedAtTick,
    refreshAtTick: state.refreshAtTick,
    entries: state.entries.map((entry) => ({
-    item: { ...entry.item },
+    item: cloneContainerItem(entry.item),
     createdTick: entry.createdTick,
     visible: entry.visible,
    })),
@@ -336,7 +337,7 @@ export class WorldRuntimeLootContainerService {
      : undefined,
     items: herbRows.map((entry) => ({
      itemKey: entry.itemKey,
-     item: { ...entry.item },
+     item: cloneContainerItem(entry.item),
     })),
     emptyText: herbRows.length > 0
      ? '当前可继续采集此处草药。'
@@ -2346,7 +2347,7 @@ function cloneContainerState(state) {
   refreshAtTick: state.refreshAtTick,
   entries: Array.isArray(state.entries)
    ? state.entries.map((entry) => ({
-    item: entry?.item ? { ...entry.item } : entry.item,
+    item: entry?.item ? cloneContainerItem(entry.item) : entry.item,
     createdTick: entry?.createdTick,
     visible: entry?.visible,
    }))
@@ -2384,7 +2385,7 @@ function removeSingleContainerRowItem(entries, row) {
 
 function mergeContainerEntries(entries, nextEntries) {
  for (const nextEntry of nextEntries) {
-  mergeItemStackEntryInto(entries, { ...nextEntry.item }, {
+  mergeItemStackEntryInto(entries, cloneContainerItem(nextEntry.item), {
    getItem: (entry: any) => entry.item,
    createEntry: (item) => ({
     item,
