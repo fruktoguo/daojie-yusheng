@@ -57,12 +57,9 @@ import {
  OFFLINE_GAIN_REPORT_MIN_DURATION_MS,
  resolveOfflineGainReportDurationMs,
 } from './offline-gain-duration.helpers';
-import {
- applyHeavenlyDevourVeinReaction,
- interceptLethalDamageWithDeathImmunity,
- triggerLowHpHeavenlyPassives,
-} from './player-heavenly-passives.helpers';
+import { triggerLowHpHeavenlyPassives } from '../combat/reactions/player/low-hp.reaction';
 import { CombatReactionRegistry } from '../combat/combat-reaction-registry';
+import { registerPlayerCombatReactions } from '../combat/reactions/player/register-player-reactions';
 
 /** 新角色默认出生地图。 */
 const DEFAULT_PLAYER_STARTER_MAP_ID = 'yunlai_town';
@@ -200,24 +197,7 @@ export class PlayerRuntimeService {
   @Optional() @Inject(FlushLedgerService) flushLedgerService: any = undefined,
   @Optional() @Inject(TechniqueAggregationService) techniqueAggregationService: TechniqueAggregationService | null = null,
  ) {
-  this.damageReactionRegistry.register({
-   id: 'player.heavenly-devour.before-damage',
-   phase: 'beforeDamage',
-   matches: (context) => context.targetKind === 'player',
-   apply: (context) => ({ changed: applyHeavenlyDevourVeinReaction(context.target, context.damageElement) }),
-  });
-  this.damageReactionRegistry.register({
-   id: 'player.heavenly-death-immunity.before-damage',
-   phase: 'beforeDamage',
-   matches: (context) => context.targetKind === 'player',
-   apply: (context) => interceptLethalDamageWithDeathImmunity(context.target, context.damage, context.currentTick),
-  });
-  this.damageReactionRegistry.register({
-   id: 'player.heavenly-low-hp.after-health-change',
-   phase: 'afterHealthChange',
-   matches: (context) => context.targetKind === 'player',
-   apply: (context) => ({ changed: triggerLowHpHeavenlyPassives(context.target, context.currentTick) }),
-  });
+  registerPlayerCombatReactions(this.damageReactionRegistry);
   this.contentTemplateRepository = contentTemplateRepository;
   this.mapTemplateRepository = mapTemplateRepository;
   this.playerAttributesService = playerAttributesService;
