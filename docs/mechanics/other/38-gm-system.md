@@ -51,6 +51,7 @@
 | POST shortcuts/compat/orphan-sect-building-visuals/dry-run | 只读预检宗门历史孤儿门窗投影，并交叉核对数据库与本节点运行态 |
 | POST shortcuts/compat/orphan-sect-building-visuals/apply | 清理可写 lease 宗门实例的孤儿门窗及同格损坏状态，刷盘后回读验证 |
 | POST shortcuts/players/migrate-recovery-pills | 将旧恢复丹药迁移到当前保留的 8 个恢复丹药 |
+| POST shortcuts/players/refill-stamina | 将在线与离线挂机玩家的副本体力回满；普通离线玩家不在范围内 |
 | POST shortcuts/maintenance/repair-market-storage-item-ids | 一次性修复坊市托管仓旧 storage_item_id |
 | GET database/state | 数据库状态 |
 | POST database/backup | 数据库备份 |

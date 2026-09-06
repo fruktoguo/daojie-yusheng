@@ -1310,6 +1310,7 @@ gm.shortcut-migrate-ai-arts-strength-v1-to-v2,静态HTML-GM,迁移旧版AI术法
 gm.shortcut-recover-empty-custom-technique-books,静态HTML-GM,修复空白功法残卷,静态 HTML：packages/client/gm.html
 gm.shortcut-migrate-recovery-pills,静态HTML-GM,恢复丹药迁移,静态 HTML：packages/client/gm.html
 gm.shortcut-refresh-online-technique-templates,静态HTML-GM,刷新在线玩家功法模板,静态 HTML：packages/client/gm.html
+gm.shortcut-refill-stamina,静态HTML-GM,在线及离线挂机玩家体力回满,静态 HTML：packages/client/gm.html
 gm.shortcut-repair-quest-progress-payloads,静态HTML-GM,修复历史任务进度Payload,静态 HTML：packages/client/gm.html
 gm.shortcut-repair-market-storage-item-ids,静态HTML-GM,修复坊市托管仓旧ID,静态 HTML：packages/client/gm.html
 gm.shortcut-return-all-to-default-spawn,静态HTML-GM,所有角色回新手村出生点,静态 HTML：packages/client/gm.html
@@ -3863,6 +3864,8 @@ gm.shortcut.recover-empty-books.dry-run-started,GM,正在预览空白功法残�
 gm.shortcut.recover-empty-books.noop,GM,没有可自动修复的空白功法残卷。扫描 {matchedRows} 行，跳过 {skippedRows} 行。,
 gm.shortcut.refresh-online-technique-templates.confirm,GM,这会按当前功法模板刷新所有在线玩家已学功法的技能、层数、属性与自动战斗技能；离线玩家下次登录会自动按模板补全。确认继续吗？,
 gm.shortcut.refresh-online-technique-templates.done,GM,在线玩家功法模板刷新完成：扫描在线 {totalPlayers} 人，更新 {refreshedOnlinePlayers} 人 / {refreshedTechniques} 门功法，缺失模板 {missingTechniqueTemplates} 门,
+gm.shortcut.refill-stamina.confirm,GM,这会把所有在线和离线挂机玩家的副本体力回满，普通离线玩家不在处理范围内。在线角色立即同步，离线挂机角色直接更新存档。确认继续吗？,
+gm.shortcut.refill-stamina.done,GM,玩家体力回满完成：共 {totalPlayers} 人，在线运行态 {queuedRuntimePlayers} 人，离线挂机 {updatedOfflinePlayers} 人，体力上限 {staminaMaximum},
 gm.shortcut.repair-market-storage.confirm,GM,这会一次性修复数据库中坊市托管仓旧 storage_item_id。修复后运行时不再自动兼容旧ID，确认继续吗？,
 gm.shortcut.repair-market-storage.done,GM,坊市托管仓旧ID修复完成：修复前异常 {before} 行，修复 {repairedRows} 行 / {repairedPlayers} 人，修复后异常 {after} 行，非法槽位 {invalidSlots} 行,
 gm.shortcut.repair-quest-progress.cancelled,GM,已取消历史任务进度 Payload 修复。,

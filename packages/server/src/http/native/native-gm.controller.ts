@@ -1155,6 +1155,21 @@ export class NativeGmController {
     });
   }
 
+  @Post('shortcuts/players/refill-stamina')
+  async refillOnlineAndOfflineHangingPlayersStamina(@Body() body: GmPlayerScopeBody, @Req() request: unknown) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.shortcuts.players.refill_stamina',
+      request,
+      targetType: 'player',
+      targetId: 'online_and_offline_hanging',
+      after: { playerIds: body?.playerIds ?? [], targetPlayerIds: body?.targetPlayerIds ?? [] },
+    }, async () => {
+      const result = await this.nextGmPlayerService.refillOnlineAndOfflineHangingPlayersStamina(body ?? {});
+      this.nextGmWorldService.invalidatePlayerListCaches();
+      return result;
+    });
+  }
+
   @Post('shortcuts/maintenance/repair-market-storage-item-ids')
   async repairMarketStorageItemIds(@Req() request: unknown) {
     return this.executeAuditedGmWrite({

@@ -12473,6 +12473,34 @@ async function refreshOnlineTechniqueTemplates(): Promise<void> {
   }
 }
 
+async function refillOnlineAndOfflineHangingPlayersStamina(): Promise<void> {
+  if (!window.confirm(t('gm.shortcut.refill-stamina.confirm'))) {
+    return;
+  }
+
+  const button = document.getElementById('shortcut-refill-stamina') as HTMLButtonElement | null;
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    const result = await request<GmShortcutRunRes>(`${GM_API_BASE_PATH}/shortcuts/players/refill-stamina`, {
+      method: 'POST',
+    });
+    await delayRefresh(t('gm.shortcut.refill-stamina.done', {
+      totalPlayers: Math.floor(result.totalPlayers ?? 0),
+      queuedRuntimePlayers: Math.floor(result.queuedRuntimePlayers ?? 0),
+      updatedOfflinePlayers: Math.floor(result.updatedOfflinePlayers ?? 0),
+      staminaMaximum: Math.floor(result.staminaMaximum ?? 0),
+    }));
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
 /** cleanupAbnormalTemporaryTiles：处理cleanup Abnormal Temporary Tiles。 */
 async function cleanupAbnormalTemporaryTiles(): Promise<void> {
   if (!window.confirm(t('gm.shortcut.cleanup-abnormal-temp.confirm'))) {
@@ -13668,6 +13696,9 @@ document.getElementById('shortcut-repair-quest-progress-payloads')?.addEventList
 });
 document.getElementById('shortcut-refresh-online-technique-templates')?.addEventListener('click', () => {
   refreshOnlineTechniqueTemplates().catch((e) => console.error('[GM]', e));
+});
+document.getElementById('shortcut-refill-stamina')?.addEventListener('click', () => {
+  refillOnlineAndOfflineHangingPlayersStamina().catch((e) => console.error('[GM]', e));
 });
 document.getElementById('shortcut-cleanup-abnormal-temporary-tiles')?.addEventListener('click', () => {
   cleanupAbnormalTemporaryTiles().catch((e) => console.error('[GM]', e));

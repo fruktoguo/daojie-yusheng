@@ -1672,6 +1672,36 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
       .filter((entry) => entry.playerId.length > 0 && entry.instanceId.length > 0);
   }
 
+  /** 查询仍保留在世界中的离线挂机玩家 ID，供 GM 批量操作限定目标范围。 */
+  async listOfflineHangingPlayerIds(playerIds: Iterable<string> = []): Promise<string[]> {
+    if (!this.pool || !this.enabled) {
+      return [];
+    }
+    const normalizedPlayerIds = normalizePlayerIdList(playerIds);
+    const params: unknown[] = [];
+    const scopeClause = normalizedPlayerIds.length > 0
+      ? `AND presence.player_id = ANY($1::text[])`
+      : '';
+    if (normalizedPlayerIds.length > 0) {
+      params.push(normalizedPlayerIds);
+    }
+    const result = await this.pool.query<{ player_id?: unknown }>(
+      `
+        SELECT presence.player_id
+        FROM ${PLAYER_PRESENCE_TABLE} presence
+        WHERE presence.online = false
+          AND presence.in_world = true
+          AND presence.player_id NOT LIKE 'gm_bot_%'
+          ${scopeClause}
+        ORDER BY presence.player_id ASC
+      `,
+      params,
+    );
+    return (result.rows ?? [])
+      .map((row) => normalizeRequiredString(row.player_id))
+      .filter((playerId) => playerId.length > 0);
+  }
+
   async hasOnlinePlayersInInstance(instanceId: string): Promise<boolean> {
     const normalizedInstanceId = normalizeRequiredString(instanceId);
     if (!this.pool || !this.enabled || !normalizedInstanceId) {

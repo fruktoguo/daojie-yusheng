@@ -40,6 +40,7 @@ export interface PlayerDomainPersistenceServiceLike {
   listProjectedSnapshots(
     buildStarterSnapshot: (playerId: string) => any | null,
   ): Promise<PersistedPlayerEntryLike[]>;
+  listOfflineHangingPlayerIds?(playerIds?: Iterable<string>): Promise<string[]>;
 }
 
 export interface PlayerProgressionServiceLike {

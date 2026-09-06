@@ -14,6 +14,7 @@ import {
   Direction,
   ARTIFACT_SLOTS,
   EQUIP_SLOTS,
+  DUNGEON_MAX_STAMINA,
   MERIT_ETERNAL_DAILY_SIGN_IN_FIXED_BONUS,
   MERIT_ETERNAL_POOL_GRANT,
   VIEW_RADIUS,
@@ -1011,6 +1012,59 @@ export class NativeGmPlayerService {
     };
   }
 
+  /** 将在线和离线挂机玩家的副本体力统一恢复到上限。 */
+  async refillOnlineAndOfflineHangingPlayersStamina(options?: GmPlayerScopeOptions) {
+    const scopedPlayerIds = this.normalizePlayerIdScope(options);
+    const scopedPlayerIdSet = scopedPlayerIds.length > 0 ? new Set(scopedPlayerIds) : null;
+    const runtimePlayers = this.playerRuntimeService
+      .listPlayerSnapshots()
+      .filter((entry) => this.isStaminaRefillRuntimePlayer(entry)
+        && (!scopedPlayerIdSet || scopedPlayerIdSet.has(entry.playerId)));
+    const runtimePlayerIds = new Set(runtimePlayers.map((entry) => entry.playerId));
+
+    let queuedRuntimePlayers = 0;
+    let updatedOfflinePlayers = 0;
+    const now = Date.now();
+    for (const runtime of runtimePlayers) {
+      try {
+        await this.refillManagedPlayerStamina(runtime.playerId, now);
+      } catch (error) {
+        if (this.isManagedPlayerMissingError(error)) {
+          continue;
+        }
+        throw error;
+      }
+      queuedRuntimePlayers += 1;
+    }
+
+    const persistedOfflinePlayerIds = this.playerDomainPersistenceService.listOfflineHangingPlayerIds
+      ? await this.playerDomainPersistenceService.listOfflineHangingPlayerIds(scopedPlayerIds)
+      : [];
+    for (const playerId of persistedOfflinePlayerIds) {
+      if (runtimePlayerIds.has(playerId) || isNativeGmBotPlayerId(playerId)) {
+        continue;
+      }
+      try {
+        await this.refillManagedPlayerStamina(playerId, now);
+      } catch (error) {
+        if (this.isManagedPlayerMissingError(error)) {
+          continue;
+        }
+        throw error;
+      }
+      updatedOfflinePlayers += 1;
+    }
+
+    return {
+      ok: true,
+      totalPlayers: queuedRuntimePlayers + updatedOfflinePlayers,
+      queuedRuntimePlayers,
+      updatedOfflinePlayers,
+      staminaRefilledPlayers: queuedRuntimePlayers + updatedOfflinePlayers,
+      staminaMaximum: DUNGEON_MAX_STAMINA,
+    };
+  }
+
   async repairMarketStorageItemIds() {
     if (!this.databasePoolProvider) {
       throw new BadRequestException('数据库未启用，无法修复坊市托管仓 storage_item_id');
@@ -1070,6 +1124,37 @@ export class NativeGmPlayerService {
 
   refreshOnlinePlayerTechniqueTemplates() {
     return this.playerRuntimeService.refreshOnlineTechniqueTemplates();
+  }
+
+  private async refillManagedPlayerStamina(playerId: string, now: number): Promise<void> {
+    await this.mutateManagedPlayer(playerId, {
+      domains: ['progression'],
+      mutatePersisted: (persisted) => {
+        persisted.progression = persisted.progression && typeof persisted.progression === 'object'
+          ? persisted.progression
+          : {};
+        persisted.progression.stamina = DUNGEON_MAX_STAMINA;
+        persisted.progression.staminaUpdatedAt = now;
+        persisted.savedAt = now;
+      },
+      mutateRuntime: (runtime) => {
+        runtime.stamina = DUNGEON_MAX_STAMINA;
+        runtime.staminaUpdatedAt = now;
+      },
+    });
+  }
+
+  private isStaminaRefillRuntimePlayer(entry: any): boolean {
+    if (!entry || isNativeGmBotPlayerId(entry.playerId)) {
+      return false;
+    }
+    const sessionId = typeof entry.sessionId === 'string' ? entry.sessionId.trim() : '';
+    if (sessionId.length > 0) {
+      return true;
+    }
+    const templateId = typeof entry.templateId === 'string' ? entry.templateId.trim() : '';
+    const reapReadyAt = Number(entry.offlineHangingReapReadyAt);
+    return templateId.length > 0 && !(Number.isFinite(reapReadyAt) && reapReadyAt > 0);
   }
   /**
  * compensateAllPlayersCombatExp：补偿全部非机器人的战斗经验。

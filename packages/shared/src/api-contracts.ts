@@ -2602,6 +2602,10 @@ export interface GmShortcutRunRes {
  */
 
   missingTechniqueTemplates?: number;
+  /** 回满体力的玩家数。 */
+  staminaRefilledPlayers?: number;
+  /** 体力上限。 */
+  staminaMaximum?: number;
   /**
  * targetMapId：目标地图ID标识。
  */
