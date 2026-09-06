@@ -30,6 +30,7 @@ export const HEAVENLY_DAO_SHOP_ITEMS = [
   { itemId: 'pill.ningxiang', count: 1, price: 1 },
   { itemId: 'pill.wangsheng', count: 1, price: 100 },
   { itemId: 'pill.shatter_spirit', count: 1, price: 10 },
+ { itemId: 'pill.huiyuan', count: 1, price: 240, dailyLimit: 5 },
 ] as const;
 
 /** 永恒权益下天道商店折扣百分比。 */

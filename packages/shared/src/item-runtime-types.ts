@@ -757,7 +757,9 @@ export interface ItemStack {
  * qiPercent：qiPercent相关字段。
  */
 
-  qiPercent?: number;  
+  qiPercent?: number;
+  /** 使用后恢复的副本体力点数。 */
+  staminaAmount?: number;
   /**
  * cooldown：冷却相关字段。
  */

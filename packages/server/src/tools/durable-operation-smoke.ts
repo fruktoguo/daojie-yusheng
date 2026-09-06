@@ -62,6 +62,7 @@ const PLAYER_SCOPED_TABLES = [
   'player_wallet',
   'player_inventory_item',
   'player_market_storage_item',
+  'player_heavenly_dao_shop_purchase',
   'player_equipment_slot',
   'player_profession_state',
   'player_active_job',
@@ -102,6 +103,7 @@ async function main(): Promise<void> {
   const marketCancelPlayerId = `mcancel_${now.toString(36)}`;
   const marketBanPlayerId = `mban_${now.toString(36)}`;
   const shopPlayerId = `shop_${now.toString(36)}`;
+  const marketQuotaPlayerId = `mquota_${now.toString(36)}`;
   const walletPlayerId = `wallet_${now.toString(36)}`;
   const equipPlayerId = `equip_${now.toString(36)}`;
   const activeJobPlayerId = `job_${now.toString(36)}`;
@@ -117,6 +119,7 @@ async function main(): Promise<void> {
   const marketCancelOperationId = `op:${marketCancelPlayerId}:cancel-order:1`;
   const marketBanOperationId = `op:${marketBanPlayerId}:ban:1`;
   const shopOperationId = `op:${shopPlayerId}:npc-shop:1`;
+  const marketQuotaOperationId = `op:${marketQuotaPlayerId}:heavenly-dao:1`;
   const walletOperationId = `op:${walletPlayerId}:wallet:1`;
   const equipOperationId = `op:${equipPlayerId}:equip:1`;
   const activeJobUpdateOperationId = `op:${activeJobPlayerId}:active-job:update:1`;
@@ -327,6 +330,7 @@ async function main(): Promise<void> {
     marketCancelPlayerId,
     marketBanPlayerId,
     shopPlayerId,
+    marketQuotaPlayerId,
     walletPlayerId,
     equipPlayerId,
     activeJobStartPlayerId,
@@ -1772,6 +1776,85 @@ async function main(): Promise<void> {
       || marketBanAuditRows[0]?.action !== 'market_ban_cancel_orders'
     ) {
       throw new Error(`unexpected market ban audit rows: ${JSON.stringify(marketBanAuditRows)}`);
+    }
+
+    await seedMarketBanFixture(pool, {
+      playerId: marketQuotaPlayerId,
+      now: now + 30,
+    });
+    const marketQuotaDate = new Date(now + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const marketQuotaBanUser = {
+      playerId: marketQuotaPlayerId,
+      bannedAt: new Date(now + 30).toISOString(),
+      banReason: 'heavenly-dao-shop-quota-smoke',
+      bannedBy: 'durable-operation-smoke',
+    };
+    const marketQuotaPayload = { itemId: 'pill.huiyuan', quantity: 5 };
+    const marketQuotaResult = await service.settleMarketMutation({
+      operationId: marketQuotaOperationId,
+      playerId: marketQuotaPlayerId,
+      expectedRuntimeOwnerId: '',
+      expectedSessionEpoch: 0,
+      operationType: 'heavenly_dao_shop_purchase',
+      payload: marketQuotaPayload,
+      heavenlyDaoShopPurchase: {
+        itemId: 'pill.huiyuan',
+        purchaseDate: marketQuotaDate,
+        quantity: 5,
+        dailyLimit: 5,
+      },
+      banUser: marketQuotaBanUser,
+      requirePresenceFence: false,
+    });
+    if (!marketQuotaResult.ok || marketQuotaResult.alreadyCommitted) {
+      throw new Error(`unexpected heavenly dao quota result: ${JSON.stringify(marketQuotaResult)}`);
+    }
+    const marketQuotaReplay = await service.settleMarketMutation({
+      operationId: marketQuotaOperationId,
+      playerId: marketQuotaPlayerId,
+      expectedRuntimeOwnerId: '',
+      expectedSessionEpoch: 0,
+      operationType: 'heavenly_dao_shop_purchase',
+      payload: marketQuotaPayload,
+      heavenlyDaoShopPurchase: {
+        itemId: 'pill.huiyuan',
+        purchaseDate: marketQuotaDate,
+        quantity: 5,
+        dailyLimit: 5,
+      },
+      banUser: marketQuotaBanUser,
+      requirePresenceFence: false,
+    });
+    if (!marketQuotaReplay.ok || !marketQuotaReplay.alreadyCommitted) {
+      throw new Error(`unexpected heavenly dao quota replay: ${JSON.stringify(marketQuotaReplay)}`);
+    }
+    const marketQuotaCount = await service.getHeavenlyDaoShopPurchasedCount(marketQuotaPlayerId, 'pill.huiyuan', marketQuotaDate);
+    if (marketQuotaCount !== 5) {
+      throw new Error(`unexpected heavenly dao quota count: ${marketQuotaCount}`);
+    }
+    let marketQuotaRejected = false;
+    try {
+      await service.settleMarketMutation({
+        operationId: `${marketQuotaOperationId}:overflow`,
+        playerId: marketQuotaPlayerId,
+        expectedRuntimeOwnerId: '',
+        expectedSessionEpoch: 0,
+        operationType: 'heavenly_dao_shop_purchase',
+        payload: { itemId: 'pill.huiyuan', quantity: 1 },
+        heavenlyDaoShopPurchase: {
+          itemId: 'pill.huiyuan',
+          purchaseDate: marketQuotaDate,
+          quantity: 1,
+          dailyLimit: 5,
+        },
+        banUser: marketQuotaBanUser,
+        requirePresenceFence: false,
+      });
+    } catch (error) {
+      marketQuotaRejected = String(error instanceof Error ? error.message : error).includes('heavenly_dao_shop_daily_limit_exceeded');
+    }
+    if (!marketQuotaRejected) {
+      throw new Error('expected heavenly dao shop daily limit rejection');
     }
 
     await seedNpcShopFixture(pool, {

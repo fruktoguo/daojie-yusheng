@@ -30,6 +30,7 @@ function createContentRepository() {
     ['sect_founding_token', '建宗令'],
     [SECT_ENTRANCE_RELOCATION_ITEM_ID, '迁宗令'],
     ['pill.ningxiang', '凝相丹'],
+    ['pill.huiyuan', '回元丹'],
   ]);
   return {
     normalizeItem(item: SmokeItem): SmokeItem {
@@ -82,6 +83,10 @@ function createPlayerRuntimeService(runtimePlayers: Map<string, SmokePlayer>) {
     },
     getPlayer(playerId: string): SmokePlayer | null {
       return runtimePlayers.get(playerId) ?? null;
+    },
+    describePersistencePresence(playerId: string) {
+      const player = getPlayerOrThrow(playerId);
+      return { runtimeOwnerId: player.runtimeOwnerId, sessionEpoch: player.sessionEpoch, online: true, inWorld: true };
     },
     getPlayerOrThrow,
     canAffordWallet(playerId: string, walletType: string, amount: number): boolean {
@@ -235,6 +240,54 @@ async function main(): Promise<void> {
   assert.equal(discountedPlayer.inventory.items.find((entry) => entry.itemId === HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID)?.count, 10);
   assert.equal(discountedPlayer.inventory.items.find((entry) => entry.itemId === 'spirit_stone')?.count, 240);
   assert.equal(discountedResult.notices[0]?.structured?.vars?.cost, 90);
+
+  const limitedPlayerId = 'player:heavenly-dao-shop-limited';
+  runtimePlayers.set(limitedPlayerId, {
+    playerId: limitedPlayerId,
+    runtimeOwnerId: 'smoke-runtime-owner',
+    sessionEpoch: 1,
+    inventory: {
+      capacity: 10,
+      items: [{ itemId: HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, count: 2_000, name: '功德', type: 'consumable' }],
+    },
+    wallet: { balances: [{ walletType: HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, balance: 2_000 }] },
+  });
+  let purchasedToday = 0;
+  const limitedService = new MarketRuntimeService(
+    createContentRepository() as never,
+    createPlayerRuntimeService(runtimePlayers) as never,
+    { async persistMutation() { return undefined; } } as never,
+    {
+      isEnabled() { return true; },
+      async getHeavenlyDaoShopPurchasedCount() { return purchasedToday; },
+      async settleMarketMutation(input: any) {
+        const quota = input.heavenlyDaoShopPurchase;
+        assert.equal(quota?.dailyLimit, 5);
+        assert.match(quota?.purchaseDate ?? '', /^\d{4}-\d{2}-\d{2}$/);
+        if (purchasedToday + quota.quantity > quota.dailyLimit) {
+          throw new Error('heavenly_dao_shop_daily_limit_exceeded');
+        }
+        purchasedToday += quota.quantity;
+        return { ok: true, alreadyCommitted: false };
+      },
+    } as never,
+    null as never,
+    null as never,
+    null as never,
+    {
+      isEnabled() { return true; },
+      async loadPlayerPresence() { return { runtimeOwnerId: 'smoke-runtime-owner', sessionEpoch: 1 }; },
+      async savePlayerPresence() { return undefined; },
+    } as never,
+  );
+  const limitedResult = await limitedService.buyHeavenlyDaoShopItem(limitedPlayerId, { itemId: 'pill.huiyuan', quantity: 5 });
+  const limitedPlayer = runtimePlayers.get(limitedPlayerId)!;
+  assert.equal(limitedPlayer.inventory.items.find((entry) => entry.itemId === HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID)?.count, 800);
+  assert.equal(limitedPlayer.inventory.items.find((entry) => entry.itemId === 'pill.huiyuan')?.count, 5);
+  assert.equal(limitedResult.notices[0]?.structured?.vars?.cost, 1_200);
+  const limitedRejected = await limitedService.buyHeavenlyDaoShopItem(limitedPlayerId, { itemId: 'pill.huiyuan', quantity: 1 });
+  assert.match(limitedRejected.notices[0]?.text ?? '', /每日限购 5 个/);
+  assert.equal(limitedPlayer.inventory.items.find((entry) => entry.itemId === 'pill.huiyuan')?.count, 5);
 
   console.log('market-heavenly-dao-shop-smoke passed');
 }

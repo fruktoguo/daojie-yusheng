@@ -334,7 +334,8 @@ function buildEffectSummary(effect: EquipmentEffectDef): {
  /**
  * asideCard：asideCard相关字段。
  */
- asideCard?: SkillTooltipAsideCard } {
+ asideCard?: SkillTooltipAsideCard
+} {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const conditionLines = formatEquipmentConditionText(effect);
@@ -583,6 +584,9 @@ function buildConsumableEffectDetails(item: ItemStack, itemCooldown?: ItemToolti
   if (typeof previewItem.qiPercent === 'number' && previewItem.qiPercent > 0) {
     instantParts.push(t('equipment-tooltip.consumable.qi-percent', { percent: formatDisplayPercent(previewItem.qiPercent * 100) }));
   }
+ if (typeof previewItem.staminaAmount === 'number' && previewItem.staminaAmount > 0) {
+  instantParts.push(t('equipment-tooltip.consumable.stamina-amount', { amount: formatDisplayInteger(previewItem.staminaAmount) }));
+ }
   if (instantParts.length > 0) {
     lines.push(t('equipment-tooltip.consumable.instant', { value: instantParts.join('，') }));
   }
@@ -753,8 +757,7 @@ function renderEquipmentAttributeBlock(item: ItemStack, playerRealmLv?: number |
     return null;
   }
   const bonusList = renderEquipmentBonusList(propertyLines);
-  return `<div class="equipment-tooltip-attribute-block">${
-    effectivenessLine ? `<div class="equipment-tooltip-effectiveness">${renderLabelLine(t('equipment-tooltip.label.equipment-attrs', undefined), escapeHtml(effectivenessLine))}</div>` : ''
+ return `<div class="equipment-tooltip-attribute-block">${effectivenessLine ? `<div class="equipment-tooltip-effectiveness">${renderLabelLine(t('equipment-tooltip.label.equipment-attrs', undefined), escapeHtml(effectivenessLine))}</div>` : ''
   }${bonusList ?? ''}</div>`;
 }
 

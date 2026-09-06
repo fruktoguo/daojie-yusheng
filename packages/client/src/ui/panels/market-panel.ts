@@ -361,7 +361,8 @@ const MARKET_TECHNIQUE_FILTERS: Array<{
  /**
  * label：label名称或显示文本。
  */
- label: string }> = [
+ label: string
+}> = [
   { id: 'all', label: t('market.filter.technique-all', undefined) },
   { id: 'arts', label: getTechniqueCategoryLabel('arts') },
   { id: 'internal', label: getTechniqueCategoryLabel('internal') },
@@ -1184,7 +1185,12 @@ export class MarketPanel {
       return null;
     }
     const quantity = Number(raw);
-    if (!Number.isSafeInteger(quantity) || quantity <= 0 || quantity > HEAVENLY_DAO_SHOP_MAX_QUANTITY) {
+  const entry = this.getHeavenlyDaoShopEntry(itemId);
+  const dailyLimit = entry && 'dailyLimit' in entry
+   ? Math.max(1, Math.trunc(Number(entry.dailyLimit) || 0))
+   : HEAVENLY_DAO_SHOP_MAX_QUANTITY;
+  const maximum = Math.min(HEAVENLY_DAO_SHOP_MAX_QUANTITY, dailyLimit);
+  if (!Number.isSafeInteger(quantity) || quantity <= 0 || quantity > maximum) {
       return null;
     }
     return quantity;
@@ -1239,12 +1245,14 @@ export class MarketPanel {
     const insufficientCurrency = !invalidTotal && totalCost > ownedCurrency;
     const displayTotal = invalidTotal ? '--' : formatDisplayInteger(totalCost ?? 0);
     const affordableCount = unitPrice > 0 ? Math.floor(ownedCurrency / unitPrice) : 0;
-    const maxPurchasable = Math.min(HEAVENLY_DAO_SHOP_MAX_QUANTITY, affordableCount);
+  const dailyLimit = 'dailyLimit' in entry ? Math.max(1, Math.trunc(Number(entry.dailyLimit) || 0)) : null;
+  const maxPurchasable = Math.min(HEAVENLY_DAO_SHOP_MAX_QUANTITY, affordableCount, dailyLimit ?? HEAVENLY_DAO_SHOP_MAX_QUANTITY);
     const ownedCount = getPlayerOwnedItemCount(this.player, this.inventory, entry.itemId);
     const countText = entry.count > 1 ? ` x${formatDisplayInteger(entry.count)}` : '';
+  const maximumInput = Math.min(HEAVENLY_DAO_SHOP_MAX_QUANTITY, dailyLimit ?? HEAVENLY_DAO_SHOP_MAX_QUANTITY);
     const effectLines = describeItemEffectDetails(item);
     const errorText = invalidTotal
-      ? `请输入 1 至 ${formatDisplayInteger(HEAVENLY_DAO_SHOP_MAX_QUANTITY)} 之间的购买数量。`
+   ? `请输入 1 至 ${formatDisplayInteger(maximumInput)} 之间的购买数量。`
       : `${currencyName}不足，需要 ${displayTotal} ${currencyName}。`;
     return `
       <div class="market-book-header">
@@ -1268,7 +1276,7 @@ export class MarketPanel {
         </div>
         <div class="market-action-row">
           <span class="market-order-meta">已持有：${escapeHtml(formatDisplayCountBadge(ownedCount))}</span>
-          <span class="market-order-meta">最多可买：${formatDisplayInteger(maxPurchasable)}</span>
+          <span class="market-order-meta">最多可买：${formatDisplayInteger(maxPurchasable)}${dailyLimit ? ` · 每日限购 ${formatDisplayInteger(dailyLimit)}` : ''}</span>
         </div>
         <div class="market-trade-dialog-section ui-surface-pane ui-surface-pane--stack ui-surface-pane--muted">
           <div class="market-trade-dialog-field">
@@ -1285,7 +1293,7 @@ export class MarketPanel {
             <span>数量</span>
             ${renderTradeQuantityControl({
               value: quantityText || '1',
-              max: HEAVENLY_DAO_SHOP_MAX_QUANTITY,
+   max: maximumInput,
               inputClassName: 'gm-inline-input ui-input',
               inputAttrs: { 'data-heavenly-dao-shop-quantity': entry.itemId },
               leftButtons: [{ label: '1', attrs: { 'data-heavenly-dao-shop-quick-qty': entry.itemId, 'data-heavenly-dao-shop-quick-qty-value': '1' } }],
@@ -1502,6 +1510,8 @@ export class MarketPanel {
     const quantity = this.parseHeavenlyDaoShopQuantity(itemId);
     const unitPrice = this.getHeavenlyDaoShopUnitPrice(entry.price);
     const totalCost = quantity === null ? null : quantity * unitPrice;
+  const dailyLimit = 'dailyLimit' in entry ? Math.max(1, Math.trunc(Number(entry.dailyLimit) || 0)) : null;
+  const maximumInput = Math.min(HEAVENLY_DAO_SHOP_MAX_QUANTITY, dailyLimit ?? HEAVENLY_DAO_SHOP_MAX_QUANTITY);
     const invalidTotal = totalCost === null || !Number.isSafeInteger(totalCost) || totalCost <= 0;
     const insufficientCurrency = !invalidTotal && totalCost > this.getHeavenlyDaoShopCurrencyOwned();
     const displayTotal = invalidTotal ? '--' : formatDisplayInteger(totalCost ?? 0);
@@ -1509,7 +1519,7 @@ export class MarketPanel {
     totalNode.parentElement?.classList.toggle('error', invalidTotal || insufficientCurrency);
     errorNode.hidden = !(invalidTotal || insufficientCurrency);
     errorNode.textContent = invalidTotal
-      ? `请输入 1 至 ${formatDisplayInteger(HEAVENLY_DAO_SHOP_MAX_QUANTITY)} 之间的购买数量。`
+   ? `请输入 1 至 ${formatDisplayInteger(maximumInput)} 之间的购买数量。`
       : `${currencyName}不足，需要 ${displayTotal} ${currencyName}。`;
     buttonNode.disabled = invalidTotal || insufficientCurrency;
   }
@@ -2573,7 +2583,8 @@ export class MarketPanel {
  /**
  * count：数量或计量字段。
  */
- count: number }> = [
+   count: number
+  }> = [
       { id: 'all', label: t('market.filter.all', undefined), count: this.getMarketCategoryCount('all', listedItems.length) },
       ...ITEM_TYPES.map((type) => ({
         id: type,
@@ -2607,7 +2618,8 @@ export class MarketPanel {
  /**
  * count：数量或计量字段。
  */
- count: number }> = [
+   count: number
+  }> = [
       {
         id: 'all',
         label: t('market.filter.equipment-all', undefined),

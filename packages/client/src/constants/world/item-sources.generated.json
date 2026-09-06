@@ -6175,6 +6175,18 @@
       "recipeName": "引基散丹方"
     }
   ],
+  "pill.huiyuan": [
+    {
+      "kind": "heavenly_dao_shop",
+      "mapId": "market",
+      "mapName": "坊市",
+      "shopName": "天道商店",
+      "itemId": "pill.huiyuan",
+      "count": 1,
+      "price": 240,
+      "currencyItemId": "merit"
+    }
+  ],
   "pill.minor_heal": [
     {
       "kind": "shop",

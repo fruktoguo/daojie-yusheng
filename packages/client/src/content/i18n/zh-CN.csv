@@ -3485,6 +3485,7 @@ equipment-tooltip.consumable.heal-percent,装备提示,恢复 {percent} 气血,�
 equipment-tooltip.consumable.instant,装备提示,立即效果：{value},范围D固定前端可见文本
 equipment-tooltip.consumable.instant-resource,装备提示,立即效果：{resource} +{amount},范围D固定前端可见文本
 equipment-tooltip.consumable.qi-percent,装备提示,恢复 {percent} 真气,范围D固定前端可见文本
+equipment-tooltip.consumable.stamina-amount,装备提示,恢复 {amount} 点副本体力,范围D固定前端可见文本
 equipment-tooltip.consumable.unlock-map,装备提示,使用效果：永久解锁对应地图,范围D固定前端可见文本
 equipment-tooltip.cooldown.line,装备提示,冷却：{cooldown} 息,范围D固定前端可见文本
 equipment-tooltip.cooldown.meta,装备提示,冷却 {cooldown} 息,范围D固定前端可见文本

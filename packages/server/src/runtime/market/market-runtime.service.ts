@@ -20,7 +20,7 @@ import {
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { InstanceCatalogService } from '../../persistence/instance-catalog.service';
 import { buildStructuredNotice } from '../world/structured-notice.helpers';
-import { ActivityRuntimeService } from '../activity/activity-runtime.service';
+import { ActivityRuntimeService, getChinaDateKey } from '../activity/activity-runtime.service';
 import { parseMarketStackSignatureItemKey } from './market-item-key.helpers';
 
 const AUCTION_EXTENSION_WINDOW_MS = 30 * 1000;
@@ -149,6 +149,22 @@ export class MarketRuntimeService {
             if (!shopItem || !quantity) {
                 return this.singleMessage(playerId, '天道商店商品不存在。', 'warn');
             }
+    const dailyLimit = 'dailyLimit' in shopItem
+     ? Math.max(1, Math.trunc(Number(shopItem.dailyLimit) || 0))
+     : null;
+    const purchaseDate = dailyLimit ? getChinaDateKey() : null;
+    if (dailyLimit && purchaseDate) {
+     if (this.durableOperationService?.isEnabled?.() !== true
+      || typeof this.durableOperationService.getHeavenlyDaoShopPurchasedCount !== 'function') {
+      return this.singleMessage(playerId, '天道商店限购状态暂不可用，请稍后重试。', 'warn');
+     }
+     const purchasedCount = await this.durableOperationService.getHeavenlyDaoShopPurchasedCount(playerId, itemId, purchaseDate);
+     const remainingCount = Math.max(0, dailyLimit - purchasedCount);
+     if (quantity > remainingCount) {
+      const itemName = this.contentTemplateRepository.getItemName(itemId) ?? itemId;
+      return this.singleMessage(playerId, `${itemName}每日限购 ${dailyLimit} 个，今日剩余可购 ${remainingCount} 个。`, 'warn');
+     }
+    }
             const discountPercent = await this.resolveHeavenlyDaoShopDiscountPercent(playerId);
             const unitPrice = calculateHeavenlyDaoShopDiscountedPrice(shopItem.price, discountPercent);
             const totalCost = unitPrice * quantity;
@@ -182,6 +198,10 @@ export class MarketRuntimeService {
                 unitPrice,
                 totalCost,
                 discountPercent,
+    }, {
+     heavenlyDaoShopPurchase: dailyLimit && purchaseDate
+      ? { itemId: shopItem.itemId, purchaseDate, quantity, dailyLimit }
+      : null,
             });
             if (this.durableOperationService?.isEnabled?.() && !durableCommitted) {
                 throw new Error('heavenly_dao_shop_purchase_durable_commit_failed');
@@ -213,7 +233,11 @@ export class MarketRuntimeService {
         const sessionEpoch = Number.isFinite(primarySnapshot?.sessionEpoch)
             ? Math.max(1, Math.trunc(Number(primarySnapshot.sessionEpoch)))
             : 0;
-        const durableOptions = options as { requirePresenceFence?: boolean; banUser?: unknown };
+  const durableOptions = options as {
+   requirePresenceFence?: boolean;
+   banUser?: unknown;
+   heavenlyDaoShopPurchase?: { itemId: string; purchaseDate: string; quantity: number; dailyLimit: number } | null;
+  };
         const requirePresenceFence = durableOptions.requirePresenceFence !== false;
         if (requirePresenceFence && (!primarySnapshot?.inventory || !primarySnapshot?.wallet || !runtimeOwnerId || sessionEpoch <= 0)) {
             return false;
@@ -319,6 +343,7 @@ export class MarketRuntimeService {
                 deleteOrderIds: Array.from(context?.deletedOrderIds ?? []),
                 tradeRecords: (context?.newTradeRecords ?? []).map((entry) => ({ ...entry })),
                 banUser: durableOptions.banUser ?? null,
+    heavenlyDaoShopPurchase: durableOptions.heavenlyDaoShopPurchase ?? null,
             };
         };
         if (requirePresenceFence) {
@@ -4414,6 +4439,9 @@ export class MarketRuntimeService {
                     };
                 }
                 this.restoreMutationContext(context);
+    if (message === 'heavenly_dao_shop_daily_limit_exceeded') {
+     return this.singleMessage(playerId, '该商品今日限购数量已用完。', 'warn');
+    }
                 if (message.startsWith('market_order_cas_conflict:')) {
                     try {
                         await this.reloadFromPersistence();

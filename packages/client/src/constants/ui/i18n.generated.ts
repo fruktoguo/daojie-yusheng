@@ -3487,6 +3487,7 @@ export const CLIENT_I18N_MESSAGES = {
   "equipment-tooltip.consumable.instant": "立即效果：{value}",
   "equipment-tooltip.consumable.instant-resource": "立即效果：{resource} +{amount}",
   "equipment-tooltip.consumable.qi-percent": "恢复 {percent} 真气",
+  "equipment-tooltip.consumable.stamina-amount": "恢复 {amount} 点副本体力",
   "equipment-tooltip.consumable.unlock-map": "使用效果：永久解锁对应地图",
   "equipment-tooltip.cooldown.line": "冷却：{cooldown} 息",
   "equipment-tooltip.cooldown.meta": "冷却 {cooldown} 息",

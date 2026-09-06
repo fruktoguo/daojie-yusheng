@@ -13563,6 +13563,14 @@
       }
     },
     {
+      "itemId": "pill.huiyuan",
+      "name": "回元丹",
+      "type": "consumable",
+      "grade": "yellow",
+      "desc": "丹气归元，服用后立即恢复 24 点副本体力。",
+      "staminaAmount": 24
+    },
+    {
       "itemId": "equip.returnarray_boots",
       "name": "回阵行履",
       "type": "equipment",

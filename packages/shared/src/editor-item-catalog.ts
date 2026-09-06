@@ -122,6 +122,7 @@ export function buildGmEditorItemOptionFromTemplate(raw: unknown): GmEditorItemO
     baselineHealPercent: normalizeNumber(raw.baselineHealPercent),
     baselineQiPercent: normalizeNumber(raw.baselineQiPercent),
     qiPercent: normalizeNumber(raw.qiPercent),
+  staminaAmount: normalizePositiveInteger(raw.staminaAmount),
     cooldown: normalizeNumber(raw.cooldown),
     marketTradable: raw.marketTradable === false ? false : undefined,
     consumeBuffs: cloneArray(raw.consumeBuffs) as GmEditorItemOption['consumeBuffs'],

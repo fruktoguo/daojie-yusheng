@@ -42,6 +42,14 @@
     "desc": "天道垂记的无形功业，可在天道商店中兑换稀有物资。"
   },
   {
+    "itemId": "pill.huiyuan",
+    "name": "回元丹",
+    "type": "consumable",
+    "grade": "yellow",
+    "desc": "丹气归元，服用后立即恢复 24 点副本体力。",
+    "staminaAmount": 24
+  },
+  {
     "itemId": "merit_month_card",
     "name": "功德月卡",
     "type": "consumable",

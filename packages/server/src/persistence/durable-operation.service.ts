@@ -73,6 +73,7 @@ const PLAYER_INVENTORY_ITEM_TABLE = 'player_inventory_item';
 const PLAYER_MARKET_STORAGE_ITEM_TABLE = 'player_market_storage_item';
 const MARKET_ORDER_TABLE = 'server_market_order';
 const MARKET_TRADE_TABLE = 'server_market_trade_history';
+const PLAYER_HEAVENLY_DAO_SHOP_PURCHASE_TABLE = 'player_heavenly_dao_shop_purchase';
 const PLAYER_AUTH_TABLE = 'server_player_auth';
 const PLAYER_EQUIPMENT_SLOT_TABLE = 'player_equipment_slot';
 const PLAYER_QUEST_PROGRESS_TABLE = 'player_quest_progress';
@@ -99,6 +100,7 @@ const DURABLE_OPERATION_BIGINT_COLUMNS_BY_TABLE = {
   [PLAYER_MAIL_COUNTER_TABLE]: ['unread_count', 'unclaimed_count'],
   [PLAYER_INVENTORY_ITEM_TABLE]: ['slot_index', 'count'],
   [PLAYER_MARKET_STORAGE_ITEM_TABLE]: ['slot_index', 'count', 'enhance_level'],
+ [PLAYER_HEAVENLY_DAO_SHOP_PURCHASE_TABLE]: ['purchased_count'],
   [PLAYER_ACTIVE_JOB_TABLE]: ['paused_ticks', 'total_ticks', 'remaining_ticks'],
   [PLAYER_PROFESSION_STATE_TABLE]: ['level'],
   [PLAYER_ENHANCEMENT_RECORD_TABLE]: [
@@ -203,6 +205,12 @@ export interface DurableMarketMutationInput {
   deleteOrderIds?: readonly unknown[] | null;
   tradeRecords?: readonly unknown[] | null;
   banUser?: DurableMarketBanUserSnapshot | null;
+ heavenlyDaoShopPurchase?: {
+  itemId: string;
+  purchaseDate: string;
+  quantity: number;
+  dailyLimit: number;
+ } | null;
   requirePresenceFence?: boolean;
 }
 
@@ -1622,6 +1630,24 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       },
     });
   }
+ /** 读取玩家某日某商品的天道商店已购数量。 */
+ async getHeavenlyDaoShopPurchasedCount(playerIdInput: string, itemIdInput: string, purchaseDateInput: string): Promise<number> {
+  if (!this.pool || !this.enabled) {
+   return 0;
+  }
+  const playerId = normalizeRequiredString(playerIdInput);
+  const itemId = normalizeRequiredString(itemIdInput);
+  const purchaseDate = normalizeRequiredString(purchaseDateInput);
+  if (!playerId || !itemId || !/^\d{4}-\d{2}-\d{2}$/.test(purchaseDate)) {
+   return 0;
+  }
+  const result = await this.pool.query<{ purchased_count?: unknown }>(
+   `SELECT purchased_count FROM ${PLAYER_HEAVENLY_DAO_SHOP_PURCHASE_TABLE} WHERE player_id = $1 AND item_id = $2 AND purchase_date = $3`,
+   [playerId, itemId, purchaseDate],
+  );
+  return Math.max(0, Math.trunc(Number(result.rows[0]?.purchased_count ?? 0)));
+ }
+
 
   /** 事务性发放背包物品：写背包快照、记审计日志和 outbox 事件 */
   async grantInventoryItems(input: GrantInventoryItemsInput): Promise<GrantInventoryItemsResult> {
@@ -2981,6 +3007,26 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
     const deleteOrderIds = normalizeStringList(input.deleteOrderIds ?? []);
     const tradeRecords = Array.isArray(input.tradeRecords) ? input.tradeRecords : [];
     const banUser = input.banUser && typeof input.banUser === 'object' ? input.banUser : null;
+  const rawHeavenlyDaoShopPurchase = input.heavenlyDaoShopPurchase && typeof input.heavenlyDaoShopPurchase === 'object'
+   ? input.heavenlyDaoShopPurchase
+   : null;
+  const heavenlyDaoShopPurchase = rawHeavenlyDaoShopPurchase
+   ? {
+    itemId: normalizeRequiredString(rawHeavenlyDaoShopPurchase.itemId),
+    purchaseDate: normalizeRequiredString(rawHeavenlyDaoShopPurchase.purchaseDate),
+    quantity: Math.max(0, Math.trunc(Number(rawHeavenlyDaoShopPurchase.quantity) || 0)),
+    dailyLimit: Math.max(0, Math.trunc(Number(rawHeavenlyDaoShopPurchase.dailyLimit) || 0)),
+   }
+   : null;
+  if (rawHeavenlyDaoShopPurchase && (
+   !heavenlyDaoShopPurchase?.itemId
+   || !/^\d{4}-\d{2}-\d{2}$/.test(heavenlyDaoShopPurchase.purchaseDate)
+   || heavenlyDaoShopPurchase.quantity <= 0
+   || heavenlyDaoShopPurchase.dailyLimit <= 0
+   || heavenlyDaoShopPurchase.quantity > heavenlyDaoShopPurchase.dailyLimit
+  )) {
+   throw new Error('invalid_heavenly_dao_shop_purchase_quota');
+  }
     if (!normalizedPlayerId || !normalizedOperationId || (playerMutations.length === 0 && upsertOrders.length === 0 && deleteOrderIds.length === 0 && tradeRecords.length === 0 && !banUser)) {
       throw new Error('invalid_settle_market_mutation_input');
     }
@@ -3002,6 +3048,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       deleteOrderIds,
       tradeRecords,
       banUser,
+   heavenlyDaoShopPurchase,
     };
     const expectedRuntimeOwnerId = normalizeRequiredString(input.expectedRuntimeOwnerId);
     const expectedSessionEpoch = Math.max(0, Math.trunc(Number(input.expectedSessionEpoch ?? 0)));
@@ -3099,6 +3146,20 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       if (existingOperation.rowCount === 0) {
         await insertDurableOperationLog(client, normalizedOperationId, operationType, 'market_mutation', normalizedPlayerId, persistedRuntimeOwnerId, persistedSessionEpoch, operationLogPayload);
       }
+   if (heavenlyDaoShopPurchase) {
+    const quotaResult = await client.query(
+     `INSERT INTO ${PLAYER_HEAVENLY_DAO_SHOP_PURCHASE_TABLE}(player_id, item_id, purchase_date, purchased_count, updated_at)
+           VALUES ($1, $2, $3, $4, now())
+           ON CONFLICT (player_id, item_id, purchase_date)
+           DO UPDATE SET purchased_count = ${PLAYER_HEAVENLY_DAO_SHOP_PURCHASE_TABLE}.purchased_count + EXCLUDED.purchased_count, updated_at = now()
+           WHERE ${PLAYER_HEAVENLY_DAO_SHOP_PURCHASE_TABLE}.purchased_count + EXCLUDED.purchased_count <= $5
+           RETURNING purchased_count`,
+     [normalizedPlayerId, heavenlyDaoShopPurchase.itemId, heavenlyDaoShopPurchase.purchaseDate, heavenlyDaoShopPurchase.quantity, heavenlyDaoShopPurchase.dailyLimit],
+    );
+    if ((quotaResult.rowCount ?? 0) !== 1) {
+     throw new Error('heavenly_dao_shop_daily_limit_exceeded');
+    }
+   }
       await upsertMarketOrders(client, upsertOrders);
       if (deleteOrderIds.length > 0) {
         await client.query(`DELETE FROM ${MARKET_ORDER_TABLE} WHERE order_id = ANY($1::varchar[])`, [deleteOrderIds]);
@@ -5050,6 +5111,20 @@ export async function ensureDurableOperationTables(pool: Pool): Promise<void> {
     await client.query(`
       CREATE INDEX IF NOT EXISTS server_market_order_owner_idx
       ON ${MARKET_ORDER_TABLE}(owner_id, status, updated_at_ms DESC)
+    `);
+  await client.query(`
+      CREATE TABLE IF NOT EXISTS ${PLAYER_HEAVENLY_DAO_SHOP_PURCHASE_TABLE} (
+        player_id varchar(100) NOT NULL,
+        item_id varchar(160) NOT NULL,
+        purchase_date date NOT NULL,
+        purchased_count bigint NOT NULL DEFAULT 0,
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        PRIMARY KEY(player_id, item_id, purchase_date)
+      )
+    `);
+  await client.query(`
+      CREATE INDEX IF NOT EXISTS player_heavenly_dao_shop_purchase_date_idx
+      ON ${PLAYER_HEAVENLY_DAO_SHOP_PURCHASE_TABLE}(purchase_date, item_id)
     `);
     await client.query(`
       CREATE TABLE IF NOT EXISTS ${MARKET_TRADE_TABLE} (

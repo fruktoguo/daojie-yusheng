@@ -32,6 +32,7 @@ export const SYNCED_ITEM_STACK_VIEW_KEYS = [
   'baselineHealPercent',
   'baselineQiPercent',
   'qiPercent',
+ 'staminaAmount',
   'cooldown',
   'consumeBuffs',
   'tags',

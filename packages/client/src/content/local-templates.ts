@@ -270,6 +270,7 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
     baselineHealPercent: sourceItem.baselineHealPercent ?? template.baselineHealPercent,
     baselineQiPercent: sourceItem.baselineQiPercent ?? template.baselineQiPercent,
     qiPercent: sourceItem.qiPercent ?? template.qiPercent,
+  staminaAmount: sourceItem.staminaAmount ?? template.staminaAmount,
     cooldown: sourceItem.cooldown ?? template.cooldown,
     enhanceLevel: sourceItem.enhanceLevel ?? template.enhanceLevel,
     craftEffectStats: sourceItem.craftEffectStats ?? template.craftEffectStats,

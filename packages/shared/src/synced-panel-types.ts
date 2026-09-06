@@ -136,6 +136,8 @@ export interface SyncedItemStack {
  */
 
   qiPercent?: number;
+  /** 使用后恢复的副本体力点数。 */
+  staminaAmount?: number;
   /**
  * cooldown：冷却相关字段。
  */

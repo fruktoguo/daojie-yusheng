@@ -13,6 +13,8 @@ assert.equal(minorHeal.cooldown, 60, '瞬回生命药应使用 60 息通用冷�
 assert.equal(minorHeal.baselineHealPercent, 1, '回春散应按标准等级生命 100% 配置恢复');
 const buffPill = repo.createItem('pill.crimson_bud_elixir', 2);
 assert.equal(buffPill.cooldown, undefined, '增益丹药不应继承恢复药冷却');
+const staminaPill = repo.createItem('pill.huiyuan', 1);
+assert.equal(staminaPill.staminaAmount, 24, '回元丹应恢复 24 点副本体力');
 
 const service = new PlayerRuntimeService(
   repo,
@@ -90,6 +92,23 @@ player.lifeElapsedTicks = 70;
 service.useItem(playerId, 1);
 assert.equal(player.hp, player.maxHp, '60 息冷却结束后生命回复药应可再次使用并封顶到当前最大气血');
 
+const staminaPlayerId = 'player:stamina-pill-smoke';
+const staminaPlayer: any = {
+  ...player,
+  playerId: staminaPlayerId,
+  stamina: 100,
+  staminaUpdatedAt: Date.now(),
+  inventory: {
+    revision: 1,
+    capacity: 20,
+    items: [repo.createItem('pill.huiyuan', 1)],
+  },
+  buffs: { revision: 1, buffs: [] },
+};
+service.players.set(staminaPlayerId, staminaPlayer);
+service.useItem(staminaPlayerId, 0);
+assert.equal(staminaPlayer.stamina, 124, '回元丹应立即恢复 24 点副本体力');
+assert.equal(staminaPlayer.inventory.items.length, 0, '回元丹生效后应消耗一枚');
 const manualPlayerId = 'player:manual-use-item-cooldown-smoke';
 async function testManualUseItemBranch() {
   const manualItem = repo.createItem('pill.crimson_bud_elixir', 2);

@@ -406,6 +406,7 @@ function hasConsumableUseRuntimeEffect(item) {
   if (typeof item?.baselineHealPercent === "number" && item.baselineHealPercent > 0) return true;
   if (typeof item?.baselineQiPercent === "number" && item.baselineQiPercent > 0) return true;
   if (typeof item?.qiPercent === "number" && item.qiPercent > 0) return true;
+ if (typeof item?.staminaAmount === "number" && item.staminaAmount > 0) return true;
   if (Array.isArray(item?.consumeBuffs) && item.consumeBuffs.length > 0) return true;
   if (typeof item?.mapUnlockId === "string" && item.mapUnlockId.length > 0) return true;
   if (Array.isArray(item?.mapUnlockIds) && item.mapUnlockIds.length > 0) return true;

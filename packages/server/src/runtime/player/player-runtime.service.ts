@@ -7253,6 +7253,7 @@ export class PlayerRuntimeService {
   const baselineQiPercent = typeof item.baselineQiPercent === 'number' ? Math.max(0, item.baselineQiPercent) : 0;
 
   const qiPercent = typeof item.qiPercent === 'number' ? Math.max(0, item.qiPercent) : 0;
+  const staminaAmount = typeof item.staminaAmount === 'number' ? Math.max(0, Math.trunc(item.staminaAmount)) : 0;
   if (healAmount > 0 || healPercent > 0 || baselineHealPercent > 0 || baselineQiPercent > 0 || qiPercent > 0) {
 
    const baselineHealAmount = baselineHealPercent > 0
@@ -7271,6 +7272,14 @@ export class PlayerRuntimeService {
     player.qi = nextQi;
     selfChanged = true;
    }
+   consumed = true;
+  }
+  if (staminaAmount > 0) {
+   const now = Date.now();
+   const stamina = this.refreshDungeonStamina(player.playerId, now);
+   player.stamina = Math.min(DUNGEON_MAX_STAMINA, stamina.current + staminaAmount);
+   player.staminaUpdatedAt = now;
+   markPlayerDirtyDomains(player, ['progression']);
    consumed = true;
   }
   if (Array.isArray(item.consumeBuffs) && item.consumeBuffs.length > 0) {

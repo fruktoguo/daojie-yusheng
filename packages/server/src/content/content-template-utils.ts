@@ -727,6 +727,7 @@ function normalizeItemTemplate(raw) {
     const baselineHealPercent = Number.isFinite(candidate.baselineHealPercent) ? clampPositiveRatio(candidate.baselineHealPercent ?? 0) : undefined;
     const baselineQiPercent = Number.isFinite(candidate.baselineQiPercent) ? clampPositiveRatio(candidate.baselineQiPercent ?? 0) : undefined;
     const qiPercent = Number.isFinite(candidate.qiPercent) ? clampUnitRatio(candidate.qiPercent ?? 0) : undefined;
+ const staminaAmount = Number.isFinite(candidate.staminaAmount) ? Math.max(1, Math.trunc(candidate.staminaAmount ?? 0)) : undefined;
     const consumeBuffs = normalizeConsumableBuffs(raw.consumeBuffs);
     const artifactEffects = normalizeArtifactEffects(candidate.artifactEffects);
     const hasRecoveryEffect = (healAmount ?? 0) > 0 || (healPercent ?? 0) > 0 || (baselineHealPercent ?? 0) > 0 || (baselineQiPercent ?? 0) > 0 || (qiPercent ?? 0) > 0;
@@ -766,6 +767,7 @@ function normalizeItemTemplate(raw) {
         baselineHealPercent,
         baselineQiPercent,
         qiPercent,
+  staminaAmount,
         cooldown,
         marketTradable: candidate.marketTradable === false ? false : undefined,
         craftEffectStats: normalizeCraftEffectStatsPatch(candidate.craftEffectStats),
