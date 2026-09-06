@@ -29,6 +29,10 @@ async function main(): Promise<void> {
   const mapOperationId = `op:${playerId}:map-unlock`;
   const respawnOperationId = `op:${playerId}:respawn-bind`;
   const mapItemInstanceId = '00000000-0000-4000-8000-000000000051';
+  const staminaPlayerId = `${playerId}_stamina`;
+  const staminaRuntimeOwnerId = `runtime:${staminaPlayerId}:1`;
+  const staminaOperationId = `op:${staminaPlayerId}:restore`;
+  const staminaItemInstanceId = '00000000-0000-4000-8000-000000000053';
   const respawnItemInstanceId = '00000000-0000-4000-8000-000000000052';
   const provider = new DatabasePoolProvider();
   const durable = new DurableOperationService({ getNodeId: () => 'node:player-item-use-smoke' } as never, provider);
@@ -39,6 +43,7 @@ async function main(): Promise<void> {
     await durable.onModuleInit();
     await playerPersistence.onModuleInit();
     await cleanup(pool, playerId);
+    await cleanup(pool, staminaPlayerId);
     await playerPersistence.savePlayerPresence(playerId, {
       online: true,
       inWorld: true,
@@ -254,17 +259,141 @@ async function main(): Promise<void> {
       throw new Error(`unexpected durable item-use metadata: watermark=${JSON.stringify(watermark)} audit=${JSON.stringify(auditRows)}`);
     }
 
+    const staminaNow = now + 100;
+    await playerPersistence.savePlayerPresence(staminaPlayerId, {
+      online: true,
+      inWorld: true,
+      runtimeOwnerId: staminaRuntimeOwnerId,
+      sessionEpoch: 3,
+      lastHeartbeatAt: staminaNow,
+      offlineSinceAt: null,
+      versionSeed: staminaNow,
+    });
+    const staminaSnapshot = buildSnapshot(staminaNow + 1);
+    staminaSnapshot.progression.stamina = 0;
+    staminaSnapshot.progression.staminaUpdatedAt = staminaNow;
+    staminaSnapshot.inventory = {
+      revision: 1,
+      capacity: 20,
+      items: [{ itemId: 'pill.huiyuan', count: 1, itemInstanceId: staminaItemInstanceId }],
+      lockedItems: [],
+    };
+    await playerPersistence.savePlayerSnapshotProjectionDomains(
+      staminaPlayerId,
+      staminaSnapshot,
+      ['progression', 'inventory'],
+      {
+        allowInventoryEmptyOverwrite: true,
+        expectedRuntimeOwnerId: staminaRuntimeOwnerId,
+        expectedSessionEpoch: 3,
+        expectedProjectionVersion: staminaNow + 1,
+      },
+    );
+    let staleStaminaRejected = false;
+    try {
+      await durable.grantInventoryItems({
+        operationId: `${staminaOperationId}:stale`,
+        playerId: staminaPlayerId,
+        expectedRuntimeOwnerId: staminaRuntimeOwnerId,
+        expectedSessionEpoch: 3,
+        sourceType: 'item_stamina_restore',
+        sourceRefId: staminaItemInstanceId,
+        inventoryAction: 'remove',
+        grantedItems: [durableInventoryItem('pill.huiyuan', staminaItemInstanceId)],
+        nextInventoryItems: [],
+        sourceMutation: {
+          kind: 'player_item_use',
+          action: 'restore_stamina',
+          playerId: staminaPlayerId,
+          expectedStamina: 1,
+          expectedStaminaUpdatedAt: staminaNow,
+          restoreAmount: 24,
+          nextStamina: 25,
+          nextStaminaUpdatedAt: staminaNow + 2,
+        },
+      });
+    } catch (error) {
+      staleStaminaRejected = error instanceof Error && error.message.includes('player_stamina_snapshot_changed');
+    }
+    if (!staleStaminaRejected) {
+      throw new Error('expected stale stamina snapshot rejection');
+    }
+    await assertInventory(pool, staminaPlayerId, ['pill.huiyuan']);
+    const staleStaminaRow = (await queryRows(
+      pool,
+      'SELECT stamina, stamina_updated_at FROM player_progression_core WHERE player_id = $1',
+      [staminaPlayerId],
+    ))[0];
+    if (Number(staleStaminaRow?.stamina) !== 0 || Number(staleStaminaRow?.stamina_updated_at) !== staminaNow) {
+      throw new Error(`stale stamina mutation changed progression: ${JSON.stringify(staleStaminaRow)}`);
+    }
+    const staminaInput = {
+      operationId: staminaOperationId,
+      playerId: staminaPlayerId,
+      expectedRuntimeOwnerId: staminaRuntimeOwnerId,
+      expectedSessionEpoch: 3,
+      sourceType: 'item_stamina_restore',
+      sourceRefId: staminaItemInstanceId,
+      inventoryAction: 'remove' as const,
+      grantedItems: [durableInventoryItem('pill.huiyuan', staminaItemInstanceId)],
+      nextInventoryItems: [],
+      sourceMutation: {
+        kind: 'player_item_use' as const,
+        action: 'restore_stamina' as const,
+        playerId: staminaPlayerId,
+        expectedStamina: 0,
+        expectedStaminaUpdatedAt: staminaNow,
+        restoreAmount: 24,
+        nextStamina: 24,
+        nextStaminaUpdatedAt: staminaNow + 2,
+      },
+    };
+    const staminaResult = await durable.grantInventoryItems(staminaInput);
+    const staminaReplay = await durable.grantInventoryItems(staminaInput);
+    if (!staminaResult.ok || staminaResult.alreadyCommitted || !staminaReplay.alreadyCommitted) {
+      throw new Error(`unexpected stamina durable replay: ${JSON.stringify({ staminaResult, staminaReplay })}`);
+    }
+    await assertInventory(pool, staminaPlayerId, []);
+    const staminaRow = (await queryRows(
+      pool,
+      'SELECT stamina, stamina_updated_at FROM player_progression_core WHERE player_id = $1',
+      [staminaPlayerId],
+    ))[0];
+    const staminaWatermark = (await queryRows(
+      pool,
+      'SELECT inventory_version, progression_version FROM player_recovery_watermark WHERE player_id = $1',
+      [staminaPlayerId],
+    ))[0];
+    const staminaAuditRows = await queryRows(
+      pool,
+      'SELECT asset_type FROM asset_audit_log WHERE player_id = $1 ORDER BY asset_type',
+      [staminaPlayerId],
+    );
+    if (
+      Number(staminaRow?.stamina) !== 24
+      || Number(staminaRow?.stamina_updated_at) !== staminaNow + 2
+      || Number(staminaWatermark?.inventory_version) <= 0
+      || Number(staminaWatermark?.progression_version) <= 0
+      || staminaAuditRows.filter((row) => row.asset_type === 'inventory').length !== 1
+      || staminaAuditRows.filter((row) => row.asset_type === 'player_item_use').length !== 1
+    ) {
+      throw new Error(`unexpected stamina durable state: row=${JSON.stringify(staminaRow)} watermark=${JSON.stringify(staminaWatermark)} audit=${JSON.stringify(staminaAuditRows)}`);
+    }
+
     console.log(JSON.stringify({
       ok: true,
       case: 'player-item-use-durable',
-      answers: '真实 PostgreSQL 已证明地图解锁与复活点绑定会把来源 CAS、背包后态、对应 domain watermark、outbox 和双资产审计同事务提交；精确重放不重复，来源快照变化整笔回滚，未验证的空背包覆盖会拒绝，最后一件已核对道具可合法消耗，复活绑定不覆盖 last-safe 落点。',
+      answers: '真实 PostgreSQL 已证明地图解锁、复活点绑定与体力丹会把来源 CAS、背包后态、精力后态、对应 domain watermark、outbox 和双资产审计同事务提交；精确重放不重复，来源快照变化整笔回滚，未验证的空背包覆盖会拒绝，最后一件已核对道具可合法消耗。',
       excludes: '不证明客户端网络断线、真实 tick 并发或功法书重复残卷产品语义。',
       mapResult,
       mapReplay,
       respawnResult,
+      staminaResult,
+      staminaReplay,
     }, null, 2));
   } finally {
     await cleanup(pool, playerId).catch(() => undefined);
+    await cleanup(pool, staminaPlayerId).catch(() => undefined);
     await playerPersistence.onModuleDestroy().catch(() => undefined);
     await durable.onModuleDestroy().catch(() => undefined);
     await provider.onModuleDestroy().catch(() => undefined);
@@ -293,6 +422,7 @@ async function cleanup(pool: Pool, playerId: string): Promise<void> {
   await pool.query('DELETE FROM outbox_event WHERE partition_key = $1', [playerId]).catch(() => undefined);
   await pool.query('DELETE FROM asset_audit_log WHERE player_id = $1', [playerId]).catch(() => undefined);
   await pool.query('DELETE FROM player_inventory_item WHERE player_id = $1', [playerId]).catch(() => undefined);
+  await pool.query('DELETE FROM player_progression_core WHERE player_id = $1', [playerId]).catch(() => undefined);
   await pool.query('DELETE FROM player_map_unlock WHERE player_id = $1', [playerId]).catch(() => undefined);
   await pool.query('DELETE FROM player_world_anchor WHERE player_id = $1', [playerId]).catch(() => undefined);
   await pool.query('DELETE FROM player_recovery_watermark WHERE player_id = $1', [playerId]).catch(() => undefined);

@@ -109,6 +109,8 @@ const status = runVerificationSteps({
         '--case',
         'inventory-item-instance-ref',
         '--case',
+        'inventory-consumable-cooldown',
+        '--case',
         'world-runtime-equipment',
         '--case',
         'world-runtime-aoi-cache-locality',

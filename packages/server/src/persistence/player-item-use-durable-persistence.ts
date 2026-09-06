@@ -1,8 +1,10 @@
+import { DUNGEON_MAX_STAMINA, resolveRecoveredStamina } from '@mud/shared';
 import type { PoolClient } from 'pg';
 
 const PLAYER_MAP_UNLOCK_TABLE = 'player_map_unlock';
 const PLAYER_WORLD_ANCHOR_TABLE = 'player_world_anchor';
 const PLAYER_RECOVERY_WATERMARK_TABLE = 'player_recovery_watermark';
+const PLAYER_PROGRESSION_CORE_TABLE = 'player_progression_core';
 
 interface RespawnPointSnapshot {
   templateId: string;
@@ -25,6 +27,16 @@ export type DurablePlayerItemUseSourceMutation =
       playerId: string;
       expectedRespawn: RespawnPointSnapshot;
       nextRespawn: RespawnPointSnapshot;
+  }
+  | {
+    kind: 'player_item_use';
+    action: 'restore_stamina';
+    playerId: string;
+    expectedStamina: number;
+    expectedStaminaUpdatedAt: number;
+    restoreAmount: number;
+    nextStamina: number;
+    nextStaminaUpdatedAt: number;
     };
 
 export function normalizeDurablePlayerItemUseSourceMutation(
@@ -68,6 +80,38 @@ export function normalizeDurablePlayerItemUseSourceMutation(
       nextRespawn,
     };
   }
+  if (value.action === 'restore_stamina') {
+    const expectedStamina = normalizeInteger(value.expectedStamina);
+    const expectedStaminaUpdatedAt = normalizeInteger(value.expectedStaminaUpdatedAt);
+    const restoreAmount = normalizeInteger(value.restoreAmount);
+    const nextStamina = normalizeInteger(value.nextStamina);
+    const nextStaminaUpdatedAt = normalizeInteger(value.nextStaminaUpdatedAt);
+    if (
+      expectedStamina === null
+      || expectedStamina < 0
+      || expectedStamina > DUNGEON_MAX_STAMINA
+      || expectedStaminaUpdatedAt === null
+      || expectedStaminaUpdatedAt < 0
+      || restoreAmount === null
+      || restoreAmount <= 0
+      || nextStamina === null
+      || nextStamina !== Math.min(DUNGEON_MAX_STAMINA, expectedStamina + restoreAmount)
+      || nextStaminaUpdatedAt === null
+      || nextStaminaUpdatedAt < expectedStaminaUpdatedAt
+    ) {
+      return null;
+    }
+    return {
+      kind: 'player_item_use',
+      action: 'restore_stamina',
+      playerId,
+      expectedStamina,
+      expectedStaminaUpdatedAt,
+      restoreAmount,
+      nextStamina,
+      nextStaminaUpdatedAt,
+    };
+  }
   return null;
 }
 
@@ -80,7 +124,11 @@ export async function persistDurablePlayerItemUseSourceMutation(
     await persistMapUnlockMutation(client, mutation, persistenceVersion);
     return;
   }
+  if (mutation.action === 'bind_respawn') {
   await persistRespawnBindMutation(client, mutation, persistenceVersion);
+    return;
+  }
+  await persistStaminaRestoreMutation(client, mutation, persistenceVersion);
 }
 
 async function persistMapUnlockMutation(
@@ -158,10 +206,51 @@ async function persistRespawnBindMutation(
   await upsertPlayerItemUseWatermark(client, mutation.playerId, 'anchor_version', persistenceVersion);
 }
 
+async function persistStaminaRestoreMutation(
+  client: PoolClient,
+  mutation: Extract<DurablePlayerItemUseSourceMutation, { action: 'restore_stamina' }>,
+  persistenceVersion: number,
+): Promise<void> {
+  const current = await client.query<{ stamina?: unknown; stamina_updated_at?: unknown }>(
+    `SELECT stamina, stamina_updated_at
+              FROM ${PLAYER_PROGRESSION_CORE_TABLE}
+            WHERE player_id = $1
+            FOR UPDATE`,
+    [mutation.playerId],
+  );
+  const row = current.rows[0];
+  if (!row) {
+    throw new Error('player_progression_core_missing');
+  }
+  const recovered = resolveRecoveredStamina(
+    Number(row.stamina ?? DUNGEON_MAX_STAMINA),
+    Number(row.stamina_updated_at ?? mutation.nextStaminaUpdatedAt),
+    mutation.nextStaminaUpdatedAt,
+  );
+  if (
+    recovered.current !== mutation.expectedStamina
+    || recovered.updatedAt !== mutation.expectedStaminaUpdatedAt
+  ) {
+    throw new Error('player_stamina_snapshot_changed');
+  }
+  const updated = await client.query(
+    `UPDATE ${PLAYER_PROGRESSION_CORE_TABLE}
+                SET stamina = $2,
+                        stamina_updated_at = $3,
+                        updated_at = now()
+            WHERE player_id = $1`,
+    [mutation.playerId, mutation.nextStamina, mutation.nextStaminaUpdatedAt],
+  );
+  if ((updated.rowCount ?? 0) !== 1) {
+    throw new Error('player_progression_core_missing');
+  }
+  await upsertPlayerItemUseWatermark(client, mutation.playerId, 'progression_version', persistenceVersion);
+}
+
 async function upsertPlayerItemUseWatermark(
   client: PoolClient,
   playerId: string,
-  column: 'map_unlock_version' | 'anchor_version',
+  column: 'map_unlock_version' | 'anchor_version' | 'progression_version',
   persistenceVersion: number,
 ): Promise<void> {
   await client.query(

@@ -19,8 +19,8 @@ assert.equal(staminaPill.staminaAmount, 24, '回元丹应恢复 24 点副本体�
 const service = new PlayerRuntimeService(
   repo,
   {},
-  { recalculate() {} },
-  { refreshPreview() {} },
+  { recalculate() { } },
+  { refreshPreview() { } },
 );
 
 const playerId = 'player:consumable-cooldown-smoke';
@@ -109,6 +109,130 @@ service.players.set(staminaPlayerId, staminaPlayer);
 service.useItem(staminaPlayerId, 0);
 assert.equal(staminaPlayer.stamina, 124, '回元丹应立即恢复 24 点副本体力');
 assert.equal(staminaPlayer.inventory.items.length, 0, '回元丹生效后应消耗一枚');
+
+async function testDurableStaminaPillAndConcurrentDungeonEntry() {
+  const playerId = 'player:durable-stamina-pill-dungeon-entry';
+  const runtimeOwnerId = 'runtime:durable-stamina-pill-dungeon-entry';
+  const sessionEpoch = 9;
+  let persistedRuntimeOwnerId = runtimeOwnerId;
+  let persistedSessionEpoch = sessionEpoch;
+  const initialNow = Date.now();
+  let persistedStamina = 0;
+  let persistedStaminaUpdatedAt = initialNow;
+  let persistedInventoryItemIds = ['pill.huiyuan'];
+  let activeDungeonCommits = 0;
+  let maxConcurrentDungeonCommits = 0;
+  let releaseItemCommit = () => undefined;
+  const itemCommitRelease = new Promise<void>((resolve) => { releaseItemCommit = resolve; });
+  let enterItemCommit = () => undefined;
+  const itemCommitEntered = new Promise<void>((resolve) => { enterItemCommit = resolve; });
+  const persistence = {
+    isEnabled: () => true,
+    async loadPlayerPresence() {
+      return { runtimeOwnerId: persistedRuntimeOwnerId, sessionEpoch: persistedSessionEpoch };
+    },
+    async savePlayerPresence(_playerId: string, presence: any) {
+      persistedRuntimeOwnerId = presence.runtimeOwnerId;
+      persistedSessionEpoch = presence.sessionEpoch;
+    },
+    async consumeDungeonStaminaForPlayersAtomic(playerIds: string[], cost: number, now: number, fences: Record<string, any>) {
+      activeDungeonCommits += 1;
+      maxConcurrentDungeonCommits = Math.max(maxConcurrentDungeonCommits, activeDungeonCommits);
+      try {
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        assert.deepEqual(playerIds, [playerId]);
+        assert.equal(fences[playerId]?.expectedRuntimeOwnerId, persistedRuntimeOwnerId);
+        assert.equal(fences[playerId]?.expectedSessionEpoch, persistedSessionEpoch);
+        if (persistedStamina < cost) {
+          return {
+            ok: false,
+            reason: 'stamina_insufficient',
+            views: { [playerId]: { current: persistedStamina, maximum: 240, updatedAt: persistedStaminaUpdatedAt } },
+          };
+        }
+        persistedStamina -= cost;
+        persistedStaminaUpdatedAt = now;
+        return {
+          ok: true,
+          views: { [playerId]: { current: persistedStamina, maximum: 240, updatedAt: persistedStaminaUpdatedAt } },
+        };
+      }
+      finally {
+        activeDungeonCommits -= 1;
+      }
+    },
+  };
+  const durableService = new PlayerRuntimeService(
+    repo,
+    {},
+    { recalculate() { } },
+    { refreshPreview() { } },
+    persistence,
+  );
+  const staminaItem = repo.createItem('pill.huiyuan', 1);
+  staminaItem.itemInstanceId = 'item:durable-stamina-pill';
+  const durablePlayer: any = {
+    ...player,
+    playerId,
+    sessionId: 'session:durable-stamina-pill',
+    runtimeOwnerId,
+    sessionEpoch,
+    stamina: 0,
+    staminaUpdatedAt: initialNow,
+    inventory: { revision: 1, capacity: 20, items: [staminaItem] },
+    buffs: { revision: 1, buffs: [] },
+  };
+  durableService.players.set(playerId, durablePlayer);
+  const durable = {
+    isEnabled: () => true,
+    async grantInventoryItems(input: any) {
+      assert.equal(input.expectedRuntimeOwnerId, persistedRuntimeOwnerId);
+      assert.equal(input.expectedSessionEpoch, persistedSessionEpoch);
+      assert.equal(input.sourceType, 'item_stamina_restore');
+      assert.equal(input.sourceMutation.expectedStamina, persistedStamina);
+      assert.equal(input.sourceMutation.expectedStaminaUpdatedAt, persistedStaminaUpdatedAt);
+      assert.deepEqual(persistedInventoryItemIds, ['pill.huiyuan']);
+      enterItemCommit();
+      await itemCommitRelease;
+      persistedInventoryItemIds = input.nextInventoryItems.map((entry: any) => entry.itemId);
+      persistedStamina = input.sourceMutation.nextStamina;
+      persistedStaminaUpdatedAt = input.sourceMutation.nextStaminaUpdatedAt;
+      return { ok: true, alreadyCommitted: false };
+    },
+  };
+  const useItemService = new WorldRuntimeUseItemService(repo, {}, durableService);
+  const pendingItemUse = useItemService.dispatchUseItem(playerId, staminaItem.itemInstanceId, {
+    durableOperationService: durable,
+    refreshQuestStates() { },
+    queuePlayerNotice() { },
+  });
+  await itemCommitEntered;
+  assert.equal(durablePlayer.stamina, 0, '耐久提交确认前不得提前抬高运行态体力');
+  assert.equal(durablePlayer.inventory.items.length, 1, '耐久提交确认前不得提前移除体力丹');
+  assert.equal(persistedStamina, 0, '耐久事务提交前数据库体力保持不变');
+  assert.deepEqual(persistedInventoryItemIds, ['pill.huiyuan'], '耐久事务提交前数据库背包保持不变');
+  releaseItemCommit();
+  await pendingItemUse;
+  assert.equal(durablePlayer.stamina, 24, '耐久提交后运行态应恢复一枚体力丹的 24 点体力');
+  assert.equal(durablePlayer.inventory.items.length, 0, '耐久提交后运行态只消耗一枚体力丹');
+  assert.equal(persistedStamina, 24, '同一耐久事务应提交体力后态');
+  assert.deepEqual(persistedInventoryItemIds, [], '同一耐久事务应提交背包扣丹后态');
+
+  const immediateEntry = await durableService.consumeDungeonStaminaForPlayersDurably([playerId], 4, initialNow + 10);
+  assert.equal(immediateEntry.ok, true, '一枚体力丹耐久提交后应可立即进入副本');
+  assert.equal(persistedStamina, 20, '立即进入副本应从耐久真源扣除 4 点体力');
+  assert.equal(durablePlayer.stamina, 20, '副本扣除后运行态应回写耐久真源余额');
+
+  const concurrentResults = await Promise.all([
+    durableService.consumeDungeonStaminaForPlayersDurably([playerId], 16, initialNow + 20),
+    durableService.consumeDungeonStaminaForPlayersDurably([playerId], 16, initialNow + 21),
+  ]);
+  assert.equal(concurrentResults.filter((result) => result.ok).length, 1, '并发副本扣除只能有一个成功');
+  assert.equal(maxConcurrentDungeonCommits, 1, '同一玩家副本扣除必须由资产锁串行进入数据库事务');
+  assert.equal(persistedStamina, 4, '并发扣除不得用旧运行态快照复活已扣体力');
+  assert.equal(durablePlayer.stamina, 4, '并发扣除结束后运行态应保持最终耐久余额');
+}
+
 const manualPlayerId = 'player:manual-use-item-cooldown-smoke';
 async function testManualUseItemBranch() {
   const manualItem = repo.createItem('pill.crimson_bud_elixir', 2);
@@ -129,9 +253,9 @@ async function testManualUseItemBranch() {
   service.players.set(manualPlayerId, manualPlayer);
   const manualUseService = new WorldRuntimeUseItemService(repo, {}, service);
   const manualDeps = {
-    refreshQuestStates() {},
-    advanceLearnTechniqueQuest() {},
-    queuePlayerNotice() {},
+    refreshQuestStates() { },
+    advanceLearnTechniqueQuest() { },
+    queuePlayerNotice() { },
   };
   await manualUseService.dispatchUseItem(manualPlayerId, 'manual:buff-pill', manualDeps);
   await manualUseService.dispatchUseItem(manualPlayerId, 'manual:buff-pill', manualDeps);
@@ -208,6 +332,7 @@ assert.throws(
 
 async function main() {
   await testManualUseItemBranch();
+  await testDurableStaminaPillAndConcurrentDungeonEntry();
   console.log('inventory-consumable-cooldown-smoke ok');
 }
 

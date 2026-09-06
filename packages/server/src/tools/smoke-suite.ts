@@ -189,11 +189,13 @@ const smokeCases = [
   { name: 'player-statistic-ledger-io', scriptFile: 'player-statistic-ledger-io-smoke.js', standalone: true },
   { name: 'player-runtime-dirty-domain', scriptFile: 'player-runtime-dirty-domain-smoke.js', standalone: true },
   { name: 'inventory-item-instance-ref', scriptFile: 'inventory-item-instance-ref-smoke.js', standalone: true },
+  { name: 'inventory-consumable-cooldown', scriptFile: 'inventory-consumable-cooldown-smoke.js', standalone: true },
   { name: 'world-runtime-equipment', scriptFile: 'world-runtime-equipment-smoke.js', standalone: true },
   { name: 'craft-persistence-dirty-domain', scriptFile: 'craft-persistence-dirty-domain-smoke.js', standalone: true },
   { name: 'player-domain-empty-overwrite-guard', scriptFile: 'player-domain-empty-overwrite-guard-smoke.js', standalone: true },
   { name: 'player-anchor-checkpoint-flush-worker', scriptFile: 'player-anchor-checkpoint-flush-worker-smoke.js', standalone: true },
   { name: 'player-state-flush-worker', scriptFile: 'player-state-flush-worker-smoke.js', standalone: true },
+  { name: 'player-item-use-durable', scriptFile: 'player-item-use-durable-smoke.js', standalone: true },
   { name: 'durable-operation', scriptFile: 'durable-operation-smoke.js', standalone: true },
   { name: 'world-runtime-lifecycle', scriptFile: 'world-runtime-lifecycle-smoke.js', standalone: true },
   { name: 'technique-activity-completion', scriptFile: 'technique-activity-completion-proof.js', standalone: true },
@@ -834,6 +836,7 @@ function resolveSelectedCases() {
             || entry.name === 'player-domain-persistence'
             || entry.name === 'player-domain-recovery'
       || entry.name === 'durable-operation'
+      || entry.name === 'player-item-use-durable'
       || entry.name === 'gm-database') {
       return includePersistence || isSelectedSmokeCase(entry.name);
         }

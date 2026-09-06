@@ -8,7 +8,7 @@
  * 处理丹药、技能书、传送符、灵石等各类物品的使用逻辑分支
  */
 import { Inject, Injectable, BadRequestException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
-import { CUSTOM_TECHNIQUE_BOOK_ITEM_ID, DEFAULT_QI_RESOURCE_DESCRIPTOR, MERIT_ETERNAL_DAILY_SIGN_IN_FIXED_BONUS, MERIT_ETERNAL_POOL_GRANT, MERIT_ETERNAL_USE_BEHAVIOR, MERIT_MONTH_CARD_DURATION_DAYS, MERIT_MONTH_CARD_POOL_GRANT, MERIT_MONTH_CARD_USE_BEHAVIOR, SECT_ENTRANCE_RELOCATION_USE_BEHAVIOR, TECHNIQUE_FRAGMENT_ITEM_ID, buildQiResourceKey, calculateTechniqueBookCraftFragmentCost, calculateTechniqueBookDecomposeFragments, getItemDisplayName, getTechniqueMaxLevel, isCreatedTechniqueId, isTechniqueAggregationId, isTechniqueFullyMastered, resolvePlayerFacingContentName } from '@mud/shared';
+import { CUSTOM_TECHNIQUE_BOOK_ITEM_ID, DEFAULT_QI_RESOURCE_DESCRIPTOR, DUNGEON_MAX_STAMINA, MERIT_ETERNAL_DAILY_SIGN_IN_FIXED_BONUS, MERIT_ETERNAL_POOL_GRANT, MERIT_ETERNAL_USE_BEHAVIOR, MERIT_MONTH_CARD_DURATION_DAYS, MERIT_MONTH_CARD_POOL_GRANT, MERIT_MONTH_CARD_USE_BEHAVIOR, SECT_ENTRANCE_RELOCATION_USE_BEHAVIOR, TECHNIQUE_FRAGMENT_ITEM_ID, buildQiResourceKey, calculateTechniqueBookCraftFragmentCost, calculateTechniqueBookDecomposeFragments, getItemDisplayName, getTechniqueMaxLevel, isCreatedTechniqueId, isTechniqueAggregationId, isTechniqueFullyMastered, resolvePlayerFacingContentName } from '@mud/shared';
 import { randomUUID } from 'node:crypto';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
@@ -161,6 +161,10 @@ export class WorldRuntimeUseItemService {
         }
         if (count > 1) {
             throw new BadRequestException('该物品不支持批量使用');
+        }
+        if (Number.isFinite(item.staminaAmount) && Math.trunc(Number(item.staminaAmount)) > 0) {
+            await this.handleStaminaRestoreItem(playerId, itemInstanceId, item, deps);
+            return;
         }
         if (item.itemId === CUSTOM_TECHNIQUE_BOOK_ITEM_ID) {
             if (!learnedTechniqueId) {
@@ -461,6 +465,49 @@ export class WorldRuntimeUseItemService {
             label: expandedLabel,
         };
     }
+    async handleStaminaRestoreItem(playerId, itemInstanceId, item, deps) {
+        await this.runExclusivePersistentPlayerItemUse(playerId, async () => {
+            const currentItem = this.requireUnchangedInventoryItem(playerId, itemInstanceId, item.itemId);
+            const restoreAmount = Math.max(1, Math.trunc(Number(currentItem.staminaAmount) || 0));
+            const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+            const now = Date.now();
+            const expectedStamina = this.playerRuntimeService.refreshDungeonStamina(playerId, now);
+            const nextStamina = Math.min(DUNGEON_MAX_STAMINA, expectedStamina.current + restoreAmount);
+            const durable = deps?.durableOperationService ?? null;
+            if (durable?.isEnabled?.() === true) {
+                const nextInventoryItems = buildInventoryAfterConsume(player.inventory?.items, itemInstanceId, 1);
+                const committedInventoryItems = await this.commitPersistentPlayerItemUse({
+                    playerId,
+                    itemInstanceId,
+                    item: currentItem,
+                    nextInventoryItems,
+                    durable,
+                    sourceType: 'item_stamina_restore',
+                    sourceMutation: {
+                        kind: 'player_item_use',
+                        action: 'restore_stamina',
+                        playerId,
+                        expectedStamina: expectedStamina.current,
+                        expectedStaminaUpdatedAt: expectedStamina.updatedAt,
+                        restoreAmount,
+                        nextStamina,
+                        nextStaminaUpdatedAt: now,
+                    },
+                });
+                this.playerRuntimeService.replaceInventoryItems(playerId, committedInventoryItems);
+                this.playerRuntimeService.replaceDungeonStamina(playerId, nextStamina, now);
+            }
+            else {
+                this.assertVolatilePersistentItemUseAllowed();
+                this.playerRuntimeService.useItemByInstanceId(playerId, itemInstanceId);
+            }
+            deps.refreshQuestStates(playerId);
+            const itemName = getItemDisplayName(currentItem);
+            const notice = buildStructuredNotice('success', 'notice.item.used', `使用 ${itemName}`, { vars: { itemName }, pills: [{ key: 'itemName', style: 'target' }] });
+            deps.queuePlayerNotice(playerId, notice.text, notice.kind, undefined, undefined, notice.structured);
+        });
+    }
+
     async handleMapUnlockItem(playerId, itemInstanceId, item, mapUnlockIds, deps, targetLabelOverride = '') {
         await this.runExclusivePersistentPlayerItemUse(playerId, async () => {
             const currentItem = this.requireUnchangedInventoryItem(playerId, itemInstanceId, item.itemId);
@@ -673,7 +720,9 @@ export class WorldRuntimeUseItemService {
         }
         catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            if (message.includes('player_map_unlock_snapshot_changed') || message.includes('player_respawn_snapshot_changed')) {
+            if (message.includes('player_map_unlock_snapshot_changed')
+                || message.includes('player_respawn_snapshot_changed')
+                || message.includes('player_stamina_snapshot_changed')) {
                 throw new BadRequestException('玩家持久化状态已变化，请重新进入后再试');
             }
             throw error;

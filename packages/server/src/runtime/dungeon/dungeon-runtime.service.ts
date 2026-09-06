@@ -790,13 +790,6 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
   const staminaMembers = run.members.map((member) => member.playerId);
   const consumed: string[] = [];
   if (!simulation) {
-   const staminaViews = staminaMembers.map((playerId) => this.players.refreshDungeonStamina(playerId));
-   if (staminaViews.some((view) => view.current < staminaCost)) {
-    run.status = 'aborted'; run.failureReason = 'stamina_insufficient';
-    this.runPersistence.save(run);
-    for (const member of run.members) this.emit(member.playerId, S2C.DungeonEntryResult, { ok: false, reason: 'stamina_insufficient', run });
-    return { ok: false, reason: 'stamina_insufficient', run };
-   }
    try {
     const result = await this.players.consumeDungeonStaminaForPlayersDurably(staminaMembers, staminaCost);
     if (!result.ok) throw new Error(result.reason ?? 'stamina_insufficient');

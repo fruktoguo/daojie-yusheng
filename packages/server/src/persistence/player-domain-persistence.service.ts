@@ -401,6 +401,12 @@ export interface PlayerProgressionCoreUpsertInput {
   staminaUpdatedAt?: number;
 }
 
+type DungeonStaminaSessionFence = Pick<
+  PlayerSnapshotProjectionDomainWriteOptions,
+  'expectedRuntimeOwnerId' | 'expectedSessionEpoch'
+>;
+
+
 export interface PlayerBodyTrainingStateUpsertInput {
   level: number;
   exp: number;
@@ -2124,12 +2130,15 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
   async consumeDungeonStaminaAtomic(
     playerIdInput: string,
     costInput: number,
-    now = Date.now(),
+    now: number,
+    fence: DungeonStaminaSessionFence,
   ): Promise<{ ok: boolean; current: number; maximum: number; updatedAt: number; nextRecoveryAt?: number }> {
     const playerId = normalizeRequiredString(playerIdInput);
     const cost = Math.max(0, Math.trunc(Number(costInput) || 0));
     if (!playerId) throw new Error('player_id_required');
     return this.withTransaction(async (client) => {
+      await acquirePlayerPersistenceLock(client, playerId);
+      await assertPlayerSnapshotProjectionFenceCurrent(client, playerId, fence);
       let result = await client.query(
         `SELECT stamina, stamina_updated_at FROM ${PLAYER_PROGRESSION_CORE_TABLE} WHERE player_id = $1 FOR UPDATE`,
         [playerId],
@@ -2168,16 +2177,18 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     });
   }
 
-  /** 激活基础设施失败时，在同一 progression 行锁内补回已扣精力。 */
   async refundDungeonStaminaAtomic(
     playerIdInput: string,
     amountInput: number,
-    now = Date.now(),
+    now: number,
+    fence: DungeonStaminaSessionFence,
   ): Promise<{ current: number; maximum: number; updatedAt: number; nextRecoveryAt?: number }> {
     const playerId = normalizeRequiredString(playerIdInput);
     const amount = Math.max(0, Math.trunc(Number(amountInput) || 0));
     if (!playerId) throw new Error('player_id_required');
     return this.withTransaction(async (client) => {
+      await acquirePlayerPersistenceLock(client, playerId);
+      await assertPlayerSnapshotProjectionFenceCurrent(client, playerId, fence);
       const result = await client.query(
         `SELECT stamina, stamina_updated_at FROM ${PLAYER_PROGRESSION_CORE_TABLE} WHERE player_id = $1 FOR UPDATE`,
         [playerId],
@@ -2198,12 +2209,21 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
   async consumeDungeonStaminaForPlayersAtomic(
     playerIdsInput: readonly string[],
     costInput: number,
-    now = Date.now(),
+    now: number,
+    fences: Readonly<Record<string, DungeonStaminaSessionFence | undefined>>,
   ): Promise<{ ok: boolean; reason?: string; views: Record<string, { current: number; maximum: number; updatedAt: number; nextRecoveryAt?: number }> }> {
     const playerIds = [...new Set(playerIdsInput.map((value) => normalizeRequiredString(value)).filter(Boolean))].sort();
     const cost = Math.max(0, Math.trunc(Number(costInput) || 0));
     if (playerIds.length === 0) throw new Error('player_ids_required');
     return this.withTransaction(async (client) => {
+      for (const playerId of playerIds) {
+        await acquirePlayerPersistenceLock(client, playerId);
+      }
+      for (const playerId of playerIds) {
+        const fence = fences[playerId];
+        if (!fence) throw new Error(`dungeon_stamina_session_fence_required:${playerId}`);
+        await assertPlayerSnapshotProjectionFenceCurrent(client, playerId, fence);
+      }
       const rows = new Map<string, any>();
       for (const playerId of playerIds) {
         const result = await client.query(
@@ -3433,12 +3453,16 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
           const walletRow = walletByPid.get(playerId);
           const walletBalance = walletRow ? Math.max(0, Math.trunc(Number(walletRow.balance) || 0)) : 0;
           const invCount = Math.max(0, Math.trunc(Number(invSpiritByPid.get(playerId)?.total_count) || 0));
-          snapshot.wallet = { balances: walletBalance > 0 || invCount > 0
+          snapshot.wallet = {
+            balances: walletBalance > 0 || invCount > 0
             ? [{ walletType: currencyItemId, balance: walletBalance, count: invCount }] as any
-            : [] };
-          snapshot.inventory = { ...snapshot.inventory, items: invCount > 0
+              : []
+          };
+          snapshot.inventory = {
+            ...snapshot.inventory, items: invCount > 0
             ? [{ itemId: currencyItemId, count: invCount }] as any
-            : [] };
+              : []
+          };
           // active job (排行榜只需判断 alchemy/enhancement 存在性)
           const jobRow = activeJobByPid.get(playerId);
           const jobType = jobRow ? normalizeOptionalString(jobRow.job_type) : null;

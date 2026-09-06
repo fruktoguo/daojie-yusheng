@@ -1254,6 +1254,22 @@ export class PlayerRuntimeService {
     : recovered.updatedAt + 60 * 60 * 1000,
   };
  }
+ /** 用已提交的耐久事务结果替换运行态副本精力。 */
+ replaceDungeonStamina(playerId, currentInput, updatedAtInput) {
+  const player = this.getPlayerOrThrow(playerId);
+  const current = Math.max(0, Math.min(DUNGEON_MAX_STAMINA, Math.trunc(Number(currentInput) || 0)));
+  const updatedAt = Math.max(0, Math.trunc(Number(updatedAtInput) || Date.now()));
+  player.stamina = current;
+  player.staminaUpdatedAt = updatedAt;
+  markPlayerDirtyDomains(player, ['progression']);
+  this.bumpPersistentRevision(player);
+  return {
+   current,
+   maximum: DUNGEON_MAX_STAMINA,
+   updatedAt,
+   nextRecoveryAt: current >= DUNGEON_MAX_STAMINA ? null : updatedAt + 60 * 60 * 1000,
+  };
+ }
  /** 在进入副本的唯一提交点扣除精力；不足时不产生任何写入。 */
  consumeDungeonStamina(playerId, costInput, now = Date.now()) {
   const cost = Math.max(0, Math.trunc(Number(costInput) || 0));
@@ -1277,60 +1293,68 @@ export class PlayerRuntimeService {
 
  /** 副本入口优先调用持久化层原子扣除；数据库不可用时保留本地 smoke/开发回退。 */
  async consumeDungeonStaminaDurably(playerId, costInput, now = Date.now()) {
-  if (this.playerDomainPersistenceService?.isEnabled?.() && typeof this.playerDomainPersistenceService.consumeDungeonStaminaAtomic === 'function') {
-   const result = await this.playerDomainPersistenceService.consumeDungeonStaminaAtomic(playerId, costInput, now);
-   const player = this.getPlayer(playerId);
-   if (player) {
-    player.stamina = result.current;
-    player.staminaUpdatedAt = result.updatedAt;
-    markPlayerDirtyDomains(player, ['progression']);
-    this.bumpPersistentRevision(player);
+  return this.runExclusiveAssetMutation([playerId], async () => {
+   if (this.playerDomainPersistenceService?.isEnabled?.() && typeof this.playerDomainPersistenceService.consumeDungeonStaminaAtomic === 'function') {
+    const fence = this.getSessionFence(playerId);
+    if (!fence?.runtimeOwnerId || !fence.sessionEpoch) throw new Error(`dungeon_stamina_session_fence_required:${playerId}`);
+    const result = await this.playerDomainPersistenceService.consumeDungeonStaminaAtomic(playerId, costInput, now, {
+     expectedRuntimeOwnerId: fence.runtimeOwnerId,
+     expectedSessionEpoch: fence.sessionEpoch,
+    });
+    this.replaceDungeonStamina(playerId, result.current, result.updatedAt);
+    return result;
    }
-   return result;
-  }
-  return this.consumeDungeonStamina(playerId, costInput, now);
+   return this.consumeDungeonStamina(playerId, costInput, now);
+  });
  }
  async refundDungeonStaminaDurably(playerId, amountInput, now = Date.now()) {
-  if (this.playerDomainPersistenceService?.isEnabled?.() && typeof this.playerDomainPersistenceService.refundDungeonStaminaAtomic === 'function') {
-   const result = await this.playerDomainPersistenceService.refundDungeonStaminaAtomic(playerId, amountInput, now);
-   const player = this.getPlayer(playerId);
-   if (player) {
-    player.stamina = result.current;
-    player.staminaUpdatedAt = result.updatedAt;
-    markPlayerDirtyDomains(player, ['progression']);
-    this.bumpPersistentRevision(player);
+  return this.runExclusiveAssetMutation([playerId], async () => {
+   if (this.playerDomainPersistenceService?.isEnabled?.() && typeof this.playerDomainPersistenceService.refundDungeonStaminaAtomic === 'function') {
+    const fence = this.getSessionFence(playerId);
+    if (!fence?.runtimeOwnerId || !fence.sessionEpoch) throw new Error(`dungeon_stamina_session_fence_required:${playerId}`);
+    const result = await this.playerDomainPersistenceService.refundDungeonStaminaAtomic(playerId, amountInput, now, {
+     expectedRuntimeOwnerId: fence.runtimeOwnerId,
+     expectedSessionEpoch: fence.sessionEpoch,
+    });
+    this.replaceDungeonStamina(playerId, result.current, result.updatedAt);
+    return result;
    }
-   return result;
-  }
-  return this.refundDungeonStamina(playerId, amountInput, now);
+   return this.refundDungeonStamina(playerId, amountInput, now);
+  });
  }
  async consumeDungeonStaminaForPlayersDurably(playerIds, costInput, now = Date.now()) {
   const normalizedPlayerIds = Array.from(new Set((Array.isArray(playerIds) ? playerIds : []).map((value) => String(value ?? '').trim()).filter(Boolean)));
-  if (this.playerDomainPersistenceService?.isEnabled?.() && typeof this.playerDomainPersistenceService.consumeDungeonStaminaForPlayersAtomic === 'function') {
-   const result = await this.playerDomainPersistenceService.consumeDungeonStaminaForPlayersAtomic(normalizedPlayerIds, costInput, now);
+  return this.runExclusiveAssetMutation(normalizedPlayerIds, async () => {
+   if (this.playerDomainPersistenceService?.isEnabled?.() && typeof this.playerDomainPersistenceService.consumeDungeonStaminaForPlayersAtomic === 'function') {
+    const fences: Record<string, { expectedRuntimeOwnerId: string; expectedSessionEpoch: number }> = {};
+    for (const playerId of normalizedPlayerIds) {
+     const fence = this.getSessionFence(playerId);
+     if (!fence?.runtimeOwnerId || !fence.sessionEpoch) throw new Error(`dungeon_stamina_session_fence_required:${playerId}`);
+     fences[playerId] = {
+      expectedRuntimeOwnerId: fence.runtimeOwnerId,
+      expectedSessionEpoch: fence.sessionEpoch,
+     };
+    }
+    const result = await this.playerDomainPersistenceService.consumeDungeonStaminaForPlayersAtomic(normalizedPlayerIds, costInput, now, fences);
+    for (const playerId of normalizedPlayerIds) {
+     const view = result.views[playerId];
+     if (view) this.replaceDungeonStamina(playerId, view.current, view.updatedAt);
+    }
+    return result;
+   }
+   const views = {};
+   const consumed = [];
    for (const playerId of normalizedPlayerIds) {
-    const view = result.views[playerId];
-    const player = this.getPlayer(playerId);
-    if (!view || !player) continue;
-    player.stamina = view.current;
-    player.staminaUpdatedAt = view.updatedAt;
-    markPlayerDirtyDomains(player, ['progression']);
-    this.bumpPersistentRevision(player);
+    const result = this.consumeDungeonStamina(playerId, costInput, now);
+    if (!result.ok) {
+     for (const consumedPlayerId of consumed) this.refundDungeonStamina(consumedPlayerId, costInput, now);
+     return { ok: false, reason: 'stamina_insufficient', views };
+    }
+    consumed.push(playerId);
+    views[playerId] = result;
    }
-   return result;
-  }
-  const views = {};
-  const consumed = [];
-  for (const playerId of normalizedPlayerIds) {
-   const result = this.consumeDungeonStamina(playerId, costInput, now);
-   if (!result.ok) {
-    for (const consumedPlayerId of consumed) this.refundDungeonStamina(consumedPlayerId, costInput, now);
-    return { ok: false, reason: 'stamina_insufficient', views };
-   }
-   consumed.push(playerId);
-   views[playerId] = result;
-  }
-  return { ok: true, views };
+   return { ok: true, views };
+  });
  }
  refundDungeonStamina(playerId, amountInput, now = Date.now()) {
   const amount = Math.max(0, Math.trunc(Number(amountInput) || 0));
