@@ -698,6 +698,7 @@ export class WorldRuntimeBasicAttackService {
         const miningExpResult = applyMiningExpForTileDamage({
             attacker,
             tileType,
+            mapLevel: instance?.template?.source?.mapLv,
             appliedDamage,
             playerRuntimeService: this.playerRuntimeService,
         });

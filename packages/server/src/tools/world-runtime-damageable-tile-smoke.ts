@@ -97,7 +97,7 @@ function createCloudTemplate() {
   };
 }
 
-function createBlackIronOreTemplate() {
+function createBlackIronOreTemplate(mapLv = 1) {
   return {
     ...createTemplate(),
     terrainRows: [
@@ -115,6 +115,7 @@ function createBlackIronOreTemplate() {
       0, 0, 0,
       0, 0, 0,
     ]),
+    source: { mapLv },
   };
 }
 
@@ -729,7 +730,7 @@ function testRuntimeTileDropsRequireInventoryReceiver() {
 }
 
 function testBasicAttackTileDropsEnterInventory() {
-  const instance = createInstance(createBlackIronOreTemplate());
+  const instance = createInstance(createBlackIronOreTemplate(31));
   const runtimePlayer = instance.connectPlayer({
     playerId: 'player:tile-basic-drop',
     sessionId: 'session:tile-basic-drop',
@@ -805,6 +806,7 @@ function testBasicAttackTileDropsEnterInventory() {
   assert.equal(instance.getTileGroundPile(1, 0), null);
   assert.equal(instance.getTileGroundPile(1, 1), null);
   assert.equal(attacker.inventory.items.some((item: any) => item.itemId === 'black_iron_chunk'), true);
+  assert.equal(attacker.inventory.items.some((item: unknown) => typeof item === 'object' && item !== null && 'itemId' in item && item.itemId === 'book.passive_craft_foundation_mystic_mining'), true);
   assert.equal(notices.some((entry) => entry[5] && (entry[5] as any).key === 'notice.loot.tile-drop-inventory'), true);
   assert.equal(attacker.dirtyDomains.has('profession'), true);
   assert.equal(attacker.persistentRevision, 1);
@@ -812,37 +814,45 @@ function testBasicAttackTileDropsEnterInventory() {
 
 function testMiningExpAppliesToAnyOreTileDamage() {
   const attacker = {
-    realmLv: 1,
-    realm: { realmLv: 1 },
+    realmLv: 50,
+    realm: { realmLv: 50 },
     miningSkill: { level: 50, exp: 0, expToNext: 10000 },
   };
+  const requestedLevels: number[] = [];
   const playerRuntimeService = {
-    resolveCraftSkillExpToNextByLevel() {
-      return 10000;
+    playerProgressionService: {
+      getRealmRuntimeExpToNext(level: number) {
+        requestedLevels.push(level);
+        return level === 31 ? 3_600_000 : 0;
+      },
     },
   };
 
   const gained = applyMiningExpForTileDamage({
     attacker,
     tileType: TileType.BlackIronOre,
+    mapLevel: 31,
     appliedDamage: 1,
     playerRuntimeService,
   });
 
-  assert.ok(gained.gained > 0);
+  assert.equal(gained.gained, 64);
   assert.equal(gained.changed, true);
   assert.equal(attacker.miningSkill.exp, gained.gained);
+  assert.deepEqual(requestedLevels, [31]);
 
   const expAfterOreDamage = attacker.miningSkill.exp;
   assert.deepEqual(applyMiningExpForTileDamage({
     attacker,
     tileType: TileType.BlackIronOre,
+    mapLevel: 31,
     appliedDamage: 0,
     playerRuntimeService,
   }), { gained: 0, changed: false });
   assert.deepEqual(applyMiningExpForTileDamage({
     attacker,
     tileType: TileType.Wall,
+    mapLevel: 31,
     appliedDamage: 100,
     playerRuntimeService,
   }), { gained: 0, changed: false });

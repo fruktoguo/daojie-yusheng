@@ -8,7 +8,6 @@ import {
   applyCraftOutputRate,
   computeCraftSkillExpGain,
   computeLuckSuccessRateBonus,
-  getOreMiningLevel,
   getMiningDamageMultiplier,
   getMiningDropRateBonus,
   isOreMinableTileType,
@@ -68,6 +67,7 @@ export function resolveMiningDropRateBonus(attacker: any): number {
 export function applyMiningExpForTileDamage(input: {
   attacker: any;
   tileType: unknown;
+  mapLevel: unknown;
   appliedDamage: unknown;
   playerRuntimeService: any;
 }): { gained: number; changed: boolean } {
@@ -83,12 +83,12 @@ export function applyMiningExpForTileDamage(input: {
     return { gained: 0, changed: false };
   }
 
-  const oreTileLevel = getOreMiningLevel(input.tileType as string | undefined) ?? 1;
+  const miningActionLevel = Math.max(1, Math.floor(Number(input.mapLevel) || 1));
   const miningLevel = Math.max(1, Math.floor(Number(skill.level) || 1));
   const baseGain = computeCraftSkillExpGain({
     playerRealmLevel: resolvePlayerCraftRealmLevel(input.attacker),
     skillLevel: miningLevel,
-    targetLevel: oreTileLevel,
+    targetLevel: miningActionLevel,
     baseActionTicks: MINING_EXP_BASE_ACTION_TICKS,
     getExpToNextByLevel: (level) => resolveCraftSkillExpToNextByLevel(input.playerRuntimeService, level),
     successCount: 1,
@@ -99,7 +99,7 @@ export function applyMiningExpForTileDamage(input: {
   const passiveAcquisition = tryAcquireCraftPassiveTechnique({
     player: input.attacker,
     activityKind: 'mining',
-    actionLevel: oreTileLevel,
+    actionLevel: miningActionLevel,
     skillLevel: miningLevel,
     baseActionTicks: MINING_EXP_BASE_ACTION_TICKS,
     actionCount: 1,
@@ -137,6 +137,7 @@ export function applyMiningExpForTileDamage(input: {
 export function applyMiningExpForTileDamageBatch(input: {
   attacker: any;
   entries: ReadonlyArray<{ tileType: unknown; appliedDamage: unknown }>;
+  mapLevel: unknown;
   playerRuntimeService: any;
 }): { gained: number; changed: boolean; hitCount: number } {
   const skill = input.attacker?.miningSkill;
@@ -148,6 +149,7 @@ export function applyMiningExpForTileDamageBatch(input: {
   let miningExp = Math.max(0, Number(skill.exp) || 0);
   let miningExpToNext = Math.max(0, Math.floor(Number(skill.expToNext) || 0));
   const playerRealmLevel = resolvePlayerCraftRealmLevel(input.attacker);
+  const miningActionLevel = Math.max(1, Math.floor(Number(input.mapLevel) || 1));
   const gainBySkillLevel = new Map<number, Map<number, number>>();
   let totalGain = 0;
   let totalCraftRealmGain = 0;
@@ -161,11 +163,10 @@ export function applyMiningExpForTileDamageBatch(input: {
     if (damage <= 0) {
       continue;
     }
-    const oreTileLevel = getOreMiningLevel(entry.tileType as string | undefined) ?? 1;
     const passiveAcquisition = tryAcquireCraftPassiveTechnique({
       player: input.attacker,
       activityKind: 'mining',
-      actionLevel: oreTileLevel,
+      actionLevel: miningActionLevel,
       skillLevel: miningLevel,
       baseActionTicks: MINING_EXP_BASE_ACTION_TICKS,
       actionCount: 1,
@@ -178,12 +179,12 @@ export function applyMiningExpForTileDamageBatch(input: {
       gainByTargetLevel = new Map<number, number>();
       gainBySkillLevel.set(miningLevel, gainByTargetLevel);
     }
-    let gain = gainByTargetLevel.get(oreTileLevel);
+    let gain = gainByTargetLevel.get(miningActionLevel);
     if (gain === undefined) {
       const baseGain = computeCraftSkillExpGain({
         playerRealmLevel,
         skillLevel: miningLevel,
-        targetLevel: oreTileLevel,
+        targetLevel: miningActionLevel,
         baseActionTicks: MINING_EXP_BASE_ACTION_TICKS,
         getExpToNextByLevel: (level) => resolveCraftSkillExpToNextByLevel(input.playerRuntimeService, level),
         successCount: 1,
@@ -191,7 +192,7 @@ export function applyMiningExpForTileDamageBatch(input: {
         successMultiplier: 1,
       }).finalGain;
       gain = applyPlayerCraftExpRate(input.attacker, 'mining', baseGain);
-      gainByTargetLevel.set(oreTileLevel, gain);
+      gainByTargetLevel.set(miningActionLevel, gain);
     }
     if (gain <= 0) {
       continue;

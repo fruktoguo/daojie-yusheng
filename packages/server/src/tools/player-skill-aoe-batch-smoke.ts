@@ -799,6 +799,7 @@ function testMiningExpBatchMatchesSequentialSettlement(): void {
     tileType: entryIndex % 3 === 0 ? TileType.BlackIronOre : TileType.SpiritOre,
     appliedDamage: entryIndex % 7 === 0 ? 0 : 1,
   }));
+  const mapLevel = 31;
   const sequentialHarness = createMiningExpHarness();
   const batchedHarness = createMiningExpHarness();
   let sequentialGain = 0;
@@ -807,6 +808,7 @@ function testMiningExpBatchMatchesSequentialSettlement(): void {
     const result = applyMiningExpForTileDamage({
       attacker: sequentialAttacker,
       tileType: entry.tileType,
+      mapLevel,
       appliedDamage: entry.appliedDamage,
       playerRuntimeService: sequentialHarness.service,
     });
@@ -816,6 +818,7 @@ function testMiningExpBatchMatchesSequentialSettlement(): void {
   const batched = applyMiningExpForTileDamageBatch({
     attacker: batchedAttacker,
     entries,
+    mapLevel,
     playerRuntimeService: batchedHarness.service,
   });
 

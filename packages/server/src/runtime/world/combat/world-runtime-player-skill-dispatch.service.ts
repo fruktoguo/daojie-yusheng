@@ -2208,6 +2208,7 @@ export class WorldRuntimePlayerSkillDispatchService {
             const miningExpResult = applyMiningExpForTileDamage({
                 attacker,
                 tileType: tileState.tileType,
+                mapLevel: instance?.template?.source?.mapLv,
                 appliedDamage,
                 playerRuntimeService: this.playerRuntimeService,
             });
@@ -2310,6 +2311,7 @@ export class WorldRuntimePlayerSkillDispatchService {
             const miningExpResult = applyMiningExpForTileDamageBatch({
                 attacker,
                 entries: pendingTileDamage,
+                mapLevel: instance?.template?.source?.mapLv,
                 playerRuntimeService: this.playerRuntimeService,
             });
             if (miningExpResult.changed) {

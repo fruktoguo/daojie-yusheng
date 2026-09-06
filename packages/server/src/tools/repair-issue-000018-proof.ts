@@ -5,15 +5,42 @@ import { applyMiningExpForTileDamage } from '../runtime/world/combat/tile-drop.h
 
 function main(): void {
   const attacker = {
-    realm: { realmLv: 20, progress: 0 },
-    miningSkill: { level: 20, exp: 0, expToNext: 10_000 },
+    playerId: 'player:mining-map-level-proof',
+    realm: { realmLv: 50, progress: 0 },
+    miningSkill: { level: 50, exp: 0, expToNext: 10_000 },
   };
   const dirtyDomains = new Set<string>();
+  const receivedItems: Array<Record<string, unknown>> = [];
+  const contentTemplateRepository = {
+    listTechniqueTemplates() {
+      return [
+        { id: 'passive_craft_mortal_mortal_mining', name: '凡阶挖矿功法', grade: 'mortal' },
+        { id: 'passive_craft_qi_yellow_mining', name: '黄阶挖矿功法', grade: 'yellow' },
+        { id: 'passive_craft_foundation_mystic_mining', name: '玄阶挖矿功法', grade: 'mystic' },
+      ].map((template) => ({
+        ...template,
+        skills: [{
+          active: false,
+          passiveEffects: [{ craftEffectStats: { mining: { speedRate: 0.1 } } }],
+        }],
+      }));
+    },
+    createItem(itemId: string, count = 1) {
+      return { itemId, count };
+    },
+    normalizeItem(item: Record<string, unknown>) {
+      return item;
+    },
+  };
   const playerRuntimeService = {
-    resolveCraftSkillExpToNextByLevel() {
-      return 10_000;
+    contentTemplateRepository,
+    receiveInventoryItem(_playerId: string, item: Record<string, unknown>) {
+      receivedItems.push(item);
     },
     playerProgressionService: {
+      getRealmRuntimeExpToNext(level: number) {
+        return level === 31 ? 3_600_000 : 0;
+      },
       grantCraftRealmExp(player: typeof attacker, amount: number) {
         const gain = Math.max(0, Math.round(Number(amount) || 0));
         player.realm.progress += gain;
@@ -35,22 +62,32 @@ function main(): void {
     },
   };
 
-  const result = applyMiningExpForTileDamage({
-    attacker,
-    tileType: TileType.BlackIronOre,
-    appliedDamage: 1,
-    playerRuntimeService,
-  });
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+  let result: { gained: number; changed: boolean };
+  try {
+    result = applyMiningExpForTileDamage({
+      attacker,
+      tileType: TileType.BlackIronOre,
+      mapLevel: 31,
+      appliedDamage: 1,
+      playerRuntimeService,
+    });
+  } finally {
+    Math.random = originalRandom;
+  }
 
-  assert.ok(result.gained > 0);
+  assert.equal(result.gained, 64);
   assert.equal(attacker.miningSkill.exp, result.gained);
   assert.equal(attacker.realm.progress, Math.round(result.gained / 2));
   assert.equal(dirtyDomains.has('progression'), true);
+  assert.deepEqual(receivedItems.map((item) => item.itemId), ['book.passive_craft_foundation_mystic_mining']);
 
   const realmProgress = attacker.realm.progress;
   assert.deepEqual(applyMiningExpForTileDamage({
     attacker,
     tileType: TileType.Wall,
+    mapLevel: 31,
     appliedDamage: 100,
     playerRuntimeService,
   }), { gained: 0, changed: false });
