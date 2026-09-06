@@ -514,7 +514,7 @@ try {
     skillTooltip.buildSkillTooltipContent(gatherTemplate.skills[0], { techLevel: fireLevel, passiveTechnique: true }).lines.join('\n'),
   );
   assert.match(gatherTooltipText, /采集保株 \+18\.8%/u, '常驻技艺技能 hover 必须按当前层数缩放保株产出加成');
-  assert.match(gatherTooltipText, /采集速度 -37\.6%/u, '常驻技艺技能 hover 必须按当前层数缩放采摘降速');
+  assert.match(gatherTooltipText, /采集速度 \+18\.8%/u, '常驻技艺技能 hover 必须按当前层数缩放采摘加速');
 
   const yinTemplate = localTemplates.getLocalTechniqueTemplate('passive_yinyang_qi_earth_pure_yin');
   assert.ok(yinTemplate, '缺少九阳化阴真经模板');

@@ -56,7 +56,7 @@
     {
       "id": "passive_craft_mortal_mortal_gather",
       "name": "《百草识辨篇》",
-      "desc": "凡人采集专修心法。谙熟百草习性灵机，采摘有 8% 线性保株概率不扣地块存量，但采摘速度降低 16%。",
+      "desc": "凡人采集专修心法。谙熟百草习性灵机，采摘有 8% 线性保株概率不扣地块存量，采摘速度提升 8%。",
       "grade": "mortal",
       "category": "arts",
       "realmLv": 1,
@@ -72,7 +72,7 @@
         {
           "id": "skill_passive_craft_mortal_mortal_gather",
           "name": "百草识辨",
-          "desc": "【被动】百草识辨，采折留根。采摘有 8% 线性保株概率不扣地块存量，采摘速度降低 16%。",
+          "desc": "【被动】百草识辨，采折留根。采摘有 8% 线性保株概率不扣地块存量，采摘速度提升 8%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -85,11 +85,11 @@
               "buffId": "passive_craft_mortal_mortal_gather_buff",
               "name": "百草识辨",
               "shortMark": "集",
-              "desc": "采摘利落药根无损。保株产出+8%，采摘速度-16%。",
+              "desc": "采摘利落药根无损。保株产出+8%，采摘速度+8%。",
               "craftEffectStats": {
                 "gather": {
                   "outputRate": 0.08,
-                  "speedRate": -0.16
+                  "speedRate": 0.08
                 }
               },
               "ignoreRealmEffectiveness": true
@@ -1095,7 +1095,7 @@
     {
       "id": "passive_craft_foundation_mystic_gather",
       "name": "《灵植引脉录》",
-      "desc": "筑基采集专修心法。神识与灵植经络相融一念采收，采摘有 16% 线性保株概率不扣地块存量，但采摘速度降低 32%。",
+      "desc": "筑基采集专修心法。神识与灵植经络相融一念采收，采摘有 16% 线性保株概率不扣地块存量，采摘速度提升 16%。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 31,
@@ -1111,7 +1111,7 @@
         {
           "id": "skill_passive_craft_foundation_mystic_gather",
           "name": "灵植引脉",
-          "desc": "【被动】灵植引脉，撷华留脉。采摘有 16% 线性保株概率不扣地块存量，采摘速度降低 32%。",
+          "desc": "【被动】灵植引脉，撷华留脉。采摘有 16% 线性保株概率不扣地块存量，采摘速度提升 16%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1124,11 +1124,11 @@
               "buffId": "passive_craft_foundation_mystic_gather_buff",
               "name": "灵植引脉",
               "shortMark": "集",
-              "desc": "神念通灵巧撷灵华。保株产出+16%，采摘速度-32%。",
+              "desc": "神念通灵巧撷灵华。保株产出+16%，采摘速度+16%。",
               "craftEffectStats": {
                 "gather": {
                   "outputRate": 0.16,
-                  "speedRate": -0.32
+                  "speedRate": 0.16
                 }
               },
               "ignoreRealmEffectiveness": true
@@ -1533,7 +1533,7 @@
     {
       "id": "passive_craft_qi_yellow_gather",
       "name": "《青灵采撷诀》",
-      "desc": "练气采集专修心法。引青木灵气化解灵草天然防护，采摘有 12% 线性保株概率不扣地块存量，但采摘速度降低 24%。",
+      "desc": "练气采集专修心法。引青木灵气化解灵草天然防护，采摘有 12% 线性保株概率不扣地块存量，采摘速度提升 12%。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 23,
@@ -1549,7 +1549,7 @@
         {
           "id": "skill_passive_craft_qi_yellow_gather",
           "name": "青灵采撷",
-          "desc": "【被动】青灵化护，巧取留种。采摘有 12% 线性保株概率不扣地块存量，采摘速度降低 24%。",
+          "desc": "【被动】青灵化护，巧取留种。采摘有 12% 线性保株概率不扣地块存量，采摘速度提升 12%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1562,11 +1562,11 @@
               "buffId": "passive_craft_qi_yellow_gather_buff",
               "name": "青灵采撷",
               "shortMark": "集",
-              "desc": "青灵引气温润护根。保株产出+12%，采摘速度-24%。",
+              "desc": "青灵引气温润护根。保株产出+12%，采摘速度+12%。",
               "craftEffectStats": {
                 "gather": {
                   "outputRate": 0.12,
-                  "speedRate": -0.24
+                  "speedRate": 0.12
                 }
               },
               "ignoreRealmEffectiveness": true
@@ -17881,7 +17881,7 @@
     {
       "buffId": "passive_craft_mortal_mortal_gather_buff",
       "name": "百草识辨",
-      "desc": "采摘利落药根无损。保株产出+8%，采摘速度-16%。",
+      "desc": "采摘利落药根无损。保株产出+8%，采摘速度+8%。",
       "shortMark": "集",
       "category": "buff",
       "visibility": "public",
@@ -19096,7 +19096,7 @@
     {
       "buffId": "passive_craft_foundation_mystic_gather_buff",
       "name": "灵植引脉",
-      "desc": "神念通灵巧撷灵华。保株产出+16%，采摘速度-32%。",
+      "desc": "神念通灵巧撷灵华。保株产出+16%，采摘速度+16%。",
       "shortMark": "集",
       "category": "buff",
       "visibility": "public",
@@ -19430,7 +19430,7 @@
     {
       "buffId": "passive_craft_qi_yellow_gather_buff",
       "name": "青灵采撷",
-      "desc": "青灵引气温润护根。保株产出+12%，采摘速度-24%。",
+      "desc": "青灵引气温润护根。保株产出+12%，采摘速度+12%。",
       "shortMark": "集",
       "category": "buff",
       "visibility": "public",
