@@ -107,8 +107,6 @@ const DEFAULT_VIEW_RADIUS = 10;
 /** 玩家空间索引 chunk 边长；覆盖默认视野并避免大图同实例全量扫。 */
 const PLAYER_SPATIAL_CHUNK_SIZE = 16;
 
-/** 副本怪物开怪感知半径：副本怪物仅在玩家进入该半径内或受到攻击时才进入战斗。 */
-export const DUNGEON_MONSTER_ENGAGE_DISTANCE = 5;
 
 /** MONSTER_LOST_SIGHT_CHASE_TICKS：妖兽丢失视野后只追击最后目击点的短暂记忆窗口。 */
 const MONSTER_LOST_SIGHT_CHASE_TICKS = 3;
@@ -620,7 +618,7 @@ class MapInstanceRuntime {
   return Math.max(0, maxX - minX, maxY - minY);
  }
 
- /** 解析妖兽当前寻敌半径：未开怪副本怪 5 格，开战副本怪全图，其余用配置 aggroRange。 */
+ /** 解析妖兽当前寻敌半径：未开怪副本怪不主动寻敌，开战后覆盖全图，其余用配置 aggroRange。 */
  resolveMonsterCombatAggroRange(monster: { aggroRange?: unknown; engaged?: boolean }): number {
   const baseAggroRange = Math.max(0, Math.trunc(Number(monster.aggroRange) || 0));
   if (!this.isDungeonInstance()) {
@@ -629,7 +627,7 @@ class MapInstanceRuntime {
   if (monster.engaged === true) {
    return Math.max(baseAggroRange, this.resolveDungeonCombatVisionRange());
   }
-  return Math.min(baseAggroRange, DUNGEON_MONSTER_ENGAGE_DISTANCE);
+  return 0;
  }
 
  /** 当前可出手的最大攻击/技能距离。 */
@@ -9054,12 +9052,15 @@ class MapInstanceRuntime {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const isDungeon = this.isDungeonInstance();
-  const engagedDungeon = isDungeon && monster.engaged === true;
+  if (isDungeon && monster.engaged !== true) {
+   this.decayMonsterThreats(monster, new Set());
+   return null;
+  }
   const aggroRange = this.resolveMonsterCombatAggroRange(monster);
-  const leashRange = engagedDungeon
+  const leashRange = isDungeon
    ? Number.POSITIVE_INFINITY
    : Math.max(0, Math.trunc(Number(monster.leashRange) || 0));
-  if (engagedDungeon) {
+  if (isDungeon) {
    if (this.playersById.size === 0) {
     this.decayMonsterThreats(monster, new Set());
     return null;
@@ -9148,7 +9149,7 @@ class MapInstanceRuntime {
   if (!preIntent) {
    return this.resolveMonsterTarget(monster);
   }
-  if (this.isDungeonInstance() && monster.engaged === true) {
+  if (this.isDungeonInstance()) {
    return this.resolveMonsterTarget(monster);
   }
   const aggroRange = this.resolveMonsterCombatAggroRange(monster);

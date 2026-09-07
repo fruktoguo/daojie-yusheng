@@ -58,6 +58,35 @@ function isPlayerTargetRef(targetRef) {
 function instanceSupportsPvp(instance) {
  return instance?.meta?.supportsPvp === true || instance?.supportsPvp === true;
 }
+function shouldSkipDormantDungeonMonster(
+ instance: {
+  meta?: { instanceId?: unknown; kind?: unknown; instanceOrigin?: unknown; dungeonRunId?: unknown };
+  isDungeonInstance?: () => boolean;
+ },
+ player: {
+  playerId?: unknown;
+  combat?: { combatTargetId?: unknown; combatTargetLocked?: unknown; manualEngagePending?: unknown };
+ },
+ monster: { runtimeId?: unknown; engaged?: unknown; aggroTargetPlayerId?: unknown },
+) {
+ const meta = instance?.meta;
+ const instanceId = typeof meta?.instanceId === 'string' ? meta.instanceId : '';
+ const isDungeon = typeof instance?.isDungeonInstance === 'function'
+  ? instance.isDungeonInstance()
+  : meta?.kind === 'dungeon'
+  || meta?.instanceOrigin === 'dungeon'
+  || typeof meta?.dungeonRunId === 'string'
+  || instanceId.startsWith('dungeon:');
+ if (!isDungeon || monster?.engaged === true) {
+  return false;
+ }
+ const targetId = typeof player?.combat?.combatTargetId === 'string'
+  ? player.combat.combatTargetId.trim()
+  : '';
+ const explicitlyEngaging = targetId === monster?.runtimeId
+  && (player?.combat?.combatTargetLocked === true || player?.combat?.manualEngagePending === true);
+ return !explicitlyEngaging;
+}
 function resolveAutoBattleActionCooldownLeft(player, action, currentTick) {
  const actionId = typeof action?.id === 'string' ? action.id : '';
  const cooldowns = player?.combat?.cooldownReadyTickBySkillId;
@@ -909,13 +938,10 @@ export class WorldRuntimeAutoCombatService {
    if (!monsterHostile && !retaliating) {
     continue;
    }
-   const distance = chebyshevDistance(player.x, player.y, monster.x, monster.y);
-   const isDungeon = instance.meta?.kind === 'dungeon' || instance.meta?.instanceOrigin === 'dungeon';
-   if (isDungeon && (liveMonster as { engaged?: boolean }).engaged === false && !retaliating && player.combat.combatTargetId !== monster.runtimeId) {
-    if (distance > 5) {
-     continue;
-    }
+   if (shouldSkipDormantDungeonMonster(instance, player, liveMonster)) {
+    continue;
    }
+   const distance = chebyshevDistance(player.x, player.y, monster.x, monster.y);
    activeTargetIds.add(monster.runtimeId);
    this.worldRuntimeThreatService.addThreat(ownerId, monster.runtimeId, {
     baseThreat: DEFAULT_PASSIVE_THREAT_PER_TICK,
@@ -1104,6 +1130,9 @@ export class WorldRuntimeAutoCombatService {
    }
    const liveMonster = instance.getMonster(monster.runtimeId);
    if (!liveMonster?.alive) {
+    continue;
+   }
+   if (shouldSkipDormantDungeonMonster(instance, player, liveMonster)) {
     continue;
    }
    const retaliating = liveMonster.aggroTargetPlayerId === player.playerId;

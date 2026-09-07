@@ -50,3 +50,5 @@ decayMissingTargets(ownerId, activeTargetIds, ownerMaxHp):
 - 排序: value 降序 → lastUpdatedAt 降序 → targetId 字典序
 - canTarget 回调过滤不可攻击目标
 - 不可达目标仇恨 ×0.2 衰减
+
+- 未开怪的副本怪物不对附近玩家增加被动仇恨；玩家自动战斗也不会把该怪物加入候选。只有玩家明确攻击后，怪物才进入正常仇恨链路。

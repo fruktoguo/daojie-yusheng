@@ -41,7 +41,7 @@ export class DungeonPresentationController {
   this.processSteps(run, steps, presentation, maxPartyRealmLv, context);
  }
 
- /** 当副本怪物进入战斗（进入5格或受到攻击）时触发开怪剧情表现，并返回说话阶段持续 tick 数。 */
+ /** 当副本怪物首次受到玩家攻击并进入战斗时触发开怪剧情表现，并返回说话阶段持续 tick 数。 */
  onMonsterEngaged(
   run: DungeonRunState,
   definition: DungeonDefinition,

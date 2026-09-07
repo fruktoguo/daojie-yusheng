@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { DUNGEON_MONSTER_ENGAGE_DISTANCE, MapInstanceRuntime } from '../runtime/instance/map-instance.runtime.js';
-import { DungeonPresentationController } from '../runtime/dungeon/dungeon-presentation-controller.js';
+import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime.js';
+import { DungeonPresentationController, type DungeonPresentationControllerContext } from '../runtime/dungeon/dungeon-presentation-controller.js';
 import { DungeonTemplateRegistry } from '../content/registries/dungeon-template.registry.js';
 import { MapTemplateRepository } from '../runtime/map/map-template.repository.js';
 import type { DungeonRunState } from '@mud/shared';
@@ -105,10 +105,7 @@ function createDungeonInstance(instanceId: string, monsterSpawns: unknown[]): Ma
 }
 
 async function runDungeonMonsterEngageSmoke(): Promise<void> {
-  console.log('[dungeon-monster-engage-smoke] 开始验证副本开怪机制与三秒说话阶段...');
-
-  // 1. 验证常量契约
-  assert.equal(DUNGEON_MONSTER_ENGAGE_DISTANCE, 5, '副本怪物默认开怪感知半径必须严格为 5 格');
+  console.log('[dungeon-monster-engage-smoke] 开始验证副本仅受击开怪与三秒说话阶段...');
 
   const dungeonRegistry = new DungeonTemplateRegistry();
   dungeonRegistry.loadAll();
@@ -161,10 +158,10 @@ async function runDungeonMonsterEngageSmoke(): Promise<void> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 场景 2：玩家进入 5 格触发开怪，并进入 3 秒（3 tick）说话阶段且不攻击
+  // 场景 2：玩家贴近 Boss 仍不触发；首次攻击后进入 3 秒说话阶段
   // ─────────────────────────────────────────────────────────────
   {
-    console.log('[Case 2] 验证 5 格距离触发开怪与 3 tick 禁攻说话阶段...');
+    console.log('[Case 2] 验证贴近不触发，首次攻击才开怪...');
     const bossSpawn = createHuanlingMonsterSpawn(10, 7);
     const instance = new MapInstanceRuntime({
       instanceId: 'dungeon:smoke_case_2',
@@ -172,9 +169,9 @@ async function runDungeonMonsterEngageSmoke(): Promise<void> {
       kind: 'dungeon',
       persistent: false,
       monsterSpawns: [bossSpawn],
-    } as any);
+    } as never);
 
-    const playerId = 'p_tester_5_cells';
+    const playerId = 'p_tester_adjacent';
     instance.connectPlayer({
       playerId,
       sessionId: 'sess_2',
@@ -182,16 +179,14 @@ async function runDungeonMonsterEngageSmoke(): Promise<void> {
       preferredY: 8,
     });
 
-    // 初始在 6 格外 (4, 8)
     instance.tickOnce();
     const monster = instance.getMonster(bossSpawn.runtimeId);
     assert.ok(monster);
-    assert.equal(monster.engaged, false, '6 格外未开怪');
+    assert.equal(monster.engaged, false, '副本 Boss 初始必须保持未开怪');
 
-    // 模拟 presentation 收集气泡
     const presentationController = new DungeonPresentationController();
     const bubbles: Array<{ text: string; durationMs: number }> = [];
-    const run: DungeonRunState = {
+    const run = {
       runId: 'smoke-run-2',
       dungeonId: 'dungeon_huanling_zhenren',
       partyId: 'party:1',
@@ -201,55 +196,54 @@ async function runDungeonMonsterEngageSmoke(): Promise<void> {
       mapInstanceId: 'dungeon:smoke_case_2',
       members: [{ playerId, joinedAt: 0 }],
       createdAt: 0,
-    } as any;
-    const presentationContext = {
+    } as DungeonRunState;
+    const presentationContext: DungeonPresentationControllerContext = {
       getInstance: () => instance,
       getPlayer: () => ({ realm: { realmLv: 35 } }),
       resolveActorPosition: () => ({ x: monster.x, y: monster.y }),
-      pushDialogueBubble: (_r: any, _pos: any, text: string, durationMs: number) => {
+      pushDialogueBubble: (_run, _position, text, durationMs) => {
         bubbles.push({ text, durationMs });
       },
       applyActions: () => new Set<string>(),
-    } as any;
+    };
 
-    // 玩家向前走，进入 (5, 7)，切比雪夫距离 = |10 - 5| = 5 格（五格内且直线可见！）
-    const moved = instance.relocatePlayer(playerId, 5, 7);
-    // Tick 1（进入 5 格当帧）
+    const moved = instance.relocatePlayer(playerId, 9, 7);
+    assert.deepEqual(moved, { x: 9, y: 7 }, '玩家必须能移动到 Boss 相邻格');
+    const proximityResult = instance.tickOnce();
+    assert.equal(instance.getMonster(bossSpawn.runtimeId)?.engaged, false, '贴近 Boss 也不得自动开怪');
+    assert.equal(instance.getMonster(bossSpawn.runtimeId)?.aggroTargetPlayerId, null, '未攻击前不得锁定仇恨目标');
+    assert.equal(proximityResult.monsterActions.length, 0, '未攻击前不得产生怪物行动');
+    assert.equal(proximityResult.engagedMonsterEvents.length, 0, '未攻击前不得产生开怪事件');
+
+    const damageResult = instance.applyDamageToMonster(bossSpawn.runtimeId, 100, playerId);
+    assert.ok(damageResult && damageResult.appliedDamage > 0, '首次攻击必须成功命中 Boss');
+    assert.equal(instance.getMonster(bossSpawn.runtimeId)?.engaged, true, '受到攻击后必须立即开怪');
+    assert.equal(instance.getMonster(bossSpawn.runtimeId)?.speechTicksLeft, 3, '受击开怪后必须进入 3 tick 说话阶段');
+
     const tick1Result = instance.tickOnce();
-    assert.equal(instance.getMonster(bossSpawn.runtimeId)?.engaged, true, '进入 5 格内必须立即触发开怪 (engaged=true)');
-    assert.equal(tick1Result.engagedMonsterEvents.length, 1, '当帧必须产出 1 个开怪事件');
+    assert.equal(tick1Result.engagedMonsterEvents.length, 1, '首次受击必须产出 1 个开怪事件');
     assert.equal(tick1Result.engagedMonsterEvents[0]?.runtimeId, bossSpawn.runtimeId);
-
-    // 驱动 PresentationController 消费开怪事件
     for (const evt of tick1Result.engagedMonsterEvents) {
       const speechTicks = presentationController.onMonsterEngaged(run, definition, evt.monsterId, presentationContext);
       assert.equal(speechTicks, 3, '唤灵真人开场对白必须返回 3 tick 说话时长');
     }
-    assert.equal(bubbles.length, 1, '进入 5 格必须触发 1 次开场气泡');
+    assert.equal(bubbles.length, 1, '首次受击必须触发 1 次开场气泡');
     assert.equal(bubbles[0]?.text, '尔等筑基小辈, 安敢逆伐金丹!', '气泡内容必须匹配唤灵真人对白');
     assert.equal(bubbles[0]?.durationMs, 3000, '气泡时长必须为 3000ms');
-
-    // 关键验证：进入 5 格的当帧（Tick 1），怪物必须处于禁攻说话阶段，不得有任何伤害或施法动作！
-    assert.equal(tick1Result.monsterActions.length, 0, 'Tick 1: 进入 5 格当帧怪物不得攻击或施放技能');
+    assert.equal(tick1Result.monsterActions.length, 0, 'Tick 1: 说话阶段中怪物不得攻击');
     assert.equal(instance.getMonster(bossSpawn.runtimeId)?.speechTicksLeft, 2, 'Tick 1 结束时 speechTicksLeft 递减为 2');
 
-    // Tick 2（说话第 2 秒）
     const tick2Result = instance.tickOnce();
     assert.equal(tick2Result.monsterActions.length, 0, 'Tick 2: 说话阶段中怪物不得攻击');
     assert.equal(instance.getMonster(bossSpawn.runtimeId)?.speechTicksLeft, 1, 'Tick 2 结束时 speechTicksLeft 递减为 1');
 
-    // Tick 3（说话第 3 秒）
     const tick3Result = instance.tickOnce();
     assert.equal(tick3Result.monsterActions.length, 0, 'Tick 3: 说话阶段中怪物不得攻击');
     assert.equal(instance.getMonster(bossSpawn.runtimeId)?.speechTicksLeft, 0, 'Tick 3 结束时 speechTicksLeft 归零');
 
-    // 3 秒说话阶段内，总共 0 次攻击！
-    console.log('✓ 场景 2 通过：5 格触发开怪，整整 3 个 tick 严格禁攻并在头顶展示对白');
-
     // ─────────────────────────────────────────────────────────────
     // 场景 3：说话阶段结束后（Tick 4），怪物正式开始攻击
     // ─────────────────────────────────────────────────────────────
-    console.log('[Case 3] 验证 3 tick 说话阶段结束后恢复正常攻击...');
     const tick4Result = instance.tickOnce();
     assert.ok(tick4Result.monsterActions.length > 0, 'Tick 4: 说话阶段结束后怪物必须正式开始攻击/施法');
     const attackAction = tick4Result.monsterActions[0];
@@ -257,7 +251,7 @@ async function runDungeonMonsterEngageSmoke(): Promise<void> {
       attackAction?.kind === 'skill_chant' || attackAction?.kind === 'skill' || attackAction?.kind === 'basic',
       '动作必须为技能吟唱、技能或普通攻击',
     );
-    console.log(`✓ 场景 3 通过：Tick 4 怪物恢复攻击，动作类型=[${attackAction?.kind}]`);
+    console.log(`✓ 场景 2/3 通过：贴近保持休眠，首次受击后对白 3 tick，再恢复攻击 [${attackAction?.kind}]`);
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -303,10 +297,10 @@ async function runDungeonMonsterEngageSmoke(): Promise<void> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 场景 5：无开怪对白的普通副本怪（combatOpeningTicks=0）直接开始战斗
+  // 场景 5：无开怪对白的普通副本怪也必须等待首次受击
   // ─────────────────────────────────────────────────────────────
   {
-    console.log('[Case 5] 验证无对白的普通副本怪进入 5 格直接开始战斗...');
+    console.log('[Case 5] 验证无对白副本怪贴近休眠、受击后立即战斗...');
     const normalWolfSpawn = createNormalMonsterSpawn(10, 7);
     const instance = new MapInstanceRuntime({
       instanceId: 'dungeon:smoke_case_5',
@@ -314,7 +308,7 @@ async function runDungeonMonsterEngageSmoke(): Promise<void> {
       kind: 'dungeon',
       persistent: false,
       monsterSpawns: [normalWolfSpawn],
-    } as any);
+    } as never);
 
     const playerId = 'p_tester_wolf';
     instance.connectPlayer({
@@ -324,22 +318,26 @@ async function runDungeonMonsterEngageSmoke(): Promise<void> {
       preferredY: 8,
     });
 
-    // 初始在 6 格外
     instance.tickOnce();
     const wolf = instance.getMonster(normalWolfSpawn.runtimeId);
     assert.ok(wolf);
     assert.equal(wolf.engaged, false);
 
-    // 走到 1 格近战位 (9, 7)
     instance.relocatePlayer(playerId, 9, 7);
+    const proximityResult = instance.tickOnce();
+    assert.equal(instance.getMonster(normalWolfSpawn.runtimeId)?.engaged, false, '普通副本怪贴近后仍不得自动开怪');
+    assert.equal(proximityResult.monsterActions.length, 0, '普通副本怪受击前不得行动');
+
+    instance.applyDamageToMonster(normalWolfSpawn.runtimeId, 100, playerId);
     const combatResult = instance.tickOnce();
-    assert.equal(instance.getMonster(normalWolfSpawn.runtimeId)?.engaged, true, '进入近身范围必须开怪');
+    assert.equal(instance.getMonster(normalWolfSpawn.runtimeId)?.engaged, true, '普通副本怪受到攻击后必须开怪');
     assert.equal(instance.getMonster(normalWolfSpawn.runtimeId)?.speechTicksLeft, 0, '无对白怪物 speechTicksLeft 为 0');
-    assert.ok(combatResult.monsterActions.length > 0, '无对白怪物无需等待 3 秒，直接开始战斗');
-    console.log('✓ 场景 5 通过：无对白怪物进入 5 格后直接开打');
+    assert.ok(combatResult.monsterActions.length > 0, '无对白怪物受击后无需等待，立即开始战斗');
+    console.log('✓ 场景 5 通过：无对白副本怪贴近休眠，首次受击后立即战斗');
   }
 
-  console.log('=== 开怪基础 5 个场景通过，继续验证全图真视与连线攻击 ===');
+  console.log('=== 受击开怪基础 5 个场景通过，继续验证全图真视与连线攻击 ===');
+
 
   // ─────────────────────────────────────────────────────────────
   // 场景 6：开战后天人全图真视，LOS 被石柱挡住仍锁定玩家
