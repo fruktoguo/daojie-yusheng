@@ -11,7 +11,7 @@
   "entryY": 6,
   "entryExitRadius": 2,
   "confirmationTimeoutMs": 60000,
-  "timeoutSeconds": 3600,
+  "timeoutSeconds": 7200,
   "difficulty": {
     "maxPresentRank": "spirit",
     "energyCost": {

@@ -7,6 +7,8 @@ import {
   resolveDungeonEffectiveStep,
   resolveRecoveredStamina,
   filterDungeonBossDropTable,
+  DUNGEON_MAX_COMPLETION_DURATION_MS,
+  resolveDungeonCompletionTimeoutMs,
   isDungeonSimulationInstance,
   isDungeonSimulationRun,
   type DungeonBossDropRecord,
@@ -22,6 +24,10 @@ import { WorldRuntimeMonsterSystemCommandService } from '../runtime/world/comman
 const maxRank = 'spirit' as any;
 assert.equal(resolveDungeonStaminaCost('trial', { maxPresentRank: maxRank, energyCost: { trial: 4, hard: 8, nightmare: 12, present: 24 } }), 4);
 assert.deepEqual(resolveRecoveredStamina(0, 0, 3 * 60 * 60 * 1000), { current: 3, updatedAt: 3 * 60 * 60 * 1000, recovered: 3, nextRecoveryAt: 4 * 60 * 60 * 1000 });
+assert.equal(DUNGEON_MAX_COMPLETION_DURATION_MS, 2 * 60 * 60 * 1000);
+assert.equal(resolveDungeonCompletionTimeoutMs(undefined), 60 * 60 * 1000);
+assert.equal(resolveDungeonCompletionTimeoutMs(30), 30_000);
+assert.equal(resolveDungeonCompletionTimeoutMs(24 * 60 * 60), 2 * 60 * 60 * 1000);
 assert.equal(resolveDungeonEffectiveStep({ difficulty: 'present', presentRank: 'spirit' as any }, maxRank), 8);
 const multipliers = resolveDungeonAttributeMultipliers({ difficulty: 'nightmare' }, maxRank);
 assert.equal(multipliers.baselineSource, 'standard');
@@ -148,6 +154,7 @@ assert.equal(filterDungeonBossDropTable(dungeon.rooms?.[0]?.bossDropTable, { dif
 assert.equal(filterDungeonBossDropTable(dungeon.rooms?.[0]?.bossDropTable, { difficulty: 'present', presentRank: 'spirit' })?.length, 22);
 testPartyDefeatTransitions();
 testDungeonPresentationMonsterTrigger();
+testDungeonTimeoutFailure();
 
 const makeRun = (flowType: any) => ({ runId: `smoke-${flowType}`, dungeonId: dungeon.id, partyId: 'party', status: 'active', difficulty: { difficulty: 'trial' }, effectiveStep: 0, mapInstanceId: 'dungeon:smoke', members: [], currentRoomId: 'room_01', createdAt: Date.now() } as any);
 const events: string[] = [];
@@ -165,7 +172,7 @@ events.length = 0;
 new ExpeditionDungeonFlowController().onTick(makeRun('expedition'), { ...dungeon, flowType: 'expedition', rooms: [] } as any, context);
 assert.ok(events.includes('complete:all_rooms_cleared'));
 void Promise.all([testDungeonRestartRecovery(), testDungeonDefeatRejoin()]).then(() => {
-  console.log(JSON.stringify({ ok: true, case: 'dungeon-rules', checks: 68 }));
+  console.log(JSON.stringify({ ok: true, case: 'dungeon-rules', checks: 77 }));
 }).catch((error) => {
   console.error(error);
   process.exitCode = 1;
@@ -220,6 +227,68 @@ function testPartyDefeatTransitions(): void {
   assert.equal(events.find((entry) => entry.event === 'n:s:dungeonSettlement')?.status, 'failed');
   service.onPlayerDefeated(playerId, run.mapInstanceId);
   assert.equal(events.filter((entry) => entry.event === 'n:s:dungeonSettlement').length, 1);
+}
+
+function testDungeonTimeoutFailure(): void {
+  const playerId = 'player:dungeon:timeout';
+  const run = {
+    runId: 'smoke-timeout-failure',
+    dungeonId: dungeon.id,
+    partyId: 'party:timeout',
+    status: 'active',
+    difficulty: { difficulty: 'trial' },
+    effectiveStep: 0,
+    mapInstanceId: 'dungeon:smoke-timeout-failure',
+    members: [{ playerId, name: '计时者', joinedAt: 0 }],
+    currentRoomId: 'room_01',
+    createdAt: 0,
+    activatedAt: 0,
+  } as any;
+  const events: Array<{ event: string; status?: string; reason?: string }> = [];
+  const instance = {
+    meta: { instanceId: run.mapInstanceId, kind: 'dungeon' },
+    monstersByRuntimeId: new Map(),
+    removeRuntimeMonster() { },
+    listPlayerIds() { return []; },
+  };
+  const definition = {
+    ...dungeon,
+    timeoutSeconds: 24 * 60 * 60,
+    rooms: [{ roomId: 'room_01', bossId: 'm_huanling_zhenren_instance', clearCondition: 'boss_defeated' }],
+  } as any;
+  let rewardClaimed = false;
+  const service = new DungeonRuntimeService(
+    { getDungeonDefinition: () => definition, listDungeonDefinitions: () => [definition] } as any,
+    {} as any,
+    { getPlayer: () => ({ playerId, name: '计时者', hp: 100 }), replaceTemporaryBuff: () => undefined } as any,
+    {
+      getInstanceRuntime: () => instance,
+      worldRuntimeFormationService: { getFormationList: () => [] },
+      destroyEmptyManagedInstance: async () => undefined,
+    } as any,
+    {
+      getSocketByPlayerId: () => ({
+        emit: (event: string, payload: any) => events.push({
+          event,
+          status: payload?.settlement?.status ?? payload?.run?.status,
+          reason: payload?.settlement?.failureReason ?? payload?.run?.failureReason,
+        }),
+      }),
+    } as any,
+    { destroy: () => undefined } as any,
+    { claim: () => { rewardClaimed = true; throw new Error('超时失败不得领取奖励'); } } as any,
+    { save: () => undefined } as any,
+  ) as any;
+  service.runs.set(run.runId, run);
+  service.combatStatsByRunId.set(run.runId, new Map([[playerId, { damageDealt: 0, damageTaken: 0, healingDone: 0 }]]));
+  service.expireRun(run.runId);
+  assert.equal(run.status, 'failed');
+  assert.equal(run.failureReason, 'timeout');
+  assert.equal(rewardClaimed, false, '超时失败不得领取通关奖励');
+  assert.equal(events.filter((entry) => entry.event === 'n:s:dungeonEntryResult').length, 0, '超时不得再走入场失败事件');
+  assert.equal(events.find((entry) => entry.event === 'n:s:dungeonSettlement')?.status, 'failed');
+  assert.equal(events.find((entry) => entry.event === 'n:s:dungeonSettlement')?.reason, 'timeout');
+  service.onModuleDestroy();
 }
 
 async function testDungeonDefeatRejoin(): Promise<void> {

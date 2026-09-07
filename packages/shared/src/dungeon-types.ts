@@ -13,6 +13,10 @@ export const DUNGEON_PARTY_DROP_RATE_BONUS_PER_EXTRA_MEMBER = 0.5;
 export const DUNGEON_MAX_STAMINA = 240;
 export const DUNGEON_STAMINA_REGEN_INTERVAL_MS = 60 * 60 * 1000;
 
+export const DUNGEON_DEFAULT_COMPLETION_TIMEOUT_SECONDS = 60 * 60;
+export const DUNGEON_MAX_COMPLETION_TIMEOUT_SECONDS = 2 * 60 * 60;
+export const DUNGEON_MAX_COMPLETION_DURATION_MS = DUNGEON_MAX_COMPLETION_TIMEOUT_SECONDS * 1000;
+
 export const DUNGEON_DIFFICULTY_ORDER = ['trial', 'hard', 'nightmare', 'present'] as const;
 export type DungeonDifficulty = typeof DUNGEON_DIFFICULTY_ORDER[number];
 
@@ -540,6 +544,15 @@ export function resolveDungeonStaminaCost(
  }
  return value;
 }
+
+/** 副本最长通关时间：配置可低于 2 小时，但运行时统一封顶 2 小时。 */
+export function resolveDungeonCompletionTimeoutMs(timeoutSeconds: number | undefined): number {
+ const configuredSeconds = Number.isFinite(Number(timeoutSeconds))
+  ? Math.max(1, Math.trunc(Number(timeoutSeconds)))
+  : DUNGEON_DEFAULT_COMPLETION_TIMEOUT_SECONDS;
+ return Math.min(configuredSeconds, DUNGEON_MAX_COMPLETION_TIMEOUT_SECONDS) * 1000;
+}
+
 
 /** 仅在明确标记模拟时拦截奖励；普通实例和未标记副本保持原奖励链。 */
 export function isDungeonSimulationRun(run: { simulation?: unknown } | null | undefined): boolean {

@@ -19,6 +19,7 @@ import {
  resolveDungeonLootMultipliers,
  resolveDungeonPartyDropRateMultiplier,
  isDungeonSimulationRun,
+ resolveDungeonCompletionTimeoutMs,
  resolveDungeonStaminaCost,
  type TechniqueGrade,
  DUNGEON_PRESSURE_BUFF_ID,
@@ -337,7 +338,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
 
  private scheduleRecoveredRun(run: DungeonRunState, definition: DungeonDefinition): void {
   if (run.status === 'active') {
-   const deadline = Number(run.activatedAt ?? run.createdAt) + Math.max(1, Math.trunc(definition.timeoutSeconds ?? 3600)) * 1000;
+   const deadline = Number(run.activatedAt ?? run.createdAt) + resolveDungeonCompletionTimeoutMs(definition.timeoutSeconds);
    const timer = setTimeout(() => this.expireRun(run.runId), Math.max(0, deadline - Date.now()));
    timer.unref?.();
    this.runTimers.set(run.runId, timer);
@@ -852,7 +853,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
    if (!await this.waitForRunPersistence(run)) {
     throw new Error('dungeon_persistence_unavailable');
    }
-   timeoutTimer = setTimeout(() => this.expireRun(run.runId), Math.max(1, Math.trunc(definition.timeoutSeconds ?? 3600)) * 1000);
+   timeoutTimer = setTimeout(() => this.expireRun(run.runId), resolveDungeonCompletionTimeoutMs(definition.timeoutSeconds));
    timeoutTimer.unref?.();
    this.runTimers.set(run.runId, timeoutTimer);
    this.controllers.get(definition.flowType)?.onRunCreated?.(run, definition, this.buildFlowContext());
@@ -1297,14 +1298,7 @@ export class DungeonRuntimeService implements OnModuleInit, OnModuleDestroy {
  private expireRun(runId: string): void {
   const run = this.runs.get(runId);
   if (!run || !['active', 'activating'].includes(run.status)) return;
-  run.status = 'expired'; run.failureReason = 'timeout';
-  this.clearDungeonPressure(run);
-  this.presentationController.onAbort(run);
-  const definition = this.content.getDungeonDefinition(run.dungeonId);
-  if (definition) this.controllers.get(definition.flowType)?.onAbort?.(run, definition, 'timeout', this.buildFlowContext());
-  this.runPersistence.save(run);
-  for (const member of run.members) this.emit(member.playerId, S2C.DungeonEntryResult, { ok: false, reason: 'timeout', run });
-  void this.forceCleanupTerminalRun(run);
+  this.failRun(run, 'timeout');
  }
 
  private async forceCleanupTerminalRun(run: DungeonRunState): Promise<void> {
