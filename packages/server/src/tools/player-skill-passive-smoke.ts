@@ -305,6 +305,46 @@ function testFiveElementPassiveDoesNotMutateSpiritualRoots(): void {
   assert.ok(rootBonus);
   assert.equal(rootBonus.stats?.elementDamageBonus?.metal, 80);
 }
+
+function testDefensivePassiveAddsFlatAggroRate(): void {
+  const repository = new ContentTemplateRepository();
+  repository.loadAll();
+  const technique = repository.hydrateTechniqueState({
+    techId: 'passive_combat_mortal_mortal_water',
+    level: 21,
+  });
+  assert.ok(technique, '缺少凡人水行专修功法');
+  const skillId = technique.skills?.[0]?.id;
+  assert.ok(skillId, '凡人水行专修缺少常驻技能');
+  const aggroBuff = collectEnabledSkillPassiveBuffs({
+    realmLv: 1,
+    techniques: { techniques: [technique] },
+    combat: { autoBattleSkills: [{ skillId, skillEnabled: true }] },
+  } as never).find((buff) => buff.stats?.extraAggroRate !== undefined);
+  assert.equal(aggroBuff?.statMode, 'flat', '仇恨获取必须作为独立 flat 特殊属性投影');
+  assert.equal(aggroBuff?.stats?.extraAggroRate, 32, '第 21 层凡阶水行专修应提供 32% 仇恨获取');
+
+  const service = new PlayerAttributesService();
+  const player = {
+    realm: { stage: 0, realmLv: 1 },
+    attrs: service.createInitialState(),
+    maxHp: 10,
+    maxQi: 10,
+    hp: 10,
+    qi: 10,
+    selfRevision: 1,
+    runtimeBonuses: [],
+    techniques: { revision: 1, techniques: [technique] },
+    combat: { autoBattleSkills: [{ skillId, skillEnabled: true }] },
+    bodyTraining: { level: 0 },
+    equipment: { slots: [] },
+    buffs: { buffs: [] },
+    spiritualRoots: { metal: 0, wood: 0, water: 0, fire: 0, earth: 0 },
+  };
+  service.recalculate(player as never);
+  assert.equal(player.attrs.numericStats.extraAggroRate, 32, '属性结算必须直接累加功法提供的仇恨获取百分比点');
+}
+
 function testResidentPassiveIgnoresRealmAttenuation(): void {
   const player = createPlayer();
   player.realmLv = 42;
@@ -323,6 +363,7 @@ function main(): void {
   testPassiveTechniqueProgressionRule();
   testYinYangMeridiansFixedAndDualCultivateCancel();
   testResidentPassiveIgnoresRealmAttenuation();
+  testDefensivePassiveAddsFlatAggroRate();
   testFiveElementPassiveDoesNotMutateSpiritualRoots();
   console.log(JSON.stringify({
     ok: true,
@@ -336,6 +377,7 @@ function main(): void {
       'passive_technique_progression_rule',
       'yin_yang_meridians_fixed_and_dual_cultivate_cancel',
       'resident_passive_ignores_realm_attenuation',
+      'defensive_passive_adds_flat_aggro_rate',
       'five_element_passive_does_not_mutate_spiritual_roots',
     ],
   }, null, 2));

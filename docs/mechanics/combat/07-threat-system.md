@@ -31,6 +31,8 @@ resolveExtraAggroThreatMultiplier(rate):
   rate < 0: return 100 / (100 - rate)
 ```
 
+`extraAggroRate` 使用有符号百分比点：`16` 表示仇恨增量提高 16%，`-16` 表示按负向反比公式降低。装备、功法和 Buff 对该属性应直接加减，不能再次套用数值属性百分比乘区。
+
 ## 丢失目标衰减
 
 ```typescript

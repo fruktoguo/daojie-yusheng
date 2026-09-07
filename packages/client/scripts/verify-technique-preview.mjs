@@ -508,6 +508,40 @@ try {
   );
   assert.match(pollutedFireTooltipText, /法术攻击 \+37\.6%/u, '已污染的常驻技能 hover 必须从模板底稿重新投影高层效果');
 
+  const waterTechId = 'passive_combat_foundation_mystic_water';
+  const waterTemplate = localTemplates.getLocalTechniqueTemplate(waterTechId);
+  assert.ok(waterTemplate, '缺少筑基水行专修模板');
+  const waterAggroEffect = waterTemplate.skills[0].passiveEffects.find((effect) => (
+    effect.type === 'buff'
+    && effect.statMode === 'flat'
+    && effect.stats?.extraAggroRate !== undefined
+  ));
+  assert.equal(waterAggroEffect?.stats?.extraAggroRate, 32, '水行防御功法必须用独立 flat 特殊属性提供仇恨获取');
+  const waterLevel = 28;
+  const expectedWaterAggroRate = 32 * (1 + (waterLevel - 1) * 0.05);
+  const waterPreview = localTemplates.resolvePreviewTechnique({
+    techId: waterTechId,
+    name: waterTemplate.name,
+    level: waterLevel,
+    exp: 0,
+    expToNext: 100,
+    realmLv: waterTemplate.realmLv,
+    realm: 0,
+    skills: waterTemplate.skills,
+    grade: waterTemplate.grade,
+    category: waterTemplate.category,
+    layers: waterTemplate.layers,
+  });
+  const scaledWaterAggroEffect = waterPreview.skills[0].passiveEffects.find((effect) => (
+    effect.type === 'buff' && effect.stats?.extraAggroRate !== undefined
+  ));
+  assert.equal(scaledWaterAggroEffect?.stats?.extraAggroRate, expectedWaterAggroRate, '仇恨获取特殊属性必须随被动功法层数线性缩放');
+  const waterTooltipText = stripHtml(
+    skillTooltip.buildSkillTooltipContent(waterTemplate.skills[0], { techLevel: waterLevel, passiveTechnique: true }).lines.join('\n'),
+  );
+  assert.match(waterTooltipText, /仇恨获取 \+75\.2%/u, '常驻技能 hover 必须按百分比显示仇恨获取特殊属性');
+
+
   const gatherTemplate = localTemplates.getLocalTechniqueTemplate('passive_craft_mortal_mortal_gather');
   assert.ok(gatherTemplate, '缺少凡人采集专修模板');
   const gatherTooltipText = stripHtml(

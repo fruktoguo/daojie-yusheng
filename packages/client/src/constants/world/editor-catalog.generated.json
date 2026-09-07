@@ -19,7 +19,7 @@
         {
           "id": "skill_passive_combat_core_earth_metal",
           "name": "白商",
-          "desc": "孟秋之月，其帝少皞，其神蓐收，其音商，律中夷则，天地始肃。",
+          "desc": "【被动】白商肃杀，锋锐无匹。物理攻击+28%、暴击率+28%、金系增伤+28%、金系减伤+14%；法术防御-14%、最大灵力-14%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -32,12 +32,12 @@
               "buffId": "passive_combat_core_earth_metal_buff",
               "name": "白商",
               "shortMark": "商",
-              "desc": "孟秋之月，天地始肃。物理攻击+28%、暴击+28%、金系增伤+28%、金系减伤+14%；法术防御-8%、最大灵力-8%。",
+              "desc": "孟秋之月，天地始肃。物理攻击+28%、暴击+28%、金系增伤+28%、金系减伤+14%；法术防御-14%、最大灵力-14%。",
               "stats": {
                 "physAtk": 28,
                 "crit": 28,
-                "spellDef": -8,
-                "maxQi": -8,
+                "spellDef": -14,
+                "maxQi": -14,
                 "elementDamageBonus": {
                   "metal": 28
                 },
@@ -147,7 +147,7 @@
     {
       "id": "passive_combat_qi_yellow_water",
       "name": "《沧浪叠韵诀》",
-      "desc": "练气水行专修心法。引癸水真意如沧浪叠涌以御外煞，法术防御+12%、抗暴率+12%、水系增伤+12%、水系减伤+6%；暴击率-4%、物理攻击-4%。",
+      "desc": "练气水行专修心法。引癸水真意如沧浪叠涌以御外煞，法术防御+12%、抗暴率+12%、水系增伤+12%、水系减伤+6%、仇恨获取+24%；暴击率-6%、物理攻击-6%。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 23,
@@ -163,7 +163,7 @@
         {
           "id": "skill_passive_combat_qi_yellow_water",
           "name": "沧浪叠韵",
-          "desc": "【被动】沧浪叠涌，绵柔卸力。法术防御+12%、抗暴率+12%、水系增伤+12%、水系减伤+6%；暴击率-4%、物理攻击-4%。",
+          "desc": "【被动】沧浪叠涌，绵柔卸力。法术防御+12%、抗暴率+12%、水系增伤+12%、水系减伤+6%、仇恨获取+24%；暴击率-6%、物理攻击-6%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -176,12 +176,12 @@
               "buffId": "passive_combat_qi_yellow_water_buff",
               "name": "沧浪叠韵",
               "shortMark": "水",
-              "desc": "沧浪重波护身。法防+12%、抗暴+12%、水系增伤+12%、水系减伤+6%；暴击-4%、物攻-4%。",
+              "desc": "沧浪重波护身。法防+12%、抗暴+12%、水系增伤+12%、水系减伤+6%、仇恨获取+24%；暴击-6%、物攻-6%。",
               "stats": {
                 "spellDef": 12,
                 "antiCrit": 12,
-                "crit": -4,
-                "physAtk": -4,
+                "crit": -6,
+                "physAtk": -6,
                 "elementDamageBonus": {
                   "water": 12
                 },
@@ -190,6 +190,19 @@
                 }
               },
               "statMode": "percent",
+              "ignoreRealmEffectiveness": true
+            },
+            {
+              "type": "buff",
+              "buffId": "passive_combat_qi_yellow_water_aggro_buff",
+              "name": "沧浪叠韵·引仇",
+              "shortMark": "仇",
+              "desc": "守势引导敌意，仇恨获取+24%。",
+              "visibility": "hidden",
+              "stats": {
+                "extraAggroRate": 24
+              },
+              "statMode": "flat",
               "ignoreRealmEffectiveness": true
             }
           ],
@@ -351,7 +364,7 @@
         {
           "id": "skill_passive_combat_core_earth_wood",
           "name": "大椿荣枯",
-          "desc": "上古有大椿者，以八千岁为春，八千岁为秋。此大年也。",
+          "desc": "【被动】大椿长青，岁荣不绝。气血恢复+28%、闪避+28%、木系增伤+28%、木系减伤+14%；破招-14%、物理攻击-14%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -364,12 +377,12 @@
               "buffId": "passive_combat_core_earth_wood_buff",
               "name": "大椿荣枯",
               "shortMark": "椿",
-              "desc": "大椿长青，岁荣不绝。气血恢复+28%、闪避+28%、木系增伤+28%、木系减伤+14%；破劲-8%、物理攻击-8%。",
+              "desc": "大椿长青，岁荣不绝。气血恢复+28%、闪避+28%、木系增伤+28%、木系减伤+14%；破劲-14%、物理攻击-14%。",
               "stats": {
                 "hpRegenRate": 28,
                 "dodge": 28,
-                "breakPower": -8,
-                "physAtk": -8,
+                "breakPower": -14,
+                "physAtk": -14,
                 "elementDamageBonus": {
                   "wood": 28
                 },
@@ -478,7 +491,7 @@
     {
       "id": "passive_combat_foundation_mystic_metal",
       "name": "《庚金凝罡录》",
-      "desc": "筑基金行专修心法。纳西方白虎庚金煞气淬炼锋芒，物理攻击+16%、暴击率+16%、金系增伤+16%、金系减伤+8%；法术防御-5%、最大灵力-5%。",
+      "desc": "筑基金行专修心法。纳西方白虎庚金煞气淬炼锋芒，物理攻击+16%、暴击率+16%、金系增伤+16%、金系减伤+8%；法术防御-8%、最大灵力-8%。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 31,
@@ -494,7 +507,7 @@
         {
           "id": "skill_passive_combat_foundation_mystic_metal",
           "name": "庚金凝罡",
-          "desc": "【被动】万物折锋，唯金独锐。物理攻击+16%、暴击率+16%、金系增伤+16%、金系减伤+8%；法术防御-5%、最大灵力-5%。",
+          "desc": "【被动】万物折锋，唯金独锐。物理攻击+16%、暴击率+16%、金系增伤+16%、金系减伤+8%；法术防御-8%、最大灵力-8%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -507,12 +520,12 @@
               "buffId": "passive_combat_foundation_mystic_metal_buff",
               "name": "庚金凝罡",
               "shortMark": "金",
-              "desc": "庚金煞气化为护体锋罡。物攻+16%、暴击+16%、金系增伤+16%、金系减伤+8%；法防-5%、最大灵力-5%。",
+              "desc": "庚金煞气化为护体锋罡。物攻+16%、暴击+16%、金系增伤+16%、金系减伤+8%；法防-8%、最大灵力-8%。",
               "stats": {
                 "physAtk": 16,
                 "crit": 16,
-                "spellDef": -5,
-                "maxQi": -5,
+                "spellDef": -8,
+                "maxQi": -8,
                 "elementDamageBonus": {
                   "metal": 16
                 },
@@ -531,7 +544,7 @@
     {
       "id": "passive_combat_qi_yellow_metal",
       "name": "《庚金煞灵引》",
-      "desc": "练气金行专修心法。引聚地脉庚金地煞化作锋锐杀芒，物理攻击+12%、暴击率+12%、金系增伤+12%、金系减伤+6%；法术防御-4%、最大灵力-4%。",
+      "desc": "练气金行专修心法。引聚地脉庚金地煞化作锋锐杀芒，物理攻击+12%、暴击率+12%、金系增伤+12%、金系减伤+6%；法术防御-6%、最大灵力-6%。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 23,
@@ -547,7 +560,7 @@
         {
           "id": "skill_passive_combat_qi_yellow_metal",
           "name": "庚金煞灵",
-          "desc": "【被动】引煞凝锋，庚金破敌。物理攻击+12%、暴击率+12%、金系增伤+12%、金系减伤+6%；法术防御-4%、最大灵力-4%。",
+          "desc": "【被动】引煞凝锋，庚金破敌。物理攻击+12%、暴击率+12%、金系增伤+12%、金系减伤+6%；法术防御-6%、最大灵力-6%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -560,12 +573,12 @@
               "buffId": "passive_combat_qi_yellow_metal_buff",
               "name": "庚金煞灵",
               "shortMark": "金",
-              "desc": "庚金煞气流转。物攻+12%、暴击+12%、金系增伤+12%、金系减伤+6%；法防-4%、最大灵力-4%。",
+              "desc": "庚金煞气流转。物攻+12%、暴击+12%、金系增伤+12%、金系减伤+6%；法防-6%、最大灵力-6%。",
               "stats": {
                 "physAtk": 12,
                 "crit": 12,
-                "spellDef": -4,
-                "maxQi": -4,
+                "spellDef": -6,
+                "maxQi": -6,
                 "elementDamageBonus": {
                   "metal": 12
                 },
@@ -645,7 +658,7 @@
         {
           "id": "skill_passive_combat_core_earth_earth",
           "name": "含弘镇岳",
-          "desc": "地势坤，君子以厚德载物。含弘光大，品物咸亨。",
+          "desc": "【被动】坤元敦厚，镇岳不拔。物理防御+28%、化劲+28%、土系增伤+28%、土系减伤+14%、仇恨获取+56%；移动速度-14%、法术攻击-14%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -658,12 +671,12 @@
               "buffId": "passive_combat_core_earth_earth_buff",
               "name": "含弘镇岳",
               "shortMark": "弘",
-              "desc": "坤元敦厚，镇岳不拔。物理防御+28%、化劲+28%、土系增伤+28%、土系减伤+14%；移速-8%、法术攻击-8%。",
+              "desc": "坤元敦厚，镇岳不拔。物理防御+28%、化劲+28%、土系增伤+28%、土系减伤+14%、仇恨获取+56%；移速-14%、法术攻击-14%。",
               "stats": {
                 "physDef": 28,
                 "resolvePower": 28,
-                "moveSpeed": -8,
-                "spellAtk": -8,
+                "moveSpeed": -14,
+                "spellAtk": -14,
                 "elementDamageBonus": {
                   "earth": 28
                 },
@@ -672,6 +685,19 @@
                 }
               },
               "statMode": "percent",
+              "ignoreRealmEffectiveness": true
+            },
+            {
+              "type": "buff",
+              "buffId": "passive_combat_core_earth_earth_aggro_buff",
+              "name": "含弘镇岳·引仇",
+              "shortMark": "仇",
+              "desc": "守势引导敌意，仇恨获取+56%。",
+              "visibility": "hidden",
+              "stats": {
+                "extraAggroRate": 56
+              },
+              "statMode": "flat",
               "ignoreRealmEffectiveness": true
             }
           ],
@@ -682,7 +708,7 @@
     {
       "id": "passive_combat_foundation_mystic_earth",
       "name": "《厚土镇基录》",
-      "desc": "筑基土行专修心法。纳大地深处厚土精粹铸就金刚磐石之躯，物理防御+16%、化劲+16%、土系增伤+16%、土系减伤+8%；移动速度-5%、法术攻击-5%。",
+      "desc": "筑基土行专修心法。纳大地深处厚土精粹铸就金刚磐石之躯，物理防御+16%、化劲+16%、土系增伤+16%、土系减伤+8%、仇恨获取+32%；移动速度-8%、法术攻击-8%。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 31,
@@ -698,7 +724,7 @@
         {
           "id": "skill_passive_combat_foundation_mystic_earth",
           "name": "厚土镇基",
-          "desc": "【被动】厚德载物，不动如山。物理防御+16%、化劲+16%、土系增伤+16%、土系减伤+8%；移动速度-5%、法术攻击-5%。",
+          "desc": "【被动】厚德载物，不动如山。物理防御+16%、化劲+16%、土系增伤+16%、土系减伤+8%、仇恨获取+32%；移动速度-8%、法术攻击-8%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -711,12 +737,12 @@
               "buffId": "passive_combat_foundation_mystic_earth_buff",
               "name": "厚土镇基",
               "shortMark": "土",
-              "desc": "厚土精粹化铠护身。物防+16%、化劲+16%、土系增伤+16%、土系减伤+8%；移速-5%、法攻-5%。",
+              "desc": "厚土精粹化铠护身。物防+16%、化劲+16%、土系增伤+16%、土系减伤+8%、仇恨获取+32%；移速-8%、法攻-8%。",
               "stats": {
                 "physDef": 16,
                 "resolvePower": 16,
-                "moveSpeed": -5,
-                "spellAtk": -5,
+                "moveSpeed": -8,
+                "spellAtk": -8,
                 "elementDamageBonus": {
                   "earth": 16
                 },
@@ -725,6 +751,19 @@
                 }
               },
               "statMode": "percent",
+              "ignoreRealmEffectiveness": true
+            },
+            {
+              "type": "buff",
+              "buffId": "passive_combat_foundation_mystic_earth_aggro_buff",
+              "name": "厚土镇基·引仇",
+              "shortMark": "仇",
+              "desc": "守势引导敌意，仇恨获取+32%。",
+              "visibility": "hidden",
+              "stats": {
+                "extraAggroRate": 32
+              },
+              "statMode": "flat",
               "ignoreRealmEffectiveness": true
             }
           ],
@@ -903,7 +942,7 @@
     {
       "id": "passive_combat_foundation_mystic_fire",
       "name": "《离火淬元录》",
-      "desc": "筑基火行专修心法。以九天离火精萃淬炼真元，法术攻击+16%、暴击伤害+16%、火系增伤+16%、火系减伤+8%；物理防御-5%、抗暴率-5%。",
+      "desc": "筑基火行专修心法。以九天离火精萃淬炼真元，法术攻击+16%、暴击伤害+16%、火系增伤+16%、火系减伤+8%；物理防御-8%、抗暴率-8%。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 31,
@@ -919,7 +958,7 @@
         {
           "id": "skill_passive_combat_foundation_mystic_fire",
           "name": "离火淬元",
-          "desc": "【被动】离火焚天，真元极炽。法术攻击+16%、暴击伤害+16%、火系增伤+16%、火系减伤+8%；物理防御-5%、抗暴率-5%。",
+          "desc": "【被动】离火焚天，真元极炽。法术攻击+16%、暴击伤害+16%、火系增伤+16%、火系减伤+8%；物理防御-8%、抗暴率-8%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -932,12 +971,12 @@
               "buffId": "passive_combat_foundation_mystic_fire_buff",
               "name": "离火淬元",
               "shortMark": "火",
-              "desc": "纯阳离火淬炼法力。法攻+16%、暴伤+16%、火系增伤+16%、火系减伤+8%；物防-5%、抗暴-5%。",
+              "desc": "纯阳离火淬炼法力。法攻+16%、暴伤+16%、火系增伤+16%、火系减伤+8%；物防-8%、抗暴-8%。",
               "stats": {
                 "spellAtk": 16,
                 "critDamage": 16,
-                "physDef": -5,
-                "antiCrit": -5,
+                "physDef": -8,
+                "antiCrit": -8,
                 "elementDamageBonus": {
                   "fire": 16
                 },
@@ -1046,7 +1085,7 @@
     {
       "id": "passive_combat_qi_yellow_spell",
       "name": "《灵犀澈照引》",
-      "desc": "练气术心专修心法。心神与天地灵机相照相生，法术攻击+12%、法术防御+7.2%、命中率+9.6%、化劲+6%；物理防御-3.2%、气血上限-2%。",
+      "desc": "练气术心专修心法。心神与天地灵机相照相生，法术攻击+12%、法术防御+7.2%、命中率+9.6%、化劲+6%；物理防御-4.8%、气血上限-3%。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 23,
@@ -1062,7 +1101,7 @@
         {
           "id": "skill_passive_combat_qi_yellow_spell",
           "name": "灵犀澈照",
-          "desc": "【被动】心有灵犀，神台澈照。法术攻击+12%、法术防御+7.2%、命中率+9.6%、化劲+6%；物理防御-3.2%、气血上限-2%。",
+          "desc": "【被动】心有灵犀，神台澈照。法术攻击+12%、法术防御+7.2%、命中率+9.6%、化劲+6%；物理防御-4.8%、气血上限-3%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1075,14 +1114,14 @@
               "buffId": "passive_combat_qi_yellow_spell_buff",
               "name": "灵犀澈照",
               "shortMark": "术",
-              "desc": "灵台神光澈照。法攻+12%、法防+7.2%、命中+9.6%、化劲+6%；物防-3.2%、气血-2%。",
+              "desc": "灵台神光澈照。法攻+12%、法防+7.2%、命中+9.6%、化劲+6%；物防-4.8%、气血-3%。",
               "stats": {
                 "spellAtk": 12,
                 "spellDef": 7.2,
                 "hit": 9.6,
                 "resolvePower": 6,
-                "physDef": -3.2,
-                "maxHp": -2
+                "physDef": -4.8,
+                "maxHp": -3
               },
               "statMode": "percent",
               "ignoreRealmEffectiveness": true
@@ -1141,7 +1180,7 @@
     {
       "id": "passive_combat_qi_yellow_physical",
       "name": "《龙象摧岳劲》",
-      "desc": "练气武体专修心法。引灵气灌注周身经脉激发龙象巨力，物理攻击+12%、物理防御+7.2%、破劲+9.6%、暴击率+6%；法术攻击-4%、最大灵力-2%。",
+      "desc": "练气武体专修心法。引灵气灌注周身经脉激发龙象巨力，物理攻击+12%、物理防御+7.2%、破劲+9.6%、暴击率+6%；法术攻击-6%、最大灵力-3%。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 23,
@@ -1157,7 +1196,7 @@
         {
           "id": "skill_passive_combat_qi_yellow_physical",
           "name": "龙象摧岳",
-          "desc": "【被动】龙象奔腾，力摧雄岳。物理攻击+12%、物理防御+7.2%、破劲+9.6%、暴击率+6%；法术攻击-4%、最大灵力-2%。",
+          "desc": "【被动】龙象奔腾，力摧雄岳。物理攻击+12%、物理防御+7.2%、破劲+9.6%、暴击率+6%；法术攻击-6%、最大灵力-3%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1170,14 +1209,14 @@
               "buffId": "passive_combat_qi_yellow_physical_buff",
               "name": "龙象摧岳",
               "shortMark": "武",
-              "desc": "龙象巨力充盈周身。物攻+12%、物防+7.2%、破劲+9.6%、暴击+6%；法攻-4%、最大灵力-2%。",
+              "desc": "龙象巨力充盈周身。物攻+12%、物防+7.2%、破劲+9.6%、暴击+6%；法攻-6%、最大灵力-3%。",
               "stats": {
                 "physAtk": 12,
                 "physDef": 7.2,
                 "breakPower": 9.6,
                 "crit": 6,
-                "spellAtk": -4,
-                "maxQi": -2
+                "spellAtk": -6,
+                "maxQi": -3
               },
               "statMode": "percent",
               "ignoreRealmEffectiveness": true
@@ -1190,7 +1229,7 @@
     {
       "id": "passive_combat_foundation_mystic_spell",
       "name": "《明心拓神录》",
-      "desc": "筑基术心专修心法。开辟浩瀚识海明晰天道妙理，法术攻击+16%、法术防御+9.6%、命中率+12.8%、化劲+8%；物理防御-4%、气血上限-2.5%。",
+      "desc": "筑基术心专修心法。开辟浩瀚识海明晰天道妙理，法术攻击+16%、法术防御+9.6%、命中率+12.8%、化劲+8%；物理防御-6.4%、气血上限-4%。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 31,
@@ -1206,7 +1245,7 @@
         {
           "id": "skill_passive_combat_foundation_mystic_spell",
           "name": "明心拓神",
-          "desc": "【被动】明心见性，神念万方。法术攻击+16%、法术防御+9.6%、命中率+12.8%、化劲+8%；物理防御-4%、气血上限-2.5%。",
+          "desc": "【被动】明心见性，神念万方。法术攻击+16%、法术防御+9.6%、命中率+12.8%、化劲+8%；物理防御-6.4%、气血上限-4%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1219,14 +1258,14 @@
               "buffId": "passive_combat_foundation_mystic_spell_buff",
               "name": "明心拓神",
               "shortMark": "术",
-              "desc": "识海广阔神念通达。法攻+16%、法防+9.6%、命中+12.8%、化劲+8%；物防-4%、气血-2.5%。",
+              "desc": "识海广阔神念通达。法攻+16%、法防+9.6%、命中+12.8%、化劲+8%；物防-6.4%、气血-4%。",
               "stats": {
                 "spellAtk": 16,
                 "spellDef": 9.6,
                 "hit": 12.8,
                 "resolvePower": 8,
-                "physDef": -4,
-                "maxHp": -2.5
+                "physDef": -6.4,
+                "maxHp": -4
               },
               "statMode": "percent",
               "ignoreRealmEffectiveness": true
@@ -1239,7 +1278,7 @@
     {
       "id": "passive_combat_mortal_mortal_physical",
       "name": "《磨筋铸骨谱》",
-      "desc": "凡人武体专修心法。千锤百炼打熬肉身筋骨，物理攻击+8%、物理防御+4.8%、破劲+6.4%、暴击率+4%；法术攻击-3%、最大灵力-1.5%。",
+      "desc": "凡人武体专修心法。千锤百炼打熬肉身筋骨，物理攻击+8%、物理防御+4.8%、破劲+6.4%、暴击率+4%；法术攻击-4%、最大灵力-2%。",
       "grade": "mortal",
       "category": "arts",
       "realmLv": 1,
@@ -1255,7 +1294,7 @@
         {
           "id": "skill_passive_combat_mortal_mortal_physical",
           "name": "磨筋铸骨",
-          "desc": "【被动】筋骨如钢，力透千钧。物理攻击+8%、物理防御+4.8%、破劲+6.4%、暴击率+4%；法术攻击-3%、最大灵力-1.5%。",
+          "desc": "【被动】筋骨如钢，力透千钧。物理攻击+8%、物理防御+4.8%、破劲+6.4%、暴击率+4%；法术攻击-4%、最大灵力-2%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1268,14 +1307,14 @@
               "buffId": "passive_combat_mortal_mortal_physical_buff",
               "name": "磨筋铸骨",
               "shortMark": "武",
-              "desc": "筋骨精健强悍。物攻+8%、物防+4.8%、破劲+6.4%、暴击+4%；法攻-3%、最大灵力-1.5%。",
+              "desc": "筋骨精健强悍。物攻+8%、物防+4.8%、破劲+6.4%、暴击+4%；法攻-4%、最大灵力-2%。",
               "stats": {
                 "physAtk": 8,
                 "physDef": 4.8,
                 "breakPower": 6.4,
                 "crit": 4,
-                "spellAtk": -3,
-                "maxQi": -1.5
+                "spellAtk": -4,
+                "maxQi": -2
               },
               "statMode": "percent",
               "ignoreRealmEffectiveness": true
@@ -1288,7 +1327,7 @@
     {
       "id": "passive_combat_mortal_mortal_earth",
       "name": "《盘根立地篇》",
-      "desc": "凡人土行专修心法。意借大地之厚重沉稳立身，物理防御+8%、化劲+8%、土系增伤+8%、土系减伤+4%；移动速度-3%、法术攻击-3%。",
+      "desc": "凡人土行专修心法。意借大地之厚重沉稳立身，物理防御+8%、化劲+8%、土系增伤+8%、土系减伤+4%、仇恨获取+16%；移动速度-4%、法术攻击-4%。",
       "grade": "mortal",
       "category": "arts",
       "realmLv": 1,
@@ -1304,7 +1343,7 @@
         {
           "id": "skill_passive_combat_mortal_mortal_earth",
           "name": "盘根立地",
-          "desc": "【被动】盘根立地，磐石无转移。物理防御+8%、化劲+8%、土系增伤+8%、土系减伤+4%；移动速度-3%、法术攻击-3%。",
+          "desc": "【被动】盘根立地，磐石无转移。物理防御+8%、化劲+8%、土系增伤+8%、土系减伤+4%、仇恨获取+16%；移动速度-4%、法术攻击-4%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1317,12 +1356,12 @@
               "buffId": "passive_combat_mortal_mortal_earth_buff",
               "name": "盘根立地",
               "shortMark": "土",
-              "desc": "沉稳如石立地。物防+8%、化劲+8%、土系增伤+8%、土系减伤+4%；移速-3%、法攻-3%。",
+              "desc": "沉稳如石立地。物防+8%、化劲+8%、土系增伤+8%、土系减伤+4%、仇恨获取+16%；移速-4%、法攻-4%。",
               "stats": {
                 "physDef": 8,
                 "resolvePower": 8,
-                "moveSpeed": -3,
-                "spellAtk": -3,
+                "moveSpeed": -4,
+                "spellAtk": -4,
                 "elementDamageBonus": {
                   "earth": 8
                 },
@@ -1331,6 +1370,19 @@
                 }
               },
               "statMode": "percent",
+              "ignoreRealmEffectiveness": true
+            },
+            {
+              "type": "buff",
+              "buffId": "passive_combat_mortal_mortal_earth_aggro_buff",
+              "name": "盘根立地·引仇",
+              "shortMark": "仇",
+              "desc": "守势引导敌意，仇恨获取+16%。",
+              "visibility": "hidden",
+              "stats": {
+                "extraAggroRate": 16
+              },
+              "statMode": "flat",
               "ignoreRealmEffectiveness": true
             }
           ],
@@ -1447,7 +1499,7 @@
         {
           "id": "skill_passive_combat_core_earth_physical",
           "name": "千钧拔山",
-          "desc": "力拔山兮气盖世，时不利兮骓不逝。",
+          "desc": "【被动】霸王拔山，气血如龙。物理攻击+28%、物理防御+16.8%、破招+22.4%、暴击率+14%；法术攻击-14%、最大灵力-7%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1460,14 +1512,14 @@
               "buffId": "passive_combat_core_earth_physical_buff",
               "name": "千钧拔山",
               "shortMark": "拔",
-              "desc": "霸王拔山，气血如龙。物攻+28%、物防+16.8%、破劲+22.4%、暴击+14%；法攻-8%、最大灵力-4%。",
+              "desc": "霸王拔山，气血如龙。物攻+28%、物防+16.8%、破劲+22.4%、暴击+14%；法攻-14%、最大灵力-7%。",
               "stats": {
                 "physAtk": 28,
                 "physDef": 16.8,
                 "breakPower": 22.4,
                 "crit": 14,
-                "spellAtk": -8,
-                "maxQi": -4
+                "spellAtk": -14,
+                "maxQi": -7
               },
               "statMode": "percent",
               "ignoreRealmEffectiveness": true
@@ -1496,7 +1548,7 @@
         {
           "id": "skill_passive_combat_core_earth_water",
           "name": "潜渊玄冥",
-          "desc": "北冥有鱼，其名为鲲。鲲之大，不知其几千里也；化而为鸟，其名为鹏。",
+          "desc": "【被动】潜龙九渊，溟海纳川。法术防御+28%、抗暴率+28%、水系增伤+28%、水系减伤+14%、仇恨获取+56%；暴击率-14%、物理攻击-14%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1509,12 +1561,12 @@
               "buffId": "passive_combat_core_earth_water_buff",
               "name": "潜渊玄冥",
               "shortMark": "冥",
-              "desc": "潜龙九渊，溟海纳川。法术防御+28%、抗暴+28%、水系增伤+28%、水系减伤+14%；暴击-8%、物理攻击-8%。",
+              "desc": "潜龙九渊，溟海纳川。法术防御+28%、抗暴+28%、水系增伤+28%、水系减伤+14%、仇恨获取+56%；暴击-14%、物理攻击-14%。",
               "stats": {
                 "spellDef": 28,
                 "antiCrit": 28,
-                "crit": -8,
-                "physAtk": -8,
+                "crit": -14,
+                "physAtk": -14,
                 "elementDamageBonus": {
                   "water": 28
                 },
@@ -1523,6 +1575,19 @@
                 }
               },
               "statMode": "percent",
+              "ignoreRealmEffectiveness": true
+            },
+            {
+              "type": "buff",
+              "buffId": "passive_combat_core_earth_water_aggro_buff",
+              "name": "潜渊玄冥·引仇",
+              "shortMark": "仇",
+              "desc": "守势引导敌意，仇恨获取+56%。",
+              "visibility": "hidden",
+              "stats": {
+                "extraAggroRate": 56
+              },
+              "statMode": "flat",
               "ignoreRealmEffectiveness": true
             }
           ],
@@ -1579,7 +1644,7 @@
     {
       "id": "passive_combat_mortal_mortal_fire",
       "name": "《燃薪淬息篇》",
-      "desc": "凡人火行专修心法。引烈火燃薪之势助长法力炽烈，法术攻击+8%、暴击伤害+8%、火系增伤+8%、火系减伤+4%；物理防御-3%、抗暴率-3%。",
+      "desc": "凡人火行专修心法。引烈火燃薪之势助长法力炽烈，法术攻击+8%、暴击伤害+8%、火系增伤+8%、火系减伤+4%；物理防御-4%、抗暴率-4%。",
       "grade": "mortal",
       "category": "arts",
       "realmLv": 1,
@@ -1595,7 +1660,7 @@
         {
           "id": "skill_passive_combat_mortal_mortal_fire",
           "name": "燃薪淬息",
-          "desc": "【被动】燃薪化焰，气息炽烈。法术攻击+8%、暴击伤害+8%、火系增伤+8%、火系减伤+4%；物理防御-3%、抗暴率-3%。",
+          "desc": "【被动】燃薪化焰，气息炽烈。法术攻击+8%、暴击伤害+8%、火系增伤+8%、火系减伤+4%；物理防御-4%、抗暴率-4%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1608,12 +1673,12 @@
               "buffId": "passive_combat_mortal_mortal_fire_buff",
               "name": "燃薪淬息",
               "shortMark": "火",
-              "desc": "烈焰热息流转。法攻+8%、暴伤+8%、火系增伤+8%、火系减伤+4%；物防-3%、抗暴-3%。",
+              "desc": "烈焰热息流转。法攻+8%、暴伤+8%、火系增伤+8%、火系减伤+4%；物防-4%、抗暴-4%。",
               "stats": {
                 "spellAtk": 8,
                 "critDamage": 8,
-                "physDef": -3,
-                "antiCrit": -3,
+                "physDef": -4,
+                "antiCrit": -4,
                 "elementDamageBonus": {
                   "fire": 8
                 },
@@ -1632,7 +1697,7 @@
     {
       "id": "passive_combat_foundation_mystic_physical",
       "name": "《煞血铁骨功》",
-      "desc": "筑基武体专修心法。融合地煞血气重塑肉身体魄，物理攻击+16%、物理防御+9.6%、破劲+12.8%、暴击率+8%；法术攻击-5%、最大灵力-2.5%。",
+      "desc": "筑基武体专修心法。融合地煞血气重塑肉身体魄，物理攻击+16%、物理防御+9.6%、破劲+12.8%、暴击率+8%；法术攻击-8%、最大灵力-4%。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 31,
@@ -1648,7 +1713,7 @@
         {
           "id": "skill_passive_combat_foundation_mystic_physical",
           "name": "煞血铁骨",
-          "desc": "【被动】煞血淬骨，肉身称雄。物理攻击+16%、物理防御+9.6%、破劲+12.8%、暴击率+8%；法术攻击-5%、最大灵力-2.5%。",
+          "desc": "【被动】煞血淬骨，肉身称雄。物理攻击+16%、物理防御+9.6%、破劲+12.8%、暴击率+8%；法术攻击-8%、最大灵力-4%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1661,14 +1726,14 @@
               "buffId": "passive_combat_foundation_mystic_physical_buff",
               "name": "煞血铁骨",
               "shortMark": "武",
-              "desc": "煞血铸就金刚体魄。物攻+16%、物防+9.6%、破劲+12.8%、暴击+8%；法攻-5%、最大灵力-2.5%。",
+              "desc": "煞血铸就金刚体魄。物攻+16%、物防+9.6%、破劲+12.8%、暴击+8%；法攻-8%、最大灵力-4%。",
               "stats": {
                 "physAtk": 16,
                 "physDef": 9.6,
                 "breakPower": 12.8,
                 "crit": 8,
-                "spellAtk": -5,
-                "maxQi": -2.5
+                "spellAtk": -8,
+                "maxQi": -4
               },
               "statMode": "percent",
               "ignoreRealmEffectiveness": true
@@ -1726,7 +1791,7 @@
     {
       "id": "passive_combat_mortal_mortal_spell",
       "name": "《识微明眸篇》",
-      "desc": "凡人术心专修心法。清心宁神洞察灵机微茫，法术攻击+8%、法术防御+4.8%、命中率+6.4%、化劲+4%；物理防御-2.4%、气血上限-1.5%。",
+      "desc": "凡人术心专修心法。清心宁神洞察灵机微茫，法术攻击+8%、法术防御+4.8%、命中率+6.4%、化劲+4%；物理防御-3.2%、气血上限-2%。",
       "grade": "mortal",
       "category": "arts",
       "realmLv": 1,
@@ -1742,7 +1807,7 @@
         {
           "id": "skill_passive_combat_mortal_mortal_spell",
           "name": "识微明眸",
-          "desc": "【被动】目力清明，洞察秋毫。法术攻击+8%、法术防御+4.8%、命中率+6.4%、化劲+4%；物理防御-2.4%、气血上限-1.5%。",
+          "desc": "【被动】目力清明，洞察秋毫。法术攻击+8%、法术防御+4.8%、命中率+6.4%、化劲+4%；物理防御-3.2%、气血上限-2%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1755,14 +1820,14 @@
               "buffId": "passive_combat_mortal_mortal_spell_buff",
               "name": "识微明眸",
               "shortMark": "术",
-              "desc": "术心专注明澈。法攻+8%、法防+4.8%、命中+6.4%、化劲+4%；物防-2.4%、气血-1.5%。",
+              "desc": "术心专注明澈。法攻+8%、法防+4.8%、命中+6.4%、化劲+4%；物防-3.2%、气血-2%。",
               "stats": {
                 "spellAtk": 8,
                 "spellDef": 4.8,
                 "hit": 6.4,
                 "resolvePower": 4,
-                "physDef": -2.4,
-                "maxHp": -1.5
+                "physDef": -3.2,
+                "maxHp": -2
               },
               "statMode": "percent",
               "ignoreRealmEffectiveness": true
@@ -1820,7 +1885,7 @@
     {
       "id": "passive_combat_mortal_mortal_water",
       "name": "《溯流引泉篇》",
-      "desc": "凡人水行专修心法。意存静水深流之态化解刚劲，法术防御+8%、抗暴率+8%、水系增伤+8%、水系减伤+4%；暴击率-3%、物理攻击-3%。",
+      "desc": "凡人水行专修心法。意存静水深流之态化解刚劲，法术防御+8%、抗暴率+8%、水系增伤+8%、水系减伤+4%、仇恨获取+16%；暴击率-4%、物理攻击-4%。",
       "grade": "mortal",
       "category": "arts",
       "realmLv": 1,
@@ -1836,7 +1901,7 @@
         {
           "id": "skill_passive_combat_mortal_mortal_water",
           "name": "溯流引泉",
-          "desc": "【被动】溯流寻源，静水流深。法术防御+8%、抗暴率+8%、水系增伤+8%、水系减伤+4%；暴击率-3%、物理攻击-3%。",
+          "desc": "【被动】溯流寻源，静水流深。法术防御+8%、抗暴率+8%、水系增伤+8%、水系减伤+4%、仇恨获取+16%；暴击率-4%、物理攻击-4%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -1849,12 +1914,12 @@
               "buffId": "passive_combat_mortal_mortal_water_buff",
               "name": "溯流引泉",
               "shortMark": "水",
-              "desc": "静水微澜护持。法防+8%、抗暴+8%、水系增伤+8%、水系减伤+4%；暴击-3%、物攻-3%。",
+              "desc": "静水微澜护持。法防+8%、抗暴+8%、水系增伤+8%、水系减伤+4%、仇恨获取+16%；暴击-4%、物攻-4%。",
               "stats": {
                 "spellDef": 8,
                 "antiCrit": 8,
-                "crit": -3,
-                "physAtk": -3,
+                "crit": -4,
+                "physAtk": -4,
                 "elementDamageBonus": {
                   "water": 8
                 },
@@ -1863,6 +1928,19 @@
                 }
               },
               "statMode": "percent",
+              "ignoreRealmEffectiveness": true
+            },
+            {
+              "type": "buff",
+              "buffId": "passive_combat_mortal_mortal_water_aggro_buff",
+              "name": "溯流引泉·引仇",
+              "shortMark": "仇",
+              "desc": "守势引导敌意，仇恨获取+16%。",
+              "visibility": "hidden",
+              "stats": {
+                "extraAggroRate": 16
+              },
+              "statMode": "flat",
               "ignoreRealmEffectiveness": true
             }
           ],
@@ -2008,7 +2086,7 @@
     {
       "id": "passive_combat_mortal_mortal_wood",
       "name": "《问木折青篇》",
-      "desc": "凡人木行专修心法。效法草木吐纳生气，气血恢复速度+8%、闪避+8%、木系增伤+8%、木系减伤+4%；破劲-3%、物理攻击-3%。",
+      "desc": "凡人木行专修心法。效法草木吐纳生气，气血恢复速度+8%、闪避+8%、木系增伤+8%、木系减伤+4%；破劲-4%、物理攻击-4%。",
       "grade": "mortal",
       "category": "arts",
       "realmLv": 1,
@@ -2024,7 +2102,7 @@
         {
           "id": "skill_passive_combat_mortal_mortal_wood",
           "name": "问木折青",
-          "desc": "【被动】问木探青，枝生不息。气血恢复速度+8%、闪避+8%、木系增伤+8%、木系减伤+4%；破劲-3%、物理攻击-3%。",
+          "desc": "【被动】问木探青，枝生不息。气血恢复速度+8%、闪避+8%、木系增伤+8%、木系减伤+4%；破劲-4%、物理攻击-4%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -2037,12 +2115,12 @@
               "buffId": "passive_combat_mortal_mortal_wood_buff",
               "name": "问木折青",
               "shortMark": "木",
-              "desc": "草木生机流转。回血+8%、闪避+8%、木系增伤+8%、木系减伤+4%；破劲-3%、物攻-3%。",
+              "desc": "草木生机流转。回血+8%、闪避+8%、木系增伤+8%、木系减伤+4%；破劲-4%、物攻-4%。",
               "stats": {
                 "hpRegenRate": 8,
                 "dodge": 8,
-                "breakPower": -3,
-                "physAtk": -3,
+                "breakPower": -4,
+                "physAtk": -4,
                 "elementDamageBonus": {
                   "wood": 8
                 },
@@ -2121,7 +2199,7 @@
         {
           "id": "skill_passive_combat_core_earth_spell",
           "name": "虚室生白",
-          "desc": "瞻彼阕者，虚室生白，吉祥止止。夫绚绚思之，此谓神游。",
+          "desc": "【被动】虚室生白，神光澈照。法术攻击+28%、法术防御+16.8%、命中率+22.4%、化劲+14%；物理防御-11.2%、气血上限-7%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -2134,14 +2212,14 @@
               "buffId": "passive_combat_core_earth_spell_buff",
               "name": "虚室生白",
               "shortMark": "白",
-              "desc": "虚室生白，神光澈照。法攻+28%、法防+16.8%、命中+22.4%、化劲+14%；物防-7%、最大生命-4%。",
+              "desc": "虚室生白，神光澈照。法攻+28%、法防+16.8%、命中+22.4%、化劲+14%；物防-11.2%、最大生命-7%。",
               "stats": {
                 "spellAtk": 28,
                 "spellDef": 16.8,
                 "hit": 22.4,
                 "resolvePower": 14,
-                "physDef": -7,
-                "maxHp": -4
+                "physDef": -11.2,
+                "maxHp": -7
               },
               "statMode": "percent",
               "ignoreRealmEffectiveness": true
@@ -2154,7 +2232,7 @@
     {
       "id": "passive_combat_foundation_mystic_water",
       "name": "《玄潮凝波录》",
-      "desc": "筑基水行专修心法。凝聚北冥玄潮波纹化为御法屏障，法术防御+16%、抗暴率+16%、水系增伤+16%、水系减伤+8%；暴击率-5%、物理攻击-5%。",
+      "desc": "筑基水行专修心法。凝聚北冥玄潮波纹化为御法屏障，法术防御+16%、抗暴率+16%、水系增伤+16%、水系减伤+8%、仇恨获取+32%；暴击率-8%、物理攻击-8%。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 31,
@@ -2170,7 +2248,7 @@
         {
           "id": "skill_passive_combat_foundation_mystic_water",
           "name": "玄潮凝波",
-          "desc": "【被动】玄潮凝波，万法不侵。法术防御+16%、抗暴率+16%、水系增伤+16%、水系减伤+8%；暴击率-5%、物理攻击-5%。",
+          "desc": "【被动】玄潮凝波，万法不侵。法术防御+16%、抗暴率+16%、水系增伤+16%、水系减伤+8%、仇恨获取+32%；暴击率-8%、物理攻击-8%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -2183,12 +2261,12 @@
               "buffId": "passive_combat_foundation_mystic_water_buff",
               "name": "玄潮凝波",
               "shortMark": "水",
-              "desc": "玄潮真水凝波护体。法防+16%、抗暴+16%、水系增伤+16%、水系减伤+8%；暴击-5%、物攻-5%。",
+              "desc": "玄潮真水凝波护体。法防+16%、抗暴+16%、水系增伤+16%、水系减伤+8%、仇恨获取+32%；暴击-8%、物攻-8%。",
               "stats": {
                 "spellDef": 16,
                 "antiCrit": 16,
-                "crit": -5,
-                "physAtk": -5,
+                "crit": -8,
+                "physAtk": -8,
                 "elementDamageBonus": {
                   "water": 16
                 },
@@ -2197,6 +2275,19 @@
                 }
               },
               "statMode": "percent",
+              "ignoreRealmEffectiveness": true
+            },
+            {
+              "type": "buff",
+              "buffId": "passive_combat_foundation_mystic_water_aggro_buff",
+              "name": "玄潮凝波·引仇",
+              "shortMark": "仇",
+              "desc": "守势引导敌意，仇恨获取+32%。",
+              "visibility": "hidden",
+              "stats": {
+                "extraAggroRate": 32
+              },
+              "statMode": "flat",
               "ignoreRealmEffectiveness": true
             }
           ],
@@ -2207,7 +2298,7 @@
     {
       "id": "passive_combat_qi_yellow_earth",
       "name": "《玄黄镇岳诀》",
-      "desc": "练气土行专修心法。引聚戊土玄黄之气护持体魄，物理防御+12%、化劲+12%、土系增伤+12%、土系减伤+6%；移动速度-4%、法术攻击-4%。",
+      "desc": "练气土行专修心法。引聚戊土玄黄之气护持体魄，物理防御+12%、化劲+12%、土系增伤+12%、土系减伤+6%、仇恨获取+24%；移动速度-6%、法术攻击-6%。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 23,
@@ -2223,7 +2314,7 @@
         {
           "id": "skill_passive_combat_qi_yellow_earth",
           "name": "玄黄镇岳",
-          "desc": "【被动】玄黄镇岳，重若泰山。物理防御+12%、化劲+12%、土系增伤+12%、土系减伤+6%；移动速度-4%、法术攻击-4%。",
+          "desc": "【被动】玄黄镇岳，重若泰山。物理防御+12%、化劲+12%、土系增伤+12%、土系减伤+6%、仇恨获取+24%；移动速度-6%、法术攻击-6%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -2236,12 +2327,12 @@
               "buffId": "passive_combat_qi_yellow_earth_buff",
               "name": "玄黄镇岳",
               "shortMark": "土",
-              "desc": "玄黄地气覆体。物防+12%、化劲+12%、土系增伤+12%、土系减伤+6%；移速-4%、法攻-4%。",
+              "desc": "玄黄地气覆体。物防+12%、化劲+12%、土系增伤+12%、土系减伤+6%、仇恨获取+24%；移速-6%、法攻-6%。",
               "stats": {
                 "physDef": 12,
                 "resolvePower": 12,
-                "moveSpeed": -4,
-                "spellAtk": -4,
+                "moveSpeed": -6,
+                "spellAtk": -6,
                 "elementDamageBonus": {
                   "earth": 12
                 },
@@ -2250,6 +2341,19 @@
                 }
               },
               "statMode": "percent",
+              "ignoreRealmEffectiveness": true
+            },
+            {
+              "type": "buff",
+              "buffId": "passive_combat_qi_yellow_earth_aggro_buff",
+              "name": "玄黄镇岳·引仇",
+              "shortMark": "仇",
+              "desc": "守势引导敌意，仇恨获取+24%。",
+              "visibility": "hidden",
+              "stats": {
+                "extraAggroRate": 24
+              },
+              "statMode": "flat",
               "ignoreRealmEffectiveness": true
             }
           ],
@@ -2383,7 +2487,7 @@
     {
       "id": "passive_combat_qi_yellow_wood",
       "name": "《乙木岁荣诀》",
-      "desc": "练气木行专修心法。引东方青龙乙木灵机蕴养体魄，气血恢复速度+12%、闪避+12%、木系增伤+12%、木系减伤+6%；破劲-4%、物理攻击-4%。",
+      "desc": "练气木行专修心法。引东方青龙乙木灵机蕴养体魄，气血恢复速度+12%、闪避+12%、木系增伤+12%、木系减伤+6%；破劲-6%、物理攻击-6%。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 23,
@@ -2399,7 +2503,7 @@
         {
           "id": "skill_passive_combat_qi_yellow_wood",
           "name": "乙木岁荣",
-          "desc": "【被动】岁岁荣枯，生生不息。气血恢复速度+12%、闪避+12%、木系增伤+12%、木系减伤+6%；破劲-4%、物理攻击-4%。",
+          "desc": "【被动】岁岁荣枯，生生不息。气血恢复速度+12%、闪避+12%、木系增伤+12%、木系减伤+6%；破劲-6%、物理攻击-6%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -2412,12 +2516,12 @@
               "buffId": "passive_combat_qi_yellow_wood_buff",
               "name": "乙木岁荣",
               "shortMark": "木",
-              "desc": "乙木灵机护脉。回血+12%、闪避+12%、木系增伤+12%、木系减伤+6%；破劲-4%、物攻-4%。",
+              "desc": "乙木灵机护脉。回血+12%、闪避+12%、木系增伤+12%、木系减伤+6%；破劲-6%、物攻-6%。",
               "stats": {
                 "hpRegenRate": 12,
                 "dodge": 12,
-                "breakPower": -4,
-                "physAtk": -4,
+                "breakPower": -6,
+                "physAtk": -6,
                 "elementDamageBonus": {
                   "wood": 12
                 },
@@ -2525,7 +2629,7 @@
     {
       "id": "passive_combat_foundation_mystic_wood",
       "name": "《长春固脉录》",
-      "desc": "筑基木行专修心法。纳纯阳长春木髓巩固周身经脉，气血恢复速度+16%、闪避+16%、木系增伤+16%、木系减伤+8%；破劲-5%、物理攻击-5%。",
+      "desc": "筑基木行专修心法。纳纯阳长春木髓巩固周身经脉，气血恢复速度+16%、闪避+16%、木系增伤+16%、木系减伤+8%；破劲-8%、物理攻击-8%。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 31,
@@ -2541,7 +2645,7 @@
         {
           "id": "skill_passive_combat_foundation_mystic_wood",
           "name": "长春固脉",
-          "desc": "【被动】长春固脉，万木回春。气血恢复速度+16%、闪避+16%、木系增伤+16%、木系减伤+8%；破劲-5%、物理攻击-5%。",
+          "desc": "【被动】长春固脉，万木回春。气血恢复速度+16%、闪避+16%、木系增伤+16%、木系减伤+8%；破劲-8%、物理攻击-8%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -2554,12 +2658,12 @@
               "buffId": "passive_combat_foundation_mystic_wood_buff",
               "name": "长春固脉",
               "shortMark": "木",
-              "desc": "长春生机滋养经脉。回血+16%、闪避+16%、木系增伤+16%、木系减伤+8%；破劲-5%、物攻-5%。",
+              "desc": "长春生机滋养经脉。回血+16%、闪避+16%、木系增伤+16%、木系减伤+8%；破劲-8%、物攻-8%。",
               "stats": {
                 "hpRegenRate": 16,
                 "dodge": 16,
-                "breakPower": -5,
-                "physAtk": -5,
+                "breakPower": -8,
+                "physAtk": -8,
                 "elementDamageBonus": {
                   "wood": 16
                 },
@@ -2578,7 +2682,7 @@
     {
       "id": "passive_combat_mortal_mortal_metal",
       "name": "《折铁断锋篇》",
-      "desc": "凡人金行专修心法。引凡铁肃杀之气淬砺周身，物理攻击+8%、暴击率+8%、金系增伤+8%、金系减伤+4%；法术防御-3%、最大灵力-3%。",
+      "desc": "凡人金行专修心法。引凡铁肃杀之气淬砺周身，物理攻击+8%、暴击率+8%、金系增伤+8%、金系减伤+4%；法术防御-4%、最大灵力-4%。",
       "grade": "mortal",
       "category": "arts",
       "realmLv": 1,
@@ -2594,7 +2698,7 @@
         {
           "id": "skill_passive_combat_mortal_mortal_metal",
           "name": "折铁断锋",
-          "desc": "【被动】凡铁折锋，金气砺骨。物理攻击+8%、暴击率+8%、金系增伤+8%、金系减伤+4%；法术防御-3%、最大灵力-3%。",
+          "desc": "【被动】凡铁折锋，金气砺骨。物理攻击+8%、暴击率+8%、金系增伤+8%、金系减伤+4%；法术防御-4%、最大灵力-4%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -2607,12 +2711,12 @@
               "buffId": "passive_combat_mortal_mortal_metal_buff",
               "name": "折铁断锋",
               "shortMark": "金",
-              "desc": "凡铁金气护体。物攻+8%、暴击+8%、金系增伤+8%、金系减伤+4%；法防-3%、最大灵力-3%。",
+              "desc": "凡铁金气护体。物攻+8%、暴击+8%、金系增伤+8%、金系减伤+4%；法防-4%、最大灵力-4%。",
               "stats": {
                 "physAtk": 8,
                 "crit": 8,
-                "spellDef": -3,
-                "maxQi": -3,
+                "spellDef": -4,
+                "maxQi": -4,
                 "elementDamageBonus": {
                   "metal": 8
                 },
@@ -2692,7 +2796,7 @@
         {
           "id": "skill_passive_combat_core_earth_fire",
           "name": "朱明赫曦",
-          "desc": "朱明盛遝，赫曦煌煌。炎帝掌节，太昊御方。",
+          "desc": "【被动】朱明曜灵，烈焰焚虚。法术攻击+28%、暴击伤害+28%、火系增伤+28%、火系减伤+14%；物理防御-14%、抗暴率-14%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -2705,12 +2809,12 @@
               "buffId": "passive_combat_core_earth_fire_buff",
               "name": "朱明赫曦",
               "shortMark": "明",
-              "desc": "朱明曜灵，烈焰焚虚。法术攻击+28%、暴伤+28%、火系增伤+28%、火系减伤+14%；物理防御-8%、抗暴-8%。",
+              "desc": "朱明曜灵，烈焰焚虚。法术攻击+28%、暴伤+28%、火系增伤+28%、火系减伤+14%；物理防御-14%、抗暴-14%。",
               "stats": {
                 "spellAtk": 28,
                 "critDamage": 28,
-                "physDef": -8,
-                "antiCrit": -8,
+                "physDef": -14,
+                "antiCrit": -14,
                 "elementDamageBonus": {
                   "fire": 28
                 },
@@ -2729,7 +2833,7 @@
     {
       "id": "passive_combat_qi_yellow_fire",
       "name": "《朱雀焚炎引》",
-      "desc": "练气火行专修心法。引朱雀灵火入经脉焚淬法力，法术攻击+12%、暴击伤害+12%、火系增伤+12%、火系减伤+6%；物理防御-4%、抗暴率-4%。",
+      "desc": "练气火行专修心法。引朱雀灵火入经脉焚淬法力，法术攻击+12%、暴击伤害+12%、火系增伤+12%、火系减伤+6%；物理防御-6%、抗暴率-6%。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 23,
@@ -2745,7 +2849,7 @@
         {
           "id": "skill_passive_combat_qi_yellow_fire",
           "name": "朱雀焚炎",
-          "desc": "【被动】朱雀引火，焚尽八荒。法术攻击+12%、暴击伤害+12%、火系增伤+12%、火系减伤+6%；物理防御-4%、抗暴率-4%。",
+          "desc": "【被动】朱雀引火，焚尽八荒。法术攻击+12%、暴击伤害+12%、火系增伤+12%、火系减伤+6%；物理防御-6%、抗暴率-6%。",
           "cooldown": 0,
           "costMultiplier": 0,
           "range": 0,
@@ -2758,12 +2862,12 @@
               "buffId": "passive_combat_qi_yellow_fire_buff",
               "name": "朱雀焚炎",
               "shortMark": "火",
-              "desc": "朱雀烈火环身。法攻+12%、暴伤+12%、火系增伤+12%、火系减伤+6%；物防-4%、抗暴-4%。",
+              "desc": "朱雀烈火环身。法攻+12%、暴伤+12%、火系增伤+12%、火系减伤+6%；物防-6%、抗暴-6%。",
               "stats": {
                 "spellAtk": 12,
                 "critDamage": 12,
-                "physDef": -4,
-                "antiCrit": -4,
+                "physDef": -6,
+                "antiCrit": -6,
                 "elementDamageBonus": {
                   "fire": 12
                 },
@@ -17860,7 +17964,7 @@
     {
       "buffId": "passive_combat_core_earth_metal_buff",
       "name": "白商",
-      "desc": "孟秋之月，天地始肃。物理攻击+28%、暴击+28%、金系增伤+28%、金系减伤+14%；法术防御-8%、最大灵力-8%。",
+      "desc": "孟秋之月，天地始肃。物理攻击+28%、暴击+28%、金系增伤+28%、金系减伤+14%；法术防御-14%、最大灵力-14%。",
       "shortMark": "商",
       "category": "buff",
       "visibility": "public",
@@ -17874,8 +17978,8 @@
       "stats": {
         "physAtk": 28,
         "crit": 28,
-        "spellDef": -8,
-        "maxQi": -8,
+        "spellDef": -14,
+        "maxQi": -14,
         "elementDamageBonus": {
           "metal": 28
         },
@@ -18030,7 +18134,7 @@
     {
       "buffId": "passive_combat_qi_yellow_water_buff",
       "name": "沧浪叠韵",
-      "desc": "沧浪重波护身。法防+12%、抗暴+12%、水系增伤+12%、水系减伤+6%；暴击-4%、物攻-4%。",
+      "desc": "沧浪重波护身。法防+12%、抗暴+12%、水系增伤+12%、水系减伤+6%、仇恨获取+24%；暴击-6%、物攻-6%。",
       "shortMark": "水",
       "category": "buff",
       "visibility": "public",
@@ -18044,8 +18148,8 @@
       "stats": {
         "spellDef": 12,
         "antiCrit": 12,
-        "crit": -4,
-        "physAtk": -4,
+        "crit": -6,
+        "physAtk": -6,
         "elementDamageBonus": {
           "water": 12
         },
@@ -18054,6 +18158,26 @@
         }
       },
       "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_combat_qi_yellow_water_aggro_buff",
+      "name": "沧浪叠韵·引仇",
+      "desc": "守势引导敌意，仇恨获取+24%。",
+      "shortMark": "仇",
+      "category": "buff",
+      "visibility": "hidden",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_qi_yellow_water",
+      "sourceSkillName": "沧浪叠韵",
+      "realmLv": 1,
+      "stats": {
+        "extraAggroRate": 24
+      },
+      "statMode": "flat",
       "infiniteDuration": true
     },
     {
@@ -18223,7 +18347,7 @@
     {
       "buffId": "passive_combat_core_earth_wood_buff",
       "name": "大椿荣枯",
-      "desc": "大椿长青，岁荣不绝。气血恢复+28%、闪避+28%、木系增伤+28%、木系减伤+14%；破劲-8%、物理攻击-8%。",
+      "desc": "大椿长青，岁荣不绝。气血恢复+28%、闪避+28%、木系增伤+28%、木系减伤+14%；破劲-14%、物理攻击-14%。",
       "shortMark": "椿",
       "category": "buff",
       "visibility": "public",
@@ -18237,8 +18361,8 @@
       "stats": {
         "hpRegenRate": 28,
         "dodge": 28,
-        "breakPower": -8,
-        "physAtk": -8,
+        "breakPower": -14,
+        "physAtk": -14,
         "elementDamageBonus": {
           "wood": 28
         },
@@ -18436,7 +18560,7 @@
     {
       "buffId": "passive_combat_foundation_mystic_metal_buff",
       "name": "庚金凝罡",
-      "desc": "庚金煞气化为护体锋罡。物攻+16%、暴击+16%、金系增伤+16%、金系减伤+8%；法防-5%、最大灵力-5%。",
+      "desc": "庚金煞气化为护体锋罡。物攻+16%、暴击+16%、金系增伤+16%、金系减伤+8%；法防-8%、最大灵力-8%。",
       "shortMark": "金",
       "category": "buff",
       "visibility": "public",
@@ -18450,8 +18574,8 @@
       "stats": {
         "physAtk": 16,
         "crit": 16,
-        "spellDef": -5,
-        "maxQi": -5,
+        "spellDef": -8,
+        "maxQi": -8,
         "elementDamageBonus": {
           "metal": 16
         },
@@ -18465,7 +18589,7 @@
     {
       "buffId": "passive_combat_qi_yellow_metal_buff",
       "name": "庚金煞灵",
-      "desc": "庚金煞气流转。物攻+12%、暴击+12%、金系增伤+12%、金系减伤+6%；法防-4%、最大灵力-4%。",
+      "desc": "庚金煞气流转。物攻+12%、暴击+12%、金系增伤+12%、金系减伤+6%；法防-6%、最大灵力-6%。",
       "shortMark": "金",
       "category": "buff",
       "visibility": "public",
@@ -18479,8 +18603,8 @@
       "stats": {
         "physAtk": 12,
         "crit": 12,
-        "spellDef": -4,
-        "maxQi": -4,
+        "spellDef": -6,
+        "maxQi": -6,
         "elementDamageBonus": {
           "metal": 12
         },
@@ -18516,7 +18640,7 @@
     {
       "buffId": "passive_combat_core_earth_earth_buff",
       "name": "含弘镇岳",
-      "desc": "坤元敦厚，镇岳不拔。物理防御+28%、化劲+28%、土系增伤+28%、土系减伤+14%；移速-8%、法术攻击-8%。",
+      "desc": "坤元敦厚，镇岳不拔。物理防御+28%、化劲+28%、土系增伤+28%、土系减伤+14%、仇恨获取+56%；移速-14%、法术攻击-14%。",
       "shortMark": "弘",
       "category": "buff",
       "visibility": "public",
@@ -18530,8 +18654,8 @@
       "stats": {
         "physDef": 28,
         "resolvePower": 28,
-        "moveSpeed": -8,
-        "spellAtk": -8,
+        "moveSpeed": -14,
+        "spellAtk": -14,
         "elementDamageBonus": {
           "earth": 28
         },
@@ -18540,6 +18664,26 @@
         }
       },
       "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_combat_core_earth_earth_aggro_buff",
+      "name": "含弘镇岳·引仇",
+      "desc": "守势引导敌意，仇恨获取+56%。",
+      "shortMark": "仇",
+      "category": "buff",
+      "visibility": "hidden",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_core_earth_earth",
+      "sourceSkillName": "含弘镇岳",
+      "realmLv": 1,
+      "stats": {
+        "extraAggroRate": 56
+      },
+      "statMode": "flat",
       "infiniteDuration": true
     },
     {
@@ -18600,7 +18744,7 @@
     {
       "buffId": "passive_combat_foundation_mystic_earth_buff",
       "name": "厚土镇基",
-      "desc": "厚土精粹化铠护身。物防+16%、化劲+16%、土系增伤+16%、土系减伤+8%；移速-5%、法攻-5%。",
+      "desc": "厚土精粹化铠护身。物防+16%、化劲+16%、土系增伤+16%、土系减伤+8%、仇恨获取+32%；移速-8%、法攻-8%。",
       "shortMark": "土",
       "category": "buff",
       "visibility": "public",
@@ -18614,8 +18758,8 @@
       "stats": {
         "physDef": 16,
         "resolvePower": 16,
-        "moveSpeed": -5,
-        "spellAtk": -5,
+        "moveSpeed": -8,
+        "spellAtk": -8,
         "elementDamageBonus": {
           "earth": 16
         },
@@ -18624,6 +18768,26 @@
         }
       },
       "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_combat_foundation_mystic_earth_aggro_buff",
+      "name": "厚土镇基·引仇",
+      "desc": "守势引导敌意，仇恨获取+32%。",
+      "shortMark": "仇",
+      "category": "buff",
+      "visibility": "hidden",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_foundation_mystic_earth",
+      "sourceSkillName": "厚土镇基",
+      "realmLv": 1,
+      "stats": {
+        "extraAggroRate": 32
+      },
+      "statMode": "flat",
       "infiniteDuration": true
     },
     {
@@ -18986,7 +19150,7 @@
     {
       "buffId": "passive_combat_foundation_mystic_fire_buff",
       "name": "离火淬元",
-      "desc": "纯阳离火淬炼法力。法攻+16%、暴伤+16%、火系增伤+16%、火系减伤+8%；物防-5%、抗暴-5%。",
+      "desc": "纯阳离火淬炼法力。法攻+16%、暴伤+16%、火系增伤+16%、火系减伤+8%；物防-8%、抗暴-8%。",
       "shortMark": "火",
       "category": "buff",
       "visibility": "public",
@@ -19000,8 +19164,8 @@
       "stats": {
         "spellAtk": 16,
         "critDamage": 16,
-        "physDef": -5,
-        "antiCrit": -5,
+        "physDef": -8,
+        "antiCrit": -8,
         "elementDamageBonus": {
           "fire": 16
         },
@@ -19079,7 +19243,7 @@
     {
       "buffId": "passive_combat_qi_yellow_spell_buff",
       "name": "灵犀澈照",
-      "desc": "灵台神光澈照。法攻+12%、法防+7.2%、命中+9.6%、化劲+6%；物防-3.2%、气血-2%。",
+      "desc": "灵台神光澈照。法攻+12%、法防+7.2%、命中+9.6%、化劲+6%；物防-4.8%、气血-3%。",
       "shortMark": "术",
       "category": "buff",
       "visibility": "public",
@@ -19095,8 +19259,8 @@
         "spellDef": 7.2,
         "hit": 9.6,
         "resolvePower": 6,
-        "physDef": -3.2,
-        "maxHp": -2
+        "physDef": -4.8,
+        "maxHp": -3
       },
       "statMode": "percent",
       "infiniteDuration": true
@@ -19136,7 +19300,7 @@
     {
       "buffId": "passive_combat_qi_yellow_physical_buff",
       "name": "龙象摧岳",
-      "desc": "龙象巨力充盈周身。物攻+12%、物防+7.2%、破劲+9.6%、暴击+6%；法攻-4%、最大灵力-2%。",
+      "desc": "龙象巨力充盈周身。物攻+12%、物防+7.2%、破劲+9.6%、暴击+6%；法攻-6%、最大灵力-3%。",
       "shortMark": "武",
       "category": "buff",
       "visibility": "public",
@@ -19152,8 +19316,8 @@
         "physDef": 7.2,
         "breakPower": 9.6,
         "crit": 6,
-        "spellAtk": -4,
-        "maxQi": -2
+        "spellAtk": -6,
+        "maxQi": -3
       },
       "statMode": "percent",
       "infiniteDuration": true
@@ -19161,7 +19325,7 @@
     {
       "buffId": "passive_combat_foundation_mystic_spell_buff",
       "name": "明心拓神",
-      "desc": "识海广阔神念通达。法攻+16%、法防+9.6%、命中+12.8%、化劲+8%；物防-4%、气血-2.5%。",
+      "desc": "识海广阔神念通达。法攻+16%、法防+9.6%、命中+12.8%、化劲+8%；物防-6.4%、气血-4%。",
       "shortMark": "术",
       "category": "buff",
       "visibility": "public",
@@ -19177,8 +19341,8 @@
         "spellDef": 9.6,
         "hit": 12.8,
         "resolvePower": 8,
-        "physDef": -4,
-        "maxHp": -2.5
+        "physDef": -6.4,
+        "maxHp": -4
       },
       "statMode": "percent",
       "infiniteDuration": true
@@ -19186,7 +19350,7 @@
     {
       "buffId": "passive_combat_mortal_mortal_physical_buff",
       "name": "磨筋铸骨",
-      "desc": "筋骨精健强悍。物攻+8%、物防+4.8%、破劲+6.4%、暴击+4%；法攻-3%、最大灵力-1.5%。",
+      "desc": "筋骨精健强悍。物攻+8%、物防+4.8%、破劲+6.4%、暴击+4%；法攻-4%、最大灵力-2%。",
       "shortMark": "武",
       "category": "buff",
       "visibility": "public",
@@ -19202,8 +19366,8 @@
         "physDef": 4.8,
         "breakPower": 6.4,
         "crit": 4,
-        "spellAtk": -3,
-        "maxQi": -1.5
+        "spellAtk": -4,
+        "maxQi": -2
       },
       "statMode": "percent",
       "infiniteDuration": true
@@ -19211,7 +19375,7 @@
     {
       "buffId": "passive_combat_mortal_mortal_earth_buff",
       "name": "盘根立地",
-      "desc": "沉稳如石立地。物防+8%、化劲+8%、土系增伤+8%、土系减伤+4%；移速-3%、法攻-3%。",
+      "desc": "沉稳如石立地。物防+8%、化劲+8%、土系增伤+8%、土系减伤+4%、仇恨获取+16%；移速-4%、法攻-4%。",
       "shortMark": "土",
       "category": "buff",
       "visibility": "public",
@@ -19225,8 +19389,8 @@
       "stats": {
         "physDef": 8,
         "resolvePower": 8,
-        "moveSpeed": -3,
-        "spellAtk": -3,
+        "moveSpeed": -4,
+        "spellAtk": -4,
         "elementDamageBonus": {
           "earth": 8
         },
@@ -19235,6 +19399,26 @@
         }
       },
       "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_combat_mortal_mortal_earth_aggro_buff",
+      "name": "盘根立地·引仇",
+      "desc": "守势引导敌意，仇恨获取+16%。",
+      "shortMark": "仇",
+      "category": "buff",
+      "visibility": "hidden",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_mortal_mortal_earth",
+      "sourceSkillName": "盘根立地",
+      "realmLv": 1,
+      "stats": {
+        "extraAggroRate": 16
+      },
+      "statMode": "flat",
       "infiniteDuration": true
     },
     {
@@ -19368,7 +19552,7 @@
     {
       "buffId": "passive_combat_core_earth_physical_buff",
       "name": "千钧拔山",
-      "desc": "霸王拔山，气血如龙。物攻+28%、物防+16.8%、破劲+22.4%、暴击+14%；法攻-8%、最大灵力-4%。",
+      "desc": "霸王拔山，气血如龙。物攻+28%、物防+16.8%、破劲+22.4%、暴击+14%；法攻-14%、最大灵力-7%。",
       "shortMark": "拔",
       "category": "buff",
       "visibility": "public",
@@ -19384,8 +19568,8 @@
         "physDef": 16.8,
         "breakPower": 22.4,
         "crit": 14,
-        "spellAtk": -8,
-        "maxQi": -4
+        "spellAtk": -14,
+        "maxQi": -7
       },
       "statMode": "percent",
       "infiniteDuration": true
@@ -19393,7 +19577,7 @@
     {
       "buffId": "passive_combat_core_earth_water_buff",
       "name": "潜渊玄冥",
-      "desc": "潜龙九渊，溟海纳川。法术防御+28%、抗暴+28%、水系增伤+28%、水系减伤+14%；暴击-8%、物理攻击-8%。",
+      "desc": "潜龙九渊，溟海纳川。法术防御+28%、抗暴+28%、水系增伤+28%、水系减伤+14%、仇恨获取+56%；暴击-14%、物理攻击-14%。",
       "shortMark": "冥",
       "category": "buff",
       "visibility": "public",
@@ -19407,8 +19591,8 @@
       "stats": {
         "spellDef": 28,
         "antiCrit": 28,
-        "crit": -8,
-        "physAtk": -8,
+        "crit": -14,
+        "physAtk": -14,
         "elementDamageBonus": {
           "water": 28
         },
@@ -19417,6 +19601,26 @@
         }
       },
       "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_combat_core_earth_water_aggro_buff",
+      "name": "潜渊玄冥·引仇",
+      "desc": "守势引导敌意，仇恨获取+56%。",
+      "shortMark": "仇",
+      "category": "buff",
+      "visibility": "hidden",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_core_earth_water",
+      "sourceSkillName": "潜渊玄冥",
+      "realmLv": 1,
+      "stats": {
+        "extraAggroRate": 56
+      },
+      "statMode": "flat",
       "infiniteDuration": true
     },
     {
@@ -19454,7 +19658,7 @@
     {
       "buffId": "passive_combat_mortal_mortal_fire_buff",
       "name": "燃薪淬息",
-      "desc": "烈焰热息流转。法攻+8%、暴伤+8%、火系增伤+8%、火系减伤+4%；物防-3%、抗暴-3%。",
+      "desc": "烈焰热息流转。法攻+8%、暴伤+8%、火系增伤+8%、火系减伤+4%；物防-4%、抗暴-4%。",
       "shortMark": "火",
       "category": "buff",
       "visibility": "public",
@@ -19468,8 +19672,8 @@
       "stats": {
         "spellAtk": 8,
         "critDamage": 8,
-        "physDef": -3,
-        "antiCrit": -3,
+        "physDef": -4,
+        "antiCrit": -4,
         "elementDamageBonus": {
           "fire": 8
         },
@@ -19555,7 +19759,7 @@
     {
       "buffId": "passive_combat_foundation_mystic_physical_buff",
       "name": "煞血铁骨",
-      "desc": "煞血铸就金刚体魄。物攻+16%、物防+9.6%、破劲+12.8%、暴击+8%；法攻-5%、最大灵力-2.5%。",
+      "desc": "煞血铸就金刚体魄。物攻+16%、物防+9.6%、破劲+12.8%、暴击+8%；法攻-8%、最大灵力-4%。",
       "shortMark": "武",
       "category": "buff",
       "visibility": "public",
@@ -19571,8 +19775,8 @@
         "physDef": 9.6,
         "breakPower": 12.8,
         "crit": 8,
-        "spellAtk": -5,
-        "maxQi": -2.5
+        "spellAtk": -8,
+        "maxQi": -4
       },
       "statMode": "percent",
       "infiniteDuration": true
@@ -19613,7 +19817,7 @@
     {
       "buffId": "passive_combat_mortal_mortal_spell_buff",
       "name": "识微明眸",
-      "desc": "术心专注明澈。法攻+8%、法防+4.8%、命中+6.4%、化劲+4%；物防-2.4%、气血-1.5%。",
+      "desc": "术心专注明澈。法攻+8%、法防+4.8%、命中+6.4%、化劲+4%；物防-3.2%、气血-2%。",
       "shortMark": "术",
       "category": "buff",
       "visibility": "public",
@@ -19629,8 +19833,8 @@
         "spellDef": 4.8,
         "hit": 6.4,
         "resolvePower": 4,
-        "physDef": -2.4,
-        "maxHp": -1.5
+        "physDef": -3.2,
+        "maxHp": -2
       },
       "statMode": "percent",
       "infiniteDuration": true
@@ -19782,7 +19986,7 @@
     {
       "buffId": "passive_combat_mortal_mortal_water_buff",
       "name": "溯流引泉",
-      "desc": "静水微澜护持。法防+8%、抗暴+8%、水系增伤+8%、水系减伤+4%；暴击-3%、物攻-3%。",
+      "desc": "静水微澜护持。法防+8%、抗暴+8%、水系增伤+8%、水系减伤+4%、仇恨获取+16%；暴击-4%、物攻-4%。",
       "shortMark": "水",
       "category": "buff",
       "visibility": "public",
@@ -19796,8 +20000,8 @@
       "stats": {
         "spellDef": 8,
         "antiCrit": 8,
-        "crit": -3,
-        "physAtk": -3,
+        "crit": -4,
+        "physAtk": -4,
         "elementDamageBonus": {
           "water": 8
         },
@@ -19806,6 +20010,26 @@
         }
       },
       "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_combat_mortal_mortal_water_aggro_buff",
+      "name": "溯流引泉·引仇",
+      "desc": "守势引导敌意，仇恨获取+16%。",
+      "shortMark": "仇",
+      "category": "buff",
+      "visibility": "hidden",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_mortal_mortal_water",
+      "sourceSkillName": "溯流引泉",
+      "realmLv": 1,
+      "stats": {
+        "extraAggroRate": 16
+      },
+      "statMode": "flat",
       "infiniteDuration": true
     },
     {
@@ -19985,7 +20209,7 @@
     {
       "buffId": "passive_combat_mortal_mortal_wood_buff",
       "name": "问木折青",
-      "desc": "草木生机流转。回血+8%、闪避+8%、木系增伤+8%、木系减伤+4%；破劲-3%、物攻-3%。",
+      "desc": "草木生机流转。回血+8%、闪避+8%、木系增伤+8%、木系减伤+4%；破劲-4%、物攻-4%。",
       "shortMark": "木",
       "category": "buff",
       "visibility": "public",
@@ -19999,8 +20223,8 @@
       "stats": {
         "hpRegenRate": 8,
         "dodge": 8,
-        "breakPower": -3,
-        "physAtk": -3,
+        "breakPower": -4,
+        "physAtk": -4,
         "elementDamageBonus": {
           "wood": 8
         },
@@ -20178,7 +20402,7 @@
     {
       "buffId": "passive_combat_core_earth_spell_buff",
       "name": "虚室生白",
-      "desc": "虚室生白，神光澈照。法攻+28%、法防+16.8%、命中+22.4%、化劲+14%；物防-7%、最大生命-4%。",
+      "desc": "虚室生白，神光澈照。法攻+28%、法防+16.8%、命中+22.4%、化劲+14%；物防-11.2%、最大生命-7%。",
       "shortMark": "白",
       "category": "buff",
       "visibility": "public",
@@ -20194,8 +20418,8 @@
         "spellDef": 16.8,
         "hit": 22.4,
         "resolvePower": 14,
-        "physDef": -7,
-        "maxHp": -4
+        "physDef": -11.2,
+        "maxHp": -7
       },
       "statMode": "percent",
       "infiniteDuration": true
@@ -20223,7 +20447,7 @@
     {
       "buffId": "passive_combat_foundation_mystic_water_buff",
       "name": "玄潮凝波",
-      "desc": "玄潮真水凝波护体。法防+16%、抗暴+16%、水系增伤+16%、水系减伤+8%；暴击-5%、物攻-5%。",
+      "desc": "玄潮真水凝波护体。法防+16%、抗暴+16%、水系增伤+16%、水系减伤+8%、仇恨获取+32%；暴击-8%、物攻-8%。",
       "shortMark": "水",
       "category": "buff",
       "visibility": "public",
@@ -20237,8 +20461,8 @@
       "stats": {
         "spellDef": 16,
         "antiCrit": 16,
-        "crit": -5,
-        "physAtk": -5,
+        "crit": -8,
+        "physAtk": -8,
         "elementDamageBonus": {
           "water": 16
         },
@@ -20250,9 +20474,29 @@
       "infiniteDuration": true
     },
     {
+      "buffId": "passive_combat_foundation_mystic_water_aggro_buff",
+      "name": "玄潮凝波·引仇",
+      "desc": "守势引导敌意，仇恨获取+32%。",
+      "shortMark": "仇",
+      "category": "buff",
+      "visibility": "hidden",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_foundation_mystic_water",
+      "sourceSkillName": "玄潮凝波",
+      "realmLv": 1,
+      "stats": {
+        "extraAggroRate": 32
+      },
+      "statMode": "flat",
+      "infiniteDuration": true
+    },
+    {
       "buffId": "passive_combat_qi_yellow_earth_buff",
       "name": "玄黄镇岳",
-      "desc": "玄黄地气覆体。物防+12%、化劲+12%、土系增伤+12%、土系减伤+6%；移速-4%、法攻-4%。",
+      "desc": "玄黄地气覆体。物防+12%、化劲+12%、土系增伤+12%、土系减伤+6%、仇恨获取+24%；移速-6%、法攻-6%。",
       "shortMark": "土",
       "category": "buff",
       "visibility": "public",
@@ -20266,8 +20510,8 @@
       "stats": {
         "physDef": 12,
         "resolvePower": 12,
-        "moveSpeed": -4,
-        "spellAtk": -4,
+        "moveSpeed": -6,
+        "spellAtk": -6,
         "elementDamageBonus": {
           "earth": 12
         },
@@ -20276,6 +20520,26 @@
         }
       },
       "statMode": "percent",
+      "infiniteDuration": true
+    },
+    {
+      "buffId": "passive_combat_qi_yellow_earth_aggro_buff",
+      "name": "玄黄镇岳·引仇",
+      "desc": "守势引导敌意，仇恨获取+24%。",
+      "shortMark": "仇",
+      "category": "buff",
+      "visibility": "hidden",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill_passive_combat_qi_yellow_earth",
+      "sourceSkillName": "玄黄镇岳",
+      "realmLv": 1,
+      "stats": {
+        "extraAggroRate": 24
+      },
+      "statMode": "flat",
       "infiniteDuration": true
     },
     {
@@ -20378,7 +20642,7 @@
     {
       "buffId": "passive_combat_qi_yellow_wood_buff",
       "name": "乙木岁荣",
-      "desc": "乙木灵机护脉。回血+12%、闪避+12%、木系增伤+12%、木系减伤+6%；破劲-4%、物攻-4%。",
+      "desc": "乙木灵机护脉。回血+12%、闪避+12%、木系增伤+12%、木系减伤+6%；破劲-6%、物攻-6%。",
       "shortMark": "木",
       "category": "buff",
       "visibility": "public",
@@ -20392,8 +20656,8 @@
       "stats": {
         "hpRegenRate": 12,
         "dodge": 12,
-        "breakPower": -4,
-        "physAtk": -4,
+        "breakPower": -6,
+        "physAtk": -6,
         "elementDamageBonus": {
           "wood": 12
         },
@@ -20496,7 +20760,7 @@
     {
       "buffId": "passive_combat_foundation_mystic_wood_buff",
       "name": "长春固脉",
-      "desc": "长春生机滋养经脉。回血+16%、闪避+16%、木系增伤+16%、木系减伤+8%；破劲-5%、物攻-5%。",
+      "desc": "长春生机滋养经脉。回血+16%、闪避+16%、木系增伤+16%、木系减伤+8%；破劲-8%、物攻-8%。",
       "shortMark": "木",
       "category": "buff",
       "visibility": "public",
@@ -20510,8 +20774,8 @@
       "stats": {
         "hpRegenRate": 16,
         "dodge": 16,
-        "breakPower": -5,
-        "physAtk": -5,
+        "breakPower": -8,
+        "physAtk": -8,
         "elementDamageBonus": {
           "wood": 16
         },
@@ -20525,7 +20789,7 @@
     {
       "buffId": "passive_combat_mortal_mortal_metal_buff",
       "name": "折铁断锋",
-      "desc": "凡铁金气护体。物攻+8%、暴击+8%、金系增伤+8%、金系减伤+4%；法防-3%、最大灵力-3%。",
+      "desc": "凡铁金气护体。物攻+8%、暴击+8%、金系增伤+8%、金系减伤+4%；法防-4%、最大灵力-4%。",
       "shortMark": "金",
       "category": "buff",
       "visibility": "public",
@@ -20539,8 +20803,8 @@
       "stats": {
         "physAtk": 8,
         "crit": 8,
-        "spellDef": -3,
-        "maxQi": -3,
+        "spellDef": -4,
+        "maxQi": -4,
         "elementDamageBonus": {
           "metal": 8
         },
@@ -20623,7 +20887,7 @@
     {
       "buffId": "passive_combat_core_earth_fire_buff",
       "name": "朱明赫曦",
-      "desc": "朱明曜灵，烈焰焚虚。法术攻击+28%、暴伤+28%、火系增伤+28%、火系减伤+14%；物理防御-8%、抗暴-8%。",
+      "desc": "朱明曜灵，烈焰焚虚。法术攻击+28%、暴伤+28%、火系增伤+28%、火系减伤+14%；物理防御-14%、抗暴-14%。",
       "shortMark": "明",
       "category": "buff",
       "visibility": "public",
@@ -20637,8 +20901,8 @@
       "stats": {
         "spellAtk": 28,
         "critDamage": 28,
-        "physDef": -8,
-        "antiCrit": -8,
+        "physDef": -14,
+        "antiCrit": -14,
         "elementDamageBonus": {
           "fire": 28
         },
@@ -20652,7 +20916,7 @@
     {
       "buffId": "passive_combat_qi_yellow_fire_buff",
       "name": "朱雀焚炎",
-      "desc": "朱雀烈火环身。法攻+12%、暴伤+12%、火系增伤+12%、火系减伤+6%；物防-4%、抗暴-4%。",
+      "desc": "朱雀烈火环身。法攻+12%、暴伤+12%、火系增伤+12%、火系减伤+6%；物防-6%、抗暴-6%。",
       "shortMark": "火",
       "category": "buff",
       "visibility": "public",
@@ -20666,8 +20930,8 @@
       "stats": {
         "spellAtk": 12,
         "critDamage": 12,
-        "physDef": -4,
-        "antiCrit": -4,
+        "physDef": -6,
+        "antiCrit": -6,
         "elementDamageBonus": {
           "fire": 12
         },

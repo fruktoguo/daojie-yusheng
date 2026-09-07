@@ -63,6 +63,9 @@ function formatSignedStatValue(key: string, value: number): string {
  if (key === 'critDamage') {
   return `${sign}${formatDisplayPercent(absValue / 10)}`;
  }
+ if (key === 'extraAggroRate') {
+  return `${sign}${formatDisplayPercent(absValue)}`;
+ }
  if (PERCENT_STAT_KEYS.has(key)) {
   return `${sign}${formatDisplayPercent(absValue / 100)}`;
  }

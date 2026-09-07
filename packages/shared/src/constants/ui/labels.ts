@@ -152,7 +152,7 @@ export const NUMERIC_SCALAR_STAT_LABELS: Record<NumericScalarStatKey, string> = 
   rareLootRate: '稀有掉落',
   viewRange: '视野',
   moveSpeed: '移动速度',
-  extraAggroRate: '额外仇恨值',
+  extraAggroRate: '仇恨获取',
   extraRange: '额外射程格数',
   extraArea: '额外范围格数',
   actionsPerTurn: '每回合行动次数',

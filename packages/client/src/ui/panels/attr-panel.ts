@@ -256,6 +256,9 @@ function formatNumericTooltipValue(key: NumericCardKey, value: number): string {
   if (key === 'critDamage') {
     return formatCritDamageBonus(value);
   }
+  if (key === 'extraAggroRate') {
+    return formatDisplayPercent(value);
+  }
   if (RATE_BP_KEYS.has(key)) {
     return formatRateBp(value);
   }
@@ -427,6 +430,9 @@ function formatBreakdownValue(key: NumericCardKey, value: number): string {
   if (key === 'critDamage') {
     return formatDisplayPercent(value / 10);
   }
+  if (key === 'extraAggroRate') {
+    return formatDisplayPercent(value);
+  }
   if (RATE_BP_KEYS.has(key)) {
     return formatDisplayPercent(value / 100);
   }
@@ -442,6 +448,9 @@ function formatSignedBreakdownValue(key: NumericCardKey, value: number): string 
   const absValue = Math.abs(value);
   if (key === 'critDamage') {
     return `${sign}${formatDisplayPercent(absValue / 10)}`;
+  }
+  if (key === 'extraAggroRate') {
+    return `${sign}${formatDisplayPercent(absValue)}`;
   }
   if (RATE_BP_KEYS.has(key)) {
     return `${sign}${formatDisplayPercent(absValue / 100)}`;
@@ -572,7 +581,7 @@ function buildNumericTooltip(
   if (breakdownLines.length > 0) {
     lines.push(...breakdownLines);
   } else {
-    lines.push(`当前数值：${key === 'critDamage' ? formatCritDamageDisplay(numericValue) : key === 'moveSpeed' ? formatMoveSpeedDisplay(numericValue) : RATE_BP_KEYS.has(key) ? formatRateBp(numericValue) : formatDisplayInteger(numericValue)}`);
+    lines.push(`当前数值：${key === 'critDamage' ? formatCritDamageDisplay(numericValue) : key === 'moveSpeed' ? formatMoveSpeedDisplay(numericValue) : key === 'extraAggroRate' ? formatDisplayPercent(numericValue) : RATE_BP_KEYS.has(key) ? formatRateBp(numericValue) : formatDisplayInteger(numericValue)}`);
   }
   lines.push(...buildCombatFormulaLines(key));
   if (key === 'moveSpeed') {
@@ -1655,6 +1664,9 @@ export class AttrPanel {
         } else if (RATE_BP_KEYS.has(key) && key !== 'critDamage') {
           actualLine = `实际：${formatRateBp(numericValue)}`;
           sub = actualLine;
+        } else if (key === 'extraAggroRate') {
+          actualLine = `效果：${formatDisplayPercent(numericValue)}`;
+          sub = actualLine;
         } else if (key === 'moveSpeed') {
           actualLine = `效果：${formatMoveSpeedEffect(numericValue)}`;
         }
@@ -1662,9 +1674,11 @@ export class AttrPanel {
           ? formatCritDamageDisplay(numericValue)
           : key === 'moveSpeed'
             ? formatMoveSpeedDisplay(numericValue)
-            : RATE_BP_KEYS.has(key)
-              ? formatRateBp(numericValue)
-              : formatDisplayInteger(numericValue);
+            : key === 'extraAggroRate'
+              ? formatDisplayPercent(numericValue)
+              : RATE_BP_KEYS.has(key)
+                ? formatRateBp(numericValue)
+                : formatDisplayInteger(numericValue);
         return {
           key,
           label,
@@ -1702,11 +1716,12 @@ export class AttrPanel {
     const specialCards = this.buildSpecialStatCards(['foundation', 'combatExp'], specialStats);
 
     const numericPane = this.buildNumericPaneSnapshot('特殊属性', stats, ratios, {
-      keys: ['viewRange', 'moveSpeed', 'playerExpRate', 'techniqueExpRate', 'realmExpPerTick', 'techniqueExpPerTick', 'lootRate', 'rareLootRate'],
+      keys: ['viewRange', 'moveSpeed', 'extraAggroRate', 'playerExpRate', 'techniqueExpRate', 'realmExpPerTick', 'techniqueExpPerTick', 'lootRate', 'rareLootRate'],
       ratioKeys: [],
       legends: {
         viewRange: '视野范围',
         moveSpeed: '移动速度',
+        extraAggroRate: '仇恨获取',
         playerExpRate: '境界修为',
         techniqueExpRate: '功法经验',
         realmExpPerTick: '每息境界修为',

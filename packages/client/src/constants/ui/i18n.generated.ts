@@ -2362,6 +2362,8 @@ export const CLIENT_I18N_MESSAGES = {
   "attr.numeric.crit.label": "暴击",
   "attr.numeric.dodge.desc": "提高闪避攻击的概率。",
   "attr.numeric.dodge.label": "闪避",
+  "attr.numeric.extra-aggro-rate.desc": "按百分比调整战斗行为产生的仇恨增量；正值更容易成为妖兽目标，负值则相反。",
+  "attr.numeric.extra-aggro-rate.label": "仇恨获取",
   "attr.numeric.hit.desc": "提高攻击命中目标的能力。",
   "attr.numeric.hit.label": "命中",
   "attr.numeric.hp-regen-rate.desc": "决定每息自动回复的生命值。",

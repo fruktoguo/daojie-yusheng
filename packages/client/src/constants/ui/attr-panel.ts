@@ -73,6 +73,7 @@ export const NUMERIC_TOOLTIP_LABELS: Partial<Record<NumericCardKey, string>> = {
   lootRate: attrText('attr.numeric.loot-rate.label'),
   rareLootRate: attrText('attr.numeric.rare-loot-rate.label'),
   moveSpeed: attrText('attr.numeric.move-speed.label'),
+  extraAggroRate: attrText('attr.numeric.extra-aggro-rate.label'),
   viewRange: attrText('attr.numeric.view-range.label'),
   actionsPerTurn: attrText('attr.numeric.actions-per-turn.label'),
 };
@@ -104,6 +105,7 @@ export const NUMERIC_TOOLTIP_DESCRIPTIONS: Partial<Record<NumericCardKey, string
   lootRate: attrText('attr.numeric.loot-rate.desc'),
   rareLootRate: attrText('attr.numeric.rare-loot-rate.desc'),
   moveSpeed: attrText('attr.numeric.move-speed.desc'),
+  extraAggroRate: attrText('attr.numeric.extra-aggro-rate.desc'),
   viewRange: attrText('attr.numeric.view-range.desc'),
   actionsPerTurn: attrText('attr.numeric.actions-per-turn.desc'),
 };
