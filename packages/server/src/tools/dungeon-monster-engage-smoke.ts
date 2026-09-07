@@ -297,10 +297,10 @@ async function runDungeonMonsterEngageSmoke(): Promise<void> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 场景 5：无开怪对白的普通副本怪也必须等待首次受击
+  // 场景 5：无开怪对白的普通副本怪贴近仍休眠，首次受击后立即战斗
   // ─────────────────────────────────────────────────────────────
   {
-    console.log('[Case 5] 验证无对白副本怪贴近休眠、受击后立即战斗...');
+    console.log('[Case 5] 验证无对白副本怪仅在首次受击后直接开战...');
     const normalWolfSpawn = createNormalMonsterSpawn(10, 7);
     const instance = new MapInstanceRuntime({
       instanceId: 'dungeon:smoke_case_5',
@@ -319,21 +319,24 @@ async function runDungeonMonsterEngageSmoke(): Promise<void> {
     });
 
     instance.tickOnce();
-    const wolf = instance.getMonster(normalWolfSpawn.runtimeId);
-    assert.ok(wolf);
-    assert.equal(wolf.engaged, false);
+    assert.equal(instance.getMonster(normalWolfSpawn.runtimeId)?.engaged, false, '普通副本怪初始必须休眠');
 
     instance.relocatePlayer(playerId, 9, 7);
     const proximityResult = instance.tickOnce();
-    assert.equal(instance.getMonster(normalWolfSpawn.runtimeId)?.engaged, false, '普通副本怪贴近后仍不得自动开怪');
-    assert.equal(proximityResult.monsterActions.length, 0, '普通副本怪受击前不得行动');
+    assert.equal(instance.getMonster(normalWolfSpawn.runtimeId)?.engaged, false, '进入近身范围仍不得自动开怪');
+    assert.equal(instance.getMonster(normalWolfSpawn.runtimeId)?.aggroTargetPlayerId, null, '首次受击前不得生成仇恨目标');
+    assert.equal(proximityResult.monsterActions.length, 0, '首次受击前不得产生怪物行动');
+    assert.equal(proximityResult.engagedMonsterEvents.length, 0, '首次受击前不得产生开怪事件');
 
-    instance.applyDamageToMonster(normalWolfSpawn.runtimeId, 100, playerId);
+    const damageResult = instance.applyDamageToMonster(normalWolfSpawn.runtimeId, 100, playerId);
+    assert.ok(damageResult && damageResult.appliedDamage > 0, '首次攻击必须成功命中普通副本怪');
+    assert.equal(instance.getMonster(normalWolfSpawn.runtimeId)?.engaged, true, '首次受击后必须立即开怪');
+    assert.equal(instance.getMonster(normalWolfSpawn.runtimeId)?.speechTicksLeft, 0, '无对白怪物不得进入对白禁攻阶段');
+
     const combatResult = instance.tickOnce();
-    assert.equal(instance.getMonster(normalWolfSpawn.runtimeId)?.engaged, true, '普通副本怪受到攻击后必须开怪');
-    assert.equal(instance.getMonster(normalWolfSpawn.runtimeId)?.speechTicksLeft, 0, '无对白怪物 speechTicksLeft 为 0');
-    assert.ok(combatResult.monsterActions.length > 0, '无对白怪物受击后无需等待，立即开始战斗');
-    console.log('✓ 场景 5 通过：无对白副本怪贴近休眠，首次受击后立即战斗');
+    assert.equal(combatResult.engagedMonsterEvents.length, 1, '首次受击必须产生一次开怪事件');
+    assert.ok(combatResult.monsterActions.length > 0, '无对白怪物受击后的首个 tick 必须直接行动');
+    console.log('✓ 场景 5 通过：贴近保持休眠，首次受击后无对白禁攻并直接战斗');
   }
 
   console.log('=== 受击开怪基础 5 个场景通过，继续验证全图真视与连线攻击 ===');
