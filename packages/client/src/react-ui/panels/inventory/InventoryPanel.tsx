@@ -8,6 +8,7 @@ import type { Inventory, ItemType } from '@mud/shared';
 import { createPanelStore } from '../../stores/create-panel-store';
 import { INVENTORY_FILTER_TABS, type InventoryFilter } from '../../../constants/ui/inventory';
 import { t } from '../../../ui/i18n';
+import { buildInventoryCellIdentity } from '../../../ui/panels/inventory-page-snapshot';
 
 export interface ReactInventoryItemView {
   slotIndex: number;
@@ -158,7 +159,14 @@ export const InventoryPanel = memo(function InventoryPanel() {
           onScroll={(event) => callbacks.onRequestLoadMore?.(event.currentTarget)}
         >
           {state.items.map((item) => (
-            <InventoryCell key={`${item.slotIndex}:${item.itemKey}`} item={item} />
+            <InventoryCell
+              key={buildInventoryCellIdentity({
+                itemInstanceId: item.itemInstanceId,
+                slotIndex: item.slotIndex,
+                itemId: item.itemId,
+              })}
+              item={item}
+            />
           ))}
         </div>
       )}

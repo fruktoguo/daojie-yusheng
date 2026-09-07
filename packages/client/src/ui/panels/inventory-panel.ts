@@ -83,6 +83,10 @@ import {
   normalizeInventoryRevision,
 } from './inventory-page-request-state';
 import {
+  buildInventoryCellIdentity,
+  patchInventoryPageSnapshotFromItems,
+} from './inventory-page-snapshot';
+import {
   InventoryBulkDiscardDialogController,
 } from './inventory-bulk-discard-dialog';
 import {
@@ -221,6 +225,7 @@ const INVENTORY_RENDER_BATCH_SIZE = 48;
 /** INVENTORY_LOAD_MORE_THRESHOLD_PX：背包LOAD MORE THRESHOLD PX。 */
 const INVENTORY_LOAD_MORE_THRESHOLD_PX = 240;
 const INVENTORY_SEARCH_DEBOUNCE_MS = 250;
+const INVENTORY_PAGE_REFRESH_DEBOUNCE_MS = 400;
 const INVENTORY_PAGE_REQUEST_TIMEOUT_MS = 10_000;
 /** INVENTORY_COOLDOWN_REFRESH_MS：背包冷却显示按服务端 1Hz tick 刷新。 */
 const INVENTORY_COOLDOWN_REFRESH_MS = 1000;
@@ -343,6 +348,8 @@ export class InventoryPanel {
   private inventoryPageOffset = 0;
   private inventorySearchQuery = '';
   private inventorySearchRequestTimer: number | null = null;
+  private inventoryPageRefreshTimer: number | null = null;
+  private inventoryPageRefreshQueued = false;
   private inventoryPageRequestTimeout: number | null = null;
   private readonly inventoryPageRequestState = new InventoryPageRequestState();
   /** pendingLoadMoreFrame：待处理Load More帧。 */
@@ -355,8 +362,8 @@ export class InventoryPanel {
   private inventoryCooldownStateCache = new Map<string, InventoryItemCooldownState>();
   /** shellRefs：shell Refs。 */
   private shellRefs: InventoryShellRefs | null = null;
-  /** cellBySlotIndex：背包格子索引，避免每次更新扫描 grid。 */
-  private cellBySlotIndex = new Map<number, HTMLElement>();
+  /** cellByIdentity：背包格子按实例 ID 复用，避免槽位压缩时整格重挂。 */
+  private cellByIdentity = new Map<string, HTMLElement>();
   /** itemIdentityCache：物品签名缓存，避免背包 patch 中重复 JSON 序列化。 */
   private itemIdentityCache = new WeakMap<ItemStack, string>();
   /** cellRefs：格子节点缓存，避免每次 patch 反复 querySelector。 */
@@ -434,7 +441,7 @@ export class InventoryPanel {
     this.inventoryCooldownBaseSyncedAtMs = performance.now();
     this.inventoryCooldownStateCache.clear();
     this.renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
-    this.pagedSnapshot = null;
+    this.discardPagedSnapshot();
     this.inventoryPageOffset = 0;
     this.inventorySearchQuery = '';
     this.inventoryPageRequestState.reset();
@@ -453,7 +460,7 @@ export class InventoryPanel {
     }
     this.tooltip.hide(true);
     this.shellRefs = null;
-    this.cellBySlotIndex.clear();
+    this.cellByIdentity.clear();
     this.pendingVisibleRefresh = false;
     this.pendingTechniqueTemplateIds.clear();
     if (this.useReactPanel()) {
@@ -508,7 +515,7 @@ export class InventoryPanel {
     this.syncInventoryCooldownTickBase(inventory);
     this.syncInventoryCooldownStateCache(inventory.cooldowns ?? []);
     this.lastInventory = inventory;
-    this.invalidatePagedSnapshotForInventory(inventory);
+    this.syncPagedSnapshotForInventory(inventory);
     this.ensureInventoryPageRequested();
     if (this.useReactPanel()) {
       this.pendingVisibleRefresh = !this.isPaneVisible();
@@ -550,8 +557,10 @@ export class InventoryPanel {
     this.clearInventoryPageRequestTimeout();
     if (decision === 'invalid-current') {
       this.patchInventoryPageRequestState();
+      this.scheduleCoalescedInventoryPageRefresh();
       return;
     }
+    this.clearCoalescedInventoryPageRefresh();
     const filter = this.normalizeInventoryPageFilter(page.filter);
     const search = this.normalizeInventorySearchQuery(page.search);
 
@@ -738,7 +747,7 @@ export class InventoryPanel {
     }
     this.activeFilter = filter;
     this.renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
-    this.pagedSnapshot = null;
+    this.discardPagedSnapshot();
     this.inventoryPageOffset = 0;
     this.resetInventoryPageRequest();
     this.ensureInventoryPageRequested(true);
@@ -945,7 +954,7 @@ export class InventoryPanel {
         }
         this.activeFilter = filter;
         this.renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
-        this.pagedSnapshot = null;
+        this.discardPagedSnapshot();
         this.inventoryPageOffset = 0;
         this.resetInventoryPageRequest();
         this.ensureInventoryPageRequested(true);
@@ -2040,7 +2049,7 @@ export class InventoryPanel {
       refs.empty.textContent = totalItemsForTitle === 0 ? t('inventory.empty.all', undefined) : t('inventory.empty.filter', undefined);
       refs.grid.hidden = true;
       refs.grid.replaceChildren();
-      this.cellBySlotIndex.clear();
+      this.cellByIdentity.clear();
       refs.loadHint.hidden = true;
       refs.loadHint.textContent = '';
       return true;
@@ -2057,13 +2066,14 @@ export class InventoryPanel {
       refs.loadHint.textContent = '';
     }
 
-    const usedSlotIndexes = new Set<number>();
+    const usedIdentities = new Set<string>();
     const orderedCells = renderedItems.map(({ item, slotIndex }) => {
-      usedSlotIndexes.add(slotIndex);
-      let cell = this.cellBySlotIndex.get(slotIndex);
+      const identity = this.getInventoryCellIdentity(item, slotIndex);
+      usedIdentities.add(identity);
+      let cell = this.cellByIdentity.get(identity);
       if (!cell) {
         cell = this.createInventoryCell(slotIndex);
-        this.cellBySlotIndex.set(slotIndex, cell);
+        this.cellByIdentity.set(identity, cell);
       }
       const cooldownState = cooldownStateMap.get(item.itemId) ?? null;
       if (!this.patchInventoryCell(cell, item, slotIndex, cooldownState)) {
@@ -2075,10 +2085,10 @@ export class InventoryPanel {
       return false;
     }
     this.syncGridChildren(refs.grid, orderedCells.filter((cell): cell is HTMLElement => cell !== null));
-    for (const [slotIndex, cell] of this.cellBySlotIndex) {
-      if (!usedSlotIndexes.has(slotIndex)) {
+    for (const [identity, cell] of this.cellByIdentity) {
+      if (!usedIdentities.has(identity)) {
         cell.remove();
-        this.cellBySlotIndex.delete(slotIndex);
+        this.cellByIdentity.delete(identity);
       }
     }
 
@@ -2607,7 +2617,7 @@ export class InventoryPanel {
     this.inventorySearchQuery = search;
     this.inventoryPageOffset = 0;
     this.renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
-    this.pagedSnapshot = null;
+    this.discardPagedSnapshot();
     this.resetInventoryPageRequest();
     if (this.inventorySearchRequestTimer !== null) {
       window.clearTimeout(this.inventorySearchRequestTimer);
@@ -2645,18 +2655,74 @@ export class InventoryPanel {
     return this.pagedSnapshot;
   }
 
-  private invalidatePagedSnapshotForInventory(inventory: Inventory): void {
+  private getInventoryCellIdentity(item: ItemStack, slotIndex: number): string {
+    return buildInventoryCellIdentity({
+      itemInstanceId: this.getInventoryItemInstanceId(item),
+      slotIndex,
+      itemId: item.itemId,
+    });
+  }
+
+  private discardPagedSnapshot(): void {
+    this.pagedSnapshot = null;
+    this.clearCoalescedInventoryPageRefresh();
+  }
+
+  private syncPagedSnapshotForInventory(inventory: Inventory): void {
     const revision = this.getInventoryRevision(inventory);
-    if (revision === null) {
+    const active = this.getActivePagedSnapshot();
+    if (!active || revision === null || active.revision === revision) {
       return;
     }
-    const pending = this.inventoryPageRequestState.getPending();
-    if (pending && pending.knownRevision !== null && pending.knownRevision !== revision) {
-      this.resetInventoryPageRequest();
+    const patched = patchInventoryPageSnapshotFromItems({
+      snapshot: active,
+      items: inventory.items,
+      capacity: inventory.capacity,
+      matches: (item) => matchesInventoryTypeFilter(item.type, this.activeFilter) && this.matchesInventorySearch(item),
+      getInstanceId: (item) => this.getInventoryItemInstanceId(item),
+      getItemId: (item) => item.itemId,
+    });
+    this.pagedSnapshot = {
+      ...patched.snapshot,
+      filter: this.activeFilter,
+    };
+    if (patched.needsImmediateRefresh) {
+      this.scheduleCoalescedInventoryPageRefresh(0);
+      return;
     }
-    if (this.pagedSnapshot && this.pagedSnapshot.revision !== revision) {
-      this.pagedSnapshot = null;
-      this.resetInventoryPageRequest();
+    this.scheduleCoalescedInventoryPageRefresh();
+  }
+
+  private scheduleCoalescedInventoryPageRefresh(delayMs = INVENTORY_PAGE_REFRESH_DEBOUNCE_MS): void {
+    this.inventoryPageRefreshQueued = true;
+    if (this.inventoryPageRefreshTimer !== null) {
+      window.clearTimeout(this.inventoryPageRefreshTimer);
+    }
+    this.inventoryPageRefreshTimer = window.setTimeout(() => {
+      this.flushCoalescedInventoryPageRefresh();
+    }, Math.max(0, delayMs));
+  }
+
+  private flushCoalescedInventoryPageRefresh(): void {
+    this.inventoryPageRefreshTimer = null;
+    if (!this.inventoryPageRefreshQueued) {
+      return;
+    }
+    if (this.inventoryPageRequestState.isPending()) {
+      this.inventoryPageRefreshTimer = window.setTimeout(() => {
+        this.flushCoalescedInventoryPageRefresh();
+      }, 100);
+      return;
+    }
+    this.inventoryPageRefreshQueued = false;
+    this.ensureInventoryPageRequested(true);
+  }
+
+  private clearCoalescedInventoryPageRefresh(): void {
+    this.inventoryPageRefreshQueued = false;
+    if (this.inventoryPageRefreshTimer !== null) {
+      window.clearTimeout(this.inventoryPageRefreshTimer);
+      this.inventoryPageRefreshTimer = null;
     }
   }
 
@@ -2667,7 +2733,7 @@ export class InventoryPanel {
     const activePage = this.pagedSnapshot?.filter === this.activeFilter && this.pagedSnapshot.search === this.inventorySearchQuery
       ? this.pagedSnapshot
       : null;
-    if (!force && (this.inventoryPageRequestState.isPending() || (activePage && activePage.items.length > 0))) {
+    if (!force && (this.inventoryPageRequestState.isPending() || activePage)) {
       return;
     }
     this.requestInventoryPage(this.inventoryPageOffset, INVENTORY_PAGE_SIZE);
