@@ -63,7 +63,17 @@ export class HuanlingZhenrenAiStrategy implements MonsterAiStrategy {
     const targetLocked = entityHasActiveBuff(targetBuffs, HUANLING_CANMAI_SUOBU_BUFF_ID);
     const targetPrimed = targetYinStacks + targetBurnStacks;
 
-    // 1. 血量跌破 25% 且尚未开启法相：优先释放【残丹法相虚影】变身
+    // 1. 75% 以上优先尝试断魂灵钉；残魄掌仅由最终兜底选择
+    if (hpRatio > 0.75) {
+      const p1Opening = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
+        HUANLING_DUANHUN_DING_SKILL_ID,
+      ]);
+      if (p1Opening) {
+        return p1Opening;
+      }
+    }
+
+    // 2. 血量跌破 25% 且尚未开启法相：优先释放【残丹法相虚影】变身
     if (!hasFaxiang && hpRatio <= 0.25) {
       const phaseAwaken = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
         HUANLING_FAXIANG_SKILL_ID,
@@ -73,7 +83,7 @@ export class HuanlingZhenrenAiStrategy implements MonsterAiStrategy {
       }
     }
 
-    // 2. 血量跌破 25% 绝境暴怒阶段：狂暴倾泻沉印、外环与内环
+    // 3. 血量跌破 25% 绝境暴怒阶段：狂暴倾泻沉印、外环与内环
     if (hpRatio <= 0.25) {
       const desperation = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
         HUANLING_DIFU_CHENYIN_SKILL_ID,
@@ -85,7 +95,7 @@ export class HuanlingZhenrenAiStrategy implements MonsterAiStrategy {
       }
     }
 
-    // 3. 血量跌破 50% 崩解阶段：星罗残盘与熔河贯脉压制
+    // 4. 血量跌破 50% 崩解阶段：星罗残盘与熔河贯脉压制
     if (hpRatio <= 0.5) {
       const collapse = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
         HUANLING_XINGLUO_CANPAN_SKILL_ID,
@@ -96,27 +106,7 @@ export class HuanlingZhenrenAiStrategy implements MonsterAiStrategy {
       }
     }
 
-    // 4. 血量跌破 75% 后进入熔宫阶段；不依赖法相 Buff
-    if (hpRatio <= 0.75) {
-      const phasePressure = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
-        HUANLING_LIEQI_ZHIXIAN_SKILL_ID,
-        HUANLING_DUANHUN_DING_SKILL_ID,
-        HUANLING_CANPO_ZHANG_SKILL_ID,
-      ]);
-      if (phasePressure) {
-        return phasePressure;
-      }
-    }
-
-    // 5. 75% 以上的常规 P1 循环：断魂灵钉 + 残魄掌
-    if (hpRatio > 0.75) {
-      return pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
-        HUANLING_DUANHUN_DING_SKILL_ID,
-        HUANLING_CANPO_ZHANG_SKILL_ID,
-      ]);
-    }
-
-    // 6. 目标被锁步禁足或阴痕/灼伤层数较高：地府沉印致命爆发
+    // 5. 目标被锁步禁足或阴痕/灼伤层数较高：地府沉印致命爆发
     if (targetLocked || targetPrimed >= 4) {
       const finisher = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
         HUANLING_DIFU_CHENYIN_SKILL_ID,
@@ -128,7 +118,7 @@ export class HuanlingZhenrenAiStrategy implements MonsterAiStrategy {
       }
     }
 
-    // 7. 贴身近距离 (distance <= 2)：锁宫内环绞杀近战 / 移脉熔宫
+    // 6. 贴身近距离 (distance <= 2)：锁宫内环绞杀近战 / 移脉熔宫
     if (distance <= 2) {
       const closeControl = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
         HUANLING_SUOGONG_NEIHUAN_SKILL_ID,
@@ -142,7 +132,7 @@ export class HuanlingZhenrenAiStrategy implements MonsterAiStrategy {
       }
     }
 
-    // 8. 远距离拉扯 (distance >= 4)：裂府外环与熔河贯脉全场压迫
+    // 7. 远距离拉扯 (distance >= 4)：裂府外环与熔河贯脉全场压迫
     if (distance >= 4) {
       const longRangePressure = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
         HUANLING_LIEFU_WAIHUAN_SKILL_ID,
@@ -155,7 +145,7 @@ export class HuanlingZhenrenAiStrategy implements MonsterAiStrategy {
       }
     }
 
-    // 9. 目标未被锁步时的铺场起手：移脉熔宫火海 + 星罗棋盘 + 熔河贯脉
+    // 8. 目标未被锁步时的铺场起手：移脉熔宫火海 + 星罗棋盘 + 熔河贯脉
     if (!targetLocked) {
       const setup = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
         HUANLING_LIEQI_ZHIXIAN_SKILL_ID,
@@ -169,7 +159,7 @@ export class HuanlingZhenrenAiStrategy implements MonsterAiStrategy {
       }
     }
 
-    // 10. 目标身上已有 2 层以上易伤：优先引爆沉印与外环
+    // 9. 目标身上已有 2 层以上易伤：优先引爆沉印与外环
     if (targetPrimed >= 2) {
       const cashOut = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
         HUANLING_DIFU_CHENYIN_SKILL_ID,
@@ -182,7 +172,7 @@ export class HuanlingZhenrenAiStrategy implements MonsterAiStrategy {
       }
     }
 
-    // 11. 全局兜底决策优先级 (按威力与控制优先级排序，最后残魄掌兜底)
+    // 10. 全局兜底决策优先级 (按威力与控制优先级排序，最后残魄掌兜底)
     return pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
       HUANLING_DIFU_CHENYIN_SKILL_ID,
       HUANLING_LIEFU_WAIHUAN_SKILL_ID,

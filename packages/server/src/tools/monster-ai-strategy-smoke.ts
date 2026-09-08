@@ -116,21 +116,29 @@ async function runMonsterAiStrategySmoke(): Promise<void> {
     assert.equal(selected?.id, 'skill.huanling_lieqi_zhixian', '70% 血量时应释放移脉熔宫，不应提前释放法相');
   }
 
-  // Case E: 45% 血量且无法相 -> 星罗残盘仍可独立释放
+  // Case E: 70% 血量远距离 -> 必须进入远距战术，而非被阶段兜底提前截断
+  {
+    const bossP2Far = createTestBoss({ hp: 70000000, maxHp: 100000000, buffs: [] });
+    const farTarget = { ...targetPlayer, x: 14, y: 10 };
+    const selected = chooseMonsterSkill(bossP2Far, farTarget, 4, 1);
+    assert.equal(selected?.id, 'skill.huanling_duanhun_ding', '75% 以下远距离必须让位给远距拉扯策略');
+  }
+
+  // Case F: 45% 血量且无法相 -> 星罗残盘仍可独立释放
   {
     const bossP3NoBuff = createTestBoss({ hp: 45000000, maxHp: 100000000, buffs: [] });
     const selected = chooseMonsterSkill(bossP3NoBuff, targetPlayer, 2, 1);
     assert.equal(selected?.id, 'skill.huanling_xingluo_canpan', '50% 阶段技能不得依赖法相 Buff');
   }
 
-  // Case F: 20% 血量且无法相 -> 必须先释放残丹法相虚影
+  // Case G: 20% 血量且无法相 -> 必须先释放残丹法相虚影
   {
     const bossP4NoBuff = createTestBoss({ hp: 20000000, maxHp: 100000000, buffs: [] });
     const selected = chooseMonsterSkill(bossP4NoBuff, targetPlayer, 2, 1);
     assert.equal(selected?.id, 'skill.huanling_candan_faxiang', '法相必须在 25% 以下优先触发');
   }
 
-  // Case G: 20% 血量但法相不可用 -> 地府沉印仍可独立释放
+  // Case H: 20% 血量但法相不可用 -> 地府沉印仍可独立释放
   {
     const bossP4FaxiangCd = createTestBoss({
       hp: 20000000,
@@ -142,7 +150,7 @@ async function runMonsterAiStrategySmoke(): Promise<void> {
     assert.equal(selected?.id, 'skill.huanling_difu_chenyin', '25% 阶段绝杀技能不得因缺少法相而锁死');
   }
 
-  // Case H: 法相转成运行时 Buff 后保留永久持续、维持费与附属关系
+  // Case I: 法相转成运行时 Buff 后保留永久持续、维持费与附属关系
   {
     const boss = createTestBoss({ hp: 20000000, maxHp: 100000000, buffs: [] }) as MonsterRuntimeLike & Record<string, any>;
     boss.level = 43;
@@ -202,7 +210,7 @@ async function runMonsterAiStrategySmoke(): Promise<void> {
     assert.equal(selected?.id, 'skill.huanling_difu_chenyin', '法相落地后应继续执行 25% 阶段绝杀技能');
   }
 
-  console.log('✅ monster-ai-strategy-smoke: 全部 8 项独立怪物 AI 策略验证全部通过！');
+  console.log('✅ monster-ai-strategy-smoke: 全部 9 项独立怪物 AI 策略验证全部通过！');
 }
 
 runMonsterAiStrategySmoke().catch((err) => {
