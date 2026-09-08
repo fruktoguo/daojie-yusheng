@@ -3131,7 +3131,7 @@
     {
       "id": "monster_huanling_arts",
       "name": "残丹唤灵诀",
-      "desc": "气血跌入七成后，强行把碎裂金丹撑成法相虚影，重构洞府脉路。",
+      "desc": "气血跌入两成半后，强行把碎裂金丹撑成法相虚影，重构洞府脉路。",
       "grade": "earth",
       "category": "arts",
       "realmLv": 1,
@@ -3141,7 +3141,7 @@
         {
           "id": "skill.huanling_candan_faxiang",
           "name": "残丹法相虚影",
-          "desc": "气血跌入七成后，强行把碎裂金丹撑成法相虚影，借此把整座洞府重新拖回自己的残丹脉路里。",
+          "desc": "气血跌入两成半后，强行把碎裂金丹撑成法相虚影，借此把整座洞府重新拖回自己的残丹脉路里。",
           "cooldown": 300,
           "cost": 69,
           "costMultiplier": 6,
@@ -3200,7 +3200,7 @@
                 {
                   "type": "hp_ratio",
                   "op": "<=",
-                  "value": 0.75
+                  "value": 0.25
                 }
               ]
             }
@@ -3382,10 +3382,6 @@
                   "type": "hp_ratio",
                   "op": "<=",
                   "value": 0.5
-                },
-                {
-                  "type": "has_buff",
-                  "buffId": "buff.huanling_candan_faxiang"
                 }
               ]
             },
@@ -3486,10 +3482,6 @@
                   "type": "hp_ratio",
                   "op": "<=",
                   "value": 0.75
-                },
-                {
-                  "type": "has_buff",
-                  "buffId": "buff.huanling_candan_faxiang"
                 }
               ]
             },
@@ -3571,10 +3563,6 @@
                   "type": "hp_ratio",
                   "op": "<=",
                   "value": 0.5
-                },
-                {
-                  "type": "has_buff",
-                  "buffId": "buff.huanling_candan_faxiang"
                 }
               ]
             },
@@ -3657,10 +3645,6 @@
                   "type": "hp_ratio",
                   "op": "<=",
                   "value": 0.25
-                },
-                {
-                  "type": "has_buff",
-                  "buffId": "buff.huanling_candan_faxiang"
                 }
               ]
             },
@@ -3746,10 +3730,6 @@
                   "type": "hp_ratio",
                   "op": "<=",
                   "value": 0.25
-                },
-                {
-                  "type": "has_buff",
-                  "buffId": "buff.huanling_candan_faxiang"
                 }
               ]
             },
@@ -3814,10 +3794,6 @@
                   "type": "hp_ratio",
                   "op": "<=",
                   "value": 0.25
-                },
-                {
-                  "type": "has_buff",
-                  "buffId": "buff.huanling_candan_faxiang"
                 }
               ]
             },

@@ -422,31 +422,40 @@ function assertHuanlingZhenrenRuntimeSkillSelection(
   const phaseAction = firstMonsterAction(phaseFixture.instance);
   assert.equal(
     phaseAction?.skillId,
-    'skill.huanling_candan_faxiang',
-    '重伤的唤灵真人 should prioritize 残丹法相虚影 when entering the 75% phase without 法相 buff',
+    'skill.huanling_lieqi_zhixian',
+    '重伤的唤灵真人 should use 移脉熔宫 at 70% hp without requiring 法相 buff',
   );
-  assert.equal(phaseAction?.kind, 'skill', '残丹法相虚影 is a self-buff action and should not create warning cells');
+  assert.equal(phaseAction?.kind, 'skill_chant', '移脉熔宫 should be emitted as a chant action');
 
   const collapseFixture = createHuanlingCombatFixture(repository, mapTemplateRepository);
-  applyHuanlingFaxiangBuff(collapseFixture.monster);
   collapseFixture.monster.hp = Math.max(1, Math.floor(collapseFixture.monster.maxHp * 0.45));
   const collapseAction = firstMonsterAction(collapseFixture.instance);
   assert.equal(
     collapseAction?.skillId,
     'skill.huanling_xingluo_canpan',
-    '重伤的唤灵真人 should prioritize 星罗残盘 when entering the 50% phase with 法相 buff',
+    '重伤的唤灵真人 should use 星罗残盘 at 45% hp without requiring 法相 buff',
   );
   assert.equal(collapseAction?.kind, 'skill_chant', '星罗残盘 should be emitted as a chant action');
   assert.equal(collapseAction?.durationMs, 1000, '星罗残盘 should keep 1 tick chant warning');
 
+  const faxiangFixture = createHuanlingCombatFixture(repository, mapTemplateRepository);
+  faxiangFixture.monster.hp = Math.max(1, Math.floor(faxiangFixture.monster.maxHp * 0.2));
+  const faxiangAction = firstMonsterAction(faxiangFixture.instance);
+  assert.equal(
+    faxiangAction?.skillId,
+    'skill.huanling_candan_faxiang',
+    '重伤的唤灵真人 should trigger 残丹法相虚影 only after entering the 25% phase',
+  );
+  assert.equal(faxiangAction?.kind, 'skill', '残丹法相虚影 is a self-buff action and should not create warning cells');
+
   const desperationFixture = createHuanlingCombatFixture(repository, mapTemplateRepository);
-  applyHuanlingFaxiangBuff(desperationFixture.monster);
   desperationFixture.monster.hp = Math.max(1, Math.floor(desperationFixture.monster.maxHp * 0.2));
+  desperationFixture.monster.cooldownReadyTickBySkillId['skill.huanling_candan_faxiang'] = 99999;
   const desperationAction = firstMonsterAction(desperationFixture.instance);
   assert.equal(
     desperationAction?.skillId,
     'skill.huanling_difu_chenyin',
-    '重伤的唤灵真人 should prioritize 地府沉印 when entering the 25% phase with 法相 buff',
+    '重伤的唤灵真人 should use 地府沉印 at 20% hp even when 法相 is unavailable',
   );
   assert.equal(desperationAction?.kind, 'skill_chant', '地府沉印 should be emitted as a chant action');
   assert.equal(desperationAction?.durationMs, 1000, '地府沉印 should keep 1 tick chant warning');
@@ -497,18 +506,6 @@ function createHuanlingCombatFixture(
   return { instance, monster, player };
 }
 
-function applyHuanlingFaxiangBuff(monster: Record<string, any>) {
-  monster.buffs.push({
-    buffId: 'buff.huanling_candan_faxiang',
-    name: '残丹法相虚影',
-    category: 'buff',
-    visibility: 'public',
-    remainingTicks: 120,
-    duration: 120,
-    stacks: 1,
-    maxStacks: 1,
-  });
-}
 
 function firstMonsterAction(instance: MapInstanceRuntime) {
   const result = instance.tickOnce();

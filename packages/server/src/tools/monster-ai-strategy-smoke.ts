@@ -81,90 +81,70 @@ async function runMonsterAiStrategySmoke(): Promise<void> {
     assert.equal(selected?.id, 'skill.huanling_canpo_zhang', 'P1 灵钉冷却期间必须使用残魄掌');
   }
 
-  // Case C: P2 阶段 (血量跌入 70% 且尚未开启法相) -> 必须优先释放【残丹法相虚影】(skill.huanling_candan_faxiang)
+  // Case C: 法相仅允许在 25% 血量触发，其他阶段技能不得依赖法相 Buff
+  {
+    const faxiangSkill = huanlingTech.skills.find((skill: any) => skill.id === 'skill.huanling_candan_faxiang');
+    const faxiangConditions = faxiangSkill?.monsterCast?.conditions?.items ?? [];
+    assert.equal(
+      faxiangConditions.find((condition: any) => condition.type === 'hp_ratio')?.value,
+      0.25,
+      '残丹法相虚影必须到 25% 血量才允许释放',
+    );
+    const independentPhaseSkills = [
+      'skill.huanling_lieqi_zhixian',
+      'skill.huanling_ronghe_guanmai',
+      'skill.huanling_xingluo_canpan',
+      'skill.huanling_suogong_neihuan',
+      'skill.huanling_liefu_waihuan',
+      'skill.huanling_difu_chenyin',
+    ];
+    for (const skillId of independentPhaseSkills) {
+      const skill = huanlingTech.skills.find((entry: any) => entry.id === skillId);
+      const conditions = skill?.monsterCast?.conditions?.items ?? [];
+      assert.equal(
+        conditions.some((condition: any) => condition.type === 'has_buff' && condition.buffId === 'buff.huanling_candan_faxiang'),
+        false,
+        `${skillId} 不得要求残丹法相 Buff`,
+      );
+    }
+  }
+
+  // Case D: 70% 血量且无法相 -> 必须进入移脉熔宫阶段
   {
     const bossP2NoBuff = createTestBoss({ hp: 70000000, maxHp: 100000000, buffs: [] });
     const selected = chooseMonsterSkill(bossP2NoBuff, targetPlayer, 2, 1);
-    assert.equal(selected?.id, 'skill.huanling_candan_faxiang', '血量 <= 75% 且无法相时必须立即触发残丹法相虚影');
+    assert.equal(selected?.id, 'skill.huanling_lieqi_zhixian', '70% 血量时应释放移脉熔宫，不应提前释放法相');
   }
 
-  // Case D: P2 阶段已拥有法相 -> 贴身释放【移脉熔宫】(skill.huanling_lieqi_zhixian)
+  // Case E: 45% 血量且无法相 -> 星罗残盘仍可独立释放
   {
-    const bossP2WithBuff = createTestBoss({
-      hp: 70000000,
-      maxHp: 100000000,
-      buffs: [
-        {
-          buffId: 'buff.huanling_candan_faxiang',
-          remainingTicks: 300,
-          stacks: 1,
-        },
-      ],
-    });
-    const selected = chooseMonsterSkill(bossP2WithBuff, targetPlayer, 2, 1);
-    assert.equal(
-      selected?.id,
-      'skill.huanling_lieqi_zhixian',
-      `拥有法相且处于P2阶段时应优先释放移脉熔宫铺场，实际=${selected?.id}`,
-    );
+    const bossP3NoBuff = createTestBoss({ hp: 45000000, maxHp: 100000000, buffs: [] });
+    const selected = chooseMonsterSkill(bossP3NoBuff, targetPlayer, 2, 1);
+    assert.equal(selected?.id, 'skill.huanling_xingluo_canpan', '50% 阶段技能不得依赖法相 Buff');
   }
 
-  // Case E: P3 阶段 (血量跌入 20% 绝境) -> 必须优先释放绝境沉印或外环
+  // Case F: 20% 血量且无法相 -> 必须先释放残丹法相虚影
   {
-    const bossP3 = createTestBoss({
+    const bossP4NoBuff = createTestBoss({ hp: 20000000, maxHp: 100000000, buffs: [] });
+    const selected = chooseMonsterSkill(bossP4NoBuff, targetPlayer, 2, 1);
+    assert.equal(selected?.id, 'skill.huanling_candan_faxiang', '法相必须在 25% 以下优先触发');
+  }
+
+  // Case G: 20% 血量但法相不可用 -> 地府沉印仍可独立释放
+  {
+    const bossP4FaxiangCd = createTestBoss({
       hp: 20000000,
       maxHp: 100000000,
-      buffs: [
-        {
-          buffId: 'buff.huanling_candan_faxiang',
-          remainingTicks: 300,
-          stacks: 1,
-        },
-      ],
+      buffs: [],
+      cooldownReadyTickBySkillId: { 'skill.huanling_candan_faxiang': 301 },
     });
-    const selected = chooseMonsterSkill(bossP3, targetPlayer, 2, 1);
-    assert.equal(
-      selected?.id,
-      'skill.huanling_difu_chenyin',
-      `P3 绝境阶段贴身必须优先释放地府沉印，实际=${selected?.id}`,
-    );
+    const selected = chooseMonsterSkill(bossP4FaxiangCd, targetPlayer, 2, 1);
+    assert.equal(selected?.id, 'skill.huanling_difu_chenyin', '25% 阶段绝杀技能不得因缺少法相而锁死');
   }
 
-  // Case F: P3 绝境且目标被锁步且挂有阴痕 -> 优先地府沉印终结斩杀
+  // Case H: 法相转成运行时 Buff 后保留永久持续、维持费与附属关系
   {
-    const bossFinisher = createTestBoss({
-      hp: 20000000,
-      maxHp: 100000000,
-      buffs: [
-        {
-          buffId: 'buff.huanling_candan_faxiang',
-          remainingTicks: 300,
-          stacks: 1,
-        },
-      ],
-    });
-    const lockedPlayer = {
-      ...targetPlayer,
-      buffs: [
-        {
-          buffId: 'buff.huanling_canmai_suobu',
-          remainingTicks: 20,
-          stacks: 1,
-        },
-        {
-          buffId: 'buff.huanling_rongmai_yin',
-          remainingTicks: 60,
-          stacks: 5,
-        },
-      ],
-    };
-    const selected = chooseMonsterSkill(bossFinisher, lockedPlayer, 2, 1);
-    assert.equal(selected?.id, 'skill.huanling_difu_chenyin', 'P3阶段目标被锁步且叠满阴痕时，必须立即释放地府沉印斩杀');
-  }
-
-  // Case G: 法相技能转成运行时 Buff 后必须保持无限持续，下一息才能解锁阶段技能
-  {
-    const boss = createTestBoss({ hp: 70000000, maxHp: 100000000, buffs: [] }) as MonsterRuntimeLike & Record<string, any>;
+    const boss = createTestBoss({ hp: 20000000, maxHp: 100000000, buffs: [] }) as MonsterRuntimeLike & Record<string, any>;
     boss.level = 43;
     const target = {
       playerId: 'p_test_player',
@@ -219,10 +199,10 @@ async function runMonsterAiStrategySmoke(): Promise<void> {
     boss.buffs = appliedBuffs;
     boss.cooldownReadyTickBySkillId['skill.huanling_candan_faxiang'] = 301;
     const selected = chooseMonsterSkill(boss, targetPlayer, 2, 2);
-    assert.equal(selected?.id, 'skill.huanling_lieqi_zhixian', '法相落地后的下一息必须解锁移脉熔宫，而不是退回两个 P1 技能');
+    assert.equal(selected?.id, 'skill.huanling_difu_chenyin', '法相落地后应继续执行 25% 阶段绝杀技能');
   }
 
-  console.log('✅ monster-ai-strategy-smoke: 全部 7 项独立怪物 AI 策略验证全部通过！');
+  console.log('✅ monster-ai-strategy-smoke: 全部 8 项独立怪物 AI 策略验证全部通过！');
 }
 
 runMonsterAiStrategySmoke().catch((err) => {

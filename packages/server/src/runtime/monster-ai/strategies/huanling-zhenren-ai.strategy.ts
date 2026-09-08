@@ -31,8 +31,9 @@ const TERRAIN_MOLTEN_POOL_BURN_BUFF_ID = 'terrain_molten_pool_burn';
  * 唤灵真人专属独立 AI 策略脚本：
  * 负责唤灵真人（包含破败洞府大世界、副本体、梦境实例等所有变体）的阶段转换与连招状态机：
  * 1. P1 (100%~75%): 试探阶段，断魂灵钉点名 + 残魄掌普攻
- * 2. P2 (75%~25%): 触发残丹法相变身，展开移脉熔宫与熔河贯脉火海
- * 3. P3 (25%及以下): 残阵绝杀，锁宫内环与裂府外环交替绞杀，地府沉印复合终结
+ * 2. P2 (75%~50%): 移脉熔宫铺场，技能不依赖法相状态
+ * 3. P3 (50%~25%): 星罗残盘与熔河贯脉压制
+ * 4. P4 (25%及以下): 先触发残丹法相，再用内外环与地府沉印绝杀
  */
 export class HuanlingZhenrenAiStrategy implements MonsterAiStrategy {
   public readonly id = 'huanling_zhenren';
@@ -62,12 +63,10 @@ export class HuanlingZhenrenAiStrategy implements MonsterAiStrategy {
     const targetLocked = entityHasActiveBuff(targetBuffs, HUANLING_CANMAI_SUOBU_BUFF_ID);
     const targetPrimed = targetYinStacks + targetBurnStacks;
 
-    // 1. 血量跌破 75% 且尚未开启法相：优先释放【残丹法相虚影】变身
-    if (!hasFaxiang && hpRatio <= 0.75) {
+    // 1. 血量跌破 25% 且尚未开启法相：优先释放【残丹法相虚影】变身
+    if (!hasFaxiang && hpRatio <= 0.25) {
       const phaseAwaken = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
         HUANLING_FAXIANG_SKILL_ID,
-        HUANLING_LIEQI_ZHIXIAN_SKILL_ID,
-        HUANLING_CANPO_ZHANG_SKILL_ID,
       ]);
       if (phaseAwaken) {
         return phaseAwaken;
@@ -97,15 +96,27 @@ export class HuanlingZhenrenAiStrategy implements MonsterAiStrategy {
       }
     }
 
-    // 4. 未开启法相前的常规 P1 循环：断魂灵钉 + 残魄掌
-    if (!hasFaxiang) {
+    // 4. 血量跌破 75% 后进入熔宫阶段；不依赖法相 Buff
+    if (hpRatio <= 0.75) {
+      const phasePressure = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
+        HUANLING_LIEQI_ZHIXIAN_SKILL_ID,
+        HUANLING_DUANHUN_DING_SKILL_ID,
+        HUANLING_CANPO_ZHANG_SKILL_ID,
+      ]);
+      if (phasePressure) {
+        return phasePressure;
+      }
+    }
+
+    // 5. 75% 以上的常规 P1 循环：断魂灵钉 + 残魄掌
+    if (hpRatio > 0.75) {
       return pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
         HUANLING_DUANHUN_DING_SKILL_ID,
         HUANLING_CANPO_ZHANG_SKILL_ID,
       ]);
     }
 
-    // 5. 目标被锁步禁足或阴痕/灼伤层数较高：地府沉印致命爆发
+    // 6. 目标被锁步禁足或阴痕/灼伤层数较高：地府沉印致命爆发
     if (targetLocked || targetPrimed >= 4) {
       const finisher = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
         HUANLING_DIFU_CHENYIN_SKILL_ID,
@@ -117,7 +128,7 @@ export class HuanlingZhenrenAiStrategy implements MonsterAiStrategy {
       }
     }
 
-    // 6. 贴身近距离 (distance <= 2)：锁宫内环绞杀近战 / 移脉熔宫
+    // 7. 贴身近距离 (distance <= 2)：锁宫内环绞杀近战 / 移脉熔宫
     if (distance <= 2) {
       const closeControl = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
         HUANLING_SUOGONG_NEIHUAN_SKILL_ID,
@@ -131,7 +142,7 @@ export class HuanlingZhenrenAiStrategy implements MonsterAiStrategy {
       }
     }
 
-    // 7. 远距离拉扯 (distance >= 4)：裂府外环与熔河贯脉全场压迫
+    // 8. 远距离拉扯 (distance >= 4)：裂府外环与熔河贯脉全场压迫
     if (distance >= 4) {
       const longRangePressure = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
         HUANLING_LIEFU_WAIHUAN_SKILL_ID,
@@ -144,7 +155,7 @@ export class HuanlingZhenrenAiStrategy implements MonsterAiStrategy {
       }
     }
 
-    // 8. 目标未被锁步时的铺场起手：移脉熔宫火海 + 星罗棋盘 + 熔河贯脉
+    // 9. 目标未被锁步时的铺场起手：移脉熔宫火海 + 星罗棋盘 + 熔河贯脉
     if (!targetLocked) {
       const setup = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
         HUANLING_LIEQI_ZHIXIAN_SKILL_ID,
@@ -158,7 +169,7 @@ export class HuanlingZhenrenAiStrategy implements MonsterAiStrategy {
       }
     }
 
-    // 9. 目标身上已有 2 层以上易伤：优先引爆沉印与外环
+    // 10. 目标身上已有 2 层以上易伤：优先引爆沉印与外环
     if (targetPrimed >= 2) {
       const cashOut = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
         HUANLING_DIFU_CHENYIN_SKILL_ID,
@@ -171,7 +182,7 @@ export class HuanlingZhenrenAiStrategy implements MonsterAiStrategy {
       }
     }
 
-    // 10. 全局兜底决策优先级 (按威力与控制优先级排序，最后残魄掌兜底)
+    // 11. 全局兜底决策优先级 (按威力与控制优先级排序，最后残魄掌兜底)
     return pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
       HUANLING_DIFU_CHENYIN_SKILL_ID,
       HUANLING_LIEFU_WAIHUAN_SKILL_ID,
