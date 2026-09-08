@@ -738,6 +738,15 @@ function toTemporaryBuff(effect, skill) {
   stats: resolveTemporaryBuffStats(effect),
   statMode: effect.statMode,
   qiProjection: effect.qiProjection || undefined,
+  presentationScale: Number.isFinite(Number(effect.presentationScale)) && Number(effect.presentationScale) > 0
+   ? Number(effect.presentationScale)
+   : undefined,
+  infiniteDuration: effect.infiniteDuration === true,
+  sustainCost: effect.sustainCost ? { ...effect.sustainCost } : undefined,
+  sustainTicksElapsed: effect.sustainCost ? 0 : undefined,
+  expireWithBuffId: typeof effect.expireWithBuffId === 'string' && effect.expireWithBuffId.trim()
+   ? effect.expireWithBuffId.trim()
+   : undefined,
   persistOnDeath: effect.persistOnDeath === true,
   persistOnReturnToSpawn: effect.persistOnReturnToSpawn === true,
   ignoreRealmEffectiveness: effect.ignoreRealmEffectiveness === true ? true : undefined,

@@ -7,6 +7,8 @@ import {
   monsterAiRegistry,
 } from '../runtime/monster-ai/index.js';
 import type { MonsterRuntimeLike } from '../runtime/monster-ai/monster-ai.types.js';
+import { PlayerCombatService } from '../runtime/combat/player-combat.service.js';
+
 
 async function runMonsterAiStrategySmoke(): Promise<void> {
   // 1. 验证策略注册表单例
@@ -160,7 +162,67 @@ async function runMonsterAiStrategySmoke(): Promise<void> {
     assert.equal(selected?.id, 'skill.huanling_difu_chenyin', 'P3阶段目标被锁步且叠满阴痕时，必须立即释放地府沉印斩杀');
   }
 
-  console.log('✅ monster-ai-strategy-smoke: 全部 6 项独立怪物 AI 策略验证全部通过！');
+  // Case G: 法相技能转成运行时 Buff 后必须保持无限持续，下一息才能解锁阶段技能
+  {
+    const boss = createTestBoss({ hp: 70000000, maxHp: 100000000, buffs: [] }) as MonsterRuntimeLike & Record<string, any>;
+    boss.level = 43;
+    const target = {
+      playerId: 'p_test_player',
+      hp: 100000000,
+      maxHp: 100000000,
+      qi: 100000000,
+      maxQi: 100000000,
+      realm: { realmLv: 43 },
+      attrs: {
+        numericStats: { physAtk: 1, spellAtk: 1 },
+        ratioDivisors: {},
+        revision: 1,
+      },
+      buffs: { buffs: [], revision: 1 },
+    };
+    const appliedBuffs: Array<Record<string, any>> = [];
+    const combatService = new PlayerCombatService({
+      ensurePlayerAttributesFresh: () => ({ requested: false, changed: false }),
+    } as any);
+    combatService.castMonsterSkill(
+      boss,
+      target,
+      'skill.huanling_candan_faxiang',
+      1,
+      0,
+      (buff: Record<string, any>) => appliedBuffs.push(buff),
+      () => undefined,
+      () => undefined,
+      {
+        attackerCombatState: {
+          hp: boss.hp,
+          maxHp: boss.maxHp,
+          qi: boss.qi,
+          maxQi: boss.maxQi,
+          level: 43,
+          attrs: {
+            numericStats: { physAtk: 1, spellAtk: 1 },
+            ratioDivisors: {},
+          },
+          buffs: [],
+        },
+      },
+    );
+    const faxiang = appliedBuffs.find((buff) => buff.buffId === 'buff.huanling_candan_faxiang');
+    const kuoyu = appliedBuffs.find((buff) => buff.buffId === 'buff.huanling_candan_kuoyu');
+    assert.equal(faxiang?.infiniteDuration, true, '残丹法相虚影转运行时 Buff 时不得丢失 infiniteDuration');
+    assert.deepEqual(faxiang?.sustainCost, { resource: 'qi', baseCost: 100, growthRate: 0.2 });
+    assert.equal(faxiang?.sustainTicksElapsed, 0);
+    assert.equal(kuoyu?.infiniteDuration, true, '虚影扩域必须跟随法相保持无限持续');
+    assert.equal(kuoyu?.expireWithBuffId, 'buff.huanling_candan_faxiang');
+
+    boss.buffs = appliedBuffs;
+    boss.cooldownReadyTickBySkillId['skill.huanling_candan_faxiang'] = 301;
+    const selected = chooseMonsterSkill(boss, targetPlayer, 2, 2);
+    assert.equal(selected?.id, 'skill.huanling_lieqi_zhixian', '法相落地后的下一息必须解锁移脉熔宫，而不是退回两个 P1 技能');
+  }
+
+  console.log('✅ monster-ai-strategy-smoke: 全部 7 项独立怪物 AI 策略验证全部通过！');
 }
 
 runMonsterAiStrategySmoke().catch((err) => {
