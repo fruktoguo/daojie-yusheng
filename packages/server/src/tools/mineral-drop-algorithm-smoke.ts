@@ -64,9 +64,9 @@ function createSpiritOreInstance(mapLv: number): MapInstanceRuntime {
   });
 }
 
-function testDamageBaselineAndLowDamagePenalty(): void {
+function testDamageBaselineIsLinear(): void {
   const maxHp = 10_000_000;
-  assertClose(getMiningDamageDropMultiplier(5_000, maxHp), 0.25, '低于基准一半必须平方衰减');
+  assertClose(getMiningDamageDropMultiplier(5_000, maxHp), 0.5, '低于基准一半必须保留一半爆率');
   assertClose(getMiningDamageDropMultiplier(10_000, maxHp), 1, '最大生命 0.1% 必须为一倍');
   assertClose(getMiningDamageDropMultiplier(20_000, maxHp), 2, '超过基准后伤害翻倍必须爆率翻倍');
 
@@ -84,7 +84,7 @@ function testDamageBaselineAndLowDamagePenalty(): void {
     mineralLevel: 1,
     attackerRealmLevel: 1,
   });
-  assertClose(halfDamageExpected * 2, fullDamageExpected / 2, '拆成两次半基准伤害的总期望必须只有一次基准伤害的一半');
+  assertClose(halfDamageExpected * 2, fullDamageExpected, '相同总伤害拆分前后的总期望必须一致');
 }
 
 function testMapLevelAndRealmGapMultipliers(): void {
@@ -174,7 +174,7 @@ function testSpawnUsesResolvedCountWithoutSecondOutputScaling(): void {
 }
 
 function main(): void {
-  testDamageBaselineAndLowDamagePenalty();
+  testDamageBaselineIsLinear();
   testMapLevelAndRealmGapMultipliers();
   testCappedChanceQuantityConversion();
   testPlayerOtherMultiplierComposition();

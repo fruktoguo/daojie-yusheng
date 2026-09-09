@@ -40,9 +40,7 @@ calculateTileRestoreRetryTicks(tileType) =
 baseDamage = maxHp × 0.1%
 damageRatio = appliedDamage / baseDamage
 
-damageMultiplier =
-  damageRatio², damageRatio < 1
-  damageRatio,  damageRatio >= 1
+damageMultiplier = damageRatio
 
 mineralLevelMultiplier = 1.1^(mapLv - 1)
 
@@ -63,7 +61,7 @@ expectedCount =
   × otherMultiplier
 ```
 
-低于 `0.1% maxHp` 的碎片伤害使用平方惩罚；达到基准后，伤害和期望掉落数量线性增长。相同总伤害拆成多个均达到基准的命中时总期望相同，拆成低于基准的小段时总期望下降。AOE 命中多个矿脉仍按每个目标的实际伤害分别计算，因此只会随真实总伤害增长。
+伤害乘区全程按实际伤害比例线性增长：达到 `0.1% maxHp` 时为 1 倍，低于或高于基准时都按同比例缩放。相同总伤害无论拆成多段还是一次命中，总期望保持一致；AOE 命中多个矿脉仍按每个目标的实际伤害分别计算，因此只会随真实总伤害增长。
 
 最终期望数量使用最高 10% 的触发率结算：
 

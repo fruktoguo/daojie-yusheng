@@ -152,7 +152,7 @@ export interface MiningExpectedDropRollPlan {
   maxCountOnTrigger: number;
 }
 
-/** 以地块最大生命的 0.1% 为 1 倍伤害基准；低于基准时使用平方惩罚。 */
+/** 以地块最大生命的 0.1% 为 1 倍伤害基准，爆率随实际伤害全程线性增长。 */
 export function getMiningDamageDropMultiplier(appliedDamage: number | undefined, maxHp: number | undefined): number {
   const damage = Math.max(0, Number(appliedDamage) || 0);
   const normalizedMaxHp = Math.max(1, Number(maxHp) || 1);
@@ -160,8 +160,7 @@ export function getMiningDamageDropMultiplier(appliedDamage: number | undefined,
     return 0;
   }
   const baselineDamage = normalizedMaxHp * MINING_DROP_BASE_DAMAGE_MAX_HP_RATIO;
-  const damageRatio = damage / baselineDamage;
-  return damageRatio < 1 ? damageRatio * damageRatio : damageRatio;
+  return damage / baselineDamage;
 }
 
 /** 一级矿物为 1 倍，之后每级独立乘 1.1。 */
