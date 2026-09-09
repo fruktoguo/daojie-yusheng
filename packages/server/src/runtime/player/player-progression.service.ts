@@ -2182,7 +2182,15 @@ export class PlayerProgressionService {
         const baseIndex = currentIndex >= 0 ? currentIndex : -1;
         for (let offset = 1; offset <= targets.length; offset += 1) {
             const candidate = targets[(baseIndex + offset) % targets.length];
-            if (candidate?.techId !== currentTechId) {
+            const hasFiniteLimit = candidate?.kind === 'pending'
+                || (candidate?.kind === 'learned' && !isPassiveTechnique(candidate.technique));
+            if (candidate?.techId !== currentTechId && hasFiniteLimit) {
+                return candidate;
+            }
+        }
+        for (let offset = 1; offset <= targets.length; offset += 1) {
+            const candidate = targets[(baseIndex + offset) % targets.length];
+            if (candidate?.techId !== currentTechId && candidate?.kind === 'learned') {
                 return candidate;
             }
         }
@@ -2242,7 +2250,7 @@ export class PlayerProgressionService {
                     this.advancePendingTechniqueComprehensionInternal(player, switchedPending, amount, options),
                 );
             }
-            if (!player.techniques.cultivatingTechId && player.techniques.techniques.length > 0) {
+            if (!player.techniques.cultivatingTechId) {
                 return this.advanceBodyTrainingProgressInternal(player, applyTechniqueRateBonus(amount, 1, options), resolved);
             }
             return resolved;

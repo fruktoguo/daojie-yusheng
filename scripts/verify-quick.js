@@ -107,6 +107,8 @@ const status = runVerificationSteps({
         '--case',
         'player-runtime-dirty-domain',
         '--case',
+        'technique-cultivation-target',
+        '--case',
         'inventory-item-instance-ref',
         '--case',
         'inventory-consumable-cooldown',

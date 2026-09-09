@@ -49,12 +49,12 @@ const STATIC_TOGGLE_CONTEXT_ACTIONS = [{
         id: 'cultivation:toggle',
         name: '当前修炼',
         type: 'toggle',
-        desc: '切换角色修炼状态；没有主修时只推进境界修为。',
+        desc: '切换角色修炼状态；没有主修时境界修为照常推进，功法经验自动转入炼体。',
     }, {
         id: 'toggle:auto_switch_cultivation',
         name: '修满自动切换',
         type: 'toggle',
-        desc: '控制主修功法圆满后是否自动切到下一门未圆满功法。',
+        desc: '主修圆满后优先切换有限层数功法，全部修满后才切换无限层数功法。',
     }, {
         id: 'sense_qi:toggle',
         name: '感气视角',
