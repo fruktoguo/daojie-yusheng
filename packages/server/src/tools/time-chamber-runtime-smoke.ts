@@ -24,8 +24,8 @@ async function main(): Promise<void> {
   assert.deepEqual(admission.canEnter({ listPlayerIds: () => [] }, 'player:two', 1, ['player:offline']), { ok: false, reason: 'time_chamber_full' });
   assert.deepEqual(
     Array.from({ length: 9 }, (_, index) => calculateTimeChamberBaseOperatingCost(index + 2)),
-    [50, 100, 200, 400, 800, 1600, 3200, 6400, 12800],
-    '2 至 10 倍的每小时基础成本必须逐倍翻倍',
+    [100, 300, 1200, 6000, 36000, 252000, 2016000, 18144000, 181440000],
+    '2 至 10 倍的每小时基础成本必须按阶乘递增（2x=100，3x=300，4x=1200 等）',
   );
   assert.deepEqual(
     (['small', 'medium', 'large'] as const).map(resolveTimeChamberCapacityLimit),
@@ -34,12 +34,12 @@ async function main(): Promise<void> {
   );
   assert.equal(requiresTimeChamberActivation(1), false, '一倍速不应要求开启时段');
   assert.equal(requiresTimeChamberActivation(2), true, '二倍及以上必须要求开启时段');
-  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 1), 50);
-  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 2), 90);
-  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 4), 170, '额外配置位置按 80% 线性叠加，不能复利');
-  assert.equal(calculateTimeChamberActivationCost(2, 4, 3), 510, '开启总价必须由倍率、实际容量和整小时数决定');
-  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 1, 'medium'), 75, '扩大一圈后每小时成本提升 50%');
-  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 1, 'large'), 113, '连续扩大两圈按乘算并向上取整');
+  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 1), 100);
+  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 2), 180);
+  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 4), 340, '额外配置位置按 80% 线性叠加，不能复利');
+  assert.equal(calculateTimeChamberActivationCost(2, 4, 3), 1020, '开启总价必须由倍率、实际容量和整小时数决定');
+  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 1, 'medium'), 150, '扩大一圈后每小时成本提升 50%');
+  assert.equal(calculateTimeChamberOperatingCostPerHour(2, 1, 'large'), 225, '连续扩大两圈按乘算并向上取整');
 
   const registeredDocuments: any[] = [];
   const service = new TimeChamberRuntimeService(

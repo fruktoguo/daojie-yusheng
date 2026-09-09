@@ -119,14 +119,26 @@ export interface C2S_ResizeTimeChamberView extends TimeChamberBuildingRequestVie
   expectedRevision: number;
 }
 
-/** 2 倍每小时 50 灵石，之后每提升一倍，总消耗翻倍。 */
+/** 2 倍每小时 100 灵石，之后每提升一倍按阶乘递增（3倍再乘3=300，4倍再乘4=1200，依此类推）。 */
+const TIME_CHAMBER_BASE_OPERATING_COST_BY_SPEED: Readonly<Record<number, number>> = Object.freeze({
+  2: 100,
+  3: 300,
+  4: 1200,
+  5: 6000,
+  6: 36000,
+  7: 252000,
+  8: 2016000,
+  9: 18144000,
+  10: 181440000,
+});
+
 export function calculateTimeChamberBaseOperatingCost(speedInput: number): number {
   const speed = Math.trunc(Number(speedInput));
   if (!Number.isFinite(speed) || speed <= TIME_CHAMBER_MIN_SPEED) {
     return 0;
   }
   const boundedSpeed = Math.min(TIME_CHAMBER_MAX_SPEED, speed);
-  return 50 * 2 ** (boundedSpeed - 2);
+  return TIME_CHAMBER_BASE_OPERATING_COST_BY_SPEED[boundedSpeed] ?? 0;
 }
 
 /** 当前空间允许配置的最大进入人数等于地图总格数。 */
