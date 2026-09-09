@@ -7148,15 +7148,17 @@ export class PlayerRuntimeService {
  /** 发送结构化玩家通知，服务端只携带 key 与变量，文本仅作为兼容 fallback。 */
  queuePlayerStructuredNotice(player, notice) {
   const text = typeof notice?.text === 'string' ? notice.text.trim() : '';
-  if (!text) {
+  const structured = notice?.structured;
+  const structuredGroup = Array.isArray(notice?.structuredGroup) ? notice.structuredGroup : [];
+  if (!text && !structured && structuredGroup.length === 0) {
    return;
   }
   const entry = {
    id: player.notices.nextId,
    kind: notice.kind ?? 'info',
    text,
-   ...(notice.structured ? { structured: notice.structured } : {}),
-   ...(Array.isArray(notice.structuredGroup) && notice.structuredGroup.length > 0 ? { structuredGroup: notice.structuredGroup } : {}),
+   ...(structured ? { structured } : {}),
+   ...(structuredGroup.length > 0 ? { structuredGroup } : {}),
   };
   player.notices.nextId += 1;
   if (this.runtimeEventBusService) {

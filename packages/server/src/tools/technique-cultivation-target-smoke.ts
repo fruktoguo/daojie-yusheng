@@ -271,6 +271,7 @@ function testAutoSwitchPrefersFiniteTargetsBeforeUnlimitedTechnique(): void {
 
   pending.progress = pending.requiredProgress;
   player.techniques.cultivatingTechId = current.techId;
+  assert.equal(progression.areAllTechniquesMaxed(player), false);
   const unlimitedSwitch = progression.resolveActiveCultivatingTechnique(player);
   assert.equal(player.techniques.cultivatingTechId, unlimited.techId);
   assert.equal(unlimitedSwitch.technique?.techId, unlimited.techId);

@@ -109,6 +109,8 @@ const status = runVerificationSteps({
         '--case',
         'technique-cultivation-target',
         '--case',
+        'technique-comprehension',
+        '--case',
         'inventory-item-instance-ref',
         '--case',
         'inventory-consumable-cooldown',

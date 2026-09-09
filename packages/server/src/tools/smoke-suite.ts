@@ -190,6 +190,7 @@ const smokeCases = [
   { name: 'player-statistic-ledger-io', scriptFile: 'player-statistic-ledger-io-smoke.js', standalone: true },
   { name: 'player-runtime-dirty-domain', scriptFile: 'player-runtime-dirty-domain-smoke.js', standalone: true },
   { name: 'technique-cultivation-target', scriptFile: 'technique-cultivation-target-smoke.js', standalone: true },
+  { name: 'technique-comprehension', scriptFile: 'technique-comprehension-smoke.js', standalone: true },
   { name: 'inventory-item-instance-ref', scriptFile: 'inventory-item-instance-ref-smoke.js', standalone: true },
   { name: 'inventory-consumable-cooldown', scriptFile: 'inventory-consumable-cooldown-smoke.js', standalone: true },
   { name: 'world-runtime-equipment', scriptFile: 'world-runtime-equipment-smoke.js', standalone: true },
