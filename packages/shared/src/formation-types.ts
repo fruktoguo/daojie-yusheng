@@ -352,7 +352,7 @@ export const BUILTIN_FORMATION_TEMPLATES: FormationTemplate[] = [
  {
   id: 'demon_sealing',
   name: '封魔阵',
-  desc: '压制范围内所有妖兽，每点强度提供一层压制；多座封魔阵重叠时只取最高层数，并按实际压制幅度同步降低击杀经验。',
+  desc: '压制范围内所有妖兽，每点强度提供一层压制；多座封魔阵重叠时只取最高层数，有效削弱最高 100%，属性与击杀经验最低保留 50%。',
   minSpiritStoneCount: 100,
   damagePerAura: FORMATION_DEFAULT_DAMAGE_PER_AURA,
   cost: {

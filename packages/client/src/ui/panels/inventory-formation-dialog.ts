@@ -6,6 +6,7 @@
 import {
  BUILTIN_FORMATION_TEMPLATES,
  FORMATION_SPIRIT_STONE_ITEM_ID,
+ FORMATION_MONSTER_SUPPRESSION_MAX_PERCENT,
  FORMATION_TICKS_PER_DAY,
  normalizeFormationSetup,
  percentModifierToMultiplier,
@@ -317,9 +318,11 @@ export class InventoryFormationDialogController {
   }
   if (template.effect.kind === 'monster_suppression') {
    const layers = Math.max(0, Math.floor(stats.effectValue));
+   const effectiveSuppressionPercent = Math.min(layers, FORMATION_MONSTER_SUPPRESSION_MAX_PERCENT);
    return [
     { label: '压制层数', value: formatDisplayInteger(layers) },
-    { label: '经验剩余比例', value: this.formatPercent(percentModifierToMultiplier(-layers)) },
+    { label: '有效削弱幅度', value: `${formatDisplayNumber(effectiveSuppressionPercent)}%` },
+    { label: '经验剩余比例', value: this.formatPercent(percentModifierToMultiplier(-effectiveSuppressionPercent)) },
    ];
   }
   if (template.effect.kind === 'vision_suppression') {
@@ -364,9 +367,9 @@ export class InventoryFormationDialogController {
   if (kind === 'monster_suppression') {
    return {
     kindLabel: '封魔压制',
-    fallbackDesc: '压制范围内妖兽的主要战斗属性，并按实际压制幅度降低击杀经验。',
+    fallbackDesc: '压制范围内妖兽的主要战斗属性，并按实际压制幅度降低击杀经验；有效削弱最高 100%。',
     target: '范围内妖兽',
-    scaling: `实际强度 ${effectValue}，每 1 强度提供 1 层压制`,
+    scaling: `实际强度 ${effectValue}，每 1 强度提供 1% 削弱，最高计 100%（属性与经验最低保留 50%）`,
     visibility: '范围内自动生效，多阵重叠取最高压制层数',
    };
   }

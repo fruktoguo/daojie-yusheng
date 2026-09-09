@@ -4,6 +4,7 @@
 import {
   applyMonsterMainCombatStatModifier,
   cloneNumericStats,
+  FORMATION_MONSTER_SUPPRESSION_MAX_PERCENT,
   percentModifierToMultiplier,
 } from '@mud/shared';
 
@@ -17,7 +18,9 @@ export function resolveFormationMonsterSuppressionLayers(
     return 0;
   }
   const layers = Number(formationService.resolveMonsterSuppressionLayersAt(instanceId, x, y));
-  return Number.isFinite(layers) ? Math.max(0, Math.floor(layers)) : 0;
+  return Number.isFinite(layers)
+    ? Math.min(FORMATION_MONSTER_SUPPRESSION_MAX_PERCENT, Math.max(0, Math.floor(layers)))
+    : 0;
 }
 
 export function resolveFormationMonsterExpMultiplier(

@@ -10,6 +10,7 @@ import {
   DISPERSED_AURA_RESOURCE_KEY,
   Direction,
   FORMATION_TICKS_PER_DAY,
+  FORMATION_MONSTER_SUPPRESSION_MAX_PERCENT,
   QI_HALF_LIFE_RATE_SCALE,
   TileType,
   buildQiHalfLifeRateScaled,
@@ -32,6 +33,7 @@ import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
 import { MapTemplateRepository } from '../runtime/map/map-template.repository';
 import {
   resolveFormationMonsterExpMultiplier,
+  resolveFormationMonsterSuppressionLayers,
   resolveSuppressedMonsterNumericStats,
 } from '../runtime/world/combat/formation-combat-effect.helpers';
 import { WorldRuntimeFormationService } from '../runtime/world/world-runtime-formation.service';
@@ -1271,7 +1273,11 @@ function testFormationSuppressionEffects(service) {
   );
   assert.equal(service.resolveMonsterSuppressionLayersAt(suppressionInstanceId, 11, 10), 200);
   assert.equal(service.resolveMonsterSuppressionLayersAt(suppressionInstanceId, 14, 10), 0);
-  assert.ok(Math.abs(resolveFormationMonsterExpMultiplier(service, suppressionInstanceId, 11, 10) - (1 / 3)) < 0.000001);
+  assert.equal(
+    resolveFormationMonsterSuppressionLayers(service, suppressionInstanceId, 11, 10),
+    FORMATION_MONSTER_SUPPRESSION_MAX_PERCENT,
+  );
+  assert.equal(resolveFormationMonsterExpMultiplier(service, suppressionInstanceId, 11, 10), 0.5);
   const monsterStats = createNumericStats();
   monsterStats.maxHp = 300;
   monsterStats.physAtk = 90;
@@ -1283,12 +1289,12 @@ function testFormationSuppressionEffects(service) {
     x: 11,
     y: 10,
   }, service, suppressionInstanceId);
-  assert.equal(suppressed.layers, 200);
-  assert.equal(suppressed.numericStats.maxHp, 100);
-  assert.equal(suppressed.numericStats.physAtk, 30);
-  assert.equal(suppressed.numericStats.spellAtk, 20);
-  assert.equal(suppressed.numericStats.dodge, 10);
-  assert.equal(suppressed.numericStats.antiCrit, 15);
+  assert.equal(suppressed.layers, FORMATION_MONSTER_SUPPRESSION_MAX_PERCENT);
+  assert.equal(suppressed.numericStats.maxHp, 150);
+  assert.equal(suppressed.numericStats.physAtk, 45);
+  assert.equal(suppressed.numericStats.spellAtk, 30);
+  assert.equal(suppressed.numericStats.dodge, 15);
+  assert.equal(suppressed.numericStats.antiCrit, 23);
   assert.equal(monsterStats.physAtk, 90);
   assert.equal(service.resolveVisionSuppressionPercentAt(suppressionInstanceId, 11, 10), 20);
   assert.equal(service.resolveVisionSuppressionPercentAt(suppressionInstanceId, 14, 10), 0);

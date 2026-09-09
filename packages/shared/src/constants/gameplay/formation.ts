@@ -79,6 +79,9 @@ export const DEFAULT_FORMATION_RANGE_HIGHLIGHT_COLOR = '#3b82f6';
 /** 默认每灵气伤害值 */
 export const FORMATION_DEFAULT_DAMAGE_PER_AURA = 100;
 
+/** 封魔阵有效削弱百分比上限；负向反比换算后最低保留 50% 属性。 */
+export const FORMATION_MONSTER_SUPPRESSION_MAX_PERCENT = 100;
+
 /** 普通减伤阵法的强度分母：10 强度约 1% 减伤。 */
 export const FORMATION_DEFAULT_DAMAGE_REDUCTION_DENOMINATOR = 1_000;
 
