@@ -9,7 +9,12 @@ import {
   CRAFT_SKILL_FAILURE_EXP_RATE,
   CRAFT_SKILL_EXP_COMPENSATION_END_LEVEL,
   MINING_DAMAGE_BONUS_PER_LEVEL,
+  MINING_DROP_BASE_DAMAGE_MAX_HP_RATIO,
+  MINING_DROP_MAP_LEVEL_MULTIPLIER_PER_LEVEL,
+  MINING_DROP_MAX_TRIGGER_CHANCE,
+  MINING_DROP_OVERLEVEL_MULTIPLIER_PER_LEVEL,
   MINING_DROP_RATE_BONUS_PER_LEVEL,
+  MINING_DROP_UNDERLEVEL_MULTIPLIER_PER_LEVEL,
 } from './constants/gameplay/craft';
 
 /** 统一技艺经验计算入参。 */
@@ -128,4 +133,113 @@ export function getMiningDamageMultiplier(miningLevel: number | undefined): numb
 export function getMiningDropRateBonus(miningLevel: number | undefined): number {
   const level = Math.max(0, Math.floor(Number(miningLevel) || 0));
   return level * MINING_DROP_RATE_BONUS_PER_LEVEL;
+}
+
+export interface MiningDamageDropExpectedCountParams {
+  baseChanceBps: number | undefined;
+  baseCount?: number | undefined;
+  appliedDamage: number | undefined;
+  maxHp: number | undefined;
+  mineralLevel: number | undefined;
+  attackerRealmLevel: number | undefined;
+  otherMultiplier?: number | undefined;
+}
+
+export interface MiningExpectedDropRollPlan {
+  expectedCount: number;
+  triggerChance: number;
+  averageCountOnTrigger: number;
+  maxCountOnTrigger: number;
+}
+
+/** 以地块最大生命的 0.1% 为 1 倍伤害基准；低于基准时使用平方惩罚。 */
+export function getMiningDamageDropMultiplier(appliedDamage: number | undefined, maxHp: number | undefined): number {
+  const damage = Math.max(0, Number(appliedDamage) || 0);
+  const normalizedMaxHp = Math.max(1, Number(maxHp) || 1);
+  if (damage <= 0) {
+    return 0;
+  }
+  const baselineDamage = normalizedMaxHp * MINING_DROP_BASE_DAMAGE_MAX_HP_RATIO;
+  const damageRatio = damage / baselineDamage;
+  return damageRatio < 1 ? damageRatio * damageRatio : damageRatio;
+}
+
+/** 一级矿物为 1 倍，之后每级独立乘 1.1。 */
+export function getMiningMapLevelDropMultiplier(mineralLevel: number | undefined): number {
+  const level = Math.max(1, Math.floor(Number(mineralLevel) || 1));
+  return MINING_DROP_MAP_LEVEL_MULTIPLIER_PER_LEVEL ** (level - 1);
+}
+
+/** 境界高于矿物每级保留 80%，低于矿物每级保留 90%。 */
+export function getMiningRealmGapDropMultiplier(
+  attackerRealmLevel: number | undefined,
+  mineralLevel: number | undefined,
+): number {
+  const attackerLevel = Math.max(1, Math.floor(Number(attackerRealmLevel) || 1));
+  const targetLevel = Math.max(1, Math.floor(Number(mineralLevel) || 1));
+  if (attackerLevel > targetLevel) {
+    return MINING_DROP_OVERLEVEL_MULTIPLIER_PER_LEVEL ** (attackerLevel - targetLevel);
+  }
+  if (attackerLevel < targetLevel) {
+    return MINING_DROP_UNDERLEVEL_MULTIPLIER_PER_LEVEL ** (targetLevel - attackerLevel);
+  }
+  return 1;
+}
+
+/** 汇总矿物基础爆率、伤害、地图等级、境界差和其他来源后的最终期望掉落数量。 */
+export function computeMiningDamageDropExpectedCount(params: MiningDamageDropExpectedCountParams): number {
+  const baseChance = Math.max(0, Number(params.baseChanceBps) || 0) / 10_000;
+  const baseCount = Math.max(1, Math.floor(Number(params.baseCount) || 1));
+  const otherMultiplier = Math.max(0, Number.isFinite(params.otherMultiplier) ? Number(params.otherMultiplier) : 1);
+  if (baseChance <= 0 || otherMultiplier <= 0) {
+    return 0;
+  }
+  const expectedCount = baseChance
+    * baseCount
+    * getMiningDamageDropMultiplier(params.appliedDamage, params.maxHp)
+    * getMiningMapLevelDropMultiplier(params.mineralLevel)
+    * getMiningRealmGapDropMultiplier(params.attackerRealmLevel, params.mineralLevel)
+    * otherMultiplier;
+  return Number.isFinite(expectedCount) && expectedCount > 0 ? expectedCount : 0;
+}
+
+/** 把最终期望数量转换为不超过 10% 的触发率和对称随机数量区间。 */
+export function resolveMiningExpectedDropRollPlan(expectedCount: number | undefined): MiningExpectedDropRollPlan {
+  const expected = Math.max(0, Number(expectedCount) || 0);
+  if (expected <= 0) {
+    return { expectedCount: 0, triggerChance: 0, averageCountOnTrigger: 1, maxCountOnTrigger: 1 };
+  }
+  const rawAverage = expected / MINING_DROP_MAX_TRIGGER_CHANCE;
+  const epsilon = Number.EPSILON * Math.max(1, Math.abs(rawAverage)) * 4;
+  const averageCountOnTrigger = Math.max(1, Math.ceil(rawAverage - epsilon));
+  const maxCountOnTrigger = (averageCountOnTrigger * 2) - 1;
+  return {
+    expectedCount: expected,
+    triggerChance: Math.min(MINING_DROP_MAX_TRIGGER_CHANCE, expected / averageCountOnTrigger),
+    averageCountOnTrigger,
+    maxCountOnTrigger,
+  };
+}
+
+/** 按矿物掉落计划掷骰；数量在 [1, 2k-1] 内均匀分布，严格保持原始期望值。 */
+export function rollMiningExpectedDropCount(
+  expectedCount: number | undefined,
+  random: () => number = Math.random,
+): number {
+  const plan = resolveMiningExpectedDropRollPlan(expectedCount);
+  if (plan.triggerChance <= 0 || normalizeMiningDropRandom(random()) >= plan.triggerChance) {
+    return 0;
+  }
+  if (plan.maxCountOnTrigger <= 1) {
+    return 1;
+  }
+  return 1 + Math.floor(normalizeMiningDropRandom(random()) * plan.maxCountOnTrigger);
+}
+
+function normalizeMiningDropRandom(value: number): number {
+  const normalized = Number(value);
+  if (!Number.isFinite(normalized) || normalized <= 0) {
+    return 0;
+  }
+  return Math.min(1 - Number.EPSILON, normalized);
 }

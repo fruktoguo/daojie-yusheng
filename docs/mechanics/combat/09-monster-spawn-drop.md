@@ -121,7 +121,11 @@ rollLootPoolItems(query):
   随机从候选中抽取
 ```
 
-## 地块掉落倍率
+## 地块受击掉落
+
+矿物地块不再使用固定 `100` 伤害门槛。灵石矿、玄铁矿等带 `miningLevel` 标记的结构统一进入地图等级矿物公式：以地块 `0.1% maxHp` 为伤害基准，低于基准使用平方衰减，达到基准后按伤害比例线性增长；之后再乘地图 `mapLv`、攻击者境界等级差和挖矿其他增幅，并将最终期望数量转换为最高 10% 的触发率与随机数量。完整公式见 `docs/mechanics/core-loop/04-map-terrain.md`。
+
+`resolveTileDamageDropMultiplier` 只保留给云朵等非矿物地块的旧掉落兜底：
 
 ```ts
 resolveTileDamageDropMultiplier(appliedDamage):

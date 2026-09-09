@@ -39,5 +39,20 @@ export const MINING_DAMAGE_BONUS_PER_LEVEL = 0.02;
 /** 挖矿每级增加的矿物额外概率。 */
 export const MINING_DROP_RATE_BONUS_PER_LEVEL = 0.01;
 
+/** 矿物基础爆率对应的单次伤害占地块最大生命比例。 */
+export const MINING_DROP_BASE_DAMAGE_MAX_HP_RATIO = 0.001;
+
+/** 矿物所在地图每提升一级提供的独立爆率倍率。 */
+export const MINING_DROP_MAP_LEVEL_MULTIPLIER_PER_LEVEL = 1.1;
+
+/** 攻击者境界每高于矿物等级一级时保留的爆率比例。 */
+export const MINING_DROP_OVERLEVEL_MULTIPLIER_PER_LEVEL = 0.8;
+
+/** 攻击者境界每低于矿物等级一级时保留的爆率比例。 */
+export const MINING_DROP_UNDERLEVEL_MULTIPLIER_PER_LEVEL = 0.9;
+
+/** 单次矿物掉落触发概率上限；超出期望转为随机数量。 */
+export const MINING_DROP_MAX_TRIGGER_CHANCE = 0.1;
+
 /** 挖矿经验：每次对矿脉造成伤害视为 0.3 息动作。 */
 export const MINING_EXP_BASE_ACTION_TICKS = 0.3;

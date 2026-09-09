@@ -110,7 +110,7 @@
 - `alchemy_furnace` + `craftEffectStats.alchemy.successRate/speedRate`：炼丹成功率与速度。
 - `forging_tool` + `craftEffectStats.forging.successRate/speedRate`：炼器成功率与速度。
 - `enhancement_hammer` + `craftEffectStats.enhancement.successRate/speedRate`：强化成功率与速度。
-- `mining_pickaxe` + `craftEffectStats.mining.speedRate/outputRate/expRate`：挖矿破坏速度、矿物额外产出与挖矿技艺经验。`outputRate` 按固定额外数量 + 小数概率额外 1 个结算，不再并入地块掉落概率。
+- `mining_pickaxe` + `craftEffectStats.mining.speedRate/outputRate/expRate`：挖矿破坏速度、矿物额外产出与挖矿技艺经验。`outputRate` 作为独立乘区并入矿物受击掉落的最终期望数量，再统一转换为最高 10% 的触发率和随机数量；矿脉固定摧毁掉落不消费该乘区。
 - `building_hammer` + `craftEffectStats.building.speedRate`：每息建造进度增幅。
 
 ### 练气期生活工具

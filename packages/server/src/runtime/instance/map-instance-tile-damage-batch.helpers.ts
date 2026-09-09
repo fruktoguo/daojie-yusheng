@@ -1,5 +1,6 @@
 export type TileDropRollOptions = {
-  dropRateBonus?: number;
+  miningAttackerRealmLevel?: number;
+  miningOtherDropMultiplier?: number;
   /** 调用方已由技能目标规划保证坐标唯一时，跳过批处理内的重复坐标 Set。 */
   assumeUniqueEntries?: boolean;
   /** 批处理内部阶段计时；聚合完成后每个阶段只回调一次。 */

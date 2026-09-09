@@ -5,7 +5,6 @@
  */
 import {
   MINING_EXP_BASE_ACTION_TICKS,
-  applyCraftOutputRate,
   computeCraftSkillExpGain,
   computeLuckSuccessRateBonus,
   getMiningDamageMultiplier,
@@ -62,6 +61,18 @@ export function resolveMiningDropRateBonus(attacker: any): number {
   const skillBonus = getMiningDropRateBonus(miningLevel);
   const luckBonus = computeLuckSuccessRateBonus(resolvePlayerEffectiveLuck(attacker));
   return skillBonus + luckBonus;
+}
+
+export function resolveMiningDropRollOptions(attacker: unknown): {
+  miningAttackerRealmLevel: number;
+  miningOtherDropMultiplier: number;
+} {
+  const dropRateMultiplier = 1 + Math.max(0, resolveMiningDropRateBonus(attacker));
+  const outputMultiplier = 1 + Math.max(0, resolvePlayerCraftEffectStat(attacker, 'mining', 'outputRate'));
+  return {
+    miningAttackerRealmLevel: resolvePlayerCraftRealmLevel(attacker),
+    miningOtherDropMultiplier: dropRateMultiplier * outputMultiplier,
+  };
 }
 
 export function applyMiningExpForTileDamage(input: {
@@ -279,15 +290,13 @@ export function spawnTileDrops(input: {
   if (typeof receiveInventoryItem !== 'function') {
     throw new Error('tile_drop_receive_inventory_item_missing');
   }
-  const player = input.deps?.playerRuntimeService?.getPlayer?.(input.playerId);
-  const outputRate = resolvePlayerCraftEffectStat(player, 'mining', 'outputRate');
   const outputCountByItemId = new Map<string, number>();
   for (const drop of drops) {
     const itemId = typeof drop?.itemId === 'string' ? drop.itemId.trim() : '';
     if (!itemId) {
       continue;
     }
-    const count = applyCraftOutputRate(Math.max(1, Math.trunc(Number(drop?.count) || 1)), outputRate);
+    const count = Math.max(1, Math.trunc(Number(drop?.count) || 1));
     outputCountByItemId.set(itemId, (outputCountByItemId.get(itemId) ?? 0) + count);
   }
   const labels: string[] = [];

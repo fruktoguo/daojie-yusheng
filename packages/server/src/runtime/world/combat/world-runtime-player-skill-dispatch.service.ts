@@ -17,7 +17,7 @@ import { CombatActionPhase, CombatActorKind, CombatRejectReason, CombatTargetKin
 import { emitCombatPresentation, nextCastId } from './world-runtime-combat-presentation.helpers';
 import { CombatPendingCastCancelReason, CombatPendingCastStatus, cancelPendingCombatCast, createPlayerPendingCombatCast, createPlayerSkillActionFromPendingCast, resolvePendingCombatCastCancellation } from '../../combat/pending-combat-cast.helpers';
 import { buildStructuredNotice } from '../structured-notice.helpers';
-import { applyMiningExpForTileDamage, applyMiningExpForTileDamageBatch, resolveMiningAdjustedTileDamage, resolveMiningDropRateBonus, resolveMiningTileDamageMultiplier, spawnTileDrops } from './tile-drop.helpers';
+import { applyMiningExpForTileDamage, applyMiningExpForTileDamageBatch, resolveMiningAdjustedTileDamage, resolveMiningDropRollOptions, resolveMiningTileDamageMultiplier, spawnTileDrops } from './tile-drop.helpers';
 import { WorldRuntimeThreatService } from './world-runtime-threat.service';
 import { resolvePlayerDisplayName } from '../../player/player-display-name';
 import { resolveSuppressedMonsterNumericStats } from './formation-combat-effect.helpers';
@@ -1518,6 +1518,7 @@ export class WorldRuntimePlayerSkillDispatchService {
             && typeof this.playerCombatService.canReuseResolvedTileSkillResult === 'function'
             && this.playerCombatService.canReuseResolvedTileSkillResult(resolvedSkill) === true;
         let miningTileDamageMultiplier = null;
+        const tileDropRollOptions = resolveMiningDropRollOptions(attacker);
         let repeatedTileSkillResult = null;
         const recordSkillCastSectionDuration = (sectionKey, durationMs, count = 1) => {
             const normalizedKey = typeof sectionKey === 'string' && sectionKey
@@ -2191,7 +2192,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 damage: Math.max(0, Math.round(Number(mitigatedDamage) || 0)),
                 rawDamage: Math.max(0, Math.round(Number(effectiveTileDamage) || 0)),
                 mitigatedDamage: Math.max(0, Math.round(Number(mitigatedDamage) || 0)),
-                tileDropRateBonus: resolveMiningDropRateBonus(attacker),
+                tileDropRollOptions,
             });
             recordPlayerSkillOutcomeApplyPerf(
                 deps,
@@ -2245,9 +2246,8 @@ export class WorldRuntimePlayerSkillDispatchService {
         if (pendingTileDamage.length > 0 && castSummary) {
             const outcomeApplyStartedAt = performance.now();
             let tileBatchSectionStartedAt = outcomeApplyStartedAt;
-            const dropRateBonus = resolveMiningDropRateBonus(attacker);
             const batchResult = instance.damageTilesBatch(pendingTileDamage, {
-                dropRateBonus,
+                ...tileDropRollOptions,
                 assumeUniqueEntries: true,
                 recordBatchSectionDuration: typeof deps?.recordPendingCommandSectionDuration === 'function'
                     ? (section: string, durationMs: number, count = 1) => recordPlayerSkillDispatchDuration(

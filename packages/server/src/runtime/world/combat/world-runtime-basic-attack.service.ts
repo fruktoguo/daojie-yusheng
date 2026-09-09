@@ -14,7 +14,7 @@ import { WorldRuntimeCombatActionService } from './world-runtime-combat-action.s
 import { CombatActionKind, CombatActionPhase, CombatActorKind, CombatRejectReason, CombatTargetKind } from './combat-action.types';
 import { emitCombatPresentation } from './world-runtime-combat-presentation.helpers';
 import { buildStructuredNotice } from '../structured-notice.helpers';
-import { applyMiningExpForTileDamage, resolveMiningAdjustedTileDamage, resolveMiningDropRateBonus, spawnTileDrops } from './tile-drop.helpers';
+import { applyMiningExpForTileDamage, resolveMiningAdjustedTileDamage, resolveMiningDropRollOptions, spawnTileDrops } from './tile-drop.helpers';
 import { WorldRuntimeThreatService } from './world-runtime-threat.service';
 import { resolvePlayerDisplayName } from '../../player/player-display-name';
 import { resolveSuppressedMonsterNumericStats } from './formation-combat-effect.helpers';
@@ -671,6 +671,7 @@ export class WorldRuntimeBasicAttackService {
         const mitigatedDamage = typeof deps.worldRuntimeFormationService?.mitigateTerrainDamage === 'function'
             ? deps.worldRuntimeFormationService.mitigateTerrainDamage(attacker.instanceId, targetX, targetY, effectiveBaseDamage)
             : effectiveBaseDamage;
+        const tileDropRollOptions = resolveMiningDropRollOptions(attacker);
         const appliedOutcome = this.applyPlayerBasicAttackOutcome(projectCombatOutcomeDeps(deps, { instance }), attacker, {
             kind: CombatTargetKind.Tile,
             x: targetX,
@@ -683,7 +684,7 @@ export class WorldRuntimeBasicAttackService {
             damage: mitigatedDamage,
             rawDamage: effectiveBaseDamage,
             mitigatedDamage: Math.max(0, Math.round(Number(mitigatedDamage) || 0)),
-            tileDropRateBonus: resolveMiningDropRateBonus(attacker),
+            tileDropRollOptions,
         });
         const result = appliedOutcome?.adapterResult;
         if (!result) {

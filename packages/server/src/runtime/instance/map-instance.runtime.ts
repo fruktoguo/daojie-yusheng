@@ -9,6 +9,7 @@
  * 资源刷新、灵气流动、AOI 广播和持久化脏域追踪。
  */
 import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, DEFAULT_QI_RUNTIME_FLOW_CONFIGS, DISPERSED_AURA_RESOURCE_KEY, Direction, ELEMENT_KEYS, GROUND_ITEM_EXPIRE_TICKS, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_INSTANCE_TICK_SPEED, MAX_THREAT_VALUE, MOVE_POINT_UNIT, OWNER_ONLY_ACCESS_POLICY, QI_HALF_LIFE_RATE_SCALE, StructureType, TECHNIQUE_UNIFICATION_PLATFORM_DEF_ID, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateDispersedAuraGainPerTile, calculateTerrainDurability, cloneAccessPolicy, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, horizontalFacingFromDelta, horizontalFacingFromTo, isGroundInteractableCellLayerTarget, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeHorizontalFacing, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolvePlayerFacingContentName, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType, validateAccessPolicy } from '@mud/shared';
+import { computeMiningDamageDropExpectedCount, rollMiningExpectedDropCount } from '@mud/shared';
 import { readTrimmedEnv } from '../../config/env-alias';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import '../map/map-template.repository';
@@ -7330,10 +7331,29 @@ class MapInstanceRuntime {
    return [];
   }
   const drops = [];
-  const damageMultiplier = resolveTileDamageDropMultiplier(appliedDamage);
-  const dropRateMultiplier = 1 + Math.max(0, Number(options?.dropRateBonus) || 0);
+  const mineralLevel = Number.isFinite(Number(this.template?.source?.mapLv))
+   ? Math.max(1, Math.floor(Number(this.template.source.mapLv)))
+   : 1;
+  const isMineralDrop = Number.isFinite(Number(config.miningLevel)) && Number(config.miningLevel) > 0;
+  const legacyDamageMultiplier = isMineralDrop ? 0 : resolveTileDamageDropMultiplier(appliedDamage);
   for (const entry of config.damageDrops ?? []) {
-   const chanceBps = Math.max(0, Math.min(10000, Math.trunc(Number(entry?.chanceBps) || 0) * damageMultiplier * dropRateMultiplier));
+   if (isMineralDrop) {
+    const expectedCount = computeMiningDamageDropExpectedCount({
+     baseChanceBps: entry?.chanceBps,
+     baseCount: entry?.count,
+     appliedDamage,
+     maxHp: tileState?.maxHp,
+     mineralLevel,
+     attackerRealmLevel: options?.miningAttackerRealmLevel ?? mineralLevel,
+     otherMultiplier: options?.miningOtherDropMultiplier,
+    });
+    const count = rollMiningExpectedDropCount(expectedCount);
+    if (count > 0) {
+     drops.push({ itemId: entry.itemId, count, reason: 'damage' });
+    }
+    continue;
+   }
+   const chanceBps = Math.max(0, Math.min(10000, Math.trunc(Number(entry?.chanceBps) || 0) * legacyDamageMultiplier));
    if (chanceBps > 0 && Math.random() * 10000 < chanceBps) {
     drops.push({ itemId: entry.itemId, count: Math.max(1, Math.trunc(Number(entry.count) || 1)), reason: 'damage' });
    }

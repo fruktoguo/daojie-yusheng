@@ -32,6 +32,49 @@ calculateTileRestoreRetryTicks(tileType) =
   max(1, ceil(60 / getTileRestoreSpeedMultiplier(tileType)))
 ```
 
+## 矿物受击掉落公式
+
+矿物等级统一取矿物所在地图的 `mapLv`。每个矿脉目标按自己的实际伤害和最大生命独立计算，但不再按命中次数提供固定基础掷骰收益。
+
+```text
+baseDamage = maxHp × 0.1%
+damageRatio = appliedDamage / baseDamage
+
+damageMultiplier =
+  damageRatio², damageRatio < 1
+  damageRatio,  damageRatio >= 1
+
+mineralLevelMultiplier = 1.1^(mapLv - 1)
+
+realmGapMultiplier =
+  0.8^(attackerRealmLv - mapLv), attackerRealmLv > mapLv
+  1,                              attackerRealmLv = mapLv
+  0.9^(mapLv - attackerRealmLv), attackerRealmLv < mapLv
+
+otherMultiplier =
+  (1 + 挖矿等级掉率加成 + 幸运加成)
+  × (1 + mining.outputRate)
+
+expectedCount =
+  基础掉率 × 基础数量
+  × damageMultiplier
+  × mineralLevelMultiplier
+  × realmGapMultiplier
+  × otherMultiplier
+```
+
+低于 `0.1% maxHp` 的碎片伤害使用平方惩罚；达到基准后，伤害和期望掉落数量线性增长。相同总伤害拆成多个均达到基准的命中时总期望相同，拆成低于基准的小段时总期望下降。AOE 命中多个矿脉仍按每个目标的实际伤害分别计算，因此只会随真实总伤害增长。
+
+最终期望数量使用最高 10% 的触发率结算：
+
+```text
+k = max(1, ceil(expectedCount / 10%))
+triggerChance = expectedCount / k
+dropCountOnTrigger = 均匀随机整数 [1, 2k - 1]
+```
+
+`triggerChance` 始终不超过 10%，触发后的平均数量为 `k`，因此严格保持原始 `expectedCount`。例如 20% 转为 10% 概率掉落 1-3 个；65% 转为约 9.2857% 概率掉落 1-13 个。矿脉摧毁配置中的固定掉落独立结算，不进入该概率换算，也不再次应用 `mining.outputRate`。
+
 ## 地块修复流程
 
 源文件: `packages/server/src/runtime/instance/map-instance.runtime.ts`
