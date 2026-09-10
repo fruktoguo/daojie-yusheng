@@ -137,8 +137,9 @@ async function main(): Promise<void> {
     queuePlayerNotice(): void {},
     getInstanceRuntime: () => chamberInstance,
   };
-  assert.equal(service.authorizeScheduledSteps(state.chamberInstanceId, chamberInstance, 4, 3, runtime), 1);
+  serviceInternal.applyEffectiveSpeed(state, chamberInstance, runtime);
   assert.equal(chamberInstance.tickSpeed, 1, '密室未开启时必须固定一倍');
+  assert.equal(service.authorizeScheduledSteps(state.chamberInstanceId, chamberInstance, 1, 1, runtime), 1);
   state.activeStartedAt = Date.now();
   state.activeExpiresAt = Date.now() + 60_000;
   state.activationPlayerId = 'player:one';

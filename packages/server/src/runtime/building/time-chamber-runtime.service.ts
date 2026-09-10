@@ -705,22 +705,8 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
     });
   }
 
-  /** 开启成本已一次预扣；这里只在调度批次边界强制执行到期回落。 */
-  authorizeScheduledSteps(instanceId: string, instance: any, requestedSteps: number, speed: number, runtime: any): number {
-    const state = this.stateByChamberInstanceId.get(instanceId);
-    if (!state) {
-      return requestedSteps;
-    }
-    this.worldRuntime = runtime;
-    if (!isTimeChamberActive(state, Date.now())) {
-      if (resolveEffectiveInstanceSpeed(instance) !== BASE_SPEED) {
-        this.applyEffectiveSpeed(state, instance, runtime);
-        if (!this.expiryTimer && state.activeExpiresAt !== null) {
-          this.scheduleNextActivationExpiry();
-        }
-      }
-      return Math.min(Math.max(0, Math.trunc(requestedSteps)), 1);
-    }
+  /** 开启成本已一次预扣；流速由创建、水合、激活、配置修改与到期事件显式维护，热路径不修改实例流速。 */
+  authorizeScheduledSteps(_instanceId: string, _instance: any, requestedSteps: number, _speed: number, _runtime: any): number {
     return requestedSteps;
   }
 
