@@ -530,20 +530,24 @@ export class WorldRuntimePlayerCommandService {
                 }
                 return;
             }
-            case 'formation':
+            case 'formation': {
                 await deps.worldRuntimeFormationService?.flushPendingFormationMaintenanceForPlayer?.(playerId);
-                deps.worldRuntimeCraftMutationService.flushCraftMutation(
-                    playerId,
-                    deps.craftPanelRuntimeService.startTechniqueActivity(
-                        this.playerRuntimeService.getPlayerOrThrow(playerId),
-                        'formation',
-                        payload,
-                        deps,
-                    ),
+                const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+                const result = deps.craftPanelRuntimeService.startTechniqueActivity(
+                    player,
                     'formation',
+                    payload,
                     deps,
                 );
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'formation', deps);
+                if (result?.ok) {
+                    await deps.craftPanelRuntimeService.flushTechniqueActivityProjection?.(player, {
+                        force: true,
+                        reason: 'formation_command_start',
+                    });
+                }
                 return;
+            }
         }
     }
     /**
@@ -619,19 +623,23 @@ export class WorldRuntimePlayerCommandService {
                 }
                 return;
             }
-            case 'formation':
+            case 'formation': {
                 await deps.worldRuntimeFormationService?.flushPendingFormationMaintenanceForPlayer?.(playerId);
-                deps.worldRuntimeCraftMutationService.flushCraftMutation(
-                    playerId,
-                    deps.craftPanelRuntimeService.cancelTechniqueActivity(
-                        this.playerRuntimeService.getPlayerOrThrow(playerId),
-                        'formation',
-                        deps,
-                    ),
+                const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+                const result = deps.craftPanelRuntimeService.cancelTechniqueActivity(
+                    player,
                     'formation',
                     deps,
                 );
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'formation', deps);
+                if (result?.ok) {
+                    await deps.craftPanelRuntimeService.flushTechniqueActivityProjection?.(player, {
+                        force: true,
+                        reason: 'formation_command_cancel',
+                    });
+                }
                 return;
+            }
         }
     }
     /** 统一任务列表取消入口：可取消队列项，也可按 jobRunId 保护性取消当前 job。 */

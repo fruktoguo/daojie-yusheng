@@ -941,12 +941,12 @@ class WorldRuntimeSectService {
         if (actionId === 'sect:guardian:maintain') {
             const formation = deps.worldRuntimeFormationService.findFormationInInstance(sect.entranceInstanceId, guardianId)
                 ?? this.ensureGuardianFormation(sect, deps);
-            dispatchSectGuardianTechniqueActivity(playerId, 'start', formation?.id ?? guardianId, deps);
+            await dispatchSectGuardianTechniqueActivity(playerId, 'start', formation?.id ?? guardianId, deps);
             deps.refreshPlayerContextActions?.(playerId);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
         if (actionId === 'sect:guardian:cancel_maintain') {
-            dispatchSectGuardianTechniqueActivity(playerId, 'cancel', guardianId, deps);
+            await dispatchSectGuardianTechniqueActivity(playerId, 'cancel', guardianId, deps);
             deps.refreshPlayerContextActions?.(playerId);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }

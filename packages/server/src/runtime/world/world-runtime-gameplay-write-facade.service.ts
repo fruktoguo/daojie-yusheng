@@ -336,20 +336,24 @@ export class WorldRuntimeGameplayWriteFacadeService {
                 }
                 return;
             }
-            case 'formation':
+            case 'formation': {
                 await deps.worldRuntimeFormationService?.flushPendingFormationMaintenanceForPlayer?.(playerId);
-                deps.worldRuntimeCraftMutationService.flushCraftMutation(
-                    playerId,
-                    deps.craftPanelRuntimeService.startTechniqueActivity(
-                        deps.playerRuntimeService.getPlayerOrThrow(playerId),
-                        'formation',
-                        payload,
-                        deps,
-                    ),
+                const player = deps.playerRuntimeService.getPlayerOrThrow(playerId);
+                const result = deps.craftPanelRuntimeService.startTechniqueActivity(
+                    player,
                     'formation',
+                    payload,
                     deps,
                 );
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'formation', deps);
+                if (result?.ok) {
+                    await deps.craftPanelRuntimeService.flushTechniqueActivityProjection?.(player, {
+                        force: true,
+                        reason: 'formation_facade_start',
+                    });
+                }
                 return;
+            }
         }
     }
     /**
@@ -414,19 +418,23 @@ export class WorldRuntimeGameplayWriteFacadeService {
                 }
                 return;
             }
-            case 'formation':
+            case 'formation': {
                 await deps.worldRuntimeFormationService?.flushPendingFormationMaintenanceForPlayer?.(playerId);
-                deps.worldRuntimeCraftMutationService.flushCraftMutation(
-                    playerId,
-                    deps.craftPanelRuntimeService.cancelTechniqueActivity(
-                        deps.playerRuntimeService.getPlayerOrThrow(playerId),
-                        'formation',
-                        deps,
-                    ),
+                const player = deps.playerRuntimeService.getPlayerOrThrow(playerId);
+                const result = deps.craftPanelRuntimeService.cancelTechniqueActivity(
+                    player,
                     'formation',
                     deps,
                 );
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'formation', deps);
+                if (result?.ok) {
+                    await deps.craftPanelRuntimeService.flushTechniqueActivityProjection?.(player, {
+                        force: true,
+                        reason: 'formation_facade_cancel',
+                    });
+                }
                 return;
+            }
         }
     }
     /**

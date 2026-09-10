@@ -204,7 +204,16 @@ function enqueueFormationMaintenance(player: unknown, formationInstanceId: strin
 
 function markFormationDirty(player: unknown, ctx: PipelineContext): void {
   const record = player as { dirtyDomains?: { add?: (domain: string) => void } } | null;
-  record?.dirtyDomains?.add?.('active_job');
-  const runtimeService = (ctx.deps as { playerRuntimeService?: { bumpPersistentRevision?: (player: unknown) => void } } | null)?.playerRuntimeService;
+  const runtimeService = (ctx.deps as {
+    playerRuntimeService?: {
+      markPersistenceDirtyDomains?: (target: unknown, domains: string[]) => void;
+      bumpPersistentRevision?: (target: unknown) => void;
+    };
+  } | null)?.playerRuntimeService;
+  if (typeof runtimeService?.markPersistenceDirtyDomains === 'function') {
+    runtimeService.markPersistenceDirtyDomains(player, ['active_job']);
+  } else {
+    record?.dirtyDomains?.add?.('active_job');
+  }
   runtimeService?.bumpPersistentRevision?.(player);
 }

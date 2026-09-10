@@ -241,12 +241,14 @@ export function formatInteger(value) {
   return formatDisplayInteger(normalized);
 }
 
-export function dispatchSectGuardianTechniqueActivity(playerId, mode, formationInstanceId, deps) {
+export async function dispatchSectGuardianTechniqueActivity(playerId, mode, formationInstanceId, deps) {
   if (mode === 'start'
     && typeof deps?.craftPanelRuntimeService?.startTechniqueActivity === 'function'
     && typeof deps?.worldRuntimeCraftMutationService?.flushCraftMutation === 'function') {
+    await deps.worldRuntimeFormationService?.flushPendingFormationMaintenanceForPlayer?.(playerId);
+    const player = deps.playerRuntimeService.getPlayerOrThrow(playerId);
     const result = deps.craftPanelRuntimeService.startTechniqueActivity(
-      deps.playerRuntimeService.getPlayerOrThrow(playerId),
+      player,
       'formation',
       { formationInstanceId },
       deps,
@@ -255,13 +257,19 @@ export function dispatchSectGuardianTechniqueActivity(playerId, mode, formationI
       throw new BadRequestException(result?.error ?? '启动护宗大阵维护失败');
     }
     deps.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'formation', deps);
+    await deps.craftPanelRuntimeService.flushTechniqueActivityProjection?.(player, {
+      force: true,
+      reason: 'sect_guardian_formation_start',
+    });
     return;
   }
   if (mode === 'cancel'
     && typeof deps?.craftPanelRuntimeService?.cancelTechniqueActivity === 'function'
     && typeof deps?.worldRuntimeCraftMutationService?.flushCraftMutation === 'function') {
+    await deps.worldRuntimeFormationService?.flushPendingFormationMaintenanceForPlayer?.(playerId);
+    const player = deps.playerRuntimeService.getPlayerOrThrow(playerId);
     const result = deps.craftPanelRuntimeService.cancelTechniqueActivity(
-      deps.playerRuntimeService.getPlayerOrThrow(playerId),
+      player,
       'formation',
       deps,
     );
@@ -269,6 +277,10 @@ export function dispatchSectGuardianTechniqueActivity(playerId, mode, formationI
       throw new BadRequestException(result?.error ?? '停止护宗大阵维护失败');
     }
     deps.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'formation', deps);
+    await deps.craftPanelRuntimeService.flushTechniqueActivityProjection?.(player, {
+      force: true,
+      reason: 'sect_guardian_formation_cancel',
+    });
     return;
   }
   deps.enqueuePendingCommand?.(playerId, mode === 'start'

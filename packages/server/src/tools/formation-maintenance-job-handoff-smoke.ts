@@ -1,12 +1,153 @@
 import assert from 'node:assert/strict';
 
+import { TechniqueActivityPipelineService } from '../runtime/craft/pipeline/technique-activity-pipeline.service';
+import { FormationStrategy } from '../runtime/craft/pipeline/strategies/formation.strategy';
+import { WorldRuntimePlayerCommandService } from '../runtime/world/command/world-runtime-player-command.service';
+import { WorldRuntimeGameplayWriteFacadeService } from '../runtime/world/world-runtime-gameplay-write-facade.service';
+import { dispatchSectGuardianTechniqueActivity } from '../runtime/world/world-runtime-sect-domain.helpers';
 import { ensureFormationMaintenanceActiveJobReady } from '../runtime/world/world-runtime-formation.service';
 import { buildCraftTickErrorNotice } from '../runtime/world/world-runtime-craft-tick.service';
 import { installSmokeTimeout } from './smoke-timeout';
 
 installSmokeTimeout(__filename);
 
+
+function testFormationStartAdvancesActiveJobDomainRevision(): void {
+  const player = {
+    playerId: 'player:formation-domain-revision',
+    formationJob: null as Record<string, unknown> | null,
+    dirtyDomains: new Set<string>(),
+    persistentRevision: 1,
+    techniqueActivityQueue: [] as Array<Record<string, unknown>>,
+  };
+  const markedDomains: string[][] = [];
+  const pipeline = new TechniqueActivityPipelineService();
+  pipeline.register(new FormationStrategy());
+  const result = pipeline.start(player, 'formation', { formationInstanceId: 'formation:revision' }, {
+    contentTemplateRepository: {
+      getItemName(): string | null { return null; },
+      normalizeItem(item: unknown): unknown { return item; },
+    },
+    resolveExpToNextByLevel(): number { return 60; },
+    getInstanceRuntime(): unknown { return null; },
+    deps: {
+      worldRuntimeFormationService: {
+        resolveMaintainableFormation(): Record<string, unknown> {
+          return { id: 'formation:revision', name: '太玄封界阵' };
+        },
+        checkFormationMaintenanceCondition(): { satisfied: boolean } {
+          return { satisfied: true };
+        },
+        createFormationMaintenanceJob(): Record<string, unknown> {
+          return {
+            jobRunId: 'job:formation:revision',
+            jobType: 'formation',
+            formationInstanceId: 'formation:revision',
+            formationName: '太玄封界阵',
+            phase: 'maintaining',
+            totalTicks: 1,
+            remainingTicks: 1,
+            workTotalTicks: 1,
+            workRemainingTicks: 1,
+            jobVersion: 1,
+          };
+        },
+      },
+      playerRuntimeService: {
+        markPersistenceDirtyDomains(target: typeof player, domains: string[]): void {
+          markedDomains.push([...domains]);
+          for (const domain of domains) target.dirtyDomains.add(domain);
+        },
+        bumpPersistentRevision(target: typeof player): void {
+          target.persistentRevision += 1;
+        },
+      },
+    },
+  });
+  assert.equal(result.ok, true);
+  assert.deepEqual(markedDomains, [['active_job']]);
+  assert.equal(player.dirtyDomains.has('active_job'), true);
+  assert.equal(player.persistentRevision, 2);
+}
+
+type FormationBoundaryPlayer = { playerId: string };
+
+function createFormationBoundaryDeps(player: FormationBoundaryPlayer, log: string[]): Record<string, unknown> {
+  return {
+    playerRuntimeService: {
+      getPlayerOrThrow(): FormationBoundaryPlayer { return player; },
+    },
+    worldRuntimeFormationService: {
+      async flushPendingFormationMaintenanceForPlayer(): Promise<void> { log.push('checkpoint'); },
+    },
+    craftPanelRuntimeService: {
+      startTechniqueActivity(): Record<string, unknown> {
+        log.push('start');
+        return { ok: true };
+      },
+      cancelTechniqueActivity(): Record<string, unknown> {
+        log.push('cancel');
+        return { ok: true };
+      },
+      async flushTechniqueActivityProjection(
+        target: FormationBoundaryPlayer,
+        options: { force?: boolean; reason?: string },
+      ): Promise<boolean> {
+        assert.equal(target, player);
+        log.push(`projection:${options.reason}:${options.force === true}`);
+        return true;
+      },
+    },
+    worldRuntimeCraftMutationService: {
+      flushCraftMutation(_playerId: string, _result: unknown, panel: string): void {
+        log.push(`mutation:${panel}`);
+      },
+    },
+  };
+}
+
+async function testFormationCommandBoundariesForceProjection(): Promise<void> {
+  const player = { playerId: 'player:formation-command-boundary' };
+  const log: string[] = [];
+  const deps = createFormationBoundaryDeps(player, log);
+  const service = Object.create(WorldRuntimePlayerCommandService.prototype) as WorldRuntimePlayerCommandService;
+  (service as unknown as { playerRuntimeService: unknown }).playerRuntimeService = (deps as { playerRuntimeService: unknown }).playerRuntimeService;
+  await service.dispatchStartTechniqueActivity(player.playerId, 'formation', { formationInstanceId: 'formation:command' }, deps);
+  assert.deepEqual(log, ['checkpoint', 'start', 'mutation:formation', 'projection:formation_command_start:true']);
+  log.length = 0;
+  await service.dispatchCancelTechniqueActivity(player.playerId, 'formation', deps);
+  assert.deepEqual(log, ['checkpoint', 'cancel', 'mutation:formation', 'projection:formation_command_cancel:true']);
+}
+
+async function testFormationFacadeBoundariesForceProjection(): Promise<void> {
+  const player = { playerId: 'player:formation-facade-boundary' };
+  const log: string[] = [];
+  const deps = createFormationBoundaryDeps(player, log);
+  const service = new WorldRuntimeGameplayWriteFacadeService();
+  await service.dispatchStartTechniqueActivity(player.playerId, 'formation', { formationInstanceId: 'formation:facade' }, deps);
+  assert.deepEqual(log, ['checkpoint', 'start', 'mutation:formation', 'projection:formation_facade_start:true']);
+  log.length = 0;
+  await service.dispatchCancelTechniqueActivity(player.playerId, 'formation', deps);
+  assert.deepEqual(log, ['checkpoint', 'cancel', 'mutation:formation', 'projection:formation_facade_cancel:true']);
+}
+
+async function testSectGuardianBoundariesForceProjection(): Promise<void> {
+  const player = { playerId: 'player:sect-formation-boundary' };
+  const log: string[] = [];
+  const deps = createFormationBoundaryDeps(player, log);
+  await dispatchSectGuardianTechniqueActivity(player.playerId, 'start', 'formation:sect-guardian', deps);
+  assert.deepEqual(log, ['checkpoint', 'start', 'mutation:formation', 'projection:sect_guardian_formation_start:true']);
+  log.length = 0;
+  await dispatchSectGuardianTechniqueActivity(player.playerId, 'cancel', 'formation:sect-guardian', deps);
+  assert.deepEqual(log, ['checkpoint', 'cancel', 'mutation:formation', 'projection:sect_guardian_formation_cancel:true']);
+}
+
 async function main(): Promise<void> {
+  testFormationStartAdvancesActiveJobDomainRevision();
+  await testFormationCommandBoundariesForceProjection();
+  await testFormationFacadeBoundariesForceProjection();
+  await testSectGuardianBoundariesForceProjection();
+
   const playerId = 'player:formation-handoff';
   const cleanPlayer = { dirtyDomains: new Set<string>() };
   let flushCount = 0;
