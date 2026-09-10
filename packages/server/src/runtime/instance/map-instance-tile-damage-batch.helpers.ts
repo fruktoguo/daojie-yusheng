@@ -1,6 +1,8 @@
 export type TileDropRollOptions = {
   miningAttackerRealmLevel?: number;
   miningOtherDropMultiplier?: number;
+  /** 同一玩家同次攻击命中的矿脉地块数量；只用于矿物受击掉落衰减。 */
+  miningAoeHitCount?: number;
   /** 调用方已由技能目标规划保证坐标唯一时，跳过批处理内的重复坐标 Set。 */
   assumeUniqueEntries?: boolean;
   /** 批处理内部阶段计时；聚合完成后每个阶段只回调一次。 */

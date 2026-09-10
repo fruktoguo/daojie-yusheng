@@ -45,6 +45,9 @@ export const MINING_DROP_BASE_DAMAGE_MAX_HP_RATIO = 0.001;
 /** 矿物所在地图每提升一级提供的独立爆率倍率。 */
 export const MINING_DROP_MAP_LEVEL_MULTIPLIER_PER_LEVEL = 1.1;
 
+/** 矿物地图等级线性增幅缩放；当前为旧线性增幅的 1/10。 */
+export const MINING_DROP_MAP_LEVEL_LINEAR_GAIN_SCALE = 0.1;
+
 /** 攻击者境界每高于矿物等级一级时保留的爆率比例。 */
 export const MINING_DROP_OVERLEVEL_MULTIPLIER_PER_LEVEL = 0.8;
 
@@ -53,6 +56,9 @@ export const MINING_DROP_UNDERLEVEL_MULTIPLIER_PER_LEVEL = 0.9;
 
 /** 单次矿物掉落触发概率上限；超出期望转为随机数量。 */
 export const MINING_DROP_MAX_TRIGGER_CHANCE = 0.1;
+
+/** 同一玩家同次攻击每额外命中一个矿脉时增加的单矿掉落衰减系数。 */
+export const MINING_DROP_AOE_DECAY_PER_EXTRA_TARGET = 0.1;
 
 /** 挖矿经验：每次对矿脉造成伤害视为 0.3 息动作。 */
 export const MINING_EXP_BASE_ACTION_TICKS = 0.3;

@@ -66,6 +66,7 @@ export function resolveMiningDropRateBonus(attacker: any): number {
 export function resolveMiningDropRollOptions(attacker: unknown): {
   miningAttackerRealmLevel: number;
   miningOtherDropMultiplier: number;
+  miningAoeHitCount?: number;
 } {
   const dropRateMultiplier = 1 + Math.max(0, resolveMiningDropRateBonus(attacker));
   const outputMultiplier = 1 + Math.max(0, resolvePlayerCraftEffectStat(attacker, 'mining', 'outputRate'));

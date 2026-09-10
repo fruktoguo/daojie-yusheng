@@ -9,7 +9,9 @@ import {
   CRAFT_SKILL_FAILURE_EXP_RATE,
   CRAFT_SKILL_EXP_COMPENSATION_END_LEVEL,
   MINING_DAMAGE_BONUS_PER_LEVEL,
+  MINING_DROP_AOE_DECAY_PER_EXTRA_TARGET,
   MINING_DROP_BASE_DAMAGE_MAX_HP_RATIO,
+  MINING_DROP_MAP_LEVEL_LINEAR_GAIN_SCALE,
   MINING_DROP_MAP_LEVEL_MULTIPLIER_PER_LEVEL,
   MINING_DROP_MAX_TRIGGER_CHANCE,
   MINING_DROP_OVERLEVEL_MULTIPLIER_PER_LEVEL,
@@ -143,6 +145,7 @@ export interface MiningDamageDropExpectedCountParams {
   mineralLevel: number | undefined;
   attackerRealmLevel: number | undefined;
   otherMultiplier?: number | undefined;
+  aoeHitCount?: number | undefined;
 }
 
 export interface MiningExpectedDropRollPlan {
@@ -169,9 +172,10 @@ export function getMiningDamageDropMultiplier(appliedDamage: number | undefined,
 
 /**
  * 计算矿物等级的线性倍率：
- * 1-10 级每级 +100%（10 级为 10 倍）；
- * 11-20 级在此基础上每级 +200%（11 级为 12 倍，20 级为 30 倍）；
- * 21-30 级在此基础上每级 +300%（21 级为 33 倍，30 级为 60 倍）；
+ * 当前为旧分段线性增幅的 1/10；指数复利不变。
+ * 1-10 级每级 +10%（10 级为 1.9 倍）；
+ * 11-20 级每级 +20%（20 级为 3.9 倍）；
+ * 21-30 级每级 +30%（30 级为 6.9 倍）；
  * 依此类推分段平滑累加，保证跨档无断层跳跃。
  */
 export function getMiningMapLevelLinearMultiplier(mineralLevel: number | undefined): number {
@@ -181,17 +185,18 @@ export function getMiningMapLevelLinearMultiplier(mineralLevel: number | undefin
   }
   const tierIndex = Math.floor((level - 1) / 10);
   if (tierIndex === 0) {
-    return 1 + (level - 1);
+    return 1 + ((level - 1) * MINING_DROP_MAP_LEVEL_LINEAR_GAIN_SCALE);
   }
-  const baseMultiplier = 10 + 5 * (tierIndex - 1) * (tierIndex + 2);
+  const oldBaseMultiplier = 10 + 5 * (tierIndex - 1) * (tierIndex + 2);
   const remainingLevels = level - tierIndex * 10;
-  const currentTierRate = tierIndex + 1;
-  return baseMultiplier + remainingLevels * currentTierRate;
+  const oldCurrentTierRate = tierIndex + 1;
+  const oldLinearMultiplier = oldBaseMultiplier + remainingLevels * oldCurrentTierRate;
+  return 1 + ((oldLinearMultiplier - 1) * MINING_DROP_MAP_LEVEL_LINEAR_GAIN_SCALE);
 }
 
 /**
  * 矿物地图等级掉落倍率：
- * 包含 10% 指数增幅与分段线性增幅（1-10 级每级 +100%，11-20 级每级 +200%...），
+ * 包含 10% 指数增幅与已降低 10 倍的分段线性增幅，
  * 两者按（指数倍率 + 线性倍率 - 1）相加叠加，保证 1 级为 1 倍基准且数值平滑递增。
  */
 export function getMiningMapLevelDropMultiplier(mineralLevel: number | undefined): number {
@@ -217,7 +222,14 @@ export function getMiningRealmGapDropMultiplier(
   return 1;
 }
 
-/** 汇总矿物基础爆率、伤害、地图等级、境界差和其他来源后的最终期望掉落数量。 */
+/** 同一玩家同次攻击命中多个矿脉时，单矿掉落期望按矿脉命中数衰减。 */
+export function getMiningAoeDropMultiplier(aoeHitCount: number | undefined): number {
+  const numericHitCount = Number(aoeHitCount);
+  const hitCount = Number.isFinite(numericHitCount) ? Math.max(1, Math.floor(numericHitCount)) : 1;
+  return 1 / (1 + MINING_DROP_AOE_DECAY_PER_EXTRA_TARGET * (hitCount - 1));
+}
+
+/** 汇总矿物基础爆率、伤害、地图等级、境界差、同次多矿衰减和其他来源后的最终期望掉落数量。 */
 export function computeMiningDamageDropExpectedCount(params: MiningDamageDropExpectedCountParams): number {
   const baseChance = Math.max(0, Number(params.baseChanceBps) || 0) / 10_000;
   const baseCount = Math.max(1, Math.floor(Number(params.baseCount) || 1));
@@ -230,6 +242,7 @@ export function computeMiningDamageDropExpectedCount(params: MiningDamageDropExp
     * getMiningDamageDropMultiplier(params.appliedDamage, params.maxHp)
     * getMiningMapLevelDropMultiplier(params.mineralLevel)
     * getMiningRealmGapDropMultiplier(params.attackerRealmLevel, params.mineralLevel)
+    * getMiningAoeDropMultiplier(params.aoeHitCount)
     * otherMultiplier;
   return Number.isFinite(expectedCount) && expectedCount > 0 ? expectedCount : 0;
 }

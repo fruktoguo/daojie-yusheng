@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 
 import {
+  TileType,
   computeMiningDamageDropExpectedCount,
+  getMiningAoeDropMultiplier,
   getMiningDamageDropMultiplier,
   getMiningMapLevelDropMultiplier,
   getMiningMapLevelLinearMultiplier,
@@ -91,20 +93,21 @@ function testDamageBaselineIsLinear(): void {
 }
 
 function testMapLevelAndRealmGapMultipliers(): void {
-  // 线性倍率分段平滑断言
+  // 线性倍率分段平滑断言：旧线性增幅减少 10 倍，指数复利不变
   assert.equal(getMiningMapLevelLinearMultiplier(1), 1);
-  assert.equal(getMiningMapLevelLinearMultiplier(2), 2);
-  assert.equal(getMiningMapLevelLinearMultiplier(10), 10);
-  assert.equal(getMiningMapLevelLinearMultiplier(11), 12);
-  assert.equal(getMiningMapLevelLinearMultiplier(20), 30);
-  assert.equal(getMiningMapLevelLinearMultiplier(21), 33);
-  assert.equal(getMiningMapLevelLinearMultiplier(30), 60);
+  assertClose(getMiningMapLevelLinearMultiplier(2), 1.1, '2级线性倍率必须为 1.1');
+  assertClose(getMiningMapLevelLinearMultiplier(10), 1.9, '10级线性倍率必须为 1.9');
+  assertClose(getMiningMapLevelLinearMultiplier(11), 2.1, '11级线性倍率必须为 2.1');
+  assertClose(getMiningMapLevelLinearMultiplier(20), 3.9, '20级线性倍率必须为 3.9');
+  assertClose(getMiningMapLevelLinearMultiplier(21), 4.2, '21级线性倍率必须为 4.2');
+  assertClose(getMiningMapLevelLinearMultiplier(30), 6.9, '30级线性倍率必须为 6.9');
+  assertClose(getMiningMapLevelLinearMultiplier(39), 10.5, '39级线性倍率必须为 10.5');
 
   // 地图等级矿物总倍率（指数 + 线性 - 1）
   assertClose(getMiningMapLevelDropMultiplier(1), 1, '一级矿物必须为一倍');
-  assertClose(getMiningMapLevelDropMultiplier(10), (1.1 ** 9) + 10 - 1, '10级矿物必须为指数与线性相加叠加');
-  assertClose(getMiningMapLevelDropMultiplier(11), (1.1 ** 10) + 12 - 1, '11级矿物必须为指数与线性相加叠加');
-  assertClose(getMiningMapLevelDropMultiplier(20), (1.1 ** 19) + 30 - 1, '20级矿物必须为指数与线性相加叠加');
+  assertClose(getMiningMapLevelDropMultiplier(10), (1.1 ** 9) + 1.9 - 1, '10级矿物必须为指数与降档线性相加叠加');
+  assertClose(getMiningMapLevelDropMultiplier(11), (1.1 ** 10) + 2.1 - 1, '11级矿物必须为指数与降档线性相加叠加');
+  assertClose(getMiningMapLevelDropMultiplier(20), (1.1 ** 19) + 3.9 - 1, '20级矿物必须为指数与降档线性相加叠加');
 
   assertClose(getMiningRealmGapDropMultiplier(12, 10), 0.8 ** 2, '高于矿物两级必须按 80% 复利');
   assertClose(getMiningRealmGapDropMultiplier(8, 10), 0.9 ** 2, '低于矿物两级必须按 90% 复利');
@@ -130,6 +133,37 @@ function testCappedChanceQuantityConversion(): void {
     const values = [0.05, 0.999999];
     return () => values.shift() ?? 0;
   })()), 3);
+}
+
+function testMiningAoeDropMultiplier(): void {
+  assert.equal(getMiningAoeDropMultiplier(undefined), 1);
+  assert.equal(getMiningAoeDropMultiplier(1), 1);
+  assertClose(getMiningAoeDropMultiplier(5), 1 / 1.4, '同时命中 5 个矿时单矿期望必须衰减到 1/1.4');
+
+  let previousTotalMultiplier = getMiningAoeDropMultiplier(1);
+  for (let hitCount = 2; hitCount <= 40; hitCount += 1) {
+    const totalMultiplier = hitCount * getMiningAoeDropMultiplier(hitCount);
+    assert.ok(totalMultiplier > previousTotalMultiplier, `总产出必须严格递增: hitCount=${hitCount}`);
+    previousTotalMultiplier = totalMultiplier;
+  }
+
+  const singleExpected = computeMiningDamageDropExpectedCount({
+    baseChanceBps: 10000,
+    appliedDamage: 1_000,
+    maxHp: 1_000_000,
+    mineralLevel: 1,
+    attackerRealmLevel: 1,
+    aoeHitCount: 1,
+  });
+  const fiveExpected = computeMiningDamageDropExpectedCount({
+    baseChanceBps: 10000,
+    appliedDamage: 1_000,
+    maxHp: 1_000_000,
+    mineralLevel: 1,
+    attackerRealmLevel: 1,
+    aoeHitCount: 5,
+  });
+  assertClose(fiveExpected, singleExpected / 1.4, 'AOE 衰减只能作用于矿物受击期望数量');
 }
 
 function testPlayerOtherMultiplierComposition(): void {
@@ -160,6 +194,18 @@ function testRuntimeMineralRollAndFixedDestroyDrop(): void {
     miningOtherDropMultiplier: 1,
   }));
   assert.deepEqual(destroyDrops, [{ itemId: 'spirit_stone', count: 1, reason: 'destroy' }]);
+
+
+  const cloudDrops = withRandomSequence([0.01], () => instance.rollTileDrops({
+    tileType: TileType.Cloud,
+    hp: 3_000,
+    maxHp: 3_000,
+  }, 100, false, {
+    miningAttackerRealmLevel: 1,
+    miningOtherDropMultiplier: 0,
+    miningAoeHitCount: 50,
+  }));
+  assert.deepEqual(cloudDrops, [{ itemId: 'cloud_puff', count: 1, reason: 'damage' }], '非矿地块不得受矿物 AOE 衰减或矿物其他乘区影响');
 }
 
 function testSpawnUsesResolvedCountWithoutSecondOutputScaling(): void {
@@ -193,6 +239,7 @@ function main(): void {
   testDamageBaselineIsLinear();
   testMapLevelAndRealmGapMultipliers();
   testCappedChanceQuantityConversion();
+  testMiningAoeDropMultiplier();
   testPlayerOtherMultiplierComposition();
   testRuntimeMineralRollAndFixedDestroyDrop();
   testSpawnUsesResolvedCountWithoutSecondOutputScaling();

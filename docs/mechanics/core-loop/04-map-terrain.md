@@ -43,9 +43,10 @@ damageRatio = appliedDamage / baseDamage
 damageMultiplier = damageRatio <= 1 ? damageRatio : sqrt(damageRatio)
 
 mineralLinearMultiplier =
-  1 + (mapLv - 1),            1 <= mapLv <= 10 (每级+100%)
-  10 + (mapLv - 10) × 2,      11 <= mapLv <= 20 (每级+200%)
-  30 + (mapLv - 20) × 3,      21 <= mapLv <= 30 (每级+300%)
+  1 + (mapLv - 1) × 0.1,      1 <= mapLv <= 10 (每级+10%)
+  1.9 + (mapLv - 10) × 0.2,   11 <= mapLv <= 20 (每级+20%)
+  3.9 + (mapLv - 20) × 0.3,   21 <= mapLv <= 30 (每级+30%)
+  6.9 + (mapLv - 30) × 0.4,   31 <= mapLv <= 40 (每级+40%)
   分段平滑累加...
 
 mineralLevelMultiplier =
@@ -56,6 +57,9 @@ realmGapMultiplier =
   1,                              attackerRealmLv = mapLv
   0.9^(mapLv - attackerRealmLv), attackerRealmLv < mapLv
 
+aoeMultiplier =
+  1 / (1 + 0.1 × (miningAoeHitCount - 1))
+
 otherMultiplier =
   (1 + 挖矿等级掉率加成 + 幸运加成)
   × (1 + mining.outputRate)
@@ -65,12 +69,15 @@ expectedCount =
   × damageMultiplier
   × mineralLevelMultiplier
   × realmGapMultiplier
+  × aoeMultiplier
   × otherMultiplier
 ```
 
-伤害乘区以 `0.1% maxHp` 为 1 倍基准：低于基准时按实际扣除生命值线性缩放，超过 0.1% 基准的伤害增幅开平方根平滑增长（例如一击造成 10% 生命伤害时，增幅由原本的 100 倍平滑为 10 倍）；过量伤害先截断到矿脉当前生命，公式内部再截断到 `maxHp`，单次伤害乘区最高为 `sqrt(1000) ≈ 31.62` 倍。AOE 命中多个矿脉仍按每个目标的实际伤害分别计算，因此只会随真实总伤害增长。
+伤害乘区以 `0.1% maxHp` 为 1 倍基准：低于基准时按实际扣除生命值线性缩放，超过 0.1% 基准的伤害增幅开平方根平滑增长（例如一击造成 10% 生命伤害时，增幅由原本的 100 倍平滑为 10 倍）；过量伤害先截断到矿脉当前生命，公式内部再截断到 `maxHp`，单次伤害乘区最高为 `sqrt(1000) ≈ 31.62` 倍。
 
-矿物地图等级乘区由 10% 指数复利与分段线性增幅相加叠加组成（`1.1^(mapLv - 1) + linear - 1`）：1 级为 1 倍；1-10 级每级 +100%（10 级为 10 倍线性）；11-20 级每级 +200%（11 级为 12 倍，20 级为 30 倍线性）；21-30 级每级 +300% 依此类推分段平滑累加，无跨档断层，既保障高阶矿脉收益递增，又平稳可控。
+矿物地图等级乘区由 10% 指数复利与分段线性增幅相加叠加组成（`1.1^(mapLv - 1) + linear - 1`）：1 级为 1 倍；1-10 级每级 +10%（10 级为 1.9 倍线性）；11-20 级每级 +20%（20 级为 3.9 倍线性）；21-30 级每级 +30%；31-40 级每级 +40%，依此类推分段平滑累加，无跨档断层，既保障高阶矿脉收益递增，又平稳可控。
+
+AOE 衰减只作用于矿物受击掉落，`miningAoeHitCount` 表示同一玩家同次攻击命中的矿脉地块数量，不按队伍合并，也不影响妖兽、玩家、建筑、云朵等非矿目标。单矿 `N=1` 时为 `1`；同次命中 5 个矿时单矿为 `1/1.4≈0.714`，总量为单矿的 `5/1.4≈3.57`，并随命中矿数严格递增。
 
 最终期望数量使用最高 10% 的触发率结算：
 

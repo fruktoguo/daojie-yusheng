@@ -254,6 +254,40 @@ function createTileTargets(): Array<{ kind: 'tile'; x: number; y: number }> {
   return targets;
 }
 
+async function testSmallTileCastAppliesSinglePlayerMiningAoeDecay(): Promise<void> {
+  const skill = {
+    id: 'skill.small_mining_aoe_decay',
+    name: '五脉一击',
+    cost: 0,
+    cooldown: 1,
+    range: 20,
+    targeting: { range: 20, shape: 'square', radius: 2, maxTargets: 5 },
+    effects: [{ type: 'damage', damageKind: 'spell', formula: { var: 'caster.stat.spellAtk' } }],
+  };
+  const instance = createMapInstance(['LLLLL'], 'instance:small-mining-aoe-decay');
+  const attacker = createCaster(skill, instance.meta.instanceId);
+  attacker.x = 2;
+  attacker.y = 0;
+  const harness = createRuntimeHarness(attacker, instance);
+  const targets = Array.from({ length: 5 }, (_, x) => ({ kind: 'tile' as const, x, y: 0 }));
+  const miningAoeHitCounts: unknown[] = [];
+  instance.rollTileDrops = (_tileState: unknown, _appliedDamage: number, _destroyed: boolean, options: Record<string, unknown> = {}) => {
+    miningAoeHitCounts.push(options.miningAoeHitCount);
+    return [];
+  };
+
+  await harness.dispatchService.dispatchSkillTargets(attacker, skill.id, skill, targets, harness.deps as any, {
+    prevalidatedTargets: true,
+    skipResourceAndCooldown: true,
+    targetX: attacker.x,
+    targetY: attacker.y,
+  });
+
+  assert.deepEqual(miningAoeHitCounts, [5, 5, 5, 5, 5]);
+  assert.equal(harness.combatEffects.length, 0);
+  assert.equal(harness.damageFloats.length, 5);
+}
+
 function testDamageAggregationBoundary(): void {
   assert.equal(shouldAggregatePlayerSkillPresentation(8, [{ type: 'damage' }]), false);
   assert.equal(shouldAggregatePlayerSkillPresentation(9, [{ type: 'damage' }]), true);
@@ -373,6 +407,7 @@ async function testLargeTileCastBatchesAuthorityAndPresentation(): Promise<void>
   assert.equal(harness.combatOutcomes[0].result.fastPathCount, TARGET_COUNT);
   assert.equal(harness.combatOutcomes[0].result.fallbackCount, 0);
   assert.equal(batchOptions?.assumeUniqueEntries, true);
+  assert.equal(batchOptions?.miningAoeHitCount, TARGET_COUNT);
   assert.equal(typeof batchOptions?.recordBatchSectionDuration, 'function');
   assert.equal(harness.sectionDurations.get('pendingCommands.castSkill.tileBatch.damageApply.entryResolveMs')?.count, TARGET_COUNT);
   assert.equal(harness.sectionDurations.get('pendingCommands.castSkill.tileBatch.damageApply.dropRollMs')?.count, TARGET_COUNT);
@@ -1191,6 +1226,7 @@ function testCraftSkillFormulaUsesAllLevelsAndInvalidatesReuse(): void {
 
 async function main(): Promise<void> {
   testDamageAggregationBoundary();
+  await testSmallTileCastAppliesSinglePlayerMiningAoeDecay();
   testSkillTargetPlanReusesCategoryRelationResolution();
   await testLargeTileCastBatchesAuthorityAndPresentation();
   await testEnemyTargetsKeepPerTargetAuthorityAndAggregatePresentation();

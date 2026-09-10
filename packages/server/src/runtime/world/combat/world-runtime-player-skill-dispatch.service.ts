@@ -4,7 +4,7 @@
  * 维护时要保证结算仍由服务端权威执行，客户端只接收结构化结果和必要表现字段。
  */
 import { Inject, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { TileType, applyCombatAttackIntensityQiCost, buildEffectiveTargetingGeometry, calcQiCostWithOutputLimit, computeAffectedCellsFromAnchor, formatDisplayNumber, horizontalFacingFromTo, parseTileTargetRef, resolveCooldownTicks, resolvePlayerFacingContentName, resolveSkillPlayerWindupTicks as getPlayerSkillWindupTicks, resolveSkillRequiresTarget, resolveTargetingGeometryMaxTargets, uiLabels } from '@mud/shared';
+import { TileType, applyCombatAttackIntensityQiCost, buildEffectiveTargetingGeometry, calcQiCostWithOutputLimit, computeAffectedCellsFromAnchor, formatDisplayNumber, horizontalFacingFromTo, isOreMinableTileType, parseTileTargetRef, resolveCooldownTicks, resolvePlayerFacingContentName, resolveSkillPlayerWindupTicks as getPlayerSkillWindupTicks, resolveSkillRequiresTarget, resolveTargetingGeometryMaxTargets, uiLabels } from '@mud/shared';
 import { PlayerCombatService } from '../../combat/player-combat.service';
 import { createCombatOutcomeApplyAdapters, projectCombatOutcomeDeps } from '../../combat/combat-outcome-apply-adapters';
 import { resolveMonsterCombatExpEquivalentFallback } from '../../combat/monster-combat-exp-equivalent.helper';
@@ -99,6 +99,56 @@ function isMiningJobIssuedSkillAction(attacker, targetRef) {
     const commandTargetRef = typeof targetRef === 'string' ? targetRef.trim() : '';
     const actualTargetRef = markerTargetRef || commandTargetRef;
     return Boolean(expectedTargetRef) && actualTargetRef === expectedTargetRef;
+}
+
+type PreparedSkillTileStates = {
+    statesByTileIndex: Map<number, AnyRecord | null>;
+    miningAoeHitCount: number;
+};
+
+function resolveSkillTileIndex(instance: AnyRecord, target: AnyRecord): number {
+    const x = Math.trunc(Number(target?.x));
+    const y = Math.trunc(Number(target?.y));
+    if (!Number.isFinite(x) || !Number.isFinite(y) || typeof instance?.toTileIndex !== 'function') {
+        return -1;
+    }
+    const tileIndex = instance.toTileIndex(x, y);
+    return Number.isInteger(tileIndex) && tileIndex >= 0 ? tileIndex : -1;
+}
+
+function prepareSkillTileStatesForMiningAoe(targets: readonly AnyRecord[], instance: AnyRecord): PreparedSkillTileStates | null {
+    if (!Array.isArray(targets) || targets.length <= 1 || typeof instance?.getTileCombatState !== 'function') {
+        return null;
+    }
+    const statesByTileIndex = new Map<number, AnyRecord | null>();
+    let miningAoeHitCount = 0;
+    for (const target of targets) {
+        if (target?.kind !== 'tile') {
+            continue;
+        }
+        const tileIndex = resolveSkillTileIndex(instance, target);
+        if (tileIndex < 0 || statesByTileIndex.has(tileIndex)) {
+            continue;
+        }
+        const state = target.state ?? instance.getTileCombatState(Math.trunc(Number(target.x)), Math.trunc(Number(target.y))) ?? null;
+        statesByTileIndex.set(tileIndex, state);
+        if (state?.destroyed !== true && isOreMinableTileType(state?.tileType)) {
+            miningAoeHitCount += 1;
+        }
+    }
+    return statesByTileIndex.size > 0 ? { statesByTileIndex, miningAoeHitCount } : null;
+}
+
+function resolveSkillTileState(instance: AnyRecord, target: AnyRecord, prepared: PreparedSkillTileStates | null): AnyRecord | null {
+    const tileIndex = resolveSkillTileIndex(instance, target);
+    if (tileIndex >= 0 && prepared?.statesByTileIndex.has(tileIndex)) {
+        const state = prepared.statesByTileIndex.get(tileIndex) ?? null;
+        prepared.statesByTileIndex.delete(tileIndex);
+        return state;
+    }
+    return typeof instance?.getTileCombatState === 'function'
+        ? instance.getTileCombatState(target.x, target.y)
+        : null;
 }
 function formatAuraDamage(value) {
     const amount = Math.max(0, Number(value) || 0);
@@ -1515,6 +1565,10 @@ export class WorldRuntimePlayerSkillDispatchService {
             && this.playerCombatService.canReuseResolvedTileSkillResult(resolvedSkill) === true;
         let miningTileDamageMultiplier = null;
         const tileDropRollOptions = resolveMiningDropRollOptions(attacker);
+        const preparedTileStates = prepareSkillTileStatesForMiningAoe(targets, instance);
+        if ((preparedTileStates?.miningAoeHitCount ?? 0) > 1) {
+            tileDropRollOptions.miningAoeHitCount = preparedTileStates.miningAoeHitCount;
+        }
         let repeatedTileSkillResult = null;
         const recordSkillCastSectionDuration = (sectionKey, durationMs, count = 1) => {
             const normalizedKey = typeof sectionKey === 'string' && sectionKey
@@ -2088,7 +2142,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.presentationMs', presentationStartedAt);
                 continue;
             }
-            const tileState = target.state ?? instance.getTileCombatState(target.x, target.y);
+            const tileState = target.state ?? resolveSkillTileState(instance, target, preparedTileStates);
             if (!tileState || tileState.destroyed) {
                 this.recordPlayerSkillTargetSkip(deps, attacker, skill, target, tileState?.destroyed
                     ? CombatRejectReason.TargetDead

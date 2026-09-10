@@ -7346,6 +7346,7 @@ class MapInstanceRuntime {
      mineralLevel,
      attackerRealmLevel: options?.miningAttackerRealmLevel ?? mineralLevel,
      otherMultiplier: options?.miningOtherDropMultiplier,
+     aoeHitCount: options?.miningAoeHitCount,
     });
     const count = rollMiningExpectedDropCount(expectedCount);
     if (count > 0) {
