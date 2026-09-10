@@ -3740,19 +3740,29 @@ function markPlayerRuntimeDirty(player, domains, playerRuntimeService) {
 /** 首个阵法资产 tick 前必须先把 job 切换写入真源，不能放宽后续 CAS 栅栏。 */
 async function ensureFormationMaintenanceActiveJobReady(playerId, player, deps) {
  const dirtyDomains = player?.dirtyDomains;
- if (!dirtyDomains?.has?.('active_job')) {
+ const playerRuntimeService = deps?.playerRuntimeService;
+ const isPersistenceDomainPersisted = playerRuntimeService?.isPersistenceDomainPersisted;
+ const canVerifyPersistedDomain = typeof isPersistenceDomainPersisted === 'function';
+ const activeJobPersisted = canVerifyPersistedDomain
+  ? isPersistenceDomainPersisted.call(playerRuntimeService, playerId, 'active_job') === true
+  : !dirtyDomains?.has?.('active_job');
+ if (activeJobPersisted) {
   return;
  }
  const flushPlayerDomains = deps?.playerPersistenceFlushService?.flushPlayerDomains;
  if (typeof flushPlayerDomains !== 'function') {
   throw new ServiceUnavailableException('formation_maintenance_active_job_sync_pending');
  }
- await flushPlayerDomains.call(
+ const flushed = await flushPlayerDomains.call(
   deps.playerPersistenceFlushService,
   playerId,
   ['active_job'],
+  { forceCurrentSnapshot: true },
  );
- if (dirtyDomains.has('active_job')) {
+ const persistedAfterFlush = canVerifyPersistedDomain
+  ? isPersistenceDomainPersisted.call(playerRuntimeService, playerId, 'active_job') === true
+  : flushed === true && !dirtyDomains?.has?.('active_job');
+ if (!persistedAfterFlush) {
   throw new ServiceUnavailableException('formation_maintenance_active_job_sync_pending');
  }
 }
