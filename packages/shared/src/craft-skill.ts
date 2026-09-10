@@ -152,7 +152,10 @@ export interface MiningExpectedDropRollPlan {
   maxCountOnTrigger: number;
 }
 
-/** 以地块最大生命的 0.1% 为 1 倍伤害基准，爆率随实际伤害全程线性增长。 */
+/**
+ * 以地块最大生命的 0.1% 为 1 倍伤害基准：
+ * 低于基准时按实际伤害比例缩放；超过 0.1% 基准的伤害增幅开平方根平滑增长（例如 10% 伤害由原本 100 倍变为 10 倍）。
+ */
 export function getMiningDamageDropMultiplier(appliedDamage: number | undefined, maxHp: number | undefined): number {
   const normalizedMaxHp = Math.max(1, Number(maxHp) || 1);
   const damage = Math.min(normalizedMaxHp, Math.max(0, Number(appliedDamage) || 0));
@@ -160,7 +163,8 @@ export function getMiningDamageDropMultiplier(appliedDamage: number | undefined,
     return 0;
   }
   const baselineDamage = normalizedMaxHp * MINING_DROP_BASE_DAMAGE_MAX_HP_RATIO;
-  return damage / baselineDamage;
+  const ratio = damage / baselineDamage;
+  return ratio <= 1 ? ratio : Math.sqrt(ratio);
 }
 
 /** 一级矿物为 1 倍，之后每级独立乘 1.1。 */

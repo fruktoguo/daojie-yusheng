@@ -40,7 +40,7 @@ calculateTileRestoreRetryTicks(tileType) =
 baseDamage = maxHp × 0.1%
 damageRatio = appliedDamage / baseDamage
 
-damageMultiplier = damageRatio
+damageMultiplier = damageRatio <= 1 ? damageRatio : sqrt(damageRatio)
 
 mineralLevelMultiplier = 1.1^(mapLv - 1)
 
@@ -61,7 +61,7 @@ expectedCount =
   × otherMultiplier
 ```
 
-伤害乘区全程按实际扣除的生命值线性增长：达到 `0.1% maxHp` 时为 1 倍，低于或高于基准时都按同比例缩放；过量伤害先截断到矿脉当前生命，公式内部再截断到 `maxHp`，单次伤害乘区最高为 1000 倍。相同总伤害无论拆成多段还是一次命中，总期望保持一致；AOE 命中多个矿脉仍按每个目标的实际伤害分别计算，因此只会随真实总伤害增长。
+伤害乘区以 `0.1% maxHp` 为 1 倍基准：低于基准时按实际扣除生命值线性缩放，超过 0.1% 基准的伤害增幅开平方根平滑增长（例如一击造成 10% 生命伤害时，增幅由原本的 100 倍平滑为 10 倍）；过量伤害先截断到矿脉当前生命，公式内部再截断到 `maxHp`，单次伤害乘区最高为 `sqrt(1000) ≈ 31.62` 倍。AOE 命中多个矿脉仍按每个目标的实际伤害分别计算，因此只会随真实总伤害增长。
 
 最终期望数量使用最高 10% 的触发率结算：
 
