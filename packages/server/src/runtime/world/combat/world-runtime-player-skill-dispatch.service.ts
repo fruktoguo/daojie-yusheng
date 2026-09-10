@@ -4,7 +4,7 @@
  * 维护时要保证结算仍由服务端权威执行，客户端只接收结构化结果和必要表现字段。
  */
 import { Inject, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { TileType, applyCombatAttackIntensityQiCost, buildEffectiveTargetingGeometry, calcQiCostWithOutputLimit, computeAffectedCellsFromAnchor, formatDisplayNumber, horizontalFacingFromTo, parseTileTargetRef, percentModifierToMultiplier, resolvePlayerFacingContentName, resolveSkillPlayerWindupTicks as getPlayerSkillWindupTicks, resolveSkillRequiresTarget, resolveTargetingGeometryMaxTargets, signedRatioValue, uiLabels } from '@mud/shared';
+import { TileType, applyCombatAttackIntensityQiCost, buildEffectiveTargetingGeometry, calcQiCostWithOutputLimit, computeAffectedCellsFromAnchor, formatDisplayNumber, horizontalFacingFromTo, parseTileTargetRef, resolveCooldownTicks, resolvePlayerFacingContentName, resolveSkillPlayerWindupTicks as getPlayerSkillWindupTicks, resolveSkillRequiresTarget, resolveTargetingGeometryMaxTargets, uiLabels } from '@mud/shared';
 import { PlayerCombatService } from '../../combat/player-combat.service';
 import { createCombatOutcomeApplyAdapters, projectCombatOutcomeDeps } from '../../combat/combat-outcome-apply-adapters';
 import { resolveMonsterCombatExpEquivalentFallback } from '../../combat/monster-combat-exp-equivalent.helper';
@@ -384,12 +384,8 @@ function normalizePlayerSkillCooldownReadyTick(attacker, skill, currentTick) {
     return readyTick;
 }
 function resolvePlayerSkillCooldownTicks(attacker, cooldown) {
-    const baseCooldown = Math.max(1, Math.round(Number(cooldown) || 1));
     const cooldownSpeed = Math.trunc(Number(attacker.attrs?.numericStats?.cooldownSpeed ?? 0));
-    const cooldownDivisor = Math.max(1, Math.trunc(Number(attacker.attrs?.ratioDivisors?.cooldownSpeed ?? 100)));
-    const cooldownRate = signedRatioValue(cooldownSpeed, cooldownDivisor);
-    const cooldownMultiplier = percentModifierToMultiplier(-cooldownRate * 100);
-    return Math.max(1, Math.ceil(baseCooldown * cooldownMultiplier));
+    return resolveCooldownTicks(cooldown, cooldownSpeed);
 }
 function getPlayerSkillWarningColor(skill) {
     return typeof skill?.playerCast?.warningColor === 'string' && skill.playerCast.warningColor.trim().length > 0

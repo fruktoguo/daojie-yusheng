@@ -4,7 +4,7 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { applyCombatAttackIntensityQiCost, calcQiCostWithOutputLimit, compileValueStatsToActualStats, percentModifierToMultiplier, resolveCombatAttackIntensityDamageMultiplier, resolvePlayerFacingContentName, resolveSkillEffectiveRange, signedRatioValue } from '@mud/shared';
+import { applyCombatAttackIntensityQiCost, calcQiCostWithOutputLimit, compileValueStatsToActualStats, resolveCombatAttackIntensityDamageMultiplier, resolveCooldownTicks, resolvePlayerFacingContentName, resolveSkillEffectiveRange } from '@mud/shared';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { resolveMonsterCombatExpEquivalentFallback } from './monster-combat-exp-equivalent.helper';
 import { resolveCombatDamage, resolveTileCombatDamage } from './combat-pipeline-compose';
@@ -814,12 +814,8 @@ function resolveTemporaryBuffStats(effect) {
  * 冷却速度越高，实际冷却越短，最低 1 tick。
  */
 function resolveSkillCooldownTicks(attacker, cooldown) {
- const baseCooldown = Math.max(1, Math.round(Number(cooldown) || 1));
  const cooldownSpeed = Math.trunc(Number(attacker.attrs?.numericStats?.cooldownSpeed ?? 0));
- const cooldownDivisor = Math.max(1, Math.trunc(Number(attacker.attrs?.ratioDivisors?.cooldownSpeed ?? 100)));
- const cooldownRate = signedRatioValue(cooldownSpeed, cooldownDivisor);
- const cooldownMultiplier = percentModifierToMultiplier(-cooldownRate * 100);
- return Math.max(1, Math.ceil(baseCooldown * cooldownMultiplier));
+ return resolveCooldownTicks(cooldown, cooldownSpeed);
 }
 
 /**

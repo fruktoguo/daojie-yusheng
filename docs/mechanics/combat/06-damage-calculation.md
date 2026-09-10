@@ -176,10 +176,11 @@ calcQiCostWithOutputLimit(plannedCost, maxOutput):
 ## 冷却速度计算
 
 ```typescript
-cooldownRate = signedRatioValue(cooldownSpeed, cooldownDivisor)
-cooldownMultiplier = percentModifierToMultiplier(-cooldownRate × 100)
-actualCooldown = max(1, ceil(baseCooldown × cooldownMultiplier))
+cooldownReductionRate = signedRatioValue(cooldownSpeed, baseCooldown + DEFAULT_RATIO_DIVISOR)
+actualCooldown = max(1, ceil(baseCooldown × (1 - cooldownReductionRate)))
 ```
+
+正冷却速度的缩减率即 `cooldownSpeed / (cooldownSpeed + baseCooldown + 100)`。
 
 ## 技能公式求值系统
 

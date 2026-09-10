@@ -527,24 +527,21 @@ else:
 baseCooldown = max(1, round(skill.cooldown || 1))
 ```
 
-冷却速度：
+冷却速度以技能原始冷却作为对抗值：
 
 ```text
 cooldownSpeed = trunc(player.numericStats.cooldownSpeed)
-cooldownDivisor = max(1, trunc(player.ratioDivisors.cooldownSpeed || 100))
-cooldownRate = signedRatioValue(cooldownSpeed, cooldownDivisor)
-cooldownMultiplier = percentModifierToMultiplier(-cooldownRate * 100)
-actualCooldown = max(1, ceil(baseCooldown * cooldownMultiplier))
+cooldownReductionRate = signedRatioValue(cooldownSpeed, baseCooldown + 100)
+actualCooldown = max(1, ceil(baseCooldown * (1 - cooldownReductionRate)))
 ```
 
-例子：
+正冷却速度的缩减率等价于：
 
 ```text
-cooldownSpeed = 100, divisor = 100
-cooldownRate = 100 / (100 + 100) = 0.5
-cooldownMultiplier = percentModifierToMultiplier(-50) = 1 / 1.5
-actualCooldown = ceil(baseCooldown * 0.666...)
+cooldownSpeed / (cooldownSpeed + baseCooldown + 100)
 ```
+
+例子：`cooldownSpeed = 100` 时，5 息技能缩减率约 `48.78%`，实际冷却为 3 息；30 息技能缩减率约 `43.48%`，实际冷却为 17 息。低冷却技能获得更高比例收益，高冷却技能减少的实际息数更多。
 
 冷却写入：
 
@@ -739,9 +736,9 @@ levelDecay =
 
 因为基础暴击倍率内建为 `200%`。`critDamage = 0` 已经是 2 倍暴击；该字段只表示额外暴击伤害。
 
-### 冷却速度为什么不是直接减百分比？
+### 冷却速度为什么要和技能原始冷却对抗？
 
-冷却速度先走 `signedRatioValue`，再转成百分比乘区。这样高冷却速度收益递减，负冷却速度也不会把冷却无限拉大。
+冷却速度使用 `技能原始冷却 + 100` 作为收益递减分母。低冷却技能的缩减比例更高，高冷却技能的缩减比例更低，但高冷却技能减少的实际息数仍更多；负冷却速度保留方向并延长冷却。
 
 ### 数值系统的主线是什么？
 

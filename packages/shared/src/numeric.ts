@@ -842,6 +842,21 @@ export function signedRatioValue(value: number, divisor: number): number {
   return value > 0 ? magnitude : -magnitude;
 }
 
+/**
+ * 按技能原始冷却对抗冷却速度，计算最终冷却 tick。
+ * 正冷却速度的缩减率为 cooldownSpeed / (cooldownSpeed + baseCooldown + 100)；
+ * 负冷却速度保留方向并延长冷却，最终冷却最低为 1 tick。
+ */
+export function resolveCooldownTicks(baseCooldown: number, cooldownSpeed: number): number {
+  const normalizedBaseCooldown = Math.max(1, Math.round(Number(baseCooldown) || 1));
+  const normalizedCooldownSpeed = Math.trunc(Number(cooldownSpeed) || 0);
+  const cooldownReductionRate = signedRatioValue(
+    normalizedCooldownSpeed,
+    normalizedBaseCooldown + DEFAULT_RATIO_DIVISOR,
+  );
+  return Math.max(1, Math.ceil(normalizedBaseCooldown * (1 - cooldownReductionRate)));
+}
+
 /** 获取指定标量属性的 RatioValue 百分比 */
 export function getScalarRatioValue(stats: NumericStats, divisors: NumericRatioDivisors, key: keyof Omit<NumericRatioDivisors, 'elementDamageReduce'>): number {
   return ratioValue(stats[key], divisors[key]);

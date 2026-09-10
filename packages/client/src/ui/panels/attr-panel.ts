@@ -1344,7 +1344,7 @@ export class AttrPanel {
         }, final, numericStatBreakdowns),
         qi: this.buildNumericPaneSnapshot('灵力运转', stats, ratioDivisors, {
           keys: ['maxQi', 'maxQiOutputPerTick', 'qiRegenRate', 'hpRegenRate', 'cooldownSpeed'],
-          ratioKeys: ['cooldownSpeed'],
+          ratioKeys: [],
           legends: {
             maxQi: '最大灵力值',
             maxQiOutputPerTick: '灵力输出速率',
@@ -1658,7 +1658,10 @@ export class AttrPanel {
         const ratioKey = meta.ratioKeys.find((ratio) => ratio === key as keyof NumericRatioDivisors);
         let sub: string | undefined;
         let actualLine: string | undefined;
-        if (ratioKey && ratioKey !== 'elementDamageReduce') {
+        if (key === 'cooldownSpeed') {
+          actualLine = '实际：缩减率随技能原始冷却变化';
+          sub = '按技能原始冷却对抗折算';
+        } else if (ratioKey && ratioKey !== 'elementDamageReduce') {
           actualLine = `实际：${formatRatioPercent(numericValue, ratios[ratioKey])}`;
           sub = actualLine;
         } else if (RATE_BP_KEYS.has(key) && key !== 'critDamage') {

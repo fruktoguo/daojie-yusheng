@@ -2348,7 +2348,7 @@ attr.numeric.aura-power-rate.desc,属性总览,提高光环或阵法提供的效
 attr.numeric.aura-power-rate.label,属性总览,光环效果增强,
 attr.numeric.break-power.desc,属性总览,压低目标化解概率；超出目标化解的部分会按概率触发破招，使本次命中与暴击判定翻倍。,
 attr.numeric.break-power.label,属性总览,破招,
-attr.numeric.cooldown-speed.desc,属性总览,提高技能与效果的冷却流转速度。,
+attr.numeric.cooldown-speed.desc,属性总览,技能冷却缩减率=冷却速度/(冷却速度+技能原始冷却+100)；低冷却技能比例收益更高，高冷却技能减少的实际息数更多。,
 attr.numeric.cooldown-speed.label,属性总览,冷却速度,
 attr.numeric.crit-damage.desc,属性总览,决定暴击命中后的伤害倍率。,
 attr.numeric.crit-damage.label,属性总览,暴击伤害,
