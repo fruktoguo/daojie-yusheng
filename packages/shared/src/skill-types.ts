@@ -414,6 +414,8 @@ export interface SkillBuffEffectDef {
  */
 
   persistOnReturnToSpawn?: boolean;
+  /** 为 true 时不能被技能净化或驱散。 */
+  immuneToCleanse?: boolean;
 }
 
 /** 怪物出生自带 Buff 配置。 */
@@ -553,6 +555,8 @@ export interface MonsterInitialBuffDef {
  */
 
   persistOnReturnToSpawn?: boolean;
+  /** 为 true 时不能被技能净化或驱散。 */
+  immuneToCleanse?: boolean;
   ignoreRealmEffectiveness?: boolean;
 }
 
@@ -881,4 +885,6 @@ export interface TemporaryBuffState extends VisibleBuffState {
  */
 
   persistOnReturnToSpawn?: boolean;
+  /** 为 true 时不能被技能净化或驱散。 */
+  immuneToCleanse?: boolean;
 }

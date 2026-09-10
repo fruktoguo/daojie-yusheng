@@ -25,6 +25,7 @@ const RUNTIME_BUFF_PROTOTYPE_KEYS = [
   'ignoreRealmEffectiveness',
   'sustainCost',
   'expireWithBuffId',
+  'immuneToCleanse',
   'sourceCasterId',
   'tickEffects',
 ];
@@ -92,6 +93,7 @@ export function materializeRuntimeTemporaryBuff(source: RuntimeTemporaryBuffSour
     expireWithBuffId: source.expireWithBuffId,
     persistOnDeath: source.persistOnDeath,
     persistOnReturnToSpawn: source.persistOnReturnToSpawn,
+    immuneToCleanse: source.immuneToCleanse === true ? true : undefined,
     sourceCasterId: source.sourceCasterId,
     tickEffects: source.tickEffects,
   });
@@ -126,6 +128,7 @@ function createRuntimeTemporaryBuffPrototype(source: RuntimeTemporaryBuffSource)
     ignoreRealmEffectiveness: source.ignoreRealmEffectiveness === true ? true : undefined,
     sustainCost: source.sustainCost,
     expireWithBuffId: source.expireWithBuffId,
+    immuneToCleanse: source.immuneToCleanse === true ? true : undefined,
     sourceCasterId: source.sourceCasterId,
     tickEffects: source.tickEffects,
     toJSON() {

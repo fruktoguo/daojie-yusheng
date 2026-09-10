@@ -288,6 +288,42 @@ async function testSmallTileCastAppliesSinglePlayerMiningAoeDecay(): Promise<voi
   assert.equal(harness.damageFloats.length, 5);
 }
 
+async function testSelfCleanseUsesStructuredCombatNotice(): Promise<void> {
+  const skill = {
+    id: 'skill.self-cleanse-structured-notice',
+    name: '清心诀',
+    cost: 0,
+    cooldown: 1,
+    range: 0,
+    effects: [{ type: 'cleanse', target: 'self', category: 'debuff', removeCount: 1 }],
+  };
+  const instance = createMapInstance(['L'], 'instance:self-cleanse-structured-notice');
+  const attacker = createCaster(skill, instance.meta.instanceId);
+  attacker.x = 0;
+  attacker.y = 0;
+  const harness = createRuntimeHarness(attacker, instance);
+  harness.playerCombatService.castSelfSkill = () => ({
+    skillId: skill.id,
+    totalDamage: 0,
+    totalRawDamage: 0,
+    totalHeal: 0,
+    hitCount: 0,
+    damageRolls: [],
+    selfBuffs: [],
+    targetBuffs: [],
+    selfCleanseCount: 1,
+    targetCleanseCount: 0,
+    cleanseCount: 1,
+    cleansed: true,
+  });
+  await harness.dispatchService.dispatchSkillTargets(attacker, skill.id, skill, [{ kind: 'self' }], harness.deps as any, {
+    prevalidatedTargets: true,
+    skipResourceAndCooldown: true,
+  });
+  assert.equal(harness.notices.length, 1);
+  assert.equal(harness.notices[0].text, '');
+  assert.deepEqual(harness.notices[0].combat?.effects, [{ type: 'cleanse', count: 1 }]);
+}
 function testDamageAggregationBoundary(): void {
   assert.equal(shouldAggregatePlayerSkillPresentation(8, [{ type: 'damage' }]), false);
   assert.equal(shouldAggregatePlayerSkillPresentation(9, [{ type: 'damage' }]), true);
@@ -1227,6 +1263,7 @@ function testCraftSkillFormulaUsesAllLevelsAndInvalidatesReuse(): void {
 async function main(): Promise<void> {
   testDamageAggregationBoundary();
   await testSmallTileCastAppliesSinglePlayerMiningAoeDecay();
+  await testSelfCleanseUsesStructuredCombatNotice();
   testSkillTargetPlanReusesCategoryRelationResolution();
   await testLargeTileCastBatchesAuthorityAndPresentation();
   await testEnemyTargetsKeepPerTargetAuthorityAndAggregatePresentation();

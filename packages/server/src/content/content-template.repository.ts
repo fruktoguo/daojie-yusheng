@@ -1577,6 +1577,7 @@ function normalizeConsumableBuffs(raw) {
                     : undefined,
                 persistOnDeath: candidate.persistOnDeath === true,
                 persistOnReturnToSpawn: candidate.persistOnReturnToSpawn === true,
+                immuneToCleanse: candidate.immuneToCleanse === true ? true : undefined,
                 ignoreRealmEffectiveness: candidate.ignoreRealmEffectiveness === true ? true : undefined,
             }];
     });
@@ -2240,6 +2241,7 @@ function normalizeSkillPassiveEffect(raw, skillId, skillName, index) {
             maxStacks: Number.isFinite(Number(raw.maxStacks)) ? Math.max(1, Math.trunc(Number(raw.maxStacks))) : undefined,
             presentationScale: Number.isFinite(Number(raw.presentationScale)) ? Number(raw.presentationScale) : undefined,
             ignoreRealmEffectiveness: raw.ignoreRealmEffectiveness === true ? true : undefined,
+            immuneToCleanse: raw.immuneToCleanse === true ? true : undefined,
         });
     }
     if (raw.type === 'cultivation_tile_qi') {

@@ -5088,6 +5088,49 @@ export class PlayerRuntimeService {
   return player;
  }
 
+ /** 按技能净化规则移除可清除 Buff；免疫净化的效果始终保留。 */
+ cleanseTemporaryBuffs(playerId, category = 'debuff', removeCount = 1) {
+  const player = this.getPlayerOrThrow(playerId);
+  const normalizedRemoveCount = Math.max(0, Math.trunc(Number(removeCount) || 0));
+  if (normalizedRemoveCount <= 0) {
+   return 0;
+  }
+  const normalizedCategory = category === 'buff' || category === 'debuff' ? category : null;
+  let removedCount = 0;
+  let attrRelevantChanged = false;
+  let affectsVitalCapacity = false;
+  const keptBuffs = [];
+  for (const buff of player.buffs.buffs) {
+   const shouldRemove = removedCount < normalizedRemoveCount
+    && isRuntimeBuffActive(buff)
+    && (normalizedCategory === null || buff.category === normalizedCategory)
+    && buff.immuneToCleanse !== true;
+   if (!shouldRemove) {
+    keptBuffs.push(buff);
+    continue;
+   }
+   removedCount += 1;
+   attrRelevantChanged = doesBuffAffectAttributeProjection(player, buff) || attrRelevantChanged;
+   affectsVitalCapacity = doesBuffAffectVitalCapacityProjection(player, buff) || affectsVitalCapacity;
+  }
+  if (removedCount <= 0) {
+   return 0;
+  }
+  player.buffs.buffs = keptBuffs;
+  player.buffs.revision += 1;
+  if (attrRelevantChanged) {
+   this.playerAttributesService.recalculate(player, 'buff');
+   if (affectsVitalCapacity) {
+    this.playerAttributesService.ensureFresh?.(player);
+   }
+  }
+  markPlayerDirtyDomains(player, attrRelevantChanged
+   ? ['buff', 'attr', ...(affectsVitalCapacity ? ['vitals'] : [])]
+   : ['buff']);
+  this.bumpPersistentRevision(player);
+  return removedCount;
+ }
+
  /** 精确替换一个临时 Buff 的层数与持续时间，供“每息重算”的场景使用。 */
  replaceTemporaryBuff(playerId, buff) {
   const player = this.getPlayerOrThrow(playerId);
@@ -7497,6 +7540,7 @@ const TEMPORARY_BUFF_PROTOTYPE_COMPARE_KEYS = [
  'ignoreRealmEffectiveness',
  'sustainCost',
  'expireWithBuffId',
+ 'immuneToCleanse',
  'sourceCasterId',
 ];
 
@@ -13255,6 +13299,7 @@ function toConsumableTemporaryBuff(item, buff, sourceRealmLv = 1) {
   expireWithBuffId: buff.expireWithBuffId,
   persistOnDeath: buff.persistOnDeath === true,
   persistOnReturnToSpawn: buff.persistOnReturnToSpawn === true,
+  immuneToCleanse: buff.immuneToCleanse === true ? true : undefined,
   ignoreRealmEffectiveness: buff.ignoreRealmEffectiveness === true ? true : undefined,
  };
 }

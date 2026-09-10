@@ -9,7 +9,8 @@ import {
   resolveMiningVeinCurseDropMultiplier,
 } from '@mud/shared';
 import { PlayerCombatService } from '../runtime/combat/player-combat.service';
-import { createTileOutcomeApplyAdapter } from '../runtime/combat/combat-outcome-apply-adapters';
+import { WorldRuntimeBasicAttackService } from '../runtime/world/combat/world-runtime-basic-attack.service';
+import { WorldRuntimeCombatActionService } from '../runtime/world/combat/world-runtime-combat-action.service';
 import { PlayerAttributesService } from '../runtime/player/player-attributes.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import {
@@ -25,6 +26,7 @@ type BuffView = {
   stacks: number;
   persistOnDeath?: boolean;
   persistOnReturnToSpawn?: boolean;
+  immuneToCleanse?: boolean;
 };
 
 type SmokePlayer = {
@@ -107,6 +109,9 @@ function testTileOutcomeStackingOutputPersistenceAndCleanseImmunity(): void {
   const baseQiOutput = player.attrs.numericStats.maxQiOutputPerTick;
 
   const instance = {
+    meta: { canDamageTile: true },
+    template: { source: { mapLv: 1 } },
+    worldRevision: 1,
     getTileCombatState() {
       return { tileType: TileType.SpiritOre, hp: 1, maxHp: 1, destroyed: false };
     },
@@ -114,26 +119,18 @@ function testTileOutcomeStackingOutputPersistenceAndCleanseImmunity(): void {
       return { destroyed: true, appliedDamage: 1, hp: 0, maxHp: 1, tileDrops: [] };
     },
   };
-  const tileAdapter = createTileOutcomeApplyAdapter();
-  tileAdapter({
-    outcome: {
-      instanceId: player.instanceId,
-      actor: { id: player.playerId },
+  const combatActionService = new WorldRuntimeCombatActionService();
+  const basicAttackService = new WorldRuntimeBasicAttackService(runtimeService, combatActionService);
+  basicAttackService.dispatchBasicAttackToTile(player, 1, 1, 'physical', 1, {
+    playerRuntimeService: runtimeService,
+    getInstanceRuntime() {
+      return instance;
     },
-    target: { x: 1, y: 1 },
-    result: { damage: 1, tileDropRollOptions: {} },
-    application: { dirtyDomains: [] },
-    deps: {
-      playerRuntimeService: runtimeService,
-      getInstanceRuntime() {
-        return instance;
-      },
-      getInstanceRuntimeOrThrow() {
-        return instance;
-      },
-      worldRuntimeSectService: {},
+    getInstanceRuntimeOrThrow() {
+      return instance;
     },
-  });
+    worldRuntimeSectService: {},
+  }, 1);
 
   const curse = findBuff(player, MINING_VEIN_CURSE_BUFF_ID);
   const stagnation = findBuff(player, MINING_VEIN_STAGNATION_BUFF_ID);
@@ -143,10 +140,13 @@ function testTileOutcomeStackingOutputPersistenceAndCleanseImmunity(): void {
   assert.equal(curse.remainingTicks, MINING_VEIN_CURSE_DURATION_TICKS);
   assert.equal(curse.persistOnDeath, true);
   assert.equal(curse.persistOnReturnToSpawn, true);
+  assert.equal(curse.immuneToCleanse, true);
+  assert.equal(JSON.parse(JSON.stringify(curse)).immuneToCleanse, true);
   assert.equal(stagnation.stacks, 1);
   assert.equal(stagnation.remainingTicks, MINING_VEIN_STAGNATION_DURATION_TICKS);
   assert.equal(stagnation.persistOnDeath, true);
   assert.equal(stagnation.persistOnReturnToSpawn, true);
+  assert.equal(stagnation.immuneToCleanse, true);
   assert.equal(player.attrs.numericStats.maxQiOutputPerTick, Math.round(baseQiOutput * 0.9));
 
   curse.remainingTicks = 7;
@@ -157,6 +157,23 @@ function testTileOutcomeStackingOutputPersistenceAndCleanseImmunity(): void {
   assert.equal(stagnation.stacks, 3);
   assert.equal(stagnation.remainingTicks, MINING_VEIN_STAGNATION_DURATION_TICKS);
   assert.equal(player.attrs.numericStats.maxQiOutputPerTick, Math.round(baseQiOutput * 0.7));
+  runtimeService.applyTemporaryBuff(player.playerId, {
+    buffId: 'smoke.cleanseable_debuff',
+    name: '可净化减益',
+    desc: '用于验证普通减益会被净化。',
+    shortMark: '净',
+    category: 'debuff',
+    visibility: 'public',
+    duration: 100,
+    remainingTicks: 100,
+    stacks: 1,
+    maxStacks: 1,
+    sourceSkillId: 'smoke.cleanseable_debuff',
+    sourceSkillName: '验证',
+    realmLv: 1,
+    persistOnDeath: false,
+    persistOnReturnToSpawn: false,
+  });
 
   const cleanseSkill = {
     id: 'skill.mining_vein_cleanse_probe',
@@ -171,7 +188,10 @@ function testTileOutcomeStackingOutputPersistenceAndCleanseImmunity(): void {
     techniques: [{ techId: 'technique.mining_vein_cleanse_probe', level: 1, skills: [cleanseSkill] }],
   };
   const combatService = new PlayerCombatService(runtimeService);
-  combatService.castSelfSkill(player, cleanseSkill.id, 1, { skipResourceAndCooldown: true });
+  const cleanseResult = combatService.castSelfSkill(player, cleanseSkill.id, 1, { skipResourceAndCooldown: true });
+  assert.equal(cleanseResult.selfCleanseCount, 1);
+  assert.equal(cleanseResult.cleanseCount, 1);
+  assert.equal(findBuff(player, 'smoke.cleanseable_debuff'), undefined);
   assert.equal(runtimeService.getBuffStacks(player.playerId, MINING_VEIN_CURSE_BUFF_ID), 3);
   assert.equal(runtimeService.getBuffStacks(player.playerId, MINING_VEIN_STAGNATION_BUFF_ID), 3);
 

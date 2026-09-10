@@ -815,7 +815,8 @@ export function isSameSkillEffectDef(left: SkillEffectDef | null | undefined, ri
                 && left.presentationScale === right.presentationScale
                 && left.infiniteDuration === right.infiniteDuration
                 && isSameBuffSustainCostDef(left.sustainCost, right.sustainCost)
-                && left.expireWithBuffId === right.expireWithBuffId;
+                && left.expireWithBuffId === right.expireWithBuffId
+                && left.immuneToCleanse === right.immuneToCleanse;
         case 'cleanse':
             return right.type === 'cleanse'
                 && left.target === right.target

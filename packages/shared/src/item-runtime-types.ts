@@ -397,6 +397,8 @@ export interface ConsumableBuffDef {
  */
 
   persistOnReturnToSpawn?: boolean;
+  /** 为 true 时不能被技能净化或驱散。 */
+  immuneToCleanse?: boolean;
   ignoreRealmEffectiveness?: boolean;
 }
 

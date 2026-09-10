@@ -1551,6 +1551,7 @@ export class WorldRuntimePlayerSkillDispatchService {
         }
         let castIndex = 0;
         let totalSkillHeal = 0;
+        let totalSkillSelfCleanse = 0;
         let selfBuffs = [];
         const destroyedTiles = [];
         const aggregatePresentation = shouldAggregatePlayerSkillPresentation(targets.length, skill?.effects);
@@ -1639,8 +1640,10 @@ export class WorldRuntimePlayerSkillDispatchService {
                 castIndex += 1;
                 const selfHeal = Math.max(0, Math.round(Number(result.totalHeal) || 0));
                 const buffs = Array.isArray(result.selfBuffs) ? result.selfBuffs : [];
+                const selfCleanseCount = Math.max(0, Math.trunc(Number(result.selfCleanseCount) || 0));
                 const effects = [];
                 if (selfHeal > 0) effects.push({ type: 'heal', amount: selfHeal });
+                if (selfCleanseCount > 0) effects.push({ type: 'cleanse', count: selfCleanseCount });
                 for (const buff of buffs) {
                     effects.push({ type: 'buff', buffId: buff.buffId, name: buff.name, category: buff.category, duration: buff.duration });
                 }
@@ -1655,7 +1658,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                         castId,
                         notices: [{
                             playerId: attacker.playerId,
-                            text: `你施展${skill.name}，${parts.join('，')}。`,
+                            text: selfCleanseCount > 0 ? '' : `你施展${skill.name}，${parts.join('，')}。`,
                             combat: buildCombatNoticePayload({ caster: '你', target: '自身', skill: skill.name, effects }),
                         }],
                     });
@@ -1705,6 +1708,8 @@ export class WorldRuntimePlayerSkillDispatchService {
                 recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.combatResolveMs', combatResolveStartedAt);
                 castIndex += 1;
                 totalSkillHeal += Math.max(0, Math.round(Number(result.totalHeal) || 0));
+            totalSkillSelfCleanse += Math.max(0, Math.trunc(Number(result.selfCleanseCount) || 0));
+                totalSkillSelfCleanse += Math.max(0, Math.trunc(Number(result.selfCleanseCount) || 0));
                 if (selfBuffs.length === 0 && Array.isArray(result.selfBuffs) && result.selfBuffs.length > 0) {
                     selfBuffs = result.selfBuffs;
                 }
@@ -1857,6 +1862,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.combatResolveMs', combatResolveStartedAt);
                 castIndex += 1;
                 totalSkillHeal += Math.max(0, Math.round(Number(result.totalHeal) || 0));
+                totalSkillSelfCleanse += Math.max(0, Math.trunc(Number(result.selfCleanseCount) || 0));
                 const appliedFriendlySupport = (
                     Math.max(0, Number(result.totalHeal) || 0) > 0
                     || (Array.isArray(result.targetBuffs)
@@ -1982,6 +1988,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 const result = resolveTileSkillResult(effectiveDurability, effectiveDurability, distance);
                 castIndex += 1;
                 totalSkillHeal += Math.max(0, Math.round(Number(result.totalHeal) || 0));
+                totalSkillSelfCleanse += Math.max(0, Math.trunc(Number(result.selfCleanseCount) || 0));
                 if (selfBuffs.length === 0 && Array.isArray(result.selfBuffs) && result.selfBuffs.length > 0) {
                     selfBuffs = result.selfBuffs;
                 }
@@ -2071,6 +2078,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 const result = resolveTileSkillResult(effectiveDurability, effectiveDurability, distance);
                 castIndex += 1;
                 totalSkillHeal += Math.max(0, Math.round(Number(result.totalHeal) || 0));
+                totalSkillSelfCleanse += Math.max(0, Math.trunc(Number(result.selfCleanseCount) || 0));
                 if (selfBuffs.length === 0 && Array.isArray(result.selfBuffs) && result.selfBuffs.length > 0) {
                     selfBuffs = result.selfBuffs;
                 }
@@ -2468,10 +2476,13 @@ export class WorldRuntimePlayerSkillDispatchService {
                 });
             }
         }
-        if (totalSkillHeal > 0 || selfBuffs.length > 0) {
+        if (totalSkillHeal > 0 || selfBuffs.length > 0 || totalSkillSelfCleanse > 0) {
             const effects = [];
             if (totalSkillHeal > 0) {
                 effects.push({ type: 'heal', amount: totalSkillHeal });
+            }
+            if (totalSkillSelfCleanse > 0) {
+                effects.push({ type: 'cleanse', count: totalSkillSelfCleanse });
             }
             for (const buff of selfBuffs) {
                 effects.push({ type: 'buff', buffId: buff.buffId, name: buff.name, category: buff.category, duration: buff.duration });
@@ -2485,7 +2496,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 castId,
                 notices: [{
                     playerId: attacker.playerId,
-                    text: `${skill.name}：${parts.join('，')}。`,
+                    text: totalSkillSelfCleanse > 0 ? '' : `${skill.name}：${parts.join('，')}。`,
                     combat: buildCombatNoticePayload({ caster: '你', target: '自身', skill: skill.name, effects }),
                 }],
             });

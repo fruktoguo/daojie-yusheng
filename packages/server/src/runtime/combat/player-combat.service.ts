@@ -136,6 +136,8 @@ export class PlayerCombatService {
    applySelfHeal: (amount) => {
     this.playerRuntimeService.healPlayer(attacker.playerId, amount);
    },
+   applySelfCleanse: (category, removeCount) => this.playerRuntimeService.cleanseTemporaryBuffs(attacker.playerId, category, removeCount),
+   applyTargetCleanse: (category, removeCount) => this.playerRuntimeService.cleanseTemporaryBuffs(target.playerId, category, removeCount),
   }, options)));
   if (options?.skipTargetRetaliation !== true) {
    this.playerRuntimeService.setRetaliatePlayerTarget(target.playerId, attacker.playerId, currentTick);
@@ -186,6 +188,7 @@ export class PlayerCombatService {
    applySelfHeal: (amount) => {
     this.playerRuntimeService.healPlayer(attacker.playerId, amount);
    },
+   applySelfCleanse: (category, removeCount) => this.playerRuntimeService.cleanseTemporaryBuffs(attacker.playerId, category, removeCount),
   }, selfCastOptions));
   return {
    ...result,
@@ -228,6 +231,7 @@ export class PlayerCombatService {
    applySelfHeal: (amount) => {
     this.playerRuntimeService.healPlayer(attacker.playerId, amount);
    },
+   applySelfCleanse: (category, removeCount) => this.playerRuntimeService.cleanseTemporaryBuffs(attacker.playerId, category, removeCount),
   }, options));
   return {
    ...result,
@@ -260,6 +264,7 @@ export class PlayerCombatService {
     this.playerRuntimeService.applyTemporaryBuff(target.playerId, buff);
    }),
    applySelfHeal: () => undefined,
+   applyTargetCleanse: (category, removeCount) => this.playerRuntimeService.cleanseTemporaryBuffs(target.playerId, category, removeCount),
   }, options));
   if (options?.skipTargetDamageApplication !== true && result.totalDamage > 0) {
    this.playerRuntimeService.applyDamage(target.playerId, result.totalDamage, attacker?.id ?? attacker?.runtimeId, {
@@ -320,6 +325,8 @@ export class PlayerCombatService {
   let totalHeal = 0;
   const selfBuffs = [];
   const targetBuffs = [];
+  let selfCleanseCount = 0;
+  let targetCleanseCount = 0;
   let anyCrit = false;
   let allDodged = true;
   let anyResolved = false;
@@ -430,6 +437,22 @@ export class PlayerCombatService {
     continue;
    }
 
+   if (effect.type === 'cleanse') {
+    const removeCount = Math.max(1, Math.trunc(Number(effect.removeCount) || 1));
+    const category = effect.category === 'buff' || effect.category === 'debuff'
+     ? effect.category
+     : undefined;
+    if (effect.target === 'self') {
+     if (options?.skipSelfEffects !== true) {
+      selfCleanseCount += Math.max(0, Math.trunc(Number(handlers.applySelfCleanse?.(category, removeCount)) || 0));
+     }
+    }
+    else if (options?.skipTargetEffects !== true) {
+     targetCleanseCount += Math.max(0, Math.trunc(Number(handlers.applyTargetCleanse?.(category, removeCount)) || 0));
+    }
+    continue;
+   }
+
    // 仅 buff 类型才走 buff 应用分支；
    // heal / cleanse / temporary_tile 等其他 effect 类型在此处不应被当作 buff 处理，
    // 否则 toTemporaryBuff 会生成 buffId=undefined 的条目，进入 buff 集合后排序时
@@ -471,6 +494,10 @@ export class PlayerCombatService {
    damageRolls,
    selfBuffs,
    targetBuffs,
+   selfCleanseCount,
+   targetCleanseCount,
+   cleanseCount: selfCleanseCount + targetCleanseCount,
+   cleansed: selfCleanseCount + targetCleanseCount > 0,
    crit: anyCrit,
    dodged: hasDamageRoll && allDodged,
    resolved: anyResolved,
@@ -749,6 +776,7 @@ function toTemporaryBuff(effect, skill) {
    : undefined,
   persistOnDeath: effect.persistOnDeath === true,
   persistOnReturnToSpawn: effect.persistOnReturnToSpawn === true,
+  immuneToCleanse: effect.immuneToCleanse === true ? true : undefined,
   ignoreRealmEffectiveness: effect.ignoreRealmEffectiveness === true ? true : undefined,
  };
 }
