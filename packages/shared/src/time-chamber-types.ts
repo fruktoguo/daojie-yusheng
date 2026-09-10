@@ -119,17 +119,17 @@ export interface C2S_ResizeTimeChamberView extends TimeChamberBuildingRequestVie
   expectedRevision: number;
 }
 
-/** 2 倍每小时 100 灵石，之后每提升一倍按阶乘递增（3倍再乘3=300，4倍再乘4=1200，依此类推）。 */
+/** 2 倍每小时 100 灵石，之后按梯度阶梯递增（3倍乘1.5=150，4倍乘2=300，5倍乘2.5=750，直至10倍为9倍的6倍=945000）。 */
 const TIME_CHAMBER_BASE_OPERATING_COST_BY_SPEED: Readonly<Record<number, number>> = Object.freeze({
   2: 100,
-  3: 300,
-  4: 1200,
-  5: 6000,
-  6: 36000,
-  7: 252000,
-  8: 2016000,
-  9: 18144000,
-  10: 181440000,
+  3: 150,
+  4: 300,
+  5: 750,
+  6: 2250,
+  7: 7875,
+  8: 31500,
+  9: 157500,
+  10: 945000,
 });
 
 export function calculateTimeChamberBaseOperatingCost(speedInput: number): number {

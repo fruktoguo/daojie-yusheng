@@ -24,8 +24,8 @@ async function main(): Promise<void> {
   assert.deepEqual(admission.canEnter({ listPlayerIds: () => [] }, 'player:two', 1, ['player:offline']), { ok: false, reason: 'time_chamber_full' });
   assert.deepEqual(
     Array.from({ length: 9 }, (_, index) => calculateTimeChamberBaseOperatingCost(index + 2)),
-    [100, 300, 1200, 6000, 36000, 252000, 2016000, 18144000, 181440000],
-    '2 至 10 倍的每小时基础成本必须按阶乘递增（2x=100，3x=300，4x=1200 等）',
+    [100, 150, 300, 750, 2250, 7875, 31500, 157500, 945000],
+    '2 至 10 倍的每小时基础成本必须按梯度阶梯递增（2x=100，3x=150，10x=945000）',
   );
   assert.deepEqual(
     (['small', 'medium', 'large'] as const).map(resolveTimeChamberCapacityLimit),
@@ -47,7 +47,7 @@ async function main(): Promise<void> {
     { registerRuntimeMapTemplate(document: any) { registeredDocuments.push(document); return document; } } as any,
     {} as any,
     {} as any,
-    { registerOrUpdate(): void {}, unregister(): void {} } as any,
+    { registerOrUpdate(): void { }, unregister(): void { } } as any,
     admission,
   );
   const serviceInternal = service as any;
@@ -99,7 +99,7 @@ async function main(): Promise<void> {
     paused: false,
     template: { spawnX: 4, spawnY: 4 },
     buildingById: new Map<string, any>(),
-    markPersistenceDirtyDomainsHighPriority(): void {},
+    markPersistenceDirtyDomainsHighPriority(): void { },
     listPlayerIds: () => ['player:one'],
   };
   const state = {
@@ -133,8 +133,8 @@ async function main(): Promise<void> {
   );
   serviceInternal.stateByChamberInstanceId.set(state.chamberInstanceId, state);
   const runtime = {
-    refreshInstanceSchedule(): void {},
-    queuePlayerNotice(): void {},
+    refreshInstanceSchedule(): void { },
+    queuePlayerNotice(): void { },
     getInstanceRuntime: () => chamberInstance,
   };
   serviceInternal.applyEffectiveSpeed(state, chamberInstance, runtime);
@@ -530,7 +530,7 @@ async function testRecoveredMissingRuntimeHydration(): Promise<void> {
     } as any,
     {} as any,
     {} as any,
-    { registerOrUpdate(): void {}, unregister(): void {} } as any,
+    { registerOrUpdate(): void { }, unregister(): void { } } as any,
     new TimeChamberAdmissionPolicy(),
   );
   const internals = service as any;
@@ -656,7 +656,7 @@ async function testActivationExpiryRelocation(): Promise<void> {
       },
     } as any,
     {} as any,
-    { registerOrUpdate(): void {}, unregister(): void {} } as any,
+    { registerOrUpdate(): void { }, unregister(): void { } } as any,
     new TimeChamberAdmissionPolicy(),
   );
   const internals = service as any;
@@ -708,7 +708,7 @@ async function testActivationExpiryRelocation(): Promise<void> {
   const chamberInstance = {
     tickSpeed: 4,
     paused: false,
-    markPersistenceDirtyDomainsHighPriority(): void {},
+    markPersistenceDirtyDomainsHighPriority(): void { },
     listPlayerIds: () => ['player:expired'],
   };
   let location = { instanceId: state.chamberInstanceId, sessionId: 'session:expired' };
@@ -781,7 +781,7 @@ async function testDeconstructLeaseFence(): Promise<void> {
       }
       return { rows: [], rowCount: 0 };
     },
-    release(): void {},
+    release(): void { },
   };
   const service = new TimeChamberRuntimeService(
     {} as any,
@@ -793,7 +793,7 @@ async function testDeconstructLeaseFence(): Promise<void> {
       },
     } as any,
     {} as any,
-    { registerOrUpdate(): void {}, unregister(): void {} } as any,
+    { registerOrUpdate(): void { }, unregister(): void { } } as any,
     new TimeChamberAdmissionPolicy(),
   );
   const serviceInternal = service as any;
@@ -818,13 +818,13 @@ async function testDeconstructLeaseFence(): Promise<void> {
   const runtime = {
     getInstanceRuntime: (instanceId: string) => instanceId === state.chamberInstanceId ? chamberInstance : null,
     isInstanceLeaseWritable: () => true,
-    worldRuntimeInstanceStateService: { deleteInstanceRuntime(): void {} },
-    worldRuntimeTickProgressService: { clearInstance(): void {} },
-    worldRuntimeLootContainerService: { removeInstanceState(): void {} },
-    runtimeEventBusService: { discardInstance(): void {} },
+    worldRuntimeInstanceStateService: { deleteInstanceRuntime(): void { } },
+    worldRuntimeTickProgressService: { clearInstance(): void { } },
+    worldRuntimeLootContainerService: { removeInstanceState(): void { } },
+    runtimeEventBusService: { discardInstance(): void { } },
     worldRuntimeFormationService: {
       listRuntimeFormations: () => [],
-      releaseInstance(): void {},
+      releaseInstance(): void { },
     },
   };
 
