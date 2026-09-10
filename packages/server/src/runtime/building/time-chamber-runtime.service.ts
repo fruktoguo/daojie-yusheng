@@ -523,8 +523,10 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
         this.templateRepository.renameRuntimeMapTemplate?.(resolved.state.templateId, name);
         resolved.chamberInstance.worldRevision = Math.max(0, Math.trunc(Number(resolved.chamberInstance.worldRevision) || 0)) + 1;
       }
-      this.applyEffectiveSpeed(resolved.state, resolved.chamberInstance, runtime);
-      await runtime.flushInstanceDomains?.(resolved.state.chamberInstanceId, ['time']);
+      const speedUpdated = this.applyEffectiveSpeed(resolved.state, resolved.chamberInstance, runtime);
+      if (speedUpdated) {
+        await runtime.flushInstanceDomains?.(resolved.state.chamberInstanceId, ['time']);
+      }
       return {
         ok: true,
         operation: 'settings',
@@ -711,9 +713,11 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
     }
     this.worldRuntime = runtime;
     if (!isTimeChamberActive(state, Date.now())) {
-      this.applyEffectiveSpeed(state, instance, runtime);
-      if (!this.expiryTimer && state.activeExpiresAt !== null) {
-        this.scheduleNextActivationExpiry();
+      if (resolveEffectiveInstanceSpeed(instance) !== BASE_SPEED) {
+        this.applyEffectiveSpeed(state, instance, runtime);
+        if (!this.expiryTimer && state.activeExpiresAt !== null) {
+          this.scheduleNextActivationExpiry();
+        }
       }
       return Math.min(Math.max(0, Math.trunc(requestedSteps)), 1);
     }
@@ -1237,17 +1241,18 @@ export class TimeChamberRuntimeService implements OnModuleInit, OnModuleDestroy 
     }
   }
 
-  private applyEffectiveSpeed(state: TimeChamberState, instance: any, runtime: any): void {
+  private applyEffectiveSpeed(state: TimeChamberState, instance: any, runtime: any): boolean {
     const desired = isTimeChamberActive(state, Date.now())
       ? state.configuredSpeed
       : BASE_SPEED;
     if (resolveEffectiveInstanceSpeed(instance) === desired && instance.paused !== true) {
-      return;
+      return false;
     }
     instance.tickSpeed = desired;
     instance.paused = false;
     instance.markPersistenceDirtyDomainsHighPriority?.(['time']);
     this.instanceScheduleService.registerOrUpdate(state.chamberInstanceId, instance);
+    return true;
   }
 
   private applyVerifiedTransfer(playerId: string, targetInstanceId: string, transfer: any, runtime: any): boolean {
