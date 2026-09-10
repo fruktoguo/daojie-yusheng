@@ -58,6 +58,8 @@ export class ContentTemplateRepository {
     itemTemplates = new Map();
     /** 功法模板表，按 techniqueId 查找。 */
     techniqueTemplates = new Map();
+    /** 功法模板成功重载代际，供运行时只读索引做 O(1) 缓存失效。 */
+    techniqueTemplateRevision = 0;
     /** N44：技能模板按 skillId 反向索引。loadAll 内 technique 填充完成后立即建索引；getSkill 走 O(1) 查询。 */
     skillTemplatesById = new Map();
     /** 共享功法 buff 表，供多个技能复用。 */
@@ -334,6 +336,7 @@ export class ContentTemplateRepository {
         this.starterInventoryEntries = [];
         resetMapDocumentFileIndex();
         this.techniqueRegistry.loadAll(this.sharedTechniqueBuffs);
+        this.techniqueTemplateRevision += 1;
         this.skillRegistry.loadAll(this.techniqueTemplates);
         this.dropTableRegistry.loadAll();
         this.monsterTemplateRegistry.loadAll();

@@ -123,6 +123,7 @@ const smokeCases = [
     { name: 'world-runtime-combat-action-service', scriptFile: 'world-runtime-combat-action-service-smoke.js', standalone: true },
     { name: 'player-skill-lookup-cache', scriptFile: 'player-skill-lookup-cache-smoke.js', standalone: true },
     { name: 'player-skill-passive', scriptFile: 'player-skill-passive-smoke.js', standalone: true },
+    { name: 'craft-passive-technique-acquisition', scriptFile: 'craft-passive-technique-acquisition-smoke.js', standalone: true },
     { name: 'world-runtime-combat-boundary', scriptFile: 'world-runtime-combat-boundary-smoke.js', standalone: true },
     { name: 'world-runtime-combat-outcome-variants', scriptFile: 'world-runtime-combat-outcome-variants-smoke.js', standalone: true },
   { name: 'world-runtime-auto-combat', scriptFile: 'world-runtime-auto-combat-smoke.js', standalone: true },

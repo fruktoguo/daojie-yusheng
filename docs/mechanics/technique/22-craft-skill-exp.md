@@ -187,6 +187,8 @@ probability = clamp(baseProbability × (1 + luck × 0.01), 0, 1)
 
 命中后直接向玩家背包发放对应标准功法模板的功法书（物品 ID 为 `book.<techniqueId>`，例如 `book.passive_craft_mortal_mortal_alchemy`）。这些物品沿用普通功法书的持久化、交易和使用流程，玩家可以自行使用参悟，也可以交易给其他玩家；不会在动作结算时自动学会功法。`book.custom_technique` 仅用于自创功法抄录的动态功法书，不用于标准技艺被动功法。
 
+服务端可缓存上述 24 个标准候选，但缓存必须随 `ContentTemplateRepository.loadAll()` 成功重载换代；GM 热重载后不得继续发放已删除、改名或已改变技艺归属的旧功法书。
+
 ### 队列系统
 
 ```ts

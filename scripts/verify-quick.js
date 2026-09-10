@@ -111,6 +111,8 @@ const status = runVerificationSteps({
         '--case',
         'technique-comprehension',
         '--case',
+        'craft-passive-technique-acquisition',
+        '--case',
         'inventory-item-instance-ref',
         '--case',
         'inventory-consumable-cooldown',

@@ -68,6 +68,7 @@
     "smoke:generated-technique-chant-zero": "pnpm compile && node dist/tools/generated-technique-chant-zero-conversion-smoke.js",
     "smoke:technique-aggregation": "pnpm compile && node dist/tools/technique-aggregation-smoke.js",
     "smoke:technique-unification-platform": "pnpm compile && node dist/tools/technique-unification-platform-smoke.js",
+    "smoke:craft-passive-technique-acquisition": "pnpm compile && node dist/tools/craft-passive-technique-acquisition-smoke.js",
     "solve:technique-arts-weights": "pnpm compile && node dist/tools/technique-arts-weight-solver.js",
     "smoke:technique-arts-weight-solver": "pnpm compile && node dist/tools/technique-arts-weight-solver-smoke.js",
     "smoke:move-speed-scaling": "pnpm compile && node dist/tools/move-speed-scaling-smoke.js",

@@ -31,6 +31,7 @@ type CraftPassiveCandidate = {
 };
 
 type TechniqueTemplateRepositoryPort = {
+  techniqueTemplateRevision?: number;
   listTechniqueTemplates?: () => Array<Record<string, unknown>>;
   techniqueTemplates?: Map<string, Record<string, unknown>>;
   createItem?: (itemId: string, count?: number) => Record<string, unknown> | null;
@@ -57,7 +58,14 @@ export type CraftPassiveTechniqueAcquisitionResult = {
   messages: TechniqueActivityNoticeMessage[];
 };
 
-const repositoryCandidateCache = new WeakMap<object, Map<CraftEffectSkillKind, Map<CraftPassiveGrade, CraftPassiveCandidate>>>();
+type CraftPassiveCandidateIndex = Map<CraftEffectSkillKind, Map<CraftPassiveGrade, CraftPassiveCandidate>>;
+
+type CraftPassiveCandidateCacheEntry = {
+  techniqueTemplateRevision: number;
+  index: CraftPassiveCandidateIndex;
+};
+
+const repositoryCandidateCache = new WeakMap<object, CraftPassiveCandidateCacheEntry>();
 
 /**
  * 按“行动等级所属境界”锁定可获取的被动档位：
@@ -153,13 +161,18 @@ function getCraftPassiveCandidate(
 
 function getCraftPassiveIndex(
   repository: TechniqueTemplateRepositoryPort,
-): Map<CraftEffectSkillKind, Map<CraftPassiveGrade, CraftPassiveCandidate>> {
+): CraftPassiveCandidateIndex {
+  const techniqueTemplateRevision = Number.isSafeInteger(repository.techniqueTemplateRevision)
+    ? Math.max(0, Number(repository.techniqueTemplateRevision))
+    : null;
   const cached = repository && typeof repository === 'object'
     ? repositoryCandidateCache.get(repository as object)
     : undefined;
-  if (cached) return cached;
+  if (cached && techniqueTemplateRevision !== null && cached.techniqueTemplateRevision === techniqueTemplateRevision) {
+    return cached.index;
+  }
 
-  const index = new Map<CraftEffectSkillKind, Map<CraftPassiveGrade, CraftPassiveCandidate>>();
+  const index: CraftPassiveCandidateIndex = new Map();
   const templates = typeof repository.listTechniqueTemplates === 'function'
     ? repository.listTechniqueTemplates()
     : repository.techniqueTemplates instanceof Map
@@ -193,8 +206,12 @@ function getCraftPassiveIndex(
       }
     }
   }
-  if (repository && typeof repository === 'object') {
-    repositoryCandidateCache.set(repository as object, index);
+  // 正式服 GM 内容重载复用同一个仓储实例，以递增版本号使候选缓存 O(1) 换代。
+  if (repository && typeof repository === 'object' && techniqueTemplateRevision !== null) {
+    repositoryCandidateCache.set(repository as object, {
+      techniqueTemplateRevision,
+      index,
+    });
   }
   return index;
 }
