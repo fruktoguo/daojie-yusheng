@@ -4,7 +4,8 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { CombatTargetKind } from '../world/combat/combat-action.types';
-import { resolvePlayerFacingContentName } from '@mud/shared';
+import { TileType, resolvePlayerFacingContentName } from '@mud/shared';
+import { applyMiningVeinBreakDebuffs } from '../world/combat/mining-vein-debuff.helpers';
 
 type OutcomeHandlers = Record<string, any>;
 type OutcomeApplyInput = Record<string, any>;
@@ -193,6 +194,9 @@ export function createTileOutcomeApplyAdapter(handlers: OutcomeHandlers = {}) {
   const y = normalizeCoordinate(target?.y ?? result?.targetY);
   const damage = normalizeDamage(result);
   const instance = resolveInstance(deps, outcome?.instanceId);
+  const tileTypeBefore = x !== null && y !== null
+   ? instance?.getTileCombatState?.(x, y)?.tileType
+   : undefined;
   const applied = x !== null && y !== null && damage > 0
    ? callFirstDefined([
     () => handlers.applyTileDamage?.({ x, y, damage, outcome, result, application, deps, instance }),
@@ -201,6 +205,9 @@ export function createTileOutcomeApplyAdapter(handlers: OutcomeHandlers = {}) {
    : null;
   // 地块摧毁后触发宗门领地扩展
   if (applied?.destroyed === true) {
+   if (tileTypeBefore === TileType.SpiritOre) {
+    applyMiningVeinBreakDebuffs(deps?.playerRuntimeService, outcome?.actor?.id, 1);
+   }
    callFirstDefined([
     () => handlers.handleTileDestroyed?.({ x, y, outcome, result, application, deps, instance, applied }),
     () => deps?.worldRuntimeSectService?.expandSectForDestroyedTile?.(outcome?.instanceId, x, y, deps),

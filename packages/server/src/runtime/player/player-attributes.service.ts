@@ -10,6 +10,7 @@
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CRAFT_EFFECT_KINDS, CRAFT_EFFECT_SKILL_KINDS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_BASE_ATTRS, DEFAULT_PLAYER_REALM_STAGE, DUNGEON_PRESSURE_BUFF_ID, DUNGEON_PRESSURE_COMBAT_STAT_KEYS, DUNGEON_PRESSURE_ELEMENT_KEYS, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, NUMERIC_STAT_MULTIPLIER_FLOORS, addCraftEffectStatsFromItem, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcBodyTrainingAttrPercentBonus, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, cloneCraftEffectStats, cloneNumericRatioDivisors, cloneNumericStats, compileValueStatsToActualStats, createEmptyCraftEffectStats, createNumericStats, getBuffEffectFactor, getEffectivePlayerMoveSpeed, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, percentModifierToMultiplier, readCraftEffectStat, resolveDungeonPressureCombatMultiplier, resolveDungeonPressureMoveSpeedMultiplier, resolvePlayerFacingContentName, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } from '@mud/shared';
+import { MINING_VEIN_STAGNATION_BUFF_ID, resolveMiningVeinStagnationQiOutputMultiplier } from '@mud/shared';
 import {
     PVP_SHA_INFUSION_ATTACK_CAP_PERCENT,
     PVP_SHA_INFUSION_BUFF_ID,
@@ -23,6 +24,7 @@ import {
     resolveHeavenlyDaoSuppressionMultiplier,
 } from '../../constants/gameplay/virtual-world';
 import { type RuntimeExternalSectionKey, WorldRuntimeMetricsService } from '../world/world-runtime-metrics.service';
+import { resolveActiveMiningVeinBuffStacks } from '../world/combat/mining-vein-debuff.helpers';
 import { resolvePlayerDailySignInFortuneLuck } from './player-special-stat.helpers';
 import { markPlayerComprehensionSpeedRateProjectionDirty } from './player-comprehension-speed.helpers';
 import { addEnabledSkillPassiveCraftEffects, collectEnabledSkillPassiveBuffs } from './player-skill-passive.helpers';
@@ -445,6 +447,7 @@ export class PlayerAttributesService {
         roundNumericStats(numericStats);
         applyHeavenlyDaoSuppression(finalAttrs, numericStats, activeBuffs);
         applyDungeonPressure(finalAttrs, numericStats, activeBuffs);
+        applyMiningVeinStagnation(numericStats, activeBuffs);
         this.recordAttributePerf('attribution.attributes.build.finalModifiersMs', performance.now() - finalModifiersStartedAt, 1);
         return {
             stage,
@@ -943,6 +946,18 @@ function applyHeavenlyDaoSuppression(finalAttrs, numericStats, activeBuffs) {
         numericStats.elementDamageReduce[element] = Math.max(0, Math.round(numericStats.elementDamageReduce[element] * multiplier));
     }
     clampAttributes(finalAttrs);
+}
+
+/** 灵脉阻滞在全部属性加成后压制最终灵力输出效率。 */
+function applyMiningVeinStagnation(numericStats, activeBuffs) {
+    const stacks = resolveActiveMiningVeinBuffStacks(activeBuffs, MINING_VEIN_STAGNATION_BUFF_ID);
+    if (stacks <= 0) {
+        return;
+    }
+    numericStats.maxQiOutputPerTick = Math.max(
+        0,
+        Math.round(numericStats.maxQiOutputPerTick * resolveMiningVeinStagnationQiOutputMultiplier(stacks)),
+    );
 }
 
 /** 威压是按当前来源汇总后的精确层数，不通过普通 Buff 的累加语义叠加。 */

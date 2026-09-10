@@ -18,6 +18,7 @@ import { emitCombatPresentation, nextCastId } from './world-runtime-combat-prese
 import { CombatPendingCastCancelReason, CombatPendingCastStatus, cancelPendingCombatCast, createPlayerPendingCombatCast, createPlayerSkillActionFromPendingCast, resolvePendingCombatCastCancellation } from '../../combat/pending-combat-cast.helpers';
 import { buildStructuredNotice } from '../structured-notice.helpers';
 import { applyMiningExpForTileDamage, applyMiningExpForTileDamageBatch, resolveMiningAdjustedTileDamage, resolveMiningDropRollOptions, resolveMiningTileDamageMultiplier, spawnTileDrops } from './tile-drop.helpers';
+import { applyMiningVeinBreakDebuffs, countDestroyedSpiritOreBatchEntries } from './mining-vein-debuff.helpers';
 import { WorldRuntimeThreatService } from './world-runtime-threat.service';
 import { resolvePlayerDisplayName } from '../../player/player-display-name';
 import { resolveSuppressedMonsterNumericStats } from './formation-combat-effect.helpers';
@@ -2341,6 +2342,11 @@ export class WorldRuntimePlayerSkillDispatchService {
                     destroyedTiles.push({ x: pending.x, y: pending.y });
                 }
             }
+            applyMiningVeinBreakDebuffs(
+                this.playerRuntimeService,
+                attacker.playerId,
+                countDestroyedSpiritOreBatchEntries(pendingTileDamage, batchResult.results),
+            );
             recordPlayerSkillDispatchPerf(
                 deps,
                 'pendingCommands.castSkill.tileBatch.resultCollectMs',

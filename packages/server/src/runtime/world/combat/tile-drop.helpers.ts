@@ -5,11 +5,13 @@
  */
 import {
   MINING_EXP_BASE_ACTION_TICKS,
+  MINING_VEIN_CURSE_BUFF_ID,
   computeCraftSkillExpGain,
   computeLuckSuccessRateBonus,
   getMiningDamageMultiplier,
   getMiningDropRateBonus,
   isOreMinableTileType,
+  resolveMiningVeinCurseDropMultiplier,
 } from '@mud/shared';
 import { resolveCraftSkillExpToNextByLevel } from '../../craft/craft-skill-exp.helpers';
 import {
@@ -21,6 +23,7 @@ import { buildStructuredNotice } from '../structured-notice.helpers';
 import * as worldRuntimeNormalizationHelpers from '../world-runtime.normalization.helpers';
 import { resolvePlayerEffectiveLuck } from '../../player/player-special-stat.helpers';
 import { tryAcquireCraftPassiveTechnique } from '../../craft/craft-passive-technique-acquisition.helpers';
+import { resolveActiveMiningVeinBuffStacks } from './mining-vein-debuff.helpers';
 
 const { formatItemStackLabel } = worldRuntimeNormalizationHelpers;
 
@@ -70,9 +73,13 @@ export function resolveMiningDropRollOptions(attacker: unknown): {
 } {
   const dropRateMultiplier = 1 + Math.max(0, resolveMiningDropRateBonus(attacker));
   const outputMultiplier = 1 + Math.max(0, resolvePlayerCraftEffectStat(attacker, 'mining', 'outputRate'));
+  const curseMultiplier = resolveMiningVeinCurseDropMultiplier(resolveActiveMiningVeinBuffStacks(
+    attacker,
+    MINING_VEIN_CURSE_BUFF_ID,
+  ));
   return {
     miningAttackerRealmLevel: resolvePlayerCraftRealmLevel(attacker),
-    miningOtherDropMultiplier: dropRateMultiplier * outputMultiplier,
+    miningOtherDropMultiplier: dropRateMultiplier * outputMultiplier * curseMultiplier,
   };
 }
 
