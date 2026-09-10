@@ -167,10 +167,38 @@ export function getMiningDamageDropMultiplier(appliedDamage: number | undefined,
   return ratio <= 1 ? ratio : Math.sqrt(ratio);
 }
 
-/** 一级矿物为 1 倍，之后每级独立乘 1.1。 */
+/**
+ * 计算矿物等级的线性倍率：
+ * 1-10 级每级 +100%（10 级为 10 倍）；
+ * 11-20 级在此基础上每级 +200%（11 级为 12 倍，20 级为 30 倍）；
+ * 21-30 级在此基础上每级 +300%（21 级为 33 倍，30 级为 60 倍）；
+ * 依此类推分段平滑累加，保证跨档无断层跳跃。
+ */
+export function getMiningMapLevelLinearMultiplier(mineralLevel: number | undefined): number {
+  const level = Math.max(1, Math.floor(Number(mineralLevel) || 1));
+  if (level <= 1) {
+    return 1;
+  }
+  const tierIndex = Math.floor((level - 1) / 10);
+  if (tierIndex === 0) {
+    return 1 + (level - 1);
+  }
+  const baseMultiplier = 10 + 5 * (tierIndex - 1) * (tierIndex + 2);
+  const remainingLevels = level - tierIndex * 10;
+  const currentTierRate = tierIndex + 1;
+  return baseMultiplier + remainingLevels * currentTierRate;
+}
+
+/**
+ * 矿物地图等级掉落倍率：
+ * 包含 10% 指数增幅与分段线性增幅（1-10 级每级 +100%，11-20 级每级 +200%...），
+ * 两者按（指数倍率 + 线性倍率 - 1）相加叠加，保证 1 级为 1 倍基准且数值平滑递增。
+ */
 export function getMiningMapLevelDropMultiplier(mineralLevel: number | undefined): number {
   const level = Math.max(1, Math.floor(Number(mineralLevel) || 1));
-  return MINING_DROP_MAP_LEVEL_MULTIPLIER_PER_LEVEL ** (level - 1);
+  const expMultiplier = MINING_DROP_MAP_LEVEL_MULTIPLIER_PER_LEVEL ** (level - 1);
+  const linearMultiplier = getMiningMapLevelLinearMultiplier(level);
+  return expMultiplier + linearMultiplier - 1;
 }
 
 /** 境界高于矿物每级保留 80%，低于矿物每级保留 90%。 */

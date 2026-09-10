@@ -4,6 +4,7 @@ import {
   computeMiningDamageDropExpectedCount,
   getMiningDamageDropMultiplier,
   getMiningMapLevelDropMultiplier,
+  getMiningMapLevelLinearMultiplier,
   getMiningRealmGapDropMultiplier,
   resolveMiningExpectedDropRollPlan,
   rollMiningExpectedDropCount,
@@ -90,8 +91,21 @@ function testDamageBaselineIsLinear(): void {
 }
 
 function testMapLevelAndRealmGapMultipliers(): void {
+  // 线性倍率分段平滑断言
+  assert.equal(getMiningMapLevelLinearMultiplier(1), 1);
+  assert.equal(getMiningMapLevelLinearMultiplier(2), 2);
+  assert.equal(getMiningMapLevelLinearMultiplier(10), 10);
+  assert.equal(getMiningMapLevelLinearMultiplier(11), 12);
+  assert.equal(getMiningMapLevelLinearMultiplier(20), 30);
+  assert.equal(getMiningMapLevelLinearMultiplier(21), 33);
+  assert.equal(getMiningMapLevelLinearMultiplier(30), 60);
+
+  // 地图等级矿物总倍率（指数 + 线性 - 1）
   assertClose(getMiningMapLevelDropMultiplier(1), 1, '一级矿物必须为一倍');
-  assertClose(getMiningMapLevelDropMultiplier(10), 1.1 ** 9, '矿物地图等级必须按每级 10% 复利');
+  assertClose(getMiningMapLevelDropMultiplier(10), (1.1 ** 9) + 10 - 1, '10级矿物必须为指数与线性相加叠加');
+  assertClose(getMiningMapLevelDropMultiplier(11), (1.1 ** 10) + 12 - 1, '11级矿物必须为指数与线性相加叠加');
+  assertClose(getMiningMapLevelDropMultiplier(20), (1.1 ** 19) + 30 - 1, '20级矿物必须为指数与线性相加叠加');
+
   assertClose(getMiningRealmGapDropMultiplier(12, 10), 0.8 ** 2, '高于矿物两级必须按 80% 复利');
   assertClose(getMiningRealmGapDropMultiplier(8, 10), 0.9 ** 2, '低于矿物两级必须按 90% 复利');
   assertClose(getMiningRealmGapDropMultiplier(10, 10), 1, '同级不得削减爆率');
