@@ -69,6 +69,7 @@ function testDamageBaselineIsLinear(): void {
   assertClose(getMiningDamageDropMultiplier(5_000, maxHp), 0.5, '低于基准一半必须保留一半爆率');
   assertClose(getMiningDamageDropMultiplier(10_000, maxHp), 1, '最大生命 0.1% 必须为一倍');
   assertClose(getMiningDamageDropMultiplier(20_000, maxHp), 2, '超过基准后伤害翻倍必须爆率翻倍');
+  assertClose(getMiningDamageDropMultiplier(20_000_000, maxHp), 1_000, '过量伤害最多只能按矿脉最大生命计算');
 
   const halfDamageExpected = computeMiningDamageDropExpectedCount({
     baseChanceBps: 20,

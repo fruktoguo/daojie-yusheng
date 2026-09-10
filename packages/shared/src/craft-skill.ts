@@ -154,8 +154,8 @@ export interface MiningExpectedDropRollPlan {
 
 /** 以地块最大生命的 0.1% 为 1 倍伤害基准，爆率随实际伤害全程线性增长。 */
 export function getMiningDamageDropMultiplier(appliedDamage: number | undefined, maxHp: number | undefined): number {
-  const damage = Math.max(0, Number(appliedDamage) || 0);
   const normalizedMaxHp = Math.max(1, Number(maxHp) || 1);
+  const damage = Math.min(normalizedMaxHp, Math.max(0, Number(appliedDamage) || 0));
   if (damage <= 0) {
     return 0;
   }
