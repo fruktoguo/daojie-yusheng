@@ -50,6 +50,12 @@ const status = runVerificationSteps({
       shell: false,
     },
     {
+      label: 'craft passive technique acquisition',
+      command: process.execPath,
+      args: ['packages/server/dist/tools/craft-passive-technique-acquisition-smoke.js'],
+      shell: false,
+    },
+    {
       label: 'quick smoke',
       command: process.execPath,
       args: [
@@ -110,8 +116,6 @@ const status = runVerificationSteps({
         'technique-cultivation-target',
         '--case',
         'technique-comprehension',
-        '--case',
-        'craft-passive-technique-acquisition',
         '--case',
         'inventory-item-instance-ref',
         '--case',
