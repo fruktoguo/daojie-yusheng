@@ -815,6 +815,7 @@ function normalizeContainerRecord(landmark, x, y) {
     return {
         id: landmark.id.trim(),
         name: landmark.name.trim(),
+        resourceNodeId: landmark.resourceNodeId,
         x,
         y,
         desc: typeof landmark.desc === 'string' && landmark.desc.trim() ? landmark.desc : undefined,

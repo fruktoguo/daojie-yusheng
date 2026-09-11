@@ -2319,7 +2319,7 @@ export async function hydratePersistentInstanceSnapshot(runtime, instanceId, ins
     instance.hydrateGroundPiles(groupGroundItemsByTile(groundItems));
   }
   const containerStates = await domainPersistenceService.loadContainerStates(instanceId);
-  runtime.worldRuntimeLootContainerService.hydrateContainerStates(instanceId, normalizeLoadedContainerStates(containerStates ?? []));
+  runtime.worldRuntimeLootContainerService.hydrateContainerStates(instanceId, normalizeLoadedContainerStates(containerStates ?? []), instance);
   const monsterStates = await domainPersistenceService.loadMonsterRuntimeStates(instanceId);
   instance.hydrateMonsterRuntimeStates(monsterStates ?? []);
   const overlayChunks = await domainPersistenceService.loadOverlayChunks(instanceId);

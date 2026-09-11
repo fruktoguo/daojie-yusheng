@@ -20,6 +20,7 @@ import {
   groupContainerLootRows,
 } from '../../../world/world-runtime.normalization.helpers';
 import { tryAcquireCraftPassiveTechnique } from '../../craft-passive-technique-acquisition.helpers';
+import { rollGatherSeed } from '../../gather-seed.helpers';
 
 const HERB_GATHER_TIME_RATE = 0.5;
 const GATHER_SPEED_PER_LEVEL = 0.02;
@@ -149,6 +150,8 @@ export async function executeGatherTick(
   harvestedItem.count = 1;
   prepareLootGrantItemsForReceiver([harvestedItem]);
   playerRuntimeService.receiveInventoryItem?.(playerId, harvestedItem);
+  const seed = rollGatherSeed(player, container, harvestedItem.itemId, ctx.contentTemplateRepository);
+  if (seed) playerRuntimeService.receiveInventoryItem?.(playerId, seed);
   const skillExpResult = applyGatherSkillExp(
     playerRuntimeService,
     player,
@@ -233,6 +236,8 @@ export async function executeGatherTick(
         ),
       ] : []),
       ...(passiveAcquisitionResult.messages ?? []),
+      ...(seed ? [buildGatherNotice('gather', 'notice.craft.gather.obtained',
+        { itemLabel: service.formatLootItemStackLabel(seed) }, [{ key: 'itemLabel', style: 'target' }])] : []),
     ],
     true,
     false,

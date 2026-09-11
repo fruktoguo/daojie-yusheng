@@ -70,6 +70,7 @@
     },
     {
       "id": "landmark.herb.moondew_grass",
+      "seedItemId": "seed.moondew_grass",
       "kind": "landmark_container",
       "name": "月露草",
       "container": {
@@ -91,6 +92,7 @@
     },
     {
       "id": "landmark.herb.red_flame_leaf",
+      "seedItemId": "seed.red_flame_leaf",
       "kind": "landmark_container",
       "name": "赤火叶",
       "container": {
@@ -112,6 +114,7 @@
     },
     {
       "id": "landmark.herb.green_spirit_stem",
+      "seedItemId": "seed.green_spirit_stem",
       "kind": "landmark_container",
       "name": "青灵茎",
       "container": {
@@ -133,6 +136,7 @@
     },
     {
       "id": "landmark.herb.frost_lotus_petal",
+      "seedItemId": "seed.frost_lotus_petal",
       "kind": "landmark_container",
       "name": "寒莲瓣",
       "container": {
@@ -154,6 +158,7 @@
     },
     {
       "id": "landmark.herb.clear_mind_flower",
+      "seedItemId": "seed.clear_mind_flower",
       "kind": "landmark_container",
       "name": "明心花",
       "container": {
@@ -175,6 +180,7 @@
     },
     {
       "id": "landmark.herb.bloodbud_fruit",
+      "seedItemId": "seed.bloodbud_fruit",
       "kind": "landmark_container",
       "name": "赤芽果",
       "container": {
@@ -196,6 +202,7 @@
     },
     {
       "id": "landmark.herb.breakarray_shard",
+      "seedItemId": "seed.breakarray_shard",
       "kind": "landmark_container",
       "name": "破纹砂",
       "container": {
@@ -217,6 +224,7 @@
     },
     {
       "id": "landmark.herb.swiftwind_reed",
+      "seedItemId": "seed.swiftwind_reed",
       "kind": "landmark_container",
       "name": "疾风苇",
       "container": {
@@ -238,6 +246,7 @@
     },
     {
       "id": "landmark.herb.bitterheart_vine",
+      "seedItemId": "seed.bitterheart_vine",
       "kind": "landmark_container",
       "name": "苦心藤",
       "container": {
@@ -259,6 +268,7 @@
     },
     {
       "id": "landmark.herb.sunmelt_seed",
+      "seedItemId": "seed.sunmelt_seed",
       "kind": "landmark_container",
       "name": "融阳子",
       "container": {
@@ -280,6 +290,7 @@
     },
     {
       "id": "landmark.herb.longvein_vine",
+      "seedItemId": "seed.longvein_vine",
       "kind": "landmark_container",
       "name": "长脉藤",
       "container": {
@@ -301,6 +312,7 @@
     },
     {
       "id": "landmark.herb.returnspring_leaf",
+      "seedItemId": "seed.returnspring_leaf",
       "kind": "landmark_container",
       "name": "回春叶",
       "container": {
@@ -322,6 +334,7 @@
     },
     {
       "id": "landmark.herb.coldmarrow_reed",
+      "seedItemId": "seed.coldmarrow_reed",
       "kind": "landmark_container",
       "name": "寒髓苇",
       "container": {
@@ -343,6 +356,7 @@
     },
     {
       "id": "landmark.herb.moonwell_stamen",
+      "seedItemId": "seed.moonwell_stamen",
       "kind": "landmark_container",
       "name": "月井蕊",
       "container": {
@@ -364,6 +378,7 @@
     },
     {
       "id": "landmark.herb.scorchheart_petal",
+      "seedItemId": "seed.scorchheart_petal",
       "kind": "landmark_container",
       "name": "灼心瓣",
       "container": {
@@ -385,6 +400,7 @@
     },
     {
       "id": "landmark.herb.flamegrain_spike",
+      "seedItemId": "seed.flamegrain_spike",
       "kind": "landmark_container",
       "name": "炎穗芒",
       "container": {
@@ -406,6 +422,7 @@
     },
     {
       "id": "landmark.herb.bearingroot_ginseng",
+      "seedItemId": "seed.bearingroot_ginseng",
       "kind": "landmark_container",
       "name": "承脉参",
       "container": {
@@ -427,6 +444,7 @@
     },
     {
       "id": "landmark.herb.stonecore_lingzhi",
+      "seedItemId": "seed.stonecore_lingzhi",
       "kind": "landmark_container",
       "name": "岩髓芝",
       "container": {
@@ -448,6 +466,7 @@
     },
     {
       "id": "landmark.herb.goldthread_briar",
+      "seedItemId": "seed.goldthread_briar",
       "kind": "landmark_container",
       "name": "金芒棘",
       "container": {
@@ -469,6 +488,7 @@
     },
     {
       "id": "landmark.herb.ironvein_caltrop",
+      "seedItemId": "seed.ironvein_caltrop",
       "kind": "landmark_container",
       "name": "铁脉蒺",
       "container": {
@@ -490,6 +510,7 @@
     },
     {
       "id": "landmark.herb.frostblade_frost_crystal",
+      "seedItemId": "seed.frostblade_frost_crystal",
       "kind": "landmark_container",
       "name": "霜刃晶",
       "container": {
@@ -511,6 +532,7 @@
     },
     {
       "id": "landmark.herb.frostblade_cold_iron_shard",
+      "seedItemId": "seed.frostblade_cold_iron_shard",
       "kind": "landmark_container",
       "name": "寒铁碎",
       "container": {
@@ -532,6 +554,7 @@
     },
     {
       "id": "landmark.herb.frostblade_deepwater_moss",
+      "seedItemId": "seed.frostblade_deepwater_moss",
       "kind": "landmark_container",
       "name": "渊水苔",
       "container": {
@@ -553,6 +576,7 @@
     },
     {
       "id": "landmark.herb.blazewood_ember_branch",
+      "seedItemId": "seed.blazewood_ember_branch",
       "kind": "landmark_container",
       "name": "余烬枝",
       "container": {
@@ -574,6 +598,7 @@
     },
     {
       "id": "landmark.herb.blazewood_fire_seed",
+      "seedItemId": "seed.blazewood_fire_seed",
       "kind": "landmark_container",
       "name": "焚灵种",
       "container": {
@@ -595,6 +620,7 @@
     },
     {
       "id": "landmark.herb.blazewood_charwood_heart",
+      "seedItemId": "seed.blazewood_charwood_heart",
       "kind": "landmark_container",
       "name": "焦木心",
       "container": {
@@ -616,6 +642,7 @@
     },
     {
       "id": "landmark.herb.darksoil_vein_stone",
+      "seedItemId": "seed.darksoil_vein_stone",
       "kind": "landmark_container",
       "name": "玄壤精土",
       "container": {
@@ -637,6 +664,7 @@
     },
     {
       "id": "landmark.herb.darksoil_mixed_crystal",
+      "seedItemId": "seed.darksoil_mixed_crystal",
       "kind": "landmark_container",
       "name": "混元脉石",
       "container": {
@@ -658,6 +686,7 @@
     },
     {
       "id": "landmark.herb.darksoil_abyss_mud",
+      "seedItemId": "seed.darksoil_abyss_mud",
       "kind": "landmark_container",
       "name": "深渊灵泥",
       "container": {

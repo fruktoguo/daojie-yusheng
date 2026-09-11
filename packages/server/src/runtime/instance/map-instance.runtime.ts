@@ -5150,13 +5150,13 @@ class MapInstanceRuntime {
   }
 
   const container = this.containersById.get(containerId);
-  return container ? snapshotContainer(container) : null;
+  return container && !(container.plantedExpiresAtTick <= this.tick) ? snapshotContainer(container) : null;
  }
  /** getContainerById：按容器 ID 读取容器。 */
  getContainerById(containerId) {
 
   const container = this.containersById.get(containerId);
-  return container ? snapshotContainer(container) : null;
+  return container && !(container.plantedExpiresAtTick <= this.tick) ? snapshotContainer(container) : null;
  }
  /** getSafeZoneAtTile：读取指定地块上的安全区信息。 */
  getSafeZoneAtTile(x, y) {
@@ -7730,6 +7730,7 @@ class MapInstanceRuntime {
   const visibility = this.normalizeVisibilityFilter(visibleTileVisibility);
   const containers = [];
   for (const container of this.containersById.values()) {
+   if (container.plantedExpiresAtTick <= this.tick) continue;
    if (!this.isTileInsideViewRadius(centerX, centerY, radius, container.x, container.y)) {
     continue;
    }

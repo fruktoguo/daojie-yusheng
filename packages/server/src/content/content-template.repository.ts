@@ -24,6 +24,7 @@ import { MonsterTemplateRegistry } from './registries/monster-template.registry'
 import { SkillTemplateRegistry } from './registries/skill-template.registry';
 import { TechniqueTemplateRegistry } from './registries/technique-template.registry';
 import { freezeTemplateMap } from './registries/template-freeze';
+import { PlantingContent } from './planting-content';
 
 const ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_THRESHOLD = 1;
 const ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_MULTIPLIER = 0.7;
@@ -31,6 +32,7 @@ const ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_MULTIPLIER = 0.7;
 /** 内容模板仓库：集中加载物品、功法、妖兽掉落和怪物运行时模板。 */
 @Injectable()
 export class ContentTemplateRepository {
+    readonly plantingContent = new PlantingContent();
     constructor(
         readonly itemRegistry: ItemTemplateRegistry = new ItemTemplateRegistry(),
         readonly techniqueRegistry: TechniqueTemplateRegistry = new TechniqueTemplateRegistry(),
@@ -357,6 +359,7 @@ export class ContentTemplateRepository {
             this.buffRegistry.registerTemplates(template.initialBuffs ?? []);
         }
         this.loadTerrainEffects();
+        this.plantingContent.load(this.itemRegistry);
         this.buffRegistry.freezeAll();
         freezeTemplateMap(this.terrainEffectsByTerrainType);
         this.monsterTemplateRegistry.freezeAll();

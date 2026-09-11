@@ -16,6 +16,7 @@ import {
   TIME_CHAMBER_MIN_USAGE_HOURS,
 } from '@mud/shared';
 import { createHash, randomUUID } from 'node:crypto';
+import { assertPlantSeedSourceMutation } from './plant-seed-source-validation';
 import {
   assignStableItemInstanceId,
   upsertEquipmentSlotRowsWithItemInstanceIdRepair,
@@ -1671,6 +1672,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         || normalizedSourceType === 'ground_drop'
         || normalizedSourceType === 'tile_resource_use'
         || normalizedSourceType === 'mineral_crystal_use'
+        || normalizedSourceType === 'plant_seed_use'
         || normalizedSourceType === 'activity_month_card_activation'
         || normalizedSourceType === 'activity_eternal_activation'
         || normalizedSourceType === 'activity_month_card_claim'
@@ -1752,7 +1754,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         ? normalizedSourceType === 'ground_take'
           || normalizedSourceType === 'ground_take_all'
           || normalizedSourceType === 'ground_drop'
-        : normalizedSourceType === 'container_take' || normalizedSourceType === 'container_take_all';
+        : normalizedSourceType === 'container_take' || normalizedSourceType === 'container_take_all' || normalizedSourceType === 'plant_seed_use';
       if (!sourceTypeMatches) {
         throw new Error(`${expectedSourceKind}_source_type_mismatch`);
       }
@@ -1761,6 +1763,9 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       }
       if (!normalizeRequiredString(input.expectedLeaseToken)) {
         throw new Error(`${expectedSourceKind}_source_lease_token_required`);
+      }
+      if (normalizedSourceType === 'plant_seed_use' && normalizedSourceMutation.kind === 'container_state') {
+        assertPlantSeedSourceMutation(normalizedSourceMutation, normalizedPlayerId, inventoryAction, normalizedGrantedItems);
       }
     }
 
@@ -1799,7 +1804,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
             || inventoryAction === 'transfer'
           )
           && (
-            normalizedSourceMutation?.kind === 'player_item_use' || normalizedSourceMutation?.kind === 'mineral_crystal'
+            normalizedSourceMutation?.kind === 'player_item_use' || normalizedSourceMutation?.kind === 'mineral_crystal' || normalizedSourceType === 'plant_seed_use'
               ? await assertPlayerItemUseConsumesLastUnlockedInventoryItem(
                 client,
                 normalizedPlayerId,
@@ -1912,6 +1917,11 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           ],
         );
 
+        if (normalizedSourceType === 'plant_seed_use' && normalizedSourceMutation?.kind === 'container_state') {
+          await insertAssetAuditLog(client, normalizedOperationId, normalizedPlayerId,
+            'planted_herb', normalizedSourceMutation.containerId, 'create', {}, {},
+            { plantedHerb: normalizedSourceMutation.statePayload.plantedHerb }, 'plant-seed');
+        }
         if (normalizedSourceMutation?.kind === 'mineral_crystal') {
           await insertAssetAuditLog(client, normalizedOperationId, normalizedPlayerId,
             'temporary_tile', normalizedSourceMutation.instanceId, 'create', {}, {},

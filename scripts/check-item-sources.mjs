@@ -1206,6 +1206,14 @@ function main() {
     });
   }
 
+  for (const node of landmarkNodesById.values()) {
+    if (node.container?.variant !== 'herb' || !node.seedItemId) continue;
+    for (const drop of node.container.drops ?? []) {
+      for (const source of sourceByItemId.get(drop.itemId) ?? []) {
+        if (source.kind === 'search') pushKnownSource(sourceByItemId, invalidRefs, node.seedItemId, { ...source });
+      }
+    }
+  }
   for (const runtimeSource of runtimeTileDropSources) {
     for (const drop of runtimeSource.drops) {
       if (!sourceByItemId.has(drop.itemId)) {

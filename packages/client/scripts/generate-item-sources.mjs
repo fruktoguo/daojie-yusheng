@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { loadHeavenlyDaoShopConstants } from '../../../scripts/lib/heavenly-dao-shop.mjs';
 import { buildResourceNodeIndexes } from '../../../scripts/lib/resource-nodes.mjs';
 import { loadRuntimeTileDropSources } from '../../../scripts/lib/runtime-tile-drops.mjs';
+import { PLANT_SEED_DROP_CHANCE } from '../../shared/dist/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -862,6 +863,16 @@ function main() {
   }
  }
 
+ for (const node of landmarkNodesById.values()) {
+  if (node.container?.variant !== 'herb' || !node.seedItemId) continue;
+  for (const drop of node.container.drops ?? []) {
+   for (const source of sourceByItemId.get(drop.itemId) ?? []) {
+    if (source.kind === 'search') pushSource(sourceByItemId, node.seedItemId, {
+     ...source, mode: 'direct', chance: PLANT_SEED_DROP_CHANCE, count: 1,
+    });
+   }
+  }
+ }
  for (const source of runtimeTileDropSources) {
   for (const drop of source.drops) {
    pushSource(sourceByItemId, drop.itemId, {

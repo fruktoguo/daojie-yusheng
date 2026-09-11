@@ -12,6 +12,8 @@ import { CUSTOM_TECHNIQUE_BOOK_ITEM_ID, DEFAULT_QI_RESOURCE_DESCRIPTOR, DUNGEON_
 import { randomUUID } from 'node:crypto';
 import { MINERAL_CRYSTAL_USE_BEHAVIOR } from '@mud/shared';
 import { useMineralCrystal } from './mineral-crystal-use.helpers';
+import { PLANT_SEED_USE_BEHAVIOR } from '@mud/shared';
+import { usePlantSeed } from './plant-seed-use.helpers';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { REFINED_SHA_RESOURCE_KEY } from '../../constants/gameplay/pvp';
@@ -113,6 +115,11 @@ export class WorldRuntimeUseItemService {
         if (item.useBehavior === MINERAL_CRYSTAL_USE_BEHAVIOR) {
             if (count !== 1) throw new BadRequestException('矿脉晶精每次只能使用一枚');
             await useMineralCrystal(this, playerId, itemInstanceId, item, deps);
+            return;
+        }
+        if (item.useBehavior === PLANT_SEED_USE_BEHAVIOR) {
+            if (count !== 1) throw new BadRequestException('种子每次只能使用一枚');
+            await usePlantSeed(this, playerId, itemInstanceId, item, deps);
             return;
         }
         if (typeof item.formationDiskTier === 'string' && item.formationDiskTier.length > 0) {

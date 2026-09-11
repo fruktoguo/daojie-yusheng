@@ -36,6 +36,15 @@
     "economy": { "durabilityMultiplier": 1, "maxHp": 80, "cost": [{ "itemId": "wood", "count": 1 }] }
   },
   {
+    "id": "spirit_farmland",
+    "name": "灵田",
+    "visual": { "glyph": "田", "color": "#527c43", "layer": "terrain" },
+    "placement": { "layer": "floor", "footprint": [{ "dx": 0, "dy": 0 }] },
+    "topology": { "blocksMove": false, "blocksSight": false },
+    "fengShui": { "elementVector": { "wood": 2, "earth": 2 }, "traits": ["floor.farmland"], "stability": 2 },
+    "economy": { "buildTicks": 60, "durabilityMultiplier": 1, "maxHp": 80, "cost": [{ "itemId": "spirit_stone", "count": 1 }] }
+  },
+  {
     "id": "scripture_platform",
     "name": "藏经台",
     "placement": { "layer": "facility", "footprint": [{ "dx": 0, "dy": 0 }] },

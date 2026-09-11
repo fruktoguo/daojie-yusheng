@@ -28,6 +28,7 @@ const status = runVerificationSteps({
   steps: [
     { label: 'server compile', args: ['--filter', '@mud/server', 'compile'] },
     { label: 'mineral crystal', command: process.execPath, args: ['packages/server/dist/tools/mineral-crystal-smoke.js'], shell: false },
+    { label: '种子与灵田', command: process.execPath, args: ['packages/server/dist/tools/planting-smoke.js'], shell: false },
     {
       label: 'local server port resolution',
       command: process.execPath,

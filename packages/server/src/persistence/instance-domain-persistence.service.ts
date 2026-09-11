@@ -2635,7 +2635,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               SELECT *
               FROM jsonb_to_recordset($2::jsonb) AS entry(
                 container_id varchar(100),
-                source_id varchar(100),
+                source_id varchar(220),
                 state_payload jsonb
               )
             )
@@ -4188,7 +4188,7 @@ async function ensureInstanceContainerStateTable(pool: Pool): Promise<void> {
       CREATE TABLE IF NOT EXISTS ${INSTANCE_CONTAINER_STATE_TABLE} (
         instance_id varchar(100) NOT NULL,
         container_id varchar(100) NOT NULL,
-        source_id varchar(100) NOT NULL,
+        source_id varchar(220) NOT NULL,
         state_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
         updated_at timestamptz NOT NULL DEFAULT now(),
         PRIMARY KEY (instance_id, container_id)
@@ -4198,6 +4198,12 @@ async function ensureInstanceContainerStateTable(pool: Pool): Promise<void> {
       CREATE INDEX IF NOT EXISTS instance_container_state_instance_idx
       ON ${INSTANCE_CONTAINER_STATE_TABLE}(instance_id, container_id)
     `);
+    // 来源 ID 由两个最长 100 字符的身份及分隔符构成，不能按单个身份长度截断。
+    const sourceColumn = await client.query(`SELECT character_maximum_length FROM information_schema.columns
+      WHERE table_schema = current_schema() AND table_name = $1 AND column_name = 'source_id'`, [INSTANCE_CONTAINER_STATE_TABLE]);
+    if (Number(sourceColumn.rows[0]?.character_maximum_length) < 220) {
+      await client.query(`ALTER TABLE ${INSTANCE_CONTAINER_STATE_TABLE} ALTER COLUMN source_id TYPE varchar(220)`);
+    }
     await client.query('COMMIT');
   } catch (error: unknown) {
     await rollbackQuietly(client);

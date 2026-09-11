@@ -52,6 +52,7 @@ const steps = [
   { label: 'build:client', args: ['build:client'] },
   { label: 'verify:release:with-db', args: ['--filter', '@mud/server', 'verify:release:with-db'] },
   { label: 'mineral-crystal-durable', command: process.execPath, args: ['packages/server/dist/tools/mineral-crystal-durable-smoke.js'], shell: false, serial: true },
+  { label: '种植持久化', command: process.execPath, args: ['packages/server/dist/tools/planting-durable-smoke.js'], shell: false, serial: true },
   { label: 'audit:protocol:with-db', args: ['--filter', '@mud/server', 'audit:protocol:compiled:with-db'], serial: true },
 ];
 

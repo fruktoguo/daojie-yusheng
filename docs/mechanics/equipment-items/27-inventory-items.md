@@ -87,6 +87,7 @@ signature = itemId + '#' + enhanceLevel
 - 矿脉晶精使用行为为 `create_mineral_vein`：每次消耗一枚，在脚下空地生成对应矿脉，等级取地图与使用者较高者，最多持续 24 小时地图时间，固脉不能延寿。遵循建造禁区与权限，扣物品和造矿同事务提交；具体概率与寿命见 `core-loop/04-map-terrain.md`。
 
 - consumable: 检查冷却 → 消耗 → 触发效果（heal/buff/qi恢复）
+- `useBehavior=plant_seed`：一次使用一枚，在脚下已完工的空灵田生成对应采集植物，种子消耗与容器域同事务提交。寿命为七天地图时间，恢复速度受所在格灵气指数加速。
   - `healAmount`: 固定气血瞬回。
   - `healPercent`: 按玩家当前最大气血比例瞬回。
   - `baselineHealPercent`: 按物品 `level` 对应标准玩家最大气血比例瞬回；配置保留百分比，运行时按 `player-final-attr-baselines.json` 计算实际数值。

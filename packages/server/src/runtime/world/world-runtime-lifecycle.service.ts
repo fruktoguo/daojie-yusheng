@@ -292,7 +292,7 @@ export class WorldRuntimeLifecycleService {
                     instance.hydrateGroundPiles(groupGroundItemsByTile(groundItems));
                 }
                 const containerStates = await domainPersistenceService.loadContainerStates(instanceId);
-                deps.worldRuntimeLootContainerService.hydrateContainerStates(instanceId, normalizeLoadedContainerStates(containerStates ?? []));
+                deps.worldRuntimeLootContainerService.hydrateContainerStates(instanceId, normalizeLoadedContainerStates(containerStates ?? []), instance);
                 const monsterStates = await domainPersistenceService.loadMonsterRuntimeStates(instanceId);
                 instance.hydrateMonsterRuntimeStates(monsterStates ?? []);
                 const eventStates = await domainPersistenceService.loadEventStates(instanceId);

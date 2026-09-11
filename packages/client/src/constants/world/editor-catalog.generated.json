@@ -12448,6 +12448,21 @@
       ]
     },
     {
+      "itemId": "seed.bearingroot_ginseng",
+      "name": "承脉参种子",
+      "type": "consumable",
+      "grade": "yellow",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植承脉参，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
+    },
+    {
       "itemId": "earthbearing_stone",
       "name": "承脉石",
       "type": "material",
@@ -12484,6 +12499,21 @@
       "tags": [
         "药材"
       ]
+    },
+    {
+      "itemId": "seed.red_flame_leaf",
+      "name": "赤火叶种子",
+      "type": "consumable",
+      "grade": "yellow",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植赤火叶，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
     },
     {
       "itemId": "equip.qi_crimson_pattern_furnace",
@@ -12554,6 +12584,21 @@
       "tags": [
         "药材"
       ]
+    },
+    {
+      "itemId": "seed.bloodbud_fruit",
+      "name": "赤芽果种子",
+      "type": "consumable",
+      "grade": "yellow",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植赤芽果，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
     },
     {
       "itemId": "pill.chiyang_draught",
@@ -12870,6 +12915,21 @@
       "tags": [
         "药材"
       ]
+    },
+    {
+      "itemId": "seed.blazewood_fire_seed",
+      "name": "焚灵种种子",
+      "type": "consumable",
+      "grade": "earth",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植焚灵种，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
     },
     {
       "itemId": "mat.blazewood_king_heartwood",
@@ -13290,6 +13350,21 @@
       ]
     },
     {
+      "itemId": "seed.frost_lotus_petal",
+      "name": "寒莲瓣种子",
+      "type": "consumable",
+      "grade": "mystic",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植寒莲瓣，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
+    },
+    {
       "itemId": "coldspirit_dew",
       "name": "寒魄露",
       "type": "material",
@@ -13368,6 +13443,21 @@
       ]
     },
     {
+      "itemId": "seed.coldmarrow_reed",
+      "name": "寒髓苇种子",
+      "type": "consumable",
+      "grade": "yellow",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植寒髓苇，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
+    },
+    {
       "itemId": "mat.cold_iron_carapace",
       "name": "寒铁甲壳",
       "type": "material",
@@ -13408,6 +13498,21 @@
         "矿石",
         "矿材"
       ]
+    },
+    {
+      "itemId": "seed.frostblade_cold_iron_shard",
+      "name": "寒铁碎种子",
+      "type": "consumable",
+      "grade": "earth",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植寒铁碎，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
     },
     {
       "itemId": "equip.foundation_coldiron_heavy_helm",
@@ -13607,6 +13712,21 @@
       ]
     },
     {
+      "itemId": "seed.returnspring_leaf",
+      "name": "回春叶种子",
+      "type": "consumable",
+      "grade": "yellow",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植回春叶，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
+    },
+    {
       "itemId": "recovery_powder",
       "name": "回灵散",
       "type": "consumable",
@@ -13753,6 +13873,21 @@
       ]
     },
     {
+      "itemId": "seed.darksoil_mixed_crystal",
+      "name": "混元脉石种子",
+      "type": "consumable",
+      "grade": "heaven",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植混元脉石，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
+    },
+    {
       "itemId": "equip.foundation_mixed_dual_sword",
       "name": "混元双仪剑",
       "type": "equipment",
@@ -13831,6 +13966,21 @@
       ]
     },
     {
+      "itemId": "seed.swiftwind_reed",
+      "name": "疾风苇种子",
+      "type": "consumable",
+      "grade": "mystic",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植疾风苇，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
+    },
+    {
       "itemId": "sect_founding_token",
       "name": "建宗令",
       "type": "consumable",
@@ -13895,6 +14045,21 @@
       ]
     },
     {
+      "itemId": "seed.blazewood_charwood_heart",
+      "name": "焦木心种子",
+      "type": "consumable",
+      "grade": "earth",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植焦木心，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
+    },
+    {
       "itemId": "mat.goldthread_briar",
       "name": "金芒棘",
       "type": "material",
@@ -13913,6 +14078,21 @@
         "金属",
         "药材"
       ]
+    },
+    {
+      "itemId": "seed.goldthread_briar",
+      "name": "金芒棘种子",
+      "type": "consumable",
+      "grade": "yellow",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植金芒棘，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
     },
     {
       "itemId": "crystal_dust",
@@ -14003,6 +14183,21 @@
         "木材",
         "药材"
       ]
+    },
+    {
+      "itemId": "seed.bitterheart_vine",
+      "name": "苦心藤种子",
+      "type": "consumable",
+      "grade": "earth",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植苦心藤，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
     },
     {
       "itemId": "pill.bitter_cultivation_elixir",
@@ -14484,6 +14679,21 @@
       ]
     },
     {
+      "itemId": "seed.clear_mind_flower",
+      "name": "明心花种子",
+      "type": "consumable",
+      "grade": "mystic",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植明心花，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
+    },
+    {
       "itemId": "fate_stone",
       "name": "命石",
       "type": "consumable",
@@ -14650,6 +14860,21 @@
       ]
     },
     {
+      "itemId": "seed.breakarray_shard",
+      "name": "破纹砂种子",
+      "type": "consumable",
+      "grade": "mystic",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植破纹砂，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
+    },
+    {
       "itemId": "pill.break_array_elixir",
       "name": "破阵丹",
       "type": "consumable",
@@ -14708,6 +14933,21 @@
       "tags": [
         "药材"
       ]
+    },
+    {
+      "itemId": "seed.green_spirit_stem",
+      "name": "青灵茎种子",
+      "type": "consumable",
+      "grade": "yellow",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植青灵茎，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
     },
     {
       "itemId": "map.verdant_vine_vale",
@@ -14837,6 +15077,21 @@
       ]
     },
     {
+      "itemId": "seed.sunmelt_seed",
+      "name": "融阳子种子",
+      "type": "consumable",
+      "grade": "earth",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植融阳子，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
+    },
+    {
       "itemId": "equip.sand_ghost_mask",
       "name": "砂魇面",
       "type": "equipment",
@@ -14915,6 +15170,21 @@
         "矿石",
         "矿材"
       ]
+    },
+    {
+      "itemId": "seed.darksoil_abyss_mud",
+      "name": "深渊灵泥种子",
+      "type": "consumable",
+      "grade": "heaven",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植深渊灵泥，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
     },
     {
       "itemId": "equip.foundation_abyss_life_armor",
@@ -15226,6 +15496,21 @@
       ]
     },
     {
+      "itemId": "seed.frostblade_frost_crystal",
+      "name": "霜刃晶种子",
+      "type": "consumable",
+      "grade": "earth",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植霜刃晶，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
+    },
+    {
       "itemId": "pill.shatter_spirit",
       "name": "碎灵丹",
       "type": "consumable",
@@ -15383,6 +15668,21 @@
         "金属",
         "药材"
       ]
+    },
+    {
+      "itemId": "seed.ironvein_caltrop",
+      "name": "铁脉蒺种子",
+      "type": "consumable",
+      "grade": "yellow",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植铁脉蒺，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
     },
     {
       "itemId": "equip.foundation_iron_soul_blade",
@@ -15932,6 +16232,21 @@
       ]
     },
     {
+      "itemId": "seed.darksoil_vein_stone",
+      "name": "玄壤精土种子",
+      "type": "consumable",
+      "grade": "heaven",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植玄壤精土，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
+    },
+    {
       "itemId": "equip.foundation_darksoil_enhancement_hammer",
       "name": "玄壤强化锤",
       "type": "equipment",
@@ -16095,6 +16410,21 @@
       ]
     },
     {
+      "itemId": "seed.stonecore_lingzhi",
+      "name": "岩髓芝种子",
+      "type": "consumable",
+      "grade": "yellow",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植岩髓芝，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
+    },
+    {
       "itemId": "embershard_char",
       "name": "炎髓炭",
       "type": "material",
@@ -16130,6 +16460,21 @@
       "tags": [
         "药材"
       ]
+    },
+    {
+      "itemId": "seed.flamegrain_spike",
+      "name": "炎穗芒种子",
+      "type": "consumable",
+      "grade": "yellow",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植炎穗芒，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
     },
     {
       "itemId": "mat.flame_venom_sac",
@@ -16383,6 +16728,21 @@
       ]
     },
     {
+      "itemId": "seed.blazewood_ember_branch",
+      "name": "余烬枝种子",
+      "type": "consumable",
+      "grade": "earth",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植余烬枝，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
+    },
+    {
       "itemId": "equip.yuetown_mask",
       "name": "御土面",
       "type": "equipment",
@@ -16435,6 +16795,21 @@
       ]
     },
     {
+      "itemId": "seed.frostblade_deepwater_moss",
+      "name": "渊水苔种子",
+      "type": "consumable",
+      "grade": "earth",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植渊水苔，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
+    },
+    {
       "itemId": "moonwell_frost_sand",
       "name": "月井冰砂",
       "type": "material",
@@ -16473,6 +16848,21 @@
       ]
     },
     {
+      "itemId": "seed.moonwell_stamen",
+      "name": "月井蕊种子",
+      "type": "consumable",
+      "grade": "yellow",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植月井蕊，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
+    },
+    {
       "itemId": "mat.moondew_grass",
       "name": "月露草",
       "type": "material",
@@ -16489,6 +16879,21 @@
       "tags": [
         "药材"
       ]
+    },
+    {
+      "itemId": "seed.moondew_grass",
+      "name": "月露草种子",
+      "type": "consumable",
+      "grade": "mortal",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植月露草，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
     },
     {
       "itemId": "equip.trench_runner_boots",
@@ -16609,6 +17014,21 @@
         "木材",
         "药材"
       ]
+    },
+    {
+      "itemId": "seed.longvein_vine",
+      "name": "长脉藤种子",
+      "type": "consumable",
+      "grade": "yellow",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植长脉藤，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
     },
     {
       "itemId": "equip.mount_guard_helm",
@@ -16830,6 +17250,21 @@
       "tags": [
         "药材"
       ]
+    },
+    {
+      "itemId": "seed.scorchheart_petal",
+      "name": "灼心瓣种子",
+      "type": "consumable",
+      "grade": "yellow",
+      "level": 1,
+      "stackable": true,
+      "maxStack": 99,
+      "useBehavior": "plant_seed",
+      "tags": [
+        "消耗品",
+        "种子"
+      ],
+      "desc": "在脚下已建成的灵田中种植灼心瓣，持续7天地图时间。灵气每级使恢复速度乘1.1，固脉不能延长寿命。"
     }
   ],
   "realmLevels": [

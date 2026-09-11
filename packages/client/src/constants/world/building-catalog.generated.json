@@ -131,6 +131,41 @@
     "blocksSight": false
   },
   {
+    "id": "spirit_farmland",
+    "name": "灵田",
+    "layer": "floor",
+    "visualGlyph": "田",
+    "visualColor": "#527c43",
+    "allowRotate": true,
+    "footprint": [
+      {
+        "dx": 0,
+        "dy": 0
+      }
+    ],
+    "cost": [
+      {
+        "itemId": "spirit_stone",
+        "count": 1
+      }
+    ],
+    "traits": [
+      "floor.farmland"
+    ],
+    "elementVector": {
+      "wood": 2,
+      "earth": 2
+    },
+    "durabilityMultiplier": 1,
+    "buildTicks": 60,
+    "maxHp": 80,
+    "stability": 2,
+    "comfort": 0,
+    "opening": "none",
+    "blocksMove": false,
+    "blocksSight": false
+  },
+  {
     "id": "scripture_platform",
     "name": "藏经台",
     "layer": "facility",

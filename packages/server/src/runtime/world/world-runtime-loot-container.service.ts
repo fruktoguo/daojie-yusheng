@@ -23,6 +23,8 @@ import {
  reconcileDurableInventoryCommitOutcome,
 } from './durable-source-asset-reconciliation.helpers';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
+import { advanceHerbGrowthProgress, getHerbGrowthRateAt } from './herb-growth.helpers';
+import { isPlantedHerbExpired, registerPlantedHerb, removePlantedHerb } from './planted-herb-runtime.helpers';
 
 const {
  buildContainerSourceId,
@@ -218,6 +220,8 @@ export class WorldRuntimeLootContainerService {
    containerId: state.containerId,
    generatedAtTick: state.generatedAtTick,
    refreshAtTick: state.refreshAtTick,
+   ...(state.herbGrowth ? { herbGrowth: { ...state.herbGrowth } } : {}),
+   ...(state.plantedHerb ? { plantedHerb: state.plantedHerb } : {}),
    entries: state.entries.map((entry) => ({
     item: cloneContainerItem(entry.item),
     createdTick: entry.createdTick,
@@ -241,9 +245,14 @@ export class WorldRuntimeLootContainerService {
 * @returns 无返回值，直接更新hydrateContainer状态相关状态。
 */
 
- hydrateContainerStates(instanceId, entries) {
+ hydrateContainerStates(instanceId, entries, instance = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+  if (instance) {
+   for (const state of this.containerStatesByInstanceId.get(instanceId)?.values() ?? []) {
+    if (state.plantedHerb) removePlantedHerb(instance, state.plantedHerb);
+   }
+  }
   if (entries.length === 0) {
    this.containerStatesByInstanceId.delete(instanceId);
    this.dirtyContainerPersistenceInstanceIds.delete(instanceId);
@@ -265,6 +274,8 @@ export class WorldRuntimeLootContainerService {
     containerId,
     generatedAtTick: entry.generatedAtTick,
     refreshAtTick: entry.refreshAtTick,
+    ...(entry.herbGrowth ? { herbGrowth: { ...entry.herbGrowth } } : {}),
+    ...(entry.plantedHerb ? { plantedHerb: entry.plantedHerb } : {}),
     entries: entry.entries.map((item) => {
      const normalizedItem = this.normalizeHydratedContainerItem(item.item);
      if (createItemStackSignature(item.item) !== createItemStackSignature(normalizedItem)) {
@@ -288,6 +299,11 @@ export class WorldRuntimeLootContainerService {
    });
   }
   this.containerStatesByInstanceId.set(instanceId, next);
+  if (instance) {
+   for (const state of next.values()) {
+    if (state.plantedHerb) registerPlantedHerb(instance, state.plantedHerb);
+   }
+  }
   if (normalizedItemMetadata) {
    this.markContainerPersistenceDirty(instanceId);
   } else {
@@ -442,30 +458,18 @@ export class WorldRuntimeLootContainerService {
   this.markContainerPersistenceDirty(instanceId);
   return created;
  }
- advanceHerbGrowth(container, state, currentTick, player = null) {
+ advanceHerbGrowth(container, state, currentTick, player = null, rate = undefined) {
   if (container?.variant !== 'herb') {
    return false;
   }
   if (typeof state?.refreshAtTick !== 'number' || !Number.isFinite(Number(currentTick))) {
    return false;
   }
-  let changed = false;
-  let nextRefreshAtTick = Math.trunc(Number(state.refreshAtTick));
-  const normalizedCurrentTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
-  let steps = 0;
-  while (nextRefreshAtTick <= normalizedCurrentTick && steps < MAX_HERB_GROWTH_CATCH_UP_STEPS) {
-   const refreshedEntries = this.generateContainerEntries(container, nextRefreshAtTick, player);
+  return advanceHerbGrowthProgress(state, currentTick, rate, (tick) => {
+   const refreshedEntries = this.generateContainerEntries(container, tick, player);
    mergeContainerEntries(state.entries, refreshedEntries);
-   state.generatedAtTick = nextRefreshAtTick;
-   nextRefreshAtTick = resolveContainerRefreshAtTick(container, nextRefreshAtTick) ?? (nextRefreshAtTick + 1);
-   state.refreshAtTick = nextRefreshAtTick;
-   changed = true;
-   steps += 1;
-  }
-  if (steps >= MAX_HERB_GROWTH_CATCH_UP_STEPS && nextRefreshAtTick <= normalizedCurrentTick) {
-   state.refreshAtTick = resolveContainerRefreshAtTick(container, normalizedCurrentTick) ?? (normalizedCurrentTick + 1);
-  }
-  return changed;
+   state.generatedAtTick = tick;
+  }, () => resolveContainerRefreshAtTick(container, 0) ?? 1);
  }
  /**
 * generateContainerEntries：执行generateContainer条目相关逻辑。
@@ -593,14 +597,21 @@ export class WorldRuntimeLootContainerService {
    : Math.max(0, Math.trunc(Number(currentTick) || 0));
   let changed = false;
   for (const state of states.values()) {
-   const runtimeContainer = instance.template.containers.find((entry) => entry.id === state.containerId) ?? null;
+   if (state.plantedHerb && isPlantedHerbExpired(instance, state.plantedHerb)) {
+    removePlantedHerb(instance, state.plantedHerb);
+    states.delete(state.sourceId);
+    changed = true;
+    continue;
+   }
+   const runtimeContainer = instance.getContainerById?.(state.containerId)
+    ?? instance.template.containers.find((entry) => entry.id === state.containerId) ?? null;
    if (!runtimeContainer) {
     continue;
    }
    const activeViewer = this.resolveActiveContainerViewer(instanceId, runtimeContainer.x, runtimeContainer.y, playerLocationIndex);
    if (runtimeContainer.variant === 'herb') {
     const repaired = repairStaleHerbSchedule(runtimeContainer, state, instanceTick);
-    const advanced = this.advanceHerbGrowth(runtimeContainer, state, instanceTick, activeViewer);
+    const advanced = this.advanceHerbGrowth(runtimeContainer, state, instanceTick, activeViewer, getHerbGrowthRateAt(instance, runtimeContainer));
     if (repaired || advanced) {
      changed = true;
     }
@@ -1754,8 +1765,9 @@ export class WorldRuntimeLootContainerService {
   };
  }
 
- buildDurableContainerSourceMutation(instance, instanceId, sourceId) {
+ buildDurableContainerSourceMutation(instance, instanceId, sourceId, plannedState = null) {
   const states = this.buildContainerPersistenceStates(instanceId);
+  if (plannedState) states.push(plannedState);
   const state = states
    .find((entry) => entry?.sourceId === sourceId);
   if (!state?.containerId) {
@@ -1778,6 +1790,30 @@ export class WorldRuntimeLootContainerService {
    sourceId,
    statePayload: state,
   };
+ }
+
+ planPlantedHerbState(instance, container, plantedHerb) {
+  const state: any = {
+   sourceId: buildContainerSourceId(instance.meta.instanceId, container.id), containerId: container.id,
+   entries: this.generateContainerEntries(container, instance.tick), generatedAtTick: instance.tick,
+   refreshAtTick: resolveContainerRefreshAtTick(container, instance.tick), plantedHerb,
+  };
+  state.herbGrowth = { lastTick: instance.tick, remainingWork: state.refreshAtTick - instance.tick,
+   rate: getHerbGrowthRateAt(instance, container) };
+  state.refreshAtTick = instance.tick + Math.ceil(state.herbGrowth.remainingWork / state.herbGrowth.rate);
+  return state;
+ }
+
+ applyPlantedHerbState(instance, state) {
+  registerPlantedHerb(instance, state.plantedHerb);
+  const instanceId = instance.meta.instanceId;
+  let states = this.containerStatesByInstanceId.get(instanceId);
+  if (!states) {
+   states = new Map();
+   this.containerStatesByInstanceId.set(instanceId, states);
+  }
+  states.set(state.sourceId, state);
+  this.markContainerPersistenceDirty(instanceId);
  }
 
  restoreContainerSourceAfterFailedTake(
