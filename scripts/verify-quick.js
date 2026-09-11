@@ -27,6 +27,7 @@ const status = runVerificationSteps({
   shadowEnabled: Boolean(process.env.SERVER_SHADOW_URL || process.env.SERVER_URL),
   steps: [
     { label: 'server compile', args: ['--filter', '@mud/server', 'compile'] },
+    { label: 'mineral crystal', command: process.execPath, args: ['packages/server/dist/tools/mineral-crystal-smoke.js'], shell: false },
     {
       label: 'local server port resolution',
       command: process.execPath,

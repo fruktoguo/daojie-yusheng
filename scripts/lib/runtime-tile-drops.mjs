@@ -10,6 +10,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { MINERAL_CRYSTALS } from '../../packages/shared/dist/mineral-crystal.js';
+import { TileType } from '../../packages/shared/dist/world-core-types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -131,6 +133,16 @@ export function loadRuntimeTileDropSources() {
       damageDrops,
       destroyDrops,
       drops: normalizeDropModes(damageDrops, destroyDrops),
+    });
+  }
+  for (const crystal of MINERAL_CRYSTALS) {
+    const tileKey = Object.keys(TILE_LABELS).find((key) => TileType[key] === crystal.tileType);
+    sources.push({
+      id: `tile.crystal.${crystal.tileType}`,
+      sourceLabel: TILE_LABELS[tileKey] ?? crystal.tileType,
+      damageDrops: [{ itemId: crystal.itemId, count: 1 }],
+      destroyDrops: [],
+      drops: [{ itemId: crystal.itemId, damage: true, destroy: false }],
     });
   }
   return sources.sort((left, right) => left.id.localeCompare(right.id, 'zh-CN'));

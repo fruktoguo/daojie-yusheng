@@ -10,6 +10,8 @@
 import { Inject, Injectable, BadRequestException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { CUSTOM_TECHNIQUE_BOOK_ITEM_ID, DEFAULT_QI_RESOURCE_DESCRIPTOR, DUNGEON_MAX_STAMINA, MERIT_ETERNAL_DAILY_SIGN_IN_FIXED_BONUS, MERIT_ETERNAL_POOL_GRANT, MERIT_ETERNAL_USE_BEHAVIOR, MERIT_MONTH_CARD_DURATION_DAYS, MERIT_MONTH_CARD_POOL_GRANT, MERIT_MONTH_CARD_USE_BEHAVIOR, SECT_ENTRANCE_RELOCATION_USE_BEHAVIOR, TECHNIQUE_FRAGMENT_ITEM_ID, buildQiResourceKey, calculateTechniqueBookCraftFragmentCost, calculateTechniqueBookDecomposeFragments, getItemDisplayName, getTechniqueMaxLevel, isCreatedTechniqueId, isTechniqueAggregationId, isTechniqueFullyMastered, resolvePlayerFacingContentName } from '@mud/shared';
 import { randomUUID } from 'node:crypto';
+import { MINERAL_CRYSTAL_USE_BEHAVIOR } from '@mud/shared';
+import { useMineralCrystal } from './mineral-crystal-use.helpers';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { REFINED_SHA_RESOURCE_KEY } from '../../constants/gameplay/pvp';
@@ -108,6 +110,11 @@ export class WorldRuntimeUseItemService {
         }
         const item = this.resolveUseItemView(inventoryItem);
         const count = normalizeUseItemCount(payload?.count, item);
+        if (item.useBehavior === MINERAL_CRYSTAL_USE_BEHAVIOR) {
+            if (count !== 1) throw new BadRequestException('矿脉晶精每次只能使用一枚');
+            await useMineralCrystal(this, playerId, itemInstanceId, item, deps);
+            return;
+        }
         if (typeof item.formationDiskTier === 'string' && item.formationDiskTier.length > 0) {
             const n = buildStructuredNotice('info', 'notice.item.formation-hint', '阵盘需要通过背包中的布阵页面使用。', {});
             deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);

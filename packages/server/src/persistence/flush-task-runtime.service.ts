@@ -235,7 +235,7 @@ interface BatchPersistencePort {
   saveInstanceRecoveryWatermark?(instanceId: string, payload: unknown): Promise<void>;
   saveInstanceCheckpoint?(instanceId: string, payload: unknown): Promise<void>;
   replaceRuntimeTileCells?(instanceId: string, entries: unknown[]): Promise<void>;
-  replaceTemporaryTileStates?(instanceId: string, entries: unknown[]): Promise<void>;
+  replaceTemporaryTileStates?(instanceId: string, entries: unknown[], ledgerClaim?: InstanceFlushLedgerClaim | null): Promise<void | boolean>;
   replaceGroundItems?(instanceId: string, entries: unknown[], ledgerClaim?: InstanceFlushLedgerClaim | null): Promise<void | boolean>;
   replaceGroundItemTiles?(instanceId: string, tileIndices: unknown[], entries: unknown[], ledgerClaim?: InstanceFlushLedgerClaim | null): Promise<void | boolean>;
   saveContainerState?(input: {
@@ -2161,10 +2161,12 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         if (typeof persistence.replaceTemporaryTileStates !== 'function') {
           throw new Error(`instance_domain_persistence_missing:${instanceId}:temporary_tile`);
         }
-        await persistence.replaceTemporaryTileStates(
+        const applied = await persistence.replaceTemporaryTileStates(
           instanceId,
           Array.isArray(payload.payload) ? payload.payload : [],
+          ledgerClaim,
         );
+        if (applied === false) return false;
         break;
       }
       case 'ground_item': {

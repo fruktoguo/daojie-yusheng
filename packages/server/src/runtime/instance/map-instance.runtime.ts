@@ -9,7 +9,7 @@
  * 资源刷新、灵气流动、AOI 广播和持久化脏域追踪。
  */
 import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, DEFAULT_QI_RUNTIME_FLOW_CONFIGS, DISPERSED_AURA_RESOURCE_KEY, Direction, ELEMENT_KEYS, GROUND_ITEM_EXPIRE_TICKS, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_INSTANCE_TICK_SPEED, MAX_THREAT_VALUE, MOVE_POINT_UNIT, OWNER_ONLY_ACCESS_POLICY, QI_HALF_LIFE_RATE_SCALE, StructureType, TECHNIQUE_UNIFICATION_PLATFORM_DEF_ID, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateDispersedAuraGainPerTile, calculateTerrainDurability, cloneAccessPolicy, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, horizontalFacingFromDelta, horizontalFacingFromTo, isGroundInteractableCellLayerTarget, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeHorizontalFacing, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolvePlayerFacingContentName, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType, validateAccessPolicy } from '@mud/shared';
-import { computeMiningDamageDropExpectedCount, rollMiningExpectedDropCount } from '@mud/shared';
+import { MINERAL_CRYSTALS, computeMineralCrystalDropChance, computeMiningDamageDropExpectedCount, rollMiningExpectedDropCount } from '@mud/shared';
 import { readTrimmedEnv } from '../../config/env-alias';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import '../map/map-template.repository';
@@ -4245,12 +4245,14 @@ class MapInstanceRuntime {
   if (temporary) {
    return {
     tileType: temporary.tileType,
+    structureType: normalizeStructureType(temporary.tileType),
     hp: Math.max(0, Math.trunc(Number(temporary.hp) || 0)),
     maxHp: Math.max(1, Math.trunc(Number(temporary.maxHp) || 1)),
     modifiedAt: temporary.modifiedAt ?? null,
     respawnLeft: 0,
     destroyed: false,
     temporary: true,
+    mineralLevel: temporary.mineralLevel,
     expiresAtTick: Math.max(0, Math.trunc(Number(temporary.expiresAtTick) || 0)),
    };
   }
@@ -4384,6 +4386,10 @@ class MapInstanceRuntime {
     appliedDamage,
     targetType: temporary.tileType,
     temporary: true,
+    mineralLevel: temporary.mineralLevel,
+    tileDrops: temporary.sourceItemId
+     ? this.rollTileDrops(current, appliedDamage, destroyed, options)
+     : [],
    };
   }
   if (current.building === true && current.buildingId) {
@@ -4511,6 +4517,9 @@ class MapInstanceRuntime {
   }
   const tileIndex = availability.tileIndex >= 0 ? availability.tileIndex : this.toTileIndex(normalizedX, normalizedY);
   const existingTemporary = this.temporaryTileByTile.get(tileIndex);
+  if (existingTemporary?.sourceItemId) {
+   return { created: false, reason: 'mineral_vein_occupied' };
+  }
   const hp = Math.max(1, Math.min(Number.MAX_SAFE_INTEGER, Math.round(Number(maxHp) || 1)));
   const nowTick = Math.max(0, Math.trunc(Number(currentTick) || this.tick || 0));
   const ttl = Math.max(1, Math.trunc(Number(durationTicks) || 1));
@@ -4523,6 +4532,8 @@ class MapInstanceRuntime {
    expiresAtTick: nowTick + ttl,
    ownerPlayerId: typeof options?.ownerPlayerId === 'string' ? options.ownerPlayerId : null,
    sourceSkillId: typeof options?.sourceSkillId === 'string' ? options.sourceSkillId : null,
+   sourceItemId: typeof options?.sourceItemId === 'string' ? options.sourceItemId : null,
+   mineralLevel: Number.isFinite(options?.mineralLevel) ? Math.max(1, Math.trunc(options.mineralLevel)) : null,
    createdAt: existingTemporary?.createdAt ?? now,
    modifiedAt: now,
   });
@@ -4599,7 +4610,7 @@ class MapInstanceRuntime {
    }
    const x = this.tilePlane.getX(Math.trunc(Number(tileIndex)));
    const y = this.tilePlane.getY(Math.trunc(Number(tileIndex)));
-   if (typeof isTerrainStabilized === 'function' && isTerrainStabilized(x, y) === true) {
+   if (!state.sourceItemId && typeof isTerrainStabilized === 'function' && isTerrainStabilized(x, y) === true) {
     continue;
    }
    const expiresAtTick = Math.max(0, Math.trunc(Number(state.expiresAtTick) || 0));
@@ -4968,6 +4979,10 @@ class MapInstanceRuntime {
    : null;
   if (!state) {
    return null;
+  }
+  const temporary = this.temporaryTileByTile.get(tileIndex);
+  if (temporary?.sourceItemId) {
+   return { ...state, structure: normalizeStructureType(temporary.tileType), legacyTileType: temporary.tileType };
   }
   if (this.tileDamageByTile.get(tileIndex)?.destroyed === true) {
    const destroyedState = this.getDestroyedTileLayerStateByCellIndex(tileIndex, state);
@@ -5847,6 +5862,8 @@ class MapInstanceRuntime {
     expiresAtTick,
     ownerPlayerId: typeof entry.ownerPlayerId === 'string' && entry.ownerPlayerId.trim() ? entry.ownerPlayerId.trim() : null,
     sourceSkillId: typeof entry.sourceSkillId === 'string' && entry.sourceSkillId.trim() ? entry.sourceSkillId.trim() : null,
+    sourceItemId: typeof entry.sourceItemId === 'string' && entry.sourceItemId.trim() ? entry.sourceItemId.trim() : null,
+    mineralLevel: Number.isFinite(entry.mineralLevel) ? Math.max(1, Math.trunc(entry.mineralLevel)) : null,
     createdAt: Number.isFinite(Number(entry.createdAt)) ? Math.max(0, Math.trunc(Number(entry.createdAt))) : Date.now(),
     modifiedAt: Number.isFinite(Number(entry.modifiedAt)) ? Math.max(0, Math.trunc(Number(entry.modifiedAt))) : Date.now(),
    });
@@ -6620,6 +6637,8 @@ class MapInstanceRuntime {
     expiresAtTick: Math.max(1, Math.trunc(Number(state.expiresAtTick) || 1)),
     ownerPlayerId: typeof state.ownerPlayerId === 'string' && state.ownerPlayerId.trim() ? state.ownerPlayerId.trim() : null,
     sourceSkillId: typeof state.sourceSkillId === 'string' && state.sourceSkillId.trim() ? state.sourceSkillId.trim() : null,
+    sourceItemId: typeof state.sourceItemId === 'string' && state.sourceItemId.trim() ? state.sourceItemId.trim() : null,
+    mineralLevel: Number.isFinite(state.mineralLevel) ? Math.max(1, Math.trunc(state.mineralLevel)) : null,
     createdAt: Number.isFinite(Number(state.createdAt)) ? Math.max(0, Math.trunc(Number(state.createdAt))) : Date.now(),
     modifiedAt: Number.isFinite(Number(state.modifiedAt)) ? Math.max(0, Math.trunc(Number(state.modifiedAt))) : Date.now(),
    });
@@ -7331,7 +7350,7 @@ class MapInstanceRuntime {
    return [];
   }
   const drops = [];
-  const mineralLevel = Number.isFinite(Number(this.template?.source?.mapLv))
+  const mineralLevel = Number.isFinite(tileState?.mineralLevel) ? Math.max(1, Math.trunc(tileState.mineralLevel)) : Number.isFinite(Number(this.template?.source?.mapLv))
    ? Math.max(1, Math.floor(Number(this.template.source.mapLv)))
    : 1;
   const isMineralDrop = Number.isFinite(Number(config.miningLevel)) && Number(config.miningLevel) > 0;
@@ -7358,6 +7377,11 @@ class MapInstanceRuntime {
    if (chanceBps > 0 && Math.random() * 10000 < chanceBps) {
     drops.push({ itemId: entry.itemId, count: Math.max(1, Math.trunc(Number(entry.count) || 1)), reason: 'damage' });
    }
+  }
+  const crystal = MINERAL_CRYSTALS.find((entry) => entry.tileType === tileState?.tileType);
+  if (crystal && options.miningCrystalLuckBonus !== undefined
+   && Math.random() < computeMineralCrystalDropChance(appliedDamage, tileState.maxHp, options.miningCrystalLuckBonus)) {
+   drops.push({ itemId: crystal.itemId, count: 1, reason: 'damage' });
   }
   if (destroyed === true) {
    for (const entry of config.destroyDrops ?? []) {

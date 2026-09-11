@@ -84,6 +84,8 @@ signature = itemId + '#' + enhanceLevel
 
 ## 物品使用逻辑
 
+- 矿脉晶精使用行为为 `create_mineral_vein`：每次消耗一枚，在脚下空地生成对应矿脉，等级取地图与使用者较高者，最多持续 24 小时地图时间，固脉不能延寿。遵循建造禁区与权限，扣物品和造矿同事务提交；具体概率与寿命见 `core-loop/04-map-terrain.md`。
+
 - consumable: 检查冷却 → 消耗 → 触发效果（heal/buff/qi恢复）
   - `healAmount`: 固定气血瞬回。
   - `healPercent`: 按玩家当前最大气血比例瞬回。

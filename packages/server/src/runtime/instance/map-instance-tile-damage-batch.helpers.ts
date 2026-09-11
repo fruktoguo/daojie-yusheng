@@ -1,4 +1,5 @@
 export type TileDropRollOptions = {
+  miningCrystalLuckBonus?: number;
   miningAttackerRealmLevel?: number;
   miningOtherDropMultiplier?: number;
   /** 同一玩家同次攻击命中的矿脉地块数量；只用于矿物受击掉落衰减。 */

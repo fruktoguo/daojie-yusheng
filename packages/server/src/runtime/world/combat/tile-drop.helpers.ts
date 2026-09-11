@@ -69,6 +69,7 @@ export function resolveMiningDropRateBonus(attacker: any): number {
 export function resolveMiningDropRollOptions(attacker: unknown): {
   miningAttackerRealmLevel: number;
   miningOtherDropMultiplier: number;
+  miningCrystalLuckBonus: number;
   miningAoeHitCount?: number;
 } {
   const dropRateMultiplier = 1 + Math.max(0, resolveMiningDropRateBonus(attacker));
@@ -80,6 +81,7 @@ export function resolveMiningDropRollOptions(attacker: unknown): {
   return {
     miningAttackerRealmLevel: resolvePlayerCraftRealmLevel(attacker),
     miningOtherDropMultiplier: dropRateMultiplier * outputMultiplier * curseMultiplier,
+    miningCrystalLuckBonus: computeLuckSuccessRateBonus(resolvePlayerEffectiveLuck(attacker)),
   };
 }
 
@@ -155,7 +157,7 @@ export function applyMiningExpForTileDamage(input: {
  */
 export function applyMiningExpForTileDamageBatch(input: {
   attacker: any;
-  entries: ReadonlyArray<{ tileType: unknown; appliedDamage: unknown }>;
+  entries: ReadonlyArray<{ tileType: unknown; appliedDamage: unknown; mineralLevel?: number }>;
   mapLevel: unknown;
   playerRuntimeService: any;
 }): { gained: number; changed: boolean; hitCount: number } {
@@ -168,13 +170,13 @@ export function applyMiningExpForTileDamageBatch(input: {
   let miningExp = Math.max(0, Number(skill.exp) || 0);
   let miningExpToNext = Math.max(0, Math.floor(Number(skill.expToNext) || 0));
   const playerRealmLevel = resolvePlayerCraftRealmLevel(input.attacker);
-  const miningActionLevel = Math.max(1, Math.floor(Number(input.mapLevel) || 1));
   const gainBySkillLevel = new Map<number, Map<number, number>>();
   let totalGain = 0;
   let totalCraftRealmGain = 0;
   let hitCount = 0;
 
   for (const entry of input.entries) {
+    const miningActionLevel = Math.max(1, Math.floor(Number(entry.mineralLevel ?? input.mapLevel) || 1));
     if (!isOreMinableTileType(entry?.tileType as string | undefined)) {
       continue;
     }

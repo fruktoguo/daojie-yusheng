@@ -41,6 +41,7 @@ import {
   type PlayerTechniqueActivityQueueUpsertInput,
 } from './player-domain-persistence.service';
 import { ensureBigintColumnsWithClient } from './schema-bigint-migration';
+import { normalizeDurableMineralCrystalSourceMutation, persistDurableMineralCrystalSourceMutation, type DurableMineralCrystalSourceMutation } from './mineral-crystal-durable-persistence';
 import {
   persistDurableFormationWriteWithClient,
   type DurableSectFormationWrite,
@@ -317,6 +318,7 @@ export type DurableInventoryGrantSourceMutation =
       chargedSpiritStones: number;
     }
   | DurableTileResourceSourceMutation
+  | DurableMineralCrystalSourceMutation
   | DurableActivityAssetSourceMutation
   | DurablePlayerItemUseSourceMutation;
 
@@ -1668,6 +1670,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         || normalizedSourceType === 'container_take_all'
         || normalizedSourceType === 'ground_drop'
         || normalizedSourceType === 'tile_resource_use'
+        || normalizedSourceType === 'mineral_crystal_use'
         || normalizedSourceType === 'activity_month_card_activation'
         || normalizedSourceType === 'activity_eternal_activation'
         || normalizedSourceType === 'activity_month_card_claim'
@@ -1715,6 +1718,16 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       }
       if (expectedSourceType !== normalizedSourceType) {
         throw new Error('player_item_use_source_type_mismatch');
+      }
+    }
+    if (normalizedSourceMutation?.kind === 'mineral_crystal') {
+      const created = normalizedSourceMutation.entries.find((entry) => entry.tileIndex === normalizedSourceMutation.createdTileIndex);
+      if (normalizedSourceType !== 'mineral_crystal_use' || inventoryAction !== 'remove'
+        || created?.ownerPlayerId !== normalizedPlayerId
+        || normalizedGrantedItems.length !== 1 || normalizedGrantedItems[0].itemId !== created.sourceItemId
+        || normalizedGrantedItems[0].count !== 1
+        || input.expectedOwnershipEpoch !== normalizedSourceMutation.ownershipEpoch) {
+        throw new Error('mineral_crystal_source_mismatch');
       }
     }
     if (normalizedSourceMutation?.kind === 'tile_resource') {
@@ -1786,7 +1799,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
             || inventoryAction === 'transfer'
           )
           && (
-            normalizedSourceMutation?.kind === 'player_item_use'
+            normalizedSourceMutation?.kind === 'player_item_use' || normalizedSourceMutation?.kind === 'mineral_crystal'
               ? await assertPlayerItemUseConsumesLastUnlockedInventoryItem(
                 client,
                 normalizedPlayerId,
@@ -1899,6 +1912,12 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
           ],
         );
 
+        if (normalizedSourceMutation?.kind === 'mineral_crystal') {
+          await insertAssetAuditLog(client, normalizedOperationId, normalizedPlayerId,
+            'temporary_tile', normalizedSourceMutation.instanceId, 'create', {}, {},
+            { tile: normalizedSourceMutation.entries.find((entry) => entry.tileIndex === normalizedSourceMutation.createdTileIndex) },
+            'mineral-crystal');
+        }
         if (normalizedSourceMutation?.kind === 'tile_resource') {
           await insertAssetAuditLog(
             client,
@@ -7397,6 +7416,9 @@ function normalizeInventoryGrantSourceMutation(
   if (value.kind === 'tile_resource') {
     return normalizeDurableTileResourceSourceMutation(value, instanceId);
   }
+  if (value.kind === 'mineral_crystal') {
+    return normalizeDurableMineralCrystalSourceMutation(value, instanceId);
+  }
   return null;
 }
 
@@ -7415,6 +7437,10 @@ async function persistInventoryGrantSourceMutation(
     return;
   }
   await client.query('SELECT pg_advisory_xact_lock($1::integer, hashtext($2))', [7102, mutation.instanceId]);
+  if (mutation.kind === 'mineral_crystal') {
+    await persistDurableMineralCrystalSourceMutation(client, mutation);
+    return;
+  }
   if (mutation.kind === 'ground_tile' || mutation.kind === 'container_state') {
     await persistDurableLootSourceMutation(client, mutation);
     return;

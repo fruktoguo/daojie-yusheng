@@ -1,0 +1,24 @@
+[
+  {
+    "itemId": "spirit_vein_crystal",
+    "name": "灵脉晶精",
+    "type": "consumable",
+    "level": 1,
+    "grade": "heaven",
+    "stackable": true,
+    "maxStack": 99,
+    "useBehavior": "create_mineral_vein",
+    "desc": "在脚下凝成一处灵石矿，等级取当前地图与使用者境界等级中的较高者。遵循建造位置限制，没有天然回血，挖尽即消失；最多存在24小时地图时间，密室加速会缩短实际寿命，固脉阵不能延长寿命。"
+  },
+  {
+    "itemId": "black_iron_vein_crystal",
+    "name": "玄铁矿脉晶精",
+    "type": "consumable",
+    "level": 1,
+    "grade": "heaven",
+    "stackable": true,
+    "maxStack": 99,
+    "useBehavior": "create_mineral_vein",
+    "desc": "在脚下凝成一处玄铁矿，等级取当前地图与使用者境界等级中的较高者。遵循建造位置限制，没有天然回血，挖尽即消失；最多存在24小时地图时间，密室加速会缩短实际寿命，固脉阵不能延长寿命。"
+  }
+]

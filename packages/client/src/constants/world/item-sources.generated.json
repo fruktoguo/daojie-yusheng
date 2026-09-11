@@ -141,6 +141,17 @@
       "count": 2
     }
   ],
+  "black_iron_vein_crystal": [
+    {
+      "kind": "mining",
+      "mapId": "runtime",
+      "mapName": "运行时资源点",
+      "landmarkId": "runtime:tile.crystal.black_iron_ore",
+      "landmarkName": "玄铁矿",
+      "mode": "damage",
+      "count": 1
+    }
+  ],
   "blade_pattern_crystal": [
     {
       "kind": "monster_drop",
@@ -6782,6 +6793,17 @@
       "count": 240,
       "price": 100,
       "currencyItemId": "merit"
+    }
+  ],
+  "spirit_vein_crystal": [
+    {
+      "kind": "mining",
+      "mapId": "runtime",
+      "mapName": "运行时资源点",
+      "landmarkId": "runtime:tile.crystal.spirit_ore",
+      "landmarkName": "灵石矿",
+      "mode": "damage",
+      "count": 1
     }
   ],
   "spiritwood_heart": [

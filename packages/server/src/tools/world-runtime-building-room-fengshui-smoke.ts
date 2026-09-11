@@ -1,23 +1,20 @@
-// @ts-nocheck
-"use strict";
-
-const assert = require("node:assert/strict");
-const { TileType, calculateTerrainDurability } = require("@mud/shared");
-const { RuntimeTilePlane } = require("../runtime/map/runtime-tile-plane");
-const { MapTemplateRepository } = require("../runtime/map/map-template.repository");
-const { MapInstanceRuntime } = require("../runtime/instance/map-instance.runtime");
-const { WorldRuntimeService } = require("../runtime/world/world-runtime.service");
-const { compileBuildingDefinitions } = require("../runtime/building/building-content.repository");
-const { BuildingTopologyIndex } = require("../runtime/building/building-topology-index.service");
-const {
+import assert from 'node:assert/strict';
+import { TileType, calculateTerrainDurability, type PlayerBuildingJob, type RoomInstance } from '@mud/shared';
+import { RuntimeTilePlane } from '../runtime/map/runtime-tile-plane';
+import { MapTemplateRepository } from '../runtime/map/map-template.repository';
+import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
+import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
+import { compileBuildingDefinitions } from '../runtime/building/building-content.repository';
+import { BuildingTopologyIndex } from '../runtime/building/building-topology-index.service';
+import {
   createRuntimeTilePlaneRoomCellProvider,
   detectRooms,
-} = require("../runtime/building/room-detection.service");
-const {
+} from '../runtime/building/room-detection.service';
+import {
   calculateFengShuiSnapshot,
   compileFengShuiRules,
   inferRoomRole,
-} = require("../runtime/building/fengshui-calculator.service");
+} from '../runtime/building/fengshui-calculator.service';
 
 /**
  * isolateSpawnFromBuildArea：把烟测地图的出生点移出地图。
@@ -105,10 +102,10 @@ function assertBuildingProtectedPlacementRules(catalog, rules) {
   assert.equal(landingAdjacent.reason, "protected_placement_portal");
   assert.equal(landingInstance.placeBuildingInstance({ defId: "stone_wall", x: 2, y: 6 }).ok, true);
 
-  // 宗门山门（带 sectId）只保护本格，否则宗门无法在自家山门旁营建。
+  // 宗门山门同样保护 3x3，不能通过动态传送点绕过禁建。
   const sectInstance = createProtectedPlacementInstance(catalog, rules, "real:building_protected_sect_portal_smoke");
   sectInstance.getPortalAtTile = (x, y) => (x === 2 && y === 2 ? { id: "portal:sect", x, y, sectId: "sect:alpha" } : null);
-  assert.equal(sectInstance.placeBuildingInstance({ defId: "stone_wall", x: 3, y: 3 }).ok, true);
+  assert.equal(sectInstance.placeBuildingInstance({ defId: "stone_wall", x: 3, y: 3 }).ok, false);
   const sectCenter = sectInstance.placeBuildingInstance({ defId: "stone_wall", x: 2, y: 2 });
   assert.equal(sectCenter.ok, false);
   assert.equal(sectCenter.reason, "protected_placement_portal");
@@ -504,7 +501,7 @@ async function main() {
   leakingAggregate.roofCoverage = room.roofCoverageRatio;
   leakingAggregate.qiRaw = 1800;
   leakingAggregate.qiLeak = 2;
-  const leakingRoom = { ...room, role: "alchemy" };
+  const leakingRoom: RoomInstance = { ...room, role: "alchemy" };
   const leakingSnapshot = calculateFengShuiSnapshot(leakingRoom, leakingAggregate, rules, { revision: 3, updatedAtTick: 10 });
   assert.equal(leakingSnapshot.reasons.some((reason) => reason.code === "qi.leak" && reason.delta < 0), true);
   assert.equal(leakingSnapshot.reasons.some((reason) => reason.code === "sha.exposed" && reason.delta < 0), true);
@@ -1173,6 +1170,7 @@ async function main() {
     canDamageTile: true,
   });
   const commandPlayer = {
+    buildingJob: null as PlayerBuildingJob | null,
     playerId: "player:building:1",
     sectId: "sect:building:1",
     x: 2,
@@ -1682,7 +1680,7 @@ function createAggregate(roomId) {
     roofCoverage: 0,
     elementVector: new Int32Array(5),
     traitCounts: new Map(),
-    traitKeys: new Set(),
+    traitKeys: new Set<string>(),
     comfort: 0,
     stability: 0,
     qiRaw: 0,

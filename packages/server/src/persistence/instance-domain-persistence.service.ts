@@ -1475,16 +1475,19 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       expiresAtTick: number;
       ownerPlayerId?: string | null;
       sourceSkillId?: string | null;
+      sourceItemId?: string | null;
+      mineralLevel?: number | null;
       createdAt?: number | null;
       modifiedAt?: number | null;
     }>,
-  ): Promise<void> {
+    ledgerClaim: InstanceFlushLedgerClaim | null = null,
+  ): Promise<boolean> {
     if (!this.pool || !this.enabled) {
-      return;
+      return false;
     }
     const normalizedInstanceId = normalizeRequiredString(instanceId);
     if (!normalizedInstanceId) {
-      return;
+      return false;
     }
     const normalizedEntries = Array.isArray(entries)
       ? entries
@@ -1499,6 +1502,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
             expiresAtTick: Math.max(1, Math.trunc(Number(entry.expiresAtTick) || 1)),
             ownerPlayerId: normalizeRequiredString(entry.ownerPlayerId),
             sourceSkillId: normalizeRequiredString(entry.sourceSkillId),
+            sourceItemId: normalizeRequiredString(entry.sourceItemId),
+            mineralLevel: entry.mineralLevel == null ? null : Math.max(1, Math.trunc(entry.mineralLevel)),
             createdAt: Number.isFinite(Number(entry.createdAt)) ? Math.max(0, Math.trunc(Number(entry.createdAt))) : Date.now(),
             modifiedAt: Number.isFinite(Number(entry.modifiedAt)) ? Math.max(0, Math.trunc(Number(entry.modifiedAt))) : Date.now(),
           }))
@@ -1507,6 +1512,10 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     try {
       await client.query('BEGIN');
       await acquireInstanceDomainLock(client, normalizedInstanceId);
+      if (ledgerClaim && !await isCurrentClaimedInstanceFlushPayload(client, normalizedInstanceId, 'temporary_tile', ledgerClaim)) {
+        await client.query('COMMIT');
+        return false;
+      }
       if (normalizedEntries.length > 0) {
         await client.query(
           `
@@ -1522,6 +1531,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
                 expires_at_tick bigint,
                 owner_player_id varchar(100),
                 source_skill_id varchar(160),
+                source_item_id varchar(160),
+                mineral_level integer,
                 created_at_ms bigint,
                 modified_at_ms bigint
               )
@@ -1537,12 +1548,14 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               expires_at_tick,
               owner_player_id,
               source_skill_id,
+              source_item_id,
+              mineral_level,
               created_at_ms,
               modified_at_ms,
               updated_at
             )
             SELECT $1, tile_index, x, y, tile_type, hp, max_hp, expires_at_tick,
-              owner_player_id, source_skill_id, created_at_ms, modified_at_ms, now()
+              owner_player_id, source_skill_id, source_item_id, mineral_level, created_at_ms, modified_at_ms, now()
             FROM incoming
             ON CONFLICT (instance_id, tile_index)
             DO UPDATE SET
@@ -1554,6 +1567,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               expires_at_tick = EXCLUDED.expires_at_tick,
               owner_player_id = EXCLUDED.owner_player_id,
               source_skill_id = EXCLUDED.source_skill_id,
+              source_item_id = EXCLUDED.source_item_id,
+              mineral_level = EXCLUDED.mineral_level,
               created_at_ms = EXCLUDED.created_at_ms,
               modified_at_ms = EXCLUDED.modified_at_ms,
               updated_at = now()
@@ -1570,6 +1585,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               expires_at_tick: entry.expiresAtTick,
               owner_player_id: entry.ownerPlayerId || null,
               source_skill_id: entry.sourceSkillId || null,
+              source_item_id: entry.sourceItemId || null,
+              mineral_level: entry.mineralLevel,
               created_at_ms: entry.createdAt,
               modified_at_ms: entry.modifiedAt,
             }))),
@@ -1593,6 +1610,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
         [normalizedInstanceId, JSON.stringify(normalizedEntries.map(({ tileIndex }) => ({ tile_index: tileIndex })))],
       );
       await client.query('COMMIT');
+      return true;
     } catch (error: unknown) {
       await rollbackQuietly(client);
       throw error;
@@ -1612,6 +1630,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     expiresAtTick: number;
     ownerPlayerId: string | null;
     sourceSkillId: string | null;
+    sourceItemId?: string | null;
+    mineralLevel?: number | null;
     createdAt: number;
     modifiedAt: number;
   }>> {
@@ -1624,7 +1644,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     }
     const result = await this.pool.query(
       `
-        SELECT tile_index, x, y, tile_type, hp, max_hp, expires_at_tick, owner_player_id, source_skill_id, created_at_ms, modified_at_ms
+        SELECT tile_index, x, y, tile_type, hp, max_hp, expires_at_tick, owner_player_id, source_skill_id, source_item_id, mineral_level, created_at_ms, modified_at_ms
         FROM ${INSTANCE_TEMPORARY_TILE_STATE_TABLE}
         WHERE instance_id = $1
         ORDER BY tile_index ASC
@@ -1642,6 +1662,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
           expiresAtTick: Math.max(1, normalizeNullableInteger(row.expires_at_tick) ?? 1),
           ownerPlayerId: typeof row.owner_player_id === 'string' ? row.owner_player_id : null,
           sourceSkillId: typeof row.source_skill_id === 'string' ? row.source_skill_id : null,
+          ...(row.source_item_id ? { sourceItemId: row.source_item_id, mineralLevel: normalizeNullableInteger(row.mineral_level) } : {}),
           createdAt: Number.isFinite(Number(row.created_at_ms)) ? Math.max(0, Math.trunc(Number(row.created_at_ms))) : 0,
           modifiedAt: Number.isFinite(Number(row.modified_at_ms)) ? Math.max(0, Math.trunc(Number(row.modified_at_ms))) : 0,
         }))
@@ -4044,6 +4065,9 @@ async function ensureInstanceTemporaryTileStateTable(pool: Pool): Promise<void> 
       )
     `);
     await ensureBigintColumns(client, INSTANCE_TEMPORARY_TILE_STATE_TABLE);
+    await client.query(`ALTER TABLE ${INSTANCE_TEMPORARY_TILE_STATE_TABLE}
+      ADD COLUMN IF NOT EXISTS source_item_id varchar(160),
+      ADD COLUMN IF NOT EXISTS mineral_level integer`);
     await ensureDoubleColumns(client, INSTANCE_TEMPORARY_TILE_STATE_TABLE);
     await client.query(`
       CREATE INDEX IF NOT EXISTS instance_temporary_tile_state_instance_idx

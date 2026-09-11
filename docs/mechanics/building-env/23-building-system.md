@@ -106,7 +106,7 @@ TypedArray 索引结构，按 cellIndex 存储:
 | NPC | 3x3 邻域 |
 | 安全区 | 整个安全区范围（安全区自带 radius，不再外扩） |
 
-宗门山门（带 `sectId` 的运行时传送点）只保护本格，不做邻域外扩，否则宗门无法在自家山门旁营建。
+宗门山门、密室传送点等运行时传送点同样保护 3x3 邻域，密室不再仅保护出生点本格。所有 `isPlayerOverlapTile` 允许重叠站人的格子均禁止建造，包括未来新增的重叠区域。矿脉晶精复用相同禁建判定。
 
 权威实现：`packages/server/src/runtime/world/building-protected-placement.helpers.ts`。阵法与宗门山门另有各自的放置校验，仍走单格重叠检查（`protected-placement.helpers.ts`），不受本节邻域规则约束。
 

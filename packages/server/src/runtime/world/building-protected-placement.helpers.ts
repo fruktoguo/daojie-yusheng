@@ -15,8 +15,7 @@
  * 跨图传送的着陆格不在此处保护：本图只能看到自己的传送点，而跨图落点通常本身
  * 就是一个回程传送点，已由上面的本格 + 邻域规则覆盖。
  *
- * 宗门山门（带 sectId 的 runtime 传送点）只保护本格，不做邻域外扩，
- * 否则宗门无法在自家山门旁边营建。
+ * 所有传送点统一保护 3x3；允许玩家重叠站立的格子也必须禁建。
  */
 
 import {
@@ -99,11 +98,6 @@ function findConflictAtCell(
   y: number,
 ): BuildingProtectedPlacementConflictReason | null {
   const runtime = instance as any;
-  if (runtime?.meta?.kind === 'time_chamber') {
-    return x === context.spawnX && y === context.spawnY
-      ? BUILDING_PROTECTED_PLACEMENT_CONFLICT_REASONS.spawn
-      : null;
-  }
   if (typeof runtime?.getSafeZoneAtTile === 'function' && runtime.getSafeZoneAtTile(x, y)) {
     return BUILDING_PROTECTED_PLACEMENT_CONFLICT_REASONS.safeZone;
   }
@@ -116,14 +110,16 @@ function findConflictAtCell(
       const portal = typeof runtime?.getPortalAtTile === 'function'
         ? runtime.getPortalAtTile(x + dx, y + dy)
         : null;
-      // 宗门山门只保护本格，避免宗门无法在自家山门旁营建。
-      if (portal && (isMapPortal(portal) || (dx === 0 && dy === 0))) {
+      if (portal) {
         return BUILDING_PROTECTED_PLACEMENT_CONFLICT_REASONS.portal;
       }
       if (hasRuntimeNpcAtTile(instance, x + dx, y + dy)) {
         return BUILDING_PROTECTED_PLACEMENT_CONFLICT_REASONS.npc;
       }
     }
+  }
+  if (runtime?.isPlayerOverlapTile?.(x, y) === true) {
+    return BUILDING_PROTECTED_PLACEMENT_CONFLICT_REASONS.safeZone;
   }
   // 同图传送的着陆格：跨图落点看不到，靠对端地图自己的传送点邻域保护。
   for (const portal of context.portals) {

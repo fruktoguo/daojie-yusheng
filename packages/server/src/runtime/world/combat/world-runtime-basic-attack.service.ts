@@ -653,6 +653,7 @@ export class WorldRuntimeBasicAttackService {
         ensureInstanceSupportsTileDamage(instance);
         let tileType: string | undefined;
         let tileMaxHp = 0;
+        let mineralLevel: number | undefined;
         let tileTargetName = '地块';
         if (typeof instance.getTileCombatState === 'function') {
             const tileState = instance.getTileCombatState(targetX, targetY);
@@ -661,6 +662,7 @@ export class WorldRuntimeBasicAttackService {
             }
             tileType = tileState.tileType;
             tileMaxHp = tileState.maxHp ?? 0;
+            mineralLevel = tileState.mineralLevel;
             tileTargetName = resolveTileCombatTargetName(tileState);
         }
         const effectiveBaseDamage = resolveMiningAdjustedTileDamage({
@@ -699,7 +701,7 @@ export class WorldRuntimeBasicAttackService {
         const miningExpResult = applyMiningExpForTileDamage({
             attacker,
             tileType,
-            mapLevel: instance?.template?.source?.mapLv,
+            mapLevel: mineralLevel ?? instance?.template?.source?.mapLv,
             appliedDamage,
             playerRuntimeService: this.playerRuntimeService,
         });

@@ -106,6 +106,8 @@ export interface TemporaryTilePersistenceEntry {
   expiresAtTick: number;
   ownerPlayerId: string | null;
   sourceSkillId: string | null;
+  sourceItemId?: string | null;
+  mineralLevel?: number | null;
   createdAt: number;
   modifiedAt: number;
 }
