@@ -147,7 +147,7 @@ transmissionSkillFactor:
 
 功法玩家态持久化只保存动态真源字段，不保存模板可补全的重复字段。已掌握功法从 `player_technique_state` 的 `tech_id/level/exp/exp_to_next/realm_lv/skills_enabled` 恢复，并在运行时通过内容模板补全 `name/grade/category/skills/layers`。未领悟功法从 `player_technique_comprehension` 的 `tech_id/source_kind/progress/required_progress/realm_lv/grade/category/creator_player_id/self_comprehension_allowed/created_at_tick/updated_at_tick` 恢复；`raw_payload` 不作为功法重复字段真源。
 
-`self_comprehension_allowed` 表示是否允许通过主修修炼自行领悟。功法书开启的普通功法、自己创建的自创功法为 `true`；被其他玩家传授加入的 pending 功法为 `false`，只能由传法 job 推进，不能设为主修；客户端按钮必须置灰，服务端必须拒绝该主修切换。
+`self_comprehension_allowed` 表示是否允许通过主修修炼自行领悟。功法书开启的普通功法、他人抄录的自创功法（含残卷）、自己创建的自创功法均为 `true`，学书不要求学习者是作者；自创功法仍按自创领悟需求计算，残卷仍受可修层数上限约束。被其他玩家传授加入的 pending 功法为 `false`，只能由传法 job 推进，不能设为主修；客户端按钮必须置灰，服务端必须拒绝该主修切换。已有未领悟条目再使用对应功法书时，保留领悟进度并开放自行领悟；进行中的传法 job 仍须先取消或完成。
 
 ## GM 手工自创功法
 

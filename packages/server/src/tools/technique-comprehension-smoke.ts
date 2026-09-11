@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  CUSTOM_TECHNIQUE_BOOK_ITEM_ID,
   calculateTechniqueComprehensionProgressGain,
   calculateTechniqueComprehensionRequiredProgress,
   computeCraftSkillExpGain,
@@ -609,6 +610,67 @@ function testCreatedPendingWithoutCreatorDoesNotAutoMainTechnique() {
   assert.equal(runtimeService.addPendingTechniqueComprehensionById(learner.playerId, createdTechnique.techId, 'created'), true);
   assert.equal(learner.pendingTechniqueComprehensions[0]?.selfComprehensionAllowed, false);
   assert.equal(learner.techniques.cultivatingTechId, null);
+}
+
+async function testCreatedTechniqueBookAllowsLearnerSelfComprehension() {
+  for (const maxLevel of [undefined, 2]) {
+    for (const hasPending of [false, true]) {
+      const { runtimeService, progressionService } = createRuntimeService();
+      const learner = createPlayer('learner:created-book', 0, 0);
+      const book = {
+        itemId: CUSTOM_TECHNIQUE_BOOK_ITEM_ID,
+        itemInstanceId: 'item:created-book',
+        name: '《残卷试炼功法》',
+        type: 'skill_book',
+        count: 2,
+        learnTechniqueId: fragmentLimitedTechnique.techId,
+        ...(maxLevel === undefined ? {} : { learnTechniqueMaxLevel: maxLevel }),
+      };
+      learner.inventory.items.push(book);
+      runtimeService.players.set(learner.playerId, learner);
+      if (hasPending) {
+        runtimeService.addPendingTechniqueComprehensionById(
+          learner.playerId, fragmentLimitedTechnique.techId, 'created', 'teacher:created-book',
+        );
+        learner.pendingTechniqueComprehensions[0].progress = 2;
+        assert.equal(learner.pendingTechniqueComprehensions[0].selfComprehensionAllowed, false);
+      }
+      const useItemService = new WorldRuntimeUseItemService(contentTemplateRepository, null, runtimeService);
+      await useItemService.dispatchUseItem(learner.playerId, book.itemInstanceId, {
+        refreshQuestStates() {},
+        queuePlayerNotice() {},
+      });
+
+      assert.equal(learner.inventory.items[0].count, 1, '成功学书只消耗一本');
+      assert.equal(learner.pendingTechniqueComprehensions.length, 1);
+      const pending = learner.pendingTechniqueComprehensions[0];
+      assert.equal(pending.sourceKind, 'created');
+      assert.equal(pending.selfComprehensionAllowed, true, '非作者学书后也必须允许自行领悟');
+      assert.equal(pending.progress, hasPending ? 2 : 0, '学书保留已有领悟进度');
+      assert.equal(pending.maxLevel, maxLevel, '完整书不截断层数，残卷保留层数上限');
+      assert.equal(pending.requiredProgress, calculateTechniqueComprehensionRequiredProgress({
+        sourceKind: 'created', techniqueRealmLv: 1, grade: 'mortal', learnerRealmLv: 1,
+      }));
+      assert.equal(learner.techniques.cultivatingTechId, fragmentLimitedTechnique.techId);
+      assert.equal(learner.combat.cultivationActive, true);
+      assert.equal(learner.transmissionJob, null);
+      assert.equal(learner.dirtyDomains.has('technique'), true);
+      assert.equal(learner.dirtyDomains.has('inventory'), true);
+
+      learner.pendingTechniqueComprehensions = runtimeService.normalizePendingTechniqueComprehensionsForRuntime(
+        learner.pendingTechniqueComprehensions, learner.realm.realmLv,
+      ).entries;
+      assert.equal(learner.pendingTechniqueComprehensions[0].selfComprehensionAllowed, true, '恢复不能撤销学书权限');
+      assert.doesNotThrow(() => runtimeService.cultivateTechnique(learner.playerId, fragmentLimitedTechnique.techId));
+      const progressBefore = learner.pendingTechniqueComprehensions[0].progress;
+      const result = progressionService.advanceTechniqueProgressInternal(learner, 1, {
+        allowPendingComprehension: true,
+        pendingComprehensionTicks: 1,
+      });
+      assert.equal(result.changed, true);
+      assert.ok(learner.pendingTechniqueComprehensions[0].progress > progressBefore, '无需传授者即可推进领悟');
+    }
+  }
 }
 
 function testCultivationUsesElapsedTicksForPendingComprehension() {
@@ -1819,4 +1881,9 @@ testAggregateCompletionAuthorizesRemovedPendingRows();
 testFragmentLearnLimitCannotBecomePropagationAuthority();
 testTransmissionStatusesUseAuthoritativeTargetAndTechniqueState();
 
-console.log(JSON.stringify({ ok: true, case: 'technique-comprehension' }, null, 2));
+testCreatedTechniqueBookAllowsLearnerSelfComprehension().then(() => {
+  console.log(JSON.stringify({ ok: true, case: 'technique-comprehension' }, null, 2));
+}).catch((error: unknown) => {
+  console.error(error);
+  process.exitCode = 1;
+});

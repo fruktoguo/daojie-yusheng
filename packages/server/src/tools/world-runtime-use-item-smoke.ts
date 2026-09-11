@@ -613,7 +613,7 @@ async function testCustomTechniqueBookAddsPlanBeforeConsume() {
     });
     await service.dispatchUseItem('player:1', 'item:book:valid', createDeps(log));
     assert.deepEqual(log, [
-        ['addPendingTechniqueComprehensionById', 'player:1', 'gen_refining_smoke', 'normal', null, { maxLevel: 2 }],
+        ['addPendingTechniqueComprehensionById', 'player:1', 'gen_refining_smoke', 'normal', null, { maxLevel: 2, selfComprehensionAllowed: true }],
         ['consumeInventoryItem', 'player:1', 'item:book:valid', 1],
         ['refreshQuestStates', 'player:1'],
         ['queuePlayerNotice', 'player:1', '参悟 《炼法烟测诀》残卷', 'success'],

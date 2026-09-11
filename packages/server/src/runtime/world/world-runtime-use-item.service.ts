@@ -216,7 +216,7 @@ export class WorldRuntimeUseItemService {
                 resolvedTechniqueId,
                 'normal',
                 null,
-                { maxLevel: item.learnTechniqueMaxLevel },
+                { maxLevel: item.learnTechniqueMaxLevel, selfComprehensionAllowed: true },
             );
             if (!added) {
                 throw new Error(`technique_comprehension_plan_rejected_after_validation:${learnedTechniqueId}`);
