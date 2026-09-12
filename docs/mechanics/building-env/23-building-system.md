@@ -108,11 +108,11 @@ TypedArray 索引结构，按 cellIndex 存储:
 | --- | --- |
 | 传送点（地图固有） | 3x3 邻域（切比雪夫距离 ≤ 1，共 9 格） |
 | 同图传送着陆格（本图传送点 `targetMapId` 指回本图时的 `targetX/targetY`） | 3x3 邻域 |
-| 出生点 `spawnX/spawnY` | 3x3 邻域 |
+| 出生点 `spawnX/spawnY` | 仅出生点本格（1 格） |
 | NPC | 3x3 邻域 |
 | 安全区 | 整个安全区范围（安全区自带 radius，不再外扩） |
 
-宗门山门、密室传送点等运行时传送点同样保护 3x3 邻域，密室不再仅保护出生点本格。所有 `isPlayerOverlapTile` 允许重叠站人的格子均禁止建造，包括未来新增的重叠区域。矿脉晶精复用相同禁建判定。
+出生点的不可建造区域与重叠区域特殊处理为仅出生点本格（1 格）。宗门山门、密室传送点等运行时传送点同样保护 3x3 邻域。所有 `isPlayerOverlapTile` 允许重叠站人的格子均禁止建造，包括未来新增的重叠区域。矿脉晶精复用相同禁建判定。
 
 权威实现：`packages/server/src/runtime/world/building-protected-placement.helpers.ts`。阵法与宗门山门另有各自的放置校验，仍走单格重叠检查（`protected-placement.helpers.ts`），不受本节邻域规则约束。
 

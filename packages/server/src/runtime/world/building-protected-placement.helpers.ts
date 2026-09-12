@@ -8,14 +8,14 @@
  * 保护范围：
  * - 传送点（地图固有）：3x3 邻域
  * - 同图传送着陆格（本图传送点 targetMapId 指回本图时的 targetX/targetY）：3x3 邻域
- * - 出生点 spawnX/spawnY：3x3 邻域
+ * - 出生点 spawnX/spawnY：特殊处理为仅出生点本格（1 格）
  * - NPC：3x3 邻域
  * - 安全区：整个安全区范围（安全区自带 radius，不再额外外扩）
  *
  * 跨图传送的着陆格不在此处保护：本图只能看到自己的传送点，而跨图落点通常本身
  * 就是一个回程传送点，已由上面的本格 + 邻域规则覆盖。
  *
- * 所有传送点统一保护 3x3；允许玩家重叠站立的格子也必须禁建。
+ * 所有传送点统一保护 3x3；出生点特殊处理为仅本格；允许玩家重叠站立的格子也必须禁建。
  */
 
 import {
@@ -98,10 +98,11 @@ function findConflictAtCell(
   y: number,
 ): BuildingProtectedPlacementConflictReason | null {
   const runtime = instance as any;
-  if (typeof runtime?.getSafeZoneAtTile === 'function' && runtime.getSafeZoneAtTile(x, y)) {
+  const isTimeChamber = runtime?.meta?.kind === 'time_chamber';
+  if (!isTimeChamber && typeof runtime?.getSafeZoneAtTile === 'function' && runtime.getSafeZoneAtTile(x, y)) {
     return BUILDING_PROTECTED_PLACEMENT_CONFLICT_REASONS.safeZone;
   }
-  if (isWithinRadius(x, y, context.spawnX, context.spawnY)) {
+  if (isSameCell(x, y, context.spawnX, context.spawnY)) {
     return BUILDING_PROTECTED_PLACEMENT_CONFLICT_REASONS.spawn;
   }
   const radius = BUILDING_PROTECTED_PLACEMENT_RADIUS;
@@ -153,6 +154,15 @@ function resolveContext(instance: unknown): BuildingProtectedPlacementContext {
 /** isMapPortal：地图固有传送点（宗门山门带 sectId，按运行时动态点位处理）。 */
 function isMapPortal(portal: unknown): boolean {
   return !normalizeString((portal as any)?.sectId);
+}
+
+function isSameCell(x: number, y: number, targetX: unknown, targetY: unknown): boolean {
+  const tx = Math.trunc(Number(targetX));
+  const ty = Math.trunc(Number(targetY));
+  if (!Number.isFinite(tx) || !Number.isFinite(ty)) {
+    return false;
+  }
+  return x === tx && y === ty;
 }
 
 function isWithinRadius(x: number, y: number, centerX: unknown, centerY: unknown): boolean {

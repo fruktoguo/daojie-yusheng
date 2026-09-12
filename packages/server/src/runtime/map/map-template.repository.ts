@@ -422,8 +422,10 @@ export class MapTemplateRepository {
             portalIndexByTile[getTileIndex(portal.x, portal.y, width)] = index;
             walkableMask[getTileIndex(portal.x, portal.y, width)] = 1;
         }
+        const spawnX = clampPoint(document.spawnPoint?.x, width);
+        const spawnY = clampPoint(document.spawnPoint?.y, height);
         const playerOverlapMask = buildPlayerOverlapMask(
-            width, height, safeZoneMask, walkableMask, npcs, portals, portalIndexByTile,
+            width, height, safeZoneMask, walkableMask, npcs, portals, portalIndexByTile, spawnX, spawnY,
         );
         for (const aura of document.auras ?? []) {
             if (!isInBounds(aura.x, aura.y, width, height) || !Number.isFinite(aura.value)) {
@@ -480,8 +482,8 @@ export class MapTemplateRepository {
             surfaceRows: document.surfaceRows?.map((row) => row.slice()) ?? [],
             structureRows: document.structureRows?.map((row) => row.slice()) ?? [],
             interactableRows: document.interactableRows?.map((row) => row.map((cell) => cell.slice())) ?? [],
-            spawnX: clampPoint(document.spawnPoint.x, width),
-            spawnY: clampPoint(document.spawnPoint.y, height),
+            spawnX,
+            spawnY,
             safeZones,
             landmarks,
             containers,
@@ -723,8 +725,8 @@ function fillSafeZoneMask(mask, width, height, zone) {
 /** 四方向偏移量。 */
 const FOUR_DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
 
-/** 构建玩家可重叠地块掩码：安全区 + NPC 邻格 + 传送阵及邻格。 */
-function buildPlayerOverlapMask(width, height, safeZoneMask, walkableMask, npcs, portals, portalIndexByTile) {
+/** 构建玩家可重叠地块掩码：安全区 + NPC 邻格 + 传送阵及邻格 + 出生点本格（仅一格）。 */
+function buildPlayerOverlapMask(width, height, safeZoneMask, walkableMask, npcs, portals, portalIndexByTile, spawnX, spawnY) {
     const mask = new Uint8Array(width * height);
     // 1. 安全区内可行走格子
     for (let i = 0; i < mask.length; i += 1) {
@@ -754,6 +756,13 @@ function buildPlayerOverlapMask(width, height, safeZoneMask, walkableMask, npcs,
             if (isInBounds(nx, ny, width, height) && walkableMask[getTileIndex(nx, ny, width)] === 1) {
                 mask[getTileIndex(nx, ny, width)] = 1;
             }
+        }
+    }
+    // 4. 出生点：特殊处理，仅出生点那一格允许玩家重叠
+    if (Number.isFinite(spawnX) && Number.isFinite(spawnY) && isInBounds(spawnX, spawnY, width, height)) {
+        const spawnTileIndex = getTileIndex(spawnX, spawnY, width);
+        if (walkableMask[spawnTileIndex] === 1) {
+            mask[spawnTileIndex] = 1;
         }
     }
     return mask;

@@ -25,6 +25,12 @@ import {
  */
 function isolateSpawnFromBuildArea(repository, templateId) {
   const template = repository.getOrThrow(templateId);
+  if (template.spawnX >= 0 && template.spawnY >= 0) {
+    const tileIndex = template.spawnY * template.width + template.spawnX;
+    if (template.playerOverlapMask && tileIndex >= 0 && tileIndex < template.playerOverlapMask.length) {
+      template.playerOverlapMask[tileIndex] = 0;
+    }
+  }
   template.spawnX = -1000;
   template.spawnY = -1000;
   return template;
@@ -69,12 +75,17 @@ function createProtectedPlacementInstance(catalog, rules, instanceId) {
 
 /** assertBuildingProtectedPlacementRules：建筑禁建区必须覆盖保护点位周围 3x3，避免把传送点/NPC/出生点围死。 */
 function assertBuildingProtectedPlacementRules(catalog, rules) {
-  // 出生点 (8,8) 的 3x3 为 (7,7)..(8,8)。
+  // 出生点 (8,8) 特殊处理：仅本格禁建且允许重叠，周围格放行并不允许重叠。
   const spawnInstance = createProtectedPlacementInstance(catalog, rules, "real:building_protected_spawn_smoke");
-  const spawnBlocked = spawnInstance.placeBuildingInstance({ defId: "stone_wall", x: 7, y: 7 });
+  const spawnBlocked = spawnInstance.placeBuildingInstance({ defId: "stone_wall", x: 8, y: 8 });
   assert.equal(spawnBlocked.ok, false);
   assert.equal(spawnBlocked.reason, "protected_placement_spawn");
+  assert.equal(spawnInstance.placeBuildingInstance({ defId: "stone_wall", x: 7, y: 7 }).ok, true);
+  assert.equal(spawnInstance.placeBuildingInstance({ defId: "stone_wall", x: 7, y: 8 }).ok, true);
+  assert.equal(spawnInstance.placeBuildingInstance({ defId: "stone_wall", x: 8, y: 7 }).ok, true);
   assert.equal(spawnInstance.placeBuildingInstance({ defId: "stone_wall", x: 6, y: 6 }).ok, true);
+  assert.equal(spawnInstance.isPlayerOverlapTile(8, 8), true, "出生点本格允许玩家重叠");
+  assert.equal(spawnInstance.isPlayerOverlapTile(7, 7), false, "出生点周围格不扩展玩家重叠");
 
   // 传送点 (2,2) 的 3x3 邻域禁建，第 2 圈放行。
   const portalInstance = createProtectedPlacementInstance(catalog, rules, "real:building_protected_portal_ring_smoke");
