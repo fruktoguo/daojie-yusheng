@@ -297,6 +297,20 @@ assertIncludes(techniqueDynamic, /patchModal\(\)/, '功法面板高频同步必�
 const inventoryContext = section(inventoryPanel, 'syncPlayerContext(', '/** buildPlayerContextKey：构建背包展示依赖的玩家上下文签名。 */', 'InventoryPanel.syncPlayerContext');
 assertIncludes(inventoryContext, /buildPlayerContextKey/, '背包玩家上下文同步必须使用语义签名');
 assertIncludes(inventoryContext, /lastPlayerContextKey === nextContextKey/, '背包无变化时必须零 DOM 写入');
+assertIncludes(inventoryPanel, /patchInventoryPageSnapshotFromItems/, '背包 revision 推进必须原地补丁当前分页快照');
+assertIncludes(inventoryPanel, /cellByIdentity/, 'DOM 背包格子必须按稳定身份复用');
+assertMissing(inventoryPanel, /cellBySlotIndex/, 'DOM 背包格子不得再按槽位号当身份');
+assertIncludes(inventoryPanel, /scheduleCoalescedInventoryPageRefresh/, '背包 revision 推进必须合并刷新分页，而不是立刻拆页');
+const inventoryRevisionSync = section(
+  inventoryPanel,
+  'private syncPagedSnapshotForInventory(inventory: Inventory): void {',
+  'private scheduleCoalescedInventoryPageRefresh(delayMs = INVENTORY_PAGE_REFRESH_DEBOUNCE_MS): void {',
+  'InventoryPanel.syncPagedSnapshotForInventory',
+);
+assertMissing(inventoryRevisionSync, /this\.pagedSnapshot = null/, '背包 revision 推进不得丢掉当前分页快照');
+assertMissing(inventoryRevisionSync, /resetInventoryPageRequest\(/, '背包 revision 推进不得取消仍在飞行的分页请求');
+const reactInventoryPanel = read('src/react-ui/panels/inventory/InventoryPanel.tsx');
+assertIncludes(reactInventoryPanel, /buildInventoryCellIdentity/, 'React 背包格子 key 必须跟随实例身份');
 
 const bodyTrainingDynamic = section(bodyTrainingPanel, '/** syncDynamic：同步Dynamic。 */', 'private useReactPanel(): boolean {', 'BodyTrainingPanel.syncDynamic');
 assertIncludes(bodyTrainingDynamic, /patchOrRender\(\)/, '炼体高频同步必须优先走结构感知 patch');
