@@ -79,6 +79,12 @@ import type {
   PlayerRuntimeServiceLike,
   WorldRuntimeServiceLike,
 } from './native-gm-player.ports';
+import {
+applyCounterDeltaImpl,applyCraftSkillSnapshotMutationImpl,applyCraftSkillSnapshotMutationToPersistenceImpl,applyPlayerSnapshotMutationImpl,applyPlayerSnapshotMutationToPersistenceImpl,applyPositionToPersistenceSnapshotImpl,buildBodyTrainingStateImpl,buildStarterPersistenceSnapshotImpl,getGmUpdateProjectionDomainsImpl,hydrateGmTechniqueSnapshotImpl,normalizeGmCraftSkillStateImpl,normalizeGmEditedItemInstanceIdImpl,normalizeGmEquipmentItemForSaveImpl,normalizeGmInventoryItemForSaveImpl,normalizeNonNegativeIntImpl,parseBodyTrainingLevelImpl,parseCounterDeltaImpl,parseNonNegativeIntegerImpl,repairRuntimeSnapshotImpl} from './native-gm-player.snapshot';
+import {
+calculateCombatExpCompensationForPersistenceImpl,calculateCombatExpCompensationForRuntimeImpl,calculateFoundationCompensationForPersistenceImpl,calculateFoundationCompensationForRuntimeImpl,cleanupAllPlayersInvalidItemsImpl,cleanupInvalidItemsFromSnapshotImpl,compensateAllPlayersCombatExpImpl,compensateAllPlayersFoundationImpl,createMigratedRecoveryPillItemImpl,hasInvalidItemsImpl,isManagedPlayerMissingErrorImpl,isStaminaRefillRuntimePlayerImpl,isValidItemImpl,migrateAllPlayersRecoveryPillsImpl,migrateRecoveryPillItemArrayImpl,migrateRecoveryPillsFromSnapshotImpl,normalizePlayerIdScopeImpl,readMarketStorageCleanupItemIdImpl,refillOnlineAndOfflineHangingPlayersStaminaImpl,refreshOnlinePlayerTechniqueTemplatesImpl,releasePlayerFlushStartupStallImpl,repairMarketStorageItemIdsImpl,repairQuestProgressPayloadsImpl,returnAllPlayersToDefaultSpawnImpl} from './native-gm-player.batch';
+import {
+buildPlayerAuditEntryImpl,loadManagedMonthCardViewImpl,loadPlayerDatabaseTablesImpl,resolveMapNameImpl,toLegacyPlayerStateFromPersistenceImpl,toLegacyPlayerStateImpl,toManagedMonthCardViewImpl,toManagedPlayerRecordFromPersistenceImpl,toManagedPlayerRecordImpl,toManagedPlayerSummaryImpl} from './native-gm-player.views';
 
 /**
  * GmMutationAuditOptions：调用方传入的 audit hook，落 gm_audit_log。
@@ -89,7 +95,7 @@ import type {
  *   不要直接传 persisted 整个对象 —— 只取与本次操作语义相关的字段；
  * - describeDelta：可选，用于把 before/after 比对成 delta 摘要；缺省则不写 delta_jsonb。
  */
-interface GmMutationAuditOptions {
+export interface GmMutationAuditOptions {
   op: string;
   actor?: GmActorContext | null;
   describeBefore?: (persisted: any) => unknown;
@@ -98,7 +104,7 @@ interface GmMutationAuditOptions {
 }
 
 /** 安全调用 describe 函数：异常时返回 { describeError } 占位，不抛。 */
-function safeDescribe<T>(fn: ((arg: T) => unknown) | undefined, arg: T): unknown {
+export function safeDescribe<T>(fn: ((arg: T) => unknown) | undefined, arg: T): unknown {
   if (typeof fn !== 'function') {
     return undefined;
   }
@@ -109,9 +115,9 @@ function safeDescribe<T>(fn: ((arg: T) => unknown) | undefined, arg: T): unknown
   }
 }
 
-const GM_GENERATED_TECHNIQUE_LEGACY_DRAFT_ERROR = '该自创术法仍含旧版草稿字段，请先执行“迁移旧版AI术法草稿”后再添加。';
+export const GM_GENERATED_TECHNIQUE_LEGACY_DRAFT_ERROR = '该自创术法仍含旧版草稿字段，请先执行“迁移旧版AI术法草稿”后再添加。';
 
-const GM_PLAYER_DATABASE_TABLES = [
+export const GM_PLAYER_DATABASE_TABLES = [
   'player_presence',
   'player_world_anchor',
   'player_position_checkpoint',
@@ -143,7 +149,7 @@ const GM_PLAYER_DATABASE_TABLES = [
   'player_mail_counter',
 ] as const;
 
-const GM_PLAYER_DATABASE_TABLE_ORDER_BY: Partial<Record<(typeof GM_PLAYER_DATABASE_TABLES)[number], string>> = {
+export const GM_PLAYER_DATABASE_TABLE_ORDER_BY: Partial<Record<(typeof GM_PLAYER_DATABASE_TABLES)[number], string>> = {
   player_wallet: 'ORDER BY wallet_type ASC',
   player_merit_month_card_claim: 'ORDER BY claim_date DESC',
   player_inventory_item: 'ORDER BY slot_index ASC NULLS LAST, item_id ASC',
@@ -163,7 +169,7 @@ const GM_PLAYER_DATABASE_TABLE_ORDER_BY: Partial<Record<(typeof GM_PLAYER_DATABA
   player_mail_attachment: 'ORDER BY mail_id ASC, attachment_id ASC',
 };
 
-const GM_CRAFT_SKILL_KEYS = [
+export const GM_CRAFT_SKILL_KEYS = [
   'alchemySkill',
   'forgingSkill',
   'enhancementSkill',
@@ -174,7 +180,7 @@ const GM_CRAFT_SKILL_KEYS = [
   'buildingSkill',
 ] as const;
 
-const GM_RESET_PLAYER_PERSISTENCE_DOMAINS = [
+export const GM_RESET_PLAYER_PERSISTENCE_DOMAINS = [
   'world_anchor',
   'position_checkpoint',
   'vitals',
@@ -203,27 +209,27 @@ export class NativeGmPlayerService {
 
   constructor(
     @Inject(ContentTemplateRepository)
-    private readonly contentTemplateRepository: ContentTemplateRepositoryLike,
+    readonly contentTemplateRepository: ContentTemplateRepositoryLike,
     @Inject(MapTemplateRepository)
-    private readonly mapTemplateRepository: MapTemplateRepositoryLike,
+    readonly mapTemplateRepository: MapTemplateRepositoryLike,
     @Inject(PlayerDomainPersistenceService)
-    private readonly playerDomainPersistenceService: PlayerDomainPersistenceServiceLike,
+    readonly playerDomainPersistenceService: PlayerDomainPersistenceServiceLike,
     @Inject(PlayerProgressionService)
-    private readonly playerProgressionService: PlayerProgressionServiceLike,
+    readonly playerProgressionService: PlayerProgressionServiceLike,
     @Inject(PlayerRuntimeService)
-    private readonly playerRuntimeService: PlayerRuntimeServiceLike,
+    readonly playerRuntimeService: PlayerRuntimeServiceLike,
     @Inject(MarketRuntimeService)
-    private readonly marketRuntimeService: MarketRuntimeServiceLike,
+    readonly marketRuntimeService: MarketRuntimeServiceLike,
     @Inject(WorldRuntimeService)
-    private readonly worldRuntimeService: WorldRuntimeServiceLike,
+    readonly worldRuntimeService: WorldRuntimeServiceLike,
     @Inject(NativeManagedAccountService)
-    private readonly nextManagedAccountService: NativeManagedAccountServiceLike,
+    readonly nextManagedAccountService: NativeManagedAccountServiceLike,
     @Inject(DatabasePoolProvider)
-    private readonly databasePoolProvider: DatabasePoolProvider | null = null,
+    readonly databasePoolProvider: DatabasePoolProvider | null = null,
     @Inject(GmAuditLogPersistenceService)
-    private readonly gmAuditLogPersistenceService: GmAuditLogPersistenceService | null = null,
+    readonly gmAuditLogPersistenceService: GmAuditLogPersistenceService | null = null,
     @Optional() @Inject(ActivityPersistenceService)
-    private readonly activityPersistenceService: ActivityPersistenceServiceLike | null = null,
+    readonly activityPersistenceService: ActivityPersistenceServiceLike | null = null,
   ) {}
   /**
  * hasRuntimePlayer：判断运行态玩家是否满足条件。
@@ -812,61 +818,7 @@ export class NativeGmPlayerService {
 
 
   async returnAllPlayersToDefaultSpawn(options?: GmPlayerScopeOptions) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const template = this.mapTemplateRepository.getOrThrow('yunlai_town');
-    const scopedPlayerIds = this.normalizePlayerIdScope(options);
-    const scopedPlayerIdSet = scopedPlayerIds.length > 0 ? new Set(scopedPlayerIds) : null;
-
-    const runtimePlayers = this.playerRuntimeService
-      .listPlayerSnapshots()
-      .filter((entry) => !isNativeGmBotPlayerId(entry.playerId)
-        && (!scopedPlayerIdSet || scopedPlayerIdSet.has(entry.playerId)));
-
-    const runtimePlayerIds = new Set(runtimePlayers.map((entry) => entry.playerId));
-
-    const persistedEntries = scopedPlayerIds.length > 0
-      ? await this.listScopedOfflinePlayerPersistenceSnapshots(scopedPlayerIds, runtimePlayerIds)
-      : await this.listPlayerPersistenceSnapshots();
-    for (const runtime of runtimePlayers) {
-      this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueGmResetPlayer(runtime.playerId);
-    }
-
-    let updatedOfflinePlayers = 0;
-    for (const entry of persistedEntries) {
-      if (runtimePlayerIds.has(entry.playerId)) {
-        continue;
-      }
-
-      entry.snapshot.placement.templateId = template.id;
-      entry.snapshot.placement.x = template.spawnX;
-      entry.snapshot.placement.y = template.spawnY;
-      entry.snapshot.placement.facing = Direction.South;
-      entry.snapshot.vitals.hp = entry.snapshot.vitals.maxHp;
-      entry.snapshot.vitals.qi = entry.snapshot.vitals.maxQi;
-      entry.snapshot.buffs.buffs = [];
-      entry.snapshot.buffs.revision = Math.max(1, (entry.snapshot.buffs.revision ?? 1) + 1);
-      entry.snapshot.combat.autoBattle = false;
-      entry.snapshot.combat.combatTargetId = null;
-      entry.snapshot.combat.combatTargetLocked = false;
-      await this.savePlayerPersistenceSnapshotDomains(
-        entry.playerId,
-        entry.snapshot,
-        GM_RESET_PLAYER_PERSISTENCE_DOMAINS,
-        { allowBuffEmptyOverwrite: true },
-      );
-      updatedOfflinePlayers += 1;
-    }
-
-    return {
-      ok: true,
-      totalPlayers: runtimePlayers.length + updatedOfflinePlayers,
-      queuedRuntimePlayers: runtimePlayers.length,
-      updatedOfflinePlayers,
-      targetMapId: template.id,
-      targetX: template.spawnX,
-      targetY: template.spawnY,
-    };
+    return returnAllPlayersToDefaultSpawnImpl(this, options);
   }
   /**
  * cleanupAllPlayersInvalidItems：清理全部非机器人的无效物品。
@@ -875,216 +827,20 @@ export class NativeGmPlayerService {
 
 
   async cleanupAllPlayersInvalidItems(options?: GmPlayerScopeOptions) {
-    const scopedPlayerIds = this.normalizePlayerIdScope(options);
-    const scopedPlayerIdSet = scopedPlayerIds.length > 0 ? new Set(scopedPlayerIds) : null;
-    const runtimePlayers = this.playerRuntimeService
-      .listPlayerSnapshots()
-      .filter((entry) => !isNativeGmBotPlayerId(entry.playerId)
-        && (!scopedPlayerIdSet || scopedPlayerIdSet.has(entry.playerId)));
-    const runtimePlayerIds = new Set(runtimePlayers.map((entry) => entry.playerId));
-
-    let queuedRuntimePlayers = 0;
-    let updatedOfflinePlayers = 0;
-    let totalInvalidInventoryStacksRemoved = 0;
-    let totalInvalidMarketStorageStacksRemoved = 0;
-    let totalInvalidEquipmentRemoved = 0;
-
-    for (const runtime of runtimePlayers) {
-      let summary;
-      try {
-        summary = await this.cleanupManagedPlayerInvalidItems(runtime.playerId);
-      } catch (error) {
-        if (this.isManagedPlayerMissingError(error)) {
-          continue;
-        }
-        throw error;
-      }
-      if (!this.hasInvalidItems(summary)) {
-        continue;
-      }
-      queuedRuntimePlayers += 1;
-      totalInvalidInventoryStacksRemoved += summary.inventoryStacksRemoved;
-      totalInvalidMarketStorageStacksRemoved += summary.marketStorageStacksRemoved;
-      totalInvalidEquipmentRemoved += summary.equipmentRemoved;
-    }
-
-    const persistedEntries = scopedPlayerIds.length > 0
-      ? await this.listScopedOfflinePlayerPersistenceSnapshots(scopedPlayerIds, runtimePlayerIds)
-      : await this.listPlayerPersistenceSnapshots();
-    for (const entry of persistedEntries) {
-      if (runtimePlayerIds.has(entry.playerId) || isNativeGmBotPlayerId(entry.playerId)) {
-        continue;
-      }
-
-      let summary;
-      try {
-        summary = await this.cleanupManagedPlayerInvalidItems(entry.playerId);
-      } catch (error) {
-        if (this.isManagedPlayerMissingError(error)) {
-          continue;
-        }
-        throw error;
-      }
-      if (!this.hasInvalidItems(summary)) {
-        continue;
-      }
-      updatedOfflinePlayers += 1;
-      totalInvalidInventoryStacksRemoved += summary.inventoryStacksRemoved;
-      totalInvalidMarketStorageStacksRemoved += summary.marketStorageStacksRemoved;
-      totalInvalidEquipmentRemoved += summary.equipmentRemoved;
-    }
-
-    return {
-      ok: true,
-      totalPlayers: queuedRuntimePlayers + updatedOfflinePlayers,
-      queuedRuntimePlayers,
-      updatedOfflinePlayers,
-      totalInvalidInventoryStacksRemoved,
-      totalInvalidMarketStorageStacksRemoved,
-      totalInvalidEquipmentRemoved,
-    };
+    return cleanupAllPlayersInvalidItemsImpl(this, options);
   }
 
   async migrateAllPlayersRecoveryPills(options?: GmPlayerScopeOptions) {
-    const scopedPlayerIds = this.normalizePlayerIdScope(options);
-    const scopedPlayerIdSet = scopedPlayerIds.length > 0 ? new Set(scopedPlayerIds) : null;
-    const runtimePlayers = this.playerRuntimeService
-      .listPlayerSnapshots()
-      .filter((entry) => !isNativeGmBotPlayerId(entry.playerId)
-        && (!scopedPlayerIdSet || scopedPlayerIdSet.has(entry.playerId)));
-    const runtimePlayerIds = new Set(runtimePlayers.map((entry) => entry.playerId));
-
-    let queuedRuntimePlayers = 0;
-    let updatedOfflinePlayers = 0;
-    const totals = createEmptyRecoveryPillMigrationSummary();
-
-    for (const runtime of runtimePlayers) {
-      let summary;
-      try {
-        summary = await this.migrateManagedPlayerRecoveryPills(runtime.playerId);
-      } catch (error) {
-        if (this.isManagedPlayerMissingError(error)) {
-          continue;
-        }
-        throw error;
-      }
-      if (!hasRecoveryPillMigration(summary)) {
-        continue;
-      }
-      queuedRuntimePlayers += 1;
-      addRecoveryPillMigrationSummary(totals, summary);
-    }
-
-    const persistedEntries = scopedPlayerIds.length > 0
-      ? await this.listScopedOfflinePlayerPersistenceSnapshots(scopedPlayerIds, runtimePlayerIds)
-      : await this.listPlayerPersistenceSnapshots();
-    for (const entry of persistedEntries) {
-      if (runtimePlayerIds.has(entry.playerId) || isNativeGmBotPlayerId(entry.playerId)) {
-        continue;
-      }
-
-      let summary;
-      try {
-        summary = await this.migrateManagedPlayerRecoveryPills(entry.playerId);
-      } catch (error) {
-        if (this.isManagedPlayerMissingError(error)) {
-          continue;
-        }
-        throw error;
-      }
-      if (!hasRecoveryPillMigration(summary)) {
-        continue;
-      }
-      updatedOfflinePlayers += 1;
-      addRecoveryPillMigrationSummary(totals, summary);
-    }
-
-    return {
-      ok: true,
-      totalPlayers: queuedRuntimePlayers + updatedOfflinePlayers,
-      queuedRuntimePlayers,
-      updatedOfflinePlayers,
-      totalRecoveryPillInventoryStacksMigrated: totals.inventoryStacksMigrated,
-      totalRecoveryPillInventoryItemsMigrated: totals.inventoryItemsMigrated,
-      totalRecoveryPillMarketStorageStacksMigrated: totals.marketStorageStacksMigrated,
-      totalRecoveryPillMarketStorageItemsMigrated: totals.marketStorageItemsMigrated,
-      totalRecoveryPillEquipmentMigrated: totals.equipmentMigrated,
-    };
+    return migrateAllPlayersRecoveryPillsImpl(this, options);
   }
 
   /** 将在线和离线挂机玩家的副本体力统一恢复到上限。 */
   async refillOnlineAndOfflineHangingPlayersStamina(options?: GmPlayerScopeOptions) {
-    const scopedPlayerIds = this.normalizePlayerIdScope(options);
-    const scopedPlayerIdSet = scopedPlayerIds.length > 0 ? new Set(scopedPlayerIds) : null;
-    const runtimePlayers = this.playerRuntimeService
-      .listPlayerSnapshots()
-      .filter((entry) => this.isStaminaRefillRuntimePlayer(entry)
-        && (!scopedPlayerIdSet || scopedPlayerIdSet.has(entry.playerId)));
-    const runtimePlayerIds = new Set(runtimePlayers.map((entry) => entry.playerId));
-
-    let queuedRuntimePlayers = 0;
-    let updatedOfflinePlayers = 0;
-    const now = Date.now();
-    for (const runtime of runtimePlayers) {
-      try {
-        await this.refillManagedPlayerStamina(runtime.playerId, now);
-      } catch (error) {
-        if (this.isManagedPlayerMissingError(error)) {
-          continue;
-        }
-        throw error;
-      }
-      queuedRuntimePlayers += 1;
-    }
-
-    const persistedOfflinePlayerIds = this.playerDomainPersistenceService.listOfflineHangingPlayerIds
-      ? await this.playerDomainPersistenceService.listOfflineHangingPlayerIds(scopedPlayerIds)
-      : [];
-    for (const playerId of persistedOfflinePlayerIds) {
-      if (runtimePlayerIds.has(playerId) || isNativeGmBotPlayerId(playerId)) {
-        continue;
-      }
-      try {
-        await this.refillManagedPlayerStamina(playerId, now);
-      } catch (error) {
-        if (this.isManagedPlayerMissingError(error)) {
-          continue;
-        }
-        throw error;
-      }
-      updatedOfflinePlayers += 1;
-    }
-
-    return {
-      ok: true,
-      totalPlayers: queuedRuntimePlayers + updatedOfflinePlayers,
-      queuedRuntimePlayers,
-      updatedOfflinePlayers,
-      staminaRefilledPlayers: queuedRuntimePlayers + updatedOfflinePlayers,
-      staminaMaximum: DUNGEON_MAX_STAMINA,
-    };
+    return refillOnlineAndOfflineHangingPlayersStaminaImpl(this, options);
   }
 
   async repairMarketStorageItemIds() {
-    if (!this.databasePoolProvider) {
-      throw new BadRequestException('数据库未启用，无法修复坊市托管仓 storage_item_id');
-    }
-    const conversion = new MarketStorageItemIdConversion(this.databasePoolProvider, this.gmAuditLogPersistenceService);
-    const result = await conversion.run({ mode: 'apply' });
-    return {
-      ok: result.ok,
-      totalPlayers: result.convertedRows,
-      queuedRuntimePlayers: 0,
-      updatedOfflinePlayers: result.convertedRows,
-      repairedMarketStorageRows: result.convertedRows,
-      repairedMarketStoragePlayers: result.convertedRows,
-      marketStorageMismatchedRowsBefore: result.matchedRows,
-      marketStorageMismatchedRowsAfter: 0,
-      marketStorageInvalidSlotRowsBefore: result.skippedRows,
-      marketStorageInvalidSlotRowsAfter: 0,
-      repairedMarketStorageSample: result.samples ?? [],
-      repairedAt: result.appliedAt ?? new Date().toISOString(),
-    };
+    return repairMarketStorageItemIdsImpl(this);
   }
 
   /**
@@ -1092,41 +848,20 @@ export class NativeGmPlayerService {
    * player_market_storage_item 残留投影行（对齐内存快照）。
    * 仅处理该隔离类别；资产归属冲突隔离（startup_asset_conflict）必须人工核对，不在此命令范围。
    */
-  async releasePlayerFlushStartupStall(
-    playerIdInput: string,
-    options: { dryRun?: boolean } = {},
-  ) {
-    const pool = this.databasePoolProvider?.getPool('gm-release-flush-stall') ?? null;
-    if (!pool) {
-      throw new BadRequestException('数据库未启用，无法解除刷盘启动隔离');
-    }
-    return releasePlayerFlushStartupStall(pool, playerIdInput, { dryRun: options.dryRun === true });
+  async releasePlayerFlushStartupStall(playerIdInput: string,
+    options: { dryRun?: boolean } = {},) {
+    return releasePlayerFlushStartupStallImpl(this, playerIdInput, options);
   }
 
   async repairQuestProgressPayloads(mode: 'dry-run' | 'apply', actor?: GmActorContext | null) {
-    if (!this.databasePoolProvider) {
-      throw new BadRequestException('数据库未启用，无法修复任务进度 payload');
-    }
-    const conversion = new QuestProgressPayloadConversion(this.databasePoolProvider, this.gmAuditLogPersistenceService);
-    const result = await conversion.run({ mode, actor: actor ?? undefined });
-    return {
-      ok: result.ok,
-      questProgressRepairMode: mode,
-      questProgressScannedRows: result.matchedRows,
-      questProgressKnownRows: result.matchedRows - result.skippedRows,
-      questProgressUnknownRows: result.skippedRows,
-      questProgressPatchedRows: result.convertedRows,
-      questProgressUnknownQuestIds: [],
-      questProgressSamplePatches: result.samples ?? [],
-      repairedAt: result.appliedAt ?? new Date().toISOString(),
-    };
+    return repairQuestProgressPayloadsImpl(this, mode, actor);
   }
 
   refreshOnlinePlayerTechniqueTemplates() {
-    return this.playerRuntimeService.refreshOnlineTechniqueTemplates();
+    return refreshOnlinePlayerTechniqueTemplatesImpl(this);
   }
 
-  private async refillManagedPlayerStamina(playerId: string, now: number): Promise<void> {
+  async refillManagedPlayerStamina(playerId: string, now: number): Promise<void> {
     await this.mutateManagedPlayer(playerId, {
       domains: ['progression'],
       mutatePersisted: (persisted) => {
@@ -1144,17 +879,8 @@ export class NativeGmPlayerService {
     });
   }
 
-  private isStaminaRefillRuntimePlayer(entry: any): boolean {
-    if (!entry || isNativeGmBotPlayerId(entry.playerId)) {
-      return false;
-    }
-    const sessionId = typeof entry.sessionId === 'string' ? entry.sessionId.trim() : '';
-    if (sessionId.length > 0) {
-      return true;
-    }
-    const templateId = typeof entry.templateId === 'string' ? entry.templateId.trim() : '';
-    const reapReadyAt = Number(entry.offlineHangingReapReadyAt);
-    return templateId.length > 0 && !(Number.isFinite(reapReadyAt) && reapReadyAt > 0);
+  isStaminaRefillRuntimePlayer(entry: any) {
+    return isStaminaRefillRuntimePlayerImpl(this, entry);
   }
   /**
  * compensateAllPlayersCombatExp：补偿全部非机器人的战斗经验。
@@ -1163,68 +889,7 @@ export class NativeGmPlayerService {
 
 
   async compensateAllPlayersCombatExp(options?: GmPlayerScopeOptions) {
-    const scopedPlayerIds = this.normalizePlayerIdScope(options);
-    const scopedPlayerIdSet = scopedPlayerIds.length > 0 ? new Set(scopedPlayerIds) : null;
-    const runtimePlayers = this.playerRuntimeService
-      .listPlayerSnapshots()
-      .filter((entry) => !isNativeGmBotPlayerId(entry.playerId)
-        && (!scopedPlayerIdSet || scopedPlayerIdSet.has(entry.playerId)));
-    const runtimePlayerIds = new Set(runtimePlayers.map((entry) => entry.playerId));
-
-    let queuedRuntimePlayers = 0;
-    let updatedOfflinePlayers = 0;
-    let totalCombatExpGranted = 0;
-
-    for (const runtime of runtimePlayers) {
-      const amount = this.calculateCombatExpCompensationForRuntime(runtime);
-      if (amount <= 0) {
-        continue;
-      }
-
-      try {
-        await this.addPlayerCombatExp(runtime.playerId, amount);
-      } catch (error) {
-        if (this.isManagedPlayerMissingError(error)) {
-          continue;
-        }
-        throw error;
-      }
-      queuedRuntimePlayers += 1;
-      totalCombatExpGranted += amount;
-    }
-
-    const persistedEntries = scopedPlayerIds.length > 0
-      ? await this.listScopedOfflinePlayerPersistenceSnapshots(scopedPlayerIds, runtimePlayerIds)
-      : await this.listPlayerPersistenceSnapshots();
-    for (const entry of persistedEntries) {
-      if (runtimePlayerIds.has(entry.playerId) || isNativeGmBotPlayerId(entry.playerId)) {
-        continue;
-      }
-
-      const amount = this.calculateCombatExpCompensationForPersistence(entry.snapshot);
-      if (amount <= 0) {
-        continue;
-      }
-
-      try {
-        await this.addPlayerCombatExp(entry.playerId, amount);
-      } catch (error) {
-        if (this.isManagedPlayerMissingError(error)) {
-          continue;
-        }
-        throw error;
-      }
-      updatedOfflinePlayers += 1;
-      totalCombatExpGranted += amount;
-    }
-
-    return {
-      ok: true,
-      totalPlayers: queuedRuntimePlayers + updatedOfflinePlayers,
-      queuedRuntimePlayers,
-      updatedOfflinePlayers,
-      totalCombatExpGranted,
-    };
+    return compensateAllPlayersCombatExpImpl(this, options);
   }
   /**
  * compensateAllPlayersFoundation：补偿全部非机器人的底蕴。
@@ -1233,138 +898,22 @@ export class NativeGmPlayerService {
 
 
   async compensateAllPlayersFoundation(options?: GmPlayerScopeOptions) {
-    const scopedPlayerIds = this.normalizePlayerIdScope(options);
-    const scopedPlayerIdSet = scopedPlayerIds.length > 0 ? new Set(scopedPlayerIds) : null;
-    const runtimePlayers = this.playerRuntimeService
-      .listPlayerSnapshots()
-      .filter((entry) => !isNativeGmBotPlayerId(entry.playerId)
-        && (!scopedPlayerIdSet || scopedPlayerIdSet.has(entry.playerId)));
-    const runtimePlayerIds = new Set(runtimePlayers.map((entry) => entry.playerId));
-
-    let queuedRuntimePlayers = 0;
-    let updatedOfflinePlayers = 0;
-    let totalFoundationGranted = 0;
-
-    for (const runtime of runtimePlayers) {
-      const amount = this.calculateFoundationCompensationForRuntime(runtime);
-      if (amount <= 0) {
-        continue;
-      }
-
-      try {
-        await this.addPlayerFoundation(runtime.playerId, amount);
-      } catch (error) {
-        if (this.isManagedPlayerMissingError(error)) {
-          continue;
-        }
-        throw error;
-      }
-      queuedRuntimePlayers += 1;
-      totalFoundationGranted += amount;
-    }
-
-    const persistedEntries = scopedPlayerIds.length > 0
-      ? await this.listScopedOfflinePlayerPersistenceSnapshots(scopedPlayerIds, runtimePlayerIds)
-      : await this.listPlayerPersistenceSnapshots();
-    for (const entry of persistedEntries) {
-      if (runtimePlayerIds.has(entry.playerId) || isNativeGmBotPlayerId(entry.playerId)) {
-        continue;
-      }
-
-      const amount = this.calculateFoundationCompensationForPersistence(entry.snapshot);
-      if (amount <= 0) {
-        continue;
-      }
-
-      try {
-        await this.addPlayerFoundation(entry.playerId, amount);
-      } catch (error) {
-        if (this.isManagedPlayerMissingError(error)) {
-          continue;
-        }
-        throw error;
-      }
-      updatedOfflinePlayers += 1;
-      totalFoundationGranted += amount;
-    }
-
-    return {
-      ok: true,
-      totalPlayers: queuedRuntimePlayers + updatedOfflinePlayers,
-      queuedRuntimePlayers,
-      updatedOfflinePlayers,
-      totalFoundationGranted,
-    };
+    return compensateAllPlayersFoundationImpl(this, options);
   }
 
-  private normalizeGmInventoryItemForSave(currentItem: unknown, submittedItem: unknown): Record<string, unknown> | null {
-    const submitted = asGmItemRecord(submittedItem);
-    const itemId = normalizeGmItemString(submitted?.itemId);
-    if (!submitted || !itemId) {
-      return null;
-    }
-    const count = Number.isFinite(submitted.count)
-      ? Math.max(1, Math.trunc(submitted.count as number))
-      : 1;
-    const normalized = asGmItemRecord(this.contentTemplateRepository.normalizeItem({
-      ...submitted,
-      itemId,
-      count,
-    })) ?? {
-      ...submitted,
-      itemId,
-      count,
-    };
-    writeGmItemOwnProperty(normalized, 'itemId', itemId);
-    writeGmItemOwnProperty(normalized, 'count', count);
-    this.normalizeGmEditedItemInstanceId(normalized, submitted, currentItem, itemId);
-    return normalized;
+  normalizeGmInventoryItemForSave(currentItem: unknown, submittedItem: unknown) {
+    return normalizeGmInventoryItemForSaveImpl(this, currentItem, submittedItem);
   }
 
-  private normalizeGmEquipmentItemForSave(currentItem: unknown, submittedItem: unknown): Record<string, unknown> | null {
-    const submitted = asGmItemRecord(submittedItem);
-    const itemId = normalizeGmItemString(submitted?.itemId);
-    if (!submitted || !itemId) {
-      return null;
-    }
-    const normalized = asGmItemRecord(this.contentTemplateRepository.normalizeItem({
-      ...submitted,
-      itemId,
-      count: 1,
-    })) ?? {
-      ...submitted,
-      itemId,
-      count: 1,
-    };
-    writeGmItemOwnProperty(normalized, 'itemId', itemId);
-    writeGmItemOwnProperty(normalized, 'count', 1);
-    this.normalizeGmEditedItemInstanceId(normalized, submitted, currentItem, itemId);
-    return normalized;
+  normalizeGmEquipmentItemForSave(currentItem: unknown, submittedItem: unknown) {
+    return normalizeGmEquipmentItemForSaveImpl(this, currentItem, submittedItem);
   }
 
-  private normalizeGmEditedItemInstanceId(
-    normalized: Record<string, unknown>,
+  normalizeGmEditedItemInstanceId(normalized: Record<string, unknown>,
     submitted: Record<string, unknown>,
     currentItem: unknown,
-    itemId: string,
-  ): void {
-    const current = asGmItemRecord(currentItem);
-    const currentItemId = normalizeGmItemString(current?.itemId);
-    const currentInstanceId = normalizeStableGmItemInstanceId(current?.itemInstanceId);
-    const submittedInstanceId = normalizeStableGmItemInstanceId(submitted.itemInstanceId);
-    const normalizedInstanceId = normalizeStableGmItemInstanceId(normalized.itemInstanceId);
-    const incomingInstanceId = submittedInstanceId ?? normalizedInstanceId;
-
-    if (
-      currentInstanceId
-      && currentItemId === itemId
-      && (!incomingInstanceId || incomingInstanceId === currentInstanceId)
-    ) {
-      writeGmItemOwnProperty(normalized, 'itemInstanceId', currentInstanceId);
-      return;
-    }
-
-    reassignItemInstanceId(normalized as any);
+    itemId: string,) {
+    return normalizeGmEditedItemInstanceIdImpl(this, normalized, submitted, currentItem, itemId);
   }
   /**
  * applyPlayerSnapshotMutation：处理玩家快照Mutation并更新相关状态。
@@ -1375,203 +924,8 @@ export class NativeGmPlayerService {
  */
 
 
-  private applyPlayerSnapshotMutation(next, snapshot, section) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (section === null || section === 'basic') {
-      if (typeof snapshot.name === 'string' && snapshot.name.trim()) {
-        next.name = snapshot.name.trim();
-      }
-      if (typeof snapshot.displayName === 'string' && snapshot.displayName.trim()) {
-        next.displayName = snapshot.displayName.trim();
-      }
-      if (Number.isFinite(snapshot.maxHp)) {
-        next.maxHp = Math.max(1, Math.trunc(snapshot.maxHp));
-      }
-      if (Number.isFinite(snapshot.maxQi)) {
-        next.maxQi = Math.max(0, Math.trunc(snapshot.maxQi));
-      }
-      if (Number.isFinite(snapshot.hp)) {
-        next.hp = clamp(Math.trunc(snapshot.hp), 0, next.maxHp);
-      }
-      if (Number.isFinite(snapshot.qi)) {
-        next.qi = clamp(Math.trunc(snapshot.qi), 0, next.maxQi);
-      }
-      if (typeof snapshot.dead === 'boolean') {
-        next.hp = snapshot.dead ? 0 : Math.max(1, next.hp);
-      }
-      if (typeof snapshot.autoBattle === 'boolean') {
-        next.combat.autoBattle = snapshot.autoBattle;
-      }
-      if (typeof snapshot.autoRetaliate === 'boolean') {
-        next.combat.autoRetaliate = snapshot.autoRetaliate;
-      }
-      if (typeof snapshot.autoBattleStationary === 'boolean') {
-        next.combat.autoBattleStationary = snapshot.autoBattleStationary;
-      }
-      if (typeof snapshot.allowAoePlayerHit === 'boolean') {
-        next.combat.allowAoePlayerHit = snapshot.allowAoePlayerHit;
-      }
-      if (typeof snapshot.autoIdleCultivation === 'boolean') {
-        next.combat.autoIdleCultivation = snapshot.autoIdleCultivation;
-      }
-      if (typeof snapshot.autoSwitchCultivation === 'boolean') {
-        next.combat.autoSwitchCultivation = snapshot.autoSwitchCultivation;
-      }
-      if (typeof snapshot.senseQiActive === 'boolean') {
-        next.combat.senseQiActive = snapshot.senseQiActive;
-      }
-      if (Array.isArray(snapshot.autoBattleSkills)) {
-        next.combat.autoBattleSkills = snapshot.autoBattleSkills
-          .filter((entry) => Boolean(entry && typeof entry.skillId === 'string' && entry.skillId.trim()))
-          .map((entry) => ({
-            skillId: entry.skillId.trim(),
-            enabled: entry.enabled !== false,
-            skillEnabled: entry.skillEnabled !== false,
-            autoBattleOrder: Number.isFinite(entry.autoBattleOrder)
-              ? Math.max(0, Math.trunc(entry.autoBattleOrder))
-              : undefined,
-          }));
-      }
-      if (Array.isArray(snapshot.temporaryBuffs)) {
-        next.buffs.buffs = snapshot.temporaryBuffs.map((entry) => createRuntimeTemporaryBuff(entry));
-        next.buffs.revision += 1;
-      }
-    }
-
-    if (section === 'realm') {
-      if (snapshot.baseAttrs && typeof snapshot.baseAttrs === 'object') {
-        next.attrs.rawBaseAttrs = normalizeRawBaseAttrs(snapshot.baseAttrs);
-      }
-      if (Number.isFinite(snapshot.foundation)) {
-        next.foundation = Math.max(0, Math.trunc(snapshot.foundation));
-      }
-      if (Number.isFinite(snapshot.rootFoundation)) {
-        next.rootFoundation = Math.max(0, Math.trunc(snapshot.rootFoundation));
-      }
-      if (Number.isFinite(snapshot.combatExp)) {
-        next.combatExp = Math.max(0, Math.trunc(snapshot.combatExp));
-      }
-      if (Number.isFinite(snapshot.comprehension)) {
-        next.comprehension = Math.max(0, Math.trunc(snapshot.comprehension));
-      }
-      if (Number.isFinite(snapshot.luck)) {
-        next.luck = Math.max(0, Math.trunc(snapshot.luck));
-      }
-
-      const realmLv = Number.isFinite(snapshot.realmLv) ? Math.trunc(snapshot.realmLv) : next.realm?.realmLv ?? 1;
-
-      const progress = Number.isFinite(snapshot.realm?.progress)
-        ? Math.trunc(snapshot.realm.progress)
-        : next.realm?.progress ?? 0;
-      next.realm = this.playerProgressionService.createRealmStateFromLevel(realmLv, progress);
-    }
-
-    if (section === 'techniques') {
-      if (Array.isArray(snapshot.techniques)) {
-        next.techniques.techniques = snapshot.techniques
-          .filter((entry) => Boolean(entry && typeof entry.techId === 'string' && entry.techId.trim()))
-          .map((entry) => this.hydrateGmTechniqueSnapshot(entry))
-          .sort((left, right) => left.techId.localeCompare(right.techId, 'zh-Hans-CN'));
-        next.techniques.revision += 1;
-      }
-      if (
-        snapshot.cultivatingTechId === undefined ||
-        snapshot.cultivatingTechId === null ||
-        typeof snapshot.cultivatingTechId === 'string'
-      ) {
-        next.techniques.cultivatingTechId = snapshot.cultivatingTechId?.trim() || null;
-      }
-      if (Array.isArray(snapshot.autoBattleSkills)) {
-        next.combat.autoBattleSkills = snapshot.autoBattleSkills
-          .filter((entry) => Boolean(entry && typeof entry.skillId === 'string' && entry.skillId.trim()))
-          .map((entry) => ({
-            skillId: entry.skillId.trim(),
-            enabled: entry.enabled !== false,
-            skillEnabled: entry.skillEnabled !== false,
-            autoBattleOrder: Number.isFinite(entry.autoBattleOrder)
-              ? Math.max(0, Math.trunc(entry.autoBattleOrder))
-              : undefined,
-          }));
-      }
-    }
-
-    if (section === 'craftSkills') {
-      this.applyCraftSkillSnapshotMutation(next, snapshot);
-    }
-
-    if (section === 'items') {
-      if (snapshot.inventory && typeof snapshot.inventory === 'object') {
-        if (Number.isFinite(snapshot.inventory.capacity)) {
-          next.inventory.capacity = Math.max(DEFAULT_INVENTORY_CAPACITY, Math.trunc(snapshot.inventory.capacity));
-        }
-        if (Array.isArray(snapshot.inventory.items)) {
-          next.inventory.items = snapshot.inventory.items
-            .filter((entry) => Boolean(entry && typeof entry.itemId === 'string' && entry.itemId.trim()))
-            .map((entry, index) => this.normalizeGmInventoryItemForSave(next.inventory.items[index], entry))
-            .filter((entry): entry is Record<string, unknown> => entry !== null);
-          next.inventory.revision += 1;
-        }
-      }
-      if (snapshot.equipment && typeof snapshot.equipment === 'object') {
-        for (const slot of EQUIP_SLOTS) {
-          if (!(slot in snapshot.equipment)) {
-            continue;
-          }
-
-          const record = next.equipment.slots.find((entry) => entry.slot === slot);
-          if (!record) {
-            continue;
-          }
-
-          const item = snapshot.equipment[slot];
-          if (item && typeof item.itemId === 'string' && item.itemId.trim()) {
-            const normalized = this.normalizeGmEquipmentItemForSave(record.item, item);
-            record.item = normalized;
-          } else {
-            record.item = null;
-          }
-        }
-        next.equipment.revision += 1;
-      }
-      if (snapshot.artifacts && typeof snapshot.artifacts === 'object' && Array.isArray(snapshot.artifacts.slots)) {
-        next.artifacts ??= { revision: 1, slots: [] };
-        if (!Array.isArray(next.artifacts.slots)) {
-          next.artifacts.slots = [];
-        }
-        const submittedSlotsByType = new Map(snapshot.artifacts.slots.map((entry) => [entry?.slot, entry]));
-        for (const slot of ARTIFACT_SLOTS) {
-          const submittedSlot = submittedSlotsByType.get(slot);
-          if (!submittedSlot || typeof submittedSlot !== 'object') {
-            continue;
-          }
-          const submittedRecord = submittedSlot as Record<string, any>;
-          let record = next.artifacts.slots.find((entry) => entry.slot === slot);
-          if (!record) {
-            record = { slot, unlocked: false, enabled: false, qi: 0, maxQi: 0, item: null };
-            next.artifacts.slots.push(record);
-          }
-          record.unlocked = submittedRecord.unlocked === true;
-          record.enabled = submittedRecord.enabled === true;
-          record.qi = Number.isFinite(submittedRecord.qi) ? Math.max(0, Math.trunc(submittedRecord.qi)) : 0;
-          record.maxQi = Number.isFinite(submittedRecord.maxQi) ? Math.max(0, Math.trunc(submittedRecord.maxQi)) : 0;
-          const item = submittedRecord.item;
-          record.item = item && typeof item.itemId === 'string' && item.itemId.trim()
-            ? this.normalizeGmEquipmentItemForSave(record.item, item)
-            : null;
-        }
-        next.artifacts.revision = Math.max(1, Math.trunc(Number(next.artifacts.revision) || 1) + 1);
-      }
-    }
-
-    if (section === 'quests' && Array.isArray(snapshot.quests)) {
-      next.quests.quests = snapshot.quests.map((entry) => ({
-        ...entry,
-        rewardItemIds: Array.isArray(entry.rewardItemIds) ? entry.rewardItemIds.slice() : [],
-        rewards: Array.isArray(entry.rewards) ? entry.rewards.map((reward) => ({ ...reward })) : [],
-      }));
-      next.quests.revision += 1;
-    }
+  applyPlayerSnapshotMutation(next, snapshot, section) {
+    return applyPlayerSnapshotMutationImpl(this, next, snapshot, section);
   }
   /**
  * applyPositionToPersistenceSnapshot：判断位置ToPersistence快照是否满足条件。
@@ -1581,30 +935,8 @@ export class NativeGmPlayerService {
  */
 
 
-  private applyPositionToPersistenceSnapshot(persisted, snapshot) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (typeof snapshot.mapId === 'string' && snapshot.mapId.trim()) {
-      this.mapTemplateRepository.getOrThrow(snapshot.mapId.trim());
-      persisted.placement.templateId = snapshot.mapId.trim();
-    }
-
-    const template = this.mapTemplateRepository.getOrThrow(persisted.placement.templateId);
-    if (Number.isFinite(snapshot.x)) {
-      persisted.placement.x = clamp(Math.trunc(snapshot.x), 0, Math.max(0, template.width - 1));
-    }
-    if (Number.isFinite(snapshot.y)) {
-      persisted.placement.y = clamp(Math.trunc(snapshot.y), 0, Math.max(0, template.height - 1));
-    }
-    if (Number.isFinite(snapshot.facing)) {
-      persisted.placement.facing = Math.trunc(snapshot.facing);
-    }
-    if (Number.isFinite(snapshot.hp)) {
-      persisted.vitals.hp = clamp(Math.trunc(snapshot.hp), 0, persisted.vitals.maxHp);
-    }
-    if (typeof snapshot.autoBattle === 'boolean') {
-      persisted.combat.autoBattle = snapshot.autoBattle;
-    }
+  applyPositionToPersistenceSnapshot(persisted, snapshot) {
+    return applyPositionToPersistenceSnapshotImpl(this, persisted, snapshot);
   }
   /**
  * applyPlayerSnapshotMutationToPersistence：判断玩家快照MutationToPersistence是否满足条件。
@@ -1615,247 +947,20 @@ export class NativeGmPlayerService {
  */
 
 
-  private applyPlayerSnapshotMutationToPersistence(persisted, snapshot, section) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (section === null || section === 'basic') {
-      if (Number.isFinite(snapshot.maxHp)) {
-        persisted.vitals.maxHp = Math.max(1, Math.trunc(snapshot.maxHp));
-        if (persisted.vitals.hp > persisted.vitals.maxHp) {
-          persisted.vitals.hp = persisted.vitals.maxHp;
-        }
-      }
-      if (Number.isFinite(snapshot.maxQi)) {
-        persisted.vitals.maxQi = Math.max(0, Math.trunc(snapshot.maxQi));
-        if (persisted.vitals.qi > persisted.vitals.maxQi) {
-          persisted.vitals.qi = persisted.vitals.maxQi;
-        }
-      }
-      if (Number.isFinite(snapshot.hp)) {
-        persisted.vitals.hp = clamp(Math.trunc(snapshot.hp), 0, persisted.vitals.maxHp);
-      }
-      if (Number.isFinite(snapshot.qi)) {
-        persisted.vitals.qi = clamp(Math.trunc(snapshot.qi), 0, persisted.vitals.maxQi);
-      }
-      if (typeof snapshot.dead === 'boolean') {
-        persisted.vitals.hp = snapshot.dead ? 0 : Math.max(1, persisted.vitals.hp);
-      }
-      if (typeof snapshot.autoBattle === 'boolean') {
-        persisted.combat.autoBattle = snapshot.autoBattle;
-      }
-      if (typeof snapshot.autoRetaliate === 'boolean') {
-        persisted.combat.autoRetaliate = snapshot.autoRetaliate;
-      }
-      if (typeof snapshot.autoBattleStationary === 'boolean') {
-        persisted.combat.autoBattleStationary = snapshot.autoBattleStationary;
-      }
-      if (typeof snapshot.allowAoePlayerHit === 'boolean') {
-        persisted.combat.allowAoePlayerHit = snapshot.allowAoePlayerHit;
-      }
-      if (typeof snapshot.autoIdleCultivation === 'boolean') {
-        persisted.combat.autoIdleCultivation = snapshot.autoIdleCultivation;
-      }
-      if (typeof snapshot.autoSwitchCultivation === 'boolean') {
-        persisted.combat.autoSwitchCultivation = snapshot.autoSwitchCultivation;
-      }
-      if (typeof snapshot.senseQiActive === 'boolean') {
-        persisted.combat.senseQiActive = snapshot.senseQiActive;
-      }
-      if (Array.isArray(snapshot.autoBattleSkills)) {
-        persisted.combat.autoBattleSkills = snapshot.autoBattleSkills
-          .filter((entry) => Boolean(entry && typeof entry.skillId === 'string' && entry.skillId.trim()))
-          .map((entry) => ({
-            skillId: entry.skillId.trim(),
-            enabled: entry.enabled !== false,
-            skillEnabled: entry.skillEnabled !== false,
-            autoBattleOrder: Number.isFinite(entry.autoBattleOrder)
-              ? Math.max(0, Math.trunc(entry.autoBattleOrder))
-              : undefined,
-          }));
-      }
-      if (Array.isArray(snapshot.temporaryBuffs)) {
-        persisted.buffs.buffs = snapshot.temporaryBuffs.map((entry) => createRuntimeTemporaryBuff(entry));
-        persisted.buffs.revision = Math.max(1, (persisted.buffs.revision ?? 1) + 1);
-      }
-    }
-
-    if (section === 'realm') {
-      if (snapshot.baseAttrs && typeof snapshot.baseAttrs === 'object') {
-        persisted.attrState = persisted.attrState ?? {};
-        persisted.attrState.baseAttrs = encodePersistedRawBaseAttrs(snapshot.baseAttrs);
-      }
-      if (Number.isFinite(snapshot.foundation)) {
-        persisted.progression.foundation = Math.max(0, Math.trunc(snapshot.foundation));
-      }
-      if (Number.isFinite(snapshot.rootFoundation)) {
-        persisted.progression.rootFoundation = Math.max(0, Math.trunc(snapshot.rootFoundation));
-      }
-      if (Number.isFinite(snapshot.combatExp)) {
-        persisted.progression.combatExp = Math.max(0, Math.trunc(snapshot.combatExp));
-      }
-      if (Number.isFinite(snapshot.comprehension)) {
-        persisted.progression.comprehension = Math.max(0, Math.trunc(snapshot.comprehension));
-      }
-      if (Number.isFinite(snapshot.luck)) {
-        persisted.progression.luck = Math.max(0, Math.trunc(snapshot.luck));
-      }
-
-      const realmLv = Number.isFinite(snapshot.realmLv)
-        ? Math.trunc(snapshot.realmLv)
-        : persisted.progression.realm?.realmLv ?? 1;
-
-      const progress = Number.isFinite(snapshot.realm?.progress)
-        ? Math.trunc(snapshot.realm.progress)
-        : persisted.progression.realm?.progress ?? 0;
-      persisted.progression.realm = this.playerProgressionService.createRealmStateFromLevel(realmLv, progress);
-    }
-
-    if (section === 'techniques') {
-      if (Array.isArray(snapshot.techniques)) {
-        persisted.techniques.techniques = snapshot.techniques
-          .filter((entry) => Boolean(entry && typeof entry.techId === 'string' && entry.techId.trim()))
-          .map((entry) => this.hydrateGmTechniqueSnapshot(entry))
-          .sort((left, right) => left.techId.localeCompare(right.techId, 'zh-Hans-CN'));
-        persisted.techniques.revision = Math.max(1, (persisted.techniques.revision ?? 1) + 1);
-      }
-      if (
-        snapshot.cultivatingTechId === undefined ||
-        snapshot.cultivatingTechId === null ||
-        typeof snapshot.cultivatingTechId === 'string'
-      ) {
-        persisted.techniques.cultivatingTechId = snapshot.cultivatingTechId?.trim() || null;
-      }
-      if (Array.isArray(snapshot.autoBattleSkills)) {
-        persisted.combat.autoBattleSkills = snapshot.autoBattleSkills
-          .filter((entry) => Boolean(entry && typeof entry.skillId === 'string' && entry.skillId.trim()))
-          .map((entry) => ({
-            skillId: entry.skillId.trim(),
-            enabled: entry.enabled !== false,
-            skillEnabled: entry.skillEnabled !== false,
-            autoBattleOrder: Number.isFinite(entry.autoBattleOrder)
-              ? Math.max(0, Math.trunc(entry.autoBattleOrder))
-              : undefined,
-          }));
-      }
-    }
-
-    if (section === 'craftSkills') {
-      this.applyCraftSkillSnapshotMutationToPersistence(persisted, snapshot);
-    }
-
-    if (section === 'items') {
-      if (snapshot.inventory && typeof snapshot.inventory === 'object') {
-        if (Number.isFinite(snapshot.inventory.capacity)) {
-          persisted.inventory.capacity = Math.max(DEFAULT_INVENTORY_CAPACITY, Math.trunc(snapshot.inventory.capacity));
-        }
-        if (Array.isArray(snapshot.inventory.items)) {
-          persisted.inventory.items = snapshot.inventory.items
-            .filter((entry) => Boolean(entry && typeof entry.itemId === 'string' && entry.itemId.trim()))
-            .map((entry, index) => this.normalizeGmInventoryItemForSave(persisted.inventory.items[index], entry))
-            .filter((entry): entry is Record<string, unknown> => entry !== null);
-          persisted.inventory.revision = Math.max(1, (persisted.inventory.revision ?? 1) + 1);
-        }
-      }
-      if (snapshot.equipment && typeof snapshot.equipment === 'object') {
-        const currentSlotsByType = new Map(
-          (Array.isArray(persisted.equipment.slots) ? persisted.equipment.slots : [])
-            .map((entry) => [entry?.slot, entry?.item]),
-        );
-        const nextSlots = [];
-        for (const slot of EQUIP_SLOTS) {
-          const item = snapshot.equipment[slot];
-          const currentItem = currentSlotsByType.get(slot);
-          nextSlots.push({
-            slot,
-            item:
-              item && typeof item.itemId === 'string' && item.itemId.trim()
-                ? this.normalizeGmEquipmentItemForSave(currentItem, item)
-                : null,
-          });
-        }
-        persisted.equipment.slots = nextSlots;
-        persisted.equipment.revision = Math.max(1, (persisted.equipment.revision ?? 1) + 1);
-      }
-      if (snapshot.artifacts && typeof snapshot.artifacts === 'object' && Array.isArray(snapshot.artifacts.slots)) {
-        persisted.artifacts ??= { revision: 1, slots: [] };
-        const currentSlotsByType = new Map(
-          (Array.isArray(persisted.artifacts.slots) ? persisted.artifacts.slots : [])
-            .map((entry) => [entry?.slot, entry]),
-        );
-        const submittedSlotsByType = new Map(snapshot.artifacts.slots.map((entry) => [entry?.slot, entry]));
-        persisted.artifacts.slots = ARTIFACT_SLOTS.map((slot) => {
-          const currentSlot = currentSlotsByType.get(slot);
-          const submittedSlot = submittedSlotsByType.get(slot);
-          if (!submittedSlot || typeof submittedSlot !== 'object') {
-            return currentSlot ?? { slot, unlocked: false, enabled: false, qi: 0, maxQi: 0, item: null };
-          }
-          const submittedRecord = submittedSlot as Record<string, any>;
-          const currentRecord = currentSlot && typeof currentSlot === 'object'
-            ? currentSlot as Record<string, any>
-            : null;
-          const item = submittedRecord.item;
-          return {
-            slot,
-            unlocked: submittedRecord.unlocked === true,
-            enabled: submittedRecord.enabled === true,
-            qi: Number.isFinite(submittedRecord.qi) ? Math.max(0, Math.trunc(submittedRecord.qi)) : 0,
-            maxQi: Number.isFinite(submittedRecord.maxQi) ? Math.max(0, Math.trunc(submittedRecord.maxQi)) : 0,
-            item:
-              item && typeof item.itemId === 'string' && item.itemId.trim()
-                ? this.normalizeGmEquipmentItemForSave(currentRecord?.item, item)
-                : null,
-          };
-        });
-        persisted.artifacts.revision = Math.max(1, (persisted.artifacts.revision ?? 1) + 1);
-      }
-    }
-
-    if (section === 'quests' && Array.isArray(snapshot.quests)) {
-      persisted.quests.entries = snapshot.quests.map((entry) => ({
-        ...entry,
-        rewardItemIds: Array.isArray(entry.rewardItemIds) ? entry.rewardItemIds.slice() : [],
-        rewards: Array.isArray(entry.rewards) ? entry.rewards.map((reward) => ({ ...reward })) : [],
-      }));
-      persisted.quests.revision = Math.max(1, (persisted.quests.revision ?? 1) + 1);
-    }
+  applyPlayerSnapshotMutationToPersistence(persisted, snapshot, section) {
+    return applyPlayerSnapshotMutationToPersistenceImpl(this, persisted, snapshot, section);
   }
 
-  private applyCraftSkillSnapshotMutation(next, snapshot): void {
-    for (const key of GM_CRAFT_SKILL_KEYS) {
-      if (snapshot?.[key] === undefined) {
-        continue;
-      }
-      next[key] = this.normalizeGmCraftSkillState(snapshot[key], next[key]);
-      if (key === 'enhancementSkill') {
-        next.enhancementSkillLevel = next.enhancementSkill.level;
-      }
-    }
+  applyCraftSkillSnapshotMutation(next, snapshot) {
+    return applyCraftSkillSnapshotMutationImpl(this, next, snapshot);
   }
 
-  private applyCraftSkillSnapshotMutationToPersistence(persisted, snapshot): void {
-    persisted.progression = persisted.progression ?? {};
-    for (const key of GM_CRAFT_SKILL_KEYS) {
-      if (snapshot?.[key] === undefined) {
-        continue;
-      }
-      persisted.progression[key] = this.normalizeGmCraftSkillState(snapshot[key], persisted.progression[key]);
-      if (key === 'enhancementSkill') {
-        persisted.progression.enhancementSkillLevel = persisted.progression.enhancementSkill.level;
-      }
-    }
+  applyCraftSkillSnapshotMutationToPersistence(persisted, snapshot) {
+    return applyCraftSkillSnapshotMutationToPersistenceImpl(this, persisted, snapshot);
   }
 
-  private normalizeGmCraftSkillState(value: unknown, fallback: unknown) {
-    const record = value && typeof value === 'object' ? value as Record<string, unknown> : {};
-    const fallbackRecord = fallback && typeof fallback === 'object' ? fallback as Record<string, unknown> : {};
-    const rawLevel = record.level ?? fallbackRecord.level;
-    const level = Math.max(1, Math.trunc(Number(rawLevel) || 1));
-    const expToNext = resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level);
-    const exp = Math.min(
-      Math.max(0, Math.trunc(Number(record.exp ?? fallbackRecord.exp) || 0)),
-      Math.max(0, expToNext - 1),
-    );
-    return { level, exp, expToNext };
+  normalizeGmCraftSkillState(value: unknown, fallback: unknown) {
+    return normalizeGmCraftSkillStateImpl(this, value, fallback);
   }
 
   /**
@@ -1865,22 +970,8 @@ export class NativeGmPlayerService {
  */
 
 
-  private repairRuntimeSnapshot(snapshot) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (snapshot.maxHp < 1) {
-      snapshot.maxHp = 1;
-    }
-    if (snapshot.maxQi < 0) {
-      snapshot.maxQi = 0;
-    }
-    snapshot.hp = clamp(snapshot.hp, 0, snapshot.maxHp);
-    snapshot.qi = clamp(snapshot.qi, 0, snapshot.maxQi);
-    if (snapshot.realm) {
-      snapshot.realm = this.playerProgressionService.createRealmStateFromLevel(snapshot.realm.realmLv, snapshot.realm.progress);
-    }
-    this.playerProgressionService.initializePlayer(snapshot);
-    this.playerRuntimeService.rebuildActionState(snapshot, 0);
+  repairRuntimeSnapshot(snapshot) {
+    return repairRuntimeSnapshotImpl(this, snapshot);
   }
   /**
  * hydrateGmTechniqueSnapshot：用服务端模板补全 GM 低频功法快照。
@@ -1889,34 +980,12 @@ export class NativeGmPlayerService {
  */
 
 
-  private hydrateGmTechniqueSnapshot(entry) {
-  // GM 前端保存时会裁掉 layers/skills，属性重算必须在服务端补回模板定义。
-
-    const techId = typeof entry?.techId === 'string' ? entry.techId.trim() : '';
-    if (!techId) {
-      return { ...entry, techId };
-    }
-    const normalized = { ...entry, techId };
-    try {
-      const hydrated = this.contentTemplateRepository.hydrateTechniqueState(normalized);
-      if (hydrated && typeof hydrated === 'object') {
-        return hydrated;
-      }
-    } catch (error) {
-      if (error instanceof Error && /含 artsStrength\/raw\* 旧草稿字段/.test(error.message)) {
-        throw new BadRequestException(`${GM_GENERATED_TECHNIQUE_LEGACY_DRAFT_ERROR}（${techId}）`);
-      }
-      throw error;
-    }
-    return normalized;
-
+  hydrateGmTechniqueSnapshot(entry) {
+    return hydrateGmTechniqueSnapshotImpl(this, entry);
   }
 
-  private buildStarterPersistenceSnapshot(playerId: string): any | null {
-    if (typeof this.playerRuntimeService.buildStarterPersistenceSnapshot !== 'function') {
-      return null;
-    }
-    return this.playerRuntimeService.buildStarterPersistenceSnapshot(playerId);
+  buildStarterPersistenceSnapshot(playerId: string) {
+    return buildStarterPersistenceSnapshotImpl(this, playerId);
   }
 
   private async loadPlayerPersistenceSnapshot(playerId: string): Promise<any | null> {
@@ -1926,7 +995,7 @@ export class NativeGmPlayerService {
     );
   }
 
-  private async savePlayerPersistenceSnapshotDomains(
+  async savePlayerPersistenceSnapshotDomains(
     playerId: string,
     snapshot: any,
     domains: Iterable<string>,
@@ -1968,60 +1037,17 @@ export class NativeGmPlayerService {
     );
   }
 
-  private getGmUpdateProjectionDomains(section: unknown, snapshot: any): string[] {
-    const domains = new Set<string>();
-    const addBasicDomains = () => {
-      domains.add('vitals');
-      domains.add('combat_pref');
-      if (Array.isArray(snapshot?.autoBattleSkills)) {
-        domains.add('auto_battle_skill');
-      }
-      if (Array.isArray(snapshot?.temporaryBuffs)) {
-        domains.add('buff');
-      }
-    };
-
-    if (section === null || section === undefined || section === 'basic') {
-      addBasicDomains();
-    } else if (section === NATIVE_GM_PLAYER_MUTATION_CONTRACT.runtimeQueueSection) {
-      domains.add('world_anchor');
-      domains.add('position_checkpoint');
-      domains.add('vitals');
-      domains.add('combat_pref');
-    } else if (section === 'realm') {
-      domains.add('progression');
-      domains.add('attr');
-      if (snapshot?.bodyTraining && typeof snapshot.bodyTraining === 'object') {
-        domains.add('body_training');
-      }
-    } else if (section === 'buffs') {
-      domains.add('buff');
-    } else if (section === 'techniques') {
-      domains.add('technique');
-      domains.add('combat_pref');
-      if (Array.isArray(snapshot?.autoBattleSkills)) {
-        domains.add('auto_battle_skill');
-      }
-    } else if (section === 'craftSkills') {
-      domains.add('progression');
-    } else if (section === 'items') {
-      domains.add('inventory');
-      domains.add('equipment');
-      domains.add('artifact');
-    } else if (section === 'quests') {
-      domains.add('quest');
-    }
-
-    return Array.from(domains);
+  getGmUpdateProjectionDomains(section: unknown, snapshot: any) {
+    return getGmUpdateProjectionDomainsImpl(this, section, snapshot);
   }
 
-  private async listPlayerPersistenceSnapshots(): Promise<PersistedPlayerEntryLike[]> {
+  async listPlayerPersistenceSnapshots(): Promise<PersistedPlayerEntryLike[]> {
     return this.playerDomainPersistenceService.listProjectedSnapshots(
       (targetPlayerId) => this.buildStarterPersistenceSnapshot(targetPlayerId),
     );
   }
 
-  private async listScopedOfflinePlayerPersistenceSnapshots(
+  async listScopedOfflinePlayerPersistenceSnapshots(
     playerIds: string[],
     runtimePlayerIds: Set<string>,
   ): Promise<PersistedPlayerEntryLike[]> {
@@ -2039,23 +1065,8 @@ export class NativeGmPlayerService {
     return entries;
   }
 
-  private normalizePlayerIdScope(options?: GmPlayerScopeOptions): string[] {
-    const source = Array.isArray(options?.playerIds)
-      ? options?.playerIds
-      : Array.isArray(options?.targetPlayerIds)
-        ? options?.targetPlayerIds
-        : [];
-    const seen = new Set<string>();
-    const normalized: string[] = [];
-    for (const raw of source) {
-      const playerId = typeof raw === 'string' ? raw.trim() : '';
-      if (!playerId || seen.has(playerId) || isNativeGmBotPlayerId(playerId)) {
-        continue;
-      }
-      seen.add(playerId);
-      normalized.push(playerId);
-    }
-    return normalized;
+  normalizePlayerIdScope(options?: GmPlayerScopeOptions) {
+    return normalizePlayerIdScopeImpl(this, options);
   }
   /**
  * mutateManagedPlayer：统一处理玩家快照的持久化与运行态回写。
@@ -2141,26 +1152,13 @@ export class NativeGmPlayerService {
   }
 
   /** 构建针对玩家的 GM 审计条目；统一 target_type=player。 */
-  private buildPlayerAuditEntry(
-    playerId: string,
+  buildPlayerAuditEntry(playerId: string,
     audit: GmMutationAuditOptions,
     before: unknown,
     after: unknown,
     success: boolean,
-    errorMessage: string | null,
-  ): GmAuditLogEntry {
-    const delta = audit.describeDelta ? safeDescribe(audit.describeDelta, { before, after }) : undefined;
-    return {
-      op: audit.op,
-      targetType: 'player',
-      targetId: playerId,
-      actor: audit.actor ?? { tokenRev: null, ip: null, userAgent: null, receivedAt: Date.now() },
-      before,
-      after,
-      delta,
-      success,
-      errorMessage,
-    };
+    errorMessage: string | null,) {
+    return buildPlayerAuditEntryImpl(this, playerId, audit, before, after, success, errorMessage);
   }
 
   /** 落 gm_audit_log；service 不可用时仅打 warn 不抛。 */
@@ -2181,7 +1179,7 @@ export class NativeGmPlayerService {
  */
 
 
-  private async cleanupManagedPlayerInvalidItems(playerId: string) {
+  async cleanupManagedPlayerInvalidItems(playerId: string) {
     let summary = {
       inventoryStacksRemoved: 0,
       marketStorageStacksRemoved: 0,
@@ -2226,7 +1224,7 @@ export class NativeGmPlayerService {
     return summary;
   }
 
-  private async migrateManagedPlayerRecoveryPills(playerId: string): Promise<RecoveryPillMigrationSummary> {
+  async migrateManagedPlayerRecoveryPills(playerId: string): Promise<RecoveryPillMigrationSummary> {
     const summary = createEmptyRecoveryPillMigrationSummary();
 
     const runtime = this.playerRuntimeService.snapshot(playerId);
@@ -2269,37 +1267,8 @@ export class NativeGmPlayerService {
     return summary;
   }
 
-  private migrateRecoveryPillsFromSnapshot(snapshot: any): RecoveryPillMigrationSummary {
-    const summary = createEmptyRecoveryPillMigrationSummary();
-
-    const inventoryItems = Array.isArray(snapshot.inventory?.items) ? snapshot.inventory.items : [];
-    const migratedInventory = this.migrateRecoveryPillItemArray(inventoryItems);
-    if (migratedInventory.changed && snapshot.inventory) {
-      snapshot.inventory.items = migratedInventory.items;
-      summary.inventoryStacksMigrated = migratedInventory.stacksMigrated;
-      summary.inventoryItemsMigrated = migratedInventory.itemsMigrated;
-      if (Number.isFinite(snapshot.inventory.revision)) {
-        snapshot.inventory.revision = Math.max(1, Math.trunc(snapshot.inventory.revision) + 1);
-      }
-    }
-
-    const equipmentSlots = Array.isArray(snapshot.equipment?.slots) ? snapshot.equipment.slots : [];
-    for (const entry of equipmentSlots) {
-      if (!entry?.item) {
-        continue;
-      }
-      const migrated = this.createMigratedRecoveryPillItem(entry.item);
-      if (!migrated) {
-        continue;
-      }
-      entry.item = migrated;
-      summary.equipmentMigrated += 1;
-    }
-    if (summary.equipmentMigrated > 0 && snapshot.equipment && Number.isFinite(snapshot.equipment.revision)) {
-      snapshot.equipment.revision = Math.max(1, Math.trunc(snapshot.equipment.revision) + 1);
-    }
-
-    return summary;
+  migrateRecoveryPillsFromSnapshot(snapshot: any) {
+    return migrateRecoveryPillsFromSnapshotImpl(this, snapshot);
   }
 
   private async migrateRecoveryPillsFromMarketStorage(playerId: string): Promise<RecoveryPillMigrationSummary> {
@@ -2323,50 +1292,12 @@ export class NativeGmPlayerService {
     return summary;
   }
 
-  private migrateRecoveryPillItemArray(items: any[]) {
-    const nextItems: any[] = [];
-    let changed = false;
-    let stacksMigrated = 0;
-    let itemsMigrated = 0;
-    for (const item of items) {
-      const migrated = this.createMigratedRecoveryPillItem(item);
-      if (!migrated) {
-        mergeItemStackInto(nextItems, item);
-        continue;
-      }
-      changed = true;
-      stacksMigrated += 1;
-      itemsMigrated += Math.max(1, Math.trunc(Number(item?.count ?? 1)));
-      mergeItemStackInto(nextItems, migrated);
-    }
-    return {
-      changed,
-      items: nextItems,
-      stacksMigrated,
-      itemsMigrated,
-    };
+  migrateRecoveryPillItemArray(items: any[]) {
+    return migrateRecoveryPillItemArrayImpl(this, items);
   }
 
-  private createMigratedRecoveryPillItem(item: any): any | null {
-    const sourceItemId = typeof item?.itemId === 'string' ? item.itemId.trim() : '';
-    const targetItemId = resolveRecoveryPillMigrationTarget(sourceItemId);
-    if (!targetItemId) {
-      return null;
-    }
-    const count = Math.max(1, Math.trunc(Number(item?.count ?? 1)));
-    const migrated = this.contentTemplateRepository.createItem(targetItemId, count)
-      ?? {
-        ...item,
-        itemId: targetItemId,
-        count,
-      };
-    if (typeof item?.itemInstanceId === 'string' && item.itemInstanceId.trim()) {
-      migrated.itemInstanceId = item.itemInstanceId.trim();
-    }
-    if (Number.isFinite(Number(item?.enhanceLevel))) {
-      migrated.enhanceLevel = Math.max(0, Math.trunc(Number(item.enhanceLevel)));
-    }
-    return migrated;
+  createMigratedRecoveryPillItem(item: any) {
+    return createMigratedRecoveryPillItemImpl(this, item);
   }
   /**
  * cleanupInvalidItemsFromSnapshot：清理背包与装备中的无效物品。
@@ -2375,35 +1306,8 @@ export class NativeGmPlayerService {
  */
 
 
-  private cleanupInvalidItemsFromSnapshot(snapshot) {
-    const inventoryItems = Array.isArray(snapshot.inventory?.items) ? snapshot.inventory.items : [];
-    const nextInventoryItems = inventoryItems.filter((entry) => this.isValidItem(entry?.itemId));
-    const inventoryStacksRemoved = inventoryItems.length - nextInventoryItems.length;
-    if (inventoryStacksRemoved > 0 && snapshot.inventory) {
-      snapshot.inventory.items = nextInventoryItems;
-      if (Number.isFinite(snapshot.inventory.revision)) {
-        snapshot.inventory.revision = Math.max(1, Math.trunc(snapshot.inventory.revision) + 1);
-      }
-    }
-
-    let equipmentRemoved = 0;
-    const equipmentSlots = Array.isArray(snapshot.equipment?.slots) ? snapshot.equipment.slots : [];
-    for (const entry of equipmentSlots) {
-      if (!entry?.item || this.isValidItem(entry.item.itemId)) {
-        continue;
-      }
-      entry.item = null;
-      equipmentRemoved += 1;
-    }
-    if (equipmentRemoved > 0 && snapshot.equipment && Number.isFinite(snapshot.equipment.revision)) {
-      snapshot.equipment.revision = Math.max(1, Math.trunc(snapshot.equipment.revision) + 1);
-    }
-
-    return {
-      inventoryStacksRemoved,
-      marketStorageStacksRemoved: 0,
-      equipmentRemoved,
-    };
+  cleanupInvalidItemsFromSnapshot(snapshot) {
+    return cleanupInvalidItemsFromSnapshotImpl(this, snapshot);
   }
   /**
  * cleanupInvalidMarketStorage：清理坊市托管仓中的无效物品。
@@ -2437,11 +1341,8 @@ export class NativeGmPlayerService {
  */
 
 
-  private isManagedPlayerMissingError(error: unknown) {
-    if (error instanceof NotFoundException) {
-      return true;
-    }
-    return error instanceof Error && error.message.includes('目标玩家不存在');
+  isManagedPlayerMissingError(error: unknown) {
+    return isManagedPlayerMissingErrorImpl(this, error);
   }
   /**
  * isValidItem：判断道具是否仍存在于内容模板中。
@@ -2450,17 +1351,12 @@ export class NativeGmPlayerService {
  */
 
 
-  private isValidItem(itemId: unknown) {
-    return typeof itemId === 'string'
-      && itemId.trim().length > 0
-      && (this.contentTemplateRepository.getItemName(itemId.trim()) !== null || isLegacyRecoveryPillItemId(itemId));
+  isValidItem(itemId: unknown) {
+    return isValidItemImpl(this, itemId);
   }
 
-  private readMarketStorageCleanupItemId(entry: any): unknown {
-    if (entry?.item && typeof entry.item === 'object') {
-      return entry.item.itemId;
-    }
-    return entry?.itemId;
+  readMarketStorageCleanupItemId(entry: any) {
+    return readMarketStorageCleanupItemIdImpl(this, entry);
   }
   /**
  * buildBodyTrainingState：构建炼体状态。
@@ -2470,15 +1366,8 @@ export class NativeGmPlayerService {
  */
 
 
-  private buildBodyTrainingState(current, level: number) {
-    const normalizedLevel = Math.max(0, Math.trunc(level));
-    const preservedExp = this.normalizeNonNegativeInt(current?.exp);
-    const expToNext = getBodyTrainingExpToNext(normalizedLevel);
-
-    return normalizeBodyTrainingState({
-      level: normalizedLevel,
-      exp: Math.min(preservedExp, Math.max(0, expToNext - 1)),
-    });
+  buildBodyTrainingState(current, level: number) {
+    return buildBodyTrainingStateImpl(this, current, level);
   }
   /**
  * parseBodyTrainingLevel：解析炼体等级输入。
@@ -2487,12 +1376,8 @@ export class NativeGmPlayerService {
  */
 
 
-  private parseBodyTrainingLevel(value: unknown) {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric) || numeric < 0 || !Number.isInteger(numeric)) {
-      return null;
-    }
-    return Math.trunc(numeric);
+  parseBodyTrainingLevel(value: unknown) {
+    return parseBodyTrainingLevelImpl(this, value);
   }
   /**
  * parseCounterDelta：解析整数增量。
@@ -2502,12 +1387,8 @@ export class NativeGmPlayerService {
  */
 
 
-  private parseCounterDelta(value: unknown, label: string) {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric) || !Number.isInteger(numeric)) {
-      throw new BadRequestException(`${label}必须是整数`);
-    }
-    return Math.trunc(numeric);
+  parseCounterDelta(value: unknown, label: string) {
+    return parseCounterDeltaImpl(this, value, label);
   }
   /**
  * parseNonNegativeInteger：解析非负整数。
@@ -2517,12 +1398,8 @@ export class NativeGmPlayerService {
  */
 
 
-  private parseNonNegativeInteger(value: unknown, label: string) {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric) || !Number.isInteger(numeric) || numeric < 0) {
-      throw new BadRequestException(`${label}必须是非负整数`);
-    }
-    return Math.trunc(numeric);
+  parseNonNegativeInteger(value: unknown, label: string) {
+    return parseNonNegativeIntegerImpl(this, value, label);
   }
   /**
  * applyCounterDelta：把整数增量应用到计数值。
@@ -2532,8 +1409,8 @@ export class NativeGmPlayerService {
  */
 
 
-  private applyCounterDelta(currentValue: unknown, amount: number) {
-    return Math.max(0, this.normalizeNonNegativeInt(currentValue) + amount);
+  applyCounterDelta(currentValue: unknown, amount: number) {
+    return applyCounterDeltaImpl(this, currentValue, amount);
   }
   /**
  * normalizeNonNegativeInt：归一化非负整数。
@@ -2542,8 +1419,8 @@ export class NativeGmPlayerService {
  */
 
 
-  private normalizeNonNegativeInt(value: unknown) {
-    return Math.max(0, Math.trunc(Number(value) || 0));
+  normalizeNonNegativeInt(value: unknown) {
+    return normalizeNonNegativeIntImpl(this, value);
   }
   /**
  * calculateCombatExpCompensationForRuntime：计算运行态战斗经验补偿。
@@ -2552,10 +1429,8 @@ export class NativeGmPlayerService {
  */
 
 
-  private calculateCombatExpCompensationForRuntime(player) {
-    const realmExpToNext = this.normalizeNonNegativeInt(player.realm?.progressToNext);
-    const bodyTrainingExpToNext = normalizeBodyTrainingState(player.bodyTraining).expToNext;
-    return realmExpToNext + this.normalizeNonNegativeInt(bodyTrainingExpToNext);
+  calculateCombatExpCompensationForRuntime(player) {
+    return calculateCombatExpCompensationForRuntimeImpl(this, player);
   }
   /**
  * calculateCombatExpCompensationForPersistence：计算持久化快照战斗经验补偿。
@@ -2564,13 +1439,8 @@ export class NativeGmPlayerService {
  */
 
 
-  private calculateCombatExpCompensationForPersistence(snapshot) {
-    const realm = this.playerProgressionService.createRealmStateFromLevel(
-      snapshot.progression?.realm?.realmLv ?? 1,
-      snapshot.progression?.realm?.progress ?? 0,
-    );
-    const bodyTraining = normalizeBodyTrainingState(snapshot.progression?.bodyTraining);
-    return this.normalizeNonNegativeInt(realm.progressToNext) + this.normalizeNonNegativeInt(bodyTraining.expToNext);
+  calculateCombatExpCompensationForPersistence(snapshot) {
+    return calculateCombatExpCompensationForPersistenceImpl(this, snapshot);
   }
   /**
  * calculateFoundationCompensationForRuntime：计算运行态底蕴补偿。
@@ -2579,8 +1449,8 @@ export class NativeGmPlayerService {
  */
 
 
-  private calculateFoundationCompensationForRuntime(player) {
-    return this.normalizeNonNegativeInt(player.realm?.progressToNext) * 5;
+  calculateFoundationCompensationForRuntime(player) {
+    return calculateFoundationCompensationForRuntimeImpl(this, player);
   }
   /**
  * calculateFoundationCompensationForPersistence：计算持久化快照底蕴补偿。
@@ -2589,12 +1459,8 @@ export class NativeGmPlayerService {
  */
 
 
-  private calculateFoundationCompensationForPersistence(snapshot) {
-    const realm = this.playerProgressionService.createRealmStateFromLevel(
-      snapshot.progression?.realm?.realmLv ?? 1,
-      snapshot.progression?.realm?.progress ?? 0,
-    );
-    return this.normalizeNonNegativeInt(realm.progressToNext) * 5;
+  calculateFoundationCompensationForPersistence(snapshot) {
+    return calculateFoundationCompensationForPersistenceImpl(this, snapshot);
   }
   /**
  * hasInvalidItems：判断是否存在无效物品清理结果。
@@ -2603,10 +1469,8 @@ export class NativeGmPlayerService {
  */
 
 
-  private hasInvalidItems(summary: { inventoryStacksRemoved: number; marketStorageStacksRemoved: number; equipmentRemoved: number }) {
-    return summary.inventoryStacksRemoved > 0
-      || summary.marketStorageStacksRemoved > 0
-      || summary.equipmentRemoved > 0;
+  hasInvalidItems(summary: { inventoryStacksRemoved: number; marketStorageStacksRemoved: number; equipmentRemoved: number }) {
+    return hasInvalidItemsImpl(this, summary);
   }
   /**
  * toManagedPlayerSummary：执行toManaged玩家摘要相关逻辑。
@@ -2616,53 +1480,8 @@ export class NativeGmPlayerService {
  */
 
 
-  private async toManagedPlayerSummary(snapshot, account = null) {
-    const player = this.toLegacyPlayerState(snapshot);
-    const roleName = resolveManagedPlayerName(player, account, player.id);
-    const displayName = resolveManagedPlayerDisplayName(player, account, roleName);
-    const meta = {
-      userId: account?.userId,
-      isBot: player.isBot === true,
-      online: player.online === true,
-      inWorld: player.inWorld !== false,
-      dirtyFlags: snapshot.persistentRevision > snapshot.persistedRevision ? ['persistence'] : [],
-    };
-    const riskView = await buildNativeGmPlayerRiskView(account, {
-      id: player.id,
-      name: roleName,
-      autoBattle: player.autoBattle,
-      autoBattleStationary: player.autoBattleStationary === true,
-      autoRetaliate: player.autoRetaliate !== false,
-      meta,
-    }, { pool: this.databasePoolProvider?.getPool('gm-risk') ?? null });
-
-    return {
-      id: player.id,
-      playerNo: account?.playerNo ?? null,
-      name: roleName,
-      roleName,
-      displayName,
-      accountName: account?.username,
-      mapId: player.mapId,
-      mapName: this.resolveMapName(player.mapId),
-      realmLv: player.realmLv ?? 1,
-      realmLabel: player.realm?.displayName ?? player.realmName ?? '凡胎',
-      x: player.x,
-      y: player.y,
-      hp: player.hp,
-      maxHp: player.maxHp,
-      qi: player.qi,
-      dead: player.dead,
-      autoBattle: player.autoBattle,
-      autoBattleStationary: player.autoBattleStationary === true,
-      autoRetaliate: player.autoRetaliate !== false,
-      accountStatus: riskView.accountStatus,
-      riskScore: riskView.riskScore,
-      riskLevel: riskView.riskLevel,
-      riskTags: riskView.riskTags,
-      isRiskAdmin: riskView.isRiskAdmin,
-      meta,
-    };
+  async toManagedPlayerSummary(snapshot, account = null) {
+    return toManagedPlayerSummaryImpl(this, snapshot, account);
   }
   /**
  * toManagedPlayerRecord：执行toManaged玩家Record相关逻辑。
@@ -2673,19 +1492,8 @@ export class NativeGmPlayerService {
  */
 
 
-  private async toManagedPlayerRecord(snapshot, persistedSnapshot, account = null, databaseTables: GmPlayerDatabaseTableViewLike[] = []) {
-    const summary = await this.toManagedPlayerSummary(snapshot, account);
-    const monthCard = await this.loadManagedMonthCardView(snapshot.playerId);
-
-    return {
-      ...summary,
-      account: buildManagedAccountView(account, summary.meta.online === true),
-      riskReport: (await buildNativeGmPlayerRiskView(account, summary, { pool: this.databasePoolProvider?.getPool('gm-risk') ?? null })).riskReport,
-      snapshot: this.toLegacyPlayerState(snapshot),
-      persistedSnapshot: persistedSnapshot ?? null,
-      databaseTables,
-      monthCard,
-    };
+  async toManagedPlayerRecord(snapshot, persistedSnapshot, account = null, databaseTables: GmPlayerDatabaseTableViewLike[] = []) {
+    return toManagedPlayerRecordImpl(this, snapshot, persistedSnapshot, account, databaseTables);
   }
   /**
  * toManagedPlayerRecordFromPersistence：判断toManaged玩家RecordFromPersistence是否满足条件。
@@ -2696,76 +1504,18 @@ export class NativeGmPlayerService {
  */
 
 
-  private async toManagedPlayerRecordFromPersistence(
-    playerId,
+  async toManagedPlayerRecordFromPersistence(playerId,
     persistedSnapshot,
     account = null,
-    databaseTables: GmPlayerDatabaseTableViewLike[] = [],
-  ) {
-    const player = this.toLegacyPlayerStateFromPersistence(playerId, persistedSnapshot);
-    const monthCard = await this.loadManagedMonthCardView(playerId);
-    const roleName = resolveManagedPlayerName(player, account, '未知角色');
-    const displayName = resolveManagedPlayerDisplayName(player, account, roleName);
-    const meta = {
-      userId: account?.userId,
-      isBot: player.isBot === true,
-      online: false,
-      inWorld: false,
-      dirtyFlags: [],
-    };
-    const riskView = await buildNativeGmPlayerRiskView(account, {
-      id: player.id,
-      name: roleName,
-      autoBattle: player.autoBattle,
-      autoBattleStationary: player.autoBattleStationary === true,
-      autoRetaliate: player.autoRetaliate !== false,
-      meta,
-    }, { pool: this.databasePoolProvider?.getPool('gm-risk') ?? null });
-
-    return {
-      id: player.id,
-      playerNo: account?.playerNo ?? null,
-      name: roleName,
-      roleName,
-      displayName,
-      accountName: account?.username,
-      mapId: player.mapId,
-      mapName: this.resolveMapName(player.mapId),
-      realmLv: player.realmLv ?? 1,
-      realmLabel: player.realm?.displayName ?? player.realmName ?? '凡胎',
-      x: player.x,
-      y: player.y,
-      hp: player.hp,
-      maxHp: player.maxHp,
-      qi: player.qi,
-      dead: player.dead,
-      autoBattle: player.autoBattle,
-      autoBattleStationary: player.autoBattleStationary === true,
-      autoRetaliate: player.autoRetaliate !== false,
-      accountStatus: riskView.accountStatus,
-      riskScore: riskView.riskScore,
-      riskLevel: riskView.riskLevel,
-      riskTags: riskView.riskTags,
-      isRiskAdmin: riskView.isRiskAdmin,
-      meta,
-      account: buildManagedAccountView(account, false),
-      riskReport: riskView.riskReport,
-      snapshot: player,
-      persistedSnapshot,
-      databaseTables,
-      monthCard,
-    };
+    databaseTables: GmPlayerDatabaseTableViewLike[] = [],) {
+    return toManagedPlayerRecordFromPersistenceImpl(this, playerId, persistedSnapshot, account, databaseTables);
   }
 
-  private async loadManagedMonthCardView(playerId: string) {
-    if (!this.activityPersistenceService?.isEnabled()) {
-      return null;
-    }
-    const record = await this.activityPersistenceService.loadMonthCard(playerId);
-    return record ? this.toManagedMonthCardView(record) : null;
+  async loadManagedMonthCardView(playerId: string) {
+    return loadManagedMonthCardViewImpl(this, playerId);
   }
 
-  private toManagedMonthCardView(record: {
+  toManagedMonthCardView(record: {
     startAt: number;
     expireAt: number;
     totalPoolMerit: number;
@@ -2774,59 +1524,11 @@ export class NativeGmPlayerService {
     dailySignInFixedMeritBonus?: number;
     lastClaimDate: string | null;
   }) {
-    return {
-      totalPoolMerit: Math.max(0, Math.trunc(Number(record.totalPoolMerit) || 0)),
-      remainingPoolMerit: Math.max(0, Math.trunc(Number(record.remainingPoolMerit) || 0)),
-      startAt: record.startAt > 0 ? Math.trunc(record.startAt) : null,
-      expireAt: record.expireAt > 0 ? Math.trunc(record.expireAt) : null,
-      lastClaimDate: record.lastClaimDate ?? null,
-      eternalEnabled: record.eternalEnabled === true,
-      dailySignInFixedMeritBonus: Math.max(0, Math.trunc(Number(record.dailySignInFixedMeritBonus) || 0)),
-    };
+    return toManagedMonthCardViewImpl(this, record);
   }
 
-  private async loadPlayerDatabaseTables(playerId: string): Promise<GmPlayerDatabaseTableViewLike[]> {
-    const pool = this.databasePoolProvider?.getPool('gm-player-detail');
-    if (!pool) {
-      return [];
-    }
-
-    const databaseTables: GmPlayerDatabaseTableViewLike[] = [];
-    for (const table of GM_PLAYER_DATABASE_TABLES) {
-      const orderByClause = GM_PLAYER_DATABASE_TABLE_ORDER_BY[table] ?? '';
-      try {
-        const result = await pool.query<{ payload?: unknown }>(
-          `
-            SELECT to_jsonb(t) AS payload
-            FROM (
-              SELECT *
-              FROM ${table}
-              WHERE player_id = $1
-              ${orderByClause}
-            ) AS t
-          `,
-          [playerId],
-        );
-        const rows = Array.isArray(result.rows)
-          ? result.rows.map((row) => row?.payload ?? null)
-          : [];
-        databaseTables.push({
-          table,
-          rowCount: rows.length,
-          payload: rows.length === 0 ? null : rows.length === 1 ? rows[0] : rows,
-        });
-      } catch (error: unknown) {
-        databaseTables.push({
-          table,
-          rowCount: 0,
-          payload: {
-            error: error instanceof Error ? error.message : String(error),
-          },
-        });
-      }
-    }
-
-    return databaseTables;
+  async loadPlayerDatabaseTables(playerId: string) {
+    return loadPlayerDatabaseTablesImpl(this, playerId);
   }
   /**
  * toLegacyPlayerState：执行toLegacy玩家状态相关逻辑。
@@ -2835,97 +1537,8 @@ export class NativeGmPlayerService {
  */
 
 
-  private toLegacyPlayerState(snapshot): any {
-    return {
-      id: snapshot.playerId,
-      name: snapshot.name,
-      displayName: snapshot.displayName,
-      isBot: isNativeGmBotPlayerId(snapshot.playerId),
-      online: typeof snapshot.sessionId === 'string' && snapshot.sessionId.length > 0,
-      inWorld: typeof snapshot.instanceId === 'string' && snapshot.instanceId.length > 0,
-      senseQiActive: snapshot.combat.senseQiActive === true,
-      autoRetaliate: snapshot.combat.autoRetaliate !== false,
-      autoBattleStationary: snapshot.combat.autoBattleStationary === true,
-      allowAoePlayerHit: snapshot.combat.allowAoePlayerHit === true,
-      autoIdleCultivation: snapshot.combat.autoIdleCultivation !== false,
-      autoSwitchCultivation: snapshot.combat.autoSwitchCultivation === true,
-      cultivationActive: snapshot.combat.cultivationActive === true,
-      realmLv: snapshot.realm?.realmLv ?? 1,
-      realmName: snapshot.realm?.displayName ?? snapshot.realm?.name ?? '凡胎',
-      realmStage: typeof snapshot.realm?.stage === 'string' ? snapshot.realm.stage : undefined,
-      realmReview: snapshot.realm?.review,
-      breakthroughReady: snapshot.realm?.breakthroughReady === true,
-      heavenGate: snapshot.heavenGate,
-      spiritualRoots: snapshot.spiritualRoots,
-      boneAgeBaseYears: snapshot.boneAgeBaseYears,
-      lifeElapsedTicks: snapshot.lifeElapsedTicks,
-      lifespanYears: snapshot.lifespanYears,
-      mapId: snapshot.templateId,
-      x: snapshot.x,
-      y: snapshot.y,
-      facing: snapshot.facing,
-      viewRange: Math.max(1, Math.round(snapshot.attrs.numericStats.viewRange)),
-      hp: snapshot.hp,
-      maxHp: snapshot.maxHp,
-      qi: snapshot.qi,
-      dead: snapshot.hp <= 0,
-      foundation: snapshot.foundation,
-      rootFoundation: Math.max(0, Math.trunc(Number(snapshot.rootFoundation ?? 0) || 0)),
-      combatExp: snapshot.combatExp,
-      comprehension: snapshot.comprehension ?? 0,
-      luck: snapshot.luck ?? 0,
-      bodyTraining: normalizeBodyTrainingState(snapshot.bodyTraining),
-      alchemySkill: this.normalizeGmCraftSkillState(snapshot.alchemySkill, undefined),
-      forgingSkill: this.normalizeGmCraftSkillState(snapshot.forgingSkill, undefined),
-      enhancementSkill: this.normalizeGmCraftSkillState(snapshot.enhancementSkill, { level: snapshot.enhancementSkillLevel ?? 1 }),
-      transmissionSkill: this.normalizeGmCraftSkillState(snapshot.transmissionSkill, undefined),
-      formationSkill: this.normalizeGmCraftSkillState(snapshot.formationSkill, undefined),
-      gatherSkill: this.normalizeGmCraftSkillState(snapshot.gatherSkill, undefined),
-      miningSkill: this.normalizeGmCraftSkillState(snapshot.miningSkill, undefined),
-      buildingSkill: this.normalizeGmCraftSkillState(snapshot.buildingSkill, undefined),
-      enhancementSkillLevel: Math.max(1, Math.trunc(Number(snapshot.enhancementSkill?.level ?? snapshot.enhancementSkillLevel) || 1)),
-      baseAttrs: normalizeRawBaseAttrs(snapshot.attrs.rawBaseAttrs),
-      bonuses: [],
-      temporaryBuffs: snapshot.buffs.buffs.map((entry) => materializeRuntimeTemporaryBuff(entry)),
-      finalAttrs: { ...snapshot.attrs.finalAttrs },
-      numericStats: { ...snapshot.attrs.numericStats },
-      ratioDivisors: cloneRatioDivisors(snapshot.attrs.ratioDivisors),
-      inventory: {
-        capacity: snapshot.inventory.capacity,
-        items: snapshot.inventory.items.map((entry) => ({ ...entry })),
-      },
-      equipment: toLegacyEquipmentSlots(snapshot.equipment.slots),
-      artifacts: toLegacyArtifactSlots(snapshot.artifacts),
-      techniques: snapshot.techniques.techniques.map((entry) => ({ ...entry })),
-      actions: snapshot.actions.actions.map((entry) => ({ ...entry })),
-      quests: snapshot.quests.quests.map((entry) => ({
-        ...entry,
-        rewardItemIds: Array.isArray(entry.rewardItemIds) ? entry.rewardItemIds.slice() : [],
-        rewards: Array.isArray(entry.rewards) ? entry.rewards.map((reward) => ({ ...reward })) : [],
-      })),
-      autoBattle: snapshot.combat.autoBattle === true,
-      autoBattleSkills: snapshot.combat.autoBattleSkills.map((entry) => ({ ...entry })),
-      combatTargetId: snapshot.combat.combatTargetId ?? undefined,
-      combatTargetLocked: snapshot.combat.combatTargetLocked === true,
-      cultivatingTechId: snapshot.techniques.cultivatingTechId ?? undefined,
-      pendingLogbookMessages: Array.isArray(snapshot.pendingLogbookMessages)
-        ? snapshot.pendingLogbookMessages.map((entry) => ({ ...entry }))
-        : [],
-      realm: snapshot.realm
-        ? {
-            ...snapshot.realm,
-            heavenGate: snapshot.realm.heavenGate ? { ...snapshot.realm.heavenGate } : snapshot.realm.heavenGate,
-            breakthrough: snapshot.realm.breakthrough
-              ? {
-                  ...snapshot.realm.breakthrough,
-                  requiredItems: Array.isArray(snapshot.realm.breakthrough.requiredItems)
-                    ? snapshot.realm.breakthrough.requiredItems.map((entry) => ({ ...entry }))
-                    : [],
-                }
-              : snapshot.realm.breakthrough,
-          }
-        : undefined,
-    };
+  toLegacyPlayerState(snapshot) {
+    return toLegacyPlayerStateImpl(this, snapshot);
   }
   /**
  * toLegacyPlayerStateFromPersistence：判断toLegacy玩家状态FromPersistence是否满足条件。
@@ -2935,83 +1548,8 @@ export class NativeGmPlayerService {
  */
 
 
-  private toLegacyPlayerStateFromPersistence(playerId, snapshot): any {
-    const realm = this.playerProgressionService.createRealmStateFromLevel(
-      snapshot.progression?.realm?.realmLv ?? 1,
-      snapshot.progression?.realm?.progress ?? 0,
-    );
-
-    return {
-      id: playerId,
-      name: snapshot.name,
-      displayName: snapshot.displayName,
-      isBot: isNativeGmBotPlayerId(playerId),
-      mapId: snapshot.placement.templateId,
-      x: snapshot.placement.x,
-      y: snapshot.placement.y,
-      facing: snapshot.placement.facing,
-      viewRange: VIEW_RADIUS,
-      hp: snapshot.vitals.hp,
-      maxHp: snapshot.vitals.maxHp,
-      qi: snapshot.vitals.qi,
-      dead: snapshot.vitals.hp <= 0,
-      autoBattle: snapshot.combat.autoBattle === true,
-      autoRetaliate: snapshot.combat.autoRetaliate !== false,
-      autoBattleStationary: snapshot.combat.autoBattleStationary === true,
-      allowAoePlayerHit: snapshot.combat.allowAoePlayerHit === true,
-      autoIdleCultivation: snapshot.combat.autoIdleCultivation !== false,
-      autoSwitchCultivation: snapshot.combat.autoSwitchCultivation === true,
-      senseQiActive: snapshot.combat.senseQiActive === true,
-      realmLv: realm.realmLv,
-      realmName: realm.displayName,
-      realmStage: realm.stage,
-      realmReview: realm.review,
-      breakthroughReady: realm.breakthroughReady,
-      heavenGate: snapshot.progression.heavenGate ?? null,
-      spiritualRoots: snapshot.progression.spiritualRoots ?? null,
-      boneAgeBaseYears: snapshot.progression.boneAgeBaseYears,
-      lifeElapsedTicks: snapshot.progression.lifeElapsedTicks,
-      lifespanYears: snapshot.progression.lifespanYears,
-      foundation: snapshot.progression.foundation,
-      rootFoundation: Math.max(0, Math.trunc(Number(snapshot.progression.rootFoundation ?? 0) || 0)),
-      combatExp: snapshot.progression.combatExp,
-      comprehension: snapshot.progression.comprehension ?? 0,
-      luck: snapshot.progression.luck ?? 0,
-      bodyTraining: normalizeBodyTrainingState(snapshot.progression.bodyTraining),
-      alchemySkill: this.normalizeGmCraftSkillState(snapshot.progression.alchemySkill, undefined),
-      forgingSkill: this.normalizeGmCraftSkillState(snapshot.progression.forgingSkill, undefined),
-      enhancementSkill: this.normalizeGmCraftSkillState(snapshot.progression.enhancementSkill, { level: snapshot.progression.enhancementSkillLevel ?? 1 }),
-      transmissionSkill: this.normalizeGmCraftSkillState(snapshot.progression.transmissionSkill, undefined),
-      formationSkill: this.normalizeGmCraftSkillState(snapshot.progression.formationSkill, undefined),
-      gatherSkill: this.normalizeGmCraftSkillState(snapshot.progression.gatherSkill, undefined),
-      miningSkill: this.normalizeGmCraftSkillState(snapshot.progression.miningSkill, undefined),
-      buildingSkill: this.normalizeGmCraftSkillState(snapshot.progression.buildingSkill, undefined),
-      enhancementSkillLevel: Math.max(1, Math.trunc(Number(snapshot.progression.enhancementSkill?.level ?? snapshot.progression.enhancementSkillLevel) || 1)),
-      baseAttrs: decodePersistedRawBaseAttrs(snapshot.attrState?.baseAttrs),
-      bonuses: [],
-      temporaryBuffs: snapshot.buffs.buffs.map((entry) => materializeRuntimeTemporaryBuff(entry)),
-      inventory: {
-        capacity: snapshot.inventory.capacity,
-        items: Array.isArray(snapshot.inventory.items) ? snapshot.inventory.items.map((entry) => ({ ...entry })) : [],
-      },
-      equipment: toLegacyEquipmentSlots(snapshot.equipment.slots),
-      artifacts: toLegacyArtifactSlots(snapshot.artifacts),
-      techniques: Array.isArray(snapshot.techniques.techniques)
-        ? snapshot.techniques.techniques.map((entry) => ({ ...entry }))
-        : [],
-      actions: [],
-      quests: Array.isArray(snapshot.quests.entries) ? snapshot.quests.entries.map((entry) => ({ ...entry })) : [],
-      autoBattleSkills: Array.isArray(snapshot.combat.autoBattleSkills)
-        ? snapshot.combat.autoBattleSkills.map((entry) => ({ ...entry }))
-        : [],
-      combatTargetId: snapshot.combat.combatTargetId ?? undefined,
-      combatTargetLocked: snapshot.combat.combatTargetLocked === true,
-      cultivatingTechId: snapshot.techniques.cultivatingTechId ?? undefined,
-      pendingLogbookMessages: Array.isArray(snapshot.pendingLogbookMessages)
-        ? snapshot.pendingLogbookMessages.map((entry) => ({ ...entry }))
-        : [],
-      realm,
-    };
+  toLegacyPlayerStateFromPersistence(playerId, snapshot) {
+    return toLegacyPlayerStateFromPersistenceImpl(this, playerId, snapshot);
   }
   /**
  * resolveMapName：规范化或转换地图名称。
@@ -3020,11 +1558,7 @@ export class NativeGmPlayerService {
  */
 
 
-  private resolveMapName(mapId: string) {
-    try {
-      return this.mapTemplateRepository.getOrThrow(mapId).name;
-    } catch {
-      return mapId;
-    }
+  resolveMapName(mapId: string) {
+    return resolveMapNameImpl(this, mapId);
   }
 }

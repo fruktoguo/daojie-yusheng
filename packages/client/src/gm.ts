@@ -182,6 +182,459 @@ import {
 import { applyStaticI18n, t } from './ui/i18n';
 import { getCachedMapMeta } from './map-static-cache';
 import { startClientVersionReload } from './version-reload';
+import {
+  clone as formatClone,
+  escapeHtml as formatEscapeHtml,
+  formatJson as formatFormatJson,
+  formatBytes as formatFormatBytes,
+  formatSignedBytes as formatFormatSignedBytes,
+  formatPercent as formatFormatPercent,
+  formatBytesPerSecond as formatFormatBytesPerSecond,
+  formatAverageBytesPerEvent as formatFormatAverageBytesPerEvent,
+  formatDurationSeconds as formatFormatDurationSeconds,
+  formatDateTime as formatFormatDateTime,
+  formatPlayerNo as formatFormatPlayerNo,
+  formatCpuMs as formatFormatCpuMs,
+  formatCpuCount as formatFormatCpuCount,
+  formatTrafficCount as formatFormatTrafficCount,
+  formatMs as formatFormatMs,
+  formatCompactNumber as formatFormatCompactNumber,
+  formatWorkerRate as formatFormatWorkerRate,
+  isRecord as formatIsRecord,
+} from './gm/format';
+import {
+  buildGmStateApiPath as apiBuildGmStateApiPath,
+  buildGmPlayersApiPath as apiBuildGmPlayersApiPath,
+  buildGmPlayerApiPath as apiBuildGmPlayerApiPath,
+  buildGmGeneratedTechniquesApiPath as apiBuildGmGeneratedTechniquesApiPath,
+  buildGmGeneratedTechniqueDetailApiPath as apiBuildGmGeneratedTechniqueDetailApiPath,
+  buildGmTechniqueGenerationJobsApiPath as apiBuildGmTechniqueGenerationJobsApiPath,
+  buildGmTechniqueGenerationJobDetailApiPath as apiBuildGmTechniqueGenerationJobDetailApiPath,
+  buildGmDatabaseBackupDownloadApiPath as apiBuildGmDatabaseBackupDownloadApiPath,
+  buildGmServerLogsApiPath as apiBuildGmServerLogsApiPath,
+  buildGmWorkersApiPath as apiBuildGmWorkersApiPath,
+  buildGmEnvironmentCheckApiPath as apiBuildGmEnvironmentCheckApiPath,
+  buildGmDiagnosticsQueryApiPath as apiBuildGmDiagnosticsQueryApiPath,
+  getGmToken as apiGetGmToken,
+  setGmToken as apiSetGmToken,
+  clearGmToken as apiClearGmToken,
+  createGmRequest as apiCreateGmRequest,
+  createGmRequestBlob as apiCreateGmRequestBlob,
+} from './gm/api';
+import {
+  pathSegments as fieldsPathSegments,
+  setValueByPath as fieldsSetValueByPath,
+  getValueByPath as fieldsGetValueByPath,
+  removeArrayIndex as fieldsRemoveArrayIndex,
+  ensureArray as fieldsEnsureArray,
+  buildHtmlAttributes as fieldsBuildHtmlAttributes,
+  optionsMarkup as fieldsOptionsMarkup,
+  textField as fieldsTextField,
+  nullableTextField as fieldsNullableTextField,
+  numberField as fieldsNumberField,
+  checkboxField as fieldsCheckboxField,
+  selectField as fieldsSelectField,
+  jsonField as fieldsJsonField,
+  stringArrayField as fieldsStringArrayField,
+  readonlyCodeBlock as fieldsReadonlyCodeBlock,
+} from './gm/fields';
+import {
+  getTechniqueOptionLabel as catalogGetTechniqueOptionLabel,
+  getItemOptionLabel as catalogGetItemOptionLabel,
+  getBuffOptionLabel as catalogGetBuffOptionLabel,
+  getTechniqueCatalogOptions as catalogGetTechniqueCatalogOptions,
+  getLearnedTechniqueOptions as catalogGetLearnedTechniqueOptions,
+  getRealmCatalogOptions as catalogGetRealmCatalogOptions,
+  getItemCatalogOptions as catalogGetItemCatalogOptions,
+  getBuffCatalogOptions as catalogGetBuffCatalogOptions,
+  getMailAttachmentItemOptions as catalogGetMailAttachmentItemOptions,
+  findTechniqueCatalogEntry as catalogFindTechniqueCatalogEntry,
+  findItemCatalogEntry as catalogFindItemCatalogEntry,
+  findBuffCatalogEntry as catalogFindBuffCatalogEntry,
+  createTechniqueFromCatalog as catalogCreateTechniqueFromCatalog,
+  createItemFromCatalog as catalogCreateItemFromCatalog,
+  createBuffFromCatalog as catalogCreateBuffFromCatalog,
+  getTechniqueSummary as catalogGetTechniqueSummary,
+  getTechniqueTemplateMaxLevel as catalogGetTechniqueTemplateMaxLevel,
+  buildMaxLevelTechniqueState as catalogBuildMaxLevelTechniqueState,
+  getInventoryRowMeta as catalogGetInventoryRowMeta,
+} from './gm/catalog';
+import {
+  renderDiagnosticsResultAsTableHtml as diagRenderDiagnosticsResultAsTableHtml,
+  renderResultSetTableHtml as diagRenderResultSetTableHtml,
+  renderTableCellHtml as diagRenderTableCellHtml,
+  diagHistoryLoadFromStorage as diagHistoryLoadFromStorage,
+  diagHistoryPushToStorage as diagHistoryPushToStorage,
+  diagHistoryNavigateInStorage as diagHistoryNavigateInStorage,
+  diagPlayerHistoryLoadFromStorage as diagPlayerHistoryLoadFromStorage,
+  diagPlayerHistorySaveToStorage as diagPlayerHistorySaveToStorage,
+} from './gm/diagnostics';
+import {
+  renderEnvironmentVarRowHtml as envConfigRenderEnvironmentVarRowHtml,
+  renderGameConfigRowHtml as envConfigRenderGameConfigRowHtml,
+  renderGameConfigGroupsHtml as envConfigRenderGameConfigGroupsHtml,
+  renderEnvironmentVarGroupsHtml as envConfigRenderEnvironmentVarGroupsHtml,
+  renderEnvGroupHtml as envConfigRenderEnvGroupHtml,
+} from './gm/env-config';
+import {
+  resolveMetricTreeSortColumn as perfResolveMetricTreeSortColumn,
+  compareMetricTreeSortValues as perfCompareMetricTreeSortValues,
+  compareMetricTreeNodes as perfCompareMetricTreeNodes,
+  renderMetricTreeHeader as perfRenderMetricTreeHeader,
+  renderMetricTreeRows as perfRenderMetricTreeRows,
+  renderMetricTreeTable as perfRenderMetricTreeTable,
+  getMemoryDomainMeta as perfGetMemoryDomainMeta,
+  getMemoryInstanceMeta as perfGetMemoryInstanceMeta,
+  getHeapSpaceMeta as perfGetHeapSpaceMeta,
+  getPathfindingFailureMeta as perfGetPathfindingFailureMeta,
+  renderNetworkLargePayloadSampleHtml as perfRenderNetworkLargePayloadSampleHtml,
+} from './gm/perf-panels';
+import {
+  type CpuBreakdownSortMode,
+  type TrafficBreakdownSortMode,
+  isCpuBreakdownSortMode as perfIsCpuBreakdownSortMode,
+  isTrafficBreakdownSortMode as perfIsTrafficBreakdownSortMode,
+  renderCpuBreakdownList as perfRenderCpuBreakdownList,
+  renderTrafficBreakdownList as perfRenderTrafficBreakdownList,
+} from './gm/perf-extra';
+import {
+  renderVisualEditor as playerEditorRenderVisualEditor,
+  type PlayerEditorRenderDeps as PlayerEditorRenderDeps,
+  type PlayerEditorRenderState as PlayerEditorRenderState,
+} from './gm/player-editor.render';
+import {
+  renderTechniqueManager as techniqueManagerRenderTechniqueManager,
+  renderTechniqueFilterControls as techniqueManagerRenderTechniqueFilterControls,
+  renderTechniqueOverview as techniqueManagerRenderTechniqueOverview,
+  renderTechniqueCandidateList as techniqueManagerRenderTechniqueCandidateList,
+  renderTechniqueManage as techniqueManagerRenderTechniqueManage,
+  renderLearnedTechniqueList as techniqueManagerRenderLearnedTechniqueList,
+  renderTechniqueDetails as techniqueManagerRenderTechniqueDetails,
+  type GmTechniqueEditorSubtab as TechniqueManagerGmTechniqueEditorSubtab,
+  type GmTechniqueCandidateSource as TechniqueManagerGmTechniqueCandidateSource,
+  type GmTechniqueCategoryFilter as TechniqueManagerGmTechniqueCategoryFilter,
+  type GmTechniqueGradeFilter as TechniqueManagerGmTechniqueGradeFilter,
+  type GmTechniqueCandidate as TechniqueManagerGmTechniqueCandidate,
+  type TechniqueManagerRenderContext as TechniqueManagerRenderContext,
+  GM_TECHNIQUE_CATEGORY_FILTER_OPTIONS as techniqueManagerCategoryFilterOptions,
+  GM_TECHNIQUE_GRADE_FILTER_OPTIONS as techniqueManagerGradeFilterOptions,
+} from './gm/technique-manager-extra';
+import {
+  loadEnvironmentVars as envConfigLoadEnvironmentVars,
+  reloadEnvironmentVars as envConfigReloadEnvironmentVars,
+  toggleAllEnvironmentGroups as envConfigToggleAllEnvironmentGroups,
+  loadGameConfig as envConfigLoadGameConfig,
+  renderGameConfig as envConfigRenderGameConfig,
+  toggleAllGameConfigGroups as envConfigToggleAllGameConfigGroups,
+  loadAiProviderConfigs as envConfigLoadAiProviderConfigs,
+  addAiProviderConfig as envConfigAddAiProviderConfig,
+  initEnvConfigEventBindings as envConfigInitEventBindings,
+  type EnvConfigContext as EnvConfigContext,
+} from './gm/env-config-extra';
+import {
+  getSearchableItemDisplayValue as invEditorGetSearchableItemDisplayValue,
+  getSearchableItemOptions as invEditorGetSearchableItemOptions,
+  searchableItemField as invEditorSearchableItemField,
+  getSearchableItemValueField as invEditorGetSearchableItemValueField,
+  getSearchableItemInput as invEditorGetSearchableItemInput,
+  getSearchableItemList as invEditorGetSearchableItemList,
+  getSearchableItemHint as invEditorGetSearchableItemHint,
+  getSearchableItemPopover as invEditorGetSearchableItemPopover,
+  normalizeSearchableItemText as invEditorNormalizeSearchableItemText,
+  renderSearchableItemOptions as invEditorRenderSearchableItemOptions,
+  syncSearchableItemField as invEditorSyncSearchableItemField,
+  syncSearchableItemFields as invEditorSyncSearchableItemFields,
+  closeSearchableItemField as invEditorCloseSearchableItemField,
+  openSearchableItemField as invEditorOpenSearchableItemField,
+  moveSearchableItemActiveIndex as invEditorMoveSearchableItemActiveIndex,
+  commitSearchableItemSelection as invEditorCommitSearchableItemSelection,
+  type InventoryEditorContext as InventoryEditorContext,
+} from './gm/inventory-editor';
+import {
+  removeSelectedBot as adminRemoveSelectedBot,
+  spawnBots as adminSpawnBots,
+  removeAllBots as adminRemoveAllBots,
+  returnAllPlayersToDefaultSpawn as adminReturnAllPlayersToDefaultSpawn,
+  cleanupAllPlayersInvalidItems as adminCleanupAllPlayersInvalidItems,
+  migrateAllPlayersRecoveryPills as adminMigrateAllPlayersRecoveryPills,
+  repairMarketStorageItemIds as adminRepairMarketStorageItemIds,
+  migrateAiArtsStrengthDraftsV1ToV2 as adminMigrateAiArtsStrengthDraftsV1ToV2,
+  deleteEmptyCustomTechniqueBooks as adminDeleteEmptyCustomTechniqueBooks,
+  recoverEmptyCustomTechniqueBooks as adminRecoverEmptyCustomTechniqueBooks,
+  repairQuestProgressPayloads as adminRepairQuestProgressPayloads,
+  refreshOnlineTechniqueTemplates as adminRefreshOnlineTechniqueTemplates,
+  refillOnlineAndOfflineHangingPlayersStamina as adminRefillOnlineAndOfflineHangingPlayersStamina,
+  cleanupAbnormalTemporaryTiles as adminCleanupAbnormalTemporaryTiles,
+  compensateAllPlayersCombatExp as adminCompensateAllPlayersCombatExp,
+  compensateAllPlayersFoundation as adminCompensateAllPlayersFoundation,
+  resetNetworkStats as adminResetNetworkStats,
+  toggleNetworkPayloadCapture as adminToggleNetworkPayloadCapture,
+  activateNetworkStats as adminActivateNetworkStats,
+  ensureNetworkStatsActive as adminEnsureNetworkStatsActive,
+  resetCpuStats as adminResetCpuStats,
+  resetPathfindingStats as adminResetPathfindingStats,
+  triggerManualGc as adminTriggerManualGc,
+  writeHeapSnapshot as adminWriteHeapSnapshot,
+  writeAndCopyHeapSnapshotSummary as adminWriteAndCopyHeapSnapshotSummary,
+  copyLatestHeapSnapshotSummary as adminCopyLatestHeapSnapshotSummary,
+  type AdminShortcutsContext as AdminShortcutsContext,
+} from './gm/admin-shortcuts';
+import {
+  buildGeneratedTechniqueListQueryParams as genTechBuildListQueryParams,
+  buildTechniqueGenerationJobListQueryParams as genTechBuildJobListQueryParams,
+  applyGeneratedTechniqueSubtabVisibility as genTechApplySubtabVisibility,
+  switchGeneratedTechniqueSubtab as genTechSwitchSubtab,
+  loadCurrentGeneratedTechniqueSubtab as genTechLoadCurrentSubtab,
+  loadGeneratedTechniques as genTechLoadTechniques,
+  renderGeneratedTechniquePanel as genTechRenderPanel,
+  renderGeneratedTechniqueRow as genTechRenderRow,
+  renderGeneratedTechniqueDetail as genTechRenderDetail,
+  loadGeneratedTechniqueDetail as genTechLoadDetail,
+  getGeneratedTechniqueGradeLabel as genTechGetGradeLabel,
+  loadTechniqueGenerationJobs as genTechLoadJobs,
+  renderTechniqueGenerationJobPanel as genTechRenderJobPanel,
+  renderTechniqueGenerationJobRow as genTechRenderJobRow,
+  renderTechniqueGenerationJobDetail as genTechRenderJobDetail,
+  loadTechniqueGenerationJobDetail as genTechLoadJobDetail,
+  formatTechniqueGenerationJobItemState as genTechFormatJobItemState,
+  formatTechniqueGenerationJobPlayerLabel as genTechFormatJobPlayerLabel,
+  formatTechniqueGenerationJobStatus as genTechFormatJobStatus,
+  handleGeneratedTechniquePanelLoadError as genTechHandleLoadError,
+  type GeneratedTechniqueContext as GeneratedTechniqueContext,
+} from './gm/generated-technique';
+import {
+  loadTrades as tradesPanelLoadTrades,
+  renderTrades as tradesPanelRenderTrades,
+  renderTradeRow as tradesPanelRenderTradeRow,
+  formatTradePartyLabel as tradesPanelFormatTradePartyLabel,
+  formatTradePrice as tradesPanelFormatTradePrice,
+  formatTradeTimestamp as tradesPanelFormatTradeTimestamp,
+  type TradesPanelContext as TradesPanelContext,
+  type TradesQueryState as TradesQueryState,
+} from './gm/trades-panel';
+import {
+  diagHistoryLoad as diagPanelDiagHistoryLoad,
+  diagHistoryPush as diagPanelDiagHistoryPush,
+  diagHistoryNavigate as diagPanelDiagHistoryNavigate,
+  renderDiagnosticsPanel as diagPanelRenderDiagnosticsPanel,
+  updateUndoButton as diagPanelUpdateUndoButton,
+  renderDiagnosticsResultAsTable as diagPanelRenderDiagnosticsResultAsTable,
+  renderResultSetTable as diagPanelRenderResultSetTable,
+  renderTableCell as diagPanelRenderTableCell,
+  diagPlayerHistoryLoad as diagPanelDiagPlayerHistoryLoad,
+  diagPlayerHistorySave as diagPanelDiagPlayerHistorySave,
+  showDiagPrompt as diagPanelShowDiagPrompt,
+  startDiagCellEdit as diagPanelStartDiagCellEdit,
+  inferTableName as diagPanelInferTableName,
+  buildWhereFromRow as diagPanelBuildWhereFromRow,
+  runDiagnosticsCommand as diagPanelRunDiagnosticsCommand,
+  type DiagnosticsPanelContext as DiagnosticsPanelContext,
+} from './gm/diagnostics-panel';
+import {
+  getWorkerRowMarkup as workerHelpersGetWorkerRowMarkup,
+  getWorkerWindowMetricLabel as workerHelpersGetWorkerWindowMetricLabel,
+  getWorkerStatusLabel as workerHelpersGetWorkerStatusLabel,
+  getWorkerTopologyMarkup as workerHelpersGetWorkerTopologyMarkup,
+  getWorkerSchedulerMarkup as workerHelpersGetWorkerSchedulerMarkup,
+  getWorkerAlertLabel as workerHelpersGetWorkerAlertLabel,
+  getSchedulerDiagnosticNote as workerHelpersGetSchedulerDiagnosticNote,
+  getAlertInactiveDiagnostic as workerHelpersGetAlertInactiveDiagnostic,
+  getWorkerCapacityMarkup as workerHelpersGetWorkerCapacityMarkup,
+  formatWorkerFailureBreakdown as workerHelpersFormatWorkerFailureBreakdown,
+  formatMs as workerHelpersFormatMs,
+  formatCompactNumber as workerHelpersFormatCompactNumber,
+  formatWorkerRate as workerHelpersFormatWorkerRate,
+  countWorkerRows as workerHelpersCountWorkerRows,
+  sumWorkerRows as workerHelpersSumWorkerRows,
+  formatDatabaseBackupKind as workerHelpersFormatDatabaseBackupKind,
+  formatDatabaseBackupFormat as workerHelpersFormatDatabaseBackupFormat,
+  type WorkerHelpersContext as WorkerHelpersContext,
+} from './gm/worker-helpers';
+import {
+  renderWorkerPoolSection as serverPanelsExtraRenderWorkerPoolSection,
+  renderWorkerPanel as serverPanelsExtraRenderWorkerPanel,
+  loadWorkerState as serverPanelsExtraLoadWorkerState,
+  getEnvCheckStatusText as serverPanelsExtraGetEnvCheckStatusText,
+  getEnvCheckStatusIcon as serverPanelsExtraGetEnvCheckStatusIcon,
+  renderEnvCheckPanel as serverPanelsExtraRenderEnvCheckPanel,
+  loadEnvCheck as serverPanelsExtraLoadEnvCheck,
+  loadRuntimeFlags as serverPanelsExtraLoadRuntimeFlags,
+  toggleRuntimeFlag as serverPanelsExtraToggleRuntimeFlag,
+  addRuntimeFlag as serverPanelsExtraAddRuntimeFlag,
+  deleteRuntimeFlag as serverPanelsExtraDeleteRuntimeFlag,
+  setMaintenanceMode as serverPanelsExtraSetMaintenanceMode,
+  restartServer as serverPanelsExtraRestartServer,
+  renderRuntimeFlagsPanel as serverPanelsExtraRenderRuntimeFlagsPanel,
+  buildRuntimeFlagsHtml as serverPanelsExtraBuildRuntimeFlagsHtml,
+  bindRuntimeFlagsEvents as serverPanelsExtraBindRuntimeFlagsEvents,
+  renderObjectsPanel as serverPanelsExtraRenderObjectsPanel,
+  loadObjectCounts as serverPanelsExtraLoadObjectCounts,
+  type ServerPanelsExtraContext as ServerPanelsExtraContext,
+} from './gm/server-panels-extra';
+import {
+  loadRedeemGroups as redeemDbPanelLoadRedeemGroups,
+  loadRedeemGroupDetail as redeemDbPanelLoadRedeemGroupDetail,
+  createRedeemGroup as redeemDbPanelCreateRedeemGroup,
+  saveRedeemGroup as redeemDbPanelSaveRedeemGroup,
+  deleteRedeemGroup as redeemDbPanelDeleteRedeemGroup,
+  appendRedeemCodes as redeemDbPanelAppendRedeemCodes,
+  destroyRedeemCode as redeemDbPanelDestroyRedeemCode,
+  loadDatabaseState as redeemDbPanelLoadDatabaseState,
+  exportCurrentDatabase as redeemDbPanelExportCurrentDatabase,
+  getSelectedDatabaseImportFile as redeemDbPanelGetSelectedDatabaseImportFile,
+  patchDatabaseImportStatus as redeemDbPanelPatchDatabaseImportStatus,
+  isSupportedDatabaseImportFile as redeemDbPanelIsSupportedDatabaseImportFile,
+  updateDatabaseImportFileSelection as redeemDbPanelUpdateDatabaseImportFileSelection,
+  uploadDatabaseBackupFile as redeemDbPanelUploadDatabaseBackupFile,
+  getDownloadFileName as redeemDbPanelGetDownloadFileName,
+  downloadDatabaseBackup as redeemDbPanelDownloadDatabaseBackup,
+  restoreDatabaseBackup as redeemDbPanelRestoreDatabaseBackup,
+  type RedeemDatabasePanelContext as RedeemDatabasePanelContext,
+} from './gm/redeem-database-panel';
+import {
+  updateMailDraftValue as mailActionsUpdateMailDraftValue,
+  updateRedeemDraftValue as mailActionsUpdateRedeemDraftValue,
+  rerenderDirectMailComposer as mailActionsRerenderDirectMailComposer,
+  addMailAttachment as mailActionsAddMailAttachment,
+  removeMailAttachment as mailActionsRemoveMailAttachment,
+  sendDirectMail as mailActionsSendDirectMail,
+  sendShortcutMail as mailActionsSendShortcutMail,
+  type MailActionsContext as MailActionsContext,
+} from './gm/mail-actions';
+import {
+  formatServerLogLine as serverLogsPanelFormatServerLogLine,
+  renderServerLogsPanel as serverLogsPanelRenderServerLogsPanel,
+  loadServerLogs as serverLogsPanelLoadServerLogs,
+  type ServerLogsPanelContext as ServerLogsPanelContext,
+} from './gm/server-logs-panel';
+import {
+  renderObjectsPanelHtml as serverPanelsRenderObjectsPanelHtml,
+  renderObjectsPanelMeta as serverPanelsRenderObjectsPanelMeta,
+  buildRuntimeFlagsHtml as serverPanelsBuildRuntimeFlagsHtml,
+  type ObjectCountsResponse as ServerPanelsObjectCountsResponse,
+} from './gm/server-panels';
+import { getMailComposerMarkupHtml as mailComposerGetMailComposerMarkupHtml, type GmMailComposerDraft as MailComposerGmMailComposerDraft, type GmMailAttachmentDraft as MailComposerGmMailAttachmentDraft } from './gm/mail-composer';
+import { renderTableStatsContentHtml as databasePanelRenderTableStatsContentHtml, renderBackupListHtml as databasePanelRenderBackupListHtml } from './gm/database-panel';
+import { renderPositionMapPickerHtml as mapPickerRenderPositionMapPickerHtml } from './gm/map-picker';
+import {
+  renderRedeemGroupListHtml as redeemPanelRenderRedeemGroupListHtml,
+  renderRedeemGroupEditorHtml as redeemPanelRenderRedeemGroupEditorHtml,
+  renderRedeemCodeListHtml as redeemPanelRenderRedeemCodeListHtml,
+  type RedeemGroupDraft as RedeemPanelRedeemGroupDraft,
+  type RedeemPanelDeps as RedeemPanelDeps,
+} from './gm/redeem-panel';
+import {
+  resolveAiProviderSelectedModelName as aiProviderResolveSelectedModelName,
+  normalizeAiProviderModelSelection as aiProviderNormalizeModelSelection,
+  getAiModelStateKey as aiProviderGetModelStateKey,
+  renderAiProviderConfigRowHtml as aiProviderRenderConfigRowHtml,
+  renderAiProviderModelRowHtml as aiProviderRenderModelRowHtml,
+  type AiModelTestState as AiProviderModelTestState,
+  type AiProviderDeps as AiProviderDeps,
+} from './gm/ai-provider';
+import type {
+  MetricTreeSortDirection as PerfMetricTreeSortDirection,
+  MetricTreeColumn as PerfMetricTreeColumn,
+  MetricTreeTableOptions as PerfMetricTreeTableOptions,
+} from './gm/perf-panels';
+import {
+  getPlayerPresenceMeta as riskGetPlayerPresenceMeta,
+  getManagedAccountStatusLabel as riskGetManagedAccountStatusLabel,
+  getManagedAccountActivityMeta as riskGetManagedAccountActivityMeta,
+  getManagedPlayerAccountStatusLabel as riskGetManagedPlayerAccountStatusLabel,
+  getManagedAccountRestrictionLabel as riskGetManagedAccountRestrictionLabel,
+  getManagedAccountRestrictionPillClass as riskGetManagedAccountRestrictionPillClass,
+  getPlayerRiskLevelLabel as riskGetPlayerRiskLevelLabel,
+  getPlayerRiskLevelPillClass as riskGetPlayerRiskLevelPillClass,
+  renderPlayerRiskFactorCard as riskRenderPlayerRiskFactorCard,
+  renderPlayerRiskSection as riskRenderPlayerRiskSection,
+} from './gm/player-risk';
+import {
+  getVisibleNetworkBuckets as statGetVisibleNetworkBuckets,
+  getNetworkBucketMeta as statGetNetworkBucketMeta,
+  getTickPerf as statGetTickPerf,
+  getStatRowMarkup as statGetStatRowMarkup,
+  patchStatRow as statPatchStatRow,
+  renderStructuredStatList as statRenderStructuredStatList,
+  rememberNetworkLargePayloadBuckets as statRememberNetworkLargePayloadBuckets,
+  renderNetworkLargePayloadSample as statRenderNetworkLargePayloadSample,
+  closeNetworkPayloadModal as statCloseNetworkPayloadModal,
+  openNetworkPayloadModal as statOpenNetworkPayloadModal,
+  type StructuredStatListItem as StatStructuredStatListItem,
+} from './gm/stat-rows';
+import {
+  createDefaultItem as snapshotCreateDefaultItem,
+  createDefaultTechnique as snapshotCreateDefaultTechnique,
+  createDefaultQuest as snapshotCreateDefaultQuest,
+  createDefaultBuff as snapshotCreateDefaultBuff,
+  normalizeGmEquipmentSlots as snapshotNormalizeGmEquipmentSlots,
+  getArtifactSlotLabel as snapshotGetArtifactSlotLabel,
+  createDefaultArtifactSlot as snapshotCreateDefaultArtifactSlot,
+  normalizeGmArtifactState as snapshotNormalizeGmArtifactState,
+  createDefaultPlayerSnapshot as snapshotCreateDefaultPlayerSnapshot,
+  getPlayerDatabaseTables as snapshotGetPlayerDatabaseTables,
+  buildTechniqueSaveSnapshot as snapshotBuildTechniqueSaveSnapshot,
+  buildInventoryItemSaveSnapshot as snapshotBuildInventoryItemSaveSnapshot,
+  buildEquipmentItemSaveSnapshot as snapshotBuildEquipmentItemSaveSnapshot,
+  buildArtifactSlotSaveSnapshot as snapshotBuildArtifactSlotSaveSnapshot,
+  buildSectionSnapshot as snapshotBuildSectionSnapshot,
+} from './gm/player-snapshot';
+import {
+  isGmSectTemplateId as mapIsGmSectTemplateId,
+  isGmSectRuntimeInstance as mapIsGmSectRuntimeInstance,
+  isGmSecretRealmRuntimeInstance as mapIsGmSecretRealmRuntimeInstance,
+  resolvePositionMapCategory as mapResolvePositionMapCategory,
+  getMapSummary as mapGetMapSummary,
+  getMapDisplayName as mapGetMapDisplayName,
+  getPositionMapCategoryCounts as mapGetPositionMapCategoryCounts,
+  getPositionCategoryOptions as mapGetPositionCategoryOptions,
+  getPositionMapInstances as mapGetPositionMapInstances,
+  getPositionMapOptions as mapGetPositionMapOptions,
+  getPositionCategoryForMap as mapGetPositionCategoryForMap,
+  patchPositionMapSelect as mapPatchPositionMapSelect,
+  resolvePositionTargetInstanceId as mapResolvePositionTargetInstanceId,
+  GM_POSITION_MAP_CATEGORY_OPTIONS as mapGmPositionMapCategoryOptions,
+  type GmPositionMapCategory as MapGmPositionMapCategory,
+} from './gm/map-location';
+import {
+  getEditorTabLabel as editorGetEditorTabLabel,
+  setTextLikeValue as editorSetTextLikeValue,
+  renderEditorTabSection as editorRenderEditorTabSection,
+  getAttrDisplayNumber as editorGetAttrDisplayNumber,
+  normalizeInventorySearchText as editorNormalizeInventorySearchText,
+  buildCraftSkillSaveSnapshot as editorBuildCraftSkillSaveSnapshot,
+  getTechniqueCategoryDisplayLabel as editorGetTechniqueCategoryDisplayLabel,
+  getTechniqueGradeDisplayLabel as editorGetTechniqueGradeDisplayLabel,
+  normalizeTechniquePageSize as editorNormalizeTechniquePageSize,
+  renderAttributeSummaryGrid as editorRenderAttributeSummaryGrid,
+  type GmEditorTab as EditorGmEditorTab,
+} from './gm/editor-helpers';
+import {
+  getGeneratedTechniqueGradeLabel as genGetGeneratedTechniqueGradeLabel,
+  formatTechniqueGenerationJobItemState as genFormatTechniqueGenerationJobItemState,
+  formatTechniqueGenerationJobPlayerLabel as genFormatTechniqueGenerationJobPlayerLabel,
+  formatTechniqueGenerationJobStatus as genFormatTechniqueGenerationJobStatus,
+  formatTradePartyLabel as genFormatTradePartyLabel,
+  formatTradePrice as genFormatTradePrice,
+  formatTradeTimestamp as genFormatTradeTimestamp,
+  renderGeneratedTechniqueRow as genRenderGeneratedTechniqueRow,
+  renderTechniqueGenerationJobRow as genRenderTechniqueGenerationJobRow,
+  renderTradeRow as genRenderTradeRow,
+} from './gm/gen-technique-format';
+import {
+  getLearnedTechniqueIdSet as techGetLearnedTechniqueIdSet,
+  paginateTechniqueEntries as techPaginateTechniqueEntries,
+  getTechniqueRealmLvFilterValue as techGetTechniqueRealmLvFilterValue,
+  getTechniqueRealmLevelDisplayLabel as techGetTechniqueRealmLevelDisplayLabel,
+  getTechniqueCategoryCounts as techGetTechniqueCategoryCounts,
+  buildTechniqueCandidateMeta as techBuildTechniqueCandidateMeta,
+  matchesTechniqueFilters as techMatchesTechniqueFilters,
+  getFilteredLearnedTechniques as techGetFilteredLearnedTechniques,
+  buildSystemTechniqueCandidates as techBuildSystemTechniqueCandidates,
+  buildGeneratedTechniqueCandidates as techBuildGeneratedTechniqueCandidates,
+  getFilteredSystemTechniqueCandidates as techGetFilteredSystemTechniqueCandidates,
+  type TechniqueFilterState as TechTechniqueFilterState,
+} from './gm/technique-helpers';
 
 const GM_PLAYER_QUICK_RESET_PASSWORD = '123456789';
 
@@ -611,88 +1064,19 @@ const redeemGroupEditorEl = document.getElementById('redeem-group-editor') as HT
 const redeemCodeListEl = document.getElementById('redeem-code-list') as HTMLDivElement | null;
 
 /** GmEditorTab：GM 玩家编辑器顶部标签页 ID。 */
-type GmEditorTab = GmPlayerUpdateSection | 'benefits' | 'shortcuts' | 'mail' | 'risk' | 'persisted';
+type GmEditorTab = EditorGmEditorTab;
 
 /** GmServerTab：服务器监察子标签页 ID。 */
 type GmServerTab = 'overview' | 'traffic' | 'cpu' | 'memory' | 'database' | 'logs' | 'workers' | 'envCheck' | 'objects';
 
 /** GmMailAttachmentDraft：邮件草稿里的单个附件条目。 */
-interface GmMailAttachmentDraft {
-/**
- * itemId：道具ID标识。
- */
-
-  itemId: string;  
-  /**
- * count：数量或计量字段。
- */
-
-  count: number;
-}
+type GmMailAttachmentDraft = MailComposerGmMailAttachmentDraft;
 
 /** GmMailComposerDraft：GM 发信草稿上下文，保存收件人、标题、正文与附件。 */
-interface GmMailComposerDraft {
-/**
- * templateId：templateID标识。
- */
-
-  templateId: string;  
-  /**
- * targetPlayerId：目标玩家ID标识。
- */
-
-  targetPlayerId: string;  
-  /**
- * senderLabel：senderLabel名称或显示文本。
- */
-
-  senderLabel: string;  
-  /**
- * title：title名称或显示文本。
- */
-
-  title: string;  
-  /**
- * body：body相关字段。
- */
-
-  body: string;  
-  /**
- * expireHours：expireHour相关字段。
- */
-
-  expireHours: string;  
-  /**
- * attachments：attachment相关字段。
- */
-
-  attachments: GmMailAttachmentDraft[];
-}
+type GmMailComposerDraft = MailComposerGmMailComposerDraft;
 
 /** RedeemGroupDraft：兑换码分组编辑草稿，保存名称、奖励和批量数量。 */
-interface RedeemGroupDraft {
-/**
- * name：名称名称或显示文本。
- */
-
-  name: string;  
-  /**
- * rewards：reward相关字段。
- */
-
-  rewards: RedeemCodeGroupRewardItem[];  
-  /**
- * createCount：数量或计量字段。
- */
-
-  createCount: string;  
-  /**
- * appendCount：数量或计量字段。
- */
-
-  appendCount: string;
-}
-
+type RedeemGroupDraft = RedeemPanelRedeemGroupDraft;
 /** SearchableItemScope：分类枚举。 */
 type SearchableItemScope = 'all' | 'inventory-add' | 'equipment-slot' | 'artifact-slot';
 
@@ -777,41 +1161,13 @@ let currentEditorTab: GmEditorTab = 'basic';
 let currentDatabaseTable = 'server_player_snapshot';
 let currentInventoryAddType: (typeof ITEM_TYPES)[number] = 'material';
 let currentInventorySearchQuery = '';
-type GmTechniqueEditorSubtab = 'overview' | 'manage' | 'details';
-type GmTechniqueCandidateSource = 'system' | 'systemRandom' | 'generated';
-type GmTechniqueCategoryFilter = 'all' | TechniqueCategory;
-type GmTechniqueGradeFilter = 'all' | TechniqueGrade;
-interface GmTechniqueCandidate {
-  source: 'system' | 'generated';
-  techId: string;
-  name: string;
-  category?: TechniqueCategory | string | null;
-  grade?: TechniqueGrade | string | null;
-  realmLv?: number | null;
-  meta: string;
-  learned: boolean;
-  disabledReason?: string | null;
-}
-
-const GM_TECHNIQUE_CATEGORY_FILTER_OPTIONS: readonly { value: GmTechniqueCategoryFilter; label: string }[] = [
-  { value: 'all', label: '全部类别' },
-  { value: 'internal', label: TECHNIQUE_CATEGORY_LABELS.internal },
-  { value: 'arts', label: TECHNIQUE_CATEGORY_LABELS.arts },
-  { value: 'divine', label: TECHNIQUE_CATEGORY_LABELS.divine },
-  { value: 'secret', label: TECHNIQUE_CATEGORY_LABELS.secret },
-];
-const GM_TECHNIQUE_GRADE_FILTER_OPTIONS: readonly { value: GmTechniqueGradeFilter; label: string }[] = [
-  { value: 'all', label: '全部品阶' },
-  { value: 'mortal', label: TECHNIQUE_GRADE_LABELS.mortal },
-  { value: 'yellow', label: TECHNIQUE_GRADE_LABELS.yellow },
-  { value: 'mystic', label: TECHNIQUE_GRADE_LABELS.mystic },
-  { value: 'earth', label: TECHNIQUE_GRADE_LABELS.earth },
-  { value: 'heaven', label: TECHNIQUE_GRADE_LABELS.heaven },
-  { value: 'spirit', label: TECHNIQUE_GRADE_LABELS.spirit },
-  { value: 'saint', label: TECHNIQUE_GRADE_LABELS.saint },
-  { value: 'emperor', label: TECHNIQUE_GRADE_LABELS.emperor },
-];
-const GM_TECHNIQUE_PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
+type GmTechniqueEditorSubtab = TechniqueManagerGmTechniqueEditorSubtab;
+type GmTechniqueCandidateSource = TechniqueManagerGmTechniqueCandidateSource;
+type GmTechniqueCategoryFilter = TechniqueManagerGmTechniqueCategoryFilter;
+type GmTechniqueGradeFilter = TechniqueManagerGmTechniqueGradeFilter;
+type GmTechniqueCandidate = TechniqueManagerGmTechniqueCandidate;
+const GM_TECHNIQUE_CATEGORY_FILTER_OPTIONS = techniqueManagerCategoryFilterOptions;
+const GM_TECHNIQUE_GRADE_FILTER_OPTIONS = techniqueManagerGradeFilterOptions;
 let currentTechniqueEditorSubtab: GmTechniqueEditorSubtab = 'overview';
 let currentTechniqueCandidateSource: GmTechniqueCandidateSource = 'system';
 let currentTechniqueCategoryFilter: GmTechniqueCategoryFilter = 'all';
@@ -876,28 +1232,14 @@ let techniqueGenerationJobListRequestNonce = 0;
 let techniqueGenerationJobDetailRequestNonce = 0;
 let generatedTechniqueEditor: GmCustomTechniqueEditor;
 const networkLargePayloadBucketByKey = new Map<string, GmNetworkBucket>();
-type TrafficBreakdownSortMode = 'bytes' | 'percent' | 'count' | 'avgBytes' | 'bytesPerSecond' | 'countPerSecond';
-type TrafficBreakdownDirection = 'in' | 'out';
-interface TrafficBreakdownNode {
-  key: string;
-  label: string;
-  bucket: GmNetworkBucket | null;
-  children: TrafficBreakdownNode[];
-  grouped: boolean;
-}
 /** currentTrafficBreakdownSort：当前流量分项排序。 */
 let currentTrafficBreakdownSort: TrafficBreakdownSortMode = 'bytes';
 /** currentTrafficBreakdownSortDirection：当前流量分项排序方向。 */
 let currentTrafficBreakdownSortDirection: MetricTreeSortDirection = 'desc';
 /** collapsedTrafficBreakdownGroupKeys：已折叠的流量分组。 */
 const collapsedTrafficBreakdownGroupKeys = new Set<string>();
-type GmPositionMapCategory = 'void' | 'real' | 'sect' | 'secret' | 'map';
-const GM_POSITION_MAP_CATEGORY_OPTIONS: readonly { id: GmPositionMapCategory; label: string }[] = [
-  { id: 'void', label: t('gm.client.position.category.void') },
-  { id: 'real', label: t('gm.client.position.category.real') },
-  { id: 'sect', label: t('gm.client.position.category.sect') },
-  { id: 'secret', label: t('gm.client.position.category.secret') },
-];
+type GmPositionMapCategory = MapGmPositionMapCategory;
+const GM_POSITION_MAP_CATEGORY_OPTIONS = mapGmPositionMapCategoryOptions;
 let gmMapSummaries: GmMapSummary[] = [];
 let gmWorldInstances: GmWorldInstanceSummary[] = [];
 let gmMapPickerCatalogLoaded = false;
@@ -910,31 +1252,31 @@ let lastPlayerListStructureKey: string | null = null;
 let lastEditorStructureKey: string | null = null;
 
 function buildGmStateApiPath(params: URLSearchParams): string {
-  return `${GM_API_BASE_PATH}/state?${params.toString()}`;
+  return apiBuildGmStateApiPath(params);
 }
 
 function buildGmPlayersApiPath(params: URLSearchParams): string {
-  return `${GM_API_BASE_PATH}/players?${params.toString()}`;
+  return apiBuildGmPlayersApiPath(params);
 }
 
 function buildGmPlayerApiPath(playerId: string): string {
-  return `${GM_API_BASE_PATH}/players/${encodeURIComponent(playerId)}`;
+  return apiBuildGmPlayerApiPath(playerId);
 }
 
 function buildGmGeneratedTechniquesApiPath(params: URLSearchParams): string {
-  return `${GM_API_BASE_PATH}/generated-techniques?${params.toString()}`;
+  return apiBuildGmGeneratedTechniquesApiPath(params);
 }
 
 function buildGmGeneratedTechniqueDetailApiPath(id: string): string {
-  return `${GM_API_BASE_PATH}/generated-techniques/${encodeURIComponent(id)}`;
+  return apiBuildGmGeneratedTechniqueDetailApiPath(id);
 }
 
 function buildGmTechniqueGenerationJobsApiPath(params: URLSearchParams): string {
-  return `${GM_API_BASE_PATH}/technique-generation/jobs?${params.toString()}`;
+  return apiBuildGmTechniqueGenerationJobsApiPath(params);
 }
 
 function buildGmTechniqueGenerationJobDetailApiPath(id: string): string {
-  return `${GM_API_BASE_PATH}/technique-generation/jobs/${encodeURIComponent(id)}`;
+  return apiBuildGmTechniqueGenerationJobDetailApiPath(id);
 }
 
 function buildTechniqueCandidateGeneratedQueryParams(): URLSearchParams {
@@ -1056,31 +1398,27 @@ function scheduleGeneratedTechniqueCandidateLoad(): void {
 }
 
 function buildGmDatabaseBackupDownloadApiPath(backupId: string): string {
-  return `${GM_API_BASE_PATH}/database/backups/${encodeURIComponent(backupId)}/download`;
+  return apiBuildGmDatabaseBackupDownloadApiPath(backupId);
 }
 
 function buildGmServerLogsApiPath(beforeSeq?: number): string {
-  const params = new URLSearchParams({ limit: String(SERVER_LOG_PAGE_SIZE) });
-  if (beforeSeq !== undefined) {
-    params.set('before', String(beforeSeq));
-  }
-  return `${GM_API_BASE_PATH}/logs?${params.toString()}`;
+  return apiBuildGmServerLogsApiPath(beforeSeq, SERVER_LOG_PAGE_SIZE);
 }
 
 function buildGmWorkersApiPath(): string {
-  return `${GM_API_BASE_PATH}/workers`;
+  return apiBuildGmWorkersApiPath();
 }
 
 function buildGmEnvironmentCheckApiPath(): string {
-  return `${GM_API_BASE_PATH}/environment/check`;
+  return apiBuildGmEnvironmentCheckApiPath();
 }
 
 function buildGmDiagnosticsQueryApiPath(): string {
-  return `${GM_API_BASE_PATH}/diagnostics/query`;
+  return apiBuildGmDiagnosticsQueryApiPath();
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+  return formatIsRecord(value);
 }
 
 function assertGmStateResponseShape(data: unknown): asserts data is GmStateRes {
@@ -1151,29 +1489,7 @@ let runtimeFlags: Array<{ key: string; value: boolean }> = [];
 let runtimeFlagsLoading = false;
 const NETWORK_PAYLOAD_CAPTURE_FLAG_KEY = 'gm_network_payload_capture_enabled';
 
-interface ObjectCountsResponse {
-  totals: {
-    instances: number;
-    players: number;
-    monsters: number;
-    npcs: number;
-    landmarks: number;
-    containers: number;
-    groundPiles: number;
-    pendingCommands: number;
-    monsterSpawnGroups: number;
-  };
-  topInstances: Array<{
-    instanceId: string;
-    players: number;
-    monsters: number;
-    npcs: number;
-    landmarks: number;
-    containers: number;
-    groundPiles: number;
-    pendingCommands: number;
-  }>;
-}
+type ObjectCountsResponse = ServerPanelsObjectCountsResponse;
 let objectCountsData: ObjectCountsResponse | null = null;
 let objectsLoading = false;
 let redeemGroupsState: RedeemCodeGroupView[] = [];
@@ -1250,255 +1566,108 @@ function ensureDirectMailDraft(playerId: string | null): void {
 
 /** clone：克隆clone。 */
 function clone<T>(value: T): T {
-  return gmPureHelpers.clone(value);
+  return formatClone(value);
 }
 
 /** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(input: string): string {
-  return gmPureHelpers.escapeHtml(input);
+  return formatEscapeHtml(input);
 }
 
 /** formatJson：格式化JSON。 */
 function formatJson(value: unknown): string {
-  return gmPureHelpers.formatJson(value);
+  return formatFormatJson(value);
 }
 
 /** formatBytes：格式化Bytes。 */
 function formatBytes(bytes: number | undefined): string {
-  return gmPureHelpers.formatBytes(bytes);
+  return formatFormatBytes(bytes);
 }
 
 function formatSignedBytes(bytes: number | undefined): string {
-  const value = Number(bytes ?? 0);
-  if (!Number.isFinite(value) || value === 0) {
-    return '0 B';
-  }
-  const sign = value > 0 ? '+' : '-';
-  return `${sign}${formatBytes(Math.abs(value))}`;
+  return formatFormatSignedBytes(bytes);
 }
 
 /** formatPercent：格式化Percent。 */
 function formatPercent(numerator: number, denominator: number): string {
-  return gmPureHelpers.formatPercent(numerator, denominator);
+  return formatFormatPercent(numerator, denominator);
 }
 
 /** formatBytesPerSecond：格式化Bytes Per Second。 */
 function formatBytesPerSecond(bytes: number, elapsedSec: number): string {
-  return gmPureHelpers.formatBytesPerSecond(bytes, elapsedSec);
+  return formatFormatBytesPerSecond(bytes, elapsedSec);
 }
 
 /** formatAverageBytesPerEvent：格式化Average Bytes Per事件。 */
 function formatAverageBytesPerEvent(bytes: number, count: number): string {
-  return gmPureHelpers.formatAverageBytesPerEvent(bytes, count);
+  return formatFormatAverageBytesPerEvent(bytes, count);
 }
 
 /** formatDurationSeconds：格式化Duration Seconds。 */
 function formatDurationSeconds(seconds: number): string {
-  return gmPureHelpers.formatDurationSeconds(seconds);
+  return formatFormatDurationSeconds(seconds);
 }
 
 /** formatDateTime：格式化Date时间。 */
 function formatDateTime(value?: string): string {
-  return gmPureHelpers.formatDateTime(value);
+  return formatFormatDateTime(value);
 }
 
 /** getPlayerPresenceMeta：读取玩家Presence元数据。 */
 function getPlayerPresenceMeta(player: Pick<GmManagedPlayerSummary, 'meta'>): {
-/**
- * className：class名称名称或显示文本。
- */
-
-  className: 'online' | 'offline';  
-  /**
- * label：label名称或显示文本。
- */
-
+  className: 'online' | 'offline';
   label: '在线' | '离线挂机' | '离线';
 } {
-  return gmPureHelpers.getPlayerPresenceMeta(player);
+  return riskGetPlayerPresenceMeta(player);
 }
 
 /** getManagedAccountStatusLabel：读取托管账号状态标签。 */
 function getManagedAccountStatusLabel(player: Pick<GmManagedPlayerRecord, 'meta'>): string {
-  return gmPureHelpers.getManagedAccountStatusLabel(player);
+  return riskGetManagedAccountStatusLabel(player);
 }
 
 /** getManagedAccountActivityMeta：读取托管账号Activity元数据。 */
 function getManagedAccountActivityMeta(player: Pick<GmManagedPlayerRecord, 'meta'>): {
-/**
- * label：label名称或显示文本。
- */
- label: string;
- /**
- * value：值数值。
- */
- value: string;
- /**
- * note：note相关字段。
- */
- note?: string } {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (player.meta.online) {
-    return {
-      label: '在线时间戳',
-      value: player.meta.lastHeartbeatAt ? formatDateTime(player.meta.lastHeartbeatAt) : t('gm.client.activity.online.no-record'),
-      note: player.meta.lastHeartbeatAt ? undefined : t('gm.client.activity.online.no-heartbeat-note'),
-    };
-  }
-  if (player.meta.updatedAt) {
-    return {
-      label: t('gm.client.activity.updated-at'),
-      value: formatDateTime(player.meta.updatedAt),
-    };
-  }
-  if (player.meta.lastHeartbeatAt) {
-    return {
-      label: t('gm.client.activity.last-heartbeat'),
-      value: formatDateTime(player.meta.lastHeartbeatAt),
-      note: t('gm.client.activity.legacy-heartbeat-note'),
-    };
-  }
-  return {
-    label: t('gm.client.activity.latest-record'),
-    value: t('gm.client.activity.no-record'),
-  };
+  label: string;
+  value: string;
+  note?: string;
+} {
+  return riskGetManagedAccountActivityMeta(player);
 }
 
 /** getManagedPlayerAccountStatusLabel：读取账号状态标签。 */
 function getManagedPlayerAccountStatusLabel(status: GmManagedPlayerSummary['accountStatus']): string {
-  switch (status) {
-    case 'banned':
-      return t('gm.client.account-status.banned');
-    case 'abnormal':
-      return t('gm.client.account-status.abnormal');
-    case 'normal':
-    default:
-      return t('gm.client.account-status.normal');
-  }
+  return riskGetManagedPlayerAccountStatusLabel(status);
 }
 
 /** getManagedAccountRestrictionLabel：读取账号封禁状态标签。 */
 function getManagedAccountRestrictionLabel(account: NonNullable<GmManagedPlayerRecord['account']>): string {
-  return account.status === 'banned' ? t('gm.client.account-restriction.banned') : t('gm.client.account-restriction.allowed');
+  return riskGetManagedAccountRestrictionLabel(account);
 }
 
 /** getManagedAccountRestrictionPillClass：读取账号封禁状态样式。 */
 function getManagedAccountRestrictionPillClass(account: NonNullable<GmManagedPlayerRecord['account']>): string {
-  return account.status === 'banned' ? 'offline' : 'online';
+  return riskGetManagedAccountRestrictionPillClass(account);
 }
 
 /** getPlayerRiskLevelLabel：读取风险等级标签。 */
 function getPlayerRiskLevelLabel(level: GmPlayerRiskLevel): string {
-  switch (level) {
-    case 'critical':
-      return t('gm.client.risk-level.critical');
-    case 'high':
-      return t('gm.client.risk-level.high');
-    case 'medium':
-      return t('gm.client.risk-level.medium');
-    case 'low':
-    default:
-      return t('gm.client.risk-level.low');
-  }
+  return riskGetPlayerRiskLevelLabel(level);
 }
 
 /** getPlayerRiskLevelPillClass：读取风险等级样式。 */
 function getPlayerRiskLevelPillClass(level: GmPlayerRiskLevel): string {
-  switch (level) {
-    case 'critical':
-      return 'bot';
-    case 'high':
-      return 'offline';
-    case 'medium':
-      return '';
-    case 'low':
-    default:
-      return 'online';
-  }
+  return riskGetPlayerRiskLevelPillClass(level);
 }
 
 /** renderPlayerRiskFactorCard：渲染风险维度卡片。 */
 function renderPlayerRiskFactorCard(factor: GmPlayerRiskFactor): string {
-  const evidenceMarkup = factor.evidence.length > 0
-    ? `<div class="editor-note" style="margin-top: 8px;">${factor.evidence.map((entry) => `- ${escapeHtml(entry)}`).join('<br />')}</div>`
-    : `<div class="editor-note" style="margin-top: 8px;">${escapeHtml(t('gm.client.risk.factor.no-evidence'))}</div>`;
-  return `
-    <div class="editor-card">
-      <div class="editor-card-head">
-        <div>
-          <div class="editor-card-title">${escapeHtml(factor.label)}</div>
-          <div class="editor-card-meta">${escapeHtml(factor.summary)}</div>
-        </div>
-        <span class="pill ${factor.score > 0 ? 'offline' : 'online'}">${factor.score} / ${factor.maxScore}</span>
-      </div>
-      ${evidenceMarkup}
-    </div>
-  `;
+  return riskRenderPlayerRiskFactorCard(factor);
 }
 
 /** renderPlayerRiskSection：渲染玩家风险检测标签页。 */
 function renderPlayerRiskSection(player: GmManagedPlayerRecord): string {
-  const report = player.riskReport;
-  const accountEnvMarkup = player.account
-    ? `
-      <div class="editor-note" style="margin-top: 8px;">
-        ${escapeHtml(t('gm.client.risk.account.status', { status: getManagedAccountRestrictionLabel(player.account) }))}<br />
-        ${escapeHtml(t('gm.client.risk.account.admin-list', { state: player.account.isRiskAdmin ? t('gm.client.risk.account.admin-joined') : t('gm.client.risk.account.admin-not-joined') }))}<br />
-        ${escapeHtml(t('gm.client.risk.account.created-at', { time: formatDateTime(player.account.createdAt) }))}<br />
-        ${escapeHtml(t('gm.client.risk.account.last-login', { time: formatDateTime(player.account.lastLoginAt) }))}
-      </div>
-    `
-    : `<div class="editor-note" style="margin-top: 8px;">${escapeHtml(t('gm.client.risk.no-manageable-account'))}</div>`;
-
-  return `
-    <section class="editor-section">
-      <div class="editor-section-head">
-        <div>
-          <div class="editor-section-title">${escapeHtml(t('gm.client.risk.overview.title'))}</div>
-          <div class="editor-section-note">${escapeHtml(t('gm.client.risk.overview.note'))}</div>
-        </div>
-        <div class="editor-chip-list">
-          <span class="pill ${getPlayerRiskLevelPillClass(report.level)}">${escapeHtml(getPlayerRiskLevelLabel(report.level))}</span>
-          <span class="pill">${escapeHtml(t('gm.client.risk.score', { score: report.score, maxScore: report.maxScore }))}</span>
-          <span class="pill">${escapeHtml(formatDateTime(report.generatedAt))}</span>
-        </div>
-      </div>
-      <div class="note-card">${escapeHtml(report.overview)}</div>
-      ${accountEnvMarkup}
-    </section>
-
-    <section class="editor-section">
-      <div class="editor-section-head">
-        <div>
-          <div class="editor-section-title">${escapeHtml(t('gm.client.risk.recommendations.title'))}</div>
-          <div class="editor-section-note">${escapeHtml(t('gm.client.risk.recommendations.note'))}</div>
-        </div>
-      </div>
-      <div class="editor-card-list">
-        ${report.recommendations.map((entry, index) => `
-          <div class="editor-card">
-            <div class="editor-card-head">
-              <div class="editor-card-title">${escapeHtml(t('gm.client.risk.recommendation.index', { index: index + 1 }))}</div>
-            </div>
-            <div class="editor-note" style="margin-top: 0;">${escapeHtml(entry)}</div>
-          </div>
-        `).join('')}
-      </div>
-    </section>
-
-    <section class="editor-section">
-      <div class="editor-section-head">
-        <div>
-          <div class="editor-section-title">${escapeHtml(t('gm.client.risk.factors.title'))}</div>
-          <div class="editor-section-note">${escapeHtml(t('gm.client.risk.factors.note'))}</div>
-        </div>
-      </div>
-      <div class="editor-card-list">
-        ${report.factors.map((factor) => renderPlayerRiskFactorCard(factor)).join('')}
-      </div>
-    </section>
-  `;
+  return riskRenderPlayerRiskSection(player);
 }
 
 /** hasServerEditorCatalog：判断是否服务端编辑器目录。 */
@@ -1584,9 +1753,7 @@ function getEditorSubtitle(detail: GmManagedPlayerRecord): string {
 }
 
 function formatPlayerNo(playerNo: number | null | undefined): string {
-  return typeof playerNo === 'number' && Number.isSafeInteger(playerNo) && playerNo > 0
-    ? String(playerNo).padStart(3, '0')
-    : '000';
+  return formatFormatPlayerNo(playerNo);
 }
 
 /** getEditorMetaMarkup：读取编辑器元数据Markup。 */
@@ -1684,119 +1851,47 @@ function getQuestCardMeta(quest: QuestState | undefined): string {
 
 /** getTechniqueOptionLabel：读取Technique选项标签。 */
 function getTechniqueOptionLabel(option: GmEditorTechniqueOption): string {
-  return gmCatalogHelpers.getTechniqueOptionLabel(option, editorCatalog);
+  return catalogGetTechniqueOptionLabel(option, editorCatalog);
 }
 
 /** getItemOptionLabel：读取物品选项标签。 */
 function getItemOptionLabel(option: GmEditorItemOption): string {
-  return gmCatalogHelpers.getItemOptionLabel(option);
+  return catalogGetItemOptionLabel(option);
 }
 
 /** getTechniqueCatalogOptions：读取Technique目录选项。 */
-function getTechniqueCatalogOptions(includeEmpty = false): Array<{
-/**
- * value：值数值。
- */
- value: string;
- /**
- * label：label名称或显示文本。
- */
- label: string }> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (!hasServerEditorCatalog()) {
-    return includeEmpty ? [{ value: '', label: '未选择' }] : [];
-  }
-  return gmCatalogHelpers.getTechniqueCatalogOptions(editorCatalog, includeEmpty);
+function getTechniqueCatalogOptions(includeEmpty = false): Array<{ value: string; label: string }> {
+  return catalogGetTechniqueCatalogOptions(editorCatalog, hasServerEditorCatalog(), includeEmpty);
 }
 
 /** getLearnedTechniqueOptions：读取Learned Technique选项。 */
-function getLearnedTechniqueOptions(techniques: TechniqueState[], includeEmpty = false): Array<{
-/**
- * value：值数值。
- */
- value: string;
- /**
- * label：label名称或显示文本。
- */
- label: string }> {
-  const options = techniques.map((technique) => ({
-    value: technique.techId,
-    label: technique.name?.trim() || '未知功法',
-  }));
-  return includeEmpty ? [{ value: '', label: '未选择' }, ...options] : options;
+function getLearnedTechniqueOptions(techniques: TechniqueState[], includeEmpty = false): Array<{ value: string; label: string }> {
+  return catalogGetLearnedTechniqueOptions(techniques, includeEmpty);
 }
 
 /** getRealmCatalogOptions：读取境界目录选项。 */
-function getRealmCatalogOptions(): Array<{
-/**
- * value：值数值。
- */
- value: number;
- /**
- * label：label名称或显示文本。
- */
- label: string }> {
-  return gmCatalogHelpers.getRealmCatalogOptions(editorCatalog);
+function getRealmCatalogOptions(): Array<{ value: number; label: string }> {
+  return catalogGetRealmCatalogOptions(editorCatalog);
 }
 
 /** getItemCatalogOptions：读取物品目录选项。 */
-function getItemCatalogOptions(filter?: (option: GmEditorItemOption) => boolean): Array<{
-/**
- * value：值数值。
- */
- value: string;
- /**
- * label：label名称或显示文本。
- */
- label: string }> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (!hasServerEditorCatalog()) {
-    return [];
-  }
-  return gmCatalogHelpers.getItemCatalogOptions(editorCatalog, filter);
+function getItemCatalogOptions(filter?: (option: GmEditorItemOption) => boolean): Array<{ value: string; label: string }> {
+  return catalogGetItemCatalogOptions(editorCatalog, hasServerEditorCatalog(), filter);
 }
 
 /** getBuffOptionLabel：读取Buff选项标签。 */
 function getBuffOptionLabel(option: GmEditorBuffOption): string {
-  return gmCatalogHelpers.getBuffOptionLabel(option);
+  return catalogGetBuffOptionLabel(option);
 }
 
 /** getBuffCatalogOptions：读取Buff目录选项。 */
-function getBuffCatalogOptions(selectedBuffId?: string): Array<{
-/**
- * value：值数值。
- */
- value: string;
- /**
- * label：label名称或显示文本。
- */
- label: string }> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (!hasServerEditorCatalog()) {
-    return selectedBuffId
-      ? [
-          { value: '', label: '请选择增益' },
-          { value: selectedBuffId, label: selectedBuffId },
-        ]
-      : [{ value: '', label: '请选择增益' }];
-  }
-  return gmCatalogHelpers.getBuffCatalogOptions(editorCatalog, selectedBuffId);
+function getBuffCatalogOptions(selectedBuffId?: string): Array<{ value: string; label: string }> {
+  return catalogGetBuffCatalogOptions(editorCatalog, hasServerEditorCatalog(), selectedBuffId);
 }
 
 /** getMailAttachmentItemOptions：读取邮件Attachment物品选项。 */
-function getMailAttachmentItemOptions(): Array<{
-/**
- * value：值数值。
- */
- value: string;
- /**
- * label：label名称或显示文本。
- */
- label: string }> {
-  return gmCatalogHelpers.getMailAttachmentItemOptions(editorCatalog);
+function getMailAttachmentItemOptions(): Array<{ value: string; label: string }> {
+  return catalogGetMailAttachmentItemOptions(editorCatalog);
 }
 
 /** getMailAttachmentPageStore：读取邮件Attachment分页存储。 */
@@ -1979,150 +2074,29 @@ function getMailComposerPayload(draft: GmMailComposerDraft): GmCreateMailReq {
 }
 
 /** getMailComposerMarkup：读取邮件Composer Markup。 */
+const mailComposerDeps = {
+  isServerManagedMailTemplate,
+  getMailTemplateOptionMeta,
+  hasServerEditorCatalog,
+  getEditorCatalogFallbackNote,
+  getMailAttachmentTitle,
+  getMailAttachmentRowMeta,
+  searchableItemField,
+  getShortcutMailTargetOptions,
+  mailTemplateOptions: GM_MAIL_TEMPLATE_OPTIONS,
+};
+
 function getMailComposerMarkup(
   draft: GmMailComposerDraft,
-  options: {  
-  /**
- * scope：scope相关字段。
- */
-
-    scope: 'direct' | 'shortcut';    
-    /**
- * submitLabel：submitLabel名称或显示文本。
- */
-
-    submitLabel: string;    
-    /**
- * note：note相关字段。
- */
-
-    note: string;    
-    /**
- * showTargetPlayer：show目标玩家引用。
- */
-
+  options: {
+    scope: 'direct' | 'shortcut';
+    submitLabel: string;
+    note: string;
     showTargetPlayer?: boolean;
   },
 ): string {
-  const usesServerManagedTemplate = isServerManagedMailTemplate(draft.templateId);
-  const templateMeta = getMailTemplateOptionMeta(draft.templateId);
-  const catalogActionDisabled = hasServerEditorCatalog() ? '' : ' disabled';
-  const catalogFallbackNote = getEditorCatalogFallbackNote();
-  const attachmentRows = usesServerManagedTemplate
-    ? `<div class="editor-note">${escapeHtml(templateMeta?.description || '该模板的附件由服务端固定生成。')}</div>`
-    : draft.attachments.length > 0
-      ? draft.attachments.map((entry, index) => {
-        return `
-        <div class="editor-card">
-          <div class="editor-card-head">
-            <div>
-              <div class="editor-card-title">${escapeHtml(getMailAttachmentTitle(entry.itemId, `附件 ${index + 1}`))}</div>
-              <div class="editor-card-meta">${escapeHtml(getMailAttachmentRowMeta(entry.itemId))}</div>
-            </div>
-            <button class="small-btn danger" type="button" data-action="${options.scope === 'direct' ? 'remove-direct-mail-attachment' : 'remove-shortcut-mail-attachment'}" data-mail-attachment-index="${index}">删除附件</button>
-          </div>
-          <div class="editor-grid compact">
-            ${searchableItemField(
-              '物品模板',
-              entry.itemId,
-              'all',
-              { 'data-mail-bind': `${options.scope}.attachments.${index}.itemId` },
-              'wide',
-            )}
-            <label class="editor-field">
-              <span>数量</span>
-              <input type="number" min="1" data-mail-bind="${options.scope}.attachments.${index}.count" value="${Math.max(1, Math.floor(entry.count || 1))}"${catalogActionDisabled} />
-            </label>
-          </div>
-        </div>
-      `;
-      }).join('')
-      : '<div class="editor-note">当前没有附件。</div>';
-  const targetPlayerField = options.showTargetPlayer
-    ? `
-      <label class="editor-field wide">
-        <span>发送目标</span>
-        <select data-mail-bind="${options.scope}.targetPlayerId">
-          ${optionsMarkup(getShortcutMailTargetOptions(), draft.targetPlayerId)}
-        </select>
-      </label>
-    `
-    : '';
-  const templateField = `
-    <label class="editor-field wide">
-      <span>邮件模板</span>
-      <select data-mail-bind="${options.scope}.templateId">
-        ${optionsMarkup(
-          GM_MAIL_TEMPLATE_OPTIONS.map((entry) => ({ value: entry.templateId, label: `${entry.label} · ${entry.description}` })),
-          draft.templateId,
-        )}
-      </select>
-    </label>
-  `;
-  const customContentFields = usesServerManagedTemplate
-    ? `
-      <div class="editor-note" style="margin-top: 10px;">
-        当前使用模板“${escapeHtml(templateMeta?.label || '未知模板')}”，标题、正文和附件由服务端统一生成。
-      </div>
-    `
-    : `
-      <label class="editor-field wide">
-        <span>标题</span>
-        <input type="text" autocomplete="off" spellcheck="false" data-mail-bind="${options.scope}.title" value="${escapeHtml(draft.title)}" placeholder="不填则由服务端显示为未命名邮件" />
-      </label>
-      <label class="editor-field wide">
-        <span>正文</span>
-        <textarea class="editor-textarea" style="min-height: 120px;" spellcheck="false" data-mail-bind="${options.scope}.body" placeholder="可留空，仅发送附件">${escapeHtml(draft.body)}</textarea>
-      </label>
-    `;
-  const attachmentSection = usesServerManagedTemplate
-    ? `
-      <div class="editor-section" style="margin-top: 10px;">
-        <div class="editor-section-head">
-          <div>
-            <div class="editor-section-title">模板附件</div>
-            <div class="editor-section-note">当前模板会附带指定常用装备一套、全部非神通功法书各一本到，以及五枚苦修丹。</div>
-          </div>
-        </div>
-        <div class="editor-card-list">${attachmentRows}</div>
-      </div>
-    `
-    : `
-      <div class="editor-section" style="margin-top: 10px;">
-        <div class="editor-section-head">
-          <div>
-            <div class="editor-section-title">邮件附件</div>
-            <div class="editor-section-note">附件由服务端在领取时校验并发放到背包。</div>
-          </div>
-          <button class="small-btn" type="button" data-action="${options.scope === 'direct' ? 'add-direct-mail-attachment' : 'add-shortcut-mail-attachment'}"${catalogActionDisabled}>新增附件</button>
-        </div>
-        <div class="editor-card-list">${attachmentRows}</div>
-      </div>
-    `;
-
-  return `
-    <div class="editor-grid compact">
-      ${targetPlayerField}
-      ${templateField}
-      <label class="editor-field">
-        <span>发件人</span>
-        <input type="text" autocomplete="off" spellcheck="false" data-mail-bind="${options.scope}.senderLabel" value="${escapeHtml(draft.senderLabel)}" placeholder="司命台" />
-      </label>
-      <label class="editor-field">
-        <span>过期小时</span>
-        <input type="number" min="0" data-mail-bind="${options.scope}.expireHours" value="${escapeHtml(draft.expireHours)}" placeholder="72" />
-      </label>
-      ${customContentFields}
-    </div>
-    ${attachmentSection}
-    <div class="button-row" style="margin-top: 10px;">
-      <button class="small-btn primary" type="button" data-action="${options.scope === 'direct' ? 'send-direct-mail' : 'send-shortcut-mail'}">${escapeHtml(options.submitLabel)}</button>
-    </div>
-    <div class="editor-note" style="margin-top: 8px;">${escapeHtml(options.note)}</div>
-    ${catalogFallbackNote ? `<div class="editor-note" style="margin-top: 8px; color: var(--stamp-red);">${escapeHtml(catalogFallbackNote)}</div>` : ''}
-  `;
+  return mailComposerGetMailComposerMarkupHtml(draft, options, mailComposerDeps);
 }
-
 /** getInventoryAddTypeOptions：读取背包Add类型选项。 */
 function getInventoryAddTypeOptions(): Array<{
 /**
@@ -2154,27 +2128,27 @@ function getInventoryAddItemOptions(): Array<{
 
 /** findTechniqueCatalogEntry：查找Technique目录条目。 */
 function findTechniqueCatalogEntry(techId: string | undefined): GmEditorTechniqueOption | null {
-  return gmCatalogHelpers.findTechniqueCatalogEntry(editorCatalog, techId);
+  return catalogFindTechniqueCatalogEntry(editorCatalog, techId);
 }
 
 /** findItemCatalogEntry：查找物品目录条目。 */
 function findItemCatalogEntry(itemId: string | undefined): GmEditorItemOption | null {
-  return gmCatalogHelpers.findItemCatalogEntry(editorCatalog, itemId);
+  return catalogFindItemCatalogEntry(editorCatalog, itemId);
 }
 
 /** findBuffCatalogEntry：查找Buff目录条目。 */
 function findBuffCatalogEntry(buffId: string | undefined): GmEditorBuffOption | null {
-  return gmCatalogHelpers.findBuffCatalogEntry(editorCatalog, buffId);
+  return catalogFindBuffCatalogEntry(editorCatalog, buffId);
 }
 
 /** createTechniqueFromCatalog：创建Technique From目录。 */
 function createTechniqueFromCatalog(techId: string): TechniqueState {
-  return gmCatalogHelpers.createTechniqueFromCatalog(techId, editorCatalog, createDefaultTechnique, clone);
+  return catalogCreateTechniqueFromCatalog(techId, editorCatalog, createDefaultTechnique);
 }
 
 /** createItemFromCatalog：创建物品From目录。 */
 function createItemFromCatalog(itemId: string, count = 1): ItemStack {
-  return gmCatalogHelpers.createItemFromCatalog(itemId, editorCatalog, createDefaultItem, clone, count);
+  return catalogCreateItemFromCatalog(itemId, editorCatalog, createDefaultItem, count);
 }
 
 /** createBuffFromCatalog：创建Buff From目录。 */
@@ -2182,45 +2156,27 @@ function createBuffFromCatalog(
   buffId: string,
   current?: Pick<TemporaryBuffState, 'stacks' | 'remainingTicks'>,
 ): TemporaryBuffState {
-  return gmCatalogHelpers.createBuffFromCatalog(buffId, editorCatalog, createDefaultBuff, clone, current);
+  return catalogCreateBuffFromCatalog(buffId, editorCatalog, createDefaultBuff, current);
 }
 
 /** getTechniqueSummary：读取Technique摘要。 */
 function getTechniqueSummary(technique: TechniqueState): string {
-  return gmCatalogHelpers.getTechniqueSummary(technique);
+  return catalogGetTechniqueSummary(technique);
 }
 
 /** getTechniqueTemplateMaxLevel：读取Technique模板最大等级。 */
 function getTechniqueTemplateMaxLevel(technique: TechniqueState): number {
-  return gmCatalogHelpers.getTechniqueTemplateMaxLevel(technique, editorCatalog);
+  return catalogGetTechniqueTemplateMaxLevel(technique, editorCatalog);
 }
 
 /** buildMaxLevelTechniqueState：构建最大等级Technique状态。 */
 function buildMaxLevelTechniqueState(technique: TechniqueState): TechniqueState {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  const catalogEntry = findTechniqueCatalogEntry(technique.techId);
-  const maxLevel = getTechniqueTemplateMaxLevel(technique);
-  if (!catalogEntry) {
-    return {
-      ...clone(technique),
-      level: maxLevel,
-      exp: 0,
-      expToNext: 0,
-    };
-  }
-  const next = createTechniqueFromCatalog(technique.techId);
-  return {
-    ...next,
-    level: maxLevel,
-    exp: 0,
-    expToNext: 0,
-  };
+  return catalogBuildMaxLevelTechniqueState(technique, editorCatalog, createDefaultTechnique);
 }
 
 /** getInventoryRowMeta：读取背包Row元数据。 */
 function getInventoryRowMeta(item: ItemStack): string {
-  return gmCatalogHelpers.getResolvedInventoryRowMeta(editorCatalog, item);
+  return catalogGetInventoryRowMeta(editorCatalog, item);
 }
 
 /** getTechniqueEditorControls：读取Technique编辑器Controls。 */
@@ -2362,7 +2318,7 @@ function shouldShowEnhancementLevelField(item: ItemStack): boolean {
 }
 
 function normalizeInventorySearchText(value: string): string {
-  return value.trim().toLowerCase();
+  return editorNormalizeInventorySearchText(value);
 }
 
 function getInventoryItemSearchText(item: ItemStack, index: number): string {
@@ -2496,13 +2452,7 @@ function setTextLikeValue(
   value: string,
   preserveFocusedField = true,
 ): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (field.value === value) return;
-  if (preserveFocusedField && document.activeElement === field) {
-    return;
-  }
-  field.value = value;
+  editorSetTextLikeValue(field, value, preserveFocusedField);
 }
 
 /** syncVisualEditorFieldsFromDraft：同步Visual编辑器字段From Draft。 */
@@ -2638,7 +2588,7 @@ function clearEditorRenderCache(): void {
 
 /** getVisibleNetworkBuckets：读取可见Network Buckets。 */
 function getVisibleNetworkBuckets(buckets: GmNetworkBucket[]): GmNetworkBucket[] {
-  return buckets;
+  return statGetVisibleNetworkBuckets(buckets);
 }
 
 /** getNetworkBucketMeta：读取Network Bucket元数据。 */
@@ -2647,96 +2597,28 @@ function getNetworkBucketMeta(
   bucket: GmNetworkBucket,
   elapsedSec: number,
 ): string {
-  const largePayloadMeta = (bucket.largePayloadCount ?? 0) > 0
-    ? ` · 大包 ${bucket.largePayloadCount} 次 / ${formatBytes(bucket.largePayloadBytes ?? 0)}`
-    : '';
-  return `${formatBytes(bucket.bytes)} · ${formatPercent(bucket.bytes, totalBytes)} · ${bucket.count} 次 · 均次 ${formatAverageBytesPerEvent(bucket.bytes, bucket.count)} · 均秒 ${formatBytesPerSecond(bucket.bytes, elapsedSec)}${largePayloadMeta}`;
+  return statGetNetworkBucketMeta(totalBytes, bucket, elapsedSec);
 }
 
 /** getTickPerf：读取Tick性能。 */
 function getTickPerf(perf: GmStateRes['perf']) {
-  return perf.tick ?? {
-    lastMapId: null,
-    lastMs: perf.tickMs,
-    windowElapsedSec: 0,
-    windowTickCount: 0,
-    windowTotalMs: 0,
-    windowAvgMs: perf.tickMs,
-    windowBusyPercent: 0,
-  };
+  return statGetTickPerf(perf);
 }
 
 /** getStatRowMarkup：读取Stat Row Markup。 */
 function getStatRowMarkup(key: string): string {
-  return gmMarkupHelpers.getStatRowMarkup(key);
+  return statGetStatRowMarkup(key);
 }
 
-type StructuredStatListItem = {
-  key: string;
-  label: string;
-  meta: string;
-  largePayloadSamples?: GmNetworkBucket['largePayloadSamples'];
-};
+type StructuredStatListItem = StatStructuredStatListItem;
 
-type MetricTreeSortDirection = 'asc' | 'desc';
-
-interface MetricTreeColumn<TNode, TContext> {
-  key: string;
-  label: string;
-  sortable?: boolean;
-  render: (node: TNode, context: TContext) => string;
-  sortValue?: (node: TNode, context: TContext) => number | string;
-}
-
-interface MetricTreeTableOptions<TNode, TContext> {
-  columns: MetricTreeColumn<TNode, TContext>[];
-  context: TContext;
-  sortKey: string;
-  sortDirection: MetricTreeSortDirection;
-  collapsedKeys: ReadonlySet<string>;
-  getKey: (node: TNode) => string;
-  getLabel: (node: TNode) => string;
-  getDisplayLabel?: (node: TNode, depth: number) => string;
-  getLabelMarkup?: (node: TNode, depth: number) => string | null | undefined;
-  getChildren: (node: TNode) => TNode[];
-  isGroup: (node: TNode) => boolean;
-  firstColumnLabel: string;
-  tableClassName: string;
-  groupClassName: string;
-  groupRowClassName: string;
-  childRowClassName: string;
-}
-
-type CpuBreakdownSortMode = 'totalMs' | 'perSecondMs' | 'avgMs' | 'count' | 'perSecondCount' | 'percent';
-
-interface CpuBreakdownGroup {
-  key: string;
-  label: string;
-  summary: GmCpuSectionSnapshot;
-  children: CpuBreakdownGroup[];
-  grouped: boolean;
-}
+type MetricTreeSortDirection = PerfMetricTreeSortDirection;
+type MetricTreeColumn<TNode, TContext> = PerfMetricTreeColumn<TNode, TContext>;
+type MetricTreeTableOptions<TNode, TContext> = PerfMetricTreeTableOptions<TNode, TContext>;
 
 /** patchStatRow：处理patch Stat Row。 */
 function patchStatRow(row: HTMLElement, item: StructuredStatListItem): void {
-  const { label, meta } = item;
-  row.querySelector<HTMLElement>('[data-role="label"]')!.textContent = label;
-  row.querySelector<HTMLElement>('[data-role="meta"]')!.textContent = meta;
-  const actionsEl = row.querySelector<HTMLElement>('[data-role="actions"]');
-  if (!actionsEl) {
-    return;
-  }
-  if (!Array.isArray(item.largePayloadSamples) || item.largePayloadSamples.length === 0) {
-    actionsEl.innerHTML = '';
-    actionsEl.hidden = true;
-    return;
-  }
-  actionsEl.hidden = false;
-  const currentKey = actionsEl.querySelector<HTMLButtonElement>('[data-network-large-payload-key]')?.dataset.networkLargePayloadKey;
-  if (currentKey === item.key) {
-    return;
-  }
-  actionsEl.innerHTML = `<button class="small-btn network-payload-btn" type="button" data-network-large-payload-key="${escapeHtml(item.key)}">查看包体</button>`;
+  return statPatchStatRow(row, item);
 }
 
 /** renderStructuredStatList：渲染Structured Stat列表。 */
@@ -2746,738 +2628,42 @@ function renderStructuredStatList(
   items: StructuredStatListItem[],
   emptyText: string,
 ): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (items.length === 0) {
-    if (structureKey !== 'empty') {
-      container.innerHTML = `<div class="empty-hint">${escapeHtml(emptyText)}</div>`;
-    }
-    return 'empty';
-  }
-
-  const nextStructureKey = items.map((item) => item.key).join('|');
-  if (structureKey !== nextStructureKey) {
-    container.innerHTML = items.map((item) => getStatRowMarkup(item.key)).join('');
-  }
-  items.forEach((item, index) => {
-    const row = container.children[index];
-    if (!(row instanceof HTMLElement)) {
-      return;
-    }
-    patchStatRow(row, item);
-  });
-  return nextStructureKey;
+  return statRenderStructuredStatList(container, structureKey, items, emptyText);
 }
 
 function rememberNetworkLargePayloadBuckets(buckets: GmNetworkBucket[]): void {
-  for (const bucket of buckets) {
-    if (Array.isArray(bucket.largePayloadSamples) && bucket.largePayloadSamples.length > 0) {
-      networkLargePayloadBucketByKey.set(bucket.key, bucket);
-    }
-  }
+  statRememberNetworkLargePayloadBuckets(buckets, networkLargePayloadBucketByKey);
 }
 
 function renderNetworkLargePayloadSample(sample: NonNullable<GmNetworkBucket['largePayloadSamples']>[number], index: number): string {
-  const recordedAt = sample.recordedAt > 0 ? new Date(sample.recordedAt).toLocaleString() : t('gm.text.unknown-time');
-  return `
-    <section class="network-payload-sample">
-      <div class="network-payload-sample-head">
-        <div>${escapeHtml(t('gm.text.sample', { index: index + 1 }))}</div>
-        <div>${escapeHtml(t('gm.network.large-payload.sample-meta', {
-          event: sample.event,
-          recordedAt,
-          payloadBytes: formatBytes(sample.bytes),
-          packetBytes: formatBytes(sample.packetBytes),
-        }))}</div>
-      </div>
-      <textarea class="network-payload-body" readonly spellcheck="false">${escapeHtml(sample.body)}</textarea>
-    </section>
-  `;
+  return statRenderNetworkLargePayloadSample(sample, index);
 }
 
 function closeNetworkPayloadModal(): void {
-  const modal = document.getElementById('network-payload-modal');
-  if (modal) {
-    modal.remove();
-  }
+  statCloseNetworkPayloadModal();
 }
 
 function openNetworkPayloadModal(bucket: GmNetworkBucket): void {
-  const samples = Array.isArray(bucket.largePayloadSamples) ? bucket.largePayloadSamples : [];
-  if (samples.length === 0) {
-    setStatus(t('gm.network.large-payload.empty'), true);
-    return;
-  }
-  closeNetworkPayloadModal();
-  const modal = document.createElement('div');
-  modal.id = 'network-payload-modal';
-  modal.className = 'network-payload-modal';
-  modal.innerHTML = `
-    <div class="network-payload-dialog" role="dialog" aria-modal="true" aria-label="网络包体内容">
-      <div class="network-payload-dialog-head">
-        <div>
-          <div class="panel-title">${escapeHtml(bucket.label)}</div>
-          <div class="network-breakdown-subtitle">${escapeHtml(t('gm.network.large-payload.limit-note', { count: samples.length }))}</div>
-        </div>
-        <button class="small-btn" type="button" data-network-payload-close>${escapeHtml(t('gm.common.close'))}</button>
-      </div>
-      <div class="network-payload-sample-list">
-        ${samples.map((sample, index) => renderNetworkLargePayloadSample(sample, index)).join('')}
-      </div>
-    </div>
-  `;
-  modal.addEventListener('click', (event) => {
-    const target = event.target;
-    if (target === modal || (target instanceof Element && target.closest('[data-network-payload-close]'))) {
-      closeNetworkPayloadModal();
-    }
-  });
-  document.body.appendChild(modal);
+  statOpenNetworkPayloadModal(bucket, setStatus);
 }
 
-interface CpuBreakdownGroupDef {
-  key: string;
-  childPrefixes: string[];
-  fallbackLabel: string;
-  groups?: CpuBreakdownGroupDef[];
-}
-
-const CPU_BREAKDOWN_GROUPS: CpuBreakdownGroupDef[] = [
-  {
-    key: 'instanceTicksMs',
-    childPrefixes: ['instance.'],
-    fallbackLabel: '实例 tick',
-    groups: [
-      { key: 'instance.playerTickAdvanceMs', childPrefixes: ['playerTick.'], fallbackLabel: '玩家 tick 推进' },
-    ],
-  },
-  {
-    key: 'pendingCommandsMs',
-    childPrefixes: ['pendingCommands.'],
-    fallbackLabel: '待处理命令',
-    groups: [
-      { key: 'pendingCommands.castSkillMs', childPrefixes: ['pendingCommands.castSkill.'], fallbackLabel: '技能施放' },
-    ],
-  },
-  { key: 'syncFlushMs', childPrefixes: ['syncFlush.'], fallbackLabel: '同步广播' },
-  { key: 'preTickMaterializationMs', childPrefixes: ['tick.'], fallbackLabel: '预 tick 物化' },
-  { key: 'workerPrecomputeMs', childPrefixes: ['worker.'], fallbackLabel: 'Worker 预计算' },
-  { key: 'postTickCleanupMs', childPrefixes: ['postTick.'], fallbackLabel: 'tick 后清理' },
-  { key: 'persistence.player.totalMs', childPrefixes: ['persistence.player.'], fallbackLabel: '持久化·玩家刷盘' },
-  { key: 'persistence.map.totalMs', childPrefixes: ['persistence.map.'], fallbackLabel: '持久化·地图刷盘' },
-];
-
-const CPU_BREAKDOWN_TOP_LEVEL_KEYS = new Set([
-  'resetFrameEffectsMs',
-  'planInstanceStepsMs',
-  'preTickMaterializationMs',
-  'pendingCommandsMs',
-  'systemCommandsMs',
-  'workerPrecomputeMs',
-  'instanceTicksMs',
-  'postTickCleanupMs',
-  'playerAdvanceMs',
-  'syncFlushMs',
-  'otherMs',
-]);
-
-function resolveMetricTreeSortColumn<TNode, TContext>(
-  columns: MetricTreeColumn<TNode, TContext>[],
-  sortKey: string,
-): MetricTreeColumn<TNode, TContext> | null {
-  return columns.find((column) => column.key === sortKey && column.sortable === true && column.sortValue) ?? null;
-}
-
-function compareMetricTreeSortValues(left: number | string, right: number | string): number {
-  if (typeof left === 'number' && typeof right === 'number') {
-    return left - right;
-  }
-  return String(left).localeCompare(String(right), 'zh-CN');
-}
-
-function compareMetricTreeNodes<TNode, TContext>(
-  left: TNode,
-  right: TNode,
-  options: Pick<MetricTreeTableOptions<TNode, TContext>, 'columns' | 'context' | 'sortKey' | 'sortDirection' | 'getLabel'>,
-): number {
-  const column = resolveMetricTreeSortColumn(options.columns, options.sortKey);
-  if (column?.sortValue) {
-    const leftValue = column.sortValue(left, options.context);
-    const rightValue = column.sortValue(right, options.context);
-    const compared = compareMetricTreeSortValues(leftValue, rightValue);
-    if (compared !== 0) {
-      return options.sortDirection === 'desc' ? -compared : compared;
-    }
-  }
-  return options.getLabel(left).localeCompare(options.getLabel(right), 'zh-CN');
-}
-
-function stripCpuChildLabel(label: string): string {
-  return label.replace(/^(实例|同步|tick|Worker|后 tick|持久化|玩家 tick|命令)[· ]/, '');
-}
-
-function compareCpuBreakdownGroups(left: CpuBreakdownGroup, right: CpuBreakdownGroup, windowSec: number): number {
-  const compared = compareMetricTreeNodes(left, right, {
-    columns: CPU_BREAKDOWN_COLUMNS,
-    context: { windowSec },
-    sortKey: currentCpuBreakdownSort,
-    sortDirection: currentCpuBreakdownSortDirection,
-    getLabel: (group) => group.label,
-  });
-  if (compared !== 0) {
-    return compared;
-  }
-  if (right.summary.totalMs !== left.summary.totalMs) {
-    return right.summary.totalMs - left.summary.totalMs;
-  }
-  if (right.summary.count !== left.summary.count) {
-    return right.summary.count - left.summary.count;
-  }
-  return left.label.localeCompare(right.label, 'zh-CN');
-}
-
-function createCpuFallbackSummary(def: CpuBreakdownGroupDef, children: CpuBreakdownGroup[]): GmCpuSectionSnapshot {
-  const totalMs = children.reduce((sum, child) => sum + child.summary.totalMs, 0);
-  const count = children.reduce((sum, child) => sum + child.summary.count, 0);
-  return {
-    key: def.key,
-    label: def.fallbackLabel,
-    totalMs,
-    count,
-    avgMs: count > 0 ? totalMs / count : 0,
-    percent: children.reduce((sum, child) => sum + child.summary.percent, 0),
-  };
-}
-
-function buildCpuBreakdownGroupNode(
-  def: CpuBreakdownGroupDef,
-  sections: GmCpuSectionSnapshot[],
-  byKey: Map<string, GmCpuSectionSnapshot>,
-  consumed: Set<string>,
-  windowSec: number,
-): CpuBreakdownGroup | null {
-  const nestedGroups: CpuBreakdownGroup[] = [];
-  for (const nestedDef of def.groups ?? []) {
-    const nested = buildCpuBreakdownGroupNode(nestedDef, sections, byKey, consumed, windowSec);
-    if (nested) {
-      nestedGroups.push(nested);
-    }
-  }
-  const leaves = sections
-    .filter((section) => !consumed.has(section.key) && section.key !== def.key && def.childPrefixes.some((prefix) => section.key.startsWith(prefix)))
-    .map((section) => ({
-      key: section.key,
-      label: section.label,
-      summary: section,
-      children: [],
-      grouped: false,
-    }));
-  const children = [...nestedGroups, ...leaves].sort((left, right) => compareCpuBreakdownGroups(left, right, windowSec));
-  const explicitSummary = byKey.get(def.key);
-  if (!explicitSummary && children.length === 0) {
-    return null;
-  }
-  consumed.add(def.key);
-  for (const child of children) {
-    consumed.add(child.key);
-  }
-  const summary = explicitSummary
-    ? { ...explicitSummary, label: def.fallbackLabel }
-    : createCpuFallbackSummary(def, children);
-  return {
-    key: def.key,
-    label: def.fallbackLabel,
-    summary,
-    children,
-    grouped: true,
-  };
-}
-
-function buildCpuBreakdownGroups(sections: GmCpuSectionSnapshot[], windowSec: number): CpuBreakdownGroup[] {
-  const byKey = new Map(sections.map((section) => [section.key, section]));
-  const consumed = new Set<string>();
-  const groups: CpuBreakdownGroup[] = [];
-  for (const def of CPU_BREAKDOWN_GROUPS) {
-    const group = buildCpuBreakdownGroupNode(def, sections, byKey, consumed, windowSec);
-    if (group) {
-      groups.push(group);
-    }
-  }
-  for (const section of sections) {
-    if (consumed.has(section.key)) {
-      continue;
-    }
-    groups.push({
-      key: section.key,
-      label: section.label,
-      summary: section,
-      children: [],
-      grouped: false,
-    });
-  }
-  groups.sort((left, right) => compareCpuBreakdownGroups(left, right, windowSec));
-  return groups;
-}
-
-function resolveCpuBreakdownWindowSec(data: GmStateRes): number {
-  const elapsedSec = Math.max(0, Number(data.perf.cpu.profileElapsedSec) || 0);
-  if (elapsedSec > 0) {
-    return elapsedSec;
-  }
-  const topLevelCounts = data.perf.cpu.breakdown
-    .filter((section) => CPU_BREAKDOWN_TOP_LEVEL_KEYS.has(section.key))
-    .map((section) => Math.max(0, Math.trunc(Number(section.count) || 0)))
-    .filter((count) => count > 0);
-  const inferredWindowSec = topLevelCounts.length > 0 ? Math.max(...topLevelCounts) : 0;
-  if (inferredWindowSec > 0) {
-    return inferredWindowSec;
-  }
-  return Math.max(1, Number(data.perf.cpu.profileElapsedSec) || 1);
-}
-
-function formatCpuMs(value: number, digits = 2): string {
-  return `${Math.max(0, Number(value) || 0).toFixed(digits)} ms`;
-}
-
-function formatCpuCount(value: number, digits = 2): string {
-  const normalized = Math.max(0, Number(value) || 0);
-  if (normalized >= 100) {
-    return normalized.toFixed(1).replace(/\.0$/, '');
-  }
-  return normalized.toFixed(digits).replace(/\.00$/, '');
-}
-
-interface CpuBreakdownTableContext {
-  windowSec: number;
-}
-
-interface TrafficBreakdownTableContext {
-  totalBytes: number;
-  elapsedSec: number;
-}
-
-const CPU_BREAKDOWN_COLUMNS: MetricTreeColumn<CpuBreakdownGroup, CpuBreakdownTableContext>[] = [
-  {
-    key: 'totalMs',
-    label: '总耗时',
-    sortable: true,
-    render: (group) => formatCpuMs(group.summary.totalMs),
-    sortValue: (group) => group.summary.totalMs,
-  },
-  {
-    key: 'perSecondMs',
-    label: '均秒耗时',
-    sortable: true,
-    render: (group, context) => formatCpuMs(group.summary.totalMs / Math.max(1, context.windowSec), 3),
-    sortValue: (group, context) => group.summary.totalMs / Math.max(1, context.windowSec),
-  },
-  {
-    key: 'avgMs',
-    label: '均次耗时',
-    sortable: true,
-    render: (group) => formatCpuMs(group.summary.avgMs, 3),
-    sortValue: (group) => group.summary.avgMs,
-  },
-  {
-    key: 'count',
-    label: '总次数',
-    sortable: true,
-    render: (group) => formatCpuCount(group.summary.count, 0),
-    sortValue: (group) => group.summary.count,
-  },
-  {
-    key: 'perSecondCount',
-    label: '均秒次数',
-    sortable: true,
-    render: (group, context) => formatCpuCount(group.summary.count / Math.max(1, context.windowSec), 2),
-    sortValue: (group, context) => group.summary.count / Math.max(1, context.windowSec),
-  },
-  {
-    key: 'percent',
-    label: '总占比',
-    sortable: true,
-    render: (group) => `${group.summary.percent.toFixed(1)}%`,
-    sortValue: (group) => group.summary.percent,
-  },
-];
-
-const C2S_PROTOCOL_NAME_BY_EVENT = new Map<string, string>(Object.entries(C2S).map(([name, event]) => [event, name]));
-const S2C_PROTOCOL_NAME_BY_EVENT = new Map<string, string>(Object.entries(S2C).map(([name, event]) => [event, name]));
-
-const TRAFFIC_PROTOCOL_GROUPS: Array<{ key: string; label: string; match: (protocolName: string) => boolean }> = [
-  { key: 'movement', label: '移动寻路', match: (name) => name === 'Move' || name === 'MoveTo' || name === 'NavigateQuest' || name === 'UsePortal' },
-  { key: 'worldSync', label: '世界同步', match: (name) => name === 'WorldDelta' || name === 'SyncEnvelope' || name === 'MapEnter' || name === 'MapStatic' || name === 'Bootstrap' || name === 'InitSession' || name === 'SelfDelta' },
-  { key: 'panelDetail', label: '面板详情', match: (name) => name.includes('Panel') || name.includes('Detail') || name === 'PanelDelta' || name === 'RequestDetail' || name === 'RequestTileDetail' },
-  { key: 'combatGrowth', label: '战斗成长', match: (name) => name.includes('Skill') || name.includes('Technique') || name.includes('Cultivate') || name.includes('Realm') || name.includes('Attr') || name.includes('Buff') || name.includes('Action') || name.includes('Combat') },
-  { key: 'socialEconomy', label: '社交经济', match: (name) => name.includes('Mail') || name.includes('Market') || name.includes('Auction') || name.includes('Trade') || name.includes('Leaderboard') || name.includes('Chat') || name.includes('Redeem') || name.includes('Shop') || name.includes('Quest') || name.includes('Npc') },
-  { key: 'craftBuilding', label: '技艺建造', match: (name) => name.includes('Alchemy') || name.includes('Enhancement') || name.includes('Build') || name.includes('Gather') || name.includes('Formation') || name.includes('FengShui') || name.includes('Room') },
-  { key: 'sessionOps', label: '会话运维', match: (name) => name === 'Hello' || name === 'Heartbeat' || name === 'Ping' || name === 'Pong' || name === 'Kick' || name === 'Error' || name.includes('OfflineGain') || name === 'ActivityStatus' || name === 'ActivityOperationResult' || name === 'Notice' },
-  { key: 'gm', label: 'GM 工具链', match: (name) => name.startsWith('Gm') },
-  { key: 'contentAi', label: '内容与 AI', match: (name) => name.includes('ContentTemplates') || name.includes('TechniqueGeneration') || name.includes('Minimap') || name === 'ReportMinimapVersions' },
-];
-
-const TRAFFIC_BREAKDOWN_COLUMNS: MetricTreeColumn<TrafficBreakdownNode, TrafficBreakdownTableContext>[] = [
-  {
-    key: 'bytes',
-    label: '总字节',
-    sortable: true,
-    render: (node) => formatBytes(node.bucket?.bytes ?? sumTrafficNodeBytes(node)),
-    sortValue: (node) => node.bucket?.bytes ?? sumTrafficNodeBytes(node),
-  },
-  {
-    key: 'percent',
-    label: '总占比',
-    sortable: true,
-    render: (node, context) => formatPercent(node.bucket?.bytes ?? sumTrafficNodeBytes(node), context.totalBytes),
-    sortValue: (node, context) => (node.bucket?.bytes ?? sumTrafficNodeBytes(node)) / Math.max(1, context.totalBytes),
-  },
-  {
-    key: 'count',
-    label: '总次数',
-    sortable: true,
-    render: (node) => formatTrafficCount(node.bucket?.count ?? sumTrafficNodeCount(node)),
-    sortValue: (node) => node.bucket?.count ?? sumTrafficNodeCount(node),
-  },
-  {
-    key: 'avgBytes',
-    label: '均次字节',
-    sortable: true,
-    render: (node) => {
-      const bytes = node.bucket?.bytes ?? sumTrafficNodeBytes(node);
-      const count = node.bucket?.count ?? sumTrafficNodeCount(node);
-      return formatAverageBytesPerEvent(bytes, count);
-    },
-    sortValue: (node) => {
-      const bytes = node.bucket?.bytes ?? sumTrafficNodeBytes(node);
-      const count = node.bucket?.count ?? sumTrafficNodeCount(node);
-      return count > 0 ? bytes / count : 0;
-    },
-  },
-  {
-    key: 'bytesPerSecond',
-    label: '均秒字节',
-    sortable: true,
-    render: (node, context) => formatBytesPerSecond(node.bucket?.bytes ?? sumTrafficNodeBytes(node), context.elapsedSec),
-    sortValue: (node, context) => (node.bucket?.bytes ?? sumTrafficNodeBytes(node)) / Math.max(1, context.elapsedSec),
-  },
-  {
-    key: 'countPerSecond',
-    label: '均秒次数',
-    sortable: true,
-    render: (node, context) => formatTrafficCount((node.bucket?.count ?? sumTrafficNodeCount(node)) / Math.max(1, context.elapsedSec), 2),
-    sortValue: (node, context) => (node.bucket?.count ?? sumTrafficNodeCount(node)) / Math.max(1, context.elapsedSec),
-  },
-];
-
-function isCpuBreakdownSortMode(value: string | undefined): value is CpuBreakdownSortMode {
-  return typeof value === 'string' && CPU_BREAKDOWN_COLUMNS.some((column) => column.key === value);
-}
-
-function isTrafficBreakdownSortMode(value: string | undefined): value is TrafficBreakdownSortMode {
-  return typeof value === 'string' && TRAFFIC_BREAKDOWN_COLUMNS.some((column) => column.key === value);
-}
-
-function renderMetricTreeHeader<TNode, TContext>(options: MetricTreeTableOptions<TNode, TContext>): string {
-  const metricHeaders = options.columns.map((column) => {
-    if (!column.sortable) {
-      return `<th scope="col">${escapeHtml(column.label)}</th>`;
-    }
-    const active = column.key === options.sortKey;
-    const ariaSort = active
-      ? (options.sortDirection === 'desc' ? 'descending' : 'ascending')
-      : 'none';
-    const mark = active ? (options.sortDirection === 'desc' ? 'v' : '^') : '';
-    return `
-      <th scope="col" aria-sort="${ariaSort}">
-        <button class="metric-tree-sort-btn" type="button" data-metric-tree-sort-key="${escapeHtml(column.key)}" aria-sort="${ariaSort}">
-          <span>${escapeHtml(column.label)}</span>
-          <span class="metric-tree-sort-mark">${escapeHtml(mark)}</span>
-        </button>
-      </th>
-    `;
-  }).join('');
-  return `
-    <thead>
-      <tr>
-        <th scope="col">${escapeHtml(options.firstColumnLabel)}</th>
-        ${metricHeaders}
-      </tr>
-    </thead>
-  `;
-}
-
-function renderMetricTreeRows<TNode, TContext>(
-  nodes: TNode[],
-  options: MetricTreeTableOptions<TNode, TContext>,
-  depth = 0,
-): string {
-  return nodes.map((node) => {
-    const key = options.getKey(node);
-    const children = options.getChildren(node);
-    const isGroup = options.isGroup(node);
-    const canToggle = isGroup && children.length > 0;
-    const collapsed = canToggle && options.collapsedKeys.has(key);
-    const rowClass = isGroup ? options.groupRowClassName : options.childRowClassName;
-    const displayLabel = options.getDisplayLabel?.(node, depth) ?? options.getLabel(node);
-    const labelMarkupContent = options.getLabelMarkup?.(node, depth);
-    const safeDisplayLabel = escapeHtml(displayLabel);
-    const labelMarkup = canToggle
-      ? `<button class="metric-tree-toggle" type="button" data-metric-tree-toggle-key="${escapeHtml(key)}" aria-expanded="${collapsed ? 'false' : 'true'}"><span class="metric-tree-toggle-mark">${collapsed ? '+' : '-'}</span><span class="metric-tree-label">${labelMarkupContent ?? safeDisplayLabel}</span></button>`
-      : `<span class="metric-tree-label">${labelMarkupContent ?? safeDisplayLabel}</span>`;
-    const cells = options.columns
-      .map((column) => `<td>${escapeHtml(column.render(node, options.context))}</td>`)
-      .join('');
-    const childRows = collapsed ? '' : renderMetricTreeRows(children, options, depth + 1);
-    return `
-      <tr class="${rowClass}" data-key="${escapeHtml(key)}" data-depth="${depth}"${canToggle ? ` data-metric-tree-toggle-key="${escapeHtml(key)}"` : ''}>
-        <th scope="row">${labelMarkup}</th>
-        ${cells}
-      </tr>
-      ${childRows}
-    `;
-  }).join('');
-}
-
-function renderMetricTreeTable<TNode, TContext>(
-  roots: TNode[],
-  options: MetricTreeTableOptions<TNode, TContext>,
-): string {
-  const body = roots.map((root) => `
-    <tbody class="${options.groupClassName}" data-key="${escapeHtml(options.getKey(root))}">
-      ${renderMetricTreeRows([root], options)}
-    </tbody>
-  `).join('');
-  return `
-    <div class="${options.tableClassName}-wrap">
-      <table class="${options.tableClassName}">
-        ${renderMetricTreeHeader(options)}
-        ${body}
-      </table>
-    </div>
-  `;
-}
-
-function buildCpuBreakdownStructureKey(groups: CpuBreakdownGroup[]): string {
-  return groups
-    .map((group) => `${group.key}[${buildCpuBreakdownStructureKey(group.children)}]`)
-    .join(',');
-}
-
-function formatTrafficCount(value: number, digits = 0): string {
-  const normalized = Math.max(0, Number(value) || 0);
-  return digits > 0
-    ? normalized.toLocaleString('zh-Hans-CN', { minimumFractionDigits: digits, maximumFractionDigits: digits })
-    : Math.round(normalized).toLocaleString('zh-Hans-CN');
-}
-
-function sumTrafficNodeBytes(node: TrafficBreakdownNode): number {
-  if (node.bucket) {
-    return node.bucket.bytes;
-  }
-  return node.children.reduce((sum, child) => sum + sumTrafficNodeBytes(child), 0);
-}
-
-function sumTrafficNodeCount(node: TrafficBreakdownNode): number {
-  if (node.bucket) {
-    return node.bucket.count;
-  }
-  return node.children.reduce((sum, child) => sum + sumTrafficNodeCount(child), 0);
-}
-
-function getTrafficEventProtocolName(direction: TrafficBreakdownDirection, bucket: GmNetworkBucket): string {
-  const rawKey = typeof bucket.key === 'string' ? bucket.key.trim() : '';
-  const protocolToken = rawKey.replace(/^(c2s|s2c)_/, '');
-  const worldDeltaMatch = protocolToken.match(/^WorldDelta(?:\((.+)\))?$/);
-  if (worldDeltaMatch) {
-    return worldDeltaMatch[1] ? `WorldDelta · ${worldDeltaMatch[1]}` : 'WorldDelta';
-  }
-  const protocolMap = direction === 'in' ? C2S_PROTOCOL_NAME_BY_EVENT : S2C_PROTOCOL_NAME_BY_EVENT;
-  const byEvent = protocolMap.get(protocolToken);
-  if (byEvent) {
-    return byEvent;
-  }
-  return protocolToken || bucket.label || 'unknown';
-}
-
-function getTrafficGroupDef(protocolName: string): { key: string; label: string } {
-  for (const group of TRAFFIC_PROTOCOL_GROUPS) {
-    if (group.match(protocolName)) {
-      return { key: group.key, label: group.label };
-    }
-  }
-  return { key: 'other', label: '其他流量' };
-}
-
-function buildTrafficBreakdownNodes(
-  direction: TrafficBreakdownDirection,
-  buckets: GmNetworkBucket[],
-  elapsedSec: number,
-): TrafficBreakdownNode[] {
-  const rootGroups = new Map<string, TrafficBreakdownNode>();
-  for (const bucket of getVisibleNetworkBuckets(buckets)) {
-    const protocolName = getTrafficEventProtocolName(direction, bucket);
-    const groupDef = getTrafficGroupDef(protocolName);
-    const rootKey = `${direction}:${groupDef.key}`;
-    const root = rootGroups.get(rootKey) ?? {
-      key: rootKey,
-      label: groupDef.label,
-      children: [],
-      bucket: null,
-      grouped: true,
-    };
-    if (!rootGroups.has(rootKey)) {
-      rootGroups.set(rootKey, root);
-    }
-    const nodeKey = `${direction}:${bucket.key}`;
-    root.children.push({
-      key: nodeKey,
-      label: protocolName,
-      bucket,
-      children: [],
-      grouped: false,
-    });
-  }
-  const groups = Array.from(rootGroups.values());
-  groups.forEach((group) => {
-    group.children.sort((left, right) => compareTrafficBreakdownNodes(left, right, {
-      totalBytes: Math.max(0, buckets.reduce((sum, bucket) => sum + bucket.bytes, 0)),
-      elapsedSec,
-    }));
-  });
-  groups.sort((left, right) => compareTrafficBreakdownNodes(left, right, {
-    totalBytes: Math.max(0, buckets.reduce((sum, bucket) => sum + bucket.bytes, 0)),
-    elapsedSec,
-  }));
-  return groups;
-}
-
-function renderTrafficNodeDisplayLabel(protocolName: string, bucket: GmNetworkBucket): string {
-  const sampleCount = bucket.largePayloadCount ?? 0;
-  const actionButton = sampleCount > 0
-    ? `<button class="small-btn network-payload-btn metric-tree-cell-trailing" type="button" data-network-large-payload-key="${escapeHtml(bucket.key)}">查看包体</button>`
-    : '';
-  return `
-    <span class="metric-tree-cell">
-      <span class="metric-tree-cell-main">${escapeHtml(protocolName)}</span>
-      ${actionButton}
-    </span>
-  `;
-}
-
-function compareTrafficBreakdownNodes(
-  left: TrafficBreakdownNode,
-  right: TrafficBreakdownNode,
-  context: TrafficBreakdownTableContext,
-): number {
-  const compared = compareMetricTreeNodes(left, right, {
-    columns: TRAFFIC_BREAKDOWN_COLUMNS,
-    context,
-    sortKey: currentTrafficBreakdownSort,
-    sortDirection: currentTrafficBreakdownSortDirection,
-    getLabel: (node) => node.label,
-  });
-  if (compared !== 0) {
-    return compared;
-  }
-  return left.label.localeCompare(right.label, 'zh-CN');
-}
-
-function buildTrafficBreakdownStructureKey(groups: TrafficBreakdownNode[]): string {
-  return groups
-    .map((group) => `${group.key}[${buildTrafficBreakdownStructureKey(group.children)}]`)
-    .join(',');
-}
-
-function renderTrafficBreakdownList(
-  container: HTMLElement,
-  structureKey: string | null,
-  direction: TrafficBreakdownDirection,
-  buckets: GmNetworkBucket[],
-  totalBytes: number,
-  elapsedSec: number,
-  emptyText: string,
-): string {
-  if (buckets.length === 0 || totalBytes <= 0) {
-    if (structureKey !== 'empty') {
-      container.innerHTML = `<div class="empty-hint">${escapeHtml(emptyText)}</div>`;
-    }
-    return 'empty';
-  }
-  const groups = buildTrafficBreakdownNodes(direction, buckets, elapsedSec);
-  const nextStructureKey = buildTrafficBreakdownStructureKey(groups);
-  const context = { totalBytes, elapsedSec };
-  container.innerHTML = renderMetricTreeTable(groups, {
-    columns: TRAFFIC_BREAKDOWN_COLUMNS,
-    context,
-    sortKey: currentTrafficBreakdownSort,
-    sortDirection: currentTrafficBreakdownSortDirection,
-    collapsedKeys: collapsedTrafficBreakdownGroupKeys,
-    getKey: (group) => group.key,
-    getLabel: (group) => group.label,
-    getLabelMarkup: (group) => group.grouped ? null : renderTrafficNodeDisplayLabel(group.label, group.bucket!),
-    getChildren: (group) => group.children,
-    isGroup: (group) => group.grouped,
-    firstColumnLabel: direction === 'in' ? '上行业务 / 事件' : '下行业务 / 事件',
-    tableClassName: 'cpu-breakdown-table',
-    groupClassName: 'cpu-breakdown-group',
-    groupRowClassName: 'cpu-breakdown-group-row',
-    childRowClassName: 'cpu-breakdown-child-row',
-  });
-  return nextStructureKey;
-}
-
-function renderCpuBreakdownList(data: GmStateRes): string {
-  const sections = Array.isArray(data.perf.cpu.breakdown) ? data.perf.cpu.breakdown : [];
-  if (sections.length === 0) {
-    if (lastCpuBreakdownStructureKey !== 'empty') {
-      cpuBreakdownListEl.innerHTML = '<div class="empty-hint">当前还没有 CPU 分项数据。</div>';
-    }
-    return 'empty';
-  }
-  const windowSec = resolveCpuBreakdownWindowSec(data);
-  const groups = buildCpuBreakdownGroups(sections, windowSec);
-  const structureKey = buildCpuBreakdownStructureKey(groups);
-  cpuBreakdownListEl.innerHTML = renderMetricTreeTable(groups, {
-    columns: CPU_BREAKDOWN_COLUMNS,
-    context: { windowSec },
-    sortKey: currentCpuBreakdownSort,
-    sortDirection: currentCpuBreakdownSortDirection,
-    collapsedKeys: collapsedCpuBreakdownGroupKeys,
-    getKey: (group) => group.key,
-    getLabel: (group) => group.label,
-    getDisplayLabel: (group, depth) => (depth <= 0 || group.grouped ? group.label : stripCpuChildLabel(group.label)),
-    getChildren: (group) => group.children,
-    isGroup: (group) => group.grouped,
-    firstColumnLabel: '分组 / 步骤',
-    tableClassName: 'cpu-breakdown-table',
-    groupClassName: 'cpu-breakdown-group',
-    groupRowClassName: 'cpu-breakdown-group-row',
-    childRowClassName: 'cpu-breakdown-child-row',
-  });
-  return structureKey;
-}
 
 /** getMemoryDomainMeta：读取Memory Domain元数据。 */
 function getMemoryDomainMeta(totalRssBytes: number, domain: GmMemoryDomainEstimateSnapshot): string {
-  const average = domain.count > 0 ? ` · 均值 ${formatBytes(domain.avgBytes)}` : '';
-  return `${formatBytes(domain.bytes)} · 占 RSS ${formatPercent(domain.bytes, totalRssBytes)}${domain.count > 0 ? ` · ${domain.count} 个` : ''}${average}`;
+  return perfGetMemoryDomainMeta(totalRssBytes, domain);
 }
 
-/** getMemoryInstanceMeta：读取Memory Instance元数据。 */
 function getMemoryInstanceMeta(totalRssBytes: number, instance: GmMemoryInstanceEstimateSnapshot): string {
-  return `${formatBytes(instance.bytes)} · 占 RSS ${formatPercent(instance.bytes, totalRssBytes)} · 玩家 ${instance.playerCount} · 怪物 ${instance.monsterCount} · 玩家容器 ${formatBytes(instance.playerBytes)} · 怪物容器 ${formatBytes(instance.monsterBytes)} · 其余实例容器 ${formatBytes(instance.instanceBytes)}`;
+  return perfGetMemoryInstanceMeta(totalRssBytes, instance);
 }
 
 function getHeapSpaceMeta(heapTotalBytes: number, space: GmV8HeapSpaceSnapshot): string {
-  const usage = space.sizeBytes > 0 ? formatPercent(space.usedBytes, space.sizeBytes) : '0%';
-  return `已用 ${formatBytes(space.usedBytes)} / 总量 ${formatBytes(space.sizeBytes)} · 使用率 ${usage} · 可用 ${formatBytes(space.availableBytes)} · 物理 ${formatBytes(space.physicalBytes)} · 占 Heap ${formatPercent(space.usedBytes, heapTotalBytes)}`;
+  return perfGetHeapSpaceMeta(heapTotalBytes, space);
 }
 
-/** getPathfindingFailureMeta：读取Pathfinding Failure元数据。 */
 function getPathfindingFailureMeta(totalFailures: number, count: number): string {
-  return `${count} 次 · 占失败 ${formatPercent(count, totalFailures)}`;
+  return perfGetPathfindingFailureMeta(totalFailures, count);
 }
-
 /** renderPerfLists：渲染性能Lists。 */
 function renderPerfLists(data: GmStateRes): void {
   const elapsedSec = Math.max(0, data.perf.networkStatsElapsedSec);
@@ -3517,7 +2703,7 @@ function renderPerfLists(data: GmStateRes): void {
     meta: getPathfindingFailureMeta(totalFailures, bucket.count),
   }));
 
-  lastNetworkInStructureKey = renderTrafficBreakdownList(
+  lastNetworkInStructureKey = perfRenderTrafficBreakdownList(
     summaryNetInBreakdownEl,
     lastNetworkInStructureKey,
     'in',
@@ -3525,8 +2711,11 @@ function renderPerfLists(data: GmStateRes): void {
     data.perf.networkInBytes,
     elapsedSec,
     '当前还没有累计上行事件。',
+    currentTrafficBreakdownSort,
+    currentTrafficBreakdownSortDirection,
+    collapsedTrafficBreakdownGroupKeys,
   );
-  lastNetworkOutStructureKey = renderTrafficBreakdownList(
+  lastNetworkOutStructureKey = perfRenderTrafficBreakdownList(
     summaryNetOutBreakdownEl,
     lastNetworkOutStructureKey,
     'out',
@@ -3534,8 +2723,18 @@ function renderPerfLists(data: GmStateRes): void {
     data.perf.networkOutBytes,
     elapsedSec,
     '当前还没有累计下行事件。',
+    currentTrafficBreakdownSort,
+    currentTrafficBreakdownSortDirection,
+    collapsedTrafficBreakdownGroupKeys,
   );
-  lastCpuBreakdownStructureKey = renderCpuBreakdownList(data);
+  lastCpuBreakdownStructureKey = perfRenderCpuBreakdownList(
+    data,
+    cpuBreakdownListEl,
+    lastCpuBreakdownStructureKey,
+    currentCpuBreakdownSort,
+    currentCpuBreakdownSortDirection,
+    collapsedCpuBreakdownGroupKeys,
+  );
   lastMemoryDomainStructureKey = renderStructuredStatList(
     memoryDomainListEl,
     lastMemoryDomainStructureKey,
@@ -3564,34 +2763,7 @@ function renderPerfLists(data: GmStateRes): void {
 
 /** getEditorTabLabel：读取编辑器Tab标签。 */
 function getEditorTabLabel(tab: GmEditorTab): string {
-  switch (tab) {
-    case 'basic':
-      return '基础';
-    case 'position':
-      return '位置';
-    case 'realm':
-      return '属性';
-    case 'buffs':
-      return '增益';
-    case 'techniques':
-      return '功法';
-    case 'craftSkills':
-      return '技艺';
-    case 'benefits':
-      return '权益';
-    case 'shortcuts':
-      return '快捷操作';
-    case 'items':
-      return '物品';
-    case 'quests':
-      return '任务';
-    case 'mail':
-      return '邮件';
-    case 'risk':
-      return '风险检测';
-    case 'persisted':
-      return '数据库';
-  }
+  return editorGetEditorTabLabel(tab);
 }
 
 /** switchEditorTab：处理switch编辑器Tab。 */
@@ -3800,1203 +2972,168 @@ function switchServerTab(tab: GmServerTab): void {
   }
 }
 
-/** formatServerLogLine：格式化服务端控制台日志行。 */
-function formatServerLogLine(entry: GmServerLogEntry): string {
-  const level = entry.level.toUpperCase().padEnd(5, ' ');
-  return `[${formatDateTime(entry.at)}] [${level}] ${entry.line}`;
-}
+/** serverLogsPanelContext：server-logs-panel 对 gm.ts 的依赖。 */
+const serverLogsPanelContext: ServerLogsPanelContext = {
+  getToken: () => token,
+  GM_API_BASE_PATH,
+  request,
+  setStatus,
+  escapeHtml,
+  formatDateTime,
+  buildGmServerLogsApiPath,
+  getServerLogsLoading: () => serverLogsLoading,
+  setServerLogsLoading: (loading) => { serverLogsLoading = loading; },
+  getServerLogsEntries: () => serverLogsEntries,
+  setServerLogsEntries: (entries) => { serverLogsEntries = entries; },
+  getServerLogsNextBeforeSeq: () => serverLogsNextBeforeSeq,
+  setServerLogsNextBeforeSeq: (seq) => { serverLogsNextBeforeSeq = seq; },
+  getServerLogsHasMore: () => serverLogsHasMore,
+  setServerLogsHasMore: (hasMore) => { serverLogsHasMore = hasMore; },
+  getServerLogsBufferSize: () => serverLogsBufferSize,
+  setServerLogsBufferSize: (size) => { serverLogsBufferSize = size; },
+  serverLogsContentEl,
+  serverLogsMetaEl,
+  serverLogsLoadOlderBtn,
+  serverLogsRefreshBtn,
+};
 
-/** renderServerLogsPanel：渲染服务端日志面板。 */
-function renderServerLogsPanel(): void {
-  serverLogsContentEl.textContent = serverLogsEntries.length > 0
-    ? serverLogsEntries.map(formatServerLogLine).join('\n')
-    : '当前还没有服务端日志。';
-  serverLogsLoadOlderBtn.disabled = serverLogsLoading || !serverLogsHasMore;
-  serverLogsRefreshBtn.disabled = serverLogsLoading;
-  if (serverLogsLoading) {
-    serverLogsMetaEl.textContent = '日志读取中…';
-    return;
-  }
-  const moreText = serverLogsHasMore ? '可继续加载更早日志' : '已到当前缓冲起点';
-  serverLogsMetaEl.textContent = `已加载 ${serverLogsEntries.length} 行 · 缓冲 ${serverLogsBufferSize} 行 · ${serverLogsEntries.length > 0 ? moreText : '暂无日志'}`;
-}
+function formatServerLogLine(entry: GmServerLogEntry): string { return serverLogsPanelFormatServerLogLine(entry, serverLogsPanelContext); }
+function renderServerLogsPanel(): void { return serverLogsPanelRenderServerLogsPanel(serverLogsPanelContext); }
+async function loadServerLogs(loadOlder: boolean): Promise<void> { return serverLogsPanelLoadServerLogs(loadOlder, serverLogsPanelContext); }
 
-/** loadServerLogs：读取服务端控制台日志。 */
-async function loadServerLogs(loadOlder: boolean): Promise<void> {
-  if (serverLogsLoading) {
-    return;
-  }
-  const beforeSeq = loadOlder ? serverLogsNextBeforeSeq : undefined;
-  if (loadOlder && beforeSeq === undefined) {
-    return;
-  }
+/** diagPanelContext：diagnostics-panel 对 gm.ts 的依赖。 */
+const diagPanelContext: DiagnosticsPanelContext = {
+  getToken: () => token,
+  GM_API_BASE_PATH,
+  request,
+  setStatus,
+  escapeHtml,
+  formatDateTime,
+  getDiagHistoryIndex: () => diagHistoryIndex,
+  setDiagHistoryIndex: (index) => { diagHistoryIndex = index; },
+  getServerDiagnosticsLoading: () => serverDiagnosticsLoading,
+  setServerDiagnosticsLoading: (loading) => { serverDiagnosticsLoading = loading; },
+  getLastServerDiagnosticsResult: () => lastServerDiagnosticsResult,
+  setLastServerDiagnosticsResult: (result) => { lastServerDiagnosticsResult = result; },
+  getLastExecCommand: () => lastExecCommand,
+  setLastExecCommand: (command) => { lastExecCommand = command; },
+  getLastExecPreviousCommand: () => lastExecPreviousCommand,
+  setLastExecPreviousCommand: (command) => { lastExecPreviousCommand = command; },
+  getDiagCommandEl,
+  getDiagLimitEl,
+  getDiagRunBtn,
+  getDiagHelpBtn,
+  getDiagMetaEl,
+  getDiagOutputEl,
+  getDiagUndoBtn,
+};
 
-  const previousBottomOffset = serverLogsContentEl.scrollHeight - serverLogsContentEl.scrollTop;
-  /** serverLogsLoading：服务端日志读取中。 */
-  serverLogsLoading = true;
-  renderServerLogsPanel();
-  try {
-    const data = await request<GmServerLogsRes>(buildGmServerLogsApiPath(beforeSeq));
-    if (loadOlder) {
-      const existingSeqs = new Set(serverLogsEntries.map((entry) => entry.seq));
-      const olderEntries = data.entries.filter((entry) => !existingSeqs.has(entry.seq));
-      /** serverLogsEntries：服务端日志已加载行。 */
-      serverLogsEntries = [...olderEntries, ...serverLogsEntries];
-    } else {
-      /** serverLogsEntries：服务端日志已加载行。 */
-      serverLogsEntries = data.entries;
-    }
-    /** serverLogsNextBeforeSeq：服务端日志向上翻页游标。 */
-    serverLogsNextBeforeSeq = data.nextBeforeSeq;
-    /** serverLogsHasMore：服务端日志是否还有更早行。 */
-    serverLogsHasMore = data.hasMore;
-    /** serverLogsBufferSize：服务端日志缓冲行数。 */
-    serverLogsBufferSize = data.bufferSize;
-  } finally {
-    /** serverLogsLoading：服务端日志读取中。 */
-    serverLogsLoading = false;
-    renderServerLogsPanel();
-    if (loadOlder) {
-      serverLogsContentEl.scrollTop = Math.max(0, serverLogsContentEl.scrollHeight - previousBottomOffset);
-    } else {
-      serverLogsContentEl.scrollTop = serverLogsContentEl.scrollHeight;
-    }
-  }
-}
-
-const DIAG_HISTORY_KEY = 'gm_diag_history';
-const DIAG_HISTORY_MAX = 20;
 let diagHistoryIndex = -1;
 
-function diagHistoryLoad(): string[] {
-  try {
-    const raw = localStorage.getItem(DIAG_HISTORY_KEY);
-    return raw ? JSON.parse(raw) as string[] : [];
-  } catch {
-    return [];
-  }
-}
-
-function diagHistoryPush(command: string): void {
-  const history = diagHistoryLoad();
-  const idx = history.indexOf(command);
-  if (idx !== -1) history.splice(idx, 1);
-  history.unshift(command);
-  if (history.length > DIAG_HISTORY_MAX) history.length = DIAG_HISTORY_MAX;
-  localStorage.setItem(DIAG_HISTORY_KEY, JSON.stringify(history));
-  diagHistoryIndex = -1;
-}
-
-function diagHistoryNavigate(direction: 'up' | 'down'): string | null {
-  const history = diagHistoryLoad();
-  if (history.length === 0) return null;
-  if (direction === 'up') {
-    if (diagHistoryIndex < history.length - 1) {
-      diagHistoryIndex++;
-      return history[diagHistoryIndex] ?? null;
-    }
-    return null;
-  }
-  if (diagHistoryIndex > 0) {
-    diagHistoryIndex--;
-    return history[diagHistoryIndex] ?? null;
-  }
-  if (diagHistoryIndex === 0) {
-    diagHistoryIndex = -1;
-    return '';
-  }
-  return null;
-}
-
-function renderDiagnosticsPanel(): void {
-  const runBtn = getDiagRunBtn();
-  const helpBtn = getDiagHelpBtn();
-  const metaEl = getDiagMetaEl();
-  const outputEl = getDiagOutputEl();
-  if (runBtn) runBtn.disabled = serverDiagnosticsLoading;
-  if (helpBtn) helpBtn.disabled = serverDiagnosticsLoading;
-  if (serverDiagnosticsLoading) {
-    if (metaEl) metaEl.textContent = '查询执行中…';
-    return;
-  }
-  if (!lastServerDiagnosticsResult) {
-    if (metaEl) metaEl.textContent = '查询尚未执行。';
-    if (outputEl) outputEl.innerHTML = '<pre class="server-log-view">可输入 help 查看可用指令。</pre>';
-    return;
-  }
-  const statusText = lastServerDiagnosticsResult.ok ? '成功' : '失败';
-  const rowCount = lastServerDiagnosticsResult.resultSets.reduce((sum, resultSet) => sum + resultSet.rowCount, 0);
-  if (metaEl) metaEl.textContent = `${statusText} · ${formatDateTime(lastServerDiagnosticsResult.executedAt)} · ${lastServerDiagnosticsResult.durationMs} ms · ${rowCount} 行`;
-  if (outputEl) outputEl.innerHTML = renderDiagnosticsResultAsTable(lastServerDiagnosticsResult);
-}
-
-function updateUndoButton(): void {
-  const btn = getDiagUndoBtn();
-  if (btn) {
-    btn.disabled = !lastExecCommand;
-    if (lastExecCommand) {
-      btn.setAttribute('aria-label', `撤回: ${lastExecCommand.slice(0, 80)}`);
-    } else {
-      btn.removeAttribute('aria-label');
-    }
-  }
-}
-
-function renderDiagnosticsResultAsTable(result: GmDiagnosticsQueryRes): string {
-  const parts: string[] = [];
-  if (result.message) {
-    parts.push(`<div class="diagnostics-meta-bar" style="color:var(--stamp-red);">${escapeHtml(result.message)}</div>`);
-  }
-  if (result.warnings && result.warnings.length > 0) {
-    parts.push(`<div class="diagnostics-meta-bar">${result.warnings.map((w) => escapeHtml(w)).join(' · ')}</div>`);
-  }
-  for (const resultSet of result.resultSets) {
-    parts.push('<div class="diagnostics-result-section">');
-    parts.push(`<div class="diagnostics-result-title">${escapeHtml(resultSet.title)} (${resultSet.rowCount}${resultSet.truncated ? '+' : ''} rows)</div>`);
-    if (resultSet.rows.length === 0) {
-      parts.push('<div class="diagnostics-meta-bar">(empty)</div>');
-    } else {
-      parts.push(renderResultSetTable(resultSet));
-    }
-    parts.push('</div>');
-  }
-  return parts.join('');
-}
-
-function renderResultSetTable(resultSet: GmDiagnosticsResultSet): string {
-  const columns = resultSet.columns && resultSet.columns.length > 0
-    ? resultSet.columns
-    : Object.keys(resultSet.rows[0] ?? {});
-  const rows: string[] = [];
-  rows.push(`<table class="diagnostics-table" data-diag-title="${escapeHtml(resultSet.title)}"><thead><tr>`);
-  for (const col of columns) {
-    rows.push(`<th>${escapeHtml(col)}</th>`);
-  }
-  rows.push('</tr></thead><tbody>');
-  for (let rowIdx = 0; rowIdx < resultSet.rows.length; rowIdx++) {
-    const row = resultSet.rows[rowIdx] as Record<string, unknown>;
-    rows.push(`<tr data-row-idx="${rowIdx}">`);
-    for (const col of columns) {
-      const value = row[col];
-      rows.push(renderTableCell(value, col));
-    }
-    rows.push('</tr>');
-  }
-  rows.push('</tbody></table>');
-  return rows.join('');
-}
-
-function renderTableCell(value: unknown, col: string): string {
-  const colAttr = `data-col="${escapeHtml(col)}"`;
-  if (value === null || value === undefined) {
-    return `<td class="cell-null diag-cell-editable" ${colAttr} data-raw-value="NULL">NULL</td>`;
-  }
-  if (typeof value === 'boolean') {
-    return `<td class="cell-bool-${value} diag-cell-editable" ${colAttr} data-raw-value="${value}">${value}</td>`;
-  }
-  if (typeof value === 'number') {
-    return `<td class="cell-number diag-cell-editable" ${colAttr} data-raw-value="${value}">${value}</td>`;
-  }
-  if (typeof value === 'object') {
-    const json = JSON.stringify(value);
-    const display = json.length > 120 ? `${json.slice(0, 120)}…` : json;
-    return `<td class="diag-cell-editable" ${colAttr} aria-label="${escapeHtml(json)}" data-raw-value="${escapeHtml(json)}">${escapeHtml(display)}</td>`;
-  }
-  const str = String(value);
-  const display = str.length > 80 ? `${str.slice(0, 80)}…` : str;
-  return `<td class="diag-cell-editable" ${colAttr} aria-label="${escapeHtml(str)}" data-raw-value="${escapeHtml(str)}">${escapeHtml(display)}</td>`;
-}
-
-const DIAG_PLAYER_HISTORY_KEY = 'gm_diag_player_history';
-const DIAG_PLAYER_HISTORY_MAX = 10;
-
-function diagPlayerHistoryLoad(): string[] {
-  try {
-    const raw = localStorage.getItem(DIAG_PLAYER_HISTORY_KEY);
-    return raw ? JSON.parse(raw) as string[] : [];
-  } catch {
-    return [];
-  }
-}
-
-function diagPlayerHistorySave(value: string): void {
-  const history = diagPlayerHistoryLoad();
-  const idx = history.indexOf(value);
-  if (idx !== -1) history.splice(idx, 1);
-  history.unshift(value);
-  if (history.length > DIAG_PLAYER_HISTORY_MAX) history.length = DIAG_PLAYER_HISTORY_MAX;
-  localStorage.setItem(DIAG_PLAYER_HISTORY_KEY, JSON.stringify(history));
-}
-
-function showDiagPrompt(title: string): Promise<string | null> {
-  return new Promise((resolve) => {
-    const history = diagPlayerHistoryLoad();
-    const overlay = document.createElement('div');
-    overlay.className = 'diag-prompt-overlay';
-
-    const box = document.createElement('div');
-    box.className = 'diag-prompt-box';
-
-    const titleEl = document.createElement('div');
-    titleEl.className = 'diag-prompt-title';
-    titleEl.textContent = title;
-    box.appendChild(titleEl);
-
-    const input = document.createElement('input');
-    input.className = 'diag-prompt-input';
-    input.type = 'text';
-    input.placeholder = '输入后回车确认';
-    box.appendChild(input);
-
-    if (history.length > 0) {
-      const historySection = document.createElement('div');
-      historySection.className = 'diag-prompt-history';
-      const historyTitle = document.createElement('div');
-      historyTitle.className = 'diag-prompt-history-title';
-      historyTitle.textContent = '最近使用';
-      historySection.appendChild(historyTitle);
-      for (const item of history) {
-        const row = document.createElement('div');
-        row.className = 'diag-prompt-history-item';
-        row.textContent = item;
-        row.addEventListener('click', () => { cleanup(); diagPlayerHistorySave(item); resolve(item); });
-        historySection.appendChild(row);
-      }
-      box.appendChild(historySection);
-    }
-
-    const actions = document.createElement('div');
-    actions.className = 'diag-prompt-actions';
-    const cancelBtn = document.createElement('button');
-    cancelBtn.type = 'button';
-    cancelBtn.textContent = '取消';
-    const confirmBtn = document.createElement('button');
-    confirmBtn.type = 'button';
-    confirmBtn.className = 'primary';
-    confirmBtn.textContent = '确定';
-    actions.appendChild(cancelBtn);
-    actions.appendChild(confirmBtn);
-    box.appendChild(actions);
-
-    overlay.appendChild(box);
-    document.body.appendChild(overlay);
-    input.focus();
-
-    const cleanup = () => { overlay.remove(); };
-    const submit = () => {
-      const val = input.value.trim();
-      if (!val) { cleanup(); resolve(null); return; }
-      cleanup();
-      diagPlayerHistorySave(val);
-      resolve(val);
-    };
-
-    cancelBtn.addEventListener('click', () => { cleanup(); resolve(null); });
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) { cleanup(); resolve(null); } });
-    confirmBtn.addEventListener('click', submit);
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); submit(); }
-      if (e.key === 'Escape') { e.preventDefault(); cleanup(); resolve(null); }
-    });
-  });
-}
-
-function startDiagCellEdit(td: HTMLTableCellElement): void {
-  const rawValue = td.dataset.rawValue ?? td.textContent ?? '';
-  const originalHtml = td.innerHTML;
-  const originalClasses = td.className;
-  td.className = 'cell-editing';
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.value = rawValue === 'NULL' ? '' : rawValue;
-  td.innerHTML = '';
-  td.appendChild(input);
-  input.focus();
-  input.select();
-
-  const cancel = () => {
-    td.className = originalClasses;
-    td.innerHTML = originalHtml;
-  };
-
-  const commit = () => {
-    const newValue = input.value;
-    if (newValue === rawValue || (rawValue === 'NULL' && newValue === '')) {
-      cancel();
-      return;
-    }
-    // 生成 UPDATE SQL 并执行
-    const col = td.dataset.col;
-    const tr = td.closest('tr');
-    const table = td.closest<HTMLTableElement>('table.diagnostics-table');
-    const title = table?.dataset.diagTitle ?? '';
-    if (!col || !tr || !title) {
-      cancel();
-      setStatus('无法确定表名或列名', true);
-      return;
-    }
-    const tableName = inferTableName(title);
-    if (!tableName) {
-      cancel();
-      setStatus(`无法从 "${title}" 推断表名，请手动执行 exec`, true);
-      return;
-    }
-    const whereClause = buildWhereFromRow(tr, col);
-    if (!whereClause) {
-      cancel();
-      setStatus('无法确定 WHERE 条件（需要行内有可用主键列）', true);
-      return;
-    }
-    const sqlValue = newValue === '' || newValue.toLowerCase() === 'null' ? 'NULL' : `'${newValue.replace(/'/gu, "''")}'`;
-    const sql = `exec UPDATE ${tableName} SET ${col} = ${sqlValue} WHERE ${whereClause}`;
-    const cmdEl = getDiagCommandEl();
-    if (cmdEl) cmdEl.value = sql;
-    cancel();
-    runDiagnosticsCommand(sql).catch((err: unknown) => {
-      setStatus(err instanceof Error ? err.message : '执行修改失败', true);
-    });
-  };
-
-  input.addEventListener('blur', cancel, { once: true });
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      input.removeEventListener('blur', cancel);
-      commit();
-    }
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      input.removeEventListener('blur', cancel);
-      cancel();
-    }
-  });
-}
-
-function inferTableName(title: string): string {
-  // title 格式如 "techniques 454", "inventory xxx", "table outbox_event", "identity (xxx)", "wallet (xxx)"
-  const cleaned = title.replace(/\s*\(.*\)\s*$/u, '').trim();
-  const parts = cleaned.split(/\s+/u);
-  // 预置命令名到表名的映射
-  const commandToTable: Record<string, string> = {
-    identity: 'server_player_identity',
-    inventory: 'player_inventory_item',
-    equipment: 'player_equipment_slot',
-    techniques: 'player_technique_state',
-    quests: 'player_quest_progress',
-    buffs: 'player_persistent_buff_state',
-    wallet: 'player_wallet',
-    counters: 'player_counters',
-    mail: 'player_mail',
-    presence: 'player_presence',
-    snapshot: 'server_player_snapshot',
-    'outbox summary': 'outbox_event',
-    'outbox topics': 'outbox_event',
-    'outbox sample': 'outbox_event',
-    deadletter: 'dead_letter_event',
-    market: 'server_market_order',
-    trades: 'server_market_trade_history',
-    flush: 'player_flush_ledger',
-    audit: 'asset_audit_log',
-  };
-  const verb = parts[0]?.toLowerCase() ?? '';
-  if (commandToTable[verb]) return commandToTable[verb];
-  // "table xxx" 格式
-  if (verb === 'table' && parts[1]) return parts[1];
-  // 如果 title 本身看起来像表名
-  if (/^[a-z_][a-z0-9_]*$/u.test(cleaned)) return cleaned;
-  return '';
-}
-
-function buildWhereFromRow(tr: HTMLElement, excludeCol: string): string {
-  // 优先用常见主键列构建 WHERE
-  const primaryKeyCandidates = [
-    'player_id', 'item_instance_id', 'event_id', 'mail_id', 'order_id',
-    'log_id', 'instance_id', 'slot_type', 'tech_id', 'quest_id',
-    'buff_id', 'counter_key', 'wallet_type', 'slot_index',
-  ];
-  const cells = tr.querySelectorAll<HTMLTableCellElement>('td[data-col]');
-  const conditions: string[] = [];
-  // 先找主键列
-  for (const candidate of primaryKeyCandidates) {
-    for (const cell of cells) {
-      if (cell.dataset.col === candidate) {
-        const val = cell.dataset.rawValue ?? '';
-        if (val && val !== 'NULL') {
-          conditions.push(`${candidate} = '${val.replace(/'/gu, "''")}'`);
-        }
-      }
-    }
-    if (conditions.length > 0) break;
-  }
-  // 如果没找到主键，用前两个非空非修改列
-  if (conditions.length === 0) {
-    for (const cell of cells) {
-      const col = cell.dataset.col ?? '';
-      if (col === excludeCol) continue;
-      const val = cell.dataset.rawValue ?? '';
-      if (val && val !== 'NULL' && val !== '{}' && val !== '[]') {
-        conditions.push(`${col} = '${val.replace(/'/gu, "''")}'`);
-        if (conditions.length >= 2) break;
-      }
-    }
-  }
-  return conditions.join(' AND ');
-}
-
-async function runDiagnosticsCommand(command: string): Promise<void> {
-  if (!token || serverDiagnosticsLoading) {
-    return;
-  }
-  const normalizedCommand = command.trim();
-  if (!normalizedCommand) {
-    setStatus('请输入查询指令', true);
-    return;
-  }
-  // 在重绘前读取当前 UI 状态
-  const limitEl = getDiagLimitEl();
-  const currentLimit = limitEl ? Number(limitEl.value) : 50;
-  diagHistoryPush(normalizedCommand);
-  serverDiagnosticsLoading = true;
-  renderDiagnosticsPanel();
-  try {
-    const requestBody: GmDiagnosticsQueryReq = {
-      command: normalizedCommand,
-      limit: Number.isFinite(currentLimit) ? Math.trunc(currentLimit) : undefined,
-      confirm: true,
-    };
-    lastServerDiagnosticsResult = await request<GmDiagnosticsQueryRes>(buildGmDiagnosticsQueryApiPath(), {
-      method: 'POST',
-      body: JSON.stringify(requestBody),
-    });
-    // 记录 exec 命令用于撤回
-    if (lastServerDiagnosticsResult.ok && normalizedCommand.toLowerCase().startsWith('exec ')) {
-      lastExecPreviousCommand = lastExecCommand;
-      lastExecCommand = normalizedCommand;
-    }
-    setStatus(lastServerDiagnosticsResult.ok ? '诊断查询完成' : `诊断查询失败：${lastServerDiagnosticsResult.message ?? '未知错误'}`, !lastServerDiagnosticsResult.ok);
-  } finally {
-    serverDiagnosticsLoading = false;
-    renderDiagnosticsPanel();
-    updateUndoButton();
-  }
-}
-
-/** renderWorkerPoolSection：渲染多线程 Worker Pool 指标到 Worker tab。 */
-function renderWorkerPoolSection(wp: any): void {
-  const statusEl = document.getElementById('worker-pool-status-meta');
-  const containerEl = document.getElementById('worker-pool-all-pools');
-  if (!statusEl || !containerEl) return;
-  if (!wp || (!wp.encoding && !wp.instance && !wp.persistence)) {
-    statusEl.textContent = 'Worker Pool 未启用或数据未就绪（worker 不可用时由服务端 fallback）';
-    containerEl.innerHTML = '';
-    return;
-  }
-  const totalActive = (wp.encoding?.activeWorkers ?? 0) + (wp.instance?.activeWorkers ?? 0) + (wp.persistence?.activeWorkers ?? 0);
-  const totalSubmitted = (wp.encoding?.totalSubmitted ?? 0) + (wp.instance?.totalSubmitted ?? 0) + (wp.persistence?.totalSubmitted ?? 0);
-  statusEl.textContent = totalActive > 0
-    ? `${totalActive} 个 worker 线程活跃 · 累计 ${totalSubmitted} 任务`
-    : '所有 Pool 未启用或无活跃 worker';
-  const pools = [
-    { key: 'encoding', label: 'AOI 计算池', note: 'pathfind / fov；envelope 当前保持 JSON 直发' },
-    { key: 'instance', label: '实例分片池', note: '怪物 AI intent 预计算（空实例/无妖兽不提交）' },
-    { key: 'persistence', label: '持久化写计划池', note: '玩家分域 write plan 构造' },
-  ];
-  containerEl.innerHTML = pools.map(({ key, label, note }) => {
-    const m = wp[key];
-    if (!m) return `<div class="note-card">${label}：无数据</div>`;
-    const active = m.activeWorkers > 0;
-    return `<div class="stats-grid" style="margin-top:10px;">
-      <div class="stats-card" style="grid-column:1/-1;"><div class="stats-card-label">${label}</div><div class="stats-card-value" style="color:${active ? '#16a34a' : '#888'}">${active ? m.activeWorkers + ' worker' : '未启用'}</div><div class="stats-card-note">${note}</div></div>
-      <div class="stats-card"><div class="stats-card-label">提交</div><div class="stats-card-value">${m.totalSubmitted}</div></div>
-      <div class="stats-card"><div class="stats-card-label">完成</div><div class="stats-card-value">${m.totalCompleted}</div></div>
-      <div class="stats-card"><div class="stats-card-label">超时</div><div class="stats-card-value">${m.totalTimedOut}</div></div>
-      <div class="stats-card"><div class="stats-card-label">失败</div><div class="stats-card-value">${m.totalFailed}</div></div>
-      <div class="stats-card"><div class="stats-card-label">Fallback</div><div class="stats-card-value">${m.totalFallback}</div></div>
-      <div class="stats-card"><div class="stats-card-label">进行中</div><div class="stats-card-value">${m.inFlight}</div></div>
-      <div class="stats-card"><div class="stats-card-label">P50</div><div class="stats-card-value">${m.p50Ms.toFixed(1)} ms</div></div>
-      <div class="stats-card"><div class="stats-card-label">P95</div><div class="stats-card-value">${m.p95Ms.toFixed(1)} ms</div></div>
-      <div class="stats-card"><div class="stats-card-label">最近总耗时</div><div class="stats-card-value">${(m.recentTotalDurationMs ?? 0).toFixed(1)} ms</div><div class="stats-card-note">${m.recentTaskCount ?? 0} 个任务 · 均次 ${(m.avgMs ?? 0).toFixed(2)} ms</div></div>
-      <div class="stats-card"><div class="stats-card-label">累计耗时</div><div class="stats-card-value">${Math.round(m.totalDurationMs ?? 0)} ms</div></div>
-    </div>`;
-  }).join('');
-}
-
-/** renderWorkerPanel：渲染Worker状态面板。 */
-function renderWorkerPanel(): void {
-  serverWorkersRefreshBtn.disabled = workerStateLoading;
-  if (workerStateLoading) {
-    serverWorkersMetaEl.textContent = 'Worker 状态读取中…';
-  } else if (workerState) {
-    const alertText = workerState.alerts.length > 0 ? `告警 ${workerState.alerts.length} 条` : '暂无告警';
-    serverWorkersMetaEl.textContent = `采样 ${formatDateTime(workerState.generatedAt)} · 窗口 ${workerState.windowSeconds}s · ${alertText}`;
-  } else {
-    serverWorkersMetaEl.textContent = 'Worker 状态尚未加载。';
-  }
-
-  if (!workerState) {
-    serverWorkersContentEl.innerHTML = '<div class="empty-hint">当前还没有 worker 状态。</div>';
-    return;
-  }
-
-  const schedulerDiagNote = getSchedulerDiagnosticNote(workerState);
-  const alerts = workerState.alerts.length > 0
-    ? `
-      <div class="network-breakdown">
-        <div class="network-breakdown-head">
-          <div class="panel-title">Worker 告警</div>
-          <div class="network-breakdown-subtitle">积压、死信和心跳异常会在这里集中显示${schedulerDiagNote ? ' · ' + escapeHtml(schedulerDiagNote) : ''}</div>
-        </div>
-        <div class="network-breakdown-list">
-          ${workerState.alerts.map((alert) => `
-            <div class="network-row">
-              <div class="network-row-label">${escapeHtml(getWorkerAlertLabel(alert.reason))}</div>
-              <div class="network-row-meta">${escapeHtml(alert.workerId)}${alert.count !== undefined ? ` · ${alert.count}` : ''}${alert.reason === 'worker_inactive' ? getAlertInactiveDiagnostic(workerState!, alert.workerId) : ''}</div>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    `
-    : '<div class="note-card">当前没有 worker 告警。</div>';
-  const rows = workerState.rows.length > 0
-    ? workerState.rows.map(getWorkerRowMarkup).join('')
-    : '<div class="empty-hint">当前还没有 worker 记录。</div>';
-  const capacityCards = getWorkerCapacityMarkup(workerState);
-  const topologyMarkup = getWorkerTopologyMarkup(workerState);
-  const schedulerMarkup = getWorkerSchedulerMarkup(workerState);
-
-  serverWorkersContentEl.innerHTML = `
-    <div class="summary-grid">
-      <div class="summary-card"><div class="panel-title">监控项</div><div class="panel-value">${workerState.rows.length}</div></div>
-      <div class="summary-card"><div class="panel-title">认领/待处理</div><div class="panel-value">${countWorkerRows(workerState.rows, ['active', 'pending'])}</div></div>
-      <div class="summary-card"><div class="panel-title">积压总数</div><div class="panel-value">${sumWorkerRows(workerState.rows, 'pendingCount')}</div></div>
-      <div class="summary-card"><div class="panel-title">死信</div><div class="panel-value">${sumWorkerRows(workerState.rows, 'deadLetterCount')}</div></div>
-      ${capacityCards}
-    </div>
-    <div class="note-card">${escapeHtml(workerState.note ?? 'Worker 面板读取低频诊断快照，不改变 worker 运行。')}</div>
-    ${topologyMarkup}
-    ${schedulerMarkup}
-    ${alerts}
-    <div class="network-breakdown">
-      <div class="network-breakdown-head">
-        <div class="panel-title">Worker 工作情况</div>
-        <div class="network-breakdown-subtitle">按玩家刷盘、实例刷盘、outbox 和备份 worker 汇总</div>
-      </div>
-      <div class="network-breakdown-list">${rows}</div>
-    </div>
-  `;
-}
-
-/** loadWorkerState：读取Worker状态。 */
-async function loadWorkerState(silent = false): Promise<void> {
-  if (!token || workerStateLoading) {
-    return;
-  }
-  workerStateLoading = true;
-  renderWorkerPanel();
-  try {
-    workerState = await request<GmWorkerStateRes>(buildGmWorkersApiPath());
-    if (!silent) {
-      setStatus(`已刷新 ${workerState.rows.length} 个 worker 状态`);
-    }
-  } finally {
-    workerStateLoading = false;
-    renderWorkerPanel();
-  }
-}
-
-function getEnvCheckStatusText(status: GmEnvCheckResult['groups'][number]['items'][number]['status']): string {
-  if (status === 'ok') return '通过';
-  if (status === 'warn') return '警告';
-  return '异常';
-}
-
-function getEnvCheckStatusIcon(status: GmEnvCheckResult['groups'][number]['items'][number]['status']): string {
-  if (status === 'ok') return '✅';
-  if (status === 'warn') return '⚠️';
-  return '❌';
-}
-
-function renderEnvCheckPanel(): void {
-  serverEnvCheckRefreshBtn.disabled = envCheckLoading;
-  serverEnvCheckRefreshBtn.textContent = envCheckLoading ? '检测中…' : '开始检测';
-
-  if (envCheckLoading) {
-    serverEnvCheckMetaEl.textContent = '环境检测执行中…';
-  } else if (envCheckResult) {
-    const { summary } = envCheckResult;
-    serverEnvCheckMetaEl.textContent = `检测时间 ${new Date(envCheckResult.checkedAt).toLocaleString()} · 共 ${summary.total} 项 · 通过 ${summary.ok} · 警告 ${summary.warn} · 异常 ${summary.error}`;
-  } else {
-    serverEnvCheckMetaEl.textContent = '环境检测尚未执行。';
-  }
-
-  if (!envCheckResult) {
-    serverEnvCheckContentEl.innerHTML = '<div class="empty-hint">点击“开始检测”读取环境状态。</div>';
-    return;
-  }
-
-  serverEnvCheckContentEl.innerHTML = envCheckResult.groups.map((group) => `
-    <div class="network-breakdown" style="margin-top: 12px;">
-      <div class="network-breakdown-head">
-        <div class="panel-title">${escapeHtml(group.title)}</div>
-        <div class="network-breakdown-subtitle">${group.items.length} 项检测</div>
-      </div>
-      <div class="network-breakdown-list">
-        ${group.items.map((item) => `
-          <div class="network-row">
-            <div>
-              <div class="network-row-label">${getEnvCheckStatusIcon(item.status)} ${escapeHtml(item.name)}</div>
-              <div class="network-row-meta">${escapeHtml(item.value)}${item.expected ? ` · 期望：${escapeHtml(item.expected)}` : ''}</div>
-            </div>
-            <div class="network-row-value">${getEnvCheckStatusText(item.status)}</div>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-  `).join('');
-}
-
-async function loadEnvCheck(silent = false): Promise<void> {
-  if (!token || envCheckLoading) return;
-  envCheckLoading = true;
-  renderEnvCheckPanel();
-  try {
-    envCheckResult = await request<GmEnvCheckResult>(buildGmEnvironmentCheckApiPath());
-    if (!silent) {
-      const { summary } = envCheckResult;
-      setStatus(`环境检测完成：异常 ${summary.error} 项，警告 ${summary.warn} 项`);
-    }
-  } finally {
-    envCheckLoading = false;
-    renderEnvCheckPanel();
-  }
-}
-
-async function loadRuntimeFlags(): Promise<void> {
-  if (!token || runtimeFlagsLoading) return;
-  runtimeFlagsLoading = true;
-  renderRuntimeFlagsPanel();
-  try {
-    const res = await request<{ flags: Array<{ key: string; value: boolean }> }>(`${GM_API_BASE_PATH}/runtime-flags`);
-    runtimeFlags = res.flags ?? [];
-  } finally {
-    runtimeFlagsLoading = false;
-    renderRuntimeFlagsPanel();
-  }
-}
-
-async function toggleRuntimeFlag(key: string, value: boolean): Promise<void> {
-  if (!token) return;
-  await request(`${GM_API_BASE_PATH}/runtime-flags/${encodeURIComponent(key)}`, {
-    method: 'POST',
-    body: JSON.stringify({ value }),
-  });
-  if (key === NETWORK_PAYLOAD_CAPTURE_FLAG_KEY) {
-    await loadState(true);
-  }
-  await loadRuntimeFlags();
-}
-
-async function addRuntimeFlag(key: string): Promise<void> {
-  if (!token || !key.trim()) return;
-  await request(`${GM_API_BASE_PATH}/runtime-flags/${encodeURIComponent(key.trim())}`, {
-    method: 'POST',
-    body: JSON.stringify({ value: false }),
-  });
-  await loadRuntimeFlags();
-}
-
-async function deleteRuntimeFlag(key: string): Promise<void> {
-  if (!token) return;
-  await request(`${GM_API_BASE_PATH}/runtime-flags/${encodeURIComponent(key)}`, {
-    method: 'DELETE',
-  });
-  await loadRuntimeFlags();
-}
-
-async function setMaintenanceMode(active: boolean): Promise<void> {
-  if (!token) return;
-  toggleMaintenanceModeBtn.disabled = true;
-  try {
-    await request<BasicOkRes & { active?: boolean }>(`${GM_API_BASE_PATH}/maintenance`, {
-      method: 'POST',
-      body: JSON.stringify({ active }),
-    });
-    if (state) {
-      state = {
-        ...state,
-        operations: {
-          maintenanceActive: active,
-          restartRequested: state.operations?.restartRequested === true,
-        },
-      };
-      renderSummary(state);
-    }
-    await loadState(true);
-    setStatus(active ? '已开启维护中' : '已关闭维护中');
-  } finally {
-    toggleMaintenanceModeBtn.disabled = false;
-  }
-}
-
-async function restartServer(): Promise<void> {
-  if (!token) return;
-  restartServerBtn.disabled = true;
-  await request<BasicOkRes & { restartRequested?: boolean }>(`${GM_API_BASE_PATH}/server/restart`, {
-    method: 'POST',
-    body: JSON.stringify({
-      confirmationPhrase: GM_HIGH_RISK_CONFIRMATION_PHRASES.serverRestart,
-    } satisfies GmRestartServerReq),
-  });
-  if (state) {
-    state = {
-      ...state,
-      operations: {
-        maintenanceActive: state.operations?.maintenanceActive === true,
-        restartRequested: true,
-      },
-    };
-    renderSummary(state);
-  }
-  setPendingStatus('重启指令已发送，服务即将断开并由外层托管器拉起');
-}
-
-function renderRuntimeFlagsPanel(): void {
-  // 运行时开关现在渲染到游戏配置页，直接触发游戏配置页重新渲染
-  renderGameConfig();
-}
-
-/** 生成运行时开关区块的 HTML，供游戏配置页使用 */
-function buildRuntimeFlagsHtml(): string {
-  if (runtimeFlagsLoading) {
-    return '<div class="flag-empty">运行时开关加载中...</div>';
-  }
-  const merged = mergeRuntimeFlags(runtimeFlags);
-  const grouped = groupRuntimeFlags(merged);
-  if (merged.length === 0) {
-    return '<div class="flag-empty">当前没有运行时开关。</div>';
-  }
-
-  const groupsHtml = grouped.map(({ group, flags }) => {
-    const rows = flags.map((flag) => {
-      const checked = flag.value ? 'checked' : '';
-      const badgeClass = flag.value ? 'on' : 'off';
-      const badgeText = flag.value ? '已启用' : '已禁用';
-      const displayLabel = flag.isPreset && flag.label !== flag.key ? flag.label : '';
-      const canDelete = !flag.isPreset && flag.key !== NETWORK_PAYLOAD_CAPTURE_FLAG_KEY
-        && !PRESET_FLAGS.some((p) => p.key === flag.key);
-      const deleteBtn = canDelete
-        ? `<button class="flag-delete-btn" data-flag-delete="${flag.key}" type="button" aria-label="删除此开关">删除</button>`
-        : '';
-      return `<div class="flag-row" data-flag-row="${flag.key}">
-        <label class="flag-toggle" onclick="event.stopPropagation()">
-          <input type="checkbox" data-flag-key="${flag.key}" ${checked} />
-          <span class="flag-toggle-track"></span>
-        </label>
-        <div class="flag-info">
-          <span class="flag-label">${displayLabel || flag.key}</span>
-          ${displayLabel ? `<span class="flag-key">${flag.key}</span>` : ''}
-        </div>
-        <span class="flag-badge ${badgeClass}">${badgeText}</span>
-        ${deleteBtn}
-      </div>`;
-    });
-    return `<div class="flag-group">
-      <div class="flag-group-title">${group.label}</div>
-      ${rows.join('')}
-    </div>`;
-  });
-
-  const addRowHtml = `<div class="flag-add-row">
-    <input id="gameconfig-flags-new-key" type="text" placeholder="输入新开关 key（如 my_feature_enabled）" />
-    <button id="gameconfig-flags-add" class="small-btn" type="button">添加开关</button>
-  </div>`;
-
-  return groupsHtml.join('') + addRowHtml;
-}
-
-/** 绑定运行时开关区块内的事件 */
-function bindRuntimeFlagsEvents(container: HTMLElement): void {
-  // 整行点击切换（排除删除按钮区域）
-  container.querySelectorAll<HTMLElement>('[data-flag-row]').forEach((row) => {
-    row.addEventListener('click', (e) => {
-      if ((e.target as HTMLElement).closest('[data-flag-delete]')) return;
-      const input = row.querySelector<HTMLInputElement>('input[data-flag-key]');
-      if (!input) return;
-      input.checked = !input.checked;
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-    });
-  });
-
-  // 绑定 toggle 事件
-  container.querySelectorAll<HTMLInputElement>('input[data-flag-key]').forEach((input) => {
-    input.addEventListener('change', () => {
-      const key = input.dataset.flagKey!;
-      toggleRuntimeFlag(key, input.checked).catch((err: unknown) => {
-        setStatus(err instanceof Error ? err.message : '切换开关失败', true);
-      });
-    });
-  });
-
-  // 绑定删除事件
-  container.querySelectorAll<HTMLButtonElement>('[data-flag-delete]').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const key = btn.dataset.flagDelete!;
-      if (!confirm(`确定删除开关 "${key}" 吗？`)) return;
-      deleteRuntimeFlag(key).catch((err: unknown) => {
-        setStatus(err instanceof Error ? err.message : '删除开关失败', true);
-      });
-    });
-  });
-
-  // 绑定添加开关事件
-  const addInput = container.querySelector<HTMLInputElement>('#gameconfig-flags-new-key');
-  const addBtn = container.querySelector<HTMLButtonElement>('#gameconfig-flags-add');
-  if (addInput && addBtn) {
-    addBtn.addEventListener('click', () => {
-      const key = addInput.value.trim();
-      if (!key) return;
-      addRuntimeFlag(key).then(() => {
-        addInput.value = '';
-      }).catch((err: unknown) => {
-        setStatus(err instanceof Error ? err.message : '添加开关失败', true);
-      });
-    });
-  }
-}
-
-
-function renderObjectsPanel(): void {
-  serverObjectsRefreshBtn.disabled = objectsLoading;
-  if (objectsLoading) {
-    serverObjectsMetaEl.textContent = '加载中...';
-    return;
-  }
-  if (!objectCountsData) {
-    serverObjectsMetaEl.textContent = '对象信息尚未加载。';
-    serverObjectsContentEl.innerHTML = '<div class="empty-hint">当前没有对象信息。</div>';
-    return;
-  }
-  const t = objectCountsData.totals;
-  serverObjectsMetaEl.textContent = `${t.instances} 个实例 · ${t.players} 玩家 · ${t.monsters} 妖兽`;
-  const instanceRows = objectCountsData.topInstances.length > 0
-    ? objectCountsData.topInstances.map((inst) => `
-      <div class="network-row">
-        <div class="network-row-label" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(inst.instanceId)}</div>
-        <div class="network-row-meta">玩家 ${inst.players} · 妖兽 ${inst.monsters} · NPC ${inst.npcs} · 地标 ${inst.landmarks} · 容器 ${inst.containers} · 地面堆 ${inst.groundPiles}</div>
-      </div>
-    `).join('')
-    : '<div class="empty-hint">无实例数据。</div>';
-
-  serverObjectsContentEl.innerHTML = `
-    <div class="summary-grid">
-      <div class="summary-card"><div class="panel-title">地图实例</div><div class="panel-value">${t.instances}</div></div>
-      <div class="summary-card"><div class="panel-title">在线玩家</div><div class="panel-value">${t.players}</div></div>
-      <div class="summary-card"><div class="panel-title">妖兽</div><div class="panel-value">${t.monsters}</div></div>
-      <div class="summary-card"><div class="panel-title">NPC</div><div class="panel-value">${t.npcs}</div></div>
-      <div class="summary-card"><div class="panel-title">地标</div><div class="panel-value">${t.landmarks}</div></div>
-      <div class="summary-card"><div class="panel-title">容器</div><div class="panel-value">${t.containers}</div></div>
-      <div class="summary-card"><div class="panel-title">地面堆</div><div class="panel-value">${t.groundPiles}</div></div>
-      <div class="summary-card"><div class="panel-title">待处理指令</div><div class="panel-value">${t.pendingCommands}</div></div>
-      <div class="summary-card"><div class="panel-title">刷怪组</div><div class="panel-value">${t.monsterSpawnGroups}</div></div>
-    </div>
-    <div class="network-breakdown">
-      <div class="network-breakdown-head">
-        <div class="panel-title">对象数 Top 20 实例</div>
-        <div class="network-breakdown-subtitle">按（妖兽+玩家）数量降序</div>
-      </div>
-      <div class="network-breakdown-list">${instanceRows}</div>
-    </div>
-  `;
-}
-
-async function loadObjectCounts(): Promise<void> {
-  if (!token || objectsLoading) return;
-  objectsLoading = true;
-  renderObjectsPanel();
-  try {
-    objectCountsData = await request<ObjectCountsResponse>(`${GM_API_BASE_PATH}/world/objects`);
-  } finally {
-    objectsLoading = false;
-    renderObjectsPanel();
-  }
-}
-
-/** getWorkerRowMarkup：读取Worker行Markup。 */
-function getWorkerRowMarkup(row: GmWorkerRow): string {
-  const statusLabel = getWorkerStatusLabel(row.status);
-  const statusClass = row.status === 'error' || row.status === 'warn' ? ' danger' : '';
-  const windowMetricLabel = getWorkerWindowMetricLabel(row);
-  const meta = [
-    row.domain ? `域 ${row.domain}` : '',
-    row.ownershipEpoch ? `epoch ${row.ownershipEpoch}` : '',
-    `待处理 ${row.pendingCount}`,
-    `认领 ${row.claimedCount}`,
-    `延迟 ${row.delayedCount}`,
-    `${windowMetricLabel} ${row.writeCount}`,
-    `${formatWorkerRate(row.writesPerSecond)}`,
-    row.backlogGrowthPerSecond !== undefined ? `积压增长 ${formatWorkerRate(row.backlogGrowthPerSecond)}` : '',
-    row.deadLetterCount ? `死信 ${row.deadLetterCount}` : '',
-    row.stalePayloadCount ? `无 payload ${row.stalePayloadCount} 条` : '',
-    row.enabled !== undefined ? `enabled ${row.enabled ? '是' : '否'}` : '',
-    row.running !== undefined ? `running ${row.running ? '是' : '否'}` : '',
-    row.processedCount !== undefined ? `累计 ${row.processedCount}` : '',
-    row.lastHeartbeatAt ? `心跳 ${formatDateTime(row.lastHeartbeatAt)}` : '',
-    row.lastSuccessAt ? `成功 ${formatDateTime(row.lastSuccessAt)}` : '',
-    row.lastFailureAt ? `失败 ${formatDateTime(row.lastFailureAt)}` : '',
-    row.oldestPendingAt ? `最早待处理 ${formatDateTime(row.oldestPendingAt)}` : '',
-    row.latestUpdatedAt ? `最近更新 ${formatDateTime(row.latestUpdatedAt)}` : '',
-  ].filter(Boolean);
-  return `
-    <div class="network-row">
-      <div class="network-row-label">${escapeHtml(row.label)} <span class="pill${statusClass}">${escapeHtml(statusLabel)}</span></div>
-      <div class="network-row-meta">${escapeHtml(meta.join(' · '))}</div>
-      ${row.note ? `<div class="editor-note" style="margin-top: 6px;">${escapeHtml(row.note)}</div>` : ''}
-    </div>
-  `;
-}
-
-function getWorkerWindowMetricLabel(row: GmWorkerRow): string {
-  if (row.kind === 'player_flush' || row.kind === 'instance_flush') {
-    return '窗口账本更新';
-  }
-  if (row.kind === 'outbox') {
-    return '窗口投递';
-  }
-  return '窗口处理';
-}
-
-function getWorkerStatusLabel(status: GmWorkerRow['status']): string {
-  switch (status) {
-    case 'active':
-      return '工作中';
-    case 'pending':
-      return '待处理';
-    case 'idle':
-      return '空闲';
-    case 'warn':
-      return '需关注';
-    case 'error':
-      return '异常';
-    default:
-      return '未知';
-  }
-}
-
-function getWorkerTopologyMarkup(state: GmWorkerStateRes): string {
-  const topology = state.topology;
-  if (!topology) {
-    return '';
-  }
-  const localWorkers = topology.localWorkers.length > 0
-    ? topology.localWorkers.map((worker) => `${worker.label}:${worker.enabled ? 'enabled' : 'disabled'}${worker.running ? '/running' : ''}`).join(' · ')
-    : '当前进程未暴露本地 orchestrator worker；请结合 server_worker 部署与持久化心跳判断。';
-  return `
-    <div class="note-card">
-      <strong>运行拓扑</strong>：当前 role=${escapeHtml(topology.currentRole)} · ${escapeHtml(topology.recommendedTopology)}
-      <br>${escapeHtml(topology.note ?? '')}
-      <br>本地 worker：${escapeHtml(localWorkers)}
-    </div>
-  `;
-}
-
-function getWorkerSchedulerMarkup(state: GmWorkerStateRes): string {
-  const scheduler = state.scheduler;
-  if (!scheduler || !scheduler.tasks || scheduler.tasks.length === 0) {
-    return '<div class="note-card"><strong>Scheduler 任务</strong>：未加载或无任务注册（worker 进程可能未启动）。</div>';
-  }
-  const taskRows = scheduler.tasks.map((task) => {
-    const isStuck = task.running && task.lastSuccessAt && (Date.now() - Date.parse(task.lastSuccessAt) > 120_000);
-    const statusClass = isStuck ? ' danger' : task.running ? '' : '';
-    const statusText = isStuck ? '可能 hang' : task.running ? '运行中' : task.paused ? '已暂停' : task.enabled ? '空闲' : '已禁用';
-    const sourceText = [
-      task.runtimeRole ? `role=${task.runtimeRole}` : '',
-      task.nodeId ? `node=${task.nodeId}` : '',
-      task.snapshotUpdatedAt ? `快照 ${formatDateTime(task.snapshotUpdatedAt)}` : '',
-    ].filter(Boolean).join(' · ');
-    const meta = [
-      sourceText,
-      `运行 ${task.runCount} 次`,
-      `成功 ${task.processedCount}`,
-      task.failureCount > 0 ? `失败 ${task.failureCount}` : '',
-      task.lastSuccessAt ? `最近成功 ${formatDateTime(task.lastSuccessAt)}` : '从未成功',
-      task.lastFailure ? `原因: ${task.lastFailure.slice(0, 60)}` : '',
-      task.lastDurationMs > 0 ? `耗时 ${task.lastDurationMs}ms` : '',
-    ].filter(Boolean);
-    return `
-      <div class="network-row">
-        <div class="network-row-label">${escapeHtml(task.id)} <span class="pill${statusClass}">${escapeHtml(statusText)}</span></div>
-        <div class="network-row-meta">${escapeHtml(meta.join(' · '))}</div>
-      </div>
-    `;
-  }).join('');
-  const governorNote = scheduler.governor
-    ? `压力等级 ${scheduler.governor.backlogPressureLevel} · CPU ${scheduler.governor.availableParallelism} 核 · flush 池等待 ${scheduler.governor.flushPoolWaiting} · 锁等待 ${scheduler.governor.lockWaitCount}`
-    : '';
-  return `
-    <div class="network-breakdown">
-      <div class="network-breakdown-head">
-        <div class="panel-title">Scheduler 任务状态</div>
-        <div class="network-breakdown-subtitle">跨进程调度器快照（来自 scheduler_runtime_state 表）${governorNote ? ' · ' + escapeHtml(governorNote) : ''}</div>
-      </div>
-      <div class="network-breakdown-list">${taskRows}</div>
-    </div>
-  `;
-}
-
-function getWorkerAlertLabel(reason: string): string {
-  switch (reason) {
-    case 'dead_letter_present':
-      return '存在死信';
-    case 'backlog_high':
-      return '积压过高';
-    case 'worker_inactive':
-      return 'worker 心跳或活跃状态异常';
-    case 'db_backpressure':
-      return '数据库连接池反压';
-    case 'lock_wait':
-      return 'PG 锁等待';
-    default:
-      return reason;
-  }
-}
-
-function getSchedulerDiagnosticNote(state: GmWorkerStateRes): string {
-  const scheduler = state.scheduler;
-  if (!scheduler) return 'scheduler 状态未加载';
-  const flushTask = scheduler.tasks.find((t) => t.id === 'flush-task-consumer');
-  if (!flushTask) return 'flush-task-consumer 未注册（worker 进程可能未启动）';
-  if (flushTask.running && flushTask.lastSuccessAt && Date.now() - Date.parse(flushTask.lastSuccessAt) > 120_000) {
-    return 'flush consumer 可能 hang（running=true 超时）';
-  }
-  if (flushTask.failureCount > 0) {
-    return `flush consumer 有 ${flushTask.failureCount} 次失败`;
-  }
-  return '';
-}
-
-function getAlertInactiveDiagnostic(state: GmWorkerStateRes, workerId: string): string {
-  const row = state.rows.find((r) => r.id === workerId || `${r.kind === 'instance_flush' ? 'instance' : 'player'}:${r.domain}` === workerId);
-  if (!row) return '';
-  const parts: string[] = [];
-  if (row.stalePayloadCount && row.stalePayloadCount > 0) {
-    parts.push(`无 payload ${row.stalePayloadCount} 条（离线玩家旧数据）`);
-  }
-  return parts.length > 0 ? ` · ${parts.join(' · ')}` : '';
-}
-
-function getWorkerCapacityMarkup(state: GmWorkerStateRes): string {
-  const capacity = state.capacity;
-  if (!capacity) {
-    return '';
-  }
-  const flushPool = capacity.pgPools?.flush;
-  const lockWait = capacity.pgLockWait;
-  const player = capacity.player;
-  const map = capacity.map;
-  const failures = capacity.failures;
-  const cards = [
-    {
-      title: 'Flush Pool 等待',
-      value: `${formatCompactNumber(flushPool?.waitingCount ?? 0)}`,
-      note: flushPool ? `连接 ${flushPool.totalCount} · 空闲 ${flushPool.idleCount}` : '暂无连接池采样',
-    },
-    {
-      title: 'PG 锁等待',
-      value: `${formatCompactNumber(lockWait?.waitingCount ?? 0)}`,
-      note: lockWait?.error ? `采样失败：${lockWait.error}` : (lockWait ? `检查 ${formatDateTime(new Date(lockWait.checkedAt).toISOString())}` : '暂无锁等待采样'),
-    },
-    {
-      title: '玩家 Flush',
-      value: player ? `${formatMs(player.totalMs)}` : '无采样',
-      note: player ? `DB ${formatMs(player.dbWriteMs)} · 玩家 ${player.entityCount}` : '等待下一轮玩家刷盘',
-    },
-    {
-      title: '地图 Flush',
-      value: map ? `${formatMs(map.totalMs)}` : '无采样',
-      note: map ? `DB ${formatMs(map.dbWriteMs)} · 实例 ${map.entityCount}${map.coalescedDomainCount ? ` · 合并 ${map.coalescedDomainCount}` : ''}` : '等待下一轮地图刷盘',
-    },
-    {
-      title: '失败窗口',
-      value: `${formatCompactNumber(failures?.total ?? 0)}`,
-      note: failures ? formatWorkerFailureBreakdown(failures.byCategory) : '暂无失败采样',
-    },
-  ];
-  return cards.map((card) => `
-    <div class="summary-card">
-      <div class="panel-title">${escapeHtml(card.title)}</div>
-      <div class="panel-value">${escapeHtml(card.value)}</div>
-      <div class="stats-card-note">${escapeHtml(card.note)}</div>
-    </div>
-  `).join('');
-}
-
-function formatWorkerFailureBreakdown(byCategory: Record<string, number>): string {
-  const entries = Object.entries(byCategory)
-    .filter(([, count]) => Number(count) > 0)
-    .sort((a, b) => Number(b[1]) - Number(a[1]))
-    .slice(0, 3);
-  return entries.length > 0
-    ? entries.map(([key, count]) => `${key} ${count}`).join(' · ')
-    : '暂无失败分类';
-}
-
-function formatMs(value: number): string {
-  return `${Math.max(0, Number(value) || 0).toFixed(1)} ms`;
-}
-
-function formatCompactNumber(value: number): string {
-  const normalized = Math.max(0, Number(value) || 0);
-  if (normalized >= 1_000_000) {
-    return `${(normalized / 1_000_000).toFixed(1)}M`;
-  }
-  if (normalized >= 1_000) {
-    return `${(normalized / 1_000).toFixed(1)}K`;
-  }
-  return `${Math.trunc(normalized)}`;
-}
-
-function formatWorkerRate(value: number): string {
-  return `${Math.max(0, Number(value) || 0).toFixed(3)} /s`;
-}
-
-function countWorkerRows(rows: GmWorkerRow[], statuses: GmWorkerRow['status'][]): number {
-  return rows.filter((row) => statuses.includes(row.status)).length;
-}
-
-function sumWorkerRows(rows: GmWorkerRow[], key: 'pendingCount' | 'deadLetterCount'): number {
-  return rows.reduce((total, row) => total + Math.max(0, Number(row[key] ?? 0) || 0), 0);
-}
-
-/** formatDatabaseBackupKind：格式化数据库备份种类。 */
-function formatDatabaseBackupKind(kind: GmDatabaseBackupRecord['kind']): string {
-  switch (kind) {
-    case 'hourly':
-      return '整点备份';
-    case 'daily':
-      return '每日备份';
-    case 'manual':
-      return '手动导出';
-    case 'pre_import':
-      return '导入前备份';
-    case 'uploaded':
-      return '本地上传';
-    default:
-      return kind;
-  }
-}
-
-/** formatDatabaseBackupFormat：格式化数据库备份格式。 */
-function formatDatabaseBackupFormat(format: GmDatabaseBackupRecord['format']): string {
-  switch (format) {
-    case 'postgres_custom_dump':
-      return 'PostgreSQL 自定义备份';
-    case 'legacy_json_snapshot':
-      return '历史 JSON 快照（硬切后不可恢复）';
-    default:
-      return '未知格式';
-  }
-}
+function diagHistoryLoad(): string[] { return diagPanelDiagHistoryLoad(diagPanelContext); }
+function diagHistoryPush(command: string): void { return diagPanelDiagHistoryPush(command, diagPanelContext); }
+function diagHistoryNavigate(direction: 'up' | 'down'): string | null { return diagPanelDiagHistoryNavigate(direction, diagPanelContext); }
+function renderDiagnosticsPanel(): void { return diagPanelRenderDiagnosticsPanel(diagPanelContext); }
+function updateUndoButton(): void { return diagPanelUpdateUndoButton(diagPanelContext); }
+function renderDiagnosticsResultAsTable(result: GmDiagnosticsQueryRes): string { return diagPanelRenderDiagnosticsResultAsTable(result, diagPanelContext); }
+function renderResultSetTable(resultSet: GmDiagnosticsResultSet): string { return diagPanelRenderResultSetTable(resultSet, diagPanelContext); }
+function renderTableCell(value: unknown, col: string): string { return diagPanelRenderTableCell(value, col, diagPanelContext); }
+function diagPlayerHistoryLoad(): string[] { return diagPanelDiagPlayerHistoryLoad(diagPanelContext); }
+function diagPlayerHistorySave(value: string): void { return diagPanelDiagPlayerHistorySave(value, diagPanelContext); }
+function showDiagPrompt(title: string): Promise<string | null> { return diagPanelShowDiagPrompt(title, diagPanelContext); }
+function startDiagCellEdit(td: HTMLTableCellElement): void { return diagPanelStartDiagCellEdit(td, diagPanelContext); }
+function inferTableName(title: string): string { return diagPanelInferTableName(title, diagPanelContext); }
+function buildWhereFromRow(tr: HTMLElement, excludeCol: string): string { return diagPanelBuildWhereFromRow(tr, excludeCol, diagPanelContext); }
+async function runDiagnosticsCommand(command: string): Promise<void> { return diagPanelRunDiagnosticsCommand(command, diagPanelContext); }
+
+/** workerHelpersContext：worker-helpers 对 gm.ts 的依赖。 */
+const workerHelpersContext: WorkerHelpersContext = {
+  escapeHtml,
+  formatDateTime,
+};
+
+/** serverPanelsExtraContext：server-panels-extra 对 gm.ts 的依赖。 */
+const serverPanelsExtraContext: ServerPanelsExtraContext = {
+  getToken: () => token,
+  GM_API_BASE_PATH,
+  request,
+  setStatus,
+  setPendingStatus,
+  escapeHtml,
+  formatDateTime,
+  NETWORK_PAYLOAD_CAPTURE_FLAG_KEY,
+  getWorkerState: () => workerState,
+  setWorkerState: (state) => { workerState = state; },
+  getWorkerStateLoading: () => workerStateLoading,
+  setWorkerStateLoading: (loading) => { workerStateLoading = loading; },
+  getEnvCheckResult: () => envCheckResult,
+  setEnvCheckResult: (result) => { envCheckResult = result; },
+  getEnvCheckLoading: () => envCheckLoading,
+  setEnvCheckLoading: (loading) => { envCheckLoading = loading; },
+  getRuntimeFlags: () => runtimeFlags,
+  setRuntimeFlags: (flags) => { runtimeFlags = flags; },
+  getRuntimeFlagsLoading: () => runtimeFlagsLoading,
+  setRuntimeFlagsLoading: (loading) => { runtimeFlagsLoading = loading; },
+  getObjectsLoading: () => objectsLoading,
+  setObjectsLoading: (loading) => { objectsLoading = loading; },
+  getObjectCountsData: () => objectCountsData,
+  setObjectCountsData: (data) => { objectCountsData = data; },
+  loadState,
+  renderSummary,
+  renderGameConfig,
+  getState: () => state,
+  setState: (newState) => { state = newState as typeof state; },
+  restartServerBtn,
+  serverEnvCheckContentEl,
+  serverEnvCheckMetaEl,
+  serverEnvCheckRefreshBtn,
+  serverObjectsContentEl,
+  serverObjectsMetaEl,
+  serverObjectsRefreshBtn,
+  serverWorkersContentEl,
+  serverWorkersMetaEl,
+  serverWorkersRefreshBtn,
+  toggleMaintenanceModeBtn,
+  workerHelpersContext,
+};
+
+function renderWorkerPoolSection(wp: any): void { return serverPanelsExtraRenderWorkerPoolSection(wp, serverPanelsExtraContext); }
+function renderWorkerPanel(): void { return serverPanelsExtraRenderWorkerPanel(serverPanelsExtraContext); }
+async function loadWorkerState(silent = false): Promise<void> { return serverPanelsExtraLoadWorkerState(silent, serverPanelsExtraContext); }
+function getEnvCheckStatusText(status: GmEnvCheckResult['groups'][number]['items'][number]['status']): string { return serverPanelsExtraGetEnvCheckStatusText(status, serverPanelsExtraContext); }
+function getEnvCheckStatusIcon(status: GmEnvCheckResult['groups'][number]['items'][number]['status']): string { return serverPanelsExtraGetEnvCheckStatusIcon(status, serverPanelsExtraContext); }
+function renderEnvCheckPanel(): void { return serverPanelsExtraRenderEnvCheckPanel(serverPanelsExtraContext); }
+async function loadEnvCheck(silent = false): Promise<void> { return serverPanelsExtraLoadEnvCheck(silent, serverPanelsExtraContext); }
+async function loadRuntimeFlags(): Promise<void> { return serverPanelsExtraLoadRuntimeFlags(serverPanelsExtraContext); }
+async function toggleRuntimeFlag(key: string, value: boolean): Promise<void> { return serverPanelsExtraToggleRuntimeFlag(key, value, serverPanelsExtraContext); }
+async function addRuntimeFlag(key: string): Promise<void> { return serverPanelsExtraAddRuntimeFlag(key, serverPanelsExtraContext); }
+async function deleteRuntimeFlag(key: string): Promise<void> { return serverPanelsExtraDeleteRuntimeFlag(key, serverPanelsExtraContext); }
+async function setMaintenanceMode(active: boolean): Promise<void> { return serverPanelsExtraSetMaintenanceMode(active, serverPanelsExtraContext); }
+async function restartServer(): Promise<void> { return serverPanelsExtraRestartServer(serverPanelsExtraContext); }
+function renderRuntimeFlagsPanel(): void { return serverPanelsExtraRenderRuntimeFlagsPanel(serverPanelsExtraContext); }
+function buildRuntimeFlagsHtml(): string { return serverPanelsExtraBuildRuntimeFlagsHtml(serverPanelsExtraContext); }
+function bindRuntimeFlagsEvents(container: HTMLElement): void { return serverPanelsExtraBindRuntimeFlagsEvents(container, serverPanelsExtraContext); }
+function renderObjectsPanel(): void { return serverPanelsExtraRenderObjectsPanel(serverPanelsExtraContext); }
+async function loadObjectCounts(): Promise<void> { return serverPanelsExtraLoadObjectCounts(serverPanelsExtraContext); }
+
+
+function getWorkerRowMarkup(row: GmWorkerRow): string { return workerHelpersGetWorkerRowMarkup(row, workerHelpersContext); }
+function getWorkerWindowMetricLabel(row: GmWorkerRow): string { return workerHelpersGetWorkerWindowMetricLabel(row, workerHelpersContext); }
+function getWorkerStatusLabel(status: GmWorkerRow['status']): string { return workerHelpersGetWorkerStatusLabel(status, workerHelpersContext); }
+function getWorkerTopologyMarkup(state: GmWorkerStateRes): string { return workerHelpersGetWorkerTopologyMarkup(state, workerHelpersContext); }
+function getWorkerSchedulerMarkup(state: GmWorkerStateRes): string { return workerHelpersGetWorkerSchedulerMarkup(state, workerHelpersContext); }
+function getWorkerAlertLabel(reason: string): string { return workerHelpersGetWorkerAlertLabel(reason, workerHelpersContext); }
+function getSchedulerDiagnosticNote(state: GmWorkerStateRes): string { return workerHelpersGetSchedulerDiagnosticNote(state, workerHelpersContext); }
+function getAlertInactiveDiagnostic(state: GmWorkerStateRes, workerId: string): string { return workerHelpersGetAlertInactiveDiagnostic(state, workerId, workerHelpersContext); }
+function getWorkerCapacityMarkup(state: GmWorkerStateRes): string { return workerHelpersGetWorkerCapacityMarkup(state, workerHelpersContext); }
+function formatWorkerFailureBreakdown(byCategory: Record<string, number>): string { return workerHelpersFormatWorkerFailureBreakdown(byCategory, workerHelpersContext); }
+function formatMs(value: number): string { return workerHelpersFormatMs(value, workerHelpersContext); }
+function formatCompactNumber(value: number): string { return workerHelpersFormatCompactNumber(value, workerHelpersContext); }
+function formatWorkerRate(value: number): string { return workerHelpersFormatWorkerRate(value, workerHelpersContext); }
+function countWorkerRows(rows: GmWorkerRow[], statuses: GmWorkerRow['status'][]): number { return workerHelpersCountWorkerRows(rows, statuses, workerHelpersContext); }
+function sumWorkerRows(rows: GmWorkerRow[], key: 'pendingCount' | 'deadLetterCount'): number { return workerHelpersSumWorkerRows(rows, key, workerHelpersContext); }
+function formatDatabaseBackupKind(kind: GmDatabaseBackupRecord['kind']): string { return workerHelpersFormatDatabaseBackupKind(kind, workerHelpersContext); }
+function formatDatabaseBackupFormat(format: GmDatabaseBackupRecord['format']): string { return workerHelpersFormatDatabaseBackupFormat(format, workerHelpersContext); }
 
 function renderCommandsContent(): string {
   const metaText = serverDiagnosticsLoading ? '查询执行中…' : (lastServerDiagnosticsResult
@@ -5096,20 +3233,7 @@ function renderDatabasePanel(force = false): void {
   const importStatus = databaseImportStatus
     ? databaseImportStatus
     : '只接受新版 PostgreSQL 自定义备份（.dump 或 .dump.gz）。上传后会进入下方备份列表；选择"上传并导入"会继续走同一套数据库恢复流程。';
-  const rows = backups.length > 0
-    ? backups.map((backup) => `
-        <div class="network-row">
-          <div class="network-row-label">${escapeHtml(backup.fileName)}</div>
-          <div class="network-row-meta">
-            ${escapeHtml(formatDatabaseBackupKind(backup.kind))} · ${escapeHtml(formatDatabaseBackupFormat(backup.format))} · ${escapeHtml(formatDateTime(backup.createdAt))} · ${escapeHtml(formatBytes(backup.sizeBytes))}
-          </div>
-          <div class="button-row" style="margin-top:8px;">
-            <button class="small-btn" data-db-download="${escapeHtml(backup.id)}" type="button">下载备份</button>
-            <button class="small-btn danger" data-db-restore="${escapeHtml(backup.id)}" type="button" ${busy || backup.format !== 'postgres_custom_dump' ? 'disabled' : ''}>恢复数据库备份</button>
-          </div>
-        </div>
-      `).join('')
-    : '<div class="empty-hint">当前还没有持久化备份。</div>';
+  const rows = databasePanelRenderBackupListHtml(backups, busy, formatDatabaseBackupKind, formatDatabaseBackupFormat, formatDateTime);
 
   serverPanelDatabaseEl.innerHTML = subTabBar + `
     <div class="button-row">
@@ -5146,51 +3270,7 @@ function renderDatabasePanel(force = false): void {
 }
 
 function renderTableStatsContent(): string {
-  if (tableStatsLoading) {
-    return '<div class="note-card">正在加载表占用统计…</div>';
-  }
-  if (!tableStatsState) {
-    return `
-      <div class="button-row">
-        <button class="small-btn primary" data-action="load-table-stats" type="button">加载表占用统计</button>
-      </div>
-      <div class="empty-hint">点击上方按钮查询各表占用情况。</div>
-    `;
-  }
-  const tables = tableStatsState.tables;
-  const tableRows = tables.map((t) => {
-    const cleanupAllowed = t.cleanupAllowed === true;
-    const cleanupOlderThanAllowed = cleanupAllowed && t.cleanupOlderThanAllowed === true;
-    const cleanupMeta = cleanupAllowed
-      ? `可清理${t.cleanupTimeColumn ? ` · 时间列 ${t.cleanupTimeColumn}` : ''}${t.cleanupBlockedReason ? ` · ${t.cleanupBlockedReason}` : ''}`
-      : (t.cleanupBlockedReason || '真源保护');
-    return `
-      <div class="network-row">
-        <div class="network-row-label">${escapeHtml(t.tableName)}</div>
-        <div class="network-row-meta">行数(估) ${escapeHtml(String(t.rowEstimate))} · 总大小 ${escapeHtml(t.totalSize)} · 数据 ${escapeHtml(t.tableSize)} · 索引 ${escapeHtml(t.indexSize)} · ${escapeHtml(cleanupMeta)}</div>
-        ${cleanupAllowed ? `
-          <div class="button-row" style="margin-top:4px;">
-            <button class="small-btn danger" ${cleanupOlderThanAllowed ? `data-cleanup-target="${escapeHtml(t.tableName)}" data-cleanup-mode="older_than"` : 'aria-label="缺少可按时间清理的列"'} type="button" ${cleanupBusy || !cleanupOlderThanAllowed ? 'disabled' : ''}>清理 7 天前数据</button>
-            <button class="small-btn danger" data-cleanup-target="${escapeHtml(t.tableName)}" data-cleanup-mode="all" type="button" ${cleanupBusy ? 'disabled' : ''}>直接清空</button>
-          </div>
-        ` : ''}
-      </div>
-    `;
-  }).join('');
-
-  return `
-    <div class="button-row">
-      <button class="small-btn primary" data-action="load-table-stats" type="button">刷新统计</button>
-    </div>
-    <div class="note-card">总占用: ${escapeHtml(tableStatsState.totalSize)} · 统计时间: ${escapeHtml(formatDateTime(tableStatsState.fetchedAt))}</div>
-    <div class="network-breakdown">
-      <div class="network-breakdown-head">
-        <div class="panel-title">各表占用明细</div>
-        <div class="network-breakdown-subtitle">除真实落盘数据表外，可清理 7 天前数据，也可直接清空整表；实际权限由服务端保护</div>
-      </div>
-      <div class="network-breakdown-list">${tableRows}</div>
-    </div>
-  `;
+  return databasePanelRenderTableStatsContentHtml(tableStatsLoading, tableStatsState, cleanupBusy, formatDateTime);
 }
 
 async function loadTableStats(): Promise<void> {
@@ -5235,9 +3315,15 @@ async function cleanupTable(target: string, mode: GmDatabaseCleanupReq['mode'] =
 }
 
 /** renderRedeemPanel：渲染兑换面板。 */
-function renderRedeemPanel(): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+const redeemPanelDeps: RedeemPanelDeps = {
+  getMailAttachmentTitle,
+  getMailAttachmentRowMeta,
+  searchableItemField,
+  getRedeemCodeMarkup,
+  formatDateTime,
+};
 
+function renderRedeemPanel(): void {
   if (!redeemGroupListEl || !redeemGroupEditorEl || !redeemCodeListEl) {
     return;
   }
@@ -5245,129 +3331,12 @@ function renderRedeemPanel(): void {
   const selectedGroupId = selectedRedeemGroupId;
   redeemStatusEl && (redeemStatusEl.textContent = redeemLoading ? '正在同步兑换码数据…' : (redeemLatestGeneratedCodes.length > 0 ? `最近生成 ${redeemLatestGeneratedCodes.length} 个兑换码` : '兑换码变更会直接写数据库，但数据库备份不会包含兑换码表。'));
 
-  redeemGroupListEl.innerHTML = redeemGroupsState.length > 0
-    ? redeemGroupsState.map((group) => `
-      <button
-        class="player-row${selectedGroupId === group.id ? ' active' : ''}"
-        type="button"
-        data-redeem-group-id="${group.id}"
-      >
-        <div class="player-top">
-          <span class="player-name">${escapeHtml(group.name)}</span>
-          <span class="pill">${group.usedCodeCount} / ${group.totalCodeCount}</span>
-        </div>
-        <div class="player-meta">可用 ${group.activeCodeCount} 个 · 已用 ${group.usedCodeCount} 个 · 奖励 ${group.rewards.length} 项</div>
-      </button>
-    `).join('')
-    : '<div class="empty-hint">当前还没有兑换码分组。</div>';
+  redeemGroupListEl.innerHTML = redeemPanelRenderRedeemGroupListHtml(redeemGroupsState, selectedGroupId);
 
-  const editingExisting = !!redeemGroupDetailState && redeemGroupDetailState.group.id === selectedGroupId;
-  const groupMeta = redeemGroupDetailState?.group ?? null;
-  const rewardRows = redeemDraft.rewards.length > 0
-    ? redeemDraft.rewards.map((reward, index) => `
-      <div class="editor-card">
-        <div class="editor-card-head">
-          <div>
-            <div class="editor-card-title">${escapeHtml(getMailAttachmentTitle(reward.itemId, `奖励 ${index + 1}`))}</div>
-            <div class="editor-card-meta">${escapeHtml(getMailAttachmentRowMeta(reward.itemId))}</div>
-          </div>
-          <button class="small-btn danger" type="button" data-action="remove-redeem-reward" data-reward-index="${index}">删除</button>
-        </div>
-        <div class="editor-grid compact">
-          ${searchableItemField(
-            '物品模板',
-            reward.itemId,
-            'all',
-            { 'data-redeem-bind': `rewards.${index}.itemId` },
-            'wide',
-          )}
-          <label class="editor-field">
-            <span>数量</span>
-            <input type="number" min="1" value="${Math.max(1, Math.floor(reward.count || 1))}" data-redeem-bind="rewards.${index}.count" />
-          </label>
-        </div>
-      </div>
-    `).join('')
-    : '<div class="empty-hint">请至少添加一个奖励物品。</div>';
-
-  redeemGroupEditorEl.innerHTML = `
-    <div class="editor-section">
-      <div class="editor-section-head">
-        <div>
-          <div class="editor-section-title">${editingExisting ? '编辑分组' : '新建分组'}</div>
-          <div class="editor-section-note">分组奖励可随时编辑；新增兑换码会继承当前分组奖励。</div>
-        </div>
-        <button class="small-btn" type="button" data-action="new-redeem-group">新建空白分组</button>
-      </div>
-      ${groupMeta ? `<div class="note-card" style="margin-bottom: 12px;">总码数 ${groupMeta.totalCodeCount} · 已使用 ${groupMeta.usedCodeCount} · 可用 ${groupMeta.activeCodeCount} · 创建于 ${escapeHtml(formatDateTime(groupMeta.createdAt))}</div>` : ''}
-      <div class="editor-grid compact">
-        <label class="editor-field wide">
-          <span>分组名称</span>
-          <input type="text" value="${escapeHtml(redeemDraft.name)}" data-redeem-bind="name" />
-        </label>
-        ${editingExisting ? `
-        <label class="editor-field">
-          <span>追加数量</span>
-          <input type="number" min="1" max="500" value="${escapeHtml(redeemDraft.appendCount)}" data-redeem-bind="appendCount" />
-        </label>
-        ` : `
-        <label class="editor-field">
-          <span>初始生成数量</span>
-          <input type="number" min="1" max="500" value="${escapeHtml(redeemDraft.createCount)}" data-redeem-bind="createCount" />
-        </label>
-        `}
-      </div>
-      <div class="editor-section" style="margin-top: 12px;">
-        <div class="editor-section-head">
-          <div>
-            <div class="editor-section-title">奖励列表</div>
-            <div class="editor-section-note">每个兑换码都会按这里的奖励逐项发放到背包。</div>
-          </div>
-          <button class="small-btn" type="button" data-action="add-redeem-reward">新增奖励</button>
-        </div>
-        <div class="editor-card-list">${rewardRows}</div>
-      </div>
-      <div class="button-row" style="margin-top: 12px;">
-        <button class="small-btn primary" type="button" data-action="${editingExisting ? 'save-redeem-group' : 'create-redeem-group'}">${editingExisting ? '保存分组' : '创建分组并生成兑换码'}</button>
-        ${editingExisting ? '<button class="small-btn" type="button" data-action="append-redeem-codes">追加兑换码</button>' : ''}
-        ${editingExisting ? '<button class="small-btn danger" type="button" data-action="delete-redeem-group">删除分组</button>' : ''}
-        <button class="small-btn" type="button" data-action="refresh-redeem-groups">刷新</button>
-      </div>
-      ${redeemLatestGeneratedCodes.length > 0 ? `
-      <div class="editor-section" style="margin-top: 12px;">
-        <div class="editor-section-head">
-          <div>
-            <div class="editor-section-title">最近生成的兑换码</div>
-            <div class="editor-section-note">创建或追加后会在这里展示本次生成结果。</div>
-          </div>
-        </div>
-        <textarea class="editor-textarea" spellcheck="false" readonly>${escapeHtml(redeemLatestGeneratedCodes.join('\n'))}</textarea>
-      </div>
-      ` : ''}
-    </div>
-  `;
+  redeemGroupEditorEl.innerHTML = redeemPanelRenderRedeemGroupEditorHtml(redeemDraft, redeemGroupDetailState, selectedGroupId, redeemLatestGeneratedCodes, redeemPanelDeps);
   syncSearchableItemFields(redeemGroupEditorEl);
 
-  const codeItems = redeemGroupDetailState?.codes ?? [];
-  const activeCodeCount = codeItems.filter((code) => code.status === 'active').length;
-  redeemCodeListEl.innerHTML = redeemGroupDetailState
-    ? `
-      <div class="editor-section">
-        <div class="editor-section-head">
-          <div>
-            <div class="editor-section-title">兑换码列表</div>
-            <div class="editor-section-note">当前分组共 ${codeItems.length} 个兑换码，其中 ${activeCodeCount} 个未使用。</div>
-          </div>
-          <button class="small-btn" type="button" data-action="copy-active-redeem-codes" ${activeCodeCount > 0 ? '' : 'disabled'}>复制全部未使用</button>
-        </div>
-        <div class="network-breakdown-list">
-          ${codeItems.length > 0
-            ? codeItems.map((code) => getRedeemCodeMarkup(code)).join('')
-            : '<div class="empty-hint">当前分组还没有兑换码。</div>'}
-        </div>
-      </div>
-    `
-    : '<div class="empty-hint">请选择一个分组查看兑换码。</div>';
+  redeemCodeListEl.innerHTML = redeemPanelRenderRedeemCodeListHtml(redeemGroupDetailState, redeemPanelDeps);
 }
 
 /** getRedeemCodeMarkup：读取兑换兑换码Markup。 */
@@ -5462,369 +3431,65 @@ function buildRedeemGroupPayload(): {
   return { name, rewards };
 }
 
-/** loadRedeemGroups：加载兑换分组。 */
-async function loadRedeemGroups(silent = false): Promise<void> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+/** redeemDbPanelContext：redeem-database-panel 对 gm.ts 的依赖。 */
+const redeemDbPanelContext: RedeemDatabasePanelContext = {
+  getToken: () => token,
+  GM_API_BASE_PATH,
+  request,
+  requestBlob,
+  setStatus,
+  t,
+  formatBytes,
+  confirm,
+  buildGmDatabaseBackupDownloadApiPath,
+  buildRedeemGroupPayload,
+  createDefaultRedeemGroupDraft,
+  renderRedeemPanel,
+  renderDatabasePanel,
+  getRedeemLoading: () => redeemLoading,
+  setRedeemLoading: (loading) => { redeemLoading = loading; },
+  getRedeemLatestGeneratedCodes: () => redeemLatestGeneratedCodes,
+  setRedeemLatestGeneratedCodes: (codes) => { redeemLatestGeneratedCodes = codes; },
+  getRedeemGroupsState: () => redeemGroupsState,
+  setRedeemGroupsState: (groups) => { redeemGroupsState = groups; },
+  getSelectedRedeemGroupId: () => selectedRedeemGroupId,
+  setSelectedRedeemGroupId: (id) => { selectedRedeemGroupId = id; },
+  getRedeemGroupDetailState: () => redeemGroupDetailState,
+  setRedeemGroupDetailState: (detail) => { redeemGroupDetailState = detail; },
+  getRedeemDraft: () => redeemDraft,
+  setRedeemDraft: (draft) => { redeemDraft = draft; },
+  getDatabaseState: () => databaseState,
+  setDatabaseState: (newState) => { databaseState = newState; },
+  getDatabaseStateLoading: () => databaseStateLoading,
+  setDatabaseStateLoading: (loading) => { databaseStateLoading = loading; },
+  getDatabaseImportBusy: () => databaseImportBusy,
+  setDatabaseImportBusy: (busy) => { databaseImportBusy = busy; },
+  getDatabaseImportStatus: () => databaseImportStatus,
+  setDatabaseImportStatus: (status) => { databaseImportStatus = status; },
+  getSelectedDatabaseImportFile: () => selectedDatabaseImportFile,
+  setSelectedDatabaseImportFile: (file) => { selectedDatabaseImportFile = file; },
+  persistentFileInput,
+  serverPanelDatabaseEl,
+};
 
-  /** redeemLoading：兑换Loading。 */
-  redeemLoading = true;
-  renderRedeemPanel();
-  try {
-    const data = await request<GmRedeemCodeGroupListRes>(`${GM_API_BASE_PATH}/redeem-code-groups`);
-    /** redeemGroupsState：兑换分组状态。 */
-    redeemGroupsState = data.groups;
-    if (selectedRedeemGroupId && !redeemGroupsState.some((group) => group.id === selectedRedeemGroupId)) {
-      selectedRedeemGroupId = null;
-      redeemGroupDetailState = null;
-      redeemDraft = createDefaultRedeemGroupDraft();
-    }
-    if (!selectedRedeemGroupId && redeemGroupsState[0]) {
-      selectedRedeemGroupId = redeemGroupsState[0].id;
-    }
-    if (selectedRedeemGroupId) {
-      await loadRedeemGroupDetail(selectedRedeemGroupId, true);
-    } else {
-      renderRedeemPanel();
-    }
-    if (!silent) {
-      setStatus(t('gm.redeem.synced', { count: redeemGroupsState.length }));
-    }
-  } finally {
-    /** redeemLoading：兑换Loading。 */
-    redeemLoading = false;
-    renderRedeemPanel();
-  }
-}
+async function loadRedeemGroups(silent = false): Promise<void> { return redeemDbPanelLoadRedeemGroups(silent, redeemDbPanelContext); }
+async function loadRedeemGroupDetail(groupId: string, silent = false): Promise<void> { return redeemDbPanelLoadRedeemGroupDetail(groupId, silent, redeemDbPanelContext); }
+async function createRedeemGroup(): Promise<void> { return redeemDbPanelCreateRedeemGroup(redeemDbPanelContext); }
+async function saveRedeemGroup(): Promise<void> { return redeemDbPanelSaveRedeemGroup(redeemDbPanelContext); }
+async function deleteRedeemGroup(): Promise<void> { return redeemDbPanelDeleteRedeemGroup(redeemDbPanelContext); }
+async function appendRedeemCodes(): Promise<void> { return redeemDbPanelAppendRedeemCodes(redeemDbPanelContext); }
+async function destroyRedeemCode(codeId: string): Promise<void> { return redeemDbPanelDestroyRedeemCode(codeId, redeemDbPanelContext); }
+async function loadDatabaseState(silent = false): Promise<void> { return redeemDbPanelLoadDatabaseState(silent, redeemDbPanelContext); }
+async function exportCurrentDatabase(): Promise<void> { return redeemDbPanelExportCurrentDatabase(redeemDbPanelContext); }
+function getSelectedDatabaseImportFile(): File | null { return redeemDbPanelGetSelectedDatabaseImportFile(redeemDbPanelContext); }
+function patchDatabaseImportStatus(message: string): void { return redeemDbPanelPatchDatabaseImportStatus(message, redeemDbPanelContext); }
+function isSupportedDatabaseImportFile(file: File): boolean { return redeemDbPanelIsSupportedDatabaseImportFile(file, redeemDbPanelContext); }
+function updateDatabaseImportFileSelection(file: File | null): void { return redeemDbPanelUpdateDatabaseImportFileSelection(file, redeemDbPanelContext); }
+async function uploadDatabaseBackupFile(restoreAfterUpload: boolean): Promise<void> { return redeemDbPanelUploadDatabaseBackupFile(restoreAfterUpload, redeemDbPanelContext); }
+function getDownloadFileName(response: Response, fallback: string): string { return redeemDbPanelGetDownloadFileName(response, fallback, redeemDbPanelContext); }
+async function downloadDatabaseBackup(backupId: string): Promise<void> { return redeemDbPanelDownloadDatabaseBackup(backupId, redeemDbPanelContext); }
+async function restoreDatabaseBackup(backupId: string, options?: { skipConfirm?: boolean; fallbackFileName?: string; expectedChecksum?: string }): Promise<void> { return redeemDbPanelRestoreDatabaseBackup(backupId, options ?? {}, redeemDbPanelContext); }
 
-/** loadRedeemGroupDetail：加载兑换分组详情。 */
-async function loadRedeemGroupDetail(groupId: string, silent = false): Promise<void> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  /** redeemLoading：兑换Loading。 */
-  redeemLoading = true;
-  renderRedeemPanel();
-  try {
-    const detail = await request<GmRedeemCodeGroupDetailRes>(`${GM_API_BASE_PATH}/redeem-code-groups/${encodeURIComponent(groupId)}`);
-    if (selectedRedeemGroupId !== groupId) {
-      return;
-    }
-    /** redeemGroupDetailState：兑换分组详情状态。 */
-    redeemGroupDetailState = detail;
-    redeemDraft = {
-      name: detail.group.name,
-      rewards: detail.group.rewards.map((entry) => ({ ...entry })),
-      createCount: '10',
-      appendCount: '10',
-    };
-    if (!silent) {
-      setStatus(t('gm.redeem.loaded', { groupName: detail.group.name }));
-    }
-  } finally {
-    /** redeemLoading：兑换Loading。 */
-    redeemLoading = false;
-    renderRedeemPanel();
-  }
-}
-
-/** createRedeemGroup：创建兑换分组。 */
-async function createRedeemGroup(): Promise<void> {
-  const payloadBase = buildRedeemGroupPayload();
-  const payload: GmCreateRedeemCodeGroupReq = {
-    ...payloadBase,
-    count: Math.max(1, Math.min(500, Math.floor(Number(redeemDraft.createCount || '0')) || 0)),
-  };
-  const result = await request<GmCreateRedeemCodeGroupRes>(`${GM_API_BASE_PATH}/redeem-code-groups`, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-  /** selectedRedeemGroupId：selected兑换分组ID。 */
-  selectedRedeemGroupId = result.group.id;
-  /** redeemLatestGeneratedCodes：兑换Latest Generated兑换码。 */
-  redeemLatestGeneratedCodes = [...result.codes];
-  await loadRedeemGroups(true);
-  setStatus(t('gm.redeem.created', { groupName: result.group.name, count: result.codes.length }));
-}
-
-/** saveRedeemGroup：保存兑换分组。 */
-async function saveRedeemGroup(): Promise<void> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (!selectedRedeemGroupId) {
-    throw new Error(t('gm.redeem.selected-group-required'));
-  }
-  const payload: GmUpdateRedeemCodeGroupReq = buildRedeemGroupPayload();
-  await request<GmRedeemCodeGroupDetailRes>(`${GM_API_BASE_PATH}/redeem-code-groups/${encodeURIComponent(selectedRedeemGroupId)}`, {
-    method: 'PUT',
-    body: JSON.stringify(payload),
-  });
-  /** redeemLatestGeneratedCodes：兑换Latest Generated兑换码。 */
-  redeemLatestGeneratedCodes = [];
-  await loadRedeemGroups(true);
-  setStatus(t('gm.redeem.saved'));
-}
-
-/** deleteRedeemGroup：删除当前兑换分组。 */
-async function deleteRedeemGroup(): Promise<void> {
-  if (!selectedRedeemGroupId) {
-    throw new Error(t('gm.redeem.selected-group-required'));
-  }
-  const groupName = redeemGroupDetailState?.group.name
-    ?? redeemGroupsState.find((group) => group.id === selectedRedeemGroupId)?.name
-    ?? selectedRedeemGroupId;
-  if (!window.confirm(t('gm.redeem.delete.confirm', { groupName }))) {
-    return;
-  }
-  await request<BasicOkRes>(`${GM_API_BASE_PATH}/redeem-code-groups/${encodeURIComponent(selectedRedeemGroupId)}`, {
-    method: 'DELETE',
-  });
-  selectedRedeemGroupId = null;
-  redeemGroupDetailState = null;
-  redeemDraft = createDefaultRedeemGroupDraft();
-  redeemLatestGeneratedCodes = [];
-  await loadRedeemGroups(true);
-  setStatus(t('gm.redeem.deleted', { groupName }));
-}
-
-/** appendRedeemCodes：处理append兑换兑换码。 */
-async function appendRedeemCodes(): Promise<void> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (!selectedRedeemGroupId) {
-    throw new Error(t('gm.redeem.selected-group-required'));
-  }
-  const payload: GmAppendRedeemCodesReq = {
-    count: Math.max(1, Math.min(500, Math.floor(Number(redeemDraft.appendCount || '0')) || 0)),
-  };
-  const result = await request<GmAppendRedeemCodesRes>(`${GM_API_BASE_PATH}/redeem-code-groups/${encodeURIComponent(selectedRedeemGroupId)}/codes`, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-  /** redeemLatestGeneratedCodes：兑换Latest Generated兑换码。 */
-  redeemLatestGeneratedCodes = [...result.codes];
-  await loadRedeemGroups(true);
-  setStatus(t('gm.redeem.appended', { count: result.codes.length }));
-}
-
-/** destroyRedeemCode：处理destroy兑换兑换码。 */
-async function destroyRedeemCode(codeId: string): Promise<void> {
-  await request<{  
-  /**
- * ok：ok相关字段。
- */
- ok: true }>(`${GM_API_BASE_PATH}/redeem-codes/${encodeURIComponent(codeId)}`, {
-    method: 'DELETE',
-  });
-  await loadRedeemGroups(true);
-  setStatus(t('gm.redeem.destroyed'));
-}
-
-/** loadDatabaseState：加载数据库状态。 */
-async function loadDatabaseState(silent = false): Promise<void> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (!token) {
-    return;
-  }
-  /** databaseStateLoading：数据库状态Loading。 */
-  databaseStateLoading = true;
-  renderDatabasePanel();
-  try {
-    const data = await request<GmDatabaseStateRes>(`${GM_API_BASE_PATH}/database/state`);
-    /** databaseState：数据库状态。 */
-    databaseState = data;
-    if (!silent) {
-      setStatus(t('gm.database.synced-backups', { count: data.backups.length }));
-    }
-  } finally {
-    /** databaseStateLoading：数据库状态Loading。 */
-    databaseStateLoading = false;
-    renderDatabasePanel();
-  }
-}
-
-/** exportCurrentDatabase：处理export当前数据库。 */
-async function exportCurrentDatabase(): Promise<void> {
-  const result = await request<GmTriggerDatabaseBackupRes>(`${GM_API_BASE_PATH}/database/backup`, {
-    method: 'POST',
-  });
-  setStatus(t('gm.database.export-started', { backupId: result.job.backupId ?? result.job.id }));
-  await loadDatabaseState(true);
-}
-
-/** getSelectedDatabaseImportFile：读取数据库导入文件。 */
-function getSelectedDatabaseImportFile(): File | null {
-  const liveFile = persistentFileInput.files?.[0] ?? null;
-  if (liveFile) {
-    selectedDatabaseImportFile = liveFile;
-  }
-  return liveFile ?? selectedDatabaseImportFile;
-}
-
-/** patchDatabaseImportStatus：局部更新数据库导入状态提示。 */
-function patchDatabaseImportStatus(message: string): void {
-  databaseImportStatus = message;
-  const statusEl = serverPanelDatabaseEl.querySelector<HTMLDivElement>('#database-import-status');
-  if (statusEl) {
-    statusEl.textContent = message;
-  }
-}
-
-/** isSupportedDatabaseImportFile：判断数据库导入文件扩展名是否受支持。 */
-function isSupportedDatabaseImportFile(file: File): boolean {
-  const lowerName = file.name.toLowerCase();
-  return lowerName.endsWith('.dump') || lowerName.endsWith('.dump.gz');
-}
-
-/** updateDatabaseImportFileSelection：处理数据库导入文件选择变化。 */
-function updateDatabaseImportFileSelection(file: File | null): void {
-  selectedDatabaseImportFile = file;
-  if (!file) {
-    patchDatabaseImportStatus(t('gm.database.import.no-file'));
-    return;
-  }
-
-  const fileLabel = `${file.name}（${formatBytes(file.size)}）`;
-  if (!isSupportedDatabaseImportFile(file)) {
-    patchDatabaseImportStatus(t('gm.database.import.file-selected-unsupported', { fileLabel }));
-    setStatus(t('gm.database.import.unsupported'), true);
-    return;
-  }
-
-  patchDatabaseImportStatus(t('gm.database.import.file-selected-ready', { fileLabel }));
-  setStatus(t('gm.database.import.selected', { fileName: file.name }));
-}
-
-/** uploadDatabaseBackupFile：上传数据库备份文件。 */
-async function uploadDatabaseBackupFile(restoreAfterUpload: boolean): Promise<void> {
-  const file = getSelectedDatabaseImportFile();
-  if (!file) {
-    setStatus(t('gm.database.import.choose-file'), true);
-    patchDatabaseImportStatus(t('gm.database.import.no-file'));
-    return;
-  }
-  if (!isSupportedDatabaseImportFile(file)) {
-    setStatus(t('gm.database.import.unsupported'), true);
-    patchDatabaseImportStatus(t('gm.database.import.file-unsupported', { fileName: file.name }));
-    return;
-  }
-  if (restoreAfterUpload) {
-    const confirmed = window.confirm(t('gm.database.import.confirm-upload', { fileName: file.name }));
-    if (!confirmed) {
-      return;
-    }
-  }
-
-  databaseImportBusy = true;
-  databaseImportStatus = t('gm.database.import.uploading', { fileName: file.name, fileSize: formatBytes(file.size) });
-  renderDatabasePanel();
-  try {
-    const result = await request<GmUploadDatabaseBackupRes>(`${GM_API_BASE_PATH}/database/upload`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'X-Backup-Filename': encodeURIComponent(file.name),
-        'X-Backup-Size': String(file.size),
-      },
-      body: file,
-    });
-    selectedDatabaseImportFile = null;
-    databaseImportStatus = t('gm.database.import.uploaded-with-size', { fileName: result.backup.fileName, fileSize: formatBytes(result.backup.sizeBytes) });
-    setStatus(t('gm.database.uploaded', { fileName: result.backup.fileName }));
-    await loadDatabaseState(true);
-    if (restoreAfterUpload) {
-      await restoreDatabaseBackup(result.backup.id, {
-        skipConfirm: true,
-        fallbackFileName: result.backup.fileName,
-        expectedChecksum: result.backup.checksumSha256,
-      });
-    }
-  } finally {
-    databaseImportBusy = false;
-    renderDatabasePanel();
-  }
-}
-
-/** getDownloadFileName：读取Download File名称。 */
-function getDownloadFileName(response: Response, fallback: string): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  const header = response.headers.get('content-disposition') ?? '';
-  const utf8Match = header.match(/filename\*=UTF-8''([^;]+)/iu);
-  if (utf8Match?.[1]) {
-    return decodeURIComponent(utf8Match[1]);
-  }
-  const basicMatch = header.match(/filename="?([^";]+)"?/iu);
-  return basicMatch?.[1] ?? fallback;
-}
-
-/** downloadDatabaseBackup：处理download数据库备份。 */
-async function downloadDatabaseBackup(backupId: string): Promise<void> {
-  const response = await requestBlob(buildGmDatabaseBackupDownloadApiPath(backupId));
-  const blob = await response.blob();
-  const fileName = getDownloadFileName(response, `${backupId}.dump`);
-  const objectUrl = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = objectUrl;
-  anchor.download = fileName;
-  document.body.append(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
-  setStatus(t('gm.database.downloaded', { fileName }));
-}
-
-/** restoreDatabaseBackup：处理restore数据库备份。 */
-async function restoreDatabaseBackup(
-  backupId: string,
-  options: {
-    skipConfirm?: boolean;
-    fallbackFileName?: string;
-    expectedChecksum?: string;
-  } = {},
-): Promise<void> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  const backup = databaseState?.backups.find((entry) => entry.id === backupId);
-  if (!backup && !options.fallbackFileName) {
-    setStatus(t('gm.database.target-missing'), true);
-    return;
-  }
-  if (backup && backup.format !== 'postgres_custom_dump') {
-    setStatus(t('gm.database.restore.unsupported-history'), true);
-    return;
-  }
-  const fileName = backup?.fileName ?? options.fallbackFileName ?? backupId;
-  const expectedChecksum = (
-    typeof options.expectedChecksum === 'string' && options.expectedChecksum.trim()
-      ? options.expectedChecksum.trim()
-      : typeof backup?.checksumSha256 === 'string'
-        ? backup.checksumSha256.trim()
-        : ''
-  );
-  if (!expectedChecksum) {
-    setStatus('目标备份缺少 checksumSha256，无法发起高危恢复确认', true);
-    return;
-  }
-  const confirmed = options.skipConfirm === true
-    ? true
-    : window.confirm(t('gm.database.restore.confirm', { fileName }));
-  if (!confirmed) {
-    return;
-  }
-  const body: GmRestoreDatabaseReq = {
-    backupId,
-    confirmationPhrase: GM_HIGH_RISK_CONFIRMATION_PHRASES.databaseRestore,
-    expectedChecksum,
-  };
-  const result = await request<GmTriggerDatabaseBackupRes>(`${GM_API_BASE_PATH}/database/restore`, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
-  setStatus(t('gm.database.restore.started', { backupId: result.job.sourceBackupId ?? fileName }));
-  await loadDatabaseState(true);
-}
-
-/** setCpuBreakdownSort：处理set Cpu Breakdown排序。 */
 function setCpuBreakdownSort(sort: CpuBreakdownSortMode): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -6042,272 +3707,80 @@ function flushShortcutMailComposerRefresh(): void {
   renderShortcutMailComposer(true);
 }
 
-/** GM 默认请求超时（毫秒）。超过该值仍未收到响应即立即 reject，避免 UI 永久卡在“正在保存…”。 */
+/** GM 默认请求超时（毫秒）。超过该值仍未收到响应即立即 reject，避免 UI 永久卡在"正在保存…"。 */
 const GM_DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
+
+const gmRequestDeps = { getToken: () => token, onUnauthorized: (msg: string) => logout(msg) };
+const gmRequestFn = apiCreateGmRequest(gmRequestDeps);
+const gmRequestBlobFn = apiCreateGmRequestBlob(gmRequestDeps);
 
 /** request：处理请求。 */
 async function request<T>(path: string, init: RequestInit = {}, timeoutMs: number = GM_DEFAULT_REQUEST_TIMEOUT_MS): Promise<T> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  const headers = new Headers(init.headers ?? {});
-  if (!headers.has('Content-Type') && init.body) {
-    headers.set('Content-Type', 'application/json');
-  }
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
-
-  // 默认带超时：服务端阻塞、网络抖动或 pooler 卡顿时主动取消请求并向上抛出可读错误。
-  // 兼容外部传入的 init.signal：任一被触发都会终止 fetch。
-  const controller = new AbortController();
-  const externalSignal = init.signal ?? null;
-  const onExternalAbort = () => controller.abort(externalSignal?.reason);
-  if (externalSignal) {
-    if (externalSignal.aborted) {
-      controller.abort(externalSignal.reason);
-    } else {
-      externalSignal.addEventListener('abort', onExternalAbort, { once: true });
-    }
-  }
-  let timedOut = false;
-  const timeoutHandle = timeoutMs > 0
-    ? window.setTimeout(() => {
-      timedOut = true;
-      controller.abort();
-    }, timeoutMs)
-    : null;
-
-  let response: Response;
-  try {
-    response = await fetch(path, { ...init, headers, signal: controller.signal });
-  } catch (error) {
-    if (timedOut) {
-      const seconds = Math.max(1, Math.round(timeoutMs / 1000)).toString();
-      throw new Error(t('gm.request.timeout', { seconds }));
-    }
-    throw error;
-  } finally {
-    if (timeoutHandle !== null) {
-      window.clearTimeout(timeoutHandle);
-    }
-    if (externalSignal) {
-      externalSignal.removeEventListener('abort', onExternalAbort);
-    }
-  }
-  const text = await response.text();
-  let data: unknown = null;
-  if (text) {
-    try {
-      data = JSON.parse(text) as unknown;
-    } catch {
-      data = text;
-    }
-  }
-
-  if (response.status === 401 && path !== `${GM_AUTH_API_BASE_PATH}/login`) {
-    logout(t('gm.request.login-expired'));
-    throw new Error(t('gm.request.expired'));
-  }
-  if (!response.ok) {
-    const message = typeof data === 'object' && data && 'message' in data
-      ? String((data as {      
-      /**
- * message：message相关字段。
- */
- message: unknown }).message)
-      : typeof data === 'string' && data.trim().length > 0
-        ? data
-        : t('gm.request.failed');
-    throw new Error(message);
-  }
-  return data as T;
+  return gmRequestFn<T>(path, init, timeoutMs);
 }
 
 /** requestBlob：处理请求Blob。 */
 async function requestBlob(path: string, init: RequestInit = {}): Promise<Response> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  const headers = new Headers(init.headers ?? {});
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
-  const response = await fetch(path, { ...init, headers });
-  if (response.status === 401) {
-    logout(t('gm.request.login-expired'));
-    throw new Error(t('gm.request.expired'));
-  }
-  if (!response.ok) {
-    throw new Error((await response.text()).trim() || t('gm.request.failed'));
-  }
-  return response;
+  return gmRequestBlobFn(path, init);
 }
 
 function isGmSectTemplateId(templateId: string | null | undefined): boolean {
-  return typeof templateId === 'string' && templateId.trim().startsWith('sect_domain:');
+  return mapIsGmSectTemplateId(templateId);
 }
 
 function isGmSectRuntimeInstance(instance: Pick<GmWorldInstanceSummary, 'instanceId' | 'templateId'>): boolean {
-  return isGmSectTemplateId(instance.templateId) && instance.instanceId.startsWith('sect:');
+  return mapIsGmSectRuntimeInstance(instance);
 }
 
 function isGmSecretRealmRuntimeInstance(instance: Pick<GmWorldInstanceSummary, 'instanceId' | 'templateId' | 'mapGroupId' | 'mapGroupName'>): boolean {
-  return instance.instanceId.startsWith('tower:tongtian:layer:')
-    || instance.templateId.startsWith('tongtian_tower_layer_')
-    || instance.mapGroupId === 'secret_realm'
-    || instance.mapGroupName === '秘境';
+  return mapIsGmSecretRealmRuntimeInstance(instance);
 }
 
 function resolvePositionMapCategory(instance: GmWorldInstanceSummary): GmPositionMapCategory {
-  if (isGmSectRuntimeInstance(instance)) return 'sect';
-  if (isGmSecretRealmRuntimeInstance(instance)) return 'secret';
-  return instance.linePreset === 'real' ? 'real' : 'void';
+  return mapResolvePositionMapCategory(instance);
 }
 
 function getMapSummary(mapId: string): GmMapSummary | null {
-  return gmMapSummaries.find((entry) => entry.id === mapId) ?? null;
+  return mapGetMapSummary(mapId, gmMapSummaries);
 }
 
 function getMapDisplayName(mapId: string, fallbackName?: string): string {
-  const name = getMapSummary(mapId)?.name || getCachedMapMeta(mapId)?.name || fallbackName || '未知地域';
-  return name.trim() || '未知地域';
+  return mapGetMapDisplayName(mapId, gmMapSummaries, fallbackName);
 }
 
 function getPositionMapCategoryCounts(): Map<GmPositionMapCategory, number> {
-  const counts = new Map<GmPositionMapCategory, number>();
-  for (const instance of gmWorldInstances) {
-    const category = resolvePositionMapCategory(instance);
-    counts.set(category, (counts.get(category) ?? 0) + 1);
-  }
-  return counts;
+  return mapGetPositionMapCategoryCounts(gmWorldInstances);
 }
 
 function getPositionCategoryOptions(currentCategory: GmPositionMapCategory): Array<{ value: string; label: string }> {
-  if (gmWorldInstances.length === 0) {
-    return [{ value: 'map', label: '地图' }];
-  }
-  const counts = getPositionMapCategoryCounts();
-  const options = GM_POSITION_MAP_CATEGORY_OPTIONS
-    .filter((entry) => (counts.get(entry.id) ?? 0) > 0 || entry.id === currentCategory)
-    .map((entry) => ({
-      value: entry.id,
-      label: `${entry.label}（${counts.get(entry.id) ?? 0}）`,
-    }));
-  return options.length > 0 ? options : [{ value: 'map', label: '地图' }];
+  return mapGetPositionCategoryOptions(currentCategory, gmWorldInstances);
 }
 
 function getPositionMapInstances(category: GmPositionMapCategory): GmWorldInstanceSummary[] {
-  return gmWorldInstances
-    .filter((instance) => resolvePositionMapCategory(instance) === category)
-    .slice()
-    .sort((left, right) => {
-      const leftGroupOrder = left.mapGroupOrder ?? 1000;
-      const rightGroupOrder = right.mapGroupOrder ?? 1000;
-      if (leftGroupOrder !== rightGroupOrder) return leftGroupOrder - rightGroupOrder;
-      const groupOrder = (left.mapGroupName || left.templateName).localeCompare(right.mapGroupName || right.templateName, 'zh-Hans-CN');
-      if (groupOrder !== 0) return groupOrder;
-      const memberOrder = (left.mapGroupMemberOrder ?? 0) - (right.mapGroupMemberOrder ?? 0);
-      if (memberOrder !== 0) return memberOrder;
-      const defaultOrder = Number(!left.defaultEntry) - Number(!right.defaultEntry);
-      if (defaultOrder !== 0) return defaultOrder;
-      return left.templateName.localeCompare(right.templateName, 'zh-Hans-CN') || left.templateId.localeCompare(right.templateId);
-    });
+  return mapGetPositionMapInstances(category, gmWorldInstances);
 }
 
 function getPositionMapOptions(category: GmPositionMapCategory, currentMapId: string): Array<{ value: string; label: string }> {
-  const optionsByMapId = new Map<string, { value: string; label: string }>();
-  if (category !== 'map' && gmWorldInstances.length > 0) {
-    for (const instance of getPositionMapInstances(category)) {
-      if (optionsByMapId.has(instance.templateId)) continue;
-      optionsByMapId.set(instance.templateId, {
-        value: instance.templateId,
-        label: getMapDisplayName(instance.templateId, instance.templateName),
-      });
-    }
-  } else {
-    const maps = gmMapSummaries.length > 0
-      ? gmMapSummaries.slice().sort((left, right) => {
-        const groupOrder = (left.mapGroupOrder ?? 1000) - (right.mapGroupOrder ?? 1000);
-        if (groupOrder !== 0) return groupOrder;
-        const groupNameOrder = (left.mapGroupName || left.name).localeCompare(right.mapGroupName || right.name, 'zh-Hans-CN');
-        if (groupNameOrder !== 0) return groupNameOrder;
-        const memberOrder = (left.mapGroupMemberOrder ?? 0) - (right.mapGroupMemberOrder ?? 0);
-        if (memberOrder !== 0) return memberOrder;
-        return left.name.localeCompare(right.name, 'zh-Hans-CN') || left.id.localeCompare(right.id);
-      })
-      : Array.from(new Set(state?.mapIds ?? [])).map((mapId) => ({ id: mapId, name: getCachedMapMeta(mapId)?.name ?? '未知地域' } as GmMapSummary));
-    for (const map of maps) {
-      optionsByMapId.set(map.id, { value: map.id, label: getMapDisplayName(map.id, map.name) });
-    }
-  }
-  if (currentMapId && !optionsByMapId.has(currentMapId)) {
-    optionsByMapId.set(currentMapId, { value: currentMapId, label: getMapDisplayName(currentMapId) });
-  }
-  return Array.from(optionsByMapId.values());
+  return mapGetPositionMapOptions(category, currentMapId, gmWorldInstances, gmMapSummaries, state?.mapIds ?? []);
 }
 
 function getPositionCategoryForMap(playerId: string, mapId: string): GmPositionMapCategory {
-  if (
-    positionMapCategoryDraft?.playerId === playerId
-    && getPositionMapOptions(positionMapCategoryDraft.category, mapId).some((entry) => entry.value === mapId)
-  ) {
-    return positionMapCategoryDraft.category;
-  }
-  for (const entry of GM_POSITION_MAP_CATEGORY_OPTIONS) {
-    if (getPositionMapOptions(entry.id, mapId).some((option) => option.value === mapId)) {
-      return entry.id;
-    }
-  }
-  return 'map';
+  return mapGetPositionCategoryForMap(playerId, mapId, positionMapCategoryDraft, gmWorldInstances, gmMapSummaries, state?.mapIds ?? []);
 }
+
 
 function renderPositionMapPicker(player: GmManagedPlayerRecord, draft: PlayerState): string {
   const category = getPositionCategoryForMap(player.id, draft.mapId);
   const mapOptions = getPositionMapOptions(category, draft.mapId);
-  return `
-    <label class="editor-field">
-      <span>类别</span>
-      <select data-gm-position-map-category>
-        ${optionsMarkup(getPositionCategoryOptions(category), category)}
-      </select>
-    </label>
-    <label class="editor-field wide">
-      <span>地图</span>
-      <select data-bind="mapId" data-kind="string" data-gm-position-map-select>
-        ${optionsMarkup(mapOptions, draft.mapId)}
-      </select>
-    </label>
-  `;
+  return mapPickerRenderPositionMapPickerHtml(category, getPositionCategoryOptions(category), mapOptions, draft.mapId);
 }
 
 function patchPositionMapSelect(category: GmPositionMapCategory, currentMapId: string): string {
-  const mapSelect = editorContentEl.querySelector<HTMLSelectElement>('select[data-gm-position-map-select]');
-  if (!mapSelect) return currentMapId;
-  const mapOptions = getPositionMapOptions(category, currentMapId);
-  const nextMapId = mapOptions.some((entry) => entry.value === currentMapId)
-    ? currentMapId
-    : mapOptions[0]?.value ?? currentMapId;
-  const fragment = document.createDocumentFragment();
-  for (const option of mapOptions) {
-    const optionEl = document.createElement('option');
-    optionEl.value = String(option.value);
-    optionEl.textContent = option.label;
-    optionEl.selected = option.value === nextMapId;
-    fragment.append(optionEl);
-  }
-  mapSelect.replaceChildren(fragment);
-  mapSelect.value = nextMapId;
-  return nextMapId;
+  return mapPatchPositionMapSelect(category, currentMapId, editorContentEl, gmWorldInstances, gmMapSummaries, state?.mapIds ?? []);
 }
 
 function resolvePositionTargetInstanceId(mapId: string): string | undefined {
-  const categorySelect = editorContentEl.querySelector<HTMLSelectElement>('select[data-gm-position-map-category]');
-  const category = (categorySelect?.value as GmPositionMapCategory | undefined) ?? positionMapCategoryDraft?.category ?? 'map';
-  if (category === 'map') return undefined;
-  const candidates = getPositionMapInstances(category).filter((instance) => instance.templateId === mapId);
-  const target = candidates.find((instance) => instance.defaultEntry)
-    ?? candidates.find((instance) => instance.lineIndex === 1)
-    ?? candidates[0];
-  return target?.instanceId;
+  return mapResolvePositionTargetInstanceId(mapId, editorContentEl, positionMapCategoryDraft, gmWorldInstances);
 }
 
 async function loadGmMapPickerCatalog(): Promise<void> {
@@ -6328,231 +3801,46 @@ async function loadGmMapPickerCatalog(): Promise<void> {
   return gmMapPickerCatalogLoading;
 }
 
-/** updateMailDraftValue：更新邮件Draft值。 */
-function updateMailDraftValue(
-  scope: 'direct' | 'shortcut',
-  path: string,
-  rawValue: string,
-): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+/** mailActionsContext：mail-actions 对 gm.ts 的依赖。 */
+const mailActionsContext: MailActionsContext = {
+  getToken: () => token,
+  GM_API_BASE_PATH,
+  request,
+  setStatus,
+  t,
+  confirm,
+  buildGmPlayerApiPath,
+  getDirectMailDraft: () => directMailDraft,
+  setDirectMailDraft: (draft) => { directMailDraft = draft; },
+  getBroadcastMailDraft: () => broadcastMailDraft,
+  setBroadcastMailDraft: (draft) => { broadcastMailDraft = draft; },
+  getDirectMailDraftPlayerId: () => directMailDraftPlayerId,
+  setDirectMailDraftPlayerId: (id) => { directMailDraftPlayerId = id; },
+  getRedeemDraft: () => redeemDraft,
+  setRedeemDraft: (draft) => { redeemDraft = draft; },
+  createDefaultMailAttachmentDraft,
+  createDefaultMailComposerDraft,
+  resetMailAttachmentPageStore,
+  renderShortcutMailComposer,
+  rerenderDirectMailComposer,
+  getMailComposerPayload,
+  getSelectedPlayerDetail,
+  hasServerEditorCatalog,
+  assertTrustedEditorCatalog,
+  renderEditor,
+  getState: () => state,
+  getBroadcastMailIdempotencyState: () => broadcastMailIdempotencyState,
+  getLastEditorStructureKey: () => lastEditorStructureKey,
+  setLastEditorStructureKey: (key) => { lastEditorStructureKey = key; },
+};
 
-  const draft = scope === 'direct' ? directMailDraft : broadcastMailDraft;
-  if (path === 'templateId') {
-    draft.templateId = rawValue;
-    return;
-  }
-  if (path === 'targetPlayerId') {
-    draft.targetPlayerId = rawValue;
-    return;
-  }
-  if (path === 'senderLabel') {
-    draft.senderLabel = rawValue;
-    return;
-  }
-  if (path === 'title') {
-    draft.title = rawValue;
-    return;
-  }
-  if (path === 'body') {
-    draft.body = rawValue;
-    return;
-  }
-  if (path === 'expireHours') {
-    draft.expireHours = rawValue;
-    return;
-  }
-  const attachmentMatch = path.match(/^attachments\.(\d+)\.(itemId|count)$/);
-  if (!attachmentMatch) {
-    return;
-  }
-  const index = Number(attachmentMatch[1]);
-  const field = attachmentMatch[2];
-  const attachment = draft.attachments[index];
-  if (!attachment) {
-    return;
-  }
-  if (field === 'itemId') {
-    attachment.itemId = rawValue;
-    return;
-  }
-  attachment.count = Math.max(1, Math.floor(Number(rawValue || '1')) || 1);
-}
-
-/** updateRedeemDraftValue：更新兑换Draft值。 */
-function updateRedeemDraftValue(path: string, rawValue: string): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (path === 'name') {
-    redeemDraft.name = rawValue;
-    return;
-  }
-  if (path === 'createCount') {
-    redeemDraft.createCount = rawValue;
-    return;
-  }
-  if (path === 'appendCount') {
-    redeemDraft.appendCount = rawValue;
-    return;
-  }
-  const rewardMatch = path.match(/^rewards\.(\d+)\.(itemId|count)$/);
-  if (!rewardMatch) {
-    return;
-  }
-  const index = Number(rewardMatch[1]);
-  const field = rewardMatch[2];
-  const reward = redeemDraft.rewards[index];
-  if (!reward) {
-    return;
-  }
-  if (field === 'itemId') {
-    reward.itemId = rawValue;
-    return;
-  }
-  reward.count = Math.max(1, Math.floor(Number(rawValue || '1')) || 1);
-}
-
-/** rerenderDirectMailComposer：处理rerender Direct邮件Composer。 */
-function rerenderDirectMailComposer(): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (!state) {
-    return;
-  }
-  /** lastEditorStructureKey：last编辑器Structure Key。 */
-  lastEditorStructureKey = null;
-  renderEditor(state);
-}
-
-/** addMailAttachment：处理add邮件Attachment。 */
-function addMailAttachment(scope: 'direct' | 'shortcut'): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (!hasServerEditorCatalog()) {
-    setStatus(t('gm.editor.catalog.mail-attachment-unavailable'), true);
-    return;
-  }
-  const draft = scope === 'direct' ? directMailDraft : broadcastMailDraft;
-  draft.attachments.push(createDefaultMailAttachmentDraft());
-  resetMailAttachmentPageStore(scope);
-  if (scope === 'direct') {
-    rerenderDirectMailComposer();
-    return;
-  }
-  renderShortcutMailComposer();
-}
-
-/** removeMailAttachment：处理remove邮件Attachment。 */
-function removeMailAttachment(scope: 'direct' | 'shortcut', index: number): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  const draft = scope === 'direct' ? directMailDraft : broadcastMailDraft;
-  if (index < 0 || index >= draft.attachments.length) {
-    return;
-  }
-  draft.attachments.splice(index, 1);
-  resetMailAttachmentPageStore(scope);
-  if (scope === 'direct') {
-    rerenderDirectMailComposer();
-    return;
-  }
-  renderShortcutMailComposer();
-}
-
-/** sendDirectMail：处理send Direct邮件。 */
-async function sendDirectMail(): Promise<void> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  const detail = getSelectedPlayerDetail();
-  if (!detail) {
-    throw new Error(t('gm.mail.no-target'));
-  }
-  if (directMailDraft.attachments.some((entry) => entry.itemId.trim().length > 0)) {
-    assertTrustedEditorCatalog('带附件邮件发送');
-  }
-  const payload = getMailComposerPayload(directMailDraft);
-  const result = await request<{  
-  /**
- * ok：ok相关字段。
- */
- ok: true;  
-/**
- * mailId：邮件ID标识。
- */
- mailId: string }>(`${buildGmPlayerApiPath(detail.id)}/mail`, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-  /** directMailDraft：direct邮件Draft。 */
-  directMailDraft = createDefaultMailComposerDraft();
-  /** directMailDraftPlayerId：direct邮件Draft玩家ID。 */
-  directMailDraftPlayerId = detail.id;
-  resetMailAttachmentPageStore('direct');
-  rerenderDirectMailComposer();
-  setStatus(t('gm.mail.sent', { roleName: detail.roleName, mailId: result.mailId }));
-}
-
-/** sendShortcutMail：处理send Shortcut邮件。 */
-async function sendShortcutMail(): Promise<void> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (broadcastMailDraft.attachments.some((entry) => entry.itemId.trim().length > 0)) {
-    assertTrustedEditorCatalog('带附件邮件发送');
-  }
-  const payload = getMailComposerPayload(broadcastMailDraft);
-  const targetPlayerId = broadcastMailDraft.targetPlayerId.trim();
-  const broadcastBatchId = targetPlayerId ? null : broadcastMailIdempotencyState.resolve(payload);
-  const requestPayload: GmCreateMailReq | GmBroadcastMailReq = targetPlayerId
-    ? payload
-    : {
-        ...payload,
-        batchId: broadcastBatchId!,
-      };
-  const path = targetPlayerId
-    ? `${GM_API_BASE_PATH}/players/${encodeURIComponent(targetPlayerId)}/mail`
-    : `${GM_API_BASE_PATH}/mail/broadcast`;
-  const result = await request<{  
-  /**
- * ok：ok相关字段。
- */
- ok: true;  
- /**
- * mailId：邮件ID标识。
- */
- mailId: string;  
- /**
- * batchId：batchID标识。
- */
- batchId?: string;  
- /**
- * recipientCount：数量或计量字段。
- */
-  recipientCount?: number }>(path, {
-    method: 'POST',
-    body: JSON.stringify(requestPayload),
-  });
-  const shouldResetBroadcastDraft = broadcastBatchId
-    ? broadcastMailDraft.targetPlayerId.trim().length === 0
-      && broadcastMailIdempotencyState.matches(
-        broadcastBatchId,
-        getMailComposerPayload(broadcastMailDraft),
-      )
-    : true;
-  if (broadcastBatchId) {
-    broadcastMailIdempotencyState.complete(broadcastBatchId);
-  }
-  const targetPlayer = targetPlayerId
-    ? (state?.players.find((player) => player.id === targetPlayerId) ?? null)
-    : null;
-  if (shouldResetBroadcastDraft) {
-    /** broadcastMailDraft：broadcast邮件Draft。 */
-    broadcastMailDraft = createDefaultMailComposerDraft();
-    resetMailAttachmentPageStore('shortcut');
-    renderShortcutMailComposer();
-  }
-  setStatus(targetPlayer
-    ? t('gm.mail.sent', { roleName: targetPlayer.roleName, mailId: result.mailId })
-    : t('gm.mail.broadcast.sent', { batchId: result.batchId ?? result.mailId, recipientCount: result.recipientCount ?? 0 }));
-}
+function updateMailDraftValue(scope: 'direct' | 'shortcut', path: string, rawValue: string): void { return mailActionsUpdateMailDraftValue(scope, path, rawValue, mailActionsContext); }
+function updateRedeemDraftValue(path: string, rawValue: string): void { return mailActionsUpdateRedeemDraftValue(path, rawValue, mailActionsContext); }
+function rerenderDirectMailComposer(): void { return mailActionsRerenderDirectMailComposer(mailActionsContext); }
+function addMailAttachment(scope: 'direct' | 'shortcut'): void { return mailActionsAddMailAttachment(scope, mailActionsContext); }
+function removeMailAttachment(scope: 'direct' | 'shortcut', index: number): void { return mailActionsRemoveMailAttachment(scope, index, mailActionsContext); }
+async function sendDirectMail(): Promise<void> { return mailActionsSendDirectMail(mailActionsContext); }
+async function sendShortcutMail(): Promise<void> { return mailActionsSendShortcutMail(mailActionsContext); }
 
 /** getSelectedPlayer：读取Selected玩家。 */
 function getSelectedPlayer(): GmManagedPlayerSummary | null {
@@ -6570,7 +3858,7 @@ function getSelectedPlayerDetail(): GmManagedPlayerRecord | null {
 }
 
 function getPlayerDatabaseTables(detail: GmManagedPlayerRecord | null): GmPlayerDatabaseTableView[] {
-  return Array.isArray(detail?.databaseTables) ? detail.databaseTables : [];
+  return snapshotGetPlayerDatabaseTables(detail);
 }
 
 function clearPlayerDatabasePanel(message = '当前还没有数据库表数据。'): void {
@@ -6608,187 +3896,43 @@ function renderPlayerDatabasePanel(detail: GmManagedPlayerRecord): void {
 
 /** createDefaultItem：创建默认物品。 */
 function createDefaultItem(equipSlot?: string): ItemStack {
-  return {
-    itemId: '',
-    name: '',
-    type: equipSlot ? 'equipment' : 'material',
-    count: 1,
-    desc: '',
-    grade: equipSlot ? 'mortal' : undefined,
-    level: equipSlot ? 1 : undefined,
-    equipSlot: equipSlot as ItemStack['equipSlot'],
-    equipAttrs: equipSlot ? {} : undefined,
-    equipStats: equipSlot ? {} : undefined,
-    tags: equipSlot ? [] : undefined,
-    effects: equipSlot ? [] : undefined,
-  };
+  return snapshotCreateDefaultItem(equipSlot);
 }
 
 /** createDefaultTechnique：创建默认Technique。 */
 function createDefaultTechnique(): TechniqueState {
-  return {
-    techId: '',
-    name: '',
-    level: 1,
-    exp: 0,
-    expToNext: 0,
-    realmLv: 1,
-    realm: TechniqueRealm.Entry,
-    skills: [],
-    grade: 'mortal',
-    category: 'internal',
-    layers: [],
-  };
+  return snapshotCreateDefaultTechnique();
 }
 
 /** createDefaultQuest：创建默认任务。 */
 function createDefaultQuest(): QuestState {
-  return {
-    id: '',
-    title: '',
-    desc: '',
-    line: 'side',
-    status: 'active',
-    objectiveType: 'kill',
-    progress: 0,
-    required: 1,
-    targetName: '',
-    rewardText: '',
-    targetMonsterId: '',
-    rewardItemId: '',
-    rewardItemIds: [],
-    rewards: [],
-    giverId: '',
-    giverName: '',
-    targetMapId: '',
-    targetNpcId: '',
-    submitMapId: '',
-    submitNpcId: '',
-  };
+  return snapshotCreateDefaultQuest();
 }
 
 /** createDefaultBuff：创建默认Buff。 */
 function createDefaultBuff(): TemporaryBuffState {
-  return {
-    buffId: '',
-    name: '',
-    shortMark: '',
-    category: 'buff',
-    visibility: 'public',
-    remainingTicks: 1,
-    duration: 1,
-    stacks: 1,
-    maxStacks: 1,
-    sourceSkillId: '',
-    attrs: {},
-    stats: {},
-  };
+  return snapshotCreateDefaultBuff();
 }
 
 function normalizeGmEquipmentSlots(source: Partial<EquipmentSlots> | null | undefined): EquipmentSlots {
-  return Object.fromEntries(
-    EQUIP_SLOTS.map((slot) => [slot, source?.[slot] ?? null]),
-  ) as EquipmentSlots;
+  return snapshotNormalizeGmEquipmentSlots(source);
 }
 
 function getArtifactSlotLabel(slot: ArtifactSlot): string {
-  return slot === 'artifact_1' ? '法宝' : slot;
+  return snapshotGetArtifactSlotLabel(slot);
 }
 
 function createDefaultArtifactSlot(slot: ArtifactSlot): PlayerState['artifacts']['slots'][number] {
-  return {
-    slot,
-    unlocked: false,
-    enabled: false,
-    qi: 0,
-    maxQi: 0,
-    item: null,
-  };
+  return snapshotCreateDefaultArtifactSlot(slot);
 }
 
 function normalizeGmArtifactState(source: PlayerState['artifacts'] | null | undefined): PlayerState['artifacts'] {
-  const bySlot = new Map<ArtifactSlot, PlayerState['artifacts']['slots'][number]>();
-  for (const entry of Array.isArray(source?.slots) ? source.slots : []) {
-    if (entry && ARTIFACT_SLOTS.includes(entry.slot)) {
-      bySlot.set(entry.slot, entry);
-    }
-  }
-  return {
-    revision: Math.max(0, Math.trunc(Number(source?.revision) || 0)),
-    slots: ARTIFACT_SLOTS.map((slot) => ({
-      ...createDefaultArtifactSlot(slot),
-      ...(bySlot.get(slot) ?? {}),
-      slot,
-      item: bySlot.get(slot)?.item ?? null,
-    })),
-  };
+  return snapshotNormalizeGmArtifactState(source);
 }
 
 /** createDefaultPlayerSnapshot：创建默认玩家快照。 */
 function createDefaultPlayerSnapshot(source?: PlayerState): PlayerState {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (source) {
-    const snapshot = clone(source);
-    snapshot.equipment = normalizeGmEquipmentSlots(snapshot.equipment);
-    snapshot.artifacts = normalizeGmArtifactState(snapshot.artifacts);
-    return snapshot;
-  }
-  return {
-    id: '',
-    name: '',
-    mapId: 'yunlai_town',
-    x: 0,
-    y: 0,
-    facing: Direction.South,
-    viewRange: 8,
-    hp: 1,
-    maxHp: 1,
-    qi: 0,
-    dead: false,
-    foundation: 0,
-    rootFoundation: 0,
-    combatExp: 0,
-    comprehension: 0,
-    luck: 0,
-    alchemySkill: { level: 1, exp: 0, expToNext: 0 },
-    forgingSkill: { level: 1, exp: 0, expToNext: 0 },
-    buildingSkill: { level: 1, exp: 0, expToNext: 0 },
-    gatherSkill: { level: 1, exp: 0, expToNext: 0 },
-    miningSkill: { level: 1, exp: 0, expToNext: 0 },
-    formationSkill: { level: 1, exp: 0, expToNext: 0 },
-    transmissionSkill: { level: 1, exp: 0, expToNext: 0 },
-    enhancementSkill: { level: 1, exp: 0, expToNext: 0 },
-    enhancementSkillLevel: 1,
-    baseAttrs: { ...DEFAULT_BASE_ATTRS },
-    bonuses: [],
-    temporaryBuffs: [],
-    inventory: { items: [], capacity: 24 },
-    equipment: Object.fromEntries(EQUIP_SLOTS.map((slot) => [slot, null])) as EquipmentSlots,
-    artifacts: {
-      revision: 0,
-      slots: [
-        {
-          slot: 'artifact_1',
-          unlocked: false,
-          enabled: false,
-          qi: 0,
-          maxQi: 0,
-          item: null,
-        },
-      ],
-    },
-    techniques: [],
-    actions: [],
-    quests: [],
-    autoBattle: false,
-    autoBattleSkills: [],
-    autoUsePills: [],
-    autoBattleTargetingMode: 'auto',
-    autoRetaliate: true,
-    autoIdleCultivation: true,
-    revealedBreakthroughRequirementIds: [],
-  };
+  return snapshotCreateDefaultPlayerSnapshot(source);
 }
 
 /** readCatalogSelectValue：处理read目录Select值。 */
@@ -6830,316 +3974,95 @@ function updateInventoryAddControls(resetSelectedItem = true): void {
 
 /** pathSegments：处理路径Segments。 */
 function pathSegments(path: string): string[] {
-  return gmPureHelpers.pathSegments(path);
+  return fieldsPathSegments(path);
 }
 
 /** setValueByPath：处理set值By路径。 */
 function setValueByPath(target: unknown, path: string, value: unknown): void {
-  return gmPureHelpers.setValueByPath(target, path, value);
+  return fieldsSetValueByPath(target, path, value);
 }
 
 /** getValueByPath：读取值By路径。 */
 function getValueByPath(target: unknown, path: string): unknown {
-  return gmPureHelpers.getValueByPath(target, path);
+  return fieldsGetValueByPath(target, path);
 }
 
 /** removeArrayIndex：处理remove Array索引。 */
 function removeArrayIndex(target: unknown, path: string, index: number): void {
-  gmPureHelpers.removeArrayIndex(target, path, index);
+  fieldsRemoveArrayIndex(target, path, index);
 }
 
 /** ensureArray：确保Array。 */
 function ensureArray<T>(value: T[] | undefined | null): T[] {
-  return gmPureHelpers.ensureArray(value);
+  return fieldsEnsureArray(value);
 }
 
 /** buildHtmlAttributes：构建Html属性。 */
 function buildHtmlAttributes(attributes: Record<string, string | undefined>): string {
-  return Object.entries(attributes)
-    .filter(([, value]) => value !== undefined)
-    .map(([name, value]) => ` ${name}="${escapeHtml(value ?? '')}"`)
-    .join('');
+  return fieldsBuildHtmlAttributes(attributes);
 }
 
-/** getSearchableItemDisplayValue：读取Searchable物品显示值。 */
+/** invEditorContext：inventory-editor 对 gm.ts 的依赖。 */
+const invEditorContext: InventoryEditorContext = {
+  escapeHtml,
+  buildHtmlAttributes,
+  findItemCatalogEntry,
+  getInventoryAddItemOptions,
+  getItemCatalogOptions,
+  getActiveSearchableItemField: () => activeSearchableItemField,
+  setActiveSearchableItemField: (el) => { activeSearchableItemField = el; },
+  getEditorContentEl: () => editorContentEl,
+  getCurrentInventoryAddType: () => currentInventoryAddType,
+  flushBlockedEditorRender,
+};
+
 function getSearchableItemDisplayValue(itemId: string): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (!itemId) {
-    return '';
-  }
-  const entry = gmCatalogHelpers.findItemCatalogEntry(editorCatalog, itemId);
-  return entry ? entry.name : '未知物品';
+  return invEditorGetSearchableItemDisplayValue(itemId, invEditorContext);
 }
-
-/** getSearchableItemOptions：读取Searchable物品选项。 */
-function getSearchableItemOptions(scope: SearchableItemScope, slot?: EquipSlot): Array<{
-/**
- * value：值数值。
- */
- value: string;
- /**
- * label：label名称或显示文本。
- */
- label: string }> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (scope === 'inventory-add') {
-    return getInventoryAddItemOptions();
-  }
-  if (scope === 'equipment-slot') {
-    if (!slot) {
-      return [];
-    }
-    return getItemCatalogOptions((option) => option.type === 'equipment' && option.equipSlot === slot);
-  }
-  if (scope === 'artifact-slot') {
-    return getItemCatalogOptions((option) => option.type === 'artifact');
-  }
-  return getItemCatalogOptions();
+function getSearchableItemOptions(scope: SearchableItemScope, slot?: EquipSlot): Array<{ value: string; label: string }> {
+  return invEditorGetSearchableItemOptions(scope, slot, invEditorContext);
 }
-
-/** searchableItemField：处理searchable物品字段。 */
-function searchableItemField(
-  label: string,
-  value: string,
-  scope: SearchableItemScope,
-  hiddenFieldAttrs: Record<string, string | undefined>,
-  extraClass = '',
-  slot?: EquipSlot,
-  placeholder = '点击后输入名称或 ID 搜索物品模板',
-  wrapperAttrs: Record<string, string | undefined> = {},
-): string {
-  return `
-    <label class="editor-field ${extraClass}"${buildHtmlAttributes(wrapperAttrs)}>
-      <span>${escapeHtml(label)}</span>
-      <div class="gm-item-combobox" data-item-combobox data-item-scope="${escapeHtml(scope)}"${slot ? ` data-slot="${escapeHtml(slot)}"` : ''} data-placeholder="${escapeHtml(placeholder)}">
-        <div class="gm-item-combobox-shell">
-          <input
-            class="gm-item-combobox-input"
-            type="text"
-            autocomplete="off"
-            spellcheck="false"
-            data-item-combobox-input
-            value="${escapeHtml(getSearchableItemDisplayValue(value))}"
-            placeholder="${escapeHtml(placeholder)}"
-          />
-          <button class="gm-item-combobox-toggle" type="button" data-item-combobox-toggle aria-label="展开物品搜索">搜索</button>
-        </div>
-        <div class="gm-item-combobox-popover hidden" data-item-combobox-popover>
-          <div class="gm-item-combobox-hint" data-item-combobox-hint></div>
-          <div class="gm-item-combobox-list" data-item-combobox-list></div>
-        </div>
-        <input type="hidden" data-item-combobox-value${buildHtmlAttributes({ ...hiddenFieldAttrs, value })} />
-      </div>
-    </label>
-  `;
+function searchableItemField(label: string, value: string, scope: SearchableItemScope, hiddenFieldAttrs: Record<string, string | undefined>, extraClass = '', slot?: EquipSlot, placeholder = '点击后输入名称或 ID 搜索物品模板', wrapperAttrs: Record<string, string | undefined> = {}): string {
+  return invEditorSearchableItemField(label, value, scope, hiddenFieldAttrs, extraClass, slot, placeholder, wrapperAttrs, invEditorContext);
 }
-
-/** getSearchableItemValueField：读取Searchable物品值字段。 */
 function getSearchableItemValueField(root: ParentNode): HTMLInputElement | null {
-  return root.querySelector<HTMLInputElement>('input[data-item-combobox-value]');
+  return invEditorGetSearchableItemValueField(root, invEditorContext);
 }
-
-/** getSearchableItemInput：读取Searchable物品输入。 */
 function getSearchableItemInput(root: ParentNode): HTMLInputElement | null {
-  return root.querySelector<HTMLInputElement>('input[data-item-combobox-input]');
+  return invEditorGetSearchableItemInput(root, invEditorContext);
 }
-
-/** getSearchableItemList：读取Searchable物品列表。 */
 function getSearchableItemList(root: ParentNode): HTMLElement | null {
-  return root.querySelector<HTMLElement>('[data-item-combobox-list]');
+  return invEditorGetSearchableItemList(root, invEditorContext);
 }
-
-/** getSearchableItemHint：读取Searchable物品Hint。 */
 function getSearchableItemHint(root: ParentNode): HTMLElement | null {
-  return root.querySelector<HTMLElement>('[data-item-combobox-hint]');
+  return invEditorGetSearchableItemHint(root, invEditorContext);
 }
-
-/** getSearchableItemPopover：读取Searchable物品Popover。 */
 function getSearchableItemPopover(root: ParentNode): HTMLElement | null {
-  return root.querySelector<HTMLElement>('[data-item-combobox-popover]');
+  return invEditorGetSearchableItemPopover(root, invEditorContext);
 }
-
-/** normalizeSearchableItemText：规范化Searchable物品文本。 */
 function normalizeSearchableItemText(value: string): string {
-  return value.trim().toLowerCase();
+  return invEditorNormalizeSearchableItemText(value, invEditorContext);
 }
-
-/** renderSearchableItemOptions：渲染Searchable物品选项。 */
 function renderSearchableItemOptions(root: HTMLElement): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  const input = getSearchableItemInput(root);
-  const valueField = getSearchableItemValueField(root);
-  const listEl = getSearchableItemList(root);
-  const hintEl = getSearchableItemHint(root);
-  if (!input || !valueField || !listEl || !hintEl) {
-    return;
-  }
-
-  const scope = (root.dataset.itemScope as SearchableItemScope | undefined) ?? 'all';
-  const slot = root.dataset.slot as EquipSlot | undefined;
-  const allOptions = getSearchableItemOptions(scope, slot);
-  const selectedValue = valueField.value;
-  const normalizedQuery = normalizeSearchableItemText(input.value);
-  const filteredOptions = normalizedQuery.length > 0
-    ? allOptions.filter((option) => normalizeSearchableItemText(`${option.label} ${option.value}`).includes(normalizedQuery))
-    : allOptions;
-  let visibleOptions = filteredOptions.slice(0, SEARCHABLE_ITEM_RESULT_LIMIT);
-
-  if (selectedValue && !visibleOptions.some((option) => option.value === selectedValue)) {
-    const selectedOption = allOptions.find((option) => option.value === selectedValue);
-    if (selectedOption && (normalizedQuery.length === 0 || normalizeSearchableItemText(`${selectedOption.label} ${selectedOption.value}`).includes(normalizedQuery))) {
-      visibleOptions = [selectedOption, ...visibleOptions.slice(0, Math.max(0, SEARCHABLE_ITEM_RESULT_LIMIT - 1))];
-    }
-  }
-
-  const renderedOptions = normalizedQuery.length === 0
-    ? [{ value: '', label: '清空选择' }, ...visibleOptions]
-    : visibleOptions;
-  const defaultActiveIndex = renderedOptions.findIndex((option) => option.value === selectedValue);
-  const fallbackActiveIndex = renderedOptions.findIndex((option) => option.value !== '');
-  const initialActiveIndex = defaultActiveIndex >= 0
-    ? defaultActiveIndex
-    : Math.max(0, fallbackActiveIndex >= 0 ? fallbackActiveIndex : 0);
-  const storedActiveIndex = Number(root.dataset.activeIndex ?? '-1');
-  const activeIndex = Number.isInteger(storedActiveIndex) && storedActiveIndex >= 0 && storedActiveIndex < renderedOptions.length
-    ? storedActiveIndex
-    : initialActiveIndex;
-  root.dataset.activeIndex = String(activeIndex);
-
-  hintEl.textContent = normalizedQuery.length > 0
-    ? `匹配 ${filteredOptions.length} 项${filteredOptions.length > visibleOptions.length ? `，当前显示前 ${visibleOptions.length} 项` : ''}`
-    : `共 ${allOptions.length} 项，输入名称或 ID 可继续筛选${allOptions.length > visibleOptions.length ? `，当前显示前 ${visibleOptions.length} 项` : ''}`;
-
-  if (renderedOptions.length === 0) {
-    listEl.innerHTML = '<div class="gm-item-combobox-empty">没有匹配的物品模板</div>';
-    return;
-  }
-
-  listEl.innerHTML = renderedOptions.map((option, index) => `
-    <button
-      class="gm-item-combobox-option${option.value === selectedValue ? ' selected' : ''}${index === activeIndex ? ' active' : ''}"
-      type="button"
-      data-item-option-value="${escapeHtml(option.value)}"
-    >
-      <span class="gm-item-combobox-option-title">${escapeHtml(option.label)}</span>
-      <span class="gm-item-combobox-option-meta">${escapeHtml(option.value || '恢复为空')}</span>
-    </button>
-  `).join('');
-  listEl.querySelector<HTMLElement>('.gm-item-combobox-option.active')?.scrollIntoView({ block: 'nearest' });
+  return invEditorRenderSearchableItemOptions(root, invEditorContext);
 }
-
-/** syncSearchableItemField：同步Searchable物品字段。 */
 function syncSearchableItemField(root: HTMLElement): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  const input = getSearchableItemInput(root);
-  const valueField = getSearchableItemValueField(root);
-  if (!input || !valueField) {
-    return;
-  }
-  if (root.dataset.open === 'true') {
-    renderSearchableItemOptions(root);
-    return;
-  }
-  input.value = getSearchableItemDisplayValue(valueField.value);
-  input.placeholder = root.dataset.placeholder ?? '点击后输入名称或 ID 搜索物品模板';
+  return invEditorSyncSearchableItemField(root, invEditorContext);
 }
-
-/** syncSearchableItemFields：同步Searchable物品字段。 */
 function syncSearchableItemFields(scope: ParentNode): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (activeSearchableItemField && !activeSearchableItemField.isConnected) {
-    /** activeSearchableItemField：活跃Searchable物品字段。 */
-    activeSearchableItemField = null;
-  }
-  scope.querySelectorAll<HTMLElement>('[data-item-combobox]').forEach((field) => {
-    syncSearchableItemField(field);
-  });
+  return invEditorSyncSearchableItemFields(scope, invEditorContext);
 }
-
-/** closeSearchableItemField：关闭Searchable物品字段。 */
 function closeSearchableItemField(root: HTMLElement): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (activeSearchableItemField === root) {
-    /** activeSearchableItemField：活跃Searchable物品字段。 */
-    activeSearchableItemField = null;
-  }
-  root.dataset.open = 'false';
-  root.dataset.activeIndex = '-1';
-  getSearchableItemPopover(root)?.classList.add('hidden');
-  syncSearchableItemField(root);
-  queueMicrotask(() => {
-    flushBlockedEditorRender();
-  });
+  return invEditorCloseSearchableItemField(root, invEditorContext);
 }
-
-/** openSearchableItemField：打开Searchable物品字段。 */
 function openSearchableItemField(root: HTMLElement, resetQuery = true): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (activeSearchableItemField && activeSearchableItemField !== root) {
-    closeSearchableItemField(activeSearchableItemField);
-  }
-  const input = getSearchableItemInput(root);
-  const valueField = getSearchableItemValueField(root);
-  if (!input || !valueField) {
-    return;
-  }
-  /** activeSearchableItemField：活跃Searchable物品字段。 */
-  activeSearchableItemField = root;
-  root.dataset.open = 'true';
-  root.dataset.activeIndex = '-1';
-  getSearchableItemPopover(root)?.classList.remove('hidden');
-  if (resetQuery) {
-    input.value = '';
-  }
-  input.placeholder = getSearchableItemDisplayValue(valueField.value) || (root.dataset.placeholder ?? '点击后输入名称或 ID 搜索物品模板');
-  renderSearchableItemOptions(root);
+  return invEditorOpenSearchableItemField(root, resetQuery, invEditorContext);
 }
-
-/** moveSearchableItemActiveIndex：处理移动Searchable物品活跃索引。 */
 function moveSearchableItemActiveIndex(root: HTMLElement, offset: number): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  const listEl = getSearchableItemList(root);
-  if (!listEl) {
-    return;
-  }
-  const optionButtons = Array.from(listEl.querySelectorAll<HTMLButtonElement>('[data-item-option-value]'));
-  if (optionButtons.length === 0) {
-    return;
-  }
-  const currentIndex = Number(root.dataset.activeIndex ?? '-1');
-  const nextIndex = currentIndex >= 0
-    ? Math.min(optionButtons.length - 1, Math.max(0, currentIndex + offset))
-    : Math.max(0, Math.min(optionButtons.length - 1, offset > 0 ? 0 : optionButtons.length - 1));
-  root.dataset.activeIndex = String(nextIndex);
-  renderSearchableItemOptions(root);
+  return invEditorMoveSearchableItemActiveIndex(root, offset, invEditorContext);
 }
-
-/** commitSearchableItemSelection：处理commit Searchable物品选中项。 */
 function commitSearchableItemSelection(root: HTMLElement, value: string): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  const input = getSearchableItemInput(root);
-  const valueField = getSearchableItemValueField(root);
-  if (!input || !valueField) {
-    return;
-  }
-  const changed = valueField.value !== value;
-  valueField.value = value;
-  input.value = getSearchableItemDisplayValue(value);
-  closeSearchableItemField(root);
-  if (!changed) {
-    return;
-  }
-  valueField.dispatchEvent(new Event('input', { bubbles: true }));
-  valueField.dispatchEvent(new Event('change', { bubbles: true }));
+  return invEditorCommitSearchableItemSelection(root, value, invEditorContext);
 }
 
 /** flushBlockedEditorRender：处理刷新Blocked编辑器渲染。 */
@@ -7165,58 +4088,28 @@ function flushBlockedEditorRender(): void {
 }
 
 /** optionsMarkup：处理选项Markup。 */
-function optionsMarkup<T extends string | number>(options: Array<{
-/**
- * value：值数值。
- */
- value: T;
- /**
- * label：label名称或显示文本。
- */
- label: string }>, selected: T | undefined): string {
-  return options.map((option) => `
-    <option value="${escapeHtml(String(option.value))}" ${selected === option.value ? 'selected' : ''}>${escapeHtml(option.label)}</option>
-  `).join('');
+function optionsMarkup<T extends string | number>(options: Array<{ value: T; label: string }>, selected: T | undefined): string {
+  return fieldsOptionsMarkup(options, selected);
 }
 
 /** textField：处理文本字段。 */
 function textField(label: string, path: string, value: string | undefined, extraClass = ''): string {
-  return `
-    <label class="editor-field ${extraClass}">
-      <span>${escapeHtml(label)}</span>
-      <input data-bind="${escapeHtml(path)}" data-kind="string" value="${escapeHtml(value ?? '')}" />
-    </label>
-  `;
+  return fieldsTextField(label, path, value, extraClass);
 }
 
 /** nullableTextField：处理nullable文本字段。 */
 function nullableTextField(label: string, path: string, value: string | undefined, emptyMode: 'undefined' | 'null' = 'undefined', extraClass = ''): string {
-  return `
-    <label class="editor-field ${extraClass}">
-      <span>${escapeHtml(label)}</span>
-      <input data-bind="${escapeHtml(path)}" data-kind="nullable-string" data-empty-mode="${emptyMode}" value="${escapeHtml(value ?? '')}" />
-    </label>
-  `;
+  return fieldsNullableTextField(label, path, value, emptyMode, extraClass);
 }
 
 /** numberField：处理数值字段。 */
 function numberField(label: string, path: string, value: number | undefined, extraClass = ''): string {
-  return `
-    <label class="editor-field ${extraClass}">
-      <span>${escapeHtml(label)}</span>
-      <input type="number" data-bind="${escapeHtml(path)}" data-kind="number" value="${Number.isFinite(value) ? String(value) : '0'}" />
-    </label>
-  `;
+  return fieldsNumberField(label, path, value, extraClass);
 }
 
 /** checkboxField：处理checkbox字段。 */
 function checkboxField(label: string, path: string, checked: boolean | undefined): string {
-  return `
-    <label class="editor-toggle">
-      <input type="checkbox" data-bind="${escapeHtml(path)}" data-kind="boolean" ${checked ? 'checked' : ''} />
-      <span>${escapeHtml(label)}</span>
-    </label>
-  `;
+  return fieldsCheckboxField(label, path, checked);
 }
 
 /** selectField：选择字段。 */
@@ -7224,180 +4117,75 @@ function selectField(
   label: string,
   path: string,
   value: string | number | undefined,
-  options: Array<{  
-  /**
- * value：值数值。
- */
- value: string | number;  
- /**
- * label：label名称或显示文本。
- */
- label: string }>,
+  options: Array<{ value: string | number; label: string }>,
   extraClass = '',
 ): string {
-  const selected = value ?? '';
-  return `
-    <label class="editor-field ${extraClass}">
-      <span>${escapeHtml(label)}</span>
-      <select data-bind="${escapeHtml(path)}" data-kind="${typeof selected === 'number' ? 'number' : 'string'}">
-        ${optionsMarkup(options, selected)}
-      </select>
-    </label>
-  `;
+  return fieldsSelectField(label, path, value, options, extraClass);
 }
 
 /** jsonField：处理JSON字段。 */
 function jsonField(label: string, path: string, value: unknown, emptyValue: 'null' | 'object' | 'array' = 'object', extraClass = ''): string {
-  return `
-    <label class="editor-field ${extraClass}">
-      <span>${escapeHtml(label)}</span>
-      <textarea data-bind="${escapeHtml(path)}" data-kind="json" data-empty-json="${emptyValue}">${escapeHtml(formatJson(value ?? (emptyValue === 'array' ? [] : emptyValue === 'null' ? null : {})))}</textarea>
-    </label>
-  `;
+  return fieldsJsonField(label, path, value, emptyValue, extraClass);
 }
 
 /** stringArrayField：处理string Array字段。 */
 function stringArrayField(label: string, path: string, value: string[] | undefined, extraClass = ''): string {
-  return `
-    <label class="editor-field ${extraClass}">
-      <span>${escapeHtml(label)}<span class="editor-section-note"> 每行一项</span></span>
-      <textarea data-bind="${escapeHtml(path)}" data-kind="string-array">${escapeHtml((value ?? []).join('\n'))}</textarea>
-    </label>
-  `;
+  return fieldsStringArrayField(label, path, value, extraClass);
 }
 
 /** readonlyCodeBlock：处理readonly兑换码Block。 */
 function readonlyCodeBlock(title: string, path: string, value: unknown): string {
-  return `
-    <div class="editor-field wide">
-      <span>${escapeHtml(title)}</span>
-      <div class="editor-code" data-preview="readonly" data-path="${escapeHtml(path)}">${escapeHtml(formatJson(value))}</div>
-    </div>
-  `;
+  return fieldsReadonlyCodeBlock(title, path, value);
 }
 
 /** getAttrDisplayNumber：读取属性展示数值。 */
 function getAttrDisplayNumber(value: number | undefined, fallback = 0): string {
-  return String(Number.isFinite(value) ? value : fallback);
+  return editorGetAttrDisplayNumber(value, fallback);
 }
 
 /** renderAttributeSummaryGrid：渲染六维基础/总属性摘要。 */
 function renderAttributeSummaryGrid(draft: PlayerState): string {
-  return `
-    <div class="editor-attr-summary-grid">
-      ${ATTR_KEYS.map((key) => {
-        const totalValue = draft.finalAttrs?.[key] ?? draft.baseAttrs?.[key] ?? DEFAULT_BASE_ATTRS[key];
-        return `
-          <div class="editor-attr-summary-card">
-            <div class="editor-attr-summary-label">${escapeHtml(ATTR_KEY_LABELS[key])}</div>
-            <div class="editor-attr-summary-value" data-preview="attr-total" data-key="${escapeHtml(key)}">${escapeHtml(getAttrDisplayNumber(totalValue, DEFAULT_BASE_ATTRS[key]))}</div>
-          </div>
-        `;
-      }).join('')}
-    </div>
-  `;
+  return editorRenderAttributeSummaryGrid(draft);
 }
 
 function getTechniqueCategoryDisplayLabel(category: string | null | undefined): string {
-  return category ? (TECHNIQUE_CATEGORY_LABELS as Record<string, string>)[category] ?? category : '未知类别';
+  return editorGetTechniqueCategoryDisplayLabel(category);
 }
 
 function getTechniqueGradeDisplayLabel(grade: string | null | undefined): string {
-  return grade ? (TECHNIQUE_GRADE_LABELS as Record<string, string>)[grade] ?? grade : '未知品阶';
+  return editorGetTechniqueGradeDisplayLabel(grade);
 }
 
 function getTechniqueRealmLevelDisplayLabel(realmLv: number | null | undefined): string {
-  if (!Number.isFinite(realmLv)) {
-    return '境界 Lv.-';
-  }
-  const level = Math.trunc(Number(realmLv));
-  const realm = editorCatalog?.realmLevels.find((entry) => entry.realmLv === level);
-  return realm ? `${realm.displayName} · Lv.${level}` : `境界 Lv.${level}`;
+  return techGetTechniqueRealmLevelDisplayLabel(realmLv, editorCatalog?.realmLevels);
 }
 
 function normalizeTechniquePageSize(value: unknown): number {
-  const numeric = Math.trunc(Number(value));
-  return GM_TECHNIQUE_PAGE_SIZE_OPTIONS.includes(numeric as (typeof GM_TECHNIQUE_PAGE_SIZE_OPTIONS)[number])
-    ? numeric
-    : 20;
+  return editorNormalizeTechniquePageSize(value);
 }
 
 function getTechniqueRealmLvFilterValue(): number | null {
-  const raw = currentTechniqueRealmLvFilter.trim();
-  if (!raw) {
-    return null;
-  }
-  const numeric = Number(raw);
-  return Number.isFinite(numeric) && numeric > 0 ? Math.trunc(numeric) : null;
+  return techGetTechniqueRealmLvFilterValue(currentTechniqueRealmLvFilter);
 }
 
 function getLearnedTechniqueIdSet(techniques: TechniqueState[]): Set<string> {
-  return new Set(techniques.map((technique) => technique.techId).filter(Boolean));
+  return techGetLearnedTechniqueIdSet(techniques);
 }
 
 function getTechniqueCategoryCounts(techniques: TechniqueState[]): Record<TechniqueCategory, number> {
-  const counts: Record<TechniqueCategory, number> = {
-    internal: 0,
-    arts: 0,
-    divine: 0,
-    secret: 0,
-  };
-  for (const technique of techniques) {
-    const category = (technique.category || findTechniqueCatalogEntry(technique.techId)?.category || 'internal') as TechniqueCategory;
-    if (category in counts) {
-      counts[category] += 1;
-    }
-  }
-  return counts;
+  return techGetTechniqueCategoryCounts(techniques, findTechniqueCatalogEntry);
 }
 
 function buildTechniqueCandidateMeta(candidate: Pick<GmTechniqueCandidate, 'source' | 'category' | 'grade' | 'realmLv' | 'techId'>): string {
-  const sourceLabel = candidate.source === 'generated' ? '玩家自创' : '系统功法';
-  return [
-    sourceLabel,
-    getTechniqueCategoryDisplayLabel(candidate.category),
-    getTechniqueGradeDisplayLabel(candidate.grade),
-    getTechniqueRealmLevelDisplayLabel(candidate.realmLv),
-    candidate.techId,
-  ].filter(Boolean).join(' · ');
+  return techBuildTechniqueCandidateMeta(candidate, editorCatalog?.realmLevels);
 }
 
 function buildSystemTechniqueCandidates(learnedIds: Set<string>): GmTechniqueCandidate[] {
-  return (editorCatalog?.techniques ?? []).map((option) => {
-    const candidate: GmTechniqueCandidate = {
-      source: 'system',
-      techId: option.id,
-      name: option.name,
-      category: option.category,
-      grade: option.grade,
-      realmLv: option.realmLv ?? null,
-      meta: '',
-      learned: learnedIds.has(option.id),
-    };
-    candidate.meta = buildTechniqueCandidateMeta(candidate);
-    return candidate;
-  });
+  return techBuildSystemTechniqueCandidates(learnedIds, editorCatalog?.techniques, editorCatalog?.realmLevels);
 }
 
 function buildGeneratedTechniqueCandidates(learnedIds: Set<string>): GmTechniqueCandidate[] {
-  return generatedTechniqueCandidates.map((summary) => {
-    const disabledReason = typeof summary.playerAddDisabledReason === 'string' && summary.playerAddDisabledReason.trim().length > 0
-      ? summary.playerAddDisabledReason.trim()
-      : null;
-    const candidate: GmTechniqueCandidate = {
-      source: 'generated',
-      techId: summary.id,
-      name: summary.name,
-      category: summary.category,
-      grade: summary.grade,
-      realmLv: summary.realmLv ?? null,
-      meta: '',
-      learned: learnedIds.has(summary.id),
-      ...(disabledReason ? { disabledReason } : {}),
-    };
-    candidate.meta = [buildTechniqueCandidateMeta(candidate), disabledReason].filter(Boolean).join(' · ');
-    return candidate;
-  });
+  return techBuildGeneratedTechniqueCandidates(learnedIds, generatedTechniqueCandidates, editorCatalog?.realmLevels);
 }
 
 function matchesTechniqueFilters(entry: {
@@ -7408,59 +4196,30 @@ function matchesTechniqueFilters(entry: {
   realmLv?: number | null;
   meta?: string | null;
 }): boolean {
-  if (currentTechniqueCategoryFilter !== 'all' && entry.category !== currentTechniqueCategoryFilter) {
-    return false;
-  }
-  if (currentTechniqueGradeFilter !== 'all' && entry.grade !== currentTechniqueGradeFilter) {
-    return false;
-  }
-  const realmLvFilter = getTechniqueRealmLvFilterValue();
-  if (realmLvFilter !== null && Math.trunc(Number(entry.realmLv ?? 0)) !== realmLvFilter) {
-    return false;
-  }
-  const keyword = currentTechniqueSearchQuery.trim().toLowerCase();
-  if (!keyword) {
-    return true;
-  }
-  return [
-    entry.techId,
-    entry.name ?? '',
-    entry.meta ?? '',
-    getTechniqueCategoryDisplayLabel(entry.category),
-    getTechniqueGradeDisplayLabel(entry.grade),
-  ].some((value) => value.toLowerCase().includes(keyword));
+  return techMatchesTechniqueFilters(entry, {
+    categoryFilter: currentTechniqueCategoryFilter,
+    gradeFilter: currentTechniqueGradeFilter,
+    realmLvFilter: currentTechniqueRealmLvFilter,
+    searchQuery: currentTechniqueSearchQuery,
+  });
 }
 
 function getFilteredSystemTechniqueCandidates(learnedIds: Set<string>): GmTechniqueCandidate[] {
-  return buildSystemTechniqueCandidates(learnedIds)
-    .filter(matchesTechniqueFilters)
-    .sort((left, right) => left.name.localeCompare(right.name, 'zh-Hans-CN'));
+  return techGetFilteredSystemTechniqueCandidates(learnedIds, editorCatalog?.techniques, editorCatalog?.realmLevels, {
+    categoryFilter: currentTechniqueCategoryFilter,
+    gradeFilter: currentTechniqueGradeFilter,
+    realmLvFilter: currentTechniqueRealmLvFilter,
+    searchQuery: currentTechniqueSearchQuery,
+  });
 }
 
 function getFilteredLearnedTechniques(techniques: TechniqueState[]): Array<{ technique: TechniqueState; index: number; meta: string }> {
-  return techniques
-    .map((technique, index) => {
-      const catalogEntry = findTechniqueCatalogEntry(technique.techId);
-      const category = technique.category ?? catalogEntry?.category ?? null;
-      const grade = technique.grade ?? catalogEntry?.grade ?? null;
-      const realmLv = technique.realmLv ?? catalogEntry?.realmLv ?? null;
-      const meta = [
-        getTechniqueCategoryDisplayLabel(category),
-        getTechniqueGradeDisplayLabel(grade),
-        getTechniqueRealmLevelDisplayLabel(realmLv),
-        `等级 ${Math.max(1, Math.trunc(Number(technique.level) || 1))}`,
-        technique.techId,
-      ].join(' · ');
-      return { technique, index, meta };
-    })
-    .filter((entry) => matchesTechniqueFilters({
-      techId: entry.technique.techId,
-      name: entry.technique.name,
-      category: entry.technique.category ?? findTechniqueCatalogEntry(entry.technique.techId)?.category ?? null,
-      grade: entry.technique.grade ?? findTechniqueCatalogEntry(entry.technique.techId)?.grade ?? null,
-      realmLv: entry.technique.realmLv ?? findTechniqueCatalogEntry(entry.technique.techId)?.realmLv ?? null,
-      meta: entry.meta,
-    }));
+  return techGetFilteredLearnedTechniques(techniques, findTechniqueCatalogEntry, editorCatalog?.realmLevels, {
+    categoryFilter: currentTechniqueCategoryFilter,
+    gradeFilter: currentTechniqueGradeFilter,
+    realmLvFilter: currentTechniqueRealmLvFilter,
+    searchQuery: currentTechniqueSearchQuery,
+  });
 }
 
 function paginateTechniqueEntries<T>(items: T[], page: number, pageSize: number): {
@@ -7469,16 +4228,7 @@ function paginateTechniqueEntries<T>(items: T[], page: number, pageSize: number)
   total: number;
   totalPages: number;
 } {
-  const total = items.length;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const normalizedPage = Math.min(Math.max(1, page), totalPages);
-  const offset = (normalizedPage - 1) * pageSize;
-  return {
-    items: items.slice(offset, offset + pageSize),
-    page: normalizedPage,
-    total,
-    totalPages,
-  };
+  return techPaginateTechniqueEntries(items, page, pageSize);
 }
 
 function createTechniqueFromGeneratedSummary(summary: GmGeneratedTechniqueSummary): TechniqueState {
@@ -7526,286 +4276,82 @@ function getTechniqueCandidatePageData(techniques: TechniqueState[]): {
   );
 }
 
-function renderTechniqueFilterControls(mode: 'candidates' | 'learned'): string {
-  const sourceOptions: Array<{ value: GmTechniqueCandidateSource; label: string }> = [
-    { value: 'system', label: '系统功法' },
-    { value: 'systemRandom', label: '系统随机功法' },
-    { value: 'generated', label: '玩家自创功法' },
-  ];
-  const pageSizeOptions = GM_TECHNIQUE_PAGE_SIZE_OPTIONS.map((value) => ({ value, label: `${value} 条/页` }));
-  return `
-    <div class="gm-technique-filters">
-      ${mode === 'candidates' ? `
-        <label class="editor-field">
-          <span>来源</span>
-          <select data-technique-filter="source">
-            ${optionsMarkup(sourceOptions, currentTechniqueCandidateSource)}
-          </select>
-        </label>
-      ` : ''}
-      <label class="editor-field">
-        <span>类别</span>
-        <select data-technique-filter="category">
-          ${optionsMarkup([...GM_TECHNIQUE_CATEGORY_FILTER_OPTIONS], currentTechniqueCategoryFilter)}
-        </select>
-      </label>
-      <label class="editor-field">
-        <span>品阶</span>
-        <select data-technique-filter="grade">
-          ${optionsMarkup([...GM_TECHNIQUE_GRADE_FILTER_OPTIONS], currentTechniqueGradeFilter)}
-        </select>
-      </label>
-      <label class="editor-field">
-        <span>境界等级</span>
-        <input
-          type="number"
-          min="1"
-          step="1"
-          data-technique-filter="realmLv"
-          value="${escapeHtml(currentTechniqueRealmLvFilter)}"
-          placeholder="全部"
-        />
-      </label>
-      <label class="editor-field wide">
-        <span>名称 / ID 搜索</span>
-        <input
-          type="search"
-          data-technique-filter="keyword"
-          autocomplete="off"
-          spellcheck="false"
-          value="${escapeHtml(currentTechniqueSearchQuery)}"
-          placeholder="输入功法名、ID、类别或品阶"
-        />
-      </label>
-      <label class="editor-field">
-        <span>分页</span>
-        <select data-technique-filter="pageSize">
-          ${optionsMarkup(pageSizeOptions, currentTechniquePageSize)}
-        </select>
-      </label>
-      ${mode === 'candidates' && currentTechniqueCandidateSource === 'systemRandom' ? `
-        <label class="editor-field">
-          <span>随机数量</span>
-          <input type="number" min="1" step="1" data-technique-filter="randomCount" value="${escapeHtml(String(currentTechniqueRandomPickCount))}" />
-        </label>
-      ` : ''}
-    </div>
-  `;
+/** buildTechniqueManagerRenderContext：构建功法管理器渲染上下文。 */
+function buildTechniqueManagerRenderContext(): TechniqueManagerRenderContext {
+  return {
+    currentTechniqueCandidateSource,
+    currentTechniqueCandidatePage,
+    currentTechniquePageSize,
+    selectedTechniqueCandidateIds,
+    generatedTechniqueCandidateLoading,
+    generatedTechniqueCandidateError,
+    generatedTechniqueCandidateTotal,
+    generatedTechniqueCandidatePageTotal,
+    currentTechniqueLearnedPage,
+    selectedLearnedTechniqueIds,
+    currentTechniqueEditorSubtab,
+    currentTechniqueCategoryFilter,
+    currentTechniqueGradeFilter,
+    currentTechniqueRealmLvFilter,
+    currentTechniqueSearchQuery,
+    currentTechniqueRandomPickCount,
+    setCurrentTechniqueCandidatePage: (page: number) => { currentTechniqueCandidatePage = page; },
+    setCurrentTechniqueLearnedPage: (page: number) => { currentTechniqueLearnedPage = page; },
+    getTechniqueCategoryCounts,
+    getLearnedTechniqueOptions,
+    getTechniqueEditorControls,
+    getFilteredLearnedTechniques,
+    paginateTechniqueEntries,
+    getTechniqueCandidatePageData,
+    hasServerEditorCatalog,
+    getTechniqueCardTitle,
+    getAutoSkillCardTitle,
+    getAutoSkillCardMeta,
+    escapeHtml,
+    optionsMarkup,
+    selectField,
+    textField,
+  };
 }
 
-function renderTechniqueOverview(techniques: TechniqueState[], autoBattleSkills: AutoBattleSkillConfig[], cultivatingTechId: string | undefined): string {
-  const counts = getTechniqueCategoryCounts(techniques);
-  const autoBattleMarkup = autoBattleSkills.length > 0
-    ? autoBattleSkills.map((entry, index) => `
-      <div class="editor-card">
-        <div class="editor-card-head">
-          <div>
-            <div class="editor-card-title" data-preview="auto-skill-title" data-index="${index}">${escapeHtml(getAutoSkillCardTitle(entry, index))}</div>
-            <div class="editor-card-meta" data-preview="auto-skill-meta" data-index="${index}">${escapeHtml(getAutoSkillCardMeta(entry))}</div>
-          </div>
-          <button class="small-btn danger" type="button" data-action="remove-auto-skill" data-index="${index}">删除</button>
-        </div>
-        <div class="editor-grid compact">
-          ${textField('技能 ID', `autoBattleSkills.${index}.skillId`, entry.skillId)}
-          <div class="editor-field">
-            <span>启用状态</span>
-            <label class="editor-toggle">
-              <input type="checkbox" data-bind="autoBattleSkills.${index}.enabled" data-kind="boolean" ${entry.enabled ? 'checked' : ''} />
-              <span>自动战斗时允许使用</span>
-            </label>
-          </div>
-        </div>
-      </div>
-    `).join('')
-    : '<div class="editor-note">当前没有自动战斗技能配置。</div>';
-  return `
-    <div class="stats-grid">
-      <div class="stats-card">
-        <div class="stats-card-label">已学总数</div>
-        <div class="stats-card-value">${techniques.length}</div>
-        <div class="stats-card-note">当前写入玩家功法分域的功法数量</div>
-      </div>
-      ${GM_TECHNIQUE_CATEGORY_FILTER_OPTIONS.filter((entry) => entry.value !== 'all').map((entry) => `
-        <div class="stats-card">
-          <div class="stats-card-label">${escapeHtml(entry.label)}</div>
-          <div class="stats-card-value">${counts[entry.value as TechniqueCategory] ?? 0}</div>
-          <div class="stats-card-note">${escapeHtml(entry.label)}类已学数量</div>
-        </div>
-      `).join('')}
-      <div class="stats-card">
-        <div class="stats-card-label">自动技能</div>
-        <div class="stats-card-value">${autoBattleSkills.length}</div>
-        <div class="stats-card-note">自动战斗技能槽数量</div>
-      </div>
-    </div>
-    <div class="editor-section-head" style="margin-top: 12px;">
-      <div>
-        <div class="editor-section-title">修炼与自动战斗</div>
-        <div class="editor-section-note">主修功法与自动技能列表。</div>
-      </div>
-      <button class="small-btn" type="button" data-action="add-auto-skill">新增自动技能</button>
-    </div>
-    <div class="editor-grid compact" style="margin-bottom: 10px;">
-      ${selectField('主修功法', 'cultivatingTechId', cultivatingTechId ?? '', getLearnedTechniqueOptions(techniques, true), 'wide')}
-    </div>
-    <div class="editor-card-list">${autoBattleMarkup}</div>
-  `;
-}
-
-function renderTechniqueCandidateList(techniques: TechniqueState[]): string {
-  const isGenerated = currentTechniqueCandidateSource === 'generated';
-  const pageData = getTechniqueCandidatePageData(techniques);
-  currentTechniqueCandidatePage = pageData.page;
-  const selectablePageItems = pageData.items.filter((entry) => !entry.disabledReason);
-  const selectedOnPage = selectablePageItems.filter((entry) => selectedTechniqueCandidateIds.has(entry.techId)).length;
-  const allPageSelected = selectablePageItems.length > 0 && selectedOnPage === selectablePageItems.length;
-
-  const listMeta = isGenerated && generatedTechniqueCandidateLoading
-    ? '正在加载玩家自创功法...'
-    : `第 ${pageData.page} / ${Math.max(1, pageData.totalPages)} 页 · 共 ${pageData.total} 条 · 已选 ${selectedTechniqueCandidateIds.size} 条`;
-  return `
-    <div class="gm-technique-list-head">
-      <div class="editor-note">${escapeHtml(listMeta)}</div>
-      <div class="button-row">
-        ${isGenerated ? `<button class="small-btn" type="button" data-action="refresh-generated-technique-candidates">刷新自创功法</button>` : ''}
-        ${currentTechniqueCandidateSource === 'systemRandom' ? `<button class="small-btn" type="button" data-action="random-select-technique-candidates">随机选择</button>` : ''}
-        <button class="small-btn" type="button" data-action="select-page-technique-candidates">${allPageSelected ? '取消本页' : '全选本页'}</button>
-        <button class="small-btn" type="button" data-action="clear-technique-candidate-selection" ${selectedTechniqueCandidateIds.size === 0 ? 'disabled' : ''}>清空选择</button>
-        <button class="small-btn primary" type="button" data-action="add-selected-techniques" ${selectedTechniqueCandidateIds.size === 0 ? 'disabled' : ''}>添加选中未学</button>
-        <button class="small-btn danger" type="button" data-action="remove-selected-technique-candidates" ${selectedTechniqueCandidateIds.size === 0 ? 'disabled' : ''}>移除选中已学</button>
-      </div>
-    </div>
-    ${generatedTechniqueCandidateError ? `<div class="editor-note" style="color: var(--stamp-red);">${escapeHtml(generatedTechniqueCandidateError)}</div>` : ''}
-    <div class="gm-technique-candidate-list">
-      ${pageData.items.length > 0
-        ? pageData.items.map((candidate) => `
-          <label class="gm-technique-row ${candidate.learned ? 'learned' : ''} ${candidate.disabledReason ? 'disabled' : ''}">
-            <input
-              type="checkbox"
-              data-technique-candidate-id="${escapeHtml(candidate.techId)}"
-              ${candidate.disabledReason ? 'disabled' : ''}
-              ${!candidate.disabledReason && selectedTechniqueCandidateIds.has(candidate.techId) ? 'checked' : ''}
-            />
-            <div class="gm-technique-row-main">
-              <div class="gm-technique-row-title">${escapeHtml(candidate.name || candidate.techId)}</div>
-              <div class="gm-technique-row-meta">${escapeHtml(candidate.meta)}</div>
-            </div>
-            <span class="pill ${candidate.learned ? 'online' : ''}">${candidate.disabledReason ? '需迁移' : candidate.learned ? '已学' : '未学'}</span>
-
-          </label>
-        `).join('')
-        : `<div class="editor-note">${isGenerated && generatedTechniqueCandidateLoading ? '正在加载...' : '没有匹配的功法。'}</div>`}
-    </div>
-    <div class="gm-technique-pagination">
-      <button class="small-btn" type="button" data-action="technique-candidate-prev" ${pageData.page <= 1 ? 'disabled' : ''}>上一页</button>
-      <div class="editor-note">第 ${pageData.page} / ${Math.max(1, pageData.totalPages)} 页</div>
-      <button class="small-btn" type="button" data-action="technique-candidate-next" ${pageData.page >= pageData.totalPages ? 'disabled' : ''}>下一页</button>
-    </div>
-  `;
-}
-
-function renderTechniqueManage(techniques: TechniqueState[]): string {
-  const catalogDisabledNote = hasServerEditorCatalog()
-    ? ''
-    : '<div class="editor-note" style="color: var(--stamp-red);">服务端编辑目录不可用，系统功法无法添加。</div>';
-  return `
-    ${catalogDisabledNote}
-    ${renderTechniqueFilterControls('candidates')}
-    <div data-gm-technique-candidate-list>
-      ${renderTechniqueCandidateList(techniques)}
-    </div>
-  `;
-}
-
-function renderLearnedTechniqueList(techniques: TechniqueState[]): string {
-  const filtered = getFilteredLearnedTechniques(techniques);
-  const pageData = paginateTechniqueEntries(filtered, currentTechniqueLearnedPage, currentTechniquePageSize);
-  currentTechniqueLearnedPage = pageData.page;
-  const selectedOnPage = pageData.items.filter((entry) => selectedLearnedTechniqueIds.has(entry.technique.techId)).length;
-  const allPageSelected = pageData.items.length > 0 && selectedOnPage === pageData.items.length;
-  return `
-    <div class="gm-technique-list-head">
-      <div class="editor-note">第 ${pageData.page} / ${Math.max(1, pageData.totalPages)} 页 · 共 ${pageData.total} 条 · 已选 ${selectedLearnedTechniqueIds.size} 条</div>
-      <div class="button-row">
-        <button class="small-btn" type="button" data-action="select-page-learned-techniques">${allPageSelected ? '取消本页' : '全选本页'}</button>
-        <button class="small-btn" type="button" data-action="clear-learned-technique-selection" ${selectedLearnedTechniqueIds.size === 0 ? 'disabled' : ''}>清空选择</button>
-        <button class="small-btn" type="button" data-action="max-selected-learned-techniques" ${selectedLearnedTechniqueIds.size === 0 ? 'disabled' : ''}>选中满级</button>
-        <button class="small-btn danger" type="button" data-action="remove-selected-learned-techniques" ${selectedLearnedTechniqueIds.size === 0 ? 'disabled' : ''}>移除选中</button>
-      </div>
-    </div>
-    <div class="editor-card-list gm-technique-learned-list">
-      ${pageData.items.length > 0
-        ? pageData.items.map(({ technique, index, meta }) => `
-          <div class="editor-card gm-technique-learned-card">
-            <div class="editor-card-head">
-              <label class="gm-technique-select-row">
-                <input
-                  type="checkbox"
-                  data-learned-technique-id="${escapeHtml(technique.techId)}"
-                  ${selectedLearnedTechniqueIds.has(technique.techId) ? 'checked' : ''}
-                />
-                <span>
-                  <span class="editor-card-title" data-preview="technique-title" data-index="${index}">${escapeHtml(getTechniqueCardTitle(technique, index))}</span>
-                  <span class="editor-card-meta" data-preview="technique-meta" data-index="${index}">${escapeHtml(meta)}</span>
-                </span>
-              </label>
-              <button class="small-btn danger" type="button" data-action="remove-technique" data-index="${index}">删除</button>
-            </div>
-            ${getTechniqueEditorControls(index, technique)}
-          </div>
-        `).join('')
-        : '<div class="editor-note">没有匹配的已学功法。</div>'}
-    </div>
-    <div class="gm-technique-pagination">
-      <button class="small-btn" type="button" data-action="technique-learned-prev" ${pageData.page <= 1 ? 'disabled' : ''}>上一页</button>
-      <div class="editor-note">第 ${pageData.page} / ${Math.max(1, pageData.totalPages)} 页</div>
-      <button class="small-btn" type="button" data-action="technique-learned-next" ${pageData.page >= pageData.totalPages ? 'disabled' : ''}>下一页</button>
-    </div>
-  `;
-}
-
-function renderTechniqueDetails(techniques: TechniqueState[]): string {
-  return `
-    ${renderTechniqueFilterControls('learned')}
-    <div data-gm-technique-learned-list>
-      ${renderLearnedTechniqueList(techniques)}
-    </div>
-  `;
-}
-
+/** renderTechniqueManager：渲染功法管理器。 */
 function renderTechniqueManager(techniques: TechniqueState[], autoBattleSkills: AutoBattleSkillConfig[], cultivatingTechId: string | undefined): string {
-  const subtabs: Array<{ value: GmTechniqueEditorSubtab; label: string }> = [
-    { value: 'overview', label: '总览' },
-    { value: 'manage', label: '添加/移除' },
-    { value: 'details', label: '已学详情' },
-  ];
-  const body = currentTechniqueEditorSubtab === 'overview'
-    ? renderTechniqueOverview(techniques, autoBattleSkills, cultivatingTechId)
-    : currentTechniqueEditorSubtab === 'manage'
-      ? renderTechniqueManage(techniques)
-      : renderTechniqueDetails(techniques);
-  return `
-    <div class="gm-technique-manager" data-gm-technique-manager>
-      <div class="gm-technique-subtabs">
-        ${subtabs.map((entry) => `
-          <button
-            class="workspace-tab ${currentTechniqueEditorSubtab === entry.value ? 'active' : ''}"
-            type="button"
-            data-action="switch-technique-subtab"
-            data-technique-subtab="${entry.value}"
-          >${escapeHtml(entry.label)}</button>
-        `).join('')}
-      </div>
-      <div class="gm-technique-subtab-body" data-gm-technique-body>
-        ${body}
-      </div>
-    </div>
-  `;
+  return techniqueManagerRenderTechniqueManager(techniques, autoBattleSkills, cultivatingTechId, buildTechniqueManagerRenderContext());
+}
+
+/** renderTechniqueFilterControls：渲染功法筛选控件。 */
+function renderTechniqueFilterControls(mode: 'candidates' | 'learned'): string {
+  return techniqueManagerRenderTechniqueFilterControls(mode, buildTechniqueManagerRenderContext());
+}
+
+/** renderTechniqueOverview：渲染功法总览。 */
+function renderTechniqueOverview(techniques: TechniqueState[], autoBattleSkills: AutoBattleSkillConfig[], cultivatingTechId: string | undefined): string {
+  return techniqueManagerRenderTechniqueOverview(techniques, autoBattleSkills, cultivatingTechId, buildTechniqueManagerRenderContext());
+}
+
+/** renderTechniqueCandidateList：渲染功法候选列表。 */
+function renderTechniqueCandidateList(techniques: TechniqueState[]): string {
+  return techniqueManagerRenderTechniqueCandidateList(techniques, buildTechniqueManagerRenderContext());
+}
+
+/** renderTechniqueManage：渲染功法管理。 */
+function renderTechniqueManage(techniques: TechniqueState[]): string {
+  return techniqueManagerRenderTechniqueManage(techniques, buildTechniqueManagerRenderContext());
+}
+
+/** renderLearnedTechniqueList：渲染已学功法列表。 */
+function renderLearnedTechniqueList(techniques: TechniqueState[]): string {
+  return techniqueManagerRenderLearnedTechniqueList(techniques, buildTechniqueManagerRenderContext());
+}
+
+/** renderTechniqueDetails：渲染功法详情。 */
+function renderTechniqueDetails(techniques: TechniqueState[]): string {
+  return techniqueManagerRenderTechniqueDetails(techniques, buildTechniqueManagerRenderContext());
 }
 
 /** renderEditorTabSection：渲染编辑器Tab Section。 */
 function renderEditorTabSection(tab: GmEditorTab, content: string): string {
-  return `<div data-editor-tab="${tab}">${content}</div>`;
+  return editorRenderEditorTabSection(tab, content);
 }
 
 const GM_CRAFT_SKILL_EDITOR_ENTRIES = [
@@ -7848,752 +4394,62 @@ function renderCraftSkillEditorCards(draft: PlayerState): string {
   }).join('');
 }
 
+/** playerEditorRenderDeps：renderVisualEditor 的辅助函数依赖集合。 */
+const playerEditorRenderDeps: PlayerEditorRenderDeps = {
+  normalizeGmArtifactState,
+  ensureArray,
+  getManagedAccountActivityMeta,
+  getManagedAccountStatusLabel,
+  getManagedAccountRestrictionLabel,
+  getManagedAccountRestrictionPillClass,
+  getEditorCatalogFallbackNote,
+  hasServerEditorCatalog,
+  getEquipmentCardTitle,
+  getEquipmentCardMeta,
+  getArtifactSlotLabel,
+  getItemEditorControls,
+  searchableItemField,
+  checkboxField,
+  numberField,
+  textField,
+  nullableTextField,
+  jsonField,
+  selectField,
+  stringArrayField,
+  readonlyCodeBlock,
+  optionsMarkup,
+  getBonusCardTitle,
+  getBonusCardMeta,
+  getBuffCatalogOptions,
+  getQuestCardTitle,
+  getQuestCardMeta,
+  getInventoryListMarkup,
+  getVisibleInventoryItems,
+  renderEditorTabSection,
+  formatPlayerNo,
+  formatDateTime,
+  formatDurationSeconds,
+  formatTradeTimestamp,
+  getEditorBodyChipMarkup,
+  renderPositionMapPicker,
+  getRealmCatalogOptions,
+  renderAttributeSummaryGrid,
+  renderTechniqueManager,
+  renderCraftSkillEditorCards,
+  getTechniqueCatalogOptions,
+  getInventoryAddTypeOptions,
+  getMailComposerMarkup,
+  renderPlayerRiskSection,
+  escapeHtml,
+};
+
 /** renderVisualEditor：渲染Visual编辑器。 */
 function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): string {
-  const equipment = draft.equipment as EquipmentSlots;
-  const artifacts = normalizeGmArtifactState(draft.artifacts);
-  const bonuses = ensureArray(draft.bonuses);
-  const buffs = ensureArray(draft.temporaryBuffs);
-  const autoBattleSkills = ensureArray(draft.autoBattleSkills);
-  const techniques = ensureArray(draft.techniques);
-  const quests = ensureArray(draft.quests);
-  const inventoryItems = ensureArray(draft.inventory.items);
-  const account = player.account;
-  const activity = getManagedAccountActivityMeta(player);
-  const monthCardTotalPoolMerit = Math.max(0, Math.trunc(Number(player.monthCard?.totalPoolMerit) || 0));
-  const monthCardRemainingPoolMerit = Math.max(0, Math.trunc(Number(player.monthCard?.remainingPoolMerit) || 0));
-  const monthCardEternalEnabled = player.monthCard?.eternalEnabled === true;
-  const monthCardDailySignInFixedMeritBonus = Math.max(0, Math.trunc(Number(player.monthCard?.dailySignInFixedMeritBonus) || 0));
-  const monthCardStartAt = Number(player.monthCard?.startAt ?? 0);
-  const monthCardExpireAt = Number(player.monthCard?.expireAt ?? 0);
-  const monthCardLastClaimDate = player.monthCard?.lastClaimDate ?? null;
-  const catalogFallbackNote = getEditorCatalogFallbackNote();
-  const catalogActionDisabled = hasServerEditorCatalog() ? '' : ' disabled';
-
-  const equipmentMarkup = EQUIP_SLOTS.map((slot) => {
-    const item = equipment[slot];
-    return `
-      <div class="editor-card">
-        <div class="editor-card-head">
-          <div>
-            <div class="editor-card-title">${escapeHtml(EQUIP_SLOT_LABELS[slot])}</div>
-            <div class="editor-card-meta" data-preview="equipment-title" data-slot="${slot}">${escapeHtml(getEquipmentCardTitle(item))}</div>
-            <div class="editor-card-meta" data-preview="equipment-meta" data-slot="${slot}">${escapeHtml(getEquipmentCardMeta(item))}</div>
-          </div>
-          <div class="button-row">
-            ${item
-              ? `<button class="small-btn danger" type="button" data-action="clear-equip" data-slot="${slot}">清空槽位</button>`
-              : `<button class="small-btn" type="button" data-action="create-equip-from-catalog" data-slot="${slot}"${catalogActionDisabled}>加入槽位</button>`}
-          </div>
-        </div>
-        ${item ? getItemEditorControls(`equipment.${slot}`, item, 'equipment') : `
-          <div class="editor-note">从下方选择装备模板后即可快速塞入这个槽位。</div>
-          <div class="editor-grid compact">
-            ${searchableItemField(
-              '装备模板',
-              '',
-              'equipment-slot',
-              { 'data-catalog-select': 'equipment', 'data-slot': slot },
-              'wide',
-              slot,
-              '点击后输入名称或 ID 搜索装备模板',
-            )}
-          </div>
-        `}
-      </div>
-    `;
-  }).join('');
-
-  const artifactMarkup = artifacts.slots.map((entry, index) => {
-    const item = entry.item;
-    const stateLabel = entry.unlocked ? (entry.enabled ? '启用' : '停用') : '未解锁';
-    const qiLabel = `灵力 ${Math.max(0, Math.trunc(Number(entry.qi) || 0))} / ${Math.max(0, Math.trunc(Number(entry.maxQi) || 0))}`;
-    return `
-      <div class="editor-card">
-        <div class="editor-card-head">
-          <div>
-            <div class="editor-card-title">${escapeHtml(getArtifactSlotLabel(entry.slot))}</div>
-            <div class="editor-card-meta" data-preview="artifact-title" data-slot="${entry.slot}">${escapeHtml(getEquipmentCardTitle(item))}</div>
-            <div class="editor-card-meta" data-preview="artifact-meta" data-slot="${entry.slot}">${escapeHtml(`${stateLabel} · ${getEquipmentCardMeta(item)} · ${qiLabel}`)}</div>
-          </div>
-          <div class="button-row">
-            ${item
-              ? `<button class="small-btn danger" type="button" data-action="clear-artifact" data-index="${index}">清空槽位</button>`
-              : `<button class="small-btn" type="button" data-action="create-artifact-from-catalog" data-index="${index}"${catalogActionDisabled}>加入槽位</button>`}
-          </div>
-        </div>
-        <div class="editor-grid compact">
-          ${checkboxField('已解锁', `artifacts.slots.${index}.unlocked`, entry.unlocked)}
-          ${checkboxField('启用', `artifacts.slots.${index}.enabled`, entry.enabled)}
-          ${numberField('当前灵力', `artifacts.slots.${index}.qi`, entry.qi)}
-          ${numberField('最大灵力', `artifacts.slots.${index}.maxQi`, entry.maxQi)}
-        </div>
-        ${item ? getItemEditorControls(`artifacts.slots.${index}.item`, item, 'artifact') : `
-          <div class="editor-note">从下方选择法宝模板后即可快速塞入这个槽位。</div>
-          <div class="editor-grid compact">
-            ${searchableItemField(
-              '法宝模板',
-              '',
-              'artifact-slot',
-              { 'data-catalog-select': 'artifact', 'data-index': String(index) },
-              'wide',
-              undefined,
-              '点击后输入名称或 ID 搜索法宝模板',
-            )}
-          </div>
-        `}
-      </div>
-    `;
-  }).join('');
-
-  const bonusMarkup = bonuses.length > 0
-    ? bonuses.map((bonus, index) => `
-      <div class="editor-card">
-        <div class="editor-card-head">
-          <div>
-            <div class="editor-card-title" data-preview="bonus-title" data-index="${index}">${escapeHtml(getBonusCardTitle(bonus, index))}</div>
-            <div class="editor-card-meta" data-preview="bonus-meta" data-index="${index}">${escapeHtml(getBonusCardMeta(bonus))}</div>
-          </div>
-          <button class="small-btn danger" type="button" data-action="remove-bonus" data-index="${index}">删除</button>
-        </div>
-        <div class="editor-grid compact">
-          ${textField('来源', `bonuses.${index}.source`, bonus.source)}
-          ${nullableTextField('标签', `bonuses.${index}.label`, bonus.label, 'undefined')}
-          ${jsonField('属性加成', `bonuses.${index}.attrs`, bonus.attrs ?? {}, 'object', 'wide')}
-          ${jsonField('数值加成', `bonuses.${index}.stats`, bonus.stats ?? {}, 'object')}
-          ${jsonField('附加元数据', `bonuses.${index}.meta`, bonus.meta ?? {}, 'object')}
-        </div>
-      </div>
-    `).join('')
-    : '<div class="editor-note">当前没有额外属性加成。</div>';
-
-  const buffMarkup = buffs.length > 0
-    ? buffs.map((buff, index) => `
-      <div class="editor-card">
-        <div class="editor-card-head">
-          <div class="editor-card-title">增益 ${index + 1}</div>
-          <button class="small-btn danger" type="button" data-action="remove-buff" data-index="${index}">删除</button>
-        </div>
-        <div class="editor-grid compact">
-          ${selectField('增益', `temporaryBuffs.${index}.buffId`, buff.buffId, getBuffCatalogOptions(buff.buffId), 'wide')}
-          ${numberField('层数', `temporaryBuffs.${index}.stacks`, buff.stacks)}
-          ${numberField('剩余时间', `temporaryBuffs.${index}.remainingTicks`, buff.remainingTicks)}
-        </div>
-      </div>
-    `).join('')
-    : '<div class="editor-note">当前没有临时效果。</div>';
-
-  const inventoryMarkup = getInventoryListMarkup(inventoryItems);
-  const visibleInventoryCount = getVisibleInventoryItems(inventoryItems).length;
-
-  const questMarkup = quests.length > 0
-    ? quests.map((quest, index) => `
-      <div class="editor-card">
-        <div class="editor-card-head">
-          <div>
-            <div class="editor-card-title" data-preview="quest-title" data-index="${index}">${escapeHtml(getQuestCardTitle(quest, index))}</div>
-            <div class="editor-card-meta" data-preview="quest-meta" data-index="${index}">${escapeHtml(getQuestCardMeta(quest))}</div>
-          </div>
-          <button class="small-btn danger" type="button" data-action="remove-quest" data-index="${index}">删除</button>
-        </div>
-        <div class="editor-grid compact">
-          ${textField('任务 ID', `quests.${index}.id`, quest.id)}
-          ${textField('标题', `quests.${index}.title`, quest.title)}
-          ${selectField('任务线', `quests.${index}.line`, quest.line, GM_QUEST_LINE_OPTIONS)}
-          ${selectField('状态', `quests.${index}.status`, quest.status, GM_QUEST_STATUS_OPTIONS)}
-          ${selectField('目标类型', `quests.${index}.objectiveType`, quest.objectiveType, GM_QUEST_OBJECTIVE_TYPE_OPTIONS)}
-          ${nullableTextField('章节', `quests.${index}.chapter`, quest.chapter, 'undefined')}
-          ${nullableTextField('剧情段落', `quests.${index}.story`, quest.story, 'undefined')}
-          ${numberField('当前进度', `quests.${index}.progress`, quest.progress)}
-          ${numberField('需求进度', `quests.${index}.required`, quest.required)}
-          ${textField('目标名称', `quests.${index}.targetName`, quest.targetName)}
-          ${nullableTextField('目标地图 ID', `quests.${index}.targetMapId`, quest.targetMapId, 'undefined')}
-          ${numberField('目标 X', `quests.${index}.targetX`, typeof quest.targetX === 'number' ? quest.targetX : 0)}
-          ${numberField('目标 Y', `quests.${index}.targetY`, typeof quest.targetY === 'number' ? quest.targetY : 0)}
-          ${nullableTextField('目标场景人物 ID', `quests.${index}.targetNpcId`, quest.targetNpcId, 'undefined')}
-          ${nullableTextField('目标场景人物名称', `quests.${index}.targetNpcName`, quest.targetNpcName, 'undefined')}
-          ${nullableTextField('目标文本', `quests.${index}.objectiveText`, quest.objectiveText, 'undefined', 'wide')}
-          ${nullableTextField('传话内容', `quests.${index}.relayMessage`, quest.relayMessage, 'undefined', 'wide')}
-          ${textField('奖励文本', `quests.${index}.rewardText`, quest.rewardText, 'wide')}
-          ${textField('目标怪物 ID', `quests.${index}.targetMonsterId`, quest.targetMonsterId)}
-          ${nullableTextField('目标功法 ID', `quests.${index}.targetTechniqueId`, quest.targetTechniqueId, 'undefined')}
-          ${numberField('目标境界等级', `quests.${index}.targetRealmLv`, typeof quest.targetRealmLv === 'number' ? quest.targetRealmLv : 0)}
-          ${textField('发放者 ID', `quests.${index}.giverId`, quest.giverId)}
-          ${textField('发放者名称', `quests.${index}.giverName`, quest.giverName)}
-          ${nullableTextField('发放地图 ID', `quests.${index}.giverMapId`, quest.giverMapId, 'undefined')}
-          ${nullableTextField('发放地图名', `quests.${index}.giverMapName`, quest.giverMapName, 'undefined')}
-          ${numberField('发放者 X', `quests.${index}.giverX`, typeof quest.giverX === 'number' ? quest.giverX : 0)}
-          ${numberField('发放者 Y', `quests.${index}.giverY`, typeof quest.giverY === 'number' ? quest.giverY : 0)}
-          ${nullableTextField('提交场景人物 ID', `quests.${index}.submitNpcId`, quest.submitNpcId, 'undefined')}
-          ${nullableTextField('提交场景人物名称', `quests.${index}.submitNpcName`, quest.submitNpcName, 'undefined')}
-          ${nullableTextField('提交地图 ID', `quests.${index}.submitMapId`, quest.submitMapId, 'undefined')}
-          ${nullableTextField('提交地图名', `quests.${index}.submitMapName`, quest.submitMapName, 'undefined')}
-          ${numberField('提交 X', `quests.${index}.submitX`, typeof quest.submitX === 'number' ? quest.submitX : 0)}
-          ${numberField('提交 Y', `quests.${index}.submitY`, typeof quest.submitY === 'number' ? quest.submitY : 0)}
-          ${nullableTextField('提交物品 ID', `quests.${index}.requiredItemId`, quest.requiredItemId, 'undefined')}
-          ${numberField('提交物品数量', `quests.${index}.requiredItemCount`, typeof quest.requiredItemCount === 'number' ? quest.requiredItemCount : 1)}
-          ${nullableTextField('下一任务 ID', `quests.${index}.nextQuestId`, quest.nextQuestId, 'undefined')}
-          ${textField('奖励物品 ID（旧字段）', `quests.${index}.rewardItemId`, quest.rewardItemId)}
-          ${stringArrayField('奖励物品 ID 列表', `quests.${index}.rewardItemIds`, quest.rewardItemIds, 'wide')}
-          ${jsonField('奖励物品详情', `quests.${index}.rewards`, quest.rewards ?? [], 'array', 'wide')}
-          ${textField('任务描述', `quests.${index}.desc`, quest.desc, 'wide')}
-        </div>
-      </div>
-    `).join('')
-    : '<div class="editor-note">当前没有任务数据。</div>';
-
-  return `
-    ${renderEditorTabSection('basic', `
-    <section class="editor-section">
-      <div class="editor-section-head">
-        <div>
-          <div class="editor-section-title">账号信息</div>
-          <div class="editor-section-note">这里展示账号主键、注册时间、在线状态、最近活动和累计在线时长，密码修改也统一在这里做。</div>
-        </div>
-      </div>
-      ${account ? `
-      <div class="editor-grid compact">
-        <div class="editor-field">
-          <span>玩家编号</span>
-          <div class="editor-code">${escapeHtml(formatPlayerNo(player.playerNo))}</div>
-        </div>
-        <label class="editor-field">
-          <span>账号</span>
-          <input
-            id="player-account-username"
-            type="text"
-            autocomplete="off"
-            spellcheck="false"
-            value="${escapeHtml(account.username)}"
-            placeholder="输入登录账号"
-          />
-        </label>
-        <div class="editor-field">
-          <span>账号 ID</span>
-          <div class="editor-code">${escapeHtml(account.userId)}</div>
-        </div>
-        <div class="editor-field">
-          <span>注册时间</span>
-          <div class="editor-code">${escapeHtml(formatDateTime(account.createdAt))}</div>
-        </div>
-        <div class="editor-field">
-          <span>是否在线</span>
-          <div class="editor-code">${escapeHtml(getManagedAccountStatusLabel(player))}</div>
-        </div>
-        <div class="editor-field">
-          <span>账号状态</span>
-          <div class="editor-code"><span class="pill ${getManagedAccountRestrictionPillClass(account)}">${escapeHtml(getManagedAccountRestrictionLabel(account))}</span></div>
-        </div>
-        <div class="editor-field">
-          <span>${escapeHtml(activity.label)}</span>
-          <div class="editor-code">${escapeHtml(activity.value)}</div>
-        </div>
-        <div class="editor-field">
-          <span>最近登录</span>
-          <div class="editor-code">${escapeHtml(formatDateTime(account.lastLoginAt))}</div>
-        </div>
-        <div class="editor-field">
-          <span>最近 IP</span>
-          <div class="editor-code">${escapeHtml(account.lastLoginIp ?? '无')}</div>
-        </div>
-        <div class="editor-field">
-          <span>最近设备</span>
-          <div class="editor-code">${escapeHtml(account.lastLoginDeviceId ?? '无')}</div>
-        </div>
-        <div class="editor-field">
-          <span>累计在线时间</span>
-          <div class="editor-code">${escapeHtml(formatDurationSeconds(account.totalOnlineSeconds))}</div>
-        </div>
-        <div class="editor-field">
-          <span>封禁时间</span>
-          <div class="editor-code">${escapeHtml(formatDateTime(account.bannedAt))}</div>
-        </div>
-        <div class="editor-field wide">
-          <span>封禁原因</span>
-          <div class="editor-code">${escapeHtml(account.banReason?.trim() || '无')}</div>
-        </div>
-      </div>
-      <div class="editor-grid compact" style="margin-top: 10px;">
-        <label class="editor-field">
-          <span>新密码</span>
-          <input id="player-password-input" type="text" autocomplete="off" spellcheck="false" placeholder="输入新的账号密码" />
-        </label>
-        <label class="editor-field wide">
-          <span>封禁原因</span>
-          <div class="button-row" style="margin-bottom: 8px;">
-            ${[
-              '同设备批量起号',
-              '工作室批量养号',
-              '资源转移/小号输血',
-              '自动化脚本',
-              '规避处罚复开号',
-            ].map((reason) => (
-              `<button class="small-btn" type="button" data-ban-reason-preset="${escapeHtml(reason)}">${escapeHtml(reason)}</button>`
-            )).join('')}
-          </div>
-          <input id="player-account-ban-reason" type="text" autocomplete="off" spellcheck="false" placeholder="可点快速原因，也可以自定义输入" />
-        </label>
-      </div>
-      <div class="button-row" style="margin-top: 10px;">
-        <button class="small-btn" type="button" data-action="save-player-account">修改账号</button>
-        <button class="small-btn" type="button" data-action="save-player-password">修改账号密码</button>
-        <button class="small-btn" type="button" data-action="reset-player-password-default">重置密码为 123456789</button>
-        <button class="small-btn danger" type="button" data-action="ban-player-account" ${account.status === 'banned' ? 'disabled' : ''}>快捷封号</button>
-        <button class="small-btn" type="button" data-action="unban-player-account" ${account.status !== 'banned' ? 'disabled' : ''}>快捷解封</button>
-      </div>
-      <div class="editor-note">密码只会提交到服务端，并由服务端写入哈希，不会以明文落库。封号状态会写入账号表并阻止后续登录、刷新和重连。</div>
-      ${activity.note ? `<div class="editor-note">${escapeHtml(activity.note)}</div>` : ''}
-      ${catalogFallbackNote ? `<div class="editor-note">${escapeHtml(catalogFallbackNote)}</div>` : ''}
-      ` : '<div class="editor-note">当前目标没有可编辑的账号信息，通常是机器人或异常存档。</div>'}
-    </section>
-
-    <section class="editor-section">
-      <div class="editor-section-head">
-        <div>
-          <div class="editor-section-title">基础资料</div>
-          <div class="editor-section-note">人物本体、资源数值与运行时开关。</div>
-        </div>
-        <div class="editor-chip-list" data-preview="base-chips">
-          ${getEditorBodyChipMarkup(player, draft)}
-        </div>
-      </div>
-      <div class="editor-grid">
-        ${textField('角色名', 'name', draft.name)}
-        ${numberField('HP', 'hp', draft.hp)}
-        ${numberField('QI', 'qi', draft.qi)}
-        <div class="editor-field wide">
-          <span>角色标识</span>
-          <div class="editor-code">${escapeHtml(formatPlayerNo(player.playerNo))} · ID: ${escapeHtml(draft.id)}</div>
-        </div>
-      </div>
-      <div class="editor-toggle-row" style="margin-top: 10px;">
-        ${checkboxField('死亡', 'dead', draft.dead)}
-        ${checkboxField('自动战斗', 'autoBattle', draft.autoBattle)}
-        ${checkboxField('自动反击', 'autoRetaliate', draft.autoRetaliate !== false)}
-        ${checkboxField('锁定战斗目标', 'combatTargetLocked', draft.combatTargetLocked)}
-      </div>
-    </section>
-
-    `)}
-
-    ${renderEditorTabSection('position', `
-    <section class="editor-section">
-      <div class="editor-section-head">
-        <div>
-          <div class="editor-section-title">位置与朝向</div>
-          <div class="editor-section-note">地图传送、坐标修正与视野范围。</div>
-        </div>
-      </div>
-      <div class="editor-grid">
-        ${renderPositionMapPicker(player, draft)}
-        ${numberField('X', 'x', draft.x)}
-        ${numberField('Y', 'y', draft.y)}
-        ${selectField('朝向', 'facing', draft.facing, GM_FACING_OPTIONS)}
-        ${numberField('视野', 'viewRange', draft.viewRange)}
-      </div>
-    </section>
-    `)}
-
-    ${renderEditorTabSection('realm', `
-    <section class="editor-section">
-      <div class="editor-section-head">
-        <div>
-          <div class="editor-section-title">境界与属性</div>
-          <div class="editor-section-note">当前境界、基础属性与额外加成。</div>
-        </div>
-      </div>
-      <div class="editor-grid">
-        ${selectField('当前境界', 'realmLv', typeof draft.realmLv === 'number' ? draft.realmLv : 1, getRealmCatalogOptions())}
-        ${numberField('当前境界修为', 'realm.progress', draft.realm?.progress)}
-        ${numberField('底蕴', 'foundation', draft.foundation)}
-        ${numberField('根基', 'rootFoundation', draft.rootFoundation)}
-        ${numberField('悟性', 'comprehension', draft.comprehension)}
-        ${numberField('幸运', 'luck', draft.luck)}
-      </div>
-      <div class="editor-stat-grid" style="margin-top: 10px;">
-        ${ATTR_KEYS.map((key) => numberField(ATTR_KEY_LABELS[key], `baseAttrs.${key}`, draft.baseAttrs[key])).join('')}
-      </div>
-      <div style="margin-top: 10px;">
-        ${renderAttributeSummaryGrid(draft)}
-      </div>
-      <div class="editor-grid compact" style="margin-top: 10px;">
-        ${stringArrayField('已揭示突破条件 ID', 'revealedBreakthroughRequirementIds', draft.revealedBreakthroughRequirementIds, 'wide')}
-        ${readonlyCodeBlock('境界状态', 'realm', draft.realm ?? {})}
-      </div>
-    </section>
-
-    <section class="editor-section">
-      <div class="editor-section-head">
-        <div>
-          <div class="editor-section-title">属性加成</div>
-          <div class="editor-section-note">适合直接调试被动、装备外加成等常驻附加效果。</div>
-        </div>
-        <div class="button-row">
-          <button class="small-btn" type="button" data-action="add-bonus">新增加成</button>
-        </div>
-      </div>
-      <div class="editor-card-list">${bonusMarkup}</div>
-    </section>
-
-    <section class="editor-section">
-      <div class="editor-section-head">
-        <div>
-          <div class="editor-section-title">派生只读快照</div>
-          <div class="editor-section-note">这些通常由服务端重算，不建议直接改。若确实需要，去高级 JSON 区导入。</div>
-        </div>
-      </div>
-      <div class="editor-grid compact">
-        ${readonlyCodeBlock('总属性（最终属性）', 'finalAttrs', draft.finalAttrs ?? {})}
-        ${readonlyCodeBlock('数值属性', 'numericStats', draft.numericStats ?? {})}
-        ${readonlyCodeBlock('比率分母', 'ratioDivisors', draft.ratioDivisors ?? {})}
-        ${readonlyCodeBlock('动作列表', 'actions', draft.actions ?? [])}
-      </div>
-    </section>
-    `)}
-
-    ${renderEditorTabSection('buffs', `
-    <section class="editor-section">
-      <div class="editor-section-head">
-        <div>
-          <div class="editor-section-title">增益编辑</div>
-          <div class="editor-section-note">这里只保留增益选择、层数和剩余时间，其他静态字段按模板自动带出。</div>
-        </div>
-        <div class="button-row">
-          <button class="small-btn" type="button" data-action="add-buff"${catalogActionDisabled}>新增增益</button>
-        </div>
-      </div>
-      <div class="editor-card-list">${buffMarkup}</div>
-    </section>
-    `)}
-
-    ${renderEditorTabSection('techniques', `
-    <section class="editor-section">
-      <div class="editor-section-head">
-        <div>
-          <div class="editor-section-title">功法管理</div>
-          <div class="editor-section-note">按总览、批量添加/移除、已学详情分页管理，避免功法数量增长后一次性渲染全部卡片。</div>
-        </div>
-      </div>
-      ${renderTechniqueManager(techniques, autoBattleSkills, draft.cultivatingTechId)}
-    </section>
-    `)}
-
-    ${renderEditorTabSection('craftSkills', `
-    <section class="editor-section">
-      <div class="editor-section-head">
-        <div>
-          <div class="editor-section-title">技艺等级与经验</div>
-          <div class="editor-section-note">统一管理炼丹、炼器、采集、挖矿、阵法和强化技艺；保存后服务端会按等级重算升级所需经验并同步强化等级。</div>
-        </div>
-      </div>
-      <div class="editor-card-list">${renderCraftSkillEditorCards(draft)}</div>
-    </section>
-    `)}
-
-    ${renderEditorTabSection('benefits', `
-    <section class="editor-section">
-      <div class="editor-section-head">
-        <div>
-          <div class="editor-section-title">权益</div>
-          <div class="editor-section-note">这里编辑活动权益真源，不走整份玩家快照覆盖；保存后会直接刷新玩家详情。</div>
-        </div>
-      </div>
-      <div class="stats-grid" style="margin-bottom: 12px;">
-        <div class="stats-card">
-          <div class="stats-card-label">月卡总池</div>
-          <div class="stats-card-value">${monthCardTotalPoolMerit}</div>
-          <div class="stats-card-note">功德月卡累计领取池</div>
-        </div>
-        <div class="stats-card">
-          <div class="stats-card-label">月卡剩余</div>
-          <div class="stats-card-value">${monthCardRemainingPoolMerit}</div>
-          <div class="stats-card-note">每日领取会从这里扣除</div>
-        </div>
-        <div class="stats-card">
-          <div class="stats-card-label">永恒权益</div>
-          <div class="stats-card-value">${monthCardEternalEnabled ? '已开启' : '未开启'}</div>
-          <div class="stats-card-note">开启后拥有永久月卡权益</div>
-        </div>
-        <div class="stats-card">
-          <div class="stats-card-label">签到固定池</div>
-          <div class="stats-card-value">${monthCardDailySignInFixedMeritBonus}</div>
-          <div class="stats-card-note">每日签到随机池之外的固定功德</div>
-        </div>
-      </div>
-      <div class="editor-card-list">
-        <div class="editor-card">
-          <div class="editor-card-head">
-            <div>
-              <div class="editor-card-title">功德月卡权益</div>
-              <div class="editor-card-meta">当前窗口：${monthCardStartAt > 0 ? formatTradeTimestamp(monthCardStartAt) : '无'} 至 ${monthCardExpireAt > 0 ? formatTradeTimestamp(monthCardExpireAt) : '无'}；上次领取：${monthCardLastClaimDate ?? '无'}。</div>
-            </div>
-            <button class="small-btn primary" type="button" data-action="set-month-card-benefits">保存权益</button>
-          </div>
-          <div class="editor-grid compact">
-            <label class="editor-field">
-              <span>月卡功德总池</span>
-              <input id="benefit-month-card-total-pool" type="number" min="0" step="1" value="${monthCardTotalPoolMerit}" />
-            </label>
-            <label class="editor-field">
-              <span>剩余功德</span>
-              <input id="benefit-month-card-remaining-pool" type="number" min="0" step="1" value="${monthCardRemainingPoolMerit}" />
-            </label>
-            <label class="editor-field">
-              <span>签到固定池</span>
-              <input id="benefit-daily-sign-in-fixed-merit" type="number" min="0" step="1" value="${monthCardDailySignInFixedMeritBonus}" />
-            </label>
-            <label class="editor-toggle" style="align-self: end;">
-              <input id="benefit-eternal-enabled" type="checkbox" ${monthCardEternalEnabled ? 'checked' : ''} />
-              <span>开启永恒权益</span>
-            </label>
-          </div>
-          <div class="editor-note">保存会同时写入月卡总池、剩余池、永恒开关和签到固定池。若原本没有领取窗口且仍有权益数据，会自动创建 30 天窗口。</div>
-        </div>
-        <div class="editor-card">
-          <div class="editor-card-head">
-            <div>
-              <div class="editor-card-title">永恒</div>
-              <div class="editor-card-meta">按消耗品效果直接为该玩家激活：月卡总池 +90000、重置月卡时间、开启永久权益、每日签到固定池 +1000。</div>
-            </div>
-            <div class="button-row">
-              <label class="editor-field" style="min-width: 140px;">
-                <span>使用次数</span>
-                <input id="benefit-eternal-use-count" type="number" min="1" step="1" value="1" />
-              </label>
-              <button class="small-btn primary" type="button" data-action="activate-eternal-benefit">使用永恒</button>
-            </div>
-          </div>
-          <div class="editor-note">这个操作不消耗玩家背包物品，属于 GM 直接授予同等权益；执行后刷新详情即可看到新总池和固定池。</div>
-        </div>
-      </div>
-    </section>
-    `)}
-
-    ${renderEditorTabSection('shortcuts', `
-    <section class="editor-section">
-      <div class="editor-section-head">
-        <div>
-          <div class="editor-section-title">功法快捷操作</div>
-          <div class="editor-section-note">按钮会直接修改草稿并自动提交对应标签，无需再切回功法或物品页手动保存。</div>
-        </div>
-      </div>
-      <div class="stats-grid" style="margin-bottom: 12px;">
-        <div class="stats-card">
-          <div class="stats-card-label">已学功法</div>
-          <div class="stats-card-value">${ensureArray(draft.techniques).length}</div>
-          <div class="stats-card-note">当前角色已写入运行态的功法数量</div>
-        </div>
-        <div class="stats-card">
-          <div class="stats-card-label">未学功法</div>
-          <div class="stats-card-value">${Math.max(0, getTechniqueCatalogOptions().length - ensureArray(draft.techniques).length)}</div>
-          <div class="stats-card-note">基于当前编辑目录推算的剩余可学功法</div>
-        </div>
-      </div>
-      <div class="editor-card-list">
-        <div class="editor-card">
-          <div class="editor-card-head">
-            <div>
-              <div class="editor-card-title">获取全部未学习功法书</div>
-              <div class="editor-card-meta">把尚未学习且背包里也没有的功法书补进背包。</div>
-            </div>
-            <button class="small-btn" type="button" data-action="grant-all-unlearned-technique-books"${catalogActionDisabled}>加入背包</button>
-          </div>
-        </div>
-        <div class="editor-card">
-          <div class="editor-card-head">
-            <div>
-              <div class="editor-card-title">添加全部消耗品</div>
-              <div class="editor-card-meta">把目录内全部消耗品补进背包；已有堆叠会补到 999 个。</div>
-            </div>
-            <button class="small-btn" type="button" data-action="grant-all-consumables"${catalogActionDisabled}>加入背包</button>
-          </div>
-        </div>
-        <div class="editor-card">
-          <div class="editor-card-head">
-            <div>
-              <div class="editor-card-title">添加全部装备</div>
-              <div class="editor-card-meta">把目录内全部装备补进背包，每件 1 个；已有同 ID 物品不会重复添加。</div>
-            </div>
-            <button class="small-btn" type="button" data-action="grant-all-equipment"${catalogActionDisabled}>加入背包</button>
-          </div>
-        </div>
-        <div class="editor-card">
-          <div class="editor-card-head">
-            <div>
-              <div class="editor-card-title">当前全部功法满级</div>
-              <div class="editor-card-meta">按编辑目录模板把当前已学功法统一拉到最高层级。</div>
-            </div>
-            <button class="small-btn" type="button" data-action="max-all-techniques"${catalogActionDisabled}>立即满级</button>
-          </div>
-        </div>
-        <div class="editor-card">
-          <div class="editor-card-head">
-            <div>
-              <div class="editor-card-title">学习全部功法</div>
-              <div class="editor-card-meta">把当前目录里尚未学会的功法全部写入角色。</div>
-            </div>
-            <button class="small-btn primary" type="button" data-action="learn-all-techniques"${catalogActionDisabled}>全部学习</button>
-          </div>
-        </div>
-        <div class="editor-card">
-          <div class="editor-card-head">
-            <div>
-              <div class="editor-card-title">移除所有功法</div>
-              <div class="editor-card-meta">清空当前角色已学功法，并移除主修功法与自动战斗技能引用。</div>
-            </div>
-            <button class="small-btn danger" type="button" data-action="remove-all-techniques"${catalogActionDisabled}>全部移除</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="editor-section">
-      <div class="editor-section-head">
-        <div>
-          <div class="editor-section-title">属性快速设置</div>
-          <div class="editor-section-note">这里直接请求服务端修改角色存档，不走整份角色快照覆盖。炼体等级默认保留现有炼体经验；如果经验超出目标等级上限，会自动截到升级前一档。底蕴和战斗经验则按输入值直接增加。</div>
-        </div>
-      </div>
-      <div class="editor-card-list">
-        <div class="editor-card">
-          <div class="editor-card-head">
-            <div>
-              <div class="editor-card-title">炼体等级</div>
-              <div class="editor-card-meta">当前为 ${Math.max(0, Math.floor(draft.bodyTraining?.level ?? 0))} 层。修改后会立即重算炼体带来的属性加成。</div>
-            </div>
-            <div class="button-row">
-              <label class="editor-field" style="min-width: 160px;">
-                <span>目标等级</span>
-                <input id="shortcut-body-training-level" type="number" min="0" step="1" value="${Math.max(0, Math.floor(draft.bodyTraining?.level ?? 0))}" />
-              </label>
-              <button class="small-btn primary" type="button" data-action="set-body-training-level">确认修改</button>
-            </div>
-          </div>
-        </div>
-        <div class="editor-card">
-          <div class="editor-card-head">
-            <div>
-              <div class="editor-card-title">增加底蕴</div>
-              <div class="editor-card-meta">当前为 ${Math.max(0, Math.floor(draft.foundation ?? 0))}。支持正负整数，负数会扣除到底蕴最低为 0。</div>
-            </div>
-            <div class="button-row">
-              <label class="editor-field" style="min-width: 160px;">
-                <span>调整数值</span>
-                <input id="shortcut-foundation-amount" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="例如 -100 / 100" value="0" />
-              </label>
-              <button class="small-btn primary" type="button" data-action="add-foundation">确认调整</button>
-            </div>
-          </div>
-        </div>
-        <div class="editor-card">
-          <div class="editor-card-head">
-            <div>
-              <div class="editor-card-title">增加战斗经验</div>
-              <div class="editor-card-meta">当前为 ${Math.max(0, Math.floor(draft.combatExp ?? 0))}。支持正负整数，负数会扣除到最低为 0。</div>
-            </div>
-            <div class="button-row">
-              <label class="editor-field" style="min-width: 160px;">
-                <span>调整数值</span>
-                <input id="shortcut-combat-exp-amount" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="例如 -100 / 100" value="0" />
-              </label>
-              <button class="small-btn primary" type="button" data-action="add-combat-exp">确认调整</button>
-            </div>
-          </div>
-        </div>
-      </div>
-      ${catalogFallbackNote ? `<div class="editor-note" style="margin-top: 12px; color: var(--stamp-red);">${escapeHtml(catalogFallbackNote)}</div>` : ''}
-    </section>
-    `)}
-
-    ${renderEditorTabSection('items', `
-    <section class="editor-section">
-      <div class="editor-section-head">
-        <div>
-          <div class="editor-section-title">背包</div>
-          <div class="editor-section-note">容量、物品堆叠与实例态强化等级；名称从物品目录按 ID 解析，存档仍保持只存实例字段。</div>
-        </div>
-        <div class="button-row">
-          ${numberField('容量', 'inventory.capacity', draft.inventory.capacity)}
-          <label class="editor-field" style="min-width: 220px;">
-            <span>搜索当前背包</span>
-            <input
-              type="search"
-              data-inventory-search
-              autocomplete="off"
-              spellcheck="false"
-              value="${escapeHtml(currentInventorySearchQuery)}"
-              placeholder="输入中文名、ID、类型或部位"
-            />
-          </label>
-          <div class="editor-field" style="min-width: 110px;">
-            <span>筛选结果</span>
-            <div class="editor-code" data-inventory-search-count>${escapeHtml(currentInventorySearchQuery.trim() ? `显示 ${visibleInventoryCount} / ${inventoryItems.length} 项` : `共 ${inventoryItems.length} 项`)}</div>
-          </div>
-          <label class="editor-field" style="min-width: 220px;">
-            <span>物品类别</span>
-            <select data-catalog-select="inventory-type"${catalogActionDisabled}>
-              ${optionsMarkup(getInventoryAddTypeOptions(), currentInventoryAddType)}
-            </select>
-          </label>
-          ${searchableItemField(
-            '新增物品',
-            '',
-            'inventory-add',
-            { 'data-catalog-select': 'inventory-item' },
-            '',
-            undefined,
-            `点击后输入名称或 ID 搜索${ITEM_TYPE_LABELS[currentInventoryAddType]}模板`,
-            { style: 'min-width: 260px;' },
-          )}
-          <button class="small-btn" type="button" data-action="add-inventory-item-from-catalog"${catalogActionDisabled}>加入背包</button>
-        </div>
-      </div>
-      <div class="inventory-compact-list" data-inventory-compact-list>${inventoryMarkup}</div>
-    </section>
-
-    <section class="editor-section">
-      <div class="editor-section-head">
-        <div>
-          <div class="editor-section-title">已装备</div>
-          <div class="editor-section-note">战斗装备、技艺工具与法宝槽独立编辑；法宝仍写入独立法宝真源。</div>
-        </div>
-      </div>
-      <div class="editor-card-list">${equipmentMarkup}</div>
-      <div class="editor-card-list">${artifactMarkup}</div>
-    </section>
-    `)}
-
-    ${renderEditorTabSection('quests', `
-    <section class="editor-section">
-      <div class="editor-section-head">
-        <div>
-          <div class="editor-section-title">任务</div>
-          <div class="editor-section-note">任务链、奖励和发放者数据。</div>
-        </div>
-        <button class="small-btn" type="button" data-action="add-quest">新增任务</button>
-      </div>
-      <div class="editor-card-list">${questMarkup}</div>
-    </section>
-    `)}
-
-    ${renderEditorTabSection('mail', `
-    <section class="editor-section">
-      <div class="editor-section-head">
-        <div>
-          <div class="editor-section-title">角色邮件</div>
-          <div class="editor-section-note">给当前选中的角色发送邮件。在线角色会收到收件箱摘要更新，正文仍按需打开。</div>
-        </div>
-      </div>
-      ${getMailComposerMarkup(directMailDraft, {
-        scope: 'direct',
-        submitLabel: `发送给 ${player.name || '当前角色'}`,
-        note: '这里直接走 GM HTTP 接口写入邮件持久化表，不依赖客户端本地缓存。',
-      })}
-    </section>
-    `)}
-
-    ${renderEditorTabSection('risk', renderPlayerRiskSection(player))}
-  `;
+  return playerEditorRenderVisualEditor(player, draft, playerEditorRenderDeps, {
+    currentInventorySearchQuery,
+    currentInventoryAddType,
+    directMailDraft,
+  });
 }
 
 /** renderSummary：渲染摘要。 */
@@ -9427,1216 +5283,136 @@ async function login(): Promise<void> {
   }
 }
 
-// ─── 环境变量管理 ───
+/** envConfigContext：env-config-extra 对 gm.ts 的依赖。 */
+const envConfigContext: EnvConfigContext = {
+  getToken: () => token,
+  GM_API_BASE_PATH,
+  request,
+  setStatus,
+  escapeHtml,
+  loadRuntimeFlags,
+  getRuntimeFlags: () => runtimeFlags,
+  getRuntimeFlagsLoading: () => runtimeFlagsLoading,
+  buildRuntimeFlagsHtml,
+  bindRuntimeFlagsEvents,
+};
 
-const envListEl = document.getElementById('gm-env-list') as HTMLElement;
-const envRefreshBtn = document.getElementById('gm-env-refresh') as HTMLButtonElement;
-const envReloadBtn = document.getElementById('gm-env-reload') as HTMLButtonElement;
-const envExpandBtn = document.getElementById('gm-env-expand') as HTMLButtonElement;
-const envCollapseBtn = document.getElementById('gm-env-collapse') as HTMLButtonElement;
-const envMetaEl = document.getElementById('gm-env-meta') as HTMLDivElement;
-let envVars: GmEnvironmentVarItem[] = [];
-let envVarsLoading = false;
-
-async function loadEnvironmentVars(): Promise<void> {
-  if (!token || envVarsLoading) return;
-  envVarsLoading = true;
-  renderEnvironmentVars();
-  try {
-    const res = await request<GmEnvironmentVarListRes>(`${GM_API_BASE_PATH}/environment/vars`);
-    envVars = res.items ?? [];
-    envVarsLoading = false;
-    renderEnvironmentVars();
-  } catch (error) {
-    envVarsLoading = false;
-    envRefreshBtn.disabled = false;
-    envReloadBtn.disabled = false;
-    const message = error instanceof Error ? error.message : '加载失败';
-    envMetaEl.textContent = message;
-    if (envVars.length === 0) {
-      envListEl.innerHTML = `<div class="env-empty" style="color:var(--stamp-red);">${escapeHtml(message)}</div>`;
-    }
-  }
+/** loadEnvironmentVars：加载环境变量。 */
+function loadEnvironmentVars(): Promise<void> {
+  return envConfigLoadEnvironmentVars(envConfigContext);
 }
 
-function renderEnvironmentVars(): void {
-  envRefreshBtn.disabled = envVarsLoading;
-  envReloadBtn.disabled = envVarsLoading;
-  envExpandBtn.disabled = envVarsLoading;
-  envCollapseBtn.disabled = envVarsLoading;
-  if (envVarsLoading) {
-    envMetaEl.textContent = '环境变量加载中...';
-    return;
-  }
-
-  envMetaEl.textContent = `共 ${envVars.length} 个环境变量`;
-  if (envVars.length === 0) {
-    envListEl.innerHTML = '<div class="env-empty">当前没有可展示的环境变量。</div>';
-    return;
-  }
-
-  const groups = new Map<string, GmEnvironmentVarItem[]>();
-  for (const item of envVars) {
-    if (!groups.has(item.category)) {
-      groups.set(item.category, []);
-    }
-    groups.get(item.category)!.push(item);
-  }
-
-  envListEl.innerHTML = [...groups.entries()].map(([category, items]) => {
-    const rows = items.map((item) => renderEnvironmentVarRow(item)).join('');
-    return `
-      <details class="env-group" open data-env-group="${escapeHtml(category)}">
-        <summary class="env-group-summary">
-          <span>${escapeHtml(category)}</span>
-          <span class="env-group-count">${items.length}</span>
-        </summary>
-        <div class="env-group-body">
-          ${rows}
-        </div>
-      </details>
-    `;
-  }).join('');
-
-  envListEl.querySelectorAll<HTMLElement>('[data-env-key]').forEach((row) => {
-    const key = row.dataset.envKey!;
-    const valueInput = row.querySelector<HTMLInputElement>('input[data-env-value]');
-    const persistInput = row.querySelector<HTMLInputElement>('input[data-env-persist]');
-    const saveBtn = row.querySelector<HTMLButtonElement>('[data-env-save]');
-    const deleteBtn = row.querySelector<HTMLButtonElement>('[data-env-delete]');
-    if (saveBtn && valueInput && persistInput) {
-      saveBtn.addEventListener('click', () => {
-        saveEnvironmentVar(key, valueInput.value, persistInput.checked).catch((error: unknown) => {
-          setStatus(error instanceof Error ? error.message : '保存环境变量失败', true);
-        });
-      });
-    }
-    if (deleteBtn) {
-      deleteBtn.addEventListener('click', () => {
-        deleteEnvironmentVar(key).catch((error: unknown) => {
-          setStatus(error instanceof Error ? error.message : '删除环境变量失败', true);
-        });
-      });
-    }
-  });
+/** reloadEnvironmentVars：重载环境变量。 */
+function reloadEnvironmentVars(): Promise<void> {
+  return envConfigReloadEnvironmentVars(envConfigContext);
 }
 
-function renderEnvironmentVarRow(item: GmEnvironmentVarItem): string {
-  const sourceLabelMap: Record<GmEnvironmentVarItem['source'], string> = {
-    process_env: '进程环境',
-    runtime_override: '运行时覆盖',
-    runtime_file: '本地覆盖',
-    unset: '未设置',
-  };
-  const currentValue = item.value || '（未设置）';
-  const inputValue = item.sensitive ? '' : item.value;
-  const editable = item.editable;
-  const persistChecked = item.persistent ? 'checked' : '';
-  const persistDisabled = item.persistable ? '' : 'disabled';
-  const saveDisabled = editable ? '' : 'disabled';
-  const deleteDisabled = editable ? '' : 'disabled';
-  const restartBadge = item.restartRequired ? '<span class="env-badge meta">需重启</span>' : '';
-  const managedBadge = item.managed ? '<span class="env-badge meta">已注册</span>' : '<span class="env-badge meta">未注册</span>';
-  const persistBadge = item.persistent ? '<span class="env-badge meta">已持久化</span>' : '';
-  const sourceBadge = `<span class="env-badge source-${item.source}">${sourceLabelMap[item.source]}</span>`;
-  const sensitiveHint = item.sensitive ? '<span class="env-badge meta">敏感值已脱敏</span>' : '';
-
-  return `
-    <div class="env-row" data-env-key="${escapeHtml(item.key)}">
-      <div class="env-row-head">
-        <div class="env-row-title">
-          <span class="env-label">${escapeHtml(item.label)}</span>
-          <code class="env-key">${escapeHtml(item.key)}</code>
-        </div>
-        <div class="env-row-badges">
-          ${sourceBadge}
-          ${managedBadge}
-          ${restartBadge}
-          ${persistBadge}
-          ${sensitiveHint}
-        </div>
-      </div>
-      <div class="env-desc">${escapeHtml(item.description)}</div>
-      <div class="env-current">当前值：<code>${escapeHtml(currentValue)}</code></div>
-      <div class="env-edit">
-        <input data-env-value type="text" ${editable ? '' : 'disabled'} placeholder="${item.sensitive ? '输入新值覆盖当前值' : '输入新的环境变量值'}" value="${escapeHtml(inputValue)}" />
-        <label class="env-persist-label">
-          <input data-env-persist type="checkbox" ${persistChecked} ${persistDisabled} />
-          持久化
-        </label>
-        <div class="env-actions">
-          <button class="small-btn primary" type="button" data-env-save ${saveDisabled}>保存</button>
-          <button class="small-btn" type="button" data-env-delete ${deleteDisabled}>删除覆盖</button>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-async function saveEnvironmentVar(key: string, value: string, persist: boolean): Promise<void> {
-  if (!value.trim()) {
-    throw new Error('环境变量值不能为空');
-  }
-  await request(`${GM_API_BASE_PATH}/environment/vars/${encodeURIComponent(key)}`, {
-    method: 'POST',
-    body: JSON.stringify({
-      value,
-      persist,
-      confirmationPhrase: GM_HIGH_RISK_CONFIRMATION_PHRASES.environmentSet,
-    } satisfies GmSetEnvironmentVarReq),
-  });
-  setStatus(`环境变量 ${key} 已保存${persist ? '并持久化' : ''}`);
-  await loadEnvironmentVars();
-}
-
-async function deleteEnvironmentVar(key: string): Promise<void> {
-  if (!confirm(`确认删除环境变量覆盖 "${key}"？`)) return;
-  await request(`${GM_API_BASE_PATH}/environment/vars/${encodeURIComponent(key)}`, {
-    method: 'DELETE',
-    body: JSON.stringify({
-      confirmationPhrase: GM_HIGH_RISK_CONFIRMATION_PHRASES.environmentDelete,
-    } satisfies GmHighRiskConfirmationReq),
-  });
-  setStatus(`环境变量 ${key} 已回滚`);
-  await loadEnvironmentVars();
-}
-
-async function reloadEnvironmentVars(): Promise<void> {
-  const res = await request<GmReloadEnvironmentVarsRes>(`${GM_API_BASE_PATH}/environment/reload`, {
-    method: 'POST',
-    body: JSON.stringify({
-      confirmationPhrase: GM_HIGH_RISK_CONFIRMATION_PHRASES.environmentReload,
-    } satisfies GmHighRiskConfirmationReq),
-  });
-  setStatus(`本地覆盖已重载：${res.count} 个持久化项`);
-  await loadEnvironmentVars();
-}
-
+/** toggleAllEnvironmentGroups：展开/折叠所有环境变量分组。 */
 function toggleAllEnvironmentGroups(open: boolean): void {
-  envListEl.querySelectorAll<HTMLDetailsElement>('details.env-group').forEach((group) => {
-    group.open = open;
-  });
+  return envConfigToggleAllEnvironmentGroups(open, envConfigContext);
 }
 
-// ─── 游戏配置中心 ───
-
-const gameConfigListEl = document.getElementById('gm-gameconfig-list') as HTMLElement;
-const gameConfigRefreshBtn = document.getElementById('gm-gameconfig-refresh') as HTMLButtonElement;
-const gameConfigExpandBtn = document.getElementById('gm-gameconfig-expand') as HTMLButtonElement;
-const gameConfigCollapseBtn = document.getElementById('gm-gameconfig-collapse') as HTMLButtonElement;
-const gameConfigMetaEl = document.getElementById('gm-gameconfig-meta') as HTMLDivElement;
-let gameConfigItems: GameConfigItem[] = [];
-let gameConfigLoading = false;
-
-async function loadGameConfig(): Promise<void> {
-  if (!token || gameConfigLoading) return;
-  gameConfigLoading = true;
-  renderGameConfig();
-  try {
-    const [configRes] = await Promise.all([
-      request<GameConfigListRes>(`${GM_API_BASE_PATH}/game-config`),
-      loadRuntimeFlags(),
-    ]);
-    gameConfigItems = configRes.items ?? [];
-    gameConfigLoading = false;
-    renderGameConfig();
-  } catch (error) {
-    gameConfigLoading = false;
-    gameConfigRefreshBtn.disabled = false;
-    const message = error instanceof Error ? error.message : '加载失败';
-    gameConfigMetaEl.textContent = message;
-    if (gameConfigItems.length === 0) {
-      gameConfigListEl.innerHTML = `<div class="env-empty" style="color:var(--stamp-red);">${escapeHtml(message)}</div>`;
-    }
-  }
+/** loadGameConfig：加载游戏配置。 */
+function loadGameConfig(): Promise<void> {
+  return envConfigLoadGameConfig(envConfigContext);
 }
 
+/** renderGameConfig：渲染游戏配置。 */
 function renderGameConfig(): void {
-  gameConfigRefreshBtn.disabled = gameConfigLoading;
-  gameConfigExpandBtn.disabled = gameConfigLoading;
-  gameConfigCollapseBtn.disabled = gameConfigLoading;
-  if (gameConfigLoading && runtimeFlagsLoading) {
-    gameConfigMetaEl.textContent = '配置加载中...';
-    return;
-  }
-
-  const totalConfigCount = gameConfigItems.length;
-  const flagCount = mergeRuntimeFlags(runtimeFlags).length;
-  gameConfigMetaEl.textContent = `${flagCount} 个运行时开关 · ${totalConfigCount} 项配置`;
-
-  // 运行时开关区块（热生效）
-  const flagsSectionHtml = `<details class="env-group" open>
-    <summary class="env-group-title">运行时开关（热生效） <span class="env-group-count">(${flagCount})</span></summary>
-    <div class="env-group-body" id="gameconfig-flags-container">
-      ${buildRuntimeFlagsHtml()}
-    </div>
-  </details>`;
-
-  // 游戏配置区块（重启生效）
-  let configHtml = '';
-  if (totalConfigCount > 0) {
-    const groups = new Map<string, GameConfigItem[]>();
-    for (const item of gameConfigItems) {
-      if (!groups.has(item.category)) {
-        groups.set(item.category, []);
-      }
-      groups.get(item.category)!.push(item);
-    }
-    for (const [category, items] of groups) {
-      configHtml += `<details class="env-group" open>
-        <summary class="env-group-title">${escapeHtml(category)} <span class="env-group-count">(${items.length})</span></summary>
-        <div class="env-group-body">`;
-      for (const item of items) {
-        configHtml += renderGameConfigRow(item);
-      }
-      configHtml += '</div></details>';
-    }
-  } else if (!gameConfigLoading) {
-    configHtml = '<div class="env-empty">当前没有已注册的游戏配置。</div>';
-  }
-
-  gameConfigListEl.innerHTML = flagsSectionHtml + configHtml;
-
-  // 绑定运行时开关事件
-  const flagsContainer = gameConfigListEl.querySelector<HTMLElement>('#gameconfig-flags-container');
-  if (flagsContainer) {
-    bindRuntimeFlagsEvents(flagsContainer);
-  }
-
-  // 绑定游戏配置事件
-  gameConfigListEl.querySelectorAll<HTMLElement>('.env-row[data-config-key]').forEach((rowEl) => {
-    const key = rowEl.dataset.configKey!;
-    const saveBtn = rowEl.querySelector<HTMLButtonElement>('[data-config-save]');
-    const resetBtn = rowEl.querySelector<HTMLButtonElement>('[data-config-reset]');
-    const toggleInput = rowEl.querySelector<HTMLInputElement>('[data-config-toggle]');
-    const valueInput = rowEl.querySelector<HTMLInputElement>('[data-config-value]');
-
-    if (toggleInput) {
-      toggleInput.addEventListener('change', () => {
-        saveGameConfig(key, String(toggleInput.checked)).catch((error: unknown) => {
-          setStatus(error instanceof Error ? error.message : '保存配置失败', true);
-        });
-      });
-    }
-    if (saveBtn && valueInput) {
-      saveBtn.addEventListener('click', () => {
-        saveGameConfig(key, valueInput.value).catch((error: unknown) => {
-          setStatus(error instanceof Error ? error.message : '保存配置失败', true);
-        });
-      });
-    }
-    if (resetBtn) {
-      resetBtn.addEventListener('click', () => {
-        resetGameConfig(key).catch((error: unknown) => {
-          setStatus(error instanceof Error ? error.message : '重置配置失败', true);
-        });
-      });
-    }
-  });
+  return envConfigRenderGameConfig(envConfigContext);
 }
 
-function renderGameConfigRow(item: GameConfigItem): string {
-  const pendingBadge = item.pendingRestart ? '<span class="env-badge meta" style="background:var(--stamp-orange);color:#fff;">待重启</span>' : '';
-  const defaultBadge = `<span class="env-badge meta">默认: ${escapeHtml(item.defaultValue)}</span>`;
-
-  let controlHtml = '';
-  if (item.valueType === 'boolean') {
-    const checked = item.currentValue === 'true' ? 'checked' : '';
-    controlHtml = `
-      <label class="env-persist-label" style="cursor:pointer;">
-        <input data-config-toggle type="checkbox" ${checked} />
-        ${item.currentValue === 'true' ? '已开启' : '已关闭'}
-      </label>`;
-  } else if (item.valueType === 'number') {
-    const minAttr = item.min !== undefined ? `min="${item.min}"` : '';
-    const maxAttr = item.max !== undefined ? `max="${item.max}"` : '';
-    controlHtml = `
-      <input data-config-value type="number" value="${escapeHtml(item.pendingValue ?? item.currentValue)}" ${minAttr} ${maxAttr} style="width:120px;" />
-      <button class="small-btn primary" type="button" data-config-save>保存</button>`;
-  } else {
-    controlHtml = `
-      <input data-config-value type="text" value="${escapeHtml(item.pendingValue ?? item.currentValue)}" style="flex:1;" />
-      <button class="small-btn primary" type="button" data-config-save>保存</button>`;
-  }
-
-  return `
-    <div class="env-row" data-config-key="${escapeHtml(item.key)}">
-      <div class="env-row-head">
-        <div class="env-row-title">
-          <span class="env-label">${escapeHtml(item.label)}</span>
-          <code class="env-key">${escapeHtml(item.key)}</code>
-        </div>
-        <div class="env-row-badges">
-          ${defaultBadge}
-          ${pendingBadge}
-        </div>
-      </div>
-      <div class="env-desc">${escapeHtml(item.description)}</div>
-      <div class="env-edit">
-        ${controlHtml}
-        <button class="small-btn" type="button" data-config-reset>恢复默认</button>
-      </div>
-    </div>
-  `;
-}
-
-async function saveGameConfig(key: string, value: string): Promise<void> {
-  await request<GameConfigSetRes>(`${GM_API_BASE_PATH}/game-config/${encodeURIComponent(key)}`, {
-    method: 'POST',
-    body: JSON.stringify({ value }),
-  });
-  setStatus(`配置 ${key} 已保存，重启后生效`);
-  await loadGameConfig();
-}
-
-async function resetGameConfig(key: string): Promise<void> {
-  if (!confirm(`确认将 "${key}" 恢复为默认值？`)) return;
-  await request<GameConfigDeleteRes>(`${GM_API_BASE_PATH}/game-config/${encodeURIComponent(key)}`, { method: 'DELETE' });
-  setStatus(`配置 ${key} 已恢复默认`);
-  await loadGameConfig();
-}
-
+/** toggleAllGameConfigGroups：展开/折叠所有游戏配置分组。 */
 function toggleAllGameConfigGroups(open: boolean): void {
-  gameConfigListEl.querySelectorAll<HTMLDetailsElement>('details.env-group').forEach((group) => {
-    group.open = open;
-  });
+  return envConfigToggleAllGameConfigGroups(open, envConfigContext);
 }
 
-// ─── AI 配置中心 ───
-
-const aiProviderListEl = document.getElementById('gm-ai-list') as HTMLElement;
-const aiProviderRefreshBtn = document.getElementById('gm-ai-refresh') as HTMLButtonElement;
-const aiProviderAddTextBtn = document.getElementById('gm-ai-add-text') as HTMLButtonElement;
-const aiProviderAddImageBtn = document.getElementById('gm-ai-add-image') as HTMLButtonElement;
-const aiProviderMetaEl = document.getElementById('gm-ai-meta') as HTMLDivElement;
-let aiProviderConfigs: GmAiProviderConfigItem[] = [];
-let aiProviderConfigsLoading = false;
-let aiSecretStoreAvailable = false;
-
-const AI_TEXT_PROVIDER_OPTIONS: readonly GmAiTextProvider[] = ['openai', 'openai-compatible', 'anthropic'];
-const AI_IMAGE_PROVIDER_OPTIONS: readonly GmAiImageProvider[] = ['openai', 'dashscope'];
-const aiModelTestStateByKey = new Map<string, { kind: 'pending' | 'success' | 'error'; text: string }>();
-
-async function loadAiProviderConfigs(): Promise<void> {
-  if (!token || aiProviderConfigsLoading) return;
-  aiProviderConfigsLoading = true;
-  renderAiProviderConfigs();
-  try {
-    const res = await request<GmAiProviderConfigListRes>(`${GM_API_BASE_PATH}/ai/providers`);
-    aiProviderConfigs = res.items ?? [];
-    aiSecretStoreAvailable = res.secretStoreAvailable;
-    aiProviderConfigsLoading = false;
-    renderAiProviderConfigs();
-  } catch (error) {
-    aiProviderConfigsLoading = false;
-    aiProviderRefreshBtn.disabled = false;
-    aiProviderAddTextBtn.disabled = false;
-    aiProviderAddImageBtn.disabled = false;
-    const message = error instanceof Error ? error.message : '加载失败';
-    aiProviderMetaEl.textContent = message;
-    if (aiProviderConfigs.length === 0) {
-      aiProviderListEl.innerHTML = `<div class="env-empty" style="color:var(--stamp-red);">${escapeHtml(message)}</div>`;
-    }
-  }
+/** loadAiProviderConfigs：加载AI供应商配置。 */
+function loadAiProviderConfigs(): Promise<void> {
+  return envConfigLoadAiProviderConfigs(envConfigContext);
 }
 
-function renderAiProviderConfigs(): void {
-  aiProviderRefreshBtn.disabled = aiProviderConfigsLoading;
-  aiProviderAddTextBtn.disabled = aiProviderConfigsLoading;
-  aiProviderAddImageBtn.disabled = aiProviderConfigsLoading;
-  if (aiProviderConfigsLoading) {
-    aiProviderMetaEl.textContent = 'AI 配置加载中...';
-    return;
-  }
-
-  const secretNote = aiSecretStoreAvailable ? '密钥存储可用' : '密钥存储不可用：需数据库可用，并配置 SERVER_SECRET_ENCRYPTION_KEY，或存在可复用的 SERVER_PLAYER_TOKEN_SECRET/JWT_SECRET';
-  aiProviderMetaEl.textContent = `共 ${aiProviderConfigs.length} 项配置 · ${secretNote}`;
-
-  const rowsByKind = new Map<GmAiProviderKind, GmAiProviderConfigItem[]>();
-  rowsByKind.set('text', []);
-  rowsByKind.set('image', []);
-  for (const item of aiProviderConfigs) {
-    rowsByKind.get(item.kind)?.push(item);
-  }
-
-  const textRows = rowsByKind.get('text') ?? [];
-  const imageRows = rowsByKind.get('image') ?? [];
-  aiProviderListEl.innerHTML = `
-    ${renderAiProviderGroup('text', '文本模型', textRows)}
-    ${renderAiProviderGroup('image', '图片模型', imageRows)}
-  `;
-
-  aiProviderListEl.querySelectorAll<HTMLElement>('.env-row[data-ai-kind][data-ai-scope]').forEach((rowEl) => {
-    const kind = rowEl.dataset.aiKind as GmAiProviderKind;
-    const scope = rowEl.dataset.aiScope ?? 'default';
-    const saveBtn = rowEl.querySelector<HTMLButtonElement>('[data-ai-save]');
-    const deleteBtn = rowEl.querySelector<HTMLButtonElement>('[data-ai-delete]');
-    const fetchModelsBtn = rowEl.querySelector<HTMLButtonElement>('[data-ai-fetch-models]');
-    const addModelBtn = rowEl.querySelector<HTMLButtonElement>('[data-ai-add-model]');
-    const deleteAllModelsBtn = rowEl.querySelector<HTMLButtonElement>('[data-ai-delete-all-models]');
-    const providerSelect = rowEl.querySelector<HTMLSelectElement>('[data-ai-provider]');
-    const imageOnlyEls = rowEl.querySelectorAll<HTMLElement>('[data-ai-image-only]');
-
-    providerSelect?.addEventListener('change', () => {
-      const isImage = kind === 'image';
-      imageOnlyEls.forEach((el) => el.classList.toggle('hidden', !isImage));
-    });
-    saveBtn?.addEventListener('click', () => {
-      saveAiProviderConfig(kind, scope, rowEl).catch((error: unknown) => {
-        setStatus(error instanceof Error ? error.message : '保存 AI 配置失败', true);
-      });
-    });
-    fetchModelsBtn?.addEventListener('click', () => {
-      fetchAiProviderModels(kind, scope).catch((error: unknown) => {
-        setStatus(error instanceof Error ? error.message : '获取模型列表失败', true);
-      });
-    });
-    addModelBtn?.addEventListener('click', () => {
-      addAiProviderModel(rowEl);
-    });
-    deleteAllModelsBtn?.addEventListener('click', () => {
-      if (rowEl.dataset.aiDraft === 'true') {
-        deleteAllAiProviderModelsLocally(rowEl);
-        return;
-      }
-      deleteAllAiProviderModels(kind, scope).catch((error: unknown) => {
-        setStatus(error instanceof Error ? error.message : '删除全部模型失败', true);
-      });
-    });
-    deleteBtn?.addEventListener('click', () => {
-      deleteAiProviderConfig(kind, scope).catch((error: unknown) => {
-        setStatus(error instanceof Error ? error.message : '删除 AI 配置失败', true);
-      });
-    });
-    rowEl.querySelectorAll<HTMLButtonElement>('[data-ai-test-model]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const modelName = button.dataset.aiTestModel ?? '';
-        testAiProviderModel(kind, scope, modelName).catch((error: unknown) => {
-          setStatus(error instanceof Error ? error.message : '测试模型失败', true);
-        });
-      });
-    });
-    rowEl.querySelectorAll<HTMLButtonElement>('[data-ai-delete-model]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const modelName = button.dataset.aiDeleteModel ?? '';
-        if (rowEl.dataset.aiDraft === 'true') {
-          removeAiProviderModelLocally(rowEl, modelName);
-          return;
-        }
-        deleteAiProviderModel(kind, scope, modelName).catch((error: unknown) => {
-          setStatus(error instanceof Error ? error.message : '删除模型失败', true);
-        });
-      });
-    });
-  });
-}
-
-function renderAiProviderGroup(kind: GmAiProviderKind, label: string, items: GmAiProviderConfigItem[]): string {
-  const rows = items.length > 0
-    ? items.map((item) => renderAiProviderConfigRow(item)).join('')
-    : `<div class="env-empty">当前没有${escapeHtml(label)}配置。</div>`;
-  return `
-    <details class="env-group" open>
-      <summary class="env-group-summary">
-        <span>${escapeHtml(label)}</span>
-        <span class="env-group-count">${items.length}</span>
-      </summary>
-      <div class="env-group-body">${rows}</div>
-    </details>
-  `;
-}
-
-function renderAiProviderConfigRow(item: GmAiProviderConfigItem): string {
-  const providerOptions = (item.kind === 'image' ? AI_IMAGE_PROVIDER_OPTIONS : AI_TEXT_PROVIDER_OPTIONS)
-    .map((provider) => `<option value="${provider}" ${provider === item.provider ? 'selected' : ''}>${provider}</option>`)
-    .join('');
-  const enabledBadge = item.enabled ? '<span class="env-badge source-process_env">已启用</span>' : '<span class="env-badge source-unset">已禁用</span>';
-  const secretBadge = item.secretConfigured ? '<span class="env-badge source-runtime_file">密钥已配置</span>' : '<span class="env-badge meta">密钥未配置</span>';
-  const imageFieldsClass = item.kind === 'image' ? '' : 'hidden';
-  const models = normalizeAiProviderModelSelection(item.models, item.modelName);
-  const selectedModelName = resolveAiProviderSelectedModelName(models, item.modelName);
-  const modelRowsHtml = models.length > 0
-    ? models.map((model) => renderAiProviderModelRow(item, model, model.name === selectedModelName)).join('')
-    : '<div class="ai-model-row"><div class="ai-model-name">当前没有模型</div><div class="ai-model-meta">请手动添加或获取模型列表</div><div class="ai-model-actions"></div></div>';
-  return `
-    <div class="env-row" data-ai-kind="${escapeHtml(item.kind)}" data-ai-scope="${escapeHtml(item.scope)}" data-ai-draft="${item.revision <= 0 ? 'true' : 'false'}">
-      <div class="env-row-head">
-        <div class="env-row-title">
-          <span class="env-label">${escapeHtml(item.kind === 'text' ? '文本模型' : '图片模型')} · ${escapeHtml(item.scope)}</span>
-          <code class="env-key">revision ${escapeHtml(String(item.revision))} · ${escapeHtml(item.updatedAt || '未保存')}</code>
-        </div>
-        <div class="env-row-badges">
-          ${enabledBadge}
-          ${secretBadge}
-          <span class="env-badge meta">${escapeHtml(item.provider)}</span>
-        </div>
-      </div>
-      <div class="env-desc">scope 用于区分默认模型和未来细分场景；API Key 留空表示沿用当前密钥引用。</div>
-      <div class="env-edit">
-        <label class="env-persist-label"><input data-ai-enabled type="checkbox" ${item.enabled ? 'checked' : ''} />启用</label>
-        <select data-ai-provider>${providerOptions}</select>
-        <input data-ai-base-url type="text" value="${escapeHtml(item.baseURL)}" placeholder="Base URL，例如 https://api.example.com" />
-        <input data-ai-timeout-ms type="number" min="1000" max="300000" step="1000" value="${escapeHtml(String(item.timeoutMs || (item.kind === 'image' ? 60000 : 30000)))}" placeholder="超时 ms" />
-      </div>
-      <div class="env-edit ${imageFieldsClass}" data-ai-image-only>
-        <input data-ai-image-size type="text" value="${escapeHtml(item.imageSize || '1024x1024')}" placeholder="图片尺寸，例如 1024x1024" />
-        <input data-ai-image-quality type="text" value="${escapeHtml(item.imageQuality || 'medium')}" placeholder="图片质量，例如 medium" />
-      </div>
-      <div class="env-edit">
-        <input data-ai-secret-ref type="text" value="${escapeHtml(item.secretKeyRef)}" placeholder="密钥引用名，例如 ai_default_text" />
-        <input data-ai-api-key type="password" value="" placeholder="${aiSecretStoreAvailable ? '可选：输入新 API Key 覆盖密钥' : '密钥存储不可用'}" ${aiSecretStoreAvailable ? '' : 'disabled'} autocomplete="new-password" />
-        <div class="env-actions">
-          <button class="small-btn primary" type="button" data-ai-save>保存</button>
-          <button class="small-btn" type="button" data-ai-fetch-models ${item.secretConfigured ? '' : 'disabled'}>获取模型列表</button>
-          <button class="small-btn" type="button" data-ai-add-model>手动添加模型</button>
-          <button class="small-btn danger" type="button" data-ai-delete-all-models ${models.length > 0 ? '' : 'disabled'}>删除全部模型</button>
-          <button class="small-btn danger" type="button" data-ai-delete>删除配置</button>
-        </div>
-      </div>
-      <div class="ai-model-table" data-ai-models>
-        ${modelRowsHtml}
-      </div>
-    </div>
-  `;
-}
-
-function renderAiProviderModelRow(item: GmAiProviderConfigItem, model: GmAiProviderModelItem, isSelected: boolean): string {
-  const sourceLabel = model.source === 'fetched' ? '接口获取' : model.source === 'legacy' ? '旧配置' : '手动';
-  const stateKey = getAiModelStateKey(item.kind, item.scope, model.name);
-  const testState = aiModelTestStateByKey.get(stateKey);
-  const defaultInputName = `ai-model-default-${item.kind}-${item.scope}`;
-  const testStateHtml = testState
-    ? `<span class="ai-model-test-state" data-kind="${testState.kind}" title="${escapeHtml(testState.text)}">${escapeHtml(testState.text)}</span>`
-    : '<span class="ai-model-test-state" data-kind="idle">未测试</span>';
-  return `
-    <div class="ai-model-row" data-ai-model-row data-ai-model-name="${escapeHtml(model.name)}" data-ai-model-source="${escapeHtml(model.source)}" data-ai-model-added-at="${escapeHtml(model.addedAt)}">
-      <div class="ai-model-name" title="${escapeHtml(model.name)}">${escapeHtml(model.name)}</div>
-      <div class="ai-model-meta">
-        <span>${escapeHtml(sourceLabel)}</span>
-        <span>${isSelected ? '当前使用' : '备用'}</span>
-        ${testStateHtml}
-      </div>
-      <div class="ai-model-actions">
-        <label class="env-persist-label"><input data-ai-model-default type="radio" name="${escapeHtml(defaultInputName)}" ${isSelected ? 'checked' : ''} />使用</label>
-        <button class="small-btn" type="button" data-ai-test-model="${escapeHtml(model.name)}" ${item.secretConfigured ? '' : 'disabled'}>测试</button>
-        <button class="small-btn danger" type="button" data-ai-delete-model="${escapeHtml(model.name)}">删除模型</button>
-      </div>
-    </div>
-  `;
-}
-
-function getAiModelStateKey(kind: GmAiProviderKind, scope: string, modelName: string): string {
-  return `${kind}:${scope}:${modelName}`;
-}
-
-function resolveAiProviderSelectedModelName(models: GmAiProviderModelItem[], preferredName = ''): string {
-  const preferred = preferredName.trim();
-  if (preferred && models.some((model) => model.name === preferred)) {
-    return preferred;
-  }
-  return models.find((model) => model.enabled)?.name ?? models[0]?.name ?? '';
-}
-
-function normalizeAiProviderModelSelection(models: GmAiProviderModelItem[], preferredName = ''): GmAiProviderModelItem[] {
-  const selectedName = resolveAiProviderSelectedModelName(models, preferredName);
-  if (!selectedName) return [];
-  return models.map((model) => ({ ...model, enabled: model.name === selectedName }));
-}
-
+/** addAiProviderConfig：新增AI供应商配置。 */
 function addAiProviderConfig(kind: GmAiProviderKind): void {
-  const existingScopes = new Set(aiProviderConfigs.filter((item) => item.kind === kind).map((item) => item.scope));
-  let scope = 'default';
-  if (existingScopes.has(scope)) {
-    let index = 2;
-    while (existingScopes.has(`${kind}_${index}`)) index += 1;
-    scope = `${kind}_${index}`;
-  }
-  aiProviderConfigs = [
-    ...aiProviderConfigs,
-    createDraftAiProviderConfig(kind, scope),
-  ];
-  renderAiProviderConfigs();
-}
-
-function createDraftAiProviderConfig(kind: GmAiProviderKind, scope: string): GmAiProviderConfigItem {
-  return {
-    scope,
-    kind,
-    provider: kind === 'image' ? 'openai' : 'openai-compatible',
-    baseURL: '',
-    modelName: kind === 'image' ? 'gpt-image-1.5' : 'gpt-5.4-mini',
-    models: [{
-      name: kind === 'image' ? 'gpt-image-1.5' : 'gpt-5.4-mini',
-      enabled: true,
-      source: 'manual',
-      addedAt: new Date().toISOString(),
-    }],
-    timeoutMs: kind === 'image' ? 60_000 : 30_000,
-    imageSize: kind === 'image' ? '1024x1024' : '',
-    imageQuality: kind === 'image' ? 'medium' : '',
-    secretKeyRef: `ai_${scope}_${kind}`,
-    secretConfigured: false,
-    enabled: true,
-    revision: 0,
-    updatedBy: '',
-    updatedAt: '',
-  };
-}
-
-async function saveAiProviderConfig(kind: GmAiProviderKind, scope: string, rowEl: HTMLElement): Promise<void> {
-  const provider = rowEl.querySelector<HTMLSelectElement>('[data-ai-provider]')?.value ?? '';
-  const baseURL = rowEl.querySelector<HTMLInputElement>('[data-ai-base-url]')?.value ?? '';
-  const models = normalizeAiProviderModelSelection(readAiProviderModelsFromRow(rowEl));
-  const modelName = resolveAiProviderSelectedModelName(models);
-  const timeoutMsRaw = rowEl.querySelector<HTMLInputElement>('[data-ai-timeout-ms]')?.value ?? '';
-  const imageSize = rowEl.querySelector<HTMLInputElement>('[data-ai-image-size]')?.value ?? '';
-  const imageQuality = rowEl.querySelector<HTMLInputElement>('[data-ai-image-quality]')?.value ?? '';
-  const secretKeyRef = rowEl.querySelector<HTMLInputElement>('[data-ai-secret-ref]')?.value ?? '';
-  const apiKey = rowEl.querySelector<HTMLInputElement>('[data-ai-api-key]')?.value ?? '';
-  const enabled = rowEl.querySelector<HTMLInputElement>('[data-ai-enabled]')?.checked ?? true;
-  const timeoutMs = Number(timeoutMsRaw);
-
-  const body: GmAiProviderConfigSetReq = {
-    provider: provider as GmAiTextProvider | GmAiImageProvider,
-    baseURL,
-    modelName,
-    models,
-    timeoutMs: Number.isFinite(timeoutMs) ? Math.trunc(timeoutMs) : undefined,
-    imageSize: kind === 'image' ? imageSize : undefined,
-    imageQuality: kind === 'image' ? imageQuality : undefined,
-    secretKeyRef,
-    apiKey: apiKey.trim() ? apiKey : undefined,
-    enabled,
-  };
-  const res = await request<GmAiProviderConfigSetRes>(
-    `${GM_API_BASE_PATH}/ai/providers/${kind}/${encodeURIComponent(scope)}`,
-    { method: 'POST', body: JSON.stringify(body) },
-  );
-  setStatus(`AI 配置 ${res.item.kind}/${res.item.scope} 已保存${res.secretWritten ? '，密钥已更新' : ''}`);
-  await loadAiProviderConfigs();
-}
-
-function readAiProviderModelsFromRow(rowEl: HTMLElement): GmAiProviderModelItem[] {
-  const models: GmAiProviderModelItem[] = [];
-  const modelRows = [...rowEl.querySelectorAll<HTMLElement>('[data-ai-model-row]')];
-  const selectedModelName = modelRows
-    .find((modelEl) => modelEl.querySelector<HTMLInputElement>('[data-ai-model-default]')?.checked)
-    ?.dataset.aiModelName?.trim() ?? '';
-  modelRows.forEach((modelEl) => {
-    const name = modelEl.dataset.aiModelName?.trim() || modelEl.querySelector<HTMLElement>('.ai-model-name')?.textContent?.trim() || '';
-    if (!name || models.some((model) => model.name === name)) return;
-    const source = modelEl.dataset.aiModelSource === 'fetched' || modelEl.dataset.aiModelSource === 'legacy'
-      ? modelEl.dataset.aiModelSource
-      : 'manual';
-    models.push({
-      name,
-      enabled: selectedModelName ? name === selectedModelName : models.length === 0,
-      source,
-      addedAt: modelEl.dataset.aiModelAddedAt || new Date().toISOString(),
-    });
-  });
-  return models;
-}
-
-function addAiProviderModel(rowEl: HTMLElement): void {
-  const modelName = prompt('输入模型名');
-  if (!modelName?.trim()) return;
-  const host = rowEl.querySelector<HTMLElement>('[data-ai-models]');
-  if (!host) return;
-  if ([...host.querySelectorAll<HTMLElement>('[data-ai-model-row] .ai-model-name')]
-    .some((el) => el.textContent?.trim() === modelName.trim())) {
-    setStatus(`模型 ${modelName.trim()} 已存在`, true);
-    return;
-  }
-  const kind = rowEl.dataset.aiKind as GmAiProviderKind;
-  const scope = rowEl.dataset.aiScope ?? 'default';
-  const item = aiProviderConfigs.find((entry) => entry.kind === kind && entry.scope === scope) ?? createDraftAiProviderConfig(kind, scope);
-  host.insertAdjacentHTML('beforeend', renderAiProviderModelRow(item, {
-    name: modelName.trim(),
-    enabled: true,
-    source: 'manual',
-    addedAt: new Date().toISOString(),
-  }, false));
-  renderAiProviderConfigsFromDom(rowEl);
-}
-
-function renderAiProviderConfigsFromDom(rowEl: HTMLElement): void {
-  const kind = rowEl.dataset.aiKind as GmAiProviderKind;
-  const scope = rowEl.dataset.aiScope ?? 'default';
-  const index = aiProviderConfigs.findIndex((item) => item.kind === kind && item.scope === scope);
-  const models = normalizeAiProviderModelSelection(readAiProviderModelsFromRow(rowEl));
-  if (index >= 0) {
-    aiProviderConfigs[index] = {
-      ...aiProviderConfigs[index],
-      models,
-      modelName: resolveAiProviderSelectedModelName(models, aiProviderConfigs[index].modelName),
-    };
-  }
-  renderAiProviderConfigs();
-}
-
-function removeAiProviderModelLocally(rowEl: HTMLElement, modelName: string): void {
-  const modelEl = [...rowEl.querySelectorAll<HTMLElement>('[data-ai-model-row]')]
-    .find((el) => el.dataset.aiModelName === modelName);
-  modelEl?.remove();
-  renderAiProviderConfigsFromDom(rowEl);
-}
-
-function deleteAllAiProviderModelsLocally(rowEl: HTMLElement): void {
-  if (!confirm('确认删除该 provider 下的全部模型？')) return;
-  rowEl.querySelectorAll<HTMLElement>('[data-ai-model-row]').forEach((modelEl) => modelEl.remove());
-  renderAiProviderConfigsFromDom(rowEl);
-  setStatus('已清空本地模型列表');
-}
-
-async function deleteAiProviderConfig(kind: GmAiProviderKind, scope: string): Promise<void> {
-  if (!confirm(`确认删除 AI 配置 "${kind}/${scope}"？密钥本身不会删除。`)) return;
-  const res = await request<GmAiProviderConfigDeleteRes>(
-    `${GM_API_BASE_PATH}/ai/providers/${kind}/${encodeURIComponent(scope)}`,
-    { method: 'DELETE' },
-  );
-  setStatus(res.deleted ? `AI 配置 ${kind}/${scope} 已删除` : `AI 配置 ${kind}/${scope} 不存在`);
-  await loadAiProviderConfigs();
-}
-
-async function fetchAiProviderModels(kind: GmAiProviderKind, scope: string): Promise<void> {
-  const res = await request<GmAiProviderFetchModelsRes>(
-    `${GM_API_BASE_PATH}/ai/providers/${kind}/${encodeURIComponent(scope)}/models/fetch`,
-    { method: 'POST' },
-    45_000,
-  );
-  const item = aiProviderConfigs.find((entry) => entry.kind === kind && entry.scope === scope);
-  if (!item) {
-    throw new Error('AI provider 配置不存在');
-  }
-  const existingNames = new Set(item.models.map((model) => model.name));
-  const candidates = res.models.filter((model) => !existingNames.has(model.name));
-  if (candidates.length === 0) {
-    setStatus(`已获取 ${res.fetchedCount} 个模型，没有新的可添加模型`);
-    return;
-  }
-  const selected = await openAiModelPicker(candidates);
-  if (selected.length === 0) {
-    setStatus('未选择新模型');
-    return;
-  }
-  await saveAiProviderModels(kind, scope, [...item.models, ...selected]);
-  setStatus(`已添加 ${selected.length} 个模型`);
-}
-
-async function deleteAiProviderModel(kind: GmAiProviderKind, scope: string, modelName: string): Promise<void> {
-  if (!modelName.trim()) return;
-  if (!confirm(`确认从 "${kind}/${scope}" 删除模型 "${modelName}"？`)) return;
-  const res = await request<GmAiProviderDeleteModelRes>(
-    `${GM_API_BASE_PATH}/ai/providers/${kind}/${encodeURIComponent(scope)}/models/${encodeURIComponent(modelName)}`,
-    { method: 'DELETE' },
-  );
-  setStatus(res.deleted ? `模型 ${modelName} 已删除` : `模型 ${modelName} 不存在`);
-  await loadAiProviderConfigs();
-}
-
-async function deleteAllAiProviderModels(kind: GmAiProviderKind, scope: string): Promise<void> {
-  if (!confirm(`确认删除 "${kind}/${scope}" 下的全部模型？`)) return;
-  await saveAiProviderModels(kind, scope, []);
-  setStatus(`已删除 ${kind}/${scope} 的全部模型`);
-}
-
-async function testAiProviderModel(kind: GmAiProviderKind, scope: string, modelName: string): Promise<void> {
-  if (!modelName.trim()) return;
-  const stateKey = getAiModelStateKey(kind, scope, modelName);
-  aiModelTestStateByKey.set(stateKey, { kind: 'pending', text: '测试中...' });
-  renderAiProviderConfigs();
-  const res = await request<GmAiProviderTestModelRes>(
-    `${GM_API_BASE_PATH}/ai/providers/${kind}/${encodeURIComponent(scope)}/models/${encodeURIComponent(modelName)}/test`,
-    { method: 'POST' },
-    kind === 'image' ? 45_000 : 30_000,
-  );
-  aiModelTestStateByKey.set(stateKey, {
-    kind: res.ok ? 'success' : 'error',
-    text: `${res.ok ? '成功' : '失败'} ${res.latencyMs}ms`,
-  });
-  renderAiProviderConfigs();
-  setStatus(`${modelName}：${res.message}（${res.latencyMs}ms）`, !res.ok);
-}
-
-async function saveAiProviderModels(kind: GmAiProviderKind, scope: string, models: GmAiProviderModelItem[]): Promise<void> {
-  const item = aiProviderConfigs.find((entry) => entry.kind === kind && entry.scope === scope);
-  if (!item) throw new Error('AI provider 配置不存在');
-  const selectedModels = normalizeAiProviderModelSelection(models, item.modelName);
-  const modelName = resolveAiProviderSelectedModelName(selectedModels, item.modelName);
-  const body: GmAiProviderConfigSetReq = {
-    provider: item.provider,
-    baseURL: item.baseURL,
-    modelName,
-    models: selectedModels,
-    timeoutMs: item.timeoutMs,
-    imageSize: kind === 'image' ? item.imageSize : undefined,
-    imageQuality: kind === 'image' ? item.imageQuality : undefined,
-    secretKeyRef: item.secretKeyRef,
-    enabled: item.enabled,
-  };
-  await request<GmAiProviderConfigSetRes>(
-    `${GM_API_BASE_PATH}/ai/providers/${kind}/${encodeURIComponent(scope)}`,
-    { method: 'POST', body: JSON.stringify(body) },
-  );
-  await loadAiProviderConfigs();
-}
-
-function openAiModelPicker(models: GmAiProviderModelItem[]): Promise<GmAiProviderModelItem[]> {
-  return new Promise((resolve) => {
-    const overlay = document.createElement('div');
-    overlay.className = 'network-payload-modal';
-    overlay.innerHTML = `
-      <div class="network-payload-dialog" role="dialog" aria-modal="true" aria-label="选择模型">
-        <div class="network-payload-dialog-head">
-          <div>
-            <div class="section-title">选择要加入的模型</div>
-            <div class="network-breakdown-subtitle">仅展示当前 provider 里还没有的模型。</div>
-          </div>
-          <button class="small-btn" type="button" data-ai-picker-close>关闭</button>
-        </div>
-        <div class="button-row">
-          <button class="small-btn" type="button" data-ai-picker-all>全选</button>
-          <button class="small-btn" type="button" data-ai-picker-none>全不选</button>
-          <button class="small-btn" type="button" data-ai-picker-invert>反选</button>
-          <button class="small-btn primary" type="button" data-ai-picker-confirm>加入选中</button>
-        </div>
-        <div class="ai-model-picker-list">
-          ${models.map((model) => `
-            <label class="ai-model-picker-item" title="${escapeHtml(model.name)}">
-              <input type="checkbox" data-ai-picker-model="${escapeHtml(model.name)}" />
-              <span class="ai-model-picker-name">${escapeHtml(model.name)}</span>
-            </label>
-          `).join('')}
-        </div>
-      </div>
-    `;
-    const close = (result: GmAiProviderModelItem[]) => {
-      overlay.remove();
-      resolve(result);
-    };
-    const getInputs = () => [...overlay.querySelectorAll<HTMLInputElement>('[data-ai-picker-model]')];
-    overlay.addEventListener('click', (event) => {
-      const target = event.target as HTMLElement | null;
-      if (target === overlay || target?.closest('[data-ai-picker-close]')) {
-        close([]);
-        return;
-      }
-      if (target?.closest('[data-ai-picker-all]')) {
-        getInputs().forEach((input) => { input.checked = true; });
-        return;
-      }
-      if (target?.closest('[data-ai-picker-none]')) {
-        getInputs().forEach((input) => { input.checked = false; });
-        return;
-      }
-      if (target?.closest('[data-ai-picker-invert]')) {
-        getInputs().forEach((input) => { input.checked = !input.checked; });
-        return;
-      }
-      if (target?.closest('[data-ai-picker-confirm]')) {
-        const selectedNames = new Set(getInputs().filter((input) => input.checked).map((input) => input.dataset.aiPickerModel ?? ''));
-        close(models.filter((model) => selectedNames.has(model.name)));
-      }
-    });
-    document.body.appendChild(overlay);
-  });
+  return envConfigAddAiProviderConfig(kind, envConfigContext);
 }
 
 // ===== AI 生成功法 tab =====
 
-function buildGeneratedTechniqueListQueryParams(): URLSearchParams {
-  return new URLSearchParams({
-    page: String(generatedTechniquePage),
-    pageSize: '50',
-  });
-}
+/** genTechContext：generated-technique 对 gm.ts 的依赖。 */
+const genTechContext: GeneratedTechniqueContext = {
+  getToken: () => token,
+  GM_API_BASE_PATH,
+  request,
+  setStatus,
+  escapeHtml,
+  getCurrentGeneratedTechniqueSubtab: () => currentGeneratedTechniqueSubtab,
+  setCurrentGeneratedTechniqueSubtab: (tab) => { currentGeneratedTechniqueSubtab = tab; },
+  getGeneratedTechniquePage: () => generatedTechniquePage,
+  setGeneratedTechniquePage: (page) => { generatedTechniquePage = page; },
+  getTechniqueGenerationJobPage: () => techniqueGenerationJobPage,
+  setTechniqueGenerationJobPage: (page) => { techniqueGenerationJobPage = page; },
+  getGeneratedTechniques: () => generatedTechniques,
+  setGeneratedTechniques: (techniques) => { generatedTechniques = techniques; },
+  getGeneratedTechniqueTotalPages: () => generatedTechniqueTotalPages,
+  setGeneratedTechniqueTotalPages: (pages) => { generatedTechniqueTotalPages = pages; },
+  getSelectedGeneratedTechniqueId: () => selectedGeneratedTechniqueId,
+  setSelectedGeneratedTechniqueId: (id) => { selectedGeneratedTechniqueId = id; },
+  getTechniqueGenerationJobs: () => techniqueGenerationJobs,
+  setTechniqueGenerationJobs: (jobs) => { techniqueGenerationJobs = jobs; },
+  getTechniqueGenerationJobTotalPages: () => techniqueGenerationJobTotalPages,
+  setTechniqueGenerationJobTotalPages: (pages) => { techniqueGenerationJobTotalPages = pages; },
+  getSelectedTechniqueGenerationJobId: () => selectedTechniqueGenerationJobId,
+  setSelectedTechniqueGenerationJobId: (id) => { selectedTechniqueGenerationJobId = id; },
+  generatedTechniqueBrowseEl,
+  generatedTechniqueListEl,
+  generatedTechniqueDetailEl,
+  generatedTechniqueDetailEmptyEl,
+  generatedTechniqueDetailMetaEl,
+  generatedTechniqueJsonEl,
+  generatedTechniquePageMetaEl,
+  generatedTechniquePageNextBtn,
+  generatedTechniquePagePrevBtn,
+  generatedTechniquePaginationEl,
+  generatedTechniqueSubtabJobsBtn,
+  generatedTechniqueSubtabManualBtn,
+  generatedTechniqueSubtabTechniquesBtn,
+  customTechniqueFormEl,
+  getGeneratedTechniqueEditor: () => generatedTechniqueEditor,
+  getSelectedGeneratedTechniqueDetail: () => selectedGeneratedTechniqueDetail,
+  setSelectedGeneratedTechniqueDetail: (detail) => { selectedGeneratedTechniqueDetail = detail; },
+  getSelectedTechniqueGenerationJobDetail: () => selectedTechniqueGenerationJobDetail,
+  setSelectedTechniqueGenerationJobDetail: (detail) => { selectedTechniqueGenerationJobDetail = detail; },
+  getGeneratedTechniqueListRequestNonce: () => generatedTechniqueListRequestNonce,
+  setGeneratedTechniqueListRequestNonce: (nonce) => { generatedTechniqueListRequestNonce = nonce; },
+  getGeneratedTechniqueDetailRequestNonce: () => generatedTechniqueDetailRequestNonce,
+  setGeneratedTechniqueDetailRequestNonce: (nonce) => { generatedTechniqueDetailRequestNonce = nonce; },
+  getTechniqueGenerationJobListRequestNonce: () => techniqueGenerationJobListRequestNonce,
+  setTechniqueGenerationJobListRequestNonce: (nonce) => { techniqueGenerationJobListRequestNonce = nonce; },
+  getTechniqueGenerationJobDetailRequestNonce: () => techniqueGenerationJobDetailRequestNonce,
+  setTechniqueGenerationJobDetailRequestNonce: (nonce) => { techniqueGenerationJobDetailRequestNonce = nonce; },
+};
 
-function buildTechniqueGenerationJobListQueryParams(): URLSearchParams {
-  return new URLSearchParams({
-    page: String(techniqueGenerationJobPage),
-    pageSize: '50',
-  });
-}
-
-function applyGeneratedTechniqueSubtabVisibility(tab: 'techniques' | 'jobs' | 'manual'): void {
-  generatedTechniqueSubtabTechniquesBtn.classList.toggle('active', tab === 'techniques');
-  generatedTechniqueSubtabJobsBtn.classList.toggle('active', tab === 'jobs');
-  generatedTechniqueSubtabManualBtn.classList.toggle('active', tab === 'manual');
-  const manual = tab === 'manual';
-  generatedTechniqueBrowseEl.classList.toggle('hidden', manual);
-  generatedTechniquePaginationEl.classList.toggle('hidden', manual);
-  customTechniqueFormEl.classList.toggle('hidden', !manual);
-  if (manual) {
-    generatedTechniqueEditor.activate();
-  }
-}
-
-function switchGeneratedTechniqueSubtab(tab: 'techniques' | 'jobs' | 'manual'): void {
-  currentGeneratedTechniqueSubtab = tab;
-  applyGeneratedTechniqueSubtabVisibility(tab);
-  if (tab === 'manual') {
-    return;
-  }
-  loadCurrentGeneratedTechniqueSubtab(false).catch(handleGeneratedTechniquePanelLoadError);
-}
-
-async function loadCurrentGeneratedTechniqueSubtab(silent = true): Promise<void> {
-  if (currentGeneratedTechniqueSubtab === 'manual') {
-    return;
-  }
-  if (currentGeneratedTechniqueSubtab === 'jobs') {
-    await loadTechniqueGenerationJobs(silent);
-    return;
-  }
-  await loadGeneratedTechniques(silent);
-}
-
-async function loadGeneratedTechniques(silent = true): Promise<void> {
-  if (!token) return;
-  const nonce = ++generatedTechniqueListRequestNonce;
-  applyGeneratedTechniqueSubtabVisibility('techniques');
-  generatedTechniqueSubtabTechniquesBtn.classList.add('active');
-  generatedTechniqueSubtabJobsBtn.classList.remove('active');
-  generatedTechniqueListEl.innerHTML = '<div class="empty-hint">正在加载功法…</div>';
-  generatedTechniquePageMetaEl.textContent = `第 ${generatedTechniquePage} / ${Math.max(1, generatedTechniqueTotalPages)} 页 · 加载中`;
-  generatedTechniquePagePrevBtn.disabled = true;
-  generatedTechniquePageNextBtn.disabled = true;
-
-  const result = await request<GmGeneratedTechniqueListRes>(
-    buildGmGeneratedTechniquesApiPath(buildGeneratedTechniqueListQueryParams()),
-  );
-  if (nonce !== generatedTechniqueListRequestNonce) {
-    return;
-  }
-
-  generatedTechniques = result.techniques;
-  generatedTechniquePage = result.page.page;
-  generatedTechniqueTotalPages = result.page.totalPages;
-  if (!selectedGeneratedTechniqueId || !generatedTechniques.some((technique) => technique.id === selectedGeneratedTechniqueId)) {
-    selectedGeneratedTechniqueId = null;
-    selectedGeneratedTechniqueDetail = null;
-  }
-  renderGeneratedTechniquePanel(result);
-  if (!silent) {
-    setStatus(`已同步生成的功法第 ${result.page.page} / ${result.page.totalPages} 页，本页 ${result.techniques.length} 条，共 ${result.page.total} 条`);
-  }
-}
-
-function renderGeneratedTechniquePanel(result?: GmGeneratedTechniqueListRes): void {
-  const page = result?.page ?? {
-    page: generatedTechniquePage,
-    pageSize: 50,
-    total: generatedTechniques.length,
-    totalPages: generatedTechniqueTotalPages,
-  };
-  generatedTechniquePageMetaEl.textContent = `第 ${page.page} / ${Math.max(1, page.totalPages)} 页 · 共 ${page.total} 条`;
-  generatedTechniquePagePrevBtn.disabled = page.page <= 1;
-  generatedTechniquePageNextBtn.disabled = page.page >= page.totalPages;
-
-  if (generatedTechniques.length === 0) {
-    generatedTechniqueListEl.innerHTML = '<div class="empty-hint">暂无生成的功法。</div>';
-  } else {
-    generatedTechniqueListEl.innerHTML = generatedTechniques.map((technique) => renderGeneratedTechniqueRow(technique)).join('');
-  }
-  renderGeneratedTechniqueDetail();
-}
-
-function renderGeneratedTechniqueRow(technique: GmGeneratedTechniqueSummary): string {
-  const active = technique.id === selectedGeneratedTechniqueId ? ' active' : '';
-  const gradeLabel = getGeneratedTechniqueGradeLabel(technique.grade);
-  const levelLabel = technique.realmLv !== null && technique.realmLv !== undefined ? `Lv.${technique.realmLv}` : 'Lv.-';
-  return `
-    <button class="player-row${active}" type="button" data-generated-technique-id="${escapeHtml(technique.id)}">
-      <div>
-        <div class="player-row-title">${escapeHtml(technique.name)}</div>
-        <div class="player-row-meta">${escapeHtml(formatDateTime(technique.createdAt))}</div>
-        <div class="player-row-meta">${escapeHtml(gradeLabel)} · ${escapeHtml(levelLabel)}</div>
-      </div>
-    </button>
-  `;
-}
-
-function renderGeneratedTechniqueDetail(): void {
-  if (!selectedGeneratedTechniqueId) {
-    generatedTechniqueDetailEmptyEl.classList.remove('hidden');
-    generatedTechniqueDetailEl.classList.add('hidden');
-    generatedTechniqueDetailMetaEl.textContent = '从左侧选择一条记录。';
-    generatedTechniqueJsonEl.value = '';
-    return;
-  }
-  const summary = generatedTechniques.find((technique) => technique.id === selectedGeneratedTechniqueId) ?? null;
-  generatedTechniqueDetailMetaEl.textContent = summary
-    ? `${summary.name} · ${getGeneratedTechniqueGradeLabel(summary.grade)} · ${summary.realmLv !== null && summary.realmLv !== undefined ? `Lv.${summary.realmLv}` : 'Lv.-'}`
-    : selectedGeneratedTechniqueId;
-  generatedTechniqueDetailEmptyEl.classList.add('hidden');
-  generatedTechniqueDetailEl.classList.remove('hidden');
-  generatedTechniqueJsonEl.value = selectedGeneratedTechniqueDetail
-    ? JSON.stringify(selectedGeneratedTechniqueDetail.rawJson ?? selectedGeneratedTechniqueDetail, null, 2)
-    : '正在加载详情…';
-}
-
-async function loadGeneratedTechniqueDetail(id: string): Promise<void> {
-  selectedGeneratedTechniqueId = id;
-  selectedGeneratedTechniqueDetail = null;
-  renderGeneratedTechniquePanel();
-  const nonce = ++generatedTechniqueDetailRequestNonce;
-  const result = await request<GmGeneratedTechniqueDetailRes>(buildGmGeneratedTechniqueDetailApiPath(id));
-  if (nonce !== generatedTechniqueDetailRequestNonce || selectedGeneratedTechniqueId !== id) {
-    return;
-  }
-  selectedGeneratedTechniqueDetail = result.technique;
-  renderGeneratedTechniquePanel();
-  setStatus(`已加载功法：${result.technique.name}`);
-}
-
-function getGeneratedTechniqueGradeLabel(grade: string | null | undefined): string {
-  return grade ? TECHNIQUE_GRADE_LABELS[grade as keyof typeof TECHNIQUE_GRADE_LABELS] ?? grade : '未知品阶';
-}
-
-async function loadTechniqueGenerationJobs(silent = true): Promise<void> {
-  if (!token) return;
-  const nonce = ++techniqueGenerationJobListRequestNonce;
-  applyGeneratedTechniqueSubtabVisibility('jobs');
-  generatedTechniqueSubtabTechniquesBtn.classList.remove('active');
-  generatedTechniqueSubtabJobsBtn.classList.add('active');
-  generatedTechniqueListEl.innerHTML = '<div class="empty-hint">正在加载生成任务…</div>';
-  generatedTechniquePageMetaEl.textContent = `第 ${techniqueGenerationJobPage} / ${Math.max(1, techniqueGenerationJobTotalPages)} 页 · 加载中`;
-  generatedTechniquePagePrevBtn.disabled = true;
-  generatedTechniquePageNextBtn.disabled = true;
-
-  const result = await request<GmTechniqueGenerationJobListRes>(
-    buildGmTechniqueGenerationJobsApiPath(buildTechniqueGenerationJobListQueryParams()),
-  );
-  if (nonce !== techniqueGenerationJobListRequestNonce) {
-    return;
-  }
-
-  techniqueGenerationJobs = result.jobs;
-  techniqueGenerationJobPage = result.page.page;
-  techniqueGenerationJobTotalPages = result.page.totalPages;
-  if (!selectedTechniqueGenerationJobId || !techniqueGenerationJobs.some((job) => job.id === selectedTechniqueGenerationJobId)) {
-    selectedTechniqueGenerationJobId = null;
-    selectedTechniqueGenerationJobDetail = null;
-  }
-  renderTechniqueGenerationJobPanel(result);
-  if (!silent) {
-    setStatus(`已同步生成任务第 ${result.page.page} / ${result.page.totalPages} 页，本页 ${result.jobs.length} 条，共 ${result.page.total} 条`);
-  }
-}
-
-function renderTechniqueGenerationJobPanel(result?: GmTechniqueGenerationJobListRes): void {
-  const page = result?.page ?? {
-    page: techniqueGenerationJobPage,
-    pageSize: 50,
-    total: techniqueGenerationJobs.length,
-    totalPages: techniqueGenerationJobTotalPages,
-  };
-  generatedTechniquePageMetaEl.textContent = `第 ${page.page} / ${Math.max(1, page.totalPages)} 页 · 共 ${page.total} 条`;
-  generatedTechniquePagePrevBtn.disabled = page.page <= 1;
-  generatedTechniquePageNextBtn.disabled = page.page >= page.totalPages;
-
-  if (techniqueGenerationJobs.length === 0) {
-    generatedTechniqueListEl.innerHTML = '<div class="empty-hint">暂无生成任务。</div>';
-  } else {
-    generatedTechniqueListEl.innerHTML = techniqueGenerationJobs.map((job) => renderTechniqueGenerationJobRow(job)).join('');
-  }
-  renderTechniqueGenerationJobDetail();
-}
-
-function renderTechniqueGenerationJobRow(job: GmTechniqueGenerationJobSummary): string {
-  const active = job.id === selectedTechniqueGenerationJobId ? ' active' : '';
-  const gradeLabel = getGeneratedTechniqueGradeLabel(job.rolledGrade);
-  const levelLabel = job.rolledRealmLv !== null && job.rolledRealmLv !== undefined ? `Lv.${job.rolledRealmLv}` : 'Lv.-';
-  const name = `${formatTechniqueGenerationJobStatus(job.status)} · ${job.requestedCategory ?? '未知类型'}`;
-  const itemState = formatTechniqueGenerationJobItemState(job);
-  return `
-    <button class="player-row${active}" type="button" data-technique-generation-job-id="${escapeHtml(job.id)}">
-      <div>
-        <div class="player-row-title">${escapeHtml(name)}</div>
-        <div class="player-row-meta">${escapeHtml(formatDateTime(job.createdAt))}</div>
-        <div class="player-row-meta">${escapeHtml(gradeLabel)} · ${escapeHtml(levelLabel)} · ${escapeHtml(itemState)}</div>
-      </div>
-    </button>
-  `;
-}
-
-function renderTechniqueGenerationJobDetail(): void {
-  if (!selectedTechniqueGenerationJobId) {
-    generatedTechniqueDetailEmptyEl.classList.remove('hidden');
-    generatedTechniqueDetailEl.classList.add('hidden');
-    generatedTechniqueDetailMetaEl.textContent = '从左侧选择一条生成任务。';
-    generatedTechniqueJsonEl.value = '';
-    return;
-  }
-  const summary = techniqueGenerationJobs.find((job) => job.id === selectedTechniqueGenerationJobId) ?? null;
-  generatedTechniqueDetailMetaEl.textContent = summary
-    ? `${formatTechniqueGenerationJobStatus(summary.status)} · ${formatTechniqueGenerationJobItemState(summary)} · ${formatTechniqueGenerationJobPlayerLabel(summary)}`
-    : selectedTechniqueGenerationJobId;
-  generatedTechniqueDetailEmptyEl.classList.add('hidden');
-  generatedTechniqueDetailEl.classList.remove('hidden');
-  generatedTechniqueJsonEl.value = selectedTechniqueGenerationJobDetail
-    ? JSON.stringify(selectedTechniqueGenerationJobDetail.rawJson ?? selectedTechniqueGenerationJobDetail, null, 2)
-    : '正在加载详情…';
-}
-
-async function loadTechniqueGenerationJobDetail(id: string): Promise<void> {
-  selectedTechniqueGenerationJobId = id;
-  selectedTechniqueGenerationJobDetail = null;
-  renderTechniqueGenerationJobPanel();
-  const nonce = ++techniqueGenerationJobDetailRequestNonce;
-  const result = await request<GmTechniqueGenerationJobDetailRes>(buildGmTechniqueGenerationJobDetailApiPath(id));
-  if (nonce !== techniqueGenerationJobDetailRequestNonce || selectedTechniqueGenerationJobId !== id) {
-    return;
-  }
-  selectedTechniqueGenerationJobDetail = result.job;
-  renderTechniqueGenerationJobPanel();
-  setStatus(`已加载生成任务：${result.job.id}`);
-}
-
-function formatTechniqueGenerationJobItemState(job: GmTechniqueGenerationJobSummary): string {
-  if (job.itemRefunded) {
-    return '已返还玉简';
-  }
-  return job.itemConsumed ? '已扣玉简' : '未扣玉简';
-}
-
-function formatTechniqueGenerationJobPlayerLabel(job: GmTechniqueGenerationJobSummary): string {
-  const candidates = [job.playerName, job.playerDisplayName];
-  for (const candidate of candidates) {
-    const normalized = typeof candidate === 'string' ? candidate.trim() : '';
-    if (normalized && normalized !== job.playerId && !/^p_[0-9a-f-]+(?:_\d+)?$/i.test(normalized)) {
-      return normalized;
-    }
-  }
-  return '未知角色';
-}
-
-function formatTechniqueGenerationJobStatus(status: string): string {
-  switch (status) {
-    case 'pending':
-      return '等待生成';
-    case 'running':
-      return '生成中';
-    case 'generated_draft':
-      return '待采纳';
-    case 'learned':
-      return '已学习';
-    case 'discarded':
-      return '已放弃';
-    case 'expired':
-      return '已过期';
-    case 'failed':
-      return '失败';
-    default:
-      return status || '未知状态';
-  }
-}
-
-function handleGeneratedTechniquePanelLoadError(error: unknown): void {
-  generatedTechniqueListEl.innerHTML = `<div class="empty-hint" style="color:var(--stamp-red);">${escapeHtml(error instanceof Error ? error.message : '加载失败')}</div>`;
-  setStatus(error instanceof Error ? error.message : '加载 AI 生成数据失败', true);
-}
+function buildGeneratedTechniqueListQueryParams(): URLSearchParams { return genTechBuildListQueryParams(genTechContext); }
+function buildTechniqueGenerationJobListQueryParams(): URLSearchParams { return genTechBuildJobListQueryParams(genTechContext); }
+function applyGeneratedTechniqueSubtabVisibility(tab: 'techniques' | 'jobs' | 'manual'): void { return genTechApplySubtabVisibility(tab, genTechContext); }
+function switchGeneratedTechniqueSubtab(tab: 'techniques' | 'jobs' | 'manual'): void { return genTechSwitchSubtab(tab, genTechContext); }
+async function loadCurrentGeneratedTechniqueSubtab(silent = true): Promise<void> { return genTechLoadCurrentSubtab(silent, genTechContext); }
+async function loadGeneratedTechniques(silent = true): Promise<void> { return genTechLoadTechniques(silent, genTechContext); }
+function renderGeneratedTechniquePanel(result?: GmGeneratedTechniqueListRes): void { return genTechRenderPanel(result, genTechContext); }
+function renderGeneratedTechniqueRow(technique: GmGeneratedTechniqueSummary): string { return genTechRenderRow(technique, genTechContext); }
+function renderGeneratedTechniqueDetail(): void { return genTechRenderDetail(genTechContext); }
+async function loadGeneratedTechniqueDetail(id: string): Promise<void> { return genTechLoadDetail(id, genTechContext); }
+function getGeneratedTechniqueGradeLabel(grade: string | null | undefined): string { return genTechGetGradeLabel(grade, genTechContext); }
+async function loadTechniqueGenerationJobs(silent = true): Promise<void> { return genTechLoadJobs(silent, genTechContext); }
+function renderTechniqueGenerationJobPanel(result?: GmTechniqueGenerationJobListRes): void { return genTechRenderJobPanel(result, genTechContext); }
+function renderTechniqueGenerationJobRow(job: GmTechniqueGenerationJobSummary): string { return genTechRenderJobRow(job, genTechContext); }
+function renderTechniqueGenerationJobDetail(): void { return genTechRenderJobDetail(genTechContext); }
+async function loadTechniqueGenerationJobDetail(id: string): Promise<void> { return genTechLoadJobDetail(id, genTechContext); }
+function formatTechniqueGenerationJobItemState(job: GmTechniqueGenerationJobSummary): string { return genTechFormatJobItemState(job, genTechContext); }
+function formatTechniqueGenerationJobPlayerLabel(job: GmTechniqueGenerationJobSummary): string { return genTechFormatJobPlayerLabel(job, genTechContext); }
+function formatTechniqueGenerationJobStatus(status: string): string { return genTechFormatJobStatus(status, genTechContext); }
+function handleGeneratedTechniquePanelLoadError(error: unknown): void { return genTechHandleLoadError(error, genTechContext); }
 
 // ===== 交易记录 tab =====
 /** tradesQueryState：交易记录 tab 当前查询状态，分页 / 关键字。 */
@@ -10647,141 +5423,26 @@ let tradesQueryState: { page: number; pageSize: number; playerKeyword: string; i
   itemKeyword: '',
 };
 
-/** loadTrades：根据当前/给定查询条件请求服务端并渲染。 */
-async function loadTrades(options?: { resetPage?: boolean; playerKeyword?: string; itemKeyword?: string; pageSize?: number }): Promise<void> {
-  if (options?.resetPage) {
-    tradesQueryState.page = 1;
-  }
-  if (typeof options?.playerKeyword === 'string') {
-    tradesQueryState.playerKeyword = options.playerKeyword.trim();
-  }
-  if (typeof options?.itemKeyword === 'string') {
-    tradesQueryState.itemKeyword = options.itemKeyword.trim();
-  }
-  if (typeof options?.pageSize === 'number' && Number.isFinite(options.pageSize)) {
-    tradesQueryState.pageSize = Math.max(1, Math.min(200, Math.trunc(options.pageSize)));
-  }
+/** tradesPanelContext：trades-panel 对 gm.ts 的依赖。 */
+const tradesPanelContext: TradesPanelContext = {
+  GM_API_BASE_PATH,
+  request,
+  escapeHtml,
+  getTradesQueryState: () => tradesQueryState,
+  setTradesQueryState: (state) => { tradesQueryState = state; },
+  tradesListEl,
+  tradesMetaEl,
+  tradesPageMetaEl,
+  tradesPageNextBtn,
+  tradesPagePrevBtn,
+};
 
-  const params = new URLSearchParams();
-  params.set('page', String(tradesQueryState.page));
-  params.set('pageSize', String(tradesQueryState.pageSize));
-  if (tradesQueryState.playerKeyword) {
-    params.set('playerKeyword', tradesQueryState.playerKeyword);
-  }
-  if (tradesQueryState.itemKeyword) {
-    params.set('itemKeyword', tradesQueryState.itemKeyword);
-  }
-
-  tradesMetaEl.textContent = '查询中…';
-  try {
-    const result = await request<GmMarketTradeListRes>(`${GM_API_BASE_PATH}/market/trades?${params.toString()}`);
-    tradesQueryState.page = result.page;
-    tradesQueryState.pageSize = result.pageSize;
-    renderTrades(result);
-  } catch (error) {
-    tradesMetaEl.textContent = '';
-    tradesListEl.innerHTML = `<div class="empty-hint" style="color:var(--stamp-red);">${escapeHtml(error instanceof Error ? error.message : '加载失败')}</div>`;
-    tradesPagePrevBtn.disabled = true;
-    tradesPageNextBtn.disabled = true;
-  }
-}
-
-/** renderTrades：把后端返回结果渲染成表格 + 分页元信息。 */
-function renderTrades(result: GmMarketTradeListRes): void {
-  const { items, total, page, pageSize, totalPages, playerKeyword, itemKeyword } = result;
-  const conditionParts: string[] = [];
-  if (playerKeyword) {
-    conditionParts.push(`玩家="${escapeHtml(playerKeyword)}"`);
-  }
-  if (itemKeyword) {
-    conditionParts.push(`物品="${escapeHtml(itemKeyword)}"`);
-  }
-  tradesMetaEl.innerHTML = `共 ${total} 条 · 当前条件 ${conditionParts.length > 0 ? conditionParts.join('，') : '无'}`;
-  tradesPageMetaEl.textContent = `第 ${page} / ${Math.max(1, totalPages)} 页 · 共 ${total} 条`;
-  tradesPagePrevBtn.disabled = page <= 1;
-  tradesPageNextBtn.disabled = page >= totalPages;
-
-  if (items.length === 0) {
-    tradesListEl.innerHTML = '<div class="empty-hint">没有符合条件的交易记录。</div>';
-    return;
-  }
-
-  const rowsHtml = items.map((row) => renderTradeRow(row)).join('');
-  tradesListEl.innerHTML = `
-    <table style="width:100%; border-collapse:collapse; font-size:13px;">
-      <thead>
-        <tr style="background:rgba(255,255,255,0.6); border-bottom:1.5px solid var(--ink-black);">
-          <th style="text-align:left; padding:8px 10px;">完成时间</th>
-          <th style="text-align:left; padding:8px 10px;">来源</th>
-          <th style="text-align:left; padding:8px 10px;">买家</th>
-          <th style="text-align:left; padding:8px 10px;">卖家</th>
-          <th style="text-align:left; padding:8px 10px;">物品</th>
-          <th style="text-align:right; padding:8px 10px;">数量</th>
-          <th style="text-align:right; padding:8px 10px;">单价</th>
-          <th style="text-align:right; padding:8px 10px;">总价</th>
-          <th style="text-align:left; padding:8px 10px;">交易 ID</th>
-        </tr>
-      </thead>
-      <tbody>${rowsHtml}</tbody>
-    </table>
-  `;
-}
-
-function renderTradeRow(row: GmMarketTradeItem): string {
-  const buyerLabel = formatTradePartyLabel(row.buyerNo, row.buyerName, row.buyerId);
-  const sellerLabel = formatTradePartyLabel(row.sellerNo, row.sellerName, row.sellerId);
-  const sourceLabel = row.source === 'auction' ? '拍卖行' : '坊市';
-  return `
-    <tr style="border-bottom:1px solid var(--wash-ink);">
-      <td style="padding:8px 10px; white-space:nowrap; color:var(--ink-grey);">${escapeHtml(formatTradeTimestamp(row.createdAt))}</td>
-      <td style="padding:8px 10px;">${escapeHtml(sourceLabel)}</td>
-      <td style="padding:8px 10px;">${buyerLabel}</td>
-      <td style="padding:8px 10px;">${sellerLabel}</td>
-      <td style="padding:8px 10px;">${escapeHtml(row.itemName)} <span style="color:var(--light-ink); font-size:12px;">(${escapeHtml(row.itemId)})</span></td>
-      <td style="padding:8px 10px; text-align:right; font-variant-numeric:tabular-nums;">${row.quantity.toLocaleString('zh-Hans-CN')}</td>
-      <td style="padding:8px 10px; text-align:right; font-variant-numeric:tabular-nums;">${formatTradePrice(row.unitPrice)}</td>
-      <td style="padding:8px 10px; text-align:right; font-variant-numeric:tabular-nums;">${formatTradePrice(row.totalCost)}</td>
-      <td style="padding:8px 10px; color:var(--light-ink); font-family:monospace; font-size:12px; word-break:break-all;">${escapeHtml(row.id)}</td>
-    </tr>
-  `;
-}
-
-function formatTradePartyLabel(playerNo: number | null | undefined, playerName: string | null | undefined, _playerId: string): string {
-  const parts: string[] = [];
-  const noText = typeof playerNo === 'number' && Number.isFinite(playerNo) ? `#${playerNo}` : null;
-  const trimmedName = typeof playerName === 'string' ? playerName.trim() : '';
-  if (noText) {
-    parts.push(`<span style="font-family:var(--font-heading-sub);">${escapeHtml(noText)}</span>`);
-  }
-  if (trimmedName) {
-    parts.push(`<span>${escapeHtml(trimmedName)}</span>`);
-  }
-  if (!noText && !trimmedName) {
-    parts.push('<span>未知玩家</span>');
-  }
-  return `<div style="display:flex; flex-direction:column; gap:2px;">${parts.join('')}</div>`;
-}
-
-function formatTradePrice(value: number): string {
-  if (!Number.isFinite(value)) {
-    return '-';
-  }
-  return Math.round(value * 100) / 100 === Math.trunc(value)
-    ? Math.trunc(value).toLocaleString('zh-Hans-CN')
-    : value.toLocaleString('zh-Hans-CN', { maximumFractionDigits: 2 });
-}
-
-function formatTradeTimestamp(ms: number): string {
-  if (!Number.isFinite(ms) || ms <= 0) {
-    return '-';
-  }
-  const date = new Date(ms);
-  if (Number.isNaN(date.getTime())) {
-    return '-';
-  }
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-}
+async function loadTrades(options?: { resetPage?: boolean; playerKeyword?: string; itemKeyword?: string; pageSize?: number }): Promise<void> { return tradesPanelLoadTrades(options, tradesPanelContext); }
+function renderTrades(result: GmMarketTradeListRes): void { return tradesPanelRenderTrades(result, tradesPanelContext); }
+function renderTradeRow(row: GmMarketTradeItem): string { return tradesPanelRenderTradeRow(row, tradesPanelContext); }
+function formatTradePartyLabel(playerNo: number | null | undefined, playerName: string | null | undefined, _playerId: string): string { return tradesPanelFormatTradePartyLabel(playerNo, playerName, _playerId, tradesPanelContext); }
+function formatTradePrice(value: number): string { return tradesPanelFormatTradePrice(value, tradesPanelContext); }
+function formatTradeTimestamp(ms: number): string { return tradesPanelFormatTradeTimestamp(ms, tradesPanelContext); }
 
 /** changeGmPassword：处理变更GM密码。 */
 async function changeGmPassword(): Promise<void> {
@@ -10821,170 +5482,30 @@ function getCurrentEditorSaveSection(): GmPlayerUpdateSection | null {
 
 /** buildTechniqueSaveSnapshot：构建Technique保存快照。 */
 function buildTechniqueSaveSnapshot(technique: TechniqueState): TechniqueState {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (!findTechniqueCatalogEntry(technique.techId)) {
-    return clone(technique);
-  }
-  return {
-    techId: technique.techId,
-    name: technique.name,
-    level: technique.level,
-    exp: technique.exp,
-    expToNext: technique.expToNext,
-    realmLv: technique.realmLv,
-    realm: technique.realm,
-    skills: [],
-    grade: technique.grade,
-    category: technique.category,
-    layers: undefined,
-  };
+  return snapshotBuildTechniqueSaveSnapshot(technique, findTechniqueCatalogEntry);
 }
 
 function buildCraftSkillSaveSnapshot(skill: PlayerState['alchemySkill'] | undefined): NonNullable<PlayerState['alchemySkill']> {
-  return {
-    level: Math.max(1, Math.trunc(Number(skill?.level) || 1)),
-    exp: Math.max(0, Math.trunc(Number(skill?.exp) || 0)),
-    expToNext: Math.max(0, Math.trunc(Number(skill?.expToNext) || 0)),
-  };
+  return editorBuildCraftSkillSaveSnapshot(skill);
 }
 
 /** buildInventoryItemSaveSnapshot：构建背包物品保存快照。 */
 function buildInventoryItemSaveSnapshot(item: ItemStack): ItemStack {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (!findItemCatalogEntry(item.itemId)) {
-    return clone(item);
-  }
-  return {
-    itemId: item.itemId,
-    name: item.name,
-    type: item.type,
-    count: item.count,
-    desc: item.desc,
-    enhanceLevel: item.enhanceLevel,
-  };
+  return snapshotBuildInventoryItemSaveSnapshot(item, findItemCatalogEntry);
 }
 
 /** buildEquipmentItemSaveSnapshot：构建Equipment物品保存快照。 */
 function buildEquipmentItemSaveSnapshot(item: ItemStack | null): ItemStack | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (!item) {
-    return null;
-  }
-  if (!findItemCatalogEntry(item.itemId)) {
-    return clone(item);
-  }
-  return {
-    itemId: item.itemId,
-    name: item.name,
-    type: item.type,
-    count: 1,
-    desc: item.desc,
-    equipSlot: item.equipSlot,
-    enhanceLevel: item.enhanceLevel,
-    artifactMaxQiFactor: item.artifactMaxQiFactor,
-    artifactEffects: item.artifactEffects ? clone(item.artifactEffects) : undefined,
-  };
+  return snapshotBuildEquipmentItemSaveSnapshot(item, findItemCatalogEntry);
 }
 
 function buildArtifactSlotSaveSnapshot(entry: PlayerState['artifacts']['slots'][number]): PlayerState['artifacts']['slots'][number] {
-  return {
-    slot: entry.slot,
-    unlocked: entry.unlocked === true,
-    enabled: entry.enabled === true,
-    qi: Math.max(0, Math.trunc(Number(entry.qi) || 0)),
-    maxQi: Math.max(0, Math.trunc(Number(entry.maxQi) || 0)),
-    item: buildEquipmentItemSaveSnapshot(entry.item),
-  };
+  return snapshotBuildArtifactSlotSaveSnapshot(entry, findItemCatalogEntry);
 }
 
 /** buildSectionSnapshot：构建Section快照。 */
 function buildSectionSnapshot(section: GmPlayerUpdateSection, draft: PlayerState): GmUpdatePlayerSnapshot {
-  switch (section) {
-    case 'basic':
-      return {
-        name: draft.name,
-        hp: draft.hp,
-        maxHp: draft.maxHp,
-        qi: draft.qi,
-        dead: draft.dead,
-        autoBattle: draft.autoBattle,
-        autoRetaliate: draft.autoRetaliate,
-        autoBattleStationary: draft.autoBattleStationary,
-        allowAoePlayerHit: draft.allowAoePlayerHit,
-        autoIdleCultivation: draft.autoIdleCultivation,
-        autoSwitchCultivation: draft.autoSwitchCultivation,
-        combatTargetId: draft.combatTargetId,
-        combatTargetLocked: draft.combatTargetLocked,
-      };
-    case 'position':
-      return {
-        mapId: draft.mapId,
-        instanceId: resolvePositionTargetInstanceId(draft.mapId),
-        x: draft.x,
-        y: draft.y,
-        facing: draft.facing,
-        viewRange: draft.viewRange,
-      };
-    case 'realm':
-      return {
-        baseAttrs: clone(draft.baseAttrs),
-        realmLv: draft.realmLv,
-        realm: typeof draft.realm?.progress === 'number'
-          ? { progress: draft.realm.progress } as PlayerState['realm']
-          : undefined,
-        foundation: draft.foundation,
-        rootFoundation: draft.rootFoundation,
-        comprehension: draft.comprehension,
-        luck: draft.luck,
-        revealedBreakthroughRequirementIds: [...(draft.revealedBreakthroughRequirementIds ?? [])],
-        bonuses: clone(ensureArray(draft.bonuses)),
-      };
-    case 'buffs':
-      return {
-        temporaryBuffs: clone(ensureArray(draft.temporaryBuffs)),
-      };
-    case 'techniques':
-      return {
-        techniques: ensureArray(draft.techniques).map((technique) => buildTechniqueSaveSnapshot(technique)),
-        autoBattleSkills: clone(ensureArray(draft.autoBattleSkills)),
-        cultivatingTechId: draft.cultivatingTechId,
-      };
-    case 'craftSkills':
-      return {
-        alchemySkill: buildCraftSkillSaveSnapshot(draft.alchemySkill),
-        forgingSkill: buildCraftSkillSaveSnapshot(draft.forgingSkill),
-        enhancementSkill: buildCraftSkillSaveSnapshot(draft.enhancementSkill),
-        transmissionSkill: buildCraftSkillSaveSnapshot(draft.transmissionSkill),
-        formationSkill: buildCraftSkillSaveSnapshot(draft.formationSkill),
-        gatherSkill: buildCraftSkillSaveSnapshot(draft.gatherSkill),
-        miningSkill: buildCraftSkillSaveSnapshot(draft.miningSkill),
-        buildingSkill: buildCraftSkillSaveSnapshot(draft.buildingSkill),
-        enhancementSkillLevel: Math.max(1, Math.trunc(Number(draft.enhancementSkill?.level ?? draft.enhancementSkillLevel) || 1)),
-      };
-    case 'items':
-      return {
-        inventory: {
-          capacity: draft.inventory.capacity,
-          items: ensureArray(draft.inventory.items).map((item) => buildInventoryItemSaveSnapshot(item)),
-        },
-        equipment: Object.fromEntries(
-          EQUIP_SLOTS.map((slot) => [slot, buildEquipmentItemSaveSnapshot(draft.equipment[slot])]),
-        ) as EquipmentSlots,
-        artifacts: {
-          revision: Math.max(0, Math.trunc(Number(draft.artifacts?.revision) || 0)),
-          slots: normalizeGmArtifactState(draft.artifacts).slots.map((entry) => buildArtifactSlotSaveSnapshot(entry)),
-        },
-      };
-    case 'quests':
-      return {
-        quests: clone(ensureArray(draft.quests)),
-      };
-    default:
-      return clone(draft);
-  }
+  return snapshotBuildSectionSnapshot(section, draft, findTechniqueCatalogEntry, findItemCatalogEntry, resolvePositionTargetInstanceId);
 }
 
 /** saveSelectedPlayerSections：保存Selected玩家Sections。 */
@@ -11559,7 +6080,6 @@ function handleTechniqueEditorAction(action: string, trigger: HTMLElement): bool
   }
 }
 
-/** runPlayerTechniqueShortcut：处理run玩家Technique Shortcut。 */
 async function runPlayerTechniqueShortcut(
   action: 'grant-all-unlearned-technique-books' | 'max-all-techniques' | 'learn-all-techniques' | 'remove-all-techniques',
 ): Promise<void> {
@@ -12051,827 +6571,69 @@ async function resetSelectedPlayerHeavenGate(): Promise<void> {
   }
 }
 
-/** removeSelectedBot：处理remove Selected Bot。 */
-async function removeSelectedBot(): Promise<void> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+/** adminShortcutsContext：admin-shortcuts 对 gm.ts 的依赖。 */
+const adminShortcutsContext: AdminShortcutsContext = {
+  getToken: () => token,
+  GM_API_BASE_PATH,
+  request,
+  setStatus,
+  setPendingStatus,
+  t,
+  delayRefresh,
+  copyTextToClipboard,
+  formatBytes,
+  formatSignedBytes,
+  getSelectedPlayer,
+  loadState,
+  loadRuntimeFlags,
+  getState: () => state,
+  getNetworkStatsActivationPending: () => networkStatsActivationPending,
+  setNetworkStatsActivationPending: (value) => { networkStatsActivationPending = value; },
+  getEditorDirty: () => editorDirty,
+  setEditorDirty: (value) => { editorDirty = value; },
+  spawnCountInput,
+  getLastNetworkInStructureKey: () => lastNetworkInStructureKey,
+  setLastNetworkInStructureKey: (value) => { lastNetworkInStructureKey = value; },
+  getLastNetworkOutStructureKey: () => lastNetworkOutStructureKey,
+  setLastNetworkOutStructureKey: (value) => { lastNetworkOutStructureKey = value; },
+  removeBotBtn,
+  resetCpuStatsBtn,
+  resetNetworkStatsBtn,
+  resetPathfindingStatsBtn,
+  toggleNetworkPayloadCaptureBtn,
+  triggerManualGcBtn,
+  writeHeapSnapshotBtn,
+  copyHeapSnapshotSummaryBtn,
+  copyLatestHeapSnapshotSummaryBtn,
+  heapSnapshotMetaEl,
+};
 
-  const selected = getSelectedPlayer();
-  if (!selected || !selected.meta.isBot) {
-    setStatus(t('gm.bot.not-selected'), true);
-    return;
-  }
-
-  removeBotBtn.disabled = true;
-  try {
-    setPendingStatus(t('gm.bot.removing', { name: selected.name }));
-    await request<{    
-    /**
- * ok：ok相关字段。
- */
- ok: true }>(`${GM_API_BASE_PATH}/bots/remove`, {
-      method: 'POST',
-      body: JSON.stringify({ playerIds: [selected.id] } satisfies GmRemoveBotsReq),
-    });
-    /** editorDirty：编辑器Dirty。 */
-    editorDirty = false;
-    await delayRefresh(t('gm.bot.removed', { name: selected.name }));
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : t('gm.bot.remove.failed'), true);
-  } finally {
-    removeBotBtn.disabled = false;
-  }
-}
-
-/** spawnBots：处理生成Bots。 */
-async function spawnBots(): Promise<void> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  const selected = getSelectedPlayer();
-  if (!selected) {
-    setStatus(t('gm.bot.spawn.anchor-required'), true);
-    return;
-  }
-
-  const count = Number(spawnCountInput.value);
-  if (!Number.isFinite(count) || count <= 0) {
-    setStatus(t('gm.bot.spawn.count-invalid'), true);
-    return;
-  }
-
-  try {
-    await request<{    
-    /**
- * ok：ok相关字段。
- */
- ok: true }>(`${GM_API_BASE_PATH}/bots/spawn`, {
-      method: 'POST',
-      body: JSON.stringify({
-        anchorPlayerId: selected.id,
-        count,
-      } satisfies GmSpawnBotsReq),
-    });
-    await delayRefresh(t('gm.bot.spawn.started', { name: selected.name, count: Math.floor(count) }));
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : t('gm.bot.spawn.failed'), true);
-  }
-}
-
-/** removeAllBots：处理remove All Bots。 */
-async function removeAllBots(): Promise<void> {
-  try {
-    setPendingStatus(t('gm.bot.remove-all.started'));
-    await request<{    
-    /**
- * ok：ok相关字段。
- */
- ok: true }>(`${GM_API_BASE_PATH}/bots/remove`, {
-      method: 'POST',
-      body: JSON.stringify({ all: true } satisfies GmRemoveBotsReq),
-    });
-    /** editorDirty：编辑器Dirty。 */
-    editorDirty = false;
-    await delayRefresh(t('gm.bot.remove-all.done'));
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : t('gm.bot.remove.failed'), true);
-  }
-}
-
-/** returnAllPlayersToDefaultSpawn：处理return All Players To默认生成。 */
-async function returnAllPlayersToDefaultSpawn(): Promise<void> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (!window.confirm(t('gm.shortcut.return-all.confirm'))) {
-    return;
-  }
-
-  const button = document.getElementById('shortcut-return-all-to-default-spawn') as HTMLButtonElement | null;
-  if (button) {
-    button.disabled = true;
-  }
-  try {
-    const result = await request<GmShortcutRunRes>(`${GM_API_BASE_PATH}/shortcuts/players/return-all-to-default-spawn`, {
-      method: 'POST',
-    });
-    /** editorDirty：编辑器Dirty。 */
-    editorDirty = false;
-    await delayRefresh(t('gm.shortcut.return-all.done', {
-      totalPlayers: result.totalPlayers,
-      queuedRuntimePlayers: result.queuedRuntimePlayers,
-      updatedOfflinePlayers: result.updatedOfflinePlayers,
-    }));
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
-  } finally {
-    if (button) {
-      button.disabled = false;
-    }
-  }
-}
-
-/** cleanupAllPlayersInvalidItems：处理cleanup All Players Invalid物品。 */
-async function cleanupAllPlayersInvalidItems(): Promise<void> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (!window.confirm(t('gm.shortcut.cleanup-invalid.confirm'))) {
-    return;
-  }
-
-  const button = document.getElementById('shortcut-cleanup-invalid-items') as HTMLButtonElement | null;
-  if (button) {
-    button.disabled = true;
-  }
-  try {
-    const result = await request<GmShortcutRunRes>(`${GM_API_BASE_PATH}/shortcuts/players/cleanup-invalid-items`, {
-      method: 'POST',
-    });
-    /** editorDirty：编辑器Dirty。 */
-    editorDirty = false;
-    await delayRefresh(t('gm.shortcut.cleanup-invalid.done', {
-      totalPlayers: result.totalPlayers,
-      queuedRuntimePlayers: result.queuedRuntimePlayers,
-      updatedOfflinePlayers: result.updatedOfflinePlayers,
-      removedInventoryStacks: Math.floor(result.totalInvalidInventoryStacksRemoved ?? 0),
-      removedMarketStorageStacks: Math.floor(result.totalInvalidMarketStorageStacksRemoved ?? 0),
-      removedEquipment: Math.floor(result.totalInvalidEquipmentRemoved ?? 0),
-    }));
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
-  } finally {
-    if (button) {
-      button.disabled = false;
-    }
-  }
-}
-
-async function migrateAllPlayersRecoveryPills(): Promise<void> {
-  if (!window.confirm(t('gm.shortcut.migrate-recovery-pills.confirm'))) {
-    return;
-  }
-
-  const button = document.getElementById('shortcut-migrate-recovery-pills') as HTMLButtonElement | null;
-  if (button) {
-    button.disabled = true;
-  }
-  try {
-    const result = await request<GmShortcutRunRes>(`${GM_API_BASE_PATH}/shortcuts/players/migrate-recovery-pills`, {
-      method: 'POST',
-    });
-    editorDirty = false;
-    await delayRefresh(t('gm.shortcut.migrate-recovery-pills.done', {
-      totalPlayers: Math.floor(result.totalPlayers ?? 0),
-      queuedRuntimePlayers: Math.floor(result.queuedRuntimePlayers ?? 0),
-      updatedOfflinePlayers: Math.floor(result.updatedOfflinePlayers ?? 0),
-      inventoryStacks: Math.floor(result.totalRecoveryPillInventoryStacksMigrated ?? 0),
-      inventoryItems: Math.floor(result.totalRecoveryPillInventoryItemsMigrated ?? 0),
-      marketStorageStacks: Math.floor(result.totalRecoveryPillMarketStorageStacksMigrated ?? 0),
-      marketStorageItems: Math.floor(result.totalRecoveryPillMarketStorageItemsMigrated ?? 0),
-      equipment: Math.floor(result.totalRecoveryPillEquipmentMigrated ?? 0),
-    }));
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
-  } finally {
-    if (button) {
-      button.disabled = false;
-    }
-  }
-}
-
-async function repairMarketStorageItemIds(): Promise<void> {
-  if (!window.confirm(t('gm.shortcut.repair-market-storage.confirm'))) {
-    return;
-  }
-
-  const button = document.getElementById('shortcut-repair-market-storage-item-ids') as HTMLButtonElement | null;
-  if (button) {
-    button.disabled = true;
-  }
-  try {
-    const result = await request<GmShortcutRunRes>(`${GM_API_BASE_PATH}/shortcuts/maintenance/repair-market-storage-item-ids`, {
-      method: 'POST',
-    });
-    await delayRefresh(t('gm.shortcut.repair-market-storage.done', {
-      before: Math.floor(result.marketStorageMismatchedRowsBefore ?? 0),
-      repairedRows: Math.floor(result.repairedMarketStorageRows ?? 0),
-      repairedPlayers: Math.floor(result.repairedMarketStoragePlayers ?? 0),
-      after: Math.floor(result.marketStorageMismatchedRowsAfter ?? 0),
-      invalidSlots: Math.floor(result.marketStorageInvalidSlotRowsAfter ?? 0),
-    }));
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
-  } finally {
-    if (button) {
-      button.disabled = false;
-    }
-  }
-}
-
-async function migrateAiArtsStrengthDraftsV1ToV2(): Promise<void> {
-  const button = document.getElementById('shortcut-migrate-ai-arts-strength-v1-to-v2') as HTMLButtonElement | null;
-  if (button) {
-    button.disabled = true;
-  }
-  try {
-    setPendingStatus(t('gm.shortcut.migrate-ai-arts.dry-run-started'));
-    const preview = await request<GmCompatConversionRunRes>(`${GM_API_BASE_PATH}/shortcuts/compat/ai-arts-strength-v1-to-v2/dry-run`, {
-      method: 'POST',
-    });
-    if (preview.convertedRows <= 0) {
-      setStatus(t('gm.shortcut.migrate-ai-arts.noop', {
-        skippedRows: Math.floor(preview.skippedRows),
-      }), preview.failedRows > 0);
-      return;
-    }
-    if (!window.confirm(t('gm.shortcut.migrate-ai-arts.confirm', {
-      matchedRows: Math.floor(preview.matchedRows),
-      convertedRows: Math.floor(preview.convertedRows),
-      skippedRows: Math.floor(preview.skippedRows),
-      failedRows: Math.floor(preview.failedRows),
-    }))) {
-      setStatus(t('gm.shortcut.migrate-ai-arts.cancelled'));
-      return;
-    }
-    const result = await request<GmCompatConversionRunRes>(`${GM_API_BASE_PATH}/shortcuts/compat/ai-arts-strength-v1-to-v2/apply`, {
-      method: 'POST',
-    });
-    await delayRefresh(t('gm.shortcut.migrate-ai-arts.done', {
-      matchedRows: Math.floor(result.matchedRows),
-      convertedRows: Math.floor(result.convertedRows),
-      skippedRows: Math.floor(result.skippedRows),
-      failedRows: Math.floor(result.failedRows),
-      verifiedRows: Math.floor(result.verifiedRows),
-    }));
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
-  } finally {
-    if (button) {
-      button.disabled = false;
-    }
-  }
-}
-
-async function deleteEmptyCustomTechniqueBooks(): Promise<void> {
-  const button = document.getElementById('shortcut-delete-empty-custom-technique-books') as HTMLButtonElement | null;
-  if (button) {
-    button.disabled = true;
-  }
-  try {
-    setPendingStatus(t('gm.shortcut.delete-empty-books.dry-run-started'));
-    const preview = await request<GmCompatConversionRunRes>(`${GM_API_BASE_PATH}/shortcuts/compat/delete-empty-custom-technique-books/dry-run`, {
-      method: 'POST',
-    });
-    if (preview.convertedRows <= 0) {
-      setStatus(t('gm.shortcut.delete-empty-books.noop', {
-        skippedRows: Math.floor(preview.skippedRows),
-      }), preview.failedRows > 0);
-      return;
-    }
-    if (!window.confirm(t('gm.shortcut.delete-empty-books.confirm', {
-      matchedRows: Math.floor(preview.matchedRows),
-      convertedRows: Math.floor(preview.convertedRows),
-      skippedRows: Math.floor(preview.skippedRows),
-    }))) {
-      setStatus(t('gm.shortcut.delete-empty-books.cancelled'));
-      return;
-    }
-    const result = await request<GmCompatConversionRunRes>(`${GM_API_BASE_PATH}/shortcuts/compat/delete-empty-custom-technique-books/apply`, {
-      method: 'POST',
-    });
-    await delayRefresh(t('gm.shortcut.delete-empty-books.done', {
-      matchedRows: Math.floor(result.matchedRows),
-      convertedRows: Math.floor(result.convertedRows),
-      skippedRows: Math.floor(result.skippedRows),
-      failedRows: Math.floor(result.failedRows),
-      verifiedRows: Math.floor(result.verifiedRows),
-    }));
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
-  } finally {
-    if (button) {
-      button.disabled = false;
-    }
-  }
-}
-
-async function recoverEmptyCustomTechniqueBooks(): Promise<void> {
-  const button = document.getElementById('shortcut-recover-empty-custom-technique-books') as HTMLButtonElement | null;
-  if (button) {
-    button.disabled = true;
-  }
-  try {
-    setPendingStatus(t('gm.shortcut.recover-empty-books.dry-run-started'));
-    const preview = await request<GmCompatConversionRunRes>(`${GM_API_BASE_PATH}/shortcuts/compat/recover-empty-custom-technique-books/dry-run`, {
-      method: 'POST',
-    });
-    if (preview.convertedRows <= 0) {
-      setStatus(t('gm.shortcut.recover-empty-books.noop', {
-        matchedRows: Math.floor(preview.matchedRows),
-        skippedRows: Math.floor(preview.skippedRows),
-      }), preview.failedRows > 0 || preview.skippedRows > 0);
-      return;
-    }
-    if (!window.confirm(t('gm.shortcut.recover-empty-books.confirm', {
-      matchedRows: Math.floor(preview.matchedRows),
-      convertedRows: Math.floor(preview.convertedRows),
-      skippedRows: Math.floor(preview.skippedRows),
-    }))) {
-      setStatus(t('gm.shortcut.recover-empty-books.cancelled'));
-      return;
-    }
-    const result = await request<GmCompatConversionRunRes>(`${GM_API_BASE_PATH}/shortcuts/compat/recover-empty-custom-technique-books/apply`, {
-      method: 'POST',
-    });
-    await delayRefresh(t('gm.shortcut.recover-empty-books.done', {
-      matchedRows: Math.floor(result.matchedRows),
-      convertedRows: Math.floor(result.convertedRows),
-      skippedRows: Math.floor(result.skippedRows),
-      failedRows: Math.floor(result.failedRows),
-      verifiedRows: Math.floor(result.verifiedRows),
-    }));
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
-  } finally {
-    if (button) {
-      button.disabled = false;
-    }
-  }
-}
-
-async function repairQuestProgressPayloads(): Promise<void> {
-  const button = document.getElementById('shortcut-repair-quest-progress-payloads') as HTMLButtonElement | null;
-  if (button) {
-    button.disabled = true;
-  }
-  try {
-    setPendingStatus(t('gm.shortcut.repair-quest-progress.dry-run-started'));
-    const preview = await request<GmShortcutRunRes>(`${GM_API_BASE_PATH}/shortcuts/compat/quest-progress-payloads/dry-run`, {
-      method: 'POST',
-    });
-    const patchedRows = Math.floor(preview.questProgressPatchedRows ?? 0);
-    const unknownRows = Math.floor(preview.questProgressUnknownRows ?? 0);
-    if (patchedRows <= 0) {
-      setStatus(t('gm.shortcut.repair-quest-progress.noop', {
-        scannedRows: Math.floor(preview.questProgressScannedRows ?? 0),
-        unknownRows,
-      }), unknownRows > 0);
-      return;
-    }
-    const unknownLabel = (preview.questProgressUnknownQuestIds ?? [])
-      .slice(0, 6)
-      .map((entry) => `${entry.questId} x${entry.count}`)
-      .join('，') || '无';
-    if (!window.confirm(t('gm.shortcut.repair-quest-progress.confirm', {
-      scannedRows: Math.floor(preview.questProgressScannedRows ?? 0),
-      patchedRows,
-      unknownRows,
-      unknownLabel,
-    }))) {
-      setStatus(t('gm.shortcut.repair-quest-progress.cancelled'));
-      return;
-    }
-    const result = await request<GmShortcutRunRes>(`${GM_API_BASE_PATH}/shortcuts/compat/quest-progress-payloads/apply`, {
-      method: 'POST',
-    });
-    await delayRefresh(t('gm.shortcut.repair-quest-progress.done', {
-      scannedRows: Math.floor(result.questProgressScannedRows ?? 0),
-      patchedRows: Math.floor(result.questProgressPatchedRows ?? 0),
-      unknownRows: Math.floor(result.questProgressUnknownRows ?? 0),
-    }));
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
-  } finally {
-    if (button) {
-      button.disabled = false;
-    }
-  }
-}
-
-async function refreshOnlineTechniqueTemplates(): Promise<void> {
-  if (!window.confirm(t('gm.shortcut.refresh-online-technique-templates.confirm'))) {
-    return;
-  }
-
-  const button = document.getElementById('shortcut-refresh-online-technique-templates') as HTMLButtonElement | null;
-  if (button) {
-    button.disabled = true;
-  }
-  try {
-    const result = await request<GmShortcutRunRes>(`${GM_API_BASE_PATH}/shortcuts/players/refresh-online-technique-templates`, {
-      method: 'POST',
-    });
-    await delayRefresh(t('gm.shortcut.refresh-online-technique-templates.done', {
-      totalPlayers: Math.floor(result.totalPlayers ?? 0),
-      refreshedOnlinePlayers: Math.floor(result.refreshedOnlinePlayers ?? 0),
-      refreshedTechniques: Math.floor(result.refreshedTechniques ?? 0),
-      missingTechniqueTemplates: Math.floor(result.missingTechniqueTemplates ?? 0),
-    }));
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
-  } finally {
-    if (button) {
-      button.disabled = false;
-    }
-  }
-}
-
-async function refillOnlineAndOfflineHangingPlayersStamina(): Promise<void> {
-  if (!window.confirm(t('gm.shortcut.refill-stamina.confirm'))) {
-    return;
-  }
-
-  const button = document.getElementById('shortcut-refill-stamina') as HTMLButtonElement | null;
-  if (button) {
-    button.disabled = true;
-  }
-  try {
-    const result = await request<GmShortcutRunRes>(`${GM_API_BASE_PATH}/shortcuts/players/refill-stamina`, {
-      method: 'POST',
-    });
-    await delayRefresh(t('gm.shortcut.refill-stamina.done', {
-      totalPlayers: Math.floor(result.totalPlayers ?? 0),
-      queuedRuntimePlayers: Math.floor(result.queuedRuntimePlayers ?? 0),
-      updatedOfflinePlayers: Math.floor(result.updatedOfflinePlayers ?? 0),
-      staminaMaximum: Math.floor(result.staminaMaximum ?? 0),
-    }));
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
-  } finally {
-    if (button) {
-      button.disabled = false;
-    }
-  }
-}
-
-/** cleanupAbnormalTemporaryTiles：处理cleanup Abnormal Temporary Tiles。 */
-async function cleanupAbnormalTemporaryTiles(): Promise<void> {
-  if (!window.confirm(t('gm.shortcut.cleanup-abnormal-temp.confirm'))) {
-    return;
-  }
-
-  const button = document.getElementById('shortcut-cleanup-abnormal-temporary-tiles') as HTMLButtonElement | null;
-  if (button) {
-    button.disabled = true;
-  }
-  try {
-    const result = await request<GmShortcutRunRes>(`${GM_API_BASE_PATH}/shortcuts/world/cleanup-abnormal-temporary-tiles`, {
-      method: 'POST',
-    });
-    await delayRefresh(t('gm.shortcut.cleanup-abnormal-temp.done', {
-      scannedInstances: Math.floor(result.scannedInstances ?? 0),
-      affectedInstances: Math.floor(result.affectedInstances ?? 0),
-      removedTemporaryTiles: Math.floor(result.removedTemporaryTiles ?? 0),
-      flushedInstances: Math.floor(result.flushedInstances ?? 0),
-    }));
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
-  } finally {
-    if (button) {
-      button.disabled = false;
-    }
-  }
-}
-
-/** compensateAllPlayersCombatExp：处理compensate All Players战斗Exp。 */
-async function compensateAllPlayersCombatExp(): Promise<void> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (!window.confirm(t('gm.shortcut.combat-exp.confirm'))) {
-    return;
-  }
-
-  const button = document.getElementById('shortcut-compensate-combat-exp-2026-04-09') as HTMLButtonElement | null;
-  if (button) {
-    button.disabled = true;
-  }
-  try {
-    const result = await request<GmShortcutRunRes>(`${GM_API_BASE_PATH}/shortcuts/compensation/combat-exp-2026-04-09`, {
-      method: 'POST',
-    });
-    /** editorDirty：编辑器Dirty。 */
-    editorDirty = false;
-    await delayRefresh(t('gm.shortcut.combat-exp.done', {
-      totalPlayers: result.totalPlayers,
-      queuedRuntimePlayers: result.queuedRuntimePlayers,
-      updatedOfflinePlayers: result.updatedOfflinePlayers,
-      combatExp: Math.floor(result.totalCombatExpGranted ?? 0),
-    }));
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
-  } finally {
-    if (button) {
-      button.disabled = false;
-    }
-  }
-}
-
-/** compensateAllPlayersFoundation：处理compensate All Players Foundation。 */
-async function compensateAllPlayersFoundation(): Promise<void> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (!window.confirm(t('gm.shortcut.foundation.confirm'))) {
-    return;
-  }
-
-  const button = document.getElementById('shortcut-compensate-foundation-2026-04-09') as HTMLButtonElement | null;
-  if (button) {
-    button.disabled = true;
-  }
-  try {
-    const result = await request<GmShortcutRunRes>(`${GM_API_BASE_PATH}/shortcuts/compensation/foundation-2026-04-09`, {
-      method: 'POST',
-    });
-    /** editorDirty：编辑器Dirty。 */
-    editorDirty = false;
-    await delayRefresh(t('gm.shortcut.foundation.done', {
-      totalPlayers: result.totalPlayers,
-      queuedRuntimePlayers: result.queuedRuntimePlayers,
-      updatedOfflinePlayers: result.updatedOfflinePlayers,
-      foundation: Math.floor(result.totalFoundationGranted ?? 0),
-    }));
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
-  } finally {
-    if (button) {
-      button.disabled = false;
-    }
-  }
-}
-
-/** resetNetworkStats：重置Network属性。 */
-async function resetNetworkStats(): Promise<void> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  resetNetworkStatsBtn.disabled = true;
-  try {
-    await activateNetworkStats();
-    setStatus(t('gm.perf.network.reset.done'));
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : t('gm.perf.network.reset.failed'), true);
-  } finally {
-    resetNetworkStatsBtn.disabled = false;
-  }
-}
-
-async function toggleNetworkPayloadCapture(): Promise<void> {
-  const enabled = state?.perf.networkPayloadCaptureEnabled !== true;
-  toggleNetworkPayloadCaptureBtn.disabled = true;
-  try {
-    if (enabled && state?.perf.networkStatsEnabled !== true) {
-      await activateNetworkStats();
-    }
-    await request<{
-      ok: true;
-      enabled: boolean;
-    }>(`${GM_API_BASE_PATH}/perf/network/payload-capture`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled }),
-    });
-    await loadState(true);
-    await loadRuntimeFlags();
-    setStatus(enabled ? '已开启大包采样。' : '已关闭大包采样。');
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : '切换大包采样失败。', true);
-  } finally {
-    toggleNetworkPayloadCaptureBtn.disabled = false;
-  }
-}
-
-async function activateNetworkStats(): Promise<void> {
-  lastNetworkInStructureKey = null;
-  lastNetworkOutStructureKey = null;
-  await request<{
-    /**
- * ok：ok相关字段。
- */
-    ok: true;
-  }>(`${GM_API_BASE_PATH}/perf/network/reset`, {
-    method: 'POST',
-  });
-  await loadState(true);
-}
-
-async function ensureNetworkStatsActive(): Promise<void> {
-  if (!token || networkStatsActivationPending || state?.perf.networkStatsEnabled === true) {
-    return;
-  }
-  networkStatsActivationPending = true;
-  resetNetworkStatsBtn.disabled = true;
-  try {
-    await activateNetworkStats();
-  } finally {
-    networkStatsActivationPending = false;
-    resetNetworkStatsBtn.disabled = false;
-  }
-}
-
-/** resetCpuStats：重置Cpu属性。 */
-async function resetCpuStats(): Promise<void> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  resetCpuStatsBtn.disabled = true;
-  try {
-    await request<{    
-    /**
- * ok：ok相关字段。
- */
- ok: true }>(`${GM_API_BASE_PATH}/perf/cpu/reset`, {
-      method: 'POST',
-    });
-    await loadState(true);
-    setStatus(t('gm.perf.cpu.reset.done'));
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : t('gm.perf.cpu.reset.failed'), true);
-  } finally {
-    resetCpuStatsBtn.disabled = false;
-  }
-}
-
-/** resetPathfindingStats：重置Pathfinding属性。 */
-async function resetPathfindingStats(): Promise<void> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  resetPathfindingStatsBtn.disabled = true;
-  try {
-    await request<{    
-    /**
- * ok：ok相关字段。
- */
- ok: true }>(`${GM_API_BASE_PATH}/perf/pathfinding/reset`, {
-      method: 'POST',
-    });
-    await loadState(true);
-    setStatus(t('gm.perf.pathfinding.reset.done'));
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : t('gm.perf.pathfinding.reset.failed'), true);
-  } finally {
-    resetPathfindingStatsBtn.disabled = false;
-  }
-}
-
-async function triggerManualGc(): Promise<void> {
-  triggerManualGcBtn.disabled = true;
-  writeHeapSnapshotBtn.disabled = true;
-  heapSnapshotMetaEl.textContent = '正在触发手动 GC，服务端会短暂停顿...';
-  try {
-    const result = await request<GmManualGcRes>(
-      `${GM_API_BASE_PATH}/perf/memory/gc`,
-      { method: 'POST' },
-      60_000,
-    );
-    if (!result.ok) {
-      const message = result.hint ?? result.error ?? result.reason ?? '手动 GC 未执行';
-      heapSnapshotMetaEl.textContent = message;
-      setStatus(message, true);
-      return;
-    }
-    const delta = result.delta;
-    const durationMs = Math.max(0, Number(result.durationMs ?? 0));
-    const detail = [
-      `手动 GC 完成：${durationMs.toFixed(0)} ms`,
-      `Heap 已用 ${formatSignedBytes(delta?.heapUsedBytes)}`,
-      `Heap 总量 ${formatSignedBytes(delta?.heapTotalBytes)}`,
-      `RSS ${formatSignedBytes(delta?.rssBytes)}`,
-      `外部 ${formatSignedBytes(delta?.externalBytes)}`,
-      `ArrayBuffer ${formatSignedBytes(delta?.arrayBuffersBytes)}`,
-    ].join(' · ');
-    heapSnapshotMetaEl.textContent = detail;
-    setStatus('手动 GC 已完成，已刷新内存快照');
-    await loadState(true);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : '手动 GC 失败';
-    heapSnapshotMetaEl.textContent = message;
-    setStatus(message, true);
-  } finally {
-    triggerManualGcBtn.disabled = false;
-    writeHeapSnapshotBtn.disabled = false;
-  }
-}
-
-async function writeHeapSnapshot(): Promise<void> {
-  writeHeapSnapshotBtn.disabled = true;
-  heapSnapshotMetaEl.textContent = '正在生成 Heap Snapshot，服务端会短暂停顿...';
-  try {
-    // GB 级 heap 在服务端流式解析需要 60~180 秒；客户端默认 30 秒超时不够，这里放宽到 5 分钟。
-    const result = await request<GmHeapSnapshotRes>(
-      `${GM_API_BASE_PATH}/perf/memory/heap-snapshot`,
-      { method: 'POST' },
-      300_000,
-    );
-    if (!result.ok) {
-      const message = result.hint ?? result.error ?? result.reason ?? '生成 Heap Snapshot 失败';
-      heapSnapshotMetaEl.textContent = message;
-      setStatus(message, true);
-      return;
-    }
-    const summary = result.summary ?? null;
-    const durationMs = typeof result.durationMs === 'number' ? result.durationMs : 0;
-    if (summary) {
-      const declared = summary.declaredNodeCount ?? 0;
-      const totalMb = summary.totalSelfSizeBytes ? formatBytes(summary.totalSelfSizeBytes) : '?';
-      heapSnapshotMetaEl.textContent = `Heap snapshot 已解析：节点 ${declared} 个 · 累计 ${totalMb} · 耗时 ${durationMs.toFixed(0)} ms（in-memory，未落盘）`;
-      setStatus('Heap Snapshot 已解析为摘要');
-    } else {
-      heapSnapshotMetaEl.textContent = `Heap Snapshot 已生成（耗时 ${durationMs.toFixed(0)} ms）`;
-      setStatus('Heap Snapshot 已生成');
-    }
-    await loadState(true);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : '生成 Heap Snapshot 失败';
-    heapSnapshotMetaEl.textContent = message;
-    setStatus(message, true);
-  } finally {
-    writeHeapSnapshotBtn.disabled = false;
-  }
-}
-
-/**
- * writeAndCopyHeapSnapshotSummary：触发服务端生成 Heap Snapshot，
- * 解析完成后把 ~50 KB 摘要 JSON 复制到剪贴板，省去下载 GB 级 .heapsnapshot 的成本。
- */
-async function writeAndCopyHeapSnapshotSummary(): Promise<void> {
-  if (!copyHeapSnapshotSummaryBtn) {
-    return;
-  }
-  copyHeapSnapshotSummaryBtn.disabled = true;
-  writeHeapSnapshotBtn.disabled = true;
-  heapSnapshotMetaEl.textContent = '正在生成 Heap Snapshot 并解析摘要，服务端会短暂停顿（GB 级 heap 通常 60~180 秒）...';
-  try {
-    // 与 writeHeapSnapshot 同步：放宽到 5 分钟，以容纳 3+ GB heap 的解析时间。
-    const result = await request<GmHeapSnapshotRes>(
-      `${GM_API_BASE_PATH}/perf/memory/heap-snapshot`,
-      { method: 'POST' },
-      300_000,
-    );
-    if (!result.ok) {
-      const message = result.hint ?? result.error ?? result.reason ?? '生成 Heap Snapshot 失败';
-      heapSnapshotMetaEl.textContent = message;
-      setStatus(message, true);
-      return;
-    }
-    if (!result.summary) {
-      const reason = result.summaryError ? `（${result.summaryError}）` : '';
-      const message = `Heap Snapshot 已生成，但摘要解析未完成${reason}，可点"复制最近摘要"重试`;
-      heapSnapshotMetaEl.textContent = message;
-      setStatus(message, true);
-      return;
-    }
-    const text = JSON.stringify(result.summary, null, 2);
-    const ok = await copyTextToClipboard(text);
-    if (ok) {
-      const detail = `摘要已复制到剪贴板（${text.length} 字节，${(typeof result.durationMs === 'number' ? result.durationMs : 0).toFixed(0)} ms，未落盘）`;
-      heapSnapshotMetaEl.textContent = detail;
-      setStatus('Heap Snapshot 摘要已复制到剪贴板');
-    } else {
-      heapSnapshotMetaEl.textContent = '摘要已生成但写入剪贴板失败，请改用"复制最近摘要"或检查浏览器权限';
-      setStatus('剪贴板写入失败，请改用"复制最近摘要"按钮重试', true);
-    }
-    await loadState(true);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : '生成 Heap Snapshot 摘要失败';
-    heapSnapshotMetaEl.textContent = message;
-    setStatus(message, true);
-  } finally {
-    copyHeapSnapshotSummaryBtn.disabled = false;
-    writeHeapSnapshotBtn.disabled = false;
-  }
-}
-
-/**
- * copyLatestHeapSnapshotSummary：读取服务端最近一次 Heap Snapshot 摘要并复制到剪贴板，
- * 不重新生成（不会让 V8 暂停）；如果尚未生成过会提示运维先点"生成并复制摘要"。
- */
-async function copyLatestHeapSnapshotSummary(): Promise<void> {
-  if (!copyLatestHeapSnapshotSummaryBtn) {
-    return;
-  }
-  copyLatestHeapSnapshotSummaryBtn.disabled = true;
-  try {
-    const result = await request<GmHeapSnapshotSummaryRes>(`${GM_API_BASE_PATH}/perf/memory/heap-snapshot/summary`);
-    if (!result.ok || !result.summary) {
-      const message = result.hint ?? result.reason ?? '尚未生成过 Heap Snapshot 摘要';
-      heapSnapshotMetaEl.textContent = message;
-      setStatus(message, true);
-      return;
-    }
-    const text = JSON.stringify(result.summary, null, 2);
-    const ok = await copyTextToClipboard(text);
-    if (ok) {
-      const fileLabel = result.fileName ?? '最近一份摘要';
-      const sizeLabel = typeof result.bytes === 'number' && result.bytes > 0 ? formatBytes(result.bytes) : `${text.length}`;
-      heapSnapshotMetaEl.textContent = `${fileLabel} · ${sizeLabel} 已复制到剪贴板`;
-      setStatus('Heap Snapshot 摘要已复制到剪贴板');
-    } else {
-      heapSnapshotMetaEl.textContent = '剪贴板写入失败，请检查浏览器权限或在 https / localhost 下重试';
-      setStatus('剪贴板写入失败', true);
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : '读取 Heap Snapshot 摘要失败';
-    heapSnapshotMetaEl.textContent = message;
-    setStatus(message, true);
-  } finally {
-    copyLatestHeapSnapshotSummaryBtn.disabled = false;
-  }
-}
+async function removeSelectedBot(): Promise<void> { return adminRemoveSelectedBot(adminShortcutsContext); }
+async function spawnBots(): Promise<void> { return adminSpawnBots(adminShortcutsContext); }
+async function removeAllBots(): Promise<void> { return adminRemoveAllBots(adminShortcutsContext); }
+async function returnAllPlayersToDefaultSpawn(): Promise<void> { return adminReturnAllPlayersToDefaultSpawn(adminShortcutsContext); }
+async function cleanupAllPlayersInvalidItems(): Promise<void> { return adminCleanupAllPlayersInvalidItems(adminShortcutsContext); }
+async function migrateAllPlayersRecoveryPills(): Promise<void> { return adminMigrateAllPlayersRecoveryPills(adminShortcutsContext); }
+async function repairMarketStorageItemIds(): Promise<void> { return adminRepairMarketStorageItemIds(adminShortcutsContext); }
+async function migrateAiArtsStrengthDraftsV1ToV2(): Promise<void> { return adminMigrateAiArtsStrengthDraftsV1ToV2(adminShortcutsContext); }
+async function deleteEmptyCustomTechniqueBooks(): Promise<void> { return adminDeleteEmptyCustomTechniqueBooks(adminShortcutsContext); }
+async function recoverEmptyCustomTechniqueBooks(): Promise<void> { return adminRecoverEmptyCustomTechniqueBooks(adminShortcutsContext); }
+async function repairQuestProgressPayloads(): Promise<void> { return adminRepairQuestProgressPayloads(adminShortcutsContext); }
+async function refreshOnlineTechniqueTemplates(): Promise<void> { return adminRefreshOnlineTechniqueTemplates(adminShortcutsContext); }
+async function refillOnlineAndOfflineHangingPlayersStamina(): Promise<void> { return adminRefillOnlineAndOfflineHangingPlayersStamina(adminShortcutsContext); }
+async function cleanupAbnormalTemporaryTiles(): Promise<void> { return adminCleanupAbnormalTemporaryTiles(adminShortcutsContext); }
+async function compensateAllPlayersCombatExp(): Promise<void> { return adminCompensateAllPlayersCombatExp(adminShortcutsContext); }
+async function compensateAllPlayersFoundation(): Promise<void> { return adminCompensateAllPlayersFoundation(adminShortcutsContext); }
+async function resetNetworkStats(): Promise<void> { return adminResetNetworkStats(adminShortcutsContext); }
+async function toggleNetworkPayloadCapture(): Promise<void> { return adminToggleNetworkPayloadCapture(adminShortcutsContext); }
+async function activateNetworkStats(): Promise<void> { return adminActivateNetworkStats(adminShortcutsContext); }
+async function ensureNetworkStatsActive(): Promise<void> { return adminEnsureNetworkStatsActive(adminShortcutsContext); }
+async function resetCpuStats(): Promise<void> { return adminResetCpuStats(adminShortcutsContext); }
+async function resetPathfindingStats(): Promise<void> { return adminResetPathfindingStats(adminShortcutsContext); }
+async function triggerManualGc(): Promise<void> { return adminTriggerManualGc(adminShortcutsContext); }
+async function writeHeapSnapshot(): Promise<void> { return adminWriteHeapSnapshot(adminShortcutsContext); }
+async function writeAndCopyHeapSnapshotSummary(): Promise<void> { return adminWriteAndCopyHeapSnapshotSummary(adminShortcutsContext); }
+async function copyLatestHeapSnapshotSummary(): Promise<void> { return adminCopyLatestHeapSnapshotSummary(adminShortcutsContext); }
 
 /** handleEditorAction：处理编辑器动作。 */
 function handleEditorAction(action: string, trigger: HTMLElement): void {
@@ -13612,7 +7374,7 @@ cpuBreakdownListEl.addEventListener('click', (event) => {
   const sortButton = target.closest<HTMLElement>('[data-metric-tree-sort-key]');
   if (sortButton) {
     const sortKey = sortButton.dataset.metricTreeSortKey;
-    if (isCpuBreakdownSortMode(sortKey)) {
+    if (perfIsCpuBreakdownSortMode(sortKey)) {
       setCpuBreakdownSort(sortKey);
     }
     return;
@@ -13915,7 +7677,7 @@ serverPanelTrafficEl.addEventListener('click', (event) => {
   const sortButton = target.closest<HTMLElement>('[data-metric-tree-sort-key]');
   if (sortButton) {
     const sortKey = sortButton.dataset.metricTreeSortKey;
-    if (isTrafficBreakdownSortMode(sortKey)) {
+    if (perfIsTrafficBreakdownSortMode(sortKey)) {
       setTrafficBreakdownSort(sortKey);
     }
     return;
@@ -14066,36 +7828,7 @@ gmPasswordForm.addEventListener('submit', (event) => {
   event.preventDefault();
   changeGmPassword().catch((e) => console.error('[GM]', e));
 });
-envRefreshBtn.addEventListener('click', () => {
-  loadEnvironmentVars().catch((e) => console.error('[GM]', e));
-});
-envReloadBtn.addEventListener('click', () => {
-  reloadEnvironmentVars().catch((e) => console.error('[GM]', e));
-});
-envExpandBtn.addEventListener('click', () => {
-  toggleAllEnvironmentGroups(true);
-});
-envCollapseBtn.addEventListener('click', () => {
-  toggleAllEnvironmentGroups(false);
-});
-gameConfigRefreshBtn.addEventListener('click', () => {
-  loadGameConfig().catch((e) => console.error('[GM]', e));
-});
-gameConfigExpandBtn.addEventListener('click', () => {
-  toggleAllGameConfigGroups(true);
-});
-gameConfigCollapseBtn.addEventListener('click', () => {
-  toggleAllGameConfigGroups(false);
-});
-aiProviderRefreshBtn.addEventListener('click', () => {
-  loadAiProviderConfigs().catch((e) => console.error('[GM]', e));
-});
-aiProviderAddTextBtn.addEventListener('click', () => {
-  addAiProviderConfig('text');
-});
-aiProviderAddImageBtn.addEventListener('click', () => {
-  addAiProviderConfig('image');
-});
+envConfigInitEventBindings(envConfigContext);
 generatedTechniqueRefreshBtn.addEventListener('click', () => {
   if (currentGeneratedTechniqueSubtab === 'manual') {
     generatedTechniqueEditor.preview().catch(() => undefined);

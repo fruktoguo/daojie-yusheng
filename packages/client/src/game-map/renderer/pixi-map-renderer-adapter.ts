@@ -126,120 +126,221 @@ import type {
   TerrainFogChunkView,
   TimeAtmosphereState,
 } from './pixi-render-state';
+import {
+  ensureRuntimeTileSpritesRequestedImpl,
+  loadRuntimeTileSpriteManifestImpl,
+  ensureRuntimeImageOverrideListenerImpl,
+  removeRuntimeImageOverrideListenerImpl,
+  reloadRuntimeTileSpriteManifestForLocalOverridesImpl,
+  destroyRuntimeDerivedTexturesImpl,
+  releaseRuntimeImageResourcesImpl,
+  getRuntimeAtlasTextureImpl,
+  rememberRuntimeAtlasTextureImpl,
+  resolveRuntimeTileSpriteRefImpl,
+  resolveRuntimeDualGridRefImpl,
+  getRuntimeTileTextureImpl,
+  requestRuntimeTileTextureImpl,
+  resolveRuntimeEntitySpriteSelectionImpl,
+  getRuntimeEntityTextureImpl,
+  requestRuntimeEntityTextureImpl,
+} from './pixi-renderer.sprites';
+import {
+  invalidateEntityStaticViewsImpl,
+  syncEntitiesImpl,
+  createEntityViewImpl,
+  destroyEntityViewImpl,
+  patchEntityStaticImpl,
+  isEntityTextModeImpl,
+  patchRuntimeEntitySpriteImpl,
+  resolveCurrentImageFlipSignImpl,
+  applyEntityImageScaleImpl,
+  patchEntityNameplateImpl,
+  drawEntityBarsImpl,
+  drawFormationMarkerImpl,
+  syncArtifactAuraImpl,
+  createArtifactAuraFrameImpl,
+  updateArtifactAuraFrameImpl,
+  drawRespawnLabelImpl,
+  formatRespawnCountdownImpl,
+  drawBuffsImpl,
+  drawNpcQuestMarkerImpl,
+  updateEntityViewsImpl,
+  patchEntityMotionImpl,
+  ensureLocalPlayerFallbackImpl,
+} from './pixi-renderer.entities';
+import {
+  clearTerrainFogChunksImpl,
+  invalidateTerrainChunksImpl,
+  drawRuntimeTileSpriteImpl,
+  drawDualGridSpriteImpl,
+  collectDualGridVertexRefImpl,
+  drawRuntimeDualGridEdgesImpl,
+  buildTerrainOverlaySignatureImpl,
+  setPathHighlightImpl,
+  syncTileVisibilityTransitionsImpl,
+  updateTerrainChunksImpl,
+  createTerrainChunkImpl,
+  destroyTerrainChunkImpl,
+  rebuildTerrainFogLayerImpl,
+  getOrCreateTerrainFogChunkImpl,
+  buildTerrainFogChunkSignatureImpl,
+  rebuildTerrainFogChunkImpl,
+  pruneUnusedTerrainFogChunksImpl,
+  pruneCompletedTerrainFogTransitionsImpl,
+  resolveTerrainChunkStaticSignatureImpl,
+  resolveTerrainChunkOverlaySignatureImpl,
+  isSameTerrainChunkStaticSignatureDepsImpl,
+  isSameTerrainChunkOverlaySignatureDepsImpl,
+  buildTerrainChunkStaticSignatureImpl,
+  buildTerrainChunkOverlaySignatureImpl,
+  rebuildTerrainChunkStaticLayersImpl,
+  rebuildTerrainChunkOverlayLayerImpl,
+  enableTerrainChunkCacheImpl,
+  disableTerrainChunkCacheImpl,
+  drawTerrainOverlaysImpl,
+  drawTileHpBarImpl,
+  resolveTileFadeImpl,
+  drawCellHighlightImpl,
+  drawFormationRangeVisualImpl,
+  resolveFormationRangeVisualImpl,
+} from './pixi-renderer.terrain';
+import {
+  rebuildWorldOverlaysImpl,
+  rebuildInteractionOverlayLayerImpl,
+  rebuildTargetingLayerImpl,
+  rebuildSenseQiHoverLayerImpl,
+  drawGroundPileImpl,
+  rebuildPathLayerImpl,
+  drawPathCellsImpl,
+  drawPathArrowsImpl,
+  rebuildFormationRangeVisualCacheIfNeededImpl,
+  renderThreatArrowsImpl,
+  drawDashedQuadraticCurveImpl,
+  drawThreatArrowHeadImpl,
+  getQuadraticPointImpl,
+  resolveThreatEntityViewImpl,
+  triggerAttackMotionImpl,
+  resolveAttackMotionViewImpl,
+  getFadingPathAlphaImpl,
+  renderTimeOverlayImpl,
+  resolveTimeAtmosphereImpl,
+  buildRgbaVectorImpl,
+  lerpColorVectorImpl,
+} from './pixi-renderer.overlays';
 
-type PixiRenderer = Renderer<HTMLCanvasElement>;
-const ENTITY_FACING_FLIP_TRANSITION_MS = 160;
-const ATTACK_MOTION_DURATION_MS = 180;
-const ARTIFACT_AURA_COLOR = 0xa8fbff;
-const ARTIFACT_AURA_FLOW_MS = 1200;
-const ARTIFACT_AURA_FRAME_COUNT = 16;
+export type PixiRenderer = Renderer<HTMLCanvasElement>;
+export const ENTITY_FACING_FLIP_TRANSITION_MS = 160;
+export const ATTACK_MOTION_DURATION_MS = 180;
+export const ARTIFACT_AURA_COLOR = 0xa8fbff;
+export const ARTIFACT_AURA_FLOW_MS = 1200;
+export const ARTIFACT_AURA_FRAME_COUNT = 16;
 
-const CHUNK_SIZE = PIXI_TERRAIN_CHUNK_SIZE;
-const DEFAULT_PATH_TRAIL_FADE_MS = 500;
-const PATH_TRAIL_FADE_ALPHA = 0.7;
-const DEFAULT_RUNTIME_IMAGE_PACK_MANIFEST_URL = '/assets/runtime-image-packs/default/manifest.json';
-const TERRAIN_CHUNK_CACHE_OPTIONS = {
+export const CHUNK_SIZE = PIXI_TERRAIN_CHUNK_SIZE;
+export const DEFAULT_PATH_TRAIL_FADE_MS = 500;
+export const PATH_TRAIL_FADE_ALPHA = 0.7;
+export const DEFAULT_RUNTIME_IMAGE_PACK_MANIFEST_URL = '/assets/runtime-image-packs/default/manifest.json';
+export const TERRAIN_CHUNK_CACHE_OPTIONS = {
   resolution: 1,
   scaleMode: 'nearest',
 } as const;
-const DUAL_GRID_ATLAS_COORDS: ReadonlyArray<readonly [number, number]> = [
+export const DUAL_GRID_ATLAS_COORDS: ReadonlyArray<readonly [number, number]> = [
   [0, 3], [3, 3], [0, 0], [3, 2],
   [0, 2], [1, 2], [2, 3], [3, 1],
   [1, 3], [0, 1], [3, 0], [2, 0],
   [1, 0], [2, 2], [1, 1], [2, 1],
 ] as const;
-const DUAL_GRID_QUADS = [
+export const DUAL_GRID_QUADS = [
   { mask: 1, x: 0, y: 0 },
   { mask: 2, x: 0, y: 0.5 },
   { mask: 4, x: 0.5, y: 0 },
   { mask: 8, x: 0.5, y: 0.5 },
 ] as const;
-const DUAL_GRID_QUARTER_SOURCE_OVERLAP_PX = 1;
-const SELF_THREAT_ARROW_PIXI_COLOR = parseColor(SELF_THREAT_ARROW_COLOR);
-const SELF_THREAT_ARROW_PIXI_GLOW = parseColor(SELF_THREAT_ARROW_GLOW);
-const SELF_THREAT_ARROW_PIXI_GLOW_ALPHA = parseAlpha(SELF_THREAT_ARROW_GLOW, 1);
-const OTHER_THREAT_ARROW_PIXI_COLOR = parseColor(OTHER_THREAT_ARROW_COLOR);
-const OTHER_THREAT_ARROW_PIXI_GLOW = parseColor(OTHER_THREAT_ARROW_GLOW);
-const OTHER_THREAT_ARROW_PIXI_GLOW_ALPHA = parseAlpha(OTHER_THREAT_ARROW_GLOW, 1);
+export const DUAL_GRID_QUARTER_SOURCE_OVERLAP_PX = 1;
+export const SELF_THREAT_ARROW_PIXI_COLOR = parseColor(SELF_THREAT_ARROW_COLOR);
+export const SELF_THREAT_ARROW_PIXI_GLOW = parseColor(SELF_THREAT_ARROW_GLOW);
+export const SELF_THREAT_ARROW_PIXI_GLOW_ALPHA = parseAlpha(SELF_THREAT_ARROW_GLOW, 1);
+export const OTHER_THREAT_ARROW_PIXI_COLOR = parseColor(OTHER_THREAT_ARROW_COLOR);
+export const OTHER_THREAT_ARROW_PIXI_GLOW = parseColor(OTHER_THREAT_ARROW_GLOW);
+export const OTHER_THREAT_ARROW_PIXI_GLOW_ALPHA = parseAlpha(OTHER_THREAT_ARROW_GLOW, 1);
 
 /** Pixi/WebGL2 主世界渲染适配器。 */
 export class PixiMapRendererAdapter {
-  private readonly app = new Application<PixiRenderer>();
-  private readonly world = new Container();
-  private readonly terrainBaseLayer = new Container();
-  private readonly terrainSpriteLayer = new Container();
-  private readonly terrainEdgeLayer = new Container();
-  private readonly terrainGlyphLayer = new Container();
-  private readonly terrainOverlayLayer = new Container();
-  private readonly terrainFogLayer = new Container();
-  private readonly pathLayer = new Container();
-  private readonly interactionOverlayGraphics = new Graphics();
-  private readonly targetingGraphics = new Graphics();
-  private readonly senseQiHoverGraphics = new Graphics();
-  private readonly groundLayer = new Container();
-  private readonly threatArrowLayer = new Container();
-  private readonly entityLayer = new Container();
-  private readonly effectLayer = new Container();
-  private readonly combatEffectRuntime = new PixiCombatEffectRuntime(this.effectLayer);
-  private readonly screenLayer = new Container();
-  private readonly pathGraphics = new Graphics();
-  private readonly threatArrowGraphics = new Graphics();
-  private readonly timeOverlayGraphics = new Graphics();
-  private readonly terrainChunks = new Map<string, TerrainChunkView>();
-  private readonly terrainFogChunks = new Map<string, TerrainFogChunkView>();
-  private readonly entities = new Map<string, EntityView>();
-  private readonly crowdedTileKeysScratch = new PixiFrameGridPointSet();
-  private readonly formationRangeVisuals = new Map<string, FormationRangeVisual>();
-  private readonly formationRangeSenseQiVisuals = new Map<string, FormationRangeVisual>();
-  private readonly localPlayerFallbackId = '__local-player-fallback__';
-  private readonly visibleTileFadeStartedAt = new Map<string, { startedAt: number; durationMs: number }>();
-  private readonly hiddenTileFadeStartedAt = new Map<string, { startedAt: number; durationMs: number }>();
-  private previousVisibleTileKeys = new Set<string>();
-  private terrainFogSignature = '';
-  private terrainFogActiveSignature = '';
-  private terrainFogLastRebuildAt = 0;
-  private canvas: HTMLCanvasElement | null = null;
-  private ready = false;
-  private width = 1;
-  private height = 1;
-  private chunkFrame = 0;
-  private lastVisibleTileRevision = -1;
-  private lastEntityMotionToken?: number;
-  private formationRangeSignature = '';
-  private terrainOverlaySignature = '';
-  private groundPileSignature = '';
-  private interactionOverlaySignature = '';
-  private targetingOverlaySignature = '';
-  private senseQiHoverSignature = '';
-  private pathLayerSignature = '';
-  private pathCells: GridPoint[] = [];
-  private fadingPath: FadingPathState | null = null;
-  private threatArrows: Array<{ ownerId: string; targetId: string }> = [];
-  private performanceConfig: MapPerformanceConfig = { ...DEFAULT_MAP_PERFORMANCE_CONFIG };
-  private runtimeTileSpriteRefs = new Map<string, PixiTileSpriteRef>();
-  private runtimeLegacyTileKeys = new Map<string, string>();
-  private runtimeTileSpriteRefCache = new WeakMap<Tile, PixiTileSpriteRef | null>();
-  private readonly dualGridCellRefsScratch: Array<PixiTileSpriteRef | null> = [];
-  private readonly dualGridVertexRefsScratch: Array<PixiTileSpriteRef | null> = [null, null, null, null];
-  private readonly dualGridVertexMasksScratch: number[] = [0, 0, 0, 0];
-  private runtimeAtlasTextures = new Map<string, Texture>();
-  private runtimeTileTextures = new Map<string, Texture>();
-  private runtimeTileTextureRequests = new Set<string>();
-  private runtimeEntitySpriteRefs = new Map<string, PixiTileSpriteRef>();
-  private runtimeEntityTextures = new Map<string, Texture>();
-  private runtimeEntityTextureRequests = new Set<string>();
-  private runtimeTileManifestState: 'idle' | 'loading' | 'loaded' | 'error' = 'idle';
-  private runtimeTileSpriteRevision = 0;
-  private runtimeImageOverrideListener: (() => void) | null = null;
-  private runtimeImageGeneration = 0;
-  private runtimeActiveAtlasSources = new Set<string>();
-  private destroyed = false;
-  private mountGeneration = 0;
-  private rendererInitPromise: Promise<void> | null = null;
-  private rendererInitialized = false;
-  private applicationDestroyed = false;
-  private readonly profiler = new PixiRenderProfiler(() => this.buildProfileRendererState());
-  private timeAtmosphere: TimeAtmosphereState = {
+  readonly app = new Application<PixiRenderer>();
+  readonly world = new Container();
+  readonly terrainBaseLayer = new Container();
+  readonly terrainSpriteLayer = new Container();
+  readonly terrainEdgeLayer = new Container();
+  readonly terrainGlyphLayer = new Container();
+  readonly terrainOverlayLayer = new Container();
+  readonly terrainFogLayer = new Container();
+  readonly pathLayer = new Container();
+  readonly interactionOverlayGraphics = new Graphics();
+  readonly targetingGraphics = new Graphics();
+  readonly senseQiHoverGraphics = new Graphics();
+  readonly groundLayer = new Container();
+  readonly threatArrowLayer = new Container();
+  readonly entityLayer = new Container();
+  readonly effectLayer = new Container();
+  readonly combatEffectRuntime = new PixiCombatEffectRuntime(this.effectLayer);
+  readonly screenLayer = new Container();
+  readonly pathGraphics = new Graphics();
+  readonly threatArrowGraphics = new Graphics();
+  readonly timeOverlayGraphics = new Graphics();
+  readonly terrainChunks = new Map<string, TerrainChunkView>();
+  readonly terrainFogChunks = new Map<string, TerrainFogChunkView>();
+  readonly entities = new Map<string, EntityView>();
+  readonly crowdedTileKeysScratch = new PixiFrameGridPointSet();
+  readonly formationRangeVisuals = new Map<string, FormationRangeVisual>();
+  readonly formationRangeSenseQiVisuals = new Map<string, FormationRangeVisual>();
+  readonly localPlayerFallbackId = '__local-player-fallback__';
+  readonly visibleTileFadeStartedAt = new Map<string, { startedAt: number; durationMs: number }>();
+  readonly hiddenTileFadeStartedAt = new Map<string, { startedAt: number; durationMs: number }>();
+  previousVisibleTileKeys = new Set<string>();
+  terrainFogSignature = '';
+  terrainFogActiveSignature = '';
+  terrainFogLastRebuildAt = 0;
+  canvas: HTMLCanvasElement | null = null;
+  ready = false;
+  width = 1;
+  height = 1;
+  chunkFrame = 0;
+  lastVisibleTileRevision = -1;
+  lastEntityMotionToken?: number;
+  formationRangeSignature = '';
+  terrainOverlaySignature = '';
+  groundPileSignature = '';
+  interactionOverlaySignature = '';
+  targetingOverlaySignature = '';
+  senseQiHoverSignature = '';
+  pathLayerSignature = '';
+  pathCells: GridPoint[] = [];
+  fadingPath: FadingPathState | null = null;
+  threatArrows: Array<{ ownerId: string; targetId: string }> = [];
+  performanceConfig: MapPerformanceConfig = { ...DEFAULT_MAP_PERFORMANCE_CONFIG };
+  runtimeTileSpriteRefs = new Map<string, PixiTileSpriteRef>();
+  runtimeLegacyTileKeys = new Map<string, string>();
+  runtimeTileSpriteRefCache = new WeakMap<Tile, PixiTileSpriteRef | null>();
+  readonly dualGridCellRefsScratch: Array<PixiTileSpriteRef | null> = [];
+  readonly dualGridVertexRefsScratch: Array<PixiTileSpriteRef | null> = [null, null, null, null];
+  readonly dualGridVertexMasksScratch: number[] = [0, 0, 0, 0];
+  runtimeAtlasTextures = new Map<string, Texture>();
+  runtimeTileTextures = new Map<string, Texture>();
+  runtimeTileTextureRequests = new Set<string>();
+  runtimeEntitySpriteRefs = new Map<string, PixiTileSpriteRef>();
+  runtimeEntityTextures = new Map<string, Texture>();
+  runtimeEntityTextureRequests = new Set<string>();
+  runtimeTileManifestState: 'idle' | 'loading' | 'loaded' | 'error' = 'idle';
+  runtimeTileSpriteRevision = 0;
+  runtimeImageOverrideListener: (() => void) | null = null;
+  runtimeImageGeneration = 0;
+  runtimeActiveAtlasSources = new Set<string>();
+  destroyed = false;
+  mountGeneration = 0;
+  rendererInitPromise: Promise<void> | null = null;
+  rendererInitialized = false;
+  applicationDestroyed = false;
+  readonly profiler = new PixiRenderProfiler(() => this.buildProfileRendererState());
+  timeAtmosphere: TimeAtmosphereState = {
     initialized: false,
     overlay: [0, 0, 0, 0],
     sky: [0, 0, 0, 0],
@@ -338,7 +439,7 @@ export class PixiMapRendererAdapter {
   }
 
   /** 只允许当前挂载代次接管异步初始化结果，并按最新 backbuffer 尺寸收口。 */
-  private activateRendererAfterInit(canvas: HTMLCanvasElement, generation: number): void {
+  activateRendererAfterInit(canvas: HTMLCanvasElement, generation: number): void {
     if (this.destroyed) {
       this.destroyApplicationResources();
       return;
@@ -359,7 +460,7 @@ export class PixiMapRendererAdapter {
   }
 
   /** Pixi 完成初始化后统一释放 renderer，避免 init 期间直接 destroy 访问未赋值字段。 */
-  private destroyApplicationResources(): void {
+  destroyApplicationResources(): void {
     if (this.applicationDestroyed) return;
     this.applicationDestroyed = true;
     this.combatEffectRuntime.destroy();
@@ -367,7 +468,7 @@ export class PixiMapRendererAdapter {
   }
 
   /** 初始化失败或从未开始初始化时，仅销毁已构建的场景树。 */
-  private destroyUninitializedStage(): void {
+  destroyUninitializedStage(): void {
     if (this.applicationDestroyed) return;
     this.applicationDestroyed = true;
     if (!this.app.stage.destroyed) {
@@ -583,305 +684,97 @@ export class PixiMapRendererAdapter {
     return this.canvas;
   }
 
-  private clearContainer(container: Container): void {
+  clearContainer(container: Container): void {
     for (const child of container.removeChildren()) child.destroy({ children: true });
   }
 
-  private clearTerrainFogChunks(): void {
-    this.terrainFogChunks.clear();
-    this.clearContainer(this.terrainFogLayer);
+  clearTerrainFogChunks(): void {
+    clearTerrainFogChunksImpl(this);
   }
 
-  private updateCameraTransform(camera: CameraState): void {
+  updateCameraTransform(camera: CameraState): void {
     this.world.position.set(this.width / 2 - camera.x + camera.offsetX, this.height / 2 - camera.y + camera.offsetY);
   }
 
-  private invalidateTerrainChunks(): void {
-    for (const chunk of this.terrainChunks.values()) {
-      chunk.staticSignature = '';
-      chunk.overlaySignature = '';
-    }
+  invalidateTerrainChunks(): void {
+    invalidateTerrainChunksImpl(this);
   }
 
-  private ensureRuntimeTileSpritesRequested(): void {
-    this.ensureRuntimeImageOverrideListener();
-    if (!this.performanceConfig.renderRuntimeTileSprites || this.runtimeTileManifestState !== 'idle') return;
-    if (typeof fetch !== 'function') {
-      this.runtimeTileManifestState = 'error';
-      return;
-    }
-    this.runtimeTileManifestState = 'loading';
-    const generation = this.runtimeImageGeneration;
-    void this.loadRuntimeTileSpriteManifest(generation);
+  ensureRuntimeTileSpritesRequested(): void {
+    ensureRuntimeTileSpritesRequestedImpl(this);
   }
 
-  private async loadRuntimeTileSpriteManifest(generation: number): Promise<void> {
-    try {
-      const response = await fetch(DEFAULT_RUNTIME_IMAGE_PACK_MANIFEST_URL, { cache: 'no-cache' });
-      if (!response.ok) throw new Error(`runtime_tile_sprite_manifest_http_${response.status}`);
-      const manifest = await response.json() as RuntimeTileSpriteManifest;
-      if (this.destroyed || generation !== this.runtimeImageGeneration) return;
-      const version = normalizeRuntimeImagePackVersion(manifest.version);
-      const refs = normalizePixiTileSpriteMap(
-        manifest.tiles,
-        DEFAULT_RUNTIME_IMAGE_PACK_MANIFEST_URL,
-        version,
-        manifest.defaults?.tile,
-      );
-      const sortedRefs = [...refs.entries()].sort(([, left], [, right]) => left.zIndex - right.zIndex || left.order - right.order);
-      for (let index = 0; index < sortedRefs.length; index += 1) {
-        sortedRefs[index]![1].renderOrder = index;
-      }
-      this.runtimeTileSpriteRefs = new Map(sortedRefs);
-      this.runtimeLegacyTileKeys = normalizeLegacyTileMap(manifest.legacyTiles);
-      this.runtimeTileSpriteRefCache = new WeakMap<Tile, PixiTileSpriteRef | null>();
-      this.runtimeEntitySpriteRefs = normalizePixiTileSpriteMap(
-        manifest.entities,
-        DEFAULT_RUNTIME_IMAGE_PACK_MANIFEST_URL,
-        version,
-      );
-      addLocalPixiEntityOverrideSpriteRefs(this.runtimeEntitySpriteRefs);
-      const nextAtlasSources = new Set<string>([
-        ...Array.from(this.runtimeTileSpriteRefs.values(), (ref) => ref.src),
-        ...Array.from(this.runtimeEntitySpriteRefs.values(), (ref) => ref.src),
-      ]);
-      this.releaseRuntimeImageResources(nextAtlasSources);
-      this.runtimeTileManifestState = 'loaded';
-      this.runtimeTileSpriteRevision += 1;
-      this.invalidateTerrainChunks();
-      this.invalidateEntityStaticViews();
-    } catch (error) {
-      if (this.destroyed || generation !== this.runtimeImageGeneration) return;
-      this.runtimeTileManifestState = 'error';
-      this.runtimeTileSpriteRevision += 1;
-      this.invalidateTerrainChunks();
-      this.invalidateEntityStaticViews();
-      console.warn('[map] failed to load Pixi runtime tile sprites', error);
-    }
+  loadRuntimeTileSpriteManifest(generation: number): Promise<void> {
+    return loadRuntimeTileSpriteManifestImpl(this, generation);
   }
 
-  private ensureRuntimeImageOverrideListener(): void {
-    if (this.runtimeImageOverrideListener || typeof window === 'undefined') return;
-    this.runtimeImageOverrideListener = () => {
-      this.reloadRuntimeTileSpriteManifestForLocalOverrides();
-    };
-    window.addEventListener(RUNTIME_IMAGE_OVERRIDES_CHANGED_EVENT, this.runtimeImageOverrideListener);
+  ensureRuntimeImageOverrideListener(): void {
+    ensureRuntimeImageOverrideListenerImpl(this);
   }
 
-  private removeRuntimeImageOverrideListener(): void {
-    if (!this.runtimeImageOverrideListener || typeof window === 'undefined') return;
-    window.removeEventListener(RUNTIME_IMAGE_OVERRIDES_CHANGED_EVENT, this.runtimeImageOverrideListener);
-    this.runtimeImageOverrideListener = null;
+  removeRuntimeImageOverrideListener(): void {
+    removeRuntimeImageOverrideListenerImpl(this);
   }
 
-  private reloadRuntimeTileSpriteManifestForLocalOverrides(): void {
-    this.runtimeImageGeneration += 1;
-    this.runtimeTileManifestState = 'idle';
-    this.destroyRuntimeDerivedTextures();
-    this.runtimeTileTextureRequests.clear();
-    this.runtimeEntityTextureRequests.clear();
-    this.runtimeTileSpriteRefCache = new WeakMap<Tile, PixiTileSpriteRef | null>();
-    this.runtimeTileSpriteRevision += 1;
-    this.invalidateTerrainChunks();
-    this.invalidateEntityStaticViews();
-    this.ensureRuntimeTileSpritesRequested();
+  reloadRuntimeTileSpriteManifestForLocalOverrides(): void {
+    reloadRuntimeTileSpriteManifestForLocalOverridesImpl(this);
   }
 
   /** 销毁依赖旧 atlas frame 的派生纹理，但保留仍被当前 manifest 使用的源纹理。 */
-  private destroyRuntimeDerivedTextures(): void {
-    for (const texture of this.runtimeTileTextures.values()) {
-      if (!texture.destroyed) texture.destroy(false);
-    }
-    for (const texture of this.runtimeEntityTextures.values()) {
-      if (!texture.destroyed) texture.destroy(false);
-    }
-    this.runtimeTileTextures.clear();
-    this.runtimeEntityTextures.clear();
+  destroyRuntimeDerivedTextures(): void {
+    destroyRuntimeDerivedTexturesImpl(this);
   }
 
   /** 释放已被 manifest 替换的本地 data URL，默认图集继续交给 Pixi 全局 Assets 缓存复用。 */
-  private releaseRuntimeImageResources(nextSources: ReadonlySet<string>): void {
-    this.destroyRuntimeDerivedTextures();
-    const previousSources = new Set<string>([
-      ...this.runtimeActiveAtlasSources,
-      ...this.runtimeAtlasTextures.keys(),
-    ]);
-    this.runtimeActiveAtlasSources = new Set(nextSources);
-    for (const src of previousSources) {
-      if (nextSources.has(src)) continue;
-      this.runtimeAtlasTextures.delete(src);
-      if (src.startsWith('data:')) {
-        void Assets.unload(src).catch(() => undefined);
-      }
-    }
+  releaseRuntimeImageResources(nextSources: ReadonlySet<string>): void {
+    releaseRuntimeImageResourcesImpl(this, nextSources);
   }
 
-  private getRuntimeAtlasTexture(src: string): Texture | null {
-    const atlas = this.runtimeAtlasTextures.get(src);
-    if (!atlas) return null;
-    if (atlas.destroyed || atlas === Texture.EMPTY || atlas.width <= 0 || atlas.height <= 0) {
-      this.runtimeAtlasTextures.delete(src);
-      return null;
-    }
-    return atlas;
+  getRuntimeAtlasTexture(src: string): Texture | null {
+    return getRuntimeAtlasTextureImpl(this, src);
   }
 
-  private rememberRuntimeAtlasTexture(src: string, loaded: unknown): boolean {
-    if (!(loaded instanceof Texture) || loaded === Texture.EMPTY || loaded.width <= 0 || loaded.height <= 0) {
-      this.runtimeAtlasTextures.delete(src);
-      return false;
-    }
-    this.runtimeAtlasTextures.set(src, loaded);
-    return true;
+  rememberRuntimeAtlasTexture(src: string, loaded: unknown): boolean {
+    return rememberRuntimeAtlasTextureImpl(this, src, loaded);
   }
 
-  private invalidateEntityStaticViews(): void {
-    for (const view of this.entities.values()) {
-      view.staticSignature = '';
-    }
+  invalidateEntityStaticViews(): void {
+    invalidateEntityStaticViewsImpl(this);
   }
 
-  private resolveRuntimeTileSpriteRef(tile: Tile): PixiTileSpriteRef | null {
-    if (!this.performanceConfig.renderRuntimeTileSprites || this.performanceConfig.terrainTextMode || this.runtimeTileManifestState !== 'loaded') return null;
-    const cached = this.runtimeTileSpriteRefCache.get(tile);
-    if (cached !== undefined) {
-      return cached;
-    }
-    const key = resolveTopTileSpriteKey(tile, this.runtimeLegacyTileKeys);
-    const ref = key ? this.runtimeTileSpriteRefs.get(key) ?? null : null;
-    this.runtimeTileSpriteRefCache.set(tile, ref);
-    return ref;
+  resolveRuntimeTileSpriteRef(tile: Tile): PixiTileSpriteRef | null {
+    return resolveRuntimeTileSpriteRefImpl(this, tile);
   }
 
-  private resolveRuntimeDualGridRef(tile: Tile | null | undefined): PixiTileSpriteRef | null {
-    if (!tile) return null;
-    const ref = this.resolveRuntimeTileSpriteRef(tile);
-    return ref?.dualGrid ? ref : null;
+  resolveRuntimeDualGridRef(tile: Tile | null | undefined): PixiTileSpriteRef | null {
+    return resolveRuntimeDualGridRefImpl(this, tile);
   }
 
-  private getRuntimeTileTexture(ref: PixiTileSpriteRef, sourceMask = 15, quad?: { x: number; y: number; sourceW: number; sourceH: number }): Texture | null {
-    const coords = ref.dualGrid ? DUAL_GRID_ATLAS_COORDS[sourceMask] : undefined;
-    const frameCol = Math.min(ref.cols - 1, ref.col + (coords?.[0] ?? 0));
-    const frameRow = Math.min(ref.rows - 1, ref.row + (coords?.[1] ?? 0));
-    const cacheKey = `${ref.key}:${ref.src}:${frameCol}:${frameRow}:${ref.colSpan}:${ref.rowSpan}:${sourceMask}:${quad?.x ?? ''}:${quad?.y ?? ''}:${quad?.sourceW ?? ''}:${quad?.sourceH ?? ''}`;
-    const cached = this.runtimeTileTextures.get(cacheKey);
-    if (cached && !cached.destroyed) return cached;
-    const atlas = this.getRuntimeAtlasTexture(ref.src);
-    if (!atlas) return null;
-    const cellW = atlas.width / ref.cols;
-    const cellH = atlas.height / ref.rows;
-    const sourceX = cellW * frameCol + (quad?.x ?? 0);
-    const sourceY = cellH * frameRow + (quad?.y ?? 0);
-    const sourceW = quad?.sourceW ?? (cellW * Math.max(1, Math.min(ref.colSpan, ref.cols - frameCol)));
-    const sourceH = quad?.sourceH ?? (cellH * Math.max(1, Math.min(ref.rowSpan, ref.rows - frameRow)));
-    const frame = new Rectangle(
-      sourceX,
-      sourceY,
-      Math.max(1, sourceW),
-      Math.max(1, sourceH),
-    );
-    const texture = new Texture({
-      source: atlas.source,
-      frame,
-      orig: new Rectangle(0, 0, frame.width, frame.height),
-      label: `runtime-tile:${ref.key}`,
-    });
-    this.runtimeTileTextures.set(cacheKey, texture);
-    return texture;
+  getRuntimeTileTexture(ref: PixiTileSpriteRef, sourceMask = 15, quad?: { x: number; y: number; sourceW: number; sourceH: number }): Texture | null {
+    return getRuntimeTileTextureImpl(this, ref, sourceMask, quad);
   }
 
-  private requestRuntimeTileTexture(ref: PixiTileSpriteRef): void {
-    if (this.runtimeTileTextureRequests.has(ref.src)) return;
-    this.runtimeTileTextureRequests.add(ref.src);
-    const generation = this.runtimeImageGeneration;
-    void Assets.load<Texture>(ref.src).then((texture) => {
-      if (this.destroyed || generation !== this.runtimeImageGeneration) {
-        if (this.destroyed || !this.runtimeActiveAtlasSources.has(ref.src)) {
-          if (ref.src.startsWith('data:')) void Assets.unload(ref.src).catch(() => undefined);
-        }
-        return;
-      }
-      this.runtimeTileTextureRequests.delete(ref.src);
-      this.rememberRuntimeAtlasTexture(ref.src, texture);
-      this.runtimeTileSpriteRevision += 1;
-      this.invalidateTerrainChunks();
-    }).catch((error) => {
-      if (this.destroyed || generation !== this.runtimeImageGeneration) return;
-      this.runtimeTileTextureRequests.delete(ref.src);
-      console.warn('[map] failed to load Pixi runtime tile texture', ref.src, error);
-    });
+  requestRuntimeTileTexture(ref: PixiTileSpriteRef): void {
+    requestRuntimeTileTextureImpl(this, ref);
   }
 
-  private resolveRuntimeEntitySpriteSelection(entity: Pick<ObservedMapEntity, 'id' | 'kind' | 'name' | 'char' | 'facing' | 'monsterId'>): RuntimeEntitySpriteSelection | null {
-    if (this.runtimeTileManifestState !== 'loaded') return null;
-    return pickRuntimeEntitySpriteSelection(entity, this.runtimeEntitySpriteRefs);
+  resolveRuntimeEntitySpriteSelection(entity: Pick<ObservedMapEntity, 'id' | 'kind' | 'name' | 'char' | 'facing' | 'monsterId'>): RuntimeEntitySpriteSelection | null {
+    return resolveRuntimeEntitySpriteSelectionImpl(this, entity);
   }
 
-  private getRuntimeEntityTexture(ref: PixiTileSpriteRef): Texture | null {
-    const frameCol = Math.min(ref.cols - 1, ref.col);
-    const frameRow = Math.min(ref.rows - 1, ref.row);
-    const cacheKey = `${ref.key}:${ref.src}:${frameCol}:${frameRow}:${ref.colSpan}:${ref.rowSpan}`;
-    const cached = this.runtimeEntityTextures.get(cacheKey);
-    if (cached && !cached.destroyed) return cached;
-    const atlas = this.getRuntimeAtlasTexture(ref.src);
-    if (!atlas) return null;
-    const cellW = atlas.width / ref.cols;
-    const cellH = atlas.height / ref.rows;
-    const sourceX = cellW * frameCol;
-    const sourceY = cellH * frameRow;
-    const sourceW = cellW * Math.max(1, Math.min(ref.colSpan, ref.cols - frameCol));
-    const sourceH = cellH * Math.max(1, Math.min(ref.rowSpan, ref.rows - frameRow));
-    const frame = new Rectangle(sourceX, sourceY, Math.max(1, sourceW), Math.max(1, sourceH));
-    const texture = new Texture({
-      source: atlas.source,
-      frame,
-      orig: new Rectangle(0, 0, frame.width, frame.height),
-      label: `runtime-entity:${ref.key}`,
-    });
-    this.runtimeEntityTextures.set(cacheKey, texture);
-    return texture;
+  getRuntimeEntityTexture(ref: PixiTileSpriteRef): Texture | null {
+    return getRuntimeEntityTextureImpl(this, ref);
   }
 
-  private requestRuntimeEntityTexture(ref: PixiTileSpriteRef): void {
-    if (this.runtimeEntityTextureRequests.has(ref.src)) return;
-    this.runtimeEntityTextureRequests.add(ref.src);
-    const generation = this.runtimeImageGeneration;
-    void Assets.load<Texture>(ref.src).then((texture) => {
-      if (this.destroyed || generation !== this.runtimeImageGeneration) {
-        if (this.destroyed || !this.runtimeActiveAtlasSources.has(ref.src)) {
-          if (ref.src.startsWith('data:')) void Assets.unload(ref.src).catch(() => undefined);
-        }
-        return;
-      }
-      this.runtimeEntityTextureRequests.delete(ref.src);
-      this.rememberRuntimeAtlasTexture(ref.src, texture);
-      this.runtimeTileSpriteRevision += 1;
-      this.invalidateEntityStaticViews();
-    }).catch((error) => {
-      if (this.destroyed || generation !== this.runtimeImageGeneration) return;
-      this.runtimeEntityTextureRequests.delete(ref.src);
-      console.warn('[map] failed to load Pixi runtime entity texture', ref.src, error);
-    });
+  requestRuntimeEntityTexture(ref: PixiTileSpriteRef): void {
+    requestRuntimeEntityTextureImpl(this, ref);
   }
 
-  private drawRuntimeTileSprite(chunkContainer: Container, tile: Tile, sx: number, sy: number, cellSize: number): void {
-    const ref = this.resolveRuntimeTileSpriteRef(tile);
-    if (!ref) return;
-    const texture = this.getRuntimeTileTexture(ref);
-    if (!texture) {
-      this.requestRuntimeTileTexture(ref);
-      return;
-    }
-    const sprite = new Sprite(texture);
-    sprite.position.set(sx, sy);
-    sprite.width = cellSize;
-    sprite.height = cellSize;
-    sprite.zIndex = ref.zIndex;
-    chunkContainer.addChild(sprite);
-    this.profiler.count('runtimeTileSprites');
+  drawRuntimeTileSprite(chunkContainer: Container, tile: Tile, sx: number, sy: number, cellSize: number): void {
+    drawRuntimeTileSpriteImpl(this, chunkContainer, tile, sx, sy, cellSize);
   }
 
-  private drawDualGridSprite(
+  drawDualGridSprite(
     chunkContainer: Container,
     ref: PixiTileSpriteRef,
     dx: number,
@@ -890,332 +783,60 @@ export class PixiMapRendererAdapter {
     sourceMask: number,
     clipMask: number,
   ): void {
-    if (!ref.dualGrid) return;
-    const atlas = this.getRuntimeAtlasTexture(ref.src);
-    if (!atlas) {
-      this.requestRuntimeTileTexture(ref);
-      return;
-    }
-    const cellW = atlas.width / ref.cols;
-    const cellH = atlas.height / ref.rows;
-    const coords = DUAL_GRID_ATLAS_COORDS[sourceMask];
-    if (!coords) return;
-    if (clipMask === 15) {
-      const texture = this.getRuntimeTileTexture(ref, sourceMask);
-      if (!texture) {
-        this.requestRuntimeTileTexture(ref);
-        return;
-      }
-      const overlap = Math.min(1, Math.max(0.5, cellSize / Math.max(1, Math.max(cellW, cellH))));
-      const sprite = new Sprite(texture);
-      sprite.position.set(dx - overlap, dy - overlap);
-      sprite.width = cellSize + overlap * 2;
-      sprite.height = cellSize + overlap * 2;
-      sprite.zIndex = ref.zIndex + 0.1;
-      chunkContainer.addChild(sprite);
-      this.profiler.count('dualGridSprites');
-      return;
-    }
-    const halfSourceW = cellW / 2;
-    const halfSourceH = cellH / 2;
-    const halfDest = cellSize / 2;
-    const sourceOverlapX = Math.min(DUAL_GRID_QUARTER_SOURCE_OVERLAP_PX, halfSourceW);
-    const sourceOverlapY = Math.min(DUAL_GRID_QUARTER_SOURCE_OVERLAP_PX, halfSourceH);
-    const destOverlapX = sourceOverlapX * cellSize / Math.max(1, cellW);
-    const destOverlapY = sourceOverlapY * cellSize / Math.max(1, cellH);
-    for (const quad of DUAL_GRID_QUADS) {
-      if ((clipMask & quad.mask) === 0) continue;
-      const overlapLeft = quad.x > 0 && (clipMask & (quad.mask >> 2)) !== 0;
-      const overlapRight = quad.x === 0 && (clipMask & (quad.mask << 2)) !== 0;
-      const overlapTop = quad.y > 0 && (clipMask & (quad.mask >> 1)) !== 0;
-      const overlapBottom = quad.y === 0 && (clipMask & (quad.mask << 1)) !== 0;
-      let sourceX = quad.x * cellW;
-      let sourceY = quad.y * cellH;
-      let sourceW = halfSourceW;
-      let sourceH = halfSourceH;
-      let destX = dx + quad.x * cellSize;
-      let destY = dy + quad.y * cellSize;
-      let destW = halfDest;
-      let destH = halfDest;
-      if (overlapRight) {
-        sourceW += sourceOverlapX;
-        destW += destOverlapX;
-      }
-      if (overlapLeft) {
-        sourceX -= sourceOverlapX;
-        sourceW += sourceOverlapX;
-        destX -= destOverlapX;
-        destW += destOverlapX;
-      }
-      if (overlapBottom) {
-        sourceH += sourceOverlapY;
-        destH += destOverlapY;
-      }
-      if (overlapTop) {
-        sourceY -= sourceOverlapY;
-        sourceH += sourceOverlapY;
-        destY -= destOverlapY;
-        destH += destOverlapY;
-      }
-      const texture = this.getRuntimeTileTexture(ref, sourceMask, { x: sourceX, y: sourceY, sourceW, sourceH });
-      if (!texture) {
-        this.requestRuntimeTileTexture(ref);
-        continue;
-      }
-      const sprite = new Sprite(texture);
-      sprite.position.set(destX, destY);
-      sprite.width = destW;
-      sprite.height = destH;
-      sprite.zIndex = ref.zIndex + 0.1;
-      chunkContainer.addChild(sprite);
-      this.profiler.count('dualGridSprites');
-    }
+    drawDualGridSpriteImpl(this, chunkContainer, ref, dx, dy, cellSize, sourceMask, clipMask);
   }
 
-  private collectDualGridVertexRef(
+  collectDualGridVertexRef(
     refs: Array<PixiTileSpriteRef | null>,
     masks: number[],
     occupiedMask: number,
     ref: PixiTileSpriteRef | null | undefined,
     mask: number,
   ): number {
-    if (!ref) return occupiedMask;
-    const nextOccupiedMask = occupiedMask | mask;
-    if (refs[0] === ref) {
-      masks[0] = (masks[0] ?? 0) | mask;
-    } else if (refs[1] === ref) {
-      masks[1] = (masks[1] ?? 0) | mask;
-    } else if (refs[2] === ref) {
-      masks[2] = (masks[2] ?? 0) | mask;
-    } else if (refs[3] === ref) {
-      masks[3] = (masks[3] ?? 0) | mask;
-    } else if (!refs[0]) {
-      refs[0] = ref;
-      masks[0] = mask;
-    } else if (!refs[1]) {
-      refs[1] = ref;
-      masks[1] = mask;
-    } else if (!refs[2]) {
-      refs[2] = ref;
-      masks[2] = mask;
-    } else {
-      refs[3] = ref;
-      masks[3] = mask;
-    }
-    return nextOccupiedMask;
+    return collectDualGridVertexRefImpl(this, refs, masks, occupiedMask, ref, mask);
   }
 
-  private drawRuntimeDualGridEdges(
+  drawRuntimeDualGridEdges(
     chunkContainer: Container,
     scene: MapSceneSnapshot,
     startX: number,
     startY: number,
     cellSize: number,
   ): void {
-    if (!this.performanceConfig.renderRuntimeTileSprites || this.runtimeTileManifestState !== 'loaded') return;
-    if (this.runtimeTileSpriteRefs.size === 0) return;
-    const scanSize = CHUNK_SIZE + 2;
-    const cellRefs = this.dualGridCellRefsScratch;
-    cellRefs.length = scanSize * scanSize;
-    for (let localY = 0; localY < scanSize; localY += 1) {
-      const y = startY - 1 + localY;
-      for (let localX = 0; localX < scanSize; localX += 1) {
-        const x = startX - 1 + localX;
-        cellRefs[localY * scanSize + localX] = this.resolveRuntimeDualGridRef(scene.terrain.tileCache.get(`${x},${y}`));
-      }
-    }
-    for (let vertexY = startY; vertexY <= startY + CHUNK_SIZE; vertexY += 1) {
-      const localY = vertexY - startY;
-      for (let vertexX = startX; vertexX <= startX + CHUNK_SIZE; vertexX += 1) {
-        const localX = vertexX - startX;
-        const nw = cellRefs[localY * scanSize + localX];
-        const sw = cellRefs[(localY + 1) * scanSize + localX];
-        const ne = cellRefs[localY * scanSize + localX + 1];
-        const se = cellRefs[(localY + 1) * scanSize + localX + 1];
-        const refs = this.dualGridVertexRefsScratch;
-        const masks = this.dualGridVertexMasksScratch;
-        refs[0] = null;
-        refs[1] = null;
-        refs[2] = null;
-        refs[3] = null;
-        masks[0] = 0;
-        masks[1] = 0;
-        masks[2] = 0;
-        masks[3] = 0;
-        let occupiedMask = 0;
-        occupiedMask = this.collectDualGridVertexRef(refs, masks, occupiedMask, nw, 1);
-        occupiedMask = this.collectDualGridVertexRef(refs, masks, occupiedMask, sw, 2);
-        occupiedMask = this.collectDualGridVertexRef(refs, masks, occupiedMask, ne, 4);
-        occupiedMask = this.collectDualGridVertexRef(refs, masks, occupiedMask, se, 8);
-        if (!refs[0]) continue;
-
-        for (let index = 1; index < refs.length; index += 1) {
-          const ref = refs[index];
-          const mask = masks[index] ?? 0;
-          if (!ref) continue;
-          let target = index - 1;
-          while (target >= 0) {
-            const targetRef = refs[target];
-            if (!targetRef || targetRef.renderOrder <= ref.renderOrder) {
-              break;
-            }
-            refs[target + 1] = targetRef;
-            masks[target + 1] = masks[target] ?? 0;
-            target -= 1;
-          }
-          refs[target + 1] = ref;
-          masks[target + 1] = mask;
-        }
-        const dx = (vertexX - 0.5) * cellSize;
-        const dy = (vertexY - 0.5) * cellSize;
-        for (let index = 0; index < refs.length; index += 1) {
-          const ref = refs[index];
-          if (!ref) continue;
-          const targetMask = (masks[index] ?? 0) & 15;
-          const backgroundMask = occupiedMask & ~targetMask & 15;
-          if (targetMask === 15 && backgroundMask === 0) continue;
-          this.drawDualGridSprite(chunkContainer, ref, dx, dy, cellSize, targetMask, targetMask);
-        }
-      }
-    }
+    drawRuntimeDualGridEdgesImpl(this, chunkContainer, scene, startX, startY, cellSize);
   }
 
-  private buildTerrainOverlaySignature(scene: MapSceneSnapshot): string {
-    return [
-      scene.overlays.senseQi ? `sense:${scene.overlays.senseQi.levelBaseValue ?? ''}` : 'null',
-      this.formationRangeSignature,
-    ].join('||');
+  buildTerrainOverlaySignature(scene: MapSceneSnapshot): string {
+    return buildTerrainOverlaySignatureImpl(this, scene);
   }
 
-  private setPathHighlight(cells: GridPoint[], fadeDurationMs: number): void {
-    if (buildGridPointSignature(cells) === buildGridPointSignature(this.pathCells)) return;
-    if (this.pathCells.length > 0) {
-      this.fadingPath = {
-        cells: this.pathCells.map((cell) => ({ x: cell.x, y: cell.y })),
-        startedAt: performance.now(),
-        durationMs: Math.max(1, Math.round(fadeDurationMs)),
-      };
-    }
-    this.pathCells = cells.map((cell) => ({ x: cell.x, y: cell.y }));
+  setPathHighlight(cells: GridPoint[], fadeDurationMs: number): void {
+    setPathHighlightImpl(this, cells, fadeDurationMs);
   }
 
-  private syncTileVisibilityTransitions(
+  syncTileVisibilityTransitions(
     visibleTiles: ReadonlySet<string>,
     tileCache: ReadonlyMap<string, Tile>,
     now: number,
     transitionStartedAt: number,
     transitionDurationMs: number,
   ): void {
-    const shouldAnimateVisibleEnter = this.previousVisibleTileKeys.size > 0;
-    const transitionState = {
-      startedAt: Number.isFinite(transitionStartedAt) ? transitionStartedAt : now,
-      durationMs: Math.max(1, Math.round(Number.isFinite(transitionDurationMs) ? transitionDurationMs : TILE_HIDDEN_FADE_MS)),
-    };
-    for (const key of this.previousVisibleTileKeys) {
-      if (!visibleTiles.has(key) && tileCache.has(key) && !this.hiddenTileFadeStartedAt.has(key)) {
-        this.hiddenTileFadeStartedAt.set(key, transitionState);
-      }
-    }
-    for (const key of visibleTiles) {
-      if (shouldAnimateVisibleEnter && !this.previousVisibleTileKeys.has(key) && tileCache.has(key)) {
-        this.visibleTileFadeStartedAt.set(key, transitionState);
-      }
-      this.hiddenTileFadeStartedAt.delete(key);
-    }
-    this.previousVisibleTileKeys = new Set(visibleTiles);
+    syncTileVisibilityTransitionsImpl(this, visibleTiles, tileCache, now, transitionStartedAt, transitionDurationMs);
   }
 
-  private updateTerrainChunks(scene: MapSceneSnapshot, camera: CameraState): void {
-    const cellSize = getCellSize();
-    const startGX = Math.floor((camera.x - this.width / 2 - camera.offsetX) / cellSize) - 2;
-    const startGY = Math.floor((camera.y - this.height / 2 - camera.offsetY) / cellSize) - 2;
-    const endGX = Math.ceil((camera.x + this.width / 2 - camera.offsetX) / cellSize) + 2;
-    const endGY = Math.ceil((camera.y + this.height / 2 - camera.offsetY) / cellSize) + 2;
-    const startCX = Math.floor(startGX / CHUNK_SIZE);
-    const startCY = Math.floor(startGY / CHUNK_SIZE);
-    const endCX = Math.floor(endGX / CHUNK_SIZE);
-    const endCY = Math.floor(endGY / CHUNK_SIZE);
-    this.chunkFrame += 1;
-    let visibleChunkCount = 0;
-    for (let cy = startCY; cy <= endCY; cy += 1) {
-      for (let cx = startCX; cx <= endCX; cx += 1) {
-        visibleChunkCount += 1;
-        const key = `${cx},${cy}`;
-        let chunk = this.terrainChunks.get(key);
-        if (!chunk) {
-          chunk = this.createTerrainChunk(key, cx, cy);
-          this.terrainChunks.set(key, chunk);
-        }
-        chunk.lastSeenFrame = this.chunkFrame;
-        const staticSignature = this.resolveTerrainChunkStaticSignature(chunk, scene, cellSize);
-        if (staticSignature !== chunk.staticSignature) {
-          this.profiler.count('terrainChunkRebuilds');
-          const staticRebuildStartedAt = this.profiler.start();
-          this.rebuildTerrainChunkStaticLayers(chunk, scene, cellSize, staticSignature);
-          this.profiler.end('terrainRebuild', staticRebuildStartedAt);
-        }
-        const overlaySignature = this.resolveTerrainChunkOverlaySignature(chunk, scene, cellSize);
-        if (overlaySignature !== chunk.overlaySignature) {
-          const overlayRebuildStartedAt = this.profiler.start();
-          this.rebuildTerrainChunkOverlayLayer(chunk, scene, cellSize, overlaySignature);
-          this.profiler.end('terrainRebuild', overlayRebuildStartedAt);
-        }
-      }
-    }
-    for (const [key, chunk] of this.terrainChunks) {
-      if (this.chunkFrame - chunk.lastSeenFrame > 4) {
-        this.destroyTerrainChunk(chunk);
-        this.terrainChunks.delete(key);
-      }
-    }
-    this.profiler.setCounter('visibleChunks', visibleChunkCount);
-    const terrainFogStartedAt = this.profiler.start();
-    this.rebuildTerrainFogLayer(scene, startCX, startCY, endCX, endCY, cellSize);
-    this.profiler.end('terrainFog', terrainFogStartedAt);
-    const pathLayerStartedAt = this.profiler.start();
-    this.rebuildPathLayer(scene);
-    this.profiler.end('pathLayer', pathLayerStartedAt);
+  updateTerrainChunks(scene: MapSceneSnapshot, camera: CameraState): void {
+    updateTerrainChunksImpl(this, scene, camera);
   }
 
-  private createTerrainChunk(key: string, cx: number, cy: number): TerrainChunkView {
-    const chunk: TerrainChunkView = {
-      key,
-      cx,
-      cy,
-      baseContainer: new Container(),
-      spriteContainer: new Container(),
-      edgeContainer: new Container(),
-      glyphContainer: new Container(),
-      overlayContainer: new Container(),
-      staticSignature: '',
-      overlaySignature: '',
-      staticSignatureDeps: null,
-      overlaySignatureDeps: null,
-      lastSeenFrame: this.chunkFrame,
-    };
-    chunk.baseContainer.label = `terrain-base-chunk:${key}`;
-    chunk.spriteContainer.label = `terrain-sprite-chunk:${key}`;
-    chunk.edgeContainer.label = `terrain-edge-chunk:${key}`;
-    chunk.glyphContainer.label = `terrain-glyph-chunk:${key}`;
-    chunk.overlayContainer.label = `terrain-overlay-chunk:${key}`;
-    chunk.overlayContainer.sortableChildren = true;
-    this.terrainBaseLayer.addChild(chunk.baseContainer);
-    this.terrainSpriteLayer.addChild(chunk.spriteContainer);
-    this.terrainEdgeLayer.addChild(chunk.edgeContainer);
-    this.terrainGlyphLayer.addChild(chunk.glyphContainer);
-    this.terrainOverlayLayer.addChild(chunk.overlayContainer);
-    return chunk;
+  createTerrainChunk(key: string, cx: number, cy: number): TerrainChunkView {
+    return createTerrainChunkImpl(this, key, cx, cy);
   }
 
-  private destroyTerrainChunk(chunk: TerrainChunkView): void {
-    chunk.baseContainer.destroy({ children: true });
-    chunk.spriteContainer.destroy({ children: true });
-    chunk.edgeContainer.destroy({ children: true });
-    chunk.glyphContainer.destroy({ children: true });
-    chunk.overlayContainer.destroy({ children: true });
+  destroyTerrainChunk(chunk: TerrainChunkView): void {
+    destroyTerrainChunkImpl(this, chunk);
   }
 
-  private rebuildTerrainFogLayer(
+  rebuildTerrainFogLayer(
     scene: MapSceneSnapshot,
     startCX: number,
     startCY: number,
@@ -1223,292 +844,82 @@ export class PixiMapRendererAdapter {
     endCY: number,
     cellSize: number,
   ): void {
-    const now = performance.now();
-    this.pruneCompletedTerrainFogTransitions(now);
-    const signature = [
-      cellSize,
-      startCX,
-      startCY,
-      endCX,
-      endCY,
-      scene.terrain.visibleTileRevision,
-      scene.terrain.tileCache.size,
-    ].join('|');
-    const hasActiveFogTransitions = this.visibleTileFadeStartedAt.size > 0 || this.hiddenTileFadeStartedAt.size > 0;
-    const activeSignature = hasActiveFogTransitions
-      ? `${signature}|${this.visibleTileFadeStartedAt.size}|${this.hiddenTileFadeStartedAt.size}`
-      : '';
-    if (hasActiveFogTransitions
-      && activeSignature === this.terrainFogActiveSignature
-      && now - this.terrainFogLastRebuildAt < 32) {
-      return;
-    }
-    if (!hasActiveFogTransitions && signature === this.terrainFogSignature) {
-      return;
-    }
-    this.terrainFogActiveSignature = activeSignature;
-    this.terrainFogLastRebuildAt = now;
-    this.terrainFogSignature = hasActiveFogTransitions ? '' : signature;
-    const activeFogBucket = hasActiveFogTransitions ? Math.floor(now / 32) : 0;
-    for (let cy = startCY; cy <= endCY; cy += 1) {
-      for (let cx = startCX; cx <= endCX; cx += 1) {
-        const chunk = this.getOrCreateTerrainFogChunk(cx, cy);
-        chunk.lastSeenFrame = this.chunkFrame;
-        const chunkSignature = this.buildTerrainFogChunkSignature(scene, cx, cy, cellSize, activeFogBucket);
-        if (chunkSignature !== chunk.signature) {
-          this.rebuildTerrainFogChunk(chunk, scene, cellSize, now, chunkSignature);
-        }
-      }
-    }
-    this.pruneUnusedTerrainFogChunks();
-    if (this.visibleTileFadeStartedAt.size === 0 && this.hiddenTileFadeStartedAt.size === 0) {
-      this.terrainFogSignature = signature;
-      this.terrainFogActiveSignature = '';
-    }
+    rebuildTerrainFogLayerImpl(this, scene, startCX, startCY, endCX, endCY, cellSize);
   }
 
-  private getOrCreateTerrainFogChunk(cx: number, cy: number): TerrainFogChunkView {
-    const key = `${cx},${cy}`;
-    let chunk = this.terrainFogChunks.get(key);
-    if (!chunk) {
-      chunk = { key, cx, cy, graphics: new Graphics(), signature: '', lastSeenFrame: this.chunkFrame };
-      chunk.graphics.label = `terrain-fog-chunk:${key}`;
-      this.terrainFogChunks.set(key, chunk);
-      this.terrainFogLayer.addChild(chunk.graphics);
-    }
-    return chunk;
+  getOrCreateTerrainFogChunk(cx: number, cy: number): TerrainFogChunkView {
+    return getOrCreateTerrainFogChunkImpl(this, cx, cy);
   }
 
-  private buildTerrainFogChunkSignature(
+  buildTerrainFogChunkSignature(
     scene: MapSceneSnapshot,
     cx: number,
     cy: number,
     cellSize: number,
     activeFogBucket: number,
   ): string {
-    return [
-      cellSize,
-      cx,
-      cy,
-      scene.terrain.visibleTileRevision,
-      scene.terrain.terrainChunkRevisions.get(`${cx},${cy}`) ?? 0,
-      scene.terrain.tileCache.size,
-      activeFogBucket,
-      this.visibleTileFadeStartedAt.size,
-      this.hiddenTileFadeStartedAt.size,
-    ].join('|');
+    return buildTerrainFogChunkSignatureImpl(this, scene, cx, cy, cellSize, activeFogBucket);
   }
 
-  private rebuildTerrainFogChunk(
+  rebuildTerrainFogChunk(
     chunk: TerrainFogChunkView,
     scene: MapSceneSnapshot,
     cellSize: number,
     now: number,
     signature: string,
   ): void {
-    const startX = chunk.cx * CHUNK_SIZE;
-    const startY = chunk.cy * CHUNK_SIZE;
-    chunk.graphics.clear();
-    for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
-      for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
-        const key = `${x},${y}`;
-        const tile = scene.terrain.tileCache.get(key);
-        const sx = x * cellSize;
-        const sy = y * cellSize;
-        if (!scene.terrain.visibleTiles.has(key)) {
-          const hiddenFade = this.resolveTileFade(this.hiddenTileFadeStartedAt.get(key), now, false);
-          chunk.graphics.rect(sx, sy, cellSize, cellSize).fill({ color: tile ? 0x0c0a08 : 0x080605, alpha: (tile ? 0.72 : 0.94) * hiddenFade });
-          if (hiddenFade >= 1) {
-            this.hiddenTileFadeStartedAt.delete(key);
-          }
-          continue;
-        }
-        const visibleFade = this.resolveTileFade(this.visibleTileFadeStartedAt.get(key), now, true);
-        if (visibleFade > 0) {
-          chunk.graphics.rect(sx, sy, cellSize, cellSize).fill({ color: 0x0c0a08, alpha: 0.72 * visibleFade });
-        } else {
-          this.visibleTileFadeStartedAt.delete(key);
-        }
-      }
-    }
-    chunk.signature = signature;
+    rebuildTerrainFogChunkImpl(this, chunk, scene, cellSize, now, signature);
   }
 
-  private pruneUnusedTerrainFogChunks(): void {
-    for (const [key, chunk] of this.terrainFogChunks) {
-      if (this.chunkFrame - chunk.lastSeenFrame > 4) {
-        chunk.graphics.destroy({ children: true });
-        this.terrainFogChunks.delete(key);
-      }
-    }
+  pruneUnusedTerrainFogChunks(): void {
+    pruneUnusedTerrainFogChunksImpl(this);
   }
 
-  private pruneCompletedTerrainFogTransitions(now: number): void {
-    for (const [key, state] of this.visibleTileFadeStartedAt) {
-      if (now - state.startedAt >= state.durationMs) {
-        this.visibleTileFadeStartedAt.delete(key);
-      }
-    }
-    for (const [key, state] of this.hiddenTileFadeStartedAt) {
-      if (now - state.startedAt >= state.durationMs) {
-        this.hiddenTileFadeStartedAt.delete(key);
-      }
-    }
+  pruneCompletedTerrainFogTransitions(now: number): void {
+    pruneCompletedTerrainFogTransitionsImpl(this, now);
   }
 
-  private resolveTerrainChunkStaticSignature(chunk: TerrainChunkView, scene: MapSceneSnapshot, cellSize: number): string {
-    const deps: TerrainChunkStaticSignatureDeps = {
-      cellSize,
-      renderRuntimeTileSprites: this.performanceConfig.renderRuntimeTileSprites,
-      terrainTextMode: this.performanceConfig.terrainTextMode,
-      runtimeTileSpriteRevision: this.runtimeTileSpriteRevision,
-      terrainChunkRevision: scene.terrain.terrainChunkRevisions.get(chunk.key) ?? 0,
-    };
-    if (chunk.staticSignature && chunk.staticSignatureDeps && this.isSameTerrainChunkStaticSignatureDeps(chunk.staticSignatureDeps, deps)) {
-      this.profiler.count('terrainChunkSignatureHits');
-      return chunk.staticSignature;
-    }
-    const signatureStartedAt = this.profiler.start();
-    const signature = this.buildTerrainChunkStaticSignature(scene, chunk.cx, chunk.cy, cellSize);
-    this.profiler.end('terrainSignature', signatureStartedAt);
-    this.profiler.count('terrainChunkSignatures');
-    chunk.staticSignatureDeps = deps;
-    return signature;
+  resolveTerrainChunkStaticSignature(chunk: TerrainChunkView, scene: MapSceneSnapshot, cellSize: number): string {
+    return resolveTerrainChunkStaticSignatureImpl(this, chunk, scene, cellSize);
   }
 
-  private resolveTerrainChunkOverlaySignature(chunk: TerrainChunkView, scene: MapSceneSnapshot, cellSize: number): string {
-    const deps: TerrainChunkOverlaySignatureDeps = {
-      cellSize,
-      terrainOverlaySignature: this.terrainOverlaySignature,
-      visibleTileRevision: scene.terrain.visibleTileRevision,
-    };
-    if (chunk.overlaySignature && chunk.overlaySignatureDeps && this.isSameTerrainChunkOverlaySignatureDeps(chunk.overlaySignatureDeps, deps)) {
-      return chunk.overlaySignature;
-    }
-    const signatureStartedAt = this.profiler.start();
-    const signature = this.buildTerrainChunkOverlaySignature(scene, chunk.cx, chunk.cy, cellSize);
-    this.profiler.end('terrainSignature', signatureStartedAt);
-    chunk.overlaySignatureDeps = deps;
-    return signature;
+  resolveTerrainChunkOverlaySignature(chunk: TerrainChunkView, scene: MapSceneSnapshot, cellSize: number): string {
+    return resolveTerrainChunkOverlaySignatureImpl(this, chunk, scene, cellSize);
   }
 
-  private isSameTerrainChunkStaticSignatureDeps(previous: TerrainChunkStaticSignatureDeps, next: TerrainChunkStaticSignatureDeps): boolean {
-    return previous.cellSize === next.cellSize
-      && previous.renderRuntimeTileSprites === next.renderRuntimeTileSprites
-      && previous.terrainTextMode === next.terrainTextMode
-      && previous.runtimeTileSpriteRevision === next.runtimeTileSpriteRevision
-      && previous.terrainChunkRevision === next.terrainChunkRevision;
+  isSameTerrainChunkStaticSignatureDeps(previous: TerrainChunkStaticSignatureDeps, next: TerrainChunkStaticSignatureDeps): boolean {
+    return isSameTerrainChunkStaticSignatureDepsImpl(this, previous, next);
   }
 
-  private isSameTerrainChunkOverlaySignatureDeps(previous: TerrainChunkOverlaySignatureDeps, next: TerrainChunkOverlaySignatureDeps): boolean {
-    return previous.cellSize === next.cellSize
-      && previous.terrainOverlaySignature === next.terrainOverlaySignature
-      && previous.visibleTileRevision === next.visibleTileRevision;
+  isSameTerrainChunkOverlaySignatureDeps(previous: TerrainChunkOverlaySignatureDeps, next: TerrainChunkOverlaySignatureDeps): boolean {
+    return isSameTerrainChunkOverlaySignatureDepsImpl(this, previous, next);
   }
 
-  private buildTerrainChunkStaticSignature(scene: MapSceneSnapshot, cx: number, cy: number, cellSize: number): string {
-    return buildPixiTerrainChunkStaticSignature(
-      scene.terrain.tileCache,
-      cx,
-      cy,
-      cellSize,
-      this.performanceConfig.renderRuntimeTileSprites,
-      this.performanceConfig.terrainTextMode,
-      this.runtimeTileSpriteRevision,
-    );
+  buildTerrainChunkStaticSignature(scene: MapSceneSnapshot, cx: number, cy: number, cellSize: number): string {
+    return buildTerrainChunkStaticSignatureImpl(this, scene, cx, cy, cellSize);
   }
 
-  private buildTerrainChunkOverlaySignature(scene: MapSceneSnapshot, cx: number, cy: number, cellSize: number): string {
-    return buildPixiTerrainChunkOverlaySignature(
-      scene.terrain.tileCache,
-      scene.terrain.visibleTiles,
-      cx,
-      cy,
-      cellSize,
-      this.terrainOverlaySignature,
-      scene.overlays.senseQi?.levelBaseValue ?? null,
-    );
+  buildTerrainChunkOverlaySignature(scene: MapSceneSnapshot, cx: number, cy: number, cellSize: number): string {
+    return buildTerrainChunkOverlaySignatureImpl(this, scene, cx, cy, cellSize);
   }
 
-  private rebuildTerrainChunkStaticLayers(chunk: TerrainChunkView, scene: MapSceneSnapshot, cellSize: number, signature: string): void {
-    this.disableTerrainChunkCache(chunk.baseContainer);
-    this.disableTerrainChunkCache(chunk.spriteContainer);
-    this.disableTerrainChunkCache(chunk.edgeContainer);
-    this.disableTerrainChunkCache(chunk.glyphContainer);
-    this.clearContainer(chunk.baseContainer);
-    this.clearContainer(chunk.spriteContainer);
-    this.clearContainer(chunk.edgeContainer);
-    this.clearContainer(chunk.glyphContainer);
-    const baseGraphics = new Graphics();
-    const startX = chunk.cx * CHUNK_SIZE;
-    const startY = chunk.cy * CHUNK_SIZE;
-    for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
-      for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
-        const key = `${x},${y}`;
-        const tile = scene.terrain.tileCache.get(key);
-        const sx = x * cellSize;
-        const sy = y * cellSize;
-        if (tile) {
-          const bg = parseColor(TILE_VISUAL_BG_COLORS[tile.type], 0x333333);
-          baseGraphics.rect(sx, sy, cellSize, cellSize).fill({ color: bg });
-          baseGraphics.rect(sx, sy, cellSize, cellSize).stroke({ color: 0x000000, alpha: 0.1, width: 0.5 });
-          this.drawRuntimeTileSprite(chunk.spriteContainer, tile, sx, sy, cellSize);
-        }
-        const glyph = tile ? TILE_VISUAL_GLYPHS[tile.type] : null;
-        const hasRuntimeSprite = tile ? this.resolveRuntimeTileSpriteRef(tile) !== null : false;
-        if (tile && glyph && !hasRuntimeSprite) {
-          const label = new Text({
-            text: glyph,
-            style: textStyle('tileGlyph', cellSize * 0.6, TILE_VISUAL_GLYPH_COLORS[tile.type] ?? 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0)', 0),
-            anchor: 0.5,
-          });
-          label.position.set(sx + cellSize / 2, sy + cellSize / 2 + 1);
-          chunk.glyphContainer.addChild(label);
-        }
-      }
-    }
-    this.drawRuntimeDualGridEdges(chunk.edgeContainer, scene, startX, startY, cellSize);
-    chunk.baseContainer.addChild(baseGraphics);
-    chunk.staticSignature = signature;
-    this.enableTerrainChunkCache(chunk.baseContainer);
-    this.enableTerrainChunkCache(chunk.spriteContainer);
-    this.enableTerrainChunkCache(chunk.edgeContainer);
-    this.enableTerrainChunkCache(chunk.glyphContainer);
+  rebuildTerrainChunkStaticLayers(chunk: TerrainChunkView, scene: MapSceneSnapshot, cellSize: number, signature: string): void {
+    rebuildTerrainChunkStaticLayersImpl(this, chunk, scene, cellSize, signature);
   }
 
-  private rebuildTerrainChunkOverlayLayer(chunk: TerrainChunkView, scene: MapSceneSnapshot, cellSize: number, signature: string): void {
-    this.disableTerrainChunkCache(chunk.overlayContainer);
-    this.clearContainer(chunk.overlayContainer);
-    const overlayGraphics = new Graphics();
-    overlayGraphics.zIndex = 0;
-    const startX = chunk.cx * CHUNK_SIZE;
-    const startY = chunk.cy * CHUNK_SIZE;
-    const senseQiLevelBaseValue = normalizeAuraLevelBaseValue(scene.overlays.senseQi?.levelBaseValue);
-    for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
-      for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
-        const key = `${x},${y}`;
-        const tile = scene.terrain.tileCache.get(key);
-        const sx = x * cellSize;
-        const sy = y * cellSize;
-        this.drawTerrainOverlays(overlayGraphics, chunk.overlayContainer, scene, tile, key, x, y, sx, sy, cellSize, senseQiLevelBaseValue);
-      }
-    }
-    chunk.overlayContainer.addChild(overlayGraphics);
-    chunk.overlaySignature = signature;
-    this.enableTerrainChunkCache(chunk.overlayContainer);
+  rebuildTerrainChunkOverlayLayer(chunk: TerrainChunkView, scene: MapSceneSnapshot, cellSize: number, signature: string): void {
+    rebuildTerrainChunkOverlayLayerImpl(this, chunk, scene, cellSize, signature);
   }
 
-  private enableTerrainChunkCache(container: Container): void {
-    if (container.children.length === 0) return;
-    container.cacheAsTexture(TERRAIN_CHUNK_CACHE_OPTIONS);
+  enableTerrainChunkCache(container: Container): void {
+    enableTerrainChunkCacheImpl(this, container);
   }
 
-  private disableTerrainChunkCache(container: Container): void {
-    if (!container.isCachedAsTexture) return;
-    container.cacheAsTexture(false);
+  disableTerrainChunkCache(container: Container): void {
+    disableTerrainChunkCacheImpl(this, container);
   }
 
-  private drawTerrainOverlays(
+  drawTerrainOverlays(
     graphics: Graphics,
     chunkContainer: Container,
     scene: MapSceneSnapshot,
@@ -1521,548 +932,94 @@ export class PixiMapRendererAdapter {
     cellSize: number,
     senseQiLevelBaseValue: number,
   ): void {
-    const isVisible = scene.terrain.visibleTiles.has(key);
-    if (tile && !scene.overlays.senseQi && isVisible) {
-      const visibleFormationRangeVisual = this.resolveFormationRangeVisual(gx, gy, false);
-      if (visibleFormationRangeVisual) this.drawFormationRangeVisual(graphics, chunkContainer, sx, sy, cellSize, visibleFormationRangeVisual);
-    }
-    if (tile && isVisible) {
-      this.drawTileHpBar(graphics, tile, sx, sy, cellSize);
-    }
-    if (scene.overlays.senseQi) {
-      const style = isVisible ? getSenseQiOverlayStyle(tile, senseQiLevelBaseValue) : { color: 0x000000, alpha: 0.34 };
-      graphics.rect(sx, sy, cellSize, cellSize).fill(style);
-      const formationRangeVisual = this.resolveFormationRangeVisual(gx, gy, true);
-      if (formationRangeVisual) this.drawFormationRangeVisual(graphics, chunkContainer, sx, sy, cellSize, formationRangeVisual);
-    }
+    drawTerrainOverlaysImpl(this, graphics, chunkContainer, scene, tile, key, gx, gy, sx, sy, cellSize, senseQiLevelBaseValue);
   }
 
-  private drawTileHpBar(graphics: Graphics, tile: Tile, sx: number, sy: number, cellSize: number): void {
-    const maxHp = typeof tile.maxHp === 'number' && Number.isFinite(tile.maxHp) ? tile.maxHp : 0;
-    const hp = typeof tile.hp === 'number' && Number.isFinite(tile.hp) ? tile.hp : maxHp;
-    const hpVisible = tile.hpVisible ?? (hp > 0 && hp < maxHp);
-    if (maxHp <= 0 || !hpVisible) {
-      return;
-    }
-    const ratio = clamp01(hp / Math.max(maxHp, 1));
-    const barW = Math.max(4, cellSize - 6);
-    graphics.rect(sx + 3, sy + 2, barW, 3).fill({ color: 0x000000, alpha: 0.5 });
-    graphics.rect(sx + 3, sy + 2, barW * ratio, 3).fill({ color: 0xd6c8ae });
+  drawTileHpBar(graphics: Graphics, tile: Tile, sx: number, sy: number, cellSize: number): void {
+    drawTileHpBarImpl(this, graphics, tile, sx, sy, cellSize);
   }
 
-  private resolveTileFade(state: { startedAt: number; durationMs: number } | undefined, now: number, entering: boolean): number {
-    if (!state) return entering ? 0 : 1;
-    const progress = clamp01((now - state.startedAt) / Math.max(1, state.durationMs));
-    return entering ? 1 - progress : progress;
+  resolveTileFade(state: { startedAt: number; durationMs: number } | undefined, now: number, entering: boolean): number {
+    return resolveTileFadeImpl(this, state, now, entering);
   }
 
-  private drawCellHighlight(graphics: Graphics, sx: number, sy: number, cellSize: number, fill: string, stroke: string, core: boolean, alphaMultiplier = 1): void {
-    const alpha = clamp01(alphaMultiplier);
-    graphics.rect(sx + 1, sy + 1, cellSize - 2, cellSize - 2).fill({ color: parseColor(fill), alpha: parseAlpha(fill, 1) * alpha });
-    graphics.rect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3).stroke({ color: parseColor(stroke), alpha: parseAlpha(stroke, 1) * alpha, width: core ? 2 : 1.5 });
-    if (core) graphics.circle(sx + cellSize / 2, sy + cellSize / 2, Math.max(3, cellSize * 0.12)).fill({ color: parseColor(PATH_TARGET_CORE_COLOR), alpha: parseAlpha(PATH_TARGET_CORE_COLOR, 1) * alpha });
+  drawCellHighlight(graphics: Graphics, sx: number, sy: number, cellSize: number, fill: string, stroke: string, core: boolean, alphaMultiplier = 1): void {
+    drawCellHighlightImpl(this, graphics, sx, sy, cellSize, fill, stroke, core, alphaMultiplier);
   }
 
-  private drawFormationRangeVisual(graphics: Graphics, chunkContainer: Container, sx: number, sy: number, cellSize: number, visual: FormationRangeVisual): void {
-    graphics.rect(sx + 1, sy + 1, cellSize - 2, cellSize - 2).fill(colorWithAlpha(visual.highlightColor, visual.boundary ? 0.34 : 0.24));
-    graphics.rect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3).stroke({ ...colorWithAlpha(visual.highlightColor, visual.boundary ? 0.92 : 0.72), width: visual.boundary ? 2.25 : 1.5 });
-    if (visual.boundary && visual.boundaryChar) {
-      const text = new Text({
-        text: visual.boundaryChar,
-        style: textStyle('tileGlyph', cellSize * 0.42, visual.boundaryColor, 'rgba(5,18,26,0.86)', 3),
-        anchor: 0.5,
-      });
-      text.position.set(sx + cellSize / 2, sy + cellSize / 2);
-      text.zIndex = 650;
-      chunkContainer.addChild(text);
-    }
+  drawFormationRangeVisual(graphics: Graphics, chunkContainer: Container, sx: number, sy: number, cellSize: number, visual: FormationRangeVisual): void {
+    drawFormationRangeVisualImpl(this, graphics, chunkContainer, sx, sy, cellSize, visual);
   }
 
-  private resolveFormationRangeVisual(gx: number, gy: number, senseQiVisible: boolean): FormationRangeVisual | null {
-    const key = `${gx},${gy}`;
-    return senseQiVisible
-      ? this.formationRangeSenseQiVisuals.get(key) ?? null
-      : this.formationRangeVisuals.get(key) ?? null;
+  resolveFormationRangeVisual(gx: number, gy: number, senseQiVisible: boolean): FormationRangeVisual | null {
+    return resolveFormationRangeVisualImpl(this, gx, gy, senseQiVisible);
   }
 
-  private rebuildWorldOverlays(scene: MapSceneSnapshot): void {
-    const signature = `${getCellSize()}|${buildGroundPileSignature(scene.groundPiles)}`;
-    if (signature === this.groundPileSignature) {
-      return;
-    }
-    this.groundPileSignature = signature;
-    this.clearContainer(this.groundLayer);
-    const cellSize = getCellSize();
-    this.profiler.setCounter('groundPiles', scene.groundPiles.size);
-    for (const pile of scene.groundPiles.values()) {
-      const root = new Container();
-      root.position.set(pile.x * cellSize, pile.y * cellSize);
-      this.drawGroundPile(root, pile, cellSize);
-      this.groundLayer.addChild(root);
-    }
+  rebuildWorldOverlays(scene: MapSceneSnapshot): void {
+    rebuildWorldOverlaysImpl(this, scene);
   }
 
-  private rebuildInteractionOverlayLayer(scene: MapSceneSnapshot): void {
-    const cellSize = getCellSize();
-    const signature = [
-      cellSize,
-      scene.overlays.formationRange
-        ? `${scene.overlays.formationRange.rangeHighlightColor ?? ''}:${buildGridPointSignature(scene.overlays.formationRange.affectedCells)}`
-        : 'formation:null',
-      scene.overlays.buildPreview
-        ? `${scene.overlays.buildPreview.defId}:${scene.overlays.buildPreview.originX},${scene.overlays.buildPreview.originY}:${scene.overlays.buildPreview.rotation ?? ''}:${buildBuildPreviewSignature(scene.overlays.buildPreview.cells)}`
-        : 'build:null',
-      scene.overlays.fengShui
-        ? `${scene.terrain.visibleTileRevision}:${scene.overlays.fengShui.instanceId}:${scene.overlays.fengShui.revision}:${buildFengShuiOverlaySignature(scene.overlays.fengShui.cells)}`
-        : 'feng:null',
-    ].join('|');
-    if (signature === this.interactionOverlaySignature) {
-      return;
-    }
-    this.interactionOverlaySignature = signature;
-    this.interactionOverlayGraphics.clear();
-    const formationRange = scene.overlays.formationRange;
-    if (formationRange) {
-      const fill = colorWithAlpha(formationRange.rangeHighlightColor, 0.22);
-      const stroke = colorWithAlpha(formationRange.rangeHighlightColor, 0.86);
-      for (const cell of formationRange.affectedCells) {
-        const sx = cell.x * cellSize;
-        const sy = cell.y * cellSize;
-        this.interactionOverlayGraphics.rect(sx + 1, sy + 1, cellSize - 2, cellSize - 2).fill(fill);
-        this.interactionOverlayGraphics.rect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3).stroke({ ...stroke, width: 2 });
-      }
-    }
-    if (scene.overlays.fengShui) {
-      for (const key of scene.terrain.visibleTiles) {
-        const tile = scene.terrain.tileCache.get(key);
-        if (!tile) {
-          continue;
-        }
-        const [rawX, rawY] = key.split(',', 2);
-        const x = Number(rawX);
-        const y = Number(rawY);
-        if (!Number.isFinite(x) || !Number.isFinite(y)) {
-          continue;
-        }
-        this.interactionOverlayGraphics.rect(x * cellSize, y * cellSize, cellSize, cellSize).fill({ color: 0x080605, alpha: 0.34 });
-      }
-      for (const cell of scene.overlays.fengShui.cells) {
-        const sx = cell.x * cellSize;
-        const sy = cell.y * cellSize;
-        this.interactionOverlayGraphics.rect(sx + 1, sy + 1, cellSize - 2, cellSize - 2).fill(getFengShuiOverlayFill(cell));
-        this.interactionOverlayGraphics.rect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3).stroke({ ...getFengShuiOverlayStroke(cell), width: 1 });
-      }
-    }
-    for (const cell of scene.overlays.buildPreview?.cells ?? []) {
-      this.drawCellHighlight(
-        this.interactionOverlayGraphics,
-        cell.x * cellSize,
-        cell.y * cellSize,
-        cellSize,
-        cell.ok ? (cell.warning ? 'rgba(217,119,6,0.24)' : 'rgba(22,163,74,0.24)') : 'rgba(220,38,38,0.30)',
-        cell.ok ? (cell.warning ? 'rgba(245,158,11,0.92)' : 'rgba(34,197,94,0.92)') : 'rgba(248,113,113,0.96)',
-        false,
-      );
-    }
+  rebuildInteractionOverlayLayer(scene: MapSceneSnapshot): void {
+    rebuildInteractionOverlayLayerImpl(this, scene);
   }
 
-  private rebuildTargetingLayer(scene: MapSceneSnapshot): void {
-    const signature = `${getCellSize()}|${scene.terrain.visibleTileRevision}|${buildTargetingOverlaySignature(scene.overlays.targeting)}`;
-    if (signature === this.targetingOverlaySignature) {
-      return;
-    }
-    this.targetingOverlaySignature = signature;
-    this.targetingGraphics.clear();
-    const targeting = scene.overlays.targeting;
-    if (!targeting) {
-      return;
-    }
-    const cellSize = getCellSize();
-    const range = Math.max(0, Math.ceil(Number(targeting.range) || 0));
-    const affectedKeys = new Set((targeting.affectedCells ?? []).map((cell) => `${cell.x},${cell.y}`));
-    const drawn = new Set<string>();
-    const drawCell = (gx: number, gy: number): void => {
-      const key = `${gx},${gy}`;
-      if (drawn.has(key)) {
-        return;
-      }
-      const isVisible = scene.terrain.visibleTiles.has(key);
-      if (targeting.visibleOnly && !isVisible) {
-        return;
-      }
-      const dx = gx - targeting.originX;
-      const dy = gy - targeting.originY;
-      const affected = affectedKeys.has(key);
-      const hovered = gx === targeting.hoverX && gy === targeting.hoverY;
-      const inRange = (dx !== 0 || dy !== 0) && isOffsetInRange(dx, dy, targeting.range);
-      if (!affected && !inRange) {
-        return;
-      }
-      this.drawCellHighlight(
-        this.targetingGraphics,
-        gx * cellSize,
-        gy * cellSize,
-        cellSize,
-        affected ? (hovered ? 'rgba(208,76,56,0.42)' : 'rgba(198,72,48,0.3)') : (hovered ? 'rgba(66,153,225,0.3)' : 'rgba(88,180,214,0.18)'),
-        affected ? (hovered ? 'rgba(150,28,24,0.98)' : 'rgba(171,56,36,0.9)') : (hovered ? 'rgba(125,211,252,0.94)' : 'rgba(151,236,255,0.72)'),
-        hovered || affected,
-      );
-      drawn.add(key);
-    };
-    for (let y = targeting.originY - range; y <= targeting.originY + range; y += 1) {
-      for (let x = targeting.originX - range; x <= targeting.originX + range; x += 1) {
-        drawCell(x, y);
-      }
-    }
-    for (const cell of targeting.affectedCells ?? []) {
-      drawCell(cell.x, cell.y);
-    }
+  rebuildTargetingLayer(scene: MapSceneSnapshot): void {
+    rebuildTargetingLayerImpl(this, scene);
   }
 
-  private rebuildSenseQiHoverLayer(scene: MapSceneSnapshot): void {
-    const signature = `${getCellSize()}|${scene.terrain.visibleTileRevision}|${buildSenseQiHoverSignature(scene.overlays.senseQi)}`;
-    if (signature === this.senseQiHoverSignature) {
-      return;
-    }
-    this.senseQiHoverSignature = signature;
-    this.senseQiHoverGraphics.clear();
-    const overlay = scene.overlays.senseQi;
-    if (!overlay || typeof overlay.hoverX !== 'number' || typeof overlay.hoverY !== 'number') {
-      return;
-    }
-    const key = `${overlay.hoverX},${overlay.hoverY}`;
-    if (!scene.terrain.visibleTiles.has(key)) {
-      return;
-    }
-    const cellSize = getCellSize();
-    this.senseQiHoverGraphics
-      .rect(overlay.hoverX * cellSize + 1, overlay.hoverY * cellSize + 1, cellSize - 2, cellSize - 2)
-      .stroke({
-        color: parseColor(SENSE_QI_OVERLAY_STYLE.hoverStroke),
-        alpha: parseAlpha(SENSE_QI_OVERLAY_STYLE.hoverStroke, 1),
-        width: 2,
-      });
+  rebuildSenseQiHoverLayer(scene: MapSceneSnapshot): void {
+    rebuildSenseQiHoverLayerImpl(this, scene);
   }
 
-  private drawGroundPile(root: Container, pile: GroundItemPileView, cellSize: number): void {
-    const slotSize = Math.max(8, Math.floor(cellSize / 3));
-    const gridSize = slotSize * 3;
-    const offsetX = Math.max(0, cellSize - gridSize);
-    const offsetY = Math.max(0, cellSize - gridSize);
-    const entries = pile.items.slice(0, 9);
-    entries.forEach((entry, index) => {
-      const col = 2 - (index % 3);
-      const row = 2 - Math.floor(index / 3);
-      const x = offsetX + col * slotSize;
-      const y = offsetY + row * slotSize;
-      const graphics = new Graphics();
-      graphics.roundRect(x + 1, y + 1, slotSize - 2, slotSize - 2, Math.max(2, slotSize * 0.18)).fill({ color: 0x2e261e, alpha: 0.88 }).stroke({ color: 0xcdb180, alpha: 0.92, width: 1 });
-      root.addChild(graphics);
-      const label = new Text({ text: resolveGroundItemLabel(entry), style: textStyle('badge', Math.max(6, slotSize * 0.4), '#fff4dc'), anchor: 0.5 });
-      label.position.set(x + slotSize / 2, y + slotSize / 2);
-      root.addChild(label);
-      if (entry.count > 1) {
-        const count = new Text({ text: formatDisplayInteger(entry.count), style: textStyle('badge', Math.max(5, slotSize * 0.26), '#fff9ed', 'rgba(12,10,8,0.94)', 2), anchor: { x: 1, y: 0 } });
-        count.position.set(x + slotSize, y);
-        root.addChild(count);
-      }
-    });
+  drawGroundPile(root: Container, pile: GroundItemPileView, cellSize: number): void {
+    drawGroundPileImpl(this, root, pile, cellSize);
   }
 
-  private rebuildPathLayer(scene: MapSceneSnapshot): void {
-    const now = performance.now();
-    const fadingAlpha = this.getFadingPathAlpha(now);
-    const playerX = scene.player?.x ?? 0;
-    const playerY = scene.player?.y ?? 0;
-    const signature = [
-      getCellSize(),
-      playerX,
-      playerY,
-      buildGridPointSignature(this.pathCells),
-      this.fadingPath ? buildGridPointSignature(this.fadingPath.cells) : 'fade:null',
-      this.fadingPath ? fadingAlpha.toFixed(3) : '0',
-    ].join('|');
-    if (signature === this.pathLayerSignature) {
-      return;
-    }
-    this.pathLayerSignature = signature;
-    this.pathGraphics.clear();
-    this.profiler.setCounter('pathCells', this.pathCells.length);
-    this.profiler.setCounter('fadingPathCells', this.fadingPath?.cells.length ?? 0);
-    this.drawPathCells(this.pathGraphics, this.pathCells, 1);
-    if (this.fadingPath && fadingAlpha > 0) this.drawPathCells(this.pathGraphics, this.fadingPath.cells, fadingAlpha * PATH_TRAIL_FADE_ALPHA);
-    this.drawPathArrows(this.pathGraphics, playerX, playerY, this.pathCells, 1);
-    if (this.fadingPath && fadingAlpha > 0) this.drawPathArrows(this.pathGraphics, playerX, playerY, this.fadingPath.cells, fadingAlpha * PATH_TRAIL_FADE_ALPHA);
+  rebuildPathLayer(scene: MapSceneSnapshot): void {
+    rebuildPathLayerImpl(this, scene);
   }
 
-  private drawPathCells(graphics: Graphics, cells: GridPoint[], alpha: number): void {
-    const cellSize = getCellSize();
-    const target = cells[cells.length - 1];
-    const targetKey = target ? `${target.x},${target.y}` : null;
-    for (const cell of cells) {
-      const key = `${cell.x},${cell.y}`;
-      const isTarget = key === targetKey;
-      this.drawCellHighlight(
-        graphics,
-        cell.x * cellSize,
-        cell.y * cellSize,
-        cellSize,
-        isTarget ? PATH_TARGET_FILL_COLOR : PATH_FILL_COLOR,
-        isTarget ? PATH_TARGET_STROKE_COLOR : PATH_STROKE_COLOR,
-        isTarget,
-        alpha,
-      );
-    }
+  drawPathCells(graphics: Graphics, cells: GridPoint[], alpha: number): void {
+    drawPathCellsImpl(this, graphics, cells, alpha);
   }
 
-  private drawPathArrows(graphics: Graphics, playerX: number, playerY: number, cells: GridPoint[], alpha: number): void {
-    const cellSize = getCellSize();
-    const route = [{ x: playerX, y: playerY }, ...cells];
-    for (let index = 0; index < route.length - 1; index += 1) {
-      const from = route[index];
-      const to = route[index + 1];
-      const fromX = from.x * cellSize + cellSize / 2;
-      const fromY = from.y * cellSize + cellSize / 2;
-      const toX = to.x * cellSize + cellSize / 2;
-      const toY = to.y * cellSize + cellSize / 2;
-      const dx = toX - fromX;
-      const dy = toY - fromY;
-      const distance = Math.hypot(dx, dy);
-      if (distance < 1) continue;
-      const ux = dx / distance;
-      const uy = dy / distance;
-      const tipX = toX - ux * cellSize * 0.14;
-      const tipY = toY - uy * cellSize * 0.14;
-      const headLength = Math.max(8, cellSize * 0.2);
-      const headWidth = Math.max(5, cellSize * 0.12);
-      const shaftEndX = tipX - ux * headLength;
-      const shaftEndY = tipY - uy * headLength;
-      const color = parseColor(`${to.x},${to.y}` === `${cells[cells.length - 1]?.x},${cells[cells.length - 1]?.y}` ? PATH_TARGET_STROKE_COLOR : PATH_ARROW_COLOR);
-      graphics.moveTo(fromX + ux * cellSize * 0.1, fromY + uy * cellSize * 0.1)
-        .lineTo(shaftEndX, shaftEndY)
-        .stroke({ color, alpha, width: Math.max(1.25, cellSize * 0.06) });
-      const normalX = -uy;
-      const normalY = ux;
-      graphics.moveTo(tipX, tipY)
-        .lineTo(shaftEndX + normalX * headWidth, shaftEndY + normalY * headWidth)
-        .lineTo(shaftEndX - normalX * headWidth, shaftEndY - normalY * headWidth)
-        .closePath()
-        .fill({ color, alpha });
-    }
+  drawPathArrows(graphics: Graphics, playerX: number, playerY: number, cells: GridPoint[], alpha: number): void {
+    drawPathArrowsImpl(this, graphics, playerX, playerY, cells, alpha);
   }
 
-  private syncEntities(list: readonly ObservedMapEntity[], transition: MapEntityTransition | null, motionSyncToken?: number): void {
-    const seen = new Set<string>();
-    const cellSize = getCellSize();
-    const sameMotionSync = motionSyncToken !== undefined && motionSyncToken === this.lastEntityMotionToken;
-    for (const entity of list) {
-      seen.add(entity.id);
-      const targetWX = entity.wx * cellSize;
-      const targetWY = entity.wy * cellSize;
-      let view = this.entities.get(entity.id);
-      if (!view) {
-        view = this.createEntityView(entity, targetWX, targetWY);
-        this.entities.set(entity.id, view);
-        this.entityLayer.addChild(view.root);
-      } else {
-        const anim = view.anim;
-        const sameGrid = anim.gridX === entity.wx && anim.gridY === entity.wy;
-        if (entity.id === transition?.movedId) {
-          anim.oldWX = (entity.wx - (transition.shiftX ?? 0)) * cellSize;
-          anim.oldWY = (entity.wy - (transition.shiftY ?? 0)) * cellSize;
-        } else if (sameGrid && sameMotionSync) {
-          // 保留同 tick 插值状态。
-        } else if (!sameGrid) {
-          anim.oldWX = anim.targetWX;
-          anim.oldWY = anim.targetWY;
-        } else {
-          anim.oldWX = targetWX;
-          anim.oldWY = targetWY;
-        }
-        Object.assign(anim, entity, { gridX: entity.wx, gridY: entity.wy, targetWX, targetWY });
-      }
-      this.patchEntityStatic(view);
-    }
-    for (const [id, view] of this.entities) {
-      if (!seen.has(id)) {
-        this.destroyEntityView(view);
-        this.entities.delete(id);
-      }
-    }
-    if (motionSyncToken !== undefined) this.lastEntityMotionToken = motionSyncToken;
+  syncEntities(list: readonly ObservedMapEntity[], transition: MapEntityTransition | null, motionSyncToken?: number): void {
+    syncEntitiesImpl(this, list, transition, motionSyncToken);
   }
 
-  private createEntityView(entity: ObservedMapEntity, targetWX: number, targetWY: number): EntityView {
-    const root = new Container();
-    const visualRoot = new Container();
-    const view: EntityView = {
-      anim: { ...entity, gridX: entity.wx, gridY: entity.wy, oldWX: targetWX, oldWY: targetWY, targetWX, targetWY },
-      root,
-      visualRoot,
-      artifactAura: new Container(),
-      artifactAuraFrames: [],
-      artifactAuraCellSize: 0,
-      artifactAuraFrameIndex: -1,
-      shadow: new Graphics(),
-      image: new Sprite(Texture.EMPTY),
-      glyph: new Text({ text: entity.char, style: textStyle('entityGlyph', getCellSize() * 0.75, entity.color), anchor: 0.5 }),
-      label: new Text({ text: '', style: textStyle('label', getCellSize() * 0.3, '#cce7ff'), anchor: 0.5 }),
-      badgeLayer: new Container(),
-      hpBar: new Graphics(),
-      progressBar: new Graphics(),
-      buffLayer: new Container(),
-      questMarker: new Container(),
-      formationMarker: new Graphics(),
-      respawnLabel: new Text({ text: '', style: textStyle('label', getCellSize() * 0.22, '#e7d5a7'), anchor: 0.5 }),
-      staticSignature: '',
-      hiddenByFormation: false,
-      imageBaseScaleX: 1,
-      imageBaseScaleY: 1,
-      imageFlipSourceSign: 1,
-      imageFlipTargetSign: 1,
-      imageFlipStartedAt: 0,
-      attackMotionUnitX: 0,
-      attackMotionUnitY: 0,
-    };
-    view.image.anchor.set(0.5);
-    view.image.visible = false;
-    visualRoot.addChild(view.shadow, view.image, view.glyph);
-    root.addChild(view.formationMarker, view.artifactAura, visualRoot, view.badgeLayer, view.label, view.hpBar, view.progressBar, view.buffLayer, view.questMarker, view.respawnLabel);
-    return view;
+  createEntityView(entity: ObservedMapEntity, targetWX: number, targetWY: number): EntityView {
+    return createEntityViewImpl(this, entity, targetWX, targetWY);
   }
 
-  private destroyEntityView(view: EntityView): void {
-    for (const frame of view.artifactAura.removeChildren()) {
-      frame.destroy({ context: true });
-    }
-    view.artifactAuraFrames = [];
-    view.root.destroy({ children: true });
+  destroyEntityView(view: EntityView): void {
+    destroyEntityViewImpl(this, view);
   }
 
-  private patchEntityStatic(view: EntityView): void {
-    const anim = view.anim;
-    const cellSize = getCellSize();
-    const presentation = anim.kind === 'monster' ? getMonsterPresentation(anim.name, anim.monsterTier) : null;
-    const badges = resolveNameplateBadges(anim.badges, presentation?.badge);
-    const signature = [
-      cellSize,
-      anim.char, anim.color, anim.name ?? '', anim.kind ?? '', anim.hp ?? '', anim.maxHp ?? '',
-      anim.respawnRemainingTicks ?? '', anim.respawnTotalTicks ?? '',
-      anim.monsterTier ?? '',
-      anim.monsterId ?? '',
-      buildNameplateBadgeSignature(badges), anim.hostile ? 1 : 0,
-      anim.artifactActive === true ? 1 : 0,
-      anim.monsterScale ?? '', anim.facing ?? '',
-      this.runtimeTileSpriteRevision,
-      anim.buffs?.map((buff) => `${buff.buffId}:${buff.remainingTicks}:${buff.stacks}`).join(',') ?? '',
-      anim.npcQuestMarker ? `${anim.npcQuestMarker.line}:${anim.npcQuestMarker.state}` : '',
-      anim.formationShowText === false ? 1 : 0,
-      anim.formationRangeHighlightColor ?? '',
-      this.isEntityTextMode(anim.kind) ? 1 : 0,
-    ].join('|');
-    if (signature === view.staticSignature) return;
-    const visualScale = (presentation?.scale ?? 1) * Math.max(1, anim.monsterScale ?? 1);
-    const visualCellSize = cellSize * visualScale;
-    view.visualRoot.pivot.set(visualCellSize / 2, visualCellSize - 3);
-    view.visualRoot.position.set(cellSize / 2, cellSize - 3);
-    view.shadow.clear().ellipse(visualCellSize / 2, visualCellSize - 3, visualCellSize * 0.32, Math.max(2, visualCellSize * 0.1)).fill({ color: 0x000000, alpha: 0.3 });
-    const forceTextMode = this.isEntityTextMode(anim.kind);
-    let drewEntityImage = false;
-    if (forceTextMode) {
-      view.image.visible = false;
-    } else {
-      drewEntityImage = this.patchRuntimeEntitySprite(view, visualCellSize);
-    }
-    view.glyph.text = anim.char;
-    view.glyph.style = textStyle('entityGlyph', visualCellSize * 0.75, anim.color);
-    view.glyph.visible = !drewEntityImage;
-    view.glyph.position.set(visualCellSize / 2, visualCellSize / 2);
-    const label = presentation?.label ?? anim.name ?? resolveEntityFallbackLabel(anim.kind);
-    const shouldShowLabel = anim.kind !== 'formation' || anim.formationShowText !== false;
-    const labelY = cellSize - visualCellSize - Math.max(6, cellSize * 0.18);
-    this.patchEntityNameplate(view, label, badges, shouldShowLabel, labelY, cellSize);
-    this.drawEntityBars(view, visualCellSize);
-    this.drawBuffs(view, cellSize);
-    this.syncArtifactAura(view, cellSize);
-    this.drawNpcQuestMarker(view.questMarker, anim.npcQuestMarker ?? undefined, cellSize);
-    this.drawFormationMarker(view.formationMarker, anim, cellSize);
-    this.drawRespawnLabel(view, cellSize, visualCellSize);
-    view.root.zIndex = resolveWorldObjectRenderOrder(anim.kind);
-    view.root.alpha = anim.kind === 'building' && (anim.respawnTotalTicks ?? 0) > 0 ? 0.58 : 1;
-    view.staticSignature = signature;
+  patchEntityStatic(view: EntityView): void {
+    patchEntityStaticImpl(this, view);
   }
 
-  private isEntityTextMode(kind: AnimEntity['kind']): boolean {
-    if (kind === 'npc') return this.performanceConfig.npcTextMode;
-    if (kind === 'monster') return this.performanceConfig.monsterTextMode;
-    if (kind === 'container') return this.performanceConfig.herbTextMode;
-    return false;
+  isEntityTextMode(kind: AnimEntity['kind']): boolean {
+    return isEntityTextModeImpl(this, kind);
   }
 
-  private patchRuntimeEntitySprite(view: EntityView, visualCellSize: number): boolean {
-    const selection = this.resolveRuntimeEntitySpriteSelection(view.anim);
-    if (!selection) {
-      view.image.visible = false;
-      return false;
-    }
-    const texture = this.getRuntimeEntityTexture(selection.ref);
-    if (!texture) {
-      this.requestRuntimeEntityTexture(selection.ref);
-      view.image.visible = false;
-      return false;
-    }
-    const inset = Math.max(0, Math.min(0.4, selection.ref.insetRatio)) * visualCellSize;
-    const maxW = Math.max(1, visualCellSize - inset * 2);
-    const maxH = Math.max(1, visualCellSize - inset * 2);
-    let targetW = maxW;
-    let targetH = maxH;
-    if (selection.ref.fit === 'contain') {
-      const scale = Math.min(maxW / Math.max(1, texture.width), maxH / Math.max(1, texture.height));
-      targetW = Math.max(1, texture.width * scale);
-      targetH = Math.max(1, texture.height * scale);
-    }
-    view.image.texture = texture;
-    const baseScaleX = targetW / Math.max(1, texture.width);
-    const baseScaleY = targetH / Math.max(1, texture.height);
-    const nextFlipSign = selection.transform.flipX ? -1 : 1;
-    const now = performance.now();
-    const currentFlipSign = this.resolveCurrentImageFlipSign(view, now);
-    const shouldAnimateFlip = view.image.visible && view.imageFlipTargetSign !== nextFlipSign;
-    view.imageBaseScaleX = baseScaleX;
-    view.imageBaseScaleY = baseScaleY;
-    view.imageFlipSourceSign = shouldAnimateFlip ? currentFlipSign : nextFlipSign;
-    view.imageFlipTargetSign = nextFlipSign;
-    view.imageFlipStartedAt = shouldAnimateFlip ? now : 0;
-    this.applyEntityImageScale(view, now);
-    view.image.rotation = 0;
-    view.image.position.set(visualCellSize / 2, visualCellSize / 2);
-    view.image.visible = true;
-    return true;
+  patchRuntimeEntitySprite(view: EntityView, visualCellSize: number): boolean {
+    return patchRuntimeEntitySpriteImpl(this, view, visualCellSize);
   }
 
-  private resolveCurrentImageFlipSign(view: EntityView, now: number): number {
-    if (view.imageFlipStartedAt <= 0) {
-      return view.imageFlipTargetSign;
-    }
-    const progress = clamp01((now - view.imageFlipStartedAt) / ENTITY_FACING_FLIP_TRANSITION_MS);
-    if (progress >= 1) {
-      return view.imageFlipTargetSign;
-    }
-    const eased = easeInOutCubic(progress);
-    return view.imageFlipSourceSign + (view.imageFlipTargetSign - view.imageFlipSourceSign) * eased;
+  resolveCurrentImageFlipSign(view: EntityView, now: number): number {
+    return resolveCurrentImageFlipSignImpl(this, view, now);
   }
 
-  private applyEntityImageScale(view: EntityView, now: number): void {
-    const sign = this.resolveCurrentImageFlipSign(view, now);
-    view.image.scale.set(view.imageBaseScaleX * sign, view.imageBaseScaleY);
-    if (view.imageFlipStartedAt > 0 && now - view.imageFlipStartedAt >= ENTITY_FACING_FLIP_TRANSITION_MS) {
-      view.imageFlipStartedAt = 0;
-      view.imageFlipSourceSign = view.imageFlipTargetSign;
-      view.image.scale.set(view.imageBaseScaleX * view.imageFlipTargetSign, view.imageBaseScaleY);
-    }
+  applyEntityImageScale(view: EntityView, now: number): void {
+    applyEntityImageScaleImpl(this, view, now);
   }
 
-  private patchEntityNameplate(
+  patchEntityNameplate(
     view: EntityView,
     label: string,
     badges: readonly EntityNameplateBadge[],
@@ -2070,461 +1027,66 @@ export class PixiMapRendererAdapter {
     labelY: number,
     cellSize: number,
   ): void {
-    const labelColor = resolveEntityLabelColor(view.anim.kind);
-    view.label.visible = shouldShowLabel;
-    view.label.text = label;
-    view.label.style = textStyle('label', cellSize * (view.anim.kind === 'crowd' ? 0.24 : 0.3), labelColor);
-
-    const visibleBadges = shouldShowLabel ? badges : [];
-    this.clearContainer(view.badgeLayer);
-    view.badgeLayer.visible = visibleBadges.length > 0;
-
-    if (!shouldShowLabel) {
-      return;
-    }
-    if (visibleBadges.length === 0) {
-      view.label.position.set(cellSize / 2, labelY);
-      return;
-    }
-
-    const badgeTextSize = Math.max(9, cellSize * 0.2);
-    const badgePaddingX = Math.max(4, cellSize * 0.1);
-    const badgeHeight = Math.max(12, cellSize * 0.28);
-    const badgeRadius = Math.max(4, badgeHeight * 0.38);
-    const badgeGap = Math.max(2, cellSize * 0.04);
-    const labelGap = Math.max(4, cellSize * 0.08);
-
-    const labelWidth = Math.max(0, view.label.width);
-    const badgeEntries = visibleBadges.map((badge) => {
-      const palette = resolveEntityBadgePalette(badge);
-      const text = new Text({
-        text: badge.text,
-        style: textStyle('badge', badgeTextSize, palette.text, 'rgba(0,0,0,0)', 0),
-        anchor: 0.5,
-      });
-      return {
-        badge,
-        text,
-        width: Math.max(16, text.width + badgePaddingX * 2),
-      };
-    });
-    const badgesWidth = badgeEntries.reduce((sum, entry) => sum + entry.width, 0)
-      + Math.max(0, badgeEntries.length - 1) * badgeGap;
-    const totalWidth = badgesWidth + labelGap + labelWidth;
-    const left = cellSize / 2 - totalWidth / 2;
-    const badgeY = labelY - badgeHeight / 2;
-    let badgeX = left;
-    for (const entry of badgeEntries) {
-      const palette = resolveEntityBadgePalette(entry.badge);
-      const plate = new Graphics()
-        .roundRect(0, 0, entry.width, badgeHeight, badgeRadius)
-        .fill({ color: parseColor(palette.fill), alpha: parseAlpha(palette.fill, 1) })
-        .stroke({ color: parseColor(palette.stroke), alpha: parseAlpha(palette.stroke, 1), width: 1 });
-      plate.position.set(badgeX, badgeY);
-      entry.text.position.set(badgeX + entry.width / 2, labelY);
-      view.badgeLayer.addChild(plate, entry.text);
-      badgeX += entry.width + badgeGap;
-    }
-    view.label.position.set(left + badgesWidth + labelGap + labelWidth / 2, labelY);
+    patchEntityNameplateImpl(this, view, label, badges, shouldShowLabel, labelY, cellSize);
   }
 
-  private drawEntityBars(view: EntityView, visualCellSize: number): void {
-    const anim = view.anim;
-    const cellSize = getCellSize();
-    view.hpBar.clear();
-    view.progressBar.clear();
-    const isConstructionBuilding = anim.kind === 'building' && (anim.respawnTotalTicks ?? 0) > 0;
-    if (isConstructionBuilding) {
-      const remaining = Math.max(0, Math.trunc(Number(anim.respawnRemainingTicks) || 0));
-      const total = Math.max(1, Math.trunc(Number(anim.respawnTotalTicks) || 1));
-      const ratio = clamp01(1 - (remaining / total));
-      const y = visualCellSize - 5;
-      const barH = Math.max(3, Math.round(visualCellSize * 0.08));
-      view.progressBar.rect(3, y, Math.max(1, visualCellSize - 6), barH).fill({ color: 0x06121e, alpha: 0.58 });
-      view.progressBar.rect(3, y, Math.max(0, (visualCellSize - 6) * ratio), barH).fill({ color: 0x7dd3fc });
-      view.progressBar.position.set((cellSize - visualCellSize) / 2, cellSize - visualCellSize);
-      return;
-    }
-    if ((anim.maxHp ?? 0) <= 0 || anim.kind === 'crowd') return;
-    const ratio = clamp01((anim.hp ?? 0) / Math.max(anim.maxHp ?? 1, 1));
-    const y = visualCellSize - 5;
-    view.hpBar.rect(3, y, Math.max(1, visualCellSize - 6), 3).fill({ color: 0x000000, alpha: 0.45 });
-    view.hpBar.rect(3, y, Math.max(0, (visualCellSize - 6) * ratio), 3).fill({ color: parseColor(resolveEntityHpBarColor(anim.kind, anim.hostile)) });
-    view.hpBar.position.set((cellSize - visualCellSize) / 2, cellSize - visualCellSize);
+  drawEntityBars(view: EntityView, visualCellSize: number): void {
+    drawEntityBarsImpl(this, view, visualCellSize);
   }
 
-  private drawFormationMarker(graphics: Graphics, anim: AnimEntity, cellSize: number): void {
-    graphics.clear();
-    if (anim.kind !== 'formation') return;
-    const center = cellSize / 2;
-    const radius = Math.max(5, cellSize * 0.36);
-    const color = anim.formationRangeHighlightColor ?? anim.color;
-    graphics.circle(center, center, radius).fill(colorWithAlpha(color, 0.18)).stroke({ ...colorWithAlpha(color, 0.9), width: Math.max(1.5, cellSize * 0.055) });
-    graphics.moveTo(center - radius * 0.66, center).lineTo(center + radius * 0.66, center)
-      .moveTo(center, center - radius * 0.66).lineTo(center, center + radius * 0.66)
-      .stroke({ ...colorWithAlpha(color, 0.72), width: Math.max(1, cellSize * 0.035) });
+  drawFormationMarker(graphics: Graphics, anim: AnimEntity, cellSize: number): void {
+    drawFormationMarkerImpl(this, graphics, anim, cellSize);
   }
 
-  private syncArtifactAura(view: EntityView, cellSize: number): void {
-    const { anim, artifactAura } = view;
-    const active = anim.kind === 'player' && anim.artifactActive === true;
-    artifactAura.visible = active;
-    if (!active) {
-      return;
-    }
-    artifactAura.position.set(cellSize / 2, cellSize / 2);
-    if (view.artifactAuraCellSize !== cellSize || view.artifactAuraFrames.length !== ARTIFACT_AURA_FRAME_COUNT) {
-      for (const child of artifactAura.removeChildren()) {
-        child.destroy({ context: true });
-      }
-      view.artifactAuraFrames = Array.from(
-        { length: ARTIFACT_AURA_FRAME_COUNT },
-        (_, frameIndex) => this.createArtifactAuraFrame(cellSize, frameIndex),
-      );
-      artifactAura.addChild(...view.artifactAuraFrames);
-      view.artifactAuraCellSize = cellSize;
-      view.artifactAuraFrameIndex = -1;
-    }
-    if (view.artifactAuraFrameIndex < 0) {
-      this.updateArtifactAuraFrame(view, 0);
-    }
+  syncArtifactAura(view: EntityView, cellSize: number): void {
+    syncArtifactAuraImpl(this, view, cellSize);
   }
 
-  private createArtifactAuraFrame(cellSize: number, frameIndex: number): Graphics {
-    const graphics = new Graphics();
-    const geometry = buildArtifactAuraGeometry(cellSize, frameIndex, ARTIFACT_AURA_FRAME_COUNT);
-    const { half, side, perimeter } = geometry;
-
-    const pointAt = (distance: number): { x: number; y: number } => {
-      const wrapped = ((distance % perimeter) + perimeter) % perimeter;
-      if (wrapped < side) {
-        return { x: -half + wrapped, y: -half };
-      }
-      if (wrapped < side * 2) {
-        return { x: half, y: -half + wrapped - side };
-      }
-      if (wrapped < side * 3) {
-        return { x: half - (wrapped - side * 2), y: half };
-      }
-      return { x: -half, y: half - (wrapped - side * 3) };
-    };
-    const appendDashes = (): void => {
-      for (const segment of geometry.segments) {
-        const from = pointAt(segment.from);
-        const to = pointAt(segment.to);
-        graphics.moveTo(from.x, from.y).lineTo(to.x, to.y);
-      }
-    };
-    appendDashes();
-    graphics.stroke({ color: ARTIFACT_AURA_COLOR, alpha: 0.28, width: Math.max(4, cellSize * 0.13) });
-    appendDashes();
-    graphics.stroke({ color: ARTIFACT_AURA_COLOR, alpha: 1, width: Math.max(2, cellSize * 0.06) });
-    graphics.visible = false;
-    return graphics;
+  createArtifactAuraFrame(cellSize: number, frameIndex: number): Graphics {
+    return createArtifactAuraFrameImpl(this, cellSize, frameIndex);
   }
 
-  private updateArtifactAuraFrame(view: EntityView, timeMs: number): void {
-    if (!view.artifactAura.visible || view.artifactAuraFrames.length === 0) {
-      return;
-    }
-    const frameIndex = Math.floor(
-      (timeMs % ARTIFACT_AURA_FLOW_MS) / ARTIFACT_AURA_FLOW_MS * ARTIFACT_AURA_FRAME_COUNT,
-    ) % ARTIFACT_AURA_FRAME_COUNT;
-    if (frameIndex === view.artifactAuraFrameIndex) {
-      return;
-    }
-    const previousFrame = view.artifactAuraFrames[view.artifactAuraFrameIndex];
-    if (previousFrame) {
-      previousFrame.visible = false;
-    }
-    const nextFrame = view.artifactAuraFrames[frameIndex];
-    if (nextFrame) {
-      nextFrame.visible = true;
-    }
-    view.artifactAuraFrameIndex = frameIndex;
+  updateArtifactAuraFrame(view: EntityView, timeMs: number): void {
+    updateArtifactAuraFrameImpl(this, view, timeMs);
   }
 
-  private drawRespawnLabel(view: EntityView, cellSize: number, visualCellSize: number): void {
-    const anim = view.anim;
-    view.respawnLabel.visible = anim.kind === 'container' && (anim.respawnRemainingTicks ?? 0) > 0;
-    if (!view.respawnLabel.visible) return;
-    view.respawnLabel.text = translateUi('map-render.respawn-countdown', { countdown: this.formatRespawnCountdown(anim.respawnRemainingTicks) });
-    view.respawnLabel.style = textStyle('label', cellSize * 0.22, '#e7d5a7', 'rgba(15,12,10,0.92)', 3);
-    view.respawnLabel.position.set(cellSize / 2, cellSize - visualCellSize + visualCellSize + Math.max(8, cellSize * 0.16));
+  drawRespawnLabel(view: EntityView, cellSize: number, visualCellSize: number): void {
+    drawRespawnLabelImpl(this, view, cellSize, visualCellSize);
   }
 
-  private formatRespawnCountdown(ticks: number | undefined): string {
-    const safeTicks = Math.max(0, Math.trunc(Number(ticks) || 0));
-    if (safeTicks <= 0) return '0';
-    if (safeTicks < 60) return String(safeTicks);
-    const minutes = Math.floor(safeTicks / 60);
-    const seconds = safeTicks % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  formatRespawnCountdown(ticks: number | undefined): string {
+    return formatRespawnCountdownImpl(this, ticks);
   }
 
-  private drawBuffs(view: EntityView, cellSize: number): void {
-    this.clearContainer(view.buffLayer);
-    const visible = (view.anim.buffs ?? []).filter((buff) => buff.visibility === 'public');
-    const rows = [
-      visible.filter((buff) => buff.category === 'buff'),
-      visible.filter((buff) => buff.category === 'debuff'),
-    ];
-    rows.forEach((row, rowIndex) => {
-      const badgeSize = Math.max(8, Math.floor(cellSize * 0.24));
-      row.slice(0, 4).forEach((buff, index) => {
-        const root = new Container();
-        root.position.set(index * (badgeSize + 2), rowIndex * (badgeSize + 4));
-        const bg = new Graphics().roundRect(0, 0, badgeSize, badgeSize, 2).fill({ color: 0x0f0c0a, alpha: 0.78 }).stroke({ color: 0xfaf4e9, alpha: 0.14, width: 1 });
-        const mark = new Text({ text: buff.shortMark, style: textStyle('badge', Math.max(6, badgeSize * 0.62), '#f7f0dd', 'rgba(0,0,0,0)', 0), anchor: 0.5 });
-        mark.position.set(badgeSize / 2, badgeSize / 2);
-        root.addChild(bg, mark);
-        view.buffLayer.addChild(root);
-      });
-    });
-    view.buffLayer.position.set(0, 1);
+  drawBuffs(view: EntityView, cellSize: number): void {
+    drawBuffsImpl(this, view, cellSize);
   }
 
-  private drawNpcQuestMarker(container: Container, marker: NpcQuestMarker | undefined, cellSize: number): void {
-    this.clearContainer(container);
-    if (!marker) return;
-    const size = Math.max(8, cellSize * 0.18);
-    const graphics = new Graphics();
-    graphics.circle(0, 0, size).fill({ color: marker.line === 'main' ? 0xecb337 : 0x549cde, alpha: 0.95 }).stroke({ color: 0xfff0b0, width: 2 });
-    const symbol = marker.state === 'ready' ? '?' : marker.state === 'active' ? '...' : '!';
-    const text = new Text({ text: symbol, style: textStyle('badge', Math.max(11, cellSize * 0.26), '#3d2500', 'rgba(0,0,0,0)', 0), anchor: 0.5 });
-    container.position.set(cellSize + Math.max(8, cellSize * 0.18), Math.max(9, cellSize * 0.18));
-    container.addChild(graphics, text);
+  drawNpcQuestMarker(container: Container, marker: NpcQuestMarker | undefined, cellSize: number): void {
+    drawNpcQuestMarkerImpl(this, container, marker, cellSize);
   }
 
-  private updateEntityViews(camera: CameraState, progress: number, localPlayerId: string, localPlayerX: number, localPlayerY: number, localPlayerChar: string): void {
-    const cellSize = getCellSize();
-    this.profiler.setCounter('entities', this.entities.size);
-    const motionProgress = clamp01(progress);
-    const t = easeOutCubic(motionProgress);
-    const viewportLeft = camera.x - this.width / 2 - cellSize * 2;
-    const viewportTop = camera.y - this.height / 2 - cellSize * 2;
-    const viewportRight = camera.x + this.width / 2 + cellSize * 2;
-    const viewportBottom = camera.y + this.height / 2 + cellSize * 2;
-    const frameNow = performance.now();
-    const crowdedTileKeys = this.crowdedTileKeysScratch;
-    crowdedTileKeys.reset();
-    let localPlayerInRenderedEntities = false;
-    for (const [id, view] of this.entities) {
-      const anim = view.anim;
-      if (anim.kind === 'crowd') {
-        const worldX = anim.oldWX + (anim.targetWX - anim.oldWX) * t;
-        const worldY = anim.oldWY + (anim.targetWY - anim.oldWY) * t;
-        if (isPixiEntityInViewport(worldX, worldY, cellSize, viewportLeft, viewportTop, viewportRight, viewportBottom)) {
-          crowdedTileKeys.add(anim.gridX, anim.gridY);
-        }
-      }
-      if (id !== this.localPlayerFallbackId && anim.id === localPlayerId) localPlayerInRenderedEntities = true;
-    }
-    for (const view of this.entities.values()) {
-      const anim = view.anim;
-      if (anim.kind === 'formation' && view.hiddenByFormation) {
-        view.root.visible = false;
-        continue;
-      }
-      const wx = anim.oldWX + (anim.targetWX - anim.oldWX) * t;
-      const wy = anim.oldWY + (anim.targetWY - anim.oldWY) * t;
-      view.root.position.set(wx, wy);
-      const inViewport = isPixiEntityInViewport(wx, wy, cellSize, viewportLeft, viewportTop, viewportRight, viewportBottom);
-      const hiddenByCrowd = anim.kind === 'player' && crowdedTileKeys.has(anim.gridX, anim.gridY);
-      view.root.visible = inViewport && !hiddenByCrowd;
-      if (view.root.visible) this.patchEntityMotion(view, motionProgress, frameNow);
-    }
-    this.ensureLocalPlayerFallback(localPlayerId, localPlayerX, localPlayerY, localPlayerChar, localPlayerInRenderedEntities);
+  updateEntityViews(camera: CameraState, progress: number, localPlayerId: string, localPlayerX: number, localPlayerY: number, localPlayerChar: string): void {
+    updateEntityViewsImpl(this, camera, progress, localPlayerId, localPlayerX, localPlayerY, localPlayerChar);
   }
 
-  private patchEntityMotion(view: EntityView, motionProgress: number, now: number): void {
-    const anim = view.anim;
-    const motionDx = anim.targetWX - anim.oldWX;
-    const motionDy = anim.targetWY - anim.oldWY;
-    const motionDistance = Math.hypot(motionDx, motionDy);
-    const isMoving = isMobileEntityObjectKind(anim.kind) && motionDistance > 0.5 && motionProgress < 1;
-    const travelPulse = isMoving ? Math.sin(Math.PI * motionProgress) : 0;
-    const landPhase = isMoving && motionProgress > 0.62 ? clamp01((motionProgress - 0.62) / 0.38) : 0;
-    const landPulse = landPhase > 0 ? Math.sin(Math.PI * landPhase) : 0;
-    const motionUnitX = motionDistance > 0 ? motionDx / motionDistance : 0;
-    const motionUnitY = motionDistance > 0 ? motionDy / motionDistance : 0;
-    let attackPulse = 0;
-    if (view.attackMotionStartedAt !== undefined) {
-      const attackProgress = clamp01((now - view.attackMotionStartedAt) / ATTACK_MOTION_DURATION_MS);
-      if (attackProgress >= 1) {
-        view.attackMotionStartedAt = undefined;
-        view.attackMotionUnitX = 0;
-        view.attackMotionUnitY = 0;
-      } else {
-        attackPulse = Math.sin(Math.PI * attackProgress);
-      }
-    }
-    const attackUnitX = view.attackMotionUnitX ?? 0;
-    const attackUnitY = view.attackMotionUnitY ?? 0;
-    const glyphLean = (motionUnitX - motionUnitY) * travelPulse * 0.1 + (attackUnitX - attackUnitY) * attackPulse * 0.08;
-    const impactScaleX = (1 + travelPulse * 0.08 + landPulse * 0.1) * (1 + attackPulse * 0.1);
-    const impactScaleY = (1 - travelPulse * 0.06 - landPulse * 0.12) * (1 - attackPulse * 0.08);
-    const visualCellSize = Math.max(1, view.visualRoot.pivot.x * 2);
-    const cellSize = getCellSize();
-    const attackLunge = attackPulse * cellSize * 0.08;
-    view.visualRoot.position.set(cellSize / 2 + attackUnitX * attackLunge, cellSize - 3 + attackUnitY * attackLunge);
-    view.visualRoot.scale.set(
-      (isMoving ? 1 + travelPulse * 0.24 : 1) * (1 + attackPulse * 0.16),
-      (isMoving ? 1 - travelPulse * 0.16 : 1) * (1 - attackPulse * 0.1),
-    );
-    this.applyEntityImageScale(view, now);
-    view.glyph.rotation = isMoving || attackPulse > 0 ? glyphLean : 0;
-    view.glyph.scale.set(isMoving || attackPulse > 0 ? impactScaleX : 1, isMoving || attackPulse > 0 ? impactScaleY : 1);
-    view.glyph.y = visualCellSize / 2 - travelPulse * cellSize * 0.08;
-    this.updateArtifactAuraFrame(view, now);
+  patchEntityMotion(view: EntityView, motionProgress: number, now: number): void {
+    patchEntityMotionImpl(this, view, motionProgress, now);
   }
 
-  private ensureLocalPlayerFallback(localPlayerId: string, localPlayerX: number, localPlayerY: number, localPlayerChar: string, exists: boolean): void {
-    if (exists || !Number.isFinite(localPlayerX) || !Number.isFinite(localPlayerY)) {
-      const fallback = this.entities.get(this.localPlayerFallbackId);
-      if (fallback) {
-        this.destroyEntityView(fallback);
-        this.entities.delete(this.localPlayerFallbackId);
-      }
-      return;
-    }
-    const cellSize = getCellSize();
-    const fallbackEntity: ObservedMapEntity = {
-      id: this.localPlayerFallbackId,
-      wx: localPlayerX,
-      wy: localPlayerY,
-      char: localPlayerChar || translateUi('map-render.local-player-char', undefined),
-      color: '#fff4dc',
-      kind: 'player',
-      name: resolveEntityFallbackLabel('player'),
-    };
-    let view = this.entities.get(this.localPlayerFallbackId);
-    if (!view) {
-      view = this.createEntityView(fallbackEntity, localPlayerX * cellSize, localPlayerY * cellSize);
-      this.entities.set(this.localPlayerFallbackId, view);
-      this.entityLayer.addChild(view.root);
-    }
-    Object.assign(view.anim, fallbackEntity, {
-      id: this.localPlayerFallbackId,
-      gridX: localPlayerX,
-      gridY: localPlayerY,
-      oldWX: localPlayerX * cellSize,
-      oldWY: localPlayerY * cellSize,
-      targetWX: localPlayerX * cellSize,
-      targetWY: localPlayerY * cellSize,
-    });
-    view.root.position.set(localPlayerX * cellSize, localPlayerY * cellSize);
-    this.patchEntityStatic(view);
-    view.root.visible = true;
+  ensureLocalPlayerFallback(localPlayerId: string, localPlayerX: number, localPlayerY: number, localPlayerChar: string, exists: boolean): void {
+    ensureLocalPlayerFallbackImpl(this, localPlayerId, localPlayerX, localPlayerY, localPlayerChar, exists);
   }
 
-  private rebuildFormationRangeVisualCacheIfNeeded(): void {
-    for (const view of this.entities.values()) {
-      const anim = view.anim;
-      view.hiddenByFormation = anim.kind === 'formation' && anim.formationEyeVisibleWithoutSenseQi !== true;
-    }
-    const signature = buildFormationRangeSignature([...this.entities.values()].map((view) => view.anim));
-    if (signature === this.formationRangeSignature) return;
-    this.formationRangeSignature = signature;
-    this.formationRangeVisuals.clear();
-    this.formationRangeSenseQiVisuals.clear();
-    for (const view of this.entities.values()) {
-      const anim = view.anim;
-      if (anim.kind !== 'formation' || !Number.isFinite(Number(anim.formationRadius)) || anim.formationActive === false) continue;
-      const radius = Math.max(1, Math.trunc(Number(anim.formationRadius) || 0));
-      for (let gy = anim.gridY - radius; gy <= anim.gridY + radius; gy += 1) {
-        for (let gx = anim.gridX - radius; gx <= anim.gridX + radius; gx += 1) {
-          if (!isTileInsideFormationRange(anim, gx, gy)) continue;
-          const key = `${gx},${gy}`;
-          if (anim.formationBlocksBoundary === true && isTileOnFormationBoundary(anim, gx, gy)) {
-            const boundaryVisual: FormationRangeVisual = {
-              highlightColor: anim.formationBoundaryRangeHighlightColor ?? anim.formationBoundaryColor ?? anim.formationRangeHighlightColor ?? anim.color,
-              boundary: true,
-              boundaryChar: anim.formationBoundaryChar,
-              boundaryColor: anim.formationBoundaryColor ?? anim.color,
-            };
-            this.formationRangeSenseQiVisuals.set(key, boundaryVisual);
-            if (anim.formationBoundaryVisibleWithoutSenseQi === true) this.formationRangeVisuals.set(key, boundaryVisual);
-            continue;
-          }
-          const rangeVisual: FormationRangeVisual = {
-            highlightColor: anim.formationRangeHighlightColor ?? anim.color,
-            boundary: false,
-            boundaryColor: anim.color,
-          };
-          if (!this.formationRangeSenseQiVisuals.has(key)) this.formationRangeSenseQiVisuals.set(key, rangeVisual);
-          if (anim.formationRangeVisibleWithoutSenseQi === true && !this.formationRangeVisuals.has(key)) this.formationRangeVisuals.set(key, rangeVisual);
-        }
-      }
-    }
+  rebuildFormationRangeVisualCacheIfNeeded(): void {
+    rebuildFormationRangeVisualCacheIfNeededImpl(this);
   }
 
-  private renderThreatArrows(localPlayerId: string): void {
-    const graphics = this.threatArrowGraphics;
-    graphics.clear();
-    const cellSize = getCellSize();
-    for (const arrow of this.threatArrows) {
-      const from = this.resolveThreatEntityView(arrow.ownerId);
-      const to = this.resolveThreatEntityView(arrow.targetId);
-      if (!from?.root.visible || !to?.root.visible) continue;
-      const fromCenterX = from.root.x + cellSize / 2;
-      const fromCenterY = from.root.y + cellSize / 2;
-      const toCenterX = to.root.x + cellSize / 2;
-      const toCenterY = to.root.y + cellSize / 2;
-      const dx = toCenterX - fromCenterX;
-      const dy = toCenterY - fromCenterY;
-      const distance = Math.hypot(dx, dy);
-      if (distance < Math.max(10, cellSize * 0.45)) continue;
-      const ux = dx / distance;
-      const uy = dy / distance;
-      const startX = fromCenterX + ux * cellSize * 0.34;
-      const startY = fromCenterY + uy * cellSize * 0.34;
-      const endX = toCenterX - ux * cellSize * 0.34;
-      const endY = toCenterY - uy * cellSize * 0.34;
-      const curvature = Math.max(cellSize * 0.32, Math.min(distance * 0.18, cellSize * 0.76));
-      const controlX = (startX + endX) / 2;
-      const controlY = Math.min(startY, endY) - curvature;
-      const self = arrow.ownerId === localPlayerId;
-      const color = self ? SELF_THREAT_ARROW_PIXI_COLOR : OTHER_THREAT_ARROW_PIXI_COLOR;
-      const glowColor = self ? SELF_THREAT_ARROW_PIXI_GLOW : OTHER_THREAT_ARROW_PIXI_GLOW;
-      const glowAlpha = self ? SELF_THREAT_ARROW_PIXI_GLOW_ALPHA : OTHER_THREAT_ARROW_PIXI_GLOW_ALPHA;
-      const baseWidth = Math.max(0.55, cellSize * 0.02);
-      const dashLength = Math.max(5, cellSize * 0.17);
-      const gapLength = Math.max(4, cellSize * 0.12);
-
-      this.drawDashedQuadraticCurve(
-        graphics,
-        startX,
-        startY,
-        controlX,
-        controlY,
-        endX,
-        endY,
-        dashLength,
-        gapLength,
-        glowColor,
-        glowAlpha,
-        baseWidth + Math.max(1.9, cellSize * 0.048),
-      );
-      this.drawDashedQuadraticCurve(
-        graphics,
-        startX,
-        startY,
-        controlX,
-        controlY,
-        endX,
-        endY,
-        dashLength,
-        gapLength,
-        color,
-        0.98,
-        baseWidth,
-      );
-      this.drawThreatArrowHead(graphics, startX, startY, controlX, controlY, endX, endY, cellSize, color, 0.98);
-    }
+  renderThreatArrows(localPlayerId: string): void {
+    renderThreatArrowsImpl(this, localPlayerId);
   }
 
-  private drawDashedQuadraticCurve(
+  drawDashedQuadraticCurve(
     graphics: Graphics,
     startX: number,
     startY: number,
@@ -2538,48 +1100,10 @@ export class PixiMapRendererAdapter {
     alpha: number,
     width: number,
   ): void {
-    const straightDistance = Math.hypot(endX - startX, endY - startY);
-    const segmentCount = Math.max(12, Math.min(48, Math.ceil(straightDistance / Math.max(4, dashLength))));
-    let previousX = startX;
-    let previousY = startY;
-    let drawingDash = true;
-    let remaining = dashLength;
-    for (let index = 1; index <= segmentCount; index += 1) {
-      const t = index / segmentCount;
-      const nextX = this.getQuadraticPoint(startX, controlX, endX, t);
-      const nextY = this.getQuadraticPoint(startY, controlY, endY, t);
-      const segmentLength = Math.hypot(nextX - previousX, nextY - previousY);
-      if (segmentLength < 0.001) {
-        previousX = nextX;
-        previousY = nextY;
-        continue;
-      }
-      const ux = (nextX - previousX) / segmentLength;
-      const uy = (nextY - previousY) / segmentLength;
-      let consumed = 0;
-      while (consumed < segmentLength) {
-        const take = Math.min(remaining, segmentLength - consumed);
-        if (drawingDash) {
-          const dashStartX = previousX + ux * consumed;
-          const dashStartY = previousY + uy * consumed;
-          const dashEndX = previousX + ux * (consumed + take);
-          const dashEndY = previousY + uy * (consumed + take);
-          graphics.moveTo(dashStartX, dashStartY).lineTo(dashEndX, dashEndY);
-        }
-        consumed += take;
-        remaining -= take;
-        if (remaining <= 0.001) {
-          drawingDash = !drawingDash;
-          remaining = drawingDash ? dashLength : gapLength;
-        }
-      }
-      previousX = nextX;
-      previousY = nextY;
-    }
-    graphics.stroke({ color, alpha, width });
+    drawDashedQuadraticCurveImpl(this, graphics, startX, startY, controlX, controlY, endX, endY, dashLength, gapLength, color, alpha, width);
   }
 
-  private drawThreatArrowHead(
+  drawThreatArrowHead(
     graphics: Graphics,
     startX: number,
     startY: number,
@@ -2591,118 +1115,46 @@ export class PixiMapRendererAdapter {
     color: number,
     alpha: number,
   ): void {
-    const tangentX = endX - this.getQuadraticPoint(startX, controlX, endX, 0.86);
-    const tangentY = endY - this.getQuadraticPoint(startY, controlY, endY, 0.86);
-    const tangentLength = Math.hypot(tangentX, tangentY);
-    if (tangentLength < 0.001) return;
-    const arrowUx = tangentX / tangentLength;
-    const arrowUy = tangentY / tangentLength;
-    const headLength = Math.max(7, cellSize * 0.22);
-    const headWidth = Math.max(2.4, cellSize * 0.076);
-    const baseX = endX - arrowUx * headLength;
-    const baseY = endY - arrowUy * headLength;
-    graphics
-      .moveTo(endX, endY)
-      .lineTo(baseX + (-arrowUy) * headWidth, baseY + arrowUx * headWidth)
-      .lineTo(baseX - (-arrowUy) * headWidth, baseY - arrowUx * headWidth)
-      .closePath()
-      .fill({ color, alpha });
+    drawThreatArrowHeadImpl(this, graphics, startX, startY, controlX, controlY, endX, endY, cellSize, color, alpha);
   }
 
-  private getQuadraticPoint(start: number, control: number, end: number, t: number): number {
-    const invT = 1 - t;
-    return invT * invT * start + 2 * invT * t * control + t * t * end;
+  getQuadraticPoint(start: number, control: number, end: number, t: number): number {
+    return getQuadraticPointImpl(this, start, control, end, t);
   }
 
-  private resolveThreatEntityView(id: string): EntityView | undefined {
-    return this.entities.get(id);
+  resolveThreatEntityView(id: string): EntityView | undefined {
+    return resolveThreatEntityViewImpl(this, id);
   }
 
-  private triggerAttackMotion(fromX: number, fromY: number, toX: number, toY: number): void {
-    const view = this.resolveAttackMotionView(fromX, fromY);
-    if (!view) return;
-    const dx = toX - fromX;
-    const dy = toY - fromY;
-    const distance = Math.hypot(dx, dy);
-    view.attackMotionStartedAt = performance.now();
-    view.attackMotionUnitX = distance > 0 ? dx / distance : 0;
-    view.attackMotionUnitY = distance > 0 ? dy / distance : 0;
+  triggerAttackMotion(fromX: number, fromY: number, toX: number, toY: number): void {
+    triggerAttackMotionImpl(this, fromX, fromY, toX, toY);
   }
 
-  private resolveAttackMotionView(fromX: number, fromY: number): EntityView | null {
-    const gridX = Math.round(fromX);
-    const gridY = Math.round(fromY);
-    for (const view of this.entities.values()) {
-      if (!isMobileEntityObjectKind(view.anim.kind)) continue;
-      if (view.anim.gridX === gridX && view.anim.gridY === gridY) return view;
-    }
-    return null;
+  resolveAttackMotionView(fromX: number, fromY: number): EntityView | null {
+    return resolveAttackMotionViewImpl(this, fromX, fromY);
   }
 
-  private getFadingPathAlpha(now: number): number {
-    if (!this.fadingPath) return 0;
-    const progress = (now - this.fadingPath.startedAt) / this.fadingPath.durationMs;
-    if (progress >= 1) {
-      this.fadingPath = null;
-      return 0;
-    }
-    return 1 - progress;
+  getFadingPathAlpha(now: number): number {
+    return getFadingPathAlphaImpl(this, now);
   }
 
-  private renderTimeOverlay(time: GameTimeState | null): void {
-    const graphics = this.timeOverlayGraphics;
-    graphics.clear();
-    if (!time) return;
-    const atmosphere = this.resolveTimeAtmosphere(time);
-    if (atmosphere.overlay[3] > 0.001) {
-      graphics.rect(0, 0, this.width, this.height).fill({ color: (atmosphere.overlay[0] << 16) | (atmosphere.overlay[1] << 8) | atmosphere.overlay[2], alpha: atmosphere.overlay[3] });
-    }
-    if (atmosphere.vignetteAlpha > 0.001) {
-      graphics.rect(0, 0, this.width, this.height).stroke({ color: 0x050408, alpha: atmosphere.vignetteAlpha, width: Math.max(this.width, this.height) * 0.08 });
-    }
+  renderTimeOverlay(time: GameTimeState | null): void {
+    renderTimeOverlayImpl(this, time);
   }
 
-  private resolveTimeAtmosphere(time: GameTimeState): TimeAtmosphereState {
-    const profile = TIME_ATMOSPHERE_PROFILES[time.phase];
-    const target: TimeAtmosphereState = {
-      initialized: true,
-      overlay: this.buildRgbaVector(time.tint, Math.max(0, Math.min(1, time.overlayAlpha * profile.overlayBoost))),
-      sky: this.buildRgbaVector(profile.skyTint, profile.skyAlpha),
-      horizon: this.buildRgbaVector(profile.horizonTint, profile.horizonAlpha),
-      vignetteAlpha: profile.vignetteAlpha,
-    };
-    if (!this.timeAtmosphere.initialized) {
-      this.timeAtmosphere = target;
-      return this.timeAtmosphere;
-    }
-    this.timeAtmosphere.overlay = this.lerpColorVector(this.timeAtmosphere.overlay, target.overlay, TIME_FILTER_LERP);
-    this.timeAtmosphere.sky = this.lerpColorVector(this.timeAtmosphere.sky, target.sky, TIME_FILTER_LERP);
-    this.timeAtmosphere.horizon = this.lerpColorVector(this.timeAtmosphere.horizon, target.horizon, TIME_FILTER_LERP);
-    this.timeAtmosphere.vignetteAlpha += (target.vignetteAlpha - this.timeAtmosphere.vignetteAlpha) * TIME_FILTER_LERP;
-    return this.timeAtmosphere;
+  resolveTimeAtmosphere(time: GameTimeState): TimeAtmosphereState {
+    return resolveTimeAtmosphereImpl(this, time);
   }
 
-  private buildRgbaVector(hex: string, alpha: number): [number, number, number, number] {
-    const value = hex.trim().replace('#', '');
-    const normalized = value.length === 3 ? value.split('').map((char) => char + char).join('') : value.padEnd(6, '0').slice(0, 6);
-    return [
-      Number.parseInt(normalized.slice(0, 2), 16) || 0,
-      Number.parseInt(normalized.slice(2, 4), 16) || 0,
-      Number.parseInt(normalized.slice(4, 6), 16) || 0,
-      clamp01(alpha),
-    ];
+  buildRgbaVector(hex: string, alpha: number): [number, number, number, number] {
+    return buildRgbaVectorImpl(this, hex, alpha);
   }
 
-  private lerpColorVector(current: [number, number, number, number], target: [number, number, number, number], factor: number): [number, number, number, number] {
-    return [
-      Math.round(current[0] + (target[0] - current[0]) * factor),
-      Math.round(current[1] + (target[1] - current[1]) * factor),
-      Math.round(current[2] + (target[2] - current[2]) * factor),
-      current[3] + (target[3] - current[3]) * factor,
-    ];
+  lerpColorVector(current: [number, number, number, number], target: [number, number, number, number], factor: number): [number, number, number, number] {
+    return lerpColorVectorImpl(this, current, target, factor);
   }
 
-  private buildProfileRendererState(): PixiProfileRendererState {
+  buildProfileRendererState(): PixiProfileRendererState {
     let cachedTerrainChunks = 0;
     let terrainCachedContainers = 0;
     let terrainChunkChildren = 0;

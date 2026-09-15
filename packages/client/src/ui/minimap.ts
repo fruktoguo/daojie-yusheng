@@ -22,14 +22,74 @@ import {
 import { buildCanvasFont } from '../constants/ui/text';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../utils/number';
 import { t } from './i18n';
+import {
+  buildCatalogEntriesImpl,
+  renderCatalogImpl,
+  createCatalogItemNodeImpl,
+  updateCatalogItemNodeImpl,
+  insertCatalogItemNodeInOrderImpl,
+  getCatalogEmptyNodeImpl,
+  removeAllCatalogNodesImpl,
+  buildCatalogBadgeImpl,
+  getCatalogDescriptionImpl,
+  getCurrentDisplayAvailabilityImpl,
+  getDisplayAvailabilityImpl,
+  resolveModalDisplayModeImpl,
+  syncModalDisplaySwitchImpl,
+  setModalDisplayModeImpl,
+  getCurrentDisplaySceneImpl,
+  getModalDisplaySceneImpl,
+} from './minimap.catalog';
+import {
+  mountModalToBodyImpl,
+  isCompactViewportImpl,
+  syncResponsiveModalChromeImpl,
+  openModalImpl,
+  closeModalImpl,
+  resetModalViewportImpl,
+  cancelModalPanImpl,
+  openMoveConfirmImpl,
+  closeMoveConfirmImpl,
+  openDeleteMemoryConfirmImpl,
+  createConfirmMessageImpl,
+  createMoveConfirmActionsImpl,
+  bindMoveConfirmActionsImpl,
+  createDeleteMemoryActionsImpl,
+  bindDeleteMemoryActionsImpl,
+  createConfirmActionsImpl,
+  createConfirmButtonImpl,
+  deleteSelectedMemoryImpl,
+  deleteAllMemoryImpl,
+  applyMemoryDeletionToSceneImpl,
+} from './minimap.modal';
+import {
+  buildTileCacheHashImpl,
+  buildBaseKeyImpl,
+  ensureBaseCanvasImpl,
+  renderOverlayImpl,
+  renderExpandedMapImpl,
+  getViewportMetricsImpl,
+  resolveWorldPointImpl,
+  resolveCanvasPointImpl,
+  resolveCurrentMoveTargetImpl,
+  getTileAtImpl,
+  getTileTypeAtImpl,
+  getDisplayMarkersImpl,
+  drawSceneImpl,
+  drawMarkerImpl,
+  drawMarkerLabelImpl,
+  drawGroundPileImpl,
+  drawModalHudImpl,
+  buildHoverLinesImpl,
+} from './minimap.draw';
 
 /** 小地图目录筛选条件。 */
-type CatalogFilter = 'all' | 'memory' | 'unlock';
+export type CatalogFilter = 'all' | 'memory' | 'unlock';
 /** MinimapDisplayMode：模式枚举。 */
-type MinimapDisplayMode = 'memory' | 'unlock';
+export type MinimapDisplayMode = 'memory' | 'unlock';
 
 /** 目录来源在当前环境中的可用性。 */
-interface DisplaySourceAvailability {
+export interface DisplaySourceAvailability {
 /**
  * hasMemory：启用开关或状态标识。
  */
@@ -43,7 +103,7 @@ interface DisplaySourceAvailability {
 }
 
 /** 小地图主场景渲染数据。 */
-interface MinimapScene {
+export interface MinimapScene {
 /**
  * mapMeta：地图Meta相关字段。
  */
@@ -136,7 +196,7 @@ interface MinimapScene {
 }
 
 /** 小地图目录条目。 */
-interface CatalogEntry {
+export interface CatalogEntry {
 /**
  * mapId：地图ID标识。
  */
@@ -164,7 +224,7 @@ interface CatalogEntry {
 }
 
 /** 弹窗中正在绘制的地图场景。 */
-interface DisplayMapScene {
+export interface DisplayMapScene {
 /**
  * mapId：地图ID标识。
  */
@@ -282,7 +342,7 @@ interface DisplayMapScene {
 }
 
 /** 小地图弹窗视口换算指标。 */
-interface ViewportMetrics {
+export interface ViewportMetrics {
 /**
  * width：width相关字段。
  */
@@ -378,7 +438,7 @@ interface ViewportMetrics {
 }
 
 /** 弹窗平移拖拽状态。 */
-interface ModalPanState {
+export interface ModalPanState {
 /**
  * pointerId：pointerID标识。
  */
@@ -407,12 +467,12 @@ interface ModalPanState {
 }
 
 /** clamp：处理clamp。 */
-function clamp(value: number, min: number, max: number): number {
+export function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
 /** parseTileKey：解析地块Key。 */
-function parseTileKey(key: string): {
+export function parseTileKey(key: string): {
 /**
  * x：x相关字段。
  */
@@ -436,7 +496,7 @@ function parseTileKey(key: string): {
 }
 
 /** ensureCanvasSize：确保Canvas Size。 */
-function ensureCanvasSize(canvas: HTMLCanvasElement): boolean {
+export function ensureCanvasSize(canvas: HTMLCanvasElement): boolean {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const rect = canvas.getBoundingClientRect();
@@ -452,7 +512,7 @@ function ensureCanvasSize(canvas: HTMLCanvasElement): boolean {
 }
 
 /** buildFallbackMapMeta：构建兜底地图元数据。 */
-function buildFallbackMapMeta(mapId: string, snapshot: MapMinimapSnapshot | null, tileCache: Map<string, Tile>): MapMeta {
+export function buildFallbackMapMeta(mapId: string, snapshot: MapMinimapSnapshot | null, tileCache: Map<string, Tile>): MapMeta {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   let width = snapshot?.width ?? 1;
@@ -475,7 +535,7 @@ function buildFallbackMapMeta(mapId: string, snapshot: MapMinimapSnapshot | null
   };
 }
 
-function attachCatalogGroup(entry: Omit<CatalogEntry, 'mapGroupId' | 'mapGroupName' | 'mapGroupOrder' | 'mapGroupMemberOrder'>): CatalogEntry {
+export function attachCatalogGroup(entry: Omit<CatalogEntry, 'mapGroupId' | 'mapGroupName' | 'mapGroupOrder' | 'mapGroupMemberOrder'>): CatalogEntry {
   const group = resolveMapGroupInfo({
     id: entry.mapMeta?.id ?? entry.mapId,
     name: entry.mapMeta?.name ?? t('minimap.catalog.unknown-region', undefined),
@@ -495,7 +555,7 @@ function attachCatalogGroup(entry: Omit<CatalogEntry, 'mapGroupId' | 'mapGroupNa
   };
 }
 
-interface MinimapDrawExtent {
+export interface MinimapDrawExtent {
   minX: number;
   minY: number;
   maxX: number;
@@ -504,7 +564,7 @@ interface MinimapDrawExtent {
   height: number;
 }
 
-function buildMinimapDrawExtent(display: DisplayMapScene): MinimapDrawExtent {
+export function buildMinimapDrawExtent(display: DisplayMapScene): MinimapDrawExtent {
   let minX = 0;
   let minY = 0;
   let maxX = Math.max(0, Math.trunc(Number(display.mapMeta.width) || 1) - 1);
@@ -565,7 +625,7 @@ function buildMinimapDrawExtent(display: DisplayMapScene): MinimapDrawExtent {
 }
 
 /** getCanvasPixels：读取Canvas Pixels。 */
-function getCanvasPixels(canvas: HTMLCanvasElement, clientX: number, clientY: number): {
+export function getCanvasPixels(canvas: HTMLCanvasElement, clientX: number, clientY: number): {
 /**
  * x：x相关字段。
  */
@@ -589,86 +649,86 @@ function getCanvasPixels(canvas: HTMLCanvasElement, clientX: number, clientY: nu
 /** Minimap：小地图实现。 */
 export class Minimap {
   /** MOVE_CONFIRM_OWNER：移动CONFIRM OWNER。 */
-  private static readonly MOVE_CONFIRM_OWNER = 'map-minimap:move-confirm';
+  static readonly MOVE_CONFIRM_OWNER = 'map-minimap:move-confirm';
   /** DELETE_MEMORY_OWNER：DELETE MEMORY OWNER。 */
-  private static readonly DELETE_MEMORY_OWNER = 'map-minimap:delete-memory';
+  static readonly DELETE_MEMORY_OWNER = 'map-minimap:delete-memory';
 
   /** shell：shell。 */
-  private readonly shell = document.getElementById('map-minimap-shell') as HTMLElement | null;
+  readonly shell = document.getElementById('map-minimap-shell') as HTMLElement | null;
   /** overlayRoot：overlay Root。 */
-  private readonly overlayRoot = document.getElementById('map-minimap') as HTMLElement | null;
+  readonly overlayRoot = document.getElementById('map-minimap') as HTMLElement | null;
   /** overlayCanvas：overlay Canvas。 */
-  private readonly overlayCanvas = document.getElementById('map-minimap-canvas') as HTMLCanvasElement | null;
+  readonly overlayCanvas = document.getElementById('map-minimap-canvas') as HTMLCanvasElement | null;
   /** overlayTitle：overlay标题。 */
-  private readonly overlayTitle = document.getElementById('map-minimap-title') as HTMLElement | null;
+  readonly overlayTitle = document.getElementById('map-minimap-title') as HTMLElement | null;
   /** toggleBtn：toggle按钮。 */
-  private readonly toggleBtn = document.getElementById('map-minimap-toggle') as HTMLButtonElement | null;
+  readonly toggleBtn = document.getElementById('map-minimap-toggle') as HTMLButtonElement | null;
   /** openBtn：open按钮。 */
-  private readonly openBtn = document.getElementById('map-minimap-open') as HTMLButtonElement | null;
+  readonly openBtn = document.getElementById('map-minimap-open') as HTMLButtonElement | null;
   /** modal：弹窗。 */
-  private readonly modal = document.getElementById('map-minimap-modal') as HTMLElement | null;
+  readonly modal = document.getElementById('map-minimap-modal') as HTMLElement | null;
   /** modalBody：弹窗身体。 */
-  private readonly modalBody = document.querySelector('#map-minimap-modal .map-minimap-modal-body') as HTMLElement | null;
+  readonly modalBody = document.querySelector('#map-minimap-modal .map-minimap-modal-body') as HTMLElement | null;
   /** modalSidebar：弹窗Sidebar。 */
-  private readonly modalSidebar = document.querySelector('#map-minimap-modal .map-minimap-modal-sidebar') as HTMLElement | null;
+  readonly modalSidebar = document.querySelector('#map-minimap-modal .map-minimap-modal-sidebar') as HTMLElement | null;
   /** modalWindow：弹窗窗口。 */
-  private readonly modalWindow = document.getElementById('map-minimap-modal-window') as HTMLElement | null;
+  readonly modalWindow = document.getElementById('map-minimap-modal-window') as HTMLElement | null;
   /** modalTitle：弹窗标题。 */
-  private readonly modalTitle = document.getElementById('map-minimap-modal-title') as HTMLElement | null;
+  readonly modalTitle = document.getElementById('map-minimap-modal-title') as HTMLElement | null;
   /** modalCatalogToggleBtn：弹窗目录Toggle按钮。 */
-  private readonly modalCatalogToggleBtn = document.getElementById('map-minimap-modal-catalog-toggle') as HTMLButtonElement | null;
+  readonly modalCatalogToggleBtn = document.getElementById('map-minimap-modal-catalog-toggle') as HTMLButtonElement | null;
   /** modalCloseBtn：弹窗Close按钮。 */
-  private readonly modalCloseBtn = document.getElementById('map-minimap-modal-close') as HTMLButtonElement | null;
+  readonly modalCloseBtn = document.getElementById('map-minimap-modal-close') as HTMLButtonElement | null;
   /** modalCanvas：弹窗Canvas。 */
-  private readonly modalCanvas = document.getElementById('map-minimap-modal-canvas') as HTMLCanvasElement | null;
+  readonly modalCanvas = document.getElementById('map-minimap-modal-canvas') as HTMLCanvasElement | null;
   /** modalSourceSwitch：弹窗来源Switch。 */
-  private readonly modalSourceSwitch = document.getElementById('map-minimap-modal-source-switch') as HTMLElement | null;
+  readonly modalSourceSwitch = document.getElementById('map-minimap-modal-source-switch') as HTMLElement | null;
   /** modalSourceMemoryBtn：弹窗来源Memory按钮。 */
-  private readonly modalSourceMemoryBtn = document.getElementById('map-minimap-modal-source-memory') as HTMLButtonElement | null;
+  readonly modalSourceMemoryBtn = document.getElementById('map-minimap-modal-source-memory') as HTMLButtonElement | null;
   /** modalSourceUnlockBtn：弹窗来源解锁按钮。 */
-  private readonly modalSourceUnlockBtn = document.getElementById('map-minimap-modal-source-unlock') as HTMLButtonElement | null;
+  readonly modalSourceUnlockBtn = document.getElementById('map-minimap-modal-source-unlock') as HTMLButtonElement | null;
   /** modalList：弹窗列表。 */
-  private readonly modalList = document.getElementById('map-minimap-modal-list') as HTMLElement | null;
+  readonly modalList = document.getElementById('map-minimap-modal-list') as HTMLElement | null;
   /** modalTabAll：弹窗Tab All。 */
-  private readonly modalTabAll = document.getElementById('map-minimap-filter-all') as HTMLButtonElement | null;
+  readonly modalTabAll = document.getElementById('map-minimap-filter-all') as HTMLButtonElement | null;
   /** modalTabMemory：弹窗Tab Memory。 */
-  private readonly modalTabMemory = document.getElementById('map-minimap-filter-memory') as HTMLButtonElement | null;
+  readonly modalTabMemory = document.getElementById('map-minimap-filter-memory') as HTMLButtonElement | null;
   /** modalTabUnlock：弹窗Tab解锁。 */
-  private readonly modalTabUnlock = document.getElementById('map-minimap-filter-unlock') as HTMLButtonElement | null;
+  readonly modalTabUnlock = document.getElementById('map-minimap-filter-unlock') as HTMLButtonElement | null;
   /** deleteMemoryBtn：delete Memory按钮。 */
-  private readonly deleteMemoryBtn = document.getElementById('map-minimap-delete-memory') as HTMLButtonElement | null;
+  readonly deleteMemoryBtn = document.getElementById('map-minimap-delete-memory') as HTMLButtonElement | null;
   /** deleteAllMemoryBtn：删除全部地图记忆按钮。 */
-  private readonly deleteAllMemoryBtn = document.getElementById('map-minimap-delete-all-memory') as HTMLButtonElement | null;
+  readonly deleteAllMemoryBtn = document.getElementById('map-minimap-delete-all-memory') as HTMLButtonElement | null;
 
   /** baseCanvas：基础Canvas。 */
-  private readonly baseCanvas = document.createElement('canvas');
+  readonly baseCanvas = document.createElement('canvas');
   /** baseCtx：基础Ctx。 */
-  private readonly baseCtx = this.baseCanvas.getContext('2d');
+  readonly baseCtx = this.baseCanvas.getContext('2d');
   /** scene：场景。 */
-  private scene: MinimapScene | null = null;
+  scene: MinimapScene | null = null;
   /** renderQueued：渲染Queued。 */
   private renderQueued = false;
   /** overlayVisible：overlay可见。 */
-  private overlayVisible = true;
+  overlayVisible = true;
   /** modalOpen：弹窗Open。 */
-  private modalOpen = false;
+  modalOpen = false;
   /** baseKey：基础Key。 */
-  private baseKey: string | null = null;
+  baseKey: string | null = null;
   /** selectedMapId：selected地图ID。 */
-  private selectedMapId: string | null = null;
+  selectedMapId: string | null = null;
   /** modalDisplayMode：弹窗显示模式。 */
-  private modalDisplayMode: MinimapDisplayMode = 'unlock';
+  modalDisplayMode: MinimapDisplayMode = 'unlock';
   /** catalogFilter：目录筛选。 */
-  private catalogFilter: CatalogFilter = 'all';
+  catalogFilter: CatalogFilter = 'all';
   /** moveHandler：移动Handler。 */
-  private moveHandler: ((x: number, y: number, mapId?: string) => void) | null = null;
+  moveHandler: ((x: number, y: number, mapId?: string) => void) | null = null;
   /** memoryDeleteHandler：地图记忆删除后通知地图运行时同步缓存。 */
-  private memoryDeleteHandler: ((mapIds: readonly string[] | null) => void) | null = null;
+  memoryDeleteHandler: ((mapIds: readonly string[] | null) => void) | null = null;
   /**
  * pendingMovePoint：pendingMovePoint相关字段。
  */
 
-  private pendingMovePoint: {  
+  pendingMovePoint: {  
   /**
  * x：x相关字段。
  */
@@ -678,18 +738,18 @@ export class Minimap {
  */
  y: number } | null = null;
   /** modalZoom：弹窗缩放。 */
-  private modalZoom = 1;
+  modalZoom = 1;
   /** modalPanX：弹窗Pan X。 */
-  private modalPanX = 0;
+  modalPanX = 0;
   /** modalPanY：弹窗Pan Y。 */
-  private modalPanY = 0;
+  modalPanY = 0;
   /** modalPanState：弹窗Pan状态。 */
-  private modalPanState: ModalPanState | null = null;  
+  modalPanState: ModalPanState | null = null;  
   /**
  * hoveredModalPoint：hovered弹层Point相关字段。
  */
 
-  private hoveredModalPoint: {  
+  hoveredModalPoint: {  
   /**
  * x：x相关字段。
  */
@@ -699,12 +759,12 @@ export class Minimap {
  */
  y: number } | null = null;
   /** mobileCatalogOpen：mobile目录Open。 */
-  private mobileCatalogOpen = false;
+  mobileCatalogOpen = false;
   /** catalogEntryNodes：目录条目Nodes。 */
-  private readonly catalogEntryNodes = new Map<string, HTMLButtonElement>();
-  private readonly catalogGroupHeaderNodes = new Map<string, HTMLElement>();
+  readonly catalogEntryNodes = new Map<string, HTMLButtonElement>();
+  readonly catalogGroupHeaderNodes = new Map<string, HTMLElement>();
   /** catalogEmptyNode：目录Empty节点。 */
-  private catalogEmptyNode: HTMLElement | null = null;  
+  catalogEmptyNode: HTMLElement | null = null;  
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @returns 无返回值，完成实例初始化。
@@ -1006,42 +1066,18 @@ export class Minimap {
   }
 
   /** mountModalToBody：处理mount弹窗To身体。 */
-  private mountModalToBody(): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!this.modal) {
-      return;
-    }
-    const root = getViewportRoot(document) ?? document.body;
-    if (this.modal.parentElement === root) {
-      return;
-    }
-    root.appendChild(this.modal);
+  mountModalToBody(): void {
+    mountModalToBodyImpl(this);
   }
 
   /** isCompactViewport：判断是否Compact视口。 */
-  private isCompactViewport(): boolean {
-    return window.innerWidth <= 900;
+  isCompactViewport(): boolean {
+    return isCompactViewportImpl(this);
   }
 
   /** syncResponsiveModalChrome：同步Responsive弹窗Chrome。 */
-  private syncResponsiveModalChrome(): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const catalogVisible = this.isCompactViewport() ? this.mobileCatalogOpen : true;
-    if (this.modal) {
-      this.modal.dataset.mobileCatalogOpen = catalogVisible ? 'true' : 'false';
-    }
-    if (this.modalCatalogToggleBtn) {
-      this.modalCatalogToggleBtn.classList.toggle('active', catalogVisible);
-      this.modalCatalogToggleBtn.setAttribute('aria-expanded', catalogVisible ? 'true' : 'false');
-      this.modalCatalogToggleBtn.textContent = catalogVisible
-        ? t('minimap.catalog.toggle.collapse', undefined)
-        : t('minimap.catalog.toggle.open', undefined);
-      this.modalCatalogToggleBtn.setAttribute('aria-label', catalogVisible
-        ? t('minimap.catalog.toggle.collapse-title', undefined)
-        : t('minimap.catalog.toggle.open-title', undefined));
-    }
+  syncResponsiveModalChrome(): void {
+    syncResponsiveModalChromeImpl(this);
   }
 
   /** 注册点击地图前往目标坐标的回调 */
@@ -1134,7 +1170,7 @@ export class Minimap {
   }
 
   /** scheduleRender：调度渲染。 */
-  private scheduleRender(): void {
+  scheduleRender(): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (this.renderQueued) {
@@ -1149,7 +1185,7 @@ export class Minimap {
   }
 
   /** refreshChrome：处理refresh Chrome。 */
-  private refreshChrome(): void {
+  refreshChrome(): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const hasScene = !!(this.scene?.mapMeta && this.scene.player);
@@ -1175,283 +1211,44 @@ export class Minimap {
   }
 
   /** openModal：打开弹窗。 */
-  private openModal(): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!this.modal) {
-      return;
-    }
-    this.modalOpen = true;
-    this.mobileCatalogOpen = !this.isCompactViewport();
-    if (!this.selectedMapId) {
-      this.selectedMapId = this.scene?.mapMeta?.id ?? null;
-    }
-    this.resetModalViewport();
-    this.renderCatalog();
-    this.refreshChrome();
-    this.syncResponsiveModalChrome();
-    this.modal.classList.remove('hidden');
-    this.modal.setAttribute('aria-hidden', 'false');
-    this.scheduleRender();
+  openModal(): void {
+    openModalImpl(this);
   }
 
   /** closeModal：关闭弹窗。 */
-  private closeModal(): void {
-    this.modalOpen = false;
-    this.mobileCatalogOpen = false;
-    this.hoveredModalPoint = null;
-    this.cancelModalPan();
-    this.closeMoveConfirm();
-    detailModalHost.close(Minimap.DELETE_MEMORY_OWNER);
-    this.modal?.classList.add('hidden');
-    this.modal?.setAttribute('aria-hidden', 'true');
-    this.syncResponsiveModalChrome();
-    this.refreshChrome();
-    this.scheduleRender();
+  closeModal(): void {
+    closeModalImpl(this);
   }
 
   /** resetModalViewport：重置弹窗视口。 */
-  private resetModalViewport(): void {
-    this.modalZoom = 1;
-    this.modalPanX = 0;
-    this.modalPanY = 0;
+  resetModalViewport(): void {
+    resetModalViewportImpl(this);
   }
 
   /** cancelModalPan：取消弹窗Pan。 */
-  private cancelModalPan(): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (this.modalPanState && this.modalCanvas?.hasPointerCapture(this.modalPanState.pointerId)) {
-      this.modalCanvas.releasePointerCapture(this.modalPanState.pointerId);
-    }
-    this.modalPanState = null;
+  cancelModalPan(): void {
+    cancelModalPanImpl(this);
   }
 
   /** buildCatalogEntries：构建目录Entries。 */
-  private buildCatalogEntries(): CatalogEntry[] {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const entries = new Map<string, CatalogEntry>();
-    const currentMapMeta = this.scene?.mapMeta ?? null;
-    const currentMapId = currentMapMeta?.id ?? null;
-
-    for (const mapId of listRememberedMapIds()) {
-      const existing = entries.get(mapId);
-      entries.set(mapId, attachCatalogGroup({
-        mapId,
-        mapMeta: existing?.mapMeta ?? (mapId === currentMapId ? currentMapMeta : getCachedMapMeta(mapId)),
-        hasMemory: true,
-        hasUnlock: existing?.hasUnlock ?? false,
-      }));
-    }
-
-    for (const entry of listCachedUnlockedMapSummaries()) {
-      const existing = entries.get(entry.mapId);
-      entries.set(entry.mapId, attachCatalogGroup({
-        mapId: entry.mapId,
-        mapMeta: existing?.mapMeta ?? entry.mapMeta,
-        hasMemory: existing?.hasMemory ?? false,
-        hasUnlock: true,
-      }));
-    }
-
-    if (currentMapId) {
-      const existing = entries.get(currentMapId);
-      entries.set(currentMapId, attachCatalogGroup({
-        mapId: currentMapId,
-        mapMeta: currentMapMeta,
-        hasMemory: existing?.hasMemory ?? false,
-        hasUnlock: existing?.hasUnlock ?? !!this.scene?.snapshot,
-      }));
-    }
-
-    return [...entries.values()].sort((left, right) => {
-      const leftCurrentGroup = currentMapId && left.mapGroupId === entries.get(currentMapId)?.mapGroupId;
-      const rightCurrentGroup = currentMapId && right.mapGroupId === entries.get(currentMapId)?.mapGroupId;
-      if (leftCurrentGroup !== rightCurrentGroup) {
-        return leftCurrentGroup ? -1 : 1;
-      }
-      const groupOrderGap = left.mapGroupOrder - right.mapGroupOrder;
-      if (groupOrderGap !== 0) return groupOrderGap;
-      const groupNameGap = left.mapGroupName.localeCompare(right.mapGroupName, 'zh-Hans-CN');
-      if (groupNameGap !== 0) return groupNameGap;
-      const memberOrderGap = left.mapGroupMemberOrder - right.mapGroupMemberOrder;
-      if (memberOrderGap !== 0) return memberOrderGap;
-      const leftName = left.mapMeta?.name ?? left.mapId;
-      const rightName = right.mapMeta?.name ?? right.mapId;
-      return leftName.localeCompare(rightName, 'zh-Hans-CN');
-    });
+  buildCatalogEntries(): CatalogEntry[] {
+    return buildCatalogEntriesImpl(this);
   }
 
   /** renderCatalog：渲染目录。 */
-  private renderCatalog(): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!this.modalList) {
-      return;
-    }
-
-    const allEntries = this.buildCatalogEntries();
-    const filteredEntries = allEntries.filter((entry) => {
-      if (this.catalogFilter === 'memory') {
-        return entry.hasMemory;
-      }
-      if (this.catalogFilter === 'unlock') {
-        return entry.hasUnlock;
-      }
-      return true;
-    });
-
-    const currentMapId = this.scene?.mapMeta?.id ?? null;
-    const selectedVisible = filteredEntries.some((entry) => entry.mapId === this.selectedMapId);
-    if (!selectedVisible) {
-      this.selectedMapId = filteredEntries.find((entry) => entry.mapId === currentMapId)?.mapId
-        ?? filteredEntries[0]?.mapId
-        ?? allEntries[0]?.mapId
-        ?? null;
-      this.baseKey = null;
-      this.hoveredModalPoint = null;
-      this.closeMoveConfirm();
-      this.resetModalViewport();
-    }
-
-    this.syncModalDisplaySwitch();
-
-    this.modalTabAll?.classList.toggle('active', this.catalogFilter === 'all');
-    this.modalTabMemory?.classList.toggle('active', this.catalogFilter === 'memory');
-    this.modalTabUnlock?.classList.toggle('active', this.catalogFilter === 'unlock');
-    if (this.deleteMemoryBtn) {
-      const selectedEntry = allEntries.find((entry) => entry.mapId === this.selectedMapId) ?? null;
-      this.deleteMemoryBtn.disabled = !selectedEntry?.hasMemory;
-      this.deleteMemoryBtn.setAttribute('aria-label', selectedEntry?.hasMemory
-        ? t('minimap.memory.delete-selected-title', { mapName: selectedEntry.mapMeta?.name ?? t('minimap.catalog.unknown-region', undefined) })
-        : t('minimap.memory.delete-selected-disabled-title', undefined));
-    }
-    if (this.deleteAllMemoryBtn) {
-      const hasAnyMemory = listRememberedMapIds().length > 0;
-      this.deleteAllMemoryBtn.disabled = !hasAnyMemory;
-      this.deleteAllMemoryBtn.setAttribute('aria-label', hasAnyMemory
-        ? t('minimap.memory.delete-all-title', undefined)
-        : t('minimap.memory.delete-all-disabled-title', undefined));
-    }
-
-    const catalogContainer = this.modalList;
-    const previousScrollTop = catalogContainer.scrollTop;
-    const filteredIds = new Set(filteredEntries.map((entry) => entry.mapId));
-    const filteredGroupIds = new Set(filteredEntries.map((entry) => entry.mapGroupId));
-
-    if (filteredEntries.length === 0) {
-      this.removeAllCatalogNodes();
-      catalogContainer.replaceChildren(this.getCatalogEmptyNode());
-      return;
-    }
-
-    if (this.catalogEmptyNode?.parentElement === catalogContainer) {
-      catalogContainer.removeChild(this.catalogEmptyNode);
-    }
-
-    for (const existingId of Array.from(this.catalogEntryNodes.keys())) {
-      if (!filteredIds.has(existingId)) {
-        this.catalogEntryNodes.get(existingId)?.remove();
-        this.catalogEntryNodes.delete(existingId);
-      }
-    }
-    for (const existingGroupId of Array.from(this.catalogGroupHeaderNodes.keys())) {
-      if (!filteredGroupIds.has(existingGroupId)) {
-        this.catalogGroupHeaderNodes.get(existingGroupId)?.remove();
-        this.catalogGroupHeaderNodes.delete(existingGroupId);
-      }
-    }
-
-    let previousNode: HTMLElement | null = null;
-    let previousGroupId = '';
-    for (const entry of filteredEntries) {
-      if (entry.mapGroupId !== previousGroupId) {
-        let headerNode = this.catalogGroupHeaderNodes.get(entry.mapGroupId);
-        if (!headerNode) {
-          headerNode = document.createElement('div');
-          headerNode.className = 'map-minimap-modal-group-title';
-          this.catalogGroupHeaderNodes.set(entry.mapGroupId, headerNode);
-        }
-        headerNode.textContent = entry.mapGroupName;
-        this.insertCatalogItemNodeInOrder(headerNode, previousNode, catalogContainer);
-        previousNode = headerNode;
-        previousGroupId = entry.mapGroupId;
-      }
-      let node = this.catalogEntryNodes.get(entry.mapId);
-      if (!node) {
-        node = this.createCatalogItemNode(entry);
-        this.catalogEntryNodes.set(entry.mapId, node);
-      }
-      this.updateCatalogItemNode(entry, node);
-      this.insertCatalogItemNodeInOrder(node, previousNode, catalogContainer);
-      previousNode = node;
-    }
-
-    catalogContainer.scrollTop = previousScrollTop;
+  renderCatalog(): void {
+    renderCatalogImpl(this);
   }
 
   /** createCatalogItemNode：创建目录物品节点。 */
-  private createCatalogItemNode(entry: CatalogEntry): HTMLButtonElement {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'map-minimap-modal-item';
-    button.dataset.mapId = entry.mapId;
-
-    const head = document.createElement('div');
-    head.className = 'map-minimap-modal-item-head';
-
-    const name = document.createElement('span');
-    name.className = 'map-minimap-modal-item-name';
-    head.appendChild(name);
-
-    const badges = document.createElement('span');
-    badges.className = 'map-minimap-modal-item-badges';
-    head.appendChild(badges);
-
-    button.appendChild(head);
-
-    return button;
+  createCatalogItemNode(entry: CatalogEntry): HTMLButtonElement {
+    return createCatalogItemNodeImpl(this, entry);
   }
 
   /** updateCatalogItemNode：更新目录物品节点。 */
-  private updateCatalogItemNode(entry: CatalogEntry, node: HTMLButtonElement): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const signature = [
-      entry.mapId,
-      entry.mapGroupId,
-      entry.mapGroupName,
-      entry.mapMeta?.name ?? t('minimap.catalog.unknown-region', undefined),
-      entry.hasMemory ? 'memory' : '',
-      entry.hasUnlock ? 'unlock' : '',
-      entry.mapId === this.selectedMapId ? 'active' : '',
-    ].join('|');
-    if (node.dataset.catalogSignature === signature) {
-      return;
-    }
-    node.dataset.catalogSignature = signature;
-
-    const nameNode = node.querySelector<HTMLSpanElement>('.map-minimap-modal-item-name');
-    if (nameNode) {
-      nameNode.textContent = entry.mapMeta?.name ?? t('minimap.catalog.unknown-region', undefined);
-    }
-
-    const badgesNode = node.querySelector<HTMLElement>('.map-minimap-modal-item-badges');
-    if (badgesNode) {
-      const badges: HTMLElement[] = [];
-      if (entry.hasMemory) {
-        badges.push(this.buildCatalogBadge('memory', t('minimap.catalog.badge.memory', undefined)));
-      }
-      if (entry.hasUnlock) {
-        badges.push(this.buildCatalogBadge('unlock', t('minimap.catalog.badge.unlock', undefined)));
-      }
-      badgesNode.replaceChildren(...badges);
-    }
-
-    node.dataset.mapId = entry.mapId;
-    node.classList.toggle('active', entry.mapId === this.selectedMapId);
-  }  
+  updateCatalogItemNode(entry: CatalogEntry, node: HTMLButtonElement): void {
+    updateCatalogItemNodeImpl(this, entry, node);
+  }
   /**
  * insertCatalogItemNodeInOrder：执行insert目录道具NodeIn订单相关逻辑。
  * @param node HTMLButtonElement 参数说明。
@@ -1461,610 +1258,158 @@ export class Minimap {
  */
 
 
-  private insertCatalogItemNodeInOrder(
+  insertCatalogItemNodeInOrder(
     node: HTMLElement,
     previousNode: HTMLElement | null,
     container: HTMLElement,
   ): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const anchor = previousNode ? previousNode.nextElementSibling : container.firstElementChild;
-    if (anchor === node) {
-      return;
-    }
-    container.insertBefore(node, anchor);
+    insertCatalogItemNodeInOrderImpl(this, node, previousNode, container);
   }
 
   /** getCatalogEmptyNode：读取目录Empty节点。 */
-  private getCatalogEmptyNode(): HTMLElement {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!this.catalogEmptyNode) {
-      this.catalogEmptyNode = document.createElement('div');
-      this.catalogEmptyNode.className = 'map-minimap-modal-empty';
-    }
-    this.catalogEmptyNode.textContent = t('minimap.catalog.empty', undefined);
-    return this.catalogEmptyNode;
+  getCatalogEmptyNode(): HTMLElement {
+    return getCatalogEmptyNodeImpl(this);
   }
 
   /** removeAllCatalogNodes：处理remove All目录Nodes。 */
-  private removeAllCatalogNodes(): void {
-    this.catalogEntryNodes.forEach((node) => {
-      node.remove();
-    });
-    this.catalogEntryNodes.clear();
-    this.catalogGroupHeaderNodes.forEach((node) => {
-      node.remove();
-    });
-    this.catalogGroupHeaderNodes.clear();
+  removeAllCatalogNodes(): void {
+    removeAllCatalogNodesImpl(this);
   }
 
   /** buildCatalogBadge：构建目录Badge。 */
-  private buildCatalogBadge(badgeClass: 'unlock' | 'memory', label: string): HTMLSpanElement {
-    const badge = document.createElement('span');
-    badge.className = `map-minimap-modal-badge ${badgeClass}`;
-    badge.textContent = label;
-    return badge;
+  buildCatalogBadge(badgeClass: 'unlock' | 'memory', label: string): HTMLSpanElement {
+    return buildCatalogBadgeImpl(this, badgeClass, label);
   }
 
   /** getCatalogDescription：读取目录Description。 */
-  private getCatalogDescription(entry: CatalogEntry): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const description = entry.mapMeta?.description?.trim();
-    if (description) {
-      return description;
-    }
-    if (entry.hasUnlock && entry.hasMemory) {
-      return t('minimap.catalog.desc.unlock-memory', undefined);
-    }
-    if (entry.hasUnlock) {
-      return t('minimap.catalog.desc.unlock', undefined);
-    }
-    return t('minimap.catalog.desc.memory', undefined);
+  getCatalogDescription(entry: CatalogEntry): string {
+    return getCatalogDescriptionImpl(this, entry);
   }
 
   /** getCurrentDisplayAvailability：读取当前显示Availability。 */
-  private getCurrentDisplayAvailability(): DisplaySourceAvailability {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!this.scene) {
-      return { hasMemory: false, hasUnlock: false };
-    }
-    return {
-      hasMemory: this.scene.tileCache.size > 0
-        || this.scene.visibleTiles.size > 0
-        || this.scene.rememberedMarkers.length > 0
-        || this.scene.visibleMarkers.length > 0,
-      hasUnlock: !!this.scene.snapshot,
-    };
+  getCurrentDisplayAvailability(): DisplaySourceAvailability {
+    return getCurrentDisplayAvailabilityImpl(this);
   }
 
   /** getDisplayAvailability：读取显示Availability。 */
-  private getDisplayAvailability(selectedMapId: string | null, current: DisplayMapScene | null): DisplaySourceAvailability {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!selectedMapId) {
-      return { hasMemory: false, hasUnlock: false };
-    }
-    if (current && selectedMapId === current.mapId) {
-      return {
-        hasMemory: current.hasMemory,
-        hasUnlock: current.hasUnlock,
-      };
-    }
-    const snapshot = getCachedUnlockedMapSnapshot(selectedMapId);
-    const rememberedMarkers = getRememberedMarkers(selectedMapId);
-    const tileCache = getRememberedTiles(selectedMapId);
-    return {
-      hasMemory: tileCache.size > 0 || rememberedMarkers.length > 0,
-      hasUnlock: !!snapshot,
-    };
+  getDisplayAvailability(selectedMapId: string | null, current: DisplayMapScene | null): DisplaySourceAvailability {
+    return getDisplayAvailabilityImpl(this, selectedMapId, current);
   }
 
   /** resolveModalDisplayMode：解析弹窗显示模式。 */
-  private resolveModalDisplayMode(availability: DisplaySourceAvailability): MinimapDisplayMode {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (this.modalDisplayMode === 'unlock' && availability.hasUnlock) {
-      return 'unlock';
-    }
-    if (this.modalDisplayMode === 'memory' && availability.hasMemory) {
-      return 'memory';
-    }
-    return availability.hasUnlock ? 'unlock' : 'memory';
+  resolveModalDisplayMode(availability: DisplaySourceAvailability): MinimapDisplayMode {
+    return resolveModalDisplayModeImpl(this, availability);
   }
 
   /** syncModalDisplaySwitch：同步弹窗显示Switch。 */
-  private syncModalDisplaySwitch(): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const current = this.getCurrentDisplayScene();
-    const selectedMapId = this.selectedMapId ?? current?.mapId ?? null;
-    const availability = this.getDisplayAvailability(selectedMapId, current);
-    const showSwitch = availability.hasMemory || availability.hasUnlock;
-    const nextMode = this.resolveModalDisplayMode(availability);
-    this.modalDisplayMode = nextMode;
-
-    this.modalSourceSwitch?.classList.toggle('hidden', !showSwitch);
-
-    if (this.modalSourceMemoryBtn) {
-      const active = nextMode === 'memory';
-      this.modalSourceMemoryBtn.hidden = !availability.hasMemory;
-      this.modalSourceMemoryBtn.disabled = !availability.hasMemory;
-      this.modalSourceMemoryBtn.classList.toggle('active', active);
-      this.modalSourceMemoryBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
-      this.modalSourceMemoryBtn.setAttribute('aria-label', availability.hasUnlock
-        ? t('minimap.source.memory-title', undefined)
-        : t('minimap.source.memory-only-title', undefined));
-    }
-    if (this.modalSourceUnlockBtn) {
-      const active = nextMode === 'unlock';
-      this.modalSourceUnlockBtn.hidden = !availability.hasUnlock;
-      this.modalSourceUnlockBtn.disabled = !availability.hasUnlock;
-      this.modalSourceUnlockBtn.classList.toggle('active', active);
-      this.modalSourceUnlockBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
-      this.modalSourceUnlockBtn.setAttribute('aria-label', availability.hasMemory
-        ? t('minimap.source.unlock-title', undefined)
-        : t('minimap.source.unlock-only-title', undefined));
-    }
+  syncModalDisplaySwitch(): void {
+    syncModalDisplaySwitchImpl(this);
   }
 
   /** setModalDisplayMode：处理set弹窗显示模式。 */
-  private setModalDisplayMode(mode: MinimapDisplayMode): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const current = this.getCurrentDisplayScene();
-    const selectedMapId = this.selectedMapId ?? current?.mapId ?? null;
-    const availability = this.getDisplayAvailability(selectedMapId, current);
-    if ((mode === 'memory' && !availability.hasMemory) || (mode === 'unlock' && !availability.hasUnlock)) {
-      return;
-    }
-    if (this.modalDisplayMode === mode) {
-      return;
-    }
-    this.modalDisplayMode = mode;
-    this.baseKey = null;
-    this.hoveredModalPoint = null;
-    this.closeMoveConfirm();
-    this.syncModalDisplaySwitch();
-    this.scheduleRender();
+  setModalDisplayMode(mode: MinimapDisplayMode): void {
+    setModalDisplayModeImpl(this, mode);
   }
 
   /** getCurrentDisplayScene：读取当前显示场景。 */
-  private getCurrentDisplayScene(): DisplayMapScene | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!this.scene?.mapMeta) {
-      return null;
-    }
-    const availability = this.getCurrentDisplayAvailability();
-    return {
-      mapId: this.scene.mapMeta.id,
-      mapMeta: this.scene.mapMeta,
-      snapshot: this.scene.snapshot,
-      rememberedMarkers: this.scene.rememberedMarkers,
-      visibleMarkers: this.scene.visibleMarkers,
-      tileCache: this.scene.tileCache,
-      visibleTiles: this.scene.visibleTiles,
-      visibleEntities: this.scene.visibleEntities,
-      groundPiles: this.scene.groundPiles,
-      player: this.scene.player,
-      viewRadius: this.scene.viewRadius,
-      isCurrent: true,
-      memoryVersion: this.scene.memoryVersion,
-      displayMode: availability.hasUnlock ? 'unlock' : 'memory',
-      hasMemory: availability.hasMemory,
-      hasUnlock: availability.hasUnlock,
-    };
+  getCurrentDisplayScene(): DisplayMapScene | null {
+    return getCurrentDisplaySceneImpl(this);
   }
 
   /** getModalDisplayScene：读取弹窗显示场景。 */
-  private getModalDisplayScene(): DisplayMapScene | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const current = this.getCurrentDisplayScene();
-    if (!this.modalOpen) {
-      return null;
-    }
-    const selectedMapId = this.selectedMapId ?? current?.mapId ?? null;
-    if (!selectedMapId) {
-      return current;
-    }
-    if (current && selectedMapId === current.mapId) {
-      const mode = this.resolveModalDisplayMode({
-        hasMemory: current.hasMemory,
-        hasUnlock: current.hasUnlock,
-      });
-      this.modalDisplayMode = mode;
-      return {
-        ...current,
-        snapshot: mode === 'unlock' ? current.snapshot : null,
-        displayMode: mode,
-      };
-    }
-
-    const snapshot = getCachedUnlockedMapSnapshot(selectedMapId);
-    const rememberedMarkers = getRememberedMarkers(selectedMapId);
-    const tileCache = getRememberedTiles(selectedMapId);
-    const hasMemory = tileCache.size > 0 || rememberedMarkers.length > 0;
-    const hasUnlock = !!snapshot;
-    if (!hasUnlock && !hasMemory) {
-      return current;
-    }
-
-    const mode = this.resolveModalDisplayMode({ hasMemory, hasUnlock });
-    this.modalDisplayMode = mode;
-    const mapMeta = getCachedMapMeta(selectedMapId) ?? buildFallbackMapMeta(selectedMapId, snapshot, tileCache);
-    return {
-      mapId: selectedMapId,
-      mapMeta,
-      snapshot: mode === 'unlock' ? snapshot : null,
-      rememberedMarkers,
-      visibleMarkers: [],
-      tileCache,
-      visibleTiles: EMPTY_VISIBLE_TILES,
-      visibleEntities: [],
-      groundPiles: EMPTY_GROUND_PILES,
-      player: null,
-      viewRadius: 0,
-      isCurrent: false,
-      memoryVersion: tileCache.size,
-      displayMode: mode,
-      hasMemory,
-      hasUnlock,
-    };
+  getModalDisplayScene(): DisplayMapScene | null {
+    return getModalDisplaySceneImpl(this);
   }
 
   /** buildTileCacheHash：构建地块缓存Hash。 */
-  private buildTileCacheHash(tileCache: ReadonlyMap<string, Tile>): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    let hash = 0;
-    for (const [key, tile] of tileCache.entries()) {
-      for (let index = 0; index < key.length; index += 1) {
-        hash = (hash * 33 + key.charCodeAt(index)) >>> 0;
-      }
-      for (let index = 0; index < tile.type.length; index += 1) {
-        hash = (hash * 33 + tile.type.charCodeAt(index)) >>> 0;
-      }
-    }
-    return `${tileCache.size}:${hash}`;
+  buildTileCacheHash(tileCache: ReadonlyMap<string, Tile>): string {
+    return buildTileCacheHashImpl(this, tileCache);
   }
 
   /** buildBaseKey：构建基础Key。 */
-  private buildBaseKey(display: DisplayMapScene): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const extent = buildMinimapDrawExtent(display);
-    if (display.isCurrent) {
-      const snapshotKey = display.snapshot
-        ? `snapshot:${display.snapshot.width}:${display.snapshot.height}:${display.snapshot.terrainRows.length}:${display.snapshot.markers.length}`
-        : 'memory';
-      return `current:${display.mapId}:${display.displayMode}:${snapshotKey}:${display.memoryVersion}:${extent.minX},${extent.minY},${extent.maxX},${extent.maxY}`;
-    }
-    if (display.snapshot) {
-      return `snapshot:${display.mapId}:${display.snapshot.width}:${display.snapshot.height}:${display.snapshot.terrainRows.length}:${display.snapshot.markers.length}:${extent.minX},${extent.minY},${extent.maxX},${extent.maxY}:${this.buildTileCacheHash(display.tileCache)}`;
-    }
-    return `memory:${display.mapId}:${this.buildTileCacheHash(display.tileCache)}:${extent.minX},${extent.minY},${extent.maxX},${extent.maxY}`;
+  buildBaseKey(display: DisplayMapScene): string {
+    return buildBaseKeyImpl(this, display);
   }
 
   /** ensureBaseCanvas：确保基础Canvas。 */
-  private ensureBaseCanvas(display: DisplayMapScene): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!this.baseCtx) {
-      return;
-    }
-
-    const nextKey = this.buildBaseKey(display);
-    if (this.baseKey === nextKey) {
-      return;
-    }
-    this.baseKey = nextKey;
-
-    const extent = buildMinimapDrawExtent(display);
-    this.baseCanvas.width = extent.width;
-    this.baseCanvas.height = extent.height;
-    this.baseCtx.clearRect(0, 0, this.baseCanvas.width, this.baseCanvas.height);
-    this.baseCtx.fillStyle = '#0d0f12';
-    this.baseCtx.fillRect(0, 0, this.baseCanvas.width, this.baseCanvas.height);
-
-    if (display.snapshot && display.snapshot.terrainRows.length > 0) {
-      for (let y = 0; y < display.snapshot.terrainRows.length; y += 1) {
-        const row = display.snapshot.terrainRows[y] ?? '';
-        for (let x = 0; x < row.length; x += 1) {
-          const type = getTileTypeFromMapChar(row[x] ?? '.');
-          this.baseCtx.fillStyle = TILE_MINIMAP_COLORS[type] ?? '#888';
-          this.baseCtx.fillRect(x - extent.minX, y - extent.minY, 1, 1);
-        }
-      }
-    }
-
-    for (const [key, tile] of display.tileCache.entries()) {
-      const point = parseTileKey(key);
-      if (!point) {
-        continue;
-      }
-      if (
-        point.x < extent.minX || point.y < extent.minY
-        || point.x > extent.maxX || point.y > extent.maxY
-      ) {
-        continue;
-      }
-      this.baseCtx.fillStyle = TILE_MINIMAP_COLORS[tile.type] ?? '#888';
-      this.baseCtx.fillRect(point.x - extent.minX, point.y - extent.minY, 1, 1);
-    }
+  ensureBaseCanvas(display: DisplayMapScene): void {
+    ensureBaseCanvasImpl(this, display);
   }
 
   /** renderOverlay：渲染Overlay。 */
-  private renderOverlay(): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const ctx = this.overlayCanvas?.getContext('2d');
-    const display = this.getCurrentDisplayScene();
-    if (!ctx || !this.overlayCanvas) {
-      return;
-    }
-    if (!display || !display.player || !this.overlayVisible || this.modalOpen) {
-      ctx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
-      return;
-    }
-
-    ensureCanvasSize(this.overlayCanvas);
-    if (this.overlayTitle) {
-      this.overlayTitle.textContent = display.snapshot
-        ? t('minimap.overlay.title.unlock', { mapName: display.mapMeta.name })
-        : t('minimap.overlay.title.memory', { mapName: display.mapMeta.name });
-    }
-    const metrics = this.getViewportMetrics(this.overlayCanvas, display, false);
-    this.drawScene(ctx, display, metrics, false);
+  renderOverlay(): void {
+    renderOverlayImpl(this);
   }
 
   /** renderExpandedMap：绘制已展开的大地图 Canvas，不重建窗口。 */
-  private renderExpandedMap(): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const ctx = this.modalCanvas?.getContext('2d');
-    const display = this.getModalDisplayScene();
-    if (!ctx || !this.modalCanvas || !this.modalOpen) {
-      return;
-    }
-    if (!display) {
-      ctx.clearRect(0, 0, this.modalCanvas.width, this.modalCanvas.height);
-      return;
-    }
-
-    ensureCanvasSize(this.modalCanvas);
-    const metrics = this.getViewportMetrics(this.modalCanvas, display, true);
-    this.modalPanX = metrics.panX;
-    this.modalPanY = metrics.panY;
-    if (this.modalTitle) {
-      this.modalTitle.textContent = display.displayMode === 'unlock'
-        ? t('minimap.modal.title.unlock', { mapName: display.mapMeta.name })
-        : t('minimap.modal.title.memory', { mapName: display.mapMeta.name });
-    }
-    this.drawScene(ctx, display, metrics, true);
+  renderExpandedMap(): void {
+    renderExpandedMapImpl(this);
   }
 
   /** openMoveConfirm：打开移动Confirm。 */
-  private openMoveConfirm(mapMeta: MapMeta, x: number, y: number, mapId: string): void {
-    this.pendingMovePoint = { x, y };
-    detailModalHost.open({
-      ownerId: Minimap.MOVE_CONFIRM_OWNER,
-      title: t('minimap.move-confirm.title', undefined),
-      subtitle: t('minimap.coordinate.with-map', { mapName: mapMeta.name, x, y }),
-      hint: t('minimap.modal.hint.cancel-outside', undefined),
-      renderBody: (body) => {
-        body.replaceChildren(
-          this.createConfirmMessage(t('minimap.move-confirm.message', undefined)),
-          this.createMoveConfirmActions(x, y),
-        );
-      },
-      onAfterRender: (body, signal) => {
-        this.bindMoveConfirmActions(body, signal, x, y, mapId);
-      },
-      onClose: () => {
-        this.pendingMovePoint = null;
-      },
-    });
+  openMoveConfirm(mapMeta: MapMeta, x: number, y: number, mapId: string): void {
+    openMoveConfirmImpl(this, mapMeta, x, y, mapId);
   }
 
   /** closeMoveConfirm：关闭移动Confirm。 */
-  private closeMoveConfirm(): void {
-    this.pendingMovePoint = null;
-    detailModalHost.close(Minimap.MOVE_CONFIRM_OWNER);
+  closeMoveConfirm(): void {
+    closeMoveConfirmImpl(this);
   }
 
   /** openDeleteMemoryConfirm：打开Delete Memory Confirm。 */
-  private openDeleteMemoryConfirm(scope: 'selected' | 'all'): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const allEntries = this.buildCatalogEntries();
-    const selectedMapId = this.selectedMapId;
-    const selectedEntry = selectedMapId ? allEntries.find((candidate) => candidate.mapId === selectedMapId) : null;
-    const rememberedMapIds = listRememberedMapIds();
-    if (scope === 'selected' && (!selectedMapId || !selectedEntry?.hasMemory)) {
-      return;
-    }
-    if (scope === 'all' && rememberedMapIds.length === 0) {
-      return;
-    }
-    const mapName = scope === 'all'
-      ? t('minimap.memory.delete-all.subtitle', { count: formatDisplayInteger(rememberedMapIds.length) })
-      : (selectedEntry?.mapMeta?.name ?? t('minimap.catalog.unknown-region', undefined));
-    const title = scope === 'all'
-      ? t('minimap.memory.delete-all.confirm-title', undefined)
-      : t('minimap.memory.delete-selected.confirm-title', undefined);
-    const message = scope === 'all'
-      ? t('minimap.memory.delete-all.message', undefined)
-      : t('minimap.memory.delete-selected.message', undefined);
-    detailModalHost.open({
-      ownerId: Minimap.DELETE_MEMORY_OWNER,
-      title,
-      subtitle: mapName,
-      hint: t('minimap.modal.hint.cancel-outside', undefined),
-      renderBody: (body) => {
-        body.replaceChildren(
-          this.createConfirmMessage(message),
-          this.createDeleteMemoryActions(scope),
-        );
-      },
-      onAfterRender: (body, signal) => {
-        this.bindDeleteMemoryActions(body, signal, scope, selectedMapId);
-      },
-    });
+  openDeleteMemoryConfirm(scope: 'selected' | 'all'): void {
+    openDeleteMemoryConfirmImpl(this, scope);
   }
 
   /** createConfirmMessage：创建确认说明。 */
-  private createConfirmMessage(message: string): HTMLElement {
-    const section = document.createElement('div');
-    section.className = 'panel-section';
-    const hint = document.createElement('div');
-    hint.className = 'empty-hint';
-    hint.textContent = message;
-    section.append(hint);
-    return section;
+  createConfirmMessage(message: string): HTMLElement {
+    return createConfirmMessageImpl(this, message);
   }
 
   /** createMoveConfirmActions：创建移动确认按钮区。 */
-  private createMoveConfirmActions(x: number, y: number): HTMLElement {
-    const actions = this.createConfirmActions();
-    const cancelButton = this.createConfirmButton(t('minimap.action.cancel', undefined), 'small-btn ghost');
-    cancelButton.dataset.mapMoveCancel = 'true';
-    const confirmButton = this.createConfirmButton(t('minimap.action.confirm-move', undefined), 'small-btn');
-    confirmButton.dataset.mapMoveConfirm = 'true';
-    actions.append(cancelButton, confirmButton);
-    return actions;
+  createMoveConfirmActions(x: number, y: number): HTMLElement {
+    return createMoveConfirmActionsImpl(this, x, y);
   }
 
   /** bindMoveConfirmActions：绑定移动确认弹层按钮。 */
-  private bindMoveConfirmActions(body: HTMLElement, signal: AbortSignal, x: number, y: number, mapId: string): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    body.querySelector<HTMLButtonElement>('[data-map-move-cancel="true"]')?.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      this.closeMoveConfirm();
-    }, { signal });
-
-    body.querySelector<HTMLButtonElement>('[data-map-move-confirm="true"]')?.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (!this.moveHandler) {
-        this.closeMoveConfirm();
-        return;
-      }
-      this.moveHandler(x, y, mapId);
-      this.closeMoveConfirm();
-    }, { signal });
+  bindMoveConfirmActions(body: HTMLElement, signal: AbortSignal, x: number, y: number, mapId: string): void {
+    bindMoveConfirmActionsImpl(this, body, signal, x, y, mapId);
   }
 
   /** createDeleteMemoryActions：创建删除记忆按钮区。 */
-  private createDeleteMemoryActions(scope: 'selected' | 'all'): HTMLElement {
-    const actions = this.createConfirmActions();
-    const cancelButton = this.createConfirmButton(t('minimap.action.cancel', undefined), 'small-btn ghost');
-    cancelButton.dataset.mapMemoryDeleteCancel = 'true';
-    const confirmButton = this.createConfirmButton(
-      scope === 'all'
-        ? t('minimap.action.confirm-delete-all', undefined)
-        : t('minimap.action.confirm-delete', undefined),
-      'small-btn danger',
-    );
-    confirmButton.dataset.mapMemoryDeleteConfirm = 'true';
-    actions.append(cancelButton, confirmButton);
-    return actions;
+  createDeleteMemoryActions(scope: 'selected' | 'all'): HTMLElement {
+    return createDeleteMemoryActionsImpl(this, scope);
   }
 
   /** bindDeleteMemoryActions：绑定删除记忆确认弹层按钮。 */
-  private bindDeleteMemoryActions(body: HTMLElement, signal: AbortSignal, scope: 'selected' | 'all', selectedMapId: string | null): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    body.querySelector<HTMLButtonElement>('[data-map-memory-delete-cancel="true"]')?.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      detailModalHost.close(Minimap.DELETE_MEMORY_OWNER);
-    }, { signal });
-
-    body.querySelector<HTMLButtonElement>('[data-map-memory-delete-confirm="true"]')?.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (scope === 'all') {
-        this.deleteAllMemory();
-      } else if (selectedMapId) {
-        this.deleteSelectedMemory(selectedMapId);
-      }
-      detailModalHost.close(Minimap.DELETE_MEMORY_OWNER);
-    }, { signal });
+  bindDeleteMemoryActions(body: HTMLElement, signal: AbortSignal, scope: 'selected' | 'all', selectedMapId: string | null): void {
+    bindDeleteMemoryActionsImpl(this, body, signal, scope, selectedMapId);
   }
 
   /** createConfirmActions：创建确认动作容器。 */
-  private createConfirmActions(): HTMLElement {
-    const actions = document.createElement('div');
-    actions.className = 'ui-modal-footer-actions';
-    return actions;
+  createConfirmActions(): HTMLElement {
+    return createConfirmActionsImpl(this);
   }
 
   /** createConfirmButton：创建确认按钮。 */
-  private createConfirmButton(label: string, className: string): HTMLButtonElement {
-    const button = document.createElement('button');
-    button.className = className;
-    button.type = 'button';
-    button.textContent = label;
-    return button;
+  createConfirmButton(label: string, className: string): HTMLButtonElement {
+    return createConfirmButtonImpl(this, label, className);
   }
 
   /** deleteSelectedMemory：处理delete Selected Memory。 */
-  private deleteSelectedMemory(mapId: string): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    deleteRememberedMap(mapId);
-    this.memoryDeleteHandler?.([mapId]);
-    this.applyMemoryDeletionToScene([mapId]);
-    this.renderCatalog();
-    this.scheduleRender();
+  deleteSelectedMemory(mapId: string): void {
+    deleteSelectedMemoryImpl(this, mapId);
   }
 
   /** deleteAllMemory：处理delete All Memory。 */
-  private deleteAllMemory(): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const rememberedMapIds = listRememberedMapIds();
-    if (rememberedMapIds.length === 0) {
-      return;
-    }
-    deleteAllRememberedMaps();
-    this.memoryDeleteHandler?.(null);
-    this.applyMemoryDeletionToScene(null);
-    this.renderCatalog();
-    this.scheduleRender();
+  deleteAllMemory(): void {
+    deleteAllMemoryImpl(this);
   }
 
   /** applyMemoryDeletionToScene：同步小地图本地场景中的记忆删除结果。 */
-  private applyMemoryDeletionToScene(mapIds: readonly string[] | null): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    this.baseKey = null;
-    this.closeMoveConfirm();
-    if (this.scene?.mapMeta?.id && (mapIds === null || mapIds.includes(this.scene.mapMeta.id))) {
-      const nextScene: MinimapScene = {
-        ...this.scene,
-        rememberedMarkers: [],
-        memoryVersion: this.scene.memoryVersion + 1,
-      };
-      if (!this.scene.snapshot) {
-        const visibleOnlyTileCache = new Map<string, Tile>();
-        for (const key of this.scene.visibleTiles) {
-          const tile = this.scene.tileCache.get(key);
-          if (tile) {
-            visibleOnlyTileCache.set(key, tile);
-          }
-        }
-        nextScene.tileCache = visibleOnlyTileCache;
-      }
-      this.scene = nextScene;
-    }
-  }  
+  applyMemoryDeletionToScene(mapIds: readonly string[] | null): void {
+    applyMemoryDeletionToSceneImpl(this, mapIds);
+  }
   /**
  * getViewportMetrics：读取ViewportMetric。
  * @param canvas HTMLCanvasElement 参数说明。
@@ -2077,7 +1422,7 @@ export class Minimap {
  */
 
 
-  private getViewportMetrics(
+  getViewportMetrics(
     canvas: HTMLCanvasElement,
     display: DisplayMapScene,
     isModal: boolean,
@@ -2085,302 +1430,38 @@ export class Minimap {
     panX = isModal ? this.modalPanX : 0,
     panY = isModal ? this.modalPanY : 0,
   ): ViewportMetrics {
-    const width = Math.max(1, canvas.width);
-    const height = Math.max(1, canvas.height);
-    const extent = buildMinimapDrawExtent(display);
-    const mapWidth = extent.width;
-    const mapHeight = extent.height;
-    const padding = isModal
-      ? Math.max(18, Math.round(Math.min(width, height) * 0.022))
-      : Math.max(8, Math.round(Math.min(width, height) * 0.06));
-    const innerWidth = Math.max(1, width - padding * 2);
-    const innerHeight = Math.max(1, height - padding * 2);
-    const fitScale = Math.min(innerWidth / mapWidth, innerHeight / mapHeight);
-    const scale = fitScale * (isModal ? zoom : 1);
-    const drawWidth = mapWidth * scale;
-    const drawHeight = mapHeight * scale;
-    const baseOffsetX = padding + (innerWidth - drawWidth) / 2;
-    const baseOffsetY = padding + (innerHeight - drawHeight) / 2;
-    const maxPanX = isModal ? Math.max(0, (drawWidth - innerWidth) / 2) : 0;
-    const maxPanY = isModal ? Math.max(0, (drawHeight - innerHeight) / 2) : 0;
-    const clampedPanX = isModal ? clamp(panX, -maxPanX, maxPanX) : 0;
-    const clampedPanY = isModal ? clamp(panY, -maxPanY, maxPanY) : 0;
-    return {
-      width,
-      height,
-      innerWidth,
-      innerHeight,
-      mapWidth,
-      mapHeight,
-      minX: extent.minX,
-      minY: extent.minY,
-      padding,
-      scale,
-      drawWidth,
-      drawHeight,
-      baseOffsetX,
-      baseOffsetY,
-      offsetX: baseOffsetX + clampedPanX,
-      offsetY: baseOffsetY + clampedPanY,
-      panX: clampedPanX,
-      panY: clampedPanY,
-      maxPanX,
-      maxPanY,
-    };
+    return getViewportMetricsImpl(this, canvas, display, isModal, zoom, panX, panY);
   }
 
   /** resolveWorldPoint：解析世界坐标。 */
-  private resolveWorldPoint(metrics: ViewportMetrics, px: number, py: number): {  
-  /**
- * x：x相关字段。
- */
- x: number;  
- /**
- * y：y相关字段。
- */
- y: number } | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+  resolveWorldPoint(metrics: ViewportMetrics, px: number, py: number): { x: number; y: number } | null {
+    return resolveWorldPointImpl(this, metrics, px, py);
+  }
 
-    if (
-      px < metrics.offsetX
-      || py < metrics.offsetY
-      || px >= metrics.offsetX + metrics.drawWidth
-      || py >= metrics.offsetY + metrics.drawHeight
-    ) {
-      return null;
-    }
-    return {
-      x: metrics.minX + (px - metrics.offsetX) / metrics.scale,
-      y: metrics.minY + (py - metrics.offsetY) / metrics.scale,
-    };
-  }  
-  /**
- * resolveCanvasPoint：判断CanvaPoint是否满足条件。
- * @param canvas HTMLCanvasElement 参数说明。
- * @param clientX number 参数说明。
- * @param clientY number 参数说明。
- * @param display DisplayMapScene 参数说明。
- * @param isModal boolean 参数说明。
- * @returns 返回CanvaPoint。
- */
+  /** resolveCanvasPoint：判断CanvaPoint是否满足条件。 */
+  resolveCanvasPoint(canvas: HTMLCanvasElement, clientX: number, clientY: number, display: DisplayMapScene, isModal: boolean): { x: number; y: number } | null {
+    return resolveCanvasPointImpl(this, canvas, clientX, clientY, display, isModal);
+  }
 
-
-  private resolveCanvasPoint(
-    canvas: HTMLCanvasElement,
-    clientX: number,
-    clientY: number,
-    display: DisplayMapScene,
-    isModal: boolean,
-  ): {  
-  /**
- * x：x相关字段。
- */
- x: number;  
- /**
- * y：y相关字段。
- */
- y: number } | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const pixels = getCanvasPixels(canvas, clientX, clientY);
-    if (!pixels) {
-      return null;
-    }
-    const metrics = this.getViewportMetrics(canvas, display, isModal);
-    const world = this.resolveWorldPoint(metrics, pixels.x, pixels.y);
-    if (!world) {
-      return null;
-    }
-    return {
-      x: clamp(Math.floor(world.x), metrics.minX, metrics.minX + metrics.mapWidth - 1),
-      y: clamp(Math.floor(world.y), metrics.minY, metrics.minY + metrics.mapHeight - 1),
-    };
-  }  
-  /**
- * resolveCurrentMoveTarget：读取当前Move目标并返回结果。
- * @param display DisplayMapScene | null 参数说明。
- * @param canvas HTMLCanvasElement | null 参数说明。
- * @param clientX number 参数说明。
- * @param clientY number 参数说明。
- * @param isModal boolean 参数说明。
- * @returns 返回CurrentMove目标。
- */
-
-
-  private resolveCurrentMoveTarget(
-    display: DisplayMapScene | null,
-    canvas: HTMLCanvasElement | null,
-    clientX: number,
-    clientY: number,
-    isModal: boolean,
-  ): {  
-  /**
- * x：x相关字段。
- */
- x: number;  
- /**
- * y：y相关字段。
- */
- y: number } | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!display || !canvas) {
-      return null;
-    }
-    const point = this.resolveCanvasPoint(canvas, clientX, clientY, display, isModal);
-    if (!point) {
-      return null;
-    }
-    const tile = this.getTileAt(display, point.x, point.y);
-    const walkable = tile ? tile.walkable : isTileTypeWalkable(this.getTileTypeAt(display, point.x, point.y));
-    if (!walkable) {
-      return null;
-    }
-    return point;
+  /** resolveCurrentMoveTarget：读取当前Move目标并返回结果。 */
+  resolveCurrentMoveTarget(display: DisplayMapScene | null, canvas: HTMLCanvasElement | null, clientX: number, clientY: number, isModal: boolean): { x: number; y: number } | null {
+    return resolveCurrentMoveTargetImpl(this, display, canvas, clientX, clientY, isModal);
   }
 
   /** getTileAt：读取地块At。 */
-  private getTileAt(display: DisplayMapScene, x: number, y: number): Tile | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const key = `${x},${y}`;
-    const current = display.tileCache.get(key);
-    if (current) {
-      return current;
-    }
-    const row = display.snapshot?.terrainRows[y] ?? '';
-    const type = row[x] ? getTileTypeFromMapChar(row[x]!) : null;
-    if (!type) {
-      return null;
-    }
-    return {
-      type,
-      walkable: isTileTypeWalkable(type),
-      blocksSight: false,
-      aura: 0,
-      occupiedBy: null,
-      modifiedAt: null,
-    };
+  getTileAt(display: DisplayMapScene, x: number, y: number): Tile | null {
+    return getTileAtImpl(this, display, x, y);
   }
 
   /** getTileTypeAt：读取地块类型At。 */
-  private getTileTypeAt(display: DisplayMapScene, x: number, y: number): TileType {
-    return this.getTileAt(display, x, y)?.type ?? TileType.Floor;
+  getTileTypeAt(display: DisplayMapScene, x: number, y: number): TileType {
+    return getTileTypeAtImpl(this, display, x, y);
   }
 
   /** getDisplayMarkers：读取显示标记。 */
-  private getDisplayMarkers(display: DisplayMapScene): MapMinimapMarker[] {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const markers: MapMinimapMarker[] = [];
-    const markerIndexByKey = new Map<string, number>();
-    const occupiedPointKeys = new Set<string>();
-    const pushMarker = (marker: MapMinimapMarker): void => {
-      const key = `${marker.kind}:${marker.x},${marker.y}`;
-      const existingIndex = markerIndexByKey.get(key);
-      if (existingIndex !== undefined) {
-        markers[existingIndex] = marker;
-        occupiedPointKeys.add(`${marker.x},${marker.y}`);
-        return;
-      }
-      markerIndexByKey.set(key, markers.length);
-      markers.push(marker);
-      occupiedPointKeys.add(`${marker.x},${marker.y}`);
-    };
-
-    for (const marker of display.snapshot?.markers ?? []) {
-      if (!display.snapshot && !display.tileCache.has(`${marker.x},${marker.y}`)) {
-        continue;
-      }
-      pushMarker(marker);
-    }
-
-    for (const marker of display.rememberedMarkers) {
-      pushMarker(marker);
-    }
-
-    for (const marker of display.visibleMarkers) {
-      pushMarker(marker);
-    }
-
-    if (!display.isCurrent) {
-      return markers;
-    }
-
-    for (const entity of display.visibleEntities) {
-      if (!entity.name || entity.kind === 'player') {
-        continue;
-      }
-      if (entity.kind === 'npc') {
-        pushMarker({
-          id: `live:npc:${entity.id}`,
-          kind: 'npc',
-          x: entity.wx,
-          y: entity.wy,
-          label: entity.name,
-          detail: t('minimap.marker.detail.visible-npc', undefined),
-        });
-        continue;
-      }
-      if (entity.kind === 'container') {
-        pushMarker({
-          id: `live:container:${entity.id}`,
-          kind: 'container',
-          x: entity.wx,
-          y: entity.wy,
-          label: entity.name,
-          detail: t('minimap.marker.detail.visible-container', undefined),
-        });
-        continue;
-      }
-      if (entity.kind === 'monster') {
-        pushMarker({
-          id: `live:monster:${entity.id}`,
-          kind: 'monster_spawn',
-          x: entity.wx,
-          y: entity.wy,
-          label: entity.name,
-          detail: t('minimap.marker.detail.visible-monster', undefined),
-        });
-      }
-    }
-
-    for (const key of display.visibleTiles) {
-      const point = parseTileKey(key);
-      if (!point) {
-        continue;
-      }
-      const type = this.getTileTypeAt(display, point.x, point.y);
-      const hasStaticMarkerAtPoint = occupiedPointKeys.has(`${point.x},${point.y}`);
-      if (type === TileType.Portal) {
-        if (hasStaticMarkerAtPoint) {
-          continue;
-        }
-        pushMarker({
-          id: `live:portal:${point.x},${point.y}`,
-          kind: 'portal',
-          x: point.x,
-          y: point.y,
-          label: getTileTypeLabel(TileType.Portal),
-          detail: t('minimap.marker.detail.visible-portal', undefined),
-        });
-      } else if (type === TileType.Stairs) {
-        if (hasStaticMarkerAtPoint) {
-          continue;
-        }
-        pushMarker({
-          id: `live:stairs:${point.x},${point.y}`,
-          kind: 'stairs',
-          x: point.x,
-          y: point.y,
-          label: getTileTypeLabel(TileType.Stairs),
-          detail: t('minimap.marker.detail.visible-stairs', undefined),
-        });
-      }
-    }
-
-    return markers;
-  }  
+  getDisplayMarkers(display: DisplayMapScene): MapMinimapMarker[] {
+    return getDisplayMarkersImpl(this, display);
+  }
   /**
  * drawScene：执行drawScene相关逻辑。
  * @param ctx CanvasRenderingContext2D 上下文信息。
@@ -2391,113 +1472,14 @@ export class Minimap {
  */
 
 
-  private drawScene(
+  drawScene(
     ctx: CanvasRenderingContext2D,
     display: DisplayMapScene,
     metrics: ViewportMetrics,
     isModal: boolean,
   ): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    this.ensureBaseCanvas(display);
-
-    ctx.clearRect(0, 0, metrics.width, metrics.height);
-    ctx.fillStyle = isModal ? 'rgba(9, 10, 12, 0.8)' : 'rgba(10, 11, 13, 0.84)';
-    ctx.fillRect(0, 0, metrics.width, metrics.height);
-
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(this.baseCanvas, metrics.offsetX, metrics.offsetY, metrics.drawWidth, metrics.drawHeight);
-    ctx.imageSmoothingEnabled = true;
-
-    if (display.isCurrent && display.snapshot) {
-      for (const key of display.visibleTiles.values()) {
-        const point = parseTileKey(key);
-        const tile = display.tileCache.get(key);
-        if (!point || !tile) {
-          continue;
-        }
-        ctx.fillStyle = TILE_MINIMAP_COLORS[tile.type] ?? '#888';
-        ctx.fillRect(
-          metrics.offsetX + (point.x - metrics.minX) * metrics.scale,
-          metrics.offsetY + (point.y - metrics.minY) * metrics.scale,
-          Math.ceil(metrics.scale),
-          Math.ceil(metrics.scale),
-        );
-      }
-    }
-
-    if (display.isCurrent) {
-      ctx.fillStyle = isModal ? 'rgba(255, 248, 214, 0.12)' : 'rgba(255, 248, 214, 0.18)';
-      for (const key of display.visibleTiles.values()) {
-        const point = parseTileKey(key);
-        if (!point) {
-          continue;
-        }
-        ctx.fillRect(
-          metrics.offsetX + (point.x - metrics.minX) * metrics.scale,
-          metrics.offsetY + (point.y - metrics.minY) * metrics.scale,
-          Math.ceil(metrics.scale),
-          Math.ceil(metrics.scale),
-        );
-      }
-    }
-
-    const markers = this.getDisplayMarkers(display);
-    const markerSize = clamp(metrics.scale * (isModal ? 0.82 : 0.72), isModal ? 5 : 4, isModal ? 14 : 10);
-    for (const marker of markers) {
-      this.drawMarker(ctx, marker, metrics, markerSize);
-    }
-
-    if (isModal) {
-      for (const marker of markers) {
-        this.drawMarkerLabel(ctx, marker, metrics);
-      }
-    }
-
-    if (display.isCurrent) {
-      const pileSize = clamp(metrics.scale * 0.52, 3, isModal ? 10 : 8);
-      for (const pile of display.groundPiles.values()) {
-        this.drawGroundPile(ctx, pile, metrics, pileSize);
-      }
-    }
-
-    if (display.isCurrent && display.player) {
-      const playerLeft = clamp(display.player.x - display.viewRadius, metrics.minX, metrics.minX + metrics.mapWidth);
-      const playerTop = clamp(display.player.y - display.viewRadius, metrics.minY, metrics.minY + metrics.mapHeight);
-      const playerRight = clamp(display.player.x + display.viewRadius + 1, metrics.minX, metrics.minX + metrics.mapWidth);
-      const playerBottom = clamp(display.player.y + display.viewRadius + 1, metrics.minY, metrics.minY + metrics.mapHeight);
-      ctx.strokeStyle = isModal ? 'rgba(255, 241, 186, 0.84)' : 'rgba(247, 233, 180, 0.72)';
-      ctx.lineWidth = Math.max(1, metrics.scale * 0.18);
-      ctx.strokeRect(
-        metrics.offsetX + (playerLeft - metrics.minX) * metrics.scale,
-        metrics.offsetY + (playerTop - metrics.minY) * metrics.scale,
-        Math.max(metrics.scale, (playerRight - playerLeft) * metrics.scale),
-        Math.max(metrics.scale, (playerBottom - playerTop) * metrics.scale),
-      );
-
-      const playerCenterX = metrics.offsetX + (display.player.x - metrics.minX + 0.5) * metrics.scale;
-      const playerCenterY = metrics.offsetY + (display.player.y - metrics.minY + 0.5) * metrics.scale;
-      ctx.fillStyle = '#fff7ce';
-      ctx.beginPath();
-      ctx.arc(playerCenterX, playerCenterY, clamp(metrics.scale * (isModal ? 0.58 : 0.48), 3, isModal ? 10 : 8), 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#20140a';
-      ctx.lineWidth = Math.max(1, metrics.scale * 0.2);
-      ctx.stroke();
-      ctx.fillStyle = '#ffca52';
-      ctx.beginPath();
-      ctx.arc(playerCenterX, playerCenterY, clamp(metrics.scale * 0.24, 1.5, isModal ? 5 : 4), 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    if (isModal) {
-      this.drawModalHud(ctx, display, metrics, markers);
-    }
-
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(metrics.offsetX + 0.5, metrics.offsetY + 0.5, metrics.drawWidth, metrics.drawHeight);
-  }  
+    drawSceneImpl(this, ctx, display, metrics, isModal);
+  }
   /**
  * drawMarker：处理drawMarker并更新相关状态。
  * @param ctx CanvasRenderingContext2D 上下文信息。
@@ -2508,89 +1490,14 @@ export class Minimap {
  */
 
 
-  private drawMarker(
+  drawMarker(
     ctx: CanvasRenderingContext2D,
     marker: MapMinimapMarker,
     metrics: ViewportMetrics,
     markerSize: number,
   ): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const centerX = metrics.offsetX + (marker.x - metrics.minX + 0.5) * metrics.scale;
-    const centerY = metrics.offsetY + (marker.y - metrics.minY + 0.5) * metrics.scale;
-    const half = markerSize / 2;
-
-    ctx.save();
-    ctx.fillStyle = MINIMAP_MARKER_COLORS[marker.kind];
-    ctx.strokeStyle = 'rgba(15, 10, 8, 0.92)';
-    ctx.lineWidth = Math.max(1, metrics.scale * 0.18);
-
-    if (marker.kind === 'landmark') {
-      ctx.beginPath();
-      ctx.moveTo(centerX, centerY - half);
-      ctx.lineTo(centerX + half, centerY);
-      ctx.lineTo(centerX, centerY + half);
-      ctx.lineTo(centerX - half, centerY);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      ctx.restore();
-      return;
-    }
-
-    if (marker.kind === 'npc') {
-      ctx.fillRect(centerX - half, centerY - half, markerSize, markerSize);
-      ctx.strokeRect(centerX - half, centerY - half, markerSize, markerSize);
-      ctx.restore();
-      return;
-    }
-
-    if (marker.kind === 'container') {
-      ctx.fillRect(centerX - half, centerY - half * 0.9, markerSize, markerSize * 0.9);
-      ctx.strokeRect(centerX - half, centerY - half * 0.9, markerSize, markerSize * 0.9);
-      ctx.strokeStyle = 'rgba(255, 241, 208, 0.92)';
-      ctx.beginPath();
-      ctx.moveTo(centerX - half, centerY);
-      ctx.lineTo(centerX + half, centerY);
-      ctx.stroke();
-      ctx.restore();
-      return;
-    }
-
-    if (marker.kind === 'monster_spawn') {
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, half, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-      ctx.strokeStyle = 'rgba(255, 245, 237, 0.9)';
-      ctx.beginPath();
-      ctx.moveTo(centerX - half * 0.65, centerY);
-      ctx.lineTo(centerX + half * 0.65, centerY);
-      ctx.moveTo(centerX, centerY - half * 0.65);
-      ctx.lineTo(centerX, centerY + half * 0.65);
-      ctx.stroke();
-      ctx.restore();
-      return;
-    }
-
-    if (marker.kind === 'stairs') {
-      ctx.beginPath();
-      ctx.moveTo(centerX, centerY - half);
-      ctx.lineTo(centerX + half, centerY + half);
-      ctx.lineTo(centerX - half, centerY + half);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      ctx.restore();
-      return;
-    }
-
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, half, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.restore();
-  }  
+    drawMarkerImpl(this, ctx, marker, metrics, markerSize);
+  }
   /**
  * drawMarkerLabel：处理drawMarkerLabel并更新相关状态。
  * @param ctx CanvasRenderingContext2D 上下文信息。
@@ -2600,73 +1507,13 @@ export class Minimap {
  */
 
 
-  private drawMarkerLabel(
+  drawMarkerLabel(
     ctx: CanvasRenderingContext2D,
     marker: MapMinimapMarker,
     metrics: ViewportMetrics,
   ): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const centerX = metrics.offsetX + (marker.x - metrics.minX + 0.5) * metrics.scale;
-    const centerY = metrics.offsetY + (marker.y - metrics.minY + 0.5) * metrics.scale;
-    const label = marker.label.trim();
-    if (!label) {
-      return;
-    }
-
-    ctx.save();
-    ctx.textAlign = 'center';
-    ctx.strokeStyle = 'rgba(15, 12, 10, 0.92)';
-
-    if (marker.kind === 'landmark') {
-      const fontSize = clamp(metrics.scale * 0.7, 12, 18);
-      ctx.font = buildCanvasFont('labelStrong', fontSize);
-      ctx.textBaseline = 'middle';
-      const textWidth = ctx.measureText(label).width;
-      const paddingX = Math.max(8, metrics.scale * 0.24);
-      const boxHeight = Math.max(20, fontSize + 8);
-      const boxWidth = textWidth + paddingX * 2;
-      const anchorY = clamp(
-        centerY + Math.max(16, metrics.scale * 0.7),
-        metrics.padding + boxHeight / 2 + 2,
-        metrics.height - metrics.padding - boxHeight / 2 - 2,
-      );
-      const boxLeft = clamp(
-        centerX - boxWidth / 2,
-        metrics.padding + 2,
-        metrics.width - metrics.padding - boxWidth - 2,
-      );
-      ctx.fillStyle = 'rgba(15, 12, 10, 0.72)';
-      ctx.fillRect(boxLeft, anchorY - boxHeight / 2, boxWidth, boxHeight);
-      ctx.strokeStyle = 'rgba(255, 226, 168, 0.72)';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(boxLeft + 0.5, anchorY - boxHeight / 2 + 0.5, boxWidth - 1, boxHeight - 1);
-      ctx.fillStyle = '#ffe7b8';
-      ctx.fillText(label, boxLeft + boxWidth / 2, anchorY + 0.5);
-      ctx.restore();
-      return;
-    }
-
-    const fontSize = clamp(metrics.scale * 0.6, 11, 16);
-    const textY = clamp(
-      centerY - Math.max(10, metrics.scale * 0.55),
-      metrics.padding + fontSize + 2,
-      metrics.height - metrics.padding - 2,
-    );
-    ctx.font = buildCanvasFont('label', fontSize);
-    ctx.textBaseline = 'alphabetic';
-    ctx.lineWidth = Math.max(2, fontSize * 0.18);
-    ctx.fillStyle = marker.kind === 'monster_spawn'
-      ? '#ffd9d0'
-      : marker.kind === 'npc'
-        ? '#d9f1ff'
-        : marker.kind === 'container'
-          ? '#ffe6bf'
-        : '#f8e4b7';
-    ctx.strokeText(label, centerX, textY);
-    ctx.fillText(label, centerX, textY);
-    ctx.restore();
-  }  
+    drawMarkerLabelImpl(this, ctx, marker, metrics);
+  }
   /**
  * drawGroundPile：执行draw地面Pile相关逻辑。
  * @param ctx CanvasRenderingContext2D 上下文信息。
@@ -2677,29 +1524,14 @@ export class Minimap {
  */
 
 
-  private drawGroundPile(
+  drawGroundPile(
     ctx: CanvasRenderingContext2D,
     pile: GroundItemPileView,
     metrics: ViewportMetrics,
     pileSize: number,
   ): void {
-    const centerX = metrics.offsetX + (pile.x - metrics.minX + 0.5) * metrics.scale;
-    const centerY = metrics.offsetY + (pile.y - metrics.minY + 0.5) * metrics.scale;
-    const half = pileSize / 2;
-    ctx.save();
-    ctx.fillStyle = '#f7e39a';
-    ctx.strokeStyle = 'rgba(53, 36, 10, 0.95)';
-    ctx.lineWidth = Math.max(1, metrics.scale * 0.16);
-    ctx.beginPath();
-    ctx.moveTo(centerX, centerY - half);
-    ctx.lineTo(centerX + half, centerY);
-    ctx.lineTo(centerX, centerY + half);
-    ctx.lineTo(centerX - half, centerY);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-    ctx.restore();
-  }  
+    drawGroundPileImpl(this, ctx, pile, metrics, pileSize);
+  }
   /**
  * drawModalHud：执行draw弹层Hud相关逻辑。
  * @param ctx CanvasRenderingContext2D 上下文信息。
@@ -2710,97 +1542,17 @@ export class Minimap {
  */
 
 
-  private drawModalHud(
+  drawModalHud(
     ctx: CanvasRenderingContext2D,
     display: DisplayMapScene,
     metrics: ViewportMetrics,
     markers: MapMinimapMarker[],
   ): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const guide = this.moveHandler
-      ? t('minimap.hud.guide.current', undefined)
-      : t('minimap.hud.guide.readonly', undefined);
-    ctx.save();
-    ctx.font = buildCanvasFont('label', 12);
-    ctx.textBaseline = 'middle';
-    const guideWidth = ctx.measureText(guide).width + 18;
-    const guideX = metrics.width - metrics.padding - guideWidth;
-    const guideY = metrics.padding + 8;
-    ctx.fillStyle = 'rgba(8, 9, 12, 0.68)';
-    ctx.fillRect(guideX, guideY, guideWidth, 26);
-    ctx.strokeStyle = 'rgba(255, 240, 213, 0.12)';
-    ctx.strokeRect(guideX + 0.5, guideY + 0.5, guideWidth - 1, 25);
-    ctx.fillStyle = 'rgba(255, 245, 222, 0.9)';
-    ctx.fillText(guide, guideX + 9, guideY + 13);
-
-    if (!this.hoveredModalPoint) {
-      ctx.restore();
-      return;
-    }
-
-    const lines = this.buildHoverLines(display, markers, this.hoveredModalPoint.x, this.hoveredModalPoint.y);
-    if (lines.length === 0) {
-      ctx.restore();
-      return;
-    }
-
-    ctx.font = buildCanvasFont('label', 13);
-    const lineHeight = 20;
-    const contentWidth = lines.reduce((max, line) => Math.max(max, ctx.measureText(line).width), 0);
-    const panelWidth = Math.min(metrics.width - metrics.padding * 2, contentWidth + 20);
-    const panelHeight = lines.length * lineHeight + 16;
-    const panelX = metrics.padding;
-    const panelY = metrics.height - metrics.padding - panelHeight;
-    ctx.fillStyle = 'rgba(8, 9, 12, 0.72)';
-    ctx.fillRect(panelX, panelY, panelWidth, panelHeight);
-    ctx.strokeStyle = 'rgba(255, 240, 213, 0.14)';
-    ctx.strokeRect(panelX + 0.5, panelY + 0.5, panelWidth - 1, panelHeight - 1);
-    ctx.fillStyle = 'rgba(255, 246, 225, 0.94)';
-    lines.forEach((line, index) => {
-      ctx.fillText(line, panelX + 10, panelY + 12 + lineHeight * index + lineHeight / 2);
-    });
-    ctx.restore();
+    drawModalHudImpl(this, ctx, display, metrics, markers);
   }
 
   /** buildHoverLines：构建Hover Lines。 */
-  private buildHoverLines(display: DisplayMapScene, markers: MapMinimapMarker[], x: number, y: number): string[] {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const lines: string[] = [];
-    lines.push(t('minimap.hover.coordinate', { x, y }));
-
-    const tile = this.getTileAt(display, x, y);
-    if (tile) {
-      lines.push(t('minimap.hover.surface', { surface: getTileTypeLabel(tile.type) }));
-    } else {
-      lines.push(t('minimap.hover.surface.unknown', undefined));
-    }
-
-    const tileMarkers = markers.filter((marker) => marker.x === x && marker.y === y);
-    for (const marker of tileMarkers.slice(0, 3)) {
-      lines.push(t('minimap.hover.marker', {
-        kind: getMinimapMarkerKindLabel(marker.kind),
-        label: marker.label,
-        detail: marker.detail ? ` · ${marker.detail}` : '',
-      }));
-    }
-
-    if (display.isCurrent && display.player?.x === x && display.player.y === y) {
-      lines.push(t('minimap.hover.current-position', undefined));
-    }
-
-    if (display.isCurrent) {
-      const pile = [...display.groundPiles.values()].find((entry) => entry.x === x && entry.y === y);
-      if (pile) {
-        const itemsLabel = pile.items.slice(0, 2).map((entry) => `${entry.name} ${formatDisplayCountBadge(entry.count)}`).join('、');
-        const suffix = pile.items.length > 2
-          ? t('minimap.hover.ground.suffix', { count: formatDisplayInteger(pile.items.length) })
-          : '';
-        lines.push(t('minimap.hover.ground', { items: itemsLabel, suffix }));
-      }
-    }
-
-    return lines;
+  buildHoverLines(display: DisplayMapScene, markers: MapMinimapMarker[], x: number, y: number): string[] {
+    return buildHoverLinesImpl(this, display, markers, x, y);
   }
 }

@@ -5,30 +5,19 @@
  */
 import {
   AuctionLotPageEntry,
-  AuctionLotStatus,
   AuctionHouseTab,
   C2S_RequestAuctionListings,
   C2S_RequestTransmissionListings,
   C2S_RequestMarketListings,
   COMBAT_EQUIP_SLOTS,
-  computeBestEnhancementExpectedCost,
-  calculateHeavenlyDaoShopDiscountedPrice,
-  calculateMarketTradeTotalCost,
   clonePlainValue,
-  createItemStackSignature,
-  EnhancementExpectedCostStrategy,
   AUCTION_DEFAULT_DURATION_HOURS,
   EquipSlot,
-  HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID,
-  HEAVENLY_DAO_SHOP_ETERNAL_DISCOUNT_PERCENT,
   HEAVENLY_DAO_SHOP_ITEMS,
-  getMarketMinimumTradeQuantity,
   Inventory,
   ITEM_TYPES,
   ItemStack,
   ItemType,
-  MARKET_MAX_ENHANCE_LEVEL,
-  MARKET_MAX_UNIT_PRICE,
   MARKET_PRICE_PRESET_VALUES,
   MarketListedItemView,
   MarketOrderBookView,
@@ -47,12 +36,7 @@ import {
   TECHNIQUE_EQUIP_SLOTS,
   TechniqueCategory,
   TransmissionListingSort,
-  getItemDisplayName,
-  getMarketPriceStep,
-  isLegacyMarketPrice,
   isPlainEqual,
-  normalizeMarketPriceDown,
-  normalizeMarketPriceUp,
   normalizeMarketRequestPage,
   normalizeMarketListingsPageSize,
   normalizeMarketAuctionPageSize,
@@ -62,14 +46,11 @@ import {
   resolveClampedMarketResponsePage,
 } from '@mud/shared';
 import { getLocalItemTemplate, getLocalTechniqueCategoryForBookItem, resolvePreviewItem, resolveTechniqueIdFromBookItemId } from '../../content/local-templates';
-import { resolveClientItemBaseName } from '../../content/item-display-name';
-import { buildItemTooltipPayload, describeItemEffectDetails } from '../equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { detailModalHost } from '../detail-modal-host';
 import { confirmModalHost } from '../confirm-modal-host';
 import { MARKET_MODAL_TABS, MarketModalTab } from '../../constants/ui/market';
-import { getPlayerOwnedItemCount } from '../../utils/player-wallet';
-import { formatDisplayCountBadge, formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
+import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
 import { getEquipSlotLabel, getItemTypeLabel, getTechniqueCategoryLabel } from '../../domain-labels';
 import { t } from '../i18n';
 import { MarketAuctionView } from './market-auction-view';
@@ -82,11 +63,82 @@ import type {
   TransmissionCategoryFilter,
   TransmissionConsignPanelState,
   TransmissionPanelTab,
+  MarketCategoryFilter,
+  MarketEquipmentFilter,
+  MarketTechniqueFilter,
+  MarketTradeDialogKind,
+  MarketTradeDialogSource,
+  MarketPriceAction,
+  MarketTradeDialogState,
+  AuctionConsignPanelState,
+  MarketEnhancementEstimateView,
+  MarketListingGroupView,
+  AuctionLotView,
 } from './market-panel-types';
 import {
   mountReactMarketPanel,
   setReactMarketPanelCallbacks,
 } from '../../react-ui/panels/market/mount-market-panel';
+import {
+  getHeavenlyDaoShopCurrencyNameImpl,
+  getHeavenlyDaoShopCurrencyOwnedImpl,
+  getHeavenlyDaoShopDiscountPercentImpl,
+  getHeavenlyDaoShopUnitPriceImpl,
+  getHeavenlyDaoShopDiscountLabelImpl,
+  captureHeavenlyDaoShopAssetSignatureImpl,
+  buildHeavenlyDaoShopAssetSignatureImpl,
+  getHeavenlyDaoShopEntryImpl,
+  ensureHeavenlyDaoShopSelectionImpl,
+  buildHeavenlyDaoShopItemStackImpl,
+  parseHeavenlyDaoShopQuantityImpl,
+  renderHeavenlyDaoShopRowsImpl,
+  renderHeavenlyDaoShopDetailPanelImpl,
+  openHeavenlyDaoShopModalImpl,
+  getOpenHeavenlyDaoShopBodyImpl,
+  patchHeavenlyDaoShopModalImpl,
+  patchHeavenlyDaoShopListImpl,
+  patchHeavenlyDaoShopDetailPanelImpl,
+  bindHeavenlyDaoShopEventsImpl,
+  handleHeavenlyDaoShopClickImpl,
+  handleHeavenlyDaoShopInputImpl,
+  syncHeavenlyDaoShopPurchaseStateImpl,
+} from './market-panel.heavenly-dao';
+import {
+  findConflictingOwnOrderImpl,
+  getDefaultTradeDialogPriceImpl,
+  getAuctionMinimumBidPriceImpl,
+  getTradeDialogMinUnitPriceImpl,
+  normalizeTradeDialogQuantityImpl,
+  getTradeDialogQuantityStepImpl,
+  getTradeDialogMinimumQuantityImpl,
+  getTradeDialogQuantityMaxImpl,
+  getTradeDialogMaxButtonQuantityImpl,
+  getAffordableBuyQuantityImpl,
+  getNextTradeDialogPriceImpl,
+  normalizeTradeDialogPriceImpl,
+  formatPricePresetLabelImpl,
+  readDatasetNumberImpl,
+} from './market-panel.trade-dialog';
+import {
+  formatMarketUnitPriceImpl,
+  formatEnhancementEstimateCostImpl,
+  formatEnhancementAttemptCountImpl,
+  computeEnhancementJobBaseTicksImpl,
+  formatEnhancementDurationFromTicksImpl,
+  getMarketTradeTotalCostImpl,
+  getMarketEnhanceLevelImpl,
+  getMarketDisplayNameImpl,
+  getLocalZeroEnhancementLowestSellPriceImpl,
+  buildMarketItemTooltipPayloadImpl,
+  resolveMarketTooltipPayloadImpl,
+  resolveMarketTooltipEntryImpl,
+  getKnownListedItemsImpl,
+  buildEnhancementEstimateImpl,
+  findMatchingInventoryItemInstanceIdImpl,
+  findMatchingInventoryCountImpl,
+  findInventoryItemCountByItemIdImpl,
+  findEquipmentInventoryCountByLevelImpl,
+} from './market-panel.render';
 
 function normalizeInventoryItemInstanceId(value: unknown): string {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : '';
@@ -108,18 +160,8 @@ function replaceElementHtml(root: HTMLElement, html: string): void {
   root.replaceChildren(template.content.cloneNode(true));
 }
 
-/** 复用同一套转义逻辑，避免属性值注入。 */
-function escapeHtmlAttr(value: unknown): string {
-  return escapeHtml(value);
-}
-
 function isTechniqueEquipmentSlot(slot: unknown): boolean {
   return typeof slot === 'string' && (TECHNIQUE_EQUIP_SLOTS as readonly string[]).includes(slot);
-}
-
-/** 拼出一行普通提示文本，供 tooltip 复用。 */
-function renderPlainTooltipLine(label: string, value: string): string {
-  return `<span class="skill-tooltip-label">${escapeHtml(label)}：</span>${escapeHtml(value)}`;
 }
 
 /** 市场面板对外的请求/提交回调。 */
@@ -196,54 +238,6 @@ interface MarketPanelCallbacks {
   onClaimStorage: () => void;
 }
 
-/** 市场主分类筛选项。 */
-type MarketCategoryFilter = 'all' | ItemType;
-/** 装备子分类筛选项。 */
-type MarketEquipmentFilter = 'all' | 'technique' | EquipSlot;
-/** 功法书子分类筛选项。 */
-type MarketTechniqueFilter = 'all' | TechniqueCategory;
-/** 交易弹窗的方向。 */
-type MarketTradeDialogKind = 'buy' | 'sell';
-/** 交易弹窗的来源场景。 */
-type MarketTradeDialogSource = 'market' | 'auction-bid';
-/** 交易弹窗里调价按钮的动作类型。 */
-type MarketPriceAction = 'decrease' | 'increase' | 'double' | 'half' | 'preset';
-/** 交易弹窗当前的可编辑状态。 */
-interface MarketTradeDialogState {
-/**
- * kind：kind相关字段。
- */
-
-  kind: MarketTradeDialogKind;
-  /**
- * quantity：quantity相关字段。
- */
-
-  quantity: number;
-  /**
- * unitPrice：unit价格数值。
- */
-
-  unitPrice: number;
-  /** 来源场景，用来区分普通坊市交易和拍卖加价。 */
-  source?: MarketTradeDialogSource;
-  /** 拍卖加价允许的最低单价。 */
-  minUnitPrice?: number;
-  /** 是否来自卖盘快捷购买，需要二次确认购买。 */
-  confirmPurchase?: boolean;
-}
-
-/** 拍卖寄拍独立面板里的可编辑状态。 */
-interface AuctionConsignPanelState {
-  open: boolean;
-  itemInstanceId: string | null;
-  quantity: number;
-  totalPrice: number;
-  buyoutPrice: number;
-  durationHours: number;
-  query: string;
-}
-
 /** 交易弹窗一次渲染需要的派生状态，供整渲染和局部 patch 共用。 */
 interface MarketTradeDialogViewState {
   dialog: MarketTradeDialogState;
@@ -263,79 +257,6 @@ interface MarketTradeDialogViewState {
   hintsHtml: string;
 }
 
-/** 强化预估结果在界面里的展示结构。 */
-interface MarketEnhancementEstimateView {
-/**
- * strategy：strategy相关字段。
- */
-
-  strategy: EnhancementExpectedCostStrategy;
-  /**
- * costLine：消耗Line相关字段。
- */
-
-  costLine: string;
-  /**
- * attemptsLine：attemptLine相关字段。
- */
-
-  attemptsLine: string;
-  /**
- * timeLine：时间Line相关字段。
- */
-
-  timeLine: string;
-  /**
- * baseUnitPrice：baseUnit价格数值。
- */
-
-  baseUnitPrice?: number;
-  /**
- * usesMarketBasePrice：use坊市Base价格数值。
- */
-
-  usesMarketBasePrice: boolean;
-  /**
- * basePricePending：base价格Pending相关字段。
- */
-
-  basePricePending: boolean;
-}
-
-/** 当前页里按物品 id 聚合后的列表分组。 */
-interface MarketListingGroupView {
-  itemId: string;
-  item: ItemStack;
-  canEnhance: boolean;
-  variants: MarketListedItemView[];
-}
-
-/** 拍卖行 UI 使用的轻量拍品视图。 */
-interface AuctionLotView {
-  id: string;
-  itemKey: string;
-  item: ItemStack;
-  itemName: string;
-  typeLabel: string;
-  qualityLabel: string;
-  enhanceLevelLabel: string | null;
-  realmLevelLabel: string | null;
-  currentPrice: number;
-  buyoutPrice: number | null;
-  bidCount: number;
-  bids: AuctionLotPageEntry['bids'];
-  startAtMs: number;
-  durationSeconds: number;
-  status: AuctionLotStatus;
-  statusLabel: string;
-  sellerLabel: string;
-  lotNo: string;
-  heat: number;
-  orderId?: string;
-  orderSide?: MarketOwnOrderView['side'];
-  remainingQuantity?: number;
-}
-
 /** 桌面端市场列表的默认分页大小。 */
 const MARKET_DESKTOP_PAGE_SIZE = 32;
 /** 移动端市场列表的默认分页大小。 */
@@ -346,12 +267,6 @@ const MARKET_DESKTOP_COMPACT_PAGE_SIZE = 28;
 const MARKET_MOBILE_COMPACT_PAGE_SIZE = 10;
 /** 交易弹窗允许输入的最低单价。 */
 const MARKET_DIALOG_MIN_PRICE = MARKET_PRICE_PRESET_VALUES[0];
-/** 交易弹窗允许输入的最高单价。 */
-const MARKET_DIALOG_MAX_PRICE = MARKET_MAX_UNIT_PRICE;
-/** 交易弹窗允许输入的最大数量。 */
-const MARKET_DIALOG_MAX_QUANTITY = 999_900_000_000;
-/** 天道商店客户端输入上限；服务端仍按固定表和权威上限最终校验。 */
-const HEAVENLY_DAO_SHOP_MAX_QUANTITY = 9_999;
 /** 功法书筛选按钮的静态配置。 */
 const MARKET_TECHNIQUE_FILTERS: Array<{
 /**
@@ -369,10 +284,6 @@ const MARKET_TECHNIQUE_FILTERS: Array<{
   { id: 'divine', label: getTechniqueCategoryLabel('divine') },
   { id: 'secret', label: getTechniqueCategoryLabel('secret') },
 ];
-/** 强化任务的基础耗时。 */
-const ENHANCEMENT_BASE_JOB_TICKS = 5;
-/** 物品等级每升一级额外增加的强化耗时。 */
-const ENHANCEMENT_JOB_TICKS_PER_ITEM_LEVEL = 1;
 /** 拍卖行每页最多显示的拍品数量。 */
 const AUCTION_PAGE_SIZE = 10;
 /** 盘口缓存只用于减少重复点击请求，超过此时间必须主动回源。 */
@@ -394,9 +305,9 @@ export class MarketPanel {
   private static readonly CONFIRM_MODAL_OWNER = 'market-buy-confirm';
   /** 面板根节点，只负责首屏摘要和打开入口。 */
   /** 市场面板对外回调，实际请求都交给外部处理。 */
-  private callbacks: MarketPanelCallbacks | null = null;
+  callbacks: MarketPanelCallbacks | null = null;
   /** 当前市场主快照，列表、挂单和托管仓都从这里读。 */
-  private marketUpdate: S2C_MarketUpdate | null = null;
+  marketUpdate: S2C_MarketUpdate | null = null;
   /** 当前选中物品对应的书籍详情。 */
   private itemBook: MarketOrderBookView | null = null;
   /** 最近一次列表分页数据，供筛选和翻页回填。 */
@@ -408,7 +319,7 @@ export class MarketPanel {
   /** 拍卖行独立语义快照，重复行情包不触碰搜索、列表和详情 DOM。 */
   private auctionListingsSnapshot: S2C_AuctionListings | null = null;
   /** 最近一次传法台分页数据。 */
-  private transmissionListings: S2C_TransmissionListings | null = null;
+  transmissionListings: S2C_TransmissionListings | null = null;
   /** 独立保存的传法台语义快照，避免上游复用并原地修改对象时漏掉真实变化。 */
   private transmissionListingsSnapshot: S2C_TransmissionListings | null = null;
   /** 传法台当前标签页。 */
@@ -450,17 +361,17 @@ export class MarketPanel {
   /** 最近一次会影响盘口的自有订单签名，稳定的 1Hz 摘要不会重复失效缓存。 */
   private itemBookRevisionSignature = '';
   /** 当前在市场列表里选中的物品 key。 */
-  private selectedItemKey: string | null = null;
+  selectedItemKey: string | null = null;
   /** 当前高亮的物品组。 */
   private selectedGroupItemId: string | null = null;
   /** 当前正在查看的强化等级列表归属物品。 */
   private enhancementBrowseItemId: string | null = null;
   /** 天道商店当前选中的固定商品。 */
-  private heavenlyDaoShopSelectedItemId: string | null = HEAVENLY_DAO_SHOP_ITEMS[0]?.itemId ?? null;
+  heavenlyDaoShopSelectedItemId: string | null = HEAVENLY_DAO_SHOP_ITEMS[0]?.itemId ?? null;
   /** 天道商店每个商品的数量草稿。 */
-  private readonly heavenlyDaoShopQuantityDrafts = new Map<string, string>();
+  readonly heavenlyDaoShopQuantityDrafts = new Map<string, string>();
   /** 天道商店依赖的资产投影签名，用于跳过无变化的每息刷新。 */
-  private heavenlyDaoShopAssetSignature = '';
+  heavenlyDaoShopAssetSignature = '';
   /** 弹窗当前标签页。 */
   private modalTab: MarketModalTab = 'market';
   /** 当前市场主分类筛选。 */
@@ -506,20 +417,20 @@ export class MarketPanel {
   /** 交易历史是否正在加载。 */
   private tradeHistoryLoading = false;
   /** 当前交易弹窗状态。 */
-  private tradeDialog: MarketTradeDialogState | null = null;
+  tradeDialog: MarketTradeDialogState | null = null;
   /** 待确认的买入请求。 */
   private buyConfirmState: { itemKey: string; quantity: number; unitPrice: number } | null = null;
   /** 当前交易历史快照。 */
   private tradeHistory: S2C_MarketTradeHistory | null = null;
   /** 当前玩家背包快照，用于判断能否挂售和买入。 */
-  private inventory: Inventory = { items: [], capacity: 0 };
-  private player: PlayerState | null = null;
+  inventory: Inventory = { items: [], capacity: 0 };
+  player: PlayerState | null = null;
   /** 当前登录会话是否已经预取过坊市摘要。 */
   private hasRequestedMarketBootstrap = false;
   /** 市场物品提示浮层，列表和详情共用。 */
-  private tooltip = new FloatingTooltip('floating-tooltip market-item-tooltip');
+  tooltip = new FloatingTooltip('floating-tooltip market-item-tooltip');
   /** 当前正在显示提示的节点。 */
-  private tooltipNode: HTMLElement | null = null;
+  tooltipNode: HTMLElement | null = null;
   /** 拍卖行倒计时本地 ticker，只局部更新倒计时文本。 */
   private auctionCountdownTimer: ReturnType<typeof window.setInterval> | null = null;
   /** @internal 拍卖行子视图。 */
@@ -1100,428 +1011,91 @@ export class MarketPanel {
   }
 
   private getHeavenlyDaoShopCurrencyName(): string {
-    return getLocalItemTemplate(HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID)?.name ?? '功德';
+    return getHeavenlyDaoShopCurrencyNameImpl(this);
   }
 
   private getHeavenlyDaoShopCurrencyOwned(): number {
-    return getPlayerOwnedItemCount(this.player, this.inventory, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID);
+    return getHeavenlyDaoShopCurrencyOwnedImpl(this);
   }
 
   private getHeavenlyDaoShopDiscountPercent(): number {
-    const discountPercent = this.marketUpdate?.heavenlyDaoShopDiscountPercent ?? 0;
-    if (!Number.isFinite(Number(discountPercent))) {
-      return 0;
-    }
-    return Math.max(0, Math.min(HEAVENLY_DAO_SHOP_ETERNAL_DISCOUNT_PERCENT, Math.trunc(Number(discountPercent))));
+    return getHeavenlyDaoShopDiscountPercentImpl(this);
   }
 
   private getHeavenlyDaoShopUnitPrice(basePrice: number): number {
-    return calculateHeavenlyDaoShopDiscountedPrice(basePrice, this.getHeavenlyDaoShopDiscountPercent());
+    return getHeavenlyDaoShopUnitPriceImpl(this, basePrice);
   }
 
   private getHeavenlyDaoShopDiscountLabel(): string {
-    const discountPercent = this.getHeavenlyDaoShopDiscountPercent();
-    if (discountPercent <= 0) {
-      return '';
-    }
-    const rate = (100 - discountPercent) / 10;
-    return Number.isInteger(rate) ? `${rate}折` : `${formatDisplayNumber(rate)}折`;
+    return getHeavenlyDaoShopDiscountLabelImpl(this);
   }
 
   private captureHeavenlyDaoShopAssetSignature(player: PlayerState | null, inventory: Inventory): boolean {
-    const nextSignature = this.buildHeavenlyDaoShopAssetSignature(player, inventory);
-    if (nextSignature === this.heavenlyDaoShopAssetSignature) {
-      return false;
-    }
-    this.heavenlyDaoShopAssetSignature = nextSignature;
-    return true;
+    return captureHeavenlyDaoShopAssetSignatureImpl(this, player, inventory);
   }
 
   private buildHeavenlyDaoShopAssetSignature(player: PlayerState | null, inventory: Inventory): string {
-    const trackedItemIds = new Set<string>([HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID]);
-    for (const entry of HEAVENLY_DAO_SHOP_ITEMS) {
-      trackedItemIds.add(entry.itemId);
-    }
-    const parts: string[] = [];
-    for (const itemId of trackedItemIds) {
-      parts.push(`${itemId}:${getPlayerOwnedItemCount(player, inventory, itemId)}`);
-    }
-    parts.push(`discount:${this.getHeavenlyDaoShopDiscountPercent()}`);
-    return parts.join('|');
+    return buildHeavenlyDaoShopAssetSignatureImpl(this, player, inventory);
   }
 
-  private getHeavenlyDaoShopEntry(itemId: string | null) {
-    if (!itemId) {
-      return null;
-    }
-    return HEAVENLY_DAO_SHOP_ITEMS.find((entry) => entry.itemId === itemId) ?? null;
+  getHeavenlyDaoShopEntry(itemId: string | null) {
+    return getHeavenlyDaoShopEntryImpl(this, itemId);
   }
 
   private ensureHeavenlyDaoShopSelection() {
-    const selected = this.getHeavenlyDaoShopEntry(this.heavenlyDaoShopSelectedItemId);
-    if (selected) {
-      return selected;
-    }
-    const first = HEAVENLY_DAO_SHOP_ITEMS[0] ?? null;
-    this.heavenlyDaoShopSelectedItemId = first?.itemId ?? null;
-    return first;
+    return ensureHeavenlyDaoShopSelectionImpl(this);
   }
 
-  private buildHeavenlyDaoShopItemStack(itemId: string, count: number): ItemStack | null {
-    const template = getLocalItemTemplate(itemId);
-    if (!template) {
-      return null;
-    }
-    return {
-      ...template,
-      count,
-      desc: template.desc ?? '',
-    };
+  buildHeavenlyDaoShopItemStack(itemId: string, count: number): ItemStack | null {
+    return buildHeavenlyDaoShopItemStackImpl(this, itemId, count);
   }
 
   private parseHeavenlyDaoShopQuantity(itemId: string): number | null {
-    const raw = this.heavenlyDaoShopQuantityDrafts.get(itemId) ?? '1';
-    if (!raw || !/^\d+$/.test(raw)) {
-      return null;
-    }
-    const quantity = Number(raw);
-  const entry = this.getHeavenlyDaoShopEntry(itemId);
-  const dailyLimit = entry && 'dailyLimit' in entry
-   ? Math.max(1, Math.trunc(Number(entry.dailyLimit) || 0))
-   : HEAVENLY_DAO_SHOP_MAX_QUANTITY;
-  const maximum = Math.min(HEAVENLY_DAO_SHOP_MAX_QUANTITY, dailyLimit);
-  if (!Number.isSafeInteger(quantity) || quantity <= 0 || quantity > maximum) {
-      return null;
-    }
-    return quantity;
+    return parseHeavenlyDaoShopQuantityImpl(this, itemId);
   }
 
   private renderHeavenlyDaoShopRows(): string {
-    const owned = this.getHeavenlyDaoShopCurrencyOwned();
-    const currencyName = this.getHeavenlyDaoShopCurrencyName();
-    const selectedItemId = this.ensureHeavenlyDaoShopSelection()?.itemId ?? null;
-    return HEAVENLY_DAO_SHOP_ITEMS.map((entry) => {
-      const template = getLocalItemTemplate(entry.itemId);
-      const itemName = resolveClientItemBaseName(entry.itemId, template?.name);
-      const countText = entry.count > 1 ? ` x${formatDisplayInteger(entry.count)}` : '';
-      const ownedCount = getPlayerOwnedItemCount(this.player, this.inventory, entry.itemId);
-      const unitPrice = this.getHeavenlyDaoShopUnitPrice(entry.price);
-      const discountLabel = this.getHeavenlyDaoShopDiscountLabel();
-      const insufficient = owned < unitPrice;
-      const active = entry.itemId === selectedItemId ? ' active' : '';
-      return `
-        <button class="market-item-cell ui-surface-card ui-surface-card--compact${active}" data-heavenly-dao-shop-select="${escapeHtmlAttr(entry.itemId)}" type="button">
-          <div class="market-item-cell-name">
-            <span class="market-item-cell-name-text market-item-title--interactive" data-market-item-tooltip="heavenly-dao-shop:${escapeHtmlAttr(entry.itemId)}">${escapeHtml(itemName)}${escapeHtml(countText)}</span>
-            <span class="market-item-cell-owned ${ownedCount > 0 ? '' : 'hidden'}">${ownedCount > 0 ? formatDisplayCountBadge(ownedCount) : ''}</span>
-          </div>
-          <div class="market-item-cell-prices">
-            <span>${formatDisplayInteger(unitPrice)} ${escapeHtml(currencyName)}${discountLabel ? `（${escapeHtml(discountLabel)}）` : ''}</span>
-            <span>${insufficient ? `${escapeHtml(currencyName)}不足` : '可兑换'}</span>
-          </div>
-        </button>
-      `;
-    }).join('');
+    return renderHeavenlyDaoShopRowsImpl(this);
   }
 
   private renderHeavenlyDaoShopDetailPanel(): string {
-    const entry = this.ensureHeavenlyDaoShopSelection();
-    if (!entry) {
-      return '<div class="empty-hint">暂无可兑换物资。</div>';
-    }
-    const item = this.buildHeavenlyDaoShopItemStack(entry.itemId, entry.count);
-    if (!item) {
-      return '<div class="empty-hint">商品配置不存在。</div>';
-    }
-
-    const currencyName = this.getHeavenlyDaoShopCurrencyName();
-    const ownedCurrency = this.getHeavenlyDaoShopCurrencyOwned();
-    const quantityText = this.heavenlyDaoShopQuantityDrafts.get(entry.itemId) ?? '1';
-    const quantity = this.parseHeavenlyDaoShopQuantity(entry.itemId);
-    const unitPrice = this.getHeavenlyDaoShopUnitPrice(entry.price);
-    const discountLabel = this.getHeavenlyDaoShopDiscountLabel();
-    const totalCost = quantity === null ? null : quantity * unitPrice;
-    const invalidTotal = totalCost === null || !Number.isSafeInteger(totalCost) || totalCost <= 0;
-    const insufficientCurrency = !invalidTotal && totalCost > ownedCurrency;
-    const displayTotal = invalidTotal ? '--' : formatDisplayInteger(totalCost ?? 0);
-    const affordableCount = unitPrice > 0 ? Math.floor(ownedCurrency / unitPrice) : 0;
-  const dailyLimit = 'dailyLimit' in entry ? Math.max(1, Math.trunc(Number(entry.dailyLimit) || 0)) : null;
-  const maxPurchasable = Math.min(HEAVENLY_DAO_SHOP_MAX_QUANTITY, affordableCount, dailyLimit ?? HEAVENLY_DAO_SHOP_MAX_QUANTITY);
-    const ownedCount = getPlayerOwnedItemCount(this.player, this.inventory, entry.itemId);
-    const countText = entry.count > 1 ? ` x${formatDisplayInteger(entry.count)}` : '';
-  const maximumInput = Math.min(HEAVENLY_DAO_SHOP_MAX_QUANTITY, dailyLimit ?? HEAVENLY_DAO_SHOP_MAX_QUANTITY);
-    const effectLines = describeItemEffectDetails(item);
-    const errorText = invalidTotal
-   ? `请输入 1 至 ${formatDisplayInteger(maximumInput)} 之间的购买数量。`
-      : `${currencyName}不足，需要 ${displayTotal} ${currencyName}。`;
-    return `
-      <div class="market-book-header">
-        <div>
-          <div class="market-item-title market-item-title--interactive" data-market-item-tooltip="heavenly-dao-shop:${escapeHtmlAttr(entry.itemId)}">${escapeHtml(item.name)}${escapeHtml(countText)}</div>
-          <div class="market-book-subtitle">${escapeHtml(getItemTypeLabel(item.type))} · ${escapeHtml(item.desc)}</div>
-        </div>
-      </div>
-      ${effectLines.length > 0 ? `
-        <div class="market-book-effects ui-surface-pane ui-surface-pane--stack ui-surface-pane--muted">
-          <div class="market-book-effects-title">物品效果</div>
-          <div class="market-book-effects-list">
-            ${effectLines.map((line) => `<div class="market-book-effect-line">${escapeHtml(line)}</div>`).join('')}
-          </div>
-        </div>
-      ` : ''}
-      <div class="market-book-column ui-surface-pane ui-surface-pane--stack ui-scroll-panel" data-heavenly-dao-shop-detail-scroll="true">
-        <div class="market-book-column-head">
-          <div class="market-book-column-title">兑换数量</div>
-          <button class="small-btn" data-heavenly-dao-shop-buy="${escapeHtmlAttr(entry.itemId)}" type="button" ${invalidTotal || insufficientCurrency ? 'disabled' : ''}>购买</button>
-        </div>
-        <div class="market-action-row">
-          <span class="market-order-meta">已持有：${escapeHtml(formatDisplayCountBadge(ownedCount))}</span>
-          <span class="market-order-meta">最多可买：${formatDisplayInteger(maxPurchasable)}${dailyLimit ? ` · 每日限购 ${formatDisplayInteger(dailyLimit)}` : ''}</span>
-        </div>
-        <div class="market-trade-dialog-section ui-surface-pane ui-surface-pane--stack ui-surface-pane--muted">
-          <div class="market-trade-dialog-field">
-            <span>单价</span>
-            <div class="market-price-display">
-              <strong>${formatDisplayInteger(unitPrice)}</strong>
-              <span>${escapeHtml(currencyName)}</span>
-              ${discountLabel ? `<span>${escapeHtml(discountLabel)}</span>` : ''}
-            </div>
-          </div>
-        </div>
-        <div class="market-trade-dialog-section ui-surface-pane ui-surface-pane--stack ui-surface-pane--muted">
-          <div class="market-trade-dialog-field">
-            <span>数量</span>
-            ${renderTradeQuantityControl({
-              value: quantityText || '1',
-   max: maximumInput,
-              inputClassName: 'gm-inline-input ui-input',
-              inputAttrs: { 'data-heavenly-dao-shop-quantity': entry.itemId },
-              leftButtons: [{ label: '1', attrs: { 'data-heavenly-dao-shop-quick-qty': entry.itemId, 'data-heavenly-dao-shop-quick-qty-value': '1' } }],
-              rightButtons: [{
-                label: '最大',
-                attrs: { 'data-heavenly-dao-shop-quick-qty': entry.itemId, 'data-heavenly-dao-shop-quick-qty-value': Math.max(1, maxPurchasable) },
-                disabled: maxPurchasable <= 0,
-              }],
-            })}
-          </div>
-          <div class="market-trade-dialog-total ${invalidTotal || insufficientCurrency ? 'error' : ''}">
-            <span>总价</span>
-            <strong data-heavenly-dao-shop-total="${escapeHtmlAttr(entry.itemId)}">${displayTotal} ${escapeHtml(currencyName)}</strong>
-          </div>
-        </div>
-        <div class="market-action-hint market-action-hint--error" data-heavenly-dao-shop-error="${escapeHtmlAttr(entry.itemId)}" ${invalidTotal || insufficientCurrency ? '' : 'hidden'}>
-          ${escapeHtml(errorText)}
-        </div>
-        <div class="market-action-hint">商品与价格由服务端固定表权威结算，只消耗 ${escapeHtml(currencyName)}。</div>
-      </div>
-    `;
+    return renderHeavenlyDaoShopDetailPanelImpl(this);
   }
 
   private openHeavenlyDaoShopModal(): void {
-    this.ensureHeavenlyDaoShopSelection();
-    this.heavenlyDaoShopAssetSignature = this.buildHeavenlyDaoShopAssetSignature(this.player, this.inventory);
-    detailModalHost.open({
-      ownerId: MarketPanel.HEAVENLY_DAO_SHOP_MODAL_OWNER,
-      size: 'full',
-      variantClass: 'detail-modal--market',
-      title: '天道商店',
-      subtitle: `持有 ${this.getHeavenlyDaoShopCurrencyName()}：${formatDisplayInteger(this.getHeavenlyDaoShopCurrencyOwned())}`,
-      renderBody: (body: HTMLElement) => {
-        replaceElementHtml(body, `
-          <div class="market-modal-content market-modal-content--wide heavenly-dao-shop-shell">
-            <div class="market-market-tab">
-              <div class="market-board heavenly-dao-shop-board">
-                <div class="market-board-list-wrap ui-surface-pane ui-surface-pane--stack">
-                  <div class="market-list-toolbar ui-action-row">
-                    <div class="market-list-toolbar-meta" data-heavenly-dao-shop-currency="true">持有 ${escapeHtml(this.getHeavenlyDaoShopCurrencyName())}：${formatDisplayInteger(this.getHeavenlyDaoShopCurrencyOwned())}</div>
-                  </div>
-                  <div class="market-board-list npc-shop-board-list ui-scroll-panel" data-heavenly-dao-shop-list="true">
-                    ${this.renderHeavenlyDaoShopRows()}
-                  </div>
-                </div>
-                <div class="market-book-panel ui-surface-pane ui-surface-pane--stack" data-heavenly-dao-shop-detail="true">
-                  ${this.renderHeavenlyDaoShopDetailPanel()}
-                </div>
-              </div>
-            </div>
-          </div>
-        `);
-      },
-      onClose: () => {
-        this.tooltipNode = null;
-        this.tooltip.hide(true);
-      },
-      onAfterRender: (body: HTMLElement, signal: AbortSignal) => {
-        this.bindHeavenlyDaoShopEvents(body, signal);
-        this.bindMarketModalDelegatedEvents(body, signal);
-      },
-    });
+    openHeavenlyDaoShopModalImpl(this);
   }
+
   private getOpenHeavenlyDaoShopBody(): HTMLElement | null {
-    if (!detailModalHost.isOpenFor(MarketPanel.HEAVENLY_DAO_SHOP_MODAL_OWNER)) {
-      return null;
-    }
-    return document.getElementById('detail-modal-body');
+    return getOpenHeavenlyDaoShopBodyImpl(this);
   }
 
   private patchHeavenlyDaoShopModal(): boolean {
-    const body = this.getOpenHeavenlyDaoShopBody();
-    if (!body?.querySelector('.heavenly-dao-shop-shell')) {
-      return false;
-    }
-    detailModalHost.patch({
-      ownerId: MarketPanel.HEAVENLY_DAO_SHOP_MODAL_OWNER,
-      title: '天道商店',
-      subtitle: `持有 ${this.getHeavenlyDaoShopCurrencyName()}：${formatDisplayInteger(this.getHeavenlyDaoShopCurrencyOwned())}`,
-    });
-    const currencyNode = body.querySelector<HTMLElement>('[data-heavenly-dao-shop-currency="true"]');
-    if (currencyNode) {
-      currencyNode.textContent = `持有 ${this.getHeavenlyDaoShopCurrencyName()}：${formatDisplayInteger(this.getHeavenlyDaoShopCurrencyOwned())}`;
-    }
-    this.patchHeavenlyDaoShopList();
-    this.patchHeavenlyDaoShopDetailPanel();
-    return true;
+    return patchHeavenlyDaoShopModalImpl(this);
   }
 
   private patchHeavenlyDaoShopList(): void {
-    const body = this.getOpenHeavenlyDaoShopBody();
-    const listRoot = body?.querySelector<HTMLElement>('[data-heavenly-dao-shop-list="true"]');
-    if (!listRoot) {
-      return;
-    }
-    replaceElementHtml(listRoot, this.renderHeavenlyDaoShopRows());
+    patchHeavenlyDaoShopListImpl(this);
   }
 
   private patchHeavenlyDaoShopDetailPanel(): void {
-    const body = this.getOpenHeavenlyDaoShopBody();
-    const detailRoot = body?.querySelector<HTMLElement>('[data-heavenly-dao-shop-detail="true"]');
-    if (!detailRoot) {
-      return;
-    }
-    const scrollTop = detailRoot.querySelector<HTMLElement>('[data-heavenly-dao-shop-detail-scroll="true"]')?.scrollTop ?? 0;
-    const activeElement = document.activeElement;
-    const focusedItemId = activeElement instanceof HTMLInputElement && detailRoot.contains(activeElement)
-      ? activeElement.dataset.heavenlyDaoShopQuantity ?? null
-      : null;
-    const selectionStart = activeElement instanceof HTMLInputElement ? activeElement.selectionStart : null;
-    const selectionEnd = activeElement instanceof HTMLInputElement ? activeElement.selectionEnd : null;
-    replaceElementHtml(detailRoot, this.renderHeavenlyDaoShopDetailPanel());
-    const nextScrollRoot = detailRoot.querySelector<HTMLElement>('[data-heavenly-dao-shop-detail-scroll="true"]');
-    if (nextScrollRoot) {
-      nextScrollRoot.scrollTop = scrollTop;
-    }
-    if (!focusedItemId) {
-      return;
-    }
-    const input = detailRoot.querySelector<HTMLInputElement>(`[data-heavenly-dao-shop-quantity="${focusedItemId}"]`);
-    if (!input) {
-      return;
-    }
-    input.focus({ preventScroll: true });
-    if (selectionStart !== null && selectionEnd !== null) {
-      input.setSelectionRange(selectionStart, selectionEnd);
-    }
+    patchHeavenlyDaoShopDetailPanelImpl(this);
   }
 
   private bindHeavenlyDaoShopEvents(body: HTMLElement, signal: AbortSignal): void {
-    body.addEventListener('click', (event) => this.handleHeavenlyDaoShopClick(event), { signal });
-    body.addEventListener('input', (event) => this.handleHeavenlyDaoShopInput(event), { signal });
+    bindHeavenlyDaoShopEventsImpl(this, body, signal);
   }
 
   private handleHeavenlyDaoShopClick(event: Event): void {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) {
-      return;
-    }
-
-    const selectButton = target.closest<HTMLElement>('[data-heavenly-dao-shop-select]');
-    if (selectButton) {
-      const itemId = selectButton.dataset.heavenlyDaoShopSelect;
-      if (!itemId || itemId === this.heavenlyDaoShopSelectedItemId) {
-        return;
-      }
-      this.heavenlyDaoShopSelectedItemId = itemId;
-      this.patchHeavenlyDaoShopList();
-      this.patchHeavenlyDaoShopDetailPanel();
-      return;
-    }
-
-    const quickQtyButton = target.closest<HTMLElement>('[data-heavenly-dao-shop-quick-qty]');
-    if (quickQtyButton) {
-      const itemId = quickQtyButton.dataset.heavenlyDaoShopQuickQty;
-      const nextQuantity = quickQtyButton.dataset.heavenlyDaoShopQuickQtyValue;
-      if (!itemId || !nextQuantity) {
-        return;
-      }
-      this.heavenlyDaoShopQuantityDrafts.set(itemId, nextQuantity);
-      const body = this.getOpenHeavenlyDaoShopBody();
-      const input = body?.querySelector<HTMLInputElement>(`[data-heavenly-dao-shop-quantity="${itemId}"]`);
-      if (input) {
-        input.value = nextQuantity;
-      }
-      if (body) {
-        this.syncHeavenlyDaoShopPurchaseState(body, itemId);
-      }
-      return;
-    }
-
-    const buyButton = target.closest<HTMLElement>('[data-heavenly-dao-shop-buy]');
-    if (!buyButton) {
-      return;
-    }
-    const itemId = buyButton.dataset.heavenlyDaoShopBuy;
-    const quantity = itemId ? this.parseHeavenlyDaoShopQuantity(itemId) : null;
-    if (!itemId || quantity === null) {
-      return;
-    }
-    this.callbacks?.onBuyHeavenlyDaoShopItem(itemId, quantity);
+    handleHeavenlyDaoShopClickImpl(this, event);
   }
 
   private handleHeavenlyDaoShopInput(event: Event): void {
-    const target = event.target;
-    if (!(target instanceof HTMLInputElement)) {
-      return;
-    }
-    const itemId = target.dataset.heavenlyDaoShopQuantity;
-    if (!itemId) {
-      return;
-    }
-    const normalized = target.value.replaceAll(/[^\d]/g, '');
-    this.heavenlyDaoShopQuantityDrafts.set(itemId, normalized);
-    if (target.value !== normalized) {
-      target.value = normalized;
-    }
-    const body = this.getOpenHeavenlyDaoShopBody();
-    if (body) {
-      this.syncHeavenlyDaoShopPurchaseState(body, itemId);
-    }
+    handleHeavenlyDaoShopInputImpl(this, event);
   }
 
   private syncHeavenlyDaoShopPurchaseState(root: ParentNode, itemId: string): void {
-    const entry = this.getHeavenlyDaoShopEntry(itemId);
-    const totalNode = root.querySelector<HTMLElement>(`[data-heavenly-dao-shop-total="${itemId}"]`);
-    const buttonNode = root.querySelector<HTMLButtonElement>(`[data-heavenly-dao-shop-buy="${itemId}"]`);
-    const errorNode = root.querySelector<HTMLElement>(`[data-heavenly-dao-shop-error="${itemId}"]`);
-    if (!entry || !totalNode || !buttonNode || !errorNode) {
-      return;
-    }
-
-    const currencyName = this.getHeavenlyDaoShopCurrencyName();
-    const quantity = this.parseHeavenlyDaoShopQuantity(itemId);
-    const unitPrice = this.getHeavenlyDaoShopUnitPrice(entry.price);
-    const totalCost = quantity === null ? null : quantity * unitPrice;
-  const dailyLimit = 'dailyLimit' in entry ? Math.max(1, Math.trunc(Number(entry.dailyLimit) || 0)) : null;
-  const maximumInput = Math.min(HEAVENLY_DAO_SHOP_MAX_QUANTITY, dailyLimit ?? HEAVENLY_DAO_SHOP_MAX_QUANTITY);
-    const invalidTotal = totalCost === null || !Number.isSafeInteger(totalCost) || totalCost <= 0;
-    const insufficientCurrency = !invalidTotal && totalCost > this.getHeavenlyDaoShopCurrencyOwned();
-    const displayTotal = invalidTotal ? '--' : formatDisplayInteger(totalCost ?? 0);
-    totalNode.textContent = `${displayTotal} ${currencyName}`;
-    totalNode.parentElement?.classList.toggle('error', invalidTotal || insufficientCurrency);
-    errorNode.hidden = !(invalidTotal || insufficientCurrency);
-    errorNode.textContent = invalidTotal
-   ? `请输入 1 至 ${formatDisplayInteger(maximumInput)} 之间的购买数量。`
-      : `${currencyName}不足，需要 ${displayTotal} ${currencyName}。`;
-    buttonNode.disabled = invalidTotal || insufficientCurrency;
+    syncHeavenlyDaoShopPurchaseStateImpl(this, root, itemId);
   }
 
   /** 打开市场详情弹层，并按当前标签请求需要的数据。 */
@@ -1978,7 +1552,7 @@ export class MarketPanel {
     return this.tradeDialogView.renderTradeDialog(entry, currencyItemId, currencyName);
   }
 
-  private bindMarketModalDelegatedEvents(body: HTMLElement, signal: AbortSignal): void {
+  bindMarketModalDelegatedEvents(body: HTMLElement, signal: AbortSignal): void {
     const tapMode = prefersPinnedTooltipInteraction();
     body.addEventListener('click', (event) => {
       const target = event.target;
@@ -2203,7 +1777,7 @@ export class MarketPanel {
     return this.auctionView.getAuctionPageState(items);
   }
 
-  private getCurrentAuctionLots(): AuctionLotView[] {
+  getCurrentAuctionLots(): AuctionLotView[] {
     return this.auctionView.getCurrentAuctionLots();
   }
 
@@ -2219,7 +1793,7 @@ export class MarketPanel {
     return this.auctionView.inflateAuctionLotEntry(entry);
   }
 
-  private buildMarketListingFromAuctionLot(lot: AuctionLotView): MarketListedItemView {
+  buildMarketListingFromAuctionLot(lot: AuctionLotView): MarketListedItemView {
     return {
       itemKey: lot.itemKey,
       item: lot.item,
@@ -2554,7 +2128,7 @@ export class MarketPanel {
   }
 
   /** 读取当前选中的列表物品。 */
-  private getSelectedListedItem(update: S2C_MarketUpdate | null): MarketListedItemView | null {
+  getSelectedListedItem(update: S2C_MarketUpdate | null): MarketListedItemView | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!this.selectedItemKey) {
@@ -2754,7 +2328,7 @@ export class MarketPanel {
   }
 
   /** 把当前页平铺条目按物品 id 聚合成分组视图。 */
-  private getVisibleListingGroups(update: S2C_MarketUpdate | null): MarketListingGroupView[] {
+  getVisibleListingGroups(update: S2C_MarketUpdate | null): MarketListingGroupView[] {
     return this.browseView.getVisibleListingGroups(update);
   }
 
@@ -3154,469 +2728,179 @@ export class MarketPanel {
     return this.tradeDialogView.getTradeDialogOverlayRoot();
   }
 
-  private findConflictingOwnOrder(itemKey: string, nextSide: MarketTradeDialogKind): MarketOwnOrderView | null {
-    const oppositeSide = nextSide === 'sell' ? 'buy' : 'sell';
-    return this.marketUpdate?.myOrders.find((order) =>
-      order.itemKey === itemKey
-      && order.side === oppositeSide
-      && order.remainingQuantity > 0
-      && order.status === 'open') ?? null;
+  findConflictingOwnOrder(itemKey: string, nextSide: MarketTradeDialogKind): MarketOwnOrderView | null {
+    return findConflictingOwnOrderImpl(this, itemKey, nextSide);
   }
 
   /** 读取交易弹窗的默认单价，优先沿用当前盘面价格。 */
-  private getDefaultTradeDialogPrice(entry: MarketListedItemView, kind: MarketTradeDialogKind, preferredPrice?: number | null): number {
-    const fallback = kind === 'buy'
-      ? (entry.lowestSellPrice ?? entry.highestBuyPrice ?? MARKET_DIALOG_MIN_PRICE)
-      : (entry.highestBuyPrice ?? entry.lowestSellPrice ?? MARKET_DIALOG_MIN_PRICE);
-    const source = preferredPrice && preferredPrice > 0 ? preferredPrice : fallback;
-    return this.normalizeTradeDialogPrice(source, kind === 'buy' ? 'up' : 'down');
+  getDefaultTradeDialogPrice(entry: MarketListedItemView, kind: MarketTradeDialogKind, preferredPrice?: number | null): number {
+    return getDefaultTradeDialogPriceImpl(this, entry, kind, preferredPrice);
   }
 
   /** 拍卖最低加价为当前价沿坊市价格档位向上一档。 */
-  private getAuctionMinimumBidPrice(lot: AuctionLotView): number {
-    if (lot.currentPrice >= MARKET_DIALOG_MAX_PRICE) {
-      return MARKET_DIALOG_MAX_PRICE;
-    }
-    return this.normalizeTradeDialogPrice(lot.currentPrice + getMarketPriceStep(lot.currentPrice), 'up');
+  getAuctionMinimumBidPrice(lot: AuctionLotView): number {
+    return getAuctionMinimumBidPriceImpl(this, lot);
   }
 
   /** 读取当前交易弹窗的最低价格约束。 */
-  private getTradeDialogMinUnitPrice(dialog: MarketTradeDialogState): number {
-    if (dialog.source !== 'auction-bid') {
-      return MARKET_DIALOG_MIN_PRICE;
-    }
-    return this.normalizeTradeDialogPrice(dialog.minUnitPrice ?? MARKET_DIALOG_MIN_PRICE, 'up');
+  getTradeDialogMinUnitPrice(dialog: MarketTradeDialogState): number {
+    return getTradeDialogMinUnitPriceImpl(this, dialog);
   }
 
   /** 规范化交易弹窗里的数量输入，强制对齐最小交易步长。 */
-  private normalizeTradeDialogQuantity(
+  normalizeTradeDialogQuantity(
     value: string | number,
     entry: MarketListedItemView,
     kind: MarketTradeDialogKind,
     unitPrice = this.tradeDialog?.unitPrice ?? MARKET_DIALOG_MIN_PRICE,
   ): number {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const parsed = typeof value === 'number' ? value : Number(value);
-    const quantityStep = this.getTradeDialogQuantityStep(unitPrice);
-    const minimumQuantity = this.getTradeDialogMinimumQuantity(entry, kind, unitPrice);
-    const max = this.getTradeDialogQuantityMax(entry, kind, unitPrice);
-    if (max <= 0) {
-      return minimumQuantity;
-    }
-    if (!Number.isFinite(parsed)) {
-      return minimumQuantity;
-    }
-    const bounded = Math.max(minimumQuantity, Math.min(max, Math.ceil(parsed)));
-    const alignedUp = Math.ceil(bounded / quantityStep) * quantityStep;
-    if (alignedUp <= max) {
-      return alignedUp;
-    }
-    return Math.max(minimumQuantity, Math.floor(max / quantityStep) * quantityStep);
+    return normalizeTradeDialogQuantityImpl(this, value, entry, kind, unitPrice);
   }
 
   /** 根据单价计算这笔交易的最小数量步长。 */
-  private getTradeDialogQuantityStep(unitPrice: number): number {
-    return Math.max(1, getMarketMinimumTradeQuantity(unitPrice));
+  getTradeDialogQuantityStep(unitPrice: number): number {
+    return getTradeDialogQuantityStepImpl(this, unitPrice);
   }
 
   /** 历史异常小数价按 ceil(1 / 单价) 计算最低成交件数，再对齐当前挂单步长。 */
-  private getTradeDialogMinimumQuantity(
+  getTradeDialogMinimumQuantity(
     entry: MarketListedItemView,
     kind: MarketTradeDialogKind,
     unitPrice: number,
   ): number {
-    const quantityStep = this.getTradeDialogQuantityStep(unitPrice);
-    const opposingPrice = kind === 'buy' ? entry.lowestSellPrice : entry.highestBuyPrice;
-    const crossesOpposingPrice = opposingPrice !== undefined
-      && (kind === 'buy' ? opposingPrice <= unitPrice : opposingPrice >= unitPrice);
-    if (!crossesOpposingPrice || opposingPrice === undefined || !isLegacyMarketPrice(opposingPrice)) {
-      return quantityStep;
-    }
-    const legacyMinimum = getMarketMinimumTradeQuantity(opposingPrice);
-    return Math.ceil(legacyMinimum / quantityStep) * quantityStep;
+    return getTradeDialogMinimumQuantityImpl(this, entry, kind, unitPrice);
   }
 
   /** 计算当前单价下允许输入的最大数量。 */
-  private getTradeDialogQuantityMax(
+  getTradeDialogQuantityMax(
     entry: MarketListedItemView,
     kind: MarketTradeDialogKind,
     unitPrice: number,
   ): number {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const quantityStep = this.getTradeDialogQuantityStep(unitPrice);
-    const minimumQuantity = this.getTradeDialogMinimumQuantity(entry, kind, unitPrice);
-    const cap = kind === 'sell'
-      ? this.findMatchingInventoryCount(entry.item)
-      : this.getAffordableBuyQuantity(unitPrice, this.marketUpdate?.currencyItemId ?? '');
-    if (cap < minimumQuantity) {
-      return 0;
-    }
-    return Math.floor(Math.min(cap, MARKET_DIALOG_MAX_QUANTITY) / quantityStep) * quantityStep;
+    return getTradeDialogQuantityMaxImpl(this, entry, kind, unitPrice);
   }
 
-  /** 给“最大”按钮计算对应的可交易数量。 */
-  private getTradeDialogMaxButtonQuantity(
+  /** 给"最大"按钮计算对应的可交易数量。 */
+  getTradeDialogMaxButtonQuantity(
     entry: MarketListedItemView,
     _currencyItemId: string,
     dialog: MarketTradeDialogState,
   ): number {
-    return this.getTradeDialogQuantityMax(entry, dialog.kind, dialog.unitPrice);
+    return getTradeDialogMaxButtonQuantityImpl(this, entry, _currencyItemId, dialog);
   }
 
   /** 计算当前持币量在该单价下最多能买多少。 */
-  private getAffordableBuyQuantity(unitPrice: number, currencyItemId: string): number {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (unitPrice <= 0) {
-      return 0;
-    }
-    const ownedCurrency = this.findInventoryItemCountByItemId(currencyItemId);
-    const quantityStep = this.getTradeDialogQuantityStep(unitPrice);
-    const stepCost = this.getMarketTradeTotalCost(quantityStep, unitPrice);
-    if (!stepCost || stepCost <= 0) {
-      return 0;
-    }
-    const affordableSteps = Math.floor(ownedCurrency / stepCost);
-    return Math.min(MARKET_DIALOG_MAX_QUANTITY, affordableSteps * quantityStep);
+  getAffordableBuyQuantity(unitPrice: number, currencyItemId: string): number {
+    return getAffordableBuyQuantityImpl(this, unitPrice, currencyItemId);
   }
 
   /** 按按钮动作算出下一个单价，并保持在合法范围内。 */
-  private getNextTradeDialogPrice(currentPrice: number, action: MarketPriceAction, preset?: number | null, minPrice: number = MARKET_DIALOG_MIN_PRICE): number {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const clamp = (price: number, direction: 'up' | 'down'): number =>
-      this.normalizeTradeDialogPrice(Math.max(minPrice, price), direction);
-    if (action === 'preset') {
-      return clamp(preset ?? MARKET_DIALOG_MIN_PRICE, 'up');
-    }
-    if (action === 'double') {
-      return clamp(currentPrice * 2, 'up');
-    }
-    if (action === 'half') {
-      return clamp(currentPrice / 2, 'down');
-    }
-    if (action === 'increase') {
-      const step = currentPrice < 1
-        ? getMarketPriceStep(currentPrice)
-        : getMarketPriceStep(Math.min(MARKET_DIALOG_MAX_PRICE, currentPrice + 1));
-      return clamp(currentPrice + step, 'up');
-    }
-    const probe = Math.max(minPrice, currentPrice - 1);
-    return clamp(currentPrice - getMarketPriceStep(probe), 'down');
+  getNextTradeDialogPrice(currentPrice: number, action: MarketPriceAction, preset?: number | null, minPrice: number = MARKET_DIALOG_MIN_PRICE): number {
+    return getNextTradeDialogPriceImpl(this, currentPrice, action, preset, minPrice);
   }
 
   /** 按买卖方向把单价夹回合法区间并对齐价格档位。 */
-  private normalizeTradeDialogPrice(value: number, direction: 'up' | 'down'): number {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const bounded = Math.max(MARKET_DIALOG_MIN_PRICE, Math.min(MARKET_DIALOG_MAX_PRICE, value));
-    if (direction === 'up') {
-      return Math.min(MARKET_DIALOG_MAX_PRICE, normalizeMarketPriceUp(bounded));
-    }
-    return Math.max(MARKET_DIALOG_MIN_PRICE, normalizeMarketPriceDown(bounded));
+  normalizeTradeDialogPrice(value: number, direction: 'up' | 'down'): number {
+    return normalizeTradeDialogPriceImpl(this, value, direction);
   }
 
   /** 把价格预设值格式化成按钮上更容易读的文案。 */
-  private formatPricePresetLabel(value: number): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (value < 1) {
-      return this.formatMarketUnitPrice(value);
-    }
-    if (value >= 1_000_000) {
-      return '一百万';
-    }
-    if (value >= 10_000) {
-      return '一万';
-    }
-    return formatDisplayInteger(value);
+  formatPricePresetLabel(value: number): string {
+    return formatPricePresetLabelImpl(this, value);
   }
 
   /** 从 data-* 属性里读一个数字。 */
-  private readDatasetNumber(value: string | undefined): number | null {
-    const parsed = Number.parseFloat(value ?? '');
-    return Number.isFinite(parsed) ? parsed : null;
+  readDatasetNumber(value: string | undefined): number | null {
+    return readDatasetNumberImpl(value);
   }
 
   /** 格式化市场里的单价显示。 */
-  private formatMarketUnitPrice(value: number): string {
-    return formatDisplayNumber(value, {
-      maximumFractionDigits: value < 1 ? 2 : 0,
-      compactMaximumFractionDigits: 2,
-    });
+  formatMarketUnitPrice(value: number): string {
+    return formatMarketUnitPriceImpl(value);
   }
 
   /** 格式化强化预估里的灵石消耗。 */
-  private formatEnhancementEstimateCost(value: number): string {
-    return formatDisplayNumber(value, {
-      maximumFractionDigits: 2,
-      compactMaximumFractionDigits: 2,
-    });
+  formatEnhancementEstimateCost(value: number): string {
+    return formatEnhancementEstimateCostImpl(value);
   }
 
   /** 格式化强化预估里的尝试次数。 */
-  private formatEnhancementAttemptCount(value: number): string {
-    return formatDisplayNumber(value, {
-      maximumFractionDigits: 0,
-      compactMaximumFractionDigits: 1,
-    });
+  formatEnhancementAttemptCount(value: number): string {
+    return formatEnhancementAttemptCountImpl(value);
   }
 
   /** 计算单次强化任务的基础耗时。 */
-  private computeEnhancementJobBaseTicks(itemLevel: number | undefined): number {
-    const normalizedLevel = Math.max(1, Math.floor(Number(itemLevel) || 1));
-    return ENHANCEMENT_BASE_JOB_TICKS + Math.max(0, normalizedLevel - 1) * ENHANCEMENT_JOB_TICKS_PER_ITEM_LEVEL;
+  computeEnhancementJobBaseTicks(itemLevel: number | undefined): number {
+    return computeEnhancementJobBaseTicksImpl(itemLevel);
   }
 
   /** 把耗时 ticks 转成更像人工可读的时间。 */
-  private formatEnhancementDurationFromTicks(value: number): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const totalSeconds = Math.max(0, Math.round(value));
-    if (totalSeconds < 60) {
-      return `${formatDisplayInteger(totalSeconds)}息`;
-    }
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    if (hours > 0) {
-      return `${formatDisplayInteger(hours)}时${formatDisplayInteger(minutes)}分${formatDisplayInteger(seconds)}秒`;
-    }
-    return `${formatDisplayInteger(minutes)}分${formatDisplayInteger(seconds)}秒`;
+  formatEnhancementDurationFromTicks(value: number): string {
+    return formatEnhancementDurationFromTicksImpl(value);
   }
 
   /** 计算这笔交易的总金额。 */
-  private getMarketTradeTotalCost(quantity: number, unitPrice: number): number | null {
-    return calculateMarketTradeTotalCost(quantity, unitPrice);
+  getMarketTradeTotalCost(quantity: number, unitPrice: number): number | null {
+    return getMarketTradeTotalCostImpl(quantity, unitPrice);
   }
 
   /** 读取装备在市场里的强化等级。 */
-  private getMarketEnhanceLevel(item: ItemStack): number {
-    return item.type === 'equipment'
-      ? Math.max(0, Math.floor(Number(item.enhanceLevel) || 0))
-      : 0;
+  getMarketEnhanceLevel(item: ItemStack): number {
+    return getMarketEnhanceLevelImpl(item);
   }
 
   /** 把装备条目显示成带强化等级前缀的名字。 */
-  private getMarketDisplayName(item: ItemStack): string {
-    return getItemDisplayName(item);
+  getMarketDisplayName(item: ItemStack): string {
+    return getMarketDisplayNameImpl(item);
   }
 
   /** 读取本地盘面里 +0 同款装备的最低卖价。 */
-  private getLocalZeroEnhancementLowestSellPrice(itemId: string): number | undefined {
-    return this.getKnownListedItems(this.marketUpdate).find((entry) =>
-      entry.item.itemId === itemId
-      && this.getMarketEnhanceLevel(entry.item) === 0
-    )?.lowestSellPrice;
+  getLocalZeroEnhancementLowestSellPrice(itemId: string): number | undefined {
+    return getLocalZeroEnhancementLowestSellPriceImpl(this, itemId);
   }
 
   /** 把基础物品提示补上强化预估内容。 */
-  private buildMarketItemTooltipPayload(item: ItemStack) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const tooltip = buildItemTooltipPayload(item, { playerRealmLv: this.player?.realm?.realmLv ?? this.player?.realmLv });
-    const title = this.getMarketDisplayName(item);
-    const estimate = this.buildEnhancementEstimate(item);
-    if (!estimate) {
-      return {
-        ...tooltip,
-        title,
-      };
-    }
-    return {
-      ...tooltip,
-      title,
-      lines: [
-        ...tooltip.lines,
-        renderPlainTooltipLine(t('market.enhance.title', undefined), estimate.costLine),
-        renderPlainTooltipLine(t('market.enhance.attempts', undefined), estimate.attemptsLine),
-        renderPlainTooltipLine(t('market.enhance.time', undefined), estimate.timeLine),
-      ],
-    };
+  buildMarketItemTooltipPayload(item: ItemStack) {
+    return buildMarketItemTooltipPayloadImpl(this, item);
   }
 
   /** 根据节点上的 data-* 标记找到对应的提示内容。 */
-  private resolveMarketTooltipPayload(node: HTMLElement) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const key = node.dataset.marketItemTooltip;
-    if (!key) {
-      return null;
-    }
-    if (key === 'selected') {
-      const selected = this.getSelectedListedItem(this.marketUpdate)
-        ?? (this.selectedItemKey ? this.resolveMarketTooltipEntry(this.selectedItemKey) : null);
-      return selected ? this.buildMarketItemTooltipPayload(selected.item) : null;
-    }
-    if (key.startsWith('heavenly-dao-shop:')) {
-      const entry = this.getHeavenlyDaoShopEntry(key.slice('heavenly-dao-shop:'.length));
-      const item = entry ? this.buildHeavenlyDaoShopItemStack(entry.itemId, entry.count) : null;
-      return item ? this.buildMarketItemTooltipPayload(item) : null;
-    }
-    if (key.startsWith('transmission:')) {
-      // 传法台拍品不在普通坊市目录里，直接用分页下发的实例（带 learnTechniqueId）构造详情。
-      const itemKey = key.slice('transmission:'.length);
-      const lot = this.transmissionListings?.items.find((entry) => entry.itemKey === itemKey) ?? null;
-      return lot?.item ? this.buildMarketItemTooltipPayload(lot.item) : null;
-    }
-    if (key.startsWith('transmission-consign-item:')) {
-      const itemInstanceId = normalizeInventoryItemInstanceId(key.slice('transmission-consign-item:'.length));
-      const item = itemInstanceId
-        ? this.inventory.items.find((entry) => normalizeInventoryItemInstanceId(entry.itemInstanceId) === itemInstanceId) ?? null
-        : null;
-      return item ? this.buildMarketItemTooltipPayload(item) : null;
-    }
-    if (key.startsWith('auction-consign-item:')) {
-      const itemInstanceId = normalizeInventoryItemInstanceId(key.slice('auction-consign-item:'.length));
-      const item = itemInstanceId
-        ? this.inventory.items.find((entry) => normalizeInventoryItemInstanceId(entry.itemInstanceId) === itemInstanceId) ?? null
-        : null;
-      return item ? this.buildMarketItemTooltipPayload(item) : null;
-    }
-    const listed = this.resolveMarketTooltipEntry(key);
-    return listed ? this.buildMarketItemTooltipPayload(listed.item) : null;
+  resolveMarketTooltipPayload(node: HTMLElement) {
+    return resolveMarketTooltipPayloadImpl(this, node);
   }
 
   /** 按 key 读取 tooltip 用的市场条目，包含本地补出的强化档位。 */
-  private resolveMarketTooltipEntry(itemKey: string): MarketListedItemView | null {
-    const listed = this.getKnownListedItems(this.marketUpdate).find((entry) => entry.itemKey === itemKey) ?? null;
-    if (listed) {
-      return listed;
-    }
-    for (const group of this.getVisibleListingGroups(this.marketUpdate)) {
-      const variant = group.variants.find((entry) => entry.itemKey === itemKey) ?? null;
-      if (variant) {
-        return variant;
-      }
-    }
-    const auctionLot = this.getCurrentAuctionLots().find((lot) => lot.itemKey === itemKey || lot.id === itemKey) ?? null;
-    if (auctionLot) {
-      return this.buildMarketListingFromAuctionLot(auctionLot);
-    }
-    return null;
+  resolveMarketTooltipEntry(itemKey: string): MarketListedItemView | null {
+    return resolveMarketTooltipEntryImpl(this, itemKey);
   }
 
   /** 读取当前已经缓存到面板内的列表项。 */
-  private getKnownListedItems(update: S2C_MarketUpdate | null): MarketListedItemView[] {
-    return update?.listedItems ?? [];
+  getKnownListedItems(update: S2C_MarketUpdate | null): MarketListedItemView[] {
+    return getKnownListedItemsImpl(update);
   }
 
   /** 根据市场盘面和当前物品推一版强化预估。 */
-  private buildEnhancementEstimate(item: ItemStack): MarketEnhancementEstimateView | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (item.type !== 'equipment') {
-      return null;
-    }
-    const targetLevel = this.getMarketEnhanceLevel(item);
-    if (targetLevel <= 0) {
-      return null;
-    }
-    if (targetLevel > MARKET_MAX_ENHANCE_LEVEL) {
-      return null;
-    }
-    const itemLevel = Math.max(1, Math.floor(Number(item.level) || 1));
-    const localBaseUnitPrice = this.getLocalZeroEnhancementLowestSellPrice(item.itemId);
-    const baseUnitPrice = localBaseUnitPrice;
-    const basePricePending = false;
-    let analysis: ReturnType<typeof computeBestEnhancementExpectedCost>;
-    try {
-      analysis = computeBestEnhancementExpectedCost({
-        targetLevel,
-        itemLevel,
-        protectionUnitPrice: baseUnitPrice,
-        targetItemUnitPrice: baseUnitPrice,
-        selfProtection: true,
-      });
-    } catch {
-      return null;
-    }
-    const strategy = analysis.bestStrategy ?? analysis.strategies[0] ?? null;
-    if (!strategy) {
-      return null;
-    }
-    const usesMarketBasePrice = baseUnitPrice !== undefined;
-    const expectedProtectionCost = strategy.expectedProtectionCost ?? 0;
-    const expectedTotalCost = strategy.expectedSpiritStones + expectedProtectionCost;
-    const protectionStartText = strategy.protectionStartLevel === null ? t('market.enhance.no-protection', undefined) : `+${strategy.protectionStartLevel}`;
-    const zeroPriceText = baseUnitPrice !== undefined
-      ? this.formatMarketUnitPrice(baseUnitPrice)
-      : basePricePending
-        ? t('market.enhance.pending', undefined)
-        : t('market.enhance.none', undefined);
-    const baseTicksPerAttempt = this.computeEnhancementJobBaseTicks(itemLevel);
-    const expectedBaseDurationTicks = strategy.expectedAttempts * baseTicksPerAttempt;
-    const costLine = `总灵石 ${this.formatEnhancementEstimateCost(expectedTotalCost)} · 强化消耗 ${this.formatEnhancementEstimateCost(strategy.expectedSpiritStones)} · 保护消耗 ${this.formatEnhancementEstimateCost(expectedProtectionCost)} · +0价格 ${zeroPriceText}`;
-    const attemptsLine = `${this.formatEnhancementAttemptCount(strategy.expectedAttempts)} 次 · 从${protectionStartText}开始保护 · 期望保护 ${this.formatEnhancementEstimateCost(strategy.expectedProtectionCount)} 个`;
-    const timeLine = `${this.formatEnhancementDurationFromTicks(expectedBaseDurationTicks)}（基准每次 ${this.formatEnhancementDurationFromTicks(baseTicksPerAttempt)}）`;
-    return {
-      strategy,
-      costLine,
-      attemptsLine,
-      timeLine,
-      baseUnitPrice,
-      usesMarketBasePrice,
-      basePricePending,
-    };
+  buildEnhancementEstimate(item: ItemStack): MarketEnhancementEstimateView | null {
+    return buildEnhancementEstimateImpl(this, item);
   }
 
   /** 在背包里找一个能对应当前物品的稳定实例 ID。 */
-  private findMatchingInventoryItemInstanceId(item: ItemStack): string | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    let matchedItem: ItemStack | null = null;
-    if (item.type === 'equipment') {
-      const targetLevel = this.getMarketEnhanceLevel(item);
-      matchedItem = this.inventory.items.find((entry) =>
-        entry.itemId === item.itemId
-        && entry.type === 'equipment'
-        && this.getMarketEnhanceLevel(entry) === targetLevel
-      ) ?? null;
-    } else {
-      const targetKey = createItemStackSignature({ ...item, count: 1 });
-      matchedItem = this.inventory.items.find((entry) => createItemStackSignature({ ...entry, count: 1 }) === targetKey) ?? null;
-      if (!matchedItem) {
-        matchedItem = this.inventory.items.find((entry) => entry.itemId === item.itemId) ?? null;
-      }
-    }
-    return typeof matchedItem?.itemInstanceId === 'string' && matchedItem.itemInstanceId.trim().length > 0
-      ? matchedItem.itemInstanceId.trim()
-      : null;
+  findMatchingInventoryItemInstanceId(item: ItemStack): string | null {
+    return findMatchingInventoryItemInstanceIdImpl(this, item);
   }
 
   /** 统计背包里与当前物品匹配的总数量。 */
-  private findMatchingInventoryCount(item: ItemStack): number {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (item.type === 'equipment') {
-      return this.findEquipmentInventoryCountByLevel(item.itemId, this.getMarketEnhanceLevel(item));
-    }
-    const targetKey = createItemStackSignature({ ...item, count: 1 });
-    const exactMatches = this.inventory.items.filter((entry) => createItemStackSignature({ ...entry, count: 1 }) === targetKey);
-    if (exactMatches.length > 0) {
-      return exactMatches.reduce((sum, entry) => sum + entry.count, 0);
-    }
-    return this.inventory.items
-      .filter((entry) => entry.itemId === item.itemId)
-      .reduce((sum, entry) => sum + entry.count, 0);
+  findMatchingInventoryCount(item: ItemStack): number {
+    return findMatchingInventoryCountImpl(this, item);
   }
 
   /** 按物品 id 统计背包里的总数量。 */
-  private findInventoryItemCountByItemId(itemId: string): number {
-    return getPlayerOwnedItemCount(this.player, this.inventory, itemId);
+  findInventoryItemCountByItemId(itemId: string): number {
+    return findInventoryItemCountByItemIdImpl(this, itemId);
   }
 
   /** 按装备强化等级统计持有数量，避免强化占位档位退回到同物品总数。 */
-  private findEquipmentInventoryCountByLevel(itemId: string, enhanceLevel: number): number {
-    const targetLevel = Math.max(0, Math.floor(Number(enhanceLevel) || 0));
-    return this.inventory.items
-      .filter((entry) =>
-        entry.itemId === itemId
-        && entry.type === 'equipment'
-        && this.getMarketEnhanceLevel(entry) === targetLevel
-      )
-      .reduce((sum, entry) => sum + entry.count, 0);
+  findEquipmentInventoryCountByLevel(itemId: string, enhanceLevel: number): number {
+    return findEquipmentInventoryCountByLevelImpl(this, itemId, enhanceLevel);
   }
 }

@@ -76,9 +76,51 @@ import {
   syncReactTechniquePanelState,
   unmountReactTechniquePanel,
 } from '../../react-ui/panels/technique/mount-technique-panel';
+import {
+  renderListImpl,
+  ensureShellImpl,
+  renderTechniqueCardImpl,
+  createTechniqueCardElementImpl,
+  createPendingTechniqueCardElementImpl,
+  cacheCardNodeRefsImpl,
+  buildTechniqueCardPatchSignatureImpl,
+  syncTechniqueListContentImpl,
+  matchesCategoryFilterImpl,
+  matchesStatusFilterImpl,
+  getFilteredEmptyHintImpl,
+  getDisplayTechniquesImpl,
+  getVisibleTechniquesImpl,
+  getVisiblePendingComprehensionsImpl,
+  getPageStateImpl,
+  getPagedTechniquesImpl,
+  patchPaginationImpl,
+  isSameTechniqueIdSequenceImpl,
+  patchFilterTabsImpl,
+  patchListImpl,
+} from './technique-panel.cards';
+import {
+  renderModalImpl,
+  buildFallbackLayersImpl,
+  renderSkillOverviewImpl,
+  renderPassiveTechniqueOverviewImpl,
+  renderLayerFocusImpl,
+  renderConstellationImpl,
+  resolveOpenLayerLevelImpl,
+  mountConstellationImpl,
+  bindSkillTooltipsImpl,
+  bindTechniqueExpTooltipImpl,
+  bindForgetButtonImpl,
+  closeModalImpl,
+  patchModalImpl,
+  buildConstellationDataImpl,
+  destroyConstellationCanvasImpl,
+  showConstellationTooltipImpl,
+  buildConstellationStructureSignatureImpl,
+  patchLayerFocusImpl,
+} from './technique-panel.detail';
 
 /** TechniquePanelState：功法面板当前使用的数据状态。 */
-type TechniquePanelState = {
+export type TechniquePanelState = {
 /**
  * cultivatingTechId：cultivatingTechID标识。
  */
@@ -98,7 +140,7 @@ type TechniquePanelState = {
 };
 
 /** TechniqueCardNodeRefs：功法卡片子节点缓存引用，避免每 tick querySelector。 */
-interface TechniqueCardNodeRefs {
+export interface TechniqueCardNodeRefs {
   card: HTMLElement;
   realmLevel: HTMLElement;
   realm: HTMLElement;
@@ -111,7 +153,7 @@ interface TechniqueCardNodeRefs {
 }
 
 /** TechniquePagedSnapshot：服务端分页缓存。 */
-interface TechniquePagedSnapshot {
+export interface TechniquePagedSnapshot {
   requestId?: string;
   category: TechniqueCategoryFilter;
   status: TechniqueStatusFilter;
@@ -124,7 +166,7 @@ interface TechniquePagedSnapshot {
   items: TechniqueState[];
 }
 
-const TECHNIQUE_CATEGORY_FILTERS: Array<{
+export const TECHNIQUE_CATEGORY_FILTERS: Array<{
 /**
  * value：值数值。
  */
@@ -140,7 +182,7 @@ const TECHNIQUE_CATEGORY_FILTERS: Array<{
   { value: 'secret', label: t('technique.filter.category.secret', undefined) },
 ];
 
-const TECHNIQUE_STATUS_FILTERS: Array<{
+export const TECHNIQUE_STATUS_FILTERS: Array<{
 /**
  * value：值数值。
  */
@@ -154,11 +196,11 @@ const TECHNIQUE_STATUS_FILTERS: Array<{
   { value: 'all', label: t('technique.filter.status.all', undefined) },
 ];
 
-const TECHNIQUE_PANEL_PAGE_SIZE = 12;
-const TECHNIQUE_SEARCH_DEBOUNCE_MS = 180;
+export const TECHNIQUE_PANEL_PAGE_SIZE = 12;
+export const TECHNIQUE_SEARCH_DEBOUNCE_MS = 180;
 
 /** escapeHtml：转义 HTML 文本中的危险字符。 */
-function escapeHtml(value: string): string {
+export function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
@@ -167,14 +209,14 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-function replaceElementHtml(root: HTMLElement, html: string): void {
+export function replaceElementHtml(root: HTMLElement, html: string): void {
   const template = document.createElement('template');
   template.innerHTML = html.trim();
   root.replaceChildren(template.content.cloneNode(true));
 }
 
 /** subtractAttrMap：处理subtract属性地图。 */
-function subtractAttrMap(left: Partial<Attributes>, right: Partial<Attributes>): Partial<Attributes> {
+export function subtractAttrMap(left: Partial<Attributes>, right: Partial<Attributes>): Partial<Attributes> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const result: Partial<Attributes> = {};
@@ -188,14 +230,14 @@ function subtractAttrMap(left: Partial<Attributes>, right: Partial<Attributes>):
 }
 
 /** calcTechniqueEffectiveContribution：处理calc Technique Effective Contribution。 */
-function calcTechniqueEffectiveContribution(techniques: TechniqueState[], techId: string): Partial<Attributes> {
+export function calcTechniqueEffectiveContribution(techniques: TechniqueState[], techId: string): Partial<Attributes> {
   const totalAttrs = calcTechniqueFinalAttrBonus(techniques);
   const totalWithoutCurrent = calcTechniqueFinalAttrBonus(techniques.filter((tech) => tech.techId !== techId));
   return subtractAttrMap(totalAttrs, totalWithoutCurrent);
 }
 
 /** formatTechniqueContributionSummary：格式化Technique Contribution摘要。 */
-function formatTechniqueContributionSummary(
+export function formatTechniqueContributionSummary(
   totalAttrs: Partial<Attributes>,
   rawAttrs: Partial<Attributes>,
   totalSpecialStats?: ReturnType<typeof calcTechniqueSpecialStatContribution>,
@@ -208,18 +250,18 @@ function formatTechniqueContributionSummary(
 }
 
 /** resolveTechniqueCategory：解析Technique Category。 */
-function resolveTechniqueCategory(tech: TechniqueState): TechniqueCategory {
+export function resolveTechniqueCategory(tech: TechniqueState): TechniqueCategory {
   return tech.category ?? (tech.skills.length > 0 ? 'arts' : 'internal');
 }
 
 /** shouldShowTechniqueSkillToggle：判断功法列表项是否需要显示技能开关。 */
-function shouldShowTechniqueSkillToggle(tech: TechniqueState): boolean {
+export function shouldShowTechniqueSkillToggle(tech: TechniqueState): boolean {
   const category = resolveTechniqueCategory(tech);
   return tech.skills.length > 0 && (category === 'arts' || category === 'divine');
 }
 
 /** areTechniqueSkillsEnabled：处理are Technique技能启用。 */
-function areTechniqueSkillsEnabled(tech: TechniqueState, previewPlayer?: PlayerState): boolean {
+export function areTechniqueSkillsEnabled(tech: TechniqueState, previewPlayer?: PlayerState): boolean {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (typeof tech.skillsEnabled === 'boolean') {
@@ -248,7 +290,7 @@ function areTechniqueSkillsEnabled(tech: TechniqueState, previewPlayer?: PlayerS
 }
 
 /** getTechniqueProgressRatio：读取Technique进度Ratio。 */
-function getTechniqueProgressRatio(tech: TechniqueState): number {
+export function getTechniqueProgressRatio(tech: TechniqueState): number {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (tech.expToNext <= 0) {
@@ -257,7 +299,7 @@ function getTechniqueProgressRatio(tech: TechniqueState): number {
   return Math.max(0, Math.min(1, tech.exp / tech.expToNext));
 }
 
-function formatTechniqueLayerText(tech: TechniqueState): string {
+export function formatTechniqueLayerText(tech: TechniqueState): string {
   return isPassiveTechnique(tech)
     ? `第 ${formatDisplayInteger(tech.level)} 层 / 无限`
     : t('technique.card.layer', {
@@ -266,13 +308,13 @@ function formatTechniqueLayerText(tech: TechniqueState): string {
     });
 }
 
-function isTechniqueCappedBeforeMastery(tech: TechniqueState): boolean {
+export function isTechniqueCappedBeforeMastery(tech: TechniqueState): boolean {
   return !isTechniqueFullyMastered(tech)
     && (isTechniqueLearnLimitReached(tech) || tech.expToNext <= 0);
 }
 
 /** getTechniqueRemainingExp：读取Technique Remaining Exp。 */
-function getTechniqueRemainingExp(tech: TechniqueState): number {
+export function getTechniqueRemainingExp(tech: TechniqueState): number {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (tech.expToNext <= 0) {
@@ -282,7 +324,7 @@ function getTechniqueRemainingExp(tech: TechniqueState): number {
 }
 
 /** formatTechniqueProgressText：格式化Technique进度文本。 */
-function formatTechniqueProgressText(tech: TechniqueState): string {
+export function formatTechniqueProgressText(tech: TechniqueState): string {
   if (isTechniqueCappedBeforeMastery(tech)) {
     return t('technique.progress.fragment-limit', undefined);
   }
@@ -292,7 +334,7 @@ function formatTechniqueProgressText(tech: TechniqueState): string {
 }
 
 /** formatTechniqueRemainText：格式化Technique Remain文本。 */
-function formatTechniqueRemainText(tech: TechniqueState): string {
+export function formatTechniqueRemainText(tech: TechniqueState): string {
   if (isTechniqueCappedBeforeMastery(tech)) {
     return t('technique.progress.fragment-limit-note', undefined);
   }
@@ -302,7 +344,7 @@ function formatTechniqueRemainText(tech: TechniqueState): string {
 }
 
 /** calcTechniqueTotalExp：处理calc Technique总量Exp。 */
-function calcTechniqueTotalExp(tech: TechniqueState): number {
+export function calcTechniqueTotalExp(tech: TechniqueState): number {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (!tech.layers || tech.layers.length === 0) {
@@ -319,12 +361,12 @@ function calcTechniqueTotalExp(tech: TechniqueState): number {
 }
 
 /** getResolvedTechniqueRealm：读取Resolved Technique境界。 */
-function getResolvedTechniqueRealm(tech: TechniqueState): TechniqueRealm {
+export function getResolvedTechniqueRealm(tech: TechniqueState): TechniqueRealm {
   return isPassiveTechnique(tech) ? TechniqueRealm.Entry : deriveTechniqueRealm(tech.level, tech.layers);
 }
 
 /** getTechniqueRealmLevelLabel：读取Technique境界等级标签。 */
-function getTechniqueRealmLevelLabel(tech: TechniqueState): string {
+export function getTechniqueRealmLevelLabel(tech: TechniqueState): string {
   const entry = getLocalRealmLevelEntry(tech.realmLv);
   return entry
     ? entry.displayName
@@ -332,19 +374,19 @@ function getTechniqueRealmLevelLabel(tech: TechniqueState): string {
 }
 
 /** getPlayerRealmLv：读取玩家境界Lv。 */
-function getPlayerRealmLv(player?: PlayerState): number | null {
+export function getPlayerRealmLv(player?: PlayerState): number | null {
   const realmLv = player?.realm?.realmLv ?? player?.realmLv;
   return Number.isFinite(realmLv) ? Math.max(1, Math.floor(Number(realmLv))) : null;
 }
 
 /** getRealmLevelDisplayName：读取境界等级显示名称。 */
-function getRealmLevelDisplayName(realmLv: number): string {
+export function getRealmLevelDisplayName(realmLv: number): string {
   const entry = getLocalRealmLevelEntry(realmLv);
   return entry?.displayName ?? `Lv.${formatDisplayInteger(realmLv)}`;
 }
 
 /** buildTechniqueExpTooltipLines：构建Technique Exp提示Lines。 */
-function buildTechniqueExpTooltipLines(tech: TechniqueState, player?: PlayerState): string[] {
+export function buildTechniqueExpTooltipLines(tech: TechniqueState, player?: PlayerState): string[] {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const stepPercent = Math.round(TECHNIQUE_EXP_LEVEL_DELTA_MULTIPLIER_STEP * 100);
@@ -373,12 +415,12 @@ function buildTechniqueExpTooltipLines(tech: TechniqueState, player?: PlayerStat
 }
 
 /** sortTechniquesForPanel：排序Techniques For面板。 */
-function sortTechniquesForPanel(techniques: TechniqueState[]): TechniqueState[] {
+export function sortTechniquesForPanel(techniques: TechniqueState[]): TechniqueState[] {
   return [...techniques].sort(compareTechniqueDisplayOrder);
 }
 
 /** findTechniqueRealmStartLevel：查找Technique境界Start等级。 */
-function findTechniqueRealmStartLevel(
+export function findTechniqueRealmStartLevel(
   realm: TechniqueRealm,
   maxLevel: number,
   layers?: TechniqueLayerDef[],
@@ -394,7 +436,7 @@ function findTechniqueRealmStartLevel(
 }
 
 /** buildTechniqueMilestones：构建Technique Milestones。 */
-function buildTechniqueMilestones(tech: TechniqueState, maxLevel: number): Map<number, TechniqueRealm> {
+export function buildTechniqueMilestones(tech: TechniqueState, maxLevel: number): Map<number, TechniqueRealm> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const milestones = new Map<number, TechniqueRealm>();
@@ -410,52 +452,52 @@ function buildTechniqueMilestones(tech: TechniqueState, maxLevel: number): Map<n
 /** TechniquePanel：Technique面板实现。 */
 export class TechniquePanel {
   /** MODAL_OWNER：弹窗OWNER。 */
-  private static readonly MODAL_OWNER = 'technique-panel';
+  static readonly MODAL_OWNER = 'technique-panel';
   /** pane：pane。 */
-  private pane = document.getElementById('pane-technique')!;
+  pane = document.getElementById('pane-technique')!;
   /** onCultivate：on Cultivate。 */
-  private onCultivate: ((techId: string | null) => void) | null = null;
+  onCultivate: ((techId: string | null) => void) | null = null;
   /** onToggleTechniqueSkills：on Toggle Technique技能。 */
-  private onToggleTechniqueSkills: ((techId: string, enabled: boolean) => void) | null = null;
-  private onForgetTechnique: ((techId: string) => void) | null = null;
-  private onCancelTechniqueTransmission: ((techId: string) => void) | null = null;
-  private onDiscardTechniqueComprehension: ((techId: string) => void) | null = null;
-  private onRequestTechniquePage: ((payload: C2S_RequestTechniquePage) => void) | null = null;
+  onToggleTechniqueSkills: ((techId: string, enabled: boolean) => void) | null = null;
+  onForgetTechnique: ((techId: string) => void) | null = null;
+  onCancelTechniqueTransmission: ((techId: string) => void) | null = null;
+  onDiscardTechniqueComprehension: ((techId: string) => void) | null = null;
+  onRequestTechniquePage: ((payload: C2S_RequestTechniquePage) => void) | null = null;
   /** tooltip：提示。 */
-  private tooltip = new FloatingTooltip();
+  tooltip = new FloatingTooltip();
   /** constellationCanvas：星图Canvas。 */
-  private constellationCanvas: TechniqueConstellationCanvas | null = null;
+  constellationCanvas: TechniqueConstellationCanvas | null = null;
   /** openTechId：open Tech ID。 */
-  private openTechId: string | null = null;
+  openTechId: string | null = null;
   /** openLayerLevel：open层等级。 */
-  private openLayerLevel: number | null = null;
+  openLayerLevel: number | null = null;
   /** categoryFilter：category筛选。 */
-  private categoryFilter: TechniqueCategoryFilter = 'all';
+  categoryFilter: TechniqueCategoryFilter = 'all';
   /** statusFilter：状态筛选。 */
-  private statusFilter: TechniqueStatusFilter = 'in_progress';
+  statusFilter: TechniqueStatusFilter = 'in_progress';
   /** searchQuery：功法名称搜索词。 */
-  private searchQuery = '';
+  searchQuery = '';
   /** currentPage：当前分页页码，从 1 开始。 */
-  private currentPage = 1;
-  private pageRequestSeq = 0;
-  private pendingRequestId: string | null = null;
-  private searchDebounceTimer: number | null = null;
-  private pagedSnapshot: TechniquePagedSnapshot | null = null;
-  private paneVisibilityObserver: MutationObserver | null = null;
+  currentPage = 1;
+  pageRequestSeq = 0;
+  pendingRequestId: string | null = null;
+  searchDebounceTimer: number | null = null;
+  pagedSnapshot: TechniquePagedSnapshot | null = null;
+  paneVisibilityObserver: MutationObserver | null = null;
   /** lastState：last状态。 */
-  private lastState: TechniquePanelState = { techniques: [] };
+  lastState: TechniquePanelState = { techniques: [] };
   /** lastVisibleTechniqueIds：last可见Technique ID 列表。 */
-  private lastVisibleTechniqueIds: string[] | null = null;
-  private renderPendingWhileHidden = false;
+  lastVisibleTechniqueIds: string[] | null = null;
+  renderPendingWhileHidden = false;
   /** cardNodeRefs：缓存每张功法卡片的子节点引用，避免每 tick 重复 querySelector。 */
-  private cardNodeRefs = new Map<string, TechniqueCardNodeRefs>();  
+  cardNodeRefs = new Map<string, TechniqueCardNodeRefs>();  
   /** cardPatchSignatures：记录卡片已写入的显示签名，避免未变化功法重复写 DOM。 */
-  private cardPatchSignatures = new Map<string, string>();
+  cardPatchSignatures = new Map<string, string>();
   /**
  * shellRefs：shellRef相关字段。
  */
 
-  private shellRefs: {  
+  shellRefs: {  
   /**
  * shell：shell相关字段。
  */
@@ -643,7 +685,7 @@ export class TechniquePanel {
     }
   }
 
-  private mergePagedSnapshotFromRuntime(techniques: TechniqueState[]): void {
+  mergePagedSnapshotFromRuntime(techniques: TechniqueState[]): void {
     if (!this.pagedSnapshot) {
       return;
     }
@@ -662,46 +704,46 @@ export class TechniquePanel {
     }
   }
 
-  private clearSearchDebounceTimer(): void {
+  clearSearchDebounceTimer(): void {
     if (this.searchDebounceTimer !== null) {
       window.clearTimeout(this.searchDebounceTimer);
       this.searchDebounceTimer = null;
     }
   }
 
-  private normalizeTechniqueCategoryFilter(value: unknown): TechniqueCategoryFilter {
+  normalizeTechniqueCategoryFilter(value: unknown): TechniqueCategoryFilter {
     return TECHNIQUE_CATEGORY_FILTERS.some((filter) => filter.value === value)
       ? value as TechniqueCategoryFilter
       : 'all';
   }
 
-  private normalizeTechniqueStatusFilter(value: unknown): TechniqueStatusFilter {
+  normalizeTechniqueStatusFilter(value: unknown): TechniqueStatusFilter {
     return TECHNIQUE_STATUS_FILTERS.some((filter) => filter.value === value)
       ? value as TechniqueStatusFilter
       : 'in_progress';
   }
 
-  private normalizeTechniqueSearch(value: unknown): string {
+  normalizeTechniqueSearch(value: unknown): string {
     return typeof value === 'string'
       ? value.replace(/\s+/g, ' ').trim().slice(0, 64).toLowerCase()
       : '';
   }
 
-  private normalizeTechniquePageOffset(value: unknown): number {
+  normalizeTechniquePageOffset(value: unknown): number {
     const parsed = Math.trunc(Number(value));
     return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
   }
 
-  private normalizeTechniquePageLimit(value: unknown): number {
+  normalizeTechniquePageLimit(value: unknown): number {
     const parsed = Math.trunc(Number(value));
     return Number.isFinite(parsed) && parsed > 0 ? Math.max(1, Math.min(24, parsed)) : TECHNIQUE_PANEL_PAGE_SIZE;
   }
 
-  private getRequestedTechniqueOffset(): number {
+  getRequestedTechniqueOffset(): number {
     return (Math.max(1, this.currentPage) - 1) * TECHNIQUE_PANEL_PAGE_SIZE;
   }
 
-  private hasActivePagedSnapshot(): boolean {
+  hasActivePagedSnapshot(): boolean {
     const snapshot = this.pagedSnapshot;
     return Boolean(
       snapshot
@@ -713,14 +755,14 @@ export class TechniquePanel {
     );
   }
 
-  private hasPagedListContext(): boolean {
+  hasPagedListContext(): boolean {
     return Boolean(
       this.onRequestTechniquePage
       && (this.pendingRequestId || this.pagedSnapshot || this.searchQuery || this.categoryFilter !== 'all' || this.statusFilter !== 'in_progress'),
     );
   }
 
-  private ensureTechniquePageRequested(force = false): void {
+  ensureTechniquePageRequested(force = false): void {
     if (!this.onRequestTechniquePage) {
       return;
     }
@@ -730,7 +772,7 @@ export class TechniquePanel {
     this.requestTechniquePage();
   }
 
-  private requestTechniquePage(): void {
+  requestTechniquePage(): void {
     if (!this.onRequestTechniquePage) {
       return;
     }
@@ -748,7 +790,7 @@ export class TechniquePanel {
     });
   }
 
-  private scheduleTechniqueSearchRequest(): void {
+  scheduleTechniqueSearchRequest(): void {
     this.clearSearchDebounceTimer();
     this.searchDebounceTimer = window.setTimeout(() => {
       this.searchDebounceTimer = null;
@@ -756,7 +798,7 @@ export class TechniquePanel {
     }, TECHNIQUE_SEARCH_DEBOUNCE_MS);
   }
 
-  private resetTechniquePageAndRequest(debounce = false): void {
+  resetTechniquePageAndRequest(debounce = false): void {
     this.currentPage = 1;
     this.pendingRequestId = null;
     this.pagedSnapshot = null;
@@ -768,15 +810,15 @@ export class TechniquePanel {
     }
   }
 
-  private useReactPanel(): boolean {
+  useReactPanel(): boolean {
     return shouldUseReactTechniquePanel();
   }
 
-  private isPaneVisible(): boolean {
+  isPaneVisible(): boolean {
     return this.pane.isConnected && this.pane.classList.contains('active');
   }
 
-  private deferRenderIfHidden(): boolean {
+  deferRenderIfHidden(): boolean {
     if (this.isPaneVisible() || detailModalHost.isOpenFor(TechniquePanel.MODAL_OWNER)) {
       return false;
     }
@@ -784,7 +826,7 @@ export class TechniquePanel {
     return true;
   }
 
-  private bindPaneVisibilityObserver(): void {
+  bindPaneVisibilityObserver(): void {
     this.paneVisibilityObserver = new MutationObserver(() => {
       if (this.renderPendingWhileHidden && this.isPaneVisible()) {
         this.flushHiddenRender();
@@ -793,7 +835,7 @@ export class TechniquePanel {
     this.paneVisibilityObserver.observe(this.pane, { attributes: true, attributeFilter: ['class'] });
   }
 
-  private flushHiddenRender(): void {
+  flushHiddenRender(): void {
     if (!this.renderPendingWhileHidden) {
       return;
     }
@@ -814,7 +856,7 @@ export class TechniquePanel {
     }
   }
 
-  private syncReactState(): void {
+  syncReactState(): void {
     syncReactTechniquePanelState({
       techniques: resolvePreviewTechniques(this.lastState.techniques),
       pendingComprehensions: this.getPendingTechniqueListEntries(),
@@ -823,13 +865,13 @@ export class TechniquePanel {
     });
   }
 
-  private getPendingTechniqueListEntries(): TechniquePendingListEntry[] {
+  getPendingTechniqueListEntries(): TechniquePendingListEntry[] {
     return this.lastState.pendingComprehensions
       ?? this.lastState.previewPlayer?.pendingTechniqueComprehensions
       ?? [];
   }
 
-  private handleCultivate(techId: string | null): void {
+  handleCultivate(techId: string | null): void {
     this.lastState.cultivatingTechId = techId ?? undefined;
     if (this.lastState.previewPlayer) {
       this.lastState.previewPlayer.cultivatingTechId = techId ?? undefined;
@@ -847,7 +889,7 @@ export class TechniquePanel {
     this.patchModal();
   }
 
-  private handleToggleTechniqueSkills(techId: string, enabled: boolean): void {
+  handleToggleTechniqueSkills(techId: string, enabled: boolean): void {
     const targetTechnique = this.lastState.techniques.find((entry) => entry.techId === techId);
     if (targetTechnique) {
       targetTechnique.skillsEnabled = enabled;
@@ -876,14 +918,14 @@ export class TechniquePanel {
     this.patchModal();
   }
 
-  private handleCancelTechniqueTransmission(techId: string): void {
+  handleCancelTechniqueTransmission(techId: string): void {
     if (!techId) {
       return;
     }
     this.onCancelTechniqueTransmission?.(techId);
   }
 
-  private handleDiscardTechniqueComprehension(techId: string): void {
+  handleDiscardTechniqueComprehension(techId: string): void {
     const pending = (this.lastState.pendingComprehensions ?? this.lastState.previewPlayer?.pendingTechniqueComprehensions ?? [])
       .find((entry) => entry.techId === techId);
     if (!pending || pending.activeTransferJob) {
@@ -902,7 +944,7 @@ export class TechniquePanel {
     });
   }
 
-  private handleForgetTechnique(tech: TechniqueState): void {
+  handleForgetTechnique(tech: TechniqueState): void {
     const ownerId = `technique-forget:${tech.techId}`;
     confirmModalHost.open({
       ownerId,
@@ -922,7 +964,7 @@ export class TechniquePanel {
     });
   }
 
-  private openTechniqueDetail(techId: string): void {
+  openTechniqueDetail(techId: string): void {
     this.openTechId = techId;
     const openedTech = this.findPreviewTechnique(techId);
     this.openLayerLevel = openedTech?.level ?? null;
@@ -940,712 +982,110 @@ export class TechniquePanel {
     }
   }
 
-  /** renderList：渲染列表。 */
-  private renderList(): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const techniques = this.getDisplayTechniques();
-    const pendingComprehensions = this.getPendingTechniqueListEntries();
-    if (techniques.length === 0 && pendingComprehensions.length === 0 && !this.hasPagedListContext()) {
-      this.clear();
-      return;
-    }
-
-    this.ensureShell();
-    this.patchFilterTabs(techniques);
-    this.patchList();
-    this.ensureTechniquePageRequested();
+  renderList(): void {
+    return renderListImpl(this);
   }
 
-  /** ensureShell：确保Shell。 */
-  private ensureShell(): NonNullable<typeof this.shellRefs> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (this.shellRefs?.shell.isConnected) {
-      return this.shellRefs;
-    }
-
-    const shell = document.createElement('div');
-    shell.className = 'tech-panel-shell';
-
-    const toolbar = document.createElement('div');
-    toolbar.className = 'tech-panel-toolbar';
-    toolbar.innerHTML = `
-      <label class="tech-search-box">
-        <input class="tech-search-input" data-tech-search="true" type="search" placeholder="搜索功法名称" value="${escapeHtml(this.searchQuery)}" autocomplete="off" aria-label="搜索功法" />
-      </label>
-    `.trim();
-
-    const topTabs = document.createElement('div');
-    topTabs.className = 'tech-filter-tabs ui-filter-tabs';
-    for (const filter of TECHNIQUE_CATEGORY_FILTERS) {
-      const button = document.createElement('button');
-      button.className = 'tech-filter-tab ui-filter-tab';
-      button.dataset.techCategoryFilter = filter.value;
-      button.type = 'button';
-      button.append(document.createTextNode(filter.label));
-      const count = document.createElement('span');
-      count.className = 'tech-filter-count';
-      count.dataset.techCategoryCount = filter.value;
-      button.append(count);
-      topTabs.append(button);
-    }
-
-    const body = document.createElement('div');
-    body.className = 'tech-panel-body';
-    const sideTabs = document.createElement('div');
-    sideTabs.className = 'tech-side-tabs';
-    for (const filter of TECHNIQUE_STATUS_FILTERS) {
-      const button = document.createElement('button');
-      button.className = 'tech-side-tab ui-subtab-btn';
-      button.dataset.techStatusFilter = filter.value;
-      button.type = 'button';
-      const label = document.createElement('span');
-      label.textContent = filter.label;
-      const count = document.createElement('span');
-      count.className = 'tech-filter-count';
-      count.dataset.techStatusCount = filter.value;
-      button.append(label, count);
-      sideTabs.append(button);
-    }
-
-    const list = document.createElement('div');
-    list.className = 'tech-panel-list';
-    list.dataset.techList = 'true';
-    const pagination = document.createElement('div');
-    pagination.className = 'tech-pagination';
-    pagination.dataset.techPagination = 'true';
-    pagination.innerHTML = `
-      <button class="small-btn ghost" data-tech-page-action="prev" type="button">上一页</button>
-      <span class="tech-pagination-status" data-tech-page-status="true"></span>
-      <button class="small-btn ghost" data-tech-page-action="next" type="button">下一页</button>
-    `.trim();
-    body.append(sideTabs, list);
-    shell.append(toolbar, topTabs, body, pagination);
-
-    preserveSelection(this.pane, () => {
-      this.pane.replaceChildren(shell);
-    });
-    this.shellRefs = { shell, topTabs, sideTabs, pagination, list };
-    return this.shellRefs;
+  ensureShell(): NonNullable<typeof this.shellRefs> {
+    return ensureShellImpl(this);
   }
 
-  /** renderTechniqueCard：渲染Technique卡片。 */
-  private renderTechniqueCard(tech: TechniqueState): string {
-    const isCultivating = this.lastState.cultivatingTechId === tech.techId;
-    const showSkillToggle = shouldShowTechniqueSkillToggle(tech);
-    const skillsEnabled = showSkillToggle ? areTechniqueSkillsEnabled(tech, this.lastState.previewPlayer) : false;
-    const progressRatio = getTechniqueProgressRatio(tech);
-    const progressText = formatTechniqueProgressText(tech);
-    const remainText = formatTechniqueRemainText(tech);
-    const realmLevelLabel = getTechniqueRealmLevelLabel(tech);
-    const realmLabel = getTechniqueRealmLabel(getResolvedTechniqueRealm(tech));
-    const categoryLabel = getTechniqueCategoryLabel(resolveTechniqueCategory(tech));
-    return `<div class="tech-card ${isCultivating ? 'cultivating' : ''}" data-tech-card="${tech.techId}" data-guided-tour-tech-card="learned">
-      <button class="tech-card-main" data-tech-open="${tech.techId}" type="button">
-        <span class="tech-summary-main">
-          <span class="tech-name">${escapeHtml(tech.name)}</span>
-          <span class="tech-badge tech-grade">${escapeHtml(getTechniqueGradeLabel(tech.grade))}</span>
-          <span class="tech-badge tech-category">${escapeHtml(categoryLabel)}</span>
-          <span class="tech-badge tech-realm-level" data-tech-realm-level="${tech.techId}">${escapeHtml(realmLevelLabel)}</span>
-          <span class="tech-badge tech-realm" data-tech-realm="${tech.techId}">${escapeHtml(realmLabel)}</span>
-          <span class="tech-layer" data-tech-layer="${tech.techId}">${escapeHtml(formatTechniqueLayerText(tech))}</span>
-        </span>
-        <span class="tech-progress-meta">
-          <span class="tech-progress-text" data-tech-progress-text="${tech.techId}">${progressText}</span>
-        </span>
-        <span class="tech-progress-bar"><span class="tech-progress-fill" data-tech-progress-fill="${tech.techId}" style="width:${(progressRatio * 100).toFixed(2)}%"></span></span>
-        <span class="tech-progress-remain" data-tech-progress-remain="${tech.techId}">${remainText}</span>
-      </button>
-      <div class="tech-card-actions">
-        ${showSkillToggle ? `<button
-          class="small-btn ghost ${skillsEnabled ? 'active' : ''}"
-          data-tech-skills-toggle="${tech.techId}"
-          data-tech-skills-enabled="${skillsEnabled ? '1' : '0'}"
-          type="button"
-        >${escapeHtml(t('technique.card.skills-toggle', { state: skillsEnabled ? t('common.state.on-short', undefined) : t('common.state.off-short', undefined) }))}</button>` : ''}
-        <button
-          class="small-btn ${isCultivating ? 'danger' : ''}"
-          data-tech-cultivate-button="${tech.techId}"
-          data-guided-tour-cultivate-button="true"
-          data-cultivate="${isCultivating ? '' : tech.techId}"
-          data-cultivate-stop="${isCultivating ? tech.techId : ''}"
-          type="button"
-        >${isCultivating ? t('technique.action.cancel-cultivate', undefined) : t('technique.action.set-cultivate', undefined)}</button>
-      </div>
-    </div>`;
+  renderTechniqueCard(tech: TechniqueState): string {
+    return renderTechniqueCardImpl(this, tech);
   }
 
-  /** createTechniqueCardElement：创建Technique卡片元素。 */
-  private createTechniqueCardElement(tech: TechniqueState): HTMLElement {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const template = document.createElement('template');
-    template.innerHTML = this.renderTechniqueCard(tech).trim();
-    const card = template.content.firstElementChild;
-    if (!(card instanceof HTMLElement)) {
-      throw new Error(t('technique.error.create-card-failed', undefined));
-    }
-    this.cacheCardNodeRefs(tech.techId, card);
-    return card;
+  createTechniqueCardElement(tech: TechniqueState): HTMLElement {
+    return createTechniqueCardElementImpl(this, tech);
+  }
+  createPendingTechniqueCardElement(pending: NonNullable<PlayerState['pendingTechniqueComprehensions']>[number]): HTMLElement {
+    return createPendingTechniqueCardElementImpl(this, pending);
   }
 
-  private createPendingTechniqueCardElement(pending: NonNullable<PlayerState['pendingTechniqueComprehensions']>[number]): HTMLElement {
-    const isCultivating = this.lastState.cultivatingTechId === pending.techId;
-    const ratio = pending.requiredProgress > 0 ? Math.min(1, pending.progress / pending.requiredProgress) : 0;
-    const transferLocked = Boolean(pending.activeTransferJob);
-    const selfComprehensionAllowed = pending.selfComprehensionAllowed !== false;
-    const canStartCultivating = selfComprehensionAllowed && !transferLocked;
-    const startDisabled = !isCultivating && !canStartCultivating;
-    const actionLabel = transferLocked
-      ? '传授中'
-      : !selfComprehensionAllowed
-        ? '需传法领悟'
-        : isCultivating
-          ? t('technique.action.cancel-cultivate', undefined)
-          : '设为主修领悟';
-    const realmLv = Math.max(1, Math.floor(Number(pending.realmLv) || 1));
-    const realmLabel = getLocalRealmLevelEntry(realmLv)?.displayName ?? `Lv.${formatDisplayInteger(realmLv)}`;
-    const template = document.createElement('template');
-    template.innerHTML = `<div class="tech-card pending ${isCultivating ? 'cultivating' : ''}" data-pending-tech-card="${escapeHtml(pending.techId)}" data-guided-tour-tech-card="pending">
-      <button class="tech-card-main" data-cultivate="${canStartCultivating && !isCultivating ? escapeHtml(pending.techId) : ''}" data-cultivate-stop="${isCultivating ? escapeHtml(pending.techId) : ''}" ${startDisabled ? 'disabled' : ''} type="button">
-        <span class="tech-summary-main">
-          <span class="tech-name">${escapeHtml(pending.name)}</span>
-          <span class="tech-badge tech-category">未领悟</span>
-          ${pending.sourceKind === 'created' ? '<span class="tech-badge tech-category">自创</span>' : ''}
-          <span class="tech-badge tech-grade">${escapeHtml(getTechniqueGradeLabel(pending.grade))}</span>
-          <span class="tech-badge tech-category">${escapeHtml(getTechniqueCategoryLabel(pending.category))}</span>
-          <span class="tech-badge tech-realm-level">${escapeHtml(realmLabel)}</span>
-          ${transferLocked ? `<span class="tech-badge tech-grade">${pending.activeTransferJob?.status === 'blocked' ? '等待传授' : '传授中'}</span>` : ''}
-          ${!selfComprehensionAllowed ? '<span class="tech-badge tech-grade">需传法</span>' : ''}
-        </span>
-        <span class="tech-progress-meta"><span class="tech-progress-text">${formatDisplayInteger(Math.floor(pending.progress))} / ${formatDisplayInteger(Math.floor(pending.requiredProgress))}</span></span>
-        <span class="tech-progress-bar"><span class="tech-progress-fill" style="width:${(ratio * 100).toFixed(2)}%"></span></span>
-      </button>
-      <div class="tech-card-actions">
-        <button class="small-btn ${isCultivating ? 'danger' : 'ghost'}" data-guided-tour-cultivate-button="true" data-cultivate="${canStartCultivating && !isCultivating ? escapeHtml(pending.techId) : ''}" data-cultivate-stop="${isCultivating ? escapeHtml(pending.techId) : ''}" ${startDisabled ? 'disabled' : ''} type="button">${actionLabel}</button>
-        ${transferLocked
-          ? `<button class="small-btn danger" data-tech-transmission-cancel="${escapeHtml(pending.techId)}" type="button">取消传法</button>`
-          : `<button class="small-btn danger" data-tech-comprehension-discard="${escapeHtml(pending.techId)}" type="button">${escapeHtml(t('technique.comprehension.discard.action'))}</button>`}
-      </div>
-    </div>`.trim();
-    const card = template.content.firstElementChild;
-    if (!(card instanceof HTMLElement)) {
-      throw new Error(t('technique.error.create-card-failed', undefined));
-    }
-    return card;
+  cacheCardNodeRefs(techId: string, card: HTMLElement): void {
+    return cacheCardNodeRefsImpl(this, techId, card);
+  }
+  buildTechniqueCardPatchSignature(tech: TechniqueState): string {
+    return buildTechniqueCardPatchSignatureImpl(this, tech);
   }
 
-  /** cacheCardNodeRefs：缓存卡片子节点引用以避免重复 querySelector。 */
-  private cacheCardNodeRefs(techId: string, card: HTMLElement): void {
-    const escaped = CSS.escape(techId);
-    const realmLevel = card.querySelector<HTMLElement>(`[data-tech-realm-level="${escaped}"]`);
-    const realm = card.querySelector<HTMLElement>(`[data-tech-realm="${escaped}"]`);
-    const layer = card.querySelector<HTMLElement>(`[data-tech-layer="${escaped}"]`);
-    const progressText = card.querySelector<HTMLElement>(`[data-tech-progress-text="${escaped}"]`);
-    const progressFill = card.querySelector<HTMLElement>(`[data-tech-progress-fill="${escaped}"]`);
-    const remain = card.querySelector<HTMLElement>(`[data-tech-progress-remain="${escaped}"]`);
-    const cultivateButton = card.querySelector<HTMLButtonElement>(`[data-tech-cultivate-button="${escaped}"]`);
-    const skillToggleButton = card.querySelector<HTMLButtonElement>(`[data-tech-skills-toggle="${escaped}"]`);
-    if (realmLevel && realm && layer && progressText && progressFill && remain && cultivateButton) {
-      this.cardNodeRefs.set(techId, {
-        card,
-        realmLevel,
-        realm,
-        layer,
-        progressText,
-        progressFill,
-        remain,
-        cultivateButton,
-        skillToggleButton,
-      });
-    }
+  syncTechniqueListContent(listRoot: HTMLElement, orderedNodes: HTMLElement[]): void {
+    return syncTechniqueListContentImpl(this, listRoot, orderedNodes);
   }
 
-  private buildTechniqueCardPatchSignature(tech: TechniqueState): string {
-    const showSkillToggle = shouldShowTechniqueSkillToggle(tech);
-    const skillsEnabled = showSkillToggle ? areTechniqueSkillsEnabled(tech, this.lastState.previewPlayer) : false;
-    const isCultivating = this.lastState.cultivatingTechId === tech.techId;
-    return [
-      tech.level,
-      tech.exp ?? 0,
-      tech.expToNext ?? 0,
-      tech.realmLv,
-      getResolvedTechniqueRealm(tech),
-      isCultivating ? 1 : 0,
-      showSkillToggle ? 1 : 0,
-      skillsEnabled ? 1 : 0,
-    ].join('|');
+  matchesCategoryFilter(tech: TechniqueState, filter = this.categoryFilter): boolean {
+    return matchesCategoryFilterImpl(this, tech, filter);
   }
 
-  /** syncTechniqueListContent：同步Technique列表Content。 */
-  private syncTechniqueListContent(listRoot: HTMLElement, orderedNodes: HTMLElement[]): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const allowed = new Set(orderedNodes);
-    for (const child of Array.from(listRoot.children)) {
-      if (!(child instanceof HTMLElement) || !allowed.has(child)) {
-        const techId = child instanceof HTMLElement ? child.dataset.techCard : undefined;
-        if (techId) {
-          this.cardNodeRefs.delete(techId);
-          this.cardPatchSignatures.delete(techId);
-        }
-        child.remove();
-      }
-    }
-    let reference: ChildNode | null = listRoot.firstChild;
-    for (const node of orderedNodes) {
-      if (reference !== node) {
-        listRoot.insertBefore(node, reference);
-      }
-      reference = node.nextSibling;
-    }
+  matchesStatusFilter(tech: TechniqueState, filter = this.statusFilter): boolean {
+    return matchesStatusFilterImpl(this, tech, filter);
   }
 
-  /** matchesCategoryFilter：判断是否Category筛选。 */
-  private matchesCategoryFilter(tech: TechniqueState, filter = this.categoryFilter): boolean {
-    return filter === 'all' || resolveTechniqueCategory(tech) === filter;
+  getFilteredEmptyHint(): string {
+    return getFilteredEmptyHintImpl(this);
   }
 
-  /** matchesStatusFilter：判断是否状态筛选。 */
-  private matchesStatusFilter(tech: TechniqueState, filter = this.statusFilter): boolean {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (filter === 'all') {
-      return true;
-    }
-    const mastered = isTechniqueFullyMastered(tech);
-    return filter === 'in_progress' ? !mastered : mastered;
+  getDisplayTechniques(): TechniqueState[] {
+    return getDisplayTechniquesImpl(this);
   }
 
-  /** getFilteredEmptyHint：读取Filtered Empty Hint。 */
-  private getFilteredEmptyHint(): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (this.pendingRequestId) {
-      return '正在加载功法...';
-    }
-    if (this.searchQuery) {
-      return `没有找到名称包含“${this.searchQuery}”的功法`;
-    }
-    if (this.statusFilter === 'in_progress') {
-      return t('technique.empty.no-in-progress', undefined);
-    }
-    if (this.statusFilter === 'completed') {
-      return t('technique.empty.no-completed', undefined);
-    }
-    return t('technique.empty.no-filtered', undefined);
+  getVisibleTechniques(techniques: TechniqueState[]): TechniqueState[] {
+    return getVisibleTechniquesImpl(this, techniques);
   }
-
-  /** getDisplayTechniques：读取显示Techniques。 */
-  private getDisplayTechniques(): TechniqueState[] {
-    if (this.hasActivePagedSnapshot()) {
-      return this.pagedSnapshot?.items ?? [];
-    }
-    return sortTechniquesForPanel(resolvePreviewTechniques(this.lastState.techniques));
-  }
-
-  /** getVisibleTechniques：读取可见Techniques。 */
-  private getVisibleTechniques(techniques: TechniqueState[]): TechniqueState[] {
-    if (this.hasActivePagedSnapshot()) {
-      return techniques;
-    }
-    return techniques.filter((tech) => (
-      this.matchesCategoryFilter(tech) && this.matchesStatusFilter(tech)
-    ));
-  }
-
-  private getVisiblePendingComprehensions(
+  getVisiblePendingComprehensions(
     pendingComprehensions = this.getPendingTechniqueListEntries(),
     category = this.categoryFilter,
     status = this.statusFilter,
   ): TechniquePendingListEntry[] {
-    return pendingComprehensions.filter((pending) => matchesPendingTechniqueFilters(pending, {
-      category,
-      status,
-      search: this.searchQuery,
-    }));
+    return getVisiblePendingComprehensionsImpl(this, pendingComprehensions, category, status);
   }
-
-  private getPageState(filteredTechniques: TechniqueState[]): {
-    totalItems: number;
-    totalPages: number;
-    currentPage: number;
-    startIndex: number;
-    endIndex: number;
+  getPageState(filteredTechniques: TechniqueState[]): {
+    totalItems: number; totalPages: number; currentPage: number; startIndex: number; endIndex: number;
   } {
-    const paged = this.hasActivePagedSnapshot() ? this.pagedSnapshot : null;
-    const totalItems = paged?.total ?? filteredTechniques.length;
-    const totalPages = Math.max(1, Math.ceil(totalItems / TECHNIQUE_PANEL_PAGE_SIZE));
-    const currentPage = Math.min(Math.max(1, this.currentPage), totalPages);
-    if (currentPage !== this.currentPage) {
-      this.currentPage = currentPage;
-      if (paged) {
-        this.ensureTechniquePageRequested(true);
-      }
-    }
-    const startIndex = (currentPage - 1) * TECHNIQUE_PANEL_PAGE_SIZE;
-    return {
-      totalItems,
-      totalPages,
-      currentPage,
-      startIndex,
-      endIndex: Math.min(totalItems, startIndex + TECHNIQUE_PANEL_PAGE_SIZE),
-    };
+    return getPageStateImpl(this, filteredTechniques);
+  }
+  getPagedTechniques(filteredTechniques: TechniqueState[]): TechniqueState[] {
+    return getPagedTechniquesImpl(this, filteredTechniques);
+  }
+  patchPagination(filteredTechniques: TechniqueState[]): boolean {
+    return patchPaginationImpl(this, filteredTechniques);
   }
 
-  private getPagedTechniques(filteredTechniques: TechniqueState[]): TechniqueState[] {
-    if (this.hasActivePagedSnapshot()) {
-      return this.pagedSnapshot?.items ?? [];
-    }
-    const pageState = this.getPageState(filteredTechniques);
-    return filteredTechniques.slice(pageState.startIndex, pageState.endIndex);
+  isSameTechniqueIdSequence(nextIds: string[]): boolean {
+    return isSameTechniqueIdSequenceImpl(this, nextIds);
   }
 
-  private patchPagination(filteredTechniques: TechniqueState[]): boolean {
-    const pagination = this.pane.querySelector<HTMLElement>('[data-tech-pagination="true"]');
-    const status = this.pane.querySelector<HTMLElement>('[data-tech-page-status="true"]');
-    const prev = this.pane.querySelector<HTMLButtonElement>('[data-tech-page-action="prev"]');
-    const next = this.pane.querySelector<HTMLButtonElement>('[data-tech-page-action="next"]');
-    if (!pagination || !status || !prev || !next) {
-      return false;
-    }
-    const pageState = this.getPageState(filteredTechniques);
-    const shouldShow = pageState.totalItems > TECHNIQUE_PANEL_PAGE_SIZE;
-    pagination.hidden = !shouldShow;
-    status.textContent = shouldShow
-      ? `第 ${formatDisplayInteger(pageState.currentPage)} / ${formatDisplayInteger(pageState.totalPages)} 页 · 共 ${formatDisplayInteger(pageState.totalItems)} 门`
-      : '';
-    prev.disabled = pageState.currentPage <= 1;
-    next.disabled = pageState.currentPage >= pageState.totalPages;
-    return true;
-  }
-
-  /** isSameTechniqueIdSequence：判断是否Same Technique ID Sequence。 */
-  private isSameTechniqueIdSequence(nextIds: string[]): boolean {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!this.lastVisibleTechniqueIds || this.lastVisibleTechniqueIds.length !== nextIds.length) {
-      return false;
-    }
-    return nextIds.every((techId, index) => this.lastVisibleTechniqueIds?.[index] === techId);
-  }
-
-  /** patchFilterTabs：处理patch筛选标签页。 */
-  private patchFilterTabs(
+  patchFilterTabs(
     techniques: TechniqueState[],
     pendingComprehensions = this.getPendingTechniqueListEntries(),
   ): boolean {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const pagedTotal = this.hasActivePagedSnapshot() ? this.pagedSnapshot?.total ?? 0 : null;
-    const categoryCounts = countTechniqueListCategories(
-      techniques,
-      pendingComprehensions,
-      this.statusFilter,
-      this.searchQuery,
-    );
-    const visiblePendingCount = this.getVisiblePendingComprehensions(pendingComprehensions).length;
-    for (const filter of TECHNIQUE_CATEGORY_FILTERS) {
-      const button = this.pane.querySelector<HTMLButtonElement>(`[data-tech-category-filter="${filter.value}"]`);
-      const countNode = this.pane.querySelector<HTMLElement>(`[data-tech-category-count="${filter.value}"]`);
-      if (!button || !countNode) {
-        return false;
-      }
-      const count = pagedTotal === null
-        ? categoryCounts[filter.value]
-        : filter.value === this.categoryFilter ? pagedTotal + visiblePendingCount : 0;
-      button.classList.toggle('active', this.categoryFilter === filter.value);
-      countNode.textContent = formatDisplayInteger(count);
-    }
-
-    for (const filter of TECHNIQUE_STATUS_FILTERS) {
-      const button = this.pane.querySelector<HTMLButtonElement>(`[data-tech-status-filter="${filter.value}"]`);
-      const countNode = this.pane.querySelector<HTMLElement>(`[data-tech-status-count="${filter.value}"]`);
-      if (!button || !countNode) {
-        return false;
-      }
-      const count = pagedTotal === null
-        ? buildTechniqueListEntries(techniques, pendingComprehensions, {
-          category: this.categoryFilter,
-          status: filter.value,
-          search: this.searchQuery,
-        }).length
-        : filter.value === this.statusFilter ? pagedTotal + visiblePendingCount : 0;
-      button.classList.toggle('active', this.statusFilter === filter.value);
-      countNode.textContent = formatDisplayInteger(count);
-    }
-
-    return true;
+    return patchFilterTabsImpl(this, techniques, pendingComprehensions);
   }
 
-  /** renderModal：渲染弹窗。 */
-  private renderModal(): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!this.openTechId) {
-      this.closeModal();
-      return;
-    }
-    const tech = this.findPreviewTechnique(this.openTechId);
-    if (!tech) {
-      this.closeModal();
-      return;
-    }
-
-    const passiveTechnique = isPassiveTechnique(tech);
-    const maxLevel = passiveTechnique ? Math.max(1, tech.level) : getTechniqueMaxLevel(tech.layers, tech.level);
-    const previewTechniques = resolvePreviewTechniques(this.lastState.techniques);
-    const currentAttrs = calcTechniqueAttrValues(tech.level, tech.layers);
-    const effectiveAttrs = calcTechniqueEffectiveContribution(previewTechniques, tech.techId);
-    const currentSpecialStats = calcTechniqueSpecialStatContribution(tech.level, tech.layers);
-    const currentQiProjection = calcTechniqueQiProjectionModifiers(tech.level, tech.layers);
-    const skillsByLevel = new Map<number, TechniqueState['skills']>();
-    const milestones = passiveTechnique ? new Map<number, TechniqueRealm>() : buildTechniqueMilestones(tech, maxLevel);
-    for (const skill of tech.skills) {
-      const unlockLevel = resolveSkillUnlockLevel(skill);
-      const current = skillsByLevel.get(unlockLevel) ?? [];
-      current.push(skill);
-      skillsByLevel.set(unlockLevel, current);
-    }
-
-    const layers = passiveTechnique ? [] : tech.layers && tech.layers.length > 0
-      ? [...tech.layers].sort((left, right) => left.level - right.level)
-      : this.buildFallbackLayers(tech, maxLevel);
-    const selectedLevel = passiveTechnique ? tech.level : this.resolveOpenLayerLevel(layers, tech.level);
-    const constellationHtml = passiveTechnique ? '' : this.renderConstellation(tech, layers, tech.level, selectedLevel, skillsByLevel, milestones);
-    const focusHtml = passiveTechnique
-      ? this.renderPassiveTechniqueOverview(tech)
-      : this.renderLayerFocus(tech, layers, selectedLevel, skillsByLevel, milestones);
-    const constellationSignature = passiveTechnique ? '' : this.buildConstellationStructureSignature(layers, skillsByLevel);
-    const detailHtml = passiveTechnique
-      ? focusHtml
-      : `<section class="tech-modal-pane tech-modal-pane--constellation">
-          <div class="tech-modal-section-title">${t('technique.modal.section.constellation', undefined)}</div>
-          <div class="tech-modal-pane-body" data-tech-modal-constellation-shell="true" data-tech-modal-constellation-signature="${escapeHtml(constellationSignature)}">${constellationHtml}</div>
-        </section>
-        <section class="tech-modal-pane tech-modal-pane--focus">
-          <div class="tech-modal-section-title">${t('technique.modal.section.focus', undefined)}</div>
-          <div class="tech-modal-pane-body" data-tech-modal-focus-shell="true">${focusHtml}</div>
-        </section>`;
-    const totalExp = calcTechniqueTotalExp(tech);
-    const showsCreatedTechniqueStrength = isCreatedTechniqueId(tech.techId)
-      && !isTechniqueAggregationId(tech.techId);
-    const strengthPercent = showsCreatedTechniqueStrength
-      ? resolveCreatedTechniqueStrengthPercent(tech.techId)
-      : null;
-    const strengthHtml = showsCreatedTechniqueStrength
-      ? `<section class="tech-modal-strength" data-tech-modal-strength="true">
-          <span>功法强度</span>
-          <strong>${strengthPercent === null ? '读取中' : `${formatDisplayInteger(strengthPercent)}%`}</strong>
-        </section>`
-      : '';
-    detailModalHost.open({
-      ownerId: TechniquePanel.MODAL_OWNER,
-      size: 'wide',
-      variantClass: 'detail-modal--technique',
-      title: tech.name,
-      subtitle: t('technique.modal.subtitle', {
-        realmLevel: getTechniqueRealmLevelLabel(tech),
-        grade: getTechniqueGradeLabel(tech.grade),
-        realm: getTechniqueRealmLabel(getResolvedTechniqueRealm(tech)),
-        level: formatDisplayInteger(tech.level),
-        maxLevel: passiveTechnique ? '无限' : formatDisplayInteger(maxLevel),
-      }),
-      bodyHtml: `
-      <div class="tech-modal-stack${showsCreatedTechniqueStrength ? ' tech-modal-stack--with-strength' : ''}">
-        ${strengthHtml}
-        <section class="tech-modal-summary">
-          <div class="tech-modal-stat">
-            <span class="tech-modal-label">${t('technique.modal.label.current-exp', undefined)}</span>
-            <span data-tech-modal-current-exp="true" data-tech-exp-tooltip="true">${formatTechniqueProgressText(tech)}</span>
-          </div>
-          <div class="tech-modal-stat">
-            <span class="tech-modal-label">${t('technique.modal.label.total-exp', undefined)}</span>
-            <span data-tech-modal-total-exp="true">${formatDisplayInteger(totalExp)}</span>
-          </div>
-          <div class="tech-modal-stat">
-            <span class="tech-modal-label">${t('technique.modal.label.current-bonus', undefined)}</span>
-            <span data-tech-modal-current-attrs="true">${formatTechniqueContributionSummary(effectiveAttrs, currentAttrs, currentSpecialStats, currentSpecialStats, currentQiProjection)}</span>
-          </div>
-        </section>
-        ${detailHtml}
-        <section class="ui-modal-footer-actions">
-          <button class="small-btn danger" data-tech-forget="${escapeHtml(tech.techId)}" type="button">${escapeHtml(t('technique.forget.action', undefined))}</button>
-        </section>
-      </div>
-    `,
-      onClose: () => {
-        this.openTechId = null;
-        this.openLayerLevel = null;
-        this.destroyConstellationCanvas();
-        this.tooltip.hide(true);
-      },
-      onAfterRender: (body, signal) => {
-        if (!passiveTechnique) {
-          this.mountConstellation(body, tech, layers, selectedLevel, skillsByLevel, milestones);
-        }
-        this.bindSkillTooltips(body, signal);
-        this.bindTechniqueExpTooltip(body, signal);
-        this.bindForgetButton(body, signal);
-      },
-    });
+  renderModal(): void {
+    return renderModalImpl(this);
   }
 
-  /** buildFallbackLayers：构建兜底Layers。 */
-  private buildFallbackLayers(tech: TechniqueState, maxLevel: number): TechniqueLayerDef[] {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const rows: TechniqueLayerDef[] = [];
-    for (let level = 1; level <= maxLevel; level += 1) {
-      rows.push({
-        level,
-        expToNext: level >= maxLevel ? 0 : 0,
-        attrs: calcTechniqueNextLevelGains(level - 1, tech.layers),
-        specialStats: calcTechniqueNextLevelSpecialStatGains(level - 1, tech.layers),
-      });
-    }
-    return rows;
+  buildFallbackLayers(tech: TechniqueState, maxLevel: number): TechniqueLayerDef[] {
+    return buildFallbackLayersImpl(this, tech, maxLevel);
   }
 
-  /** renderSkillOverview：渲染技能Overview。 */
-  private renderSkillOverview(tech: TechniqueState): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (tech.skills.length === 0) {
-      return `<div class="tech-skill-overview-empty">${t('technique.skill.empty', undefined)}</div>`;
-    }
-    const sortedSkills = [...tech.skills].sort((left, right) => {
-      const levelDelta = resolveSkillUnlockLevel(left) - resolveSkillUnlockLevel(right);
-      if (levelDelta !== 0) {
-        return levelDelta;
-      }
-      return left.name.localeCompare(right.name, 'zh-CN');
-    });
-    return `<div class="tech-skill-overview-list">
-      ${sortedSkills.map((skill) => {
-        const unlockLevel = resolveSkillUnlockLevel(skill);
-        const unlocked = tech.level >= unlockLevel;
-        return `<div class="tech-skill-overview-item ${unlocked ? 'unlocked' : 'locked'}">
-          <div class="tech-skill-overview-head">
-            <span class="tech-skill-tag"
-              data-skill-tooltip-title="${escapeHtml(skill.name)}"
-              data-skill-tooltip-skill-id="${escapeHtml(skill.id)}"
-              data-skill-tooltip-unlock-level="${unlockLevel}"
-              data-skill-tooltip-rich="1">${escapeHtml(skill.name)}</span>
-            <span class="tech-skill-overview-meta">${escapeHtml(t('technique.skill.unlock-meta', { level: formatDisplayInteger(unlockLevel), state: unlocked ? t('technique.skill.unlocked', undefined) : t('technique.skill.locked', undefined) }))}</span>
-          </div>
-          <div class="tech-skill-overview-desc">${escapeHtml(skill.desc)}</div>
-        </div>`;
-      }).join('')}
-    </div>`;
+  renderSkillOverview(tech: TechniqueState): string {
+    return renderSkillOverviewImpl(this, tech);
   }  
 
-  /** 渲染无限层被动功法详情；被动功法不创建星图节点。 */
-  private renderPassiveTechniqueOverview(tech: TechniqueState): string {
-    const multiplier = getTechniquePassiveSkillStrengthMultiplier(tech.level);
-    const skills = tech.skills.filter((skill) => skill.active === false && getSkillPassiveEffects(skill).length > 0);
-    const rows = skills.map((skill) => {
-      const unlockLevel = resolveSkillUnlockLevel(skill);
-      const unlocked = tech.level >= unlockLevel;
-      const effectHtml = unlocked
-        ? (summarizeResidentSkillEffects(skill, { techLevel: tech.level, passiveTechnique: true }) || '常驻被动效果')
-        : `第 ${formatDisplayInteger(unlockLevel)} 层解锁`;
-      return `<div class="tech-skill-overview-item ${unlocked ? 'unlocked' : 'locked'}">
-        <div class="tech-skill-overview-head">
-          <span class="tech-skill-tag" data-skill-tooltip-title="${escapeHtml(skill.name)}" data-skill-tooltip-skill-id="${escapeHtml(skill.id)}" data-skill-tooltip-unlock-level="${unlockLevel}" data-skill-tooltip-rich="1">${escapeHtml(skill.name)}</span>
-          <span class="tech-skill-overview-meta">${unlocked ? effectHtml : escapeHtml(effectHtml)}</span>
-        </div>
-        <div class="tech-skill-overview-desc">${escapeHtml(skill.desc)}</div>
-      </div>`;
-    }).join('');
-    return `<section class="tech-modal-pane tech-modal-pane--focus tech-modal-pane--passive" data-tech-modal-passive-shell="true" data-tech-modal-passive-level="${tech.level}">
-      <div class="tech-modal-section-title">被动效果</div>
-      <div class="tech-modal-pane-body" data-tech-modal-passive-content="true">
-        <div class="tech-passive-strength">当前强度倍率 ×${formatDisplayNumber(multiplier)}（每层 +5%，无限层）</div>
-        <div class="tech-skill-overview-list">${rows || '<div class="tech-skill-overview-empty">暂无被动效果</div>'}</div>
-      </div>
-    </section>`;
+  renderPassiveTechniqueOverview(tech: TechniqueState): string {
+    return renderPassiveTechniqueOverviewImpl(this, tech);
   }
-  /**
- * renderLayerFocus：执行层Focu相关逻辑。
- * @param tech TechniqueState 参数说明。
- * @param layers TechniqueLayerDef[] 参数说明。
- * @param selectedLevel number 参数说明。
- * @param skillsByLevel Map<number, TechniqueState['skills']> 参数说明。
- * @param milestones Map<number, TechniqueRealm> 参数说明。
- * @returns 返回层Focu。
- */
-
-
-  private renderLayerFocus(
+  renderLayerFocus(
     tech: TechniqueState,
     layers: TechniqueLayerDef[],
     selectedLevel: number,
     skillsByLevel: Map<number, TechniqueState['skills']>,
     milestones: Map<number, TechniqueRealm>,
   ): string {
-    const layer = layers.find((entry) => entry.level === selectedLevel) ?? layers[0];
-    const selectedRealm = deriveTechniqueRealm(layer.level, tech.layers);
-    const skills = skillsByLevel.get(layer.level) ?? [];
-    const skillTags = skills.length > 0
-      ? skills.map((skill) => {
-        return `<span class="tech-skill-tag"
-          data-skill-tooltip-title="${escapeHtml(skill.name)}"
-          data-skill-tooltip-skill-id="${escapeHtml(skill.id)}"
-          data-skill-tooltip-unlock-level="${resolveSkillUnlockLevel(skill)}"
-          data-skill-tooltip-rich="1">${escapeHtml(skill.name)}</span>`;
-      }).join('')
-      : `<span class="tech-layer-empty">${t('technique.layer.no-skill', undefined)}</span>`;
-
-    const layerAttrs = formatTechniqueLayerBonusSummary(layer, t('technique.layer.no-attr-gain', undefined));
-    const totalAttrs = formatTechniqueCumulativeBonusSummary(layer.level, tech.layers);
-    const milestone = milestones.get(layer.level);
-    const stateLabel = layer.level < tech.level ? t('technique.layer.state.passed', undefined) : layer.level === tech.level ? t('technique.layer.state.current', undefined) : t('technique.layer.state.locked', undefined);
-    const expText = layer.expToNext > 0 ? t('technique.layer.next-exp', { exp: formatDisplayInteger(layer.expToNext) }) : t('technique.layer.endpoint', undefined);
-    const milestoneText = milestone ? t('technique.layer.milestone', { realm: getTechniqueRealmLabel(milestone) }) : t('technique.layer.realm-stage', { realm: getTechniqueRealmLabel(selectedRealm) });
-
-    return `<section class="tech-focus-card ${layer.level < tech.level ? 'passed' : ''} ${layer.level === tech.level ? 'current' : ''}" data-tech-focus-card="true">
-      <div class="tech-focus-head">
-        <div>
-          <div class="tech-focus-title" data-tech-focus-title="true">${escapeHtml(t('technique.focus.title', { level: formatDisplayInteger(layer.level) }))}</div>
-          <div class="tech-focus-subtitle" data-tech-focus-subtitle="true">${escapeHtml(milestoneText)}</div>
-        </div>
-        <div class="tech-focus-state" data-tech-focus-state="true">${stateLabel}</div>
-      </div>
-      <div class="tech-focus-grid">
-        <div class="tech-focus-stat">
-          <span class="tech-modal-label">${t('technique.focus.label.progress', undefined)}</span>
-          <span data-tech-focus-exp="true">${expText}</span>
-        </div>
-        <div class="tech-focus-stat">
-          <span class="tech-modal-label">${t('technique.focus.label.layer-attrs', undefined)}</span>
-          <span data-tech-focus-layer-attrs="true">${escapeHtml(layerAttrs)}</span>
-        </div>
-        <div class="tech-focus-stat">
-          <span class="tech-modal-label">${t('technique.focus.label.total-attrs', undefined)}</span>
-          <span data-tech-focus-total-attrs="true">${escapeHtml(totalAttrs)}</span>
-        </div>
-      </div>
-      <div class="tech-focus-skills">
-        <span class="tech-modal-label">${t('technique.focus.label.skill-nodes', undefined)}</span>
-        <span class="tech-layer-skill-list" data-tech-focus-skills="true">${skillTags}</span>
-      </div>
-    </section>`;
+    return renderLayerFocusImpl(this, tech, layers, selectedLevel, skillsByLevel, milestones);
   }  
-  /**
- * renderConstellation：执行Constellation相关逻辑。
- * @param tech TechniqueState 参数说明。
- * @param layers TechniqueLayerDef[] 参数说明。
- * @param currentLevel number 参数说明。
- * @param selectedLevel number 参数说明。
- * @param skillsByLevel Map<number, TechniqueState['skills']> 参数说明。
- * @param milestones Map<number, TechniqueRealm> 参数说明。
- * @returns 返回Constellation。
- */
-
-
-  private renderConstellation(
+  renderConstellation(
     tech: TechniqueState,
     layers: TechniqueLayerDef[],
     currentLevel: number,
@@ -1653,59 +1093,15 @@ export class TechniquePanel {
     skillsByLevel: Map<number, TechniqueState['skills']>,
     milestones: Map<number, TechniqueRealm>,
   ): string {
-    const note = currentLevel < layers.length
-      ? t('technique.constellation.note.current', { level: formatDisplayInteger(currentLevel), percent: formatDisplayInteger(getTechniqueProgressRatio(tech) * 100) })
-      : t('technique.constellation.note.completed', { level: formatDisplayInteger(layers.length) });
-    return `<div class="tech-starfield-shell">
-      <div class="tech-starfield-canvas-shell" data-tech-constellation-root="true">
-        <canvas class="tech-starfield-canvas" data-tech-starfield-canvas="true"></canvas>
-        <svg class="tech-starfield-skill-lines" data-tech-starfield-skill-lines="true" aria-hidden="true">
-          ${layers.map((layer) => {
-            return (skillsByLevel.get(layer.level) ?? []).map((_, skillIndex) => {
-              return `<polyline class="tech-starfield-skill-line" data-tech-skill-line-level="${layer.level}" data-tech-skill-line-index="${skillIndex}"></polyline>`;
-            }).join('');
-          }).join('')}
-        </svg>
-        <div class="tech-starfield-skill-layer">
-          ${layers.map((layer) => {
-            return (skillsByLevel.get(layer.level) ?? []).map((skill, skillIndex) => {
-              const unlocked = layer.level <= currentLevel;
-              return `<button
-                class="tech-skill-tag tech-starfield-skill-label ${unlocked ? 'unlocked' : 'locked'}"
-                data-tech-skill-anchor-level="${layer.level}"
-                data-tech-skill-anchor-index="${skillIndex}"
-                data-skill-tooltip-title="${escapeHtml(skill.name)}"
-                data-skill-tooltip-skill-id="${escapeHtml(skill.id)}"
-                data-skill-tooltip-unlock-level="${resolveSkillUnlockLevel(skill)}"
-                data-skill-tooltip-rich="1"
-                type="button"
-              >${escapeHtml(skill.name)}</button>`;
-            }).join('');
-          }).join('')}
-        </div>
-      </div>
-      <div class="tech-starfield-note">${escapeHtml(note)}</div>
-    </div>`;
+    return renderConstellationImpl(this, tech, layers, currentLevel, selectedLevel, skillsByLevel, milestones);
   }
 
-  /** resolveOpenLayerLevel：解析Open层等级。 */
-  private resolveOpenLayerLevel(layers: TechniqueLayerDef[], fallbackLevel: number): number {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (layers.length === 0) {
-      return fallbackLevel;
-    }
-    const levels = new Set(layers.map((entry) => entry.level));
-    if (this.openLayerLevel && levels.has(this.openLayerLevel)) {
-      return this.openLayerLevel;
-    }
-    const clamped = Math.min(Math.max(fallbackLevel, layers[0].level), layers[layers.length - 1].level);
-    this.openLayerLevel = clamped;
-    return clamped;
+  resolveOpenLayerLevel(layers: TechniqueLayerDef[], fallbackLevel: number): number {
+    return resolveOpenLayerLevelImpl(this, layers, fallbackLevel);
   }
 
   /** bindPaneEvents：绑定Pane事件。 */
-  private bindPaneEvents(): void {
+  bindPaneEvents(): void {
     this.pane.addEventListener('input', (event) => {
       const target = event.target;
       if (!(target instanceof HTMLInputElement) || target.dataset.techSearch !== 'true') {
@@ -1842,19 +1238,7 @@ export class TechniquePanel {
       this.openTechniqueDetail(techId);
     });
   }  
-  /**
- * mountConstellation：执行mountConstellation相关逻辑。
- * @param modalBody HTMLElement 参数说明。
- * @param tech TechniqueState 参数说明。
- * @param layers TechniqueLayerDef[] 参数说明。
- * @param selectedLevel number 参数说明。
- * @param skillsByLevel Map<number, TechniqueState['skills']> 参数说明。
- * @param milestones Map<number, TechniqueRealm> 参数说明。
- * @returns 无返回值，直接更新mountConstellation相关状态。
- */
-
-
-  private mountConstellation(
+  mountConstellation(
     modalBody: HTMLElement,
     tech: TechniqueState,
     layers: TechniqueLayerDef[],
@@ -1862,600 +1246,55 @@ export class TechniquePanel {
     skillsByLevel: Map<number, TechniqueState['skills']>,
     milestones: Map<number, TechniqueRealm>,
   ): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const root = modalBody.querySelector<HTMLElement>('[data-tech-constellation-root="true"]');
-    if (!root) {
-      this.destroyConstellationCanvas();
-      return;
-    }
-    const data = this.buildConstellationData(tech, layers, selectedLevel, skillsByLevel, milestones);
-    this.destroyConstellationCanvas();
-    this.constellationCanvas = new TechniqueConstellationCanvas(root, data, (level) => {
-      if (this.openLayerLevel === level) {
-        return;
-      }
-      this.openLayerLevel = level;
-      if (!this.patchModal()) {
-        this.renderModal();
-      }
-    }, (payload, clientX, clientY) => {
-      this.showConstellationTooltip(payload, clientX, clientY);
-    }, (clientX, clientY) => {
-      this.tooltip.move(clientX, clientY);
-    }, () => {
-      this.tooltip.hide();
-    });
+    return mountConstellationImpl(this, modalBody, tech, layers, selectedLevel, skillsByLevel, milestones);
   }
 
-  /** bindSkillTooltips：绑定技能Tooltips。 */
-  private bindSkillTooltips(modalBody: HTMLElement, signal: AbortSignal): void {
-    const tapMode = prefersPinnedTooltipInteraction();
-    const resolveTooltip = (node: HTMLElement) => {
-      const title = node.dataset.skillTooltipTitle ?? '';
-      const rich = node.dataset.skillTooltipRich === '1';
-      const skillId = node.dataset.skillTooltipSkillId ?? '';
-      const unlockLevel = Number(node.dataset.skillTooltipUnlockLevel ?? '0') || undefined;
-      const techniques = resolvePreviewTechniques(this.lastState.techniques);
-      const technique = techniques.find((entry) => entry.skills.some((skill) => skill.id === skillId));
-      const skill = technique?.skills.find((entry) => entry.id === skillId);
-      const tooltip = skill ? buildSkillTooltipContent(skill, {
-        unlockLevel,
-        techLevel: technique?.level,
-        player: this.lastState.previewPlayer,
-        knownSkills: techniques.flatMap((entry) => entry.skills),
-        passiveTechnique: technique ? isPassiveTechnique(technique) : undefined,
-      }) : { lines: [], asideCards: [] };
-      return { title, rich, tooltip };
-    };
-
-    modalBody.addEventListener('click', (event) => {
-      if (!tapMode || !(event instanceof PointerEvent)) {
-        return;
-      }
-      const target = event.target;
-      const node = target instanceof HTMLElement
-        ? target.closest<HTMLElement>('[data-skill-tooltip-title]')
-        : null;
-      if (!node || !modalBody.contains(node)) {
-        return;
-      }
-      if (this.tooltip.isPinnedTo(node)) {
-        this.tooltip.hide(true);
-        return;
-      }
-      const { title, rich, tooltip } = resolveTooltip(node);
-      this.tooltip.showPinned(node, title, tooltip.lines, event.clientX, event.clientY, {
-        allowHtml: rich,
-        asideCards: tooltip.asideCards,
-      });
-      event.preventDefault();
-      event.stopPropagation();
-    }, { capture: true, signal });
-
-    modalBody.addEventListener('pointerover', (event) => {
-      if (!(event instanceof PointerEvent) || (tapMode && this.tooltip.isPinned())) {
-        return;
-      }
-      const target = event.target;
-      const node = target instanceof HTMLElement
-        ? target.closest<HTMLElement>('[data-skill-tooltip-title]')
-        : null;
-      if (!node || !modalBody.contains(node)) {
-        return;
-      }
-      const relatedTarget = event.relatedTarget;
-      if (relatedTarget instanceof Node && node.contains(relatedTarget)) {
-        return;
-      }
-      const { title, rich, tooltip } = resolveTooltip(node);
-      this.tooltip.show(title, tooltip.lines, event.clientX, event.clientY, {
-        allowHtml: rich,
-        asideCards: tooltip.asideCards,
-      });
-    }, { signal });
-
-    modalBody.addEventListener('pointermove', (event) => {
-      if (!(event instanceof PointerEvent) || (tapMode && this.tooltip.isPinned())) {
-        return;
-      }
-      const target = event.target;
-      const node = target instanceof HTMLElement
-        ? target.closest<HTMLElement>('[data-skill-tooltip-title]')
-        : null;
-      if (!node || !modalBody.contains(node)) {
-        return;
-      }
-      this.tooltip.move(event.clientX, event.clientY);
-    }, { signal });
-
-    modalBody.addEventListener('pointerout', (event) => {
-      const target = event.target;
-      const node = target instanceof HTMLElement
-        ? target.closest<HTMLElement>('[data-skill-tooltip-title]')
-        : null;
-      if (!node || !modalBody.contains(node)) {
-        return;
-      }
-      const relatedTarget = event.relatedTarget;
-      if (relatedTarget instanceof Node && node.contains(relatedTarget)) {
-        return;
-      }
-      if (!this.tooltip.isPinnedTo(node)) {
-        this.tooltip.hide();
-      }
-    }, { signal });
+  bindSkillTooltips(modalBody: HTMLElement, signal: AbortSignal): void {
+    return bindSkillTooltipsImpl(this, modalBody, signal);
   }
 
-  /** bindTechniqueExpTooltip：绑定Technique Exp提示。 */
-  private bindTechniqueExpTooltip(modalBody: HTMLElement, signal: AbortSignal): void {
-    const tapMode = prefersPinnedTooltipInteraction();
-    const showTooltip = (node: HTMLElement, clientX: number, clientY: number, pin = false): void => {
-      if (!this.openTechId) {
-        return;
-      }
-      const tech = this.findPreviewTechnique(this.openTechId);
-      if (!tech) {
-        return;
-      }
-      const lines = buildTechniqueExpTooltipLines(tech, this.lastState.previewPlayer);
-      if (pin) {
-        this.tooltip.showPinned(node, t('technique.exp-tooltip.title', undefined), lines, clientX, clientY);
-        return;
-      }
-      this.tooltip.show(t('technique.exp-tooltip.title', undefined), lines, clientX, clientY);
-    };
-    modalBody.addEventListener('click', (event) => {
-      if (!tapMode || !(event instanceof PointerEvent)) {
-        return;
-      }
-      const target = event.target;
-      const node = target instanceof HTMLElement
-        ? target.closest<HTMLElement>('[data-tech-exp-tooltip="true"]')
-        : null;
-      if (!node || !modalBody.contains(node)) {
-        return;
-      }
-      if (this.tooltip.isPinnedTo(node)) {
-        this.tooltip.hide(true);
-        return;
-      }
-      showTooltip(node, event.clientX, event.clientY, true);
-      event.preventDefault();
-      event.stopPropagation();
-    }, { capture: true, signal });
-    modalBody.addEventListener('pointerover', (event) => {
-      if (!(event instanceof PointerEvent) || (tapMode && this.tooltip.isPinned())) {
-        return;
-      }
-      const target = event.target;
-      const node = target instanceof HTMLElement
-        ? target.closest<HTMLElement>('[data-tech-exp-tooltip="true"]')
-        : null;
-      if (!node || !modalBody.contains(node)) {
-        return;
-      }
-      const relatedTarget = event.relatedTarget;
-      if (relatedTarget instanceof Node && node.contains(relatedTarget)) {
-        return;
-      }
-      showTooltip(node, event.clientX, event.clientY);
-    }, { signal });
-    modalBody.addEventListener('pointermove', (event) => {
-      if (!(event instanceof PointerEvent) || (tapMode && this.tooltip.isPinned())) {
-        return;
-      }
-      const target = event.target;
-      const node = target instanceof HTMLElement
-        ? target.closest<HTMLElement>('[data-tech-exp-tooltip="true"]')
-        : null;
-      if (!node || !modalBody.contains(node)) {
-        return;
-      }
-      this.tooltip.move(event.clientX, event.clientY);
-    }, { signal });
-    modalBody.addEventListener('pointerout', (event) => {
-      const target = event.target;
-      const node = target instanceof HTMLElement
-        ? target.closest<HTMLElement>('[data-tech-exp-tooltip="true"]')
-        : null;
-      if (!node || !modalBody.contains(node)) {
-        return;
-      }
-      const relatedTarget = event.relatedTarget;
-      if (relatedTarget instanceof Node && node.contains(relatedTarget)) {
-        return;
-      }
-      if (!this.tooltip.isPinnedTo(node)) {
-        this.tooltip.hide();
-      }
-    }, { signal });
+  bindTechniqueExpTooltip(modalBody: HTMLElement, signal: AbortSignal): void {
+    return bindTechniqueExpTooltipImpl(this, modalBody, signal);
+  }
+  bindForgetButton(modalBody: HTMLElement, signal: AbortSignal): void {
+    return bindForgetButtonImpl(this, modalBody, signal);
   }
 
-  private bindForgetButton(modalBody: HTMLElement, signal: AbortSignal): void {
-    modalBody.addEventListener('click', (event) => {
-      const target = event.target;
-      const button = target instanceof HTMLElement
-        ? target.closest<HTMLElement>('[data-tech-forget]')
-        : null;
-      if (!button || !modalBody.contains(button)) {
-        return;
-      }
-      const techId = button.dataset.techForget;
-      const tech = techId ? this.findPreviewTechnique(techId) : null;
-      if (!tech) {
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      this.handleForgetTechnique(tech);
-    }, { signal });
+  closeModal(): void {
+    return closeModalImpl(this);
   }
 
-  /** closeModal：关闭弹窗。 */
-  private closeModal(): void {
-    this.openTechId = null;
-    this.openLayerLevel = null;
-    this.destroyConstellationCanvas();
-    detailModalHost.close(TechniquePanel.MODAL_OWNER);
-    this.tooltip.hide(true);
+  patchList(): boolean {
+    return patchListImpl(this);
   }
 
-  /** patchList：处理patch列表。 */
-  private patchList(): boolean {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const techniques = this.getDisplayTechniques();
-    const pendingComprehensions = this.getPendingTechniqueListEntries();
-    const hasPagedListContext = this.hasPagedListContext();
-    if (techniques.length === 0 && pendingComprehensions.length === 0 && !hasPagedListContext) {
-      return false;
-    }
-    if (!this.patchFilterTabs(techniques, pendingComprehensions)) {
-      return false;
-    }
-    const filteredTechniques = this.getVisibleTechniques(techniques);
-    if (!this.patchPagination(filteredTechniques)) {
-      return false;
-    }
-    const pageTechniques = this.getPagedTechniques(filteredTechniques);
-    const visibleEntries = buildTechniqueListEntries(pageTechniques, pendingComprehensions, {
-      category: this.categoryFilter,
-      status: this.statusFilter,
-      search: this.searchQuery,
-    });
-    const visibleTechniqueIds = pageTechniques.map((tech) => tech.techId);
-    const listRoot = this.pane.querySelector<HTMLElement>('[data-tech-list="true"]');
-    if (!listRoot) {
-      return false;
-    }
-    if (visibleEntries.length === 0) {
-      const emptyNode = listRoot.querySelector<HTMLElement>('[data-tech-empty="true"]') ?? createEmptyHint('');
-      emptyNode.dataset.techEmpty = 'true';
-      emptyNode.textContent = this.getFilteredEmptyHint();
-      this.syncTechniqueListContent(listRoot, [emptyNode]);
-      this.lastVisibleTechniqueIds = [];
-      return true;
-    }
-
-    const existingCards = new Map<string, HTMLElement>();
-    listRoot.querySelectorAll<HTMLElement>('[data-tech-card]').forEach((card) => {
-      const techId = card.dataset.techCard;
-      if (techId) {
-        existingCards.set(techId, card);
-      }
-    });
-
-    const orderedCards: HTMLElement[] = [];
-    for (const entry of visibleEntries) {
-      if (entry.kind === 'pending') {
-        orderedCards.push(this.createPendingTechniqueCardElement(entry.pending));
-        continue;
-      }
-      const card = existingCards.get(entry.technique.techId) ?? this.createTechniqueCardElement(entry.technique);
-      existingCards.delete(entry.technique.techId);
-      orderedCards.push(card);
-    }
-    this.syncTechniqueListContent(listRoot, orderedCards);
-
-    const { cultivatingTechId } = this.lastState;
-    for (const tech of pageTechniques) {
-      let refs = this.cardNodeRefs.get(tech.techId);
-      if (!refs) {
-        const card = listRoot.querySelector<HTMLElement>(`[data-tech-card="${CSS.escape(tech.techId)}"]`);
-        if (card) {
-          this.cacheCardNodeRefs(tech.techId, card);
-          refs = this.cardNodeRefs.get(tech.techId);
-        }
-      }
-      if (!refs) {
-        return false;
-      }
-      const { card, realmLevel: realmLevelNode, realm: realmNode, layer: layerNode, progressText: progressTextNode, progressFill: progressFillNode, remain: remainNode, cultivateButton, skillToggleButton } = refs;
-      const showSkillToggle = shouldShowTechniqueSkillToggle(tech);
-      if (showSkillToggle !== Boolean(skillToggleButton)) {
-        return false;
-      }
-      const nextSignature = this.buildTechniqueCardPatchSignature(tech);
-      if (this.cardPatchSignatures.get(tech.techId) === nextSignature) {
-        continue;
-      }
-
-      const isCultivating = cultivatingTechId === tech.techId;
-      const skillsEnabled = showSkillToggle ? areTechniqueSkillsEnabled(tech, this.lastState.previewPlayer) : false;
-      const progressRatio = getTechniqueProgressRatio(tech);
-      const progressText = formatTechniqueProgressText(tech);
-      const remainText = formatTechniqueRemainText(tech);
-      const realmLevelLabel = getTechniqueRealmLevelLabel(tech);
-      const realmLabel = getTechniqueRealmLabel(getResolvedTechniqueRealm(tech));
-
-      card.classList.toggle('cultivating', isCultivating);
-      realmLevelNode.textContent = realmLevelLabel;
-      realmNode.textContent = realmLabel;
-      layerNode.textContent = formatTechniqueLayerText(tech);
-      progressTextNode.textContent = progressText;
-      progressFillNode.style.width = `${(progressRatio * 100).toFixed(2)}%`;
-      remainNode.textContent = remainText;
-      if (showSkillToggle && skillToggleButton) {
-        skillToggleButton.textContent = t('technique.card.skills-toggle', { state: skillsEnabled ? t('common.state.on-short', undefined) : t('common.state.off-short', undefined) });
-        skillToggleButton.classList.toggle('active', skillsEnabled);
-        skillToggleButton.dataset.techSkillsEnabled = skillsEnabled ? '1' : '0';
-      }
-      cultivateButton.textContent = isCultivating ? t('technique.action.cancel-cultivate', undefined) : t('technique.action.set-cultivate', undefined);
-      cultivateButton.classList.toggle('danger', isCultivating);
-      cultivateButton.dataset.cultivate = isCultivating ? '' : tech.techId;
-      cultivateButton.dataset.cultivateStop = isCultivating ? tech.techId : '';
-      this.cardPatchSignatures.set(tech.techId, nextSignature);
-    }
-
-    this.lastVisibleTechniqueIds = visibleTechniqueIds;
-    return true;
-  }
-
-  /** patchModal：处理patch弹窗。 */
-  private patchModal(): boolean {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!this.openTechId) {
-      return true;
-    }
-    if (!detailModalHost.isOpenFor(TechniquePanel.MODAL_OWNER)) {
-      return false;
-    }
-    const tech = this.findPreviewTechnique(this.openTechId);
-    if (!tech) {
-      return false;
-    }
-
-    const passiveTechnique = isPassiveTechnique(tech);
-    if (passiveTechnique) {
-      const expNode = document.querySelector<HTMLElement>('[data-tech-modal-current-exp="true"]');
-      const totalExpNode = document.querySelector<HTMLElement>('[data-tech-modal-total-exp="true"]');
-      const currentAttrsNode = document.querySelector<HTMLElement>('[data-tech-modal-current-attrs="true"]');
-      const passiveShell = document.querySelector<HTMLElement>('[data-tech-modal-passive-shell="true"]');
-      const titleNode = document.getElementById('detail-modal-title');
-      const subtitleNode = document.getElementById('detail-modal-subtitle');
-      if (!expNode || !totalExpNode || !currentAttrsNode || !passiveShell || !titleNode || !subtitleNode) {
-        return false;
-      }
-      const previewTechniques = resolvePreviewTechniques(this.lastState.techniques);
-      const currentAttrs = calcTechniqueAttrValues(tech.level, tech.layers);
-      const effectiveAttrs = calcTechniqueEffectiveContribution(previewTechniques, tech.techId);
-      const currentSpecialStats = calcTechniqueSpecialStatContribution(tech.level, tech.layers);
-      const currentQiProjection = calcTechniqueQiProjectionModifiers(tech.level, tech.layers);
-      titleNode.textContent = tech.name;
-      subtitleNode.textContent = t('technique.modal.subtitle', {
-        realmLevel: getTechniqueRealmLevelLabel(tech),
-        grade: getTechniqueGradeLabel(tech.grade),
-        realm: getTechniqueRealmLabel(getResolvedTechniqueRealm(tech)),
-        level: formatDisplayInteger(tech.level),
-        maxLevel: '无限',
-      });
-      expNode.textContent = formatTechniqueProgressText(tech);
-      totalExpNode.textContent = formatDisplayInteger(calcTechniqueTotalExp(tech));
-      currentAttrsNode.innerHTML = formatTechniqueContributionSummary(
-        effectiveAttrs,
-        currentAttrs,
-        currentSpecialStats,
-        currentSpecialStats,
-        currentQiProjection,
-      );
-      if (passiveShell.dataset.techModalPassiveLevel !== String(tech.level)) {
-        const template = document.createElement('template');
-        template.innerHTML = this.renderPassiveTechniqueOverview(tech).trim();
-        const nextShell = template.content.firstElementChild;
-        if (!(nextShell instanceof HTMLElement)) {
-          return false;
-        }
-        passiveShell.replaceWith(nextShell);
-        this.bindSkillTooltips(nextShell, new AbortController().signal);
-      }
-      return true;
-    }
-
-    const expNode = document.querySelector<HTMLElement>('[data-tech-modal-current-exp="true"]');
-    const totalExpNode = document.querySelector<HTMLElement>('[data-tech-modal-total-exp="true"]');
-    const currentAttrsNode = document.querySelector<HTMLElement>('[data-tech-modal-current-attrs="true"]');
-    const focusShell = document.querySelector<HTMLElement>('[data-tech-modal-focus-shell="true"]');
-    const constellationShell = document.querySelector<HTMLElement>('[data-tech-modal-constellation-shell="true"]');
-    const titleNode = document.getElementById('detail-modal-title');
-    const subtitleNode = document.getElementById('detail-modal-subtitle');
-    if (!expNode || !totalExpNode || !currentAttrsNode || !focusShell || !constellationShell || !titleNode || !subtitleNode) {
-      return false;
-    }
-    const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level);
-    const previewTechniques = resolvePreviewTechniques(this.lastState.techniques);
-    const currentAttrs = calcTechniqueAttrValues(tech.level, tech.layers);
-    const effectiveAttrs = calcTechniqueEffectiveContribution(previewTechniques, tech.techId);
-    const currentSpecialStats = calcTechniqueSpecialStatContribution(tech.level, tech.layers);
-    const currentQiProjection = calcTechniqueQiProjectionModifiers(tech.level, tech.layers);
-    const skillsByLevel = new Map<number, TechniqueState['skills']>();
-    for (const skill of tech.skills) {
-      const unlockLevel = resolveSkillUnlockLevel(skill);
-      const current = skillsByLevel.get(unlockLevel) ?? [];
-      current.push(skill);
-      skillsByLevel.set(unlockLevel, current);
-    }
-    const layers = tech.layers && tech.layers.length > 0
-      ? [...tech.layers].sort((left, right) => left.level - right.level)
-      : this.buildFallbackLayers(tech, maxLevel);
-    const milestones = buildTechniqueMilestones(tech, maxLevel);
-    const selectedLevel = this.resolveOpenLayerLevel(layers, tech.level);
-
-    titleNode.textContent = tech.name;
-    subtitleNode.textContent = t('technique.modal.subtitle', {
-      realmLevel: getTechniqueRealmLevelLabel(tech),
-      grade: getTechniqueGradeLabel(tech.grade),
-      realm: getTechniqueRealmLabel(getResolvedTechniqueRealm(tech)),
-      level: formatDisplayInteger(tech.level),
-      maxLevel: formatDisplayInteger(maxLevel),
-    });
-    expNode.textContent = formatTechniqueProgressText(tech);
-    totalExpNode.textContent = formatDisplayInteger(calcTechniqueTotalExp(tech));
-    currentAttrsNode.innerHTML = formatTechniqueContributionSummary(
-      effectiveAttrs,
-      currentAttrs,
-      currentSpecialStats,
-      currentSpecialStats,
-      currentQiProjection,
-    );
-
-    if (!focusShell.querySelector('[data-tech-focus-card="true"]')) {
-      replaceElementHtml(focusShell, this.renderLayerFocus(tech, layers, selectedLevel, skillsByLevel, milestones));
-    } else {
-      this.patchLayerFocus(focusShell, tech, layers, selectedLevel, skillsByLevel, milestones);
-    }
-
-    const constellationSignature = this.buildConstellationStructureSignature(layers, skillsByLevel);
-    if (constellationShell.dataset.techModalConstellationSignature !== constellationSignature) {
-      constellationShell.dataset.techModalConstellationSignature = constellationSignature;
-      replaceElementHtml(constellationShell, this.renderConstellation(tech, layers, tech.level, selectedLevel, skillsByLevel, milestones));
-      this.mountConstellation(constellationShell, tech, layers, selectedLevel, skillsByLevel, milestones);
-    }
-
-    const noteNode = document.querySelector<HTMLElement>('.tech-starfield-note');
-    if (noteNode) {
-      noteNode.textContent = tech.level < layers.length
-        ? t('technique.constellation.note.current', { level: formatDisplayInteger(tech.level), percent: formatDisplayInteger(getTechniqueProgressRatio(tech) * 100) })
-        : t('technique.constellation.note.completed', { level: formatDisplayInteger(layers.length) });
-    }
-    const constellationData = this.buildConstellationData(tech, layers, selectedLevel, skillsByLevel, milestones);
-    const constellationRoot = constellationShell.querySelector<HTMLElement>('[data-tech-constellation-root="true"]');
-    if (!constellationRoot) {
-      return false;
-    }
-    if (this.constellationCanvas) {
-      this.constellationCanvas.update(constellationData);
-    } else {
-      this.constellationCanvas = new TechniqueConstellationCanvas(constellationRoot, constellationData, (level) => {
-        if (this.openLayerLevel === level) {
-          return;
-        }
-        this.openLayerLevel = level;
-        if (!this.patchModal()) {
-          this.renderModal();
-        }
-      }, (payload, clientX, clientY) => {
-        this.showConstellationTooltip(payload, clientX, clientY);
-      }, (clientX, clientY) => {
-        this.tooltip.move(clientX, clientY);
-      }, () => {
-        this.tooltip.hide();
-      });
-    }
-    return true;
+  patchModal(): boolean {
+    return patchModalImpl(this);
   }  
-  /**
- * buildConstellationData：构建并返回目标对象。
- * @param tech TechniqueState 参数说明。
- * @param layers TechniqueLayerDef[] 参数说明。
- * @param selectedLevel number 参数说明。
- * @param skillsByLevel Map<number, TechniqueState['skills']> 参数说明。
- * @param milestones Map<number, TechniqueRealm> 参数说明。
- * @returns 返回ConstellationData。
- */
-
-
-  private buildConstellationData(
+  buildConstellationData(
     tech: TechniqueState,
     layers: TechniqueLayerDef[],
     selectedLevel: number,
     skillsByLevel: Map<number, TechniqueState['skills']>,
     milestones: Map<number, TechniqueRealm>,
   ): TechniqueConstellationCanvasData {
-    return {
-      techniqueName: tech.name,
-      maxLevels: layers.length,
-      currentLevel: tech.level,
-      expPercent: Math.round(getTechniqueProgressRatio(tech) * 100),
-      selectedLevel,
-      nodes: layers.map((layer) => {
-        const layerRealm = deriveTechniqueRealm(layer.level, tech.layers);
-        const layerAttrs = formatTechniqueLayerBonusSummary(layer, t('technique.layer.no-attr-gain', undefined));
-        const totalAttrs = formatTechniqueCumulativeBonusSummary(layer.level, tech.layers);
-        const progressText = layer.level < tech.level
-          ? t('technique.constellation.progress.passed', undefined)
-          : layer.level === tech.level
-            ? t('technique.constellation.progress.current', { percent: formatDisplayInteger(getTechniqueProgressRatio(tech) * 100) })
-            : layer.level === tech.level + 1 && tech.level < layers.length && tech.expToNext > 0
-              ? t('technique.constellation.progress.breaking', { percent: formatDisplayInteger(getTechniqueProgressRatio(tech) * 100) })
-              : t('technique.constellation.progress.locked', undefined);
-        const milestone = milestones.get(layer.level);
-        return {
-          level: layer.level,
-          milestone: milestone ? getTechniqueRealmLabel(milestone) as '小成' | '大成' | '圆满' : undefined,
-          hoverTitle: t('technique.focus.title', { level: formatDisplayInteger(layer.level) }),
-          hoverLines: [
-            progressText,
-            t('technique.constellation.hover.gain', { value: layerAttrs }),
-            t('technique.constellation.hover.total', { value: totalAttrs }),
-            t('technique.constellation.hover.realm', { realm: getTechniqueRealmLabel(layerRealm) }),
-          ],
-        };
-      }),
-    };
+    return buildConstellationDataImpl(this, tech, layers, selectedLevel, skillsByLevel, milestones);
   }
 
-  /** destroyConstellationCanvas：处理destroy星图Canvas。 */
-  private destroyConstellationCanvas(): void {
-    this.constellationCanvas?.destroy();
-    this.constellationCanvas = null;
+  destroyConstellationCanvas(): void {
+    return destroyConstellationCanvasImpl(this);
   }
 
-  /** showConstellationTooltip：处理显示星图提示。 */
-  private showConstellationTooltip(payload: TechniqueConstellationHoverPayload, clientX: number, clientY: number): void {
-    this.tooltip.show(payload.title, payload.lines, clientX, clientY);
+  showConstellationTooltip(payload: TechniqueConstellationHoverPayload, clientX: number, clientY: number): void {
+    return showConstellationTooltipImpl(this, payload, clientX, clientY);
   }  
-  /**
- * buildConstellationStructureSignature：构建并返回目标对象。
- * @param layers TechniqueLayerDef[] 参数说明。
- * @param skillsByLevel Map<number, TechniqueState['skills']> 参数说明。
- * @returns 返回ConstellationStructureSignature。
- */
-
-
-  private buildConstellationStructureSignature(
+  buildConstellationStructureSignature(
     layers: TechniqueLayerDef[],
     skillsByLevel: Map<number, TechniqueState['skills']>,
   ): string {
-    return layers.map((layer) => {
-      const skills = skillsByLevel.get(layer.level) ?? [];
-      return `${layer.level}:${skills.map((skill) => skill.id).join(',')}`;
-    }).join('|');
+    return buildConstellationStructureSignatureImpl(this, layers, skillsByLevel);
   }  
-  /**
- * patchLayerFocus：执行patch层Focu相关逻辑。
- * @param focusShell HTMLElement 参数说明。
- * @param tech TechniqueState 参数说明。
- * @param layers TechniqueLayerDef[] 参数说明。
- * @param selectedLevel number 参数说明。
- * @param skillsByLevel Map<number, TechniqueState['skills']> 参数说明。
- * @param milestones Map<number, TechniqueRealm> 参数说明。
- * @returns 无返回值，直接更新patch层Focu相关状态。
- */
-
-
-  private patchLayerFocus(
+  patchLayerFocus(
     focusShell: HTMLElement,
     tech: TechniqueState,
     layers: TechniqueLayerDef[],
@@ -2463,60 +1302,11 @@ export class TechniquePanel {
     skillsByLevel: Map<number, TechniqueState['skills']>,
     milestones: Map<number, TechniqueRealm>,
   ): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const layer = layers.find((entry) => entry.level === selectedLevel) ?? layers[0];
-    const card = focusShell.querySelector<HTMLElement>('[data-tech-focus-card="true"]');
-    const title = focusShell.querySelector<HTMLElement>('[data-tech-focus-title="true"]');
-    const subtitle = focusShell.querySelector<HTMLElement>('[data-tech-focus-subtitle="true"]');
-    const state = focusShell.querySelector<HTMLElement>('[data-tech-focus-state="true"]');
-    const exp = focusShell.querySelector<HTMLElement>('[data-tech-focus-exp="true"]');
-    const layerAttrsNode = focusShell.querySelector<HTMLElement>('[data-tech-focus-layer-attrs="true"]');
-    const totalAttrsNode = focusShell.querySelector<HTMLElement>('[data-tech-focus-total-attrs="true"]');
-    const skillsNode = focusShell.querySelector<HTMLElement>('[data-tech-focus-skills="true"]');
-    if (!layer || !card || !title || !subtitle || !state || !exp || !layerAttrsNode || !totalAttrsNode || !skillsNode) {
-      return;
-    }
-    const selectedRealm = deriveTechniqueRealm(layer.level, tech.layers);
-    const milestone = milestones.get(layer.level);
-    const skills = skillsByLevel.get(layer.level) ?? [];
-    const stateLabel = layer.level < tech.level ? t('technique.layer.state.passed', undefined) : layer.level === tech.level ? t('technique.layer.state.current', undefined) : t('technique.layer.state.locked', undefined);
-    const expText = layer.expToNext > 0 ? t('technique.layer.next-exp', { exp: formatDisplayInteger(layer.expToNext) }) : t('technique.layer.endpoint', undefined);
-    const milestoneText = milestone ? t('technique.layer.milestone', { realm: getTechniqueRealmLabel(milestone) }) : t('technique.layer.realm-stage', { realm: getTechniqueRealmLabel(selectedRealm) });
-    const layerAttrs = formatTechniqueLayerBonusSummary(layer, t('technique.layer.no-attr-gain', undefined));
-    const totalAttrs = formatTechniqueCumulativeBonusSummary(layer.level, tech.layers);
-
-    card.classList.toggle('passed', layer.level < tech.level);
-    card.classList.toggle('current', layer.level === tech.level);
-    title.textContent = t('technique.focus.title', { level: formatDisplayInteger(layer.level) });
-    subtitle.textContent = milestoneText;
-    state.textContent = stateLabel;
-    exp.textContent = expText;
-    layerAttrsNode.textContent = layerAttrs;
-    totalAttrsNode.textContent = totalAttrs;
-    if (skills.length === 0) {
-      const empty = document.createElement('span');
-      empty.className = 'tech-layer-empty';
-      empty.textContent = t('technique.layer.no-skill', undefined);
-      skillsNode.replaceChildren(empty);
-      return;
-    }
-    skillsNode.replaceChildren(
-      ...skills.map((skill) => {
-        const node = document.createElement('span');
-        node.className = 'tech-skill-tag';
-        node.dataset.skillTooltipTitle = skill.name;
-        node.dataset.skillTooltipSkillId = skill.id;
-        node.dataset.skillTooltipUnlockLevel = String(resolveSkillUnlockLevel(skill));
-        node.dataset.skillTooltipRich = '1';
-        node.textContent = skill.name;
-        return node;
-      }),
-    );
+    return patchLayerFocusImpl(this, focusShell, tech, layers, selectedLevel, skillsByLevel, milestones);
   }
 
   /** findPreviewTechnique：查找Preview Technique。 */
-  private findPreviewTechnique(techId: string): TechniqueState | undefined {
+  findPreviewTechnique(techId: string): TechniqueState | undefined {
     const pagedTechnique = this.pagedSnapshot?.items.find((entry) => entry.techId === techId);
     if (pagedTechnique) {
       return resolvePreviewTechnique(pagedTechnique);

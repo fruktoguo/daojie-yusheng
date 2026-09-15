@@ -49,13 +49,208 @@ import {
     buildTechniqueActivityTaskListView,
     buildTechniqueActivityTaskPatchView,
 } from './technique-activity-task-view.helpers';
+import {
+    type CraftRuntimeSectionRecorder,
+    resolveContentPath,
+    walkJsonFiles,
+    normalizePositiveInt,
+    normalizeTechniqueGrade,
+    normalizeCraftSkill,
+    normalizeEnhancementConfig,
+    normalizeEnhancementRequirement,
+    toAlchemyIngredientDef,
+    toAlchemyMainIngredientDef,
+    resolveRecipeRequiredAuxElements,
+    sumRecipeIngredientElements,
+    buildAlchemyRecipeTargetElements,
+    sumCraftElementAbs,
+    resolveAlchemyRecipeCategory,
+    resolveAlchemyLikeBaseSuccessRate,
+    computeAlchemyMaterialPower,
+    resolveAlchemyGradeValue,
+    cloneItem,
+    flattenItemForClone,
+    isEnhanceableItem,
+    clonePartialNumericStats,
+    cloneEnhancementRecord,
+    cloneEnhancementJob,
+    createCraftJobRunId,
+    normalizeCraftQueueStartMode,
+    cloneCraftQueue,
+    getPlayerCraftQueue,
+    getPlayerTechniqueActivityQueue,
+    setPlayerTechniqueActivityQueue,
+    enqueuePlayerTechniqueActivityQueueItem,
+    reorderPlayerTechniqueActivityQueueItem,
+    migrateLegacyCraftQueueToUnifiedQueue,
+    normalizeTechniqueActivityQueueItem,
+    normalizeRuntimeTechniqueActivityKind,
+    hasCancelableTechniqueActivityJob,
+    createTechniqueActivityQueueId,
+    getAlchemyLikeJob,
+    setAlchemyLikeJob,
+    buildCraftQueueId,
+    buildAlchemyQueueItem,
+    buildEnhancementQueueItem,
+    buildActiveJobSnapshotFromPlayer,
+    captureEnhancementAssetRuntimeState,
+    captureEnhancementProgressRuntimeState,
+    restoreEnhancementProgressRuntimeState,
+    restoreEnhancementAssetRuntimeState,
+    buildDurableInventoryItemsFromSnapshot,
+    buildDurableWalletBalancesFromSnapshot,
+    buildEnhancementAdvancedAssetPatch,
+    indexStableDurableInventoryItems,
+    normalizeEnhancementPatchComparableValue,
+    resolveEnhancementDurableCompletionKind,
+    buildDurableInventoryItemSnapshot,
+    buildDurableEquipmentSlotsFromSnapshot,
+    buildDurableEnhancementRecordsFromEntries,
+    buildDurableProfessionStatesFromSnapshot,
+    buildTechniqueActivityQueueSnapshotFromPlayer,
+    buildActiveJobSnapshot,
+    normalizeActiveJobSnapshotType,
+    isCompletedAlchemyLikeJob,
+    countInventoryItem,
+    receiveInventoryItem,
+    consumeInventoryItemByItemId,
+    extractInventoryItemByInstanceId,
+    findInventoryItemByInstanceId,
+    findInventoryItemIndexByInstanceId,
+    setEquippedItem,
+    extractEquipmentItem,
+    hasTechniqueActivityStatisticSignal,
+    normalizeText,
+    normalizeInventoryItemInstanceId,
+    normalizeAlchemyPresetName,
+    createAlchemyPresetId,
+    normalizeQuantity,
+    normalizeIngredientSelections,
+    cloneAlchemyIngredientSelections,
+    cloneCraftElementMatchSnapshot,
+    isExactSubmittedIngredients,
+    validateAlchemySelection,
+    applyCraftSkillExp,
+    resolveAlchemySkillBaseActionTicks,
+    resolveAlchemyBatchSuccess,
+    normalizeEquipSlot,
+    cloneTargetRef,
+    beginCraftRuntimeSection,
+    recordCraftRuntimeSection,
+    recordCraftRuntimeCount,
+    buildCraftMutationResult,
+    buildSupersededCraftTickResult,
+    capturePlayerSessionFence,
+    normalizePlayerSessionFence,
+    isSamePlayerSessionFence,
+    buildCraftTickResult,
+    normalizeEnhanceLevel,
+    getEnhancementSpiritStoneCost,
+} from './craft-panel-runtime.catalog.helpers';
+import {
+    startEnhancementDurablyImpl,
+    startEnhancementDurablyLockedImpl,
+    startQueuedEnhancementDurablyImpl,
+    startQueuedEnhancementDurablyLockedImpl,
+    cancelEnhancementDurablyImpl,
+    cancelEnhancementDurablyLockedImpl,
+    tickEnhancementDurablyImpl,
+    tickEnhancementProgressOnlyImpl,
+    tickEnhancementDurablyLockedImpl,
+    queueEnhancementActiveJobFlushImpl,
+    commitEnhancementActiveJobWithAssetsImpl,
+    markPlayerSessionFenceSupersededImpl,
+    isPlayerSessionFenceSupersededImpl,
+    shouldUseDurableEnhancementPersistenceImpl,
+    runExclusivePlayerAssetMutationImpl,
+    resolveDurablePresenceFenceImpl,
+    restoreEnhancementAssetRuntimeStateImpl,
+    validateEnhancementStartImpl,
+    queueEnhancementStartImpl,
+    consumeEnhancementStartResourcesImpl,
+    createEnhancementStartJobImpl,
+    finalizeEnhancementStartImpl,
+    buildEnhancementStartMessagesImpl,
+    resolveEnhancementItemBaseDisplayNameImpl,
+    startEnhancementImpl,
+    cancelEnhancementImpl,
+    interruptEnhancementImpl,
+    tickEnhancementImpl,
+    collectEnhancementCandidatesImpl,
+    buildEnhancementCandidateImpl,
+    buildProtectionCandidatesImpl,
+    getEnhancementRequirementsImpl,
+    getEnhancementToolItemImpl,
+    resolveRequestedTargetLevelImpl,
+    resolveProtectionStartLevelImpl,
+    shouldUseProtectionForStepImpl,
+    resolveEnhancementTargetImpl,
+    resolveEnhancementProtectionImpl,
+    touchEnhancementRecordImpl,
+    resolveEnhancementRecordItemNameImpl,
+    touchEnhancementLevelRecordImpl,
+    recordEnhancementStartImpl,
+    recordEnhancementStepResultImpl,
+    completeEnhancementRecordImpl,
+    advanceEnhancementJobImpl,
+    finishEnhancementJobImpl,
+    hasEnoughEnhancementResourcesImpl,
+    hasEnoughQueuedEnhancementResourcesImpl,
+    consumeProtectionItemForFailureImpl,
+    consumeInventoryItemByPredicateImpl,
+    isSelfProtectionItemImpl,
+    isEligibleProtectionItemImpl,
+    getEligibleProtectionCountImpl,
+    persistEnhancementRecordsImpl,
+    hasEquippedHammerImpl,
+} from './craft-panel-runtime.enhancement';
+import {
+    validateAlchemyLikeStartImpl,
+    queueAlchemyLikeStartImpl,
+    consumeAlchemyLikeStartResourcesImpl,
+    validateAlchemyLikeBatchResourcesImpl,
+    consumeAlchemyLikeBatchResourcesImpl,
+    resolveAlchemyLikeBatchSpiritStoneCostImpl,
+    isAlchemyLikePerBatchResourceJobImpl,
+    markAlchemyLikePerBatchResourceJobImpl,
+    computeLegacyAlchemyLikePrepaidRefundImpl,
+    ensureAlchemyLikeJobResourceCompatibilityImpl,
+    createAlchemyLikeStartJobImpl,
+    finalizeAlchemyLikeStartImpl,
+    buildAlchemyLikeStartMessagesImpl,
+    startAlchemyImpl,
+    startForgingImpl,
+    cancelAlchemyImpl,
+    cancelForgingImpl,
+    saveAlchemyPresetImpl,
+    deleteAlchemyPresetImpl,
+    interruptAlchemyImpl,
+    getAlchemyLikeActiveJobImpl,
+    ensureAlchemyLikeActiveJobResourceCompatibilityMutationImpl,
+    setAlchemyLikeActiveJobImpl,
+    advanceAlchemyLikePausedJobImpl,
+    resolveAlchemyLikeBatchSuccessImpl,
+    buildAlchemyLikeBatchResolveResultImpl,
+    buildAlchemyLikeExpParamsImpl,
+    completeAlchemyLikeJobImpl,
+    buildAlchemyLikeCompletionMessageImpl,
+    buildAlchemyLikeBatchMessageImpl,
+    buildAlchemyLikeTickResultImpl,
+    tickAlchemyImpl,
+    getAlchemyLikeToolSpeedRateImpl,
+    getAlchemyLikeToolSuccessRateImpl,
+    getAlchemyLikeToolOutputRateImpl,
+    getLuckSuccessRateBonusImpl,
+    resolveAlchemyLikeCurrentSuccessRateImpl,
+    refreshAlchemyLikeActiveJobSuccessRateImpl,
+    getAlchemyLikeToolItemImpl,
+} from './craft-panel-runtime.alchemy-like';
 
 /** 强化与炼丹计算中固定使用的灵石物品 ID。 */
-const SPIRIT_STONE_ITEM_ID = ENHANCEMENT_SPIRIT_STONE_ITEM_ID;
+export const SPIRIT_STONE_ITEM_ID = ENHANCEMENT_SPIRIT_STONE_ITEM_ID;
 /** 炼丹/炼器资源扣除策略版本：每批完成结算前扣除一批。 */
-const ALCHEMY_LIKE_RESOURCE_CONSUMPTION_MODE_PER_BATCH = 'perBatchOnResolve';
-const ALCHEMY_LIKE_RESOURCE_CONSUMPTION_VERSION = 2;
-type CraftRuntimeSectionRecorder = ((key: string, durationMs: number, count?: number) => void) | null;
+export const ALCHEMY_LIKE_RESOURCE_CONSUMPTION_MODE_PER_BATCH = 'perBatchOnResolve';
+export const ALCHEMY_LIKE_RESOURCE_CONSUMPTION_VERSION = 2;
 
 /** 制作运行时服务：负责炼丹与强化的任务创建、进度推进与结果落库。 */
 @Injectable()
@@ -101,7 +296,7 @@ export class CraftPanelRuntimeService {
     /** 缓存强化配置，避免每次操作都重新查表。 */
     enhancementConfigs = new Map();
     /** 已被更高 session 接管的玩家 fence；只抑制相同旧 fence，新的本地会话会自动恢复 tick。 */
-    private readonly supersededPlayerSessionFences = new WeakMap<object, {
+    readonly supersededPlayerSessionFences = new WeakMap<object, {
         runtimeOwnerId: string | null;
         sessionEpoch: number;
     }>();
@@ -324,125 +519,18 @@ export class CraftPanelRuntimeService {
         return buildCraftMutationResult(`unsupported technique activity kind: ${kind}`);
     }
     /** 线上强化启动入口：运行态变更成功后必须同步提交强事务，失败则回滚本次运行态变更。 */
-    async startEnhancementDurably(player, payload, deps = null) {
-        return this.runExclusivePlayerAssetMutation(
-            player,
-            () => this.startEnhancementDurablyLocked(player, payload, deps),
-        );
+        async startEnhancementDurably(player, payload, deps = null) {
+        return startEnhancementDurablyImpl(this, player, payload, deps);
     }
-    async startEnhancementDurablyLocked(player, payload, deps = null) {
-        if (player?.enhancementDurableCommitInFlight === true || player?.suppressImmediateDomainPersistence === true) {
-            return buildCraftMutationResult('强化状态正在同步，请稍后重试。');
-        }
-        const durableEnabled = this.shouldUseDurableEnhancementPersistence(player);
-        if (
-            durableEnabled
-            && !await this.flushTechniqueActivityProjection(player, {
-                force: true,
-                reason: 'enhancement_start_handoff',
-            })
-        ) {
-            return buildCraftMutationResult('强化状态正在同步，请稍后重试。');
-        }
-        const durablePresence = durableEnabled
-            ? await this.resolveDurablePresenceFence(player.playerId)
-            : null;
-        const before = captureEnhancementAssetRuntimeState(player);
-        const previousSuppress = player?.suppressImmediateDomainPersistence;
-        if (durableEnabled) {
-            player.enhancementDurableCommitInFlight = true;
-            player.suppressImmediateDomainPersistence = true;
-        }
-        try {
-            const result = this.startTechniqueActivity(player, 'enhancement', payload, deps);
-            if (!result.ok) {
-                return result;
-            }
-            if ('queued' in result && result.queued === true) {
-                this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
-                return result;
-            }
-            if (!player?.enhancementJob) {
-                return result;
-            }
-            await this.commitEnhancementActiveJobWithAssets(player, 'start', null, {
-                allowSuppressed: durableEnabled,
-                presence: durablePresence,
-            });
-            return result;
-        }
-        catch (error) {
-            this.restoreEnhancementAssetRuntimeState(player, before);
-            throw error;
-        }
-        finally {
-            if (durableEnabled) {
-                player.suppressImmediateDomainPersistence = previousSuppress;
-                player.enhancementDurableCommitInFlight = false;
-            }
-        }
+        async startEnhancementDurablyLocked(player, payload, deps = null) {
+        return startEnhancementDurablyLockedImpl(this, player, payload, deps);
     }
     /** 队列头强化的出队、扣料、锁定与 durable start 必须处于同一个玩家资产串行区。 */
-    async startQueuedEnhancementDurably(player, startQueuedActivity, deps = null) {
-        return this.runExclusivePlayerAssetMutation(
-            player,
-            () => this.startQueuedEnhancementDurablyLocked(player, startQueuedActivity, deps),
-        );
+        async startQueuedEnhancementDurably(player, startQueuedActivity, deps = null) {
+        return startQueuedEnhancementDurablyImpl(this, player, startQueuedActivity, deps);
     }
-    async startQueuedEnhancementDurablyLocked(player, startQueuedActivity, deps = null) {
-        if (typeof startQueuedActivity !== 'function') {
-            return null;
-        }
-        if (player?.enhancementDurableCommitInFlight === true || player?.suppressImmediateDomainPersistence === true) {
-            return null;
-        }
-        const queueHead = Array.isArray(player?.techniqueActivityQueue)
-            ? player.techniqueActivityQueue[0]
-            : null;
-        if (queueHead?.kind !== 'enhancement') {
-            return startQueuedActivity();
-        }
-        const durableEnabled = this.shouldUseDurableEnhancementPersistence(player);
-        if (
-            durableEnabled
-            && !await this.flushTechniqueActivityProjection(player, {
-                force: true,
-                reason: 'queued_enhancement_start_handoff',
-            })
-        ) {
-            return null;
-        }
-        const durablePresence = durableEnabled
-            ? await this.resolveDurablePresenceFence(player.playerId)
-            : null;
-        const before = captureEnhancementAssetRuntimeState(player);
-        const previousSuppress = player?.suppressImmediateDomainPersistence;
-        if (durableEnabled) {
-            player.enhancementDurableCommitInFlight = true;
-            player.suppressImmediateDomainPersistence = true;
-        }
-        try {
-            const result = startQueuedActivity();
-            if (!result?.ok || !player?.enhancementJob) {
-                return result;
-            }
-            await this.commitEnhancementActiveJobWithAssets(player, 'start', null, {
-                allowSuppressed: durableEnabled,
-                presence: durablePresence,
-                expectedQueueHeadId: normalizeText(queueHead.queueId) || null,
-            });
-            return result;
-        }
-        catch (error) {
-            this.restoreEnhancementAssetRuntimeState(player, before);
-            throw error;
-        }
-        finally {
-            if (durableEnabled) {
-                player.suppressImmediateDomainPersistence = previousSuppress;
-                player.enhancementDurableCommitInFlight = false;
-            }
-        }
+        async startQueuedEnhancementDurablyLocked(player, startQueuedActivity, deps = null) {
+        return startQueuedEnhancementDurablyLockedImpl(this, player, startQueuedActivity, deps);
     }
     /** 统一派发技艺活动的取消写路径。 */
     cancelTechniqueActivity(player, kind, deps = null) {
@@ -457,48 +545,11 @@ export class CraftPanelRuntimeService {
         return buildCraftMutationResult(`unsupported technique activity kind: ${kind}`);
     }
     /** 线上强化取消入口：释放锁定装备和清理 active_job 必须同批强事务提交。 */
-    async cancelEnhancementDurably(player, deps = null) {
-        return this.runExclusivePlayerAssetMutation(
-            player,
-            () => this.cancelEnhancementDurablyLocked(player, deps),
-        );
+        async cancelEnhancementDurably(player, deps = null) {
+        return cancelEnhancementDurablyImpl(this, player, deps);
     }
-    async cancelEnhancementDurablyLocked(player, deps = null) {
-        if (player?.enhancementDurableCommitInFlight === true || player?.suppressImmediateDomainPersistence === true) {
-            return buildCraftMutationResult('强化状态正在同步，请稍后重试。');
-        }
-        const durableEnabled = this.shouldUseDurableEnhancementPersistence(player);
-        const durablePresence = durableEnabled
-            ? await this.resolveDurablePresenceFence(player.playerId)
-            : null;
-        const before = captureEnhancementAssetRuntimeState(player);
-        const expectedJob = player?.enhancementJob ? { ...player.enhancementJob } : null;
-        const previousSuppress = player?.suppressImmediateDomainPersistence;
-        player.suppressImmediateDomainPersistence = true;
-        if (durableEnabled) {
-            player.enhancementDurableCommitInFlight = true;
-        }
-        try {
-            const result = this.cancelTechniqueActivity(player, 'enhancement', deps);
-            if (!result?.ok || !expectedJob) {
-                return result;
-            }
-            await this.commitEnhancementActiveJobWithAssets(player, 'cancelled', expectedJob, {
-                allowSuppressed: durableEnabled,
-                presence: durablePresence,
-            });
-            return result;
-        }
-        catch (error) {
-            this.restoreEnhancementAssetRuntimeState(player, before);
-            throw error;
-        }
-        finally {
-            player.suppressImmediateDomainPersistence = previousSuppress;
-            if (durableEnabled) {
-                player.enhancementDurableCommitInFlight = false;
-            }
-        }
+        async cancelEnhancementDurablyLocked(player, deps = null) {
+        return cancelEnhancementDurablyLockedImpl(this, player, deps);
     }
     /** 统一派发技艺活动的中断。 */
     interruptTechniqueActivity(player, kind, reason, deps = null) {
@@ -531,201 +582,27 @@ export class CraftPanelRuntimeService {
         return buildCraftTickResult();
     }
     /** 线上强化 tick 入口：普通进度走同步轻量段，清理 job 或回写资产仍同步提交强事务。 */
-    tickEnhancementDurably(
+        tickEnhancementDurably(
         player,
         deps = null,
         recordSectionDuration: CraftRuntimeSectionRecorder = null,
     ) {
-        if (this.isPlayerSessionFenceSuperseded(player)) {
-            return buildSupersededCraftTickResult();
-        }
-        const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
-        const runWhileAssetIdle = this.playerRuntimeService?.tryRunSynchronousPlayerMutationWhileAssetIdle;
-        const stateGuarded = player?.enhancementDurableCommitInFlight === true
-            || player?.suppressImmediateDomainPersistence === true;
-        const progressOnly = Boolean(playerId && !stateGuarded && isEnhancementProgressOnlyTick(player));
-        if (
-            progressOnly
-            && typeof runWhileAssetIdle === 'function'
-        ) {
-            let progressResult: any = null;
-            const executed = runWhileAssetIdle.call(this.playerRuntimeService, playerId, () => {
-                progressResult = this.tickEnhancementProgressOnly(player, deps);
-            });
-            if (executed) {
-                return progressResult;
-            }
-        }
-        recordCraftRuntimeCount(
-            recordSectionDuration,
-            stateGuarded
-                ? 'instance.craftJob.enhancementAsyncStateGuard'
-                : progressOnly
-                    ? typeof runWhileAssetIdle === 'function'
-                        ? 'instance.craftJob.enhancementAsyncQueueBusy'
-                        : 'instance.craftJob.enhancementAsyncUnsupported'
-                    : 'instance.craftJob.enhancementAsyncSettlement',
-        );
-        const queueStartedAt = beginCraftRuntimeSection(recordSectionDuration);
-        let actionCompletedAt: number | null = null;
-        const pendingResult = this.runExclusivePlayerAssetMutation(
-            player,
-            async () => {
-                recordCraftRuntimeSection(
-                    recordSectionDuration,
-                    'instance.craftJob.enhancementAssetQueueWaitMs',
-                    queueStartedAt,
-                );
-                try {
-                    return await this.tickEnhancementDurablyLocked(player, deps, recordSectionDuration);
-                }
-                finally {
-                    actionCompletedAt = performance.now();
-                }
-            },
-        );
-        return Promise.resolve(pendingResult).finally(() => {
-            recordCraftRuntimeSection(
-                recordSectionDuration,
-                'instance.craftJob.enhancementCoordinatorFinalizeMs',
-                actionCompletedAt,
-            );
-        });
+        return tickEnhancementDurablyImpl(this, player, deps, recordSectionDuration);
     }
     /** 强化普通进度只修改规范化 job 与 active_job 修订；异常时按轻量快照原样回滚。 */
-    private tickEnhancementProgressOnly(player, deps = null) {
-        const before = captureEnhancementProgressRuntimeState(player);
-        const expectedJobRunId = player?.enhancementJob?.jobRunId;
-        const previousSuppress = player?.suppressImmediateDomainPersistence;
-        player.suppressImmediateDomainPersistence = true;
-        try {
-            const result: any = this.tickTechniqueActivity(player, 'enhancement', deps);
-            if (result && typeof result.then === 'function') {
-                throw new Error('enhancement_progress_tick_must_be_synchronous');
-            }
-            const violatesProgressBoundary = Boolean(
-                !result?.ok
-                || result.inventoryChanged
-                || result.equipmentChanged
-                || result.attrChanged
-                || Number(result.craftRealmExpGain) > 0
-                || !player?.enhancementJob
-                || player.enhancementJob.jobRunId !== expectedJobRunId,
-            );
-            if (violatesProgressBoundary) {
-                throw new Error('enhancement_progress_tick_crossed_asset_boundary');
-            }
-            this.queueEnhancementActiveJobFlush(player, previousSuppress);
-            return result;
-        }
-        catch (error) {
-            restoreEnhancementProgressRuntimeState(player, before);
-            throw error;
-        }
-        finally {
-            player.suppressImmediateDomainPersistence = previousSuppress;
-        }
+        tickEnhancementProgressOnly(player, deps = null) {
+        return tickEnhancementProgressOnlyImpl(this, player, deps);
     }
-    async tickEnhancementDurablyLocked(
+        async tickEnhancementDurablyLocked(
         player,
         deps = null,
         recordSectionDuration: CraftRuntimeSectionRecorder = null,
     ) {
-        if (player?.enhancementDurableCommitInFlight === true || player?.suppressImmediateDomainPersistence === true) {
-            return buildCraftTickResult();
-        }
-        const durableEnabled = this.shouldUseDurableEnhancementPersistence(player);
-        const before = captureEnhancementAssetRuntimeState(player);
-        const expectedJob = player?.enhancementJob ? { ...player.enhancementJob } : null;
-        let attemptedSessionFence = capturePlayerSessionFence(player);
-        const previousSuppress = player?.suppressImmediateDomainPersistence;
-        if (durableEnabled) {
-            player.enhancementDurableCommitInFlight = true;
-            player.suppressImmediateDomainPersistence = true;
-        }
-        try {
-            const runtimeResolveStartedAt = beginCraftRuntimeSection(recordSectionDuration);
-            let result: any;
-            try {
-                result = this.tickTechniqueActivity(player, 'enhancement', deps);
-            }
-            finally {
-                recordCraftRuntimeSection(
-                    recordSectionDuration,
-                    'instance.craftJob.enhancementRuntimeResolveMs',
-                    runtimeResolveStartedAt,
-                );
-            }
-            if (!result?.ok) {
-                return result;
-            }
-            const hasAssetBoundary = Boolean(
-                result.inventoryChanged
-                || result.equipmentChanged
-                || !player?.enhancementJob
-                || player.enhancementJob?.jobRunId !== expectedJob?.jobRunId,
-            );
-            if (expectedJob && hasAssetBoundary) {
-                const presenceFenceStartedAt = beginCraftRuntimeSection(recordSectionDuration);
-                let durablePresence = null;
-                try {
-                    durablePresence = durableEnabled
-                        ? await this.resolveDurablePresenceFence(player.playerId, recordSectionDuration)
-                        : null;
-                }
-                finally {
-                    recordCraftRuntimeSection(
-                        recordSectionDuration,
-                        'instance.craftJob.enhancementPresenceFenceMs',
-                        presenceFenceStartedAt,
-                    );
-                }
-                if (durablePresence) {
-                    attemptedSessionFence = {
-                        runtimeOwnerId: durablePresence.runtimeOwnerId,
-                        sessionEpoch: durablePresence.sessionEpoch,
-                    };
-                }
-                await this.commitEnhancementActiveJobWithAssets(player, !player?.enhancementJob ? 'completed' : 'tick', expectedJob, {
-                    allowSuppressed: durableEnabled,
-                    presence: durablePresence,
-                    beforeState: before,
-                    recordSectionDuration,
-                });
-            } else if (expectedJob && player?.enhancementJob) {
-                this.queueEnhancementActiveJobFlush(player, previousSuppress);
-            }
-            return result;
-        }
-        catch (error) {
-            this.restoreEnhancementAssetRuntimeState(player, before);
-            if (
-                isConvergedPlayerPresenceFenceError(error)
-                || isSupersededPlayerAssetFenceError(error)
-            ) {
-                const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
-                this.markPlayerSessionFenceSuperseded(player, attemptedSessionFence);
-                this.logger.debug(
-                    `强化 tick 已让位于更新会话：playerId=${playerId || 'unknown'} expectedSessionEpoch=${attemptedSessionFence.sessionEpoch}`,
-                );
-                return buildSupersededCraftTickResult();
-            }
-            throw error;
-        }
-        finally {
-            if (durableEnabled) {
-                player.suppressImmediateDomainPersistence = previousSuppress;
-                player.enhancementDurableCommitInFlight = false;
-            }
-        }
+        return tickEnhancementDurablyLockedImpl(this, player, deps, recordSectionDuration);
     }
     /** 强化普通进度 tick 只进入分域刷盘；资产阶段结算走压缩强事务，不按次数追加 outbox 与审计行。 */
-    queueEnhancementActiveJobFlush(player, previousSuppress = false) {
-        if (!player?.enhancementJob) {
-            return;
-        }
-        this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
-        void previousSuppress;
+        queueEnhancementActiveJobFlush(player, previousSuppress = false) {
+        return queueEnhancementActiveJobFlushImpl(this, player, previousSuppress);
     }
     /** 对强化 tick 后的资产变更做强事务提交；中间阶段按 jobRunId 复用 durable 检查点。 */
     async commitEnhancementActiveJobWithAssets(player, action, expectedJob = null, options: {
@@ -734,303 +611,33 @@ export class CraftPanelRuntimeService {
         expectedQueueHeadId?: string | null;
         beforeState?: ReturnType<typeof captureEnhancementAssetRuntimeState> | null;
         recordSectionDuration?: CraftRuntimeSectionRecorder;
-    } = {}) {
-        if (!this.shouldUseDurableEnhancementPersistence(player, options)) {
-            return;
-        }
-        const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
-        if (!playerId) {
-            throw new Error('强化强事务提交失败：缺少玩家 ID');
-        }
-        const presence = options.presence ?? await this.resolveDurablePresenceFence(playerId);
-        const payloadBuildStartedAt = beginCraftRuntimeSection(options.recordSectionDuration ?? null);
-        const advancedPatch = action === 'tick' && options.beforeState
-            ? buildEnhancementAdvancedAssetPatch(playerId, options.beforeState, player)
-            : null;
-        const snapshot = advancedPatch
-            ? null
-            : this.playerRuntimeService.buildPersistenceSnapshot?.(
-                playerId,
-                new Set(['inventory', 'wallet', 'equipment', 'profession', 'active_job', 'enhancement_record']),
-            );
-        if (!advancedPatch && !snapshot) {
-            throw new Error(`强化强事务提交失败：无法构建玩家快照 playerId=${playerId}`);
-        }
-        const inventoryItems = advancedPatch?.nextInventoryItems
-            ?? buildDurableInventoryItemsFromSnapshot(snapshot);
-        const walletBalances = advancedPatch?.nextWalletBalances
-            ?? buildDurableWalletBalancesFromSnapshot(snapshot);
-        const equipmentSlots = advancedPatch ? null : buildDurableEquipmentSlotsFromSnapshot(snapshot);
-        const enhancementRecords = advancedPatch?.nextEnhancementRecords
-            ?? buildDurableEnhancementRecordsFromEntries(playerId, player.enhancementRecords ?? []);
-        const professionStates = advancedPatch?.nextProfessionStates
-            ?? buildDurableProfessionStatesFromSnapshot(snapshot);
-        const activeJob = buildActiveJobSnapshotFromPlayer(player);
-        const jobRunId = typeof expectedJob?.jobRunId === 'string'
-            ? expectedJob.jobRunId
-            : typeof player?.enhancementJob?.jobRunId === 'string'
-            ? player.enhancementJob.jobRunId
-            : null;
-        const jobVersion = Math.max(1, Math.trunc(Number(
-            expectedJob?.jobVersion
-                ?? player?.enhancementJob?.jobVersion
-                ?? 1,
-        )));
-        const snapshotRevision = Number.isFinite(Number(player?.persistentRevision))
-            ? Math.trunc(Number(player.persistentRevision))
-            : null;
-        recordCraftRuntimeSection(
-            options.recordSectionDuration ?? null,
-            'instance.craftJob.enhancementPayloadBuildMs',
-            payloadBuildStartedAt,
-        );
-        const durableCommitStartedAt = beginCraftRuntimeSection(options.recordSectionDuration ?? null);
-        try {
-            if (action === 'start') {
-                if (!activeJob) {
-                    throw new Error(`强化强事务启动失败：缺少 active job playerId=${playerId}`);
-                }
-                await this.durableOperationService.startActiveJobWithAssets({
-                    operationId: `enhancement:start:${playerId}:${activeJob.jobRunId}:${activeJob.jobVersion}`,
-                    playerId,
-                    expectedRuntimeOwnerId: presence.runtimeOwnerId,
-                    expectedSessionEpoch: presence.sessionEpoch,
-                    nextInventoryItems: inventoryItems,
-                    nextWalletBalances: walletBalances,
-                    nextActiveJob: activeJob,
-                    nextEnhancementRecords: enhancementRecords,
-                    ...(options.expectedQueueHeadId ? {
-                        expectedQueueHeadId: options.expectedQueueHeadId,
-                        nextTechniqueActivityQueue: buildTechniqueActivityQueueSnapshotFromPlayer(player),
-                    } : {}),
-                });
-            }
-            else if (action === 'cancelled') {
-                if (!jobRunId) {
-                    throw new Error(`强化强事务取消失败：缺少 jobRunId playerId=${playerId}`);
-                }
-                await this.durableOperationService.cancelActiveJobWithAssets({
-                    operationId: `enhancement:cancelled:${playerId}:${jobRunId}:${jobVersion}`,
-                    playerId,
-                    expectedRuntimeOwnerId: presence.runtimeOwnerId,
-                    expectedSessionEpoch: presence.sessionEpoch,
-                    expectedJobRunId: jobRunId,
-                    expectedJobVersion: jobVersion,
-                    nextInventoryItems: inventoryItems,
-                    nextWalletBalances: walletBalances,
-                    nextEquipmentSlots: equipmentSlots,
-                    nextEnhancementRecords: enhancementRecords,
-                });
-            }
-            else {
-                if (!jobRunId) {
-                    throw new Error(`强化强事务完成失败：缺少 jobRunId playerId=${playerId}`);
-                }
-                await this.durableOperationService.completeActiveJobWithAssets({
-                    operationId: `enhancement:${action}:${playerId}:${jobRunId}:${jobVersion}`,
-                    playerId,
-                    expectedRuntimeOwnerId: presence.runtimeOwnerId,
-                    expectedSessionEpoch: presence.sessionEpoch,
-                    expectedJobRunId: jobRunId,
-                    expectedJobVersion: jobVersion,
-                    nextInventoryItems: inventoryItems,
-                    nextWalletBalances: walletBalances,
-                    nextEquipmentSlots: equipmentSlots,
-                    nextEnhancementRecords: enhancementRecords,
-                    nextProfessionStates: professionStates,
-                    nextActiveJob: activeJob,
-                    completionKind: resolveEnhancementDurableCompletionKind(action, player, jobRunId, expectedJob),
-                    ...(advancedPatch ? {
-                        assetWriteMode: 'patch' as const,
-                        removedInventoryItemInstanceIds: advancedPatch.removedInventoryItemInstanceIds,
-                        removedWalletTypes: advancedPatch.removedWalletTypes,
-                    } : {}),
-                    recordSectionDuration: options.recordSectionDuration,
-                });
-            }
-        }
-        finally {
-            recordCraftRuntimeSection(
-                options.recordSectionDuration ?? null,
-                'instance.craftJob.enhancementDurableCommitMs',
-                durableCommitStartedAt,
-            );
-        }
-        const markPersistedStartedAt = beginCraftRuntimeSection(options.recordSectionDuration ?? null);
-        const persistedDomains = new Set<string>(['active_job']);
-        if (!advancedPatch || advancedPatch.nextInventoryItems.length > 0 || advancedPatch.removedInventoryItemInstanceIds.length > 0) {
-            persistedDomains.add('inventory');
-        }
-        if (!advancedPatch || advancedPatch.nextWalletBalances.length > 0 || advancedPatch.removedWalletTypes.length > 0) {
-            persistedDomains.add('wallet');
-        }
-        if (!advancedPatch) {
-            persistedDomains.add('equipment');
-        }
-        if (!advancedPatch || advancedPatch.nextEnhancementRecords.length > 0) {
-            persistedDomains.add('enhancement_record');
-        }
-        if (action !== 'start' && action !== 'cancelled') {
-            persistedDomains.add('profession');
-        }
-        this.playerRuntimeService.markPersisted?.(
-            playerId,
-            persistedDomains,
-            snapshotRevision,
-        );
-        recordCraftRuntimeSection(
-            options.recordSectionDuration ?? null,
-            'instance.craftJob.enhancementMarkPersistedMs',
-            markPersistedStartedAt,
-        );
+    }) {
+        return commitEnhancementActiveJobWithAssetsImpl(this, player, action, expectedJob, options);
     }
     /** 记录旧会话已被数据库更高 fence 接管，避免下一息重复提交同一旧 owner。 */
-    markPlayerSessionFenceSuperseded(player, expectedFence): boolean {
-        const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
-        if (!playerId || !player || typeof player !== 'object') {
-            return false;
-        }
-        const normalizedExpectedFence = normalizePlayerSessionFence(expectedFence);
-        const currentFence = capturePlayerSessionFence(player);
-        if (!isSamePlayerSessionFence(currentFence, normalizedExpectedFence)) {
-            // 本地会话已经先一步换代；不登记旧 fence，避免抑制新会话。
-            return false;
-        }
-        this.supersededPlayerSessionFences.set(player, normalizedExpectedFence);
-        return true;
+        markPlayerSessionFenceSuperseded(player, expectedFence): boolean {
+        return markPlayerSessionFenceSupersededImpl(this, player, expectedFence);
     }
     /** 只抑制仍持有旧 fence 的玩家；本地新 session 变化后自动清除旧标记。 */
-    isPlayerSessionFenceSuperseded(player): boolean {
-        const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
-        if (!playerId || !player || typeof player !== 'object') {
-            return false;
-        }
-        const expectedFence = this.supersededPlayerSessionFences.get(player);
-        if (!expectedFence) {
-            return false;
-        }
-        const currentFence = capturePlayerSessionFence(player);
-        if (!isSamePlayerSessionFence(currentFence, expectedFence)) {
-            this.supersededPlayerSessionFences.delete(player);
-            return false;
-        }
-        return true;
+        isPlayerSessionFenceSuperseded(player): boolean {
+        return isPlayerSessionFenceSupersededImpl(this, player);
     }
     shouldUseDurableEnhancementPersistence(player, options: { allowSuppressed?: boolean } = {}) {
-        return Boolean(
-            (options?.allowSuppressed === true || player?.suppressImmediateDomainPersistence !== true)
-            && this.durableOperationService
-            && typeof this.durableOperationService.isEnabled === 'function'
-            && this.durableOperationService.isEnabled(),
-        );
+        return shouldUseDurableEnhancementPersistenceImpl(this, player, options);
     }
     /** 强化资产边界从运行态计算到 durable 提交结束均占用玩家资产串行区。 */
-    async runExclusivePlayerAssetMutation(player, action) {
-        const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
-        const coordinator = this.playerRuntimeService?.runExclusiveAssetMutation;
-        if (!playerId || typeof coordinator !== 'function') {
-            return await action();
-        }
-        return coordinator.call(this.playerRuntimeService, [playerId], action, {
-            deferAssetStatisticsUntilSuccess: true,
-        });
+        async runExclusivePlayerAssetMutation(player, action) {
+        return runExclusivePlayerAssetMutationImpl(this, player, action);
     }
-    async resolveDurablePresenceFence(
+        async resolveDurablePresenceFence(
         playerId,
         recordSectionDuration: CraftRuntimeSectionRecorder = null,
     ) {
-        const describeStartedAt = beginCraftRuntimeSection(recordSectionDuration);
-        let presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
-        recordCraftRuntimeSection(
-            recordSectionDuration,
-            'instance.craftJob.enhancementPresenceDescribeMs',
-            describeStartedAt,
-        );
-        if (
-            (!presence?.runtimeOwnerId || !presence?.sessionEpoch)
-            && typeof this.playerRuntimeService.ensureRuntimeOwnershipClaimed === 'function'
-        ) {
-            const claimStartedAt = beginCraftRuntimeSection(recordSectionDuration);
-            try {
-                await this.playerRuntimeService.ensureRuntimeOwnershipClaimed(playerId);
-                presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
-            }
-            finally {
-                recordCraftRuntimeSection(
-                    recordSectionDuration,
-                    'instance.craftJob.enhancementPresenceClaimMs',
-                    claimStartedAt,
-                );
-            }
-        }
-        if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
-            throw new Error(`强化强事务提交失败：缺少运行态所有权围栏 playerId=${playerId}`);
-        }
-        const player = this.playerRuntimeService.getPlayer?.(playerId) ?? null;
-        const presenceDirty = player?.dirtyDomains instanceof Set && player.dirtyDomains.has('presence');
-        const presencePersisted = !presenceDirty
-            && this.playerRuntimeService.isPersistenceDomainPersisted?.(playerId, 'presence') === true;
-        recordCraftRuntimeCount(
-            recordSectionDuration,
-            presenceDirty
-                ? 'instance.craftJob.enhancementPresenceDirty'
-                : 'instance.craftJob.enhancementPresenceClean',
-        );
-        if (
-            !presencePersisted
-            && this.playerDomainPersistenceService?.isEnabled?.()
-            && typeof this.playerDomainPersistenceService.savePlayerPresence === 'function'
-        ) {
-            const presenceSnapshotRevision = this.playerRuntimeService.getPersistenceRevision?.(playerId) ?? null;
-            const presenceDomainRevision = this.playerRuntimeService.getPersistenceDomainRevision?.(
-                playerId,
-                'presence',
-            ) ?? null;
-            const persistStartedAt = beginCraftRuntimeSection(recordSectionDuration);
-            try {
-                await this.playerDomainPersistenceService.savePlayerPresence(playerId, {
-                    ...presence,
-                    versionSeed: nextPlayerPersistenceVersion(),
-                });
-            }
-            finally {
-                recordCraftRuntimeSection(
-                    recordSectionDuration,
-                    'instance.craftJob.enhancementPresencePersistMs',
-                    persistStartedAt,
-                );
-            }
-            if (
-                Number.isFinite(Number(presenceSnapshotRevision))
-                && Number.isFinite(Number(presenceDomainRevision))
-                && Number(presenceDomainRevision) > 0
-                && this.playerRuntimeService.getPersistenceDomainRevision?.(playerId, 'presence') === presenceDomainRevision
-                && typeof this.playerRuntimeService.markPersisted === 'function'
-            ) {
-                this.playerRuntimeService.markPersisted(
-                    playerId,
-                    new Set(['presence']),
-                    Math.trunc(Number(presenceSnapshotRevision)),
-                );
-            }
-        }
-        else if (presencePersisted) {
-            recordCraftRuntimeCount(
-                recordSectionDuration,
-                'instance.craftJob.enhancementPresenceSkip',
-            );
-        }
-        return {
-            runtimeOwnerId: String(presence.runtimeOwnerId),
-            sessionEpoch: Math.max(1, Math.trunc(Number(presence.sessionEpoch))),
-        };
+        return resolveDurablePresenceFenceImpl(this, playerId, recordSectionDuration);
     }
     /** 强事务失败后恢复完整强化运行态，并重建由装备/背包派生的显示与行动状态。 */
-    restoreEnhancementAssetRuntimeState(player, snapshot) {
-        restoreEnhancementAssetRuntimeState(player, snapshot);
-        this.playerRuntimeService.playerProgressionService?.refreshPreview?.(player);
-        this.playerRuntimeService.playerAttributesService?.recalculate?.(player, 'craft_settlement');
-        this.playerRuntimeService.rebuildActionState?.(player, 0);
+        restoreEnhancementAssetRuntimeState(player, snapshot) {
+        return restoreEnhancementAssetRuntimeStateImpl(this, player, snapshot);
     }
     /** 技艺 pipeline 入口补记直接改背包/技艺经验的收支；已由玩家运行时入口记录的部分会被当前快照过滤。 */
     recordTechniqueActivityStatisticMutation(player, result, requireStatisticSignal = false, kind = null) {
@@ -1143,320 +750,64 @@ export class CraftPanelRuntimeService {
         };
     }
     /** 校验炼丹/炼器 start 的配方、投料和基础参数；不检查背包和钱包，避免排队任务提前要求资源。 */
-    validateAlchemyLikeStart(player, payload, jobKindInput = undefined) {
-        this.ensureCraftSkills(player);
-        const jobKind = jobKindInput === 'forging' || payload?.kind === 'forging' ? 'forging' : 'alchemy';
-        const catalog = jobKind === 'forging' ? this.forgingCatalog : this.alchemyCatalog;
-        const outputNoun = jobKind === 'forging' ? '成器' : '成丹';
-        const recipe = catalog.find((entry) => entry.recipeId === normalizeText(payload?.recipeId));
-        if (!recipe) {
-            return { ok: false, error: jobKind === 'forging' ? '对应器方不存在。' : '对应丹方不存在。' };
-        }
-        const normalizedSelection = validateAlchemySelection(this.contentTemplateRepository, recipe, normalizeIngredientSelections(payload?.ingredients));
-        if ('error' in normalizedSelection) {
-            return { ok: false, error: normalizedSelection.error };
-        }
-        const quantity = normalizeQuantity(payload?.quantity, 1);
-        const furnaceOutputCount = jobKind === 'forging' || recipe.category === 'buff' ? 1 : ALCHEMY_FURNACE_OUTPUT_COUNT;
-        const elementMatchSnapshot = computeFivePhaseElementMatch(
-            normalizedSelection.inputElements,
-            buildAlchemyRecipeTargetElements(this.contentTemplateRepository, recipe)
-        );
-        const baseSuccessRate = resolveAlchemyLikeBaseSuccessRate(recipe, elementMatchSnapshot.baseElementSuccessRate);
-        const craftSkillLevel = (jobKind === 'forging' ? player.forgingSkill?.level : player.alchemySkill?.level) ?? 1;
-        const rawBrewTicks = computeAlchemyRawBrewTicks(
-            recipe.baseBrewTicks,
-            recipe,
-            normalizedSelection.ingredients,
-            recipe.outputLevel,
-            craftSkillLevel,
-            this.getAlchemyLikeToolSpeedRate(player, jobKind),
-            furnaceOutputCount
-        );
-        const batchBrewTicks = computeAlchemyAdjustedBrewTicks(
-            recipe.baseBrewTicks,
-            recipe,
-            normalizedSelection.ingredients,
-            recipe.outputLevel,
-            craftSkillLevel,
-            this.getAlchemyLikeToolSpeedRate(player, jobKind),
-            furnaceOutputCount
-        );
-        const totalTicks = computeAlchemyTotalJobTicks(rawBrewTicks, quantity, 0);
-        const exactRecipe = elementMatchSnapshot.baseElementSuccessRate >= 1;
-        const successRate = computeAlchemyAdjustedSuccessRate(
-            baseSuccessRate,
-            recipe.outputLevel,
-            craftSkillLevel,
-            this.getAlchemyLikeToolSuccessRate(player, jobKind),
-            this.getLuckSuccessRateBonus(player)
-        );
-        const baseBatchOutputCount = computeAlchemyBatchOutputCountWithSize(recipe.outputCount, furnaceOutputCount);
-        const batchOutputCount = applyCraftOutputRate(
-            baseBatchOutputCount,
-            this.getAlchemyLikeToolOutputRate(player, jobKind),
-        );
-        const spiritStoneCost = getAlchemySpiritStoneCost(recipe.outputLevel, recipe.category === 'buff') * quantity;
-        return {
-            ok: true,
-            validated: {
-                jobKind,
-                catalog,
-                outputNoun,
-                recipe,
-                ingredients: normalizedSelection.ingredients,
-                quantity,
-                spiritStoneCost,
-                rawBrewTicks,
-                batchBrewTicks,
-                totalTicks,
-                exactRecipe,
-                baseElementSuccessRate: baseSuccessRate,
-                elementMatchSnapshot,
-                successRate,
-                batchOutputCount,
-            },
-        };
+        validateAlchemyLikeStart(player, payload, jobKindInput = undefined) {
+        return validateAlchemyLikeStartImpl(this, player, payload, jobKindInput);
     }
     /** 活动互斥时把炼丹/炼器 start 转成统一技艺队列项。 */
-    queueAlchemyLikeStart(player, validated, payload) {
-        if (!this.hasAnyActiveTechniqueActivity(player)) {
-            return null;
-        }
-        return this.enqueueCraftQueueItem(
-            player,
-            buildAlchemyQueueItem(validated.recipe, validated.ingredients, validated.quantity, validated.jobKind),
-            normalizeCraftQueueStartMode(payload?.queueMode),
-        );
+        queueAlchemyLikeStart(player, validated, payload) {
+        return queueAlchemyLikeStartImpl(this, player, validated, payload);
     }
     /** 真正启动炼丹/炼器 job 前只校验单批资源，实际扣除延后到每批完成结算前。 */
-    consumeAlchemyLikeStartResources(player, validated) {
-        return this.validateAlchemyLikeBatchResources(player, validated);
+        consumeAlchemyLikeStartResources(player, validated) {
+        return consumeAlchemyLikeStartResourcesImpl(this, player, validated);
     }
     /** 校验炼丹/炼器单批结算所需资源。 */
-    validateAlchemyLikeBatchResources(player, validatedOrJob) {
-        const ingredients = Array.isArray(validatedOrJob?.ingredients) ? validatedOrJob.ingredients : [];
-        for (const ingredient of ingredients) {
-            const requiredCount = Math.max(1, Math.trunc(Number(ingredient.count) || 0));
-            if (countInventoryItem(player, ingredient.itemId) < requiredCount) {
-                return { ok: false, error: `${resolvePlayerFacingContentName(ingredient.itemId, '未知物品', this.contentTemplateRepository.getItemName(ingredient.itemId))} 数量不足。` };
-            }
-        }
-        const batchSpiritStoneCost = this.resolveAlchemyLikeBatchSpiritStoneCost(validatedOrJob);
-        if (batchSpiritStoneCost > 0 && !this.playerRuntimeService.canAffordWallet(player.playerId, SPIRIT_STONE_ITEM_ID, batchSpiritStoneCost)) {
-            return { ok: false, error: `灵石不足，需要 ${batchSpiritStoneCost} 枚。` };
-        }
-        return { ok: true };
+        validateAlchemyLikeBatchResources(player, validatedOrJob) {
+        return validateAlchemyLikeBatchResourcesImpl(this, player, validatedOrJob);
     }
     /** 扣除炼丹/炼器单批结算所需资源。 */
-    consumeAlchemyLikeBatchResources(player, job) {
-        const validation = this.validateAlchemyLikeBatchResources(player, job);
-        if (!validation.ok) {
-            return validation;
-        }
-        const ingredients = Array.isArray(job?.ingredients) ? job.ingredients : [];
-        let inventoryChanged = false;
-        for (const ingredient of ingredients) {
-            consumeInventoryItemByItemId(player, ingredient.itemId, Math.max(1, Math.trunc(Number(ingredient.count) || 0)));
-            inventoryChanged = true;
-        }
-        const batchSpiritStoneCost = this.resolveAlchemyLikeBatchSpiritStoneCost(job);
-        if (batchSpiritStoneCost > 0) {
-            this.playerRuntimeService.debitWallet(player.playerId, SPIRIT_STONE_ITEM_ID, batchSpiritStoneCost);
-            inventoryChanged = true;
-        }
-        return { ok: true, inventoryChanged };
+        consumeAlchemyLikeBatchResources(player, job) {
+        return consumeAlchemyLikeBatchResourcesImpl(this, player, job);
     }
     /** 解析炼丹/炼器单批灵石成本。 */
-    resolveAlchemyLikeBatchSpiritStoneCost(job) {
-        const quantity = Math.max(1, Math.floor(Number(job?.quantity) || 1));
-        const totalCost = Math.max(0, Math.floor(Number(job?.spiritStoneCost) || 0));
-        const completedCount = Math.max(0, Math.floor(Number(job?.completedCount) || 0));
-        const baseCost = Math.floor(totalCost / quantity);
-        const remainder = totalCost % quantity;
-        return baseCost + (completedCount < remainder ? 1 : 0);
+        resolveAlchemyLikeBatchSpiritStoneCost(job) {
+        return resolveAlchemyLikeBatchSpiritStoneCostImpl(this, job);
     }
     /** 判断 active job 是否已经使用逐批完成前扣料语义。 */
-    isAlchemyLikePerBatchResourceJob(job) {
-        return job?.resourceConsumptionMode === ALCHEMY_LIKE_RESOURCE_CONSUMPTION_MODE_PER_BATCH
-            || Math.trunc(Number(job?.resourceConsumptionVersion) || 0) >= ALCHEMY_LIKE_RESOURCE_CONSUMPTION_VERSION
-            || job?.resourcesDeductedAtStart === false;
+        isAlchemyLikePerBatchResourceJob(job) {
+        return isAlchemyLikePerBatchResourceJobImpl(this, job);
     }
     /** 标记炼丹/炼器 job 已迁移到逐批扣料语义，避免旧预扣返还重复执行。 */
-    markAlchemyLikePerBatchResourceJob(job) {
-        if (!job || typeof job !== 'object') {
-            return;
-        }
-        job.resourceConsumptionMode = ALCHEMY_LIKE_RESOURCE_CONSUMPTION_MODE_PER_BATCH;
-        job.resourceConsumptionVersion = ALCHEMY_LIKE_RESOURCE_CONSUMPTION_VERSION;
-        job.resourcesDeductedAtStart = false;
+        markAlchemyLikePerBatchResourceJob(job) {
+        return markAlchemyLikePerBatchResourceJobImpl(this, job);
     }
     /** 计算旧版本启动时全量预扣的未完成批次资源返还。 */
-    computeLegacyAlchemyLikePrepaidRefund(job) {
-        const quantity = Math.max(1, Math.trunc(Number(job?.quantity) || 1));
-        const completedCount = Math.min(quantity, Math.max(0, Math.trunc(Number(job?.completedCount) || 0)));
-        const refundableBatchCount = Math.max(0, quantity - completedCount);
-        const ingredients = Array.isArray(job?.ingredients) ? job.ingredients : [];
-        const items = [];
-        for (const ingredient of ingredients) {
-            const count = Math.max(1, Math.trunc(Number(ingredient?.count) || 0)) * refundableBatchCount;
-            if (!ingredient?.itemId || count <= 0) {
-                continue;
-            }
-            items.push({ itemId: ingredient.itemId, count });
-        }
-        const totalSpiritStoneCost = Math.max(0, Math.trunc(Number(job?.spiritStoneCost) || 0));
-        const baseCost = Math.floor(totalSpiritStoneCost / quantity);
-        const remainder = totalSpiritStoneCost % quantity;
-        const completedSpiritStoneCost = (baseCost * completedCount) + Math.min(completedCount, remainder);
-        return {
-            items,
-            spiritStones: Math.max(0, totalSpiritStoneCost - completedSpiritStoneCost),
-        };
+        computeLegacyAlchemyLikePrepaidRefund(job) {
+        return computeLegacyAlchemyLikePrepaidRefundImpl(this, job);
     }
     /** 兼容旧 active job：旧版启动已全量扣料，迁移时返还未完成批次资源。 */
-    ensureAlchemyLikeJobResourceCompatibility(player, jobKind = 'alchemy', job = undefined) {
-        const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
-        const activeJob = job ?? getAlchemyLikeJob(player, normalizedJobKind);
-        if (!activeJob || this.isAlchemyLikePerBatchResourceJob(activeJob)) {
-            return { migrated: false, inventoryChanged: false, walletChanged: false, spiritStones: 0 };
-        }
-        const refund = this.computeLegacyAlchemyLikePrepaidRefund(activeJob);
-        let inventoryChanged = false;
-        let walletChanged = false;
-        let creditedSpiritStones = 0;
-        for (const item of refund.items) {
-            if (item.itemId === SPIRIT_STONE_ITEM_ID) {
-                this.playerRuntimeService.creditWallet(player.playerId, SPIRIT_STONE_ITEM_ID, item.count);
-                creditedSpiritStones += item.count;
-                walletChanged = true;
-                inventoryChanged = true;
-                continue;
-            }
-            receiveInventoryItem(player, this.contentTemplateRepository, { itemId: item.itemId, count: item.count });
-            inventoryChanged = true;
-        }
-        if (refund.spiritStones > 0) {
-            this.playerRuntimeService.creditWallet(player.playerId, SPIRIT_STONE_ITEM_ID, refund.spiritStones);
-            creditedSpiritStones += refund.spiritStones;
-            walletChanged = true;
-            inventoryChanged = true;
-        }
-        this.markAlchemyLikePerBatchResourceJob(activeJob);
-        activeJob.legacyPrepaidResourceRefundedAt = Date.now();
-        this.finalizeMutation(player, {
-            inventoryChanged,
-            persistentOnly: true,
-            dirtyDomains: ['active_job'],
-        });
-        return {
-            migrated: true,
-            inventoryChanged,
-            walletChanged,
-            spiritStones: creditedSpiritStones,
-        };
+        ensureAlchemyLikeJobResourceCompatibility(player, jobKind = 'alchemy', job = undefined) {
+        return ensureAlchemyLikeJobResourceCompatibilityImpl(this, player, jobKind, job);
     }
     /** 创建炼丹/炼器 active job；资源会在每批完成结算前扣除。 */
-    createAlchemyLikeStartJob(player, validated) {
-        const recipe = validated.recipe;
-        const nextJob = {
-            jobRunId: createCraftJobRunId(player.playerId, validated.jobKind),
-            jobType: validated.jobKind,
-            recipeId: recipe.recipeId,
-            outputItemId: recipe.outputItemId,
-            outputCount: validated.batchOutputCount,
-            quantity: validated.quantity,
-            completedCount: 0,
-            successCount: 0,
-            failureCount: 0,
-            ingredients: validated.ingredients.map((entry) => ({ ...entry })),
-            phase: 'brewing',
-            preparationTicks: 0,
-            batchBrewTicks: validated.batchBrewTicks,
-            rawBrewTicks: validated.rawBrewTicks ?? validated.batchBrewTicks,
-            currentBatchRemainingTicks: validated.batchBrewTicks,
-            pausedTicks: 0,
-            workTotalTicks: validated.totalTicks,
-            workRemainingTicks: validated.totalTicks,
-            interruptWaitRemainingTicks: 0,
-            interruptState: null,
-            spiritStoneCost: validated.spiritStoneCost,
-            resourceConsumptionMode: ALCHEMY_LIKE_RESOURCE_CONSUMPTION_MODE_PER_BATCH,
-            resourceConsumptionVersion: ALCHEMY_LIKE_RESOURCE_CONSUMPTION_VERSION,
-            resourcesDeductedAtStart: false,
-            totalTicks: validated.totalTicks,
-            remainingTicks: validated.totalTicks,
-            successRate: validated.successRate,
-            baseElementSuccessRate: validated.baseElementSuccessRate,
-            elementMatchSnapshot: cloneCraftElementMatchSnapshot(validated.elementMatchSnapshot),
-            jobVersion: 1,
-            exactRecipe: validated.exactRecipe,
-            outputLevel: recipe.outputLevel,
-            baseBrewTicks: recipe.baseBrewTicks,
-            startedAt: Date.now(),
-        };
-        setAlchemyLikeJob(player, validated.jobKind, nextJob);
-        return nextJob;
+        createAlchemyLikeStartJob(player, validated) {
+        return createAlchemyLikeStartJobImpl(this, player, validated);
     }
     /** 标记炼丹/炼器 start 对 active job 的权威变更。 */
-    finalizeAlchemyLikeStart(player) {
-        this.finalizeMutation(player, {
-            persistentOnly: true,
-            dirtyDomains: ['active_job'],
-        });
+        finalizeAlchemyLikeStart(player) {
+        return finalizeAlchemyLikeStartImpl(this, player);
     }
     /** 构建炼丹/炼器启动提示。 */
-    buildAlchemyLikeStartMessages(validated) {
-        const recipe = validated.recipe;
-        const actionLabel = validated.jobKind === 'forging' ? '炼器' : '炼制';
-        const successRateText = (validated.successRate * 100).toFixed(validated.successRate === 1 ? 0 : 1);
-        return [{
-            kind: validated.jobKind === 'forging' ? 'forging' : 'alchemy',
-            key: 'notice.craft.alchemy.start',
-            vars: {
-                actionLabel,
-                itemName: recipe.outputName,
-                quantity: validated.quantity,
-                spiritStoneCost: validated.spiritStoneCost,
-                totalTicks: validated.totalTicks,
-                batchOutputCount: validated.batchOutputCount,
-                outputNoun: validated.outputNoun,
-                successRate: successRateText,
-            },
-            pills: [{ key: 'itemName', style: 'target' }],
-        }];
+        buildAlchemyLikeStartMessages(validated) {
+        return buildAlchemyLikeStartMessagesImpl(this, validated);
     }
     /** 提交新炼丹任务前完成装备与状态校验。 */
-    startAlchemy(player, payload) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        this.playerRuntimeService.captureOfflineGainBeforeTick?.(player);
-        const validation = this.validateAlchemyLikeStart(player, payload);
-        if (!validation.ok) {
-            return buildCraftMutationResult(validation.error);
-        }
-        const queued = this.queueAlchemyLikeStart(player, validation.validated, payload);
-        if (queued) {
-            return queued;
-        }
-        const consumed = this.consumeAlchemyLikeStartResources(player, validation.validated);
-        if (!consumed.ok) {
-            return buildCraftMutationResult(consumed.error);
-        }
-        this.createAlchemyLikeStartJob(player, validation.validated);
-        this.finalizeAlchemyLikeStart(player);
-        const result = {
-            ok: true,
-            panelChanged: true,
-            inventoryChanged: false,
-            messages: this.buildAlchemyLikeStartMessages(validation.validated),
-        };
-        this.recordTechniqueActivityStatisticMutation(player, result);
-        return result;
+        startAlchemy(player, payload) {
+        return startAlchemyImpl(this, player, payload);
     }
     /** 提交新炼器任务：复用炼丹成功率、加速、队列和打断规则。 */
-    startForging(player, payload) {
-        return this.startAlchemy(player, { ...(payload ?? {}), kind: 'forging' });
+        startForging(player, payload) {
+        return startForgingImpl(this, player, payload);
     }
     /**
  * cancelAlchemy：判断cancel炼丹是否满足条件。
@@ -1464,41 +815,12 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，完成cancel炼丹的条件判断。
  */
 
-    cancelAlchemy(player, jobKind = 'alchemy') {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        this.ensureCraftSkills(player);
-        const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
-        const job = getAlchemyLikeJob(player, normalizedJobKind);
-        if (!job) {
-            return buildCraftMutationResult(normalizedJobKind === 'forging' ? '当前没有可取消的炼器任务。' : '当前没有可取消的炼丹任务。');
-        }
-        this.playerRuntimeService.captureOfflineGainBeforeTick?.(player);
-        const compatibility = this.ensureAlchemyLikeJobResourceCompatibility(player, normalizedJobKind, job);
-        setAlchemyLikeJob(player, normalizedJobKind, null);
-        this.finalizeMutation(player, {
-            inventoryChanged: Boolean(compatibility.inventoryChanged),
-            persistentOnly: true,
-            dirtyDomains: ['active_job'],
-        });
-        const result = {
-            ok: true,
-            panelChanged: true,
-            inventoryChanged: Boolean(compatibility.inventoryChanged),
-            groundDrops: [],
-            messages: [{
-                    kind: 'system',
-                    key: normalizedJobKind === 'forging'
-                        ? 'notice.craft.forging.cancel-no-refund'
-                        : 'notice.craft.alchemy.cancel-no-refund',
-                }],
-        };
-        this.recordTechniqueActivityStatisticMutation(player, result);
-        return result;
+        cancelAlchemy(player, jobKind = 'alchemy') {
+        return cancelAlchemyImpl(this, player, jobKind);
     }
     /** 取消炼器任务，退款规则与炼丹同构。 */
-    cancelForging(player) {
-        return this.cancelAlchemy(player, 'forging');
+        cancelForging(player) {
+        return cancelForgingImpl(this, player);
     }
 
     /**
@@ -1508,55 +830,8 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，直接更新save炼丹Preset相关状态。
  */
 
-    saveAlchemyPreset(player, payload) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        this.ensureCraftSkills(player);
-        const recipeId = normalizeText(payload?.recipeId);
-        const recipe = this.alchemyCatalog.find((entry) => entry.recipeId === recipeId);
-        if (!recipe) {
-            return buildCraftMutationResult('对应丹方不存在。');
-        }
-        const normalizedSelection = validateAlchemySelection(this.contentTemplateRepository, recipe, normalizeIngredientSelections(payload?.ingredients));
-        if ('error' in normalizedSelection) {
-            return buildCraftMutationResult(normalizedSelection.error);
-        }
-        const requestedPresetId = normalizeText(payload?.presetId);
-        const presetName = normalizeAlchemyPresetName(
-            payload?.name,
-            resolvePlayerFacingContentName(recipe.recipeId, '未命名炼制预设', recipe.outputName),
-        );
-        const presetId = requestedPresetId || createAlchemyPresetId(recipe.recipeId);
-        const existingIndex = player.alchemyPresets.findIndex((entry) => entry.presetId === presetId);
-        const nextPreset = {
-            presetId,
-            recipeId: recipe.recipeId,
-            name: presetName,
-            ingredients: normalizedSelection.ingredients.map((entry) => ({ ...entry })),
-            updatedAt: Date.now(),
-        };
-        if (existingIndex >= 0) {
-            player.alchemyPresets.splice(existingIndex, 1, nextPreset);
-        }
-        else {
-            player.alchemyPresets.unshift(nextPreset);
-        }
-        this.finalizeMutation(player, {
-            persistentOnly: true,
-            dirtyDomains: ['alchemy_preset'],
-        });
-        void this.persistAlchemyPresets(player).catch((error) => {
-            console.warn(`炼丹预设直写失败，已标记脏数据等待重试：${error instanceof Error ? error.message : String(error)}`);
-            this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['alchemy_preset']);
-        });
-        return {
-            ok: true,
-            panelChanged: true,
-            messages: [{
-                    kind: 'system',
-                    text: existingIndex >= 0 ? `已更新炼制预设：${presetName}` : `已保存炼制预设：${presetName}`,
-                }],
-        };
+        saveAlchemyPreset(player, payload) {
+        return saveAlchemyPresetImpl(this, player, payload);
     }
     /**
  * deleteAlchemyPreset：处理炼丹Preset并更新相关状态。
@@ -1565,35 +840,8 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，直接更新炼丹Preset相关状态。
  */
 
-    deleteAlchemyPreset(player, presetIdInput) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        this.ensureCraftSkills(player);
-        const presetId = normalizeText(presetIdInput);
-        if (!presetId) {
-            return buildCraftMutationResult('预设标识不能为空。');
-        }
-        const index = player.alchemyPresets.findIndex((entry) => entry.presetId === presetId);
-        if (index < 0) {
-            return buildCraftMutationResult('对应炼制预设不存在。');
-        }
-        const [removed] = player.alchemyPresets.splice(index, 1);
-        this.finalizeMutation(player, {
-            persistentOnly: true,
-            dirtyDomains: ['alchemy_preset'],
-        });
-        void this.persistAlchemyPresets(player).catch((error) => {
-            console.warn(`炼丹预设直写失败，已标记脏数据等待重试：${error instanceof Error ? error.message : String(error)}`);
-            this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['alchemy_preset']);
-        });
-        return {
-            ok: true,
-            panelChanged: true,
-            messages: [{
-                    kind: 'system',
-                    text: `已删除炼制预设：${resolvePlayerFacingContentName(presetId, '未命名炼制预设', removed?.name)}`,
-                }],
-        };
+        deleteAlchemyPreset(player, presetIdInput) {
+        return deleteAlchemyPresetImpl(this, player, presetIdInput);
     }
     /**
  * interruptAlchemy：执行interrupt炼丹相关逻辑。
@@ -1602,132 +850,48 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，直接更新interrupt炼丹相关状态。
  */
 
-    interruptAlchemy(player, reason, jobKind = 'alchemy') {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
-        return this.interruptTechniqueActivity(player, normalizedJobKind, reason);
+        interruptAlchemy(player, reason, jobKind = 'alchemy') {
+        return interruptAlchemyImpl(this, player, reason, jobKind);
     }
     /** 读取炼丹/炼器 active job，供 pipeline strategy 推进。 */
-    getAlchemyLikeActiveJob(player, jobKind = 'alchemy') {
-        return getAlchemyLikeJob(player, jobKind === 'forging' ? 'forging' : 'alchemy');
+        getAlchemyLikeActiveJob(player, jobKind = 'alchemy') {
+        return getAlchemyLikeActiveJobImpl(this, player, jobKind);
     }
     /** 启动/恢复后的轻量兼容检查：旧预扣 active job 会返还未完成批次并标记新扣料版本。 */
-    ensureAlchemyLikeActiveJobResourceCompatibilityMutation(player, jobKind = 'alchemy') {
-        const compatibility = this.ensureAlchemyLikeJobResourceCompatibility(player, jobKind);
-        if (!compatibility.migrated) {
-            return this.buildAlchemyLikeTickResult();
-        }
-        return this.buildAlchemyLikeTickResult(true, [], Boolean(compatibility.inventoryChanged));
+        ensureAlchemyLikeActiveJobResourceCompatibilityMutation(player, jobKind = 'alchemy') {
+        return ensureAlchemyLikeActiveJobResourceCompatibilityMutationImpl(this, player, jobKind);
     }
     /** 设置炼丹/炼器 active job，供 pipeline strategy 在异常结算时权威清理。 */
-    setAlchemyLikeActiveJob(player, jobKind = 'alchemy', job = null) {
-        setAlchemyLikeJob(player, jobKind === 'forging' ? 'forging' : 'alchemy', job);
+        setAlchemyLikeActiveJob(player, jobKind = 'alchemy', job = null) {
+        return setAlchemyLikeActiveJobImpl(this, player, jobKind, job);
     }
     /** 推进炼丹/炼器打断等待，只改等待状态，不修改实际工作量。 */
-    advanceAlchemyLikePausedJob(player, job) {
-        const resumed = advanceTechniqueActivityPause(job, 'brewing');
-        this.finalizeMutation(player, {
-            persistentOnly: true,
-            dirtyDomains: ['active_job'],
-        });
-        return resumed;
+        advanceAlchemyLikePausedJob(player, job) {
+        return advanceAlchemyLikePausedJobImpl(this, player, job);
     }
     /** 解析当前批次成功数。 */
-    resolveAlchemyLikeBatchSuccess(job, successRate = undefined) {
-        return resolveAlchemyBatchSuccess(job.outputCount, successRate ?? job.successRate);
+        resolveAlchemyLikeBatchSuccess(job, successRate = undefined) {
+        return resolveAlchemyLikeBatchSuccessImpl(this, job, successRate);
     }
     /** 构建炼丹/炼器批次结算 result；后续公共 pipeline 会直接消费该结构。 */
-    buildAlchemyLikeBatchResolveResult(player, jobKind, job, successCount, failureCount, completed, messages) {
-        const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
-        const outputItems = successCount > 0
-            ? [{
-                    itemId: job.outputItemId,
-                    count: successCount,
-                    ...(typeof job.outputItemName === 'string' ? { name: job.outputItemName } : {}),
-                }]
-            : [];
-        return {
-            successCount,
-            failureCount,
-            outputs: outputItems.map((item) => ({
-                itemId: item.itemId,
-                count: item.count,
-                ...(typeof item.name === 'string' ? { name: item.name } : {}),
-            })),
-            inventoryDelta: {
-                granted: outputItems.map((item) => ({ itemId: item.itemId, count: item.count, ...(typeof item.name === 'string' ? { name: item.name } : {}) })),
-                dropped: [],
-                changed: false,
-            },
-            panelDirty: {
-                changed: true,
-                kinds: [normalizedJobKind],
-                reason: completed ? 'completed' : 'batch',
-            },
-            expParams: this.buildAlchemyLikeExpParams(player, normalizedJobKind, job, successCount, failureCount),
-            completed,
-            messages,
-        };
+        buildAlchemyLikeBatchResolveResult(player, jobKind, job, successCount, failureCount, completed, messages) {
+        return buildAlchemyLikeBatchResolveResultImpl(this, player, jobKind, job, successCount, failureCount, completed, messages);
     }
-    buildAlchemyLikeExpParams(player, jobKind, job, successCount, failureCount) {
-        const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
-        const catalog = normalizedJobKind === 'forging' ? this.forgingCatalog : this.alchemyCatalog;
-        const recipe = Array.isArray(catalog)
-            ? catalog.find((entry) => entry.recipeId === job.recipeId)
-            : null;
-        const skill = normalizedJobKind === 'forging' ? player.forgingSkill : player.alchemySkill;
-        return {
-            playerRealmLevel: resolvePlayerCraftRealmLevel(player),
-            skillLevel: skill?.level ?? 1,
-            targetLevel: recipe?.outputLevel ?? job.outputLevel ?? 1,
-            baseActionTicks: resolveAlchemySkillBaseActionTicks(recipe, job),
-            successCount,
-            failureCount,
-            successMultiplier: 1,
-            getExpToNextByLevel: (level) => resolveCraftSkillExpToNextByLevel(this.playerRuntimeService, level),
-        };
+        buildAlchemyLikeExpParams(player, jobKind, job, successCount, failureCount) {
+        return buildAlchemyLikeExpParamsImpl(this, player, jobKind, job, successCount, failureCount);
     }
     /** 完成炼丹/炼器 job；统一队列由 WorldRuntimeCraftTickService 在所有 active job 清空后推进。 */
-    completeAlchemyLikeJob(player, jobKind, job) {
-        const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
-        migrateLegacyCraftQueueToUnifiedQueue(player, job.queuedJobs);
-        setAlchemyLikeJob(player, normalizedJobKind, null);
-        this.finalizeMutation(player, { persistentOnly: true, dirtyDomains: ['active_job'] });
-        return buildCraftMutationResult();
+        completeAlchemyLikeJob(player, jobKind, job) {
+        return completeAlchemyLikeJobImpl(this, player, jobKind, job);
     }
-    buildAlchemyLikeCompletionMessage(jobKind, job) {
-        const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
-        const activityLabel = normalizedJobKind === 'forging' ? '炼器' : '炼制';
-        const successNoun = normalizedJobKind === 'forging' ? '成器' : '成丹';
-        return {
-            kind: normalizedJobKind,
-            key: 'notice.craft.alchemy.completed',
-            vars: {
-                itemName: resolvePlayerFacingContentName(job.outputItemId, '未知物品', this.contentTemplateRepository.getItemName(job.outputItemId)),
-                activityLabel,
-                successNoun,
-                count: job.successCount,
-            },
-            pills: [{ key: 'itemName', style: 'target' }],
-        };
+        buildAlchemyLikeCompletionMessage(jobKind, job) {
+        return buildAlchemyLikeCompletionMessageImpl(this, jobKind, job);
     }
-    buildAlchemyLikeBatchMessage(jobKind, job, successCount) {
-        const successNoun = jobKind === 'forging' ? '成器' : '成丹';
-        return {
-            kind: successCount > 0 ? jobKind : 'system',
-            key: successCount > 0
-                ? 'notice.craft.alchemy.batch-success'
-                : 'notice.craft.alchemy.batch-failed',
-            vars: {
-                batch: job.completedCount,
-                successNoun,
-                count: successCount,
-            },
-        };
+        buildAlchemyLikeBatchMessage(jobKind, job, successCount) {
+        return buildAlchemyLikeBatchMessageImpl(this, jobKind, job, successCount);
     }
-    buildAlchemyLikeTickResult(panelChanged = false, messages = [], inventoryChanged = false, equipmentChanged = false, attrChanged = false, groundDrops = [], craftRealmExpGain = 0) {
-        return buildCraftTickResult(panelChanged, messages, inventoryChanged, equipmentChanged, attrChanged, groundDrops, craftRealmExpGain);
+        buildAlchemyLikeTickResult(panelChanged = false, messages = [], inventoryChanged = false, equipmentChanged = false, attrChanged = false, groundDrops = [], craftRealmExpGain = 0) {
+        return buildAlchemyLikeTickResultImpl(this, panelChanged, messages, inventoryChanged, equipmentChanged, attrChanged, groundDrops, craftRealmExpGain);
     }
     /**
  * tickAlchemy：执行tick炼丹相关逻辑。
@@ -1735,229 +899,36 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，直接更新tick炼丹相关状态。
  */
 
-    tickAlchemy(player, jobKind = undefined) {
-        this.ensurePipelineInitialized();
-        const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
-        return this.pipeline.tick(player, normalizedJobKind, this.buildPipelineContext(null));
+        tickAlchemy(player, jobKind = undefined) {
+        return tickAlchemyImpl(this, player, jobKind);
     }
     /** 校验强化 start 的目标、保护物和基础参数；不提前锁装备或扣资源。 */
-    validateEnhancementStart(player, payload) {
-        this.ensureCraftSkills(player);
-        const target = this.resolveEnhancementTarget(player, payload?.target);
-        if (!target) {
-            return { ok: false, error: '强化目标不存在。' };
-        }
-        if (target.ref.source === 'equipment') {
-            return { ok: false, error: '身上装备不能直接强化，请先卸下放入背包。' };
-        }
-        if ((target as Record<string, unknown>).mismatched) {
-            return { ok: false, error: '强化目标已变更，请重新选择。' };
-        }
-        if (!isEnhanceableItem(target.item)) {
-            return { ok: false, error: '当前仅支持强化装备或法宝。' };
-        }
-        const currentLevel = normalizeEnhanceLevel(target.item.enhanceLevel);
-        if (currentLevel >= MAX_ENHANCE_LEVEL) {
-            return { ok: false, error: `该目标已达到强化上限 +${MAX_ENHANCE_LEVEL}。` };
-        }
-        const targetLevel = currentLevel + 1;
-        const desiredTargetLevel = this.resolveRequestedTargetLevel(currentLevel, payload?.targetLevel);
-        const config = this.enhancementConfigs.get(target.item.itemId);
-        const protection = payload?.protection
-            ? this.resolveEnhancementProtection(player, payload.protection, target, config)
-            : null;
-        if (payload?.protection && !protection) {
-            return { ok: false, error: '保护物不存在或不符合本次强化规则。' };
-        }
-        const materials = this.getEnhancementRequirements(config, targetLevel);
-        const protectionStartLevel = protection
-            ? this.resolveProtectionStartLevel(desiredTargetLevel, payload?.protectionStartLevel)
-            : undefined;
-        const spiritStoneCost = getEnhancementSpiritStoneCost(target.item.level, materials.length > 0);
-        return {
-            ok: true,
-            validated: {
-                payload,
-                target,
-                currentLevel,
-                targetLevel,
-                desiredTargetLevel,
-                config,
-                protection,
-                materials,
-                protectionStartLevel,
-                spiritStoneCost,
-                jobRunId: createCraftJobRunId(player.playerId, 'enhancement'),
-            },
-        };
+        validateEnhancementStart(player, payload) {
+        return validateEnhancementStartImpl(this, player, payload);
     }
     /** 活动互斥时把强化 start 转入统一技艺队列，不提前锁装备或扣资源。 */
-    queueEnhancementStart(player, validated, payload) {
-        if (!this.hasAnyActiveTechniqueActivity(player)) {
-            return null;
-        }
-        return this.enqueueCraftQueueItem(
-            player,
-            buildEnhancementQueueItem(
-                validated.target,
-                validated.protection,
-                payload,
-                validated.desiredTargetLevel,
-                this.resolveEnhancementItemBaseDisplayName(validated.target.item),
-            ),
-            normalizeCraftQueueStartMode(payload?.queueMode),
-        );
+        queueEnhancementStart(player, validated, payload) {
+        return queueEnhancementStartImpl(this, player, validated, payload);
     }
     /** 锁定强化工件并扣除本阶材料；调用方负责先完成校验和排队。 */
-    consumeEnhancementStartResources(player, validated) {
-        const target = validated.target;
-        const protectionRequired = this.shouldUseProtectionForStep(validated.targetLevel, validated.protectionStartLevel);
-        if (!this.hasEnoughEnhancementResources(player, target, validated.protection, validated.spiritStoneCost, validated.materials, protectionRequired)) {
-            return { ok: false, error: '所需灵石、材料或保护物不足。' };
-        }
-        const workingItem = target.ref.source === 'inventory'
-            ? extractInventoryItemByInstanceId(player, target.ref.itemInstanceId)
-            : extractEquipmentItem(player, target.ref.slot);
-        if (!workingItem) {
-            return { ok: false, error: '强化目标不存在。' };
-        }
-        assignItemInstanceIdIfNeeded(workingItem as ItemStack);
-        const workingInstanceId = typeof (workingItem as ItemStack).itemInstanceId === 'string'
-            ? (workingItem as ItemStack).itemInstanceId
-            : '';
-        if (!workingInstanceId) {
-            return { ok: false, error: '强化目标缺失实例标识。' };
-        }
-        for (const material of validated.materials) {
-            consumeInventoryItemByItemId(player, material.itemId, material.count);
-        }
-        if (!Array.isArray(player.inventory.lockedItems)) {
-            player.inventory.lockedItems = [];
-        }
-        (workingItem as ItemStack).enhanceLevel = validated.currentLevel;
-        (workingItem as ItemStack).count = 1;
-        lockItem(player.inventory.lockedItems, workingItem as unknown as Record<string, unknown>, `enhancement:${validated.jobRunId}`);
-        validated.workingItem = workingItem;
-        validated.workingInstanceId = workingInstanceId;
-        return { ok: true };
+        consumeEnhancementStartResources(player, validated) {
+        return consumeEnhancementStartResourcesImpl(this, player, validated);
     }
     /** 创建强化 active job；调用方负责先完成资源锁定和材料消耗。 */
-    createEnhancementStartJob(player, validated) {
-        const target = validated.target;
-        const roleEnhancementLevel = Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1));
-        const craftEffectStats = this.getCraftEffectStats(player);
-        const totalSpeedRate = computeEnhancementToolSpeedRate(craftEffectStats.enhancement.speedRate, roleEnhancementLevel, target.item.level);
-        const successRate = computeEnhancementAdjustedSuccessRate(validated.targetLevel, roleEnhancementLevel, target.item.level, craftEffectStats.enhancement.successRate, this.getLuckSuccessRateBonus(player));
-        const totalTicks = computeEnhancementJobTicks(target.item.level, totalSpeedRate);
-        const protectionItemId = validated.protection ? (validated.config?.protectionItemId ?? target.item.itemId) : undefined;
-        const protectionItemName = protectionItemId
-            ? resolvePlayerFacingContentName(protectionItemId, '未知物品', this.contentTemplateRepository.getItemName(protectionItemId))
-            : undefined;
-        const protectionItemSignature = validated.protection
-            ? createItemStackSignature(validated.protection.item)
-            : undefined;
-        const targetItemName = this.resolveEnhancementItemBaseDisplayName(target.item);
-        player.enhancementJob = {
-            jobRunId: validated.jobRunId,
-            jobType: 'enhancement',
-            target: cloneTargetRef(target.ref),
-            itemInstanceId: validated.workingInstanceId,
-            targetItemId: target.item.itemId,
-            targetItemName,
-            targetItemLevel: Math.max(1, Math.floor(Number(target.item.level) || 1)),
-            currentLevel: validated.currentLevel,
-            targetLevel: validated.targetLevel,
-            desiredTargetLevel: validated.desiredTargetLevel,
-            spiritStoneCost: validated.spiritStoneCost,
-            materials: validated.materials.map((entry) => ({ ...entry })),
-            protectionUsed: Boolean(validated.protection),
-            protectionStartLevel: validated.protectionStartLevel,
-            protectionItemId,
-            protectionItemName,
-            protectionItemSignature,
-            phase: 'enhancing',
-            pausedTicks: 0,
-            workTotalTicks: totalTicks,
-            workRemainingTicks: totalTicks,
-            interruptWaitRemainingTicks: 0,
-            interruptState: null,
-            successRate,
-            totalTicks,
-            remainingTicks: totalTicks,
-            startedAt: Date.now(),
-            roleEnhancementLevel,
-            totalSpeedRate,
-            jobVersion: 1,
-        };
-        this.recordEnhancementStart(player, {
-            itemId: target.item.itemId,
-            itemName: targetItemName,
-            actionStartedAt: player.enhancementJob.startedAt,
-            startLevel: validated.currentLevel,
-            initialTargetLevel: validated.targetLevel,
-            desiredTargetLevel: validated.desiredTargetLevel,
-            protectionStartLevel: validated.protectionStartLevel,
-            status: 'in_progress',
-        });
-        return player.enhancementJob;
+        createEnhancementStartJob(player, validated) {
+        return createEnhancementStartJobImpl(this, player, validated);
     }
     /** 标记强化 start 对背包、active job 和强化记录的权威变更。 */
-    finalizeEnhancementStart(player) {
-        this.finalizeMutation(player, {
-            inventoryChanged: true,
-            persistentOnly: true,
-            dirtyDomains: ['active_job', 'enhancement_record'],
-        });
+        finalizeEnhancementStart(player) {
+        return finalizeEnhancementStartImpl(this, player);
     }
     /** 构建强化启动提示。 */
-    buildEnhancementStartMessages(validated, job) {
-        if (validated.desiredTargetLevel > validated.targetLevel && validated.protection) {
-            return [{
-                kind: 'enhancement',
-                key: 'notice.craft.enhancement.start-chain-protected',
-                vars: {
-                    itemName: job.targetItemName,
-                    targetLevel: validated.targetLevel,
-                    desiredTargetLevel: validated.desiredTargetLevel,
-                    protectionStartLevel: validated.protectionStartLevel,
-                },
-                pills: [{ key: 'itemName', style: 'target' }],
-            }];
-        }
-        if (validated.desiredTargetLevel > validated.targetLevel) {
-            return [{
-                kind: 'enhancement',
-                key: 'notice.craft.enhancement.start-chain',
-                vars: {
-                    itemName: job.targetItemName,
-                    targetLevel: validated.targetLevel,
-                    desiredTargetLevel: validated.desiredTargetLevel,
-                },
-                pills: [{ key: 'itemName', style: 'target' }],
-            }];
-        }
-        return [{
-            kind: 'enhancement',
-            key: 'notice.craft.enhancement.start',
-            vars: {
-                itemName: job.targetItemName,
-                targetLevel: validated.targetLevel,
-                totalTicks: job.totalTicks,
-            },
-            pills: [{ key: 'itemName', style: 'target' }],
-        }];
+        buildEnhancementStartMessages(validated, job) {
+        return buildEnhancementStartMessagesImpl(this, validated, job);
     }
     /** 解析强化玩家可见装备名，运行态物品缺少 name 时用内容目录兜底。 */
-    resolveEnhancementItemBaseDisplayName(item) {
-        const itemId = typeof item?.itemId === 'string' ? item.itemId.trim() : '';
-        const itemName = typeof item?.name === 'string' ? item.name.trim() : '';
-        const templateName = itemId ? this.contentTemplateRepository.getItemName(itemId) : null;
-        const resolvedName = resolvePlayerFacingContentName(itemId, '未知物品', itemName, templateName);
-        return getItemDisplayName({
-            itemId,
-            name: resolvedName,
-            enhanceLevel: 0,
-        });
+        resolveEnhancementItemBaseDisplayName(item) {
+        return resolveEnhancementItemBaseDisplayNameImpl(this, item);
     }
     /**
  * startEnhancement：执行开始强化相关逻辑。
@@ -1966,10 +937,8 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，直接更新start强化相关状态。
  */
 
-    startEnhancement(player, payload) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        return this.startTechniqueActivity(player, 'enhancement', payload);
+        startEnhancement(player, payload) {
+        return startEnhancementImpl(this, player, payload);
     }
     /**
  * cancelEnhancement：判断cancel强化是否满足条件。
@@ -1977,30 +946,8 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，完成cancel强化的条件判断。
  */
 
-    cancelEnhancement(player) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        this.ensureCraftSkills(player);
-        const job = player.enhancementJob;
-        if (!job || job.remainingTicks <= 0) {
-            return buildCraftMutationResult('当前没有可取消的强化任务。');
-        }
-        this.playerRuntimeService.captureOfflineGainBeforeTick?.(player);
-        const finishResult = this.finishEnhancementJob(player, job.currentLevel, 'cancelled');
-        const result = {
-            ok: true,
-            panelChanged: true,
-            inventoryChanged: finishResult.inventoryChanged,
-            equipmentChanged: finishResult.equipmentChanged,
-            attrChanged: finishResult.attrChanged,
-            groundDrops: finishResult.groundDrops,
-            messages: [{
-                    kind: 'system',
-                    text: `你停止了 ${job.targetItemName} 的强化，已投入的本阶材料不会退回；保护物仅在失败且保护生效时扣除，灵石将在本阶成功后结算。`,
-                }],
-        };
-        this.recordTechniqueActivityStatisticMutation(player, result);
-        return result;
+        cancelEnhancement(player) {
+        return cancelEnhancementImpl(this, player);
     }
     /**
  * interruptEnhancement：执行interrupt强化相关逻辑。
@@ -2009,10 +956,8 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，直接更新interrupt强化相关状态。
  */
 
-    interruptEnhancement(player, reason) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        return this.interruptTechniqueActivity(player, 'enhancement', reason);
+        interruptEnhancement(player, reason) {
+        return interruptEnhancementImpl(this, player, reason);
     }
     /**
  * tickEnhancement：执行tick强化相关逻辑。
@@ -2020,10 +965,8 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，直接更新tick强化相关状态。
  */
 
-    tickEnhancement(player) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        return this.tickTechniqueActivity(player, 'enhancement');
+        tickEnhancement(player) {
+        return tickEnhancementImpl(this, player);
     }
     /** 兼容旧 active job 内 queuedJobs，迁移到统一技艺队列。 */
     migrateLegacyCraftQueueToUnifiedQueue(player, queuedJobs) {
@@ -2077,47 +1020,25 @@ export class CraftPanelRuntimeService {
     hasEquippedForgingTool(player) {
         return Boolean(this.getAlchemyLikeToolItem(player, 'forging')?.tags?.includes('forging_tool'));
     }
-    getAlchemyLikeToolSpeedRate(player, jobKind) {
-        const craftEffectStats = this.getCraftEffectStats(player);
-        return jobKind === 'forging' ? craftEffectStats.forging.speedRate : craftEffectStats.alchemy.speedRate;
+        getAlchemyLikeToolSpeedRate(player, jobKind) {
+        return getAlchemyLikeToolSpeedRateImpl(this, player, jobKind);
     }
-    getAlchemyLikeToolSuccessRate(player, jobKind) {
-        const craftEffectStats = this.getCraftEffectStats(player);
-        return jobKind === 'forging' ? craftEffectStats.forging.successRate : craftEffectStats.alchemy.successRate;
+        getAlchemyLikeToolSuccessRate(player, jobKind) {
+        return getAlchemyLikeToolSuccessRateImpl(this, player, jobKind);
     }
-    getAlchemyLikeToolOutputRate(player, jobKind) {
-        const craftEffectStats = this.getCraftEffectStats(player);
-        return jobKind === 'forging' ? craftEffectStats.forging.outputRate : craftEffectStats.alchemy.outputRate;
+        getAlchemyLikeToolOutputRate(player, jobKind) {
+        return getAlchemyLikeToolOutputRateImpl(this, player, jobKind);
     }
-    getLuckSuccessRateBonus(player) {
-        return computeLuckSuccessRateBonus(resolvePlayerEffectiveLuck(player));
+        getLuckSuccessRateBonus(player) {
+        return getLuckSuccessRateBonusImpl(this, player);
     }
 
-    resolveAlchemyLikeCurrentSuccessRate(player, jobKind, job) {
-        const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
-        const baseRate = Number.isFinite(Number(job?.baseElementSuccessRate))
-            ? Number(job.baseElementSuccessRate)
-            : Number(job?.successRate ?? 0);
-        const targetLevel = Math.max(1, Math.floor(Number(job?.outputLevel ?? 1) || 1));
-        const craftSkillLevel = normalizedJobKind === 'forging'
-            ? player?.forgingSkill?.level
-            : player?.alchemySkill?.level;
-        return computeAlchemyAdjustedSuccessRate(
-            baseRate,
-            targetLevel,
-            craftSkillLevel,
-            this.getAlchemyLikeToolSuccessRate(player, normalizedJobKind),
-            this.getLuckSuccessRateBonus(player),
-        );
+        resolveAlchemyLikeCurrentSuccessRate(player, jobKind, job) {
+        return resolveAlchemyLikeCurrentSuccessRateImpl(this, player, jobKind, job);
     }
 
-    refreshAlchemyLikeActiveJobSuccessRate(player, jobKind) {
-        const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
-        const job = this.getAlchemyLikeActiveJob(player, normalizedJobKind);
-        if (!job) {
-            return;
-        }
-        job.successRate = this.resolveAlchemyLikeCurrentSuccessRate(player, normalizedJobKind, job);
+        refreshAlchemyLikeActiveJobSuccessRate(player, jobKind) {
+        return refreshAlchemyLikeActiveJobSuccessRateImpl(this, player, jobKind);
     }
 
     /**
@@ -2126,8 +1047,8 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，完成EquippedHammer的条件判断。
  */
 
-    hasEquippedHammer(player) {
-        return Boolean(this.getEnhancementToolItem(player)?.tags?.includes(ENHANCEMENT_HAMMER_TAG));
+        hasEquippedHammer(player) {
+        return hasEquippedHammerImpl(this, player);
     }
     /**
  * ensureCraftSkills：执行ensure炼制技能相关逻辑。
@@ -2217,32 +1138,8 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，直接更新强化Candidate相关状态。
  */
 
-    collectEnhancementCandidates(player) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const candidates = [];
-        player.inventory.items.forEach((item) => {
-            assignItemInstanceIdIfNeeded(item);
-            const itemInstanceId = normalizeInventoryItemInstanceId(item?.itemInstanceId);
-            if (!itemInstanceId) {
-                return;
-            }
-            const normalizedItem = this.normalizeEnhancementInventoryItem(item);
-            const candidate = this.buildEnhancementCandidate(player, { source: 'inventory', itemInstanceId }, normalizedItem);
-            if (candidate) {
-                candidates.push(candidate);
-            }
-        });
-        candidates.sort((left, right) => {
-            if (left.item.level !== right.item.level) {
-                return left.item.level - right.item.level;
-            }
-            if (left.currentLevel !== right.currentLevel) {
-                return left.currentLevel - right.currentLevel;
-            }
-            return left.item.itemId.localeCompare(right.item.itemId, 'zh-Hans-CN');
-        });
-        return candidates;
+        collectEnhancementCandidates(player) {
+        return collectEnhancementCandidatesImpl(this, player);
     }
     /**
  * buildEnhancementCandidate：构建并返回目标对象。
@@ -2252,43 +1149,8 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，直接更新强化Candidate相关状态。
  */
 
-    buildEnhancementCandidate(player, ref, item) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (!isEnhanceableItem(item)) {
-            return null;
-        }
-        const currentLevel = normalizeEnhanceLevel(item.enhanceLevel);
-        if (currentLevel >= MAX_ENHANCE_LEVEL) {
-            return null;
-        }
-        const nextLevel = currentLevel + 1;
-        const craftEffectStats = this.getCraftEffectStats(player);
-        const enhancementSkillLevel = Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1));
-        const config = this.enhancementConfigs.get(item.itemId);
-        const requirements = this.getEnhancementRequirements(config, nextLevel);
-        const totalSpeedRate = computeEnhancementToolSpeedRate(craftEffectStats.enhancement.speedRate, enhancementSkillLevel, item.level);
-        return {
-            ref,
-            item: cloneItem(item),
-            currentLevel,
-            nextLevel,
-            spiritStoneCost: getEnhancementSpiritStoneCost(item.level, requirements.length > 0),
-            successRate: computeEnhancementAdjustedSuccessRate(nextLevel, enhancementSkillLevel, item.level, craftEffectStats.enhancement.successRate, this.getLuckSuccessRateBonus(player)),
-            durationTicks: computeEnhancementJobTicks(item.level, totalSpeedRate),
-            materials: requirements.map((entry) => ({
-                itemId: entry.itemId,
-                name: resolvePlayerFacingContentName(entry.itemId, '未知物品', this.contentTemplateRepository.getItemName(entry.itemId)),
-                count: entry.count,
-                ownedCount: countInventoryItem(player, entry.itemId),
-            })),
-            protectionItemId: config?.protectionItemId,
-            protectionItemName: config?.protectionItemId
-                ? resolvePlayerFacingContentName(config.protectionItemId, '未知物品', this.contentTemplateRepository.getItemName(config.protectionItemId))
-                : undefined,
-            allowSelfProtection: !config?.protectionItemId,
-            protectionCandidates: this.buildProtectionCandidates(player, ref, item, config),
-        };
+        buildEnhancementCandidate(player, ref, item) {
+        return buildEnhancementCandidateImpl(this, player, ref, item);
     }
     /**
  * buildProtectionCandidates：构建并返回目标对象。
@@ -2299,35 +1161,8 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，直接更新ProtectionCandidate相关状态。
  */
 
-    buildProtectionCandidates(player, ref, item, config) {
-        const candidates = [];
-        const targetProtectionItemId = config?.protectionItemId ?? item.itemId;
-        const targetInstanceId = ref.source === 'inventory' ? normalizeInventoryItemInstanceId(ref.itemInstanceId) : '';
-        player.inventory.items.forEach((entry) => {
-            if (!entry || !this.isEligibleProtectionItem(entry, targetProtectionItemId, item.itemId)) {
-                return;
-            }
-            assignItemInstanceIdIfNeeded(entry);
-            const itemInstanceId = normalizeInventoryItemInstanceId(entry.itemInstanceId);
-            if (!itemInstanceId) {
-                return;
-            }
-            if (targetInstanceId && itemInstanceId === targetInstanceId) {
-                const entryCount = Math.max(0, Math.floor(Number(entry.count) || 0));
-                if (entryCount < 2) {
-                    return;
-                }
-                const cloned = cloneItem(entry);
-                cloned.count = entryCount - 1;
-                candidates.push({ ref: { source: 'inventory', itemInstanceId }, item: cloned });
-                return;
-            }
-            candidates.push({
-                ref: { source: 'inventory', itemInstanceId },
-                item: cloneItem(entry),
-            });
-        });
-        return candidates;
+        buildProtectionCandidates(player, ref, item, config) {
+        return buildProtectionCandidatesImpl(this, player, ref, item, config);
     }
     /**
  * getEnhancementRequirements：读取强化Requirement。
@@ -2336,9 +1171,8 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，完成强化Requirement的读取/组装。
  */
 
-    getEnhancementRequirements(config, targetLevel) {
-        const step = config?.steps.find((entry) => entry.targetEnhanceLevel === targetLevel);
-        return (step?.materials ?? []).map((entry) => ({ ...entry }));
+        getEnhancementRequirements(config, targetLevel) {
+        return getEnhancementRequirementsImpl(this, config, targetLevel);
     }
 
     normalizeEnhancementInventoryItem(item) {
@@ -2348,24 +1182,12 @@ export class CraftPanelRuntimeService {
         return cloneCraftEffectStats(player?.attrs?.craftEffectStats);
     }
 
-    getAlchemyLikeToolItem(player, jobKind) {
-        const slot = jobKind === 'forging' ? 'technique_forging' : 'technique_alchemy';
-        const expectedTag = jobKind === 'forging' ? 'forging_tool' : ALCHEMY_FURNACE_TAG;
-        const tool = this.getEquippedItem(player, slot);
-        if (tool?.tags?.includes(expectedTag)) {
-            return tool;
-        }
-        const legacyWeapon = this.getEquippedItem(player, 'weapon');
-        return legacyWeapon?.tags?.includes(expectedTag) ? legacyWeapon : null;
+        getAlchemyLikeToolItem(player, jobKind) {
+        return getAlchemyLikeToolItemImpl(this, player, jobKind);
     }
 
-    getEnhancementToolItem(player) {
-        const tool = this.getEquippedItem(player, 'technique_enhancement');
-        if (tool?.tags?.includes(ENHANCEMENT_HAMMER_TAG)) {
-            return tool;
-        }
-        const legacyWeapon = this.getEquippedItem(player, 'weapon');
-        return legacyWeapon?.tags?.includes(ENHANCEMENT_HAMMER_TAG) ? legacyWeapon : null;
+        getEnhancementToolItem(player) {
+        return getEnhancementToolItemImpl(this, player);
     }
     /**
  * getEquippedItem：读取Equipped道具。
@@ -2384,9 +1206,8 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，直接更新Requested目标等级相关状态。
  */
 
-    resolveRequestedTargetLevel(currentLevel, requestedTargetLevel) {
-        const normalized = Math.floor(Number(requestedTargetLevel) || 0);
-        return Math.min(MAX_ENHANCE_LEVEL, Math.max(currentLevel + 1, normalized || (currentLevel + 1)));
+        resolveRequestedTargetLevel(currentLevel, requestedTargetLevel) {
+        return resolveRequestedTargetLevelImpl(this, currentLevel, requestedTargetLevel);
     }
     /**
  * resolveProtectionStartLevel：规范化或转换Protection开始等级。
@@ -2395,9 +1216,8 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，直接更新ProtectionStart等级相关状态。
  */
 
-    resolveProtectionStartLevel(desiredTargetLevel, requestedProtectionStartLevel) {
-        const normalized = Math.floor(Number(requestedProtectionStartLevel) || 0);
-        return Math.max(2, Math.min(desiredTargetLevel, normalized || 2));
+        resolveProtectionStartLevel(desiredTargetLevel, requestedProtectionStartLevel) {
+        return resolveProtectionStartLevelImpl(this, desiredTargetLevel, requestedProtectionStartLevel);
     }
     /**
  * shouldUseProtectionForStep：判断UseProtectionForStep是否满足条件。
@@ -2406,8 +1226,8 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，完成UseProtectionForStep的条件判断。
  */
 
-    shouldUseProtectionForStep(targetLevel, protectionStartLevel) {
-        return typeof protectionStartLevel === 'number' && targetLevel >= protectionStartLevel;
+        shouldUseProtectionForStep(targetLevel, protectionStartLevel) {
+        return shouldUseProtectionForStepImpl(this, targetLevel, protectionStartLevel);
     }
     /**
  * resolveEnhancementTarget：读取强化目标并返回结果。
@@ -2416,49 +1236,8 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，直接更新强化目标相关状态。
  */
 
-    resolveEnhancementTarget(player, ref) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (!ref || typeof ref !== 'object') {
-            return null;
-        }
-        let resolved: { ref: any; item: any } | null = null;
-        if (ref.source === 'inventory') {
-            const directItemInstanceId = normalizeInventoryItemInstanceId(ref.itemInstanceId)
-                || normalizeInventoryItemInstanceId(ref.expectedItemInstanceId);
-            if (directItemInstanceId) {
-                const item = findInventoryItemByInstanceId(player, directItemInstanceId);
-                resolved = item ? { ref: { source: 'inventory', itemInstanceId: directItemInstanceId }, item: this.normalizeEnhancementInventoryItem(item) } : null;
-            }
-        } else if (ref.source === 'equipment') {
-            const slot = normalizeEquipSlot(ref.slot);
-            if (!slot) {
-                return null;
-            }
-            const item = this.getEquippedItem(player, slot);
-            resolved = item ? { ref: { source: 'equipment', slot }, item } : null;
-        }
-        if (!resolved) {
-            return null;
-        }
-        // 乐观一致性校验：客户端选中目标时看到的 itemInstanceId
-        const expected = typeof ref?.expectedItemInstanceId === 'string' && ref.expectedItemInstanceId.trim().length > 0
-            ? ref.expectedItemInstanceId.trim()
-            : '';
-        const actual = typeof resolved.item.itemInstanceId === 'string' ? resolved.item.itemInstanceId : '';
-        const compare = compareItemInstanceId(actual, expected);
-        if (compare === 'mismatch') {
-            const hardCheck = isItemInstanceIdHardCheckEnabled();
-            this.logger.warn(
-                `enhancement target itemInstanceId mismatch player=${player.playerId} `
-                + `expected=${expected} actual=${actual} ref=${JSON.stringify(ref)} `
-                + `hardCheck=${hardCheck}`,
-            );
-            if (hardCheck) {
-                return { mismatched: true } as unknown as ReturnType<typeof this.resolveEnhancementTarget>;
-            }
-        }
-        return resolved;
+        resolveEnhancementTarget(player, ref) {
+        return resolveEnhancementTargetImpl(this, player, ref);
     }
     /**
  * resolveEnhancementProtection：规范化或转换强化Protection。
@@ -2469,26 +1248,8 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，直接更新强化Protection相关状态。
  */
 
-    resolveEnhancementProtection(player, ref, target, config) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (!ref || ref.source !== 'inventory') {
-            return null;
-        }
-        const protection = this.resolveEnhancementTarget(player, ref);
-        if (!protection || protection.ref.source !== 'inventory') {
-            return null;
-        }
-        const expectedItemId = config?.protectionItemId ?? target.item.itemId;
-        if (!this.isEligibleProtectionItem(protection.item, expectedItemId, target.item.itemId)) {
-            return null;
-        }
-        if (target.ref.source === 'inventory'
-            && normalizeInventoryItemInstanceId(protection.ref.itemInstanceId) === normalizeInventoryItemInstanceId(target.ref.itemInstanceId)
-            && Math.max(0, Math.floor(Number(target.item.count) || 0)) < 2) {
-            return null;
-        }
-        return protection;
+        resolveEnhancementProtection(player, ref, target, config) {
+        return resolveEnhancementProtectionImpl(this, player, ref, target, config);
     }
     /**
  * touchEnhancementRecord：执行touch强化Record相关逻辑。
@@ -2497,66 +1258,11 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，直接更新touch强化Record相关状态。
  */
 
-    touchEnhancementRecord(player, input) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const itemId = normalizeText(input.itemId);
-        if (!itemId) {
-            return null;
-        }
-        const itemName = this.resolveEnhancementRecordItemName(itemId, input);
-        const existing = (player.enhancementRecords ?? []).find((entry) => entry.itemId === itemId);
-        if (existing) {
-            if (itemName) {
-                existing.itemName = itemName;
-            }
-            if (Object.prototype.hasOwnProperty.call(input, 'actionStartedAt')) {
-                existing.actionStartedAt = input.actionStartedAt;
-            }
-            if (Object.prototype.hasOwnProperty.call(input, 'startLevel')) {
-                existing.startLevel = input.startLevel;
-            }
-            if (Object.prototype.hasOwnProperty.call(input, 'initialTargetLevel')) {
-                existing.initialTargetLevel = input.initialTargetLevel;
-            }
-            if (Object.prototype.hasOwnProperty.call(input, 'desiredTargetLevel')) {
-                existing.desiredTargetLevel = input.desiredTargetLevel;
-            }
-            if (Object.prototype.hasOwnProperty.call(input, 'protectionStartLevel')) {
-                existing.protectionStartLevel = input.protectionStartLevel;
-            }
-            if (Object.prototype.hasOwnProperty.call(input, 'status')) {
-                existing.status = input.status;
-            }
-            this.playerRuntimeService.markPersistenceDirtyDomains(player, ['enhancement_record']);
-            return existing;
-        }
-        const created = {
-            itemId,
-            itemName,
-            highestLevel: Math.max(0, Number(input.startLevel) || 0),
-            levels: [],
-            actionStartedAt: input.actionStartedAt,
-            startLevel: input.startLevel,
-            initialTargetLevel: input.initialTargetLevel,
-            desiredTargetLevel: input.desiredTargetLevel,
-            protectionStartLevel: input.protectionStartLevel,
-            status: input.status,
-        };
-        player.enhancementRecords.push(created);
-        this.playerRuntimeService.markPersistenceDirtyDomains(player, ['enhancement_record']);
-        return created;
+        touchEnhancementRecord(player, input) {
+        return touchEnhancementRecordImpl(this, player, input);
     }
     resolveEnhancementRecordItemName(itemId, input = {}) {
-        const recordInput = input as { itemName?: unknown };
-        return itemId
-            ? resolvePlayerFacingContentName(
-                itemId,
-                '未知物品',
-                recordInput.itemName,
-                this.contentTemplateRepository.getItemName(itemId),
-            )
-            : '';
+        return resolveEnhancementRecordItemNameImpl(this, itemId, input);
     }
     /**
  * touchEnhancementLevelRecord：执行touch强化等级Record相关逻辑。
@@ -2568,67 +1274,20 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，直接更新touch强化等级Record相关状态。
  */
 
-    touchEnhancementLevelRecord(player, itemId, targetLevel, success, resultingLevel) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const existing = (player.enhancementRecords ?? []).find((entry) => entry.itemId === normalizeText(itemId));
-        const job = player.enhancementJob?.targetItemId === itemId ? player.enhancementJob : null;
-        const record = this.touchEnhancementRecord(player, existing
-            ? {
-                itemId,
-                itemName: job?.targetItemName,
-                status: 'in_progress',
-            }
-            : {
-                itemId,
-                itemName: job?.targetItemName,
-                actionStartedAt: job?.startedAt,
-                startLevel: job?.currentLevel ?? 0,
-                initialTargetLevel: job?.targetLevel ?? targetLevel,
-                desiredTargetLevel: job?.desiredTargetLevel ?? targetLevel,
-                protectionStartLevel: job?.protectionStartLevel,
-                status: 'in_progress',
-            });
-        if (!record) {
-            return;
-        }
-        let levelRecord = record.levels.find((entry) => entry.targetLevel === targetLevel);
-        if (!levelRecord) {
-            levelRecord = {
-                targetLevel,
-                successCount: 0,
-                failureCount: 0,
-            };
-            record.levels.push(levelRecord);
-            record.levels.sort((left, right) => left.targetLevel - right.targetLevel);
-        }
-        if (success) {
-            levelRecord.successCount += 1;
-        }
-        else {
-            levelRecord.failureCount += 1;
-        }
-        record.highestLevel = Math.max(record.highestLevel, resultingLevel);
+        touchEnhancementLevelRecord(player, itemId, targetLevel, success, resultingLevel) {
+        return touchEnhancementLevelRecordImpl(this, player, itemId, targetLevel, success, resultingLevel);
     }
     /** 强化 start 生命周期显式记录 hook。 */
-    recordEnhancementStart(player, input) {
-        return this.touchEnhancementRecord(player, input);
+        recordEnhancementStart(player, input) {
+        return recordEnhancementStartImpl(this, player, input);
     }
     /** 强化单阶结算显式记录 hook。 */
-    recordEnhancementStepResult(player, job, success, resultingLevel) {
-        return this.touchEnhancementLevelRecord(player, job.targetItemId, job.targetLevel, success, resultingLevel);
+        recordEnhancementStepResult(player, job, success, resultingLevel) {
+        return recordEnhancementStepResultImpl(this, player, job, success, resultingLevel);
     }
     /** 强化 job 结束显式记录 hook。 */
-    completeEnhancementRecord(player, job, resultingLevel, status) {
-        const record = (player.enhancementRecords ?? []).find((entry) => entry.itemId === job.targetItemId);
-        if (!record) {
-            return null;
-        }
-        record.actionEndedAt = Date.now();
-        record.status = status;
-        record.highestLevel = Math.max(record.highestLevel, resultingLevel);
-        this.playerRuntimeService.markPersistenceDirtyDomains(player, ['enhancement_record']);
-        return record;
+        completeEnhancementRecord(player, job, resultingLevel, status) {
+        return completeEnhancementRecordImpl(this, player, job, resultingLevel, status);
     }
     /**
  * advanceEnhancementJob：执行advance强化Job相关逻辑。
@@ -2637,103 +1296,8 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，直接更新advance强化Job相关状态。
  */
 
-    advanceEnhancementJob(player, currentLevel) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const job = player.enhancementJob;
-        if (!job || currentLevel >= job.desiredTargetLevel) {
-            return null;
-        }
-        const nextTargetLevel = currentLevel + 1;
-        const config = this.enhancementConfigs.get(job.targetItemId);
-        const nextMaterials = this.getEnhancementRequirements(config, nextTargetLevel);
-        const nextSpiritStoneCost = getEnhancementSpiritStoneCost(job.targetItemLevel, nextMaterials.length > 0);
-        const protectionItemId = this.shouldUseProtectionForStep(nextTargetLevel, job.protectionStartLevel)
-            ? (config?.protectionItemId ?? job.targetItemId)
-            : undefined;
-        if (!this.hasEnoughQueuedEnhancementResources(player, protectionItemId, job.targetItemId, nextSpiritStoneCost, nextMaterials)) {
-            const finishResult = this.finishEnhancementJob(player, currentLevel, 'stopped');
-            return {
-                continued: false,
-                inventoryChanged: finishResult.inventoryChanged,
-                equipmentChanged: finishResult.equipmentChanged,
-                attrChanged: finishResult.attrChanged,
-                groundDrops: finishResult.groundDrops,
-                messages: [{
-                        kind: 'system',
-                        key: 'notice.craft.enhancement.advance-resources-missing',
-                        vars: {
-                            itemName: job.targetItemName,
-                            currentLevel,
-                        },
-                        pills: [{ key: 'itemName', style: 'target' }],
-                    }],
-            };
-        }
-        for (const material of nextMaterials) {
-            consumeInventoryItemByItemId(player, material.itemId, material.count);
-        }
-        const roleEnhancementLevel = Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1));
-        const craftEffectStats = this.getCraftEffectStats(player);
-        const totalSpeedRate = computeEnhancementToolSpeedRate(craftEffectStats.enhancement.speedRate, roleEnhancementLevel, job.targetItemLevel);
-        const totalTicks = computeEnhancementJobTicks(job.targetItemLevel, totalSpeedRate);
-        const lockedEntry = getLockedItem(player.inventory.lockedItems ?? [], job.itemInstanceId);
-        if (!lockedEntry) {
-            const finishResult = this.finishEnhancementJob(player, currentLevel, 'stopped');
-            return {
-                continued: false,
-                inventoryChanged: finishResult.inventoryChanged,
-                equipmentChanged: finishResult.equipmentChanged,
-                attrChanged: finishResult.attrChanged,
-                groundDrops: finishResult.groundDrops,
-                messages: [{
-                        kind: 'system',
-                        key: 'notice.craft.enhancement.advance-missing-target',
-                        vars: { itemName: job.targetItemName },
-                        pills: [{ key: 'itemName', style: 'target' }],
-                    }],
-            };
-        }
-        // 锁定空间中的物品就是真源；把当前实际等级写回，下一阶段以此为基础结算
-        (lockedEntry as unknown as ItemStack).enhanceLevel = currentLevel;
-        (lockedEntry as unknown as ItemStack).count = 1;
-        job.currentLevel = currentLevel;
-        job.targetLevel = nextTargetLevel;
-        job.spiritStoneCost = nextSpiritStoneCost;
-        job.materials = nextMaterials.map((entry) => ({ ...entry }));
-        job.phase = 'enhancing';
-        job.pausedTicks = 0;
-        job.interruptWaitRemainingTicks = 0;
-        job.interruptState = null;
-        job.successRate = computeEnhancementAdjustedSuccessRate(nextTargetLevel, roleEnhancementLevel, job.targetItemLevel, craftEffectStats.enhancement.successRate, this.getLuckSuccessRateBonus(player));
-        job.totalTicks = totalTicks;
-        job.remainingTicks = totalTicks;
-        job.workTotalTicks = totalTicks;
-        job.workRemainingTicks = totalTicks;
-        job.startedAt = Date.now();
-        job.roleEnhancementLevel = roleEnhancementLevel;
-        job.totalSpeedRate = totalSpeedRate;
-        this.finalizeMutation(player, {
-            inventoryChanged: true,
-            persistentOnly: true,
-            dirtyDomains: ['active_job'],
-        });
-        return {
-            continued: true,
-            inventoryChanged: true,
-            equipmentChanged: false,
-            attrChanged: false,
-            messages: [{
-                    kind: 'enhancement',
-                    key: 'notice.craft.enhancement.advance-continue',
-                    vars: {
-                        itemName: job.targetItemName,
-                        currentLevel,
-                        nextTargetLevel,
-                    },
-                    pills: [{ key: 'itemName', style: 'target' }],
-                }],
-        };
+        advanceEnhancementJob(player, currentLevel) {
+        return advanceEnhancementJobImpl(this, player, currentLevel);
     }
     /**
  * finishEnhancementJob：判断完成强化Job是否满足条件。
@@ -2743,110 +1307,8 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，直接更新finish强化Job相关状态。
  */
 
-    finishEnhancementJob(player, resultingLevel, status) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const job = player.enhancementJob;
-        if (!job) {
-            return {
-                inventoryChanged: false,
-                equipmentChanged: false,
-                attrChanged: false,
-                groundDrops: [],
-            };
-        }
-        if (!Array.isArray(player.inventory.lockedItems)) {
-            player.inventory.lockedItems = [];
-        }
-        // 通过 itemInstanceId 从锁定空间取出真源工件；不再走 fallback 重建
-        const lockedRaw = job.itemInstanceId
-            ? unlockItem(player.inventory.lockedItems, job.itemInstanceId)
-            : null;
-        if (!lockedRaw) {
-            // 极端兜底：锁定空间已不存在该工件（异常恢复 / 老存档），仍要清掉 job 防止卡死
-            // 同时清理可能残留的同 jobRunId 孤儿锁定项
-            const jobRunId = job.jobRunId;
-            const orphanKey = `enhancement:${jobRunId}`;
-            const before = player.inventory.lockedItems.length;
-            player.inventory.lockedItems = player.inventory.lockedItems.filter(
-                (e) => e.lockedBy !== orphanKey,
-            );
-            const cleaned = before !== player.inventory.lockedItems.length;
-            this.completeEnhancementRecord(player, job, resultingLevel, status);
-            player.enhancementJob = null;
-            this.finalizeMutation(player, {
-                inventoryChanged: cleaned,
-                persistentOnly: true,
-                dirtyDomains: [
-                    'active_job',
-                    'enhancement_record',
-                ],
-            });
-            return {
-                inventoryChanged: cleaned,
-                equipmentChanged: false,
-                attrChanged: false,
-                groundDrops: [],
-            };
-        }
-        // 把目标等级写回真源后还原成普通 ItemStack 形态
-        (lockedRaw as unknown as ItemStack).enhanceLevel = resultingLevel;
-        const itemFields = lockedItemToItemStack(lockedRaw);
-        const resolvedItem = this.contentTemplateRepository.normalizeItem({
-            ...itemFields,
-            count: 1,
-            enhanceLevel: resultingLevel,
-        });
-        // normalize 后兜底分配 instanceId（理论上 locked 物必然已带）
-        assignItemInstanceIdIfNeeded(resolvedItem);
-        // unlockItem 已移除 lockedItems 条目 → inventory 域必然脏
-        let inventoryChanged = true;
-        let equipmentChanged = false;
-        let attrChanged = false;
-        const targetSlot = job.target?.source === 'equipment' ? job.target.slot : null;
-        const slotEntry = targetSlot
-            ? player.equipment?.slots?.find((current) => current.slot === targetSlot)
-            : null;
-        const slotIsEmpty = Boolean(slotEntry) && !slotEntry.item;
-        const slotMatchesInstance = Boolean(slotEntry?.item)
-            && typeof slotEntry.item.itemInstanceId === 'string'
-            && slotEntry.item.itemInstanceId === resolvedItem.itemInstanceId;
-        if (targetSlot && (slotIsEmpty || slotMatchesInstance)) {
-            // 装备来源：原槽仍空（启动时取走）或仍是同一实例 → 写回装备槽
-            setEquippedItem(player, targetSlot, resolvedItem);
-            equipmentChanged = true;
-            attrChanged = true;
-        }
-        else {
-            // 持续任务结算与取消返还属于玩家既有资产边界，即使普通背包已满也必须强制入包。
-            // receiveInventoryItem 会优先按完整堆叠签名合并；无法合并时允许暂时超过容量。
-            receiveInventoryItem(player, this.contentTemplateRepository, resolvedItem);
-            inventoryChanged = true;
-        }
-        this.completeEnhancementRecord(player, job, resultingLevel, status);
-        player.enhancementJob = null;
-        this.finalizeMutation(player, {
-            inventoryChanged,
-            equipmentChanged,
-            attrChanged,
-            persistentOnly: true,
-            dirtyDomains: [
-                'active_job',
-                'enhancement_record',
-            ],
-        });
-        if (player?.suppressImmediateDomainPersistence !== true) {
-            void this.persistEnhancementRecords(player).catch((error) => {
-                this.logger.warn(`强化记录直写失败，已标记脏数据等待重试：${error instanceof Error ? error.message : String(error)}`);
-                this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['enhancement_record']);
-            });
-        }
-        return {
-            inventoryChanged,
-            equipmentChanged,
-            attrChanged,
-            groundDrops: [],
-        };
+        finishEnhancementJob(player, resultingLevel, status) {
+        return finishEnhancementJobImpl(this, player, resultingLevel, status);
     }
     /**
  * hasEnoughEnhancementResources：判断Enough强化Resource是否满足条件。
@@ -2859,23 +1321,8 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，完成Enough强化Resource的条件判断。
  */
 
-    hasEnoughEnhancementResources(player, target, protection, spiritStoneCost, materials, protectionRequired) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const counts = new Map();
-        for (const item of player.inventory.items) {
-            counts.set(item.itemId, (counts.get(item.itemId) ?? 0) + Math.max(0, Math.floor(Number(item.count) || 0)));
-        }
-        if (target.ref.source === 'inventory') {
-            counts.set(target.item.itemId, (counts.get(target.item.itemId) ?? 0) - 1);
-        }
-        if (protectionRequired && protection?.ref?.source === 'inventory') {
-            counts.set(protection.item.itemId, (counts.get(protection.item.itemId) ?? 0) - 1);
-        }
-        if (!this.playerRuntimeService.canAffordWallet(player.playerId, SPIRIT_STONE_ITEM_ID, spiritStoneCost)) {
-            return false;
-        }
-        return materials.every((entry) => (counts.get(entry.itemId) ?? 0) >= entry.count);
+        hasEnoughEnhancementResources(player, target, protection, spiritStoneCost, materials, protectionRequired) {
+        return hasEnoughEnhancementResourcesImpl(this, player, target, protection, spiritStoneCost, materials, protectionRequired);
     }
     /**
  * hasEnoughQueuedEnhancementResources：判断EnoughQueued强化Resource是否满足条件。
@@ -2887,20 +1334,8 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，完成EnoughQueued强化Resource的条件判断。
  */
 
-    hasEnoughQueuedEnhancementResources(player, protectionItemId, targetItemId, spiritStoneCost, materials) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const counts = new Map();
-        for (const item of player.inventory.items) {
-            counts.set(item.itemId, (counts.get(item.itemId) ?? 0) + Math.max(0, Math.floor(Number(item.count) || 0)));
-        }
-        if (!this.playerRuntimeService.canAffordWallet(player.playerId, SPIRIT_STONE_ITEM_ID, spiritStoneCost)) {
-            return false;
-        }
-        if (protectionItemId && this.getEligibleProtectionCount(player, protectionItemId, targetItemId) < 1) {
-            return false;
-        }
-        return materials.every((entry) => (counts.get(entry.itemId) ?? 0) >= entry.count);
+        hasEnoughQueuedEnhancementResources(player, protectionItemId, targetItemId, spiritStoneCost, materials) {
+        return hasEnoughQueuedEnhancementResourcesImpl(this, player, protectionItemId, targetItemId, spiritStoneCost, materials);
     }
     /**
  * consumeProtectionItemForFailure：执行consumeProtection道具ForFailure相关逻辑。
@@ -2909,15 +1344,8 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，直接更新consumeProtection道具ForFailure相关状态。
  */
 
-    consumeProtectionItemForFailure(player, job) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const protectionItemId = job.protectionItemId ?? job.targetItemId;
-        if (job.protectionItemSignature
-            && this.consumeInventoryItemByPredicate(player, (item) => createItemStackSignature(item) === job.protectionItemSignature, 1)) {
-            return true;
-        }
-        return this.consumeInventoryItemByPredicate(player, (item) => this.isEligibleProtectionItem(item, protectionItemId, job.targetItemId), 1);
+        consumeProtectionItemForFailure(player, job) {
+        return consumeProtectionItemForFailureImpl(this, player, job);
     }
     /**
  * consumeInventoryItemByPredicate：执行consume背包道具ByPredicate相关逻辑。
@@ -2927,26 +1355,8 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，直接更新consume背包道具ByPredicate相关状态。
  */
 
-    consumeInventoryItemByPredicate(player, predicate, count) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        let remaining = Math.max(0, Math.floor(Number(count) || 0));
-        if (remaining <= 0) {
-            return true;
-        }
-        for (let slotIndex = player.inventory.items.length - 1; slotIndex >= 0 && remaining > 0; slotIndex -= 1) {
-            const item = player.inventory.items[slotIndex];
-            if (!item || !predicate(item)) {
-                continue;
-            }
-            const consumed = Math.min(remaining, Math.max(0, Math.floor(Number(item.count) || 0)));
-            item.count -= consumed;
-            remaining -= consumed;
-            if (item.count <= 0) {
-                player.inventory.items.splice(slotIndex, 1);
-            }
-        }
-        return remaining <= 0;
+        consumeInventoryItemByPredicate(player, predicate, count) {
+        return consumeInventoryItemByPredicateImpl(this, player, predicate, count);
     }
     /**
  * isSelfProtectionItem：判断SelfProtection道具是否满足条件。
@@ -2955,8 +1365,8 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，完成SelfProtection道具的条件判断。
  */
 
-    isSelfProtectionItem(protectionItemId, targetItemId) {
-        return protectionItemId === targetItemId;
+        isSelfProtectionItem(protectionItemId, targetItemId) {
+        return isSelfProtectionItemImpl(this, protectionItemId, targetItemId);
     }
     /**
  * isEligibleProtectionItem：判断EligibleProtection道具是否满足条件。
@@ -2966,16 +1376,8 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，完成EligibleProtection道具的条件判断。
  */
 
-    isEligibleProtectionItem(item, protectionItemId, targetItemId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (!item || item.itemId !== protectionItemId) {
-            return false;
-        }
-        if (!this.isSelfProtectionItem(protectionItemId, targetItemId)) {
-            return true;
-        }
-        return isEnhanceableItem(item) && normalizeEnhanceLevel(item.enhanceLevel) === 0;
+        isEligibleProtectionItem(item, protectionItemId, targetItemId) {
+        return isEligibleProtectionItemImpl(this, item, protectionItemId, targetItemId);
     }
     /**
  * getEligibleProtectionCount：读取EligibleProtection数量。
@@ -2985,17 +1387,8 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，完成EligibleProtection数量的读取/组装。
  */
 
-    getEligibleProtectionCount(player, protectionItemId, targetItemId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        let total = 0;
-        for (const item of player.inventory.items) {
-            if (!this.isEligibleProtectionItem(item, protectionItemId, targetItemId)) {
-                continue;
-            }
-            total += Math.max(0, Math.floor(Number(item.count) || 0));
-        }
-        return total;
+        getEligibleProtectionCount(player, protectionItemId, targetItemId) {
+        return getEligibleProtectionCountImpl(this, player, protectionItemId, targetItemId);
     }
     /**
  * persistEnhancementRecords：执行persist强化Records相关逻辑。
@@ -3003,25 +1396,8 @@ export class CraftPanelRuntimeService {
  * @returns 无返回值，直接更新persist强化Records相关状态。
  */
 
-    async persistEnhancementRecords(player) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (isFlushTaskConsumerMode()) {
-            return;
-        }
-        if (!this.playerDomainPersistenceService?.isEnabled?.()) {
-            return;
-        }
-        const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
-        if (!playerId) {
-            return;
-        }
-        // 运行时记录使用 `levels` 字段，DB 列为 `levels_payload` 且 NOT NULL；
-        // 必须先归一为 EnhancementRecordRow 形态，否则 levels_payload undefined 会触发非空约束违反。
-        const rows = buildEnhancementRecordRowsFromEntries(playerId, player.enhancementRecords ?? []);
-        await this.playerDomainPersistenceService.savePlayerEnhancementRecords(playerId, rows, {
-            versionSeed: nextPlayerPersistenceVersion(),
-        });
+        async persistEnhancementRecords(player) {
+        return persistEnhancementRecordsImpl(this, player);
     }
     /**
  * persistAlchemyPresets：执行persist炼丹Presets相关逻辑。
@@ -3339,1634 +1715,3 @@ export class CraftPanelRuntimeService {
         };
     }
 };
-/**
- * resolveContentPath：规范化或转换内容路径。
- * @param segments 参数说明。
- * @returns 无返回值，直接更新内容路径相关状态。
- */
-
-function resolveContentPath(...segments) {
-    return resolveProjectPath('packages', 'server', 'data', 'content', ...segments);
-}
-/**
- * walkJsonFiles：执行walkJsonFile相关逻辑。
- * @param root 参数说明。
- * @returns 无返回值，直接更新walkJsonFile相关状态。
- */
-
-function walkJsonFiles(root) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!existsSync(root)) {
-        return [];
-    }
-    const result = [];
-    for (const entry of readdirSync(root, { withFileTypes: true })) {
-        const fullPath = join(root, entry.name);
-        if (entry.isDirectory()) {
-            result.push(...walkJsonFiles(fullPath));
-            continue;
-        }
-        if (entry.isFile() && entry.name.endsWith('.json')) {
-            result.push(fullPath);
-        }
-    }
-    return result;
-}
-/**
- * normalizePositiveInt：规范化或转换PositiveInt。
- * @param value 参数说明。
- * @param fallback 参数说明。
- * @returns 无返回值，直接更新PositiveInt相关状态。
- */
-
-function normalizePositiveInt(value, fallback = 1) {
-    return Math.max(1, Math.floor(Number(value) || fallback));
-}
-
-function normalizeTechniqueGrade(value) {
-    return TECHNIQUE_GRADE_ORDER.includes(value) ? value : 'mortal';
-}
-/**
- * normalizeCraftSkill：规范化或转换炼制技能。
- * @param value 参数说明。
- * @returns 无返回值，直接更新炼制技能相关状态。
- */
-
-function normalizeCraftSkill(value, getExpToNextByLevel = null) {
-    const level = Math.max(1, Math.floor(Number(value?.level) || 1));
-    const resolvedExpToNext = typeof getExpToNextByLevel === 'function'
-        ? getExpToNextByLevel(level)
-        : Math.max(0, Math.floor(Number(value?.expToNext) || DEFAULT_CRAFT_EXP_TO_NEXT));
-    return {
-        level,
-        exp: Math.max(0, Math.floor(Number(value?.exp) || 0)),
-        expToNext: Math.max(0, Math.floor(Number(resolvedExpToNext) || 0)),
-    };
-}
-/**
- * normalizeEnhancementConfig：规范化或转换强化配置。
- * @param value 参数说明。
- * @returns 无返回值，直接更新强化配置相关状态。
- */
-
-function normalizeEnhancementConfig(value) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const targetItemId = typeof value?.targetItemId === 'string' ? value.targetItemId.trim() : '';
-    if (!targetItemId) {
-        return null;
-    }
-    return {
-        targetItemId,
-        protectionItemId: typeof value?.protectionItemId === 'string' && value.protectionItemId.trim()
-            ? value.protectionItemId.trim()
-            : undefined,
-        steps: Array.isArray(value?.steps)
-            ? value.steps.map((entry) => ({
-                targetEnhanceLevel: Math.max(1, Math.floor(Number(entry?.targetEnhanceLevel) || 1)),
-                materials: Array.isArray(entry?.materials)
-                    ? entry.materials
-                        .map((material) => normalizeEnhancementRequirement(material))
-                        .filter(Boolean)
-                    : [],
-            }))
-            : [],
-    };
-}
-/**
- * normalizeEnhancementRequirement：规范化或转换强化Requirement。
- * @param value 参数说明。
- * @returns 无返回值，直接更新强化Requirement相关状态。
- */
-
-function normalizeEnhancementRequirement(value) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const itemId = typeof value?.itemId === 'string' ? value.itemId.trim() : '';
-    const count = Math.max(1, Math.floor(Number(value?.count) || 0));
-    if (!itemId || count <= 0) {
-        return null;
-    }
-    return { itemId, count };
-}
-/**
- * toAlchemyIngredientDef：执行to炼丹IngredientDef相关逻辑。
- * @param contentTemplateRepository 参数说明。
- * @param ingredient 参数说明。
- * @returns 无返回值，直接更新to炼丹IngredientDef相关状态。
- */
-
-function toAlchemyIngredientDef(contentTemplateRepository, ingredient) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const itemId = typeof ingredient?.itemId === 'string' ? ingredient.itemId.trim() : '';
-    const item = contentTemplateRepository.createItem(itemId, 1);
-    if (!item) {
-        return null;
-    }
-    return {
-        itemId,
-        name: item.name,
-        count: normalizePositiveInt(ingredient?.count, 1),
-        role: ingredient?.role === 'main' ? 'main' : 'aux',
-        level: normalizePositiveInt(item.level, 1),
-        grade: item.grade ?? 'mortal',
-        powerPerUnit: computeAlchemyMaterialPower(item.level, item.grade, 1),
-    };
-}
-
-function toAlchemyMainIngredientDef(contentTemplateRepository, ingredient) {
-    const itemId = typeof ingredient?.itemId === 'string' ? ingredient.itemId.trim() : '';
-    const item = contentTemplateRepository.createItem(itemId, 1);
-    if (!item) {
-        return null;
-    }
-    return {
-        itemId,
-        name: item.name,
-        count: normalizePositiveInt(ingredient?.count, 1),
-    };
-}
-
-function resolveRecipeRequiredAuxElements(contentTemplateRepository, rawRequiredAuxElements, legacyIngredients) {
-    const explicit = normalizeCraftElementVector(rawRequiredAuxElements);
-    if (sumCraftElementAbs(explicit) > 0) {
-        return explicit;
-    }
-    const auxElements = sumRecipeIngredientElements(
-        contentTemplateRepository,
-        legacyIngredients.filter((ingredient) => ingredient.role !== 'main'),
-    );
-    if (sumCraftElementAbs(auxElements) > 0) {
-        return auxElements;
-    }
-    return createEmptyCraftElementVector();
-}
-
-function sumRecipeIngredientElements(contentTemplateRepository, ingredients) {
-    const result = createEmptyCraftElementVector();
-    for (const ingredient of ingredients) {
-        const item = contentTemplateRepository.createItem(ingredient.itemId, 1);
-        if (!item?.materialValues?.elements) {
-            continue;
-        }
-        addCraftElementVector(result, item.materialValues.elements, ingredient.count);
-    }
-    return compactCraftElementVector(result);
-}
-
-function buildAlchemyRecipeTargetElements(contentTemplateRepository, recipe) {
-    const result = createEmptyCraftElementVector();
-    addCraftElementVector(result, recipe.requiredAuxElements, 1);
-    const mainIngredients = Array.isArray(recipe.mainIngredients) && recipe.mainIngredients.length > 0
-        ? recipe.mainIngredients
-        : (recipe.ingredients ?? []).filter((entry) => entry.role === 'main');
-    for (const ingredient of mainIngredients) {
-        const item = contentTemplateRepository.createItem(ingredient.itemId, 1);
-        if (!item?.materialValues?.elements) {
-            continue;
-        }
-        addCraftElementVector(result, item.materialValues.elements, ingredient.count);
-    }
-    return compactCraftElementVector(result);
-}
-
-function sumCraftElementAbs(elements) {
-    return ELEMENT_KEYS.reduce((total, element) => total + Math.abs(Number(elements?.[element]) || 0), 0);
-}
-/**
- * resolveAlchemyRecipeCategory：规范化或转换炼丹RecipeCategory。
- * @param outputItem 参数说明。
- * @param recipeId recipe ID。
- * @returns 无返回值，直接更新炼丹RecipeCategory相关状态。
- */
-
-function resolveAlchemyRecipeCategory(outputItem, recipeId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const outputTags = Array.isArray(outputItem.tags) ? outputItem.tags : [];
-    if (recipeId === 'forging.copper_luopan' || outputItem.itemId === 'equip.copper_luopan') {
-        return 'special';
-    }
-    if (outputTags.some((tag) => tag === ALCHEMY_FURNACE_TAG
-        || tag === 'forging_tool'
-        || tag === ENHANCEMENT_HAMMER_TAG
-        || tag === 'mining_pickaxe'
-        || tag === 'building_hammer')) {
-        return 'special';
-    }
-    if (outputItem.type === 'equipment' && EQUIP_SLOTS.includes(outputItem.equipSlot)) {
-        return outputItem.equipSlot;
-    }
-    if (outputItem.type === 'artifact') {
-        return 'artifact';
-    }
-    if (typeof outputItem.healAmount === 'number'
-        || typeof outputItem.healPercent === 'number'
-        || typeof outputItem.baselineHealPercent === 'number'
-        || typeof outputItem.baselineQiPercent === 'number'
-        || typeof outputItem.qiPercent === 'number') {
-        return 'recovery';
-    }
-    if ((outputItem.consumeBuffs?.length ?? 0) > 0) {
-        return 'buff';
-    }
-    return 'special';
-}
-
-/** resolveAlchemyLikeBaseSuccessRate：法宝器方把五行基础成功率压到 10% 上限。 */
-function resolveAlchemyLikeBaseSuccessRate(recipe, rawBaseSuccessRate) {
-    const normalized = Math.max(0, Math.min(1, Number(rawBaseSuccessRate) || 0));
-    return recipe?.category === 'artifact'
-        ? Math.max(0, Math.min(1, normalized * ARTIFACT_CRAFT_BASE_SUCCESS_RATE))
-        : normalized;
-}
-/**
- * computeAlchemyMaterialPower：执行炼丹MaterialPower相关逻辑。
- * @param level 参数说明。
- * @param grade 参数说明。
- * @param count 数量。
- * @returns 无返回值，直接更新炼丹MaterialPower相关状态。
- */
-
-function computeAlchemyMaterialPower(level, grade, count = 1) {
-    const normalizedLevel = Math.max(1, Math.floor(Number(level) || 1));
-    const normalizedCount = Math.max(0, Math.floor(Number(count) || 0));
-    return normalizedLevel * (resolveAlchemyGradeValue(grade) ** 2) * normalizedCount;
-}
-/**
- * resolveAlchemyGradeValue：规范化或转换炼丹Grade值。
- * @param grade 参数说明。
- * @returns 无返回值，直接更新炼丹Grade值相关状态。
- */
-
-function resolveAlchemyGradeValue(grade) {
-    const index = TECHNIQUE_GRADE_ORDER.indexOf(grade ?? 'mortal');
-    return Math.max(1, index + 1);
-}
-/**
- * cloneItem：构建道具。
- * @param item 道具。
- * @returns 无返回值，直接更新道具相关状态。
- */
-
-function cloneItem(item) {
-    if (!item || typeof item !== 'object') {
-        return undefined;
-    }
-    const flat = flattenItemForClone(item);
-    return {
-        ...flat,
-        equipAttrs: flat.equipAttrs ? { ...flat.equipAttrs } : undefined,
-        equipStats: flat.equipStats ? clonePartialNumericStats(flat.equipStats) : undefined,
-        equipValueStats: flat.equipValueStats ? { ...flat.equipValueStats } : undefined,
-        equipSpecialStats: flat.equipSpecialStats ? { ...flat.equipSpecialStats } : undefined,
-        craftEffectStats: normalizeCraftEffectStatsPatch(flat.craftEffectStats),
-        consumeBuffs: Array.isArray(flat.consumeBuffs) ? flat.consumeBuffs.map((entry) => ({ ...entry })) : undefined,
-        effects: Array.isArray(flat.effects) ? flat.effects.map((entry) => ({ ...entry })) : undefined,
-        tags: Array.isArray(flat.tags) ? flat.tags.slice() : undefined,
-    };
-}
-
-function flattenItemForClone(item) {
-    if (!item || Object.getPrototypeOf(item) === Object.prototype || Object.getPrototypeOf(item) === null) {
-        return item;
-    }
-    const result = {};
-    for (const key in item) {
-        result[key] = item[key];
-    }
-    return result;
-}
-
-function isEnhanceableItem(item) {
-    return item?.type === 'equipment' || item?.type === 'artifact';
-}
-/**
- * clonePartialNumericStats：构建PartialNumericStat。
- * @param stats 参数说明。
- * @returns 无返回值，直接更新PartialNumericStat相关状态。
- */
-
-function clonePartialNumericStats(stats) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!stats) {
-        return undefined;
-    }
-    const clone = { ...stats };
-    if (stats.elementDamageBonus) {
-        clone.elementDamageBonus = { ...stats.elementDamageBonus };
-    }
-    if (stats.elementDamageReduce) {
-        clone.elementDamageReduce = { ...stats.elementDamageReduce };
-    }
-    return clone;
-}
-/**
- * cloneEnhancementRecord：构建强化Record。
- * @param entry 参数说明。
- * @returns 无返回值，直接更新强化Record相关状态。
- */
-
-function cloneEnhancementRecord(entry) {
-    return {
-        ...entry,
-        levels: Array.isArray(entry.levels) ? entry.levels.map((level) => ({ ...level })) : [],
-    };
-}
-/**
- * cloneEnhancementJob：构建强化Job。
- * @param entry 参数说明。
- * @returns 无返回值，直接更新强化Job相关状态。
- */
-
-function cloneEnhancementJob(entry) {
-    return {
-        ...entry,
-        target: entry.target ? { ...entry.target } : entry.target,
-        // 旧版字段：仅在迁移期残留，按需透传不强构造；新版工件存在 inventory.lockedItems
-        item: entry.item ? cloneItem(entry.item) : undefined,
-        materials: Array.isArray(entry.materials) ? entry.materials.map((material) => ({ ...material })) : [],
-    };
-}
-
-function createCraftJobRunId(playerId, jobType) {
-    const normalizedJobType = jobType === 'enhancement' ? 'enhancement' : jobType === 'forging' ? 'forging' : 'alchemy';
-    const entropy = Math.random().toString(36).slice(2, 8);
-    return `job:${normalizedJobType}:${Date.now().toString(36)}${entropy}`;
-}
-
-function normalizeCraftQueueStartMode(value) {
-    if (value === 'preserve' || value === 'append') {
-        return value;
-    }
-    return 'replace';
-}
-
-function cloneCraftQueue(queue) {
-    return Array.isArray(queue)
-        ? queue
-            .filter((entry) => entry && typeof entry === 'object')
-            .map((entry) => ({
-            ...entry,
-            payload: entry.payload && typeof entry.payload === 'object'
-                ? structuredClone(entry.payload)
-                : entry.payload,
-        }))
-        : [];
-}
-
-function getPlayerCraftQueue(player) {
-    return [
-        ...getPlayerTechniqueActivityQueue(player),
-        ...cloneCraftQueue(player?.alchemyJob?.queuedJobs ?? []),
-        ...cloneCraftQueue(player?.forgingJob?.queuedJobs ?? []),
-        ...cloneCraftQueue(player?.enhancementJob?.queuedJobs ?? []),
-    ];
-}
-
-function getPlayerTechniqueActivityQueue(player) {
-    if (!player || typeof player !== 'object') {
-        return [];
-    }
-    if (!Array.isArray(player.techniqueActivityQueue)) {
-        player.techniqueActivityQueue = [];
-    }
-    return player.techniqueActivityQueue
-        .map((entry) => normalizeTechniqueActivityQueueItem(entry))
-        .filter(Boolean);
-}
-
-function setPlayerTechniqueActivityQueue(player, queue) {
-    if (!player || typeof player !== 'object') {
-        return;
-    }
-    player.techniqueActivityQueue = Array.isArray(queue)
-        ? queue
-            .map((entry) => normalizeTechniqueActivityQueueItem(entry))
-            .filter(Boolean)
-        : [];
-}
-
-function enqueuePlayerTechniqueActivityQueueItem(player, item, mode) {
-    const currentQueue = getPlayerTechniqueActivityQueue(player);
-    const normalizedItem = normalizeTechniqueActivityQueueItem(item);
-    if (!normalizedItem) {
-        return false;
-    }
-    const nextQueue = mode === 'replace'
-        ? [normalizedItem]
-        : mode === 'preserve'
-            ? [normalizedItem, ...currentQueue]
-            : [...currentQueue, normalizedItem];
-    if (nextQueue.length > TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH) {
-        return false;
-    }
-    setPlayerTechniqueActivityQueue(player, nextQueue);
-    return true;
-}
-
-function reorderPlayerTechniqueActivityQueueItem(player, queueIdInput, action: TechniqueActivityQueueReorderAction) {
-    const queueId = typeof queueIdInput === 'string' ? queueIdInput.trim() : '';
-    if (!queueId || (action !== 'move_to_top' && action !== 'move_down')) {
-        return false;
-    }
-    const queues = [
-        getPlayerTechniqueActivityQueue(player),
-        player?.alchemyJob?.queuedJobs,
-        player?.forgingJob?.queuedJobs,
-        player?.enhancementJob?.queuedJobs,
-    ];
-    for (const queue of queues) {
-        if (!Array.isArray(queue)) {
-            continue;
-        }
-        const fromIndex = queue.findIndex((item) => item?.queueId === queueId);
-        if (fromIndex < 0) {
-            continue;
-        }
-        const toIndex = action === 'move_to_top'
-            ? 0
-            : Math.min(queue.length - 1, fromIndex + 1);
-        if (toIndex === fromIndex) {
-            return false;
-        }
-        const [item] = queue.splice(fromIndex, 1);
-        queue.splice(toIndex, 0, item);
-        if (queue === queues[0]) {
-            setPlayerTechniqueActivityQueue(player, queue);
-        }
-        return true;
-    }
-    return false;
-}
-
-function migrateLegacyCraftQueueToUnifiedQueue(player, legacyQueue) {
-    const items = cloneCraftQueue(legacyQueue);
-    if (items.length <= 0) {
-        return;
-    }
-    const currentQueue = getPlayerTechniqueActivityQueue(player);
-    const seen = new Set(currentQueue.map((entry) => entry.queueId));
-    for (const item of items) {
-        const normalizedItem = normalizeTechniqueActivityQueueItem(item);
-        if (normalizedItem && !seen.has(normalizedItem.queueId)) {
-            currentQueue.push(normalizedItem);
-            seen.add(normalizedItem.queueId);
-        }
-    }
-    setPlayerTechniqueActivityQueue(player, currentQueue.slice(0, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH));
-}
-
-function normalizeTechniqueActivityQueueItem(item) {
-    if (!item || typeof item !== 'object') {
-        return null;
-    }
-    const kind = normalizeRuntimeTechniqueActivityKind(item.kind);
-    const queueId = normalizeText(item.queueId) || createTechniqueActivityQueueId(kind);
-    const state = item.state === 'sleeping' ? 'sleeping' : 'pending';
-    const payload = item.payload && typeof item.payload === 'object'
-        ? structuredClone(item.payload)
-        : item.payload;
-    const normalized = {
-        ...item,
-        queueId,
-        kind,
-        payload,
-        label: normalizeText(item.label) || (kind === 'forging'
-            ? '炼器任务'
-            : kind === 'enhancement'
-                ? '强化任务'
-                : kind === 'gather'
-                    ? '采集任务'
-                    : kind === 'building'
-                        ? '营造任务'
-                        : kind === 'mining'
-                            ? '挖矿任务'
-                            : kind === 'formation'
-                                ? '阵法任务'
-                                : '炼丹任务'),
-        state,
-        createdAt: Math.max(1, Math.trunc(Number(item.createdAt ?? Date.now()))),
-        cancelRef: {
-            kind,
-            queueId,
-        },
-    };
-    const targetLabel = normalizeText(item.targetLabel);
-    if (targetLabel) {
-        normalized.targetLabel = targetLabel;
-    }
-    const sleepReason = normalizeText(item.sleepReason);
-    if (sleepReason) {
-        normalized.sleepReason = sleepReason;
-    }
-    return normalized;
-}
-
-function normalizeRuntimeTechniqueActivityKind(kind) {
-    return kind === 'forging'
-        || kind === 'enhancement'
-        || kind === 'gather'
-        || kind === 'building'
-        || kind === 'mining'
-        || kind === 'formation'
-        ? kind
-        : 'alchemy';
-}
-
-function hasCancelableTechniqueActivityJob(player, kind) {
-    if (!player || typeof player !== 'object') {
-        return false;
-    }
-    if (kind === 'alchemy') {
-        return Boolean(player.alchemyJob && player.alchemyJob.jobType !== 'forging');
-    }
-    if (kind === 'forging') {
-        return Boolean(player.forgingJob || player.alchemyJob?.jobType === 'forging');
-    }
-    if (kind === 'enhancement') {
-        return Boolean(player.enhancementJob);
-    }
-    if (kind === 'transmission') {
-        return Boolean(player.transmissionJob);
-    }
-    if (kind === 'formation') {
-        return Boolean(player.formationJob);
-    }
-    if (kind === 'gather') {
-        return Boolean(player.gatherJob);
-    }
-    if (kind === 'mining') {
-        return Boolean(player.miningJob);
-    }
-    return kind === 'building' && Boolean(player.buildingJob);
-}
-
-function createTechniqueActivityQueueId(kind) {
-    return `technique-queue:${kind}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function getAlchemyLikeJob(player, jobKind) {
-    return jobKind === 'forging' ? player?.forgingJob ?? null : player?.alchemyJob ?? null;
-}
-
-function setAlchemyLikeJob(player, jobKind, job) {
-    if (jobKind === 'forging') {
-        player.forgingJob = job;
-    }
-    else {
-        player.alchemyJob = job;
-    }
-}
-
-function buildCraftQueueId(kind) {
-    const normalizedKind = kind === 'enhancement' ? 'enhancement' : kind === 'forging' ? 'forging' : 'alchemy';
-    return `craft-queue:${normalizedKind}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function buildAlchemyQueueItem(recipe, ingredients, quantity, kind = 'alchemy') {
-    const normalizedKind = kind === 'forging' ? 'forging' : 'alchemy';
-    return {
-        queueId: buildCraftQueueId(normalizedKind),
-        kind: normalizedKind,
-        label: resolvePlayerFacingContentName(
-            recipe?.outputItemId,
-            normalizedKind === 'forging' ? '炼器任务' : '炼丹任务',
-            recipe?.outputName,
-        ),
-        quantity,
-        createdAt: Date.now(),
-        payload: {
-            kind: normalizedKind,
-            recipeId: recipe.recipeId,
-            ingredients: cloneAlchemyIngredientSelections(ingredients),
-            quantity,
-        },
-    };
-}
-
-function buildEnhancementQueueItem(target, protection, payload, desiredTargetLevel, targetLabel = undefined) {
-    const targetItemId = normalizeText(target?.item?.itemId);
-    const targetItemName = resolvePlayerFacingContentName(
-        targetItemId,
-        '未知物品',
-        targetLabel,
-        target?.item?.name,
-    );
-    return {
-        queueId: buildCraftQueueId('enhancement'),
-        kind: 'enhancement',
-        label: targetItemName === '未知物品' ? '强化任务' : targetItemName,
-        quantity: desiredTargetLevel,
-        createdAt: Date.now(),
-        payload: {
-            target: target?.ref ? cloneTargetRef(target.ref) : undefined,
-            protection: protection?.ref ? cloneTargetRef(protection.ref) : undefined,
-            targetItemId: targetItemId || undefined,
-            targetItemName: targetItemName === '未知物品' ? undefined : targetItemName,
-            targetLevel: payload?.targetLevel,
-            protectionStartLevel: payload?.protectionStartLevel,
-        },
-    };
-}
-
-function buildActiveJobSnapshotFromPlayer(player) {
-    if (player?.formationJob) {
-        return buildActiveJobSnapshot(player.formationJob, 'formation');
-    }
-    if (player?.buildingJob) {
-        return buildActiveJobSnapshot(player.buildingJob, 'building');
-    }
-    if (player?.miningJob) {
-        return buildActiveJobSnapshot(player.miningJob, 'mining');
-    }
-    if (player?.transmissionJob) {
-        return buildActiveJobSnapshot(player.transmissionJob, 'transmission');
-    }
-    if (player?.gatherJob) {
-        return buildActiveJobSnapshot(player.gatherJob, 'gather');
-    }
-    if (player?.enhancementJob) {
-        return buildActiveJobSnapshot(player.enhancementJob, 'enhancement');
-    }
-    if (player?.forgingJob) {
-        return buildActiveJobSnapshot(player.forgingJob, 'forging');
-    }
-    if (player?.alchemyJob) {
-        return buildActiveJobSnapshot(player.alchemyJob, player.alchemyJob.jobType === 'forging' ? 'forging' : 'alchemy');
-    }
-    return null;
-}
-
-function captureEnhancementAssetRuntimeState(player) {
-    return {
-        inventory: {
-            revision: player?.inventory?.revision,
-            items: Array.isArray(player?.inventory?.items)
-                ? player.inventory.items.map((entry) => cloneItem(entry))
-                : [],
-            lockedItems: Array.isArray(player?.inventory?.lockedItems)
-                ? player.inventory.lockedItems.map((entry) => ({ ...entry }))
-                : [],
-        },
-        equipment: {
-            revision: player?.equipment?.revision,
-            slots: Array.isArray(player?.equipment?.slots)
-                ? player.equipment.slots.map((entry) => ({
-                    ...entry,
-                    item: entry?.item ? cloneItem(entry.item) : null,
-                }))
-                : [],
-        },
-        wallet: {
-            balances: Array.isArray(player?.wallet?.balances)
-                ? player.wallet.balances.map((entry) => ({ ...entry }))
-                : [],
-        },
-        enhancementJob: player?.enhancementJob ? cloneEnhancementJob(player.enhancementJob) : null,
-        enhancementRecords: Array.isArray(player?.enhancementRecords)
-            ? player.enhancementRecords.map((entry) => structuredClone(entry))
-            : [],
-        enhancementSkill: player?.enhancementSkill ? { ...player.enhancementSkill } : null,
-        enhancementSkillLevel: player?.enhancementSkillLevel,
-        techniqueActivityQueue: Array.isArray(player?.techniqueActivityQueue)
-            ? player.techniqueActivityQueue.map((entry) => structuredClone(entry))
-            : [],
-        selfRevision: player?.selfRevision,
-        dirtyDomains: player?.dirtyDomains instanceof Set ? new Set(player.dirtyDomains) : null,
-    };
-}
-
-/** 普通进度息只保存 ensureCraftSkills 与 active_job 修订可能触达的引用和值。 */
-function captureEnhancementProgressRuntimeState(player) {
-    return {
-        alchemySkill: player?.alchemySkill,
-        forgingSkill: player?.forgingSkill,
-        gatherSkill: player?.gatherSkill,
-        miningSkill: player?.miningSkill,
-        formationSkill: player?.formationSkill,
-        enhancementSkill: player?.enhancementSkill,
-        enhancementSkillLevel: player?.enhancementSkillLevel,
-        alchemyPresets: player?.alchemyPresets,
-        enhancementRecords: player?.enhancementRecords,
-        alchemyJob: player?.alchemyJob,
-        forgingJob: player?.forgingJob,
-        enhancementJob: player?.enhancementJob,
-        persistentRevision: player?.persistentRevision,
-        selfRevision: player?.selfRevision,
-        dirtyDomains: player?.dirtyDomains instanceof Set ? new Set(player.dirtyDomains) : null,
-    };
-}
-
-function restoreEnhancementProgressRuntimeState(player, snapshot) {
-    if (!player || !snapshot) {
-        return;
-    }
-    player.alchemySkill = snapshot.alchemySkill;
-    player.forgingSkill = snapshot.forgingSkill;
-    player.gatherSkill = snapshot.gatherSkill;
-    player.miningSkill = snapshot.miningSkill;
-    player.formationSkill = snapshot.formationSkill;
-    player.enhancementSkill = snapshot.enhancementSkill;
-    player.enhancementSkillLevel = snapshot.enhancementSkillLevel;
-    player.alchemyPresets = snapshot.alchemyPresets;
-    player.enhancementRecords = snapshot.enhancementRecords;
-    player.alchemyJob = snapshot.alchemyJob;
-    player.forgingJob = snapshot.forgingJob;
-    player.enhancementJob = snapshot.enhancementJob;
-    player.persistentRevision = snapshot.persistentRevision;
-    player.selfRevision = snapshot.selfRevision;
-    player.dirtyDomains = snapshot.dirtyDomains instanceof Set
-        ? new Set(snapshot.dirtyDomains)
-        : snapshot.dirtyDomains;
-}
-
-function restoreEnhancementAssetRuntimeState(player, snapshot) {
-    if (!player || !snapshot) {
-        return;
-    }
-    if (player.inventory) {
-        player.inventory.revision = snapshot.inventory.revision;
-        player.inventory.items = snapshot.inventory.items.map((entry) => cloneItem(entry));
-        player.inventory.lockedItems = snapshot.inventory.lockedItems.map((entry) => ({ ...entry }));
-    }
-    if (player.equipment) {
-        player.equipment.revision = snapshot.equipment.revision;
-        player.equipment.slots = snapshot.equipment.slots.map((entry) => ({
-            ...entry,
-            item: entry?.item ? cloneItem(entry.item) : null,
-        }));
-    }
-    player.wallet = {
-        balances: snapshot.wallet.balances.map((entry) => ({ ...entry })),
-    };
-    player.enhancementJob = snapshot.enhancementJob ? cloneEnhancementJob(snapshot.enhancementJob) : null;
-    player.enhancementRecords = snapshot.enhancementRecords.map((entry) => structuredClone(entry));
-    player.enhancementSkill = snapshot.enhancementSkill ? { ...snapshot.enhancementSkill } : null;
-    player.enhancementSkillLevel = snapshot.enhancementSkillLevel;
-    player.techniqueActivityQueue = snapshot.techniqueActivityQueue.map((entry) => structuredClone(entry));
-    player.selfRevision = snapshot.selfRevision;
-    const currentDirtyDomains = player.dirtyDomains instanceof Set ? new Set(player.dirtyDomains) : new Set();
-    for (const domain of snapshot.dirtyDomains instanceof Set ? snapshot.dirtyDomains : []) {
-        currentDirtyDomains.add(domain);
-    }
-    for (const domain of ['inventory', 'wallet', 'equipment', 'attr', 'active_job', 'enhancement_record']) {
-        currentDirtyDomains.add(domain);
-    }
-    player.dirtyDomains = currentDirtyDomains;
-}
-
-function buildDurableInventoryItemsFromSnapshot(snapshot) {
-    const normalItems = Array.isArray(snapshot?.inventory?.items) ? snapshot.inventory.items : [];
-    const lockedItems = Array.isArray(snapshot?.inventory?.lockedItems) ? snapshot.inventory.lockedItems : [];
-    return [
-        ...normalItems.map((entry) => buildDurableInventoryItemSnapshot(entry, null)),
-        ...lockedItems.map((entry) => buildDurableInventoryItemSnapshot(entry, normalizeText(entry?.lockedBy))),
-    ];
-}
-
-function buildDurableWalletBalancesFromSnapshot(snapshot) {
-    const balances = Array.isArray(snapshot?.wallet?.balances) ? snapshot.wallet.balances : [];
-    return balances
-        .map((entry) => ({
-            walletType: normalizeText(entry?.walletType),
-            balance: Math.max(0, Math.trunc(Number(entry?.balance ?? 0))),
-            frozenBalance: Math.max(0, Math.trunc(Number(entry?.frozenBalance ?? 0))),
-            version: Math.max(0, Math.trunc(Number(entry?.version ?? 0))),
-        }))
-        .filter((entry) => Boolean(entry.walletType));
-}
-
-/**
- * 连续强化中间阶只提取真实变化行。任何会改变资产归属/槽位语义的情况都返回 null，
- * 调用方自动回退完整快照替换。
- */
-function buildEnhancementAdvancedAssetPatch(playerId, beforeState, player) {
-    const beforeInventoryItems = buildDurableInventoryItemsFromSnapshot({ inventory: beforeState?.inventory });
-    const nextInventoryItems = buildDurableInventoryItemsFromSnapshot({ inventory: player?.inventory });
-    const beforeInventoryById = indexStableDurableInventoryItems(beforeInventoryItems);
-    const nextInventoryById = indexStableDurableInventoryItems(nextInventoryItems);
-    if (!beforeInventoryById || !nextInventoryById) {
-        return null;
-    }
-    const changedInventoryItems = [];
-    for (const [itemInstanceId, nextItem] of nextInventoryById) {
-        const beforeItem = beforeInventoryById.get(itemInstanceId);
-        if (!beforeItem || normalizeText(beforeItem.lockedBy) !== normalizeText(nextItem.lockedBy)) {
-            return null;
-        }
-        if (!isDeepStrictEqual(
-            normalizeEnhancementPatchComparableValue(beforeItem),
-            normalizeEnhancementPatchComparableValue(nextItem),
-        )) {
-            changedInventoryItems.push(nextItem);
-        }
-    }
-    const removedInventoryItemInstanceIds = Array.from(beforeInventoryById.keys())
-        .filter((itemInstanceId) => !nextInventoryById.has(itemInstanceId))
-        .sort();
-
-    const beforeEquipmentSlots = Array.isArray(beforeState?.equipment?.slots)
-        ? beforeState.equipment.slots
-        : [];
-    const nextEquipmentSlots = Array.isArray(player?.equipment?.slots)
-        ? player.equipment.slots
-        : [];
-    if (!isDeepStrictEqual(
-        normalizeEnhancementPatchComparableValue(beforeEquipmentSlots),
-        normalizeEnhancementPatchComparableValue(nextEquipmentSlots),
-    )) {
-        return null;
-    }
-
-    const beforeWalletBalances = buildDurableWalletBalancesFromSnapshot({ wallet: beforeState?.wallet });
-    const nextWalletBalances = buildDurableWalletBalancesFromSnapshot({ wallet: player?.wallet });
-    const beforeWalletByType = new Map(beforeWalletBalances.map((entry) => [entry.walletType, entry]));
-    const nextWalletByType = new Map(nextWalletBalances.map((entry) => [entry.walletType, entry]));
-    const changedWalletBalances = nextWalletBalances.filter((entry) => (
-        !isDeepStrictEqual(beforeWalletByType.get(entry.walletType), entry)
-    ));
-    const removedWalletTypes = Array.from(beforeWalletByType.keys())
-        .filter((walletType) => !nextWalletByType.has(walletType))
-        .sort();
-
-    const beforeEnhancementRecords = buildDurableEnhancementRecordsFromEntries(
-        playerId,
-        beforeState?.enhancementRecords ?? [],
-    );
-    const nextEnhancementRecords = buildDurableEnhancementRecordsFromEntries(
-        playerId,
-        player?.enhancementRecords ?? [],
-    );
-    const beforeEnhancementRecordById = new Map(
-        beforeEnhancementRecords.map((entry) => [entry.recordId, entry]),
-    );
-    const nextEnhancementRecordIds = new Set(nextEnhancementRecords.map((entry) => entry.recordId));
-    if (beforeEnhancementRecords.some((entry) => !nextEnhancementRecordIds.has(entry.recordId))) {
-        return null;
-    }
-    const changedEnhancementRecords = nextEnhancementRecords.filter((entry) => (
-        !isDeepStrictEqual(beforeEnhancementRecordById.get(entry.recordId), entry)
-    ));
-    const nextProfessionStates = buildDurableProfessionStatesFromSnapshot({
-        progression: {
-            enhancementSkill: player?.enhancementSkill,
-            enhancementSkillLevel: player?.enhancementSkillLevel,
-        },
-    }).filter((entry) => entry.professionType === 'enhancement');
-
-    return {
-        nextInventoryItems: changedInventoryItems,
-        removedInventoryItemInstanceIds,
-        nextWalletBalances: changedWalletBalances,
-        removedWalletTypes,
-        nextEnhancementRecords: changedEnhancementRecords,
-        nextProfessionStates,
-    };
-}
-
-function indexStableDurableInventoryItems(items) {
-    const byId = new Map();
-    for (const item of Array.isArray(items) ? items : []) {
-        const itemInstanceId = normalizeInventoryItemInstanceId(item?.itemInstanceId);
-        if (!itemInstanceId || isLegacyItemInstanceId(itemInstanceId) || byId.has(itemInstanceId)) {
-            return null;
-        }
-        byId.set(itemInstanceId, item);
-    }
-    return byId;
-}
-
-function normalizeEnhancementPatchComparableValue(value) {
-    if (Array.isArray(value)) {
-        return value.map((entry) => normalizeEnhancementPatchComparableValue(entry));
-    }
-    if (!value || typeof value !== 'object') {
-        return value;
-    }
-    const normalized = {};
-    for (const [key, entry] of Object.entries(value)) {
-        if (entry !== undefined) {
-            normalized[key] = normalizeEnhancementPatchComparableValue(entry);
-        }
-    }
-    return normalized;
-}
-
-function resolveEnhancementDurableCompletionKind(action, player, jobRunId, expectedJob = null) {
-    if (action === 'tick') {
-        return 'advanced';
-    }
-    const records = Array.isArray(player?.enhancementRecords) ? player.enhancementRecords : [];
-    const record = records.find((entry) => entry?.jobRunId === jobRunId)
-        ?? records.find((entry) => Number(entry?.actionStartedAt) === Number(expectedJob?.startedAt))
-        ?? [...records].reverse().find((entry) => entry?.itemId === expectedJob?.targetItemId)
-        ?? null;
-    return record?.status === 'stopped' ? 'stopped' : 'completed';
-}
-
-function buildDurableInventoryItemSnapshot(entry, lockedBy) {
-    const rawPayload = entry && typeof entry === 'object' ? { ...entry } : {};
-    return {
-        itemId: normalizeText(entry?.itemId),
-        itemInstanceId: normalizeInventoryItemInstanceId(entry?.itemInstanceId),
-        count: Math.max(1, Math.trunc(Number(entry?.count ?? 1))),
-        lockedBy: lockedBy || null,
-        lockedAt: Number.isFinite(Number(entry?.lockedAt)) ? Math.max(1, Math.trunc(Number(entry.lockedAt))) : null,
-        name: typeof entry?.name === 'string' ? entry.name : undefined,
-        desc: typeof entry?.desc === 'string' ? entry.desc : undefined,
-        enhanceLevel: entry?.enhanceLevel == null ? undefined : normalizeEnhanceLevel(entry.enhanceLevel),
-        learnTechniqueId: typeof entry?.learnTechniqueId === 'string' ? entry.learnTechniqueId : undefined,
-        learnTechniqueMaxLevel: Number.isFinite(Number(entry?.learnTechniqueMaxLevel))
-            ? Math.max(0, Math.trunc(Number(entry.learnTechniqueMaxLevel)))
-            : undefined,
-        grade: typeof entry?.grade === 'string' ? entry.grade : undefined,
-        level: Number.isFinite(Number(entry?.level)) ? Math.max(1, Math.trunc(Number(entry.level))) : undefined,
-        rawPayload,
-    };
-}
-
-function buildDurableEquipmentSlotsFromSnapshot(snapshot) {
-    const slots = Array.isArray(snapshot?.equipment?.slots) ? snapshot.equipment.slots : [];
-    return slots
-        .filter((entry) => entry?.item)
-        .map((entry) => ({
-            slot: normalizeEquipSlot(entry.slot) ?? entry.slot,
-            itemInstanceId: normalizeInventoryItemInstanceId(entry.item?.itemInstanceId),
-            item: { ...entry.item },
-        }));
-}
-
-function buildDurableEnhancementRecordsFromEntries(playerId, entries) {
-    return buildEnhancementRecordRowsFromEntries(playerId, entries).map((row) => ({
-        recordId: row.recordId,
-        itemId: row.itemId,
-        itemName: row.itemName,
-        highestLevel: row.highestLevel,
-        levels: Array.isArray(row.levelsPayload) ? row.levelsPayload : [],
-        actionStartedAt: row.actionStartedAt,
-        actionEndedAt: row.actionEndedAt,
-        startLevel: row.startLevel,
-        initialTargetLevel: row.initialTargetLevel,
-        desiredTargetLevel: row.desiredTargetLevel,
-        protectionStartLevel: row.protectionStartLevel,
-        status: row.status,
-    }));
-}
-
-function buildDurableProfessionStatesFromSnapshot(snapshot): DurableProfessionStateSnapshot[] {
-    const progression = snapshot?.progression && typeof snapshot.progression === 'object'
-        ? snapshot.progression
-        : {};
-    const rows: DurableProfessionStateSnapshot[] = [];
-    const append = (
-        professionType: DurableProfessionStateSnapshot['professionType'],
-        skill: unknown,
-        fallbackLevel: unknown = null,
-    ) => {
-        const state = skill && typeof skill === 'object' ? skill as Record<string, unknown> : null;
-        if (!state && fallbackLevel == null) {
-            return;
-        }
-        const exp = state?.exp == null ? Number.NaN : Number(state.exp);
-        const expToNext = state?.expToNext == null ? Number.NaN : Number(state.expToNext);
-        rows.push({
-            professionType,
-            level: Math.max(1, Math.trunc(Number(state?.level ?? fallbackLevel ?? 1) || 1)),
-            exp: Number.isFinite(exp) ? Math.max(0, exp) : null,
-            expToNext: Number.isFinite(expToNext) ? Math.max(0, expToNext) : null,
-        });
-    };
-    append('alchemy', progression.alchemySkill);
-    append('building', progression.buildingSkill);
-    append('gather', progression.gatherSkill);
-    append('forging', progression.forgingSkill);
-    append('mining', progression.miningSkill);
-    append('formation', progression.formationSkill);
-    append('transmission', progression.transmissionSkill);
-    append('enhancement', progression.enhancementSkill, progression.enhancementSkillLevel ?? 1);
-    return rows;
-}
-
-function buildTechniqueActivityQueueSnapshotFromPlayer(player): PlayerTechniqueActivityQueueUpsertInput[] {
-    return getPlayerTechniqueActivityQueue(player).map((entry, index) => {
-        const queueId = typeof entry.queueId === 'string' && entry.queueId.trim()
-            ? entry.queueId.trim()
-            : buildCraftQueueId(entry.kind ?? 'activity');
-        const kind = typeof entry.kind === 'string' && entry.kind.trim() ? entry.kind.trim() : 'activity';
-        const cancelRef = entry.cancelRef && typeof entry.cancelRef === 'object'
-            ? { ...entry.cancelRef, kind, queueId }
-            : { kind, queueId };
-        return {
-            queueId,
-            kind,
-            state: typeof entry.state === 'string' && entry.state.trim() ? entry.state.trim() : 'pending',
-            label: typeof entry.label === 'string' && entry.label.trim() ? entry.label.trim() : null,
-            targetLabel: typeof entry.targetLabel === 'string' && entry.targetLabel.trim() ? entry.targetLabel.trim() : null,
-            sleepReason: typeof entry.sleepReason === 'string' && entry.sleepReason.trim() ? entry.sleepReason.trim() : null,
-            retryAfterTicks: Number.isFinite(Number(entry.retryAfterTicks)) ? Math.max(0, Math.trunc(Number(entry.retryAfterTicks))) : null,
-            createdAt: Math.max(1, Math.trunc(Number(entry.createdAt ?? Date.now()))),
-            payloadJson: entry.payload && typeof entry.payload === 'object' ? structuredClone(entry.payload) : {},
-            cancelRefJson: cancelRef,
-            detailJson: {
-                ...entry,
-                queueId,
-                kind,
-                cancelRef,
-                queueOrder: index,
-            },
-        };
-    });
-}
-
-function buildActiveJobSnapshot(job, jobType) {
-    if (!job || typeof job !== 'object') {
-        return null;
-    }
-    const normalizedJobType = normalizeActiveJobSnapshotType(jobType);
-    const jobRunId = typeof job.jobRunId === 'string' && job.jobRunId.trim()
-        ? job.jobRunId.trim()
-        : createCraftJobRunId(typeof job.playerId === 'string' ? job.playerId : '', normalizedJobType);
-    const jobVersion = Math.max(1, Math.trunc(Number(job.jobVersion ?? 1)));
-    return {
-        jobRunId,
-        jobType: normalizedJobType,
-        status: typeof job.status === 'string' && job.status.trim() ? job.status.trim() : 'running',
-        phase: typeof job.phase === 'string' && job.phase.trim() ? job.phase.trim() : 'running',
-        startedAt: Math.max(1, Math.trunc(Number(job.startedAt ?? Date.now()))),
-        finishedAt: job.finishedAt == null ? null : Math.max(1, Math.trunc(Number(job.finishedAt))),
-        pausedTicks: Math.max(0, Math.trunc(Number(job.pausedTicks ?? 0))),
-        totalTicks: Math.max(0, Math.trunc(Number(job.totalTicks ?? 0))),
-        remainingTicks: Math.max(0, Math.trunc(Number(job.remainingTicks ?? 0))),
-        successRate: Number.isFinite(Number(job.successRate ?? 0)) ? Number(job.successRate ?? 0) : 0,
-        speedRate: Number.isFinite(Number(job.speedRate ?? job.totalSpeedRate ?? 1)) ? Number(job.speedRate ?? job.totalSpeedRate ?? 1) : 1,
-        jobVersion,
-        detailJson: {
-            ...job,
-            jobRunId,
-            jobType: normalizedJobType,
-            jobVersion,
-        },
-    };
-}
-
-function normalizeActiveJobSnapshotType(jobType) {
-    switch (jobType) {
-        case 'formation':
-        case 'building':
-        case 'mining':
-        case 'gather':
-        case 'enhancement':
-        case 'forging':
-            return jobType;
-        default:
-            return 'alchemy';
-    }
-}
-
-function isCompletedAlchemyLikeJob(job) {
-    if (!job || typeof job !== 'object') {
-        return false;
-    }
-    const quantity = Math.max(1, Math.trunc(Number(job.quantity ?? 1)));
-    const completedCount = Math.max(0, Math.trunc(Number(job.completedCount ?? 0)));
-    return completedCount >= quantity;
-}
-/**
- * countInventoryItem：执行数量背包道具相关逻辑。
- * @param player 玩家对象。
- * @param itemId 道具 ID。
- * @returns 无返回值，直接更新数量背包道具相关状态。
- */
-
-function countInventoryItem(player, itemId) {
-    // 灵石（SPIRIT_STONE_ITEM_ID）的 wallet.balances 由 syncWalletCacheFromInventory
-    // 全量镜像自 inventory.items，不是独立账户；craft 实际消费走 debitWallet →
-    // consumeInventoryItemCount，从 inventory 扣减。这里统一只读 inventory，
-    // 让"持有量计数"与"可消费量"对齐，避免显示翻倍并误判材料充足。
-    return player.inventory.items.reduce((total, entry) => entry.itemId === itemId ? total + entry.count : total, 0);
-}
-/**
- * receiveInventoryItem：执行receive背包道具相关逻辑。
- * @param player 玩家对象。
- * @param contentTemplateRepository 参数说明。
- * @param item 道具。
- * @returns 无返回值，直接更新receive背包道具相关状态。
- */
-
-function receiveInventoryItem(player, contentTemplateRepository, item) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const normalized = contentTemplateRepository.normalizeItem(item);
-    // 装备类必须有稳定 itemInstanceId（炼器产物 / 强化产物 / 退还料 / 自动入手）
-    assignItemInstanceIdIfNeeded(normalized);
-    if (canMergeItemStack(normalized)) {
-        const signature = createItemStackSignature(normalized);
-        const existing = player.inventory.items.find((entry) =>
-            canMergeItemStack(entry) && createItemStackSignature(entry) === signature,
-        );
-        if (existing) {
-            existing.count += normalized.count;
-            return existing;
-        }
-        player.inventory.items.push(normalized);
-        return normalized;
-    }
-    // 极端兜底：canMergeItemStack 对合法物品恒为 true，理论不会到这里
-    player.inventory.items.push(normalized);
-    return normalized;
-}
-/**
- * consumeInventoryItemByItemId：执行consume背包道具By道具ID相关逻辑。
- * @param player 玩家对象。
- * @param itemId 道具 ID。
- * @param count 数量。
- * @returns 无返回值，直接更新consume背包道具By道具ID相关状态。
- */
-
-function consumeInventoryItemByItemId(player, itemId, count) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    let remaining = Math.max(1, Math.trunc(count));
-    for (let slotIndex = player.inventory.items.length - 1; slotIndex >= 0 && remaining > 0; slotIndex -= 1) {
-        const item = player.inventory.items[slotIndex];
-        if (!item || item.itemId !== itemId) {
-            continue;
-        }
-        const consumed = Math.min(item.count, remaining);
-        item.count -= consumed;
-        remaining -= consumed;
-        if (item.count <= 0) {
-            player.inventory.items.splice(slotIndex, 1);
-        }
-    }
-    if (remaining > 0) {
-        throw new Error(`背包物品不足：${itemId}`);
-    }
-}
-/**
- * extractInventoryItemAt：执行extract背包道具At相关逻辑。
- * @param player 玩家对象。
- * @param slotIndex 参数说明。
- * @returns 无返回值，直接更新extract背包道具At相关状态。
- */
-
-function extractInventoryItemByInstanceId(player, itemInstanceId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const normalizedItemInstanceId = normalizeInventoryItemInstanceId(itemInstanceId);
-    if (!normalizedItemInstanceId) {
-        return null;
-    }
-    const slotIndex = findInventoryItemIndexByInstanceId(player, normalizedItemInstanceId);
-    if (!Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex >= player.inventory.items.length) {
-        return null;
-    }
-    const item = player.inventory.items[slotIndex];
-    if (!item) {
-        return null;
-    }
-    const count = Math.max(0, Math.floor(Number(item.count) || 0));
-    if (count <= 1) {
-        // 堆叠仅 1 件：原 slot 整体移除，被拆出的对象继承原 itemInstanceId 不会发生 PK 冲突。
-        return player.inventory.items.splice(slotIndex, 1)[0] ?? null;
-    }
-    item.count = count - 1;
-    const extracted: Record<string, unknown> = { ...item, count: 1 };
-    // 从 count > 1 的堆叠里拆 1 件用于强化等单件流程：被拆出的那件必须分配新 itemInstanceId，
-    // 否则剩余堆叠（仍在背包）和被拆出的那件（进入 enhancementJob.item / 等装备槽 / 入库）
-    // 在持久化层会共用同一 PK（player_inventory_item.item_instance_id），导致冲突或互相覆盖。
-    if (typeof extracted.itemInstanceId === 'string' && extracted.itemInstanceId.length > 0) {
-        extracted.itemInstanceId = randomUUID();
-    }
-    return extracted;
-}
-
-function findInventoryItemByInstanceId(player, itemInstanceId) {
-    const slotIndex = findInventoryItemIndexByInstanceId(player, itemInstanceId);
-    return slotIndex >= 0 ? player.inventory.items[slotIndex] ?? null : null;
-}
-
-function findInventoryItemIndexByInstanceId(player, itemInstanceId) {
-    const normalizedItemInstanceId = normalizeInventoryItemInstanceId(itemInstanceId);
-    if (!normalizedItemInstanceId || !Array.isArray(player?.inventory?.items)) {
-        return -1;
-    }
-    return player.inventory.items.findIndex((item) => normalizeInventoryItemInstanceId(item?.itemInstanceId) === normalizedItemInstanceId);
-}
-/**
- * setEquippedItem：写入Equipped道具。
- * @param player 玩家对象。
- * @param slot 参数说明。
- * @param item 道具。
- * @returns 无返回值，直接更新Equipped道具相关状态。
- */
-
-function setEquippedItem(player, slot, item) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const entry = player.equipment?.slots?.find((current) => current.slot === slot);
-    if (!entry) {
-        return;
-    }
-    if (item) {
-        const cloned = cloneItem(item);
-        // 显式继承 instanceId（强化成功 / 失败 / 降级 / 取消 都走此路径）；
-        // 若来源 item 没带（极端：迁移期老装备），就此 lazy 升级
-        assignItemInstanceIdIfNeeded(cloned);
-        entry.item = cloned;
-    } else {
-        entry.item = null;
-    }
-}
-
-/**
- * extractEquipmentItem：把指定装备槽中的物品取出（slot.item 设为 null）并返回。
- * 用于强化启动时把装备移入锁定空间，避免双副本造成的真源歧义。
- */
-function extractEquipmentItem(player, slot) {
-    const entry = player.equipment?.slots?.find((current) => current.slot === slot);
-    if (!entry || !entry.item) {
-        return null;
-    }
-    const item = entry.item;
-    entry.item = null;
-    return item;
-}
-
-/**
- * normalizeText：规范化或转换Text。
- * @param value 参数说明。
- * @returns 无返回值，直接更新Text相关状态。
- */
-
-function hasTechniqueActivityStatisticSignal(result) {
-    return result?.inventoryChanged === true
-        || result?.equipmentChanged === true
-        || result?.attrChanged === true
-        || Number(result?.craftRealmExpGain) > 0;
-}
-
-function normalizeText(value) {
-    return typeof value === 'string' ? value.trim() : '';
-}
-
-function normalizeInventoryItemInstanceId(value) {
-    return typeof value === 'string' && value.trim().length > 0 ? value.trim() : '';
-}
-/**
- * normalizeAlchemyPresetName：规范化或转换炼丹Preset名称。
- * @param value 参数说明。
- * @param fallback 参数说明。
- * @returns 无返回值，直接更新炼丹Preset名称相关状态。
- */
-
-function normalizeAlchemyPresetName(value, fallback) {
-    const normalized = normalizeText(value);
-    return normalized || normalizeText(fallback) || '未命名丹方';
-}
-/**
- * createAlchemyPresetId：构建并返回目标对象。
- * @param recipeId recipe ID。
- * @returns 无返回值，直接更新炼丹PresetID相关状态。
- */
-
-function createAlchemyPresetId(recipeId) {
-    const base = normalizeText(recipeId) || 'alchemy';
-    return `alchemy:${base}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
-}
-/**
- * normalizeQuantity：规范化或转换Quantity。
- * @param value 参数说明。
- * @param fallback 参数说明。
- * @param max 参数说明。
- * @returns 无返回值，直接更新Quantity相关状态。
- */
-
-function normalizeQuantity(value, fallback = 1) {
-    const numeric = Number(value);
-    return Math.max(1, Math.floor(Number.isFinite(numeric) ? numeric : fallback));
-}
-/**
- * normalizeIngredientSelections：规范化或转换IngredientSelection。
- * @param value 参数说明。
- * @returns 无返回值，直接更新IngredientSelection相关状态。
- */
-
-function normalizeIngredientSelections(value) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!Array.isArray(value)) {
-        return [];
-    }
-    const counts = new Map();
-    for (const entry of value) {
-        const itemId = normalizeText(entry?.itemId);
-        const count = Math.max(1, Math.floor(Number(entry?.count) || 1));
-        if (!itemId) {
-            continue;
-        }
-        counts.set(itemId, (counts.get(itemId) ?? 0) + count);
-    }
-    return Array.from(counts.entries())
-        .map(([itemId, count]) => ({ itemId, count }))
-        .sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-Hans-CN'));
-}
-
-function cloneAlchemyIngredientSelections(value) {
-    return Array.isArray(value)
-        ? value.map((entry) => ({
-            itemId: String(entry.itemId),
-            count: Math.max(1, Math.floor(Number(entry.count) || 1)),
-        }))
-        : [];
-}
-
-function cloneCraftElementMatchSnapshot(snapshot) {
-    if (!snapshot || typeof snapshot !== 'object') {
-        return undefined;
-    }
-    return {
-        targetElements: compactCraftElementVector(snapshot.targetElements),
-        inputElements: compactCraftElementVector(snapshot.inputElements),
-        perElementScore: { ...snapshot.perElementScore },
-        targetTotalAbs: Number(snapshot.targetTotalAbs) || 0,
-        zeroBase: Number(snapshot.zeroBase) || 1,
-        baseElementSuccessRate: Math.max(0, Math.min(1, Number(snapshot.baseElementSuccessRate) || 0)),
-    };
-}
-/**
- * isExactSubmittedIngredients：判断ExactSubmittedIngredient是否满足条件。
- * @param recipeIngredients 参数说明。
- * @param submitted 参数说明。
- * @returns 无返回值，完成ExactSubmittedIngredient的条件判断。
- */
-
-function isExactSubmittedIngredients(recipeIngredients, submitted) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const normalizedRecipe = recipeIngredients
-        .map((entry) => ({ itemId: entry.itemId, count: Math.max(1, Math.floor(Number(entry.count) || 1)) }))
-        .sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-Hans-CN'));
-    if (normalizedRecipe.length !== submitted.length) {
-        return false;
-    }
-    for (let index = 0; index < normalizedRecipe.length; index += 1) {
-        const recipe = normalizedRecipe[index];
-        const entry = submitted[index];
-        if (!entry || recipe.itemId !== entry.itemId || recipe.count !== entry.count) {
-            return false;
-        }
-    }
-    return true;
-}
-
-function validateAlchemySelection(contentTemplateRepository, recipe, submitted) {
-  const mainIngredients = Array.isArray(recipe.mainIngredients) && recipe.mainIngredients.length > 0
-      ? recipe.mainIngredients
-      : (recipe.ingredients ?? []).filter((entry) => entry.role === 'main');
-  const mainIngredientMap = new Map();
-  for (const ingredient of mainIngredients) {
-    mainIngredientMap.set(ingredient.itemId, ingredient);
-  }
-  const submittedMap = new Map(submitted.map((entry) => [entry.itemId, Number(entry.count)]));
-  const normalizedIngredients = [];
-  const inputElements = createEmptyCraftElementVector();
-
-  for (const ingredient of mainIngredients) {
-    const submittedCount = submittedMap.get(ingredient.itemId) ?? 0;
-    if (submittedCount !== ingredient.count) {
-      return { error: `${resolvePlayerFacingContentName(ingredient.itemId, '未知物品', ingredient.name, contentTemplateRepository.getItemName(ingredient.itemId))} 属于主药/主材，数量必须为 ${ingredient.count}。` };
-    }
-    const item = contentTemplateRepository.createItem(ingredient.itemId, 1);
-    if (item?.materialValues?.elements) {
-      addCraftElementVector(inputElements, item.materialValues.elements, ingredient.count);
-    }
-    normalizedIngredients.push({ itemId: ingredient.itemId, count: ingredient.count });
-  }
-
-  for (const entry of submitted) {
-    if (mainIngredientMap.has(entry.itemId)) {
-      continue;
-    }
-    const count = Math.max(1, Math.floor(Number(entry.count) || 1));
-    const item = contentTemplateRepository.createItem(entry.itemId, 1);
-    if (!item || item.type !== 'material') {
-      return { error: '辅药/辅材必须是材料。' };
-    }
-    const elements = item.materialValues?.elements;
-    if (!elements || Object.keys(elements).length === 0) {
-      return { error: `${resolvePlayerFacingContentName(item.itemId, '未知物品', item.name, contentTemplateRepository.getItemName(item.itemId))} 没有五行值，不能作为辅药/辅材。` };
-    }
-    addCraftElementVector(inputElements, elements, count);
-    normalizedIngredients.push({ itemId: entry.itemId, count });
-  }
-
-  return {
-    ingredients: normalizedIngredients.sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-Hans-CN')),
-    inputElements: compactCraftElementVector(inputElements),
-  };
-}
-/**
- * applyCraftSkillExp：处理炼制技能Exp并更新相关状态。
- * @param skill 参数说明。
- * @param amount 参数说明。
- * @returns 无返回值，直接更新炼制技能Exp相关状态。
- */
-
-function applyCraftSkillExp(skill, amount, getExpToNextByLevel = null) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!skill) {
-        return false;
-    }
-    let changed = false;
-    if (typeof getExpToNextByLevel === 'function') {
-        const resolvedExpToNext = Math.max(0, Math.floor(Number(getExpToNextByLevel(skill.level)) || 0));
-        if (skill.expToNext !== resolvedExpToNext) {
-            skill.expToNext = resolvedExpToNext;
-            changed = true;
-        }
-    }
-    skill.exp += Math.max(0, Math.floor(Number(amount) || 0));
-    while (skill.expToNext > 0 && skill.exp >= skill.expToNext) {
-        skill.exp -= skill.expToNext;
-        skill.level += 1;
-        skill.expToNext = typeof getExpToNextByLevel === 'function'
-            ? Math.max(0, Math.floor(Number(getExpToNextByLevel(skill.level)) || 0))
-            : resolveCraftSkillExpToNextByLevel(null, skill.level, DEFAULT_CRAFT_EXP_TO_NEXT);
-        changed = true;
-    }
-    return changed || amount > 0;
-}
-
-function resolveAlchemySkillBaseActionTicks(recipe, job) {
-    const baseBrewTicks = recipe?.baseBrewTicks ?? job?.baseBrewTicks ?? job?.batchBrewTicks ?? 1;
-    if (recipe) {
-        return computeAlchemyBrewTicks(
-            baseBrewTicks,
-            recipe,
-            Array.isArray(job?.ingredients) ? job.ingredients : undefined,
-            job?.outputCount ?? ALCHEMY_FURNACE_OUTPUT_COUNT,
-        );
-    }
-    return Math.max(1, Math.floor(Number(baseBrewTicks) || 1));
-}
-
-/**
- * resolveAlchemyBatchSuccess：规范化或转换炼丹BatchSuccess。
- * @param outputCount 参数说明。
- * @param successRate 参数说明。
- * @returns 无返回值，直接更新炼丹BatchSuccess相关状态。
- */
-
-function resolveAlchemyBatchSuccess(outputCount, successRate) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    let successCount = 0;
-    const normalizedOutputCount = Math.max(1, Math.floor(Number(outputCount) || 1));
-    const normalizedSuccessRate = Math.max(0, Math.min(1, Number(successRate) || 0));
-    for (let index = 0; index < normalizedOutputCount; index += 1) {
-        if (Math.random() < normalizedSuccessRate) {
-            successCount += 1;
-        }
-    }
-    return successCount;
-}
-/**
- * normalizeEquipSlot：规范化或转换EquipSlot。
- * @param value 参数说明。
- * @returns 无返回值，直接更新EquipSlot相关状态。
- */
-
-function normalizeEquipSlot(value) {
-    return EQUIP_SLOTS.includes(value) ? value : null;
-}
-/**
- * cloneTargetRef：读取目标Ref并返回结果。
- * @param ref 参数说明。
- * @returns 无返回值，直接更新目标Ref相关状态。
- */
-
-function cloneTargetRef(ref) {
-    return ref.source === 'equipment'
-        ? { source: 'equipment', slot: ref.slot }
-        : { source: 'inventory', itemInstanceId: normalizeInventoryItemInstanceId(ref.itemInstanceId) };
-}
-function beginCraftRuntimeSection(recorder: CraftRuntimeSectionRecorder): number | null {
-    return typeof recorder === 'function' ? performance.now() : null;
-}
-function recordCraftRuntimeSection(
-    recorder: CraftRuntimeSectionRecorder,
-    key: string,
-    startedAt: number | null,
-    count = 1,
-): void {
-    if (typeof recorder !== 'function' || startedAt === null) {
-        return;
-    }
-    recorder(key, Math.max(0, performance.now() - startedAt), count);
-}
-function recordCraftRuntimeCount(recorder: CraftRuntimeSectionRecorder, key: string, count = 1): void {
-    if (typeof recorder !== 'function') {
-        return;
-    }
-    recorder(key, 0, count);
-}
-/**
- * buildCraftMutationResult：构建并返回目标对象。
- * @param error 参数说明。
- * @returns 无返回值，直接更新炼制Mutation结果相关状态。
- */
-
-function buildCraftMutationResult(error = undefined) {
-    return {
-        ok: false,
-        error,
-        messages: [],
-        panelChanged: false,
-    };
-}
-
-function buildSupersededCraftTickResult() {
-    return {
-        ...buildCraftTickResult(),
-        sessionFenceSuperseded: true,
-    };
-}
-
-function capturePlayerSessionFence(player): { runtimeOwnerId: string | null; sessionEpoch: number } {
-    const runtimeOwnerId = typeof player?.runtimeOwnerId === 'string' && player.runtimeOwnerId.trim()
-        ? player.runtimeOwnerId.trim()
-        : null;
-    const numericEpoch = Number(player?.sessionEpoch);
-    return {
-        runtimeOwnerId,
-        sessionEpoch: Number.isFinite(numericEpoch) ? Math.max(0, Math.trunc(numericEpoch)) : 0,
-    };
-}
-
-function normalizePlayerSessionFence(fence): { runtimeOwnerId: string | null; sessionEpoch: number } {
-    const numericEpoch = Number(fence?.sessionEpoch);
-    return {
-        runtimeOwnerId: typeof fence?.runtimeOwnerId === 'string' && fence.runtimeOwnerId.trim()
-            ? fence.runtimeOwnerId.trim()
-            : null,
-        sessionEpoch: Number.isFinite(numericEpoch) ? Math.max(0, Math.trunc(numericEpoch)) : 0,
-    };
-}
-
-function isSamePlayerSessionFence(
-    left: { runtimeOwnerId: string | null; sessionEpoch: number },
-    right: { runtimeOwnerId: string | null; sessionEpoch: number },
-): boolean {
-    return left.sessionEpoch === right.sessionEpoch
-        && left.runtimeOwnerId === right.runtimeOwnerId;
-}
-
-/**
- * buildCraftTickResult：构建并返回目标对象。
- * @param panelChanged 参数说明。
- * @param messages 参数说明。
- * @param inventoryChanged 参数说明。
- * @param equipmentChanged 参数说明。
- * @param attrChanged 参数说明。
- * @param groundDrops 参数说明。
- * @returns 无返回值，直接更新炼制tick结果相关状态。
- */
-
-function buildCraftTickResult(panelChanged = false, messages = [], inventoryChanged = false, equipmentChanged = false, attrChanged = false, groundDrops = [], craftRealmExpGain = 0) {
-    return {
-        ok: true,
-        panelChanged,
-        inventoryChanged,
-        equipmentChanged,
-        attrChanged,
-        messages,
-        groundDrops,
-        craftRealmExpGain,
-    };
-}
-/**
- * normalizeEnhanceLevel：规范化或转换Enhance等级。
- * @param level 参数说明。
- * @returns 无返回值，直接更新Enhance等级相关状态。
- */
-
-function normalizeEnhanceLevel(level) {
-    return Math.max(0, Math.min(MAX_ENHANCE_LEVEL, Math.floor(Number(level) || 0)));
-}
-/**
- * getEnhancementSpiritStoneCost：读取强化SpiritStone消耗。
- * @param itemLevel 参数说明。
- * @param hasMaterialCost 参数说明。
- * @returns 无返回值，完成强化SpiritStone消耗的读取/组装。
- */
-
-function getEnhancementSpiritStoneCost(itemLevel, hasMaterialCost = false) {
-    const level = Number.isFinite(itemLevel) ? Number(itemLevel) : 1;
-    return Math.max(1, hasMaterialCost ? Math.floor(level / 10) : Math.ceil(level / 10));
-}

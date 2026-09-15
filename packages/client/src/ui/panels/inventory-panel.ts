@@ -97,13 +97,49 @@ import {
   InventoryFormationDialogController,
   type FormationRangePreviewPayload,
 } from './inventory-formation-dialog';
+import {
+  getCooldownStateMapImpl,
+  getItemCooldownStateImpl,
+  resolveGroupedRecoveryCooldownStateImpl,
+  resolveRecoveryCooldownGroupsImpl,
+  hasPositiveRecoveryValueImpl,
+  getItemCooldownRemainingTicksImpl,
+  syncInventoryCooldownTickBaseImpl,
+  syncInventoryCooldownStateCacheImpl,
+  pruneInventoryCooldownStateCacheImpl,
+  getEstimatedInventoryCooldownTickImpl,
+  getItemTooltipCooldownStateImpl,
+  getItemCooldownRatioImpl,
+  getItemCooldownTitleImpl,
+} from './inventory-panel.cooldowns';
+import {
+  createInventoryCellImpl,
+  getInventoryCellRefsImpl,
+  buildCellRenderKeyImpl,
+  syncGridChildrenImpl,
+  patchInventoryCellImpl,
+  getInventoryCellRibbonImpl,
+  getInventoryLearnedRibbonImpl,
+  getInventoryMaterialRibbonLabelImpl,
+  getInventoryGradeLineLabelImpl,
+  isTechniqueBookFragmentImpl,
+} from './inventory-panel.cells';
+import {
+  renderItemDetailBodyImpl,
+  renderItemDetailActionsHtmlImpl,
+  bindItemDetailActionsImpl,
+  renderSectFoundingDialogBodyImpl,
+  normalizeSectNameImpl,
+  normalizeSectMarkImpl,
+  normalizeSectMarkInputImpl,
+} from './inventory-panel.detail';
 
 type UseItemOptions = {
   sectName?: string;
   sectMark?: string;
 };
 
-type InventoryCellRibbon = {
+export type InventoryCellRibbon = {
   label: string;
   title?: string;
 };
@@ -173,7 +209,7 @@ interface InventoryShellRefs {
 }
 
 /** InventoryCellRefs：背包格子内部稳定节点引用。 */
-interface InventoryCellRefs {
+export interface InventoryCellRefs {
   type: HTMLElement;
   learnedRibbon: HTMLElement;
   count: HTMLElement;
@@ -247,10 +283,10 @@ export class InventoryPanel {
   private onRepairInventoryItemInstanceIds: (() => void) | null = null;
   private onRequestInventoryPage: ((payload: C2S_RequestInventoryPage) => boolean) | null = null;
   /** onDropItem：on掉落物品。 */
-  private onDropItem: ((itemInstanceId: string, count: number) => void) | null = null;
+  onDropItem: ((itemInstanceId: string, count: number) => void) | null = null;
   private onBulkDropItems: ((itemInstanceIds: string[]) => void) | null = null;
   /** onDestroyItem：on Destroy物品。 */
-  private onDestroyItem: ((itemInstanceId: string, count: number) => void) | null = null;
+  onDestroyItem: ((itemInstanceId: string, count: number) => void) | null = null;
   /** onEquipItem：on Equip物品。 */
   private onEquipItem: ((itemInstanceId: string) => void) | null = null;
   /** onSortInventory：on排序背包。 */
@@ -266,7 +302,7 @@ export class InventoryPanel {
   /** activeFilter：活跃筛选。 */
   private activeFilter: InventoryFilter = 'all';
   /** lastInventory：last背包。 */
-  private lastInventory: Inventory | null = null;
+  lastInventory: Inventory | null = null;
   /** cachedScrollContainer：缓存的滚动容器引用，避免 scroll 路径中重复 getComputedStyle。 */
   private cachedScrollContainer: HTMLElement | null | undefined = undefined;
   /** selectedSlotIndex：selected槽位索引。 */
@@ -282,11 +318,11 @@ export class InventoryPanel {
   /** tooltipCell：提示格子。 */
   private tooltipCell: HTMLElement | null = null;
   /** sourceExpanded：来源Expanded。 */
-  private sourceExpanded = false;
+  sourceExpanded = false;
   /** sourceExpandedItemKey：来源Expanded物品Key。 */
-  private sourceExpandedItemKey: string | null = null;
+  sourceExpandedItemKey: string | null = null;
   /** learnedTechniqueIds：learned Technique ID 列表。 */
-  private learnedTechniqueIds = new Set<string>();
+  learnedTechniqueIds = new Set<string>();
   /** unlockedMinimapIds：unlocked小地图ID 列表。 */
   private unlockedMinimapIds = new Set<string>();
   /** equippedItemsBySlot：equipped物品By槽位。 */
@@ -341,7 +377,7 @@ export class InventoryPanel {
   /** lastPlayerContextKey：上次玩家上下文签名。 */
   private lastPlayerContextKey: string | null = null;
   /** playerContextRevision：玩家上下文版本，用于格子渲染缓存失效。 */
-  private playerContextRevision = 0;
+  playerContextRevision = 0;
   /** renderedVisibleCount：rendered可见数量。 */
   private renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
   private pagedSnapshot: InventoryPagedSnapshot | null = null;
@@ -356,10 +392,10 @@ export class InventoryPanel {
   private pendingLoadMoreFrame: number | null = null;
   /** cooldownRefreshTimer：冷却Refresh Timer。 */
   private cooldownRefreshTimer: number | null = null;
-  private inventoryCooldownBaseTick: number | null = null;
-  private inventoryCooldownBaseSourceTick: number | null = null;
-  private inventoryCooldownBaseSyncedAtMs = performance.now();
-  private inventoryCooldownStateCache = new Map<string, InventoryItemCooldownState>();
+  inventoryCooldownBaseTick: number | null = null;
+  inventoryCooldownBaseSourceTick: number | null = null;
+  inventoryCooldownBaseSyncedAtMs = performance.now();
+  inventoryCooldownStateCache = new Map<string, InventoryItemCooldownState>();
   /** shellRefs：shell Refs。 */
   private shellRefs: InventoryShellRefs | null = null;
   /** cellByIdentity：背包格子按实例 ID 复用，避免槽位压缩时整格重挂。 */
@@ -367,7 +403,7 @@ export class InventoryPanel {
   /** itemIdentityCache：物品签名缓存，避免背包 patch 中重复 JSON 序列化。 */
   private itemIdentityCache = new WeakMap<ItemStack, string>();
   /** cellRefs：格子节点缓存，避免每次 patch 反复 querySelector。 */
-  private cellRefs = new WeakMap<HTMLElement, InventoryCellRefs>();
+  cellRefs = new WeakMap<HTMLElement, InventoryCellRefs>();
   /** pendingVisibleRefresh：面板不可见期间延迟列表刷新。 */
   private pendingVisibleRefresh = false;
   /** 当前正在按需读取的自创功法模板，按功法 ID 去重。 */
@@ -760,7 +796,7 @@ export class InventoryPanel {
     this.scheduleLoadMoreCheck();
   }
 
-  private handlePrimaryAction(
+  handlePrimaryAction(
     slotIndex: number,
     expectedItemInstanceId?: string | null,
     options: { closeModal?: boolean } = {},
@@ -1271,90 +1307,12 @@ export class InventoryPanel {
 
   /** createInventoryCell：创建背包格子。 */
   private createInventoryCell(slotIndex: number): HTMLDivElement {
-    const cell = document.createElement('div');
-    cell.dataset.openItem = String(slotIndex);
-    cell.dataset.itemSlot = String(slotIndex);
-
-    const cooldown = document.createElement('div');
-    cooldown.className = 'inventory-cell-cooldown';
-    cooldown.dataset.itemCooldown = 'true';
-    cooldown.hidden = true;
-
-    const cooldownPie = document.createElement('span');
-    cooldownPie.className = 'inventory-cell-cooldown-pie';
-    cooldownPie.dataset.itemCooldownPie = 'true';
-    cooldown.append(cooldownPie);
-
-    const cooldownLabel = document.createElement('span');
-    cooldownLabel.className = 'inventory-cell-cooldown-label';
-    cooldownLabel.dataset.itemCooldownLabel = 'true';
-    cooldown.append(cooldownLabel);
-
-    const head = document.createElement('div');
-    head.className = 'inventory-cell-head';
-    const type = document.createElement('span');
-    type.className = 'inventory-cell-type';
-    type.dataset.itemType = 'true';
-    type.hidden = true;
-    head.append(type);
-    const count = document.createElement('span');
-    count.className = 'inventory-cell-count';
-    count.dataset.itemCount = 'true';
-    head.append(count);
-
-    const learnedRibbon = document.createElement('span');
-    learnedRibbon.className = 'inventory-cell-learned-ribbon';
-    learnedRibbon.dataset.itemLearnedRibbon = 'true';
-    learnedRibbon.hidden = true;
-
-    const gradeLine = document.createElement('div');
-    gradeLine.className = 'inventory-cell-grade-line';
-    gradeLine.dataset.itemGradeLine = 'true';
-    gradeLine.hidden = true;
-
-    const name = document.createElement('div');
-    name.className = 'inventory-cell-name';
-    name.dataset.itemName = 'true';
-
-    const actionHint = document.createElement('span');
-    actionHint.className = 'inventory-cell-action-hint';
-    actionHint.dataset.itemActionHintNode = 'true';
-    actionHint.hidden = true;
-
-    cell.append(cooldown, head, learnedRibbon, gradeLine, name, actionHint);
-    this.cellRefs.set(cell, {
-      type,
-      learnedRibbon,
-      count,
-      gradeLine,
-      name,
-      cooldown,
-      cooldownPie,
-      cooldownLabel,
-    });
-    return cell;
+    return createInventoryCellImpl(this, slotIndex);
   }
 
   /** getInventoryCellRefs：读取背包格子缓存节点。 */
   private getInventoryCellRefs(cell: HTMLElement): InventoryCellRefs | null {
-    const cached = this.cellRefs.get(cell);
-    if (cached) {
-      return cached;
-    }
-    const type = cell.querySelector<HTMLElement>('[data-item-type="true"]');
-    const learnedRibbon = cell.querySelector<HTMLElement>('[data-item-learned-ribbon="true"]');
-    const count = cell.querySelector<HTMLElement>('[data-item-count="true"]');
-    const gradeLine = cell.querySelector<HTMLElement>('[data-item-grade-line="true"]');
-    const name = cell.querySelector<HTMLElement>('[data-item-name="true"]');
-    const cooldown = cell.querySelector<HTMLElement>('[data-item-cooldown="true"]');
-    const cooldownPie = cell.querySelector<HTMLElement>('[data-item-cooldown-pie="true"]');
-    const cooldownLabel = cell.querySelector<HTMLElement>('[data-item-cooldown-label="true"]');
-    if (!type || !learnedRibbon || !count || !gradeLine || !name || !cooldown || !cooldownPie || !cooldownLabel) {
-      return null;
-    }
-    const refs = { type, learnedRibbon, count, gradeLine, name, cooldown, cooldownPie, cooldownLabel };
-    this.cellRefs.set(cell, refs);
-    return refs;
+    return getInventoryCellRefsImpl(this, cell);
   }
 
   /** buildCellRenderKey：构建格子局部渲染签名。 */
@@ -1365,49 +1323,13 @@ export class InventoryPanel {
     cooldownState: InventoryItemCooldownState | null,
     cooldownRemaining: number,
   ): string {
-    return [
-      'ribbon-v7',
-      String(slotIndex),
-      itemIdentity,
-      String(item.count),
-      String(item.grade ?? ''),
-      String(item.level ?? ''),
-      String(item.learnTechniqueId ?? ''),
-      String(item.learnTechniqueMaxLevel ?? ''),
-      String(this.playerContextRevision),
-      cooldownState
-        ? `${cooldownState.startedAtTick}:${cooldownState.cooldown}:${cooldownRemaining}`
-        : '',
-    ].join('|');
+    return buildCellRenderKeyImpl(this, itemIdentity, item, slotIndex, cooldownState, cooldownRemaining);
   }
 
   /** syncGridChildren：同步Grid Children。 */
   private syncGridChildren(grid: HTMLElement, orderedCells: HTMLElement[]): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const allowed = new Set(orderedCells);
-    for (const child of Array.from(grid.children)) {
-      if (!(child instanceof HTMLElement) || !allowed.has(child)) {
-        child.remove();
-      }
-    }
-    let reference: ChildNode | null = grid.firstChild;
-    for (const cell of orderedCells) {
-      if (reference !== cell) {
-        grid.insertBefore(cell, reference);
-      }
-      reference = cell.nextSibling;
-    }
-  }  
-  /**
- * patchInventoryCell：执行patch背包Cell相关逻辑。
- * @param cell HTMLElement 参数说明。
- * @param item ItemStack 道具。
- * @param slotIndex number 参数说明。
- * @param cooldownState InventoryItemCooldownState | null 参数说明。
- * @returns 返回是否满足patch背包Cell条件。
- */
-
+    syncGridChildrenImpl(this, grid, orderedCells);
+  }
 
   private patchInventoryCell(
     cell: HTMLElement,
@@ -1415,201 +1337,28 @@ export class InventoryPanel {
     slotIndex: number,
     cooldownState: InventoryItemCooldownState | null,
   ): boolean {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const cooldownRemaining = this.getItemCooldownRemainingTicks(cooldownState);
-    const itemIdentity = this.getItemIdentity(item);
-    const renderKey = this.buildCellRenderKey(itemIdentity, item, slotIndex, cooldownState, cooldownRemaining);
-    if (cell.dataset.itemRenderKey === renderKey) {
-      return true;
-    }
-
-    const refs = this.getInventoryCellRefs(cell);
-    if (!refs) {
-      return false;
-    }
-
-    const itemMeta = getItemDisplayMeta(item);
-    const displayName = itemMeta.displayItem.name;
-    const primaryAction = this.getPrimaryAction(item, cooldownState);
-    const primaryActionHint = this.getPrimaryActionHint(primaryAction);
-    cell.querySelector<HTMLElement>('[data-item-affinity="true"]')?.remove();
-
-    let levelNode = cell.querySelector<HTMLElement>('[data-item-level="true"]');
-    if (itemMeta.levelLabel) {
-      if (!levelNode) {
-        levelNode = document.createElement('span');
-        levelNode.className = 'item-card-chip item-card-chip--level';
-        levelNode.dataset.itemLevel = 'true';
-        cell.append(levelNode);
-      }
-      levelNode.textContent = itemMeta.levelLabel;
-    } else {
-      levelNode?.remove();
-    }
-
-    let enhanceNode = cell.querySelector<HTMLElement>('[data-item-enhance="true"]');
-    if (itemMeta.enhanceLabel) {
-      if (!enhanceNode) {
-        enhanceNode = document.createElement('span');
-        enhanceNode.className = 'item-card-chip item-card-chip--enhance';
-        enhanceNode.dataset.itemEnhance = 'true';
-        cell.append(enhanceNode);
-      }
-      enhanceNode.textContent = itemMeta.enhanceLabel;
-    } else {
-      enhanceNode?.remove();
-    }
-
-    cell.dataset.itemKey = itemIdentity;
-    cell.dataset.itemRenderKey = renderKey;
-    cell.dataset.openItem = String(slotIndex);
-    cell.dataset.itemSlot = String(slotIndex);
-    cell.dataset.itemType = item.type;
-    if (itemMeta.grade) {
-      cell.dataset.itemGrade = itemMeta.grade;
-    } else {
-      delete cell.dataset.itemGrade;
-    }
-    const gradeLineLabel = this.getInventoryGradeLineLabel(item);
-    if (gradeLineLabel) {
-      cell.dataset.itemGradeLineVisible = 'true';
-    } else {
-      delete cell.dataset.itemGradeLineVisible;
-    }
-    cell.className = getItemDecorClassName('inventory-cell', item);
-    cell.classList.toggle('inventory-cell--cooldown', cooldownState !== null);
-    cell.classList.toggle('inventory-cell--actionable', primaryActionHint !== null);
-    if (primaryActionHint) {
-      cell.dataset.itemActionHint = primaryActionHint;
-    } else {
-      delete cell.dataset.itemActionHint;
-    }
-
-    const ribbon = this.getInventoryCellRibbon(item, itemMeta);
-    const learnedRibbon = this.getInventoryLearnedRibbon(item);
-    refs.type.hidden = !ribbon;
-    refs.type.textContent = ribbon?.label ?? '';
-    if (ribbon?.title) {
-      refs.type.setAttribute('aria-label', ribbon.title);
-    } else {
-      refs.type.removeAttribute('aria-label');
-    }
-    refs.learnedRibbon.hidden = !learnedRibbon;
-    refs.learnedRibbon.textContent = learnedRibbon?.label ?? '';
-    if (learnedRibbon?.title) {
-      refs.learnedRibbon.setAttribute('aria-label', learnedRibbon.title);
-    } else {
-      refs.learnedRibbon.removeAttribute('aria-label');
-    }
-    refs.gradeLine.hidden = !gradeLineLabel;
-    refs.gradeLine.textContent = gradeLineLabel ?? '';
-    refs.count.textContent = formatDisplayCountBadge(item.count);
-    refs.name.textContent = displayName;
-    refs.name.setAttribute('aria-label', displayName);
-    refs.name.className = 'inventory-cell-name';
-    let actionHintNode = cell.querySelector<HTMLElement>('[data-item-action-hint-node="true"]');
-    if (!actionHintNode) {
-      actionHintNode = document.createElement('span');
-      actionHintNode.className = 'inventory-cell-action-hint';
-      actionHintNode.dataset.itemActionHintNode = 'true';
-      cell.append(actionHintNode);
-    }
-    actionHintNode.hidden = !primaryActionHint;
-    actionHintNode.textContent = primaryActionHint ?? '';
-
-    refs.cooldown.hidden = cooldownState === null;
-    if (cooldownState) {
-      refs.cooldown.setAttribute('aria-label', this.getItemCooldownTitle(cooldownState, cooldownRemaining));
-      refs.cooldownPie.style.setProperty('--inventory-cooldown-progress', this.getItemCooldownRatio(cooldownState, cooldownRemaining).toFixed(4));
-      refs.cooldownLabel.textContent = formatDisplayInteger(cooldownRemaining);
-    } else {
-      refs.cooldown.removeAttribute('aria-label');
-      refs.cooldownPie.style.setProperty('--inventory-cooldown-progress', '0');
-      refs.cooldownLabel.textContent = '';
-    }
-    return true;
+    return patchInventoryCellImpl(this, cell, item, slotIndex, cooldownState);
   }
 
   private getInventoryCellRibbon(item: ItemStack, itemMeta: ItemDisplayMeta): InventoryCellRibbon | null {
-    if (item.type === 'skill_book') {
-      const isFragment = this.isTechniqueBookFragment(item);
-      return {
-        label: isFragment ? '残卷' : '功法',
-        title: isFragment ? '功法残卷' : '完整功法书',
-      };
-    }
-    if (itemMeta.affinityBadge) {
-      return {
-        label: itemMeta.affinityBadge.label,
-        title: itemMeta.affinityBadge.title,
-      };
-    }
-    if (item.type === 'material') {
-      return {
-        label: this.getInventoryMaterialRibbonLabel(item),
-        title: getItemTypeLabel(item.type),
-      };
-    }
-    if (item.type === 'consumable' || item.type === 'equipment' || item.type === 'artifact') {
-      return { label: getItemTypeLabel(item.type) };
-    }
-    return null;
+    return getInventoryCellRibbonImpl(this, item, itemMeta);
   }
 
   private getInventoryLearnedRibbon(item: ItemStack): InventoryCellRibbon | null {
-    if (item.type !== 'skill_book') {
-      return null;
-    }
-    const techniqueId = this.getTechniqueIdFromBookItem(item);
-    if (!techniqueId || !this.learnedTechniqueIds.has(techniqueId)) {
-      return null;
-    }
-    const label = t('inventory.status.learned', undefined);
-    return { label, title: label };
+    return getInventoryLearnedRibbonImpl(this, item);
   }
 
   private getInventoryMaterialRibbonLabel(item: ItemStack): string {
-    switch (item.materialCategory) {
-      case 'herb':
-        return '药材';
-      case 'exotic':
-        return '异材';
-      case 'ore':
-        return '矿石';
-      default:
-        return getItemTypeLabel(item.type);
-    }
+    return getInventoryMaterialRibbonLabelImpl(this, item);
   }
 
-  private getInventoryGradeLineLabel(_item: ItemStack): string | null {
-    return null;
+  getInventoryGradeLineLabel(_item: ItemStack): string | null {
+    return getInventoryGradeLineLabelImpl(this, _item);
   }
 
   private isTechniqueBookFragment(item: ItemStack): boolean {
-    if (item.type !== 'skill_book') {
-      return false;
-    }
-    const techniqueId = this.getTechniqueIdFromBookItem(item);
-    const rawLearnMaxLevel = Number(item.learnTechniqueMaxLevel);
-    if (!Number.isFinite(rawLearnMaxLevel)) {
-      return false;
-    }
-    if (!techniqueId) {
-      return true;
-    }
-    const technique = getLocalTechniqueTemplate(techniqueId);
-    if (!technique) {
-      return true;
-    }
-    const templateMaxLevel = getTechniqueMaxLevel(
-      Array.isArray(technique.layers) ? technique.layers : undefined,
-      1,
-    );
-    const learnMaxLevel = Math.max(1, Math.min(templateMaxLevel, Math.floor(rawLearnMaxLevel)));
-    return learnMaxLevel < templateMaxLevel;
+    return isTechniqueBookFragmentImpl(this, item);
   }
-
   private openBulkDiscardModal(): void {
     if (!this.lastInventory) {
       return;
@@ -1850,166 +1599,31 @@ export class InventoryPanel {
     effectLines: string[],
     statusLabel: string | null,
   ): void {
-    const previewItem = resolvePreviewItem(item);
-    const actionHtml = this.renderItemDetailActionsHtml(item);
-    const techniqueBookDetailHtml = item.type === 'skill_book'
-      ? renderTechniqueBookDetailHtml(previewItem)
-      : '';
-    replaceElementHtml(body, `
-      <div class="quest-detail-grid inventory-detail-grid">
-        <div class="quest-detail-section">
-          <strong>${t('inventory.detail.item-type', undefined)}</strong>
-          <span data-inventory-modal-type="true">${this.escapeHtml(getItemTypeLabel(item.type))}</span>
-        </div>
-        <div class="quest-detail-section">
-          <strong>${t('inventory.detail.current-count', undefined)}</strong>
-          <span data-inventory-modal-count="true">${formatDisplayCountBadge(item.count)}</span>
-        </div>
-        ${item.equipSlot ? `<div class="quest-detail-section">
-          <strong>${t('inventory.detail.equip-slot', undefined)}</strong>
-          <span data-inventory-modal-slot="true">${this.escapeHtml(getEquipSlotLabel(item.equipSlot))}</span>
-        </div>` : ''}
-      </div>
-      ${item.type === 'skill_book' ? '' : `<div class="quest-detail-section">
-        <strong>${t('inventory.detail.desc', undefined)}</strong>
-        <span data-inventory-modal-desc="true">${this.escapeHtml(previewItem.desc)}</span>
-      </div>`}
-      ${statusLabel ? `<div class="quest-detail-section">
-        <strong>${t('inventory.detail.status', undefined)}</strong>
-        <span data-inventory-modal-status="true">${this.escapeHtml(statusLabel)}</span>
-      </div>` : ''}
-      ${item.type === 'skill_book'
-        ? `<div class="quest-detail-section inventory-technique-book-detail" data-inventory-technique-book-detail="true">${techniqueBookDetailHtml}</div>`
-        : ''}
-      ${bonusLines.length > 0 ? `<div class="quest-detail-section">
-        <strong>${t('inventory.detail.equipment-bonuses', undefined)}</strong>
-        <span data-inventory-modal-bonuses="true">${this.escapeHtml(bonusLines.join(' / '))}</span>
-      </div>` : ''}
-      ${materialValueLines.length > 0 ? `<div class="quest-detail-section">
-        <strong>${t('inventory.detail.material-bonuses', undefined)}</strong>
-        <span data-inventory-modal-material-values="true">${this.escapeHtml(materialValueLines.join(' / '))}</span>
-      </div>` : ''}
-      ${effectLines.length > 0 ? `<div class="quest-detail-section">
-        <strong>${t('inventory.detail.effects', undefined)}</strong>
-        <span data-inventory-modal-effects="true">${this.escapeHtml(effectLines.join(' / '))}</span>
-      </div>` : ''}
-      <div class="quest-detail-section inventory-source-section">
-        <strong>${t('inventory.detail.sources', undefined)}</strong>
-        ${sourceListHtml}
-        ${canToggleSourceList
-          ? `<button class="small-btn ghost inventory-source-toggle" data-inventory-source-toggle="true" type="button">${this.sourceExpanded ? t('inventory.source.collapse', undefined) : t('inventory.source.expand-all', { count: formatDisplayInteger(sourceEntryCount) })}</button>`
-          : ''}
-      </div>
-      ${actionHtml}
-    `);
+    renderItemDetailBodyImpl(this, body, item, sourceListHtml, sourceEntryCount, canToggleSourceList, bonusLines, materialValueLines, effectLines, statusLabel);
   }
 
   private renderItemDetailActionsHtml(item: ItemStack): string {
-    const primaryAction = this.getPrimaryAction(item);
-    const canUseBatch = this.canBatchUseFromDetail(item, primaryAction);
-    const primaryButton = this.isPrimaryActionable(primaryAction)
-      ? `<button class="small-btn" type="button" data-inventory-detail-action="primary">${this.escapeHtml(primaryAction.label)}</button>`
-      : '';
-    const batchUseButton = canUseBatch
-      ? `<button class="small-btn ghost" type="button" data-inventory-detail-action="batch-use">${t('inventory.action.batch-use', undefined)}</button>`
-      : '';
-    const dropButton = this.onDropItem
-      ? `<button class="small-btn ghost" type="button" data-inventory-detail-action="drop">${item.count > 1 ? t('inventory.action.batch-drop', undefined) : t('inventory.action.drop-one', undefined)}</button>`
-      : '';
-    const destroyButton = this.onDestroyItem
-      ? `<button class="small-btn ghost danger" type="button" data-inventory-detail-action="destroy">${item.count > 1 ? t('inventory.action.batch-destroy', undefined) : t('inventory.action.destroy', undefined)}</button>`
-      : '';
-    if (!primaryButton && !batchUseButton && !dropButton && !destroyButton) {
-      return '';
-    }
-    return `
-      <div class="inventory-detail-actions">
-        <div class="inventory-detail-actions-group">
-          ${primaryButton}
-          ${batchUseButton}
-        </div>
-        <div class="inventory-detail-actions-group inventory-detail-actions-group--right">
-          ${dropButton}
-          ${destroyButton}
-        </div>
-      </div>
-    `;
+    return renderItemDetailActionsHtmlImpl(this, item);
   }
 
   private bindItemDetailActions(body: HTMLElement, signal: AbortSignal, item: ItemStack, slotIndex: number): void {
-    body.querySelectorAll<HTMLElement>('[data-inventory-detail-action]').forEach((button) => {
-      button.addEventListener('click', (event) => {
-        event.stopPropagation();
-        const action = button.dataset.inventoryDetailAction;
-        if (action === 'primary') {
-          this.handlePrimaryAction(slotIndex, this.getInventoryItemInstanceId(item), { closeModal: true });
-          return;
-        }
-        if (action === 'batch-use') {
-          this.openActionDialog('use', slotIndex, item.count);
-          return;
-        }
-        if (action === 'drop') {
-          this.openActionDialog('drop', slotIndex, item.count);
-          return;
-        }
-        if (action === 'destroy') {
-          this.openActionDialog('destroy', slotIndex, item.count);
-        }
-      }, { signal });
-    });
+    bindItemDetailActionsImpl(this, body, signal, item, slotIndex);
   }
 
-
   private renderSectFoundingDialogBody(body: HTMLElement): void {
-    replaceElementHtml(body, `
-      <div class="sect-founding-modal">
-        <div class="sect-founding-form">
-          <label class="sect-founding-field">
-            <span>${t('inventory.sect-founding.name-label', undefined)}</span>
-            <input class="sect-founding-input" data-sect-name-input type="text" maxlength="24" autocomplete="off" placeholder="${t('inventory.sect-founding.name-placeholder', undefined)}">
-          </label>
-          <label class="sect-founding-field sect-founding-field--mark">
-            <span>${t('inventory.sect-founding.mark-label', undefined)}</span>
-            <input class="sect-founding-input" data-sect-mark-input type="text" maxlength="4" autocomplete="off" placeholder="${t('inventory.sect-founding.mark-placeholder', undefined)}">
-          </label>
-        </div>
-        <div class="sect-founding-status" data-sect-founding-status role="status" aria-live="polite"></div>
-        <div class="inventory-detail-actions sect-founding-actions">
-          <div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch">
-            <button class="small-btn ghost" type="button" data-sect-founding-cancel>${t('inventory.action.back-detail', undefined)}</button>
-            <button class="small-btn" type="button" data-sect-founding-confirm>${t('inventory.sect-founding.confirm', undefined)}</button>
-          </div>
-        </div>
-      </div>
-    `);
+    renderSectFoundingDialogBodyImpl(this, body);
   }
 
   private normalizeSectName(input: string): string {
-    const normalized = input.replace(/\s+/g, '').trim();
-    const count = getGraphemeCount(normalized);
-    if (count < 2 || count > 12 || /[<>`"'\\]/.test(normalized)) {
-      return '';
-    }
-    return normalized;
+    return normalizeSectNameImpl(this, input);
   }
 
   private normalizeSectMark(input: string): string {
-    const normalized = input.replace(/\s+/g, '').trim();
-    const first = getFirstGrapheme(normalized);
-    if (!first || getGraphemeCount(normalized) !== 1 || /[\s<>`"'\\]/.test(first)) {
-      return '';
-    }
-    return first;
+    return normalizeSectMarkImpl(this, input);
   }
 
   private normalizeSectMarkInput(input: string): string {
-    const normalized = input.replace(/\s+/g, '').trim();
-    const first = getFirstGrapheme(normalized);
-    if (!first || /[\s<>`"'\\]/.test(first)) {
-      return '';
-    }
-    return first;
+    return normalizeSectMarkInputImpl(this, input);
   }
 
 
@@ -2158,7 +1772,7 @@ export class InventoryPanel {
 
 
   /** openActionDialog：打开动作对话。 */
-  private openActionDialog(kind: InventoryActionKind, slotIndex: number, defaultCount: number): void {
+  openActionDialog(kind: InventoryActionKind, slotIndex: number, defaultCount: number): void {
     const item = this.lastInventory?.items[slotIndex] ?? null;
     if (!item) {
       return;
@@ -2168,7 +1782,7 @@ export class InventoryPanel {
     }
   }
 
-  private getTechniqueIdFromBookItem(item: ItemStack): string | null {
+  getTechniqueIdFromBookItem(item: ItemStack): string | null {
     return resolveTechniqueIdFromBookItem(item);
   }
 
@@ -2221,7 +1835,7 @@ export class InventoryPanel {
   }
 
   /** getPrimaryAction：读取Primary动作。 */
-  private getPrimaryAction(
+  getPrimaryAction(
     item: ItemStack,
     cooldownState?: InventoryItemCooldownState | null,
   ): InventoryPrimaryAction | null {
@@ -2252,18 +1866,18 @@ export class InventoryPanel {
     return null;
   }
 
-  private isPrimaryActionable(action: InventoryPrimaryAction | null): action is InventoryPrimaryAction {
+  isPrimaryActionable(action: InventoryPrimaryAction | null): action is InventoryPrimaryAction {
     return action !== null && action.kind !== 'status' && action.disabled !== true;
   }
 
-  private getPrimaryActionHint(action: InventoryPrimaryAction | null): string | null {
+  getPrimaryActionHint(action: InventoryPrimaryAction | null): string | null {
     if (!this.isPrimaryActionable(action)) {
       return null;
     }
     return `右键${action.label}`;
   }
 
-  private canBatchUseFromDetail(item: ItemStack, primaryAction: InventoryPrimaryAction | null): boolean {
+  canBatchUseFromDetail(item: ItemStack, primaryAction: InventoryPrimaryAction | null): boolean {
     return this.isPrimaryActionable(primaryAction)
       && primaryAction.kind === 'use'
       && item.type === 'consumable'
@@ -2339,169 +1953,67 @@ export class InventoryPanel {
 
   /** getCooldownStateMap：读取冷却状态地图。 */
   private getCooldownStateMap(inventory: Inventory): Map<string, InventoryItemCooldownState> {
-    this.pruneInventoryCooldownStateCache();
-    const activeCooldowns = new Map(this.inventoryCooldownStateCache);
-    for (const entry of inventory.cooldowns ?? []) {
-      if (this.getItemCooldownRemainingTicks(entry) > 0) {
-        activeCooldowns.set(entry.itemId, entry);
-      }
-    }
-    const cooldownsByItemId = new Map(activeCooldowns);
-    for (const item of inventory.items ?? []) {
-      if (!item?.itemId || cooldownsByItemId.has(item.itemId)) {
-        continue;
-      }
-      const groupedCooldown = this.resolveGroupedRecoveryCooldownState(item, activeCooldowns);
-      if (groupedCooldown) {
-        cooldownsByItemId.set(item.itemId, groupedCooldown);
-      }
-    }
-    return cooldownsByItemId;
+    return getCooldownStateMapImpl(this, inventory);
   }
 
   /** getItemCooldownState：读取物品冷却状态。 */
   private getItemCooldownState(item: ItemStack, inventory: Inventory | null = this.lastInventory): InventoryItemCooldownState | null {
-    if (!inventory) {
-      return null;
-    }
-    const cooldownState = this.getCooldownStateMap(inventory).get(item.itemId) ?? null;
-    return this.getItemCooldownRemainingTicks(cooldownState) > 0 ? cooldownState : null;
+    return getItemCooldownStateImpl(this, item, inventory);
   }
 
   private resolveGroupedRecoveryCooldownState(
     item: ItemStack,
     activeCooldowns: Map<string, InventoryItemCooldownState>,
   ): InventoryItemCooldownState | null {
-    let selected: InventoryItemCooldownState | null = null;
-    let maxRemainingTicks = 0;
-    for (const group of this.resolveRecoveryCooldownGroups(item)) {
-      const cooldownState = activeCooldowns.get(group) ?? null;
-      const remainingTicks = this.getItemCooldownRemainingTicks(cooldownState);
-      if (remainingTicks > maxRemainingTicks) {
-        selected = cooldownState;
-        maxRemainingTicks = remainingTicks;
-      }
-    }
-    return selected;
+    return resolveGroupedRecoveryCooldownStateImpl(this, item, activeCooldowns);
   }
 
   private resolveRecoveryCooldownGroups(item: ItemStack): Array<'hp' | 'qi'> {
-    const previewItem = resolvePreviewItem(item);
-    const groups: Array<'hp' | 'qi'> = [];
-    if (this.hasPositiveRecoveryValue(previewItem.healAmount)
-      || this.hasPositiveRecoveryValue(previewItem.healPercent)
-      || this.hasPositiveRecoveryValue(previewItem.baselineHealPercent)) {
-      groups.push('hp');
-    }
-    if (this.hasPositiveRecoveryValue(previewItem.baselineQiPercent)
-      || this.hasPositiveRecoveryValue(previewItem.qiPercent)) {
-      groups.push('qi');
-    }
-    return groups;
+    return resolveRecoveryCooldownGroupsImpl(this, item);
   }
 
   private hasPositiveRecoveryValue(value: unknown): boolean {
-    return Number.isFinite(Number(value)) && Number(value) > 0;
+    return hasPositiveRecoveryValueImpl(this, value);
   }
 
   /** getItemCooldownRemainingTicks：读取物品冷却Remaining Ticks。 */
-  private getItemCooldownRemainingTicks(cooldownState: InventoryItemCooldownState | null): number {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!cooldownState) {
-      return 0;
-    }
-    const cooldown = Math.max(0, Math.floor(Number(cooldownState.cooldown) || 0));
-    if (cooldown <= 0) {
-      return 0;
-    }
-    const currentTick = this.getEstimatedInventoryCooldownTick();
-    if (currentTick === null) {
-      return cooldown;
-    }
-    const startedAtTick = Math.max(0, Math.floor(Number(cooldownState.startedAtTick) || 0));
-    const elapsedTicks = Math.max(0, currentTick - startedAtTick);
-    return Math.max(0, cooldown - elapsedTicks);
+  getItemCooldownRemainingTicks(cooldownState: InventoryItemCooldownState | null): number {
+    return getItemCooldownRemainingTicksImpl(this, cooldownState);
   }
 
   private syncInventoryCooldownTickBase(inventory: Inventory): void {
-    const serverTick = Number(inventory.serverTick);
-    if (!Number.isFinite(serverTick)) {
-      return;
-    }
-    const normalizedTick = Math.max(0, Math.floor(serverTick));
-    if (this.inventoryCooldownBaseSourceTick === normalizedTick) {
-      return;
-    }
-    this.inventoryCooldownBaseTick = normalizedTick;
-    this.inventoryCooldownBaseSourceTick = normalizedTick;
-    this.inventoryCooldownBaseSyncedAtMs = performance.now();
+    syncInventoryCooldownTickBaseImpl(this, inventory);
   }
 
   private syncInventoryCooldownStateCache(cooldowns: InventoryItemCooldownState[]): void {
-    for (const entry of cooldowns) {
-      if (!entry?.itemId) {
-        continue;
-      }
-      if (this.getItemCooldownRemainingTicks(entry) > 0) {
-        this.inventoryCooldownStateCache.set(entry.itemId, { ...entry });
-      } else {
-        this.inventoryCooldownStateCache.delete(entry.itemId);
-      }
-    }
-    this.pruneInventoryCooldownStateCache();
+    syncInventoryCooldownStateCacheImpl(this, cooldowns);
   }
 
   private pruneInventoryCooldownStateCache(): void {
-    for (const [itemId, entry] of this.inventoryCooldownStateCache) {
-      if (this.getItemCooldownRemainingTicks(entry) <= 0) {
-        this.inventoryCooldownStateCache.delete(itemId);
-      }
-    }
+    pruneInventoryCooldownStateCacheImpl(this);
   }
 
   private getEstimatedInventoryCooldownTick(now = performance.now()): number | null {
-    if (this.inventoryCooldownBaseTick === null) {
-      return null;
-    }
-    const elapsedTicks = Math.floor(Math.max(0, now - this.inventoryCooldownBaseSyncedAtMs) / 1000);
-    return this.inventoryCooldownBaseTick + elapsedTicks;
+    return getEstimatedInventoryCooldownTickImpl(this, now);
   }
 
   /** getItemTooltipCooldownState：读取物品提示冷却状态。 */
   private getItemTooltipCooldownState(item: ItemStack): ItemTooltipCooldownState | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const cooldownState = this.getItemCooldownState(item);
-    if (!cooldownState) {
-      return null;
-    }
-    const cooldownLeft = this.getItemCooldownRemainingTicks(cooldownState);
-    return cooldownLeft > 0
-      ? { cooldown: cooldownState.cooldown, cooldownLeft }
-      : null;
+    return getItemTooltipCooldownStateImpl(this, item);
   }
 
   /** getItemCooldownRatio：读取物品冷却Ratio。 */
-  private getItemCooldownRatio(cooldownState: InventoryItemCooldownState | null, remainingTicks?: number): number {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!cooldownState) {
-      return 0;
-    }
-    const cooldown = Math.max(1, cooldownState.cooldown);
-    const remaining = remainingTicks ?? this.getItemCooldownRemainingTicks(cooldownState);
-    return Math.max(0, Math.min(1, remaining / cooldown));
+  getItemCooldownRatio(cooldownState: InventoryItemCooldownState | null, remainingTicks?: number): number {
+    return getItemCooldownRatioImpl(this, cooldownState, remainingTicks);
   }
 
   /** getItemCooldownTitle：读取物品冷却标题。 */
-  private getItemCooldownTitle(cooldownState: InventoryItemCooldownState, remainingTicks?: number): string {
-    const remaining = remainingTicks ?? this.getItemCooldownRemainingTicks(cooldownState);
-    return `使用冷却 ${formatDisplayInteger(remaining)} / ${formatDisplayInteger(cooldownState.cooldown)} 息`;
+  getItemCooldownTitle(cooldownState: InventoryItemCooldownState, remainingTicks?: number): string {
+    return getItemCooldownTitleImpl(this, cooldownState, remainingTicks);
   }
 
   /** getItemIdentity：读取物品身份。 */
-  private getItemIdentity(item: ItemStack): string {
+  getItemIdentity(item: ItemStack): string {
     const cached = this.itemIdentityCache.get(item);
     if (cached) {
       return cached;
@@ -2512,7 +2024,7 @@ export class InventoryPanel {
     return identity;
   }
 
-  private getInventoryItemInstanceId(item: ItemStack | null | undefined): string {
+  getInventoryItemInstanceId(item: ItemStack | null | undefined): string {
     const direct = typeof item?.itemInstanceId === 'string' ? item.itemInstanceId.trim() : '';
     return direct;
   }
@@ -3105,7 +2617,7 @@ export class InventoryPanel {
   }
 
   /** escapeHtml：转义 HTML 文本中的危险字符。 */
-  private escapeHtml(value: string): string {
+  escapeHtml(value: string): string {
     return value
       .replaceAll('&', '&amp;')
       .replaceAll('<', '&lt;')

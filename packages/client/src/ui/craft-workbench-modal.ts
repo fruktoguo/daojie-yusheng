@@ -84,8 +84,95 @@ import {
   syncReactCraftWorkbenchState,
   unmountReactCraftWorkbenchPanel,
 } from '../react-ui/panels/craft/mount-craft-workbench-panel';
+import {
+  renderCraftQueuePanelImpl,
+  renderCraftQueuePanelContentImpl,
+  getCraftQueueKindLabelImpl,
+  getCraftQueueStatusLabelImpl,
+  renderCraftQueueItemMetaImpl,
+  renderCraftQueueItemProgressImpl,
+  patchCraftQueueProgressImpl,
+  patchCraftQueuePanelImpl,
+  refreshQueueFloatingPanelImpl,
+  ensureQueueFloatingPanelImpl,
+  buildFloatingQueueStructureKeyImpl,
+  renderFloatingQueueListImpl,
+  renderFloatingQueueItemImpl,
+  resolveFloatingQueueProgressImpl,
+  patchFloatingQueueProgressImpl,
+  bindQueueFloatingEventsImpl,
+  buildCraftHeaderKeyImpl,
+  buildCraftQueueStructureKeyImpl,
+  buildCraftTabsKeyImpl,
+  renderCraftModeTabsImpl,
+  renderForgingPlaceholderImpl,
+  getCraftProfessionTitleImpl,
+  getCraftProfessionDescriptionImpl,
+  getCraftQueueSnapshotImpl,
+  dispatchQueueCancellationImpl,
+} from './craft-workbench-modal.queue';
+import {
+  ensureAlchemySelectionImpl,
+  ensureAlchemyDraftImpl,
+  getVisibleAlchemyRecipesImpl,
+  getSelectedAlchemyRecipeImpl,
+  tryPatchAlchemyBodyImpl,
+  renderAlchemyBodyImpl,
+  renderAlchemyItemReferenceImpl,
+  resolveAlchemyMaterialNameImpl,
+  buildLocalCraftFormulaPresetKeyImpl,
+  ensureLocalCraftFormulaPresetsLoadedImpl,
+  persistLocalCraftFormulaPresetsImpl,
+  saveLocalCraftFormulaPresetImpl,
+  deleteLocalCraftFormulaPresetImpl,
+  getFullAlchemyIngredientsImpl,
+  getAlchemyDraftIngredientsImpl,
+  getAlchemySubmittedDraftIngredientsImpl,
+  setAlchemyDraftImpl,
+  getAlchemyMainIngredientsImpl,
+  adjustAlchemyAuxCountImpl,
+  removeAlchemyAuxItemImpl,
+  getAlchemyInventoryCountImpl,
+  getAlchemyMaterialElementsImpl,
+  buildAlchemyMainElementsImpl,
+  buildAlchemyRequiredElementsImpl,
+  buildAlchemyInputElementsImpl,
+  openAlchemyMaterialPickerModalImpl,
+  renderAlchemyMaterialPickerBodyImpl,
+  getAlchemyMaterialPickerCandidatesImpl,
+  formatAlchemyPickerElementValueImpl,
+  openAlchemyPresetPickerModalImpl,
+  renderAlchemyPresetPickerBodyImpl,
+  renderAlchemyPresetPickerDetailImpl,
+  buildAlchemyPresetPreviewIngredientsImpl,
+  renderAlchemyElementRatioGridImpl,
+  formatAlchemyPresetUpdatedAtImpl,
+  bindAlchemyPresetPickerEventsImpl,
+  bindAlchemyMaterialPickerEventsImpl,
+  getAlchemySpiritStoneOwnedCountImpl,
+  getAlchemyFurnaceBonusesImpl,
+  getAlchemyBatchOutputSizeImpl,
+  getAlchemyBatchOutputCountImpl,
+  getAlchemySpiritStoneCostImpl,
+  getCraftSkillLevelForActiveModeImpl,
+  getAlchemyRawBrewTicksImpl,
+  getAlchemyAdjustedBrewTicksImpl,
+  formatAlchemyElementVectorImpl,
+  getAlchemyMaxCraftQuantityImpl,
+  getAlchemySelectedQuantityImpl,
+  setAlchemySelectedQuantityImpl,
+  openAlchemyConfirmImpl,
+  parseAlchemyConfirmQuantityImpl,
+  buildAlchemyConfirmStateImpl,
+  renderAlchemyConfirmBodyImpl,
+  bindAlchemyConfirmEventsImpl,
+  syncAlchemyConfirmStateImpl,
+  normalizeQueueStartModeImpl,
+  submitAlchemyConfirmImpl,
+  syncAlchemyConfirmModalImpl,
+} from './craft-workbench-modal.alchemy';
 
-type CraftWorkbenchCallbacks = {
+export type CraftWorkbenchCallbacks = {
   onRequestAlchemy: (knownCatalogVersion?: number) => void;
   onRequestForging: (knownCatalogVersion?: number) => void;
   onRequestEnhancement: () => void;
@@ -110,28 +197,28 @@ type CraftWorkbenchCallbacks = {
   getTransmissionTargets?: () => Array<{ playerId: string; name: string }>;
 };
 
-type CraftMode = 'alchemy' | 'forging' | 'enhancement' | 'transmission' | 'technique_refining' | null;
-type AlchemyTab = 'full' | 'simple';
-type AlchemyRealmTab = 'mortal' | 'qi' | 'foundation';
-type AlchemyMaterialPickerSortKey = 'name' | 'level' | 'grade' | 'metal' | 'wood' | 'water' | 'fire' | 'earth' | 'count';
-type CraftQueueProgressView = {
+export type CraftMode = 'alchemy' | 'forging' | 'enhancement' | 'transmission' | 'technique_refining' | null;
+export type AlchemyTab = 'full' | 'simple';
+export type AlchemyRealmTab = 'mortal' | 'qi' | 'foundation';
+export type AlchemyMaterialPickerSortKey = 'name' | 'level' | 'grade' | 'metal' | 'wood' | 'water' | 'fire' | 'earth' | 'count';
+export type CraftQueueProgressView = {
   ratio: number;
   label: string;
   detail: string;
 };
-type CraftQueueDisplayItem = CraftQueueItemView & {
+export type CraftQueueDisplayItem = CraftQueueItemView & {
   isActive?: boolean;
   progress?: CraftQueueProgressView;
   interruptProgress?: CraftQueueProgressView | null;
 };
 
-type ConfirmStartRequest = {
+export type ConfirmStartRequest = {
   recipeId: string;
   ingredients: AlchemyIngredientSelection[];
   mode: AlchemyTab;
 };
 
-const FORGING_INITIAL_RECIPES = [
+export const FORGING_INITIAL_RECIPES = [
   { outputItemId: 'equip.copper_enhancement_hammer', outputName: t('craft.workbench.initial-copper-hammer'), note: t('craft.workbench.initial-copper-hammer-note') },
   { outputItemId: 'equip.copper_pill_furnace', outputName: t('craft.workbench.initial-copper-furnace'), note: t('craft.workbench.initial-copper-furnace-note') },
   { outputItemId: 'equip.copper_forging_tool', outputName: t('craft.workbench.initial-copper-forging-tool'), note: t('craft.workbench.initial-copper-forging-tool-note') },
@@ -140,7 +227,7 @@ const FORGING_INITIAL_RECIPES = [
   { outputItemId: 'formation_disk.mortal', outputName: t('craft.workbench.initial-copper-array-plate'), note: t('craft.workbench.initial-copper-array-plate-note') },
 ];
 
-function escapeHtml(value: string): string {
+export function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
@@ -149,32 +236,32 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-function replaceElementHtml(root: HTMLElement, html: string): void {
+export function replaceElementHtml(root: HTMLElement, html: string): void {
   const template = document.createElement('template');
   template.innerHTML = html.trim();
   root.replaceChildren(template.content.cloneNode(true));
 }
 
-function escapeHtmlAttr(value: string): string {
+export function escapeHtmlAttr(value: string): string {
   return escapeHtml(value);
 }
 
-function buildEnhancementTargetKey(ref: EnhancementTargetRef): string {
+export function buildEnhancementTargetKey(ref: EnhancementTargetRef): string {
   return ref.source === 'equipment'
     ? `equipment:${ref.slot ?? ''}`
     : `inventory:${normalizeInventoryItemInstanceId(ref.itemInstanceId)}`;
 }
 
-function normalizeInventoryItemInstanceId(value: unknown): string {
+export function normalizeInventoryItemInstanceId(value: unknown): string {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : '';
 }
 
-function normalizeComprehensionSpeedRate(value: unknown): number {
+export function normalizeComprehensionSpeedRate(value: unknown): number {
   const normalized = Number(value);
   return Number.isFinite(normalized) ? normalized : 0;
 }
 
-function readCraftToolStat(
+export function readCraftToolStat(
   stats: CraftEffectStatsPatch | null | undefined,
   skillKind: CraftEffectSkillKind,
   effectKind: 'successRate' | 'speedRate' | 'outputRate' | 'expRate',
@@ -185,13 +272,13 @@ function readCraftToolStat(
     : 0;
 }
 
-function createEmptyEquipmentSlots(): EquipmentSlots {
+export function createEmptyEquipmentSlots(): EquipmentSlots {
   return Object.fromEntries(EQUIP_SLOTS.map((slot) => [slot, null])) as EquipmentSlots;
 }
 
-const UNKNOWN_ITEM_NAME = '未知物品';
+export const UNKNOWN_ITEM_NAME = '未知物品';
 
-function cloneEnhancementRecord(record: PlayerEnhancementRecord): PlayerEnhancementRecord {
+export function cloneEnhancementRecord(record: PlayerEnhancementRecord): PlayerEnhancementRecord {
   const itemName = typeof record.itemName === 'string' ? record.itemName.trim() : '';
   return {
     itemId: record.itemId,
@@ -226,7 +313,7 @@ function cloneEnhancementRecord(record: PlayerEnhancementRecord): PlayerEnhancem
   };
 }
 
-function normalizeEnhancementRecordList(records: PlayerEnhancementRecord[] | null | undefined): PlayerEnhancementRecord[] {
+export function normalizeEnhancementRecordList(records: PlayerEnhancementRecord[] | null | undefined): PlayerEnhancementRecord[] {
   if (!Array.isArray(records)) {
     return [];
   }
@@ -235,13 +322,13 @@ function normalizeEnhancementRecordList(records: PlayerEnhancementRecord[] | nul
     .map((entry) => cloneEnhancementRecord(entry));
 }
 
-function cloneAlchemyIngredients(
+export function cloneAlchemyIngredients(
   ingredients: readonly AlchemyIngredientSelection[],
 ): AlchemyIngredientSelection[] {
   return ingredients.map((ingredient) => ({ ...ingredient }));
 }
 
-function normalizeLocalAlchemyIngredients(value: unknown): AlchemyIngredientSelection[] {
+export function normalizeLocalAlchemyIngredients(value: unknown): AlchemyIngredientSelection[] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -257,7 +344,7 @@ function normalizeLocalAlchemyIngredients(value: unknown): AlchemyIngredientSele
   return Array.from(counts.entries()).map(([itemId, count]) => ({ itemId, count }));
 }
 
-function getAlchemyRealmTab(level: number): AlchemyRealmTab {
+export function getAlchemyRealmTab(level: number): AlchemyRealmTab {
   const normalizedLevel = Math.max(1, Math.floor(Number(level) || 1));
   if (normalizedLevel >= 31) {
     return 'foundation';
@@ -268,14 +355,14 @@ function getAlchemyRealmTab(level: number): AlchemyRealmTab {
   return 'mortal';
 }
 
-function normalizeAlchemyRealm(value: string | undefined): AlchemyRealmTab {
+export function normalizeAlchemyRealm(value: string | undefined): AlchemyRealmTab {
   if (value === 'qi' || value === 'foundation') {
     return value;
   }
   return 'mortal';
 }
 
-function normalizeAlchemyCategory(value: string | undefined): AlchemyRecipeCategory {
+export function normalizeAlchemyCategory(value: string | undefined): AlchemyRecipeCategory {
   if (
     value === 'artifact'
     || value === 'buff'
@@ -291,7 +378,7 @@ function normalizeAlchemyCategory(value: string | undefined): AlchemyRecipeCateg
   return 'recovery';
 }
 
-function normalizeTechniqueActivityKind(value: string | undefined): RuntimeTechniqueActivityKind {
+export function normalizeTechniqueActivityKind(value: string | undefined): RuntimeTechniqueActivityKind {
   if (
     value === 'forging'
     || value === 'enhancement'
@@ -306,69 +393,69 @@ function normalizeTechniqueActivityKind(value: string | undefined): RuntimeTechn
 }
 
 export class CraftWorkbenchModal {
-  private static readonly MODAL_OWNER = 'craft-workbench-modal';
-  private static readonly ALCHEMY_CONFIRM_OWNER = 'craft-workbench-modal:alchemy-confirm';
-  private static readonly ALCHEMY_MATERIAL_PICKER_OWNER = 'craft-workbench-modal:alchemy-material-picker';
-  private static readonly ALCHEMY_PRESET_PICKER_OWNER = 'craft-workbench-modal:alchemy-preset-picker';
+  static readonly MODAL_OWNER = 'craft-workbench-modal';
+  static readonly ALCHEMY_CONFIRM_OWNER = 'craft-workbench-modal:alchemy-confirm';
+  static readonly ALCHEMY_MATERIAL_PICKER_OWNER = 'craft-workbench-modal:alchemy-material-picker';
+  static readonly ALCHEMY_PRESET_PICKER_OWNER = 'craft-workbench-modal:alchemy-preset-picker';
 
-  private callbacks: CraftWorkbenchCallbacks | null = null;
-  private activeMode: CraftMode = null;
-  private loading = false;
+  callbacks: CraftWorkbenchCallbacks | null = null;
+  activeMode: CraftMode = null;
+  loading = false;
 
-  private alchemyPanel: S2C_AlchemyPanel | null = null;
-  private enhancementPanel: S2C_EnhancementPanel | null = null;
-  private techniqueActivityTasksSynced = false;
-  private techniqueActivityTasks: TechniqueActivityTaskView[] = [];
-  private readonly craftCatalogCache = new CraftCatalogCache();
-  private alchemyCatalogVersion = 0;
-  private alchemyCatalog: AlchemyRecipeCatalogEntry[] = [];
-  private alchemySkillLevel = 1;
-  private forgingSkillLevel = 1;
-  private gatherSkillLevel = 1;
-  private enhancementSkillLevel = 1;
-  private transmissionSkillLevel = 1;
-  private playerComprehensionSpeedRate = 0;
-  private playerLuck = 0;
-  private transmissionTechniques: PlayerState['techniques'] = [];
-  private pendingTechniqueComprehensions: PlayerState['pendingTechniqueComprehensions'] = [];
-  private playerRealmLv: number | null = null;
-  private inventory: PlayerState['inventory'] = { items: [], capacity: 0 };
-  private equipment: EquipmentSlots = createEmptyEquipmentSlots();
-  private activeAlchemyCategory: AlchemyRecipeCategory = 'recovery';
-  private activeAlchemyRealm: AlchemyRealmTab = 'mortal';
-  private activeAlchemyTab: AlchemyTab = 'full';
-  private selectedAlchemyRecipeId: string | null = null;
-  private selectedAlchemyPresetId: string | null = null;
-  private draftByRecipeId = new Map<string, Map<string, number>>();
-  private localCraftFormulaPresets = new Map<string, PlayerAlchemyPreset[]>();
-  private localCraftFormulaPresetsLoaded = false;
-  private alchemyMaterialPickerQuery = '';
-  private alchemyMaterialPickerSortKey: AlchemyMaterialPickerSortKey = 'name';
-  private alchemyMaterialPickerSortDirection: 'asc' | 'desc' = 'asc';
-  private alchemyPresetPickerSelectedId: string | null = null;
-  private quantityByRecipeId = new Map<string, number>();
-  private confirmStartRequest: ConfirmStartRequest | null = null;
-  private confirmQuantityDraft = '1';
-  private confirmEventsBound = false;
-  private selectedEnhancementTargetKey: string | null = null;
-  private selectedEnhancementTargetLevel: number | null = null;
-  private selectedEnhancementProtectionKey: string | null = null;
-  private selectedEnhancementProtectionStartLevel: number | null = null;
-  private enhancementResponseError: string | null = null;
-  private localEnhancementHistoryLoaded = false;
-  private localEnhancementHistoryRecords = new Map<string, PlayerEnhancementRecord>();
-  private localEnhancementHistorySessions: PlayerEnhancementRecord[] = [];
-  private lastServerEnhancementSessionRecord: PlayerEnhancementRecord | null = null;
-  private activeEnhancementHistoryItemId: string | null = null;
-  private activeEnhancementHistorySessionKey: string | null = null;
-  private enhancementHistoryExpanded = false;
-  private enhancementProtectionExpanded = false;
-  private lastEnhancementRenderKey: string | null = null;
-  private lastEnhancementCandidateSourceKey: string | null = null;
+  alchemyPanel: S2C_AlchemyPanel | null = null;
+  enhancementPanel: S2C_EnhancementPanel | null = null;
+  techniqueActivityTasksSynced = false;
+  techniqueActivityTasks: TechniqueActivityTaskView[] = [];
+  readonly craftCatalogCache = new CraftCatalogCache();
+  alchemyCatalogVersion = 0;
+  alchemyCatalog: AlchemyRecipeCatalogEntry[] = [];
+  alchemySkillLevel = 1;
+  forgingSkillLevel = 1;
+  gatherSkillLevel = 1;
+  enhancementSkillLevel = 1;
+  transmissionSkillLevel = 1;
+  playerComprehensionSpeedRate = 0;
+  playerLuck = 0;
+  transmissionTechniques: PlayerState['techniques'] = [];
+  pendingTechniqueComprehensions: PlayerState['pendingTechniqueComprehensions'] = [];
+  playerRealmLv: number | null = null;
+  inventory: PlayerState['inventory'] = { items: [], capacity: 0 };
+  equipment: EquipmentSlots = createEmptyEquipmentSlots();
+  activeAlchemyCategory: AlchemyRecipeCategory = 'recovery';
+  activeAlchemyRealm: AlchemyRealmTab = 'mortal';
+  activeAlchemyTab: AlchemyTab = 'full';
+  selectedAlchemyRecipeId: string | null = null;
+  selectedAlchemyPresetId: string | null = null;
+  draftByRecipeId = new Map<string, Map<string, number>>();
+  localCraftFormulaPresets = new Map<string, PlayerAlchemyPreset[]>();
+  localCraftFormulaPresetsLoaded = false;
+  alchemyMaterialPickerQuery = '';
+  alchemyMaterialPickerSortKey: AlchemyMaterialPickerSortKey = 'name';
+  alchemyMaterialPickerSortDirection: 'asc' | 'desc' = 'asc';
+  alchemyPresetPickerSelectedId: string | null = null;
+  quantityByRecipeId = new Map<string, number>();
+  confirmStartRequest: ConfirmStartRequest | null = null;
+  confirmQuantityDraft = '1';
+  confirmEventsBound = false;
+  selectedEnhancementTargetKey: string | null = null;
+  selectedEnhancementTargetLevel: number | null = null;
+  selectedEnhancementProtectionKey: string | null = null;
+  selectedEnhancementProtectionStartLevel: number | null = null;
+  enhancementResponseError: string | null = null;
+  localEnhancementHistoryLoaded = false;
+  localEnhancementHistoryRecords = new Map<string, PlayerEnhancementRecord>();
+  localEnhancementHistorySessions: PlayerEnhancementRecord[] = [];
+  lastServerEnhancementSessionRecord: PlayerEnhancementRecord | null = null;
+  activeEnhancementHistoryItemId: string | null = null;
+  activeEnhancementHistorySessionKey: string | null = null;
+  enhancementHistoryExpanded = false;
+  enhancementProtectionExpanded = false;
+  lastEnhancementRenderKey: string | null = null;
+  lastEnhancementCandidateSourceKey: string | null = null;
   /** 行动队列浮窗宿主，只展示技艺通用 job 的精简状态。 */
-  private queueFloatingPanel: FloatingListPanel | null = null;
+  queueFloatingPanel: FloatingListPanel | null = null;
   /** 行动队列浮窗当前绑定的事件。 */
-  private queueFloatingEvents: AbortController | null = null;
+  queueFloatingEvents: AbortController | null = null;
 
   /** @internal Sub-view delegates */
   readonly alchemyView = new CraftAlchemyView(this as unknown as CraftAlchemyParent);
@@ -819,40 +906,15 @@ export class CraftWorkbenchModal {
     ].join('/');
   }
 
-  private ensureAlchemySelection(): void {
-    if (this.alchemyPanel?.state?.job) {
-      const visibleRecipes = this.getVisibleAlchemyRecipes();
-      const visibleRecipeIds = new Set(visibleRecipes.map((entry) => entry.recipeId));
-      if (this.selectedAlchemyRecipeId && visibleRecipeIds.has(this.selectedAlchemyRecipeId)) {
-        return;
-      }
-      this.selectedAlchemyRecipeId = visibleRecipes[0]?.recipeId ?? null;
-      this.selectedAlchemyPresetId = null;
-      return;
-    }
-    const visibleRecipes = this.getVisibleAlchemyRecipes();
-    const visibleRecipeIds = new Set(visibleRecipes.map((entry) => entry.recipeId));
-    if (this.selectedAlchemyRecipeId && visibleRecipeIds.has(this.selectedAlchemyRecipeId)) {
-      return;
-    }
-    const nextRecipe = visibleRecipes[0] ?? null;
-    this.selectedAlchemyRecipeId = nextRecipe?.recipeId ?? null;
-    this.selectedAlchemyPresetId = null;
+  ensureAlchemySelection(): void {
+    ensureAlchemySelectionImpl(this);
   }
 
-  private ensureAlchemyDraft(): void {
-    const recipeId = this.selectedAlchemyRecipeId;
-    if (!recipeId || this.draftByRecipeId.has(recipeId)) {
-      return;
-    }
-    const presets = this.getAlchemyRecipePresets(recipeId);
-    const activePreset = this.selectedAlchemyPresetId
-      ? presets.find((preset) => preset.presetId === this.selectedAlchemyPresetId) ?? null
-      : null;
-    this.setAlchemyDraft(recipeId, activePreset?.ingredients ?? this.getFullAlchemyIngredients(recipeId));
+  ensureAlchemyDraft(): void {
+    ensureAlchemyDraftImpl(this);
   }
 
-  private render(): void {
+  render(): void {
     const definition = this.getCurrentModalDefinition();
     if (!definition) {
       return;
@@ -1379,418 +1441,108 @@ export class CraftWorkbenchModal {
     `;
   }
 
-  private renderCraftQueuePanel(queue = this.getCraftQueueSnapshot()): string {
-    return `
-      <div class="craft-queue-panel" data-craft-queue-key="${escapeHtml(this.buildCraftQueueStructureKey(queue))}">
-        ${this.renderCraftQueuePanelContent(queue)}
-      </div>
-    `;
+  renderCraftQueuePanel(queue = this.getCraftQueueSnapshot()): string {
+    return renderCraftQueuePanelImpl(this, queue);
   }
 
-  private renderCraftQueuePanelContent(queue = this.getCraftQueueSnapshot()): string {
-    return `
-        <div class="craft-queue-head">
-          <span>${escapeHtml(t('craft.workbench.queue.title'))}</span>
-          <strong>${formatDisplayInteger(queue.length)}</strong>
-        </div>
-        <div class="craft-queue-list">
-          ${queue.length > 0
-            ? queue.map((entry, index) => `
-              <div class="craft-queue-item ${entry.isActive ? 'active' : ''}" data-craft-queue-entry="${escapeHtmlAttr(entry.queueId)}">
-                <span>${escapeHtml(this.getCraftQueueKindLabel(entry.kind))} · ${escapeHtml(this.getCraftQueueStatusLabel(entry, index))}</span>
-                <strong>${escapeHtml(entry.label)}</strong>
-                ${this.renderCraftQueueItemMeta(entry)}
-                ${this.renderCraftQueueItemProgress(entry)}
-                <button
-                  class="small-btn ghost craft-queue-cancel"
-                  type="button"
-                  data-craft-action="cancel-queue-entry"
-                  data-kind="${escapeHtmlAttr(entry.cancelRef?.kind ?? entry.kind)}"
-                  ${entry.cancelRef?.jobRunId || entry.isActive ? `data-job-run-id="${escapeHtmlAttr(entry.cancelRef?.jobRunId ?? entry.queueId)}"` : ''}
-                  ${entry.cancelRef?.queueId || !entry.isActive ? `data-queue-id="${escapeHtmlAttr(entry.cancelRef?.queueId ?? entry.queueId)}"` : ''}
-                  ${entry.cancelRef?.techId ? `data-tech-id="${escapeHtmlAttr(entry.cancelRef.techId)}"` : ''}
-                >取消</button>
-              </div>
-            `).join('')
-            : `<div class="craft-queue-empty">${escapeHtml(t('craft.workbench.queue.empty'))}</div>`}
-        </div>
-    `;
+  renderCraftQueuePanelContent(queue = this.getCraftQueueSnapshot()): string {
+    return renderCraftQueuePanelContentImpl(this, queue);
   }
 
-  private getCraftQueueKindLabel(kind: CraftQueueItemView['kind']): string {
-    return this.queueView.getCraftQueueKindLabel(kind);
+  getCraftQueueKindLabel(kind: CraftQueueItemView['kind']): string {
+    return getCraftQueueKindLabelImpl(this, kind);
   }
 
-  private getCraftQueueStatusLabel(entry: CraftQueueDisplayItem, index: number): string {
-    if (entry.isActive) {
-      return t('craft.workbench.queue.active');
-    }
-    if (entry.state === 'sleeping') {
-      return '休眠中';
-    }
-    return t('craft.workbench.queue.pending', { index: formatDisplayInteger(Math.max(1, index)) });
+  getCraftQueueStatusLabel(entry: CraftQueueDisplayItem, index: number): string {
+    return getCraftQueueStatusLabelImpl(this, entry, index);
   }
 
-  private renderCraftQueueItemMeta(entry: CraftQueueItemView): string {
-    return this.queueView.renderCraftQueueItemMeta(entry);
+  renderCraftQueueItemMeta(entry: CraftQueueItemView): string {
+    return renderCraftQueueItemMetaImpl(this, entry);
   }
 
-  private renderCraftQueueItemProgress(entry: CraftQueueDisplayItem): string {
-    return this.queueView.renderCraftQueueItemProgress(entry);
+  renderCraftQueueItemProgress(entry: CraftQueueDisplayItem): string {
+    return renderCraftQueueItemProgressImpl(this, entry);
   }
 
-  private patchCraftQueueProgress(root: HTMLElement): void {
-    this.queueView.patchCraftQueueProgress(root);
+  patchCraftQueueProgress(root: HTMLElement): void {
+    patchCraftQueueProgressImpl(this, root);
   }
 
-  private patchCraftQueuePanel(root: HTMLElement): boolean {
-    const queuePanel = root.querySelector<HTMLElement>('.craft-queue-panel');
-    if (!queuePanel) {
-      return false;
-    }
-    const queue = this.getCraftQueueSnapshot();
-    const queueKey = this.buildCraftQueueStructureKey(queue);
-    if (queuePanel.dataset.craftQueueKey !== queueKey) {
-      replaceElementHtml(queuePanel, this.renderCraftQueuePanelContent(queue));
-      queuePanel.dataset.craftQueueKey = queueKey;
-    }
-    this.patchCraftQueueProgress(queuePanel);
-    this.refreshQueueFloatingPanel();
-    return true;
+  patchCraftQueuePanel(root: HTMLElement): boolean {
+    return patchCraftQueuePanelImpl(this, root);
   }
 
-  private refreshQueueFloatingPanel(): void {
-    if (!isFloatingPanelEnabled('actionQueue')) {
-      this.queueFloatingPanel?.setTransientHidden(true);
-      return;
-    }
-    const queue = this.getCraftQueueSnapshot();
-    if (queue.length === 0) {
-      this.queueFloatingPanel?.setTransientHidden(true);
-      this.queueFloatingEvents?.abort();
-      this.queueFloatingEvents = null;
-      return;
-    }
-    const panel = this.ensureQueueFloatingPanel();
-    panel.setClosed(false);
-    const queueKey = this.buildFloatingQueueStructureKey(queue);
-    if (panel.getBodyKey() !== queueKey) {
-      panel.updateContent(this.renderFloatingQueueList(queue));
-      panel.setBodyKey(queueKey);
-    }
-    this.patchFloatingQueueProgress(panel.body, queue);
-    this.bindQueueFloatingEvents(panel);
-    panel.setTransientHidden(false);
+  refreshQueueFloatingPanel(): void {
+    refreshQueueFloatingPanelImpl(this);
   }
 
-  private ensureQueueFloatingPanel(): FloatingListPanel {
-    if (!this.queueFloatingPanel) {
-      this.queueFloatingPanel = new FloatingListPanel({
-        id: 'floating-action-queue',
-        title: '行动队列',
-        storageKey: 'mud:floating-action-queue:v2',
-        className: 'floating-list-panel--queue',
-        defaultLeft: Math.max(12, window.innerWidth - 300),
-        defaultTop: 420,
-        minWidth: 220,
-        maxWidth: 300,
-        onClose: () => updateFloatingPanelPreference('actionQueue', false),
-      });
-    }
-    return this.queueFloatingPanel;
+  ensureQueueFloatingPanel(): FloatingListPanel {
+    return ensureQueueFloatingPanelImpl(this);
   }
 
-  private buildFloatingQueueStructureKey(queue = this.getCraftQueueSnapshot()): string {
-    return queue
-      .map((entry) => [
-        entry.queueId,
-        entry.kind,
-        entry.label,
-        entry.quantity ?? '',
-        entry.isActive ? 'active' : 'idle',
-        entry.state ?? '',
-        entry.cancelRef?.kind ?? '',
-        entry.cancelRef?.jobRunId ?? '',
-        entry.cancelRef?.queueId ?? '',
-        entry.cancelRef?.techId ?? '',
-      ].join(':'))
-      .join('|');
+  buildFloatingQueueStructureKey(queue = this.getCraftQueueSnapshot()): string {
+    return buildFloatingQueueStructureKeyImpl(this, queue);
   }
 
-  private renderFloatingQueueList(queue = this.getCraftQueueSnapshot()): string {
-    const reorderableQueueIds = queue
-      .filter((entry) => !entry.isActive)
-      .map((entry) => entry.cancelRef?.queueId ?? entry.queueId)
-      .filter((queueId) => Boolean(queueId));
-    const queuePositionById = new Map(reorderableQueueIds.map((queueId, index) => [queueId, index] as const));
-    return `
-      <div class="floating-job-list">
-        ${queue.map((entry) => {
-          const queueId = entry.cancelRef?.queueId ?? (entry.isActive ? '' : entry.queueId);
-          return this.renderFloatingQueueItem(
-            entry,
-            queueId ? (queuePositionById.get(queueId) ?? null) : null,
-            reorderableQueueIds.length,
-          );
-        }).join('')}
-      </div>
-    `;
+  renderFloatingQueueList(queue = this.getCraftQueueSnapshot()): string {
+    return renderFloatingQueueListImpl(this, queue);
   }
 
-  private renderFloatingQueueItem(
+  renderFloatingQueueItem(
     entry: CraftQueueDisplayItem,
     queuePosition: number | null,
     reorderableCount: number,
   ): string {
-    const progress = this.resolveFloatingQueueProgress(entry);
-    const jobRunId = entry.cancelRef?.jobRunId ?? (entry.isActive ? entry.queueId : '');
-    const queueId = entry.cancelRef?.queueId ?? (entry.isActive ? '' : entry.queueId);
-    const techId = entry.cancelRef?.techId ?? '';
-    const kind = entry.cancelRef?.kind ?? entry.kind;
-    const canReorder = queuePosition !== null && Boolean(queueId);
-    const canMoveToTop = canReorder && queuePosition > 0;
-    const canMoveDown = canReorder && queuePosition < reorderableCount - 1;
-    const canRemove = Boolean(jobRunId || queueId || techId);
-    const actionData = `
-      data-kind="${escapeHtmlAttr(kind)}"
-      ${jobRunId ? `data-job-run-id="${escapeHtmlAttr(jobRunId)}"` : ''}
-      ${queueId ? `data-queue-id="${escapeHtmlAttr(queueId)}"` : ''}
-      ${techId ? `data-tech-id="${escapeHtmlAttr(techId)}"` : ''}
-    `;
-    return `
-      <div
-        class="floating-job-item${entry.isActive ? ' active' : ''}"
-        data-floating-job-id="${escapeHtmlAttr(entry.queueId)}"
-      >
-        <div class="floating-job-main">
-          <span class="floating-job-name">${escapeHtml(entry.label)}</span>
-          ${entry.quantity ? `<span class="floating-job-count">x${formatDisplayInteger(entry.quantity)}</span>` : ''}
-          <strong class="floating-job-progress" data-floating-job-progress="true">${escapeHtml(progress.label)}</strong>
-        </div>
-        <div class="floating-job-bar" aria-hidden="true">
-          <div class="floating-job-fill" data-floating-job-fill="true" style="width:${(progress.ratio * 100).toFixed(2)}%"></div>
-        </div>
-        <div class="floating-job-actions" role="group" aria-label="${escapeHtmlAttr(`${entry.label} 快捷操作`)}">
-          <button
-            class="floating-job-action"
-            type="button"
-            data-floating-queue-action="move_to_top"
-            ${actionData}
-            aria-label="${escapeHtmlAttr(`将 ${entry.label} 移至等待队首`)}"
-            title="移动到顶部"
-            ${canMoveToTop ? '' : 'disabled'}
-          >置顶</button>
-          <button
-            class="floating-job-action"
-            type="button"
-            data-floating-queue-action="move_down"
-            ${actionData}
-            aria-label="${escapeHtmlAttr(`将 ${entry.label} 向下移动一位`)}"
-            title="向下一个"
-            ${canMoveDown ? '' : 'disabled'}
-          >下移</button>
-          <button
-            class="floating-job-action danger"
-            type="button"
-            data-floating-queue-action="remove"
-            ${actionData}
-            aria-label="${escapeHtmlAttr(`移除 ${entry.label}`)}"
-            title="移除任务"
-            ${canRemove ? '' : 'disabled'}
-          >移除</button>
-        </div>
-      </div>
-    `;
+    return renderFloatingQueueItemImpl(this, entry, queuePosition, reorderableCount);
   }
 
-  private resolveFloatingQueueProgress(entry: CraftQueueDisplayItem): CraftQueueProgressView {
-    const progress = entry.progress ?? {
-      ratio: 0,
-      label: entry.isActive ? '--' : '等待中',
-      detail: '',
-    };
-    return {
-      ...progress,
-      ratio: Math.max(0, Math.min(1, progress.ratio)),
-    };
+  resolveFloatingQueueProgress(entry: CraftQueueDisplayItem): CraftQueueProgressView {
+    return resolveFloatingQueueProgressImpl(this, entry);
   }
 
-  private patchFloatingQueueProgress(root: HTMLElement, queue = this.getCraftQueueSnapshot()): void {
-    const entriesById = new Map(queue.map((entry) => [entry.queueId, entry] as const));
-    root.querySelectorAll<HTMLElement>('[data-floating-job-id]').forEach((item) => {
-      const entry = entriesById.get(item.dataset.floatingJobId ?? '');
-      if (!entry) {
-        return;
-      }
-      const active = Boolean(entry.isActive);
-      if (item.classList.contains('active') !== active) {
-        item.classList.toggle('active', active);
-      }
-      const progress = this.resolveFloatingQueueProgress(entry);
-      const progressLabel = item.querySelector<HTMLElement>('[data-floating-job-progress="true"]');
-      if (progressLabel && progressLabel.textContent !== progress.label) {
-        progressLabel.textContent = progress.label;
-      }
-      const fill = item.querySelector<HTMLElement>('[data-floating-job-fill="true"]');
-      const fillWidth = `${(progress.ratio * 100).toFixed(2)}%`;
-      if (fill && fill.style.width !== fillWidth) {
-        fill.style.width = fillWidth;
-      }
-    });
+  patchFloatingQueueProgress(root: HTMLElement, queue = this.getCraftQueueSnapshot()): void {
+    patchFloatingQueueProgressImpl(this, root, queue);
   }
 
-  private bindQueueFloatingEvents(panel: FloatingListPanel): void {
-    if (this.queueFloatingEvents) {
-      return;
-    }
-    const controller = new AbortController();
-    this.queueFloatingEvents = controller;
-    panel.body.addEventListener('click', (event) => {
-      const source = event.target instanceof Element ? event.target : null;
-      const target = source?.closest<HTMLButtonElement>('[data-floating-queue-action]') ?? null;
-      if (!target || target.disabled) {
-        return;
-      }
-      const action = target.dataset.floatingQueueAction;
-      if (action === 'remove') {
-        this.dispatchQueueCancellation(target);
-        return;
-      }
-      const queueId = (target.dataset.queueId ?? '').trim();
-      if (!queueId || (action !== 'move_to_top' && action !== 'move_down')) {
-        return;
-      }
-      this.callbacks?.onReorderTechniqueActivityQueue(queueId, action);
-    }, { signal: controller.signal });
+  bindQueueFloatingEvents(panel: FloatingListPanel): void {
+    bindQueueFloatingEventsImpl(this, panel);
   }
 
-  private buildCraftHeaderKey(): string {
-    return [
-      this.activeMode ?? 'none',
-      this.alchemySkillLevel,
-      this.forgingSkillLevel,
-      this.enhancementSkillLevel,
-      this.buildCraftQueueStructureKey(),
-    ].join('::');
+  buildCraftHeaderKey(): string {
+    return buildCraftHeaderKeyImpl(this);
   }
 
-  private buildCraftQueueStructureKey(queue = this.getCraftQueueSnapshot()): string {
-    return queue
-      .map((entry) => [
-        entry.queueId,
-        entry.kind,
-        entry.label,
-        entry.quantity ?? '',
-        entry.state ?? '',
-        entry.isActive ? 'active' : 'idle',
-        entry.cancelRef?.jobRunId ?? '',
-        entry.cancelRef?.queueId ?? '',
-        entry.cancelRef?.techId ?? '',
-      ].join(':'))
-      .join('|');
+  buildCraftQueueStructureKey(queue = this.getCraftQueueSnapshot()): string {
+    return buildCraftQueueStructureKeyImpl(this, queue);
   }
 
-  private buildCraftTabsKey(): string {
-    return [
-      this.activeMode ?? 'none',
-      this.alchemySkillLevel,
-      this.forgingSkillLevel,
-      this.enhancementSkillLevel,
-      this.inventory.revision ?? 0,
-    ].join(':');
+  buildCraftTabsKey(): string {
+    return buildCraftTabsKeyImpl(this);
   }
 
-  private renderCraftModeTabs(): string {
-    const tabs: Array<{ mode: Exclude<CraftMode, null>; label: string; note: string }> = [
-      { mode: 'alchemy', label: t('craft.workbench.mode.alchemy'), note: t('craft.workbench.level.short', { level: formatDisplayInteger(this.alchemySkillLevel) }) },
-      { mode: 'forging', label: t('craft.workbench.mode.forging'), note: t('craft.workbench.level.short', { level: formatDisplayInteger(this.forgingSkillLevel) }) },
-      { mode: 'enhancement', label: t('craft.workbench.mode.enhancement'), note: t('craft.workbench.level.short', { level: formatDisplayInteger(this.enhancementSkillLevel) }) },
-      { mode: 'transmission', label: '传法', note: '功法' },
-    ];
-    return tabs.map((tab) => `
-      <button class="craft-mode-tab ${this.activeMode === tab.mode ? 'active' : ''}" type="button" data-craft-action="switch-craft-mode" data-mode="${tab.mode}" data-guided-tour-craft-mode="${tab.mode}">
-        <span>${escapeHtml(tab.label)}</span>
-        <em>${escapeHtml(tab.note)}</em>
-      </button>
-    `).join('');
+  renderCraftModeTabs(): string {
+    return renderCraftModeTabsImpl(this);
   }
 
-  private renderForgingPlaceholder(): string {
-    return `
-      <div class="craft-placeholder-panel">
-        <div class="craft-placeholder-title">${escapeHtml(t('craft.workbench.forging.beginner-recipes'))}</div>
-        <div class="craft-placeholder-text">${escapeHtml(t('craft.workbench.forging.placeholder.text'))}</div>
-        <div class="craft-queue-list">
-          ${FORGING_INITIAL_RECIPES.map((recipe) => `
-            <div class="craft-queue-item">
-              <span>${escapeHtml(recipe.note)}</span>
-              <strong>${escapeHtml(recipe.outputName)}</strong>
-              <em>未知物品</em>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    `;
+  renderForgingPlaceholder(): string {
+    return renderForgingPlaceholderImpl(this);
   }
 
-  private getCraftProfessionTitle(): string {
-    if (this.activeMode === 'alchemy') {
-      return t('craft.workbench.mode.alchemy');
-    }
-    if (this.activeMode === 'forging') {
-      return t('craft.workbench.mode.forging');
-    }
-    if (this.activeMode === 'enhancement') {
-      return t('craft.workbench.mode.enhancement');
-    }
-    if (this.activeMode === 'transmission') {
-      return '传法';
-    }
-    if (this.activeMode === 'technique_refining') {
-      return this.transmissionView.isTechniqueAggregationOpen() ? '统法台' : '炼法台';
-    }
-    return t('craft.workbench.mode.craft');
+  getCraftProfessionTitle(): string {
+    return getCraftProfessionTitleImpl(this);
   }
 
-  private getCraftProfessionDescription(): string {
-    if (this.activeMode === 'alchemy') {
-      return t('craft.workbench.profession.description.alchemy');
-    }
-    if (this.activeMode === 'forging') {
-      return t('craft.workbench.profession.description.forging');
-    }
-    if (this.activeMode === 'enhancement') {
-      return t('craft.workbench.profession.description.enhancement');
-    }
-    if (this.activeMode === 'transmission') {
-      return '用于功法领悟与传授。';
-    }
-    if (this.activeMode === 'technique_refining') {
-      return this.transmissionView.isTechniqueAggregationOpen()
-        ? '承载一脉功法，并依权限向有缘之人开放参阅与修订。'
-        : '分解功法书为残页，也可以用残页抄录指定层数的功法书。';
-    }
-    return t('craft.workbench.profession.description.default');
+  getCraftProfessionDescription(): string {
+    return getCraftProfessionDescriptionImpl(this);
   }
 
-  private getCraftQueueSnapshot(): CraftQueueDisplayItem[] {
-    return this.queueView.getCraftQueueSnapshot();
+  getCraftQueueSnapshot(): CraftQueueDisplayItem[] {
+    return getCraftQueueSnapshotImpl(this);
   }
 
-  private dispatchQueueCancellation(target: HTMLElement): void {
-    const kind = normalizeTechniqueActivityKind(target.dataset.kind);
-    const jobRunId = (target.dataset.jobRunId ?? '').trim();
-    const queueId = (target.dataset.queueId ?? '').trim();
-    const techId = (target.dataset.techId ?? '').trim();
-    if (!jobRunId && !queueId && !techId) {
-      return;
-    }
-    this.callbacks?.onCancelTechniqueActivity({
-      kind: target.dataset.kind === 'transmission' ? 'transmission' : kind,
-      ...(jobRunId ? { jobRunId } : {}),
-      ...(queueId ? { queueId } : {}),
-      ...(techId ? { techId } : {}),
-    });
+  dispatchQueueCancellation(target: HTMLElement): void {
+    dispatchQueueCancellationImpl(this, target);
   }
 
   private bindActions(body: HTMLElement, signal: AbortSignal): void {
@@ -1985,25 +1737,16 @@ export class CraftWorkbenchModal {
     }, { signal });
   }
 
-  private getVisibleAlchemyRecipes(): AlchemyRecipeCatalogEntry[] {
-    return this.alchemyCatalog.filter((entry) => (
-      entry.category === this.activeAlchemyCategory
-      && getAlchemyRealmTab(entry.outputLevel) === this.activeAlchemyRealm
-    ));
+  getVisibleAlchemyRecipes(): AlchemyRecipeCatalogEntry[] {
+    return getVisibleAlchemyRecipesImpl(this);
   }
 
-  private getSelectedAlchemyRecipe(): AlchemyRecipeCatalogEntry | null {
-    const recipe = this.alchemyCatalog.find((entry) => entry.recipeId === this.selectedAlchemyRecipeId) ?? null;
-    if (!recipe) {
-      return null;
-    }
-    return recipe.category === this.activeAlchemyCategory && getAlchemyRealmTab(recipe.outputLevel) === this.activeAlchemyRealm
-      ? recipe
-      : null;
+  getSelectedAlchemyRecipe(): AlchemyRecipeCatalogEntry | null {
+    return getSelectedAlchemyRecipeImpl(this);
   }
 
-  private tryPatchAlchemyBody(body: HTMLElement): boolean {
-    return this.alchemyView.tryPatchAlchemyBody(body);
+  tryPatchAlchemyBody(body: HTMLElement): boolean {
+    return tryPatchAlchemyBodyImpl(this, body);
   }
 
   private tryPatchEnhancementBody(body: HTMLElement): boolean {
@@ -2017,27 +1760,21 @@ export class CraftWorkbenchModal {
     return `${job.jobRunId ?? job.startedAt}:${job.targetItemId}:${job.currentLevel}:${job.targetLevel}:${job.desiredTargetLevel}:${job.totalTicks}`;
   }
 
-  private renderAlchemyBody(): string {
-    return this.alchemyView.renderAlchemyBody();
+  renderAlchemyBody(): string {
+    return renderAlchemyBodyImpl(this);
   }
 
-  private renderAlchemyItemReference(
+  renderAlchemyItemReference(
     itemId: string,
     label: string,
     tone: 'reward' | 'material',
     count?: number,
   ): string {
-    const displayLabel = label.trim() && label !== itemId ? label : UNKNOWN_ITEM_NAME;
-    return renderInlineItemChip(itemId, {
-      label: displayLabel,
-      tone,
-      count,
-    });
+    return renderAlchemyItemReferenceImpl(this, itemId, label, tone, count);
   }
 
-  private resolveAlchemyMaterialName(recipe: AlchemyRecipeCatalogEntry, itemId: string): string {
-    const recipeIngredient = recipe.ingredients.find((ingredient) => ingredient.itemId === itemId);
-    return resolveClientItemBaseName(itemId, recipeIngredient?.name, getLocalItemTemplate(itemId)?.name);
+  resolveAlchemyMaterialName(recipe: AlchemyRecipeCatalogEntry, itemId: string): string {
+    return resolveAlchemyMaterialNameImpl(this, recipe, itemId);
   }
 
   private renderEnhancementBody(): string {
@@ -2059,314 +1796,85 @@ export class CraftWorkbenchModal {
     ];
   }
 
-  private buildLocalCraftFormulaPresetKey(kind: 'alchemy' | 'forging', recipeId: string): string {
-    return `${kind}:${recipeId}`;
+  buildLocalCraftFormulaPresetKey(kind: 'alchemy' | 'forging', recipeId: string): string {
+    return buildLocalCraftFormulaPresetKeyImpl(this, kind, recipeId);
   }
 
-  private ensureLocalCraftFormulaPresetsLoaded(): void {
-    if (this.localCraftFormulaPresetsLoaded) {
-      return;
-    }
-    this.localCraftFormulaPresetsLoaded = true;
-    this.localCraftFormulaPresets.clear();
-    try {
-      const raw = window.localStorage.getItem('mud.craft.localFormulas.v1');
-      const parsed = raw ? JSON.parse(raw) : [];
-      if (!Array.isArray(parsed)) {
-        return;
-      }
-      for (const entry of parsed) {
-        const kind = entry?.kind === 'forging' ? 'forging' : 'alchemy';
-        const recipeId = typeof entry?.recipeId === 'string' ? entry.recipeId.trim() : '';
-        const presetId = typeof entry?.presetId === 'string' ? entry.presetId.trim() : '';
-        const name = typeof entry?.name === 'string' ? entry.name.trim() : '';
-        if (!recipeId || !presetId || !name) {
-          continue;
-        }
-        const key = this.buildLocalCraftFormulaPresetKey(kind, recipeId);
-        const list = this.localCraftFormulaPresets.get(key) ?? [];
-        list.push({
-          presetId,
-          recipeId,
-          name,
-          ingredients: normalizeLocalAlchemyIngredients(entry.ingredients),
-          updatedAt: Math.max(0, Math.floor(Number(entry.updatedAt) || 0)),
-        });
-        this.localCraftFormulaPresets.set(key, list);
-      }
-    } catch {
-      this.localCraftFormulaPresets.clear();
-    }
+  ensureLocalCraftFormulaPresetsLoaded(): void {
+    ensureLocalCraftFormulaPresetsLoadedImpl(this);
   }
 
-  private persistLocalCraftFormulaPresets(): void {
-    const payload: Array<PlayerAlchemyPreset & { kind: 'alchemy' | 'forging' }> = [];
-    for (const [key, presets] of this.localCraftFormulaPresets.entries()) {
-      const [kind] = key.split(':');
-      for (const preset of presets) {
-        payload.push({
-          kind: kind === 'forging' ? 'forging' : 'alchemy',
-          ...preset,
-          ingredients: cloneAlchemyIngredients(preset.ingredients),
-        });
-      }
-    }
-    try {
-      window.localStorage.setItem('mud.craft.localFormulas.v1', JSON.stringify(payload));
-    } catch {
-      // localStorage 失败不影响服务端权威制造。
-    }
+  persistLocalCraftFormulaPresets(): void {
+    persistLocalCraftFormulaPresetsImpl(this);
   }
 
-  private saveLocalCraftFormulaPreset(recipe: AlchemyRecipeCatalogEntry): void {
-    const kind = this.activeMode === 'forging' ? 'forging' : 'alchemy';
-    const key = this.buildLocalCraftFormulaPresetKey(kind, recipe.recipeId);
-    const list = this.localCraftFormulaPresets.get(key) ?? [];
-    const existingIndex = this.selectedAlchemyPresetId
-      ? list.findIndex((preset) => preset.presetId === this.selectedAlchemyPresetId)
-      : -1;
-    const now = Date.now();
-    const preset: PlayerAlchemyPreset = {
-      presetId: existingIndex >= 0 ? list[existingIndex].presetId : `local:${kind}:${recipe.recipeId}:${now.toString(36)}`,
-      recipeId: recipe.recipeId,
-      name: existingIndex >= 0 ? list[existingIndex].name : `${recipe.outputName}${kind === 'forging' ? '自定义器方' : '自定义丹方'}${list.length + 1}`,
-      ingredients: this.getAlchemySubmittedDraftIngredients(recipe.recipeId),
-      updatedAt: now,
-    };
-    if (existingIndex >= 0) {
-      list.splice(existingIndex, 1, preset);
-    } else {
-      list.unshift(preset);
-    }
-    this.localCraftFormulaPresets.set(key, list.slice(0, 24));
-    this.selectedAlchemyPresetId = preset.presetId;
-    this.persistLocalCraftFormulaPresets();
+  saveLocalCraftFormulaPreset(recipe: AlchemyRecipeCatalogEntry): void {
+    saveLocalCraftFormulaPresetImpl(this, recipe);
   }
 
-  private deleteLocalCraftFormulaPreset(recipeId: string, presetId: string): boolean {
-    const kind = this.activeMode === 'forging' ? 'forging' : 'alchemy';
-    const key = this.buildLocalCraftFormulaPresetKey(kind, recipeId);
-    const list = this.localCraftFormulaPresets.get(key) ?? [];
-    const next = list.filter((preset) => preset.presetId !== presetId);
-    if (next.length === list.length) {
-      return false;
-    }
-    this.localCraftFormulaPresets.set(key, next);
-    this.selectedAlchemyPresetId = null;
-    this.persistLocalCraftFormulaPresets();
-    return true;
+  deleteLocalCraftFormulaPreset(recipeId: string, presetId: string): boolean {
+    return deleteLocalCraftFormulaPresetImpl(this, recipeId, presetId);
   }
 
-  private getFullAlchemyIngredients(recipeId: string): AlchemyIngredientSelection[] {
-    const recipe = this.alchemyCatalog.find((entry) => entry.recipeId === recipeId);
-    if (!recipe) {
-      return [];
-    }
-    return this.getAlchemyMainIngredients(recipe).concat(
-      recipe.ingredients
-        .filter((ingredient) => ingredient.role !== 'main')
-        .map((ingredient) => ({ itemId: ingredient.itemId, count: ingredient.count })),
-    );
+  getFullAlchemyIngredients(recipeId: string): AlchemyIngredientSelection[] {
+    return getFullAlchemyIngredientsImpl(this, recipeId);
   }
 
-  private getAlchemyDraftIngredients(recipeId: string): AlchemyIngredientSelection[] {
-    const recipe = this.alchemyCatalog.find((entry) => entry.recipeId === recipeId);
-    if (!recipe) {
-      return [];
-    }
-    const draft = this.draftByRecipeId.get(recipeId);
-    if (!draft) {
-      return this.getFullAlchemyIngredients(recipeId);
-    }
-    const result: AlchemyIngredientSelection[] = this.getAlchemyMainIngredients(recipe);
-    const mainIds = new Set(result.map((entry) => entry.itemId));
-    for (const [itemId, count] of draft.entries()) {
-      const normalizedItemId = itemId.trim();
-      const normalizedCount = Math.max(0, Math.floor(Number(count) || 0));
-      if (!normalizedItemId || mainIds.has(normalizedItemId)) {
-        continue;
-      }
-      result.push({ itemId: normalizedItemId, count: normalizedCount });
-    }
-    return result;
+  getAlchemyDraftIngredients(recipeId: string): AlchemyIngredientSelection[] {
+    return getAlchemyDraftIngredientsImpl(this, recipeId);
   }
 
-  private getAlchemySubmittedDraftIngredients(recipeId: string): AlchemyIngredientSelection[] {
-    const recipe = this.alchemyCatalog.find((entry) => entry.recipeId === recipeId);
-    if (!recipe) {
-      return [];
-    }
-    const mainIds = new Set(this.getAlchemyMainIngredients(recipe).map((entry) => entry.itemId));
-    return this.getAlchemyDraftIngredients(recipeId).filter((entry) => mainIds.has(entry.itemId) || entry.count > 0);
+  getAlchemySubmittedDraftIngredients(recipeId: string): AlchemyIngredientSelection[] {
+    return getAlchemySubmittedDraftIngredientsImpl(this, recipeId);
   }
 
-  private setAlchemyDraft(recipeId: string, ingredients: readonly AlchemyIngredientSelection[]): void {
-    const recipe = this.alchemyCatalog.find((entry) => entry.recipeId === recipeId);
-    if (!recipe) {
-      return;
-    }
-    const next = new Map<string, number>();
-    const mainIngredients = this.getAlchemyMainIngredients(recipe);
-    for (const ingredient of mainIngredients) {
-      next.set(ingredient.itemId, ingredient.count);
-    }
-    const mainIds = new Set(mainIngredients.map((ingredient) => ingredient.itemId));
-    for (const ingredient of ingredients) {
-      const itemId = typeof ingredient.itemId === 'string' ? ingredient.itemId.trim() : '';
-      if (!itemId || mainIds.has(itemId)) {
-        continue;
-      }
-      const count = Math.max(0, Math.floor(Number(ingredient.count) || 0));
-      next.set(itemId, (next.get(itemId) ?? 0) + count);
-    }
-    this.draftByRecipeId.set(recipeId, next);
+  setAlchemyDraft(recipeId: string, ingredients: readonly AlchemyIngredientSelection[]): void {
+    setAlchemyDraftImpl(this, recipeId, ingredients);
   }
 
-  private getAlchemyMainIngredients(recipe: AlchemyRecipeCatalogEntry): AlchemyIngredientSelection[] {
-    const source = (recipe.mainIngredients && recipe.mainIngredients.length > 0)
-      ? recipe.mainIngredients
-      : recipe.ingredients.filter((ingredient) => ingredient.role === 'main');
-    return source.map((ingredient) => ({
-      itemId: ingredient.itemId,
-      count: ingredient.count,
-    }));
+  getAlchemyMainIngredients(recipe: AlchemyRecipeCatalogEntry): AlchemyIngredientSelection[] {
+    return getAlchemyMainIngredientsImpl(this, recipe);
   }
 
-  private adjustAlchemyAuxCount(recipeId: string, itemId: string, delta: number): void {
-    const recipe = this.alchemyCatalog.find((entry) => entry.recipeId === recipeId);
-    if (!recipe) {
-      return;
-    }
-    if (this.getAlchemyMainIngredients(recipe).some((entry) => entry.itemId === itemId)) {
-      return;
-    }
-    if (!this.getAlchemyMaterialElements(itemId)) {
-      return;
-    }
-    if (!this.draftByRecipeId.has(recipeId)) {
-      this.setAlchemyDraft(recipeId, this.getFullAlchemyIngredients(recipeId));
-    }
-    const draft = this.draftByRecipeId.get(recipeId) ?? new Map<string, number>();
-    const current = draft.get(itemId) ?? 0;
-    const next = Math.max(0, current + delta);
-    draft.set(itemId, next);
-    this.draftByRecipeId.set(recipeId, draft);
+  adjustAlchemyAuxCount(recipeId: string, itemId: string, delta: number): void {
+    adjustAlchemyAuxCountImpl(this, recipeId, itemId, delta);
   }
 
-  private removeAlchemyAuxItem(recipeId: string, itemId: string): void {
-    const recipe = this.alchemyCatalog.find((entry) => entry.recipeId === recipeId);
-    if (!recipe || this.getAlchemyMainIngredients(recipe).some((entry) => entry.itemId === itemId)) {
-      return;
-    }
-    if (!this.draftByRecipeId.has(recipeId)) {
-      this.setAlchemyDraft(recipeId, this.getFullAlchemyIngredients(recipeId));
-    }
-    const draft = this.draftByRecipeId.get(recipeId) ?? new Map<string, number>();
-    draft.delete(itemId);
-    this.draftByRecipeId.set(recipeId, draft);
+  removeAlchemyAuxItem(recipeId: string, itemId: string): void {
+    removeAlchemyAuxItemImpl(this, recipeId, itemId);
   }
 
-  private getAlchemyInventoryCount(itemId: string): number {
-    return this.inventory.items
-      .filter((item) => item.itemId === itemId)
-      .reduce((sum, item) => sum + item.count, 0);
+  getAlchemyInventoryCount(itemId: string): number {
+    return getAlchemyInventoryCountImpl(this, itemId);
   }
 
-  private getAlchemyMaterialElements(itemId: string): CraftElementVector | undefined {
-    const inventoryItem = this.inventory.items.find((item) => item.itemId === itemId && item.materialValues?.elements);
-    if (inventoryItem?.materialValues?.elements) {
-      return inventoryItem.materialValues.elements;
-    }
-    return getLocalItemTemplate(itemId)?.materialValues?.elements;
+  getAlchemyMaterialElements(itemId: string): CraftElementVector | undefined {
+    return getAlchemyMaterialElementsImpl(this, itemId);
   }
 
-  private buildAlchemyMainElements(recipe: AlchemyRecipeCatalogEntry): CraftElementVector {
-    const result = createEmptyCraftElementVector();
-    for (const ingredient of this.getAlchemyMainIngredients(recipe)) {
-      const elements = this.getAlchemyMaterialElements(ingredient.itemId);
-      if (elements) {
-        addCraftElementVector(result, elements, ingredient.count);
-      }
-    }
-    return compactCraftElementVector(result);
+  buildAlchemyMainElements(recipe: AlchemyRecipeCatalogEntry): CraftElementVector {
+    return buildAlchemyMainElementsImpl(this, recipe);
   }
 
-  private buildAlchemyRequiredElements(recipe: AlchemyRecipeCatalogEntry): CraftElementVector {
-    const result = createEmptyCraftElementVector();
-    addCraftElementVector(result, recipe.requiredAuxElements, 1);
-    addCraftElementVector(result, this.buildAlchemyMainElements(recipe), 1);
-    return compactCraftElementVector(result);
+  buildAlchemyRequiredElements(recipe: AlchemyRecipeCatalogEntry): CraftElementVector {
+    return buildAlchemyRequiredElementsImpl(this, recipe);
   }
 
-  private buildAlchemyInputElements(
+  buildAlchemyInputElements(
     ingredients: readonly AlchemyIngredientSelection[],
   ): CraftElementVector {
-    const result = createEmptyCraftElementVector();
-    for (const ingredient of ingredients) {
-      const elements = this.getAlchemyMaterialElements(ingredient.itemId);
-      if (elements) {
-        addCraftElementVector(result, elements, ingredient.count);
-      }
-    }
-    return compactCraftElementVector(result);
+    return buildAlchemyInputElementsImpl(this, ingredients);
   }
 
-  private openAlchemyMaterialPickerModal(): void {
-    const recipe = this.getSelectedAlchemyRecipe();
-    if (!recipe) {
-      return;
-    }
-    confirmModalHost.open({
-      ownerId: CraftWorkbenchModal.ALCHEMY_MATERIAL_PICKER_OWNER,
-      title: this.activeMode === 'forging' ? '选择辅材' : '选择辅药',
-      subtitle: recipe.outputName,
-      bodyHtml: this.renderAlchemyMaterialPickerBody(recipe),
-      hideActions: true,
-    });
-    this.bindAlchemyMaterialPickerEvents();
+  openAlchemyMaterialPickerModal(): void {
+    openAlchemyMaterialPickerModalImpl(this);
   }
 
-  private renderAlchemyMaterialPickerBody(recipe: AlchemyRecipeCatalogEntry): string {
-    const candidates = this.getAlchemyMaterialPickerCandidates(recipe);
-    const sortButton = (key: AlchemyMaterialPickerSortKey, label: string) => `
-      <button class="alchemy-material-picker-sort ${this.alchemyMaterialPickerSortKey === key ? 'active' : ''}" type="button" data-alchemy-material-sort="${key}">
-        ${label}${this.alchemyMaterialPickerSortKey === key ? (this.alchemyMaterialPickerSortDirection === 'asc' ? ' ↑' : ' ↓') : ''}
-      </button>
-    `;
-    return `
-      <div class="alchemy-material-picker">
-        <input class="alchemy-material-picker-search" type="search" value="${escapeHtml(this.alchemyMaterialPickerQuery)}" placeholder="搜索材料" data-alchemy-material-search="true">
-        <div class="alchemy-material-picker-table">
-          <div class="alchemy-material-picker-head">
-            ${sortButton('name', '名称')}
-            ${sortButton('level', '等级')}
-            ${sortButton('grade', '品阶')}
-            ${sortButton('metal', '金')}
-            ${sortButton('wood', '木')}
-            ${sortButton('water', '水')}
-            ${sortButton('fire', '火')}
-            ${sortButton('earth', '土')}
-            ${sortButton('count', '数量')}
-            <span></span>
-          </div>
-          <div class="alchemy-material-picker-list">
-            ${candidates.length > 0 ? candidates.map((candidate) => `
-              <button class="alchemy-material-picker-row" type="button" data-alchemy-material-add="${escapeHtml(candidate.itemId)}">
-                <span>${this.renderAlchemyItemReference(candidate.itemId, candidate.name, 'material')}</span>
-                <span>${formatDisplayInteger(candidate.level)}</span>
-                <span>${escapeHtml(candidate.gradeLabel)}</span>
-                ${ELEMENT_KEYS.map((element) => `<span>${this.formatAlchemyPickerElementValue(candidate.elements[element])}</span>`).join('')}
-                <span>${formatDisplayInteger(candidate.count)}</span>
-                <span class="alchemy-material-picker-add">添加</span>
-              </button>
-            `).join('') : '<div class="alchemy-material-picker-empty">没有可用材料</div>'}
-          </div>
-        </div>
-      </div>
-    `;
+  renderAlchemyMaterialPickerBody(recipe: AlchemyRecipeCatalogEntry): string {
+    return renderAlchemyMaterialPickerBodyImpl(this, recipe);
   }
 
-  private getAlchemyMaterialPickerCandidates(recipe: AlchemyRecipeCatalogEntry): Array<{
+  getAlchemyMaterialPickerCandidates(recipe: AlchemyRecipeCatalogEntry): Array<{
     itemId: string;
     name: string;
     level: number;
@@ -2375,473 +1883,128 @@ export class CraftWorkbenchModal {
     count: number;
     elements: Record<AlchemyMaterialPickerSortKey, number>;
   }> {
-    const mainIds = new Set(this.getAlchemyMainIngredients(recipe).map((ingredient) => ingredient.itemId));
-    const byItemId = new Map<string, {
-      itemId: string;
-      name: string;
-      level: number;
-      grade: string;
-      gradeLabel: string;
-      count: number;
-      elements: Record<AlchemyMaterialPickerSortKey, number>;
-    }>();
-    for (const item of this.inventory.items) {
-      if (mainIds.has(item.itemId)) {
-        continue;
-      }
-      const template = getLocalItemTemplate(item.itemId);
-      if (item.type !== 'material' && template?.type !== 'material') {
-        continue;
-      }
-      const materialElements = this.getAlchemyMaterialElements(item.itemId);
-      if (!materialElements) {
-        continue;
-      }
-      const existing = byItemId.get(item.itemId);
-      if (existing) {
-        existing.count += item.count;
-        continue;
-      }
-      const grade = String(item.grade ?? template?.grade ?? 'mortal');
-      byItemId.set(item.itemId, {
-        itemId: item.itemId,
-        name: resolveClientItemBaseName(item.itemId, item.name, template?.name),
-        level: Math.max(1, Math.floor(Number(item.level ?? template?.level) || 1)),
-        grade,
-        gradeLabel: getTechniqueGradeLabel(grade as never),
-        count: Math.max(0, Math.floor(Number(item.count) || 0)),
-        elements: {
-          name: 0,
-          level: 0,
-          grade: 0,
-          count: 0,
-          metal: Number(materialElements.metal) || 0,
-          wood: Number(materialElements.wood) || 0,
-          water: Number(materialElements.water) || 0,
-          fire: Number(materialElements.fire) || 0,
-          earth: Number(materialElements.earth) || 0,
-        },
-      });
-    }
-    const query = this.alchemyMaterialPickerQuery.trim().toLocaleLowerCase();
-    const candidates = Array.from(byItemId.values())
-      .filter((candidate) => !query || candidate.name.toLocaleLowerCase().includes(query) || candidate.itemId.toLocaleLowerCase().includes(query));
-    const direction = this.alchemyMaterialPickerSortDirection === 'desc' ? -1 : 1;
-    const gradeOrder = (grade: string) => {
-      const index = TECHNIQUE_GRADE_ORDER.indexOf(grade as never);
-      return index >= 0 ? index : -1;
-    };
-    candidates.sort((left, right) => {
-      const key = this.alchemyMaterialPickerSortKey;
-      if (key === 'name') {
-        return left.name.localeCompare(right.name, 'zh-Hans-CN') * direction;
-      }
-      if (key === 'grade') {
-        return (gradeOrder(left.grade) - gradeOrder(right.grade)) * direction || left.name.localeCompare(right.name, 'zh-Hans-CN');
-      }
-      if (key === 'level' || key === 'count') {
-        return ((left[key] as number) - (right[key] as number)) * direction || left.name.localeCompare(right.name, 'zh-Hans-CN');
-      }
-      return ((left.elements[key] ?? 0) - (right.elements[key] ?? 0)) * direction || left.name.localeCompare(right.name, 'zh-Hans-CN');
-    });
-    return candidates;
+    return getAlchemyMaterialPickerCandidatesImpl(this, recipe);
   }
 
-  private formatAlchemyPickerElementValue(value: number | undefined): string {
-    const numeric = Number(value) || 0;
-    return numeric === 0 ? '-' : escapeHtml(formatDisplaySignedNumber(numeric));
+  formatAlchemyPickerElementValue(value: number | undefined): string {
+    return formatAlchemyPickerElementValueImpl(this, value);
   }
 
-  private openAlchemyPresetPickerModal(presetId?: string): void {
-    const recipe = this.getSelectedAlchemyRecipe();
-    if (!recipe) {
-      return;
-    }
-    const presets = this.getAlchemyRecipePresets(recipe.recipeId);
-    const selectedId = presetId?.trim()
-      || this.alchemyPresetPickerSelectedId
-      || this.selectedAlchemyPresetId
-      || presets[0]?.presetId
-      || null;
-    this.alchemyPresetPickerSelectedId = presets.some((preset) => preset.presetId === selectedId)
-      ? selectedId
-      : presets[0]?.presetId ?? null;
-    confirmModalHost.open({
-      ownerId: CraftWorkbenchModal.ALCHEMY_PRESET_PICKER_OWNER,
-      title: this.activeMode === 'forging' ? '加载自定义器方' : '加载自定义丹方',
-      subtitle: recipe.outputName,
-      bodyHtml: this.renderAlchemyPresetPickerBody(recipe),
-      hideActions: true,
-      onClose: () => {
-        this.alchemyPresetPickerSelectedId = null;
-      },
-    });
-    this.bindAlchemyPresetPickerEvents();
+  openAlchemyPresetPickerModal(presetId?: string): void {
+    openAlchemyPresetPickerModalImpl(this, presetId);
   }
 
-  private renderAlchemyPresetPickerBody(recipe: AlchemyRecipeCatalogEntry): string {
-    const presets = this.getAlchemyRecipePresets(recipe.recipeId);
-    const selectedPreset = this.alchemyPresetPickerSelectedId
-      ? presets.find((preset) => preset.presetId === this.alchemyPresetPickerSelectedId) ?? null
-      : null;
-    const emptyText = this.activeMode === 'forging'
-      ? '当前器物还没有保存的自定义器方。'
-      : '当前丹药还没有保存的自定义丹方。';
-    return `
-      <div class="alchemy-preset-picker">
-        <div class="alchemy-preset-picker-list" data-alchemy-preset-picker-list="true">
-          ${presets.length > 0
-            ? presets.map((preset) => `
-              <button
-                class="alchemy-preset-picker-item ${selectedPreset?.presetId === preset.presetId ? 'active' : ''}"
-                type="button"
-                data-alchemy-preset-preview="${escapeHtmlAttr(preset.presetId)}">
-                <span class="alchemy-preset-picker-item-name">${escapeHtml(preset.name)}</span>
-                <span class="alchemy-preset-picker-item-meta">${escapeHtml(this.formatAlchemyPresetUpdatedAt(preset.updatedAt))}</span>
-              </button>
-            `).join('')
-            : `<div class="alchemy-preset-picker-empty">${escapeHtml(emptyText)}</div>`}
-        </div>
-        <div class="alchemy-preset-picker-detail" data-alchemy-preset-picker-detail="true">
-          ${selectedPreset ? this.renderAlchemyPresetPickerDetail(recipe, selectedPreset) : `
-            <div class="alchemy-preset-picker-empty alchemy-preset-picker-empty--detail">${escapeHtml(emptyText)}</div>
-          `}
-        </div>
-      </div>
-    `;
+  renderAlchemyPresetPickerBody(recipe: AlchemyRecipeCatalogEntry): string {
+    return renderAlchemyPresetPickerBodyImpl(this, recipe);
   }
 
-  private renderAlchemyPresetPickerDetail(recipe: AlchemyRecipeCatalogEntry, preset: PlayerAlchemyPreset): string {
-    const ingredients = this.buildAlchemyPresetPreviewIngredients(recipe, preset);
-    const inputElements = this.buildAlchemyInputElements(ingredients);
-    const requiredElements = this.buildAlchemyRequiredElements(recipe);
-    return `
-      <div class="alchemy-preset-picker-detail-head">
-        <div>
-          <div class="alchemy-preset-picker-title">${escapeHtml(preset.name)}</div>
-          <div class="alchemy-preset-picker-subtitle">${escapeHtml(this.activeMode === 'forging' ? '自定义器方' : '自定义丹方')}</div>
-        </div>
-        <button class="small-btn" type="button" data-alchemy-preset-load="${escapeHtmlAttr(preset.presetId)}">${escapeHtml(this.activeMode === 'forging' ? '加载选中器方' : '加载选中丹方')}</button>
-      </div>
-      <section class="alchemy-fivephase-panel alchemy-preset-picker-fivephase">
-        <div class="alchemy-fivephase-block">
-          <div class="alchemy-fivephase-title">五行 当前 / 需要</div>
-          ${this.renderAlchemyElementRatioGrid(inputElements, requiredElements)}
-        </div>
-      </section>
-      <div class="alchemy-preset-picker-materials">
-        ${ingredients.map((ingredient) => {
-          const isMain = this.getAlchemyMainIngredients(recipe).some((entry) => entry.itemId === ingredient.itemId);
-          return `
-            <div class="alchemy-preset-picker-material-row">
-              <span>${this.renderAlchemyItemReference(ingredient.itemId, this.resolveAlchemyMaterialName(recipe, ingredient.itemId), 'material')}</span>
-              <span class="alchemy-ingredient-role ${isMain ? 'main' : 'aux'}">${escapeHtml(this.activeMode === 'forging' ? (isMain ? '主材' : '辅材') : (isMain ? '主药' : '辅药'))}</span>
-              <span>${formatDisplayInteger(ingredient.count)}</span>
-              <span>${escapeHtml(this.formatAlchemyElementVector(this.getAlchemyMaterialElements(ingredient.itemId)))}</span>
-            </div>
-          `;
-        }).join('')}
-      </div>
-    `;
+  renderAlchemyPresetPickerDetail(recipe: AlchemyRecipeCatalogEntry, preset: PlayerAlchemyPreset): string {
+    return renderAlchemyPresetPickerDetailImpl(this, recipe, preset);
   }
 
-  private buildAlchemyPresetPreviewIngredients(
+  buildAlchemyPresetPreviewIngredients(
     recipe: AlchemyRecipeCatalogEntry,
     preset: PlayerAlchemyPreset,
   ): AlchemyIngredientSelection[] {
-    const mainIngredients = this.getAlchemyMainIngredients(recipe);
-    const mainIds = new Set(mainIngredients.map((ingredient) => ingredient.itemId));
-    const merged = new Map<string, number>();
-    for (const ingredient of mainIngredients) {
-      merged.set(ingredient.itemId, ingredient.count);
-    }
-    for (const ingredient of preset.ingredients) {
-      const itemId = typeof ingredient.itemId === 'string' ? ingredient.itemId.trim() : '';
-      const count = Math.max(0, Math.floor(Number(ingredient.count) || 0));
-      if (!itemId || mainIds.has(itemId) || count <= 0) {
-        continue;
-      }
-      merged.set(itemId, (merged.get(itemId) ?? 0) + count);
-    }
-    return Array.from(merged.entries()).map(([itemId, count]) => ({ itemId, count }));
+    return buildAlchemyPresetPreviewIngredientsImpl(this, recipe, preset);
   }
 
-  private renderAlchemyElementRatioGrid(
+  renderAlchemyElementRatioGrid(
     currentElements: CraftElementVector | undefined,
     requiredElements: CraftElementVector | undefined,
   ): string {
-    const labels: Record<string, string> = { metal: '金', wood: '木', water: '水', fire: '火', earth: '土' };
-    return `
-      <div class="alchemy-element-grid">
-        ${ELEMENT_KEYS.map((element) => {
-          const current = Number(currentElements?.[element]) || 0;
-          const required = Number(requiredElements?.[element]) || 0;
-          const currentText = current < 0 ? `-${formatDisplayInteger(Math.abs(current))}` : formatDisplayInteger(current);
-          const requiredText = required === 0 ? '-' : formatDisplayInteger(required);
-          const valueText = required === 0 && current === 0 ? '-' : `${currentText}/${requiredText}`;
-          return `
-            <div class="alchemy-element-cell">
-              <span class="alchemy-element-label">${labels[element]}</span>
-              <strong class="alchemy-element-value">${escapeHtml(valueText)}</strong>
-            </div>
-          `;
-        }).join('')}
-      </div>
-    `;
+    return renderAlchemyElementRatioGridImpl(this, currentElements, requiredElements);
   }
 
-  private formatAlchemyPresetUpdatedAt(value: number | undefined): string {
-    const timestamp = Math.floor(Number(value) || 0);
-    if (timestamp <= 0) {
-      return '未记录时间';
-    }
-    const date = new Date(timestamp);
-    if (Number.isNaN(date.getTime())) {
-      return '未记录时间';
-    }
-    return date.toLocaleString('zh-CN', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  formatAlchemyPresetUpdatedAt(value: number | undefined): string {
+    return formatAlchemyPresetUpdatedAtImpl(this, value);
   }
 
-  private bindAlchemyPresetPickerEvents(): void {
-    const root = document.querySelector<HTMLElement>('.alchemy-preset-picker');
-    if (!root) {
-      return;
-    }
-    root.querySelectorAll<HTMLButtonElement>('[data-alchemy-preset-preview]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const presetId = button.dataset.alchemyPresetPreview?.trim() ?? '';
-        if (!presetId) {
-          return;
-        }
-        this.openAlchemyPresetPickerModal(presetId);
-      });
-    });
-    root.querySelectorAll<HTMLButtonElement>('[data-alchemy-preset-load]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const recipeId = this.selectedAlchemyRecipeId;
-        const presetId = button.dataset.alchemyPresetLoad?.trim() ?? '';
-        if (!recipeId || !presetId) {
-          return;
-        }
-        const preset = this.getAlchemyRecipePresets(recipeId).find((entry) => entry.presetId === presetId);
-        if (!preset) {
-          return;
-        }
-        this.selectedAlchemyPresetId = presetId;
-        this.setAlchemyDraft(recipeId, preset.ingredients);
-        confirmModalHost.close(CraftWorkbenchModal.ALCHEMY_PRESET_PICKER_OWNER);
-        this.render();
-      });
-    });
-    bindInlineItemTooltips(root);
+  bindAlchemyPresetPickerEvents(): void {
+    bindAlchemyPresetPickerEventsImpl(this);
   }
 
-  private bindAlchemyMaterialPickerEvents(): void {
-    const root = document.querySelector<HTMLElement>('.alchemy-material-picker');
-    if (!root) {
-      return;
-    }
-    const search = root.querySelector<HTMLInputElement>('[data-alchemy-material-search="true"]');
-    search?.focus();
-    search?.setSelectionRange(search.value.length, search.value.length);
-    search?.addEventListener('input', () => {
-      this.alchemyMaterialPickerQuery = search.value;
-      this.openAlchemyMaterialPickerModal();
-    });
-    root.querySelectorAll<HTMLButtonElement>('[data-alchemy-material-sort]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const key = button.dataset.alchemyMaterialSort as AlchemyMaterialPickerSortKey | undefined;
-        if (!key) {
-          return;
-        }
-        if (this.alchemyMaterialPickerSortKey === key) {
-          this.alchemyMaterialPickerSortDirection = this.alchemyMaterialPickerSortDirection === 'asc' ? 'desc' : 'asc';
-        } else {
-          this.alchemyMaterialPickerSortKey = key;
-          this.alchemyMaterialPickerSortDirection = key === 'name' ? 'asc' : 'desc';
-        }
-        this.openAlchemyMaterialPickerModal();
-      });
-    });
-    root.querySelectorAll<HTMLButtonElement>('[data-alchemy-material-add]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const recipeId = this.selectedAlchemyRecipeId;
-        const itemId = button.dataset.alchemyMaterialAdd?.trim() ?? '';
-        if (!recipeId || !itemId) {
-          return;
-        }
-        this.selectedAlchemyPresetId = null;
-        this.adjustAlchemyAuxCount(recipeId, itemId, 1);
-        this.render();
-        this.openAlchemyMaterialPickerModal();
-      });
-    });
+  bindAlchemyMaterialPickerEvents(): void {
+    bindAlchemyMaterialPickerEventsImpl(this);
   }
 
-  private getAlchemySpiritStoneOwnedCount(): number {
-    return this.getAlchemyInventoryCount('spirit_stone');
+  getAlchemySpiritStoneOwnedCount(): number {
+    return getAlchemySpiritStoneOwnedCountImpl(this);
   }
 
-  private getAlchemyFurnaceBonuses(): { successRate: number; speedRate: number } {
-    const toolStats = this.alchemyPanel?.state?.toolStats;
-    const skillKind = this.activeMode === 'forging' ? 'forging' : 'alchemy';
-    return {
-      successRate: readCraftToolStat(toolStats, skillKind, 'successRate'),
-      speedRate: readCraftToolStat(toolStats, skillKind, 'speedRate'),
-    };
+  getAlchemyFurnaceBonuses(): { successRate: number; speedRate: number } {
+    return getAlchemyFurnaceBonusesImpl(this);
   }
 
-  private getAlchemyBatchOutputSize(recipe: AlchemyRecipeCatalogEntry): number {
-    if (this.activeMode === 'forging') {
-      return 1;
-    }
-    return recipe.category === 'buff' ? 1 : ALCHEMY_FURNACE_OUTPUT_COUNT;
+  getAlchemyBatchOutputSize(recipe: AlchemyRecipeCatalogEntry): number {
+    return getAlchemyBatchOutputSizeImpl(this, recipe);
   }
 
-  private getAlchemyBatchOutputCount(recipe: AlchemyRecipeCatalogEntry): number {
-    return computeAlchemyBatchOutputCountWithSize(recipe.outputCount, this.getAlchemyBatchOutputSize(recipe));
+  getAlchemyBatchOutputCount(recipe: AlchemyRecipeCatalogEntry): number {
+    return getAlchemyBatchOutputCountImpl(this, recipe);
   }
 
-  private getAlchemySpiritStoneCost(recipe: AlchemyRecipeCatalogEntry, quantity: number): number {
-    return getAlchemySpiritStoneCost(recipe.outputLevel, recipe.category === 'buff') * normalizeAlchemyQuantity(quantity);
+  getAlchemySpiritStoneCost(recipe: AlchemyRecipeCatalogEntry, quantity: number): number {
+    return getAlchemySpiritStoneCostImpl(this, recipe, quantity);
   }
 
-  private getCraftSkillLevelForActiveMode(): number {
-    if (this.activeMode === 'forging') {
-      return this.forgingSkillLevel;
-    }
-    return this.alchemySkillLevel;
+  getCraftSkillLevelForActiveMode(): number {
+    return getCraftSkillLevelForActiveModeImpl(this);
   }
 
-  private getAlchemyRawBrewTicks(
+  getAlchemyRawBrewTicks(
     recipe: AlchemyRecipeCatalogEntry,
     ingredients: readonly AlchemyIngredientSelection[],
   ): number {
-    const furnaceBonuses = this.getAlchemyFurnaceBonuses();
-    return computeAlchemyRawBrewTicks(
-      recipe.baseBrewTicks,
-      recipe,
-      ingredients,
-      recipe.outputLevel,
-      this.getCraftSkillLevelForActiveMode(),
-      furnaceBonuses.speedRate,
-      this.getAlchemyBatchOutputSize(recipe),
-    );
+    return getAlchemyRawBrewTicksImpl(this, recipe, ingredients);
   }
 
-  private getAlchemyAdjustedBrewTicks(
+  getAlchemyAdjustedBrewTicks(
     recipe: AlchemyRecipeCatalogEntry,
     ingredients: readonly AlchemyIngredientSelection[],
   ): number {
-    const furnaceBonuses = this.getAlchemyFurnaceBonuses();
-    return computeAlchemyAdjustedBrewTicks(
-      recipe.baseBrewTicks,
-      recipe,
-      ingredients,
-      recipe.outputLevel,
-      this.getCraftSkillLevelForActiveMode(),
-      furnaceBonuses.speedRate,
-      this.getAlchemyBatchOutputSize(recipe),
-    );
+    return getAlchemyAdjustedBrewTicksImpl(this, recipe, ingredients);
   }
 
-  private formatAlchemyElementVector(elements: CraftElementVector | undefined): string {
-    const labels: Record<string, string> = {
-      metal: '金',
-      wood: '木',
-      water: '水',
-      fire: '火',
-      earth: '土',
-    };
-    const parts = ELEMENT_KEYS
-      .map((element) => {
-        const value = Number(elements?.[element]) || 0;
-        return value !== 0 ? `${labels[element]}${formatDisplaySignedNumber(value)}` : '';
-      })
-      .filter(Boolean);
-    return parts.length > 0 ? parts.join(' / ') : '无';
+  formatAlchemyElementVector(elements: CraftElementVector | undefined): string {
+    return formatAlchemyElementVectorImpl(this, elements);
   }
 
-  private getAlchemyMaxCraftQuantity(
+  getAlchemyMaxCraftQuantity(
     recipe: AlchemyRecipeCatalogEntry,
     ingredients: readonly AlchemyIngredientSelection[],
   ): number {
-    const ingredientCaps = ingredients
-      .map((ingredient) => {
-        if (ingredient.count <= 0) {
-          return Number.POSITIVE_INFINITY;
-        }
-        return Math.floor(this.getAlchemyInventoryCount(ingredient.itemId) / ingredient.count);
-      })
-      .filter((cap) => Number.isFinite(cap));
-    const spiritStonePerBatch = this.getAlchemySpiritStoneCost(recipe, 1);
-    const spiritStoneCap = spiritStonePerBatch > 0
-      ? Math.floor(this.getAlchemySpiritStoneOwnedCount() / spiritStonePerBatch)
-      : Number.POSITIVE_INFINITY;
-    const maxQuantity = Math.min(
-      spiritStoneCap,
-      ...(ingredientCaps.length > 0 ? ingredientCaps : [0]),
-    );
-    return Math.max(0, Number.isFinite(maxQuantity) ? maxQuantity : 0);
+    return getAlchemyMaxCraftQuantityImpl(this, recipe, ingredients);
   }
 
-  private getAlchemySelectedQuantity(
+  getAlchemySelectedQuantity(
     recipe: AlchemyRecipeCatalogEntry,
     ingredients: readonly AlchemyIngredientSelection[],
   ): number {
-    const maxQuantity = this.getAlchemyMaxCraftQuantity(recipe, ingredients);
-    const current = normalizeAlchemyQuantity(this.quantityByRecipeId.get(recipe.recipeId));
-    const next = maxQuantity > 0 ? Math.min(current, maxQuantity) : 1;
-    this.quantityByRecipeId.set(recipe.recipeId, next);
-    return next;
+    return getAlchemySelectedQuantityImpl(this, recipe, ingredients);
   }
 
-  private setAlchemySelectedQuantity(
+  setAlchemySelectedQuantity(
     recipe: AlchemyRecipeCatalogEntry,
     ingredients: readonly AlchemyIngredientSelection[],
     next: number,
   ): void {
-    const maxQuantity = this.getAlchemyMaxCraftQuantity(recipe, ingredients);
-    const normalized = maxQuantity > 0
-      ? Math.max(1, Math.min(maxQuantity, normalizeAlchemyQuantity(next)))
-      : 1;
-    this.quantityByRecipeId.set(recipe.recipeId, normalized);
+    setAlchemySelectedQuantityImpl(this, recipe, ingredients, next);
   }
 
-  private openAlchemyConfirm(
+  openAlchemyConfirm(
     recipeId: string,
     ingredients: readonly AlchemyIngredientSelection[],
     mode: AlchemyTab,
   ): void {
-    this.confirmStartRequest = {
-      recipeId,
-      ingredients: cloneAlchemyIngredients(ingredients),
-      mode,
-    };
-    const recipe = this.alchemyCatalog.find((entry) => entry.recipeId === recipeId);
-    if (recipe) {
-      this.confirmQuantityDraft = String(this.getAlchemySelectedQuantity(recipe, ingredients));
-    }
-    this.syncAlchemyConfirmModal();
+    openAlchemyConfirmImpl(this, recipeId, ingredients, mode);
   }
 
-  private parseAlchemyConfirmQuantity(): number | null {
-    if (!this.confirmQuantityDraft || !/^\d+$/.test(this.confirmQuantityDraft)) {
-      return null;
-    }
-    const quantity = Number(this.confirmQuantityDraft);
-    if (!Number.isSafeInteger(quantity) || quantity <= 0) {
-      return null;
-    }
-    return quantity;
+  parseAlchemyConfirmQuantity(): number | null {
+    return parseAlchemyConfirmQuantityImpl(this);
   }
 
-  private buildAlchemyConfirmState(
+  buildAlchemyConfirmState(
     recipe: AlchemyRecipeCatalogEntry,
     ingredients: readonly AlchemyIngredientSelection[],
   ): {
@@ -2853,300 +2016,34 @@ export class CraftWorkbenchModal {
     errorText: string | null;
     startDisabled: boolean;
   } {
-    const quantity = this.parseAlchemyConfirmQuantity();
-    const maxQuantity = this.getAlchemyMaxCraftQuantity(recipe, ingredients);
-    const rawBrewTicks = this.getAlchemyRawBrewTicks(recipe, ingredients);
-    const batchBrewTicks = this.getAlchemyAdjustedBrewTicks(recipe, ingredients);
-    const totalTicks = quantity === null
-      ? null
-      : computeAlchemyTotalJobTicks(rawBrewTicks, quantity, 0);
-    const spiritStoneCost = quantity === null
-      ? null
-      : this.getAlchemySpiritStoneCost(recipe, quantity);
-    const errorText = maxQuantity <= 0
-      ? t('craft.workbench.alchemy.confirm.error.no-materials')
-      : quantity === null
-        ? t('craft.workbench.alchemy.confirm.error.invalid-quantity')
-        : quantity > maxQuantity
-          ? t('craft.workbench.alchemy.confirm.error.exceed-max', {
-            maxQuantity: formatDisplayInteger(maxQuantity),
-          })
-          : null;
-    return {
-      quantity,
-      maxQuantity,
-      batchBrewTicks,
-      totalTicks,
-      spiritStoneCost,
-      errorText,
-      startDisabled: Boolean(errorText),
-    };
+    return buildAlchemyConfirmStateImpl(this, recipe, ingredients);
   }
 
-  private renderAlchemyConfirmBody(
+  renderAlchemyConfirmBody(
     recipe: AlchemyRecipeCatalogEntry,
     mode: AlchemyTab,
     state: ReturnType<CraftWorkbenchModal['buildAlchemyConfirmState']>,
   ): string {
-    const isForging = this.activeMode === 'forging';
-    const itemLabel = isForging
-      ? t('craft.workbench.alchemy.confirm.item-kind.forging')
-      : t('craft.workbench.alchemy.confirm.item-kind.alchemy');
-    const recipeLabel = isForging
-      ? (mode === 'full'
-        ? t('craft.workbench.alchemy.confirm.recipe-label.full.forging')
-        : t('craft.workbench.alchemy.confirm.recipe-label.simple.forging'))
-      : (mode === 'full'
-        ? t('craft.workbench.alchemy.confirm.recipe-label.full.alchemy')
-        : t('craft.workbench.alchemy.confirm.recipe-label.simple.alchemy'));
-    const unit = isForging
-      ? t('craft.workbench.alchemy.confirm.unit.forging')
-      : t('craft.workbench.alchemy.confirm.unit.alchemy');
-    return `
-      <div class="alchemy-confirm-shell">
-        <div class="market-trade-dialog-section">
-          <div class="market-trade-dialog-field">
-            <span>${itemLabel}</span>
-            <div class="market-price-display">
-              <strong>${escapeHtml(recipe.outputName)}</strong>
-              <span>${escapeHtml(t('craft.workbench.alchemy.confirm.recipe-summary', {
-                recipeLabel,
-                batchCount: formatDisplayInteger(this.getAlchemyBatchOutputCount(recipe)),
-                unit,
-              }))}</span>
-            </div>
-          </div>
-        </div>
-        <div class="market-trade-dialog-section">
-          <div class="market-trade-dialog-field">
-            <span>${escapeHtml(t('craft.workbench.alchemy.confirm.quantity-label'))}</span>
-            <div class="market-quantity-row">
-              <button class="small-btn ghost" data-alchemy-confirm-quick-qty="1" type="button">${escapeHtml(t('craft.workbench.alchemy.confirm.quick.one'))}</button>
-              <input
-                class="gm-inline-input"
-                data-alchemy-confirm-quantity="true"
-                type="number"
-                inputmode="numeric"
-                min="1"
-                step="1"
-                value="${escapeHtml(this.confirmQuantityDraft || '1')}"
-              />
-              <button
-                class="small-btn ghost"
-                data-alchemy-confirm-quick-qty-max="true"
-                data-alchemy-confirm-quick-qty="${Math.max(1, state.maxQuantity)}"
-                type="button"
-                ${state.maxQuantity <= 0 ? 'disabled' : ''}>${escapeHtml(t('craft.workbench.alchemy.confirm.quick.max'))}</button>
-            </div>
-          </div>
-          <div class="market-trade-dialog-total ${state.errorText ? 'error' : ''}">
-            <span>${escapeHtml(t('craft.workbench.alchemy.confirm.total-spirit-stone'))}</span>
-            <strong data-alchemy-confirm-total-cost="true">${escapeHtml(t('craft.workbench.alchemy.confirm.total-spirit-stone-value', {
-              cost: state.spiritStoneCost === null ? '--' : formatDisplayInteger(state.spiritStoneCost),
-            }))}</strong>
-          </div>
-        </div>
-        <div class="market-trade-dialog-section">
-          <div class="market-trade-dialog-field">
-            <span>${escapeHtml(t('craft.workbench.alchemy.confirm.batch-time'))}</span>
-            <div class="market-price-display">
-              <strong>${escapeHtml(String(state.batchBrewTicks))}</strong>
-              <span>${escapeHtml(t('craft.workbench.alchemy.confirm.no-startup'))}</span>
-            </div>
-          </div>
-          <div class="market-trade-dialog-total ${state.errorText ? 'error' : ''}">
-            <span>${escapeHtml(t('craft.workbench.alchemy.confirm.total-time'))}</span>
-            <strong data-alchemy-confirm-total-ticks="true">${escapeHtml(t('craft.workbench.alchemy.confirm.total-time-value', {
-              ticks: state.totalTicks === null ? '--' : formatDisplayInteger(state.totalTicks),
-            }))}</strong>
-          </div>
-        </div>
-        <div class="market-action-hint" data-alchemy-confirm-hint="true">${escapeHtml(t('craft.workbench.alchemy.confirm.hint', {
-          maxQuantity: formatDisplayInteger(state.maxQuantity),
-          outputCount: formatDisplayInteger(this.getAlchemyBatchOutputCount(recipe)),
-          unit,
-        }))}</div>
-        <div class="craft-start-mode-row">
-          <button class="small-btn" data-alchemy-confirm-start-mode="replace" type="button" ${state.startDisabled ? 'disabled' : ''}>${escapeHtml(t('craft.workbench.alchemy.confirm.start'))}</button>
-          <button class="small-btn ghost" data-alchemy-confirm-start-mode="preserve" type="button" ${state.startDisabled ? 'disabled' : ''}>${escapeHtml(t('craft.workbench.alchemy.confirm.start-preserve'))}</button>
-          <button class="small-btn ghost" data-alchemy-confirm-start-mode="append" type="button" ${state.startDisabled ? 'disabled' : ''}>${escapeHtml(t('craft.workbench.alchemy.confirm.start-append'))}</button>
-        </div>
-        <div class="market-action-hint market-action-hint--error" data-alchemy-confirm-error="true" ${state.errorText ? '' : 'hidden'}>${escapeHtml(state.errorText ?? '')}</div>
-      </div>
-    `;
+    return renderAlchemyConfirmBodyImpl(this, recipe, mode, state);
   }
 
-  private bindAlchemyConfirmEvents(): void {
-    if (this.confirmEventsBound) {
-      return;
-    }
-    this.confirmEventsBound = true;
-    document.addEventListener('click', (event) => {
-      if (!confirmModalHost.isOpenFor(CraftWorkbenchModal.ALCHEMY_CONFIRM_OWNER)) {
-        return;
-      }
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) {
-        return;
-      }
-      const quickQtyButton = target.closest<HTMLElement>('[data-alchemy-confirm-quick-qty]');
-      const startModeButton = target.closest<HTMLButtonElement>('[data-alchemy-confirm-start-mode]');
-      if (startModeButton) {
-        const mode = this.normalizeQueueStartMode(startModeButton.dataset.alchemyConfirmStartMode);
-        this.submitAlchemyConfirm(mode);
-        return;
-      }
-      if (!quickQtyButton) {
-        return;
-      }
-      const value = quickQtyButton.dataset.alchemyConfirmQuickQty;
-      if (!value) {
-        return;
-      }
-      this.confirmQuantityDraft = value;
-      const input = document.querySelector<HTMLInputElement>('[data-alchemy-confirm-quantity="true"]');
-      if (input) {
-        input.value = value;
-      }
-      this.syncAlchemyConfirmState();
-    }, true);
-    document.addEventListener('input', (event) => {
-      if (!confirmModalHost.isOpenFor(CraftWorkbenchModal.ALCHEMY_CONFIRM_OWNER)) {
-        return;
-      }
-      const target = event.target;
-      if (!(target instanceof HTMLInputElement) || target.dataset.alchemyConfirmQuantity !== 'true') {
-        return;
-      }
-      const normalized = target.value.replaceAll(/[^\d]/g, '');
-      this.confirmQuantityDraft = normalized;
-      if (target.value !== normalized) {
-        target.value = normalized;
-      }
-      this.syncAlchemyConfirmState();
-    });
+  bindAlchemyConfirmEvents(): void {
+    bindAlchemyConfirmEventsImpl(this);
   }
 
-  private syncAlchemyConfirmState(): void {
-    const request = this.confirmStartRequest;
-    const recipe = request ? this.alchemyCatalog.find((entry) => entry.recipeId === request.recipeId) ?? null : null;
-    if (!request || !recipe || !confirmModalHost.isOpenFor(CraftWorkbenchModal.ALCHEMY_CONFIRM_OWNER)) {
-      return;
-    }
-    const state = this.buildAlchemyConfirmState(recipe, request.ingredients);
-    const totalCostNode = document.querySelector<HTMLElement>('[data-alchemy-confirm-total-cost="true"]');
-    const totalTicksNode = document.querySelector<HTMLElement>('[data-alchemy-confirm-total-ticks="true"]');
-    const hintNode = document.querySelector<HTMLElement>('[data-alchemy-confirm-hint="true"]');
-    const errorNode = document.querySelector<HTMLElement>('[data-alchemy-confirm-error="true"]');
-    const maxButton = document.querySelector<HTMLButtonElement>('[data-alchemy-confirm-quick-qty-max="true"]');
-    const confirmButton = document.querySelector<HTMLButtonElement>('[data-confirm-modal-confirm="true"]');
-    const modeButtons = document.querySelectorAll<HTMLButtonElement>('[data-alchemy-confirm-start-mode]');
-    if (totalCostNode) {
-      totalCostNode.textContent = t('craft.workbench.alchemy.confirm.total-spirit-stone-value', {
-        cost: state.spiritStoneCost === null ? '--' : formatDisplayInteger(state.spiritStoneCost),
-      });
-      totalCostNode.parentElement?.classList.toggle('error', Boolean(state.errorText));
-    }
-    if (totalTicksNode) {
-      totalTicksNode.textContent = t('craft.workbench.alchemy.confirm.total-time-value', {
-        ticks: state.totalTicks === null ? '--' : formatDisplayInteger(state.totalTicks),
-      });
-      totalTicksNode.parentElement?.classList.toggle('error', Boolean(state.errorText));
-    }
-    if (hintNode) {
-      const unit = this.activeMode === 'forging'
-        ? t('craft.workbench.alchemy.confirm.unit.forging')
-        : t('craft.workbench.alchemy.confirm.unit.alchemy');
-      hintNode.textContent = t('craft.workbench.alchemy.confirm.hint', {
-        maxQuantity: formatDisplayInteger(state.maxQuantity),
-        outputCount: formatDisplayInteger(this.getAlchemyBatchOutputCount(recipe)),
-        unit,
-      });
-    }
-    if (maxButton) {
-      maxButton.dataset.alchemyConfirmQuickQty = String(Math.max(1, state.maxQuantity));
-      maxButton.disabled = state.maxQuantity <= 0;
-    }
-    if (errorNode) {
-      errorNode.hidden = !state.errorText;
-      errorNode.textContent = state.errorText ?? '';
-    }
-    if (confirmButton) {
-      confirmButton.disabled = state.startDisabled;
-    }
-    modeButtons.forEach((button) => {
-      button.disabled = state.startDisabled;
-    });
+  syncAlchemyConfirmState(): void {
+    syncAlchemyConfirmStateImpl(this);
   }
 
-  private normalizeQueueStartMode(value: string | undefined): CraftQueueStartMode {
-    if (value === 'preserve' || value === 'append') {
-      return value;
-    }
-    return 'replace';
+  normalizeQueueStartMode(value: string | undefined): CraftQueueStartMode {
+    return normalizeQueueStartModeImpl(this, value);
   }
 
-  private submitAlchemyConfirm(queueMode: CraftQueueStartMode): void {
-    const latestRequest = this.confirmStartRequest;
-    const latestRecipe = latestRequest ? this.alchemyCatalog.find((entry) => entry.recipeId === latestRequest.recipeId) ?? null : null;
-    if (!latestRequest || !latestRecipe) {
-      this.confirmStartRequest = null;
-      return;
-    }
-    const latestState = this.buildAlchemyConfirmState(latestRecipe, latestRequest.ingredients);
-    if (latestState.startDisabled || latestState.quantity === null) {
-      this.syncAlchemyConfirmModal();
-      return;
-    }
-    this.setAlchemySelectedQuantity(latestRecipe, latestRequest.ingredients, latestState.quantity);
-    this.confirmStartRequest = null;
-    const start = this.activeMode === 'forging'
-      ? this.callbacks?.onStartForging
-      : this.callbacks?.onStartAlchemy;
-    const submittedIngredients = latestRequest.ingredients.filter((entry) => entry.count > 0);
-    start?.(
-      latestRequest.recipeId,
-      submittedIngredients.map((entry) => ({ itemId: entry.itemId, count: entry.count })),
-      latestState.quantity,
-      queueMode,
-    );
-    confirmModalHost.close(CraftWorkbenchModal.ALCHEMY_CONFIRM_OWNER);
+  submitAlchemyConfirm(queueMode: CraftQueueStartMode): void {
+    submitAlchemyConfirmImpl(this, queueMode);
   }
 
-  private syncAlchemyConfirmModal(): void {
-    const request = this.confirmStartRequest;
-    const recipe = request ? this.alchemyCatalog.find((entry) => entry.recipeId === request.recipeId) ?? null : null;
-    if (!request || !recipe || !detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER) || (this.activeMode !== 'alchemy' && this.activeMode !== 'forging')) {
-      this.confirmStartRequest = null;
-      confirmModalHost.close(CraftWorkbenchModal.ALCHEMY_CONFIRM_OWNER);
-      return;
-    }
-    const isForging = this.activeMode === 'forging';
-    const state = this.buildAlchemyConfirmState(recipe, request.ingredients);
-    confirmModalHost.open({
-      ownerId: CraftWorkbenchModal.ALCHEMY_CONFIRM_OWNER,
-      title: t('craft.workbench.alchemy.confirm.title', {
-        modeLabel: isForging
-          ? t('craft.workbench.alchemy.confirm.mode.forging')
-          : t('craft.workbench.alchemy.confirm.mode.alchemy'),
-      }),
-      subtitle: t('craft.workbench.alchemy.confirm.subtitle', {
-        recipeName: recipe.outputName,
-        recipeLabel: isForging
-          ? (request.mode === 'full'
-            ? t('craft.workbench.alchemy.confirm.recipe-label.full.forging')
-            : t('craft.workbench.alchemy.confirm.recipe-label.simple.forging'))
-          : (request.mode === 'full'
-            ? t('craft.workbench.alchemy.confirm.recipe-label.full.alchemy')
-            : t('craft.workbench.alchemy.confirm.recipe-label.simple.alchemy')),
-      }),
-      bodyHtml: this.renderAlchemyConfirmBody(recipe, request.mode, state),
-      hideActions: true,
-      onClose: () => {
-        this.confirmStartRequest = null;
-      },
-    });
-    this.bindAlchemyConfirmEvents();
-    this.syncAlchemyConfirmState();
+  syncAlchemyConfirmModal(): void {
+    syncAlchemyConfirmModalImpl(this);
   }
 }

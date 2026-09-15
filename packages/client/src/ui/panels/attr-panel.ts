@@ -81,6 +81,37 @@ import {
   syncReactAttrPanelState,
   unmountReactAttrPanel,
 } from '../../react-ui/panels/attr/mount-attr-panel';
+import {
+  resolveRenderNumericStatBreakdownsImpl,
+  mergeAttrsImpl,
+  resolveCompleteAttrsImpl,
+  buildSnapshotImpl,
+  buildBaseRadarSnapshotImpl,
+  buildRootRadarSnapshotImpl,
+  buildVeinPaneSnapshotImpl,
+  buildRadarPaneSnapshotImpl,
+  buildNumericPaneSnapshotImpl,
+  buildSpecialPaneSnapshotImpl,
+  buildSpecialDetailPaneSnapshotImpl,
+  buildSpecialDetailPaneSnapshotFromDataImpl,
+  buildElementSpecialDetailRowsImpl,
+  buildSpecialStatCardsImpl,
+  buildBaseSpecialStatCardsImpl,
+  buildRootFoundationSummaryCardsImpl,
+  buildCraftSkillSnapshotImpl,
+  buildCraftPaneSnapshotImpl,
+} from './attr-panel.snapshots';
+import {
+  ensureTooltipStyleImpl,
+  bindTooltipEventsImpl,
+  requestDetailIfNeededImpl,
+  refreshActiveTooltipContentImpl,
+  clearTooltipTargetImpl,
+  resolveTooltipTargetKeyImpl,
+  resolveCurrentTooltipTargetImpl,
+  scheduleActiveTooltipRefreshImpl,
+  cancelScheduledTooltipRefreshImpl,
+} from './attr-panel.tooltips';
 
 type AttrPanelCallbacks = {
   onRequestDetail?: () => void;
@@ -107,11 +138,11 @@ const QI_VISIBILITY_RANK: Record<DisplayQiProjection['visibility'], number> = {
   absorbable: 2,
 };
 
-const OPENABLE_CRAFT_SKILL_KEYS = new Set(['alchemy', 'forging', 'enhancement', 'transmission', 'building']);
-const SPECIAL_DETAIL_ACTION_KEY = 'special-details';
+export const OPENABLE_CRAFT_SKILL_KEYS = new Set(['alchemy', 'forging', 'enhancement', 'transmission', 'building']);
+export const SPECIAL_DETAIL_ACTION_KEY = 'special-details';
 const SPECIAL_DETAIL_MODAL_OWNER = 'attr:special-details';
 
-const CRAFT_EFFECT_SKILL_LABELS: Record<CraftEffectSkillKind, string> = {
+export const CRAFT_EFFECT_SKILL_LABELS: Record<CraftEffectSkillKind, string> = {
   alchemy: '炼丹',
   forging: '炼器',
   enhancement: '强化',
@@ -122,33 +153,33 @@ const CRAFT_EFFECT_SKILL_LABELS: Record<CraftEffectSkillKind, string> = {
   formation: '阵法',
 };
 
-const CRAFT_EFFECT_KIND_LABELS: Record<CraftEffectKind, string> = {
+export const CRAFT_EFFECT_KIND_LABELS: Record<CraftEffectKind, string> = {
   speedRate: '速度',
   successRate: '成功率',
   outputRate: '产出',
   expRate: '经验',
 };
-const CRAFT_EFFECT_DETAIL_KINDS: CraftEffectKind[] = ['speedRate', 'successRate', 'outputRate', 'expRate'];
+export const CRAFT_EFFECT_DETAIL_KINDS: CraftEffectKind[] = ['speedRate', 'successRate', 'outputRate', 'expRate'];
 
 /** formatRateBp：格式化速率Bp。 */
-function formatRateBp(value: number): string {
+export function formatRateBp(value: number): string {
   const percent = value / 100;
   return formatDisplayPercent(percent);
 }
 
 /** formatSimplePercent：格式化Simple Percent。 */
-function formatSimplePercent(value: number): string {
+export function formatSimplePercent(value: number): string {
   return formatDisplayPercent(value);
 }
 
-function formatSignedRatePercent(value: number): string {
+export function formatSignedRatePercent(value: number): string {
   const numericValue = Number.isFinite(value) ? value : 0;
   const sign = numericValue >= 0 ? '+' : '';
   return `${sign}${formatDisplayPercent(numericValue * 100)}`;
 }
 
 /** getCraftProgressRatio：读取制作进度Ratio。 */
-function getCraftProgressRatio(exp: number, expToNext: number): number {
+export function getCraftProgressRatio(exp: number, expToNext: number): number {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (expToNext <= 0) {
@@ -158,15 +189,15 @@ function getCraftProgressRatio(exp: number, expToNext: number): number {
 }
 
 /** formatAuraAbsorptionRate：格式化灵气Absorption速率。 */
-function formatAuraAbsorptionRate(value: number): string {
+export function formatAuraAbsorptionRate(value: number): string {
   return formatDisplayPercent(value, { maximumFractionDigits: 2 });
 }
 
-function formatQiEfficiencyBp(value: number): string {
+export function formatQiEfficiencyBp(value: number): string {
   return formatAuraAbsorptionRate(value / 100);
 }
 
-function resolveQiProjectionDisplay(
+export function resolveQiProjectionDisplay(
   descriptor: DisplayQiDescriptor,
   bonuses: AttrBonus[],
   defaultVisibility: DisplayQiProjection['visibility'],
@@ -219,7 +250,7 @@ function matchesQiProjectionModifier(descriptor: DisplayQiDescriptor, modifier: 
   return true;
 }
 
-function buildQiProjectionSourceLines(projection: DisplayQiProjection): string[] {
+export function buildQiProjectionSourceLines(projection: DisplayQiProjection): string[] {
   return projection.sources.length > 0
     ? [t('attr.qi-projection.source', { sources: projection.sources.join('、') })]
     : [];
@@ -232,7 +263,7 @@ function formatCritDamageBonus(value: number): string {
 }
 
 /** colorWithAlpha：处理颜色With Alpha。 */
-function colorWithAlpha(color: string, alpha: number): string {
+export function colorWithAlpha(color: string, alpha: number): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const hex = color.startsWith('#') ? color.slice(1) : color;
@@ -245,7 +276,7 @@ function colorWithAlpha(color: string, alpha: number): string {
 }
 
 /** formatRatioPercent：格式化Ratio Percent。 */
-function formatRatioPercent(raw: number, divisor: number): string {
+export function formatRatioPercent(raw: number, divisor: number): string {
   return formatDisplayPercent(ratioValue(raw, divisor) * 100);
 }
 
@@ -332,7 +363,7 @@ function isHeavenlyDaoSuppressionAttrBonus(bonus: AttrBonus): boolean {
     && bonus.source === `buff:${HEAVENLY_DAO_SUPPRESSION_BUFF_ID}`;
 }
 
-function isPvPSoulInjuryAttrBonus(bonus: AttrBonus): boolean {
+export function isPvPSoulInjuryAttrBonus(bonus: AttrBonus): boolean {
   return bonus.attrMode === 'percent'
     && bonus.source === `buff:${PVP_SOUL_INJURY_BUFF_ID}`
     && bonus.meta?.linearReductionPercent === true;
@@ -348,7 +379,7 @@ function sumAttrBonusPercent(bonuses: AttrBonus[], key: AttrKey, predicate: (bon
   return total;
 }
 
-function buildAttributeBreakdownLines(
+export function buildAttributeBreakdownLines(
   key: AttrKey,
   baseValue: number,
   finalValue: number,
@@ -385,7 +416,7 @@ function buildAttributeBreakdownLines(
 }
 
 /** splitTooltipLines：处理split提示Lines。 */
-function splitTooltipLines(detail: string): string[] {
+export function splitTooltipLines(detail: string): string[] {
   return detail
     .split('\n')
     .map((line) => line.trim())
@@ -399,13 +430,13 @@ function replaceElementHtml(root: HTMLElement, html: string): void {
 }
 
 /** formatCritDamageDisplay：格式化Crit Damage显示。 */
-function formatCritDamageDisplay(value: number): string {
+export function formatCritDamageDisplay(value: number): string {
   const total = 200 + value / 10;
   return formatDisplayPercent(total);
 }
 
 /** formatMoveSpeedEffect：格式化移动速度效果。 */
-function formatMoveSpeedEffect(value: number): string {
+export function formatMoveSpeedEffect(value: number): string {
   const safeValue = Math.max(0, value);
   const movePoints = getMovePointsPerTick(safeValue);
   const roadTiles = movePoints / getTileTraversalCost(TileType.Road);
@@ -416,7 +447,7 @@ function formatMoveSpeedEffect(value: number): string {
 }
 
 /** formatMoveSpeedDisplay：格式化移动速度显示。 */
-function formatMoveSpeedDisplay(value: number): string {
+export function formatMoveSpeedDisplay(value: number): string {
   return formatDisplayInteger(getMovePointsPerTick(value));
 }
 
@@ -566,7 +597,7 @@ function buildCombatFormulaLines(key: NumericCardKey): string[] {
 }
 
 /** buildNumericTooltip：构建Numeric提示。 */
-function buildNumericTooltip(
+export function buildNumericTooltip(
   label: string,
   key: NumericCardKey,
   numericValue: number,
@@ -996,33 +1027,33 @@ export interface AttrPanelSnapshot {
 /** AttrPanel：属性面板实现。 */
 export class AttrPanel {
   /** pane：pane。 */
-  private pane = document.getElementById('pane-attr')!;
+  pane = document.getElementById('pane-attr')!;
   /** activeTab：活跃Tab。 */
-  private activeTab: AttrTab = 'base';
+  activeTab: AttrTab = 'base';
   /** tooltip：提示。 */
-  private tooltip = new FloatingTooltip('floating-tooltip attr-tooltip');
+  tooltip = new FloatingTooltip('floating-tooltip attr-tooltip');
   /** lastSnapshot：last快照。 */
   private lastSnapshot: AttrPanelSnapshot | null = null;
   /** lastStructureKey：last Structure Key。 */
   private lastStructureKey: string | null = null;
   /** tooltipTarget：提示目标。 */
-  private tooltipTarget: Element | null = null;  
-  private tooltipTargetKey: string | null = null;
-  private tooltipRefreshFrame: number | null = null;
+  tooltipTarget: Element | null = null;  
+  tooltipTargetKey: string | null = null;
+  tooltipRefreshFrame: number | null = null;
   /** tabButtons：属性页签节点缓存。 */
   private tabButtons = new Map<AttrTab, HTMLElement>();
   /** paneEls：属性分页节点缓存。 */
   private paneEls = new Map<AttrTab, HTMLElement>();
   /** callbacks：详情请求回调。 */
-  private callbacks: AttrPanelCallbacks | null = null;
+  callbacks: AttrPanelCallbacks | null = null;
   /** latestData：最近一次属性更新。 */
-  private latestData: S2C_AttrUpdate | null = null;
+  latestData: S2C_AttrUpdate | null = null;
   /** detailData：最近一次低频详情。 */
-  private detailData: AttrDetailView | null = null;
+  detailData: AttrDetailView | null = null;
   /** detailStale：低频详情是否过期。 */
-  private detailStale = false;
+  detailStale = false;
   /** detailRequested：是否已发出详情请求。 */
-  private detailRequested = false;
+  detailRequested = false;
   private renderPendingWhileHidden = false;
   private paneVisibilityObserver: MutationObserver | null = null;
   /**
@@ -1224,75 +1255,30 @@ export class AttrPanel {
       detail.formationSkill,
       detail.transmissionSkill,
     );
-    if (this.useReactPanel()) {
-      this.renderReact(snapshot);
-      this.scheduleActiveTooltipRefresh();
-      return;
+    const structureKey = this.buildStructureKey(snapshot);
+    if (this.lastStructureKey !== structureKey || !this.patch(snapshot)) {
+      this.render(snapshot);
+    } else {
+      this.lastSnapshot = snapshot;
     }
-    this.render(snapshot);
+    this.refreshActiveTooltipContent();
   }
 
   private resolveRenderNumericStatBreakdowns(
     breakdowns?: NumericStatBreakdownMap,
   ): NumericStatBreakdownMap | undefined {
-    if (breakdowns && Object.keys(breakdowns).length > 0) {
-      return breakdowns;
-    }
-    const detailBreakdowns = this.detailData?.numericStatBreakdowns;
-    if (detailBreakdowns && Object.keys(detailBreakdowns).length > 0) {
-      return detailBreakdowns;
-    }
-    return undefined;
+    return resolveRenderNumericStatBreakdownsImpl(this, breakdowns);
   }
 
   /** mergeAttrs：合并属性。 */
   private mergeAttrs(base: Attributes, bonuses: AttrBonus[]): Attributes {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const result = { ...base };
-    for (const bonus of bonuses) {
-      for (const key of ATTR_KEYS) {
-        if (bonus.attrs[key] !== undefined) {
-          if (bonus.attrMode === 'percent') {
-            const multiplier = isPvPSoulInjuryAttrBonus(bonus)
-              ? Math.max(0, 1 + bonus.attrs[key]! / 100)
-              : percentModifierToMultiplier(bonus.attrs[key]!);
-            result[key] = Math.max(0, result[key] * multiplier);
-          } else {
-            result[key] += bonus.attrs[key]!;
-          }
-        }
-      }
-    }
-    return result;
-  }  
+    return mergeAttrsImpl(this, base, bonuses);
+  }
 
   /** 把属性 patch 解析成完整六维属性；不完整时返回 null。 */
   private resolveCompleteAttrs(attrs: Partial<Attributes> | undefined): Attributes | null {
-    if (!attrs) {
-      return null;
-    }
-    for (const key of ATTR_KEYS) {
-      if (typeof attrs[key] !== 'number') {
-        return null;
-      }
-    }
-    return attrs as Attributes;
+    return resolveCompleteAttrsImpl(this, attrs);
   }
-  /**
- * buildSnapshot：构建并返回目标对象。
- * @param base Attributes 参数说明。
- * @param bonuses AttrBonus[] 参数说明。
- * @param final Attributes 参数说明。
- * @param stats NumericStats 参数说明。
- * @param ratioDivisors NumericRatioDivisors 参数说明。
- * @param specialStats PlayerSpecialStats 参数说明。
- * @param alchemySkill PlayerState['alchemySkill'] 参数说明。
- * @param gatherSkill PlayerState['gatherSkill'] 参数说明。
- * @param enhancementSkill PlayerState['enhancementSkill'] 参数说明。
- * @returns 返回快照。
- */
-
 
   private buildSnapshot(
     base: Attributes,
@@ -1312,395 +1298,46 @@ export class AttrPanel {
     formationSkill?: PlayerState['formationSkill'],
     transmissionSkill?: PlayerState['transmissionSkill'],
   ): AttrPanelSnapshot {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    return {
-      panes: {
-        base: this.buildBaseRadarSnapshot(base, final, bonuses, specialStats),
-        root: stats && ratioDivisors
-          ? this.buildRootRadarSnapshot(stats, ratioDivisors, bonuses)
-        : { kind: 'placeholder', message: '灵根未明' },
-        vein: stats
-          ? this.buildVeinPaneSnapshot(bonuses)
-          : { kind: 'placeholder', message: '灵脉未察' },
-        combat: this.buildNumericPaneSnapshot('斗法数值', stats, ratioDivisors, {
-          keys: ['maxHp', 'physAtk', 'spellAtk', 'physDef', 'spellDef', 'hit', 'dodge', 'crit', 'antiCrit', 'critDamage', 'breakPower', 'resolvePower', 'actionsPerTurn'],
-          ratioKeys: [],
-          legends: {
-            maxHp: '最大生命值',
-            physAtk: '物理攻击',
-            spellAtk: '法术攻击',
-            physDef: '物理防御',
-            spellDef: '法术防御',
-            hit: '命中',
-            dodge: '闪避',
-            crit: '暴击',
-            antiCrit: '免爆',
-            critDamage: '暴击伤害',
-            breakPower: '破招',
-            resolvePower: '化解',
-            actionsPerTurn: '每回合行动次数',
-          },
-        }, final, numericStatBreakdowns),
-        qi: this.buildNumericPaneSnapshot('灵力运转', stats, ratioDivisors, {
-          keys: ['maxQi', 'maxQiOutputPerTick', 'qiRegenRate', 'hpRegenRate', 'cooldownSpeed'],
-          ratioKeys: [],
-          legends: {
-            maxQi: '最大灵力值',
-            maxQiOutputPerTick: '灵力输出速率',
-            qiRegenRate: '灵力回复',
-            hpRegenRate: '生命回复',
-            cooldownSpeed: '冷却速度',
-          },
-        }, final, numericStatBreakdowns),
-        special: this.buildSpecialPaneSnapshot(stats, ratioDivisors, specialStats, craftEffectStats, final, numericStatBreakdowns),
-        craft: this.buildCraftPaneSnapshot(alchemySkill, buildingSkill, gatherSkill, enhancementSkill, forgingSkill, miningSkill, formationSkill, transmissionSkill),
-      },
-    };
+    return buildSnapshotImpl(this, base, bonuses, final, stats, ratioDivisors, specialStats, craftEffectStats, alchemySkill, buildingSkill, gatherSkill, enhancementSkill, numericStatBreakdowns, forgingSkill, miningSkill, formationSkill, transmissionSkill);
   }
 
-  /** buildBaseRadarSnapshot：构建基础Radar快照。 */
   private buildBaseRadarSnapshot(
     base: Attributes,
     final: Attributes,
     bonuses: AttrBonus[],
     specialStats?: PlayerSpecialStats,
   ): AttrRadarPaneSnapshot {
-    const maxValue = Math.max(20, ...ATTR_KEYS.map((key) => final[key]));
-    const radarMax = Math.ceil(maxValue / 5) * 5 || 20;
-    const entries: RadarEntry[] = ATTR_KEYS.map((key, index) => {
-      const finalValue = final[key];
-      const baseValue = base[key];
-      const roundedValue = Math.round(finalValue);
-      return {
-        label: ATTR_KEY_LABELS[key],
-        key,
-        value: finalValue,
-        valueLabel: formatDisplayInteger(roundedValue),
-        tooltipTitle: ATTR_KEY_LABELS[key],
-        tooltipDetail: buildAttributeBreakdownLines(key, baseValue, finalValue, bonuses, specialStats).join('\n'),
-        color: ATTR_COLORS[index % ATTR_COLORS.length],
-      };
-    });
-
-    const snapshot = this.buildRadarPaneSnapshot('六维轮图', radarMax, entries, 'base');
-    snapshot.summaryCards = this.buildRootFoundationSummaryCards(specialStats);
-    snapshot.cards = this.buildBaseSpecialStatCards(specialStats);
-    return snapshot;
-  }  
-  /**
- * buildRootRadarSnapshot：构建并返回目标对象。
- * @param stats NumericStats 参数说明。
- * @param ratioDivisors NumericRatioDivisors 参数说明。
- * @param bonuses AttrBonus[] 参数说明。
- * @returns 返回根容器Radar快照。
- */
-
+    return buildBaseRadarSnapshotImpl(this, base, final, bonuses, specialStats);
+  }
 
   private buildRootRadarSnapshot(
     stats: NumericStats,
     ratioDivisors: NumericRatioDivisors,
     bonuses: AttrBonus[],
   ): AttrRadarPaneSnapshot {
-    const roots = resolveSpiritualRootsFromBonuses(bonuses);
-    const entries: RadarEntry[] = ELEMENT_KEYS.map((key, index) => {
-      const rootValue = roots?.[key] ?? 0;
-      const damageBonus = stats.elementDamageBonus[key];
-      const reductionDivisor = ratioDivisors.elementDamageReduce[key] || 100;
-      const roundedRoot = Math.round(rootValue);
-      const roundedBonus = Math.round(damageBonus);
-      return {
-        label: `${ELEMENT_KEY_LABELS[key]}灵根`,
-        key: `root-${key}`,
-        value: rootValue,
-        valueLabel: formatDisplayInteger(roundedRoot),
-        tooltipTitle: `${ELEMENT_KEY_LABELS[key]}灵根`,
-        tooltipDetail: [
-          `当前：${formatDisplayInteger(roundedRoot)} 点`,
-          `${ELEMENT_KEY_LABELS[key]}属性伤害增幅：${formatDisplayPercent(roundedBonus)}`,
-          `${ELEMENT_KEY_LABELS[key]}属性实际减伤：${formatRatioPercent(stats.elementDamageReduce[key], reductionDivisor)}`,
-          `${ELEMENT_KEY_LABELS[key]}属性灵气吸收效率：${formatDisplayPercent(getSpiritualRootAbsorptionRate(roundedRoot), { maximumFractionDigits: 2 })}`,
-        ].join('\n'),
-        color: ELEMENT_COLORS[index % ELEMENT_COLORS.length],
-      };
-    });
-    const radarMax = Math.max(100, ...entries.map((entry) => entry.value)) || 100;
-    const rootTitle = describeSpiritualRoots(roots).name;
-    return this.buildRadarPaneSnapshot(rootTitle, radarMax, entries, 'root');
-  }  
-  /**
- * buildVeinPaneSnapshot：构建并返回目标对象。
- * @param stats NumericStats 参数说明。
- * @param bonuses AttrBonus[] 参数说明。
- * @returns 返回VeinPane快照。
- */
-
+    return buildRootRadarSnapshotImpl(this, stats, ratioDivisors, bonuses);
+  }
 
   private buildVeinPaneSnapshot(
     bonuses: AttrBonus[],
   ): AttrNumericPaneSnapshot {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const roots = resolveSpiritualRootsFromBonuses(bonuses);
-    const neutralAuraProjection = resolveQiProjectionDisplay(
-      { family: 'aura', form: 'refined', element: 'neutral' },
-      bonuses,
-      'absorbable',
-    );
-    const neutralShaProjection = resolveQiProjectionDisplay(
-      { family: 'sha', form: 'refined', element: 'neutral' },
-      bonuses,
-      'hidden',
-    );
-    const cards: AttrNumericCardSnapshot[] = [{
-      key: 'neutral-aura',
-      mark: '灵',
-      label: '无属性灵气',
-      value: formatQiEfficiencyBp(neutralAuraProjection.efficiencyBp),
-      tooltipTitle: '无属性灵气',
-      tooltipDetail: [
-        `对无属性灵气吸收效率为 ${formatQiEfficiencyBp(neutralAuraProjection.efficiencyBp)}。`,
-        ...buildQiProjectionSourceLines(neutralAuraProjection),
-      ].join('\n'),
-    }];
-
-    if (neutralShaProjection.visibility !== 'hidden') {
-      cards.push({
-        key: 'sha',
-        mark: '煞',
-        label: '煞气',
-        value: neutralShaProjection.visibility === 'absorbable'
-          ? formatQiEfficiencyBp(neutralShaProjection.efficiencyBp)
-          : '可感知',
-        tooltipTitle: '煞气',
-        tooltipDetail: [
-          neutralShaProjection.visibility === 'absorbable'
-            ? `对煞气吸收效率为 ${formatQiEfficiencyBp(neutralShaProjection.efficiencyBp)}。`
-            : '可感知煞气。',
-          ...buildQiProjectionSourceLines(neutralShaProjection),
-        ].join('\n'),
-      });
-    }
-
-    for (const element of ['yin', 'yang'] as const) {
-      const projection = resolveQiProjectionDisplay(
-        { family: 'aura', form: 'refined', element },
-        bonuses,
-        'hidden',
-      );
-      if (projection.visibility === 'hidden') {
-        continue;
-      }
-      const label = getQiResourceDisplayLabel(`aura.refined.${element}`);
-      cards.push({
-        key: `${element}-aura`,
-        mark: element === 'yin' ? '阴' : '阳',
-        label,
-        value: projection.visibility === 'absorbable'
-          ? formatQiEfficiencyBp(projection.efficiencyBp)
-          : '可感知',
-        tooltipTitle: label,
-        tooltipDetail: [
-          projection.visibility === 'absorbable'
-            ? `对${label}吸收效率为 ${formatQiEfficiencyBp(projection.efficiencyBp)}。`
-            : `可感知${label}。`,
-          ...buildQiProjectionSourceLines(projection),
-        ].join('\n'),
-      });
-    }
-
-    for (const key of ELEMENT_KEYS) {
-      const rootValue = roots?.[key] ?? 0;
-      if (rootValue <= 0) {
-        continue;
-      }
-      const rate = getSpiritualRootAbsorptionRate(rootValue);
-      const label = `${ELEMENT_KEY_LABELS[key]}灵气`;
-      cards.push({
-        key: `${key}-aura`,
-        mark: ELEMENT_KEY_LABELS[key],
-        label,
-        value: formatAuraAbsorptionRate(rate),
-        tooltipTitle: label,
-        tooltipDetail: [
-          `对${ELEMENT_KEY_LABELS[key]}灵气吸收效率为 ${formatAuraAbsorptionRate(rate)}。`,
-          `当前${ELEMENT_KEY_LABELS[key]}灵根：${formatDisplayInteger(rootValue)}`,
-        ].join('\n'),
-      });
-    }
-
-    return {
-      kind: 'numeric',
-      title: t('attr.numeric.title.qi-flow', undefined),
-      cards,
-    };
+    return buildVeinPaneSnapshotImpl(this, bonuses);
   }
 
-  /** buildRadarPaneSnapshot：构建Radar Pane快照。 */
   private buildRadarPaneSnapshot(title: string, scale: number, entries: RadarEntry[], paneId: string): AttrRadarPaneSnapshot {
-    const center = 170;
-    const radius = 110;
-    const safeScale = Math.max(scale, 1);
-    /** clampRatio：处理clamp Ratio。 */
-    const clampRatio = (value: number) => Math.max(0, Math.min(1, value));
-
-    /** pointAt：处理坐标At。 */
-    const pointAt = (index: number, ratio: number, clamp = true) => {
-      const angle = ((-90 + index * (360 / entries.length)) * Math.PI) / 180;
-      const r = radius * (clamp ? clampRatio(ratio) : ratio);
-      return {
-        x: center + Math.cos(angle) * r,
-        y: center + Math.sin(angle) * r,
-      };
-    };
-
-    const entriesRatio = entries.map((entry) => clampRatio(entry.value / safeScale));
-    const areaPoints = entriesRatio
-      .map((ratio, index) => {
-        const point = pointAt(index, ratio);
-        return `${point.x.toFixed(2)},${point.y.toFixed(2)}`;
-      })
-      .join(' ');
-    const rings = [0.2, 0.4, 0.6, 0.8, 1].map((ratio) => {
-      return entries
-        .map((_, index) => {
-          const point = pointAt(index, ratio);
-          return `${point.x.toFixed(2)},${point.y.toFixed(2)}`;
-        })
-        .join(' ');
-    });
-    const axes = entries.map((entry, index) => {
-      const point = pointAt(index, 1);
-      return {
-        x: point.x.toFixed(2),
-        y: point.y.toFixed(2),
-        stroke: colorWithAlpha(entry.color, 0.35),
-      };
-    });
-    const nodes = entries.map((entry, index) => {
-      const dot = pointAt(index, entriesRatio[index]);
-      const labelPoint = pointAt(index, 1.14, false);
-      const isUpper = labelPoint.y <= center;
-      const valuePoint = {
-        x: labelPoint.x,
-        y: labelPoint.y + (isUpper ? -18 : 18),
-      };
-      return {
-        key: entry.key,
-        label: entry.label,
-        valueLabel: entry.valueLabel ?? formatDisplayInteger(entry.value),
-        color: entry.color,
-        dotX: dot.x.toFixed(2),
-        dotY: dot.y.toFixed(2),
-        labelX: labelPoint.x.toFixed(2),
-        labelY: labelPoint.y.toFixed(2),
-        valueX: valuePoint.x.toFixed(2),
-        valueY: valuePoint.y.toFixed(2),
-        tooltipTitle: entry.tooltipTitle,
-        tooltipDetail: entry.tooltipDetail,
-      };
-    });
-
-    return {
-      kind: 'radar',
-      title,
-      scaleLabel: formatDisplayInteger(scale),
-      paneId,
-      areaPoints,
-      rings,
-      axes,
-      nodes,
-    };
-  }  
-  /**
- * buildNumericPaneSnapshot：构建并返回目标对象。
- * @param title string 参数说明。
- * @param stats NumericStats 参数说明。
- * @param ratios NumericRatioDivisors 参数说明。
- * @param meta { keys: NumericCardKey[]; ratioKeys: (keyof NumericRatioDivisors)[]; legends?: Record<string, string> } 参数说明。
- * @returns 返回NumericPane快照。
- */
-
+    return buildRadarPaneSnapshotImpl(this, title, scale, entries, paneId);
+  }
 
   private buildNumericPaneSnapshot(
     title: string,
     stats?: NumericStats,
     ratios?: NumericRatioDivisors,
-    meta?: {    
-    /**
- * keys：key相关字段。
- */
- keys: NumericCardKey[];    
- /**
- * ratioKeys：ratioKey相关字段。
- */
- ratioKeys: (keyof NumericRatioDivisors)[];    
- /**
- * legends：legend相关字段。
- */
- legends?: Record<string, string> },
+    meta?: { keys: NumericCardKey[]; ratioKeys: (keyof NumericRatioDivisors)[]; legends?: Record<string, string> },
     attrs?: Attributes,
     breakdowns?: NumericStatBreakdownMap,
   ): AttrPaneSnapshot {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!stats || !ratios || !meta) {
-      return { kind: 'placeholder', message: `${title}未明` };
-    }
-
-    return {
-      kind: 'numeric',
-      title,
-      cards: meta.keys.map((key) => {
-        const rawValue = stats[key];
-        const numericValue = typeof rawValue === 'number' ? rawValue : 0;
-        const label = meta.legends?.[key as string] ?? String(key);
-        const ratioKey = meta.ratioKeys.find((ratio) => ratio === key as keyof NumericRatioDivisors);
-        let sub: string | undefined;
-        let actualLine: string | undefined;
-        if (key === 'cooldownSpeed') {
-          actualLine = '实际：缩减率随技能原始冷却变化';
-          sub = '按技能原始冷却对抗折算';
-        } else if (ratioKey && ratioKey !== 'elementDamageReduce') {
-          actualLine = `实际：${formatRatioPercent(numericValue, ratios[ratioKey])}`;
-          sub = actualLine;
-        } else if (RATE_BP_KEYS.has(key) && key !== 'critDamage') {
-          actualLine = `实际：${formatRateBp(numericValue)}`;
-          sub = actualLine;
-        } else if (key === 'extraAggroRate') {
-          actualLine = `效果：${formatDisplayPercent(numericValue)}`;
-          sub = actualLine;
-        } else if (key === 'moveSpeed') {
-          actualLine = `效果：${formatMoveSpeedEffect(numericValue)}`;
-        }
-        const value = key === 'critDamage'
-          ? formatCritDamageDisplay(numericValue)
-          : key === 'moveSpeed'
-            ? formatMoveSpeedDisplay(numericValue)
-            : key === 'extraAggroRate'
-              ? formatDisplayPercent(numericValue)
-              : RATE_BP_KEYS.has(key)
-                ? formatRateBp(numericValue)
-                : formatDisplayInteger(numericValue);
-        return {
-          key,
-          label,
-          value,
-          sub,
-          tooltipTitle: label,
-          tooltipDetail: buildNumericTooltip(label, key, numericValue, actualLine, breakdowns, attrs),
-        };
-      }),
-    };
-  }  
-  /**
- * buildSpecialPaneSnapshot：构建并返回目标对象。
- * @param stats NumericStats 参数说明。
- * @param ratios NumericRatioDivisors 参数说明。
- * @param specialStats PlayerSpecialStats 参数说明。
- * @returns 返回SpecialPane快照。
- */
-
+    return buildNumericPaneSnapshotImpl(this, title, stats, ratios, meta, attrs, breakdowns);
+  }
 
   private buildSpecialPaneSnapshot(
     stats?: NumericStats,
@@ -1710,225 +1347,44 @@ export class AttrPanel {
     attrs?: Attributes,
     breakdowns?: NumericStatBreakdownMap,
   ): AttrPaneSnapshot {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!stats || !ratios) {
-      return { kind: 'placeholder', message: '异禀未显' };
-    }
-
-    const specialCards = this.buildSpecialStatCards(['foundation', 'combatExp'], specialStats);
-
-    const numericPane = this.buildNumericPaneSnapshot('特殊属性', stats, ratios, {
-      keys: ['viewRange', 'moveSpeed', 'extraAggroRate', 'playerExpRate', 'techniqueExpRate', 'realmExpPerTick', 'techniqueExpPerTick', 'lootRate', 'rareLootRate'],
-      ratioKeys: [],
-      legends: {
-        viewRange: '视野范围',
-        moveSpeed: '移动速度',
-        extraAggroRate: '仇恨获取',
-        playerExpRate: '境界修为',
-        techniqueExpRate: '功法经验',
-        realmExpPerTick: '每息境界修为',
-        techniqueExpPerTick: '每息功法经验',
-        lootRate: '掉落增幅',
-        rareLootRate: '稀有掉落',
-      },
-    }, attrs, breakdowns);
-    if (numericPane.kind !== 'numeric') {
-      return numericPane;
-    }
-
-    return {
-      kind: 'numeric',
-      title: numericPane.title,
-      cards: [...specialCards, ...numericPane.cards],
-      actions: [{
-        key: SPECIAL_DETAIL_ACTION_KEY,
-        label: '全部特殊属性',
-      }],
-    };
-  }  
+    return buildSpecialPaneSnapshotImpl(this, stats, ratios, specialStats, craftEffectStats, attrs, breakdowns);
+  }
 
   private buildSpecialDetailPaneSnapshot(
     stats: NumericStats,
     ratios: NumericRatioDivisors,
     craftEffectStats?: CraftEffectStatsPatch,
-  ): AttrSpecialDetailPaneSnapshot {
-    const normalizedCraftEffectStats = cloneCraftEffectStats(craftEffectStats);
-    return {
-      kind: 'special-detail',
-      title: '全部特殊属性',
-      backLabel: '返回特殊',
-      sections: [{
-        key: 'element',
-        title: '五行伤害与减伤',
-        rows: this.buildElementSpecialDetailRows(stats, ratios),
-      }, {
-        key: 'craft',
-        title: '技艺加成',
-        rows: CRAFT_EFFECT_SKILL_KINDS.flatMap((skillKind) => CRAFT_EFFECT_DETAIL_KINDS.map((effectKind) => {
-          const value = normalizedCraftEffectStats[skillKind][effectKind];
-          const label = `${CRAFT_EFFECT_SKILL_LABELS[skillKind]}${CRAFT_EFFECT_KIND_LABELS[effectKind]}`;
-          return {
-            key: `${skillKind}.${effectKind}`,
-            label,
-            value: formatSignedRatePercent(value),
-            detail: `${CRAFT_EFFECT_SKILL_LABELS[skillKind]}技艺的${CRAFT_EFFECT_KIND_LABELS[effectKind]}加成。`,
-          };
-        })),
-      }],
-    };
+  ): AttrSpecialDetailPaneSnapshot | null {
+    return buildSpecialDetailPaneSnapshotImpl(this, stats, ratios, craftEffectStats);
   }
 
   private buildSpecialDetailPaneSnapshotFromData(data: S2C_AttrUpdate): AttrSpecialDetailPaneSnapshot | null {
-    const stats = data.numericStats as NumericStats | undefined;
-    const ratios = data.ratioDivisors as NumericRatioDivisors | undefined;
-    if (!stats || !ratios) {
-      return null;
-    }
-    return this.buildSpecialDetailPaneSnapshot(
-      stats,
-      ratios,
-      data.craftEffectStats,
-    );
+    return buildSpecialDetailPaneSnapshotFromDataImpl(this, data);
   }
 
   private buildElementSpecialDetailRows(stats: NumericStats, ratios: NumericRatioDivisors): AttrSpecialDetailRowSnapshot[] {
-    return ELEMENT_KEYS.flatMap((key) => {
-      const elementLabel = ELEMENT_KEY_LABELS[key];
-      const damageBonus = Math.round(Number(stats.elementDamageBonus?.[key] ?? 0) || 0);
-      const reduceValue = Number(stats.elementDamageReduce?.[key] ?? 0) || 0;
-      const reduceDivisor = Number(ratios.elementDamageReduce?.[key] ?? 100) || 100;
-      return [{
-        key: `element.${key}.damageBonus`,
-        label: `${elementLabel}伤害增幅`,
-        value: formatDisplayPercent(damageBonus),
-        detail: `${elementLabel}属性总伤害增幅。`,
-      }, {
-        key: `element.${key}.damageReduce`,
-        label: `${elementLabel}实际减伤`,
-        value: formatRatioPercent(reduceValue, reduceDivisor),
-        detail: `${elementLabel}属性总减伤，已按当前减伤分母折算。`,
-      }];
-    });
+    return buildElementSpecialDetailRowsImpl(this, stats, ratios);
   }
 
-  /** buildSpecialStatCards：构建特殊属性卡片。 */
   private buildSpecialStatCards(keys: PlayerSpecialCardKey[], specialStats?: PlayerSpecialStats): AttrNumericCardSnapshot[] {
-    return keys.map((key) => {
-      const numericValue = Math.max(0, Math.floor(specialStats?.[key] ?? 0));
-      const label = PLAYER_SPECIAL_TOOLTIP_LABELS[key];
-      const detail = [
-        PLAYER_SPECIAL_TOOLTIP_DESCRIPTIONS[key],
-        `当前数值：${formatDisplayInteger(numericValue)}`,
-      ].join('\n');
-      return {
-        key,
-        label,
-        value: formatDisplayInteger(numericValue),
-        tooltipTitle: label,
-        tooltipDetail: detail,
-      };
-    });
+    return buildSpecialStatCardsImpl(this, keys, specialStats);
   }
 
-  /** buildBaseSpecialStatCards：构建六维页底部特殊属性卡片。 */
   private buildBaseSpecialStatCards(specialStats?: PlayerSpecialStats): AttrNumericCardSnapshot[] {
-    return (['comprehension', 'luck'] as PlayerSpecialCardKey[]).map((key) => {
-      const numericValue = Math.max(0, Math.floor(specialStats?.[key] ?? 0));
-      const label = PLAYER_SPECIAL_TOOLTIP_LABELS[key];
-      const conversionLines = key === 'comprehension'
-        ? [
-            `境界修为 +${formatSimplePercent(numericValue)}`,
-            `功法经验 +${formatSimplePercent(numericValue)}`,
-          ]
-        : [
-            `掉落增幅 +${formatSimplePercent(numericValue)}`,
-            `稀有掉落 +${formatSimplePercent(numericValue)}`,
-          ];
-      return {
-        key,
-        label,
-        value: formatDisplayInteger(numericValue),
-        tooltipTitle: label,
-        tooltipDetail: [
-          `当前：${formatDisplayInteger(numericValue)}`,
-          `基础：${formatDisplayInteger(numericValue)}`,
-          '增益：+0',
-          '实际转化：',
-          ...conversionLines,
-        ].join('\n'),
-      };
-    });
+    return buildBaseSpecialStatCardsImpl(this, specialStats);
   }
 
-  /** buildRootFoundationSummaryCards：构建六维轮图内的根基摘要。 */
   private buildRootFoundationSummaryCards(specialStats?: PlayerSpecialStats): AttrNumericCardSnapshot[] {
-    const numericValue = Math.max(0, Math.floor(specialStats?.rootFoundation ?? 0));
-    const label = PLAYER_SPECIAL_TOOLTIP_LABELS.rootFoundation;
-    return [{
-      key: 'rootFoundation',
-      label,
-      value: formatDisplayInteger(numericValue),
-      tooltipTitle: label,
-      tooltipDetail: [
-        `当前：${formatDisplayInteger(numericValue)}`,
-        t('attr.tooltip.root-foundation-bonus', { percent: formatDisplayNumber(100 + numericValue) }),
-      ].join('\n'),
-    }];
+    return buildRootFoundationSummaryCardsImpl(this, specialStats);
   }
-  /**
- * buildCraftSkillSnapshot：构建并返回目标对象。
- * @param key string 参数说明。
- * @param label string 参数说明。
- * @param skill PlayerState['alchemySkill'] | PlayerState['gatherSkill'] | PlayerState['enhancementSkill'] | PlayerState['forgingSkill'] | PlayerState['buildingSkill'] 参数说明。
- * @returns 返回炼制技能快照。
- */
-
 
   private buildCraftSkillSnapshot(
     key: string,
     label: string,
-    skill?:
-      | PlayerState['alchemySkill']
-      | PlayerState['gatherSkill']
-      | PlayerState['enhancementSkill']
-      | PlayerState['forgingSkill']
-      | PlayerState['buildingSkill']
-      | PlayerState['miningSkill']
-      | PlayerState['transmissionSkill'],
+    skill?: PlayerState['alchemySkill'] | PlayerState['gatherSkill'] | PlayerState['enhancementSkill'] | PlayerState['forgingSkill'] | PlayerState['buildingSkill'] | PlayerState['miningSkill'] | PlayerState['transmissionSkill'],
   ): AttrCraftSkillSnapshot | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!skill) {
-      return null;
-    }
-    const remain = Math.max(0, skill.expToNext - skill.exp);
-    const progress = `${formatDisplayInteger(skill.exp)}/${formatDisplayInteger(skill.expToNext)}`;
-    return {
-      key,
-      label,
-      level: `LV ${formatDisplayInteger(skill.level)}`,
-      progress,
-      remain: `距下一级还需 ${formatDisplayInteger(remain)} ${label}经验`,
-      progressPercent: `${(getCraftProgressRatio(skill.exp, skill.expToNext) * 100).toFixed(2)}%`,
-      tooltipTitle: label,
-      tooltipDetail: [
-        `等级：LV ${formatDisplayInteger(skill.level)}`,
-        `经验：${progress}`,
-        `距下一级还需 ${formatDisplayInteger(remain)}`,
-      ].join('\n'),
-      openable: OPENABLE_CRAFT_SKILL_KEYS.has(key),
-      bindLabel: this.callbacks?.getCraftSkillBindLabel?.(key) ?? '绑定键',
-    };
-  }  
-  /**
- * buildCraftPaneSnapshot：构建并返回目标对象。
- * @param alchemySkill PlayerState['alchemySkill'] 参数说明。
- * @param gatherSkill PlayerState['gatherSkill'] 参数说明。
- * @param enhancementSkill PlayerState['enhancementSkill'] 参数说明。
- * @returns 返回炼制Pane快照。
- */
-
+    return buildCraftSkillSnapshotImpl(this, key, label, skill);
+  }
 
   private buildCraftPaneSnapshot(
     alchemySkill?: PlayerState['alchemySkill'],
@@ -1940,25 +1396,7 @@ export class AttrPanel {
     formationSkill?: PlayerState['formationSkill'],
     transmissionSkill?: PlayerState['transmissionSkill'],
   ): AttrPaneSnapshot {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const skills = [
-      this.buildCraftSkillSnapshot('alchemy', '炼丹', alchemySkill),
-      this.buildCraftSkillSnapshot('forging', '炼器', forgingSkill),
-      this.buildCraftSkillSnapshot('enhancement', '强化', enhancementSkill),
-      this.buildCraftSkillSnapshot('transmission', '传法', transmissionSkill),
-      this.buildCraftSkillSnapshot('formation', '阵法', formationSkill),
-      this.buildCraftSkillSnapshot('gather', '采集', gatherSkill),
-      this.buildCraftSkillSnapshot('mining', '挖矿', miningSkill),
-      this.buildCraftSkillSnapshot('building', '营造', buildingSkill),
-    ].filter((entry): entry is AttrCraftSkillSnapshot => Boolean(entry));
-    if (skills.length === 0) {
-      return { kind: 'placeholder', message: '技艺未录' };
-    }
-    return {
-      kind: 'craft',
-      skills,
-    };
+    return buildCraftPaneSnapshotImpl(this, alchemySkill, buildingSkill, gatherSkill, enhancementSkill, forgingSkill, miningSkill, formationSkill, transmissionSkill);
   }
 
   /** render：渲染渲染。 */
@@ -2577,453 +2015,42 @@ export class AttrPanel {
   }
 
   /** ensureTooltipStyle：确保提示样式。 */
-  private ensureTooltipStyle(): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (document.getElementById(TOOLTIP_STYLE_ID)) return;
-    const style = document.createElement('style');
-    style.id = TOOLTIP_STYLE_ID;
-    style.textContent = `
-      .attr-tooltip {
-        position: fixed;
-        pointer-events: none;
-        font-size: var(--font-size-13);
-        color: var(--ink-black);
-        z-index: 2000;
-        transition: opacity 120ms ease, transform 120ms ease;
-        opacity: 0;
-        transform: translateY(-8px);
-        font-family: var(--font-role-body);
-        min-width: 0;
-      }
-      .attr-tooltip.visible {
-        opacity: 1;
-      }
-      .attr-tooltip .floating-tooltip-shell {
-        display: block;
-        max-width: min(320px, calc(100vw - 24px));
-      }
-      .attr-tooltip .floating-tooltip-body {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        line-height: 1.35;
-        min-width: 140px;
-        max-width: min(320px, calc(100vw - 24px));
-        padding: 8px 12px;
-        border-radius: 8px;
-        border: 1px solid var(--attr-tooltip-border);
-        background: var(--surface-card-strong);
-        box-shadow: 0 8px 24px var(--attr-tooltip-shadow);
-      }
-      .attr-tooltip .floating-tooltip-body strong {
-        font-weight: var(--font-weight-semibold);
-        display: block;
-        margin-bottom: 4px;
-      }
-      .attr-tooltip .floating-tooltip-line {
-        display: block;
-      }
-      .attr-tooltip .floating-tooltip-detail {
-        font-size: var(--font-size-12);
-        line-height: 1.4;
-        color: var(--ink-grey);
-      }
-      .attr-tooltip .attr-tooltip-primary {
-        display: flex;
-        align-items: baseline;
-        justify-content: space-between;
-        gap: 12px;
-      }
-      .attr-tooltip .attr-tooltip-primary {
-        color: var(--ink-black);
-        font-weight: var(--font-weight-semibold);
-      }
-      .attr-tooltip .attr-tooltip-primary-value {
-        color: var(--attr-tooltip-primary-value);
-      }
-      .attr-tooltip .attr-tooltip-section {
-        display: inline-flex;
-        align-items: center;
-        margin-top: 4px;
-        padding: 2px 8px;
-        border-radius: 999px;
-        font-size: var(--font-size-11);
-        font-weight: var(--font-weight-semibold);
-      }
-      .attr-tooltip .attr-tooltip-section.fixed {
-        color: var(--attr-tooltip-fixed-ink);
-        background: var(--attr-tooltip-fixed-bg);
-      }
-      .attr-tooltip .attr-tooltip-section.percent {
-        color: var(--attr-tooltip-percent-ink);
-        background: var(--attr-tooltip-percent-bg);
-      }
-      .attr-tooltip .attr-tooltip-child {
-        display: flex;
-        align-items: baseline;
-        justify-content: space-between;
-        gap: 12px;
-        padding-left: 12px;
-      }
-      .attr-tooltip .attr-tooltip-child.fixed .attr-tooltip-child-label {
-        color: var(--attr-tooltip-fixed-child-label);
-      }
-      .attr-tooltip .attr-tooltip-child.percent .attr-tooltip-child-label {
-        color: var(--attr-tooltip-percent-child-label);
-      }
-      .attr-tooltip .attr-tooltip-child-value {
-        color: var(--ink-black);
-      }
-      .attr-tooltip .attr-tooltip-note {
-        display: block;
-        margin-top: 4px;
-        color: var(--ink-grey);
-      }
-      .attr-radar-shell {
-        display: grid;
-        gap: 10px;
-        padding: 14px 16px 18px;
-        border-radius: 10px;
-        border: 1px solid var(--attr-radar-shell-border);
-        background: var(--surface-gradient-tooltip);
-        box-shadow: var(--attr-radar-shell-shadow);
-      }
-      .attr-radar-head {
-        display: flex;
-        align-items: baseline;
-        justify-content: space-between;
-        gap: 8px;
-      }
-      .attr-radar-title {
-        font-family: var(--font-role-title);
-        font-size: var(--font-size-role-title-16);
-        color: var(--ink-black);
-      }
-      .attr-radar-scale {
-        font-size: var(--font-size-11);
-        color: var(--ink-grey);
-      }
-      .attr-radar {
-        width: 100%;
-        max-width: 320px;
-        height: 320px;
-        margin: 0 auto;
-        display: block;
-        overflow: visible;
-      }
-      .attr-radar-body {
-        position: relative;
-      }
-      .attr-radar-floating-stat {
-        position: absolute;
-        top: 8px;
-        right: 10px;
-        z-index: 1;
-        display: inline-grid;
-        grid-template-columns: 24px minmax(0, max-content);
-        align-items: center;
-        gap: 7px;
-        min-width: 64px;
-        height: 30px;
-        padding: 0;
-        color: var(--ink-grey);
-        font-size: var(--font-size-12);
-        line-height: 1;
-        cursor: help;
-        transition: color 0.16s ease, text-shadow 0.16s ease, transform 0.16s ease;
-      }
-      .attr-radar-floating-stat:hover,
-      .attr-radar-floating-stat:focus-visible {
-        color: var(--stamp-red);
-        text-shadow: 0 1px 8px var(--attr-radar-hover-shadow);
-        outline: none;
-      }
-      .attr-radar-floating-icon {
-        width: 22px;
-        height: 22px;
-        justify-self: center;
-        align-self: center;
-        background-image: url('/assets/attr-icons/attribute-icons-atlas.png');
-        background-repeat: no-repeat;
-        background-size: 176px 154px;
-        background-position:
-          calc(var(--attr-icon-col) * -22px)
-          calc(var(--attr-icon-row) * -22px);
-        filter: drop-shadow(0 2px 4px var(--attr-radar-icon-shadow));
-        pointer-events: none;
-      }
-      .attr-radar-floating-label {
-        display: none;
-      }
-      .attr-radar-floating-value {
-        display: flex;
-        align-items: center;
-        height: 24px;
-        font-size: var(--font-size-14);
-        font-weight: var(--font-weight-strong);
-        color: var(--ink-black);
-        line-height: 24px;
-        white-space: nowrap;
-      }
-      .attr-radar-floating-stat[data-radar-summary-card="rootFoundation"] .attr-radar-floating-value {
-        transform: translateY(2px);
-      }
-      .attr-radar-extra-grid {
-        margin-top: 12px;
-      }
-      .attr-radar-ring {
-        fill: none;
-        stroke: var(--radar-grid-stroke);
-        stroke-width: 1;
-      }
-      .attr-radar-axis {
-        stroke: var(--radar-grid-stroke-strong);
-        stroke-width: 1.5;
-      }
-      .attr-radar-area {
-        transition: opacity 160ms ease;
-        opacity: 0.9;
-      }
-      .attr-radar-dot {
-        stroke: var(--attr-radar-dot-stroke);
-      }
-      .attr-radar-label {
-        display: none;
-      }
-      .attr-radar-value {
-        display: none;
-      }
-      .attr-radar-icon-node {
-        position: absolute;
-        z-index: 2;
-        display: inline-grid;
-        grid-template-columns: 24px minmax(0, max-content);
-        align-items: center;
-        justify-content: center;
-        gap: 5px;
-        min-width: 64px;
-        height: 32px;
-        padding: 0;
-        transform: translate(-50%, -50%);
-        cursor: help;
-        pointer-events: auto;
-      }
-      .attr-radar-icon-node:hover,
-      .attr-radar-icon-node:focus-visible {
-        text-shadow: 0 1px 8px var(--attr-radar-hover-shadow);
-        outline: none;
-      }
-      .attr-radar-icon {
-        width: 22px;
-        height: 22px;
-        justify-self: center;
-        align-self: center;
-        background-image: url('/assets/attr-icons/attribute-icons-atlas.png');
-        background-repeat: no-repeat;
-        background-size: 176px 154px;
-        background-position:
-          calc(var(--attr-icon-col) * -22px)
-          calc(var(--attr-icon-row) * -22px);
-        filter: drop-shadow(0 2px 4px var(--attr-radar-icon-shadow));
-        pointer-events: none;
-      }
-      .attr-radar-icon-value {
-        display: flex;
-        align-items: center;
-        height: 22px;
-        font-size: var(--font-size-12);
-        font-weight: var(--font-weight-strong);
-        line-height: 22px;
-        color: var(--ink-black);
-        white-space: nowrap;
-      }
-    `;
-    document.head.appendChild(style);
+  ensureTooltipStyle(): void {
+    ensureTooltipStyleImpl(this);
   }
 
   /** bindTooltipEvents：绑定提示事件。 */
-  private bindTooltipEvents(): void {
-    const tapMode = prefersPinnedTooltipInteraction();
-    this.pane.addEventListener('click', (event) => {
-      if (!tapMode) {
-        return;
-      }
-      const target = event.target;
-      if (!(target instanceof Element)) {
-        return;
-      }
-      if (target.closest('[data-craft-open]') || target.closest('[data-craft-bind]')) {
-        return;
-      }
-      const tooltipNode = target.closest<HTMLElement>('[data-tooltip-title]');
-      if (!tooltipNode) {
-        return;
-      }
-      this.requestDetailIfNeeded();
-      if (this.tooltip.isPinnedTo(tooltipNode)) {
-        this.clearTooltipTarget();
-        this.tooltip.hide(true);
-        return;
-      }
-      this.tooltipTarget = tooltipNode;
-      this.tooltipTargetKey = this.resolveTooltipTargetKey(tooltipNode);
-      const title = tooltipNode.getAttribute('data-tooltip-title') ?? '';
-      const detail = tooltipNode.getAttribute('data-tooltip-detail') ?? '';
-      this.tooltip.showPinned(tooltipNode, title, splitTooltipLines(detail), event.clientX, event.clientY, { allowHtml: true });
-      event.preventDefault();
-      event.stopPropagation();
-    }, true);
-
-    this.pane.addEventListener('pointermove', (event) => {
-      if (tapMode && this.tooltip.isPinned()) {
-        return;
-      }
-      const target = event.target;
-      if (!(target instanceof Element)) {
-        if (this.tooltipTarget) {
-          this.clearTooltipTarget();
-          this.tooltip.hide();
-        }
-        return;
-      }
-
-      const tooltipNode = target.closest('[data-tooltip-title]');
-      if (!tooltipNode) {
-        if (this.tooltipTarget) {
-          this.clearTooltipTarget();
-          this.tooltip.hide();
-        }
-        return;
-      }
-      this.requestDetailIfNeeded();
-
-      if (this.tooltipTarget !== tooltipNode) {
-        this.tooltipTarget = tooltipNode;
-        this.tooltipTargetKey = this.resolveTooltipTargetKey(tooltipNode);
-        const title = tooltipNode.getAttribute('data-tooltip-title') ?? '';
-        const detail = tooltipNode.getAttribute('data-tooltip-detail') ?? '';
-        this.tooltip.show(title, splitTooltipLines(detail), event.clientX, event.clientY, { allowHtml: true });
-        return;
-      }
-
-      this.tooltip.move(event.clientX, event.clientY);
-    });
-
-    this.pane.addEventListener('pointerleave', () => {
-      this.clearTooltipTarget();
-      this.tooltip.hide();
-    });
-
-    this.pane.addEventListener('pointerdown', () => {
-      if (!this.tooltipTarget) {
-        return;
-      }
-      this.clearTooltipTarget();
-      this.tooltip.hide();
-    });
+  bindTooltipEvents(): void {
+    bindTooltipEventsImpl(this);
   }
 
   /** requestDetailIfNeeded：按需触发低频详情请求。 */
-  private requestDetailIfNeeded(): void {
-    if (!this.latestData) {
-      return;
-    }
-    if (this.detailData && !this.detailStale) {
-      return;
-    }
-    if (this.detailRequested) {
-      return;
-    }
-    this.detailRequested = true;
-    this.callbacks?.onRequestDetail?.();
+  requestDetailIfNeeded(): void {
+    requestDetailIfNeededImpl(this);
   }
 
   /** refreshActiveTooltipContent：详情异步回包后刷新当前已打开的 hover 内容。 */
-  private refreshActiveTooltipContent(): void {
-    if (!this.tooltipTarget) {
-      return;
-    }
-    const target = this.resolveCurrentTooltipTarget();
-    if (!target) {
-      this.clearTooltipTarget();
-      this.tooltip.hide(true);
-      return;
-    }
-    this.tooltipTarget = target;
-    const title = target.getAttribute('data-tooltip-title') ?? '';
-    const detail = target.getAttribute('data-tooltip-detail') ?? '';
-    this.tooltip.updateContent(title, splitTooltipLines(detail), { allowHtml: true });
+  refreshActiveTooltipContent(): void {
+    refreshActiveTooltipContentImpl(this);
   }
 
-  private clearTooltipTarget(): void {
-    this.tooltipTarget = null;
-    this.tooltipTargetKey = null;
-    this.cancelScheduledTooltipRefresh();
+  clearTooltipTarget(): void {
+    clearTooltipTargetImpl(this);
   }
 
-  private resolveTooltipTargetKey(target: Element): string | null {
-    const explicitKey = target.getAttribute('data-tooltip-key');
-    if (explicitKey) {
-      return explicitKey;
-    }
-    const attributes = [
-      'data-numeric-card',
-      'data-radar-extra-card',
-      'data-radar-summary-card',
-      'data-craft-skill',
-      'data-radar-icon-node',
-      'data-radar-node',
-    ];
-    for (const attr of attributes) {
-      const value = target.getAttribute(attr);
-      if (value) {
-        return value;
-      }
-    }
-    return null;
+  resolveTooltipTargetKey(target: Element): string | null {
+    return resolveTooltipTargetKeyImpl(this, target);
   }
 
-  private resolveCurrentTooltipTarget(): Element | null {
-    if (this.tooltipTarget?.isConnected) {
-      return this.tooltipTarget;
-    }
-    if (!this.tooltipTargetKey) {
-      return null;
-    }
-    const activePane = this.pane.querySelector<HTMLElement>(`[data-attr-pane="${this.activeTab}"]`);
-    const scope = activePane ?? this.pane;
-    for (const candidate of scope.querySelectorAll<HTMLElement>('[data-tooltip-title]')) {
-      if (this.resolveTooltipTargetKey(candidate) === this.tooltipTargetKey) {
-        return candidate;
-      }
-    }
-    return null;
+  resolveCurrentTooltipTarget(): Element | null {
+    return resolveCurrentTooltipTargetImpl(this);
   }
 
-  private scheduleActiveTooltipRefresh(): void {
-    if (!this.tooltipTarget) {
-      return;
-    }
-    this.cancelScheduledTooltipRefresh();
-    const schedule = typeof window.requestAnimationFrame === 'function'
-      ? window.requestAnimationFrame.bind(window)
-      : (callback: FrameRequestCallback) => window.setTimeout(() => callback(performance.now()), 0);
-    this.tooltipRefreshFrame = schedule(() => {
-      this.tooltipRefreshFrame = null;
-      this.refreshActiveTooltipContent();
-    });
+  scheduleActiveTooltipRefresh(): void {
+    scheduleActiveTooltipRefreshImpl(this);
   }
 
-  private cancelScheduledTooltipRefresh(): void {
-    if (this.tooltipRefreshFrame === null) {
-      return;
-    }
-    if (typeof window.cancelAnimationFrame === 'function') {
-      window.cancelAnimationFrame(this.tooltipRefreshFrame);
-    } else {
-      window.clearTimeout(this.tooltipRefreshFrame);
-    }
-    this.tooltipRefreshFrame = null;
+  cancelScheduledTooltipRefresh(): void {
+    cancelScheduledTooltipRefreshImpl(this);
   }
 }

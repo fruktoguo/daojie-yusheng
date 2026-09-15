@@ -70,13 +70,54 @@ import {
   queryRecentCombatAuditEvents,
 } from '../../combat/combat-event-query';
 
+import * as combat_action_targets from './combat-action.targets';
+import * as combat_action_monster_plans from './combat-action.monster-plans';
+import * as combat_action_audit from './combat-action.audit';
+import { beginCombatOutcomePerf, recordCombatOutcomePerf } from './combat-action.audit';
+
+const {
+  collectCombatTargetsImpl,
+  collectCombatTargetsFromCellsImpl,
+  resolvePlayerBasicAttackTargetImpl,
+  resolveSingleCombatTargetImpl,
+  validateCombatTargetsImpl,
+  validateSingleCombatTargetImpl,
+  collectMonsterSkillPlayerTargetsImpl,
+  resolveMonsterBasicAttackPlayerTargetImpl,
+} = combat_action_targets;
+
+const {
+  resolveMonsterSkillActionPlanImpl,
+  resolveMonsterSkillChantStartPlanImpl,
+  revalidateMonsterSkillTargetForApplyImpl,
+  explainMonsterBasicAttackImpl,
+  recordMonsterActionRejectImpl,
+  recordMonsterActionOutcomeImpl,
+} = combat_action_monster_plans;
+
+const {
+  recordRejectImpl,
+  recordOutcomeImpl,
+  recordCombatEventsImpl,
+  recordInternalCombatEventsImpl,
+  enqueueCombatAuditEventImpl,
+  listCombatEventsImpl,
+  queryRecentCombatAuditEventsImpl,
+  aggregateCombatDiagnosticsImpl,
+  queryMonsterSkillFailureReasonsImpl,
+  buildCombatAuditHeatmapImpl,
+  buildCombatAuditEventImpl,
+  buildCombatDiagnosticEventImpl,
+} = combat_action_audit;
+
+
 type AnyRecord = Record<string, any>;
 
 /** 统一战斗主链路骨架：先承接动作规范化、结构化拒绝原因和诊断输出。 */
 @Injectable()
 export class WorldRuntimeCombatActionService {
-  private readonly logger = new Logger(WorldRuntimeCombatActionService.name);
-  private readonly combatEvents = [];
+  readonly logger = new Logger(WorldRuntimeCombatActionService.name);
+  readonly combatEvents = [];
 
   constructor() {}
 
@@ -519,386 +560,11 @@ export class WorldRuntimeCombatActionService {
   }
 
   collectCombatTargets(input: AnyRecord = {}) {
-    const action = input.action ?? null;
-    const definitionResult = input.definition
-      ? { ok: true, definition: input.definition }
-      : this.resolveActionDefinition(input);
-    if (!action) {
-      return {
-        ok: false,
-        targets: [],
-        rejected: [{ reason: CombatRejectReason.MissingActionId, target: null }],
-      };
-    }
-    if (!definitionResult.ok) {
-      return {
-        ok: false,
-        targets: [],
-        rejected: [{
-          reason: definitionResult.reason,
-          target: action.target ?? null,
-          details: definitionResult.details ?? {},
-        }],
-      };
-    }
-    const definition = definitionResult.definition;
-    const instance = input.instance ?? null;
-    const targets = [];
-    const rejected = [];
-    const push = (target) => {
-      if (!target || targets.length >= definition.maxTargets) {
-        return;
-      }
-      targets.push(target);
-    };
-    // 统一的 relation 过滤器：收集阶段就按战斗目标规则过滤敌/友方关系，
-    // 后续 validateSingleCombatTarget 不再重复做 relation 检查。
-    const resolveCombatRelationFn = typeof input.resolveCombatRelation === 'function' ? input.resolveCombatRelation : null;
-    const passesRelationFilter = (candidateOrTarget) => {
-      if (!resolveCombatRelationFn) {
-        return true;
-      }
-      const relation = resolveCombatRelationFn(action?.actor, candidateOrTarget);
-      return relation === true
-        || relation?.hostile === true
-        || relation?.canAttack === true
-        || relation?.relation === 'hostile';
-    };
-    const shouldCollectTargetsFromCells = input.collectTargetsFromCells === true || input.collectTargetsFromCells === 'prefer';
-
-    if (Array.isArray(input.candidates) && input.candidates.length > 0) {
-      for (const candidate of input.candidates) {
-        if (targets.length >= definition.maxTargets) {
-          break;
-        }
-        const resolved = this.resolveSingleCombatTarget(candidate, input, action);
-        if (!resolved.ok) {
-          rejected.push(resolved);
-          continue;
-        }
-        if (!passesRelationFilter(resolved.target)) {
-          rejected.push({
-            ok: false,
-            reason: CombatRejectReason.CombatRelationNotAllowed,
-            target: resolved.target,
-            details: {},
-          });
-          continue;
-        }
-        push(resolved.target);
-      }
-    }
-    else if (!shouldCollectTargetsFromCells && action.warningCells?.length > 0
-      && (typeof instance?.getPlayerRuntimeRefsAtTile === 'function' || typeof instance?.getPlayersAtTile === 'function')) {
-      const seen = new Set();
-      const getPlayersAtTile = typeof instance.getPlayerRuntimeRefsAtTile === 'function'
-        ? instance.getPlayerRuntimeRefsAtTile.bind(instance)
-        : instance.getPlayersAtTile.bind(instance);
-      for (const cell of action.warningCells) {
-        if (targets.length >= definition.maxTargets) {
-          break;
-        }
-        for (const player of getPlayersAtTile(cell.x, cell.y) ?? []) {
-          if (!player?.playerId || seen.has(player.playerId)) {
-            continue;
-          }
-          const playerCandidate = {
-            kind: CombatTargetKind.Player,
-            id: player.playerId,
-            x: cell.x,
-            y: cell.y,
-            source: 'warning_cell',
-            runtime: player,
-          };
-          // AOE 类收集：relation 过滤失败静默跳过，不产生 rejected 日志。
-          if (!passesRelationFilter(playerCandidate)) {
-            continue;
-          }
-          seen.add(player.playerId);
-          push(playerCandidate);
-          if (targets.length >= definition.maxTargets) {
-            break;
-          }
-        }
-      }
-    }
-    else if (shouldCollectTargetsFromCells) {
-      const cellGeometryStartedAt = typeof input.recordPlanSectionDuration === 'function' ? nowMs() : 0;
-      const cellsResult = this.computeCombatTargetCells({
-        ...input,
-        action,
-        definition,
-        origin: input.actorPosition ?? input.actor ?? input.attacker ?? input.player,
-        anchor: input.anchor ?? action.anchor ?? action.target,
-      });
-      if (cellGeometryStartedAt > 0) {
-        input.recordPlanSectionDuration('cellGeometryMs', elapsedMs(cellGeometryStartedAt), 1);
-      }
-      if (!cellsResult.ok) {
-        rejected.push({
-          ok: false,
-          reason: cellsResult.reason ?? CombatRejectReason.NoTargets,
-          target: action.target ?? action.anchor ?? null,
-          details: {
-            cellCount: cellsResult.cellCount ?? cellsResult.cells?.length ?? 0,
-          },
-        });
-      }
-      else {
-        const cellLookupStartedAt = typeof input.recordPlanSectionDuration === 'function' ? nowMs() : 0;
-        this.collectCombatTargetsFromCells({
-          ...input,
-          action,
-          definition,
-          instance,
-          cells: cellsResult.cells,
-          push,
-          rejected,
-          targets,
-        });
-        if (cellLookupStartedAt > 0) {
-          input.recordPlanSectionDuration('cellLookupMs', elapsedMs(cellLookupStartedAt), 1);
-        }
-        if (typeof input.recordPlanSectionDuration === 'function') {
-          input.recordPlanSectionDuration('affectedCells', 0, cellsResult.cells.length);
-        }
-      }
-    }
-    else if (action.target && input.collectTargetsFromCells !== 'prefer') {
-      const resolved = this.resolveSingleCombatTarget(action.target, input, action);
-      if (!resolved.ok) {
-        rejected.push(resolved);
-      }
-      else if (!passesRelationFilter(resolved.target)) {
-        rejected.push({
-          ok: false,
-          reason: CombatRejectReason.CombatRelationNotAllowed,
-          target: resolved.target,
-          details: {},
-        });
-      }
-      else {
-        push(resolved.target);
-      }
-    }
-    else if (action.anchor && definition.allowedTargetKinds.includes(CombatTargetKind.Tile)) {
-      const resolved = this.resolveSingleCombatTarget({
-        kind: CombatTargetKind.Tile,
-        x: action.anchor.x,
-        y: action.anchor.y,
-      }, input, action);
-      if (!resolved.ok) {
-        rejected.push(resolved);
-      }
-      else if (!passesRelationFilter(resolved.target)) {
-        rejected.push({
-          ok: false,
-          reason: CombatRejectReason.CombatRelationNotAllowed,
-          target: resolved.target,
-          details: {},
-        });
-      }
-      else {
-        push(resolved.target);
-      }
-    }
-
-    if (definition.requiresTarget && targets.length === 0 && rejected.length === 0) {
-      rejected.push({
-        ok: false,
-        reason: CombatRejectReason.NoTargets,
-        target: action.target ?? null,
-        details: {},
-      });
-    }
-    return {
-      ok: targets.length > 0 || !definition.requiresTarget,
-      action,
-      definition,
-      targets,
-      rejected,
-      targetCount: targets.length,
-      maxTargets: definition.maxTargets,
-    };
+    return collectCombatTargetsImpl(this, input);
   }
 
   collectCombatTargetsFromCells(input: AnyRecord = {}) {
-    const instance = input.instance ?? null;
-    const cells = Array.isArray(input.cells) ? input.cells : [];
-    const definition = input.definition ?? {};
-    const push = typeof input.push === 'function' ? input.push : () => undefined;
-    const targets = Array.isArray(input.targets) ? input.targets : [];
-    const seen = new Set();
-    const resolveCombatRelation = typeof input.resolveCombatRelation === 'function' ? input.resolveCombatRelation : null;
-    const allowedTargetKinds = definition.allowedTargetKinds ?? [];
-    const allowMonster = allowedTargetKinds.includes(CombatTargetKind.Monster);
-    const allowFormation = allowedTargetKinds.includes(CombatTargetKind.Formation);
-    const allowPlayer = allowedTargetKinds.includes(CombatTargetKind.Player);
-    const allowContainer = allowedTargetKinds.includes(CombatTargetKind.Container);
-    const allowTile = allowedTargetKinds.includes(CombatTargetKind.Tile);
-    const instanceId = input.action?.instanceId ?? input.instanceId;
-    const getMonsterAtTile = allowMonster && typeof instance?.getMonsterRuntimeRefAtTile === 'function'
-      ? instance.getMonsterRuntimeRefAtTile.bind(instance)
-      : allowMonster && typeof instance?.getMonsterAtTile === 'function'
-        ? instance.getMonsterAtTile.bind(instance)
-      : null;
-    const monsterByTile = allowMonster && !getMonsterAtTile && typeof instance?.listMonsters === 'function'
-      ? indexLiveMonstersByTile(instance.listMonsters())
-      : null;
-    const getFormationAtTile = allowFormation && typeof input.formationService?.getFormationAtTile === 'function'
-      ? input.formationService.getFormationAtTile.bind(input.formationService)
-      : null;
-    const formationByTile = allowFormation && !getFormationAtTile && typeof input.formationService?.listRuntimeFormations === 'function'
-      ? indexRuntimeFormationsByTile(input.formationService.listRuntimeFormations(instanceId))
-      : null;
-    const getBoundaryBarrierCombatState = allowFormation && typeof input.formationService?.getBoundaryBarrierCombatState === 'function'
-      ? input.formationService.getBoundaryBarrierCombatState.bind(input.formationService)
-      : null;
-    const getCombatTargetRuntimeRefsAtTile = (allowMonster || allowPlayer || allowContainer)
-      && typeof instance?.getCombatTargetRuntimeRefsAtTile === 'function'
-      ? instance.getCombatTargetRuntimeRefsAtTile.bind(instance)
-      : null;
-    const combatTargetRuntimeRefOptions = getCombatTargetRuntimeRefsAtTile
-      ? { monster: allowMonster, player: allowPlayer, container: allowContainer, tile: allowTile }
-      : null;
-    const getPlayersAtTile = allowPlayer && typeof instance?.getPlayerRuntimeRefsAtTile === 'function'
-      && !getCombatTargetRuntimeRefsAtTile
-      ? instance.getPlayerRuntimeRefsAtTile.bind(instance)
-      : allowPlayer && typeof instance?.getPlayersAtTile === 'function'
-        && !getCombatTargetRuntimeRefsAtTile
-        ? instance.getPlayersAtTile.bind(instance)
-      : null;
-    const getContainerAtTile = allowContainer && typeof instance?.getContainerAtTile === 'function'
-      && !getCombatTargetRuntimeRefsAtTile
-      ? instance.getContainerAtTile.bind(instance)
-      : null;
-    const getTileCombatState = allowTile && typeof instance?.getTileCombatState === 'function'
-      && !getCombatTargetRuntimeRefsAtTile
-      ? instance.getTileCombatState.bind(instance)
-      : null;
-    const pushCandidate = (candidate) => {
-      if (!candidate || targets.length >= definition.maxTargets) {
-        return;
-      }
-      // Early filter: 在收集阶段就按战斗目标规则过滤敌/友方关系。
-      // 自身是否应被收集由 resolveCombatRelation 决定（当前返回 blocked → 非 hostile 被跳过），
-      // 收集逻辑本身不做身份硬编码。
-      if (resolveCombatRelation) {
-        const relation = resolveCombatRelation(input.action?.actor, candidate);
-        const hostile = relation === true
-          || relation?.hostile === true
-          || relation?.canAttack === true
-          || relation?.relation === 'hostile';
-        if (!hostile) {
-          return;
-        }
-      }
-      const resolved = this.resolveSingleCombatTarget(candidate, input, input.action);
-      if (!resolved.ok) {
-        input.rejected?.push?.(resolved);
-        return;
-      }
-      const key = buildCombatTargetKey(resolved.target);
-      if (seen.has(key)) {
-        return;
-      }
-      seen.add(key);
-      push(resolved.target);
-    };
-    for (const cell of cells) {
-      if (targets.length >= definition.maxTargets) {
-        break;
-      }
-      const runtimeRefs = getCombatTargetRuntimeRefsAtTile
-        ? getCombatTargetRuntimeRefsAtTile(cell.x, cell.y, combatTargetRuntimeRefOptions)
-        : null;
-      if (allowMonster) {
-        const monster = getCombatTargetRuntimeRefsAtTile
-          ? runtimeRefs?.monster
-          : getMonsterAtTile
-          ? getMonsterAtTile(cell.x, cell.y)
-          : monsterByTile?.get(buildCombatTileKey(cell.x, cell.y));
-        if (monster?.runtimeId) {
-          pushCandidate({ kind: CombatTargetKind.Monster, id: monster.runtimeId, x: monster.x, y: monster.y, runtime: monster, source: 'affected_cell' });
-        }
-      }
-      if (targets.length >= definition.maxTargets) {
-        break;
-      }
-      if (allowFormation) {
-        const formation = getFormationAtTile
-          ? getFormationAtTile(instanceId, cell.x, cell.y)
-          : formationByTile?.get(buildCombatTileKey(cell.x, cell.y));
-        if (formation?.id) {
-          pushCandidate({ kind: CombatTargetKind.Formation, id: formation.id, x: cell.x, y: cell.y, source: 'affected_cell' });
-        }
-      }
-      if (targets.length >= definition.maxTargets) {
-        break;
-      }
-      if (getBoundaryBarrierCombatState) {
-        const boundary = getBoundaryBarrierCombatState(instanceId, cell.x, cell.y);
-        if (boundary) {
-          pushCandidate({
-            kind: CombatTargetKind.Formation,
-            id: boundary.formationId ?? boundary.id,
-            x: cell.x,
-            y: cell.y,
-            runtime: boundary,
-            source: 'formation_boundary',
-          });
-        }
-      }
-      if (targets.length >= definition.maxTargets) {
-        break;
-      }
-      if (getPlayersAtTile) {
-        for (const player of getPlayersAtTile(cell.x, cell.y) ?? []) {
-          if (player?.playerId) {
-            pushCandidate({ kind: CombatTargetKind.Player, id: player.playerId, x: cell.x, y: cell.y, runtime: player, source: 'affected_cell' });
-            if (targets.length >= definition.maxTargets) {
-              break;
-            }
-          }
-        }
-      }
-      else if (runtimeRefs?.players) {
-        for (const player of runtimeRefs.players) {
-          if (player?.playerId) {
-            pushCandidate({ kind: CombatTargetKind.Player, id: player.playerId, x: cell.x, y: cell.y, runtime: player, source: 'affected_cell' });
-            if (targets.length >= definition.maxTargets) {
-              break;
-            }
-          }
-        }
-      }
-      if (targets.length >= definition.maxTargets) {
-        break;
-      }
-      if (getContainerAtTile) {
-        const container = getContainerAtTile(cell.x, cell.y);
-        if (container) {
-          pushCandidate({ kind: CombatTargetKind.Container, id: container.id, x: cell.x, y: cell.y, runtime: container, source: 'affected_cell' });
-        }
-      }
-      else if (runtimeRefs?.container) {
-        const container = runtimeRefs.container;
-        pushCandidate({ kind: CombatTargetKind.Container, id: container.id, x: cell.x, y: cell.y, runtime: container, source: 'affected_cell' });
-      }
-      if (targets.length >= definition.maxTargets) {
-        break;
-      }
-      if (allowTile) {
-        const tileState = getCombatTargetRuntimeRefsAtTile
-          ? runtimeRefs?.tileState
-          : getTileCombatState
-            ? getTileCombatState(cell.x, cell.y)
-            : null;
-        if (tileState && tileState.destroyed !== true) {
-          pushCandidate({ kind: CombatTargetKind.Tile, x: cell.x, y: cell.y, state: tileState, source: 'affected_cell' });
-        }
-      }
-    }
+    return collectCombatTargetsFromCellsImpl(this, input);
   }
 
   resolvePlayerBasicAttackActionPlan(input: AnyRecord = {}) {
@@ -1307,259 +973,15 @@ export class WorldRuntimeCombatActionService {
   }
 
   resolvePlayerBasicAttackTarget(input, attacker, instance, instanceId) {
-    if (input.target) {
-      return input.target;
-    }
-    if (input.targetMonsterId) {
-      const formation = typeof input.formationService?.getFormationCombatState === 'function'
-        ? input.formationService.getFormationCombatState(instanceId, input.targetMonsterId)
-        : null;
-      if (formation) {
-        return {
-          kind: CombatTargetKind.Formation,
-          id: formation.id ?? input.targetMonsterId,
-          x: formation.x,
-          y: formation.y,
-          runtime: formation,
-          source: 'target_ref',
-        };
-      }
-      return { kind: CombatTargetKind.Monster, id: input.targetMonsterId };
-    }
-    if (input.targetPlayerId) {
-      return { kind: CombatTargetKind.Player, id: input.targetPlayerId };
-    }
-    if (Number.isFinite(Number(input.targetX)) && Number.isFinite(Number(input.targetY))) {
-      const x = Math.trunc(Number(input.targetX));
-      const y = Math.trunc(Number(input.targetY));
-      if (input.targetKind === CombatTargetKind.Tile || input.targetType === CombatTargetKind.Tile) {
-        return { kind: CombatTargetKind.Tile, x, y, source: 'target_ref' };
-      }
-      if (input.targetKind === CombatTargetKind.Container || input.targetType === CombatTargetKind.Container || input.targetContainerId) {
-        const container = typeof instance?.getContainerAtTile === 'function'
-          ? instance.getContainerAtTile(x, y)
-          : null;
-        return {
-          kind: CombatTargetKind.Container,
-          id: input.targetContainerId ?? container?.id ?? `container:${x}:${y}`,
-          x,
-          y,
-          runtime: container,
-          source: 'tile_container',
-        };
-      }
-      const boundary = typeof input.formationService?.getBoundaryBarrierCombatState === 'function'
-        ? input.formationService.getBoundaryBarrierCombatState(instanceId, x, y)
-        : null;
-      if (boundary) {
-        return {
-          kind: CombatTargetKind.Formation,
-          id: boundary.id ?? boundary.formationId ?? `boundary:${x}:${y}`,
-          x,
-          y,
-          runtime: boundary,
-          source: 'formation_boundary',
-        };
-      }
-      const container = typeof instance?.getContainerAtTile === 'function'
-        ? instance.getContainerAtTile(x, y)
-        : null;
-      if (container) {
-        return {
-          kind: CombatTargetKind.Container,
-          id: container.id,
-          x,
-          y,
-          runtime: container,
-          source: 'tile_container',
-        };
-      }
-      return { kind: CombatTargetKind.Tile, x, y };
-    }
-    return null;
+    return resolvePlayerBasicAttackTargetImpl(this, input, attacker, instance, instanceId);
   }
 
   resolveSingleCombatTarget(target, input: AnyRecord = {}, action = null) {
-    const kind = target?.kind ?? null;
-    const instance = input.instance ?? null;
-    if (!kind) {
-      return {
-        ok: false,
-        reason: CombatRejectReason.MissingTarget,
-        target,
-        details: {},
-      };
-    }
-    if (kind === CombatTargetKind.Self) {
-      return {
-        ok: true,
-        target: {
-          kind,
-          id: action?.actor?.id ?? input.actor?.id ?? null,
-          source: 'self',
-        },
-      };
-    }
-    if (kind === CombatTargetKind.Player) {
-      const playerId = target.id;
-      const position = typeof instance?.getPlayerPosition === 'function'
-        ? instance.getPlayerPosition(playerId)
-        : normalizeCombatCell(target);
-      const player = input.playerRuntimeService?.getPlayer?.(playerId)
-        ?? input.playersById?.get?.(playerId)
-        ?? target.runtime
-        ?? null;
-      if (!player && !position) {
-        return {
-          ok: false,
-          reason: CombatRejectReason.MissingTargetRuntimeState,
-          target,
-          details: { playerId },
-        };
-      }
-      return {
-        ok: true,
-        target: {
-          kind,
-          id: playerId,
-          x: position?.x,
-          y: position?.y,
-          source: target.source ?? 'target_ref',
-          runtime: player,
-        },
-      };
-    }
-    if (kind === CombatTargetKind.Monster) {
-      const monsterId = target.id;
-      const monster = target.runtime
-        ?? (typeof instance?.getMonster === 'function'
-          ? instance.getMonster(monsterId)
-          : input.monstersById?.get?.(monsterId) ?? null);
-      if (!monster) {
-        return {
-          ok: false,
-          reason: CombatRejectReason.MissingMonster,
-          target,
-          details: { monsterId },
-        };
-      }
-      if (monster.alive === false) {
-        return {
-          ok: false,
-          reason: CombatRejectReason.MonsterDead,
-          target,
-          details: { monsterId },
-        };
-      }
-      return {
-        ok: true,
-        target: {
-          kind,
-          id: monster.runtimeId ?? monsterId,
-          x: monster.x,
-          y: monster.y,
-          source: target.source ?? 'target_ref',
-          runtime: monster,
-        },
-      };
-    }
-    if (kind === CombatTargetKind.Tile) {
-      const cell = normalizeCombatCell(target);
-      if (!cell) {
-        return {
-          ok: false,
-          reason: CombatRejectReason.MissingTargetLocation,
-          target,
-          details: {},
-        };
-      }
-      const state = target.state ?? (typeof instance?.getTileCombatState === 'function'
-        ? instance.getTileCombatState(cell.x, cell.y)
-        : null);
-      return {
-        ok: true,
-        target: {
-          kind,
-          x: cell.x,
-          y: cell.y,
-          source: target.source ?? 'target_ref',
-          state,
-        },
-      };
-    }
-    if (kind === CombatTargetKind.Formation) {
-      const formationId = target.id ?? target.formationId;
-      const formation = typeof input.formationService?.getFormationCombatState === 'function'
-        ? input.formationService.getFormationCombatState(action?.instanceId ?? input.instanceId, formationId)
-        : target.runtime ?? null;
-      return {
-        ok: true,
-        target: {
-          kind,
-          id: formationId,
-          x: formation?.x ?? target.x,
-          y: formation?.y ?? target.y,
-          source: target.source ?? 'target_ref',
-          runtime: formation,
-        },
-      };
-    }
-    if (kind === CombatTargetKind.Container) {
-      const containerId = target.id ?? target.containerId;
-      const container = typeof instance?.getContainerState === 'function'
-        ? instance.getContainerState(containerId)
-        : target.runtime ?? null;
-      return {
-        ok: true,
-        target: {
-          kind,
-          id: containerId,
-          x: container?.x ?? target.x,
-          y: container?.y ?? target.y,
-          source: target.source ?? 'target_ref',
-          runtime: container,
-        },
-      };
-    }
-    return {
-      ok: false,
-      reason: CombatRejectReason.Unknown,
-      target,
-      details: { kind },
-    };
+    return resolveSingleCombatTargetImpl(this, target, input, action);
   }
 
   validateCombatTargets(input: AnyRecord = {}) {
-    const action = input.action ?? null;
-    const definition = input.definition ?? this.resolveActionDefinition(input).definition ?? null;
-    const actorPosition = normalizeCombatCell(input.actorPosition ?? input.actor ?? input.monster ?? input.player);
-    const targets = Array.isArray(input.targets) ? input.targets : [];
-    const allowed = [];
-    const rejected = [];
-    for (const target of targets) {
-      const result = this.validateSingleCombatTarget({
-        ...input,
-        action,
-        definition,
-        actorPosition,
-        target,
-      });
-      if (result.ok) {
-        allowed.push(result.target);
-      }
-      else {
-        rejected.push(result);
-      }
-    }
-    return {
-      ok: rejected.length === 0,
-      action,
-      definition,
-      allowed,
-      rejected,
-      allowedCount: allowed.length,
-      rejectedCount: rejected.length,
-    };
+    return validateCombatTargetsImpl(this, input);
   }
 
   validateActionCostAndCooldown(input: AnyRecord = {}) {
@@ -1658,874 +1080,71 @@ export class WorldRuntimeCombatActionService {
   }
 
   validateSingleCombatTarget(input: AnyRecord = {}) {
-    const target = input.target;
-    const definition = input.definition;
-    if (!target) {
-      return {
-        ok: false,
-        reason: CombatRejectReason.MissingTarget,
-        target,
-        details: {},
-      };
-    }
-    if (definition?.allowedTargetKinds?.length > 0 && !definition.allowedTargetKinds.includes(target.kind)) {
-      return {
-        ok: false,
-        reason: CombatRejectReason.TargetTypeNotAllowed,
-        target,
-        details: {
-          targetKind: target.kind,
-          allowedTargetKinds: definition.allowedTargetKinds,
-        },
-      };
-    }
-    const actionInstanceId = input.instanceId ?? input.action?.instanceId ?? null;
-    const targetInstanceId = target.instanceId ?? target.runtime?.instanceId ?? null;
-    if (actionInstanceId && targetInstanceId && actionInstanceId !== targetInstanceId) {
-      return {
-        ok: false,
-        reason: CombatRejectReason.TargetInstanceMismatch,
-        target,
-        details: {
-          actionInstanceId,
-          targetInstanceId,
-        },
-      };
-    }
-    if (target.kind === CombatTargetKind.Tile && input.canDamageTile === false) {
-      return {
-        ok: false,
-        reason: CombatRejectReason.MapCapabilityDisabled,
-        target,
-        details: { capability: 'canDamageTile' },
-      };
-    }
-    if (target.kind === CombatTargetKind.Tile && target.state?.destroyed === true) {
-      return {
-        ok: false,
-        reason: CombatRejectReason.TargetDead,
-        target,
-        details: { targetType: 'tile' },
-      };
-    }
-    if (target.kind === CombatTargetKind.Player && input.supportsPvp === false && input.action?.actor?.kind === CombatActorKind.Player) {
-      return {
-        ok: false,
-        reason: CombatRejectReason.MapCapabilityDisabled,
-        target,
-        details: { capability: 'supportsPvp' },
-      };
-    }
-    // Relation 检查作为 validateCombatTargets 独立公共 API 的契约与 defense in depth。
-    // 正常流程下 collectCombatTargets 已提前过滤不符合 relation 的目标，此分支不会触发；
-    // 仅在外部直接调用 validateCombatTargets 或目标绕过收集阶段时才起作用。
-    if (typeof input.resolveCombatRelation === 'function') {
-      const relation = input.resolveCombatRelation(input.action?.actor, target);
-      const hostile = relation === true
-        || relation?.hostile === true
-        || relation?.canAttack === true
-        || relation?.relation === 'hostile';
-      if (!hostile) {
-        return {
-          ok: false,
-          reason: CombatRejectReason.CombatRelationNotAllowed,
-          target,
-          details: { relation },
-        };
-      }
-    }
-    if (input.actorPosition && Number.isFinite(Number(target.x)) && Number.isFinite(Number(target.y))) {
-      const distance = combatChebyshevDistance(input.actorPosition.x, input.actorPosition.y, target.x, target.y);
-      const range = Math.max(0, Math.floor(Number(definition?.range) || 0));
-      const isGeometryCollectedTarget = target.source === 'affected_cell' || target.source === 'warning_cell';
-      const skipRangeValidation = isGeometryCollectedTarget
-        || (input.skipResolvedTargetRangeValidation === true && target.source === 'legacy_targets');
-      if (!skipRangeValidation && range > 0 && distance > range) {
-        return {
-          ok: false,
-          reason: CombatRejectReason.OutOfRange,
-          target,
-          details: { distance, range },
-        };
-      }
-      const canSeeTileFrom = typeof input.canSeeTileFrom === 'function'
-        ? input.canSeeTileFrom
-        : typeof input.instance?.canSeeTileFrom === 'function'
-          ? input.instance.canSeeTileFrom.bind(input.instance)
-          : null;
-      if (input.requiresLineOfSight !== false && !isGeometryCollectedTarget && canSeeTileFrom) {
-        const lineOfSightRange = isGeometryCollectedTarget
-          ? Math.max(range, distance)
-          : range;
-        const visible = canSeeTileFrom(
-          input.actorPosition.x,
-          input.actorPosition.y,
-          Number(target.x),
-          Number(target.y),
-          lineOfSightRange,
-        );
-        if (visible === false) {
-          return {
-            ok: false,
-            reason: CombatRejectReason.LineOfSightBlocked,
-            target,
-            details: { distance, range, lineOfSightRange },
-          };
-        }
-      }
-    }
-    return {
-      ok: true,
-      target,
-    };
+    return validateSingleCombatTargetImpl(this, input);
   }
 
   collectMonsterSkillPlayerTargets(input: AnyRecord = {}) {
-    const action = input.action ?? {};
-    const instance = input.instance;
-    const playerRuntimeService = input.playerRuntimeService;
-    const skill = input.skill ?? {};
-    const warningCells = normalizeCombatCells(action.warningCells);
-    const maxTargets = resolveMonsterSkillMaxTargets(skill);
-    const targets = [];
-    const seenPlayerIds = new Set();
-    const rejected = [];
-    const pushPlayerAtPosition = (playerId, position, source) => {
-      if (!playerId || seenPlayerIds.has(playerId) || targets.length >= maxTargets) {
-        return;
-      }
-      const player = playerRuntimeService?.getPlayer?.(playerId);
-      const runtimePosition = typeof instance?.getPlayerPosition === 'function'
-        ? instance.getPlayerPosition(playerId)
-        : null;
-      const location = typeof input.deps?.getPlayerLocation === 'function'
-        ? input.deps.getPlayerLocation(playerId)
-        : null;
-      const locatedInActionInstance = Boolean(
-        runtimePosition
-        || source === 'warning_cell'
-        || location?.instanceId === action.instanceId
-        || player?.instanceId === action.instanceId,
-      );
-      if (!player) {
-        rejected.push({ playerId, reason: CombatRejectReason.MissingTargetRuntimeState, source });
-        return;
-      }
-      if (player.hp <= 0) {
-        rejected.push({ playerId, reason: CombatRejectReason.TargetDead, source });
-        return;
-      }
-      if (!locatedInActionInstance) {
-        rejected.push({
-          playerId,
-          reason: CombatRejectReason.TargetInstanceMismatch,
-          source,
-          playerInstanceId: player.instanceId,
-          locationInstanceId: location?.instanceId,
-        });
-        return;
-      }
-      const effectivePosition = normalizeCombatCell(runtimePosition ?? position ?? location ?? player);
-      if (!effectivePosition) {
-        rejected.push({ playerId, reason: CombatRejectReason.MissingRuntimeTargetPosition, source });
-        return;
-      }
-      seenPlayerIds.add(playerId);
-      targets.push({
-        player,
-        position: effectivePosition,
-        source,
-      });
-    };
-
-    if (warningCells.length > 0) {
-      const getPlayersAtTile = typeof instance?.getPlayerRuntimeRefsAtTile === 'function'
-        ? instance.getPlayerRuntimeRefsAtTile.bind(instance)
-        : typeof instance?.getPlayersAtTile === 'function'
-          ? instance.getPlayersAtTile.bind(instance)
-          : null;
-      if (getPlayersAtTile) {
-        for (const cell of warningCells) {
-          if (targets.length >= maxTargets) {
-            break;
-          }
-          for (const tilePlayer of getPlayersAtTile(cell.x, cell.y) ?? []) {
-            pushPlayerAtPosition(tilePlayer?.playerId, cell, 'warning_cell');
-            if (targets.length >= maxTargets) {
-              break;
-            }
-          }
-        }
-      }
-      const fallbackPosition = normalizeCombatCell(input.fallbackPosition);
-      if (targets.length === 0
-        && fallbackPosition
-        && warningCells.some((cell) => cell.x === fallbackPosition.x && cell.y === fallbackPosition.y)) {
-        pushPlayerAtPosition(action.targetPlayerId, fallbackPosition, 'warning_fallback');
-      }
-      return {
-        targets,
-        warningCells,
-        rejected,
-        maxTargets,
-      };
-    }
-
-    const fallbackPosition = normalizeCombatCell(input.fallbackPosition);
-    if (fallbackPosition) {
-      pushPlayerAtPosition(action.targetPlayerId, fallbackPosition, 'primary_target');
-    }
-    return {
-      targets,
-      warningCells,
-      rejected,
-      maxTargets,
-    };
+    return collectMonsterSkillPlayerTargetsImpl(this, input);
   }
 
   resolveMonsterSkillActionPlan(input: AnyRecord = {}) {
-    const action = input.action ?? {};
-    const instance = input.instance ?? null;
-    const monster = input.monster ?? null;
-    const skill = input.skill ?? null;
-    const playerRuntimeService = input.playerRuntimeService;
-    const combatAction = this.createMonsterAction(action, CombatActionPhase.ChantResolve);
-    const definition = skill
-      ? this.createSkillDefinition(combatAction, skill, {
-        monster,
-        actorKind: CombatActorKind.Monster,
-      })
-      : null;
-    const warningCells = normalizeCombatCells(action.warningCells);
-    const hasAnchoredCast = Number.isFinite(Number(action.targetX)) && Number.isFinite(Number(action.targetY));
-    if (!action.skillId) {
-      return {
-        ok: false,
-        action: combatAction,
-        definition,
-        reason: CombatRejectReason.MissingSkillId,
-        severity: 'warn',
-        details: {},
-        warningCells,
-        targetCollection: { targets: [], rejected: [] },
-      };
-    }
-    if (!instance) {
-      return {
-        ok: false,
-        action: combatAction,
-        definition,
-        reason: CombatRejectReason.MissingInstance,
-        severity: 'warn',
-        details: { instanceId: action.instanceId },
-        warningCells,
-        targetCollection: { targets: [], rejected: [] },
-      };
-    }
-    if (!monster) {
-      return {
-        ok: false,
-        action: combatAction,
-        definition,
-        reason: CombatRejectReason.MissingMonster,
-        severity: 'debug',
-        details: { runtimeId: action.runtimeId },
-        warningCells,
-        targetCollection: { targets: [], rejected: [] },
-      };
-    }
-    if (monster.alive === false) {
-      return {
-        ok: false,
-        action: combatAction,
-        definition,
-        reason: CombatRejectReason.MonsterDead,
-        severity: 'debug',
-        details: { runtimeId: monster.runtimeId ?? action.runtimeId },
-        warningCells,
-        targetCollection: { targets: [], rejected: [] },
-      };
-    }
-    if (!skill) {
-      return {
-        ok: false,
-        action: combatAction,
-        definition,
-        reason: CombatRejectReason.MissingSkill,
-        severity: 'warn',
-        details: { skillId: action.skillId },
-        warningCells,
-        targetCollection: { targets: [], rejected: [] },
-      };
-    }
-    const runtimeTargetPosition = typeof instance?.getPlayerPosition === 'function'
-      ? instance.getPlayerPosition(action.targetPlayerId)
-      : null;
-    const targetRuntimeState = playerRuntimeService?.getPlayer?.(action.targetPlayerId) ?? null;
-    const playerStatePosition = targetRuntimeState
-      && targetRuntimeState.instanceId === action.instanceId
-      && Number.isFinite(Number(targetRuntimeState.x))
-      && Number.isFinite(Number(targetRuntimeState.y))
-      ? { x: Math.trunc(Number(targetRuntimeState.x)), y: Math.trunc(Number(targetRuntimeState.y)) }
-      : null;
-    const needsLocationFallback = !runtimeTargetPosition && !playerStatePosition;
-    const location = needsLocationFallback && typeof input.deps?.getPlayerLocation === 'function'
-      ? input.deps.getPlayerLocation(action.targetPlayerId)
-      : null;
-    const locationPosition = location
-      && location.instanceId === action.instanceId
-      && Number.isFinite(Number(location.x))
-      && Number.isFinite(Number(location.y))
-      ? { x: Math.trunc(Number(location.x)), y: Math.trunc(Number(location.y)) }
-      : null;
-    const fallbackTargetPosition = normalizeCombatCell(runtimeTargetPosition ?? locationPosition ?? playerStatePosition);
-    const requiresTarget = resolveSkillRequiresTarget(skill);
-    if (!fallbackTargetPosition && warningCells.length === 0 && requiresTarget) {
-      return {
-        ok: false,
-        action: combatAction,
-        definition,
-        reason: location ? CombatRejectReason.TargetLocationMismatch : CombatRejectReason.MissingRuntimeTargetPosition,
-        severity: 'debug',
-        details: {
-          locationInstanceId: location?.instanceId,
-          playerInstanceId: targetRuntimeState?.instanceId,
-        },
-        warningCells,
-        targetCollection: { targets: [], rejected: [] },
-      };
-    }
-    const selfAnchoredPosition = !requiresTarget && monster
-      ? { x: Math.trunc(Number(monster.x)), y: Math.trunc(Number(monster.y)) }
-      : null;
-    const distanceAnchor = hasAnchoredCast
-      ? { x: Math.trunc(Number(action.targetX)), y: Math.trunc(Number(action.targetY)) }
-      : selfAnchoredPosition ?? fallbackTargetPosition ?? warningCells[0] ?? null;
-    if (requiresTarget && !distanceAnchor) {
-      return {
-        ok: false,
-        action: combatAction,
-        definition,
-        reason: CombatRejectReason.MissingTargetLocation,
-        severity: 'debug',
-        details: {},
-        warningCells,
-        targetCollection: { targets: [], rejected: [] },
-      };
-    }
-    const distance = requiresTarget
-      ? combatChebyshevDistance(monster.x, monster.y, distanceAnchor.x, distanceAnchor.y)
-      : 0;
-    if (!requiresTarget && isCombatSelfOnlySkill(skill)) {
-      const selfBuffTarget = playerRuntimeService?.getPlayer?.(action.targetPlayerId) ?? null;
-      if (!selfBuffTarget || selfBuffTarget.hp <= 0) {
-        return {
-          ok: false,
-          action: combatAction,
-          definition,
-          reason: selfBuffTarget ? CombatRejectReason.TargetDead : CombatRejectReason.MissingSelfBuffTarget,
-          severity: 'debug',
-          details: {},
-          warningCells,
-          distanceAnchor,
-          fallbackTargetPosition,
-          targetCollection: { targets: [], rejected: [] },
-        };
-      }
-      return {
-        ok: true,
-        action: combatAction,
-        definition,
-        warningCells,
-        hasAnchoredCast,
-        distanceAnchor,
-        distance,
-        fallbackTargetPosition,
-        targetCollection: { targets: [], rejected: [] },
-        selectedTargets: [],
-        targetEntries: [{ player: selfBuffTarget, position: fallbackTargetPosition ?? { x: monster.x, y: monster.y } }],
-        selfBuffTarget,
-        validation: { ok: true, allowed: [], rejected: [] },
-      };
-    }
-    const targetCollection = this.collectMonsterSkillPlayerTargets({
-      instance,
-      deps: input.deps,
-      action,
-      skill,
-      fallbackPosition: fallbackTargetPosition,
-      playerRuntimeService,
-    });
-    const selectedTargets = targetCollection.targets ?? [];
-    const validationTargets = selectedTargets.map((entry) => ({
-      kind: CombatTargetKind.Player,
-      id: entry.player?.playerId ?? entry.playerId ?? null,
-      instanceId: action.instanceId,
-      x: entry.position?.x,
-      y: entry.position?.y,
-      runtime: entry.player,
-      source: entry.source,
-    }));
-    const validation = this.validateCombatTargets({
-      action: combatAction,
-      definition: {
-        ...definition,
-        range: 0,
-        allowedTargetKinds: [CombatTargetKind.Player],
-      },
-      targets: validationTargets,
-      instance,
-      requiresLineOfSight: false,
-    });
-    if (selectedTargets.length === 0 || validation.allowedCount === 0) {
-      return {
-        ok: false,
-        action: combatAction,
-        definition,
-        reason: selectedTargets.length === 0
-          ? CombatRejectReason.NoRuntimeTargetsInWarningCells
-          : validation.rejected?.[0]?.reason ?? CombatRejectReason.NoRuntimeTargetsInWarningCells,
-        severity: 'debug',
-        details: {
-          warningCellCount: warningCells.length,
-          fallbackX: fallbackTargetPosition?.x,
-          fallbackY: fallbackTargetPosition?.y,
-          rejectedTargets: [
-            ...(targetCollection.rejected ?? []),
-            ...(validation.rejected ?? []),
-          ],
-        },
-        warningCells,
-        hasAnchoredCast,
-        distanceAnchor,
-        distance,
-        fallbackTargetPosition,
-        targetCollection,
-        selectedTargets,
-        validation,
-      };
-    }
-    return {
-      ok: true,
-      action: combatAction,
-      definition,
-      warningCells,
-      hasAnchoredCast,
-      distanceAnchor,
-      distance,
-      fallbackTargetPosition,
-      targetCollection,
-      selectedTargets,
-      targetEntries: selectedTargets,
-      validation,
-    };
+    return resolveMonsterSkillActionPlanImpl(this, input);
   }
 
   resolveMonsterSkillChantStartPlan(input: AnyRecord = {}) {
-    const action = input.action ?? {};
-    const instance = input.instance ?? null;
-    const monster = input.monster ?? null;
-    const skill = input.skill ?? null;
-    const combatAction = this.createMonsterAction(action, CombatActionPhase.ChantStart);
-    const definition = skill
-      ? this.createSkillDefinition(combatAction, skill, {
-        monster,
-        actorKind: CombatActorKind.Monster,
-      })
-      : null;
-    const warningCells = normalizeCombatCells(action.warningCells);
-    if (!action.skillId) {
-      return {
-        ok: false,
-        action: combatAction,
-        definition,
-        reason: CombatRejectReason.MissingSkillId,
-        severity: 'warn',
-        details: {},
-        warningCells,
-      };
-    }
-    if (!instance) {
-      return {
-        ok: false,
-        action: combatAction,
-        definition,
-        reason: CombatRejectReason.MissingInstance,
-        severity: 'warn',
-        details: { instanceId: action.instanceId },
-        warningCells,
-      };
-    }
-    if (!monster) {
-      return {
-        ok: false,
-        action: combatAction,
-        definition,
-        reason: CombatRejectReason.MissingMonster,
-        severity: 'debug',
-        details: { runtimeId: action.runtimeId },
-        warningCells,
-      };
-    }
-    if (monster.alive === false) {
-      return {
-        ok: false,
-        action: combatAction,
-        definition,
-        reason: CombatRejectReason.MonsterDead,
-        severity: 'debug',
-        details: { runtimeId: monster.runtimeId ?? action.runtimeId },
-        warningCells,
-      };
-    }
-    if (!skill) {
-      return {
-        ok: false,
-        action: combatAction,
-        definition,
-        reason: CombatRejectReason.MissingSkill,
-        severity: 'warn',
-        details: { skillId: action.skillId },
-        warningCells,
-      };
-    }
-    return {
-      ok: true,
-      action: combatAction,
-      definition,
-      instance,
-      monster,
-      skill,
-      warningCells,
-      durationMs: Math.max(1, Math.round(Number(action.durationMs) || 1000)),
-      warningColor: typeof action.warningColor === 'string' && action.warningColor.trim().length > 0
-        ? action.warningColor.trim()
-        : '#ff3030',
-    };
+    return resolveMonsterSkillChantStartPlanImpl(this, input);
   }
 
   revalidateMonsterSkillTargetForApply(input: AnyRecord = {}) {
-    const entry = input.entry ?? {};
-    const player = entry.player ?? null;
-    const deps = input.deps ?? {};
-    const instance = input.instance ?? null;
-    const action = input.action ?? {};
-    const targetPlayerId = player?.playerId ?? entry.playerId ?? null;
-    const position = normalizeCombatCell(entry.position);
-    const targetCount = Math.max(0, Math.floor(Number(input.targetCount) || 0));
-    const baseDetails = {
-      targetPlayerId,
-      playerInstanceId: player?.instanceId,
-      targetHp: player?.hp,
-      source: entry.source,
-      targetX: position?.x,
-      targetY: position?.y,
-      targetCount,
-    };
-    if (!player) {
-      return {
-        ok: false,
-        reason: CombatRejectReason.MissingTargetRuntimeState,
-        details: baseDetails,
-        severity: 'debug',
-      };
-    }
-    if (player.hp <= 0) {
-      return {
-        ok: false,
-        reason: CombatRejectReason.TargetDead,
-        details: baseDetails,
-        severity: 'debug',
-      };
-    }
-    if (entry.source !== 'warning_cell' && !isPlayerLocatedInCombatActionInstance(deps, instance, player.playerId, action.instanceId)) {
-      const location = typeof deps?.getPlayerLocation === 'function'
-        ? deps.getPlayerLocation(player.playerId)
-        : null;
-      return {
-        ok: false,
-        reason: CombatRejectReason.TargetInstanceMismatch,
-        details: {
-          ...baseDetails,
-          locationInstanceId: location?.instanceId,
-        },
-        severity: 'debug',
-      };
-    }
-    if (!position) {
-      return {
-        ok: false,
-        reason: CombatRejectReason.MissingRuntimeTargetPosition,
-        details: baseDetails,
-        severity: 'debug',
-      };
-    }
-    return {
-      ok: true,
-      player,
-      position,
-      details: baseDetails,
-    };
+    return revalidateMonsterSkillTargetForApplyImpl(this, input);
   }
 
   resolveMonsterBasicAttackPlayerTarget(input: AnyRecord = {}) {
-    const action = input.action ?? {};
-    const deps = input.deps;
-    const playerRuntimeService = input.playerRuntimeService;
-    const location = typeof deps?.getPlayerLocation === 'function'
-      ? deps.getPlayerLocation(action.targetPlayerId)
-      : null;
-    if (!location) {
-      return {
-        ok: false,
-        reason: CombatRejectReason.MissingTargetLocation,
-        details: {},
-        severity: 'debug',
-      };
-    }
-    const instance = typeof deps?.getInstanceRuntime === 'function'
-      ? deps.getInstanceRuntime(action.instanceId)
-      : null;
-    if (!instance) {
-      return {
-        ok: false,
-        reason: CombatRejectReason.MissingInstance,
-        details: {},
-        severity: 'warn',
-      };
-    }
-    const monster = typeof instance.getMonster === 'function'
-      ? instance.getMonster(action.runtimeId)
-      : null;
-    if (!monster) {
-      return {
-        ok: false,
-        reason: CombatRejectReason.MissingMonster,
-        details: {},
-        severity: 'debug',
-      };
-    }
-    if (!monster.alive) {
-      return {
-        ok: false,
-        reason: CombatRejectReason.MonsterDead,
-        details: {},
-        severity: 'debug',
-      };
-    }
-    const position = typeof instance.getPlayerPosition === 'function'
-      ? instance.getPlayerPosition(action.targetPlayerId)
-      : null;
-    if (!position) {
-      return {
-        ok: false,
-        reason: CombatRejectReason.MissingRuntimeTargetPosition,
-        details: {},
-        severity: 'debug',
-      };
-    }
-    const player = playerRuntimeService?.getPlayer?.(action.targetPlayerId);
-    if (!player || player.instanceId !== location.instanceId || player.hp <= 0) {
-      return {
-        ok: false,
-        reason: !player
-          ? CombatRejectReason.MissingTargetRuntimeState
-          : player.hp <= 0
-            ? CombatRejectReason.TargetDead
-            : CombatRejectReason.TargetInstanceMismatch,
-        details: {
-          playerInstanceId: player?.instanceId,
-          locationInstanceId: location.instanceId,
-        },
-        severity: 'debug',
-      };
-    }
-    const normalizedPosition = normalizeCombatCell(position);
-    if (!normalizedPosition) {
-      return {
-        ok: false,
-        reason: CombatRejectReason.MissingRuntimeTargetPosition,
-        details: {},
-        severity: 'debug',
-      };
-    }
-    const distance = combatChebyshevDistance(monster.x, monster.y, normalizedPosition.x, normalizedPosition.y);
-    if (distance > monster.attackRange) {
-      return {
-        ok: false,
-        reason: CombatRejectReason.OutOfRange,
-        details: {
-          distance,
-          attackRange: monster.attackRange,
-        },
-        severity: 'debug',
-      };
-    }
-    if (
-      typeof instance.canSeeTileFrom === 'function'
-      && instance.canSeeTileFrom(monster.x, monster.y, normalizedPosition.x, normalizedPosition.y, monster.attackRange) === false
-    ) {
-      return {
-        ok: false,
-        reason: CombatRejectReason.LineOfSightBlocked,
-        details: {
-          distance,
-          attackRange: monster.attackRange,
-        },
-        severity: 'debug',
-      };
-    }
-    return {
-      ok: true,
-      instance,
-      monster,
-      player,
-      position: normalizedPosition,
-      distance,
-      location,
-    };
+    return resolveMonsterBasicAttackPlayerTargetImpl(this, input);
   }
 
   explainMonsterBasicAttack(input: AnyRecord = {}) {
-    const action = input.action ?? {};
-    const combatAction = this.createMonsterAction(action, CombatActionPhase.Instant);
-    const targetResolution = this.resolveMonsterBasicAttackPlayerTarget(input);
-    if (!targetResolution.ok) {
-      return {
-        ok: false,
-        action: combatAction,
-        phase: combatAction.phase,
-        reason: targetResolution.reason,
-        details: targetResolution.details ?? {},
-        targetCount: 0,
-      };
-    }
-    return {
-      ok: true,
-      action: combatAction,
-      phase: combatAction.phase,
-      reason: null,
-      targetCount: 1,
-      targets: [{
-        kind: CombatTargetKind.Player,
-        id: targetResolution.player.playerId,
-        x: targetResolution.position.x,
-        y: targetResolution.position.y,
-        distance: targetResolution.distance,
-      }],
-    };
+    return explainMonsterBasicAttackImpl(this, input);
   }
 
   recordReject(deps, input = {}, options = undefined) {
-    const outcome = createCombatRejectOutcome(input);
-    if (typeof deps?.recordCombatDiagnostic === 'function') {
-      deps.recordCombatDiagnostic(outcome);
-    }
-    else if (Array.isArray(deps?.combatDiagnostics)) {
-      deps.combatDiagnostics.push(outcome);
-    }
-    const shouldLog = options?.log !== false;
-    if (shouldLog) {
-      const logger = deps?.logger ?? this.logger;
-      const message = this.formatRejectLog(outcome);
-      if (options?.severity === 'error') {
-        logger.error?.(message);
-      }
-      else if (options?.severity === 'warn') {
-        logger.warn?.(message);
-      }
-      else if (options?.severity === 'info') {
-        logger.log?.(message);
-      }
-      else {
-        logger.debug?.(message);
-      }
-    }
-    this.recordCombatEvents(deps, outcome, options);
-    return outcome;
+    return recordRejectImpl(this, deps, input, options);
   }
 
   recordOutcome(deps, input: AnyRecord = {}, options = undefined) {
-    const normalizedResult = this.normalizeCombatOutcomeResult(input.result ?? {}, input);
-    const outcome = createCombatSuccessOutcome({
-      ...input,
-      result: normalizedResult,
-      application: input.application ?? this.createCombatResultApplication({
-        ...input,
-        result: normalizedResult,
-      }),
-    });
-    if (typeof deps?.recordCombatOutcome === 'function') {
-      deps.recordCombatOutcome(outcome);
-    }
-    else if (Array.isArray(deps?.combatOutcomes)) {
-      deps.combatOutcomes.push(outcome);
-    }
-    else if (typeof deps?.recordCombatDiagnostic === 'function') {
-      deps.recordCombatDiagnostic(outcome);
-    }
-    else if (Array.isArray(deps?.combatDiagnostics)) {
-      deps.combatDiagnostics.push(outcome);
-    }
-    if (options?.log === true) {
-      const logger = deps?.logger ?? this.logger;
-      const message = this.formatOutcomeLog(outcome);
-      if (typeof logger.debug === 'function') {
-        logger.debug(message);
-      }
-      else {
-        logger.log?.(message);
-      }
-    }
-    this.recordCombatEvents(deps, outcome, options);
-    return outcome;
+    return recordOutcomeImpl(this, deps, input, options);
   }
 
   recordCombatEvents(deps, outcome, options = undefined) {
-    const shouldBuildEvents = options?.buildEvents !== false
-      || typeof deps?.recordCombatEvents === 'function'
-      || Array.isArray(deps?.combatEvents);
-    if (!shouldBuildEvents) {
-      return null;
-    }
-    const events = this.buildCombatEvents(outcome, options?.eventContext ?? options ?? {});
-    this.recordInternalCombatEvents(events);
-    this.enqueueCombatAuditEvent(events?.auditEvent);
-    if (typeof deps?.recordCombatEvents === 'function') {
-      deps.recordCombatEvents(events, outcome);
-    }
-    else if (Array.isArray(deps?.combatEvents)) {
-      deps.combatEvents.push(events);
-    }
-    return events;
+    return recordCombatEventsImpl(this, deps, outcome, options);
   }
 
   recordInternalCombatEvents(events) {
-    recordBoundedCombatRing(this.combatEvents, events, 200);
+    return recordInternalCombatEventsImpl(this, events);
   }
 
   enqueueCombatAuditEvent(auditEvent) {
-    return false;
+    return enqueueCombatAuditEventImpl(this, auditEvent);
   }
 
   listCombatEvents(limit = 50) {
-    return listBoundedCombatRing(this.combatEvents, limit, 200);
+    return listCombatEventsImpl(this, limit);
   }
 
   queryRecentCombatAuditEvents(options = {}) {
-    return queryRecentCombatAuditEvents(this.combatEvents, options);
+    return queryRecentCombatAuditEventsImpl(this, options);
   }
 
   aggregateCombatDiagnostics(options = {}) {
-    return aggregateCombatDiagnostics(this.combatEvents, options);
+    return aggregateCombatDiagnosticsImpl(this, options);
   }
 
   queryMonsterSkillFailureReasons(options = {}) {
-    return queryMonsterSkillFailureReasons(this.combatEvents, options);
+    return queryMonsterSkillFailureReasonsImpl(this, options);
   }
 
   buildCombatAuditHeatmap(options = {}) {
-    return buildCombatAuditHeatmap(this.combatEvents, options);
+    return buildCombatAuditHeatmapImpl(this, options);
   }
 
   normalizeCombatOutcomeResult(result: AnyRecord = {}, input: AnyRecord = {}) {
@@ -2938,82 +1557,19 @@ export class WorldRuntimeCombatActionService {
   }
 
   buildCombatAuditEvent(outcome, input: AnyRecord = {}) {
-    return {
-      type: 'combat_audit',
-      action: resolveCombatAuditEventAction(outcome, input),
-      instanceId: outcome.instanceId ?? null,
-      phase: outcome.phase ?? null,
-      actor: outcome.actor ?? null,
-      actionId: outcome.actionId ?? null,
-      target: outcome.target ?? null,
-      result: outcome.result ?? {},
-      application: outcome.application ?? null,
-      createdAt: outcome.createdAt ?? new Date().toISOString(),
-      tags: Array.isArray(input.tags) ? [...input.tags] : [],
-    };
+    return buildCombatAuditEventImpl(this, outcome, input);
   }
 
   buildCombatDiagnosticEvent(outcome, input: AnyRecord = {}) {
-    return {
-      type: 'combat_diagnostic',
-      instanceId: outcome?.instanceId ?? null,
-      phase: outcome?.phase ?? null,
-      actor: outcome?.actor ?? null,
-      actionId: outcome?.actionId ?? null,
-      target: outcome?.target ?? null,
-      reason: outcome?.reason ?? CombatRejectReason.Unknown,
-      details: outcome?.details ?? {},
-      createdAt: outcome?.createdAt ?? new Date().toISOString(),
-      severity: input.severity ?? 'debug',
-    };
+    return buildCombatDiagnosticEventImpl(this, outcome, input);
   }
 
   recordMonsterActionReject(deps, action, reason, details = {}, options = undefined) {
-    const phase = action?.kind === 'skill_chant'
-      ? CombatActionPhase.ChantStart
-      : action?.kind === 'skill'
-        ? CombatActionPhase.ChantResolve
-        : action?.kind === 'skill_cancel'
-          ? CombatActionPhase.Cancel
-          : CombatActionPhase.Instant;
-    const combatAction = this.createMonsterAction(action, phase);
-    return this.recordReject(deps, {
-      phase,
-      reason: reason ?? CombatRejectReason.Unknown,
-      actor: combatAction.actor,
-      actionId: combatAction.actionId,
-      instanceId: combatAction.instanceId,
-      target: combatAction.target,
-      details: {
-        actionKind: action?.kind ?? 'basic',
-        runtimeId: action?.runtimeId,
-        skillId: action?.skillId,
-        targetPlayerId: action?.targetPlayerId,
-        ...details,
-      },
-    }, options);
+    return recordMonsterActionRejectImpl(this, deps, action, reason, details, options);
   }
 
   recordMonsterActionOutcome(deps, action, target, result: AnyRecord = {}, options = undefined) {
-    const phase = action?.kind === 'skill'
-      ? CombatActionPhase.ChantResolve
-      : action?.kind === 'skill_chant'
-        ? CombatActionPhase.ChantStart
-        : CombatActionPhase.Instant;
-    const combatAction = this.createMonsterAction(action, phase);
-    return this.recordOutcome(deps, {
-      phase,
-      actor: combatAction.actor,
-      actionId: combatAction.actionId,
-      instanceId: combatAction.instanceId,
-      target: target ?? combatAction.target,
-      result: {
-        actionKind: action?.kind ?? 'basic',
-        runtimeId: action?.runtimeId,
-        skillId: action?.skillId,
-        ...result,
-      },
-    }, options);
+    return recordMonsterActionOutcomeImpl(this, deps, action, target, result, options);
   }
 
   formatRejectLog(outcome) {
@@ -3032,35 +1588,7 @@ export class WorldRuntimeCombatActionService {
   }
 }
 
-function beginCombatOutcomePerf(deps: AnyRecord | null | undefined): number | null {
-  return typeof deps?.recordPendingCommandSectionDuration === 'function'
-    ? performance.now()
-    : null;
-}
 
-function recordCombatOutcomePerf(
-  deps: AnyRecord | null | undefined,
-  key: string,
-  startedAt: number | null,
-): void {
-  if (startedAt === null) {
-    return;
-  }
-  const recorder = deps?.recordPendingCommandSectionDuration;
-  if (typeof recorder !== 'function') {
-    return;
-  }
-  const durationMs = performance.now() - startedAt;
-  if (!Number.isFinite(durationMs) || durationMs < 0) {
-    return;
-  }
-  try {
-    recorder(key, durationMs, 1);
-  }
-  catch {
-    // 性能统计失败不能影响权威战斗结算。
-  }
-}
 
 export {
   CombatActionKind,
