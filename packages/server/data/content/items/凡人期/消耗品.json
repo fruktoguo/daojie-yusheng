@@ -6,7 +6,11 @@
     "level": 10,
     "grade": "mortal",
     "tags": [
-      "战斗丹药"
+      "战斗丹药",
+      "消耗品",
+      "药品",
+      "药散",
+      "基础药品"
     ],
     "desc": "细散如新叶初碎，入口温润，能把浅薄伤气缓缓拢回肌理。",
     "consumeBuffs": [
@@ -32,14 +36,24 @@
     "grade": "heaven",
     "desc": "内蕴温和灵机，捏碎后可滋养脚下地脉。使用时为当前所处地块增加 100 点灵力，可批量使用。",
     "tileAuraGainAmount": 100,
-    "allowBatchUse": true
+    "allowBatchUse": true,
+    "tags": [
+      "消耗品",
+      "灵石",
+      "货币"
+    ]
   },
   {
     "itemId": "merit",
     "name": "功德",
     "type": "consumable",
     "grade": "saint",
-    "desc": "天道垂记的无形功业，可在天道商店中兑换稀有物资。"
+    "desc": "天道垂记的无形功业，可在天道商店中兑换稀有物资。",
+    "tags": [
+      "消耗品",
+      "功德",
+      "货币"
+    ]
   },
   {
     "itemId": "pill.huiyuan",
@@ -47,7 +61,13 @@
     "type": "consumable",
     "grade": "yellow",
     "desc": "丹气归元，服用后立即恢复 24 点副本体力。",
-    "staminaAmount": 24
+    "staminaAmount": 24,
+    "tags": [
+      "消耗品",
+      "药品",
+      "丹药",
+      "特殊"
+    ]
   },
   {
     "itemId": "merit_month_card",
@@ -56,7 +76,11 @@
     "grade": "yellow",
     "desc": "使用后为功德月卡总池增加 3000 功德，并将领取时间重置为 30 天；可在背包中批量使用。重复使用会把当前剩余池与新增功德合并后重新计算每日可领取功德。月卡有效期间最大离线挂机时长提升至 72 小时。",
     "allowBatchUse": true,
-    "useBehavior": "activate_merit_month_card"
+    "useBehavior": "activate_merit_month_card",
+    "tags": [
+      "消耗品",
+      "特殊"
+    ]
   },
   {
     "itemId": "merit_eternal",
@@ -65,7 +89,11 @@
     "grade": "saint",
     "desc": "使用后为功德月卡总池增加 90000 功德，并将领取时间重置为 30 天；永久拥有功德月卡权益，每日签到固定池增加 1000 功德，天道商店所有物品打 9 折。只要不被击杀，离线挂机不会因时长耗尽而离场。",
     "allowBatchUse": true,
-    "useBehavior": "activate_merit_eternal"
+    "useBehavior": "activate_merit_eternal",
+    "tags": [
+      "消耗品",
+      "特殊"
+    ]
   },
   {
     "itemId": "formation_disk.mortal",
@@ -75,7 +103,11 @@
     "desc": "通用布阵载体。布阵时消耗 1 个，可承载任意阵法，灵力增幅 1 倍。",
     "formationDiskTier": "mortal",
     "formationDiskMultiplier": 1,
-    "level": 1
+    "level": 1,
+    "tags": [
+      "消耗品",
+      "阵盘"
+    ]
   },
   {
     "itemId": "formation_disk.yellow",
@@ -85,7 +117,11 @@
     "desc": "通用布阵载体。布阵时消耗 1 个，可承载任意阵法，灵力增幅 2 倍。",
     "formationDiskTier": "yellow",
     "formationDiskMultiplier": 2,
-    "level": 13
+    "level": 13,
+    "tags": [
+      "消耗品",
+      "阵盘"
+    ]
   },
   {
     "itemId": "formation_disk.mystic",
@@ -95,7 +131,11 @@
     "desc": "通用布阵载体。布阵时消耗 1 个，可承载任意阵法，灵力增幅 4 倍。",
     "formationDiskTier": "mystic",
     "formationDiskMultiplier": 4,
-    "level": 25
+    "level": 25,
+    "tags": [
+      "消耗品",
+      "阵盘"
+    ]
   },
   {
     "itemId": "formation_disk.earth",
@@ -105,23 +145,35 @@
     "desc": "通用布阵载体。布阵时消耗 1 个，可承载任意阵法，灵力增幅 8 倍。",
     "formationDiskTier": "earth",
     "formationDiskMultiplier": 8,
-    "level": 37
+    "level": 37,
+    "tags": [
+      "消耗品",
+      "阵盘"
+    ]
   },
   {
     "itemId": "sect_founding_token",
     "name": "建宗令",
     "type": "consumable",
-    "grade": "玄阶",
+    "grade": "mystic",
     "desc": "持令可在当前地点开辟宗门山门，并生成独立宗门地图。",
-    "useBehavior": "create_sect"
+    "useBehavior": "create_sect",
+    "tags": [
+      "消耗品",
+      "特殊"
+    ]
   },
   {
     "itemId": "sect_entrance_relocation_token",
     "name": "迁宗令",
     "type": "consumable",
-    "grade": "黄阶",
+    "grade": "yellow",
     "desc": "宗主或副宗主可使用，将本宗山门入口传送阵迁至当前位置；宗门迁移冷却为 3 天，冷却绑定宗门。",
-    "useBehavior": "relocate_sect_entrance"
+    "useBehavior": "relocate_sect_entrance",
+    "tags": [
+      "消耗品",
+      "特殊"
+    ]
   },
   {
     "itemId": "cloud_puff",
@@ -140,6 +192,10 @@
           "moveSpeed": 20
         }
       }
+    ],
+    "tags": [
+      "消耗品",
+      "药品"
     ]
   },
   {
@@ -163,7 +219,13 @@
       }
     ],
     "cooldown": 60,
-    "baselineQiPercent": 1
+    "baselineQiPercent": 1,
+    "tags": [
+      "消耗品",
+      "药品",
+      "丹药",
+      "基础药品"
+    ]
   },
   {
     "itemId": "major_qi_pill",
@@ -186,7 +248,12 @@
       }
     ],
     "cooldown": 60,
-    "baselineQiPercent": 1.5
+    "baselineQiPercent": 1.5,
+    "tags": [
+      "消耗品",
+      "药品",
+      "丹药"
+    ]
   },
   {
     "itemId": "frost_heart_paste",
@@ -209,7 +276,12 @@
       }
     ],
     "cooldown": 60,
-    "baselineHealPercent": 1.5
+    "baselineHealPercent": 1.5,
+    "tags": [
+      "消耗品",
+      "药品",
+      "药膏"
+    ]
   },
   {
     "itemId": "pill.crimson_bud_elixir",
@@ -218,7 +290,10 @@
     "level": 7,
     "grade": "yellow",
     "tags": [
-      "战斗丹药"
+      "战斗丹药",
+      "消耗品",
+      "药品",
+      "丹药"
     ],
     "desc": "服后 2400 息内血勇更盛，即使身死药势也不会散，暴击 +9%。",
     "consumeBuffs": [
@@ -243,7 +318,10 @@
     "level": 12,
     "grade": "mystic",
     "tags": [
-      "战斗丹药"
+      "战斗丹药",
+      "消耗品",
+      "药品",
+      "丹药"
     ],
     "desc": "药力凝在手眼与发力节点，2400 息内破招 +14%、命中 +7%，身死不散。",
     "consumeBuffs": [
@@ -269,7 +347,10 @@
     "level": 13,
     "grade": "mystic",
     "tags": [
-      "战斗丹药"
+      "战斗丹药",
+      "消耗品",
+      "药品",
+      "丹药"
     ],
     "desc": "服后心神澄明，2400 息内命中 +9%、视野 +14%，死亡不消失。",
     "consumeBuffs": [
@@ -295,7 +376,10 @@
     "level": 11,
     "grade": "mystic",
     "tags": [
-      "战斗丹药"
+      "战斗丹药",
+      "消耗品",
+      "药品",
+      "丹药"
     ],
     "desc": "药劲顺着经脉卸到脚下，2400 息内移动速度 +22%、闪避 +7%，死亡不消失。",
     "consumeBuffs": [
@@ -335,6 +419,11 @@
         },
         "statMode": "percent"
       }
+    ],
+    "tags": [
+      "消耗品",
+      "药品",
+      "丹药"
     ]
   },
   {
@@ -343,7 +432,11 @@
     "type": "consumable",
     "level": 1,
     "desc": "描摹新手区域的基础地图。使用后可永久解锁云来初境的完整舆图。",
-    "mapUnlockId": "yunlai_town"
+    "mapUnlockId": "yunlai_town",
+    "tags": [
+      "消耗品",
+      "地图"
+    ]
   },
   {
     "itemId": "map.bamboo_forest",
@@ -351,7 +444,11 @@
     "type": "consumable",
     "level": 3,
     "desc": "记载青竹林野地势与出入口。使用后可永久解锁竹林地图。",
-    "mapUnlockId": "bamboo_forest"
+    "mapUnlockId": "bamboo_forest",
+    "tags": [
+      "消耗品",
+      "地图"
+    ]
   },
   {
     "itemId": "map.wildlands",
@@ -359,7 +456,11 @@
     "type": "consumable",
     "level": 2,
     "desc": "标注荒原地貌、营地遗迹与危险通路。使用后可永久解锁荒原地图。",
-    "mapUnlockId": "wildlands"
+    "mapUnlockId": "wildlands",
+    "tags": [
+      "消耗品",
+      "地图"
+    ]
   },
   {
     "itemId": "map.black_iron_mine",
@@ -367,7 +468,11 @@
     "type": "consumable",
     "level": 4,
     "desc": "矿道分布与竖井方位都被誊录其上。使用后可永久解锁黑铁矿洞地图。",
-    "mapUnlockId": "black_iron_mine"
+    "mapUnlockId": "black_iron_mine",
+    "tags": [
+      "消耗品",
+      "地图"
+    ]
   },
   {
     "itemId": "map.ancient_ruins",
@@ -375,7 +480,11 @@
     "type": "consumable",
     "level": 4,
     "desc": "残缺却仍可辨认主要遗迹轮廓。使用后可永久解锁古遗迹地图。",
-    "mapUnlockId": "ancient_ruins"
+    "mapUnlockId": "ancient_ruins",
+    "tags": [
+      "消耗品",
+      "地图"
+    ]
   },
   {
     "itemId": "map.spirit_ridge",
@@ -383,7 +492,11 @@
     "type": "consumable",
     "level": 5,
     "desc": "绘有山脊、灵穴与险峻通路。使用后可永久解锁灵脉山岭地图。",
-    "mapUnlockId": "spirit_ridge"
+    "mapUnlockId": "spirit_ridge",
+    "tags": [
+      "消耗品",
+      "地图"
+    ]
   },
   {
     "itemId": "map.beast_valley",
@@ -391,7 +504,11 @@
     "type": "consumable",
     "level": 5,
     "desc": "专为猎妖者整理的谷地行图。使用后可永久解锁群兽谷地图。",
-    "mapUnlockId": "beast_valley"
+    "mapUnlockId": "beast_valley",
+    "tags": [
+      "消耗品",
+      "地图"
+    ]
   },
   {
     "itemId": "map.sky_ruins",
@@ -399,7 +516,11 @@
     "type": "consumable",
     "level": 6,
     "desc": "记载高阶遗墟的主要路径与坍塌区域。使用后可永久解锁天阙遗墟地图。",
-    "mapUnlockId": "sky_ruins"
+    "mapUnlockId": "sky_ruins",
+    "tags": [
+      "消耗品",
+      "地图"
+    ]
   },
   {
     "itemId": "fate_stone",
@@ -408,28 +529,48 @@
     "grade": "heaven",
     "level": 1,
     "desc": "以当前地脉落脚处为引的命石。只能在云来镇、栖真渡、云墟台或自己所属宗门使用，使用后会将当前地图设为复活点与遁返落点。",
-    "useBehavior": "bind_current_respawn"
+    "useBehavior": "bind_current_respawn",
+    "tags": [
+      "消耗品",
+      "特殊"
+    ]
   },
   {
     "itemId": "root_seed.heaven",
     "name": "天品灵根幼苗",
     "type": "consumable",
     "desc": "封着五行先天气机的幼苗。使用后会将五行灵根先定为 99，再逐系以 50% 概率催至 100，且至少保底一系为 100；同时逆天改命累计额外增加 10 次。至少需在叩仙门境界使用，基础消耗相当于 10 次逆天改命的底蕴，已有逆天改命积累会等额抵扣。",
-    "spiritualRootSeedTier": "heaven"
+    "spiritualRootSeedTier": "heaven",
+    "tags": [
+      "消耗品",
+      "灵根",
+      "特殊"
+    ]
   },
   {
     "itemId": "root_seed.divine",
     "name": "神品灵根幼苗",
     "type": "consumable",
     "desc": "被道蕴彻底养成的灵根幼苗。使用后会将五行灵根全部固定为 100，同时逆天改命累计额外增加 100 次。至少需在叩仙门境界使用，基础消耗相当于 100 次逆天改命的底蕴，已有逆天改命积累会等额抵扣。",
-    "spiritualRootSeedTier": "divine"
+    "spiritualRootSeedTier": "divine",
+    "tags": [
+      "消耗品",
+      "灵根",
+      "特殊"
+    ]
   },
   {
     "itemId": "pill.shatter_spirit",
     "name": "碎灵丹",
     "type": "consumable",
     "level": 29,
-    "desc": "药力专碎命宫旧痕。使用后会立刻重置天门，清掉当前已开出的灵根结果，并额外增加 1 次逆天改命累计；同时消耗当前境界修为的 25%。至少需在叩仙门境界使用。"
+    "desc": "药力专碎命宫旧痕。使用后会立刻重置天门，清掉当前已开出的灵根结果，并额外增加 1 次逆天改命累计；同时消耗当前境界修为的 25%。至少需在叩仙门境界使用。",
+    "tags": [
+      "消耗品",
+      "药品",
+      "丹药",
+      "灵根"
+    ]
   },
   {
     "itemId": "pill.wangsheng",
@@ -437,6 +578,12 @@
     "type": "consumable",
     "level": 30,
     "grade": "heaven",
-    "desc": "丹成如返照回光，服下后会散尽旧日修为，重归凡胎。使用后境界回到凡胎，境界修为与底蕴归零。"
+    "desc": "丹成如返照回光，服下后会散尽旧日修为，重归凡胎。使用后境界回到凡胎，境界修为与底蕴归零。",
+    "tags": [
+      "消耗品",
+      "药品",
+      "丹药",
+      "特殊"
+    ]
   }
 ]

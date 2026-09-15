@@ -20,7 +20,12 @@
     ],
     "grade": "earth",
     "cooldown": 60,
-    "baselineHealPercent": 2.5
+    "baselineHealPercent": 2.5,
+    "tags": [
+      "消耗品",
+      "药品",
+      "丹药"
+    ]
   },
   {
     "itemId": "pill.foundation_frostspring_qi",
@@ -43,7 +48,12 @@
     ],
     "grade": "earth",
     "cooldown": 60,
-    "baselineQiPercent": 2.5
+    "baselineQiPercent": 2.5,
+    "tags": [
+      "消耗品",
+      "药品",
+      "丹药"
+    ]
   },
   {
     "itemId": "wudao_yujian",
@@ -54,6 +64,10 @@
     "stackable": true,
     "maxStack": 99,
     "grade": "mystic",
-    "useBehavior": "open_technique_generation"
+    "useBehavior": "open_technique_generation",
+    "tags": [
+      "消耗品",
+      "特殊"
+    ]
   }
 ]

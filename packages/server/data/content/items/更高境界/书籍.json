@@ -4,146 +4,295 @@
     "name": "《真元凝丹录》",
     "type": "skill_book",
     "desc": "记载以筑基真元淬药凝丹、一气呵成妙谛的丹道真经。研读后掌握玄阶心法《真元凝丹录》，使炼丹速度提升 16%。",
-    "learnTechniqueId": "passive_craft_foundation_mystic_alchemy"
+    "learnTechniqueId": "passive_craft_foundation_mystic_alchemy",
+    "grade": "mystic",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "技艺",
+      "炼丹"
+    ]
   },
   {
     "itemId": "book.passive_craft_foundation_mystic_forging",
     "name": "《千锤融灵录》",
     "type": "skill_book",
     "desc": "记载将天地灵矿融灵合一、铸炼法器神妙要旨的宝铁玉简。研读后掌握玄阶心法《千锤融灵录》，使锻造速度提升 16%。",
-    "learnTechniqueId": "passive_craft_foundation_mystic_forging"
+    "learnTechniqueId": "passive_craft_foundation_mystic_forging",
+    "grade": "mystic",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "技艺",
+      "炼器"
+    ]
   },
   {
     "itemId": "book.passive_craft_foundation_mystic_enhancement",
     "name": "《注灵凝纹录》",
     "type": "skill_book",
     "desc": "记载以神念真元凌空刻画符纹、注入天地灵性的宝纹录。研读后掌握玄阶心法《注灵凝纹录》，使装备强化速度提升 16%。",
-    "learnTechniqueId": "passive_craft_foundation_mystic_enhancement"
+    "learnTechniqueId": "passive_craft_foundation_mystic_enhancement",
+    "grade": "mystic",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "技艺",
+      "强化"
+    ]
   },
   {
     "itemId": "book.passive_craft_foundation_mystic_mining",
     "name": "《分岳探脉录》",
     "type": "skill_book",
     "desc": "记载以神识穿透重岩厚土、直接锁定宝矿脉眼奥义的青岩简。研读后掌握玄阶心法《分岳探脉录》，使采矿速度提升 16%。",
-    "learnTechniqueId": "passive_craft_foundation_mystic_mining"
+    "learnTechniqueId": "passive_craft_foundation_mystic_mining",
+    "grade": "mystic",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "技艺",
+      "采矿"
+    ]
   },
   {
     "itemId": "book.passive_craft_foundation_mystic_gather",
     "name": "《灵植引脉录》",
     "type": "skill_book",
     "desc": "记载以神念沟通天地灵根、顺应草木脉络采收珍奇宝药奥秘的苍玉简。研读后掌握玄阶心法《灵植引脉录》，使采集速度提升 16%。",
-    "learnTechniqueId": "passive_craft_foundation_mystic_gather"
+    "learnTechniqueId": "passive_craft_foundation_mystic_gather",
+    "grade": "mystic",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "技艺",
+      "采集"
+    ]
   },
   {
     "itemId": "book.passive_craft_foundation_mystic_building",
     "name": "《移山架阁录》",
     "type": "skill_book",
     "desc": "记载借五行灵力移石搬木、凌空架阁建造洞天楼宇法门的鲁班天书。研读后掌握玄阶心法《移山架阁录》，使营造筑造速度提升 16%。",
-    "learnTechniqueId": "passive_craft_foundation_mystic_building"
+    "learnTechniqueId": "passive_craft_foundation_mystic_building",
+    "grade": "mystic",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "技艺",
+      "营造"
+    ]
   },
   {
     "itemId": "book.passive_craft_foundation_mystic_formation",
     "name": "《锁灵定脉录》",
     "type": "skill_book",
     "desc": "记载以神念刻画大衍阵印、直接锁固天地地脉之气成阵妙法的阵道真传。研读后掌握玄阶心法《锁灵定脉录》，使布阵速度提升 16%。",
-    "learnTechniqueId": "passive_craft_foundation_mystic_formation"
+    "learnTechniqueId": "passive_craft_foundation_mystic_formation",
+    "grade": "mystic",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "技艺",
+      "阵法"
+    ]
   },
   {
     "itemId": "book.passive_craft_foundation_mystic_transmission",
     "name": "《神念化法录》",
     "type": "skill_book",
     "desc": "记载筑基期神识传道法门的青玉简。研读后掌握玄阶心法《神念化法录》，使传法授道速度提升 16%。",
-    "learnTechniqueId": "passive_craft_foundation_mystic_transmission"
+    "learnTechniqueId": "passive_craft_foundation_mystic_transmission",
+    "grade": "mystic",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "技艺",
+      "传法"
+    ]
   },
   {
     "itemId": "book.ningqi_chengji",
     "name": "《凝气成基法》",
     "type": "skill_book",
     "desc": "记载凝气成基法的修行法门，使用后学会凝气成基法。",
-    "learnTechniqueId": "ningqi_chengji"
+    "learnTechniqueId": "ningqi_chengji",
+    "grade": "heaven",
+    "tags": [
+      "功法书",
+      "功法",
+      "心法"
+    ]
   },
   {
     "itemId": "book.xuesha_huanling_jue",
     "name": "《血煞唤灵决》",
     "type": "skill_book",
     "desc": "记载血煞唤灵决的修行法门，使用后学会血煞唤灵决。",
-    "learnTechniqueId": "xuesha_huanling_jue"
+    "learnTechniqueId": "xuesha_huanling_jue",
+    "grade": "heaven",
+    "tags": [
+      "功法书",
+      "功法",
+      "秘术"
+    ]
   },
   {
     "itemId": "book.passive_combat_core_earth_metal",
     "name": "《白商经》",
     "type": "skill_book",
     "desc": "孟秋之月，其帝少皞，其神蓐收，其音商，律中夷则，天地始肃。",
-    "learnTechniqueId": "passive_combat_core_earth_metal"
+    "learnTechniqueId": "passive_combat_core_earth_metal",
+    "grade": "earth",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "金行"
+    ]
   },
   {
     "itemId": "book.passive_combat_core_earth_wood",
     "name": "《大椿荣枯》",
     "type": "skill_book",
     "desc": "上古有大椿者，以八千岁为春，八千岁为秋。此大年也。",
-    "learnTechniqueId": "passive_combat_core_earth_wood"
+    "learnTechniqueId": "passive_combat_core_earth_wood",
+    "grade": "earth",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "木行"
+    ]
   },
   {
     "itemId": "book.passive_combat_core_earth_water",
     "name": "《潜渊化生玄冥录》",
     "type": "skill_book",
     "desc": "北冥有鱼，其名为鲲。鲲之大，不知其几千里也；化而为鸟，其名为鹏。",
-    "learnTechniqueId": "passive_combat_core_earth_water"
+    "learnTechniqueId": "passive_combat_core_earth_water",
+    "grade": "earth",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "水行"
+    ]
   },
   {
     "itemId": "book.passive_combat_core_earth_fire",
     "name": "《朱明赫曦篇》",
     "type": "skill_book",
     "desc": "朱明盛遝，赫曦煌煌。炎帝掌节，太昊御方。",
-    "learnTechniqueId": "passive_combat_core_earth_fire"
+    "learnTechniqueId": "passive_combat_core_earth_fire",
+    "grade": "earth",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "火行"
+    ]
   },
   {
     "itemId": "book.passive_combat_core_earth_earth",
     "name": "《含弘镇岳》",
     "type": "skill_book",
     "desc": "地势坤，君子以厚德载物。含弘光大，品物咸亨。",
-    "learnTechniqueId": "passive_combat_core_earth_earth"
+    "learnTechniqueId": "passive_combat_core_earth_earth",
+    "grade": "earth",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "土行"
+    ]
   },
   {
     "itemId": "book.passive_combat_core_earth_physical",
     "name": "《千钧拔山换血古卷》",
     "type": "skill_book",
     "desc": "力拔山兮气盖世，时不利兮骓不逝。",
-    "learnTechniqueId": "passive_combat_core_earth_physical"
+    "learnTechniqueId": "passive_combat_core_earth_physical",
+    "grade": "earth",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "锻体"
+    ]
   },
   {
     "itemId": "book.passive_combat_core_earth_spell",
     "name": "《虚室生白》",
     "type": "skill_book",
     "desc": "瞻彼阕者，虚室生白，吉祥止止。夫绚绚思之，此谓神游。",
-    "learnTechniqueId": "passive_combat_core_earth_spell"
+    "learnTechniqueId": "passive_combat_core_earth_spell",
+    "grade": "earth",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "法术"
+    ]
   },
   {
     "itemId": "book.passive_heaven_devour_vein",
     "name": "《噬脉引》",
     "type": "skill_book",
     "desc": "纳天地之气以为己有，化五行之变以养神精，寒暑不能损，百疾不能侵。",
-    "learnTechniqueId": "passive_heaven_devour_vein"
+    "learnTechniqueId": "passive_heaven_devour_vein",
+    "grade": "heaven",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法"
+    ]
   },
   {
     "itemId": "book.passive_heaven_origin_return",
     "name": "《五炁归元》",
     "type": "skill_book",
     "desc": "散则成气，聚则成形，五气归元，返本还朴，与道合真。",
-    "learnTechniqueId": "passive_heaven_origin_return"
+    "learnTechniqueId": "passive_heaven_origin_return",
+    "grade": "heaven",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法"
+    ]
   },
   {
     "itemId": "book.passive_heaven_death_immunity",
     "name": "《谷神不死》",
     "type": "skill_book",
     "desc": "谷神不死，是谓玄牝。玄牝之门，是谓天地根。绵绵若存，用之不勤。",
-    "learnTechniqueId": "passive_heaven_death_immunity"
+    "learnTechniqueId": "passive_heaven_death_immunity",
+    "grade": "heaven",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法"
+    ]
   },
   {
     "itemId": "book.passive_heaven_avatar_awakening",
     "name": "《在天成象》",
     "type": "skill_book",
     "desc": "在天成象，在地成形，变化见矣。是故刚柔相摩，八卦相荡。",
-    "learnTechniqueId": "passive_heaven_avatar_awakening"
+    "learnTechniqueId": "passive_heaven_avatar_awakening",
+    "grade": "heaven",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法"
+    ]
   }
 ]

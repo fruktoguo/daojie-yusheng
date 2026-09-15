@@ -19,7 +19,12 @@
         "statMode": "percent"
       }
     ],
-    "grade": "yellow"
+    "grade": "yellow",
+    "tags": [
+      "消耗品",
+      "药品",
+      "药散"
+    ]
   },
   {
     "itemId": "recovery_powder",
@@ -42,7 +47,12 @@
       }
     ],
     "cooldown": 60,
-    "baselineQiPercent": 2
+    "baselineQiPercent": 2,
+    "tags": [
+      "消耗品",
+      "药品",
+      "药散"
+    ]
   },
   {
     "itemId": "stabilizing_pellet",
@@ -65,7 +75,12 @@
       }
     ],
     "cooldown": 60,
-    "baselineHealPercent": 2
+    "baselineHealPercent": 2,
+    "tags": [
+      "消耗品",
+      "药品",
+      "丹药"
+    ]
   },
   {
     "itemId": "pill.edge_quenching_powder",
@@ -88,7 +103,12 @@
         "statMode": "percent"
       }
     ],
-    "grade": "mystic"
+    "grade": "mystic",
+    "tags": [
+      "消耗品",
+      "药品",
+      "药散"
+    ]
   },
   {
     "itemId": "pill.chiyang_draught",
@@ -112,7 +132,11 @@
         "statMode": "percent"
       }
     ],
-    "grade": "mystic"
+    "grade": "mystic",
+    "tags": [
+      "消耗品",
+      "药品"
+    ]
   },
   {
     "itemId": "pill.fivephase_harmony_pellet",
@@ -135,7 +159,12 @@
         "statMode": "percent"
       }
     ],
-    "grade": "earth"
+    "grade": "earth",
+    "tags": [
+      "消耗品",
+      "药品",
+      "丹药"
+    ]
   },
   {
     "itemId": "pill.breakmirror_pellet",
@@ -166,7 +195,12 @@
         "statMode": "percent"
       }
     ],
-    "grade": "earth"
+    "grade": "earth",
+    "tags": [
+      "消耗品",
+      "药品",
+      "丹药"
+    ]
   },
   {
     "itemId": "pill.ningxiang",
@@ -217,6 +251,11 @@
         },
         "statMode": "flat"
       }
+    ],
+    "tags": [
+      "消耗品",
+      "药品",
+      "丹药"
     ]
   },
   {
@@ -225,7 +264,11 @@
     "type": "consumable",
     "level": 7,
     "desc": "记着栖真渡三重错台、行修街和五行出入口的主城街图。使用后可永久解锁栖真渡地图。",
-    "mapUnlockId": "qizhen_crossing"
+    "mapUnlockId": "qizhen_crossing",
+    "tags": [
+      "消耗品",
+      "地图"
+    ]
   },
   {
     "itemId": "map.deepvein_ridge",
@@ -233,7 +276,11 @@
     "type": "consumable",
     "level": 7,
     "desc": "描出厚脉岭外坪、裂坡和采脉险路。使用后可永久解锁厚脉岭地图。",
-    "mapUnlockId": "deepvein_ridge"
+    "mapUnlockId": "deepvein_ridge",
+    "tags": [
+      "消耗品",
+      "地图"
+    ]
   },
   {
     "itemId": "map.cold_tide_marsh",
@@ -241,7 +288,11 @@
     "type": "consumable",
     "level": 8,
     "desc": "按雾桥、水线和寒核方位誊录的行图。使用后可永久解锁寒汐泽地图。",
-    "mapUnlockId": "cold_tide_marsh"
+    "mapUnlockId": "cold_tide_marsh",
+    "tags": [
+      "消耗品",
+      "地图"
+    ]
   },
   {
     "itemId": "map.verdant_vine_vale",
@@ -256,6 +307,10 @@
       "verdant_vine_vale_04_garden",
       "verdant_vine_vale_05_inner_hollow",
       "verdant_vine_vale_06_heart_gate"
+    ],
+    "tags": [
+      "消耗品",
+      "地图"
     ]
   },
   {
@@ -264,7 +319,11 @@
     "type": "consumable",
     "level": 9,
     "desc": "火路台阶、炉庭转折和退路都被压进了这张旧图。使用后可永久解锁赤陨庭地图。",
-    "mapUnlockId": "emberfall_court"
+    "mapUnlockId": "emberfall_court",
+    "tags": [
+      "消耗品",
+      "地图"
+    ]
   },
   {
     "itemId": "map.cleft_blade_plain",
@@ -272,7 +331,11 @@
     "type": "consumable",
     "level": 9,
     "desc": "按残阵、砂兵线和断兵冢口整理出的长线战图。使用后可永久解锁裂锋原地图。",
-    "mapUnlockId": "cleft_blade_plain"
+    "mapUnlockId": "cleft_blade_plain",
+    "tags": [
+      "消耗品",
+      "地图"
+    ]
   },
   {
     "itemId": "map.guizang_vein_cavern",
@@ -280,6 +343,10 @@
     "type": "consumable",
     "level": 10,
     "desc": "窟内归窍支路、断脉井与回渡节点都被细细标出。使用后可永久解锁归藏脉窟地图。",
-    "mapUnlockId": "guizang_vein_cavern"
+    "mapUnlockId": "guizang_vein_cavern",
+    "tags": [
+      "消耗品",
+      "地图"
+    ]
   }
 ]

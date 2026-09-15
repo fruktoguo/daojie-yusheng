@@ -11,7 +11,11 @@
       "physAtk": 115,
       "hit": 65,
       "breakPower": 70
-    }
+    },
+    "tags": [
+      "装备",
+      "武器"
+    ]
   },
   {
     "itemId": "equip.foundation_cold_abyss_spell_ruler",
@@ -25,7 +29,11 @@
       "spellAtk": 115,
       "hit": 60,
       "maxQiOutputPerTick": 70
-    }
+    },
+    "tags": [
+      "装备",
+      "武器"
+    ]
   },
   {
     "itemId": "equip.foundation_mixed_dual_sword",
@@ -40,7 +48,11 @@
       "spellAtk": 85,
       "hit": 55,
       "maxQiOutputPerTick": 45
-    }
+    },
+    "tags": [
+      "装备",
+      "武器"
+    ]
   },
   {
     "itemId": "equip.foundation_frostsplit_crit_blade",
@@ -55,7 +67,11 @@
       "hit": 45,
       "crit": 65,
       "critDamage": 35
-    }
+    },
+    "tags": [
+      "装备",
+      "武器"
+    ]
   },
   {
     "itemId": "equip.foundation_returnbreath_cooldown_staff",
@@ -70,7 +86,11 @@
       "cooldownSpeed": 90,
       "qiRegenRate": 70,
       "hpRegenRate": 35
-    }
+    },
+    "tags": [
+      "装备",
+      "武器"
+    ]
   },
   {
     "itemId": "equip.foundation_coldiron_heavy_helm",
@@ -84,7 +104,11 @@
       "maxHp": 35,
       "physDef": 115,
       "antiCrit": 45
-    }
+    },
+    "tags": [
+      "装备",
+      "帽子"
+    ]
   },
   {
     "itemId": "equip.foundation_iceheart_spell_crown",
@@ -98,7 +122,11 @@
       "maxQi": 40,
       "spellDef": 115,
       "resolvePower": 60
-    }
+    },
+    "tags": [
+      "装备",
+      "帽子"
+    ]
   },
   {
     "itemId": "equip.foundation_mixed_guard_crown",
@@ -112,7 +140,11 @@
       "physDef": 80,
       "spellDef": 80,
       "antiCrit": 45
-    }
+    },
+    "tags": [
+      "装备",
+      "帽子"
+    ]
   },
   {
     "itemId": "equip.foundation_darksoil_life_helm",
@@ -125,7 +157,11 @@
     "equipBaselinePercents": {
       "maxHp": 110,
       "hpRegenRate": 60
-    }
+    },
+    "tags": [
+      "装备",
+      "帽子"
+    ]
   },
   {
     "itemId": "equip.foundation_inverse_life_war_crown",
@@ -142,7 +178,11 @@
       "physAtk": 50,
       "spellAtk": 50,
       "crit": 35
-    }
+    },
+    "tags": [
+      "装备",
+      "帽子"
+    ]
   },
   {
     "itemId": "equip.foundation_ironshell_plate",
@@ -156,7 +196,11 @@
       "maxHp": 60,
       "physDef": 120,
       "antiCrit": 45
-    }
+    },
+    "tags": [
+      "装备",
+      "护甲"
+    ]
   },
   {
     "itemId": "equip.foundation_turtle_spell_robe",
@@ -170,7 +214,11 @@
       "maxQi": 50,
       "spellDef": 120,
       "resolvePower": 70
-    }
+    },
+    "tags": [
+      "装备",
+      "护甲"
+    ]
   },
   {
     "itemId": "equip.foundation_mixed_body_armor",
@@ -184,7 +232,11 @@
       "maxHp": 40,
       "physDef": 85,
       "spellDef": 85
-    }
+    },
+    "tags": [
+      "装备",
+      "护甲"
+    ]
   },
   {
     "itemId": "equip.foundation_abyss_life_armor",
@@ -198,7 +250,11 @@
       "maxHp": 130,
       "hpRegenRate": 60,
       "qiRegenRate": 30
-    }
+    },
+    "tags": [
+      "装备",
+      "护甲"
+    ]
   },
   {
     "itemId": "equip.foundation_devour_attack_armor",
@@ -214,7 +270,11 @@
       "spellDef": -45,
       "physAtk": 65,
       "spellAtk": 65
-    }
+    },
+    "tags": [
+      "装备",
+      "护甲"
+    ]
   },
   {
     "itemId": "equip.foundation_dragonstride_boots",
@@ -227,7 +287,11 @@
     "equipBaselinePercents": {
       "moveSpeed": 120,
       "dodge": 45
-    }
+    },
+    "tags": [
+      "装备",
+      "鞋子"
+    ]
   },
   {
     "itemId": "equip.foundation_returnflow_boots",
@@ -240,7 +304,11 @@
     "equipBaselinePercents": {
       "cooldownSpeed": 105,
       "moveSpeed": 70
-    }
+    },
+    "tags": [
+      "装备",
+      "鞋子"
+    ]
   },
   {
     "itemId": "equip.foundation_returnflow_pendant",
@@ -253,7 +321,11 @@
     "equipBaselinePercents": {
       "cooldownSpeed": 90,
       "qiRegenRate": 50
-    }
+    },
+    "tags": [
+      "装备",
+      "饰品"
+    ]
   },
   {
     "itemId": "equip.foundation_mountainbreaker_ring",
@@ -267,7 +339,11 @@
       "physAtk": 85,
       "hit": 45,
       "breakPower": 55
-    }
+    },
+    "tags": [
+      "装备",
+      "饰品"
+    ]
   },
   {
     "itemId": "equip.foundation_flameheart_charm",
@@ -281,7 +357,11 @@
       "spellAtk": 85,
       "hit": 45,
       "maxQiOutputPerTick": 55
-    }
+    },
+    "tags": [
+      "装备",
+      "饰品"
+    ]
   },
   {
     "itemId": "equip.foundation_fivephase_output_pendant",
@@ -294,7 +374,11 @@
     "equipBaselinePercents": {
       "maxQiOutputPerTick": 100,
       "spellAtk": 45
-    }
+    },
+    "tags": [
+      "装备",
+      "饰品"
+    ]
   },
   {
     "itemId": "equip.foundation_quiet_cultivation_pendant",
@@ -307,7 +391,11 @@
     "equipBaselinePercents": {
       "realmExpPerTick": 110,
       "techniqueExpPerTick": 110
-    }
+    },
+    "tags": [
+      "装备",
+      "饰品"
+    ]
   },
   {
     "itemId": "equip.foundation_burning_origin_furnace",
@@ -318,7 +406,9 @@
     "desc": "炉心以焚王余烬压火，能承受筑基期更烈的药性冲突。",
     "equipSlot": "technique_alchemy",
     "tags": [
-      "alchemy_furnace"
+      "丹炉",
+      "装备",
+      "技艺工具"
     ],
     "contextActions": [
       {
@@ -345,7 +435,9 @@
     "desc": "钳身深铁纹路极稳，夹住高阶器胚时不易炸纹。",
     "equipSlot": "technique_forging",
     "tags": [
-      "forging_tool"
+      "炼器钳",
+      "装备",
+      "技艺工具"
     ],
     "contextActions": [
       {
@@ -372,7 +464,9 @@
     "desc": "锤面覆玄壤精土，落锤时能把强化余震压回器身。",
     "equipSlot": "technique_enhancement",
     "tags": [
-      "enhancement_hammer"
+      "强化锤",
+      "装备",
+      "技艺工具"
     ],
     "contextActions": [
       {
@@ -399,7 +493,9 @@
     "desc": "镐身带地龙脊骨纹，能顺着深层矿脉撬开厚壳。",
     "equipSlot": "technique_mining",
     "tags": [
-      "mining_pickaxe"
+      "矿镐",
+      "装备",
+      "技艺工具"
     ],
     "contextActions": [
       {
@@ -430,7 +526,9 @@
     "desc": "锤内混元脉石与木火精华相冲相合，适合压定筑基建筑地基。",
     "equipSlot": "technique_building",
     "tags": [
-      "building_hammer"
+      "营造锤",
+      "装备",
+      "技艺工具"
     ],
     "contextActions": [
       {

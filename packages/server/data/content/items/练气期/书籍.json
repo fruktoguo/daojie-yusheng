@@ -4,454 +4,881 @@
     "name": "《灵火调药诀》",
     "type": "skill_book",
     "desc": "记载操控地火灵焰、温养药性之法的控火丹诀。研读后掌握黄阶心法《灵火调药诀》，使炼丹速度提升 12%。",
-    "learnTechniqueId": "passive_craft_qi_yellow_alchemy"
+    "learnTechniqueId": "passive_craft_qi_yellow_alchemy",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "技艺",
+      "炼丹"
+    ]
   },
   {
     "itemId": "book.passive_craft_qi_yellow_forging",
     "name": "《火精锻金诀》",
     "type": "skill_book",
     "desc": "记载引聚炉火精气软化顽铁、塑形神兵法门的心法书卷。研读后掌握黄阶心法《火精锻金诀》，使锻造速度提升 12%。",
-    "learnTechniqueId": "passive_craft_qi_yellow_forging"
+    "learnTechniqueId": "passive_craft_qi_yellow_forging",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "技艺",
+      "炼器"
+    ]
   },
   {
     "itemId": "book.passive_craft_qi_yellow_enhancement",
     "name": "《淬灵附煞诀》",
     "type": "skill_book",
     "desc": "记载引聚灵煞淬入器胎、稳固器纹法门的强化秘诀。研读后掌握黄阶心法《淬灵附煞诀》，使装备强化速度提升 12%。",
-    "learnTechniqueId": "passive_craft_qi_yellow_enhancement"
+    "learnTechniqueId": "passive_craft_qi_yellow_enhancement",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "技艺",
+      "强化"
+    ]
   },
   {
     "itemId": "book.passive_craft_qi_yellow_mining",
     "name": "《地脉寻金诀》",
     "type": "skill_book",
     "desc": "记载借微弱灵气感知地下金玉之气走向法门的寻脉诀。研读后掌握黄阶心法《地脉寻金诀》，使采矿速度提升 12%。",
-    "learnTechniqueId": "passive_craft_qi_yellow_mining"
+    "learnTechniqueId": "passive_craft_qi_yellow_mining",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "技艺",
+      "采矿"
+    ]
   },
   {
     "itemId": "book.passive_craft_qi_yellow_gather",
     "name": "《青灵采撷诀》",
     "type": "skill_book",
     "desc": "记载以木行灵气包裹草木、避免灵气流失采摘法门的采药诀。研读后掌握黄阶心法《青灵采撷诀》，使采集速度提升 12%。",
-    "learnTechniqueId": "passive_craft_qi_yellow_gather"
+    "learnTechniqueId": "passive_craft_qi_yellow_gather",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "技艺",
+      "采集"
+    ]
   },
   {
     "itemId": "book.passive_craft_qi_yellow_building",
     "name": "《理气筑基诀》",
     "type": "skill_book",
     "desc": "记载引地脉风水灵气夯实地基、稳固梁柱法门的营造秘卷。研读后掌握黄阶心法《理气筑基诀》，使营造筑造速度提升 12%。",
-    "learnTechniqueId": "passive_craft_qi_yellow_building"
+    "learnTechniqueId": "passive_craft_qi_yellow_building",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "技艺",
+      "营造"
+    ]
   },
   {
     "itemId": "book.passive_craft_qi_yellow_formation",
     "name": "《走盘引阵诀》",
     "type": "skill_book",
     "desc": "记载御使阵盘引动八卦方位、瞬息连通阵纹法门的阵道要诀。研读后掌握黄阶心法《走盘引阵诀》，使布阵速度提升 12%。",
-    "learnTechniqueId": "passive_craft_qi_yellow_formation"
+    "learnTechniqueId": "passive_craft_qi_yellow_formation",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "技艺",
+      "阵法"
+    ]
   },
   {
     "itemId": "book.passive_craft_qi_yellow_transmission",
     "name": "《口传心授诀》",
     "type": "skill_book",
     "desc": "记载以气机共鸣辅助口诀讲授、助人破障明理之法的心印诀。研读后掌握黄阶心法《口传心授诀》，使传法授道速度提升 12%。",
-    "learnTechniqueId": "passive_craft_qi_yellow_transmission"
+    "learnTechniqueId": "passive_craft_qi_yellow_transmission",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "技艺",
+      "传法"
+    ]
   },
   {
     "itemId": "book.genghua_ningfeng",
     "name": "《庚华凝锋诀》",
     "type": "skill_book",
     "desc": "记载庚华凝锋诀的修行法门，使用后学会庚华凝锋诀。",
-    "learnTechniqueId": "genghua_ningfeng"
+    "learnTechniqueId": "genghua_ningfeng",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法"
+    ]
   },
   {
     "itemId": "book.guicang_hemai",
     "name": "《归藏合脉经》",
     "type": "skill_book",
     "desc": "记载归藏合脉经的修行法门，使用后学会归藏合脉经。",
-    "learnTechniqueId": "guicang_hemai"
+    "learnTechniqueId": "guicang_hemai",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法"
+    ]
   },
   {
     "itemId": "book.hanxi_ximai",
     "name": "《寒汐洗脉法》",
     "type": "skill_book",
     "desc": "记载寒汐洗脉法的修行法门，使用后学会寒汐洗脉法。",
-    "learnTechniqueId": "hanxi_ximai"
+    "learnTechniqueId": "hanxi_ximai",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法"
+    ]
   },
   {
     "itemId": "book.houtu_chengyuan",
     "name": "《厚土承元功》",
     "type": "skill_book",
     "desc": "记载厚土承元功的修行法门，使用后学会厚土承元功。",
-    "learnTechniqueId": "houtu_chengyuan"
+    "learnTechniqueId": "houtu_chengyuan",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法"
+    ]
   },
   {
     "itemId": "book.liyan_duanxi",
     "name": "《离炎锻息诀》",
     "type": "skill_book",
     "desc": "记载离炎锻息诀的修行法门，使用后学会离炎锻息诀。",
-    "learnTechniqueId": "liyan_duanxi"
+    "learnTechniqueId": "liyan_duanxi",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法"
+    ]
   },
   {
     "itemId": "book.qingmu_yangmai",
     "name": "《青木养脉篇》",
     "type": "skill_book",
     "desc": "记载青木养脉篇的修行法门，使用后学会青木养脉篇。",
-    "learnTechniqueId": "qingmu_yangmai"
+    "learnTechniqueId": "qingmu_yangmai",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法"
+    ]
   },
   {
     "itemId": "book.dimai_fumai",
     "name": "《地脉覆脉术》",
     "type": "skill_book",
     "desc": "记载地脉覆脉术的修行法门，使用后学会地脉覆脉术。",
-    "learnTechniqueId": "dimai_fumai"
+    "learnTechniqueId": "dimai_fumai",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "心法"
+    ]
   },
   {
     "itemId": "book.duanjin_zhuixing",
     "name": "《断金追星术》",
     "type": "skill_book",
     "desc": "记载断金追星术的修行法门，使用后学会断金追星术。",
-    "learnTechniqueId": "duanjin_zhuixing"
+    "learnTechniqueId": "duanjin_zhuixing",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "心法"
+    ]
   },
   {
     "itemId": "book.manzhi_jiaoluo",
     "name": "《蔓织绞络术》",
     "type": "skill_book",
     "desc": "记载蔓织绞络术的修行法门，使用后学会蔓织绞络术。",
-    "learnTechniqueId": "manzhi_jiaoluo"
+    "learnTechniqueId": "manzhi_jiaoluo",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "心法"
+    ]
   },
   {
     "itemId": "book.xuanjing_luoyin",
     "name": "《玄镜落印诀》",
     "type": "skill_book",
     "desc": "记载玄镜落印诀的修行法门，使用后学会玄镜落印诀。",
-    "learnTechniqueId": "xuanjing_luoyin"
+    "learnTechniqueId": "xuanjing_luoyin",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "心法"
+    ]
   },
   {
     "itemId": "book.yaohuo_liebo",
     "name": "《曜火裂波术》",
     "type": "skill_book",
     "desc": "记载曜火裂波术的修行法门，使用后学会曜火裂波术。",
-    "learnTechniqueId": "yaohuo_liebo"
+    "learnTechniqueId": "yaohuo_liebo",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "心法"
+    ]
   },
   {
     "itemId": "book.tingmai_dingxi",
     "name": "《听脉定息诀》",
     "type": "skill_book",
     "desc": "记载听脉定息诀的修行法门，使用后学会听脉定息诀。",
-    "learnTechniqueId": "tingmai_dingxi"
+    "learnTechniqueId": "tingmai_dingxi",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法"
+    ]
   },
   {
     "itemId": "book.chiqi_ranqiao",
     "name": "《赤息燃窍功》",
     "type": "skill_book",
     "desc": "记载赤息燃窍功的修行法门，使用后学会赤息燃窍功。",
-    "learnTechniqueId": "chiqi_ranqiao"
+    "learnTechniqueId": "chiqi_ranqiao",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "心法"
+    ]
   },
   {
     "itemId": "book.jinluo_lifeng",
     "name": "《金络砺锋功》",
     "type": "skill_book",
     "desc": "记载金络砺锋功的修行法门，使用后学会金络砺锋功。",
-    "learnTechniqueId": "jinluo_lifeng"
+    "learnTechniqueId": "jinluo_lifeng",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "心法"
+    ]
   },
   {
     "itemId": "book.ningchao_hushen",
     "name": "《凝潮护身经》",
     "type": "skill_book",
     "desc": "记载凝潮护身经的修行法门，使用后学会凝潮护身经。",
-    "learnTechniqueId": "ningchao_hushen"
+    "learnTechniqueId": "ningchao_hushen",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "心法"
+    ]
   },
   {
     "itemId": "book.qingteng_huixi",
     "name": "《青藤回息诀》",
     "type": "skill_book",
     "desc": "记载青藤回息诀的修行法门，使用后学会青藤回息诀。",
-    "learnTechniqueId": "qingteng_huixi"
+    "learnTechniqueId": "qingteng_huixi",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "心法"
+    ]
   },
   {
     "itemId": "book.zhenyue_huyuan",
     "name": "《镇岳护元诀》",
     "type": "skill_book",
     "desc": "记载镇岳护元诀的修行法门，使用后学会镇岳护元诀。",
-    "learnTechniqueId": "zhenyue_huyuan"
+    "learnTechniqueId": "zhenyue_huyuan",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "心法"
+    ]
   },
   {
     "itemId": "book.baihong_duanyue",
     "name": "《白虹断岳典》",
     "type": "skill_book",
     "desc": "记载白虹断岳典的修行法门，使用后学会白虹断岳典。",
-    "learnTechniqueId": "baihong_duanyue"
+    "learnTechniqueId": "baihong_duanyue",
+    "grade": "mystic",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法"
+    ]
   },
   {
     "itemId": "book.chiyao_fenmai",
     "name": "《赤曜焚脉篇》",
     "type": "skill_book",
     "desc": "记载赤曜焚脉篇的修行法门，使用后学会赤曜焚脉篇。",
-    "learnTechniqueId": "chiyao_fenmai"
+    "learnTechniqueId": "chiyao_fenmai",
+    "grade": "mystic",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法"
+    ]
   },
   {
     "itemId": "book.kunyue_zhenhai",
     "name": "《坤岳镇海篇》",
     "type": "skill_book",
     "desc": "记载坤岳镇海篇的修行法门，使用后学会坤岳镇海篇。",
-    "learnTechniqueId": "kunyue_zhenhai"
+    "learnTechniqueId": "kunyue_zhenhai",
+    "grade": "mystic",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法"
+    ]
   },
   {
     "itemId": "book.wanzhi_huichun",
     "name": "《万枝回春卷》",
     "type": "skill_book",
     "desc": "记载万枝回春卷的修行法门，使用后学会万枝回春卷。",
-    "learnTechniqueId": "wanzhi_huichun"
+    "learnTechniqueId": "wanzhi_huichun",
+    "grade": "mystic",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法"
+    ]
   },
   {
     "itemId": "book.wuqi_guiliu",
     "name": "《五炁归流篇》",
     "type": "skill_book",
     "desc": "记载五炁归流篇的修行法门，使用后学会五炁归流篇。",
-    "learnTechniqueId": "wuqi_guiliu"
+    "learnTechniqueId": "wuqi_guiliu",
+    "grade": "mystic",
+    "tags": [
+      "功法书",
+      "功法",
+      "心法"
+    ]
   },
   {
     "itemId": "book.xuanjin_huilan",
     "name": "《玄津回澜录》",
     "type": "skill_book",
     "desc": "记载玄津回澜录的修行法门，使用后学会玄津回澜录。",
-    "learnTechniqueId": "xuanjin_huilan"
+    "learnTechniqueId": "xuanjin_huilan",
+    "grade": "mystic",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法"
+    ]
   },
   {
     "itemId": "book.zhoutian_xihai",
     "name": "《周天息海篇》",
     "type": "skill_book",
     "desc": "记载周天息海篇的修行法门，使用后学会周天息海篇。",
-    "learnTechniqueId": "zhoutian_xihai"
+    "learnTechniqueId": "zhoutian_xihai",
+    "grade": "mystic",
+    "tags": [
+      "功法书",
+      "功法",
+      "心法"
+    ]
   },
   {
     "itemId": "book.wildsunder_chart",
     "name": "《八荒裂岳图》",
     "type": "skill_book",
     "desc": "记载八荒裂岳图的修行法门，使用后学会八荒裂岳图。",
-    "learnTechniqueId": "wildsunder_chart"
+    "learnTechniqueId": "wildsunder_chart",
+    "grade": "mystic",
+    "tags": [
+      "功法书",
+      "功法",
+      "神通"
+    ]
   },
   {
     "itemId": "book.voidflame_chapter",
     "name": "《太虚劫光篇》",
     "type": "skill_book",
     "desc": "记载太虚劫光篇的修行法门，使用后学会太虚劫光篇。",
-    "learnTechniqueId": "voidflame_chapter"
+    "learnTechniqueId": "voidflame_chapter",
+    "grade": "mystic",
+    "tags": [
+      "功法书",
+      "功法",
+      "神通"
+    ]
   },
   {
     "itemId": "book.huangting_zaishan",
     "name": "《黄庭载山经》",
     "type": "skill_book",
     "desc": "记载黄庭载山经的修行法门，使用后学会黄庭载山经。",
-    "learnTechniqueId": "huangting_zaishan"
+    "learnTechniqueId": "huangting_zaishan",
+    "grade": "earth",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法"
+    ]
   },
   {
     "itemId": "book.hunyuan_zaimai",
     "name": "《混元载脉图》",
     "type": "skill_book",
     "desc": "记载混元载脉图的修行法门，使用后学会混元载脉图。",
-    "learnTechniqueId": "hunyuan_zaimai"
+    "learnTechniqueId": "hunyuan_zaimai",
+    "grade": "earth",
+    "tags": [
+      "功法书",
+      "功法",
+      "心法"
+    ]
   },
   {
     "itemId": "book.taibai_zhuxing",
     "name": "《太白诛形录》",
     "type": "skill_book",
     "desc": "记载太白诛形录的修行法门，使用后学会太白诛形录。",
-    "learnTechniqueId": "taibai_zhuxing"
+    "learnTechniqueId": "taibai_zhuxing",
+    "grade": "earth",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法"
+    ]
   },
   {
     "itemId": "book.taiyin_guichao",
     "name": "《太阴归潮经》",
     "type": "skill_book",
     "desc": "记载太阴归潮经的修行法门，使用后学会太阴归潮经。",
-    "learnTechniqueId": "taiyin_guichao"
+    "learnTechniqueId": "taiyin_guichao",
+    "grade": "earth",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法"
+    ]
   },
   {
     "itemId": "book.changsheng_chanyuan",
     "name": "《长生缠元经》",
     "type": "skill_book",
     "desc": "记载长生缠元经的修行法门，使用后学会长生缠元经。",
-    "learnTechniqueId": "changsheng_chanyuan"
+    "learnTechniqueId": "changsheng_chanyuan",
+    "grade": "earth",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法"
+    ]
   },
   {
     "itemId": "book.zhuming_jintian",
     "name": "《朱明烬天录》",
     "type": "skill_book",
     "desc": "记载朱明烬天录的修行法门，使用后学会朱明烬天录。",
-    "learnTechniqueId": "zhuming_jintian"
+    "learnTechniqueId": "zhuming_jintian",
+    "grade": "earth",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法"
+    ]
   },
   {
     "itemId": "book.yi_kunlun",
     "name": "《移昆仑》",
     "type": "skill_book",
     "desc": "记载移昆仑的修行法门，使用后学会移昆仑。",
-    "learnTechniqueId": "yi_kunlun"
+    "learnTechniqueId": "yi_kunlun",
+    "grade": "mystic",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法"
+    ]
   },
   {
     "itemId": "book.taichu_baoyuan",
     "name": "《太初抱元章》",
     "type": "skill_book",
     "desc": "记载太初抱元章的修行法门，使用后学会太初抱元章。",
-    "learnTechniqueId": "taichu_baoyuan"
+    "learnTechniqueId": "taichu_baoyuan",
+    "grade": "earth",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法"
+    ]
   },
   {
     "itemId": "book.passive_combat_mortal_mortal_metal",
     "name": "《折铁断锋篇》",
     "type": "skill_book",
     "desc": "记载凡俗铁匠感悟金气所创的折铁刀谱。研读后掌握凡阶被动心法《折铁断锋篇》，提升金系攻势与暴击。",
-    "learnTechniqueId": "passive_combat_mortal_mortal_metal"
+    "learnTechniqueId": "passive_combat_mortal_mortal_metal",
+    "grade": "mortal",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "金行"
+    ]
   },
   {
     "itemId": "book.passive_combat_mortal_mortal_wood",
     "name": "《问木折青篇》",
     "type": "skill_book",
     "desc": "记载草木逢春、折枝生青之理的草木残篇。研读后掌握凡阶被动心法《问木折青篇》，提升气血自愈与闪避。",
-    "learnTechniqueId": "passive_combat_mortal_mortal_wood"
+    "learnTechniqueId": "passive_combat_mortal_mortal_wood",
+    "grade": "mortal",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "木行"
+    ]
   },
   {
     "itemId": "book.passive_combat_mortal_mortal_water",
     "name": "《溯流引泉篇》",
     "type": "skill_book",
     "desc": "记载观溪流曲折、溯水寻源之理的羊皮卷。研读后掌握凡阶被动心法《溯流引泉篇》，提升法防与抗暴。",
-    "learnTechniqueId": "passive_combat_mortal_mortal_water"
+    "learnTechniqueId": "passive_combat_mortal_mortal_water",
+    "grade": "mortal",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "水行"
+    ]
   },
   {
     "itemId": "book.passive_combat_mortal_mortal_fire",
     "name": "《燃薪淬息篇》",
     "type": "skill_book",
     "desc": "记载樵夫引火燃薪、聚热淬息经验的古拙薄册。研读后掌握凡阶被动心法《燃薪淬息篇》，提升法术攻击与暴伤。",
-    "learnTechniqueId": "passive_combat_mortal_mortal_fire"
+    "learnTechniqueId": "passive_combat_mortal_mortal_fire",
+    "grade": "mortal",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "火行"
+    ]
   },
   {
     "itemId": "book.passive_combat_mortal_mortal_earth",
     "name": "《盘根立地篇》",
     "type": "skill_book",
     "desc": "记载如老树盘根、稳立大地之理的石刻拓本。研读后掌握凡阶被动心法《盘根立地篇》，提升物理防御与化劲。",
-    "learnTechniqueId": "passive_combat_mortal_mortal_earth"
+    "learnTechniqueId": "passive_combat_mortal_mortal_earth",
+    "grade": "mortal",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "土行"
+    ]
   },
   {
     "itemId": "book.passive_combat_mortal_mortal_physical",
     "name": "《磨筋铸骨谱》",
     "type": "skill_book",
     "desc": "记载凡俗武者打熬筋骨、易筋锻骨之法的皮卷。研读后掌握凡阶被动心法《磨筋铸骨谱》，提升物理攻击、防御与破劲。",
-    "learnTechniqueId": "passive_combat_mortal_mortal_physical"
+    "learnTechniqueId": "passive_combat_mortal_mortal_physical",
+    "grade": "mortal",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "锻体"
+    ]
   },
   {
     "itemId": "book.passive_combat_mortal_mortal_spell",
     "name": "《识微明眸篇》",
     "type": "skill_book",
     "desc": "记载平心静气、观察入微、见微知著经验的清心经册。研读后掌握凡阶被动心法《识微明眸篇》，提升法术攻击、法防、命中与化劲。",
-    "learnTechniqueId": "passive_combat_mortal_mortal_spell"
+    "learnTechniqueId": "passive_combat_mortal_mortal_spell",
+    "grade": "mortal",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "法术"
+    ]
   },
   {
     "itemId": "book.passive_combat_qi_yellow_metal",
     "name": "《庚金煞灵引》",
     "type": "skill_book",
     "desc": "记载引聚庚金地煞凝练锋芒之法的道诀。研读后掌握黄阶被动心法《庚金煞灵引》，提升金系攻势与暴击。",
-    "learnTechniqueId": "passive_combat_qi_yellow_metal"
+    "learnTechniqueId": "passive_combat_qi_yellow_metal",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "金行"
+    ]
   },
   {
     "itemId": "book.passive_combat_qi_yellow_wood",
     "name": "《乙木岁荣诀》",
     "type": "skill_book",
     "desc": "记载乙木荣枯流转、向阳而生之意的青玉书册。研读后掌握黄阶被动心法《乙木岁荣诀》，提升气血自愈与闪避。",
-    "learnTechniqueId": "passive_combat_qi_yellow_wood"
+    "learnTechniqueId": "passive_combat_qi_yellow_wood",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "木行"
+    ]
   },
   {
     "itemId": "book.passive_combat_qi_yellow_water",
     "name": "《沧浪叠韵诀》",
     "type": "skill_book",
     "desc": "记载水势叠浪、绵延不绝之妙的水纹锦绢。研读后掌握黄阶被动心法《沧浪叠韵诀》，提升法防与抗暴。",
-    "learnTechniqueId": "passive_combat_qi_yellow_water"
+    "learnTechniqueId": "passive_combat_qi_yellow_water",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "水行"
+    ]
   },
   {
     "itemId": "book.passive_combat_qi_yellow_fire",
     "name": "《朱雀焚炎引》",
     "type": "skill_book",
     "desc": "记载引聚朱雀地火精煞助燃法力之法的赤色竹简。研读后掌握黄阶被动心法《朱雀焚炎引》，提升法术攻击与暴伤。",
-    "learnTechniqueId": "passive_combat_qi_yellow_fire"
+    "learnTechniqueId": "passive_combat_qi_yellow_fire",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "火行"
+    ]
   },
   {
     "itemId": "book.passive_combat_qi_yellow_earth",
     "name": "《玄黄镇岳诀》",
     "type": "skill_book",
     "desc": "记载借地脉玄黄厚重之气镇守周身的心法书册。研读后掌握黄阶被动心法《玄黄镇岳诀》，提升物理防御与化劲。",
-    "learnTechniqueId": "passive_combat_qi_yellow_earth"
+    "learnTechniqueId": "passive_combat_qi_yellow_earth",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "土行"
+    ]
   },
   {
     "itemId": "book.passive_combat_qi_yellow_physical",
     "name": "《龙象摧岳劲》",
     "type": "skill_book",
     "desc": "记载运转气血化为龙象巨力、崩山摧岳法门的拳谱。研读后掌握黄阶被动心法《龙象摧岳劲》，提升物理攻击、防御与破劲。",
-    "learnTechniqueId": "passive_combat_qi_yellow_physical"
+    "learnTechniqueId": "passive_combat_qi_yellow_physical",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "锻体"
+    ]
   },
   {
     "itemId": "book.passive_combat_qi_yellow_spell",
     "name": "《灵犀澈照引》",
     "type": "skill_book",
     "desc": "记载心生灵犀、通照灵台玄奥之理的心法图册。研读后掌握黄阶被动心法《灵犀澈照引》，提升法术攻击、法防、命中与化劲。",
-    "learnTechniqueId": "passive_combat_qi_yellow_spell"
+    "learnTechniqueId": "passive_combat_qi_yellow_spell",
+    "grade": "yellow",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "法术"
+    ]
   },
   {
     "itemId": "book.passive_combat_foundation_mystic_metal",
     "name": "《庚金凝罡录》",
     "type": "skill_book",
     "desc": "记载庚金煞气凝罡法门的白金书卷。研读后掌握玄阶被动心法《庚金凝罡录》，大幅强化金系杀伐与暴击。",
-    "learnTechniqueId": "passive_combat_foundation_mystic_metal"
+    "learnTechniqueId": "passive_combat_foundation_mystic_metal",
+    "grade": "mystic",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "金行"
+    ]
   },
   {
     "itemId": "book.passive_combat_foundation_mystic_wood",
     "name": "《长春固脉录》",
     "type": "skill_book",
     "desc": "记载长春不老、固脉延年奥义的长春青简。研读后掌握玄阶被动心法《长春固脉录》，大幅强化气血生机与闪避身法。",
-    "learnTechniqueId": "passive_combat_foundation_mystic_wood"
+    "learnTechniqueId": "passive_combat_foundation_mystic_wood",
+    "grade": "mystic",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "木行"
+    ]
   },
   {
     "itemId": "book.passive_combat_foundation_mystic_water",
     "name": "《玄潮凝波录》",
     "type": "skill_book",
     "desc": "记载北方玄武真水化潮御法之道的碧水玉简。研读后掌握玄阶被动心法《玄潮凝波录》，大幅强化法防与抗暴御煞能力。",
-    "learnTechniqueId": "passive_combat_foundation_mystic_water"
+    "learnTechniqueId": "passive_combat_foundation_mystic_water",
+    "grade": "mystic",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "水行"
+    ]
   },
   {
     "itemId": "book.passive_combat_foundation_mystic_fire",
     "name": "《离火淬元录》",
     "type": "skill_book",
     "desc": "记载南方纯阳离火淬炼真元神妙之法的朱玉灵简。研读后掌握玄阶被动心法《离火淬元录》，大幅强化法攻与暴击杀伤。",
-    "learnTechniqueId": "passive_combat_foundation_mystic_fire"
+    "learnTechniqueId": "passive_combat_foundation_mystic_fire",
+    "grade": "mystic",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "火行"
+    ]
   },
   {
     "itemId": "book.passive_combat_foundation_mystic_earth",
     "name": "《厚土镇基录》",
     "type": "skill_book",
     "desc": "记载引皇天厚土之力铸就万劫不移道基的黄玉简册。研读后掌握玄阶被动心法《厚土镇基录》，大幅强化物防与化劲御力。",
-    "learnTechniqueId": "passive_combat_foundation_mystic_earth"
+    "learnTechniqueId": "passive_combat_foundation_mystic_earth",
+    "grade": "mystic",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "土行"
+    ]
   },
   {
     "itemId": "book.passive_combat_foundation_mystic_physical",
     "name": "《煞血铁骨功》",
     "type": "skill_book",
     "desc": "记载以煞血淬骨、铸就金刚铁骨霸体法门的赤血兽皮卷。研读后掌握玄阶被动心法《煞血铁骨功》，大幅强化肉身攻防与破劲暴击。",
-    "learnTechniqueId": "passive_combat_foundation_mystic_physical"
+    "learnTechniqueId": "passive_combat_foundation_mystic_physical",
+    "grade": "mystic",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "锻体"
+    ]
   },
   {
     "itemId": "book.passive_combat_foundation_mystic_spell",
     "name": "《明心拓神录》",
     "type": "skill_book",
     "desc": "记载开辟神识识海、明心见性、拓阔神念法门的灵晶宝卷。研读后掌握玄阶被动心法《明心拓神录》，大幅强化法术攻防、命中与化劲。",
-    "learnTechniqueId": "passive_combat_foundation_mystic_spell"
+    "learnTechniqueId": "passive_combat_foundation_mystic_spell",
+    "grade": "mystic",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法",
+      "法术"
+    ]
   },
   {
     "itemId": "book.passive_yinyang_qi_earth_pure_yin",
     "name": "《九阳化阴真经》",
     "type": "skill_book",
     "desc": "记载阳极生阴、反哺天地之理的玄奥玉册。研读后参悟《九阳化阴真经》，阴灵脉+100、阳灵脉-100，并掌握打坐灌注阳灵气之术。",
-    "learnTechniqueId": "passive_yinyang_qi_earth_pure_yin"
+    "learnTechniqueId": "passive_yinyang_qi_earth_pure_yin",
+    "grade": "earth",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法"
+    ]
   },
   {
     "itemId": "book.passive_yinyang_qi_earth_pure_yang",
     "name": "《玄牝生阳宝典》",
     "type": "skill_book",
     "desc": "记载阴极生阳、反哺天地之理的温润金册。研读后参悟《玄牝生阳宝典》，阳灵脉+100、阴灵脉-100，并掌握打坐灌注阴灵气之术。",
-    "learnTechniqueId": "passive_yinyang_qi_earth_pure_yang"
+    "learnTechniqueId": "passive_yinyang_qi_earth_pure_yang",
+    "grade": "earth",
+    "tags": [
+      "功法书",
+      "功法",
+      "术法"
+    ]
   }
 ]

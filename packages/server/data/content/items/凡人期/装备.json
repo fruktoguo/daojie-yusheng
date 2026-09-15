@@ -9,7 +9,12 @@
     "equipSlot": "weapon",
     "equipSpecialStats": {
       "luck": 1
-    }
+    },
+    "tags": [
+      "装备",
+      "武器",
+      "旧兵器"
+    ]
   },
   {
     "itemId": "equip.gate_headcloth",
@@ -47,7 +52,11 @@
     "equipBaselinePercents": {
       "resolvePower": 110,
       "hpRegenRate": 70
-    }
+    },
+    "tags": [
+      "装备",
+      "帽子"
+    ]
   },
   {
     "itemId": "equip.trench_runner_boots",
@@ -83,7 +92,11 @@
     "equipBaselinePercents": {
       "hit": 70,
       "moveSpeed": 110
-    }
+    },
+    "tags": [
+      "装备",
+      "鞋子"
+    ]
   },
   {
     "itemId": "equip.herb_mist_robe",
@@ -97,7 +110,11 @@
       "maxQi": 60,
       "spellDef": 85,
       "qiRegenRate": 65
-    }
+    },
+    "tags": [
+      "装备",
+      "护甲"
+    ]
   },
   {
     "itemId": "equip.gather_qi_pendant",
@@ -110,7 +127,11 @@
     "equipBaselinePercents": {
       "realmExpPerTick": 70,
       "techniqueExpPerTick": 110
-    }
+    },
+    "tags": [
+      "装备",
+      "饰品"
+    ]
   },
   {
     "itemId": "equip.orebreak_hammer",
@@ -124,7 +145,11 @@
       "physAtk": 85,
       "hit": 60,
       "breakPower": 65
-    }
+    },
+    "tags": [
+      "装备",
+      "武器"
+    ]
   },
   {
     "itemId": "equip.soot_lamp_hood",
@@ -157,7 +182,11 @@
     "equipBaselinePercents": {
       "maxHp": 70,
       "resolvePower": 110
-    }
+    },
+    "tags": [
+      "装备",
+      "帽子"
+    ]
   },
   {
     "itemId": "equip.broken_rune_blade",
@@ -171,7 +200,11 @@
       "physAtk": 85,
       "spellAtk": 70,
       "hit": 55
-    }
+    },
+    "tags": [
+      "装备",
+      "武器"
+    ]
   },
   {
     "itemId": "equip.rift_guard_armor",
@@ -186,7 +219,11 @@
       "physDef": 75,
       "spellDef": 65,
       "resolvePower": 55
-    }
+    },
+    "tags": [
+      "装备",
+      "护甲"
+    ]
   },
   {
     "itemId": "equip.soul_devour_token",
@@ -197,9 +234,11 @@
     "desc": "骨牌内封着一缕不肯散去的残意，静修时残意会层层侵体，杀敌时反能回涌一口浊气。",
     "equipSlot": "accessory",
     "tags": [
-      "fanren",
-      "evil_path",
-      "cultivation"
+      "凡俗",
+      "邪道",
+      "修行",
+      "装备",
+      "饰品"
     ],
     "effects": [
       {
@@ -244,7 +283,9 @@
     "desc": "小巧耐烧的铜胎丹炉，炉壁内侧刻着稳火与散药气的浅纹，正适合初学炼丹者随身携带。",
     "equipSlot": "technique_alchemy",
     "tags": [
-      "alchemy_furnace"
+      "丹炉",
+      "装备",
+      "技艺工具"
     ],
     "contextActions": [
       {
@@ -271,7 +312,9 @@
     "desc": "锤头嵌着稳灵铜片，敲击时能短暂收束器物灵纹，正适合初学者用来打底强化。",
     "equipSlot": "technique_enhancement",
     "tags": [
-      "enhancement_hammer"
+      "强化锤",
+      "装备",
+      "技艺工具"
     ],
     "contextActions": [
       {
@@ -298,7 +341,9 @@
     "desc": "铜柄火钳嵌着稳纹小环，能夹持低阶器胚，是初学炼器者最常用的入门工具。",
     "equipSlot": "technique_forging",
     "tags": [
-      "forging_tool"
+      "炼器钳",
+      "装备",
+      "技艺工具"
     ],
     "contextActions": [
       {
@@ -325,7 +370,9 @@
     "desc": "锤身刻着规尺短线，可用于夯定梁柱与地基，是营造入门时的基础建造锤。",
     "equipSlot": "technique_building",
     "tags": [
-      "building_hammer"
+      "营造锤",
+      "装备",
+      "技艺工具"
     ],
     "contextActions": [
       {
@@ -351,7 +398,9 @@
     "desc": "镐尖嵌着聚力铜片，挥击矿脉时能集中力道于一点，是矿工入门的基础采掘工具。",
     "equipSlot": "technique_mining",
     "tags": [
-      "mining_pickaxe"
+      "矿镐",
+      "装备",
+      "技艺工具"
     ],
     "contextActions": [
       {
