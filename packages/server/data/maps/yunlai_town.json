@@ -507,8 +507,8 @@
         "lootPools": [
           {
             "chance": 0.25,
-            "minLevel": 2,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 20,
             "maxGrade": "yellow",
             "tagGroups": [
               [
@@ -522,13 +522,12 @@
           },
           {
             "chance": 0.25,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 8,
             "maxGrade": "yellow",
             "tagGroups": [
               [
-                "药材"
-              ],
-              [
+                "药材",
                 "蛛丝"
               ]
             ],
@@ -537,7 +536,7 @@
           {
             "chance": 0.04,
             "maxLevel": 2,
-            "maxGrade": "mortal",
+            "maxGrade": "yellow",
             "tagGroups": [
               [
                 "功法"
@@ -581,7 +580,7 @@
           {
             "chance": 0.5,
             "minLevel": 1,
-            "maxLevel": 1,
+            "maxLevel": 10,
             "maxGrade": "mortal",
             "tagGroups": [
               [
@@ -596,8 +595,8 @@
           {
             "chance": 0.12,
             "minLevel": 1,
-            "maxLevel": 2,
-            "maxGrade": "yellow",
+            "maxLevel": 5,
+            "maxGrade": "mystic",
             "tagGroups": [
               [
                 "武器"
@@ -633,8 +632,8 @@
         "lootPools": [
           {
             "chance": 0.25,
-            "minLevel": 2,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 20,
             "maxGrade": "yellow",
             "tagGroups": [
               [
@@ -648,13 +647,12 @@
           },
           {
             "chance": 0.25,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 8,
             "maxGrade": "yellow",
             "tagGroups": [
               [
-                "药材"
-              ],
-              [
+                "药材",
                 "蛛丝"
               ]
             ],
@@ -663,7 +661,7 @@
           {
             "chance": 0.04,
             "maxLevel": 2,
-            "maxGrade": "mortal",
+            "maxGrade": "yellow",
             "tagGroups": [
               [
                 "功法"
@@ -693,7 +691,7 @@
           {
             "chance": 0.55,
             "minLevel": 1,
-            "maxLevel": 1,
+            "maxLevel": 10,
             "maxGrade": "mortal",
             "tagGroups": [
               [
@@ -708,13 +706,11 @@
           {
             "chance": 0.1,
             "minLevel": 1,
-            "maxLevel": 2,
+            "maxLevel": 4,
             "maxGrade": "yellow",
             "tagGroups": [
               [
-                "护甲"
-              ],
-              [
+                "护甲",
                 "帽子"
               ]
             ],
@@ -723,14 +719,12 @@
           {
             "chance": 0.06,
             "minLevel": 1,
-            "maxLevel": 2,
+            "maxLevel": 4,
             "maxGrade": "yellow",
             "tagGroups": [
               [
-                "护甲"
-              ],
-              [
-                "腿部护甲"
+                "护甲",
+                "鞋子"
               ]
             ],
             "allowDuplicates": false
@@ -754,7 +748,7 @@
           {
             "chance": 0.62,
             "minLevel": 1,
-            "maxLevel": 1,
+            "maxLevel": 10,
             "maxGrade": "mortal",
             "tagGroups": [
               [
@@ -768,8 +762,8 @@
           },
           {
             "chance": 0.28,
-            "minLevel": 2,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 20,
             "maxGrade": "yellow",
             "tagGroups": [
               [
@@ -784,14 +778,12 @@
           {
             "chance": 0.05,
             "minLevel": 1,
-            "maxLevel": 2,
+            "maxLevel": 4,
             "maxGrade": "yellow",
             "tagGroups": [
               [
-                "护甲"
-              ],
-              [
-                "腿部护甲"
+                "护甲",
+                "鞋子"
               ]
             ],
             "allowDuplicates": false
@@ -815,7 +807,7 @@
           {
             "chance": 0.6,
             "minLevel": 1,
-            "maxLevel": 1,
+            "maxLevel": 10,
             "maxGrade": "mortal",
             "tagGroups": [
               [
@@ -829,8 +821,8 @@
           },
           {
             "chance": 0.25,
-            "minLevel": 2,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 20,
             "maxGrade": "yellow",
             "tagGroups": [
               [
@@ -845,13 +837,11 @@
           {
             "chance": 0.06,
             "minLevel": 1,
-            "maxLevel": 2,
+            "maxLevel": 4,
             "maxGrade": "yellow",
             "tagGroups": [
               [
-                "护甲"
-              ],
-              [
+                "护甲",
                 "帽子"
               ]
             ],
@@ -876,7 +866,7 @@
           {
             "chance": 0.8,
             "minLevel": 1,
-            "maxLevel": 1,
+            "maxLevel": 10,
             "maxGrade": "mortal",
             "tagGroups": [
               [
@@ -890,9 +880,9 @@
           },
           {
             "chance": 0.32,
-            "minLevel": 3,
-            "maxLevel": 4,
-            "maxGrade": "mortal",
+            "minLevel": 1,
+            "maxLevel": 20,
+            "maxGrade": "yellow",
             "tagGroups": [
               [
                 "药品"
@@ -905,13 +895,12 @@
           },
           {
             "chance": 0.24,
-            "maxLevel": 2,
-            "maxGrade": "mortal",
+            "minLevel": 1,
+            "maxLevel": 10,
+            "maxGrade": "yellow",
             "tagGroups": [
               [
-                "药材"
-              ],
-              [
+                "药材",
                 "蛇胆"
               ]
             ],
@@ -936,7 +925,7 @@
           {
             "chance": 0.42,
             "minLevel": 1,
-            "maxLevel": 1,
+            "maxLevel": 10,
             "maxGrade": "mortal",
             "tagGroups": [
               [
@@ -950,13 +939,12 @@
           },
           {
             "chance": 0.22,
-            "maxLevel": 2,
-            "maxGrade": "mortal",
+            "minLevel": 1,
+            "maxLevel": 10,
+            "maxGrade": "yellow",
             "tagGroups": [
               [
-                "药材"
-              ],
-              [
+                "药材",
                 "蛇胆"
               ]
             ],
@@ -964,13 +952,12 @@
           },
           {
             "chance": 0.2,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 8,
             "maxGrade": "yellow",
             "tagGroups": [
               [
-                "药材"
-              ],
-              [
+                "药材",
                 "蛛丝"
               ]
             ],
@@ -994,7 +981,8 @@
         "lootPools": [
           {
             "chance": 0.52,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 12,
             "maxGrade": "yellow",
             "tagGroups": [
               [
@@ -1011,8 +999,8 @@
           {
             "chance": 0.12,
             "minLevel": 1,
-            "maxLevel": 2,
-            "maxGrade": "yellow",
+            "maxLevel": 5,
+            "maxGrade": "mystic",
             "tagGroups": [
               [
                 "武器"
@@ -1056,7 +1044,7 @@
           {
             "chance": 0.5,
             "minLevel": 1,
-            "maxLevel": 1,
+            "maxLevel": 10,
             "maxGrade": "mortal",
             "tagGroups": [
               [
@@ -1071,13 +1059,11 @@
           {
             "chance": 0.08,
             "minLevel": 1,
-            "maxLevel": 2,
+            "maxLevel": 4,
             "maxGrade": "yellow",
             "tagGroups": [
               [
-                "护甲"
-              ],
-              [
+                "护甲",
                 "帽子"
               ]
             ],
@@ -1086,8 +1072,8 @@
           {
             "chance": 0.1,
             "minLevel": 1,
-            "maxLevel": 2,
-            "maxGrade": "yellow",
+            "maxLevel": 5,
+            "maxGrade": "mystic",
             "tagGroups": [
               [
                 "武器"
@@ -1116,8 +1102,8 @@
         "lootPools": [
           {
             "chance": 0.25,
-            "minLevel": 2,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 20,
             "maxGrade": "yellow",
             "tagGroups": [
               [
@@ -1131,13 +1117,12 @@
           },
           {
             "chance": 0.25,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 8,
             "maxGrade": "yellow",
             "tagGroups": [
               [
-                "药材"
-              ],
-              [
+                "药材",
                 "蛛丝"
               ]
             ],
@@ -1146,7 +1131,7 @@
           {
             "chance": 0.04,
             "maxLevel": 2,
-            "maxGrade": "mortal",
+            "maxGrade": "yellow",
             "tagGroups": [
               [
                 "功法"
@@ -1175,8 +1160,8 @@
         "lootPools": [
           {
             "chance": 0.3,
-            "minLevel": 2,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 20,
             "maxGrade": "yellow",
             "tagGroups": [
               [
@@ -1190,13 +1175,12 @@
           },
           {
             "chance": 0.18,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 8,
             "maxGrade": "yellow",
             "tagGroups": [
               [
-                "药材"
-              ],
-              [
+                "药材",
                 "蛛丝"
               ]
             ],
@@ -1205,7 +1189,7 @@
           {
             "chance": 0.04,
             "maxLevel": 2,
-            "maxGrade": "mortal",
+            "maxGrade": "yellow",
             "tagGroups": [
               [
                 "功法"
@@ -1235,7 +1219,7 @@
           {
             "chance": 0.55,
             "minLevel": 1,
-            "maxLevel": 1,
+            "maxLevel": 10,
             "maxGrade": "mortal",
             "tagGroups": [
               [
@@ -1250,13 +1234,11 @@
           {
             "chance": 0.1,
             "minLevel": 1,
-            "maxLevel": 2,
+            "maxLevel": 4,
             "maxGrade": "yellow",
             "tagGroups": [
               [
-                "护甲"
-              ],
-              [
+                "护甲",
                 "帽子"
               ]
             ],
@@ -1265,14 +1247,12 @@
           {
             "chance": 0.06,
             "minLevel": 1,
-            "maxLevel": 2,
+            "maxLevel": 4,
             "maxGrade": "yellow",
             "tagGroups": [
               [
-                "护甲"
-              ],
-              [
-                "腿部护甲"
+                "护甲",
+                "鞋子"
               ]
             ],
             "allowDuplicates": false
@@ -1296,7 +1276,7 @@
           {
             "chance": 0.62,
             "minLevel": 1,
-            "maxLevel": 1,
+            "maxLevel": 10,
             "maxGrade": "mortal",
             "tagGroups": [
               [
@@ -1310,8 +1290,8 @@
           },
           {
             "chance": 0.28,
-            "minLevel": 2,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 20,
             "maxGrade": "yellow",
             "tagGroups": [
               [
@@ -1326,14 +1306,12 @@
           {
             "chance": 0.05,
             "minLevel": 1,
-            "maxLevel": 2,
+            "maxLevel": 4,
             "maxGrade": "yellow",
             "tagGroups": [
               [
-                "护甲"
-              ],
-              [
-                "腿部护甲"
+                "护甲",
+                "鞋子"
               ]
             ],
             "allowDuplicates": false
@@ -1357,7 +1335,7 @@
           {
             "chance": 0.6,
             "minLevel": 1,
-            "maxLevel": 1,
+            "maxLevel": 10,
             "maxGrade": "mortal",
             "tagGroups": [
               [
@@ -1371,8 +1349,8 @@
           },
           {
             "chance": 0.25,
-            "minLevel": 2,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 20,
             "maxGrade": "yellow",
             "tagGroups": [
               [
@@ -1387,13 +1365,11 @@
           {
             "chance": 0.06,
             "minLevel": 1,
-            "maxLevel": 2,
+            "maxLevel": 4,
             "maxGrade": "yellow",
             "tagGroups": [
               [
-                "护甲"
-              ],
-              [
+                "护甲",
                 "帽子"
               ]
             ],
@@ -1418,7 +1394,7 @@
           {
             "chance": 0.8,
             "minLevel": 1,
-            "maxLevel": 1,
+            "maxLevel": 10,
             "maxGrade": "mortal",
             "tagGroups": [
               [
@@ -1432,9 +1408,9 @@
           },
           {
             "chance": 0.32,
-            "minLevel": 3,
-            "maxLevel": 4,
-            "maxGrade": "mortal",
+            "minLevel": 1,
+            "maxLevel": 20,
+            "maxGrade": "yellow",
             "tagGroups": [
               [
                 "药品"
@@ -1447,13 +1423,12 @@
           },
           {
             "chance": 0.24,
-            "maxLevel": 2,
-            "maxGrade": "mortal",
+            "minLevel": 1,
+            "maxLevel": 10,
+            "maxGrade": "yellow",
             "tagGroups": [
               [
-                "药材"
-              ],
-              [
+                "药材",
                 "蛇胆"
               ]
             ],
@@ -1478,7 +1453,7 @@
           {
             "chance": 0.42,
             "minLevel": 1,
-            "maxLevel": 1,
+            "maxLevel": 10,
             "maxGrade": "mortal",
             "tagGroups": [
               [
@@ -1492,13 +1467,12 @@
           },
           {
             "chance": 0.22,
-            "maxLevel": 2,
-            "maxGrade": "mortal",
+            "minLevel": 1,
+            "maxLevel": 10,
+            "maxGrade": "yellow",
             "tagGroups": [
               [
-                "药材"
-              ],
-              [
+                "药材",
                 "蛇胆"
               ]
             ],
@@ -1506,13 +1480,12 @@
           },
           {
             "chance": 0.2,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 8,
             "maxGrade": "yellow",
             "tagGroups": [
               [
-                "药材"
-              ],
-              [
+                "药材",
                 "蛛丝"
               ]
             ],
@@ -1536,7 +1509,8 @@
         "lootPools": [
           {
             "chance": 0.52,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 12,
             "maxGrade": "yellow",
             "tagGroups": [
               [
@@ -1553,8 +1527,8 @@
           {
             "chance": 0.12,
             "minLevel": 1,
-            "maxLevel": 2,
-            "maxGrade": "yellow",
+            "maxLevel": 5,
+            "maxGrade": "mystic",
             "tagGroups": [
               [
                 "武器"
@@ -1598,7 +1572,7 @@
           {
             "chance": 0.48,
             "minLevel": 1,
-            "maxLevel": 1,
+            "maxLevel": 10,
             "maxGrade": "mortal",
             "tagGroups": [
               [
@@ -1613,13 +1587,11 @@
           {
             "chance": 0.12,
             "minLevel": 1,
-            "maxLevel": 2,
+            "maxLevel": 4,
             "maxGrade": "yellow",
             "tagGroups": [
               [
-                "护甲"
-              ],
-              [
+                "护甲",
                 "帽子"
               ]
             ],

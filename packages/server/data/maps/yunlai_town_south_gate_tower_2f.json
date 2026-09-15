@@ -95,7 +95,7 @@
           {
             "chance": 0.6,
             "minLevel": 1,
-            "maxLevel": 1,
+            "maxLevel": 10,
             "maxGrade": "mortal",
             "tagGroups": [
               [
@@ -122,13 +122,11 @@
           {
             "chance": 0.08,
             "minLevel": 1,
-            "maxLevel": 2,
+            "maxLevel": 4,
             "maxGrade": "yellow",
             "tagGroups": [
               [
-                "护甲"
-              ],
-              [
+                "护甲",
                 "帽子"
               ]
             ]
@@ -151,7 +149,7 @@
           {
             "chance": 0.6,
             "minLevel": 1,
-            "maxLevel": 1,
+            "maxLevel": 10,
             "maxGrade": "mortal",
             "tagGroups": [
               [
@@ -178,13 +176,11 @@
           {
             "chance": 0.08,
             "minLevel": 1,
-            "maxLevel": 2,
+            "maxLevel": 4,
             "maxGrade": "yellow",
             "tagGroups": [
               [
-                "护甲"
-              ],
-              [
+                "护甲",
                 "帽子"
               ]
             ]
@@ -207,7 +203,7 @@
           {
             "chance": 0.6,
             "minLevel": 1,
-            "maxLevel": 1,
+            "maxLevel": 10,
             "maxGrade": "mortal",
             "tagGroups": [
               [
@@ -234,13 +230,11 @@
           {
             "chance": 0.08,
             "minLevel": 1,
-            "maxLevel": 2,
+            "maxLevel": 4,
             "maxGrade": "yellow",
             "tagGroups": [
               [
-                "护甲"
-              ],
-              [
+                "护甲",
                 "帽子"
               ]
             ]
@@ -263,7 +257,7 @@
           {
             "chance": 0.6,
             "minLevel": 1,
-            "maxLevel": 1,
+            "maxLevel": 10,
             "maxGrade": "mortal",
             "tagGroups": [
               [
@@ -290,13 +284,11 @@
           {
             "chance": 0.08,
             "minLevel": 1,
-            "maxLevel": 2,
+            "maxLevel": 4,
             "maxGrade": "yellow",
             "tagGroups": [
               [
-                "护甲"
-              ],
-              [
+                "护甲",
                 "帽子"
               ]
             ]

@@ -112,8 +112,8 @@
         "lootPools": [
           {
             "chance": 0.25,
-            "minLevel": 2,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 20,
             "maxGrade": "yellow",
             "tagGroups": [
               [
@@ -127,13 +127,12 @@
           },
           {
             "chance": 0.25,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 8,
             "maxGrade": "yellow",
             "tagGroups": [
               [
-                "药材"
-              ],
-              [
+                "药材",
                 "蛛丝"
               ]
             ],
@@ -142,7 +141,7 @@
           {
             "chance": 0.04,
             "maxLevel": 2,
-            "maxGrade": "mortal",
+            "maxGrade": "yellow",
             "tagGroups": [
               [
                 "功法"
@@ -171,8 +170,8 @@
         "lootPools": [
           {
             "chance": 0.3,
-            "minLevel": 2,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 20,
             "maxGrade": "yellow",
             "tagGroups": [
               [
@@ -186,13 +185,12 @@
           },
           {
             "chance": 0.18,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 8,
             "maxGrade": "yellow",
             "tagGroups": [
               [
-                "药材"
-              ],
-              [
+                "药材",
                 "蛛丝"
               ]
             ],
@@ -201,7 +199,7 @@
           {
             "chance": 0.04,
             "maxLevel": 2,
-            "maxGrade": "mortal",
+            "maxGrade": "yellow",
             "tagGroups": [
               [
                 "功法"
@@ -230,8 +228,8 @@
         "lootPools": [
           {
             "chance": 0.25,
-            "minLevel": 2,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 20,
             "maxGrade": "yellow",
             "tagGroups": [
               [
@@ -245,13 +243,12 @@
           },
           {
             "chance": 0.25,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 8,
             "maxGrade": "yellow",
             "tagGroups": [
               [
-                "药材"
-              ],
-              [
+                "药材",
                 "蛛丝"
               ]
             ],
@@ -260,7 +257,7 @@
           {
             "chance": 0.04,
             "maxLevel": 2,
-            "maxGrade": "mortal",
+            "maxGrade": "yellow",
             "tagGroups": [
               [
                 "功法"

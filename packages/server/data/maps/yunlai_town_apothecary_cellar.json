@@ -101,7 +101,7 @@
           {
             "chance": 0.8,
             "minLevel": 1,
-            "maxLevel": 1,
+            "maxLevel": 10,
             "maxGrade": "mortal",
             "tagGroups": [
               [
@@ -114,9 +114,9 @@
           },
           {
             "chance": 0.32,
-            "minLevel": 3,
-            "maxLevel": 4,
-            "maxGrade": "mortal",
+            "minLevel": 1,
+            "maxLevel": 20,
+            "maxGrade": "yellow",
             "tagGroups": [
               [
                 "药品"
@@ -128,13 +128,12 @@
           },
           {
             "chance": 0.24,
-            "maxLevel": 2,
-            "maxGrade": "mortal",
+            "minLevel": 1,
+            "maxLevel": 10,
+            "maxGrade": "yellow",
             "tagGroups": [
               [
-                "药材"
-              ],
-              [
+                "药材",
                 "蛇胆"
               ]
             ]
@@ -157,7 +156,7 @@
           {
             "chance": 0.8,
             "minLevel": 1,
-            "maxLevel": 1,
+            "maxLevel": 10,
             "maxGrade": "mortal",
             "tagGroups": [
               [
@@ -170,9 +169,9 @@
           },
           {
             "chance": 0.32,
-            "minLevel": 3,
-            "maxLevel": 4,
-            "maxGrade": "mortal",
+            "minLevel": 1,
+            "maxLevel": 20,
+            "maxGrade": "yellow",
             "tagGroups": [
               [
                 "药品"
@@ -184,13 +183,12 @@
           },
           {
             "chance": 0.24,
-            "maxLevel": 2,
-            "maxGrade": "mortal",
+            "minLevel": 1,
+            "maxLevel": 10,
+            "maxGrade": "yellow",
             "tagGroups": [
               [
-                "药材"
-              ],
-              [
+                "药材",
                 "蛇胆"
               ]
             ]
@@ -213,7 +211,7 @@
           {
             "chance": 0.42,
             "minLevel": 1,
-            "maxLevel": 1,
+            "maxLevel": 10,
             "maxGrade": "mortal",
             "tagGroups": [
               [
@@ -226,26 +224,24 @@
           },
           {
             "chance": 0.22,
-            "maxLevel": 2,
-            "maxGrade": "mortal",
+            "minLevel": 1,
+            "maxLevel": 10,
+            "maxGrade": "yellow",
             "tagGroups": [
               [
-                "药材"
-              ],
-              [
+                "药材",
                 "蛇胆"
               ]
             ]
           },
           {
             "chance": 0.2,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 8,
             "maxGrade": "yellow",
             "tagGroups": [
               [
-                "药材"
-              ],
-              [
+                "药材",
                 "蛛丝"
               ]
             ]
@@ -268,7 +264,7 @@
           {
             "chance": 0.42,
             "minLevel": 1,
-            "maxLevel": 1,
+            "maxLevel": 10,
             "maxGrade": "mortal",
             "tagGroups": [
               [
@@ -281,26 +277,24 @@
           },
           {
             "chance": 0.22,
-            "maxLevel": 2,
-            "maxGrade": "mortal",
+            "minLevel": 1,
+            "maxLevel": 10,
+            "maxGrade": "yellow",
             "tagGroups": [
               [
-                "药材"
-              ],
-              [
+                "药材",
                 "蛇胆"
               ]
             ]
           },
           {
             "chance": 0.2,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 8,
             "maxGrade": "yellow",
             "tagGroups": [
               [
-                "药材"
-              ],
-              [
+                "药材",
                 "蛛丝"
               ]
             ]
@@ -323,7 +317,7 @@
           {
             "chance": 0.8,
             "minLevel": 1,
-            "maxLevel": 1,
+            "maxLevel": 10,
             "maxGrade": "mortal",
             "tagGroups": [
               [
@@ -336,9 +330,9 @@
           },
           {
             "chance": 0.32,
-            "minLevel": 3,
-            "maxLevel": 4,
-            "maxGrade": "mortal",
+            "minLevel": 1,
+            "maxLevel": 20,
+            "maxGrade": "yellow",
             "tagGroups": [
               [
                 "药品"
@@ -350,13 +344,12 @@
           },
           {
             "chance": 0.24,
-            "maxLevel": 2,
-            "maxGrade": "mortal",
+            "minLevel": 1,
+            "maxLevel": 10,
+            "maxGrade": "yellow",
             "tagGroups": [
               [
-                "药材"
-              ],
-              [
+                "药材",
                 "蛇胆"
               ]
             ]

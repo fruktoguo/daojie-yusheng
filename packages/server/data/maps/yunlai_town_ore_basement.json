@@ -143,10 +143,9 @@
         "lootPools": [
           {
             "chance": 0.45,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 12,
             "maxGrade": "yellow",
-            "countMin": 1,
-            "countMax": 1,
             "tagGroups": [
               [
                 "矿材"
@@ -154,12 +153,12 @@
               [
                 "玄铁"
               ]
-            ]
+            ],
+            "countMin": 1,
+            "countMax": 1
           },
           {
             "chance": 0.3,
-            "maxLevel": 2,
-            "maxGrade": "mortal",
             "tagGroups": [
               [
                 "消耗品"
@@ -172,13 +171,11 @@
           {
             "chance": 0.04,
             "minLevel": 1,
-            "maxLevel": 2,
+            "maxLevel": 4,
             "maxGrade": "yellow",
             "tagGroups": [
               [
-                "护甲"
-              ],
-              [
+                "护甲",
                 "帽子"
               ]
             ]
@@ -200,10 +197,9 @@
         "lootPools": [
           {
             "chance": 0.52,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 12,
             "maxGrade": "yellow",
-            "countMin": 1,
-            "countMax": 1,
             "tagGroups": [
               [
                 "矿材"
@@ -211,12 +207,12 @@
               [
                 "玄铁"
               ]
-            ]
+            ],
+            "countMin": 1,
+            "countMax": 1
           },
           {
             "chance": 0.24,
-            "maxLevel": 2,
-            "maxGrade": "mortal",
             "tagGroups": [
               [
                 "消耗品"
@@ -228,7 +224,8 @@
           },
           {
             "chance": 0.1,
-            "maxLevel": 2,
+            "minLevel": 1,
+            "maxLevel": 15,
             "maxGrade": "yellow",
             "tagGroups": [
               [
