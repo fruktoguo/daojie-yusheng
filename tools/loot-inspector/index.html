@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>容器掉落检视器</title>
+<style>
+:root { --bg:#14161a; --panel:#1d2026; --panel2:#23262e; --line:#333842; --fg:#d8dbe2; --dim:#8b919e; --acc:#5b9dff; --ok:#4fc38a; --warn:#e0a53c; --bad:#e0655f; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font:13px/1.5 "PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
+header { position:sticky; top:0; z-index:10; display:flex; gap:12px; align-items:center; padding:10px 16px; background:var(--panel); border-bottom:1px solid var(--line); }
+header h1 { font-size:15px; margin:0; }
+header .status { color:var(--dim); font-size:12px; }
+header .status.ok { color:var(--ok); } header .status.err { color:var(--bad); }
+button { background:var(--panel2); color:var(--fg); border:1px solid var(--line); border-radius:4px; padding:3px 10px; cursor:pointer; font-size:12px; }
+button:hover { border-color:var(--acc); }
+button.primary { background:var(--acc); border-color:var(--acc); color:#fff; }
+button.danger { color:var(--bad); }
+button.small { padding:1px 6px; font-size:11px; }
+nav { display:flex; gap:4px; padding:8px 16px 0; background:var(--panel); border-bottom:1px solid var(--line); position:sticky; top:45px; z-index:9; }
+nav button { border:none; border-bottom:2px solid transparent; border-radius:0; padding:6px 14px; background:transparent; color:var(--dim); font-size:13px; }
+nav button.active { color:var(--fg); border-bottom-color:var(--acc); }
+main { padding:14px 16px 60px; max-width:1400px; }
+.panel { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:12px; margin-bottom:12px; }
+.panel h3 { margin:0 0 8px; font-size:13px; display:flex; gap:10px; align-items:baseline; flex-wrap:wrap; }
+.panel h3 .meta { color:var(--dim); font-weight:normal; font-size:12px; }
+.map-title { color:var(--acc); font-size:13px; margin:18px 0 6px; }
+.tag { display:inline-block; background:#2a2f3a; border:1px solid #3a4150; border-radius:10px; padding:0 8px; margin:1px 2px; font-size:11px; white-space:nowrap; }
+.tag.miss { border-color:var(--bad); color:var(--bad); }
+.tag .x { cursor:pointer; color:var(--dim); margin-left:4px; }
+.tag .x:hover { color:var(--bad); }
+.pool { border:1px solid var(--line); border-radius:5px; padding:8px 10px; margin:8px 0; background:var(--panel2); }
+.pool.zero { border-color:var(--bad); }
+.pool-head { display:flex; gap:10px; flex-wrap:wrap; align-items:center; font-size:12px; }
+.pool-head b { color:var(--warn); }
+.cands { margin-top:6px; color:var(--dim); font-size:12px; }
+.cands .n { color:var(--fg); }
+.cand0 { color:var(--bad); font-weight:bold; }
+table { border-collapse:collapse; width:100%; }
+th,td { text-align:left; padding:4px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+th { color:var(--dim); font-weight:normal; font-size:12px; position:sticky; top:82px; background:var(--bg); }
+tr:hover td { background:#1a1d22; }
+input,select { background:#12141a; color:var(--fg); border:1px solid var(--line); border-radius:4px; padding:2px 6px; font-size:12px; }
+input[type=number] { width:64px; }
+input.txt { width:130px; }
+.dim { color:var(--dim); } .ok { color:var(--ok); } .bad { color:var(--bad); } .warn { color:var(--warn); }
+.row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px; }
+.drop-row, .pool-edit { border-top:1px dashed var(--line); padding-top:6px; margin-top:6px; }
+.kv { color:var(--dim); font-size:12px; }
+.kv b { color:var(--fg); font-weight:normal; }
+.saved { color:var(--ok); font-size:12px; }
+#toast { position:fixed; right:16px; bottom:16px; background:var(--panel2); border:1px solid var(--acc); padding:8px 14px; border-radius:6px; display:none; z-index:99; }
+.mono { font-family:ui-monospace,Consolas,monospace; font-size:11px; color:var(--dim); }
+</style>
+</head>
+<body>
+<header>
+  <h1>容器掉落检视器</h1>
+  <span id="apiStatus" class="status">连接中…</span>
+  <button onclick="loadState()">重新加载</button>
+  <span class="dim" id="summary"></span>
+</header>
+<nav>
+  <button data-tab="containers" class="active" onclick="switchTab('containers')">容器 / 掉落预览</button>
+  <button data-tab="items" onclick="switchTab('items')">物品 / Tag 编辑</button>
+  <button data-tab="gaps" onclick="switchTab('gaps')">Tag 缺口</button>
+</nav>
+<main>
+  <section id="tab-containers"></section>
+  <section id="tab-items" hidden></section>
+  <section id="tab-gaps" hidden></section>
+</main>
+<div id="toast"></div>
+<script>
+const $ = (sel, el) => (el || document).querySelector(sel);
+const $$ = (sel, el) => [...(el || document).querySelectorAll(sel)];
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const GRADE_ORDER = { mortal:0, yellow:1, mystic:2, earth:3, heaven:4, spirit:5, saint:6, emperor:7 };
+const GRADE_LABELS = { mortal:'凡阶', yellow:'黄阶', mystic:'玄阶', earth:'地阶', heaven:'天阶', spirit:'灵阶', saint:'圣阶', emperor:'帝阶' };
+const ITEM_TYPES = ['consumable','material','equipment','skill_book','quest_item'];
+const TYPE_LABELS = { consumable:'消耗品', material:'材料', equipment:'装备', skill_book:'书籍', quest_item:'任务物品' };
+
+let state = { items: [], maps: [] };
+let itemById = new Map();
+let allTags = [];
+
+function toast(msg, bad) {
+  const t = $('#toast');
+  t.textContent = msg; t.style.borderColor = bad ? 'var(--bad)' : 'var(--acc)'; t.style.display = 'block';
+  clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2600);
+}
+
+async function api(method, path, body) {
+  const res = await fetch(path, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+function effectiveTags(item) {
+  const tags = new Set(item.tags || []);
+  if (item.materialCategory === 'herb') tags.add('药材');
+  if (item.materialCategory === 'exotic') tags.add('异材');
+  if (item.materialCategory === 'ore') { tags.add('矿石'); tags.add('矿材'); }
+  return tags;
+}
+
+function resolveItemLevel(item) {
+  if (Number.isFinite(item.level)) return Math.max(1, Math.trunc(item.level));
+  const h = item.healAmount;
+  if (Number.isFinite(h)) { if (h <= 24) return 1; if (h <= 40) return 2; if (h <= 65) return 3; if (h <= 80) return 4; return 5; }
+  const g = GRADE_ORDER[item.grade];
+  return g == null ? 1 : g + 1;
+}
+
+// 与服务端 matchesLootPoolFilters 一致：等级/品级区间 + tagGroups(组内 OR、组间 AND)，无品级直接排除
+function matchPool(item, pool) {
+  const lv = resolveItemLevel(item);
+  if (Number.isFinite(pool.minLevel) && lv < Math.max(1, Math.trunc(pool.minLevel))) return false;
+  if (Number.isFinite(pool.maxLevel) && lv > Math.max(1, Math.trunc(pool.maxLevel))) return false;
+  const go = GRADE_ORDER[item.grade];
+  if (go == null) return false;
+  if (pool.minGrade != null && GRADE_ORDER[pool.minGrade] != null && go < GRADE_ORDER[pool.minGrade]) return false;
+  if (pool.maxGrade != null && GRADE_ORDER[pool.maxGrade] != null && go > GRADE_ORDER[pool.maxGrade]) return false;
+  const groups = (pool.tagGroups || []).filter((g) => Array.isArray(g) && g.length > 0);
+  if (groups.length === 0) return true;
+  const ts = effectiveTags(item);
+  return groups.every((g) => g.some((t) => ts.has(t)));
+}
+
+function poolCandidates(pool) { return state.items.filter((it) => matchPool(it, pool)); }
+function countText(pool) {
+  const cmin = Number.isFinite(pool.countMin) ? pool.countMin : 1;
+  const cmax = Number.isFinite(pool.countMax) && pool.countMax >= cmin ? pool.countMax : cmin;
+  return cmin === cmax ? `×${cmin}` : `×${cmin}~${cmax}`;
+}
+function tagChip(tag, opts = {}) {
+  return `<span class="tag ${opts.miss ? 'miss' : ''}">${esc(tag)}${opts.removable ? `<span class="x" data-act="${opts.act}" title="移除">×</span>` : ''}</span>`;
+}
+const edits = new Map();
+const keyOf = (mi, ci) => `${mi}::${ci}`;
+
+function renderContainers() {
+  const host = $('#tab-containers');
+  let html = '';
+  state.maps.forEach((m, mi) => {
+    if (!m.containers.length) return;
+    html += `<div class="map-title">${esc(m.name)} <span class="mono">${esc(m.file)}</span></div>`;
+    m.containers.forEach((c, ci) => { html += renderContainerCard(m, c, mi, ci); });
+  });
+  host.innerHTML = html || '<p class="dim">没有地图配置容器。</p>';
+}
+
+function renderContainerCard(m, c, mi, ci) {
+  const key = keyOf(mi, ci);
+  const draft = edits.get(key);
+  const cont = draft ? draft.container : c.container;
+  const grade = GRADE_LABELS[cont.grade] || cont.grade || '未定';
+  const refresh = cont.refreshTicks || (cont.refreshTicksMin ? `${cont.refreshTicksMin}~${cont.refreshTicksMax}` : '—');
+  let html = `<div class="panel" id="card-${mi}-${ci}"><h3>
+    ${esc(draft ? draft.name : c.name)} <span class="meta">${esc(c.landmarkId)} @(${c.x},${c.y}) · ${grade} · 刷新 ${refresh} 息 · 显示「${esc(cont.char || '?')}」</span>
+    <span style="flex:1"></span>
+    ${draft ? `<button class="primary small" data-act="save" data-m="${mi}" data-c="${ci}">保存到文件</button>
+      <button class="small" data-act="cancel" data-m="${mi}" data-c="${ci}">取消</button>
+      <button class="danger small" data-act="delcontainer" data-m="${mi}" data-c="${ci}">删除容器</button>`
+    : `<button class="small" data-act="edit" data-m="${mi}" data-c="${ci}">编辑</button>`}
+  </h3>`;
+  if (draft) {
+    html += `<div class="row">
+      <label>名称 <input class="txt" data-f="name" value="${esc(draft.name)}"></label>
+      <label class="kv">品级 <select data-f="grade">${Object.keys(GRADE_ORDER).map((g) => `<option value="${g}" ${cont.grade === g ? 'selected' : ''}>${GRADE_LABELS[g]}</option>`).join('')}</select></label>
+      <label class="kv">刷新 <input type="number" data-f="refreshTicks" value="${cont.refreshTicks ?? ''}"></label>
+      <label class="kv">刷新min <input type="number" data-f="refreshTicksMin" value="${cont.refreshTicksMin ?? ''}"></label>
+      <label class="kv">刷新max <input type="number" data-f="refreshTicksMax" value="${cont.refreshTicksMax ?? ''}"></label>
+      <label class="kv">字 <input class="txt" style="width:40px" data-f="char" value="${esc(cont.char || '')}"></label>
+      <label class="kv">色 <input class="txt" style="width:70px" data-f="color" value="${esc(cont.color || '')}"></label>
+    </div>`;
+  }
+  html += `<div class="kv">模式：${(cont.lootPools || []).length ? `随机池 ×${cont.lootPools.length}（drops 不生效）` : (cont.drops || []).length ? '固定 drops' : '<b class="bad">空容器</b>'}</div>`;
+  (cont.lootPools || []).forEach((p, pi) => { html += renderPool(p, mi, ci, pi, !!draft); });
+  (cont.drops || []).forEach((d, di) => { html += renderDrop(d, mi, ci, di, !!draft, cont); });
+  if (draft) html += `<div class="row" style="margin-top:6px"><button class="small" data-act="addpool" data-m="${mi}" data-c="${ci}">+ 随机池</button><button class="small" data-act="adddrop" data-m="${mi}" data-c="${ci}">+ 固定掉落</button></div>`;
+  return html + '</div>';
+}
+
+function renderPool(p, mi, ci, pi, editing) {
+  const cands = poolCandidates(p);
+  const groupsHtml = (p.tagGroups || []).map((g, gi) =>
+    `<span class="kv">[ ${g.map((t, ti) => tagChip(t, editing ? { removable: true, act: `rmtag:${mi}:${ci}:${pi}:${gi}:${ti}` } : {})).join('')} ${editing ? `<button class="small" data-act="addtag:${mi}:${ci}:${pi}:${gi}">+tag</button>` : ''} ]</span>`,
+  ).join(' <b class="dim">且</b> ');
+  let head = `<div class="pool ${cands.length === 0 ? 'zero' : ''}"><div class="pool-head">
+    <b>随机池#${pi + 1}</b>
+    <span>触发率 ${Math.round((p.chance ?? 1) * 1000) / 10}%</span>
+    <span>抽取 ${p.rolls ?? 1} 次</span>
+    <span>数量 ${countText(p)}</span>
+    <span>等级 ${p.minLevel ?? '—'}~${p.maxLevel ?? '—'}</span>
+    <span>品级 ${GRADE_LABELS[p.minGrade] || '—'}~${GRADE_LABELS[p.maxGrade] || '—'}</span>
+    ${p.allowDuplicates ? '<span class="warn">允许重复</span>' : ''}
+    <span>候选 <b class="${cands.length === 0 ? 'cand0' : 'ok'}">${cands.length}</b></span>`;
+  if (editing) head += `<button class="danger small" data-act="delpool" data-m="${mi}" data-c="${ci}" data-p="${pi}">删除池</button>`;
+  head += `</div>`;
+  if (editing) {
+    head += `<div class="row pool-edit">
+      <label class="kv">chance <input type="number" step="0.01" min="0" max="1" data-f="pool.chance" data-p="${pi}" value="${p.chance ?? ''}"></label>
+      <label class="kv">rolls <input type="number" data-f="pool.rolls" data-p="${pi}" value="${p.rolls ?? ''}"></label>
+      <label class="kv">lv <input type="number" data-f="pool.minLevel" data-p="${pi}" value="${p.minLevel ?? ''}" style="width:48px"> ~ <input type="number" data-f="pool.maxLevel" data-p="${pi}" value="${p.maxLevel ?? ''}" style="width:48px"></label>
+      <label class="kv">品级 <select data-f="pool.minGrade" data-p="${pi}"><option value="">—</option>${Object.keys(GRADE_ORDER).map((g) => `<option value="${g}" ${p.minGrade === g ? 'selected' : ''}>${GRADE_LABELS[g]}</option>`).join('')}</select>
+      ~ <select data-f="pool.maxGrade" data-p="${pi}"><option value="">—</option>${Object.keys(GRADE_ORDER).map((g) => `<option value="${g}" ${p.maxGrade === g ? 'selected' : ''}>${GRADE_LABELS[g]}</option>`).join('')}</select></label>
+      <label class="kv">数量 <input type="number" data-f="pool.countMin" data-p="${pi}" value="${p.countMin ?? ''}" style="width:48px"> ~ <input type="number" data-f="pool.countMax" data-p="${pi}" value="${p.countMax ?? ''}" style="width:48px"></label>
+      <label class="kv"><input type="checkbox" data-f="pool.allowDuplicates" data-p="${pi}" ${p.allowDuplicates ? 'checked' : ''}> 允许重复</label>
+      <button class="small" data-act="addgroup" data-m="${mi}" data-c="${ci}" data-p="${pi}">+ 标签组(AND)</button>
+    </div>`;
+  }
+  const candHtml = cands.length
+    ? cands.map((it) => `<span class="n">${esc(it.name || it.itemId)}</span><span class="mono"> ${esc(it.itemId)}</span>`).join('、')
+    : '<span class="cand0">⚠ 无匹配物品——该池永远不会产出</span>';
+  return `${head}<div class="kv" style="margin-top:4px">标签组：${groupsHtml || '<span class="dim">（无=全库按等级/品级筛）</span>'}</div><div class="cands">可能产出：${candHtml}</div></div>`;
+}
+function renderDrop(d, mi, ci, di, editing, cont) {
+  if ((cont.lootPools || []).length) return ''; // 有 lootPools 时 drops 不生效，不渲染
+  const it = itemById.get(d.itemId);
+  const label = it ? `${it.name}（${it.itemId}）` : `${d.name || ''}（${d.itemId}）`;
+  if (!editing) {
+    return `<div class="kv" style="margin:3px 0">固定掉落：${esc(label)} ×${d.count ?? 1} · 概率 ${Math.round((d.chance ?? 1) * 1000) / 10}%${it ? '' : ' <span class="bad">物品模板不存在</span>'}</div>`;
+  }
+  return `<div class="row drop-row">
+    <span class="kv">掉落#${di + 1}</span>
+    <input class="txt" list="itemIds" data-f="drop.itemId" data-d="${di}" value="${esc(d.itemId)}" placeholder="itemId">
+    <input class="txt" data-f="drop.name" data-d="${di}" value="${esc(d.name || '')}" placeholder="名称">
+    <select data-f="drop.type" data-d="${di}"><option value="">type</option>${ITEM_TYPES.map((t) => `<option value="${t}" ${d.type === t ? 'selected' : ''}>${TYPE_LABELS[t] || t}</option>`).join('')}</select>
+    <label class="kv">数量 <input type="number" data-f="drop.count" data-d="${di}" value="${d.count ?? 1}" style="width:48px"></label>
+    <label class="kv">概率 <input type="number" step="0.01" min="0" max="1" data-f="drop.chance" data-d="${di}" value="${d.chance ?? ''}" style="width:60px"></label>
+    ${it ? `<span class="ok">✓ ${esc(it.name)}</span>` : '<span class="bad">模板不存在</span>'}
+    <button class="danger small" data-act="deldrop" data-m="${mi}" data-c="${ci}" data-d="${di}">删除</button>
+  </div>`;
+}
+
+function getDraft(mi, ci) {
+  const key = keyOf(mi, ci);
+  let d = edits.get(key);
+  if (!d) {
+    const c = state.maps[mi].containers[ci];
+    d = { name: c.name, desc: c.desc, container: JSON.parse(JSON.stringify(c.container)) };
+    edits.set(key, d);
+  }
+  return d;
+}
+
+function rerenderCard(mi, ci) {
+  const el = $(`#card-${mi}-${ci}`);
+  if (el) el.outerHTML = renderContainerCard(state.maps[mi], state.maps[mi].containers[ci], mi, ci);
+}
+
+const NUM_FIELDS = new Set(['refreshTicks', 'refreshTicksMin', 'refreshTicksMax', 'pool.chance', 'pool.rolls', 'pool.minLevel', 'pool.maxLevel', 'pool.countMin', 'pool.countMax', 'drop.count', 'drop.chance']);
+
+function onFieldInput(e) {
+  const el = e.target;
+  const f = el.dataset.f;
+  if (!f) return;
+  const card = el.closest('.panel');
+  const [mi, ci] = card.id.replace('card-', '').split('-').map(Number);
+  const draft = edits.get(keyOf(mi, ci));
+  if (!draft) return;
+  const cont = draft.container;
+  if (f === 'name') { draft.name = el.value; return; }
+  const setNum = (obj, key) => { const v = el.value === '' ? undefined : Number(el.value); if (v === undefined) delete obj[key]; else obj[key] = v; };
+  if (NUM_FIELDS.has(f)) {
+    if (f.startsWith('pool.')) setNum(cont.lootPools[Number(el.dataset.p)], f.slice(5));
+    else if (f.startsWith('drop.')) setNum(cont.drops[Number(el.dataset.d)], f.slice(5));
+    else setNum(cont, f);
+  } else if (f === 'grade' || f === 'pool.minGrade' || f === 'pool.maxGrade') {
+    const obj = f === 'grade' ? cont : cont.lootPools[Number(el.dataset.p)];
+    if (el.value) obj[f === 'grade' ? 'grade' : f.slice(5)] = el.value; else delete obj[f === 'grade' ? 'grade' : f.slice(5)];
+  } else if (f === 'pool.allowDuplicates') {
+    cont.lootPools[Number(el.dataset.p)].allowDuplicates = el.checked;
+  } else if (f === 'char' || f === 'color') {
+    if (el.value) cont[f] = el.value; else delete cont[f];
+  } else if (f === 'drop.itemId' || f === 'drop.name' || f === 'drop.type') {
+    cont.drops[Number(el.dataset.d)][f.slice(5)] = el.value;
+  }
+  // 影响候选集合的字段改完即刷新预览
+  if (f.startsWith('pool.') && f !== 'pool.chance' && f !== 'pool.countMin' && f !== 'pool.countMax' && f !== 'pool.rolls') rerenderCard(mi, ci);
+}
+
+async function saveContainer(mi, ci) {
+  const draft = edits.get(keyOf(mi, ci));
+  if (!draft) return;
+  const m = state.maps[mi];
+  try {
+    await api('PUT', '/api/container', { map: m.file, landmarkId: m.containers[ci].landmarkId, name: draft.name, desc: draft.desc, container: draft.container });
+    edits.delete(keyOf(mi, ci));
+    toast(`已写入 ${m.file}`);
+    await loadState();
+  } catch (err) { toast(`保存失败：${err.message}`, true); }
+}
+
+document.addEventListener('input', onFieldInput);
+document.addEventListener('change', onFieldInput);
+document.addEventListener('click', async (e) => {
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  const act = el.dataset.act;
+  const parts = act.split(':').map(Number);
+  const mi = Number.isFinite(Number(el.dataset.m)) ? Number(el.dataset.m) : parts[1];
+  const ci = Number.isFinite(Number(el.dataset.c)) ? Number(el.dataset.c) : parts[2];
+  const m = state.maps[mi];
+  if (act === 'edit') { getDraft(mi, ci); rerenderCard(mi, ci); return; }
+  if (act === 'cancel') { edits.delete(keyOf(mi, ci)); rerenderCard(mi, ci); return; }
+  if (act === 'save') { await saveContainer(mi, ci); return; }
+  if (act === 'delcontainer') {
+    if (!confirm(`确认删除 ${m.name} / ${m.containers[ci].name} 的容器配置？`)) return;
+    try { await api('PUT', '/api/container', { map: m.file, landmarkId: m.containers[ci].landmarkId, container: null }); toast('已删除容器'); await loadState(); }
+    catch (err) { toast(`删除失败：${err.message}`, true); }
+    return;
+  }
+  const draft = edits.get(keyOf(mi, ci));
+  if (!draft) return;
+  const cont = draft.container;
+  if (act === 'addpool') { (cont.lootPools = cont.lootPools || []).push({ chance: 0.5, tagGroups: [] }); rerenderCard(mi, ci); return; }
+  if (act === 'adddrop') { (cont.drops = cont.drops || []).push({ itemId: '', name: '', type: 'material', count: 1, chance: 0.5 }); rerenderCard(mi, ci); return; }
+  if (act === 'delpool') { cont.lootPools.splice(Number(el.dataset.p), 1); rerenderCard(mi, ci); return; }
+  if (act === 'deldrop') { cont.drops.splice(Number(el.dataset.d), 1); rerenderCard(mi, ci); return; }
+  if (act === 'addgroup') { const p = cont.lootPools[Number(el.dataset.p)]; (p.tagGroups = p.tagGroups || []).push([]); rerenderCard(mi, ci); return; }
+  if (act.startsWith('addtag:')) {
+    const [, , , pi, gi] = parts;
+    const t = prompt(`添加标签（组内为 OR）。现有标签：\n${allTags.join('、')}`);
+    if (t && t.trim()) { cont.lootPools[pi].tagGroups[gi].push(t.trim()); rerenderCard(mi, ci); }
+    return;
+  }
+  if (act.startsWith('rmtag:')) {
+    const [, , , pi, gi, ti] = parts;
+    cont.lootPools[pi].tagGroups[gi].splice(ti, 1);
+    if (!cont.lootPools[pi].tagGroups[gi].length) cont.lootPools[pi].tagGroups.splice(gi, 1);
+    rerenderCard(mi, ci);
+    return;
+  }
+});
+const itemDrafts = new Map();
+let itemFilter = { q: '', tag: '', type: '', issue: '' };
+
+function getItemDraft(item) {
+  let d = itemDrafts.get(item.itemId);
+  if (!d) {
+    d = { name: item.name || '', grade: item.grade || '', level: item.level ?? '', materialCategory: item.materialCategory || '', tags: [...(item.tags || [])] };
+    itemDrafts.set(item.itemId, d);
+  }
+  return d;
+}
+
+function poolRefsOf(item) {
+  let n = 0;
+  for (const m of state.maps) for (const c of m.containers) for (const p of c.container.lootPools || []) {
+    const fake = { ...item, ...itemDrafts.get(item.itemId) };
+    if (itemDrafts.has(item.itemId)) fake.tags = itemDrafts.get(item.itemId).tags;
+    if (matchPool(fake, p)) n += 1;
+  }
+  return n;
+}
+
+function renderItems() {
+  const host = $('#tab-items');
+  const tags = allTags;
+  const rows = state.items.filter((it) => {
+    const d = itemDrafts.get(it.itemId);
+    const itTags = effectiveTags(d ? { ...it, tags: d.tags } : it);
+    const q = itemFilter.q.trim().toLowerCase();
+    if (q && !it.itemId.toLowerCase().includes(q) && !(it.name || '').toLowerCase().includes(q)) return false;
+    if (itemFilter.tag && !itTags.has(itemFilter.tag)) return false;
+    if (itemFilter.type && it.type !== itemFilter.type) return false;
+    if (itemFilter.issue === 'no-grade' && it.grade) return false;
+    if (itemFilter.issue === 'no-tags' && itTags.size) return false;
+    if (itemFilter.issue === 'no-ref' && poolRefsOf(it) > 0) return false;
+    return true;
+  });
+  let html = `<div class="row">
+    <input class="txt" id="itemQ" placeholder="搜索 itemId / 名称" value="${esc(itemFilter.q)}">
+    <select id="itemTag"><option value="">全部 tag</option>${tags.map((t) => `<option ${itemFilter.tag === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>
+    <select id="itemType"><option value="">全部类型</option>${ITEM_TYPES.map((t) => `<option value="${t}" ${itemFilter.type === t ? 'selected' : ''}>${TYPE_LABELS[t]}</option>`).join('')}</select>
+    <select id="itemIssue"><option value="">全部</option><option value="no-grade" ${itemFilter.issue === 'no-grade' ? 'selected' : ''}>无品级(池不可命中)</option><option value="no-tags" ${itemFilter.issue === 'no-tags' ? 'selected' : ''}>无 tag</option><option value="no-ref" ${itemFilter.issue === 'no-ref' ? 'selected' : ''}>未被任何池命中</option></select>
+    <span class="dim">${rows.length} / ${state.items.length} 条</span>
+  </div>
+  <datalist id="allTags">${tags.map((t) => `<option value="${esc(t)}">`).join('')}</datalist>
+  <datalist id="itemIds">${state.items.map((it) => `<option value="${esc(it.itemId)}">`).join('')}</datalist>
+  <table><thead><tr><th>名称 / itemId</th><th>类型</th><th>品级</th><th>等级</th><th>材料类别</th><th>tags（raw）</th><th>池命中数</th><th></th></tr></thead><tbody>`;
+  rows.forEach((it) => { html += renderItemRow(it); });
+  host.innerHTML = html + '</tbody></table>';
+}
+
+function renderItemRow(it) {
+  const d = getItemDraft(it);
+  const refs = poolRefsOf(it);
+  return `<tr id="item-${esc(it.itemId)}">
+    <td><input class="txt" data-if="name" data-id="${esc(it.itemId)}" value="${esc(d.name)}"><br><span class="mono">${esc(it.itemId)} · ${esc(it.file)}</span></td>
+    <td>${TYPE_LABELS[it.type] || esc(it.type || '')}</td>
+    <td><select data-if="grade" data-id="${esc(it.itemId)}"><option value="">—</option>${Object.keys(GRADE_ORDER).map((g) => `<option value="${g}" ${d.grade === g ? 'selected' : ''}>${GRADE_LABELS[g]}</option>`).join('')}</select></td>
+    <td><input type="number" data-if="level" data-id="${esc(it.itemId)}" value="${d.level}" style="width:52px"><div class="mono">解析=${resolveItemLevel({ ...it, ...d })}</div></td>
+    <td><select data-if="materialCategory" data-id="${esc(it.itemId)}"><option value="">—</option>${['herb', 'exotic', 'ore'].map((mc) => `<option value="${mc}" ${d.materialCategory === mc ? 'selected' : ''}>${mc}</option>`).join('')}</select></td>
+    <td>${d.tags.map((t, ti) => tagChip(t, { removable: true, act: `item-rmtag:${esc(it.itemId)}:${ti}` })).join('')}
+        <input class="txt" list="allTags" style="width:80px" placeholder="+tag" data-if="addtag" data-id="${esc(it.itemId)}"></td>
+    <td class="${refs ? 'ok' : 'bad'}">${refs}</td>
+    <td><button class="primary small" data-act="item-save" data-id="${esc(it.itemId)}">保存</button></td>
+  </tr>`;
+}
+
+function rerenderItemRow(itemId) {
+  const it = itemById.get(itemId);
+  const tr = $(`#item-${CSS.escape(itemId)}`);
+  if (it && tr) tr.outerHTML = renderItemRow(it);
+}
+
+document.addEventListener('input', (e) => {
+  const el = e.target;
+  const f = el.dataset.if;
+  if (!f) return;
+  const it = itemById.get(el.dataset.id);
+  if (!it) return;
+  const d = getItemDraft(it);
+  if (f === 'name') d.name = el.value;
+  else if (f === 'level') d.level = el.value === '' ? '' : Number(el.value);
+  else if (f === 'grade' || f === 'materialCategory') d[f] = el.value;
+  else if (f === 'addtag' && el.value.trim()) { d.tags.push(el.value.trim()); el.value = ''; rerenderItemRow(it.itemId); }
+});
+
+document.addEventListener('click', async (e) => {
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  const act = el.dataset.act;
+  if (act === 'item-save') {
+    const it = itemById.get(el.dataset.id);
+    const d = itemDrafts.get(it.itemId);
+    try {
+      await api('PUT', '/api/item', {
+        file: it.file, itemId: it.itemId,
+        patch: { name: d.name, grade: d.grade, level: d.level === '' ? null : d.level, materialCategory: d.materialCategory, tags: d.tags },
+      });
+      Object.assign(it, { name: d.name, grade: d.grade || undefined, level: d.level === '' ? undefined : d.level, materialCategory: d.materialCategory || undefined, tags: [...d.tags] });
+      toast(`已写入 ${it.file}`);
+      await loadState();
+    } catch (err) { toast(`保存失败：${err.message}`, true); }
+    return;
+  }
+  if (act.startsWith('item-rmtag:')) {
+    const [, id, ti] = act.split(':');
+    const d = itemDrafts.get(id);
+    if (d) { d.tags.splice(Number(ti), 1); rerenderItemRow(id); }
+  }
+});
+function renderGaps() {
+  const host = $('#tab-gaps');
+  const demanded = new Map(); // tag -> pool 引用数
+  const tagGroupSig = new Map(); // tag -> 物品数
+  for (const m of state.maps) for (const c of m.containers) for (const p of c.container.lootPools || []) {
+    for (const g of p.tagGroups || []) for (const t of g) demanded.set(t, (demanded.get(t) || 0) + 1);
+  }
+  for (const t of demanded.keys()) tagGroupSig.set(t, state.items.filter((it) => effectiveTags(it).has(t)));
+  const missing = [...demanded.entries()].filter(([t]) => tagGroupSig.get(t).length === 0);
+  let html = `<div class="panel"><h3>池子引用但物品缺失的 tag <span class="meta">${missing.length} 个</span></h3>`;
+  html += missing.length
+    ? missing.map(([t, n]) => `<span class="tag miss">${esc(t)} <span class="mono">×${n}池</span></span>`).join('')
+    : '<span class="ok">无缺口</span>';
+  html += '</div><div class="panel"><h3>全部池引用 tag 覆盖情况</h3><table><thead><tr><th>tag</th><th>引用池数</th><th>持有物品数</th><th>物品</th></tr></thead><tbody>';
+  for (const [t, n] of [...demanded.entries()].sort((a, b) => b[1] - a[1])) {
+    const its = tagGroupSig.get(t);
+    html += `<tr><td><span class="tag ${its.length ? '' : 'miss'}">${esc(t)}</span></td><td>${n}</td><td class="${its.length ? 'ok' : 'bad'}">${its.length}</td><td class="dim">${its.map((i) => esc(i.name || i.itemId)).join('、')}</td></tr>`;
+  }
+  html += '</tbody></table></div><div class="panel"><h3>候选为 0 的池</h3>';
+  let zero = 0;
+  for (const m of state.maps) for (const c of m.containers) (c.container.lootPools || []).forEach((p, pi) => {
+    if (poolCandidates(p).length === 0) {
+      zero += 1;
+      html += `<div class="kv bad">${esc(m.name)} / ${esc(c.name)} · 池#${pi + 1} · ${(p.tagGroups || []).map((g) => `[${g.join('|')}]`).join(' 且 ')}</div>`;
+    }
+  });
+  host.innerHTML = html + (zero ? '' : '<span class="ok">所有池都有候选</span>') + '</div>';
+}
+
+function switchTab(name) {
+  $$('nav button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
+  ['containers', 'items', 'gaps'].forEach((t) => { $(`#tab-${t}`).hidden = t !== name; });
+}
+
+document.addEventListener('input', (e) => {
+  const id = e.target.id;
+  if (id === 'itemQ') { itemFilter.q = e.target.value; rerenderItemsKeepFocus(e.target); }
+});
+document.addEventListener('change', (e) => {
+  const id = e.target.id;
+  if (id === 'itemTag') { itemFilter.tag = e.target.value; renderItems(); }
+  if (id === 'itemType') { itemFilter.type = e.target.value; renderItems(); }
+  if (id === 'itemIssue') { itemFilter.issue = e.target.value; renderItems(); }
+});
+
+function rerenderItemsKeepFocus(input) {
+  const pos = input.selectionStart;
+  renderItems();
+  const q = $('#itemQ');
+  if (q) { q.focus(); q.setSelectionRange(pos, pos); }
+}
+
+async function loadState() {
+  try {
+    state = await api('GET', '/api/state');
+    itemById = new Map(state.items.map((it) => [it.itemId, it]));
+    const tags = new Set();
+    state.items.forEach((it) => effectiveTags(it).forEach((t) => tags.add(t)));
+    for (const m of state.maps) for (const c of m.containers) for (const p of c.container.lootPools || []) for (const g of p.tagGroups || []) for (const t of g) tags.add(t);
+    allTags = [...tags].sort((a, b) => a.localeCompare(b, 'zh-CN'));
+    const cCount = state.maps.reduce((s, m) => s + m.containers.length, 0);
+    $('#summary').textContent = `${state.maps.length} 张地图 · ${cCount} 个容器 · ${state.items.length} 个物品 · ${allTags.length} 个 tag`;
+    $('#apiStatus').textContent = '已连接';
+    $('#apiStatus').className = 'status ok';
+    renderContainers(); renderItems(); renderGaps();
+  } catch (err) {
+    $('#apiStatus').textContent = `连接失败：${err.message}（先运行 node tools/loot-inspector/server.cjs）`;
+    $('#apiStatus').className = 'status err';
+  }
+}
+
+loadState();
+</script>
+</body>
+</html>
