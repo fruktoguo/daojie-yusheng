@@ -697,6 +697,8 @@ class MapInstanceRuntime {
 */
 
  pendingCommands = new Map();
+ /** 本 tick 已出队但尚未结算的玩家战斗指令；在统一出手排序阶段按速度序消费。 */
+ deferredCombatActions = [];
  /**
 * freeHandles：freeHandle相关字段。
 */
@@ -1892,6 +1894,17 @@ class MapInstanceRuntime {
  /** cancelPendingCommand：取消玩家在实例侧排队的待执行命令。 */
  cancelPendingCommand(playerId) {
   return cancelPendingCommandImpl(this, playerId);
+ }
+ /** enqueueDeferredCombatAction：把已出队的玩家战斗指令挂到本实例，等待统一出手排序结算。 */
+ enqueueDeferredCombatAction(playerId, command) {
+  this.deferredCombatActions.push({ playerId, command });
+  return true;
+ }
+ /** consumeDeferredCombatActions：取出并清空本实例待统一结算的玩家战斗指令。 */
+ consumeDeferredCombatActions() {
+  const actions = this.deferredCombatActions;
+  this.deferredCombatActions = [];
+  return actions;
  }
  /** tryPortalTransfer：尝试按当前站位触发传送点跳转。 */
  tryPortalTransfer(playerId, reason) {

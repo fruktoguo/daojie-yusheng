@@ -166,6 +166,72 @@ export class WorldRuntimeInstanceTickOrchestrationService {
   }
  }
 
+ /**
+  * 实例统一出手排序结算：把本 tick 已出队的玩家战斗指令（deferredCombatActions）
+  * 与 tickOnce 产出的怪物行动合并，按各单位移动速度 ±25% 随机抖动降序排序后依次执行。
+  * 轮到某单位结算前校验存活：玩家 hp<=0 直接跳过；妖兽侧由 apply 阶段的 plan 校验
+  * 拒绝已阵亡单位的动作（skill_cancel 是死亡取消的簿记动作，不受存活校验影响）。
+  */
+ private async applyInstanceCombatActionsInSpeedOrder(instance, monsterActions, deps, recordTickSectionDuration = null): Promise<number> {
+  const deferredPlayerActions = typeof instance?.consumeDeferredCombatActions === 'function'
+   ? instance.consumeDeferredCombatActions()
+   : [];
+  const monsterActionCount = Array.isArray(monsterActions) ? monsterActions.length : 0;
+  const total = monsterActionCount + deferredPlayerActions.length;
+  if (total <= 0) {
+   return 0;
+  }
+  const units = [];
+  for (const action of monsterActions ?? []) {
+   const monster = action ? instance.getMonster?.(action.runtimeId) : null;
+   units.push({
+    kind: 'monster',
+    action,
+    orderKey: resolveCombatActionOrderKey(monster?.numericStats?.moveSpeed),
+   });
+  }
+  for (const entry of deferredPlayerActions) {
+   const player = deps.playerRuntimeService?.getPlayer?.(entry?.playerId) ?? null;
+   units.push({
+    kind: 'player',
+    entry,
+    orderKey: resolveCombatActionOrderKey(player?.attrs?.numericStats?.moveSpeed),
+   });
+  }
+  if (units.length > 1) {
+   units.sort((left, right) => right.orderKey - left.orderKey);
+  }
+  for (const unit of units) {
+   if (unit.kind === 'monster') {
+    const action = unit.action;
+    this.runIsolatedSyncOperation(deps, 'monster_action_apply', {
+     instanceId: action?.instanceId ?? instance.meta.instanceId,
+     monsterId: action?.runtimeId ?? action?.monsterId,
+     actionKind: action?.kind,
+     targetPlayerId: action?.targetPlayerId,
+     worldTick: deps.tick,
+    }, () => deps.applyMonsterAction(action));
+    continue;
+   }
+   const playerId = unit.entry?.playerId;
+   const command = unit.entry?.command;
+   const player = deps.playerRuntimeService?.getPlayer?.(playerId) ?? null;
+   if (!player || player.hp <= 0) {
+    continue;
+   }
+   const executeDeferred = typeof deps.executeDeferredPlayerCombatAction === 'function'
+    ? () => deps.executeDeferredPlayerCombatAction(playerId, command, recordTickSectionDuration)
+    : () => deps.worldRuntimePendingCommandService?.executeDeferredPlayerCombatAction?.(playerId, command, deps, recordTickSectionDuration);
+   await this.runIsolatedOperation(deps, 'player_combat_action_apply', {
+    instanceId: instance?.meta?.instanceId ?? null,
+    playerId,
+    commandKind: command?.kind ?? null,
+    worldTick: deps.tick,
+   }, executeDeferred);
+  }
+  return total;
+ }
+
  private advanceWorldClock(deps: object & { tick: number }, frameDurationMs: number): number {
   const elapsedMs = Math.max(0, Number(frameDurationMs) || 0);
   const previousRemainderMs = this.worldTickElapsedRemainderMsByRuntime.get(deps) ?? 0;
@@ -776,16 +842,9 @@ export class WorldRuntimeInstanceTickOrchestrationService {
     const monsterActionApplyStartedAt = performance.now();
     const previousMonsterActionSectionDuration = deps.recordMonsterActionSectionDuration;
     deps.recordMonsterActionSectionDuration = (key, durationMs, count = 1) => addTickSectionDuration(sectionDurations, key, durationMs, count);
+    const combatSectionRecorder = (key, durationMs, count = 1) => addTickSectionDuration(sectionDurations, key, durationMs, count);
     try {
-     for (const action of result.monsterActions) {
-      this.runIsolatedSyncOperation(deps, 'monster_action_apply', {
-       instanceId: action?.instanceId ?? instance.meta.instanceId,
-       monsterId: action?.runtimeId ?? action?.monsterId,
-       actionKind: action?.kind,
-       targetPlayerId: action?.targetPlayerId,
-       worldTick: deps.tick,
-      }, () => deps.applyMonsterAction(action));
-     }
+     await this.applyInstanceCombatActionsInSpeedOrder(instance, result.monsterActions, deps, combatSectionRecorder);
     }
     finally {
      if (previousMonsterActionSectionDuration === undefined) {
@@ -1020,6 +1079,23 @@ export class WorldRuntimeInstanceTickOrchestrationService {
     deps.worldRuntimeCraftTickService?.flushDeferredRuntimeUpdates?.(deps);
    }
   }
+  // 兜底：实例步进被 lease/计划校验中断或未参与本帧步进时，已出队的玩家战斗指令不能丢，
+  // 在帧末按同一套速度排序规则结算（此时只剩玩家指令，怪物行动仍在各自实例 tick 内产生）。
+  const deferredDrainStartedAt = performance.now();
+  let deferredDrainCount = 0;
+  for (const drainedInstance of deps.listInstanceRuntimes?.() ?? []) {
+   const leftoverCount = drainedInstance?.deferredCombatActions?.length ?? 0;
+   if (!drainedInstance || leftoverCount <= 0) {
+    continue;
+   }
+   deferredDrainCount += leftoverCount;
+   await this.runIsolatedOperation(deps, 'drain_deferred_combat_actions', {
+    instanceId: drainedInstance.meta?.instanceId ?? null,
+    worldTick: deps.tick,
+   }, () => this.applyInstanceCombatActionsInSpeedOrder(drainedInstance, [], deps,
+    (key, durationMs, count = 1) => addTickSectionDuration(sectionDurations, key, durationMs, count)));
+  }
+  addMeasuredTickSection(sectionDurations, 'tick.drainDeferredCombatActionsMs', deferredDrainStartedAt, deferredDrainCount);
   const postTickCleanupStartedAt = performance.now();
   if ((scheduledPlans === null || worldMaintenanceDue) && typeof deps.worldRuntimeTongtianTowerService?.cleanupIdleInstances === 'function') {
    await this.runIsolatedOperation(deps, 'tongtian_tower_cleanup_idle_instances', {
@@ -1132,6 +1208,15 @@ function resolveInstanceStepAttribution(
  return stepIndex > 0
   ? NON_TIME_CHAMBER_CATCH_UP_STEP_ATTRIBUTION
   : NON_TIME_CHAMBER_FIRST_STEP_ATTRIBUTION;
+}
+
+/**
+ * 统一出手排序键：移动速度 ±25% 随机抖动（0.75 ~ 1.25 倍），
+ * 附加微小随机量打散同速单位的稳定序，避免出现"玩家永远先于妖兽"的固定平局。
+ */
+function resolveCombatActionOrderKey(moveSpeed: unknown): number {
+ const base = Number.isFinite(Number(moveSpeed)) ? Math.max(0, Number(moveSpeed)) : 0;
+ return base * (0.75 + Math.random() * 0.5) + Math.random() * 1e-6;
 }
 
 function computeFallbackInstanceIntentProposal(payload) {

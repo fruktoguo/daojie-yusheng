@@ -62,7 +62,7 @@ runTickOnce():
 5.  materializeNavigationCommands()        — 寻路意图物化
 6.  materializeAutoUsePills()              — 自动嗑药
 7.  materializeAutoCombatCommands()        — 自动战斗
-8.  dispatchPendingCommands()              — 玩家命令分发（async）
+8.  dispatchPendingCommands()              — 玩家命令分发（async）；战斗指令出队后挂到实例 deferredCombatActions，不立即结算
 9.  dispatchPendingSystemCommands()        — 系统命令
 10. precomputeInstanceWorkerIntents()      — Worker 预计算怪物意图
 11. 逐实例逐 step 循环:
@@ -71,7 +71,7 @@ runTickOnce():
       c. advanceInstanceFormations()        — 阵法推进
       d. advanceTemporaryTiles()            — 临时地块衰减
       e. advanceTileRecovery()              — 地块修复
-      f. 建筑完工通知 / 传送 / 怪物动作
+      f. 建筑完工通知 / 传送 / 统一出手排序（玩家战斗指令+怪物行动按抖动 moveSpeed 降序，死亡单位跳过）
       g. 玩家 tick: 修炼、灵气消耗、qi投影
 ```
 

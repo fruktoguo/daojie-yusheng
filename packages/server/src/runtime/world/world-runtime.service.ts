@@ -967,6 +967,9 @@ export class WorldRuntimeService {
         async dispatchPendingCommands(recordTickSectionDuration = null, scopedPlayerIds = null) {
         return this.worldRuntimeTickDispatchService.dispatchPendingCommands(this, recordTickSectionDuration, scopedPlayerIds);
     }
+        async executeDeferredPlayerCombatAction(playerId, command, recordTickSectionDuration = null) {
+        return this.worldRuntimePendingCommandService.executeDeferredPlayerCombatAction(playerId, command, this, recordTickSectionDuration);
+    }
         dispatchPendingSystemCommands() {
         this.worldRuntimeTickDispatchService.dispatchPendingSystemCommands(this);
     }

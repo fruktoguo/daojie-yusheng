@@ -63,6 +63,20 @@
 
 客户端负责把结构化数据拼成汇总飘字和战斗记录。PvP 中每名被攻击玩家仍单独收到自己的受击消息；首次进入、跨图和断线重连继续依赖权威世界态，不依赖表现事件恢复状态。
 
+## 同息出手顺序（统一速度排序）
+
+源文件:
+- `packages/server/src/runtime/world/command/world-runtime-pending-command.service.ts`
+- `packages/server/src/runtime/world/world-runtime-instance-tick-orchestration.service.ts`
+- `packages/server/src/runtime/instance/map-instance.runtime.ts`
+
+- 玩家战斗指令（`basicAttack` / `engageBattle` / `castSkill`）在 `dispatchPendingCommands` 阶段不再立即结算，而是出队后挂到所在实例的 `deferredCombatActions`；非战斗指令（移动、资产、技艺等）仍在 dispatch 阶段即时执行。
+- 实例每个逻辑 step 的怪物行动应用阶段，把本 step 的玩家战斗指令与 `tickOnce` 产出的怪物行动合并为统一出手列表，按 `moveSpeed × (0.75 + random × 0.5)` 的抖动速度降序排序后依次执行；附加微小随机量打散同速平局。
+- 排序键速度来源：玩家取 `player.attrs.numericStats.moveSpeed`，妖兽取 `monster.numericStats.moveSpeed`。
+- 轮到某单位结算时校验存活：玩家 `hp <= 0` 直接跳过出手；妖兽动作由 apply 阶段 plan 校验拒绝已阵亡单位（`skill_cancel` 属于死亡取消簿记，照常记录）。因此同息内先出手的单位击杀目标后，被击杀方本息的出手会被跳过。
+- 玩家吟唱结算（`pendingSkillCast`）仍在 `ResolvePendingSkillCast` 子阶段按进图序推进，已有 `ActorDead` 取消，不参与上述排序。
+- 实例步进被 lease/计划校验中断或实例本帧未步进时，已出队的玩家战斗指令在帧末兜底按同一规则结算，不会丢指令。
+
 ## 出手力度
 
 源文件:

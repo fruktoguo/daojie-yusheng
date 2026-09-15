@@ -532,6 +532,9 @@ function recordPendingCommandPerf(recordTickSectionDuration, key, startedAt, cou
 
 const MAX_PENDING_COMMANDS_PER_PLAYER = 16;
 
+/** 进入实例统一出手排序阶段的战斗指令类型；其余指令仍在 dispatch 阶段立即执行。 */
+const DEFERRED_COMBAT_COMMAND_KINDS = new Set(['basicAttack', 'engageBattle', 'castSkill']);
+
 type PendingCommandPolicy = {
     domain: string;
     replaceable: boolean;
@@ -899,80 +902,13 @@ export class WorldRuntimePendingCommandService {
             }
             pendingEntry.dispatching = true;
             const command = pendingEntry.command;
-            const commandDispatchStartedAt = performance.now();
-            let commandDispatchRecorded = false;
-            const previousRecorder = deps?.recordPendingCommandSectionDuration;
-            if (typeof recordTickSectionDuration === 'function') {
-                deps.recordPendingCommandSectionDuration = recordTickSectionDuration;
-            }
             try {
-                await this.dispatchCommand(playerId, command, deps);
-                recordPendingCommandPerf(recordTickSectionDuration, resolvePendingCommandPerfKey(command), commandDispatchStartedAt);
-                commandDispatchRecorded = true;
-                if (command?.manualEngage === true && command.kind !== 'move' && command.kind !== 'portal') {
-                    const manualCleanupStartedAt = performance.now();
-                    this.clearManualEngageState(playerId, deps);
-                    recordPendingCommandPerf(recordTickSectionDuration, 'pendingCommands.manualEngageCleanupMs', manualCleanupStartedAt);
+                // 战斗指令不在此处立即结算，挂到所在实例后在统一出手排序阶段按速度序执行。
+                if (!this.tryDeferCombatCommandToInstance(playerId, command, deps)) {
+                    await this.executePlayerPendingCommand(playerId, command, deps, recordTickSectionDuration);
                 }
-            }
-            catch (error) {
-                if (!commandDispatchRecorded) {
-                    recordPendingCommandPerf(recordTickSectionDuration, resolvePendingCommandPerfKey(command), commandDispatchStartedAt);
-                    commandDispatchRecorded = true;
-                }
-                if (command?.manualEngage === true) {
-                    const manualCleanupStartedAt = performance.now();
-                    this.clearManualEngageState(playerId, deps);
-                    recordPendingCommandPerf(recordTickSectionDuration, 'pendingCommands.manualEngageCleanupMs', manualCleanupStartedAt);
-                }
-                let failedCommandForDiagnostics = command;
-                if (this.isAutoCombatCommand(command)) {
-                    const retryStartedAt = performance.now();
-                    const retryResult = await this.retryAutoCombatCommand(playerId, deps, command);
-                    recordPendingCommandPerf(recordTickSectionDuration, 'pendingCommands.autoCombatRetryMs', retryStartedAt);
-                    if (retryResult.handled) {
-                        continue;
-                    }
-                    if (retryResult.error) {
-                        error = retryResult.error;
-                        failedCommandForDiagnostics = retryResult.errorCommand ?? command;
-                    }
-                }
-                const failureHandlingStartedAt = performance.now();
-                const message = error instanceof Error ? error.message : String(error);
-                if (this.isAutoCombatCommand(failedCommandForDiagnostics) && isTerminalAutoCombatTargetFailure(message)) {
-                    this.clearAutoCombatTargetAfterFailure(playerId, deps, failedCommandForDiagnostics);
-                }
-                const notice = buildPendingCommandNotice(failedCommandForDiagnostics, message);
-                const retrySuffix = failedCommandForDiagnostics !== command ? ` retryOf=${command.kind}` : '';
-                emitPendingCommandFailureLog(
-                    deps,
-                    `处理玩家 ${playerId} 的待执行指令失败：${failedCommandForDiagnostics.kind}（${message}） ${buildPendingCommandFailureDebug(playerId, failedCommandForDiagnostics, deps)}${retrySuffix}`,
-                    failedCommandForDiagnostics,
-                    message,
-                    error,
-                );
-                if (notice) {
-                    deps.queuePlayerNotice(
-                        playerId,
-                        notice.text,
-                        notice.kind,
-                        undefined,
-                        undefined,
-                        notice.structured,
-                    );
-                }
-                recordPendingCommandPerf(recordTickSectionDuration, 'pendingCommands.failureHandlingMs', failureHandlingStartedAt);
             }
             finally {
-                if (typeof recordTickSectionDuration === 'function') {
-                    if (previousRecorder) {
-                        deps.recordPendingCommandSectionDuration = previousRecorder;
-                    }
-                    else {
-                        delete deps.recordPendingCommandSectionDuration;
-                    }
-                }
                 const currentQueue = this.pendingCommands.get(playerId);
                 const entryIndex = currentQueue?.indexOf(pendingEntry) ?? -1;
                 if (currentQueue && entryIndex >= 0) {
@@ -995,6 +931,128 @@ export class WorldRuntimePendingCommandService {
                 }
             }
         }
+    }
+    /**
+ * tryDeferCombatCommandToInstance：把战斗指令挂到玩家所在实例的统一出手排序队列。
+ * @param playerId 玩家 ID。
+ * @param command 输入指令。
+ * @param deps 运行时依赖。
+ * @returns 成功挂载返回 true；非战斗指令或实例缺失返回 false，由调用方回退立即执行。
+ */
+    tryDeferCombatCommandToInstance(playerId, command, deps) {
+        if (!DEFERRED_COMBAT_COMMAND_KINDS.has(command?.kind)) {
+            return false;
+        }
+        const location = typeof deps.getPlayerLocation === 'function' ? deps.getPlayerLocation(playerId) : null;
+        const instanceId = location?.instanceId;
+        const instance = instanceId && typeof deps.getInstanceRuntime === 'function'
+            ? deps.getInstanceRuntime(instanceId)
+            : null;
+        if (!instance || typeof instance.enqueueDeferredCombatAction !== 'function') {
+            return false;
+        }
+        return instance.enqueueDeferredCombatAction(playerId, command) === true;
+    }
+    /**
+ * executePlayerPendingCommand：执行单条玩家指令，含 manualEngage 清理、自动战斗重试与失败通知。
+ * @param playerId 玩家 ID。
+ * @param command 输入指令。
+ * @param deps 运行时依赖。
+ * @param recordTickSectionDuration 可选的 tick 分节耗时记录器。
+ * @returns 无返回值，直接更新玩家相关状态。
+ */
+    async executePlayerPendingCommand(playerId, command, deps, recordTickSectionDuration = null) {
+        const commandDispatchStartedAt = performance.now();
+        let commandDispatchRecorded = false;
+        const previousRecorder = deps?.recordPendingCommandSectionDuration;
+        if (typeof recordTickSectionDuration === 'function') {
+            deps.recordPendingCommandSectionDuration = recordTickSectionDuration;
+        }
+        try {
+            await this.dispatchCommand(playerId, command, deps);
+            recordPendingCommandPerf(recordTickSectionDuration, resolvePendingCommandPerfKey(command), commandDispatchStartedAt);
+            commandDispatchRecorded = true;
+            if (command?.manualEngage === true && command.kind !== 'move' && command.kind !== 'portal') {
+                const manualCleanupStartedAt = performance.now();
+                this.clearManualEngageState(playerId, deps);
+                recordPendingCommandPerf(recordTickSectionDuration, 'pendingCommands.manualEngageCleanupMs', manualCleanupStartedAt);
+            }
+        }
+        catch (error) {
+            if (!commandDispatchRecorded) {
+                recordPendingCommandPerf(recordTickSectionDuration, resolvePendingCommandPerfKey(command), commandDispatchStartedAt);
+                commandDispatchRecorded = true;
+            }
+            if (command?.manualEngage === true) {
+                const manualCleanupStartedAt = performance.now();
+                this.clearManualEngageState(playerId, deps);
+                recordPendingCommandPerf(recordTickSectionDuration, 'pendingCommands.manualEngageCleanupMs', manualCleanupStartedAt);
+            }
+            let failedCommandForDiagnostics = command;
+            if (this.isAutoCombatCommand(command)) {
+                const retryStartedAt = performance.now();
+                const retryResult = await this.retryAutoCombatCommand(playerId, deps, command);
+                recordPendingCommandPerf(recordTickSectionDuration, 'pendingCommands.autoCombatRetryMs', retryStartedAt);
+                if (retryResult.handled) {
+                    return;
+                }
+                if (retryResult.error) {
+                    error = retryResult.error;
+                    failedCommandForDiagnostics = retryResult.errorCommand ?? command;
+                }
+            }
+            const failureHandlingStartedAt = performance.now();
+            const message = error instanceof Error ? error.message : String(error);
+            if (this.isAutoCombatCommand(failedCommandForDiagnostics) && isTerminalAutoCombatTargetFailure(message)) {
+                this.clearAutoCombatTargetAfterFailure(playerId, deps, failedCommandForDiagnostics);
+            }
+            const notice = buildPendingCommandNotice(failedCommandForDiagnostics, message);
+            const retrySuffix = failedCommandForDiagnostics !== command ? ` retryOf=${command.kind}` : '';
+            emitPendingCommandFailureLog(
+                deps,
+                `处理玩家 ${playerId} 的待执行指令失败：${failedCommandForDiagnostics.kind}（${message}） ${buildPendingCommandFailureDebug(playerId, failedCommandForDiagnostics, deps)}${retrySuffix}`,
+                failedCommandForDiagnostics,
+                message,
+                error,
+            );
+            if (notice) {
+                deps.queuePlayerNotice(
+                    playerId,
+                    notice.text,
+                    notice.kind,
+                    undefined,
+                    undefined,
+                    notice.structured,
+                );
+            }
+            recordPendingCommandPerf(recordTickSectionDuration, 'pendingCommands.failureHandlingMs', failureHandlingStartedAt);
+        }
+        finally {
+            if (typeof recordTickSectionDuration === 'function') {
+                if (previousRecorder) {
+                    deps.recordPendingCommandSectionDuration = previousRecorder;
+                }
+                else {
+                    delete deps.recordPendingCommandSectionDuration;
+                }
+            }
+        }
+    }
+    /**
+ * executeDeferredPlayerCombatAction：在实例统一出手排序阶段执行已挂载的玩家战斗指令。
+ * 出手排序结算前先校验存活，已阵亡的单位直接跳过出手。
+ * @param playerId 玩家 ID。
+ * @param command 已出队的战斗指令。
+ * @param deps 运行时依赖。
+ * @param recordTickSectionDuration 可选的 tick 分节耗时记录器。
+ * @returns 无返回值，直接更新玩家相关状态。
+ */
+    async executeDeferredPlayerCombatAction(playerId, command, deps, recordTickSectionDuration = null) {
+        const player = deps.playerRuntimeService?.getPlayer?.(playerId);
+        if (!player || player.hp <= 0) {
+            return;
+        }
+        await this.executePlayerPendingCommand(playerId, command, deps, recordTickSectionDuration);
     }
     /**
  * resetState：执行reset状态相关逻辑。
