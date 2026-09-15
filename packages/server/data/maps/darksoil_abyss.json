@@ -334,6 +334,216 @@
       "x": 28,
       "y": 50,
       "desc": "整张地图最深处的小空间，地面有一道被封缄的裂缝向下延伸。隐约可见更深层的封印痕迹。（金丹期入口预留，当前仅作描述。）"
+    },
+    {
+      "id": "lm_darksoil_abyss_darksoil_heap",
+      "name": "玄壤堆",
+      "x": 27,
+      "y": 27,
+      "desc": "渊底翻起的玄壤堆还带着潮气，指缝里一捻就能筛出被土行养透的矿髓。",
+      "container": {
+        "grade": "heaven",
+        "refreshTicks": 4600,
+        "char": "堆",
+        "color": "#3d3a3d",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.75,
+            "minLevel": 33,
+            "maxLevel": 42,
+            "minGrade": "earth",
+            "maxGrade": "heaven",
+            "tagGroups": [
+              [
+                "矿材",
+                "异材"
+              ],
+              [
+                "土行",
+                "五行俱全"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 55
+              },
+              {
+                "count": 2,
+                "weight": 30
+              },
+              {
+                "count": 3,
+                "weight": 12
+              },
+              {
+                "count": 4,
+                "weight": 3
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.3,
+            "minLevel": 33,
+            "maxLevel": 42,
+            "minGrade": "earth",
+            "maxGrade": "heaven",
+            "tagGroups": [
+              [
+                "材料"
+              ],
+              [
+                "土行"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 80
+              },
+              {
+                "count": 2,
+                "weight": 20
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_darksoil_abyss_soil_eater_case",
+      "name": "噬壤遗匣",
+      "x": 47,
+      "y": 3,
+      "desc": "被噬壤兽翻拱出来的旧匣子，匣身咬痕累累，里面藏的东西倒是没被消化。",
+      "container": {
+        "grade": "heaven",
+        "refreshTicks": 4600,
+        "char": "匣",
+        "color": "#4d3d35",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.6,
+            "minLevel": 33,
+            "maxLevel": 42,
+            "minGrade": "earth",
+            "maxGrade": "heaven",
+            "tagGroups": [
+              [
+                "兽材",
+                "毒材",
+                "灵核",
+                "蛇胆"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 70
+              },
+              {
+                "count": 2,
+                "weight": 25
+              },
+              {
+                "count": 3,
+                "weight": 5
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.35,
+            "minLevel": 33,
+            "maxLevel": 42,
+            "minGrade": "earth",
+            "maxGrade": "heaven",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 85
+              },
+              {
+                "count": 2,
+                "weight": 15
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_darksoil_abyss_abyss_war_case",
+      "name": "沉渊战匣",
+      "x": 6,
+      "y": 4,
+      "desc": "深渊裂口边沉着的战匣，封条上还留着旧朝军徽，里面的装备被土气压得严实。",
+      "container": {
+        "grade": "heaven",
+        "refreshTicks": 4800,
+        "char": "匣",
+        "color": "#3d3d4d",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.3,
+            "minLevel": 36,
+            "maxLevel": 42,
+            "minGrade": "earth",
+            "maxGrade": "heaven",
+            "tagGroups": [
+              [
+                "武器",
+                "护甲",
+                "帽子",
+                "鞋子",
+                "饰品"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 95
+              },
+              {
+                "count": 2,
+                "weight": 5
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.05,
+            "minGrade": "earth",
+            "maxGrade": "heaven",
+            "tagGroups": [
+              [
+                "功法书"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 100
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
     }
   ],
   "npcs": [

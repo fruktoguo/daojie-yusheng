@@ -369,6 +369,16 @@ function normalizeEditableContainerLootPoolRecord(input: unknown): GmMapContaine
         : [])
       .filter((group) => group.length > 0)
     : [];
+  const normalizedCountWeights = Array.isArray(pool.countWeights)
+    ? pool.countWeights
+      .map((entry) => (entry && typeof entry === 'object'
+        ? {
+          count: Number.isFinite(entry.count) ? Number(entry.count) : 0,
+          weight: Number.isFinite(entry.weight) ? Number(entry.weight) : 0,
+        }
+        : { count: 0, weight: 0 }))
+      .filter((entry) => Number.isInteger(entry.count) && entry.count > 0 && entry.weight > 0)
+    : undefined;
   return {
     rolls: Number.isFinite(pool.rolls) ? Number(pool.rolls) : undefined,
     chance: Number.isFinite(pool.chance) ? Number(pool.chance) : undefined,
@@ -379,6 +389,7 @@ function normalizeEditableContainerLootPoolRecord(input: unknown): GmMapContaine
     tagGroups: normalizedTagGroups,
     countMin: Number.isFinite(pool.countMin) ? Number(pool.countMin) : undefined,
     countMax: Number.isFinite(pool.countMax) ? Number(pool.countMax) : undefined,
+    countWeights: normalizedCountWeights && normalizedCountWeights.length > 0 ? normalizedCountWeights : undefined,
     allowDuplicates: pool.allowDuplicates === true,
   };
 }
@@ -1324,6 +1335,25 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
           && pool.countMin > pool.countMax
         ) {
           return `${poolLabel} 的数量范围无效`;
+        }
+        if (pool.countWeights !== undefined) {
+          if (!Array.isArray(pool.countWeights) || pool.countWeights.length === 0) {
+            return `${poolLabel} 的数量权重必须是非空数组`;
+          }
+          const seenCounts = new Set<number>();
+          for (let weightIndex = 0; weightIndex < pool.countWeights.length; weightIndex += 1) {
+            const entry = pool.countWeights[weightIndex]!;
+            if (!Number.isInteger(entry?.count) || entry.count <= 0) {
+              return `${poolLabel} 的数量权重第 ${weightIndex + 1} 项数量必须为正整数`;
+            }
+            if (!Number.isFinite(entry?.weight) || entry.weight <= 0) {
+              return `${poolLabel} 的数量权重第 ${weightIndex + 1} 项权重必须为正数`;
+            }
+            if (seenCounts.has(entry.count)) {
+              return `${poolLabel} 的数量权重存在重复数量 ${entry.count}`;
+            }
+            seenCounts.add(entry.count);
+          }
         }
       }
     }

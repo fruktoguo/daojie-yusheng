@@ -323,6 +323,197 @@
       "x": 39,
       "y": 39,
       "desc": "踏过钥石回廊后，断裂石阶一路抬升至天穹残宫，是第三章后段的关键跃升点。"
+    },
+    {
+      "id": "lm_ancient_ruins_broken_alcove",
+      "name": "断壁残龛",
+      "x": 24,
+      "y": 24,
+      "desc": "断墙里的旧龛位还留着半层灰，龛底沉着些前人供进去又忘了取的东西。",
+      "container": {
+        "grade": "yellow",
+        "refreshTicks": 3000,
+        "char": "龛",
+        "color": "#6a6252",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.5,
+            "minLevel": 1,
+            "maxLevel": 14,
+            "minGrade": "mortal",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "武器",
+                "旧兵器"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 90
+              },
+              {
+                "count": 2,
+                "weight": 10
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.08,
+            "maxLevel": 14,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "功法书"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 100
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_ancient_ruins_rubble_heap",
+      "name": "碎石堆",
+      "x": 1,
+      "y": 1,
+      "desc": "塌下来的殿顶碎石堆成小山，缝隙里卡着些没被压碎的矿料和石块。",
+      "container": {
+        "grade": "yellow",
+        "refreshTicks": 2800,
+        "char": "堆",
+        "color": "#5a5a5a",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.7,
+            "minLevel": 3,
+            "maxLevel": 14,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "矿材",
+                "石材"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 65
+              },
+              {
+                "count": 2,
+                "weight": 25
+              },
+              {
+                "count": 3,
+                "weight": 10
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.4,
+            "minLevel": 3,
+            "maxLevel": 14,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "材料"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 80
+              },
+              {
+                "count": 2,
+                "weight": 20
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_ancient_ruins_stele_offering",
+      "name": "残碑祭匣",
+      "x": 46,
+      "y": 1,
+      "desc": "半截断碑下压着的祭匣，木纹被岁月泡得发白，里面供的东西倒还齐整。",
+      "container": {
+        "grade": "mystic",
+        "refreshTicks": 3200,
+        "char": "匣",
+        "color": "#6d5d4d",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.35,
+            "minLevel": 5,
+            "maxLevel": 14,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 85
+              },
+              {
+                "count": 2,
+                "weight": 15
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.3,
+            "minLevel": 1,
+            "maxLevel": 14,
+            "minGrade": "mortal",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "饰品",
+                "武器"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 95
+              },
+              {
+                "count": 2,
+                "weight": 5
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
     }
   ],
   "npcs": [

@@ -331,6 +331,206 @@
       "x": 24,
       "y": 4,
       "desc": "北脊崖顶还钉着旧升灵界门，真正能从兽谷翻上灵脊岭的人，已经算把凡人的最后一段险路走完了。"
+    },
+    {
+      "id": "lm_beast_valley_bone_pile",
+      "name": "兽骨堆",
+      "x": 24,
+      "y": 24,
+      "desc": "谷道旁的兽骨堆得比人高，骨缝里塞着狼群从猎物身上撕下来的杂碎。",
+      "container": {
+        "grade": "yellow",
+        "refreshTicks": 2800,
+        "char": "堆",
+        "color": "#6a5a4a",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.8,
+            "minLevel": 5,
+            "maxLevel": 16,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "兽材",
+                "蛇胆",
+                "毒材",
+                "灵核"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 70
+              },
+              {
+                "count": 2,
+                "weight": 25
+              },
+              {
+                "count": 3,
+                "weight": 5
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.3,
+            "minLevel": 5,
+            "maxLevel": 16,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "异材"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 85
+              },
+              {
+                "count": 2,
+                "weight": 15
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_beast_valley_bloodied_pack",
+      "name": "血污行囊",
+      "x": 2,
+      "y": 6,
+      "desc": "被撕开的行囊滚在草窝里，布面上的血早干透了，里面的药包倒是没破。",
+      "container": {
+        "grade": "yellow",
+        "refreshTicks": 3000,
+        "char": "囊",
+        "color": "#5d3a3a",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.55,
+            "minLevel": 5,
+            "maxLevel": 16,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品",
+                "药散"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 80
+              },
+              {
+                "count": 2,
+                "weight": 20
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.3,
+            "minLevel": 5,
+            "maxLevel": 16,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 90
+              },
+              {
+                "count": 2,
+                "weight": 10
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_beast_valley_hunter_cache",
+      "name": "猎户遗匣",
+      "x": 43,
+      "y": 8,
+      "desc": "老猎户藏在岩缝里的铁匣子，锈得厉害，里面收着舍不得用的旧装备。",
+      "container": {
+        "grade": "mystic",
+        "refreshTicks": 3400,
+        "char": "匣",
+        "color": "#4d4a3d",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.3,
+            "minLevel": 1,
+            "maxLevel": 16,
+            "minGrade": "mortal",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "护甲",
+                "帽子",
+                "鞋子",
+                "饰品"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 95
+              },
+              {
+                "count": 2,
+                "weight": 5
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.15,
+            "minLevel": 1,
+            "maxLevel": 16,
+            "minGrade": "mortal",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "武器",
+                "旧兵器"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 100
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
     }
   ],
   "npcs": [

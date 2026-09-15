@@ -280,6 +280,200 @@
       "x": 24,
       "y": 40,
       "desc": "石台南缘从宽阔台面突然收束成数格宽的断崖裂口。寒气与金行灵力从云下翻涌而上，站在边缘能看见通往霜刃渊的铁链。"
+    },
+    {
+      "id": "lm_yunxu_terrace_market_stall_shelf",
+      "name": "墟摊货架",
+      "x": 25,
+      "y": 22,
+      "desc": "墟摊背后的旧货架，摊主收摊时走得急，角落里还摞着没卖完的零散货。",
+      "container": {
+        "grade": "earth",
+        "refreshTicks": 3600,
+        "char": "架",
+        "color": "#6a5d4a",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.45,
+            "minLevel": 20,
+            "maxLevel": 38,
+            "minGrade": "yellow",
+            "maxGrade": "earth",
+            "tagGroups": [
+              [
+                "消耗品"
+              ],
+              [
+                "阵盘",
+                "种子",
+                "地图"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 80
+              },
+              {
+                "count": 2,
+                "weight": 20
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.3,
+            "minLevel": 20,
+            "maxLevel": 38,
+            "minGrade": "yellow",
+            "maxGrade": "earth",
+            "tagGroups": [
+              [
+                "材料"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 75
+              },
+              {
+                "count": 2,
+                "weight": 22
+              },
+              {
+                "count": 3,
+                "weight": 3
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_yunxu_terrace_alchemy_sample_cabinet",
+      "name": "丹阁样品柜",
+      "x": 3,
+      "y": 2,
+      "desc": "炼丹阁外的样品柜，格子里摆着给客人看的成药样子，有些瓶塞还没开过。",
+      "container": {
+        "grade": "earth",
+        "refreshTicks": 3800,
+        "char": "柜",
+        "color": "#5d4d3d",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.55,
+            "minLevel": 20,
+            "maxLevel": 40,
+            "minGrade": "yellow",
+            "maxGrade": "earth",
+            "tagGroups": [
+              [
+                "药品"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 80
+              },
+              {
+                "count": 2,
+                "weight": 20
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.08,
+            "minGrade": "mystic",
+            "maxGrade": "earth",
+            "tagGroups": [
+              [
+                "功法书"
+              ],
+              [
+                "炼丹",
+                "炼器",
+                "强化",
+                "采矿",
+                "采集",
+                "营造",
+                "阵法",
+                "传法"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 100
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_yunxu_terrace_guildmaster_strongbox",
+      "name": "坊主铁匣",
+      "x": 9,
+      "y": 35,
+      "desc": "炼器坊台脚压着的铁匣，匣面烙着旧坊徽记，坊主换了几任也没人再打开过。",
+      "container": {
+        "grade": "heaven",
+        "refreshTicks": 4400,
+        "char": "匣",
+        "color": "#4d4d52",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.3,
+            "minLevel": 20,
+            "maxLevel": 40,
+            "minGrade": "yellow",
+            "maxGrade": "earth",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 85
+              },
+              {
+                "count": 2,
+                "weight": 15
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.04,
+            "tagGroups": [
+              [
+                "灵石"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 100
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
     }
   ],
   "npcs": [

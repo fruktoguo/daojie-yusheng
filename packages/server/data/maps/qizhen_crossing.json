@@ -487,11 +487,81 @@
       "y": 15,
       "desc": "一截没有实体塔身的影门贴在接引石台旁，门内白光平铺如地，靠近后可进入通天塔。",
       "container": {
-        "grade": "mortal",
+        "grade": "mystic",
+        "refreshTicks": 3800,
         "char": "塔",
         "color": "#d9f0ff",
-        "drops": [],
-        "lootPools": []
+        "lootPools": [
+          {
+            "chance": 0.5,
+            "minLevel": 13,
+            "maxLevel": 26,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "材料"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 75
+              },
+              {
+                "count": 2,
+                "weight": 22
+              },
+              {
+                "count": 3,
+                "weight": 3
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.3,
+            "minLevel": 13,
+            "maxLevel": 26,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药",
+                "药散"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 85
+              },
+              {
+                "count": 2,
+                "weight": 15
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.03,
+            "tagGroups": [
+              [
+                "灵石"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 100
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
       }
     },
     {
@@ -528,6 +598,76 @@
       "x": 46,
       "y": 52,
       "desc": "旧渡口沿着东水线一截一截外挑，木栈和石桩都是后补的，所以看起来总像还在慢慢长。"
+    },
+    {
+      "id": "lm_qizhen_crossing_ferry_cargo_box",
+      "name": "渡头货箱",
+      "x": 30,
+      "y": 30,
+      "desc": "渡头石阶下搁着的旧货箱，等船的客人来去匆匆，箱里剩些没人认领的杂物。",
+      "container": {
+        "grade": "mystic",
+        "refreshTicks": 3400,
+        "char": "箱",
+        "color": "#4d5d6a",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.55,
+            "minLevel": 13,
+            "maxLevel": 26,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品",
+                "药散"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 80
+              },
+              {
+                "count": 2,
+                "weight": 20
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.4,
+            "minLevel": 13,
+            "maxLevel": 26,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "材料"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 75
+              },
+              {
+                "count": 2,
+                "weight": 22
+              },
+              {
+                "count": 3,
+                "weight": 3
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
     }
   ],
   "npcs": [

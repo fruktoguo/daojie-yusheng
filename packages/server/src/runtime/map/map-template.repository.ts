@@ -986,11 +986,28 @@ function normalizeContainerLootPools(input) {
                 : undefined,
             countMin: Number.isInteger(pool.countMin) && Number(pool.countMin) > 0 ? Number(pool.countMin) : undefined,
             countMax: Number.isInteger(pool.countMax) && Number(pool.countMax) > 0 ? Number(pool.countMax) : undefined,
+            countWeights: normalizeContainerLootPoolCountWeights(pool.countWeights),
             allowDuplicates: pool.allowDuplicates === true || undefined,
         });
     }
     return result;
 }
+
+/**
+ * normalizeContainerLootPoolCountWeights：规范化容器随机池数量权重，全部非法时返回 undefined 回退均匀随机。
+ */
+function normalizeContainerLootPoolCountWeights(input) {
+    if (!Array.isArray(input)) {
+        return undefined;
+    }
+    const result = input
+        .filter((entry) => entry && typeof entry === 'object'
+            && Number.isInteger(entry.count) && Number(entry.count) > 0
+            && Number.isFinite(entry.weight) && Number(entry.weight) > 0)
+        .map((entry) => ({ count: Number(entry.count), weight: Number(entry.weight) }));
+    return result.length > 0 ? result : undefined;
+}
+
 /**
  * compareLandmarks：处理compareLandmark并更新相关状态。
  * @param left 参数说明。

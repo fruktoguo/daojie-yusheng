@@ -489,6 +489,217 @@
       "x": 32,
       "y": 31,
       "desc": "道基古阵旁的石阶只露出最下几级，真正的长阶被道压藏在阵后。半步筑基者可由此踏上天梯。"
+    },
+    {
+      "id": "lm_guizang_vein_cavern_sealed_cabinet",
+      "name": "归藏残柜",
+      "x": 32,
+      "y": 32,
+      "desc": "窟道深处嵌进岩壁的旧柜，柜门上的封条烂成了灰，里面的卷册还没散。",
+      "container": {
+        "grade": "earth",
+        "refreshTicks": 4200,
+        "char": "柜",
+        "color": "#4d4a5d",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.08,
+            "minGrade": "mystic",
+            "maxGrade": "earth",
+            "tagGroups": [
+              [
+                "功法书"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 100
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.45,
+            "minLevel": 20,
+            "maxLevel": 34,
+            "minGrade": "yellow",
+            "maxGrade": "earth",
+            "tagGroups": [
+              [
+                "材料"
+              ],
+              [
+                "灵核",
+                "矿材"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 70
+              },
+              {
+                "count": 2,
+                "weight": 25
+              },
+              {
+                "count": 3,
+                "weight": 5
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_guizang_vein_cavern_vein_marrow_heap",
+      "name": "脉髓堆",
+      "x": 3,
+      "y": 3,
+      "desc": "脉窟拐角塌出的髓石堆，断口处还在往外渗着矿髓的光。",
+      "container": {
+        "grade": "earth",
+        "refreshTicks": 4000,
+        "char": "堆",
+        "color": "#5d5a52",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.7,
+            "minLevel": 20,
+            "maxLevel": 34,
+            "minGrade": "yellow",
+            "maxGrade": "earth",
+            "tagGroups": [
+              [
+                "矿材",
+                "异材",
+                "灵核"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 55
+              },
+              {
+                "count": 2,
+                "weight": 30
+              },
+              {
+                "count": 3,
+                "weight": 12
+              },
+              {
+                "count": 4,
+                "weight": 3
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.3,
+            "minLevel": 20,
+            "maxLevel": 34,
+            "minGrade": "yellow",
+            "maxGrade": "earth",
+            "tagGroups": [
+              [
+                "材料"
+              ],
+              [
+                "金行",
+                "土行"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 80
+              },
+              {
+                "count": 2,
+                "weight": 20
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_guizang_vein_cavern_dust_sealed_crate",
+      "name": "封尘箱笼",
+      "x": 60,
+      "y": 3,
+      "desc": "塌了半边的库房里封尘的箱笼，封泥完整，里面的药材被岁月收成了干品。",
+      "container": {
+        "grade": "earth",
+        "refreshTicks": 4200,
+        "char": "箱",
+        "color": "#5d5244",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.4,
+            "minLevel": 20,
+            "maxLevel": 34,
+            "minGrade": "yellow",
+            "maxGrade": "earth",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药",
+                "药散"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 85
+              },
+              {
+                "count": 2,
+                "weight": 15
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.5,
+            "minLevel": 20,
+            "maxLevel": 34,
+            "minGrade": "yellow",
+            "maxGrade": "earth",
+            "tagGroups": [
+              [
+                "药材",
+                "兽材"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 75
+              },
+              {
+                "count": 2,
+                "weight": 22
+              },
+              {
+                "count": 3,
+                "weight": 3
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
     }
   ],
   "npcs": [

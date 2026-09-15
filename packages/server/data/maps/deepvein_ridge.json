@@ -411,6 +411,218 @@
       "x": 10,
       "y": 8,
       "desc": "最深处的石府前庭只剩一道被强行压住的旧门，门后还连着更深的地脉缝，就是归藏脉窟外围。"
+    },
+    {
+      "id": "lm_deepvein_ridge_vein_stone_heap",
+      "name": "脉石堆",
+      "x": 57,
+      "y": 28,
+      "desc": "矿道转弯处滚落的脉石堆，敲开外层石皮就能看到里面凝着的矿髓。",
+      "container": {
+        "grade": "mystic",
+        "refreshTicks": 3400,
+        "char": "堆",
+        "color": "#5d5a4d",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.75,
+            "minLevel": 13,
+            "maxLevel": 26,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "矿材",
+                "石材"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 55
+              },
+              {
+                "count": 2,
+                "weight": 30
+              },
+              {
+                "count": 3,
+                "weight": 12
+              },
+              {
+                "count": 4,
+                "weight": 3
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.4,
+            "minLevel": 13,
+            "maxLevel": 26,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "材料"
+              ],
+              [
+                "土行"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 75
+              },
+              {
+                "count": 2,
+                "weight": 22
+              },
+              {
+                "count": 4,
+                "weight": 3
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_deepvein_ridge_beast_caravan_pack",
+      "name": "驮兽行囊",
+      "x": 18,
+      "y": 11,
+      "desc": "商队驮兽滚坡时甩落的行囊，帆布磨穿了一角，药包和干粮散了一地。",
+      "container": {
+        "grade": "mystic",
+        "refreshTicks": 3200,
+        "char": "囊",
+        "color": "#6a5d4a",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.35,
+            "minLevel": 13,
+            "maxLevel": 26,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药",
+                "药散"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 85
+              },
+              {
+                "count": 2,
+                "weight": 15
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.5,
+            "minLevel": 13,
+            "maxLevel": 26,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "药材",
+                "兽材"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 75
+              },
+              {
+                "count": 2,
+                "weight": 22
+              },
+              {
+                "count": 3,
+                "weight": 3
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_deepvein_ridge_sacrificial_chest",
+      "name": "祭器残箱",
+      "x": 10,
+      "y": 13,
+      "desc": "祭台塌角下压着的礼器箱，铜环早锈死了，箱里的祭器和手抄卷倒还成形。",
+      "container": {
+        "grade": "earth",
+        "refreshTicks": 3800,
+        "char": "箱",
+        "color": "#4d4a5d",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.25,
+            "minLevel": 13,
+            "maxLevel": 26,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "护甲",
+                "帽子",
+                "鞋子",
+                "饰品"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 95
+              },
+              {
+                "count": 2,
+                "weight": 5
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.06,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "功法书"
+              ],
+              [
+                "心法",
+                "锻体"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 100
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
     }
   ],
   "npcs": [

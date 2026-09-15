@@ -25,6 +25,11 @@ main { padding:14px 16px 60px; max-width:1400px; }
 .panel h3 { margin:0 0 8px; font-size:13px; display:flex; gap:10px; align-items:baseline; flex-wrap:wrap; }
 .panel h3 .meta { color:var(--dim); font-weight:normal; font-size:12px; }
 .map-title { color:var(--acc); font-size:13px; margin:18px 0 6px; }
+.mapnav { display:flex; gap:4px; flex-wrap:wrap; padding:8px 0 4px; position:sticky; top:82px; background:var(--bg); z-index:8; }
+.mapnav button { border:1px solid var(--line); border-radius:14px; padding:2px 10px; font-size:12px; color:var(--dim); }
+.mapnav button.active { color:var(--fg); border-color:var(--acc); background:var(--panel2); }
+.mapnav button .cnt { color:var(--dim); font-size:11px; margin-left:3px; }
+.mapnav button.haszero .cnt { color:var(--bad); }
 .tag { display:inline-block; background:#2a2f3a; border:1px solid #3a4150; border-radius:10px; padding:0 8px; margin:1px 2px; font-size:11px; white-space:nowrap; }
 .tag.miss { border-color:var(--bad); color:var(--bad); }
 .tag .x { cursor:pointer; color:var(--dim); margin-left:4px; }
@@ -129,26 +134,67 @@ function matchPool(item, pool) {
 }
 
 function poolCandidates(pool) { return state.items.filter((it) => matchPool(it, pool)); }
+function normalizeWeights(pool) {
+  if (!Array.isArray(pool.countWeights)) return null;
+  const ws = pool.countWeights
+    .map((e) => ({ count: Number(e && e.count), weight: Number(e && e.weight) }))
+    .filter((e) => Number.isInteger(e.count) && e.count > 0 && e.weight > 0);
+  return ws.length ? ws : null;
+}
+function weightsText(pool) {
+  const ws = normalizeWeights(pool);
+  if (!ws) return null;
+  const total = ws.reduce((s, e) => s + e.weight, 0);
+  return ws.map((e) => `×${e.count}:${Math.round((e.weight / total) * 1000) / 10}%`).join(' ');
+}
 function countText(pool) {
+  const w = weightsText(pool);
+  if (w) return w;
   const cmin = Number.isFinite(pool.countMin) ? pool.countMin : 1;
   const cmax = Number.isFinite(pool.countMax) && pool.countMax >= cmin ? pool.countMax : cmin;
   return cmin === cmax ? `×${cmin}` : `×${cmin}~${cmax}`;
+}
+function weightsRaw(pool) {
+  if (!Array.isArray(pool.countWeights)) return '';
+  return pool.countWeights.map((e) => `${(e && e.count) ?? ''}:${(e && e.weight) ?? ''}`).join(',');
 }
 function tagChip(tag, opts = {}) {
   return `<span class="tag ${opts.miss ? 'miss' : ''}">${esc(tag)}${opts.removable ? `<span class="x" data-act="${opts.act}" title="移除">×</span>` : ''}</span>`;
 }
 const edits = new Map();
 const keyOf = (mi, ci) => `${mi}::${ci}`;
+let curMapTab = 0; // 0=全部, 否则 state.maps 下标+1
+
+function mapZeroPools(m) {
+  let n = 0;
+  for (const c of m.containers) for (const p of c.container.lootPools || []) {
+    if (poolCandidates(p).length === 0) n += 1;
+  }
+  return n;
+}
 
 function renderContainers() {
   const host = $('#tab-containers');
-  let html = '';
-  state.maps.forEach((m, mi) => {
-    if (!m.containers.length) return;
+  const mapsWithContainers = state.maps
+    .map((m, mi) => ({ m, mi }))
+    .filter(({ m }) => m.containers.length > 0);
+  if (!mapsWithContainers.length) {
+    host.innerHTML = '<p class="dim">没有地图配置容器。</p>';
+    return;
+  }
+  let nav = `<div class="mapnav"><button data-maptab="0" class="${curMapTab === 0 ? 'active' : ''}">全部</button>`;
+  for (const { m, mi } of mapsWithContainers) {
+    const zero = mapZeroPools(m);
+    nav += `<button data-maptab="${mi + 1}" class="${curMapTab === mi + 1 ? 'active' : ''} ${zero ? 'haszero' : ''}">${esc(m.name)}<span class="cnt">${m.containers.length}${zero ? `·${zero}空` : ''}</span></button>`;
+  }
+  nav += '</div>';
+  let html = nav;
+  for (const { m, mi } of mapsWithContainers) {
+    if (curMapTab !== 0 && curMapTab !== mi + 1) continue;
     html += `<div class="map-title">${esc(m.name)} <span class="mono">${esc(m.file)}</span></div>`;
     m.containers.forEach((c, ci) => { html += renderContainerCard(m, c, mi, ci); });
-  });
-  host.innerHTML = html || '<p class="dim">没有地图配置容器。</p>';
+  }
+  host.innerHTML = html;
 }
 
 function renderContainerCard(m, c, mi, ci) {
@@ -192,7 +238,7 @@ function renderPool(p, mi, ci, pi, editing) {
     <b>随机池#${pi + 1}</b>
     <span>触发率 ${Math.round((p.chance ?? 1) * 1000) / 10}%</span>
     <span>抽取 ${p.rolls ?? 1} 次</span>
-    <span>数量 ${countText(p)}</span>
+    <span data-cw>数量 ${countText(p)}</span>
     <span>等级 ${p.minLevel ?? '—'}~${p.maxLevel ?? '—'}</span>
     <span>品级 ${GRADE_LABELS[p.minGrade] || '—'}~${GRADE_LABELS[p.maxGrade] || '—'}</span>
     ${p.allowDuplicates ? '<span class="warn">允许重复</span>' : ''}
@@ -207,6 +253,7 @@ function renderPool(p, mi, ci, pi, editing) {
       <label class="kv">品级 <select data-f="pool.minGrade" data-p="${pi}"><option value="">—</option>${Object.keys(GRADE_ORDER).map((g) => `<option value="${g}" ${p.minGrade === g ? 'selected' : ''}>${GRADE_LABELS[g]}</option>`).join('')}</select>
       ~ <select data-f="pool.maxGrade" data-p="${pi}"><option value="">—</option>${Object.keys(GRADE_ORDER).map((g) => `<option value="${g}" ${p.maxGrade === g ? 'selected' : ''}>${GRADE_LABELS[g]}</option>`).join('')}</select></label>
       <label class="kv">数量 <input type="number" data-f="pool.countMin" data-p="${pi}" value="${p.countMin ?? ''}" style="width:48px"> ~ <input type="number" data-f="pool.countMax" data-p="${pi}" value="${p.countMax ?? ''}" style="width:48px"></label>
+      <label class="kv">数量权重 <input class="txt" data-f="pool.countWeights" data-p="${pi}" value="${esc(weightsRaw(p))}" placeholder="如 1:80,2:15,3:5" style="width:150px"></label>
       <label class="kv"><input type="checkbox" data-f="pool.allowDuplicates" data-p="${pi}" ${p.allowDuplicates ? 'checked' : ''}> 允许重复</label>
       <button class="small" data-act="addgroup" data-m="${mi}" data-c="${ci}" data-p="${pi}">+ 标签组(AND)</button>
     </div>`;
@@ -273,6 +320,25 @@ function onFieldInput(e) {
     if (el.value) obj[f === 'grade' ? 'grade' : f.slice(5)] = el.value; else delete obj[f === 'grade' ? 'grade' : f.slice(5)];
   } else if (f === 'pool.allowDuplicates') {
     cont.lootPools[Number(el.dataset.p)].allowDuplicates = el.checked;
+  } else if (f === 'pool.countWeights') {
+    const pool = cont.lootPools[Number(el.dataset.p)];
+    const raw = el.value.trim();
+    if (!raw) { delete pool.countWeights; el.style.borderColor = ''; }
+    else {
+      const ws = [];
+      let ok = true;
+      for (const seg of raw.split(/[,，;；\s]+/).filter(Boolean)) {
+        const [cs, ws2] = seg.split(/[:：]/);
+        const count = Number(cs); const weight = Number(ws2);
+        if (!Number.isInteger(count) || count <= 0 || !Number.isFinite(weight) || weight <= 0) { ok = false; break; }
+        ws.push({ count, weight });
+      }
+      if (ok && ws.length) { pool.countWeights = ws; el.style.borderColor = 'var(--ok)'; }
+      else { el.style.borderColor = 'var(--bad)'; }
+    }
+    const headEl = el.closest('.pool').querySelector('.pool-head [data-cw]');
+    if (headEl) headEl.textContent = `数量 ${countText(pool)}`;
+    return;
   } else if (f === 'char' || f === 'color') {
     if (el.value) cont[f] = el.value; else delete cont[f];
   } else if (f === 'drop.itemId' || f === 'drop.name' || f === 'drop.type') {
@@ -296,6 +362,12 @@ async function saveContainer(mi, ci) {
 
 document.addEventListener('input', onFieldInput);
 document.addEventListener('change', onFieldInput);
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-maptab]');
+  if (!el) return;
+  curMapTab = Number(el.dataset.maptab) || 0;
+  renderContainers();
+});
 document.addEventListener('click', async (e) => {
   const el = e.target.closest('[data-act]');
   if (!el) return;

@@ -332,6 +332,215 @@
       "x": 56,
       "y": 22,
       "desc": "荒台最东端的天然石台，台面被高温烧得通红，焚木妖王盘踞于此。台体周围是环形熔池，焦岩柱嶙峋错落，灼热的火木双行灵力在台面上空交织成旋涡。"
+    },
+    {
+      "id": "lm_blazewood_waste_charwood_heap",
+      "name": "焦木堆",
+      "x": 32,
+      "y": 22,
+      "desc": "荒台上堆着的焦木还没熄透，树皮裂缝里凝着被火逼出来的木髓和炭精。",
+      "container": {
+        "grade": "earth",
+        "refreshTicks": 4200,
+        "char": "堆",
+        "color": "#4d3d35",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.75,
+            "minLevel": 28,
+            "maxLevel": 40,
+            "minGrade": "mystic",
+            "maxGrade": "earth",
+            "tagGroups": [
+              [
+                "材料"
+              ],
+              [
+                "木行",
+                "火行"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 55
+              },
+              {
+                "count": 2,
+                "weight": 30
+              },
+              {
+                "count": 3,
+                "weight": 12
+              },
+              {
+                "count": 4,
+                "weight": 3
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.3,
+            "minLevel": 28,
+            "maxLevel": 40,
+            "minGrade": "mystic",
+            "maxGrade": "heaven",
+            "tagGroups": [
+              [
+                "矿材",
+                "异材"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 80
+              },
+              {
+                "count": 2,
+                "weight": 20
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_blazewood_waste_burned_field_case",
+      "name": "焚场遗箱",
+      "x": 2,
+      "y": 4,
+      "desc": "烧塌的窝棚底下压着的木箱，箱体半边焦黑，里面兽材被烟火熏成了干料。",
+      "container": {
+        "grade": "earth",
+        "refreshTicks": 4400,
+        "char": "箱",
+        "color": "#5d4d3d",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.65,
+            "minLevel": 28,
+            "maxLevel": 40,
+            "minGrade": "mystic",
+            "maxGrade": "earth",
+            "tagGroups": [
+              [
+                "兽材",
+                "毒材",
+                "灵核"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 70
+              },
+              {
+                "count": 2,
+                "weight": 25
+              },
+              {
+                "count": 3,
+                "weight": 5
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.3,
+            "minLevel": 28,
+            "maxLevel": 40,
+            "minGrade": "mystic",
+            "maxGrade": "earth",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药",
+                "药散"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 85
+              },
+              {
+                "count": 2,
+                "weight": 15
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_blazewood_waste_fireworker_box",
+      "name": "火工匣",
+      "x": 62,
+      "y": 4,
+      "desc": "看火人丢在灰堆边的工具匣，耐火布包里还收着没用完的杂项物什。",
+      "container": {
+        "grade": "earth",
+        "refreshTicks": 4400,
+        "char": "匣",
+        "color": "#6d4d3d",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.35,
+            "minLevel": 28,
+            "maxLevel": 40,
+            "minGrade": "mystic",
+            "maxGrade": "earth",
+            "tagGroups": [
+              [
+                "消耗品"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 90
+              },
+              {
+                "count": 2,
+                "weight": 10
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.3,
+            "minLevel": 28,
+            "maxLevel": 40,
+            "minGrade": "mystic",
+            "maxGrade": "earth",
+            "tagGroups": [
+              [
+                "药品"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 90
+              },
+              {
+                "count": 2,
+                "weight": 10
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
     }
   ],
   "npcs": [

@@ -336,6 +336,147 @@
       "x": 11,
       "y": 39,
       "desc": "黑水毒潭压在荒野西南角，毒蛛结丝、泽鳞蜥伏泥，药材和毒材都得从这片烂水边捞。"
+    },
+    {
+      "id": "lm_wildlands_wolf_den_scraps",
+      "name": "狼穴弃物堆",
+      "x": 24,
+      "y": 24,
+      "desc": "狼群拖回来的残骸堆在岩壁根，偶尔能翻出被叼走又没吃完的东西。",
+      "container": {
+        "grade": "yellow",
+        "refreshTicks": 2600,
+        "char": "堆",
+        "color": "#6d5a44",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.7,
+            "minLevel": 1,
+            "maxLevel": 10,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 80
+              },
+              {
+                "count": 2,
+                "weight": 20
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.5,
+            "minLevel": 1,
+            "maxLevel": 8,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "兽材",
+                "异材",
+                "毒材"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 75
+              },
+              {
+                "count": 2,
+                "weight": 20
+              },
+              {
+                "count": 3,
+                "weight": 5
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_wildlands_abandoned_post",
+      "name": "废弃哨所箱笼",
+      "x": 1,
+      "y": 2,
+      "desc": "旧时哨所留下的木箱，锁扣已经锈死，撬开还能看到些守卒没带走的物件。",
+      "container": {
+        "grade": "yellow",
+        "refreshTicks": 3000,
+        "char": "箱",
+        "color": "#5d5244",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.3,
+            "minLevel": 1,
+            "maxLevel": 8,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "武器",
+                "护甲",
+                "帽子",
+                "鞋子",
+                "饰品"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 90
+              },
+              {
+                "count": 2,
+                "weight": 10
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.4,
+            "minLevel": 1,
+            "maxLevel": 8,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "材料"
+              ],
+              [
+                "匪物",
+                "兽材"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 80
+              },
+              {
+                "count": 2,
+                "weight": 20
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
     }
   ],
   "npcs": [

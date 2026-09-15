@@ -79,6 +79,7 @@ export class DropTableRegistry {
     const rolls = Number.isInteger(query.rolls) && Number(query.rolls) > 0 ? Number(query.rolls) : 1;
     const countMin = Number.isInteger(query.countMin) && Number(query.countMin) > 0 ? Number(query.countMin) : 1;
     const countMax = Number.isInteger(query.countMax) && Number(query.countMax) >= countMin ? Number(query.countMax) : countMin;
+    const countWeights = normalizeLootPoolCountWeights(query.countWeights);
     const allowDuplicates = query.allowDuplicates === true;
     const pool = candidates.slice();
     const result = [];
@@ -92,7 +93,8 @@ export class DropTableRegistry {
       if (!pickedItemId) {
         continue;
       }
-      const item = this.itemRegistry.createItem(pickedItemId, randomIntInclusive(countMin, countMax));
+      const count = countWeights ? rollWeightedCount(countWeights) : randomIntInclusive(countMin, countMax);
+      const item = this.itemRegistry.createItem(pickedItemId, count);
       if (item) {
         result.push(item);
       }
@@ -555,4 +557,33 @@ function randomIntInclusive(min: number, max: number): number {
     return min;
   }
   return min + Math.floor(Math.random() * ((max - min) + 1));
+}
+
+/** 归一化数量权重配置，全部非法时返回 null 回退 countMin/countMax 均匀随机。 */
+function normalizeLootPoolCountWeights(input: any): { count: number; weight: number }[] | null {
+  if (!Array.isArray(input)) {
+    return null;
+  }
+  const result: { count: number; weight: number }[] = [];
+  for (const entry of input) {
+    const count = Number(entry?.count);
+    const weight = Number(entry?.weight);
+    if (Number.isInteger(count) && count > 0 && Number.isFinite(weight) && weight > 0) {
+      result.push({ count, weight });
+    }
+  }
+  return result.length > 0 ? result : null;
+}
+
+/** 按权重分布抽取数量，例如 [{count:1,weight:80},{count:2,weight:15},{count:3,weight:5}]。 */
+function rollWeightedCount(weights: readonly { count: number; weight: number }[]): number {
+  const total = weights.reduce((sum, entry) => sum + entry.weight, 0);
+  let cursor = Math.random() * total;
+  for (const entry of weights) {
+    cursor -= entry.weight;
+    if (cursor < 0) {
+      return entry.count;
+    }
+  }
+  return weights[weights.length - 1]!.count;
 }

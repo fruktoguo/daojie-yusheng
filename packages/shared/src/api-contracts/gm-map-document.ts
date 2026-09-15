@@ -298,6 +298,20 @@ export interface GmMapDropRecord {
   chance?: number;
 }
 
+/** GM 地图容器随机池数量权重记录。 */
+export interface GmMapContainerLootPoolCountWeightRecord {
+/**
+ * count：数量或计量字段。
+ */
+
+  count: number;
+  /**
+ * weight：权重相关字段。
+ */
+
+  weight: number;
+}
+
 /** GM 地图容器随机池记录。 */
 export interface GmMapContainerLootPoolRecord {
 /**
@@ -345,6 +359,11 @@ export interface GmMapContainerLootPoolRecord {
  */
 
   countMax?: number;
+  /**
+ * countWeights：非线性数量权重分布，配置后优先于 countMin/countMax 均匀随机。
+ */
+
+  countWeights?: GmMapContainerLootPoolCountWeightRecord[];
   /**
  * allowDuplicates：allowDuplicate相关字段。
  */

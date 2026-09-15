@@ -399,6 +399,203 @@
       "x": 40,
       "y": 42,
       "desc": "炉壁最深处裂开了一道向下的旧隙，热气沿着缝往更深处倒灌，穿过去就是归藏脉窟外围。"
+    },
+    {
+      "id": "lm_emberfall_court_char_heap",
+      "name": "熄炭堆",
+      "x": 28,
+      "y": 28,
+      "desc": "祭火台四周积着的熄炭堆，炭灰里还埋着没烧透的矿砂和炭块。",
+      "container": {
+        "grade": "mystic",
+        "refreshTicks": 3400,
+        "char": "堆",
+        "color": "#4d3d3d",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.7,
+            "minLevel": 13,
+            "maxLevel": 26,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "材料"
+              ],
+              [
+                "火行"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 65
+              },
+              {
+                "count": 2,
+                "weight": 28
+              },
+              {
+                "count": 3,
+                "weight": 7
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.35,
+            "minLevel": 13,
+            "maxLevel": 26,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "矿材",
+                "异材"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 80
+              },
+              {
+                "count": 2,
+                "weight": 20
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_emberfall_court_firewatch_seat",
+      "name": "观火台座",
+      "x": 12,
+      "y": 10,
+      "desc": "观火台下空心的石座，掀开通气口能看到前人藏在里面的防火手抄卷。",
+      "container": {
+        "grade": "earth",
+        "refreshTicks": 3800,
+        "char": "座",
+        "color": "#5d4d3d",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.05,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "功法书"
+              ],
+              [
+                "火行"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 100
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.3,
+            "minLevel": 13,
+            "maxLevel": 26,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 85
+              },
+              {
+                "count": 2,
+                "weight": 15
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_emberfall_court_fire_offering",
+      "name": "祭火供匣",
+      "x": 44,
+      "y": 10,
+      "desc": "祭火阶前供着的铜匣，匣面被烟熏得发黑，里面的供品倒还齐齐整整。",
+      "container": {
+        "grade": "mystic",
+        "refreshTicks": 3400,
+        "char": "匣",
+        "color": "#6d4d3d",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.35,
+            "minLevel": 13,
+            "maxLevel": 26,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 85
+              },
+              {
+                "count": 2,
+                "weight": 15
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.1,
+            "minLevel": 13,
+            "maxLevel": 30,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "消耗品"
+              ],
+              [
+                "特殊",
+                "阵盘"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 100
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
     }
   ],
   "npcs": [

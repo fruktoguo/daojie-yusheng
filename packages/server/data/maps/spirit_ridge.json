@@ -349,6 +349,135 @@
       "x": 24,
       "y": 3,
       "desc": "守岭老修看守的旧升穹阵，只有真正跨过灵岭试炼的人，才有资格继续上行去碰天穹残宫。"
+    },
+    {
+      "id": "lm_spirit_ridge_ridge_saddlebag",
+      "name": "岭道弃鞍",
+      "x": 24,
+      "y": 23,
+      "desc": "翻岭的商队丢下的驮鞍，皮面被霜风刮得发硬，侧袋里还塞着没用完的伤药。",
+      "container": {
+        "grade": "mystic",
+        "refreshTicks": 3200,
+        "char": "鞍",
+        "color": "#5d5244",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.3,
+            "minLevel": 7,
+            "maxLevel": 18,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药",
+                "药膏"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 85
+              },
+              {
+                "count": 2,
+                "weight": 15
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.25,
+            "minLevel": 1,
+            "maxLevel": 18,
+            "minGrade": "mortal",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "护甲",
+                "鞋子",
+                "饰品"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 95
+              },
+              {
+                "count": 2,
+                "weight": 5
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_spirit_ridge_gate_stone_case",
+      "name": "关下石函",
+      "x": 3,
+      "y": 45,
+      "desc": "旧关门墙根下的石函，函盖被人推开过一半，露出里面压着的发黄纸卷。",
+      "container": {
+        "grade": "mystic",
+        "refreshTicks": 3400,
+        "char": "函",
+        "color": "#5a5d6a",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.08,
+            "maxLevel": 18,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "功法书"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 100
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.5,
+            "minLevel": 7,
+            "maxLevel": 18,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "材料"
+              ],
+              [
+                "灵核",
+                "兽材"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 80
+              },
+              {
+                "count": 2,
+                "weight": 20
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
     }
   ],
   "npcs": [

@@ -326,6 +326,212 @@
       "x": 15,
       "y": 32,
       "desc": "积年竹阴压住日光，潭边湿地最易藏蛇，也会引来啜饮灵气的竹灵。"
+    },
+    {
+      "id": "lm_bamboo_forest_beast_nest",
+      "name": "竹下兽巢",
+      "x": 24,
+      "y": 24,
+      "desc": "竹根下的兽窝里塞满了叼回来的零碎，蛇蜕和兽骨之间偶尔会夹着能用的东西。",
+      "container": {
+        "grade": "yellow",
+        "refreshTicks": 2400,
+        "char": "巢",
+        "color": "#5a6b4a",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.65,
+            "minLevel": 1,
+            "maxLevel": 10,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "兽材",
+                "蛇胆",
+                "蛛丝"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 75
+              },
+              {
+                "count": 2,
+                "weight": 20
+              },
+              {
+                "count": 3,
+                "weight": 5
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.5,
+            "minLevel": 1,
+            "maxLevel": 10,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 80
+              },
+              {
+                "count": 2,
+                "weight": 20
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_bamboo_forest_abandoned_basket",
+      "name": "弃置竹篓",
+      "x": 1,
+      "y": 2,
+      "desc": "运材人丢在岔路口的竹篓，篾条已经松散，里面还剩些没运走的药材和杂物。",
+      "container": {
+        "grade": "yellow",
+        "refreshTicks": 2400,
+        "char": "篓",
+        "color": "#7a6a4a",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.7,
+            "minLevel": 1,
+            "maxLevel": 10,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药材"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 70
+              },
+              {
+                "count": 2,
+                "weight": 25
+              },
+              {
+                "count": 3,
+                "weight": 5
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.4,
+            "minLevel": 1,
+            "maxLevel": 10,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "异材",
+                "矿石"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 80
+              },
+              {
+                "count": 2,
+                "weight": 20
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_bamboo_forest_mist_herb_basket",
+      "name": "雾中药篮",
+      "x": 46,
+      "y": 2,
+      "desc": "潭边雾气里搁着的采药篮，采药人像是走得匆忙，篮底还压着几副没出手的散药。",
+      "container": {
+        "grade": "yellow",
+        "refreshTicks": 2700,
+        "char": "篮",
+        "color": "#6a7a5a",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.75,
+            "minLevel": 1,
+            "maxLevel": 10,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 80
+              },
+              {
+                "count": 2,
+                "weight": 20
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.2,
+            "minLevel": 1,
+            "maxLevel": 12,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 90
+              },
+              {
+                "count": 2,
+                "weight": 10
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
     }
   ],
   "npcs": [

@@ -505,6 +505,210 @@
       "x": 157,
       "y": 9,
       "desc": "主路一离开残阵就斜着压进坡口，地上全是断枪、裂盾和被砂风磨白的兵骨。"
+    },
+    {
+      "id": "lm_cleft_blade_plain_broken_blade_heap",
+      "name": "断刃残骸堆",
+      "x": 89,
+      "y": 10,
+      "desc": "战场的刃痕里滚着层层叠叠的断刃残骸，残片上还能刮下没锈透的兵铁。",
+      "container": {
+        "grade": "mystic",
+        "refreshTicks": 3400,
+        "char": "堆",
+        "color": "#5d5252",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.55,
+            "minLevel": 13,
+            "maxLevel": 26,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "材料"
+              ],
+              [
+                "金行"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 65
+              },
+              {
+                "count": 2,
+                "weight": 28
+              },
+              {
+                "count": 3,
+                "weight": 7
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.35,
+            "minLevel": 13,
+            "maxLevel": 26,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "武器",
+                "旧兵器"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 95
+              },
+              {
+                "count": 2,
+                "weight": 5
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_cleft_blade_plain_marching_ration",
+      "name": "行军粮袋",
+      "x": 0,
+      "y": 1,
+      "desc": "行军灶灰坑边丢着的粮袋，糙米早被野物掏空，夹层里的伤药还留着。",
+      "container": {
+        "grade": "mystic",
+        "refreshTicks": 3200,
+        "char": "袋",
+        "color": "#6a5d44",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.5,
+            "minLevel": 13,
+            "maxLevel": 26,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "药散",
+                "丹药"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 80
+              },
+              {
+                "count": 2,
+                "weight": 20
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.3,
+            "minLevel": 13,
+            "maxLevel": 26,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "材料"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 80
+              },
+              {
+                "count": 2,
+                "weight": 20
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_cleft_blade_plain_broken_supply",
+      "name": "破损辎重",
+      "x": 175,
+      "y": 1,
+      "desc": "侧翻的辎重车散了一地，完好的箱子被撬过，角落里还卡着没拖走的装备。",
+      "container": {
+        "grade": "mystic",
+        "refreshTicks": 3600,
+        "char": "辎",
+        "color": "#5d4d44",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.55,
+            "minLevel": 13,
+            "maxLevel": 26,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "材料"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 75
+              },
+              {
+                "count": 2,
+                "weight": 22
+              },
+              {
+                "count": 3,
+                "weight": 3
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.15,
+            "minLevel": 13,
+            "maxLevel": 26,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "护甲",
+                "帽子",
+                "鞋子"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 95
+              },
+              {
+                "count": 2,
+                "weight": 5
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
     }
   ],
   "npcs": [

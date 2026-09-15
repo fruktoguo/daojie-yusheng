@@ -411,6 +411,215 @@
       "x": 34,
       "y": 30,
       "desc": "井下旧阵还留着一口能往更深处开的门，穿过去就是归藏脉窟外围的混行地带。"
+    },
+    {
+      "id": "lm_cold_tide_marsh_tide_floating_chest",
+      "name": "汐边浮箱",
+      "x": 26,
+      "y": 21,
+      "desc": "被汐水推上岸的旧货箱，箱体泡得发胀，蜡封的夹层倒还干爽。",
+      "container": {
+        "grade": "mystic",
+        "refreshTicks": 3400,
+        "char": "箱",
+        "color": "#4d5d6a",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.7,
+            "minLevel": 13,
+            "maxLevel": 26,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "材料"
+              ],
+              [
+                "水行"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 65
+              },
+              {
+                "count": 2,
+                "weight": 28
+              },
+              {
+                "count": 3,
+                "weight": 7
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.3,
+            "minLevel": 13,
+            "maxLevel": 26,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 85
+              },
+              {
+                "count": 2,
+                "weight": 15
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_cold_tide_marsh_sunken_satchel",
+      "name": "沉没行箧",
+      "x": 9,
+      "y": 50,
+      "desc": "浅滩淤泥里陷着的行箧，提手断了一边，里面油纸包着的东西还没进水。",
+      "container": {
+        "grade": "mystic",
+        "refreshTicks": 3600,
+        "char": "箧",
+        "color": "#3d4d5a",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.5,
+            "minLevel": 13,
+            "maxLevel": 26,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "药材"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 75
+              },
+              {
+                "count": 2,
+                "weight": 22
+              },
+              {
+                "count": 3,
+                "weight": 3
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.2,
+            "minLevel": 13,
+            "maxLevel": 26,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "鞋子",
+                "护甲"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 95
+              },
+              {
+                "count": 2,
+                "weight": 5
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_cold_tide_marsh_marsh_herb_basket",
+      "name": "泽中药篮",
+      "x": 50,
+      "y": 51,
+      "desc": "苇丛深处挂着的采药篮，主人像是被什么惊走了，新采的药草还带着泥。",
+      "container": {
+        "grade": "mystic",
+        "refreshTicks": 3200,
+        "char": "篮",
+        "color": "#5a6a5d",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.6,
+            "minLevel": 13,
+            "maxLevel": 26,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "药材"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 70
+              },
+              {
+                "count": 2,
+                "weight": 25
+              },
+              {
+                "count": 3,
+                "weight": 5
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.25,
+            "minLevel": 13,
+            "maxLevel": 26,
+            "minGrade": "yellow",
+            "maxGrade": "mystic",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "药膏",
+                "药散"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 90
+              },
+              {
+                "count": 2,
+                "weight": 10
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
     }
   ],
   "npcs": [

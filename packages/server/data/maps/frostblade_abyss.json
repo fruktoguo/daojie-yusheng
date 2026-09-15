@@ -377,6 +377,209 @@
       "x": 19,
       "y": 50,
       "desc": "霜刃渊最深处的开阔冰窟，寒沼遍地，冰柱林立。铁壳玄龟与冰晶蛛在沼气中盘踞，西南壁裂缝透出灼热气息。"
+    },
+    {
+      "id": "lm_frostblade_abyss_ice_cave_chest",
+      "name": "冰窟遗箱",
+      "x": 20,
+      "y": 30,
+      "desc": "冰窟里被冻进半寸冰层的旧箱，凿开冰壳，箱里的矿料和兽材还保着原样。",
+      "container": {
+        "grade": "earth",
+        "refreshTicks": 4200,
+        "char": "箱",
+        "color": "#4d5d6d",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.7,
+            "minLevel": 25,
+            "maxLevel": 38,
+            "minGrade": "mystic",
+            "maxGrade": "earth",
+            "tagGroups": [
+              [
+                "矿材",
+                "异材"
+              ],
+              [
+                "水行",
+                "金行"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 60
+              },
+              {
+                "count": 2,
+                "weight": 30
+              },
+              {
+                "count": 3,
+                "weight": 10
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.35,
+            "minLevel": 25,
+            "maxLevel": 38,
+            "minGrade": "mystic",
+            "maxGrade": "earth",
+            "tagGroups": [
+              [
+                "材料"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 80
+              },
+              {
+                "count": 2,
+                "weight": 20
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_frostblade_abyss_frozen_satchel",
+      "name": "冻毙行裹",
+      "x": 8,
+      "y": 3,
+      "desc": "冰坡上冻毙行者的裹尸布卷，随身的东西被冻在布褶里，掰开才能取出。",
+      "container": {
+        "grade": "earth",
+        "refreshTicks": 4000,
+        "char": "裹",
+        "color": "#5d6a75",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.6,
+            "minLevel": 25,
+            "maxLevel": 38,
+            "minGrade": "mystic",
+            "maxGrade": "earth",
+            "tagGroups": [
+              [
+                "蛛丝",
+                "蛇胆",
+                "兽材"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 70
+              },
+              {
+                "count": 2,
+                "weight": 25
+              },
+              {
+                "count": 3,
+                "weight": 5
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.35,
+            "minLevel": 25,
+            "maxLevel": 38,
+            "minGrade": "mystic",
+            "maxGrade": "earth",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药",
+                "药膏"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 85
+              },
+              {
+                "count": 2,
+                "weight": 15
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_frostblade_abyss_sunken_weapon_case",
+      "name": "沉渊武匣",
+      "x": 31,
+      "y": 3,
+      "desc": "渊底沉着的武库残匣，寒气把铁锈都冻住了，里面的兵器保养得意外完好。",
+      "container": {
+        "grade": "heaven",
+        "refreshTicks": 4600,
+        "char": "匣",
+        "color": "#3d4d5d",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.3,
+            "minLevel": 25,
+            "maxLevel": 40,
+            "minGrade": "mystic",
+            "maxGrade": "earth",
+            "tagGroups": [
+              [
+                "武器",
+                "护甲",
+                "帽子",
+                "鞋子",
+                "饰品"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 95
+              },
+              {
+                "count": 2,
+                "weight": 5
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.06,
+            "minGrade": "mystic",
+            "maxGrade": "earth",
+            "tagGroups": [
+              [
+                "功法书"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 100
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
     }
   ],
   "npcs": [

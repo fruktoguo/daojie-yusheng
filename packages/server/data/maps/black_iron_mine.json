@@ -334,6 +334,148 @@
       "y": 36,
       "desc": "东支巷道的矿壁被塌方磨掉一层，露出成片玄铁硬筋，旁边只嵌着零零散散的灵石点。",
       "resourceNodeId": "landmark.black_iron_vein"
+    },
+    {
+      "id": "lm_black_iron_mine_collapsed_ore",
+      "name": "塌方矿堆",
+      "x": 23,
+      "y": 24,
+      "desc": "塌方区边缘散落的矿堆，碎石里还嵌着没运走的矿石块。",
+      "container": {
+        "grade": "yellow",
+        "refreshTicks": 2800,
+        "char": "堆",
+        "color": "#4a4a52",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.75,
+            "minLevel": 1,
+            "maxLevel": 12,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "矿材"
+              ],
+              [
+                "玄铁",
+                "石材"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 60
+              },
+              {
+                "count": 2,
+                "weight": 30
+              },
+              {
+                "count": 3,
+                "weight": 10
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.5,
+            "minLevel": 1,
+            "maxLevel": 12,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "矿材",
+                "异材"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 70
+              },
+              {
+                "count": 2,
+                "weight": 25
+              },
+              {
+                "count": 3,
+                "weight": 5
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_black_iron_mine_miner_pack",
+      "name": "矿工行囊",
+      "x": 2,
+      "y": 6,
+      "desc": "矿工逃难时丢下的行囊，干粮早被啃空，只剩些散药和擦刀的旧布。",
+      "container": {
+        "grade": "yellow",
+        "refreshTicks": 2600,
+        "char": "囊",
+        "color": "#5d4a3a",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.6,
+            "minLevel": 1,
+            "maxLevel": 12,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 80
+              },
+              {
+                "count": 2,
+                "weight": 20
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.2,
+            "minLevel": 1,
+            "maxLevel": 12,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "帽子",
+                "护甲",
+                "鞋子"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 90
+              },
+              {
+                "count": 2,
+                "weight": 10
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
     }
   ],
   "npcs": [

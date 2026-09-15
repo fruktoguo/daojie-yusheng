@@ -314,6 +314,136 @@
         ],
         "lootPools": []
       }
+    },
+    {
+      "id": "lm_sky_ruins_corridor_chest",
+      "name": "残宫廊箱",
+      "x": 23,
+      "y": 24,
+      "desc": "环廊阴影里搁着的旧宫箱，漆面剥落得只剩木胎，锁眼里还卡着半截断钥。",
+      "container": {
+        "grade": "saint",
+        "refreshTicks": 3600,
+        "char": "箱",
+        "color": "#5d5a6a",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.3,
+            "minLevel": 9,
+            "maxLevel": 20,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "护甲",
+                "帽子",
+                "鞋子",
+                "饰品"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 95
+              },
+              {
+                "count": 2,
+                "weight": 5
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.3,
+            "minLevel": 9,
+            "maxLevel": 20,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 85
+              },
+              {
+                "count": 2,
+                "weight": 15
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_sky_ruins_starfall_debris",
+      "name": "坠星屑堆",
+      "x": 39,
+      "y": 8,
+      "desc": "殿顶塌落处积着的星屑堆，指尖一捻就能从灰里筛出些亮晶晶的碎料。",
+      "container": {
+        "grade": "saint",
+        "refreshTicks": 3800,
+        "char": "堆",
+        "color": "#4d4d5d",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.6,
+            "minLevel": 9,
+            "maxLevel": 20,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "矿材",
+                "异材"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 65
+              },
+              {
+                "count": 2,
+                "weight": 30
+              },
+              {
+                "count": 3,
+                "weight": 5
+              }
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.15,
+            "maxLevel": 20,
+            "minGrade": "mortal",
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "功法书"
+              ]
+            ],
+            "countWeights": [
+              {
+                "count": 1,
+                "weight": 100
+              }
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
     }
   ],
   "npcs": [
