@@ -15,6 +15,7 @@ import { readTrimmedEnv } from '../config/env-alias';
 import { StartupBarrierService } from '../lifecycle/startup-barrier.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import {
+  PLAYER_RUNTIME_FLUSH_EXCLUDED_DOMAINS,
   PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS,
   PlayerDomainPersistenceService,
   nextPlayerPersistenceVersion,
@@ -235,11 +236,19 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     if (requestedDomains.size === 0) {
       return false;
     }
+    // 真源由外部持久化上下文持有的域（如 market_storage）玩家侧无写义务：
+    // 从请求域中剔除；若仅剩这类域则按已收敛返回 true，让调用方安全 markFlushed。
+    const flushableDomains = new Set(
+      Array.from(requestedDomains).filter((domain) => !PLAYER_RUNTIME_FLUSH_EXCLUDED_DOMAINS.has(domain)),
+    );
+    if (flushableDomains.size === 0) {
+      return true;
+    }
     const currentDirtyDomains = this.resolveDirtyPlayerDomains().get(playerId) ?? new Set<string>();
     const forceCurrentSnapshot = options.forceCurrentSnapshot === true;
     const targetDomains = forceCurrentSnapshot
-      ? requestedDomains
-      : new Set(Array.from(currentDirtyDomains).filter((domain) => requestedDomains.has(domain)));
+      ? flushableDomains
+      : new Set(Array.from(currentDirtyDomains).filter((domain) => flushableDomains.has(domain)));
     return this.flushResolvedPlayerDomains(
       playerId,
       targetDomains,
@@ -550,6 +559,14 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     }
 
     const projectedDomains = nonPresenceDirtyDomains;
+    // 真源由外部持久化上下文持有的域（如 market_storage）玩家侧不得写回：
+    // 按已收敛计入 persistedDomains 以清 dirty，但绝不进入投影写计划。
+    for (const domain of Array.from(projectedDomains)) {
+      if (PLAYER_RUNTIME_FLUSH_EXCLUDED_DOMAINS.has(domain)) {
+        projectedDomains.delete(domain);
+        persistedDomains.add(domain);
+      }
+    }
     const unsupportedDomains = Array.from(projectedDomains).filter((domain) => !isProjectableDirtyDomain(domain));
     if (
       projectedDomains.has(PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN)

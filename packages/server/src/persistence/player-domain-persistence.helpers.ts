@@ -229,6 +229,18 @@ export const PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS = [
   'logbook',
 ] as const;
 
+/**
+ * 运行期刷盘禁止经玩家快照投影写入的域：这些分域表的真源由玩家投影之外的
+ * 持久化上下文独立维护。market_storage 由 MarketPersistenceService.persistMutation /
+ * durable 强事务写入，player.marketStorage 只是登录水合出的镜像，坊市会话内变更
+ * 不会回写它。若放任玩家侧 flush 携带该域：空镜像会触发 refuseEmptyOverwriteIfRowsExist
+ * 导致整组回滚（2026-09-14 线上 startup_deterministic_stall 事故），非空旧镜像则会
+ * 静默覆盖坊市已提交的新行。域本身仍保留在 PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS，
+ * starter 投影与导入/迁移工具仍可显式写域；这里只约束运行期 flush（统一刷盘任务
+ * staging/消费与 legacy PlayerPersistenceFlushService 直写）。
+ */
+export const PLAYER_RUNTIME_FLUSH_EXCLUDED_DOMAINS = new Set<string>(['market_storage']);
+
 export const WATERMARK_COLUMNS = [
   'identity_version',
   'presence_version',

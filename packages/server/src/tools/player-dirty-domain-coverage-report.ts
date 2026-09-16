@@ -36,12 +36,18 @@ const EXPECTED_DIRTY_DOMAINS = [
 ] as const;
 
 async function main(): Promise<void> {
-  const playerRuntimeSource = readSource('packages/server/src/runtime/player/player-runtime.service.ts');
+  const playerRuntimeSource = [
+    readSource('packages/server/src/runtime/player/player-runtime.service.ts'),
+    readSource('packages/server/src/runtime/player/player-runtime.constants.ts'),
+    readSource('packages/server/src/runtime/player/player-runtime.persistence.helpers.ts'),
+    readSource('packages/server/src/runtime/craft/craft-panel-runtime.alchemy-like.ts'),
+  ].join('\n');
   const craftPanelRuntimeSource = readSource('packages/server/src/runtime/craft/craft-panel-runtime.service.ts');
   const worldRuntimeAlchemySource = readSource('packages/server/src/runtime/world/world-runtime-alchemy.service.ts');
   const worldRuntimeEnhancementSource = readSource('packages/server/src/runtime/world/world-runtime-enhancement.service.ts');
   const marketRuntimeSource = readSource('packages/server/src/runtime/market/market-runtime.service.ts');
   const marketPersistenceSource = readSource('packages/server/src/persistence/market-persistence.service.ts');
+  const playerDomainHelpersSource = readSource('packages/server/src/persistence/player-domain-persistence.helpers.ts');
   const playerDirtySmokeSource = readSource('packages/server/src/tools/player-runtime-dirty-domain-smoke.ts');
   const craftDirtySmokeSource = readSource('packages/server/src/tools/craft-persistence-dirty-domain-smoke.ts');
   const worldEnhancementSmokeSource = readSource('packages/server/src/tools/world-runtime-enhancement-smoke.ts');
@@ -74,6 +80,11 @@ async function main(): Promise<void> {
     marketPersistenceSource.includes('market_storage_version'),
     true,
     'market persistence should own market_storage watermark updates',
+  );
+  assert.equal(
+    playerDomainHelpersSource.includes("PLAYER_RUNTIME_FLUSH_EXCLUDED_DOMAINS = new Set<string>(['market_storage'])"),
+    true,
+    '玩家分域持久化必须显式把 market_storage 排除出运行期快照投影刷盘，防止旧水合镜像覆盖坊市真源',
   );
 
   console.log(

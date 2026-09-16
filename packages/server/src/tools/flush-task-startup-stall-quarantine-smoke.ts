@@ -19,7 +19,7 @@ function buildProjectionTask(playerId: string, latestRevision: number): FlushTas
   return {
     scope: 'player',
     id: playerId,
-    domain: 'market_storage',
+    domain: 'inventory',
     priority: 'high',
     latestRevision,
     ownershipEpoch: null,
@@ -29,7 +29,7 @@ function buildProjectionTask(playerId: string, latestRevision: number): FlushTas
     payloadJson: {
       kind: 'player_snapshot_projection',
       snapshot: { playerId, savedAt: Date.now() },
-      projectedDomains: ['market_storage'],
+      projectedDomains: ['inventory'],
       projectionVersion: latestRevision,
       domainRevision: latestRevision,
       runtimeRevision: 1,
@@ -73,12 +73,12 @@ async function main(): Promise<void> {
     },
     async savePlayerSnapshotProjectionDomains() {
       throw new Error(
-        `replace_market_storage_refused_empty_overwrite:playerId=${playerA} table=player_market_storage_item`,
+        `replace_inventory_refused_empty_overwrite:playerId=${playerA} table=player_inventory_item`,
       );
     },
     async savePlayerSnapshotProjectionDomainBatch() {
       throw new Error(
-        `replace_market_storage_refused_empty_overwrite:playerId=${playerA} table=player_market_storage_item`,
+        `replace_inventory_refused_empty_overwrite:playerId=${playerA} table=player_inventory_item`,
       );
     },
   };
@@ -162,7 +162,7 @@ async function main(): Promise<void> {
       claimed_by: string | null;
       next_attempt_at: Date | null;
     }>(
-      "SELECT failure_category, claimed_by, next_attempt_at FROM player_flush_ledger WHERE player_id = $1 AND domain = 'market_storage'",
+      "SELECT failure_category, claimed_by, next_attempt_at FROM player_flush_ledger WHERE player_id = $1 AND domain = 'inventory'",
       [playerA],
     );
     assert.equal(rowA.rows.length, 1);
@@ -206,7 +206,7 @@ async function main(): Promise<void> {
       failure_category: string | null;
       next_attempt_at: Date | null;
     }>(
-      "SELECT failure_category, next_attempt_at FROM player_flush_ledger WHERE player_id = $1 AND domain = 'market_storage'",
+      "SELECT failure_category, next_attempt_at FROM player_flush_ledger WHERE player_id = $1 AND domain = 'inventory'",
       [playerB],
     );
     assert.equal(rowB.rows.length, 1);

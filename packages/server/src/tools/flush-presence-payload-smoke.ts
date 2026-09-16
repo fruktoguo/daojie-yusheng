@@ -129,6 +129,20 @@ async function main(): Promise<void> {
         },
       },
     };
+    // market_storage 真源由坊市持久化上下文独立持有：仅含该域的历史 payload
+    // 必须收敛为已刷且不进入玩家投影 batch，防止旧水合镜像覆盖坊市真源。
+    const marketStorageProjectionTask: FlushTask = {
+      scope: 'player',
+      id: 'player-snapshot-1',
+      domain: 'market_storage',
+      priority: 'normal',
+      latestRevision: 11,
+      payloadJson: {
+        kind: 'player_snapshot_projection',
+        snapshot: { version: 1, savedAt: 101, placement: { templateId: 'map-1', x: 1, y: 2 }, marketStorage: { items: [] } },
+        projectedDomains: ['market_storage'],
+      },
+    };
     let projectionClaimed = false;
     const projectionRuntime = new FlushTaskRuntimeService(
       {} as never,
@@ -140,7 +154,7 @@ async function main(): Promise<void> {
         claimReadyFlushTasks: async () => {
           if (projectionClaimed) return [];
           projectionClaimed = true;
-          return [projectionTask, questProjectionTask, fallbackProjectionTask];
+          return [projectionTask, questProjectionTask, fallbackProjectionTask, marketStorageProjectionTask];
         },
         markFlushTaskFlushed: async (flushedTask: FlushTask) => {
           flushed.push(flushedTask);
@@ -175,19 +189,20 @@ async function main(): Promise<void> {
       } as never,
     );
     const projectionProcessed = await projectionRuntime.runOnce('snapshot-payload-smoke');
-    assert.equal(projectionProcessed, 3);
+    assert.equal(projectionProcessed, 4);
     assert.equal(savedProjections.length, 0, '生产 payload 消费不得退回逐域多事务 writer');
     assert.equal(savedProjectionBatches.length, 1, '同一玩家全部已认领投影必须只提交一个 batch');
     assert.equal(savedProjectionBatches[0]?.playerId, 'player-snapshot-1');
     const batchByDomain = new Map(savedProjectionBatches[0]?.entries.map((entry) => [entry.domains[0], entry]));
-    assert.equal(batchByDomain.size, PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS.length);
+    assert.equal(batchByDomain.size, PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS.length - 1);
+    assert.equal(batchByDomain.has('market_storage'), false, 'market_storage 真源由坊市持久化持有，玩家投影不得写入');
     assert.equal(batchByDomain.has('inventory'), true, 'legacy snapshot fallback 必须派生全部 projectable domains');
     assert.equal(batchByDomain.has('quest'), true);
     assert.equal(batchByDomain.get('inventory')?.options?.allowInventoryEmptyOverwrite, true);
     assert.equal(batchByDomain.get('equipment')?.options?.allowEquipmentEmptyOverwrite, true);
     assert.equal(batchByDomain.get('artifact')?.options?.allowArtifactEmptyOverwrite, true);
     assert.equal(batchByDomain.get('buff')?.options?.allowBuffEmptyOverwrite, true);
-    assert.equal(flushed.length, 4);
+    assert.equal(flushed.length, 5);
 
     const staleProjectionTask: FlushTask = {
       scope: 'player',
@@ -237,7 +252,7 @@ async function main(): Promise<void> {
     assert.equal(staleProjectionProcessed, 1);
     assert.equal(savedProjections.length, 0);
     assert.equal(savedProjectionBatches.length, 1);
-    assert.equal(flushed.length, 5);
+    assert.equal(flushed.length, 6);
     await proveProjectionBatchFailureRetriesWholePlayer();
     await proveHistoricalOwnerlessProjectionFenceCompatibility();
     await proveHistoricalPresenceFenceConvergence();

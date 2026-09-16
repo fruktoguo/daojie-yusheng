@@ -98,6 +98,7 @@ import {
   PLAYER_PRESENCE_COALESCE_MS,
   PLAYER_PRESENCE_PAYLOAD_KIND,
   PLAYER_PROJECTABLE_DOMAIN_SET,
+  PLAYER_RUNTIME_FLUSH_EXCLUDED_DOMAINS,
   PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND,
   playerGroupKey,
   playerStageThrottleKey,
@@ -788,9 +789,20 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         if (domainRevision <= 0) {
           continue;
         }
-        const taskDomains = domain === PLAYER_FALLBACK_SNAPSHOT_DOMAIN
+        const taskDomains = (domain === PLAYER_FALLBACK_SNAPSHOT_DOMAIN
           ? Array.from(PLAYER_PROJECTABLE_DOMAIN_SET).sort()
-          : [domain];
+          : [domain]).filter((taskDomain) => !PLAYER_RUNTIME_FLUSH_EXCLUDED_DOMAINS.has(taskDomain));
+        if (taskDomains.length === 0) {
+          // 真源由外部持久化上下文持有的域（如 market_storage）不产出玩家投影 task；
+          // 直接按已转移处理，避免该 dirty 记录在 staging 端被永久重扫。
+          this.playerRuntimeService.markPersistenceDomainsStaged?.(
+            playerId,
+            new Map([[domain, domainRevision]]),
+            runtimeRevision,
+            this.stagingGenerationId,
+          );
+          continue;
+        }
         const transferTracker = { remaining: taskDomains.length };
         const capturedDomainRevisions = new Map([[domain, domainRevision]]);
         // presence 仅在 session epoch 变化时立即暂存（与投影同时就绪），心跳型 dirty 仍走合并窗口；
@@ -1307,6 +1319,19 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
           if (await this.flushLedgerService.markFlushTaskFlushed(task)) processed += 1;
           continue;
         }
+        const resolvedDomains = payload.projectedDomains.length > 0
+          ? payload.projectedDomains
+          : (task.domain === PLAYER_FALLBACK_SNAPSHOT_DOMAIN
+              ? Array.from(PLAYER_PROJECTABLE_DOMAIN_SET)
+              : [task.domain]);
+        // 真源由外部持久化上下文持有的域（如 market_storage）禁止经玩家投影写回：
+        // payload 仅含这类域时直接收敛为已刷，跳过 fence 与事务，避免旧水合镜像
+        // 覆盖坊市已提交的真源或触发空覆盖保护整组回滚。
+        if (resolvedDomains.every((resolvedDomain) => PLAYER_RUNTIME_FLUSH_EXCLUDED_DOMAINS.has(resolvedDomain))) {
+          this.logger.debug(`玩家刷盘跳过外部持有域投影：playerId=${playerId} domain=${task.domain}`);
+          if (await this.flushLedgerService.markFlushTaskFlushed(task)) processed += 1;
+          continue;
+        }
         // 历史 ledger 的 runtime_owner_id 可能由旧 UPSERT COALESCE 残留，不能替 payload 补 fence。
         const effectiveRuntimeOwnerId = normalizeNullableString(payload.runtimeOwnerId);
         const fenceDecision = await this.resolvePlayerProjectionPayloadFence(
@@ -1334,16 +1359,14 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
             );
           }
         }
-        const domains = Array.from(new Set(payload.projectedDomains.length > 0
-          ? payload.projectedDomains
-          : (task.domain === PLAYER_FALLBACK_SNAPSHOT_DOMAIN
-              ? Array.from(PLAYER_PROJECTABLE_DOMAIN_SET)
-              : [task.domain]))).sort();
-        for (const projectedDomain of domains) {
+        for (const projectedDomain of resolvedDomains) {
           if (!PLAYER_PROJECTABLE_DOMAIN_SET.has(projectedDomain)) {
             throw new Error(`player_snapshot_projection_domain_unsupported:${playerId}:${task.domain}:${projectedDomain}`);
           }
         }
+        const domains = Array.from(new Set(resolvedDomains.filter(
+          (projectedDomain) => !PLAYER_RUNTIME_FLUSH_EXCLUDED_DOMAINS.has(projectedDomain),
+        ))).sort();
         currentPayloadRows.push({ task, payload, effectiveRuntimeOwnerId, domains });
       }
       if (currentPayloadRows.length > 0) {

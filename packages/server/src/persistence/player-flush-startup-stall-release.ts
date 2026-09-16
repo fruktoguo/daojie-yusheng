@@ -3,7 +3,7 @@ import type { Pool, PoolClient } from 'pg';
 const PLAYER_FLUSH_LEDGER_TABLE = 'player_flush_ledger';
 const PLAYER_MARKET_STORAGE_ITEM_TABLE = 'player_market_storage_item';
 const STARTUP_STALL_QUARANTINE = 'startup_deterministic_stall';
-const DELETED_RESIDUE_SAMPLE_LIMIT = 100;
+const RESIDUE_SAMPLE_LIMIT = 100;
 
 export interface PlayerFlushStartupStallReleaseOptions {
   dryRun?: boolean;
@@ -20,24 +20,24 @@ export interface PlayerFlushStartupStallReleaseResult {
   marketStorageResidueRows: number;
   deletedMarketStorageResidueRows: number;
   releasedLedgerRows: number;
-  deletedResidueSample: Record<string, unknown>[];
+  residueSample: Record<string, unknown>[];
   releasedAt: string;
 }
 
 type QueryableClient = Pick<PoolClient, 'query'>;
 
 /**
- * 解除指定玩家的 startup_deterministic_stall 启动隔离，并把该玩家的
- * player_market_storage_item 残留投影行对齐到内存快照（空）。
+ * 解除指定玩家的 startup_deterministic_stall 启动隔离。
  *
  * 语义与触发条件：
  * - 仅当该玩家存在 failure_category='startup_deterministic_stall' 且
- *   latest_version > flushed_version 的 ledger 行时才执行；否则返回 skipped，
- *   避免误删正常市场存储数据。
+ *   latest_version > flushed_version 的 ledger 行时才执行；否则返回 skipped。
  * - 只解除 startup_deterministic_stall 类别，不触碰 startup_asset_conflict
  *   （资产归属争议必须人工核对）。
- * - 残留行删除与隔离解除在同一事务内提交；删除的行完整内容通过
- *   deletedResidueSample 返回，由调用方写入审计日志，可回查。
+ * - player_market_storage_item 真源由坊市持久化上下文独立持有，可能含有
+ *   真实玩家资产：本命令只读取并上报残留行（residueSample 供审计），绝不删除。
+ *   解除隔离后，历史 market_storage payload 会被运行期刷盘按"外部持有域"收敛为
+ *   已刷，不再经玩家快照投影写回该表。
  * - dryRun 只读不改，返回执行前现状。
  */
 export async function releasePlayerFlushStartupStall(
@@ -77,7 +77,7 @@ export async function releasePlayerFlushStartupStall(
       marketStorageResidueRows: 0,
       deletedMarketStorageResidueRows: 0,
       releasedLedgerRows: 0,
-      deletedResidueSample: [],
+      residueSample: [],
       releasedAt: new Date().toISOString(),
     };
   }
@@ -99,47 +99,29 @@ export async function releasePlayerFlushStartupStall(
       marketStorageResidueRows: residueRows.length,
       deletedMarketStorageResidueRows: 0,
       releasedLedgerRows: 0,
-      deletedResidueSample: [],
+      residueSample: residueRows.slice(0, RESIDUE_SAMPLE_LIMIT),
       releasedAt: new Date().toISOString(),
     };
   }
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    let deletedMarketStorageResidueRows = 0;
-    if (residueRows.length > 0) {
-      const deleted = await client.query(
-        `DELETE FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE} WHERE player_id = $1`,
-        [playerId],
-      );
-      deletedMarketStorageResidueRows = deleted.rowCount ?? 0;
-    }
-    const released = await client.query(
-      `UPDATE ${PLAYER_FLUSH_LEDGER_TABLE}
-       SET failure_category = NULL, updated_at = now()
-       WHERE player_id = $1 AND failure_category = $2`,
-      [playerId, STARTUP_STALL_QUARANTINE],
-    );
-    await client.query('COMMIT');
-    return {
-      ok: true,
-      dryRun: false,
-      playerId,
-      skipped: false,
-      stalledLedgerRows,
-      stalledDomains,
-      marketStorageResidueRows: residueRows.length,
-      deletedMarketStorageResidueRows,
-      releasedLedgerRows: released.rowCount ?? 0,
-      deletedResidueSample: residueRows.slice(0, DELETED_RESIDUE_SAMPLE_LIMIT),
-      releasedAt: new Date().toISOString(),
-    };
-  } catch (error) {
-    await client.query('ROLLBACK').catch(() => undefined);
-    throw error;
-  } finally {
-    client.release();
-  }
+  const released = await pool.query(
+    `UPDATE ${PLAYER_FLUSH_LEDGER_TABLE}
+     SET failure_category = NULL, updated_at = now()
+     WHERE player_id = $1 AND failure_category = $2`,
+    [playerId, STARTUP_STALL_QUARANTINE],
+  );
+  return {
+    ok: true,
+    dryRun: false,
+    playerId,
+    skipped: false,
+    stalledLedgerRows,
+    stalledDomains,
+    marketStorageResidueRows: residueRows.length,
+    deletedMarketStorageResidueRows: 0,
+    releasedLedgerRows: released.rowCount ?? 0,
+    residueSample: residueRows.slice(0, RESIDUE_SAMPLE_LIMIT),
+    releasedAt: new Date().toISOString(),
+  };
 }
 
 /** 只读查看某玩家当前隔离与残留现状（供 GM 诊断/审计复用）。 */

@@ -13,6 +13,7 @@ import type { InstanceFlushLedgerClaim } from './instance-flush-ledger-fence';
 import type { FlushTask, FlushTaskPriority, FlushTaskScope } from './flush-task.types';
 import type { FlushTaskUpsertIdentity } from './flush-ledger.service';
 import {
+  PLAYER_RUNTIME_FLUSH_EXCLUDED_DOMAINS,
   PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS,
   type PlayerPresenceUpsertInput,
 } from './player-domain-persistence.service';
@@ -57,6 +58,7 @@ export const PLAYER_HIGH_PRIORITY_DOMAINS = new Set(['presence', 'position_check
 export const INSTANCE_LOW_PRIORITY_DOMAINS = new Set(['time', 'monster_runtime', 'tile_resource', 'tile_damage', 'fengshui']);
 export const INSTANCE_NORMAL_PRIORITY_DOMAINS = new Set(['container_state', 'ground_item', 'overlay', 'room', 'building', 'temporary_tile', 'tile_cell']);
 export const PLAYER_PROJECTABLE_DOMAIN_SET = new Set<string>(PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS);
+export { PLAYER_RUNTIME_FLUSH_EXCLUDED_DOMAINS };
 export const PLAYER_FALLBACK_SNAPSHOT_DOMAIN = 'snapshot';
 export const PLAYER_PRESENCE_PAYLOAD_KIND = 'player_presence';
 export const PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND = 'player_snapshot_projection';

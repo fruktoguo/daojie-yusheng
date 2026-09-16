@@ -844,8 +844,9 @@ export class NativeGmPlayerService {
   }
 
   /**
-   * 解除指定玩家的 startup_deterministic_stall 启动隔离，并清理其
-   * player_market_storage_item 残留投影行（对齐内存快照）。
+   * 解除指定玩家的 startup_deterministic_stall 启动隔离。
+   * player_market_storage_item 由坊市持久化独立持有、可能含真实资产，本命令只读上报不删除；
+   * 解除隔离后历史 market_storage payload 会按外部持有域收敛，不再回写该表。
    * 仅处理该隔离类别；资产归属冲突隔离（startup_asset_conflict）必须人工核对，不在此命令范围。
    */
   async releasePlayerFlushStartupStall(playerIdInput: string,

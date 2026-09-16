@@ -197,6 +197,7 @@ import {
 export { ensurePlayerDomainTables } from './player-domain-persistence.helpers';
 export { ensurePlayerDomainTablesWithClient } from './player-domain-persistence.helpers';
 export { PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS } from './player-domain-persistence.helpers';
+export { PLAYER_RUNTIME_FLUSH_EXCLUDED_DOMAINS } from './player-domain-persistence.helpers';
 export { PLAYER_DOMAIN_PROJECTED_TABLES } from './player-domain-persistence.helpers';
 export { savePlayerSnapshotProjectionDomainsWithClient } from './player-domain-persistence.projection';
 export { buildEnhancementRecordRowsFromEntries } from './player-domain-persistence.build-rows';

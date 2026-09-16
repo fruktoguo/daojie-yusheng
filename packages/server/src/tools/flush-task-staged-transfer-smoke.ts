@@ -611,6 +611,7 @@ async function verifyFallbackSnapshotExpandsToSingleDomainTasks(): Promise<void>
   await runtime.stageDirtyTasksOnce();
   assert.ok(staged.length > 10, 'fallback snapshot 应展开为全部 projectable 单域 task');
   assert.equal(staged.some((task) => task.domain === 'snapshot'), false);
+  assert.equal(staged.some((task) => task.domain === 'market_storage'), false, 'market_storage 真源由坊市持久化持有，fallback 展开不得包含');
   assert.equal(staged.every((task) => {
     const payload = task.payloadJson as { projectedDomains?: string[]; stagingDomain?: string };
     return payload.projectedDomains?.length === 1
