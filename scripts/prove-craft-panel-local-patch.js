@@ -32,16 +32,17 @@ function extractMethod(source, signature) {
 }
 
 const modalSource = readSource('packages/client/src/ui/craft-workbench-modal.ts');
+const modalQueueSource = readSource('packages/client/src/ui/craft-workbench-modal.queue.ts');
 const queueSource = readSource('packages/client/src/ui/craft-queue-view.ts');
 const transmissionSource = readSource('packages/client/src/ui/craft-transmission-view.ts');
 const mountSource = readSource('packages/client/src/react-ui/panels/craft/mount-craft-workbench-panel.tsx');
 const updateTasksMethod = extractMethod(modalSource, 'updateTechniqueActivityTasks(data: S2C_TechniqueActivityTasks): void');
 const syncReactShellMethod = extractMethod(modalSource, '): void {\n    const current = getReactCraftWorkbenchState();');
-const headerKeyMethod = extractMethod(modalSource, 'private buildCraftHeaderKey(): string');
-const queueStructureKeyMethod = extractMethod(modalSource, 'private buildCraftQueueStructureKey');
+const headerKeyMethod = extractMethod(modalQueueSource, 'export function buildCraftHeaderKeyImpl');
+const queueStructureKeyMethod = extractMethod(modalQueueSource, 'export function buildCraftQueueStructureKeyImpl');
 const patchOpenCraftShellMethod = extractMethod(modalSource, 'private patchOpenCraftShell(): void');
 const patchOpenCraftQueueOnlyMethod = extractMethod(modalSource, 'private patchOpenCraftQueueOnly(): void');
-const patchCraftQueuePanelMethod = extractMethod(modalSource, 'private patchCraftQueuePanel(root: HTMLElement): boolean');
+const patchCraftQueuePanelMethod = extractMethod(modalQueueSource, 'export function patchCraftQueuePanelImpl');
 const patchTransmissionMethod = extractMethod(transmissionSource, 'tryPatchTransmissionBody(body: HTMLElement): boolean');
 const patchTransmissionProgressMethod = extractMethod(transmissionSource, 'private patchTransmissionProgress(content: HTMLElement): void');
 const transmissionRenderKeyMethod = extractMethod(transmissionSource, 'buildTransmissionRenderKey(): string');
@@ -84,7 +85,7 @@ assert.match(
 );
 assert.match(
   headerKeyMethod,
-  /this\.buildCraftQueueStructureKey\(\),/,
+  /self\.buildCraftQueueStructureKey\(\),/,
   'craft header structural key must include task identity/cancel refs but not volatile progress ticks',
 );
 assert.match(
@@ -114,7 +115,7 @@ assert.doesNotMatch(
 );
 assert.match(
   patchCraftQueuePanelMethod,
-  /const queuePanel = root\.querySelector<HTMLElement>\('\.craft-queue-panel'\);[\s\S]*?replaceElementHtml\(queuePanel, this\.renderCraftQueuePanelContent\(queue\)\);[\s\S]*?this\.patchCraftQueueProgress\(queuePanel\);/,
+  /const queuePanel = root\.querySelector<HTMLElement>\('\.craft-queue-panel'\);[\s\S]*?replaceElementHtml\(queuePanel, self\.renderCraftQueuePanelContent\(queue\)\);[\s\S]*?self\.patchCraftQueueProgress\(queuePanel\);/,
   'queue structural changes must replace only the craft queue panel content, then patch progress in place',
 );
 assert.match(

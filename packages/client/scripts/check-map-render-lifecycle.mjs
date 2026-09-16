@@ -270,9 +270,11 @@ assert.doesNotMatch(mapRuntime, /while\s*\(\s*this\.nextFrameAt\s*<=\s*now\s*\)/
 
 const pixiRenderer = read('src/game-map/renderer/pixi-map-renderer-adapter.ts');
 const pixiCombatEffects = read('src/game-map/renderer/pixi-combat-effect-runtime.ts');
+const pixiEntities = read('src/game-map/renderer/pixi-renderer.entities.ts');
+const pixiOverlays = read('src/game-map/renderer/pixi-renderer.overlays.ts');
 const canvasRenderer = read('src/renderer/text.ts');
 const canvasCombatEffects = read('src/renderer/canvas-combat-effect-runtime.ts');
-assert.match(pixiRenderer, /private mountGeneration = 0/);
+assert.match(pixiRenderer, /^  mountGeneration = 0;/m);
 assert.match(pixiRenderer, /generation !== this\.mountGeneration \|\| this\.canvas !== canvas/);
 assert.match(pixiRenderer, /this\.app\.renderer\.resize\(this\.width, this\.height, 1\);\s*this\.ready = true/);
 assert.match(pixiRenderer, /unmount\(\): void \{\s*this\.mountGeneration \+= 1;\s*this\.ready = false/);
@@ -283,12 +285,12 @@ assert.match(pixiRenderer, /if \(profileActive\) \{[\s\S]*?this\.profiler\.recor
 assert.match(pixiRenderer, /from '\.\/pixi-runtime-image-manifest'/);
 assert.match(pixiRenderer, /from '\.\/pixi-render-primitives'/);
 assert.match(pixiRenderer, /this\.renderThreatArrows\(player\.id\)/, '威胁箭头必须以本地玩家身份区分自有与他人关系');
-assert.match(pixiRenderer, /const self = arrow\.ownerId === localPlayerId/, '不能把所有玩家发起的威胁关系都渲染为自己的颜色');
-assert.match(pixiRenderer, /if \(!from\?\.root\.visible \|\| !to\?\.root\.visible\) continue/, '离开当前视口的实体不得继续绘制穿屏威胁箭头');
-assert.match(pixiRenderer, /this\.patchEntityMotion\(view, motionProgress, frameNow\)/, '同一帧的实体动画必须复用统一时钟');
-assert.match(pixiRenderer, /return this\.entities\.get\(id\);/, '威胁实体必须直接复用权威实体索引');
-assert.doesNotMatch(pixiRenderer, /view\.root\.visible && anim\.kind === 'crowd'/, '拥挤判定不得读取上一帧可见性');
-assert.doesNotMatch(pixiRenderer, /\[\.\.\.this\.entities\.values\(\)\]\.find/, '每帧威胁箭头不得退化为实体数组分配与线性查找');
+assert.match(pixiOverlays, /const isSelf = arrow\.ownerId === localPlayerId/, '不能把所有玩家发起的威胁关系都渲染为自己的颜色');
+assert.match(pixiOverlays, /if \(!from\?\.root\.visible \|\| !to\?\.root\.visible\) continue/, '离开当前视口的实体不得继续绘制穿屏威胁箭头');
+assert.match(pixiEntities, /self\.patchEntityMotion\(view, motionProgress, frameNow\)/, '同一帧的实体动画必须复用统一时钟');
+assert.match(pixiOverlays, /return self\.entities\.get\(id\);/, '威胁实体必须直接复用权威实体索引');
+assert.doesNotMatch(pixiEntities, /view\.root\.visible && anim\.kind === 'crowd'/, '拥挤判定不得读取上一帧可见性');
+assert.doesNotMatch(pixiOverlays, /\[\.\.\.self\.entities\.values\(\)\]\.find/, '每帧威胁箭头不得退化为实体数组分配与线性查找');
 assert.match(pixiRenderer, /new PixiCombatEffectRuntime\(this\.effectLayer\)/, 'adapter 必须把 Pixi 特效对象生命周期交给窄拥有者');
 assert.doesNotMatch(pixiRenderer, /private (?:floatingTexts|attackTrails|warningZones)\b/, 'adapter 不得重新吸收战斗特效数组');
 assert.doesNotMatch(pixiCombatEffects, /\.filter\(/, 'Pixi 特效逐帧回收不得重建数组');

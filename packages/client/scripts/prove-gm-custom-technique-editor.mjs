@@ -10,7 +10,13 @@ const clientRoot = path.resolve(scriptDirectory, '..');
 const html = fs.readFileSync(path.join(clientRoot, 'gm.html'), 'utf8');
 const editorSource = fs.readFileSync(path.join(clientRoot, 'src/gm/custom-technique-editor.ts'), 'utf8');
 const gmSource = fs.readFileSync(path.join(clientRoot, 'src/gm.ts'), 'utf8');
-const sharedApiContractsSource = fs.readFileSync(path.resolve(clientRoot, '../shared/src/api-contracts.ts'), 'utf8');
+const generatedTechniqueSource = fs.readFileSync(path.join(clientRoot, 'src/gm/generated-technique.ts'), 'utf8');
+const techniqueManagerSource = fs.readFileSync(path.join(clientRoot, 'src/gm/technique-manager-extra.ts'), 'utf8');
+const sharedApiContractsDir = path.resolve(clientRoot, '../shared/src/api-contracts');
+const sharedApiContractsSource = fs.readdirSync(sharedApiContractsDir)
+  .filter((entry) => entry.endsWith('.ts'))
+  .map((entry) => fs.readFileSync(path.join(sharedApiContractsDir, entry), 'utf8'))
+  .join('\n');
 
 
 for (const id of [
@@ -84,10 +90,10 @@ assert.match(editorSource, /pendingOperationId \?\?= createOperationId\(\)/u, '�
 assert.match(editorSource, /setSectionDisabled/u, '类型切换没有停用隐藏字段');
 assert.doesNotMatch(editorSource, /\.innerHTML\s*=/u, '手工功法表单不得通过整块 innerHTML 重建');
 assert.match(gmSource, /'techniques' \| 'jobs' \| 'manual'/u, 'GM 功法子标签状态缺少手工创建');
-assert.match(gmSource, /generatedTechniqueEditor\.activate\(\)/u, '切入手工创建时没有恢复编辑器状态');
+assert.match(generatedTechniqueSource, /getGeneratedTechniqueEditor\(\)\.activate\(\)/u, '切入手工创建时没有恢复编辑器状态');
 assert.match(sharedApiContractsSource, /playerAddDisabledReason\?: string \| null/u, '生成功法摘要缺少玩家添加禁用原因字段');
 assert.match(gmSource, /summary\.playerAddDisabledReason/u, 'GM 功法候选没有消费自创功法禁用原因');
-assert.match(gmSource, /candidate\.disabledReason \? 'disabled'/u, 'GM 功法候选没有禁用旧版自创术法');
+assert.match(techniqueManagerSource, /candidate\.disabledReason \? 'disabled'/u, 'GM 功法候选没有禁用旧版自创术法');
 assert.match(gmSource, /disabledTechniqueIds/u, 'GM 自创功法候选加载后没有清理禁用项选择');
 assert.match(html, /\.gm-technique-row\.disabled/u, 'GM 功法候选缺少禁用态样式');
 

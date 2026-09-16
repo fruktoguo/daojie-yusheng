@@ -96,7 +96,8 @@ assert.match(marketPanel, /buildItemBookRevisionSignature\(data\)/);
 assert.match(marketPanel, /resolveClampedMarketResponsePage\(request\.page, data\.total, data\.pageSize\)/);
 
 const pixiRenderer = read('src/game-map/renderer/pixi-map-renderer-adapter.ts');
-assert.match(pixiRenderer, /generation !== this\.runtimeImageGeneration/);
-assert.match(pixiRenderer, /src\.startsWith\('data:'\)[\s\S]*?Assets\.unload\(src\)/);
+const pixiSprites = read('src/game-map/renderer/pixi-renderer.sprites.ts');
+assert.match(pixiSprites, /generation !== self\.runtimeImageGeneration/);
+assert.match(pixiSprites, /src\.startsWith\('data:'\)[\s\S]*?Assets\.unload\(src\)/);
 
 console.log('client spatial-cache contracts ok');

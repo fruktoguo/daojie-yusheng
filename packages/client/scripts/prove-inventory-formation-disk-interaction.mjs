@@ -6,8 +6,9 @@ import { fileURLToPath } from 'node:url';
 
 const clientRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = fs.readFileSync(path.join(clientRoot, 'src/ui/panels/inventory-panel.ts'), 'utf8');
+const detailSource = fs.readFileSync(path.join(clientRoot, 'src/ui/panels/inventory-panel.detail.ts'), 'utf8');
 
-function sliceBetween(startMarker, endMarker) {
+function sliceBetween(source, startMarker, endMarker) {
   const start = source.indexOf(startMarker);
   assert.notEqual(start, -1, `未找到结构起点：${startMarker}`);
   const end = source.indexOf(endMarker, start + startMarker.length);
@@ -16,16 +17,19 @@ function sliceBetween(startMarker, endMarker) {
 }
 
 const paneBindings = sliceBetween(
+  source,
   '  private bindPaneEvents(): void {',
   '  /** bindTooltipEvents：',
 );
 const primaryActionHandler = sliceBetween(
-  '  private handlePrimaryAction(',
+  source,
+  '  handlePrimaryAction(',
   '  private repairMissingInventoryItemInstanceIds()',
 );
 const detailActions = sliceBetween(
-  '  private renderItemDetailActionsHtml(',
-  '  private bindItemDetailActions(',
+  detailSource,
+  'export function renderItemDetailActionsHtmlImpl(',
+  'export function bindItemDetailActionsImpl(',
 );
 
 const clickBindingStart = paneBindings.indexOf("this.pane.addEventListener('click'");
