@@ -186,25 +186,26 @@ function checkWorldSync() {
     const { source } = readSource("network/world-sync.service.ts");
     const { source: playerRuntimeSource } = readSource("runtime/player/player-runtime.service.ts");
     const { source: craftRuntimeSource } = readSource("runtime/craft/craft-panel-runtime.service.ts");
-    const { source: projectorHelpersSource } = readSource("network/world-projector.helpers.ts");
+    const { source: projectorHelpersSource } = readSource("network/world-projector.deltas.helpers.ts");
+    const { source: projectorPanelSlicesSource } = readSource("network/world-projector.panel-slices.helpers.ts");
     const lines = expectLineCap("world-sync.service.ts", source, 250);
     expectAbsent("world-sync.service.ts", source, /nextAuxStateByPlayerId/, "raw aux cache");
     expectAbsent("world-sync.service.ts", source, /function isSame|function shallowEqual|function isPlainEqual/, "遗留 diff helper");
     expectPresent("world-sync.service.ts", source, /worldSyncEnvelopeService\.createInitialEnvelope/, "主 envelope seam");
     expectPresent("world-sync.service.ts", source, /worldSyncAuxStateService\.emitAuxInitialSync/, "aux-state seam");
     expectAbsent("player-runtime.service.ts", playerRuntimeSource, /queuePlayerStateDelta\(|emitPlayerStateDeltaIfChanged|player\.(?:mp|exp|level)\b/, "玩家高频状态不得经错误别名复制进 EventBus");
-    expectPresent("world-projector.helpers.ts", projectorHelpersSource, /if \(previous\.self\.hp !== player\.hp\) \{ delta\.hp = player\.hp; \}/, "HP 必须由 selfRevision SelfDelta 同步");
-    expectPresent("world-projector.helpers.ts", projectorHelpersSource, /if \(previous\.self\.qi !== player\.qi\) \{ delta\.qi = player\.qi; \}/, "灵力必须由 selfRevision SelfDelta 同步");
-    expectPresent("world-projector.helpers.ts", projectorHelpersSource, /delta\.buff = \{[\s\S]*?removeBuffIds:/, "Buff 必须由 PanelDelta patch 同步");
+    expectPresent("world-projector.deltas.helpers.ts", projectorHelpersSource, /if \(previous\.self\.hp !== player\.hp\) \{ delta\.hp = player\.hp; \}/, "HP 必须由 selfRevision SelfDelta 同步");
+    expectPresent("world-projector.deltas.helpers.ts", projectorHelpersSource, /if \(previous\.self\.qi !== player\.qi\) \{ delta\.qi = player\.qi; \}/, "灵力必须由 selfRevision SelfDelta 同步");
+    expectPresent("world-projector.deltas.helpers.ts", projectorHelpersSource, /delta\.buff = \{[\s\S]*?removeBuffIds:/, "Buff 必须由 PanelDelta patch 同步");
     expectPresent(
-        "world-projector.helpers.ts",
-        projectorHelpersSource,
+        "world-projector.panel-slices.helpers.ts",
+        projectorPanelSlicesSource,
         /items:\s*player\.inventory\.items\.map\(\(entry\)\s*=>\s*cloneSyncedItemStack\(entry\)\)/,
         "背包投影必须深克隆协议字段，不能与权威运行时共享嵌套引用",
     );
     expectAbsent(
-        "world-projector.helpers.ts",
-        projectorHelpersSource,
+        "world-projector.panel-slices.helpers.ts",
+        projectorPanelSlicesSource,
         /item:\s*entry\.item\s*\?\s*\{\s*\.\.\.entry\.item\s*\}\s*:\s*null/,
         "装备与法宝投影不得用浅展开复制物品实例",
     );

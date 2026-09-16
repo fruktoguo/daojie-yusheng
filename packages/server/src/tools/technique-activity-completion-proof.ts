@@ -51,6 +51,7 @@ function main(): void {
   const mutationSource = readSource('packages/server/src/runtime/world/world-runtime-craft-mutation.service.ts');
   const taskViewSource = readSource('packages/server/src/runtime/craft/technique-activity-task-view.helpers.ts');
   const queueSource = readSource('packages/server/src/runtime/craft/pipeline/technique-activity-queue.service.ts');
+  const craftCatalogHelpersSource = readSource('packages/server/src/runtime/craft/craft-panel-runtime.catalog.helpers.ts');
   const strategyDir = resolve(process.cwd(), 'packages/server/src/runtime/craft/pipeline/strategies');
   const strategySources = readdirSync(strategyDir)
     .filter((fileName) => fileName.endsWith('.strategy.ts'))
@@ -116,7 +117,7 @@ function main(): void {
     'return result;',
   ], 'tickTechniqueActivity must preserve baseline -> sync/async pipeline -> filtered statistic ordering');
   assertMatch(
-    craftRuntimeSource,
+    craftCatalogHelpersSource,
     /function hasTechniqueActivityStatisticSignal\(result\) \{[\s\S]*?inventoryChanged[\s\S]*?equipmentChanged[\s\S]*?attrChanged[\s\S]*?craftRealmExpGain/,
     'technique tick statistics must only diff when a statistic-relevant signal exists',
   );
@@ -151,10 +152,11 @@ function main(): void {
 
   assertMatch(queueSource, /const QUEUE_SLOT = 'techniqueActivityQueue';/, 'unified queue service must use techniqueActivityQueue as runtime queue slot');
   assertMatch(craftRuntimeSource, /enqueueCraftQueueItem\(player, item, mode\) \{[\s\S]*?enqueuePlayerTechniqueActivityQueueItem\(player, item, mode\)/, 'craft runtime queue facade must delegate to the unified queue helper');
-  assertMatch(craftRuntimeSource, /function enqueuePlayerTechniqueActivityQueueItem\(player, item, mode\) \{[\s\S]*?setPlayerTechniqueActivityQueue\(player, nextQueue\)/, 'craft runtime queue helper must commit through the unified queue setter');
-  assertMatch(craftRuntimeSource, /function setPlayerTechniqueActivityQueue\(player, queue\) \{[\s\S]*?player\.techniqueActivityQueue = Array\.isArray\(queue\)/, 'craft runtime queue setter must target techniqueActivityQueue');
+  assertMatch(craftCatalogHelpersSource, /function enqueuePlayerTechniqueActivityQueueItem\(player, item, mode\) \{[\s\S]*?setPlayerTechniqueActivityQueue\(player, nextQueue\)/, 'craft runtime queue helper must commit through the unified queue setter');
+  assertMatch(craftCatalogHelpersSource, /function setPlayerTechniqueActivityQueue\(player, queue\) \{[\s\S]*?player\.techniqueActivityQueue = Array\.isArray\(queue\)/, 'craft runtime queue setter must target techniqueActivityQueue');
   assertNoMatch(craftRuntimeSource, /\.queuedJobs\s*=/, 'craft runtime must not write new legacy queuedJobs');
-  assertMatch(craftRuntimeSource, /migrateLegacyCraftQueueToUnifiedQueue\(player, job\.queuedJobs\)/, 'legacy queuedJobs may only be migrated into unified queue during compatibility recovery');
+  assertNoMatch(craftCatalogHelpersSource, /\.queuedJobs\s*=/, 'craft catalog helpers must not write new legacy queuedJobs');
+  assertMatch(craftRuntimeSource + craftCatalogHelpersSource + readSource('packages/server/src/runtime/craft/craft-panel-runtime.alchemy-like.ts'), /migrateLegacyCraftQueueToUnifiedQueue\(player, job\.queuedJobs\)/, 'legacy queuedJobs may only be migrated into unified queue during compatibility recovery');
   assertMatch(commandSource, /holder\.queuedJobs = nextQueue/, 'legacy queuedJobs direct mutation is limited to cancel compatibility for old buttons');
 
   assertMatch(taskViewSource, /const LEGACY_ACTIVE_JOB_SLOTS = \[[\s\S]*?\['alchemy', 'alchemyJob'\][\s\S]*?\['formation', 'formationJob'\][\s\S]*?\['mining', 'miningJob'\]/, 'task view must include all active job slots including conditional kinds');

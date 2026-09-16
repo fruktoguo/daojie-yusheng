@@ -46,7 +46,7 @@ async function main(): Promise<void> {
   const membershipCode = readFileSync(resolve(distRoot, 'runtime/party/party-membership.repository.js'), 'utf8');
   const managementCode = readFileSync(resolve(distRoot, 'runtime/party/party-management.repository.js'), 'utf8');
   const recruitmentCode = readFileSync(resolve(distRoot, 'runtime/party/party-recruitment.repository.js'), 'utf8');
-  const projectorCode = readFileSync(resolve(distRoot, 'network/world-projector.helpers.js'), 'utf8');
+  const projectorCode = readFileSync(resolve(distRoot, 'network/world-projector.world-delta.helpers.js'), 'utf8');
   assert.match(schemaCode, /player_id varchar\(100\) PRIMARY KEY/);
   assert.match(schemaCode, /player_party_audit/);
   assert.match(membershipCode, /lockPartyPlayer/);

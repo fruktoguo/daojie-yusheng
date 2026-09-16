@@ -351,7 +351,7 @@ export function resolveLatestTechniqueIdImpl(self: PlayerRuntimeService, techniq
 export function startTechniqueTransmissionImpl(self: PlayerRuntimeService, teacherPlayerId, learnerPlayerId, techniqueId) {
   const learner = self.getPlayerOrThrow(learnerPlayerId);
   self.captureOfflineGainBeforeTick(learner);
-  const { pipeline, ctx } = createTransmissionCompatPipeline(this);
+  const { pipeline, ctx } = createTransmissionCompatPipeline(self);
   const result = pipeline.start(learner, 'transmission', {
    learnerPlayerId,
    teacherPlayerId,
@@ -371,7 +371,7 @@ export function cancelTechniqueTransmissionImpl(self: PlayerRuntimeService, lear
    throw new BadRequestException('没有进行中的传授');
   }
   self.captureOfflineGainBeforeTick(learner);
-  const { pipeline, ctx } = createTransmissionCompatPipeline(this);
+  const { pipeline, ctx } = createTransmissionCompatPipeline(self);
   const result = pipeline.cancel(learner, 'transmission', ctx);
   if (!result.ok) {
    throw new BadRequestException(result.error ?? '取消传法失败');
@@ -452,7 +452,7 @@ export function interruptTechniqueTransmissionForPlayerImpl(self: PlayerRuntimeS
   }
   learner.lifeElapsedTicks = Math.max(0, Math.trunc(Number(currentTick) || 0));
   self.captureOfflineGainBeforeTick(learner);
-  const { pipeline, ctx } = createTransmissionCompatPipeline(this);
+  const { pipeline, ctx } = createTransmissionCompatPipeline(self);
   const result = pipeline.interrupt(learner, 'transmission', normalizeTechniqueTransmissionInterruptReason(reason), ctx);
   self.recordAssetStatisticMutation(learner, self.captureOfflineGainBeforeTick(learner));
   return result.panelChanged === true;
@@ -573,7 +573,7 @@ export function advanceTechniqueTransmissionForPlayerImpl(self: PlayerRuntimeSer
   }
   player.lifeElapsedTicks = Math.max(0, Math.trunc(Number(playerTick) || 0));
   self.captureOfflineGainBeforeTick(player);
-  const { pipeline, ctx } = createTransmissionCompatPipeline(this);
+  const { pipeline, ctx } = createTransmissionCompatPipeline(self);
   const result = pipeline.tick(player, 'transmission', ctx);
   self.recordAssetStatisticMutation(player, self.captureOfflineGainBeforeTick(player));
   return result;

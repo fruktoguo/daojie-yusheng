@@ -24,8 +24,8 @@ const requiredPatterns = [
   ['packages/server/src/runtime/world/world-runtime.normalization.helpers.ts', /resolvePlayerFacingContentName\(quest\.targetMonsterId, '未知妖兽'/, '任务目标必须使用名称兜底'],
   ['packages/server/src/runtime/craft/technique-activity-task-view.helpers.ts', /resolvePlayerFacingContentName\(job\.outputItemId, '未知物品', resolveItemName\?\.\(job\.outputItemId\)\)/, '技艺任务目标必须通过内容名称解析器过滤物品 ID'],
   ['packages/server/src/runtime/craft/craft-panel-runtime.service.ts', /\(itemId\) => this\.contentTemplateRepository\.getItemName\(itemId\)/, '技艺任务投影必须接入权威物品名称目录'],
-  ['packages/server/src/runtime/world/world-runtime-sect.service.ts', /const sectName = resolvePlayerFacingContentName\(sect\?\.sectId, '未知宗门', sect\?\.name\)/, '宗门管理描述必须实时解析宗门名称'],
-  ['packages/server/src/persistence/player-domain-persistence.service.ts', /name: resolvePlayerFacingContentName\(techId, '未知功法', name\)/, '待参悟功法恢复不得写入功法 ID 名称'],
+  ['packages/server/src/runtime/world/world-runtime-sect.service.ts', /sectName: resolvePlayerFacingContentName\(sect\.sectId, '未知宗门', sect\.name\)/, '宗门管理描述必须实时解析宗门名称'],
+  ['packages/server/src/persistence/player-domain-persistence.helpers.ts', /name: resolvePlayerFacingContentName\(techId, '未知功法', name\)/, '待参悟功法恢复不得写入功法 ID 名称'],
 ];
 
 const forbiddenPatterns = [
