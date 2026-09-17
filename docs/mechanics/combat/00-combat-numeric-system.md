@@ -557,7 +557,7 @@ currentTick < readyTick -> 仍在冷却
 currentTick >= readyTick -> 可释放
 ```
 
-如果保存的 `readyTick` 已过期，或者大于当前公式可得最大冷却窗口，会清理该冷却记录。
+如果保存的 `readyTick` 已过期，或者大于当前公式可得最大冷却窗口，会清理该冷却记录。纯被动技能（`active === false`）的机制冷却由 reaction 直接写入（例如谷神不死 1800 息、五炁归元/在天成象 300 息），不走技能表 `cooldown` 窗口，因此不会被这条脏数据清理裁掉。
 
 ### 吟唱
 

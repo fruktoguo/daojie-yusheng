@@ -17,6 +17,7 @@ import {
  SKILL_HEAVEN_ORIGIN_RETURN,
  triggerLowHpHeavenlyPassives,
 } from '../runtime/combat/reactions/player/low-hp.reaction';
+import { buildActionEntries } from '../runtime/player/player-runtime.technique-queue.helpers';
 
 function createMockPlayer(options: {
  hp?: number;
@@ -58,6 +59,10 @@ function createMockPlayer(options: {
   combat: {
    autoBattleSkills: skillIds.map((id) => ({ skillId: id, skillEnabled: true })),
    cooldownReadyTickBySkillId: { ...(options.cooldowns ?? {}) },
+  },
+  actions: {
+   actions: [],
+   contextActions: [],
   },
   buffs: {
    revision: 1,
@@ -225,10 +230,57 @@ function testHeavenlyTechniquesHaveNoNegativeStats(): void {
  }
 }
 
+// 5. 动作栏重建不得用技能表 cooldown=0 的 1 息窗口裁掉机制冷却
+function testPassiveMechanismCooldownSurvivesActionRebuild(): void {
+ const death = createMockPlayer({ skills: [SKILL_HEAVEN_DEATH_IMMUNITY] });
+ interceptLethalDamageWithDeathImmunity(death, 10000, 100);
+ assert.equal(death.combat.cooldownReadyTickBySkillId[SKILL_HEAVEN_DEATH_IMMUNITY], 1900);
+ const deathActions = buildActionEntries(death, 100);
+ const deathEntry = deathActions.actions.find((entry: any) => entry.id === SKILL_HEAVEN_DEATH_IMMUNITY);
+ assert.equal(death.combat.cooldownReadyTickBySkillId[SKILL_HEAVEN_DEATH_IMMUNITY], 1900);
+ assert.equal(deathEntry?.cooldownLeft, 1800);
+ assert.equal(deathEntry?.cooldownReadyTick, 1900);
+
+ const origin = createMockPlayer({
+  hp: 200,
+  maxHp: 1000,
+  skills: [SKILL_HEAVEN_ORIGIN_RETURN],
+  buffs: [{ buffId: `${BUFF_HEAVEN_DEVOUR_VEIN_PREFIX}metal`, stacks: 3, remainingTicks: 10 }],
+ });
+ triggerLowHpHeavenlyPassives(origin, 10);
+ assert.equal(origin.combat.cooldownReadyTickBySkillId[SKILL_HEAVEN_ORIGIN_RETURN], 310);
+ buildActionEntries(origin, 10);
+ assert.equal(origin.combat.cooldownReadyTickBySkillId[SKILL_HEAVEN_ORIGIN_RETURN], 310);
+
+ const avatar = createMockPlayer({
+  hp: 250,
+  maxHp: 1000,
+  skills: [SKILL_HEAVEN_AVATAR_AWAKENING],
+ });
+ triggerLowHpHeavenlyPassives(avatar, 10);
+ assert.equal(avatar.combat.cooldownReadyTickBySkillId[SKILL_HEAVEN_AVATAR_AWAKENING], 310);
+ buildActionEntries(avatar, 10);
+ assert.equal(avatar.combat.cooldownReadyTickBySkillId[SKILL_HEAVEN_AVATAR_AWAKENING], 310);
+}
+
+// 6. 主动技能仍按技能表最大窗口清理异常超长冷却
+function testActiveSkillStaleCooldownStillCleared(): void {
+ const player = createMockPlayer({ skills: ['skill_active_dummy'] });
+ const skill = player.techniques.techniques[0].skills[0];
+ skill.active = true;
+ skill.cooldown = 10;
+ skill.passiveEffects = [];
+ player.combat.cooldownReadyTickBySkillId.skill_active_dummy = 100 + 9999;
+ buildActionEntries(player, 100);
+ assert.equal(player.combat.cooldownReadyTickBySkillId.skill_active_dummy, undefined);
+}
+
 testDevourVein();
 testOriginReturn();
 testDeathImmunity();
 testAvatarAwakening();
 testHeavenlyTechniquesHaveNoNegativeStats();
+testPassiveMechanismCooldownSurvivesActionRebuild();
+testActiveSkillStaleCooldownStillCleared();
 
-console.log(JSON.stringify({ ok: true, case: 'heavenly-passives', checks: 28 }));
+console.log(JSON.stringify({ ok: true, case: 'heavenly-passives', checks: 38 }));

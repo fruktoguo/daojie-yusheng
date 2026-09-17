@@ -1068,7 +1068,7 @@ export function buildActionEntries(player, currentTick) {
     player,
     skill.id,
     currentTick,
-    resolvePlayerSkillActionCooldownTicks(player, skill.cooldown),
+    resolveActionCooldownSanitizeMaxTicks(player, skill),
    );
    const autoBattleSkill = autoBattleSkillById.get(skill.id);
    const nextAction = reuseActionEntry(previousById.get(skill.id), {
@@ -1141,6 +1141,18 @@ export function resolvePlayerSkillActionCooldownTicks(player, cooldown) {
  return resolveCooldownTicks(cooldown, cooldownSpeed);
 }
 
+/**
+ * 主动技能用表上 cooldown 作为“剩余冷却超过最大窗口则视为脏数据”的裁剪上限。
+ * 纯被动技能的机制冷却由 reaction 写入（如谷神不死 1800、五炁归元/在天成象 300），
+ * 表上 cooldown 常为 0，不能拿 1 息窗口把机制冷却删掉。
+ */
+export function resolveActionCooldownSanitizeMaxTicks(player, skill) {
+ if (skill?.active === false) {
+  return null;
+ }
+ return resolvePlayerSkillActionCooldownTicks(player, skill?.cooldown);
+}
+
 export function resolveContextActionCooldownTicks(entry) {
  if (entry?.id === RETURN_TO_SPAWN_ACTION_ID) {
   return RETURN_TO_SPAWN_COOLDOWN_TICKS;
@@ -1165,9 +1177,11 @@ export function normalizeActionCooldownReadyTick(player, actionId, currentTick, 
  }
  const normalizedCurrentTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
  const remainingTicks = readyTick - normalizedCurrentTick;
- const normalizedMax = Number.isFinite(Number(maxCooldownTicks))
-  ? Math.max(1, Math.trunc(Number(maxCooldownTicks)))
-  : null;
+ // Number(null) === 0 且 isFinite，不能把“无上限”误当成 1 息窗口。
+ const parsedMax = Number(maxCooldownTicks);
+ const normalizedMax = maxCooldownTicks == null || !Number.isFinite(parsedMax)
+  ? null
+  : Math.max(1, Math.trunc(parsedMax));
  if (normalizedCurrentTick <= 0) {
   // 偏好/内容重建可能还没有玩家 tick，只收敛面板显示，不清运行时真源。
   return normalizedMax !== null && readyTick > normalizedMax ? normalizedMax : readyTick;

@@ -419,8 +419,16 @@ export function normalizePlayerSkillCooldownReadyTick(attacker, skill, currentTi
     }
     const normalizedCurrentTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
     const remainingTicks = readyTick - normalizedCurrentTick;
+    if (remainingTicks <= 0) {
+        delete cooldowns[skill.id];
+        return 0;
+    }
+    // 纯被动机制冷却不走技能表 cooldown 窗口；表上为 0 时上限只有 1 息，会误删 1800/300 冷却。
+    if (skill?.active === false) {
+        return readyTick;
+    }
     const maxCooldownTicks = resolvePlayerSkillCooldownTicks(attacker, skill.cooldown);
-    if (remainingTicks <= 0 || remainingTicks > maxCooldownTicks) {
+    if (remainingTicks > maxCooldownTicks) {
         delete cooldowns[skill.id];
         return 0;
     }

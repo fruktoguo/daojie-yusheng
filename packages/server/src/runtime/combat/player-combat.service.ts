@@ -586,7 +586,8 @@ function resolvePlayerSkill(techniqueState, cooldownReadyTickBySkillId, skillId,
 
 /**
  * 规范化已解析技能的冷却状态。
- * 如果剩余冷却超过技能最大冷却（可能是旧数据），则清除冷却。
+ * 主动技能：剩余冷却超过技能表最大窗口（可能是旧数据）时清除。
+ * 纯被动：机制冷却由 reaction 写入，不按技能表 cooldown 裁剪。
  */
 function normalizeResolvedPlayerSkillCooldown(attacker, resolved, currentTick) {
  const cooldowns = attacker?.combat?.cooldownReadyTickBySkillId;
@@ -601,8 +602,18 @@ function normalizeResolvedPlayerSkillCooldown(attacker, resolved, currentTick) {
  }
  const normalizedCurrentTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
  const remainingTicks = readyTick - normalizedCurrentTick;
+ if (remainingTicks <= 0) {
+  delete cooldowns[resolved.skill.id];
+  resolved.readyTick = 0;
+  return;
+ }
+ // 纯被动机制冷却不走技能表 cooldown 窗口；表上为 0 时上限只有 1 息，会误删 1800/300 冷却。
+ if (resolved.skill?.active === false) {
+  resolved.readyTick = readyTick;
+  return;
+ }
  const maxCooldownTicks = resolveSkillCooldownTicks(attacker, resolved.skill.cooldown);
- if (remainingTicks <= 0 || remainingTicks > maxCooldownTicks) {
+ if (remainingTicks > maxCooldownTicks) {
   delete cooldowns[resolved.skill.id];
   resolved.readyTick = 0;
   return;
