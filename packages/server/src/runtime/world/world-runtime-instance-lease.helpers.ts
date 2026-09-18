@@ -10,6 +10,7 @@ import {
   recoverVaultsBeforePlacementPrune,
   releaseTimeChambersBeforePlacementPrune,
 } from './building-placement-prune.helpers';
+import { resolveHydratedTickFloor } from '../instance/map-instance.persistence';
 
 const INSTANCE_LEASE_TTL_MS = 45_000;
 const INSTANCE_LEASE_RENEW_SKEW_MS = 5_000;
@@ -2445,7 +2446,9 @@ function hydrateInstanceFromCheckpoint(instance, checkpoint, runtime, instanceId
   if (typeof instance.hydrateTime === 'function') {
     const tickSpeed = snapshot.tickSpeed;
     const paused = snapshot.paused;
-    instance.hydrateTime(snapshot.tick, { tickSpeed, paused });
+    // 各持久化域已先于 checkpoint 恢复；用其中的过去式 tick 证据抬高恢复水位，防止时钟回退。
+    const containerStates = runtime?.worldRuntimeLootContainerService?.containerStatesByInstanceId?.get?.(instanceId) ?? null;
+    instance.hydrateTime(resolveHydratedTickFloor(instance, containerStates, snapshot.tick), { tickSpeed, paused });
   }
   void runtime;
   void instanceId;

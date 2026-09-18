@@ -977,22 +977,25 @@ export function normalizeJsonObjectPayload(value: unknown): Record<string, unkno
 export function resolveInstanceCheckpointVersion(payload: unknown): number {
   const root = normalizeJsonObjectPayload(payload);
   const snapshot = normalizeJsonObjectPayload(root.snapshot);
+  // checkpoint_version 必须是跨会话单调的墙钟版本：persistenceRevision 是会话内计数器，
+  // hydrate 时被重置为 1，若用它做版本，重启后所有 checkpoint 写入都会被 CAS 围栏静默拒绝。
   return normalizeMonotonicVersion(
-    snapshot.persistenceRevision,
-    root.persistenceRevision,
-    snapshot.tick,
-    root.tick,
     snapshot.savedAt,
     root.savedAt,
+    snapshot.tick,
+    root.tick,
+    snapshot.persistenceRevision,
+    root.persistenceRevision,
   );
 }
 
 export function resolveInstanceWatermarkVersion(payload: unknown): number {
   const root = normalizeJsonObjectPayload(payload);
+  // 与 checkpoint 同理：flushedAt 是墙钟单调版本，persistenceRevision 仅作无墙钟字段时的兜底。
   return normalizeMonotonicVersion(
-    root.persistenceRevision,
-    root.tick,
     root.flushedAt,
+    root.tick,
+    root.persistenceRevision,
   );
 }
 

@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 
 import { WorldRuntimeLifecycleService } from '../runtime/world/world-runtime-lifecycle.service';
+import { resolveHydratedTickFloor } from '../runtime/instance/map-instance.persistence';
+import {
+    resolveInstanceCheckpointVersion,
+    resolveInstanceWatermarkVersion,
+} from '../persistence/instance-domain-persistence.helpers';
 /**
  * testBootstrapPublicInstances：执行test引导PublicInstance相关逻辑。
  * @returns 无返回值，直接更新testBootstrapPublicInstance相关状态。
@@ -890,9 +895,52 @@ async function testStartupLazyRebuildPreservesCatalogAndSkipsHeavyDomainRestore(
     assert.equal(registrationIndex >= 0 && registrationIndex < claimIndex && claimIndex < leaseSyncIndex, true);
 }
 
+async function testHydrateTimeUsesPersistedTickFloor() {
+    // 回归：checkpoint 滞后于容器/怪物域时，恢复 tick 必须抬到持久化高水位，
+    // 否则 herbGrowth.lastTick/refreshAtTick/attackReadyTick 等绝对排程会变成"未来"而失效。
+    const containers = new Map([
+        ['src:a', { generatedAtTick: 6000, refreshAtTick: 9000, entries: [{ createdTick: 5900 }] }],
+        ['src:b', { generatedAtTick: 1000, herbGrowth: { lastTick: 7000, remainingWork: 2, rate: 1 }, entries: [] }],
+    ]);
+    const instance = {
+        monstersByRuntimeId: new Map([
+            ['m1', { attackReadyTick: 4000, cooldownReadyTickBySkillId: { 'skill.a': 6500 } }],
+        ]),
+    };
+    assert.equal(resolveHydratedTickFloor(instance, containers, 1234), 7000);
+    assert.equal(resolveHydratedTickFloor(instance, containers, 8000), 8000);
+    // 无证据时按 checkpoint 恢复；证据远超上限（损坏数据）时忽略。
+    assert.equal(resolveHydratedTickFloor({ monstersByRuntimeId: new Map() }, new Map(), 1234), 1234);
+    assert.equal(resolveHydratedTickFloor(instance, new Map([['s', { generatedAtTick: 1234 + 30 * 86400 + 1, entries: [] }]]), 1234), 6500);
+    // checkpoint 缺失/损坏（tick 无效）时，域证据仍然兜底恢复实例时钟。
+    assert.equal(resolveHydratedTickFloor(instance, null, null), 6500);
+    assert.equal(resolveHydratedTickFloor({ monstersByRuntimeId: new Map() }, null, null), 0);
+
+    // 回归：checkpoint/watermark 版本必须用跨会话单调的墙钟字段，不能用会话内 persistenceRevision，
+    // 否则 hydrate 重置 revision=1 后所有写入都会被 CAS 围栏静默拒绝（checkpoint 永久冻结）。
+    assert.equal(
+        resolveInstanceCheckpointVersion({ snapshot: { tick: 4_000_000, persistenceRevision: 5, savedAt: 1_789_747_838_472 } }),
+        1_789_747_838_472,
+    );
+    assert.equal(
+        resolveInstanceCheckpointVersion({ snapshot: { tick: 4_000_000, persistenceRevision: 9_999_999 } }),
+        4_000_000,
+    );
+    assert.equal(
+        resolveInstanceCheckpointVersion({ kind: 'time_checkpoint', snapshot: { tick: 100 } }),
+        100,
+    );
+    assert.equal(
+        resolveInstanceWatermarkVersion({ persistenceRevision: 5, tick: 100, flushedAt: 1_789_747_838_472 }),
+        1_789_747_838_472,
+    );
+    assert.equal(resolveInstanceWatermarkVersion({ persistenceRevision: 5, tick: 100 }), 100);
+}
+
 async function main() {
     testBootstrapPublicInstances();
     await testRestoreAndRebuild();
+    await testHydrateTimeUsesPersistedTickFloor();
     await testRestoreOfflineHangingPlayersSkipsMissingTowerInstance();
     await testRestoreOfflineHangingPlayersFailsClosedWithoutEntitlements();
     await testStartupEagerRebuildClaimsLeaseBeforeHydration();

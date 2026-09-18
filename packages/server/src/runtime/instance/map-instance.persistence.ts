@@ -700,6 +700,55 @@ export function hydrateGroundPilesImpl(instance: MapInstanceRuntime, entries) {
   instance.persistedRevision = 1;
 }
 
+/** 水合时实例 tick 允许超越 checkpoint 的最大前推幅度（30 天），超出按损坏数据处理。 */
+const HYDRATED_TICK_FORWARD_CAP = 30 * 86400;
+
+/**
+ * 计算实例时间恢复的持久化高水位。
+ * checkpoint 落盘可能滞后于其他持久化域（容器/怪物等），若只按 checkpoint 恢复 tick，
+ * 实例时钟会回退到历史水位，导致 refreshAtTick/attackReadyTick/expiresAtTick 等绝对
+ * tick 排程全部变成"未来"而永久失效。域状态里保存的 generatedAtTick、herbGrowth.lastTick、
+ * createdTick 等来自更近的落盘时点，用它们抬高恢复水位，保证实例时钟不回退。
+ * 只采纳"过去式"tick 字段；expiresAtTick 这类未来期限字段不参与（期限可达数天，会把
+ * 时钟错误前推）。单个证据字段超过 checkpoint + 上限时视为损坏数据跳过。
+ */
+export function resolveHydratedTickFloor(
+  instance: {
+    monstersByRuntimeId?: {
+      values?: () => Iterable<{ attackReadyTick?: unknown; cooldownReadyTickBySkillId?: unknown }>;
+    } | null;
+  } | null | undefined,
+  containerStates,
+  checkpointTick,
+) {
+  const base = Number.isFinite(Number(checkpointTick)) ? Math.max(0, Math.trunc(Number(checkpointTick))) : 0;
+  let floor = base;
+  const cap = base + HYDRATED_TICK_FORWARD_CAP;
+  const bump = (value) => {
+    const parsed = Math.trunc(Number(value));
+    if (Number.isFinite(parsed) && parsed > floor && parsed <= cap) {
+      floor = parsed;
+    }
+  };
+  for (const state of containerStates?.values?.() ?? []) {
+    bump(state?.generatedAtTick);
+    bump(state?.herbGrowth?.lastTick);
+    for (const entry of Array.isArray(state?.entries) ? state.entries : []) {
+      bump(entry?.createdTick);
+    }
+  }
+  for (const monster of instance?.monstersByRuntimeId?.values?.() ?? []) {
+    bump(monster?.attackReadyTick);
+    const cooldowns = monster?.cooldownReadyTickBySkillId;
+    if (cooldowns && typeof cooldowns === 'object') {
+      for (const value of Object.values(cooldowns)) {
+        bump(value);
+      }
+    }
+  }
+  return floor;
+}
+
 export function hydrateTimeImpl(instance: MapInstanceRuntime, tick, options) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 

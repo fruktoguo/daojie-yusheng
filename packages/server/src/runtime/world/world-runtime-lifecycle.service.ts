@@ -16,6 +16,7 @@ import {
     releaseTimeChambersBeforePlacementPrune,
 } from './building-placement-prune.helpers';
 import { registerManagedInstanceCatalog } from './world-runtime-instance-lease.helpers';
+import { resolveHydratedTickFloor } from '../instance/map-instance.persistence';
 
 const {
     buildPublicInstanceId,
@@ -991,7 +992,9 @@ function hydrateInstanceFromCheckpoint(instance, checkpoint, deps, instanceId) {
     const tickSpeed = snapshot.tickSpeed;
     const paused = snapshot.paused;
     if (typeof instance.hydrateTime === 'function') {
-        instance.hydrateTime(snapshot.tick, {
+        // 各持久化域已先于 checkpoint 恢复；用其中的过去式 tick 证据抬高恢复水位，防止时钟回退。
+        const containerStates = deps?.worldRuntimeLootContainerService?.containerStatesByInstanceId?.get?.(instanceId) ?? null;
+        instance.hydrateTime(resolveHydratedTickFloor(instance, containerStates, snapshot.tick), {
             tickSpeed,
             paused,
         });
