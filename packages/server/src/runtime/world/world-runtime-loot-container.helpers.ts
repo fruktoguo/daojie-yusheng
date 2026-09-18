@@ -82,6 +82,9 @@ export function repairStaleHerbSchedule(container, state, currentTick) {
  }
  state.generatedAtTick = normalizedCurrentTick;
  state.refreshAtTick = resolveContainerRefreshAtTick(container, normalizedCurrentTick) ?? (normalizedCurrentTick + maxRefreshTicks);
+ // 排程重建后旧生长进度（lastTick/remainingWork）已失效；不清理会让
+ // herbGrowth.lastTick 停留在未来时钟上，导致 advanceHerbGrowthProgress 永久停摆。
+ delete state.herbGrowth;
  clampLegacyHerbStock(state.entries, MAX_HERB_GROWTH_CATCH_UP_STEPS);
  return true;
 }

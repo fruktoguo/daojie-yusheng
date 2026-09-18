@@ -3,6 +3,7 @@ import { PLANTED_HERB_DURATION_TICKS, SPIRIT_FARMLAND_BUILDING_ID, computeHerbGr
 import { WorldRuntimeLootContainerService } from '../runtime/world/world-runtime-loot-container.service';
 import { WorldRuntimeUseItemService } from '../runtime/world/world-runtime-use-item.service';
 import { advanceHerbGrowthProgress } from '../runtime/world/herb-growth.helpers';
+import { repairStaleHerbSchedule } from '../runtime/world/world-runtime-loot-container.helpers';
 import { assertPlantSeedPlacement } from '../runtime/world/plant-seed-use.helpers';
 import { rollGatherSeed } from '../runtime/craft/gather-seed.helpers';
 import { parseContainerSourceId } from '../runtime/world/world-runtime.normalization.helpers';
@@ -49,6 +50,39 @@ function testGrowth(): void {
   advance(100, 1_000);
   advance(101, 1_000);
   assert.equal(count, 11, '高灵气允许每息恢复多份');
+}
+
+function testGrowthAfterClockRollback(): void {
+  // 实例 tick 从旧 checkpoint 恢复时会回退到 herbGrowth.lastTick 之前；
+  // 进度基准必须压回当前 tick 继续生长，而不是永久停摆。
+  const state: any = {
+    generatedAtTick: 1_000,
+    refreshAtTick: 40,
+    herbGrowth: { lastTick: 5_000, remainingWork: 60, rate: 1 },
+    entries: [],
+  };
+  let count = 0;
+  const advance = (tick: number) => advanceHerbGrowthProgress(state, tick, 1, () => count++, () => 100);
+  advance(50);
+  assert.equal(state.herbGrowth.lastTick, 50, '时钟回退必须压回进度基准');
+  assert.equal(count, 0);
+  advance(110);
+  assert.equal(count, 1, '回退后剩余工作量继续结算，不再停摆');
+  assert.equal(state.herbGrowth.lastTick, 110);
+  // 同一息内重复推进仍必须去重，不能因为基准修正而多产。
+  advance(110);
+  assert.equal(count, 1);
+  // 排程被判定为陈旧未来时，重建必须同时清除失效生长进度，
+  // 否则残留的 herbGrowth.lastTick 仍会把推进卡死在原时钟上。
+  const stale: any = {
+    generatedAtTick: 1_000,
+    refreshAtTick: 999_999,
+    herbGrowth: { lastTick: 999_999, remainingWork: 5, rate: 1 },
+    entries: [],
+  };
+  const repaired = repairStaleHerbSchedule({ variant: 'herb', refreshTicks: 100 }, stale, 50);
+  assert.equal(repaired, true);
+  assert.equal(stale.herbGrowth, undefined, '排程重建必须清除失效生长进度');
 }
 
 async function testPlantingAndLifetime(): Promise<void> {
@@ -153,6 +187,7 @@ async function testPlantingAndLifetime(): Promise<void> {
 async function main(): Promise<void> {
   testSeeds();
   testGrowth();
+  testGrowthAfterClockRollback();
   await testPlantingAndLifetime();
   console.log('种植验证通过：29种种子、幸运独立概率、灵气指数恢复、灵田准入、事务失败保留、重启与七天到期。');
 }

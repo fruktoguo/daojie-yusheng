@@ -23,6 +23,11 @@ export function advanceHerbGrowthProgress(
     rate: 1,
   };
   const rate = Number.isFinite(nextRate) && Number(nextRate) >= 1 ? Number(nextRate) : previous.rate;
+  // 实例时钟回退（checkpoint 恢复/回档）时把进度基准压回当前 tick；
+  // 否则 lastTick 停留在未来，elapsed 恒为 0，草药生长会永久停摆。
+  if (state.herbGrowth && previous.lastTick > now) {
+    previous.lastTick = now;
+  }
   const elapsed = Math.max(0, now - previous.lastTick);
   if (elapsed === 0 && state.herbGrowth && rate === previous.rate) return false;
   if (state.herbGrowth && rate === previous.rate && now < state.refreshAtTick) return false;
