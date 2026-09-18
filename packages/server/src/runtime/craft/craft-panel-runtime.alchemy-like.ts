@@ -10,7 +10,6 @@ import {
     ARTIFACT_CRAFT_BASE_SUCCESS_RATE,
     ELEMENT_KEYS,
     EQUIP_SLOTS,
-    ENHANCEMENT_HAMMER_TAG,
     ENHANCEMENT_SPIRIT_STONE_ITEM_ID,
     MAX_ENHANCE_LEVEL,
     TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH,
@@ -781,7 +780,7 @@ export function getAlchemyLikeToolItemImpl(self: CraftPanelRuntimeService, playe
         const slot = jobKind === 'forging' ? 'technique_forging' : 'technique_alchemy';
         const expectedTag = jobKind === 'forging' ? 'forging_tool' : ALCHEMY_FURNACE_TAG;
         const tool = self.getEquippedItem(player, slot);
-        if (tool?.tags?.includes(expectedTag)) {
+        if (tool) {
             return tool;
         }
         const legacyWeapon = self.getEquippedItem(player, 'weapon');

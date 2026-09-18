@@ -455,9 +455,7 @@ function buildUsageShell(detail: TimeChamberUsageDetailView, durationHours: numb
 function patchUsageFields(shell: HTMLElement, detail: TimeChamberUsageDetailView): void {
   const activationRequired = requiresTimeChamberActivation(detail.configuredSpeed);
   const entryAvailable = detail.active || !activationRequired;
-  setField(shell, 'speed', detail.configuredSpeed === detail.effectiveSpeed
-    ? `${detail.effectiveSpeed} 倍`
-    : `设定 ${detail.configuredSpeed} 倍 / 当前 ${detail.effectiveSpeed} 倍`);
+  setField(shell, 'speed', `${detail.configuredSpeed} 倍`);
   setField(shell, 'users', `${detail.occupancy}/${detail.capacity} 人`);
   setField(shell, 'cost', `${formatDisplayNumber(detail.activationCostSpiritStonesPerHour)} 灵石/小时`);
   setField(shell, 'status', detail.active ? '已开启' : activationRequired ? '未开启' : '常驻开放');

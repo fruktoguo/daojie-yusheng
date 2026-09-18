@@ -454,9 +454,7 @@ function patchDetailFields(
   settingsDraft: TimeChamberSettingsInputDraft | null,
   sizeDraft: TimeChamberSizeTier | null,
 ): void {
-  setField(shell, 'speed', detail.configuredSpeed === detail.effectiveSpeed
-    ? `${detail.effectiveSpeed} 倍`
-    : `设定 ${detail.configuredSpeed} 倍 / 当前 ${detail.effectiveSpeed} 倍`);
+  setField(shell, 'speed', `${detail.configuredSpeed} 倍`);
   setField(shell, 'users', `${detail.occupancy}/${detail.capacity} 人`);
   setField(shell, 'cost', `${formatDisplayNumber(detail.operatingCostSpiritStonesPerHour)} 灵石/小时`);
   setField(shell, 'active-until', detail.activeUntil ? formatDateTime(detail.activeUntil) : '未激活');

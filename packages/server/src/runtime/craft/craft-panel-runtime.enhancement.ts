@@ -1107,7 +1107,7 @@ export function tickEnhancementImpl(self: CraftPanelRuntimeService, player) {
 }
 
 export function hasEquippedHammerImpl(self: CraftPanelRuntimeService, player) {
-        return Boolean(self.getEnhancementToolItem(player)?.tags?.includes(ENHANCEMENT_HAMMER_TAG));
+        return Boolean(self.getEnhancementToolItem(player));
 }
 
 export function collectEnhancementCandidatesImpl(self: CraftPanelRuntimeService, player) {
@@ -1215,7 +1215,7 @@ export function getEnhancementRequirementsImpl(self: CraftPanelRuntimeService, c
 
 export function getEnhancementToolItemImpl(self: CraftPanelRuntimeService, player) {
         const tool = self.getEquippedItem(player, 'technique_enhancement');
-        if (tool?.tags?.includes(ENHANCEMENT_HAMMER_TAG)) {
+        if (tool) {
             return tool;
         }
         const legacyWeapon = self.getEquippedItem(player, 'weapon');

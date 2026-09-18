@@ -12,9 +12,10 @@ import { isDeepStrictEqual } from 'node:util';
 import {
     ALCHEMY_FURNACE_OUTPUT_COUNT,
     ARTIFACT_CRAFT_BASE_SUCCESS_RATE,
+    COMBAT_EQUIP_SLOTS,
     ELEMENT_KEYS,
-    ENHANCEMENT_HAMMER_TAG,
     EQUIP_SLOTS,
+    TECHNIQUE_EQUIP_SLOTS,
     MAX_ENHANCE_LEVEL,
     TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH,
     TECHNIQUE_GRADE_ORDER,
@@ -32,7 +33,6 @@ import {
     type TechniqueActivityQueueReorderAction,
 } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
-import { ALCHEMY_FURNACE_TAG } from './craft-panel-alchemy-query.helpers';
 import { DEFAULT_CRAFT_EXP_TO_NEXT, resolveCraftSkillExpToNextByLevel } from './craft-skill-exp.helpers';
 import {
     buildEnhancementRecordRowsFromEntries,
@@ -248,19 +248,16 @@ export function sumCraftElementAbs(elements) {
 export function resolveAlchemyRecipeCategory(outputItem, recipeId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const outputTags = Array.isArray(outputItem.tags) ? outputItem.tags : [];
     if (recipeId === 'forging.copper_luopan' || outputItem.itemId === 'equip.copper_luopan') {
         return 'special';
     }
-    if (outputTags.some((tag) => tag === ALCHEMY_FURNACE_TAG
-        || tag === 'forging_tool'
-        || tag === ENHANCEMENT_HAMMER_TAG
-        || tag === 'mining_pickaxe'
-        || tag === 'building_hammer')) {
-        return 'special';
-    }
-    if (outputItem.type === 'equipment' && EQUIP_SLOTS.includes(outputItem.equipSlot)) {
-        return outputItem.equipSlot;
+    if (outputItem.type === 'equipment') {
+        if (TECHNIQUE_EQUIP_SLOTS.includes(outputItem.equipSlot)) {
+            return 'special';
+        }
+        if (COMBAT_EQUIP_SLOTS.includes(outputItem.equipSlot)) {
+            return outputItem.equipSlot;
+        }
     }
     if (outputItem.type === 'artifact') {
         return 'artifact';

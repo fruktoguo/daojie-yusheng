@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { ALCHEMY_FURNACE_OUTPUT_COUNT, ARTIFACT_CRAFT_BASE_SUCCESS_RATE, ELEMENT_KEYS, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TECHNIQUE_GRADE_ORDER, addCraftElementVector, applyCraftOutputRate, canMergeItemStack, cloneCraftEffectStats, compactCraftElementVector, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemyRawBrewTicks, computeAlchemyTotalJobTicks, computeEnhancementAdjustedSuccessRate, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeFivePhaseElementMatch, computeLuckSuccessRateBonus, createEmptyCraftElementVector, createItemStackSignature, getAlchemySpiritStoneCost, getItemDisplayName, isLegacyItemInstanceId, normalizeCraftEffectStatsPatch, normalizeCraftElementVector, resolvePlayerFacingContentName } from '@mud/shared';
+import { ALCHEMY_FURNACE_OUTPUT_COUNT, ARTIFACT_CRAFT_BASE_SUCCESS_RATE, ELEMENT_KEYS, EQUIP_SLOTS, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TECHNIQUE_GRADE_ORDER, addCraftElementVector, applyCraftOutputRate, canMergeItemStack, cloneCraftEffectStats, compactCraftElementVector, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemyRawBrewTicks, computeAlchemyTotalJobTicks, computeEnhancementAdjustedSuccessRate, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeFivePhaseElementMatch, computeLuckSuccessRateBonus, createEmptyCraftElementVector, createItemStackSignature, getAlchemySpiritStoneCost, getItemDisplayName, isLegacyItemInstanceId, normalizeCraftEffectStatsPatch, normalizeCraftElementVector, resolvePlayerFacingContentName } from '@mud/shared';
 import type { ItemStack } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { lockItem, unlockItem, getLockedItem, lockedItemToItemStack } from '../player/inventory-lock.helpers';
@@ -29,7 +29,7 @@ import { DurableOperationService, type DurableProfessionStateSnapshot } from '..
 import { resolveProjectPath } from '../../common/project-path';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { CraftPanelAlchemyQueryService, buildForgingAlchemyPanelState } from './craft-panel-alchemy-query.service';
-import { ALCHEMY_CATALOG_VERSION, ALCHEMY_FURNACE_TAG, cloneAlchemyJob } from './craft-panel-alchemy-query.helpers';
+import { ALCHEMY_CATALOG_VERSION, cloneAlchemyJob } from './craft-panel-alchemy-query.helpers';
 import { CraftPanelEnhancementQueryService } from './craft-panel-enhancement-query.service';
 import { advanceTechniqueActivityPause, bumpTechniqueActivityJobVersion, hasTechniqueActivityJob, listRuntimeTechniqueActivityKinds } from './technique-activity-runtime.helpers';
 import { DEFAULT_CRAFT_EXP_TO_NEXT, resolveCraftSkillExpToNextByLevel, resolveInitialCraftSkillExpToNext } from './craft-skill-exp.helpers';
@@ -1015,10 +1015,10 @@ export class CraftPanelRuntimeService {
  */
 
     hasEquippedFurnace(player) {
-        return Boolean(this.getAlchemyLikeToolItem(player, 'alchemy')?.tags?.includes(ALCHEMY_FURNACE_TAG));
+        return Boolean(this.getAlchemyLikeToolItem(player, 'alchemy'));
     }
     hasEquippedForgingTool(player) {
-        return Boolean(this.getAlchemyLikeToolItem(player, 'forging')?.tags?.includes('forging_tool'));
+        return Boolean(this.getAlchemyLikeToolItem(player, 'forging'));
     }
         getAlchemyLikeToolSpeedRate(player, jobKind) {
         return getAlchemyLikeToolSpeedRateImpl(this, player, jobKind);

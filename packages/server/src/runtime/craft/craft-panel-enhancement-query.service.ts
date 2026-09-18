@@ -69,7 +69,7 @@ export class CraftPanelEnhancementQueryService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const hammer = getEnhancementToolItem(player);
-        const hammerItemId = hammer?.tags?.includes(ENHANCEMENT_HAMMER_TAG) ? hammer.itemId : undefined;
+        const hammerItemId = hammer?.itemId;
         return {
             hammerItemId,
             toolStats: cloneCraftEffectStats(player?.attrs?.craftEffectStats),
@@ -202,7 +202,7 @@ function getEnhancementRequirements(config, targetLevel) {
 
 function getEnhancementToolItem(player) {
     const tool = getEquippedItem(player, 'technique_enhancement');
-    if (tool?.tags?.includes(ENHANCEMENT_HAMMER_TAG)) {
+    if (tool) {
         return tool;
     }
     const legacyWeapon = getEquippedItem(player, 'weapon');
