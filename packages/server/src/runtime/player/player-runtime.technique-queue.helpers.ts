@@ -1068,7 +1068,7 @@ export function buildActionEntries(player, currentTick) {
     player,
     skill.id,
     currentTick,
-    resolvePlayerSkillActionCooldownTicks(player, skill.cooldown),
+    resolvePlayerSkillActionCooldownTicks(player, skill),
    );
    const autoBattleSkill = autoBattleSkillById.get(skill.id);
    const nextAction = reuseActionEntry(previousById.get(skill.id), {
@@ -1136,9 +1136,11 @@ export function reuseActionEntry(previous, next) {
  return { entry: next, changed: true };
 }
 
-export function resolvePlayerSkillActionCooldownTicks(player, cooldown) {
- const cooldownSpeed = Math.trunc(Number(player.attrs?.numericStats?.cooldownSpeed ?? 0));
- return resolveCooldownTicks(cooldown, cooldownSpeed);
+export function resolvePlayerSkillActionCooldownTicks(player, skill) {
+ const cooldownSpeed = skill?.ignoreCooldownReduction === true
+  ? 0
+  : Math.trunc(Number(player.attrs?.numericStats?.cooldownSpeed ?? 0));
+ return resolveCooldownTicks(skill?.cooldown, cooldownSpeed);
 }
 
 export function resolveContextActionCooldownTicks(entry) {

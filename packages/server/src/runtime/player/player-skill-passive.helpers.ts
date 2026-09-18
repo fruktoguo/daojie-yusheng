@@ -78,11 +78,16 @@ export function collectEnabledCultivationTileQiPassives(
  return resolveEnabledSkillPassiveProfile(player).cultivationTileQiEffects;
 }
 
-export function hasEnabledPlayerSkill(player: PassivePlayerLike | null | undefined, skillId: string): boolean {
- if (!player || !skillId) return false;
+export function findEnabledPlayerSkill(player: PassivePlayerLike | null | undefined, skillId: string): SkillDef | null {
+ if (!player || !skillId) return null;
  const targetId = skillId.trim();
  const profile = resolveEnabledSkillPassiveProfile(player);
- return profile.passiveEffects.some((entry) => entry.skill?.id === targetId);
+ const entry = profile.passiveEffects.find((item) => item.skill?.id === targetId);
+ return entry?.skill ?? null;
+}
+
+export function hasEnabledPlayerSkill(player: PassivePlayerLike | null | undefined, skillId: string): boolean {
+ return findEnabledPlayerSkill(player, skillId) !== null;
 }
 
 function resolveEnabledSkillPassiveProfile(player: PassivePlayerLike | null | undefined): PassiveProfile {

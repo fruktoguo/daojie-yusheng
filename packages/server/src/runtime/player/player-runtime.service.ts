@@ -3314,7 +3314,7 @@ export class PlayerRuntimeService {
    return player;
   }
 
-  const currentTick = Number(options?.currentTick ?? 0);
+  const currentTick = resolvePlayerRuntimeTick(player, Number(options?.currentTick ?? 0));
   const damageElement = options?.damageElement ?? options?.element;
 
   const reactionContext = {

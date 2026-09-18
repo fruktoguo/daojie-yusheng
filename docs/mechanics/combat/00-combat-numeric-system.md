@@ -559,6 +559,10 @@ currentTick >= readyTick -> 可释放
 
 如果保存的 `readyTick` 已过期，或者大于当前公式可得最大冷却窗口，会清理该冷却记录。
 
+技能可配置 `ignoreCooldownReduction: true`：此时 `cooldownSpeed` 视为 0，冷却始终按原始 `skill.cooldown` 结算，不受冷却缩减影响；冷却收敛的最大窗口同样按原始冷却计算，因此由被动 reaction 写入的长冷却（如天阶被动的 300/1800 息）不会在 action 重建时被当作超窗脏数据清理。当前适用：抱元（`skill.taichu_baoyuan`）、天阶被动《五炁归元》《谷神不死》《在天成象》。
+
+天阶被动触发冷却以技能定义 `cooldown` 为真源（内容配置 300/1800 息），reaction 只读取技能定义写入 `cooldownReadyTickBySkillId`；该表与 `lifeElapsedTicks` 同域，伤害入口会先把传入 tick 归一到玩家生命 tick。
+
 ### 吟唱
 
 玩家技能可配置：

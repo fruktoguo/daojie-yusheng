@@ -794,6 +794,8 @@ export interface SkillDef {
   active?: boolean;
   /** 技能启用后生效的被动效果。 */
   passiveEffects?: SkillPassiveEffectDef[];
+  /** 冷却固定：true 时该技能冷却不受冷却速度（冷却缩减）影响，始终按原始冷却结算。 */
+  ignoreCooldownReduction?: boolean;
 }
 
 /** 读取玩家技能的权威吟唱息数；未配置或非法值统一视为瞬发。 */

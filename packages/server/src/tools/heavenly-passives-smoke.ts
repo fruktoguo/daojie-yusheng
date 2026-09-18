@@ -17,6 +17,13 @@ import {
  SKILL_HEAVEN_ORIGIN_RETURN,
  triggerLowHpHeavenlyPassives,
 } from '../runtime/combat/reactions/player/low-hp.reaction';
+import { buildActionEntries } from '../runtime/player/player-runtime.technique-queue.helpers';
+
+const HEAVENLY_SKILL_COOLDOWNS: Record<string, number> = {
+ [SKILL_HEAVEN_ORIGIN_RETURN]: 300,
+ [SKILL_HEAVEN_DEATH_IMMUNITY]: 1800,
+ [SKILL_HEAVEN_AVATAR_AWAKENING]: 300,
+};
 
 function createMockPlayer(options: {
  hp?: number;
@@ -24,6 +31,7 @@ function createMockPlayer(options: {
  skills?: string[];
  buffs?: any[];
  cooldowns?: Record<string, number>;
+ cooldownSpeed?: number;
 } = {}): any {
  const hp = options.hp ?? 1000;
  const maxHp = options.maxHp ?? 1000;
@@ -43,6 +51,8 @@ function createMockPlayer(options: {
       name: id,
       unlockLevel: 1,
       active: false,
+      cooldown: HEAVENLY_SKILL_COOLDOWNS[id] ?? 0,
+      ignoreCooldownReduction: HEAVENLY_SKILL_COOLDOWNS[id] !== undefined ? true : undefined,
       passiveEffects: [
        {
         type: 'buff',
@@ -58,6 +68,14 @@ function createMockPlayer(options: {
   combat: {
    autoBattleSkills: skillIds.map((id) => ({ skillId: id, skillEnabled: true })),
    cooldownReadyTickBySkillId: { ...(options.cooldowns ?? {}) },
+  },
+  attrs: {
+   numericStats: { cooldownSpeed: options.cooldownSpeed ?? 0 },
+  },
+  actions: {
+   revision: 1,
+   actions: [],
+   contextActions: [],
   },
   buffs: {
    revision: 1,
@@ -201,6 +219,34 @@ function testAvatarAwakening(): void {
  // 冷却记录应为 10 + 300 = 310
  assert.equal(player.combat.cooldownReadyTickBySkillId[SKILL_HEAVEN_AVATAR_AWAKENING], 310);
 }
+// 5. 回归：action 冷却收敛不得删除标记 ignoreCooldownReduction 的被动冷却
+function testPassiveCooldownSurvivesActionRebuild(): void {
+ const player = createMockPlayer({
+  hp: 100,
+  maxHp: 1000,
+  skills: [SKILL_HEAVEN_DEATH_IMMUNITY, SKILL_HEAVEN_DEVOUR_VEIN],
+  cooldownSpeed: 500,
+ });
+
+ // 谷神不死触发后写入 100 + 1800 = 1900
+ interceptLethalDamageWithDeathImmunity(player, 99999, 100);
+ assert.equal(player.combat.cooldownReadyTickBySkillId[SKILL_HEAVEN_DEATH_IMMUNITY], 1900);
+
+ // 高冷却速度下重建 action 状态：标记技能按原始 1800 息收敛，冷却保留
+ const rebuilt = buildActionEntries(player, 500);
+ player.actions.actions = rebuilt.actions;
+ assert.equal(player.combat.cooldownReadyTickBySkillId[SKILL_HEAVEN_DEATH_IMMUNITY], 1900);
+ const immunityAction = rebuilt.actions.find((entry: any) => entry.id === SKILL_HEAVEN_DEATH_IMMUNITY);
+ assert.ok(immunityAction);
+ assert.equal(immunityAction.cooldownLeft, 1400);
+
+ // 未标记技能（cooldown=0 的噬脉引）遗留超窗冷却仍会被清理
+ player.combat.cooldownReadyTickBySkillId[SKILL_HEAVEN_DEVOUR_VEIN] = 1900;
+ const rebuiltAgain = buildActionEntries(player, 500);
+ assert.equal(player.combat.cooldownReadyTickBySkillId[SKILL_HEAVEN_DEVOUR_VEIN], undefined);
+ assert.equal(player.combat.cooldownReadyTickBySkillId[SKILL_HEAVEN_DEATH_IMMUNITY], 1900);
+}
+
 function testHeavenlyTechniquesHaveNoNegativeStats(): void {
  const fs = require('node:fs');
  const path = require('node:path');
@@ -229,6 +275,7 @@ testDevourVein();
 testOriginReturn();
 testDeathImmunity();
 testAvatarAwakening();
+testPassiveCooldownSurvivesActionRebuild();
 testHeavenlyTechniquesHaveNoNegativeStats();
 
-console.log(JSON.stringify({ ok: true, case: 'heavenly-passives', checks: 28 }));
+console.log(JSON.stringify({ ok: true, case: 'heavenly-passives', checks: 34 }));

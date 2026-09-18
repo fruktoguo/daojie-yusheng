@@ -126,6 +126,7 @@
         "name": "抱元",
         "desc": "抱元守一，短时拔升双抗。",
         "cooldown": 28,
+        "ignoreCooldownReduction": true,
         "cost": 27888,
         "costMultiplier": 3,
         "range": 0,

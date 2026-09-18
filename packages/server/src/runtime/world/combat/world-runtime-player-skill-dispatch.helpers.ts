@@ -405,7 +405,7 @@ export function spendSkillCostAndStartCooldown(playerRuntimeService, attacker, s
         playerRuntimeService.spendQi(attacker.playerId, qiCost);
         instance?.disperseQiAt?.(attacker.x, attacker.y, qiCost);
     }
-    playerRuntimeService.setSkillCooldownReadyTick(attacker.playerId, skill.id, currentTick + resolvePlayerSkillCooldownTicks(attacker, skill.cooldown), currentTick);
+    playerRuntimeService.setSkillCooldownReadyTick(attacker.playerId, skill.id, currentTick + resolvePlayerSkillCooldownTicks(attacker, skill), currentTick);
     return qiCost;
 }
 export function normalizePlayerSkillCooldownReadyTick(attacker, skill, currentTick) {
@@ -419,16 +419,18 @@ export function normalizePlayerSkillCooldownReadyTick(attacker, skill, currentTi
     }
     const normalizedCurrentTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
     const remainingTicks = readyTick - normalizedCurrentTick;
-    const maxCooldownTicks = resolvePlayerSkillCooldownTicks(attacker, skill.cooldown);
+    const maxCooldownTicks = resolvePlayerSkillCooldownTicks(attacker, skill);
     if (remainingTicks <= 0 || remainingTicks > maxCooldownTicks) {
         delete cooldowns[skill.id];
         return 0;
     }
     return readyTick;
 }
-export function resolvePlayerSkillCooldownTicks(attacker, cooldown) {
-    const cooldownSpeed = Math.trunc(Number(attacker.attrs?.numericStats?.cooldownSpeed ?? 0));
-    return resolveCooldownTicks(cooldown, cooldownSpeed);
+export function resolvePlayerSkillCooldownTicks(attacker, skill) {
+    const cooldownSpeed = skill?.ignoreCooldownReduction === true
+        ? 0
+        : Math.trunc(Number(attacker.attrs?.numericStats?.cooldownSpeed ?? 0));
+    return resolveCooldownTicks(skill?.cooldown, cooldownSpeed);
 }
 export function getPlayerSkillWarningColor(skill) {
     return typeof skill?.playerCast?.warningColor === 'string' && skill.playerCast.warningColor.trim().length > 0

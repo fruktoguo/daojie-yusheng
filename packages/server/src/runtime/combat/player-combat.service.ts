@@ -313,7 +313,7 @@ export class PlayerCombatService {
   }
   // 设置冷却（含冷却速度加成）。AOE 后续目标和怪物技能已由调用方保证资源/冷却，不再重复计算。
   if (options?.skipResourceAndCooldown !== true && !resolved.skipCooldownCheck) {
-   handlers.setCooldownReadyTick(currentTick + resolveSkillCooldownTicks(attacker, resolved.skill.cooldown));
+   handlers.setCooldownReadyTick(currentTick + resolveSkillCooldownTicks(attacker, resolved.skill));
   }
 
   // 逐效果结算
@@ -601,7 +601,7 @@ function normalizeResolvedPlayerSkillCooldown(attacker, resolved, currentTick) {
  }
  const normalizedCurrentTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
  const remainingTicks = readyTick - normalizedCurrentTick;
- const maxCooldownTicks = resolveSkillCooldownTicks(attacker, resolved.skill.cooldown);
+ const maxCooldownTicks = resolveSkillCooldownTicks(attacker, resolved.skill);
  if (remainingTicks <= 0 || remainingTicks > maxCooldownTicks) {
   delete cooldowns[resolved.skill.id];
   resolved.readyTick = 0;
@@ -840,10 +840,13 @@ function resolveTemporaryBuffStats(effect) {
 /**
  * 计算技能实际冷却 tick 数（含冷却速度属性加成）。
  * 冷却速度越高，实际冷却越短，最低 1 tick。
+ * 标记 ignoreCooldownReduction 的技能不受冷却速度影响。
  */
-function resolveSkillCooldownTicks(attacker, cooldown) {
- const cooldownSpeed = Math.trunc(Number(attacker.attrs?.numericStats?.cooldownSpeed ?? 0));
- return resolveCooldownTicks(cooldown, cooldownSpeed);
+function resolveSkillCooldownTicks(attacker, skill) {
+ const cooldownSpeed = skill?.ignoreCooldownReduction === true
+  ? 0
+  : Math.trunc(Number(attacker.attrs?.numericStats?.cooldownSpeed ?? 0));
+ return resolveCooldownTicks(skill?.cooldown, cooldownSpeed);
 }
 
 /**

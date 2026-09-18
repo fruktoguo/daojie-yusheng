@@ -1514,6 +1514,7 @@ function normalizeSkill(raw, grade, realmLv, sharedTechniqueBuffs = new Map(), t
         targeting,
         effects: cloneSkillEffects(candidate.effects, sharedTechniqueBuffs, skillId, candidate.name),
         active: candidate.active === false ? false : undefined,
+        ignoreCooldownReduction: candidate.ignoreCooldownReduction === true ? true : undefined,
         passiveEffects: normalizeSkillPassiveEffects(candidate.passiveEffects, skillId, candidate.name),
         unlockLevel,
         unlockRealm,
