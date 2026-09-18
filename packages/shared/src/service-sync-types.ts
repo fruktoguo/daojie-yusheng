@@ -7,7 +7,7 @@ import type { AccountRedeemCodesRes } from './api-contracts';
 import type { AlchemyRecipeCatalogEntry, SyncedAlchemyPanelPatch, SyncedAlchemyPanelState, SyncedEnhancementPanelPatch, SyncedEnhancementPanelState } from './crafting-types';
 import type { TechniqueActivityTaskListView, TechniqueActivityTaskPatch } from './technique-activity-types';
 import type { ObservedTileEntityDetail } from './detail-view-types';
-import type { AuctionFilterCategory, AuctionHouseTab, AuctionListingCountsView, AuctionListingSummaryView, AuctionLotPageEntry, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MarketTradeHistoryScope, MarketTradeSource, TransmissionListingCountsView, TransmissionListingSort, TransmissionLotPageEntry, TransmissionTab } from './market-types';
+import type { AuctionFilterCategory, AuctionHouseTab, AuctionListingCountsView, AuctionListingSummaryView, AuctionLotPageEntry, MarketConsumableCategory, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MarketTradeHistoryScope, MarketTradeSource, TransmissionListingCountsView, TransmissionListingSort, TransmissionLotPageEntry, TransmissionTab } from './market-types';
 import type { MailDetailView, MailPageView, MailSummaryView } from './mail-types';
 import type { QuestRuntimeStateView } from './quest-types';
 import type { EquipSlot, ItemType } from './item-runtime-types';
@@ -301,6 +301,11 @@ export interface MarketListingCountsView {
  */
 
   techniqueCategoryCounts: Partial<Record<TechniqueCategory | 'all', number>>;
+  /**
+ * consumableCategoryCounts：消耗品二级分类数量。
+ */
+
+  consumableCategoryCounts: Partial<Record<MarketConsumableCategory | 'all', number>>;
 }
 
 /** 坊市分页列表视图。 */
@@ -345,6 +350,11 @@ export interface MarketListingsView {
  */
 
   techniqueCategory: TechniqueCategory | 'all';  
+  /**
+ * consumableCategory：消耗品二级分类。
+ */
+
+  consumableCategory: MarketConsumableCategory | 'all';
   /**
  * counts：当前坊市全局分类数量。
  */

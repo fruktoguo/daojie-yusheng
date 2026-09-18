@@ -1,7 +1,7 @@
 /**\n * market-runtime.views.ts\n *\n * 从 MarketRuntimeService 拆出的纯构建函数集合：挂单视图、价格层级、道具键解析、\n * 交易记录、通知构建与互斥操作。所有函数以 xxxImpl(self: MarketRuntimeService, ...) 形式导出。\n */
 import { BadRequestException } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
-import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, CUSTOM_TECHNIQUE_BOOK_ITEM_ID, EQUIP_SLOTS, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, HEAVENLY_DAO_SHOP_ITEMS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, TECHNIQUE_EQUIP_SLOTS, TECHNIQUE_GRADE_ORDER, calculateHeavenlyDaoShopDiscountedPrice, calculateMarketOrderReservedCost, calculateMarketOrderTradeTotalCost, calculateMarketRoundedTotalCost, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getItemDisplayName, getMarketMinimumTradeQuantity, getMarketPriceStep, isLegacyMarketPrice, isValidMarketListingPrice, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketAuctionPageSize, normalizeMarketAuctionQuery, normalizeMarketListingsPageSize, normalizeMarketPriceUp, normalizeMarketRequestPage, normalizeMarketTradeSource, normalizeTransmissionCategory, normalizeTransmissionListingSort, resolveClampedMarketResponsePage, resolvePlayerFacingContentName } from '@mud/shared';
+import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, CUSTOM_TECHNIQUE_BOOK_ITEM_ID, EQUIP_SLOTS, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, HEAVENLY_DAO_SHOP_ITEMS, ITEM_TYPES, MARKET_CONSUMABLE_CATEGORIES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, TECHNIQUE_EQUIP_SLOTS, TECHNIQUE_GRADE_ORDER, calculateHeavenlyDaoShopDiscountedPrice, calculateMarketOrderReservedCost, calculateMarketOrderTradeTotalCost, calculateMarketRoundedTotalCost, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getItemDisplayName, getMarketMinimumTradeQuantity, getMarketPriceStep, isLegacyMarketPrice, isValidMarketListingPrice, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketAuctionPageSize, normalizeMarketAuctionQuery, normalizeMarketConsumableCategory, normalizeMarketListingsPageSize, normalizeMarketPriceUp, normalizeMarketRequestPage, normalizeMarketTradeSource, normalizeTransmissionCategory, normalizeTransmissionListingSort, resolveClampedMarketResponsePage, resolveMarketConsumableCategory, resolvePlayerFacingContentName } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
 import { AUCTION_GLOBAL_TRADE_HISTORY_LIMIT, AUCTION_MY_TRADE_HISTORY_VISIBLE_LIMIT, AUCTION_TRADE_HISTORY_PAGE_SIZE, MARKET_CURRENCY_ITEM_ID, MARKET_MAX_ORDER_QUANTITY, MARKET_STORAGE_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_PAGE_SIZE, MARKET_TRADE_HISTORY_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_VISIBLE_LIMIT } from '../../constants/gameplay/market';
 import { buildStructuredNotice } from '../world/structured-notice.helpers';
@@ -47,9 +47,11 @@ export function buildMarketListingsPageImpl(self: MarketRuntimeService, payload)
 
         const techniqueCategory = typeof payload?.techniqueCategory === 'string' ? payload.techniqueCategory : 'all';
 
+        const consumableCategory = normalizeMarketConsumableCategory(payload?.consumableCategory);
+
         const entries = self.buildMarketListingEntries();
 
-        const filtered = self.filterMarketListingEntries(entries, category, equipmentSlot, techniqueCategory);
+        const filtered = self.filterMarketListingEntries(entries, category, equipmentSlot, techniqueCategory, consumableCategory);
 
         const groups = self.groupMarketListingEntriesForPage(filtered);
 
@@ -67,12 +69,13 @@ export function buildMarketListingsPageImpl(self: MarketRuntimeService, payload)
             category,
             equipmentSlot,
             techniqueCategory,
+            consumableCategory,
             counts: self.buildMarketListingCounts(entries),
             items: groups.slice(start, start + pageSize).flatMap((entry) => entry.entries),
         };
 }
 
-export function filterMarketListingEntriesImpl(self: MarketRuntimeService, entries, category, equipmentSlot, techniqueCategory) {
+export function filterMarketListingEntriesImpl(self: MarketRuntimeService, entries, category, equipmentSlot, techniqueCategory, consumableCategory = 'all') {
         return entries.filter((entry) => {
             if (category !== 'all' && entry.itemType !== category) {
                 return false;
@@ -92,6 +95,12 @@ export function filterMarketListingEntriesImpl(self: MarketRuntimeService, entri
             if (techniqueCategory !== 'all' && (
                 entry.itemType !== 'skill_book'
                 || entry.itemSubType !== techniqueCategory
+            )) {
+                return false;
+            }
+            if (consumableCategory !== 'all' && (
+                entry.itemType !== 'consumable'
+                || entry.itemSubType !== consumableCategory
             )) {
                 return false;
             }
@@ -130,10 +139,20 @@ export function buildMarketListingCountsImpl(self: MarketRuntimeService, entries
                 self.filterMarketListingEntries(entries, 'skill_book', 'all', techniqueCategory),
             ).length;
         }
+        const consumableEntries = self.filterMarketListingEntries(entries, 'consumable', 'all', 'all');
+        const consumableCategoryCounts = {
+            all: self.groupMarketListingEntriesForPage(consumableEntries).length,
+        };
+        for (const consumableCategory of MARKET_CONSUMABLE_CATEGORIES) {
+            consumableCategoryCounts[consumableCategory] = self.groupMarketListingEntriesForPage(
+                self.filterMarketListingEntries(entries, 'consumable', 'all', 'all', consumableCategory),
+            ).length;
+        }
         return {
             categoryCounts,
             equipmentSlotCounts,
             techniqueCategoryCounts,
+            consumableCategoryCounts,
         };
 }
 
@@ -579,6 +598,9 @@ export function buildMarketListingSubTypeImpl(self: MarketRuntimeService, item) 
         }
         if (item.type === 'material') {
             return item.itemId.startsWith('mat.') ? 'herb' : 'special';
+        }
+        if (item.type === 'consumable') {
+            return resolveMarketConsumableCategory(item);
         }
         return 'other';
 }

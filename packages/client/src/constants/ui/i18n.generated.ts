@@ -318,6 +318,7 @@ export const CLIENT_I18N_MESSAGES = {
   "market.enhance.time": "期望时间",
   "market.enhance.title": "强化估算",
   "market.filter.all": "全部",
+  "market.filter.consumable-all": "全部消耗品",
   "market.filter.equipment-all": "全部装备",
   "market.filter.technique-all": "全部功法",
   "market.history.empty": "尚无交易往来。",

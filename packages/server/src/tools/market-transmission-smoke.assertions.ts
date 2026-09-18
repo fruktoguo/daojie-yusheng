@@ -26,7 +26,7 @@ type MarketInternals = {
 type MarketFacade = {
   createSellOrder(playerId: string, payload: LooseRecord): Promise<{ notices: LooseRecord[]; transmissionListingsChanged?: boolean }>;
   createBuyOrder(playerId: string, payload: LooseRecord): Promise<{ notices: LooseRecord[] }>;
-  buildMarketListingsPage(payload: LooseRecord): { items: LooseRecord[] };
+  buildMarketListingsPage(payload: LooseRecord): { items: LooseRecord[]; consumableCategory: string; counts: LooseRecord };
   buildMarketOrders(playerId: string): { orders: LooseRecord[] };
   buildTradeHistoryPage(playerId: string, page: number, source: string): Promise<{ records: LooseRecord[] }>;
 };
@@ -204,4 +204,29 @@ export async function runTransmissionAssertions(
   assert.equal(reloaded.listingMode, 'transmission', '重启回读丢失 listingMode：传法台寄售会退化成普通坊市卖单');
   assert.equal((reloaded.item as LooseRecord).learnTechniqueId, 'gen_bbb', '重启回读丢失 learnTechniqueId');
   assert.equal((reloaded.item as LooseRecord).itemInstanceId, 'seller-scroll-b', '重启回读丢失托管残卷实例身份');
+
+  // 14. 消耗品二级分类：由物品 tags 推导（丹药/阵盘/种子/其他），服务端过滤、计数与回显口径一致。
+  await service.createSellOrder(sellerId, { itemRef: { itemInstanceId: 'seller-pill' }, quantity: 2, unitPrice: 4, listingMode: 'market' });
+  await service.createSellOrder(sellerId, { itemRef: { itemInstanceId: 'seller-seed' }, quantity: 1, unitPrice: 6, listingMode: 'market' });
+  await service.createSellOrder(sellerId, { itemRef: { itemInstanceId: 'seller-map' }, quantity: 1, unitPrice: 8, listingMode: 'market' });
+  const consumableAll = service.buildMarketListingsPage({ page: 1, pageSize: 20, category: 'consumable' });
+  assert.equal(consumableAll.consumableCategory, 'all', '未传子分类时响应必须回显 all');
+  assert.deepEqual(
+    consumableAll.counts.consumableCategoryCounts,
+    { all: 3, pill: 1, formation: 0, plant: 1, other: 1 },
+    '消耗品二级分类计数与实际挂单不符',
+  );
+  const pillPage = service.buildMarketListingsPage({ page: 1, pageSize: 20, category: 'consumable', consumableCategory: 'pill' });
+  assert.equal(pillPage.consumableCategory, 'pill');
+  assert.deepEqual(pillPage.items.map((entry) => entry.itemId), ['pill.test_heal'], '丹药子分类过滤结果错误');
+  assert.equal(pillPage.items[0]?.itemSubType, 'pill', '丹药条目的 itemSubType 推导错误');
+  const plantPage = service.buildMarketListingsPage({ page: 1, pageSize: 20, category: 'consumable', consumableCategory: 'plant' });
+  assert.deepEqual(plantPage.items.map((entry) => entry.itemId), ['seed.test_herb'], '灵植子分类过滤结果错误');
+  const otherPage = service.buildMarketListingsPage({ page: 1, pageSize: 20, category: 'consumable', consumableCategory: 'other' });
+  assert.deepEqual(otherPage.items.map((entry) => entry.itemId), ['map.test_area'], '其他子分类过滤结果错误');
+  const formationPage = service.buildMarketListingsPage({ page: 1, pageSize: 20, category: 'consumable', consumableCategory: 'formation' });
+  assert.equal(formationPage.items.length, 0, '无阵盘挂单时符阵子分类必须为空');
+  const invalidCategoryPage = service.buildMarketListingsPage({ page: 1, pageSize: 20, category: 'consumable', consumableCategory: 'bogus' });
+  assert.equal(invalidCategoryPage.consumableCategory, 'all', '非法子分类必须回落 all');
+  assert.equal(invalidCategoryPage.items.length, 3, '非法子分类回落 all 后不应误过滤条目');
 }

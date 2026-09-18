@@ -44,6 +44,7 @@ import {
   normalizeTransmissionCategory,
   normalizeTransmissionListingSort,
   resolveClampedMarketResponsePage,
+  resolveMarketConsumableCategory,
 } from '@mud/shared';
 import { getLocalItemTemplate, getLocalTechniqueCategoryForBookItem, resolvePreviewItem, resolveTechniqueIdFromBookItemId } from '../../content/local-templates';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
@@ -64,6 +65,7 @@ import type {
   TransmissionConsignPanelState,
   TransmissionPanelTab,
   MarketCategoryFilter,
+  MarketConsumableFilter,
   MarketEquipmentFilter,
   MarketTechniqueFilter,
   MarketTradeDialogKind,
@@ -380,6 +382,8 @@ export class MarketPanel {
   private activeEquipmentCategory: MarketEquipmentFilter = 'all';
   /** 当前功法子分类筛选。 */
   private activeTechniqueCategory: MarketTechniqueFilter = 'all';
+  /** 当前消耗品子分类筛选。 */
+  private activeConsumableCategory: MarketConsumableFilter = 'all';
   /** 拍卖行当前标签页。 */
   private auctionTab: AuctionHouseTab = 'participate';
   /** 拍卖行成交记录范围。 */
@@ -407,7 +411,7 @@ export class MarketPanel {
   /** 交易历史页码。 */
   private tradeHistoryPage = 1;
   /** 最近一次坊市请求的服务端规范化标识，用于丢弃过期响应。 */
-  private pendingListingsRequest: { category: MarketCategoryFilter; equipmentSlot: MarketEquipmentFilter; techniqueCategory: MarketTechniqueFilter; page: number; pageSize: number } | null = null;
+  private pendingListingsRequest: { category: MarketCategoryFilter; equipmentSlot: MarketEquipmentFilter; techniqueCategory: MarketTechniqueFilter; consumableCategory: MarketConsumableFilter; page: number; pageSize: number } | null = null;
   /** 最近一次拍卖行请求的服务端规范化标识，用于丢弃过期响应。 */
   private pendingAuctionRequest: { tab: AuctionHouseTab; category: MarketCategoryFilter; query: string; page: number; pageSize: number } | null = null;
   /** 最近一次交易历史请求的期望 key（source|page），用于丢弃过期响应。 */
@@ -591,11 +595,13 @@ export class MarketPanel {
     if (this.pendingListingsRequest !== null) {
       const equipmentSlot = data.category === 'equipment' ? data.equipmentSlot : 'all';
       const techniqueCategory = data.category === 'skill_book' ? data.techniqueCategory : 'all';
+      const consumableCategory = data.category === 'consumable' ? data.consumableCategory ?? 'all' : 'all';
       const request = this.pendingListingsRequest;
       if (
         data.category !== request.category
         || equipmentSlot !== request.equipmentSlot
         || techniqueCategory !== request.techniqueCategory
+        || consumableCategory !== request.consumableCategory
         || normalizeMarketRequestPage(data.page) !== request.page
         || normalizeMarketListingsPageSize(data.pageSize) !== request.pageSize
       ) {
@@ -612,6 +618,7 @@ export class MarketPanel {
     this.activeCategory = data.category;
     this.activeEquipmentCategory = data.category === 'equipment' ? data.equipmentSlot : 'all';
     this.activeTechniqueCategory = data.category === 'skill_book' ? data.techniqueCategory : 'all';
+    this.activeConsumableCategory = data.category === 'consumable' ? data.consumableCategory ?? 'all' : 'all';
     this.marketUpdate = this.mergeListingsIntoMarketUpdate(this.marketUpdate, data);
     this.syncPageSelection();
     if (marketModalOpen && this.modalTab === 'market' && this.selectedItemKey) {
@@ -1163,6 +1170,9 @@ export class MarketPanel {
           if (category !== 'skill_book') {
             this.activeTechniqueCategory = 'all';
           }
+          if (category !== 'consumable') {
+            this.activeConsumableCategory = 'all';
+          }
           this.currentPage = 1;
           this.selectedGroupItemId = null;
           this.enhancementBrowseItemId = null;
@@ -1193,6 +1203,21 @@ export class MarketPanel {
             return;
           }
           this.activeTechniqueCategory = category;
+          this.currentPage = 1;
+          this.selectedGroupItemId = null;
+          this.enhancementBrowseItemId = null;
+          this.selectedItemKey = null;
+          this.tradeDialog = null;
+          this.itemBook = null;
+          this.requestListings(1);
+        }, { signal }));
+
+        body.querySelectorAll<HTMLElement>('[data-market-consumable-category]').forEach((button) => button.addEventListener('click', () => {
+          const category = button.dataset.marketConsumableCategory as MarketConsumableFilter | undefined;
+          if (!category || category === this.activeConsumableCategory) {
+            return;
+          }
+          this.activeConsumableCategory = category;
           this.currentPage = 1;
           this.selectedGroupItemId = null;
           this.enhancementBrowseItemId = null;
@@ -2288,6 +2313,9 @@ export class MarketPanel {
     if (this.activeCategory === 'skill_book' && this.activeTechniqueCategory !== 'all') {
       items = items.filter((item) => this.resolveTechniqueCategoryForItem(item.item) === this.activeTechniqueCategory);
     }
+    if (this.activeCategory === 'consumable' && this.activeConsumableCategory !== 'all') {
+      items = items.filter((item) => resolveMarketConsumableCategory(item.item) === this.activeConsumableCategory);
+    }
     return items;
   }
 
@@ -2470,7 +2498,7 @@ export class MarketPanel {
 
   /** 判断当前是否该用紧凑型分类布局。 */
   private hasCompactCategoryLayout(): boolean {
-    return this.activeCategory === 'equipment' || this.activeCategory === 'skill_book';
+    return this.activeCategory === 'equipment' || this.activeCategory === 'skill_book' || this.activeCategory === 'consumable';
   }
 
   /** 把技能书物品映射到具体功法分类。 */
@@ -2571,10 +2599,12 @@ export class MarketPanel {
     const pageSize = normalizeMarketListingsPageSize(this.getMarketPageSize());
     const equipmentSlot = this.activeCategory === 'equipment' ? this.activeEquipmentCategory : 'all';
     const techniqueCategory = this.activeCategory === 'skill_book' ? this.activeTechniqueCategory : 'all';
+    const consumableCategory = this.activeCategory === 'consumable' ? this.activeConsumableCategory : 'all';
     this.pendingListingsRequest = {
       category: this.activeCategory,
       equipmentSlot,
       techniqueCategory,
+      consumableCategory,
       page: nextPage,
       pageSize,
     };
@@ -2584,6 +2614,7 @@ export class MarketPanel {
       category: this.activeCategory,
       equipmentSlot,
       techniqueCategory,
+      consumableCategory,
     });
   }
 

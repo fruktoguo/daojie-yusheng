@@ -4,13 +4,14 @@
  * 维护时优先保持局部更新和原有交互状态，不在 UI 层裁定资产、战斗或移动合法性。
  */
 import type { MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, S2C_MarketUpdate } from '@mud/shared';
-import { COMBAT_EQUIP_SLOTS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, TECHNIQUE_EQUIP_SLOTS, createItemStackSignature } from '@mud/shared';
+import { COMBAT_EQUIP_SLOTS, ITEM_TYPES, MARKET_CONSUMABLE_CATEGORIES, MARKET_CONSUMABLE_CATEGORY_LABELS, MARKET_MAX_ENHANCE_LEVEL, TECHNIQUE_EQUIP_SLOTS, createItemStackSignature, resolveMarketConsumableCategory } from '@mud/shared';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
 import { getEquipSlotLabel, getItemTypeLabel, getTechniqueCategoryLabel } from '../../domain-labels';
 import { t } from '../i18n';
 import type {
   MarketPanelInternals,
   MarketCategoryFilter,
+  MarketConsumableFilter,
   MarketEquipmentFilter,
   MarketTechniqueFilter,
   MarketListingGroupView,
@@ -72,7 +73,9 @@ export class MarketBrowseView {
       ? this.renderEquipmentTabs(update)
       : p.activeCategory === 'skill_book'
         ? this.renderTechniqueTabs(update)
-        : '';
+        : p.activeCategory === 'consumable'
+          ? this.renderConsumableTabs(update)
+          : '';
     const compactList = p.hasCompactCategoryLayout();
     const listToolbar = browsingEnhancementVariants && selectedGroup
       ? this.renderVariantToolbar(selectedGroup, selectedGroup.variants.length)
@@ -440,6 +443,28 @@ export class MarketBrowseView {
 
   private getMarketTechniqueCategoryCount(category: MarketTechniqueFilter, fallback: number): number {
     const value = this.panel.marketListings?.counts?.techniqueCategoryCounts?.[category];
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? Math.max(0, Math.floor(numeric)) : fallback;
+  }
+
+  renderConsumableTabs(update: S2C_MarketUpdate): string {
+    const p = this.panel;
+    const listedItems = p.getKnownListedItems(update);
+    const categories: Array<{ id: MarketConsumableFilter; label: string; count: number }> = [
+      { id: 'all', label: t('market.filter.consumable-all', undefined), count: this.getMarketConsumableCategoryCount('all', listedItems.filter((item) => item.item.type === 'consumable').length) },
+      ...MARKET_CONSUMABLE_CATEGORIES.map((category) => ({
+        id: category as MarketConsumableFilter,
+        label: MARKET_CONSUMABLE_CATEGORY_LABELS[category],
+        count: this.getMarketConsumableCategoryCount(category, listedItems.filter((item) => item.item.type === 'consumable' && resolveMarketConsumableCategory(item.item) === category).length),
+      })),
+    ];
+    return categories.map((category) => `
+      <button class="market-category-tab ${p.activeConsumableCategory === category.id ? 'active' : ''}" data-market-consumable-category="${category.id}" type="button">${escapeHtml(category.label)}<span>${formatDisplayInteger(category.count)}</span></button>
+    `).join('');
+  }
+
+  private getMarketConsumableCategoryCount(category: MarketConsumableFilter, fallback: number): number {
+    const value = this.panel.marketListings?.counts?.consumableCategoryCounts?.[category];
     const numeric = Number(value);
     return Number.isFinite(numeric) ? Math.max(0, Math.floor(numeric)) : fallback;
   }

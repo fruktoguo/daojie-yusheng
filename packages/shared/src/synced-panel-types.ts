@@ -7,7 +7,7 @@ import type { TechniqueCategory, TechniqueGrade } from './cultivation-types';
 import type { CraftEffectStatsPatch } from './craft-effect-stats';
 import type { ArtifactSlot, ConsumableBuffDef, EquipmentEffectDef, EquipSlot, ItemStack, ItemType, TileResourceGainDef } from './item-runtime-types';
 import type { LootSearchProgressView, LootSourceKind } from './loot-view-types';
-import type { MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView } from './market-types';
+import type { MarketConsumableCategory, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView } from './market-types';
 
 /**
  * 面板与低频同步里复用的轻量视图类型。
@@ -507,7 +507,7 @@ export interface SyncedLootWindowState {
 /** 坊市材料细分类型。 */
 export type MarketMaterialSubType = 'herb' | 'special' | 'other';
 /** 坊市列表条目的二级分类。 */
-export type MarketListingSubType = EquipSlot | TechniqueCategory | MarketMaterialSubType | 'other';
+export type MarketListingSubType = EquipSlot | TechniqueCategory | MarketMaterialSubType | MarketConsumableCategory;
 
 /** 坊市分页里的一条商品摘要。 */
 export interface MarketListingPageEntry {

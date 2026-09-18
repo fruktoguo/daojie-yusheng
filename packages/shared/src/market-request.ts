@@ -5,7 +5,7 @@
  */
 
 import type { TechniqueCategory } from './cultivation-types';
-import type { TransmissionListingSort } from './market-types';
+import { MARKET_CONSUMABLE_CATEGORIES, type MarketConsumableCategory, type TransmissionListingSort } from './market-types';
 
 export const MARKET_LISTINGS_PAGE_SIZE_DEFAULT = 20;
 export const MARKET_LISTINGS_PAGE_SIZE_MAX = 100;
@@ -14,6 +14,7 @@ export const MARKET_AUCTION_PAGE_SIZE_MAX = 10;
 export const MARKET_AUCTION_QUERY_MAX_LENGTH = 32;
 
 const TRANSMISSION_CATEGORIES = new Set<TechniqueCategory>(['arts', 'internal', 'divine', 'secret']);
+const MARKET_CONSUMABLE_CATEGORY_SET = new Set<MarketConsumableCategory>(MARKET_CONSUMABLE_CATEGORIES);
 const TRANSMISSION_LISTING_SORTS = new Set<TransmissionListingSort>([
   'price_asc',
   'price_desc',
@@ -49,6 +50,13 @@ export function normalizeMarketAuctionQuery(value: unknown): string {
   return typeof value === 'string'
     ? value.trim().slice(0, MARKET_AUCTION_QUERY_MAX_LENGTH)
     : '';
+}
+
+/** 规范化坊市消耗品二级分类筛选。 */
+export function normalizeMarketConsumableCategory(value: unknown): MarketConsumableCategory | 'all' {
+  return typeof value === 'string' && MARKET_CONSUMABLE_CATEGORY_SET.has(value as MarketConsumableCategory)
+    ? value as MarketConsumableCategory
+    : 'all';
 }
 
 /** 规范化传法台功法分类。 */

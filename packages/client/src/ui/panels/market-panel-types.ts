@@ -16,6 +16,7 @@ import type {
   Inventory,
   ItemStack,
   ItemType,
+  MarketConsumableCategory,
   MarketListedItemView,
   MarketOrderBookView,
   MarketOwnOrderView,
@@ -38,6 +39,8 @@ export type MarketCategoryFilter = 'all' | ItemType;
 export type MarketEquipmentFilter = 'all' | 'technique' | EquipSlot;
 /** 功法书子分类筛选项。 */
 export type MarketTechniqueFilter = 'all' | TechniqueCategory;
+/** 消耗品子分类筛选项。 */
+export type MarketConsumableFilter = 'all' | MarketConsumableCategory;
 /** 交易弹窗的方向。 */
 export type MarketTradeDialogKind = 'buy' | 'sell';
 /** 交易弹窗的来源场景。 */
@@ -210,6 +213,7 @@ export interface MarketPanelInternals {
   activeCategory: MarketCategoryFilter;
   activeEquipmentCategory: MarketEquipmentFilter;
   activeTechniqueCategory: MarketTechniqueFilter;
+  activeConsumableCategory: MarketConsumableFilter;
   auctionTab: AuctionHouseTab;
   auctionHistoryScope: MarketTradeHistoryScope;
   auctionCategory: MarketCategoryFilter;

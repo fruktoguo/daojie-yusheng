@@ -16,6 +16,7 @@ import type { EquipSlot, ItemType } from '../../item-runtime-types';
 import type { MapMinimapMarkerKind } from '../../world-view-types';
 import type { QuestLine, QuestObjectiveType, QuestStatus } from '../../quest-types';
 import type { SkillFormulaVar } from '../../skill-types';
+import type { MarketConsumableCategory } from '../../market-types';
 
 /**
  * UI 标签映射常量（共享文案层）。
@@ -251,6 +252,14 @@ export const TECHNIQUE_CATEGORY_LABELS: Record<TechniqueCategory, string> = {
   internal: '内功',
   divine: '神通',
   secret: '秘术',
+};
+
+/** 坊市消耗品二级分类中文标签 */
+export const MARKET_CONSUMABLE_CATEGORY_LABELS: Record<MarketConsumableCategory, string> = {
+  pill: '丹药',
+  formation: '符阵',
+  plant: '灵植',
+  other: '其他',
 };
 
 /** 任务状态中文标签 */

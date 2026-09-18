@@ -19,7 +19,31 @@ export type AuctionHouseTab = 'participate' | 'mine' | 'history';
 /** 拍卖行展示状态 */
 export type AuctionLotStatus = 'active' | 'consigning' | 'sold' | 'failed';
 /** 拍卖行道具二级分类。 */
-export type AuctionListingSubType = EquipSlot | TechniqueCategory | 'herb' | 'special' | 'other';
+export type AuctionListingSubType = EquipSlot | TechniqueCategory | 'herb' | 'special' | MarketConsumableCategory;
+
+/** 坊市消耗品二级分类。 */
+export type MarketConsumableCategory = 'pill' | 'formation' | 'plant' | 'other';
+
+/** 坊市消耗品二级分类的可选值顺序，与客户端子标签一致。 */
+export const MARKET_CONSUMABLE_CATEGORIES: readonly MarketConsumableCategory[] = ['pill', 'formation', 'plant', 'other'];
+
+/** 消耗品二级分类由物品 tags 推导；按声明顺序判定，命中任一标签即归入该分类。 */
+const MARKET_CONSUMABLE_CATEGORY_TAGS: ReadonlyArray<readonly [Exclude<MarketConsumableCategory, 'other'>, readonly string[]]> = [
+  ['pill', ['丹药', '药品', '药散', '药膏', '战斗丹药', '基础药品']],
+  ['formation', ['阵盘', '符箓', '符']],
+  ['plant', ['种子']],
+];
+
+/** 由物品 tags 推导坊市消耗品二级分类；无匹配统一归入 other。 */
+export function resolveMarketConsumableCategory(item: { tags?: unknown } | null | undefined): MarketConsumableCategory {
+  const tags = Array.isArray(item?.tags) ? item.tags : [];
+  for (const [category, categoryTags] of MARKET_CONSUMABLE_CATEGORY_TAGS) {
+    if (tags.some((tag) => typeof tag === 'string' && categoryTags.includes(tag))) {
+      return category;
+    }
+  }
+  return 'other';
+}
 
 /** 坊市托管仓 */
 export interface MarketStorage {

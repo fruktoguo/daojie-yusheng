@@ -673,11 +673,12 @@ export class MarketRuntimeService {
  * @param category 主分类。
  * @param equipmentSlot 装备部位。
  * @param techniqueCategory 功法分类。
+ * @param consumableCategory 消耗品二级分类。
  * @returns 筛选后的坊市分页条目。
  */
 
-        filterMarketListingEntries(entries, category, equipmentSlot, techniqueCategory) {
-        return filterMarketListingEntriesImpl(this, entries, category, equipmentSlot, techniqueCategory);
+        filterMarketListingEntries(entries, category, equipmentSlot, techniqueCategory, consumableCategory = 'all') {
+        return filterMarketListingEntriesImpl(this, entries, category, equipmentSlot, techniqueCategory, consumableCategory);
     }
     /**
  * buildMarketListingCounts：按服务端分页分组口径生成分类计数。

@@ -5,7 +5,7 @@
  */
 import type { ArtifactSlot, EquipSlot, ItemType } from './item-runtime-types';
 import type { TechniqueCategory } from './cultivation-types';
-import type { AuctionFilterCategory, AuctionHouseTab, MarketTradeHistoryScope, MarketTradeSource, TransmissionListingSort, TransmissionTab } from './market-types';
+import type { AuctionFilterCategory, AuctionHouseTab, MarketConsumableCategory, MarketTradeHistoryScope, MarketTradeSource, TransmissionListingSort, TransmissionTab } from './market-types';
 import type { MailFilter } from './mail-types';
 import type { AlchemyIngredientSelection, CraftQueueStartMode, EnhancementTargetRef } from './crafting-types';
 import type { InventoryItemRefView } from './inventory-item-ref';
@@ -41,6 +41,11 @@ export interface RequestMarketListingsView {
  */
 
   techniqueCategory?: TechniqueCategory | 'all';
+  /**
+ * consumableCategory：消耗品二级分类筛选。
+ */
+
+  consumableCategory?: MarketConsumableCategory | 'all';
 }
 
 /** 请求拍卖行分页列表。 */
