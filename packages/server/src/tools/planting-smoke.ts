@@ -14,16 +14,17 @@ const noViewers = { listConnectedPlayerIds: () => [] };
 
 function testSeeds(): void {
   assert.equal(content.plantingContent.bySeedItemId.size, 29);
-  assert.equal(computePlantSeedDropChance(), 0.00001);
-  assert.ok(Math.abs(computePlantSeedDropChance(0.1) - 0.000011) < 1e-15);
+  assert.equal(computePlantSeedDropChance(), 0.002);
+  assert.ok(Math.abs(computePlantSeedDropChance(0.1) - 0.0022) < 1e-15);
   const player = { luck: 5, gatherSkill: { level: 999 }, attrs: { craftEffectStats: { gather: { outputRate: 999 } } } };
   for (const definition of content.plantingContent.bySeedItemId.values()) {
     const dropId = definition.container.drops[0].itemId;
-    const seed = withPlantingRandom(0.0000102, () => rollGatherSeed(player, definition.container, dropId, content));
+    const seed = withPlantingRandom(0.002, () => rollGatherSeed(player, definition.container, dropId, content));
     assert.equal(seed?.itemId, definition.seedItemId);
     assert.equal(seed.count, 1);
-    assert.equal(withPlantingRandom(0.0000106, () => rollGatherSeed(player, definition.container, dropId, content)), null);
+    assert.equal(withPlantingRandom(0.0022, () => rollGatherSeed(player, definition.container, dropId, content)), null);
     assert.equal(withPlantingRandom(0, () => rollGatherSeed(player, { ...definition.container, variant: undefined }, dropId, content)), null);
+    assert.equal(withPlantingRandom(0, () => rollGatherSeed(player, { ...definition.container, plantedExpiresAtTick: 100 }, dropId, content)), null, '灵田种植物不产种子');
   }
 }
 
@@ -150,7 +151,7 @@ async function testPlantingAndLifetime(): Promise<void> {
     Math.random = () => 0;
     const gathered = await loot.tickGather(player.playerId, deps);
     assert.equal(gathered.inventoryChanged, true);
-    assert.ok(player.inventory.items.some((entry: any) => entry.itemId === 'seed.moondew_grass'));
+    assert.ok(!player.inventory.items.some((entry: any) => entry.itemId === 'seed.moondew_grass'), '种植物采集不再产出种子');
     assert.ok(player.inventory.items.some((entry: any) => entry.itemId === 'mat.moondew_grass'));
     const itemsAfterSuccess = player.inventory.items.length;
     await loot.tickGather(player.playerId, deps);
