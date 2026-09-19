@@ -184,7 +184,6 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
     const required = Math.max(1, Number(validated.requiredProgress) || 1);
     pending.requiredProgress = required;
     pending.updatedAtTick = resolvePlayerRuntimeTick(learner);
-    pending.selfComprehensionAllowed = false;
     delete pending.activeTransferJob;
     markTransmissionDirty(learner, ctx, ['technique', 'active_job']);
     queueTeacherTransmissionStartNotice(validated, ctx);
@@ -702,7 +701,6 @@ function createScriptureRecordingJob(recorder: any, validated: TransmissionValid
 
 function createScriptureContemplationJob(learner: any, validated: TransmissionValidatedPayload, ctx: PipelineContext): PlayerTransmissionJob {
   const pending = ensurePendingComprehension(learner, validated, ctx);
-  pending.selfComprehensionAllowed = false;
   const progress = Math.max(0, Number(pending.progress) || 0);
   const required = Math.max(1, Number(validated.requiredProgress) || 1);
   const remaining = Math.max(0, required - Math.min(required, progress));
@@ -770,7 +768,6 @@ function ensurePendingComprehension(learner: any, validated: TransmissionValidat
     pending.name = validated.techniqueName;
     pending.strengthPercent = validated.strengthPercent;
     pending.sourceKind = 'created';
-    pending.selfComprehensionAllowed = false;
     pending.requiredProgress = validated.requiredProgress;
     pending.realmLv = validated.realmLv;
     pending.grade = validated.grade;
@@ -1062,7 +1059,6 @@ function executeScriptureContemplationTick(learner: any, job: PlayerTransmission
     job.status = 'running';
     delete job.blockedReason;
   }
-  pending.selfComprehensionAllowed = false;
   delete pending.activeTransferJob;
   const previousProgress = Math.max(0, Math.min(requiredProgress, Number(pending.progress) || 0));
   pending.name = resolvePlayerFacingContentName(

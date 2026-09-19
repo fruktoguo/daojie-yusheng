@@ -261,7 +261,9 @@ export function addPendingTechniqueComprehensionByIdImpl(self: PlayerRuntimeServ
    if (typeof options?.selfComprehensionAllowed === 'boolean') {
     selfComprehensionAllowed = options.selfComprehensionAllowed;
    }
-   existing.selfComprehensionAllowed = selfComprehensionAllowed;
+   if (selfComprehensionAllowed) {
+    existing.selfComprehensionAllowed = true;
+   }
    if (normalizedCreatorPlayerId) {
     existing.creatorPlayerId = normalizedCreatorPlayerId;
    }

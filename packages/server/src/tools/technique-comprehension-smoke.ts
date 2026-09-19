@@ -1259,6 +1259,40 @@ function testTransmissionRefreshesStaleRequiredProgress() {
   assert.equal(pending.progress, 1);
 }
 
+function testTransmissionDoesNotRevokeBookSelfComprehension() {
+  const { runtimeService } = createRuntimeService();
+  const teacher = createPlayer('teacher:sticky-self-comprehension', 0, 0);
+  const learner = createPlayer('learner:sticky-self-comprehension', 0, 1);
+  teacher.techniques.techniques.push({ ...createdTechnique });
+  runtimeService.players.set(teacher.playerId, teacher);
+  runtimeService.players.set(learner.playerId, learner);
+
+  assert.equal(
+    runtimeService.addPendingTechniqueComprehensionById(
+      learner.playerId,
+      createdTechnique.techId,
+      'created',
+      'player:book-author',
+      { selfComprehensionAllowed: true },
+    ),
+    true,
+  );
+  const pending = learner.pendingTechniqueComprehensions[0]!;
+  assert.equal(pending.selfComprehensionAllowed, true);
+  pending.progress = 2;
+
+  startTransmissionWithPipeline(runtimeService, teacher.playerId, learner, createdTechnique.techId);
+  assert.equal(pending.selfComprehensionAllowed, true, '传法启动不得回收学书解锁的自行领悟');
+
+  tickTransmissionWithPipeline(runtimeService, learner);
+  assert.equal(pending.progress, 3, '传法 job 正常推进进度');
+  assert.equal(pending.selfComprehensionAllowed, true, '传法 tick 不得修改自行领悟标记');
+
+  assert.equal(cancelTransmissionWithPipeline(runtimeService, learner).ok, true);
+  assert.equal(pending.selfComprehensionAllowed, true, '传法取消后仍可自行领悟');
+  assert.doesNotThrow(() => runtimeService.cultivateTechnique(learner.playerId, createdTechnique.techId));
+}
+
 function testTransmissionBlocksCancelsAndContinues() {
   const { runtimeService } = createRuntimeService();
   const teacherA = createPlayer('teacher:a', 0, 0);
@@ -1872,6 +1906,7 @@ testMonsterKillAutoSwitchesAndProgressesPendingComprehension();
 testCultivationCanStoreFractionalComprehensionProgress();
 testPendingTechniqueNameResolvesDisplayName();
 testTransmissionRefreshesStaleRequiredProgress();
+testTransmissionDoesNotRevokeBookSelfComprehension();
 testTransmissionBlocksCancelsAndContinues();
 testTransmissionUsesStandingFacilitySpeedForBothPlayers();
 testScriptureRecordingUsesTransmissionJobAndLocksBuilding();
