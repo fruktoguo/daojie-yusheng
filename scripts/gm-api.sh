@@ -154,6 +154,11 @@ usage() {
   tables                列出所有表
   presence              在线玩家（presence all）
 
+  写操作（高危，必须先取得用户明确确认）:
+  unlock-self-comprehension <playerId> <techId>
+                        把玩家"领悟中"功法条目的 selfComprehensionAllowed 升级为 true
+                        （单向标记，只升不降；运行态驻留时同步改内存，防止 flush 回写）
+
 环境变量: GM_BASE_URL(默认 https://dj.faith.wang) GM_ENV_FILE GM_PASSWORD
 EOF
   exit 1
@@ -178,6 +183,10 @@ case "$cmd" in
   sql)      [ $# -ge 1 ] || usage; diag "sql $1" "${2:-100}" ;;
   tables)   diag "tables" ;;
   presence) diag "presence all" ;;
+  unlock-self-comprehension)
+    [ $# -ge 2 ] || usage
+    api POST "/api/gm/players/$1/technique-comprehensions/self-comprehension" \
+      "$(jq -nc --arg t "$2" '{techId:$t,allowed:true}')" ;;
   ""|-h|--help) usage ;;
   *)        echo "[gm-api] 未知子命令: $cmd" >&2; usage ;;
 esac

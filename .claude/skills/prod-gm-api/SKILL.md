@@ -55,6 +55,19 @@ bash scripts/gm-api.sh token          # 打印当前有效 token（供特殊场�
 
 常见可 GET 的只读端点：`/api/gm/runtime-flags`、`/api/gm/game-config`、`/api/gm/maps`、`/api/gm/maps/:mapId/runtime`、`/api/gm/world/summary`、`/api/gm/world/instances`、`/api/gm/market/trades`、`/api/gm/database/table-stats`、`/api/gm/database/state`、`/api/gm/environment/check`。
 
+### 写命令（高危，执行前必须取得用户明确确认）
+
+| 命令 | 作用 |
+|---|---|
+| `bash scripts/gm-api.sh unlock-self-comprehension <playerId> <techId>` | 把玩家某条"领悟中"功法（pendingComprehensions）的 `selfComprehensionAllowed` 升级为 `true`。底层 `POST /api/gm/players/:playerId/technique-comprehensions/self-comprehension`，body `{"techId","allowed":true}` |
+
+说明：
+- 该标记是**单向粘性标记**：只可 `false→true`，服务端拒绝 `allowed=false`。
+- 双写语义：先写持久化投影（`player_technique_comprehension`），玩家运行态驻留（在线或离线挂机未卸载）时**同步改内存态**并标 `technique` 域 dirty，防止下一次 flush 把旧值回写覆盖——这是修"直接 UPDATE 被运行态回写"场景的正解。
+- 目标条目必须存在（`techId` 需精确匹配 pending 条目），进度/来源/传法 job 等其余字段不变。
+- 响应含 `runtimeMutated`：`true` 表示运行态已同步修改；`false` 表示只落了持久化（离线玩家，下次登录水合生效）。
+- 重复调用幂等；已 `true` 的条目保持 `true`。
+
 ## 安全红线（务必遵守）
 
 1. **默认只做只读排查。** `logs`/`state`/`players`/`diag`/`sql`/`get` 这类只读操作可直接执行。

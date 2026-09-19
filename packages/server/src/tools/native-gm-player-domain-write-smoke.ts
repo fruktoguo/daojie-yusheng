@@ -13,6 +13,8 @@ const playerId = 'smoke:native-gm-domain-write';
 let online = false;
 let runtimeRevision = 40;
 let runtimeSnapshot = createPersistedSnapshot();
+let runtimePlayerState = createRuntimePlayerState();
+let restoredRuntime: any = null;
 let domainWrites: DomainWrite[] = [];
 let markPersistedCall: { domains: string[]; revision: number | null } | null = null;
 let fullProjectionSaveCalled = false;
@@ -46,7 +48,7 @@ const persistence = {
 
 const playerRuntime = {
   snapshot(targetPlayerId: string) {
-    return online && targetPlayerId === playerId ? { playerId } : null;
+    return online && targetPlayerId === playerId ? structuredClone(runtimePlayerState) : null;
   },
   buildStarterPersistenceSnapshot() {
     return structuredClone(createPersistedSnapshot());
@@ -55,7 +57,9 @@ const playerRuntime = {
     assert.equal(targetPlayerId, playerId);
     return structuredClone(runtimeSnapshot);
   },
-  restoreSnapshot() {
+  restoreSnapshot(snapshot: any) {
+    restoredRuntime = snapshot;
+    runtimePlayerState = snapshot;
     return undefined;
   },
   listPlayerSnapshots() {
@@ -157,6 +161,31 @@ async function main(): Promise<void> {
   assertLastWrite(['progression']);
   assert.equal(domainWrites.at(-1)?.snapshot.progression.combatExp, 230);
 
+  // 领悟中功法 selfComprehensionAllowed：单向标记，拒绝降级与空 techId。
+  await assert.rejects(
+    service.setPlayerPendingTechniqueSelfComprehension(playerId, 'gen_smoke_tech', false),
+    /只允许升级为 true/,
+  );
+  await assert.rejects(
+    service.setPlayerPendingTechniqueSelfComprehension(playerId, '', true),
+    /techId 不能为空/,
+  );
+  await assert.rejects(
+    service.setPlayerPendingTechniqueSelfComprehension(playerId, 'gen_missing_tech', true),
+    /没有该功法的领悟中条目/,
+  );
+
+  // 离线路径：只写持久化 technique 域，保留进度与其余字段。
+  const offlineUnlock = await service.setPlayerPendingTechniqueSelfComprehension(playerId, 'gen_smoke_tech', true);
+  assert.equal(offlineUnlock.runtimeMutated, false);
+  assertLastWrite(['technique']);
+  const persistedEntry = domainWrites.at(-1)?.snapshot.techniques.pendingComprehensions
+    .find((entry: any) => entry.techId === 'gen_smoke_tech');
+  assert.equal(persistedEntry?.selfComprehensionAllowed, true);
+  assert.equal(persistedEntry?.progress, 10);
+  assert.equal(persistedEntry?.requiredProgress, 100);
+  assert.equal(persistedEntry?.sourceKind, 'created');
+
   await service.returnAllPlayersToDefaultSpawn();
   assertLastWrite(
     ['world_anchor', 'position_checkpoint', 'vitals', 'buff', 'combat_pref'],
@@ -173,6 +202,32 @@ async function main(): Promise<void> {
     domains: ['body_training', 'progression', 'attr'],
     revision: 41,
   });
+
+  // 运行态驻留路径（在线/离线挂机）：持久化域与内存态同步升级，并标 technique dirty，
+  // 防止下一次运行态 flush 把旧的 false 回写覆盖。
+  runtimeSnapshot = createPersistedSnapshot();
+  runtimePlayerState = createRuntimePlayerState();
+  restoredRuntime = null;
+  const onlineUnlock = await service.setPlayerPendingTechniqueSelfComprehension(playerId, 'gen_smoke_tech', true);
+  assert.equal(onlineUnlock.runtimeMutated, true);
+  assertLastWrite(['technique']);
+  const onlinePersistedEntry = domainWrites.at(-1)?.snapshot.techniques.pendingComprehensions
+    .find((entry: any) => entry.techId === 'gen_smoke_tech');
+  assert.equal(onlinePersistedEntry?.selfComprehensionAllowed, true);
+  assert.ok(restoredRuntime);
+  const runtimeEntry = restoredRuntime.pendingTechniqueComprehensions
+    .find((entry: any) => entry.techId === 'gen_smoke_tech');
+  assert.equal(runtimeEntry?.selfComprehensionAllowed, true);
+  assert.equal(runtimeEntry?.progress, 10);
+  assert.equal(restoredRuntime.techniques.revision, 4);
+  assert.ok(restoredRuntime.dirtyDomains instanceof Set);
+  assert.ok(restoredRuntime.dirtyDomains.has('technique'));
+  assert.equal(restoredRuntime.selfRevision, 8);
+  assert.equal(restoredRuntime.persistentRevision, 41);
+
+  // 幂等：已为 true 的条目重复调用仍成功且不降级。
+  const repeatUnlock = await service.setPlayerPendingTechniqueSelfComprehension(playerId, 'gen_smoke_tech', true);
+  assert.equal(repeatUnlock.runtimeMutated, true);
 
   assert.equal(fullProjectionSaveCalled, false);
   console.log(JSON.stringify({
@@ -229,10 +284,48 @@ function createPersistedSnapshot(): any {
     inventory: { capacity: 20, revision: 1, items: [], lockedItems: [] },
     equipment: { revision: 1, slots: [] },
     artifacts: { revision: 1, slots: [] },
-    techniques: { revision: 1, cultivatingTechId: null, techniques: [] },
+    techniques: {
+      revision: 1,
+      cultivatingTechId: null,
+      techniques: [],
+      pendingComprehensions: [
+        {
+          techId: 'gen_smoke_tech',
+          name: '烟雾功法',
+          sourceKind: 'created',
+          creatorPlayerId: null,
+          selfComprehensionAllowed: false,
+          progress: 10,
+          requiredProgress: 100,
+          realmLv: 1,
+        },
+      ],
+    },
     quests: { revision: 1, entries: [] },
     pendingLogbookMessages: [],
     unlockedMapIds: [],
+  };
+}
+
+function createRuntimePlayerState(): any {
+  return {
+    playerId,
+    selfRevision: 7,
+    persistentRevision: 40,
+    dirtyDomains: new Set<string>(),
+    techniques: { revision: 3, cultivatingTechId: null, techniques: [] },
+    pendingTechniqueComprehensions: [
+      {
+        techId: 'gen_smoke_tech',
+        name: '烟雾功法',
+        sourceKind: 'created',
+        creatorPlayerId: null,
+        selfComprehensionAllowed: false,
+        progress: 10,
+        requiredProgress: 100,
+        realmLv: 1,
+      },
+    ],
   };
 }
 

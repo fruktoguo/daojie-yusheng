@@ -36,6 +36,7 @@ import { ActivityPersistenceService } from '../../persistence/activity-persisten
 import { MarketRuntimeService } from '../../runtime/market/market-runtime.service';
 import { PlayerProgressionService } from '../../runtime/player/player-progression.service';
 import { PlayerRuntimeService } from '../../runtime/player/player-runtime.service';
+import { markPlayerDirtyDomains } from '../../runtime/player/player-runtime.helpers';
 import { createRuntimeTemporaryBuff, materializeRuntimeTemporaryBuff } from '../../runtime/player/runtime-buff-instance';
 import { WorldRuntimeService } from '../../runtime/world/world-runtime.service';
 import { NativeManagedAccountService } from './native-managed-account.service';
@@ -705,6 +706,80 @@ export class NativeGmPlayerService {
         describeDelta: () => ({ amount }),
       },
     });
+  }
+
+  /**
+   * setPlayerPendingTechniqueSelfComprehension：把玩家某条"领悟中"功法条目的
+   * selfComprehensionAllowed 升级为 true。
+   *
+   * 该标记是单向粘性标记（只可 false→true），因此本接口只接受 allowed=true；
+   * 传 false 直接拒绝，避免 GM 误把书/自创解锁过的条目降级回"需传法"。
+   *
+   * 双写语义：先写持久化分域投影（technique 域，落到 player_technique_comprehension），
+   * 若玩家运行态仍驻留（在线或离线挂机未卸载），同步改内存态并标 technique 域 dirty，
+   * 防止下一次运行态 flush 把旧值回写覆盖。
+   */
+  async setPlayerPendingTechniqueSelfComprehension(
+    playerId: string,
+    requestedTechId: unknown,
+    requestedAllowed: unknown,
+    actor?: GmActorContext | null,
+  ) {
+    const techId = typeof requestedTechId === 'string' ? requestedTechId.trim() : '';
+    if (!techId) {
+      throw new BadRequestException('techId 不能为空');
+    }
+    if (requestedAllowed !== undefined && requestedAllowed !== true) {
+      throw new BadRequestException('selfComprehensionAllowed 是单向标记，只允许升级为 true');
+    }
+    const findPendingEntry = (list: unknown) => (Array.isArray(list)
+      ? list.find((entry) => entry && typeof entry === 'object' && (entry as { techId?: unknown }).techId === techId)
+      : null) as { selfComprehensionAllowed?: boolean } | null;
+    const describeEntry = (persisted: any) => {
+      const entry = findPendingEntry(persisted?.techniques?.pendingComprehensions);
+      return {
+        techId,
+        selfComprehensionAllowed: entry ? entry.selfComprehensionAllowed !== false : null,
+        found: Boolean(entry),
+      };
+    };
+
+    let runtimeMutated = false;
+    await this.mutateManagedPlayer(playerId, {
+      domains: ['technique'],
+      mutatePersisted: (persisted) => {
+        const entry = findPendingEntry(persisted?.techniques?.pendingComprehensions);
+        if (!entry) {
+          throw new NotFoundException('目标玩家没有该功法的领悟中条目');
+        }
+        entry.selfComprehensionAllowed = true;
+      },
+      mutateRuntime: (runtime) => {
+        const entry = findPendingEntry(runtime?.pendingTechniqueComprehensions);
+        if (entry) {
+          entry.selfComprehensionAllowed = true;
+        }
+        if (runtime?.techniques && typeof runtime.techniques === 'object') {
+          runtime.techniques.revision = Math.max(0, Math.trunc(Number(runtime.techniques.revision) || 0)) + 1;
+        }
+        markPlayerDirtyDomains(runtime, ['technique']);
+        runtimeMutated = true;
+      },
+      audit: {
+        op: 'gm.player.technique_comprehension.unlock_self_comprehension',
+        actor: actor ?? null,
+        describeBefore: describeEntry,
+        describeAfter: describeEntry,
+        describeDelta: () => ({ techId, selfComprehensionAllowed: true }),
+      },
+    });
+    return {
+      ok: true,
+      playerId,
+      techId,
+      selfComprehensionAllowed: true,
+      runtimeMutated,
+    };
   }
   /**
  * setPlayerMonthCardPool：设置玩家功德月卡池。

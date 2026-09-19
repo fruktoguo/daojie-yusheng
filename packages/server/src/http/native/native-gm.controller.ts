@@ -175,6 +175,12 @@ interface GmReleaseFlushStallBody {
   playerId?: string;
   dryRun?: boolean;
 }
+
+/** 解锁玩家"领悟中"功法自行领悟标记的命令体；allowed 省略时默认 true，只允许 true。 */
+interface SetPlayerPendingTechniqueSelfComprehensionBody {
+  techId?: string;
+  allowed?: boolean;
+}
 /**
  * DirectMailBody：定义接口结构约束，明确可交付字段含义。
  */
@@ -990,6 +996,31 @@ export class NativeGmController {
       this.nextGmWorldService.invalidatePlayerListCaches();
       return { ok: true };
     });
+  }
+
+  /**
+   * 将玩家某条"领悟中"功法条目的 selfComprehensionAllowed 升级为 true。
+   * 单向标记：只允许 false→true，传 allowed=false 会被拒绝。
+   * 玩家运行态驻留（在线/离线挂机）时同步改内存态，防止后续 flush 回写覆盖。
+   */
+  @Post('players/:playerId/technique-comprehensions/self-comprehension')
+  async setPlayerPendingTechniqueSelfComprehension(
+    @Param('playerId') playerId: string,
+    @Body() body: SetPlayerPendingTechniqueSelfComprehensionBody,
+    @Req() request: unknown,
+  ) {
+    return this.executeAuditedGmWrite({
+      op: 'gm.players.technique_comprehension.self_comprehension',
+      request,
+      targetType: 'player',
+      targetId: playerId,
+      after: { techId: body?.techId ?? null, allowed: body?.allowed ?? true },
+    }, async (actor) => this.nextGmPlayerService.setPlayerPendingTechniqueSelfComprehension(
+      playerId,
+      body?.techId,
+      body?.allowed,
+      actor,
+    ));
   }
 
   @Post('players/:playerId/month-card/pool')
