@@ -7,7 +7,7 @@ import { ConflictException, HttpException, HttpStatus, Injectable } from '@nestj
 import { emitCaughtErrorLog } from '../../../logging/caught-error-log';
 import { findPlayerSkill, resolveRuntimeSkillRange } from '../world-runtime.normalization.helpers';
 import { chebyshevDistance } from '../world-runtime.path-planning.helpers';
-import { buildStructuredNotice } from '../structured-notice.helpers';
+import { buildCommandRejectedNotice, buildStructuredNotice, isPlayerFacingRejectMessage } from '../structured-notice.helpers';
 
 function isOutOfRangeFailure(message) {
     return message === '目标超出攻击距离'
@@ -38,7 +38,19 @@ function exposesInternalIdentifier(message) {
         || isNoSpawnPointFailure(message);
 }
 
-function buildPendingCommandNotice(command, message) {
+/** 已知映射之外的兜底：4xx 业务拒绝透传真实原因，非业务错误保持通用警示。 */
+function buildCommandFailureFallbackNotice(message, error) {
+    if (error instanceof HttpException
+        && error.getStatus() >= 400
+        && error.getStatus() < 500
+        && !exposesInternalIdentifier(message)
+        && isPlayerFacingRejectMessage(message)) {
+        return buildCommandRejectedNotice(message.trim());
+    }
+    return buildStructuredNotice('warn', 'notice.command.failed', '行动未能完成，请稍后重试。');
+}
+
+function buildPendingCommandNotice(command, message, error) {
     if (exposesInternalIdentifier(message)) {
         return null;
     }
@@ -66,12 +78,12 @@ function buildPendingCommandNotice(command, message) {
         return null;
     }
     if (command?.kind === 'moveTo') {
-        return buildPendingNavigationNotice(message);
+        return buildPendingNavigationNotice(message, error);
     }
     if (command?.kind === 'engageBattle'
         || command?.kind === 'basicAttack'
         || command?.kind === 'castSkill') {
-        return buildPendingCombatNotice(message);
+        return buildPendingCombatNotice(message, error);
     }
     if (command?.kind === 'startTechniqueTransmission'
         || command?.kind === 'cancelTechniqueTransmission'
@@ -91,7 +103,7 @@ function buildPendingCommandNotice(command, message) {
         || command?.kind === 'cancelFormationMaintenance'
         || command?.kind === 'cancelTechniqueActivity'
         || command?.kind === 'reorderTechniqueActivityQueue') {
-        return buildPendingTechniqueNotice(message);
+        return buildPendingTechniqueNotice(message, error);
     }
     if (command?.kind === 'useItem'
         && message === '当前位于安全区、出生点、传送点或 NPC 附近，无法使用地块资源道具。') {
@@ -101,16 +113,12 @@ function buildPendingCommandNotice(command, message) {
             '当前位于受保护区域，无法使用地块资源道具。',
         );
     }
-    return buildStructuredNotice(
-        'warn',
-        'notice.command.failed',
-        '行动未能完成，请稍后重试。',
-    );
+    return buildCommandFailureFallbackNotice(message, error);
 }
 
-function buildPendingNavigationNotice(message) {
+function buildPendingNavigationNotice(message, error) {
     if (!isExpectedNavigationReject(message)) {
-        return buildStructuredNotice('warn', 'notice.command.failed', '行动未能完成，请稍后重试。');
+        return buildCommandFailureFallbackNotice(message, error);
     }
     if (message === '目标超出地图范围') {
         return buildStructuredNotice('warn', 'notice.navigation.target-out-of-bounds', '目标超出地图范围');
@@ -121,7 +129,7 @@ function buildPendingNavigationNotice(message) {
     return buildStructuredNotice('warn', 'notice.navigation.unreachable', '无法到达该位置');
 }
 
-function buildPendingCombatNotice(message) {
+function buildPendingCombatNotice(message, error) {
     if (message === '当前实例不允许攻击地形') {
         return buildStructuredNotice('warn', 'notice.command.tile-damage-forbidden', '当前区域禁止攻击地形。');
     }
@@ -155,10 +163,10 @@ function buildPendingCombatNotice(message) {
     if (typeof message === 'string' && /^(技能|玩家) .+ 元气不足$/.test(message)) {
         return buildStructuredNotice('warn', 'notice.command.qi-insufficient', '元气不足。');
     }
-    return buildStructuredNotice('warn', 'notice.command.failed', '行动未能完成，请稍后重试。');
+    return buildCommandFailureFallbackNotice(message, error);
 }
 
-function buildPendingTechniqueNotice(message) {
+function buildPendingTechniqueNotice(message, error) {
     if (message === '学习者已有进行中的技艺任务。') {
         return buildStructuredNotice('warn', 'notice.command.technique-active', message);
     }
@@ -174,7 +182,7 @@ function buildPendingTechniqueNotice(message) {
     if (typeof message === 'string' && /^当前没有可取消的.+任务。$/.test(message)) {
         return buildStructuredNotice('warn', 'notice.command.technique-cancel-none', '当前没有可取消的技艺任务。');
     }
-    return buildStructuredNotice('warn', 'notice.command.failed', '行动未能完成，请稍后重试。');
+    return buildCommandFailureFallbackNotice(message, error);
 }
 
 function isTerminalAutoCombatTargetFailure(message) {
@@ -1006,7 +1014,7 @@ export class WorldRuntimePendingCommandService {
             if (this.isAutoCombatCommand(failedCommandForDiagnostics) && isTerminalAutoCombatTargetFailure(message)) {
                 this.clearAutoCombatTargetAfterFailure(playerId, deps, failedCommandForDiagnostics);
             }
-            const notice = buildPendingCommandNotice(failedCommandForDiagnostics, message);
+            const notice = buildPendingCommandNotice(failedCommandForDiagnostics, message, error);
             const retrySuffix = failedCommandForDiagnostics !== command ? ` retryOf=${command.kind}` : '';
             emitPendingCommandFailureLog(
                 deps,

@@ -18,7 +18,7 @@ import { WorldRuntimeRedeemCodeService } from '../world-runtime-redeem-code.serv
 import { WorldRuntimeProgressionService } from '../world-runtime-progression.service';
 import { WorldRuntimeNpcShopService } from '../world-runtime-npc-shop.service';
 import { WorldRuntimeNpcQuestWriteService } from '../world-runtime-npc-quest-write.service';
-import { buildStructuredNotice } from '../structured-notice.helpers';
+import { buildCommandRejectedNotice, buildStructuredNotice, isPlayerFacingRejectMessage } from '../structured-notice.helpers';
 
 const PLAYER_COMBAT_COMMAND_KINDS = new Set(['basicAttack', 'castSkill']);
 
@@ -181,6 +181,16 @@ function removeTechniqueActivityQueueItem(player, queueId) {
 
 function requestPlayerDeltaSync(deps, playerId) {
     deps?.requestPlayerDeltaSync?.(playerId);
+}
+
+/** 走 result 通道的技艺 start/cancel 失败不回抛，统一补发面向玩家的拒绝提示。 */
+function queueTechniqueActivityRejectNotice(playerId, result, deps) {
+    if (result?.ok !== false || !isPlayerFacingRejectMessage(result?.error)) {
+        return;
+    }
+    const message = result.error.trim();
+    const notice = buildCommandRejectedNotice(message);
+    deps.queuePlayerNotice?.(playerId, notice.text, notice.kind, undefined, undefined, notice.structured);
 }
 
 function resolveTechniqueActivityJob(player, kind) {
@@ -482,32 +492,28 @@ export class WorldRuntimePlayerCommandService {
                 deps.worldRuntimeCraftMutationService.flushCraftMutation(learnerPlayerId, result, 'transmission', deps);
                 return;
             }
-            case 'gather':
-                deps.worldRuntimeCraftMutationService.flushCraftMutation(
-                    playerId,
-                    deps.craftPanelRuntimeService.startTechniqueActivity(
-                        this.playerRuntimeService.getPlayerOrThrow(playerId),
-                        'gather',
-                        payload,
-                        deps,
-                    ),
+            case 'gather': {
+                const result = deps.craftPanelRuntimeService.startTechniqueActivity(
+                    this.playerRuntimeService.getPlayerOrThrow(playerId),
                     'gather',
+                    payload,
                     deps,
                 );
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'gather', deps);
+                queueTechniqueActivityRejectNotice(playerId, result, deps);
                 return;
-            case 'mining':
-                deps.worldRuntimeCraftMutationService.flushCraftMutation(
-                    playerId,
-                    deps.craftPanelRuntimeService.startTechniqueActivity(
-                        this.playerRuntimeService.getPlayerOrThrow(playerId),
-                        'mining',
-                        payload,
-                        deps,
-                    ),
+            }
+            case 'mining': {
+                const result = deps.craftPanelRuntimeService.startTechniqueActivity(
+                    this.playerRuntimeService.getPlayerOrThrow(playerId),
                     'mining',
+                    payload,
                     deps,
                 );
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'mining', deps);
+                queueTechniqueActivityRejectNotice(playerId, result, deps);
                 return;
+            }
             case 'building': {
                 const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
                 const result = deps.craftPanelRuntimeService.startTechniqueActivity(
@@ -522,6 +528,7 @@ export class WorldRuntimePlayerCommandService {
                     'building',
                     deps,
                 );
+                queueTechniqueActivityRejectNotice(playerId, result, deps);
                 if (result?.ok) {
                     await deps.craftPanelRuntimeService.flushTechniqueActivityProjection?.(player, {
                         force: true,
@@ -540,6 +547,7 @@ export class WorldRuntimePlayerCommandService {
                     deps,
                 );
                 deps.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'formation', deps);
+                queueTechniqueActivityRejectNotice(playerId, result, deps);
                 if (result?.ok) {
                     await deps.craftPanelRuntimeService.flushTechniqueActivityProjection?.(player, {
                         force: true,
@@ -566,42 +574,36 @@ export class WorldRuntimePlayerCommandService {
                 return this.worldRuntimeAlchemyService.dispatchCancelAlchemy(playerId, deps, 'forging');
             case 'enhancement':
                 return this.worldRuntimeEnhancementService.dispatchCancelEnhancement(playerId, deps);
-            case 'transmission':
-                deps.worldRuntimeCraftMutationService.flushCraftMutation(
-                    playerId,
-                    deps.craftPanelRuntimeService.cancelTechniqueActivity(
-                        this.playerRuntimeService.getPlayerOrThrow(playerId),
-                        'transmission',
-                        deps,
-                    ),
+            case 'transmission': {
+                const result = deps.craftPanelRuntimeService.cancelTechniqueActivity(
+                    this.playerRuntimeService.getPlayerOrThrow(playerId),
                     'transmission',
                     deps,
                 );
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'transmission', deps);
+                queueTechniqueActivityRejectNotice(playerId, result, deps);
                 return;
-            case 'gather':
-                deps.worldRuntimeCraftMutationService.flushCraftMutation(
-                    playerId,
-                    deps.craftPanelRuntimeService.cancelTechniqueActivity(
-                        this.playerRuntimeService.getPlayerOrThrow(playerId),
-                        'gather',
-                        deps,
-                    ),
+            }
+            case 'gather': {
+                const result = deps.craftPanelRuntimeService.cancelTechniqueActivity(
+                    this.playerRuntimeService.getPlayerOrThrow(playerId),
                     'gather',
                     deps,
                 );
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'gather', deps);
+                queueTechniqueActivityRejectNotice(playerId, result, deps);
                 return;
-            case 'mining':
-                deps.worldRuntimeCraftMutationService.flushCraftMutation(
-                    playerId,
-                    deps.craftPanelRuntimeService.cancelTechniqueActivity(
-                        this.playerRuntimeService.getPlayerOrThrow(playerId),
-                        'mining',
-                        deps,
-                    ),
+            }
+            case 'mining': {
+                const result = deps.craftPanelRuntimeService.cancelTechniqueActivity(
+                    this.playerRuntimeService.getPlayerOrThrow(playerId),
                     'mining',
                     deps,
                 );
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'mining', deps);
+                queueTechniqueActivityRejectNotice(playerId, result, deps);
                 return;
+            }
             case 'building': {
                 const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
                 const result = deps.craftPanelRuntimeService.cancelTechniqueActivity(
@@ -615,6 +617,7 @@ export class WorldRuntimePlayerCommandService {
                     'building',
                     deps,
                 );
+                queueTechniqueActivityRejectNotice(playerId, result, deps);
                 if (result?.ok) {
                     await deps.craftPanelRuntimeService.flushTechniqueActivityProjection?.(player, {
                         force: true,
@@ -632,6 +635,7 @@ export class WorldRuntimePlayerCommandService {
                     deps,
                 );
                 deps.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'formation', deps);
+                queueTechniqueActivityRejectNotice(playerId, result, deps);
                 if (result?.ok) {
                     await deps.craftPanelRuntimeService.flushTechniqueActivityProjection?.(player, {
                         force: true,

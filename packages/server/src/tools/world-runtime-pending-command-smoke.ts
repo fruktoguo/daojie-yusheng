@@ -1277,6 +1277,34 @@ async function testStructuredNoticeAllowlistSanitizesCommandFamilies() {
             text: '行动未能完成，请稍后重试。',
             key: 'notice.command.failed',
         },
+        {
+            name: 'asset-reject-passes-through-reason',
+            command: { kind: 'takeGround', sourceId: 'ground:1', itemKey: 'item.a' },
+            exception: new BadRequestException('背包空间不足，无法拿取该物品'),
+            text: '背包空间不足，无法拿取该物品',
+            key: 'notice.command.rejected',
+        },
+        {
+            name: 'http-reject-with-embedded-identifier-stays-generic',
+            command: { kind: 'takeGround', sourceId: 'ground:2', itemKey: 'item.b' },
+            exception: new NotFoundException('地面物品不存在：item:internal-1，来源 ground:internal'),
+            text: '行动未能完成，请稍后重试。',
+            key: 'notice.command.failed',
+        },
+        {
+            name: 'http-5xx-stays-generic',
+            command: { kind: 'equip', itemInstanceId: 'item:c' },
+            exception: new ServiceUnavailableException('装备资产事务暂不可用，请稍后重试'),
+            text: '行动未能完成，请稍后重试。',
+            key: 'notice.command.failed',
+        },
+        {
+            name: 'http-reject-without-player-facing-text-stays-generic',
+            command: { kind: 'startAlchemy', payload: {} },
+            exception: new BadRequestException('unsupported technique activity kind'),
+            text: '行动未能完成，请稍后重试。',
+            key: 'notice.command.failed',
+        },
     ];
 
     for (const testCase of cases) {
@@ -1285,10 +1313,10 @@ async function testStructuredNoticeAllowlistSanitizesCommandFamilies() {
         service.enqueuePendingCommand('player:structured', testCase.command);
         await service.dispatchPendingCommands({
             dispatchInstanceCommand() {
-                throw new Error(testCase.message);
+                throw testCase.exception ?? new Error(testCase.message);
             },
             dispatchPlayerCommand() {
-                throw new Error(testCase.message);
+                throw testCase.exception ?? new Error(testCase.message);
             },
             logger: {
                 debug() {},

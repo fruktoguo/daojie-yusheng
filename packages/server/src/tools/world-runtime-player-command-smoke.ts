@@ -33,6 +33,10 @@ function createService(log = [], player = { hp: 10 }) {
             log.push(['getPlayer', playerId]);
             return player;
         },
+        getPlayerOrThrow(playerId) {
+            log.push(['getPlayerOrThrow', playerId]);
+            return player;
+        },
     }, {    
     /**
  * dispatchUseItem：判断Use道具是否满足条件。
@@ -809,6 +813,56 @@ async function testEngageBattleDoesNotConsumeActionByItself() {
     ]);
 }
 
+async function testTechniqueResultChannelFailureQueuesRejectNotice() {
+    const log = [];
+    const notices = [];
+    const service = createService(log);
+    const deps = {
+        craftPanelRuntimeService: {
+            startTechniqueActivity(player, kind) {
+                log.push(['startTechniqueActivity', kind]);
+                return { ok: false, error: '当前地图不可挖矿。' };
+            },
+            cancelTechniqueActivity(player, kind) {
+                log.push(['cancelTechniqueActivity', kind]);
+                return { ok: false, error: '当前没有可取消的采集任务。' };
+            },
+        },
+        worldRuntimeCraftMutationService: {
+            flushCraftMutation(playerId, result, kind) {
+                log.push(['flushCraftMutation', playerId, result?.ok === true, kind]);
+            },
+        },
+        queuePlayerNotice(playerId, text, kind, _title, _icon, structured) {
+            notices.push({ playerId, text, kind, key: structured?.key ?? null });
+        },
+    };
+    await service.dispatchPlayerCommand('player:1', { kind: 'startMining', payload: {} }, deps);
+    assert.deepEqual(notices, [{
+        playerId: 'player:1',
+        text: '当前地图不可挖矿。',
+        kind: 'warn',
+        key: 'notice.command.rejected',
+    }]);
+
+    notices.length = 0;
+    deps.craftPanelRuntimeService.startTechniqueActivity = () => ({ ok: false, error: 'unsupported technique activity kind' });
+    await service.dispatchPlayerCommand('player:1', { kind: 'startGather', payload: {} }, deps);
+    assert.deepEqual(notices, []);
+
+    deps.craftPanelRuntimeService.startTechniqueActivity = () => ({ ok: true, messages: [], groundDrops: [] });
+    await service.dispatchPlayerCommand('player:1', { kind: 'startGather', payload: {} }, deps);
+    assert.deepEqual(notices, []);
+
+    await service.dispatchPlayerCommand('player:1', { kind: 'cancelGather' }, deps);
+    assert.deepEqual(notices, [{
+        playerId: 'player:1',
+        text: '当前没有可取消的采集任务。',
+        kind: 'warn',
+        key: 'notice.command.rejected',
+    }]);
+}
+
 Promise.resolve()
     .then(() => testUseItemDelegates())
     .then(() => testCastSkillDelegates())
@@ -819,6 +873,7 @@ Promise.resolve()
     .then(() => testShopAndEquipmentRoutesAwaitAsyncHandlers())
     .then(() => testCombatCommandUsesActionsPerTurn())
     .then(() => testEngageBattleDoesNotConsumeActionByItself())
+    .then(() => testTechniqueResultChannelFailureQueuesRejectNotice())
     .then(() => {
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-player-command' }, null, 2));
 });

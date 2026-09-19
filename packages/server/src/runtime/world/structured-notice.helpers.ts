@@ -33,3 +33,27 @@ export function buildStructuredNotice(
     },
   };
 }
+
+const PLAYER_FACING_TEXT_PATTERN = /[㐀-鿿]/;
+const EMBEDDED_IDENTIFIER_PATTERN = /[:：]\S/;
+const PLAYER_FACING_REJECT_MAX_LENGTH = 120;
+
+/**
+ * 判断错误文案是否可直接展示给玩家：必须是有限长度的中文文案，
+ * 且不含「标签:内部ID」形态的嵌入标识（如 instanceId、itemKey、sourceId）。
+ */
+export function isPlayerFacingRejectMessage(message: unknown): message is string {
+  if (typeof message !== 'string') {
+    return false;
+  }
+  const text = message.trim();
+  return text.length > 0
+    && text.length <= PLAYER_FACING_REJECT_MAX_LENGTH
+    && PLAYER_FACING_TEXT_PATTERN.test(text)
+    && !EMBEDDED_IDENTIFIER_PATTERN.test(text);
+}
+
+/** 业务拒绝透传：把权威侧的确定性拒绝原因原样展示给玩家。 */
+export function buildCommandRejectedNotice(message: string): StructuredNoticeInput {
+  return buildStructuredNotice('warn', 'notice.command.rejected', message, { vars: { reason: message } });
+}

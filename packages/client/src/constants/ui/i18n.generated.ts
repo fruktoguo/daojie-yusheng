@@ -2505,6 +2505,7 @@ export const CLIENT_I18N_MESSAGES = {
   "notice.command.no-target": "没有可命中的目标",
   "notice.command.pvp-forbidden": "当前区域不允许玩家互攻。",
   "notice.command.qi-insufficient": "元气不足。",
+  "notice.command.rejected": "{reason}",
   "notice.command.skill-cooldown": "技能尚在冷却。",
   "notice.command.target-blocked": "目标被遮挡。",
   "notice.command.target-dead": "目标已经死亡。",

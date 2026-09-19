@@ -2499,6 +2499,7 @@ notice.command.failed,通知,行动未能完成，请稍后重试。,
 notice.command.no-target,通知,没有可命中的目标,
 notice.command.pvp-forbidden,通知,当前区域不允许玩家互攻。,
 notice.command.qi-insufficient,通知,元气不足。,
+notice.command.rejected,通知,{reason},确定性业务拒绝透传权威侧原因
 notice.command.skill-cooldown,通知,技能尚在冷却。,
 notice.command.target-blocked,通知,目标被遮挡。,
 notice.command.target-dead,通知,目标已经死亡。,
