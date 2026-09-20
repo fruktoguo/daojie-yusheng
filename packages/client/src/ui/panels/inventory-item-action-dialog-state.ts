@@ -64,13 +64,13 @@ export class InventoryItemActionDialogState {
     if (!this.dialog) {
       return null;
     }
+    // 数量草稿不进 key：输入过程只改 DOM/草稿，避免背包 sync / 冷却刷新整窗重建把光标打回左边。
     return [
       'action',
       input.itemKey,
       String(input.itemCount),
       this.dialog.kind,
       this.dialog.confirmDestroy ? '1' : '0',
-      this.dialog.countDraft,
       input.contextDependent ? `context:${input.playerContextRevision}` : 'context:stable',
     ].join('|');
   }

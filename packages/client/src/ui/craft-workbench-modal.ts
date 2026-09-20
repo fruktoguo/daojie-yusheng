@@ -149,6 +149,9 @@ import {
   formatAlchemyPresetUpdatedAtImpl,
   bindAlchemyPresetPickerEventsImpl,
   bindAlchemyMaterialPickerEventsImpl,
+  patchAlchemyMaterialPickerListImpl,
+  renderAlchemyMaterialPickerListHtmlImpl,
+  bindAlchemyMaterialPickerAddButtonsImpl,
   getAlchemySpiritStoneOwnedCountImpl,
   getAlchemyFurnaceBonusesImpl,
   getAlchemyBatchOutputSizeImpl,
@@ -1926,6 +1929,18 @@ export class CraftWorkbenchModal {
 
   bindAlchemyMaterialPickerEvents(): void {
     bindAlchemyMaterialPickerEventsImpl(this);
+  }
+
+  patchAlchemyMaterialPickerList(): void {
+    patchAlchemyMaterialPickerListImpl(this);
+  }
+
+  renderAlchemyMaterialPickerListHtml(recipe: AlchemyRecipeCatalogEntry): string {
+    return renderAlchemyMaterialPickerListHtmlImpl(this, recipe);
+  }
+
+  bindAlchemyMaterialPickerAddButtons(root: HTMLElement): void {
+    bindAlchemyMaterialPickerAddButtonsImpl(this, root);
   }
 
   getAlchemySpiritStoneOwnedCount(): number {
