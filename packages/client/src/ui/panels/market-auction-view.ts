@@ -1456,10 +1456,18 @@ export class MarketAuctionView {
         });
       });
     }
+    body.querySelectorAll<HTMLElement>('[data-auction-category]').forEach((button) => {
+      const category = button.dataset.auctionCategory as MarketCategoryFilter | undefined;
+      if (!category) return;
+      button.classList.toggle('active', this.panel.auctionCategory === category);
+      const countNode = button.querySelector<HTMLElement>('strong');
+      if (countNode) {
+        countNode.textContent = formatDisplayInteger(this.getAuctionCategoryCount(category, 0));
+      }
+    });
     this.patchAuctionActiveSelection();
     this.patchAuctionCountdowns();
     this.patchAuctionDetailPanel();
-    this.panel.syncTradeDialogOverlay();
   }
 
   patchAuctionDetailPanel(): void {
