@@ -1420,13 +1420,18 @@ export class MarketAuctionView {
     const lots = this.getCurrentAuctionLots();
     const pagination = this.getAuctionPageState(lots);
     const selected = this.resolveAuctionLotByKey(this.panel.selectedAuctionItemKey, update, this.panel.auctionTab) ?? lots[0] ?? null;
-    const list = body.querySelector<HTMLElement>('.auction-list');
-    const meta = body.querySelector<HTMLElement>('.market-list-toolbar-meta');
+    const mine = this.panel.auctionTab === 'mine';
+    const listPanel = body.querySelector<HTMLElement>('.auction-list-panel');
+    const list = listPanel?.querySelector<HTMLElement>('.auction-list');
+    const meta = listPanel?.querySelector<HTMLElement>('.auction-list-toolbar .market-list-toolbar-meta');
     if (meta) {
-      meta.textContent = `共 ${formatDisplayInteger(pagination.totalItems)} 件拍品，第 ${formatDisplayInteger(pagination.page)} / ${formatDisplayInteger(pagination.totalPages)} 页`;
+      meta.textContent = mine
+        ? `我的寄拍 ${formatDisplayInteger(pagination.totalItems)} 件，第 ${formatDisplayInteger(pagination.page)} / ${formatDisplayInteger(pagination.totalPages)} 页`
+        : `共 ${formatDisplayInteger(pagination.totalItems)} 件拍品，第 ${formatDisplayInteger(pagination.page)} / ${formatDisplayInteger(pagination.totalPages)} 页`;
     }
-    const prevPageButton = body.querySelector<HTMLButtonElement>('.market-list-toolbar-actions [data-auction-page]:first-of-type');
-    const nextPageButton = body.querySelector<HTMLButtonElement>('.market-list-toolbar-actions [data-auction-page]:nth-of-type(2)');
+    const pageButtons = listPanel?.querySelectorAll<HTMLButtonElement>('.market-list-toolbar-actions [data-auction-page]');
+    const prevPageButton = pageButtons?.[0];
+    const nextPageButton = pageButtons?.[1];
     if (prevPageButton) {
       prevPageButton.dataset.auctionPage = String(Math.max(1, pagination.page - 1));
       prevPageButton.disabled = pagination.page <= 1;
@@ -1436,13 +1441,12 @@ export class MarketAuctionView {
       nextPageButton.disabled = pagination.page >= pagination.totalPages;
     }
     if (list) {
-      const mine = this.panel.auctionTab === 'mine';
       replaceElementHtml(
         list,
         lots.length > 0
           ? lots.map((lot) => this.renderAuctionLotRow(lot, selected?.id ?? '', mine)).join('')
           : `<div class="empty-hint">${escapeHtml(t(
-            this.panel.auctionTab === 'mine' ? 'market.auction.empty.mine' : 'market.auction.empty.participate',
+            mine ? 'market.auction.empty.mine' : 'market.auction.empty.participate',
             undefined,
           ))}</div>`,
       );
