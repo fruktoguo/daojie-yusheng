@@ -155,6 +155,8 @@ class WorldRuntimeFormationService {
  formationPersistenceFenceByInstanceId = new Map<string, InstanceLeaseWriteFence>();
  formationMaintenanceCheckpointById = new Map<string, FormationMaintenanceCheckpoint>();
  formationMaintenanceCheckpointIntervalMs = FORMATION_MAINTENANCE_CHECKPOINT_INTERVAL_MS;
+ /** active_job 同步守卫失败后的重试冷却：把强刷 DB 的频度压到秒级，避免每息无界重试。 */
+ formationMaintenanceSyncRetryNotBeforeById = new Map<string, number>();
  unregisterBeforeManualPlayerFlushBarrier: (() => void) | null = null;
 
  constructor(
@@ -2209,6 +2211,7 @@ class WorldRuntimeFormationService {
    );
   }
   this.formationMaintenanceCheckpointById.clear();
+  this.formationMaintenanceSyncRetryNotBeforeById.clear();
   this.unregisterBeforeManualPlayerFlushBarrier?.();
   this.unregisterBeforeManualPlayerFlushBarrier = null;
 
@@ -2482,6 +2485,7 @@ class WorldRuntimeFormationService {
    return false;
   }
   this.formationMaintenanceCheckpointById.delete(normalizedFormationInstanceId);
+  this.formationMaintenanceSyncRetryNotBeforeById.delete(normalizedFormationInstanceId);
   this.playerRuntimeService.markPersisted?.(
    checkpoint.playerId,
    new Set(FORMATION_MAINTENANCE_PERSISTENCE_DOMAINS),
@@ -2597,7 +2601,21 @@ class WorldRuntimeFormationService {
     return tickAction(deps);
    }
    if (!checkpoint) {
-    await ensureFormationMaintenanceActiveJobReady(playerId, currentPlayer, deps);
+    const syncRetryNotBefore = this.formationMaintenanceSyncRetryNotBeforeById.get(formationInstanceId) ?? 0;
+    if (Date.now() < syncRetryNotBefore) {
+     throw new ServiceUnavailableException('formation_maintenance_active_job_sync_pending');
+    }
+    try {
+     await ensureFormationMaintenanceActiveJobReady(playerId, currentPlayer, deps);
+     this.formationMaintenanceSyncRetryNotBeforeById.delete(formationInstanceId);
+    }
+    catch (error) {
+     this.formationMaintenanceSyncRetryNotBeforeById.set(
+      formationInstanceId,
+      Date.now() + FORMATION_MAINTENANCE_CHECKPOINT_RETRY_MS,
+     );
+     throw error;
+    }
    }
    this.playerRuntimeService.recordActivity?.(
     playerId,

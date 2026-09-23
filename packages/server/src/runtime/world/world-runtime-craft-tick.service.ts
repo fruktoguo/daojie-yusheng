@@ -35,6 +35,8 @@ const DEFERRED_CRAFT_TICK_FLUSH_OPTIONS = Object.freeze({
 const DEFERRED_CRAFT_QUEUE_FLUSH_OPTIONS = Object.freeze({
     deferRuntimeUpdates: true,
 });
+/** 同一玩家同一错误的日志与通知限频窗口，避免加速实例把相同失败放大成每秒多条。 */
+const CRAFT_TICK_ERROR_THROTTLE_MS = 30_000;
 
 type CraftTickSectionRecorder = ((key: string, durationMs: number, count?: number) => void) | null;
 
@@ -61,6 +63,8 @@ export class WorldRuntimeCraftTickService {
     pipeline;
     /** 技艺队列服务。 */
     queueService;
+    /** 玩家级 tick 错误限频状态：message 相同且未过窗口时抑制日志与通知。 */
+    private readonly craftTickErrorThrottle = new Map<string, { message: string; suppressedCount: number; windowStartedAt: number }>();
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
@@ -263,30 +267,35 @@ export class WorldRuntimeCraftTickService {
                     );
                 }
             }
+            this.craftTickErrorThrottle.delete(playerId);
           } catch (error) {
             const notice = buildCraftTickErrorNotice(error);
-            this.logger.error(
-                `玩家技艺 tick 失败 playerId=${playerId}`,
-                error instanceof Error ? error.stack : String(error),
-            );
-            try {
-                const noticeOperation = deps?.queuePlayerNotice?.(
-                    playerId,
-                    notice.text,
-                    notice.kind,
-                    undefined,
-                    undefined,
-                    notice.structured,
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const suppressedCount = this.consumeCraftTickErrorSuppression(playerId, errorMessage);
+            if (suppressedCount !== null) {
+                this.logger.error(
+                    `玩家技艺 tick 失败 playerId=${playerId}${suppressedCount > 0 ? `（${Math.round(CRAFT_TICK_ERROR_THROTTLE_MS / 1000)}s 窗口内另有 ${suppressedCount} 次相同错误被抑制）` : ''}`,
+                    error instanceof Error ? error.stack : String(error),
                 );
-                void Promise.resolve(noticeOperation).catch((noticeError) => {
+                try {
+                    const noticeOperation = deps?.queuePlayerNotice?.(
+                        playerId,
+                        notice.text,
+                        notice.kind,
+                        undefined,
+                        undefined,
+                        notice.structured,
+                    );
+                    void Promise.resolve(noticeOperation).catch((noticeError) => {
+                        this.logger.warn(
+                            `玩家技艺 tick 失败通知入队失败 playerId=${playerId} error=${noticeError instanceof Error ? noticeError.message : String(noticeError)}`,
+                        );
+                    });
+                } catch (noticeError) {
                     this.logger.warn(
                         `玩家技艺 tick 失败通知入队失败 playerId=${playerId} error=${noticeError instanceof Error ? noticeError.message : String(noticeError)}`,
                     );
-                });
-            } catch (noticeError) {
-                this.logger.warn(
-                    `玩家技艺 tick 失败通知入队失败 playerId=${playerId} error=${noticeError instanceof Error ? noticeError.message : String(noticeError)}`,
-                );
+                }
             }
           } finally {
             if (player && buildingProjectionBoundaryReason) {
@@ -294,6 +303,22 @@ export class WorldRuntimeCraftTickService {
             }
           }
         }
+    }
+
+    /**
+     * 同一玩家同一错误在限频窗口内只放行一次：返回 null 表示抑制，
+     * 否则返回自上次放行以来被抑制的次数（供日志带观测信息）。
+     */
+    private consumeCraftTickErrorSuppression(playerId: string, message: string): number | null {
+        const now = Date.now();
+        const state = this.craftTickErrorThrottle.get(playerId);
+        if (state && state.message === message && now - state.windowStartedAt < CRAFT_TICK_ERROR_THROTTLE_MS) {
+            state.suppressedCount += 1;
+            return null;
+        }
+        const suppressedCount = state?.message === message ? state.suppressedCount : 0;
+        this.craftTickErrorThrottle.set(playerId, { message, suppressedCount: 0, windowStartedAt: now });
+        return suppressedCount;
     }
 
     /** 推进活跃技艺；强化必须走强事务入口，避免完成回写和 active_job 分裂。 */

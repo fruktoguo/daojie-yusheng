@@ -211,6 +211,7 @@ function createHarness(durableOperationService: Record<string, unknown> | null =
     playerDomainPersistenceService as never,
     undefined,
     undefined,
+    undefined,
     durableOperationService as never,
   );
   service.setLeaseGuard({

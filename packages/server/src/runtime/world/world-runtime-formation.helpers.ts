@@ -954,6 +954,22 @@ export async function ensureFormationMaintenanceActiveJobReady(playerId, player,
  if (activeJobPersisted) {
   return;
  }
+ // 运行态重建（重新水合 / restoreSnapshot 克隆）会丢分域修订记录：active_job 不脏
+ // 且无修订时 isPersistenceDomainPersisted 永假，强刷后 markPersisted 也只能写回
+ // 修订 0，复查仍不过，形成每息必败的死循环。此时先补一记脏标记建立域修订，
+ // 让下面的强刷把当前运行态写入真源并正常 markPersisted 收敛。
+ const trackedRevision = Math.max(
+  0,
+  Math.trunc(Number(playerRuntimeService?.getPersistenceDomainRevision?.(playerId, 'active_job')) || 0),
+ );
+ if (
+  canVerifyPersistedDomain
+  && trackedRevision <= 0
+  && !(dirtyDomains instanceof Set && dirtyDomains.has('active_job'))
+  && typeof playerRuntimeService?.markPersistenceDirtyDomains === 'function'
+ ) {
+  playerRuntimeService.markPersistenceDirtyDomains(player, ['active_job']);
+ }
  const flushPlayerDomains = deps?.playerPersistenceFlushService?.flushPlayerDomains;
  if (typeof flushPlayerDomains !== 'function') {
   throw new ServiceUnavailableException('formation_maintenance_active_job_sync_pending');

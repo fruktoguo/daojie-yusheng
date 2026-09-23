@@ -202,6 +202,40 @@ async function main(): Promise<void> {
   });
   assert.equal(stagedFlushCount, 1, 'active_job 仅暂存未落库时必须补一次真源写');
 
+  // 运行态重建（重新水合/克隆恢复）后：active_job 不脏且无域修订，
+  // 守卫必须先补脏标记建立修订，否则强刷后复查永假、每息死循环。
+  const rebuiltPlayer = { dirtyDomains: new Set<string>() };
+  const rebuiltRevisions = new Map<string, number>();
+  let rebuiltPersistedRevision = 0;
+  let rebuiltMarkCount = 0;
+  let rebuiltFlushCount = 0;
+  await ensureFormationMaintenanceActiveJobReady(playerId, rebuiltPlayer, {
+    playerRuntimeService: {
+      isPersistenceDomainPersisted: () =>
+        !rebuiltPlayer.dirtyDomains.has('active_job')
+        && (rebuiltRevisions.get('active_job') ?? 0) > 0
+        && rebuiltPersistedRevision === rebuiltRevisions.get('active_job'),
+      getPersistenceDomainRevision: () => rebuiltRevisions.get('active_job') ?? 0,
+      markPersistenceDirtyDomains: (_target: unknown, domains: string[]) => {
+        rebuiltMarkCount += 1;
+        for (const domain of domains) {
+          rebuiltPlayer.dirtyDomains.add(domain);
+          rebuiltRevisions.set(domain, (rebuiltRevisions.get(domain) ?? 0) + 1);
+        }
+      },
+    },
+    playerPersistenceFlushService: {
+      flushPlayerDomains: async () => {
+        rebuiltFlushCount += 1;
+        rebuiltPlayer.dirtyDomains.delete('active_job');
+        rebuiltPersistedRevision = rebuiltRevisions.get('active_job') ?? 0;
+        return true;
+      },
+    },
+  });
+  assert.equal(rebuiltMarkCount, 1, '未跟踪的 active_job 必须先补脏标记建立域修订');
+  assert.equal(rebuiltFlushCount, 1, '补标记后强刷一次即可收敛');
+
   const failedPlayer = { dirtyDomains: new Set<string>(['active_job']) };
   await assert.rejects(
     ensureFormationMaintenanceActiveJobReady(playerId, failedPlayer, {
