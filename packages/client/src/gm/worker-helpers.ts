@@ -124,6 +124,7 @@ export function getWorkerSchedulerMarkup(state: GmWorkerStateRes, ctx: WorkerHel
       `运行 ${task.runCount} 次`,
       `成功 ${task.processedCount}`,
       task.failureCount > 0 ? `失败 ${task.failureCount}` : '',
+      task.backlogCount > 0 ? `${task.kind === 'tick' ? '积压丢弃' : '积压'} ${task.backlogCount}` : '',
       task.lastSuccessAt ? `最近成功 ${ctx.formatDateTime(task.lastSuccessAt)}` : '从未成功',
       task.lastFailure ? `原因: ${task.lastFailure.slice(0, 60)}` : '',
       task.lastDurationMs > 0 ? `耗时 ${task.lastDurationMs}ms` : '',

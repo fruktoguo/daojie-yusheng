@@ -73,7 +73,6 @@ const MIN_TICK_INTERVAL_MS = gameplayConstants.WORLD_TICK_INTERVAL_MS / MAX_INST
 /** 调度间隔上限（ms），即正常 1 倍速间隔。 */
 const BASE_TICK_INTERVAL_MS = gameplayConstants.WORLD_TICK_INTERVAL_MS;
 const WORLD_TICK_SCHEDULER_TASK_ID = 'world-tick';
-const DROPPED_LOGICAL_STEP_WARN_INTERVAL_MS = 10_000;
 
 /** 世界 Tick 性能指标：丢弃逻辑息、上一帧耗时、最近一次 dispatcher 实际间隔。 */
 export interface WorldTickMetrics {
@@ -109,8 +108,6 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy {
 
   /** 当前 setTimeout 等待时长（ms）；它是 deadline 剩余量，不等于实例逻辑 tick 周期。 */
   private currentWakeDelayMs = BASE_TICK_INTERVAL_MS;
-  private lastLoggedDroppedLogicalStepCount = 0;
-  private lastDroppedStepWarningAtMs = Number.NEGATIVE_INFINITY;
 
   private readonly handleInstanceScheduleChanged = (): void => {
     if (!this.lifecycleStarted || this.shuttingDown || this.tickInFlight) {
@@ -232,7 +229,7 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy {
     } finally {
       this.lastTickDurationMs = performance.now() - startedAt;
       this.totalTicks += 1;
-      this.refreshSkippedFrameMetrics(performance.now());
+      this.refreshSkippedFrameMetrics();
       this.tickInFlight = false;
       this.scheduleNextTick();
     }
@@ -274,28 +271,16 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy {
   }
 
   /** deadline 调度器已精确统计丢弃息；timer 剩余等待时间不能用于推算跳帧。 */
-  private refreshSkippedFrameMetrics(observedAtMs: number): void {
+  private refreshSkippedFrameMetrics(): void {
     if (this.instanceScheduleService) {
       if (typeof this.instanceScheduleService.getDroppedLogicalStepCount !== 'function') {
         return;
       }
-      const droppedLogicalStepCount = Math.max(
+      this.skippedFrameCount = Math.max(
         0,
         Math.trunc(Number(this.instanceScheduleService.getDroppedLogicalStepCount()) || 0),
       );
-      this.skippedFrameCount = droppedLogicalStepCount;
-      if (
-        droppedLogicalStepCount <= this.lastLoggedDroppedLogicalStepCount
-        || observedAtMs - this.lastDroppedStepWarningAtMs < DROPPED_LOGICAL_STEP_WARN_INTERVAL_MS
-      ) {
-        return;
-      }
-      const newlyDropped = droppedLogicalStepCount - this.lastLoggedDroppedLogicalStepCount;
-      this.lastLoggedDroppedLogicalStepCount = droppedLogicalStepCount;
-      this.lastDroppedStepWarningAtMs = observedAtMs;
-      this.logger.warn(
-        `实例 Tick 积压丢弃：本次观测新增 ${newlyDropped} 个逻辑息（累计 ${droppedLogicalStepCount}），已丢弃超出当前倍率有界补偿上限的旧债务`,
-      );
+      this.publishSkippedFrameCount();
       return;
     }
 
@@ -306,9 +291,15 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy {
     }
     const dropped = Math.max(1, Math.floor(this.lastIntervalMs / targetIntervalMs) - 1);
     this.skippedFrameCount += dropped;
+    this.publishSkippedFrameCount();
     this.logger.warn(
       `世界 Tick 慢帧：实际间隔 ${this.lastIntervalMs.toFixed(0)}ms，逻辑周期 ${targetIntervalMs}ms，估计跳过 ${dropped} 帧（累计 ${this.skippedFrameCount}）`,
     );
+  }
+
+  /** 丢弃逻辑息只累计进 world-tick 调度任务的 backlogCount，供 GM worker 面板观测，不再刷日志。 */
+  private publishSkippedFrameCount(): void {
+    this.schedulerManagerService?.setBacklogCount(WORLD_TICK_SCHEDULER_TASK_ID, this.skippedFrameCount);
   }
 
   private async runScheduledTick(): Promise<void> {

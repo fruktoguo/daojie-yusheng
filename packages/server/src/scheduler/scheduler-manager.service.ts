@@ -94,6 +94,15 @@ export class SchedulerManagerService implements OnModuleInit, OnModuleDestroy {
     return Boolean(updated);
   }
 
+  /** 由任务执行方回填积压/丢弃计数（如 world-tick 的丢弃逻辑息），随调度器快照进入 GM worker 面板。 */
+  setBacklogCount(taskId: string, backlogCount: number): boolean {
+    const updated = this.state.setBacklogCount(taskId, backlogCount);
+    if (updated) {
+      this.schedulePersistSnapshot();
+    }
+    return Boolean(updated);
+  }
+
   triggerTask(taskId: string): Promise<number> {
     const executor = this.executors.get(taskId);
     if (!executor) {

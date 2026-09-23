@@ -369,6 +369,7 @@ function testDispatcherStartRateIsBoundedByMaxInstanceSpeed(): void {
 
 function testDeadlineWaitRemainderIsNotReportedAsSkippedFrame(): void {
   let droppedLogicalStepCount = 0;
+  const publishedBacklogCounts: number[] = [];
   const service = new WorldTickService(
     { flushTick(): void {} },
     { isRuntimeMaintenanceActive(): boolean { return false; } },
@@ -379,7 +380,12 @@ function testDeadlineWaitRemainderIsNotReportedAsSkippedFrame(): void {
     },
     { flushConnectedPlayers(): void {} },
     undefined,
-    undefined,
+    {
+      setBacklogCount(_taskId: string, backlogCount: number): boolean {
+        publishedBacklogCounts.push(backlogCount);
+        return true;
+      },
+    } as never,
     {
       resolveNextDelayMs(): number { return 5; },
       collectDue(): [] { return []; },
@@ -389,12 +395,11 @@ function testDeadlineWaitRemainderIsNotReportedAsSkippedFrame(): void {
   const internals = service as unknown as {
     currentWakeDelayMs: number;
     lastIntervalMs: number;
-    lastDroppedStepWarningAtMs: number;
-    refreshSkippedFrameMetrics(observedAtMs: number): void;
+    refreshSkippedFrameMetrics(): void;
   };
   internals.currentWakeDelayMs = 5;
   internals.lastIntervalMs = 11;
-  internals.refreshSkippedFrameMetrics(100);
+  internals.refreshSkippedFrameMetrics();
   assert.equal(
     service.getTickMetrics().skippedFrameCount,
     0,
@@ -402,12 +407,16 @@ function testDeadlineWaitRemainderIsNotReportedAsSkippedFrame(): void {
   );
 
   droppedLogicalStepCount = 7;
-  internals.lastDroppedStepWarningAtMs = 100;
-  internals.refreshSkippedFrameMetrics(101);
+  internals.refreshSkippedFrameMetrics();
   assert.equal(
     service.getTickMetrics().skippedFrameCount,
     7,
     '跳帧指标必须直接采用 deadline 调度器真实丢弃的逻辑息',
+  );
+  assert.deepEqual(
+    publishedBacklogCounts,
+    [0, 7],
+    '丢弃逻辑息必须同步到 world-tick 调度任务的积压计数供 GM worker 面板观测',
   );
 }
 
