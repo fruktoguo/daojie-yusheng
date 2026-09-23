@@ -429,9 +429,25 @@ async function fetchJsonModelNames(endpoint: string, headers: Record<string, str
     const body = await response.json() as unknown;
     const rows = readModelRows(body);
     return [...new Set(rows.map((row) => row.trim()).filter(Boolean))].slice(0, MODEL_FETCH_LIMIT);
+  } catch (error) {
+    if (error instanceof BadRequestException) throw error;
+    throw new BadRequestException(`模型列表请求失败：${describeFetchError(error)}`);
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** 把 undici 的 `fetch failed` 还原成可读原因：超时、DNS、拒连、TLS 等底层 code。 */
+function describeFetchError(error: unknown): string {
+  if (!(error instanceof Error)) return String(error);
+  if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+    return '请求超时（20 秒无响应）';
+  }
+  const cause = (error as { cause?: { code?: unknown; message?: unknown } }).cause;
+  const detail = typeof cause?.code === 'string' && cause.code
+    ? cause.code
+    : typeof cause?.message === 'string' ? cause.message : '';
+  return detail ? `${error.message}（${detail}）` : error.message;
 }
 
 function readModelRows(body: unknown): string[] {

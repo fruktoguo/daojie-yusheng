@@ -451,7 +451,9 @@ function renderAiProviderGroup(kind: GmAiProviderKind, label: string, items: GmA
 const aiProviderDeps: AiProviderDeps = {
   textProviderOptions: AI_TEXT_PROVIDER_OPTIONS,
   imageProviderOptions: AI_IMAGE_PROVIDER_OPTIONS,
-  secretStoreAvailable: aiSecretStoreAvailable,
+  get secretStoreAvailable() {
+    return aiSecretStoreAvailable;
+  },
   getAiModelStateKey,
   aiModelTestStateByKey,
 };
