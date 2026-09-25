@@ -807,18 +807,7 @@ export class MarketAuctionView {
     }, { signal }));
 
     body.querySelectorAll<HTMLElement>('[data-auction-select-item]').forEach((button) => button.addEventListener('click', () => {
-      const lotId = button.dataset.auctionSelectItem;
-      if (!lotId || lotId === p.selectedAuctionItemKey) return;
-      const lot = this.resolveAuctionLotByKey(lotId, p.marketUpdate, p.auctionTab);
-      if (!lot) return;
-      p.selectedAuctionItemKey = lot.id;
-      p.selectedItemKey = lot.itemKey;
-      p.itemBook = null;
-      p.tradeDialog = null;
-      p.requestItemBook(lot.itemKey);
-      this.patchAuctionActiveSelection();
-      this.patchAuctionDetailPanel();
-      p.syncTradeDialogOverlay();
+      this.handleAuctionSelectItemClick(button);
     }, { signal }));
 
     body.querySelectorAll<HTMLElement>('[data-auction-action]').forEach((button) => button.addEventListener('click', () => {
@@ -867,6 +856,22 @@ export class MarketAuctionView {
     if (!Number.isFinite(nextPage) || nextPage === this.panel.tradeHistoryPage) return;
     this.panel.requestTradeHistory(Math.max(1, Math.floor(nextPage)), 'auction', this.panel.auctionHistoryScope);
     this.patchAuctionHistoryPanel();
+  }
+
+  private handleAuctionSelectItemClick(button: HTMLElement): void {
+    const p = this.panel;
+    const lotId = button.dataset.auctionSelectItem;
+    if (!lotId || lotId === p.selectedAuctionItemKey) return;
+    const lot = this.resolveAuctionLotByKey(lotId, p.marketUpdate, p.auctionTab);
+    if (!lot) return;
+    p.selectedAuctionItemKey = lot.id;
+    p.selectedItemKey = lot.itemKey;
+    p.itemBook = null;
+    p.tradeDialog = null;
+    p.requestItemBook(lot.itemKey);
+    this.patchAuctionActiveSelection();
+    this.patchAuctionDetailPanel();
+    p.syncTradeDialogOverlay();
   }
 
   private handleAuctionActionClick(button: HTMLElement): void {
@@ -1403,6 +1408,66 @@ export class MarketAuctionView {
     body.querySelectorAll<HTMLElement>('[data-auction-select-item]').forEach((button) => {
       button.classList.toggle('active', button.dataset.auctionSelectItem === this.panel.selectedAuctionItemKey);
     });
+  }
+
+  /**
+   * 搜索框聚焦时只更新列表/工具栏/详情，不重建搜索 input，避免中文 IME 组字被掐断。
+   */
+  patchAuctionListingsPreservingSearch(): void {
+    const body = this.panel.getOpenAuctionModalBody();
+    const update = this.panel.marketUpdate;
+    if (!body || !update) return;
+    const lots = this.getCurrentAuctionLots();
+    const pagination = this.getAuctionPageState(lots);
+    const selected = this.resolveAuctionLotByKey(this.panel.selectedAuctionItemKey, update, this.panel.auctionTab) ?? lots[0] ?? null;
+    const mine = this.panel.auctionTab === 'mine';
+    const listPanel = body.querySelector<HTMLElement>('.auction-list-panel');
+    const list = listPanel?.querySelector<HTMLElement>('.auction-list');
+    const meta = listPanel?.querySelector<HTMLElement>('.auction-list-toolbar .market-list-toolbar-meta');
+    if (meta) {
+      meta.textContent = mine
+        ? `我的寄拍 ${formatDisplayInteger(pagination.totalItems)} 件，第 ${formatDisplayInteger(pagination.page)} / ${formatDisplayInteger(pagination.totalPages)} 页`
+        : `共 ${formatDisplayInteger(pagination.totalItems)} 件拍品，第 ${formatDisplayInteger(pagination.page)} / ${formatDisplayInteger(pagination.totalPages)} 页`;
+    }
+    const pageButtons = listPanel?.querySelectorAll<HTMLButtonElement>('.market-list-toolbar-actions [data-auction-page]');
+    const prevPageButton = pageButtons?.[0];
+    const nextPageButton = pageButtons?.[1];
+    if (prevPageButton) {
+      prevPageButton.dataset.auctionPage = String(Math.max(1, pagination.page - 1));
+      prevPageButton.disabled = pagination.page <= 1;
+    }
+    if (nextPageButton) {
+      nextPageButton.dataset.auctionPage = String(Math.min(pagination.totalPages, pagination.page + 1));
+      nextPageButton.disabled = pagination.page >= pagination.totalPages;
+    }
+    if (list) {
+      replaceElementHtml(
+        list,
+        lots.length > 0
+          ? lots.map((lot) => this.renderAuctionLotRow(lot, selected?.id ?? '', mine)).join('')
+          : `<div class="empty-hint">${escapeHtml(t(
+            mine ? 'market.auction.empty.mine' : 'market.auction.empty.participate',
+            undefined,
+          ))}</div>`,
+      );
+      list.querySelectorAll<HTMLElement>('[data-auction-select-item]').forEach((button) => {
+        button.addEventListener('click', () => {
+          this.handleAuctionSelectItemClick(button);
+        });
+      });
+    }
+    body.querySelectorAll<HTMLElement>('[data-auction-category]').forEach((button) => {
+      const category = button.dataset.auctionCategory as MarketCategoryFilter | undefined;
+      if (!category) return;
+      button.classList.toggle('active', this.panel.auctionCategory === category);
+      const countNode = button.querySelector<HTMLElement>('strong');
+      if (countNode) {
+        countNode.textContent = formatDisplayInteger(this.getAuctionCategoryCount(category, 0));
+      }
+    });
+    this.patchAuctionActiveSelection();
+    this.patchAuctionCountdowns();
+    this.patchAuctionDetailPanel();
   }
 
   patchAuctionDetailPanel(): void {

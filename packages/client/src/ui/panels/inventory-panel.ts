@@ -1731,7 +1731,26 @@ export class InventoryPanel {
       this.closeModal();
       return true;
     }
-    return this.lastModalRenderKey === this.buildModalRenderKey(resolved.item);
+    const matched = this.lastModalRenderKey === this.buildModalRenderKey(resolved.item);
+    if (matched) {
+      this.patchOpenFormationDialogLiveState(resolved.item);
+    }
+    return matched;
+  }
+
+  /** 布阵弹窗打开时仅刷新灵力/费用预览，保留表单输入节点。 */
+  private patchOpenFormationDialogLiveState(item: ItemStack): void {
+    if (this.formationDialogSlotIndex === null || !this.isFormationDiskItem(item)) {
+      return;
+    }
+    if (!detailModalHost.isOpenFor(InventoryPanel.MODAL_OWNER)) {
+      return;
+    }
+    const body = document.querySelector<HTMLElement>('#detail-modal-body');
+    if (!body?.querySelector('[data-formation-input]')) {
+      return;
+    }
+    this.formationDialogController.refreshLiveState(body, item);
   }
 
   /** resolveSelectedItem：解析Selected物品。 */
@@ -2588,10 +2607,10 @@ export class InventoryPanel {
     }
 
     if (this.formationDialogSlotIndex !== null && this.isFormationDiskItem(item)) {
+      // 灵力变化只 patch 费用预览，不进 key，避免打字中整窗重建清空半径/时长输入。
       return [
         'formation',
         this.getItemIdentity(item),
-        String(this.playerQi),
       ].join('|');
     }
 

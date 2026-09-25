@@ -395,7 +395,6 @@ export function openAlchemyMaterialPickerModalImpl(self: CraftWorkbenchModal): v
   }
 
 export function renderAlchemyMaterialPickerBodyImpl(self: CraftWorkbenchModal, recipe: AlchemyRecipeCatalogEntry): string {
-    const candidates = self.getAlchemyMaterialPickerCandidates(recipe);
     const sortButton = (key: AlchemyMaterialPickerSortKey, label: string) => `
       <button class="alchemy-material-picker-sort ${self.alchemyMaterialPickerSortKey === key ? 'active' : ''}" type="button" data-alchemy-material-sort="${key}">
         ${label}${self.alchemyMaterialPickerSortKey === key ? (self.alchemyMaterialPickerSortDirection === 'asc' ? ' ↑' : ' ↓') : ''}
@@ -418,16 +417,7 @@ export function renderAlchemyMaterialPickerBodyImpl(self: CraftWorkbenchModal, r
             <span></span>
           </div>
           <div class="alchemy-material-picker-list">
-            ${candidates.length > 0 ? candidates.map((candidate) => `
-              <button class="alchemy-material-picker-row" type="button" data-alchemy-material-add="${escapeHtml(candidate.itemId)}">
-                <span>${self.renderAlchemyItemReference(candidate.itemId, candidate.name, 'material')}</span>
-                <span>${formatDisplayInteger(candidate.level)}</span>
-                <span>${escapeHtml(candidate.gradeLabel)}</span>
-                ${ELEMENT_KEYS.map((element) => `<span>${self.formatAlchemyPickerElementValue(candidate.elements[element])}</span>`).join('')}
-                <span>${formatDisplayInteger(candidate.count)}</span>
-                <span class="alchemy-material-picker-add">添加</span>
-              </button>
-            `).join('') : '<div class="alchemy-material-picker-empty">没有可用材料</div>'}
+            ${self.renderAlchemyMaterialPickerListHtml(recipe)}
           </div>
         </div>
       </div>
@@ -715,11 +705,18 @@ export function bindAlchemyMaterialPickerEventsImpl(self: CraftWorkbenchModal): 
       return;
     }
     const search = root.querySelector<HTMLInputElement>('[data-alchemy-material-search="true"]');
-    search?.focus();
-    search?.setSelectionRange(search.value.length, search.value.length);
+    if (search && document.activeElement !== search) {
+      search.focus();
+      // 仅在初次打开时把光标放到末尾；组字过程中禁止重开弹窗，避免 IME 被掐断。
+      try {
+        search.setSelectionRange(search.value.length, search.value.length);
+      } catch {
+        // type=search 在部分浏览器不可设选区
+      }
+    }
     search?.addEventListener('input', () => {
       self.alchemyMaterialPickerQuery = search.value;
-      self.openAlchemyMaterialPickerModal();
+      self.patchAlchemyMaterialPickerList();
     });
     root.querySelectorAll<HTMLButtonElement>('[data-alchemy-material-sort]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -733,10 +730,47 @@ export function bindAlchemyMaterialPickerEventsImpl(self: CraftWorkbenchModal): 
           self.alchemyMaterialPickerSortKey = key;
           self.alchemyMaterialPickerSortDirection = key === 'name' ? 'asc' : 'desc';
         }
+        // 排序会改表头样式，整页重开；搜索框会按草稿回填，且此时无 IME 组字。
         self.openAlchemyMaterialPickerModal();
       });
     });
+    self.bindAlchemyMaterialPickerAddButtons(root);
+  }
+
+export function patchAlchemyMaterialPickerListImpl(self: CraftWorkbenchModal): void {
+    const root = document.querySelector<HTMLElement>('.alchemy-material-picker');
+    const list = root?.querySelector<HTMLElement>('.alchemy-material-picker-list');
+    const recipe = self.getSelectedAlchemyRecipe();
+    if (!root || !list || !recipe) {
+      return;
+    }
+    list.innerHTML = self.renderAlchemyMaterialPickerListHtml(recipe);
+    self.bindAlchemyMaterialPickerAddButtons(root);
+  }
+
+export function renderAlchemyMaterialPickerListHtmlImpl(self: CraftWorkbenchModal, recipe: AlchemyRecipeCatalogEntry): string {
+    const candidates = self.getAlchemyMaterialPickerCandidates(recipe);
+    if (candidates.length === 0) {
+      return '<div class="alchemy-material-picker-empty">没有可用材料</div>';
+    }
+    return candidates.map((candidate) => `
+      <button class="alchemy-material-picker-row" type="button" data-alchemy-material-add="${escapeHtml(candidate.itemId)}">
+        <span>${self.renderAlchemyItemReference(candidate.itemId, candidate.name, 'material')}</span>
+        <span>${formatDisplayInteger(candidate.level)}</span>
+        <span>${escapeHtml(candidate.gradeLabel)}</span>
+        ${ELEMENT_KEYS.map((element) => `<span>${self.formatAlchemyPickerElementValue(candidate.elements[element])}</span>`).join('')}
+        <span>${formatDisplayInteger(candidate.count)}</span>
+        <span class="alchemy-material-picker-add">添加</span>
+      </button>
+    `).join('');
+  }
+
+export function bindAlchemyMaterialPickerAddButtonsImpl(self: CraftWorkbenchModal, root: HTMLElement): void {
     root.querySelectorAll<HTMLButtonElement>('[data-alchemy-material-add]').forEach((button) => {
+      if (button.dataset.alchemyMaterialAddBound === '1') {
+        return;
+      }
+      button.dataset.alchemyMaterialAddBound = '1';
       button.addEventListener('click', () => {
         const recipeId = self.selectedAlchemyRecipeId;
         const itemId = button.dataset.alchemyMaterialAdd?.trim() ?? '';
