@@ -1016,6 +1016,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
       syncTechniqueGenerationState({
         available: data.available,
         unavailableReason: data.unavailableReason ?? '',
+        refundQuota: data.refundQuota ?? null,
         rollRange: data.rollRange ?? null,
         currentJob: data.currentJob,
         currentDraft: data.currentDraft,
@@ -1057,7 +1058,11 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
       }
       if (data.result === 'discarded') {
         const refund = data.discardRefund;
-        if (refund && refund.refundAmount > 0) {
+        const hasQuota = Boolean(
+          refund && typeof refund.remaining === 'number' && typeof refund.dailyLimit === 'number',
+        );
+        const exhausted = Boolean(refund && refund.refundAmount <= 0 && (!hasQuota || refund.remaining === 0));
+        if (refund) {
           const ratioText = `${Math.round(refund.refundRatio * 100)}%`;
           confirmModalHost.open({
             ownerId: 'technique-generation-discard-refund',
@@ -1066,14 +1071,21 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
             bodyHtml: `
               <div class="confirm-summary-list">
                 <div><span>本次投入</span><strong>${refund.itemSpend} 枚悟道玉简</strong></div>
-                <div><span>返还比例</span><strong>${ratioText}</strong></div>
+                ${refund.refundAmount > 0 ? `<div><span>返还比例</span><strong>${ratioText}</strong></div>` : ''}
                 <div><span>返还功德</span><strong>${refund.refundAmount}</strong></div>
+                ${hasQuota ? `<div><span>今日剩余返还次数</span><strong>${refund.remaining}/${refund.dailyLimit}</strong></div>` : ''}
+                ${exhausted ? '<div><span>提示</span><strong>今日返还次数已用完，本次不再返还</strong></div>' : ''}
               </div>
             `,
             confirmLabel: '知道了',
             cancelLabel: '关闭',
           });
-          options.showToast(`已取消领悟，返还 ${refund.refundAmount} 功德`, 'system');
+          options.showToast(
+            exhausted
+              ? '已取消领悟，今日返还次数已用尽，不再返还功德'
+              : `已取消领悟，返还 ${refund.refundAmount} 功德`,
+            'system',
+          );
         } else {
           options.showToast('已取消领悟', 'system');
         }
@@ -1083,6 +1095,13 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
           currentJob: null,
           currentBatch: null,
           error: '',
+          refundQuota: hasQuota
+            ? {
+              limit: refund?.dailyLimit ?? 0,
+              usedToday: refund?.usedToday ?? 0,
+              remaining: refund?.remaining ?? 0,
+            }
+            : undefined,
         });
         if (techniqueGenerationStore.getState().visible) {
           options.techniqueGenerationSender.sendGetStatus(

@@ -47,5 +47,8 @@ export const TECHNIQUE_GENERATION_BUDGET_PERCENT_DEFAULT = 1;
 /** 悟道玉简道具 ID */
 export const TECHNIQUE_GENERATION_ITEM_ID = 'wudao_yujian';
 
+/** 每日（东八区）放弃草稿返还功德的最大次数；单次与整批放弃均按一次操作计。 */
+export const TECHNIQUE_GENERATION_DAILY_REFUND_LIMIT = 100;
+
 /** schema 版本 */
 export const TECHNIQUE_GENERATION_SCHEMA_VERSION = 1;

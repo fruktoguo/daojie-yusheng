@@ -18,6 +18,7 @@ import {
 import {
   GENERATED_TECHNIQUE_TABLE,
   TECHNIQUE_GENERATION_JOB_TABLE,
+  TECHNIQUE_GENERATION_REFUND_DAILY_TABLE,
   type InsertGeneratedTechniqueParams,
   type InsertGenerationJobParams,
 } from './generated-technique-persistence.service';
@@ -996,6 +997,10 @@ export interface DiscardDurableTechniqueDraftInput extends TechniqueGenerationSe
   refundCurrencyItemId: string;
   refundRatio: number;
   refundBasePrice: number;
+  /** 返还名额统计的东八区日键（YYYY-MM-DD）。 */
+  refundDayKey: string;
+  /** 每日返还名额上限。 */
+  refundDailyLimit: number;
 }
 
 export interface DiscardDurableTechniqueDraftResult {
@@ -1006,6 +1011,11 @@ export interface DiscardDurableTechniqueDraftResult {
   refundRatio?: number;
   refundAmount?: number;
   refundCurrencyItemId?: string;
+  /** 本次是否真正发放功德返还（达到上限时为 false）。 */
+  refundGranted?: boolean;
+  refundDailyLimit?: number;
+  refundUsedToday?: number;
+  refundRemaining?: number;
   errorCode?: 'JOB_STATE_INVALID';
 }
 
@@ -1024,14 +1034,19 @@ export async function discardDurableTechniqueDraft(
       jobId: input.jobId,
     });
     if (existingOperation) {
+      const usedToday = normalizeNonNegativeInteger(existingOperation.refundUsedToday, input.refundDailyLimit);
       return {
         ok: true,
         alreadyCommitted: true,
         inventoryItems: await loadTechniqueGenerationRuntimeInventory(client, input.playerId),
         itemSpend: normalizePositiveInteger(existingOperation.itemSpend, 1),
         refundRatio: normalizePositiveNumber(existingOperation.refundRatio, input.refundRatio),
-        refundAmount: normalizePositiveInteger(existingOperation.refundAmount, input.refundBasePrice),
+        refundAmount: normalizeNonNegativeInteger(existingOperation.refundAmount, 0),
         refundCurrencyItemId: normalizeOptionalString(existingOperation.refundCurrencyItemId) ?? input.refundCurrencyItemId,
+        refundGranted: existingOperation.refundGranted === true,
+        refundDailyLimit: input.refundDailyLimit,
+        refundUsedToday: usedToday,
+        refundRemaining: Math.max(0, input.refundDailyLimit - usedToday),
       };
     }
 
@@ -1057,11 +1072,23 @@ export async function discardDurableTechniqueDraft(
       };
     }
     const itemSpend = normalizePositiveInteger(job.item_spend, 1);
-    const refundAmount = Math.max(
-      1,
-      Math.floor(itemSpend * normalizePositiveInteger(input.refundBasePrice, 1) * normalizePositiveNumber(input.refundRatio, 0.3)),
-    );
-    const beforeAfter = job.item_consumed === true && job.item_refunded !== true
+    const shouldRefund = job.item_consumed === true && job.item_refunded !== true;
+    // 领取当日返还名额；达到上限则本次放弃不再返还功德。名额仅在真正发返还时消耗。
+    const refundSlot = shouldRefund
+      ? await claimTechniqueGenerationRefundSlot(client, {
+        playerId: input.playerId,
+        dayKey: input.refundDayKey,
+        limit: input.refundDailyLimit,
+      })
+      : { granted: false, usedToday: await readTechniqueGenerationRefundUsedToday(client, input.playerId, input.refundDayKey) };
+    const refundGranted = shouldRefund && refundSlot.granted;
+    const refundAmount = refundGranted
+      ? Math.max(
+        1,
+        Math.floor(itemSpend * normalizePositiveInteger(input.refundBasePrice, 1) * normalizePositiveNumber(input.refundRatio, 0.3)),
+      )
+      : 0;
+    const beforeAfter = refundGranted
       ? await grantTechniqueGenerationInventoryItem(
           client,
           input.playerId,
@@ -1081,7 +1108,7 @@ export async function discardDurableTechniqueDraft(
         WHERE id = $1 AND player_id = $2 AND status = 'generated_draft'`,
       [input.jobId, input.playerId],
     );
-    if (job.item_consumed === true && job.item_refunded !== true) {
+    if (refundGranted) {
       await touchTechniqueGenerationRecoveryWatermark(client, input.playerId, 'inventory_version');
     }
     const operationPayload = {
@@ -1090,6 +1117,9 @@ export async function discardDurableTechniqueDraft(
       refundRatio: input.refundRatio,
       refundAmount,
       refundCurrencyItemId: input.refundCurrencyItemId,
+      refundGranted,
+      refundUsedToday: refundSlot.usedToday,
+      refundDailyLimit: input.refundDailyLimit,
     };
     await insertCommittedTechniqueGenerationOperation(client, {
       operationId,
@@ -1100,7 +1130,7 @@ export async function discardDurableTechniqueDraft(
       fence: input,
       payload: operationPayload,
     });
-    if (job.item_consumed === true && job.item_refunded !== true) {
+    if (refundGranted) {
       await insertTechniqueGenerationOutbox(client, {
         operationId,
         topic: 'player.inventory.granted',
@@ -1131,6 +1161,7 @@ export async function discardDurableTechniqueDraft(
       alreadyCommitted: false,
       inventoryItems: await loadTechniqueGenerationRuntimeInventory(client, input.playerId),
       ...operationPayload,
+      refundRemaining: Math.max(0, input.refundDailyLimit - refundSlot.usedToday),
     };
   });
 }
@@ -1142,6 +1173,10 @@ export interface DiscardDurableTechniqueDraftBatchInput extends TechniqueGenerat
   refundCurrencyItemId: string;
   refundRatio: number;
   refundBasePrice: number;
+  /** 返还名额统计的东八区日键（YYYY-MM-DD）。 */
+  refundDayKey: string;
+  /** 每日返还名额上限。 */
+  refundDailyLimit: number;
 }
 
 /** 整批放弃草稿并按总玉简数量一次性返还功德。 */
@@ -1159,14 +1194,19 @@ export async function discardDurableTechniqueDraftBatch(
       jobId: input.batchId,
     });
     if (existingOperation) {
+      const usedToday = normalizeNonNegativeInteger(existingOperation.refundUsedToday, input.refundDailyLimit);
       return {
         ok: true,
         alreadyCommitted: true,
         inventoryItems: await loadTechniqueGenerationRuntimeInventory(client, input.playerId),
         itemSpend: normalizePositiveInteger(existingOperation.itemSpend, input.jobIds.length),
         refundRatio: normalizePositiveNumber(existingOperation.refundRatio, input.refundRatio),
-        refundAmount: normalizePositiveInteger(existingOperation.refundAmount, input.refundBasePrice),
+        refundAmount: normalizeNonNegativeInteger(existingOperation.refundAmount, 0),
         refundCurrencyItemId: normalizeOptionalString(existingOperation.refundCurrencyItemId) ?? input.refundCurrencyItemId,
+        refundGranted: existingOperation.refundGranted === true,
+        refundDailyLimit: input.refundDailyLimit,
+        refundUsedToday: usedToday,
+        refundRemaining: Math.max(0, input.refundDailyLimit - usedToday),
       };
     }
     if (input.jobIds.length === 0) {
@@ -1193,12 +1233,23 @@ export async function discardDurableTechniqueDraftBatch(
       (sum, row) => sum + normalizePositiveInteger(row.item_spend, 1),
       0,
     );
-    const refundAmount = Math.max(
-      1,
-      Math.floor(itemSpend * normalizePositiveInteger(input.refundBasePrice, 1) * normalizePositiveNumber(input.refundRatio, 0.3)),
-    );
     const shouldRefund = jobsResult.rows.some((row) => row.item_consumed === true && row.item_refunded !== true);
-    const beforeAfter = shouldRefund
+    // 整批放弃只计一次返还名额；达到上限则本批不再返还功德。
+    const refundSlot = shouldRefund
+      ? await claimTechniqueGenerationRefundSlot(client, {
+        playerId: input.playerId,
+        dayKey: input.refundDayKey,
+        limit: input.refundDailyLimit,
+      })
+      : { granted: false, usedToday: await readTechniqueGenerationRefundUsedToday(client, input.playerId, input.refundDayKey) };
+    const refundGranted = shouldRefund && refundSlot.granted;
+    const refundAmount = refundGranted
+      ? Math.max(
+        1,
+        Math.floor(itemSpend * normalizePositiveInteger(input.refundBasePrice, 1) * normalizePositiveNumber(input.refundRatio, 0.3)),
+      )
+      : 0;
+    const beforeAfter = refundGranted
       ? await grantTechniqueGenerationInventoryItem(
           client,
           input.playerId,
@@ -1220,7 +1271,7 @@ export async function discardDurableTechniqueDraftBatch(
     if ((updated.rowCount ?? 0) !== input.jobIds.length) {
       throw new Error(`technique_generation_batch_discard_state_conflict:${input.batchId}`);
     }
-    if (shouldRefund) {
+    if (refundGranted) {
       await touchTechniqueGenerationRecoveryWatermark(client, input.playerId, 'inventory_version');
     }
     const operationPayload = {
@@ -1230,6 +1281,9 @@ export async function discardDurableTechniqueDraftBatch(
       refundRatio: input.refundRatio,
       refundAmount,
       refundCurrencyItemId: input.refundCurrencyItemId,
+      refundGranted,
+      refundUsedToday: refundSlot.usedToday,
+      refundDailyLimit: input.refundDailyLimit,
     };
     await insertCommittedTechniqueGenerationOperation(client, {
       operationId,
@@ -1240,7 +1294,7 @@ export async function discardDurableTechniqueDraftBatch(
       fence: input,
       payload: operationPayload,
     });
-    if (shouldRefund) {
+    if (refundGranted) {
       await insertTechniqueGenerationOutbox(client, {
         operationId,
         topic: 'player.inventory.granted',
@@ -1271,6 +1325,7 @@ export async function discardDurableTechniqueDraftBatch(
       alreadyCommitted: false,
       inventoryItems: await loadTechniqueGenerationRuntimeInventory(client, input.playerId),
       ...operationPayload,
+      refundRemaining: Math.max(0, input.refundDailyLimit - refundSlot.usedToday),
     };
   });
 }
@@ -1991,6 +2046,65 @@ async function insertTechniqueGenerationAssetAudit(
   );
 }
 
+/** 领取当日放弃返还名额；返回是否领到与累计已用次数。仅在真正发放返还时调用。 */
+async function claimTechniqueGenerationRefundSlot(
+  client: PoolClient,
+  input: { playerId: string; dayKey: string; limit: number },
+): Promise<{ granted: boolean; usedToday: number }> {
+  const limit = Math.max(0, Math.trunc(Number(input.limit) || 0));
+  if (limit <= 0) {
+    return { granted: false, usedToday: 0 };
+  }
+  const claimed = await client.query<{ used_count?: unknown }>(
+    `INSERT INTO ${TECHNIQUE_GENERATION_REFUND_DAILY_TABLE}(player_id, day_key, used_count)
+       VALUES ($1, $2, 1)
+     ON CONFLICT (player_id, day_key) DO UPDATE
+       SET used_count = ${TECHNIQUE_GENERATION_REFUND_DAILY_TABLE}.used_count + 1,
+           updated_at = NOW()
+       WHERE ${TECHNIQUE_GENERATION_REFUND_DAILY_TABLE}.used_count < $3
+     RETURNING used_count`,
+    [input.playerId, input.dayKey, limit],
+  );
+  if ((claimed.rowCount ?? 0) > 0) {
+    return {
+      granted: true,
+      usedToday: normalizeNonNegativeInteger(claimed.rows[0]?.used_count, limit),
+    };
+  }
+  return {
+    granted: false,
+    usedToday: await readTechniqueGenerationRefundUsedToday(client, input.playerId, input.dayKey),
+  };
+}
+
+/** 读取当日已用返还次数（事务内读，不存在视为 0）。 */
+async function readTechniqueGenerationRefundUsedToday(
+  client: PoolClient,
+  playerId: string,
+  dayKey: string,
+): Promise<number> {
+  const result = await client.query<{ used_count?: unknown }>(
+    `SELECT used_count FROM ${TECHNIQUE_GENERATION_REFUND_DAILY_TABLE}
+      WHERE player_id = $1 AND day_key = $2`,
+    [playerId, dayKey],
+  );
+  return normalizeNonNegativeInteger(result.rows[0]?.used_count, 0);
+}
+
+/** 供状态面板读取的当日已用返还次数（非事务读，不存在视为 0）。 */
+export async function loadTechniqueGenerationRefundDailyUsed(
+  pool: Pool,
+  playerId: string,
+  dayKey: string,
+): Promise<number> {
+  const result = await pool.query<{ used_count?: unknown }>(
+    `SELECT used_count FROM ${TECHNIQUE_GENERATION_REFUND_DAILY_TABLE}
+      WHERE player_id = $1 AND day_key = $2`,
+    [playerId, dayKey],
+  );
+  return normalizeNonNegativeInteger(result.rows[0]?.used_count, 0);
+}
+
 function buildTechniqueGenerationOperationId(kind: string, jobId: string): string {
   return `op:technique-generation-${kind}:${jobId}`;
 }
@@ -2036,6 +2150,14 @@ function normalizePositiveInteger(value: unknown, fallback: number): number {
   return Number.isFinite(numeric) && numeric > 0
     ? Math.max(1, Math.trunc(numeric))
     : Math.max(1, Math.trunc(fallback));
+}
+
+/** 归一化为非负整数；用于返还金额等允许为 0 的字段。 */
+function normalizeNonNegativeInteger(value: unknown, fallback: number): number {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric >= 0
+    ? Math.trunc(numeric)
+    : Math.max(0, Math.trunc(fallback));
 }
 
 function normalizePositiveNumber(value: unknown, fallback: number): number {

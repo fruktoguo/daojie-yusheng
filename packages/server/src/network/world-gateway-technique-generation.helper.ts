@@ -117,6 +117,9 @@ export class WorldGatewayTechniqueGenerationHelper {
     const itemSpend = normalizeTechniqueGenerationItemSpend(request.itemSpend);
     const mode = request.mode === 'batch' ? 'batch' : 'single';
     const currentStatus = await this.techniqueGenerationService!.getCurrentStatusForPlayer(playerId);
+    const refundQuota = typeof this.techniqueGenerationService!.getDiscardRefundDailyUsage === 'function'
+      ? await this.techniqueGenerationService!.getDiscardRefundDailyUsage(playerId).catch(() => null)
+      : null;
     const unlocked = (highestRealmLv ?? 0) >= TECHNIQUE_GENERATION_UNLOCK_REALM_LV;
     const status = {
       available: unlocked,
@@ -136,6 +139,7 @@ export class WorldGatewayTechniqueGenerationHelper {
         ? { jobId: currentStatus.currentJob.jobId, ...currentStatus.currentDraft }
         : null,
       currentBatch: currentStatus.currentBatch,
+      refundQuota,
     };
     client.emit(S2C.TechniqueGenerationStatus, status);
     if (currentStatus.currentJob && (currentStatus.currentJob.status === 'pending' || currentStatus.currentJob.status === 'running')) {

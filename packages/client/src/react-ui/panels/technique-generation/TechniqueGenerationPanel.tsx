@@ -20,6 +20,12 @@ export interface TechniqueGenerationPanelState {
   visible: boolean;
   available: boolean;
   unavailableReason: string;
+  /** 放弃返还功德的每日名额（上限/已用/剩余）。 */
+  refundQuota: {
+    limit: number;
+    usedToday: number;
+    remaining: number;
+  } | null;
   rollRange: {
     realmLvMin: number;
     realmLvMax: number;
@@ -96,6 +102,7 @@ export const { store: techniqueGenerationStore, useStore: useTechniqueGeneration
     visible: false,
     available: false,
     unavailableReason: '',
+    refundQuota: null,
     rollRange: null,
     selectedItemSpend: 1,
     selectedMode: 'single',
@@ -596,6 +603,7 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
 
       {batchConfirmation && renderBatchConfirmation(
         batchConfirmation,
+        state.refundQuota,
         handleConfirmBatchAction,
         () => setBatchConfirmation(null),
       )}
@@ -910,6 +918,7 @@ function renderBatchPreview(
 
 function renderBatchConfirmation(
   confirmation: BatchConfirmation,
+  refundQuota: TechniqueGenerationPanelState['refundQuota'],
   onConfirm: () => void,
   onCancel: () => void,
 ): ReactElement {
@@ -929,7 +938,7 @@ function renderBatchConfirmation(
         }
       : {
           title: '确认放弃本批功法',
-          detail: `共 ${confirmation.count} 部内功草稿将一并放弃。`,
+          detail: `共 ${confirmation.count} 部内功草稿将一并放弃，整批计 1 次返还。`,
           note: '放弃后的功德返还比例由服务端统一结算，本批草稿无法恢复。',
           confirmLabel: '确认放弃',
         };
@@ -947,6 +956,12 @@ function renderBatchConfirmation(
         </div>
         <strong>{content.detail}</strong>
         <p>{content.note}</p>
+        {confirmation.action === 'discard' && refundQuota && (
+          <p className={`technique-generation-panel__quota ${refundQuota.remaining <= 0 ? 'is-empty' : ''}`}>
+            今日剩余返还次数 <strong>{refundQuota.remaining}/{refundQuota.limit}</strong>
+            {refundQuota.remaining <= 0 ? '，本次放弃不再返还功德' : ''}
+          </p>
+        )}
         <div className="technique-generation-panel__actions">
           <button type="button" className="small-btn technique-generation-panel__adopt" onClick={onConfirm}>
             {content.confirmLabel}

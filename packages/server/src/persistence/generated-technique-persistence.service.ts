@@ -27,6 +27,7 @@ import { resolvePlayerDisplayName } from '../runtime/player/player-display-name'
 
 export const GENERATED_TECHNIQUE_TABLE = 'generated_technique';
 export const TECHNIQUE_GENERATION_JOB_TABLE = 'technique_generation_job';
+export const TECHNIQUE_GENERATION_REFUND_DAILY_TABLE = 'technique_generation_refund_daily';
 
 // ─── 建表 ───
 
@@ -168,6 +169,18 @@ export async function ensureGeneratedTechniqueTables(pool: Pool): Promise<void> 
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_gen_job_status
         ON ${TECHNIQUE_GENERATION_JOB_TABLE}(status, created_at DESC)
+    `);
+
+    // 每日放弃返还功德计数：按玩家 + 东八区日键统计，供返还名额上限判定。
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ${TECHNIQUE_GENERATION_REFUND_DAILY_TABLE} (
+        player_id             VARCHAR(120) NOT NULL,
+        day_key               VARCHAR(10)  NOT NULL,
+        used_count            INT          NOT NULL DEFAULT 0,
+        created_at            TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+        updated_at            TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (player_id, day_key)
+      )
     `);
 
     await client.query('COMMIT');

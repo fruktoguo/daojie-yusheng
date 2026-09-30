@@ -35,6 +35,7 @@ import {
   updateGenerationJobStatus,
   expireStaleGenerationJobs,
 } from '../../persistence/generated-technique-persistence.service';
+import { getChinaDateKey } from '../../persistence/activity-persistence.service';
 import {
   adoptDurableTechniqueDraft,
   adoptDurableTechniqueDraftBatch,
@@ -49,6 +50,7 @@ import {
   persistGeneratedTechniqueDraft,
   persistGeneratedTechniqueDraftBatch,
   refundDurableFailedTechniqueGenerationJobs,
+  loadTechniqueGenerationRefundDailyUsed,
   TechniqueGenerationCommitOutcomeUnknownError,
   type TechniqueGenerationRuntimeInventoryItem,
 } from '../../persistence/technique-generation-durable-persistence';
@@ -77,6 +79,7 @@ import {
   TECHNIQUE_GENERATION_MANUAL_CANCEL_AFTER_MS,
   TECHNIQUE_GENERATION_ITEM_ID,
   TECHNIQUE_GENERATION_SCHEMA_VERSION,
+  TECHNIQUE_GENERATION_DAILY_REFUND_LIMIT,
 } from './technique-generation-constants';
 import {
   buildBalancedInternalTechniqueCandidate,
@@ -796,6 +799,22 @@ export class TechniqueGenerationService {
       .filter((entry): entry is TechniqueBatchPreview => entry !== null);
   }
 
+  /** 查询当日放弃返还名额使用情况，供状态面板与确认窗显示剩余次数。 */
+  async getDiscardRefundDailyUsage(playerId: string): Promise<{
+    limit: number;
+    usedToday: number;
+    remaining: number;
+  } | null> {
+    const pool = this.pool;
+    if (!pool) return null;
+    const usedToday = await loadTechniqueGenerationRefundDailyUsed(pool, playerId, getChinaDateKey());
+    return {
+      limit: TECHNIQUE_GENERATION_DAILY_REFUND_LIMIT,
+      usedToday,
+      remaining: Math.max(0, TECHNIQUE_GENERATION_DAILY_REFUND_LIMIT - usedToday),
+    };
+  }
+
   /** 采纳草稿 → 直接学习 */
   async adoptDraft(params: {
     playerId: string;
@@ -959,6 +978,8 @@ export class TechniqueGenerationService {
       refundCurrencyItemId,
       refundRatio,
       refundBasePrice: TECHNIQUE_GENERATION_REFUND_BASE_PRICE,
+      refundDayKey: getChinaDateKey(),
+      refundDailyLimit: TECHNIQUE_GENERATION_DAILY_REFUND_LIMIT,
       expectedRuntimeOwnerId,
       expectedSessionEpoch,
     });
@@ -975,9 +996,9 @@ export class TechniqueGenerationService {
     }
     const itemSpend = normalizeRefundItemSpend(discarded.itemSpend);
     const committedRefundRatio = Number(discarded.refundRatio ?? refundRatio);
-    const committedRefundAmount = normalizeRefundItemSpend(discarded.refundAmount);
+    const committedRefundAmount = normalizeNonNegativeInteger(discarded.refundAmount);
     this.logger.log(
-      `自创功法取消返还 playerId=${params.playerId} jobId=${params.jobId} itemSpend=${itemSpend} refundRatio=${Math.round(committedRefundRatio * 100)}% refundCurrency=${discarded.refundCurrencyItemId ?? refundCurrencyItemId} refundAmount=${committedRefundAmount}`,
+      `自创功法取消返还 playerId=${params.playerId} jobId=${params.jobId} itemSpend=${itemSpend} refundRatio=${Math.round(committedRefundRatio * 100)}% refundCurrency=${discarded.refundCurrencyItemId ?? refundCurrencyItemId} refundAmount=${committedRefundAmount} refundUsedToday=${discarded.refundUsedToday ?? 0}/${TECHNIQUE_GENERATION_DAILY_REFUND_LIMIT}`,
     );
     return {
       success: true,
@@ -986,6 +1007,9 @@ export class TechniqueGenerationService {
         refundRatio: committedRefundRatio,
         refundAmount: committedRefundAmount,
         refundCurrencyItemId: discarded.refundCurrencyItemId ?? refundCurrencyItemId,
+        dailyLimit: TECHNIQUE_GENERATION_DAILY_REFUND_LIMIT,
+        usedToday: normalizeNonNegativeInteger(discarded.refundUsedToday),
+        remaining: normalizeNonNegativeInteger(discarded.refundRemaining),
       },
     };
   }
@@ -1017,6 +1041,8 @@ export class TechniqueGenerationService {
       refundCurrencyItemId,
       refundRatio,
       refundBasePrice: TECHNIQUE_GENERATION_REFUND_BASE_PRICE,
+      refundDayKey: getChinaDateKey(),
+      refundDailyLimit: TECHNIQUE_GENERATION_DAILY_REFUND_LIMIT,
       expectedRuntimeOwnerId,
       expectedSessionEpoch,
     });
@@ -1036,8 +1062,11 @@ export class TechniqueGenerationService {
       refund: {
         itemSpend: normalizeRefundItemSpend(discarded.itemSpend),
         refundRatio: Number(discarded.refundRatio ?? refundRatio),
-        refundAmount: normalizeRefundItemSpend(discarded.refundAmount),
+        refundAmount: normalizeNonNegativeInteger(discarded.refundAmount),
         refundCurrencyItemId: discarded.refundCurrencyItemId ?? refundCurrencyItemId,
+        dailyLimit: TECHNIQUE_GENERATION_DAILY_REFUND_LIMIT,
+        usedToday: normalizeNonNegativeInteger(discarded.refundUsedToday),
+        remaining: normalizeNonNegativeInteger(discarded.refundRemaining),
       },
     };
   }
@@ -1637,6 +1666,12 @@ function normalizeRefundItemSpend(value: unknown): number {
     return 1;
   }
   return Math.max(1, Math.trunc(numeric));
+}
+
+/** 归一化为非负整数；返还金额达到上限时为 0。 */
+function normalizeNonNegativeInteger(value: unknown): number {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric >= 0 ? Math.trunc(numeric) : 0;
 }
 
 function normalizeTechniqueGenerationOwnerId(value: unknown): string | null {

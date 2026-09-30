@@ -397,6 +397,12 @@ export interface S2C_TechniqueGenerationResult {
     refundRatio: number;
     refundAmount: number;
     refundCurrencyItemId: string;
+    /** 每日返还名额上限。 */
+    dailyLimit?: number;
+    /** 今日已用返还次数（含本次）。 */
+    usedToday?: number;
+    /** 今日剩余返还次数。 */
+    remaining?: number;
   };
   errorMessage?: string;
 }
@@ -405,6 +411,12 @@ export interface S2C_TechniqueGenerationResult {
 export interface S2C_TechniqueGenerationStatus {
   available: boolean;
   unavailableReason?: string;
+  /** 放弃返还功德的每日名额（上限/已用/剩余）。 */
+  refundQuota?: {
+    limit: number;
+    usedToday: number;
+    remaining: number;
+  } | null;
   rollRange?: {
     realmLvMin: number;
     realmLvMax: number;

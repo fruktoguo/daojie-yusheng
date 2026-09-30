@@ -819,6 +819,9 @@ async function testDurableDiscardPersistsFirstRefundRollAndDoesNotGrantTwice(): 
         rowCount: 1,
       };
     }
+    if (sql.includes('technique_generation_refund_daily')) {
+      return { rows: [{ used_count: 1 }], rowCount: 1 };
+    }
     if (sql.includes('FROM player_inventory_item') && sql.includes('item_id = $2') && sql.includes('LIMIT 1')) {
       return { rows: [{ item_instance_id: 'item:merit', count: 5 }], rowCount: 1 };
     }
@@ -839,11 +842,16 @@ async function testDurableDiscardPersistsFirstRefundRollAndDoesNotGrantTwice(): 
     refundCurrencyItemId: 'merit',
     refundRatio: 0.5,
     refundBasePrice: 1000,
+    refundDayKey: '2026-01-01',
+    refundDailyLimit: 100,
     expectedRuntimeOwnerId: 'runtime:discard-durable',
     expectedSessionEpoch: 13,
   });
   assert.equal(result.ok, true);
   assert.equal(result.refundAmount, 1000);
+  assert.equal(result.refundGranted, true);
+  assert.equal(result.refundUsedToday, 1);
+  assert.equal(result.refundRemaining, 99);
   assert.equal(result.inventoryItems[0]?.count, 1005);
   assert.equal(queries.filter((entry) => entry.sql.includes('UPDATE player_inventory_item')).length, 1);
   assert.ok(queries.some((entry) => entry.sql.includes("SET status = 'discarded'")));
@@ -885,6 +893,8 @@ async function testDurableDiscardPersistsFirstRefundRollAndDoesNotGrantTwice(): 
     refundCurrencyItemId: 'merit',
     refundRatio: 0.7,
     refundBasePrice: 1000,
+    refundDayKey: '2026-01-01',
+    refundDailyLimit: 100,
     expectedRuntimeOwnerId: 'runtime:discard-durable',
     expectedSessionEpoch: 13,
   });
@@ -893,6 +903,55 @@ async function testDurableDiscardPersistsFirstRefundRollAndDoesNotGrantTwice(): 
   assert.equal(retried.refundRatio, 0.5);
   assert.equal(retried.refundAmount, 1000);
   assert.ok(!retryQueries.some((entry) => entry.sql.includes('UPDATE player_inventory_item')));
+}
+
+async function testDurableDiscardStillSucceedsWithoutRefundWhenDailyQuotaExhausted(): Promise<void> {
+  const queries: QueryRecord[] = [];
+  const pool = createFakeConnectedPool(queries, (sql) => {
+    if (sql.includes('FROM player_presence')) {
+      return { rows: [{ runtime_owner_id: 'runtime:discard-quota', session_epoch: 15 }], rowCount: 1 };
+    }
+    if (sql.includes('FROM technique_generation_job') && sql.includes('item_spend')) {
+      return {
+        rows: [{ status: 'generated_draft', item_spend: 2, item_consumed: true, item_refunded: false }],
+        rowCount: 1,
+      };
+    }
+    if (sql.includes('INSERT INTO technique_generation_refund_daily')) {
+      return { rows: [], rowCount: 0 };
+    }
+    if (sql.includes('technique_generation_refund_daily')) {
+      return { rows: [{ used_count: 100 }], rowCount: 1 };
+    }
+    if (sql.includes('FROM player_inventory_item') && sql.includes('raw_payload') && !sql.includes('FOR UPDATE')) {
+      return {
+        rows: [{ item_instance_id: 'item:merit', item_id: 'merit', count: 5, slot_index: 0, raw_payload: { count: 5 } }],
+        rowCount: 1,
+      };
+    }
+    return { rows: [], rowCount: 0 };
+  });
+  const result = await discardDurableTechniqueDraft(pool, {
+    playerId: 'player:discard-quota',
+    jobId: 'job:discard-quota',
+    refundCurrencyItemId: 'merit',
+    refundRatio: 0.5,
+    refundBasePrice: 1000,
+    refundDayKey: '2026-01-01',
+    refundDailyLimit: 100,
+    expectedRuntimeOwnerId: 'runtime:discard-quota',
+    expectedSessionEpoch: 15,
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.refundGranted, false);
+  assert.equal(result.refundAmount, 0);
+  assert.equal(result.refundUsedToday, 100);
+  assert.equal(result.refundRemaining, 0);
+  assert.equal(result.inventoryItems[0]?.count, 5);
+  assert.ok(queries.some((entry) => entry.sql.includes("SET status = 'discarded'")));
+  assert.ok(queries.some((entry) => entry.sql.includes('INSERT INTO durable_operation_log')));
+  assert.ok(!queries.some((entry) => entry.sql.includes('UPDATE player_inventory_item')));
+  assert.ok(!queries.some((entry) => entry.params?.includes('player.inventory.granted')));
 }
 
 async function testDurableCancelIncompleteGenerationRequiresOneMinuteAndRefundsJade(): Promise<void> {
@@ -1092,6 +1151,8 @@ async function testCommittedTechniqueReplayRejectsCrossPlayerAndWrongOperationTy
       refundCurrencyItemId: 'merit',
       refundRatio: 0.5,
       refundBasePrice: 1000,
+      refundDayKey: '2026-01-01',
+      refundDailyLimit: 100,
       expectedRuntimeOwnerId: 'runtime:discard-replay',
       expectedSessionEpoch: 22,
     }),
@@ -2230,6 +2291,7 @@ async function main(): Promise<void> {
   await testDurableGenerationRejectsSecondActiveJobUnderPlayerLock();
   await testDurableAdoptCommitsComprehensionBeforeLearnedMarkerAndRetriesIdempotently();
   await testDurableDiscardPersistsFirstRefundRollAndDoesNotGrantTwice();
+  await testDurableDiscardStillSucceedsWithoutRefundWhenDailyQuotaExhausted();
   await testDurableCancelIncompleteGenerationRequiresOneMinuteAndRefundsJade();
   await testExpireStaleJobsAutoCancelsIncompleteGeneration();
   await testCommittedTechniqueReplayRejectsCrossPlayerAndWrongOperationType();

@@ -401,6 +401,20 @@
       line-height: 1.7;
     }
 
+    .technique-generation-panel__confirm > p.technique-generation-panel__quota {
+      color: var(--ink-dark);
+    }
+
+    .technique-generation-panel__quota strong {
+      color: var(--ink-black);
+      font-weight: 700;
+    }
+
+    .technique-generation-panel__quota.is-empty,
+    .technique-generation-panel__quota.is-empty strong {
+      color: var(--ink-danger);
+    }
+
     .technique-generation-panel__input,
 
     .technique-generation-panel__preview {

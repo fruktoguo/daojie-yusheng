@@ -65,6 +65,12 @@ export interface DiscardRefundResult {
   refundRatio: number;
   refundAmount: number;
   refundCurrencyItemId: string;
+  /** 每日返还名额上限。 */
+  dailyLimit?: number;
+  /** 今日已用返还次数（含本次）。 */
+  usedToday?: number;
+  /** 今日剩余返还次数。 */
+  remaining?: number;
 }
 
 export interface DiscardResult {
