@@ -301,7 +301,7 @@
     grid-row: 1 / 4;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-rows: auto auto max-content;
     width: 100%;
     min-height: 0;
     min-width: 0;
@@ -324,9 +324,12 @@
         gap: 6px;
       }
       .mobile-ui-pane [data-mobile-section="overview"] .hud-realm-block {
-        min-height: 94px;
+        min-height: 0;
         gap: 5px;
         padding: 26px 10px 8px;
+      }
+      .mobile-ui-pane [data-mobile-section="overview"] .hud-progress-shell {
+        margin-top: 2px;
       }
       .mobile-ui-pane [data-mobile-section="overview"] .hud-realm-label {
         left: 10px;

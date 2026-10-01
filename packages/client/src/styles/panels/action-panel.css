@@ -187,6 +187,29 @@
       cursor: grab;
     }
 
+    /* 自动战斗队列控制条：桌面端不改变原有行内布局，竖屏下变成右侧纵向图标栏。 */
+    .action-queue-rail {
+      display: contents;
+    }
+
+    .action-icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    .action-icon-btn__icon {
+      display: none;
+      line-height: 0;
+    }
+
+    .action-icon-btn__icon svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+
     .action-drag-handle:active {
       cursor: grabbing;
     }
@@ -1364,5 +1387,41 @@
       .enhancement-action-row {
         flex-direction: column;
         align-items: stretch;
+      }
+
+      /* 竖屏自动战斗技能行：右侧纵向图标栏（循环/移动），绑定键与执行保持底部操作行。 */
+      .action-item.action-item-draggable {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-rows: auto auto;
+        grid-template-areas:
+          'copy rail'
+          'cta cta';
+        gap: 8px 10px;
+      }
+      .action-item.action-item-draggable .action-copy {
+        grid-area: copy;
+      }
+      .action-item.action-item-draggable .action-queue-rail {
+        grid-area: rail;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding-left: 2px;
+      }
+      .action-item.action-item-draggable .action-cta {
+        grid-area: cta;
+      }
+      .action-icon-btn {
+        min-width: 36px;
+        min-height: 36px;
+        padding: 4px 6px;
+      }
+      .action-icon-btn__icon {
+        display: inline-flex;
+      }
+      .action-icon-btn__text {
+        display: none;
       }
     }

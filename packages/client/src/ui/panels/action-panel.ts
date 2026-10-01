@@ -80,6 +80,12 @@ type SkillEnabledEntry = {
 
 const FLOATING_INTERACTION_ACTION_TYPES = new Set(['quest', 'interact', 'travel', 'craft']);
 
+/** 自动战斗循环图标：循环箭头，竖屏下替代“自动 开/关”文字。 */
+const ACTION_QUEUE_LOOP_ICON_SVG = '<svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26l1.46-1.46A5.9 5.9 0 0 1 6 12c0-3.31 2.69-6 6-6zm6.76 1.74-1.46 1.46c.44.84.7 1.79.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z"/></svg>';
+
+/** 队列拖拽排序图标：六点手柄，竖屏下替代“拖拽”文字。 */
+const ACTION_QUEUE_DRAG_ICON_SVG = '<svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><circle cx="9" cy="5.5" r="1.7"/><circle cx="15" cy="5.5" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="18.5" r="1.7"/><circle cx="15" cy="18.5" r="1.7"/></svg>';
+
 function replaceElementHtml(root: HTMLElement, html: string): void {
   const template = document.createElement('template');
   template.innerHTML = html.trim();
@@ -1646,9 +1652,21 @@ export class ActionPanel {
       ? `<span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${autoBattleEnabled ? t('action.skill.auto-state.enabled', undefined) : t('action.skill.auto-state.disabled', undefined)}</span>
          ${autoBattleOrder ? `<span class="action-type">${t('action.skill.order', { order: formatDisplayInteger(autoBattleOrder) })}</span>` : ''}`
       : '';
+    const autoToggleLabel = autoBattleEnabled
+      ? t('action.skill.auto-toggle.on', undefined)
+      : t('action.skill.auto-toggle.off', undefined);
+    const autoBattleSkillName = skillContext?.skill.name || action.name;
     const autoBattleControls = isAutoBattleSkill
-      ? `<button class="small-btn ghost ${autoBattleEnabled ? 'active' : ''}" data-auto-battle-toggle="${action.id}" type="button">${autoBattleEnabled ? t('action.skill.auto-toggle.on', undefined) : t('action.skill.auto-toggle.off', undefined)}</button>
-         ${options?.showDragHandle ? `<button class="small-btn ghost action-drag-handle" data-auto-battle-drag="${action.id}" draggable="true" type="button">${t('common.action.drag', undefined)}</button>` : ''}`
+      ? `<div class="action-queue-rail">
+        <button class="small-btn ghost action-icon-btn${autoBattleEnabled ? ' active' : ''}" data-auto-battle-toggle="${action.id}" type="button" aria-pressed="${autoBattleEnabled ? 'true' : 'false'}" title="${escapeHtml(`${autoBattleSkillName}：${autoToggleLabel}`)}">
+          <span class="action-icon-btn__icon" aria-hidden="true">${ACTION_QUEUE_LOOP_ICON_SVG}</span>
+          <span class="action-icon-btn__text">${escapeHtml(autoToggleLabel)}</span>
+        </button>
+        ${options?.showDragHandle ? `<button class="small-btn ghost action-drag-handle action-icon-btn" data-auto-battle-drag="${action.id}" draggable="true" type="button" aria-label="${escapeHtml(`拖拽调整${autoBattleSkillName}顺位`)}" title="拖拽调整顺位">
+          <span class="action-icon-btn__icon" aria-hidden="true">${ACTION_QUEUE_DRAG_ICON_SVG}</span>
+          <span class="action-icon-btn__text">${escapeHtml(t('common.action.drag', undefined))}</span>
+        </button>` : ''}
+      </div>`
       : '';
     const affinityChip = skillContext ? this.renderActionSkillAffinityChip(skillContext.skill) : '';
     const executeLabel = action.id === 'sect:manage'
@@ -1674,8 +1692,8 @@ export class ActionPanel {
         <div class="action-desc" data-action-desc-node="${action.id}">${this.renderActionDescription(action)}</div>
         ${affinityChip}
       </div>
+      ${autoBattleControls}
       <div class="action-cta ui-action-row ui-action-row--end">
-        ${autoBattleControls}
         ${isResidentSkill ? '' : `<button class="small-btn ghost" data-bind-action="${action.id}" type="button">${this.getBindButtonLabel(action.id)}</button>`}
         <span class="action-cd" data-action-cd="${action.id}"${onCd ? '' : ' hidden'}>${onCd ? t('action.cooldown', { ticks: formatDisplayInteger(action.cooldownLeft) }) : ''}</span>
         <button class="small-btn" data-action="${action.id}" data-action-exec="${action.id}" data-action-name="${escapeHtml(action.name)}" data-action-range="${action.range ?? ''}" data-action-target="${action.requiresTarget ? '1' : '0'}" data-action-target-mode="${action.targetMode ?? ''}"${onCd || isResidentSkill ? ' hidden' : ''}>${executeLabel}</button>
@@ -1892,7 +1910,16 @@ export class ActionPanel {
         orderNode.hidden = order === null;
         orderNode.textContent = order === null ? '' : t('action.skill.order', { order: order + 1 });
         toggleNode.classList.toggle('active', enabled);
-        toggleNode.textContent = enabled ? t('action.skill.auto-toggle.on', undefined) : t('action.skill.auto-toggle.off', undefined);
+        toggleNode.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+        const nextToggleLabel = enabled ? t('action.skill.auto-toggle.on', undefined) : t('action.skill.auto-toggle.off', undefined);
+        const toggleTextNode = toggleNode.querySelector<HTMLElement>('.action-icon-btn__text');
+        if (toggleTextNode) {
+          if (toggleTextNode.textContent !== nextToggleLabel) {
+            toggleTextNode.textContent = nextToggleLabel;
+          }
+        } else if (toggleNode.textContent !== nextToggleLabel) {
+          toggleNode.textContent = nextToggleLabel;
+        }
       }
     }
 
