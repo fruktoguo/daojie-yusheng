@@ -56,6 +56,8 @@ export interface BatchAdoptResult {
   batchId?: string;
   techniqueIds?: string[];
   techniqueNames?: string[];
+  /** 选择性采纳时未达标草稿的放弃返还结果。 */
+  discardRefund?: DiscardRefundResult;
   error?: string;
   errorCode?: string;
 }

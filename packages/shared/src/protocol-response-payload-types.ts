@@ -372,6 +372,8 @@ export interface S2C_TechniqueGenerationResult {
     modelName?: string;
     fullLevelAttrs?: Partial<Attributes>;
     skills?: SkillDef[];
+    /** 本功法生成强度（0.8~1.2），仅用于展示与筛选排序。 */
+    budgetPercent?: number;
   };
   batchId?: string;
   previews?: Array<{
@@ -387,6 +389,8 @@ export interface S2C_TechniqueGenerationResult {
     modelName?: string;
     fullLevelAttrs?: Partial<Attributes>;
     skills?: SkillDef[];
+    /** 本功法生成强度（0.8~1.2），仅用于展示与筛选排序。 */
+    budgetPercent?: number;
   }>;
   techniqueId?: string;
   techniqueName?: string;
@@ -458,6 +462,8 @@ export interface S2C_TechniqueGenerationStatus {
     modelName?: string;
     fullLevelAttrs?: Partial<Attributes>;
     skills?: SkillDef[];
+    /** 本功法生成强度（0.8~1.2），仅用于展示与筛选排序。 */
+    budgetPercent?: number;
   } | null;
   currentBatch: {
     batchId: string;
@@ -483,6 +489,8 @@ export interface S2C_TechniqueGenerationStatus {
       modelName?: string;
       fullLevelAttrs?: Partial<Attributes>;
       skills?: SkillDef[];
+      /** 本功法生成强度（0.8~1.2），仅用于展示与筛选排序。 */
+      budgetPercent?: number;
     }>;
   } | null;
 }

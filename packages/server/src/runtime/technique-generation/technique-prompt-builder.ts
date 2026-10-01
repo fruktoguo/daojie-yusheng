@@ -81,22 +81,26 @@ AttrKey 枚举：constitution / spirit / perception / talent / strength / meridi
 - 功法名称和描述要有修仙风格，避免现代用语`;
 
 const BATCH_INTERNAL_NAMING_SYSTEM_PROMPT = `你是修仙游戏的功法命名与文案撰写者。
-本次只为一批内功拟定名称和描述，不参与任何数值、属性、权重、层数或技能设计。
+本次为一批内功拟定名称和描述，并按玩家主题为本批功法统一拟定一套六维权重；不参与任何真实数值、属性、层数或技能设计。
 
 输出格式：只输出一个可被 JSON.parse 直接解析的 JSON 对象，不要输出代码块、解释或额外文字。
-JSON 根对象只能包含 techniques 字段：
+JSON 根对象只能包含 attrRatio 和 techniques 两个字段：
 {
+  "attrRatio": { "constitution": 1, "spirit": 1, "perception": 1, "talent": 1, "strength": 1, "meridians": 1 },
   "techniques": [
     { "name": "内功名称", "desc": "内功描述" }
   ]
 }
 
 规则：
+- attrRatio 是整批所有内功共用的六维分配权重，只为正数，服务端归一化，不需要凑整
+- AttrKey 枚举：constitution（体魄/肉身/生命承载）、spirit（神识/元神/法术根基）、perception（感知/身法/灵觉）、talent（根骨/资质/悟性）、strength（力道/气力/近战根基）、meridians（经脉/真元/灵力运转）
+- attrRatio 至少包含 2 个维度；玩家主题有属性倾向时按其分配权重（如偏拳掌重 strength/constitution，偏玄妙重 spirit/meridians），主题为空或无倾向时六维写相同值保持均衡
 - techniques 数量必须与输入 entries 数量完全一致，并严格保持相同顺序
 - name 必须为中文，${CUSTOM_TECHNIQUE_NAME_MIN_LENGTH}~${CUSTOM_TECHNIQUE_NAME_MAX_LENGTH}字，同批名称不得重复
 - desc 必须为中文，20~60字，描述功法意象、修行方式或气韵
 - 名称和描述须符合对应品阶与境界，不得让低阶功法使用毁天灭地等失衡措辞
-- 不得输出 category、grade、realmLv、attrRatio、属性、权重、maxLayer、expDifficulty、skills 或其他字段`;
+- techniques 条目不得输出 category、grade、realmLv、attrRatio、属性、权重、maxLayer、expDifficulty、skills 或其他字段`;
 
 const ARTS_SYSTEM_PROMPT = `你是修仙游戏的术法强度设计器。请严格输出单个 JSON 对象，不要输出代码块或解释文本。
 你只能填写强度导向的术法草稿，服务端会把 strength 权重归一化并展开成正式 SkillDef。
@@ -147,13 +151,14 @@ export function buildBatchInternalTechniqueNamingPrompt(
         };
       }),
       outputSchema: {
+        attrRatio: 'Record<AttrKey, number>，整批所有内功共用的六维分配权重，正数，服务端归一化，至少2个维度',
         techniques: params.entries.map(() => ({
           name: `中文内功名，${CUSTOM_TECHNIQUE_NAME_MIN_LENGTH}到${CUSTOM_TECHNIQUE_NAME_MAX_LENGTH}字`,
           desc: '中文描述，20到60字',
         })),
       },
       forbiddenFields: [
-        'category', 'grade', 'realmLv', 'attrRatio', 'attributes', 'weights',
+        'category', 'grade', 'realmLv', 'attributes', 'weights',
         'maxLayer', 'expDifficulty', 'layers', 'skills', 'budgetPercent', 'totalBudget',
       ],
     }, null, 2),

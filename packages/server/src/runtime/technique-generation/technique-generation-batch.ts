@@ -23,6 +23,10 @@ export interface BalancedInternalTechniqueCandidate extends Record<string, unkno
   attrRatio: Record<(typeof ATTR_KEYS)[number], number>;
 }
 
+/** 六维等权权重，批量未产出共享权重时的默认值。 */
+export const BALANCED_INTERNAL_ATTR_RATIO: Record<(typeof ATTR_KEYS)[number], number> =
+  Object.fromEntries(ATTR_KEYS.map((key) => [key, 1])) as Record<(typeof ATTR_KEYS)[number], number>;
+
 export function createTechniqueGenerationBatchIdentity(countInput: number): TechniqueGenerationBatchIdentity {
   const count = Math.max(1, Math.trunc(Number(countInput) || 1));
   const batchId = `${BATCH_ID_PREFIX}${randomUUID().replace(/-/g, '')}`;
@@ -51,11 +55,12 @@ export function isTechniqueGenerationBatchJobId(jobId: unknown): boolean {
   return resolveTechniqueGenerationBatchId(jobId) !== null;
 }
 
-/** 批量领悟的数值不交给 AI，六维始终使用服务端等权模板。 */
-export function buildBalancedInternalTechniqueCandidate(input: {
+/** 批量内功候选：AI 只产出名称、描述与一套整批共用权重；预算、层数等数值由服务端确定。 */
+export function buildBatchInternalTechniqueCandidate(input: {
   name: string;
   desc: string;
   maxLayer: number;
+  attrRatio?: Record<(typeof ATTR_KEYS)[number], number>;
 }): BalancedInternalTechniqueCandidate {
   return {
     name: input.name,
@@ -63,7 +68,7 @@ export function buildBalancedInternalTechniqueCandidate(input: {
     category: 'internal',
     maxLayer: input.maxLayer,
     expDifficulty: 1,
-    attrRatio: Object.fromEntries(ATTR_KEYS.map((key) => [key, 1])) as BalancedInternalTechniqueCandidate['attrRatio'],
+    attrRatio: input.attrRatio ?? BALANCED_INTERNAL_ATTR_RATIO,
   };
 }
 

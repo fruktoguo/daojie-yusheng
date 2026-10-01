@@ -1007,6 +1007,58 @@
       font-size: var(--font-size-12);
     }
 
+    .technique-generation-panel__batch-tools {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px 14px;
+      padding: 10px 12px;
+      border: 1px solid rgba(34, 26, 19, 0.1);
+      background: rgba(255, 255, 255, 0.28);
+    }
+
+    .technique-generation-panel__batch-filter {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      color: var(--ink-light);
+      font-size: var(--font-size-12);
+      white-space: nowrap;
+    }
+
+    .technique-generation-panel__batch-filter select {
+      padding: 4px 8px;
+      border: 1px solid rgba(34, 26, 19, 0.16);
+      background: rgba(255, 255, 255, 0.5);
+      color: var(--ink-black);
+      font-size: var(--font-size-12);
+    }
+
+    .technique-generation-panel__batch-filter input[type="range"] {
+      width: 110px;
+    }
+
+    .technique-generation-panel__batch-keep-summary {
+      margin-left: auto;
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+    }
+
+    .technique-generation-panel__batch-keep-summary strong {
+      color: var(--ink-black);
+    }
+
+    .technique-generation-panel__batch-card--dropped {
+      opacity: 0.55;
+    }
+
+    .technique-generation-panel__batch-drop-tag {
+      align-self: flex-start;
+      color: var(--ink-light);
+      font-size: var(--font-size-12);
+    }
+
     .technique-generation-panel__preview-info {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1164,6 +1216,8 @@
 
     :root[data-color-mode="dark"] .technique-generation-panel__batch-heading,
 
+    :root[data-color-mode="dark"] .technique-generation-panel__batch-tools,
+
     :root[data-color-mode="dark"] .technique-generation-panel__batch-card,
 
     :root[data-color-mode="dark"] .technique-generation-panel__roll-grid div,
@@ -1177,7 +1231,9 @@
 
     :root[data-color-mode="dark"] .technique-generation-panel textarea,
 
-    :root[data-color-mode="dark"] .technique-generation-panel input {
+    :root[data-color-mode="dark"] .technique-generation-panel input,
+
+    :root[data-color-mode="dark"] .technique-generation-panel select {
       background: rgba(255, 255, 255, 0.06);
       color: var(--ink-black);
     }
@@ -1294,6 +1350,17 @@
 
       .technique-generation-panel__batch-attrs {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .technique-generation-panel__batch-tools {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .technique-generation-panel__batch-filter input[type="range"] {
+        flex: 1 1 auto;
+        width: auto;
+      }
+      .technique-generation-panel__batch-keep-summary {
+        margin-left: 0;
       }
       .technique-generation-panel__actions .small-btn {
         width: 100%;

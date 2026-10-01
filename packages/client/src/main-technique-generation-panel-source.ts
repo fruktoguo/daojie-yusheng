@@ -31,7 +31,7 @@ export function createMainTechniqueGenerationPanelSource(
     onPreviewItemSpend: (itemSpend, mode) => sender.sendGetStatus(itemSpend, mode),
     onAdopt: (jobId, customName) => sender.sendAdopt(jobId, customName),
     onDiscard: (jobId) => sender.sendDiscard(jobId),
-    onAdoptBatch: (batchId) => sender.sendAdoptBatch(batchId),
+    onAdoptBatch: (batchId, keepJobIds) => sender.sendAdoptBatch(batchId, keepJobIds),
     onDiscardBatch: (batchId) => sender.sendDiscardBatch(batchId),
     onCancel: (jobId, batchId) => {
       if (batchId) {

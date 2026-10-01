@@ -15,7 +15,7 @@ export interface SocketTechniqueGenerationSender {
   sendGenerate(category: 'internal' | 'arts', playerContext?: string, itemSpend?: number, mode?: 'single' | 'batch'): void;
   sendAdopt(jobId: string, customName: string): void;
   sendDiscard(jobId: string): void;
-  sendAdoptBatch(batchId: string): void;
+  sendAdoptBatch(batchId: string, keepJobIds?: string[]): void;
   sendDiscardBatch(batchId: string): void;
   sendCancel(jobId: string): void;
   sendCancelBatch(batchId: string): void;
@@ -54,8 +54,12 @@ export function createSocketTechniqueGenerationSender(deps: TechniqueGenerationS
       deps.emitEvent(C2S.TechniqueGeneration, { action: 'discard', jobId });
     },
 
-    sendAdoptBatch(batchId: string): void {
-      deps.emitEvent(C2S.TechniqueGeneration, { action: 'adoptBatch', batchId });
+    sendAdoptBatch(batchId: string, keepJobIds?: string[]): void {
+      deps.emitEvent(C2S.TechniqueGeneration, {
+        action: 'adoptBatch',
+        batchId,
+        ...(keepJobIds ? { keepJobIds } : {}),
+      });
     },
 
     sendDiscardBatch(batchId: string): void {

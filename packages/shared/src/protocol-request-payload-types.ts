@@ -342,6 +342,6 @@ export type C2S_TechniqueGeneration =
   | { action: 'generate'; category: 'internal' | 'arts'; playerContext?: string; itemSpend?: number; mode?: 'single' | 'batch' }
   | { action: 'adopt'; jobId: string; customName: string }
   | { action: 'discard'; jobId: string }
-  | { action: 'adoptBatch'; batchId: string }
+  | { action: 'adoptBatch'; batchId: string; /** 只采纳这些 job 对应的草稿，批内其余草稿一并放弃；缺省表示整批采纳。 */ keepJobIds?: string[] }
   | { action: 'discardBatch'; batchId: string }
   | { action: 'cancel'; jobId?: string; batchId?: string };

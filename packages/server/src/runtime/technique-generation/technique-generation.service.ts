@@ -13,7 +13,7 @@
 import { randomUUID } from 'crypto';
 import type { Pool } from 'pg';
 import { Injectable, Logger } from '@nestjs/common';
-import type { Attributes, TechniqueCategory, TechniqueLayerDef, TechniqueTemplate } from '@mud/shared';
+import type { Attributes, AttrKey, TechniqueCategory, TechniqueLayerDef, TechniqueTemplate } from '@mud/shared';
 import {
   CUSTOM_TECHNIQUE_NAME_MAX_LENGTH,
   CUSTOM_TECHNIQUE_NAME_MIN_LENGTH,
@@ -24,6 +24,7 @@ import {
   TECHNIQUE_INTERNAL_DEFAULT_MAX_LAYER,
   calcTechniqueAttrValues,
   expandTechniqueAttrRatio,
+  normalizeTechniqueAttrRatio,
   shouldExpandTechniqueAttrRatio,
 } from '@mud/shared';
 import { executeAiTask, type AiTaskRequest, type AiTaskResult } from '../../ai/ai-task-execution.service';
@@ -39,6 +40,7 @@ import { getChinaDateKey } from '../../persistence/activity-persistence.service'
 import {
   adoptDurableTechniqueDraft,
   adoptDurableTechniqueDraftBatch,
+  adoptDurableTechniqueDraftBatchSelection,
   beginDurableTechniqueGeneration,
   beginDurableTechniqueGenerationBatch,
   cancelDurableIncompleteTechniqueGeneration,
@@ -82,7 +84,8 @@ import {
   TECHNIQUE_GENERATION_DAILY_REFUND_LIMIT,
 } from './technique-generation-constants';
 import {
-  buildBalancedInternalTechniqueCandidate,
+  BALANCED_INTERNAL_ATTR_RATIO,
+  buildBatchInternalTechniqueCandidate,
   createTechniqueGenerationBatchIdentity,
   normalizeTechniqueNameKey,
   resolveBatchUniqueTechniqueNames,
@@ -98,6 +101,7 @@ import type {
   TechniqueBatchPreview,
   TechniqueGenerationBatchStatus,
   TechniquePreview,
+  DiscardRefundResult,
   DiscardResult,
 } from './technique-generation.types';
 
@@ -579,6 +583,7 @@ export class TechniqueGenerationService {
         })),
       });
       let namingEntries: BatchTechniqueNamingEntry[] | null = null;
+      let sharedAttrRatio: Record<AttrKey, number> = BALANCED_INTERNAL_ATTR_RATIO;
       let successfulAiResult: AiTaskResult | null = null;
       let lastFailureReason = '';
       let lastFailureCode: 'AI_FAILED' | 'PARSE_FAILED' | 'VALIDATION_FAILED' = 'VALIDATION_FAILED';
@@ -617,17 +622,18 @@ export class TechniqueGenerationService {
           continue;
         }
         const existingPublished = await this.findPublishedTechniqueNormalizedNames(
-          normalized.value.map((entry) => entry.normalizedName),
+          normalized.value.entries.map((entry) => entry.normalizedName),
         );
         const uniqueNames = resolveBatchUniqueTechniqueNames(
-          normalized.value.map((entry) => entry.name),
+          normalized.value.entries.map((entry) => entry.name),
           existingPublished,
         );
-        namingEntries = normalized.value.map((entry, index) => ({
+        namingEntries = normalized.value.entries.map((entry, index) => ({
           name: uniqueNames[index],
           desc: entry.desc,
           normalizedName: normalizeTechniqueNameKey(uniqueNames[index]),
         }));
+        sharedAttrRatio = normalized.value.attrRatio;
         successfulAiResult = { ...aiResult, attemptCount: attempt };
         break;
       }
@@ -638,13 +644,15 @@ export class TechniqueGenerationService {
       }
 
       const maxLayer = TECHNIQUE_INTERNAL_DEFAULT_MAX_LAYER;
+      const isEqualWeights = isBalancedAttrRatio(sharedAttrRatio);
       const drafts = params.jobs.map((job, index) => {
         const naming = namingEntries![index];
         const techniqueId = `gen_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
-        const candidate = buildBalancedInternalTechniqueCandidate({
+        const candidate = buildBatchInternalTechniqueCandidate({
           name: naming.name,
           desc: naming.desc,
           maxLayer,
+          attrRatio: sharedAttrRatio,
         });
         const built = buildGeneratedTechniqueTemplate({
           techniqueId,
@@ -672,7 +680,8 @@ export class TechniqueGenerationService {
             batchNamingOnly: true,
             batchId,
             batchIndex: job.index,
-            equalSixAttributeWeights: true,
+            sharedAttrRatio,
+            equalSixAttributeWeights: isEqualWeights,
           },
           grade: job.grade,
           category: 'internal',
@@ -950,6 +959,143 @@ export class TechniqueGenerationService {
       batchId: params.batchId,
       techniqueIds: adopted.techniqueIds,
       techniqueNames: adopted.techniqueNames,
+    };
+  }
+
+  /**
+   * 选择性采纳批量草稿：keepJobIds 内的草稿发布学习，批内其余草稿按放弃流程折算功德返还。
+   * 采纳与放弃在同一玩家事务内提交，任一步失败整体回滚；幂等 operation 支持安全重试。
+   */
+  async adoptBatchSelection(params: {
+    playerId: string;
+    batchId: string;
+    keepJobIds: string[];
+    learnerRealmLv: number;
+    currentTick: number;
+    expectedRuntimeOwnerId?: string | null;
+    expectedSessionEpoch?: number | null;
+    applyPendingComprehensions?: (techniqueIds: string[]) => Promise<void> | void;
+    applyInventorySnapshot?: (items: TechniqueGenerationRuntimeInventoryItem[]) => Promise<void> | void;
+  }): Promise<BatchAdoptResult> {
+    const pool = this.pool;
+    if (!pool) return { success: false, error: '功法领悟系统未就绪', errorCode: 'SERVICE_UNAVAILABLE' };
+    const expectedRuntimeOwnerId = normalizeTechniqueGenerationOwnerId(params.expectedRuntimeOwnerId);
+    const expectedSessionEpoch = normalizeTechniqueGenerationSessionEpoch(params.expectedSessionEpoch);
+    if (!expectedRuntimeOwnerId || expectedSessionEpoch === null
+      || typeof params.applyPendingComprehensions !== 'function'
+      || typeof params.applyInventorySnapshot !== 'function') {
+      return { success: false, error: '玩家持久化上下文不可用', errorCode: 'PERSISTENCE_CONTEXT_UNAVAILABLE' };
+    }
+
+    const jobs = await this.loadBatchGenerationJobsForPlayer(params.playerId, params.batchId);
+    if (jobs.length === 0) {
+      return { success: false, error: '批量领悟任务不存在', errorCode: 'JOB_NOT_FOUND' };
+    }
+    const jobById = new Map(jobs.map((job) => [job.id, job]));
+    const keepIds = [...new Set(
+      params.keepJobIds.map((id) => (typeof id === 'string' ? id.trim() : '')).filter(Boolean),
+    )];
+    if (keepIds.some((id) => !jobById.has(id))) {
+      return { success: false, error: '包含不属于本批的任务', errorCode: 'JOB_NOT_FOUND' };
+    }
+    // learned 允许通过（重复提交时 adopt 幂等短路）；其他终态不允许再采纳。
+    const invalidKeep = keepIds.find((id) => {
+      const status = jobById.get(id)!.status;
+      return status !== 'generated_draft' && status !== 'learned';
+    });
+    if (invalidKeep) {
+      return { success: false, error: '草稿状态异常', errorCode: 'JOB_STATE_INVALID' };
+    }
+    // 全部放弃语义等价于 discardBatchDraft，保持同一幂等键与返还规则。
+    if (keepIds.length === 0) {
+      const discarded = await this.discardBatchDraft({
+        playerId: params.playerId,
+        batchId: params.batchId,
+        expectedRuntimeOwnerId,
+        expectedSessionEpoch,
+        applyInventorySnapshot: params.applyInventorySnapshot,
+      });
+      if (!discarded.success) {
+        return { success: false, error: discarded.error, errorCode: discarded.errorCode };
+      }
+      return {
+        success: true,
+        batchId: params.batchId,
+        techniqueIds: [],
+        techniqueNames: [],
+        discardRefund: discarded.refund,
+      };
+    }
+    const keepIdSet = new Set(keepIds);
+    const discardTargets = jobs
+      .filter((job) => job.status === 'generated_draft' && !keepIdSet.has(job.id))
+      .map((job) => job.id);
+
+    const refundRatio = rollDiscardRefundRatio();
+    let committed;
+    try {
+      committed = await adoptDurableTechniqueDraftBatchSelection(pool, {
+        playerId: params.playerId,
+        batchId: params.batchId,
+        jobIds: keepIds,
+        learnerRealmLv: params.learnerRealmLv,
+        currentTick: params.currentTick,
+        expectedRuntimeOwnerId,
+        expectedSessionEpoch,
+        discardJobIds: discardTargets,
+        refundCurrencyItemId: HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID,
+        refundRatio,
+        refundBasePrice: TECHNIQUE_GENERATION_REFUND_BASE_PRICE,
+        refundDayKey: getChinaDateKey(),
+        refundDailyLimit: TECHNIQUE_GENERATION_DAILY_REFUND_LIMIT,
+      });
+    } catch (error: unknown) {
+      if (isPostgresUniqueViolation(error)) {
+        return { success: false, error: '部分功法名称已存在，请重新领悟', errorCode: 'NAME_CONFLICT' };
+      }
+      throw error;
+    }
+    if (!committed.adopt.ok) {
+      return mapTechniqueGenerationAdoptError(committed.adopt.errorCode);
+    }
+    await this.generatedStore?.refreshAfterPublish();
+    try {
+      await params.applyPendingComprehensions(committed.adopt.techniqueIds);
+    } catch (error: unknown) {
+      this.logger.error(
+        `批量内功选择性采纳已提交但运行态同步失败 playerId=${params.playerId} batchId=${params.batchId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+
+    const discarded = committed.discard;
+    let discardRefund: DiscardRefundResult | undefined;
+    if (discarded?.ok) {
+      try {
+        await params.applyInventorySnapshot(discarded.inventoryItems);
+      } catch (error: unknown) {
+        this.logger.error(
+          `批量内功选择性放弃返还已提交但运行态同步失败 playerId=${params.playerId} batchId=${params.batchId}`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      }
+      discardRefund = {
+        itemSpend: normalizeRefundItemSpend(discarded.itemSpend),
+        refundRatio: Number(discarded.refundRatio ?? refundRatio),
+        refundAmount: normalizeNonNegativeInteger(discarded.refundAmount),
+        refundCurrencyItemId: discarded.refundCurrencyItemId ?? HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID,
+        dailyLimit: TECHNIQUE_GENERATION_DAILY_REFUND_LIMIT,
+        usedToday: normalizeNonNegativeInteger(discarded.refundUsedToday),
+        remaining: normalizeNonNegativeInteger(discarded.refundRemaining),
+      };
+    }
+
+    return {
+      success: true,
+      batchId: params.batchId,
+      techniqueIds: committed.adopt.techniqueIds,
+      techniqueNames: committed.adopt.techniqueNames,
+      discardRefund,
     };
   }
 
@@ -1426,6 +1572,33 @@ export class TechniqueGenerationService {
       }));
   }
 
+  /** 加载整批 job（含终态），供选择性采纳/放弃做状态判定；按批次序号排序。 */
+  private async loadBatchGenerationJobsForPlayer(
+    playerId: string,
+    batchId: string,
+  ): Promise<Array<{ id: string; status: string }>> {
+    const pool = this.pool;
+    if (!pool) return [];
+    const result = await pool.query(
+      `SELECT id, status
+         FROM technique_generation_job
+        WHERE player_id = $1
+          AND LEFT(id, CHAR_LENGTH($2) + 1) = $2 || '_'
+        ORDER BY id ASC`,
+      [playerId, batchId],
+    );
+    return (result.rows as Array<{ id?: unknown; status?: unknown }>)
+      .map((row) => ({
+        id: typeof row.id === 'string' ? row.id : '',
+        status: typeof row.status === 'string' ? row.status : '',
+      }))
+      .filter((row) => row.id.length > 0)
+      .sort((left, right) => (
+        (resolveTechniqueGenerationBatchIndex(left.id) ?? 0) - (resolveTechniqueGenerationBatchIndex(right.id) ?? 0)
+        || left.id.localeCompare(right.id)
+      ));
+  }
+
   private async loadRecoverableBatchGenerationJobs(
     playerId: string,
     batchId: string,
@@ -1593,7 +1766,11 @@ function buildTechniquePreview(template: TechniqueTemplate, modelNameInput: unkn
 function normalizeBatchTechniqueNamingResponse(
   value: Record<string, unknown>,
   expectedCount: number,
-): { ok: true; value: BatchTechniqueNamingEntry[] } | { ok: false; error: string } {
+): { ok: true; value: { entries: BatchTechniqueNamingEntry[]; attrRatio: Record<AttrKey, number> } } | { ok: false; error: string } {
+  const extraRootKeys = Object.keys(value).filter((key) => key !== 'techniques' && key !== 'attrRatio');
+  if (extraRootKeys.length > 0) {
+    return { ok: false, error: `根对象只能包含 techniques 和 attrRatio：${extraRootKeys.join(', ')}` };
+  }
   const techniques = value.techniques;
   if (!Array.isArray(techniques) || techniques.length !== expectedCount) {
     return { ok: false, error: `techniques 数量必须严格等于 ${expectedCount}` };
@@ -1625,7 +1802,22 @@ function normalizeBatchTechniqueNamingResponse(
       normalizedName: normalizeTechniqueNameKey(name),
     });
   }
-  return { ok: true, value: entries };
+  // attrRatio 缺失时按六维等权处理；存在则必须可解析且至少覆盖两个维度。
+  let attrRatio = BALANCED_INTERNAL_ATTR_RATIO;
+  if (value.attrRatio !== undefined) {
+    const normalized = normalizeTechniqueAttrRatio(value.attrRatio as Record<string, unknown>);
+    const weightSum = normalized ? Object.values(normalized).reduce((sum, weight) => sum + weight, 0) : 0;
+    if (!normalized || weightSum <= 0 || Object.keys(normalized).length < 2) {
+      return { ok: false, error: 'attrRatio 必须包含至少 2 个合法六维字段且权重为正数' };
+    }
+    attrRatio = normalized as Record<AttrKey, number>;
+  }
+  return { ok: true, value: { entries, attrRatio } };
+}
+
+function isBalancedAttrRatio(attrRatio: Record<AttrKey, number>): boolean {
+  const weights = Object.values(attrRatio).filter((weight) => weight > 0);
+  return weights.length > 0 && weights.every((weight) => weight === weights[0]);
 }
 
 function resolvePreviewLayers(template: TechniqueTemplate): TechniqueLayerDef[] | undefined {

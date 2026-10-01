@@ -776,8 +776,9 @@ export interface AdoptDurableTechniqueDraftBatchResult {
 export async function adoptDurableTechniqueDraftBatch(
   pool: Pool,
   input: AdoptDurableTechniqueDraftBatchInput,
+  existingClient?: PoolClient,
 ): Promise<AdoptDurableTechniqueDraftBatchResult> {
-  return withPlayerTechniqueGenerationTransaction(pool, input.playerId, async (client) => {
+  const run = async (client: PoolClient): Promise<AdoptDurableTechniqueDraftBatchResult> => {
     await assertTechniqueGenerationSessionFence(client, input.playerId, input);
     const operationId = buildTechniqueGenerationOperationId('adopt_batch', input.batchId);
     const existingOperation = await loadCommittedTechniqueGenerationOperation(client, operationId, {
@@ -988,7 +989,11 @@ export async function adoptDurableTechniqueDraftBatch(
       techniqueIds: operationPayload.techniqueIds,
       techniqueNames: operationPayload.techniqueNames,
     };
-  });
+  };
+  if (existingClient) {
+    return run(existingClient);
+  }
+  return withPlayerTechniqueGenerationTransaction(pool, input.playerId, run);
 }
 
 export interface DiscardDurableTechniqueDraftInput extends TechniqueGenerationSessionFence {
@@ -1183,8 +1188,9 @@ export interface DiscardDurableTechniqueDraftBatchInput extends TechniqueGenerat
 export async function discardDurableTechniqueDraftBatch(
   pool: Pool,
   input: DiscardDurableTechniqueDraftBatchInput,
+  existingClient?: PoolClient,
 ): Promise<DiscardDurableTechniqueDraftResult> {
-  return withPlayerTechniqueGenerationTransaction(pool, input.playerId, async (client) => {
+  const run = async (client: PoolClient): Promise<DiscardDurableTechniqueDraftResult> => {
     await assertTechniqueGenerationSessionFence(client, input.playerId, input);
     const operationId = buildTechniqueGenerationOperationId('discard_batch', input.batchId);
     const existingOperation = await loadCommittedTechniqueGenerationOperation(client, operationId, {
@@ -1327,6 +1333,68 @@ export async function discardDurableTechniqueDraftBatch(
       ...operationPayload,
       refundRemaining: Math.max(0, input.refundDailyLimit - refundSlot.usedToday),
     };
+  };
+  if (existingClient) {
+    return run(existingClient);
+  }
+  return withPlayerTechniqueGenerationTransaction(pool, input.playerId, run);
+}
+
+export interface AdoptDurableTechniqueDraftBatchSelectionInput extends AdoptDurableTechniqueDraftBatchInput {
+  /** 本批内需同时放弃的剩余 jobId 列表（generated_draft 状态）。 */
+  discardJobIds: string[];
+  refundCurrencyItemId: string;
+  refundRatio: number;
+  refundBasePrice: number;
+  /** 返还名额统计的东八区日键（YYYY-MM-DD）。 */
+  refundDayKey: string;
+  /** 每日返还名额上限。 */
+  refundDailyLimit: number;
+}
+
+export interface AdoptDurableTechniqueDraftBatchSelectionResult {
+  adopt: AdoptDurableTechniqueDraftBatchResult;
+  discard: DiscardDurableTechniqueDraftResult | null;
+}
+
+/**
+ * 选择性批量采纳：同一玩家事务内先采纳 keepJobIds，再把批内剩余草稿按整批放弃折算返还。
+ * 任一步失败整体回滚；幂等 operation 沿用 adopt_batch/discard_batch 键，重试可安全重复提交。
+ */
+export async function adoptDurableTechniqueDraftBatchSelection(
+  pool: Pool,
+  input: AdoptDurableTechniqueDraftBatchSelectionInput,
+): Promise<AdoptDurableTechniqueDraftBatchSelectionResult> {
+  return withPlayerTechniqueGenerationTransaction(pool, input.playerId, async (client) => {
+    const adopt = await adoptDurableTechniqueDraftBatch(pool, input, client);
+    if (!adopt.ok) {
+      return { adopt, discard: null };
+    }
+    if (input.discardJobIds.length === 0) {
+      return { adopt, discard: null };
+    }
+    const discard = await discardDurableTechniqueDraftBatch(
+      pool,
+      {
+        playerId: input.playerId,
+        batchId: input.batchId,
+        jobIds: input.discardJobIds,
+        refundCurrencyItemId: input.refundCurrencyItemId,
+        refundRatio: input.refundRatio,
+        refundBasePrice: input.refundBasePrice,
+        refundDayKey: input.refundDayKey,
+        refundDailyLimit: input.refundDailyLimit,
+        expectedRuntimeOwnerId: input.expectedRuntimeOwnerId,
+        expectedSessionEpoch: input.expectedSessionEpoch,
+      },
+      client,
+    );
+    if (!discard.ok) {
+      throw new Error(
+        `technique_generation_batch_selection_discard_failed:${input.batchId}:${discard.errorCode ?? 'UNKNOWN'}`,
+      );
+    }
+    return { adopt, discard };
   });
 }
 

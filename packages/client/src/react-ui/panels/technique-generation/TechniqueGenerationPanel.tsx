@@ -5,7 +5,7 @@
  */
 import { memo, useCallback, useEffect, useState, type CSSProperties, type PointerEvent, type ReactElement } from 'react';
 import type { AttrKey, Attributes, SkillDef, TechniqueCategory, TechniqueGrade } from '@mud/shared';
-import { ATTR_KEYS, CUSTOM_TECHNIQUE_NAME_MAX_LENGTH, CUSTOM_TECHNIQUE_NAME_MIN_LENGTH, CUSTOM_TECHNIQUE_PROMPT_MAX_LENGTH, TECHNIQUE_GENERATION_AUTO_CANCEL_AFTER_MS, TECHNIQUE_GENERATION_MANUAL_CANCEL_AFTER_MS, resolveSkillPlayerWindupTicks, resolveSkillUnlockLevel } from '@mud/shared';
+import { ATTR_KEYS, CUSTOM_TECHNIQUE_NAME_MAX_LENGTH, CUSTOM_TECHNIQUE_NAME_MIN_LENGTH, CUSTOM_TECHNIQUE_PROMPT_MAX_LENGTH, TECHNIQUE_GENERATION_AUTO_CANCEL_AFTER_MS, TECHNIQUE_GENERATION_MANUAL_CANCEL_AFTER_MS, TECHNIQUE_GRADE_ORDER, resolveSkillPlayerWindupTicks, resolveSkillUnlockLevel } from '@mud/shared';
 import { createPanelStore } from '../../stores/create-panel-store';
 import { ATTR_KEY_LABELS, getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../../../domain-labels';
 import { ATTR_COLORS, ATTR_ICON_ATLAS_CELLS } from '../../../constants/ui/attr-panel';
@@ -68,6 +68,8 @@ export interface TechniqueGenerationPanelState {
     modelName?: string;
     fullLevelAttrs?: Partial<Attributes>;
     skills?: SkillDef[];
+    /** 本功法生成强度（0.8~1.2），仅用于展示。 */
+    budgetPercent?: number;
   } | null;
   currentBatch: {
     batchId: string;
@@ -92,6 +94,8 @@ export interface TechniqueGenerationPanelState {
       modelName?: string;
       fullLevelAttrs?: Partial<Attributes>;
       skills?: SkillDef[];
+      /** 本功法生成强度（0.8~1.2），仅用于展示与筛选排序。 */
+      budgetPercent?: number;
     }>;
   } | null;
   error: string;
@@ -120,7 +124,7 @@ interface TechniqueGenerationCallbacks {
   onPreviewItemSpend: ((itemSpend: number, mode: 'single' | 'batch') => void) | null;
   onAdopt: ((jobId: string, customName: string) => void) | null;
   onDiscard: ((jobId: string) => void) | null;
-  onAdoptBatch: ((batchId: string) => void) | null;
+  onAdoptBatch: ((batchId: string, keepJobIds?: string[]) => void) | null;
   onDiscardBatch: ((batchId: string) => void) | null;
   onCancel: ((jobId: string | null, batchId: string | null) => void) | null;
   onClose: (() => void) | null;
@@ -144,10 +148,25 @@ export function setTechniqueGenerationCallbacks(cbs: Partial<TechniqueGeneration
 // ─── Component ───────────────────────────────────────────────────────────────
 
 type CategoryTab = 'internal' | 'arts' | 'divine' | 'secret';
+type BatchSortKey = 'grade_desc' | 'grade_asc' | 'strength_desc' | 'strength_asc';
 type BatchConfirmation =
   | { action: 'generate'; count: number }
-  | { action: 'adopt'; count: number; batchId: string }
+  | { action: 'adopt'; batchId: string; keepJobIds: string[]; keepCount: number; discardCount: number }
   | { action: 'discard'; count: number; batchId: string };
+
+const BATCH_STRENGTH_FILTER_MIN = 80;
+const BATCH_STRENGTH_FILTER_MAX = 120;
+const BATCH_STRENGTH_FILTER_STEP = 5;
+
+function batchDraftStrengthPct(draft: { budgetPercent?: number }): number {
+  const percent = Number(draft.budgetPercent);
+  return Number.isFinite(percent) && percent > 0 ? Math.round(percent * 100) : 100;
+}
+
+function techniqueGradeRank(grade: TechniqueGrade): number {
+  const index = TECHNIQUE_GRADE_ORDER.indexOf(grade);
+  return index >= 0 ? index : 0;
+}
 
 const CATEGORY_TABS: Array<{ value: CategoryTab; label: string; locked: boolean }> = [
   { value: 'internal', label: '内功', locked: false },
@@ -260,6 +279,9 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
   const [playerContext, setPlayerContext] = useState('');
   const [customName, setCustomName] = useState('');
   const [batchPage, setBatchPage] = useState(1);
+  const [batchSort, setBatchSort] = useState<BatchSortKey>('grade_desc');
+  const [batchMinStrength, setBatchMinStrength] = useState(BATCH_STRENGTH_FILTER_MIN);
+  const [batchMinGrade, setBatchMinGrade] = useState<TechniqueGrade>('mortal');
   const [batchConfirmation, setBatchConfirmation] = useState<BatchConfirmation | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const itemSpend = state.selectedItemSpend;
@@ -346,12 +368,22 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
 
   const handleAdoptBatch = useCallback(() => {
     if (!state.currentBatch?.batchId) return;
+    const minGradeRank = techniqueGradeRank(batchMinGrade);
+    const keepJobIds = state.currentBatch.drafts
+      .filter((draft) => (
+        batchDraftStrengthPct(draft) >= batchMinStrength
+        && techniqueGradeRank(draft.grade) >= minGradeRank
+      ))
+      .map((draft) => draft.jobId);
+    if (keepJobIds.length === 0) return;
     setBatchConfirmation({
       action: 'adopt',
-      count: state.currentBatch.drafts.length,
       batchId: state.currentBatch.batchId,
+      keepJobIds,
+      keepCount: keepJobIds.length,
+      discardCount: state.currentBatch.drafts.length - keepJobIds.length,
     });
-  }, [state.currentBatch]);
+  }, [state.currentBatch, batchMinStrength, batchMinGrade]);
 
   const handleDiscardBatch = useCallback(() => {
     if (!state.currentBatch?.batchId) return;
@@ -375,7 +407,7 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
       return;
     }
     if (batchConfirmation.action === 'adopt') {
-      callbacks.onAdoptBatch?.(batchConfirmation.batchId);
+      callbacks.onAdoptBatch?.(batchConfirmation.batchId, batchConfirmation.keepJobIds);
       return;
     }
     callbacks.onDiscardBatch?.(batchConfirmation.batchId);
@@ -441,7 +473,7 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
                 </div>
                 {selectedMode === 'batch' && (
                   <p className="technique-generation-panel__mode-note">
-                    每枚玉简各成一部内功，品阶、境界与强度分别推演；名号与法意由天机拟定，六维权重均衡。
+                    每枚玉简各成一部内功，品阶、境界与强度分别推演；名号与法意由天机拟定，六维权重按主题描述整批共用一套。
                   </p>
                 )}
               </section>
@@ -588,10 +620,18 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
       {state.currentBatch?.status === 'generated_draft' && state.currentBatch.drafts.length > 0 && (
         renderBatchPreview(
           state.currentBatch,
-          batchPage,
-          setBatchPage,
-          handleAdoptBatch,
-          handleDiscardBatch,
+          {
+            page: batchPage,
+            onPageChange: setBatchPage,
+            sort: batchSort,
+            onSortChange: setBatchSort,
+            minStrength: batchMinStrength,
+            onMinStrengthChange: setBatchMinStrength,
+            minGrade: batchMinGrade,
+            onMinGradeChange: setBatchMinGrade,
+            onAdopt: handleAdoptBatch,
+            onDiscard: handleDiscardBatch,
+          },
         )
       )}
 
@@ -858,44 +898,128 @@ function normalizeRealmLvChances(range: NonNullable<TechniqueGenerationPanelStat
   }));
 }
 
+interface BatchPreviewViewOptions {
+  page: number;
+  onPageChange: (page: number) => void;
+  sort: BatchSortKey;
+  onSortChange: (sort: BatchSortKey) => void;
+  minStrength: number;
+  onMinStrengthChange: (value: number) => void;
+  minGrade: TechniqueGrade;
+  onMinGradeChange: (grade: TechniqueGrade) => void;
+  onAdopt: () => void;
+  onDiscard: () => void;
+}
+
 function renderBatchPreview(
   batch: NonNullable<TechniqueGenerationPanelState['currentBatch']>,
-  pageInput: number,
-  onPageChange: (page: number) => void,
-  onAdopt: () => void,
-  onDiscard: () => void,
+  options: BatchPreviewViewOptions,
 ): ReactElement {
+  const { page: pageInput, onPageChange, sort, onSortChange, minStrength, onMinStrengthChange, minGrade, onMinGradeChange, onAdopt, onDiscard } = options;
   const pageSize = 6;
-  const totalPages = Math.max(1, Math.ceil(batch.drafts.length / pageSize));
+  const minGradeRank = techniqueGradeRank(minGrade);
+  const keepJobIds = new Set(
+    batch.drafts
+      .filter((draft) => (
+        batchDraftStrengthPct(draft) >= minStrength
+        && techniqueGradeRank(draft.grade) >= minGradeRank
+      ))
+      .map((draft) => draft.jobId),
+  );
+  const keepCount = keepJobIds.size;
+  const discardCount = batch.drafts.length - keepCount;
+  const sortedDrafts = [...batch.drafts].sort((left, right) => {
+    const gradeDelta = techniqueGradeRank(left.grade) - techniqueGradeRank(right.grade);
+    const strengthDelta = batchDraftStrengthPct(left) - batchDraftStrengthPct(right);
+    const primary = sort === 'grade_desc' ? -gradeDelta
+      : sort === 'grade_asc' ? gradeDelta
+        : sort === 'strength_desc' ? -strengthDelta
+          : strengthDelta;
+    return primary !== 0
+      ? primary
+      : (-gradeDelta || -strengthDelta || left.jobId.localeCompare(right.jobId));
+  });
+  const totalPages = Math.max(1, Math.ceil(sortedDrafts.length / pageSize));
   const page = Math.max(1, Math.min(totalPages, Math.trunc(pageInput) || 1));
-  const pageDrafts = batch.drafts.slice((page - 1) * pageSize, page * pageSize);
+  const pageDrafts = sortedDrafts.slice((page - 1) * pageSize, page * pageSize);
   return (
     <div className="technique-generation-panel__preview technique-generation-panel__batch-preview">
       <div className="technique-generation-panel__batch-heading">
         <div>
           <div className="technique-generation-panel__section-title">批量领悟结果</div>
-          <p>共得 {batch.drafts.length} 部内功，六维权重均衡。采纳后将一并进入待领悟功法。</p>
+          <p>共得 {batch.drafts.length} 部内功，整批共用一套六维权重。采纳后将一并进入待领悟功法。</p>
         </div>
         <span>第 {page} / {totalPages} 页</span>
       </div>
+      <div className="technique-generation-panel__batch-tools">
+        <label className="technique-generation-panel__batch-filter">
+          <span>品阶 ≥</span>
+          <select
+            value={minGrade}
+            onChange={(event) => onMinGradeChange(event.currentTarget.value as TechniqueGrade)}
+            aria-label="最低采纳品阶"
+          >
+            {TECHNIQUE_GRADE_ORDER.map((grade) => (
+              <option key={grade} value={grade}>{getTechniqueGradeLabel(grade)}</option>
+            ))}
+          </select>
+        </label>
+        <label className="technique-generation-panel__batch-filter">
+          <span>强度 ≥ {minStrength}%</span>
+          <input
+            type="range"
+            min={BATCH_STRENGTH_FILTER_MIN}
+            max={BATCH_STRENGTH_FILTER_MAX}
+            step={BATCH_STRENGTH_FILTER_STEP}
+            value={minStrength}
+            onChange={(event) => onMinStrengthChange(Number(event.currentTarget.value))}
+            aria-label="最低采纳强度"
+          />
+        </label>
+        <label className="technique-generation-panel__batch-filter">
+          <span>排序</span>
+          <select
+            value={sort}
+            onChange={(event) => onSortChange(event.currentTarget.value as BatchSortKey)}
+            aria-label="批量结果排序"
+          >
+            <option value="grade_desc">品阶高→低</option>
+            <option value="grade_asc">品阶低→高</option>
+            <option value="strength_desc">强度高→低</option>
+            <option value="strength_asc">强度低→高</option>
+          </select>
+        </label>
+        <span className="technique-generation-panel__batch-keep-summary">
+          将保留 <strong>{keepCount}</strong> 部 / 放弃 <strong>{discardCount}</strong> 部
+        </span>
+      </div>
       <div className="technique-generation-panel__batch-grid">
-        {pageDrafts.map((draft) => (
-          <article key={draft.jobId} className="technique-generation-panel__batch-card">
-            <header>
-              <strong>{draft.suggestedName}</strong>
-              <span>{getTechniqueGradeLabel(draft.grade)} · {formatTechniqueGenerationRealmLabel(draft.realmLv)}</span>
-            </header>
-            <p>{draft.desc}</p>
-            <div className="technique-generation-panel__batch-attrs" aria-label={`${draft.suggestedName}满层六维`}>
-              {ATTR_KEYS.map((key) => (
-                <span key={key}>
-                  {ATTR_KEY_LABELS[key]}
-                  <strong>{formatDisplaySignedNumber(Number(draft.fullLevelAttrs?.[key] ?? 0))}</strong>
+        {pageDrafts.map((draft) => {
+          const kept = keepJobIds.has(draft.jobId);
+          return (
+            <article
+              key={draft.jobId}
+              className={`technique-generation-panel__batch-card ${kept ? '' : 'technique-generation-panel__batch-card--dropped'}`}
+            >
+              <header>
+                <strong>{draft.suggestedName}</strong>
+                <span>
+                  {getTechniqueGradeLabel(draft.grade)} · {formatTechniqueGenerationRealmLabel(draft.realmLv)} · 强度 {batchDraftStrengthPct(draft)}%
                 </span>
-              ))}
-            </div>
-          </article>
-        ))}
+              </header>
+              <p>{draft.desc}</p>
+              <div className="technique-generation-panel__batch-attrs" aria-label={`${draft.suggestedName}满层六维`}>
+                {ATTR_KEYS.map((key) => (
+                  <span key={key}>
+                    {ATTR_KEY_LABELS[key]}
+                    <strong>{formatDisplaySignedNumber(Number(draft.fullLevelAttrs?.[key] ?? 0))}</strong>
+                  </span>
+                ))}
+              </div>
+              {!kept && <span className="technique-generation-panel__batch-drop-tag">低于筛选，将被放弃</span>}
+            </article>
+          );
+        })}
       </div>
       {totalPages > 1 && (
         <div className="technique-generation-panel__batch-pagination">
@@ -905,8 +1029,13 @@ function renderBatchPreview(
         </div>
       )}
       <div className="technique-generation-panel__actions">
-        <button type="button" className="small-btn technique-generation-panel__adopt" onClick={onAdopt}>
-          全部采纳并学习
+        <button
+          type="button"
+          className="small-btn technique-generation-panel__adopt"
+          onClick={onAdopt}
+          disabled={keepCount === 0}
+        >
+          {discardCount > 0 ? `采纳 ${keepCount} 部，放弃其余 ${discardCount} 部` : `全部采纳并学习 ${keepCount} 部`}
         </button>
         <button type="button" className="small-btn ghost" onClick={onDiscard}>
           放弃本批功法
@@ -926,15 +1055,19 @@ function renderBatchConfirmation(
     ? {
         title: '确认批量领悟',
         detail: `本次将消耗 ${confirmation.count} 枚悟道玉简，分别推演 ${confirmation.count} 部内功。`,
-        note: '每部功法独立随机品阶、境界与强度，六维权重均衡；提交后需整批采纳或整批放弃。',
+        note: '每部功法独立随机品阶、境界与强度，六维权重按主题描述整批共用一套；提交后可按品阶与强度筛选采纳，其余放弃。',
         confirmLabel: '确认推演',
       }
     : confirmation.action === 'adopt'
       ? {
           title: '确认采纳本批功法',
-          detail: `共 ${confirmation.count} 部内功将一并纳入待领悟功法。`,
-          note: '采纳后各部功法仍需分别完成领悟进度。',
-          confirmLabel: '全部采纳',
+          detail: confirmation.discardCount > 0
+            ? `共 ${confirmation.keepCount} 部达标内功将纳入待领悟，其余 ${confirmation.discardCount} 部放弃并折算功德返还。`
+            : `共 ${confirmation.keepCount} 部内功将一并纳入待领悟功法。`,
+          note: confirmation.discardCount > 0
+            ? '被放弃的部分按整批一次计返还名额；采纳后各部功法仍需分别完成领悟进度。'
+            : '采纳后各部功法仍需分别完成领悟进度。',
+          confirmLabel: confirmation.discardCount > 0 ? '采纳并放弃其余' : '全部采纳',
         }
       : {
           title: '确认放弃本批功法',
@@ -956,7 +1089,7 @@ function renderBatchConfirmation(
         </div>
         <strong>{content.detail}</strong>
         <p>{content.note}</p>
-        {confirmation.action === 'discard' && refundQuota && (
+        {((confirmation.action === 'discard') || (confirmation.action === 'adopt' && confirmation.discardCount > 0)) && refundQuota && (
           <p className={`technique-generation-panel__quota ${refundQuota.remaining <= 0 ? 'is-empty' : ''}`}>
             今日剩余返还次数 <strong>{refundQuota.remaining}/{refundQuota.limit}</strong>
             {refundQuota.remaining <= 0 ? '，本次放弃不再返还功德' : ''}

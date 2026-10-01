@@ -19,8 +19,16 @@ assert.match(panelSource, /取消推演/);
 assert.match(panelSource, /TECHNIQUE_GENERATION_MANUAL_CANCEL_AFTER_MS/);
 assert.match(panelSource, /TECHNIQUE_GENERATION_AUTO_CANCEL_AFTER_MS/);
 assert.match(panelSource, /callbacks\.onCancel/);
-assert.match(panelSource, /六维权重均衡/);
+assert.match(panelSource, /六维权重按主题描述整批共用一套/);
 assert.match(panelSource, /const pageSize = 6/);
+assert.match(panelSource, /keepJobIds/);
+assert.match(panelSource, /budgetPercent/);
+assert.match(panelSource, /强度 ≥/);
+assert.match(panelSource, /品阶 ≥/);
+assert.match(panelSource, /强度高→低/);
+assert.match(panelSource, /品阶高→低/);
+assert.match(panelSource, /__batch-filter/);
+assert.match(panelSource, /__batch-card--dropped/);
 assert.match(
   panelSource,
   /功法类型[\s\S]*selectedCategory === 'internal'[\s\S]*参悟方式/,
@@ -33,6 +41,7 @@ assert.doesNotMatch(
 );
 
 assert.match(senderSource, /action: 'adoptBatch'/);
+assert.match(senderSource, /keepJobIds/);
 assert.match(senderSource, /action: 'discardBatch'/);
 assert.match(senderSource, /action: 'cancel'/);
 assert.match(senderSource, /sendCancelBatch/);
@@ -44,9 +53,10 @@ const mobileSource = styleSource.slice(mobileMediaIndex);
 assert.match(mobileSource, /\.technique-generation-panel__preview[\s\S]*overflow-y: auto/);
 assert.match(mobileSource, /\.technique-generation-panel__batch-grid[\s\S]*grid-template-columns: 1fr/);
 assert.match(mobileSource, /\.technique-generation-panel__confirm[\s\S]*max-height: 100%[\s\S]*overflow-y: auto/);
+assert.match(mobileSource, /\.technique-generation-panel__batch-tools[\s\S]*flex-direction: column/);
 
 console.log(JSON.stringify({
   ok: true,
   case: 'technique-generation-batch',
-  assertions: 23,
+  assertions: 34,
 }));

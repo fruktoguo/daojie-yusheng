@@ -302,38 +302,51 @@ export class WorldGatewayTechniqueGenerationHelper {
 
   private async handleAdoptBatch(client: Socket, playerId: string, request: Record<string, unknown>): Promise<unknown> {
     const batchId = String(request.batchId ?? '');
+    const keepJobIds = Array.isArray(request.keepJobIds)
+      ? (request.keepJobIds as unknown[]).filter((id): id is string => typeof id === 'string')
+      : undefined;
     let result: BatchAdoptResult;
     try {
       result = await this.runExclusivePlayerAssetMutation(playerId, async () => {
         await this.prepareTechniqueForDurableMutation(playerId);
+        if (keepJobIds) await this.prepareInventoryForDurableMutation(playerId);
         const fence = this.requireTechniqueGenerationSessionFence(playerId);
         const player = this.deps.playerRuntimeService.getPlayer?.(playerId);
-        return this.techniqueGenerationService!.adoptBatchDraft({
+        const common = {
           playerId,
           batchId,
           learnerRealmLv: this.deps.playerRuntimeService.getPlayerRealmLv(playerId) ?? 1,
           currentTick: Math.max(0, Math.trunc(Number(player?.lifeElapsedTicks) || 0)),
           ...fence,
-          applyPendingComprehensions: async (techniqueIds) => {
+          applyPendingComprehensions: async (techniqueIds: string[]) => {
             const addPending = this.deps.playerRuntimeService.addPendingTechniqueComprehensionById;
             if (typeof addPending !== 'function') return;
             for (const techniqueId of techniqueIds) {
               addPending.call(this.deps.playerRuntimeService, playerId, techniqueId, 'created', playerId);
             }
           },
-        });
+        };
+        return keepJobIds
+          ? this.techniqueGenerationService!.adoptBatchSelection({
+            ...common,
+            keepJobIds,
+            applyInventorySnapshot: async (items) => this.applyCommittedInventorySnapshot(playerId, items),
+          })
+          : this.techniqueGenerationService!.adoptBatchDraft(common);
       });
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : '批量功法采纳失败';
       client.emit(S2C.TechniqueGenerationResult, { jobId: '', batchId, result: 'failed', errorMessage });
       return { success: false, error: errorMessage, errorCode: 'ADOPT_FAILED' };
     }
+    const adoptedCount = result.techniqueIds?.length ?? 0;
     client.emit(S2C.TechniqueGenerationResult, result.success ? {
       jobId: '',
       batchId,
-      result: 'learned',
+      result: adoptedCount > 0 ? 'learned' : 'discarded',
       techniqueIds: result.techniqueIds,
       techniqueNames: result.techniqueNames,
+      discardRefund: result.discardRefund,
     } : {
       jobId: '',
       batchId,

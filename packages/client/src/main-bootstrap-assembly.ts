@@ -5,7 +5,7 @@
  */
 import { MAX_ZOOM, MIN_ZOOM } from './display';
 import { C2S, DUNGEON_ENTRY_REJECTION_DELAY_MS, S2C, TECHNIQUE_GRADE_ORDER } from '@mud/shared';
-import type { ActionDef, PlayerState, TechniqueCategory, TechniqueGrade } from '@mud/shared';
+import type { ActionDef, PlayerState, S2C_TechniqueGenerationResult, TechniqueCategory, TechniqueGrade } from '@mud/shared';
 import type { SocketManager } from './network/socket';
 import type { LoginUI } from './ui/login';
 import type { SidePanel } from './ui/side-panel';
@@ -113,6 +113,34 @@ function parseTechniqueGenerationGrade(value: string): TechniqueGrade | null {
 
 function parseTechniqueGenerationCategory(value: string): TechniqueCategory | null {
   return TECHNIQUE_GENERATION_CATEGORIES.has(value as TechniqueCategory) ? value as TechniqueCategory : null;
+}
+
+type TechniqueGenerationDiscardRefund = NonNullable<S2C_TechniqueGenerationResult['discardRefund']>;
+
+function openTechniqueGenerationDiscardRefundModal(
+  refund: TechniqueGenerationDiscardRefund,
+  subtitle: string,
+): { hasQuota: boolean; exhausted: boolean } {
+  const ratioText = `${Math.round(refund.refundRatio * 100)}%`;
+  const hasQuota = typeof refund.remaining === 'number' && typeof refund.dailyLimit === 'number';
+  const exhausted = refund.refundAmount <= 0 && (!hasQuota || refund.remaining === 0);
+  confirmModalHost.open({
+    ownerId: 'technique-generation-discard-refund',
+    title: '悟道返还',
+    subtitle,
+    bodyHtml: `
+      <div class="confirm-summary-list">
+        <div><span>消耗玉简</span><strong>${refund.itemSpend} 枚悟道玉简</strong></div>
+        ${refund.refundAmount > 0 ? `<div><span>返还比例</span><strong>${ratioText}</strong></div>` : ''}
+        <div><span>返还功德</span><strong>${refund.refundAmount}</strong></div>
+        ${hasQuota ? `<div><span>今日剩余返还次数</span><strong>${refund.remaining}/${refund.dailyLimit}</strong></div>` : ''}
+        ${exhausted ? '<div><span>提示</span><strong>今日返还次数已用完，本次不再返还</strong></div>' : ''}
+      </div>
+    `,
+    confirmLabel: '知道了',
+    cancelLabel: '关闭',
+  });
+  return { hasQuota, exhausted };
 }
   /**
  * MainBootstrapAssemblyOptions：统一结构类型，保证协议与运行时一致性。
@@ -1035,18 +1063,38 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
       const category = data.preview ? parseTechniqueGenerationCategory(data.preview.category) : null;
       if (data.result === 'learned') {
         const batchLearnedCount = data.techniqueIds?.length ?? 0;
-        options.showToast(
-          batchLearnedCount > 0
-            ? `已将 ${batchLearnedCount} 部功法纳入领悟`
-            : data.techniqueName ? `已学习 ${data.techniqueName}` : '功法已学习',
-          'success',
-        );
+        const refund = data.discardRefund;
+        let refundQuotaPatch: { limit: number; usedToday: number; remaining: number } | undefined;
+        if (refund) {
+          const { hasQuota, exhausted } = openTechniqueGenerationDiscardRefundModal(refund, '筛选放弃');
+          options.showToast(
+            exhausted
+              ? `已采纳 ${batchLearnedCount} 部功法，放弃 ${refund.itemSpend} 部，今日返还次数已用尽`
+              : `已采纳 ${batchLearnedCount} 部功法，放弃 ${refund.itemSpend} 部返还 ${refund.refundAmount} 功德`,
+            'success',
+          );
+          refundQuotaPatch = hasQuota
+            ? {
+              limit: refund.dailyLimit ?? 0,
+              usedToday: refund.usedToday ?? 0,
+              remaining: refund.remaining ?? 0,
+            }
+            : undefined;
+        } else {
+          options.showToast(
+            batchLearnedCount > 0
+              ? `已将 ${batchLearnedCount} 部功法纳入领悟`
+              : data.techniqueName ? `已学习 ${data.techniqueName}` : '功法已学习',
+            'success',
+          );
+        }
         syncTechniqueGenerationState({
           generating: false,
           currentDraft: null,
           currentJob: null,
           currentBatch: null,
           error: '',
+          refundQuota: refundQuotaPatch,
         });
         if (techniqueGenerationStore.getState().visible) {
           options.techniqueGenerationSender.sendGetStatus(
@@ -1058,34 +1106,22 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
       }
       if (data.result === 'discarded') {
         const refund = data.discardRefund;
-        const hasQuota = Boolean(
-          refund && typeof refund.remaining === 'number' && typeof refund.dailyLimit === 'number',
-        );
-        const exhausted = Boolean(refund && refund.refundAmount <= 0 && (!hasQuota || refund.remaining === 0));
+        let refundQuotaPatch: { limit: number; usedToday: number; remaining: number } | undefined;
         if (refund) {
-          const ratioText = `${Math.round(refund.refundRatio * 100)}%`;
-          confirmModalHost.open({
-            ownerId: 'technique-generation-discard-refund',
-            title: '悟道返还',
-            subtitle: '取消领悟',
-            bodyHtml: `
-              <div class="confirm-summary-list">
-                <div><span>本次投入</span><strong>${refund.itemSpend} 枚悟道玉简</strong></div>
-                ${refund.refundAmount > 0 ? `<div><span>返还比例</span><strong>${ratioText}</strong></div>` : ''}
-                <div><span>返还功德</span><strong>${refund.refundAmount}</strong></div>
-                ${hasQuota ? `<div><span>今日剩余返还次数</span><strong>${refund.remaining}/${refund.dailyLimit}</strong></div>` : ''}
-                ${exhausted ? '<div><span>提示</span><strong>今日返还次数已用完，本次不再返还</strong></div>' : ''}
-              </div>
-            `,
-            confirmLabel: '知道了',
-            cancelLabel: '关闭',
-          });
+          const { hasQuota, exhausted } = openTechniqueGenerationDiscardRefundModal(refund, '取消领悟');
           options.showToast(
             exhausted
               ? '已取消领悟，今日返还次数已用尽，不再返还功德'
               : `已取消领悟，返还 ${refund.refundAmount} 功德`,
             'system',
           );
+          refundQuotaPatch = hasQuota
+            ? {
+              limit: refund.dailyLimit ?? 0,
+              usedToday: refund.usedToday ?? 0,
+              remaining: refund.remaining ?? 0,
+            }
+            : undefined;
         } else {
           options.showToast('已取消领悟', 'system');
         }
@@ -1095,13 +1131,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
           currentJob: null,
           currentBatch: null,
           error: '',
-          refundQuota: hasQuota
-            ? {
-              limit: refund?.dailyLimit ?? 0,
-              usedToday: refund?.usedToday ?? 0,
-              remaining: refund?.remaining ?? 0,
-            }
-            : undefined,
+          refundQuota: refundQuotaPatch,
         });
         if (techniqueGenerationStore.getState().visible) {
           options.techniqueGenerationSender.sendGetStatus(
@@ -1148,6 +1178,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
             modelName: data.preview.modelName,
             fullLevelAttrs: data.preview.fullLevelAttrs,
             skills: data.preview.skills,
+            budgetPercent: data.preview.budgetPercent,
           },
           currentJob: null,
           error: '',
@@ -1171,6 +1202,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
             modelName: preview.modelName,
             fullLevelAttrs: preview.fullLevelAttrs,
             skills: preview.skills,
+            budgetPercent: preview.budgetPercent,
           }];
         });
         if (drafts.length === data.previews.length && drafts.length > 0) {

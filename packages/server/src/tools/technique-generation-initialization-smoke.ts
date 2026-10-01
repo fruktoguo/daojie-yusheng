@@ -45,7 +45,8 @@ import {
   buildTechniquePrompt,
 } from '../runtime/technique-generation/technique-prompt-builder';
 import {
-  buildBalancedInternalTechniqueCandidate,
+  BALANCED_INTERNAL_ATTR_RATIO,
+  buildBatchInternalTechniqueCandidate,
   createTechniqueGenerationBatchIdentity,
   normalizeTechniqueNameKey,
   resolveBatchUniqueTechniqueNames,
@@ -183,15 +184,23 @@ function testBatchGenerationUsesNamingOnlyPromptAndBalancedAttributes(): void {
   assert.ok(identity.jobIds.every((jobId) => resolveTechniqueGenerationBatchId(jobId) === identity.batchId));
   assert.deepEqual(identity.jobIds.map(resolveTechniqueGenerationBatchIndex), [1, 2, 3]);
 
-  const candidate = buildBalancedInternalTechniqueCandidate({
+  const candidate = buildBatchInternalTechniqueCandidate({
     name: '六合归元功',
     desc: '引六合清气归于丹田，使筋骨神魂齐头并进，气机往复而不偏于一隅。',
     maxLayer: 9,
   });
   assert.equal(candidate.category, 'internal');
   assert.equal(candidate.expDifficulty, 1);
-  assert.deepEqual(Object.keys(candidate.attrRatio).sort(), [...ATTR_KEYS].sort());
-  assert.ok(ATTR_KEYS.every((key) => candidate.attrRatio[key] === 1));
+  assert.deepEqual(candidate.attrRatio, BALANCED_INTERNAL_ATTR_RATIO);
+
+  const weightedCandidate = buildBatchInternalTechniqueCandidate({
+    name: '烈阳淬体功',
+    desc: '纳烈阳之力淬炼筋骨，令气血如炉鼎般沸腾不息。',
+    maxLayer: 9,
+    attrRatio: { ...BALANCED_INTERNAL_ATTR_RATIO, strength: 3, constitution: 2 },
+  });
+  assert.equal(weightedCandidate.attrRatio.strength, 3);
+  assert.equal(weightedCandidate.attrRatio.constitution, 2);
 
   const prompt = buildBatchInternalTechniqueNamingPrompt({
     playerContext: '清静守一，五行相济',
@@ -203,9 +212,11 @@ function testBatchGenerationUsesNamingOnlyPromptAndBalancedAttributes(): void {
   const payload = JSON.parse(prompt.userMessage) as Record<string, unknown>;
   assert.equal(payload.count, 2);
   assert.equal(Array.isArray(payload.entries), true);
-  assert.ok(prompt.systemMessage.includes('只为一批内功拟定名称和描述'));
+  const outputSchema = payload.outputSchema as Record<string, unknown>;
+  assert.ok(typeof outputSchema.attrRatio === 'string');
+  assert.ok(prompt.systemMessage.includes('为一批内功拟定名称和描述'));
+  assert.ok(prompt.systemMessage.includes('整批所有内功共用的六维分配权重'));
   assert.ok(prompt.systemMessage.includes('不得输出 category'));
-  assert.ok(!prompt.systemMessage.includes('设计属性权重'));
 }
 
 async function testBatchGenerationConsumesOneJadePerTechnique(): Promise<void> {
