@@ -712,13 +712,17 @@ export class MarketPanel {
     if (!listingsChanged) return;
     this.invalidateItemBookCache();
     const previousSelectedAuctionItemKey = this.selectedAuctionItemKey;
+    const searchEditing = this.isAuctionSearchEditing();
     const canPatchOpenModal = detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)
       && this.canPatchAuctionListingsInPlace(previousListings, data);
     if (this.auctionTab !== 'history') {
       this.auctionTab = data.tab;
     }
     this.auctionCategory = data.category;
-    this.auctionSearchQuery = data.query ?? '';
+    // 搜索框正在编辑（含中文 IME 组字）时保留本地草稿，避免回包覆盖导致拼音跳掉。
+    if (!searchEditing) {
+      this.auctionSearchQuery = data.query ?? '';
+    }
     this.auctionPage = Math.max(1, Math.floor(Number.isFinite(data.page) ? data.page : 1));
     this.syncAuctionSelection();
     if (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
@@ -730,19 +734,32 @@ export class MarketPanel {
     }
     this.renderPane();
     if (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
-      if (canPatchOpenModal) {
-        this.patchAuctionActiveSelection();
-        this.patchAuctionCountdowns();
-        if (previousSelectedAuctionItemKey !== this.selectedAuctionItemKey) {
-          this.patchAuctionDetailPanel();
-        } else if (!this.patchAuctionDetailLiveState()) {
-          this.patchAuctionDetailPanel();
+      if (canPatchOpenModal || searchEditing) {
+        if (searchEditing && !canPatchOpenModal) {
+          this.auctionView.patchAuctionListingsPreservingSearch();
+        } else {
+          this.patchAuctionActiveSelection();
+          this.patchAuctionCountdowns();
+          if (previousSelectedAuctionItemKey !== this.selectedAuctionItemKey) {
+            this.patchAuctionDetailPanel();
+          } else if (!this.patchAuctionDetailLiveState()) {
+            this.patchAuctionDetailPanel();
+          }
         }
         this.syncTradeDialogOverlay();
         return;
       }
       this.renderAuctionModal();
     }
+  }
+
+  /** 拍卖搜索框是否正在输入（含 IME 组字中）。 */
+  private isAuctionSearchEditing(): boolean {
+    if (!detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
+      return false;
+    }
+    const input = this.getOpenAuctionModalBody()?.querySelector<HTMLInputElement>('[data-auction-search]');
+    return Boolean(input && document.activeElement === input);
   }
 
   /** 更新我的订单数据。 */
