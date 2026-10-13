@@ -56,16 +56,16 @@ function verifyGradeBoundaries(): void {
 }
 
 function verifyProbabilityFormula(): void {
-  assertApproxEqual(computeProbability('mortal'), 1 / (4 * 3600));
-  assertApproxEqual(computeProbability('yellow'), 1 / (12 * 3600));
-  assertApproxEqual(computeProbability('mystic'), 1 / (36 * 3600));
+  assertApproxEqual(computeProbability('mortal'), 1 / (2 * 3600));
+  assertApproxEqual(computeProbability('yellow'), 1 / (6 * 3600));
+  assertApproxEqual(computeProbability('mystic'), 1 / (18 * 3600));
   assertApproxEqual(computeCraftPassiveTechniqueAcquisitionProbability({
     actionLevel: 1,
     skillLevel: 2,
     baseActionTicks: 5,
     grade: 'mortal',
     luck: 7,
-  }), (5 / (2 * 4 * 3600)) * 1.07);
+  }), (5 / (2 * 2 * 3600)) * 1.07);
   assert.equal(computeCraftPassiveTechniqueAcquisitionProbability({
     actionLevel: 1,
     skillLevel: 1,

@@ -178,12 +178,12 @@ targetLevel = formationSkill.level
 低等级动作不能越级获得高档位，高等级动作也不会回落到低档位。单次动作的基础获取概率按原始（未经过速度修正）动作时长反推：
 
 ```ts
-expectedTicks = skillLevel × 3^gradeIndex × 4 × 3600
+expectedTicks = skillLevel × 3^gradeIndex × 2 × 3600
 baseProbability = baseActionTicks / expectedTicks
 probability = clamp(baseProbability × (1 + luck × 0.01), 0, 1)
 ```
 
-`gradeIndex` 使用功法品阶顺序的零基索引（凡人 0、黄阶 1、玄阶 2），因此技能 1 级时三档期望时间分别为 4、12、36 小时。`baseActionTicks` 必须沿用技艺经验计算所使用的原始动作时长；速度、装备和被动加成只影响实际推进速度，不改变该基准。幸运取玩家最终有效幸运值并作为倍率增幅。
+`gradeIndex` 使用功法品阶顺序的零基索引（凡人 0、黄阶 1、玄阶 2），因此技能 1 级时三档期望时间分别为 2、6、18 小时。`baseActionTicks` 必须沿用技艺经验计算所使用的原始动作时长；速度、装备和被动加成只影响实际推进速度，不改变该基准。幸运取玩家最终有效幸运值并作为倍率增幅。基准期望时长由 `CRAFT_PASSIVE_TECHNIQUE_BASE_EXPECTED_TICKS` 统一定义。
 
 命中后直接向玩家背包发放对应标准功法模板的功法书（物品 ID 为 `book.<techniqueId>`，例如 `book.passive_craft_mortal_mortal_alchemy`）。这些物品沿用普通功法书的持久化、交易和使用流程，玩家可以自行使用参悟，也可以交易给其他玩家；不会在动作结算时自动学会功法。`book.custom_technique` 仅用于自创功法抄录的动态功法书，不用于标准技艺被动功法。
 

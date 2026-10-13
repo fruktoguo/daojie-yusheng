@@ -62,3 +62,8 @@ export const MINING_DROP_AOE_DECAY_PER_EXTRA_TARGET = 0.1;
 
 /** 挖矿经验：每次对矿脉造成伤害视为 0.3 息动作。 */
 export const MINING_EXP_BASE_ACTION_TICKS = 0.3;
+
+// ─── 技艺被动功法获取 ─────────────────────────────────────────────────────
+
+/** 技艺被动功法书基准期望时长（tick）：技能 1 级凡阶动作期望约 2 小时出 1 本，黄/玄阶按 3 倍品阶指数递增。 */
+export const CRAFT_PASSIVE_TECHNIQUE_BASE_EXPECTED_TICKS = 2 * CRAFT_SKILL_EXP_TICK_DIVISOR;

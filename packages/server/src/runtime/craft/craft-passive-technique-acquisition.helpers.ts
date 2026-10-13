@@ -5,7 +5,7 @@
  * 的索引，tick 中使用原始行动时长反推概率，并把命中的标准功法书入包。
  */
 import {
-  CRAFT_SKILL_EXP_TICK_DIVISOR,
+  CRAFT_PASSIVE_TECHNIQUE_BASE_EXPECTED_TICKS,
   computeLuckSuccessRateBonus,
   TECHNIQUE_GRADE_ORDER,
   type CraftEffectSkillKind,
@@ -91,8 +91,7 @@ export function computeCraftPassiveTechniqueAcquisitionProbability(input: {
   const gradeIndex = Math.max(0, TECHNIQUE_GRADE_ORDER.indexOf(input.grade as TechniqueGrade));
   const expectedTicks = skillLevel
     * (3 ** gradeIndex)
-    * 4
-    * CRAFT_SKILL_EXP_TICK_DIVISOR;
+    * CRAFT_PASSIVE_TECHNIQUE_BASE_EXPECTED_TICKS;
   if (actionTicks <= 0 || expectedTicks <= 0) return 0;
 
   // 幸运采用倍率增幅，避免把极小的基础概率直接加成到近乎必得。
