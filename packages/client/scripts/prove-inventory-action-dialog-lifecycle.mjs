@@ -63,7 +63,19 @@ assert.notEqual(specialContextKeyAfterPlayerUpdate, specialContextKey, '特殊�
 
 state.setCountDraft('');
 assert.equal(state.snapshot()?.countDraft, '', '编辑中的空数量草稿必须保留，避免输入被重绘打断');
+const keyBeforeDraftEdit = state.buildRenderKey({
+  itemKey: 'item-instance-a',
+  itemCount: 10,
+  playerContextRevision: 2,
+  contextDependent: false,
+});
 state.setCountDraft('6');
+assert.equal(state.buildRenderKey({
+  itemKey: 'item-instance-a',
+  itemCount: 10,
+  playerContextRevision: 2,
+  contextDependent: false,
+}), keyBeforeDraftEdit, '数量草稿编辑不得改变渲染代际，避免输入中整窗重建把光标打回左侧');
 state.setDestroyConfirmation(true);
 const destroyKey = state.buildRenderKey({
   itemKey: 'item-instance-a',
@@ -71,7 +83,8 @@ const destroyKey = state.buildRenderKey({
   playerContextRevision: 2,
   contextDependent: false,
 });
-assert.match(destroyKey ?? '', /\|1\|6\|/, '摧毁二次确认和已提交数量必须进入渲染代际');
+assert.match(destroyKey ?? '', /\|use\|1\|/, '摧毁二次确认必须进入渲染代际');
+assert.doesNotMatch(destroyKey ?? '', /\|6\|/, '数量草稿不得进入渲染代际');
 
 state.reset();
 assert.equal(state.isOpen(), false);

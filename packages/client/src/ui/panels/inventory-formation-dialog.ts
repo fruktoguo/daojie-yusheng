@@ -168,6 +168,11 @@ export class InventoryFormationDialogController {
   this.bindRangePreviewButton(body, signal);
  }
 
+ /** 灵力/库存变化时刷新费用预览，不重建表单输入。 */
+ refreshLiveState(body: HTMLElement, item: ItemStack): void {
+  this.syncPreview(body, item);
+ }
+
  readPayload(body: HTMLElement, item: ItemStack | null, enforceQi = true): FormationCreatePayload | null {
   const template = this.getSelectedTemplate(body);
   const itemInstanceId = this.options.getItemInstanceId(item);
